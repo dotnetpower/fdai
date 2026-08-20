@@ -123,6 +123,40 @@ class QuestionCandidateReview:
     confidence: float
     max_embedding_similarity: float
     usage: QuestionModelUsage = QuestionModelUsage(model_calls=1)
+    embedding_space_digest: str | None = None
+    embedding_model_version: str | None = None
+    embedding_dimension: int | None = None
+    candidate_embedding_digest: str | None = None
+    nearest_question_fingerprint: str | None = None
+
+    def __post_init__(self) -> None:
+        embedding_values = (
+            self.embedding_space_digest,
+            self.embedding_model_version,
+            self.embedding_dimension,
+            self.candidate_embedding_digest,
+        )
+        if any(value is not None for value in embedding_values) and not all(
+            value is not None for value in embedding_values
+        ):
+            raise ValueError("question candidate embedding identity MUST be complete")
+        if self.embedding_space_digest is not None:
+            _require_digest("question candidate embedding space", self.embedding_space_digest)
+            _require_digest(
+                "question candidate embedding vector", str(self.candidate_embedding_digest)
+            )
+            if not self.embedding_model_version or len(self.embedding_model_version) > 128:
+                raise ValueError("question candidate embedding model version MUST be bounded")
+            if (
+                isinstance(self.embedding_dimension, bool)
+                or not isinstance(self.embedding_dimension, int)
+                or not 1 <= self.embedding_dimension <= 65_536
+            ):
+                raise ValueError("question candidate embedding dimension MUST be in [1, 65536]")
+        if self.nearest_question_fingerprint is not None:
+            _require_digest(
+                "question candidate nearest fingerprint", self.nearest_question_fingerprint
+            )
 
 
 class QuestionCandidateReviewer(Protocol):
@@ -161,6 +195,7 @@ class ValidatedQuestion:
     candidate_digest: str
     fingerprint: str
     validation_receipt_digest: str
+    review: QuestionCandidateReview
 
 
 @dataclass(frozen=True, slots=True)
@@ -251,6 +286,7 @@ async def validate_question_candidate(
             candidate_digest=candidate_digest,
             fingerprint=fingerprint,
             validation_receipt_digest=receipt_digest,
+            review=review,
         ),
         receipt=receipt,
     )

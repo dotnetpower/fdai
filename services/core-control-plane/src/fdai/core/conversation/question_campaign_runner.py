@@ -36,6 +36,12 @@ from fdai.core.conversation.question_candidates import (
     ValidatedQuestion,
     validate_question_candidate,
 )
+from fdai.core.conversation.question_novelty import (
+    QuestionEmbeddingIdentity,
+    QuestionNoveltyDuplicateError,
+    QuestionNoveltyLedger,
+    QuestionNoveltyRecord,
+)
 from fdai.core.conversation.question_universe import GeneratedQuestionCase
 from fdai.core.conversation_assurance.models import AssessmentRecord, TurnAssessmentInput
 
@@ -204,6 +210,7 @@ class QuestionCampaignRunner:
         executor: QuestionExecutionPort,
         assurance: QuestionAssurancePort,
         ledger: QuestionCampaignLedger,
+        novelty_ledger: QuestionNoveltyLedger | None = None,
         pantheon_names: Sequence[str],
         config: QuestionCampaignRunnerConfig | None = None,
         monotonic: Callable[[], float] | None = None,
@@ -219,6 +226,7 @@ class QuestionCampaignRunner:
         self._executor = executor
         self._assurance = assurance
         self._ledger = ledger
+        self._novelty_ledger = novelty_ledger
         self._pantheon_names = tuple(pantheon_names)
         self._config = config or QuestionCampaignRunnerConfig()
         self._monotonic = monotonic or time.monotonic
@@ -453,6 +461,22 @@ class QuestionCampaignRunner:
             if validation.question is None:
                 last_reason = validation.receipt.reason
                 continue
+            if self._novelty_ledger is not None:
+                novelty = _accepted_novelty_record(
+                    identity=identity,
+                    case=case,
+                    question=validation.question,
+                    generation_attempt=attempt_number,
+                    recorded_at=self._utcnow(),
+                )
+                if novelty is None:
+                    last_reason = "candidate_embedding_identity_unavailable"
+                    continue
+                try:
+                    await self._novelty_ledger.append_novelty(novelty)
+                except QuestionNoveltyDuplicateError:
+                    last_reason = "candidate_duplicate_rejected"
+                    continue
             prior_fingerprints.append(validation.question.fingerprint)
             return await self._execute_case(
                 identity=identity,
@@ -608,6 +632,45 @@ class QuestionCampaignRunner:
             identity.time_budget_seconds - (now - started),
             identity.no_progress_seconds - (now - last_progress),
         )
+
+
+def _accepted_novelty_record(
+    *,
+    identity: QuestionCampaignIdentity,
+    case: GeneratedQuestionCase,
+    question: ValidatedQuestion,
+    generation_attempt: int,
+    recorded_at: datetime,
+) -> QuestionNoveltyRecord | None:
+    review = question.review
+    if (
+        review.embedding_space_digest is None
+        or review.embedding_model_version is None
+        or review.embedding_dimension is None
+        or review.candidate_embedding_digest is None
+    ):
+        return None
+    return QuestionNoveltyRecord(
+        campaign_id=identity.campaign_id,
+        case_id=case.case_id,
+        generation_attempt=generation_attempt,
+        perspective=case.perspective.value,
+        locale=case.locale,
+        ontology_release_digest=identity.ontology_release_digest,
+        question_fingerprint=question.fingerprint,
+        embedding=QuestionEmbeddingIdentity(
+            space_digest=review.embedding_space_digest,
+            model_version=review.embedding_model_version,
+            dimension=review.embedding_dimension,
+            vector_digest=review.candidate_embedding_digest,
+        ),
+        nearest_question_fingerprint=review.nearest_question_fingerprint,
+        max_embedding_similarity=review.max_embedding_similarity,
+        exact_duplicate=False,
+        semantic_duplicate=False,
+        accepted=True,
+        recorded_at=recorded_at,
+    )
 
 
 def _failed_attempt(

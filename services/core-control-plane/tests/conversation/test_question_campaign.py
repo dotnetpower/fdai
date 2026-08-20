@@ -202,6 +202,19 @@ def test_any_hard_zero_violation_blocks_release_evidence() -> None:
     assert receipt.full_universe_closed is True
 
 
+def test_release_eligibility_requires_self_verified_epistemic_proof() -> None:
+    identity = _identity(budget=1)
+    receipt = evaluate_question_campaign(
+        identity=identity,
+        selected_case_ids=("q:1",),
+        full_universe_case_ids=("q:1",),
+        attempts=(_attempt(identity, "q:1"),),
+    )
+
+    with pytest.raises(ValueError, match="eligibility conflicts"):
+        replace(receipt, proof_complete=False)
+
+
 def test_assurance_and_epistemic_adapters_preserve_exact_identity() -> None:
     assessment = campaign_turn_assessment_input(
         CampaignTurnEvidence(

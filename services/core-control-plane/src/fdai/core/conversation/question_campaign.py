@@ -242,6 +242,7 @@ class QuestionCampaignEvaluationReceipt:
     """Progress or closure decision over the latest selected case attempts."""
 
     campaign_id: str
+    ontology_release_digest: str
     question_universe_digest: str
     selected_case_count: int
     terminal_case_count: int
@@ -249,9 +250,35 @@ class QuestionCampaignEvaluationReceipt:
     hard_zero: QuestionCampaignHardZeroCounters
     subset_complete: bool
     full_universe_closed: bool
+    proof_complete: bool
     budget_within_limit: bool
     release_evidence_eligible: bool
     receipt_digest: str
+
+    def __post_init__(self) -> None:
+        if _CAMPAIGN_ID_PATTERN.fullmatch(self.campaign_id) is None:
+            raise ValueError("question campaign evaluation id is invalid")
+        _require_digest("question campaign evaluation release", self.ontology_release_digest)
+        _require_digest("question campaign evaluation universe", self.question_universe_digest)
+        if not 0 <= self.terminal_case_count <= self.selected_case_count <= _MAX_QUESTIONS:
+            raise ValueError("question campaign evaluation case counts are inconsistent")
+        if self.full_universe_case_count < self.selected_case_count:
+            raise ValueError("question campaign evaluation universe count is inconsistent")
+        if self.subset_complete != (self.terminal_case_count == self.selected_case_count):
+            raise ValueError("question campaign subset closure conflicts with case counts")
+        if self.full_universe_closed and (
+            not self.subset_complete or self.selected_case_count != self.full_universe_case_count
+        ):
+            raise ValueError("question campaign full closure conflicts with case counts")
+        if self.release_evidence_eligible and (
+            not self.subset_complete
+            or not self.proof_complete
+            or not self.budget_within_limit
+            or self.hard_zero.total != 0
+        ):
+            raise ValueError("question campaign release eligibility conflicts with evidence")
+        if self.receipt_digest != _digest(_evaluation_receipt_body(self)):
+            raise ValueError("question campaign evaluation digest does not match content")
 
 
 @dataclass(frozen=True, slots=True)
@@ -387,20 +414,30 @@ def evaluate_question_campaign(
     )
     proof_complete = all(item.epistemic_record_digest is not None for item in terminal)
     eligible = subset_complete and proof_complete and hard_zero.total == 0 and budget_within_limit
-    body = {
+    provisional = QuestionCampaignEvaluationReceipt.__new__(QuestionCampaignEvaluationReceipt)
+    for name, value in {
         "campaign_id": identity.campaign_id,
+        "ontology_release_digest": identity.ontology_release_digest,
         "question_universe_digest": identity.question_universe_digest,
         "selected_case_count": len(selected),
         "terminal_case_count": len(terminal),
         "full_universe_case_count": len(full_universe),
-        "hard_zero": asdict(hard_zero),
+        "hard_zero": hard_zero,
         "subset_complete": subset_complete,
         "full_universe_closed": full_universe_closed,
+        "proof_complete": proof_complete,
         "budget_within_limit": budget_within_limit,
         "release_evidence_eligible": eligible,
-    }
+    }.items():
+        object.__setattr__(provisional, name, value)
+    object.__setattr__(
+        provisional,
+        "receipt_digest",
+        _digest(_evaluation_receipt_body(provisional)),
+    )
     return QuestionCampaignEvaluationReceipt(
         campaign_id=identity.campaign_id,
+        ontology_release_digest=identity.ontology_release_digest,
         question_universe_digest=identity.question_universe_digest,
         selected_case_count=len(selected),
         terminal_case_count=len(terminal),
@@ -408,10 +445,30 @@ def evaluate_question_campaign(
         hard_zero=hard_zero,
         subset_complete=subset_complete,
         full_universe_closed=full_universe_closed,
+        proof_complete=proof_complete,
         budget_within_limit=budget_within_limit,
         release_evidence_eligible=eligible,
-        receipt_digest=_digest(body),
+        receipt_digest=provisional.receipt_digest,
     )
+
+
+def _evaluation_receipt_body(
+    receipt: QuestionCampaignEvaluationReceipt,
+) -> dict[str, object]:
+    return {
+        "campaign_id": receipt.campaign_id,
+        "ontology_release_digest": receipt.ontology_release_digest,
+        "question_universe_digest": receipt.question_universe_digest,
+        "selected_case_count": receipt.selected_case_count,
+        "terminal_case_count": receipt.terminal_case_count,
+        "full_universe_case_count": receipt.full_universe_case_count,
+        "hard_zero": asdict(receipt.hard_zero),
+        "subset_complete": receipt.subset_complete,
+        "full_universe_closed": receipt.full_universe_closed,
+        "proof_complete": receipt.proof_complete,
+        "budget_within_limit": receipt.budget_within_limit,
+        "release_evidence_eligible": receipt.release_evidence_eligible,
+    }
 
 
 class QuestionCampaignLedger(Protocol):

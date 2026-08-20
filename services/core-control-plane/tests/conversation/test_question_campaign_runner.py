@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from fdai.core.conversation.epistemic_coverage import EpistemicStatus
 from fdai.core.conversation.question_campaign import (
@@ -24,6 +24,7 @@ from fdai.core.conversation.question_candidates import (
     QuestionCandidateReview,
     QuestionModelUsage,
 )
+from fdai.core.conversation.question_novelty import InMemoryQuestionNoveltyLedger
 from fdai.core.conversation.question_perspectives import (
     QuestionAnchorKind,
     QuestionCapabilityFamily,
@@ -147,6 +148,18 @@ class _Reviewer:
         )
 
 
+class _NoveltyReviewer(_Reviewer):
+    async def review(self, **kwargs):
+        review = await super().review(**kwargs)
+        return replace(
+            review,
+            embedding_space_digest=DIGEST,
+            embedding_model_version="embedding-v1",
+            embedding_dimension=384,
+            candidate_embedding_digest=DIGEST,
+        )
+
+
 class _ExpensiveReviewer(_Reviewer):
     def __init__(self) -> None:
         self.calls = 0
@@ -177,7 +190,11 @@ class _AdvancingInvalidGenerator(_Generator):
 
 
 class _Executor:
+    def __init__(self) -> None:
+        self.calls = 0
+
     async def execute(self, *, campaign, case, question):
+        self.calls += 1
         del campaign, question
         return QuestionExecutionResult(
             disposition="answered",
@@ -291,6 +308,57 @@ async def test_runner_builds_complete_assurance_and_epistemic_chain() -> None:
     completion = await ledger.get_completion(result.evaluation.campaign_id)
     assert completion is not None
     assert completion.state is QuestionCampaignState.COMPLETED
+
+
+async def test_runner_persists_novelty_before_execution_and_blocks_cross_campaign_reuse() -> None:
+    case = _case()
+    campaign_ledger = InMemoryQuestionCampaignLedger()
+    novelty_ledger = InMemoryQuestionNoveltyLedger()
+    executor = _Executor()
+    runner = QuestionCampaignRunner(
+        generator=_Generator(),
+        reviewer=_NoveltyReviewer(),
+        executor=executor,
+        assurance=_Assurance(),
+        ledger=campaign_ledger,
+        novelty_ledger=novelty_ledger,
+        pantheon_names=("Odin", "Thor", "Bragi"),
+        utcnow=lambda: NOW,
+    )
+
+    first = await runner.run(
+        identity=_identity(),
+        cases=(case,),
+        full_universe_case_ids=(case.case_id,),
+        generation_inputs={case.case_id: _input(case)},
+    )
+    second = await runner.run(
+        identity=build_question_campaign_identity(
+            source_revision="a" * 40,
+            ontology_release_digest=DIGEST,
+            principal_manifest_digests=(DIGEST,),
+            question_universe_digest=DIGEST,
+            generation_profile_digest=DIGEST,
+            model_set_digest=DIGEST,
+            scope_digest=DIGEST,
+            started_at=NOW + timedelta(minutes=1),
+            question_budget=20,
+            time_budget_seconds=1_800,
+            no_progress_seconds=300,
+            token_budget=0,
+            cost_budget_microusd=0,
+            trigger=QuestionCampaignTrigger.MANUAL,
+        ),
+        cases=(case,),
+        full_universe_case_ids=(case.case_id,),
+        generation_inputs={case.case_id: _input(case)},
+    )
+
+    assert first.state is QuestionCampaignState.COMPLETED
+    assert len(await novelty_ledger.list_novelty()) == 1
+    assert executor.calls == 1
+    assert second.state is QuestionCampaignState.COMPLETED
+    assert second.attempts[0].terminal_reason == "candidate_duplicate_rejected"
 
 
 async def test_runner_resumes_after_process_loss_without_reexecuting_terminal_case() -> None:

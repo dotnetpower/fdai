@@ -74,6 +74,12 @@ def test_every_legacy_table_has_one_migrator_and_one_write_contract() -> None:
         "topology_link_revision",
         "topology_object_revision",
         "topology_revision_batch",
+        "question_campaign_novelty",
+        "question_failure_review",
+        "question_failure_review_decision",
+        "question_manual_campaign_review",
+        "question_release_assurance",
+        "question_review_projection",
     }
     assert set(manifest.table_writers) | transition_tables == set(manifest.table_migrators)
     assert not set(manifest.table_writers) & transition_tables
@@ -1201,6 +1207,10 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
         MIGRATION_ROOT / "branches/core-control-plane/versions/20260819_core_question_campaign.py"
     )
     question_campaign_migration = inventory_module.load_revision_metadata(question_campaign_path)
+    question_assurance_path = (
+        MIGRATION_ROOT / "branches/core-control-plane/versions/20260820_core_question_assurance.py"
+    )
+    question_assurance_migration = inventory_module.load_revision_metadata(question_assurance_path)
 
     expected_tables = {
         table for table, owner in ownership.table_migrators.items() if owner == "core-control-plane"
@@ -1211,6 +1221,7 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
         | set(release_access_migration.owned_tables)
         | set(incident_projection_migration.owned_tables)
         | set(question_campaign_migration.owned_tables)
+        | set(question_assurance_migration.owned_tables)
     )
     assert granted_tables == expected_tables
     source = role_path.read_text(encoding="utf-8")
