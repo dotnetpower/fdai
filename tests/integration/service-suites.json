@@ -63,6 +63,7 @@
           "services/operator-service/tests/test_azure_cli_token.py",
           "services/operator-service/tests/test_browser_evidence_projection.py",
           "services/operator-service/tests/test_inventory_impact_projection.py",
+          "services/operator-service/tests/test_investigation_presentation.py",
           "services/operator-service/tests/test_local_narrator.py",
           "services/operator-service/tests/test_narrator_periodic_scheduler.py",
           "services/operator-service/tests/test_narrator_preferences.py",

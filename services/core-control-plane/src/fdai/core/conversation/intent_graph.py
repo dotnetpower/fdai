@@ -19,7 +19,7 @@ from fdai_service_contracts.ontology_query import (
 
 from fdai.core.ontology_platform import QueryPlanExecution
 
-_MAX_GRAPH_GOALS = 8
+_MAX_GRAPH_GOALS = 16
 
 
 def build_intent_graph(
@@ -37,11 +37,13 @@ def build_intent_graph(
     goals: list[IntentGoal] = []
     source_kinds = {
         QueryNodeKind.OBJECT_SET,
+        QueryNodeKind.RELATIONSHIP_TRAVERSAL,
         QueryNodeKind.FUNCTION,
         QueryNodeKind.TOPOLOGY_AT,
         QueryNodeKind.TOPOLOGY_DIFF,
         QueryNodeKind.METRIC_SERIES,
         QueryNodeKind.METRIC_SCOPE_SERIES,
+        QueryNodeKind.METRIC_COMPARISON,
         QueryNodeKind.EVIDENCE_JOIN,
     }
     for node in plan.nodes:

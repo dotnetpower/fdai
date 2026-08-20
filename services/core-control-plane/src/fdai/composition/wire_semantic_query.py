@@ -27,6 +27,7 @@ from fdai.core.ontology_platform import (
     EvidenceJoinNodeHandler,
     FunctionInvocationContext,
     FunctionNodeHandler,
+    MetricComparisonNodeHandler,
     MetricScopeSeriesNodeHandler,
     MetricSemanticRegistry,
     MetricSeriesNodeHandler,
@@ -40,6 +41,7 @@ from fdai.core.ontology_platform import (
     ProjectNodeHandler,
     QueryManifest,
     SecuredObjectSetNodeHandler,
+    SecuredRelationshipTraversalNodeHandler,
     SetOperationNodeHandler,
     TopologyAtNodeHandler,
     TopologyDiffNodeHandler,
@@ -321,6 +323,9 @@ def build_semantic_query_runtime(
                     registry=metric_registry,
                     provider=metric_window_provider,
                 ),
+                QueryNodeKind.METRIC_COMPARISON: MetricComparisonNodeHandler(
+                    registry=metric_registry,
+                ),
                 QueryNodeKind.EVIDENCE_JOIN: EvidenceJoinNodeHandler(),
             }
         )
@@ -363,6 +368,12 @@ def build_semantic_query_runtime(
         return OntologyQueryPlanExecutor(
             handlers={
                 QueryNodeKind.OBJECT_SET: SecuredObjectSetNodeHandler(
+                    gateway,
+                    caller_role=role,
+                    purposes=(purpose,),
+                    receipt_authority=receipt_authority,
+                ),
+                QueryNodeKind.RELATIONSHIP_TRAVERSAL: SecuredRelationshipTraversalNodeHandler(
                     gateway,
                     caller_role=role,
                     purposes=(purpose,),

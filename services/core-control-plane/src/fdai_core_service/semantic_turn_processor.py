@@ -19,6 +19,7 @@ from fdai.core.conversation.session import Principal, Role, Turn
 from fdai.core.ontology_platform import (
     CausalEvidenceJoin,
     MetricWindow,
+    MetricWindowComparison,
     QueryPlanExecution,
     TopologyDiff,
     TopologyGraphAt,
@@ -1771,12 +1772,34 @@ def _typed_extension_answer_output(
                 "execution_authority": False,
             },
         }
+    if isinstance(value, MetricWindowComparison):
+        return {
+            "node_id": node_id,
+            "result_kind": "metric.comparison",
+            "summary": {
+                "concept_id": value.concept_id,
+                "resource_id": value.resource_id,
+                "unit": value.unit,
+                "baseline_start": value.baseline_start.isoformat(),
+                "baseline_end": value.baseline_end.isoformat(),
+                "current_start": value.current_start.isoformat(),
+                "current_end": value.current_end.isoformat(),
+                "baseline_value": value.baseline_value,
+                "current_value": value.current_value,
+                "absolute_change": value.absolute_change,
+                "relative_change": value.relative_change,
+                "complete": value.complete,
+                "reason": value.reason,
+                "execution_authority": False,
+            },
+        }
     if isinstance(value, CausalEvidenceJoin):
         claim = value.temporal_claim
         return {
             "node_id": node_id,
             "result_kind": "causal.join",
             "summary": {
+                "hypothesis_id": node_id.removeprefix("hypothesis-"),
                 "status": value.status.value,
                 "topology_diff_digest": value.topology_diff_digest,
                 "competing_explanations": list(value.competing_explanations),

@@ -1,0 +1,494 @@
+"""Dependency-wave query nodes used by semantic investigations."""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime, timedelta
+
+import pytest
+from fdai.core.detection.series import MetricSample
+from fdai.core.ontology_platform import (
+    METRIC_ARGUMENT_SCHEMAS,
+    CausalJoinStatus,
+    EvidenceJoinNodeHandler,
+    MetricComparisonNodeHandler,
+    MetricSemanticDefinition,
+    MetricSemanticRegistry,
+    MetricWindow,
+    MetricWindowComparison,
+    ObjectPredicate,
+    ObjectPredicateOperator,
+    ObjectSelector,
+    ObjectSelectorKind,
+    ObjectSetDefinition,
+    ObjectSetService,
+    OntologyQueryPlanVerifier,
+    QueryNodeHeldError,
+    QueryNodeResult,
+    QueryRow,
+    QueryTable,
+    SecuredRelationshipTraversalNodeHandler,
+    TopologyDiff,
+    build_query_manifest,
+    compile_interfaces,
+)
+from fdai.core.ontology_platform.metric_semantics import MetricAggregation
+from fdai.core.ontology_platform.query_gateway import SecuredObjectSetQueryGateway
+from fdai.shared.contracts.models import (
+    CeilingRole,
+    LinkCardinality,
+    OntologyLinkType,
+    OntologyObjectType,
+    PropertyDecl,
+    PropertyType,
+)
+from fdai.shared.ontology.release import build_ontology_release
+from fdai.shared.providers.ontology_instance import (
+    OntologyLinkRecord,
+    OntologyObjectRecord,
+)
+from fdai.shared.providers.testing.ontology_instance import InMemoryOntologyInstanceStore
+from fdai_service_contracts.ontology_query import (
+    OntologyQueryNode,
+    OntologyQueryPlan,
+    QueryNodeKind,
+    canonical_json,
+    content_digest,
+)
+
+NOW = datetime(2026, 8, 20, 3, 0, tzinfo=UTC)
+DIGEST = "sha256:" + ("a" * 64)
+
+
+def _catalog() -> tuple[
+    OntologyObjectType,
+    OntologyObjectType,
+    OntologyLinkType,
+]:
+    service = OntologyObjectType(
+        schema_version="1.0.0",
+        name="BusinessService",
+        version="1.0.0",
+        key="id",
+        properties={
+            "id": PropertyDecl(type=PropertyType.STRING, required=True),
+            "name": PropertyDecl(type=PropertyType.STRING, required=True),
+        },
+    )
+    resource = OntologyObjectType(
+        schema_version="1.0.0",
+        name="Resource",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    dependency = OntologyLinkType(
+        schema_version="1.0.0",
+        name="service_depends_on_resource",
+        version="1.0.0",
+        from_type="BusinessService",
+        to_type="Resource",
+        cardinality=LinkCardinality.MANY_TO_MANY,
+    )
+    return service, resource, dependency
+
+
+def _node(
+    node_id: str,
+    kind: QueryNodeKind,
+    *,
+    dependencies: tuple[str, ...] = (),
+    arguments: dict[str, object] | None = None,
+    output_kind: str = "query.table",
+) -> OntologyQueryNode:
+    return OntologyQueryNode(
+        node_id=node_id,
+        kind=kind,
+        depends_on=dependencies,
+        arguments_json=canonical_json(arguments or {}),
+        output_kind=output_kind,
+    )
+
+
+def _plan(nodes: tuple[OntologyQueryNode, ...], *, manifest: object) -> OntologyQueryPlan:
+    body = {
+        "schema_version": "1.0.0",
+        "ontology_release_digest": manifest.release_digest,
+        "semantic_catalog_digest": manifest.manifest_digest,
+        "problem_frame_digest": DIGEST,
+        "purpose": "operations-review",
+        "caller_role": "reader",
+        "nodes": [node.model_dump(mode="json") for node in nodes],
+        "output_node_ids": (nodes[-1].node_id,),
+        "execution_authority": False,
+    }
+    return OntologyQueryPlan(**body, plan_digest=content_digest(body))
+
+
+def _resolution_node() -> OntologyQueryNode:
+    definition = ObjectSetDefinition(
+        selector=ObjectSelector(
+            kind=ObjectSelectorKind.OBJECT_TYPE,
+            name="BusinessService",
+        ),
+        predicates=(
+            ObjectPredicate(
+                property="name",
+                operator=ObjectPredicateOperator.CONTAINS,
+                equals="A service",
+            ),
+        ),
+        as_of=NOW,
+        purpose="operations-review",
+        limit=2,
+    )
+    return _node(
+        "resolve-target",
+        QueryNodeKind.OBJECT_SET,
+        arguments={"definition": definition.model_dump(mode="json")},
+    )
+
+
+def _traversal_node(*, direction: str = "outgoing") -> OntologyQueryNode:
+    return _node(
+        "expand-dependencies",
+        QueryNodeKind.RELATIONSHIP_TRAVERSAL,
+        dependencies=("resolve-target",),
+        arguments={
+            "selector": {"kind": "object_type", "name": "Resource"},
+            "link_types": ["service_depends_on_resource"],
+            "direction": direction,
+            "max_depth": 1,
+            "as_of": NOW.isoformat(),
+            "purpose": "operations-review",
+            "limit": 100,
+        },
+    )
+
+
+def test_verifier_accepts_dependency_bound_relationship_traversal() -> None:
+    service, resource, dependency = _catalog()
+    release = build_ontology_release(
+        object_types=(service, resource),
+        link_types=(dependency,),
+    )
+    manifest = build_query_manifest(
+        release=release,
+        principal_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        principal_scope_digest=DIGEST,
+        object_types=(service, resource),
+        link_types=(dependency,),
+    )
+    plan = _plan((_resolution_node(), _traversal_node()), manifest=manifest)
+
+    verified = OntologyQueryPlanVerifier(
+        available_kinds=(
+            QueryNodeKind.OBJECT_SET,
+            QueryNodeKind.RELATIONSHIP_TRAVERSAL,
+        )
+    ).verify(plan, manifest=manifest)
+
+    assert verified is plan
+
+
+def test_verifier_rejects_relationship_endpoint_direction_drift() -> None:
+    service, resource, dependency = _catalog()
+    release = build_ontology_release(
+        object_types=(service, resource),
+        link_types=(dependency,),
+    )
+    manifest = build_query_manifest(
+        release=release,
+        principal_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        principal_scope_digest=DIGEST,
+        object_types=(service, resource),
+        link_types=(dependency,),
+    )
+    plan = _plan(
+        (_resolution_node(), _traversal_node(direction="incoming")),
+        manifest=manifest,
+    )
+
+    with pytest.raises(ValueError, match="source endpoint type does not match"):
+        OntologyQueryPlanVerifier(
+            available_kinds=(
+                QueryNodeKind.OBJECT_SET,
+                QueryNodeKind.RELATIONSHIP_TRAVERSAL,
+            )
+        ).verify(plan, manifest=manifest)
+
+
+async def test_secured_traversal_uses_the_exact_resolved_entity_root() -> None:
+    service, resource, dependency = _catalog()
+    release = build_ontology_release(
+        object_types=(service, resource),
+        link_types=(dependency,),
+    )
+    store = InMemoryOntologyInstanceStore(
+        object_types=(service, resource),
+        link_types=(dependency,),
+    )
+    await store.upsert_object(
+        OntologyObjectRecord(
+            id="service:a",
+            object_type="BusinessService",
+            properties={"id": "service:a", "name": "A service"},
+        )
+    )
+    await store.upsert_object(
+        OntologyObjectRecord(
+            id="resource:db",
+            object_type="Resource",
+            properties={"id": "resource:db"},
+        )
+    )
+    await store.upsert_link(
+        OntologyLinkRecord(
+            link_type="service_depends_on_resource",
+            from_id="service:a",
+            to_id="resource:db",
+        )
+    )
+    object_sets = ObjectSetService(
+        store=store,
+        interfaces=compile_interfaces(
+            interfaces=(),
+            implementations=(),
+            object_types=(service, resource),
+            release=release,
+        ),
+        object_type_names=frozenset({"BusinessService", "Resource"}),
+    )
+    gateway = SecuredObjectSetQueryGateway(
+        service=object_sets,
+        object_types={"BusinessService": service, "Resource": resource},
+        ontology_release=release,
+        evaluation_cutoff=lambda: NOW,
+    )
+    handler = SecuredRelationshipTraversalNodeHandler(
+        gateway,
+        caller_role=CeilingRole.READER,
+        purposes=("operations-review",),
+    )
+    roots = QueryTable(
+        rows=(QueryRow.from_values("service:a", {"id": "service:a"}),),
+        complete=True,
+    )
+
+    result = await handler(
+        _traversal_node(),
+        {"resolve-target": QueryNodeResult(value=roots, evidence_refs=("entity:a",))},
+    )
+
+    assert isinstance(result.value, QueryTable)
+    assert tuple(row.row_id for row in result.value.rows) == ("resource:db",)
+    assert result.evidence_refs[0] == "entity:a"
+
+
+async def test_secured_traversal_holds_ambiguous_entity_resolution() -> None:
+    class _UnusedGateway:
+        async def materialize(self, *_args: object, **_kwargs: object) -> object:
+            raise AssertionError("ambiguous roots MUST stop before graph I/O")
+
+    handler = SecuredRelationshipTraversalNodeHandler(
+        _UnusedGateway(),  # type: ignore[arg-type]
+        caller_role=CeilingRole.READER,
+        purposes=("operations-review",),
+    )
+    roots = QueryTable(
+        rows=(
+            QueryRow.from_values("service:a", {"id": "service:a"}),
+            QueryRow.from_values("service:b", {"id": "service:b"}),
+        ),
+        complete=True,
+    )
+
+    with pytest.raises(QueryNodeHeldError, match="entity_resolution_ambiguous"):
+        await handler(
+            _traversal_node(),
+            {"resolve-target": QueryNodeResult(value=roots)},
+        )
+
+
+async def test_metric_comparison_uses_reviewed_aggregation_and_equal_windows() -> None:
+    registry = MetricSemanticRegistry.build(
+        (
+            MetricSemanticDefinition(
+                concept_id="service.latency",
+                provider_metric="latency",
+                canonical_unit="ms",
+                aggregation=MetricAggregation.AVERAGE,
+                description="Service request latency.",
+            ),
+        )
+    )
+    baseline = MetricWindow(
+        concept_id="service.latency",
+        resource_id="service:a",
+        unit="ms",
+        start=NOW - timedelta(minutes=20),
+        end=NOW - timedelta(minutes=10),
+        samples=(
+            MetricSample(timestamp=NOW - timedelta(minutes=20), value=10.0),
+            MetricSample(timestamp=NOW - timedelta(minutes=10), value=20.0),
+        ),
+        complete=True,
+        evidence_refs=("metric:baseline",),
+    )
+    current = MetricWindow(
+        concept_id="service.latency",
+        resource_id="service:a",
+        unit="ms",
+        start=NOW - timedelta(minutes=10),
+        end=NOW,
+        samples=(
+            MetricSample(timestamp=NOW - timedelta(minutes=10), value=30.0),
+            MetricSample(timestamp=NOW, value=50.0),
+        ),
+        complete=True,
+        evidence_refs=("metric:current",),
+    )
+    node = _node(
+        "symptom-change",
+        QueryNodeKind.METRIC_COMPARISON,
+        dependencies=("baseline", "current"),
+        output_kind="metric.comparison",
+    )
+
+    result = await MetricComparisonNodeHandler(registry=registry)(
+        node,
+        {
+            "baseline": QueryNodeResult(value=baseline),
+            "current": QueryNodeResult(value=current),
+        },
+    )
+
+    assert result.value.baseline_value == 15.0
+    assert result.value.current_value == 40.0
+    assert result.value.absolute_change == 25.0
+    assert result.evidence_refs == ("metric:baseline", "metric:current")
+
+
+def test_metric_comparison_verifier_requires_two_metric_windows() -> None:
+    service, resource, dependency = _catalog()
+    release = build_ontology_release(
+        object_types=(service, resource),
+        link_types=(dependency,),
+    )
+    manifest = build_query_manifest(
+        release=release,
+        principal_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        principal_scope_digest=DIGEST,
+        object_types=(service, resource),
+        link_types=(dependency,),
+    )
+    invalid = _node(
+        "compare",
+        QueryNodeKind.METRIC_COMPARISON,
+        dependencies=("resolve-target", "expand-dependencies"),
+        output_kind="metric.comparison",
+    )
+    plan = _plan((_resolution_node(), _traversal_node(), invalid), manifest=manifest)
+
+    with pytest.raises(ValueError, match="dependencies MUST output metric.window"):
+        OntologyQueryPlanVerifier(
+            available_kinds=(
+                QueryNodeKind.OBJECT_SET,
+                QueryNodeKind.RELATIONSHIP_TRAVERSAL,
+                QueryNodeKind.METRIC_COMPARISON,
+            ),
+            extension_argument_schemas={
+                QueryNodeKind.METRIC_COMPARISON: METRIC_ARGUMENT_SCHEMAS[
+                    QueryNodeKind.METRIC_COMPARISON
+                ]
+            },
+        ).verify(plan, manifest=manifest)
+
+
+async def test_hypothesis_join_requires_the_requested_symptom_change() -> None:
+    window = MetricWindow(
+        concept_id="dependency.latency",
+        resource_id="resource:db",
+        unit="ms",
+        start=NOW - timedelta(minutes=10),
+        end=NOW,
+        samples=(
+            MetricSample(timestamp=NOW - timedelta(minutes=10), value=10.0),
+            MetricSample(timestamp=NOW - timedelta(minutes=7), value=20.0),
+            MetricSample(timestamp=NOW - timedelta(minutes=3), value=30.0),
+            MetricSample(timestamp=NOW, value=40.0),
+        ),
+        complete=True,
+        evidence_refs=("metric:cause",),
+    )
+    effect = MetricWindow(
+        concept_id="service.latency",
+        resource_id="service:a",
+        unit="ms",
+        start=NOW - timedelta(minutes=10),
+        end=NOW,
+        samples=(
+            MetricSample(timestamp=NOW - timedelta(minutes=10), value=40.0),
+            MetricSample(timestamp=NOW - timedelta(minutes=7), value=30.0),
+            MetricSample(timestamp=NOW - timedelta(minutes=3), value=20.0),
+            MetricSample(timestamp=NOW, value=10.0),
+        ),
+        complete=True,
+        evidence_refs=("metric:effect",),
+    )
+    comparison = MetricWindowComparison(
+        concept_id="service.latency",
+        resource_id="service:a",
+        unit="ms",
+        baseline_start=NOW - timedelta(minutes=20),
+        baseline_end=NOW - timedelta(minutes=10),
+        current_start=NOW - timedelta(minutes=10),
+        current_end=NOW,
+        baseline_value=40.0,
+        current_value=20.0,
+        absolute_change=-20.0,
+        relative_change=-0.5,
+        complete=True,
+        reason=None,
+        evidence_refs=("metric:comparison",),
+    )
+    topology = TopologyDiff(
+        before_digest=DIGEST,
+        after_digest="sha256:" + ("b" * 64),
+        added_object_ids=(),
+        removed_object_ids=(),
+        changed_object_ids=(),
+        added_link_keys=(),
+        removed_link_keys=(),
+        changed_link_keys=(),
+        complete=True,
+        evidence_refs=("topology:diff",),
+        digest="sha256:" + ("c" * 64),
+    )
+    node = _node(
+        "hypothesis-dependency-latency",
+        QueryNodeKind.EVIDENCE_JOIN,
+        dependencies=("cause", "effect", "topology", "comparison"),
+        arguments={
+            "feature_cutoff": (NOW - timedelta(minutes=10)).isoformat(),
+            "effect_direction": "increase",
+        },
+        output_kind="causal.join",
+    )
+
+    result = await EvidenceJoinNodeHandler()(
+        node,
+        {
+            "cause": QueryNodeResult(value=window),
+            "effect": QueryNodeResult(value=effect),
+            "topology": QueryNodeResult(value=topology),
+            "comparison": QueryNodeResult(value=comparison),
+        },
+    )
+
+    assert result.value.status is CausalJoinStatus.UNRESOLVED
+    assert result.value.limitations == ("symptom_increase_not_observed",)
+    assert result.value.temporal_claim is None
+    assert "metric:comparison" in result.evidence_refs

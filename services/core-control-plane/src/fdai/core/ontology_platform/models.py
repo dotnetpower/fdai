@@ -121,6 +121,29 @@ class ObjectTraversal(ContractBase):
     max_depth: int = Field(default=1, ge=1, le=5)
 
 
+class RelationshipTraversalDefinition(ContractBase):
+    """Traversal shape whose exact roots arrive from one verified dependency."""
+
+    selector: ObjectSelector
+    link_types: Annotated[
+        tuple[Annotated[str, Field(min_length=1, max_length=64)], ...],
+        Field(min_length=1, max_length=_MAX_LINK_TYPES),
+    ]
+    direction: OntologyDirection = "outgoing"
+    max_depth: int = Field(default=1, ge=1, le=5)
+    as_of: datetime
+    purpose: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_-]{0,63}$")]
+    limit: int = Field(default=100, ge=1, le=1000)
+
+    @model_validator(mode="after")
+    def _bounded_traversal(self) -> RelationshipTraversalDefinition:
+        if len(self.link_types) != len(set(self.link_types)):
+            raise ValueError("relationship traversal link types MUST be unique")
+        if self.as_of.tzinfo is None:
+            raise ValueError("relationship traversal as_of MUST be timezone-aware")
+        return self
+
+
 class ObjectSetDefinition(ContractBase):
     selector: ObjectSelector
     predicates: Annotated[tuple[ObjectPredicate, ...], Field(max_length=_MAX_PREDICATES)] = ()
@@ -191,4 +214,5 @@ __all__ = [
     "ObjectSetTruncationReason",
     "ObjectTraversal",
     "OntologyInterfaceType",
+    "RelationshipTraversalDefinition",
 ]

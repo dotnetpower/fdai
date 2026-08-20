@@ -55,6 +55,7 @@ from .models import (
     ObjectSetTruncationReason,
     ObjectTraversal,
     OntologyInterfaceType,
+    RelationshipTraversalDefinition,
 )
 from .object_sets import ObjectSetService
 from .planning import build_mutation_plan, validate_plan_revisions
@@ -63,6 +64,7 @@ from .query_execution import (
     ObjectSetNodeHandler,
     OntologyQueryPlanExecutor,
     QueryNodeHandler,
+    QueryNodeHeldError,
     QueryNodeResult,
     QueryPlanExecution,
 )
@@ -76,10 +78,15 @@ from .query_manifest import QueryManifest, build_query_manifest
 from .query_metric_handlers import (
     METRIC_ARGUMENT_SCHEMAS,
     EvidenceJoinNodeHandler,
+    MetricComparisonNodeHandler,
     MetricScopeSeriesNodeHandler,
     MetricSeriesNodeHandler,
 )
-from .query_source_handlers import FunctionNodeHandler, SecuredObjectSetNodeHandler
+from .query_source_handlers import (
+    FunctionNodeHandler,
+    SecuredObjectSetNodeHandler,
+    SecuredRelationshipTraversalNodeHandler,
+)
 from .query_topology_handlers import (
     TOPOLOGY_ARGUMENT_SCHEMAS,
     TopologyAtNodeHandler,
@@ -180,6 +187,7 @@ __all__ = [
     "ObjectSetTruncationReason",
     "ObjectSetService",
     "ObjectTraversal",
+    "RelationshipTraversalDefinition",
     "MutationEffect",
     "MutationEffectKind",
     "MutationPlan",
@@ -200,6 +208,7 @@ __all__ = [
     "MetricWindowProvider",
     "MetricSeriesNodeHandler",
     "MetricScopeSeriesNodeHandler",
+    "MetricComparisonNodeHandler",
     "OntologyFunction",
     "OntologyFunctionKind",
     "OntologyFunctionRegistry",
@@ -214,6 +223,7 @@ __all__ = [
     "ProjectNodeHandler",
     "QueryManifest",
     "QueryNodeHandler",
+    "QueryNodeHeldError",
     "QueryNodeResult",
     "QueryPlanExecution",
     "QueryRow",
@@ -233,6 +243,7 @@ __all__ = [
     "SemanticInterpretationCandidate",
     "SemanticOperationClass",
     "SecuredObjectSetNodeHandler",
+    "SecuredRelationshipTraversalNodeHandler",
     "SetOperationNodeHandler",
     "StateStoreReconciliationLedger",
     "StateStoreReconciliationRequestOutbox",

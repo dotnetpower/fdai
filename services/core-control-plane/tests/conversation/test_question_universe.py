@@ -12,11 +12,15 @@ from fdai.core.conversation import (
     QuestionCapabilityFamily,
     QuestionCaseClass,
     QuestionCaseExclusion,
+    QuestionCausalResult,
+    QuestionEntityState,
     QuestionEvidencePosture,
     QuestionExclusionReason,
     QuestionExpectedPosture,
     QuestionPerspective,
+    QuestionPresentationShape,
     QuestionRuleState,
+    QuestionTemporalState,
     QuestionUniverseGrammar,
     generate_question_universe,
 )
@@ -190,7 +194,86 @@ def test_non_cartesian_perspectives_and_evidence_postures_enter_case_identity() 
         and case.anchor_kind is QuestionAnchorKind.SERVER_SCOPE
         for case in generated.cases
     )
+    causal_cases = [
+        case for case in generated.cases if case.perspective is QuestionPerspective.CAUSAL
+    ]
+    assert causal_cases
+    assert {case.entity_state for case in causal_cases} == {QuestionEntityState.EXACT}
+    assert {case.temporal_state for case in causal_cases} == {QuestionTemporalState.ALIGNED}
+    assert {case.causal_result for case in causal_cases} == {QuestionCausalResult.COMPETING}
+    assert {case.presentation_shape for case in causal_cases} == {QuestionPresentationShape.TABLE}
+    noncausal = [
+        case for case in generated.cases if case.perspective is not QuestionPerspective.CAUSAL
+    ]
+    assert {case.entity_state for case in noncausal} == {QuestionEntityState.NOT_APPLICABLE}
+    assert {case.temporal_state for case in noncausal} == {QuestionTemporalState.NOT_APPLICABLE}
+    assert {case.causal_result for case in noncausal} == {QuestionCausalResult.NOT_APPLICABLE}
+    assert {case.presentation_shape for case in noncausal} == {QuestionPresentationShape.DEFAULT}
     assert len({case.case_id for case in generated.cases}) == len(generated.cases)
+
+
+def test_causal_question_space_expands_all_investigation_assurance_axes() -> None:
+    manifest = _object_manifest("CausalHypothesis")
+    grammar = QuestionUniverseGrammar.build(
+        locales=("en", "ko"),
+        case_classes=(QuestionCaseClass.POSITIVE,),
+        entity_states=(
+            QuestionEntityState.AMBIGUOUS,
+            QuestionEntityState.EXACT,
+            QuestionEntityState.MISSING,
+        ),
+        temporal_states=(
+            QuestionTemporalState.ALIGNED,
+            QuestionTemporalState.PARTIAL_CURRENT,
+            QuestionTemporalState.STALE_BASELINE,
+        ),
+        causal_results=(
+            QuestionCausalResult.COMPETING,
+            QuestionCausalResult.REFUTED,
+            QuestionCausalResult.SUPPORTED,
+            QuestionCausalResult.UNRESOLVED,
+        ),
+        presentation_shapes=(
+            QuestionPresentationShape.TABLE,
+            QuestionPresentationShape.TIMELINE,
+        ),
+    )
+
+    generated = generate_question_universe(manifests=(manifest,), grammar=grammar)
+
+    assert len(generated.cases) == 144
+    assert {case.locale for case in generated.cases} == {"en", "ko"}
+    assert {case.entity_state for case in generated.cases} == {
+        QuestionEntityState.AMBIGUOUS,
+        QuestionEntityState.EXACT,
+        QuestionEntityState.MISSING,
+    }
+    assert {case.temporal_state for case in generated.cases} == {
+        QuestionTemporalState.ALIGNED,
+        QuestionTemporalState.PARTIAL_CURRENT,
+        QuestionTemporalState.STALE_BASELINE,
+    }
+    assert {case.causal_result for case in generated.cases} == {
+        QuestionCausalResult.COMPETING,
+        QuestionCausalResult.REFUTED,
+        QuestionCausalResult.SUPPORTED,
+        QuestionCausalResult.UNRESOLVED,
+    }
+    assert {case.presentation_shape for case in generated.cases} == {
+        QuestionPresentationShape.TABLE,
+        QuestionPresentationShape.TIMELINE,
+    }
+    assert {
+        case.expected_posture
+        for case in generated.cases
+        if case.entity_state is QuestionEntityState.AMBIGUOUS
+    } == {QuestionExpectedPosture.CLARIFY}
+    assert {
+        case.expected_posture
+        for case in generated.cases
+        if case.entity_state is QuestionEntityState.EXACT
+        and case.temporal_state is QuestionTemporalState.STALE_BASELINE
+    } == {QuestionExpectedPosture.HOLD}
 
 
 def test_all_seven_perspectives_have_english_and_korean_coverage() -> None:

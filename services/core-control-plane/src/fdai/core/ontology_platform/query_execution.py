@@ -46,6 +46,16 @@ class QueryNodeHandler(Protocol):
     ) -> Awaitable[QueryNodeResult]: ...
 
 
+class QueryNodeHeldError(RuntimeError):
+    """Stop one dependency branch with a stable no-authority hold reason."""
+
+    def __init__(self, reason: str) -> None:
+        if not reason or len(reason) > 128:
+            raise ValueError("query node hold reason MUST be bounded and non-empty")
+        super().__init__(reason)
+        self.reason = reason
+
+
 @dataclass(frozen=True, slots=True)
 class QueryPlanExecution:
     """Terminal results and receipts for one exact verified query plan."""
@@ -226,6 +236,18 @@ class OntologyQueryPlanExecutor:
             )
             if not isinstance(result, QueryNodeResult):
                 raise TypeError("query node handler MUST return QueryNodeResult")
+        except QueryNodeHeldError as error:
+            return (
+                node,
+                None,
+                self._receipt(
+                    node,
+                    status=TaskStatus.UNAVAILABLE,
+                    reason=error.reason,
+                    started_at=started_at,
+                    started_monotonic=started,
+                ),
+            )
         except _QueryCancelledError:
             return (
                 node,
@@ -435,6 +457,7 @@ class _QueryCancelledError(Exception):
 __all__ = [
     "ObjectSetNodeHandler",
     "OntologyQueryPlanExecutor",
+    "QueryNodeHeldError",
     "QueryNodeHandler",
     "QueryNodeResult",
     "QueryPlanExecution",

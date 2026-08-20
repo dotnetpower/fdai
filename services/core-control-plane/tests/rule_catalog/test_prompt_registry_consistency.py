@@ -126,7 +126,7 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     frame = prompts.get_base("semantic.query.frame")
     plan = prompts.get_base("semantic.query.plan")
 
-    assert frame.version == 27
+    assert frame.version == 28
     assert "output_shape to exactly one capability family" in frame.body
     assert "aggregation_table for a count or grouping" in frame.body
     assert "operation aggregate together with aggregation_table" in frame.body
@@ -198,6 +198,14 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     assert "no unresolved terms or clarification requirements" in frame.body
     assert "requested runtime relation verb dominates ontology nouns" in frame.body
     assert "ontology_manifest only lists declarations" in frame.body
+    assert "target-bound causal diagnosis" in frame.body
+    assert "generic causal_evidence question" in frame.body
+    assert "may set investigation to null" in frame.body
+    assert "Every non-causal output_shape MUST set investigation to null" in frame.body
+    assert "exact Python code-point start, end, and text span" in frame.body
+    assert "evidence_standard support_and_refutation" in frame.body
+    assert "Include two to four competing hypotheses" in frame.body
+    assert "Core resolves equal comparison windows and compiles the evidence DAG" in frame.body
     assert "ontology_declaration for the detail, dependents" in frame.body
     assert (
         "ontology_release_evidence_health for a combined retained-release comparison" in frame.body

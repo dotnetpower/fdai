@@ -96,6 +96,7 @@ class AzureOpenAISemanticPlanningModel:
         descriptors: tuple[dict[str, Any], ...],
         principal_role: str,
         purpose: str,
+        metric_concepts: tuple[str, ...] = (),
     ) -> Mapping[str, Any] | None:
         """Return one validated frame proposal or ``None`` on bounded failure."""
 
@@ -103,6 +104,7 @@ class AzureOpenAISemanticPlanningModel:
             "utterance": utterance,
             "context": context,
             "descriptors": descriptors,
+            "metric_concepts": metric_concepts,
             "principal_role": principal_role,
             "purpose": purpose,
         }

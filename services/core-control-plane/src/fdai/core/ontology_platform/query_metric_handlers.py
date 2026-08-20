@@ -11,9 +11,13 @@ from fdai_service_contracts.ontology_query import OntologyQueryNode, QueryNodeKi
 from fdai.core.rca.temporal_causality import TemporalCausalityConfig
 
 from .metric_semantics import (
+    CausalEvidenceJoin,
+    CausalJoinStatus,
     MetricSemanticRegistry,
     MetricWindow,
+    MetricWindowComparison,
     MetricWindowProvider,
+    compare_aligned_windows,
     join_causal_evidence,
 )
 from .query_execution import QueryNodeResult
@@ -42,12 +46,18 @@ METRIC_ARGUMENT_SCHEMAS: Mapping[QueryNodeKind, Mapping[str, object]] = {
             "end": {"type": "string", "format": "date-time"},
         },
     },
+    QueryNodeKind.METRIC_COMPARISON: {
+        "type": "object",
+        "additionalProperties": False,
+        "required": [],
+    },
     QueryNodeKind.EVIDENCE_JOIN: {
         "type": "object",
         "additionalProperties": False,
         "required": ["feature_cutoff"],
         "properties": {
             "feature_cutoff": {"type": "string", "format": "date-time"},
+            "effect_direction": {"type": "string", "enum": ["decrease", "increase"]},
             "lag_seconds": {
                 "type": "array",
                 "minItems": 1,
@@ -208,10 +218,13 @@ class EvidenceJoinNodeHandler:
     ) -> QueryNodeResult:
         if node.kind is not QueryNodeKind.EVIDENCE_JOIN:
             raise ValueError("evidence join handler is bound to the wrong node kind")
-        if len(node.depends_on) not in {2, 3} or set(dependencies) != set(node.depends_on):
-            raise ValueError("evidence_join requires cause, effect, and optional topology")
+        if len(node.depends_on) not in {2, 3, 4} or set(dependencies) != set(node.depends_on):
+            raise ValueError(
+                "evidence_join requires cause, effect, optional topology, and comparison"
+            )
         allowed = {
             "feature_cutoff",
+            "effect_direction",
             "lag_seconds",
             "min_samples",
             "min_abs_correlation",
@@ -224,11 +237,47 @@ class EvidenceJoinNodeHandler:
         if not isinstance(cause, MetricWindow) or not isinstance(effect, MetricWindow):
             raise TypeError("evidence_join cause and effect MUST be MetricWindow values")
         topology: TopologyDiff | None = None
-        if len(node.depends_on) == 3:
+        if len(node.depends_on) >= 3:
             topology_value = dependencies[node.depends_on[2]].value
             if not isinstance(topology_value, TopologyDiff):
                 raise TypeError("evidence_join topology dependency MUST be TopologyDiff")
             topology = topology_value
+        comparison: MetricWindowComparison | None = None
+        if len(node.depends_on) == 4:
+            comparison_value = dependencies[node.depends_on[3]].value
+            if not isinstance(comparison_value, MetricWindowComparison):
+                raise TypeError(
+                    "evidence_join comparison dependency MUST be MetricWindowComparison"
+                )
+            comparison = comparison_value
+            effect_direction = node.arguments.get("effect_direction")
+            if effect_direction not in {"decrease", "increase"}:
+                raise ValueError("evidence_join comparison requires a bounded effect_direction")
+            limitation = _symptom_comparison_limitation(
+                comparison,
+                direction=effect_direction,
+            )
+            if limitation is not None:
+                evidence_refs = tuple(
+                    dict.fromkeys(
+                        (
+                            *cause.evidence_refs,
+                            *effect.evidence_refs,
+                            *comparison.evidence_refs,
+                        )
+                    )
+                )
+                return QueryNodeResult(
+                    value=CausalEvidenceJoin(
+                        status=CausalJoinStatus.UNRESOLVED,
+                        temporal_claim=None,
+                        topology_diff_digest=topology.digest if topology else None,
+                        competing_explanations=(),
+                        limitations=(limitation,),
+                        evidence_refs=evidence_refs,
+                    ),
+                    evidence_refs=evidence_refs,
+                )
         lags = node.arguments.get("lag_seconds", [0])
         if not isinstance(lags, list) or not lags or len(lags) > 16:
             raise ValueError("evidence_join lag_seconds MUST be a bounded array")
@@ -256,6 +305,57 @@ class EvidenceJoinNodeHandler:
             ),
             competing_explanations=competing_text,
         )
+        if comparison is not None:
+            result = replace(
+                result,
+                evidence_refs=tuple(
+                    dict.fromkeys((*result.evidence_refs, *comparison.evidence_refs))
+                ),
+            )
+        return QueryNodeResult(value=result, evidence_refs=result.evidence_refs)
+
+
+def _symptom_comparison_limitation(
+    comparison: MetricWindowComparison,
+    *,
+    direction: object,
+) -> str | None:
+    if not comparison.complete or comparison.absolute_change is None:
+        return "symptom_change_incomplete"
+    if direction == "increase" and comparison.absolute_change <= 0:
+        return "symptom_increase_not_observed"
+    if direction == "decrease" and comparison.absolute_change >= 0:
+        return "symptom_decrease_not_observed"
+    return None
+
+
+class MetricComparisonNodeHandler:
+    """Compare equal baseline and current windows using reviewed aggregation."""
+
+    def __init__(self, *, registry: MetricSemanticRegistry) -> None:
+        self._registry = registry
+
+    async def __call__(
+        self,
+        node: OntologyQueryNode,
+        dependencies: Mapping[str, QueryNodeResult],
+    ) -> QueryNodeResult:
+        if node.kind is not QueryNodeKind.METRIC_COMPARISON or node.arguments:
+            raise ValueError("metric comparison accepts no model arguments")
+        if len(node.depends_on) != 2 or set(dependencies) != set(node.depends_on):
+            raise ValueError("metric comparison requires baseline and current windows")
+        baseline = dependencies[node.depends_on[0]].value
+        current = dependencies[node.depends_on[1]].value
+        if not isinstance(baseline, MetricWindow) or not isinstance(current, MetricWindow):
+            raise TypeError("metric comparison dependencies MUST be MetricWindow values")
+        definition = self._registry.resolve(baseline.concept_id)
+        if current.concept_id != definition.concept_id:
+            raise ValueError("metric comparison concept does not match the registry")
+        result = compare_aligned_windows(
+            baseline,
+            current,
+            aggregation=definition.aggregation,
+        )
         return QueryNodeResult(value=result, evidence_refs=result.evidence_refs)
 
 
@@ -280,6 +380,7 @@ def _timestamp(value: object, name: str) -> datetime:
 __all__ = [
     "EvidenceJoinNodeHandler",
     "METRIC_ARGUMENT_SCHEMAS",
+    "MetricComparisonNodeHandler",
     "MetricScopeSeriesNodeHandler",
     "MetricSeriesNodeHandler",
 ]

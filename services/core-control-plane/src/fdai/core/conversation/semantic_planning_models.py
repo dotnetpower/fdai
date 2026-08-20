@@ -19,6 +19,10 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from fdai.core.ontology_platform import QueryManifest
 
+from .semantic_investigation import (
+    InvestigationIntentProposal,
+    VerifiedInvestigationIntent,
+)
 from .session import Principal
 
 
@@ -94,6 +98,7 @@ class SemanticFrameProposal(_Proposal):
         default=(), max_length=8
     )
     clarification: str | None = Field(default=None, min_length=1, max_length=512)
+    investigation: InvestigationIntentProposal | None = None
     confidence: float = Field(ge=0.0, le=1.0)
 
     @field_validator(
@@ -154,6 +159,7 @@ class SemanticPlanningModel(Protocol):
         utterance: str,
         context: tuple[str, ...],
         descriptors: tuple[dict[str, Any], ...],
+        metric_concepts: tuple[str, ...],
         principal_role: str,
         purpose: str,
     ) -> Mapping[str, Any] | None: ...
@@ -214,6 +220,7 @@ class SemanticPlanningOutcome:
     frame: SemanticProblemFrame | None = None
     plan: OntologyQueryPlan | None = None
     intent_graph: IntentGraph | None = None
+    investigation_intent: VerifiedInvestigationIntent | None = None
     clarification: str | None = None
     execution_authority: Literal[False] = False
 
@@ -226,6 +233,8 @@ class SemanticPlanningOutcome:
         )
         if planned != has_plan:
             raise ValueError("planned semantic outcome requires frame, plan, and intent graph")
+        if self.investigation_intent is not None and not planned:
+            raise ValueError("verified investigation intent requires a planned outcome")
         clarification = self.disposition is SemanticPlanningDisposition.CLARIFICATION
         if clarification != (self.clarification is not None):
             raise ValueError("clarification disposition requires exactly one question")

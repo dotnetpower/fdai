@@ -20,6 +20,7 @@ from fdai.core.ontology_platform import (
     CausalEvidenceJoin,
     CausalJoinStatus,
     MetricWindow,
+    MetricWindowComparison,
     QueryNodeResult,
     QueryPlanExecution,
     TopologyDiff,
@@ -122,6 +123,25 @@ RULE_QUERY_DIGEST = (
                 evidence_refs=("metric:evidence-1",),
             ),
             "metric.window",
+        ),
+        (
+            MetricWindowComparison(
+                concept_id="service.latency",
+                resource_id="service:a",
+                unit="ms",
+                baseline_start=NOW - timedelta(minutes=10),
+                baseline_end=NOW - timedelta(minutes=5),
+                current_start=NOW - timedelta(minutes=5),
+                current_end=NOW,
+                baseline_value=10.0,
+                current_value=25.0,
+                absolute_change=15.0,
+                relative_change=1.5,
+                complete=True,
+                reason=None,
+                evidence_refs=("metric:evidence-1",),
+            ),
+            "metric.comparison",
         ),
         (
             CausalEvidenceJoin(

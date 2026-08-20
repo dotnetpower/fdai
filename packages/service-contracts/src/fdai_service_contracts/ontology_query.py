@@ -41,6 +41,7 @@ class SemanticOperation(StrEnum):
 
 class QueryNodeKind(StrEnum):
     OBJECT_SET = "object_set"
+    RELATIONSHIP_TRAVERSAL = "relationship_traversal"
     UNION = "union"
     INTERSECTION = "intersection"
     SUBTRACTION = "subtraction"
@@ -52,6 +53,7 @@ class QueryNodeKind(StrEnum):
     TOPOLOGY_DIFF = "topology_diff"
     METRIC_SERIES = "metric_series"
     METRIC_SCOPE_SERIES = "metric_scope_series"
+    METRIC_COMPARISON = "metric_comparison"
     EVIDENCE_JOIN = "evidence_join"
 
 
@@ -125,6 +127,7 @@ class SemanticProblemFrame(QueryContract):
     output_shape: Annotated[str, Field(pattern=_ID_PATTERN)]
     evidence_requirements: tuple[Annotated[str, Field(pattern=_ID_PATTERN)], ...] = ()
     unresolved_terms: tuple[Annotated[str, Field(min_length=1, max_length=128)], ...] = ()
+    investigation_intent_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)] | None = None
     input_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
     authority: Literal["candidate_only"] = "candidate_only"
     execution_authority: Literal[False] = False
@@ -141,21 +144,22 @@ class SemanticProblemFrame(QueryContract):
         ):
             if len(values) != len(set(values)):
                 raise ValueError(f"{name} MUST be unique")
-        expected = content_digest(
-            {
-                "schema_version": self.schema_version,
-                "operation": self.operation.value,
-                "subject_constraints": self.subject_constraints,
-                "measure_concepts": self.measure_concepts,
-                "temporal_scope": temporal,
-                "output_shape": self.output_shape,
-                "evidence_requirements": self.evidence_requirements,
-                "unresolved_terms": self.unresolved_terms,
-                "input_digest": self.input_digest,
-                "authority": self.authority,
-                "execution_authority": False,
-            }
-        )
+        body = {
+            "schema_version": self.schema_version,
+            "operation": self.operation.value,
+            "subject_constraints": self.subject_constraints,
+            "measure_concepts": self.measure_concepts,
+            "temporal_scope": temporal,
+            "output_shape": self.output_shape,
+            "evidence_requirements": self.evidence_requirements,
+            "unresolved_terms": self.unresolved_terms,
+            "input_digest": self.input_digest,
+            "authority": self.authority,
+            "execution_authority": False,
+        }
+        if self.investigation_intent_digest is not None:
+            body["investigation_intent_digest"] = self.investigation_intent_digest
+        expected = content_digest(body)
         if self.frame_digest != expected:
             raise ValueError("semantic problem frame digest does not match its content")
         return self

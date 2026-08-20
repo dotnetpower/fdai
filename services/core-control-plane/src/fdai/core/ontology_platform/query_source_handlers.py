@@ -11,9 +11,13 @@ from fdai.shared.contracts.models import CeilingRole, OntologyFunctionKind
 from fdai.shared.ontology.acl import ProjectionRequest
 
 from .functions import FunctionInvocationContext, OntologyFunctionRegistry
-from .models import ObjectSetDefinition
-from .query_execution import QueryNodeResult
-from .query_gateway import SecuredObjectSetQueryGateway
+from .models import (
+    ObjectSetDefinition,
+    ObjectTraversal,
+    RelationshipTraversalDefinition,
+)
+from .query_execution import QueryNodeHeldError, QueryNodeResult
+from .query_gateway import SecuredObjectSetQueryGateway, SecuredObjectSetQueryResult
 from .query_receipt_authority import SecuredQueryReceiptAuthority
 from .query_values import QueryRow, QueryTable
 
@@ -50,28 +54,74 @@ class SecuredObjectSetNodeHandler:
         )
         if self._receipt_authority is not None:
             self._receipt_authority.issue(secured)
-        table = QueryTable(
-            rows=tuple(
-                QueryRow.from_values(
-                    record.id,
-                    {
-                        "id": record.id,
-                        "object_type": record.object_type,
-                        "properties": record.properties,
-                    },
-                )
-                for record in secured.materialization.graph.objects
-            ),
-            complete=secured.receipt.complete,
-            truncation_reason=(
-                secured.receipt.truncation_reason.value
-                if secured.receipt.truncation_reason is not None
-                else None
-            ),
-        )
+        table = _secured_query_table(secured)
         return QueryNodeResult(
             value=table,
             evidence_refs=(
+                f"ontology-object-set:{secured.receipt.projected_result_digest}",
+                f"ontology-query-table:{table.digest}",
+            ),
+        )
+
+
+class SecuredRelationshipTraversalNodeHandler:
+    """Traverse from one unambiguous secured entity-resolution result."""
+
+    def __init__(
+        self,
+        gateway: SecuredObjectSetQueryGateway,
+        *,
+        caller_role: CeilingRole,
+        purposes: Sequence[str],
+        receipt_authority: SecuredQueryReceiptAuthority | None = None,
+    ) -> None:
+        self._gateway = gateway
+        self._request = ProjectionRequest(
+            caller_role=caller_role,
+            declared_purposes=frozenset(purposes),
+        )
+        self._receipt_authority = receipt_authority
+
+    async def __call__(
+        self,
+        node: OntologyQueryNode,
+        dependencies: Mapping[str, QueryNodeResult],
+    ) -> QueryNodeResult:
+        if len(node.depends_on) != 1 or set(dependencies) != set(node.depends_on):
+            raise ValueError("relationship traversal requires one declared dependency")
+        dependency = dependencies[node.depends_on[0]].value
+        if not isinstance(dependency, QueryTable):
+            raise TypeError("relationship traversal dependency MUST be a QueryTable")
+        if not dependency.complete:
+            raise QueryNodeHeldError("entity_resolution_incomplete")
+        if not dependency.rows:
+            raise QueryNodeHeldError("entity_resolution_empty")
+        if len(dependency.rows) != 1:
+            raise QueryNodeHeldError("entity_resolution_ambiguous")
+        traversal = RelationshipTraversalDefinition.model_validate(node.arguments)
+        definition = ObjectSetDefinition(
+            selector=traversal.selector,
+            traversal=ObjectTraversal(
+                link_types=traversal.link_types,
+                direction=traversal.direction,
+                max_depth=traversal.max_depth,
+            ),
+            root_ids=(dependency.rows[0].row_id,),
+            as_of=traversal.as_of,
+            purpose=traversal.purpose,
+            limit=traversal.limit,
+        )
+        secured = await self._gateway.materialize(
+            definition,
+            projection_request=self._request,
+        )
+        if self._receipt_authority is not None:
+            self._receipt_authority.issue(secured)
+        table = _secured_query_table(secured)
+        return QueryNodeResult(
+            value=table,
+            evidence_refs=_evidence_refs(dependencies)
+            + (
                 f"ontology-object-set:{secured.receipt.projected_result_digest}",
                 f"ontology-query-table:{table.digest}",
             ),
@@ -193,6 +243,28 @@ def _query_table(value: object) -> QueryTable:
     )
 
 
+def _secured_query_table(secured: SecuredObjectSetQueryResult) -> QueryTable:
+    return QueryTable(
+        rows=tuple(
+            QueryRow.from_values(
+                record.id,
+                {
+                    "id": record.id,
+                    "object_type": record.object_type,
+                    "properties": record.properties,
+                },
+            )
+            for record in secured.materialization.graph.objects
+        ),
+        complete=secured.receipt.complete,
+        truncation_reason=(
+            secured.receipt.truncation_reason.value
+            if secured.receipt.truncation_reason is not None
+            else None
+        ),
+    )
+
+
 def _evidence_refs(dependencies: Mapping[str, QueryNodeResult]) -> tuple[str, ...]:
     return tuple(
         dict.fromkeys(
@@ -203,4 +275,8 @@ def _evidence_refs(dependencies: Mapping[str, QueryNodeResult]) -> tuple[str, ..
     )
 
 
-__all__ = ["FunctionNodeHandler", "SecuredObjectSetNodeHandler"]
+__all__ = [
+    "FunctionNodeHandler",
+    "SecuredObjectSetNodeHandler",
+    "SecuredRelationshipTraversalNodeHandler",
+]

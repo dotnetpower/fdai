@@ -679,6 +679,13 @@ def _general_query_blocks(
     korean: bool,
 ) -> list[JsonObject]:
     """Project the verified outputs themselves, never only how many there are."""
+    investigation = _investigation_blocks(
+        outputs,
+        bounded_refs=bounded_refs,
+        korean=korean,
+    )
+    if investigation is not None:
+        return investigation
     items = _overview_items(outputs, korean=korean)
     if not items:
         items = [
@@ -714,6 +721,169 @@ def _general_query_blocks(
                 blocks.append(limitation)
             break
     return blocks
+
+
+def _investigation_blocks(
+    outputs: list[object],
+    *,
+    bounded_refs: list[str],
+    korean: bool,
+) -> list[JsonObject] | None:
+    comparison: Mapping[str, object] | None = None
+    hypotheses: list[Mapping[str, object]] = []
+    for output in outputs:
+        if not isinstance(output, Mapping):
+            continue
+        summary = output.get("summary")
+        if not isinstance(summary, Mapping):
+            continue
+        if output.get("result_kind") == "metric.comparison":
+            comparison = summary
+        elif output.get("result_kind") == "causal.join":
+            hypotheses.append(summary)
+    if comparison is None or len(hypotheses) < 2:
+        return None
+
+    unit = comparison.get("unit")
+    unit_text = unit if isinstance(unit, str) else ""
+    baseline = _measure_cell(comparison.get("baseline_value"), unit_text)
+    current = _measure_cell(comparison.get("current_value"), unit_text)
+    change = _measure_cell(comparison.get("absolute_change"), unit_text)
+    summary_items: list[JsonObject] = [
+        {
+            "label": "기준 구간" if korean else "Baseline",
+            "value": baseline,
+            "tone": "neutral",
+        },
+        {
+            "label": "현재 구간" if korean else "Current",
+            "value": current,
+            "tone": "neutral",
+        },
+        {
+            "label": "관측 변화" if korean else "Observed change",
+            "value": change,
+            "tone": "attention",
+        },
+    ]
+    rows: list[JsonObject] = []
+    limitations: list[str] = []
+    for hypothesis in hypotheses:
+        claim = hypothesis.get("temporal_claim")
+        claim_map = claim if isinstance(claim, Mapping) else {}
+        raw_limitations = hypothesis.get("limitations")
+        hypothesis_limitations = (
+            [item for item in raw_limitations if isinstance(item, str)]
+            if isinstance(raw_limitations, list)
+            else []
+        )
+        limitations.extend(hypothesis_limitations)
+        hypothesis_id = hypothesis.get("hypothesis_id")
+        status = hypothesis.get("status")
+        rows.append(
+            {
+                "hypothesis": _readable_token(hypothesis_id),
+                "status": _readable_token(status),
+                "cause": _readable_token(claim_map.get("cause_metric")),
+                "lag": _lag_cell(claim_map.get("lag_seconds")),
+                "correlation": _number_cell(claim_map.get("correlation")),
+                "limitations": (
+                    ", ".join(_readable_token(item) for item in hypothesis_limitations)
+                    if hypothesis_limitations
+                    else "-"
+                ),
+            }
+        )
+
+    blocks: list[JsonObject] = [
+        cast(
+            JsonObject,
+            {
+                "slot_id": "overview",
+                "kind": "summary",
+                "title": "증상 변화" if korean else "Symptom change",
+                "emphasis": "primary",
+                "collapsed": False,
+                "evidence_refs": bounded_refs,
+                "data": {"items": summary_items},
+            },
+        ),
+        cast(
+            JsonObject,
+            {
+                "slot_id": "hypotheses",
+                "kind": "table",
+                "title": "경쟁 원인 가설" if korean else "Competing cause hypotheses",
+                "emphasis": "secondary",
+                "collapsed": False,
+                "evidence_refs": bounded_refs,
+                "data": {
+                    "columns": [
+                        {"key": "hypothesis", "label": "가설" if korean else "Hypothesis"},
+                        {"key": "status", "label": "판정" if korean else "Status"},
+                        {"key": "cause", "label": "원인 측정" if korean else "Cause measure"},
+                        {"key": "lag", "label": "시차" if korean else "Lag"},
+                        {
+                            "key": "correlation",
+                            "label": "상관" if korean else "Correlation",
+                        },
+                        {
+                            "key": "limitations",
+                            "label": "제한" if korean else "Limitations",
+                        },
+                    ],
+                    "rows": rows,
+                    "status_key": "status",
+                },
+            },
+        ),
+    ]
+    comparison_reason = comparison.get("reason")
+    if isinstance(comparison_reason, str):
+        limitations.append(comparison_reason)
+    unique_limitations = tuple(dict.fromkeys(limitations))
+    if unique_limitations:
+        blocks.append(
+            cast(
+                JsonObject,
+                {
+                    "slot_id": "limitations",
+                    "kind": "callout",
+                    "title": "제한 사항" if korean else "Limitations",
+                    "emphasis": "supporting",
+                    "collapsed": False,
+                    "evidence_refs": bounded_refs,
+                    "data": {
+                        "tone": "neutral",
+                        "lines": [_readable_token(item) for item in unique_limitations],
+                    },
+                },
+            )
+        )
+    return blocks
+
+
+def _readable_token(value: object) -> str:
+    if not isinstance(value, str) or not value.strip():
+        return "-"
+    return value.replace("_", " ").replace("-", " ").strip()[:_MAX_CELL_CHARS]
+
+
+def _measure_cell(value: object, unit: str) -> str:
+    measured = _number_cell(value)
+    return f"{measured} {unit}".strip() if measured != "-" else measured
+
+
+def _number_cell(value: object) -> str:
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return "-"
+    return format(value, ".6g")
+
+
+def _lag_cell(value: object) -> str:
+    if isinstance(value, bool) or not isinstance(value, int):
+        return "-"
+    return f"{value} s"
 
 
 def _readable_rows(output: object) -> list[Mapping[str, object]] | None:

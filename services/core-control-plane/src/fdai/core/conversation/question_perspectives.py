@@ -67,6 +67,42 @@ class QuestionRuleState(StrEnum):
     COLLECTED = "collected"
 
 
+class QuestionEntityState(StrEnum):
+    NOT_APPLICABLE = "not_applicable"
+    EXACT = "exact"
+    AMBIGUOUS = "ambiguous"
+    MISSING = "missing"
+
+
+class QuestionTemporalState(StrEnum):
+    NOT_APPLICABLE = "not_applicable"
+    ALIGNED = "aligned"
+    STALE_BASELINE = "stale_baseline"
+    PARTIAL_CURRENT = "partial_current"
+
+
+class QuestionCausalResult(StrEnum):
+    NOT_APPLICABLE = "not_applicable"
+    SUPPORTED = "supported"
+    REFUTED = "refuted"
+    COMPETING = "competing"
+    UNRESOLVED = "unresolved"
+
+
+class QuestionPresentationShape(StrEnum):
+    DEFAULT = "default"
+    TABLE = "table"
+    TIMELINE = "timeline"
+
+
+@dataclass(frozen=True, slots=True)
+class QuestionInvestigationPosture:
+    entity_state: QuestionEntityState = QuestionEntityState.NOT_APPLICABLE
+    temporal_state: QuestionTemporalState = QuestionTemporalState.NOT_APPLICABLE
+    causal_result: QuestionCausalResult = QuestionCausalResult.NOT_APPLICABLE
+    presentation_shape: QuestionPresentationShape = QuestionPresentationShape.DEFAULT
+
+
 @dataclass(frozen=True, slots=True)
 class QuestionPerspectiveApplication:
     """One reviewed perspective allowed for a declaration descriptor."""
@@ -76,6 +112,7 @@ class QuestionPerspectiveApplication:
     anchor_kind: QuestionAnchorKind
     action_posture: str = "advise_only"
     rule_state: QuestionRuleState = QuestionRuleState.NOT_APPLICABLE
+    investigation: QuestionInvestigationPosture = QuestionInvestigationPosture()
 
 
 _OBJECT_PERSPECTIVES: dict[str, tuple[QuestionPerspective, ...]] = {
@@ -132,6 +169,7 @@ def perspective_applications(
                 perspective=perspective,
                 capability=_capability_for_perspective(perspective),
                 anchor_kind=_anchor_for_object(name, perspective),
+                investigation=_investigation_posture(perspective),
             )
             for perspective in perspectives
         )
@@ -144,6 +182,7 @@ def perspective_applications(
                 perspective=perspective,
                 capability=_capability_for_perspective(perspective),
                 anchor_kind=QuestionAnchorKind.SERVER_SCOPE,
+                investigation=_investigation_posture(perspective),
             )
             for perspective in link_perspectives
         )
@@ -202,10 +241,28 @@ def _anchor_for_object(
     return QuestionAnchorKind.SERVER_SCOPE
 
 
+def _investigation_posture(
+    perspective: QuestionPerspective,
+) -> QuestionInvestigationPosture:
+    if perspective is not QuestionPerspective.CAUSAL:
+        return QuestionInvestigationPosture()
+    return QuestionInvestigationPosture(
+        entity_state=QuestionEntityState.EXACT,
+        temporal_state=QuestionTemporalState.ALIGNED,
+        causal_result=QuestionCausalResult.COMPETING,
+        presentation_shape=QuestionPresentationShape.TABLE,
+    )
+
+
 __all__ = [
     "QuestionAnchorKind",
     "QuestionCapabilityFamily",
     "QuestionEvidencePosture",
+    "QuestionEntityState",
+    "QuestionTemporalState",
+    "QuestionCausalResult",
+    "QuestionPresentationShape",
+    "QuestionInvestigationPosture",
     "QuestionExpectedPosture",
     "QuestionPerspective",
     "QuestionPerspectiveApplication",

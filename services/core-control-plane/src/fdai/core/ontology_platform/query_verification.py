@@ -18,6 +18,7 @@ from .models import (
     ObjectPredicateOperator,
     ObjectSelectorKind,
     ObjectSetDefinition,
+    RelationshipTraversalDefinition,
 )
 from .property_values import declared_property_values
 from .query_manifest import QueryManifest
@@ -30,6 +31,7 @@ _EXACT_VALUE_OPERATORS = {
 
 _TABLE_KINDS = {
     QueryNodeKind.OBJECT_SET,
+    QueryNodeKind.RELATIONSHIP_TRAVERSAL,
     QueryNodeKind.UNION,
     QueryNodeKind.INTERSECTION,
     QueryNodeKind.SUBTRACTION,
@@ -124,6 +126,14 @@ class OntologyQueryPlanVerifier:
             if node.depends_on or set(arguments) != {"definition"}:
                 raise ValueError("object_set node requires only definition and no dependencies")
             self._verify_object_set(arguments["definition"], descriptors=descriptors)
+            return
+        if node.kind is QueryNodeKind.RELATIONSHIP_TRAVERSAL:
+            self._verify_relationship_traversal(
+                node,
+                arguments=arguments,
+                nodes_by_id=nodes_by_id,
+                descriptors=descriptors,
+            )
             return
         if node.kind in _SET_KINDS:
             if arguments:
@@ -236,16 +246,27 @@ class OntologyQueryPlanVerifier:
                 raise ValueError("metric_series MUST be a metric.window source")
         elif node.kind is QueryNodeKind.METRIC_SCOPE_SERIES:
             if len(node.depends_on) != 1 or node.output_kind != "metric.window":
-                raise ValueError("metric_scope_series MUST read one object_set query.table")
+                raise ValueError("metric_scope_series MUST read one scoped query.table")
             dependency = nodes_by_id[node.depends_on[0]]
             if (
-                dependency.kind is not QueryNodeKind.OBJECT_SET
+                dependency.kind
+                not in {
+                    QueryNodeKind.OBJECT_SET,
+                    QueryNodeKind.RELATIONSHIP_TRAVERSAL,
+                }
                 or dependency.output_kind != "query.table"
             ):
-                raise ValueError("metric_scope_series dependency MUST be an object_set query.table")
+                raise ValueError("metric_scope_series dependency MUST be a scoped query.table")
+        elif node.kind is QueryNodeKind.METRIC_COMPARISON:
+            if len(node.depends_on) != 2 or node.output_kind != "metric.comparison":
+                raise ValueError("metric_comparison MUST join two metric.window nodes")
+            if any(nodes_by_id[item].output_kind != "metric.window" for item in node.depends_on):
+                raise ValueError("metric_comparison dependencies MUST output metric.window")
         elif node.kind is QueryNodeKind.EVIDENCE_JOIN:
-            if len(node.depends_on) not in {2, 3} or node.output_kind != "causal.join":
-                raise ValueError("evidence_join MUST join two metrics and optional topology")
+            if len(node.depends_on) not in {2, 3, 4} or node.output_kind != "causal.join":
+                raise ValueError(
+                    "evidence_join MUST join two metrics, optional topology, and comparison"
+                )
             first, second, *remaining = node.depends_on
             if nodes_by_id[first].output_kind != "metric.window":
                 raise ValueError("evidence_join cause MUST output metric.window")
@@ -253,6 +274,8 @@ class OntologyQueryPlanVerifier:
                 raise ValueError("evidence_join effect MUST output metric.window")
             if remaining and nodes_by_id[remaining[0]].output_kind != "topology.diff":
                 raise ValueError("evidence_join third dependency MUST output topology.diff")
+            if len(remaining) == 2 and nodes_by_id[remaining[1]].output_kind != "metric.comparison":
+                raise ValueError("evidence_join fourth dependency MUST output metric.comparison")
 
     def _verify_object_set(
         self,
@@ -288,6 +311,50 @@ class OntologyQueryPlanVerifier:
             for link_type in definition.traversal.link_types:
                 if ("link", link_type) not in descriptors:
                     raise ValueError("object-set traversal LinkType is absent from manifest")
+
+    def _verify_relationship_traversal(
+        self,
+        node: OntologyQueryNode,
+        *,
+        arguments: Mapping[str, Any],
+        nodes_by_id: Mapping[str, OntologyQueryNode],
+        descriptors: Mapping[tuple[str, str], Mapping[str, Any]],
+    ) -> None:
+        if len(node.depends_on) != 1:
+            raise ValueError("relationship traversal requires one entity dependency")
+        source = nodes_by_id[node.depends_on[0]]
+        if source.kind is not QueryNodeKind.OBJECT_SET or source.output_kind != "query.table":
+            raise ValueError("relationship traversal source MUST be an object_set table")
+        source_definition = ObjectSetDefinition.model_validate(source.arguments.get("definition"))
+        definition = RelationshipTraversalDefinition.model_validate(arguments)
+        if source_definition.selector.kind is not ObjectSelectorKind.OBJECT_TYPE:
+            raise ValueError("relationship traversal source MUST select one ObjectType")
+        if definition.selector.kind is not ObjectSelectorKind.OBJECT_TYPE:
+            raise ValueError("relationship traversal target MUST select one ObjectType")
+        if ("object", definition.selector.name) not in descriptors:
+            raise ValueError("relationship traversal target is absent from the manifest")
+        current_type = source_definition.selector.name
+        for link_type in definition.link_types:
+            descriptor = descriptors.get(("link", link_type))
+            if descriptor is None:
+                raise ValueError("relationship traversal LinkType is absent from the manifest")
+            expected_source = (
+                descriptor.get("from_type")
+                if definition.direction == "outgoing"
+                else descriptor.get("to_type")
+            )
+            expected_target = (
+                descriptor.get("to_type")
+                if definition.direction == "outgoing"
+                else descriptor.get("from_type")
+            )
+            if current_type != expected_source:
+                raise ValueError("relationship traversal source endpoint type does not match")
+            if not isinstance(expected_target, str):
+                raise ValueError("relationship traversal target endpoint type is invalid")
+            current_type = expected_target
+        if definition.selector.name != current_type:
+            raise ValueError("relationship traversal target endpoint type does not match")
 
     def _verify_function(
         self,

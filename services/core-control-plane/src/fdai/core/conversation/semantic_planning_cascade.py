@@ -20,6 +20,10 @@ from pydantic import ValidationError
 
 from fdai.core.ontology_platform import OntologyQueryPlanVerifier, QueryManifest
 
+from .semantic_investigation import (
+    VerifiedInvestigationIntent,
+    verify_investigation_intent,
+)
 from .semantic_planning_models import (
     ClarificationRequirement,
     QueryPlanProposal,
@@ -95,6 +99,7 @@ class FrameBuilder(Protocol):
         *,
         utterance: str,
         context: tuple[str, ...],
+        investigation_intent: VerifiedInvestigationIntent | None,
     ) -> SemanticProblemFrame: ...
 
 
@@ -144,14 +149,23 @@ class SemanticPlanningCascade:
         utterance: str,
         context: tuple[str, ...],
         descriptors: tuple[dict[str, Any], ...],
+        metric_concepts: tuple[str, ...],
         principal: Principal,
         purpose: str,
-    ) -> tuple[SemanticFrameProposal, SemanticProblemFrame] | None:
+    ) -> (
+        tuple[
+            SemanticFrameProposal,
+            SemanticProblemFrame,
+            VerifiedInvestigationIntent | None,
+        ]
+        | None
+    ):
         for tier, model in self._planning_models():
             raw = model.propose_frame(
                 utterance=utterance,
                 context=context,
                 descriptors=copy.deepcopy(descriptors),
+                metric_concepts=metric_concepts,
                 principal_role=principal.role.value,
                 purpose=purpose,
             )
@@ -162,17 +176,32 @@ class SemanticPlanningCascade:
             try:
                 proposal = SemanticFrameProposal.model_validate(raw)
                 _validate_frame_proposal(proposal, utterance=utterance, descriptors=descriptors)
+                investigation_intent = (
+                    verify_investigation_intent(
+                        proposal.investigation,
+                        utterance=utterance,
+                        descriptors=descriptors,
+                        metric_concepts=metric_concepts,
+                    )
+                    if proposal.investigation is not None
+                    else None
+                )
             except (ValidationError, TypeError, ValueError) as exc:
                 if self._should_escalate(tier=tier, stage="frame", reason="invalid"):
                     continue
                 raise ProposalRejectedError("frame_validation", type(exc).__name__) from exc
             try:
-                frame = self._frame_builder(proposal, utterance=utterance, context=context)
+                frame = self._frame_builder(
+                    proposal,
+                    utterance=utterance,
+                    context=context,
+                    investigation_intent=investigation_intent,
+                )
             except (TypeError, ValueError) as exc:
                 if self._should_escalate(tier=tier, stage="frame", reason="invalid"):
                     continue
                 raise ProposalRejectedError("frame_build", type(exc).__name__) from exc
-            return proposal, frame
+            return proposal, frame, investigation_intent
         return None
 
     def propose_plan(
@@ -270,6 +299,14 @@ def _validate_frame_proposal(
         and _EXPLICIT_LISTING_REQUEST.search(normalized_utterance) is not None
     ):
         raise ValueError("explicit listing request cannot use aggregation_table output")
+    if proposal.investigation is not None and not is_causal_evidence:
+        raise ValueError("structured investigation intent requires semantic causal evidence")
+    if (
+        is_causal_evidence
+        and proposal.investigation is None
+        and _has_target_bound_subject(proposal, descriptors=descriptors)
+    ):
+        raise ValueError("target-bound causal evidence requires structured investigation intent")
     if proposal.output_shape in _SCHEMA_LEVEL_OUTPUT_SHAPES and _names_runtime_instance(
         (utterance, *proposal.subject_constraints),
         descriptors=descriptors,
@@ -311,6 +348,22 @@ def _names_runtime_instance(
         return False
     declared = _declared_vocabulary(descriptors)
     return any(candidate.casefold() not in declared for candidate in candidates)
+
+
+def _has_target_bound_subject(
+    proposal: SemanticFrameProposal,
+    *,
+    descriptors: tuple[dict[str, Any], ...],
+) -> bool:
+    declared_subjects = {
+        name.casefold()
+        for descriptor in descriptors
+        if descriptor.get("kind") in {"object", "interface"}
+        if isinstance((name := descriptor.get("name")), str)
+    }
+    return any(
+        subject.casefold() not in declared_subjects for subject in proposal.subject_constraints
+    )
 
 
 def _declared_vocabulary(descriptors: tuple[dict[str, Any], ...]) -> frozenset[str]:

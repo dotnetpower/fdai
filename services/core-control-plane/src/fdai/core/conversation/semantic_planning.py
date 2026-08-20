@@ -12,7 +12,7 @@ import json
 import logging
 import re
 from collections.abc import Callable, Mapping, Sequence
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fdai_service_contracts.ontology_query import (
@@ -37,6 +37,12 @@ from fdai.core.ontology_platform.incident_queries import (
 )
 
 from .intent_graph import build_intent_graph
+from .semantic_investigation import VerifiedInvestigationIntent
+from .semantic_investigation_planning import (
+    InvestigationClarificationRequiredError,
+    InvestigationTimeWindows,
+    compile_investigation_plan,
+)
 from .semantic_planning_cascade import ProposalRejectedError, SemanticPlanningCascade
 from .semantic_planning_models import (
     BoundIncident,
@@ -79,12 +85,16 @@ class SemanticPlanningService:
         verifier: OntologyQueryPlanVerifier,
         descriptor_selector: SemanticDescriptorSelector | None = None,
         metric_concepts: Sequence[str] = (),
+        investigation_window_seconds: int = 900,
         now: Callable[[], datetime] | None = None,
     ) -> None:
         self._manifests = manifests
         self._verifier = verifier
         self._selector = descriptor_selector or CompleteManifestSelector()
         self._metric_concepts = _validated_metric_concepts(metric_concepts)
+        if not 60 <= investigation_window_seconds <= 86_400:
+            raise ValueError("investigation_window_seconds MUST be in [60, 86400]")
+        self._investigation_window = timedelta(seconds=investigation_window_seconds)
         self._now = now or (lambda: datetime.now(UTC))
         self._cascade = SemanticPlanningCascade(
             model=model,
@@ -126,6 +136,7 @@ class SemanticPlanningService:
                 utterance=utterance,
                 context=context,
                 descriptors=descriptors,
+                metric_concepts=self._metric_concepts,
                 principal=principal,
                 purpose=purpose,
             )
@@ -135,7 +146,7 @@ class SemanticPlanningService:
                     "semantic_frame_unavailable",
                     manifest_digest=manifest.manifest_digest,
                 )
-            proposal, frame = frame_result
+            proposal, frame, investigation_intent = frame_result
             _LOGGER.info("semantic_planning_stage_completed", extra={"stage": stage})
             _LOGGER.info("semantic_planning_stage_completed", extra={"stage": "frame_build"})
             if bound_incident is not None:
@@ -181,6 +192,28 @@ class SemanticPlanningService:
                 evaluation_time=evaluation_time,
             )
             plan_source = "bound_incident" if plan is not None else "proposed"
+            if plan is None and investigation_intent is not None:
+                try:
+                    plan = compile_investigation_plan(
+                        investigation_intent,
+                        manifest=manifest,
+                        verifier=self._verifier,
+                        windows=_investigation_windows(
+                            evaluation_time,
+                            duration=self._investigation_window,
+                        ),
+                        purpose=purpose,
+                        problem_frame_digest=frame.frame_digest,
+                    )
+                except InvestigationClarificationRequiredError as exc:
+                    return _outcome(
+                        SemanticPlanningDisposition.CLARIFICATION,
+                        exc.reason,
+                        manifest_digest=manifest.manifest_digest,
+                        frame=frame,
+                        clarification=_investigation_clarification(exc.reason),
+                    )
+                plan_source = "server_investigation"
             if plan is None:
                 plan = self._principal_scope_evidence_plan(
                     frame=frame,
@@ -248,6 +281,7 @@ class SemanticPlanningService:
                 frame=frame,
                 plan=plan,
                 intent_graph=graph,
+                investigation_intent=investigation_intent,
             )
         except PermissionError:
             return _outcome(SemanticPlanningDisposition.UNSUPPORTED, "semantic_scope_denied")
@@ -479,6 +513,7 @@ def _build_frame(
     *,
     utterance: str,
     context: tuple[str, ...],
+    investigation_intent: VerifiedInvestigationIntent | None = None,
 ) -> SemanticProblemFrame:
     input_digest = content_digest({"utterance": utterance, "context": context})
     payload = {
@@ -494,6 +529,8 @@ def _build_frame(
         "authority": "candidate_only",
         "execution_authority": False,
     }
+    if investigation_intent is not None:
+        payload["investigation_intent_digest"] = investigation_intent.intent_digest
     return SemanticProblemFrame(
         operation=proposal.operation,
         subject_constraints=proposal.subject_constraints,
@@ -502,6 +539,9 @@ def _build_frame(
         output_shape=proposal.output_shape.value,
         evidence_requirements=proposal.evidence_requirements,
         unresolved_terms=proposal.unresolved_terms,
+        investigation_intent_digest=(
+            investigation_intent.intent_digest if investigation_intent is not None else None
+        ),
         input_digest=input_digest,
         frame_digest=content_digest(payload),
     )
@@ -757,6 +797,7 @@ def _outcome(
     frame: SemanticProblemFrame | None = None,
     plan: OntologyQueryPlan | None = None,
     intent_graph: IntentGraph | None = None,
+    investigation_intent: VerifiedInvestigationIntent | None = None,
     clarification: str | None = None,
 ) -> SemanticPlanningOutcome:
     return SemanticPlanningOutcome(
@@ -766,8 +807,37 @@ def _outcome(
         frame=frame,
         plan=plan,
         intent_graph=intent_graph,
+        investigation_intent=investigation_intent,
         clarification=clarification,
     )
+
+
+def _investigation_windows(
+    evaluation_time: datetime,
+    *,
+    duration: timedelta,
+) -> InvestigationTimeWindows:
+    current_end = evaluation_time.astimezone(UTC)
+    current_start = current_end - duration
+    return InvestigationTimeWindows(
+        baseline_start=current_start - duration,
+        baseline_end=current_start,
+        current_start=current_start,
+        current_end=current_end,
+        known_at=current_end,
+    )
+
+
+def _investigation_clarification(reason: str) -> str:
+    questions = {
+        "affected_target_ambiguous": "Which affected service should I investigate?",
+        "entity_type_ambiguous": "Which kind of operational object does the affected target name?",
+        "entity_identity_property_unavailable": (
+            "Which exact operational object should I investigate?"
+        ),
+        "mixed_relationship_direction": "Which dependency direction should I investigate?",
+    }
+    return questions.get(reason, "Which exact investigation scope should I use?")
 
 
 __all__ = [

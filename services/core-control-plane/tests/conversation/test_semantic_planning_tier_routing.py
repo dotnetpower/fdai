@@ -435,26 +435,11 @@ def test_misclassified_evidence_validation_retries_only_frame_with_t2() -> None:
 
 def test_misclassified_causal_frame_retries_frame_with_t2() -> None:
     manifest, definition = _fixture()
-    causal_plan = {
-        "nodes": [
-            {
-                "node_id": "causal-evidence",
-                "kind": "evidence_join",
-                "depends_on": [],
-                "arguments": {"feature_cutoff": NOW.isoformat()},
-                "output_kind": "causal.join",
-            }
-        ],
-        "output_node_ids": ["causal-evidence"],
-    }
     t1 = _Model(
         frame=_frame(operation="select", output_shape="causal_evidence"),
         plan=_plan(definition),
     )
-    t2 = _Model(
-        frame=_frame(operation="explain_change", output_shape="causal_evidence"),
-        plan=causal_plan,
-    )
+    t2 = _Model(frame=_frame(), plan=_plan(definition))
     service = SemanticPlanningService(
         model=t1,
         escalation_model=t2,
@@ -467,7 +452,26 @@ def test_misclassified_causal_frame_retries_frame_with_t2() -> None:
 
     assert outcome.disposition is SemanticPlanningDisposition.PLANNED
     assert (t1.frame_calls, t1.plan_calls) == (1, 1)
-    assert (t2.frame_calls, t2.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (1, 0)
+
+
+def test_target_bound_causal_frame_requires_structured_investigation() -> None:
+    manifest, definition = _fixture()
+    t1 = _Model(
+        frame=_frame(
+            operation="explain_change",
+            subject_constraints=["Resource", "resource-a"],
+            output_shape="causal_evidence",
+        ),
+        plan=_plan(definition),
+    )
+    t2 = _Model(frame=_frame(), plan=_plan(definition))
+
+    outcome = _run(_service(t1, t2, manifest), utterance="Why is resource-a slower?")
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (1, 0)
 
 
 def test_t1_clarification_never_invokes_t2() -> None:

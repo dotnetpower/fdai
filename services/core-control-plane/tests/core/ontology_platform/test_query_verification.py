@@ -448,7 +448,7 @@ def test_verifier_rejects_scoped_metric_without_exactly_one_table_dependency() -
         output_kind="metric.window",
     )
 
-    with pytest.raises(ValueError, match="MUST read one object_set query.table"):
+    with pytest.raises(ValueError, match="MUST read one scoped query.table"):
         verifier.verify(
             _plan(
                 (no_dependency,),
@@ -476,7 +476,7 @@ def test_verifier_rejects_scoped_metric_without_exactly_one_table_dependency() -
     multiple_dependencies = no_dependency.model_copy(
         update={"depends_on": tuple(node.node_id for node in scopes)}
     )
-    with pytest.raises(ValueError, match="MUST read one object_set query.table"):
+    with pytest.raises(ValueError, match="MUST read one scoped query.table"):
         verifier.verify(
             _plan(
                 (*scopes, multiple_dependencies),
@@ -520,7 +520,7 @@ def test_verifier_rejects_scoped_metric_non_object_set_dependency() -> None:
         reviewed_metric_concepts=("request.volume",),
     )
 
-    with pytest.raises(ValueError, match="dependency MUST be an object_set query.table"):
+    with pytest.raises(ValueError, match="dependency MUST be a scoped query.table"):
         verifier.verify(
             _plan(
                 (topology, metric),
@@ -579,7 +579,7 @@ def test_verifier_rejects_scoped_metric_aggregate_table_dependency() -> None:
         reviewed_metric_concepts=("request.volume",),
     )
 
-    with pytest.raises(ValueError, match="dependency MUST be an object_set query.table"):
+    with pytest.raises(ValueError, match="dependency MUST be a scoped query.table"):
         verifier.verify(
             _plan(
                 (scope, count, metric),

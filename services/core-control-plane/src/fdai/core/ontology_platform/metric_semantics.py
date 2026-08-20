@@ -133,6 +133,13 @@ class MetricWindow:
 class MetricWindowComparison:
     """Equal-duration comparison that distinguishes observed zero from missing data."""
 
+    concept_id: str
+    resource_id: str
+    unit: str
+    baseline_start: datetime
+    baseline_end: datetime
+    current_start: datetime
+    current_end: datetime
     baseline_value: float | None
     current_value: float | None
     absolute_change: float | None
@@ -166,6 +173,13 @@ def compare_aligned_windows(
             }
         )
         return MetricWindowComparison(
+            concept_id=baseline.concept_id,
+            resource_id=baseline.resource_id,
+            unit=baseline.unit,
+            baseline_start=baseline.start,
+            baseline_end=baseline.end,
+            current_start=current.start,
+            current_end=current.end,
             baseline_value=None,
             current_value=None,
             absolute_change=None,
@@ -179,6 +193,13 @@ def compare_aligned_windows(
     absolute = current_value - baseline_value
     relative = None if baseline_value == 0.0 else absolute / abs(baseline_value)
     return MetricWindowComparison(
+        concept_id=baseline.concept_id,
+        resource_id=baseline.resource_id,
+        unit=baseline.unit,
+        baseline_start=baseline.start,
+        baseline_end=baseline.end,
+        current_start=current.start,
+        current_end=current.end,
         baseline_value=baseline_value,
         current_value=current_value,
         absolute_change=absolute,
