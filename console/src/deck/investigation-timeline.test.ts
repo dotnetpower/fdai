@@ -132,7 +132,11 @@ describe("upsertEvidenceBranch", () => {
       "utf8",
     );
 
-    expect(component).toContain('<details class="deck-investigation-activity-disclosure" open={running}>');
+    expect(component).toContain('key={running ? "running" : "settled"}');
+    expect(component).toContain('class={`deck-investigation ${running ? "is-running" : `is-settled is-${tone}`}`}');
+    expect(component).toContain("open={running}");
+    expect(component).not.toContain("deck-investigation-activity-disclosure");
+    expect(styles).toContain(".deck-investigation-head::-webkit-details-marker { display: none; }");
     expect(component).toContain('class="deck-investigation-readonly"');
     expect(component).toContain('t("deck.investigation.readOnly")');
     expect(component).toContain('class="deck-investigation-item-disclosure"');
@@ -192,7 +196,14 @@ describe("upsertEvidenceBranch", () => {
     expect(styles).toMatch(
       /\.deck-rt-stage\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*18px minmax\(0, 1fr\) auto 24px;/s,
     );
-    expect(styles).toContain(".deck-rt-stage-copy {");
+    expect(styles).toMatch(
+      /\.deck-rt-stage-copy\s*\{[^}]*display:\s*flex;[^}]*align-items:\s*baseline;[^}]*overflow:\s*hidden;/s,
+    );
+    expect(styles).toMatch(
+      /\.deck-rt-detail\s*\{[^}]*text-overflow:\s*ellipsis;[^}]*white-space:\s*nowrap;/s,
+    );
+    expect(styles).toMatch(/\.deck-rt-head\s*\{[^}]*display:\s*flex;/s);
+    expect(styles).toMatch(/\.deck-rt-sub\s*\{[^}]*text-overflow:\s*ellipsis;[^}]*white-space:\s*nowrap;/s);
     expect(styles).toMatch(
       /\.deck-rt-txt\s*\{[^}]*flex-direction:\s*column;[^}]*align-items:\s*flex-start;/s,
     );

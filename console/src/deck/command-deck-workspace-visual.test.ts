@@ -19,6 +19,10 @@ const presenters = readFileSync(
   fileURLToPath(new URL("./command-deck-presenters.tsx", import.meta.url)),
   "utf8",
 );
+const tableModule = readFileSync(
+  fileURLToPath(new URL("./presentation-modules/table.tsx", import.meta.url)),
+  "utf8",
+);
 const sessions = readFileSync(
   fileURLToPath(new URL("./use-command-deck-sessions.ts", import.meta.url)),
   "utf8",
@@ -176,6 +180,10 @@ describe("Command Deck workspace hierarchy", () => {
     expect(styles).toMatch(
       /\.deck-overlay-mode-workspace \.deck-composer-inner \{[^}]*width: min\(100%, calc\(var\(--deck-reading-width\) \+ 120px\)\);/s,
     );
+    expect(styles).toMatch(/\.deck-header \{[^}]*position: relative;[^}]*z-index: 2;/s);
+    expect(styles).toMatch(/\.deck-body \{[^}]*position: relative;[^}]*z-index: 1;/s);
+    expect(styles).toMatch(/\.deck-input-row \{[^}]*z-index: 2;/s);
+    expect(styles).toMatch(/\.deck-transcript \{[^}]*overflow-x: hidden;[^}]*overflow-y: auto;/s);
     expect(styles).toContain(".deck-table-block,");
     expect(styles).toContain(".deck-table-cell-value {");
     expect(styles).toContain("overflow-wrap: anywhere;");
@@ -185,6 +193,11 @@ describe("Command Deck workspace hierarchy", () => {
     expect(structuredStyles).toMatch(
       /\.deck-presentation-table th \{[^}]*position: sticky;[^}]*top: 0;[^}]*z-index: 1;/s,
     );
+    expect(tableModule).toContain("data-field={presentationFieldRole(column.label)}");
+    expect(structuredStyles).toContain('.deck-presentation-table th[data-field="name"],');
+    expect(structuredStyles).toContain('.deck-presentation-table td[data-field="name"] { width: 58%; }');
+    expect(structuredStyles).toContain('.deck-presentation-table td[data-field="type"] { width: 24%; }');
+    expect(structuredStyles).toContain('.deck-presentation-table td[data-field="location"] { width: 18%; }');
     expect(structuredStyles).toMatch(
       /@media \(max-width: 560px\)[\s\S]*\.deck-presentation-table th \{ position: static; \}/,
     );
@@ -214,6 +227,8 @@ describe("Command Deck workspace hierarchy", () => {
     expect(styles).toMatch(/\.deck-gr-icon \{[^}]*width: 32px;[^}]*height: 32px;/s);
     expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-search button \{ width: 44px; height: 44px; \}/);
     expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-gr-icon \{ width: 44px; height: 44px; \}/);
+    expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-transcript-tools \{ overflow-x: hidden; padding-inline: 12px; \}/);
+    expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-overlay-mode-workspace \.deck-transcript-tools button \{[^}]*min-height: 44px;[^}]*padding-inline: 6px;/s);
     expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-layout-controls \{ display: none; \}/);
     expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-input-row button \{ min-width: 44px; min-height: 44px; \}/);
     expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-source-status \{ min-height: 44px;/);

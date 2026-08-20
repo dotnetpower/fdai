@@ -114,7 +114,7 @@ def _presentation_intent(
     if output_shape == "topology_graph" and shape.timestamp_field is not None:
         return PresentationIntent.CHRONOLOGY
     if output_shape in {"resource_list", "property_filtered_resources"}:
-        return PresentationIntent.RECORDS
+        return PresentationIntent.EXACT
     return PresentationIntent.EXACT
 
 

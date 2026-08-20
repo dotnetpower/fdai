@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterator, Mapping, Sequence
 
 _LIFTED_ROW_FIELDS = ("name", "type", "status", "location")
+_TECHNICAL_IDENTITY_FIELDS = frozenset({"id", "object_type"})
 _INTERNAL_ROW_FIELDS = frozenset(
     {
         "catalog_digest",
@@ -34,9 +35,12 @@ def readable_row(values: Mapping[str, object]) -> dict[str, object]:
 
 
 def ordered_columns(fields: Sequence[str]) -> list[str]:
-    """Lead with readable resource fields and keep opaque identity afterward."""
+    """Lead with readable fields and omit opaque identity when richer facts exist."""
     readable = [field for field in fields if field not in _INTERNAL_ROW_FIELDS]
     selected = readable or list(fields)
+    business_fields = [field for field in selected if field not in _TECHNICAL_IDENTITY_FIELDS]
+    if business_fields:
+        selected = business_fields
     leading = [field for field in _LIFTED_ROW_FIELDS if field in selected]
     return leading + [field for field in selected if field not in leading]
 

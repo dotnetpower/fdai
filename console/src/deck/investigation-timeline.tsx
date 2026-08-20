@@ -465,37 +465,32 @@ export function InvestigationTimeline({
         </ol>
       ) : null}
       {activities.length > 0 ? (
-        <details class="deck-investigation-activity-disclosure" open={running}>
-          <summary>
-            {t("deck.investigation.executionDetails", { count: activities.length })}
-          </summary>
-          <ol class="deck-investigation-list">
-            {activities.map((activity, index) => {
-              return (
-                <li
-                  key={activity.activityId}
-                  class={`deck-investigation-item is-${activity.status}`}
-                >
-                  {activity.execution ? (
-                    <details
-                      class="deck-investigation-item-disclosure"
-                      open={activity.status === "running" ||
-                        (running && index === activities.length - 1)}
-                    >
-                      <summary><ActivitySummary activity={activity} /></summary>
-                      <ExecutionEvidence
-                        evidence={activity.execution}
-                        status={activity.status}
-                        {...(activity.agent ? { agent: activity.agent } : {})}
-                        {...(activity.authority ? { authority: activity.authority } : {})}
-                      />
-                    </details>
-                  ) : <ActivitySummary activity={activity} />}
-                </li>
-              );
-            })}
-          </ol>
-        </details>
+        <ol class="deck-investigation-list">
+          {activities.map((activity, index) => {
+            return (
+              <li
+                key={activity.activityId}
+                class={`deck-investigation-item is-${activity.status}`}
+              >
+                {activity.execution ? (
+                  <details
+                    class="deck-investigation-item-disclosure"
+                    open={activity.status === "running" ||
+                      (running && index === activities.length - 1)}
+                  >
+                    <summary><ActivitySummary activity={activity} /></summary>
+                    <ExecutionEvidence
+                      evidence={activity.execution}
+                      status={activity.status}
+                      {...(activity.agent ? { agent: activity.agent } : {})}
+                      {...(activity.authority ? { authority: activity.authority } : {})}
+                    />
+                  </details>
+                ) : <ActivitySummary activity={activity} />}
+              </li>
+            );
+          })}
+        </ol>
       ) : null}
     </div>
   );
@@ -513,11 +508,13 @@ export function InvestigationTimeline({
           </div>
         </div>
       ) : null}
-      <section
+      <details
+        key={running ? "running" : "settled"}
         class={`deck-investigation ${running ? "is-running" : `is-settled is-${tone}`}`}
+        open={running}
         aria-label={t("deck.investigation.label")}
       >
-        <header class="deck-investigation-head">
+        <summary class="deck-investigation-head">
           {running ? (
             <span class="deck-investigation-spinner" aria-hidden="true" />
           ) : (
@@ -538,10 +535,10 @@ export function InvestigationTimeline({
           <span class={`deck-investigation-badge is-${running ? "running" : tone}`}>
             {statusLabel(running ? "running" : tone)}
           </span>
-        </header>
+        </summary>
         {body}
         {running && allObservedCallsSettled ? <InvestigationNextSkeleton /> : null}
-      </section>
+      </details>
     </>
   );
 }

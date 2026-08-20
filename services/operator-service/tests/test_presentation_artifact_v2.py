@@ -177,23 +177,74 @@ def test_unit_mismatch_and_missing_values_fall_back_without_coercion() -> None:
     assert blocks[1]["slot_id"] == "limitations"
 
 
-def test_v2_resource_table_lifts_readable_fields_from_nested_property_bags() -> None:
+@pytest.mark.parametrize("row_count", (1, 11, 20))
+def test_v2_resource_table_keeps_stable_cardinality(row_count: int) -> None:
     details = _details(
         [
             {
-                "id": "scope-1/resource-group/rg-fdai",
+                "id": f"resource-{index}",
                 "object_type": "Resource",
                 "properties": {
-                    "id": "scope-1/resource-group/rg-fdai",
-                    "name": "rg-fdai",
+                    "name": f"resource-with-a-deliberately-long-readable-name-{index}",
                     "type": "resource-group",
-                    "properties": {
-                        "location": "example-region",
-                        "tags": {"workload": "fdai"},
-                    },
                 },
             }
+            for index in range(row_count)
         ],
+        output_shape="property_filtered_resources",
+    )
+
+    artifact = compile_presentation_artifact_v2(
+        semantic=_SEMANTIC,
+        technical_details=details,
+        locale="en",
+    )
+
+    assert artifact is not None
+    block = cast(list[dict[str, object]], artifact["blocks"])[0]
+    assert block["kind"] == "table"
+    data = cast(dict[str, object], block["data"])
+    assert data["columns"] == [
+        {"key": "c0", "label": "name"},
+        {"key": "c1", "label": "type"},
+    ]
+    assert len(cast(list[object], data["rows"])) == row_count
+
+
+def test_v2_zero_resource_rows_render_typed_empty_evidence() -> None:
+    artifact = compile_presentation_artifact_v2(
+        semantic=_SEMANTIC,
+        technical_details=_details([], output_shape="property_filtered_resources"),
+        locale="en",
+    )
+
+    assert artifact is not None
+    block = cast(list[dict[str, object]], artifact["blocks"])[0]
+    assert (block["slot_id"], block["kind"], block["title"]) == (
+        "limitations",
+        "callout",
+        "Unavailable",
+    )
+
+
+def test_v2_resource_table_lifts_readable_fields_from_nested_property_bags() -> None:
+    rows = [
+        {
+            "id": "scope-1/resource-group/rg-fdai",
+            "object_type": "Resource",
+            "properties": {
+                "id": "scope-1/resource-group/rg-fdai",
+                "name": "rg-fdai",
+                "type": "resource-group",
+                "properties": {
+                    "location": "example-region",
+                    "tags": {"workload": "fdai"},
+                },
+            },
+        }
+    ]
+    details = _details(
+        rows,
         output_shape="property_filtered_resources",
     )
 
@@ -210,18 +261,38 @@ def test_v2_resource_table_lifts_readable_fields_from_nested_property_bags() -> 
         {"key": "c0", "label": "name"},
         {"key": "c1", "label": "type"},
         {"key": "c2", "label": "location"},
-        {"key": "c3", "label": "id"},
-        {"key": "c4", "label": "object_type"},
     ]
     assert data["rows"] == [
         {
             "c0": "rg-fdai",
             "c1": "resource-group",
             "c2": "example-region",
-            "c3": "scope-1/resource-group/rg-fdai",
-            "c4": "Resource",
         }
     ]
+    assert cast(dict[str, object], rows[0])["id"] == "scope-1/resource-group/rg-fdai"
+    assert cast(dict[str, object], rows[0])["object_type"] == "Resource"
+
+
+def test_v2_resource_table_keeps_identity_when_no_readable_field_exists() -> None:
+    details = _details(
+        [{"id": "resource-a", "object_type": "Resource"}],
+        output_shape="property_filtered_resources",
+    )
+
+    artifact = compile_presentation_artifact_v2(
+        semantic=_SEMANTIC,
+        technical_details=details,
+        locale="en",
+    )
+
+    assert artifact is not None
+    block = cast(list[dict[str, object]], artifact["blocks"])[0]
+    data = cast(dict[str, object], block["data"])
+    assert data["columns"] == [
+        {"key": "c0", "label": "id"},
+        {"key": "c1", "label": "object_type"},
+    ]
+    assert data["rows"] == [{"c0": "resource-a", "c1": "Resource"}]
 
 
 def test_unknown_typed_context_fails_closed_instead_of_using_v1_heuristics() -> None:

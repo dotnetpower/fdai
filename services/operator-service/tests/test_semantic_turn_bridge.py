@@ -1646,18 +1646,51 @@ def test_general_query_presentation_lifts_readable_fields_out_of_property_bags()
         {"key": "c0", "label": "name"},
         {"key": "c1", "label": "type"},
         {"key": "c2", "label": "location"},
-        {"key": "c3", "label": "id"},
-        {"key": "c4", "label": "object_type"},
     ]
     assert records["rows"] == [
         {
             "c0": "rg-a",
             "c1": "resource-group",
             "c2": "example-region",
-            "c3": "scope-1/resource-group/rg-a",
-            "c4": "Resource",
         }
     ]
+
+
+def test_general_query_presentation_keeps_identity_when_no_readable_fact_exists() -> None:
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+    projection = _projection(envelope, disposition="answered", answered_evidence=True)
+    projection["payload"] = {
+        "technical_details": {
+            "schema_version": 1,
+            "kind": "semantic_query_outputs",
+            "outputs": [
+                {
+                    "node_id": "resources",
+                    "rows": [
+                        {
+                            "row_id": "r1",
+                            "values": {"id": "resource-a", "object_type": "Resource"},
+                        }
+                    ],
+                    "returned_rows": 1,
+                    "total_rows": 1,
+                }
+            ],
+        }
+    }
+
+    done = semantic_turn_runtime_module._done_event_data(projection, locale="en")
+
+    artifact = cast(dict[str, object], done["presentation_artifact"])
+    blocks = cast(list[dict[str, object]], artifact["blocks"])
+    records = cast(dict[str, object], blocks[1]["data"])
+    assert records["columns"] == [
+        {"key": "c0", "label": "id"},
+        {"key": "c1", "label": "object_type"},
+    ]
+    assert records["rows"] == [{"c0": "resource-a", "c1": "Resource"}]
 
 
 def test_general_query_presentation_without_rows_stays_a_summary() -> None:

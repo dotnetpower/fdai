@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: a93438e0af5b2c1a560e0354e1c06f8e1080d207
+translation_source_sha: 11384bc0327ecaad9f4d434a41399b3f38febef0
 translation_revised: 2026-08-20
 ---
 # 코드 맵
@@ -57,7 +57,7 @@ translation_revised: 2026-08-20
 | 브라우저 근거 메타데이터 읽기 계약 | 구현됨 | `fdai_service_contracts/operator.py`, `fdai_operator_service/browser_evidence_projection.py`, Operator migration, focused Operator 및 공유 계약 검사(`148 passed`) | `BrowserEvidenceQuery`는 구현이 없는 Operator 계약에 범위가 제한된 읽기 전용 메서드 하나를 추가합니다. Service 역할은 security-barrier 메타데이터 view만 조회할 수 있으며 수집 및 구조화된 페이로드는 서비스 간 계약 밖에 유지됩니다. |
 | 인시던트 roster 읽기 필터 | 구현됨 | `fdai_service_contracts/operator.py`, `fdai_operator_service/routes.py`, `fdai_operator_service/postgres_sql.py`, focused Operator 및 공유 계약 검사 | `IncidentQuery.search`와 `severity`는 구현이 없는 Operator 계약에 범위가 제한된 선택적 읽기 필터를 추가합니다. Service는 검색어를 정규화하고 페이지 제한 전에 기록된 대상 근거만 일치시키며, 검색, 상태, 버티컬, 심각도를 같은 snapshot과 cursor identity에 묶습니다. |
 | 서비스 간 의미 Rule 변환 결과 | 구현됨 | `fdai_service_contracts/semantic_turn.py`, `fdai_core_service/semantic_turn_processor.py`, `fdai_operator_service/postgres_semantic_turn_store.py`, 통과한 의미 경로 테스트 94개 | 공유 버전 1.2 계약, Core 처리 및 Operator 영속성은 후보 전용 권한, 범위가 제한된 기한, 복구 가능한 소유권 및 principal 범위의 exact 읽기와 함께 검증된 정확한 함수 호출 증적 및 정규 다이제스트를 보존합니다. 계약 검증은 내용, 다이제스트, 작업, 의도, 기능 및 최종 상태 차이를 거부합니다. 통제된 실제 운영 보증은 [온톨로지 조회 coverage 계획](../interfaces/ontology-query-coverage-implementation-plan-ko.md#남은-작업)에 열린 항목으로 남아 있습니다. |
-| Console 의미 증적 projection | 구현됨 | `semantic_turn.py`, `semantic_turn_processor.py`, `semantic_turn_runtime.py`, `console/src/deck/backend-normalizers.ts`, focused shared, Core, Operator 및 Console 테스트 | 타입이 지정된 경로, 구체적인 명확화 답변, 사용 불가 사유, 네 개의 보증 다이제스트, 근거 참조 및 `execution_authority=false`가 prose 추론 없이 shared 계약, Core 결과, exact Operator 읽기, 최종 스트림, 영속 transcript, replay 및 Console 표현을 통과합니다. 통과한 실제 브라우저 및 무작위 보증 기록은 온톨로지 조회 coverage 계획의 열린 항목으로 남아 있습니다. |
+| Console 의미 증적 projection | 구현됨 | `semantic_turn.py`, `semantic_turn_processor.py`, `semantic_turn_runtime.py`, `presentation_rows.py`, `presentation_artifact_v2.py`, `console/src/deck/backend-normalizers.ts`, 집중 Operator 검사 20개 통과 | 타입이 지정된 경로, 구체적인 명확화 답변, 사용 불가 사유, 보증 다이제스트, 근거 참조 및 `execution_authority=false`가 prose 추론 없이 shared 계약, Core 결과, exact Operator 읽기, 최종 스트림, 영속 transcript, replay 및 Console 표현을 통과합니다. Operator 표현 변환 결과는 읽기 쉬운 `name`, `type`, `location` 필드를 끌어올리고, 읽을 수 있는 사실이 있으면 기본 표에서 기술 identity를 제외하며, identity-only fallback과 변경되지 않은 기술 결과를 유지합니다. 통제된 브라우저 및 무작위 보증 기록은 온톨로지 조회 coverage 계획의 열린 항목으로 남아 있습니다. |
 | 검증된 표현 의도 변환 결과 | 구현됨 | `fdai_core_service/semantic_turn_processor.py`, `test_semantic_turn_processor.py`, 집중 processor 검사 62개 통과 | Core는 검증된 의미 operation과 output-shape token만 exact 기술 출력 옆에 보존합니다. Downstream 표현은 질문이나 모델 서술을 다시 해석하지 않고 배치를 선택할 수 있으며, 이 변환 결과는 벤더, 승인, 변경 또는 실행 권한을 추가하지 않습니다. |
 | 채널 표현 렌더러 seam | 구현됨 | `shared/providers/channel_presentation.py`, `delivery/channels/`, 집중 채널 렌더러 검사 40개 통과 | Shared는 변경할 수 없는 기능, 묶음, 페이로드 및 렌더러 Protocol 정의를 소유합니다. Delivery는 엄격한 산출물 정규화와 순수 Teams/Slack 페이로드 구성을 소유합니다. Fork는 core를 편집하지 않고 사용자 지정 렌더러를 주입할 수 있으며 전송, 신원, 확인 응답 또는 실행 권한을 추가하지 않습니다. |
 | Slack A3 전송 경계 | 진행 중 | Core-local `delivery/channels/slack_*.py` prototype, 집중 channel 및 gateway 검사 76개 통과 | Prototype은 exact-body HMAC, replay 거부, 닫힌 workspace/sender 정규화, 범위가 제한된 queue admission, 고정 Slack method 및 확인 응답 분류를 증명합니다. 운영 Operator 구현과 조립은 열린 상태입니다. |
@@ -219,6 +219,8 @@ translation_revised: 2026-08-20
 | 2026-08-20 | 구현됨 | 적대적 검토 뒤 rejection-only aggregation 일치 guard에 일반적인 한국어 `그루핑`과 `합계` operator를 추가했습니다. 두 표현은 nonaggregation frame을 invalid로 만들 수 있지만 plan을 선택하거나 범위를 넓히거나 권한을 부여할 수 없습니다. | `current change`, aggregation guard control 9개와 전체 집중 slice 84개가 Ruff, format, strict mypy와 함께 통과했습니다. | 수정된 소스에서 통과한 정확한 source strict-v2 및 seeded 보증 기록을 보존합니다. |
 | 2026-08-20 | 구현됨 | 실행 r13에서 한국어 listing 하나가 aggregate 답변으로 나타난 뒤 대칭적인 listing-versus-aggregation consistency를 추가했습니다. 명시적 listing은 명시적 count, total 또는 grouping operator가 없을 때만 aggregation을 거부하고 prompt v27도 같은 우선순위를 보존합니다. | `current change`, 정확한 소스 실행 `question-space-final-f7fff0f9e-20260820-r13`, 집중 대칭, 이중 언어, 우선순위, domain noun, false-positive control 13개 통과 | 수정된 소스에서 통과한 정확한 source strict-v2 및 seeded 보증 기록을 보존합니다. |
 | 2026-08-20 | 구현됨 | Aggregate 및 unrelated fixture 발화를 수정한 뒤 listing-intent 집중 검증을 확장했습니다. | `current change`, 전체 contract, 의미, prompt, composition slice 88개가 Ruff, format, strict mypy와 함께 통과 | 수정된 소스에서 통과한 정확한 source strict-v2 및 seeded 보증 기록을 보존합니다. |
+
+| 2026-08-20 | implemented | 영속 의미 결과에서 기술 identity를 삭제하지 않으면서 검증된 리소스 표를 운영자가 읽을 수 있는 필드로 줄였습니다. 읽기 가능한 행은 `name`, `type`, 선택적 `location`을 앞에 두고 identity-only 행은 `id`와 `object_type`을 계속 표시하며 0개 행은 타입이 지정된 빈 근거 표현을 생성합니다. | `current change`, `presentation_rows.py`, `presentation_artifact_v2.py`, 집중 Operator 검사 20개 통과 | 별도의 답변 경로를 validated로 올리기 전에 Issue #244에서 추적하는 통제된 인과 진단 근거를 보존합니다. |
 
 ### 남은 작업
 

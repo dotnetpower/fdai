@@ -12,14 +12,25 @@ export function PresentationTable({ data }: { readonly data: PresentationTableDa
     <table class="deck-presentation-table">
       <thead>
         <tr>{data.columns.map((column) => (
-          <th key={column.key} scope="col" data-column={column.key}>{column.label}</th>
+          <th
+            key={column.key}
+            scope="col"
+            data-column={column.key}
+            data-field={presentationFieldRole(column.label)}
+          >
+            {column.label}
+          </th>
         ))}</tr>
       </thead>
       <tbody>
         {data.rows.map((row, rowIndex) => (
           <tr key={rowIndex}>
             {data.columns.map((column) => (
-              <td key={column.key} data-column={column.key}>
+              <td
+                key={column.key}
+                data-column={column.key}
+                data-field={presentationFieldRole(column.label)}
+              >
                 <span class="deck-presentation-cell-label" aria-hidden="true">
                   {column.label}
                 </span>
@@ -45,6 +56,11 @@ export function PresentationTable({ data }: { readonly data: PresentationTableDa
       </tbody>
     </table>
   );
+}
+
+export function presentationFieldRole(label: string): string | undefined {
+  const leaf = label.trim().split(".").at(-1)?.toLowerCase();
+  return leaf === "name" || leaf === "type" || leaf === "location" ? leaf : undefined;
 }
 
 function statusTone(value: string | undefined): "neutral" | "positive" | "warning" {

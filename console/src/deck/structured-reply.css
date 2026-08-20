@@ -129,6 +129,12 @@
 .deck-presentation-table td[data-column="mode"] { width: 82px; }
 .deck-presentation-table th[data-column$="ref"],
 .deck-presentation-table td[data-column$="ref"] { width: 104px; }
+.deck-presentation-table th[data-field="name"],
+.deck-presentation-table td[data-field="name"] { width: 58%; }
+.deck-presentation-table th[data-field="type"],
+.deck-presentation-table td[data-field="type"] { width: 24%; }
+.deck-presentation-table th[data-field="location"],
+.deck-presentation-table td[data-field="location"] { width: 18%; }
 .deck-presentation-cell-label { display: none; }
 
 .deck-presentation-timestamp {
