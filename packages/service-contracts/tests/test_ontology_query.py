@@ -58,6 +58,11 @@ def _frame() -> SemanticProblemFrame:
     )
 
 
+def test_semantic_aggregate_operation_is_a_stable_wire_token() -> None:
+    assert SemanticOperation("aggregate") is SemanticOperation.AGGREGATE
+    assert SemanticOperation.AGGREGATE.value == "aggregate"
+
+
 def _plan(frame: SemanticProblemFrame) -> OntologyQueryPlan:
     nodes = (
         OntologyQueryNode(

@@ -32,6 +32,7 @@ class QueryContract(BaseModel):
 
 class SemanticOperation(StrEnum):
     SELECT = "select"
+    AGGREGATE = "aggregate"
     COMPARE = "compare"
     EXPLAIN_CHANGE = "explain_change"
     VALIDATE = "validate"

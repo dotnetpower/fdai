@@ -130,11 +130,20 @@ class PostgresTopologyHistoryStore:
             async with connection.transaction():
                 await self._set_timeout(connection)
                 batch_cursor = await connection.execute(
+                    "WITH latest_complete AS ("
+                    "SELECT recorded_at, revision_id FROM topology_revision_batch "
+                    "WHERE effective_at <= %s AND recorded_at <= %s AND complete_snapshot "
+                    "ORDER BY recorded_at DESC, revision_id DESC LIMIT 1"
+                    ") "
                     "SELECT revision_id, provider_generation_ref, effective_at, recorded_at, "
                     "complete_snapshot FROM topology_revision_batch "
-                    "WHERE effective_at <= %s AND recorded_at <= %s "
+                    "WHERE effective_at <= %s AND recorded_at <= %s AND ("
+                    "NOT EXISTS (SELECT 1 FROM latest_complete) OR "
+                    "(recorded_at, revision_id) >= "
+                    "(SELECT recorded_at, revision_id FROM latest_complete)"
+                    ") "
                     "ORDER BY recorded_at, revision_id LIMIT 1001",
-                    (as_of, known_at),
+                    (as_of, known_at, as_of, known_at),
                 )
                 batch_rows = await batch_cursor.fetchall()
                 if len(batch_rows) > _MAX_BATCHES:

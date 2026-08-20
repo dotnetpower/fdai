@@ -32,7 +32,9 @@ _LOGGER = logging.getLogger(__name__)
 _SERVER_BOUND_REQUIREMENTS = frozenset(
     {ClarificationRequirement.PRINCIPAL_SCOPE, ClarificationRequirement.PURPOSE}
 )
-_SCHEMA_LEVEL_OUTPUT_SHAPES = frozenset({"ontology_manifest", "ontology_relationships"})
+_SCHEMA_LEVEL_OUTPUT_SHAPES = frozenset(
+    {"ontology_declaration", "ontology_manifest", "ontology_relationships"}
+)
 _DECLARATION_KINDS = frozenset({"action", "function", "interface", "link", "object"})
 # Provider inventory names one concrete instance with joined segments
 # (`aks-fdai-observe-lab`). A declaration name is dotted or a single word, and a
@@ -41,10 +43,33 @@ _RUNTIME_INSTANCE_TOKEN = re.compile(
     r"(?<![A-Za-z0-9_.-])[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+){2,}(?![A-Za-z0-9_.-])"
 )
 _MAX_SCANNED_TOKENS = 32
+_EXPLICIT_AGGREGATION_REQUEST = re.compile(
+    r"(?:\b(?:count|grouped|grouping|how\s+many|number\s+of|total)\b|"
+    r"\bgroup\b[^.!?\n]{0,80}\bby\b|"
+    r"집계|그룹화|그루핑|합계|몇\s*(?:개|건|명)?|개수|수를\s*요약)"
+)
+_EXPLICIT_LISTING_REQUEST = re.compile(
+    r"(?:\b(?:find|list|show|which)\b|나열|보여\s*(?:주세요|줘)|찾아\s*(?:주세요|줘))"
+)
+_SPECIALIZED_FUNCTIONS_BY_OUTPUT_SHAPE = {
+    "incident_evidence": frozenset({"query.incident_evidence"}),
+    "inventory_impact": frozenset({"query.inventory_impact"}),
+    "ontology_declaration": frozenset({"query.ontology_declaration"}),
+    "ontology_manifest": frozenset({"query.manifest"}),
+    "ontology_relationships": frozenset({"query.ontology_relationships"}),
+    "ontology_release_evidence_health": frozenset(
+        {"query.ontology_evidence_health", "query.ontology_release_diff"}
+    ),
+}
 _SPECIALIZED_FUNCTION_OUTPUT_SHAPES = {
-    "query.incident_evidence": "incident_evidence",
-    "query.manifest": "ontology_manifest",
-    "query.ontology_relationships": "ontology_relationships",
+    function_name: output_shape
+    for output_shape, function_names in _SPECIALIZED_FUNCTIONS_BY_OUTPUT_SHAPE.items()
+    for function_name in function_names
+}
+_DECLARATION_SECTIONS_BY_MEASURE = {
+    "declaration_detail": "detail",
+    "declaration_dependents": "dependents",
+    "rule_state": "detail",
 }
 _REQUIRED_NODE_KINDS_BY_OUTPUT_SHAPE = {
     "aggregation_table": frozenset({QueryNodeKind.AGGREGATE}),
@@ -195,7 +220,7 @@ class SemanticPlanningCascade:
                 raise ProposalRejectedError("plan_build", type(exc).__name__) from exc
             try:
                 self._verifier.verify(plan, manifest=manifest)
-                _verify_frame_plan_alignment(frame, plan)
+                _verify_frame_plan_alignment(frame, plan, descriptors=manifest.descriptors)
             except ValueError as exc:
                 if self._should_escalate(tier=tier, stage="plan", reason="invalid"):
                     continue
@@ -232,11 +257,37 @@ def _validate_frame_proposal(
     is_causal_evidence = proposal.output_shape == "causal_evidence"
     if (proposal.operation is SemanticOperation.EXPLAIN_CHANGE) != is_causal_evidence:
         raise ValueError("semantic explain_change operation requires causal_evidence output")
+    is_aggregation = proposal.output_shape == "aggregation_table"
+    if (proposal.operation is SemanticOperation.AGGREGATE) != is_aggregation:
+        raise ValueError("semantic aggregate operation requires aggregation_table output")
+    normalized_utterance = utterance.casefold()
+    explicit_aggregation = _EXPLICIT_AGGREGATION_REQUEST.search(normalized_utterance) is not None
+    if explicit_aggregation and not is_aggregation:
+        raise ValueError("explicit aggregation request requires aggregation_table output")
+    if (
+        is_aggregation
+        and not explicit_aggregation
+        and _EXPLICIT_LISTING_REQUEST.search(normalized_utterance) is not None
+    ):
+        raise ValueError("explicit listing request cannot use aggregation_table output")
     if proposal.output_shape in _SCHEMA_LEVEL_OUTPUT_SHAPES and _names_runtime_instance(
         (utterance, *proposal.subject_constraints),
         descriptors=descriptors,
     ):
         raise ValueError("schema-level semantic frame names a runtime resource instance")
+    if proposal.output_shape == "ontology_declaration":
+        measures = frozenset(proposal.measure_concepts)
+        if (
+            proposal.operation is not SemanticOperation.SELECT
+            or len(proposal.subject_constraints) != 1
+            or not measures
+            or not measures <= _DECLARATION_SECTIONS_BY_MEASURE.keys()
+        ):
+            raise ValueError("semantic declaration frame requires an exact declaration measure")
+        if "rule_state" in measures and (
+            measures != {"rule_state"} or proposal.subject_constraints != ("Rule",)
+        ):
+            raise ValueError("semantic Rule state frame requires the exact Rule declaration")
 
 
 def _names_runtime_instance(
@@ -307,8 +358,14 @@ def _string_list(value: object) -> tuple[str, ...]:
 def _verify_frame_plan_alignment(
     frame: SemanticProblemFrame,
     plan: OntologyQueryPlan,
+    *,
+    descriptors: tuple[dict[str, Any], ...],
 ) -> None:
     selected_node_kinds = {node.kind for node in plan.nodes}
+    if (QueryNodeKind.AGGREGATE in selected_node_kinds) != (
+        frame.operation is SemanticOperation.AGGREGATE
+    ):
+        raise ValueError("semantic aggregate plan must match the frame operation")
     required_node_kinds = _REQUIRED_NODE_KINDS_BY_OUTPUT_SHAPE.get(frame.output_shape)
     if required_node_kinds is not None and required_node_kinds.isdisjoint(selected_node_kinds):
         raise ValueError("semantic plan does not satisfy frame capability")
@@ -330,15 +387,8 @@ def _verify_frame_plan_alignment(
         if isinstance(function_name, str):
             selected_output_functions.add(function_name)
 
-    expected_function = next(
-        (
-            function_name
-            for function_name, output_shape in _SPECIALIZED_FUNCTION_OUTPUT_SHAPES.items()
-            if output_shape == frame.output_shape
-        ),
-        None,
-    )
-    if expected_function is not None and expected_function not in selected_output_functions:
+    expected_functions = _SPECIALIZED_FUNCTIONS_BY_OUTPUT_SHAPE.get(frame.output_shape)
+    if expected_functions is not None and not expected_functions <= selected_output_functions:
         raise ValueError("semantic plan does not satisfy specialized frame output")
     if any(
         output_shape != frame.output_shape
@@ -346,6 +396,7 @@ def _verify_frame_plan_alignment(
         if function_name in selected_output_functions
     ):
         raise ValueError("semantic plan selects a function outside the frame output")
+    _verify_ontology_declaration_subject(frame, plan, descriptors=descriptors)
 
 
 def _verify_manifest_aggregate_source(
@@ -368,6 +419,67 @@ def _verify_manifest_aggregate_source(
         raise ValueError("semantic manifest aggregate requires declaration subjects")
     if any(kinds != requested_kinds for kinds in manifest_kinds):
         raise ValueError("semantic manifest aggregate kinds differ from frame subjects")
+
+
+def _verify_ontology_declaration_subject(
+    frame: SemanticProblemFrame,
+    plan: OntologyQueryPlan,
+    *,
+    descriptors: tuple[dict[str, Any], ...],
+) -> None:
+    """Bind declaration function arguments to one exact frame intent."""
+    if frame.output_shape != "ontology_declaration":
+        return
+    if len(frame.subject_constraints) != 1:
+        raise ValueError("semantic declaration frame requires one exact subject")
+    expected_name = frame.subject_constraints[0]
+    expected_sections = frozenset(
+        _DECLARATION_SECTIONS_BY_MEASURE[item] for item in frame.measure_concepts
+    )
+    expected_kinds = frozenset(
+        kind
+        for descriptor in descriptors
+        if descriptor.get("name") == expected_name
+        if isinstance((kind := descriptor.get("kind")), str)
+        if kind in {"action", "link", "object"}
+    )
+    selected = tuple(
+        (node.node_id, node.output_kind, function_arguments)
+        for node in plan.nodes
+        if node.kind is QueryNodeKind.FUNCTION
+        if (function_arguments := _function_arguments(node.arguments_json)) is not None
+    )
+    if len(selected) != len(expected_sections):
+        raise ValueError("semantic declaration plan sections differ from frame")
+    if len(selected) != len(plan.nodes):
+        raise ValueError("semantic declaration plan contains unrelated nodes")
+    if {node_id for node_id, _output_kind, _arguments in selected} != set(plan.output_node_ids):
+        raise ValueError("semantic declaration plan outputs differ from requested sections")
+    if any(output_kind != "query.table" for _node_id, output_kind, _arguments in selected):
+        raise ValueError("semantic declaration plan output kind differs from function contract")
+    if any(
+        arguments.get("name") != expected_name for _node_id, _output_kind, arguments in selected
+    ):
+        raise ValueError("semantic declaration plan subject differs from frame")
+    if {
+        arguments.get("section") for _node_id, _output_kind, arguments in selected
+    } != expected_sections:
+        raise ValueError("semantic declaration plan sections differ from frame")
+    if len(expected_kinds) != 1 or any(
+        arguments.get("kind") not in expected_kinds
+        for _node_id, _output_kind, arguments in selected
+    ):
+        raise ValueError("semantic declaration plan kind differs from manifest")
+
+
+def _function_arguments(arguments_json: str) -> Mapping[str, object] | None:
+    arguments = json.loads(arguments_json)
+    if not isinstance(arguments, Mapping):
+        return None
+    if arguments.get("function_name") != "query.ontology_declaration":
+        return None
+    function_arguments = arguments.get("arguments")
+    return function_arguments if isinstance(function_arguments, Mapping) else None
 
 
 def _manifest_query_kinds(arguments_json: str) -> frozenset[str] | None:

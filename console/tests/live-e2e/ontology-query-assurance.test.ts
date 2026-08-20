@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { canonicalJsonDigest } from "./browser-evidence-provenance";
 import { isOntologyAssuranceProductionReady } from "./ontology-query-assurance-readiness";
 import {
+  ASSURANCE_PLAN_CAPABILITIES,
   assuranceCarriesLiveAuthority,
   assuranceCheckpointPath,
   assuranceCohortPassed,
@@ -27,6 +28,7 @@ import {
   buildAssuranceRunProvenance,
   generateOntologyAssuranceCohort,
   hasRequiredAnswerCoverage,
+  hasExactOperationCoverage,
   isRetryableAssuranceTransportFailure,
   judgeSemanticReceipt,
   judgeSemanticTurn,
@@ -407,6 +409,16 @@ describe("isRetainedTurnResult", () => {
       request_id: "r1",
       evidence_ref_count: 2,
     })).toBe(true);
+    expect(isRetainedTurnResult({
+      ...retained,
+      operation: "declaration_detail",
+      disposition: "answered",
+      projection_id: "p2",
+      request_id: "r2",
+      plan_capabilities: ["function:query.ontology_declaration"],
+      plan_capability_match: true,
+    })).toBe(true);
+    expect(ASSURANCE_PLAN_CAPABILITIES).toContain("metric_scope_series");
   });
 
   it("rejects a result that lost a field the pass criteria read", () => {
@@ -820,6 +832,20 @@ describe("ontology query assurance cohort", () => {
     expect(new Set(first.map((question) => question.question_id))).toEqual(
       new Set(second.map((question) => question.question_id)),
     );
+  });
+
+  it("checks operation coverage against the authoritative cohort distribution", () => {
+    const cohort = generateOntologyAssuranceCohort(0x0fda1);
+
+    expect(hasExactOperationCoverage(cohort, cohort)).toBe(true);
+    expect(hasExactOperationCoverage(cohort.slice(1), cohort)).toBe(false);
+    expect(hasExactOperationCoverage(
+      [
+        ...cohort.slice(1),
+        { ...cohort[1]!, question_id: "replacement-question" },
+      ],
+      cohort,
+    )).toBe(false);
   });
 
   it("contains no expected answer text or prose-derived oracle fields", () => {

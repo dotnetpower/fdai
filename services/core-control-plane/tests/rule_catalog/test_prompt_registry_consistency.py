@@ -126,11 +126,19 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     frame = prompts.get_base("semantic.query.frame")
     plan = prompts.get_base("semantic.query.plan")
 
-    assert frame.version == 21
+    assert frame.version == 27
     assert "output_shape to exactly one capability family" in frame.body
     assert "aggregation_table for a count or grouping" in frame.body
+    assert "operation aggregate together with aggregation_table" in frame.body
+    assert "no other operation or output family is valid" in frame.body
+    assert "explicitly lists, shows, or finds members uses operation select" in frame.body
+    assert "Do not turn a listing request into aggregate" in frame.body
     assert "topology_graph for current instance connectivity or containment" in frame.body
     assert "including a count of queryable relationship or declaration types" in frame.body
+    assert "canonical manifest kinds object, interface, link, action, and function" in frame.body
+    assert "relationship or relationship type to link" in frame.body
+    assert 'subject_constraints exactly ["link"]' in frame.body
+    assert 'measure_concepts exactly ["type"]' in frame.body
     assert "declared resource type is property_filtered_resources" in frame.body
     assert "runtime resource the operator names is property_filtered_resources" in frame.body
     assert "supplied context rather than an invented identity" in frame.body
@@ -190,6 +198,18 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     assert "no unresolved terms or clarification requirements" in frame.body
     assert "requested runtime relation verb dominates ontology nouns" in frame.body
     assert "ontology_manifest only lists declarations" in frame.body
+    assert "ontology_declaration for the detail, dependents" in frame.body
+    assert (
+        "ontology_release_evidence_health for a combined retained-release comparison" in frame.body
+    )
+    assert "bounded direct impact scope of one selected resource" in frame.body
+    assert "Do not reduce this combined schema-and-evidence request" in frame.body
+    assert "never invent it, expose it as unresolved, or replace impact traversal" in frame.body
+    assert "active Rule semantics from collected Rule references" in frame.body
+    assert "declaration_dependents for dependents" in frame.body
+    assert "rule_state as its only measure concept" in frame.body
+    assert "operation select with ontology_declaration" in frame.body
+    assert "Do not reduce either request to ontology_manifest" in frame.body
     assert "instead of clarification" in frame.body
     assert "Do not select that function for instance listing" in frame.body
     assert "query.incident_evidence" in frame.body
@@ -198,11 +218,23 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     assert "do not require incident_id or correlation_id" in frame.body
     assert "cause_claim_supported=false" in frame.body
     assert "Do not claim a cause" in frame.body
-    assert plan.version == 15
+    assert plan.version == 18
     assert "Satisfy the frame's exact output_shape" in plan.body
+    assert "ontology_declaration requires query.ontology_declaration" in plan.body
+    assert "ontology_release_evidence_health requires both query.ontology_release_diff" in plan.body
+    assert "inventory_impact requires query.inventory_impact" in plan.body
+    assert "Both nodes are output nodes" in plan.body
+    assert "resource target is resolved by trusted server context" in plan.body
+    assert "do not substitute topology_at, object_set, resource_list" in plan.body
+    assert '"function_name":"query.ontology_declaration"' in plan.body
+    assert "declaration_dependents outputs one dependents node" in plan.body
+    assert "Every plan node is a declaration output node" in plan.body
+    assert "rule_state measure uses the Rule detail node" in plan.body
     assert "aggregation_table requires aggregate" in plan.body
     assert "topology_graph requires topology_at" in plan.body
     assert "use query.manifest as a query.table dependency followed by aggregate" in plan.body
+    assert 'query.manifest kinds exactly ["link"]' in plan.body
+    assert '{"property":"type","operator":"exists"}' in plan.body
     assert "A matching selector without that predicate is invalid" in plan.body
     assert "names one runtime resource filters the readable name property" in plan.body
     assert "Core builds evidence_validation from the verified principal scope" in plan.body

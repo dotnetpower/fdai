@@ -523,7 +523,12 @@ def _build_plan(
             kind=node.kind,
             depends_on=node.depends_on,
             arguments_json=canonical_json(
-                _server_bound_node_arguments(node, current_as_of=current_as_of)
+                _frame_bound_node_arguments(
+                    node,
+                    arguments=_server_bound_node_arguments(node, current_as_of=current_as_of),
+                    frame=frame,
+                    descriptors=manifest.descriptors,
+                )
             ),
             output_kind=node.output_kind,
         )
@@ -589,6 +594,57 @@ def _server_bound_node_arguments(
     if not isinstance(definition, dict):
         raise ValueError("semantic ObjectSet node requires a definition object")
     definition["as_of"] = current_as_of
+    return arguments
+
+
+def _frame_bound_node_arguments(
+    node: QueryNodeProposal,
+    *,
+    arguments: dict[str, Any],
+    frame: SemanticProblemFrame,
+    descriptors: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Bind exact frame axes that a model plan cannot safely reinterpret."""
+    if frame.output_shape == "aggregation_table" and node.kind is QueryNodeKind.FUNCTION:
+        function_name = arguments.get("function_name")
+        function_arguments = arguments.get("arguments")
+        declaration_kinds = frozenset({"action", "function", "interface", "link", "object"})
+        requested_kinds = frozenset(frame.subject_constraints)
+        if (
+            function_name == "query.manifest"
+            and isinstance(function_arguments, dict)
+            and requested_kinds
+            and requested_kinds <= declaration_kinds
+        ):
+            function_arguments["kinds"] = sorted(requested_kinds)
+        return arguments
+    if (
+        frame.output_shape != "property_filtered_resources"
+        or node.kind is not QueryNodeKind.OBJECT_SET
+    ):
+        return arguments
+    if frame.subject_constraints != ("Resource",) or frame.measure_concepts != ("type",):
+        return arguments
+    definition = arguments.get("definition")
+    if not isinstance(definition, dict) or definition.get("predicates"):
+        return arguments
+    selector = definition.get("selector")
+    subject = frame.subject_constraints[0]
+    if not isinstance(selector, Mapping) or selector.get("name") != subject:
+        return arguments
+    properties = next(
+        (
+            descriptor.get("properties")
+            for descriptor in descriptors
+            if descriptor.get("kind") == "object" and descriptor.get("name") == subject
+        ),
+        None,
+    )
+    if not isinstance(properties, Mapping):
+        return arguments
+    if "type" not in properties:
+        return arguments
+    definition["predicates"] = [{"property": "type", "operator": "exists"}]
     return arguments
 
 

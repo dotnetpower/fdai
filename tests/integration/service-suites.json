@@ -79,6 +79,7 @@
           "services/operator-service/tests/test_operator_conversation_family.py",
           "services/operator-service/tests/test_operator_iam_family.py",
           "services/operator-service/tests/test_operator_operations_family.py",
+          "services/operator-service/tests/test_operator_workload_auth.py",
           "services/operator-service/tests/test_operator_workflow_family.py",
           "services/operator-service/tests/test_presentation_console_contract.py"
         ],

@@ -25,12 +25,20 @@ class OperatorRole(StrEnum):
     BREAK_GLASS = "BreakGlass"
 
 
+class OperatorPrincipalKind(StrEnum):
+    """Authenticated principal classes accepted by the Operator boundary."""
+
+    HUMAN = "human"
+    WORKLOAD = "workload"
+
+
 @dataclass(frozen=True, slots=True)
 class OperatorPrincipal:
-    """Verified human identity and server-derived Operator roles."""
+    """Verified identity and server-derived Operator roles."""
 
     subject_id: str
     roles: frozenset[OperatorRole]
+    principal_kind: OperatorPrincipalKind = OperatorPrincipalKind.HUMAN
 
     def __post_init__(self) -> None:
         if not self.subject_id.strip():

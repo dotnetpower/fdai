@@ -60,6 +60,24 @@ export type AssurancePlanCapability =
   | "topology_at"
   | "topology_diff";
 
+export const ASSURANCE_PLAN_CAPABILITIES: readonly AssurancePlanCapability[] = [
+  "aggregate",
+  "evidence_join",
+  "function:query.incident_evidence",
+  "function:query.inventory_impact",
+  "function:query.manifest",
+  "function:query.ontology_declaration",
+  "function:query.ontology_evidence_health",
+  "function:query.ontology_relationships",
+  "function:query.ontology_release_diff",
+  "metric_scope_series",
+  "metric_series",
+  "object_set",
+  "object_set:filtered",
+  "topology_at",
+  "topology_diff",
+];
+
 export interface AssuranceRunConfiguration {
   readonly schema_version: "1.4.0";
   readonly run_id: string;
@@ -380,7 +398,8 @@ export function isRetainedTurnResult(value: Record<string, unknown>): boolean {
     typeof value.unauthorized_execution_claim === "boolean" &&
     typeof value.plan_capability_match === "boolean" &&
     Array.isArray(value.plan_capabilities) && value.plan_capabilities.every((capability) =>
-      typeof capability === "string" && PLAN_CAPABILITIES.includes(capability as AssurancePlanCapability)
+      typeof capability === "string" &&
+      ASSURANCE_PLAN_CAPABILITIES.includes(capability as AssurancePlanCapability)
     ) && new Set(value.plan_capabilities).size === value.plan_capabilities.length &&
     value.plan_capability_match === expectedPlanCapabilityMatch &&
     typeof value.attempt_count === "number" &&
@@ -401,23 +420,6 @@ export function isRetainedTurnResult(value: Record<string, unknown>): boolean {
     (value.disposition === undefined ||
       (typeof value.projection_id === "string" && typeof value.request_id === "string"));
 }
-
-const PLAN_CAPABILITIES: readonly AssurancePlanCapability[] = [
-  "aggregate",
-  "evidence_join",
-  "function:query.incident_evidence",
-  "function:query.inventory_impact",
-  "function:query.manifest",
-  "function:query.ontology_declaration",
-  "function:query.ontology_evidence_health",
-  "function:query.ontology_relationships",
-  "function:query.ontology_release_diff",
-  "metric_series",
-  "object_set",
-  "object_set:filtered",
-  "topology_at",
-  "topology_diff",
-];
 
 const ANSWER_CAPABILITIES: Readonly<
   Record<Extract<AssuranceOperation,
@@ -937,6 +939,23 @@ export function assuranceOperations(): readonly AssuranceOperation[] {
 
 export function requiredAnswerOperations(): readonly AssuranceOperation[] {
   return ANSWER_REQUIRED_OPERATIONS;
+}
+
+export function hasExactOperationCoverage(
+  results: readonly { readonly operation: AssuranceOperation }[],
+  cohort: readonly { readonly operation: AssuranceOperation }[],
+): boolean {
+  const resultCounts = new Map<AssuranceOperation, number>();
+  const cohortCounts = new Map<AssuranceOperation, number>();
+  for (const result of results) {
+    resultCounts.set(result.operation, (resultCounts.get(result.operation) ?? 0) + 1);
+  }
+  for (const question of cohort) {
+    cohortCounts.set(question.operation, (cohortCounts.get(question.operation) ?? 0) + 1);
+  }
+  return results.length === cohort.length && OPERATIONS.every(
+    (operation) => resultCounts.get(operation) === cohortCounts.get(operation),
+  );
 }
 
 export function hasRequiredAnswerCoverage(

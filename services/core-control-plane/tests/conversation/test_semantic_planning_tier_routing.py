@@ -23,20 +23,31 @@ from fdai.core.ontology_platform import (
     OntologyQueryPlanVerifier,
     build_query_manifest,
 )
+from fdai.core.ontology_platform.evidence_health_queries import (
+    ontology_evidence_health_function_type,
+)
 from fdai.core.ontology_platform.incident_queries import (
     INCIDENT_EVIDENCE_MAX_RECORDS,
     incident_evidence_function_type,
 )
+from fdai.core.ontology_platform.inventory_impact_queries import inventory_impact_function_type
 from fdai.core.ontology_platform.property_values import PropertyValueDomain, PropertyValueGroup
+from fdai.core.ontology_platform.release_diff_queries import ontology_release_diff_function_type
 from fdai.rule_catalog.schema.llm_resolver import (
     CapabilityStatus,
     NarratorCandidate,
     ResolvedCapability,
     ResolvedModels,
 )
-from fdai.shared.contracts.models import CeilingRole, OntologyObjectType, PropertyDecl, PropertyType
+from fdai.shared.contracts.models import (
+    CeilingRole,
+    OntologyFunctionType,
+    OntologyObjectType,
+    PropertyDecl,
+    PropertyType,
+)
 from fdai.shared.ontology.release import build_ontology_release
-from fdai_service_contracts.ontology_query import QueryNodeKind
+from fdai_service_contracts.ontology_query import QueryNodeKind, SemanticOperation
 
 NOW = datetime(2026, 8, 14, tzinfo=UTC)
 DIGEST = "sha256:" + ("a" * 64)
@@ -77,6 +88,9 @@ class _AcceptingVerifier:
 def _fixture(
     *,
     property_values: tuple[PropertyValueDomain, ...] = (),
+    include_rule: bool = False,
+    include_resource_type: bool = False,
+    function_types: tuple[OntologyFunctionType, ...] = (),
 ) -> tuple[Any, ObjectSetDefinition]:
     resource = OntologyObjectType(
         schema_version="1.0.0",
@@ -86,15 +100,30 @@ def _fixture(
         properties={
             "id": PropertyDecl(type=PropertyType.STRING, required=True),
             "secret": PropertyDecl(type=PropertyType.STRING, access_scope=CeilingRole.OWNER),
+            **(
+                {"type": PropertyDecl(type=PropertyType.STRING, required=True)}
+                if include_resource_type
+                else {}
+            ),
         },
     )
-    release = build_ontology_release(object_types=(resource,))
+    rule = OntologyObjectType(
+        schema_version="1.0.0",
+        name="Rule",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    object_types = (resource, rule) if include_rule else (resource,)
+    release = build_ontology_release(object_types=object_types, function_types=function_types)
     manifest = build_query_manifest(
         release=release,
         principal_role=CeilingRole.READER,
         purposes=("operations-review",),
         principal_scope_digest=DIGEST,
-        object_types=(resource,),
+        object_types=object_types,
+        functions=function_types,
+        bound_function_names=tuple(item.name for item in function_types),
         property_values=property_values,
     )
     definition = ObjectSetDefinition(
@@ -160,6 +189,58 @@ def _function_plan(
         ],
         "output_node_ids": ["function-result"],
     }
+
+
+def _function_set_plan(*function_names: str) -> dict[str, object]:
+    function_arguments: dict[str, dict[str, object]] = {
+        "query.inventory_impact": {"depth": 1, "link_types": ["contains"]},
+        "query.ontology_evidence_health": {"object_type": "Resource"},
+        "query.ontology_release_diff": {
+            "base_release_digest": DIGEST,
+            "candidate_release_digest": "sha256:" + ("b" * 64),
+            "limit": 100,
+        },
+    }
+    return {
+        "nodes": [
+            {
+                "node_id": f"function-{index}",
+                "kind": "function",
+                "depends_on": [],
+                "arguments": {
+                    "function_name": function_name,
+                    "arguments": function_arguments[function_name],
+                    "dependency_arguments": {},
+                },
+                "output_kind": "query.table",
+            }
+            for index, function_name in enumerate(function_names)
+        ],
+        "output_node_ids": [f"function-{index}" for index in range(len(function_names))],
+    }
+
+
+def _declaration_sections_plan(*sections: str) -> dict[str, object]:
+    nodes = [
+        {
+            "node_id": section,
+            "kind": "function",
+            "depends_on": [],
+            "arguments": {
+                "function_name": "query.ontology_declaration",
+                "arguments": {
+                    "kind": "object",
+                    "name": "Resource",
+                    "section": section,
+                    "limit": 100,
+                },
+                "dependency_arguments": {},
+            },
+            "output_kind": "query.table",
+        }
+        for section in sections
+    ]
+    return {"nodes": nodes, "output_node_ids": list(sections)}
 
 
 def _aggregate_plan(definition: ObjectSetDefinition) -> dict[str, object]:
@@ -494,6 +575,449 @@ def test_matching_specialized_t1_plan_never_invokes_t2() -> None:
     assert outcome.disposition is SemanticPlanningDisposition.PLANNED
     assert (t1.frame_calls, t1.plan_calls) == (1, 1)
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+@pytest.mark.parametrize(
+    "output_shape",
+    ("inventory_impact", "ontology_release_evidence_health"),
+)
+def test_strict_v2_specialized_frames_reject_generic_substitutes(output_shape: str) -> None:
+    manifest, definition = _fixture()
+    generic_plan = _plan(definition)
+    t1 = _Model(frame=_frame(output_shape=output_shape), plan=generic_plan)
+    t2 = _Model(frame=_frame(), plan=generic_plan)
+
+    outcome = _run(_service(t1, t2, manifest))
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 1)
+
+
+@pytest.mark.parametrize(
+    ("output_shape", "function_names"),
+    (
+        ("inventory_impact", ("query.inventory_impact",)),
+        (
+            "ontology_release_evidence_health",
+            ("query.ontology_release_diff", "query.ontology_evidence_health"),
+        ),
+    ),
+)
+def test_strict_v2_specialized_frames_accept_exact_function_sets(
+    output_shape: str,
+    function_names: tuple[str, ...],
+) -> None:
+    function_types = {
+        "query.inventory_impact": inventory_impact_function_type(),
+        "query.ontology_evidence_health": ontology_evidence_health_function_type(),
+        "query.ontology_release_diff": ontology_release_diff_function_type(),
+    }
+    manifest, definition = _fixture(
+        function_types=tuple(function_types[name] for name in function_names)
+    )
+    t1 = _Model(frame=_frame(output_shape=output_shape), plan=_function_set_plan(*function_names))
+    t2 = _Model(frame=_frame(), plan=_plan(definition))
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=OntologyQueryPlanVerifier(available_kinds=(QueryNodeKind.FUNCTION,)),
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+def test_exact_declaration_plan_never_invokes_t2() -> None:
+    manifest, definition = _fixture()
+    declaration_plan = _function_plan(
+        "query.ontology_declaration",
+        output_kind="query.table",
+        function_arguments={
+            "kind": "object",
+            "name": "Resource",
+            "section": "detail",
+            "limit": 100,
+        },
+    )
+    t1 = _Model(
+        frame=_frame(
+            measure_concepts=["declaration_detail"],
+            output_shape="ontology_declaration",
+        ),
+        plan=declaration_plan,
+    )
+    t2 = _Model(frame=_frame(), plan=_plan(definition))
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+def test_declaration_frame_without_exact_measure_retries_with_t2() -> None:
+    manifest, _definition = _fixture()
+    declaration_plan = _function_plan(
+        "query.ontology_declaration",
+        output_kind="query.table",
+        function_arguments={
+            "kind": "object",
+            "name": "Resource",
+            "section": "detail",
+            "limit": 100,
+        },
+    )
+    t1 = _Model(frame=_frame(output_shape="ontology_declaration"), plan=declaration_plan)
+    t2 = _Model(
+        frame=_frame(
+            measure_concepts=["declaration_detail"],
+            output_shape="ontology_declaration",
+        ),
+        plan=declaration_plan,
+    )
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (1, 0)
+
+
+def test_declaration_frame_with_non_select_operation_retries_with_t2() -> None:
+    manifest, _definition = _fixture()
+    declaration_plan = _declaration_sections_plan("detail")
+    t1 = _Model(
+        frame=_frame(
+            operation="action_draft",
+            measure_concepts=["declaration_detail"],
+            output_shape="ontology_declaration",
+        ),
+        plan=declaration_plan,
+    )
+    t2 = _Model(
+        frame=_frame(
+            measure_concepts=["declaration_detail"],
+            output_shape="ontology_declaration",
+        ),
+        plan=declaration_plan,
+    )
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (1, 0)
+
+
+def test_all_requested_declaration_sections_must_be_outputs() -> None:
+    manifest, _definition = _fixture()
+    incomplete = _declaration_sections_plan("detail", "dependents")
+    incomplete["output_node_ids"] = ["detail"]
+    complete = _declaration_sections_plan("detail", "dependents")
+    frame = _frame(
+        measure_concepts=["declaration_detail", "declaration_dependents"],
+        output_shape="ontology_declaration",
+    )
+    t1 = _Model(frame=frame, plan=incomplete)
+    t2 = _Model(frame=_frame(), plan=complete)
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 1)
+
+
+def test_declaration_plan_rejects_hidden_unrelated_nodes() -> None:
+    manifest, definition = _fixture()
+    hidden = _declaration_sections_plan("detail")
+    hidden["nodes"] = [*hidden["nodes"], *_plan(definition)["nodes"]]  # type: ignore[misc]
+    complete = _declaration_sections_plan("detail")
+    frame = _frame(
+        measure_concepts=["declaration_detail"],
+        output_shape="ontology_declaration",
+    )
+    t1 = _Model(frame=frame, plan=hidden)
+    t2 = _Model(frame=_frame(), plan=complete)
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 1)
+
+
+def test_declaration_plan_rejects_spoofed_output_kind() -> None:
+    manifest, _definition = _fixture()
+    spoofed = _declaration_sections_plan("detail")
+    spoofed["nodes"][0]["output_kind"] = "topology.graph"  # type: ignore[index]
+    complete = _declaration_sections_plan("detail")
+    frame = _frame(
+        measure_concepts=["declaration_detail"],
+        output_shape="ontology_declaration",
+    )
+    t1 = _Model(frame=frame, plan=spoofed)
+    t2 = _Model(frame=_frame(), plan=complete)
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 1)
+
+
+def test_manifest_cannot_satisfy_exact_declaration_frame() -> None:
+    manifest, _definition = _fixture()
+    exact_plan = _function_plan(
+        "query.ontology_declaration",
+        output_kind="query.table",
+        function_arguments={
+            "kind": "object",
+            "name": "Resource",
+            "section": "detail",
+            "limit": 100,
+        },
+    )
+    t1 = _Model(
+        frame=_frame(
+            measure_concepts=["declaration_detail"],
+            output_shape="ontology_declaration",
+        ),
+        plan=_function_plan("query.manifest", output_kind="query.table"),
+    )
+    t2 = _Model(frame=_frame(), plan=exact_plan)
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 1)
+
+
+def test_object_set_cannot_satisfy_exact_declaration_frame() -> None:
+    manifest, definition = _fixture()
+    exact_plan = _function_plan(
+        "query.ontology_declaration",
+        output_kind="query.table",
+        function_arguments={
+            "kind": "object",
+            "name": "Resource",
+            "section": "detail",
+            "limit": 100,
+        },
+    )
+    t1 = _Model(
+        frame=_frame(
+            measure_concepts=["declaration_detail"],
+            output_shape="ontology_declaration",
+        ),
+        plan=_plan(definition),
+    )
+    t2 = _Model(frame=_frame(), plan=exact_plan)
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 1)
+
+
+def test_exact_rule_declaration_plan_never_invokes_t2() -> None:
+    manifest, definition = _fixture(include_rule=True)
+    declaration_plan = _function_plan(
+        "query.ontology_declaration",
+        output_kind="query.table",
+        function_arguments={
+            "kind": "object",
+            "name": "Rule",
+            "section": "detail",
+            "limit": 100,
+        },
+    )
+    t1 = _Model(
+        frame=_frame(
+            measure_concepts=["rule_state"],
+            subject_constraints=["Rule"],
+            output_shape="ontology_declaration",
+        ),
+        plan=declaration_plan,
+    )
+    t2 = _Model(frame=_frame(), plan=_plan(definition))
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+def test_declaration_plan_name_must_match_exact_frame_subject() -> None:
+    manifest, _definition = _fixture()
+    mismatched = _function_plan(
+        "query.ontology_declaration",
+        output_kind="query.table",
+        function_arguments={
+            "kind": "object",
+            "name": "Rule",
+            "section": "detail",
+            "limit": 100,
+        },
+    )
+    matching = _function_plan(
+        "query.ontology_declaration",
+        output_kind="query.table",
+        function_arguments={
+            "kind": "object",
+            "name": "Resource",
+            "section": "detail",
+            "limit": 100,
+        },
+    )
+    t1 = _Model(
+        frame=_frame(
+            measure_concepts=["declaration_detail"],
+            output_shape="ontology_declaration",
+        ),
+        plan=mismatched,
+    )
+    t2 = _Model(frame=_frame(), plan=matching)
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 1)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    (("section", "dependents"), ("kind", "link")),
+)
+def test_declaration_plan_axes_must_match_exact_frame_and_manifest(
+    field: str,
+    value: str,
+) -> None:
+    manifest, _definition = _fixture()
+    mismatched_arguments: dict[str, object] = {
+        "kind": "object",
+        "name": "Resource",
+        "section": "detail",
+        "limit": 100,
+    }
+    mismatched_arguments[field] = value
+    t1 = _Model(
+        frame=_frame(
+            measure_concepts=["declaration_detail"],
+            output_shape="ontology_declaration",
+        ),
+        plan=_function_plan(
+            "query.ontology_declaration",
+            output_kind="query.table",
+            function_arguments=mismatched_arguments,
+        ),
+    )
+    t2 = _Model(
+        frame=_frame(),
+        plan=_function_plan(
+            "query.ontology_declaration",
+            output_kind="query.table",
+            function_arguments={
+                "kind": "object",
+                "name": "Resource",
+                "section": "detail",
+                "limit": 100,
+            },
+        ),
+    )
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 1)
 
 
 def test_named_instance_question_never_settles_for_a_schema_frame() -> None:
@@ -926,7 +1450,10 @@ def test_anchored_turn_keeps_an_incident_question_for_another_output_shape() -> 
 
 def test_aggregation_frame_requires_aggregate_plan() -> None:
     manifest, definition = _fixture()
-    t1 = _Model(frame=_frame(output_shape="aggregation_table"), plan=_plan(definition))
+    t1 = _Model(
+        frame=_frame(operation="aggregate", output_shape="aggregation_table"),
+        plan=_plan(definition),
+    )
     t2 = _Model(frame=_frame(), plan=_aggregate_plan(definition))
     service = SemanticPlanningService(
         model=t1,
@@ -936,11 +1463,210 @@ def test_aggregation_frame_requires_aggregate_plan() -> None:
         now=lambda: NOW,
     )
 
-    outcome = _run(service)
+    outcome = _run(service, utterance="Count matching resources.")
 
     assert outcome.disposition is SemanticPlanningDisposition.PLANNED
     assert (t1.frame_calls, t1.plan_calls) == (1, 1)
     assert (t2.frame_calls, t2.plan_calls) == (0, 1)
+
+
+def test_listing_frame_rejects_an_aggregate_plan() -> None:
+    manifest, definition = _fixture()
+    listing_frame = _frame(
+        operation="select",
+        subject_constraints=["Resource"],
+        output_shape="resource_list",
+    )
+    t1 = _Model(frame=listing_frame, plan=_aggregate_plan(definition))
+    t2 = _Model(frame=_frame(), plan=_plan(definition))
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(
+        service,
+        utterance="현재 범위에서 볼 수 있는 리소스 클래스를 보여 주세요.",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.plan is not None
+    assert all(node.kind is not QueryNodeKind.AGGREGATE for node in outcome.plan.nodes)
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 1)
+
+
+def test_aggregation_operation_retries_a_misclassified_t1_frame() -> None:
+    manifest, definition = _fixture()
+    t1 = _Model(
+        frame=_frame(
+            operation="select",
+            subject_constraints=["Resource"],
+            measure_concepts=["health"],
+            output_shape="property_filtered_resources",
+        ),
+        plan=_plan(definition),
+    )
+    t2 = _Model(
+        frame=_frame(
+            operation="aggregate",
+            subject_constraints=["Resource"],
+            measure_concepts=["health"],
+            output_shape="aggregation_table",
+        ),
+        plan=_aggregate_plan(definition),
+    )
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service, utterance="Group resources by health.")
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None
+    assert outcome.frame.operation is SemanticOperation.AGGREGATE
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (1, 1)
+
+
+@pytest.mark.parametrize(
+    "utterance",
+    (
+        "Group readable resources by health status.",
+        "읽기 가능한 리소스를 상태별로 그룹화해 주세요.",
+        "읽기 가능한 리소스를 상태별로 그루핑해 주세요.",
+        "조회 가능한 리소스의 상태별 합계를 보여 주세요.",
+    ),
+)
+def test_explicit_aggregation_request_rejects_a_fully_misclassified_frame(
+    utterance: str,
+) -> None:
+    manifest, definition = _fixture()
+    invalid_frame = _frame(
+        operation="select",
+        subject_constraints=["Resource"],
+        measure_concepts=["type"],
+        output_shape="property_filtered_resources",
+    )
+    t1 = _Model(frame=invalid_frame, plan=_plan(definition))
+    t2 = _Model(frame=invalid_frame, plan=_plan(definition))
+
+    outcome = _run(_service(t1, t2, manifest), utterance=utterance)
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 0)
+    assert (t2.frame_calls, t2.plan_calls) == (1, 0)
+
+
+@pytest.mark.parametrize(
+    "utterance",
+    (
+        "Show resources with a declared type.",
+        "Find the network security group rule.",
+    ),
+)
+def test_nonaggregation_request_does_not_require_an_aggregate_frame(
+    utterance: str,
+) -> None:
+    manifest, definition = _fixture()
+    frame = _frame(output_shape="property_filtered_resources")
+    t1 = _Model(frame=frame, plan=_plan(definition))
+    t2 = _Model(frame=_frame(), plan=_plan(definition))
+
+    outcome = _run(
+        _service(t1, t2, manifest),
+        utterance=utterance,
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+@pytest.mark.parametrize(
+    "utterance",
+    (
+        "Show ontology objects in the current inventory generation.",
+        "현재 인벤토리 세대의 온톨로지 객체를 보여 주세요.",
+    ),
+)
+def test_explicit_listing_request_rejects_a_fully_aggregated_frame(
+    utterance: str,
+) -> None:
+    manifest, definition = _fixture()
+    invalid_frame = _frame(
+        operation="aggregate",
+        subject_constraints=["Resource"],
+        measure_concepts=["count"],
+        output_shape="aggregation_table",
+    )
+    t1 = _Model(frame=invalid_frame, plan=_aggregate_plan(definition))
+    t2 = _Model(frame=invalid_frame, plan=_aggregate_plan(definition))
+
+    outcome = _run(_service(t1, t2, manifest), utterance=utterance)
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 0)
+    assert (t2.frame_calls, t2.plan_calls) == (1, 0)
+
+
+@pytest.mark.parametrize(
+    "utterance",
+    (
+        "Show the number of visible resources by class.",
+        "조회 가능한 리소스의 클래스별 합계를 보여 주세요.",
+    ),
+)
+def test_listing_word_does_not_override_an_explicit_aggregation_request(
+    utterance: str,
+) -> None:
+    manifest, definition = _fixture()
+    aggregate_frame = _frame(operation="aggregate", output_shape="aggregation_table")
+    t1 = _Model(frame=aggregate_frame, plan=_aggregate_plan(definition))
+    t2 = _Model(frame=_frame(), plan=_plan(definition))
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service, utterance=utterance)
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+@pytest.mark.parametrize(
+    ("operation", "output_shape"),
+    (
+        ("select", "aggregation_table"),
+        ("aggregate", "property_filtered_resources"),
+    ),
+)
+def test_aggregation_operation_and_output_shape_must_match(
+    operation: str,
+    output_shape: str,
+) -> None:
+    manifest, definition = _fixture()
+    invalid_frame = _frame(operation=operation, output_shape=output_shape)
+    t1 = _Model(frame=invalid_frame, plan=_plan(definition))
+    t2 = _Model(frame=invalid_frame, plan=_plan(definition))
+
+    outcome = _run(_service(t1, t2, manifest))
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 0)
+    assert (t2.frame_calls, t2.plan_calls) == (1, 0)
 
 
 def test_manifest_function_may_feed_declaration_aggregate_output() -> None:
@@ -948,6 +1674,7 @@ def test_manifest_function_may_feed_declaration_aggregate_output() -> None:
     aggregate_plan = _manifest_aggregate_plan()
     t1 = _Model(
         frame=_frame(
+            operation="aggregate",
             subject_constraints=["object"],
             measure_concepts=["count"],
             output_shape="aggregation_table",
@@ -963,16 +1690,17 @@ def test_manifest_function_may_feed_declaration_aggregate_output() -> None:
         now=lambda: NOW,
     )
 
-    outcome = _run(service)
+    outcome = _run(service, utterance="How many object declarations are available?")
 
     assert outcome.disposition is SemanticPlanningDisposition.PLANNED
     assert (t1.frame_calls, t1.plan_calls) == (1, 1)
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
-def test_manifest_aggregate_kinds_must_match_frame_subjects() -> None:
+def test_manifest_aggregate_kinds_are_bound_to_frame_subjects() -> None:
     manifest, _definition = _fixture()
     frame = _frame(
+        operation="aggregate",
         subject_constraints=["object"],
         measure_concepts=["count"],
         output_shape="aggregation_table",
@@ -991,7 +1719,8 @@ def test_manifest_aggregate_kinds_must_match_frame_subjects() -> None:
 
     assert outcome.disposition is SemanticPlanningDisposition.PLANNED
     assert outcome.plan is not None
-    assert (t1.plan_calls, t2.plan_calls) == (1, 1)
+    assert outcome.plan.nodes[0].arguments["arguments"]["kinds"] == ["object"]
+    assert (t1.plan_calls, t2.plan_calls) == (1, 0)
 
 
 @pytest.mark.parametrize(
@@ -1008,6 +1737,7 @@ def test_operational_count_never_aggregates_the_declaration_manifest(
 ) -> None:
     manifest, _definition = _fixture()
     frame = _frame(
+        operation="aggregate",
         subject_constraints=[subject],
         measure_concepts=["count"],
         output_shape="aggregation_table",
@@ -1051,6 +1781,65 @@ def test_property_filter_frame_requires_object_set_predicate() -> None:
     assert outcome.disposition is SemanticPlanningDisposition.PLANNED
     assert (t1.frame_calls, t1.plan_calls) == (1, 1)
     assert (t2.frame_calls, t2.plan_calls) == (0, 1)
+
+
+def test_property_filter_binds_missing_exact_frame_property() -> None:
+    manifest, definition = _fixture(include_resource_type=True)
+    unfiltered = definition.model_copy(update={"predicates": ()})
+    t1 = _Model(
+        frame=_frame(
+            output_shape="property_filtered_resources",
+            subject_constraints=["Resource"],
+            measure_concepts=["type"],
+        ),
+        plan=_plan(unfiltered),
+    )
+    t2 = _Model(frame=_frame(), plan=_plan(definition))
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.plan is not None
+    assert outcome.plan.nodes[0].arguments["definition"]["predicates"] == [
+        {"property": "type", "operator": "exists"}
+    ]
+    assert (t1.plan_calls, t2.plan_calls) == (1, 0)
+
+
+@pytest.mark.parametrize("measure_concepts", (["id"], ["type", "id"]))
+def test_property_filter_does_not_bind_a_nonclosed_frame(
+    measure_concepts: list[str],
+) -> None:
+    manifest, definition = _fixture(include_resource_type=True)
+    unfiltered = definition.model_copy(update={"predicates": ()})
+    t1 = _Model(
+        frame=_frame(
+            output_shape="property_filtered_resources",
+            subject_constraints=["Resource"],
+            measure_concepts=measure_concepts,
+        ),
+        plan=_plan(unfiltered),
+    )
+    t2 = _Model(frame=_frame(), plan=_plan(unfiltered))
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert (t1.plan_calls, t2.plan_calls) == (1, 1)
 
 
 def test_scope_denial_never_invokes_t2() -> None:

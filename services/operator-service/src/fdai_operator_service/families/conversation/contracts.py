@@ -7,6 +7,7 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import Protocol
 
+from fdai_service_contracts import OperatorPrincipalKind
 from starlette.requests import Request
 
 type JsonScalar = str | int | float | bool | None
@@ -24,10 +25,11 @@ MAX_STREAM_EVENT_BYTES = 262_144
 
 @dataclass(frozen=True, slots=True)
 class PrincipalScope:
-    """Verified human identity and roles used to scope every family operation."""
+    """Verified identity and roles used to scope every family operation."""
 
     subject_id: str
     roles: frozenset[str] = field(default_factory=frozenset)
+    principal_kind: OperatorPrincipalKind = OperatorPrincipalKind.HUMAN
 
     def __post_init__(self) -> None:
         _bounded_text("subject_id", self.subject_id, maximum=MAX_IDENTIFIER_CHARS)

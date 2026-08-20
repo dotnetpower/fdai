@@ -16,7 +16,7 @@ from fdai_service_contracts.ontology_query import (
     TaskStatus,
     content_digest,
 )
-from fdai_service_contracts.operator import OperatorRole
+from fdai_service_contracts.operator import OperatorPrincipalKind, OperatorRole
 
 Digest = Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")]
 BoundedId = Annotated[str, Field(min_length=1, max_length=256)]
@@ -74,11 +74,16 @@ class SemanticTurnPrincipal(QueryContract):
 
     subject_id: BoundedId
     roles: Annotated[tuple[OperatorRole, ...], Field(min_length=1, max_length=4)]
+    principal_kind: OperatorPrincipalKind = OperatorPrincipalKind.HUMAN
 
     @model_validator(mode="after")
     def _roles_are_unique(self) -> SemanticTurnPrincipal:
         if len(self.roles) != len(set(self.roles)):
             raise ValueError("semantic turn principal roles MUST be unique")
+        if self.principal_kind is OperatorPrincipalKind.WORKLOAD and self.roles != (
+            OperatorRole.READER,
+        ):
+            raise ValueError("semantic workload principals MUST have only the Reader role")
         return self
 
 

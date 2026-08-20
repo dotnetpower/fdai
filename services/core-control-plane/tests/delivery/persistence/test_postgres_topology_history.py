@@ -76,7 +76,7 @@ class _Connection:
         self.executions.append((query, params))
         rows = (
             self.result_sets.pop(0)
-            if query.startswith("SELECT") and "set_config" not in query
+            if query.startswith(("SELECT", "WITH")) and "set_config" not in query
             else []
         )
         return _Cursor(rows)
@@ -164,7 +164,11 @@ async def test_read_reconstructs_bounded_batches_at_bitemporal_cutoff() -> None:
 
     assert batches == (_batch(),)
     batch_query, batch_params = connection.executions[1]
+    assert "WITH latest_complete AS" in batch_query
+    assert "AND complete_snapshot" in batch_query
+    assert "NOT EXISTS (SELECT 1 FROM latest_complete)" in batch_query
+    assert "(recorded_at, revision_id) >=" in batch_query
     assert "effective_at <= %s" in batch_query
     assert "recorded_at <= %s" in batch_query
     assert "LIMIT 1001" in batch_query
-    assert batch_params == (EFFECTIVE_AT, RECORDED_AT)
+    assert batch_params == (EFFECTIVE_AT, RECORDED_AT, EFFECTIVE_AT, RECORDED_AT)
