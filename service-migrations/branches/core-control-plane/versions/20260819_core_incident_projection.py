@@ -382,11 +382,30 @@ def upgrade() -> None:
 
         DO $backfill$
         DECLARE
-            audit_row audit_log%ROWTYPE;
+            candidate TEXT;
+            snapshot_seq BIGINT;
         BEGIN
-            FOR audit_row IN SELECT * FROM audit_log ORDER BY seq
+            SELECT COALESCE(MAX(seq), 0)
+              INTO snapshot_seq
+              FROM audit_log;
+
+            FOR candidate IN
+                SELECT DISTINCT COALESCE(
+                    NULLIF(BTRIM(correlation_id), ''),
+                    NULLIF(BTRIM(entry->>'correlation_id'), '')
+                ) AS correlation_id
+                  FROM audit_log
+                 WHERE COALESCE(
+                           NULLIF(BTRIM(correlation_id), ''),
+                           NULLIF(BTRIM(entry->>'correlation_id'), '')
+                       ) IS NOT NULL
+                   AND LOWER(COALESCE(
+                           NULLIF(BTRIM(correlation_id), ''),
+                           NULLIF(BTRIM(entry->>'correlation_id'), '')
+                       )) NOT IN ('none', 'null')
+                 ORDER BY correlation_id
             LOOP
-                PERFORM fdai_project_operator_incident_audit_row(audit_row);
+                PERFORM fdai_refresh_operator_incident_projection(candidate, snapshot_seq);
             END LOOP;
         END;
         $backfill$;

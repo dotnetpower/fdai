@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Incident Roster and Fix History
 translation_of: operator-console-incident-roster.md
-translation_source_sha: 356211060fcd31d5bf567b986b6ad92e83865c48
-translation_revised: 2026-08-19
+translation_source_sha: c89ebb41435024f7e24ae5598544348703a72f42
+translation_revised: 2026-08-20
 ---
 
 # Operator Console - 인시던트 명단 and Fix 이력
@@ -411,6 +411,7 @@ RCA 가설은 "왜"를 답할 뿐 "실행"하지 않습니다: 실행 자격은 
 | 2026-08-17 | validated | 인증된 로컬 Console에서 Incidents가 다시 로드되는 것을 확인했습니다. `triaging`이나 `mitigated` 상태가 유발하던 페이지 전체 거부 대신, 매칭된 1,573건 중 500건에 대한 결과 코호트가 렌더링됩니다. | `current change`; 커밋 `61e826092`를 실행하는 로컬 Operator API를 대상으로 한 `/incidents`의 인증된 Browser Entra 세션; 기록된 코퍼스에는 이전에 페이지를 실패시키던 `triaging`과 `mitigated` 수명주기 상태가 포함되어 있습니다. | roster 수명주기 상태 계약에 남은 작업은 없습니다. |
 | 2026-08-17 | implemented | 표시 대상을 구성하는 범위가 제한된 기록 근거에 서버 기반 Incident roster 검색을 추가하고 페이지 나누기와 같은 snapshot 분석에 정확한 필터 identity를 유지했습니다. | `current change`; 공유 query 계약, Operator 경로와 PostgreSQL 변환 결과, Console client와 경로, 메시지 catalog, focused Operator 및 Console 테스트입니다. | 이슈 #120의 구현 작업은 남지 않았으며 인증된 browser assurance는 더 넓은 Console campaign에서 계속 다룹니다. |
 | 2026-08-19 | implemented | 전체 이력을 group하던 Incident 조회를 audit-triggered temporal projection으로 교체했습니다. Page 조회는 audit snapshot을 고정하고 correlation별 version 하나를 선택해 상태, 검색, 버티컬, 심각도 필터와 요청 page bound를 적용한 다음 선택한 version의 범위가 제한된 history만 펼칩니다. | `current change`, [이슈 #169](https://github.com/dotnetpower/fdai/issues/169), local PostgreSQL proof에서 concurrent `resolved` update 뒤에도 두 번째 page는 snapshot 당시 `open`을 유지하고 current page는 `resolved`를 보고함, Operator PostgreSQL 및 service-migration suite 117개 통과 | 보호된 workflow로 두 service migration을 적용하고 deployed `GET /incidents` latency 검사를 보존합니다. |
+| 2026-08-20 | implemented | 모든 과거 감사 행을 재생하는 대신 고유 상관관계마다 migration snapshot version 하나를 만들어 초기 변환 결과 설정 비용을 제한했습니다. 이후 감사 insert는 계속 trigger를 통해 temporal version을 닫고 추가합니다. | `current change`; `20260819_core_incident_projection.py`; focused service-migration 회귀 검사; 보호된 run `32353562581`이 Terraform apply 전에 제한되지 않은 과거 이력 재생을 드러냈습니다. | 수정된 Core migration을 보호된 workflow로 적용하고 deployed `GET /incidents` latency 검사를 보존합니다. |
 ### 남은 작업
 
 - [x] 기록된 제목, 요약, 룰, signal, 정리된 resource 대상을 우선하고 식별자 fallback을 사용 불가로 표시하는 범위가 제한된 `title_source` 계약과 focused projection, decoder, render 테스트를 추가합니다.
