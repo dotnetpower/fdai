@@ -1248,7 +1248,7 @@ def test_pre_push_uses_local_structural_gates_without_central_receipts() -> None
     assert "while IFS=' ' read -r candidate_local_ref" in hook
     assert 'git merge-base --is-ancestor "$remote_sha" "$local_sha"' in hook
     assert worktree_offset < structural_offset
-    assert 'gate_command=(uv run python "$gate_path")' in structural_runner
+    assert 'gate_command=(uv run --extra dev python "$gate_path")' in structural_runner
     assert 'gate_command=(python3 "$gate_path")' not in structural_runner
 
 

@@ -26,7 +26,7 @@ do
       echo "structural-gates: BLOCKED - uv is required for project-version Python gates." >&2
       exit 1
     fi
-    gate_command=(uv run python "$gate_path")
+    gate_command=(uv run --extra dev python "$gate_path")
   else
     gate_command=(bash "$gate_path")
   fi
