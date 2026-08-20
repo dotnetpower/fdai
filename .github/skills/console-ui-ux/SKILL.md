@@ -50,6 +50,24 @@ Use these principles:
 
 ## Workflow
 
+### 0. Complete Desktop First
+
+Treat desktop and responsive validation as sequential gates, not one simultaneous edit loop.
+
+1. Establish the desktop baseline at `1440x900`, or the collaborator's actual desktop viewport.
+2. Finish desktop functionality, hierarchy, geometry, pointer hit targets, overflow, and clipping
+  before opening a constrained desktop or mobile viewport. A known desktop defect blocks
+  responsive validation.
+3. Run the narrowest focused check and capture the desktop screenshot and measurements. The
+  desktop gate passes only when the actual route, representative data states, and primary
+  interactions are correct.
+4. After desktop passes, validate constrained desktop at about `993x641`, then mobile at
+  `390x844`. Responsive fixes must preserve the accepted desktop baseline; rerun the cheapest
+  desktop geometry check after a responsive edit.
+
+Do not inspect or tune mobile in parallel with an unresolved desktop layout. The only exception is
+an explicitly mobile-only request when the desktop baseline is already known to pass.
+
 ### 1. Locate the Actual Surface
 
 - Identify the real route, shell, and owning stylesheet before changing pixels.
@@ -91,11 +109,12 @@ speaks loudly, the page reads as unfinished.
 
 ### 5. Validate in the Browser
 
-Run focused tests first, then inspect the live surface. Verify at least:
+Run focused tests first, then inspect the live surface in this order:
 
-- Desktop: `1440x900` or the collaborator's actual desktop viewport.
-- Constrained desktop: about `993x641` when using the shared VS Code browser.
-- Mobile: `390x844` for routes and mocks expected to support narrow screens.
+1. Desktop: `1440x900` or the collaborator's actual desktop viewport. Complete this gate before
+  continuing.
+2. Constrained desktop: about `993x641` when using the shared VS Code browser.
+3. Mobile: `390x844` for routes and mocks expected to support narrow screens.
 
 Check computed styles and geometry, not only screenshots. A screenshot can hide overflow or an
 inactive control outside the crop.
@@ -181,6 +200,8 @@ Rules:
 Before reporting completion:
 
 - [ ] The actual Console or master mock URL was opened, not a substitute shell.
+- [ ] The desktop functional and visual gate passed before constrained or mobile validation began.
+- [ ] The accepted desktop baseline still passes after responsive edits.
 - [ ] Focused component or contract tests pass.
 - [ ] Console TypeScript changes pass `npm --prefix console run typecheck`.
 - [ ] Production-impacting Console CSS passes `npm --prefix console run build`.
