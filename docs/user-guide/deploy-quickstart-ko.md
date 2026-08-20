@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: FDAI 최소 Azure 인벤토리를 프로비저닝하는 방법. azd 턴키와 Terraform 직접 실행 두 경로 모두 먼저 미리보고, 계획이 맞을 때만 적용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: b62d3d6a28e50582701c56bf3bf541346c8e0f3d
+translation_source_sha: 912e74a4b3fedb2e64cd17f0796421d873be1b17
 translation_revised: 2026-08-20
 ---
 
@@ -23,11 +23,10 @@ FDAI는 `infra/` 아래의 코드형 인프라(IaC)로 프로비저닝하며, Te
 - 승인된 대상을 `AZURE_SUBSCRIPTION_ID`와 `AZURE_TENANT_ID`로 내보내기합니다. 현재 자격
   증명이나 선택된 `azd` 환경이 이 조합과 다르면, 부트스트랩과 턴키 헬퍼가 아무것도 바꾸기
   전에 중단합니다.
-- `container-supply-chain.yml`이 증명한 FDAI 런타임 이미지가 필요합니다. 실행기 계획은
-  `ghcr.io/<owner>/<repo>/fdai-core-control-plane`에서 `runtime_image_revision`의 증명을 검증하고
-  ACR `fdai` 저장소의 동일 다이제스트를 연결합니다. 검증된 다이제스트를 계획 전에 가져오기할
-  때만 `promote_runtime_image=true`를 사용하세요.
-  Exact 적용은 이미지를 promote하거나 재구축하지 않습니다.
+- `container-supply-chain.yml`이 증명한 FDAI 서비스 이미지가 필요합니다. 보호된 서비스
+  계획은 선택한 source revision에 대한 Core, Operator, Document Ingestion API,
+  Document Processing Worker, Isolated Executor 이미지 증명을 각각 검증합니다. Exact 적용은
+  해당 digest를 연결하며 이미지를 promote하거나 재구축하지 않습니다.
 - 배포 호스트에서 모든 비공개 엔드포인트로 연결할 수 있어야 합니다. 프라이빗 전용 환경에서는
   운영자 워크스테이션 대신 VNet에 연결된 배포 러너에서 Terraform을 실행하세요. 그 환경의
   Premium 레지스트리도 프라이빗이므로 이미지 빌드와 푸시도 같은 러너에서 하세요.
@@ -36,9 +35,9 @@ FDAI는 `infra/` 아래의 코드형 인프라(IaC)로 프로비저닝하며, Te
   차단되면 정제된 점검 결과와 발견된 문제만 로그에 남습니다. Terraform 계획 이후 runner-owned
   `run_live_preflight.py`가 Azure Policy, Compute quota, executor RBAC 및 value-blind Key Vault
   secret metadata를 검사합니다. 점검이 불완전하면 계획 산출물을 저장하기 전에 중단합니다.
-- 내부 Isolated 실행기를 미리보려면 private-runner 작업 흐름에서
-  `deploy_isolated_executor`를 선택하세요. 별도로 적용을 승인하기 전까지 plan-only 상태이며,
-  shadow 자격 증명에는 작업별 효과 역할이 없습니다.
+- VNet에 연결된 runner에서 5개 서비스 root를 독립적으로 배포합니다. 각 서비스는 자체
+  이미지, Terraform state, migration branch, 상태 probe, workload identity를 소유합니다.
+  Isolated Executor만 작업별 효과 역할을 받을 수 있습니다.
 - 독립 Slack 또는 Teams channel edge를 활성화하려면 프로바이더 credential과 principal mapping을
   local-only input 및 Key Vault에 보관하세요. Repository variable에는 versionless secret-id 목록만
   설정하고, 별도 Operator service `enable` plan보다 platform identity plan을 먼저 검토하고
@@ -61,8 +60,8 @@ Azure-services 방화벽 규칙을 없애는 것 하나뿐입니다. 계획에 �
 
 개발 운영 게이트웨이가 보호된 targeted 계획을 사용한다면 AI 계정과 역할 수집이 모두
 포함됐는지 확인하세요. 그래야 네트워크 및 권한 확인 변경이 같은 적용에서 수렴하고
-post-apply 계획이 남지 않습니다. `deploy_isolated_executor`도 선택했다면 isolated 실행기
-모듈과 해당 의존성 그래프가 targeted 계획에 나타나는지 확인하세요.
+post-apply 계획이 남지 않습니다. 각 서비스 계획이 소유한 state만 변경하고 다른 네 서비스
+state를 그대로 유지하는지 확인하세요.
 
 <!-- fdai:tabs -->
 
@@ -112,18 +111,22 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
    - 프라이빗 네트워킹을 켰다면 PostgreSQL과 두 Event Hubs 샤드가 런타임 서브넷이나 피어링된
      러너에서 프라이빗 주소로 확인되고, TLS 점검을 통과하며, Event Hubs 공개 접근이 꺼져
      있습니다.
-2. **런타임 상태와 자격 증명 검증.** 내부 코어 프로브가 정상인지, 15개 에이전트가 모두 상태
-   스냅샷에 보고되는지, 첫 canary 발행기 작업이 완료됐는지 확인합니다. 이어서 켜 둔 기능만
-   확인합니다.
+2. **런타임 상태와 자격 증명 검증.** 5개 서비스 revision이 모두 정상인지, 15개 에이전트가
+  Core 상태 스냅샷에 보고되는지, 첫 canary 발행기 작업이 완료됐는지 확인합니다. 이어서
+  아래 경계를 확인합니다.
    - **Operator API**: 브라우저 Entra 앱 역할이 동작하고, 읽기와 명령 자격 증명이 Thor의 실행기
      관리 자격 증명과 분리돼 있습니다.
    - **Operator channel edge**: 활성화한 경우 최신 edge revision이 attested Operator image와 정확히
      하나의 non-executor identity를 사용하고, HTTPS의 `/health/ready`가 성공하며, primary Operator
      revision이 정상인지 확인합니다. Disable 또는 첫 enable 실패 시 복구가 완료되기 전에 공개
      edge resource가 없음을 증명해야 합니다.
-   - **Isolated 실행기**: 활성화한 경우 내부 `/live`와 `/ready` 프로브가 통과하고 최신 개정 번호가
-     활성 상태이며, 전용 자격 증명에는 이미지 pull, 명령 수신, 증적 또는 DLQ 전송,
-     state-secret 읽기만 있습니다. 권한 전환 전에는 작업별 효과 역할이 없습니다.
+   - **문서 서비스**: Document Ingestion API는 인증된 upload lifecycle 요청을 받고,
+     Document Processing Worker만 영속 inspection, extraction, indexing, claim 및 reconciliation을
+     소유합니다.
+   - **Isolated Executor**: 내부 `/live`와 `/ready` 프로브가 통과하고 최신 revision이 활성 상태인지
+     확인합니다. 전용 identity에는 image pull, 명령 수신, receipt 또는 DLQ 전송, state-secret
+     읽기와 명시적으로 승인된 작업별 효과 역할만 있습니다. Core와 Operator에는 관리 대상
+     리소스 효과 역할이 없습니다.
    - **이메일 알림**: incident-open 메시지가 multipart HTML과 plain 텍스트로 도착합니다. Console을
      활성화한 경우 상세 링크는 Static Web App 출처를 사용하고 Settings > Integrations는 합성
      자리 표시자로 동일한 렌더러를 표시합니다.

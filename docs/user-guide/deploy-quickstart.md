@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Provision the FDAI minimum-set inventory on Azure - two equivalent paths (azd turnkey or Terraform direct), preview first, apply only when the plan looks right.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: fe51df1143605a429930e80e9263a70a7058a4da }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: b91be5376541eb201e425cf37ee4b3f7099202c4 }]
 ---
 
 # Deploy Quickstart
@@ -24,12 +24,11 @@ first, so you can review the plan before you run the separate apply step.
   `AZURE_TENANT_ID`. Bootstrap and turnkey helpers stop before making any change
   if the active identity or the selected `azd` environment does not match that
   exact pair.
-- An attested FDAI runtime image from `container-supply-chain.yml`. An Executor
-  plan verifies the `ghcr.io/<owner>/<repo>/fdai-core-control-plane` attestation
-  for `runtime_image_revision` and binds the identical digest in the ACR `fdai`
-  repository. Use `promote_runtime_image=true` only
-  to import that verified digest before planning; exact apply never promotes or
-  rebuilds an image.
+- Attested FDAI service images from `container-supply-chain.yml`. Protected
+  service plans verify the exact Core, Operator, Document Ingestion API,
+  Document Processing Worker, and Isolated Executor image attestations for the
+  selected source revision. Exact apply binds those digests and never promotes
+  or rebuilds an image.
 - Network access from the deployment host to every private endpoint. In a
   private-only environment, run Terraform from the VNet-connected deployment
   runner rather than an operator workstation. A Premium registry in that
@@ -41,9 +40,10 @@ first, so you can review the plan before you run the separate apply step.
   `run_live_preflight.py` checks Azure Policy, Compute quota, executor RBAC, and
   value-blind Key Vault secret metadata. An incomplete check stops before the
   plan artifact is stored.
-- To preview the internal Isolated Executor, select `deploy_isolated_executor`
-  in the private-runner workflow. It remains plan-only until you separately
-  approve apply, and the shadow identity receives no action-specific effect role.
+- Deploy the five service roots independently from the VNet-connected runner.
+  Each service owns its image, Terraform state, migration branch, health
+  probes, and workload identity. The Isolated Executor is the only service that
+  may receive an action-specific effect role.
 - To enable the standalone Slack or Teams channel edge, keep provider credentials and principal
   mappings in local-only inputs and Key Vault. Set only the versionless secret-id list in the
   repository variable, then review and apply the platform identity plan before the separate
@@ -67,9 +67,9 @@ replacement at that address, or any other delete, stop the apply.
 
 When the development operations gateway uses a protected targeted plan, verify that the AI
 account and its role collection are both present. This lets network and authorization changes
-converge in the same apply instead of leaving a post-apply plan behind. When you also select
-`deploy_isolated_executor`, verify that the isolated Executor module and its dependency graph
-appear in that targeted plan.
+converge in the same apply instead of leaving a post-apply plan behind. Verify
+each service plan changes only its owned state and leaves the other four
+service states unchanged.
 
 <!-- fdai:tabs -->
 
@@ -120,19 +120,23 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
    - With private networking on, PostgreSQL and both Event Hubs shards resolve to
      private addresses from the runtime subnet or a peered runner, pass their TLS
      checks, and keep Event Hubs public access disabled.
-2. **Verify runtime health and identity.** Confirm the internal core probes are
-   healthy, all 15 agents report through the health snapshot, and the first canary
-   publisher Job finished. Then check the features you enabled:
+2. **Verify runtime health and identity.** Confirm all five service revisions
+  are healthy, all 15 agents report through the Core health snapshot, and the
+  first canary publisher Job finished. Then check these boundaries:
    - **Operator API**: browser Entra App Roles work, and its read and command
      credentials stay separate from Thor's executor managed identity.
    - **Operator channel edge**: when enabled, the latest edge revision uses the attested Operator
      image and exactly one non-executor identity, `/health/ready` succeeds over HTTPS, and the
      primary Operator revision remains healthy. A disable or failed first enable must prove the
      public edge resource is absent before recovery is complete.
-   - **Isolated Executor**: when enabled, its internal `/live` and `/ready`
-     probes pass, its latest revision is active, and its dedicated identity has
-     only image pull, command receive, receipt or DLQ send, and state-secret read.
-     It has no action-specific effect role before authority cutover.
+   - **Document services**: the Document Ingestion API accepts authenticated
+     upload lifecycle requests, while the Document Processing Worker alone owns
+     durable inspection, extraction, indexing, claims, and reconciliation.
+   - **Isolated Executor**: its internal `/live` and `/ready` probes pass, its
+     latest revision is active, and its dedicated identity has image pull,
+     command receive, receipt or DLQ send, state-secret read, and only the
+     explicitly approved action-specific effect roles. Core and Operator have
+     no managed-resource effect role.
    - **Email notifications**: an incident-open message arrives as multipart HTML and plain text.
      When the Console is enabled, its detail link uses the Static Web App origin and Settings >
      Integrations shows the same renderer with synthetic placeholders.
