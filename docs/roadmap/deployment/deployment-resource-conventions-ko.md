@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 1cec3852e10549520d0fc7a257ef034f0d6a9ed2
+translation_source_sha: 840eeea2202e4c0b318e86f947e7630dcdc13168
 translation_revised: 2026-08-20
 ---
 # 배포 리소스 규약
@@ -27,7 +27,7 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 | Operator schema 및 catalog Job 명명 | implemented | `infra/main.tf`, `infra/modules/operator-api/container-app/`, `.github/workflows/deploy-dev.yml` 및 집중 배포 workflow 테스트 | 결정론적 이름과 digest-pinned image를 연결했으며 순서가 지정된 Job의 보호된 적용 증적은 열려 있습니다. |
 | 예약된 규칙 수집기 Job | implemented | `infra/main.tf`; `infra/modules/compute/container-apps/rule_watcher_job.tf`; `tests/integration/infra/test_rule_watcher_job.py`; 집중 인프라 검사(`26 passed`) 및 `terraform validate` | 구성 가능한 cron이 실행 권한이 없는 인벤토리 신원과 네이티브 StateStore 비밀 참조를 사용해 검증된 수집기 wrapper를 호출합니다. 실행기 신원을 받거나 카탈로그 항목을 승격할 수 없습니다. 보호된 적용 및 실행 증적은 열려 있습니다. |
 | 브라우저 근거 정리 Job 명명 | implemented | `infra/main.tf`; `tests/integration/infra/test_browser_evidence_cleanup_job.py`; focused 검사(`4 passed`) 및 `terraform validate` | `caj-<workload>[-env][-region]-browser-gc`는 허용된 모든 환경에서 Azure 32자 한계를 지킵니다. Protected 적용 근거는 남아 있습니다. |
-| Event Bus 소비자 지연 경고 | implemented | `event_bus.py`; `infra/modules/observability/monitoring/`; `.github/workflows/deploy-dev.yml`; 집중 소비자, 인프라 및 workflow 검사; strict mypy 및 `terraform validate` | 범위가 제한된 commit이 정제된 파티션 진행률과 지연을 내보냅니다. Broker 기반 heartbeat도 downstream 처리가 멈춘 동안 할당된 파티션을 보고하며, 유휴 partial batch는 wall-clock commit deadline에 flush됩니다. 명시적 `deploy_monitoring` 보호 입력은 monitoring module만 대상으로 하고 그 밖의 변경을 차단하며, 보호된 적용 증적은 열려 있습니다. |
+| Event Bus 소비자 지연 경고 | validated | `event_bus.py`; `infra/modules/observability/monitoring/`; 보호된 적용 실행 `32383519737`; 실제 발생 및 해제 경고 관측; 집중 소비자, 인프라 및 workflow 검사 | 범위가 제한된 commit이 정제된 파티션 진행률과 지연을 내보냅니다. Broker 기반 heartbeat도 downstream 처리가 멈춘 동안 할당된 파티션을 보고하며, 유휴 partial batch는 wall-clock commit deadline에 flush됩니다. 보호된 monitoring-only 적용은 scheduled-query rule만 변경했으며 정제된 합성 지연 행으로 stateful 경고가 발생하고 자동 해제되었습니다. |
 | 보호된 모델 해석 산출물 | implemented | `.github/workflows/deploy-dev.yml`; `model_lifecycle_reconciler.py`; 집중 수명 주기, 계획 검증기, Terraform 및 CI 보안 검사 | 보호된 계획은 전체 및 배포 전용 매니페스트와 SHA-256 다이제스트를 봉인합니다. Exact apply가 그 byte를 복원하며 런타임은 같은 인라인 JSON과 다이제스트를 받습니다. |
 
 ### 구현 이력
@@ -56,6 +56,7 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 | 2026-08-20 | implemented | Run `32378121573`이 최종 저장 단계에 도달한 뒤 embedded Python 들여쓰기 오류와 누락된 `Path` import를 드러내서 보호된 계획 metadata 봉인을 수정했습니다. 이제 workflow 계약 테스트가 해당 heredoc을 compile합니다. | `current change`; `.github/workflows/deploy-dev.yml`; focused embedded-Python compile 및 workflow 검사. | 새로운 보호된 monitoring-only 계획을 만들고 적용한 뒤 경고 발생 및 복구 근거를 보존합니다. |
 | 2026-08-20 | implemented | 대상이 인프라 전용일 때 runtime image 근거가 없는 보호된 계획도 exact apply가 복원할 수 있게 했습니다. 봉인된 monitoring 계획 `32379417932`은 runtime image를 포함하지 않는 것이 맞지만 이전 복원 경로는 이를 무조건 요구했습니다. | `current change`; `.github/workflows/deploy-dev.yml`; focused runtime-evidence 분기 및 workflow 검사. | 수정된 workflow에서 monitoring-only 계획을 다시 만들고 적용한 뒤 경고 발생 및 복구 근거를 보존합니다. |
 | 2026-08-20 | implemented | AzureRM `auto_mitigation_enabled`를 사용해 Event Bus 지연 scheduled-query alert를 stateful하게 만들었습니다. 첫 live apply `32381129117`은 성공했지만 ARM readback이 `autoMitigate=false`를 보여 발생한 경고가 필수 자동 복구 계약을 만족할 수 없었습니다. | `current change`; monitoring Terraform module; focused alert 계약 테스트; Terraform validate. | 수정된 규칙을 적용한 뒤 실제 발생 및 자동 해제 관측을 하나 보존합니다. |
+| 2026-08-20 | validated | 수정된 stateful Event Bus 지연 규칙을 보호된 monitoring-only 경로로 적용하고 ARM의 `autoMitigate=true`를 확인했으며, 정제된 합성 지연 행 하나로 실제 조건을 시험했습니다. 경고는 `2026-08-20T15:36:09Z`에 발생하고 구성된 정상화 기간 뒤 `2026-08-20T16:02:10Z`에 자동 해제되었습니다. | 보호된 적용 실행 `32383519737`은 생성 0개, 제자리 변경 1개, 삭제 0개였고 정확한 경고 인스턴스 관측이 `Fired` 이후 `Resolved`를 기록했으며 집중 경고 검사 3개가 통과했습니다. | Event Bus 소비자 지연 경고 배포 및 stateful 복구 계약에 남은 작업은 없습니다. |
 ### 남은 작업
 
 - [ ] 이전 방식 platform 및 ops-bootstrap root의 리포지토리에 안전한 통제된 적용 증적을
@@ -67,8 +68,9 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
   `caj-<workload>-catalog`가 시작됨을 보여 주는 보호된 적용 및 실행 증적을 기록합니다.
 - [ ] 결정론적 `caj-<workload>[-env][-region]-browser-gc` Job의 protected 적용 및 실행 증적을 기록합니다.
 - [ ] 정확한 cron, image digest, 실행 권한이 없는 신원 및 검증된 출처 성공 기록을 포함하는 규칙 수집기 Job의 보호된 적용 및 예약 실행 증적을 기록합니다.
-- [ ] Event Bus 소비자 지연 경고가 정제된 `event_bus_consumer_progress` 행을 읽고 설정된
-  한계를 넘으면 발생하며 지연이 복구된 뒤 해제됨을 보여 주는 보호된 적용 증적을 기록합니다.
+- [x] 보호된 적용 실행 `32383519737`이 Event Bus scheduled-query rule만 변경했고 ARM이
+  `autoMitigate=true`를 보고했으며, 실제 경고는 정제된 지연 행이 사라진 뒤
+  `2026-08-20T15:36:09Z` 발생에서 `2026-08-20T16:02:10Z` 자동 해제로 전환되었습니다.
 - [ ] 전체 및 배포 전용 매니페스트 다이제스트가 정확한 런타임 JSON과 일치함을 보여 주는
   보호된 모델 해석 계획/적용 증적과 정제된 제안 전용 조정기 실행 1개를 보존합니다.
 
