@@ -38,6 +38,7 @@ from fdai.shared.providers.workload_identity import WorkloadIdentity
 _LOGGER = logging.getLogger(__name__)
 _AIOKAFKA_CONNECTION_LOGGER = logging.getLogger("aiokafka.conn")
 _CONSUMER_STOP_TIMEOUT_SECONDS: Final[float] = 5.0
+_CONSUMER_PROGRESS_INTERVAL_SECONDS: Final[float] = 60.0
 
 
 def _default_ssl_context() -> ssl.SSLContext:
@@ -338,6 +339,7 @@ async def _iter_consumer(
 ) -> AsyncIterator[EventEnvelope]:
     """Own its consumer lifecycle so the caller only sees the envelopes."""
     while True:
+        progress_monitor: asyncio.Task[None] | None = None
         token_provider = (
             _EntraTokenProvider(identity, audience)
             if identity is not None and audience is not None
@@ -371,6 +373,14 @@ async def _iter_consumer(
                         "OAUTHBEARER" if token_provider is not None else "PLAINTEXT"
                     ),
                 },
+            )
+            progress_monitor = asyncio.create_task(
+                _monitor_consumer_progress(
+                    consumer,
+                    topic=topic,
+                    group_id=group_id,
+                ),
+                name=f"event-bus-progress:{group_id}",
             )
             if token_provider is None:
                 # Closing the nested stream here keeps consumer teardown inside the
@@ -436,7 +446,68 @@ async def _iter_consumer(
                 )
             _LOGGER.debug("event_bus_consumer_token_refresh", extra={"group_id": group_id})
         finally:
+            if progress_monitor is not None:
+                progress_monitor.cancel()
+                await asyncio.gather(progress_monitor, return_exceptions=True)
             await _stop_consumer(consumer, topic=topic, group_id=group_id)
+
+
+async def _monitor_consumer_progress(
+    consumer: AIOKafkaConsumer,
+    *,
+    topic: str,
+    group_id: str,
+    interval_seconds: float = _CONSUMER_PROGRESS_INTERVAL_SECONDS,
+) -> None:
+    """Export broker-backed lag even while downstream processing is stalled."""
+    last_end_offsets: dict[TopicPartition, int] = {}
+    last_lags: dict[TopicPartition, int | None] = {}
+    while True:
+        await asyncio.sleep(interval_seconds)
+        try:
+            async with asyncio.timeout(interval_seconds):
+                partitions = tuple(
+                    sorted(consumer.assignment(), key=lambda partition: partition.partition)
+                )
+                if not partitions:
+                    continue
+                end_offsets = await consumer.end_offsets(partitions)
+                for topic_partition in partitions:
+                    highwater_offset = end_offsets.get(topic_partition)
+                    if (
+                        highwater_offset == last_end_offsets.get(topic_partition)
+                        and last_lags.get(topic_partition) == 0
+                    ):
+                        continue
+                    committed_offset = await consumer.committed(topic_partition)
+                    if committed_offset is None:
+                        committed_offset = await consumer.position(topic_partition)
+                    lag = (
+                        max(0, highwater_offset - committed_offset)
+                        if isinstance(committed_offset, int)
+                        and committed_offset >= 0
+                        and isinstance(highwater_offset, int)
+                        else None
+                    )
+                    last_end_offsets[topic_partition] = highwater_offset
+                    last_lags[topic_partition] = lag
+                    _log_consumer_progress(
+                        topic=topic,
+                        group_id=group_id,
+                        partition=topic_partition.partition,
+                        committed_offset=committed_offset,
+                        highwater_offset=highwater_offset,
+                        lag=lag,
+                        progress_kind="heartbeat",
+                    )
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001 - observability cannot stop ingestion
+            _LOGGER.warning(
+                "event_bus_consumer_progress_failed",
+                extra={"topic": topic, "consumer_group": group_id},
+                exc_info=True,
+            )
 
 
 async def _commit_consumer_progress(
@@ -454,17 +525,39 @@ async def _commit_consumer_progress(
         highwater = highwater_for(topic_partition) if callable(highwater_for) else None
         committed_offset = offset + 1
         lag = max(0, highwater - committed_offset) if isinstance(highwater, int) else None
-        _LOGGER.info(
-            "event_bus_consumer_progress",
-            extra={
-                "topic": topic,
-                "consumer_group": group_id,
-                "partition": partition,
-                "committed_offset": committed_offset,
-                "highwater_offset": highwater,
-                "consumer_lag": lag,
-            },
+        _log_consumer_progress(
+            topic=topic,
+            group_id=group_id,
+            partition=partition,
+            committed_offset=committed_offset,
+            highwater_offset=highwater,
+            lag=lag,
+            progress_kind="commit",
         )
+
+
+def _log_consumer_progress(
+    *,
+    topic: str,
+    group_id: str,
+    partition: int,
+    committed_offset: int | None,
+    highwater_offset: int | None,
+    lag: int | None,
+    progress_kind: Literal["commit", "heartbeat"],
+) -> None:
+    _LOGGER.info(
+        "event_bus_consumer_progress",
+        extra={
+            "topic": topic,
+            "consumer_group": group_id,
+            "partition": partition,
+            "committed_offset": committed_offset,
+            "highwater_offset": highwater_offset,
+            "consumer_lag": lag,
+            "progress_kind": progress_kind,
+        },
+    )
 
 
 async def _consume_messages(consumer: AIOKafkaConsumer) -> AsyncGenerator[EventEnvelope, None]:

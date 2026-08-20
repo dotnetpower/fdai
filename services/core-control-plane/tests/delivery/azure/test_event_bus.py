@@ -142,6 +142,62 @@ async def test_plaintext_transport_needs_no_workload_identity(
     assert "ssl_context" not in captured
 
 
+@pytest.mark.asyncio
+async def test_plaintext_consumer_starts_and_stops_progress_monitor(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monitor_started = asyncio.Event()
+    monitor_stopped = asyncio.Event()
+
+    class _Message:
+        topic = "aw.change.events"
+        key = b"resource"
+        value = b'{"event_id": "e"}'
+        offset = 1
+
+    class _Consumer:
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
+            return None
+
+        async def start(self) -> None:
+            return None
+
+        async def stop(self) -> None:
+            return None
+
+        async def getone(self) -> _Message:
+            return _Message()
+
+        async def commit(self) -> None:
+            return None
+
+    async def _monitor(*_args: object, **_kwargs: object) -> None:
+        monitor_started.set()
+        try:
+            await asyncio.Future()
+        finally:
+            monitor_stopped.set()
+
+    monkeypatch.setattr(event_bus_module, "AIOKafkaConsumer", _Consumer)
+    monkeypatch.setattr(event_bus_module, "_monitor_consumer_progress", _monitor)
+    iterator = _iter_consumer(
+        topic="aw.change.events",
+        group_id="fdai-pantheon.Huginn",
+        config=_cfg(
+            bootstrap_servers="127.0.0.1:19092",
+            security_protocol="PLAINTEXT",
+        ),
+        identity=None,
+        audience=None,
+    )
+
+    assert (await anext(iterator)).offset == 1
+    await asyncio.wait_for(monitor_started.wait(), timeout=1)
+    await iterator.aclose()
+
+    assert monitor_stopped.is_set()
+
+
 def test_encode_produces_deterministic_bytes() -> None:
     payload = {"b": 2, "a": 1}
     encoded = _encode(payload)
@@ -582,6 +638,177 @@ async def test_consumer_exports_partition_progress_and_lag_after_commit(
     assert progress.committed_offset == 8
     assert progress.highwater_offset == 13
     assert progress.consumer_lag == 5
+    assert progress.progress_kind == "commit"
+
+
+@pytest.mark.asyncio
+async def test_consumer_exports_lag_heartbeat_without_commit_progress(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    heartbeat_emitted = asyncio.Event()
+    topic_partition = TopicPartition("aw.change.events", 0)
+
+    class _StalledConsumer:
+        def assignment(self) -> set[TopicPartition]:
+            return {topic_partition}
+
+        async def end_offsets(
+            self, partitions: tuple[TopicPartition, ...]
+        ) -> dict[TopicPartition, int]:
+            assert partitions == (topic_partition,)
+            return {topic_partition: 130}
+
+        async def committed(self, partition: TopicPartition) -> int:
+            assert partition == topic_partition
+            heartbeat_emitted.set()
+            return 30
+
+    caplog.set_level(logging.INFO, logger=event_bus_module.__name__)
+    monitor = asyncio.create_task(
+        event_bus_module._monitor_consumer_progress(
+            _StalledConsumer(),
+            topic="aw.change.events",
+            group_id="fdai-pantheon.Huginn",
+            interval_seconds=0.001,
+        )
+    )
+    await asyncio.wait_for(heartbeat_emitted.wait(), timeout=1)
+    monitor.cancel()
+    await asyncio.gather(monitor, return_exceptions=True)
+
+    progress = next(
+        record for record in caplog.records if record.message == "event_bus_consumer_progress"
+    )
+    assert progress.partition == 0
+    assert progress.committed_offset == 30
+    assert progress.highwater_offset == 130
+    assert progress.consumer_lag == 100
+    assert progress.progress_kind == "heartbeat"
+
+
+@pytest.mark.asyncio
+async def test_consumer_heartbeat_uses_position_before_the_first_commit(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    heartbeat_emitted = asyncio.Event()
+    topic_partition = TopicPartition("aw.change.events", 0)
+
+    class _ColdConsumer:
+        def assignment(self) -> set[TopicPartition]:
+            return {topic_partition}
+
+        async def end_offsets(
+            self, partitions: tuple[TopicPartition, ...]
+        ) -> dict[TopicPartition, int]:
+            assert partitions == (topic_partition,)
+            return {topic_partition: 130}
+
+        async def committed(self, partition: TopicPartition) -> None:
+            assert partition == topic_partition
+            return None
+
+        async def position(self, partition: TopicPartition) -> int:
+            assert partition == topic_partition
+            heartbeat_emitted.set()
+            return 30
+
+    caplog.set_level(logging.INFO, logger=event_bus_module.__name__)
+    monitor = asyncio.create_task(
+        event_bus_module._monitor_consumer_progress(
+            _ColdConsumer(),
+            topic="aw.change.events",
+            group_id="fdai-pantheon.Huginn",
+            interval_seconds=0.001,
+        )
+    )
+    await asyncio.wait_for(heartbeat_emitted.wait(), timeout=1)
+    monitor.cancel()
+    await asyncio.gather(monitor, return_exceptions=True)
+
+    progress = next(
+        record for record in caplog.records if record.message == "event_bus_consumer_progress"
+    )
+    assert progress.committed_offset == 30
+    assert progress.highwater_offset == 130
+    assert progress.consumer_lag == 100
+
+
+@pytest.mark.asyncio
+async def test_consumer_heartbeat_bounds_a_stalled_broker_read(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    topic_partition = TopicPartition("aw.change.events", 0)
+
+    class _StalledConsumer:
+        def assignment(self) -> set[TopicPartition]:
+            return {topic_partition}
+
+        async def end_offsets(
+            self, _partitions: tuple[TopicPartition, ...]
+        ) -> dict[TopicPartition, int]:
+            await asyncio.Future()
+
+    caplog.set_level(logging.WARNING, logger=event_bus_module.__name__)
+    monitor = asyncio.create_task(
+        event_bus_module._monitor_consumer_progress(
+            _StalledConsumer(),
+            topic="aw.change.events",
+            group_id="fdai-pantheon.Huginn",
+            interval_seconds=0.001,
+        )
+    )
+    await asyncio.wait_for(
+        _wait_for_log(caplog, "event_bus_consumer_progress_failed"),
+        timeout=1,
+    )
+    monitor.cancel()
+    await asyncio.gather(monitor, return_exceptions=True)
+
+
+@pytest.mark.asyncio
+async def test_consumer_heartbeat_skips_unchanged_caught_up_partition(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    topic_partition = TopicPartition("aw.change.events", 0)
+    committed_calls = 0
+
+    class _IdleConsumer:
+        def assignment(self) -> set[TopicPartition]:
+            return {topic_partition}
+
+        async def end_offsets(
+            self, _partitions: tuple[TopicPartition, ...]
+        ) -> dict[TopicPartition, int]:
+            return {topic_partition: 30}
+
+        async def committed(self, _partition: TopicPartition) -> int:
+            nonlocal committed_calls
+            committed_calls += 1
+            return 30
+
+    caplog.set_level(logging.INFO, logger=event_bus_module.__name__)
+    monitor = asyncio.create_task(
+        event_bus_module._monitor_consumer_progress(
+            _IdleConsumer(),
+            topic="aw.change.events",
+            group_id="fdai-pantheon.Huginn",
+            interval_seconds=0.001,
+        )
+    )
+    await asyncio.sleep(0.01)
+    monitor.cancel()
+    await asyncio.gather(monitor, return_exceptions=True)
+
+    progress = [
+        record for record in caplog.records if record.message == "event_bus_consumer_progress"
+    ]
+    assert committed_calls == 1
+    assert len(progress) == 1
+
+
+async def _wait_for_log(caplog: pytest.LogCaptureFixture, message: str) -> None:
+    while not any(record.message == message for record in caplog.records):
+        await asyncio.sleep(0)
 
 
 def test_config_rejects_unusable_commit_batching() -> None:
