@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 9a6bd31052b03716bf04d66fd308d88c9cb39d36
+translation_source_sha: ec792234bdba8e8b7cdc7b13987e8601ea8775c2
 translation_revised: 2026-08-21
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -43,6 +43,7 @@ translation_revised: 2026-08-21
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
 | 2026-08-21 | implemented | Cognitive deployment를 변경할 수 있는 계획에만 중요한 모델 완결성 검사를 적용했습니다. 개발 게이트웨이 대상 계획은 기존 모델 계정과 호출자 RBAC를 계속 수렴하지만 대상 집합에 cognitive deployment가 없으므로 관련 없는 모델 해석을 건너뜁니다. | `current change`, `.github/workflows/deploy-dev.yml`, 집중 모델 수명 주기 및 보호 workflow 테스트, Terraform 전 불일치를 드러낸 보호 실행 `32435485872`와 `32435748272`. | 동일한 Event Bus 이행 계획을 다시 실행합니다. 모델 레지스트리를 바꾸기 전에 별도의 Foundry 다중 발행기 endpoint 이행을 설계합니다. |
+| 2026-08-21 | implemented | 빈 기능 맵이 기존 embedding deployment 삭제를 암시한 사실을 확인한 뒤 개발 게이트웨이 예외를 정정했습니다. 이제 게이트웨이 대상 계획은 모델 해석을 유지하면서 완결성 결과만 차단하지 않습니다. | 보호된 계획 실행 `32456242726`, `current change`, 집중 모델 수명 주기 및 보호 workflow 스위트의 테스트 44개 통과. | 동일한 Event Bus 이행 계획을 다시 실행하고 적용 전에 모델 deployment 변경이 없음을 확인합니다. |
 | 2026-08-19 | implemented | 서비스 hot path에서 경고 로그 쓰기 증폭과 로컬 터미널 역압력을 제거했습니다. 경고 레코드는 범위가 제한된 프로세스 간 잠금 아래 추가하고, 압축은 공유 5분 주기로 실행하며, 구조화 레코드와 터미널 버퍼에 byte 상한을 적용합니다. 반복 aiokafka 또는 Pantheon 관찰자 실패는 서로 다른 최초·주기 근거와 복구 횟수를 보존합니다. | `current change`, 집중 telemetry·launcher·provider integration·framework layout 검사, 16회 비평 라운드 결과 Low를 넘는 발견 사항 없음 | 실제 프로세스가 이 개정 번호를 사용하려면 다시 시작해야 합니다. 런타임 종료 게이트와 배포 근거는 변경되지 않았습니다. |
 | 2026-08-19 | implemented | 로컬 및 배포 job에 완전한 창 4개라는 동일한 catch-up 상한을 적용했습니다. 첫 로컬 실제 실행에서 개별 창이 각각 범위 내에 있어도 창의 연속 개수가 제한되지 않으면 terminal cursor 기록 전에 source 수준 timeout을 소진할 수 있음을 확인했습니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). Bound 전 로컬 실행은 `source_timeout`을 보고했고, 이후 focused 공유 provider 및 runner 검사 31개가 통과했습니다. | 완료된 로컬 및 배포 revision campaign 근거를 보존합니다. |
 | 2026-08-19 | implemented | 로컬 및 배포 observation job에서 Activity Log backlog 복구 동작을 동일하게 유지했습니다. 두 실행 위치 모두 timestamp 전용 adaptive 창, 완전한 창 단위 cursor checkpoint, result 10,000개 및 2,000,000 byte 상한, 즉시 `source_catchup` 연속 실행을 사용하며 관련 없는 실패는 정상 간격을 유지합니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). Focused provider 및 runner 검사 30개가 통과했습니다. 동작은 공유 출처 catalog와 campaign package에 유지됩니다. | 완료된 로컬 campaign을 보존한 뒤 기존의 열린 배포 revision campaign 근거를 확보합니다. |
@@ -609,8 +610,9 @@ auto-open도 비활성화하므로 결정론적 동등성 테스트가 Azure CLI
 ## 배포자-스코프 LLM 프로비저닝
 
 Cognitive deployment를 변경할 수 있는 보호된 전체 계획은 해석기를 실행하고 적용할 정확한
-매니페스트를 봉인합니다. 개발 게이트웨이 대상 계획은 기존 모델 계정과 호출자 RBAC만
-수렴하므로 대상 집합에 cognitive deployment가 없으면 모델 해석을 건너뜁니다.
+매니페스트를 봉인합니다. 개발 게이트웨이 대상 계획도 기존 모델 계정, 호출자 RBAC 및 수집
+종속성을 보존하도록 현재 기능 맵을 해석합니다. 대상 집합에 cognitive deployment가 없으므로
+완결성 결과는 차단하지 않습니다.
 
 ![배포자-스코프 LLM 프로비저닝. 주요 단계는 [terraform apply\], az account show / + 배포자 principal 해결, Bootstrap audit entry: / deployer_object_id, sub, region, rule-catalog/llm-registry.yaml 읽기, Azure 카탈로그 조회: / var.region 에서 / 사용가능한 Foundry / AOAI SKU, 배포자가 / Cognitive Services Contributor / 대상 subscription에 있음?, 경고 emit: / LLM 프로비저닝 스킵 / T2 capability = HIL-only, preferred family 사용가능 / AND 배포자 sub 쿼터 있음?, 이 capability HIL-only 마킹 / 나머지는 계속, deployment 프로비저닝 / cap_tpm 은 registry에서, mixed-model 불변식: / primary.publisher != secondary.publisher?, 명확한 에러로 abort / (fork가 preference 확장)입니다.](../../diagrams/generated/fdai-roadmap-deployment-dev-and-deploy-parity-01.ko.svg)
 

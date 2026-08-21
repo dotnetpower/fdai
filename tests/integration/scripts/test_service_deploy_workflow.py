@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import ast
 import json
 import re
+import runpy
 import textwrap
 from pathlib import Path
 
@@ -156,6 +158,87 @@ def test_platform_gateway_plan_targets_active_moved_role_collections() -> None:
         "azurerm_role_assignment.executor_eventhubs_data_owner",
     ):
         assert f"-target={address}" in target_expression
+
+
+def test_platform_plan_allows_only_exact_event_hub_topic_migration_deletes() -> None:
+    guard = _LEGACY_WORKFLOW.split("- name: Reject destructive protected plan", maxsplit=1)[
+        1
+    ].split("- name: Run complete Azure live preflight", maxsplit=1)[0]
+
+    assert "migration_successors = {" in guard
+    assert "migration_replacements = {" in guard
+    for old, new in (
+        ("aw.change.events", "fdai.change.events"),
+        ("aw.dr.events", "fdai.dr.events"),
+        ("aw.finops.events", "fdai.finops.events"),
+        ("aw.pantheon.objects", "fdai.pantheon.objects"),
+        ("aw.hil.decisions", "fdai.hil.decisions"),
+        ("aw.pipeline.stages", "fdai.pipeline.stages"),
+        ("aw.control.canary", "fdai.control.canary"),
+        ("aw.inventory.raw", "fdai.inventory.raw"),
+    ):
+        assert old in guard
+        assert new in guard
+    assert 'actions != ("delete", "create")' in guard
+    assert "Protected plan permits exact Event Hub migration:" in guard
+    assert "Protected plan permits exact Event Hubs RBAC replacement:" in guard
+
+
+def test_platform_destructive_guard_accepts_exact_migration_and_rejects_unrelated_deletes(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    step = _LEGACY_WORKFLOW.split("- name: Reject destructive protected plan", maxsplit=1)[1].split(
+        "- name: Run complete Azure live preflight", maxsplit=1
+    )[0]
+    match = re.search(r"python3 - <<'PY'\n(?P<source>.*?)\n\s+PY", step, re.DOTALL)
+
+    assert match is not None
+    source = textwrap.dedent(match.group("source"))
+    assignments = {
+        node.targets[0].id: ast.literal_eval(node.value)
+        for node in ast.parse(source).body
+        if isinstance(node, ast.Assign)
+        and len(node.targets) == 1
+        and isinstance(node.targets[0], ast.Name)
+        and node.targets[0].id in {"migration_successors", "migration_replacements"}
+    }
+    successors = assignments["migration_successors"]
+    replacements = assignments["migration_replacements"]
+    exact_changes = [
+        {"address": address, "change": {"actions": actions}}
+        for old, new in successors.items()
+        for address, actions in ((old, ["delete"]), (new, ["create"]))
+    ] + [
+        {"address": address, "change": {"actions": ["delete", "create"]}}
+        for address in replacements
+    ]
+    plan_path = tmp_path / "dev.plan.review.json"
+    script_path = tmp_path / "deploy_dev_destructive_guard.py"
+    monkeypatch.chdir(tmp_path)
+    script_path.write_text(source, encoding="utf-8")
+    plan_path.write_text(json.dumps({"resource_changes": exact_changes}), encoding="utf-8")
+    runpy.run_path(str(script_path), run_name="__main__")
+
+    for unrelated in (
+        "module.console[0].azurerm_static_web_app.console",
+        'module.llm_azure_openai[0].azurerm_cognitive_deployment.capability["t1.embedding"]',
+    ):
+        plan_path.write_text(
+            json.dumps(
+                {
+                    "resource_changes": exact_changes
+                    + [{"address": unrelated, "change": {"actions": ["delete"]}}]
+                }
+            ),
+            encoding="utf-8",
+        )
+        try:
+            runpy.run_path(str(script_path), run_name="__main__")
+        except SystemExit as exc:
+            assert exc.code == 1
+        else:
+            raise AssertionError(f"destructive guard accepted unrelated delete: {unrelated}")
 
 
 def test_platform_workflow_does_not_require_system_pip() -> None:

@@ -15,19 +15,24 @@ def test_protected_deploy_resolves_and_seals_model_manifest_before_plan() -> Non
     assert resolver < plan
     assert "fdai.rule_catalog.schema.llm_resolver_cli" in _DEPLOY
     assert "--use-azure-cli" in _DEPLOY
-    assert "--assess-fail-on critical" in _DEPLOY
+    assert '--assess-fail-on "$MODEL_COMPLETENESS_FAIL_ON"' in _DEPLOY
     assert "MODEL_RESOLVER_DEPLOYER_OBJECT_ID" in _DEPLOY
     assert "resolved-models.sha256" in _DEPLOY
     assert 'echo "TF_VAR_resolved_capabilities=' in _DEPLOY
     assert "RESOLVED_CAPABILITIES_JSON" not in _DEPLOY
 
 
-def test_gateway_targeted_plan_does_not_resolve_untargeted_model_deployments() -> None:
+def test_gateway_targeted_plan_resolves_models_without_blocking_on_completeness() -> None:
     resolver_step = _DEPLOY.split("- name: Resolve and seal model capabilities", maxsplit=1)[
         1
     ].split("- name: Ensure protected storage containers", maxsplit=1)[0]
 
-    assert "!inputs.deploy_dev_operations_gateway" in resolver_step
+    assert "!inputs.deploy_dev_operations_gateway" not in resolver_step
+    assert (
+        "MODEL_COMPLETENESS_FAIL_ON: "
+        "${{ inputs.deploy_dev_operations_gateway && 'none' || 'critical' }}"
+    ) in resolver_step
+    assert '--assess-fail-on "$MODEL_COMPLETENESS_FAIL_ON"' in resolver_step
     target_expression = _DEPLOY.split("TF_CLI_ARGS_plan:", maxsplit=1)[1].splitlines()[0]
     assert "module.llm_azure_openai[0].azurerm_cognitive_account.primary" in target_expression
     assert "azurerm_cognitive_deployment.capability" not in target_expression

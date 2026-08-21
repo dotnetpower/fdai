@@ -250,7 +250,10 @@ jobs:
           fi
           guard_repo="$RUNNER_TEMP/fdai-protected-origin-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.git"
           rm -rf -- "$guard_repo"
-          mkdir -p "$RUNNER_TEMP"
+            if address in migration_replacements:
+              if actions != ("delete", "create"):
+                unexpected.append(address)
+            elif address in permitted_retirements:
           git init --bare "$guard_repo" >/dev/null
           trap 'rm -rf -- "$guard_repo"' EXIT
           if [[ -n "$GITHUB_TOKEN" ]]; then
@@ -514,8 +517,10 @@ jobs:
             "$ARM_SUBSCRIPTION_ID" "$TF_VAR_tenant_id"
 
       - name: Resolve and seal model capabilities
-        if: ${{ !inputs.apply && !inputs.deploy_monitoring && !inputs.deploy_dev_operations_gateway && env.TF_VAR_enable_llm == 'true' }}
+        if: ${{ !inputs.apply && !inputs.deploy_monitoring && env.TF_VAR_enable_llm == 'true' }}
         working-directory: ${{ github.workspace }}
+        env:
+          MODEL_COMPLETENESS_FAIL_ON: ${{ inputs.deploy_dev_operations_gateway && 'none' || 'critical' }}
         run: |
           set -euo pipefail
           if [[ ! "$MODEL_RESOLVER_DEPLOYER_OBJECT_ID" =~ ^[0-9a-fA-F-]{36}$ ]]; then
@@ -532,7 +537,7 @@ jobs:
               --subscription-id "$ARM_SUBSCRIPTION_ID" \
               --deployer-object-id "$MODEL_RESOLVER_DEPLOYER_OBJECT_ID" \
               --use-azure-cli \
-              --assess-fail-on critical \
+              --assess-fail-on "$MODEL_COMPLETENESS_FAIL_ON" \
               --out "$resolved"
           python3 - "$resolved" "$manifest" <<'PY'
           import json
@@ -1043,6 +1048,76 @@ jobs:
               "additional_openai_user[\"ingestion_worker\"]",
             ),
           }
+          migration_successors = {
+            "module.event_bus.azurerm_eventhub.topic[\"aw.change.events\"]":
+              "module.event_bus.azurerm_eventhub.topic[\"fdai.change.events\"]",
+            "module.event_bus.azurerm_eventhub.topic[\"aw.dr.events\"]":
+              "module.event_bus.azurerm_eventhub.topic[\"fdai.dr.events\"]",
+            "module.event_bus.azurerm_eventhub.topic[\"aw.finops.events\"]":
+              "module.event_bus.azurerm_eventhub.topic[\"fdai.finops.events\"]",
+            "module.event_bus.azurerm_eventhub.topic[\"aw.pantheon.objects\"]":
+              "module.event_bus.azurerm_eventhub.topic[\"fdai.pantheon.objects\"]",
+            "module.event_bus.azurerm_eventhub.dlq[\"aw.change.events\"]":
+              "module.event_bus.azurerm_eventhub.dlq[\"fdai.change.events\"]",
+            "module.event_bus.azurerm_eventhub.dlq[\"aw.dr.events\"]":
+              "module.event_bus.azurerm_eventhub.dlq[\"fdai.dr.events\"]",
+            "module.event_bus.azurerm_eventhub.dlq[\"aw.finops.events\"]":
+              "module.event_bus.azurerm_eventhub.dlq[\"fdai.finops.events\"]",
+            "module.event_bus.azurerm_eventhub.dlq[\"aw.pantheon.objects\"]":
+              "module.event_bus.azurerm_eventhub.dlq[\"fdai.pantheon.objects\"]",
+            "module.event_bus.azurerm_eventhub.auxiliary[\"aw.hil.decisions\"]":
+              "module.event_bus.azurerm_eventhub.auxiliary[\"fdai.hil.decisions\"]",
+            "module.event_bus.azurerm_eventhub.auxiliary[\"aw.pipeline.stages\"]":
+              "module.event_bus.azurerm_eventhub.auxiliary[\"fdai.pipeline.stages\"]",
+            "module.event_bus_auxiliary.azurerm_eventhub.topic[\"aw.control.canary\"]":
+              "module.event_bus_auxiliary.azurerm_eventhub.topic[\"fdai.control.canary\"]",
+            "module.event_bus_auxiliary.azurerm_eventhub.dlq[\"aw.control.canary\"]":
+              "module.event_bus_auxiliary.azurerm_eventhub.dlq[\"fdai.control.canary\"]",
+            "module.event_bus_auxiliary.azurerm_eventhub.auxiliary[\"aw.inventory.raw\"]":
+              "module.event_bus_auxiliary.azurerm_eventhub.auxiliary[\"fdai.inventory.raw\"]",
+            "azurerm_role_assignment.command_api_eventhubs_receiver[\"aw.pantheon.objects\"]":
+              "azurerm_role_assignment.command_api_eventhubs_receiver[\"fdai.pantheon.objects\"]",
+            "azurerm_role_assignment.command_api_eventhubs_sender[\"aw.hil.decisions\"]":
+              "azurerm_role_assignment.command_api_eventhubs_sender[\"fdai.hil.decisions\"]",
+            "azurerm_role_assignment.command_api_eventhubs_sender[\"aw.pantheon.objects\"]":
+              "azurerm_role_assignment.command_api_eventhubs_sender[\"fdai.pantheon.objects\"]",
+            "azurerm_role_assignment.executor_eventhubs_data_owner[\"aw.change.events.dlq\"]":
+              "azurerm_role_assignment.executor_eventhubs_data_owner[\"fdai.change.events.dlq\"]",
+            "azurerm_role_assignment.executor_eventhubs_data_owner[\"aw.control.canary\"]":
+              "azurerm_role_assignment.executor_eventhubs_data_owner[\"fdai.control.canary\"]",
+            "azurerm_role_assignment.executor_eventhubs_data_owner[\"aw.control.canary.dlq\"]":
+              "azurerm_role_assignment.executor_eventhubs_data_owner[\"fdai.control.canary.dlq\"]",
+            "azurerm_role_assignment.executor_eventhubs_data_owner[\"aw.dr.events\"]":
+              "azurerm_role_assignment.executor_eventhubs_data_owner[\"fdai.dr.events\"]",
+            "azurerm_role_assignment.executor_eventhubs_data_owner[\"aw.dr.events.dlq\"]":
+              "azurerm_role_assignment.executor_eventhubs_data_owner[\"fdai.dr.events.dlq\"]",
+            "azurerm_role_assignment.executor_eventhubs_data_owner[\"aw.finops.events\"]":
+              "azurerm_role_assignment.executor_eventhubs_data_owner[\"fdai.finops.events\"]",
+            "azurerm_role_assignment.executor_eventhubs_data_owner[\"aw.finops.events.dlq\"]":
+              "azurerm_role_assignment.executor_eventhubs_data_owner[\"fdai.finops.events.dlq\"]",
+            "azurerm_role_assignment.executor_eventhubs_data_owner[\"aw.hil.decisions\"]":
+              "azurerm_role_assignment.executor_eventhubs_data_owner[\"fdai.hil.decisions\"]",
+            "azurerm_role_assignment.executor_eventhubs_data_owner[\"aw.inventory.raw\"]":
+              "azurerm_role_assignment.executor_eventhubs_data_owner[\"fdai.inventory.raw\"]",
+            "azurerm_role_assignment.executor_eventhubs_data_owner[\"aw.pantheon.objects\"]":
+              "azurerm_role_assignment.executor_eventhubs_data_owner[\"fdai.pantheon.objects\"]",
+            "azurerm_role_assignment.executor_eventhubs_data_owner[\"aw.pantheon.objects.dlq\"]":
+              "azurerm_role_assignment.executor_eventhubs_data_owner[\"fdai.pantheon.objects.dlq\"]",
+            "azurerm_role_assignment.executor_eventhubs_data_owner[\"aw.pipeline.stages\"]":
+              "azurerm_role_assignment.executor_eventhubs_data_owner[\"fdai.pipeline.stages\"]",
+          }
+          migration_replacements = {
+            "azurerm_role_assignment.canary_eventhubs_sender",
+            "azurerm_role_assignment.command_api_eventhubs_receiver[\"fdai.pipeline.stages\"]",
+            "azurerm_role_assignment.command_api_eventhubs_sender[\"fdai.change.events\"]",
+            "azurerm_role_assignment.executor_eventhubs_data_owner[\"fdai.change.events\"]",
+            "azurerm_role_assignment.ingestion_eventhubs_sender[0]",
+            "azurerm_role_assignment.ingestion_worker_eventhubs_sender[0]",
+            "azurerm_role_assignment.ingestion_worker_pantheon_receiver[0]",
+            "azurerm_role_assignment.inventory_eventhubs_raw_sender",
+            "azurerm_role_assignment.inventory_eventhubs_sender",
+            "azurerm_role_assignment.inventory_stage_sender",
+          }
           actions_by_address = {
             str(change.get("address", "unknown")): tuple(
               change.get("change", {}).get("actions", [])
@@ -1057,30 +1132,45 @@ jobs:
             for change in plan.get("resource_changes", [])
             if "delete" in change.get("change", {}).get("actions", [])
           )
-          unexpected = [
-            address
-            for address, actions in destructive
-            if (
-              address not in permitted_retirements
-              or actions != ("delete",)
-              or any(
+          unexpected = []
+          for address, actions in destructive:
+            if address in migration_replacements:
+              if actions != ("delete", "create"):
+                unexpected.append(address)
+            elif address in permitted_retirements:
+              if actions != ("delete",) or any(
                 actions_by_address.get(successor) != ("create",)
-                for successor in permitted_retirements.get(address, ())
-              )
-            )
-          ]
+                for successor in permitted_retirements[address]
+              ):
+                unexpected.append(address)
+            elif address in migration_successors:
+              if (
+                actions != ("delete",)
+                or actions_by_address.get(migration_successors[address]) != ("create",)
+              ):
+                unexpected.append(address)
+            else:
+              unexpected.append(address)
           if unexpected:
             print("Protected plans reject delete or replacement actions:")
             for address in unexpected:
               print(f"- {address}")
             raise SystemExit(1)
           for address, _actions in destructive:
-            successors = permitted_retirements[address]
-            successor_text = ", ".join(successors) if successors else "closed public path"
-            print(
-              "Protected plan permits bounded security retirement: "
-              f"{address} -> {successor_text}"
-            )
+            if address in migration_successors:
+              print(
+                "Protected plan permits exact Event Hub migration: "
+                f"{address} -> {migration_successors[address]}"
+              )
+            elif address in migration_replacements:
+              print(f"Protected plan permits exact Event Hubs RBAC replacement: {address}")
+            else:
+              successors = permitted_retirements[address]
+              successor_text = ", ".join(successors) if successors else "closed public path"
+              print(
+                "Protected plan permits bounded security retirement: "
+                f"{address} -> {successor_text}"
+              )
           PY
 
       - name: Run complete Azure live preflight
