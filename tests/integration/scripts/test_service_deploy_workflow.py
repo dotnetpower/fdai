@@ -182,6 +182,47 @@ def test_platform_gateway_plan_targets_active_moved_role_collections() -> None:
         assert f"-target={address}" in target_expression
 
 
+def test_platform_event_bus_migration_uses_isolated_targets() -> None:
+    assert "migrate_event_bus_topics:" in _LEGACY_WORKFLOW
+    step = _LEGACY_WORKFLOW.split(
+        "- name: Bind Event Bus migration Terraform targets", maxsplit=1
+    )[1].split("- name: Validate remote plan request", maxsplit=1)[0]
+
+    for address in (
+        "module.event_bus",
+        "module.event_bus_auxiliary",
+        "azurerm_role_assignment.canary_eventhubs_sender",
+        "azurerm_role_assignment.command_api_eventhubs_receiver",
+        "azurerm_role_assignment.command_api_eventhubs_sender",
+        "azurerm_role_assignment.executor_eventhubs_data_owner",
+        "azurerm_role_assignment.ingestion_eventhubs_sender",
+        "azurerm_role_assignment.ingestion_worker_eventhubs_sender",
+        "azurerm_role_assignment.ingestion_worker_pantheon_receiver",
+        "azurerm_role_assignment.inventory_eventhubs_raw_sender",
+        "azurerm_role_assignment.inventory_eventhubs_sender",
+        "azurerm_role_assignment.inventory_stage_sender",
+        "module.compute.azurerm_container_app_job.analyzer_tick",
+        "module.compute.azurerm_container_app_job.canary",
+        "module.compute.azurerm_container_app_job.inventory",
+    ):
+        assert f"'-target={address}'" in step
+    assert "module.llm_azure_openai" not in step
+    assert "module.operator_api" not in step
+    assert "if: ${{ inputs.migrate_event_bus_topics }}" in step
+
+    for name in (
+        "Reconcile Foundry web-search agent",
+        "Prepare exact development operations gateway source",
+        "Publish exact development operations gateway source",
+        "Verify exact development operations gateway source",
+        "Run schema migration",
+    ):
+        side_effect_step = _LEGACY_WORKFLOW.split(f"- name: {name}", maxsplit=1)[1].split(
+            "\n      - name:", maxsplit=1
+        )[0]
+        assert "!inputs.migrate_event_bus_topics" in side_effect_step
+
+
 def test_platform_plan_allows_only_exact_event_hub_topic_migration_deletes() -> None:
     guard = _LEGACY_WORKFLOW.split("- name: Reject destructive protected plan", maxsplit=1)[
         1
@@ -261,6 +302,61 @@ def test_platform_destructive_guard_accepts_exact_migration_and_rejects_unrelate
             assert exc.code == 1
         else:
             raise AssertionError(f"destructive guard accepted unrelated delete: {unrelated}")
+
+    allowed_updates = [
+        {
+            "address": address,
+            "change": {"actions": ["update"]},
+        }
+        for address in (
+            "module.compute.azurerm_container_app_job.analyzer_tick[0]",
+            "module.compute.azurerm_container_app_job.canary[0]",
+            "module.compute.azurerm_container_app_job.inventory[0]",
+            "module.event_bus.azurerm_eventhub_namespace.primary",
+        )
+    ]
+    monkeypatch.setenv("MIGRATE_EVENT_BUS_TOPICS", "true")
+    plan_path.write_text(
+        json.dumps({"resource_changes": exact_changes + allowed_updates}),
+        encoding="utf-8",
+    )
+    runpy.run_path(str(script_path), run_name="__main__")
+
+    plan_path.write_text(
+        json.dumps({"resource_changes": exact_changes + allowed_updates[:-1]}),
+        encoding="utf-8",
+    )
+    try:
+        runpy.run_path(str(script_path), run_name="__main__")
+    except SystemExit as exc:
+        assert exc.code == 1
+    else:
+        raise AssertionError("migration-only guard accepted a missing required update")
+
+    for invalid_changes in (
+        exact_changes[:-1] + allowed_updates,
+        exact_changes
+        + allowed_updates
+        + [
+            {
+                "address": (
+                    "module.llm_azure_openai[0].azurerm_cognitive_deployment."
+                    'capability["t1.embedding"]'
+                ),
+                "change": {"actions": ["create"]},
+            }
+        ],
+    ):
+        plan_path.write_text(
+            json.dumps({"resource_changes": invalid_changes}),
+            encoding="utf-8",
+        )
+        try:
+            runpy.run_path(str(script_path), run_name="__main__")
+        except SystemExit as exc:
+            assert exc.code == 1
+        else:
+            raise AssertionError("migration-only guard accepted an incomplete or unrelated plan")
 
 
 def test_platform_workflow_does_not_require_system_pip() -> None:

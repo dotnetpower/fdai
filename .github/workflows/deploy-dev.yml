@@ -123,6 +123,10 @@ on:
         description: "Provision the action group, alerts, and diagnostic settings."
         type: boolean
         default: false
+      migrate_event_bus_topics:
+        description: "Restrict planning to the reviewed aw.* to fdai.* Event Hubs migration."
+        type: boolean
+        default: false
       production_core_image:
         description: "Prod-only signed image reference pinned by sha256 digest."
         type: string
@@ -391,6 +395,55 @@ jobs:
             echo "deploy_design_mocks cannot be combined with another deployment target." >&2
             exit 1
           fi
+
+      - name: Validate Event Bus migration request
+        if: ${{ inputs.migrate_event_bus_topics }}
+        env:
+          CUTOVER_ISOLATED_EXECUTOR_AUTHORITY: ${{ inputs.cutover_isolated_executor_authority }}
+          DEPLOY_DESIGN_MOCKS: ${{ inputs.deploy_design_mocks }}
+          DEPLOY_MONITORING: ${{ inputs.deploy_monitoring }}
+          DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET: ${{ inputs.deploy_ohl_scale_out_evidence_target }}
+          PLAN_REQUEST_ID: ${{ inputs.request_id }}
+          PROMOTE_RUNTIME_IMAGE: ${{ inputs.promote_runtime_image }}
+          VERIFY_EXECUTOR_EFFECT: ${{ inputs.verify_executor_effect }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$PLAN_REQUEST_ID" ]]; then
+            echo "Event Bus topic migration requires a protected request." >&2
+            exit 1
+          fi
+          if [[ "$DEPLOY_DESIGN_MOCKS" == "true" \
+            || "$DEPLOY_MONITORING" == "true" \
+            || "$DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET" == "true" \
+            || "$PROMOTE_RUNTIME_IMAGE" == "true" \
+            || "$CUTOVER_ISOLATED_EXECUTOR_AUTHORITY" == "true" \
+            || "$VERIFY_EXECUTOR_EFFECT" == "true" ]]; then
+            echo "Event Bus topic migration cannot be combined with another bounded operation." >&2
+            exit 1
+          fi
+
+      - name: Bind Event Bus migration Terraform targets
+        if: ${{ inputs.migrate_event_bus_topics }}
+        run: |
+          set -euo pipefail
+          targets=(
+            '-target=module.event_bus'
+            '-target=module.event_bus_auxiliary'
+            '-target=azurerm_role_assignment.canary_eventhubs_sender'
+            '-target=azurerm_role_assignment.command_api_eventhubs_receiver'
+            '-target=azurerm_role_assignment.command_api_eventhubs_sender'
+            '-target=azurerm_role_assignment.executor_eventhubs_data_owner'
+            '-target=azurerm_role_assignment.ingestion_eventhubs_sender'
+            '-target=azurerm_role_assignment.ingestion_worker_eventhubs_sender'
+            '-target=azurerm_role_assignment.ingestion_worker_pantheon_receiver'
+            '-target=azurerm_role_assignment.inventory_eventhubs_raw_sender'
+            '-target=azurerm_role_assignment.inventory_eventhubs_sender'
+            '-target=azurerm_role_assignment.inventory_stage_sender'
+            '-target=module.compute.azurerm_container_app_job.analyzer_tick'
+            '-target=module.compute.azurerm_container_app_job.canary'
+            '-target=module.compute.azurerm_container_app_job.inventory'
+          )
+          printf 'TF_CLI_ARGS_plan=%s\n' "${targets[*]}" >> "$GITHUB_ENV"
 
       - name: Validate remote plan request
         if: ${{ !inputs.apply && inputs.request_id != '' }}
@@ -1006,12 +1059,15 @@ jobs:
 
       - name: Reject destructive protected plan
         if: ${{ !inputs.apply && inputs.request_id != '' }}
+        env:
+          MIGRATE_EVENT_BUS_TOPICS: ${{ inputs.migrate_event_bus_topics }}
         run: |
           set -euo pipefail
           terraform show -json dev.plan > dev.plan.review.json
           trap 'rm -f dev.plan.review.json' EXIT
           python3 - <<'PY'
           import json
+          import os
 
           with open("dev.plan.review.json", encoding="utf-8") as stream:
             plan = json.load(stream)
@@ -1152,6 +1208,43 @@ jobs:
             for address in unexpected:
               print(f"- {address}")
             raise SystemExit(1)
+          if os.environ.get("MIGRATE_EVENT_BUS_TOPICS") == "true":
+            required_actions = {
+              **{address: ("delete",) for address in migration_successors},
+              **{address: ("create",) for address in migration_successors.values()},
+              **{address: ("delete", "create") for address in migration_replacements},
+            }
+            required_updates = {
+              "module.compute.azurerm_container_app_job.analyzer_tick[0]",
+              "module.compute.azurerm_container_app_job.canary[0]",
+              "module.compute.azurerm_container_app_job.inventory[0]",
+              "module.event_bus.azurerm_eventhub_namespace.primary",
+            }
+            required_actions.update(
+              {address: ("update",) for address in required_updates}
+            )
+            invalid_actions = sorted(
+              address
+              for address, actions in required_actions.items()
+              if actions_by_address.get(address) != actions
+            )
+            changed_addresses = {
+              address
+              for address, actions in actions_by_address.items()
+              if actions not in (("no-op",), ("read",))
+            }
+            unexpected_changes = sorted(changed_addresses.difference(required_actions))
+            if invalid_actions or unexpected_changes:
+              if invalid_actions:
+                print("Event Bus migration plan is missing an exact required action:")
+                for address in invalid_actions:
+                  print(f"- {address}: {actions_by_address.get(address)}")
+              if unexpected_changes:
+                print("Event Bus migration plan contains unrelated changes:")
+                for address in unexpected_changes:
+                  print(f"- {address}: {actions_by_address[address]}")
+              raise SystemExit(1)
+            print("Event Bus migration plan contains only reviewed migration changes.")
           for address, _actions in destructive:
             if address in migration_successors:
               print(
@@ -1698,7 +1791,7 @@ jobs:
           fi
 
       - name: Reconcile Foundry web-search agent
-        if: ${{ inputs.apply && !inputs.deploy_design_mocks && vars.OPERATOR_API_WEB_SEARCH_ENABLED == 'true' }}
+        if: ${{ inputs.apply && !inputs.deploy_design_mocks && !inputs.migrate_event_bus_topics && vars.OPERATOR_API_WEB_SEARCH_ENABLED == 'true' }}
         env:
           WEB_SEARCH_ALLOWED_DOMAINS_JSON: "${{ vars.OPERATOR_API_WEB_SEARCH_ALLOWED_DOMAINS_JSON || '[]' }}"
         run: |
@@ -1717,7 +1810,7 @@ jobs:
           PYTHONPATH=../src python3 -m fdai.delivery.azure.foundry_agent_reconciler "${args[@]}"
 
       - name: Prepare exact development operations gateway source
-        if: ${{ inputs.apply && inputs.deploy_dev_operations_gateway }}
+        if: ${{ inputs.apply && inputs.deploy_dev_operations_gateway && !inputs.migrate_event_bus_topics }}
         env:
           APPLY_CONTEXT_DIGEST: ${{ inputs.context_digest }}
           APPLY_COMMIT_SHA: ${{ inputs.commit_sha }}
@@ -1751,7 +1844,7 @@ jobs:
           echo "GATEWAY_DEPLOYMENT_STARTED_EPOCH=$(date -u +%s)" >> "$GITHUB_ENV"
 
       - name: Publish exact development operations gateway source
-        if: ${{ inputs.apply && inputs.deploy_dev_operations_gateway }}
+        if: ${{ inputs.apply && inputs.deploy_dev_operations_gateway && !inputs.migrate_event_bus_topics }}
         uses: Azure/functions-action@bc63708cc6539760eea18d8a7de4ce8ef5fdf593 # v1.5.6
         with:
           app-name: ${{ env.GATEWAY_FUNCTION_APP }}
@@ -1759,7 +1852,7 @@ jobs:
           remote-build: true
 
       - name: Verify exact development operations gateway source
-        if: ${{ inputs.apply && inputs.deploy_dev_operations_gateway }}
+        if: ${{ inputs.apply && inputs.deploy_dev_operations_gateway && !inputs.migrate_event_bus_topics }}
         run: |
           set -euo pipefail
           resource_id="$GATEWAY_FUNCTION_RESOURCE_ID"
@@ -1901,7 +1994,7 @@ jobs:
           echo "Design mocks: https://$hostname" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Run schema migration
-        if: ${{ inputs.apply && (inputs.deploy_operator_api || inputs.deploy_document_ingestion) }}
+        if: ${{ inputs.apply && !inputs.migrate_event_bus_topics && (inputs.deploy_operator_api || inputs.deploy_document_ingestion) }}
         run: |
           set -euo pipefail
           rg="$(terraform output -raw resource_group_name)"
