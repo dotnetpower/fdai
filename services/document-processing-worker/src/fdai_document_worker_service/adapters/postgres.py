@@ -123,7 +123,7 @@ class PostgresDocumentMetadataStore:
         """Verify required worker tables, columns, grants, and connectivity."""
         adapter = "postgres-document-metadata"
         try:
-            async with asyncio.timeout(min(float(self._config.connect_timeout_s), 5.0)):
+            async with asyncio.timeout(float(self._config.connect_timeout_s)):
                 async with await self._connect() as connection:
                     row = await (await connection.execute(_READINESS_SQL)).fetchone()
         except TimeoutError:

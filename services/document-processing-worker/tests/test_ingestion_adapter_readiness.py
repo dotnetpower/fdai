@@ -5,9 +5,11 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
+from typing import Self
 from uuid import uuid4
 
 import fdai_document_worker_service.adapters.event_bus as event_bus_module
+import fdai_document_worker_service.adapters.postgres as postgres_module
 import httpx
 import pytest
 from fdai_document_worker_service.adapters.event_bus import (
@@ -388,6 +390,47 @@ async def test_ingestion_worker_postgres_probe_requires_owned_schema_and_grants(
         "has_table_privilege(current_user, 'knowledge_chunk', 'SELECT, INSERT, UPDATE, DELETE')",
     ):
         assert fragment in statement
+
+
+async def test_ingestion_worker_postgres_probe_uses_configured_connect_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed: list[float] = []
+
+    class TimeoutContext:
+        async def __aenter__(self) -> Self:
+            return self
+
+        async def __aexit__(
+            self,
+            _exc_type: object,
+            _exc_value: object,
+            _traceback: object,
+        ) -> None:
+            return None
+
+    def timeout(seconds: float) -> TimeoutContext:
+        observed.append(seconds)
+        return TimeoutContext()
+
+    store = PostgresDocumentMetadataStore(
+        config=PostgresWorkerConfig(
+            dsn="postgresql://example.invalid/fdai",
+            connect_timeout_s=10,
+        )
+    )
+    connection = SchemaProbeConnection()
+
+    async def connect() -> SchemaProbeConnection:
+        return connection
+
+    monkeypatch.setattr(postgres_module.asyncio, "timeout", timeout)
+    monkeypatch.setattr(store, "_connect", connect)
+
+    result = await store.probe_readiness()
+
+    assert result.live_verified is True
+    assert observed == [10.0]
 
 
 async def test_ingestion_api_kafka_probe_refreshes_metadata_and_discards_stale_producer() -> None:
