@@ -31,7 +31,7 @@ if [[ -n "$edge_resource_id" && "$edge_state" == "disabled" ]]; then
   fi
   echo "disabled channel edge route removal verified."
 fi
-health_deadline=$((SECONDS + 900))
+health_deadline=$((SECONDS + 1200))
 activation_attempted=false
 health_converged=false
 while ((SECONDS < health_deadline)); do
@@ -91,7 +91,7 @@ while ((SECONDS < health_deadline)); do
   sleep 5
 done
 if [[ "$health_converged" != true ]]; then
-  echo "container app did not reach the healthy contract within its 900s health deadline." >&2
+  echo "container app did not reach the healthy contract within its 1200s health deadline." >&2
   exit 1
 fi
 timeout 120s python3 "$control_root/deployment_recovery.py" verify \
@@ -122,7 +122,7 @@ if [[ -n "$edge_resource_id" && "$edge_state" != "disabled" ]]; then
   edge_expected_image="$(jq -er '.target.image_ref' "$work_dir/edge-context.json")"
   previous_edge_revision="${PREVIOUS_CHANNEL_EDGE_REVISION:-absent}"
   edge_health_converged=false
-  edge_health_deadline=$((SECONDS + 900))
+  edge_health_deadline=$((SECONDS + 1200))
   while ((SECONDS < edge_health_deadline)); do
     timeout 60s az containerapp show \
       --ids "$edge_resource_id" \
@@ -154,7 +154,7 @@ if [[ -n "$edge_resource_id" && "$edge_state" != "disabled" ]]; then
     sleep 5
   done
   if [[ "$edge_health_converged" != true ]]; then
-    echo "channel edge did not reach the healthy contract within its 900s deadline." >&2
+    echo "channel edge did not reach the healthy contract within its 1200s deadline." >&2
     exit 1
   fi
   timeout 120s python3 "$control_root/deployment_recovery.py" verify \

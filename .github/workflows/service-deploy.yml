@@ -1104,7 +1104,9 @@ jobs:
           resource_id="$(jq -er '.service_resource_id' "$rollback_dir/snapshot.json")"
           resource_group="$(jq -er '.resource_group' "$rollback_dir/snapshot.json")"
           service_name="$(jq -er '.service_name' "$rollback_dir/snapshot.json")"
-          for _attempt in $(seq 1 36); do
+          rollback_health_deadline=$((SECONDS + 1200))
+          rollback_health_converged=false
+          while ((SECONDS < rollback_health_deadline)); do
             timeout 60s az containerapp show \
               --ids "$resource_id" \
               --only-show-errors \
@@ -1137,10 +1139,16 @@ jobs:
                 )
               ' \
               "$rollback_dir/revision-after.json" >/dev/null; then
+              rollback_health_converged=true
               break
             fi
+            echo "rollback health poll: revision=$recovery_revision remaining=$((rollback_health_deadline - SECONDS))s" >&2
             sleep 5
           done
+          if [[ "$rollback_health_converged" != true ]]; then
+            echo "rollback revision did not reach the healthy contract within 1200s." >&2
+            exit 1
+          fi
           az account show --only-show-errors --output json >"$rollback_dir/account-after.json"
           python3 "$TRUSTED_CONTROLS/scripts/deployment/service/deployment_recovery.py" \
             verify-rollback \

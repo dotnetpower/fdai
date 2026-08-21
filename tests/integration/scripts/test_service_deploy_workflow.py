@@ -580,7 +580,7 @@ def test_health_verifier_checks_channel_edge_revision_or_removal() -> None:
     assert '.operator_channel_edge.state // "enabled"' in _HEALTH_SCRIPT
     assert "disabled channel edge still exists after protected apply." in _HEALTH_SCRIPT
     assert _HEALTH_SCRIPT.index("disabled channel edge route removal verified.") < (
-        _HEALTH_SCRIPT.index("health_deadline=$((SECONDS + 900))")
+        _HEALTH_SCRIPT.index("health_deadline=$((SECONDS + 1200))")
     )
     assert "channel edge revision does not match the exact protected image." in _HEALTH_SCRIPT
     assert "del(.operator_channel_edge)" in _HEALTH_SCRIPT
@@ -798,7 +798,7 @@ def test_initial_cutover_prepares_stamps_and_upgrades_service_migrations() -> No
     assert "sleep 5" in _WORKFLOW
     assert ".properties.latestRevisionName" in _HEALTH_SCRIPT
     assert ".latest_revision_name" not in _HEALTH_SCRIPT
-    assert "health_deadline=$((SECONDS + 900))" in _HEALTH_SCRIPT
+    assert "health_deadline=$((SECONDS + 1200))" in _HEALTH_SCRIPT
     assert "while ((SECONDS < health_deadline))" in _HEALTH_SCRIPT
     assert ".target.image_ref" in _HEALTH_SCRIPT
     assert '"$revision_name" != "$previous_revision"' in _HEALTH_SCRIPT
@@ -811,7 +811,7 @@ def test_health_poll_reports_progress_and_fails_on_its_own_deadline() -> None:
     assert _HEALTH_SCRIPT.index("health poll: revision=") < _HEALTH_SCRIPT.index("  sleep 5")
     assert "health_converged=true" in _HEALTH_SCRIPT
     assert 'if [[ "$health_converged" != true ]]; then' in _HEALTH_SCRIPT
-    assert "within its 900s health deadline" in _HEALTH_SCRIPT
+    assert "within its 1200s health deadline" in _HEALTH_SCRIPT
 
 
 def test_every_deploy_command_declares_a_budget() -> None:
@@ -837,6 +837,8 @@ def test_apply_failure_uses_the_same_verified_rollback_path() -> None:
     assert "id: rollback\n        continue-on-error: true" in _WORKFLOW
     assert _WORKFLOW.count(final_failure_condition) == 1
     assert '[[ "${{ steps.rollback.outcome }}" != "success" ]]' in _WORKFLOW
+    assert "rollback_health_deadline=$((SECONDS + 1200))" in _WORKFLOW
+    assert 'if [[ "$rollback_health_converged" != true ]]; then' in _WORKFLOW
 
 
 def test_service_and_legacy_workflows_enforce_state_cutover_fence() -> None:
