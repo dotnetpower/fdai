@@ -1,13 +1,12 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 26ade05ef7d98401e37d2e69c4387aaac927ea5a
+translation_source_sha: 6b87cd5dc387d015a91b174cf7aec81af3470f1d
 translation_revised: 2026-08-21
 ---
 # 프로세스 자동화(프로세스 자동화)
 
-프로세스 자동화는 다단계 비즈니스 프로세스를 1급, 온톨로지 연결, 거버넌스된
-아티팩트로 바꾼다. 프로세스는 컨트롤 플레인을 우회하는 스크립트가 아니다. 이는
+프로세스 자동화는 다단계 비즈니스 프로세스를 1급, 온톨로지 연결, 거버넌스된 아티팩트로 바꾼다. 프로세스는 컨트롤 플레인을 우회하는 스크립트가 아니다. 이는
 온톨로지 `ActionType` 호출의 선언적 시퀀스이며, 동일한 trust-routing 컨트롤
 루프가 한 번에 한 스텝씩, 단일 교정 과 동일한 안전 불변식 아래에서
 전달 한다.
@@ -41,6 +40,7 @@ translation_revised: 2026-08-21
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-21 | implemented | 이전 Console chat 및 stream 테스트를 서버 소유의 의미 workflow 판정과 일치시켰습니다. Text-only turn은 맥락을 유지하지만 명시적 ActionType 및 trigger 선택을 요구하며, 요청이 일치하지 않거나 불완전한 v1 frame은 거부된 payload를 노출하지 않고 공유 unavailable 상태를 렌더합니다. | `current change`; `workflow-builder.chat.test.ts`, `backend-stream-v1-contract.test.ts`; 집중 Console 테스트 31개 통과. | 이 계약 테스트 정정에 남은 작업은 없습니다. |
 | 2026-08-17 | implemented | 이 리포에 존재하지 않는 구성 심볼로 워크플로 작성 경로를 활성화하라고 안내하던 운영자 대상 문구를 제거했습니다. | `current change`; `workflow-builder.chat.ts`, `workflow/validate.ts`, `workflow.{en,ko}.json`; 집중 콘솔 검사 9개 파일 71개 테스트 통과, 카탈로그 키 패리티 유지. | 이 문구 집합에 남은 작업은 없습니다. 워크플로 작성 경로 자체의 배선은 별도 작업입니다. |
 | 2026-08-14 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입하고 남은 헌법상 보상 공백을 표시했습니다. | `current change`; 구현 범위 표의 현재 소스, 집중 테스트 및 추적성입니다. | 아래의 보상 hold 및 승격 종료 조건을 완료해야 합니다. |
 | 2026-08-14 | implemented | 보상 실패, ledger 재시작, 중복 전달, 정방향 전달 차단 및 일치하는 복구 해제 전반에서 영속 자동화 hold를 검증하고 FDAI-CONST-009를 implemented로 기록했습니다. | `current change`; `test_automation_hold.py`, `test_orchestrator.py`, `test_control_loop_authority.py`, `test_gate.py`; 집중 검사 10개가 통과했습니다. | 아래의 독립 워크플로 승격 근거와 관련 없는 트리거 및 분기 작업은 계속 남아 있습니다. |

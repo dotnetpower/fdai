@@ -5,7 +5,10 @@ afterEach(() => {
 });
 
 test("rejects v1 frames with mismatched request ids or missing sequences", async () => {
-  for (const variant of ["mismatch", "missing-sequence"] as const) {
+  for (const [variant, expectedSource] of [
+    ["mismatch", "unavailable (stream request mismatch)"],
+    ["missing-sequence", "unavailable (missing stream sequence)"],
+  ] as const) {
     vi.resetModules();
     vi.stubGlobal(
       "fetch",
@@ -39,9 +42,10 @@ test("rejects v1 frames with mismatched request ids or missing sequences", async
       onToken: (token) => tokens.push(token),
     });
 
-    expect(reply.source).toBe("partial (sequence gap)");
-    expect(reply.text).toBe("");
-    expect(tokens).toEqual([]);
+    expect(reply.source).toBe(expectedSource);
+    expect(reply.text).toBe("Semantic interpretation is unavailable for this turn.");
+    expect(tokens.join("")).toBe(reply.text);
+    expect(tokens.join("")).not.toContain("must be discarded");
     expect(reply.verification).toBeUndefined();
   }
 });

@@ -60,14 +60,24 @@ describe("workflow-builder chat engine", () => {
     expect(turn.text).toContain("not wired");
   });
 
-  it("reads a full sentence and requires explicit plan confirmation", () => {
+  it("collects a goal and requires explicit action, trigger, and plan confirmation", () => {
     const start = startChat(PALETTE);
-    const turn = respondToChat(
+    const goal = respondToChat(
       start.slots,
       "When cost spikes, right-size the resource and post a summary",
       PALETTE,
     );
-    // cost -> cost-anomaly trigger; right-size + summary actions matched.
+    const action = respondToChat(
+      goal.slots,
+      "action:remediate.right-size",
+      PALETTE,
+    );
+    const summary = respondToChat(
+      action.slots,
+      "action:notify.publish-change-summary",
+      PALETTE,
+    );
+    const turn = respondToChat(summary.slots, "trigger:object.cost-anomaly", PALETTE);
     expect(turn.slots.triggerConfirmed).toBe(true);
     expect(turn.slots.actionsConfirmed).toBe(true);
     expect(turn.slots.form.signalType).toBe("object.cost-anomaly");
@@ -81,9 +91,13 @@ describe("workflow-builder chat engine", () => {
     expect(findValues(confirmed.options)).toContain("done");
   });
 
-  it("asks for a trigger when the sentence has an action but no clear signal", () => {
+  it("asks for a trigger after an explicit action pick", () => {
     const start = startChat(PALETTE);
-    const turn = respondToChat(start.slots, "alert me and restart the service", PALETTE);
+    const turn = respondToChat(
+      start.slots,
+      "action:remediate.restart-service",
+      PALETTE,
+    );
     expect(turn.slots.actionsConfirmed).toBe(true);
     expect(turn.slots.triggerConfirmed).toBe(false);
     expect(turn.slots.stage).toBe("need_trigger");
@@ -95,7 +109,11 @@ describe("workflow-builder chat engine", () => {
 
   it("accepts an explicit trigger pick and advances", () => {
     const start = startChat(PALETTE);
-    const t1 = respondToChat(start.slots, "restart the service", PALETTE);
+    const t1 = respondToChat(
+      start.slots,
+      "action:remediate.restart-service",
+      PALETTE,
+    );
     expect(t1.slots.stage).toBe("need_trigger");
     const t2 = respondToChat(t1.slots, "trigger:object.anomaly", PALETTE);
     expect(t2.slots.triggerConfirmed).toBe(true);
@@ -105,11 +123,13 @@ describe("workflow-builder chat engine", () => {
 
   it("walks to a ready draft through done + keep-name", () => {
     const start = startChat(PALETTE);
-    const t1 = respondToChat(
+    const goal = respondToChat(
       start.slots,
       "When cost spikes, right-size the resource",
       PALETTE,
     );
+    const action = respondToChat(goal.slots, "action:remediate.right-size", PALETTE);
+    const t1 = respondToChat(action.slots, "trigger:object.cost-anomaly", PALETTE);
     const t2 = respondToChat(t1.slots, "plan:keep", PALETTE);
     const t3 = respondToChat(t2.slots, "done", PALETTE);
     expect(t3.slots.stage).toBe("confirm_safety");
@@ -129,7 +149,8 @@ describe("workflow-builder chat engine", () => {
 
   it("adds an extra action step when one is picked in offer_extra", () => {
     const start = startChat(PALETTE);
-    const t1 = respondToChat(start.slots, "When cost spikes, right-size the resource", PALETTE);
+    const action = respondToChat(start.slots, "action:remediate.right-size", PALETTE);
+    const t1 = respondToChat(action.slots, "trigger:object.cost-anomaly", PALETTE);
     expect(t1.slots.stage).toBe("confirm_plan");
     const t2 = respondToChat(t1.slots, "plan:keep", PALETTE);
     expect(t2.slots.stage).toBe("offer_extra");
@@ -142,11 +163,12 @@ describe("workflow-builder chat engine", () => {
 
   it("does not recommend unrelated mutations as extra steps", () => {
     const start = startChat(PALETTE);
-    const planned = respondToChat(
+    const action = respondToChat(
       start.slots,
-      "When cost spikes, right-size the resource and post a summary",
+      "action:remediate.right-size",
       PALETTE,
     );
+    const planned = respondToChat(action.slots, "trigger:object.cost-anomaly", PALETTE);
     const extras = respondToChat(planned.slots, "plan:keep", PALETTE);
 
     expect(extras.slots.stage).toBe("offer_extra");
@@ -205,7 +227,10 @@ describe("workflow-builder chat engine", () => {
 });
 
 describe("chat engine full-flow integration", () => {
-  function toReady(goal: string): ReturnType<typeof respondToChat> {
+  function toReady(
+    goal: string,
+    action = "remediate.restart-service",
+  ): ReturnType<typeof respondToChat> {
     const start = startChat(PALETTE);
     const t1 = respondToChat(start.slots, goal, PALETTE);
     // Walk whatever stage remains until ready, always taking the safe path.
@@ -213,7 +238,7 @@ describe("chat engine full-flow integration", () => {
     for (let i = 0; i < 10 && !turn.draftReady; i += 1) {
       const stage = turn.slots.stage;
       if (stage === "need_action") {
-        turn = respondToChat(turn.slots, "action:remediate.restart-service", PALETTE);
+        turn = respondToChat(turn.slots, `action:${action}`, PALETTE);
       } else if (stage === "need_trigger") {
         turn = respondToChat(turn.slots, "trigger:object.anomaly", PALETTE);
       } else if (stage === "confirm_plan") {
@@ -232,7 +257,10 @@ describe("chat engine full-flow integration", () => {
   }
 
   it("reaches a ready draft with a name, description, and steps", () => {
-    const ready = toReady("When cost spikes, right-size the resource");
+    const ready = toReady(
+      "When cost spikes, right-size the resource",
+      "remediate.right-size",
+    );
     expect(ready.draftReady).toBe(true);
     expect(ready.slots.stage).toBe("ready");
     expect(ready.slots.form.name.length).toBeGreaterThan(0);
@@ -254,7 +282,10 @@ describe("chat engine full-flow integration", () => {
     let turn = respondToChat(start.slots, "When cost spikes, right-size the resource", PALETTE);
     // advance to confirm_name
     for (let i = 0; i < 8 && turn.slots.stage !== "confirm_name"; i += 1) {
-      if (turn.slots.stage === "offer_extra") turn = respondToChat(turn.slots, "done", PALETTE);
+      if (turn.slots.stage === "need_action")
+        turn = respondToChat(turn.slots, "action:remediate.right-size", PALETTE);
+      else if (turn.slots.stage === "offer_extra")
+        turn = respondToChat(turn.slots, "done", PALETTE);
       else if (turn.slots.stage === "need_trigger")
         turn = respondToChat(turn.slots, "trigger:object.anomaly", PALETTE);
       else if (turn.slots.stage === "confirm_plan")

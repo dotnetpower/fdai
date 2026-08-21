@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Collection
+from typing import Any
 
 from fdai_service_contracts.semantic_judgment import (
     SemanticJudgmentProposal,
@@ -12,6 +13,24 @@ from fdai.agents._framework.bragi_models import RoutingDecision
 from fdai.agents._framework.pantheon import PANTHEON_NAMES, PANTHEON_SPECS
 
 _PANTHEON_PRECEDENCE = {"governance": 0, "pipeline": 1, "domain": 2}
+
+
+def semantic_capabilities(action_type_names: Collection[str]) -> tuple[dict[str, Any], ...]:
+    """Project the fixed Pantheon and configured action types for semantic judgment."""
+    agents = tuple(
+        {
+            "kind": "agent",
+            "name": spec.name,
+            "question_domains": list(spec.question_domains),
+            "owns": list(spec.owns),
+            "tools": [tool.tool_id for tool in spec.conversation.tool_specs],
+        }
+        for spec in PANTHEON_SPECS
+    )
+    actions = tuple(
+        {"kind": "action_type", "name": name} for name in sorted(set(action_type_names))
+    )
+    return (*agents, *actions)
 
 
 def route_semantic_judgment(
@@ -114,4 +133,8 @@ def _layer_of(agent_name: str) -> int:
     return 99
 
 
-__all__ = ["action_from_semantic_judgment", "route_semantic_judgment"]
+__all__ = [
+    "action_from_semantic_judgment",
+    "route_semantic_judgment",
+    "semantic_capabilities",
+]

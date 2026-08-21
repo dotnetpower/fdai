@@ -16,9 +16,7 @@ Consumers of this document:
 - The Operator Console ([operator-console.md](../interfaces/operator-console.md)) reads §6.3
   and §6.5 to route natural-language questions to the correct primary agent
   with per-user context.
-- The rule-catalog and executor ([action-ontology.md](../decisioning/action-ontology.md),
-  [execution-model.md](../decisioning/execution-model.md)) read §7 to bind each ActionType
-  to its initiator, judge, approver, executor, and auditor.
+- The rule-catalog and executor ([action-ontology.md](../decisioning/action-ontology.md), [execution-model.md](../decisioning/execution-model.md)) read §7 to bind each ActionType to its initiator, judge, approver, executor, and auditor.
 - Forks read §10 to see which seams are open (topic subscriptions, config
   overrides) and which are locked (no new agents, no rename).
 
@@ -40,6 +38,7 @@ Consumers of this document:
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-21 | implemented | Extracted content-addressed Bragi Turn and handoff payload construction into a private publication helper and moved semantic capability projection into the existing routing helper solely to restore the framework line ceiling. Bragi still publishes the same `object.turn` and `object.handoff-escalation` topics; AgentSpec, ownership, LLM policy, typed proposal entry, and action authority are unchanged. | `current change`; focused Bragi and framework checks passed 95 cases; changed-file Ruff, format, and mypy passed; the repository LOC gate passed with zero hard failures. | Retain the same governed operator-path, KPI, and promotion evidence already required by this design. |
 | 2026-08-13 | in-progress | Adopted an evidence-bounded implementation ledger without reconstructing earlier delivery history. | current change | Collect live operational evidence and complete an independently reviewed promotion before claiming validation or enforce use. |
 | 2026-08-19 | implemented | Bound Heimdall's remaining production security-correlation thresholds to bounded startup settings without changing its AgentSpec, topics, owned objects, deterministic hot path, or authority. Raw Huginn ingress handler construction moved to the private subscription-wiring module solely to preserve the framework line ceiling; normalization and drop semantics are unchanged. | [Issue #219](https://github.com/dotnetpower/fdai/issues/219); focused settings, Heimdall injection, framework layout, raw-ingress, and threshold-source checks pass 134 cases. | Runtime exit-gate evidence and independent promotion outcomes remain unchanged. |
 | 2026-08-19 | implemented | Bound Norns' inert candidate publication to the default-off discovery activation decision without changing its AgentSpec, topics, ownership, LLM policy, or authority. A closed gate retains the bounded pending queue for later evaluation. | `current change`; focused discovery activation, Norns, startup wiring, collector, and infrastructure checks. | Retain governed collector and activation-transition receipts before claiming operational validation. |

@@ -3,8 +3,7 @@ title: Process Automation
 ---
 # Process Automation
 
-Process automation turns a multi-step business process into a first-class,
-ontology-linked, governed artifact. A process is not a script that reaches
+Process automation turns a multi-step business process into a first-class, ontology-linked, governed artifact. A process is not a script that reaches
 around the control plane; it is a declarative sequence of ontology
 `ActionType` invocations that the same trust-routing control loop dispatches,
 one step at a time, under the same safety invariants as a single remediation.
@@ -35,6 +34,7 @@ workflow ship as catalog-as-code and run in shadow mode.
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-21 | implemented | Aligned legacy Console chat and stream tests with server-owned semantic workflow judgment. Text-only turns now retain context but require explicit ActionType and trigger choices, while mismatched or incomplete v1 frames render the shared unavailable state without exposing rejected payloads. | `current change`; `workflow-builder.chat.test.ts`, `backend-stream-v1-contract.test.ts`; 31 focused Console tests passed. | None for this contract-test correction. |
 | 2026-08-17 | implemented | Removed operator-facing guidance that told the operator to enable the workflow authoring routes through a configuration symbol that does not exist in this repository. | `current change`; `workflow-builder.chat.ts`, `workflow/validate.ts`, `workflow.{en,ko}.json`; focused console checks passed 71 tests across 9 files and catalog key parity held. | None for this message set. Wiring the workflow authoring routes themselves remains separate work. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and exposed the remaining constitutional compensation gap. | `current change`; current source, focused tests, and traceability listed in the scope table. | Close the compensation-hold and promotion exits below. |
 | 2026-08-14 | implemented | Verified durable automation holds across compensation failure, ledger restart, duplicate delivery, forward-dispatch denial, and matching recovery release; recorded FDAI-CONST-009 as implemented. | `current change`; `test_automation_hold.py`, `test_orchestrator.py`, `test_control_loop_authority.py`, and `test_gate.py`; focused checks passed 10 tests. | Retain the independent workflow promotion evidence and the unrelated trigger and branching work below. |

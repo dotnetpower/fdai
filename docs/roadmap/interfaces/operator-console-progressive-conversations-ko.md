@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: 96a6ca460bd28dc2f3e79a3453b5bdc91aada265
-translation_revised: 2026-08-20
+translation_source_sha: e89fb7201367d2636f37543e4eab7871eaefa82f
+translation_revised: 2026-08-21
 ---
 # 오퍼레이터 콘솔 점진적 대화
 
@@ -29,6 +29,7 @@ translation_revised: 2026-08-20
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-21 | 구현됨 | v1 브라우저 stream 회귀 검사를 기존 fail-closed binding 계약과 일치시켰습니다. 요청 ID가 일치하지 않거나 sequence가 없으면 거부된 payload를 폐기하고 sequence-gap partial 답변 대신 공유 unavailable 응답을 렌더합니다. | `current change`; `backend-stream-v1-contract.test.ts`; workflow 작성 정정과 함께 집중 Console 계약 검사 31개 통과. | 이 회귀 정정에 남은 작업은 없습니다. |
 | 2026-08-13 | 진행 중 | 구현 장부를 도입했으며 이전 출처는 복원하지 않았습니다. 저장된 열린 상태와 새 대화 상태에서 라이브 증적 준비를 안정화했습니다. | 현재 변경의 [`console-routes.spec.ts`](../../../console/tests/live-e2e/console-routes.spec.ts)와 이 문서 쌍, Console 타입 검사 및 대상 Playwright 검색이 통과했습니다. | 인증된 4단계 증적을 확보한 뒤, 런타임 보증을 승격하기 전에 seed가 지정된 이중 언어 보증 산출물을 보존해야 합니다. |
 | 2026-08-13 | 구현됨 | 범위가 제한된 의미 명확화를 지원되지 않는 주장이 아니라 필요한 맥락으로 분류했습니다. | `current change`, [`verification-presentation.ts`](../../../console/src/deck/verification-presentation.ts), [`verification-presentation.test.ts`](../../../console/src/deck/verification-presentation.test.ts), 통과한 Console 집중 테스트 12개 | 런타임 검증을 주장하기 전에 아래에 이미 나열된 인증된 4단계 증적을 확보해야 합니다. |
 | 2026-08-14 | 구현됨 | 맥락 분류를 제어 평면이 실제로 방출하는 이유 코드로 제한하고, 추측성 리터럴 2개를 실제 방출되는 `operational_case_context_missing`으로 대체했습니다. | `current change`, [`verification-presentation.ts`](../../../console/src/deck/verification-presentation.ts), [`verification-presentation.test.ts`](../../../console/src/deck/verification-presentation.test.ts), 통과한 Console 집중 테스트 13개 | 의미 질의 매니페스트가 인시던트 역량을 노출하지 않아 Console 인시던트 조사 프롬프트는 여전히 명확화로 귀결됩니다. 이 역량 공백은 별도의 설계 검토가 필요합니다. |

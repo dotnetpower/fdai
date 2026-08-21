@@ -8,11 +8,8 @@ grants execution authority; direct action requests re-enter the typed pipeline.
 from __future__ import annotations
 
 import asyncio
-import hashlib
-import json
 import logging
 from collections.abc import Awaitable, Callable, Collection
-from datetime import UTC, datetime
 from typing import Any
 
 from fdai_service_contracts.semantic_judgment import (
@@ -30,7 +27,15 @@ from fdai.agents._framework.bragi_contributors import (
 from fdai.agents._framework.bragi_models import ConversationSession, RoutingDecision, Turn
 from fdai.agents._framework.bragi_progress import append_submitted, evict_oldest, record_progress
 from fdai.agents._framework.bragi_proposal import build_action_proposal
-from fdai.agents._framework.bragi_routing import route_semantic_judgment
+from fdai.agents._framework.bragi_publication import (
+    a2a_turn_event_payload,
+    handoff_event_payload,
+    turn_event_payload,
+)
+from fdai.agents._framework.bragi_routing import (
+    route_semantic_judgment,
+    semantic_capabilities,
+)
 from fdai.agents._framework.deliberation import (
     ConversationDeliberator,
     T2ConversationSynthesizer,
@@ -357,7 +362,7 @@ class Bragi(Agent):
             self._semantic_judgment.judge,
             utterance=question,
             context=(),
-            capabilities=_semantic_capabilities(self._action_type_names),
+            capabilities=semantic_capabilities(self._action_type_names),
         )
         judgment = judgment_result.proposal if judgment_result.accepted else None
         if judgment is None:
@@ -420,7 +425,7 @@ class Bragi(Agent):
         result = self._semantic_judgment.judge(
             utterance=question,
             context=context,
-            capabilities=_semantic_capabilities(self._action_type_names),
+            capabilities=semantic_capabilities(self._action_type_names),
         )
         return result.proposal if result.accepted else None
 
@@ -459,7 +464,7 @@ class Bragi(Agent):
                 self._semantic_judgment.judge,
                 utterance=question,
                 context=tuple(turn.question for turn in session.turns[-8:]),
-                capabilities=_semantic_capabilities(self._action_type_names),
+                capabilities=semantic_capabilities(self._action_type_names),
             )
             if self._semantic_judgment is not None
             else None
@@ -667,59 +672,14 @@ class Bragi(Agent):
     async def _publish_turn(self, *, session_id: str, turn: Turn) -> None:
         if self.bus is None:
             return
-        session_digest = hashlib.sha256(session_id.encode()).hexdigest()
-        question_digest = hashlib.sha256(turn.question.encode()).hexdigest()
-        answer_json = json.dumps(
-            turn.answer,
-            sort_keys=True,
-            ensure_ascii=False,
-            separators=(",", ":"),
-            default=str,
-        )
-        answer_digest = hashlib.sha256(answer_json.encode()).hexdigest()
-        trace_ref = str(
-            turn.answer.get("trace_ref") or turn.answer.get("correlation_id") or session_id
-        )
-        turn_key = f"{session_digest}:{turn.turn_index}"
-        turn_id = f"turn-{hashlib.sha256(turn_key.encode()).hexdigest()[:32]}"
-        primary_agent = turn.primary_agent or "Bragi"
-        contributors = turn.answer.get("contributors")
-        safe_contributors = (
-            [item for item in contributors[:_MAX_CONTRIBUTORS] if isinstance(item, str)]
-            if isinstance(contributors, list)
-            else []
-        )
         await self.bus.publish(
             "Bragi",
             "object.turn",
-            {
-                "producer_principal": "Bragi",
-                "id": turn_id,
-                "turn_id": turn_id,
-                "correlation_id": trace_ref,
-                "idempotency_key": f"turn:{session_digest}:{turn.turn_index}",
-                "session_id": session_id,
-                "turn_index": turn.turn_index,
-                "question_ref": (
-                    f"bragi-session:sha256:{session_digest}:turn:{turn.turn_index}:question"
-                ),
-                "question_sha256": question_digest,
-                "primary_agent": primary_agent,
-                "contributors": safe_contributors,
-                "answer_ref": (
-                    f"bragi-session:sha256:{session_digest}:turn:{turn.turn_index}:answer"
-                ),
-                "answer_sha256": answer_digest,
-                "score_breakdown": {
-                    "scores": dict(turn.decision.scores),
-                    "tie_break": turn.decision.tie_break,
-                    "method": turn.decision.method,
-                    "semantic_score": turn.decision.semantic_score,
-                    "semantic_margin": turn.decision.semantic_margin,
-                    "provider_status": turn.decision.provider_status,
-                },
-                "trace_ref": trace_ref,
-            },
+            turn_event_payload(
+                session_id=session_id,
+                turn=turn,
+                contributor_limit=_MAX_CONTRIBUTORS,
+            ),
         )
 
     async def _publish_a2a_turn(
@@ -732,45 +692,15 @@ class Bragi(Agent):
     ) -> None:
         if self.bus is None:
             return
-        question_digest = hashlib.sha256(question.encode()).hexdigest()
-        answer_json = json.dumps(
-            response,
-            sort_keys=True,
-            ensure_ascii=False,
-            separators=(",", ":"),
-            default=str,
-        )
-        answer_digest = hashlib.sha256(answer_json.encode()).hexdigest()
-        trace_ref = str(response.get("trace_ref") or "")
-        identity = hashlib.sha256(
-            f"{requester}\0{target_agent}\0{trace_ref}\0{question_digest}".encode()
-        ).hexdigest()
-        turn_id = f"turn-{identity[:32]}"
-        session_digest = hashlib.sha256(f"{requester}:{target_agent}".encode()).hexdigest()
-        session_id = f"a2a-{session_digest[:32]}"
         await self.bus.publish(
             "Bragi",
             "object.turn",
-            {
-                "producer_principal": "Bragi",
-                "id": turn_id,
-                "turn_id": turn_id,
-                "correlation_id": trace_ref or turn_id,
-                "idempotency_key": f"a2a-turn:{identity}",
-                "session_id": session_id,
-                "turn_index": 0,
-                "question_ref": f"a2a:sha256:{question_digest}:question",
-                "question_sha256": question_digest,
-                "primary_agent": target_agent,
-                "contributors": [],
-                "answer_ref": f"a2a:sha256:{answer_digest}:answer",
-                "answer_sha256": answer_digest,
-                "score_breakdown": {
-                    "requester": requester,
-                    "routing": "direct_a2a",
-                },
-                "trace_ref": trace_ref or turn_id,
-            },
+            a2a_turn_event_payload(
+                requester=requester,
+                target_agent=target_agent,
+                question=question,
+                response=response,
+            ),
         )
 
     async def _publish_handoff(
@@ -784,27 +714,16 @@ class Bragi(Agent):
         if self.bus is None:
             self.record_behavior("handoff:transport_unavailable")
             return "transport_unavailable"
-        normalized = " ".join(question.split()).casefold()
-        selector_digest = hashlib.sha256(normalized.encode()).hexdigest()
-        escalation_id = hashlib.sha256(
-            f"{session_id}\0{turn_index}\0{reason}\0{selector_digest}".encode()
-        ).hexdigest()
         try:
             await self.bus.publish(
                 "Bragi",
                 "object.handoff-escalation",
-                {
-                    "producer_principal": "Bragi",
-                    "id": f"handoff-{escalation_id[:32]}",
-                    "escalation_id": f"handoff-{escalation_id[:32]}",
-                    "correlation_id": session_id,
-                    "idempotency_key": f"handoff:{escalation_id}",
-                    "emitting_agent": "Bragi",
-                    "intent_category": reason,
-                    "normalized_selector": f"sha256:{selector_digest}",
-                    "failure_reason_code": reason,
-                    "emitted_at": datetime.now(UTC).isoformat(),
-                },
+                handoff_event_payload(
+                    session_id=session_id,
+                    question=question,
+                    turn_index=turn_index,
+                    reason=reason,
+                ),
             )
         except Exception as exc:  # noqa: BLE001 - bounded operator degradation
             self.record_behavior("handoff:publish_failed")
@@ -871,23 +790,6 @@ def _append_turn(session: ConversationSession, turn: Turn) -> None:
     session.turns.append(turn)
     if len(session.turns) > _MAX_SESSION_TURNS:
         del session.turns[:-_MAX_SESSION_TURNS]
-
-
-def _semantic_capabilities(action_type_names: Collection[str]) -> tuple[dict[str, Any], ...]:
-    agents = tuple(
-        {
-            "kind": "agent",
-            "name": spec.name,
-            "question_domains": list(spec.question_domains),
-            "owns": list(spec.owns),
-            "tools": [tool.tool_id for tool in spec.conversation.tool_specs],
-        }
-        for spec in PANTHEON_SPECS
-    )
-    actions = tuple(
-        {"kind": "action_type", "name": name} for name in sorted(set(action_type_names))
-    )
-    return (*agents, *actions)
 
 
 __all__ = ["Bragi", "RoutingDecision", "Turn", "ConversationSession"]

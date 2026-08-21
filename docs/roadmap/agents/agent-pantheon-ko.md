@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: ee59312a75f80bcf2ca0b643c96c518833431d1b
+translation_source_sha: ee0791a941dfa62829b94d3c39628a8e59d51bd4
 translation_revised: 2026-08-21
 ---
 
@@ -17,9 +17,7 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임
 
 - 이벤트 기반 코어는 §4 와 §6 의 에이전트 / 토픽 소유권 테이블을 읽고 스키마로 검증한 pub/sub 를 wire 한다.
 - 오퍼레이터 콘솔 ([operator-console.md](../interfaces/operator-console-ko.md)) 은 §6.3 과 §6.5 를 읽고 자연어 질문을 per-user 맥락 로 기본 에이전트 에 라우팅한다.
-- 룰-카탈로그와 실행기 ([action-ontology.md](../decisioning/action-ontology-ko.md),
-  [execution-model.md](../decisioning/execution-model-ko.md)) 는 §7 을 읽고 각 ActionType 을
-  initiator / 판정자 / 승인자 / 실행기 / auditor 에 바인딩한다.
+- 룰-카탈로그와 실행기 ([action-ontology.md](../decisioning/action-ontology-ko.md), [execution-model.md](../decisioning/execution-model-ko.md)) 는 §7 을 읽고 각 ActionType 을 initiator / 판정자 / 승인자 / 실행기 / auditor 에 바인딩한다.
 - 포크는 §10 을 읽고 어느 경계 이 열려 있고 (토픽 구독, 구성 재정의) 어느 것이 잠겨 있는지 (에이전트 추가 금지, 이름 변경 금지) 확인한다.
 
 ## 구현 상태
@@ -40,6 +38,7 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-21 | implemented | 프레임워크 줄 상한을 복구하기 위해서만 내용 주소 기반 Bragi Turn 및 인계 페이로드 구성을 비공개 발행 helper로 분리하고 의미 기능 변환을 기존 라우팅 helper로 옮겼습니다. Bragi는 같은 `object.turn` 및 `object.handoff-escalation` topic을 계속 발행하며 AgentSpec, 소유권, LLM 정책, 타입이 지정된 제안 진입점 및 작업 권한은 바뀌지 않았습니다. | `current change`; 집중 Bragi 및 프레임워크 검사 95개 통과; 변경 파일 Ruff, format, mypy 통과; 저장소 LOC gate hard failure 0건으로 통과. | 이 설계에서 이미 요구한 동일한 통제된 운영자 경로, KPI 및 승격 근거를 보존합니다. |
 | 2026-08-13 | in-progress | 이전 제공 이력을 재구성하지 않고 근거 범위를 명시한 구현 원장을 도입했습니다. | 현재 변경 | 검증 완료 또는 enforce 사용을 주장하기 전에 실제 운영 근거를 수집하고 독립적으로 검토된 승격을 완료합니다. |
 | 2026-08-19 | implemented | Heimdall의 AgentSpec, topic, 소유 객체, 결정론적 hot path 또는 권한을 바꾸지 않고 남은 production 보안 상관관계 threshold를 bounded startup setting에 연결했습니다. Framework 줄 상한을 유지하기 위해 raw Huginn ingress handler 구성을 private subscription wiring 모듈로 옮겼을 뿐이며 정규화 및 drop 의미는 바뀌지 않았습니다. | [이슈 #219](https://github.com/dotnetpower/fdai/issues/219). Focused setting, Heimdall 주입, framework layout, raw ingress 및 threshold source 검사 134개가 통과했습니다. | Runtime exit gate 근거와 독립 promotion outcome은 바뀌지 않았습니다. |
 | 2026-08-19 | implemented | AgentSpec, 토픽, 소유권, LLM 정책 또는 권한을 바꾸지 않고 Norns의 비활성 후보 게시를 기본적으로 닫힌 발견 활성화 결정에 연결했습니다. 닫힌 게이트는 이후 평가를 위해 범위가 제한된 대기 큐를 보존합니다. | `current change`; 집중 발견 활성화, Norns, 시작 연결, 수집기 및 인프라 검사. | 운영 검증을 주장하기 전에 통제된 수집기 및 활성화 전이 증적을 보존합니다. |

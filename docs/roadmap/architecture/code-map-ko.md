@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 3c4e7b9c6e8e788556eab626d640b483bb99e574
+translation_source_sha: e3571a1a94363c126ee6fb1b7331d065d4b288b3
 translation_revised: 2026-08-21
 ---
 # 코드 맵
@@ -79,6 +79,7 @@ translation_revised: 2026-08-21
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-21 | implemented | 출처 줄 상한을 복구하기 위해서만 결정론적 의미 plan 구성, 서술자 검증, 범위가 제한된 맥락 및 안전한 진단 렌더링을 `semantic_planning_support.py`로 분리했습니다. `SemanticPlanningService`는 공개 facade로 유지되며 모든 plan을 계속 `execution_authority=false`로 결속하고 검증합니다. | `current change`; 집중 의미 계획 검사 160개 통과; 변경 파일 Ruff, format, mypy 통과; 저장소 LOC gate hard failure 0건으로 통과. | 기존 통제된 실제 운영 및 보증 근거는 바뀌지 않습니다. 계획, 모델, 정책 또는 권한 동작은 변경되지 않았습니다. |
 | 2026-08-21 | implemented | 공유 semantic physical-topic 기본값과 Operator Kafka fixture를 `fdai.pantheon.objects`에 맞췄습니다. Logical request/projection 이름, hash consumer group, 서비스 소유권, 근거 권한 및 읽기 전용 실행 권한은 바뀌지 않습니다. | `current change`; 공유 semantic 계약, Core 및 Operator adapter, 집중 semantic transport와 독립 서비스 검사. | 배포 명명 소유 문서가 추적하는 보호된 Event Bus 이행 및 post-apply semantic round-trip 증적을 보존합니다. |
 | 2026-08-21 | validated | 같은 질문이 프로바이더에 도달하지 못하고 일반 hold로 끝난 뒤 정확한 대상 요청 오류 및 Activity Log 상관 경로를 추가했습니다. Core는 이제 프로바이더 호출을 서버에서 구성하고 검증하며 동일 길이 구간과 정확한 신원을 고정하고 source별 결과와 공백을 표현합니다. | `current change`, 집중 테스트 218개, Ruff, formatter, strict mypy, 구조 gate, 인증된 Console이 T2와 실행 권한 없이 5.8초에 노드 5/5와 근거 검사 11/11을 source 6개로 완료 | Container Apps `request.errors` 프로바이더 매핑을 추가합니다. 현재 direct Azure Metrics template은 `http.server.request.error.count`를 노출하지 않습니다. |
 | 2026-08-21 | implemented | 재시작 뒤 exact-target impact 재생 1회가 plan verification 전에 unsupported로 끝난 뒤 impact completion을 강화했습니다. Core는 이제 읽기 전용 `compare` frame을 허용하고 T1이 target constraint를 누락해도 발화에 결속된 runtime identifier가 정확히 하나일 때만 복구합니다. Identifier가 여러 개이면 unresolved로 유지합니다. 명시적 impact 표현과 유일하게 검토된 Resource-to-BusinessService path는 계속 필요합니다. | `current change`, observed event 2/2이며 verified plan 또는 execution이 없는 인증된 terminal 재현 1회, focused frame variant 4개, tier-routing과 typed impact rendering 101개 통과, Ruff 및 strict mypy 통과 | 이번 세션에서는 같은 live 요청을 반복하지 않습니다. 이 source의 runtime validation을 다시 주장하기 전에 이후 exact-source 2-node 증적과 typed impact 답변을 보존합니다. |
