@@ -23,14 +23,23 @@ def _run_git(*args: str, check: bool = True) -> subprocess.CompletedProcess[str]
 
 
 def _base_ref(diff_range: str | None) -> str:
-    if diff_range:
+    if diff_range and diff_range != "--cached":
         return diff_range.split("...", 1)[0].split("..", 1)[0]
     return "HEAD"
 
 
+def _diff_arguments(diff_range: str | None) -> tuple[str, ...]:
+    arguments = ["diff"]
+    if diff_range == "--cached":
+        arguments.append("--cached")
+    arguments.extend(("--name-only", "--diff-filter=ACMRT"))
+    if diff_range != "--cached":
+        arguments.append(diff_range or "HEAD")
+    return tuple(arguments)
+
+
 def _changed_docs(diff_range: str | None) -> tuple[str, ...]:
-    args = ("diff", "--name-only", "--diff-filter=ACMRT", diff_range or "HEAD")
-    paths = _run_git(*args).stdout.splitlines()
+    paths = _run_git(*_diff_arguments(diff_range)).stdout.splitlines()
     if diff_range is None:
         paths.extend(_run_git("ls-files", "--others", "--exclude-standard").stdout.splitlines())
     return tuple(
@@ -43,6 +52,14 @@ def _old_line_count(base_ref: str, relative: str) -> int | None:
     if result.returncode != 0:
         return None
     return len(result.stdout.splitlines())
+
+
+def _current_line_count(relative: str, diff_range: str | None) -> int | None:
+    if diff_range == "--cached":
+        result = _run_git("show", f":{relative}", check=False)
+        return len(result.stdout.splitlines()) if result.returncode == 0 else None
+    path = REPO_ROOT / relative
+    return len(path.read_text(encoding="utf-8").splitlines()) if path.is_file() else None
 
 
 def size_violations(documents: tuple[tuple[str, int, int | None], ...]) -> list[str]:
@@ -65,20 +82,20 @@ def size_violations(documents: tuple[tuple[str, int, int | None], ...]) -> list[
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) > 2:
-        print("usage: check-document-size.py [<git-diff-range>]", file=sys.stderr)
+    if len(argv) > 2 or (len(argv) == 2 and argv[1].startswith("-") and argv[1] != "--cached"):
+        print("usage: check-document-size.py [--cached | <git-diff-range>]", file=sys.stderr)
         return 2
     diff_range = argv[1] if len(argv) == 2 else None
     base_ref = _base_ref(diff_range)
     documents = []
     for relative in _changed_docs(diff_range):
-        path = REPO_ROOT / relative
-        if not path.is_file():
+        current_lines = _current_line_count(relative, diff_range)
+        if current_lines is None:
             continue
         documents.append(
             (
                 relative,
-                len(path.read_text(encoding="utf-8").splitlines()),
+                current_lines,
                 _old_line_count(base_ref, relative),
             )
         )
