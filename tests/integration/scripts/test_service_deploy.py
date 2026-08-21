@@ -1128,6 +1128,37 @@ def test_plan_guard_allows_exact_event_bus_topic_migration(guard: ModuleType) ->
     )
 
 
+def test_plan_guard_allows_aligned_event_bus_topic_follow_up(guard: ModuleType) -> None:
+    address = "module.operator_service.module.container_app.azurerm_container_app.service"
+    plan = _plan(address, ["update"])
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    expected = guard.event_bus_topic_migration("operator-service", surface="environment")
+    for side in ("before", "after"):
+        environment = change[side]["template"][0]["container"][0]["env"]
+        environment[:] = [item for item in environment if item["name"] not in expected]
+        environment.extend(
+            {"name": name, "value": value, "secret_name": ""} for name, value in expected.items()
+        )
+
+    guard.validate_plan(
+        plan,
+        service="operator-service",
+        environment="dev",
+        image_ref="image",
+        event_bus_topic_migration=True,
+    )
+
+    change["after"]["template"][0]["container"][0]["env"][-1]["value"] = "legacy"
+    with pytest.raises(guard.PlanGuardError, match="unapproved environment"):
+        guard.validate_plan(
+            plan,
+            service="operator-service",
+            environment="dev",
+            image_ref="image",
+            event_bus_topic_migration=True,
+        )
+
+
 def test_plan_guard_allows_only_aligned_topic_rollback_drift(guard: ModuleType) -> None:
     address = "module.operator_service.module.container_app.azurerm_container_app.service"
     plan = _plan(address, ["update"])

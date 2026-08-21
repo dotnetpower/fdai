@@ -284,8 +284,12 @@ def _guard_event_bus_topic_migration(
         if _environment_binding(before_environment.get(name))
         != _environment_binding(after_environment.get(name))
     }
+    aligned_follow_up = not changed_names and all(
+        _environment_binding(after_environment.get(name)) == (expected_value, None)
+        for name, expected_value in expected_values.items()
+    )
     violations: list[str] = []
-    if changed_names != set(expected_values):
+    if changed_names != set(expected_values) and not aligned_follow_up:
         unexpected = sorted(changed_names.difference(expected_values))
         missing = sorted(set(expected_values).difference(changed_names))
         violations.append(
