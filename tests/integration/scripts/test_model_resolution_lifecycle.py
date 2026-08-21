@@ -33,6 +33,7 @@ def test_gateway_targeted_plan_resolves_models_without_blocking_on_completeness(
         "${{ inputs.deploy_dev_operations_gateway && 'none' || 'critical' }}"
     ) in resolver_step
     assert '--assess-fail-on "$MODEL_COMPLETENESS_FAIL_ON"' in resolver_step
+    assert 'if item.get("status") != "hil-only"' in resolver_step
     target_expression = _DEPLOY.split("TF_CLI_ARGS_plan:", maxsplit=1)[1].splitlines()[0]
     assert "module.llm_azure_openai[0].azurerm_cognitive_account.primary" in target_expression
     assert "azurerm_cognitive_deployment.capability" not in target_expression

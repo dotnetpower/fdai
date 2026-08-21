@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 0e448c0f1c2ba77789da1c85869a848611e9215f
+translation_source_sha: 2bba3f51ca74d00ca158f0318a35cc16fe058aa6
 translation_revised: 2026-08-21
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -45,6 +45,7 @@ translation_revised: 2026-08-21
 |------|------|------|------|-----------|
 | 2026-08-21 | implemented | Cognitive deployment를 변경할 수 있는 계획에만 중요한 모델 완결성 검사를 적용했습니다. 개발 게이트웨이 대상 계획은 기존 모델 계정과 호출자 RBAC를 계속 수렴하지만 대상 집합에 cognitive deployment가 없으므로 관련 없는 모델 해석을 건너뜁니다. | `current change`, `.github/workflows/deploy-dev.yml`, 집중 모델 수명 주기 및 보호 workflow 테스트, Terraform 전 불일치를 드러낸 보호 실행 `32435485872`와 `32435748272`. | 동일한 Event Bus 이행 계획을 다시 실행합니다. 모델 레지스트리를 바꾸기 전에 별도의 Foundry 다중 발행기 endpoint 이행을 설계합니다. |
 | 2026-08-21 | implemented | 빈 기능 맵이 기존 embedding deployment 삭제를 암시한 사실을 확인한 뒤 개발 게이트웨이 예외를 정정했습니다. 이제 게이트웨이 대상 계획은 모델 해석을 유지하면서 완결성 결과만 차단하지 않습니다. | 보호된 계획 실행 `32456242726`, `current change`, 집중 모델 수명 주기 및 보호 workflow 스위트의 테스트 44개 통과. | 동일한 Event Bus 이행 계획을 다시 실행하고 적용 전에 모델 deployment 변경이 없음을 확인합니다. |
+| 2026-08-21 | implemented | `hil-only` 해석기 레코드를 Terraform 기능 입력에서 제외하면서 봉인된 근거 산출물에는 유지했습니다. | 보호된 계획 실행 `32460379091`에서 경계 불일치를 확인했습니다. `current change`의 집중 모델 수명 주기 검사에서 테스트 9개가 통과했습니다. | 동일한 Event Bus 이행 계획을 다시 실행하고 적용 전에 모델 deployment 변경이 없음을 확인합니다. |
 | 2026-08-19 | implemented | 서비스 hot path에서 경고 로그 쓰기 증폭과 로컬 터미널 역압력을 제거했습니다. 경고 레코드는 범위가 제한된 프로세스 간 잠금 아래 추가하고, 압축은 공유 5분 주기로 실행하며, 구조화 레코드와 터미널 버퍼에 byte 상한을 적용합니다. 반복 aiokafka 또는 Pantheon 관찰자 실패는 서로 다른 최초·주기 근거와 복구 횟수를 보존합니다. | `current change`, 집중 telemetry·launcher·provider integration·framework layout 검사, 16회 비평 라운드 결과 Low를 넘는 발견 사항 없음 | 실제 프로세스가 이 개정 번호를 사용하려면 다시 시작해야 합니다. 런타임 종료 게이트와 배포 근거는 변경되지 않았습니다. |
 | 2026-08-19 | implemented | 로컬 및 배포 job에 완전한 창 4개라는 동일한 catch-up 상한을 적용했습니다. 첫 로컬 실제 실행에서 개별 창이 각각 범위 내에 있어도 창의 연속 개수가 제한되지 않으면 terminal cursor 기록 전에 source 수준 timeout을 소진할 수 있음을 확인했습니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). Bound 전 로컬 실행은 `source_timeout`을 보고했고, 이후 focused 공유 provider 및 runner 검사 31개가 통과했습니다. | 완료된 로컬 및 배포 revision campaign 근거를 보존합니다. |
 | 2026-08-19 | implemented | 로컬 및 배포 observation job에서 Activity Log backlog 복구 동작을 동일하게 유지했습니다. 두 실행 위치 모두 timestamp 전용 adaptive 창, 완전한 창 단위 cursor checkpoint, result 10,000개 및 2,000,000 byte 상한, 즉시 `source_catchup` 연속 실행을 사용하며 관련 없는 실패는 정상 간격을 유지합니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). Focused provider 및 runner 검사 30개가 통과했습니다. 동작은 공유 출처 catalog와 campaign package에 유지됩니다. | 완료된 로컬 campaign을 보존한 뒤 기존의 열린 배포 revision campaign 근거를 확보합니다. |
@@ -624,8 +625,7 @@ Cognitive deployment를 변경할 수 있는 보호된 전체 계획은 해석�
 | 배포자 구독이 요청한 `capacity_tpm` 쿼터 보유 | 요청의 ≥ 20% 이상 큰 최대 사용가능 용량으로 축소; 미만이면 거부 | 포크가 쿼터 증가 요청 |
 | Mixed-model 불변식 (`t2.reasoner.primary.publisher != t2.reasoner.secondary.publisher`) 해석 후 만족 | **abort** - quality 게이트 통과 못하는 T2 계층 부분 배포 안 함 | 포크가 선호 설정 조정 |
 
-해석기 결과 산출물은 배포자 `object_id`, 구독, 리전, resolved 기능 지도와
-사유를 포함합니다. 동일 레지스트리 + 카탈로그 + 권한 + 할당량 입력은 동일 JSON을 산출합니다.
+해석기 결과 산출물은 배포자 `object_id`, 구독, 리전, resolved 기능 지도와 사유를 포함합니다. 동일 레지스트리 + 카탈로그 + 권한 + 할당량 입력은 동일 JSON을 산출합니다.
 감사 저장소 덧붙이기는 해석기 호출자가 소유합니다.
 
 ## 작업 계획 (phased, 가산)

@@ -562,7 +562,7 @@ jobs:
               stream.write("\n")
           print(json.dumps(capabilities, separators=(",", ":"), sort_keys=True))
           PY
-          capabilities_json="$(python3 -c 'import json,sys; print(json.dumps(json.load(open(sys.argv[1], encoding="utf-8"))["capabilities"], separators=(",", ":"), sort_keys=True))' "$resolved")"
+          capabilities_json="$(python3 -c 'import json,sys; capabilities=json.load(open(sys.argv[1], encoding="utf-8"))["capabilities"]; print(json.dumps([item for item in capabilities if item.get("status") != "hil-only"], separators=(",", ":"), sort_keys=True))' "$resolved")"
           resolved_json="$(python3 -c 'import json,sys; print(json.dumps(json.load(open(sys.argv[1], encoding="utf-8")), separators=(",", ":"), sort_keys=True))' "$resolved")"
           resolved_digest="$(sha256sum "$resolved" | cut -d' ' -f1)"
           deployment_digest="$(sha256sum "$manifest" | cut -d' ' -f1)"
