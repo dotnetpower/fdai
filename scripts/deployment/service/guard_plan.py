@@ -286,7 +286,12 @@ def _guard_event_bus_topic_migration(
     }
     violations: list[str] = []
     if changed_names != set(expected_values):
-        violations.append(f"Event Bus topic migration changes unapproved environment at {address}")
+        unexpected = sorted(changed_names.difference(expected_values))
+        missing = sorted(set(expected_values).difference(changed_names))
+        violations.append(
+            "Event Bus topic migration changes unapproved environment at "
+            f"{address}: unexpected={unexpected}, missing={missing}"
+        )
     for name, expected_value in expected_values.items():
         item = after_environment.get(name)
         if (
