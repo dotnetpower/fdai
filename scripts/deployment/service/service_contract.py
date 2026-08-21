@@ -35,6 +35,7 @@ _EVENT_BUS_TOPIC_MIGRATION = {
             "semantic_physical": "fdai.pantheon.objects",
         },
         "environment": {
+            "FDAI_EXECUTION_VENUE": "deployed",
             "KAFKA_TOPIC_EVENTS": "fdai.change.events",
             "FDAI_SEMANTIC_TURN_REQUEST_TOPIC": "operator.semantic-turn.requests",
             "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC": "core.semantic-turn.projections",
@@ -43,7 +44,10 @@ _EVENT_BUS_TOPIC_MIGRATION = {
     },
     "document-ingestion-api": {
         "tfvars": {"pipeline_stages": "fdai.pipeline.stages"},
-        "environment": {"FDAI_DOCUMENT_EVENT_TOPIC": "fdai.pipeline.stages"},
+        "environment": {
+            "FDAI_DOCUMENT_EVENT_TOPIC": "fdai.pipeline.stages",
+            "FDAI_EXECUTION_VENUE": "deployed",
+        },
     },
     "document-processing-worker": {
         "tfvars": {
@@ -52,6 +56,7 @@ _EVENT_BUS_TOPIC_MIGRATION = {
         },
         "environment": {
             "FDAI_DOCUMENT_EVENT_TOPIC": "fdai.pipeline.stages",
+            "FDAI_EXECUTION_VENUE": "deployed",
             "FDAI_PANTHEON_OBJECT_TOPIC": "fdai.pantheon.objects",
         },
     },

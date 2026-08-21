@@ -1102,6 +1102,7 @@ def test_plan_guard_allows_exact_event_bus_topic_migration(guard: ModuleType) ->
         "container"
     ][0]["env"]
     expected = {
+        "FDAI_EXECUTION_VENUE": "deployed",
         "KAFKA_TOPIC_EVENTS": "fdai.change.events",
         "FDAI_SEMANTIC_TURN_REQUEST_TOPIC": "operator.semantic-turn.requests",
         "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC": "core.semantic-turn.projections",
