@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 834d4d4d2d1f1be715178a19d3236e4f079658c8
+translation_source_sha: 3c4e7b9c6e8e788556eab626d640b483bb99e574
 translation_revised: 2026-08-21
 ---
 # 코드 맵
@@ -79,6 +79,7 @@ translation_revised: 2026-08-21
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-21 | implemented | 공유 semantic physical-topic 기본값과 Operator Kafka fixture를 `fdai.pantheon.objects`에 맞췄습니다. Logical request/projection 이름, hash consumer group, 서비스 소유권, 근거 권한 및 읽기 전용 실행 권한은 바뀌지 않습니다. | `current change`; 공유 semantic 계약, Core 및 Operator adapter, 집중 semantic transport와 독립 서비스 검사. | 배포 명명 소유 문서가 추적하는 보호된 Event Bus 이행 및 post-apply semantic round-trip 증적을 보존합니다. |
 | 2026-08-21 | validated | 같은 질문이 프로바이더에 도달하지 못하고 일반 hold로 끝난 뒤 정확한 대상 요청 오류 및 Activity Log 상관 경로를 추가했습니다. Core는 이제 프로바이더 호출을 서버에서 구성하고 검증하며 동일 길이 구간과 정확한 신원을 고정하고 source별 결과와 공백을 표현합니다. | `current change`, 집중 테스트 218개, Ruff, formatter, strict mypy, 구조 gate, 인증된 Console이 T2와 실행 권한 없이 5.8초에 노드 5/5와 근거 검사 11/11을 source 6개로 완료 | Container Apps `request.errors` 프로바이더 매핑을 추가합니다. 현재 direct Azure Metrics template은 `http.server.request.error.count`를 노출하지 않습니다. |
 | 2026-08-21 | implemented | 재시작 뒤 exact-target impact 재생 1회가 plan verification 전에 unsupported로 끝난 뒤 impact completion을 강화했습니다. Core는 이제 읽기 전용 `compare` frame을 허용하고 T1이 target constraint를 누락해도 발화에 결속된 runtime identifier가 정확히 하나일 때만 복구합니다. Identifier가 여러 개이면 unresolved로 유지합니다. 명시적 impact 표현과 유일하게 검토된 Resource-to-BusinessService path는 계속 필요합니다. | `current change`, observed event 2/2이며 verified plan 또는 execution이 없는 인증된 terminal 재현 1회, focused frame variant 4개, tier-routing과 typed impact rendering 101개 통과, Ruff 및 strict mypy 통과 | 이번 세션에서는 같은 live 요청을 반복하지 않습니다. 이 source의 runtime validation을 다시 주장하기 전에 이후 exact-source 2-node 증적과 typed impact 답변을 보존합니다. |
 | 2026-08-21 | implemented | First-turn citation-bound runbook recommendation에 incident-or-target 및 approved-source clarification을 추가했습니다. 독립 FDAI probe는 query 없이 안전하게 unsupported를 반환했지만 evidence-backed recommendation에 필요한 context를 묻지 않았습니다. Prior context와 citation 없는 runbook listing은 normal planning을 유지합니다. | `current change`, 인증된 unsupported probe, focused bilingual 및 bypass control 5개, semantic cohort 216개와 strict mypy, Ruff, formatter 검사 통과 | Core를 reload하고 exact clarification 증적 하나를 보존합니다. |
