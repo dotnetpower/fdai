@@ -609,10 +609,8 @@ adapter remains under `delivery/azure/`. See
 
 ## Deployer-Scoped LLM Provisioning
 
-Protected full plans that can change cognitive deployments run the resolver and seal its exact
-manifest for apply. A development-gateway targeted plan still resolves the current capability map
-to preserve its existing model-account, caller-RBAC, and ingestion dependencies. Completeness
-findings remain non-blocking because its target set contains no cognitive deployment.
+Protected full plans that can change cognitive deployments run the resolver and seal its exact manifest for apply. A development-gateway targeted plan still resolves the current capability map
+to preserve its existing model-account, caller-RBAC, and ingestion dependencies. Completeness findings remain non-blocking because its target set contains no cognitive deployment.
 
 ![Deployer-Scoped LLM Provisioning. The main stages are [terraform apply\], az account show / + resolve deployer principal, Bootstrap audit entry: / deployer_object_id, sub, region, read rule-catalog/llm-registry.yaml, query Azure catalog: / Foundry / AOAI SKUs available / in var.region, deployer has / Cognitive Services Contributor / on target subscription?, emit warning: / skip LLM provisioning / mark T2 capability = HIL-only, preferred family available / AND deployer sub has quota?, mark this capability HIL-only / continue with remaining, provision deployment / cap_tpm from registry, mixed-model invariant: / primary.publisher != secondary.publisher?, abort with clear error / (fork must expand preferences).](../../diagrams/generated/fdai-roadmap-deployment-dev-and-deploy-parity-01.en.svg)
 
