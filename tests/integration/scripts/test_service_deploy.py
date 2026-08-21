@@ -1092,6 +1092,61 @@ def test_plan_guard_rejects_command_and_environment_drift(
         )
 
 
+def test_plan_guard_allows_exact_event_bus_topic_migration(guard: ModuleType) -> None:
+    address = "module.operator_service.module.container_app.azurerm_container_app.service"
+    plan = _plan(address, ["update"])
+    before_environment = plan["resource_changes"][0]["change"]["before"]["template"][0][  # type: ignore[index]
+        "container"
+    ][0]["env"]
+    after_environment = plan["resource_changes"][0]["change"]["after"]["template"][0][  # type: ignore[index]
+        "container"
+    ][0]["env"]
+    expected = {
+        "KAFKA_TOPIC_EVENTS": "fdai.change.events",
+        "FDAI_SEMANTIC_TURN_REQUEST_TOPIC": "operator.semantic-turn.requests",
+        "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC": "core.semantic-turn.projections",
+        "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC": "fdai.pantheon.objects",
+    }
+    for environment in (before_environment, after_environment):
+        environment[:] = [item for item in environment if item["name"] not in expected]
+    before_environment.extend(
+        {"name": name, "value": f"legacy.{index}"} for index, name in enumerate(expected, start=1)
+    )
+    after_environment.extend({"name": name, "value": value} for name, value in expected.items())
+
+    guard.validate_plan(
+        plan,
+        service="operator-service",
+        environment="dev",
+        image_ref="image",
+        event_bus_topic_migration=True,
+    )
+
+
+def test_plan_guard_rejects_broad_event_bus_topic_migration(guard: ModuleType) -> None:
+    address = "module.operator_service.module.container_app.azurerm_container_app.service"
+    plan = _plan(address, ["update"])
+    before_environment = plan["resource_changes"][0]["change"]["before"]["template"][0][  # type: ignore[index]
+        "container"
+    ][0]["env"]
+    after_environment = plan["resource_changes"][0]["change"]["after"]["template"][0][  # type: ignore[index]
+        "container"
+    ][0]["env"]
+    before_environment.append({"name": "FDAI_SEMANTIC_TURN_REQUEST_TOPIC", "value": "old"})
+    after_environment.append(
+        {"name": "FDAI_SEMANTIC_TURN_REQUEST_TOPIC", "value": "operator.semantic-turn.requests"}
+    )
+
+    with pytest.raises(guard.PlanGuardError, match="unapproved environment"):
+        guard.validate_plan(
+            plan,
+            service="operator-service",
+            environment="dev",
+            image_ref="image",
+            event_bus_topic_migration=True,
+        )
+
+
 @pytest.mark.parametrize(
     ("field", "value"),
     [
@@ -2794,6 +2849,57 @@ def test_plan_bundle_binds_initial_cutover_mode(bundle: ModuleType, tmp_path: Pa
     )
     assert created["deployment_mode"] == "initial-cutover"
     assert json.loads(context.read_text(encoding="utf-8"))["deployment_mode"] == ("initial-cutover")
+    with pytest.raises(bundle.PlanBundleError, match="deployment_mode"):
+        bundle.verify_bundle(
+            plan=plan,
+            plan_json=plan_json,
+            context_path=context,
+            metadata_path=metadata,
+            service="operator-service",
+            environment="dev",
+            repository="example/fdai",
+            commit_sha="b" * 40,
+            image_ref=image,
+            plan_digest=created["plan_digest"],
+            context_digest=created["context_digest"],
+            plan_run_id="123",
+            now=now + timedelta(minutes=5),
+            **coordinates,
+        )
+
+
+def test_plan_bundle_binds_event_bus_topic_migration_mode(
+    bundle: ModuleType,
+    tmp_path: Path,
+) -> None:
+    plan = tmp_path / "service.plan"
+    plan.write_bytes(b"binary plan")
+    plan_json = tmp_path / "service-plan.json"
+    context = tmp_path / "context.json"
+    metadata = tmp_path / "metadata.json"
+    now = datetime(2026, 8, 8, 10, 0, tzinfo=UTC)
+    image = _image("fdai-operator-service")
+    _write_plan_json(plan_json, image=image)
+    coordinates = _bundle_coordinates()
+    created = bundle.create_bundle(
+        plan=plan,
+        plan_json=plan_json,
+        context_path=context,
+        metadata_path=metadata,
+        service="operator-service",
+        environment="dev",
+        repository="example/fdai",
+        commit_sha="b" * 40,
+        image_ref=image,
+        workflow_run_id="123",
+        event_bus_topic_migration=True,
+        now=now,
+        **coordinates,
+    )
+    assert created["deployment_mode"] == "event-bus-topic-migration"
+    assert json.loads(context.read_text(encoding="utf-8"))["deployment_mode"] == (
+        "event-bus-topic-migration"
+    )
     with pytest.raises(bundle.PlanBundleError, match="deployment_mode"):
         bundle.verify_bundle(
             plan=plan,

@@ -21,6 +21,25 @@ _DIGEST_IMAGE = re.compile(r"[^\s]+@sha256:[0-9a-f]{64}")
 _ALLOWED_SIDECARS = {
     "document-processing-worker": frozenset({"clamav"}),
 }
+_EVENT_BUS_TOPIC_MIGRATION_ENVIRONMENT = {
+    "core-control-plane": {
+        "KAFKA_TOPIC_EVENTS": "fdai.change.events",
+        "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC": "fdai.pantheon.objects",
+    },
+    "operator-service": {
+        "KAFKA_TOPIC_EVENTS": "fdai.change.events",
+        "FDAI_SEMANTIC_TURN_REQUEST_TOPIC": "operator.semantic-turn.requests",
+        "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC": "core.semantic-turn.projections",
+        "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC": "fdai.pantheon.objects",
+    },
+    "document-ingestion-api": {
+        "FDAI_DOCUMENT_EVENT_TOPIC": "fdai.pipeline.stages",
+    },
+    "document-processing-worker": {
+        "FDAI_DOCUMENT_EVENT_TOPIC": "fdai.pipeline.stages",
+        "FDAI_PANTHEON_OBJECT_TOPIC": "fdai.pantheon.objects",
+    },
+}
 _OPERATOR_CHANNEL_EDGE_ADDRESS = (
     "module.operator_service.module.channel_edge[0].azurerm_container_app.service"
 )
@@ -231,6 +250,56 @@ def _runtime_contract(
     return {key: container.get(key) for key in ("name", "command", "args", "env")}
 
 
+def _environment_by_name(container: dict[str, Any], *, address: str) -> dict[str, dict[str, Any]]:
+    environment = container.get("env")
+    if not isinstance(environment, list):
+        raise PlanGuardError(f"resource at {address} has an invalid environment")
+    result: dict[str, dict[str, Any]] = {}
+    for item in environment:
+        name = item.get("name") if isinstance(item, dict) else None
+        if not isinstance(name, str) or not name or name in result:
+            raise PlanGuardError(f"resource at {address} has invalid environment names")
+        result[name] = item
+    return result
+
+
+def _guard_event_bus_topic_migration(
+    before: dict[str, Any],
+    after: dict[str, Any],
+    *,
+    address: str,
+    contract: ServiceContract,
+) -> list[str]:
+    expected_values = _EVENT_BUS_TOPIC_MIGRATION_ENVIRONMENT.get(contract.service)
+    if expected_values is None:
+        return [f"Event Bus topic migration is not supported for {contract.service}"]
+    before_primary = _primary_container(before, address=address, contract=contract)
+    after_primary = _primary_container(after, address=address, contract=contract)
+    if any(
+        before_primary.get(key) != after_primary.get(key) for key in ("name", "command", "args")
+    ):
+        return [f"Event Bus topic migration changes the service command at {address}"]
+    before_environment = _environment_by_name(before_primary, address=address)
+    after_environment = _environment_by_name(after_primary, address=address)
+    changed_names = {
+        name
+        for name in set(before_environment) | set(after_environment)
+        if before_environment.get(name) != after_environment.get(name)
+    }
+    violations: list[str] = []
+    if changed_names != set(expected_values):
+        violations.append(f"Event Bus topic migration changes unapproved environment at {address}")
+    for name, expected_value in expected_values.items():
+        item = after_environment.get(name)
+        if (
+            not isinstance(item, dict)
+            or item.get("value") != expected_value
+            or item.get("secret_name") not in (None, "")
+        ):
+            violations.append(f"Event Bus topic migration has an invalid {name} value at {address}")
+    return violations
+
+
 def _authority_cutover(
     resource: dict[str, Any],
     *,
@@ -394,6 +463,7 @@ def _guard_update(
     address: str,
     contract: ServiceContract,
     initial_cutover: bool,
+    event_bus_topic_migration: bool = False,
 ) -> list[str]:
     violations: list[str] = []
     for field in ("name", "resource_group_name"):
@@ -419,6 +489,15 @@ def _guard_update(
     )
     if before_authority != after_authority and not authority_removed_from_core:
         violations.append(f"authority cutover change at {address}")
+    elif event_bus_topic_migration:
+        violations.extend(
+            _guard_event_bus_topic_migration(
+                before,
+                after,
+                address=address,
+                contract=contract,
+            )
+        )
     elif not initial_cutover and _runtime_contract(
         before, address=address, contract=contract
     ) != _runtime_contract(after, address=address, contract=contract):
@@ -451,11 +530,13 @@ def _guard_update(
     if initial_cutover:
         violations.extend(_guard_initial_cutover(before, after, address=address, contract=contract))
         return violations
-    image_only_before = copy.deepcopy(before)
-    _primary_container(image_only_before, address=address, contract=contract)["image"] = (
-        _planned_image({"after": after}, address=address, contract=contract)
-    )
-    expected_templates = image_only_before.get("template")
+    expected_before = copy.deepcopy(before)
+    expected_primary = _primary_container(expected_before, address=address, contract=contract)
+    after_primary = _primary_container(after, address=address, contract=contract)
+    expected_primary["image"] = _planned_image({"after": after}, address=address, contract=contract)
+    if event_bus_topic_migration:
+        expected_primary["env"] = copy.deepcopy(after_primary.get("env"))
+    expected_templates = expected_before.get("template")
     after_templates = after.get("template")
     if (
         not isinstance(expected_templates, list)
@@ -475,7 +556,7 @@ def _guard_update(
         ):
             violations.append(f"planned revision suffix is invalid at {address}")
         expected_templates[0]["revision_suffix"] = after_suffix
-    if image_only_before != after:
+    if expected_before != after:
         violations.append(f"protected update changes fields rollback cannot prove at {address}")
     return violations
 
@@ -828,6 +909,7 @@ def validate_plan(
     environment: str,
     image_ref: str,
     initial_cutover: bool = False,
+    event_bus_topic_migration: bool = False,
     operator_channel_edge_transition: str = "none",
 ) -> None:
     """Allow only bounded actions that deploy the exact attested service image."""
@@ -835,6 +917,13 @@ def validate_plan(
         raise PlanGuardError("operator channel edge transition must be none, enable, or disable")
     if operator_channel_edge_transition != "none" and service != "operator-service":
         raise PlanGuardError("operator channel edge transition is valid only for operator-service")
+    if event_bus_topic_migration and (
+        initial_cutover or operator_channel_edge_transition != "none"
+    ):
+        raise PlanGuardError(
+            "Event Bus topic migration is exclusive with initial cutover "
+            "and channel-edge transition"
+        )
     contract = resolve_service(service, environment)
     channel_edge_contract = _operator_channel_edge_contract(contract)
     resource_changes = payload.get("resource_changes", [])
@@ -906,6 +995,7 @@ def validate_plan(
                         address=address,
                         contract=channel_edge_contract,
                         initial_cutover=False,
+                        event_bus_topic_migration=False,
                     )
                 )
             continue
@@ -940,6 +1030,7 @@ def validate_plan(
                 address=address,
                 contract=contract,
                 initial_cutover=initial_cutover,
+                event_bus_topic_migration=event_bus_topic_migration,
             )
         )
     if operator_channel_edge_transition in {"enable", "disable"}:
@@ -1013,6 +1104,7 @@ def main() -> int:
     parser.add_argument("--environment", required=True)
     parser.add_argument("--image-ref", required=True)
     parser.add_argument("--initial-cutover", action="store_true")
+    parser.add_argument("--event-bus-topic-migration", action="store_true")
     parser.add_argument(
         "--operator-channel-edge-transition",
         choices=("none", "enable", "disable"),
@@ -1029,6 +1121,7 @@ def main() -> int:
             environment=args.environment,
             image_ref=args.image_ref,
             initial_cutover=args.initial_cutover,
+            event_bus_topic_migration=args.event_bus_topic_migration,
             operator_channel_edge_transition=args.operator_channel_edge_transition,
         )
     except (OSError, json.JSONDecodeError, ServiceContractError, PlanGuardError) as exc:

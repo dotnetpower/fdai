@@ -721,6 +721,21 @@ def test_plan_and_apply_both_verify_image_and_guard_exact_binary_plan() -> None:
         assert _WORKFLOW.count(argument) == expected_count
 
 
+def test_service_workflow_seals_event_bus_topic_migration_mode() -> None:
+    assert "event_bus_topic_migration:" in _WORKFLOW
+    assert "Event Bus topic migration cannot be combined with another transition." in _WORKFLOW
+    assert (
+        _WORKFLOW.count("EVENT_BUS_TOPIC_MIGRATION: ${{ inputs.event_bus_topic_migration }}") == 4
+    )
+    assert _WORKFLOW.count("migration_args+=(--event-bus-topic-migration)") == 3
+    assert _WORKFLOW.count('"${migration_args[@]}"') == 4
+    assert "event-bus-topic-migration" in _WORKFLOW
+    migration_step = _WORKFLOW.split("- name: Apply service-owned database migrations", maxsplit=1)[
+        1
+    ].split("- name: Upload service migration adoption evidence", maxsplit=1)[0]
+    assert "inputs.apply && !inputs.event_bus_topic_migration" in migration_step
+
+
 def test_apply_has_post_apply_health_and_no_destroy_command() -> None:
     assert "Verify post-apply service health" in _WORKFLOW
     assert "scripts/deployment/service/verify_health.sh" in _WORKFLOW
