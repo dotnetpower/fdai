@@ -94,8 +94,13 @@ the Constitution always prevails.
    external state change requires an exact revision. A commit is a finalization step after the
    requested behavior and focused checks are complete; staging, hook, signing, or push problems
    MUST NOT interrupt unfinished implementation. Stage only task-owned files and hunks, and never
-   commit failed or incomplete work. Push only when the user or invoked workflow explicitly
-   requests it.
+   commit failed or incomplete work. Except for a repository-owned workflow whose documented
+   purpose is to create a generated commit, every agent-authored commit MUST originate in the
+   active local checkout: validate the change, inspect the local diff, create the local commit,
+   and then push that exact commit. Agents MUST NOT use a hosting content API, Git data API, web
+   edit, bot, or equivalent remote-write path to create a remote-only commit. Push only when the
+   user or invoked workflow explicitly requests it, then verify the remote ref resolves to the
+   expected local commit.
 9. Treat slow network-dependent work as a post-validation phase. Do not watch or rerun GitHub
    Actions, deploy or provision Azure, or build or push container images while implementation or
    focused tests are incomplete. When the requested external phase requires an exact revision,

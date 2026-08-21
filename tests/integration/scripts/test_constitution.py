@@ -44,6 +44,15 @@ def test_agent_contract_requires_clean_snapshot_for_delegated_validation() -> No
     assert "clean committed snapshot in an isolated worktree" in instructions
 
 
+def test_agent_contract_requires_local_first_commits() -> None:
+    instructions = (REPO_ROOT / ".github" / "copilot-instructions.md").read_text(encoding="utf-8")
+    normalized = " ".join(instructions.split())
+
+    assert "every agent-authored commit MUST originate in the" in normalized
+    assert "create a remote-only commit" in normalized
+    assert "verify the remote ref resolves to the expected local commit" in normalized
+
+
 def test_traceability_manifest_is_complete() -> None:
     module = _load_module()
 
