@@ -184,9 +184,9 @@ def test_platform_gateway_plan_targets_active_moved_role_collections() -> None:
 
 def test_platform_event_bus_migration_uses_isolated_targets() -> None:
     assert "migrate_event_bus_topics:" in _LEGACY_WORKFLOW
-    step = _LEGACY_WORKFLOW.split(
-        "- name: Bind Event Bus migration Terraform targets", maxsplit=1
-    )[1].split("- name: Validate remote plan request", maxsplit=1)[0]
+    step = _LEGACY_WORKFLOW.split("- name: Bind Event Bus migration Terraform targets", maxsplit=1)[
+        1
+    ].split("- name: Validate remote plan request", maxsplit=1)[0]
 
     for address in (
         "module.event_bus",
