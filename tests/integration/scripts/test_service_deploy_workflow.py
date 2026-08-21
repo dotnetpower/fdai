@@ -6,6 +6,8 @@ import ast
 import json
 import re
 import runpy
+import shutil
+import subprocess
 import textwrap
 from pathlib import Path
 
@@ -106,6 +108,26 @@ def test_platform_workflow_exposes_opt_in_monitoring_for_every_environment() -> 
         _LEGACY_WORKFLOW
     )
     assert "TF_VAR_enable_monitoring: ${{ inputs.deploy_monitoring }}" in _LEGACY_WORKFLOW
+
+
+def test_platform_protected_source_guard_is_valid_bash() -> None:
+    script = _LEGACY_WORKFLOW.split("- name: Verify protected workflow source", maxsplit=1)[
+        1
+    ].split("- name: Prepare self-hosted runner workspace", maxsplit=1)[0]
+    script = script.split("run: |", maxsplit=1)[1]
+    bash = shutil.which("bash")
+
+    assert bash is not None
+
+    completed = subprocess.run(  # noqa: S603 - resolved Bash with test-controlled input.
+        [bash, "-n"],
+        input=textwrap.dedent(script),
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+
+    assert completed.returncode == 0, completed.stderr
 
 
 def test_platform_workflow_isolates_monitoring_plan_changes() -> None:

@@ -250,10 +250,6 @@ jobs:
           fi
           guard_repo="$RUNNER_TEMP/fdai-protected-origin-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.git"
           rm -rf -- "$guard_repo"
-            if address in migration_replacements:
-              if actions != ("delete", "create"):
-                unexpected.append(address)
-            elif address in permitted_retirements:
           git init --bare "$guard_repo" >/dev/null
           trap 'rm -rf -- "$guard_repo"' EXIT
           if [[ -n "$GITHUB_TOKEN" ]]; then
