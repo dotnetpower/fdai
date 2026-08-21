@@ -235,8 +235,12 @@ __marimo__/
 # Local design mockups and throwaway experiments (not shipped)
 examples/
 
-# Internal-only notes (maintainer scratch, not shipped docs)
-docs/internals/
+# Internal-only notes (maintainer scratch, not shipped docs). Keep the two
+# reviewed repository-wide engineering records tracked after moving them out
+# of the root; all other internal notes remain local by default.
+docs/internals/*
+!docs/internals/fundamental-design-hardening-review.md
+!docs/internals/operational-knowledge-query-hardening-plan.md
 
 # --------------------------------------------------------------------------
 # Terraform (infra/) - NEVER commit tfvars / state; they carry real
@@ -258,6 +262,9 @@ docs/internals/
 # Saved plan files (terraform plan -out=...) are binary build artifacts that
 # must never be committed - they can embed provider data and secrets.
 *.plan
+# Local `terraform providers schema -json` inspection output.
+infra/schema.json
+infra/full_resource_schema.json
 crash.log
 crash.*.log
 override.tf

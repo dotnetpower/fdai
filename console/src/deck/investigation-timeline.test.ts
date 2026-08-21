@@ -4,6 +4,8 @@ import { fileURLToPath } from "node:url";
 import type { InvestigationActivity } from "./backend";
 import {
   investigationTone,
+  objectSetQuerySummary,
+  queryResultSummary,
   unrepresentedEvidenceBranches,
   upsertEvidenceBranch,
   upsertInvestigationActivity,
@@ -57,6 +59,69 @@ describe("upsertInvestigationActivity", () => {
     );
 
     expect(updated).toEqual([existing]);
+  });
+});
+
+describe("objectSetQuerySummary", () => {
+  it("projects readable ObjectSet facts from exact query JSON", () => {
+    expect(objectSetQuerySummary(JSON.stringify({
+      capability: "query.object_set",
+      arguments: {
+        definition: {
+          selector: { kind: "object_type", name: "Resource" },
+          predicates: [{ property: "name", operator: "equals", equals: "resource-example" }],
+          limit: 2,
+          as_of: "2026-08-21T00:33:34Z",
+          purpose: "operations-review",
+        },
+      },
+    }), "object_set_materialization")).toEqual({
+      objectType: "Resource",
+      filters: ["name equals resource-example"],
+      limit: 2,
+      asOf: "2026-08-21T00:33:34Z",
+      purpose: "operations-review",
+    });
+  });
+
+  it("does not reinterpret another operation or malformed JSON", () => {
+    expect(objectSetQuerySummary("{}", "metric_series")).toBeUndefined();
+    expect(objectSetQuerySummary("not-json", "object_set_materialization")).toBeUndefined();
+  });
+
+  it("recovers legacy ObjectSet scope only from the exact capability field", () => {
+    expect(objectSetQuerySummary(JSON.stringify({
+      capability: "query.object_set",
+      arguments: { definition: { selector: { name: "Resource" }, limit: 2 } },
+    }), undefined)).toEqual({ objectType: "Resource", filters: [], limit: 2 });
+    expect(objectSetQuerySummary(JSON.stringify({
+      capability: "query.metric_series",
+      arguments: { definition: { selector: { name: "Resource" }, limit: 2 } },
+    }), undefined)).toBeUndefined();
+  });
+});
+
+describe("queryResultSummary", () => {
+  it("projects exact status, evidence, row counts, and completeness", () => {
+    expect(queryResultSummary(JSON.stringify({
+      status: "completed",
+      evidence_refs: ["evidence:1", "evidence:2"],
+      result: { rows: [{ name: "resource-example" }], source_complete: true },
+    }))).toEqual({
+      status: "completed",
+      evidenceCount: 2,
+      returnedRows: 1,
+      complete: true,
+    });
+    expect(queryResultSummary(JSON.stringify([{
+      returned_rows: 20,
+      total_rows: 42,
+    }]))).toEqual({ returnedRows: 20, totalRows: 42 });
+  });
+
+  it("does not invent a summary from malformed or empty output", () => {
+    expect(queryResultSummary("not-json")).toBeUndefined();
+    expect(queryResultSummary("{}")) .toBeUndefined();
   });
 });
 
@@ -137,7 +202,9 @@ describe("upsertEvidenceBranch", () => {
     expect(component).toContain("open={running}");
     expect(component).toContain("answerSettled ? (");
     expect(component).toContain("is-answer-settled");
-    expect(component).toContain('<div class="deck-investigation-head">{head}</div>');
+    expect(component).toContain('key="answer-settled"');
+    expect(component).toContain('<summary class="deck-investigation-head">{head}</summary>');
+    expect(component).toContain("{body}");
     expect(component).toContain("!answerSettled ? (");
     expect(styles).toContain(".deck-investigation > summary.deck-investigation-head { cursor: pointer; }");
     expect(styles).toContain(".deck-investigation.is-answer-settled .deck-investigation-head");
@@ -158,7 +225,8 @@ describe("upsertEvidenceBranch", () => {
     expect(component).toContain('class="deck-progress-note deck-progress-note-derived"');
     expect(component).toContain('class="deck-marker-glyph"');
     expect(component).toContain("<InvestigationNextSkeleton />");
-    expect(component).toContain('open={status === "running"}');
+    expect(component).toContain('class="deck-investigation-output-block"');
+    expect(component).not.toContain("deck-investigation-command-disclosure");
     expect(component).toContain('aria-label={t("deck.investigation.branches")}');
     expect(component).toContain('class="deck-branch-disclosure"');
     expect(component).toContain('class="deck-branch-step"');
@@ -171,8 +239,12 @@ describe("upsertEvidenceBranch", () => {
     expect(presenter).toContain("!isInvestigationFlow || investigationFlowStart");
     expect(presenter).toContain("!isInvestigationFlow || isInvestigationFinalAnswer ? (");
     expect(component).toContain('"deck.investigation.sourceSummaryOne"');
-    expect(component).toContain('"deck.investigation.callCompletedOne"');
-    expect(component).toContain('"deck.investigation.callsCompletedMany"');
+    expect(component).toContain('"deck.investigation.eventCompletedOne"');
+    expect(component).toContain('"deck.investigation.eventsCompletedMany"');
+    expect(component).toContain('<ActivityObservation activity={activity} />');
+    expect(component).toContain('activity.detail ?? t("deck.trajectory.coverageGap")');
+    expect(component).toContain('t("deck.investigation.lifecycleEvent")');
+    expect(component).toContain('t("deck.investigation.noExternalExecution")');
     expect(component).toContain('"deck.investigation.readOnly"');
     expect(component).toContain("deck-branch-badge");
     expect(component).toContain('"is-query" : "is-tool"');
@@ -180,7 +252,15 @@ describe("upsertEvidenceBranch", () => {
     expect(component).toContain('evidence.tool.includes("Azure Resource Graph")');
     expect(component).toContain('evidence.tool === "Azure CLI"');
     expect(component).not.toContain('t("deck.investigation.providerExecution")');
+    expect(component).toContain('t("deck.investigation.copyIql")');
     expect(component).toContain('t("deck.investigation.copyQuery")');
+    expect(component).toContain('class="deck-investigation-provenance"');
+    expect(component).toContain('class="deck-investigation-provenance-unavailable"');
+    expect(component).toContain('t("deck.investigation.provenanceNotRecorded")');
+    expect(component).toContain('t("deck.investigation.internalQueryEndpoint")');
+    expect(component).toContain('class="deck-investigation-query-summary"');
+    expect(component).toContain('class="deck-investigation-result-summary"');
+    expect(component).toContain('"deck.investigation.verifiedQueryInput"');
     expect(component).toContain("formatJsonValue(inventoryDisplay?.iql ?? evidence.command)");
     expect(component).toContain('data-format={formattedOutput.isJson ? "json" : "text"}');
     expect(styles).toContain("@keyframes deck-investigation-rise");
@@ -200,11 +280,13 @@ describe("upsertEvidenceBranch", () => {
     expect(retrieval).toContain('class="deck-turn-head deck-rt-agent-head"');
     expect(retrieval).toContain('class="deck-turn-source"');
     expect(retrieval).toContain('class="deck-rt-stage-copy"');
+    expect(retrieval).toContain('class="deck-rt-ico" aria-hidden="true">{stage.glyph}</span>');
+    expect(retrieval).toContain('class="deck-rt-mode">{t("deck.retrieval.compact")}</span>');
     expect(retrieval).toContain('<details open class="deck-rt-sources">');
     expect(retrieval).toContain("sources.slice(Math.max(0, shown - VISIBLE), shown)");
     expect(retrieval).not.toContain("translateY(${-rolled * CARD_PITCH_PX}px)");
     expect(styles).toMatch(
-      /\.deck-rt-stage\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*18px minmax\(0, 1fr\) auto 24px;/s,
+      /\.deck-rt-stage\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*20px minmax\(0, 1fr\) auto 14px;/s,
     );
     expect(styles).toMatch(
       /\.deck-rt-stage-copy\s*\{[^}]*display:\s*flex;[^}]*align-items:\s*baseline;[^}]*overflow:\s*hidden;/s,
@@ -217,9 +299,9 @@ describe("upsertEvidenceBranch", () => {
     expect(styles).toMatch(
       /\.deck-rt-txt\s*\{[^}]*flex-direction:\s*column;[^}]*align-items:\s*flex-start;/s,
     );
-    expect(styles).toMatch(/\.deck-rt-source\s*\{[^}]*height:\s*56px;/s);
+    expect(styles).toMatch(/\.deck-rt-source\s*\{[^}]*min-height:\s*28px;/s);
     expect(styles).toMatch(
-      /@media \(max-width: 640px\)[\s\S]*\.deck-rt-stage\s*\{[^}]*grid-template-columns:\s*18px minmax\(0, 1fr\) auto;/s,
+      /@media \(max-width: 640px\)[\s\S]*\.deck-rt-stage\s*\{[^}]*grid-template-columns:\s*20px minmax\(0, 1fr\) auto;/s,
     );
     expect(view).toContain("showPreparingAnswer");
     expect(view).toContain("inFlight && !finalAnswerPresent");
@@ -272,11 +354,17 @@ describe("upsertEvidenceBranch", () => {
       /\.deck-investigation-command,[\s\S]*?\.deck-investigation-output\s*\{[^}]*background:\s*#1f2428/,
     );
     expect(styles).toContain("scrollbar-color: #68737e #1f2428;");
+    expect(styles).toMatch(
+      /\.deck-investigation-execution\.is-event-only\s*\{[^}]*background:\s*var\(--bg-elevated\);[^}]*box-shadow:\s*none;/s,
+    );
+    expect(styles).toContain(".deck-investigation-event-summary {");
     expect(styles).toContain(".deck-investigation-command::-webkit-scrollbar-thumb,");
     expect(styles).toContain(".deck-investigation-item-disclosure > summary::after");
     expect(styles).toContain("--font-sans:");
     expect(styles).toContain("--font-mono:");
     expect(styles).toContain(".deck-investigation-list::before");
+    expect(styles).toContain("--deck-investigation-rail-x: 9px;");
+    expect(styles).toMatch(/\.deck-investigation-summary > \.deck-investigation-state \{[^}]*left: -33px;[^}]*top: 22px;[^}]*transform: translateY\(-50%\);/s);
     expect(styles).toContain(".deck-branch-list::before");
     expect(styles).toMatch(
       /@container deck-transcript \(max-width: 620px\)[\s\S]*?\.deck-table tbody tr/,
@@ -290,6 +378,9 @@ describe("upsertEvidenceBranch", () => {
     );
     expect(styles).toMatch(
       /\.deck-investigation-copy-command\s*\{[^}]*width:\s*32px;[^}]*height:\s*32px/,
+    );
+    expect(styles).toMatch(
+      /@media \(max-width: 640px\)[\s\S]*?\.deck-investigation-copy-command\s*\{[^}]*width:\s*44px;[^}]*height:\s*44px/,
     );
     expect(styles).toContain(".deck-investigation-copy-command:focus-visible {");
     expect(styles).toContain(".deck-investigation-item-disclosure > summary:focus-visible {");

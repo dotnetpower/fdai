@@ -1,6 +1,6 @@
 ---
 name: conversational-assurance
-description: "Continuous FDAI conversational reliability workflow. Use when the user says 대화개선, 채팅개선, 대화무한개선, 채팅무한개선, 대화개선 현황, 채팅개선 현황, conversation improvement, chat improvement, conversation assurance status, or continuous conversation assurance; or when building, operating, reviewing, or resuming the chat-quality watchdog, evaluating Azure-backed answers, hardening a failed answer, or checking generalization."
+description: "Explicit FDAI conversation-assurance workflow. Operate a campaign only when the user says 대화개선, 채팅개선, 대화무한개선, 채팅무한개선, conversation improvement, chat improvement, or continuous conversation assurance; report status only for 대화개선 현황, 채팅개선 현황, or conversation assurance status. Also use as implementation guidance when the user explicitly asks to change or review the watchdog itself."
 ---
 
 # FDAI Explicit Conversational Assurance
@@ -21,7 +21,9 @@ these operational rules in the always-on Copilot instructions.
 The process starts only when the operator explicitly requests `대화개선`, `채팅개선`,
 `대화무한개선`, `채팅무한개선`, `conversation improvement`, `chat improvement`, or
 `continuous conversation assurance`. It MUST NOT start from systemd, login, boot, a recurring
-timer, stale-activity recovery, or any other implicit scheduler.
+timer, stale-activity recovery, a failed implementation check, an inconclusive Console answer, or
+any other implicit trigger. Loading this skill for watchdog implementation or review does not
+authorize a campaign or a live Azure/model call.
 
 - One normal explicit trigger starts one campaign. An explicit request for 100 or more evaluations
    starts one parent series composed of bounded child campaigns.
@@ -36,6 +38,9 @@ timer, stale-activity recovery, or any other implicit scheduler.
 - Malformed or non-JSON Copilot generation output is retried inside the bounded cycle. Exhausted
    retries produce a redacted `cycle_hold` ledger record and a successful cycle exit, so one
    transient generation failure cannot obscure the campaign result.
+- A live question receives one measurement attempt per cycle. An unexpected T2 fallback, provider
+   `429`/`503`, timeout, or deadline expiry records `cycle_hold` and ends that cycle. The session
+   MUST NOT relaunch the cycle, the campaign, or the same question to obtain a different result.
 
 Before each cycle, skip without generating a question only when any of these conditions is true:
 
@@ -84,7 +89,8 @@ Run one cycle in this order:
 4. **Evaluate every quality dimension**: inspect the terminal `/chat/stream` `done` payload for
    answer-contract coverage, verification, presentation, observed work, and timing.
 5. **Hold or harden**: a deterministic failure may start one isolated hardening candidate. A
-   provider outage, quota event, or unavailable evidence is not a code defect by itself.
+   provider outage, quota event, timeout, unexpected T2 fallback, or unavailable evidence is not a
+   code defect by itself and ends the cycle as a hold without live retry.
 6. **Verify generalization**: measure the original question and its persisted similar-question
    cohort after the fix.
 7. **Preserve for review**: retain a verified branch, remove the generated worktree, and never
@@ -199,8 +205,9 @@ One hardening candidate must:
 - Stay within 12 changed files and 800 changed lines unless an operator explicitly changes the
   local cap.
 - Change only `services/core-control-plane/src/fdai/`, `services/core-control-plane/tests/`, and `docs/roadmap/` paths.
-- Pass exact and similar-question live measurement, focused tests, fast verification, and the
-  whole-suite gate.
+- Pass exact and similar-question live measurement only when those measurements remain available,
+   plus focused tests and focused verification. A provider hold rejects the candidate without
+   relaunching measurements. Whole-repository validation remains a merge/release responsibility.
 - Pass an AST-delta anti-hardcoding gate. A candidate is rejected when it adds a compiled regular
    expression or compiled-pattern match, a static string collection or mapping, or a question or
    paraphrase literal to the product conversation source. This structural gate supplements, rather
@@ -210,7 +217,7 @@ Use a visible sibling worktree under `fdai-worktrees/auto-hardening`. Hidden `.i
 paths can invalidate path-sensitive repository tests. Link local-only `.venv`, model metadata, and
 Node dependencies into the worktree and exclude those links from git status.
 
-If the whole-suite gate fails on an unchanged baseline defect, retain the candidate branch with an
+If focused verification exposes an unchanged baseline defect, retain the candidate branch with an
 honest baseline-blocked verdict. Do not fix an unrelated baseline failure inside the chat candidate.
 
 ## Copilot CLI boundary

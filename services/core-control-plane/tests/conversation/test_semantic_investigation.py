@@ -320,6 +320,22 @@ def test_unknown_metric_concept_is_rejected_before_provider_read() -> None:
         )
 
 
+def test_investigation_without_an_affected_target_is_rejected_before_provider_read() -> None:
+    utterance = "A서비스가 갑자기 왜 느려졌어?"
+    proposal = _proposal(utterance)
+    changed = proposal.model_copy(
+        update={"entities": (proposal.entities[0].model_copy(update={"role": "scope_anchor"}),)}
+    )
+
+    with pytest.raises(ValueError, match="requires one affected target"):
+        verify_investigation_intent(
+            changed,
+            utterance=utterance,
+            descriptors=_descriptors(),
+            metric_concepts=("dependency.latency", "resource.saturation", "service.latency"),
+        )
+
+
 def test_unknown_relationship_side_is_rejected_before_graph_expansion() -> None:
     utterance = "A서비스가 갑자기 왜 느려졌어?"
     proposal = _proposal(utterance)

@@ -324,7 +324,10 @@ def _citation_error_count(
     result: DistillationResult,
     package: OntologyReviewPackage,
 ) -> int:
-    claims = inventory_claims(document)
+    claims = inventory_claims(
+        document,
+        source_ranges=tuple(candidate.source_lines for candidate in result.candidates),
+    )
     valid_assertion_hashes = {claim.evidence.text_sha256 for claim in claims}
     invalid_assertions = sum(
         not isinstance(candidate.body.get("source_assertion"), str)

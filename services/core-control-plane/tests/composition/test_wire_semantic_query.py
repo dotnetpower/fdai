@@ -32,6 +32,15 @@ from fdai.core.ontology_platform.operational_functions import operational_functi
 from fdai.core.ontology_platform.release_diff_queries import (
     ONTOLOGY_RELEASE_DIFF_FUNCTION_NAME,
 )
+from fdai.core.ontology_platform.resource_current_state_queries import (
+    RESOURCE_CURRENT_STATE_FUNCTION_NAME,
+)
+from fdai.core.ontology_platform.resource_error_activity_correlation_queries import (
+    ERROR_ACTIVITY_CORRELATION_FUNCTION_NAME,
+)
+from fdai.core.ontology_platform.resource_health_assessment_queries import (
+    TARGET_HEALTH_ASSESSMENT_FUNCTION_NAME,
+)
 from fdai.delivery.catalog_search import InMemoryCatalogSemanticIndex
 from fdai.rule_catalog.schema.ontology_catalog import OntologyCatalog
 from fdai.rule_catalog.schema.property_semantic import empty_property_semantic_registry
@@ -128,6 +137,37 @@ class _Model:
         }
 
 
+class _RelationshipTraversalModel(_Model):
+    def propose_plan(self, **_kwargs: Any) -> dict[str, object]:
+        return {
+            "nodes": [
+                {
+                    "node_id": "resources",
+                    "kind": "object_set",
+                    "depends_on": [],
+                    "arguments": {"definition": self._definition.model_dump(mode="json")},
+                    "output_kind": "query.table",
+                },
+                {
+                    "node_id": "related-resources",
+                    "kind": "relationship_traversal",
+                    "depends_on": ["resources"],
+                    "arguments": {
+                        "selector": {"kind": "object_type", "name": "Resource"},
+                        "link_types": ["routes_to"],
+                        "direction": "outgoing",
+                        "max_depth": 1,
+                        "as_of": NOW.isoformat(),
+                        "purpose": "operations-review",
+                        "limit": 10,
+                    },
+                    "output_kind": "query.table",
+                },
+            ],
+            "output_node_ids": ["related-resources"],
+        }
+
+
 def _object_type() -> OntologyObjectType:
     return OntologyObjectType(
         schema_version="1.0.0",
@@ -218,6 +258,59 @@ async def test_runtime_binds_exact_request_role_and_returns_evidence() -> None:
     assert reader_result.intent_graph_evidence is not None
     evidence_refs = reader_result.intent_graph_evidence["goals"][0]["evidence_refs"]
     assert any(item.startswith("ontology-object-set:") for item in evidence_refs)
+
+
+async def test_runtime_verifies_and_executes_relationship_traversal() -> None:
+    object_type = _object_type()
+    link_type = OntologyLinkType(
+        schema_version="1.0.0",
+        name="routes_to",
+        version="1.0.0",
+        from_type="Resource",
+        to_type="Resource",
+        cardinality=LinkCardinality.MANY_TO_MANY,
+    )
+    store = InMemoryOntologyInstanceStore(
+        object_types=(object_type,),
+        link_types=(link_type,),
+    )
+    await store.upsert_object(
+        OntologyObjectRecord(
+            id="resource-a",
+            object_type="Resource",
+            properties={"id": "resource-a", "label": "API"},
+        )
+    )
+    runtime = build_semantic_query_runtime(
+        model=_RelationshipTraversalModel(_definition()),
+        ontology_release=build_ontology_release(
+            object_types=(object_type,),
+            link_types=(link_type,),
+            function_types=operational_function_types(()),
+        ),
+        ontology_catalog=OntologyCatalog(
+            object_types=(object_type,),
+            interface_types=(),
+            interface_implementations=(),
+            link_types=(link_type,),
+            action_types=(),
+            property_semantics=empty_property_semantic_registry(),
+        ),
+        ontology_store=store,
+        now=lambda: NOW,
+    )
+
+    result = await runtime.handle(
+        utterance="Show resources and their routes.",
+        prior_turns=(),
+        principal=Principal(id="reader", role=Role.READER),
+    )
+
+    assert result.disposition == "answered", result.reason
+    assert result.execution is not None
+    related = result.execution.results["related-resources"].value
+    assert isinstance(related, QueryTable)
+    assert tuple(row.row_id for row in related.rows) == ("resource-a",)
 
 
 async def test_runtime_returns_typed_hold_when_model_provider_is_unavailable() -> None:
@@ -793,6 +886,9 @@ async def test_runtime_exposes_only_bound_question_space_capabilities() -> None:
 
     assert result.disposition == "answered"
     assert ONTOLOGY_DECLARATION_FUNCTION_NAME in model.function_names
+    assert RESOURCE_CURRENT_STATE_FUNCTION_NAME in model.function_names
+    assert ERROR_ACTIVITY_CORRELATION_FUNCTION_NAME in model.function_names
+    assert TARGET_HEALTH_ASSESSMENT_FUNCTION_NAME in model.function_names
     assert ONTOLOGY_RELEASE_DIFF_FUNCTION_NAME not in model.function_names
     assert ONTOLOGY_EVIDENCE_HEALTH_FUNCTION_NAME not in model.function_names
     assert INVENTORY_IMPACT_FUNCTION_NAME not in model.function_names

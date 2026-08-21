@@ -16,7 +16,7 @@ _DIGEST_PATTERN = r"^sha256:[a-f0-9]{64}$"
 _ID_PATTERN = r"^[a-z][a-z0-9_.-]{0,79}$"
 _MAX_JSON_BYTES = 65_536
 _MAX_PLAN_NODES = 32
-_MAX_GOALS = 16
+MAX_INTENT_GRAPH_GOALS = 16
 
 
 class QueryContract(BaseModel):
@@ -274,7 +274,7 @@ class IntentGraph(QueryContract):
     schema_version: Literal["2.0.0"] = "2.0.0"
     problem_frame_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
     plan_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
-    goals: Annotated[tuple[IntentGoal, ...], Field(min_length=1, max_length=_MAX_GOALS)]
+    goals: Annotated[tuple[IntentGoal, ...], Field(min_length=1, max_length=MAX_INTENT_GRAPH_GOALS)]
     clarification: Annotated[str, Field(min_length=1, max_length=512)] | None = None
     confidence: float = Field(ge=0.0, le=1.0)
     action_posture: Literal["advise_only", "draft_only"]
@@ -325,7 +325,7 @@ class IntentGraphEvidence(QueryContract):
     schema_version: Literal["1.0.0"] = "1.0.0"
     status: Literal["completed", "partial", "unavailable", "failed", "cancelled"]
     evidence_mode: AnswerEvidenceMode
-    goals: Annotated[tuple[GoalTaskReceipt, ...], Field(max_length=8)] = ()
+    goals: Annotated[tuple[GoalTaskReceipt, ...], Field(max_length=MAX_INTENT_GRAPH_GOALS)] = ()
     execution_authority: Literal[False] = False
 
 
@@ -370,8 +370,8 @@ class StructuralCoverageReceipt(QueryContract):
 def project_intent_graph(graph: IntentGraph) -> dict[str, Any]:
     """Project the internal exact-plan graph to the bounded Console v2 shape."""
 
-    if not 1 <= len(graph.goals) <= 8:
-        raise ValueError("Console intent graph MUST contain 1 to 8 goals")
+    if not 1 <= len(graph.goals) <= MAX_INTENT_GRAPH_GOALS:
+        raise ValueError(f"Console intent graph MUST contain 1 to {MAX_INTENT_GRAPH_GOALS} goals")
     for goal in graph.goals:
         if re.fullmatch(r"[a-z][a-z0-9_-]{0,63}", goal.goal_id) is None:
             raise ValueError("Console intent goal id is invalid")
@@ -471,6 +471,7 @@ def _validate_console_json(value: Any, *, depth: int, counter: list[int]) -> Non
 
 
 __all__ = [
+    "MAX_INTENT_GRAPH_GOALS",
     "AnswerEvidenceMode",
     "GoalEvidenceMode",
     "GoalTaskReceipt",

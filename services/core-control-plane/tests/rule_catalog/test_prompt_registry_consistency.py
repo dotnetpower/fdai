@@ -29,11 +29,13 @@ _CATALOG = _REPO / "rule-catalog"
 # narrator reuses t1.judge, t2.proposer selects the reasoner pair, and the
 # Norns review prompt selects t2.reasoner.primary/secondary off-path. Semantic
 # frame/plan prompts use the same resolved reasoner candidates as two strict
-# calls. Adding to this set requires a stated reason (a prompt-only lookup key).
+# calls. Semantic judgment reuses resolved T1 and optional T2 targets. Adding
+# to this set requires a stated reason (a prompt-only lookup key).
 _PROMPT_ONLY_CAPABILITIES = frozenset(
     {
         "console.narrator",
         "norns.post-turn-review",
+        "semantic.judgment",
         "semantic.query.frame",
         "semantic.query.plan",
         "t2.proposer",

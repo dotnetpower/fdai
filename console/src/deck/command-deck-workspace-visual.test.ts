@@ -213,9 +213,10 @@ describe("Command Deck workspace hierarchy", () => {
     );
   });
 
-  test("keeps pending stages visible and sizes the source slot from content", () => {
-    expect(styles).toMatch(/\.deck-rt-slot \{[^}]*max-height: 180px;[^}]*overflow: hidden;/s);
-    expect(styles).not.toMatch(/\.deck-rt-slot \{[^}]*\n\s*height: 180px;/s);
+  test("keeps pending stages visible in a stable compact source slot", () => {
+    expect(styles).toMatch(/\.deck-rt-slot \{[^}]*height: 88px;[^}]*overflow: hidden;/s);
+    expect(styles).toMatch(/\.deck-rt-source \{[^}]*min-height: 28px;/s);
+    expect(styles).not.toContain(".deck-rt-source::after");
     expect(styles).toMatch(/@keyframes deck-rt-rise \{\s*from \{ opacity: 0;/s);
     expect(styles).toMatch(/@keyframes deck-rt-pop \{\s*from \{ opacity: 0;/s);
     expect(styles).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*\.deck-rt-stage,[\s\S]*\.deck-rt-source \{\s*opacity: 1;\s*transform: none;/);
@@ -265,6 +266,7 @@ describe("Command Deck workspace hierarchy", () => {
     expect(styles).toMatch(/\.deck-input \{[^}]*width: 100%;[^}]*min-width: 0;[^}]*box-sizing: border-box;/s);
     expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-investigation\.is-answer-settled \.deck-investigation-head \{[^}]*grid-template-columns: 16px minmax\(0, 1fr\) auto;/s);
     expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-gr-actions \{[^}]*grid-template-columns: repeat\(4, minmax\(0, 1fr\)\);/s);
+    expect(styles).toMatch(/@container deck-transcript \(max-width: 620px\)[\s\S]*\.deck-trajectory-phase-details > li \{ grid-template-columns: 20px minmax\(0, 1fr\); \}/);
     expect(styles).toMatch(/@media \(max-width: 1100px\)[\s\S]*\.deck-search kbd \{ display: none; \}/);
   });
 });

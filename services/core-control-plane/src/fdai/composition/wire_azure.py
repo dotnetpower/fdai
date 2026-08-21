@@ -245,6 +245,7 @@ async def wire_azure_container(
     )
     composed = await composer.compose(capability_id="t2.reasoner.primary")
     proposer_composed = await composer.compose(capability_id="t2.proposer")
+    semantic_prompt = (await composer.compose(capability_id="semantic.judgment")).system_text
 
     file_tool_registry = FileSystemToolRegistry(overrides.catalog_root)
     tool_registry: ToolRegistry = file_tool_registry
@@ -367,6 +368,7 @@ async def wire_azure_container(
         critic_system_prompt=critic_system_prompt,
         judge_system_prompt=judge_system_prompt,
         rca_system_prompt=rca_system_prompt,
+        semantic_judgment_system_prompt=semantic_prompt,
         endpoint_resolver=overrides.model_endpoint_resolver,
         metering_sink=overrides.metering_sink,
         pricing=pricing,

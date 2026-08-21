@@ -1,7 +1,7 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: 49b093f965d8d70a3f85b9a39a85129dc1b88d14
+translation_source_sha: 6c37a3306d7576bb542e8b82106db333c35f0105
 translation_revised: 2026-08-20
 ---
 
@@ -33,7 +33,7 @@ T1 제안을 사용할 수 없거나 스키마, 매니페스트, 구성 또는 �
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | Semantic frame, 검증된 계획 및 intent graph | implemented | [`semantic_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning.py), [`semantic_planning_cascade.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning_cascade.py), [`semantic_runtime.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_runtime.py), 의미 계획 집중 테스트 | 전체 턴 제안은 범위와 release가 제한되고 검증되며 실행 권한 없이 projection됩니다. T1을 항상 먼저 시도하며, T1 제안이 없거나 결정론적 검증을 통과하지 못한 경우에만 같은 단계를 T2로 다시 시도할 수 있습니다. |
-| 구조화된 인과 조사 | implemented | `semantic_investigation.py`, `semantic_investigation_planning.py`, 조사 query-node 및 표현 테스트, 집중 조사 검사 | 대상 결속 인과 diagnosis는 정확한 source span, 타입이 지정된 entity 역할, 증상 방향, 시간 단서, 순서가 있는 LinkType side, 경쟁 가설, 근거 기준, 답변 형태를 전달합니다. Core는 이 요소를 검증하고 모델이 작성한 plan 없이 entity 해석, multi-hop 확장, 정렬된 window, topology diff, 증상 비교, 지지/반증 wave를 컴파일합니다. 일반 선언 범위 causal evidence는 기존의 범위가 제한된 plan을 유지합니다. |
+| 구조화된 인과 조사 | implemented | `semantic_investigation.py`, `semantic_investigation_planning.py`, 조사 query-node 및 표현 테스트, 집중 조사 검사 | 대상 결속 인과 diagnosis는 정확한 source span, 타입이 지정된 entity 역할, 증상 방향, 시간 단서, 순서가 있는 LinkType side, 경쟁 가설, 근거 기준, 답변 형태를 전달합니다. Core는 이 요소를 검증하고 모델이 작성한 plan 없이 entity 해석, multi-hop 확장, 정렬된 window, topology diff, 증상 비교, 지지/반증 wave를 컴파일합니다. 일반 선언 범위 causal evidence는 기존의 범위가 제한된 plan을 유지합니다. 가설 결과가 두 개 미만으로 표현 계층에 도달하면 거짓 완전 진단을 만들지 않고 대상과 증상 비교를 명시적인 근거 한계와 함께 유지합니다. |
 | 운영 Core semantic runtime 조립 | implemented | [`wire_semantic_query.py`](../../../services/core-control-plane/src/fdai/composition/wire_semantic_query.py), [`semantic_query_model_targets.py`](../../../services/core-control-plane/src/fdai/composition/semantic_query_model_targets.py), [`bootstrap.py`](../../../services/core-control-plane/src/fdai/runtime/bootstrap.py), 의미 질의 조립 집중 테스트 | Azure T1 및 T2 계획 어댑터를 별도로 연결합니다. 전제 조건을 갖추면 principal 범위 매니페스트, 보안 ObjectSet, 읽기 함수 및 범위가 제한된 DAG 실행이 조립됩니다. |
 | 버전이 지정된 서비스 간 semantic-turn 계약 | implemented | [`semantic_turn.py`](../../../packages/service-contracts/src/fdai_service_contracts/semantic_turn.py), [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py), [`test_semantic_turn_processor.py`](../../../services/core-control-plane/tests/test_semantic_turn_processor.py) | Version 1.2 요청과 projection은 실행 권한을 부여하지 않으면서 identity, purpose, deadline, digest, disposition 및 evidence를 결합합니다. |
 | Durable Operator bridge 및 Console projection | implemented | [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), [`postgres_semantic_turn_store.py`](../../../services/operator-service/src/fdai_operator_service/postgres_semantic_turn_store.py), [`test_semantic_turn_bridge.py`](../../../services/operator-service/tests/test_semantic_turn_bridge.py) | Operator는 durable acceptance, outbox claim, result projection, 인증된 replay, typed hold 및 `done` event 변환을 담당합니다. |
@@ -47,6 +47,8 @@ T1 제안을 사용할 수 없거나 스키마, 매니페스트, 구성 또는 �
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-20 | implemented | Prompt v30이 이전 system prompt 문자 제한을 초과해 계획 전에 전체 runtime을 사용할 수 없게 된 문제를 수정하고, 범위가 제한된 Azure semantic adapter와 통제된 frame prompt를 정렬했습니다. Adapter는 고정된 32,768자 system prompt 제한과 기존 전체 request byte 제한을 유지합니다. | `current change`, 실제 prompt catalog 조립 및 제한 초과 adapter 회귀 검사 | Core readiness는 이제 semantic runtime이 연결됐다고 보고합니다. 재시작 전에 완료한 replay를 반복하지 않았으므로 인증된 대상 결속 답변은 남아 있습니다. |
+| 2026-08-20 | implemented | 가설 결과가 0개 또는 1개만 표현 계층에 도달해도 구조화된 인과 artifact를 유지하도록 보강했습니다. Artifact는 검증된 대상과 증상 비교를 유지하고, 사용할 수 있는 가설 행만 표시하며, 불완전한 경쟁 근거 집합을 영어와 한국어 한계로 명시합니다. | `current change`, 집중 조사 및 Operator 표현 검사 | Runtime 검증을 주장하기 전에 인증된 대상 결속 slowdown 답변과 viewport 근거를 보존합니다. |
 | 2026-08-20 | 진행 중 | 아래 structured-investigation 행의 tracking owner를 정정했습니다. 이슈 #242는 관련 없는 golden-question assurance 작업입니다. 이슈 #244는 T1 frame 거부 진단과 범위가 제한된 T2 throttling 동작을 포함한 인증된 인과 diagnosis parity를 소유합니다. | [이슈 #244](https://github.com/dotnetpower/fdai/issues/244), 인증된 타입 보류 근거 | 타입이 지정된 보류를 약화하지 않고 완전한 인증 대상 결속 diagnosis를 생성합니다. |
 | 2026-08-20 | implemented | Free-text name fragment를 선언된 resource type과 함께 유지하도록 frame prompt를 v29로 올렸습니다. 모델은 계속 의미만 제안하며 Core는 정확한 fragment가 발화에 있는지 검증하고 ObjectSet을 좁히기만 할 수 있습니다. | `current change`, [이슈 #242](https://github.com/dotnetpower/fdai/issues/242), 집중 prompt 및 multi-filter grounding 검사 | 인과 비교 전에 인증된 수정 filter를 보존합니다. |
 | 2026-08-20 | implemented | 새로 추가한 metric concept 입력에만 기본값을 제공해 Azure frame adapter의 N-1 직접 호출 호환성을 복원했습니다. Runtime 조립은 검토된 metric registry를 계속 명시적으로 전달합니다. 확장된 조사 traversal은 scoped query-table 검증기 계약을 유지하며 service-test 소유권에는 인과 표현 회귀 테스트가 포함됩니다. | `current change`, [이슈 #242](https://github.com/dotnetpower/fdai/issues/242), 집중 adapter 및 검증기 검사 27개 통과 | 실제 Console 근거 전에 정확한 commit 및 통합 range 검증을 완료합니다. |

@@ -291,6 +291,8 @@ jobs:
             python3 scripts/quality/localization/check-readable-hangul.py
           run_check "Generic GUID scope" \
             bash scripts/quality/repository/check-guids.sh
+          run_check "Repository root layout" \
+            python3 scripts/quality/repository/check-root-layout.py
           run_check "Architecture review readiness" \
             python3 scripts/governance/check-arb-readiness.py
           run_check "Agent stewardship" \

@@ -83,11 +83,29 @@ from fdai.core.ontology_platform.relationship_queries import (
     ONTOLOGY_RELATIONSHIPS_FUNCTION_NAME,
     ontology_relationships_function,
 )
+from fdai.core.ontology_platform.resource_activity_queries import (
+    RESOURCE_ACTIVITY_FUNCTION_NAME,
+)
+from fdai.core.ontology_platform.resource_current_state_queries import (
+    RESOURCE_CURRENT_STATE_FUNCTION_NAME,
+)
+from fdai.core.ontology_platform.resource_error_activity_correlation_queries import (
+    ERROR_ACTIVITY_CORRELATION_FUNCTION_NAME,
+    error_activity_correlation_function,
+)
+from fdai.core.ontology_platform.resource_health_assessment_queries import (
+    TARGET_HEALTH_ASSESSMENT_FUNCTION_NAME,
+    target_health_assessment_function,
+)
 from fdai.core.prompts.registry import FileSystemPromptRegistry
 from fdai.delivery.azure.llm.semantic_planning import (
     AzureOpenAISemanticPlanningModel,
     AzureOpenAISemanticPlanningModelConfig,
 )
+from fdai.delivery.azure.semantic_resource_current_state import (
+    semantic_resource_current_state_function,
+)
+from fdai.delivery.semantic_resource_activity import semantic_resource_activity_function
 from fdai.rule_catalog.schema.ontology_catalog import OntologyCatalog, load_ontology_catalog
 from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
 from fdai.shared.config.models import LlmMode
@@ -96,6 +114,7 @@ from fdai.shared.ontology.acl import ProjectionRequest
 from fdai.shared.ontology.release import build_ontology_release
 from fdai.shared.providers.catalog_search import CatalogSemanticIndex
 from fdai.shared.providers.ontology_instance import OntologyInstanceStore
+from fdai.shared.providers.read_investigation import ReadInvestigationProvider
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 from ._helpers import Container, _load_resolved_models
@@ -137,6 +156,7 @@ def build_semantic_query_runtime(
     metric_registry: MetricSemanticRegistry | None = None,
     metric_window_provider: MetricWindowProvider | None = None,
     incident_evidence_reader: IncidentEvidenceReader | None = None,
+    read_investigation_provider: ReadInvestigationProvider | None = None,
     property_values: Sequence[PropertyValueDomain] = (),
     purpose: str = "operations-review",
     now: Callable[[], datetime] | None = None,
@@ -222,6 +242,34 @@ def build_semantic_query_runtime(
             ),
         )
         bound_function_names.add(incident_declaration.name)
+    current_state_declaration = declarations[RESOURCE_CURRENT_STATE_FUNCTION_NAME]
+    function_registry.register_contextual(
+        current_state_declaration,
+        semantic_resource_current_state_function(ontology_release),
+    )
+    bound_function_names.add(current_state_declaration.name)
+    correlation_declaration = declarations[ERROR_ACTIVITY_CORRELATION_FUNCTION_NAME]
+    function_registry.register_contextual(
+        correlation_declaration,
+        error_activity_correlation_function(ontology_release),
+    )
+    bound_function_names.add(correlation_declaration.name)
+    health_declaration = declarations[TARGET_HEALTH_ASSESSMENT_FUNCTION_NAME]
+    function_registry.register_contextual(
+        health_declaration,
+        target_health_assessment_function(ontology_release),
+    )
+    bound_function_names.add(health_declaration.name)
+    if read_investigation_provider is not None:
+        activity_declaration = declarations[RESOURCE_ACTIVITY_FUNCTION_NAME]
+        function_registry.register_contextual(
+            activity_declaration,
+            semantic_resource_activity_function(
+                ontology_release,
+                provider=read_investigation_provider,
+            ),
+        )
+        bound_function_names.add(activity_declaration.name)
     relationship_declaration = declarations[ONTOLOGY_RELATIONSHIPS_FUNCTION_NAME]
     function_registry.register_contextual(
         relationship_declaration,
@@ -330,7 +378,12 @@ def build_semantic_query_runtime(
             }
         )
         extension_schemas.update(METRIC_ARGUMENT_SCHEMAS)
-    available_kinds = (QueryNodeKind.OBJECT_SET, QueryNodeKind.FUNCTION, *handlers)
+    available_kinds = (
+        QueryNodeKind.OBJECT_SET,
+        QueryNodeKind.RELATIONSHIP_TRAVERSAL,
+        QueryNodeKind.FUNCTION,
+        *handlers,
+    )
     planner = SemanticPlanningService(
         model=model,
         escalation_model=escalation_model,
@@ -417,6 +470,7 @@ def compose_azure_semantic_query_runtime(
     metric_registry: MetricSemanticRegistry | None = None,
     metric_window_provider: MetricWindowProvider | None = None,
     incident_evidence_reader: IncidentEvidenceReader | None = None,
+    read_investigation_provider: ReadInvestigationProvider | None = None,
 ) -> SemanticQueryRuntimeComposition:
     """Compose Azure semantic querying over optional exact Rule retrieval."""
 
@@ -488,6 +542,7 @@ def compose_azure_semantic_query_runtime(
             metric_registry=metric_registry,
             metric_window_provider=metric_window_provider,
             incident_evidence_reader=incident_evidence_reader,
+            read_investigation_provider=read_investigation_provider,
             property_values=_resource_type_property_values(catalog_root),
             purpose=purpose,
         )

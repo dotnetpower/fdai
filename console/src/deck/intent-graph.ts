@@ -5,7 +5,7 @@ import type {
 } from "./backend-types";
 
 const GOAL_ID = /^[a-z][a-z0-9_-]{0,63}$/;
-const MAX_GOALS = 8;
+const MAX_GOALS = 16;
 const GRAPH_FIELDS = ["schema_version", "goals", "clarification", "confidence", "action_posture"];
 const GOAL_FIELDS = [
   "goal_id", "intent", "capability", "arguments", "depends_on", "evidence_mode",

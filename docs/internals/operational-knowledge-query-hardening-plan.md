@@ -237,7 +237,7 @@ operational surface without repairing any of these semantic gaps.
 
 ### Azure resource projection
 
-![Azure resource projection. The main stages are Azure Resource Graph, ResourceRecord and LinkRecord, Promoted inventory generation, Inventory ontology projection, PostgreSQL ontology graph, Secured ObjectSet query.](docs/diagrams/generated/fdai-operational-knowledge-query-hardening-plan-01.en.svg)
+![Azure resource projection. The main stages are Azure Resource Graph, ResourceRecord and LinkRecord, Promoted inventory generation, Inventory ontology projection, PostgreSQL ontology graph, Secured ObjectSet query.](../diagrams/generated/fdai-operational-knowledge-query-hardening-plan-01.en.svg)
 
 The projection is conservative. A missing endpoint, incomplete generation, unregistered link type,
 synthetic state, conflicting duplicate, or unverified relationship cannot become an active edge.
@@ -245,7 +245,7 @@ This is the right safety posture and should remain unchanged.
 
 ### Rule and Rego projection
 
-![Rule and Rego projection. The main stages are Rule YAML, Catalog validation, Rego source, OPA AST parsing, RegoSemantics, Catalog ontology projection, Catalog semantic subgraph, RuleIndex and OPA evaluation.](docs/diagrams/generated/fdai-operational-knowledge-query-hardening-plan-02.en.svg)
+![Rule and Rego projection. The main stages are Rule YAML, Catalog validation, Rego source, OPA AST parsing, RegoSemantics, Catalog ontology projection, Catalog semantic subgraph, RuleIndex and OPA evaluation.](../diagrams/generated/fdai-operational-knowledge-query-hardening-plan-02.en.svg)
 
 The catalog graph currently supports these semantic paths:
 
@@ -261,7 +261,7 @@ semantic digest distinct from the source-file digest.
 
 ### Ordinary-language query
 
-![Ordinary-language query. The main stages are Console question, Operator semantic-turn outbox, Semantic request topic, Core semantic planning, Exact manifest verifier, Bounded query DAG, Node and evidence receipts, Principal-scoped terminal projection, Console answer.](docs/diagrams/generated/fdai-operational-knowledge-query-hardening-plan-03.en.svg)
+![Ordinary-language query. The main stages are Console question, Operator semantic-turn outbox, Semantic request topic, Core semantic planning, Exact manifest verifier, Bounded query DAG, Node and evidence receipts, Principal-scoped terminal projection, Console answer.](../diagrams/generated/fdai-operational-knowledge-query-hardening-plan-03.en.svg)
 
 This path correctly rejects stale releases, hidden properties, unavailable node kinds, invalid
 function arguments, mismatched roles and purposes, and unverified execution. Its current production
@@ -297,7 +297,7 @@ the production executor registration.
 
 The target should make this path explicit and executable:
 
-![Target query spine. The main stages are Resource instance, ResourceType, Rule, PolicyArtifact, Property, Verified query plan, OperationalKnowledgeReceipt, Evidence-bound answer claims.](docs/diagrams/generated/fdai-operational-knowledge-query-hardening-plan-04.en.svg)
+![Target query spine. The main stages are Resource instance, ResourceType, Rule, PolicyArtifact, Property, Verified query plan, OperationalKnowledgeReceipt, Evidence-bound answer claims.](../diagrams/generated/fdai-operational-knowledge-query-hardening-plan-04.en.svg)
 
 ### Resource classification
 
@@ -564,7 +564,7 @@ receipt.
 
 ## Dependency order and parallel lanes
 
-![Dependency order and parallel lanes. The main stages are OKQ-00 baseline, OKQ-01 identity spine, OKQ-02 policy identity, OKQ-03 Rule graph retrieval, OKQ-04 evidence providers, OKQ-05 semantic selection, OKQ-06 claim binding, OKQ-07 live assurance, OKQ-08 continuous closure.](docs/diagrams/generated/fdai-operational-knowledge-query-hardening-plan-05.en.svg)
+![Dependency order and parallel lanes. The main stages are OKQ-00 baseline, OKQ-01 identity spine, OKQ-02 policy identity, OKQ-03 Rule graph retrieval, OKQ-04 evidence providers, OKQ-05 semantic selection, OKQ-06 claim binding, OKQ-07 live assurance, OKQ-08 continuous closure.](../diagrams/generated/fdai-operational-knowledge-query-hardening-plan-05.en.svg)
 
 - **Lane A - semantic identity:** OKQ-01 and OKQ-02 can proceed in parallel after OKQ-00.
 - **Lane B - temporal evidence:** OKQ-04 can proceed in parallel with Lane A.
@@ -661,9 +661,9 @@ delivery.
 
 | Topic | Design owner |
 |-------|--------------|
-| Operating objects, relationships, identity, and evidence | [FDAI Operating Ontology](docs/roadmap/architecture/operating-ontology.md) |
-| Exact releases, ObjectSets, typed functions, and write authority | [FDAI Ontology Safety Infrastructure](docs/roadmap/architecture/operating-ontology-platform.md) |
-| Full ordinary-language query program | [Ontology Query Coverage Implementation Plan](docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md) |
-| Live randomized baseline | [Ontology Query Randomized Assurance](docs/roadmap/interfaces/ontology-query-randomized-assurance.md) |
-| Rule retrieval and semantic generations | [Rule Semantic Retrieval](docs/roadmap/rules-and-detection/rule-semantic-retrieval.md) |
-| Rule lookup storage | [Rule Lookup Ontology Storage](docs/roadmap/architecture/rule-lookup-ontology-storage.md) |
+| Operating objects, relationships, identity, and evidence | [FDAI Operating Ontology](../roadmap/architecture/operating-ontology.md) |
+| Exact releases, ObjectSets, typed functions, and write authority | [FDAI Ontology Safety Infrastructure](../roadmap/architecture/operating-ontology-platform.md) |
+| Full ordinary-language query program | [Ontology Query Coverage Implementation Plan](../roadmap/interfaces/ontology-query-coverage-implementation-plan.md) |
+| Live randomized baseline | [Ontology Query Randomized Assurance](../roadmap/interfaces/ontology-query-randomized-assurance.md) |
+| Rule retrieval and semantic generations | [Rule Semantic Retrieval](../roadmap/rules-and-detection/rule-semantic-retrieval.md) |
+| Rule lookup storage | [Rule Lookup Ontology Storage](../roadmap/architecture/rule-lookup-ontology-storage.md) |

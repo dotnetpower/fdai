@@ -211,6 +211,7 @@ from fdai_service_contracts.operational_activity import (
     OperationalFreshness,
 )
 from fdai_service_contracts.ontology_query import (
+    MAX_INTENT_GRAPH_GOALS,
     AnswerEvidenceMode,
     GoalEvidenceMode,
     GoalTaskReceipt,
@@ -451,6 +452,7 @@ __all__ = [
     "SchemaNotFoundError",
     "SchemaRegistry",
     "SemanticBoundContext",
+    "MAX_INTENT_GRAPH_GOALS",
     "MAX_SEMANTIC_EVIDENCE_REFS",
     "SemanticPriorTurn",
     "SemanticRoute",

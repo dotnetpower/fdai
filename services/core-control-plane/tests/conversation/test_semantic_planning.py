@@ -314,6 +314,436 @@ def test_incident_reference_with_prior_context_reaches_semantic_planning() -> No
     assert model.plan_calls == 1
 
 
+@pytest.mark.parametrize(
+    ("utterance", "expected"),
+    (
+        (
+            "Why does this change need human approval, and who approves it?",
+            "Which change do you mean? Provide its change ID or exact target?",
+        ),
+        (
+            "이 변경에 사람 승인이 필요한 이유와 승인자를 알려줘.",
+            "어떤 변경을 말하는지 변경 ID나 정확한 대상을 알려주세요?",
+        ),
+    ),
+)
+def test_first_turn_change_reference_clarifies_before_model(
+    utterance: str,
+    expected: str,
+) -> None:
+    manifest, definition = _fixture()
+    model = _Model(
+        frame=_frame(
+            unresolved_terms=["change_reference"],
+            clarification_requirements=["subject"],
+            clarification=expected,
+        ),
+        plan=_plan(definition),
+    )
+
+    outcome = _service(model, manifest).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.reason == "semantic_clarification_required"
+    assert outcome.clarification == expected
+    assert outcome.execution_authority is False
+    assert (model.frame_calls, model.plan_calls) == (1, 0)
+
+
+def test_change_reference_with_prior_context_reaches_semantic_planning() -> None:
+    manifest, definition = _fixture()
+    model = _Model(frame=_frame(), plan=_plan(definition))
+
+    outcome = _service(model, manifest).plan(
+        utterance="Why does this change need approval?",
+        prior_turns=(
+            Turn(
+                turn_id="change-context",
+                direction="system",
+                content="Selected change: change-42.",
+            ),
+        ),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (model.frame_calls, model.plan_calls) == (1, 1)
+
+
+def test_generic_changes_question_does_not_trigger_demonstrative_clarification() -> None:
+    manifest, definition = _fixture()
+    model = _Model(frame=_frame(), plan=_plan(definition))
+
+    outcome = _service(model, manifest).plan(
+        utterance="Show changes from the last hour.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert model.frame_calls == 1
+
+
+@pytest.mark.parametrize(
+    ("utterance", "expected"),
+    (
+        (
+            "Cancel the ongoing investigation and tell me what scope stopped.",
+            "Which investigation should I cancel? Provide its exact investigation ID?",
+        ),
+        (
+            "진행 중인 조사를 취소하고 중단된 범위를 알려줘.",
+            "어떤 조사를 취소할지 정확한 조사 ID를 알려주세요?",
+        ),
+    ),
+)
+def test_first_turn_investigation_cancellation_requires_exact_identity(
+    utterance: str,
+    expected: str,
+) -> None:
+    manifest, definition = _fixture()
+    model = _Model(
+        frame=_frame(
+            unresolved_terms=["investigation_reference"],
+            clarification_requirements=["subject"],
+            clarification=expected,
+        ),
+        plan=_plan(definition),
+    )
+
+    outcome = _service(model, manifest).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.reason == "semantic_clarification_required"
+    assert outcome.clarification == expected
+    assert outcome.execution_authority is False
+    assert (model.frame_calls, model.plan_calls) == (1, 0)
+
+
+def test_investigation_cancellation_with_prior_context_reaches_planning() -> None:
+    manifest, definition = _fixture()
+    model = _Model(frame=_frame(), plan=_plan(definition))
+
+    outcome = _service(model, manifest).plan(
+        utterance="Cancel the ongoing investigation.",
+        prior_turns=(
+            Turn(
+                turn_id="investigation-context",
+                direction="system",
+                content="Selected investigation: investigation-42.",
+            ),
+        ),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (model.frame_calls, model.plan_calls) == (1, 1)
+
+
+def test_investigation_cancellation_with_exact_id_reaches_planning() -> None:
+    manifest, definition = _fixture()
+    model = _Model(frame=_frame(), plan=_plan(definition))
+
+    outcome = _service(model, manifest).plan(
+        utterance="Cancel investigation-42.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert model.frame_calls == 1
+
+
+@pytest.mark.parametrize(
+    ("utterance", "expected"),
+    (
+        (
+            "Separate verified facts from limitations when one data source fails.",
+            "Which event or request should I review, and which data source failed?",
+        ),
+        (
+            "한 데이터 원본이 실패해도 확인된 사실과 한계를 구분해줘.",
+            "어떤 사건이나 요청을 검토할지와 실패한 데이터 원본을 알려주세요?",
+        ),
+    ),
+)
+def test_first_turn_failed_source_request_requires_event_and_source_context(
+    utterance: str,
+    expected: str,
+) -> None:
+    manifest, definition = _fixture()
+    model = _Model(
+        frame=_frame(
+            unresolved_terms=["event_reference", "failed_source"],
+            clarification_requirements=["subject", "measure"],
+            clarification=expected,
+        ),
+        plan=_plan(definition),
+    )
+
+    outcome = _service(model, manifest).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.reason == "semantic_clarification_required"
+    assert outcome.clarification == expected
+    assert outcome.execution_authority is False
+    assert (model.frame_calls, model.plan_calls) == (1, 0)
+
+
+def test_failed_source_request_with_prior_context_reaches_planning() -> None:
+    manifest, definition = _fixture()
+    model = _Model(frame=_frame(), plan=_plan(definition))
+
+    outcome = _service(model, manifest).plan(
+        utterance="Separate verified facts from limitations when one data source fails.",
+        prior_turns=(
+            Turn(
+                turn_id="source-context",
+                direction="system",
+                content="Selected incident incident-42; metrics source failed.",
+            ),
+        ),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (model.frame_calls, model.plan_calls) == (1, 1)
+
+
+def test_partial_source_question_does_not_trigger_failed_source_clarification() -> None:
+    manifest, definition = _fixture()
+    model = _Model(frame=_frame(), plan=_plan(definition))
+
+    outcome = _service(model, manifest).plan(
+        utterance="Show data source limitations.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert model.frame_calls == 1
+
+
+@pytest.mark.parametrize(
+    ("utterance", "expected"),
+    (
+        (
+            "Verify the mitigation outcome against explicit recovery criteria.",
+            (
+                "Which mitigation and exact target should I verify, and what recovery criteria "
+                "should I use?"
+            ),
+        ),
+        (
+            "완화 결과를 명시된 복구 기준에 따라 검증해줘.",
+            "검증할 완화 조치와 정확한 대상, 적용할 복구 기준을 알려주세요?",
+        ),
+        (
+            "Check whether the mitigation result meets the recovery criterion.",
+            (
+                "Which mitigation and exact target should I verify, and what recovery criteria "
+                "should I use?"
+            ),
+        ),
+        (
+            "완화 조치가 복구 기준을 충족하는지 평가해줘.",
+            "검증할 완화 조치와 정확한 대상, 적용할 복구 기준을 알려주세요?",
+        ),
+    ),
+)
+def test_first_turn_recovery_verification_requires_mitigation_target_and_criteria(
+    utterance: str,
+    expected: str,
+) -> None:
+    manifest, definition = _fixture()
+    model = _Model(
+        frame=_frame(
+            unresolved_terms=["mitigation", "target", "recovery_criteria"],
+            clarification_requirements=["subject", "measure", "comparison_baseline"],
+            clarification=expected,
+        ),
+        plan=_plan(definition),
+    )
+
+    outcome = _service(model, manifest).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.reason == "semantic_clarification_required"
+    assert outcome.clarification == expected
+    assert outcome.execution_authority is False
+    assert (model.frame_calls, model.plan_calls) == (1, 0)
+
+
+def test_recovery_verification_with_prior_context_reaches_planning() -> None:
+    manifest, definition = _fixture()
+    model = _Model(frame=_frame(), plan=_plan(definition))
+
+    outcome = _service(model, manifest).plan(
+        utterance="Verify the mitigation outcome against explicit recovery criteria.",
+        prior_turns=(
+            Turn(
+                turn_id="recovery-context",
+                direction="system",
+                content=(
+                    "Selected mitigation change-42 for service-42; recover when error rate "
+                    "stays below 1 percent for 30 minutes."
+                ),
+            ),
+        ),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (model.frame_calls, model.plan_calls) == (1, 1)
+
+
+def test_generic_recovery_history_does_not_trigger_criteria_clarification() -> None:
+    manifest, definition = _fixture()
+    model = _Model(frame=_frame(), plan=_plan(definition))
+
+    outcome = _service(model, manifest).plan(
+        utterance="Show recovery history for recent deployments.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert model.frame_calls == 1
+
+
+def test_recovery_criteria_listing_does_not_trigger_verification_clarification() -> None:
+    manifest, definition = _fixture()
+    model = _Model(frame=_frame(), plan=_plan(definition))
+
+    outcome = _service(model, manifest).plan(
+        utterance="List mitigation outcomes and recovery criteria.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert model.frame_calls == 1
+
+
+@pytest.mark.parametrize(
+    ("utterance", "expected"),
+    (
+        (
+            "Recommend the runbook with exact citations.",
+            (
+                "Which incident or exact target is this recommendation for, and which approved "
+                "runbook source should I search?"
+            ),
+        ),
+        (
+            "Suggest a playbook with references.",
+            (
+                "Which incident or exact target is this recommendation for, and which approved "
+                "runbook source should I search?"
+            ),
+        ),
+        (
+            "정확한 출처와 함께 런북을 추천해줘.",
+            "어떤 사건이나 정확한 대상을 위한 추천인지와 검색할 승인된 런북 원본을 알려주세요?",
+        ),
+    ),
+)
+def test_first_turn_cited_runbook_recommendation_requires_target_and_source(
+    utterance: str,
+    expected: str,
+) -> None:
+    manifest, definition = _fixture()
+    model = _Model(
+        frame=_frame(
+            unresolved_terms=["recommendation_target", "approved_source"],
+            clarification_requirements=["subject", "measure"],
+            clarification=expected,
+        ),
+        plan=_plan(definition),
+    )
+
+    outcome = _service(model, manifest).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.reason == "semantic_clarification_required"
+    assert outcome.clarification == expected
+    assert outcome.execution_authority is False
+    assert (model.frame_calls, model.plan_calls) == (1, 0)
+
+
+def test_cited_runbook_recommendation_with_prior_context_reaches_planning() -> None:
+    manifest, definition = _fixture()
+    model = _Model(frame=_frame(), plan=_plan(definition))
+
+    outcome = _service(model, manifest).plan(
+        utterance="Recommend the runbook with exact citations.",
+        prior_turns=(
+            Turn(
+                turn_id="runbook-context",
+                direction="system",
+                content=(
+                    "Selected incident incident-42 for service-42; search the approved SRE "
+                    "runbook collection."
+                ),
+            ),
+        ),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (model.frame_calls, model.plan_calls) == (1, 1)
+
+
+def test_runbook_listing_without_citation_request_reaches_planning() -> None:
+    manifest, definition = _fixture()
+    model = _Model(frame=_frame(), plan=_plan(definition))
+
+    outcome = _service(model, manifest).plan(
+        utterance="List available runbooks.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert model.frame_calls == 1
+
+
 def test_frame_proposal_rejects_noncanonical_evidence_requirement() -> None:
     with pytest.raises(ValidationError):
         SemanticFrameProposal.model_validate(

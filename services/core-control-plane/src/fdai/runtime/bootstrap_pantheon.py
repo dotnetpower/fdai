@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
@@ -367,6 +368,14 @@ async def initialize_pantheon(
             topic=config.stage_topic,
         ),
         action_types=config.control_loop.action_types,
+        conversation_semantic_judgment=(
+            config.container.llm_bindings.conversation_semantic_judgment_factory(
+                asyncio.get_running_loop()
+            )
+            if config.container.llm_bindings is not None
+            and config.container.llm_bindings.conversation_semantic_judgment_factory is not None
+            else None
+        ),
         conversation_embedding_model=(
             config.container.llm_bindings.embedding_model
             if config.container.llm_bindings is not None

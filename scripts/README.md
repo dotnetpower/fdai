@@ -27,6 +27,9 @@ entry point; place other scripts in the domain directories below.
 - Resolve the repository root without relying on the script's directory depth.
 - Put a new script in the directory that owns its behavior. Do not add another
   root-level entry point unless it is a stable facade used across domains.
+- Keep tracked root entry points in `scripts/lib/root-file-allowlist.txt`. The root-layout check
+  runs on every commit and also rejects non-ignored untracked root files; internal plans, reviews,
+  and campaign records belong under `docs/internals/` or their owning subsystem.
 - Update CI workflows, Git hooks, tests, and documentation in the same change
   whenever a script path moves.
 - Keep shell scripts executable and cover behavior-bearing Python scripts with

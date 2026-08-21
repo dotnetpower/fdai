@@ -279,6 +279,64 @@ def test_intent_graph_console_projections_are_exact_and_bounded() -> None:
         project_intent_graph_evidence(oversized_evidence)
 
 
+def test_intent_graph_evidence_uses_the_same_goal_bound_as_the_graph() -> None:
+    receipt = GoalTaskReceipt(
+        task_id="request-1:goal-1",
+        goal_id="goal-1",
+        intent="object_set",
+        capability="query.object_set",
+        evidence_mode=GoalEvidenceMode.OPERATIONAL,
+        status=TaskStatus.COMPLETED,
+        duration_ms=1,
+        started_at=NOW,
+        completed_at=NOW,
+    )
+    receipts = tuple(
+        receipt.model_copy(
+            update={"task_id": f"request-1:goal-{index}", "goal_id": f"goal-{index}"}
+        )
+        for index in range(1, 17)
+    )
+
+    evidence = IntentGraphEvidence(
+        status="completed",
+        evidence_mode=AnswerEvidenceMode.OPERATIONAL_GROUNDED,
+        goals=receipts,
+    )
+
+    assert len(evidence.goals) == 16
+    with pytest.raises(ValueError, match="at most 16 items"):
+        IntentGraphEvidence(
+            status="completed",
+            evidence_mode=AnswerEvidenceMode.OPERATIONAL_GROUNDED,
+            goals=(*receipts, receipt.model_copy(update={"goal_id": "goal-17"})),
+        )
+
+
+def test_console_intent_projection_uses_the_shared_goal_bound() -> None:
+    frame = _frame()
+    plan = _plan(frame)
+    goal = IntentGoal(
+        goal_id="goal-1",
+        intent="object_set",
+        capability="query.object_set",
+        arguments_json=canonical_json({}),
+        evidence_mode=GoalEvidenceMode.OPERATIONAL,
+        freshness_required=True,
+        confidence=0.9,
+    )
+    goals = tuple(goal.model_copy(update={"goal_id": f"goal-{index}"}) for index in range(1, 14))
+    graph = IntentGraph(
+        problem_frame_digest=frame.frame_digest,
+        plan_digest=plan.plan_digest,
+        goals=goals,
+        confidence=0.9,
+        action_posture="advise_only",
+    )
+
+    assert len(project_intent_graph(graph)["goals"]) == 13
+
+
 def test_console_intent_projection_accepts_an_object_set_membership_predicate() -> None:
     frame = _frame()
     plan = _plan(frame)

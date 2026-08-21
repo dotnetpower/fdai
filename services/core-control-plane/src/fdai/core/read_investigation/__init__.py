@@ -47,10 +47,7 @@ from fdai.core.read_investigation.models import (
 )
 from fdai.core.read_investigation.planner import plan_read_investigation
 from fdai.core.read_investigation.progress import ReadInvestigationProgressKind
-from fdai.core.read_investigation.routing import (
-    classify_read_investigation_intent,
-    resource_name_from_question,
-)
+from fdai.core.read_investigation.routing import resource_name_from_question
 from fdai.core.read_investigation.service import ReadInvestigationService
 
 __all__ = [
@@ -82,7 +79,6 @@ __all__ = [
     "ReadInvestigationStep",
     "ReadLatencyProfile",
     "ReadToolSpec",
-    "classify_read_investigation_intent",
     "estimate_parallel_p95",
     "estimate_plan_latency",
     "estimate_sequential_p95",

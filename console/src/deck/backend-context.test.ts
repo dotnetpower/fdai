@@ -107,6 +107,18 @@ describe("viewContextWithUser wiring", () => {
     }
   });
 
+  test("uses Korean for a Korean prompt when the Console default is English", () => {
+    const payload = createBackendRequestPayload(
+      "ca-example-core가 갑자기 왜 느려졌어?",
+      liveSnap(),
+      [],
+      "session-42",
+    );
+
+    expect(payload.locale).toBe("ko");
+    expect((payload.view_context as Record<string, unknown>)._locale).toBe("ko");
+  });
+
   test("sends the stable backend session id", async () => {
     const parsed = await callAskAndCaptureBody(liveSnap(), "session-42");
     expect((parsed as Record<string, unknown>).session_id).toBe("session-42");

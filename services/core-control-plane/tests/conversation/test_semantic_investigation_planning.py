@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from fdai.core.conversation.intent_graph import build_intent_graph_evidence
 from fdai.core.conversation.semantic_investigation import (
     InvestigationIntentProposal,
     verify_investigation_intent,
@@ -21,7 +22,12 @@ from fdai.core.ontology_platform import (
     METRIC_ARGUMENT_SCHEMAS,
     TOPOLOGY_ARGUMENT_SCHEMAS,
     OntologyQueryPlanVerifier,
+    QueryPlanExecution,
     build_query_manifest,
+)
+from fdai.core.ontology_platform.resource_activity_queries import (
+    RESOURCE_ACTIVITY_FUNCTION_NAME,
+    resource_activity_function_type,
 )
 from fdai.shared.contracts.models import (
     CeilingRole,
@@ -32,7 +38,12 @@ from fdai.shared.contracts.models import (
     PropertyType,
 )
 from fdai.shared.ontology.release import build_ontology_release
-from fdai_service_contracts.ontology_query import QueryNodeKind
+from fdai_service_contracts.ontology_query import (
+    GoalEvidenceMode,
+    GoalTaskReceipt,
+    QueryNodeKind,
+    TaskStatus,
+)
 
 NOW = datetime(2026, 8, 20, 4, 0, tzinfo=UTC)
 DIGEST = "sha256:" + ("a" * 64)
@@ -67,6 +78,7 @@ def _span(utterance: str, text: str) -> dict[str, object]:
 
 
 def _manifest():  # type: ignore[no-untyped-def]
+    activity_function = resource_activity_function_type()
     service = OntologyObjectType(
         schema_version="1.0.0",
         name="BusinessService",
@@ -110,6 +122,7 @@ def _manifest():  # type: ignore[no-untyped-def]
     release = build_ontology_release(
         object_types=(service, workload, resource),
         link_types=(implementation, placement),
+        function_types=(activity_function,),
     )
     return build_query_manifest(
         release=release,
@@ -118,6 +131,8 @@ def _manifest():  # type: ignore[no-untyped-def]
         principal_scope_digest=DIGEST,
         object_types=(service, workload, resource),
         link_types=(implementation, placement),
+        functions=(activity_function,),
+        bound_function_names=(RESOURCE_ACTIVITY_FUNCTION_NAME,),
     )
 
 
@@ -221,6 +236,7 @@ def _verifier() -> OntologyQueryPlanVerifier:
     return OntologyQueryPlanVerifier(
         available_kinds=(
             QueryNodeKind.OBJECT_SET,
+            QueryNodeKind.FUNCTION,
             QueryNodeKind.RELATIONSHIP_TRAVERSAL,
             QueryNodeKind.METRIC_SCOPE_SERIES,
             QueryNodeKind.METRIC_COMPARISON,
@@ -254,6 +270,7 @@ def test_compiler_builds_entity_topology_temporal_and_competing_hypothesis_waves
 
     assert tuple(node.kind for node in plan.nodes) == (
         QueryNodeKind.OBJECT_SET,
+        QueryNodeKind.FUNCTION,
         QueryNodeKind.RELATIONSHIP_TRAVERSAL,
         QueryNodeKind.METRIC_SCOPE_SERIES,
         QueryNodeKind.METRIC_SCOPE_SERIES,
@@ -268,25 +285,36 @@ def test_compiler_builds_entity_topology_temporal_and_competing_hypothesis_waves
     )
     assert plan.output_node_ids == (
         "symptom-change",
+        "change-activity",
         "hypothesis-dependency-latency",
         "hypothesis-resource-saturation",
     )
     target_definition = plan.nodes[0].arguments["definition"]
     assert target_definition["predicates"] == [
-        {"property": "name", "operator": "contains", "equals": "A서비스"}
+        {"property": "name", "operator": "equals", "equals": "A서비스"}
     ]
     assert plan.nodes[1].depends_on == ("resolve-target",)
-    assert plan.nodes[1].arguments["link_types"] == [
+    assert plan.nodes[1].arguments == {
+        "function_name": RESOURCE_ACTIVITY_FUNCTION_NAME,
+        "arguments": {"lookback_seconds": 86_400},
+        "dependency_arguments": {"resolve-target": "query_result"},
+    }
+    assert plan.nodes[2].depends_on == ("resolve-target",)
+    assert plan.nodes[2].arguments["link_types"] == [
         "service_implemented_by_workload",
         "workload_runs_on_resource",
     ]
-    assert plan.nodes[1].arguments["max_depth"] == 2
+    assert plan.nodes[2].arguments["max_depth"] == 2
     assert plan.nodes[-1].depends_on == (
         "cause-resource-saturation",
         "symptom-current",
         "topology-change",
         "symptom-change",
     )
+    saturation = next(node for node in plan.nodes if node.node_id == "cause-resource-saturation")
+    dependency = next(node for node in plan.nodes if node.node_id == "cause-dependency-latency")
+    assert saturation.depends_on == ("resolve-target",)
+    assert dependency.depends_on == ("resolve-target",)
     assert plan.execution_authority is False
 
 
@@ -323,7 +351,7 @@ def test_server_windows_reject_unequal_duration() -> None:
         )
 
 
-def test_semantic_service_compiles_investigation_without_model_plan_call() -> None:
+def test_semantic_service_compiles_and_projects_full_investigation_receipts() -> None:
     utterance = "A서비스가 갑자기 왜 느려졌어?"
     verified = _verified_intent()
     investigation = verified.model_dump(
@@ -373,3 +401,76 @@ def test_semantic_service_compiles_investigation_without_model_plan_call() -> No
     assert outcome.frame.investigation_intent_digest == outcome.investigation_intent.intent_digest
     assert outcome.plan.problem_frame_digest == outcome.frame.frame_digest
     assert (model.frame_calls, model.plan_calls) == (1, 0)
+    assert outcome.intent_graph is not None
+    execution = QueryPlanExecution(
+        plan_digest=outcome.plan.plan_digest,
+        status="completed",
+        results={},
+        receipts=tuple(
+            GoalTaskReceipt(
+                task_id=f"query:{node.node_id}",
+                goal_id=node.node_id,
+                intent=node.kind.value,
+                capability=f"query.{node.kind.value}",
+                evidence_mode=GoalEvidenceMode.OPERATIONAL,
+                status=TaskStatus.COMPLETED,
+                duration_ms=1,
+                depends_on=node.depends_on,
+                evidence_refs=(f"evidence:{node.node_id}",),
+                started_at=NOW,
+                completed_at=NOW,
+            )
+            for node in outcome.plan.nodes
+        ),
+        output_node_ids=outcome.plan.output_node_ids,
+    )
+
+    evidence = build_intent_graph_evidence(
+        graph=outcome.intent_graph,
+        plan=outcome.plan,
+        execution=execution,
+    )
+
+    assert len(evidence.goals) == len(outcome.plan.nodes) == 13
+    assert evidence.execution_authority is False
+
+
+def test_semantic_service_completes_omitted_investigation_without_t2() -> None:
+    utterance = "A서비스가 갑자기 왜 느려졌어?"
+    frame = {
+        "operation": "explain_change",
+        "subject_constraints": ["BusinessService", "A서비스"],
+        "measure_concepts": ["service.latency"],
+        "temporal_scope": {"cue": "sudden"},
+        "output_shape": "causal_evidence",
+        "evidence_requirements": ["support_and_refutation"],
+        "unresolved_terms": [],
+        "clarification_requirements": [],
+        "clarification": None,
+        "investigation": None,
+        "confidence": 0.9,
+    }
+    t1 = _InvestigationModel(frame)
+    t2 = _InvestigationModel(frame)
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(),
+        verifier=_verifier(),
+        metric_concepts=METRICS,
+        now=lambda: NOW,
+    )
+
+    outcome = service.plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.investigation_intent is not None
+    assert outcome.plan is not None
+    assert len(outcome.plan.nodes) == 13
+    assert (t1.frame_calls, t1.plan_calls) == (1, 0)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)

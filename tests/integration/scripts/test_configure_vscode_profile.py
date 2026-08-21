@@ -37,6 +37,18 @@ def test_repository_profile_artifacts_are_consistent() -> None:
     assert "python.analysis.nodeExecutable" not in profile_settings
 
 
+def test_workspace_terminals_disable_interactive_pagers() -> None:
+    settings = json.loads((REPO_ROOT / ".vscode/settings.json").read_text(encoding="utf-8"))
+
+    assert settings["terminal.integrated.env.linux"] == {
+        "GH_PAGER": "cat",
+        "GIT_PAGER": "cat",
+        "PAGER": "cat",
+        "PSQL_PAGER": "cat",
+        "SYSTEMD_PAGER": "cat",
+    }
+
+
 def test_read_json_rejects_duplicate_keys(tmp_path: Path) -> None:
     module = _load_module()
     duplicate = tmp_path / "duplicate.json"

@@ -124,11 +124,12 @@ Each `AgentSpec` in `pantheon.py` carries:
    (and `-ko.md`) in the same commit.
 6. Verify:
    ```
-   bash scripts/verify.sh --fast
-   pytest services/core-control-plane/tests/agents/ -q --no-cov
+  pytest services/core-control-plane/tests/agents/test_framework_layout.py -q --no-cov
+  pytest <targeted-test-for-the-touched-agent> -q --no-cov
    ```
-7. Per-file `git add`, then a Conventional Commit scoped to the
-   agent name:
+7. If the user explicitly invoked `/pantheon-safe-edit` or requested a commit, use per-file
+  `git add`, then a Conventional Commit scoped to the agent name. Otherwise leave the verified
+  change uncommitted:
    - `harden(forseti): ...`
    - `fix(thor): ...`
    - `test(var): ...`

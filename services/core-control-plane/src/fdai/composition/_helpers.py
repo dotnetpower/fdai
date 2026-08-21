@@ -9,6 +9,8 @@ in a private submodule prevents circular imports between
 
 from __future__ import annotations
 
+import asyncio
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -27,6 +29,7 @@ from ..core.browser_evidence.surfaces import (
     BrowserEvidenceWorkflowStepDispatcher,
 )
 from ..core.capability_catalog import CapabilityRuntime
+from ..core.conversation.semantic_judgment import SemanticJudgmentBoundary
 from ..core.execution_backend import ExecutionBackendCoordinator
 from ..core.metering.pricing import PricingTable
 from ..core.metering.sink import MeteringSink
@@ -136,13 +139,7 @@ class LlmBindings:
     fork resolves the ``t2.rubric.judge`` capability it binds a real
     :class:`RubricEvaluator` here; the composition root then hands it to
     the :class:`~fdai.core.quality_gate.gate.QualityGate` it assembles.
-    ``None`` (the upstream default) means the rubric leg is absent - the
-    gate behaves exactly as it did before the rubric was added. NOTE:
-    upstream does not yet assemble a live ``QualityGate`` into the
-    control loop (T2 wiring is shadow-only backlog - see
-    ``docs/roadmap/decisioning/hallucination-rubric-gate.md § Integration status``),
-    so this seam is provided for symmetry with ``critic_model`` /
-    ``judge_model`` and is consumed by a fork's gate assembly.
+    ``None`` means the optional rubric leg remains unbound.
     """
 
     embedding_model: EmbeddingModel
@@ -157,6 +154,9 @@ class LlmBindings:
     conversation_metering: MeteringSink | None = None
     conversation_pricing: PricingTable | None = None
     conversation_t2_model_key: str = ""
+    conversation_semantic_judgment_factory: (
+        Callable[[asyncio.AbstractEventLoop], SemanticJudgmentBoundary] | None
+    ) = None
     """Metering seams the conversational T2 leg spends against.
 
     Bound together with ``conversation_t2_synthesizer`` because a

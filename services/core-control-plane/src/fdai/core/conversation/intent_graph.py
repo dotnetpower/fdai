@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Literal
 
 from fdai_service_contracts.ontology_query import (
+    MAX_INTENT_GRAPH_GOALS,
     AnswerEvidenceMode,
     GoalEvidenceMode,
     GoalTaskReceipt,
@@ -19,8 +20,6 @@ from fdai_service_contracts.ontology_query import (
 
 from fdai.core.ontology_platform import QueryPlanExecution
 
-_MAX_GRAPH_GOALS = 16
-
 
 def build_intent_graph(
     *,
@@ -30,8 +29,8 @@ def build_intent_graph(
 ) -> IntentGraph:
     """Build one replay-stable presentation graph from a verified query DAG."""
 
-    if len(plan.nodes) > _MAX_GRAPH_GOALS:
-        raise ValueError(f"conversation intent graph exceeds {_MAX_GRAPH_GOALS} goals")
+    if len(plan.nodes) > MAX_INTENT_GRAPH_GOALS:
+        raise ValueError(f"conversation intent graph exceeds {MAX_INTENT_GRAPH_GOALS} goals")
     goal_ids = {node.node_id: f"goal-{index}" for index, node in enumerate(plan.nodes, start=1)}
     freshness: dict[str, bool] = {}
     goals: list[IntentGoal] = []

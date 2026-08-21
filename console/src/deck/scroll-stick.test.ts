@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   completedWorkRevealTarget,
+  contentResizeScrollTop,
   isNearBottom,
   revealTargetScrollTop,
   STICK_THRESHOLD_PX,
@@ -57,6 +58,25 @@ describe("revealTargetScrollTop", () => {
 
     expect(answerStart).toBeGreaterThan(-1);
     expect(terminalUpdate).toBeGreaterThan(answerStart);
+  });
+});
+
+describe("contentResizeScrollTop", () => {
+  it("follows terminal layout growth only while the transcript is pinned", () => {
+    expect(contentResizeScrollTop(true, 3098, 3695)).toBe(3695);
+    expect(contentResizeScrollTop(false, 3098, 3695)).toBe(3098);
+  });
+
+  it("drives the transcript content resize observer", () => {
+    const hook = readFileSync(
+      fileURLToPath(new URL("./use-command-deck-transcript.ts", import.meta.url)),
+      "utf8",
+    );
+
+    expect(hook).toContain("new ResizeObserver");
+    expect(hook).toContain("if (!open) return");
+    expect(hook).toContain("contentResizeScrollTop(");
+    expect(hook).toContain("observer.observe(content)");
   });
 });
 

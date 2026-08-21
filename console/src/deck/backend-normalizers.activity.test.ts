@@ -76,6 +76,60 @@ describe("parseInvestigationActivity execution evidence", () => {
     });
   });
 
+  it("preserves strict internal query provenance", () => {
+    const parsed = parseInvestigationActivity(activity({
+      tool: "Ontology query",
+      command: '{"capability":"query.object_set"}',
+      input_kind: "query",
+      target: {
+        interface_kind: "internal_query",
+        service: "core-control-plane",
+        component: "OntologyQueryPlanExecutor",
+        operation: "object_set_materialization",
+        source_kind: "ontology_instance_store",
+        transport: "event_bus",
+      },
+      redacted: true,
+    }));
+
+    expect(parsed?.execution?.target).toEqual({
+      interfaceKind: "internal_query",
+      service: "core-control-plane",
+      component: "OntologyQueryPlanExecutor",
+      operation: "object_set_materialization",
+      sourceKind: "ontology_instance_store",
+      transport: "event_bus",
+    });
+  });
+
+  it("rejects malformed or contradictory execution provenance", () => {
+    expect(parseInvestigationActivity(activity({
+      tool: "Ontology query",
+      command: "query",
+      input_kind: "query",
+      target: {
+        interface_kind: "http",
+        service: "core-control-plane",
+        component: "OntologyQueryPlanExecutor",
+        operation: "object_set_materialization",
+      },
+      redacted: true,
+    }))?.execution).toBeUndefined();
+    expect(parseInvestigationActivity(activity({
+      tool: "Ontology query",
+      command: "query",
+      input_kind: "query",
+      target: {
+        interface_kind: "internal_query",
+        service: "core-control-plane",
+        component: "OntologyQueryPlanExecutor",
+        operation: "object_set_materialization",
+        endpoint: { method: "GET", path: "/ontology/graph" },
+      },
+      redacted: true,
+    }))?.execution).toBeUndefined();
+  });
+
   it("rejects unknown execution input kinds", () => {
     const parsed = parseInvestigationActivity(activity({
       tool: "FDAI inventory",

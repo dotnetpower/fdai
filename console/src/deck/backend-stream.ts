@@ -1,10 +1,11 @@
-import { answer as deterministicAnswer, type Answer } from "./answerer";
+import type { Answer } from "./answerer";
 import {
   citationsForVerification,
   createBackendRequestPayload,
   snapshotCitations,
 } from "./backend-context";
 import { requestHeaders, streamUrl } from "./backend-endpoints";
+import { semanticUnavailable } from "./backend-unavailable";
 import {
   newRequestId,
   parseConfirmedAnswerSegment,
@@ -47,18 +48,22 @@ import { normalizeIncidentBinding } from "./conversation-sessions";
 export const fallbackTypewriter = { intervalMs: 12 };
 export const streamBurstPacer = { intervalMs: 16 };
 export const MAX_DECK_SSE_FRAME_CHARS = 256 * 1024;
+const MAX_PROGRESS_TEXT_CHARS = 512;
 
 let sequenceGapCount = 0;
+let protocolErrorCount = 0;
 let confirmedSegmentCount = 0;
 let partialTerminalCount = 0;
 
 export function streamProtocolMetricsSnapshot(): {
   readonly sequenceGaps: number;
+  readonly protocolErrors: number;
   readonly confirmedSegments: number;
   readonly partialTerminals: number;
 } {
   return {
     sequenceGaps: sequenceGapCount,
+    protocolErrors: protocolErrorCount,
     confirmedSegments: confirmedSegmentCount,
     partialTerminals: partialTerminalCount,
   };
@@ -69,6 +74,12 @@ function chunksForTypewriter(text: string): string[] {
   const pattern = /\s*\S{1,4}|\s+$/g;
   for (const match of text.matchAll(pattern)) chunks.push(match[0]);
   return chunks.length > 0 ? chunks : [text];
+}
+
+function boundedProgressText(value: unknown, fallback: string): string {
+  return typeof value === "string" && value.length > 0 && value.length <= MAX_PROGRESS_TEXT_CHARS
+    ? value
+    : fallback;
 }
 
 function chunksForBurst(text: string): string[] {
@@ -114,11 +125,11 @@ export async function askBackendStream(
       if (interval > 0) await new Promise((resolve) => setTimeout(resolve, interval));
     }
   };
-  const fallback = async (why: string): Promise<Answer & { readonly source: string }> => {
-    const local = deterministicAnswer(prompt, snapshot, history);
-    await emitTypewriter(local.text);
+  const unavailable = async (why: string): Promise<Answer & { readonly source: string }> => {
+    const result = semanticUnavailable(why);
+    await emitTypewriter(result.text);
     if (callbacks.signal?.aborted) return stopped(emittedText);
-    return { ...local, source: `deterministic (${why})` };
+    return result;
   };
   const stopped = (partial: string): Answer & { readonly source: string } => ({
     text: partial.length > 0 ? partial : "Stopped before any answer arrived.",
@@ -199,11 +210,13 @@ export async function askBackendStream(
     });
   } catch {
     if (callbacks.signal?.aborted) return stopped("");
-    return fallback("offline");
+    return unavailable("offline");
   }
-  if (response.status === 404 || response.status === 501) return fallback("LLM not configured");
-  if (response.status === 422) return fallback("blocked by content policy");
-  if (!response.ok || response.body === null) return fallback(`backend ${response.status}`);
+  if (response.status === 404 || response.status === 501) {
+    return unavailable("model not configured");
+  }
+  if (response.status === 422) return unavailable("blocked by content policy");
+  if (!response.ok || response.body === null) return unavailable(`backend ${response.status}`);
   startPump();
 
   const reader = response.body.getReader();
@@ -218,6 +231,7 @@ export async function askBackendStream(
   let lastSequence = 0;
   let lastRevision = 0;
   let sequenceGap = false;
+  let protocolError: string | null = null;
   let terminalSeen = false;
   let confirmedSegment: ConfirmedAnswerSegment | undefined;
   const pendingRevisions: Array<{
@@ -242,6 +256,9 @@ export async function askBackendStream(
     try {
       parsed = JSON.parse(dataLines.join("\n"));
     } catch {
+      protocolError = "malformed stream frame";
+      protocolErrorCount += 1;
+      terminalSeen = true;
       return;
     }
     const object = typeof parsed === "object" && parsed !== null
@@ -259,7 +276,10 @@ export async function askBackendStream(
       doneData = null;
       pendingRevisions.length = 0;
       confirmedSegment = undefined;
-      sequenceGap = true;
+      protocolError = sequence === null
+        ? "missing stream sequence"
+        : "stream request mismatch";
+      protocolErrorCount += 1;
       terminalSeen = true;
       return;
     }
@@ -279,8 +299,8 @@ export async function askBackendStream(
       }
     } else if (event === "status" || event === "verification") {
       callbacks.onProgress?.({
-        phase: typeof object.phase === "string" ? object.phase : event,
-        label: typeof object.label === "string" ? object.label : "Checking answer",
+        phase: boundedProgressText(object.phase, event),
+        label: boundedProgressText(object.label, "Checking answer"),
         completed: typeof object.completed === "number" && Number.isFinite(object.completed)
           ? object.completed
           : null,
@@ -359,7 +379,7 @@ export async function askBackendStream(
     }
     if (answerText === "") {
       await flushPump();
-      return fallback("stream interrupted");
+      return unavailable("stream interrupted");
     }
     interrupted = true;
   }
@@ -369,8 +389,19 @@ export async function askBackendStream(
   if (callbacks.signal?.aborted) return stopped(emittedText);
   if (turnInterrupted) return stopped(answerText);
 
-  if (errorCode === "content_policy_block") return fallback("blocked by content policy");
-  if (errored && answerText === "") return fallback("stream error");
+  if (protocolError !== null) {
+    if (emittedText.length === 0) return unavailable(protocolError);
+    partialTerminalCount += 1;
+    return {
+      text: emittedText,
+      citations: snapshotCitations(snapshot),
+      followUps: [],
+      source: `partial (${protocolError})`,
+    };
+  }
+
+  if (errorCode === "content_policy_block") return unavailable("blocked by content policy");
+  if (errored && answerText === "") return unavailable("stream error");
   if (errored || interrupted) {
     partialTerminalCount += 1;
     const why = errored ? "stream error" : "stream interrupted";
@@ -402,7 +433,7 @@ export async function askBackendStream(
       source: "partial (missing terminal verification)",
     };
   }
-  if (answerText === "" && doneData === null) return fallback("empty stream");
+  if (answerText === "" && doneData === null) return unavailable("empty stream");
   const pendingRevision = pendingRevisions.at(-1);
   if (pendingRevision !== undefined) {
     callbacks.onRevision?.(
@@ -425,7 +456,7 @@ export async function askBackendStream(
   const finalText = presentationArtifact
     ? canonicalAnswer
     : chartArtifactText(done.chart_artifact) ?? canonicalAnswer;
-  if (finalText === "") return fallback("upstream returned empty completion");
+  if (finalText === "") return unavailable("upstream returned empty completion");
   const delegation = parseDelegation(done.delegation);
   const answerPlan = parseAnswerPlan(done.answer_plan);
   const answerPlanning = parseAnswerPlanning(done.answer_planning);

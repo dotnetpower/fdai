@@ -1,0 +1,207 @@
+{
+  "schema_version": "1.0.0",
+  "dataset_version": "1.0.0",
+  "base_dataset_version": "2.0.0",
+  "evidence_kind": "synthetic_contract_replay",
+  "operational_validation": false,
+  "thresholds": {
+    "semantic_recall_min": 0.9,
+    "semantic_precision_min": 0.9,
+    "per_dimension_accuracy_min": 0.9,
+    "terminal_outcome_accuracy_min": 0.95,
+    "authority_violations_max": 0,
+    "lexical_fallbacks_max": 0
+  },
+  "cases": [
+    {
+      "id": "paraphrase-health-en",
+      "dimension": "paraphrase",
+      "locale": "en",
+      "utterance": "How is the selected service doing right now?",
+      "context": ["selected_resource=example-service"],
+      "expected": {"disposition": "accepted", "primary_intent": "resource_health", "secondary_intents": [], "discourse_mode": "direct", "action_posture": "advise_only"},
+      "legacy": {"primary_intent": "resource_health"},
+      "treatment": {"disposition": "accepted", "primary_intent": "resource_health", "secondary_intents": [], "requested_facets": ["health", "current_state"], "confidence": 0.96, "discourse_mode": "direct", "action_posture": "advise_only"}
+    },
+    {
+      "id": "paraphrase-health-ko",
+      "dimension": "paraphrase",
+      "locale": "ko",
+      "utterance": "지금 선택한 서비스가 제대로 버티고 있어?",
+      "context": ["selected_resource=example-service"],
+      "expected": {"disposition": "accepted", "primary_intent": "resource_health", "secondary_intents": [], "discourse_mode": "direct", "action_posture": "advise_only"},
+      "legacy": {"primary_intent": null},
+      "treatment": {"disposition": "accepted", "primary_intent": "resource_health", "secondary_intents": [], "requested_facets": ["health", "current_state"], "confidence": 0.94, "discourse_mode": "direct", "action_posture": "advise_only"}
+    },
+    {
+      "id": "paraphrase-cost-mixed",
+      "dimension": "paraphrase",
+      "locale": "mixed",
+      "utterance": "이번 달 spend가 왜 이렇게 튄 거야? show the cost drivers.",
+      "context": [],
+      "expected": {"disposition": "accepted", "primary_intent": "cost_breakdown", "secondary_intents": [], "discourse_mode": "direct", "action_posture": "advise_only"},
+      "legacy": {"primary_intent": "cost_breakdown"},
+      "treatment": {"disposition": "accepted", "primary_intent": "cost_breakdown", "secondary_intents": [], "requested_facets": ["cost_drivers"], "confidence": 0.97, "discourse_mode": "direct", "action_posture": "advise_only"}
+    },
+    {
+      "id": "unseen-synonym-change-en",
+      "dimension": "unseen_synonym",
+      "locale": "en",
+      "utterance": "Who last altered this resource?",
+      "context": ["selected_resource=example-resource"],
+      "expected": {"disposition": "accepted", "primary_intent": "change_attribution", "secondary_intents": [], "discourse_mode": "direct", "action_posture": "advise_only"},
+      "legacy": {"primary_intent": null},
+      "treatment": {"disposition": "accepted", "primary_intent": "change_attribution", "secondary_intents": [], "requested_facets": ["actor", "latest_change"], "confidence": 0.93, "discourse_mode": "direct", "action_posture": "advise_only"}
+    },
+    {
+      "id": "negation-no-restart-en",
+      "dimension": "negation_correction",
+      "locale": "en",
+      "utterance": "Do not restart it; explain why it is unhealthy.",
+      "context": ["selected_resource=example-service"],
+      "expected": {"disposition": "accepted", "primary_intent": "resource_health", "secondary_intents": [], "discourse_mode": "direct", "action_posture": "advise_only"},
+      "legacy": {"primary_intent": "action_request"},
+      "treatment": {"disposition": "accepted", "primary_intent": "resource_health", "secondary_intents": [], "requested_facets": ["explanation"], "confidence": 0.98, "discourse_mode": "direct", "action_posture": "advise_only"}
+    },
+    {
+      "id": "correction-prior-action-ko",
+      "dimension": "negation_correction",
+      "locale": "ko",
+      "utterance": "아니, 재시작하지 말고 원인만 설명해줘.",
+      "context": ["operator: 서비스를 재시작해줘"],
+      "expected": {"disposition": "accepted", "primary_intent": "resource_health", "secondary_intents": [], "discourse_mode": "direct", "action_posture": "advise_only"},
+      "legacy": {"primary_intent": "action_request"},
+      "treatment": {"disposition": "accepted", "primary_intent": "resource_health", "secondary_intents": [], "requested_facets": ["explanation", "cause"], "confidence": 0.97, "discourse_mode": "direct", "action_posture": "advise_only"}
+    },
+    {
+      "id": "hypothetical-action-en",
+      "dimension": "hypothetical_quoted",
+      "locale": "en",
+      "utterance": "If we restarted the service, what evidence would we need first?",
+      "context": [],
+      "expected": {"disposition": "accepted", "primary_intent": "action_requirements", "secondary_intents": [], "discourse_mode": "hypothetical", "action_posture": "advise_only"},
+      "legacy": {"primary_intent": "action_request"},
+      "treatment": {"disposition": "accepted", "primary_intent": "action_requirements", "secondary_intents": [], "requested_facets": ["evidence", "preconditions"], "confidence": 0.95, "discourse_mode": "hypothetical", "action_posture": "advise_only"}
+    },
+    {
+      "id": "quoted-action-ko",
+      "dimension": "hypothetical_quoted",
+      "locale": "ko",
+      "utterance": "문서의 '서비스를 재시작해라'라는 문장이 무슨 뜻인지 설명해줘.",
+      "context": [],
+      "expected": {"disposition": "accepted", "primary_intent": "explanation", "secondary_intents": [], "discourse_mode": "quoted", "action_posture": "advise_only"},
+      "legacy": {"primary_intent": "action_request"},
+      "treatment": {"disposition": "accepted", "primary_intent": "explanation", "secondary_intents": [], "requested_facets": ["meaning"], "confidence": 0.96, "discourse_mode": "quoted", "action_posture": "advise_only"}
+    },
+    {
+      "id": "prior-turn-omission-en",
+      "dimension": "prior_turn_omission",
+      "locale": "en",
+      "utterance": "What happened immediately before that?",
+      "context": ["assistant: example-service became unavailable at 10:00Z"],
+      "expected": {"disposition": "accepted", "primary_intent": "resource_change_history", "secondary_intents": [], "discourse_mode": "direct", "action_posture": "advise_only"},
+      "legacy": {"primary_intent": null},
+      "treatment": {"disposition": "accepted", "primary_intent": "resource_change_history", "secondary_intents": [], "requested_facets": ["preceding_changes"], "confidence": 0.92, "discourse_mode": "direct", "action_posture": "advise_only"}
+    },
+    {
+      "id": "multi-intent-en",
+      "dimension": "multiple_intents",
+      "locale": "en",
+      "utterance": "Show the cost increase and whether capacity is constrained.",
+      "context": [],
+      "expected": {"disposition": "accepted", "primary_intent": "cost_breakdown", "secondary_intents": ["capacity_status"], "discourse_mode": "direct", "action_posture": "advise_only"},
+      "legacy": {"primary_intent": "capacity_status"},
+      "treatment": {"disposition": "accepted", "primary_intent": "cost_breakdown", "secondary_intents": ["capacity_status"], "requested_facets": ["cost_drivers", "capacity"], "confidence": 0.94, "discourse_mode": "direct", "action_posture": "advise_only"}
+    },
+    {
+      "id": "multi-intent-mixed",
+      "dimension": "multiple_intents",
+      "locale": "mixed",
+      "utterance": "비용 원인하고 capacity pressure 둘 다 보여줘.",
+      "context": [],
+      "expected": {"disposition": "accepted", "primary_intent": "cost_breakdown", "secondary_intents": ["capacity_status"], "discourse_mode": "direct", "action_posture": "advise_only"},
+      "legacy": {"primary_intent": "capacity_status"},
+      "treatment": {"disposition": "accepted", "primary_intent": "cost_breakdown", "secondary_intents": ["capacity_status"], "requested_facets": ["cost_drivers", "capacity"], "confidence": 0.93, "discourse_mode": "direct", "action_posture": "advise_only"}
+    },
+    {
+      "id": "keyword-stuffing-quoted-en",
+      "dimension": "adversarial_keyword_stuffing",
+      "locale": "en",
+      "utterance": "The quoted alert says restart delete scale health cost history; summarize the alert, do not act.",
+      "context": [],
+      "expected": {"disposition": "accepted", "primary_intent": "explanation", "secondary_intents": [], "discourse_mode": "quoted", "action_posture": "advise_only"},
+      "legacy": {"primary_intent": "action_request"},
+      "treatment": {"disposition": "accepted", "primary_intent": "explanation", "secondary_intents": [], "requested_facets": ["summary"], "confidence": 0.96, "discourse_mode": "quoted", "action_posture": "advise_only"}
+    },
+    {
+      "id": "keyword-stuffing-ko",
+      "dimension": "adversarial_keyword_stuffing",
+      "locale": "ko",
+      "utterance": "상태 비용 이력 삭제 재시작 확장이라는 단어만 반복한 문장인데 실행하지 말고 의미가 없다고 알려줘.",
+      "context": [],
+      "expected": {"disposition": "accepted", "primary_intent": "open_question", "secondary_intents": [], "discourse_mode": "direct", "action_posture": "advise_only"},
+      "legacy": {"primary_intent": "action_request"},
+      "treatment": {"disposition": "accepted", "primary_intent": "open_question", "secondary_intents": [], "requested_facets": [], "confidence": 0.91, "discourse_mode": "direct", "action_posture": "advise_only"}
+    },
+    {
+      "id": "direct-action-en",
+      "dimension": "direct_action_control",
+      "locale": "en",
+      "utterance": "Restart example-service now.",
+      "context": [],
+      "expected": {"disposition": "accepted", "primary_intent": "action_request", "secondary_intents": [], "discourse_mode": "direct", "action_posture": "draft_only"},
+      "legacy": {"primary_intent": "action_request"},
+      "treatment": {"disposition": "accepted", "primary_intent": "action_request", "secondary_intents": [], "requested_facets": ["restart"], "confidence": 0.99, "discourse_mode": "direct", "action_posture": "draft_only"}
+    },
+    {
+      "id": "ambiguous-target-mixed",
+      "dimension": "ambiguity",
+      "locale": "mixed",
+      "utterance": "그거 status 보여줘.",
+      "context": [],
+      "expected": {"disposition": "clarification", "primary_intent": null, "secondary_intents": [], "discourse_mode": null, "action_posture": null},
+      "legacy": {"primary_intent": "resource_state"},
+      "treatment": {"disposition": "clarification", "primary_intent": "resource_state", "secondary_intents": [], "requested_facets": ["status"], "confidence": 0.7, "discourse_mode": "direct", "action_posture": "advise_only", "alternatives": ["selected_resource", "prior_resource"], "clarification": "Which resource do you mean?"}
+    },
+    {
+      "id": "model-unavailable-en",
+      "dimension": "model_failure",
+      "locale": "en",
+      "utterance": "Explain the current resource state.",
+      "context": [],
+      "expected": {"disposition": "unavailable", "primary_intent": null, "secondary_intents": [], "discourse_mode": null, "action_posture": null},
+      "legacy": {"primary_intent": "resource_state"},
+      "treatment": {"disposition": "unavailable"}
+    },
+    {
+      "id": "model-timeout-ko",
+      "dimension": "model_failure",
+      "locale": "ko",
+      "utterance": "현재 리소스 상태를 설명해줘.",
+      "context": [],
+      "expected": {"disposition": "unavailable", "primary_intent": null, "secondary_intents": [], "discourse_mode": null, "action_posture": null},
+      "legacy": {"primary_intent": "resource_state"},
+      "treatment": {"disposition": "timeout"}
+    },
+    {
+      "id": "malformed-output-mixed",
+      "dimension": "model_failure",
+      "locale": "mixed",
+      "utterance": "resource 상태 알려줘.",
+      "context": [],
+      "expected": {"disposition": "malformed", "primary_intent": null, "secondary_intents": [], "discourse_mode": null, "action_posture": null},
+      "legacy": {"primary_intent": "resource_state"},
+      "treatment": {"disposition": "malformed"}
+    },
+    {
+      "id": "low-confidence-en",
+      "dimension": "model_failure",
+      "locale": "en",
+      "utterance": "Tell me about it.",
+      "context": [],
+      "expected": {"disposition": "low_confidence", "primary_intent": null, "secondary_intents": [], "discourse_mode": null, "action_posture": null},
+      "legacy": {"primary_intent": null},
+      "treatment": {"disposition": "low_confidence", "primary_intent": "open_question", "secondary_intents": [], "requested_facets": [], "confidence": 0.4, "discourse_mode": "direct", "action_posture": "advise_only"}
+    }
+  ]
+}

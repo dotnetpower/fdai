@@ -1,36 +1,31 @@
-"""Deterministic routing and action translation for Bragi."""
+"""Project verified semantic judgments into deterministic Bragi routing."""
 
 from __future__ import annotations
 
-import re
 from collections.abc import Collection
 
-from fdai.agents._framework.bragi_models import RoutingDecision
-from fdai.agents._framework.introspection import korean_action_verb, leading_verb
-from fdai.agents._framework.pantheon import PANTHEON_NAMES, PANTHEON_SPECS
-from fdai.core.read_investigation import (
-    classify_read_investigation_intent,
-    resource_name_from_question,
+from fdai_service_contracts.semantic_judgment import (
+    SemanticJudgmentProposal,
 )
 
-INTENT_ACTION: dict[str, str] = {
-    "restart": "ops.restart-service",
-    "reboot": "ops.restart-service",
-    "failover": "ops.failover-primary",
-    "delete": "remediate.delete-storage",
-    "destroy": "remediate.delete-storage",
-    "drop": "remediate.delete-storage",
-    "encrypt": "remediate.enable-encryption",
-}
+from fdai.agents._framework.bragi_models import RoutingDecision
+from fdai.agents._framework.pantheon import PANTHEON_NAMES, PANTHEON_SPECS
 
-_WORD = re.compile(r"[a-z0-9]+")
-_CAMEL_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
 _PANTHEON_PRECEDENCE = {"governance": 0, "pipeline": 1, "domain": 2}
-_LOW_SIGNAL_TOKENS = frozenset({"current", "explain", "health", "history", "read", "status"})
 
 
-def route_question(question: str, *, max_contributors: int) -> RoutingDecision:
-    explicit = _explicit_agent_names(question)
+def route_semantic_judgment(
+    judgment: SemanticJudgmentProposal,
+    *,
+    max_contributors: int,
+) -> RoutingDecision:
+    """Route exact canonical intents and targets from one verified judgment."""
+
+    explicit = tuple(
+        target.canonical_value or target.value
+        for target in judgment.targets
+        if target.kind == "agent" and (target.canonical_value or target.value) in PANTHEON_NAMES
+    )
     if explicit:
         primary, *explicit_contributors = explicit
         return RoutingDecision(
@@ -40,23 +35,19 @@ def route_question(question: str, *, max_contributors: int) -> RoutingDecision:
             contributors=tuple(explicit_contributors[:max_contributors]),
             method="explicit",
         )
-    read_intent = classify_read_investigation_intent(question)
-    if read_intent is not None and resource_name_from_question(question) is not None:
-        return RoutingDecision(
-            primary_agent="Heimdall",
-            scores={"Heimdall": 3.0},
-            tie_break=f"read_investigation:{read_intent.value}",
-            method="t0_read_intent",
-        )
-    tokens = _tokenize(question)
+    intents = frozenset(
+        (judgment.primary_intent, *judgment.secondary_intents, *judgment.requested_facets)
+    )
+    object_types = frozenset(
+        target.canonical_value or target.value
+        for target in judgment.targets
+        if target.kind == "object_type"
+    )
     scores: dict[str, float] = {}
     for spec in PANTHEON_SPECS:
-        domain_score = max(
-            (_domain_score(domain, tokens) for domain in spec.question_domains),
-            default=0,
-        )
-        ownership_score = _ownership_score(spec.owns, tokens)
-        score = domain_score + ownership_score
+        domain_score = 3.0 * len(intents.intersection(spec.question_domains))
+        ownership_score = 0.75 * len(object_types.intersection(spec.owns))
+        score = domain_score + min(ownership_score, 1.5)
         if score > 0:
             scores[spec.name] = score
     if not scores:
@@ -64,114 +55,46 @@ def route_question(question: str, *, max_contributors: int) -> RoutingDecision:
             primary_agent=None,
             scores={},
             tie_break=None,
-            method="t0_abstain",
+            method="semantic_abstain",
         )
     winner, tie_break = _pick_winner(scores)
     return RoutingDecision(
         primary_agent=winner,
         scores=scores,
         tie_break=tie_break,
-        contributors=tuple(name for name in scores if name != winner),
-        method="t0_domain",
+        contributors=tuple(
+            name
+            for name, _score in sorted(
+                scores.items(), key=lambda item: (-item[1], _layer_of(item[0]), item[0])
+            )
+            if name != winner
+        )[:max_contributors],
+        method="semantic_judgment",
     )
 
 
-def translate_action_intent(
-    question: str,
+def action_from_semantic_judgment(
+    judgment: SemanticJudgmentProposal,
     action_type_names: Collection[str] = (),
 ) -> tuple[str | None, str | None]:
-    """Map an operator command to ``(action_type, resource_id)``."""
-    action_type = _catalog_action_intent(question, action_type_names)
-    if action_type is None:
-        action_type = INTENT_ACTION.get(leading_verb(question) or "")
-    if action_type is None:
-        action_type = INTENT_ACTION.get(korean_action_verb(question) or "")
-    if action_type is None:
+    """Return exact action and resource targets from a draft-only judgment."""
+
+    if judgment.action_posture != "draft_only":
         return None, None
-    return action_type, _resource_of(question, action_type=action_type)
-
-
-def _catalog_action_intent(question: str, action_type_names: Collection[str]) -> str | None:
-    normalized = question.lower()
-    names = tuple(sorted({name for name in action_type_names if name}))
-    exact = [
-        name
-        for name in names
-        if re.search(rf"(?<![a-z0-9.-]){re.escape(name.lower())}(?![a-z0-9.-])", normalized)
-    ]
-    if len(exact) == 1:
-        return exact[0]
-    if len(exact) > 1:
-        return None
-    tokens = _tokenize(question)
-    matches: list[tuple[int, str]] = []
-    for name in names:
-        parts = tuple(part for part in name.split(".", 1)[-1].split("-") if part)
-        if len(parts) >= 2 and all(part in tokens for part in parts):
-            matches.append((len(parts), name))
-    if not matches:
-        return None
-    best_length = max(length for length, _ in matches)
-    best = [name for length, name in matches if length == best_length]
-    return best[0] if len(best) == 1 else None
-
-
-def _resource_of(question: str, *, action_type: str | None = None) -> str | None:
-    ignored = set(re.split(r"[.-]", action_type.lower())) if action_type else set()
-    if action_type:
-        ignored.add(action_type.split(".", 1)[-1].lower())
-    for token in re.findall(r"[a-z0-9-]+", question.lower()):
-        resembles_id = "-" in token or any(character.isdigit() for character in token)
-        if token not in ignored and len(token) >= 3 and resembles_id:
-            return str(token)
-    return None
-
-
-def _tokenize(text: str) -> set[str]:
-    return set(_WORD.findall(text.lower()))
-
-
-def _explicit_agent_names(question: str) -> list[str]:
-    canonical = {name.lower(): name for name in PANTHEON_NAMES}
-    found: list[str] = []
-    for token in _WORD.findall(question.lower()):
-        name = canonical.get(token)
-        if name is not None and name not in found:
-            found.append(name)
-    return found
-
-
-def _domain_score(domain: str, tokens: set[str]) -> float:
-    domain_tokens = set(re.split(r"[_\W]+", domain.lower())) - {""}
-    if not domain_tokens:
-        return 0.0
-    matched = tokens & domain_tokens
-    if matched == domain_tokens:
-        return 3.0 + min(len(domain_tokens), 4) * 0.2
-    high_signal = matched - _LOW_SIGNAL_TOKENS
-    if high_signal:
-        return 2.0 * len(high_signal) / len(domain_tokens)
-    partial = 0
-    for token in tokens - _LOW_SIGNAL_TOKENS:
-        if len(token) < 4:
-            continue
-        for domain_token in domain_tokens - _LOW_SIGNAL_TOKENS:
-            if (
-                len(domain_token) >= 4
-                and abs(len(token) - len(domain_token)) <= 3
-                and (token.startswith(domain_token) or domain_token.startswith(token))
-            ):
-                partial += 1
-                break
-    return 0.6 * partial if partial else 0.0
-
-
-def _ownership_score(object_types: tuple[str, ...], tokens: set[str]) -> float:
-    owned_tokens: set[str] = set()
-    for object_type in object_types:
-        owned_tokens.update(_tokenize(_CAMEL_BOUNDARY.sub(" ", object_type)))
-    matched = (tokens & owned_tokens) - _LOW_SIGNAL_TOKENS
-    return min(len(matched), 2) * 0.75
+    allowed = frozenset(action_type_names)
+    actions = tuple(
+        target.canonical_value or target.value
+        for target in judgment.targets
+        if target.kind == "action_type" and (target.canonical_value or target.value) in allowed
+    )
+    resources = tuple(
+        target.canonical_value or target.value
+        for target in judgment.targets
+        if target.kind == "resource"
+    )
+    if len(actions) != 1 or len(resources) > 1:
+        return None, None
+    return actions[0], resources[0] if resources else None
 
 
 def _pick_winner(scores: dict[str, float]) -> tuple[str, str | None]:
@@ -191,4 +114,4 @@ def _layer_of(agent_name: str) -> int:
     return 99
 
 
-__all__ = ["INTENT_ACTION", "route_question", "translate_action_intent"]
+__all__ = ["action_from_semantic_judgment", "route_semantic_judgment"]

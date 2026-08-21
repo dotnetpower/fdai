@@ -388,7 +388,10 @@ def _authority_gate(
     reasons: list[str] = []
     if proposal.authority is AuthorityClass.EXECUTION_AUTHORITY:
         reasons.append("document_cannot_grant_execution_authority")
-    if proposal.authority is not claim.authority:
+    if (
+        claim.authority is not AuthorityClass.UNCLASSIFIED
+        and proposal.authority is not claim.authority
+    ):
         reasons.append("claim_authority_mismatch")
     if policy is None or proposal.authority not in policy.allowed:
         reasons.append("source_not_authoritative")

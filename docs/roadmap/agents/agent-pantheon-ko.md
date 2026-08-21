@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: c2286a4bb55d608b7bb5ae65b64acc0ce5eb00b5
-translation_revised: 2026-08-20
+translation_source_sha: a0b20c76db0a17291bcc5875d4a13c8e1132e87a
+translation_revised: 2026-08-21
 ---
 
 # 에이전트 판테온
@@ -313,7 +313,7 @@ absence를 zero로 해석하지 않고 실패로 처리합니다.
 | Heimdall 예측 | T1 (ARIMA / smoothing) | 통계로 충분, 재현 가능 |
 | Norns 스트리밍 pattern | T1 (clustering) | 실제 운영 신호 은 결정론적 순위 필요 |
 | Norns 배치 요약 | T2 (off-path only) | 주간 리포트에 LLM OK, hot-path 절대 안 됨 |
-| Bragi 의도 classify | T0 키워드 + T1 임베딩 후 인계 | hot-path 대화는 T2로 추측하지 않음 |
+| Bragi 의미 변환 | 범위가 제한된 T1 구조화 판단, 선택적 T2 재시도 후 인계 | 스키마 검증과 정확한 capability projection이 authoritative함 |
 | Mimir 룰 초안 | T2 (off-path, human-reviewed) | novel 룰 은 LLM OK; sign-off 는 사람 |
 | Forseti 판정 coherence | T0 (SQL) + T1 (임베딩) | 과거 판정 는 구조화된 감사 로그 |
 | Var assisted 결정 | T0 (링크 유사 사례) + T2 (요약, off-path) | 카드는 요약 carry; 사람이 결정 |
@@ -411,10 +411,11 @@ Bragi를 포함한 15개 에이전트 모두 정본 이름 또는 도메인 라�
 
 각 `AgentSpec`은 고유하고 변경할 수 없으며 versioned된 `ConversationCharter`를 요구합니다. Charter는 role-specific prohibition이 있는 범위가 제한된 서버가 소유한 system instruction, reporting/소유권/토픽/액션 연결/모델 정책/hard-dependency/제안 예산을 정확히 생성한 역할 계약, 해당 에이전트 결정의 mechanics를 명시하는 역할 directive, 영어/한국어 조회 예시, 용도 및 owned-fact 범위가 있는 읽기 도구를 가집니다. 의미 동등성 테스트는 15개 역할 경계를 모두 pin합니다. 런타임은 호출자 정책을 덮어쓰고 각 도구를 고유한 사실 범위로 변환 결과하며 instruction을 노출하지 않고 버전과 별도의 프롬프트 및 full-charter SHA-256 다이제스트를 귀속합니다. 답변은 owned 상태에 근거하며 타입이 지정된 정책이 권위를 유지합니다. Charter 프롬프트는 프롬프트 전체가 아니라 조립의 바닥면입니다. 모든 턴은 그 기준선에 해당 턴이 선택한 situational 계층(peer 대 운영자 대상, 숙의 단계와 계층, 도구 범위, 운영자 로케일, 근거 공백, 명령 의도)를 더해 실제 프롬프트를 조립합니다. 조립은 가산적이고 결정론적하므로 situation은 charter를 조일 수는 있어도 느슨하게 만들 수 없고, 기록된 턴은 정확히 재생됩니다. Turn 맥락은 계층을 선택만 하고 프롬프트 텍스트를 공급하지 않으므로 위조된 맥락이 instruction을 주입할 수 없습니다. 응답은 계층 매니페스트, situation 키, 조립된 프롬프트 다이제스트를 전달하며 텍스트 자체는 전달하지 않습니다. [conversational-deliberation-ko.md](conversational-deliberation-ko.md)를 참조하세요.
 
-`is_action_intent`는 명령을 `requires_typed_pipeline`으로 abstain시켜 채팅 실행을 막습니다.
-Framework tool planner는 각 declared tool example에서 bilingual operator vocabulary를 파생하고
-ontology-backed capability와 매칭합니다. 별도 번역 map을 유지하지 않으며 Bragi의
-translator-only 권한도 바꾸지 않습니다.
+Bragi는 범위가 제한된 각 턴에서 스키마로 검증된 의미 판단 하나를 얻습니다. `draft_only`
+액션 자세는 운영자를 시작 주체로 유지한 채 타입이 지정된 파이프라인으로 다시 들어가며 채팅은
+실행하지 않습니다. 읽기 도구 선택은 모델 기반 의미 계획과 정확한 정본 도구 ID 소유권 검사를
+사용합니다. 모델이 바인딩되지 않았거나 실패하면 사용할 수 없음으로 끝나며 구문 사전으로
+대체하지 않습니다.
 Owned-state 범위 좁히기는 범위가 제한된 질문 안에서 내부 `.`, `_`, `-`를 가진 완전한 정본
 식별자만 매칭하며, 더 긴 식별자의 접두사일 뿐인 짧은 후보는 허용하지 않습니다.
 `PantheonRuntime.introspect`는 귀속되는 읽기 전용 peer 변환 결과와 digest-only Bragi Turn을 제공하며 제한된 표현 discussion은 [conversational-deliberation-ko.md](conversational-deliberation-ko.md)에 정의합니다.
@@ -425,7 +426,8 @@ Owned-state 범위 좁히기는 범위가 제한된 질문 안에서 내부 `.`,
 
 ### 6.3 NL 조회 오케스트레이션
 
-Bragi는 라우터이지 answerer가 아닙니다. 영어 및 한국어 Azure 읽기 의도는 범용 도메인 채점 전에 Heimdall로 라우팅되며 토픽, 에이전트 신원, 실행 권한을 추가하지 않습니다.
+Bragi는 라우터이지 answerer가 아닙니다. 영어, 한국어, 혼합 언어 턴은 같은 구조화된 의미 판단
+경계를 사용하며 토픽, 에이전트 신원, 실행 권한을 추가하지 않습니다.
 
 1. **Current-screen 권한.** 활성 화면이 사실 또는 기록을 제공하는 데이터
   질문은 Bragi T0 범위에 유지합니다. 전문가 위임과 의미 web
@@ -435,14 +437,14 @@ Bragi는 라우터이지 answerer가 아닙니다. 영어 및 한국어 Azure �
   정의 질문은 에이전트 채점 전에 근거에 기반한 glossary 근거로 답변. 예를 들어
   `ActionType` 또는 한국어 조사가 붙은 `ActionType이`는 단순히 같은 어간을 가진
   에이전트 도메인으로 delegate하지 않음.
-3. **T0 키워드 / 정규식 매칭.** 의도 토큰을 `Agent.question_domains` 와
-  owned ObjectType 토큰과 비교합니다. 완전한 multi-token 도메인은 부분 일치보다 우선하며,
-  일반적인 `status`, `history`, `health` 토큰만으로는 경로하지 않습니다. 접두사 matching은
-  high-signal word로 제한하며 `actiontype`은 `action`과 매칭하지 않습니다.
-4. **T1 임베딩 유사도.** T0 abstention/동점은 한 번의 질문 임베딩을 cached 영/한
-  charter 예시와 비교합니다. 명시적/읽기/single-winner T0는 zero-call이며 임계값, margin,
-  프로바이더 실패는 추측 없이 결정론적 결과를 유지합니다.
-5. **인계.** T0와 T1이 모두 임계값 미만이면
+3. **구조화된 의미 판단.** 범위가 제한된 T1 모델은 정본 의도, 대상, 요청한 facet, 확신도,
+  모호성, 담화 모드, 액션 자세를 반환합니다. Core는 source span, capability identity,
+  confidence, no-authority 필드를 검증합니다. 정확한 `question_domains`, 소유 ObjectType,
+  에이전트 이름, 도구 ID만 projection합니다.
+4. **범위가 제한된 T2 재시도.** 사용할 수 없음, malformed, ambiguous, low-confidence T1
+  출력은 설정된 T2 binding으로 한 번 재시도할 수 있습니다. 최종 실패는 clarification 질문
+  하나 또는 unavailable 결과를 반환하며 lexical matching을 재사용하지 않습니다.
+5. **인계.** 두 의미 계층이 모두 abstain하거나 정확한 capability가 남지 않으면
   `HandoffEscalation` 발행 (§6.4). 시스템은 추측 대신 GitHub issue 를
    생성한다.
 

@@ -18,7 +18,6 @@ from fdai.agents._framework.deliberation_evaluation import (
     evaluate_t1_answers,
     evaluation_signals,
 )
-from fdai.agents._framework.introspection import is_action_intent
 from fdai.agents._framework.semantic_routing import SemanticAgentRouter
 from fdai.core.metering.budget import (
     BudgetChargingMeteringSink,
@@ -183,13 +182,6 @@ class ConversationDeliberator:
             "authority": "presentation_only",
             "rounds": [],
         }
-        if is_action_intent(question):
-            return {
-                **base,
-                "status": "abstain",
-                "reason": "requires_typed_pipeline",
-                "requires_typed_pipeline": True,
-            }
         if self._semantic_router is None:
             return {**base, "status": "abstain", "reason": "t1_unavailable"}
 

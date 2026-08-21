@@ -132,92 +132,25 @@ them. Until it did, that instruction described a surface no turn could reach: th
 but nothing in the read path dispatched a tool, so the sentence asked the agent to work through
 something it was never given.
 
-Selection happens outside the agent and before it answers, in two tiers - the same shape the agent
-router already uses for question-to-owner routing.
+Selection happens outside the agent and before it answers. One schema-validated semantic judgment
+names the intended owner, requested facts, targets, discourse mode, and action posture. The
+judgment can propose canonical tool ids only from the server-supplied capability set. Core then
+checks each id against the selected agent's exact registry ownership before dispatch.
 
-Which tier leads was measured, not assumed. Against fourteen questions written the way operators
-actually ask them ("why did we get billed so much", "어제 되돌린 작업 뭐였지"), the tiers scored:
+The T1 model is bounded by input size, timeout, and a strict output schema. An unavailable,
+malformed, ambiguous, or low-confidence proposal can retry once through the configured T2 binding.
+If neither tier yields an accepted proposal, planning returns clarification or unavailable. It
+never degrades to token overlap, translated keyword maps, example similarity, or catalog order.
 
-| Tier | Right tool in the top three |
-|------|------|
-| T0 lexical only | 3 / 14 |
-| T0 first, T1 for what it misses | 11 / 14 |
-| T1 leading, T0 as the fallback | **13 / 14** |
+The judgment receipt records the model tier, model identity, prompt version, proposal digest,
+confidence, terminal disposition, and content-free source and capability digests. Source text and
+canonical machine target identities remain separate, and every source span must copy the current
+bounded question exactly. The receipt grants no execution authority.
 
-Lexical is not merely weaker. It is confidently wrong often enough to veto a better answer: its
-score counts term overlap, and two matched words say nothing about whether they were the right two.
-So meaning leads where an embedding is bound, and the lexical tier is what the path degrades to -
-an unbound model, a provider failure, or a match below the confidence floor all fall back to it. A
-deployment with no embedding model keeps exactly the behaviour it had.
-
-**T0, lexical.** `plan_conversation_tools` matches the question against what a tool declares - its
-id, its purpose, and the fact keys it yields - and returns the best matches with the terms that
-chose them. Operator vocabulary is translated onto those declared English terms, because tool ids
-and fact keys are record keys and stay English; without that bounded catalog a Korean question
-would match nothing at all.
-
-**T1, meaning.** `SemanticToolPlanner` embeds each tool once and caches it, then scores the
-question against those vectors with a cosine floor and a margin. Embedding the declarations alone
-scored exactly the same 3 / 14 as the words did, because a declaration sits in a different register
-from a question; each tool therefore carries a bilingual example of how its question is really
-asked, and those anchors are what lift the tier. The examples are retrieval anchors only - they
-never enter a prompt and never become evidence.
-
-The tier is an embedding rather than a generative model on purpose. Tool selection is part of the
-evidence trail, so it has to replay: the same question against the same catalog and the same model
-yields the same vectors and therefore the same plan. A generation that reorders tools between
-vendor versions could not make that promise.
-
-Each plan names the tier that produced it, because the two scores are not comparable - one counts
-matched terms, the other scales a cosine - and a reader must not have to infer which from the
-number. The selected plan's agent, tool id, tier, and score travel in the server-owned answer
-envelope; a generic responder cannot forge them. Semantic scores keep fractional precision because
-rounding 80.4 and 79.6 to the same integer would turn a unique best tool into a false tie. The
-serialized plan validates pantheon ownership, canonical tier, finite non-negative score, and
-bounded matched terms at construction.
-
-The vector cache is all or nothing. Ranking is relative, so a catalog missing one tool does not
-lose that tool; it sends that tool's questions to whichever tool is next closest, silently and for
-as long as the cache lives. An incomplete build is therefore refused and retried rather than
-cached, and a cache built under one model is dropped when the provider reports a different
-dimension - scoring a query against vectors from another space keeps producing confident numbers
-that mean nothing. Dimension cannot identify a same-size replacement model, so the cache also has
-a positive, finite TTL (one hour by default) that bounds how long the old space may remain.
-Boolean, non-numeric, NaN, Infinity, zero, and wrong-dimension vectors are invalid catalog
-entries.
-
-The cold build is one shared task. A question may stop waiting and degrade while the build
-continues, but twenty-five timed-out questions still leave one build, not twenty-five. While it is
-running, later questions degrade immediately instead of each adding the whole gather timeout. A
-failed or incomplete build stops at the first invalid vector and enters a retry cooldown, so a
-broken provider cannot cost one full catalog per question. Runtime shutdown drains the task even
-when bridge shutdown fails. If a third-party provider incorrectly catches `CancelledError`, Python
-cannot forcibly kill that coroutine; planner shutdown therefore waits for a positive, finite bound,
-disables all later plans, and returns while leaving at most the one shared build to the process
-boundary. The cache boundary rechecks the stopped state before creating or publishing a build, so
-a plan that passed its first check just before shutdown cannot restart the provider afterward.
-
-Query embedding has the same lifecycle contract. Concurrent callers share one query task, each
-caller waits for a positive, finite query bound, and a cancellation-resistant provider leaves at
-most that one task rather than one task per caller. Shutdown drains both build and query tasks and
-rechecks the stopped state before query creation and before using its result. Numeric planner
-configuration rejects booleans, non-numeric values, NaN, and Infinity instead of accepting Python's
-`True == 1` coercion as a threshold or timeout.
-
-The examples are retrieval anchors only. They are not part of the charter digest, so tuning
-retrieval never churns the audit trail, and they never reach a prompt or an answer.
-
-Tool selection does not decide who answers. Bragi first completes the same T0/T1 owner route used
-by the turn. The tool planner then considers only that owner's declarations. An ordinary turn runs
-one uniquely highest-scoring tool; a tied top score selects no tool instead of resolving by catalog
-order. This keeps one owner decision and prevents a read from one agent being presented as another
-agent's grounding.
-
-The ordinary primary-answer path uses semantic selection within the owner Bragi already routed,
-then degrades to lexical selection when no embedding is bound, the provider fails, confidence is
-low, the catalog is building, or the retry cooldown is active. Meaning is not a global ownership
-gate here: Bragi has already decided the owner, so the planner considers only that agent's tools.
-The explicit prefetch API uses the same bounded planner.
+Tool selection does not decide who answers. Owner projection happens first, then the planner keeps
+only that owner's exact declared tool ids. This preserves one accountable owner and prevents a
+read from one agent being presented as another agent's grounding. The explicit prefetch API uses
+the same bounded judgment and registry checks.
 
 Dispatch is bounded in four ways, because a read surface that an operator question can open is a
 denial-of-service surface if any of them is missing.
@@ -252,14 +185,9 @@ manifest. If no unique tool matches, the owner answers through its ordinary owne
 a tool is selected, an abstention, timeout, sensitivity hold, partial completion, or budget expiry
 produces a handoff and never falls back to a broader generic answer or contributor synthesis.
 
-Ownership is decided before selection, and not by similarity. A ranker always ranks: the nearest
-tool to a question the system owns nothing about still scores like a match, and measured against
-eight such questions the semantic tier selected three tools every time. Absolute score, margin, and
-top-three agreement were all measured and none of them separate an owned question from an unowned
-one. So the route decides - the same route the answering turn takes, keyword first and then the
-semantic router with its tuned floor and margin - and no owner means no prefetch. That route is
-bounded too: it runs before the turn, so an embedding provider that stops responding would hold the
-answer rather than only the evidence beside it.
+Ownership is decided before selection and never by nearest-neighbor ranking. No accepted owner
+means no prefetch. A model timeout or terminal abstention therefore holds only the bounded semantic
+planning step and cannot silently choose the nearest available capability.
 
 ## T1 discussion
 

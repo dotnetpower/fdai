@@ -9,6 +9,84 @@ from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents.bragi import Bragi
 from fdai.agents.odin import Odin
+from fdai.core.conversation.semantic_judgment import (
+    SemanticJudgmentBinding,
+    SemanticJudgmentBoundary,
+)
+from fdai_service_contracts.semantic_judgment import (
+    SemanticJudgmentProposal,
+    SemanticJudgmentTier,
+)
+
+_DIGEST = "sha256:" + ("a" * 64)
+
+
+def _judgment(
+    primary_intent: str,
+    *,
+    agents: tuple[str, ...] = (),
+    secondary_intents: tuple[str, ...] = (),
+) -> SemanticJudgmentProposal:
+    return SemanticJudgmentProposal.model_validate(
+        {
+            "primary_intent": primary_intent,
+            "secondary_intents": secondary_intents,
+            "targets": [
+                {
+                    "kind": "agent",
+                    "value": agent,
+                    "source_start": index,
+                    "source_end": index + len(agent),
+                }
+                for index, agent in enumerate(agents)
+            ],
+            "requested_facets": [],
+            "confidence": 0.95,
+            "ambiguous": False,
+            "alternatives": [],
+            "unresolved_terms": [],
+            "clarification": None,
+            "action_posture": "advise_only",
+            "execution_authority": False,
+        }
+    )
+
+
+class _JudgmentModel:
+    def judge(self, *, utterance: str, **_kwargs: object) -> dict[str, object]:
+        if "Freyr and Njord" in utterance:
+            proposal = _judgment("capacity_status", agents=("Freyr", "Njord"))
+        elif "cost" in utterance.casefold():
+            proposal = _judgment("cost_breakdown")
+        elif "changed" in utterance.casefold():
+            proposal = _judgment("resource_change_history")
+        elif "anomaly" in utterance.casefold():
+            proposal = _judgment("anomaly")
+        else:
+            proposal = _judgment("open_question")
+        body = proposal.model_dump(mode="json")
+        for target in body["targets"]:
+            value = target["value"]
+            start = utterance.index(value)
+            target["source_start"] = start
+            target["source_end"] = start + len(value)
+        return body
+
+
+def _bragi() -> Bragi:
+    return Bragi(
+        semantic_judgment=SemanticJudgmentBoundary(
+            profile_id="pantheon.routing",
+            profile_version="1.0.0",
+            primary=SemanticJudgmentBinding(
+                tier=SemanticJudgmentTier.T1,
+                model=_JudgmentModel(),
+                model_config_digest=_DIGEST,
+                prompt_digest=_DIGEST,
+            ),
+        )
+    )
+
 
 # ---------------------------------------------------------------------------
 # Bragi routing
@@ -16,26 +94,22 @@ from fdai.agents.odin import Odin
 
 
 def test_bragi_routes_change_history_to_heimdall() -> None:
-    bragi = Bragi()
-    decision = bragi.route("who changed stgdemo123 public network")
+    decision = Bragi().route(_judgment("resource_change_history"))
     assert decision.primary_agent == "Heimdall"
 
 
 def test_bragi_routes_cost_question_to_njord() -> None:
-    bragi = Bragi()
-    decision = bragi.route("show cost breakdown for last week")
+    decision = Bragi().route(_judgment("cost_breakdown"))
     assert decision.primary_agent == "Njord"
 
 
 def test_bragi_routes_capacity_question_to_freyr() -> None:
-    bragi = Bragi()
-    decision = bragi.route("sizing recommendation for this workload")
+    decision = Bragi().route(_judgment("sizing_recommendation"))
     assert decision.primary_agent == "Freyr"
 
 
 def test_bragi_routes_verdict_explain_to_forseti() -> None:
-    bragi = Bragi()
-    decision = bragi.route("why was this action denied")
+    decision = Bragi().route(_judgment("why_denied"))
     # The decision should include Forseti in scores
     assert "Forseti" in decision.scores
     # And Forseti should win because it matches why_denied specifically
@@ -43,27 +117,26 @@ def test_bragi_routes_verdict_explain_to_forseti() -> None:
 
 
 def test_bragi_abstains_when_no_domain_matches() -> None:
-    bragi = Bragi()
-    decision = bragi.route("what is the meaning of life")
+    decision = Bragi().route(_judgment("open_question"))
     assert decision.primary_agent is None
 
 
 def test_bragi_does_not_stem_actiontype_into_saga_action_history() -> None:
-    decision = Bragi().route("ActionType이 뭐야?")
+    decision = Bragi().route(_judgment("definition"))
 
     assert decision.primary_agent is None
     assert "Saga" not in decision.scores
 
 
 def test_bragi_routes_explicit_agent_name_before_domain_scoring() -> None:
-    decision = Bragi().route("What does Var do?")
+    decision = Bragi().route(_judgment("capability_list", agents=("Var",)))
 
     assert decision.primary_agent == "Var"
     assert decision.tie_break == "explicit_agent"
 
 
 def test_bragi_preserves_explicit_multi_agent_order() -> None:
-    decision = Bragi().route("Ask Freyr and Njord about capacity and cost")
+    decision = Bragi().route(_judgment("capacity_status", agents=("Freyr", "Njord")))
 
     assert decision.primary_agent == "Freyr"
     assert decision.contributors == ("Njord",)
@@ -71,10 +144,9 @@ def test_bragi_preserves_explicit_multi_agent_order() -> None:
 
 def test_bragi_tie_break_prefers_governance_layer() -> None:
     """Score tie -> governance beats pipeline beats domain."""
-    bragi = Bragi()
-    # Fabricate a question that hits multiple agents; asserting Saga
-    # (governance) beats a pipeline peer when scores tie.
-    decision = bragi.route("audit_log approval_history rule_lookup")
+    decision = Bragi().route(
+        _judgment("audit_log", secondary_intents=("approval_history", "rule_lookup"))
+    )
     # All three matches: Saga (governance), Mimir (governance), maybe others.
     # Both Saga and Mimir are governance so precedence alone won't decide;
     # but at least the winner must be governance.
@@ -85,27 +157,27 @@ def test_bragi_tie_break_prefers_governance_layer() -> None:
 
 
 @pytest.mark.parametrize(
-    ("question", "expected"),
+    ("intent", "expected"),
     (
-        ("portfolio priority conflict", "Odin"),
-        ("execution history recent", "Thor"),
-        ("why was this denied", "Forseti"),
-        ("resource discovery status", "Huginn"),
-        ("security alert history", "Heimdall"),
-        ("rollback dependency health", "Vidar"),
-        ("approval backlog", "Var"),
-        ("capability list", "Bragi"),
-        ("audit log", "Saga"),
-        ("rule history", "Mimir"),
-        ("case history", "Muninn"),
-        ("rule candidate status", "Norns"),
-        ("cost breakdown", "Njord"),
-        ("sizing recommendation", "Freyr"),
-        ("chaos execution policy", "Loki"),
+        ("priority_conflict", "Odin"),
+        ("execution_history_recent", "Thor"),
+        ("why_denied", "Forseti"),
+        ("resource_discovery_status", "Huginn"),
+        ("security_alert_history", "Heimdall"),
+        ("rollback_dependency_health", "Vidar"),
+        ("approval_backlog", "Var"),
+        ("capability_list", "Bragi"),
+        ("audit_log", "Saga"),
+        ("rule_history", "Mimir"),
+        ("case_history", "Muninn"),
+        ("rule_candidate_status", "Norns"),
+        ("cost_breakdown", "Njord"),
+        ("sizing_recommendation", "Freyr"),
+        ("chaos_execution_policy", "Loki"),
     ),
 )
-def test_every_agent_has_a_deterministic_domain_route(question: str, expected: str) -> None:
-    assert Bragi().route(question).primary_agent == expected
+def test_every_agent_has_a_deterministic_domain_route(intent: str, expected: str) -> None:
+    assert Bragi().route(_judgment(intent)).primary_agent == expected
 
 
 # ---------------------------------------------------------------------------
@@ -114,7 +186,7 @@ def test_every_agent_has_a_deterministic_domain_route(question: str, expected: s
 
 
 def test_bragi_ask_calls_registered_responder() -> None:
-    bragi = Bragi()
+    bragi = _bragi()
 
     async def heimdall_responder(question: str, context: dict) -> dict:
         return {"answer": f"heimdall says: {question}"}
@@ -133,7 +205,7 @@ def test_bragi_ask_calls_registered_responder() -> None:
 
 
 def test_bragi_calls_and_aggregates_real_contributors() -> None:
-    bragi = Bragi()
+    bragi = _bragi()
     called: list[str] = []
 
     def responder(name: str):
@@ -164,7 +236,7 @@ def test_bragi_calls_and_aggregates_real_contributors() -> None:
 
 
 def test_bragi_holds_same_identity_contributor_conflicts() -> None:
-    bragi = Bragi()
+    bragi = _bragi()
 
     async def freyr(_question: str, _context: dict) -> dict:
         return {
@@ -193,6 +265,21 @@ def test_bragi_holds_same_identity_contributor_conflicts() -> None:
     assert turn.answer["answer"] is None
     assert turn.answer["abstain_reason"] == "agent_evidence_conflict"
     assert turn.answer["handoff_needed"] is True
+    assert turn.answer["semantic_judgment"] == {
+        "receipt_digest": turn.answer["semantic_judgment"]["receipt_digest"],
+        "input_digest": turn.answer["semantic_judgment"]["input_digest"],
+        "profile_id": "pantheon.routing",
+        "profile_version": "1.0.0",
+        "tier": "t1",
+        "model_config_digest": _DIGEST,
+        "prompt_digest": _DIGEST,
+        "confidence": 0.95,
+        "ambiguous": False,
+        "latency_ms": turn.answer["semantic_judgment"]["latency_ms"],
+        "disposition": "accepted",
+        "reason_code": "accepted",
+        "execution_authority": False,
+    }
     assert turn.answer["unresolved_conflicts"] == [
         {
             "identity": "vm-1",
@@ -204,7 +291,7 @@ def test_bragi_holds_same_identity_contributor_conflicts() -> None:
 
 
 def test_bragi_holds_sensitive_contributor_output() -> None:
-    bragi = Bragi()
+    bragi = _bragi()
 
     async def freyr(_question: str, _context: dict) -> dict:
         return {"primary_agent": "Freyr", "answer": "Capacity evidence.", "facts": {}}
@@ -254,7 +341,7 @@ def test_bragi_holds_sensitive_contributor_output() -> None:
     ),
 )
 def test_bragi_holds_invalid_primary_response(response: dict, reason: str) -> None:
-    bragi = Bragi()
+    bragi = _bragi()
 
     async def responder(_question: str, _context: dict) -> dict:
         return response
@@ -275,7 +362,7 @@ def test_bragi_holds_invalid_primary_response(response: dict, reason: str) -> No
 
 
 def test_bragi_session_appends_turns() -> None:
-    bragi = Bragi()
+    bragi = _bragi()
 
     async def noop(q, c):
         return {"answer": q}
@@ -289,7 +376,7 @@ def test_bragi_session_appends_turns() -> None:
 
 
 def test_bragi_rejects_cross_user_session_reuse() -> None:
-    bragi = Bragi()
+    bragi = _bragi()
 
     async def noop(q, c):
         return {"answer": q}
@@ -301,7 +388,7 @@ def test_bragi_rejects_cross_user_session_reuse() -> None:
 
 
 def test_bragi_returns_handoff_needed_when_no_route() -> None:
-    bragi = Bragi()
+    bragi = _bragi()
     turn = asyncio.run(
         bragi.ask(
             session_id="s",
@@ -313,7 +400,7 @@ def test_bragi_returns_handoff_needed_when_no_route() -> None:
 
 
 def test_bragi_surfaces_unavailable_handoff_transport() -> None:
-    bragi = Bragi()
+    bragi = _bragi()
 
     turn = asyncio.run(
         bragi.ask(
@@ -336,7 +423,7 @@ def test_bragi_records_handoff_publish_failure_on_the_turn() -> None:
             await super().publish(principal, topic, payload)
 
     bus = FailingHandoffBus(registry=load_pantheon())
-    bragi = Bragi()
+    bragi = _bragi()
     bragi.bind_bus(bus)
 
     turn = asyncio.run(
@@ -354,7 +441,7 @@ def test_bragi_records_handoff_publish_failure_on_the_turn() -> None:
 
 
 def test_bragi_sessions_for_partitions_by_user() -> None:
-    bragi = Bragi()
+    bragi = _bragi()
 
     async def noop(q, c):
         return {"answer": q}

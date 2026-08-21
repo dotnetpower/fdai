@@ -18,6 +18,7 @@ from fdai.agents._framework.introspection import (
     capability_facts,
     capped_list,
     mentioned,
+    semantic_intents,
 )
 from fdai.agents._framework.pantheon import _NJORD
 from fdai.agents._framework.specialist_ingress import COST_SAMPLE_EVENT, parse_cost_sample
@@ -159,7 +160,7 @@ class Njord(Agent):
             "known_action_costs": dict(self._cost_table),
             "budget_data_available": False,
         }
-        if "budget" in question.casefold():
+        if "budget_status" in semantic_intents(context):
             return IntrospectionResult(
                 answer="No budget projection is bound to this conversational port.",
                 facts=facts,

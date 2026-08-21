@@ -13,6 +13,7 @@ import {
 } from "./mermaid.js";
 
 const EXPECTED_DIAGRAMS = 73;
+const OPERATIONAL_KNOWLEDGE_PLAN = "docs/internals/operational-knowledge-query-hardening-plan.md";
 
 interface MigrationDocument {
   englishPath: string;
@@ -88,7 +89,7 @@ async function discoverDocuments(root: string): Promise<{
     active.push({ englishPath, koreanPath, english, korean, englishBlocks, koreanBlocks });
   }
 
-  const standalonePath = "operational-knowledge-query-hardening-plan.md";
+  const standalonePath = OPERATIONAL_KNOWLEDGE_PLAN;
   const standalone = await readFile(path.join(root, standalonePath), "utf8");
   const standaloneBlocks = extractMermaidBlocks(standalone);
   if (standaloneBlocks.length) {
@@ -132,7 +133,7 @@ async function migrationPlan(root: string): Promise<RepositoryMigrationPlan> {
 async function publishedSpecs(root: string): Promise<DiagramSpec[]> {
   const files = [
     ...await markdownFiles(root, "docs/roadmap"),
-    "operational-knowledge-query-hardening-plan.md",
+    OPERATIONAL_KNOWLEDGE_PLAN,
   ];
   const ids = new Set<string>();
   const expression = /diagrams\/generated\/(fdai-(?:roadmap|operational-knowledge-query-hardening-plan)-[^)]+?)\.(?:en|ko)\.svg/gu;

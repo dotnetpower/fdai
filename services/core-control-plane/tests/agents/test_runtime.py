@@ -64,6 +64,7 @@ from fdai.runtime.bootstrap_bindings import build_rule_generation_runtime_bindin
 from fdai.shared.providers.catalog_search import CatalogSearchDocument
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
+from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal
 
 from tests.core.rule_semantic_generation.test_activation import _command, _CountingIndex
 
@@ -106,6 +107,24 @@ def _build() -> tuple[PantheonRuntime, InMemoryEventBus]:
     provider = InMemoryEventBus()
     runtime = PantheonRuntime.build(provider=provider, raw_event_topic=_RAW_TOPIC)
     return runtime, provider
+
+
+def test_route_conversation_projects_structured_judgment() -> None:
+    runtime, _provider = _build()
+    judgment = SemanticJudgmentProposal.model_validate(
+        {
+            "primary_intent": "cost_breakdown",
+            "confidence": 0.95,
+            "ambiguous": False,
+            "authority": "candidate_only",
+            "execution_authority": False,
+        }
+    )
+
+    decision = runtime.route_conversation(judgment)
+
+    assert decision is not None
+    assert decision.primary_agent == "Njord"
 
 
 def test_build_injects_operational_planner_into_forseti() -> None:

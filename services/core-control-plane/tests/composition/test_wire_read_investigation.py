@@ -187,12 +187,27 @@ async def _hook(
     return hook, state_store
 
 
+def _semantic_context() -> dict[str, object]:
+    return {
+        "session_id": "session-one",
+        "user_id": "reader-one",
+        "semantic_primary_intent": "resource_state",
+        "semantic_targets": (
+            {
+                "kind": "resource",
+                "value": "vm-01",
+                "canonical_value": None,
+            },
+        ),
+    }
+
+
 async def test_resource_state_runs_exact_query_profile_and_records_match() -> None:
     hook, state_store = await _hook()
 
     result = await hook(
         "What is the current state of vm-01?",
-        {"session_id": "session-one", "user_id": "reader-one"},
+        _semantic_context(),
     )
 
     assert result is not None
@@ -210,7 +225,7 @@ async def test_semantic_evidence_failure_does_not_replace_authoritative_answer()
 
     result = await hook(
         "vm-01의 현재 상태는?",
-        {"session_id": "session-one", "user_id": "reader-one"},
+        _semantic_context(),
     )
 
     assert result is not None
@@ -222,11 +237,12 @@ async def test_semantic_evidence_failure_does_not_replace_authoritative_answer()
 
 async def test_non_resource_state_intent_is_not_claimed() -> None:
     hook, _ = await _hook()
+    context = {**_semantic_context(), "semantic_primary_intent": "resource_change_history"}
 
     assert (
         await hook(
             "Show the recent Activity Log for vm-01",
-            {"session_id": "session-one", "user_id": "reader-one"},
+            context,
         )
         is None
     )
@@ -238,7 +254,7 @@ async def test_resource_state_publishes_privacy_bounded_activity() -> None:
 
     await hook(
         "What is the current state of vm-01?",
-        {"session_id": "session-one", "user_id": "reader-one"},
+        _semantic_context(),
     )
     events = [event async for event in bus.subscribe("fdai.pipeline.stages", "test")]
 
@@ -268,7 +284,7 @@ async def test_repeated_resource_state_reads_keep_distinct_activity_identity(
         invocation_id_factory=lambda: next(invocation_ids),
     )
     question = "What is the current state of vm-01?"
-    context = {"session_id": "session-one", "user_id": "reader-one"}
+    context = _semantic_context()
 
     await hook(question, context)
     await hook(question, context)
@@ -309,7 +325,7 @@ async def test_cross_source_state_conflict_lowers_the_answer_and_activity() -> N
     agreed_hook, _ = await _hook(activity_bus=agreed_bus)
     agreed = await agreed_hook(
         "What is the current state of vm-01?",
-        {"session_id": "session-one", "user_id": "reader-one"},
+        _semantic_context(),
     )
     agreed_events = [event async for event in agreed_bus.subscribe("fdai.pipeline.stages", "test")]
 
@@ -324,7 +340,7 @@ async def test_cross_source_state_conflict_lowers_the_answer_and_activity() -> N
     contested_hook, _ = await _hook(activity_bus=contested_bus, semantic_state="stopped")
     contested = await contested_hook(
         "What is the current state of vm-01?",
-        {"session_id": "session-one", "user_id": "reader-one"},
+        _semantic_context(),
     )
     contested_events = [
         event async for event in contested_bus.subscribe("fdai.pipeline.stages", "test")

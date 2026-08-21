@@ -1,9 +1,14 @@
+import { tmpdir } from "node:os";
+import path from "node:path";
+
 import { defineConfig, devices } from "@playwright/test";
 import { acquirePlaywrightPortLease } from "./scripts/playwright-port-pool";
 
 const portLease = acquirePlaywrightPortLease();
 const port = portLease.frontendPort;
 const baseURL = `http://127.0.0.1:${port}`;
+const outputRoot =
+  process.env.FDAI_PLAYWRIGHT_OUTPUT_ROOT ?? path.join(tmpdir(), "fdai-playwright");
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -13,7 +18,7 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   ...(process.env.CI ? { workers: 1 } : {}),
   reporter: process.env.CI ? "github" : "list",
-  outputDir: `test-results/slot-${portLease.slot}`,
+  outputDir: path.join(outputRoot, `slot-${portLease.slot}`),
   use: {
     baseURL,
     trace: "on-first-retry",

@@ -29,6 +29,10 @@ unrelated JSON settings, and is safe to repeat. It stops without writing when an
 existing settings file contains JSONC comments. You can also ask GitHub Copilot
 to run `/setup-vscode-profile` or say "set up the FDAI VS Code Profile".
 
+New integrated terminals disable interactive command pagers through the workspace settings. This
+keeps Git, GitHub CLI, PostgreSQL, and systemd output in the terminal instead of leaving a hidden
+`less` session that can interpret later shell commands as save-file names.
+
 ## 2. One-time install
 
 ```bash

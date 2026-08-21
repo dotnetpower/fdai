@@ -91,6 +91,8 @@ async def test_query_dispatches_and_parses_timeseries() -> None:
         # Ask for the mapped Azure metric name, not the CSP-neutral one.
         assert "metricnames=cpu_percent" in str(request.url)
         assert "aggregation=Average" in str(request.url)
+        assert request.url.params["api-version"] == "2018-01-01"
+        assert request.url.params["timespan"] == ("2026-07-13T00:00:00Z/2026-07-13T00:05:00Z")
         assert request.headers["Authorization"] == "Bearer fake"
         payload = {
             "value": [
@@ -175,6 +177,47 @@ async def test_query_skips_bins_with_no_aggregate() -> None:
         )
     ]
     assert [p.value for p in points] == [42.5, 60.0]
+
+
+async def test_query_skips_provider_aligned_bins_outside_exact_window() -> None:
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "value": [
+                    {
+                        "timeseries": [
+                            {
+                                "data": [
+                                    {"timeStamp": "2026-07-13T00:00:00Z", "average": 10.0},
+                                    {"timeStamp": "2026-07-13T00:01:00Z", "average": 20.0},
+                                    {"timeStamp": "2026-07-13T00:02:00Z", "average": 30.0},
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+        )
+
+    provider = AzureMonitorMetricsProvider(
+        config=_config(),
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        identity=_StaticIdentity(),
+    )
+    points = [
+        point
+        async for point in provider.query(
+            MetricQuery(
+                metric_name="cpu_percent",
+                labels={"resource_id": _ARM_ID},
+                since=datetime(2026, 7, 13, 0, 0, 30, tzinfo=UTC),
+                until=datetime(2026, 7, 13, 0, 1, 30, tzinfo=UTC),
+            )
+        )
+    ]
+
+    assert tuple(point.at for point in points) == (datetime(2026, 7, 13, 0, 1, tzinfo=UTC),)
 
 
 # ---------------------------------------------------------------------------
@@ -295,16 +338,19 @@ async def test_over_max_points_fails_closed() -> None:
 
 
 async def test_shipped_azure_metrics_api_queries_are_valid() -> None:
-    """Coverage: the 4 shipped templates all pass their post-init
+    """Coverage: the shipped templates all pass their post-init
     validators, and their metric-names correspond to a real analyzer
     metric so a lookup miss never occurs at runtime."""
-    from fdai.delivery.azure.demo_queries import sre_demo_analyzer_queries
+    from fdai.delivery.azure.demo_queries import (
+        METRIC_SERVICE_REQUEST_DURATION_MS,
+        sre_demo_analyzer_queries,
+    )
     from fdai.delivery.azure.metrics_api_queries import azure_metrics_api_queries
 
     shipped = azure_metrics_api_queries()
-    assert set(shipped).issubset(set(sre_demo_analyzer_queries())), (
-        "every Metrics API template MUST also be an analyzer metric"
-    )
-    # Every template already validated on construction; assert the
-    # shipped set is what we advertise (4 direct-mapped metrics).
-    assert len(shipped) == 4
+    assert set(shipped) - {METRIC_SERVICE_REQUEST_DURATION_MS} <= set(
+        sre_demo_analyzer_queries()
+    ), "every Metrics API template MUST be an analyzer or reviewed semantic metric"
+    assert shipped[METRIC_SERVICE_REQUEST_DURATION_MS].azure_metric_name == "ResponseTime"
+    assert shipped[METRIC_SERVICE_REQUEST_DURATION_MS].aggregation == "Average"
+    assert len(shipped) == 6

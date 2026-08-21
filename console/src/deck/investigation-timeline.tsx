@@ -159,6 +159,112 @@ function TerminalIcon() {
   );
 }
 
+interface ObjectSetQuerySummary {
+  readonly objectType?: string;
+  readonly filters: readonly string[];
+  readonly limit?: number;
+  readonly asOf?: string;
+  readonly purpose?: string;
+}
+
+interface QueryResultSummary {
+  readonly status?: string;
+  readonly evidenceCount?: number;
+  readonly returnedRows?: number;
+  readonly totalRows?: number;
+  readonly complete?: boolean;
+}
+
+export function objectSetQuerySummary(
+  command: string,
+  operation: string | undefined,
+): ObjectSetQuerySummary | undefined {
+  try {
+    const parsed = JSON.parse(command) as unknown;
+    const root = jsonRecord(parsed);
+    if (operation !== "object_set_materialization" && root?.capability !== "query.object_set") {
+      return undefined;
+    }
+    const argumentsRecord = jsonRecord(root?.arguments) ?? root;
+    const definition = jsonRecord(argumentsRecord?.definition);
+    if (!definition) return undefined;
+    const selector = jsonRecord(definition.selector);
+    const predicates = Array.isArray(definition.predicates) ? definition.predicates : [];
+    const filters = predicates.flatMap((item) => {
+      const predicate = jsonRecord(item);
+      if (!predicate || typeof predicate.property !== "string" ||
+          typeof predicate.operator !== "string") return [];
+      const operand = predicate.operator === "in" ? predicate.values : predicate.equals;
+      return [`${predicate.property} ${predicate.operator} ${readableOperand(operand)}`];
+    });
+    return {
+      ...(selector && typeof selector.name === "string" ? { objectType: selector.name } : {}),
+      filters,
+      ...(typeof definition.limit === "number" && Number.isSafeInteger(definition.limit)
+        ? { limit: definition.limit }
+        : {}),
+      ...(typeof definition.as_of === "string" ? { asOf: definition.as_of } : {}),
+      ...(typeof definition.purpose === "string" ? { purpose: definition.purpose } : {}),
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+export function queryResultSummary(output: string | undefined): QueryResultSummary | undefined {
+  if (output === undefined) return undefined;
+  try {
+    const parsed = JSON.parse(output) as unknown;
+    const root = Array.isArray(parsed) ? jsonRecord(parsed[0]) : jsonRecord(parsed);
+    if (!root) return undefined;
+    const result = jsonRecord(root.result) ?? root;
+    const returnedRows = safeCount(root.returned_rows) ?? safeCount(result.returned_rows) ??
+      (Array.isArray(result.rows) ? result.rows.length : undefined);
+    const totalRows = safeCount(root.total_rows) ?? safeCount(result.total_rows);
+    const complete = typeof root.complete === "boolean" ? root.complete
+      : typeof root.source_complete === "boolean" ? root.source_complete
+      : typeof result.complete === "boolean" ? result.complete
+      : typeof result.source_complete === "boolean" ? result.source_complete
+      : undefined;
+    const summary: QueryResultSummary = {
+      ...(typeof root.status === "string" ? { status: root.status } : {}),
+      ...(Array.isArray(root.evidence_refs) ? { evidenceCount: root.evidence_refs.length } : {}),
+      ...(returnedRows !== undefined ? { returnedRows } : {}),
+      ...(totalRows !== undefined ? { totalRows } : {}),
+      ...(complete !== undefined ? { complete } : {}),
+    };
+    return Object.keys(summary).length > 0 ? summary : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function jsonRecord(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : undefined;
+}
+
+function readableOperand(value: unknown): string {
+  if (Array.isArray(value)) return value.map(readableOperand).join(", ");
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  return t("deck.trajectory.notRecorded");
+}
+
+function safeCount(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0
+    ? value
+    : undefined;
+}
+
+function executionTargetValue(value: string): string {
+  const key = `deck.investigation.executionValue.${value}`;
+  const translated = t(key);
+  return translated === key ? value : translated;
+}
+
 function ExecutionEvidence({
   evidence,
   status,
@@ -171,18 +277,19 @@ function ExecutionEvidence({
   readonly agent?: string;
 }) {
   const [copied, showCopied] = useTransientFlag(1200);
+  const inventoryDisplay = evidence.inputKind === "query"
+    ? inventoryExecutionDisplay(evidence.command)
+    : undefined;
   const copyCommand = () => {
     void navigator.clipboard?.writeText(evidence.command).then(showCopied, () => undefined);
   };
-  const copyLabel = evidence.inputKind === "query"
-    ? t("deck.investigation.copyQuery")
+  const copyLabel = inventoryDisplay
+    ? t("deck.investigation.copyIql")
+    : evidence.inputKind === "query" ? t("deck.investigation.copyQuery")
     : t("deck.investigation.copyCommand");
   const outputLabel = evidence.inputKind === "query" || providerUsesTerminal(evidence)
     ? t("deck.investigation.queryResult")
     : t("deck.investigation.outputLogs");
-  const inventoryDisplay = evidence.inputKind === "query"
-    ? inventoryExecutionDisplay(evidence.command)
-    : undefined;
   const formattedCommand = formatJsonValue(inventoryDisplay?.iql ?? evidence.command);
   const formattedOutput = evidence.output === undefined
     ? undefined
@@ -192,6 +299,10 @@ function ExecutionEvidence({
   const safetyLabel = evidence.inputKind === "query"
     ? t("deck.investigation.readOnly")
     : authority ?? t("deck.investigation.redacted");
+  const querySummary = objectSetQuerySummary(evidence.command, evidence.target?.operation);
+  const resultSummary = evidence.inputKind === "query"
+    ? queryResultSummary(evidence.output)
+    : undefined;
   return (
     <section class="deck-investigation-execution" aria-label={t("deck.investigation.executionEvidence")}>
       <header class="deck-investigation-command-head">
@@ -210,23 +321,86 @@ function ExecutionEvidence({
           </button>
         </Tooltip>
       </header>
-      {evidence.inputKind === "query" ? (
-        <details class="deck-investigation-disclosure deck-investigation-command-disclosure" open={status === "running"}>
-          <summary>{kindLabel}</summary>
-          <pre class="deck-investigation-command">
-            <code data-format={formattedCommand.isJson ? "json" : "text"}>
-              {formattedCommand.text}
-            </code>
-          </pre>
-        </details>
-      ) : (
-        <pre class="deck-investigation-command">
-          <code data-format={formattedCommand.isJson ? "json" : "text"}>
+      {evidence.target ? (
+        <dl class="deck-investigation-provenance">
+          <div>
+            <dt>{t("deck.investigation.executionInterface")}</dt>
+            <dd>{executionTargetValue(evidence.target.interfaceKind)}</dd>
+          </div>
+          <div>
+            <dt>{t("deck.investigation.service")}</dt>
+            <dd>{executionTargetValue(evidence.target.service)}</dd>
+          </div>
+          <div>
+            <dt>{t("deck.investigation.component")}</dt>
+            <dd><code>{evidence.target.component}</code></dd>
+          </div>
+          <div>
+            <dt>{t("deck.investigation.operation")}</dt>
+            <dd>{executionTargetValue(evidence.target.operation)}</dd>
+          </div>
+          {evidence.target.sourceKind ? (
+            <div>
+              <dt>{t("deck.investigation.dataSource")}</dt>
+              <dd>{executionTargetValue(evidence.target.sourceKind)}</dd>
+            </div>
+          ) : null}
+          {evidence.target.transport ? (
+            <div>
+              <dt>{t("deck.investigation.transport")}</dt>
+              <dd>{executionTargetValue(evidence.target.transport)}</dd>
+            </div>
+          ) : null}
+          <div>
+            <dt>{t("deck.investigation.endpoint")}</dt>
+            <dd>{evidence.target.endpoint
+              ? <code>{`${evidence.target.endpoint.method} ${evidence.target.endpoint.path}`}</code>
+              : evidence.target.interfaceKind === "internal_query"
+              ? t("deck.investigation.internalQueryEndpoint")
+              : t("deck.trajectory.notRecorded")}</dd>
+          </div>
+        </dl>
+      ) : evidence.inputKind === "query" ? (
+        <p class="deck-investigation-provenance-unavailable">
+          <strong>{t("deck.investigation.executionProvenance")}</strong>
+          <span>{t("deck.investigation.provenanceNotRecorded")}</span>
+        </p>
+      ) : null}
+      {querySummary ? (
+        <section class="deck-investigation-query-summary">
+          <strong>{t("deck.investigation.querySummary")}</strong>
+          <dl>
+            {querySummary.objectType ? (
+              <div><dt>{t("deck.investigation.objectType")}</dt><dd><code>{querySummary.objectType}</code></dd></div>
+            ) : null}
+            {querySummary.filters.length > 0 ? (
+              <div><dt>{t("deck.investigation.filters")}</dt><dd>{querySummary.filters.join("; ")}</dd></div>
+            ) : null}
+            {querySummary.limit !== undefined ? (
+              <div><dt>{t("deck.investigation.limit")}</dt><dd>{querySummary.limit}</dd></div>
+            ) : null}
+            {querySummary.asOf ? (
+              <div><dt>{t("deck.investigation.asOf")}</dt><dd><time>{querySummary.asOf}</time></dd></div>
+            ) : null}
+            {querySummary.purpose ? (
+              <div><dt>{t("deck.investigation.purpose")}</dt><dd>{querySummary.purpose}</dd></div>
+            ) : null}
+          </dl>
+        </section>
+      ) : null}
+      <div class="deck-investigation-input-label">
+        {t(evidence.inputKind === "query"
+          ? "deck.investigation.verifiedQueryInput"
+          : "deck.investigation.commandInput")}
+      </div>
+      <pre class="deck-investigation-command">
+        <code data-format={formattedCommand.isJson ? "json" : "text"}>
+          {evidence.inputKind === "command" ? (
             <span class="deck-investigation-prompt" aria-hidden="true">$ </span>
-            {formattedCommand.text}
-          </code>
-        </pre>
-      )}
+          ) : null}
+          {formattedCommand.text}
+        </code>
+      </pre>
       <div class="deck-investigation-result">
         <span class={`deck-investigation-result-status is-${status}`}>
           {statusLabel(status)}
@@ -237,19 +411,40 @@ function ExecutionEvidence({
         {authority ? <span>{authority}</span> : null}
       </div>
       {formattedOutput !== undefined ? (
-        <details class="deck-investigation-disclosure" open={status === "running"}>
-          <summary>
+        <div class="deck-investigation-output-block">
+          <div class="deck-investigation-output-label">
             <span>{outputLabel}</span>
             {evidence.outputTruncated ? (
               <span class="muted">{t("deck.investigation.truncated")}</span>
             ) : null}
-          </summary>
+          </div>
+          {resultSummary ? (
+            <dl class="deck-investigation-result-summary">
+              {resultSummary.status ? (
+                <div><dt>{t("deck.investigation.outcome")}</dt><dd>{resultSummary.status}</dd></div>
+              ) : null}
+              {resultSummary.evidenceCount !== undefined ? (
+                <div><dt>{t("deck.investigation.evidenceReferences")}</dt><dd>{resultSummary.evidenceCount}</dd></div>
+              ) : null}
+              {resultSummary.returnedRows !== undefined ? (
+                <div><dt>{t("deck.investigation.returnedRows")}</dt><dd>{resultSummary.returnedRows}</dd></div>
+              ) : null}
+              {resultSummary.totalRows !== undefined ? (
+                <div><dt>{t("deck.investigation.totalRows")}</dt><dd>{resultSummary.totalRows}</dd></div>
+              ) : null}
+              {resultSummary.complete !== undefined ? (
+                <div><dt>{t("deck.investigation.completeness")}</dt><dd>{t(resultSummary.complete
+                  ? "deck.investigation.complete"
+                  : "deck.investigation.incomplete")}</dd></div>
+              ) : null}
+            </dl>
+          ) : null}
           <pre class="deck-investigation-output">
             <code data-format={formattedOutput.isJson ? "json" : "text"}>
               {formattedOutput.text}
             </code>
           </pre>
-        </details>
+        </div>
       ) : null}
       {hasTimestamps ? (
         <details class="deck-investigation-disclosure">
@@ -267,6 +462,51 @@ function ExecutionEvidence({
           </dl>
         </details>
       ) : null}
+    </section>
+  );
+}
+
+function ActivityObservation({
+  activity,
+}: {
+  readonly activity: InvestigationActivity;
+}) {
+  return (
+    <section
+      class="deck-investigation-execution is-event-only"
+      aria-label={t("deck.investigation.observedEvent")}
+    >
+      <header class="deck-investigation-command-head">
+        <span class="deck-investigation-command-kind">
+          {t("deck.investigation.lifecycle")}
+        </span>
+        <span class="deck-investigation-command-safety">
+          {t("deck.investigation.observed")}
+        </span>
+      </header>
+      <p class="deck-investigation-event-summary">
+        {activity.detail ?? t("deck.trajectory.coverageGap")}
+      </p>
+      <dl class="deck-investigation-event-facts">
+        <div>
+          <dt>{t("deck.investigation.eventType")}</dt>
+          <dd>{t("deck.investigation.lifecycleEvent")}</dd>
+        </div>
+        <div><dt>{t("deck.investigation.stage")}</dt><dd><code>{activity.kind}</code></dd></div>
+        <div><dt>{t("deck.investigation.outcome")}</dt><dd>{statusLabel(activity.status)}</dd></div>
+        {activity.agent ? (
+          <div><dt>{t("deck.trajectory.agent")}</dt><dd>{activity.agent}</dd></div>
+        ) : null}
+        {activity.authority ? (
+          <div><dt>{t("deck.trajectory.authority")}</dt><dd>{activity.authority}</dd></div>
+        ) : null}
+        {activity.observedAt ? (
+          <div><dt>{t("deck.investigation.observedAt")}</dt><dd>{activity.observedAt}</dd></div>
+        ) : null}
+      </dl>
+      <p class="deck-investigation-no-execution">
+        {t("deck.investigation.noExternalExecution")}
+      </p>
     </section>
   );
 }
@@ -292,7 +532,7 @@ function ActivitySummary({
     ? providerUsesTerminal(activity.execution)
     : false;
   return (
-    <div class={`deck-investigation-summary${activity.execution ? " has-kind-badge" : ""}`}>
+    <div class="deck-investigation-summary has-kind-badge">
       <span class="deck-investigation-state" aria-hidden="true">
         <span class="deck-marker-glyph">{statusMark(activity.status)}</span>
       </span>
@@ -304,7 +544,11 @@ function ActivitySummary({
         >
           {terminalActivity ? <TerminalIcon /> : kindLabel}
         </span>
-      ) : null}
+      ) : (
+        <span class="deck-investigation-kind-badge is-event" aria-hidden="true">
+          EVENT
+        </span>
+      )}
       <span class="deck-investigation-copy">
         <span class="deck-investigation-title-line">
           <strong>{activity.label}</strong>
@@ -355,8 +599,8 @@ export function InvestigationTimeline({
   const elapsedMs = useInvestigationElapsed(running, finalDurationMs);
   const tone = investigationTone(activities, branches);
   const visibleBranches = unrepresentedEvidenceBranches(branches, activities);
-  const callCount = activities.length + visibleBranches.length;
-  const completedCallCount = activities.filter((activity) =>
+  const eventCount = activities.length + visibleBranches.length;
+  const completedEventCount = activities.filter((activity) =>
     ["completed", "unavailable", "failed"].includes(activity.status),
   ).length + visibleBranches.filter((branch) =>
     !["pending", "running"].includes(branch.status),
@@ -367,20 +611,20 @@ export function InvestigationTimeline({
       ? "deck.investigation.startingQuery"
       : "deck.investigation.startingCommand", { tool: firstActivity.execution.tool })
     : visibleBranches[0]?.summary ?? firstActivity?.label;
-  const allObservedCallsSettled = callCount > 0 && completedCallCount === callCount;
+  const allObservedEventsSettled = eventCount > 0 && completedEventCount === eventCount;
   const phaseTitle = t(running
     ? "deck.investigation.runningTitle"
     : tone === "completed"
       ? "deck.investigation.completedTitle"
       : "deck.investigation.title");
-  const callSummary = running
-    ? t("deck.investigation.callProgress", {
-        current: Math.min(callCount, completedCallCount + 1),
-        total: callCount,
+  const eventSummary = running
+    ? t("deck.investigation.eventProgress", {
+        current: Math.min(eventCount, completedEventCount + 1),
+        total: eventCount,
       })
-    : t(callCount === 1
-      ? "deck.investigation.callCompletedOne"
-      : "deck.investigation.callsCompletedMany", { count: callCount });
+    : t(eventCount === 1
+      ? "deck.investigation.eventCompletedOne"
+      : "deck.investigation.eventsCompletedMany", { count: eventCount });
   const summary = branches.length > 0
     ? t(branches.length === 1
       ? "deck.investigation.sourceSummaryOne"
@@ -468,30 +712,28 @@ export function InvestigationTimeline({
       ) : null}
       {activities.length > 0 ? (
         <ol class="deck-investigation-list">
-          {activities.map((activity, index) => {
-            return (
+          {activities.map((activity, index) => (
               <li
                 key={activity.activityId}
                 class={`deck-investigation-item is-${activity.status}`}
               >
-                {activity.execution ? (
-                  <details
-                    class="deck-investigation-item-disclosure"
-                    open={activity.status === "running" ||
-                      (running && index === activities.length - 1)}
-                  >
-                    <summary><ActivitySummary activity={activity} /></summary>
+                <details
+                  class="deck-investigation-item-disclosure"
+                  open={activity.status === "running" ||
+                    (running && index === activities.length - 1)}
+                >
+                  <summary><ActivitySummary activity={activity} /></summary>
+                  {activity.execution ? (
                     <ExecutionEvidence
                       evidence={activity.execution}
                       status={activity.status}
                       {...(activity.agent ? { agent: activity.agent } : {})}
                       {...(activity.authority ? { authority: activity.authority } : {})}
                     />
-                  </details>
-                ) : <ActivitySummary activity={activity} />}
+                  ) : <ActivityObservation activity={activity} />}
+                </details>
               </li>
-            );
-          })}
+          ))}
         </ol>
       ) : null}
     </div>
@@ -510,7 +752,7 @@ export function InvestigationTimeline({
       )}
       <span class="deck-investigation-session-copy">
         <strong>{phaseTitle}</strong>
-        <small>{callSummary} · {formatDuration(running ? elapsedMs : finalDurationMs)}</small>
+        <small>{eventSummary} · {formatDuration(running ? elapsedMs : finalDurationMs)}</small>
       </span>
       {!answerSettled ? (
         <span class="deck-investigation-session-summary muted">{summary}</span>
@@ -538,12 +780,15 @@ export function InvestigationTimeline({
         </div>
       ) : null}
       {answerSettled ? (
-        <div
+        <details
+          key="answer-settled"
           class={`deck-investigation is-settled is-${tone} is-answer-settled`}
+          open
           aria-label={t("deck.investigation.label")}
         >
-          <div class="deck-investigation-head">{head}</div>
-        </div>
+          <summary class="deck-investigation-head">{head}</summary>
+          {body}
+        </details>
       ) : (
         <details
           key={running ? "running" : "settled"}
@@ -553,7 +798,7 @@ export function InvestigationTimeline({
         >
           <summary class="deck-investigation-head">{head}</summary>
           {body}
-          {running && allObservedCallsSettled ? <InvestigationNextSkeleton /> : null}
+          {running && allObservedEventsSettled ? <InvestigationNextSkeleton /> : null}
         </details>
       )}
     </>

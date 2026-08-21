@@ -17,9 +17,10 @@ describe("investigation command presentation", () => {
     expect(source).toContain('evidence.inputKind === "query" || providerUsesTerminal(evidence)');
   });
 
-  it("makes the IQL source independently collapsible from its result", () => {
-    expect(source).toContain('class="deck-investigation-disclosure deck-investigation-command-disclosure"');
-    expect(source).toContain('<summary>{kindLabel}</summary>');
-    expect(source).toContain('open={status === "running"}');
+  it("reveals query commands and bounded output with the activity disclosure", () => {
+    expect(source).toContain('class="deck-investigation-command"');
+    expect(source).toContain('class="deck-investigation-output-block"');
+    expect(source).toContain('class="deck-investigation-output"');
+    expect(source).not.toContain("deck-investigation-command-disclosure");
   });
 });

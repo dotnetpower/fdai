@@ -1,11 +1,11 @@
 ---
 mode: agent
-description: Run the FDAI pre-commit gates and report a green/red summary.
+description: Run the narrowest FDAI verification for a supplied path or an explicit merge/release boundary.
 ---
 
-# /verify - run the FDAI pre-commit gates
+# /verify - run focused FDAI verification
 
-Run `scripts/verify.sh` from the repo root and report the gate summary.
+Run the narrowest executable check that can falsify the current change and report its summary.
 
 ## Steps
 
@@ -13,20 +13,14 @@ Run `scripts/verify.sh` from the repo root and report the gate summary.
    (`git rev-parse --show-toplevel`). If not, cd there.
 2. If a Python venv exists at `.venv/`, activate it so `ruff` and `pytest`
    are on PATH: `source .venv/bin/activate`.
-3. Run the fast gates first:
-   `bash scripts/verify.sh --fast`
-4. If the user supplied a pytest path, run focused verification:
+3. If the user supplied a pytest path, run focused verification:
    `bash scripts/verify.sh --full ${ARGS}`.
-5. If the user explicitly asked for the whole repository, run
-   `bash scripts/verify.sh --all`. A generic request such as "with tests"
-   means diff-scoped tests, not the whole suite. Use bare `make test-changed`
-   only when the worktree contains the current batch alone. If unrelated
-   dirty files from parallel sessions are present, use the current session's
-   exact committed range:
-   `make test-changed DIFF=<commit>^..<commit>`.
-   Do not repeat a green run while the commit and relevant environment are
-   unchanged.
-6. Print the summary block from `verify.sh`. If any gate failed:
+4. Otherwise select the smallest test file, node id, typecheck, linter, or structural checker for
+   the task-owned paths. Do not substitute `verify.sh --fast`, `verify.sh --all`, or an unscoped
+   package/repository suite.
+5. If the user explicitly identifies a merge or release boundary, run `make validation-all`
+   exactly once. Do not wait for or rerun the same validation.
+6. Print the relevant command summary. If any gate failed:
    - Name the failing gate.
    - Point at the individual `scripts/check-*.sh` or the offending pytest
      path so the caller can rerun in isolation.

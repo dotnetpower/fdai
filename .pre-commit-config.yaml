@@ -71,6 +71,12 @@ repos:
         entry: bash scripts/quality/repository/check-guids.sh
         language: system
         require_serial: true
+      - id: check-root-layout
+        name: check-root-layout.py
+        entry: python3 scripts/quality/repository/check-root-layout.py --cached
+        language: system
+        always_run: true
+        pass_filenames: false
       - id: check-translations
         name: check-translations.sh
         entry: bash scripts/quality/localization/check-translations.sh

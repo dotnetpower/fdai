@@ -1,11 +1,9 @@
 """Conversation coordinator - Layer 2 orchestrator.
 
-Implements the deterministic Chat T0 layer described in
+Implements the deterministic exact-command surface described in
 [operator-console.md § 4.1](../../../../docs/roadmap/interfaces/operator-console.md).
-A regex / keyword intent matcher that dispatches direct-hit tool calls
-without invoking an LLM. The narrator (Chat T1 / T2) is a follow-up
-wave; a fork that binds a :class:`ConversationalModel` gets the
-escalation path per operator-console.md § 4.2.
+Ordinary language is interpreted only by the bounded semantic or narrator
+model path; deterministic code parses canonical installed command names.
 
 Design invariants enforced here:
 
@@ -113,73 +111,6 @@ class _IntentMatch:
     confidence: float
 
 
-_VERB_PATTERNS: tuple[tuple[str, str], ...] = (
-    (
-        r"^\s*(?P<verb>search[_\s-]?conversations?)\b\s*(?P<rest>.*)$",
-        "search_conversations",
-    ),
-    (r"^\s*(?P<verb>search[_\s-]?tools?)\b\s*(?P<rest>.*)$", "search_tools"),
-    (r"^\s*(?P<verb>describe[_\s-]?tool)\b\s*(?P<rest>.*)$", "describe_tool"),
-    # Explicit verb + argument. Anchored so an accidental substring
-    # never triggers the tool (e.g. "explore_catalogue" would not match
-    # "explore_catalog" without the word boundary).
-    (r"^\s*(?P<verb>explore[_\s-]?catalog(?:ue)?)\b\s*(?P<rest>.*)$", "explore_catalog"),
-    (r"^\s*(?P<verb>search[_\s-]?catalog)\b\s*(?P<rest>.*)$", "explore_catalog"),
-    (r"^\s*(?P<verb>list[_\s-]?rules?)\b\s*(?P<rest>.*)$", "explore_catalog"),
-    # describe_event: describe_event <resource_type> <resource_id>
-    (r"^\s*(?P<verb>describe[_\s-]?event)\b\s*(?P<rest>.*)$", "describe_event"),
-    # explain_verdict: explain_verdict <event_id>
-    (r"^\s*(?P<verb>explain[_\s-]?verdict)\b\s*(?P<rest>.*)$", "explain_verdict"),
-    (r"^\s*(?P<verb>why[_\s-]?abstained?)\b\s*(?P<rest>.*)$", "explain_verdict"),
-    # query_audit: query_audit key=value ...
-    (r"^\s*(?P<verb>query[_\s-]?audit)\b\s*(?P<rest>.*)$", "query_audit"),
-    (r"^\s*(?P<verb>audit[_\s-]?log)\b\s*(?P<rest>.*)$", "query_audit"),
-    # query_inventory: query_inventory <resource_type> [substring]
-    (r"^\s*(?P<verb>query[_\s-]?inventory)\b\s*(?P<rest>.*)$", "query_inventory"),
-    (r"^\s*(?P<verb>list[_\s-]?resources)\b\s*(?P<rest>.*)$", "query_inventory"),
-    # query_operator_memory: query_operator_memory scope_kind=... scope_ref=...
-    (
-        r"^\s*(?P<verb>query[_\s-]?operator[_\s-]?memory)\b\s*(?P<rest>.*)$",
-        "query_operator_memory",
-    ),
-    (r"^\s*(?P<verb>operator[_\s-]?memory)\b\s*(?P<rest>.*)$", "query_operator_memory"),
-    # Observation-depth read tools (Wave M1.5c).
-    (r"^\s*(?P<verb>query[_\s-]?log)\b\s*(?P<rest>.*)$", "query_log"),
-    (r"^\s*(?P<verb>logs?)\b\s*(?P<rest>.*)$", "query_log"),
-    (r"^\s*(?P<verb>query[_\s-]?metric)\b\s*(?P<rest>.*)$", "query_metric"),
-    (r"^\s*(?P<verb>metrics?)\b\s*(?P<rest>.*)$", "query_metric"),
-    (
-        r"^\s*(?P<verb>query[_\s-]?deployments?)\b\s*(?P<rest>.*)$",
-        "query_deployments",
-    ),
-    (r"^\s*(?P<verb>list[_\s-]?deployments?)\b\s*(?P<rest>.*)$", "query_deployments"),
-    (
-        r"^\s*(?P<verb>correlate[_\s-]?incident)\b\s*(?P<rest>.*)$",
-        "correlate_incident",
-    ),
-    (r"^\s*(?P<verb>correlate)\b\s*(?P<rest>.*)$", "correlate_incident"),
-    # simulate_change: simulate_change <JSON scenario>
-    #   Anchored BEFORE the more specific approve_hil so a stray
-    #   "simulate" verb never falls through.
-    (r"^\s*(?P<verb>simulate[_\s-]?change)\b\s*(?P<rest>.*)$", "simulate_change"),
-    (r"^\s*(?P<verb>what[_\s-]?if)\b\s*(?P<rest>.*)$", "simulate_change"),
-    # list_hil: list_hil [limit=N]
-    (r"^\s*(?P<verb>list[_\s-]?hil)\b\s*(?P<rest>.*)$", "list_hil"),
-    (r"^\s*(?P<verb>pending[_\s-]?approvals)\b\s*(?P<rest>.*)$", "list_hil"),
-    # approve_hil: approve_hil idempotency_key=... decision=approve|reject
-    (r"^\s*(?P<verb>approve[_\s-]?hil)\b\s*(?P<rest>.*)$", "approve_hil"),
-    (r"^\s*(?P<verb>resolve[_\s-]?hil)\b\s*(?P<rest>.*)$", "approve_hil"),
-    # run_runbook: run_runbook name=... [dry_run=true|false] [params_json=...]
-    (r"^\s*(?P<verb>run[_\s-]?runbook)\b\s*(?P<rest>.*)$", "run_runbook"),
-    # activate_break_glass: activate_break_glass reason="..." expiry_seconds=N
-    (
-        r"^\s*(?P<verb>activate[_\s-]?break[_\s-]?glass)\b\s*(?P<rest>.*)$",
-        "activate_break_glass",
-    ),
-    (r"^\s*(?P<verb>break[_\s-]?glass)\b\s*(?P<rest>.*)$", "activate_break_glass"),
-)
-
-
 def _extract_query(rest: str) -> str:
     """Trim quotes, punctuation, and boilerplate stopwords."""
 
@@ -268,8 +199,6 @@ class ConversationCoordinator:
 
         match = self._match_exact_command(message)
         legacy_mode = self._config.ordinary_language_mode == "legacy"
-        if match is None and legacy_mode:
-            match = self._match_intent(message)
         if match is None or match.confidence < self._config.chat_t0_confidence_threshold:
             planned = (
                 self._try_read_plan(
@@ -304,7 +233,7 @@ class ConversationCoordinator:
                         tier="T0",
                     )
                 )
-                match = self._match_intent(translated)
+                match = self._match_exact_command(translated)
 
         if match is None or match.confidence < self._config.chat_t0_confidence_threshold:
             visible = self.list_tools_for(session.principal)
@@ -564,7 +493,7 @@ class ConversationCoordinator:
         )
 
     def _parse_read_command(self, command: str) -> ParsedReadCommand | None:
-        match = self._match_intent(command)
+        match = self._match_exact_command(command)
         if match is None:
             return None
         return ParsedReadCommand(
@@ -615,39 +544,6 @@ class ConversationCoordinator:
         ):
             return None
         return question
-
-    def _match_intent(self, message: str) -> _IntentMatch | None:
-        """Regex-first, case-insensitive.
-
-        Confidence heuristic:
-
-        - exact verb prefix + non-empty argument -> 1.0
-        - exact verb prefix, empty argument -> 0.85
-        - fuzzy verb (missing hyphen / space) -> 0.8
-        """
-
-        text = message.strip()
-        if not text:
-            return None
-
-        for pattern, tool_name in _VERB_PATTERNS:
-            m = re.match(pattern, text, flags=re.IGNORECASE)
-            if not m:
-                continue
-            verb = m.group("verb")
-            rest = m.group("rest") if "rest" in (m.groupdict() or {}) else ""
-            query = _extract_query(rest)
-            arguments: dict[str, Any] = _extract_tool_arguments(tool_name, query)
-            confidence = 1.0 if query else 0.85
-            if _has_fuzzy_verb(verb):
-                confidence = min(confidence, 0.8)
-            return _IntentMatch(
-                tool_name=tool_name,
-                arguments=arguments,
-                confidence=confidence,
-            )
-
-        return None
 
     def _match_exact_command(self, message: str) -> _IntentMatch | None:
         """Parse only an installed canonical command name, never a language alias."""
@@ -715,7 +611,7 @@ class ConversationCoordinator:
             return None
         stripped = translated.strip()
         if contextual and stripped:
-            match = self._match_intent(stripped)
+            match = self._match_exact_command(stripped)
             if match is None or not contextual_arguments_grounded(
                 match.arguments,
                 utterance=message,
@@ -723,16 +619,6 @@ class ConversationCoordinator:
             ):
                 return None
         return stripped or None
-
-
-def _has_fuzzy_verb(verb: str) -> bool:
-    """True if the verb needed normalisation (missing hyphen / space).
-
-    The verb 'explore_catalog' is canonical; 'explore catalog' and
-    'explore-catalog' are accepted with slightly lower confidence.
-    """
-
-    return "_" not in verb
 
 
 __all__ = [

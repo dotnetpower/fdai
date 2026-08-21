@@ -10,6 +10,8 @@ from enum import StrEnum
 from typing import Any, Literal, Protocol, cast, runtime_checkable
 from unicodedata import category
 
+from .conversation_activity import ExecutionEndpoint, ExecutionTarget
+
 MAX_CHANNEL_ID_CHARS = 200
 MAX_MESSAGE_ID_CHARS = 200
 MAX_SENDER_ID_CHARS = 200
@@ -109,6 +111,7 @@ class ObservedExecutionActivity:
     status: ConversationExecutionStatus
     redacted: Literal[True]
     input_kind: Literal["command", "query"] = "command"
+    target: ExecutionTarget | None = None
     output: str = ""
     output_truncated: bool = False
     exit_code: int | None = None
@@ -546,6 +549,14 @@ def _activity_chars(activity: ConversationActivity) -> int:
             activity.started_at or "",
             activity.completed_at or "",
             activity.authority or "",
+            activity.target.interface_kind if activity.target is not None else "",
+            activity.target.service if activity.target is not None else "",
+            activity.target.component if activity.target is not None else "",
+            activity.target.operation if activity.target is not None else "",
+            (activity.target.source_kind or "") if activity.target is not None else "",
+            (activity.target.transport or "") if activity.target is not None else "",
+            activity.target.endpoint.method if activity.target and activity.target.endpoint else "",
+            activity.target.endpoint.path if activity.target and activity.target.endpoint else "",
         )
     )
 
@@ -568,6 +579,7 @@ def _activity_to_json(activity: ConversationActivity) -> dict[str, Any]:
         "status": activity.status.value,
         "redacted": activity.redacted,
         "input_kind": activity.input_kind,
+        "target": _execution_target_to_json(activity.target),
         "output": activity.output,
         "output_truncated": activity.output_truncated,
         "exit_code": activity.exit_code,
@@ -598,6 +610,7 @@ def _activity_from_json(value: object) -> ConversationActivity:
         status=ConversationExecutionStatus(_required_json_text(value, "status")),
         redacted=_required_json_true(value, "redacted"),
         input_kind=_optional_json_input_kind(value),
+        target=_execution_target_from_json(value.get("target")),
         output=_optional_json_text(value, "output") or "",
         output_truncated=_optional_json_bool(value, "output_truncated"),
         exit_code=_optional_json_int(value, "exit_code"),
@@ -605,6 +618,63 @@ def _activity_from_json(value: object) -> ConversationActivity:
         completed_at=_optional_json_text(value, "completed_at"),
         duration_ms=_optional_json_int(value, "duration_ms"),
         authority=_optional_json_text(value, "authority"),
+    )
+
+
+def _execution_target_to_json(target: ExecutionTarget | None) -> dict[str, Any] | None:
+    if target is None:
+        return None
+    return {
+        "interface_kind": target.interface_kind,
+        "service": target.service,
+        "component": target.component,
+        "operation": target.operation,
+        "source_kind": target.source_kind,
+        "transport": target.transport,
+        "endpoint": (
+            {"method": target.endpoint.method, "path": target.endpoint.path}
+            if target.endpoint is not None
+            else None
+        ),
+    }
+
+
+def _execution_target_from_json(value: object) -> ExecutionTarget | None:
+    if value is None:
+        return None
+    if not isinstance(value, Mapping):
+        raise ValueError("stored conversation activity target MUST be an object")
+    interface_kind = _required_json_text(value, "interface_kind")
+    if interface_kind not in {"internal_query", "http", "cli", "sdk"}:
+        raise ValueError("stored conversation activity interface_kind is invalid")
+    transport = _optional_json_text(value, "transport")
+    if transport not in {None, "event_bus", "in_process"}:
+        raise ValueError("stored conversation activity transport is invalid")
+    return ExecutionTarget(
+        interface_kind=cast(
+            Literal["internal_query", "http", "cli", "sdk"],
+            interface_kind,
+        ),
+        service=_required_json_text(value, "service"),
+        component=_required_json_text(value, "component"),
+        operation=_required_json_text(value, "operation"),
+        source_kind=_optional_json_text(value, "source_kind"),
+        transport=cast(Literal["event_bus", "in_process"] | None, transport),
+        endpoint=_execution_endpoint_from_json(value.get("endpoint")),
+    )
+
+
+def _execution_endpoint_from_json(value: object) -> ExecutionEndpoint | None:
+    if value is None:
+        return None
+    if not isinstance(value, Mapping):
+        raise ValueError("stored conversation activity endpoint MUST be an object")
+    method = _required_json_text(value, "method")
+    if method not in {"GET", "POST", "PUT", "PATCH", "DELETE"}:
+        raise ValueError("stored conversation activity endpoint method is invalid")
+    return ExecutionEndpoint(
+        method=cast(Literal["GET", "POST", "PUT", "PATCH", "DELETE"], method),
+        path=_required_json_text(value, "path"),
     )
 
 

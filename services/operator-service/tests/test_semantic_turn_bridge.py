@@ -1239,6 +1239,176 @@ def test_answered_done_exposes_exact_no_authority_semantic_receipt() -> None:
     }
 
 
+def test_verified_causal_goals_project_as_detailed_query_activities() -> None:
+    nodes = (
+        ("resolve-target", "object_set", {"definition": {"selector": "service-example-api"}}, ()),
+        (
+            "change-activity",
+            "function",
+            {
+                "function_name": "query.resource_change_activity",
+                "arguments": {"lookback_seconds": 86400},
+            },
+            ("goal-1",),
+        ),
+        (
+            "expand-dependencies",
+            "relationship_traversal",
+            {"link_types": ["service_depends_on"]},
+            ("goal-1",),
+        ),
+        (
+            "symptom-baseline",
+            "metric_scope_series",
+            {
+                "concept_id": "service.latency",
+                "start": "2026-08-20T00:00:00Z",
+                "end": "2026-08-20T00:10:00Z",
+            },
+            ("goal-1",),
+        ),
+        (
+            "symptom-current",
+            "metric_scope_series",
+            {
+                "concept_id": "service.latency",
+                "start": "2026-08-20T00:10:00Z",
+                "end": "2026-08-20T00:20:00Z",
+            },
+            ("goal-1",),
+        ),
+        ("symptom-change", "metric_comparison", {}, ("goal-4", "goal-5")),
+        ("topology-before", "topology_at", {"as_of": "2026-08-20T00:10:00Z"}, ()),
+        ("topology-after", "topology_at", {"as_of": "2026-08-20T00:20:00Z"}, ()),
+        ("topology-change", "topology_diff", {}, ("goal-7", "goal-8")),
+        (
+            "cause-dependency-latency",
+            "metric_scope_series",
+            {"concept_id": "dependency.latency"},
+            ("goal-3",),
+        ),
+        (
+            "hypothesis-dependency-latency",
+            "evidence_join",
+            {"min_samples": 4},
+            ("goal-10", "goal-6", "goal-9"),
+        ),
+        (
+            "cause-resource-saturation",
+            "metric_scope_series",
+            {"concept_id": "resource.saturation"},
+            ("goal-3",),
+        ),
+        (
+            "hypothesis-resource-saturation",
+            "evidence_join",
+            {"min_samples": 4},
+            ("goal-12", "goal-6", "goal-9"),
+        ),
+    )
+    graph_goals = []
+    evidence_goals = []
+    for index, (node_id, intent, arguments, depends_on) in enumerate(nodes, start=1):
+        goal_id = f"goal-{index}"
+        graph_goals.append(
+            {
+                "goal_id": goal_id,
+                "intent": intent,
+                "capability": f"query.{intent}",
+                "arguments": arguments,
+                "depends_on": list(depends_on),
+            }
+        )
+        evidence_goals.append(
+            {
+                "task_id": f"query:{node_id}",
+                "goal_id": goal_id,
+                "intent": intent,
+                "capability": f"query.{intent}",
+                "status": "completed",
+                "duration_ms": index,
+                "depends_on": list(depends_on),
+                "evidence_refs": [f"evidence:{node_id}"],
+                "started_at": "2026-08-20T00:20:00Z",
+                "completed_at": "2026-08-20T00:20:01Z",
+            }
+        )
+    projection = {
+        "semantic_result": {
+            "intent_graph": {"goals": graph_goals},
+            "intent_graph_evidence": {"goals": evidence_goals},
+        },
+        "payload": {
+            "technical_details": {
+                "outputs": [
+                    {
+                        "node_id": "change-activity",
+                        "rows": [
+                            {
+                                "row_id": "activity-1",
+                                "values": {
+                                    "operation": "microsoft_app_containerapps_write",
+                                    "evidence_refs": ["azure-activity:evidence-example"],
+                                    "execution_authority": False,
+                                },
+                            }
+                        ],
+                        "source_complete": True,
+                    },
+                    {
+                        "node_id": "symptom-change",
+                        "result_kind": "metric.comparison",
+                        "summary": {"baseline_value": 100, "current_value": 250},
+                    },
+                    {
+                        "node_id": "hypothesis-dependency-latency",
+                        "result_kind": "causal.join",
+                        "summary": {"status": "supported", "sample_count": 12},
+                    },
+                ]
+            }
+        },
+    }
+
+    activities = semantic_turn_runtime_module._verified_query_activities(
+        projection,
+        locale="ko",
+    )
+
+    assert len(activities) == 13
+    assert activities[0]["label"] == "정확한 대상 리소스 확인"
+    assert activities[1]["label"] == "Activity Log의 변경 및 배포 이력 조회"
+    assert activities[3]["label"] == "기준 구간 지연 메트릭 조회"
+    assert activities[10]["label"] == "경쟁 원인 가설 평가: dependency latency"
+    first_command = json.loads(cast(dict[str, object], activities[0]["execution"])["command"])
+    assert first_command == {
+        "arguments": {"definition": {"selector": "service-example-api"}},
+        "capability": "query.object_set",
+    }
+    first_target = cast(dict[str, object], activities[0]["execution"])["target"]
+    assert first_target == {
+        "interface_kind": "internal_query",
+        "service": "core-control-plane",
+        "component": "OntologyQueryPlanExecutor",
+        "operation": "object_set_materialization",
+        "source_kind": "ontology_instance_store",
+        "transport": "event_bus",
+    }
+    second_target = cast(dict[str, object], activities[1]["execution"])["target"]
+    assert cast(dict[str, object], second_target)["source_kind"] == "registered_query_handler"
+    activity_output = json.loads(cast(dict[str, object], activities[1]["execution"])["output"])
+    assert activity_output["result"]["rows"][0]["values"]["operation"] == (
+        "microsoft_app_containerapps_write"
+    )
+    hypothesis_output = json.loads(cast(dict[str, object], activities[10]["execution"])["output"])
+    assert hypothesis_output["evidence_refs"] == ["evidence:hypothesis-dependency-latency"]
+    assert hypothesis_output["result"]["summary"] == {
+        "sample_count": 12,
+        "status": "supported",
+    }
+    assert all(activity["status"] == "completed" for activity in activities)
+
+
 async def test_answered_replay_emits_observed_lifecycle_before_readable_terminal() -> None:
     store = _MemorySemanticStore()
     bridge = SemanticTurnBridge(
@@ -1375,6 +1545,14 @@ async def test_answered_replay_emits_observed_lifecycle_before_readable_terminal
     execution = cast(dict[str, object], activities[0]["execution"])
     assert json.loads(cast(str, execution["output"])) == projection["payload"]["technical_details"]
     assert execution["redacted"] is True
+    assert execution["target"] == {
+        "interface_kind": "internal_query",
+        "service": "core-control-plane",
+        "component": "OntologyQueryPlanExecutor",
+        "operation": "query_plan_execution",
+        "source_kind": "registered_query_handler",
+        "transport": "event_bus",
+    }
 
 
 def test_semantic_incident_presentation_localizes_korean_artifact() -> None:
@@ -2008,7 +2186,14 @@ async def test_evidence_step_carries_the_verified_query_and_its_row_counts() -> 
         }
     }
     cast(dict[str, object], projection["semantic_result"])["intent_graph"] = {
-        "goals": [{"goal_id": "goal-1", "intent": "object_set", "arguments": arguments}]
+        "goals": [
+            {
+                "goal_id": "goal-1",
+                "intent": "object_set",
+                "capability": "query.object_set",
+                "arguments": arguments,
+            }
+        ]
     }
     projection["payload"] = {
         "technical_details": {
@@ -2034,6 +2219,14 @@ async def test_evidence_step_carries_the_verified_query_and_its_row_counts() -> 
     assert evidence["tool"] == "Ontology query"
     assert evidence["input_kind"] == "query"
     assert evidence["redacted"] is True
+    assert evidence["target"] == {
+        "interface_kind": "internal_query",
+        "service": "core-control-plane",
+        "component": "OntologyQueryPlanExecutor",
+        "operation": "object_set_materialization",
+        "source_kind": "ontology_instance_store",
+        "transport": "event_bus",
+    }
     assert evidence["command"] == (
         '{"definition":{"limit":20,'
         '"predicates":[{"equals":"resource-group","operator":"equals","property":"type"}],'

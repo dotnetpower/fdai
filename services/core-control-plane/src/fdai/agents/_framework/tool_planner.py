@@ -1,4 +1,4 @@
-"""Decide which owned read tools a question needs, before any agent runs.
+"""Validate model-selected owned read tools before any agent runs.
 
 A charter tells its agent to "answer only from owned state through the
 allowed tools", but nothing in the read path ever dispatched one, so the
@@ -7,12 +7,8 @@ that gap from the outside: it picks the tools a question calls for, so a
 caller can gather scoped evidence *before* the answering turn instead of
 asking an agent to narrate what it might have looked at.
 
-The choice is deterministic and needs no model. A tool already declares
-everything the decision requires - its id, its purpose, and the fact keys
-it yields - so matching the question against that declaration is a
-lexical decision, not a judgement. That keeps the planner replayable: the
-same question and the same catalog always select the same tools, which is
-what an evidence-governed read path needs.
+Natural-language selection belongs to a model-backed semantic boundary.
+This module only projects exact canonical tool ids and verifies ownership.
 
 Dispatch stays one level deep. Planning happens outside the agent, and an
 agent holds no reference to the tool registry, so there is no edge from a
@@ -23,12 +19,11 @@ refuses a nested call as the second lock.
 from __future__ import annotations
 
 import math
-from collections.abc import Iterable, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Final
 
 from fdai.agents._framework.pantheon import PANTHEON_SPECS
-from fdai.agents._framework.tool_examples import TOOL_EXAMPLES
 
 #: Tools one question may dispatch. A question that appears to want more
 #: than a handful of reads is a question that wants a report, and a read
@@ -45,44 +40,12 @@ PREFETCH_BUDGET_SECONDS: Final[float] = 5.0
 #: question ceiling so a question it would refuse cannot be planned for.
 MAX_PLANNED_QUESTION_CHARS: Final[int] = 2_000
 
-#: Distinct terms taken from one question. A long question cannot widen
-#: the match surface without bound.
-_MAX_QUESTION_TERMS: Final[int] = 64
-
-#: Shortest term that may carry meaning. Two-letter fragments match
-#: everything and would make every tool look relevant.
-_MIN_TERM_CHARS: Final[int] = 3
-
-#: Terms that appear in almost every tool declaration and almost every
-#: operator question. Left in, they would score every tool equally and
-#: turn ranking into declaration order.
-_STOP_TERMS: Final[frozenset[str]] = frozenset(
-    {
-        "the",
-        "and",
-        "for",
-        "read",
-        "show",
-        "list",
-        "what",
-        "which",
-        "who",
-        "how",
-        "why",
-        "when",
-        "where",
-        "current",
-        "data",
-        "agent",
-        "fdai",
-    }
-)
-
-_PLAN_TIERS: Final[frozenset[str]] = frozenset({"t0_lexical", "t1_semantic"})
+_PLAN_TIERS: Final[frozenset[str]] = frozenset({"semantic_judgment", "t1_semantic"})
 _PLAN_OWNERS: Final[dict[str, str]] = {
     tool.tool_id: spec.name for spec in PANTHEON_SPECS for tool in spec.conversation.tool_specs
 }
 _MAX_PLAN_TERM_CHARS: Final[int] = 64
+_MAX_MATCHED_TERMS: Final[int] = 64
 
 
 def _is_finite_score(value: object) -> bool:
@@ -116,7 +79,7 @@ class ConversationToolPlan:
     """
 
     matched_terms: tuple[str, ...]
-    tier: str = "t0_lexical"
+    tier: str = "semantic_judgment"
 
     def __post_init__(self) -> None:
         if not isinstance(self.agent, str) or not isinstance(self.tool_id, str):
@@ -132,169 +95,47 @@ class ConversationToolPlan:
             not isinstance(term, str) for term in self.matched_terms
         ):
             raise ValueError("conversation tool plan matched_terms MUST be a string tuple")
-        if len(self.matched_terms) > _MAX_QUESTION_TERMS or any(
+        if len(self.matched_terms) > _MAX_MATCHED_TERMS or any(
             not term or len(term) > _MAX_PLAN_TERM_CHARS for term in self.matched_terms
         ):
             raise ValueError("conversation tool plan matched_terms MUST be bounded")
 
 
 def plan_conversation_tools(
-    question: str,
+    requested_tool_ids: Sequence[str],
     *,
     agents: Sequence[str] = (),
     limit: int = MAX_TOOL_PLANS,
 ) -> tuple[ConversationToolPlan, ...]:
-    """Return the tools ``question`` asks for, best match first.
+    """Project exact model-selected tool ids in canonical order.
 
     ``agents`` narrows the search to an already-routed set - the primary
     agent and any contributors - so tool selection refines a routing
     decision rather than competing with it. An empty sequence searches
     the whole pantheon, which is what a caller without a route has.
 
-    Returns an empty tuple when nothing matches. That is the common case
-    and the correct one: most questions are answered from the agent's own
-    turn, and dispatching a tool nobody asked for spends a read budget to
-    attach evidence for a different question.
+    Unknown, duplicate, cross-owner, or over-limit selections fail closed.
     """
-    if limit <= 0:
+    if limit <= 0 or isinstance(requested_tool_ids, str):
         return ()
-    terms = _question_terms(question)
-    if not terms:
+    requested = tuple(requested_tool_ids)
+    if len(requested) != len(set(requested)) or len(requested) > MAX_TOOL_PLANS:
         return ()
     wanted = frozenset(agents)
-    scored: list[ConversationToolPlan] = []
-    for spec in PANTHEON_SPECS:
-        if wanted and spec.name not in wanted:
-            continue
-        for tool in spec.conversation.tool_specs:
-            matched = tuple(sorted(terms & _tool_terms(tool.tool_id, tool.purpose, tool.fact_keys)))
-            if not matched:
-                continue
-            scored.append(
-                ConversationToolPlan(
-                    agent=spec.name,
-                    tool_id=tool.tool_id,
-                    score=len(matched),
-                    matched_terms=matched,
-                )
+    plans: list[ConversationToolPlan] = []
+    for index, tool_id in enumerate(requested):
+        owner = _PLAN_OWNERS.get(tool_id)
+        if owner is None or (wanted and owner not in wanted):
+            return ()
+        plans.append(
+            ConversationToolPlan(
+                agent=owner,
+                tool_id=tool_id,
+                score=float(len(requested) - index),
+                matched_terms=(),
             )
-    if scored:
-        strongest = max(_plan_term_weight(plan) for plan in scored)
-        scored = [plan for plan in scored if _plan_term_weight(plan) >= strongest * 0.75]
-    # Sorted by score, then by name: ties MUST NOT depend on catalog
-    # order, or adding an unrelated tool would silently re-rank an
-    # existing question's plan and a recorded turn would stop replaying.
-    scored.sort(key=lambda plan: (-plan.score, plan.agent, plan.tool_id))
-    return tuple(scored[: min(limit, MAX_TOOL_PLANS)])
-
-
-def _iter_tokens(text: str) -> tuple[str, ...]:
-    pieces: list[str] = []
-    buffer: list[str] = []
-    for ch in text.casefold():
-        if ch.isalnum() or ch in {"_", "-"}:
-            buffer.append(ch)
-        elif buffer:
-            if "".join(buffer):
-                pieces.append("".join(buffer))
-            buffer.clear()
-    if buffer:
-        pieces.append("".join(buffer))
-    return tuple(pieces)
-
-
-def _term_variants(token: str) -> tuple[str, ...]:
-    normalized = token.strip("_-").casefold()
-    if not normalized:
-        return ()
-    stripped = _strip_korean_particles(normalized)
-    if stripped != normalized:
-        return (stripped,)
-    return (normalized,)
-
-
-def _strip_korean_particles(token: str) -> str:
-    particles = (
-        "은",
-        "는",
-        "이",
-        "가",
-        "을",
-        "를",
-        "과",
-        "와",
-        "의",
-        "도",
-        "에",
-        "에서",
-        "한",
-        "만",
-        "께",
-    )
-    for particle in particles:
-        if token.endswith(particle):
-            stripped = token.removesuffix(particle)
-            if stripped:
-                return stripped
-    return token
-
-
-def _is_meaningful_term(term: str) -> bool:
-    if not term:
-        return False
-    return len(term) >= _MIN_TERM_CHARS or (not term.isascii() and len(term) >= 2)
-
-
-def _tool_terms(tool_id: str, purpose: str, fact_keys: Iterable[str]) -> frozenset[str]:
-    examples = " ".join(term for pair in TOOL_EXAMPLES.get(tool_id, ()) for term in pair.split())
-    source = " ".join((tool_id, purpose, *fact_keys, examples)).casefold()
-    found: set[str] = set()
-    for token in _iter_tokens(source):
-        for term in _term_variants(token):
-            if _is_meaningful_term(term) and term not in _STOP_TERMS:
-                found.add(term)
-    return frozenset(found)
-
-
-def _plan_term_weight(plan: ConversationToolPlan) -> float:
-    return sum(_term_specificity(term) for term in plan.matched_terms)
-
-
-def _term_specificity(term: str) -> float:
-    count = _TERM_CORPUS_FREQUENCIES.get(term, 1)
-    if count <= 1:
-        return 2.0
-    if count <= 2:
-        return 1.0
-    if count <= 4:
-        return 0.5
-    return 0.25
-
-
-_TERM_CORPUS_FREQUENCIES: Final[dict[str, int]] = {}
-for spec in PANTHEON_SPECS:
-    for tool in spec.conversation.tool_specs:
-        for source in (
-            " ".join((tool.tool_id, tool.purpose, *tool.fact_keys)),
-            *TOOL_EXAMPLES.get(tool.tool_id, ()),
-        ):
-            for token in _iter_tokens(source):
-                for term in _term_variants(token):
-                    if _is_meaningful_term(term):
-                        _TERM_CORPUS_FREQUENCIES[term] = _TERM_CORPUS_FREQUENCIES.get(term, 0) + 1
-
-
-def _question_terms(question: str) -> frozenset[str]:
-    if not question:
-        return frozenset()
-    found: set[str] = set()
-    for token in _iter_tokens(question[:MAX_PLANNED_QUESTION_CHARS]):
-        for term in _term_variants(token):
-            if _is_meaningful_term(term) and term not in _STOP_TERMS:
-                found.add(term)
-            if len(found) >= _MAX_QUESTION_TERMS:
-                return frozenset(tuple(found)[:_MAX_QUESTION_TERMS])
-    return frozenset(found)
+        )
+    return tuple(plans[: min(limit, MAX_TOOL_PLANS)])
 
 
 __all__ = [

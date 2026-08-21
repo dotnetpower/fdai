@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 
 import pytest
-from fdai.core.conversation.answer_plan import AnswerSection, build_answer_plan
+from fdai.core.conversation.answer_plan import AnswerIntent, AnswerSection, build_answer_plan
 from fdai.core.conversation.answer_planning import (
     AnswerContribution,
     AnswerPlanningConfig,
@@ -79,7 +79,7 @@ async def test_collects_two_contributors_in_score_order_and_measures_duplicates(
 
     result = await run_answer_planning_round(
         prompt="Why was this denied?",
-        plan=build_answer_plan("Why was this denied?"),
+        plan=build_answer_plan("denial", intent=AnswerIntent.WHY),
         route=route,
         provider=provider,
     )
@@ -128,7 +128,7 @@ async def test_conflicting_claims_for_one_evidence_ref_degrade_without_picking_a
 
     result = await run_answer_planning_round(
         prompt="Why was this denied?",
-        plan=build_answer_plan("Why was this denied?"),
+        plan=build_answer_plan("denial", intent=AnswerIntent.WHY),
         route=AnswerPlanningRoute(
             primary_agent="Forseti",
             candidates=(PlanningCandidate("Freyr", 0.9), PlanningCandidate("Njord", 0.8)),
@@ -146,7 +146,7 @@ async def test_timeout_and_error_degrade_without_raising() -> None:
     provider = _Provider({"Freyr": _Block(), "Njord": RuntimeError("private detail")})
     result = await run_answer_planning_round(
         prompt="Diagnose this failure",
-        plan=build_answer_plan("Diagnose this failure"),
+        plan=build_answer_plan("failure", intent=AnswerIntent.DIAGNOSIS),
         route=AnswerPlanningRoute(
             primary_agent="Heimdall",
             candidates=(PlanningCandidate("Freyr", 0.9), PlanningCandidate("Njord", 0.8)),
@@ -169,7 +169,7 @@ async def test_abstention_is_degraded_and_duplicate_candidates_are_called_once()
     provider = _Provider({"Njord": None})
     result = await run_answer_planning_round(
         prompt="Compare capacity and cost",
-        plan=build_answer_plan("Compare capacity and cost"),
+        plan=build_answer_plan("capacity and cost", intent=AnswerIntent.COMPARISON),
         route=AnswerPlanningRoute(
             primary_agent="Freyr",
             candidates=(
@@ -187,22 +187,24 @@ async def test_abstention_is_degraded_and_duplicate_candidates_are_called_once()
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("prompt", "nested", "reason"),
+    ("prompt", "intent", "facets", "nested", "reason"),
     [
-        ("Show current status", False, "not_eligible"),
-        ("Why was this denied?", True, "nested_round_forbidden"),
-        ("Briefly compare T1 and T2", False, "not_eligible"),
+        ("current status", AnswerIntent.STATUS, (), False, "not_eligible"),
+        ("denial", AnswerIntent.WHY, (), True, "nested_round_forbidden"),
+        ("T1 and T2", AnswerIntent.COMPARISON, ("brief",), False, "not_eligible"),
     ],
 )
 async def test_simple_brief_and_nested_rounds_are_skipped(
     prompt: str,
+    intent: AnswerIntent,
+    facets: tuple[str, ...],
     nested: bool,
     reason: str,
 ) -> None:
     provider = _Provider({"Njord": _contribution("Njord", evidence=("cost:1",))})
     result = await run_answer_planning_round(
         prompt=prompt,
-        plan=build_answer_plan(prompt),
+        plan=build_answer_plan(prompt, intent=intent, requested_facets=facets),
         route=AnswerPlanningRoute(
             primary_agent="Forseti",
             candidates=(PlanningCandidate("Njord", 0.8),),

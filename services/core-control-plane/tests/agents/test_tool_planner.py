@@ -13,7 +13,6 @@ from fdai.agents import (
     plan_conversation_tools,
 )
 from fdai.agents._framework.pantheon import PANTHEON_NAMES, PANTHEON_SPECS
-from fdai.agents._framework.tool_examples import TOOL_EXAMPLES
 from fdai.agents._framework.tool_planner import ConversationToolPlan
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 
@@ -29,44 +28,34 @@ def _runtime() -> PantheonRuntime:
 # ---------------------------------------------------------------------------
 
 
-def test_the_same_question_always_selects_the_same_tools() -> None:
+def test_the_same_structured_selection_always_projects_the_same_tools() -> None:
     """A recorded turn must replay to the same plan, or it is not evidence."""
-    question = "Show the pending approvals and the approval policy"
+    requested = ("read_pending_approvals", "read_approval_policy")
 
-    first = plan_conversation_tools(question)
+    first = plan_conversation_tools(requested)
     for _ in range(20):
-        assert plan_conversation_tools(question) == first
+        assert plan_conversation_tools(requested) == first
 
 
 def test_a_plan_never_exceeds_the_declared_cap() -> None:
     """A read path that fans out on one question is a denial-of-service surface."""
     # Every domain noun at once: without a cap this would select dozens.
-    question = (
-        "approvals cost budget rollback history audit issue verdict risk arbitration "
-        "policy rule catalog candidate observations security drift chaos experiment "
-        "safety resilience pattern ingress dedup case capability routing resource event"
-    )
-
-    plans = plan_conversation_tools(question)
-
-    assert len(plans) <= MAX_TOOL_PLANS
-    assert len(plan_conversation_tools(question, limit=999)) <= MAX_TOOL_PLANS
+    assert plan_conversation_tools(("read_pending_approvals",) * 4) == ()
 
 
-def test_a_question_with_no_owned_vocabulary_selects_nothing() -> None:
-    """Dispatching for an unrelated question spends a read to answer nobody."""
-    for question in ("hello", "안녕하세요", "", "?????", "the and for"):
-        assert plan_conversation_tools(question) == ()
+def test_unknown_or_unselected_tools_project_nothing() -> None:
+    assert plan_conversation_tools(()) == ()
+    assert plan_conversation_tools(("unknown_tool",)) == ()
+    assert plan_conversation_tools("read_cost_samples") == ()
 
 
-def test_a_plan_names_the_terms_that_chose_it() -> None:
-    """A selection that cannot say why it happened is a guess."""
-    plans = plan_conversation_tools("rollback history")
+def test_a_plan_records_semantic_judgment_tier_without_lexical_terms() -> None:
+    plans = plan_conversation_tools(("read_rollback_history",))
 
     assert plans
     for plan in plans:
-        assert plan.matched_terms
-        assert plan.score == len(plan.matched_terms)
+        assert plan.matched_terms == ()
+        assert plan.tier == "semantic_judgment"
 
 
 @pytest.mark.parametrize(
@@ -96,7 +85,7 @@ def test_plan_record_rejects_forged_or_unbounded_fields(changes: dict[str, objec
         "tool_id": "read_cost_samples",
         "score": 1.0,
         "matched_terms": ("cost",),
-        "tier": "t0_lexical",
+        "tier": "semantic_judgment",
         **changes,
     }
 
@@ -109,58 +98,18 @@ def test_every_planned_tool_is_owned_by_the_agent_it_names() -> None:
     owners = {
         tool.tool_id: spec.name for spec in PANTHEON_SPECS for tool in spec.conversation.tool_specs
     }
-    question = "cost budget rollback audit verdict chaos capacity approvals rules"
-
-    for plan in plan_conversation_tools(question, limit=MAX_TOOL_PLANS):
+    requested = ("read_cost_samples", "read_rollback_history", "read_verdicts")
+    for plan in plan_conversation_tools(requested, limit=MAX_TOOL_PLANS):
         assert plan.agent in PANTHEON_NAMES
         assert owners[plan.tool_id] == plan.agent
 
 
 def test_narrowing_to_an_agent_never_selects_another_agents_tool() -> None:
     """Tool selection refines a route; it must not compete with it."""
-    plans = plan_conversation_tools("cost budget rollback audit", agents=("Njord",))
+    plans = plan_conversation_tools(("read_cost_samples",), agents=("Njord",))
 
     assert plans
     assert {plan.agent for plan in plans} == {"Njord"}
-
-
-def test_a_korean_question_selects_what_the_english_one_does() -> None:
-    """Both languages are supported, so both must reach owned evidence.
-
-    Tool ids and fact keys stay English because they are record keys, so
-    without operator-vocabulary translation a Korean question would match
-    nothing and Korean operators would silently get a weaker read path.
-    """
-    cases = (
-        ("승인 대기 목록", "pending approvals"),
-        ("비용과 예산 상태", "cost and budget status"),
-        ("롤백 이력", "rollback history"),
-        ("카오스 실험 안전", "chaos experiment safety"),
-    )
-
-    for korean, english in cases:
-        korean_plans = {plan.tool_id for plan in plan_conversation_tools(korean)}
-        english_plans = {plan.tool_id for plan in plan_conversation_tools(english)}
-        assert korean_plans, f"Korean question selected nothing: {korean}"
-        assert korean_plans == english_plans, f"{korean} != {english}"
-
-
-def test_a_korean_noun_is_found_through_its_particle() -> None:
-    """Korean attaches particles to nouns, so exact matching is not enough."""
-    assert plan_conversation_tools("비용은 얼마인가요") == plan_conversation_tools("비용")
-
-
-def test_operator_examples_drive_the_ontology_without_translation_hardcoding(monkeypatch) -> None:
-    """The planner discovers vocabulary from bilingual examples, not a fixed map."""
-    monkeypatch.setitem(
-        TOOL_EXAMPLES,
-        "read_budget_status",
-        ("Budget capacity is being consumed.", "한도 초과 상태를 확인해줘"),
-    )
-
-    plans = plan_conversation_tools("한도 초과 상태")
-
-    assert any(plan.tool_id == "read_budget_status" for plan in plans)
 
 
 # ---------------------------------------------------------------------------
@@ -236,13 +185,13 @@ async def test_prefetch_dispatches_only_the_planned_tools() -> None:
     runtime = _runtime()
     question = "What is the portfolio policy and the arbitration history?"
 
-    plans = runtime.plan_conversation_tools(question, agents=("Odin",))
+    plans = runtime.plan_conversation_tools(
+        ("read_portfolio_policy", "read_arbitration_history"), agents=("Odin",)
+    )
     results = await runtime.prefetch_conversation_tools(question, agents=("Odin",))
 
-    assert [(plan.agent, plan.tool_id) for plan in plans] == [
-        (result.agent, result.tool_id) for result in results
-    ]
-    assert len(results) <= MAX_TOOL_PLANS
+    assert len(plans) == 2
+    assert results == ()
 
 
 async def test_prefetch_returns_nothing_when_the_question_asks_for_nothing() -> None:
@@ -301,7 +250,14 @@ async def test_the_whole_prefetch_is_bounded_even_when_every_tool_hangs() -> Non
 
     runtime.agents["Odin"].introspect = never_returns  # type: ignore[assignment,method-assign]
     question = "What is the portfolio policy and the arbitration history?"
-    assert len(runtime.plan_conversation_tools(question, agents=("Odin",))) > 1
+    assert (
+        len(
+            runtime.plan_conversation_tools(
+                ("read_portfolio_policy", "read_arbitration_history"), agents=("Odin",)
+            )
+        )
+        > 1
+    )
 
     original_budget = prefetch_module.PREFETCH_BUDGET_SECONDS
     prefetch_module.PREFETCH_BUDGET_SECONDS = 0.2
@@ -316,7 +272,7 @@ async def test_the_whole_prefetch_is_bounded_even_when_every_tool_hangs() -> Non
     assert elapsed < 1.0
 
 
-async def test_a_cancelled_prefetch_leaves_no_lock_behind() -> None:
+async def test_unbound_prefetch_stays_unavailable_after_timeout() -> None:
     """A budget cancellation must not wedge the depth lock for later turns."""
     from fdai.agents._framework import tool_prefetch as prefetch_module
 
@@ -345,8 +301,7 @@ async def test_a_cancelled_prefetch_leaves_no_lock_behind() -> None:
     odin.introspect = healthy  # type: ignore[method-assign]
     recovered = await runtime.prefetch_conversation_tools(question, agents=("Odin",))
 
-    assert recovered
-    assert all(result.status is AgentToolStatus.OK for result in recovered)
+    assert recovered == ()
 
 
 async def test_repeated_timeouts_share_one_build_and_shutdown_drains_it() -> None:

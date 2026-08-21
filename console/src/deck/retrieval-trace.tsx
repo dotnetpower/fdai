@@ -34,6 +34,7 @@ const VISIBLE = 3;
 const FACT_INTERVAL_MS = 95;
 
 interface Stage {
+  readonly glyph: string;
   readonly label: string;
   readonly detail: string;
   readonly side: "read" | "route";
@@ -66,6 +67,7 @@ function buildStages(
   const stages: Stage[] = [];
   if (snapshot) {
     stages.push({
+      glyph: "S",
       label: t("deck.retrieval.readScreen"),
       detail: t("deck.retrieval.screenDetail", {
         route: snapshot.routeLabel,
@@ -78,15 +80,23 @@ function buildStages(
   }
   if (health?.router) {
     stages.push({
+      glyph: "R",
       label: t("deck.retrieval.routeChosen", { deployment: health.router.chose }),
       detail: health.router.reason,
       side: "route",
       done: true,
     });
   } else if (health?.model) {
-    stages.push({ label: t("deck.retrieval.route"), detail: health.model, side: "route", done: true });
+    stages.push({
+      glyph: "R",
+      label: t("deck.retrieval.route"),
+      detail: health.model,
+      side: "route",
+      done: true,
+    });
   }
   stages.push({
+    glyph: progress?.phase === "generating" ? "G" : "B",
     label: progress?.label ?? t("deck.retrieval.consultBackend"),
     detail:
       progress && progress.completed !== null && progress.total !== null
@@ -184,6 +194,7 @@ export function RetrievalTrace({
           <span class="deck-rt-elapsed muted" aria-hidden="true">
             {(elapsedMs / 1000).toFixed(1)}s
           </span>
+          <span class="deck-rt-mode">{t("deck.retrieval.compact")}</span>
         </header>
 
         <ol class="deck-rt-stages">
@@ -192,7 +203,7 @@ export function RetrievalTrace({
             key={`${stage.label}-${index}`}
             class={`deck-rt-stage ${stage.done ? "is-done" : "is-active"}`}
           >
-            <span class="deck-rt-ico" aria-hidden="true" />
+            <span class="deck-rt-ico" aria-hidden="true">{stage.glyph}</span>
             <span class="deck-rt-stage-copy">
               <span class="deck-rt-slabel">{stage.label}</span>
               <span class="deck-rt-detail muted">{stage.detail}</span>
@@ -201,13 +212,6 @@ export function RetrievalTrace({
               {t(`deck.retrieval.side.${stage.side}`)}
             </span>
             {stage.done ? <span class="deck-rt-check" aria-hidden="true">{"\u2713"}</span> : null}
-            {!stage.done ? (
-              <span class="deck-rt-activity" aria-hidden="true">
-                <span />
-                <span />
-                <span />
-              </span>
-            ) : null}
           </li>
         ))}
         </ol>

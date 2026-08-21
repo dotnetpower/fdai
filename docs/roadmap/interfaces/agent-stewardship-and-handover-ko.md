@@ -1,7 +1,7 @@
 ---
 translation_of: agent-stewardship-and-handover.md
-translation_source_sha: c807c0fad354c18972711def29175db96e9e665d
-translation_revised: 2026-08-15
+translation_source_sha: de8c98d798c8ef2b9ad5701de80990e7a50957fd
+translation_revised: 2026-08-21
 title: 에이전트 스튜어드십과 인수인계
 ---
 # 에이전트 스튜어드십과 인수인계
@@ -29,7 +29,7 @@ RBAC은 "누가 FDAI를 조작할 수 있나"(읽기 담당 / 기여자 / Approv
 | 담당 체계 스키마, 해석기, 판테온 동등성 | implemented | `services/core-control-plane/src/fdai/core/stewardship/`; `services/core-control-plane/tests/core/stewardship/test_resolver.py`; `test_pantheon_parity.py`; `uv run pytest -q --no-cov services/core-control-plane/tests/core/stewardship` (71 passed) | 스키마 v1을 계속 읽을 수 있고, 스키마 v2는 순서가 있는 임무를 보존하며, 유효하지 않거나 불완전한 매핑은 실패 시 차단됩니다. |
 | 스키마 v2 마이그레이션 | implemented | `scripts/governance/migrate-stewardship-v2.py`; `services/core-control-plane/tests/core/stewardship/test_migration.py` | 마이그레이션은 검토 가능한 후보를 렌더링하고 활성 지도를 인플레이스 방식으로 수정하지 않습니다. |
 | 범위, 에스컬레이션, 알림 기본 요소 | implemented | `services/core-control-plane/src/fdai/core/stewardship/coverage.py`; `escalation.py`; `notify.py`; 집중 담당 체계 테스트 모음 (71 passed) | 이 결정론적 기본 요소는 발견 사항과 수신자를 계산합니다. 런타임 스케줄링과 전달은 수명 주기 소유 문서에서 다룹니다. |
-| 근거 기반 담당자 인수인계 부트스트랩 | implemented | `services/core-control-plane/src/fdai/core/stewardship/handover_bootstrap/`; `services/core-control-plane/tests/core/stewardship/handover_bootstrap/test_interpreter_binding.py`; 집중 담당 체계 테스트 모음 | 정확한 추출과 검토 보류 동작이 있습니다. `HandoverInterpreter` 배포 시임을 검증합니다. 바인딩이 없으면 결정론적으로 유지되고, 바인딩되면 문서마다 호출되며, 근거가 없거나 확신이 낮거나 신원이 해석되지 않은 제안은 적용된 매핑에 도달하지 않습니다. 업스트림은 적응형 해석기를 제공하지 않으므로 적응형 해석은 운영에서 사용할 수 없습니다. |
+| 근거 기반 담당자 인수인계 부트스트랩 | implemented | `services/core-control-plane/src/fdai/core/stewardship/handover_bootstrap/`; `services/core-control-plane/tests/core/stewardship/handover_bootstrap/test_interpreter_binding.py`; 집중 담당 체계 테스트 모음 | Strict 구조화된 배정 parsing과 검토 보류 동작이 있습니다. `HandoverInterpreter` 배포 시임을 검증합니다. 바인딩이 없으면 abstain하고, 바인딩되면 문서마다 호출되며, 근거가 없거나 확신이 낮거나 신원이 해석되지 않은 제안은 적용된 매핑에 도달하지 않습니다. 업스트림은 적응형 해석기를 제공하지 않으므로 적응형 해석은 운영에서 사용할 수 없습니다. |
 | 일반 업스트림 인수인계 지도 | implemented | `config/agent-stewardship.yaml`; `bash scripts/governance/check-stewardship.sh` (15 agents, 2 maintainers) | 추적되는 지도는 의도적으로 자리 표시자 신원과 스키마 v1을 사용합니다. 일반 구조를 입증하지만 배포 준비 상태나 실제 백업 범위를 입증하지는 않습니다. |
 
 ### 구현 이력
@@ -38,6 +38,7 @@ RBAC은 "누가 FDAI를 조작할 수 있나"(읽기 담당 / 기여자 / Approv
 |------|------|------|------|-----------|
 | 2026-08-13 | implemented | 이전 출처를 재구성하지 않고 구현 원장을 도입했으며 이 문서의 범위를 스키마, 결정론적 담당 체계 기본 요소, 마이그레이션, 인수인계 부트스트랩으로 한정했습니다. | `current change`; 구현 범위 표에 나열된 담당 체계 소스와 집중 검사. | 업스트림 저장소에 테넌트 신원을 넣지 않고 배포별 스키마 v2 `primary` 및 `backup` 범위를 기록합니다. |
 | 2026-08-15 | implemented | 기본 abstain 동작, 문서별 호출, 제안 게이팅을 다루는 `HandoverInterpreter` 배포 시임의 집중 근거를 추가했습니다. | `current change`; `services/core-control-plane/tests/core/stewardship/handover_bootstrap/test_interpreter_binding.py`; `pytest services/core-control-plane/tests/core/stewardship/handover_bootstrap/` (26 passed). | 구체적인 적응형 해석기 배포 바인딩과 런타임 증적은 남아 있습니다. |
+| 2026-08-21 | implemented | 인수인계 추출에서 에이전트별 domain-keyword classifier를 제거했습니다. 결정론적 경로는 명시적인 구조화된 배정 형식만 수락하며 다른 산문은 grounded `HandoverInterpreter`가 필요하거나 held 상태로 남습니다. | `current change`; 집중 담당 체계 검사 20개가 통과했고 semantic-routing guard에 migrate 경로가 없습니다. | 구체적인 적응형 해석기 배포 바인딩과 런타임 증적은 남아 있습니다. |
 
 ### 남은 작업
 
@@ -366,14 +367,11 @@ SPA는 Git 자격 증명을 보유하지 않고 `config/agent-stewardship.yaml`�
 `services/core-control-plane/src/fdai/core/stewardship/handover_bootstrap/` 아래에 결정론 우선, 근거 기반, 기권형
 파이프라인으로 구현되어 있다:
 
-1. **결정론적 추출** (`extractor.py` + `agent_domains.py`). 각 문서 라인을 에이전트별
-   도메인 키워드 카탈로그(인계 스킬의 "누가 X를 소유했나" 질문, 판테온 에이전트마다 1개)에
-   대조한다. 도메인 키워드 + 사람/팀 + 책임 마커를 맞춘 라인은 **모델 없이** 근거를 갖춘
-  `ExtractedMapping`을 산출합니다. 등록 양식은
-  `Agent: <name>; responsibility: <value>; subject: <kind>; identity: <display name>` 구조화된
-  양식을 사용합니다. 이 필드들은 권위 있는하므로 신원 텍스트가 다른 에이전트를 추가하거나
-  responsibility를 바꿀 수 없고 malformed 또는 알 수 없음 구조화된 배정은 무시됩니다. 이것이
-  결정론 우선 단계입니다.
+1. **구조화된 추출** (`extractor.py`). 결정론적 경로는
+  `Agent: <name>; responsibility: <value>; subject: <kind>; identity: <display name>`
+  명시적 등록 양식만 수락합니다. 산문을 해석하지 않고 정본 에이전트, responsibility, subject
+  kind, source span을 검증합니다. 신원 텍스트는 다른 에이전트를 추가하거나 responsibility를
+  바꿀 수 없고 malformed 또는 알 수 없는 배정은 무시됩니다.
 2. **모델 해석** (`interpreter.py`). 구조가 해결하지 못한 것은 T2 `HandoverInterpreter` 시임에
    넘길 수 있다. 업스트림은 `AbstainingInterpreter`(아무것도 제안하지 않음)를 기본 제공하므로
    LLM이 없는 배포는 절대 추측하지 않는다. 포크는 mixed-model 근거 기반 구현을 바인딩한다
@@ -422,9 +420,9 @@ Graph 애플리케이션 권한인 `User.Read.All`과 `Group.Read.All`만 할당
 상태, 실패, 배포 계약은
 [agent-stewardship-operations-ko.md](agent-stewardship-operations-ko.md)를 참조하세요.
 
-남은 포크 연결은 결정론적 추출기가 해석하지 못한 구조를 근거에 기반한 T2로 해석하는
+남은 포크 연결은 free-form 구조를 근거에 기반한 T2로 해석하는
 `HandoverInterpreter`입니다. 업스트림 운영은 mixed-model 연결을 명시적으로 공급하지
-않으면 abstaining 구현을 유지하며 결정론적 추출과 Graph 해석은 계속
+않으면 abstaining 구현을 유지하며 구조화된 추출과 Graph 해석은 계속
 실행됩니다. 모든 경계는 비동기로 주입되고 `core/`는 cloud SDK나 HTTP 클라이언트를 갖지 않습니다.
 
 ## 12. 범위 밖 (별도 추적)

@@ -39,7 +39,11 @@ from fdai.agents._framework.arbitration import (
 )
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus import PantheonBus
-from fdai.agents._framework.introspection import IntrospectionResult, capability_facts
+from fdai.agents._framework.introspection import (
+    IntrospectionResult,
+    capability_facts,
+    semantic_intents,
+)
 from fdai.agents._framework.pantheon import _ODIN
 from fdai.agents._framework.vertical_precedence import CrossVerticalPrecedence
 
@@ -259,7 +263,7 @@ class Odin(Agent):
             "verdicts_observed": self._verdicts_observed,
             "verdict_outcomes": dict(self._verdict_outcomes),
         }
-        if "history" in question.casefold():
+        if "arbitration_history" in semantic_intents(context):
             return IntrospectionResult(
                 answer="No retained arbitration history is bound to this conversational port.",
                 facts=facts,

@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/dotnetpower/fdai/eval/golden-dataset/semantic-judgment-assurance.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "dataset_version", "base_dataset_version", "evidence_kind", "operational_validation", "thresholds", "cases"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "dataset_version": {"type": "string", "pattern": "^[1-9][0-9]*\\.[0-9]+\\.[0-9]+$"},
+    "base_dataset_version": {"const": "2.0.0"},
+    "evidence_kind": {"const": "synthetic_contract_replay"},
+    "operational_validation": {"const": false},
+    "thresholds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["semantic_recall_min", "semantic_precision_min", "per_dimension_accuracy_min", "terminal_outcome_accuracy_min", "authority_violations_max", "lexical_fallbacks_max"],
+      "properties": {
+        "semantic_recall_min": {"type": "number", "minimum": 0, "maximum": 1},
+        "semantic_precision_min": {"type": "number", "minimum": 0, "maximum": 1},
+        "per_dimension_accuracy_min": {"type": "number", "minimum": 0, "maximum": 1},
+        "terminal_outcome_accuracy_min": {"type": "number", "minimum": 0, "maximum": 1},
+        "authority_violations_max": {"const": 0},
+        "lexical_fallbacks_max": {"const": 0}
+      }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 18,
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "dimension", "locale", "utterance", "context", "expected", "legacy", "treatment"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,79}$"},
+          "dimension": {"enum": ["paraphrase", "unseen_synonym", "negation_correction", "hypothetical_quoted", "prior_turn_omission", "multiple_intents", "adversarial_keyword_stuffing", "direct_action_control", "ambiguity", "model_failure"]},
+          "locale": {"enum": ["en", "ko", "mixed"]},
+          "utterance": {"type": "string", "minLength": 1, "maxLength": 2000},
+          "context": {"type": "array", "maxItems": 8, "items": {"type": "string", "maxLength": 2000}},
+          "expected": {"$ref": "#/$defs/expected"},
+          "legacy": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["primary_intent"],
+            "properties": {"primary_intent": {"type": ["string", "null"]}}
+          },
+          "treatment": {"$ref": "#/$defs/treatment"}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["disposition", "primary_intent", "secondary_intents", "discourse_mode", "action_posture"],
+      "properties": {
+        "disposition": {"enum": ["accepted", "clarification", "unavailable", "malformed", "low_confidence"]},
+        "primary_intent": {"type": ["string", "null"]},
+        "secondary_intents": {"type": "array", "maxItems": 8, "items": {"type": "string"}},
+        "discourse_mode": {"type": ["string", "null"], "enum": ["direct", "hypothetical", "quoted", null]},
+        "action_posture": {"type": ["string", "null"], "enum": ["advise_only", "draft_only", null]}
+      }
+    },
+    "treatment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["disposition"],
+      "properties": {
+        "disposition": {"enum": ["accepted", "clarification", "unavailable", "timeout", "malformed", "low_confidence"]},
+        "primary_intent": {"type": "string"},
+        "secondary_intents": {"type": "array", "maxItems": 8, "items": {"type": "string"}},
+        "requested_facets": {"type": "array", "maxItems": 32, "items": {"type": "string"}},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "discourse_mode": {"enum": ["direct", "hypothetical", "quoted"]},
+        "action_posture": {"enum": ["advise_only", "draft_only"]},
+        "alternatives": {"type": "array", "maxItems": 8, "items": {"type": "string"}},
+        "clarification": {"type": "string", "maxLength": 512}
+      }
+    }
+  }
+}

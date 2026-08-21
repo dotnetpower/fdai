@@ -256,6 +256,22 @@
       }
     },
     {
+      "label": "console: verify local services",
+      "type": "shell",
+      "command": ".venv/bin/python scripts/automation/developer-workflow.py local-services --wait-seconds 15",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "group": "console-full-stack",
+        "close": true
+      },
+      "runOptions": {
+        "instanceLimit": 1,
+        "instancePolicy": "silent"
+      }
+    },
+    {
       "label": "console: require primary worktree for automatic start",
       "type": "shell",
       "command": "git_dir=\"$(git rev-parse --path-format=absolute --git-dir)\" && common_dir=\"$(git rev-parse --path-format=absolute --git-common-dir)\" && if [[ \"$git_dir\" != \"$common_dir\" ]]; then echo \"Automatic full-stack startup is disabled in linked worktrees. Run 'console: prepare full stack' and 'console: start local services' manually when needed.\" >&2; exit 75; fi",
@@ -267,7 +283,8 @@
       "dependsOn": [
         "console: require primary worktree for automatic start",
         "console: prepare full stack",
-        "console: start local services"
+        "console: start local services",
+        "console: verify local services"
       ],
       "problemMatcher": [],
       "runOptions": {
@@ -279,7 +296,7 @@
     {
       "label": "console: Core Control Plane (Local Docker)",
       "type": "shell",
-      "command": "set -a && source .fdai/local-runtime.env && set +a && FDAI_LOCAL_SERVICE_LOG_FORMAT=json-plain bash scripts/automation/run-local-service.sh core-runtime \"$PWD/.fdai/logs/core-runtime.log\" -- env -u AZURE_CONFIG_DIR FDAI_RUNTIME_LOCK_FILE=\"$PWD/.fdai/core-runtime.lock\" PYTHONPATH=\"$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src${PYTHONPATH:+:$PYTHONPATH}\" .venv/bin/python -m fdai",
+      "command": "input_digest=\"$(.venv/bin/python scripts/automation/local-service-input-digest.py .fdai/local-runtime.env services/core-control-plane/src packages/service-contracts/src services/core-control-plane/pyproject.toml pyproject.toml uv.lock)\" && set -a && source .fdai/local-runtime.env && set +a && FDAI_LOCAL_SERVICE_INPUT_DIGEST=\"$input_digest\" FDAI_LOCAL_SERVICE_LOG_FORMAT=json-plain FDAI_LOCAL_SERVICE_RESTART_STALE=1 FDAI_LOCAL_SERVICE_REUSE_EXISTING=1 bash scripts/automation/run-local-service.sh core-runtime \"$PWD/.fdai/logs/core-runtime.log\" -- env -u AZURE_CONFIG_DIR FDAI_PANTHEON_HEARTBEAT_SECONDS=2 FDAI_RUNTIME_LOCK_FILE=\"$PWD/.fdai/core-runtime.lock\" PYTHONPATH=\"$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src${PYTHONPATH:+:$PYTHONPATH}\" .venv/bin/python -m fdai",
       "isBackground": true,
       "problemMatcher": {
         "owner": "console-core-runtime",
@@ -289,7 +306,7 @@
         "background": {
           "activeOnStart": true,
           "beginsPattern": "^.*service=core-runtime event=starting$",
-          "endsPattern": "pantheon_bridge_started"
+          "endsPattern": "pantheon_bridge_started|event=reused$"
         }
       },
       "presentation": {
@@ -307,7 +324,7 @@
     {
       "label": "console: Operator API (Local Entra)",
       "type": "shell",
-      "command": "set -a && source .fdai/local-operator-service.env && set +a && FDAI_LOCAL_SERVICE_LOG_FORMAT=json-plain bash scripts/automation/run-local-service.sh operator-api \"$PWD/.fdai/logs/operator-api.log\" -- env -u AZURE_CONFIG_DIR PYTHONPATH=\"$PWD/services/operator-service/src:$PWD/packages/service-contracts/src${PYTHONPATH:+:$PYTHONPATH}\" .venv/bin/python -m uvicorn fdai_operator_service.main:create_app --factory --host 127.0.0.1 --port 8010 --no-access-log",
+      "command": "input_digest=\"$(.venv/bin/python scripts/automation/local-service-input-digest.py .fdai/local-operator-service.env services/operator-service/src packages/service-contracts/src services/operator-service/pyproject.toml pyproject.toml uv.lock)\" && set -a && source .fdai/local-operator-service.env && set +a && FDAI_LOCAL_SERVICE_INPUT_DIGEST=\"$input_digest\" FDAI_LOCAL_SERVICE_LOG_FORMAT=json-plain FDAI_LOCAL_SERVICE_RESTART_STALE=1 FDAI_LOCAL_SERVICE_REUSE_EXISTING=1 bash scripts/automation/run-local-service.sh operator-api \"$PWD/.fdai/logs/operator-api.log\" -- env -u AZURE_CONFIG_DIR PYTHONPATH=\"$PWD/services/operator-service/src:$PWD/packages/service-contracts/src${PYTHONPATH:+:$PYTHONPATH}\" .venv/bin/python -m uvicorn fdai_operator_service.main:create_app --factory --host 127.0.0.1 --port 8010 --no-access-log",
       "isBackground": true,
       "problemMatcher": {
         "owner": "console-operator-api",
@@ -317,7 +334,7 @@
         "background": {
           "activeOnStart": true,
           "beginsPattern": "^.*service=operator-api event=starting$",
-          "endsPattern": "Application startup complete\\."
+          "endsPattern": "Application startup complete\\.|event=reused$"
         }
       },
       "presentation": {
@@ -338,7 +355,7 @@
       "type": "shell",
       "dependsOrder": "sequence",
       "dependsOn": ["channel edge: prepare local env"],
-      "command": "set -a && source .fdai/local-channel-edge.env && set +a && FDAI_LOCAL_SERVICE_LOG_FORMAT=json-plain bash scripts/automation/run-local-service.sh operator-channel-edge \"$PWD/.fdai/logs/operator-channel-edge.log\" -- env -u AZURE_CONFIG_DIR PYTHONPATH=\"$PWD/services/operator-service/src:$PWD/packages/service-contracts/src${PYTHONPATH:+:$PYTHONPATH}\" .venv/bin/fdai-operator-channel-edge",
+      "command": "input_digest=\"$(.venv/bin/python scripts/automation/local-service-input-digest.py .fdai/local-channel-edge.env services/operator-service/src packages/service-contracts/src services/operator-service/pyproject.toml pyproject.toml uv.lock)\" && set -a && source .fdai/local-channel-edge.env && set +a && FDAI_LOCAL_SERVICE_INPUT_DIGEST=\"$input_digest\" FDAI_LOCAL_SERVICE_LOG_FORMAT=json-plain FDAI_LOCAL_SERVICE_RESTART_STALE=1 FDAI_LOCAL_SERVICE_REUSE_EXISTING=1 bash scripts/automation/run-local-service.sh operator-channel-edge \"$PWD/.fdai/logs/operator-channel-edge.log\" -- env -u AZURE_CONFIG_DIR PYTHONPATH=\"$PWD/services/operator-service/src:$PWD/packages/service-contracts/src${PYTHONPATH:+:$PYTHONPATH}\" .venv/bin/fdai-operator-channel-edge",
       "isBackground": true,
       "problemMatcher": {
         "owner": "operator-channel-edge",
@@ -346,7 +363,7 @@
         "background": {
           "activeOnStart": true,
           "beginsPattern": "^.*service=operator-channel-edge event=starting$",
-          "endsPattern": "Application startup complete\\."
+          "endsPattern": "Application startup complete\\.|event=reused$"
         }
       },
       "presentation": {
@@ -365,7 +382,7 @@
     {
       "label": "console: Inventory Reconciliation (Local)",
       "type": "shell",
-      "command": "set -a && source .fdai/local-runtime.env && set +a && FDAI_LOCAL_SERVICE_LOG_FORMAT=json-plain bash scripts/automation/run-local-service.sh inventory-reconciliation \"$PWD/.fdai/logs/inventory-reconciliation.log\" -- env -u AZURE_CONFIG_DIR FDAI_EXECUTION_VENUE=local FDAI_INVENTORY_DSN=\"$FDAI_STATE_STORE_DSN\" FDAI_INVENTORY_SCOPES=\"$AZURE_SUBSCRIPTION_ID\" FDAI_INVENTORY_RECOVERY_DELTA=1 PYTHONPATH=\"$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src${PYTHONPATH:+:$PYTHONPATH}\" .venv/bin/python -m fdai.delivery.inventory_sync_cli --loop",
+      "command": "input_digest=\"$(.venv/bin/python scripts/automation/local-service-input-digest.py .fdai/local-runtime.env services/core-control-plane/src packages/service-contracts/src services/core-control-plane/pyproject.toml pyproject.toml uv.lock)\" && set -a && source .fdai/local-runtime.env && set +a && FDAI_LOCAL_SERVICE_INPUT_DIGEST=\"$input_digest\" FDAI_LOCAL_SERVICE_LOG_FORMAT=json-plain FDAI_LOCAL_SERVICE_RESTART_STALE=1 FDAI_LOCAL_SERVICE_REUSE_EXISTING=1 bash scripts/automation/run-local-service.sh inventory-reconciliation \"$PWD/.fdai/logs/inventory-reconciliation.log\" -- env -u AZURE_CONFIG_DIR FDAI_EXECUTION_VENUE=local FDAI_INVENTORY_DSN=\"$FDAI_STATE_STORE_DSN\" FDAI_INVENTORY_SCOPES=\"$AZURE_SUBSCRIPTION_ID\" FDAI_INVENTORY_RECOVERY_DELTA=1 PYTHONPATH=\"$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src${PYTHONPATH:+:$PYTHONPATH}\" .venv/bin/python -m fdai.delivery.inventory_sync_cli --loop",
       "isBackground": true,
       "problemMatcher": {
         "owner": "console-inventory-reconciliation",
@@ -373,7 +390,7 @@
         "background": {
           "activeOnStart": true,
           "beginsPattern": "^.*service=inventory-reconciliation event=starting$",
-          "endsPattern": "inventory reconciliation|inventory snapshot"
+          "endsPattern": "inventory reconciliation|inventory snapshot|event=reused$"
         }
       },
       "presentation": {
@@ -392,7 +409,7 @@
     {
       "label": "console: Observation Campaign (Local)",
       "type": "shell",
-      "command": "set -a && source .fdai/local-runtime.env && set +a && FDAI_LOCAL_SERVICE_LOG_FORMAT=json-plain bash scripts/automation/run-local-service.sh observation-campaign \"$PWD/.fdai/logs/observation-campaign.log\" -- env -u AZURE_CONFIG_DIR FDAI_EXECUTION_VENUE=local FDAI_OBSERVATION_DSN=\"$FDAI_STATE_STORE_DSN\" FDAI_OBSERVATION_SCOPES=\"$AZURE_SUBSCRIPTION_ID\" PYTHONPATH=\"$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src${PYTHONPATH:+:$PYTHONPATH}\" .venv/bin/python -m fdai.delivery.observation_campaign_cli --loop",
+      "command": "input_digest=\"$(.venv/bin/python scripts/automation/local-service-input-digest.py .fdai/local-runtime.env services/core-control-plane/src packages/service-contracts/src services/core-control-plane/pyproject.toml pyproject.toml uv.lock)\" && set -a && source .fdai/local-runtime.env && set +a && FDAI_LOCAL_SERVICE_INPUT_DIGEST=\"$input_digest\" FDAI_LOCAL_SERVICE_LOG_FORMAT=json-plain FDAI_LOCAL_SERVICE_RESTART_STALE=1 FDAI_LOCAL_SERVICE_REUSE_EXISTING=1 bash scripts/automation/run-local-service.sh observation-campaign \"$PWD/.fdai/logs/observation-campaign.log\" -- env -u AZURE_CONFIG_DIR FDAI_EXECUTION_VENUE=local FDAI_OBSERVATION_DSN=\"$FDAI_STATE_STORE_DSN\" FDAI_OBSERVATION_SCOPES=\"$AZURE_SUBSCRIPTION_ID\" PYTHONPATH=\"$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src${PYTHONPATH:+:$PYTHONPATH}\" .venv/bin/python -m fdai.delivery.observation_campaign_cli --loop",
       "isBackground": true,
       "problemMatcher": {
         "owner": "console-observation-campaign",
@@ -400,7 +417,7 @@
         "background": {
           "activeOnStart": true,
           "beginsPattern": "^.*service=observation-campaign event=starting$",
-          "endsPattern": "catalog_digest"
+          "endsPattern": "catalog_digest|event=reused$"
         }
       },
       "presentation": {
@@ -419,7 +436,7 @@
     {
       "label": "console: Document Ingestion API (Local Docker)",
       "type": "shell",
-      "command": "set -a && source .fdai/local-document-ingestion-api.env && set +a && FDAI_LOCAL_SERVICE_LOG_FORMAT=json-plain bash scripts/automation/run-local-service.sh document-ingestion-api \"$PWD/.fdai/logs/document-ingestion-api.log\" -- env -u AZURE_CONFIG_DIR PYTHONPATH=\"$PWD/services/document-ingestion-api/src:$PWD/packages/service-contracts/src${PYTHONPATH:+:$PYTHONPATH}\" .venv/bin/python -m uvicorn fdai_ingestion_api_service.main:create_app --factory --host 127.0.0.1 --port 8011 --no-access-log",
+      "command": "input_digest=\"$(.venv/bin/python scripts/automation/local-service-input-digest.py .fdai/local-document-ingestion-api.env services/document-ingestion-api/src packages/service-contracts/src services/document-ingestion-api/pyproject.toml pyproject.toml uv.lock)\" && set -a && source .fdai/local-document-ingestion-api.env && set +a && FDAI_LOCAL_SERVICE_INPUT_DIGEST=\"$input_digest\" FDAI_LOCAL_SERVICE_LOG_FORMAT=json-plain FDAI_LOCAL_SERVICE_RESTART_STALE=1 FDAI_LOCAL_SERVICE_REUSE_EXISTING=1 bash scripts/automation/run-local-service.sh document-ingestion-api \"$PWD/.fdai/logs/document-ingestion-api.log\" -- env -u AZURE_CONFIG_DIR PYTHONPATH=\"$PWD/services/document-ingestion-api/src:$PWD/packages/service-contracts/src${PYTHONPATH:+:$PYTHONPATH}\" .venv/bin/python -m uvicorn fdai_ingestion_api_service.main:create_app --factory --host 127.0.0.1 --port 8011 --no-access-log",
       "isBackground": true,
       "problemMatcher": {
         "owner": "console-document-ingestion-api",
@@ -427,7 +444,7 @@
         "background": {
           "activeOnStart": true,
           "beginsPattern": "^.*service=document-ingestion-api event=starting$",
-          "endsPattern": "Application startup complete\\."
+          "endsPattern": "Application startup complete\\.|event=reused$"
         }
       },
       "presentation": {
@@ -446,7 +463,7 @@
     {
       "label": "console: Document Processing Worker (Local Docker)",
       "type": "shell",
-      "command": "set -a && source .fdai/local-document-processing-worker.env && set +a && FDAI_LOCAL_SERVICE_LOG_FORMAT=json-plain bash scripts/automation/run-local-service.sh document-processing-worker \"$PWD/.fdai/logs/document-processing-worker.log\" -- env -u AZURE_CONFIG_DIR PYTHONPATH=\"$PWD/services/document-processing-worker/src:$PWD/packages/service-contracts/src${PYTHONPATH:+:$PYTHONPATH}\" .venv/bin/fdai-document-processing-worker",
+      "command": "input_digest=\"$(.venv/bin/python scripts/automation/local-service-input-digest.py .fdai/local-document-processing-worker.env services/document-processing-worker/src packages/service-contracts/src services/document-processing-worker/pyproject.toml pyproject.toml uv.lock)\" && set -a && source .fdai/local-document-processing-worker.env && set +a && FDAI_LOCAL_SERVICE_INPUT_DIGEST=\"$input_digest\" FDAI_LOCAL_SERVICE_LOG_FORMAT=json-plain FDAI_LOCAL_SERVICE_RESTART_STALE=1 FDAI_LOCAL_SERVICE_REUSE_EXISTING=1 bash scripts/automation/run-local-service.sh document-processing-worker \"$PWD/.fdai/logs/document-processing-worker.log\" -- env -u AZURE_CONFIG_DIR PYTHONPATH=\"$PWD/services/document-processing-worker/src:$PWD/packages/service-contracts/src${PYTHONPATH:+:$PYTHONPATH}\" .venv/bin/fdai-document-processing-worker",
       "isBackground": true,
       "problemMatcher": {
         "owner": "console-document-processing-worker",
@@ -454,7 +471,7 @@
         "background": {
           "activeOnStart": true,
           "beginsPattern": "^.*service=document-processing-worker event=starting$",
-          "endsPattern": "ingestion_worker_status"
+          "endsPattern": "ingestion_worker_status|event=reused$"
         }
       },
       "presentation": {
@@ -473,7 +490,7 @@
     {
       "label": "console: Isolated Executor (Local Shadow)",
       "type": "shell",
-      "command": "set -a && source .fdai/local-isolated-executor.env && set +a && FDAI_LOCAL_SERVICE_LOG_FORMAT=json-plain bash scripts/automation/run-local-service.sh isolated-executor \"$PWD/.fdai/logs/isolated-executor.log\" -- env -u AZURE_CONFIG_DIR PYTHONPATH=\"$PWD/services/isolated-executor/src:$PWD/packages/service-contracts/src${PYTHONPATH:+:$PYTHONPATH}\" .venv/bin/fdai-isolated-executor-service",
+      "command": "input_digest=\"$(.venv/bin/python scripts/automation/local-service-input-digest.py .fdai/local-isolated-executor.env services/isolated-executor/src packages/service-contracts/src services/isolated-executor/pyproject.toml pyproject.toml uv.lock)\" && set -a && source .fdai/local-isolated-executor.env && set +a && FDAI_LOCAL_SERVICE_INPUT_DIGEST=\"$input_digest\" FDAI_LOCAL_SERVICE_LOG_FORMAT=json-plain FDAI_LOCAL_SERVICE_RESTART_STALE=1 FDAI_LOCAL_SERVICE_REUSE_EXISTING=1 bash scripts/automation/run-local-service.sh isolated-executor \"$PWD/.fdai/logs/isolated-executor.log\" -- env -u AZURE_CONFIG_DIR PYTHONPATH=\"$PWD/services/isolated-executor/src:$PWD/packages/service-contracts/src${PYTHONPATH:+:$PYTHONPATH}\" .venv/bin/fdai-isolated-executor-service",
       "isBackground": true,
       "problemMatcher": {
         "owner": "console-isolated-executor",
@@ -481,7 +498,7 @@
         "background": {
           "activeOnStart": true,
           "beginsPattern": "^.*service=isolated-executor event=starting$",
-          "endsPattern": "event_bus_consumer_started"
+          "endsPattern": "event_bus_consumer_started|event=reused$"
         }
       },
       "presentation": {

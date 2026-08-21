@@ -1,0 +1,369 @@
+{
+  "version": 1,
+  "candidates": [
+    {
+      "path": "console/src/bootstrap-retry.ts",
+      "disposition": "retain",
+      "owner": "console-runtime",
+      "reason": "Retains transport error classification used only to govern retry behavior.",
+      "issue": 252
+    },
+    {
+      "path": "console/src/browser-notifications.ts",
+      "disposition": "retain",
+      "owner": "console-notifications",
+      "reason": "Retains fixed machine outcome validation for browser notification delivery.",
+      "issue": 252
+    },
+    {
+      "path": "console/src/components/ontology-graph.types.ts",
+      "disposition": "retain",
+      "owner": "console-ontology",
+      "reason": "Retains ontology identifier grouping for structured graph presentation.",
+      "issue": 252
+    },
+    {
+      "path": "console/src/deck/backend-parsers.ts",
+      "disposition": "retain",
+      "owner": "console-command-deck",
+      "reason": "Retains bounded schema and field validation for structured backend artifacts.",
+      "issue": 252
+    },
+    {
+      "path": "console/src/deck/command-deck-header.tsx",
+      "disposition": "retain",
+      "owner": "console-command-deck",
+      "reason": "Retains presentation-only label and control rendering without question classification.",
+      "issue": 252
+    },
+    {
+      "path": "console/src/deck/command-deck-launcher.tsx",
+      "disposition": "retain",
+      "owner": "console-command-deck",
+      "reason": "Retains presentation-only launcher rendering without natural-language judgment.",
+      "issue": 252
+    },
+    {
+      "path": "console/src/deck/presentation-modules/table.tsx",
+      "disposition": "retain",
+      "owner": "console-presentation",
+      "reason": "Retains accessibility roles derived from verified table field labels.",
+      "issue": 252
+    },
+    {
+      "path": "console/src/deck/use-command-deck-composer.ts",
+      "disposition": "retain",
+      "owner": "console-command-deck",
+      "reason": "Retains explicit slash-command and local composer state handling.",
+      "issue": 252
+    },
+    {
+      "path": "console/src/deck/verification-presentation.ts",
+      "disposition": "retain",
+      "owner": "console-presentation",
+      "reason": "Retains mapping of verified machine reason codes into presentation categories.",
+      "issue": 252
+    },
+    {
+      "path": "console/src/hooks/use-access-grant-stream.ts",
+      "disposition": "retain",
+      "owner": "console-streaming",
+      "reason": "Retains strict access-grant SSE message and enum validation.",
+      "issue": 252
+    },
+    {
+      "path": "console/src/hooks/use-agent-stream.ts",
+      "disposition": "retain",
+      "owner": "console-streaming",
+      "reason": "Retains strict agent event and status protocol decoding.",
+      "issue": 252
+    },
+    {
+      "path": "console/src/hooks/use-incident-attention-stream.ts",
+      "disposition": "retain",
+      "owner": "console-streaming",
+      "reason": "Retains strict incident attention status protocol validation.",
+      "issue": 252
+    },
+    {
+      "path": "console/src/hooks/use-live-stream.ts",
+      "disposition": "retain",
+      "owner": "console-streaming",
+      "reason": "Retains canonical live stage and phase protocol validation.",
+      "issue": 252
+    },
+    {
+      "path": "console/src/hooks/use-provision-stream.ts",
+      "disposition": "retain",
+      "owner": "console-streaming",
+      "reason": "Retains provisioning event prefix and phase protocol validation.",
+      "issue": 252
+    },
+    {
+      "path": "console/src/routes/agent-activity-groups.tsx",
+      "disposition": "retain",
+      "owner": "console-agent-activity",
+      "reason": "Retains fixed Pantheon and audit-enum grouping for structured activity records.",
+      "issue": 252
+    },
+    {
+      "path": "console/src/routes/agent-activity-semantics.ts",
+      "disposition": "retain",
+      "owner": "console-agent-activity",
+      "reason": "Retains deterministic ownership mapping from canonical action and actor identifiers.",
+      "issue": 252
+    },
+    {
+      "path": "console/src/routes/dashboard.model.ts",
+      "disposition": "retain",
+      "owner": "console-dashboard",
+      "reason": "Retains structured outcome-token normalization and KPI projection, not user-language intent.",
+      "issue": 252
+    },
+    {
+      "path": "console/src/routes/incidents.overview.ts",
+      "disposition": "retain",
+      "owner": "console-incidents",
+      "reason": "Retains deterministic incident phase and status projection from machine records.",
+      "issue": 252
+    },
+    {
+      "path": "console/src/routes/live.model.ts",
+      "disposition": "retain",
+      "owner": "console-live",
+      "reason": "Retains canonical stage and agent-role mappings over structured stream records.",
+      "issue": 252
+    },
+    {
+      "path": "console/src/routes/settings-models.model.ts",
+      "disposition": "retain",
+      "owner": "console-settings",
+      "reason": "Retains validated model capability inventory contracts and display projection.",
+      "issue": 252
+    },
+    {
+      "path": "console/src/routes/workflow-builder.helpers.ts",
+      "disposition": "retain",
+      "owner": "console-workflow-builder",
+      "reason": "Retains presentation-only humanization of canonical ActionType identifiers.",
+      "issue": 252
+    },
+    {
+      "path": "console/src/routes/workflow-builder.intent.ts",
+      "disposition": "retain",
+      "owner": "console-workflow-builder",
+      "reason": "Retains exact projection of a verified workflow judgment onto canonical trigger and ActionType identities.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai/agents/_framework/runtime.py",
+      "disposition": "retain",
+      "owner": "pantheon-runtime",
+      "reason": "Retains composition and validation of machine-record agent, tool, and action identities.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai/agents/_framework/tool_planner.py",
+      "disposition": "retain",
+      "owner": "bragi-conversation",
+      "reason": "Retains exact ownership validation and bounded projection of model-selected canonical tool ids.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai/agents/forseti.py",
+      "disposition": "retain",
+      "owner": "pantheon-introspection",
+      "reason": "Retains exact action identifiers and structured semantic intent tokens for read-only judgment projection.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai/agents/heimdall.py",
+      "disposition": "retain",
+      "owner": "pantheon-introspection",
+      "reason": "Retains exact resource identifiers and structured semantic intent tokens for read-only observation projection.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai/agents/loki.py",
+      "disposition": "retain",
+      "owner": "pantheon-introspection",
+      "reason": "Retains exact typed event-kind routing over normalized machine payloads.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai/agents/mimir.py",
+      "disposition": "retain",
+      "owner": "pantheon-introspection",
+      "reason": "Retains exact Rule identifiers and structured semantic facet tokens for read-only catalog projection.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai/agents/njord.py",
+      "disposition": "retain",
+      "owner": "pantheon-introspection",
+      "reason": "Retains exact scope identifiers and structured semantic facet tokens for read-only cost projection.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai/agents/odin.py",
+      "disposition": "retain",
+      "owner": "pantheon-introspection",
+      "reason": "Retains structured semantic facet tokens and deterministic arbitration state projection.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai/core/assurance_twin/query.py",
+      "disposition": "retain",
+      "owner": "assurance-twin",
+      "reason": "Retains read-only query schema, operator, resource-type, digest, and projection verification.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai/core/conversation/grounded_answer_validation.py",
+      "disposition": "retain",
+      "owner": "semantic-conversation",
+      "reason": "Retains deterministic identifier, timestamp, number, and freshness checks over model answers.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai/core/conversation/question_adequacy.py",
+      "disposition": "retain",
+      "owner": "question-assurance",
+      "reason": "Retains canonical digest, campaign, and identifier validation for assurance receipts.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai/core/conversation/question_candidates.py",
+      "disposition": "retain",
+      "owner": "question-assurance",
+      "reason": "Retains deterministic security, locale, duplicate, and structured model-output validation.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai/core/conversation/question_schedule.py",
+      "disposition": "retain",
+      "owner": "question-assurance",
+      "reason": "Retains deterministic profile, cron, timezone, and schedule configuration validation.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai/core/conversation/semantic_activity_planning.py",
+      "disposition": "retain",
+      "owner": "semantic-conversation",
+      "reason": "Retains exact resource identity and bounded duration syntax parsing after structured intent selection.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai/core/conversation/semantic_current_state_planning.py",
+      "disposition": "retain",
+      "owner": "semantic-conversation",
+      "reason": "Retains exact runtime resource identifier validation after structured intent selection.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai/core/conversation/semantic_error_activity_planning.py",
+      "disposition": "retain",
+      "owner": "semantic-conversation",
+      "reason": "Retains exact resource identity and bounded evidence-window syntax parsing after structured intent selection.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai/core/conversation/semantic_health_planning.py",
+      "disposition": "retain",
+      "owner": "semantic-conversation",
+      "reason": "Retains exact resource identifier validation and registered function availability checks.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai/core/conversation/semantic_impact_planning.py",
+      "disposition": "retain",
+      "owner": "semantic-conversation",
+      "reason": "Retains exact target identity and reviewed ontology-path validation after structured impact selection.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai/core/conversation/semantic_planning_cascade.py",
+      "disposition": "retain",
+      "owner": "semantic-conversation",
+      "reason": "Retains schema-level runtime-identifier safeguards and frame-to-plan capability verification.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai/core/conversation/semantic_planning_models.py",
+      "disposition": "retain",
+      "owner": "semantic-conversation",
+      "reason": "Retains schema validation for structured semantic frame and plan model output.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai/core/conversation/semantic_planning_value_filters.py",
+      "disposition": "retain",
+      "owner": "semantic-conversation",
+      "reason": "Retains deterministic narrowing that binds model proposals to exact catalog values and source spans.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai/core/ontology_platform/semantic_plans.py",
+      "disposition": "retain",
+      "owner": "ontology-platform",
+      "reason": "Retains proof-carrying semantic candidate and verified-plan schema validation.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai/core/python_task/shell_validator.py",
+      "disposition": "retain",
+      "owner": "python-task",
+      "reason": "Retains deterministic shell security, secret, path, and command validation.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai/delivery/azure/llm/gateway_evidence.py",
+      "disposition": "retain",
+      "owner": "llm-delivery",
+      "reason": "Retains APIM route evidence identifier and capacity-unit schema validation.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai/delivery/catalog_search/rule_generation.py",
+      "disposition": "retain",
+      "owner": "catalog-search",
+      "reason": "Retains content-addressed Rule semantic generation artifact validation.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai/delivery/inventory_sync.py",
+      "disposition": "retain",
+      "owner": "inventory-delivery",
+      "reason": "Retains deterministic inventory lifecycle, deadline, and relationship verification.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_verify.py",
+      "disposition": "retain",
+      "owner": "document-distillation",
+      "reason": "Retains deterministic numeric, unit, negation, authority, and comparator claim verification.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai/rule_catalog/pipeline/parse/azure_policy_initiative.py",
+      "disposition": "retain",
+      "owner": "rule-catalog-parser",
+      "reason": "Retains structured Azure Policy JSON, version, and definition identifier parsing.",
+      "issue": 252
+    },
+    {
+      "path": "services/operator-service/src/fdai_operator_service/families/conversation/presentation_artifact_v2.py",
+      "disposition": "retain",
+      "owner": "operator-presentation",
+      "reason": "Retains validated semantic operation and output enums when compiling presentation artifacts.",
+      "issue": 252
+    },
+    {
+      "path": "services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_presentation.py",
+      "disposition": "retain",
+      "owner": "operator-presentation",
+      "reason": "Retains deterministic terminal-disposition mapping from verified semantic projections.",
+      "issue": 252
+    }
+  ]
+}

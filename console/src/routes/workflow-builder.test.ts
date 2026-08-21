@@ -8,6 +8,7 @@ import {
   loadPythonTaskAvailability,
   requestedActionType,
   loadWorkflowDefinitions,
+  suggestDraftFromJudgment,
   suggestDraftFromText,
   suggestStepId,
   workflowSelection,
@@ -209,9 +210,16 @@ const PALETTE: readonly ActionTypePaletteEntry[] = [
   at("ops.failover-primary", "ops", "Fail over the primary"),
 ];
 
-describe("suggestDraftFromText", () => {
-  test("maps a cost intent to the cost signal + right-size and notify actions", () => {
-    const s = suggestDraftFromText("When cost spikes, right-size the VM and tell me", PALETTE);
+describe("workflow semantic judgment", () => {
+  test("projects exact trigger and ActionType identities", () => {
+    const s = suggestDraftFromJudgment({
+      primary_intent: "workflow_draft",
+      trigger: { kind: "signal", signal_type: "object.cost-anomaly" },
+      action_type_refs: ["remediate.right-size", "ops.publish-change-summary"],
+      confidence: 0.95,
+      ambiguous: false,
+      execution_authority: false,
+    }, PALETTE);
     expect(s).not.toBeNull();
     expect(s!.form.triggerKind).toBe("signal");
     expect(s!.form.signalType).toBe("object.cost-anomaly");
@@ -221,51 +229,60 @@ describe("suggestDraftFromText", () => {
     expect(s!.form.steps.every((st) => st.id.length > 0)).toBe(true);
   });
 
-  test("maps a weekly DR drill to a schedule trigger + failover", () => {
-    const s = suggestDraftFromText("Every week, rehearse a DR failover", PALETTE);
+  test("projects a verified schedule", () => {
+    const s = suggestDraftFromJudgment({
+      primary_intent: "workflow_draft",
+      trigger: { kind: "schedule", schedule: "0 3 * * 0" },
+      action_type_refs: ["ops.failover-primary"],
+      confidence: 0.9,
+      ambiguous: false,
+      execution_authority: false,
+    }, PALETTE);
     expect(s).not.toBeNull();
     expect(s!.form.triggerKind).toBe("schedule");
     expect(s!.form.schedule).toBe("0 3 * * 0");
     expect(s!.form.steps.map((st) => st.action_type_ref)).toContain("ops.failover-primary");
   });
 
-  test("maps a security intent to the security signal + disable-public-access", () => {
-    const s = suggestDraftFromText("When a resource is exposed, disable public access", PALETTE);
-    expect(s).not.toBeNull();
-    expect(s!.form.signalType).toBe("object.security-event");
-    expect(s!.form.steps.map((st) => st.action_type_ref)).toContain(
-      "remediate.disable-public-access",
-    );
-  });
-
-  test("abstains on an unmatchable string", () => {
+  test("text-only browser calls abstain", () => {
     expect(suggestDraftFromText("qwer zxcv hjkl", PALETTE)).toBeNull();
-    expect(suggestDraftFromText("", PALETTE)).toBeNull();
+    expect(suggestDraftFromText("When cost spikes, right-size the VM", PALETTE)).toBeNull();
   });
 
   test("caps the suggested steps at three", () => {
-    const s = suggestDraftFromText(
-      "encrypt, restart, scale out, right-size, disable public access, failover",
-      PALETTE,
-    );
+    const s = suggestDraftFromJudgment({
+      primary_intent: "workflow_draft",
+      trigger: { kind: "signal", signal_type: "object.anomaly" },
+      action_type_refs: PALETTE.slice(0, 4).map((entry) => entry.name),
+      confidence: 0.95,
+      ambiguous: false,
+      execution_authority: false,
+    }, PALETTE);
     expect(s).not.toBeNull();
     expect(s!.form.steps.length).toBeLessThanOrEqual(3);
     expect(s!.actionMatchesTruncated).toBe(true);
   });
 
-  test("does not turn a negated action into a proposed mutation", () => {
-    const suggestion = suggestDraftFromText(
-      "When cost spikes, do not restart the service",
-      PALETTE,
-    );
-    expect(suggestion).not.toBeNull();
-    expect(suggestion!.form.steps.map((step) => step.action_type_ref)).not.toContain(
-      "ops.restart-service",
-    );
+  test("ambiguous or unknown machine identities fail closed", () => {
+    const base = {
+      primary_intent: "workflow_draft" as const,
+      trigger: { kind: "signal" as const, signal_type: "object.anomaly" },
+      confidence: 0.95,
+      execution_authority: false as const,
+    };
+    expect(suggestDraftFromJudgment({ ...base, action_type_refs: [], ambiguous: true }, PALETTE)).toBeNull();
+    expect(suggestDraftFromJudgment({ ...base, action_type_refs: ["unknown.action"], ambiguous: false }, PALETTE)).toBeNull();
   });
 
   test("suggested step ids are unique within the draft", () => {
-    const s = suggestDraftFromText("right-size and scale out and restart", PALETTE);
+    const s = suggestDraftFromJudgment({
+      primary_intent: "workflow_draft",
+      trigger: { kind: "signal", signal_type: "object.capacity-forecast" },
+      action_type_refs: ["remediate.right-size", "ops.scale-out", "ops.restart-service"],
+      confidence: 0.95,
+      ambiguous: false,
+      execution_authority: false,
+    }, PALETTE);
     const ids = s!.form.steps.map((st) => st.id);
     expect(new Set(ids).size).toBe(ids.length);
   });

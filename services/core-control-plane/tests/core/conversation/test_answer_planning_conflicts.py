@@ -8,7 +8,7 @@ arbitration authority through the shadow record.
 from __future__ import annotations
 
 import pytest
-from fdai.core.conversation.answer_plan import AnswerSection, build_answer_plan
+from fdai.core.conversation.answer_plan import AnswerIntent, AnswerSection, build_answer_plan
 from fdai.core.conversation.answer_planning import (
     SHADOW_CONTRIBUTION_KEYS,
     SHADOW_RECORD_KEYS,
@@ -66,7 +66,7 @@ def _route() -> AnswerPlanningRoute:
 async def _run(results: dict[str, AnswerContribution]):
     return await run_answer_planning_round(
         prompt=PROMPT,
-        plan=build_answer_plan(PROMPT),
+        plan=build_answer_plan("deployment failure", intent=AnswerIntent.WHY),
         route=_route(),
         provider=_Provider(results),
     )
@@ -182,7 +182,7 @@ async def test_cross_domain_conflict_on_distinct_refs_keeps_both_evidence_sets()
 
 @pytest.mark.asyncio
 async def test_conflicting_contributor_cannot_add_a_section_outside_the_plan() -> None:
-    plan = build_answer_plan(PROMPT)
+    plan = build_answer_plan("deployment failure", intent=AnswerIntent.WHY)
     result = await run_answer_planning_round(
         prompt=PROMPT,
         plan=plan,

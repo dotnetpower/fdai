@@ -49,10 +49,7 @@ from fdai.core.read_investigation.planner import plan_read_investigation
 from fdai.core.read_investigation.resource_state_shadow_service import (
     ShadowResourceStateComparisonService,
 )
-from fdai.core.read_investigation.routing import (
-    classify_read_investigation_intent,
-    resource_name_from_question,
-)
+from fdai.core.read_investigation.routing import resource_name_from_question
 from fdai.core.read_investigation.service import ReadInvestigationService
 from fdai.core.read_investigation.shadow_sink import (
     ShadowComparisonSink,
@@ -123,12 +120,21 @@ class ResourceStateShadowHook:
     ) -> dict[str, Any] | None:
         """Return the authoritative resource-state answer and shadow disposition."""
 
-        if (
-            classify_read_investigation_intent(question)
-            is not ReadInvestigationIntent.RESOURCE_STATE
-        ):
+        if context.get("semantic_primary_intent") != "resource_state":
             return None
-        resource_name = resource_name_from_question(question)
+        semantic_targets = context.get("semantic_targets", ())
+        target_names = (
+            tuple(
+                str(target.get("canonical_value") or target.get("value"))
+                for target in semantic_targets
+                if isinstance(target, dict) and target.get("kind") == "resource"
+            )
+            if isinstance(semantic_targets, tuple | list)
+            else ()
+        )
+        resource_name = (
+            target_names[0] if len(target_names) == 1 else resource_name_from_question(question)
+        )
         if resource_name is None:
             return None
         requester_ref = _opaque_reference(

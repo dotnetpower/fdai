@@ -148,7 +148,6 @@ from fdai.core.conversation.intent_graph import (
 from fdai.core.conversation.narrator import (
     ClarificationNarrator,
     ContextualNarrator,
-    DeterministicKeywordNarrator,
     GroundedAnswerNarrator,
     Narrator,
     ReadPlanNarrator,
@@ -428,7 +427,6 @@ __all__ = [
     "DurableChannelDelivery",
     "DurableOutboundDeliveryConfig",
     "DurableOutboundDeliveryCoordinator",
-    "DeterministicKeywordNarrator",
     "GroundedAnswerNarrator",
     "ExplainVerdictTool",
     "ExploreCatalogTool",

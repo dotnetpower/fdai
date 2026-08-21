@@ -8,7 +8,16 @@ import { normalizeIncidentBinding } from "./conversation-sessions";
 import { getDeckUser } from "./deck-user";
 import type { IncidentConversationBinding } from "./open-deck";
 
-function viewContextWithUser(snapshot: ViewSnapshot | null): Record<string, unknown> {
+const HANGUL = /[가-힣]/u;
+
+function responseLocale(prompt: string): "en" | "ko" {
+  return HANGUL.test(prompt) ? "ko" : getLocale();
+}
+
+function viewContextWithUser(
+  snapshot: ViewSnapshot | null,
+  locale: "en" | "ko",
+): Record<string, unknown> {
   const base: Record<string, unknown> = snapshot ? { ...snapshot } : {};
   if (typeof window !== "undefined") base._screen_path = window.location.pathname;
   const user = getDeckUser();
@@ -17,7 +26,7 @@ function viewContextWithUser(snapshot: ViewSnapshot | null): Record<string, unkn
     const hint = ROUTE_ACTION_HINTS[snapshot.routeId];
     if (hint) base._route_actions = hint;
   }
-  base._locale = getLocale();
+  base._locale = locale;
   return base;
 }
 
@@ -62,6 +71,7 @@ export function createBackendRequestPayload(
   attachments?: readonly ChatAttachment[],
   targetAgent?: string,
 ): Record<string, unknown> {
+  const locale = responseLocale(prompt);
   const includeModelTrace = readConsolePreferences().showModelTrace;
   const normalizedBinding = normalizeIncidentBinding(binding) ?? latestConversationBinding(history);
   const resourceContext = latestResourceContext(history);
@@ -72,7 +82,7 @@ export function createBackendRequestPayload(
       : { request_id: requestId, idempotency_key: requestId }),
     ...(includeModelTrace ? { include_model_trace: true } : {}),
     prompt,
-    locale: getLocale(),
+    locale,
     session_id: sessionId,
     ...(targetAgent ? { target_agent: targetAgent } : {}),
     ...(resourceContext ? { resource_context: resourceContext } : {}),
@@ -99,7 +109,7 @@ export function createBackendRequestPayload(
           : {}),
       },
     } : {}),
-    view_context: viewContextWithUser(snapshot),
+    view_context: viewContextWithUser(snapshot, locale),
     history: toBackendHistory(history),
   };
 }

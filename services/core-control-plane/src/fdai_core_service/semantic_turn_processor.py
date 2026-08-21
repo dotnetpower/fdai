@@ -43,7 +43,11 @@ from fdai_service_contracts import (
 from fdai_service_contracts import (
     SemanticTurnResult as ContractSemanticTurnResult,
 )
-from fdai_service_contracts.ontology_query import TaskStatus, content_digest
+from fdai_service_contracts.ontology_query import (
+    MAX_INTENT_GRAPH_GOALS,
+    TaskStatus,
+    content_digest,
+)
 
 from .contract_codecs import (
     OPERATOR_PROJECTION_PRODUCER_V12,
@@ -79,6 +83,8 @@ _AUTHORITATIVE_EVIDENCE_UNAVAILABLE_REASONS = {
     "semantic_evidence_held",
     "semantic_evidence_incomplete",
     "incident_evidence_mismatched_binding",
+    "semantic_exact_source_unavailable",
+    "semantic_knowledge_source_status_unavailable",
 }
 
 
@@ -609,6 +615,9 @@ def _project_runtime_result(
     result: RuntimeSemanticTurnResult,
 ) -> tuple[ContractSemanticTurnResult, _SemanticProjectionExtensions | None]:
     if result.disposition != "answered":
+        execution_hold = _project_execution_hold(request, result)
+        if execution_hold is not None:
+            return execution_hold, None
         reason_codes = {
             "clarification": "semantic_clarification_required",
             "held": "semantic_evidence_held",
@@ -616,7 +625,12 @@ def _project_runtime_result(
             "action_draft": "semantic_action_draft",
             "cancelled": "semantic_request_cancelled",
         }
-        reason_code = reason_codes.get(result.disposition, "semantic_runtime_failed")
+        reason_code = (
+            result.reason
+            if result.disposition == "held"
+            and result.reason in _AUTHORITATIVE_EVIDENCE_UNAVAILABLE_REASONS
+            else reason_codes.get(result.disposition, "semantic_runtime_failed")
+        )
         disposition = result.disposition if result.disposition in reason_codes else "held"
         answer = result.planning.clarification if result.disposition == "clarification" else None
         return _terminal_result(request, disposition, reason_code, answer=answer), None
@@ -703,6 +717,224 @@ def _project_runtime_result(
     ), _SemanticProjectionExtensions(
         rule_search=rule_search,
         technical_details=technical_details,
+    )
+
+
+def _project_execution_hold(
+    request: SemanticTurnRequest,
+    result: RuntimeSemanticTurnResult,
+) -> ContractSemanticTurnResult | None:
+    """Retain verified read attempts when execution, not planning, caused the hold."""
+    planning = result.planning
+    plan = planning.plan
+    execution = result.execution
+    graph = result.intent_graph
+    evidence = result.intent_graph_evidence
+    if (
+        result.disposition != "held"
+        or plan is None
+        or execution is None
+        or not isinstance(graph, dict)
+        or not isinstance(evidence, dict)
+        or planning.manifest_digest is None
+        or planning.manifest_digest != plan.semantic_catalog_digest
+        or execution.plan_digest != plan.plan_digest
+        or execution.status == "completed"
+        or not execution.receipts
+        or not _projected_execution_evidence_matches(result, execution)
+    ):
+        return None
+    evidence_refs = tuple(
+        dict.fromkeys(ref for receipt in execution.receipts for ref in receipt.evidence_refs)
+    )[:MAX_SEMANTIC_EVIDENCE_REFS]
+    execution_receipt_digest = content_digest(
+        {
+            "plan_digest": execution.plan_digest,
+            "status": execution.status,
+            "output_node_ids": execution.output_node_ids,
+            "receipts": [receipt.model_dump(mode="json") for receipt in execution.receipts],
+        }
+    )
+    completed = sum(receipt.status is TaskStatus.COMPLETED for receipt in execution.receipts)
+    return ContractSemanticTurnResult(
+        disposition=SemanticTurnDisposition.HELD,
+        reason_code="semantic_evidence_held",
+        unavailable_reason="authoritative_evidence_unavailable",
+        session_id=request.session_id,
+        turn_id=request.turn_id,
+        turn_sequence=request.turn_sequence,
+        ontology_release_digest=plan.ontology_release_digest,
+        principal_manifest_digest=planning.manifest_digest,
+        plan_digest=plan.plan_digest,
+        execution_receipt_digest=execution_receipt_digest,
+        intent_graph=graph,
+        intent_graph_evidence=evidence,
+        evidence_refs=evidence_refs,
+        checks_completed=completed,
+        checks_total=len(execution.receipts),
+        answer=_render_execution_hold_answer(request, execution),
+    )
+
+
+def _projected_execution_evidence_matches(
+    result: RuntimeSemanticTurnResult,
+    execution: QueryPlanExecution,
+) -> bool:
+    graph = result.intent_graph
+    evidence = result.intent_graph_evidence
+    if not isinstance(graph, dict) or not isinstance(evidence, dict):
+        return False
+    graph_goals = graph.get("goals")
+    evidence_goals = evidence.get("goals")
+    if (
+        graph.get("schema_version") != 2
+        or graph.get("action_posture") != "advise_only"
+        or evidence.get("schema_version") != 1
+        or evidence.get("status") not in {"partial", "unavailable", "failed", "cancelled"}
+        or not isinstance(graph_goals, list)
+        or not isinstance(evidence_goals, list)
+        or not 1 <= len(graph_goals) <= MAX_INTENT_GRAPH_GOALS
+        or len(graph_goals) != len(evidence_goals)
+        or len(evidence_goals) != len(execution.receipts)
+    ):
+        return False
+    for graph_goal, evidence_goal, receipt in zip(
+        graph_goals,
+        evidence_goals,
+        execution.receipts,
+        strict=True,
+    ):
+        if not isinstance(graph_goal, dict) or not isinstance(evidence_goal, dict):
+            return False
+        refs = evidence_goal.get("evidence_refs", [])
+        if (
+            evidence_goal.get("goal_id") != graph_goal.get("goal_id")
+            or evidence_goal.get("intent") != graph_goal.get("intent")
+            or evidence_goal.get("capability") != graph_goal.get("capability")
+            or evidence_goal.get("task_id") != receipt.task_id
+            or evidence_goal.get("status") != receipt.status.value
+            or evidence_goal.get("reason") != receipt.reason
+            or not isinstance(refs, list)
+            or tuple(refs) != receipt.evidence_refs
+        ):
+            return False
+    return True
+
+
+def _render_execution_hold_answer(
+    request: SemanticTurnRequest,
+    execution: QueryPlanExecution,
+) -> str:
+    korean = request.locale.casefold().startswith("ko")
+    attempts = []
+    limitations = []
+    for receipt in execution.receipts:
+        capability = receipt.capability or receipt.intent
+        attempts.append(
+            f"- `{capability}` - `{receipt.status.value}` - "
+            + (
+                f"근거 참조 {len(receipt.evidence_refs)}개, {receipt.duration_ms} ms"
+                if korean
+                else f"{len(receipt.evidence_refs)} evidence references, {receipt.duration_ms} ms"
+            )
+        )
+        if receipt.reason is not None:
+            limitations.append(f"`{capability}`: `{receipt.reason}`")
+    causal_answer = _render_partial_causal_answer(
+        execution,
+        korean=korean,
+        additional_limitations=limitations,
+    )
+    if causal_answer is not None:
+        return causal_answer
+    if korean:
+        return "\n".join(
+            [
+                "## 실제로 시도한 읽기 전용 조사",
+                "",
+                *attempts,
+                "",
+                "## 확인 가능한 범위",
+                "",
+                "- 완료된 단계와 근거 참조만 관측 사실로 사용할 수 있습니다.",
+                "- 완료되지 않은 가설은 `supported` 또는 `refuted`로 승격하지 않고 "
+                "`unresolved`로 유지합니다.",
+                "",
+                "## 제한 사항",
+                "",
+                *(
+                    [f"- {item}" for item in limitations]
+                    or ["- 필요한 authoritative evidence가 완전하지 않습니다."]
+                ),
+                "",
+                "## 다음 안전 단계",
+                "",
+                "위에서 unavailable 또는 failed로 표시된 source를 같은 대상과 시간 범위에서 "
+                "읽기 전용으로 다시 확인하세요. 실행하지 않은 query나 존재하지 않는 evidence는 "
+                "답변에 포함하지 않았습니다.",
+                "",
+                "`execution_authority=false`",
+            ]
+        )
+    return "\n".join(
+        [
+            "## Read-only investigation attempts",
+            "",
+            *attempts,
+            "",
+            "## Supported scope",
+            "",
+            "- Only completed steps and their evidence references can support observations.",
+            "- Incomplete hypotheses remain `unresolved`; they are not promoted to "
+            "`supported` or `refuted`.",
+            "",
+            "## Limitations",
+            "",
+            *(
+                [f"- {item}" for item in limitations]
+                or ["- Required authoritative evidence is incomplete."]
+            ),
+            "",
+            "## Next safe step",
+            "",
+            "Recheck the sources marked unavailable or failed under the same target and time "
+            "bounds using read-only queries. No unexecuted query or nonexistent evidence is "
+            "included.",
+            "",
+            "`execution_authority=false`",
+        ]
+    )
+
+
+def _render_partial_causal_answer(
+    execution: QueryPlanExecution,
+    *,
+    korean: bool,
+    additional_limitations: Sequence[str],
+) -> str | None:
+    outputs: list[dict[str, object]] = []
+    for node_id in execution.output_node_ids:
+        result = execution.results.get(node_id)
+        if result is None:
+            continue
+        extension_output = _typed_extension_answer_output(node_id, result.value)
+        if extension_output is not None:
+            extension_output["evidence_refs"] = list(result.evidence_refs)
+            outputs.append(extension_output)
+            continue
+        if not isinstance(result.value, QueryTable):
+            continue
+        table = result.value
+        rows: list[dict[str, object]] = [
+            {"row_id": row.row_id, "values": row.values} for row in table.rows[:20]
+        ]
+        output = _answer_output(node_id=node_id, table=table, rows=rows)
+        output["evidence_refs"] = list(result.evidence_refs)
+        outputs.append(output)
+    return _render_causal_query_answer(
+        outputs,
+        korean=korean,
+        additional_limitations=additional_limitations,
     )
 
 
@@ -1071,7 +1303,7 @@ def _projected_answer_evidence_is_complete(
         or evidence.get("evidence_mode") != "operational_grounded"
         or not isinstance(graph_goals, list)
         or not isinstance(evidence_goals, list)
-        or not 1 <= len(graph_goals) <= 8
+        or not 1 <= len(graph_goals) <= MAX_INTENT_GRAPH_GOALS
         or len(graph_goals) != len(evidence_goals)
         or len(evidence_goals) != len(execution.receipts)
     ):
@@ -1190,6 +1422,7 @@ def _render_query_answer(
             continue
         extension_output = _typed_extension_answer_output(node_id, result.value)
         if extension_output is not None:
+            extension_output["evidence_refs"] = list(result.evidence_refs)
             outputs.append(extension_output)
             continue
         if not isinstance(result.value, QueryTable):
@@ -1232,7 +1465,11 @@ def _render_query_answer(
         else (
             render_ontology_relationship_answer(request.locale, outputs[0])
             if projected_relationships and len(outputs) == 1
-            else _render_general_query_answer(request, outputs)
+            else _render_general_query_answer(
+                request,
+                outputs,
+                output_shape=output_shape,
+            )
         )
     )
     return (answer, technical_details) if len(answer) <= 64_000 else (None, None)
@@ -1666,6 +1903,8 @@ def _render_incident_answer(
 def _render_general_query_answer(
     request: SemanticTurnRequest,
     outputs: list[dict[str, object]],
+    *,
+    output_shape: str | None = None,
 ) -> str:
     """Report what was verified without naming the plan that produced it.
 
@@ -1674,6 +1913,30 @@ def _render_general_query_answer(
     result contains and leaves the machinery in technical details.
     """
     korean = request.locale.casefold().startswith("ko")
+    causal_answer = _render_causal_query_answer(outputs, korean=korean)
+    if causal_answer is not None:
+        return causal_answer
+    correlation_answer = _render_error_activity_correlation_answer(
+        outputs,
+        korean=korean,
+        output_shape=output_shape,
+    )
+    if correlation_answer is not None:
+        return correlation_answer
+    health_answer = _render_health_query_answer(
+        outputs,
+        korean=korean,
+        output_shape=output_shape,
+    )
+    if health_answer is not None:
+        return health_answer
+    impact_answer = _render_impact_query_answer(
+        outputs,
+        korean=korean,
+        output_shape=output_shape,
+    )
+    if impact_answer is not None:
+        return impact_answer
     lines = ["## 검증된 결과" if korean else "## Verified result", ""]
     for output in outputs:
         rule_search = output.get("rule_search")
@@ -1716,6 +1979,652 @@ def _render_general_query_answer(
         ]
     )
     return "\n".join(lines)
+
+
+def _render_error_activity_correlation_answer(
+    outputs: list[dict[str, object]],
+    *,
+    korean: bool,
+    output_shape: str | None,
+) -> str | None:
+    """Render aligned error windows and Activity Log evidence without a cause claim."""
+
+    if output_shape != "target_error_activity_correlation" or len(outputs) != 1:
+        return None
+    output = outputs[0]
+    rows = output.get("rows")
+    if (
+        output.get("node_id") != "target-error-activity-correlation"
+        or not isinstance(rows, list)
+        or len(rows) != 1
+        or not isinstance(rows[0], Mapping)
+    ):
+        return None
+    values = rows[0].get("values")
+    if (
+        not isinstance(values, Mapping)
+        or values.get("causal_claim_supported") is not False
+        or values.get("execution_authority") is not False
+    ):
+        return None
+    fields = (
+        ("error_trend", "요청 오류 추세", "Request error trend"),
+        ("baseline_error_total", "직전 구간 오류", "Baseline errors"),
+        ("current_error_total", "현재 구간 오류", "Current errors"),
+        ("activity_state", "Activity Log", "Activity Log"),
+        ("activity_change_count", "변경 이벤트 수", "Change events"),
+        ("correlation_assessment", "상관 평가", "Correlation assessment"),
+    )
+    assessments = [
+        f"- {korean_label if korean else english_label}: {_readable_health_token(values.get(key))}."
+        for key, korean_label, english_label in fields
+        if values.get(key) is not None
+    ]
+    windows = [
+        f"- {label}: {value}."
+        for label, value in (
+            (
+                "직전 구간 시작" if korean else "Baseline window start",
+                values.get("baseline_window_start"),
+            ),
+            (
+                "직전 구간 종료" if korean else "Baseline window end",
+                values.get("baseline_window_end"),
+            ),
+            (
+                "현재 구간 시작" if korean else "Current window start",
+                values.get("current_window_start"),
+            ),
+            (
+                "현재 구간 종료" if korean else "Current window end",
+                values.get("current_window_end"),
+            ),
+        )
+        if isinstance(value, str) and value
+    ]
+    raw_gaps = values.get("evidence_gaps")
+    gaps = (
+        [item.strip() for item in raw_gaps.split(",") if item.strip()]
+        if isinstance(raw_gaps, str)
+        else []
+    )
+    gap_lines = [f"- {_readable_health_token(item)}." for item in gaps]
+    trend = _readable_health_token(values.get("error_trend"))
+    correlation = _readable_health_token(values.get("correlation_assessment"))
+    if korean:
+        return (
+            "## 요청 오류와 Activity Log 상관 평가\n\n"
+            f"**요청 오류 추세는 {trend}이며 상관 평가는 {correlation}입니다.**\n\n"
+            "## 관측 결과\n\n"
+            + "\n".join(assessments)
+            + "\n\n## 근거 구간\n\n"
+            + ("\n".join(windows) if windows else "- 검증된 구간이 없습니다.")
+            + "\n\n## 근거 공백\n\n"
+            + ("\n".join(gap_lines) if gap_lines else "- 추가 공백이 기록되지 않았습니다.")
+            + "\n\n같은 구간의 동시 관측은 인과관계를 입증하지 않습니다."
+            + "\n\n## 권한\n\n- 읽기 전용이며 `execution_authority=false`입니다."
+        )
+    return (
+        "## Request errors and Activity Log correlation\n\n"
+        f"**Request error trend is {trend}; correlation is {correlation}.**\n\n"
+        "## Observations\n\n"
+        + "\n".join(assessments)
+        + "\n\n## Evidence windows\n\n"
+        + ("\n".join(windows) if windows else "- No verified window is available.")
+        + "\n\n## Evidence gaps\n\n"
+        + ("\n".join(gap_lines) if gap_lines else "- No additional gaps were recorded.")
+        + "\n\nCo-occurrence in the same window does not establish causation."
+        + "\n\n## Authority\n\n- Read-only; `execution_authority=false`."
+    )
+
+
+def _render_health_query_answer(
+    outputs: list[dict[str, object]],
+    *,
+    korean: bool,
+    output_shape: str | None,
+) -> str | None:
+    """Render one typed target-health assessment without upgrading missing evidence."""
+
+    if output_shape != "target_health_assessment" or len(outputs) != 1:
+        return None
+    output = outputs[0]
+    rows = output.get("rows")
+    if output.get("node_id") != "target-health-assessment" or not isinstance(rows, list):
+        return None
+    if len(rows) != 1 or not isinstance(rows[0], Mapping):
+        return None
+    values = rows[0].get("values")
+    if not isinstance(values, Mapping):
+        return None
+    if values.get("evidence_sufficient") is not False:
+        return None
+    fields = (
+        ("platform_lifecycle", "플랫폼 수명 주기", "Platform lifecycle"),
+        ("readiness", "준비 상태", "Readiness"),
+        ("application_service_health", "애플리케이션 서비스", "Application service"),
+        ("stability", "안정성", "Stability"),
+        ("resource_pressure", "리소스 압력", "Resource pressure"),
+        ("request_telemetry", "요청 텔레메트리", "Request telemetry"),
+    )
+    assessments = [
+        f"- {korean_label if korean else english_label}: {_readable_health_token(values.get(key))}."
+        for key, korean_label, english_label in fields
+        if values.get(key) is not None
+    ]
+    freshness = [
+        f"- {label}: {value}."
+        for label, value in (
+            (
+                "원본 관측 시각" if korean else "Source observation",
+                values.get("source_observed_at"),
+            ),
+            ("인벤토리 조회 시각" if korean else "Inventory read", values.get("inventory_read_at")),
+            (
+                "메트릭 구간 종료" if korean else "Metric window end",
+                values.get("metric_window_end"),
+            ),
+        )
+        if isinstance(value, str) and value
+    ]
+    raw_gaps = values.get("evidence_gaps")
+    gaps = (
+        [item.strip() for item in raw_gaps.split(",") if item.strip()]
+        if isinstance(raw_gaps, str)
+        else []
+    )
+    gap_lines = [f"- {_readable_health_token(item)}." for item in gaps]
+    if korean:
+        return (
+            "## 건강 근거 평가\n\n"
+            "**아니요. 현재 근거만으로 전체 애플리케이션 서비스가 건강하다고 "
+            "주장하기에는 불충분합니다.**\n\n"
+            "## 영역별 평가\n\n"
+            + "\n".join(assessments)
+            + "\n\n## 근거 시각\n\n"
+            + ("\n".join(freshness) if freshness else "- 검증된 원본 시각이 없습니다.")
+            + "\n\n## 근거 공백\n\n"
+            + ("\n".join(gap_lines) if gap_lines else "- 추가 공백이 기록되지 않았습니다.")
+            + "\n\n## 권한\n\n- 읽기 전용이며 `execution_authority=false`입니다."
+        )
+    return (
+        "## Health evidence assessment\n\n"
+        "**No. Current evidence is insufficient to claim full application-service health.**\n\n"
+        "## Assessment by area\n\n"
+        + "\n".join(assessments)
+        + "\n\n## Evidence freshness\n\n"
+        + ("\n".join(freshness) if freshness else "- No verified source time is available.")
+        + "\n\n## Evidence gaps\n\n"
+        + ("\n".join(gap_lines) if gap_lines else "- No additional gaps were recorded.")
+        + "\n\n## Authority\n\n- Read-only; `execution_authority=false`."
+    )
+
+
+def _readable_health_token(value: object) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int | float):
+        return str(value)
+    if isinstance(value, str) and value:
+        return value.replace("_", " ")
+    return "not proven"
+
+
+def _render_impact_query_answer(
+    outputs: list[dict[str, object]],
+    *,
+    korean: bool,
+    output_shape: str | None,
+) -> str | None:
+    """Explain one typed exact-target service-impact result without inferring edges."""
+
+    if output_shape != "inventory_impact" or len(outputs) != 1:
+        return None
+    output = outputs[0]
+    if output.get("node_id") != "impact-services":
+        return None
+    returned = output.get("returned_rows")
+    total = output.get("total_rows")
+    complete = output.get("source_complete") is True
+    if not isinstance(returned, int) or isinstance(returned, bool):
+        return None
+    if not isinstance(total, int) or isinstance(total, bool):
+        return None
+    if korean:
+        completeness = (
+            "현재 검토된 관계 범위에서 조회가 완전하게 끝났습니다."
+            if complete
+            else "관계 탐색 근거가 불완전하므로 추가 영향이 남아 있을 수 있습니다."
+        )
+        return (
+            "## 검증된 영향 범위\n\n"
+            f"- 관측된 영향 서비스: {total}개.\n"
+            f"- 화면에 담긴 서비스: {returned}개.\n"
+            "- 조회한 검토 경로: `BusinessService -> implemented_by -> Workload -> "
+            "workload_runs_on -> Resource`.\n"
+            "- 추론만으로 영향 대상으로 승격한 서비스: 0개.\n\n"
+            "## 근거 공백\n\n"
+            f"- {completeness}\n"
+            "- 현재 온톨로지에 투영되지 않은 외부 또는 애플리케이션 수준 의존성은 이 결과의 "
+            "범위 밖입니다. 0개 행은 실제 영향이 없다는 뜻이 아닙니다.\n\n"
+            "## 권한\n\n"
+            "- 읽기 전용이며 `execution_authority=false`입니다."
+        )
+    completeness = (
+        "The query completed over the current reviewed relationship scope."
+        if complete
+        else "Relationship evidence is incomplete, so additional impact can remain unobserved."
+    )
+    return (
+        "## Verified impact scope\n\n"
+        f"- Observed impacted services: {total}.\n"
+        f"- Services carried for display: {returned}.\n"
+        "- Reviewed path queried: `BusinessService -> implemented_by -> Workload -> "
+        "workload_runs_on -> Resource`.\n"
+        "- Services promoted from inference alone: 0.\n\n"
+        "## Evidence gaps\n\n"
+        f"- {completeness}\n"
+        "- External or application-level dependencies not projected into the current ontology are "
+        "outside this result. Zero rows do not prove zero real-world impact.\n\n"
+        "## Authority\n\n"
+        "- Read-only; `execution_authority=false`."
+    )
+
+
+def _render_causal_query_answer(
+    outputs: list[dict[str, object]],
+    *,
+    korean: bool,
+    additional_limitations: Sequence[str] = (),
+) -> str | None:
+    comparison: Mapping[str, object] | None = None
+    hypotheses: list[Mapping[str, object]] = []
+    activity_output: Mapping[str, object] | None = None
+    for output in outputs:
+        if output.get("node_id") == "change-activity":
+            activity_output = output
+        summary = output.get("summary")
+        if not isinstance(summary, Mapping):
+            continue
+        if output.get("result_kind") == "metric.comparison":
+            comparison = summary
+        elif output.get("result_kind") == "causal.join":
+            hypotheses.append(summary)
+    if comparison is None or not hypotheses:
+        return None
+
+    supported = [item for item in hypotheses if item.get("status") == "supported"]
+    refuted = [item for item in hypotheses if item.get("status") == "refuted"]
+    unresolved = [item for item in hypotheses if item.get("status") == "unresolved"]
+    strongest = max(supported, key=_causal_hypothesis_strength, default=None)
+    target = _answer_text(comparison.get("resource_id"))
+    symptom = _answer_text(comparison.get("concept_id"))
+    comparison_complete = comparison.get("complete") is True
+    unit = _answer_text(comparison.get("unit"), fallback="")
+    baseline_value = _answer_measure(comparison.get("baseline_value"), unit)
+    current_value = _answer_measure(comparison.get("current_value"), unit)
+    absolute_change = _answer_measure(comparison.get("absolute_change"), unit)
+    baseline_window = _answer_window(
+        comparison.get("baseline_start"),
+        comparison.get("baseline_end"),
+    )
+    current_window = _answer_window(
+        comparison.get("current_start"),
+        comparison.get("current_end"),
+    )
+    limitations = _causal_limitations(comparison, hypotheses)
+    limitations.extend(additional_limitations)
+    if activity_output is not None and activity_output.get("source_complete") is not True:
+        activity_limitation = activity_output.get("source_truncation_reason")
+        limitations.append(_answer_text(activity_limitation, fallback="change_activity_incomplete"))
+    limitations = list(dict.fromkeys(limitations))
+    activity_lines, activity_evidence_refs = _change_activity_lines(
+        activity_output,
+        korean=korean,
+    )
+    evidence_refs = _causal_evidence_refs(outputs, activity_evidence_refs)
+    if len(hypotheses) < 2:
+        limitations.insert(
+            0,
+            "검증된 경쟁 가설이 두 개 미만입니다."
+            if korean
+            else "Fewer than two competing hypotheses were verified.",
+        )
+
+    if korean:
+        strongest_line = (
+            f"- 가장 강한 원인 후보: `{_answer_text(strongest.get('hypothesis_id'))}`"
+            if strongest is not None
+            else "- 가장 강한 원인 후보: 현재 근거로 확정할 수 없습니다."
+        )
+        lines = [
+            "## 확인된 관측 사실",
+            "",
+            f"- 정확한 대상: `{target}`",
+            (
+                f"- 검증된 증상: `{symptom}` 증가"
+                if comparison_complete
+                else f"- 요청된 증상 방향: `{symptom}` 증가; 측정 근거: unavailable"
+            ),
+            f"- 기준 구간: {baseline_window}, 측정값 {baseline_value}",
+            f"- 현재 구간: {current_window}, 측정값 {current_value}",
+            f"- 실제 측정 변화: {absolute_change}",
+            "",
+            "## 변경 및 배포 근거",
+            "",
+            *activity_lines,
+            "",
+            "## 원인 판단",
+            "",
+            strongest_line,
+            _causal_confidence_basis(
+                strongest,
+                supported=len(supported),
+                refuted=len(refuted),
+                unresolved=len(unresolved),
+                korean=True,
+            ),
+            "- 이 순위는 판정 상태, 근거 등급, 표본 수, 상관 강도를 사용하며 "
+            "시간적 인접성만으로 인과를 확정하지 않습니다.",
+            "",
+            "## 경쟁 가설",
+            "",
+            *_causal_hypothesis_lines(hypotheses, korean=True),
+            "",
+            "## 배제되거나 남아 있는 후보",
+            "",
+            f"- 반증됨: {_hypothesis_names(refuted, korean=True)}",
+            f"- 미해결: {_hypothesis_names(unresolved, korean=True)}",
+            "",
+            "## 제한 사항",
+            "",
+            *([f"- {item}" for item in limitations] or ["- 기록된 추가 제한 사항이 없습니다."]),
+            "",
+            "## 근거 참조",
+            "",
+            *([f"- `{item}`" for item in evidence_refs] or ["- 검증된 근거 참조가 없습니다."]),
+            "",
+            "## 다음 안전 단계",
+            "",
+            (
+                "정확한 대상의 request 및 dependency duration telemetry 수집 상태를 확인한 뒤 "
+                "같은 기준/현재 구간을 읽기 전용으로 다시 조회하세요. "
+                "이 답변은 변경을 실행하거나 승인하지 않습니다."
+                if not comparison_complete
+                else "누락되거나 오래되거나 충돌하는 근거 source를 같은 대상과 시간 범위에서 "
+                "읽기 전용으로 다시 확인하세요. 이 답변은 변경을 실행하거나 승인하지 않습니다."
+            ),
+            "",
+            "`execution_authority=false`",
+        ]
+        return "\n".join(lines)
+
+    strongest_line = (
+        f"- Strongest cause candidate: `{_answer_text(strongest.get('hypothesis_id'))}`"
+        if strongest is not None
+        else "- Strongest cause candidate: current evidence does not establish one."
+    )
+    lines = [
+        "## Verified observations",
+        "",
+        f"- Exact target: `{target}`",
+        (
+            f"- Verified symptom: `{symptom}` increased"
+            if comparison_complete
+            else f"- Requested symptom direction: `{symptom}` increase; measurement: unavailable"
+        ),
+        f"- Baseline window: {baseline_window}, measured {baseline_value}",
+        f"- Current window: {current_window}, measured {current_value}",
+        f"- Measured change: {absolute_change}",
+        "",
+        "## Change and deployment evidence",
+        "",
+        *activity_lines,
+        "",
+        "## Cause assessment",
+        "",
+        strongest_line,
+        _causal_confidence_basis(
+            strongest,
+            supported=len(supported),
+            refuted=len(refuted),
+            unresolved=len(unresolved),
+            korean=False,
+        ),
+        "- Ranking uses disposition, evidence grade, sample count, and correlation strength. "
+        "Temporal proximity alone is not treated as causal proof.",
+        "",
+        "## Competing hypotheses",
+        "",
+        *_causal_hypothesis_lines(hypotheses, korean=False),
+        "",
+        "## Excluded and remaining candidates",
+        "",
+        f"- Refuted: {_hypothesis_names(refuted, korean=False)}",
+        f"- Unresolved: {_hypothesis_names(unresolved, korean=False)}",
+        "",
+        "## Limitations",
+        "",
+        *([f"- {item}" for item in limitations] or ["- No additional limitations were recorded."]),
+        "",
+        "## Evidence references",
+        "",
+        *(
+            [f"- `{item}`" for item in evidence_refs]
+            or ["- No verified evidence references were available."]
+        ),
+        "",
+        "## Next safe step",
+        "",
+        (
+            "Verify request and dependency duration telemetry collection for the exact target, "
+            "then repeat the same baseline and current windows as read-only queries. "
+            "This answer does not execute or approve a change."
+            if not comparison_complete
+            else "Recheck the missing, stale, or conflicting evidence sources under the same "
+            "target and time bounds using read-only queries. This answer does not execute or "
+            "approve a change."
+        ),
+        "",
+        "`execution_authority=false`",
+    ]
+    return "\n".join(lines)
+
+
+def _causal_evidence_refs(
+    outputs: list[dict[str, object]],
+    activity_refs: list[str],
+) -> list[str]:
+    refs = list(activity_refs)
+    for output in outputs:
+        raw = output.get("evidence_refs")
+        if isinstance(raw, list):
+            refs.extend(item for item in raw if isinstance(item, str) and item)
+    return list(dict.fromkeys(refs))
+
+
+def _causal_confidence_basis(
+    strongest: Mapping[str, object] | None,
+    *,
+    supported: int,
+    refuted: int,
+    unresolved: int,
+    korean: bool,
+) -> str:
+    claim = strongest.get("temporal_claim") if strongest is not None else None
+    claim_map = claim if isinstance(claim, Mapping) else {}
+    evidence = (
+        f"grade={_answer_text(claim_map.get('evidence_grade'))}, "
+        f"samples={_answer_text(claim_map.get('sample_count'))}, "
+        f"correlation={_answer_text(claim_map.get('correlation'))}, "
+        f"lag={_answer_text(claim_map.get('lag_seconds'))}s"
+        if claim_map
+        else ("검증된 strongest temporal claim 없음" if korean else "no strongest temporal claim")
+    )
+    prefix = "- 신뢰도 근거" if korean else "- Confidence basis"
+    return (
+        f"{prefix}: supported={supported}, refuted={refuted}, unresolved={unresolved}; {evidence}"
+    )
+
+
+def _change_activity_lines(
+    output: Mapping[str, object] | None,
+    *,
+    korean: bool,
+) -> tuple[list[str], list[str]]:
+    if output is None:
+        return (
+            [
+                "- 변경 이력 query가 이 조사에 포함되지 않았습니다."
+                if korean
+                else "- A change-history query was not included in this investigation."
+            ],
+            [],
+        )
+    rows = output.get("rows")
+    if not isinstance(rows, list) or not rows:
+        complete = output.get("source_complete") is True
+        return (
+            [
+                (
+                    "- 같은 대상과 시간 범위에서 일치하는 Activity Log 이벤트가 없습니다."
+                    if korean
+                    else (
+                        "- No matching Activity Log event was found for the same target and window."
+                    )
+                )
+                if complete
+                else (
+                    "- Activity Log 근거가 불완전하거나 unavailable 상태입니다."
+                    if korean
+                    else "- Activity Log evidence is incomplete or unavailable."
+                )
+            ],
+            [],
+        )
+    lines: list[str] = []
+    evidence_refs: list[str] = []
+    for row in rows[:8]:
+        if not isinstance(row, Mapping):
+            continue
+        values = row.get("values")
+        if not isinstance(values, Mapping):
+            continue
+        actor = (
+            "/".join(
+                value
+                for value in (
+                    _answer_text(values.get("actor_kind"), fallback=""),
+                    _answer_text(values.get("actor_ref"), fallback=""),
+                )
+                if value
+            )
+            or "unavailable"
+        )
+        lines.append(
+            f"- {_answer_text(values.get('occurred_at'))}: "
+            f"operation=`{_answer_text(values.get('operation'))}`, "
+            f"status=`{_answer_text(values.get('status'))}`, actor=`{actor}`, "
+            f"correlation=`{_answer_text(values.get('correlation_ref'), fallback='unavailable')}`"
+        )
+        refs = values.get("evidence_refs")
+        if isinstance(refs, list):
+            evidence_refs.extend(item for item in refs if isinstance(item, str) and item)
+    if not lines:
+        lines.append(
+            "- Activity Log 행을 안전하게 해석할 수 없습니다."
+            if korean
+            else "- Activity Log rows could not be interpreted safely."
+        )
+    return lines, list(dict.fromkeys(evidence_refs))
+
+
+def _causal_hypothesis_strength(hypothesis: Mapping[str, object]) -> tuple[int, int, float]:
+    claim = hypothesis.get("temporal_claim")
+    if not isinstance(claim, Mapping):
+        return (0, 0, 0.0)
+    grade = claim.get("evidence_grade")
+    grade_rank = (
+        {"predictive_precedence": 2, "association": 1}.get(grade, 0)
+        if isinstance(grade, str)
+        else 0
+    )
+    sample_count = claim.get("sample_count")
+    correlation = claim.get("correlation")
+    return (
+        grade_rank,
+        sample_count if isinstance(sample_count, int) and not isinstance(sample_count, bool) else 0,
+        abs(float(correlation)) if isinstance(correlation, int | float) else 0.0,
+    )
+
+
+def _causal_hypothesis_lines(
+    hypotheses: list[Mapping[str, object]],
+    *,
+    korean: bool,
+) -> list[str]:
+    lines: list[str] = []
+    for hypothesis in hypotheses:
+        claim = hypothesis.get("temporal_claim")
+        claim_map = claim if isinstance(claim, Mapping) else {}
+        falsifiers = claim_map.get("falsifiers")
+        falsifier_text = (
+            ", ".join(str(item) for item in falsifiers if isinstance(item, str))
+            if isinstance(falsifiers, list)
+            else ""
+        )
+        evidence = (
+            f"grade={_answer_text(claim_map.get('evidence_grade'))}, "
+            f"samples={_answer_text(claim_map.get('sample_count'))}, "
+            f"correlation={_answer_text(claim_map.get('correlation'))}, "
+            f"lag={_answer_text(claim_map.get('lag_seconds'))}s"
+            if claim_map
+            else ("검증된 시간 근거 없음" if korean else "no verified temporal evidence")
+        )
+        if falsifier_text:
+            evidence += f", falsifiers={falsifier_text}"
+        lines.append(
+            f"- `{_answer_text(hypothesis.get('hypothesis_id'))}` - "
+            f"`{_answer_text(hypothesis.get('status'))}` - {evidence}"
+        )
+    return lines
+
+
+def _causal_limitations(
+    comparison: Mapping[str, object],
+    hypotheses: list[Mapping[str, object]],
+) -> list[str]:
+    values: list[str] = []
+    reason = comparison.get("reason")
+    if isinstance(reason, str) and reason:
+        values.append(reason)
+    for hypothesis in hypotheses:
+        raw = hypothesis.get("limitations")
+        if isinstance(raw, list):
+            values.extend(item for item in raw if isinstance(item, str) and item)
+    return list(dict.fromkeys(values))
+
+
+def _hypothesis_names(hypotheses: list[Mapping[str, object]], *, korean: bool) -> str:
+    names = [f"`{_answer_text(item.get('hypothesis_id'))}`" for item in hypotheses]
+    return ", ".join(names) if names else ("없음" if korean else "none")
+
+
+def _answer_text(value: object, *, fallback: str = "unknown") -> str:
+    if isinstance(value, str) and value.strip():
+        return value.strip()[:512]
+    if isinstance(value, int | float) and not isinstance(value, bool):
+        return str(value)
+    return fallback
+
+
+def _answer_measure(value: object, unit: str) -> str:
+    rendered = _answer_text(value, fallback="unavailable")
+    return f"{rendered} {unit}".strip()
+
+
+def _answer_window(start: object, end: object) -> str:
+    return f"{_answer_text(start)} to {_answer_text(end)}"
 
 
 def _typed_extension_answer_output(
@@ -1854,6 +2763,18 @@ def _answer_json(outputs: list[dict[str, object]]) -> str:
 
 
 def _terminal_answer(locale: str, disposition: str, reason_code: str) -> str:
+    if reason_code == "semantic_exact_source_unavailable":
+        return (
+            "차단됨: 정확한 원본을 사용할 수 없습니다."
+            if locale.casefold().startswith("ko")
+            else "Blocked: the exact source is unavailable."
+        )
+    if reason_code == "semantic_knowledge_source_status_unavailable":
+        return (
+            "사용 불가: 검증된 지식 원본 상태 기능이 바인딩되지 않았습니다."
+            if locale.casefold().startswith("ko")
+            else "Unavailable: no verified knowledge-source status capability is bound."
+        )
     messages = {
         "answered": "The verified result is ready.",
         "held": "The request was held because verified evidence is unavailable.",

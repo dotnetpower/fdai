@@ -7014,6 +7014,68 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-trajectory-phase-strip strong { display: block; color: var(--fg-muted); font-size: .8125rem; font-weight: 600; overflow-wrap: anywhere; }
 .deck-trajectory-phase-strip li:not([data-state="not_observed"]) strong { color: var(--fg); }
 .deck-trajectory-phase-strip small { display: block; margin-top: 2px; color: var(--fg-muted); font-size: .75rem; line-height: 1.25; }
+.deck-trajectory-phase-details {
+  display: grid;
+  margin: 14px 0 0;
+  padding: 0;
+  border-top: 1px solid var(--border);
+  list-style: none;
+}
+.deck-trajectory-phase-details > li {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 9px;
+  min-width: 0;
+  padding: 8px 0;
+  border-bottom: 1px solid color-mix(in oklab, var(--border) 72%, transparent);
+}
+.deck-trajectory-phase-detail-mark {
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--bg-elevated);
+  color: var(--fg-muted);
+  font-size: 9px;
+  font-weight: 800;
+}
+.deck-trajectory-phase-details > li[data-state="completed"] .deck-trajectory-phase-detail-mark {
+  border-color: var(--success);
+  background: var(--success);
+  color: white;
+}
+.deck-trajectory-phase-details > li[data-state="corrected"] .deck-trajectory-phase-detail-mark,
+.deck-trajectory-phase-details > li[data-state="degraded"] .deck-trajectory-phase-detail-mark,
+.deck-trajectory-phase-details > li[data-state="unverified"] .deck-trajectory-phase-detail-mark {
+  border-color: var(--warning);
+  color: var(--warning);
+}
+.deck-trajectory-phase-details > li[data-state="failed"] .deck-trajectory-phase-detail-mark {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.deck-trajectory-phase-detail-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.deck-trajectory-phase-detail-copy strong { font-size: .8125rem; }
+.deck-trajectory-phase-detail-copy small {
+  color: var(--fg-muted);
+  font-size: .75rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.deck-trajectory-phase-detail-state {
+  color: var(--fg-muted);
+  font-size: .75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
 .deck-trajectory-window { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; color: var(--fg-muted); font-size: .8125rem; font-variant-numeric: tabular-nums; }
 .deck-trajectory-window > span:nth-child(2) { height: 1px; background: var(--border); }
 .deck-trajectory-events { margin: 10px 0 0; padding: 0; list-style: none; }
@@ -7345,6 +7407,8 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   .deck-trajectory-chevron { display: none; }
   .deck-trajectory-stats { grid-column: 1 / -1; grid-row: 2; overflow: visible; text-overflow: clip; white-space: normal; }
   .deck-trajectory-phase-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 10px; }
+  .deck-trajectory-phase-details > li { grid-template-columns: 20px minmax(0, 1fr); }
+  .deck-trajectory-phase-detail-state { grid-column: 2; justify-self: start; }
   .deck-trajectory-context-grid { grid-template-columns: 1fr; }
   .deck-trajectory-signals { grid-template-columns: 1fr; gap: 8px; }
   .deck-trajectory-signals > div { padding: 0; border-left: 0; }
@@ -7382,6 +7446,8 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   }
   .deck-trajectory-duration { white-space: normal; }
   .deck-trajectory-phase-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 10px; }
+  .deck-trajectory-phase-details > li { grid-template-columns: 20px minmax(0, 1fr); }
+  .deck-trajectory-phase-detail-state { grid-column: 2; justify-self: start; }
   .deck-trajectory-context-grid, .deck-execution-facts { grid-template-columns: 1fr; }
   .deck-trajectory-signals { grid-template-columns: 1fr; gap: 8px; }
   .deck-trajectory-signals > div { padding: 0; border-left: 0; }
@@ -8152,6 +8218,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   padding: 0;
 }
 .deck-investigation-list {
+  --deck-investigation-rail-x: 9px;
   position: relative;
   display: grid;
   gap: 3px;
@@ -8162,9 +8229,9 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-investigation-list::before {
   content: "";
   position: absolute;
-  top: 22px;
-  bottom: 22px;
-  left: 8px;
+  top: 25px;
+  bottom: 25px;
+  left: var(--deck-investigation-rail-x);
   width: 1px;
   background: var(--border);
 }
@@ -8381,8 +8448,8 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   content: "";
   position: absolute;
   top: 25px;
-  left: 9px;
-  width: 19px;
+  left: var(--deck-investigation-rail-x);
+  width: 25px;
   border-top: 1px solid var(--border);
 }
 .deck-investigation-item-disclosure { min-width: 0; }
@@ -8441,8 +8508,9 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 }
 .deck-investigation-summary > .deck-investigation-state {
   position: absolute;
-  left: -32px;
-  top: 17px;
+  left: -33px;
+  top: 22px;
+  transform: translateY(-50%);
   box-shadow: 0 0 0 3px var(--bg-elevated);
 }
 .deck-investigation-kind-badge {
@@ -8463,6 +8531,10 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-investigation-kind-badge.is-query {
   background: color-mix(in oklab, var(--accent) 10%, transparent);
   color: var(--accent);
+}
+.deck-investigation-kind-badge.is-event {
+  background: color-mix(in oklab, var(--fg-muted) 10%, transparent);
+  color: var(--fg-muted);
 }
 .deck-investigation-state {
   position: relative;
@@ -8552,6 +8624,65 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-investigation-command-tool { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .deck-investigation-command-head .tooltip-anchor { margin-left: auto; }
 .deck-investigation-prompt { color: #7fb3dd; }
+.deck-investigation-provenance,
+.deck-investigation-query-summary > dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+}
+.deck-investigation-provenance {
+  border-bottom: 1px solid #343b42;
+}
+.deck-investigation-provenance > div,
+.deck-investigation-query-summary dl > div {
+  min-width: 0;
+  padding: 8px 10px;
+}
+.deck-investigation-provenance dt,
+.deck-investigation-query-summary dt {
+  color: #aeb7c0;
+  font-size: 10px;
+}
+.deck-investigation-provenance dd,
+.deck-investigation-query-summary dd {
+  min-width: 0;
+  margin: 3px 0 0;
+  overflow-wrap: anywhere;
+  color: #d7dde3;
+  font-size: 11.5px;
+}
+.deck-investigation-provenance code,
+.deck-investigation-query-summary code {
+  color: inherit;
+  background: transparent;
+}
+.deck-investigation-provenance-unavailable {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  padding: 9px 10px;
+  border-bottom: 1px solid #343b42;
+  color: #aeb7c0;
+  font-size: 11px;
+}
+.deck-investigation-provenance-unavailable strong { color: #d7dde3; }
+.deck-investigation-query-summary {
+  padding: 10px 0 2px;
+  border-bottom: 1px solid #343b42;
+  background: #252a2f;
+}
+.deck-investigation-query-summary > strong {
+  display: block;
+  padding: 0 10px 3px;
+  color: #d7dde3;
+  font-size: 11px;
+}
+.deck-investigation-input-label {
+  padding: 8px 10px 0;
+  color: #aeb7c0;
+  font-size: 10px;
+  font-weight: 650;
+}
 .deck-investigation-copy-command {
   display: grid;
   place-items: center;
@@ -8638,6 +8769,99 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   background: color-mix(in oklab, var(--danger, #b3261e) 14%, transparent);
   color: var(--danger, #b3261e);
 }
+.deck-investigation-output-block {
+  border-top: 1px solid #343b42;
+}
+.deck-investigation-output-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 31px;
+  padding: 0 10px;
+  color: #bbc3cb;
+  font-size: 11px;
+}
+.deck-investigation-output-label > .muted { margin-left: auto; }
+.deck-investigation-result-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0;
+  padding: 8px 10px;
+  border-top: 1px solid #343b42;
+  color: #d7dde3;
+}
+.deck-investigation-result-summary > div {
+  display: flex;
+  gap: 5px;
+  min-width: 0;
+}
+.deck-investigation-result-summary dt {
+  color: #aeb7c0;
+  font-size: 10px;
+}
+.deck-investigation-result-summary dd {
+  margin: 0;
+  font-size: 10.5px;
+  font-weight: 650;
+}
+.deck-investigation-execution.is-event-only {
+  border-color: var(--border);
+  background: var(--bg-elevated);
+  color: var(--fg);
+  box-shadow: none;
+}
+.deck-investigation-execution.is-event-only .deck-investigation-command-head {
+  border-color: var(--border);
+  color: var(--fg-muted);
+}
+.deck-investigation-execution.is-event-only .deck-investigation-command-kind {
+  color: var(--fg);
+}
+.deck-investigation-event-summary {
+  margin: 0;
+  padding: 12px 10px;
+  color: var(--fg);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.deck-investigation-no-execution {
+  margin: 0;
+  padding: 9px 10px;
+  border-top: 1px solid var(--border);
+  color: var(--fg-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.deck-investigation-event-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  margin: 0;
+}
+.deck-investigation-event-facts > div {
+  min-width: 0;
+  padding: 8px 10px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.deck-investigation-event-facts > div:nth-child(2n) { border-right: 0; }
+.deck-investigation-event-facts > div:nth-last-child(-n + 2) { border-bottom: 0; }
+.deck-investigation-event-facts dt {
+  color: var(--fg-muted);
+  font-size: 10.5px;
+}
+.deck-investigation-event-facts dd {
+  min-width: 0;
+  margin: 3px 0 0;
+  overflow-wrap: anywhere;
+  color: var(--fg);
+  font-size: 11.5px;
+}
+.deck-investigation-event-facts code {
+  color: inherit;
+  background: transparent;
+}
 .deck-investigation-disclosure {
   border-top: 1px solid #343b42;
 }
@@ -8654,7 +8878,6 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-investigation-disclosure > summary > .muted { margin-left: auto; }
 .deck-investigation-output {
   max-height: 420px;
-  border-top: 1px solid #343b42;
   color: #8fc394;
 }
 .deck-investigation-timestamps {
@@ -8676,6 +8899,8 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 }
 
 @container deck-transcript (max-width: 620px) {
+  .deck-investigation-provenance,
+  .deck-investigation-query-summary > dl { grid-template-columns: 1fr; }
   .deck-investigation-command-head {
     flex-wrap: wrap;
     gap: 4px 8px;
@@ -8688,9 +8913,21 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
     white-space: normal;
     overflow-wrap: anywhere;
   }
+  .deck-investigation-event-facts { grid-template-columns: 1fr; }
+  .deck-investigation-event-facts > div,
+  .deck-investigation-event-facts > div:nth-child(2n),
+  .deck-investigation-event-facts > div:nth-last-child(-n + 2) {
+    border-right: 0;
+    border-bottom: 1px solid #343b42;
+  }
+  .deck-investigation-event-facts > div:last-child { border-bottom: 0; }
 }
 
 @media (max-width: 640px) {
+  .deck-investigation-copy-command {
+    width: 44px;
+    height: 44px;
+  }
   .deck-branch-item {
     grid-template-columns: 42px minmax(0, 1fr);
   }
@@ -8713,8 +8950,8 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   width: 100%;
   box-sizing: border-box;
   border: 1px solid var(--border);
-  border-radius: 8px;
-  background: color-mix(in oklab, var(--accent) 4%, var(--bg-elevated));
+  border-radius: 7px;
+  background: color-mix(in oklab, var(--fg) 1.5%, var(--bg-elevated));
   overflow: hidden;
   animation: deck-preparing-enter 0.22s cubic-bezier(0.22, 0.61, 0.36, 1) both;
 }
@@ -8723,10 +8960,12 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   to { opacity: 1; transform: none; }
 }
 .deck-rt-head {
+  min-height: 36px;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
+  gap: 7px;
+  padding: 0 10px;
   border-bottom: 1px solid var(--border);
 }
 .deck-rt-spin {
@@ -8741,36 +8980,47 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-rt-title {
   flex: 0 0 auto;
   color: var(--fg);
-  font-size: 12.5px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 650;
   white-space: nowrap;
 }
 .deck-rt-sub {
   min-width: 0;
   overflow: hidden;
-  font-size: 11.5px;
+  font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .deck-rt-elapsed {
   flex: 0 0 auto;
   margin-left: auto;
-  font-size: 10.5px;
+  font-size: 9.5px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+.deck-rt-mode {
+  flex: 0 0 auto;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--tier-t0, #4dab7a) 8%, transparent);
+  color: var(--tier-t0, #27734f);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
 
-.deck-rt-stages { list-style: none; margin: 0; padding: 5px 6px 2px; }
+.deck-rt-stages { list-style: none; margin: 0; padding: 4px 5px 1px; }
 .deck-rt-stage {
   display: grid;
-  grid-template-columns: 18px minmax(0, 1fr) auto 24px;
+  grid-template-columns: 20px minmax(0, 1fr) auto 14px;
   min-height: 30px;
   box-sizing: border-box;
   align-items: center;
-  gap: 8px;
-  padding: 3px 6px;
-  border-radius: 7px;
-  font-size: 12px;
+  gap: 7px;
+  padding: 3px 5px;
+  border-radius: 5px;
   opacity: 1;
   transform: none;
   animation: deck-rt-rise 0.28s ease forwards;
@@ -8783,21 +9033,25 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   to { opacity: 1; transform: none; }
 }
 .deck-rt-ico {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   flex: none;
-  border-radius: 5px;
-  background: color-mix(in oklab, var(--fg-muted) 22%, transparent);
+  display: grid;
+  place-items: center;
+  border-radius: 4px;
+  background: color-mix(in oklab, var(--accent) 10%, transparent);
+  color: var(--accent);
+  font: 700 8px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 .deck-rt-stage.is-done .deck-rt-ico {
-  background: color-mix(in oklab, var(--tier-t0, #4dab7a) 30%, transparent);
+  background: color-mix(in oklab, var(--tier-t0, #4dab7a) 10%, transparent);
+  color: var(--tier-t0, #27734f);
 }
 .deck-rt-stage.is-active .deck-rt-ico {
-  background: color-mix(in oklab, var(--accent) 30%, transparent);
-  animation: deck-rt-active-pulse 1.25s ease-in-out infinite;
+  background: color-mix(in oklab, var(--accent) 10%, transparent);
 }
-@keyframes deck-rt-active-pulse {
-  50% { box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 10%, transparent); }
+.deck-rt-stage.is-active {
+  background: color-mix(in oklab, var(--accent) 6%, transparent);
 }
 .deck-rt-stage-copy {
   min-width: 0;
@@ -8812,6 +9066,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   overflow: hidden;
   color: var(--fg);
   font-weight: 650;
+  font-size: 10.5px;
   line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -8820,7 +9075,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
-  font-size: 11.5px;
+  font-size: 9.5px;
   line-height: 1.4;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -8828,7 +9083,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-rt-side {
   white-space: nowrap;
   align-self: center;
-  font-size: 9px;
+  font-size: 8px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   font-weight: 700;
@@ -8840,38 +9095,21 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-rt-side-read { background: color-mix(in oklab, var(--accent) 14%, transparent); color: var(--accent); }
 .deck-rt-side-route { background: color-mix(in oklab, var(--tier-t1, #4f9fa5) 16%, transparent); color: var(--tier-t1, #4f9fa5); }
 .deck-rt-check { justify-self: center; color: var(--tier-t0, #4dab7a); font-weight: 700; }
-.deck-rt-activity {
-  justify-self: center;
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  min-width: 22px;
+.deck-rt-sources {
+  margin: 5px 6px 8px;
+  padding: 6px 5px 0;
+  border-top: 1px solid color-mix(in oklab, var(--border) 65%, transparent);
 }
-.deck-rt-activity span {
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: var(--accent);
-  animation: deck-rt-dot 1s ease-in-out infinite;
-}
-.deck-rt-activity span:nth-child(2) { animation-delay: 120ms; }
-.deck-rt-activity span:nth-child(3) { animation-delay: 240ms; }
-@keyframes deck-rt-dot {
-  0%, 70%, 100% { opacity: 0.28; transform: translateY(0); }
-  35% { opacity: 1; transform: translateY(-2px); }
-}
-
-.deck-rt-sources { padding: 2px 12px 12px; }
 .deck-rt-sources-label {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 10px;
+  font-size: 8.5px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-weight: 700;
-  margin: 4px 0 6px;
-  min-height: 30px;
+  margin: 0 0 4px;
+  min-height: 20px;
   cursor: pointer;
   list-style: none;
 }
@@ -8888,14 +9126,14 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-rt-sources[open] .deck-rt-sources-label::after {
   transform: rotate(225deg) translate(-1px, -1px);
 }
-/* Slot window: only ~3 cards show; the track rolls upward as sources
- * arrive, with top/bottom fade masks for the slot-machine feel. */
+/* Keep the three-row window stable while sources arrive so the pending
+ * answer does not resize the transcript on every streamed preview. */
 .deck-rt-slot {
-  max-height: 180px;
+  height: 88px;
   overflow: hidden;
   position: relative;
-  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 20%, #000 86%, transparent 100%);
-  mask-image: linear-gradient(180deg, transparent 0, #000 20%, #000 86%, transparent 100%);
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 14%, #000 88%, transparent 100%);
+  mask-image: linear-gradient(180deg, transparent 0, #000 14%, #000 88%, transparent 100%);
 }
 .deck-rt-strip {
   list-style: none;
@@ -8903,18 +9141,18 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 .deck-rt-source {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: start;
-  gap: 8px;
-  height: 56px;
-  padding: 7px 8px;
+  grid-template-columns: 38px minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  min-height: 28px;
+  padding: 4px 7px;
   box-sizing: border-box;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 6px;
   background: var(--bg-elevated);
   opacity: 1;
   transform: none;
@@ -8922,38 +9160,20 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   position: relative;
   overflow: hidden;
 }
-.deck-rt-source::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    100deg,
-    transparent 20%,
-    color-mix(in oklab, var(--accent) 8%, transparent) 48%,
-    transparent 76%
-  );
-  transform: translateX(-110%);
-  animation: deck-rt-scan 2.2s ease-in-out infinite;
-  pointer-events: none;
-}
-@keyframes deck-rt-scan {
-  45%, 100% { transform: translateX(110%); }
-}
 @keyframes deck-rt-pop {
   from { opacity: 0; transform: translateY(8px) scale(0.98); }
   to { opacity: 1; transform: none; }
 }
 .deck-rt-badge {
-  margin-top: 1px;
   flex: none;
-  min-width: 40px;
-  height: 20px;
-  padding: 0 6px;
+  padding: 2px 4px;
+  box-sizing: border-box;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 5px;
-  font-size: 9px;
+  border-radius: 3px;
+  font-size: 7.5px;
+  line-height: 12px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.02em;
@@ -8971,30 +9191,29 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 2px;
+  gap: 0;
   flex: 1;
 }
 .deck-rt-k {
   max-width: 100%;
   overflow: hidden;
   color: var(--fg);
-  font-size: 11.5px;
+  font-size: 9.5px;
   font-weight: 650;
+  line-height: 15.2px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .deck-rt-v {
-  display: -webkit-box;
   max-width: 100%;
   overflow: hidden;
   color: var(--fg-muted);
-  font-size: 11.5px;
+  font-size: 8.5px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
-  line-height: 1.3;
-  overflow-wrap: anywhere;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  line-height: 13.6px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Grounded reply (deck/grounded-reply.tsx) - the streamed answer, the
@@ -10236,12 +10455,6 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-investigation-result,
 .deck-investigation-disclosure > summary,
 .deck-investigation-timestamps,
-.deck-rt-sub,
-.deck-rt-elapsed,
-.deck-rt-detail,
-.deck-rt-side,
-.deck-rt-sources-label,
-.deck-rt-badge,
 .deck-llm-escalation-label,
 .deck-llm-escalation-timing,
 .deck-gr-tool,
@@ -10380,10 +10593,9 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   }
   .deck-turn { padding: 10px 12px; }
   .deck-rt-stage {
-    grid-template-columns: 18px minmax(0, 1fr) auto;
+    grid-template-columns: 20px minmax(0, 1fr) auto;
   }
-  .deck-rt-check,
-  .deck-rt-activity {
+  .deck-rt-check {
     grid-column: 3;
     grid-row: 2;
     justify-self: end;
@@ -10525,7 +10737,6 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   .deck-rt-spin,
   .deck-rt-stage,
   .deck-rt-source,
-  .deck-rt-source::after,
   .deck-investigation.is-running,
   .deck-next-skeleton,
   .deck-next-skeleton-dot,
@@ -10537,8 +10748,6 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   .deck-investigation-spinner,
   .deck-branch-item,
   .deck-branch-item::after,
-  .deck-rt-stage.is-active .deck-rt-ico,
-  .deck-rt-activity span,
   .deck-turn-deck.is-streaming,
   .deck-gr-caret,
   .deck-chart-skel-fill {

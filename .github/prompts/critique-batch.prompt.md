@@ -35,7 +35,6 @@ Pick one that has NOT already been hardened this session:
    "false-positive after re-verification" is a legitimate outcome.
 3. **Harden**: fix ONE finding. Do not blend unrelated fixes.
 4. **Verify**:
-   - `bash scripts/verify.sh --fast`
    - Targeted pytest for the touched module, with coverage:
      `pytest services/core-control-plane/tests/<matching_path> -q --no-cov` (or a coverage run if
      coverage is at risk).

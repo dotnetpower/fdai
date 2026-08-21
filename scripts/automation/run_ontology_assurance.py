@@ -15,6 +15,7 @@ import signal
 import stat
 import subprocess
 import sys
+import tempfile
 import urllib.request
 from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime, timezone
@@ -76,6 +77,14 @@ STRICT_OPERATION_COUNTS: Final = {
 
 class AssuranceRunError(RuntimeError):
     """Raised when a governed precondition or release gate fails."""
+
+
+def _scratch_base() -> Path:
+    """Resolve the transient run scratch base outside the repository."""
+    configured = os.environ.get("FDAI_ASSURANCE_SCRATCH_ROOT")
+    if configured:
+        return Path(configured).expanduser()
+    return Path(tempfile.gettempdir()) / "fdai-assurance"
 
 
 def _utc_tag() -> str:
@@ -356,21 +365,17 @@ class OntologyAssuranceRunner:
         self.worktree = (
             self.repo.parent / "fdai-worktrees" / f"issue63-assurance-{self.short_revision}"
         )
-        self.run_root = self.repo / ".fdai" / "live-validation" / "runs" / run_id
+        self.scratch_root = _scratch_base() / run_id
+        self.run_root = self.scratch_root / "stack"
+        self.evidence_root = self.repo / ".fdai" / "live-validation"
         self.stack_log = self.run_root / "stack.log"
         self.request_topic = f"assurance.operator.semantic-turn.requests.{run_id.lower()}"
         self.projection_topic = f"assurance.core.semantic-turn.projections.{run_id.lower()}"
-        self.strict_output = (
-            self.repo
-            / ".fdai"
-            / "live-validation"
-            / (f"ontology-query-22-cell-{run_id}-{source_revision}")
+        self.strict_output = self.scratch_root / (
+            f"ontology-query-22-cell-{run_id}-{source_revision}"
         )
-        self.full_output = (
-            self.repo
-            / ".fdai"
-            / "live-validation"
-            / (f"ontology-query-100-case-{run_id}-{source_revision}")
+        self.full_output = self.scratch_root / (
+            f"ontology-query-100-case-{run_id}-{source_revision}"
         )
         self.strict_checkpoint = self.run_root / "strict.checkpoint.json"
         self.full_checkpoint = self.run_root / "seeded-100.checkpoint.json"
@@ -427,6 +432,7 @@ class OntologyAssuranceRunner:
             strict_payload = _read_artifact(strict_artifact)
             if not strict_artifact_accepted(strict_payload, self.source_revision):
                 raise AssuranceRunError("strict v2 22-cell artifact failed the immutable gate")
+            strict_evidence = self._preserve_artifact(strict_artifact, self.strict_output)
 
             full_exit = await self._run_playwright_phase(
                 label="seeded_100",
@@ -466,13 +472,14 @@ class OntologyAssuranceRunner:
             full_payload = _read_artifact(full_artifact)
             if not full_artifact_accepted(full_payload, self.source_revision):
                 raise AssuranceRunError("seeded 100-case artifact failed the immutable gate")
+            full_evidence = self._preserve_artifact(full_artifact, self.full_output)
             self.status.update(
                 state="complete",
                 phase="complete",
                 termination=None,
                 artifacts={
-                    "strict": str(strict_artifact),
-                    "seeded_100": str(full_artifact),
+                    "strict": str(strict_evidence),
+                    "seeded_100": str(full_evidence),
                 },
             )
             return 0
@@ -486,6 +493,13 @@ class OntologyAssuranceRunner:
             return 1
         finally:
             await self.supervisor.close()
+
+    def _preserve_artifact(self, artifact: Path, output: Path) -> Path:
+        """Copy the governed artifact out of transient scratch into repository evidence."""
+        destination = self.evidence_root / output.name / artifact.name
+        destination.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        shutil.copy2(artifact, destination)
+        return destination
 
     def _prepare(self) -> None:
         self.status.update(
@@ -524,7 +538,13 @@ class OntologyAssuranceRunner:
             raise AssuranceRunError("Browser Entra storage state MUST have mode 600")
         if self.strict_checkpoint.exists() or self.full_checkpoint.exists():
             raise AssuranceRunError("fresh assurance checkpoints already exist for this run id")
-        if self.strict_output.exists() or self.full_output.exists():
+        occupied = (
+            self.strict_output,
+            self.full_output,
+            self.evidence_root / self.strict_output.name,
+            self.evidence_root / self.full_output.name,
+        )
+        if any(path.exists() for path in occupied):
             raise AssuranceRunError("fresh assurance output already exists for this run id")
 
         if not (self.worktree / ".git").exists():

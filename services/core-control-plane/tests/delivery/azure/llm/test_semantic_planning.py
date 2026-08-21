@@ -6,11 +6,14 @@ import asyncio
 import json
 import logging
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 import httpx
+import pytest
 from fdai.core.conversation.semantic_planning import _build_frame
 from fdai.core.conversation.semantic_planning_models import SemanticFrameProposal
+from fdai.core.prompts.registry import FileSystemPromptRegistry
 from fdai.delivery.azure.llm.request_target import ModelRequestTarget
 from fdai.delivery.azure.llm.semantic_planning import (
     AzureOpenAISemanticPlanningModel,
@@ -49,6 +52,32 @@ def _config(*targets: ModelRequestTarget) -> AzureOpenAISemanticPlanningModelCon
         ),
         timeout_seconds=2,
     )
+
+
+def test_adapter_config_accepts_the_current_governed_semantic_prompts() -> None:
+    catalog_root = Path(__file__).parents[6] / "rule-catalog"
+    prompts = FileSystemPromptRegistry(catalog_root)
+    frame = prompts.get_base("semantic.query.frame")
+    plan = prompts.get_base("semantic.query.plan")
+
+    config = AzureOpenAISemanticPlanningModelConfig(
+        candidates=(_target("primary"),),
+        frame_system_prompt=frame.body,
+        plan_system_prompt=plan.body,
+    )
+
+    assert len(config.frame_system_prompt) > 16_384
+    assert config.frame_system_prompt == frame.body
+    assert config.plan_system_prompt == plan.body
+
+
+def test_adapter_config_rejects_a_system_prompt_above_the_hard_limit() -> None:
+    with pytest.raises(ValueError, match="system prompts MUST be non-empty and bounded"):
+        AzureOpenAISemanticPlanningModelConfig(
+            candidates=(_target("primary"),),
+            frame_system_prompt="x" * 32_769,
+            plan_system_prompt="bounded",
+        )
 
 
 def _frame_payload() -> dict[str, object]:

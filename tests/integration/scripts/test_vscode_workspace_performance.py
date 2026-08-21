@@ -84,6 +84,7 @@ def test_workspace_starts_complete_console_topology_automatically() -> None:
         "console: require primary worktree for automatic start",
         "console: prepare full stack",
         "console: start local services",
+        "console: verify local services",
     ]
     assert automatic_start["runOptions"] == {
         "runOn": "folderOpen",
@@ -120,6 +121,23 @@ def test_workspace_starts_complete_console_topology_automatically() -> None:
             "instanceLimit": 1,
             "instancePolicy": "silent",
         }
+        if service_label != "console: frontend (Browser Entra)":
+            service_task = tasks_by_label[service_label]
+            assert "local-service-input-digest.py" in service_task["command"]
+            assert 'FDAI_LOCAL_SERVICE_INPUT_DIGEST="$input_digest"' in service_task["command"]
+            assert "FDAI_LOCAL_SERVICE_RESTART_STALE=1" in service_task["command"]
+            assert "FDAI_LOCAL_SERVICE_REUSE_EXISTING=1" in service_task["command"]
+            assert "event=reused$" in service_task["problemMatcher"]["background"]["endsPattern"]
+
+    core = tasks_by_label["console: Core Control Plane (Local Docker)"]
+    assert "FDAI_PANTHEON_HEARTBEAT_SECONDS=2" in core["command"]
+
+    readiness = tasks_by_label["console: verify local services"]
+    assert "developer-workflow.py local-services --wait-seconds 15" in readiness["command"]
+    assert readiness["runOptions"] == {
+        "instanceLimit": 1,
+        "instancePolicy": "silent",
+    }
 
     channel_prepare = tasks_by_label["channel edge: prepare local env"]
     assert "prepare-channel-edge-env.sh" in channel_prepare["command"]
@@ -128,6 +146,9 @@ def test_workspace_starts_complete_console_topology_automatically() -> None:
     assert "fdai-operator-channel-edge" in channel_edge["command"]
     assert ".fdai/local-channel-edge.env" in channel_edge["command"]
     assert "operator-channel-edge" not in local_services["dependsOn"]
+    assert "local-service-input-digest.py" in channel_edge["command"]
+    assert 'FDAI_LOCAL_SERVICE_INPUT_DIGEST="$input_digest"' in channel_edge["command"]
+    assert "FDAI_LOCAL_SERVICE_RESTART_STALE=1" in channel_edge["command"]
 
     campaign = tasks_by_label["console: Observation Campaign (Local)"]
     assert "fdai.delivery.observation_campaign_cli --loop" in campaign["command"]

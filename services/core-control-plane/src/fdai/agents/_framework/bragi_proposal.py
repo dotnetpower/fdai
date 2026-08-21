@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Collection
 from typing import Any
 
-from fdai.agents._framework.bragi_routing import translate_action_intent
+from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal
+
+from fdai.agents._framework.bragi_routing import action_from_semantic_judgment
 from fdai.core.rbac.roles import Capability, Role, has_capability
 
 _MAX_QUESTION_CHARS = 2_000
@@ -20,6 +23,8 @@ def build_action_proposal(
     session_id: str,
     user_id: str,
     question: str,
+    judgment: SemanticJudgmentProposal,
+    action_type_names: Collection[str],
     initiator_role: str | None,
     pipeline_available: bool,
 ) -> tuple[dict[str, Any] | None, dict[str, Any]]:
@@ -35,7 +40,7 @@ def build_action_proposal(
                 "initiator_role": initiator_role,
                 "correlation_id": correlation_id,
             }
-    action_type, resource_id = translate_action_intent(question)
+    action_type, resource_id = action_from_semantic_judgment(judgment, action_type_names)
     if action_type is None:
         return None, {
             "submitted": False,

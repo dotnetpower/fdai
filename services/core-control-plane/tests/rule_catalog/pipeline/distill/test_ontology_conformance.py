@@ -19,6 +19,7 @@ from fdai.rule_catalog.pipeline.distill.ontology_corpus_gate import (
     CorpusPartition,
 )
 from fdai.rule_catalog.pipeline.distill.ontology_models import (
+    AuthorityClass,
     OntologyTargetKind,
     stable_digest,
 )
@@ -57,7 +58,6 @@ def _document() -> ManualDocument:
 
 
 def _context() -> VerificationContext:
-    claim = inventory_claims(_document())[0]
     return VerificationContext(
         ontology_release="a" * 64,
         current_graph_revision="graph-1",
@@ -65,7 +65,11 @@ def _context() -> VerificationContext:
         links=(),
         entities=(EntityRecord("service:checkout", "BusinessService"),),
         source_policies=(
-            SourceAuthorityPolicy("doc:service-map", frozenset({claim.authority}), 10),
+            SourceAuthorityPolicy(
+                "doc:service-map",
+                frozenset({AuthorityClass.DECLARED_INTENT}),
+                10,
+            ),
         ),
         claim_text=(),
     )

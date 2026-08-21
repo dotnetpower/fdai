@@ -338,7 +338,11 @@ def _build_inventory_context_provider() -> Any:
     return PostgresInventoryContextProvider(config=PostgresInventorySnapshotStoreConfig(dsn=dsn))
 
 
-def _build_read_investigation_provider() -> Any:
+def _build_read_investigation_provider(
+    *,
+    identity: Any = None,
+    http_client: Any = None,
+) -> Any:
     """Bind promoted inventory reads for the optional resource-state investigation path."""
 
     dsn = (
@@ -355,9 +359,23 @@ def _build_read_investigation_provider() -> Any:
     from fdai.delivery.read_investigation import InventoryReadInvestigationProvider
 
     config = PostgresInventorySnapshotStoreConfig(dsn=dsn)
-    return InventoryReadInvestigationProvider(
+    provider = InventoryReadInvestigationProvider(
         graph_reader=PostgresInventoryGraphProvider(config=config),
         context_reader=PostgresInventoryContextProvider(config=config),
+    )
+    subscription_id = os.environ.get("AZURE_SUBSCRIPTION_ID", "").strip()
+    if identity is None or http_client is None or not subscription_id:
+        return provider
+    from fdai.delivery.azure.read_investigation_activity import (
+        AzureActivityReadConfig,
+        AzureActivityReadInvestigationProvider,
+    )
+
+    return AzureActivityReadInvestigationProvider(
+        base=provider,
+        identity=identity,
+        http_client=http_client,
+        config=AzureActivityReadConfig(subscription_id=subscription_id),
     )
 
 

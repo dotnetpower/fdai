@@ -2,7 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks"
 import { matchingTurnIndexes } from "./command-deck-session";
 import type { Turn } from "./command-deck-presenters";
 import type { ConversationSummary } from "./conversation-sessions";
-import { isNearBottom, revealTargetScrollTop } from "./scroll-stick";
+import {
+  contentResizeScrollTop,
+  isNearBottom,
+  revealTargetScrollTop,
+} from "./scroll-stick";
 import { serializeTurns, transcriptKeyFor } from "./transcript-store";
 import { sessionStore } from "./use-command-deck-sessions";
 
@@ -11,6 +15,7 @@ interface MutableValueRef<T> {
 }
 
 interface UseCommandDeckTranscriptOptions {
+  readonly open: boolean;
   readonly turns: readonly Turn[];
   readonly conversations: readonly ConversationSummary[];
   readonly sessionKey: string;
@@ -19,6 +24,7 @@ interface UseCommandDeckTranscriptOptions {
 }
 
 export function useCommandDeckTranscript({
+  open,
   turns,
   conversations,
   sessionKey,
@@ -31,6 +37,7 @@ export function useCommandDeckTranscript({
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const scrollFrameRef = useRef<number | null>(null);
   const anchoredUntilRef = useRef(0);
+  const stuckRef = useRef(true);
 
   const lastTurnLength = turns.length > 0
     ? (turns[turns.length - 1]?.text.length ?? 0)
@@ -53,18 +60,46 @@ export function useCommandDeckTranscript({
     };
   }, [lastTurnLength, stuck, turns.length]);
 
+  useEffect(() => {
+    if (!open) return;
+    const scroller = scrollerRef.current;
+    const content = scroller?.firstElementChild;
+    if (!scroller || !content || typeof ResizeObserver === "undefined") return;
+
+    let resizeFrame: number | null = null;
+    const observer = new ResizeObserver(() => {
+      if (resizeFrame !== null) cancelAnimationFrame(resizeFrame);
+      resizeFrame = requestAnimationFrame(() => {
+        resizeFrame = null;
+        scroller.scrollTop = contentResizeScrollTop(
+          stuckRef.current,
+          scroller.scrollTop,
+          scroller.scrollHeight,
+        );
+      });
+    });
+    observer.observe(content);
+    return () => {
+      observer.disconnect();
+      if (resizeFrame !== null) cancelAnimationFrame(resizeFrame);
+    };
+  }, [open]);
+
   const onTranscriptScroll = useCallback(() => {
     const scroller = scrollerRef.current;
     if (!scroller) return;
     if (performance.now() < anchoredUntilRef.current) {
+      stuckRef.current = false;
       setStuck(false);
       return;
     }
-    setStuck(isNearBottom(
+    const nextStuck = isNearBottom(
       scroller.scrollTop,
       scroller.scrollHeight,
       scroller.clientHeight,
-    ));
+    );
+    stuckRef.current = nextStuck;
+    setStuck(nextStuck);
   }, []);
 
   useEffect(() => {
@@ -91,10 +126,12 @@ export function useCommandDeckTranscript({
     const scroller = scrollerRef.current;
     if (!scroller) return;
     scroller.scrollTop = scroller.scrollHeight;
+    stuckRef.current = true;
     setStuck(true);
   }, []);
 
   const pinTranscriptToLatest = useCallback(() => {
+    stuckRef.current = true;
     setStuck(true);
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
@@ -109,6 +146,7 @@ export function useCommandDeckTranscript({
     childSelector?: string,
   ) => {
     anchoredUntilRef.current = performance.now() + 1000;
+    stuckRef.current = false;
     setStuck(false);
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {

@@ -664,6 +664,53 @@ def test_resume_prompt_executes_by_default_and_keeps_status_read_only() -> None:
     assert "`status` - inspect only" in prompt
     assert "Do not stop after the summary" in prompt
     assert "Do not push" in prompt
+    assert "Commit only when the recovered user" in prompt
+
+
+def test_agent_workflow_keeps_commit_and_live_validation_opt_in() -> None:
+    instructions = (REPO_ROOT / ".github" / "copilot-instructions.md").read_text(encoding="utf-8")
+
+    assert "Do not commit by default" in instructions
+    assert "MUST NOT interrupt unfinished implementation" in instructions
+    assert "do not authorize a coding session to invoke a" in instructions
+    assert "unexpected `T2` fallback" in instructions
+    assert "do not retry the same live" in instructions
+
+
+def test_specialized_workflows_do_not_force_broad_validation() -> None:
+    relative_paths = (
+        ".github/prompts/critique-batch.prompt.md",
+        ".github/prompts/harden-coverage.prompt.md",
+        ".github/prompts/pantheon-safe-edit.prompt.md",
+        ".github/skills/agent-pantheon-edit/SKILL.md",
+        ".github/skills/coding-hardening/SKILL.md",
+        ".github/skills/conversational-assurance/SKILL.md",
+        ".github/skills/i18n-catalog/SKILL.md",
+    )
+
+    for relative_path in relative_paths:
+        text = (REPO_ROOT / relative_path).read_text(encoding="utf-8")
+        assert "verify.sh --fast" not in text, relative_path
+
+
+def test_verify_prompt_uses_the_validation_hook_contract() -> None:
+    prompt = (REPO_ROOT / ".github" / "prompts" / "verify.prompt.md").read_text(encoding="utf-8")
+
+    assert "`bash scripts/verify.sh --fast`" not in prompt
+    assert "make validation-all" in prompt
+    assert "smallest test file, node id, typecheck, linter, or structural checker" in prompt
+
+
+def test_conversation_assurance_requires_an_explicit_live_campaign() -> None:
+    skill = " ".join(
+        (REPO_ROOT / ".github" / "skills" / "conversational-assurance" / "SKILL.md")
+        .read_text(encoding="utf-8")
+        .split()
+    )
+
+    assert "does not authorize a campaign or a live Azure/model call" in skill
+    assert "one measurement attempt per cycle" in skill
+    assert "MUST NOT relaunch the cycle" in skill
 
 
 def test_design_route_checker_parses_multiline_skill_description(tmp_path: Path) -> None:

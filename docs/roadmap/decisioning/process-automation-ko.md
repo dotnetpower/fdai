@@ -1,8 +1,8 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 46745a41d0d82db0c1d3364029a17888da9897fc
-translation_revised: 2026-08-18
+translation_source_sha: 47debba4c93346446e887f8b39f9820ced3cedad
+translation_revised: 2026-08-21
 ---
 # 프로세스 자동화(프로세스 자동화)
 
@@ -448,12 +448,11 @@ Publish, 연결, 활성화 및 실행 은 별도로 검토되는 경로로 유�
 디자이너는 폼이 아니라 **오퍼레이터와 함께 워크플로를 공동 설계하는
 채팅**이다. 깊은 평문 질문을 하고, 이해한 바를 다시 서술하며, 어시스턴트가 다음
 액션을 제안하듯 옵션 칩을 제시한다 - 그래서 비전문가가 스키마를 배우는 대신
-질문에 답하는 것만으로 유효한 워크플로에 도달한다. 이는 **결정론적,
-LLM-free 인터뷰 엔진**
+질문에 답하는 것만으로 유효한 워크플로에 도달한다. 결정론적 단계 전환은 인터뷰 엔진
 ([`workflow-builder.chat.ts`](../../../console/src/routes/workflow-builder.chat.ts))
-이 뒷받침한다. 이 슬롯 채우기 상태 기계는 deterministic-first 계약에 충실하다:
-서술기 가 없어도 동작하고, `ActionType` 팔레트에 없는 변경 은 결코
-만들어내지 않는다.
+에 남습니다. 이 슬롯 채우기 상태 기계는 `ActionType` 팔레트에 없는 변경을 결코
+만들어내지 않습니다. 자유 텍스트의 의미는 서버가 소유하고 검증한 의미 판단에서만
+옵니다. 텍스트 전용 브라우저 호출은 어휘 추론으로 대체하지 않고 판단을 보류합니다.
 
 엔진은 고정된 단계 집합
 (`welcome -> need_action -> need_trigger -> confirm_plan -> offer_extra ->
@@ -464,10 +463,11 @@ echo 되는 클릭 가능한 **옵션 칩**입니다. 설계 속성은 다음과
 - welcome 턴은 **작동 예시** (예: "`aks-cluster-01` 의 pod 가 과열되면 알림을
   보내줘") 를 보여주어, 오퍼레이터가 타이핑 전에 어떤 종류의 프로세스가 표현
   가능한지 본다;
-- 단일 자유 텍스트 목표는 레거시 작성기 가 쓰던 것과 동일한 결정론 매처
-  ([`suggestDraftFromText`](../../../console/src/routes/workflow-builder.intent.ts))
-  가 미리 파싱한다: 문장이 이미 트리거 와 액션을 명명하면 인터뷰는 곧장 나머지
-  확인으로 건너뛰고, 여전히 빠진 것만 묻는다;
+- 검증된 의미 워크플로 판단은
+  [`suggestDraftFromJudgment`](../../../console/src/routes/workflow-builder.intent.ts)를 통해
+  정확한 trigger와 `ActionType` 식별자를 미리 채울 수 있습니다. Projection은 `0.75`
+  이상의 confidence, 모호하지 않은 결과 및 `execution_authority=false`를 요구합니다.
+  알 수 없거나 중복된 식별자는 실패 시 차단되며 인터뷰가 빠진 필드를 묻습니다.
 - 각 답변 뒤 엔진은 **이해한 바를 다시 서술**한다 - 한 문장 "when -> do" 로 -
   그리고 `offer_extra` 에서 추가 스텝 (다른 액션, 가드, 알림) 을 오퍼레이터가
   수락하거나 거절하는 칩으로 제안한다;

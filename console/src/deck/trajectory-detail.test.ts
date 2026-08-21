@@ -16,6 +16,14 @@ function detail() {
         tool: "inventory",
         command: '{"query":"status"}',
         input_kind: "query",
+        target: {
+          interface_kind: "internal_query",
+          service: "core-control-plane",
+          component: "OntologyQueryPlanExecutor",
+          operation: "object_set_materialization",
+          source_kind: "ontology_instance_store",
+          transport: "event_bus",
+        },
         redacted: true,
         output: '{"count":2}',
         output_truncated: false,
@@ -48,6 +56,7 @@ describe("parseTrajectoryDetail", () => {
     const parsed = parseTrajectoryDetail(detail());
 
     expect(parsed?.activities[0]?.execution?.output).toBe('{"count":2}');
+    expect(parsed?.activities[0]?.execution?.target?.interfaceKind).toBe("internal_query");
     expect(parsed?.branches[0]?.status).toBe("completed");
     expect(parsed?.milestones[0]?.recordedAt).toBe("2026-07-31T01:00:01Z");
   });

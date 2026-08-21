@@ -1,0 +1,18 @@
+# Stable repository entry points and project-level configuration.
+.dockerignore
+.gitignore
+.gitleaks.toml
+.pre-commit-config.yaml
+.trivyignore.yaml
+AGENTS.md
+CONTRIBUTING.md
+DEVELOPING.md
+LICENSE
+Makefile
+README-ko.md
+README.md
+alembic.ini
+azure.yaml
+index.html
+pyproject.toml
+uv.lock

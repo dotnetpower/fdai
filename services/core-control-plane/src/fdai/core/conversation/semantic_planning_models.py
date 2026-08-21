@@ -74,6 +74,10 @@ class SemanticOutputShape(StrEnum):
     ONTOLOGY_RELEASE_EVIDENCE_HEALTH = "ontology_release_evidence_health"
     PROPERTY_FILTERED_RESOURCES = "property_filtered_resources"
     RESOURCE_LIST = "resource_list"
+    TARGET_ACTIVITY = "target_activity"
+    TARGET_CURRENT_STATE = "target_current_state"
+    TARGET_ERROR_ACTIVITY_CORRELATION = "target_error_activity_correlation"
+    TARGET_HEALTH_ASSESSMENT = "target_health_assessment"
     TEMPORAL_COMPARISON = "temporal_comparison"
     TOPOLOGY_GRAPH = "topology_graph"
 

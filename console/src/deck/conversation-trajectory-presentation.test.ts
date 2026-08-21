@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 import type { Turn } from "./command-deck-presenters";
 import type { ConversationTrajectory } from "./conversation-trajectory";
@@ -23,6 +25,18 @@ function trajectory(
 }
 
 describe("buildTrajectoryPresentation", () => {
+  it("renders visible content summaries for all six observed-process phases", () => {
+    const view = readFileSync(
+      fileURLToPath(new URL("./conversation-trajectory-view.tsx", import.meta.url)),
+      "utf8",
+    );
+
+    expect(view).toContain('<ol class="deck-trajectory-phase-details"');
+    expect(view).toContain("TRAJECTORY_PHASES.map((phase, index)");
+    expect(view).toContain("phaseDetail(");
+    expect(view).toContain('return t("deck.trajectory.coverageGap")');
+  });
+
   it("selects the smallest sufficient work-progress presentation", () => {
     expect(workProgressPresentation(trajectory({}))).toBe("none");
 

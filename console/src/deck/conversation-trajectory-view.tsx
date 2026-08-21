@@ -100,6 +100,13 @@ export function ConversationTrajectoryView({
       {open ? (
         <div class="deck-trajectory-body">
           <PhaseStrip phaseStates={presentation.phaseStates} />
+          <PhaseDetails
+            trajectory={trajectory}
+            phaseStates={presentation.phaseStates}
+            evidenceCompleted={presentation.evidenceCompletedCount}
+            evidenceAttempted={presentation.evidenceAttemptCount}
+            evidenceReferences={presentation.evidenceReferenceCount}
+          />
           <ConversationExecutionTimelineView trajectory={trajectory}
             includeModelCalls={showModelTrace} />
           <ModelTraceWaterfall
@@ -258,6 +265,104 @@ function PhaseStrip({
       ))}
     </ol>
   );
+}
+
+function PhaseDetails({
+  trajectory,
+  phaseStates,
+  evidenceCompleted,
+  evidenceAttempted,
+  evidenceReferences,
+}: {
+  readonly trajectory: ConversationTrajectory;
+  readonly phaseStates: Readonly<Record<TrajectoryPhase, TrajectoryPhaseState>>;
+  readonly evidenceCompleted: number;
+  readonly evidenceAttempted: number;
+  readonly evidenceReferences: number;
+}) {
+  return (
+    <ol class="deck-trajectory-phase-details" aria-label={t("deck.trajectory.phaseLabel")}>
+      {TRAJECTORY_PHASES.map((phase, index) => (
+        <li key={phase} data-state={phaseStates[phase]}>
+          <span class="deck-trajectory-phase-detail-mark" aria-hidden="true">
+            {phaseMark(phaseStates[phase], index)}
+          </span>
+          <span class="deck-trajectory-phase-detail-copy">
+            <strong>{t(`deck.trajectory.phase.${phase}`)}</strong>
+            <small>{phaseDetail(
+              trajectory,
+              phase,
+              evidenceCompleted,
+              evidenceAttempted,
+              evidenceReferences,
+            )}</small>
+          </span>
+          <span class="deck-trajectory-phase-detail-state">
+            {phaseStateLabel(phaseStates[phase])}
+          </span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function phaseDetail(
+  trajectory: ConversationTrajectory,
+  phase: TrajectoryPhase,
+  evidenceCompleted: number,
+  evidenceAttempted: number,
+  evidenceReferences: number,
+): string {
+  const { answer } = trajectory;
+  if (phase === "input") return trajectory.question.text;
+  if (phase === "plan") {
+    if (answer.intentGraph) {
+      return t("deck.trajectory.planSummary", {
+        count: answer.intentGraph.goals.length,
+        mode: answer.intentGraphEvidence?.evidence_mode
+          ? t(`deck.trajectory.evidenceMode.${answer.intentGraphEvidence.evidence_mode}`)
+          : t("deck.trajectory.notRecorded"),
+      });
+    }
+    if (answer.answerPlan) {
+      return `${t("deck.trajectory.intent")}: ${answer.answerPlan.intent} / ` +
+        `${t("deck.trajectory.format")}: ${answer.answerPlan.format} / ` +
+        `${t("deck.trajectory.evidenceRequirement")}: ${answer.answerPlan.evidence_requirement}`;
+    }
+    return t("deck.trajectory.coverageGap");
+  }
+  if (phase === "collaboration") {
+    if (answer.answerPlanning) {
+      const contributors = answer.answerPlanning.consulted_agents.length > 0
+        ? answer.answerPlanning.consulted_agents.join(", ")
+        : t("deck.trajectory.none");
+      return `${t("deck.trajectory.primaryAgent")}: ` +
+        `${answer.answerPlanning.primary_agent ?? t("deck.trajectory.none")} / ` +
+        `${t("deck.trajectory.contributors")}: ${contributors}`;
+    }
+    if (answer.delegation) {
+      return `${answer.delegation.handoff_from ?? t("deck.trajectory.none")} -> ` +
+        answer.delegation.primary_agent;
+    }
+    return t("deck.trajectory.coverageGap");
+  }
+  if (phase === "evidence") {
+    return t("deck.trajectory.evidenceSummary", {
+      successful: evidenceCompleted,
+      attempted: evidenceAttempted,
+      references: evidenceReferences,
+    });
+  }
+  if (phase === "verification") {
+    if (!answer.verification) return t("deck.trajectory.coverageGap");
+    return `${verificationPrimaryLabel(answer.verification)} / ` +
+      `${t("deck.trajectory.checks")}: ` +
+      `${answer.verification.checks_completed}/${answer.verification.checks_total} / ` +
+      `${t("deck.trajectory.authority")}: ${answer.verification.authority}`;
+  }
+  return `${t("deck.trajectory.source")}: ` +
+    `${answer.source ?? t("deck.trajectory.none")} / ` +
+    `${t("deck.trajectory.agent")}: ${answer.agent ?? t("deck.trajectory.none")}`;
 }
 
 function phaseMark(state: TrajectoryPhaseState, index: number): string {

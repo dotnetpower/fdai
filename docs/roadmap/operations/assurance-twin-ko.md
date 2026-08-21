@@ -1,8 +1,8 @@
 ---
 title: 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 translation_of: assurance-twin.md
-translation_source_sha: d86d64a539bc3fc122507b9c5c37179efc64e507
-translation_revised: 2026-08-20
+translation_source_sha: ef7ceef6489ecb6be26b2e4f45c92de461c6f6b1
+translation_revised: 2026-08-21
 ---
 # 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 
@@ -47,12 +47,12 @@ event-driven, risk-gated 설계를 저하시키지 않으면서 커버하는 리
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| 변환 결과, 검증된 질의, 자세 보고, 발행기 중립 검토 코어 | implemented | [`core/assurance_twin/`](../../../services/core-control-plane/src/fdai/core/assurance_twin), [`tests/assurance_twin/`](../../../services/core-control-plane/tests/assurance_twin) | 메모리 내 변환 결과, 결정론적 컴파일러, 읽기 전용 검증기, 보고서 집계, 검토 발행기 연결부가 집중 검사를 통과합니다. |
+| 변환 결과, 검증된 질의, 자세 보고, 발행기 중립 검토 코어 | implemented | [`core/assurance_twin/`](../../../services/core-control-plane/src/fdai/core/assurance_twin), [`tests/assurance_twin/`](../../../services/core-control-plane/tests/assurance_twin) | 메모리 내 변환 결과, strict typed-query 검증기, 보고서 집계, 검토 발행기 연결부가 집중 검사를 통과합니다. 기본 자연어 컴파일러는 `semantic_model_unavailable`을 반환하며 의미를 lexical 방식으로 추론하지 않습니다. |
 | 스칼라 Dynamic 효과 모델, 충실도 측정, 범위가 제한된 런타임 조정 | implemented | [`effect_model.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/effect_model.py), [`fidelity.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/fidelity.py), [`runtime.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/runtime.py) 및 해당 집중 테스트 | 활성 모델은 변경하지 않고, challenger는 적격 결과에서만 학습하며, 불일치는 사람 검토로 낮춥니다. |
 | 그래프 전역 Dynamic 궤적, 전파, 불변식, 에피소드 종결, 모델 레지스트리 | implemented | [`graph_effect.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_effect.py), [`graph_runtime.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_runtime.py), [`graph_closure.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_closure.py) 및 그래프 집중 테스트 | 런타임은 근거를 반환하기 전에 예측 에피소드를 저장하고 완전한 독립 관측에서만 challenger 구획을 갱신합니다. |
 | 심층 Security Assessment 피드, 결정론적 분석기, 카탈로그 보고서 | implemented | [`core/security/`](../../../services/core-control-plane/src/fdai/core/security), [`security_assessment.py`](../../../services/core-control-plane/src/fdai/core/reporting/datasources/security_assessment.py), [`test_assessment.py`](../../../services/core-control-plane/tests/core/security/test_assessment.py), [`test_security_assessment_datasource.py`](../../../services/core-control-plane/tests/core/reporting/test_security_assessment_datasource.py) | 아래에서 설명하는 Twin 전용 자세 패널과는 별도의 보고 하위 시스템입니다. |
 | 운영 인벤토리 변환 결과와 선제적 변경 검토 전달 | not-started | [`projection.py`](../../../services/core-control-plane/src/fdai/shared/providers/projection.py)와 [`iac_review.py`](../../../services/core-control-plane/src/fdai/shared/providers/iac_review.py)가 프로바이더 시임을 정의합니다. | 업스트림에는 운영 인벤토리 어댑터, 변경 이벤트 조정기, Checks API 발행기가 연결되지 않았습니다. |
-| 모델 기반 질문 컴파일, T1 재사용, ChatOps 입력, 판단 보류 피드백 | in-progress | [`query.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/query.py), [`chat.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/chat.py) | 타입이 있는 질의 검증과 변경할 수 없는 채팅 값은 있지만 모델 기반 컴파일, 메시지 라우팅, 발견 루프 전달은 없습니다. |
+| 모델 기반 질문 컴파일, T1 재사용, ChatOps 입력, 판단 보류 피드백 | in-progress | [`query.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/query.py), [`chat.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/chat.py), 공유 의미 판단 계약 | 타입이 있는 질의 검증, 변경할 수 없는 채팅 값, 명시적 model-unavailable 동작이 있습니다. 수락된 의미 판단에서 `TypedQuery`로 가는 Twin 전용 projection, 메시지 라우팅, 발견 루프 전달은 연결되지 않았습니다. |
 | Twin 전용 운영자 패널과 거버넌스가 적용된 수정 제안 연결 | not-started | 위의 보고 및 검토 기본 기능은 입력을 제공하지만 전용 Operator API 또는 콘솔 경로는 없습니다. | 구현된 Security Assessment 보고서는 더 넓은 Twin 자세 패널이나 액션 연결 작업 흐름을 충족하지 않습니다. |
 
 ### 구현 이력
@@ -60,6 +60,7 @@ event-driven, risk-gated 설계를 저하시키지 않으면서 커버하는 리
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 구현 원장을 도입하고 테스트된 Twin 기본 기능과 연결되지 않은 전달 표면을 분리했습니다. 이전 구현 이력은 재구성하지 않았습니다. | 현재 변경과 구현 범위 표에 인용한 어슈어런스 트윈, Security Assessment, 보고 집중 테스트. | 운영 근거와 전달 표면을 연결한 다음 거버넌스가 적용된 런타임 증적을 수집합니다. |
+| 2026-08-21 | in-progress | 기본 Twin 컴파일러에서 lexical 자연어 grammar를 제거했습니다. 바인딩되지 않은 컴파일은 `semantic_model_unavailable`을 반환하며 결정론적 읽기 전용 검증기는 주입된 모든 컴파일러에 계속 authoritative합니다. | `current change`; 집중 Assurance Twin 검사 45개가 통과했고 semantic-routing guard에 migrate 경로가 없습니다. | 자연어 컴파일을 사용할 수 있다고 설명하기 전에 Twin 전용 모델 projection과 ChatOps 입력을 연결합니다. |
 
 ### 남은 작업
 

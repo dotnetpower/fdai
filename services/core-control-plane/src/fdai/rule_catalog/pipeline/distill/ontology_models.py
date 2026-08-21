@@ -22,6 +22,7 @@ _MAX_PROPERTY_STRING = 4096
 
 
 class ClaimKind(StrEnum):
+    UNCLASSIFIED = "unclassified"
     NORMATIVE = "normative"
     THRESHOLD = "threshold"
     ENTITY = "entity"
@@ -32,6 +33,7 @@ class ClaimKind(StrEnum):
 
 
 class AuthorityClass(StrEnum):
+    UNCLASSIFIED = "unclassified"
     DECLARED_INTENT = "declared_intent"
     PROCEDURE = "procedure"
     HISTORICAL_EVIDENCE = "historical_evidence"

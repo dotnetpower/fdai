@@ -4,7 +4,18 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Mapping, Sequence
 
-_LIFTED_ROW_FIELDS = ("name", "type", "status", "location")
+_LIFTED_ROW_FIELDS = (
+    "name",
+    "revision_name",
+    "ready_revision_name",
+    "running_status",
+    "source_observed_at",
+    "inventory_read_at",
+    "provisioning_status",
+    "type",
+    "status",
+    "location",
+)
 _TECHNICAL_IDENTITY_FIELDS = frozenset({"id", "object_type"})
 _INTERNAL_ROW_FIELDS = frozenset(
     {

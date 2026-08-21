@@ -46,8 +46,7 @@ lines, verify, commit. **One batch = one commit.**
    ```
    Note: `--cov=` takes a **dotted module**, not a slash path. `-o addopts=""`
    drops the project's default `--cov` floor for this single-file check.
-6. Run the fast gate suite: `bash scripts/verify.sh --fast`.
-7. Per-file `git add`, then a Conventional Commit:
+6. Per-file `git add`, then a Conventional Commit:
    `test(<scope>): cover <module> (<X% -> Y%>)`
 
 Do not run the whole repository suite per batch. The merge/release CI coverage

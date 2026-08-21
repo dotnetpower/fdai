@@ -79,6 +79,7 @@ function normalizedExecutionToWire(raw: unknown): unknown {
     tool: record.tool,
     command: record.command,
     input_kind: record.inputKind,
+    target: normalizedExecutionTargetToWire(record.target),
     redacted: record.redacted,
     output: record.output,
     output_truncated: record.outputTruncated,
@@ -86,6 +87,24 @@ function normalizedExecutionToWire(raw: unknown): unknown {
     started_at: record.startedAt,
     completed_at: record.completedAt,
     duration_ms: record.durationMs,
+  };
+}
+
+function normalizedExecutionTargetToWire(raw: unknown): unknown {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return raw;
+  const record = raw as Record<string, unknown>;
+  const endpoint = typeof record.endpoint === "object" &&
+      record.endpoint !== null && !Array.isArray(record.endpoint)
+    ? record.endpoint as Record<string, unknown>
+    : undefined;
+  return {
+    interface_kind: record.interfaceKind,
+    service: record.service,
+    component: record.component,
+    operation: record.operation,
+    source_kind: record.sourceKind,
+    transport: record.transport,
+    ...(endpoint ? { endpoint: { method: endpoint.method, path: endpoint.path } } : {}),
   };
 }
 

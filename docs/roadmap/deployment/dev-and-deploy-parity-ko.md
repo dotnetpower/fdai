@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 4d66995a1b9f0700c5975257968baf07c2923da7
+translation_source_sha: 4e12ff51ed657b10a6db98bacee621c0965e6325
 translation_revised: 2026-08-21
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -37,6 +37,7 @@ translation_revised: 2026-08-21
 | 로컬 검증 데이터베이스 격리 | implemented | `infra/local/docker-compose.yml`, `scripts/automation/validation_queue_context.py`, 로컬 준비 스크립트 및 focused 검증과 migration 통합 테스트 | 런타임 상태는 로컬 PostgreSQL port `5432`에 유지하고 파괴적인 migration 검증은 port `5433`의 별도 로컬 PostgreSQL cluster를 사용합니다. |
 | FDAI workspace 및 프로파일 부하 제어 | implemented | `.vscode/settings.json`, `.vscode/fdai.code-profile`, `scripts/automation/configure-vscode-profile.py`, `tests/integration/scripts/test_vscode_workspace_performance.py`, 집중 프로파일 및 workspace 검사 | 리소스 범위 분석 제어는 workspace에 둡니다. Copilot은 선택한 모델의 맥락 창 80%에서 에이전트 이력을 압축하고, 이식 가능한 프로파일은 격리할 수 없는 Remote WSL Pylance 머신 설정을 거부하며, 0이 아닌 터미널 종료는 중복 VS Code 알림 없이 계속 확인할 수 있습니다. |
 | 격리된 Console E2E 개발 루프 | implemented | `console/playwright.config.ts`, `console/playwright.live.config.ts`, `console/scripts/playwright-port-pool.ts`, focused 테스트 및 `.github/skills/vscode-profile-onboarding/SKILL.md`의 Playwright 지침, Console 타입 검사와 동시 focused desktop E2E 통과 | 각 세션은 frontend/API 포트 쌍 10개 중 하나를 원자적으로 임대하고 worker와 공유합니다. slot별로 산출물을 격리하고 종료된 PID의 잠금을 회수하며 전체 desktop 및 mobile 행렬은 바꾸지 않습니다. |
+| 같은 체크아웃의 백엔드 시작 재사용 | implemented | `local-service-input-digest.py`, `run-local-service.sh`, `run-local-service-child.py`, `developer-workflow.py`, `.vscode/tasks.json`, 집중 런처 및 workspace 태스크 테스트 | 재사용하려면 서비스 소스, private 환경, 의존성, 감독 코드 및 실행 명령 fingerprint가 정확히 일치해야 합니다. 오래된 managed 태스크는 자동으로 교체합니다. 시작 후에는 최신 Core heartbeat를 포함한 표준 로컬 구성 요소 6개가 범위가 제한된 준비 상태 검사를 모두 통과해야 합니다. 종료는 범위가 제한된 유예 시간 뒤 강제로 전환합니다. 체크아웃 외부에서 소유한 포트 또는 런타임 잠금은 계속 시작 실패로 처리합니다. |
 | FDAI Pylance launch ceiling 런타임 증명 | deferred | FDAI Remote WSL을 clean restart해도 Pylance는 bundled VS Code Node 실행 파일로 시작했고 `--max-old-space-size=2048`이 없었습니다. VS Code Server 1.133은 활성 프로파일 서비스와 별개로 Remote Machine 설정 리소스 하나를 생성합니다. | 격리된 런타임을 마련할 때까지 blocked 상태입니다. Shared Remote Machine 재정의는 제외 대상 workspace에도 영향을 주므로 ceiling을 활성화하려면 별도 VS Code Server data root 또는 WSL 배포판으로 런타임을 격리해야 합니다. |
 
 ### 구현 이력
@@ -93,6 +94,8 @@ translation_revised: 2026-08-21
 | 2026-08-20 | implemented | Local legacy migration, local service-branch migration 및 protected service 조정에 같은 15분 PostgreSQL statement deadline을 추가했습니다. Server가 20분 workflow deadline 전에 장기 실행 DDL을 취소하므로 연결이 끊긴 runner가 service 간 advisory lock을 보유하는 방치된 transaction을 남길 수 없습니다. | `current change`; 집중 migration deadline 검사; entry point 3개 strict mypy 통과; 일회용 PostgreSQL에서 예산을 초과한 statement를 취소하고 연결 해제 뒤 advisory lock 0개를 확인함. | 성공한 exact Core 적용 및 post-apply 상태 증적을 보존합니다. |
 | 2026-08-20 | implemented | Question-campaign table 생성을 legacy compatibility head에서 Core service branch로 옮겼습니다. Local 준비와 protected 배포는 legacy `0086` 또는 Core branch 중 어느 쪽이 먼저 실행돼도 같은 single writer를 통해 수렴합니다. | `current change`; service migration inventory 검사; 일회용 PostgreSQL에서 두 migration 순서 통과; service 5개의 fresh adoption 통과. | 성공한 exact Core 적용 및 post-apply 상태 증적을 보존합니다. |
 | 2026-08-20 | implemented | PTY host와 셸 시작은 정상인데 VS Code 기본 설정이 사용자가 입력한 통합 터미널의 0이 아닌 종료를 알림으로 표시한다는 진단에 따라 FDAI workspace에서 터미널 종료 알림을 비활성화했습니다. 중복 토스트만 억제하며 터미널 출력, 작업 상태 및 프로세스 종료 코드는 계속 확인할 수 있습니다. | `current change`, `.vscode/settings.json`, `tests/integration/scripts/test_vscode_workspace_performance.py`, 집중 workspace 계약 및 VS Code JSON 진단 | 터미널 종료 토스트에 남은 구현 작업은 없습니다. |
+| 2026-08-20 | implemented | VS Code가 태스크 인스턴스 메타데이터를 잃은 뒤에도 이 체크아웃의 서비스 로그 잠금을 계속 소유한 프로세스를 자동 백엔드 시작에서 재사용하도록 했습니다. 재사용 경로는 터미널 표식을 내보내고 다른 자식 프로세스를 시작하지 않습니다. 마지막 15초 게이트는 Core 소유권과 Console, Operator API, Document Ingestion API, Document Processing Worker 및 격리 Executor 검사를 요구합니다. 다른 체크아웃이 소유한 포트와 런타임 잠금은 계속 시작 실패로 처리합니다. | `current change`, `scripts/automation/run-local-service.sh`, `developer-workflow.py`, `.vscode/tasks.json`, 집중 런처, 준비 상태 및 workspace 태스크 검사 | 같은 체크아웃의 백엔드 태스크 재연결과 시작 후 준비 상태 검사에 남은 구현 작업은 없습니다. |
+| 2026-08-20 | implemented | 검토 후 재사용 판정을 강화했습니다. 각 runner는 서비스 소유 source, 생성된 환경, 의존성 선언, 감독 코드 및 정확한 실행 명령의 SHA-256 fingerprint와 owner 및 child PID를 private 0600 metadata에 기록합니다. 오래된 같은 체크아웃 runner는 cwd, 서비스 ID, owner PID 및 child process group을 검증한 뒤 자동 교체하며 다른 체크아웃 또는 unmanaged 프로세스는 받아들이지 않습니다. Child shim은 기록된 PID를 실제 session leader로 만들고 wrapper가 사라지면 `SIGTERM`을 받습니다. Core는 2초 간격 Pantheon heartbeat를 내보내고 준비 상태 검사는 10초보다 오래되지 않은 heartbeat를 요구합니다. 정상 종료가 10초를 넘으면 서비스를 강제로 종료해 singleton 잠금을 무기한 보유하지 못하게 합니다. | `current change`, 집중 launcher, digest, heartbeat, orphan 복구 및 workspace 검사. 통제된 로컬 재시작은 한 번의 검사에서 6/6 ready에 도달했고 metadata 7개가 모두 live owner와 정확한 child process group에 일치했으며 측정된 Core heartbeat는 5.4초 이내를 유지했습니다. Port `8010`-`8013` 및 `5273`은 모두 `200`을 반환했습니다. | 오래된 입력 재사용, Core liveness, parent 소실 정리 및 범위가 제한된 로컬 종료에 남은 구현 작업은 없습니다. |
 
 ### 잔여 작업
 - [ ] FDAI 전용 Remote WSL server data root 또는 WSL 배포판을 마련한 뒤 제외 대상 workspace를 변경하지 않고 재시작한 Pylance process command에 `--max-old-space-size=2048`이 포함됨을 기록합니다.
@@ -210,7 +213,21 @@ executor 권한을 변경하지 않습니다.
 Entra 인증이나 서비스 권한을 약화하지 않습니다. 각 장기 실행 시작 작업은
 `instancePolicy: silent`를 사용합니다. 작업 재연결 또는 다른 자동 시작 요청이 기존 인스턴스를
 찾으면 VS Code는 해당 인스턴스를 유지하고 중복 요청을 무시하므로 작업 인스턴스 선택창을 열지
-않습니다. 집계 작업 밖에서 개별 서비스 작업 또는 standalone debug launch를 시작할 때는
+않습니다. 프로세스가 살아 있는 동안 VS Code가 태스크 인스턴스 메타데이터를 잃으면 런처는 이
+체크아웃이 보유한 서비스 로그 잠금을 확인하고 `event=reused`를 내보냅니다. 다른 자식 프로세스를
+시작하지 않고 백그라운드 준비 완료 판정을 끝냅니다. 재사용하려면 저장된 실행 fingerprint가 현재
+서비스 소유 source, private 환경, 의존성 선언, 감독 코드 및 정확한 자식 명령과도 일치해야 합니다.
+입력이 바뀌면 자동 시작이 해당 managed 같은 체크아웃 태스크를 검증하고 교체합니다. 소유권 metadata가
+없거나 다른 체크아웃 또는 unmanaged 프로세스이면 signal을 보내지 않고 실패합니다. 다른
+체크아웃이 소유한 포트 또는 Core 런타임 잠금은 받아들이지 않고 계속 시작 실패로 처리합니다.
+시작하거나 재사용한 뒤에는 범위가 제한된 15초 검사에서 이 체크아웃이 소유한 Core 프로세스,
+10초보다 오래되지 않은 Pantheon heartbeat, Console SPA, Operator API, Document Ingestion API,
+Document Processing Worker 및 격리 Executor probe가 모두 성공해야 합니다. 따라서 listener가 준비
+상태 probe에 응답하지 않거나 Core event loop가 heartbeat를 중단하면 집계 시작은 이를 정상으로
+보고하지 않고 실패합니다. 로컬 서비스 종료에는 10초의 정상 종료 시간이 있으며, 이후 launcher가
+자식 process group을 강제로 종료하고 singleton 잠금을 해제합니다. 각 child는 기록된 session leader이며
+태스크 wrapper가 사라지면 `SIGTERM`을 받으므로 태스크 정리가 unmanaged 서비스를 남기지 않습니다.
+집계 작업 밖에서 개별 서비스 작업 또는 standalone debug launch를 시작할 때는
 `console: prepare full stack`을 먼저 실행합니다.
 Git에서 제외된 로컬 런타임 환경은 검증 cluster를 `FDAI_VALIDATION_DATABASE_URL`로
 기록합니다. Detached 중앙 검증 queue는 선택된 통합 테스트에 이 값만

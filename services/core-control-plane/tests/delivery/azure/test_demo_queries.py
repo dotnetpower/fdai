@@ -6,6 +6,8 @@ from fdai.delivery.azure.demo_queries import (
     METRIC_APIM_BACKEND_LATENCY_MS,
     METRIC_APIM_HTTP_5XX_RATE,
     METRIC_BACKEND_FIRST_BYTE_MS,
+    METRIC_CONTAINER_APP_CPU_NANOCORES,
+    METRIC_DEPENDENCY_DURATION_MS,
     METRIC_HEALTHY_HOST_COUNT,
     METRIC_HOST_CPU_PERCENT,
     METRIC_HOST_MEMORY_AVAILABLE_PCT,
@@ -19,7 +21,9 @@ from fdai.delivery.azure.demo_queries import (
     METRIC_REQUEST_SURGE_RATIO,
     METRIC_ROLLOUT_STALL_DURATION_SECONDS,
     METRIC_ROLLOUT_STALL_SECONDS,
+    METRIC_SERVICE_REQUEST_DURATION_MS,
     default_metric_queries,
+    semantic_investigation_queries,
     sre_demo_analyzer_queries,
     sre_demo_capture_queries,
 )
@@ -148,6 +152,7 @@ def test_catalog_view_is_read_only() -> None:
 
 
 _EXPECTED_ANALYZER = {
+    METRIC_CONTAINER_APP_CPU_NANOCORES,
     METRIC_NODE_CPU_PERCENT,
     METRIC_POD_RESTART_COUNT,
     METRIC_ROLLOUT_STALL_DURATION_SECONDS,
@@ -224,6 +229,22 @@ def test_azure_openai_status_code_is_schema_portable() -> None:
     assert "toint(ResultStatusCode)" not in query
 
 
+def test_semantic_investigation_templates_require_exact_otel_resource_identity() -> None:
+    queries = semantic_investigation_queries()
+
+    assert set(queries) == {
+        METRIC_SERVICE_REQUEST_DURATION_MS,
+        METRIC_DEPENDENCY_DURATION_MS,
+    }
+    assert "AppRequests" in queries[METRIC_SERVICE_REQUEST_DURATION_MS].kql
+    assert "AppDependencies" in queries[METRIC_DEPENDENCY_DURATION_MS].kql
+    for template in queries.values():
+        assert "Properties['cloud.resource_id']" in template.kql
+        assert "isnotempty(resource_id)" in template.kql
+        assert "_ResourceId" not in template.kql
+        assert template.label_columns == ("resource_id",)
+
+
 def test_default_metric_queries_is_the_union() -> None:
     """``wire_azure_container`` picks this map by default; it MUST be the
     exact union of the two sub-catalogs so every reference scenario -
@@ -232,10 +253,11 @@ def test_default_metric_queries_is_the_union() -> None:
     default_keys = set(default_metric_queries().keys())
     capture_keys = set(sre_demo_capture_queries().keys())
     analyzer_keys = set(sre_demo_analyzer_queries().keys())
-    assert default_keys == capture_keys | analyzer_keys, (
+    semantic_keys = set(semantic_investigation_queries().keys())
+    assert default_keys == capture_keys | analyzer_keys | semantic_keys, (
         f"default_metric_queries missing: "
-        f"{(capture_keys | analyzer_keys) - default_keys}, "
-        f"extras: {default_keys - (capture_keys | analyzer_keys)}"
+        f"{(capture_keys | analyzer_keys | semantic_keys) - default_keys}, "
+        f"extras: {default_keys - (capture_keys | analyzer_keys | semantic_keys)}"
     )
 
 

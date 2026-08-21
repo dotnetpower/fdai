@@ -23,6 +23,9 @@ from fdai.core.ontology_platform import (
     OntologyQueryPlanVerifier,
     QueryManifest,
 )
+from fdai.core.ontology_platform.resource_activity_queries import (
+    RESOURCE_ACTIVITY_FUNCTION_NAME,
+)
 
 from .semantic_investigation import (
     InvestigationEntityRole,
@@ -100,7 +103,7 @@ def compile_investigation_plan(
         predicates=(
             ObjectPredicate(
                 property=identity_property,
-                operator=ObjectPredicateOperator.CONTAINS,
+                operator=ObjectPredicateOperator.EQUALS,
                 equals=target.span.text,
             ),
         ),
@@ -113,6 +116,20 @@ def compile_investigation_plan(
             resolve_id,
             QueryNodeKind.OBJECT_SET,
             arguments={"definition": target_definition.model_dump(mode="json")},
+            output_kind="query.table",
+        )
+    )
+    activity_id = "change-activity"
+    nodes.append(
+        _node(
+            activity_id,
+            QueryNodeKind.FUNCTION,
+            depends_on=(resolve_id,),
+            arguments={
+                "function_name": RESOURCE_ACTIVITY_FUNCTION_NAME,
+                "arguments": {"lookback_seconds": 86_400},
+                "dependency_arguments": {resolve_id: "query_result"},
+            },
             output_kind="query.table",
         )
     )
@@ -206,10 +223,15 @@ def compile_investigation_plan(
         relationship = relationships[hypothesis.relationship_id]
         cause_id = f"cause-{hypothesis.hypothesis_id}"
         result_id = f"hypothesis-{hypothesis.hypothesis_id}"
+        cause_scope_id = (
+            resolve_id
+            if hypothesis.cause_measure_concept in {"dependency.latency", "resource.saturation"}
+            else traversal_ids[relationship.relationship_id]
+        )
         nodes.append(
             _metric_scope_node(
                 cause_id,
-                scope_id=traversal_ids[relationship.relationship_id],
+                scope_id=cause_scope_id,
                 concept_id=hypothesis.cause_measure_concept,
                 start=windows.current_start,
                 end=windows.current_end,
@@ -240,7 +262,7 @@ def compile_investigation_plan(
 
     if len(nodes) > 16:
         raise ValueError("investigation query DAG exceeds 16 nodes")
-    output_node_ids = (comparison_id, *hypothesis_outputs)
+    output_node_ids = (comparison_id, activity_id, *hypothesis_outputs)
     frame_digest = problem_frame_digest or intent.intent_digest
     body = {
         "schema_version": "1.0.0",

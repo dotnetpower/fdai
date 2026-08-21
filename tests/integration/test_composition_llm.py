@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import shutil
 from datetime import UTC, datetime, timedelta
@@ -1057,6 +1058,125 @@ async def test_wire_azure_container_attaches_full_stack(tmp_path: Path) -> None:
     assert len(bindings.cross_check_models) == 2
 
 
+async def test_wire_azure_container_binds_candidate_only_semantic_judgment(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    from fdai.composition import AzureWireOverrides, wire_azure_container
+    from fdai.core.operator_memory import InMemoryOperatorMemoryStore
+    from fdai_service_contracts.semantic_judgment import SemanticJudgmentDisposition
+
+    proposal = {
+        "schema_version": "1.0.0",
+        "primary_intent": "resource_health",
+        "secondary_intents": [],
+        "targets": [],
+        "requested_facets": ["health"],
+        "confidence": 0.95,
+        "ambiguous": False,
+        "alternatives": [],
+        "unresolved_terms": [],
+        "clarification": None,
+        "discourse_mode": "direct",
+        "action_posture": "advise_only",
+        "authority": "candidate_only",
+        "execution_authority": False,
+    }
+
+    def respond(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={"choices": [{"message": {"content": json.dumps(proposal)}}]},
+        )
+
+    resolved = tmp_path / "resolved-models.json"
+    resolved.write_text(_resolved_models_json_with_debate(), encoding="utf-8")
+    container = default_container(_config(mode=LlmMode.AZURE, resolved_path=str(resolved)))
+    http = httpx.AsyncClient(transport=httpx.MockTransport(respond))
+    with caplog.at_level("INFO"):
+        finalized = await wire_azure_container(
+            container,
+            http_client=http,
+            identity=_StaticIdentity(),
+            overrides=AzureWireOverrides(
+                endpoint="https://oai-fork.openai.azure.com",
+                catalog_root=_SHIPPED_CATALOG_ROOT,
+                operator_memory_store=InMemoryOperatorMemoryStore(),
+            ),
+        )
+    factory = finalized.require_llm_bindings().conversation_semantic_judgment_factory
+    assert factory is not None
+    boundary = factory(asyncio.get_running_loop())
+
+    result = await asyncio.to_thread(
+        boundary.judge,
+        utterance="show health",
+        context=(),
+        capabilities=({"kind": "agent", "name": "Heimdall"},),
+    )
+
+    assert result.receipt.disposition is SemanticJudgmentDisposition.ACCEPTED
+    assert result.receipt.tier == "t1"
+    assert result.receipt.execution_authority is False
+    assert result.proposal is not None
+    assert result.proposal.authority == "candidate_only"
+    bound_log = next(
+        record
+        for record in caplog.records
+        if record.getMessage() == "semantic_judgment_factory_bound"
+    )
+    assert bound_log.available_tiers == ["t1", "t2"]
+
+
+async def test_semantic_judgment_candidate_failures_correlate_to_receipt(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    from fdai.composition import AzureWireOverrides, wire_azure_container
+    from fdai.core.operator_memory import InMemoryOperatorMemoryStore
+    from fdai_service_contracts.ontology_query import content_digest
+    from fdai_service_contracts.semantic_judgment import SemanticJudgmentDisposition
+
+    resolved = tmp_path / "resolved-models.json"
+    resolved.write_text(_resolved_models_json_with_debate(), encoding="utf-8")
+    container = default_container(_config(mode=LlmMode.AZURE, resolved_path=str(resolved)))
+    finalized = await wire_azure_container(
+        container,
+        http_client=httpx.AsyncClient(
+            transport=httpx.MockTransport(lambda _request: httpx.Response(503))
+        ),
+        identity=_StaticIdentity(),
+        overrides=AzureWireOverrides(
+            endpoint="https://oai-fork.openai.azure.com",
+            catalog_root=_SHIPPED_CATALOG_ROOT,
+            operator_memory_store=InMemoryOperatorMemoryStore(),
+        ),
+    )
+    factory = finalized.require_llm_bindings().conversation_semantic_judgment_factory
+    assert factory is not None
+    boundary = factory(asyncio.get_running_loop())
+    utterance = "show health"
+
+    with caplog.at_level("WARNING"):
+        result = await asyncio.to_thread(
+            boundary.judge,
+            utterance=utterance,
+            context=(),
+            capabilities=({"kind": "agent", "name": "Heimdall"},),
+        )
+
+    expected_digest = content_digest({"utterance": utterance})
+    failures = [
+        record
+        for record in caplog.records
+        if record.getMessage() == "semantic_judgment_candidate_failed"
+    ]
+    assert failures
+    assert {record.input_digest for record in failures} == {expected_digest}
+    assert result.receipt.input_digest == expected_digest
+    assert result.receipt.disposition is SemanticJudgmentDisposition.UNAVAILABLE
+
+
 async def test_wire_azure_container_binds_complete_ontology_council(tmp_path: Path) -> None:
     from fdai.composition import AzureWireOverrides, wire_azure_container
     from fdai.core.operator_memory import InMemoryOperatorMemoryStore
@@ -1114,6 +1234,34 @@ async def test_wire_azure_container_missing_council_prompt_preserves_legacy_abst
     )
 
     assert isinstance(finalized.distiller, AbstainingDistiller)
+
+
+async def test_wire_azure_container_missing_semantic_judgment_prompt_fails_closed(
+    tmp_path: Path,
+) -> None:
+    from fdai.composition import AzureWireOverrides, wire_azure_container
+    from fdai.core.operator_memory import InMemoryOperatorMemoryStore
+
+    catalog = tmp_path / "catalog"
+    shutil.copytree(_SHIPPED_CATALOG_ROOT / "prompts", catalog / "prompts")
+    (catalog / "prompts" / "base" / "semantic-judgment.v1.yaml").unlink()
+    resolved = tmp_path / "resolved-models.json"
+    resolved.write_text(_resolved_models_json(), encoding="utf-8")
+    container = default_container(_config(mode=LlmMode.AZURE, resolved_path=str(resolved)))
+
+    with pytest.raises(LookupError, match="semantic.judgment"):
+        await wire_azure_container(
+            container,
+            http_client=httpx.AsyncClient(
+                transport=httpx.MockTransport(lambda _request: httpx.Response(200))
+            ),
+            identity=_StaticIdentity(),
+            overrides=AzureWireOverrides(
+                endpoint="https://legacy.example.com",
+                catalog_root=catalog,
+                operator_memory_store=InMemoryOperatorMemoryStore(),
+            ),
+        )
 
 
 async def test_wire_azure_container_partial_council_without_prompt_fails_closed(

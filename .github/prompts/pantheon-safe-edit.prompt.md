@@ -63,8 +63,8 @@ typed pipeline. No bypass.
    at the 90% floor.
 5. **Docs-first / docs-after**: if behavior or the AgentSpec changes,
    update `docs/roadmap/agents/agent-pantheon.md` in the same commit.
-6. Verify: `bash scripts/verify.sh --fast`, then targeted pytest for
-   the touched agent.
+6. Verify the layout test and targeted pytest for the touched agent. Run a broad gate suite only
+   when the user explicitly identifies a merge or release boundary.
 7. Per-file `git add`, then a Conventional Commit scoped to the agent
    name (e.g. `harden(forseti): ...`, `fix(thor): ...`).
 

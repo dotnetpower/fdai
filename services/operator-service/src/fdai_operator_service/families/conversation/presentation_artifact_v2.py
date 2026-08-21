@@ -32,6 +32,8 @@ _OUTPUT_SHAPES = frozenset(
         "ontology_relationships",
         "property_filtered_resources",
         "resource_list",
+        "target_error_activity_correlation",
+        "target_health_assessment",
         "temporal_comparison",
         "topology_graph",
     }
@@ -66,6 +68,42 @@ def compile_presentation_artifact_v2(
     output = cast(Mapping[str, object], outputs[0])
     if isinstance(output.get("incident_profile"), Mapping):
         return None
+    if output_shape == "target_error_activity_correlation":
+        blocks = _error_activity_blocks(
+            output,
+            locale=locale,
+            evidence_refs=evidence_refs,
+            verified=_semantic_is_verified(semantic),
+        )
+        if blocks is None:
+            return None
+        return cast(
+            JsonObject,
+            {
+                "schema_version": 2,
+                "layout": "stack",
+                "evidence_refs": evidence_refs[:_MAX_REFS],
+                "blocks": blocks,
+            },
+        )
+    if output_shape == "target_health_assessment":
+        blocks = _health_blocks(
+            output,
+            locale=locale,
+            evidence_refs=evidence_refs,
+            verified=_semantic_is_verified(semantic),
+        )
+        if blocks is None:
+            return None
+        return cast(
+            JsonObject,
+            {
+                "schema_version": 2,
+                "layout": "stack",
+                "evidence_refs": evidence_refs[:_MAX_REFS],
+                "blocks": blocks,
+            },
+        )
     shape = analyze_evidence_shape(output, verified=_semantic_is_verified(semantic))
     intent = _presentation_intent(
         operation=cast(str, operation),
@@ -73,7 +111,13 @@ def compile_presentation_artifact_v2(
         shape=shape,
     )
     decision = plan_presentation(intent=intent, shape=shape)
-    block = _compile_block(decision.kind, shape=shape, locale=locale, evidence_refs=evidence_refs)
+    block = _compile_block(
+        decision.kind,
+        reason_code=decision.reason_code,
+        shape=shape,
+        locale=locale,
+        evidence_refs=evidence_refs,
+    )
     if block is None:
         return None
     blocks = [block]
@@ -89,6 +133,212 @@ def compile_presentation_artifact_v2(
             "blocks": blocks,
         },
     )
+
+
+def _health_blocks(
+    output: Mapping[str, object],
+    *,
+    locale: str,
+    evidence_refs: list[object],
+    verified: bool,
+) -> list[JsonObject] | None:
+    if not verified:
+        return None
+    rows = output.get("rows")
+    if not isinstance(rows, list) or len(rows) != 1 or not isinstance(rows[0], Mapping):
+        return None
+    values = rows[0].get("values")
+    if not isinstance(values, Mapping) or values.get("evidence_sufficient") is not False:
+        return None
+    if values.get("execution_authority") is not False:
+        return None
+    korean = locale.casefold().startswith("ko")
+    refs = cast(list[str], evidence_refs[:_MAX_REFS])
+    fields = (
+        ("overall_assessment", "전체 평가", "Overall"),
+        ("platform_lifecycle", "플랫폼 수명 주기", "Platform lifecycle"),
+        ("readiness", "준비 상태", "Readiness"),
+        ("application_service_health", "애플리케이션 서비스", "Application service"),
+        ("stability", "안정성", "Stability"),
+        ("resource_pressure", "리소스 압력", "Resource pressure"),
+    )
+    items = [
+        {
+            "label": korean_label if korean else english_label,
+            "value": _health_cell(values.get(key)),
+            "tone": "neutral",
+        }
+        for key, korean_label, english_label in fields
+        if values.get(key) is not None
+    ]
+    if len(items) < 4:
+        return None
+    raw_gaps = values.get("evidence_gaps")
+    gaps = (
+        [item.strip().replace("_", " ") for item in raw_gaps.split(",") if item.strip()]
+        if isinstance(raw_gaps, str)
+        else []
+    )
+    freshness = [
+        f"{label}: {value}"
+        for label, value in (
+            ("원본 관측" if korean else "Source observation", values.get("source_observed_at")),
+            ("인벤토리 조회" if korean else "Inventory read", values.get("inventory_read_at")),
+            ("메트릭 종료" if korean else "Metric window end", values.get("metric_window_end")),
+        )
+        if isinstance(value, str) and value
+    ]
+    lines = [*freshness, *gaps]
+    return [
+        cast(
+            JsonObject,
+            {
+                "slot_id": "overview",
+                "kind": "summary",
+                "title": "건강 근거 평가" if korean else "Health evidence assessment",
+                "emphasis": "primary",
+                "collapsed": False,
+                "evidence_refs": refs,
+                "data": {"items": items},
+            },
+        ),
+        cast(
+            JsonObject,
+            {
+                "slot_id": "limitations",
+                "kind": "callout",
+                "title": "근거 공백" if korean else "Evidence gaps",
+                "emphasis": "primary",
+                "collapsed": False,
+                "evidence_refs": refs,
+                "data": {
+                    "tone": "warning",
+                    "lines": lines
+                    or [
+                        "검증된 freshness 또는 공백이 없습니다."
+                        if korean
+                        else "No verified freshness or gap detail is available."
+                    ],
+                },
+            },
+        ),
+    ]
+
+
+def _error_activity_blocks(
+    output: Mapping[str, object],
+    *,
+    locale: str,
+    evidence_refs: list[object],
+    verified: bool,
+) -> list[JsonObject] | None:
+    if not verified:
+        return None
+    rows = output.get("rows")
+    if not isinstance(rows, list) or len(rows) != 1 or not isinstance(rows[0], Mapping):
+        return None
+    values = rows[0].get("values")
+    if (
+        not isinstance(values, Mapping)
+        or values.get("causal_claim_supported") is not False
+        or values.get("execution_authority") is not False
+    ):
+        return None
+    korean = locale.casefold().startswith("ko")
+    refs = cast(list[str], evidence_refs[:_MAX_REFS])
+    fields = (
+        ("error_trend", "요청 오류 추세", "Request error trend"),
+        ("baseline_error_total", "직전 구간 오류", "Baseline errors"),
+        ("current_error_total", "현재 구간 오류", "Current errors"),
+        ("activity_state", "Activity Log", "Activity Log"),
+        ("activity_change_count", "변경 이벤트", "Change events"),
+        ("correlation_assessment", "상관 평가", "Correlation assessment"),
+    )
+    items = [
+        {
+            "label": korean_label if korean else english_label,
+            "value": _health_cell(values.get(key)),
+            "tone": "neutral",
+        }
+        for key, korean_label, english_label in fields
+        if values.get(key) is not None
+    ]
+    if len(items) < 4:
+        return None
+    windows = [
+        f"{label}: {value}"
+        for label, value in (
+            (
+                "직전 구간 시작" if korean else "Baseline window start",
+                values.get("baseline_window_start"),
+            ),
+            (
+                "직전 구간 종료" if korean else "Baseline window end",
+                values.get("baseline_window_end"),
+            ),
+            (
+                "현재 구간 시작" if korean else "Current window start",
+                values.get("current_window_start"),
+            ),
+            (
+                "현재 구간 종료" if korean else "Current window end",
+                values.get("current_window_end"),
+            ),
+        )
+        if isinstance(value, str) and value
+    ]
+    raw_gaps = values.get("evidence_gaps")
+    gaps = (
+        [item.strip().replace("_", " ") for item in raw_gaps.split(",") if item.strip()]
+        if isinstance(raw_gaps, str)
+        else []
+    )
+    caution = (
+        "같은 구간의 동시 관측은 인과관계를 입증하지 않습니다."
+        if korean
+        else "Co-occurrence in the same window does not establish causation."
+    )
+    return [
+        cast(
+            JsonObject,
+            {
+                "slot_id": "overview",
+                "kind": "summary",
+                "title": (
+                    "요청 오류와 Activity Log 상관 평가"
+                    if korean
+                    else "Request errors and Activity Log correlation"
+                ),
+                "emphasis": "primary",
+                "collapsed": False,
+                "evidence_refs": refs,
+                "data": {"items": items},
+            },
+        ),
+        cast(
+            JsonObject,
+            {
+                "slot_id": "limitations",
+                "kind": "callout",
+                "title": "근거 구간과 공백" if korean else "Evidence windows and gaps",
+                "emphasis": "primary",
+                "collapsed": False,
+                "evidence_refs": refs,
+                "data": {
+                    "tone": "warning" if gaps else "neutral",
+                    "lines": [*windows, *gaps, caution],
+                },
+            },
+        ),
+    ]
+
+
+def _health_cell(value: object) -> str:
+    if isinstance(value, str) and value:
+        return value.replace("_", " ")[:_MAX_CELL_CHARS]
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return "not proven"
 
 
 def _presentation_intent(
@@ -121,6 +371,7 @@ def _presentation_intent(
 def _compile_block(
     kind: PresentationKind,
     *,
+    reason_code: str,
     shape: EvidenceShape,
     locale: str,
     evidence_refs: list[object],
@@ -134,21 +385,38 @@ def _compile_block(
         "evidence_refs": refs,
     }
     if kind is PresentationKind.CALLOUT:
+        verified_empty = reason_code == "verified_empty_result"
         return cast(
             JsonObject,
             {
                 **base,
-                "slot_id": "limitations",
+                "slot_id": "records" if verified_empty else "limitations",
                 "kind": "callout",
-                "title": "사용 불가" if korean else "Unavailable",
+                "title": (
+                    "일치하는 근거 없음"
+                    if korean and verified_empty
+                    else "No matching evidence"
+                    if verified_empty
+                    else "사용 불가"
+                    if korean
+                    else "Unavailable"
+                ),
                 "data": {
-                    "tone": "warning",
-                    "lines": list(shape.limitations)
-                    or [
-                        "검증된 근거를 사용할 수 없습니다."
-                        if korean
-                        else "Verified evidence is unavailable."
-                    ],
+                    "tone": "neutral" if verified_empty else "warning",
+                    "lines": (
+                        [
+                            "검증된 조회가 완료되었고 0개 행을 반환했습니다."
+                            if korean
+                            else "The verified query completed and returned 0 rows."
+                        ]
+                        if verified_empty
+                        else list(shape.limitations)
+                        or [
+                            "검증된 근거를 사용할 수 없습니다."
+                            if korean
+                            else "Verified evidence is unavailable."
+                        ]
+                    ),
                 },
             },
         )

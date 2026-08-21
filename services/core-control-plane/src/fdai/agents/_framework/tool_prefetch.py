@@ -17,7 +17,6 @@ from typing import TYPE_CHECKING
 from fdai.agents._framework.tool_planner import (
     MAX_PLANNED_QUESTION_CHARS,
     ConversationToolPlan,
-    plan_conversation_tools,
 )
 from fdai.agents._framework.tool_planner import (
     PREFETCH_BUDGET_SECONDS as DEFAULT_PREFETCH_BUDGET_SECONDS,
@@ -54,31 +53,14 @@ async def plan_tools(
     agents: Sequence[str],
     limit: int,
 ) -> tuple[ConversationToolPlan, ...]:
-    """Choose by meaning when that is possible, lexically otherwise.
-
-    Measured, not assumed. Against fourteen questions written the way
-    operators actually ask them, lexical matching selected the right tool
-    3 times, meaning selected it 13 times, and letting lexical decide
-    first - the obvious cheap-tier-first arrangement - selected it 11.
-    Lexical is not merely weaker; it is confidently wrong often enough to
-    veto a better answer, because its score counts term overlap and two
-    matched words say nothing about whether they were the right two.
-
-    So meaning leads where it exists, and lexical is what the path
-    degrades to: an unbound embedding, a provider failure, or a match
-    below the confidence floor all fall back to it. A deployment with no
-    embedding model therefore keeps exactly the behaviour it had, and one
-    with an embedding never has a weak word match block a strong one.
-    """
+    """Choose by model-backed meaning or return an explicit empty plan."""
     if len(question) > MAX_PLANNED_QUESTION_CHARS:
         # Match the registry's boundary before spending an embedding or
         # producing a plan the registry can only refuse.
         return ()
     if semantic is not None:
-        semantic_plans = await semantic.plan(question, agents=agents, limit=limit)
-        if semantic_plans:
-            return semantic_plans
-    return plan_conversation_tools(question, agents=agents, limit=limit)
+        return await semantic.plan(question, agents=agents, limit=limit)
+    return ()
 
 
 async def prefetch_tools(

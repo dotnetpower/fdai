@@ -556,6 +556,7 @@ async def _run() -> int:
                     )
             topology_reader, metric_registry, metric_window_provider = _semantic_query_providers(
                 state_store_dsn=os.environ.get("FDAI_STATE_STORE_DSN"),
+                subscription_id=os.environ.get("AZURE_SUBSCRIPTION_ID"),
                 metric_provider=container.metric_provider,
                 metric_registry=control_loop.metric_semantics,
             )
@@ -565,6 +566,10 @@ async def _run() -> int:
                 incident_audit_store
                 if isinstance(incident_audit_store, IncidentEvidenceReader)
                 else None
+            )
+            read_investigation_provider = _build_read_investigation_provider(
+                identity=identity,
+                http_client=http_client,
             )
             semantic_composition = compose_azure_semantic_query_runtime(
                 container=container,
@@ -585,6 +590,7 @@ async def _run() -> int:
                 metric_registry=metric_registry,
                 metric_window_provider=metric_window_provider,
                 incident_evidence_reader=incident_evidence_reader,
+                read_investigation_provider=read_investigation_provider,
             )
             semantic_turn_binding = _build_semantic_turn_binding(
                 state_store=incident_audit_store,
@@ -595,7 +601,7 @@ async def _run() -> int:
             from fdai.delivery.operational_activity import EventBusOperationalActivityPublisher
 
             read_investigation_hook = compose_resource_state_shadow_hook(
-                provider=_build_read_investigation_provider(),
+                provider=read_investigation_provider,
                 state_store=incident_audit_store,
                 ontology_release=control_loop.ontology_release,
                 ontology_store=control_loop.ontology_instance_store,

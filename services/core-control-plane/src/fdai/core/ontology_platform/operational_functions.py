@@ -16,6 +16,12 @@ from .network_path import network_path_function_type
 from .pod_telemetry import pod_telemetry_function_type
 from .relationship_queries import ontology_relationships_function_type
 from .release_diff_queries import ontology_release_diff_function_type
+from .resource_activity_queries import resource_activity_function_type
+from .resource_current_state_queries import resource_current_state_function_type
+from .resource_error_activity_correlation_queries import (
+    error_activity_correlation_function_type,
+)
+from .resource_health_assessment_queries import target_health_assessment_function_type
 
 
 def operational_function_types(
@@ -34,6 +40,10 @@ def operational_function_types(
         ontology_relationships_function_type(),
         ontology_release_diff_function_type(),
         pod_telemetry_function_type(),
+        resource_activity_function_type(),
+        resource_current_state_function_type(),
+        error_activity_correlation_function_type(),
+        target_health_assessment_function_type(),
     )
     names = [item.name for item in combined]
     if len(names) != len(set(names)):

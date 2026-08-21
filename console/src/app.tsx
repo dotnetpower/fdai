@@ -117,10 +117,12 @@ export function App() {
   useEffect(() => {
     let cancelled = false;
     let stopObservingUnauthorized = () => {};
+    let stopAuthSessionKeeper = () => {};
     (async () => {
       try {
         const config = loadConfig();
         const auth = await initAuth(config);
+        stopAuthSessionKeeper = auth.startSessionKeeper?.() ?? (() => {});
         if (!shouldAllowLocalDevBypass(auth) && readLocalAuthBypass()) {
           clearLocalAuthBypass();
           if (!cancelled) setLocalDevBypass(false);
@@ -185,6 +187,7 @@ export function App() {
     })();
     return () => {
       cancelled = true;
+      stopAuthSessionKeeper();
       stopObservingUnauthorized();
       setChatAuth(null);
       setUserContextAuth(null);

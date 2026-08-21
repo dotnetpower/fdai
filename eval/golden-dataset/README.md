@@ -21,6 +21,8 @@ facts.
 | `expectations.schema.json` | Strict JSON Schema for the locale-neutral oracle. |
 | `coverage.schema.json` | Strict JSON Schema for perspective and assurance coverage. |
 | `questions.schema.json` | Strict JSON Schema for one localized question file. |
+| `semantic-judgment-assurance.json` | Frozen #252 edge overlay, lexical baseline, structured-boundary replay, and acceptance thresholds. |
+| `semantic-judgment-assurance.schema.json` | Strict schema for the #252 edge overlay and metric inputs. |
 
 Do not hand-edit `questions.en.json` or `questions.ko.json`. Generate both from the reviewed source:
 
@@ -41,6 +43,13 @@ Kubernetes Service (AKS), Pod, Container Apps, PostgreSQL, Storage, Key Vault, E
 observability resources. They include attachment, peering, private-link, containment, activity,
 metric, and evidence-health scenarios without retaining any live resource identity or provider
 payload.
+
+The semantic-judgment overlay adds paraphrase, unseen synonym, negation and correction,
+hypothetical and quoted language, prior-turn omission, multiple intents, mixed language,
+adversarial keyword stuffing, and model-failure cases. Its metrics are synthetic contract-replay
+evidence, not a live model-quality or operational-readiness claim. The focused test recomputes
+legacy and treatment recall, precision, terminal-outcome accuracy, authority violations, and
+lexical fallbacks from the frozen records.
 
 Official product names and resource kinds are required semantic vocabulary, not customer data.
 Use names such as `Application Gateway`, `AKS`, `Pod`, and `PostgreSQL Flexible Server` when they

@@ -32,7 +32,6 @@ from fdai.agents._framework.introspection import (
     agent_state_evidence_ref,
     capability_facts,
     capability_sentence,
-    is_action_intent,
 )
 from fdai.agents._framework.topics import topic_for_object_type
 
@@ -487,7 +486,7 @@ class Agent:
         the charter but never loosen it.
         """
         charter = self.spec.conversation
-        action_intent = is_action_intent(question)
+        action_intent = context.get("semantic_action_posture") == "draft_only"
         tool_id = context.get("conversation_tool")
         tool = charter.tool(tool_id) if isinstance(tool_id, str) else None
         # Lazily imported: pantheon.py builds on this module, so a module

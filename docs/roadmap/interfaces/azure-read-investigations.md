@@ -19,10 +19,11 @@ provider adapters gather evidence without using Thor's execution identity.
 
 ## Design at a glance
 
-A read investigation stays outside the mutation control loop. A deterministic planner selects
-typed read tools, then chooses a direct, streamed, or detached execution mode from measured tool
-latency. Every answer cites normalized server-owned evidence or reports that evidence is
-unavailable.
+A read investigation stays outside the mutation control loop. The shared semantic judgment
+boundary proposes a typed intent and source-grounded targets. Deterministic validation and exact
+resource resolution then select read tools and choose a direct, streamed, or detached execution
+mode from measured tool latency. Every answer cites normalized server-owned evidence or reports
+that evidence is unavailable.
 
 ![Design at a glance. The main stages are Operator, Bragi conversation, Read investigation planner, Heimdall investigation, Durable background task, Attenuated read-tool gateway, Resource Graph or inventory, Activity Log, Resource Health, Guest or Monitor logs, Normalized evidence.](../../diagrams/generated/fdai-roadmap-interfaces-azure-read-investigations-01.en.svg)
 
@@ -47,7 +48,7 @@ signal is emitted. PostgreSQL remains the source of truth; a wake signal is only
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| Bragi and Heimdall routing | implemented | Deterministic English and Korean actor, shutdown, history, health, and state routing selects Heimdall before generic scoring. | - |
+| Bragi and Heimdall routing | implemented | Schema-validated English, Korean, and mixed-language semantic judgment projects only exact registered intents and routes the resulting read contract to Heimdall. | Model failure returns clarification or unavailable without lexical fallback. |
 | Investigation evidence signal | implemented | A bound read-investigation hook counts as owned evidence for Heimdall's conversational port, so an investigable turn is not composed with the evidence-gap prompt layer even before the local signal window fills. | - |
 | Exact resource resolution | implemented | `not_found`, bounded `ambiguous`, and one scope-bound exact reference stop history queries until resolution succeeds. | - |
 | Typed intent rendering | implemented | All seven registered read intents render typed evidence fields and observation time. Adding an enum without a renderer fails exhaustive type checking instead of returning a generic success string. | - |
@@ -75,6 +76,7 @@ signal is emitted. PostgreSQL remains the source of truth; a wake signal is only
 | 2026-08-13 | implemented | Assigned a distinct opaque activity correlation to each current-state read invocation while preserving one correlation across its live and durable lifecycle and retaining stable logical request idempotency. | Current change in `wire_read_investigation.py` and `test_wire_read_investigation.py`; the focused composition suite passes 5 tests. | Record the live cross-service parity receipts and close the live Azure scenario gaps below. |
 | 2026-08-13 | implemented | Replaced raw requester and conversation references with stable opaque hashes, preserving principal scope without exposing raw identity in durable shadow receipts. | Current change in `wire_read_investigation.py` and `test_wire_read_investigation.py`; the focused composition suite passes 5 tests, including durable receipt privacy and identity separation. | Record the live cross-service parity receipts and close the live Azure scenario gaps below. |
 | 2026-08-15 | implemented | Adjudicated the live provider read against the inventory-projected graph state into one `derived` cross-source fact, retained the conflict in the receipt digest, and made a conflict withhold the asserted state and degrade the terminal activity. | `current change`; `test_resource_state_shadow.py` adjudication cases and `test_wire_read_investigation.py::test_cross_source_state_conflict_lowers_the_answer_and_activity` with an agreeing control. | Record the live cross-service parity receipts and close the live Azure scenario gaps below. |
+| 2026-08-21 | implemented | Replaced language-specific read-intent classification with the shared candidate-only semantic judgment and retained deterministic exact resource-id parsing, plan ownership, evidence budgets, and provider authority. | `current change`; focused read-investigation checks passed 9 cases and the repository semantic-routing guard reports no migrate paths. | Record the live cross-service parity receipts and close the live Azure scenario gaps below. |
 
 ### Remaining work
 
@@ -83,9 +85,9 @@ signal is emitted. PostgreSQL remains the source of truth; a wake signal is only
 
 ## Investigation request and plan
 
-The planner turns an eligible question into an immutable `ReadInvestigationRequest`. It carries the requester, conversation and correlation references, intent, resource selector, lookback, requested evidence, budget, and idempotency key. Deterministic classification runs before any model sees a tool description.
+The planner turns one accepted semantic judgment into an immutable `ReadInvestigationRequest`. It carries the requester, conversation and correlation references, canonical intent, source-grounded resource selector, lookback, requested evidence, budget, and idempotency key. The model proposes meaning only; deterministic code validates exact registered intent, plan ownership, resource identity, evidence authority, and bounds.
 
-The schema-validated `investigation-intents.yaml` catalog owns the language-to-contract boundary. Each entry declares a work class, accountable Pantheon agent, registered plan ID, selector kind, answer contract, reviewed English and Korean match terms, evidence authorities and facets, and a numeric freshness budget.
+The schema-validated `investigation-intents.yaml` catalog owns the intent-to-contract boundary. Each entry declares a work class, accountable Pantheon agent, registered plan ID, selector kind, answer contract, evidence authorities and facets, and a numeric freshness budget. It does not classify natural-language phrases.
 The catalog cannot contain executable text or grant tool authority. An unknown owner, work class, selector, answer contract, field, or response-mode order blocks catalog loading before provider I/O.
 
 The first catalog revision describes the seven read intents below. Every entry is owned by Heimdall, uses `work_class: read`, and points to a registered plan. Bragi can classify and route a turn, but it cannot replace the catalog owner, evidence requirements, or freshness budget.
@@ -120,8 +122,8 @@ limitation. Resource history and attribution use a bounded 30-day lookback. For 
 Heimdall reports the latest successful Stop, Power Off, or Deallocate Activity Log event and states
 that the current stopped state is confirmed from at least that timestamp.
 Guest shutdown follow-ups reuse the same validated resource selector and exclusive Heimdall branch.
-The deterministic intent accepts English and Korean subject-first, reverse-order, and colloquial
-forms; it never asks the narrator to recover a missing resource name from conversation prose.
+English, Korean, mixed-language, reordered, and colloquial forms use the shared semantic boundary;
+the narrator never recovers a missing resource name from conversation prose.
 A successful detached handoff returns the bounded task reference as a terminal unverified queued
 answer. Observed execution marks the handoff complete and reports `status=queued`; it does not
 mislabel accepted durable work as unavailable or send it through the narrator.
@@ -192,8 +194,8 @@ resource is not repeated across sections.
 The compiler may retain observed provider-specific state values, but every disjoint requested group
 must remain represented in the executable predicate. If observation-based narrowing would remove a
 group entirely, the compiler adds that group's canonical catalog values before evidence retrieval.
-Korean state terms and grammatical suffixes remain catalog data, including colloquial nominal and
-adnominal forms, so the deterministic route does not depend on prompt-specific parser branches.
+Localized state labels remain presentation and evidence-normalization data. They do not classify
+operator meaning or select a route.
 An active-view inventory request requires one bounded resource group selected on the Architecture
 screen. A missing, malformed, or non-group selection returns a deterministic unavailable result
 without querying inventory, starting another evidence branch, or calling the narrator; the operator

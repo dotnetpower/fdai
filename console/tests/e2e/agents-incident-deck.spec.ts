@@ -178,10 +178,21 @@ async function installOperatorApiFixture(
             duration_ms: 8,
           },
         })}`,
+        `event: activity\ndata: ${JSON.stringify({
+          seq: 3,
+          revision: 0,
+          activity_id: "semantic-planning",
+          kind: "semantic_turn",
+          status: "completed",
+          label: "Waiting for a verified semantic plan.",
+          completed: 1,
+          total: 1,
+          authority: "read_only",
+        })}`,
       ] : [];
       frames.push(
         `event: done\ndata: ${JSON.stringify({
-          seq: options.executionTimeline ? 3 : 1,
+          seq: options.executionTimeline ? 4 : 1,
           revision: 1,
           answer,
           model: "narrator-test",
@@ -477,7 +488,56 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
   await expect(investigation.locator(".deck-investigation-badge")).toHaveText("Completed");
   await expect(investigation.locator(".deck-branch-item")).toHaveCount(0);
   await expect(investigation).toHaveClass(/is-answer-settled/);
-  await expect(investigation.locator(".deck-investigation-item")).toHaveCount(0);
+  await expect(investigation).toHaveAttribute("open", "");
+  await expect(investigation.locator(".deck-investigation-item")).toHaveCount(2);
+  await expect(investigation.getByText("Inspect server-owned read evidence")).toBeVisible();
+  const queryDisclosure = investigation.locator(".deck-investigation-item-disclosure", {
+    hasText: "Inspect server-owned read evidence",
+  });
+  await expect(queryDisclosure).not.toHaveAttribute("open", "");
+  await queryDisclosure.locator(":scope > summary").click();
+  await expect(queryDisclosure).toHaveAttribute("open", "");
+  await expect(queryDisclosure.locator(".deck-investigation-command")).toBeVisible();
+  await expect(queryDisclosure.locator(".deck-investigation-command")).toContainText(
+    '"operation": "query_inventory"',
+  );
+  await expect(queryDisclosure.locator(".deck-investigation-output")).toBeVisible();
+  await expect(queryDisclosure.locator(".deck-investigation-output")).toContainText(
+    '"matched_count": 1',
+  );
+  const eventDisclosure = investigation.locator(".deck-investigation-item-disclosure", {
+    hasText: "Waiting for a verified semantic plan.",
+  });
+  await eventDisclosure.locator(":scope > summary").click();
+  await expect(eventDisclosure).toHaveAttribute("open", "");
+  await expect(eventDisclosure.locator(".deck-investigation-no-execution")).toHaveText(
+    "No command or query was recorded by the server for this step.",
+  );
+  const activityGeometry = await investigation.evaluate((root) => {
+    const list = root.querySelector<HTMLElement>(".deck-investigation-list")!;
+    const rail = getComputedStyle(list, "::before");
+    const listBounds = list.getBoundingClientRect();
+    const railX = listBounds.left + Number.parseFloat(rail.left);
+    const summaries = Array.from(
+      root.querySelectorAll<HTMLElement>(".deck-investigation-item-disclosure > summary"),
+    );
+    const markerX = Array.from(
+      root.querySelectorAll<HTMLElement>(
+        ".deck-investigation-summary > .deck-investigation-state",
+      ),
+    ).map((marker) => {
+      const bounds = marker.getBoundingClientRect();
+      return bounds.left + bounds.width / 2;
+    });
+    return {
+      railX,
+      markerX,
+      summaryHeights: summaries.map((summary) => summary.getBoundingClientRect().height),
+    };
+  });
+  expect(activityGeometry.markerX.every((x) => Math.abs(x - activityGeometry.railX) <= 0.5))
+    .toBe(true);
+  expect(activityGeometry.summaryHeights.every((height) => height >= 44)).toBe(true);
   await expect(investigation.locator(".deck-investigation-session-summary")).toHaveCount(0);
 
   const runRecord = workspace.locator(".deck-trajectory");
@@ -555,6 +615,13 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
   await runRecord.locator(":scope > summary").click();
   await expect(runRecord).toHaveAttribute("open", "");
   await expect(runRecord.locator(".deck-trajectory-phase-strip")).toHaveCount(1);
+  await expect(runRecord.locator(".deck-trajectory-phase-details > li")).toHaveCount(6);
+  const unobservedPhases = runRecord.locator(
+    '.deck-trajectory-phase-details > li[data-state="not_observed"]',
+  );
+  await expect(unobservedPhases).toHaveCount(2);
+  await expect(unobservedPhases.first())
+    .toContainText("No observable detail was recorded for this phase");
   await expect(runRecord.locator(".deck-trajectory-question strong")).toHaveText(
     "List resource groups",
   );

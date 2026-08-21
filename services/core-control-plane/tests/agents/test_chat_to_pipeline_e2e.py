@@ -23,10 +23,89 @@ from fdai.agents.forseti import Forseti
 from fdai.agents.huginn import Huginn
 from fdai.agents.thor import ActionRunState, Thor
 from fdai.agents.var import Var
+from fdai.core.conversation.semantic_judgment import (
+    SemanticJudgmentBinding,
+    SemanticJudgmentBoundary,
+)
+from fdai_service_contracts.semantic_judgment import SemanticJudgmentTier
 
 _OPERATOR = "operator@example.com"  # allowed everything except delete-storage
 _GUEST = "guest@example.com"  # allowed only ops.restart-service
 _APPROVER = "approver@example.com"
+_DIGEST = "sha256:" + ("a" * 64)
+
+
+class _ActionJudgmentModel:
+    def judge(self, *, utterance: str, **_kwargs: object) -> dict[str, object]:
+        folded = utterance.casefold()
+        if folded.startswith("what "):
+            return {
+                "primary_intent": "action_status",
+                "secondary_intents": [],
+                "targets": [],
+                "requested_facets": [],
+                "confidence": 0.95,
+                "ambiguous": False,
+                "alternatives": [],
+                "unresolved_terms": [],
+                "clarification": None,
+                "action_posture": "advise_only",
+                "execution_authority": False,
+            }
+        source_action, canonical = (
+            ("restart", "ops.restart-service")
+            if folded.startswith("restart")
+            else ("encrypt", "remediate.enable-encryption")
+            if folded.startswith("encrypt")
+            else ("provision", "ops.provision-cluster")
+        )
+        action_start = folded.index(source_action)
+        resource = next((token for token in utterance.split() if "-" in token), None)
+        targets: list[dict[str, object]] = [
+            {
+                "kind": "action_type",
+                "value": utterance[action_start : action_start + len(source_action)],
+                "canonical_value": canonical,
+                "source_start": action_start,
+                "source_end": action_start + len(source_action),
+            }
+        ]
+        if resource is not None:
+            resource_start = utterance.index(resource)
+            targets.append(
+                {
+                    "kind": "resource",
+                    "value": resource,
+                    "source_start": resource_start,
+                    "source_end": resource_start + len(resource),
+                }
+            )
+        return {
+            "primary_intent": "action_request",
+            "secondary_intents": [],
+            "targets": targets,
+            "requested_facets": [],
+            "confidence": 0.95,
+            "ambiguous": False,
+            "alternatives": [],
+            "unresolved_terms": [],
+            "clarification": None,
+            "action_posture": "draft_only",
+            "execution_authority": False,
+        }
+
+
+def _semantic_boundary() -> SemanticJudgmentBoundary:
+    return SemanticJudgmentBoundary(
+        profile_id="pantheon.action",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=_ActionJudgmentModel(),
+            model_config_digest=_DIGEST,
+            prompt_digest=_DIGEST,
+        ),
+    )
 
 
 class _Harness:
@@ -39,7 +118,10 @@ class _Harness:
         # judged-and-logged, never a live mutation, until an explicit promotion.
         self.thor = Thor(bus=self.bus, shadow_by_default=True)
         self.var = Var(bus=self.bus)
-        self.bragi = Bragi()
+        self.bragi = Bragi(
+            semantic_judgment=_semantic_boundary(),
+            action_type_names=("ops.restart-service", "remediate.enable-encryption"),
+        )
         # Wire the conversational-port entry: Bragi submits proposals through
         # Huginn (sole writer of object.event). Bragi never publishes / executes.
         self.bragi.register_proposal_sink(self.huginn.ingest)

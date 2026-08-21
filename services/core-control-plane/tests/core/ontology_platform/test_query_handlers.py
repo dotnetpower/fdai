@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 import pytest
+from fdai.core.detection.series import MetricSample
 from fdai.core.ontology_platform import (
     AggregateNodeHandler,
     FunctionInvocationContext,
@@ -23,6 +24,7 @@ from fdai.core.ontology_platform import (
     SetOperationNodeHandler,
     compile_interfaces,
 )
+from fdai.core.ontology_platform.metric_semantics import MetricWindow
 from fdai.core.ontology_platform.query_gateway import SecuredObjectSetQueryGateway
 from fdai.shared.contracts.models import (
     CeilingRole,
@@ -303,6 +305,70 @@ async def test_function_handler_converts_query_table_output() -> None:
     assert isinstance(result.value, QueryTable)
     assert result.value.rows[0].values == {"name": "Resource"}
     assert result.value.complete is True
+
+
+async def test_function_handler_converts_metric_dataclass_dependency() -> None:
+    declaration = OntologyFunctionType(
+        name="query.metric_summary",
+        version="1.0.0",
+        kind=OntologyFunctionKind.QUERY,
+        artifact_digest="sha256:" + ("c" * 64),
+        publisher="fdai",
+        input_schema={
+            "type": "object",
+            "required": ["window"],
+            "properties": {"window": {"type": "object"}},
+            "additionalProperties": False,
+        },
+        output_schema={"type": "integer"},
+        purpose_bindings=["operations-review"],
+    )
+    release = build_ontology_release(function_types=(declaration,))
+    registry = OntologyFunctionRegistry(release=release)
+
+    async def metric_summary(arguments: dict[str, object]) -> int:
+        window = arguments["window"]
+        assert isinstance(window, dict)
+        assert window["start"] == "2026-08-10T00:00:00Z"
+        samples = window["samples"]
+        assert isinstance(samples, list)
+        return len(samples)
+
+    registry.register(declaration, metric_summary)
+    handler = FunctionNodeHandler(
+        registry,
+        context=FunctionInvocationContext(
+            caller_agent="Bragi",
+            caller_role=CeilingRole.READER,
+            purposes=("operations-review",),
+        ),
+    )
+    window = MetricWindow(
+        concept_id="resource.saturation",
+        resource_id="resource-a",
+        unit="nanocores",
+        start=NOW,
+        end=datetime(2026, 8, 10, 0, 5, tzinfo=UTC),
+        samples=(MetricSample(timestamp=NOW, value=10.0),),
+        complete=True,
+        evidence_refs=("metric:resource-a",),
+    )
+
+    result = await handler(
+        _node(
+            QueryNodeKind.FUNCTION,
+            dependencies=("metric",),
+            arguments={
+                "function_name": "query.metric_summary",
+                "arguments": {},
+                "dependency_arguments": {"metric": "window"},
+            },
+        ),
+        {"metric": QueryNodeResult(window, window.evidence_refs)},
+    )
+
+    assert result.value == 1
+    assert result.evidence_refs[0] == "metric:resource-a"
 
 
 async def test_secured_object_set_handler_applies_property_acl() -> None:

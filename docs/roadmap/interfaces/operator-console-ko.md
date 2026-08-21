@@ -1,8 +1,8 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: e0dcbddd80a5b2ab8c49c1e9ddc341d96aa898d9
-translation_revised: 2026-08-20
+translation_source_sha: 2a8c0639d2231b289c9bd21acf04ad27108df826
+translation_revised: 2026-08-21
 ---
 # FDAI Console 대화
 
@@ -39,6 +39,7 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 | 인시던트 대화 RCA 표현 | implemented | `incident_queries.py`, `semantic_turn_processor.py`, `semantic_turn_presentation.py`, `presentation-artifact.ts`, focused Core, Operator 및 Console 검사(`138 passed`) | 기록된 원인은 일치하는 인용이 포함된 grounded 가설 또는 정확한 감사 행에 근거한 허용 목록의 결정론적 최종 실패를 요구합니다. T0는 범위가 제한된 영향 근거를 기록하고 두 언어 모두 실행 권한 없이 근본 원인, 영향 및 인용을 렌더링합니다. 누락된 근거는 명시적으로 유지합니다. |
 | 구조화된 인시던트 근거 가독성 | implemented | `structured-reply.tsx`, `presentation-value.ts`, `structured-reply.css`, 집중 Console 검사(`19 passed`) 및 타입 검사 | Console은 의미가 있는 마크업에 정확한 RFC 3339 값을 보존하면서 운영자 로컬 시각과 시간대, 관찰 구간, 읽기 쉬운 주체와 기계 토큰 레이블, 반응형 근거 행, 범위가 명확한 채팅 연결 상태, 모바일 44 px 컨트롤을 표시합니다. 브라우저 비평 5회 뒤에는 범위가 제한된 모바일 출처 목록의 가로 스크롤만 Low로 남았으며 통제된 브라우저 산출물은 보존하지 않았습니다. |
 | Command Deck workspace 시각적 계층 | implemented | `console/src/styles.css`, 답변, 활동, 서식 있는 텍스트 및 표현 모듈, 집중 답변 UI 검사 164개 통과, 타입 검사, 운영 빌드, 합성 3개 viewport Playwright | 시안 동등성 검토 12회에서 연결된 조사의 신원, 기본 답변 텍스트와 복사, 제한 상태 색상, 근거 참조의 정확한 의미, 평면 리포트 표, 순서와 부호를 보존하는 차트, 44 px disclosure, 범위가 제한된 workspace 및 작성기 grid를 정렬했습니다. 정확한 기계 사유는 Run record에 남고 답변, 근거, 승인, 변경 또는 실행 권한은 바뀌지 않았습니다. 합성 브라우저 근거는 표현 방식만 증명합니다. |
+| 관찰된 활동 출처 이력 | implemented | `semantic_turn_runtime.py`, `conversation_activity.py`, `conversation_channel.py`, `backend-normalizers.ts`, `investigation-timeline.tsx`, 집중 Core, Operator 및 Console 검사, 인증된 세 viewport Browser 검토 | 수명 주기 전용 이벤트는 기록된 사람용 설명을 먼저 표시하고 외부 명령 또는 프로바이더 요청이 실행되지 않았음을 밝힙니다. 조회 실행 기록은 서비스 간 전송과 실제 실행 인터페이스를 구분합니다. 온톨로지 읽기는 CLI 명령, 공개 엔드포인트 또는 프로바이더 구현을 만들지 않고 Core의 타입이 지정된 조회 실행기, 작업 및 프로바이더 중립 출처를 식별합니다. 추가된 출처 이력 필드가 없는 과거 기록은 추론하지 않고 명시적으로 표시합니다. |
 | 대상 결속 인과 표현 | implemented | `semantic_turn_presentation.py`, `test_semantic_turn_bridge.py`, 집중 이중 언어 및 causal matrix 검사 31개 통과 | 여러 output으로 구성된 causal 결과는 exact 대상, 증상 concept, 정렬된 baseline 및 current window, 측정된 변화, 경쟁 가설 2개 이상을 표시합니다. 각 가설은 `supported`, `refuted`, `unresolved` 중 하나와 범위가 제한된 근거 상세 및 limitation을 유지합니다. 불완전하거나 오래되거나 충돌하는 근거는 limitation으로 남고 인과 claim으로 승격되지 않습니다. 이 projection은 승인, 변경 또는 실행 권한을 부여하지 않습니다. 인증된 post-commit 검증은 Issue #244에 열린 상태로 남아 있습니다. |
 | 온톨로지 보증 cohort release oracle | implemented | `console/tests/live-e2e/ontology-query-assurance.{ts,spec.ts,test.ts}`, 집중 보증 테스트 101개 통과 | 전체 cohort operation coverage는 고정 개수를 복제하지 않고 결과 histogram을 결정론적으로 생성된 cohort와 비교합니다. 누락 또는 대체 operation은 실패하고 extension operation은 작성된 범위 제한 분포를 유지합니다. |
 
@@ -46,6 +47,8 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-21 | implemented | 비어 있는 terminal 형태의 수명 주기 이벤트를 기록된 설명과 중립적인 사실로 대체하고 Operator activity, 채널 중립 영속 replay, Console decoding, browser cache 및 Run record replay 전체에 엄격한 optional 실행 출처 이력을 추가했습니다. 이제 ontology ObjectSet 읽기는 사람이 이해할 수 있는 조회 범위, exact JSON, 결과 수, 완전성 및 raw output 전에 내부 Core 인터페이스, 실행기, 작업, provider-neutral source, transport 및 해당하지 않는 endpoint를 식별합니다. 이전 record는 provenance가 기록되지 않았음을 표시합니다. | `current change`, 집중 channel 및 Operator activity 검사 128개, 집중 Console provenance 및 workspace 검사 84개 통과, Ruff, strict mypy, Console typecheck, 운영 build, entry bundle, catalog parity, readable Hangul, punctuation 및 whitespace 통과, 인증된 1440 x 900, 993 x 641, 390 x 844에서 document, transcript, panel overflow 0 및 composer overlap 없음 | Browser 관찰은 표현 근거이며 통제된 runtime artifact가 아닙니다. 새 turn은 provenance를 받고 변경할 수 없는 이전 turn은 명시적으로 unavailable 상태를 유지합니다. |
+| 2026-08-21 | implemented | 직접 비교에서 공용 typography가 지나치게 크고 stage icon이 비어 있으며 source row가 과도하게 압축된 사실을 확인한 뒤 운영 `답변 준비 중` 표면을 실행 중인 adaptive-response v2 시안과 맞췄습니다. 이제 실제 컴포넌트는 시안의 간결 badge, glyph 계층, 7 px panel, 36 px header, 30 px stage, 88 px source slot, 11/10.5/9.5/8.5 px text role을 사용합니다. Preview가 stream되는 동안 source window 높이는 고정되며 card별 scan animation이 관찰된 진행 상황과 경쟁하지 않습니다. | `current change`, 집중 시각 계약 31개 통과, Console typecheck, 운영 build, entry bundle, catalog parity, readable Hangul, punctuation, editor diagnostics 통과. 표준 인증 Console에서 source row 38.45 px를 시안의 38.57 px와 비교했고 panel 및 document overflow는 0이었으며 screenshot을 검토했습니다. | Browser 비교는 표현 근거이며 통제된 runtime 산출물이 아닙니다. Semantic stage, source count, authority를 바꾸지 않고 더 넓은 conversation 근거를 별도로 보존합니다. |
 | 2026-08-13 | 구현됨 | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 현재 상태 활동 identity 계약을 기록했습니다. | 현재 출처와 `test_read_investigation_latency.py`, `test_activity_projection.py`, 통과한 focused 테스트 | Snapshot-first hydration과 실제 운영 수렴의 통제된 cross-service 동등성 근거를 기록합니다. |
 | 2026-08-13 | 구현됨 | 예기치 않은 실패를 숨기지 않으면서 운영 Console 경로 전반의 선택적 변환 결과 부재 처리를 표준화했습니다. | 현재 변경, 통과한 focused 경로 테스트 (`64 passed`) 및 Console 타입 검사 | 전체 스택 검증 캠페인에서 Browser Entra 경로 보증을 계속 수행합니다. |
 | 2026-08-14 | 구현됨 | psycopg 와일드카드를 이스케이프하고, 범위를 벗어난 선택적 기간이 있는 유효한 행을 보존하며, 타입이 지정된 선택적 출처 부재 중에도 감사 타임라인을 사용할 수 있도록 영속 에이전트 활동 변환을 복구했습니다. | `current change`, 통과한 focused Operator 테스트 (`25 passed`), focused Console 테스트 (`8 passed`), Console 타입 검사 및 카탈로그 일치 검사 | 기존 snapshot-first 및 실제 운영 수렴 완료 조건을 위한 통제된 Browser Entra 산출물을 보존합니다. |
@@ -149,8 +152,14 @@ intent-graph 도구보다 정본 glossary를 먼저 사용합니다. 이 우선�
   raw 리소스 id, 자격 증명, 페이지 나누기 토큰 및 프로바이더 오류를 생략합니다. 행은 snapshot-refresh 작업을
   식별하며 브라우저는 IQL에서 명령을 재구성하지 않습니다. 유효한 증적이 없으면 프로바이더 행도
   만들지 않습니다. 다른 서버 조회는 `QUERY`를 유지하고
-  프로세스 호출을 기록한 프로바이더 증적만 `command`를 사용합니다. Slack, Teams 및 영속
-  재생은 조회/명령 구분을 보존합니다.
+  프로세스 호출을 기록한 프로바이더 증적만 `command`를 사용합니다. 추가 방식의 실행 대상은
+  서비스 간 `transport`와 실제 `interface_kind`, service, component, operation,
+  provider-neutral source를 분리합니다. 따라서 Core ontology ObjectSet 읽기는 내부 typed query로
+  표시되며 CLI command 또는 관련 없는 `GET /ontology/graph` projection으로 표시되지 않습니다.
+  Event-only lifecycle 단계는 terminal surface 없이 기록된 설명, owner, outcome, authority 및
+  observation time을 표시하고 외부 command 부재는 기본 message가 아니라 보조 evidence가 됩니다.
+  이 field가 없는 이전 record는 `기록되지 않음`으로 유지하며 browser는 tool name에서 값이나
+  요청 ingress를 derive하지 않습니다. Slack, Teams 및 영속 replay는 조회/명령 구분을 보존합니다.
   Narrator 이정표는 다음 그룹이 시작되기 전에 앞선 활동 그룹을 settled 상태로 바꿉니다.
   Web은 이정표를 간결한 진행 상황 note로 표시하고 현재 그룹만 펼치며 completed 그룹을 causal
   순서로 복원합니다. Slack과 Teams는 같은 cumulative 민감정보가 제거된 활동 변환 결과를 수정합니다.

@@ -221,6 +221,9 @@ METRIC_MYSQL_CPU_PERCENT = "cpu_percent"
 METRIC_MYSQL_ACTIVE_CONNECTIONS = "active_connections"
 METRIC_APIM_HTTP_5XX_RATE = "http_5xx_rate"
 METRIC_APIM_BACKEND_LATENCY_MS = "backend_latency_ms"
+METRIC_CONTAINER_APP_CPU_NANOCORES = "container_app_cpu_nanocores"
+METRIC_DEPENDENCY_DURATION_MS = "dependency_duration_ms"
+METRIC_SERVICE_REQUEST_DURATION_MS = "service_request_duration_ms"
 
 
 _NODE_CPU_PERCENT = MetricKqlTemplate(
@@ -396,6 +399,19 @@ _APIM_BACKEND_LATENCY_MS = MetricKqlTemplate(
     label_columns=("resource_id",),
 )
 
+_CONTAINER_APP_CPU_NANOCORES = MetricKqlTemplate(
+    kql=(
+        "AzureMetrics "
+        "| where ResourceProvider == 'MICROSOFT.APP' "
+        "and MetricName == 'UsageNanoCores' "
+        "| summarize v = avg(Average) "
+        "  by bin(TimeGenerated, 1m), resource_id = tolower(_ResourceId) "
+        "| project TimeGenerated, v, resource_id"
+    ),
+    value_column="v",
+    label_columns=("resource_id",),
+)
+
 
 _ANALYZER_QUERIES: Mapping[str, MetricKqlTemplate] = MappingProxyType(
     {
@@ -410,6 +426,40 @@ _ANALYZER_QUERIES: Mapping[str, MetricKqlTemplate] = MappingProxyType(
         METRIC_MYSQL_ACTIVE_CONNECTIONS: _MYSQL_ACTIVE_CONNECTIONS,
         METRIC_APIM_HTTP_5XX_RATE: _APIM_HTTP_5XX_RATE,
         METRIC_APIM_BACKEND_LATENCY_MS: _APIM_BACKEND_LATENCY_MS,
+        METRIC_CONTAINER_APP_CPU_NANOCORES: _CONTAINER_APP_CPU_NANOCORES,
+    }
+)
+
+_SERVICE_REQUEST_DURATION_MS = MetricKqlTemplate(
+    kql=(
+        "AppRequests "
+        "| extend resource_id = tolower(tostring(Properties['cloud.resource_id'])) "
+        "| where isnotempty(resource_id) "
+        "| summarize v = avg(DurationMs) "
+        "  by bin(TimeGenerated, 1m), resource_id "
+        "| project TimeGenerated, v, resource_id"
+    ),
+    value_column="v",
+    label_columns=("resource_id",),
+)
+
+_DEPENDENCY_DURATION_MS = MetricKqlTemplate(
+    kql=(
+        "AppDependencies "
+        "| extend resource_id = tolower(tostring(Properties['cloud.resource_id'])) "
+        "| where isnotempty(resource_id) "
+        "| summarize v = avg(DurationMs) "
+        "  by bin(TimeGenerated, 1m), resource_id "
+        "| project TimeGenerated, v, resource_id"
+    ),
+    value_column="v",
+    label_columns=("resource_id",),
+)
+
+_SEMANTIC_INVESTIGATION_QUERIES: Mapping[str, MetricKqlTemplate] = MappingProxyType(
+    {
+        METRIC_SERVICE_REQUEST_DURATION_MS: _SERVICE_REQUEST_DURATION_MS,
+        METRIC_DEPENDENCY_DURATION_MS: _DEPENDENCY_DURATION_MS,
     }
 )
 
@@ -432,34 +482,41 @@ def sre_demo_analyzer_queries() -> Mapping[str, MetricKqlTemplate]:
     return _ANALYZER_QUERIES
 
 
+def semantic_investigation_queries() -> Mapping[str, MetricKqlTemplate]:
+    """Return request and dependency duration queries with exact target attribution.
+
+    Application Insights ``_ResourceId`` identifies the telemetry component, not the
+    monitored workload. These queries therefore emit rows only when instrumentation
+    retained the standard OpenTelemetry ``cloud.resource_id`` property. Missing
+    attribution returns no rows and remains an explicit provider gap.
+    """
+
+    return _SEMANTIC_INVESTIGATION_QUERIES
+
+
 def default_metric_queries() -> Mapping[str, MetricKqlTemplate]:
-    """Union of :func:`sre_demo_capture_queries` +
-    :func:`sre_demo_analyzer_queries`.
+    """Return the union of capture, analyzer, and semantic-investigation queries.
 
     This is the map ``wire_azure_container`` picks when a fork does not
     supply ``AzureWireOverrides.monitor_queries``, so **every** shipped
     detection scenario resolves to a KQL template out of the box - the
-    five-metric SRE demo capture set AND the nine analyzer-referenced
-    metrics. The two sub-maps have disjoint keys (OTel dotted names vs
-    snake_case), so the union is unambiguous; a metric shipped in both
-    would be a defect and MUST be reconciled here.
+    five-metric SRE demo capture set, analyzer-referenced metrics, and exact-target
+    request/dependency duration evidence. The sub-maps have disjoint keys, so the
+    union is unambiguous; a metric shipped in more than one map is a defect.
     """
     merged: dict[str, MetricKqlTemplate] = {}
-    for key, template in _DEMO_CAPTURE.items():
-        merged[key] = template
-    for key, template in _ANALYZER_QUERIES.items():
-        if key in merged:  # pragma: no cover - defended by
-            # ``services/core-control-plane/tests/delivery/azure/test_demo_queries.py``.
-            raise RuntimeError(
-                f"metric name {key!r} collides between the demo capture "
-                "and analyzer maps - reconcile the two before shipping"
-            )
-        merged[key] = template
+    for catalog in (_DEMO_CAPTURE, _ANALYZER_QUERIES, _SEMANTIC_INVESTIGATION_QUERIES):
+        for key, template in catalog.items():
+            if key in merged:  # pragma: no cover - defended by catalog tests
+                raise RuntimeError(f"metric name {key!r} collides between default query catalogs")
+            merged[key] = template
     return MappingProxyType(merged)
 
 
 __all__ = [
     "METRIC_APIM_BACKEND_LATENCY_MS",
+    "METRIC_CONTAINER_APP_CPU_NANOCORES",
+    "METRIC_DEPENDENCY_DURATION_MS",
     "METRIC_APIM_HTTP_5XX_RATE",
     "METRIC_BACKEND_FIRST_BYTE_MS",
     "METRIC_HEALTHY_HOST_COUNT",
@@ -473,9 +530,11 @@ __all__ = [
     "METRIC_POD_RESTARTS",
     "METRIC_REQUEST_FAILURE_RATE",
     "METRIC_REQUEST_SURGE_RATIO",
+    "METRIC_SERVICE_REQUEST_DURATION_MS",
     "METRIC_ROLLOUT_STALL_SECONDS",
     "METRIC_ROLLOUT_STALL_DURATION_SECONDS",
     "default_metric_queries",
+    "semantic_investigation_queries",
     "sre_demo_analyzer_queries",
     "sre_demo_capture_queries",
 ]

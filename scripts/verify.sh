@@ -200,7 +200,7 @@ run_gate_scoped "fork-runtime-independence" '^(src/|config/|infra/|scripts/quali
 run_gate_scoped "venue-capability-contract" '^(services/[^/]+/src/|packages/service-contracts/src/|scripts/quality/architecture/check-venue-capability-contract\.py$)' python3 scripts/quality/architecture/check-venue-capability-contract.py
 run_gate_scoped "evaluation-boundaries" '^(evaluation-sdk/|src/|tests/|pyproject\.toml$|scripts/quality/architecture/check-evaluation-boundaries\.py$)' python3 scripts/quality/architecture/check-evaluation-boundaries.py
 run_gate_scoped "independent-services" '^(services/|packages/service-contracts/|tests/integration/|config/independent-services\.json$|scripts/quality/architecture/check-independent-services\.py$)' uv run python scripts/quality/architecture/check-independent-services.py
-run_gate_scoped "chat-semantic-routing" '^(services/operator-service/|console/|tests/integration/|scripts/quality/architecture/check-chat-semantic-routing\.py$)' python3 scripts/quality/architecture/check-chat-semantic-routing.py
+run_gate_scoped "chat-semantic-routing" '^(services/|packages/|console/|cli/|tests/integration/|scripts/quality/architecture/check-chat-semantic-routing\.py$)' python3 scripts/quality/architecture/check-chat-semantic-routing.py
 run_gate_scoped "ontology-query-coverage" '^(config/ontology-query-competency\.json|packages/service-contracts/src/fdai_service_contracts/ontology_query\.py|rule-catalog/vocabulary/|services/core-control-plane/src/fdai/core/(conversation|ontology_platform)/|services/core-control-plane/src/fdai/rule_catalog/schema/|scripts/quality/architecture/check-ontology-query-coverage\.py$)' uv run python scripts/quality/architecture/check-ontology-query-coverage.py
 run_gate_scoped "property-semantic-coverage" '^(rule-catalog/(catalog|vocabulary)/|policies/|docs/roadmap/architecture/operating-ontology(-ko)?\.md$|scripts/quality/architecture/check-property-semantic-coverage\.py$)' uv run python scripts/quality/architecture/check-property-semantic-coverage.py
 run_gate_scoped "boundary-docstrings" '^(src/|scripts/quality/architecture/(check-boundary-docstrings\.py|\.boundary-docstring-scopes)$)' python3 scripts/quality/architecture/check-boundary-docstrings.py
@@ -218,6 +218,7 @@ run_gate_scoped "rule-semantics" '^(rule-catalog/catalog/|policies/|services/cor
 run_gate "punctuation"  bash scripts/quality/repository/check-punctuation.sh
 run_gate "readable-hangul" python3 scripts/quality/localization/check-readable-hangul.py
 run_gate "guids"        bash scripts/quality/repository/check-guids.sh
+run_gate "root-layout" python3 scripts/quality/repository/check-root-layout.py
 run_gate_scoped "translations" '^(README(-ko)?\.md$|docs/.*\.md$|scripts/quality/localization/check-translations\.sh$)' bash scripts/quality/localization/check-translations.sh
 run_gate_scoped "translation-quality" '^(README-ko\.md$|docs/.*-ko\.md$|scripts/quality/localization/check-translation-quality\.py$)' python3 scripts/quality/localization/check-translation-quality.py
 

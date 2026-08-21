@@ -1,5 +1,5 @@
-"""Azure Monitor Metrics REST-API templates for the reference analyzer
-metrics whose values live directly on the Azure resource.
+"""Azure Monitor Metrics REST-API templates for reviewed metrics whose
+values live directly on the Azure resource.
 
 Design contract: the fast intermediate route between Prometheus (AKS,
 ~15-60 s) and Log Analytics KQL (~2-5 min). The Metrics API queries
@@ -11,8 +11,9 @@ workspace at all. Wired into the composition-root
 route #2 in a Prom > Metrics > Logs chain so each analyzer call lands
 on the fastest backend that can serve it.
 
-Only the metrics whose CSP-neutral name maps **directly** onto an Azure
-platform metric ship here - the ones that need computation
+Only metrics whose CSP-neutral name maps **directly** onto an Azure platform
+metric ship here, including exact-target semantic investigation evidence. The
+ones that need computation
 (``http_429_rate = throttled / total``, ``request_surge_ratio``,
 ``http_5xx_rate``) stay on the KQL fallback because the Metrics API
 does not compose across metrics in a single call.
@@ -25,9 +26,11 @@ from types import MappingProxyType
 
 from fdai.delivery.azure.demo_queries import (
     METRIC_BACKEND_FIRST_BYTE_MS,
+    METRIC_CONTAINER_APP_CPU_NANOCORES,
     METRIC_HEALTHY_HOST_COUNT,
     METRIC_MYSQL_ACTIVE_CONNECTIONS,
     METRIC_MYSQL_CPU_PERCENT,
+    METRIC_SERVICE_REQUEST_DURATION_MS,
 )
 from fdai.delivery.azure.metrics_api import MetricsApiTemplate
 
@@ -57,6 +60,16 @@ _APPGW_HEALTHY_HOST_COUNT = MetricsApiTemplate(
     aggregation="Minimum",
 )
 
+_CONTAINER_APP_CPU_NANOCORES = MetricsApiTemplate(
+    azure_metric_name="UsageNanoCores",
+    aggregation="Average",
+)
+
+_CONTAINER_APP_RESPONSE_TIME_MS = MetricsApiTemplate(
+    azure_metric_name="ResponseTime",
+    aggregation="Average",
+)
+
 
 _ANALYZER_QUERIES: Mapping[str, MetricsApiTemplate] = MappingProxyType(
     {
@@ -64,6 +77,8 @@ _ANALYZER_QUERIES: Mapping[str, MetricsApiTemplate] = MappingProxyType(
         METRIC_MYSQL_ACTIVE_CONNECTIONS: _MYSQL_ACTIVE_CONNECTIONS,
         METRIC_BACKEND_FIRST_BYTE_MS: _APPGW_BACKEND_FIRST_BYTE,
         METRIC_HEALTHY_HOST_COUNT: _APPGW_HEALTHY_HOST_COUNT,
+        METRIC_CONTAINER_APP_CPU_NANOCORES: _CONTAINER_APP_CPU_NANOCORES,
+        METRIC_SERVICE_REQUEST_DURATION_MS: _CONTAINER_APP_RESPONSE_TIME_MS,
     }
 )
 

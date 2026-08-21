@@ -112,6 +112,7 @@ export function handoffReasonKey(reason: string | undefined): string {
 /** Parsed reply source descriptor. */
 export type ReplySource =
   | { readonly kind: "deterministic"; readonly reason: string | null }
+  | { readonly kind: "unavailable"; readonly reason: string }
   | { readonly kind: "llm"; readonly model: string; readonly timing: string | null }
   | { readonly kind: "other"; readonly raw: string };
 
@@ -127,6 +128,12 @@ export function parseReplySource(source: string | undefined): ReplySource | null
     const reason = deterministic[1]?.trim() ?? "";
     if (!validSourceDetail(reason)) return { kind: "other", raw: trimmed };
     return { kind: "deterministic", reason: reason.length > 0 ? reason : null };
+  }
+  const unavailable = /^unavailable \(([^()]*)\)$/.exec(trimmed);
+  if (unavailable) {
+    const reason = unavailable[1]?.trim() ?? "";
+    if (!reason || !validSourceDetail(reason)) return { kind: "other", raw: trimmed };
+    return { kind: "unavailable", reason };
   }
   if (trimmed.startsWith("llm:")) {
     const rest = trimmed.slice(4).trim();

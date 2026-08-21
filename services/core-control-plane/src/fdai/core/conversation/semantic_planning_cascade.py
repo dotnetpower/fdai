@@ -20,10 +20,7 @@ from pydantic import ValidationError
 
 from fdai.core.ontology_platform import OntologyQueryPlanVerifier, QueryManifest
 
-from .semantic_investigation import (
-    VerifiedInvestigationIntent,
-    verify_investigation_intent,
-)
+from .semantic_investigation import VerifiedInvestigationIntent, verify_investigation_intent
 from .semantic_planning_models import (
     ClarificationRequirement,
     QueryPlanProposal,
@@ -47,14 +44,6 @@ _RUNTIME_INSTANCE_TOKEN = re.compile(
     r"(?<![A-Za-z0-9_.-])[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+){2,}(?![A-Za-z0-9_.-])"
 )
 _MAX_SCANNED_TOKENS = 32
-_EXPLICIT_AGGREGATION_REQUEST = re.compile(
-    r"(?:\b(?:count|grouped|grouping|how\s+many|number\s+of|total)\b|"
-    r"\bgroup\b[^.!?\n]{0,80}\bby\b|"
-    r"집계|그룹화|그루핑|합계|몇\s*(?:개|건|명)?|개수|수를\s*요약)"
-)
-_EXPLICIT_LISTING_REQUEST = re.compile(
-    r"(?:\b(?:find|list|show|which)\b|나열|보여\s*(?:주세요|줘)|찾아\s*(?:주세요|줘))"
-)
 _SPECIALIZED_FUNCTIONS_BY_OUTPUT_SHAPE = {
     "incident_evidence": frozenset({"query.incident_evidence"}),
     "inventory_impact": frozenset({"query.inventory_impact"}),
@@ -64,6 +53,17 @@ _SPECIALIZED_FUNCTIONS_BY_OUTPUT_SHAPE = {
     "ontology_release_evidence_health": frozenset(
         {"query.ontology_evidence_health", "query.ontology_release_diff"}
     ),
+    "target_activity": frozenset({"query.resource_activity"}),
+    "target_current_state": frozenset({"query.resource_current_state"}),
+    "target_error_activity_correlation": frozenset({"query.resource_error_activity_correlation"}),
+    "target_health_assessment": frozenset({"query.target_health_assessment"}),
+}
+_SPECIALIZED_OPERATIONS_BY_OUTPUT_SHAPE = {
+    "inventory_impact": SemanticOperation.SELECT,
+    "target_activity": SemanticOperation.SELECT,
+    "target_current_state": SemanticOperation.SELECT,
+    "target_error_activity_correlation": SemanticOperation.COMPARE,
+    "target_health_assessment": SemanticOperation.VALIDATE,
 }
 _SPECIALIZED_FUNCTION_OUTPUT_SHAPES = {
     function_name: output_shape
@@ -96,6 +96,7 @@ _SAFE_FRAME_REJECTION_REASONS = frozenset(
         "causal investigation requires an onset or change-point cue",
         "causal investigation requires support and refutation evidence",
         "explicit aggregation request requires aggregation_table output",
+        "explicit impact request requires inventory_impact output",
         "explicit listing request cannot use aggregation_table output",
         "investigation entity ids MUST be unique",
         "investigation entity type is absent from the principal manifest",
@@ -123,6 +124,7 @@ _SAFE_FRAME_REJECTION_REASONS = frozenset(
         "semantic declaration frame requires an exact declaration measure",
         "semantic explain_change operation requires causal_evidence output",
         "semantic Rule state frame requires the exact Rule declaration",
+        "specialized semantic output requires its fixed operation",
         "semantic validate operation requires evidence_validation output",
         "structured investigation intent requires semantic causal evidence",
         "target-bound causal evidence requires structured investigation intent",
@@ -315,6 +317,10 @@ class SemanticPlanningCascade:
     ) -> bool:
         if tier != "t1" or self._escalation_model is None:
             return False
+        if validation_reason == (
+            "target-bound causal evidence requires structured investigation intent"
+        ):
+            return False
         _LOGGER.info(
             "semantic_planning_t2_escalated",
             extra={
@@ -341,7 +347,10 @@ def _validate_frame_proposal(
 ) -> None:
     if _SERVER_BOUND_REQUIREMENTS.intersection(proposal.clarification_requirements):
         raise ValueError("semantic clarification requests server-bound context")
-    is_evidence_validation = proposal.output_shape == "evidence_validation"
+    is_evidence_validation = proposal.output_shape in {
+        "evidence_validation",
+        "target_health_assessment",
+    }
     if (proposal.operation is SemanticOperation.VALIDATE) != is_evidence_validation:
         raise ValueError("semantic validate operation requires evidence_validation output")
     is_causal_evidence = proposal.output_shape == "causal_evidence"
@@ -350,16 +359,9 @@ def _validate_frame_proposal(
     is_aggregation = proposal.output_shape == "aggregation_table"
     if (proposal.operation is SemanticOperation.AGGREGATE) != is_aggregation:
         raise ValueError("semantic aggregate operation requires aggregation_table output")
-    normalized_utterance = utterance.casefold()
-    explicit_aggregation = _EXPLICIT_AGGREGATION_REQUEST.search(normalized_utterance) is not None
-    if explicit_aggregation and not is_aggregation:
-        raise ValueError("explicit aggregation request requires aggregation_table output")
-    if (
-        is_aggregation
-        and not explicit_aggregation
-        and _EXPLICIT_LISTING_REQUEST.search(normalized_utterance) is not None
-    ):
-        raise ValueError("explicit listing request cannot use aggregation_table output")
+    specialized_operation = _SPECIALIZED_OPERATIONS_BY_OUTPUT_SHAPE.get(proposal.output_shape)
+    if specialized_operation is not None and proposal.operation is not specialized_operation:
+        raise ValueError("specialized semantic output requires its fixed operation")
     if proposal.investigation is not None and not is_causal_evidence:
         raise ValueError("structured investigation intent requires semantic causal evidence")
     if (

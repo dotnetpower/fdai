@@ -316,7 +316,7 @@ promote to T2.
 | Heimdall forecast | T1 (ARIMA / smoothing) | statistical is enough, reproducible |
 | Norns streaming pattern | T1 (clustering) | live signal needs deterministic ranking |
 | Norns batch summary | T2 (off-path only) | LLM ok for weekly report, never hot-path |
-| Bragi intent classify | T0 keyword + T1 embedding, then handoff | hot-path dialog does not guess through T2 |
+| Bragi semantic translation | bounded T1 structured judgment, optional T2 retry, then handoff | schema validation and exact capability projection remain authoritative |
 | Mimir rule draft | T2 (off-path, human-reviewed) | novel rule OK to LLM; sign-off is human |
 | Forseti verdict coherence | T0 (SQL) + T1 (embedding) | past verdicts are structured audit log |
 | Var assisted decision | T0 (linked similar cases) + T2 (summary, off-path) | card carries summary; humans decide |
@@ -415,10 +415,10 @@ routing. Questions cap at 2,000 characters and each session retains 100 monotoni
 
 Each `AgentSpec` requires a unique immutable, versioned `ConversationCharter`: bounded server-owned system instructions with role-specific prohibitions, an exact generated role contract for reporting, ownership, topics, action bindings, model policy, hard-dependency status, and proposal budgets, a role directive that states the mechanics of the agent's own decision, English/Korean query examples, and read tools with purpose and owned-fact scopes. Semantic parity tests pin all 15 role boundaries. The runtime overwrites caller policy, projects each tool onto its distinct fact scope, and attributes the version plus separate prompt and full-charter SHA-256 digests without exposing instructions. Each agent grounds answers in owned state; typed policy remains the authority. The charter prompt is the composition floor, not the whole prompt. Every turn composes its effective prompt from that baseline plus the situational layers the turn selects (peer versus operator audience, deliberation phase and tier, tool scope, operator locale, evidence gap, command intent). Composition is additive and deterministic, so a situation can tighten the charter but never loosen it, and a recorded turn replays exactly. The turn context selects layers only; it never supplies prompt text, so a forged context cannot inject instructions. Responses carry the layer manifest, situation key, and composed prompt digest - never the text. See [conversational-deliberation.md](conversational-deliberation.md).
 
-`is_action_intent` makes commands abstain with `requires_typed_pipeline`; chat never executes.
-The framework tool planner derives bilingual operator vocabulary from each declared tool example
-and matches it to ontology-backed capabilities. It does not maintain a separate translation map or
-change Bragi's translator-only authority.
+Bragi obtains one schema-validated semantic judgment for each bounded turn. `draft_only` action
+posture re-enters the typed pipeline with the operator as initiator; chat never executes. Read tool
+selection uses model-backed semantic planning and exact canonical tool-id ownership checks. An
+unbound or failed model returns unavailable and never falls back to a phrase dictionary.
 Owned-state scope narrowing matches complete canonical identifiers with internal `.`, `_`, or `-`
 inside the bounded question and never accepts a shorter candidate that is only an identifier prefix.
 `PantheonRuntime.introspect` supports attributed read-only peer projections and digest-only Bragi Turns; bounded presentation discussion is specified in [conversational-deliberation.md](conversational-deliberation.md).
@@ -428,7 +428,8 @@ and data, and holds errors or sensitive output without values. Tool results expo
 
 ### 6.3 NL query orchestration
 
-Bragi is the router, not the answerer. English and Korean Azure read intents route to Heimdall before generic domain scoring without adding a topic, agent identity, or execution authority:
+Bragi is the router, not the answerer. English, Korean, and mixed-language turns use the same
+structured judgment boundary without adding a topic, agent identity, or execution authority:
 
 1. **Current-screen authority.** A data question stays with Bragi T0 when the
   active screen supplies facts or records. Specialist delegation and semantic
@@ -439,14 +440,14 @@ Bragi is the router, not the answerer. English and Korean Azure read intents rou
   particle such as `ActionType이`) is answered from grounded glossary evidence
   before agent scoring. It is not delegated to an agent whose domain merely
   shares a word stem.
-3. **T0 keyword / regex match.** Compare intent tokens against
-  `Agent.question_domains` and owned ObjectType tokens. Complete multi-token domains outrank
-  partial matches, while generic `status`, `history`, or `health` tokens cannot route alone.
-  Prefix matching is limited to high-signal words; `actiontype` does not match `action`.
-4. **T1 embedding similarity.** T0 abstention or ties compare one question embedding with cached
-  English/Korean charter examples. Explicit/read/single-winner T0 makes zero calls; threshold,
-  margin, or provider failure preserves the deterministic result instead of guessing.
-5. **Handoff.** If T0 and T1 remain below threshold, emit
+3. **Structured semantic judgment.** A bounded T1 model returns canonical intent, targets,
+  requested facets, confidence, ambiguity, discourse mode, and action posture. Core validates
+  source spans, capability identities, confidence, and no-authority fields. Only exact
+  `question_domains`, owned ObjectTypes, agent names, and tool ids are projected.
+4. **Bounded T2 retry.** Unavailable, malformed, ambiguous, or low-confidence T1 output can retry
+  once through the configured T2 binding. A terminal failure asks one clarification question or
+  reports unavailable; it does not reuse lexical matching.
+5. **Handoff.** If both semantic tiers abstain or no exact capability remains, emit
   `HandoffEscalation` (§6.4). The system files a GitHub issue rather than
    guess.
 

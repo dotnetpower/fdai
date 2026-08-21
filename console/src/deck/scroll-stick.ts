@@ -26,6 +26,14 @@ export function isNearBottom(
   return distanceFromBottom <= threshold;
 }
 
+export function contentResizeScrollTop(
+  stuck: boolean,
+  currentScrollTop: number,
+  scrollHeight: number,
+): number {
+  return stuck ? scrollHeight : currentScrollTop;
+}
+
 export function revealTargetScrollTop(
   currentScrollTop: number,
   scrollerTop: number,

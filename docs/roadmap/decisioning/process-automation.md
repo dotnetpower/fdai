@@ -455,11 +455,12 @@ The designer is a **chat that co-designs the workflow with the operator**, not
 a form. It asks deep, plain-language questions, restates what it understood,
 and offers option chips the way an assistant proposes next actions - so a
 non-expert reaches a valid workflow by answering questions, never by learning
-the schema. It is backed by a **deterministic, LLM-free interview engine**
+the schema. Deterministic stage transitions remain in the interview engine
 ([`workflow-builder.chat.ts`](../../../console/src/routes/workflow-builder.chat.ts)),
-a slot-filling state machine that stays true to the deterministic-first
-contract: it works with the narrator absent and never invents a mutation the
-`ActionType` palette does not already carry.
+a slot-filling state machine that never invents a mutation the `ActionType`
+palette does not already carry. Free-text meaning comes only from a verified
+server-owned semantic judgment. A text-only browser call abstains instead of
+falling back to lexical inference.
 
 The engine walks a fixed set of stages
 (`welcome -> need_action -> need_trigger -> confirm_plan -> offer_extra ->
@@ -471,11 +472,12 @@ Design properties:
 - the welcome turn shows **worked examples** (e.g. "when a pod on
   `aks-cluster-01` runs hot, notify me"), so the operator sees what kinds of
   processes are expressible before typing;
-- a single free-text goal is pre-parsed by the same deterministic matcher the
-  legacy composer used
-  ([`suggestDraftFromText`](../../../console/src/routes/workflow-builder.intent.ts)):
-  when the sentence already names a trigger and an action, the interview skips
-  straight to confirming the rest, only asking for what is still missing;
+- a verified semantic workflow judgment may prefill exact trigger and
+  `ActionType` identities through
+  [`suggestDraftFromJudgment`](../../../console/src/routes/workflow-builder.intent.ts).
+  The projection requires confidence of at least `0.75`, no ambiguity, and
+  `execution_authority=false`; unknown or duplicate identities fail closed and
+  the interview asks for the missing fields;
 - after each answer the engine **restates its understanding** as one plain
   "when -> do" sentence, and at `offer_extra` it proposes further steps
   (another action, a guard, a notification) as chips the operator accepts or

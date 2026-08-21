@@ -76,7 +76,7 @@ from fdai.shared.providers.metric import (
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _DEFAULT_ENDPOINT: Final[str] = "https://management.azure.com"
-_DEFAULT_API_VERSION: Final[str] = "2024-02-01"
+_DEFAULT_API_VERSION: Final[str] = "2018-01-01"
 _DEFAULT_AUDIENCE: Final[str] = "https://management.azure.com/.default"
 _DEFAULT_TIMEOUT_SECONDS: Final[float] = 30.0
 _DEFAULT_LOOKBACK_SECONDS: Final[int] = 3_600
@@ -342,6 +342,10 @@ class AzureMonitorMetricsProvider:
                         f"Azure Monitor Metrics unparseable timestamp "
                         f"{ts_raw!r} for {query.metric_name!r}"
                     ) from exc
+                if query.since is not None and _as_utc(at) < _as_utc(query.since):
+                    continue
+                if query.until is not None and _as_utc(at) > _as_utc(query.until):
+                    continue
                 if not _labels_match_excluding_resource_id(series_labels, query.labels):
                     continue
                 points.append(
@@ -380,11 +384,15 @@ def _build_timespan(
     hi = _as_utc(until) if until is not None else _as_utc(now)
     if lo > hi:
         lo, hi = hi, lo
-    return f"{lo.isoformat()}/{hi.isoformat()}"
+    return f"{_format_utc(lo)}/{_format_utc(hi)}"
 
 
 def _as_utc(dt: datetime) -> datetime:
-    return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
+    return dt.astimezone(UTC) if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
+
+
+def _format_utc(dt: datetime) -> str:
+    return dt.isoformat().replace("+00:00", "Z")
 
 
 def _labels_match(sample: Mapping[str, str], wanted: Mapping[str, str]) -> bool:

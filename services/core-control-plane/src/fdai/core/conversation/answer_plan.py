@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import TYPE_CHECKING, Final
@@ -59,6 +59,20 @@ class DiscussPolicy(StrEnum):
     SKIP = "skip"
     SHADOW = "shadow"
     SELECTIVE = "selective"
+
+
+class AnswerModifier(StrEnum):
+    """Schema-ready presentation facet selected by semantic judgment."""
+
+    BRIEF = "brief"
+    DEEP = "deep"
+    TABLE = "table"
+    CHART = "chart"
+    STEPS = "steps"
+    EVIDENCE = "evidence"
+    BEGINNER = "beginner"
+    TECHNICAL = "technical"
+    MULTIPLE_PERSPECTIVES = "multiple_perspectives"
 
 
 class AnswerSection(StrEnum):
@@ -196,103 +210,19 @@ _SECTIONS: Final[dict[AnswerIntent, tuple[AnswerSection, ...]]] = {
     ),
 }
 
-_INTENT_PATTERNS: Final[tuple[tuple[AnswerIntent, re.Pattern[str]], ...]] = (
-    (
-        # Greeting / smalltalk only when the WHOLE utterance is a pleasantry
-        # (anchored, no operational keyword follows). A mixed prompt like
-        # "hi, what's the status?" does not match and falls through to STATUS.
-        AnswerIntent.GREETING,
-        re.compile(
-            r"^[\s\W]*(?:"
-            r"annyeong|"
-            r"안녕(?:하세요|하십니까|하셔요)?|"
-            r"반가워(?:요)?|반갑습니다|"
-            r"하이|헬로|"
-            r"hello|hi|hey|good\s+(?:morning|afternoon|evening)|"
-            r"고맙습니다|고마워(?:요)?|"
-            r"감사(?:합니다|해요|드려요)?|"
-            r"thank\s*you|thanks|"
-            r"잘\s*지내(?:세요|셔어요)?|"
-            r"좋은\s*(?:아침|하루)"
-            r")[\s\W]*$",
-            re.I,
-        ),
-    ),
-    (
-        AnswerIntent.COMPARISON,
-        re.compile(r"\b(compare|comparison|versus|vs\.?|difference)\b|비교|차이", re.I),
-    ),
-    (
-        AnswerIntent.PROCEDURE,
-        re.compile(
-            r"\b(how (?:do|can|should|to)|steps?|procedure|runbook)\b|어떻게|단계|절차",
-            re.I,
-        ),
-    ),
-    (AnswerIntent.WHY, re.compile(r"\bwhy\b|이유|왜", re.I)),
-    (
-        AnswerIntent.DIAGNOSIS,
-        re.compile(
-            r"\b(diagnos|troubleshoot|investigat|root cause|broken|failing)\w*\b"
-            r"|진단|조사|원인",
-            re.I,
-        ),
-    ),
-    (AnswerIntent.STATUS, re.compile(r"\b(status|state|current|pending|health)\b|상태|현황", re.I)),
-    (AnswerIntent.LIST, re.compile(r"\b(list|show all|what are all|which)\b|목록|나열", re.I)),
-    (
-        AnswerIntent.PROPOSAL,
-        re.compile(r"\b(propose|proposal|request action|remediate)\w*\b|제안|조치 요청", re.I),
-    ),
-    (AnswerIntent.SUMMARY, re.compile(r"\b(summari[sz]e|summary|recap)\b|요약|정리", re.I)),
-    (
-        AnswerIntent.DEFINITION,
-        re.compile(
-            r"\b(what is|what are|define|definition|meaning|explain)\b"
-            r"|무엇|뭐야|정의|설명",
-            re.I,
-        ),
-    ),
-)
-
-_MODIFIERS: Final[tuple[tuple[str, re.Pattern[str]], ...]] = (
-    ("brief", re.compile(r"\b(briefly|short answer|concise)\b|결론만|짧게", re.I)),
-    ("deep", re.compile(r"\b(in detail|deep dive|thoroughly)\b|자세히|심층적으로", re.I)),
-    (
-        "table",
-        re.compile(r"\b(as a table|table format)\b|표로|비교표|테이블(?:로|\s*형식으로)?", re.I),
-    ),
-    (
-        "chart",
-        re.compile(
-            # Allow a few descriptive words between "as a" and chart/graph
-            # (e.g. "as a daily time-series chart", "as a weekly bar graph"),
-            # not only the bare adjacent phrase "as a chart".
-            r"\bas an?\s+(?:[\w-]+\s+){0,3}(?:chart|graph)\b|"
-            r"\bchart\s+format\b|\bgraph\s+format\b|"
-            r"\bplot\b.{0,48}\b(?:chart|graph)\b|"
-            r"차트로|그래프로",
-            re.I,
-        ),
-    ),
-    ("steps", re.compile(r"\b(step by step|as steps)\b|단계별로|절차로", re.I)),
-    (
-        "evidence",
-        re.compile(r"\b(with evidence|cite sources?|with citations?)\b|근거까지|인용", re.I),
-    ),
-    ("beginner", re.compile(r"\b(for a beginner|beginner friendly)\b|초보자 기준", re.I)),
-    ("technical", re.compile(r"\b(technically|technical detail)\b|기술적으로", re.I)),
-)
-
 
 def build_answer_plan(
-    prompt: str,
+    subject: str,
     *,
+    intent: AnswerIntent = AnswerIntent.OPEN_QUESTION,
+    requested_facets: Sequence[AnswerModifier | str] = (),
     route_id: str | None = None,
     preferences: ResponsePreferenceProfile | None = None,
 ) -> AnswerPlan:
-    """Build one deterministic response plan without model or provider calls."""
-    intent = _intent(prompt)
+    """Build one response plan from a schema-validated semantic judgment."""
+    modifiers = tuple(AnswerModifier(item) for item in requested_facets)
+    if len(modifiers) != len(set(modifiers)):
+        raise ValueError("answer plan requested facets MUST be unique")
     detail = (
         DetailLevel.BRIEF
         if intent in {AnswerIntent.STATUS, AnswerIntent.LIST, AnswerIntent.GREETING}
@@ -302,7 +232,7 @@ def build_answer_plan(
     evidence = _default_evidence(intent, route_id)
     audience = AudienceLevel.GENERAL
     overrides: list[str] = []
-    subject = prompt.strip()
+    normalized_subject = subject.strip()
     preference_applied = False
 
     if preferences is not None:
@@ -315,36 +245,27 @@ def build_answer_plan(
             format_ = preferred_format
             preference_applied = True
 
-    matched = sorted(
-        (
-            (match.start(), name, pattern)
-            for name, pattern in _MODIFIERS
-            if (match := pattern.search(subject)) is not None
-        ),
-        key=lambda item: item[0],
-    )
-    for _, name, _ in matched:
-        overrides.append(name)
-        if name == "brief":
+    discuss = DiscussPolicy.SKIP
+    for modifier in modifiers:
+        overrides.append(modifier.value)
+        if modifier is AnswerModifier.BRIEF:
             detail = DetailLevel.BRIEF
-        elif name == "deep":
+        elif modifier is AnswerModifier.DEEP:
             detail = DetailLevel.DEEP
-        elif name == "table":
+        elif modifier is AnswerModifier.TABLE:
             format_ = AnswerFormat.TABLE
-        elif name == "chart":
+        elif modifier is AnswerModifier.CHART:
             format_ = AnswerFormat.CHART
-        elif name == "steps":
+        elif modifier is AnswerModifier.STEPS:
             format_ = AnswerFormat.NUMBERED_STEPS
-        elif name == "evidence":
+        elif modifier is AnswerModifier.EVIDENCE:
             evidence = max(evidence, EvidenceRequirement.SERVER_READ_MODEL, key=_evidence_rank)
-        elif name == "beginner":
+        elif modifier is AnswerModifier.BEGINNER:
             audience = AudienceLevel.BEGINNER
-        elif name == "technical":
+        elif modifier is AnswerModifier.TECHNICAL:
             audience = AudienceLevel.TECHNICAL
-
-    for _, _, pattern in matched:
-        subject = pattern.sub(" ", subject)
-    subject = re.sub(r"\s+", " ", subject).strip(" ,.-") or prompt.strip()
+        elif modifier is AnswerModifier.MULTIPLE_PERSPECTIVES:
+            discuss = DiscussPolicy.SELECTIVE
     return AnswerPlan(
         intent=intent,
         detail_level=detail,
@@ -354,8 +275,8 @@ def build_answer_plan(
         audience_level=audience,
         clarification=None,
         max_words={DetailLevel.BRIEF: 80, DetailLevel.STANDARD: 260, DetailLevel.DEEP: 650}[detail],
-        discuss=DiscussPolicy.SKIP,
-        subject=subject,
+        discuss=discuss,
+        subject=normalized_subject,
         explicit_overrides=tuple(overrides),
         preference_applied=preference_applied,
     )
@@ -372,13 +293,6 @@ def answer_plan_directive(plan: AnswerPlan) -> str:
         "Honor the requested shape, omit a section when evidence is unavailable, "
         "and never fill a missing section by guessing."
     )
-
-
-def _intent(prompt: str) -> AnswerIntent:
-    for intent, pattern in _INTENT_PATTERNS:
-        if pattern.search(prompt):
-            return intent
-    return AnswerIntent.OPEN_QUESTION
 
 
 def _default_format(intent: AnswerIntent) -> AnswerFormat:
@@ -414,6 +328,7 @@ def _evidence_rank(value: EvidenceRequirement) -> int:
 __all__ = [
     "AnswerFormat",
     "AnswerIntent",
+    "AnswerModifier",
     "AnswerPlan",
     "AnswerSection",
     "AudienceLevel",

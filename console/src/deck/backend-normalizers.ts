@@ -14,6 +14,7 @@ import type {
   EvidenceManifestEntry,
   InvestigationActivity,
   InvestigationActivityStatus,
+  InvestigationExecutionTarget,
   InvestigationMilestone,
   RetrievalSourcePreview,
   RouterCandidate,
@@ -207,6 +208,24 @@ const ACTIVITY_STATUSES = new Set<InvestigationActivityStatus>([
 const MAX_EXECUTION_TOOL_CHARS = 64;
 const MAX_EXECUTION_COMMAND_CHARS = 16 * 1024;
 const MAX_EXECUTION_OUTPUT_CHARS = 64 * 1024;
+const MAX_EXECUTION_TARGET_CHARS = 128;
+const EXECUTION_INTERFACE_KINDS = new Set<InvestigationExecutionTarget["interfaceKind"]>([
+  "internal_query",
+  "http",
+  "cli",
+  "sdk",
+]);
+const EXECUTION_TRANSPORTS = new Set<NonNullable<InvestigationExecutionTarget["transport"]>>([
+  "event_bus",
+  "in_process",
+]);
+const HTTP_METHODS = new Set<NonNullable<InvestigationExecutionTarget["endpoint"]>["method"]>([
+  "GET",
+  "POST",
+  "PUT",
+  "PATCH",
+  "DELETE",
+]);
 const MAX_ACTIVITY_ID_CHARS = 128;
 const MAX_ACTIVITY_KIND_CHARS = 128;
 const MAX_ACTIVITY_LABEL_CHARS = 512;
@@ -280,10 +299,13 @@ function parseInvestigationExecution(raw: unknown): InvestigationActivity["execu
       record.duration_ms >= 0
     ? record.duration_ms
     : undefined;
+  const target = parseInvestigationExecutionTarget(record.target);
+  if (record.target !== undefined && target === undefined) return undefined;
   return {
     tool: record.tool,
     command: record.command,
     inputKind,
+    ...(target ? { target } : {}),
     redacted: true,
     ...(output !== undefined ? { output } : {}),
     ...(record.output_truncated === true ? { outputTruncated: true } : {}),
@@ -296,6 +318,66 @@ function parseInvestigationExecution(raw: unknown): InvestigationActivity["execu
       : {}),
     ...(durationMs !== undefined ? { durationMs } : {}),
   };
+}
+
+function parseInvestigationExecutionTarget(raw: unknown): InvestigationExecutionTarget | undefined {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return undefined;
+  const record = raw as Record<string, unknown>;
+  const interfaceKind = record.interface_kind;
+  if (
+    typeof interfaceKind !== "string" ||
+    !EXECUTION_INTERFACE_KINDS.has(interfaceKind as InvestigationExecutionTarget["interfaceKind"]) ||
+    !machineToken(record.service) ||
+    !machineToken(record.component) ||
+    !machineToken(record.operation)
+  ) return undefined;
+  const sourceKind = record.source_kind === undefined
+    ? undefined
+    : machineToken(record.source_kind) ? record.source_kind : null;
+  if (sourceKind === null) return undefined;
+  const transport = record.transport === undefined
+    ? undefined
+    : typeof record.transport === "string" &&
+      EXECUTION_TRANSPORTS.has(record.transport as NonNullable<InvestigationExecutionTarget["transport"]>)
+    ? record.transport as NonNullable<InvestigationExecutionTarget["transport"]>
+    : null;
+  if (transport === null) return undefined;
+  const endpoint = parseExecutionEndpoint(record.endpoint);
+  if (record.endpoint !== undefined && endpoint === undefined) return undefined;
+  if (interfaceKind === "http" && endpoint === undefined) return undefined;
+  if (interfaceKind !== "http" && endpoint !== undefined) return undefined;
+  return {
+    interfaceKind: interfaceKind as InvestigationExecutionTarget["interfaceKind"],
+    service: record.service as string,
+    component: record.component as string,
+    operation: record.operation as string,
+    ...(sourceKind ? { sourceKind } : {}),
+    ...(transport ? { transport } : {}),
+    ...(endpoint ? { endpoint } : {}),
+  };
+}
+
+function parseExecutionEndpoint(raw: unknown): InvestigationExecutionTarget["endpoint"] | undefined {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return undefined;
+  const record = raw as Record<string, unknown>;
+  if (
+    typeof record.method !== "string" ||
+    !HTTP_METHODS.has(record.method as NonNullable<InvestigationExecutionTarget["endpoint"]>["method"]) ||
+    typeof record.path !== "string" ||
+    !/^\/[A-Za-z0-9._~!$&'()*+,;=:@%/-]{1,255}$/.test(record.path) ||
+    record.path.includes("//")
+  ) return undefined;
+  return {
+    method: record.method as NonNullable<InvestigationExecutionTarget["endpoint"]>["method"],
+    path: record.path,
+  };
+}
+
+function machineToken(value: unknown): value is string {
+  return typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= MAX_EXECUTION_TARGET_CHARS &&
+    /^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(value);
 }
 
 export function parseInvestigationActivity(raw: unknown): InvestigationActivity | null {

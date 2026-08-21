@@ -14,6 +14,9 @@ import pytest
 
 _BASH = "/usr/bin/bash"
 _RUNNER = Path(__file__).parents[3] / "scripts" / "automation" / "run-local-service.sh"
+_INPUT_DIGEST = (
+    Path(__file__).parents[3] / "scripts" / "automation" / "local-service-input-digest.py"
+)
 _TIMESTAMP_PREFIX = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}[+-]\d{2}:\d{2} ")
 
 
@@ -379,6 +382,50 @@ def test_runner_isolates_child_from_terminal_process_group(tmp_path: Path) -> No
         process.wait(timeout=5)
 
 
+def test_runner_forces_a_child_that_exceeds_the_shutdown_deadline(tmp_path: Path) -> None:
+    log_file = tmp_path / "operator-api.log"
+    child_pid_file = tmp_path / "child.pid"
+    environment = os.environ.copy()
+    environment["FDAI_LOCAL_SERVICE_SHUTDOWN_SECONDS"] = "1"
+    process = subprocess.Popen(  # noqa: S603 - fixed test command
+        [
+            _BASH,
+            str(_RUNNER),
+            "operator-api",
+            str(log_file),
+            "--",
+            sys.executable,
+            "-c",
+            (
+                "import os, signal, time; from pathlib import Path; "
+                "signal.signal(signal.SIGTERM, signal.SIG_IGN); "
+                f"Path({str(child_pid_file)!r}).write_text(str(os.getpid())); "
+                "print('ready', flush=True); time.sleep(10)"
+            ),
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        env=environment,
+    )
+    assert process.stdout is not None
+    assert process.stdout.readline().rstrip().endswith("event=starting")
+    assert process.stdout.readline().rstrip() == "ready"
+    child_pid = int(child_pid_file.read_text())
+
+    process.terminate()
+    process.wait(timeout=4)
+
+    assert process.returncode == 137
+    with pytest.raises(ProcessLookupError):
+        os.kill(child_pid, 0)
+    assert (
+        log_file.read_text(encoding="utf-8")
+        .splitlines()[-1]
+        .endswith("service=operator-api event=stopped exit_code=137")
+    )
+
+
 def test_runner_rejects_a_second_instance_of_the_same_service(
     tmp_path: Path,
 ) -> None:
@@ -412,7 +459,7 @@ def test_runner_rejects_a_second_instance_of_the_same_service(
                 "--",
                 sys.executable,
                 "-c",
-                "print('second-child-ran')",
+                "import time; print('first-ready', flush=True); time.sleep(10)",
             ],
             check=False,
             capture_output=True,
@@ -425,6 +472,312 @@ def test_runner_rejects_a_second_instance_of_the_same_service(
     finally:
         first_process.terminate()
         first_process.wait(timeout=5)
+
+
+def test_runner_reuses_same_checkout_instance_when_enabled(tmp_path: Path) -> None:
+    log_file = tmp_path / "logs" / "operator-api.log"
+    environment = os.environ.copy()
+    environment["FDAI_LOCAL_SERVICE_INPUT_DIGEST"] = "a" * 64
+    first_process = subprocess.Popen(  # noqa: S603 - fixed test command
+        [
+            _BASH,
+            str(_RUNNER),
+            "operator-api",
+            str(log_file),
+            "--",
+            sys.executable,
+            "-c",
+            "import time; print('first-ready', flush=True); time.sleep(10)",
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        env=environment,
+    )
+    try:
+        assert first_process.stdout is not None
+        assert first_process.stdout.readline().rstrip().endswith("event=starting")
+        assert first_process.stdout.readline().rstrip() == "first-ready"
+        environment["FDAI_LOCAL_SERVICE_REUSE_EXISTING"] = "1"
+
+        second_result = subprocess.run(  # noqa: S603 - fixed test command
+            [
+                _BASH,
+                str(_RUNNER),
+                "operator-api",
+                str(log_file),
+                "--",
+                sys.executable,
+                "-c",
+                "import time; print('first-ready', flush=True); time.sleep(10)",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            env=environment,
+        )
+
+        assert second_result.returncode == 0
+        assert "service=operator-api event=starting" in second_result.stdout
+        assert "service=operator-api event=reused" in second_result.stdout
+        current_log = log_file.read_text(encoding="utf-8")
+        assert current_log.count("first-ready") == 1
+        assert "event=reused" not in current_log
+        assert first_process.poll() is None
+    finally:
+        first_process.terminate()
+        first_process.wait(timeout=5)
+
+
+def test_runner_rejects_reuse_when_launch_inputs_change(tmp_path: Path) -> None:
+    log_file = tmp_path / "logs" / "operator-api.log"
+    environment = os.environ.copy()
+    environment["FDAI_LOCAL_SERVICE_INPUT_DIGEST"] = "a" * 64
+    first_process = subprocess.Popen(  # noqa: S603 - fixed test command
+        [
+            _BASH,
+            str(_RUNNER),
+            "operator-api",
+            str(log_file),
+            "--",
+            sys.executable,
+            "-c",
+            "import time; print('first-ready', flush=True); time.sleep(10)",
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        env=environment,
+    )
+    try:
+        assert first_process.stdout is not None
+        assert first_process.stdout.readline().rstrip().endswith("event=starting")
+        assert first_process.stdout.readline().rstrip() == "first-ready"
+        environment["FDAI_LOCAL_SERVICE_INPUT_DIGEST"] = "b" * 64
+        environment["FDAI_LOCAL_SERVICE_REUSE_EXISTING"] = "1"
+
+        second_result = subprocess.run(  # noqa: S603 - fixed test command
+            [
+                _BASH,
+                str(_RUNNER),
+                "operator-api",
+                str(log_file),
+                "--",
+                sys.executable,
+                "-c",
+                "import time; print('first-ready', flush=True); time.sleep(10)",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            env=environment,
+        )
+
+        assert second_result.returncode == 75
+        assert "service restart required: operator-api" in second_result.stderr
+        assert log_file.read_text(encoding="utf-8").count("first-ready") == 1
+        assert first_process.poll() is None
+    finally:
+        first_process.terminate()
+        first_process.wait(timeout=5)
+
+
+def test_runner_rejects_reuse_when_recorded_owner_does_not_hold_the_lock(
+    tmp_path: Path,
+) -> None:
+    log_file = tmp_path / "logs" / "operator-api.log"
+    log_file.parent.mkdir()
+    lock_file = Path(f"{log_file}.lock")
+    lock_file.write_text(f"{'a' * 64} {os.getpid()} {os.getpid()}\n", encoding="utf-8")
+    holder = subprocess.Popen(  # noqa: S603 - fixed test lock holder
+        [_BASH, "-c", f'flock "{lock_file}" sleep 10'],
+    )
+    environment = os.environ.copy()
+    environment["FDAI_LOCAL_SERVICE_INPUT_DIGEST"] = "a" * 64
+    environment["FDAI_LOCAL_SERVICE_REUSE_EXISTING"] = "1"
+    try:
+        time.sleep(0.2)
+        result = subprocess.run(  # noqa: S603 - fixed test command
+            [
+                _BASH,
+                str(_RUNNER),
+                "operator-api",
+                str(log_file),
+                "--",
+                sys.executable,
+                "-c",
+                "print('child-ran')",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            env=environment,
+        )
+    finally:
+        holder.terminate()
+        holder.wait(timeout=5)
+
+    assert result.returncode == 75
+    assert "service ownership cannot be verified: operator-api" in result.stderr
+    assert "child-ran" not in result.stdout
+
+
+def test_runner_restarts_a_stale_same_checkout_instance_when_enabled(tmp_path: Path) -> None:
+    log_file = tmp_path / "logs" / "operator-api.log"
+    environment = os.environ.copy()
+    environment["FDAI_LOCAL_SERVICE_INPUT_DIGEST"] = "a" * 64
+    environment["FDAI_LOCAL_SERVICE_SHUTDOWN_SECONDS"] = "1"
+    command = [
+        _BASH,
+        str(_RUNNER),
+        "operator-api",
+        str(log_file),
+        "--",
+        sys.executable,
+        "-c",
+        "import time; print('ready', flush=True); time.sleep(10)",
+    ]
+    first_process = subprocess.Popen(  # noqa: S603 - fixed test command
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        env=environment,
+    )
+    second_process: subprocess.Popen[str] | None = None
+    try:
+        assert first_process.stdout is not None
+        assert first_process.stdout.readline().rstrip().endswith("event=starting")
+        assert first_process.stdout.readline().rstrip() == "ready"
+        environment["FDAI_LOCAL_SERVICE_INPUT_DIGEST"] = "b" * 64
+        environment["FDAI_LOCAL_SERVICE_REUSE_EXISTING"] = "1"
+        environment["FDAI_LOCAL_SERVICE_RESTART_STALE"] = "1"
+
+        second_process = subprocess.Popen(  # noqa: S603 - fixed test command
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            env=environment,
+        )
+        assert second_process.stdout is not None
+        lines = [second_process.stdout.readline().rstrip() for _ in range(3)]
+
+        assert lines[0] == "service inputs changed; restarting: operator-api"
+        assert lines[1].endswith("service=operator-api event=starting")
+        assert lines[2] == "ready"
+        assert first_process.wait(timeout=3) == 143
+        assert second_process.poll() is None
+    finally:
+        if second_process is not None and second_process.poll() is None:
+            second_process.terminate()
+            second_process.wait(timeout=5)
+        if first_process.poll() is None:
+            first_process.terminate()
+            first_process.wait(timeout=5)
+
+
+def test_runner_restarts_a_stale_orphaned_child_group(tmp_path: Path) -> None:
+    log_file = tmp_path / "logs" / "operator-api.log"
+    child_pid_file = tmp_path / "child.pid"
+    environment = os.environ.copy()
+    environment["FDAI_LOCAL_SERVICE_INPUT_DIGEST"] = "a" * 64
+    environment["FDAI_LOCAL_SERVICE_SHUTDOWN_SECONDS"] = "1"
+    command = [
+        _BASH,
+        str(_RUNNER),
+        "operator-api",
+        str(log_file),
+        "--",
+        sys.executable,
+        "-c",
+        (
+            "import os, time; from pathlib import Path; "
+            f"Path({str(child_pid_file)!r}).write_text(str(os.getpid())); "
+            "print('ready', flush=True); time.sleep(10)"
+        ),
+    ]
+    first_process = subprocess.Popen(  # noqa: S603 - fixed test command
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        env=environment,
+    )
+    second_process: subprocess.Popen[str] | None = None
+    child_pid = 0
+    try:
+        assert first_process.stdout is not None
+        assert first_process.stdout.readline().rstrip().endswith("event=starting")
+        assert first_process.stdout.readline().rstrip() == "ready"
+        child_pid = int(child_pid_file.read_text())
+        first_process.kill()
+        assert first_process.wait(timeout=3) == -signal.SIGKILL
+        deadline = time.monotonic() + 3
+        while time.monotonic() < deadline:
+            try:
+                os.kill(child_pid, 0)
+            except ProcessLookupError:
+                break
+            time.sleep(0.01)
+        else:
+            raise AssertionError("service child survived its runner")
+
+        environment["FDAI_LOCAL_SERVICE_INPUT_DIGEST"] = "b" * 64
+        environment["FDAI_LOCAL_SERVICE_REUSE_EXISTING"] = "1"
+        environment["FDAI_LOCAL_SERVICE_RESTART_STALE"] = "1"
+        second_process = subprocess.Popen(  # noqa: S603 - fixed test command
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            env=environment,
+        )
+        assert second_process.stdout is not None
+        lines = [second_process.stdout.readline().rstrip() for _ in range(2)]
+
+        assert lines[0].endswith("service=operator-api event=starting")
+        assert lines[1] == "ready"
+        assert second_process.poll() is None
+    finally:
+        if second_process is not None and second_process.poll() is None:
+            second_process.terminate()
+            second_process.wait(timeout=5)
+        if first_process.poll() is None:
+            first_process.kill()
+            first_process.wait(timeout=5)
+        if child_pid:
+            try:
+                os.killpg(child_pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+
+
+def test_input_digest_changes_with_source_or_environment(tmp_path: Path) -> None:
+    source = tmp_path / "src"
+    source.mkdir()
+    module = source / "service.py"
+    environment_file = tmp_path / "service.env"
+    module.write_text("VALUE = 1\n", encoding="utf-8")
+    environment_file.write_text("SETTING=one\n", encoding="utf-8")
+
+    def digest() -> str:
+        result = subprocess.run(  # noqa: S603 - fixed repository script
+            [sys.executable, str(_INPUT_DIGEST), str(source), str(environment_file)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return result.stdout.strip()
+
+    original = digest()
+    module.write_text("VALUE = 2\n", encoding="utf-8")
+    source_changed = digest()
+    environment_file.write_text("SETTING=two\n", encoding="utf-8")
+
+    assert re.fullmatch(r"[a-f0-9]{64}", original)
+    assert source_changed != original
+    assert digest() != source_changed
 
 
 def test_runner_refuses_a_runtime_lock_owned_by_another_checkout(tmp_path: Path) -> None:
@@ -499,6 +852,9 @@ def test_runner_reports_an_unusable_runtime_lock_as_itself(tmp_path: Path) -> No
 
 def test_runner_refuses_a_port_owned_by_another_process(tmp_path: Path) -> None:
     log_file = tmp_path / "logs" / "operator-api.log"
+    environment = os.environ.copy()
+    environment["FDAI_LOCAL_SERVICE_REUSE_EXISTING"] = "1"
+    environment["FDAI_LOCAL_SERVICE_INPUT_DIGEST"] = "a" * 64
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
         listener.bind(("127.0.0.1", 0))
@@ -521,6 +877,7 @@ def test_runner_refuses_a_port_owned_by_another_process(tmp_path: Path) -> None:
             check=False,
             capture_output=True,
             text=True,
+            env=environment,
         )
 
     assert result.returncode == 75

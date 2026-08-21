@@ -15,6 +15,7 @@ from fdai.core.ontology_platform import (
     ExecutedActionObservationSource,
     ExecutedActionReconciliationArtifactSource,
     MetricSemanticRegistry,
+    MetricWindowProvider,
     StateStoreReconciliationLedger,
     StateStoreReconciliationRequestOutbox,
 )
@@ -96,10 +97,11 @@ def semantic_query_providers(
     state_store_dsn: str | None,
     metric_provider: MetricProvider,
     metric_registry: MetricSemanticRegistry | None,
+    subscription_id: str | None = None,
 ) -> tuple[
     PostgresTopologyHistoryStore | None,
     MetricSemanticRegistry | None,
-    ProviderMetricWindowReader | None,
+    MetricWindowProvider | None,
 ]:
     """Build only complete production providers for semantic query extensions."""
 
@@ -111,11 +113,19 @@ def semantic_query_providers(
     )
     if isinstance(metric_provider, NoopMetricProvider) or metric_registry is None:
         return topology_reader, None, None
-    return (
-        topology_reader,
-        metric_registry,
-        ProviderMetricWindowReader(provider=metric_provider),
-    )
+    metric_reader: MetricWindowProvider = ProviderMetricWindowReader(provider=metric_provider)
+    normalized_subscription = (subscription_id or "").strip()
+    if normalized_subscription:
+        from fdai.delivery.azure.metric_window import (
+            AzureMetricWindowConfig,
+            AzureMetricWindowProvider,
+        )
+
+        metric_reader = AzureMetricWindowProvider(
+            provider=metric_reader,
+            config=AzureMetricWindowConfig(subscription_id=normalized_subscription),
+        )
+    return topology_reader, metric_registry, metric_reader
 
 
 def build_rule_generation_runtime_binding(

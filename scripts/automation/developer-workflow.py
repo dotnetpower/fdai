@@ -48,6 +48,9 @@ from scripts.automation.developer_workflow_runtime import (
     local_services_diagnostic as _local_services_diagnostic,
 )
 from scripts.automation.developer_workflow_runtime import (
+    wait_for_local_services as _wait_for_local_services,
+)
+from scripts.automation.developer_workflow_runtime import (
     warning_diagnostic as _warning_diagnostic,
 )
 
@@ -101,6 +104,15 @@ def preflight_report(root: Path) -> dict[str, Any]:
             if all(section.get("status") == "ok" for section in sections.values())
             else "blocked"
         ),
+    }
+
+
+def local_services_report(root: Path, *, wait_seconds: float) -> dict[str, Any]:
+    """Wait for the standard local Console topology without changing process state."""
+    return {
+        "read_only": True,
+        "schema_version": SCHEMA_VERSION,
+        **_wait_for_local_services(root, timeout_seconds=wait_seconds),
     }
 
 
@@ -251,11 +263,24 @@ def _render_preflight(report: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _render_local_services(report: dict[str, Any]) -> str:
+    unavailable = ", ".join(report.get("unavailable_services", ())) or "none"
+    return (
+        f"developer-workflow: local services {report['status']}\n"
+        f"  ready:       {report.get('ready_count', 0)}/{report.get('service_count', 0)}\n"
+        f"  unavailable: {unavailable}\n"
+        f"  attempts:    {report.get('attempt_count', 0)}"
+    )
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
     status_parser = subparsers.add_parser("status")
     status_parser.add_argument("--json", action="store_true", dest="as_json")
+    local_services_parser = subparsers.add_parser("local-services")
+    local_services_parser.add_argument("--json", action="store_true", dest="as_json")
+    local_services_parser.add_argument("--wait-seconds", type=float, default=15.0)
     context_parser = subparsers.add_parser("context-plan")
     context_parser.add_argument("targets", nargs="+")
     context_parser.add_argument("--json", action="store_true", dest="as_json")
@@ -273,6 +298,9 @@ def main(argv: list[str] | None = None) -> int:
     if arguments.command == "context-plan":
         report = context_plan_report(Path.cwd(), arguments.targets)
         renderer = _render_context_plan
+    elif arguments.command == "local-services":
+        report = local_services_report(Path.cwd(), wait_seconds=arguments.wait_seconds)
+        renderer = _render_local_services
     elif arguments.command == "resume":
         report = resume_report(Path.cwd())
         renderer = _render_resume
@@ -289,7 +317,7 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(report, sort_keys=True))
     else:
         print(renderer(report))
-    blocking_commands = {"delegation-preflight", "preflight"}
+    blocking_commands = {"delegation-preflight", "local-services", "preflight"}
     return 1 if arguments.command in blocking_commands and report["status"] != "ok" else 0
 
 

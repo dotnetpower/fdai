@@ -861,6 +861,20 @@ CLI, not logged in, RBAC denied, dynamic IP changed) is logged and swallowed so
 the API still boots and the console keeps working via the deterministic
 fallback. It is never wired into a production build.
 
+## Local Browser Entra session resilience
+
+The standard loopback Console uses MSAL Browser v4 encrypted `localStorage` so
+the signed-in account cache can survive a tab or VS Code webview recreation.
+Deployed origins continue to use `sessionStorage`. The Console requests a token
+at startup, every 30 minutes, and after focus, visibility, or network recovery;
+overlapping requests are coalesced.
+
+The encryption key remains browser-session-bound. Closing the browser can still
+require sign-in unless Entra Keep Me Signed In applies. The cache and refresh
+loop don't bypass the 24-hour SPA refresh-token window, Conditional Access,
+MFA, revocation, or an administrator-required sign-in. Never inspect, copy, or
+commit the MSAL cache values.
+
 ## Local Azure CLI sign-in
 
 Use this mode when you want the local console to reuse the interactive account

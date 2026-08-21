@@ -1,8 +1,8 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: 90d3693eca190de748580a91775c0989d7eb0a19
-translation_revised: 2026-08-20
+translation_source_sha: afb86866a8e504a0a2305eb31dee5cc5f50b783a
+translation_revised: 2026-08-21
 ---
 
 # 사용자 RBAC와 Entra 아이덴티티
@@ -34,6 +34,7 @@ Managed Identity, GitHub App, Teams bot)는 여전히 [security-and-identity-ko.
 |------|------|------|------|
 | 활동 관찰의 사람 및 workload identity 분리 | 구현됨 | `fdai_operator_service/activity_projection.py`, `test_activity_projection.py`, 이 문서의 인증된 관찰 계약 | 영속 현재 상태 활동은 hash된 correlation 참조만 전달하며 Reader bearer 게이트와 relay workload credential은 계속 분리되고 어떤 활동 행도 executor 권한을 얻지 않습니다. |
 | Break-Glass 활성화 요청 경계 | 구현됨 | `services/operator-service/src/fdai_operator_service/families/iam/break_glass.py`; `capabilities.py`; `services/operator-service/tests/test_operator_break_glass_activation.py` | `POST /system/break-glass/activation`은 BreakGlass 전용 `activate-break-glass` 기능과 비어 있지 않은 인시던트 id 및 사유, 한도 안의 미래 오프셋 인식 만료 시각을 요구합니다. 감사 전용 projection만 기록하며 HIL 승인이나 executor identity를 부여하지 않습니다. 영속 활성화 저장소, TTL 적용, 사인인 알림은 배포 작업으로 남습니다. |
+| 로컬 Browser Entra 세션 복원력 | 구현됨 | `console/src/auth-session.ts`; `console/src/auth.ts`; focused Console 인증 테스트(`10 passed`)와 typecheck | MSAL Browser v4는 loopback origin에서만 암호화된 `localStorage`를 사용하고 배포 origin에서는 `sessionStorage`를 유지합니다. 시작 시, 30분마다, focus, visibility 또는 network 복구 뒤에 하나로 병합된 refresh를 실행합니다. Entra는 여전히 대화형 인증을 요구할 수 있습니다. |
 
 ### 구현 이력
 
@@ -41,11 +42,13 @@ Managed Identity, GitHub App, Teams bot)는 여전히 [security-and-identity-ko.
 |------|------|------|------|-----------|
 | 2026-08-13 | 구현됨 | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 영속 현재 상태 활동이 전달하는 범위 제한 identity를 기록했습니다. | 현재 출처와 `test_activity_projection.py`, 통과한 focused 영속성 및 projection 테스트 | 별도로 설계된 운영 Break-Glass 활성화 경계를 추가합니다. |
 | 2026-08-15 | 구현됨 | BreakGlass 전용 기능, 인시던트 id, 사유, 한도 안의 미래 만료, 감사 전용 projection을 갖춘 `POST /system/break-glass/activation` 요청 경계를 추가했습니다. | `current change`; `services/operator-service/src/fdai_operator_service/families/iam/break_glass.py`; `pytest services/operator-service/tests` (308 passed, 1 skipped). | 배포에서 영속 활성화 저장소, TTL 적용, 사인인 알림을 연결합니다. |
+| 2026-08-21 | 구현됨 | 배포 token 저장이나 API 검증을 바꾸지 않고 loopback 전용 영속 MSAL cache와 App 수명 주기가 소유하는 proactive refresh loop 하나를 추가했습니다. | `current change`; `console/src/auth-session.ts`; `console/src/auth.ts`; `console/src/app.tsx`; focused 인증 테스트 10개와 Console typecheck가 통과했습니다. 보존하지 않은 loopback Browser 검사에서 MSAL `sessionStorage` 항목 없이 두 번째 탭을 복구했고 startup refresh 한 번의 성공을 관찰했습니다. | runtime 검증을 주장하기 전에 webview 재생성 또는 야간 중단을 통과한 관리되는 Browser 증적을 보존합니다. |
 
 ### 남은 작업
 
 - [x] 운영 Break-Glass 활성화 endpoint가 존재하며 인시던트 id, 사유, 한도 안의 미래 만료 시각을 요구하고 활성화 감사 근거를 기록하면서 런타임 HIL 승인이나 executor identity를 부여하지 않습니다. `services/operator-service/tests/test_operator_break_glass_activation.py`가 이를 증명합니다.
 - [ ] 배포에서 영속 활성화 저장소, TTL 적용, 사인인 알림을 연결하고 관리되는 활성화 영수증 하나를 보존합니다.
+- [ ] cache된 인증 artifact를 노출하지 않고 webview 재생성 또는 야간 중단을 통과한 loopback Browser 증적 하나를 보존합니다. Conditional Access 또는 MFA challenge는 대화형 인증 경계로 유지됩니다.
 
 ## 1. 상기하는 설계 원칙
 
@@ -338,13 +341,21 @@ RBAC 그룹 slot, IAM 요청/디렉터리 계약, 교정 PR 어댑터가 있습�
 
 ### 10.1 콘솔 (SPA) - OIDC + PKCE 있는 권한 확인 코드
 
-- **라이브러리**: MSAL.js v3 (`@azure/msal-browser`). 암묵적 흐름 없음.
+- **라이브러리**: MSAL.js v4 (`@azure/msal-browser`). 암묵적 흐름 없음.
 - **테넌트**: 포크당 single-tenant (`accountsInHomeTenantOnly`); 게스트 접근은 Entra B2B
   초대 통해(§10.5).
 - **Redirect**: 콘솔은 anonymous 표면 없음. 로드 시 MSAL에 유효 세션이 없으면 즉시
   `/authorize` 로 리다이렉트.
-- **토큰 저장**: 접근 + id 토큰은 메모리 또는 `sessionStorage`(절대 `localStorage` 아님);
-  refresh는 MSAL `acquireTokenSilent` 가 관리.
+- **토큰 저장**: 배포 origin은 access, id, refresh artifact를 `sessionStorage`에
+  유지합니다. 표준 loopback origin은 탭 또는 VS Code webview를 재생성해도 account cache를
+  복구할 수 있도록 MSAL v4의 암호화된 `localStorage`를 사용합니다. 암호화 키는 세션에
+  묶이며, Entra의 Keep Me Signed In이 적용되지 않으면 browser를 닫은 뒤 다시 사인인해야 할
+  수 있습니다. 다른 origin은 영속 정책을 선택할 수 없습니다.
+- **세션 갱신**: 하나의 App 수명 주기 owner가 시작 시, 30분마다, focus, visibility 또는
+  network 복구 뒤의 token 획득을 하나로 병합합니다. token API는 계속
+  `acquireTokenSilent`를 사용합니다. Entra가 interaction 필요를 보고하면 Console은 현재
+  account hint를 사용해 redirect 하나를 시작합니다. token persistence는 Conditional Access,
+  MFA, revoke 또는 non-sliding SPA refresh-token lifetime을 우회하지 않습니다.
 - **자동 토큰 시간 제한**: 콘솔은 기본적으로 `acquireTokenSilent`를 최대 10초 동안
   기다립니다. 토큰 획득이 멈추면 현재 패널을 계속 로드 상태로 두지 않고 재시도 작업이 있는
   인증 오류를 표시합니다. 포크의 아이덴티티 정책에 다른 제한 시간이 필요한 경우

@@ -43,7 +43,6 @@ from fdai.core.conversation import (
     CoordinatorConfig,
     CorrelateIncidentTool,
     DescribeEventTool,
-    DeterministicKeywordNarrator,
     ExplainVerdictTool,
     ExploreCatalogTool,
     ListHilTool,
@@ -329,40 +328,35 @@ def _build_inventory() -> Any:
 def _build_narrator() -> Narrator | None:
     """Select a narrator based on env vars.
 
-    - Default: :class:`DeterministicKeywordNarrator` (bilingual keyword
-      table). Zero external dependency, so the CLI always accepts at
-      least the curated set of Korean / English phrases even without
-      an LLM binding.
+    - Default: no narrator. The explicit command surface remains available.
     - ``LLM_MODE=azure`` + ``FDAI_LLM_ENDPOINT=<url>``:
       :class:`AzureOpenAINarratorModel` fronted by
       :class:`AzureCliWorkloadIdentity` (piggybacks on ``az login``).
       Deployment name defaults to ``t2.reasoner.primary`` (matches
       llm-registry.yaml); override via
       ``FDAI_LLM_NARRATOR_DEPLOYMENT``.
-    - ``FDAI_LLM_MODE=none``: no narrator (regex-only).
+    - ``FDAI_LLM_MODE=none``: no narrator.
 
-    Fail-soft: any Azure adapter construction error falls back to the
-    deterministic narrator with a warning on stderr - the CLI must
-    stay usable when 'az login' has not been run.
+    Fail-soft: any Azure adapter construction error leaves the narrator
+    unavailable while the exact command surface stays usable.
     """
     mode = os.environ.get("LLM_MODE") or os.environ.get("FDAI_LLM_MODE") or "local"
     if mode == "none":
         return None
     if mode.lower() != "azure":
-        return DeterministicKeywordNarrator()
+        return None
 
     endpoint = os.environ.get("FDAI_LLM_ENDPOINT", "").strip()
     if not endpoint:
         sys.stderr.write(
             "chat: LLM_MODE=azure requires FDAI_LLM_ENDPOINT "
             "(e.g. https://<caf-openai-endpoint>.openai.azure.com/); "
-            "falling back to deterministic keyword narrator.\n"
+            "ordinary-language narration is unavailable.\n"
         )
-        return DeterministicKeywordNarrator()
+        return None
     deployment = os.environ.get("FDAI_LLM_NARRATOR_DEPLOYMENT", "t2.reasoner.primary")
     try:
         import httpx
-
         from fdai.delivery.azure.dev_workload_identity import (
             AzureCliWorkloadIdentity,
         )
@@ -371,8 +365,8 @@ def _build_narrator() -> Narrator | None:
             AzureOpenAINarratorModelConfig,
         )
     except ImportError as exc:  # pragma: no cover - stdlib deps ship
-        sys.stderr.write(f"chat: azure narrator unavailable ({exc}); using keyword narrator.\n")
-        return DeterministicKeywordNarrator()
+        sys.stderr.write(f"chat: azure narrator unavailable ({exc}).\n")
+        return None
     return AzureOpenAINarratorModel(
         identity=AzureCliWorkloadIdentity(),
         http_client=httpx.Client(),

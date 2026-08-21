@@ -46,6 +46,7 @@ from fdai.agents._framework.introspection import (
     IntrospectionResult,
     capability_facts,
     mentioned,
+    semantic_intents,
 )
 from fdai.agents._framework.pantheon import _FORSETI
 from fdai.agents._framework.specialist_ingress import SPECIALIST_EVENT_PREFIX
@@ -642,8 +643,7 @@ class Forseti(Agent, ForsetiJudgmentMixin):
             "readiness_limited_resources": len(self._detection_readiness),
             "rca_evidence_available": False,
         }
-        normalized_question = question.casefold()
-        if "rca" in normalized_question or "root cause" in normalized_question:
+        if "rca_evidence" in semantic_intents(context):
             return IntrospectionResult(
                 answer="No grounded RCA record is retained by this conversational projection.",
                 facts=facts,

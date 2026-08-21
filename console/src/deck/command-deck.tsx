@@ -146,6 +146,7 @@ export function CommandDeck({ client }: { readonly client: OperatorApiClient }) 
     setSearchQuery,
     stuck,
   } = useCommandDeckTranscript({
+    open,
     turns,
     conversations,
     sessionKey,

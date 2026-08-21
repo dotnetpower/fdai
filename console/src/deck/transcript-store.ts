@@ -393,6 +393,7 @@ function validExecution(value: unknown): boolean {
     record.command.length > 0 &&
     record.command.length <= 16 * 1024 &&
     (record.inputKind === undefined || ["command", "query"].includes(String(record.inputKind))) &&
+    (record.target === undefined || validExecutionTarget(record.target)) &&
     record.redacted === true &&
     (record.output === undefined ||
       (typeof record.output === "string" && record.output.length <= 64 * 1024)) &&
@@ -407,6 +408,41 @@ function validExecution(value: unknown): boolean {
         Number.isSafeInteger(record.durationMs) &&
         record.durationMs >= 0))
   );
+}
+
+function validExecutionTarget(value: unknown): boolean {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const record = value as Record<string, unknown>;
+  const interfaceKind = String(record.interfaceKind);
+  const endpoint = record.endpoint;
+  const endpointValid = endpoint === undefined || (
+    typeof endpoint === "object" && endpoint !== null && !Array.isArray(endpoint) &&
+    ["GET", "POST", "PUT", "PATCH", "DELETE"].includes(
+      String((endpoint as Record<string, unknown>).method),
+    ) &&
+    typeof (endpoint as Record<string, unknown>).path === "string" &&
+    /^\/[A-Za-z0-9._~!$&'()*+,;=:@%/-]{1,255}$/.test(
+      String((endpoint as Record<string, unknown>).path),
+    ) &&
+    !String((endpoint as Record<string, unknown>).path).includes("//")
+  );
+  return (
+    ["internal_query", "http", "cli", "sdk"].includes(interfaceKind) &&
+    normalizedMachineToken(record.service) &&
+    normalizedMachineToken(record.component) &&
+    normalizedMachineToken(record.operation) &&
+    (record.sourceKind === undefined || normalizedMachineToken(record.sourceKind)) &&
+    (record.transport === undefined || ["event_bus", "in_process"].includes(String(record.transport))) &&
+    endpointValid &&
+    (interfaceKind === "http" ? endpoint !== undefined : endpoint === undefined)
+  );
+}
+
+function normalizedMachineToken(value: unknown): value is string {
+  return typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= 128 &&
+    /^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(value);
 }
 
 function validFollowUps(value: unknown): value is readonly string[] {

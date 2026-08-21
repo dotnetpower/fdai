@@ -30,17 +30,123 @@ if [[ "$log_format" != "raw" && "$log_format" != "json-plain" ]]; then
   echo "FDAI_LOCAL_SERVICE_LOG_FORMAT MUST be raw or json-plain" >&2
   exit 2
 fi
+reuse_existing="${FDAI_LOCAL_SERVICE_REUSE_EXISTING:-0}"
+if [[ "$reuse_existing" != "0" && "$reuse_existing" != "1" ]]; then
+  echo "FDAI_LOCAL_SERVICE_REUSE_EXISTING MUST be 0 or 1" >&2
+  exit 2
+fi
+restart_stale="${FDAI_LOCAL_SERVICE_RESTART_STALE:-0}"
+if [[ "$restart_stale" != "0" && "$restart_stale" != "1" ]]; then
+  echo "FDAI_LOCAL_SERVICE_RESTART_STALE MUST be 0 or 1" >&2
+  exit 2
+fi
+input_digest="${FDAI_LOCAL_SERVICE_INPUT_DIGEST:-}"
+if [[ -n "$input_digest" && ! "$input_digest" =~ ^[a-f0-9]{64}$ ]]; then
+  echo "FDAI_LOCAL_SERVICE_INPUT_DIGEST MUST be a lowercase SHA-256 digest" >&2
+  exit 2
+fi
+if [[ "$reuse_existing" == "1" && -z "$input_digest" ]]; then
+  echo "FDAI_LOCAL_SERVICE_INPUT_DIGEST is required when service reuse is enabled" >&2
+  exit 2
+fi
+shutdown_seconds="${FDAI_LOCAL_SERVICE_SHUTDOWN_SECONDS:-10}"
+if [[ ! "$shutdown_seconds" =~ ^[1-9][0-9]*$ ]]; then
+  echo "FDAI_LOCAL_SERVICE_SHUTDOWN_SECONDS MUST be a positive integer" >&2
+  exit 2
+fi
+reuse_fingerprint=""
+if [[ -n "$input_digest" ]]; then
+  reuse_fingerprint="$({
+    printf '%s\0' "$input_digest"
+    printf '%s\0' "$@"
+  } | sha256sum | cut -d' ' -f1)"
+fi
 
 log_dir="$(dirname "$log_file")"
 mkdir -p "$log_dir"
 chmod 700 "$log_dir"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 lock_file="${log_file}.lock"
-exec {service_lock_fd}> "$lock_file"
+exec {service_lock_fd}>> "$lock_file"
 chmod 600 "$lock_file"
 if ! flock -n "$service_lock_fd"; then
-  echo "service already running: $service" >&2
-  exit 75
+  if [[ "$reuse_existing" == "1" ]]; then
+    read -r owner_fingerprint owner_pid owner_child_pid < "$lock_file" || true
+    current_cwd="$(pwd -P)"
+    owner_cwd="$(readlink -f "/proc/${owner_pid:-invalid}/cwd" 2>/dev/null || true)"
+    owner_is_managed=0
+    if [[ "${owner_pid:-}" =~ ^[1-9][0-9]*$ \
+      && "$owner_cwd" == "$current_cwd" \
+      && -r "/proc/$owner_pid/cmdline" ]] \
+      && grep -zFq -- "scripts/automation/run-local-service.sh" "/proc/$owner_pid/cmdline" \
+      && grep -zFxq -- "$service" "/proc/$owner_pid/cmdline"; then
+      for owner_fd in "/proc/$owner_pid/fd/"*; do
+        if [[ "$(readlink -f "$owner_fd" 2>/dev/null || true)" == "$(readlink -f "$lock_file")" ]]; then
+          owner_is_managed=1
+          break
+        fi
+      done
+    fi
+    child_cwd="$(readlink -f "/proc/${owner_child_pid:-invalid}/cwd" 2>/dev/null || true)"
+    child_is_managed=0
+    child_group="$(ps -o pgid= -p "${owner_child_pid:-invalid}" 2>/dev/null | tr -d ' ' || true)"
+    if [[ "${owner_child_pid:-}" =~ ^[1-9][0-9]*$ \
+      && "$child_cwd" == "$current_cwd" \
+      && "$child_group" == "$owner_child_pid" ]]; then
+      for child_fd in "/proc/$owner_child_pid/fd/"*; do
+        if [[ "$(readlink -f "$child_fd" 2>/dev/null || true)" == "$(readlink -f "$lock_file")" ]]; then
+          child_is_managed=1
+          break
+        fi
+      done
+    fi
+    if [[ "$owner_is_managed" != "1" && "$child_is_managed" != "1" ]]; then
+      echo "service ownership cannot be verified: $service" >&2
+      exit 75
+    fi
+    if [[ "$owner_fingerprint" != "$reuse_fingerprint" ]]; then
+      if [[ "$restart_stale" != "1" ]]; then
+        echo "service restart required: $service (launch inputs changed)" >&2
+        exit 75
+      fi
+      if [[ -z "$owner_cwd" && -z "$child_cwd" ]] && flock -w 2 "$service_lock_fd"; then
+        owner_is_managed=0
+        child_is_managed=0
+      else
+        if [[ "$owner_is_managed" != "1" && "$child_is_managed" != "1" ]]; then
+          echo "service restart required: $service (launch inputs changed)" >&2
+          exit 75
+        fi
+        echo "service inputs changed; restarting: $service" >&2
+        if [[ "$owner_is_managed" == "1" ]]; then
+          kill -TERM "$owner_pid" 2>/dev/null || true
+        else
+          kill -TERM -- "-$owner_child_pid" 2>/dev/null || true
+        fi
+        if ! flock -w "$((shutdown_seconds + 5))" "$service_lock_fd"; then
+          if [[ "$child_is_managed" == "1" ]]; then
+            kill -KILL -- "-$owner_child_pid" 2>/dev/null || true
+          fi
+          if ! flock -w 2 "$service_lock_fd"; then
+            echo "stale service lock was not released: $service" >&2
+            exit 75
+          fi
+        fi
+      fi
+    else
+      printf '%s service=%s event=starting\n' "$(date '+%Y-%m-%dT%H:%M:%S.%6N%:z')" "$service"
+      printf '%s service=%s event=reused\n' "$(date '+%Y-%m-%dT%H:%M:%S.%6N%:z')" "$service"
+      exit 0
+    fi
+  else
+    echo "service already running: $service" >&2
+    exit 75
+  fi
+fi
+: > "$lock_file"
+if [[ -n "$reuse_fingerprint" ]]; then
+  printf '%s %s\n' "$reuse_fingerprint" "$$" > "$lock_file"
 fi
 
 touch "$log_file"
@@ -97,8 +203,6 @@ write_marker() {
 }
 
 capture_output() {
-  local script_dir
-  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   python3 "$script_dir/capture-local-service-log.py" \
     --log-file "$log_file" \
     --format "$log_format" \
@@ -171,14 +275,21 @@ mkfifo -m 600 "$output_pipe"
 
 cleanup() {
   rm -f "$output_pipe"
+  if [[ -n "${shutdown_guard_pid:-}" ]]; then
+    wait "$shutdown_guard_pid" 2>/dev/null || true
+  fi
 }
 
 trap cleanup EXIT
 
 capture_output < "$output_pipe" &
 logger_pid=$!
-setsid -- "$@" > "$output_pipe" 2>&1 &
+python3 "$script_dir/run-local-service-child.py" "$@" > "$output_pipe" 2>&1 &
 child_pid=$!
+if [[ -n "$reuse_fingerprint" ]]; then
+  printf '%s %s %s\n' "$reuse_fingerprint" "$$" "$child_pid" > "$lock_file"
+fi
+shutdown_guard_pid=""
 
 forward_signal() {
   local signal="$1"
@@ -187,8 +298,27 @@ forward_signal() {
   fi
 }
 
-trap 'forward_signal INT' INT
-trap 'forward_signal TERM' TERM
+schedule_forced_shutdown() {
+  if [[ -n "$shutdown_guard_pid" ]]; then
+    return
+  fi
+  (
+    if ! timeout "$shutdown_seconds" tail --pid="$child_pid" -f /dev/null; then
+      echo "service shutdown exceeded ${shutdown_seconds}s; forcing stop: $service" >&2
+      kill -KILL -- "-$child_pid" 2>/dev/null || true
+    fi
+  ) &
+  shutdown_guard_pid=$!
+}
+
+handle_signal() {
+  local signal="$1"
+  forward_signal "$signal"
+  schedule_forced_shutdown
+}
+
+trap 'handle_signal INT' INT
+trap 'handle_signal TERM' TERM
 
 status=0
 while true; do

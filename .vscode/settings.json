@@ -11,6 +11,13 @@
     "liveServer.settings.port": 5373,
     "task.allowAutomaticTasks": "on",
     "terminal.integrated.showExitAlert": false,
+    "terminal.integrated.env.linux": {
+        "GH_PAGER": "cat",
+        "GIT_PAGER": "cat",
+        "PAGER": "cat",
+        "PSQL_PAGER": "cat",
+        "SYSTEMD_PAGER": "cat"
+    },
     "makefile.configureOnOpen": false,
     "chat.hookFilesLocations": {
         ".github/hooks": true,

@@ -41,7 +41,7 @@ import { formatNumber, t } from "./i18n/workflow";
 // Re-export the pure helpers the vitest suite pins so `./workflow-builder`
 // stays a stable public import surface (workflow-builder.test.ts).
 export { buildGithubNewFileUrl, humanizeName, suggestStepId } from "./workflow-builder.helpers";
-export { suggestDraftFromText } from "./workflow-builder.intent";
+export { suggestDraftFromJudgment, suggestDraftFromText } from "./workflow-builder.intent";
 export { hasEquivalentWorkflowBinding } from "./workflow-builder.automations";
 export { workflowStepHref } from "./workflow-builder.detail";
 export { hasActionTypeRef, requestedActionType, workflowSelection } from "./workflow-builder.model";

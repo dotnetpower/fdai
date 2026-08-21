@@ -5,126 +5,17 @@ from __future__ import annotations
 import pytest
 from fdai.core.conversation.coordinator import CoordinatorConfig
 from fdai.core.conversation.narrator import (
-    DeterministicKeywordNarrator,
     ToolSchema,
     default_tool_schemas,
     format_prompt_tool_list,
 )
 
 
-class TestDeterministicKeywordNarrator:
-    def test_english_verb_keyword_returns_verb(self) -> None:
-        n = DeterministicKeywordNarrator()
-        assert (
-            n.translate(
-                utterance="please list_rules for storage",
-                tools=default_tool_schemas(),
-                principal_role="reader",
-            )
-            == "explore_catalog"
-        )
-
-    def test_korean_keyword_returns_english_verb(self) -> None:
-        n = DeterministicKeywordNarrator()
-        # Compound Korean phrase for "resource group list" MUST map to
-        # `query_inventory resource-group` (longer keyword wins over
-        # the plain "resource list" prefix).
-        assert (
-            n.translate(
-                utterance="리소스 그룹 목록",
-                tools=default_tool_schemas(),
-                principal_role="reader",
-            )
-            == "query_inventory resource-group"
-        )
-
-    def test_korean_audit_keyword_maps_to_query_audit(self) -> None:
-        n = DeterministicKeywordNarrator()
-        assert (
-            n.translate(
-                utterance="최근 감사 로그 보여줘",
-                tools=default_tool_schemas(),
-                principal_role="reader",
-            )
-            == "query_audit"
-        )
-
-    def test_longer_keyword_wins_over_shorter(self) -> None:
-        n = DeterministicKeywordNarrator()
-        # Same principle stated positively: when a longer keyword is a
-        # superstring of a shorter one, the narrator MUST return the
-        # longer one so we never emit a narrower verb than intended.
-        assert (
-            n.translate(
-                utterance=("프로젝트 리소스 그룹 목록 입니다"),
-                tools=default_tool_schemas(),
-                principal_role="reader",
-            )
-            == "query_inventory resource-group"
-        )
-
-    def test_no_keyword_match_returns_none(self) -> None:
-        n = DeterministicKeywordNarrator()
-        assert (
-            n.translate(
-                utterance="hello there, what do you think?",
-                tools=default_tool_schemas(),
-                principal_role="reader",
-            )
-            is None
-        )
-
-    def test_empty_utterance_returns_none(self) -> None:
-        n = DeterministicKeywordNarrator()
-        assert (
-            n.translate(
-                utterance="   ",
-                tools=default_tool_schemas(),
-                principal_role="reader",
-            )
-            is None
-        )
-
-    def test_english_keyword_respects_word_boundaries(self) -> None:
-        n = DeterministicKeywordNarrator()
-        # `list_rules` MUST NOT trigger on `list_rules_deprecated`.
-        result = n.translate(
-            utterance="list_rules_deprecated please",
-            tools=default_tool_schemas(),
-            principal_role="reader",
-        )
-        assert result is None
-
-    def test_empty_table_rejected(self) -> None:
-        with pytest.raises(ValueError, match=">= 1 keyword"):
-            DeterministicKeywordNarrator(table=[])
-
-    def test_custom_table_supersedes_default(self) -> None:
-        n = DeterministicKeywordNarrator(table=[("magic", "explore_catalog")])
-        assert (
-            n.translate(
-                utterance="magic please",
-                tools=default_tool_schemas(),
-                principal_role="reader",
-            )
-            == "explore_catalog"
-        )
-
-
 class TestToolSchemaDefaults:
-    def test_default_schemas_cover_every_known_verb(self) -> None:
-        """Every shipped verb has a schema entry (drift-guard).
-
-        A new verb in coordinator._VERB_PATTERNS MUST also land in
-        `default_tool_schemas()` or the narrator prompt is stale.
-        """
-        from fdai.core.conversation.coordinator import _VERB_PATTERNS
-
-        # tool_name is the target verb we route to; take the unique set.
-        coordinator_tool_names = {tool for _pattern, tool in _VERB_PATTERNS}
-        schema_tool_names = {s.tool_name for s in default_tool_schemas()}
-        missing = coordinator_tool_names - schema_tool_names
-        assert not missing, f"coordinator verbs missing from default_tool_schemas(): {missing}"
+    def test_default_schemas_use_unique_canonical_commands(self) -> None:
+        schemas = default_tool_schemas()
+        assert len({schema.tool_name for schema in schemas}) == len(schemas)
+        assert all(schema.verb == schema.tool_name for schema in schemas)
 
     def test_reader_prompt_hides_write_tools(self) -> None:
         rendered = format_prompt_tool_list(default_tool_schemas(), principal_role="reader")
@@ -203,7 +94,7 @@ class TestCoordinatorNarratorHook:
 
         return [_SuccessfulTool()]
 
-    def test_no_narrator_leaves_regex_behaviour_intact(self) -> None:
+    def test_no_narrator_keeps_exact_command_surface_fail_closed(self) -> None:
         from fdai.core.conversation import (
             AbstainResult,
             ConversationCoordinator,
@@ -213,25 +104,23 @@ class TestCoordinatorNarratorHook:
         result = coord.handle_turn(session=self._session(), message="뭐가 있나")
         assert isinstance(result, AbstainResult)
 
-    def test_narrator_hits_when_regex_misses(self) -> None:
+    def test_model_narrator_emits_canonical_command(self) -> None:
         from fdai.core.conversation import (
             ConversationCoordinator,
-            DeterministicKeywordNarrator,
             ToolResult,
             default_tool_schemas,
         )
 
+        class _Narrator:
+            def translate(self, *, utterance, tools, principal_role):  # type: ignore[no-untyped-def]
+                return "explore_catalog"
+
         coord = ConversationCoordinator(
             tools=self._tools(),
             config=CoordinatorConfig(ordinary_language_mode="legacy"),
-            narrator=DeterministicKeywordNarrator(),
+            narrator=_Narrator(),
             narrator_tool_schemas=default_tool_schemas(),
         )
-        # Korean utterance no regex would match; narrator translates it
-        # via the "카탈로그" keyword to `explore_catalog`, coordinator
-        # re-runs the regex, ExploreCatalogTool fires (tool call happens
-        # regardless of whether the empty query succeeds - the point is
-        # the narrator routed a Korean prompt into a tool dispatch).
         result = coord.handle_turn(
             session=self._session(),
             message="카탈로그에서 보여줘",
@@ -350,14 +239,17 @@ class TestCoordinatorNarratorHook:
     def test_narrator_translation_logged_as_system_turn(self) -> None:
         from fdai.core.conversation import (
             ConversationCoordinator,
-            DeterministicKeywordNarrator,
             default_tool_schemas,
         )
+
+        class _Narrator:
+            def translate(self, *, utterance, tools, principal_role):  # type: ignore[no-untyped-def]
+                return "explore_catalog"
 
         coord = ConversationCoordinator(
             tools=self._tools(),
             config=CoordinatorConfig(ordinary_language_mode="legacy"),
-            narrator=DeterministicKeywordNarrator(),
+            narrator=_Narrator(),
             narrator_tool_schemas=default_tool_schemas(),
         )
         session = self._session()

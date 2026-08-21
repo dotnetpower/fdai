@@ -1,5 +1,11 @@
 schema_version: "1.0.0"
 definitions:
+  - concept_id: dependency.latency
+    provider_metric: dependency_duration_ms
+    canonical_unit: ms
+    aggregation: average
+    description: Duration of dependency spans attributed to the bounded workload target.
+    monotonic: false
   - concept_id: deployment.change
     provider_metric: fdai.change.event
     canonical_unit: count
@@ -24,6 +30,18 @@ definitions:
     aggregation: sum
     description: Completed server requests in the bounded window.
     monotonic: true
+  - concept_id: resource.saturation
+    provider_metric: container_app_cpu_nanocores
+    canonical_unit: nanocores
+    aggregation: average
+    description: CPU consumption of the bounded runtime resource.
+    monotonic: false
+  - concept_id: service.latency
+    provider_metric: service_request_duration_ms
+    canonical_unit: ms
+    aggregation: average
+    description: Duration of service request spans attributed to the bounded service target.
+    monotonic: false
   - concept_id: storage.write.success
     provider_metric: storage.write.success.count
     canonical_unit: count

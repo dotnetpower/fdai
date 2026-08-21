@@ -20,11 +20,8 @@ Two invariants that this module enforces regardless of the compiler:
    non-empty string. Nothing else is inferred; the twin never
    fabricates.
 
-The shipped deterministic compiler
-(:class:`DeterministicPatternCompiler`) covers a small grammar that
-resolves at T0. Fork-installed narrators route the residual queries
-through the T2 quality gate and MUST pass their output through this
-verifier before execution.
+The shipped compiler explicitly abstains until a schema-validated semantic
+model compiler is injected. Every proposed query still passes the verifier.
 """
 
 from __future__ import annotations
@@ -73,6 +70,7 @@ class AbstainCode(StrEnum):
     UNKNOWN_RESOURCE_TYPE = "unknown_resource_type"
     EMPTY_INPUT = "empty_input"
     AMBIGUOUS = "ambiguous"
+    SEMANTIC_MODEL_UNAVAILABLE = "semantic_model_unavailable"
 
 
 @dataclass(frozen=True, slots=True)
@@ -218,142 +216,19 @@ class NlQueryCompiler(Protocol):
     def compile(self, nl_text: str) -> CompiledQuery: ...
 
 
-# ---------------------------------------------------------------------------
-# Deterministic pattern-based compiler (T0-flavoured, no LLM required).
-# ---------------------------------------------------------------------------
-
-
-_LIST_PREFIXES: tuple[str, ...] = ("list", "show", "which", "find")
-_COUNT_PREFIXES: tuple[str, ...] = ("count", "how many")
-_WITHOUT_MARKERS: tuple[str, ...] = ("without", "missing", "no")
-_WITH_MARKERS: tuple[str, ...] = ("with", "having")
-
-
-@dataclass(frozen=True, slots=True)
-class _ResourceTypeIndex:
-    """Ordered mapping from surface form -> canonical resource_type id.
-
-    The compiler tries longer surface forms first so ``"object storage"``
-    resolves to ``object-storage`` before a bare ``"storage"`` sub-match.
-    """
-
-    forms: tuple[tuple[str, str], ...]
-
-    @classmethod
-    def build(cls, registry: ResourceTypeRegistry) -> _ResourceTypeIndex:
-        pairs: list[tuple[str, str]] = []
-        for entry in registry:
-            canonical = entry.id
-            # Accept both the canonical id and a whitespace-normalised
-            # form ("object-storage" -> "object storage").
-            pairs.append((canonical.lower(), canonical))
-            spaced = canonical.replace("-", " ").replace(".", " ").lower()
-            if spaced != canonical.lower():
-                pairs.append((spaced, canonical))
-        # Sort by length desc so longer surfaces bind first.
-        pairs.sort(key=lambda p: len(p[0]), reverse=True)
-        return cls(forms=tuple(pairs))
-
-    def find(self, haystack: str) -> str | None:
-        for surface, canonical in self.forms:
-            if surface in haystack:
-                return canonical
-        return None
-
-
 class DeterministicPatternCompiler:
-    """Small English-only grammar the twin resolves at T0.
-
-    Recognised shapes (case-insensitive):
-
-    - ``list <resource-type>`` -> find, no predicates
-    - ``count <resource-type>`` -> count, no predicates
-    - ``list <resource-type> without <field>`` -> exists=False
-    - ``list <resource-type> with <field>`` -> exists=True
-    - ``list <resource-type> where <field> is <value>`` -> eq
-
-    Anything else returns an :class:`AbstainResult`. A fork that wants
-    broader coverage installs its own :class:`NlQueryCompiler` and
-    routes residual questions through the T2 quality gate; the same
-    :class:`QueryVerifier` re-checks its output.
-    """
+    """Compatibility default that explicitly abstains without a semantic model."""
 
     def __init__(self, resource_types: ResourceTypeRegistry) -> None:
-        self._index = _ResourceTypeIndex.build(resource_types)
+        self._known_resource_types = frozenset(resource_types.ids())
 
     def compile(self, nl_text: str) -> CompiledQuery:
-        stripped = (nl_text or "").strip()
-        if not stripped:
-            return AbstainResult(
-                code=AbstainCode.EMPTY_INPUT,
-                reason="input text is empty",
-            )
-        lowered = stripped.lower()
-
-        # Kind (find / count).
-        kind: QueryKind
-        if any(lowered.startswith(prefix) for prefix in _COUNT_PREFIXES):
-            kind = QueryKind.COUNT
-        elif any(lowered.startswith(prefix) for prefix in _LIST_PREFIXES):
-            kind = QueryKind.FIND
-        else:
-            return AbstainResult(
-                code=AbstainCode.UNRECOGNIZED_INTENT,
-                reason="input does not start with a recognised verb",
-                hint="try 'list <resource-type>' or 'count <resource-type>'",
-            )
-
-        resource_type = self._index.find(lowered)
-        if resource_type is None:
-            return AbstainResult(
-                code=AbstainCode.UNKNOWN_RESOURCE_TYPE,
-                reason="no resource_type from the vocabulary matched the text",
-                hint="cite a resource type from rule-catalog/vocabulary/resource-types.yaml",
-            )
-
-        predicates = self._extract_predicates(lowered)
-        # COUNT MUST NOT carry a projection - the shipped grammar never
-        # produces one, but be explicit.
-        return TypedQuery(
-            resource_type=resource_type,
-            predicates=predicates,
-            kind=kind,
-            projection=None,
+        if not (nl_text or "").strip():
+            return AbstainResult(code=AbstainCode.EMPTY_INPUT, reason="input text is empty")
+        return AbstainResult(
+            code=AbstainCode.SEMANTIC_MODEL_UNAVAILABLE,
+            reason="semantic query compiler is unavailable",
         )
-
-    @staticmethod
-    def _extract_predicates(lowered: str) -> tuple[Predicate, ...]:
-        # "where X is Y" -> eq
-        if " where " in lowered and " is " in lowered.split(" where ", 1)[1]:
-            tail = lowered.split(" where ", 1)[1]
-            field_name, _, raw_value = tail.partition(" is ")
-            field_name = field_name.strip()
-            raw_value = raw_value.strip().strip("'\"")
-            if field_name and raw_value:
-                value: Any = raw_value
-                # Best-effort primitive coercion; the verifier does not
-                # care about the value's Python type.
-                if raw_value.lower() in ("true", "false"):
-                    value = raw_value.lower() == "true"
-                elif raw_value.isdigit():
-                    value = int(raw_value)
-                return (Predicate(field=field_name, op=PredicateOp.EQ, value=value),)
-
-        # "without X" / "missing X" / "no X".
-        for marker in _WITHOUT_MARKERS:
-            token = f" {marker} "
-            if token in lowered:
-                field_name = lowered.split(token, 1)[1].split(" ", 1)[0].strip()
-                if field_name:
-                    return (Predicate(field=field_name, op=PredicateOp.MISSING),)
-        # "with X" / "having X".
-        for marker in _WITH_MARKERS:
-            token = f" {marker} "
-            if token in lowered:
-                field_name = lowered.split(token, 1)[1].split(" ", 1)[0].strip()
-                if field_name:
-                    return (Predicate(field=field_name, op=PredicateOp.EXISTS),)
-        return ()
 
 
 # ---------------------------------------------------------------------------

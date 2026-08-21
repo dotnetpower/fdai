@@ -1,16 +1,8 @@
-"""Bragi - Narrator (Wave 4 behavior).
+"""Bragi translator over bounded structured semantic judgment.
 
-Bragi is the operator conversational port. It routes NL queries to a
-primary agent using a deterministic scoring model built on
-:pyattr:`AgentSpec.question_domains`, aggregates typed responses, and
-renders a natural-language answer.
-
-Wave 4 keeps the LLM off the hot path: routing is T0 keyword + T1
-embedding-similarity (with the T1 similarity implementation stubbed
-deterministically until an embedding provider lands). The T2 LLM
-fallback for intent classification and the multi-turn context window
-integrate with the seams here but are exercised only in the
-conversational-port smoke tests.
+Bragi maps an operator turn onto canonical Pantheon capabilities, gathers
+read-only owned evidence, and renders the result. Candidate meaning never
+grants execution authority; direct action requests re-enter the typed pipeline.
 """
 
 from __future__ import annotations
@@ -19,10 +11,14 @@ import asyncio
 import hashlib
 import json
 import logging
-import re
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Collection
 from datetime import UTC, datetime
 from typing import Any
+
+from fdai_service_contracts.semantic_judgment import (
+    SemanticJudgmentDisposition,
+    SemanticJudgmentProposal,
+)
 
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bragi_contributors import (
@@ -34,7 +30,7 @@ from fdai.agents._framework.bragi_contributors import (
 from fdai.agents._framework.bragi_models import ConversationSession, RoutingDecision, Turn
 from fdai.agents._framework.bragi_progress import append_submitted, evict_oldest, record_progress
 from fdai.agents._framework.bragi_proposal import build_action_proposal
-from fdai.agents._framework.bragi_routing import route_question, translate_action_intent
+from fdai.agents._framework.bragi_routing import route_semantic_judgment
 from fdai.agents._framework.deliberation import (
     ConversationDeliberator,
     T2ConversationSynthesizer,
@@ -42,10 +38,10 @@ from fdai.agents._framework.deliberation import (
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
     capability_facts,
-    is_action_intent,
 )
 from fdai.agents._framework.pantheon import _BRAGI, PANTHEON_NAMES, PANTHEON_SPECS
 from fdai.agents._framework.semantic_routing import SemanticAgentRouter
+from fdai.core.conversation.semantic_judgment import SemanticJudgmentBoundary
 from fdai.core.metering.budget import BudgetLedger, ModelBudget
 from fdai.core.metering.pricing import PricingTable
 from fdai.core.metering.sink import MeteringSink
@@ -82,15 +78,6 @@ _CONTRIBUTOR_TIMEOUT_SECONDS = 2.0
 _RESPONDER_TIMEOUT_SECONDS = 2.0
 _PROPOSAL_TIMEOUT_SECONDS = 5.0
 
-_CURRENT_SCREEN_DATA_INTENT = re.compile(
-    r"\b(?:how many|count|share|rate|eps|attention|failed|mode|terminal\s+stage|"
-    r"affected|cpu\s+usage|approved|owner|region|monthly\s+cost|latest|recent|logged|"
-    r"top|most\s+common|common\s+action|promot\w*|ready|t0|t1|t2)\b"
-    r"|몇\s*개|개수|비율|주의|실패|모드|최종\s*단계|영향|사용률|승인|소유자|리전|"
-    r"월\s*비용|최근|가장\s*흔한\s*액션|준비|승격|그럼\s*T[012]",
-    re.IGNORECASE,
-)
-
 
 #: Entry RBAC gate for execute-class conversational requests. A console
 #: session's Entra role is mapped to the canonical capability matrix
@@ -107,6 +94,8 @@ class Bragi(Agent):
     def __init__(
         self,
         *,
+        semantic_judgment: SemanticJudgmentBoundary | None = None,
+        action_type_names: Collection[str] = (),
         semantic_router: SemanticAgentRouter | None = None,
         t2_synthesizer: T2ConversationSynthesizer | None = None,
         escalation_budget: ModelBudget | None = None,
@@ -126,6 +115,8 @@ class Bragi(Agent):
         self._agent_responders: dict[str, AnswerFn] = {}
         self._proposal_sink: ProposalSink | None = None
         self._tool_answer: ToolAnswerFn | None = None
+        self._semantic_judgment = semantic_judgment
+        self._action_type_names = frozenset(action_type_names)
         self._semantic_router = semantic_router
         self._responder_timeout_seconds = responder_timeout_seconds
         self._proposal_timeout_seconds = proposal_timeout_seconds
@@ -201,7 +192,13 @@ class Bragi(Agent):
     # ---- action proposal (conversational-port re-entry, 7.7) -----------
 
     async def submit_action_proposal(
-        self, *, session_id: str, user_id: str, question: str, initiator_role: str | None = None
+        self,
+        *,
+        session_id: str,
+        user_id: str,
+        question: str,
+        judgment: SemanticJudgmentProposal,
+        initiator_role: str | None = None,
     ) -> dict[str, Any]:
         """Translate an operator command into a typed ActionProposal.
 
@@ -222,6 +219,8 @@ class Bragi(Agent):
             session_id=session_id,
             user_id=user_id,
             question=question,
+            judgment=judgment,
+            action_type_names=self._action_type_names,
             initiator_role=initiator_role,
             pipeline_available=self._proposal_sink is not None,
         )
@@ -353,16 +352,9 @@ class Bragi(Agent):
 
     # ---- routing -------------------------------------------------------
 
-    def route(self, question: str) -> RoutingDecision:
-        return route_question(question, max_contributors=_MAX_CONTRIBUTORS)
-
-    async def route_with_semantic_fallback(self, question: str) -> RoutingDecision:
-        t0 = self.route(question)
-        if self._semantic_router is None:
-            return t0
-        return await self._semantic_router.route(
-            question,
-            t0=t0,
+    def route(self, judgment: SemanticJudgmentProposal) -> RoutingDecision:
+        return route_semantic_judgment(
+            judgment,
             max_contributors=_MAX_CONTRIBUTORS,
         )
 
@@ -372,7 +364,30 @@ class Bragi(Agent):
         has_screen_snapshot = "facts" in view_context or "records" in view_context
         if not route_id or not has_screen_snapshot:
             return True
-        return _CURRENT_SCREEN_DATA_INTENT.search(question) is None
+        result = self._judge(
+            question,
+            context=(f"screen_route={route_id}", "screen_snapshot_available=true"),
+        )
+        return not (
+            result is not None
+            and result.primary_intent == "current_screen_data"
+            and "current_screen" in result.requested_facets
+        )
+
+    def _judge(
+        self,
+        question: str,
+        *,
+        context: tuple[str, ...],
+    ) -> SemanticJudgmentProposal | None:
+        if self._semantic_judgment is None:
+            return None
+        result = self._semantic_judgment.judge(
+            utterance=question,
+            context=context,
+            capabilities=_semantic_capabilities(self._action_type_names),
+        )
+        return result.proposal if result.accepted else None
 
     # ---- session -------------------------------------------------------
 
@@ -404,17 +419,33 @@ class Bragi(Agent):
         # Bound the session map so a long-lived narrator cannot leak one entry
         # per session id forever (evicts oldest, never the active session).
         evict_oldest(self._sessions, _MAX_SESSIONS, keep=session_id)
+        judgment_result = (
+            await asyncio.to_thread(
+                self._semantic_judgment.judge,
+                utterance=question,
+                context=tuple(turn.question for turn in session.turns[-8:]),
+                capabilities=_semantic_capabilities(self._action_type_names),
+            )
+            if self._semantic_judgment is not None
+            else None
+        )
+        judgment = (
+            judgment_result.proposal
+            if judgment_result is not None and judgment_result.accepted
+            else None
+        )
         # MUST-NOT-bypass (agent-pantheon.md 7.7): a command ("restart vm-1")
         # is not answered by the conversational port. Bragi translates it into
         # a typed ActionProposal whose initiator is the operator and hands it
         # to the pipeline (Huginn -> Forseti judge -> Var approve -> Thor
         # execute). Bragi never calls an executor; it only submits + renders.
-        if is_action_intent(question):
+        if judgment is not None and judgment.action_posture == "draft_only":
             if allow_action_proposal:
                 result = await self.submit_action_proposal(
                     session_id=session_id,
                     user_id=user_id,
                     question=question,
+                    judgment=judgment,
                     initiator_role=initiator_role,
                 )
             else:
@@ -438,12 +469,35 @@ class Bragi(Agent):
             _append_turn(session, turn)
             await self._publish_turn(session_id=session_id, turn=turn)
             return turn
-        decision = await self.route_with_semantic_fallback(question)
-        if decision.primary_agent is None:
+        decision = (
+            self.route(judgment)
+            if judgment is not None
+            else RoutingDecision(
+                primary_agent=None,
+                scores={},
+                tie_break=None,
+                method="semantic_unavailable",
+                provider_status=(
+                    judgment_result.receipt.disposition.value
+                    if judgment_result is not None
+                    else "unbound"
+                ),
+            )
+        )
+        if judgment is None or decision.primary_agent is None:
+            clarification = (
+                judgment_result.proposal.clarification
+                if judgment_result is not None
+                and judgment_result.receipt.disposition is SemanticJudgmentDisposition.CLARIFICATION
+                and judgment_result.proposal is not None
+                else None
+            )
             answer = {
-                "answer": None,
+                "answer": clarification,
                 "primary_agent": None,
-                "abstain_reason": "no_route",
+                "abstain_reason": (
+                    "semantic_clarification_required" if clarification else "semantic_unavailable"
+                ),
                 "handoff_needed": True,
             }
         else:
@@ -456,7 +510,16 @@ class Bragi(Agent):
                 normalized_answer, response_error = await self._call_responder(
                     decision.primary_agent,
                     question,
-                    {"session_id": session_id, "user_id": user_id},
+                    {
+                        "session_id": session_id,
+                        "user_id": user_id,
+                        "semantic_action_posture": judgment.action_posture,
+                        "semantic_requested_facets": judgment.requested_facets,
+                        "semantic_primary_intent": judgment.primary_intent,
+                        "semantic_targets": tuple(
+                            target.model_dump(mode="json") for target in judgment.targets
+                        ),
+                    },
                 )
             else:
                 normalized_answer, response_error = normalize_responder_answer(
@@ -526,6 +589,26 @@ class Bragi(Agent):
                 answer["semantic_score"] = decision.semantic_score
                 answer["semantic_margin"] = decision.semantic_margin
                 answer["routing_provider_status"] = decision.provider_status
+        if judgment_result is not None:
+            answer["semantic_judgment"] = {
+                "receipt_digest": judgment_result.receipt.receipt_digest,
+                "input_digest": judgment_result.receipt.input_digest,
+                "profile_id": judgment_result.receipt.profile_id,
+                "profile_version": judgment_result.receipt.profile_version,
+                "tier": (
+                    judgment_result.receipt.tier.value
+                    if judgment_result.receipt.tier is not None
+                    else None
+                ),
+                "model_config_digest": judgment_result.receipt.model_config_digest,
+                "prompt_digest": judgment_result.receipt.prompt_digest,
+                "confidence": judgment_result.receipt.confidence,
+                "ambiguous": judgment_result.receipt.ambiguous,
+                "latency_ms": judgment_result.receipt.latency_ms,
+                "disposition": judgment_result.receipt.disposition.value,
+                "reason_code": judgment_result.receipt.reason_code,
+                "execution_authority": False,
+            }
 
         turn_index = _next_turn_index(session)
         if answer.get("handoff_needed") and materialize_handoff:
@@ -755,4 +838,21 @@ def _append_turn(session: ConversationSession, turn: Turn) -> None:
         del session.turns[:-_MAX_SESSION_TURNS]
 
 
-__all__ = ["Bragi", "RoutingDecision", "Turn", "ConversationSession", "translate_action_intent"]
+def _semantic_capabilities(action_type_names: Collection[str]) -> tuple[dict[str, Any], ...]:
+    agents = tuple(
+        {
+            "kind": "agent",
+            "name": spec.name,
+            "question_domains": list(spec.question_domains),
+            "owns": list(spec.owns),
+            "tools": [tool.tool_id for tool in spec.conversation.tool_specs],
+        }
+        for spec in PANTHEON_SPECS
+    )
+    actions = tuple(
+        {"kind": "action_type", "name": name} for name in sorted(set(action_type_names))
+    )
+    return (*agents, *actions)
+
+
+__all__ = ["Bragi", "RoutingDecision", "Turn", "ConversationSession"]

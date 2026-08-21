@@ -10,27 +10,8 @@ miswired verb would silently invoke the wrong tool.
 from __future__ import annotations
 
 import pytest
-from fdai.core.conversation.coordinator import (
-    _VERB_PATTERNS,
-    _extract_query,
-    _extract_tool_arguments,
-)
-
-# Re-import at module level so tests can iterate the shipped list.
-_VERBS = _VERB_PATTERNS
-
-
-def _match(text: str) -> tuple[str, str] | None:
-    """Return (tool_name, extracted_rest) for the first pattern that hits."""
-    import re
-
-    for pattern, tool_name in _VERBS:
-        m = re.match(pattern, text, flags=re.IGNORECASE)
-        if m:
-            rest = m.group("rest") if "rest" in (m.groupdict() or {}) else ""
-            return tool_name, _extract_query(rest)
-    return None
-
+from fdai.core.conversation.coordinator import _extract_tool_arguments
+from fdai.core.conversation.narrator import default_tool_schemas
 
 # ---------------------------------------------------------------------------
 # Every write verb resolves to exactly one tool.
@@ -38,33 +19,18 @@ def _match(text: str) -> tuple[str, str] | None:
 
 
 @pytest.mark.parametrize(
-    "utterance, expected_tool",
+    "canonical_command",
     [
-        # simulate_change
-        ("simulate_change {}", "simulate_change"),
-        ("simulate change resource_type=x", "simulate_change"),
-        ("what_if resource_type=object-storage", "simulate_change"),
-        # list_hil
-        ("list_hil", "list_hil"),
-        ("list hil", "list_hil"),
-        ("pending_approvals", "list_hil"),
-        # approve_hil
-        ("approve_hil ik-1 approve", "approve_hil"),
-        ("approve hil ik-2 reject", "approve_hil"),
-        ("resolve_hil ik-3 approve", "approve_hil"),
-        # run_runbook
-        ("run_runbook name=db_dr_drill", "run_runbook"),
-        ("run runbook prod", "run_runbook"),
-        # activate_break_glass
-        ("activate_break_glass primary db down", "activate_break_glass"),
-        ("break glass primary db down", "activate_break_glass"),
+        "simulate_change",
+        "list_hil",
+        "approve_hil",
+        "run_runbook",
+        "activate_break_glass",
     ],
 )
-def test_verb_pattern_matches_expected_tool(utterance: str, expected_tool: str) -> None:
-    result = _match(utterance)
-    assert result is not None, f"no match for {utterance!r}"
-    tool_name, _ = result
-    assert tool_name == expected_tool
+def test_write_command_has_canonical_model_schema(canonical_command: str) -> None:
+    schemas = {schema.tool_name: schema for schema in default_tool_schemas()}
+    assert schemas[canonical_command].verb == canonical_command
 
 
 # ---------------------------------------------------------------------------

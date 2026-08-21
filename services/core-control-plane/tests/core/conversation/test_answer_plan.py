@@ -8,6 +8,7 @@ import pytest
 from fdai.core.conversation.answer_plan import (
     AnswerFormat,
     AnswerIntent,
+    AnswerModifier,
     AudienceLevel,
     DetailLevel,
     DiscussPolicy,
@@ -49,17 +50,19 @@ from fdai.core.conversation.answer_preferences import ResponsePreferenceProfile
         ("thanks", AnswerIntent.GREETING),
     ],
 )
-def test_bilingual_intent_corpus(prompt: str, intent: AnswerIntent) -> None:
-    plan = build_answer_plan(prompt, route_id="audit")
+def test_bilingual_structured_intent_corpus(prompt: str, intent: AnswerIntent) -> None:
+    plan = build_answer_plan(prompt, intent=intent, route_id="audit")
 
     assert plan.intent is intent
     assert plan.sections
     assert plan.discuss is DiscussPolicy.SKIP
 
 
-def test_explicit_modifiers_override_defaults_and_are_removed_from_subject() -> None:
+def test_structured_facets_override_defaults() -> None:
     plan = build_answer_plan(
-        "Compare T1 and T2 briefly, step by step, with evidence, for a beginner"
+        "Compare T1 and T2",
+        intent=AnswerIntent.COMPARISON,
+        requested_facets=("brief", "steps", "evidence", "beginner"),
     )
 
     assert plan.intent is AnswerIntent.COMPARISON
@@ -68,11 +71,15 @@ def test_explicit_modifiers_override_defaults_and_are_removed_from_subject() -> 
     assert plan.evidence_requirement is EvidenceRequirement.SERVER_READ_MODEL
     assert plan.audience_level is AudienceLevel.BEGINNER
     assert plan.explicit_overrides == ("brief", "steps", "evidence", "beginner")
-    assert "briefly" not in plan.subject
+    assert plan.subject == "Compare T1 and T2"
 
 
-def test_korean_deep_table_and_technical_modifiers() -> None:
-    plan = build_answer_plan("T1과 T2를 자세히 비교표로 기술적으로 설명해줘")
+def test_korean_subject_accepts_structured_facets() -> None:
+    plan = build_answer_plan(
+        "T1과 T2 비교",
+        intent=AnswerIntent.COMPARISON,
+        requested_facets=("deep", "table", "technical"),
+    )
 
     assert plan.detail_level is DetailLevel.DEEP
     assert plan.format is AnswerFormat.TABLE
@@ -89,7 +96,7 @@ def test_korean_deep_table_and_technical_modifiers() -> None:
     ],
 )
 def test_korean_table_synonyms_preserve_inventory_subject(prompt: str) -> None:
-    plan = build_answer_plan(prompt)
+    plan = build_answer_plan(prompt, requested_facets=(AnswerModifier.TABLE,))
 
     assert plan.format is AnswerFormat.TABLE
     assert plan.explicit_overrides == ("table",)
@@ -98,7 +105,7 @@ def test_korean_table_synonyms_preserve_inventory_subject(prompt: str) -> None:
 
 @pytest.mark.parametrize("prompt", ["리소스를 그래프로 보여줘", "Show resources as a chart"])
 def test_explicit_chart_modifier_selects_chart_format(prompt: str) -> None:
-    plan = build_answer_plan(prompt)
+    plan = build_answer_plan(prompt, requested_facets=("chart",))
 
     assert plan.format is AnswerFormat.CHART
     assert plan.explicit_overrides == ("chart",)
@@ -114,18 +121,15 @@ def test_explicit_chart_modifier_selects_chart_format(prompt: str) -> None:
         "일주일치 사용량을 하루 단위 꺾은선 차트로 보여줘",
     ],
 )
-def test_chart_modifier_allows_descriptive_words_before_chart_noun(prompt: str) -> None:
-    # A real request rarely says the bare phrase "as a chart" - it usually
-    # qualifies the chart with a cadence/style word ("daily time-series",
-    # "weekly bar", "monthly line"). The modifier must still select CHART.
-    plan = build_answer_plan(prompt)
+def test_chart_facet_is_language_independent(prompt: str) -> None:
+    plan = build_answer_plan(prompt, requested_facets=("chart",))
 
     assert plan.format is AnswerFormat.CHART
     assert plan.explicit_overrides == ("chart",)
 
 
 def test_definition_standard_shape_is_not_one_line() -> None:
-    plan = build_answer_plan("What is ActionType?")
+    plan = build_answer_plan("ActionType", intent=AnswerIntent.DEFINITION)
 
     assert plan.detail_level is DetailLevel.STANDARD
     assert len(plan.sections) == 5
@@ -134,12 +138,20 @@ def test_definition_standard_shape_is_not_one_line() -> None:
 
 
 def test_last_current_turn_detail_modifier_wins() -> None:
-    plan = build_answer_plan("In detail, but briefly explain ActionType")
+    plan = build_answer_plan(
+        "ActionType",
+        intent=AnswerIntent.DEFINITION,
+        requested_facets=("deep", "brief"),
+    )
 
     assert plan.detail_level is DetailLevel.BRIEF
     assert plan.explicit_overrides == ("deep", "brief")
 
-    reversed_plan = build_answer_plan("Briefly, but in detail explain ActionType")
+    reversed_plan = build_answer_plan(
+        "ActionType",
+        intent=AnswerIntent.DEFINITION,
+        requested_facets=("brief", "deep"),
+    )
     assert reversed_plan.detail_level is DetailLevel.DEEP
     assert reversed_plan.explicit_overrides == ("brief", "deep")
 
@@ -155,10 +167,16 @@ def test_current_turn_overrides_stored_intent_preferences() -> None:
         updated_at=datetime(2026, 7, 17, tzinfo=UTC),
     )
 
-    preferred = build_answer_plan("Compare T1 and T2", preferences=preferences)
-    default_format = build_answer_plan("What is ActionType?", preferences=preferences)
+    preferred = build_answer_plan(
+        "T1 and T2", intent=AnswerIntent.COMPARISON, preferences=preferences
+    )
+    default_format = build_answer_plan(
+        "ActionType", intent=AnswerIntent.DEFINITION, preferences=preferences
+    )
     overridden = build_answer_plan(
-        "Compare T1 and T2 briefly, step by step",
+        "T1 and T2",
+        intent=AnswerIntent.COMPARISON,
+        requested_facets=("brief", "steps"),
         preferences=preferences,
     )
 
@@ -182,7 +200,7 @@ def test_explicit_only_profile_does_not_change_plan_defaults() -> None:
         updated_at=datetime(2026, 7, 17, tzinfo=UTC),
     )
 
-    plan = build_answer_plan("ActionType이 뭐야?", preferences=preferences)
+    plan = build_answer_plan("ActionType", intent=AnswerIntent.DEFINITION, preferences=preferences)
 
     assert plan.detail_level is DetailLevel.STANDARD
     assert plan.format is AnswerFormat.PROSE
@@ -193,7 +211,7 @@ def test_greeting_is_brief_and_needs_no_screen_evidence() -> None:
     # A bare greeting must not force screen evidence, so the narrator answers
     # briefly instead of reciting screen facts (which would spawn atomic
     # claims and risk a false "unverified" on a friendly reply).
-    plan = build_answer_plan("안녕", route_id="overview")
+    plan = build_answer_plan("안녕", intent=AnswerIntent.GREETING, route_id="overview")
 
     assert plan.intent is AnswerIntent.GREETING
     assert plan.detail_level is DetailLevel.BRIEF
@@ -213,4 +231,4 @@ def test_greeting_is_brief_and_needs_no_screen_evidence() -> None:
 def test_greeting_prefix_does_not_swallow_operational_intent(
     prompt: str, intent: AnswerIntent
 ) -> None:
-    assert build_answer_plan(prompt, route_id="overview").intent is intent
+    assert build_answer_plan(prompt, intent=intent, route_id="overview").intent is intent

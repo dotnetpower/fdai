@@ -3,21 +3,18 @@
 from __future__ import annotations
 
 import asyncio
-import re
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Protocol
 
-from fdai.core.conversation.answer_plan import AnswerIntent, AnswerPlan, AnswerSection, DetailLevel
-
-_MULTI_PERSPECTIVE = re.compile(
-    r"\b(multiple|several|different)\s+(?:agent\s+)?perspectives?\b"
-    r"|\bask\s+\w+\s+and\s+\w+\b"
-    r"|여러\s*(?:agent|에이전트)?\s*(?:관점|의견)"
-    r"|다각도|복수\s*(?:관점|의견)",
-    re.IGNORECASE,
+from fdai.core.conversation.answer_plan import (
+    AnswerIntent,
+    AnswerPlan,
+    AnswerSection,
+    DetailLevel,
+    DiscussPolicy,
 )
 
 
@@ -317,7 +314,7 @@ def should_run_shadow_round(
             AnswerIntent.COMPARISON,
             AnswerIntent.DIAGNOSIS,
         }
-        or _MULTI_PERSPECTIVE.search(prompt) is not None
+        or plan.discuss is DiscussPolicy.SELECTIVE
     )
 
 

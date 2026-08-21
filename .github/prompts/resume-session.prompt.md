@@ -12,7 +12,8 @@ prompt into another session or send a second "continue" message.
 ## Modes
 
 - **Default - resume and execute:** recover the current task, load only its controlling context,
-  and continue through the next focused edit, validation, and task-owned commit.
+   and continue through the next focused edit and validation. Commit only when the recovered user
+   request or explicitly invoked workflow requires one.
 - **`status` - inspect only:** report the recovered state without editing, committing, or changing
   external state.
 
@@ -46,6 +47,7 @@ prompt into another session or send a second "continue" message.
 - Do not push. Push is always a maintainer decision.
 - Work directly on `main` unless real concurrent writing requires isolation. Never create a branch
   merely to resume a session.
-- Commit only task-owned paths with an explicit pathspec; never stash or stage unrelated work.
+- When a commit is explicitly required, commit only task-owned paths with an explicit pathspec;
+   never stash or stage unrelated work.
 - Keep every summary customer-agnostic. Redact tenant, subscription, customer, endpoint, and
   resource identifiers even when they appear in session history or commit messages.

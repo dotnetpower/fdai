@@ -23,6 +23,7 @@ from fdai.agents._framework.introspection import (
     capability_facts,
     capped_list,
     mentioned,
+    semantic_intents,
 )
 from fdai.agents._framework.pantheon import _MIMIR
 from fdai.core.operational_learning import (
@@ -696,7 +697,7 @@ class Mimir(Agent):
             "catalog_review_publication_receipts": len(self._published_reviews),
             "policy_history_available": False,
         }
-        if "policy history" in question.casefold():
+        if "policy_history" in semantic_intents(context):
             return IntrospectionResult(
                 answer="No governed policy history is bound to this conversational projection.",
                 facts=facts,

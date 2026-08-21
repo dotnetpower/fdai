@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping, Sequence
+from dataclasses import asdict, is_dataclass
 
 from fdai_service_contracts.ontology_query import OntologyQueryNode
 
@@ -209,6 +210,8 @@ def _function_value(value: object) -> object:
         return json.loads(value.canonical_json())
     if hasattr(value, "model_dump"):
         return value.model_dump(mode="json")
+    if is_dataclass(value) and not isinstance(value, type):
+        return asdict(value)
     return value
 
 

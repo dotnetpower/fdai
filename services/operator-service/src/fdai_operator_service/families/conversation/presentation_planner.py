@@ -187,8 +187,13 @@ def plan_presentation(
     """Select the smallest loss-bounded block justified by verified shape."""
     if not shape.verified:
         return _decision(PresentationKind.CALLOUT, "verification_incomplete")
-    if shape.unavailable or not shape.records:
+    if shape.unavailable:
         return _decision(PresentationKind.CALLOUT, "evidence_unavailable")
+    if not shape.records:
+        return _decision(
+            PresentationKind.CALLOUT,
+            "verified_empty_result" if shape.complete else "evidence_unavailable",
+        )
     if shape.limitations or not shape.complete or shape.missing_values:
         return _fallback_for_records(shape, "evidence_incomplete")
 

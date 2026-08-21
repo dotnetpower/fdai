@@ -116,9 +116,7 @@ def test_golden_generated_artifacts_match_reviewed_source() -> None:
 
 def test_golden_coverage_spans_all_reviewed_assurance_axes() -> None:
     coverage = _json("coverage.json")
-    expectations = {
-        case["semantic_pair_id"]: case for case in _json("expectations.json")["cases"]
-    }
+    expectations = {case["semantic_pair_id"]: case for case in _json("expectations.json")["cases"]}
     rows = coverage["expectations"]
 
     assert Counter(row["perspective"] for row in rows) == {
@@ -170,9 +168,7 @@ def test_golden_coverage_spans_all_reviewed_assurance_axes() -> None:
             dispositions[row["expected_posture"]]
             in expectation["expected_semantics"]["allowed_dispositions"]
         )
-        assert (row["action_posture"] == "draft_only") == (
-            row["perspective"] == "action"
-        )
+        assert (row["action_posture"] == "draft_only") == (row["perspective"] == "action")
         if row["perspective"] == "action":
             assert expectation["expected_semantics"]["operation"] == "action_draft"
     assert Counter(row["rule_state"] for row in rows)["active"] == 1
@@ -181,14 +177,10 @@ def test_golden_coverage_spans_all_reviewed_assurance_axes() -> None:
 
 def test_golden_runtime_context_matches_supported_bindings() -> None:
     coverage = _json("coverage.json")
-    expectations = {
-        case["semantic_pair_id"]: case for case in _json("expectations.json")["cases"]
-    }
+    expectations = {case["semantic_pair_id"]: case for case in _json("expectations.json")["cases"]}
     english = _json("questions.en.json")
     korean = _json("questions.ko.json")
-    rows = {
-        row["expectation_id"]: row for row in coverage["expectations"]
-    }
+    rows = {row["expectation_id"]: row for row in coverage["expectations"]}
     context_by_anchor = {
         "none": "none",
         "selected_incident": "incident_binding",
@@ -208,16 +200,12 @@ def test_golden_runtime_context_matches_supported_bindings() -> None:
             assert row["expected_posture"] == "clarify"
             assert (
                 "clarification"
-                in expectations[row["expectation_id"]]["expected_semantics"][
-                    "allowed_dispositions"
-                ]
+                in expectations[row["expectation_id"]]["expected_semantics"]["allowed_dispositions"]
             )
 
     for payload in (english, korean):
         for case in payload["questions"]:
-            assert case["runtime_context"] == rows[case["expectation_id"]][
-                "runtime_context"
-            ]
+            assert case["runtime_context"] == rows[case["expectation_id"]]["runtime_context"]
     assert all(
         not re.search(r"\bselected\b", case["question"], flags=re.IGNORECASE)
         for case in english["questions"]
@@ -226,9 +214,7 @@ def test_golden_runtime_context_matches_supported_bindings() -> None:
 
 
 def test_golden_questions_cover_sanitized_resource_scenarios() -> None:
-    source = yaml.safe_load(
-        (_DATASET_ROOT / "questions.source.yaml").read_text(encoding="utf-8")
-    )
+    source = yaml.safe_load((_DATASET_ROOT / "questions.source.yaml").read_text(encoding="utf-8"))
     bilingual_product_terms = {
         "aks",
         "application gateway",
@@ -247,8 +233,7 @@ def test_golden_questions_cover_sanitized_resource_scenarios() -> None:
     }
     requests_by_locale = {
         locale: "\n".join(
-            str(question_set["request"][locale])
-            for question_set in source["question_sets"]
+            str(question_set["request"][locale]) for question_set in source["question_sets"]
         ).casefold()
         for locale in ("en", "ko")
     }
@@ -256,10 +241,13 @@ def test_golden_questions_cover_sanitized_resource_scenarios() -> None:
     assert all(term in combined_requests for term in corpus_terms)
     for requests in requests_by_locale.values():
         assert all(term in requests for term in bilingual_product_terms)
-        assert re.search(
-            r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b",
-            requests,
-        ) is None
+        assert (
+            re.search(
+                r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b",
+                requests,
+            )
+            is None
+        )
         assert "/subscriptions/" not in requests
         assert "/resourcegroups/" not in requests
         assert ".azure.com" not in requests

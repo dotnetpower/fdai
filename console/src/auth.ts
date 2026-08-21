@@ -14,6 +14,10 @@ import type {
   Configuration,
   PublicClientApplication,
 } from "@azure/msal-browser";
+import {
+  installAuthSessionKeeper,
+  msalCacheLocationForOrigin,
+} from "./auth-session";
 import type { ConsoleConfig } from "./config";
 
 type InteractionRequiredAuthErrorConstructor =
@@ -43,6 +47,8 @@ export interface AuthContext {
   signIn(): Promise<void>;
   /** Sign out redirect. No-op in dev mode. */
   signOut(): Promise<void>;
+  /** Keep an authenticated browser session warm for this App lifecycle. */
+  startSessionKeeper?(): () => void;
 }
 
 class DevModeAuth implements AuthContext {
@@ -102,6 +108,8 @@ class MsalAuth implements AuthContext {
   #scope: string;
   #interactionRequiredAuthError: InteractionRequiredAuthErrorConstructor;
   #account: AccountInfo | null = null;
+  #authorizationRequest: Promise<string | null> | null = null;
+  #interactiveRequestPending = false;
 
   constructor(
     client: PublicClientApplication,
@@ -122,29 +130,63 @@ class MsalAuth implements AuthContext {
   async initialize(): Promise<void> {
     // Consume any redirect response first - MSAL requires this before
     // any silent-acquire call.
-    await this.#client.handleRedirectPromise();
+    const redirectResult = await this.#client.handleRedirectPromise();
     const accounts = this.#client.getAllAccounts();
-    this.#account = accounts.length > 0 ? (accounts[0] ?? null) : null;
+    this.#account = redirectResult?.account ?? (accounts.length > 0 ? (accounts[0] ?? null) : null);
   }
 
   async getAuthorizationHeader(): Promise<string | null> {
-    if (!this.#account) return null;
+    const account = this.#account;
+    if (!account) return null;
+    if (this.#authorizationRequest === null) {
+      this.#authorizationRequest = this.#acquireAuthorizationHeader(account).finally(() => {
+        this.#authorizationRequest = null;
+      });
+    }
+    return this.#authorizationRequest;
+  }
+
+  startSessionKeeper(): () => void {
+    if (!this.#account) return () => {};
+    return installAuthSessionKeeper(async (trigger) => {
+      const authorization = await this.getAuthorizationHeader();
+      console.info("auth_session_refresh", {
+        status: authorization === null ? "unavailable" : "succeeded",
+        trigger,
+      });
+    });
+  }
+
+  async #acquireAuthorizationHeader(account: AccountInfo): Promise<string | null> {
     try {
       const result = await this.#client.acquireTokenSilent({
-        account: this.#account,
+        account,
         scopes: [this.#scope],
       });
       return `Bearer ${result.accessToken}`;
     } catch (err) {
       if (err instanceof this.#interactionRequiredAuthError) {
         await this.signIn();
+      } else {
+        console.warn("auth_session_refresh_failed", {
+          error_code: authErrorCode(err),
+        });
       }
       return null;
     }
   }
 
   async signIn(): Promise<void> {
-    await this.#client.loginRedirect({ scopes: [this.#scope] });
+    if (this.#interactiveRequestPending) return;
+    this.#interactiveRequestPending = true;
+    try {
+      await this.#client.loginRedirect({
+        scopes: [this.#scope],
+        ...(this.#account?.username ? { loginHint: this.#account.username } : {}),
+      });
+    } finally {
+      this.#interactiveRequestPending = false;
+    }
   }
 
   async signOut(): Promise<void> {
@@ -205,9 +247,7 @@ async function initializeMsal(config: ConsoleConfig, devMode: boolean): Promise<
       postLogoutRedirectUri: window.location.origin,
     },
     cache: {
-      // In-memory + sessionStorage per user-rbac-and-identity.md §10.1
-      cacheLocation: "sessionStorage",
-      storeAuthStateInCookie: false,
+      cacheLocation: msalCacheLocationForOrigin(window.location.origin),
     },
   };
   const client = new PublicClientApplication(msalConfig);
@@ -215,6 +255,12 @@ async function initializeMsal(config: ConsoleConfig, devMode: boolean): Promise<
   const auth = new MsalAuth(client, config.msalApiScope, InteractionRequiredAuthError, { devMode });
   await auth.initialize();
   return auth;
+}
+
+function authErrorCode(value: unknown): string {
+  if (typeof value !== "object" || value === null) return "unknown";
+  const errorCode = (value as { readonly errorCode?: unknown }).errorCode;
+  return typeof errorCode === "string" && errorCode ? errorCode : "unknown";
 }
 
 function parseLocalCliProfile(value: unknown): LocalCliProfile {

@@ -1,8 +1,7 @@
-"""Deterministic claim inventory and completeness accounting.
+"""Structural claim inventory and completeness accounting.
 
-The inventory is intentionally conservative. It makes likely operational
-claims visible before model extraction so a missing model candidate cannot
-silently disappear from coverage measurement.
+Every prose unit is inventoried with provenance but remains semantically
+unclassified until a model-extracted candidate is reconciled.
 """
 
 from __future__ import annotations
@@ -27,83 +26,34 @@ _SENTENCE = re.compile(r"(?<=[.!?])\s+")
 _INLINE_TAG = re.compile(r"</?[A-Za-z][^>]*>")
 _INLINE_SHORTCODE = re.compile(r"\{\{[%<].*?[>%]\}\}")
 _INLINE_COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
-_NORMATIVE = re.compile(
-    r"\b(?:must|must\s+not|shall|required|prohibited|forbidden|unsupported|"
-    r"should|should\s+not|may\s+not|need(?:s)?\s+to|do\s+not|does\s+not|doesn't)\b|"
-    r"(?:해야|필수|금지|않아야|마세요|하지\s*마|이어야|여야)",
-    re.IGNORECASE,
-)
-_THRESHOLD = re.compile(
-    r"(?:>=|<=|==|!=|>|<|\bat\s+least\b|\bat\s+most\b|\bmore\s+than\b|"
-    r"\bless\s+than\b|\babove\b|\bbelow\b|\bwithin\b).*?\d|"
-    r"\bbetween\s+\d+(?:\.\d+)?\s+and\s+\d+(?:\.\d+)?\b|"
-    r"\b\d+(?:\.\d+)?\s*(?:%|ms|s|m|h|gb|tb|usd)(?!\w)|"
-    r"\d+\s*개에서\s*\d+\s*개\s*사이",
-    re.IGNORECASE,
-)
-_RELATIONSHIP = re.compile(
-    r"\b(?:depends?\s+on|runs\s+on|implemented\s+by|owned\s+by|delivered\s+by|"
-    r"contains|requires|uses|governed\s+by)\b|(?:의존|소유|담당|구현)",
-    re.IGNORECASE,
-)
-_PROCEDURE = re.compile(
-    r"\b(?:restart|rollback|roll\s+back|failover|fail\s+over|scale|restore|notify|"
-    r"escalate|stop|deploy|drain|rotate|reconcile|back(?:ed)?\s+up|"
-    r"need(?:s)?\s+to\s+(?:look|check|verify))\b|"
-    r"(?:재시작|다시\s*시작|롤백|복구|백업|배포|확장|축소|중지|에스컬레이션)",
-    re.IGNORECASE,
-)
-_IMPERATIVE = re.compile(
-    r"^(?:(?:first|then|next)\s*,?\s*|before\b[^,]{0,160},\s*)?"
-    r"(?:look\b|check\b|verify\b|upgrade\b|back\s+up\b|restart\b|restore\b|"
-    r"deploy\b|drain\b|scale\b|stop\b)|"
-    r"^(?:먼저\s*)?(?:확인|검증|점검|백업|재시작|복구|배포)",
-    re.IGNORECASE,
-)
-_TELEMETRY = re.compile(
-    r"\b(?:cpu|memory|latency|throughput|error\s+rate|availability|slo|rto|rpo|"
-    r"telemetry|metric|measured|observed)\b|(?:메모리|지연|오류율|가용성|측정|관측)",
-    re.IGNORECASE,
-)
-_PROVIDER = re.compile(
-    r"\b(?:resource|cluster|container\s+app|virtual\s+machine|database|network|"
-    r"storage|topology|revision)\b|(?:리소스|클러스터|데이터베이스|네트워크|스토리지|토폴로지)",
-    re.IGNORECASE,
-)
-_HISTORY = re.compile(
-    r"\b(?:incident|postmortem|outage|occurred|previously|historical|root\s+cause)\b|"
-    r"(?:장애|사후분석|발생|과거|근본\s*원인)",
-    re.IGNORECASE,
-)
-_ENTITY = re.compile(
-    r"\b(?:service|workload|resource|environment|owner|team|application|component)\b|"
-    r"(?:서비스|워크로드|리소스|환경|담당자|팀|애플리케이션|컴포넌트)",
-    re.IGNORECASE,
-)
-_EXECUTION_AUTHORITY = re.compile(
-    r"\b(?:permission|authorized|authorization|approve|approval|autonomy|execute)\b|"
-    r"(?:권한|승인|자율|실행)",
-    re.IGNORECASE,
-)
-_OBSERVATION_CUE = re.compile(
-    r"\b(?:current|currently|observed|deployed|exists|shows)\b|(?:현재|관측|배포됨|존재)",
-    re.IGNORECASE,
-)
 _LIST_PREFIX = re.compile(r"^(?:[-*+]\s+|\d+[.)]\s+)")
 _MAX_DOCUMENT_BYTES = 5_000_000
 
 
-def inventory_claims(document: ManualDocument) -> tuple[ClaimUnit, ...]:
-    """Return stable operational claims detected in one governed document."""
+def inventory_claims(
+    document: ManualDocument,
+    *,
+    source_ranges: Sequence[tuple[int, int]] | None = None,
+) -> tuple[ClaimUnit, ...]:
+    """Return stable structural units, optionally limited to model-cited lines."""
     if len(document.text.encode("utf-8")) > _MAX_DOCUMENT_BYTES:
         raise ValueError("ontology claim inventory document exceeds the byte limit")
     content_sha = document_content_digest(document)
     revision = document.metadata.get("revision", content_sha)
     provenance_by_line = {item.line_number: item for item in document.line_provenance}
+    selected_lines = (
+        None
+        if source_ranges is None
+        else frozenset(
+            line_number for start, end in source_ranges for line_number in range(start, end + 1)
+        )
+    )
     claims: list[ClaimUnit] = []
     fence_marker: str | None = None
 
     for line_number, raw_line in enumerate(document.text.splitlines(), start=1):
+        if selected_lines is not None and line_number not in selected_lines:
+            continue
         stripped = raw_line.strip()
         fence = _FENCE_RE.match(stripped)
         if fence is not None:
@@ -120,11 +70,9 @@ def inventory_claims(document: ManualDocument) -> tuple[ClaimUnit, ...]:
         if not semantic_line:
             continue
         for unit_ordinal, text in enumerate(_split_claim_units(semantic_line), start=1):
-            signals = _claim_signals(text)
-            if not signals:
-                continue
-            kind = signals[0]
-            authority = _authority_class(text, kind)
+            signals = (ClaimKind.UNCLASSIFIED,)
+            kind = ClaimKind.UNCLASSIFIED
+            authority = AuthorityClass.UNCLASSIFIED
             text_sha = hashlib.sha256(text.encode("utf-8")).hexdigest()
             claim_material = "\0".join(
                 [document.source_ref, content_sha, str(line_number), str(unit_ordinal), text_sha]
@@ -156,24 +104,7 @@ def inventory_claims(document: ManualDocument) -> tuple[ClaimUnit, ...]:
                             provenance.locator if provenance is not None else f"line:{line_number}"
                         ),
                     ),
-                    critical=kind
-                    in {
-                        ClaimKind.NORMATIVE,
-                        ClaimKind.THRESHOLD,
-                        ClaimKind.RELATIONSHIP,
-                        ClaimKind.PROCEDURE,
-                    }
-                    or any(
-                        signal
-                        in {
-                            ClaimKind.NORMATIVE,
-                            ClaimKind.THRESHOLD,
-                            ClaimKind.RELATIONSHIP,
-                            ClaimKind.PROCEDURE,
-                        }
-                        for signal in signals
-                    )
-                    or authority is AuthorityClass.EXECUTION_AUTHORITY,
+                    critical=False,
                     signals=signals,
                 )
             )
@@ -275,35 +206,6 @@ def _semantic_text(text: str) -> str:
     without_shortcodes = _INLINE_SHORTCODE.sub(" ", without_comments)
     without_tags = _INLINE_TAG.sub(" ", without_shortcodes)
     return " ".join(html.unescape(without_tags).split())
-
-
-def _claim_signals(text: str) -> tuple[ClaimKind, ...]:
-    matchers = (
-        (ClaimKind.HISTORY, _HISTORY.search(text)),
-        (ClaimKind.THRESHOLD, _THRESHOLD.search(text)),
-        (ClaimKind.NORMATIVE, _NORMATIVE.search(text)),
-        (ClaimKind.RELATIONSHIP, _RELATIONSHIP.search(text)),
-        (ClaimKind.PROCEDURE, _PROCEDURE.search(text) or _IMPERATIVE.search(text)),
-        (ClaimKind.OBSERVATION, _TELEMETRY.search(text)),
-        (ClaimKind.ENTITY, _ENTITY.search(text)),
-    )
-    return tuple(kind for kind, match in matchers if match is not None)
-
-
-def _authority_class(text: str, kind: ClaimKind) -> AuthorityClass:
-    if _EXECUTION_AUTHORITY.search(text):
-        return AuthorityClass.EXECUTION_AUTHORITY
-    if kind is ClaimKind.HISTORY:
-        return AuthorityClass.HISTORICAL_EVIDENCE
-    if kind in {ClaimKind.NORMATIVE, ClaimKind.THRESHOLD}:
-        return AuthorityClass.DECLARED_INTENT
-    if _PROVIDER.search(text) and _OBSERVATION_CUE.search(text):
-        return AuthorityClass.PROVIDER_OBSERVATION
-    if _TELEMETRY.search(text):
-        return AuthorityClass.TELEMETRY_OBSERVATION
-    if kind is ClaimKind.PROCEDURE:
-        return AuthorityClass.PROCEDURE
-    return AuthorityClass.DECLARED_INTENT
 
 
 def document_content_digest(document: ManualDocument) -> str:

@@ -13,6 +13,7 @@ from pathlib import Path
 from types import ModuleType
 
 import pytest
+from scripts.automation import developer_workflow_runtime
 
 SCRIPT = Path(__file__).resolve().parents[3] / "scripts" / "automation" / "developer-workflow.py"
 UTC = timezone.utc  # noqa: UP017 - test remains compatible with system Python 3.10.
@@ -396,6 +397,7 @@ def test_local_services_report_each_unavailable_owner(tmp_path: Path) -> None:
     result = module._local_services_diagnostic(
         repo,
         probe=lambda url: not url.endswith(("8011/healthz", "8013/ready")),
+        core_probe=lambda _root: True,
         process_records=[(repo, [".venv/bin/python", "-m", "fdai"])],
     )
 
@@ -423,6 +425,7 @@ def test_local_services_reject_core_owned_by_another_checkout(tmp_path: Path) ->
     result = module._local_services_diagnostic(
         repo,
         probe=lambda _url: True,
+        core_probe=lambda _root: True,
         process_records=[(tmp_path / "other", ["python", "-m", "fdai"])],
     )
 
@@ -453,7 +456,12 @@ def test_local_service_probes_run_concurrently_in_stable_order(tmp_path: Path) -
         barrier.wait(timeout=1)
         return not url.endswith("8011/healthz")
 
-    result = module._local_services_diagnostic(repo, probe=probe, process_records=[])
+    result = module._local_services_diagnostic(
+        repo,
+        probe=probe,
+        core_probe=lambda _root: True,
+        process_records=[],
+    )
 
     assert len(seen) == 5
     assert [item["name"] for item in result["services"]] == [
@@ -465,6 +473,72 @@ def test_local_service_probes_run_concurrently_in_stable_order(tmp_path: Path) -
         "isolated-executor",
     ]
     assert result["unavailable_services"] == ["core-runtime", "document-ingestion-api"]
+
+
+def test_core_readiness_requires_a_fresh_pantheon_heartbeat(tmp_path: Path) -> None:
+    log_dir = tmp_path / ".fdai" / "logs"
+    log_dir.mkdir(parents=True)
+    log_file = log_dir / "core-runtime.log"
+    current = datetime(2026, 8, 20, 13, 0, 10, tzinfo=UTC)
+    log_file.write_text(
+        "2026-08-20T13:00:05.000000+00:00 INFO: fdai.agents._framework.runtime: "
+        "pantheon_heartbeat\n",
+        encoding="utf-8",
+    )
+
+    assert developer_workflow_runtime._core_heartbeat_ready(tmp_path, now=current)
+
+    stale = datetime(2026, 8, 20, 13, 0, 16, tzinfo=UTC)
+    assert not developer_workflow_runtime._core_heartbeat_ready(tmp_path, now=stale)
+
+
+def test_local_service_wait_retries_until_the_complete_topology_is_ready(
+    tmp_path: Path,
+) -> None:
+    reports = iter(
+        (
+            {"status": "warning", "unavailable_services": ["operator-api"]},
+            {"status": "ok", "ready_count": 6, "service_count": 6, "unavailable_services": []},
+        )
+    )
+    clock = iter((0.0, 0.0, 0.25))
+    waits: list[float] = []
+
+    result = developer_workflow_runtime.wait_for_local_services(
+        tmp_path,
+        timeout_seconds=1.0,
+        interval_seconds=0.25,
+        diagnostic=lambda _root: next(reports),
+        monotonic=lambda: next(clock),
+        sleeper=waits.append,
+    )
+
+    assert result["status"] == "ok"
+    assert result["attempt_count"] == 2
+    assert waits == [0.25]
+
+
+def test_local_services_command_fails_for_an_incomplete_topology(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    module = _load_module()
+    monkeypatch.setattr(
+        module,
+        "local_services_report",
+        lambda _root, *, wait_seconds: {
+            "attempt_count": 3,
+            "ready_count": 5,
+            "service_count": 6,
+            "status": "warning",
+            "unavailable_services": ["operator-api"],
+        },
+    )
+
+    assert module.main(["local-services", "--wait-seconds", "0"]) == 1
+    output = capsys.readouterr().out
+    assert "local services warning" in output
+    assert "unavailable: operator-api" in output
 
 
 def test_resume_rejects_malformed_handover_schema(

@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: 4b8e3e38dc3db7b8c88b7e068da89307b71bc320
+translation_source_sha: 96a6ca460bd28dc2f3e79a3453b5bdc91aada265
 translation_revised: 2026-08-20
 ---
 # 오퍼레이터 콘솔 점진적 대화
@@ -23,7 +23,7 @@ translation_revised: 2026-08-20
 | 이중 언어 무작위 릴리스 게이트 | 진행 중 | [`ontology-query-assurance-readiness.ts`](../../../console/tests/live-e2e/ontology-query-assurance-readiness.ts), [`ontology-query-assurance.test.ts`](../../../console/tests/live-e2e/ontology-query-assurance.test.ts) | 집중 보증 테스트 49개가 통과했습니다. 통제되는 모든 실행은 범위가 제한된 실행 식별자를 요구하고 질문 범위의 안정된 backend session id를 파생하므로 checkpoint 재개는 정체성을 보존하지만 새 실행은 다른 실행의 영속 semantic projection을 재사용할 수 없습니다. 전체 집단은 영어와 한국어 모두에서 근거가 완전한 answered 턴이 없으면 `production_ready=true`를 보고할 수 없습니다. 새 100-case 통과 산출물은 여전히 필요합니다. |
 | 의미 명확화 표현 | 구현됨 | [`verification-presentation.ts`](../../../console/src/deck/verification-presentation.ts), [`verification-presentation.test.ts`](../../../console/src/deck/verification-presentation.test.ts) | `semantic_clarification_required`를 `Context required`로 표시하며 Console 집중 테스트 13개가 통과했습니다. 분류는 제어 평면이 실제로 방출하는 이유 코드만 다룹니다. 인증되고 보존된 증적은 열린 항목으로 남아 있습니다. |
 | 검증된 의미 답변 표현 | 검증됨 | [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py), [`semantic_turn_presentation.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_presentation.py), [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), [`semantic-answer-presentation.spec.ts`](../../../console/tests/live-e2e/semantic-answer-presentation.spec.ts), `.fdai/live-validation/semantic-answer-presentation-244d003ef77bd37dc0041f0b6a29634cdbaacb91-post-validation/` | 범위가 제한된 인증 Web/한국어 경로는 명시적 workspace patch digest와 함께 중앙 검증된 source revision `244d003ef`에서 검증됐습니다. 최초 턴과 재생성 턴은 관찰된 5단계, 동일한 인시던트 및 기술 출력 digest, 읽기 전용 근거 수집, primary JSON 미노출, `execution_authority=false`를 유지했습니다. 이 상태는 Teams, Slack, 4단계 온톨로지 실행기 또는 이중 언어 100-case 집단을 주장하지 않습니다. |
-| 결정론적 교차 채널 표현 계획 | 구현됨 | `presentation_rows.py`, `presentation_planner.py`, `presentation_artifact_v2.py`, `semantic_turn_presentation.py`, 집중 Operator 검사 94개 통과 | 검증된 operation, output shape, 항목 수, 필드 역할, 유한한 값, 단위, 분모, 시각 순서, 완전성 및 제한 사항으로 블록을 선택합니다. Legacy와 v2 경로는 범위가 제한된 읽기 쉬운 행 projection 하나를 공유하고 타입이 지정된 projection은 추가적인 v2 또는 정본 텍스트 대체 경로를 유지합니다. |
+| 결정론적 교차 채널 표현 계획 | 구현됨 | `presentation_rows.py`, `presentation_planner.py`, `presentation_artifact_v2.py`, `semantic_turn_presentation.py`, 집중 Operator 검사 82개 통과 | 검증된 operation, output shape, 항목 수, 필드 역할, 유한한 값, 단위, 분모, 시각 순서, 완전성 및 제한 사항으로 블록을 선택합니다. Legacy와 v2 경로는 읽기 쉬운 기본 표에서 불투명한 identity를 제외하면서 identity만 있는 대체 표시와 기술 세부의 exact 행을 보존하는 범위가 제한된 행 projection 하나를 공유합니다. |
 
 ### 구현 이력
 
@@ -59,6 +59,7 @@ translation_revised: 2026-08-20
 | 2026-08-19 | 진행 중 | 비평 후 결정론적 교차 채널 표현 설계를 승인했습니다. 수정안은 v1 재생을 그대로 유지하고 v2를 추가하며 근거 분석과 배치 계획을 분리하고 모델이나 브라우저의 서술 추측이 컴포넌트를 선택하지 못하게 합니다. | `current change`, 이 소유 문서 쌍 | 범위 상태를 바꾸기 전에 분석기, 플래너, v2 컴파일러, 호환성 검사 및 교차 채널 동등성 테스트를 구현합니다. |
 | 2026-08-19 | 구현됨 | 순수 근거 형태 분석기, 결정론적 결정 행렬, 검증된 frame 메타데이터 변환 결과 및 추가적인 v2 컴파일러를 구현했습니다. 알 수 없는 타입 맥락, 누락값, 혼합 단위, 불명확한 분모, 낮은 항목 수, 잘림 및 불완전한 검증은 0을 만들지 않고 exact 레코드, 제한 사항 또는 정본 텍스트로 대체됩니다. | `current change`, [이슈 #234](https://github.com/dotnetpower/fdai/issues/234), 집중 planner, compiler 및 producer/Console 계약 검사 33개와 Ruff, formatting, strict mypy 통과 | 순수 Teams, Slack 및 주입형 사용자 지정 기능 렌더러를 구현하고 검증합니다. |
 | 2026-08-20 | 구현됨 | Legacy와 v2 경로가 읽기 쉬운 행 projection 하나를 재사용하고 실제 두 단계 Resource property shape를 처리하도록 확장했습니다. Artifact는 불투명한 identity와 기술 세부의 변경하지 않은 근거 행을 보존하면서 이름, 타입, 위치를 앞세우며 중첩 tag와 provider payload는 표시 열이 되지 않습니다. | `current change`, [이슈 #241](https://github.com/dotnetpower/fdai/issues/241), focused v2 compiler, planner 및 의미 bridge 검사 94개 통과, Ruff, formatting, strict mypy 통과 | Operator 재시작 뒤 인증된 desktop, constrained-desktop, mobile 근거를 보존합니다. |
+| 2026-08-20 | 구현됨 | 인증된 검토에서 뒤에 표시되는 `id`와 `object_type` 열이 유용한 계층을 계속 평평하게 만드는 것을 확인한 뒤 앞선 읽기 쉬운 행 정책을 교정했습니다. 이제 읽기 쉬운 표는 해당 열 없이 운영자용 사실을 표시하고 identity만 있는 결과는 대체 표시를 유지하며 변경하지 않은 exact 행은 기술 세부에서 계속 확인할 수 있습니다. | `current change`, `presentation_rows.py`, focused Operator 표현 검사 82개와 Command Deck 시각 검사 19개, Console typecheck 및 운영 build 통과 | 이 source로 Operator API를 재시작한 뒤 인증된 desktop, constrained-desktop, mobile 근거를 보존합니다. |
 
 ### 남은 작업
 

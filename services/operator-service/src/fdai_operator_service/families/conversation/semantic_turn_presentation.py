@@ -33,6 +33,7 @@ _MAX_SUMMARY_ITEMS = 16
 _MAX_TABLE_COLUMNS = 6
 _MAX_TABLE_ROWS = 40
 _MAX_CELL_CHARS = 512
+_INVESTIGATION_COMPARISON_NODE_IDS = frozenset({"symptom-change", "symptom-comparison"})
 # Categorical fields worth charting once a result is complete, most specific
 # first. A single-value field yields no chart; the table already says it.
 _DISTRIBUTION_FIELDS = ("type", "status", "location", "object_type")
@@ -748,17 +749,23 @@ def _investigation_blocks(
 ) -> list[JsonObject] | None:
     comparison: Mapping[str, object] | None = None
     hypotheses: list[Mapping[str, object]] = []
+    structured_investigation = False
     for output in outputs:
         if not isinstance(output, Mapping):
             continue
         summary = output.get("summary")
         if not isinstance(summary, Mapping):
             continue
-        if output.get("result_kind") == "metric.comparison":
+        if (
+            output.get("result_kind") == "metric.comparison"
+            and output.get("node_id") in _INVESTIGATION_COMPARISON_NODE_IDS
+        ):
             comparison = summary
+            structured_investigation = True
         elif output.get("result_kind") == "causal.join":
             hypotheses.append(summary)
-    if comparison is None or len(hypotheses) < 2:
+            structured_investigation = True
+    if comparison is None or not structured_investigation:
         return None
 
     unit = comparison.get("unit")
@@ -810,6 +817,12 @@ def _investigation_blocks(
     )
     rows: list[JsonObject] = []
     limitations: list[str] = []
+    if len(hypotheses) < 2:
+        limitations.append(
+            "검증된 인과 가설이 두 개 미만입니다."
+            if korean
+            else "Fewer than two verified causal hypotheses were available."
+        )
     for hypothesis in hypotheses:
         claim = hypothesis.get("temporal_claim")
         claim_map = claim if isinstance(claim, Mapping) else {}
@@ -1228,6 +1241,14 @@ def semantic_technical_trajectory(
                         "tool": "ontology-query",
                         "command": "semantic_query_outputs",
                         "input_kind": "query",
+                        "target": {
+                            "interface_kind": "internal_query",
+                            "service": "core-control-plane",
+                            "component": "OntologyQueryPlanExecutor",
+                            "operation": "query_plan_execution",
+                            "source_kind": "registered_query_handler",
+                            "transport": "event_bus",
+                        },
                         "redacted": True,
                         "output": encoded,
                         "output_truncated": False,

@@ -31,6 +31,7 @@ for the *human* side; the executor-side mapping stays as declared there.
 |------|-------|----------|-------|
 | Human and workload identity separation for activity observation | implemented | `fdai_operator_service/activity_projection.py`; `test_activity_projection.py`; the authenticated observation contract in this document | Durable current-state activity carries only a hashed correlation reference, while the Reader bearer gate and the relay workload credential remain separate and no activity row gains executor authority. |
 | Break-Glass activation request boundary | implemented | `services/operator-service/src/fdai_operator_service/families/iam/break_glass.py`; `capabilities.py`; `services/operator-service/tests/test_operator_break_glass_activation.py` | `POST /system/break-glass/activation` requires the BreakGlass-only `activate-break-glass` capability, a non-empty incident id and reason, and a future offset-aware expiry inside a bounded maximum. It records an audit-only projection and grants no HIL approval or executor identity. The durable activation store, TTL enforcement, and sign-in alerting remain deployment work. |
+| Local Browser Entra session resilience | implemented | `console/src/auth-session.ts`; `console/src/auth.ts`; focused Console auth tests (`10 passed`) and typecheck | MSAL Browser v4 uses encrypted `localStorage` only on loopback origins and keeps deployed origins on `sessionStorage`. One coalesced refresh runs at startup, every 30 minutes, and after focus, visibility, or network recovery. Entra can still require interactive authentication. |
 
 ### Implementation history
 
@@ -38,11 +39,13 @@ for the *human* side; the executor-side mapping stays as declared there.
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and recorded the bounded identity carried by durable current-state activity. | Current source plus `test_activity_projection.py`; the focused persistence and projection suites passed. | Add the separately designed production Break-Glass activation boundary. |
 | 2026-08-15 | implemented | Added the `POST /system/break-glass/activation` request boundary with a BreakGlass-only capability, incident id, reason, bounded future expiry, and an audit-only projection. | `current change`; `services/operator-service/src/fdai_operator_service/families/iam/break_glass.py`; `pytest services/operator-service/tests` (308 passed, 1 skipped). | Bind a durable activation store, TTL enforcement, and sign-in alerting in a deployment. |
+| 2026-08-21 | implemented | Added a loopback-only durable MSAL cache and one lifecycle-owned proactive refresh loop without changing deployed token storage or API verification. | `current change`; `console/src/auth-session.ts`; `console/src/auth.ts`; `console/src/app.tsx`; focused auth tests passed 10 cases and Console typecheck passed. An unretained loopback Browser check restored a second tab with no MSAL `sessionStorage` entry and observed one successful startup refresh. | Retain a governed Browser receipt across a webview recreation or overnight suspension before claiming runtime validation. |
 
 ### Remaining work
 
 - [x] The production Break-Glass activation endpoint exists, requires an incident id, a reason, and a bounded future expiry, records the activation audit evidence, and grants no runtime HIL approval or executor identity, proven by `services/operator-service/tests/test_operator_break_glass_activation.py`.
 - [ ] Bind a durable activation store, TTL enforcement, and sign-in alerting in a deployment, and retain one governed activation receipt.
+- [ ] Retain one governed loopback Browser receipt across a webview recreation or overnight suspension without exposing cached authentication artifacts. A Conditional Access or MFA challenge remains an interactive authentication boundary.
 
 ## 1. Design Principles Recalled
 
@@ -349,13 +352,21 @@ recommendations; a fork tunes them via Conditional Access.
 
 ### 10.1 Console (SPA) - OIDC + Authorization Code with PKCE
 
-- **Library**: MSAL.js v3 (`@azure/msal-browser`). No Implicit Flow.
+- **Library**: MSAL.js v4 (`@azure/msal-browser`). No Implicit Flow.
 - **Tenant**: single-tenant per fork (`accountsInHomeTenantOnly`); guest access is via
   Entra B2B invitation (§10.5).
 - **Redirect**: the console has no anonymous surface. On load, if MSAL has no valid
   session, it redirects to `/authorize` immediately.
-- **Token store**: access + id tokens in memory or `sessionStorage` (never
-  `localStorage`); refresh managed by MSAL `acquireTokenSilent`.
+- **Token store**: deployed origins keep access, id, and refresh artifacts in `sessionStorage`.
+  Standard loopback origins use MSAL v4 encrypted `localStorage` so a tab or VS Code webview
+  recreation can recover the account cache. The encryption key remains session-bound, and closing
+  the browser can still require sign-in unless Entra Keep Me Signed In applies. Other origins
+  cannot select the durable policy.
+- **Session renewal**: one App-lifecycle owner coalesces token acquisition at startup, every 30
+  minutes, and after focus, visibility, or network recovery. `acquireTokenSilent` remains the token
+  API. When Entra reports that interaction is required, the Console starts one redirect with the
+  current account hint. Token persistence never bypasses Conditional Access, MFA, revocation, or
+  the non-sliding SPA refresh-token lifetime.
 - **Silent token timeout**: the console waits up to 10 seconds by default for
   `acquireTokenSilent`. If acquisition stalls, it shows an authentication error with a
   retry action instead of leaving the current panel loading indefinitely. A fork can set

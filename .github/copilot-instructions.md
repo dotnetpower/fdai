@@ -28,7 +28,10 @@ the Constitution always prevails.
    Authority-bearing collaboration and state transitions use schema-validated event-bus pub/sub only; direct agent calls, RPC,
    implementation imports, and shared mutable workflow state are prohibited.
 2. **Deterministic-first:** Resolve repeatable decisions with deterministic rules. Adaptive T2
-   decisions require mixed-model, verifier, grounding, risk, and approval gates.
+   decisions require mixed-model, verifier, grounding, risk, and approval gates. `T0`, `T1`, and
+   `T2` describe FDAI product runtime behavior; they do not authorize a coding session to invoke a
+   live model or wait for a product fallback unless the current request explicitly requires live
+   validation.
 3. **Safe autonomy:** Every autonomous state-changing action requires all seven safeguards: a stop condition,
    rollback, blast-radius limit, dry-run, logical-target lock, idempotency key, and two-phase audit record. New capabilities start in
    shadow and change mode only through the authoritative promotion registry; runtime, environment,
@@ -62,9 +65,14 @@ the Constitution always prevails.
    route-selected design document. For ordinary changes, resolve the controlling route context
    once per task before changing behavior; do not serialize work through unrelated reference docs.
 5. Make the smallest coherent change, update affected contracts and docs, and never hand-edit
-   generated runtime artifacts.
+   generated runtime artifacts. Keep the current user-visible objective primary: incidental Git,
+   CI, validation-queue, deployment, or provider failures MUST NOT replace unfinished requested
+   implementation with a troubleshooting task. Record or defer a non-blocking failure and continue
+   the requested work. Troubleshoot it only when it blocks the next required local edit or check,
+   or when the user explicitly asks for that troubleshooting.
 6. Worker sessions run only the narrowest executable check that can falsify their change. They
-   MUST NOT run repository-wide checks, unscoped tests, or direct `verify.sh --fast` / `--all`.
+   MUST NOT run repository-wide checks, unscoped tests, or direct `verify.sh --fast` / `--all`
+   unless the user explicitly names a merge/release-wide check.
    A session MUST NOT delegate validation of a dirty worktree to another execution session because
    that process can stage, restore, or discard task-owned changes. Delegated validation requires a
    clean committed snapshot in an isolated worktree; validate dirty task-owned paths directly in
@@ -76,17 +84,25 @@ the Constitution always prevails.
    the exact committed snapshot with bounded structural gates, and CI is the authoritative
    integration validator for each pushed SHA. The `Integration Validator` and
    `make validation-run` remain opt-in diagnostics for an explicitly enqueued revision.
-   Use `make validation-all` only at an explicit merge or release boundary. When a session must
-   wait for a CI result or another filesystem completion artifact, it MUST use an event-driven
-   watcher instead of timed polling or repeated status checks.
-8. Commit each focused-check-passing user-requested change before reporting completion unless the user says
-   not to commit. Stage only task-owned files and hunks; never commit failed or incomplete work.
+   Use `make validation-all` only at an explicit merge or release boundary. Start a remote or
+   filesystem wait only when its result is required by the current request. Use one bounded,
+   event-driven watcher with a declared deadline and no-progress deadline; on expiry or a terminal
+   failure, stop waiting and report the last state. Do not restart the same wait or rerun the same
+   remote operation without a new change or explicit user request.
+8. Do not commit by default. Commit only when the user explicitly requests it, when an explicitly
+   invoked workflow declares commits as its deliverable, or when a user-requested deployment or
+   external state change requires an exact revision. A commit is a finalization step after the
+   requested behavior and focused checks are complete; staging, hook, signing, or push problems
+   MUST NOT interrupt unfinished implementation. Stage only task-owned files and hunks, and never
+   commit failed or incomplete work. Push only when the user or invoked workflow explicitly
+   requests it.
 9. Treat slow network-dependent work as a post-validation phase. Do not watch or rerun GitHub
    Actions, deploy or provision Azure, or build or push container images while implementation or
-   focused tests are incomplete. Commit the finished slice first. Deployment and release work must
-   target a pushed SHA whose required CI checks and workflow-specific protected preflight pass;
-   local queue receipts are not an authority boundary. Lightweight read-only identity and context
-   checks may run earlier; they must not become long polling or remote troubleshooting.
+   focused tests are incomplete. When the requested external phase requires an exact revision,
+   commit the finished slice first. Deployment and release work must target a pushed SHA whose
+   required CI checks and workflow-specific protected preflight pass; local queue receipts are not
+   an authority boundary. Lightweight read-only identity and context checks may run earlier; they
+   must not become long polling or remote troubleshooting.
 10. Prevent interactive sensitive-input prompts before starting a command. Prefer an existing
    authenticated session, workload identity, credential-store reference, documented
    non-interactive mode, or provider-hosted browser/device authorization flow, and use a
@@ -107,7 +123,12 @@ the Constitution always prevails.
    slow one. Make long work resumable so an interruption does not discard completed results, and
    prefer many short verifiable steps over one long opaque step. Batch related fixes into one
    verification round instead of repeating a full live gate after each small change, and run
-   full-cohort or release-scale checks only at an explicit release or evidence boundary.
+   full-cohort or release-scale checks only at an explicit release or evidence boundary. Live
+   network, Azure, or model-backed validation requires an explicit request or a user-named exit
+   criterion. Run at most one live reproduction per local hypothesis. An unexpected `T2` fallback,
+   HTTP `429`/`503`, provider timeout, or deadline expiry is a terminal inconclusive result for that
+   attempt: capture bounded diagnostics, return to local analysis, and do not retry the same live
+   request in the current turn.
 
 ## Local Development Efficiency (MUST)
 

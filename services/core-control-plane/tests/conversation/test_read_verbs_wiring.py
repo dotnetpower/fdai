@@ -1,4 +1,4 @@
-"""Wave M1.5c - coordinator verb + arg wiring for read-tool verbs.
+"""Exact-command and argument wiring for read tools.
 
 Covers the 5 read verbs landed since Day-1's baseline:
 
@@ -8,29 +8,36 @@ Covers the 5 read verbs landed since Day-1's baseline:
 - ``query_deployments`` (M1.5b)
 - ``correlate_incident`` (M1.5b)
 
-Matches the shape of ``test_write_verbs_wiring.py``: pattern-matching
-tests + per-tool argument extraction tests.
+Ordinary-language aliases are intentionally excluded from the explicit command
+surface. Per-tool argument extraction remains deterministic after an exact match.
 """
 
 from __future__ import annotations
 
-import re
+from typing import Any, cast
 
 import pytest
 from fdai.core.conversation.coordinator import (
-    _VERB_PATTERNS,
-    _extract_query,
+    ConversationCoordinator,
     _extract_tool_arguments,
+)
+
+_READ_TOOL_NAMES = (
+    "query_operator_memory",
+    "query_log",
+    "query_metric",
+    "query_deployments",
+    "correlate_incident",
 )
 
 
 def _match(text: str) -> tuple[str, str] | None:
-    for pattern, tool_name in _VERB_PATTERNS:
-        m = re.match(pattern, text, flags=re.IGNORECASE)
-        if m:
-            rest = m.group("rest") if "rest" in (m.groupdict() or {}) else ""
-            return tool_name, _extract_query(rest)
-    return None
+    coordinator = object.__new__(ConversationCoordinator)
+    coordinator._tools = cast(Any, dict.fromkeys(_READ_TOOL_NAMES, object()))
+    matched = coordinator._match_exact_command(text)
+    if matched is None:
+        return None
+    return matched.tool_name, str(matched.arguments)
 
 
 # ---------------------------------------------------------------------------
@@ -41,35 +48,39 @@ def _match(text: str) -> tuple[str, str] | None:
 @pytest.mark.parametrize(
     "utterance, expected_tool",
     [
-        # query_operator_memory
         ("query_operator_memory resource-group rg/example", "query_operator_memory"),
-        ("query operator memory resource rg/vm-a", "query_operator_memory"),
-        ("operator_memory resource-group rg/x", "query_operator_memory"),
-        # query_log
         ("query_log AzureActivity PT1H", "query_log"),
-        ("query log AzureActivity PT1H", "query_log"),
-        ("logs Errors PT1H", "query_log"),
-        ("log Errors PT1H", "query_log"),
-        # query_metric
         ("query_metric ns m Average PT5M", "query_metric"),
-        ("query metric ns m Average PT5M", "query_metric"),
-        ("metrics ns m Average PT5M", "query_metric"),
-        ("metric ns m Average PT5M", "query_metric"),
-        # query_deployments
         ("query_deployments P1D", "query_deployments"),
-        ("query deployment P1D", "query_deployments"),
-        ("list_deployments P1D", "query_deployments"),
-        # correlate_incident
         ("correlate_incident INC-1", "correlate_incident"),
-        ("correlate incident INC-1", "correlate_incident"),
-        ("correlate INC-1", "correlate_incident"),
     ],
 )
-def test_read_verb_routes_to_expected_tool(utterance: str, expected_tool: str) -> None:
+def test_exact_read_command_routes_to_expected_tool(utterance: str, expected_tool: str) -> None:
     result = _match(utterance)
     assert result is not None, f"no match for {utterance!r}"
     tool_name, _ = result
     assert tool_name == expected_tool
+
+
+@pytest.mark.parametrize(
+    "utterance",
+    [
+        "query operator memory resource rg/vm-a",
+        "operator_memory resource-group rg/x",
+        "query log AzureActivity PT1H",
+        "logs Errors PT1H",
+        "log Errors PT1H",
+        "query metric ns m Average PT5M",
+        "metrics ns m Average PT5M",
+        "metric ns m Average PT5M",
+        "query deployment P1D",
+        "list_deployments P1D",
+        "correlate incident INC-1",
+        "correlate INC-1",
+    ],
+)
+def test_ordinary_language_alias_does_not_enter_exact_command_surface(utterance: str) -> None:
+    assert _match(utterance) is None
 
 
 # ---------------------------------------------------------------------------

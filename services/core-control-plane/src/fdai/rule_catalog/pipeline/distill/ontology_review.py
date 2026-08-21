@@ -162,7 +162,10 @@ def build_ontology_review_package(
         raise ValueError("ontology review requires a source access_policy_ref")
     if len(result.candidates) > _MAX_CANDIDATES:
         raise ValueError("ontology review candidate count exceeds the bounded limit")
-    claims = inventory_claims(document)
+    claims = inventory_claims(
+        document,
+        source_ranges=tuple(candidate.source_lines for candidate in result.candidates),
+    )
     if len(claims) > _MAX_CLAIMS:
         raise ValueError("ontology review claim count exceeds the bounded limit")
     enriched_context = replace(context, claim_text=claim_text_records(document, claims))

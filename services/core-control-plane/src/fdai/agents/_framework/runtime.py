@@ -1,17 +1,4 @@
-"""Composition-root wiring for the pantheon runtime.
-
-``PantheonRuntime`` wires all 15 agents to an injected EventBus provider. It:
-
-- instantiate the 15 agents (:func:`fdai.agents._framework.factory.instantiate_pantheon`),
-- bind every publishing agent to one injected ``EventBusBridge``,
-- register declared typed subscriptions with distinct consumer groups,
-- route raw ingress through Huginn, which normalizes and republishes ``object.event``.
-
-The runtime is **shadow by default**: it forces Thor into shadow mode so the pantheon never
-double-executes alongside the P1 control loop. A fork promotes explicitly and injects durable
-backends, including its own ``Saga`` - see
-``docs/roadmap/agents/agent-pantheon-implementation.md``.
-"""
+"""Composition-root wiring for the fixed shadow-first Pantheon runtime."""
 
 from __future__ import annotations
 
@@ -21,6 +8,8 @@ from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
+
+from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal
 
 from fdai.agents._framework import factory, runtime_health, runtime_subscriptions
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
@@ -68,6 +57,7 @@ from fdai.core.case_history import (
     CaseHistoryRetentionService,
 )
 from fdai.core.chaos.coverage import ScenarioCoverageAggregator
+from fdai.core.conversation.semantic_judgment import SemanticJudgmentBoundary
 from fdai.core.detection.forecast_closure import ForecastClosureCoordinator
 from fdai.core.detection.forecast_episode import ForecastEpisodeStore
 from fdai.core.detection.forecast_evaluation import ForecastEpisodeEvaluator
@@ -165,6 +155,7 @@ class PantheonRuntime:
         case_deletion_days: int = 60,
         action_types: tuple[OntologyActionType, ...] = (),
         handler_observer: AgentHandlerObserver | None = None,
+        conversation_semantic_judgment: SemanticJudgmentBoundary | None = None,
         conversation_embedding_model: EmbeddingModel | None = None,
         conversation_t2_synthesizer: T2ConversationSynthesizer | None = None,
         conversation_escalation_budget: ModelBudget | None = None,
@@ -233,8 +224,14 @@ class PantheonRuntime:
         )
         instantiated = factory.instantiate_pantheon()
         bind_catalog_review(instantiated, catalog_review)
-        if conversation_embedding_model is not None or conversation_t2_synthesizer is not None:
+        if (
+            conversation_semantic_judgment is not None
+            or conversation_embedding_model is not None
+            or conversation_t2_synthesizer is not None
+        ):
             instantiated["Bragi"] = Bragi(
+                semantic_judgment=conversation_semantic_judgment,
+                action_type_names=tuple(action_type.name for action_type in action_types),
                 semantic_router=(
                     SemanticAgentRouter(
                         embedding_model=conversation_embedding_model,
@@ -544,11 +541,14 @@ class PantheonRuntime:
         )
         return turn
 
-    def route_conversation(self, question: str) -> RoutingDecision | None:
-        """Return Bragi's deterministic route without exposing agent instances."""
+    def route_conversation(
+        self,
+        judgment: SemanticJudgmentProposal,
+    ) -> RoutingDecision | None:
+        """Project one verified judgment without exposing agent instances."""
         if self._bragi is None:
             return None
-        return self._bragi.route(question)
+        return self._bragi.route(judgment)
 
     async def ingest_raw_event(self, payload: dict[str, Any]) -> dict[str, Any] | None:
         huginn = self.agents.get(_INGRESS_PRINCIPAL)
@@ -635,17 +635,17 @@ class PantheonRuntime:
 
     def plan_conversation_tools(
         self,
-        question: str,
+        requested_tool_ids: Sequence[str],
         *,
         agents: Sequence[str] = (),
         limit: int = MAX_TOOL_PLANS,
     ) -> tuple[ConversationToolPlan, ...]:
-        """Return the owned read tools this question asks for.
+        """Validate exact model-selected owned read tool ids.
 
         Deterministic and side-effect free, so a caller may show the plan
         before spending anything on it.
         """
-        return plan_conversation_tools(question, agents=agents, limit=limit)
+        return plan_conversation_tools(requested_tool_ids, agents=agents, limit=limit)
 
     async def prefetch_conversation_tools(
         self,

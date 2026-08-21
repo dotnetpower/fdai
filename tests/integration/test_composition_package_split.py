@@ -61,6 +61,8 @@ _EXPECTED_FILES = frozenset(
         "wire_browser_evidence.py",
         # Binds exact-release semantic planning and request-role query executors.
         "wire_semantic_query.py",
+        # Binds the no-authority T1/T2 semantic judgment factory.
+        "wire_semantic_judgment.py",
         # Resolves the separate T1 and T2 planning request targets so the
         # semantic wire keeps one binding responsibility.
         "semantic_query_model_targets.py",
@@ -203,6 +205,7 @@ _LOC_LIMITS = {
     "_helpers.py": 400,
     "wire_azure.py": 400,
     "wire_llm.py": 800,  # holds the ~308-LOC bind_azure_llm_bindings body
+    "wire_semantic_judgment.py": 200,
 }
 
 
@@ -254,6 +257,7 @@ def test_wire_files_do_not_import_each_other() -> None:
         ("wire_azure.py", "wire_distiller.py"),
         ("wire_azure.py", "wire_metric_provider.py"),
         ("wire_azure.py", "wire_observation_providers.py"),
+        ("wire_llm.py", "wire_semantic_judgment.py"),
     }
     offenders: list[tuple[str, str, str]] = []
     for path in _COMP_DIR.glob("wire_*.py"):

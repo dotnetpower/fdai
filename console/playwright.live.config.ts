@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { tmpdir } from "node:os";
+import path from "node:path";
 
 import { defineConfig, devices } from "@playwright/test";
 import { acquirePlaywrightPortLease } from "./scripts/playwright-port-pool";
@@ -18,6 +20,10 @@ const baseURL = process.env.FDAI_E2E_BASE_URL ?? defaultBaseURL;
 const storageState = process.env.FDAI_E2E_STORAGE_STATE;
 const testBearer = process.env.FDAI_E2E_BEARER ?? randomUUID();
 process.env.FDAI_E2E_BEARER = testBearer;
+const outputRoot = path.join(
+  process.env.FDAI_PLAYWRIGHT_OUTPUT_ROOT ?? path.join(tmpdir(), "fdai-playwright"),
+  "live",
+);
 
 export default defineConfig({
   testDir: "./tests/live-e2e",
@@ -27,7 +33,9 @@ export default defineConfig({
   retries: 0,
   workers: 1,
   reporter: "list",
-  outputDir: portLease ? `test-results/live/slot-${portLease.slot}` : "test-results/live/external",
+  outputDir: portLease
+    ? path.join(outputRoot, `slot-${portLease.slot}`)
+    : path.join(outputRoot, "external"),
   timeout: 30_000,
   use: {
     baseURL,

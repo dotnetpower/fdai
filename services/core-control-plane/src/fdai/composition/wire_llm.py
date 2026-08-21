@@ -46,6 +46,7 @@ from ._helpers import (
     _default_dim_for_family,
     _load_resolved_models,
 )
+from .wire_semantic_judgment import build_azure_semantic_judgment_factory
 
 
 def bind_azure_llm_bindings(
@@ -63,6 +64,7 @@ def bind_azure_llm_bindings(
     judge_system_prompt: str | None = None,
     rca_system_prompt: str | None = None,
     proposer_system_prompt: str | None = None,
+    semantic_judgment_system_prompt: str | None = None,
     metering_sink: MeteringSink | None = None,
     pricing: PricingTable | None = None,
     model_health_sink: Any | None = None,
@@ -178,6 +180,14 @@ def bind_azure_llm_bindings(
     primary_cap = _capability(resolved, "t2.reasoner.primary")
     secondary_cap = _capability(resolved, "t2.reasoner.secondary")
     endpoint_bindings = {binding.capability: binding for binding in resolved.endpoint_bindings}
+    semantic_judgment_factory = build_azure_semantic_judgment_factory(
+        resolved=resolved,
+        identity=identity,
+        http_client=http_client,
+        endpoint=endpoint,
+        endpoint_resolver=endpoint_resolver,
+        system_prompt=semantic_judgment_system_prompt,
+    )
     supported_binding_capabilities = {
         "t1.embedding",
         "t1.judge",
@@ -360,6 +370,7 @@ def bind_azure_llm_bindings(
                 ),
                 rca_reasoner=rca_reasoner,
                 t2_proposer=proposer,
+                conversation_semantic_judgment_factory=semantic_judgment_factory,
             )
             return replace(container, llm_bindings=bindings)
 
@@ -545,6 +556,7 @@ def bind_azure_llm_bindings(
         debate_orchestrator=debate_orchestrator,
         rca_reasoner=rca_reasoner,
         t2_proposer=proposer,
+        conversation_semantic_judgment_factory=semantic_judgment_factory,
     )
     return replace(container, llm_bindings=bindings)
 

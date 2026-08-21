@@ -37,6 +37,11 @@ from fdai.core.ontology_platform.incident_queries import (
 )
 
 from .intent_graph import build_intent_graph
+from .semantic_activity_planning import compile_target_activity_plan
+from .semantic_current_state_planning import compile_target_current_state_plan
+from .semantic_error_activity_planning import compile_target_error_activity_plan
+from .semantic_health_planning import compile_target_health_plan
+from .semantic_impact_planning import compile_target_impact_plan
 from .semantic_investigation import VerifiedInvestigationIntent
 from .semantic_investigation_planning import (
     InvestigationClarificationRequiredError,
@@ -77,8 +82,44 @@ _MAX_DESCRIPTOR_BYTES = 524_288
 _MAX_LOGGED_PLAN_NODES = 8
 _MAX_LOGGED_PLAN_PREDICATES = 6
 
+_SAFE_VALIDATION_REASONS = frozenset(
+    {
+        "investigation declaration is absent or ambiguous",
+        "investigation target has no readable properties",
+        "investigation relationship direction is invalid",
+        "investigation relationship path endpoint does not compose",
+        "investigation relationship path is empty",
+        "investigation query side is absent or ambiguous",
+        "query plan output_node_ids MUST reference declared nodes",
+        "query extension arguments violate their registered schema",
+        "metric concept is absent from the reviewed registry",
+        "metric_scope_series MUST read one scoped query.table",
+        "metric_scope_series dependency MUST be a scoped query.table",
+        "relationship traversal requires one entity dependency",
+        "relationship traversal source MUST be an object_set table",
+        "relationship traversal target is absent from the manifest",
+        "relationship traversal LinkType is absent from the manifest",
+        "relationship traversal source endpoint type does not match",
+        "relationship traversal target endpoint type is invalid",
+        "relationship traversal target endpoint type does not match",
+        "function dependencies MUST all have argument bindings",
+        "function node omits required arguments",
+        "function node supplies unknown arguments",
+        "query node arguments do not match the closed schema",
+    }
+)
+
 _INCIDENT_EVIDENCE_FUNCTION = INCIDENT_EVIDENCE_FUNCTION_NAME
 _INCIDENT_EVIDENCE_NODE_ID = "bound_incident_evidence"
+
+
+def _safe_validation_reason(exc: ValidationError | TypeError | ValueError) -> str:
+    reason = str(exc)
+    if reason in _SAFE_VALIDATION_REASONS:
+        return reason
+    if reason.startswith("query node kind "):
+        return "query node kind is unavailable or has no verifier schema"
+    return "validation_reason_not_allowlisted"
 
 
 class SemanticPlanningService:
@@ -200,6 +241,61 @@ class SemanticPlanningService:
                 evaluation_time=evaluation_time,
             )
             plan_source = "bound_incident" if plan is not None else "proposed"
+            if plan is None:
+                plan = compile_target_error_activity_plan(
+                    frame=frame,
+                    utterance=utterance,
+                    manifest=manifest,
+                    verifier=self._verifier,
+                    evaluation_time=evaluation_time,
+                    purpose=purpose,
+                )
+                if plan is not None:
+                    plan_source = "server_target_error_activity"
+            if plan is None:
+                plan = compile_target_health_plan(
+                    frame=frame,
+                    utterance=utterance,
+                    manifest=manifest,
+                    verifier=self._verifier,
+                    evaluation_time=evaluation_time,
+                    purpose=purpose,
+                )
+                if plan is not None:
+                    plan_source = "server_target_health"
+            if plan is None:
+                plan = compile_target_current_state_plan(
+                    frame=frame,
+                    utterance=utterance,
+                    manifest=manifest,
+                    verifier=self._verifier,
+                    evaluation_time=evaluation_time,
+                    purpose=purpose,
+                )
+                if plan is not None:
+                    plan_source = "server_target_current_state"
+            if plan is None:
+                plan = compile_target_activity_plan(
+                    frame=frame,
+                    utterance=utterance,
+                    manifest=manifest,
+                    verifier=self._verifier,
+                    evaluation_time=evaluation_time,
+                    purpose=purpose,
+                )
+                if plan is not None:
+                    plan_source = "server_target_activity"
+            if plan is None:
+                plan = compile_target_impact_plan(
+                    frame=frame,
+                    utterance=utterance,
+                    manifest=manifest,
+                    verifier=self._verifier,
+                    evaluation_time=evaluation_time,
+                    purpose=purpose,
+                )
+                if plan is not None:
+                    plan_source = "server_target_impact"
             if plan is None and investigation_intent is not None:
                 try:
                     plan = compile_investigation_plan(
@@ -302,7 +398,11 @@ class SemanticPlanningService:
         except (ValidationError, TypeError, ValueError) as exc:
             _LOGGER.warning(
                 "semantic_plan_rejected",
-                extra={"stage": stage, "failure_type": type(exc).__name__},
+                extra={
+                    "stage": stage,
+                    "failure_type": type(exc).__name__,
+                    "validation_reason": _safe_validation_reason(exc),
+                },
             )
             return _outcome(SemanticPlanningDisposition.UNSUPPORTED, "semantic_plan_invalid")
         except Exception:  # noqa: BLE001 - model/provider details never cross the boundary

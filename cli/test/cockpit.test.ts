@@ -60,30 +60,28 @@ describe("cockpit.viewBadge", () => {
 
 describe("cockpit.parseScreenCommand", () => {
   it("maps English commands to a view patch + reply", () => {
-    const pause = parseScreenCommand("pause", "en");
+    const pause = parseScreenCommand("/pause", "en");
     expect(pause?.patch.paused).toBe(true);
     expect(pause?.reply).toContain("Paused");
 
-    const focus = parseScreenCommand("focus network", "en");
+    const focus = parseScreenCommand("/focus network", "en");
     expect(focus?.patch.mode).toBe("focus");
     expect(focus?.patch.focus).toBe("network");
     expect(focus?.reply).toBe("Focusing on network resources.");
 
-    const vague = parseScreenCommand("focus", "en");
+    const vague = parseScreenCommand("/focus", "en");
     expect(vague?.patch.mode).toBe("stream");
     expect(vague?.reply).toBe("Which resource type? e.g. 'focus network'.");
   });
 
-  it("accepts Korean input and still returns the (en) reply by default", () => {
-    // "멈춰" = a Korean 'pause' verb; input parses, reply is en source.
-    const pause = parseScreenCommand("멈춰", "en");
-    expect(pause?.patch.paused).toBe(true);
-    expect(pause?.reply).toContain("Paused");
+  it("does not classify ordinary language as a screen command", () => {
+    expect(parseScreenCommand("멈춰", "en")).toBeNull();
+    expect(parseScreenCommand("pause", "en")).toBeNull();
   });
 
   it("localizes the reply when locale is ko", () => {
-    const en = parseScreenCommand("pause", "en");
-    const ko = parseScreenCommand("pause", "ko");
+    const en = parseScreenCommand("/pause", "en");
+    const ko = parseScreenCommand("/pause", "ko");
     expect(ko?.patch.paused).toBe(true); // same patch
     expect(ko?.reply).not.toBe(en?.reply); // localized reply
     expect((ko?.reply ?? "").length).toBeGreaterThan(0);

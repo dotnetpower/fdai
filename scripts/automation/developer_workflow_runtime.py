@@ -8,9 +8,11 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
 from collections import Counter
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
 from hashlib import sha256
 from itertools import islice
 from pathlib import Path
@@ -37,6 +39,9 @@ MAX_COMMAND_BYTES = 4_096
 MAX_WARNING_BYTES = 5 * 1_048_576
 MAX_WARNING_ROWS = 5_000
 LOCAL_PROBE_WORKERS = len(LOCAL_SERVICE_ENDPOINTS)
+CORE_HEARTBEAT_MAX_AGE_SECONDS = 10.0
+CORE_LOG_TAIL_BYTES = 64 * 1024
+UTC = timezone.utc  # noqa: UP017 - tracked diagnostics also support system Python 3.10.
 
 
 def _process_is_alive(pid: int) -> bool:
@@ -121,10 +126,38 @@ def _core_runtime_owners(records: list[tuple[Path, list[str]]]) -> set[Path]:
     return owners
 
 
+def _core_heartbeat_ready(
+    root: Path,
+    *,
+    now: datetime | None = None,
+) -> bool:
+    log_file = root / ".fdai" / "logs" / "core-runtime.log"
+    try:
+        with log_file.open("rb") as handle:
+            handle.seek(max(0, log_file.stat().st_size - CORE_LOG_TAIL_BYTES))
+            tail = handle.read(CORE_LOG_TAIL_BYTES).decode("utf-8", errors="replace")
+    except OSError:
+        return False
+    current = now or datetime.now(UTC)
+    for line in reversed(tail.splitlines()):
+        if "pantheon_heartbeat" not in line:
+            continue
+        try:
+            observed = datetime.fromisoformat(line.split(" ", 1)[0])
+        except (ValueError, IndexError):
+            continue
+        if observed.tzinfo is None:
+            continue
+        age_seconds = (current - observed.astimezone(UTC)).total_seconds()
+        return -1.0 <= age_seconds <= CORE_HEARTBEAT_MAX_AGE_SECONDS
+    return False
+
+
 def local_services_diagnostic(
     root: Path,
     *,
     probe: Callable[[str], bool] = _http_ready,
+    core_probe: Callable[[Path], bool] = _core_heartbeat_ready,
     process_records: list[tuple[Path, list[str]]] | None = None,
     resolved: RepositoryLocation | None = None,
 ) -> dict[str, Any]:
@@ -144,7 +177,7 @@ def local_services_diagnostic(
         for (name, _url), ready in zip(LOCAL_SERVICE_ENDPOINTS, readiness, strict=True)
     ]
     core_owners = _core_runtime_owners(process_records or _process_records())
-    core_ready = repo_root in core_owners
+    core_ready = repo_root in core_owners and core_probe(repo_root)
     services.insert(0, {"name": "core-runtime", "ready": core_ready})
     unavailable = [str(service["name"]) for service in services if not service["ready"]]
     return {
@@ -156,6 +189,33 @@ def local_services_diagnostic(
         "status": "warning" if unavailable else "ok",
         "unavailable_services": unavailable,
     }
+
+
+def wait_for_local_services(
+    root: Path,
+    *,
+    timeout_seconds: float = 15.0,
+    interval_seconds: float = 0.25,
+    diagnostic: Callable[[Path], dict[str, Any]] = local_services_diagnostic,
+    monotonic: Callable[[], float] = time.monotonic,
+    sleeper: Callable[[float], None] = time.sleep,
+) -> dict[str, Any]:
+    """Wait within one deadline for the complete local Console topology."""
+    if timeout_seconds < 0:
+        raise ValueError("local service readiness timeout MUST be non-negative")
+    if interval_seconds <= 0:
+        raise ValueError("local service readiness interval MUST be positive")
+    deadline = monotonic() + timeout_seconds
+    attempts = 0
+    while True:
+        attempts += 1
+        report = diagnostic(root)
+        if report.get("status") != "warning":
+            return {**report, "attempt_count": attempts}
+        remaining = deadline - monotonic()
+        if remaining <= 0:
+            return {**report, "attempt_count": attempts}
+        sleeper(min(interval_seconds, remaining))
 
 
 def _pressure_avg10(path: Path, category: str) -> float | None:

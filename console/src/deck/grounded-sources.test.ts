@@ -88,6 +88,15 @@ describe("parseReplySource", () => {
   });
 
   it.each([
+    ["unavailable (offline)", "offline"],
+    ["unavailable (model not configured)", "model not configured"],
+    ["unavailable (blocked by content policy)", "blocked by content policy"],
+    ["unavailable (stream request mismatch)", "stream request mismatch"],
+  ])("recognises an unavailable semantic result: %s", (source, reason) => {
+    expect(parseReplySource(source)).toEqual({ kind: "unavailable", reason });
+  });
+
+  it.each([
     "llm:",
     "llm: · 10ms",
     "llm:model · eventually",
@@ -95,6 +104,8 @@ describe("parseReplySource", () => {
     `llm:${"m".repeat(129)}`,
     "llm:model\nforged",
     `deterministic (${"r".repeat(161)})`,
+    "unavailable ()",
+    `unavailable (${"r".repeat(161)})`,
   ])("rejects a malformed or oversized descriptor: %s", (source) => {
     expect(parseReplySource(source)).toEqual({ kind: "other", raw: source });
   });

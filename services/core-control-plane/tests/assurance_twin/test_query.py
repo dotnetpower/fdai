@@ -144,7 +144,7 @@ class TestQueryVerifier:
 
 
 # ---------------------------------------------------------------------------
-# Deterministic pattern compiler grammar.
+# Unbound natural-language compiler.
 # ---------------------------------------------------------------------------
 
 
@@ -154,74 +154,26 @@ class TestDeterministicPatternCompiler:
         assert isinstance(result, AbstainResult)
         assert result.code is AbstainCode.EMPTY_INPUT
 
-    def test_unrecognised_intent_abstains(self, compiler: DeterministicPatternCompiler) -> None:
-        result = compiler.compile("please fix everything now")
-        assert isinstance(result, AbstainResult)
-        assert result.code is AbstainCode.UNRECOGNIZED_INTENT
-
-    def test_unknown_resource_type_abstains(self, compiler: DeterministicPatternCompiler) -> None:
-        result = compiler.compile("list all quantum-widgets")
-        assert isinstance(result, AbstainResult)
-        assert result.code is AbstainCode.UNKNOWN_RESOURCE_TYPE
-
-    def test_list_produces_find_query(self, compiler: DeterministicPatternCompiler) -> None:
-        result = compiler.compile("list all object-storage")
-        assert isinstance(result, TypedQuery)
-        assert result.kind is QueryKind.FIND
-        assert result.resource_type == "object-storage"
-        assert result.predicates == ()
-
-    def test_count_produces_count_query(self, compiler: DeterministicPatternCompiler) -> None:
-        result = compiler.compile("count object-storage")
-        assert isinstance(result, TypedQuery)
-        assert result.kind is QueryKind.COUNT
-
-    def test_how_many_produces_count(self, compiler: DeterministicPatternCompiler) -> None:
-        result = compiler.compile("how many object-storage exist")
-        assert isinstance(result, TypedQuery)
-        assert result.kind is QueryKind.COUNT
-
-    def test_spaced_surface_form_matches(self, compiler: DeterministicPatternCompiler) -> None:
-        # "object storage" should resolve to canonical "object-storage".
-        result = compiler.compile("list object storage")
-        assert isinstance(result, TypedQuery)
-        assert result.resource_type == "object-storage"
-
-    def test_without_maps_to_missing_predicate(
-        self, compiler: DeterministicPatternCompiler
+    @pytest.mark.parametrize(
+        "text",
+        (
+            "please fix everything now",
+            "list all quantum-widgets",
+            "list all object-storage",
+            "count object-storage",
+            "how many object-storage exist",
+            "list object storage",
+            "list object-storage without private_endpoint",
+            "list object-storage with encryption",
+            "list object-storage where public_access is true",
+        ),
+    )
+    def test_nonempty_text_is_explicitly_unavailable(
+        self, compiler: DeterministicPatternCompiler, text: str
     ) -> None:
-        result = compiler.compile("list object-storage without private_endpoint")
-        assert isinstance(result, TypedQuery)
-        assert result.predicates == (Predicate(field="private_endpoint", op=PredicateOp.MISSING),)
-
-    def test_missing_marker_maps_to_missing_predicate(
-        self, compiler: DeterministicPatternCompiler
-    ) -> None:
-        result = compiler.compile("list object-storage missing encryption")
-        assert isinstance(result, TypedQuery)
-        assert result.predicates == (Predicate(field="encryption", op=PredicateOp.MISSING),)
-
-    def test_with_maps_to_exists_predicate(self, compiler: DeterministicPatternCompiler) -> None:
-        result = compiler.compile("list object-storage with encryption")
-        assert isinstance(result, TypedQuery)
-        assert result.predicates == (Predicate(field="encryption", op=PredicateOp.EXISTS),)
-
-    def test_where_is_maps_to_eq_predicate(self, compiler: DeterministicPatternCompiler) -> None:
-        result = compiler.compile("list object-storage where public_access is true")
-        assert isinstance(result, TypedQuery)
-        assert result.predicates == (
-            Predicate(field="public_access", op=PredicateOp.EQ, value=True),
-        )
-
-    def test_where_is_numeric_value(self, compiler: DeterministicPatternCompiler) -> None:
-        result = compiler.compile("list object-storage where retention is 7")
-        assert isinstance(result, TypedQuery)
-        assert result.predicates == (Predicate(field="retention", op=PredicateOp.EQ, value=7),)
-
-    def test_where_is_string_value_unquoted(self, compiler: DeterministicPatternCompiler) -> None:
-        result = compiler.compile("list object-storage where sku is premium")
-        assert isinstance(result, TypedQuery)
-        assert result.predicates[0].value == "premium"
+        result = compiler.compile(text)
+        assert isinstance(result, AbstainResult)
+        assert result.code is AbstainCode.SEMANTIC_MODEL_UNAVAILABLE
 
 
 # ---------------------------------------------------------------------------
@@ -240,16 +192,16 @@ class TestCompilerRespectsVerifier:
             "list compute.vm where sku is standard",
         ],
     )
-    def test_shipped_grammar_verifies(
+    def test_unbound_compiler_never_proposes_an_unverified_query(
         self,
         compiler: DeterministicPatternCompiler,
         verifier: QueryVerifier,
         nl_text: str,
     ) -> None:
         compiled = compiler.compile(nl_text)
-        assert isinstance(compiled, TypedQuery)
-        # MUST NOT raise.
-        verifier.verify(compiled)
+        assert isinstance(compiled, AbstainResult)
+        assert compiled.code is AbstainCode.SEMANTIC_MODEL_UNAVAILABLE
+        assert verifier.known_resource_types
 
     def test_compiler_never_produces_mutation_op(
         self, compiler: DeterministicPatternCompiler
@@ -407,18 +359,17 @@ class TestExecuteQuery:
 
 
 # ---------------------------------------------------------------------------
-# End-to-end: compile -> verify -> execute stays read-only.
+# End-to-end: structured proposal -> verify -> execute stays read-only.
 # ---------------------------------------------------------------------------
 
 
-def test_full_pipeline_grounds_a_question(
-    compiler: DeterministicPatternCompiler,
-    verifier: QueryVerifier,
-) -> None:
+def test_full_pipeline_grounds_a_structured_query(verifier: QueryVerifier) -> None:
     projection = _build_projection()
-    compiled = compiler.compile("list object-storage without public_access")
-    assert isinstance(compiled, TypedQuery)
-    verified = verifier.verify(compiled)
+    proposed = TypedQuery(
+        resource_type="object-storage",
+        predicates=(Predicate(field="public_access", op=PredicateOp.MISSING),),
+    )
+    verified = verifier.verify(proposed)
     result = execute_query(verified, projection)
     assert [row.ref.ref for row in result.rows] == ["c"]
 

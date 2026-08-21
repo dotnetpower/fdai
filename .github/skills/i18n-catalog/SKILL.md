@@ -180,14 +180,15 @@ and cross-fork search - localize the labels around it, not the record itself.
 
 ## Verify
 
-Before every commit that touches L1 or L2:
+Before every commit that touches L1 or L2, select only the applicable checks from this list:
 
 ```
-bash scripts/verify.sh --fast
+bash scripts/quality/repository/check-punctuation.sh
+python3 scripts/quality/localization/check-readable-hangul.py
+bash scripts/quality/localization/check-translations.sh
+bash scripts/quality/localization/check-catalog-parity.sh
 ```
 
-The `--fast` bundle runs all four gates: `english-only`,
-`punctuation`, `translations`, `catalog-parity` (plus ruff + guids).
 Editing a `-ko.md` file also runs `translation-quality`.
 
 ## Related

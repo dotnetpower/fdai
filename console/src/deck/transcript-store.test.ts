@@ -415,6 +415,14 @@ describe("serializeTurns", () => {
             tool: "FDAI inventory",
             command: '{"query":{"source":"current"}}',
             inputKind: "query" as const,
+            target: {
+              interfaceKind: "internal_query" as const,
+              service: "core-control-plane",
+              component: "OntologyQueryPlanExecutor",
+              operation: "object_set_materialization",
+              sourceKind: "ontology_instance_store",
+              transport: "event_bus" as const,
+            },
             redacted: true as const,
             output: "{\"status\": \"available\"}",
             durationMs: 250,
@@ -430,7 +438,43 @@ describe("serializeTurns", () => {
     expect(parsed[0]?.activities?.[0]?.activityId).toBe("scope");
     expect(parsed[0]?.activities?.[0]?.execution?.command).toContain('"source":"current"');
     expect(parsed[0]?.activities?.[0]?.execution?.inputKind).toBe("query");
+    expect(parsed[0]?.activities?.[0]?.execution?.target?.operation)
+      .toBe("object_set_materialization");
     expect(parsed[0]?.activities?.[0]?.execution?.output).toContain("available");
+  });
+
+  it("drops browser-local activities with contradictory execution provenance", () => {
+    const serialized = JSON.stringify([{
+      id: "activity",
+      role: "deck",
+      kind: "activity",
+      text: "Query",
+      at: "10:00:00",
+      terminal: true,
+      activities: [{
+        activityId: "query",
+        kind: "query",
+        status: "completed",
+        label: "Query",
+        completed: 1,
+        total: 1,
+        execution: {
+          tool: "Ontology query",
+          command: "{}",
+          inputKind: "query",
+          target: {
+            interfaceKind: "internal_query",
+            service: "core-control-plane",
+            component: "OntologyQueryPlanExecutor",
+            operation: "object_set_materialization",
+            endpoint: { method: "GET", path: "/ontology/graph" },
+          },
+          redacted: true,
+        },
+      }],
+    }]);
+
+    expect(parseTurns(serialized)[0]?.activities).toBeUndefined();
   });
 
   it("restores phased activity groups around progress milestones in causal order", () => {

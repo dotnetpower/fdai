@@ -1,8 +1,8 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 85ba00e73e82ca7d2cc29fd9a9b86db73b80d361
-translation_revised: 2026-08-20
+translation_source_sha: ee506ceacb3dce3b7ce4c02746135af9d031824b
+translation_revised: 2026-08-21
 ---
 
 # Azure 읽기 조사
@@ -21,8 +21,9 @@ Thor의 실행 신원을 사용하지 않고 근거를 수집합니다.
 
 ## 설계 개요
 
-읽기 조사는 변경 컨트롤 루프 밖에 유지됩니다. 결정론적 플래너가 타입이 지정된 읽기 도구를
-선택한 다음 측정된 도구 지연 시간을 기준으로 direct, streamed 또는 detached 실행 모드를 선택합니다.
+읽기 조사는 변경 컨트롤 루프 밖에 유지됩니다. 공유 의미 판단 경계가 타입이 지정된 의도와
+source-grounded 대상을 제안합니다. 결정론적 검증과 exact resource 해석이 읽기 도구를 선택한
+다음 측정된 도구 지연 시간을 기준으로 direct, streamed 또는 detached 실행 모드를 선택합니다.
 모든 답변은 정규화된 서버가 소유한 근거를 인용하거나 근거가 사용 불가임을 보고합니다.
 
 ![설계 개요. 주요 단계는 Operator, Bragi conversation, Read investigation planner, Heimdall investigation, Durable background task, Attenuated read-tool gateway, Resource Graph or inventory, Activity Log, Resource Health, Guest or Monitor logs, Normalized evidence입니다.](../../diagrams/generated/fdai-roadmap-interfaces-azure-read-investigations-01.ko.svg)
@@ -48,7 +49,7 @@ Operator 질문은 `object.event`로 publish하지 않습니다. 해당 토픽�
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| Bragi 및 Heimdall 라우팅 | 구현됨 | 결정론적 영어 및 한국어 행위자, 종료, 이력, 상태, 상태 라우팅이 범용 채점 전에 Heimdall을 선택합니다. | - |
+| Bragi 및 Heimdall 라우팅 | 구현됨 | 스키마로 검증된 영어, 한국어, 혼합 언어 의미 판단이 정확히 등록된 의도만 projection하고 결과 read contract를 Heimdall로 경로합니다. | 모델 실패는 lexical fallback 없이 clarification 또는 unavailable을 반환합니다. |
 | 조사 근거 신호 | 구현됨 | 한계된 read-investigation 훅은 Heimdall 대화형 포트의 owned 근거로 계산되므로, 로컬 신호 구간이 차기 전에도 조사 가능한 턴에는 evidence-gap 프롬프트 계층이 붙지 않습니다. | - |
 | Exact 리소스 해석 | 구현됨 | `not_found`, 범위가 제한된 `ambiguous`, scope-bound exact 참조가 해석 성공 전 이력 조회를 중지합니다. | - |
 | 타입이 지정된 의도 렌더링 | 구현됨 | 등록된 읽기 의도 7개가 모두 타입이 지정된 근거 필드와 관측 시간을 렌더링합니다. 렌더러가 없는 enum을 추가하면 범용 성공 문자열을 반환하지 않고 exhaustive 타입 검사가 실패합니다. | - |
@@ -76,6 +77,7 @@ Operator 질문은 `object.event`로 publish하지 않습니다. 해당 토픽�
 | 2026-08-13 | 구현됨 | 논리적 요청 멱등성은 안정적으로 유지하면서 각 current-state 읽기 호출에 서로 다른 불투명 활동 correlation을 부여하고, 한 호출의 실시간 및 영속 수명 주기에서는 하나의 correlation을 유지했습니다. | 현재 변경의 `wire_read_investigation.py` 및 `test_wire_read_investigation.py`; 집중 composition 스위트의 테스트 5개가 통과했습니다. | 실제 cross-service 동등성 증적을 기록하고 아래의 실제 운영 Azure 시나리오 공백을 해소합니다. |
 | 2026-08-13 | 구현됨 | 원시 요청자 및 대화 참조를 안정적인 불투명 hash로 대체하여 영속 shadow 증적에서 원시 신원을 노출하지 않고 principal 범위를 유지했습니다. | 현재 변경의 `wire_read_investigation.py` 및 `test_wire_read_investigation.py`; 영속 증적 privacy 및 identity 분리를 포함한 집중 composition 스위트의 테스트 5개가 통과했습니다. | 실제 cross-service 동등성 증적을 기록하고 아래의 실제 운영 Azure 시나리오 공백을 해소합니다. |
 | 2026-08-15 | 구현됨 | 실시간 프로바이더 읽기와 인벤토리로 변환된 그래프 상태를 하나의 `derived` 교차 출처 사실로 판정하고, 그 충돌을 증적 다이제스트에 보존했으며, 충돌이 있으면 단정된 상태를 보류하고 종료 활동을 강등하도록 했습니다. | `current change`, `test_resource_state_shadow.py` 판정 테스트와 일치 대조군이 있는 `test_wire_read_investigation.py::test_cross_source_state_conflict_lowers_the_answer_and_activity` | 실제 cross-service 동등성 증적을 기록하고 아래의 실제 운영 Azure 시나리오 공백을 해소합니다. |
+| 2026-08-21 | 구현됨 | 언어별 읽기 의도 분류를 공유 candidate-only 의미 판단으로 교체하고 결정론적 exact resource-id parsing, plan 소유권, 근거 예산, 프로바이더 권한을 유지했습니다. | `current change`; 집중 read-investigation 검사 9개가 통과했고 저장소 semantic-routing guard에 migrate 경로가 없습니다. | 실제 cross-service 동등성 증적과 아래의 실제 운영 Azure 시나리오 공백을 해소합니다. |
 
 ### 남은 작업
 
@@ -84,9 +86,14 @@ Operator 질문은 `object.event`로 publish하지 않습니다. 해당 토픽�
 
 ## 조사 요청 및 계획
 
-플래너는 조건을 충족한 질문을 변경할 수 없는 `ReadInvestigationRequest`로 변환합니다. 요청자, 대화 및 상관관계 참조, 의도, 리소스 선택자, 조회 구간, requested 근거, 예산 및 멱등성 키를 전달합니다. 모델이 도구 description을 보기 전에 결정론적 분류를 실행합니다.
+플래너는 수락된 의미 판단 하나를 변경할 수 없는 `ReadInvestigationRequest`로 변환합니다. 요청자,
+대화 및 상관관계 참조, 정본 의도, source-grounded 리소스 선택자, 조회 구간, requested 근거,
+예산 및 멱등성 키를 전달합니다. 모델은 의미만 제안하고 결정론적 코드는 정확히 등록된 의도,
+plan 소유권, 리소스 신원, 근거 권한, 경계를 검증합니다.
 
-스키마로 검증되는 `investigation-intents.yaml` 카탈로그가 언어와 계약 사이의 경계를 소유합니다. 각 항목은 작업 등급, 책임 Pantheon 에이전트, 등록된 계획 ID, 선택자 종류, 답변 계약, 검토된 영어 및 한국어 일치 용어, 근거 권한과 분류 기준, 숫자형 최신성 예산을 선언합니다.
+스키마로 검증되는 `investigation-intents.yaml` 카탈로그가 의도와 계약 사이의 경계를 소유합니다.
+각 항목은 작업 등급, 책임 Pantheon 에이전트, 등록된 계획 ID, 선택자 종류, 답변 계약, 근거
+권한과 분류 기준, 숫자형 최신성 예산을 선언합니다. 자연어 구문을 분류하지 않습니다.
 카탈로그는 실행 가능한 텍스트를 포함하거나 도구 권한을 부여할 수 없습니다. 알 수 없는 소유자, 작업 등급, 선택자, 답변 계약, 필드 또는 response-mode 순서는 프로바이더 I/O 전에 카탈로그 부하를 차단합니다.
 
 첫 카탈로그 개정 번호는 아래의 읽기 의도 7개를 설명합니다. 모든 항목은 Heimdall이 소유하고 `work_class: read`를 사용하며 등록된 계획을 가리킵니다. Bragi는 턴을 분류하고 경로할 수 있지만 카탈로그 소유자, 근거 요구사항 또는 최신성 예산을 바꿀 수 없습니다.
@@ -121,8 +128,8 @@ Operator 질문은 `object.event`로 publish하지 않습니다. 해당 토픽�
 사용합니다. 중지된 리소스에 대해 Heimdall은 최근 성공한 Stop, Power Off 또는 Deallocate 활동
 로그 이벤트를 보고하고, 현재 중지 상태가 적어도 해당 시각부터 이어졌다고 명시합니다.
 게스트 종료 후속 조치는 동일한 검증된 리소스 선택자와 exclusive Heimdall 가지를
-재사용합니다. 결정론적 의도는 영어와 한국어의 subject-first, reverse-order 및 colloquial 양식을
-수락하며 서술기가 대화 산문에서 누락된 리소스 이름을 복구하도록 하지 않습니다.
+재사용합니다. 영어, 한국어, 혼합 언어, reordered, colloquial 양식은 공유 의미 판단 경계를
+사용하며 서술기가 대화 산문에서 누락된 리소스 이름을 복구하도록 하지 않습니다.
 성공한 detached 인계는 범위가 제한된 작업 참조를 최종 검증되지 않은 대기 중 답변으로 반환합니다.
 관찰된 실행은 인계를 completed로 표시하고 `status=queued`를 보고합니다. 수락된 영속 작업을
 사용 불가로 잘못 표시하거나 서술기로 보내지 않습니다.
@@ -192,8 +199,8 @@ operational 상태는 promoted 인벤토리를 사용합니다. Degraded 또는 
 컴파일러는 관측된 provider-specific 상태 값을 유지할 수 있지만, 서로 겹치지 않는 모든 requested
 그룹은 executable 조건식에 남아 있어야 합니다. Observation-based 좁히기로 그룹 전체가
 제거되는 경우 근거 수집 전에 해당 그룹의 정본 카탈로그 값을 추가합니다.
-한국어 상태 용어와 문법 접미사는 구어체 명사형과 관형형을 포함해 카탈로그 데이터로 유지합니다. 따라서
-결정론적 경로는 prompt-specific 파서 가지에 의존하지 않습니다.
+Localized 상태 label은 표현과 근거 normalization 데이터로만 유지합니다. 운영자 의미를
+분류하거나 경로를 선택하지 않습니다.
 Active-view 인벤토리 요청에는 아키텍처 화면에서 선택된 범위가 제한된 리소스 그룹 하나가 필요합니다.
 선택이 없거나 malformed이거나 리소스 그룹이 아니면 인벤토리 조회, 다른 근거 가지 또는
 서술기 호출 없이 결정론적 사용 불가 결과를 반환하며, 운영자가 그룹을 선택하거나 이름을

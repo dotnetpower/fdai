@@ -3,7 +3,7 @@ name: coding-hardening
 description: |
   FDAI coding-hardening loop: pick a safety-core or low-coverage module,
   find real defects honestly, harden one focused change, verify with the
-  gate stack, and commit per file. Complements
+  focused gate stack, and commit one explicit hardening batch. Complements
   `.github/prompts/critique-batch.prompt.md` and
   `.github/prompts/harden-coverage.prompt.md` (the runnable slash-commands
   built on top of this skill). Load when doing "critique-and-harden" or
@@ -53,7 +53,9 @@ for the full 45-subsystem index.
 
 ## The Loop
 
-**One batch = one focused change = one commit.**
+**When the user explicitly requests a critique/coverage hardening batch or invokes its prompt,
+one batch = one focused change = one commit.** Merely discovering this skill while fixing a bug
+does not authorize a commit.
 
 ### 1. Critique honestly
 
@@ -91,7 +93,6 @@ for the full 45-subsystem index.
   worktree, run focused checks before committing only owned paths, then run
   `make test-changed DIFF=<commit>^..<commit>` for the exact hardening commit.
   For a committed branch range, run `make test-changed DIFF=<base>...HEAD`.
-- Run fast gates: `bash scripts/verify.sh --fast`.
 - Finish with `bash scripts/verify.sh --full <test-path>` for the touched
   slice when the focused pytest command has not already covered it.
 - Do NOT run `bash scripts/verify.sh --all` after each batch. Run it once at
@@ -126,11 +127,14 @@ for the full 45-subsystem index.
 
 - Do not watch, rerun, or troubleshoot GitHub Actions while a hardening batch is still being edited
   or while its focused checks are failing. Keep the critique loop local until the batch commits.
-- Before any remote CI investigation, Azure operation, remote evaluation, or container image build,
-  finish focused checks and commit the exact revision. Deployment and release work targets a pushed
-  SHA whose required CI checks are green; local queue receipts are optional diagnostics.
-- A remote failure belongs to the exact tested commit. If fixing it changes code, stop remote
-  polling, return to step 2, rerun the focused check, commit, and obtain a new receipt.
+- Remote CI investigation, Azure operation, remote evaluation, and container image work are not
+  implied by hardening. Run them only when the current request explicitly includes that external
+  follow-up. Finish focused checks and commit the exact revision first. Deployment and release work
+  targets a pushed SHA whose required CI checks are green; local queue receipts are optional
+  diagnostics.
+- A remote failure belongs to the exact tested commit. If the current request includes a local fix,
+  stop remote work, return to step 2, and rerun the focused check after that fix. Do not rerun the
+  remote operation or wait for another receipt unless the user explicitly requests it.
 - Build container images from the tested commit in a clean checkout or isolated worktree. Never
   let uncommitted hardening work leak into an image used for deployment.
 

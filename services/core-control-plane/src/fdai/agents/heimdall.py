@@ -38,6 +38,7 @@ from fdai.agents._framework.introspection import (
     capability_facts,
     capped_list,
     mentioned,
+    semantic_intents,
 )
 from fdai.agents._framework.pantheon import _HEIMDALL
 from fdai.agents._framework.specialist_ingress import SPECIALIST_EVENT_PREFIX
@@ -731,13 +732,13 @@ class Heimdall(HeimdallForecastMixin, Agent):
             "forecast_evidence_available": False,
             "drift_evidence_available": False,
         }
-        normalized_question = question.casefold()
-        if "forecast" in normalized_question:
+        intents = semantic_intents(context)
+        if "forecast" in intents:
             return IntrospectionResult(
                 answer="No retained forecast episode is bound to this conversational projection.",
                 facts=facts,
             )
-        if "drift" in normalized_question:
+        if "drift" in intents:
             return IntrospectionResult(
                 answer="No retained drift finding is bound to this conversational projection.",
                 facts=facts,

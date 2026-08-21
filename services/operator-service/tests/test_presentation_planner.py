@@ -222,3 +222,14 @@ def test_missing_value_stays_a_record_fallback_instead_of_zero() -> None:
     assert shape.missing_values is True
     assert shape.records[1]["value"] is None
     assert decision.kind is PresentationKind.LIST
+
+
+def test_verified_complete_zero_rows_are_not_unavailable() -> None:
+    shape = analyze_evidence_shape(_output([]), verified=True)
+
+    decision = plan_presentation(intent=PresentationIntent.COMPARISON, shape=shape)
+
+    assert shape.complete is True
+    assert shape.unavailable is False
+    assert decision.kind is PresentationKind.CALLOUT
+    assert decision.reason_code == "verified_empty_result"

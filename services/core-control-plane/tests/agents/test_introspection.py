@@ -10,81 +10,23 @@ from fdai.agents._framework.introspection import (
     capability_facts,
     capability_sentence,
     capped_list,
-    is_action_intent,
     mentioned,
 )
 from fdai.agents._framework.pantheon import _MUNINN, _NJORD, _SAGA
 
 
-class TestActionIntentGuard:
-    """agent-pantheon.md 7.7: the port describes actions, never runs them."""
+def test_structured_action_posture_requires_typed_pipeline() -> None:
+    agent = Agent(spec=_NJORD)
 
-    def test_interrogatives_are_not_action_intent(self) -> None:
-        for question in (
-            "what is the cost of rg-abc",
-            "why was this action denied",
-            "who executed correlation c-1",
-            "show me the audit log",
-            "list pending approvals",
-            "how much capacity is left",
-        ):
-            assert is_action_intent(question) is False
+    result = asyncio.run(
+        agent.on_conversation_turn(
+            "operator request",
+            {"semantic_action_posture": "draft_only"},
+        )
+    )
 
-    def test_leading_command_verbs_are_action_intent(self) -> None:
-        for question in (
-            "restart vm-1",
-            "delete rg-abc",
-            "scale the cluster up",
-            "failover to secondary",
-            "approve correlation c-1",
-        ):
-            assert is_action_intent(question) is True
-
-    def test_polite_prefix_is_stripped_before_the_verb(self) -> None:
-        assert is_action_intent("please restart vm-1") is True
-        assert is_action_intent("can you delete rg-abc") is True
-        assert is_action_intent("could you tell me the cost") is False
-
-    def test_korean_imperatives_are_action_intent(self) -> None:
-        assert is_action_intent("vm-1 재시작해줘") is True
-        assert is_action_intent("storage-1을 삭제해 주세요") is True
-        assert is_action_intent("db-1을 재부팅해 주십시오") is True
-        assert is_action_intent("재시작 상태를 확인하고 vm-1을 재시작해줘") is True
-
-    def test_korean_action_questions_remain_introspection(self) -> None:
-        assert is_action_intent("vm-1 재시작 상태가 뭐야?") is False
-        assert is_action_intent("storage-1 삭제 이력을 보여줘") is False
-        assert is_action_intent("장애 조치 결과를 설명해줘") is False
-
-    def test_empty_question_is_not_action_intent(self) -> None:
-        assert is_action_intent("") is False
-        assert is_action_intent("???") is False
-
-    def test_ambiguous_verb_with_question_mark_is_introspection(self) -> None:
-        # Verbs that double as nouns are commands only when imperative.
-        for question in (
-            "set of pending approvals?",
-            "run status?",
-            "update history?",
-            "start time of the run?",
-        ):
-            assert is_action_intent(question) is False
-
-    def test_ambiguous_verb_with_interrogative_marker_is_introspection(self) -> None:
-        assert is_action_intent("run which experiments completed") is False
-        assert is_action_intent("stop what is the condition") is False
-
-    def test_ambiguous_verb_imperative_is_still_action(self) -> None:
-        assert is_action_intent("update the rule threshold") is True
-        assert is_action_intent("stop the service") is True
-        assert is_action_intent("run the experiment now") is True
-
-    def test_long_question_is_bounded(self) -> None:
-        # A pathological question must not blow up tokenization; the leading
-        # verb is still read and matching still terminates.
-        pathological = "restart " + "x" * 100_000
-        assert is_action_intent(pathological) is True
-        assert mentioned(pathological, ["y"]) == []
+    assert result["requires_typed_pipeline"] is True
+    assert result["abstain_reason"] == "requires_typed_pipeline"
 
 
 class TestMentioned:

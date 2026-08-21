@@ -9,9 +9,6 @@ This module holds the shared, LLM-free scaffolding both the base
 :class:`~fdai.agents._framework.base.Agent` and each concrete agent build on:
 
 - :class:`IntrospectionResult` - the value an agent's ``introspect`` returns.
-- :func:`is_action_intent` - the MUST-NOT-bypass guard (7.7): the
-  conversational port may *describe* actions but never execute one; a request
-  phrased as a command re-enters the typed pipeline instead of being answered.
 - :func:`capability_facts` / :func:`capability_sentence` - the default
   self-description every agent can answer from its immutable ``AgentSpec``.
 
@@ -64,147 +61,6 @@ class IntrospectionResult:
         return cls(answer=None, facts=facts or {}, abstain_reason=reason)
 
 
-# ---------------------------------------------------------------------------
-# MUST-NOT-bypass guard (agent-pantheon.md 7.7)
-# ---------------------------------------------------------------------------
-
-# Imperative verbs that denote a *mutation* request rather than a question.
-# A conversational turn that starts with one of these is a command: the port
-# refuses to execute and signals the caller to re-enter the typed pipeline.
-_ACTION_VERBS: frozenset[str] = frozenset(
-    {
-        "restart",
-        "reboot",
-        "delete",
-        "remove",
-        "drop",
-        "destroy",
-        "scale",
-        "resize",
-        "failover",
-        "remediate",
-        "encrypt",
-        "execute",
-        "run",
-        "apply",
-        "deploy",
-        "provision",
-        "rollback",
-        "revert",
-        "approve",
-        "reject",
-        "disable",
-        "enable",
-        "create",
-        "kill",
-        "drain",
-        "terminate",
-        "mutate",
-        "patch",
-        "update",
-        "set",
-        "start",
-        "stop",
-        "promote",
-        "retire",
-        "override",
-        "flush",
-        "purge",
-        "grant",
-        "revoke",
-        "open",
-        "transition",
-        "assign",
-    }
-)
-
-# Polite prefixes stripped before inspecting the leading verb, so
-# "please restart vm-1" and "can you delete rg-x" are still caught.
-_FILLER_PREFIX: frozenset[str] = frozenset(
-    {"please", "can", "could", "would", "you", "kindly", "pls", "hey", "ok", "okay"}
-)
-
-# Verbs that double as a noun / adjective, so a leading occurrence is NOT
-# automatically a command ("set of rules?", "run status?", "update history?").
-# For these, only an imperative phrasing (no question mark, no interrogative
-# marker) counts as a mutation command - otherwise it is introspection. Every
-# entry is also in ``_ACTION_VERBS`` so a genuine command still maps.
-_AMBIGUOUS_ACTION_VERBS: frozenset[str] = frozenset(
-    {"set", "start", "stop", "update", "run", "apply", "patch", "drain"}
-)
-
-# Interrogative markers that flip an ambiguous-verb lead back to a question.
-_QUESTION_MARKERS: frozenset[str] = frozenset(
-    {
-        "what",
-        "why",
-        "who",
-        "how",
-        "when",
-        "which",
-        "where",
-        "whose",
-        "whom",
-        "is",
-        "are",
-        "was",
-        "were",
-        "do",
-        "does",
-        "did",
-        "show",
-        "list",
-        "tell",
-        "explain",
-        "describe",
-        "status",
-        "count",
-        "many",
-        "much",
-        "any",
-    }
-)
-
-_KOREAN_ACTION_VERBS: tuple[tuple[str, str], ...] = (
-    ("권한 부여", "grant"),
-    ("권한 회수", "revoke"),
-    ("장애 조치", "failover"),
-    ("프로비저닝", "provision"),
-    ("비활성화", "disable"),
-    ("재시작", "restart"),
-    ("재부팅", "reboot"),
-    ("장애조치", "failover"),
-    ("페일오버", "failover"),
-    ("암호화", "encrypt"),
-    ("되돌리기", "revert"),
-    ("업데이트", "update"),
-    ("활성화", "enable"),
-    ("재정의", "override"),
-    ("삭제", "delete"),
-    ("제거", "remove"),
-    ("파기", "destroy"),
-    ("확장", "scale"),
-    ("축소", "scale"),
-    ("실행", "execute"),
-    ("적용", "apply"),
-    ("배포", "deploy"),
-    ("롤백", "rollback"),
-    ("승인", "approve"),
-    ("거부", "reject"),
-    ("생성", "create"),
-    ("종료", "terminate"),
-    ("시작", "start"),
-    ("중지", "stop"),
-    ("승격", "promote"),
-    ("폐기", "retire"),
-    ("플러시", "flush"),
-    ("할당", "assign"),
-)
-_KOREAN_COMMAND_SUFFIX = re.compile(
-    r"\s*(?:(?:해|하여|시켜)\s*(?:줘|주세요|주십시오)|"
-    r"달라|하라|해라|부탁해|부탁합니다|부탁드립니다)(?:[.!]|\s|$)"
-)
-
 #: Defensive cap on how much of a question is tokenized. The conversational
 #: port is an operator / agent input boundary; an unbounded question would let
 #: a caller inflate tokenization cost. A real NL query is far shorter.
@@ -216,62 +72,7 @@ _MAX_QUESTION_LEN = 2000
 #: specific id by naming it (see :func:`mentioned`).
 _FACTS_LIST_CAP = 20
 
-_WORD_RE = re.compile(r"[a-z0-9-]+")
 _IDENTIFIER_RE = re.compile(r"[a-z0-9]+(?:[._-][a-z0-9]+)*")
-
-
-def _tokens(question: str) -> list[str]:
-    """Tokenize a bounded prefix of ``question`` (defensive input cap)."""
-    return _WORD_RE.findall(question[:_MAX_QUESTION_LEN].lower())
-
-
-def is_action_intent(question: str) -> bool:
-    """Return ``True`` when ``question`` is a mutation command, not a query.
-
-    Deterministic and conservative-by-safety: a leading imperative verb
-    (after stripping polite filler) means the request wants to *change*
-    something, which the conversational port MUST NOT do itself
-    (agent-pantheon.md 7.7). Interrogatives ("what/why/who/show/list/...")
-    fall through as introspection. A verb that doubles as a noun
-    ("set of rules?", "run status?") is a command only when phrased
-    imperatively - no question mark and no interrogative marker.
-    """
-    if korean_action_verb(question) is not None:
-        return True
-    verb = leading_verb(question)
-    if verb is None:
-        return False
-    if verb in _AMBIGUOUS_ACTION_VERBS:
-        if "?" in question[:_MAX_QUESTION_LEN]:
-            return False
-        if any(token in _QUESTION_MARKERS for token in _tokens(question)):
-            return False
-        return True
-    return verb in _ACTION_VERBS
-
-
-def leading_verb(question: str) -> str | None:
-    """Return the first non-filler token of ``question`` (lower-cased), or None.
-
-    Shared by :func:`is_action_intent` and Bragi's proposal translation so the
-    "is this a command?" test and the "which action?" mapping read the same
-    leading verb (e.g. ``restart`` from ``please restart vm-1``).
-    """
-    for token in _tokens(question):
-        if token in _FILLER_PREFIX:
-            continue
-        return str(token)
-    return None
-
-
-def korean_action_verb(question: str) -> str | None:
-    """Return the canonical verb for one explicit Korean mutation command."""
-    bounded = question[:_MAX_QUESTION_LEN]
-    for phrase, canonical in _KOREAN_ACTION_VERBS:
-        for match in re.finditer(re.escape(phrase), bounded):
-            if _KOREAN_COMMAND_SUFFIX.match(bounded, match.end()) is not None:
-                return canonical
-    return None
 
 
 def mentioned(question: str, candidates: Any) -> list[str]:
@@ -284,6 +85,19 @@ def mentioned(question: str, candidates: Any) -> list[str]:
     """
     identifiers = set(_IDENTIFIER_RE.findall(question[:_MAX_QUESTION_LEN].lower()))
     return [c for c in candidates if str(c).lower() in identifiers]
+
+
+def semantic_intents(context: dict[str, Any]) -> frozenset[str]:
+    """Return validated machine intent tokens supplied by Bragi's judgment."""
+
+    primary = context.get("semantic_primary_intent")
+    facets = context.get("semantic_requested_facets", ())
+    values = ([primary] if isinstance(primary, str) else []) + (
+        list(facets)
+        if isinstance(facets, tuple | list) and all(isinstance(item, str) for item in facets)
+        else []
+    )
+    return frozenset(values)
 
 
 def capped_list(items: Any) -> list[str]:
@@ -356,10 +170,8 @@ __all__ = [
     "REQUIRES_TYPED_PIPELINE",
     "NO_DATA",
     "INTROSPECTION_ERROR",
-    "is_action_intent",
-    "leading_verb",
-    "korean_action_verb",
     "mentioned",
+    "semantic_intents",
     "capped_list",
     "agent_state_evidence_ref",
     "capability_facts",

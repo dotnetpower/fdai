@@ -29,9 +29,18 @@ describe("parseIntentGraph", () => {
       .toBe("query_subscription_health");
   });
 
+  it("decodes the 13 goals in a bounded SRE investigation", () => {
+    const goals = Array.from({ length: 13 }, (_, index) => ({
+      ...graph().goals[0],
+      goal_id: `health-${index + 1}`,
+    }));
+
+    expect(parseIntentGraph({ ...graph(), goals })?.goals).toHaveLength(13);
+  });
+
   it("rejects malformed and oversized graphs", () => {
     expect(parseIntentGraph({ ...graph(), schema_version: 1 })).toBeUndefined();
-    expect(parseIntentGraph({ ...graph(), goals: Array(9).fill(graph().goals[0]) }))
+    expect(parseIntentGraph({ ...graph(), goals: Array(17).fill(graph().goals[0]) }))
       .toBeUndefined();
     expect(parseIntentGraph({ ...graph(), confidence: 2 })).toBeUndefined();
     expect(parseIntentGraph({ ...graph(), unexpected: "field" })).toBeUndefined();

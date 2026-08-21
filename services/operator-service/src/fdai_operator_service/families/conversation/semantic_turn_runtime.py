@@ -39,6 +39,7 @@ from fdai_operator_service.postgres_family_store import (
 )
 from fdai_operator_service.postgres_semantic_turn_store import SemanticTurnConflictError
 from fdai_service_contracts import (
+    MAX_INTENT_GRAPH_GOALS,
     ContractValidationError,
     RuleSearchProjection,
     SemanticTurnDisposition,
@@ -53,6 +54,7 @@ SEMANTIC_RESULT_GROUP = "operator-semantic-turn-v1"
 _IDENTITY_NAMESPACE = UUID("00000000-0000-0000-0000-000000000000")
 _MAX_PROJECTION_CONFLICT_ATTEMPTS = 5
 _MAX_TRACKED_PROJECTION_CONFLICTS = 256
+_MAX_EXECUTION_OUTPUT_CHARS = 64 * 1024
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -156,7 +158,7 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
         self._closed = False
         self._terminal_loaded = False
         self._stream_sequence = 0
-        self._running_activities: dict[str, str] = {}
+        self._running_activities: dict[str, tuple[str, str | None]] = {}
         self._queue_pending_progress()
 
     def __aiter__(self) -> _SemanticEventIterator:
@@ -192,6 +194,7 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
                 label,
                 status="completed" if phase == "accepted" else "running",
                 event_id=f"0:{phase}",
+                detail=_pending_progress_detail(phase, self._request.locale),
             )
 
     def _append_activity(
@@ -204,10 +207,14 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
         completed: int | None = None,
         total: int | None = None,
         execution: JsonObject | None = None,
+        activity_id: str | None = None,
+        kind: str = "semantic_turn",
+        detail: str | None = None,
+        observed_at: str | None = None,
     ) -> None:
         """Queue one bounded step record for the observed-process timeline."""
         if status == "running":
-            self._running_activities[phase] = label
+            self._running_activities[phase] = (label, detail)
         else:
             self._running_activities.pop(phase, None)
         self._stream_sequence += 1
@@ -220,13 +227,15 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
                     {
                         "seq": self._stream_sequence,
                         "revision": 0,
-                        "activity_id": f"semantic:{phase}",
-                        "kind": "semantic_turn",
+                        "activity_id": activity_id or f"semantic:{phase}",
+                        "kind": kind,
                         "status": status,
                         "label": label,
                         "authority": "read_only",
                         "completed": completed,
                         "total": total,
+                        **({"detail": detail} if detail is not None else {}),
+                        **({"observed_at": observed_at} if observed_at is not None else {}),
                         **({"execution": execution} if execution is not None else {}),
                     },
                 ),
@@ -235,12 +244,13 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
 
     def _settle_pending_activities(self, sequence: int) -> None:
         """Complete every step still reported as running before the terminal."""
-        for phase, label in tuple(self._running_activities.items()):
+        for phase, (label, detail) in tuple(self._running_activities.items()):
             self._append_activity(
                 phase,
                 label,
                 status="completed",
                 event_id=f"{sequence}:done",
+                detail=detail,
             )
 
     def _append_event(
@@ -303,13 +313,29 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
         disposition = semantic.get("disposition")
         checks_completed = semantic.get("checks_completed", 0)
         checks_total = semantic.get("checks_total", 0)
+        query_activities = _verified_query_activities(
+            result.data,
+            locale=self._request.locale,
+        )
+        for index, activity in enumerate(query_activities, start=1):
+            self._append_activity(
+                f"goal:{index}",
+                cast(str, activity["label"]),
+                status=cast(str, activity["status"]),
+                event_id=f"{result.sequence}:goal:{index}",
+                activity_id=cast(str, activity["activity_id"]),
+                kind="ontology_query",
+                detail=cast(str, activity["detail"]),
+                observed_at=cast(str, activity["observed_at"]),
+                execution=cast(JsonObject, activity["execution"]),
+            )
         if (
             disposition == "answered"
             and isinstance(checks_completed, int)
             and isinstance(checks_total, int)
         ):
             labels = _terminal_progress(self._request.locale)
-            executed_query = _verified_query_execution(result.data)
+            executed_query = None if query_activities else _verified_query_execution(result.data)
             for event, phase in (
                 ("status", "evidence"),
                 ("verification", "verification"),
@@ -332,6 +358,7 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
                     event_id=f"{result.sequence}:{phase}",
                     completed=checks_completed,
                     total=checks_total,
+                    detail=_terminal_progress_detail(phase, self._request.locale),
                     # Only the evidence step ran a query. Attaching the same
                     # record to a step that executed nothing would report work
                     # the turn never did.
@@ -724,6 +751,24 @@ def _projection_quarantine_key(payload: Mapping[str, object]) -> str:
 _MAX_EXECUTION_COMMAND_CHARS = 16 * 1024
 
 
+def _query_execution_target(capability: str) -> JsonObject:
+    operation = capability.removeprefix("query.").replace(".", "_")
+    return {
+        "interface_kind": "internal_query",
+        "service": "core-control-plane",
+        "component": "OntologyQueryPlanExecutor",
+        "operation": (
+            "object_set_materialization" if capability == "query.object_set" else operation
+        ),
+        "source_kind": (
+            "ontology_instance_store"
+            if capability == "query.object_set"
+            else "registered_query_handler"
+        ),
+        "transport": "event_bus",
+    }
+
+
 def _verified_query_execution(projection: Mapping[str, object]) -> JsonObject | None:
     """Project the verified query the turn ran as one readable execution record.
 
@@ -738,6 +783,7 @@ def _verified_query_execution(projection: Mapping[str, object]) -> JsonObject | 
     if not isinstance(goals, list) or len(goals) != 1 or not isinstance(goals[0], Mapping):
         return None
     arguments = goals[0].get("arguments")
+    capability = goals[0].get("capability")
     if not isinstance(arguments, Mapping) or not arguments:
         return None
     command = json.dumps(arguments, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
@@ -748,11 +794,226 @@ def _verified_query_execution(projection: Mapping[str, object]) -> JsonObject | 
         "input_kind": "query",
         "command": command,
         "redacted": True,
+        **(
+            {"target": _query_execution_target(capability)}
+            if isinstance(capability, str) and capability.startswith("query.")
+            else {}
+        ),
     }
     outputs = _verified_output_counts(projection)
     if outputs is not None:
         record["output"] = outputs
     return cast(JsonObject, record)
+
+
+def _verified_query_activities(
+    projection: Mapping[str, object],
+    *,
+    locale: str,
+) -> tuple[JsonObject, ...]:
+    """Project every exact verified goal and receipt as one readable activity."""
+    semantic = projection.get("semantic_result")
+    graph = semantic.get("intent_graph") if isinstance(semantic, Mapping) else None
+    evidence = semantic.get("intent_graph_evidence") if isinstance(semantic, Mapping) else None
+    graph_goals = graph.get("goals") if isinstance(graph, Mapping) else None
+    evidence_goals = evidence.get("goals") if isinstance(evidence, Mapping) else None
+    if (
+        not isinstance(graph_goals, list)
+        or not isinstance(evidence_goals, list)
+        or not 1 <= len(graph_goals) <= MAX_INTENT_GRAPH_GOALS
+        or len(graph_goals) != len(evidence_goals)
+    ):
+        return ()
+    korean = locale.casefold().startswith("ko")
+    outputs = _technical_outputs_by_node(projection)
+    activities: list[JsonObject] = []
+    for graph_goal, receipt in zip(graph_goals, evidence_goals, strict=True):
+        if not isinstance(graph_goal, Mapping) or not isinstance(receipt, Mapping):
+            return ()
+        goal_id = graph_goal.get("goal_id")
+        intent = graph_goal.get("intent")
+        capability = graph_goal.get("capability")
+        arguments = graph_goal.get("arguments")
+        task_id = receipt.get("task_id")
+        status = receipt.get("status")
+        duration_ms = receipt.get("duration_ms")
+        started_at = receipt.get("started_at")
+        completed_at = receipt.get("completed_at")
+        evidence_refs = receipt.get("evidence_refs", [])
+        depends_on = receipt.get("depends_on", [])
+        reason = receipt.get("reason")
+        if (
+            not isinstance(goal_id, str)
+            or receipt.get("goal_id") != goal_id
+            or not isinstance(intent, str)
+            or receipt.get("intent") != intent
+            or not isinstance(capability, str)
+            or receipt.get("capability") != capability
+            or not isinstance(arguments, Mapping)
+            or not isinstance(task_id, str)
+            or not task_id.startswith("query:")
+            or status
+            not in {"completed", "unavailable", "failed", "cancelled", "timed_out", "skipped"}
+            or not isinstance(duration_ms, int)
+            or isinstance(duration_ms, bool)
+            or duration_ms < 0
+            or not isinstance(started_at, str)
+            or not isinstance(completed_at, str)
+            or not isinstance(evidence_refs, list)
+            or any(not isinstance(item, str) for item in evidence_refs)
+            or not isinstance(depends_on, list)
+            or any(not isinstance(item, str) for item in depends_on)
+            or (reason is not None and not isinstance(reason, str))
+        ):
+            return ()
+        node_id = task_id.removeprefix("query:")
+        command = json.dumps(
+            {"capability": capability, "arguments": dict(arguments)},
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        if len(command) > _MAX_EXECUTION_COMMAND_CHARS:
+            return ()
+        receipt_output: dict[str, object] = {
+            "status": status,
+            "duration_ms": duration_ms,
+            "evidence_refs": evidence_refs,
+        }
+        if reason is not None:
+            receipt_output["reason"] = reason
+        node_output = outputs.get(node_id)
+        if node_output is not None:
+            receipt_output["result"] = node_output
+        output = json.dumps(
+            receipt_output,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        output_truncated = len(output) > _MAX_EXECUTION_OUTPUT_CHARS
+        activities.append(
+            cast(
+                JsonObject,
+                {
+                    "activity_id": f"semantic:goal:{goal_id}",
+                    "status": _activity_status(status),
+                    "label": _query_goal_label(node_id, intent=intent, korean=korean),
+                    "detail": _query_goal_detail(
+                        capability=capability,
+                        status=status,
+                        evidence_count=len(evidence_refs),
+                        dependency_count=len(depends_on),
+                        reason=reason,
+                        korean=korean,
+                    ),
+                    "observed_at": completed_at,
+                    "execution": {
+                        "tool": "Ontology query",
+                        "input_kind": "query",
+                        "target": _query_execution_target(capability),
+                        "command": command,
+                        "redacted": True,
+                        **({"output": output} if not output_truncated else {}),
+                        "output_truncated": output_truncated,
+                        "started_at": started_at,
+                        "completed_at": completed_at,
+                        "duration_ms": duration_ms,
+                    },
+                },
+            )
+        )
+    return tuple(activities)
+
+
+def _technical_outputs_by_node(
+    projection: Mapping[str, object],
+) -> dict[str, Mapping[str, object]]:
+    payload = projection.get("payload")
+    details = payload.get("technical_details") if isinstance(payload, Mapping) else None
+    outputs = details.get("outputs") if isinstance(details, Mapping) else None
+    if not isinstance(outputs, list):
+        return {}
+    return {
+        node_id: output
+        for output in outputs
+        if isinstance(output, Mapping) and isinstance((node_id := output.get("node_id")), str)
+    }
+
+
+def _activity_status(status: object) -> str:
+    if status == "completed":
+        return "completed"
+    if status == "unavailable" or status == "skipped":
+        return "unavailable"
+    return "failed"
+
+
+def _query_goal_label(node_id: str, *, intent: str, korean: bool) -> str:
+    readable = node_id.replace("_", " ").replace("-", " ")
+    if korean:
+        labels = {
+            "resolve-target": "정확한 대상 리소스 확인",
+            "change-activity": "Activity Log의 변경 및 배포 이력 조회",
+            "symptom-baseline": "기준 구간 지연 메트릭 조회",
+            "symptom-current": "현재 구간 지연 메트릭 조회",
+            "symptom-change": "기준 구간과 현재 구간의 증상 변화 비교",
+            "topology-before": "변화 전 토폴로지 스냅샷 조회",
+            "topology-after": "변화 후 토폴로지 스냅샷 조회",
+            "topology-change": "변화 전후 토폴로지 차이 계산",
+        }
+        if node_id in labels:
+            return labels[node_id]
+        if node_id.startswith("expand-"):
+            return "의존성 및 토폴로지 경로 확인"
+        if node_id.startswith("cause-"):
+            return f"원인 후보 메트릭 조회: {readable.removeprefix('cause ')}"
+        if node_id.startswith("hypothesis-"):
+            return f"경쟁 원인 가설 평가: {readable.removeprefix('hypothesis ')}"
+        return f"검증된 의미 조회 실행: {intent.replace('_', ' ')}"
+    labels = {
+        "resolve-target": "Resolve the exact target resource",
+        "change-activity": "Read change and deployment history from Activity Log",
+        "symptom-baseline": "Read the baseline latency window",
+        "symptom-current": "Read the current latency window",
+        "symptom-change": "Compare symptom change across the two windows",
+        "topology-before": "Read the topology snapshot before the change",
+        "topology-after": "Read the topology snapshot after the change",
+        "topology-change": "Calculate the before-and-after topology difference",
+    }
+    if node_id in labels:
+        return labels[node_id]
+    if node_id.startswith("expand-"):
+        return "Trace dependency and topology paths"
+    if node_id.startswith("cause-"):
+        return f"Read candidate cause metrics: {readable.removeprefix('cause ')}"
+    if node_id.startswith("hypothesis-"):
+        return f"Evaluate competing cause hypothesis: {readable.removeprefix('hypothesis ')}"
+    return f"Run verified semantic query: {intent.replace('_', ' ')}"
+
+
+def _query_goal_detail(
+    *,
+    capability: str,
+    status: str,
+    evidence_count: int,
+    dependency_count: int,
+    reason: str | None,
+    korean: bool,
+) -> str:
+    if korean:
+        detail = (
+            f"{capability} - {status} - 근거 참조 {evidence_count}개 - "
+            f"선행 단계 {dependency_count}개"
+        )
+        return f"{detail} - 제한: {reason}" if reason is not None else detail
+    evidence_label = "reference" if evidence_count == 1 else "references"
+    dependency_label = "prerequisite" if dependency_count == 1 else "prerequisites"
+    detail = (
+        f"{capability} - {status} - {evidence_count} evidence {evidence_label} - "
+        f"{dependency_count} {dependency_label}"
+    )
+    return f"{detail} - limitation: {reason}" if reason is not None else detail
 
 
 def _verified_output_counts(projection: Mapping[str, object]) -> str | None:
@@ -841,6 +1102,28 @@ def _pending_progress(locale: str) -> tuple[tuple[str, str], ...]:
     )
 
 
+def _pending_progress_detail(phase: str, locale: str) -> str:
+    korean = locale.casefold().startswith("ko")
+    if phase == "accepted":
+        return (
+            "인증된 읽기 전용 요청을 저장하고 Core 조사 큐에 등록했습니다."
+            if korean
+            else (
+                "Persisted the authenticated read-only request and queued it for Core "
+                "investigation."
+            )
+        )
+    return (
+        "Core가 정확한 대상, 허용 범위, 사용 가능한 근거 기능을 검증하고 제한된 조회 "
+        "계획을 구성합니다."
+        if korean
+        else (
+            "Core is validating the exact target, allowed scope, and available evidence "
+            "capabilities before compiling a bounded read plan."
+        )
+    )
+
+
 def _terminal_progress(locale: str) -> dict[str, str]:
     if locale.casefold().startswith("ko"):
         return {
@@ -853,6 +1136,37 @@ def _terminal_progress(locale: str) -> dict[str, str]:
         "verification": "Evidence verification completed.",
         "presentation": "Operator answer prepared.",
     }
+
+
+def _terminal_progress_detail(phase: str, locale: str) -> str:
+    korean = locale.casefold().startswith("ko")
+    details = {
+        "evidence": (
+            "검증된 조회 노드가 모두 최종 상태에 도달했으며 각 실행 기록은 아래 단계에 표시됩니다."
+            if korean
+            else (
+                "Every verified query node reached a terminal state; each execution receipt "
+                "is shown below."
+            )
+        ),
+        "verification": (
+            "Core가 계획 digest, 실행 receipt, 근거 참조, 권한 없음 계약을 다시 검증했습니다."
+            if korean
+            else (
+                "Core rechecked the plan digest, execution receipts, evidence references, "
+                "and no-authority contract."
+            )
+        ),
+        "presentation": (
+            "검증된 관측 사실, 경쟁 가설, 한계, 다음 읽기 전용 단계를 운영자 답변으로 구성했습니다."
+            if korean
+            else (
+                "Prepared the operator answer from verified observations, competing "
+                "hypotheses, limitations, and the next read-only step."
+            )
+        ),
+    }
+    return details[phase]
 
 
 def _mapping_text(value: Mapping[str, Any], key: str) -> str:

@@ -16,6 +16,7 @@ from fdai.shared.providers.conversation_channel import (
     ConversationChannelKind,
     ConversationExecutionStatus,
     ConversationProgressPresentation,
+    ExecutionTarget,
     ObservedExecutionActivity,
     OutboundResponse,
     outbound_response_from_json,
@@ -79,6 +80,14 @@ def test_agent_activity_round_trips_through_durable_response() -> None:
                 status=ConversationExecutionStatus.COMPLETED,
                 redacted=True,
                 input_kind="query",
+                target=ExecutionTarget(
+                    interface_kind="internal_query",
+                    service="core-control-plane",
+                    component="OntologyQueryPlanExecutor",
+                    operation="object_set_materialization",
+                    source_kind="ontology_instance_store",
+                    transport="event_bus",
+                ),
                 output='{"point_count": 2, "status": "completed"}',
                 duration_ms=42,
                 authority="server_read_model",
@@ -91,6 +100,7 @@ def test_agent_activity_round_trips_through_durable_response() -> None:
     assert restored.activities == response.activities
     assert isinstance(restored.activities[1], ObservedExecutionActivity)
     assert restored.activities[1].input_kind == "query"
+    assert restored.activities[1].target == response.activities[1].target
     assert restored.progress_presentation is ConversationProgressPresentation.TIMELINE
 
 
@@ -125,6 +135,37 @@ def test_durable_activity_rejects_scalar_type_coercion(
     serialized["activities"][0][field_name] = malformed
 
     with pytest.raises(ValueError):
+        outbound_response_from_json(serialized)
+
+
+def test_durable_activity_rejects_contradictory_execution_target() -> None:
+    serialized = outbound_response_to_json(
+        _response(
+            activities=(
+                ObservedExecutionActivity(
+                    agent="Heimdall",
+                    label="Query ontology evidence",
+                    tool="Ontology query",
+                    command="{}",
+                    status=ConversationExecutionStatus.COMPLETED,
+                    redacted=True,
+                    input_kind="query",
+                    target=ExecutionTarget(
+                        interface_kind="internal_query",
+                        service="core-control-plane",
+                        component="OntologyQueryPlanExecutor",
+                        operation="object_set_materialization",
+                    ),
+                ),
+            )
+        )
+    )
+    serialized["activities"][0]["target"]["endpoint"] = {
+        "method": "GET",
+        "path": "/ontology/graph",
+    }
+
+    with pytest.raises(ValueError, match="non-HTTP activity target"):
         outbound_response_from_json(serialized)
 
 

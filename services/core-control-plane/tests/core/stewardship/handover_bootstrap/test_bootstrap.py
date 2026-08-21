@@ -27,9 +27,9 @@ _ALEX_OID = "00000000-0000-0000-0000-000000000102"
 def _docs() -> tuple[HandoverDocument, ...]:
     text = "\n".join(
         [
-            "Cost governance owner: Jane Kim is accountable for spend.",
-            "Rollback and disaster recovery owner: Alex Park.",
-            "Chaos engineering game day owner: Sam Lee.",
+            "Agent: Njord; responsibility: accountable; subject: user; identity: Jane Kim",
+            "Agent: Vidar; responsibility: accountable; subject: user; identity: Alex Park",
+            "Agent: Loki; responsibility: accountable; subject: user; identity: Sam Lee",
         ]
     )
     return (HandoverDocument(doc_id="raci-1", kind=DocumentKind.RACI, text=text),)
@@ -67,16 +67,30 @@ async def test_bootstrap_resolves_flags_and_surfaces() -> None:
 
 
 async def test_low_confidence_is_set_aside_not_applied() -> None:
-    # A bare name with no explicit ownership cue scores below a raised floor,
-    # so it lands in the abstain bucket rather than the applied draft.
+    class _LowConfidenceInterpreter:
+        async def interpret(self, document: HandoverDocument) -> tuple[ExtractedMapping, ...]:
+            return (
+                ExtractedMapping(
+                    agent_name="Vidar",
+                    person=PersonRef("Alex Park", StewardKind.USER),
+                    responsibility=Responsibility.ACCOUNTABLE,
+                    confidence=0.7,
+                    source=MappingSource.MODEL,
+                    citations=(SourceSpan(document.doc_id, 1, document.text),),
+                    rationale="model proposal below configured floor",
+                ),
+            )
+
     doc = HandoverDocument(
         doc_id="memo-2",
         kind=DocumentKind.OTHER,
         text="Rollback and failover: Alex Park",
     )
-    draft = await HandoverBootstrapper(directory=_directory(), confidence_floor=0.8).bootstrap(
-        (doc,)
-    )
+    draft = await HandoverBootstrapper(
+        directory=_directory(),
+        interpreter=_LowConfidenceInterpreter(),
+        confidence_floor=0.8,
+    ).bootstrap((doc,))
     assert draft.outcome is DraftOutcome.ABSTAINED
     assert draft.mappings == ()
     assert draft.abstained

@@ -1,12 +1,9 @@
 /**
- * Fallback-typewriter test for :func:`askBackendStream`.
+ * Unavailable-result typewriter test for :func:`askBackendStream`.
  *
  * When the SSE endpoint fails (offline, 501, error frame, ...) the deck
- * used to dump the whole deterministic reply through ``onToken`` in ONE
- * call, which paints the answer atomically and looks non-streaming to
- * the operator. The current implementation types the fallback in through
- * :func:`chunksForTypewriter` so the deck always LOOKS live even when
- * the upstream LLM is down. This test locks that in.
+ * types an explicit unavailable result through ``onToken``. It never sends
+ * the operator's words through the retired local lexical answerer.
  *
  * Read-only, hermetic: mocked fetch, patched typewriter cadence to 0ms.
  */
@@ -53,7 +50,7 @@ describe("askBackendStream fallback typewriter", () => {
     vi.unstubAllGlobals();
   });
 
-  test("offline fallback types in progressively (many onToken calls)", async () => {
+  test("offline unavailable result types without interpreting the prompt", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => {
@@ -71,15 +68,17 @@ describe("askBackendStream fallback typewriter", () => {
     });
 
     expect(reply.text.length).toBeGreaterThan(0);
-    // If the fallback dumped the whole answer at once we'd see length === 1;
+    // If the unavailable result arrived at once we'd see length === 1;
     // the typewriter must produce many chunks.
     expect(deltas.length).toBeGreaterThan(2);
     // And the accumulated deltas MUST reconstruct the final reply text exactly.
     expect(deltas.join("")).toBe(reply.text);
-    expect(reply.source.startsWith("deterministic (")).toBe(true);
+    expect(reply.source).toBe("unavailable (offline)");
+    expect(reply.text).toBe("Semantic interpretation is unavailable for this turn.");
+    expect(reply.citations).toEqual([]);
   });
 
-  test("501 fallback (LLM not configured) also types in progressively", async () => {
+  test("501 unavailable result also types in progressively", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(
@@ -100,7 +99,7 @@ describe("askBackendStream fallback typewriter", () => {
 
     expect(deltas.length).toBeGreaterThan(2);
     expect(deltas.join("")).toBe(reply.text);
-    expect(reply.source).toContain("LLM not configured");
+    expect(reply.source).toBe("unavailable (model not configured)");
   });
 
   test("background-tab fallback completes without timer throttling", async () => {
@@ -120,7 +119,7 @@ describe("askBackendStream fallback typewriter", () => {
     });
 
     expect(deltas.join("")).toBe(reply.text);
-    expect(reply.source).toBe("deterministic (offline)");
+    expect(reply.source).toBe("unavailable (offline)");
   });
 
   test("unfocused-window fallback also skips cosmetic pacing", async () => {
@@ -292,7 +291,7 @@ describe("askBackendStream fallback typewriter", () => {
       onToken: () => undefined,
     });
 
-    expect(reply.source).toBe("deterministic (stream interrupted)");
+    expect(reply.source).toBe("unavailable (stream interrupted)");
   });
 
   test("flushes a UTF-8 code point split across network chunks", async () => {
@@ -341,7 +340,7 @@ describe("askBackendStream fallback typewriter", () => {
     const reply = await mod.askBackendStream("q", snap(), [], { onToken: () => undefined });
 
     expect(reply.text).not.toContain("must not survive");
-    expect(reply.source).toBe("deterministic (blocked by content policy)");
+    expect(reply.source).toBe("unavailable (blocked by content policy)");
   });
 
   test("ignores every frame after the first terminal done event", async () => {
@@ -685,7 +684,7 @@ describe("askBackendStream fallback typewriter", () => {
     expect(reply.source).toBe("stopped");
   });
 
-  test("answers ontology query guidance when an empty stream ends in error", async () => {
+  test("does not infer ontology guidance when an empty stream ends in error", async () => {
     const body = 'event: error\ndata: {"detail":"upstream reset"}\n\n';
     vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
     const mod = await import("./backend");
@@ -699,12 +698,31 @@ describe("askBackendStream fallback typewriter", () => {
       { onToken: (delta) => deltas.push(delta) },
     );
 
-    expect(reply.source).toBe("deterministic (stream error)");
-    expect(reply.text).toContain("Objects, Links, and Actions");
-    expect(reply.text).toContain("GET /ontology/graph");
-    expect(reply.text).toContain("Agent");
-    expect(reply.text).not.toBe("Ontology - 28 ObjectTypes - 45 LinkTypes - 40 ActionTypes.");
+    expect(reply.source).toBe("unavailable (stream error)");
+    expect(reply.text).toBe("Semantic interpretation is unavailable for this turn.");
+    expect(reply.citations).toEqual([]);
     expect(deltas.join("")).toBe(reply.text);
+  });
+
+  test("JSON transport returns one prompt-independent unavailable result", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new TypeError("network offline");
+      }),
+    );
+    const mod = await import("./backend");
+
+    const first = await mod.askBackend("list every failed resource", snap(), []);
+    const second = await mod.askBackend("왜 실패했어?", ontologySnap(), []);
+
+    expect(first).toEqual(second);
+    expect(first).toEqual({
+      text: "Semantic interpretation is unavailable for this turn.",
+      citations: [],
+      followUps: [],
+      source: "unavailable (offline)",
+    });
   });
 
   test("applies one monotonic verified revision to the provisional answer", async () => {
@@ -1062,9 +1080,17 @@ describe("askBackendStream fallback typewriter", () => {
   });
 
   test.each([
-    ["mismatched request binding", { v: 1, request_id: "another-request", seq: 1 }],
-    ["missing required sequence", { v: 1, request_id: "REQUEST_ID" }],
-  ])("fails closed on a v1 %s", async (_name, frame) => {
+    [
+      "mismatched request binding",
+      { v: 1, request_id: "another-request", seq: 1 },
+      "unavailable (stream request mismatch)",
+    ],
+    [
+      "missing required sequence",
+      { v: 1, request_id: "REQUEST_ID" },
+      "unavailable (missing stream sequence)",
+    ],
+  ])("fails closed on a v1 %s", async (_name, frame, expectedSource) => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (_input, init) => {
@@ -1083,11 +1109,59 @@ describe("askBackendStream fallback typewriter", () => {
       }),
     );
     const mod = await import("./backend");
+    const before = mod.streamProtocolMetricsSnapshot();
 
     const reply = await mod.askBackendStream("q", snap(), [], { onToken: () => undefined });
 
-    expect(reply.source).toBe("partial (sequence gap)");
+    expect(reply.source).toBe(expectedSource);
     expect(reply.verification).toBeUndefined();
+    expect(mod.streamProtocolMetricsSnapshot().protocolErrors).toBe(
+      before.protocolErrors + 1,
+    );
+  });
+
+  test("fails closed on malformed JSON after preserving only emitted text", async () => {
+    const body = [
+      'event: token\ndata: {"seq":1,"revision":0,"delta":"Draft"}\n\n',
+      'event: done\ndata: {"seq":2,"answer":\n\n',
+      'event: done\ndata: {"seq":3,"answer":"must not be accepted"}\n\n',
+    ].join("");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+    const mod = await import("./backend");
+    const before = mod.streamProtocolMetricsSnapshot();
+
+    const reply = await mod.askBackendStream("q", snap(), [], { onToken: () => undefined });
+
+    expect(reply.text).toBe("Draft");
+    expect(reply.source).toBe("partial (malformed stream frame)");
+    expect(reply.verification).toBeUndefined();
+    const after = mod.streamProtocolMetricsSnapshot();
+    expect(after.protocolErrors).toBe(before.protocolErrors + 1);
+    expect(after.partialTerminals).toBe(before.partialTerminals + 1);
   });
 
 });
+
+  test("bounds progress text before rendering it", async () => {
+    const oversized = "x".repeat(513);
+    const body = [
+      `event: status\ndata: ${JSON.stringify({ phase: oversized, label: oversized })}\n\n`,
+      'event: done\ndata: {"answer":"ready","model":"gpt-test"}\n\n',
+    ].join("");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+    const mod = await import("./backend");
+    const progress = vi.fn();
+
+    await mod.askBackendStream("q", snap(), [], {
+      onToken: () => undefined,
+      onProgress: progress,
+    });
+
+    expect(progress).toHaveBeenCalledWith({
+      phase: "status",
+      label: "Checking answer",
+      completed: null,
+      total: null,
+      sources: [],
+    });
+  });

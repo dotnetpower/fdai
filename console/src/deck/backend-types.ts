@@ -199,6 +199,7 @@ export interface InvestigationExecutionEvidence {
   readonly tool: string;
   readonly command: string;
   readonly inputKind?: "command" | "query";
+  readonly target?: InvestigationExecutionTarget;
   readonly redacted: true;
   readonly output?: string;
   readonly outputTruncated?: boolean;
@@ -206,6 +207,19 @@ export interface InvestigationExecutionEvidence {
   readonly startedAt?: string;
   readonly completedAt?: string;
   readonly durationMs?: number;
+}
+
+export interface InvestigationExecutionTarget {
+  readonly interfaceKind: "internal_query" | "http" | "cli" | "sdk";
+  readonly service: string;
+  readonly component: string;
+  readonly operation: string;
+  readonly sourceKind?: string;
+  readonly transport?: "event_bus" | "in_process";
+  readonly endpoint?: {
+    readonly method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+    readonly path: string;
+  };
 }
 
 export interface InvestigationActivity {

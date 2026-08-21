@@ -3,7 +3,7 @@
 Sole responsibility: turn one natural-language utterance into ONE
 Chat T0 verb string that the shipped
 :class:`~fdai.core.conversation.coordinator.ConversationCoordinator`
-regex matcher will resolve, or abstain.
+exact-command parser will resolve, or abstain.
 
 Design authority
 ----------------
@@ -13,7 +13,7 @@ narrator as a **translator, never a judge**:
 
 - The narrator is NOT allowed to invent tool arguments, execute a
   side effect, or write to any store. It emits a *string*; the
-  coordinator's T0 regex parses it back into ``(tool, args)`` under
+    coordinator's exact-command parser converts it into ``(tool, args)`` under
   the same rules an operator typing the verb by hand would face.
 - Narrator abstention (returning ``None`` / an unparseable string) is
   a fail-closed outcome - the coordinator abstains with the tool
@@ -27,12 +27,6 @@ Upstream ships:
 - :class:`Narrator` - the Protocol every adapter satisfies.
 - :class:`ToolSchema` / :class:`NarratorArgumentSchema` - the tool
   metadata the coordinator hands to the narrator.
-- :class:`DeterministicKeywordNarrator` - a fake / seed narrator used
-  by tests and by ``tools/chat.py`` when no LLM binding is wired. It
-  looks for keyword hints in the utterance (e.g. Korean 'audit'
-  '감사 로그', English 'runbook' / 'audit log') and emits a
-  matching verb, or abstains.
-
 The real Azure OpenAI-backed narrator is a delivery-layer adapter
 (see :mod:`fdai.delivery.azure.llm.narrator`) - `core/` MUST
 NOT import from `delivery/`.
@@ -40,7 +34,6 @@ NOT import from `delivery/`.
 
 from __future__ import annotations
 
-import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
@@ -56,8 +49,7 @@ class ToolSchema:
     """One tool description the narrator sees.
 
     ``verb`` is the canonical Chat T0 verb (matches the shipped
-    :func:`~fdai.core.conversation.coordinator._VERB_PATTERNS`
-    entry). ``argument_hint`` is a free-form English hint an LLM
+    installed command name). ``argument_hint`` is a free-form English hint an LLM
     can lean on ("<resource_type> [substring]", "<approval_id>", ...).
     ``rbac_floor`` is the minimum role - narrator MAY omit tools
     above the current principal's role from the prompt, but the
@@ -76,7 +68,7 @@ class ToolSchema:
 class Narrator(Protocol):
     """Translate one utterance into a Chat T0 verb string, or abstain.
 
-    Return the canonical verb line the coordinator's regex accepts
+    Return the canonical verb line the coordinator's exact-command parser accepts
     (e.g. ``"query_inventory resource-group"``), or :class:`None` to
     abstain (fail-closed - the coordinator emits an
     :class:`~fdai.core.conversation.tools.AbstainResult`).
@@ -161,130 +153,10 @@ class GroundedAnswerNarrator(Protocol):
     ) -> str | None: ...
 
 
-# ---------------------------------------------------------------------------
-# Deterministic seed narrator (fake / tests)
-# ---------------------------------------------------------------------------
-
-
-# Bilingual keyword -> canonical verb prefix table. Deliberately small:
-# the deterministic narrator is a fallback, not a substitute for an LLM.
-# Every English keyword MUST also be a T0 verb prefix so the produced
-# string is guaranteed to parse; Korean keywords are hand-picked from
-# common operator prompts and MUST map to the same English verb.
-_KEYWORD_TABLE: tuple[tuple[str, str], ...] = (
-    # search_conversations
-    ("search_conversations", "search_conversations"),
-    ("conversation history", "search_conversations"),
-    ("prior conversations", "search_conversations"),
-    ("대화 검색", "search_conversations"),
-    ("이전 대화", "search_conversations"),
-    # explore_catalog
-    ("explore_catalog", "explore_catalog"),
-    ("list_rules", "explore_catalog"),
-    ("카탈로그", "explore_catalog"),
-    ("규칙 목록", "explore_catalog"),
-    # query_inventory
-    ("query_inventory", "query_inventory"),
-    ("list_resources", "query_inventory"),
-    ("인벤토리", "query_inventory"),
-    ("리소스 그룹 목록", "query_inventory resource-group"),
-    ("리소스 목록", "query_inventory"),
-    # query_audit
-    ("query_audit", "query_audit"),
-    ("audit_log", "query_audit"),
-    ("감사 로그", "query_audit"),
-    ("감사 내역", "query_audit"),
-    # list_hil
-    ("list_hil", "list_hil"),
-    ("pending_approvals", "list_hil"),
-    ("승인 대기", "list_hil"),
-    # query_operator_memory
-    ("query_operator_memory", "query_operator_memory"),
-    ("operator_memory", "query_operator_memory"),
-    ("오퍼레이터 메모리", "query_operator_memory"),
-    # query_log / metric / deployments / correlate
-    ("query_log", "query_log"),
-    ("로그 조회", "query_log"),
-    ("query_metric", "query_metric"),
-    ("메트릭", "query_metric"),
-    ("query_deployments", "query_deployments"),
-    ("배포 이력", "query_deployments"),
-    ("correlate_incident", "correlate_incident"),
-)
-
-
-class DeterministicKeywordNarrator:
-    """Keyword-lookup narrator used as a fallback / test seed.
-
-    Never calls an LLM, never allocates memory beyond the input string.
-    Matches on the FIRST English or Korean keyword the utterance
-    contains (case-insensitive). Emits the corresponding verb prefix -
-    the coordinator's regex will bind whatever argument text follows.
-
-    A real LLM narrator (fork adapter) replaces this in production;
-    upstream keeps this class so:
-
-    - ``tools/chat.py`` works out of the box without an LLM binding
-      for at least a curated bilingual keyword set.
-    - Contract tests can assert coordinator + narrator wiring without
-      pulling in an Azure adapter.
-    """
-
-    def __init__(self, table: Sequence[tuple[str, str]] | None = None) -> None:
-        entries = tuple(table) if table is not None else _KEYWORD_TABLE
-        if not entries:
-            raise ValueError("DeterministicKeywordNarrator requires >= 1 keyword")
-        self._entries: tuple[tuple[str, str], ...] = entries
-
-    def translate(
-        self,
-        *,
-        utterance: str,
-        tools: Sequence[ToolSchema],
-        principal_role: str,  # noqa: ARG002 - kept for Protocol parity
-    ) -> str | None:
-        del tools  # deterministic table ignores the schema
-        stripped = utterance.strip()
-        if not stripped:
-            return None
-        # Prefer the longest keyword match so a compound phrase like
-        # "resource group list" wins over the shorter "resource list"
-        # substring in the keyword table.
-        matches = sorted(
-            (
-                (keyword, verb)
-                for keyword, verb in self._entries
-                if _keyword_present(stripped, keyword)
-            ),
-            key=lambda pair: -len(pair[0]),
-        )
-        if not matches:
-            return None
-        return matches[0][1]
-
-
-def _keyword_present(haystack: str, needle: str) -> bool:
-    """Case-insensitive substring test with word-boundary respect for ASCII.
-
-    Korean (Hangul) never needs a word boundary; English keywords do
-    so ``"list_rules"`` does NOT match ``"listen_rules"``.
-    """
-    if not needle:
-        return False
-    lowered_haystack = haystack.lower()
-    lowered_needle = needle.lower()
-    if needle.isascii() and re.fullmatch(r"[a-z0-9_]+", lowered_needle):
-        pattern = rf"(?<![a-z0-9_]){re.escape(lowered_needle)}(?![a-z0-9_])"
-        return re.search(pattern, lowered_haystack) is not None
-    return lowered_needle in lowered_haystack
-
-
 def default_tool_schemas() -> tuple[ToolSchema, ...]:
     """Ship the tool metadata the narrator sees.
 
-    Mirrors the shipped :func:`~fdai.core.conversation.coordinator._VERB_PATTERNS`
-    verb set. New verbs added to the coordinator MUST be reflected here
-    (drift-guard tested).
+    Lists canonical installed command names available for model translation.
     """
     return _DEFAULT_SCHEMAS
 
@@ -522,7 +394,6 @@ def format_prompt_tool_list(tools: Sequence[ToolSchema], principal_role: str) ->
 __all__ = [
     "ClarificationNarrator",
     "ContextualNarrator",
-    "DeterministicKeywordNarrator",
     "GroundedAnswerNarrator",
     "Narrator",
     "ReadPlanNarrator",

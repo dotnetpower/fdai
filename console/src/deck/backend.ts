@@ -1,19 +1,18 @@
 /**
- * Chat backend client - POST /chat with graceful fallback.
+ * Chat backend client - POST /chat with explicit unavailable results.
  *
  * Single responsibility: turn a (prompt, snapshot, history) call into
  * an HTTP round-trip and normalise the reply / failure so the deck UI
- * can render either a real LLM answer or the deterministic answerer's
- * fallback without branching on transport details.
+ * can render either a model-backed answer or a typed unavailable result
+ * without branching on transport details.
  *
  * The client also exposes a lightweight preflight (``probeBackend``)
  * that hits ``GET /chat/health`` once. The deck header renders the
  * returned descriptor as a status badge (``LLM ready · gpt-4o-mini``
- * or ``deterministic fallback``) so the operator sees the mode BEFORE
+ * or unavailable) so the operator sees the mode BEFORE
  * asking the first question - matching the "LLM by default" contract.
  */
 
-import { answer as deterministicAnswer } from "./answerer";
 import { createActionConfirmer, createActionSubmitter } from "./backend-actions";
 import {
   citationsForVerification,
@@ -21,6 +20,7 @@ import {
 } from "./backend-context";
 import { chatUrl, healthUrl, requestHeaders } from "./backend-endpoints";
 import { createBackendHealthProbe } from "./backend-health";
+import { semanticUnavailable } from "./backend-unavailable";
 import {
   extractNumber,
   extractString,
@@ -80,10 +80,9 @@ export const probeBackend = createBackendHealthProbe(
 );
 
 /**
- * Ask the chat backend. Always tries the backend first; falls back to
- * the deterministic answerer per-turn when the request fails. Never
- * caches failures permanently - transient outages self-heal on the
- * next attempt.
+ * Ask the chat backend. A failed model-backed request returns unavailable
+ * without attempting to infer meaning from the operator's words. Failures
+ * are not cached, so a later attempt can recover normally.
  */
 export async function askBackend(
   prompt: string,
@@ -113,36 +112,29 @@ export async function askBackend(
       credentials: "omit",
     });
   } catch {
-    const local = deterministicAnswer(prompt, snapshot);
-    return { ...local, source: "deterministic (offline)" };
+    return semanticUnavailable("offline");
   }
 
   if (response.status === 404 || response.status === 501) {
     // Endpoint not wired on this deployment (no upstream configured).
-    const local = deterministicAnswer(prompt, snapshot);
-    return { ...local, source: "deterministic (LLM not configured)" };
+    return semanticUnavailable("model not configured");
   }
 
   if (response.status === 422) {
     // Prompt refused by the upstream content/jailbreak filter - a safe,
     // expected block (not an outage). Label it distinctly.
-    const local = deterministicAnswer(prompt, snapshot);
-    return { ...local, source: "deterministic (blocked by content policy)" };
+    return semanticUnavailable("blocked by content policy");
   }
 
   if (!response.ok) {
-    // Upstream error - deterministic fallback for this turn only. We do
-    // NOT cache: transient upstream hiccups must self-heal.
-    const local = deterministicAnswer(prompt, snapshot);
-    return { ...local, source: `deterministic (backend ${response.status})` };
+    return semanticUnavailable(`backend ${response.status}`);
   }
 
   let payload: unknown;
   try {
     payload = await response.json();
   } catch {
-    const local = deterministicAnswer(prompt, snapshot);
-    return { ...local, source: "deterministic (bad JSON)" };
+    return semanticUnavailable("bad JSON");
   }
 
   const payloadRecord = typeof payload === "object" && payload !== null
@@ -227,8 +219,7 @@ export async function askBackend(
       : undefined,
   );
   if (answerText === null) {
-    const local = deterministicAnswer(prompt, snapshot);
-    return { ...local, source: "deterministic (no answer field)" };
+    return semanticUnavailable("no answer field");
   }
   // Compose the source badge. Router pick wins over the plain ``model``
   // field so the operator always sees the deployment that actually served
