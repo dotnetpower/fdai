@@ -59,6 +59,7 @@ EXPECTED_DEPENDENCIES = {
         "sqlalchemy",
     },
     "operator-service": {
+        "aiohttp",
         "aiokafka",
         "azure-core",
         "azure-identity",
@@ -112,6 +113,7 @@ EXPECTED_OPTIONAL_DEPENDENCIES = {
 }
 
 INDIRECT_RUNTIME_DEPENDENCIES = {
+    "operator-service": {"aiohttp"},
     "document-ingestion-api": {"aiohttp"},
     "document-processing-worker": {"aiohttp"},
 }
