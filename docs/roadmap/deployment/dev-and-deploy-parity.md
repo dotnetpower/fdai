@@ -11,7 +11,6 @@ title: Runtime Parity - Authoritative Local Development and Test Fixtures
 All profiles share **one control path**: only composition-root adapters and credentials differ ([project-structure.md § Customization via Dependency Injection](../architecture/project-structure.md#customization-via-dependency-injection)). Its reviewed docstring records the existing boundary and does not create a runtime, change state ownership, or allow fixtures. Adding a real Azure client is a fork-side injection; it MUST NOT edit `core/`.
 
 ## Implementation status
-
 ### Implementation scope
 
 | Area | State | Evidence | Notes |
@@ -36,9 +35,9 @@ All profiles share **one control path**: only composition-root adapters and cred
 | FDAI Pylance launch ceiling runtime proof | deferred | A clean FDAI Remote WSL restart still launched Pylance with the bundled VS Code Node executable and without `--max-old-space-size=2048`. VS Code Server 1.133 creates one Remote Machine settings resource independently of the active profile service. | Blocked pending an isolated runtime. A shared Remote Machine override would also affect excluded workspaces, so runtime isolation requires a separate VS Code Server data root or WSL distribution before the ceiling can be enabled. |
 
 ### Implementation history
-
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-21 | implemented | Scoped critical model completeness checks to plans that can change cognitive deployments. Development-gateway targeted plans still converge the existing model account and caller RBAC, but skip unrelated model resolution because their target set contains no cognitive deployment. | `current change`; `.github/workflows/deploy-dev.yml`; focused model-lifecycle and protected-workflow tests; protected runs `32435485872` and `32435748272` exposed the pre-Terraform mismatch. | Rerun the exact Event Bus migration plan; design a separate Foundry multi-publisher endpoint migration before changing the model registry. |
 | 2026-08-19 | implemented | Removed warning-log write amplification and local terminal backpressure from the service hot path. Warning records append under a bounded cross-process lock, compaction runs on a shared five-minute cadence, structured records and terminal buffers have byte ceilings, and repeated aiokafka or Pantheon observer failures retain distinct first and periodic evidence plus recovery counts. | `current change`; focused telemetry, launcher, provider-integration, and framework-layout checks; 16 critique rounds left no finding above Low. | Live processes must restart before they use this revision. Runtime exit-gate and deployment evidence remain unchanged. |
 | 2026-08-19 | implemented | Applied the same four-complete-window catch-up bound to local and deployed jobs. The first local live run showed that an unbounded sequence of individually bounded windows could still consume the source-level timeout before a terminal cursor write. | [Issue #217](https://github.com/dotnetpower/fdai/issues/217); the pre-bound local run reported `source_timeout`; focused shared-provider and runner checks pass 31 cases after the bound. | Retain completed local and deployed-revision campaign evidence. |
 | 2026-08-19 | implemented | Kept Activity Log backlog recovery identical in local and deployed observation jobs. Both use the same timestamp-only adaptive windows, complete-window cursor checkpoints, 10,000-result and 2,000,000-byte ceilings, and immediate `source_catchup` continuation while retaining normal intervals for unrelated failures. | [Issue #217](https://github.com/dotnetpower/fdai/issues/217); focused provider and runner checks pass 30 cases; the behavior remains in the shared source catalog and campaign package. | Retain the completed local campaign, then obtain the existing open deployed-revision campaign evidence. |
@@ -90,7 +89,6 @@ All profiles share **one control path**: only composition-root adapters and cred
 | 2026-08-20 | implemented | Moved question-campaign table creation from the legacy compatibility head to the Core service branch. Both local preparation and protected deployment now converge through the same single writer whether legacy `0086` or the Core branch runs first. | `current change`; service migration inventory checks; disposable PostgreSQL passed both migration orders; fresh adoption passed for all five services. | Retain the successful exact Core apply and post-apply health receipt. |
 
 ### Remaining work
-
 - [ ] Establish an FDAI-only Remote WSL server data root or WSL distribution, then record a restarted Pylance process command containing `--max-old-space-size=2048` without changing the excluded workspace.
 - [ ] Record passing evidence for all 50 registered Console routes, then complete at least 10 assurance rounds and 10 critique/hardening rounds with no unresolved finding above Low severity.
 - [ ] Record a deployed-revision event that reaches an authenticated Live DOM through a replica-specific `FDAI_LIVE_STAGE_CONSUMER_GROUP_ID`; track browser Notifications API and closed-browser push delivery separately if those capabilities enter scope.
@@ -610,7 +608,9 @@ adapter remains under `delivery/azure/`. See
 
 ## Deployer-Scoped LLM Provisioning
 
-At `terraform apply` time the resolver behaves like this:
+Protected full plans that can change cognitive deployments run the resolver and seal its exact
+manifest for apply. A development-gateway targeted plan converges only the existing model account
+and caller RBAC, so it skips model resolution when its target set contains no cognitive deployment.
 
 ![Deployer-Scoped LLM Provisioning. The main stages are [terraform apply\], az account show / + resolve deployer principal, Bootstrap audit entry: / deployer_object_id, sub, region, read rule-catalog/llm-registry.yaml, query Azure catalog: / Foundry / AOAI SKUs available / in var.region, deployer has / Cognitive Services Contributor / on target subscription?, emit warning: / skip LLM provisioning / mark T2 capability = HIL-only, preferred family available / AND deployer sub has quota?, mark this capability HIL-only / continue with remaining, provision deployment / cap_tpm from registry, mixed-model invariant: / primary.publisher != secondary.publisher?, abort with clear error / (fork must expand preferences).](../../diagrams/generated/fdai-roadmap-deployment-dev-and-deploy-parity-01.en.svg)
 

@@ -514,7 +514,7 @@ jobs:
             "$ARM_SUBSCRIPTION_ID" "$TF_VAR_tenant_id"
 
       - name: Resolve and seal model capabilities
-        if: ${{ !inputs.apply && !inputs.deploy_monitoring && env.TF_VAR_enable_llm == 'true' }}
+        if: ${{ !inputs.apply && !inputs.deploy_monitoring && !inputs.deploy_dev_operations_gateway && env.TF_VAR_enable_llm == 'true' }}
         working-directory: ${{ github.workspace }}
         run: |
           set -euo pipefail

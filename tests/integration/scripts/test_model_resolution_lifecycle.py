@@ -22,6 +22,17 @@ def test_protected_deploy_resolves_and_seals_model_manifest_before_plan() -> Non
     assert "RESOLVED_CAPABILITIES_JSON" not in _DEPLOY
 
 
+def test_gateway_targeted_plan_does_not_resolve_untargeted_model_deployments() -> None:
+    resolver_step = _DEPLOY.split("- name: Resolve and seal model capabilities", maxsplit=1)[
+        1
+    ].split("- name: Ensure protected storage containers", maxsplit=1)[0]
+
+    assert "!inputs.deploy_dev_operations_gateway" in resolver_step
+    target_expression = _DEPLOY.split("TF_CLI_ARGS_plan:", maxsplit=1)[1].splitlines()[0]
+    assert "module.llm_azure_openai[0].azurerm_cognitive_account.primary" in target_expression
+    assert "azurerm_cognitive_deployment.capability" not in target_expression
+
+
 def test_exact_apply_restores_the_plan_sealed_model_manifest() -> None:
     assert 'metadata["model_resolution"]' in _DEPLOY
     assert '"resolved_models_digest"' in _DEPLOY

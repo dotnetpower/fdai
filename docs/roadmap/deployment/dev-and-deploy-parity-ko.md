@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 85ede3eb16ba014462a16427db2916c3f8014309
-translation_revised: 2026-08-20
+translation_source_sha: 9a6bd31052b03716bf04d66fd308d88c9cb39d36
+translation_revised: 2026-08-21
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
 
@@ -16,7 +16,6 @@ translation_revised: 2026-08-20
 ([project-structure.md § Customization via 의존성 주입](../architecture/project-structure-ko.md#customization-via-dependency-injection)). 검토된 docstring은 기존 경계를 기록하며 별도 런타임을 만들거나 상태 소유권을 변경하거나 고정본을 허용하지 않습니다. 실제 Azure 클라이언트 추가는 fork-side 주입이며 `core/`를 편집하지 않습니다.
 
 ## 구현 상태
-
 ### 구현 범위
 
 | 영역 | 상태 | 근거 | 참고 |
@@ -41,9 +40,9 @@ translation_revised: 2026-08-20
 | FDAI Pylance launch ceiling 런타임 증명 | deferred | FDAI Remote WSL을 clean restart해도 Pylance는 bundled VS Code Node 실행 파일로 시작했고 `--max-old-space-size=2048`이 없었습니다. VS Code Server 1.133은 활성 프로파일 서비스와 별개로 Remote Machine 설정 리소스 하나를 생성합니다. | 격리된 런타임을 마련할 때까지 blocked 상태입니다. Shared Remote Machine 재정의는 제외 대상 workspace에도 영향을 주므로 ceiling을 활성화하려면 별도 VS Code Server data root 또는 WSL 배포판으로 런타임을 격리해야 합니다. |
 
 ### 구현 이력
-
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
+| 2026-08-21 | implemented | Cognitive deployment를 변경할 수 있는 계획에만 중요한 모델 완결성 검사를 적용했습니다. 개발 게이트웨이 대상 계획은 기존 모델 계정과 호출자 RBAC를 계속 수렴하지만 대상 집합에 cognitive deployment가 없으므로 관련 없는 모델 해석을 건너뜁니다. | `current change`, `.github/workflows/deploy-dev.yml`, 집중 모델 수명 주기 및 보호 workflow 테스트, Terraform 전 불일치를 드러낸 보호 실행 `32435485872`와 `32435748272`. | 동일한 Event Bus 이행 계획을 다시 실행합니다. 모델 레지스트리를 바꾸기 전에 별도의 Foundry 다중 발행기 endpoint 이행을 설계합니다. |
 | 2026-08-19 | implemented | 서비스 hot path에서 경고 로그 쓰기 증폭과 로컬 터미널 역압력을 제거했습니다. 경고 레코드는 범위가 제한된 프로세스 간 잠금 아래 추가하고, 압축은 공유 5분 주기로 실행하며, 구조화 레코드와 터미널 버퍼에 byte 상한을 적용합니다. 반복 aiokafka 또는 Pantheon 관찰자 실패는 서로 다른 최초·주기 근거와 복구 횟수를 보존합니다. | `current change`, 집중 telemetry·launcher·provider integration·framework layout 검사, 16회 비평 라운드 결과 Low를 넘는 발견 사항 없음 | 실제 프로세스가 이 개정 번호를 사용하려면 다시 시작해야 합니다. 런타임 종료 게이트와 배포 근거는 변경되지 않았습니다. |
 | 2026-08-19 | implemented | 로컬 및 배포 job에 완전한 창 4개라는 동일한 catch-up 상한을 적용했습니다. 첫 로컬 실제 실행에서 개별 창이 각각 범위 내에 있어도 창의 연속 개수가 제한되지 않으면 terminal cursor 기록 전에 source 수준 timeout을 소진할 수 있음을 확인했습니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). Bound 전 로컬 실행은 `source_timeout`을 보고했고, 이후 focused 공유 provider 및 runner 검사 31개가 통과했습니다. | 완료된 로컬 및 배포 revision campaign 근거를 보존합니다. |
 | 2026-08-19 | implemented | 로컬 및 배포 observation job에서 Activity Log backlog 복구 동작을 동일하게 유지했습니다. 두 실행 위치 모두 timestamp 전용 adaptive 창, 완전한 창 단위 cursor checkpoint, result 10,000개 및 2,000,000 byte 상한, 즉시 `source_catchup` 연속 실행을 사용하며 관련 없는 실패는 정상 간격을 유지합니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). Focused provider 및 runner 검사 30개가 통과했습니다. 동작은 공유 출처 catalog와 campaign package에 유지됩니다. | 완료된 로컬 campaign을 보존한 뒤 기존의 열린 배포 revision campaign 근거를 확보합니다. |
@@ -95,7 +94,6 @@ translation_revised: 2026-08-20
 | 2026-08-20 | implemented | PTY host와 셸 시작은 정상인데 VS Code 기본 설정이 사용자가 입력한 통합 터미널의 0이 아닌 종료를 알림으로 표시한다는 진단에 따라 FDAI workspace에서 터미널 종료 알림을 비활성화했습니다. 중복 토스트만 억제하며 터미널 출력, 작업 상태 및 프로세스 종료 코드는 계속 확인할 수 있습니다. | `current change`, `.vscode/settings.json`, `tests/integration/scripts/test_vscode_workspace_performance.py`, 집중 workspace 계약 및 VS Code JSON 진단 | 터미널 종료 토스트에 남은 구현 작업은 없습니다. |
 
 ### 잔여 작업
-
 - [ ] FDAI 전용 Remote WSL server data root 또는 WSL 배포판을 마련한 뒤 제외 대상 workspace를 변경하지 않고 재시작한 Pylance process command에 `--max-old-space-size=2048`이 포함됨을 기록합니다.
 - [ ] 등록된 Console 경로 50개 전체의 통과 근거를 기록한 뒤 최소 10회 보증 라운드와 10회 비평/하드닝 라운드를 완료하여 해결되지 않은 finding의 심각도가 모두 Low 이하임을 입증합니다.
 - [ ] 복제본별 `FDAI_LIVE_STAGE_CONSUMER_GROUP_ID`를 통해 인증된 Live DOM에 도달하는 배포 개정 이벤트를 기록합니다. 브라우저 Notifications API 및 브라우저 종료 상태의 push 전달이 범위에 들어오면 별도로 추적합니다.
@@ -610,7 +608,9 @@ auto-open도 비활성화하므로 결정론적 동등성 테스트가 Azure CLI
 
 ## 배포자-스코프 LLM 프로비저닝
 
-`terraform apply` 시점의 해석기 동작:
+Cognitive deployment를 변경할 수 있는 보호된 전체 계획은 해석기를 실행하고 적용할 정확한
+매니페스트를 봉인합니다. 개발 게이트웨이 대상 계획은 기존 모델 계정과 호출자 RBAC만
+수렴하므로 대상 집합에 cognitive deployment가 없으면 모델 해석을 건너뜁니다.
 
 ![배포자-스코프 LLM 프로비저닝. 주요 단계는 [terraform apply\], az account show / + 배포자 principal 해결, Bootstrap audit entry: / deployer_object_id, sub, region, rule-catalog/llm-registry.yaml 읽기, Azure 카탈로그 조회: / var.region 에서 / 사용가능한 Foundry / AOAI SKU, 배포자가 / Cognitive Services Contributor / 대상 subscription에 있음?, 경고 emit: / LLM 프로비저닝 스킵 / T2 capability = HIL-only, preferred family 사용가능 / AND 배포자 sub 쿼터 있음?, 이 capability HIL-only 마킹 / 나머지는 계속, deployment 프로비저닝 / cap_tpm 은 registry에서, mixed-model 불변식: / primary.publisher != secondary.publisher?, 명확한 에러로 abort / (fork가 preference 확장)입니다.](../../diagrams/generated/fdai-roadmap-deployment-dev-and-deploy-parity-01.ko.svg)
 
