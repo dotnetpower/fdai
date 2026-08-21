@@ -1,8 +1,12 @@
 # SREGym evaluation driver
 
 This package translates the SREGym conductor lifecycle into the benchmark-neutral
-`fdai-evaluation-sdk` contracts. It is installed only in an evaluation driver environment and is
-not part of the FDAI runtime distribution.
+`fdai-evaluation-sdk` contracts. It is not part of the FDAI runtime distribution or the root
+`dev` extra.
+
+> **Runtime status:** Dormant. The adapter and package tests are retained, but the current Core
+> distribution does not provide the `EvaluationHost` required to run an SREGym session. Building
+> the image does not reactivate the integration.
 
 ## Layout
 
@@ -11,13 +15,13 @@ not part of the FDAI runtime distribution.
 | `src/fdai_bench_sregym/adapter.py` | Translates conductor stages to SDK requests, tasks, and results. |
 | `src/fdai_bench_sregym/plugin.py` | Provides the temporary environment factory for compatibility callers. |
 | `Dockerfile` | Layers FDAI and the plugin onto the reviewed SREGym agent base. |
-| `services/core-control-plane/tests/` | Verifies transport validation and fail-closed lifecycle behavior. |
+| `tests/` | Verifies transport validation and fail-closed lifecycle behavior. |
 
 ## Current scope
 
-The driver implements `/status`, `/get_app`, and `/submit`. It requests neutral observation
-capabilities and receives an `EvaluationHost` from its launcher. FDAI owns event construction,
-decision interpretation, authority attenuation, and cleanup behind that public interface.
+The retained driver implements `/status`, `/get_app`, and `/submit`. Its contract requests neutral
+observation capabilities and expects an `EvaluationHost` from its launcher. No current FDAI
+launcher supplies that host.
 
 The package does not inspect SREGym problem definitions, oracles, or grading internals. Metric,
 log, trace, and Kubernetes integrations remain separate provider implementations that should bind

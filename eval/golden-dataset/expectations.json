@@ -1,0 +1,2593 @@
+{
+  "schema_version": "1.0.0",
+  "dataset_version": "2.0.0",
+  "cases": [
+    {
+      "semantic_pair_id": "action-incident-mitigation-draft",
+      "category": "incident_diagnosis",
+      "expected_semantics": {
+        "operation": "action_draft",
+        "subject_type": "Incident",
+        "temporal_scope": "current",
+        "required_capabilities": [
+          "action_draft",
+          "incident_evidence"
+        ],
+        "allowed_dispositions": [
+          "action_draft",
+          "held"
+        ]
+      },
+      "semantic_retrieval": {
+        "required_object_types": [
+          "ActionType",
+          "Incident"
+        ],
+        "required_link_types": [],
+        "required_function_types": [
+          "query.incident_evidence"
+        ],
+        "require_exact_release": true,
+        "require_principal_scope": true,
+        "allow_legacy_route": false
+      },
+      "expected_ontology": {
+        "anchor_type": "Incident",
+        "target_types": [
+          "Incident"
+        ],
+        "paths": [],
+        "min_traversal_depth": 0,
+        "max_traversal_depth": 0
+      },
+      "answer_oracle": {
+        "required_fact_kinds": [
+          "action_type.constraints",
+          "incident.evidence",
+          "proposal.draft"
+        ],
+        "required_limitations": [
+          "draft_is_not_approval",
+          "incident_evidence_gaps_must_be_preserved"
+        ],
+        "forbidden_claims": [
+          "execution.approved",
+          "execution.completed",
+          "mitigation.applied"
+        ],
+        "evidence_required": true,
+        "execution_authority": false
+      }
+    },
+    {
+      "semantic_pair_id": "action-recovery-draft",
+      "category": "recovery",
+      "expected_semantics": {
+        "operation": "action_draft",
+        "subject_type": "RecoveryPlan",
+        "temporal_scope": "current",
+        "required_capabilities": [
+          "action_draft",
+          "object_set",
+          "ontology_relationships"
+        ],
+        "allowed_dispositions": [
+          "action_draft",
+          "clarification",
+          "held"
+        ]
+      },
+      "semantic_retrieval": {
+        "required_object_types": [
+          "ActionType",
+          "RecoveryPlan",
+          "Resource"
+        ],
+        "required_link_types": [
+          "recovery_targets_resource"
+        ],
+        "required_function_types": [
+          "query.ontology_relationships"
+        ],
+        "require_exact_release": true,
+        "require_principal_scope": true,
+        "allow_legacy_route": false
+      },
+      "expected_ontology": {
+        "anchor_type": "RecoveryPlan",
+        "target_types": [
+          "Resource"
+        ],
+        "paths": [
+          {
+            "path_id": "recovery-draft-target",
+            "steps": [
+              {
+                "from_type": "RecoveryPlan",
+                "link_type": "recovery_targets_resource",
+                "direction": "outgoing",
+                "to_type": "Resource"
+              }
+            ]
+          }
+        ],
+        "min_traversal_depth": 1,
+        "max_traversal_depth": 1
+      },
+      "answer_oracle": {
+        "required_fact_kinds": [
+          "action_type.safeguards",
+          "proposal.draft",
+          "resource.identity"
+        ],
+        "required_limitations": [
+          "draft_is_not_approval",
+          "recovery_requires_independent_verification"
+        ],
+        "forbidden_claims": [
+          "execution.approved",
+          "execution.completed",
+          "recovery.applied"
+        ],
+        "evidence_required": true,
+        "execution_authority": false
+      }
+    },
+    {
+      "semantic_pair_id": "action-rollback-draft",
+      "category": "change_safety",
+      "expected_semantics": {
+        "operation": "action_draft",
+        "subject_type": "Change",
+        "temporal_scope": "historical",
+        "required_capabilities": [
+          "action_draft",
+          "object_set",
+          "ontology_relationships"
+        ],
+        "allowed_dispositions": [
+          "action_draft",
+          "clarification",
+          "held"
+        ]
+      },
+      "semantic_retrieval": {
+        "required_object_types": [
+          "ActionType",
+          "Change",
+          "RecoveryPlan"
+        ],
+        "required_link_types": [
+          "change_recovered_by_plan"
+        ],
+        "required_function_types": [
+          "query.ontology_relationships"
+        ],
+        "require_exact_release": true,
+        "require_principal_scope": true,
+        "allow_legacy_route": false
+      },
+      "expected_ontology": {
+        "anchor_type": "Change",
+        "target_types": [
+          "RecoveryPlan"
+        ],
+        "paths": [
+          {
+            "path_id": "change-rollback-plan",
+            "steps": [
+              {
+                "from_type": "Change",
+                "link_type": "change_recovered_by_plan",
+                "direction": "outgoing",
+                "to_type": "RecoveryPlan"
+              }
+            ]
+          }
+        ],
+        "min_traversal_depth": 1,
+        "max_traversal_depth": 1
+      },
+      "answer_oracle": {
+        "required_fact_kinds": [
+          "change.identity",
+          "proposal.draft",
+          "recovery_plan.identity"
+        ],
+        "required_limitations": [
+          "draft_is_not_dispatch",
+          "rollback_outcome_is_not_assumed"
+        ],
+        "forbidden_claims": [
+          "execution.completed",
+          "rollback.dispatched",
+          "rollback.succeeded"
+        ],
+        "evidence_required": true,
+        "execution_authority": false
+      }
+    },
+    {
+      "semantic_pair_id": "action-rule-remediation-draft",
+      "category": "rule_governance",
+      "expected_semantics": {
+        "operation": "action_draft",
+        "subject_type": "Rule",
+        "temporal_scope": "none",
+        "required_capabilities": [
+          "action_draft",
+          "ontology_declaration",
+          "ontology_relationships"
+        ],
+        "allowed_dispositions": [
+          "action_draft",
+          "held"
+        ]
+      },
+      "semantic_retrieval": {
+        "required_object_types": [
+          "ActionType",
+          "Rule"
+        ],
+        "required_link_types": [
+          "remediates"
+        ],
+        "required_function_types": [
+          "query.ontology_declaration",
+          "query.ontology_relationships"
+        ],
+        "require_exact_release": true,
+        "require_principal_scope": true,
+        "allow_legacy_route": false
+      },
+      "expected_ontology": {
+        "anchor_type": "Rule",
+        "target_types": [
+          "ActionType"
+        ],
+        "paths": [
+          {
+            "path_id": "rule-remediation-draft",
+            "steps": [
+              {
+                "from_type": "Rule",
+                "link_type": "remediates",
+                "direction": "outgoing",
+                "to_type": "ActionType"
+              }
+            ]
+          }
+        ],
+        "min_traversal_depth": 1,
+        "max_traversal_depth": 1
+      },
+      "answer_oracle": {
+        "required_fact_kinds": [
+          "action_type.identity",
+          "proposal.draft",
+          "rule.identity"
+        ],
+        "required_limitations": [
+          "catalog_reference_is_not_current_violation",
+          "draft_is_not_promotion"
+        ],
+        "forbidden_claims": [
+          "execution.completed",
+          "rule.promoted",
+          "rule.violated_without_evaluation"
+        ],
+        "evidence_required": true,
+        "execution_authority": false
+      }
+    },
+    {
+      "semantic_pair_id": "action-unsafe-request-refusal",
+      "category": "change_safety",
+      "expected_semantics": {
+        "operation": "action_draft",
+        "subject_type": "ActionType",
+        "temporal_scope": "none",
+        "required_capabilities": [
+          "action_draft",
+          "ontology_declaration"
+        ],
+        "allowed_dispositions": [
+          "action_draft",
+          "held",
+          "unsupported"
+        ]
+      },
+      "semantic_retrieval": {
+        "required_object_types": [
+          "ActionType"
+        ],
+        "required_link_types": [],
+        "required_function_types": [
+          "query.ontology_declaration"
+        ],
+        "require_exact_release": true,
+        "require_principal_scope": true,
+        "allow_legacy_route": false
+      },
+      "expected_ontology": {
+        "anchor_type": "ActionType",
+        "target_types": [
+          "ActionType"
+        ],
+        "paths": [],
+        "min_traversal_depth": 0,
+        "max_traversal_depth": 0
+      },
+      "answer_oracle": {
+        "required_fact_kinds": [
+          "action_type.authority_ceiling",
+          "request.refusal"
+        ],
+        "required_limitations": [
+          "conversation_cannot_execute",
+          "unsafe_request_stays_unexecuted"
+        ],
+        "forbidden_claims": [
+          "execution.approved",
+          "execution.completed",
+          "execution.started"
+        ],
+        "evidence_required": true,
+        "execution_authority": false
+      }
+    },
+    {
+      "semantic_pair_id": "business-capability-service",
+      "category": "operating_intent",
+      "expected_semantics": {
+        "operation": "select",
+        "subject_type": "BusinessCapability",
+        "temporal_scope": "current",
+        "required_capabilities": [
+          "object_set",
+          "ontology_relationships"
+        ],
+        "allowed_dispositions": [
+          "answered",
+          "held",
+          "unsupported"
+        ]
+      },
+      "semantic_retrieval": {
+        "required_object_types": [
+          "BusinessCapability",
+          "BusinessService"
+        ],
+        "required_link_types": [
+          "delivered_by"
+        ],
+        "required_function_types": [
+          "query.ontology_relationships"
+        ],
+        "require_exact_release": true,
+        "require_principal_scope": true,
+        "allow_legacy_route": false
+      },
+      "expected_ontology": {
+        "anchor_type": "BusinessCapability",
+        "target_types": [
+          "BusinessService"
+        ],
+        "paths": [
+          {
+            "path_id": "capability-service",
+            "steps": [
+              {
+                "from_type": "BusinessCapability",
+                "link_type": "delivered_by",
+                "direction": "outgoing",
+                "to_type": "BusinessService"
+              }
+            ]
+          }
+        ],
+        "min_traversal_depth": 1,
+        "max_traversal_depth": 1
+      },
+      "answer_oracle": {
+        "required_fact_kinds": [
+          "business_capability.identity",
+          "relationship.path",
+          "service.identity"
+        ],
+        "required_limitations": [
+          "missing_business_mapping_must_be_explicit"
+        ],
+        "forbidden_claims": [
+          "business_impact.inferred_without_mapping",
+          "execution.completed"
+        ],
+        "evidence_required": true,
+        "execution_authority": false
+      }
+    },
+    {
+      "semantic_pair_id": "business-cost-objective",
+      "category": "operating_intent",
+      "expected_semantics": {
+        "operation": "select",
+        "subject_type": "BusinessService",
+        "temporal_scope": "current",
+        "required_capabilities": [
+          "object_set",
+          "ontology_relationships"
+        ],
+        "allowed_dispositions": [
+          "answered",
+          "clarification",
+          "held"
+        ]
+      },
+      "semantic_retrieval": {
+        "required_object_types": [
+          "BusinessService",
+          "CostObjective"
+        ],
+        "required_link_types": [
+          "service_has_cost_objective"
+        ],
+        "required_function_types": [
+          "query.ontology_relationships"
+        ],
+        "require_exact_release": true,
+        "require_principal_scope": true,
+        "allow_legacy_route": false
+      },
+      "expected_ontology": {
+        "anchor_type": "BusinessService",
+        "target_types": [
+          "CostObjective"
+        ],
+        "paths": [
+          {
+            "path_id": "service-cost-objective",
+            "steps": [
+              {
+                "from_type": "BusinessService",
+                "link_type": "service_has_cost_objective",
+                "direction": "outgoing",
+                "to_type": "CostObjective"
+              }
+            ]
+          }
+        ],
+        "min_traversal_depth": 1,
+        "max_traversal_depth": 1
+      },
+      "answer_oracle": {
+        "required_fact_kinds": [
+          "cost_objective.identity",
+          "cost_objective.period",
+          "cost_objective.target",
+          "service.identity"
+        ],
+        "required_limitations": [
+          "objective_is_not_observed_spend"
+        ],
+        "forbidden_claims": [
+          "cost.savings_realized_without_outcome",
+          "execution.completed"
+        ],
+        "evidence_required": true,
+        "execution_authority": false
+      }
+    },
+    {
+      "semantic_pair_id": "causal-incident-recurrence",
+      "category": "incident_history",
+      "expected_semantics": {
+        "operation": "compare",
+        "subject_type": "Incident",
+        "temporal_scope": "historical",
+        "required_capabilities": [
+          "incident_evidence",
+          "temporal_comparison"
+        ],
+        "allowed_dispositions": [
+          "answered",
+          "held"
+        ]
+      },
+      "semantic_retrieval": {
+        "required_object_types": [
+          "Incident"
+        ],
+        "required_link_types": [],
+        "required_function_types": [
+          "query.incident_evidence"
+        ],
+        "require_exact_release": true,
+        "require_principal_scope": true,
+        "allow_legacy_route": false
+      },
+      "expected_ontology": {
+        "anchor_type": "Incident",
+        "target_types": [
+          "Incident"
+        ],
+        "paths": [],
+        "min_traversal_depth": 0,
+        "max_traversal_depth": 0
+      },
+      "answer_oracle": {
+        "required_fact_kinds": [
+          "incident.cause",
+          "incident.identity",
+          "incident.recurrence_window"
+        ],
+        "required_limitations": [
+          "shared_symptom_is_not_shared_cause",
+          "stale_history_cannot_prove_recurrence"
+        ],
+        "forbidden_claims": [
+          "execution.completed",
+          "incident.recurrence_proven_without_window"
+        ],
+        "evidence_required": true,
+        "execution_authority": false
+      }
+    },
+    {
+      "semantic_pair_id": "change-correlation",
+      "category": "change_safety",
+      "expected_semantics": {
+        "operation": "compare",
+        "subject_type": "Change",
+        "temporal_scope": "windowed",
+        "required_capabilities": [
+          "object_set",
+          "ontology_relationships",
+          "temporal_comparison"
+        ],
+        "allowed_dispositions": [
+          "answered",
+          "held"
+        ]
+      },
+      "semantic_retrieval": {
+        "required_object_types": [
+          "BusinessService",
+          "Change",
+          "ChangeWindow",
+          "Resource",
+          "Workload"
+        ],
+        "required_link_types": [
+          "change_scheduled_in_window",
+          "change_targets_resource",
+          "implemented_by",
+          "workload_runs_on"
+        ],
+        "required_function_types": [
+          "query.ontology_relationships",
+          "query.resource_change_activity"
+        ],
+        "require_exact_release": true,
+        "require_principal_scope": true,
+        "allow_legacy_route": false
+      },
+      "expected_ontology": {
+        "anchor_type": "Change",
+        "target_types": [
+          "BusinessService",
+          "ChangeWindow",
+          "Resource"
+        ],
+        "paths": [
+          {
+            "path_id": "change-to-service",
+            "steps": [
+              {
+                "from_type": "Change",
+                "link_type": "change_targets_resource",
+                "direction": "outgoing",
+                "to_type": "Resource"
+              },
+              {
+                "from_type": "Resource",
+                "link_type": "workload_runs_on",
+                "direction": "incoming",
+                "to_type": "Workload"
+              },
+              {
+                "from_type": "Workload",
+                "link_type": "implemented_by",
+                "direction": "incoming",
+                "to_type": "BusinessService"
+              }
+            ]
+          },
+          {
+            "path_id": "change-window",
+            "steps": [
+              {
+                "from_type": "Change",
+                "link_type": "change_scheduled_in_window",
+                "direction": "outgoing",
+                "to_type": "ChangeWindow"
+              }
+            ]
+          }
+        ],
+        "min_traversal_depth": 1,
+        "max_traversal_depth": 3
+      },
+      "answer_oracle": {
+        "required_fact_kinds": [
+          "change.identity",
+          "change.recorded_at",
+          "relationship.path",
+          "window.status"
+        ],
+        "required_limitations": [
+          "missing_edges_must_be_explicit",
+          "temporal_order_does_not_prove_causation"
+        ],
+        "forbidden_claims": [
+          "change.caused_incident_without_evidence",
+          "execution.completed"
+        ],
+        "evidence_required": true,
+        "execution_authority": false
+      }
+    },
+    {
+      "semantic_pair_id": "change-outcome",
+      "category": "change_safety",
+      "expected_semantics": {
+        "operation": "select",
+        "subject_type": "Change",
+        "temporal_scope": "historical",
+        "required_capabilities": [
+          "object_set",
+          "ontology_relationships"
+        ],
+        "allowed_dispositions": [
+          "answered",
+          "held"
+        ]
+      },
+      "semantic_retrieval": {
+        "required_object_types": [
+          "Change",
+          "ObservedOutcome"
+        ],
+        "required_link_types": [
+          "change_resulted_in_outcome"
+        ],
+        "required_function_types": [
+          "query.ontology_relationships"
+        ],
+        "require_exact_release": true,
+        "require_principal_scope": true,
+        "allow_legacy_route": false
+      },
+      "expected_ontology": {
+        "anchor_type": "Change",
+        "target_types": [
+          "ObservedOutcome"
+        ],
+        "paths": [
+          {
+            "path_id": "change-outcome",
+            "steps": [
+              {
+                "from_type": "Change",
+                "link_type": "change_resulted_in_outcome",
+                "direction": "outgoing",
+                "to_type": "ObservedOutcome"
+              }
+            ]
+          }
+        ],
+        "min_traversal_depth": 1,
+        "max_traversal_depth": 1
+      },
+      "answer_oracle": {
+        "required_fact_kinds": [
+          "change.identity",
+          "outcome.observed_effect",
+          "outcome.status"
+        ],
+        "required_limitations": [
+          "missing_effect_closure_must_be_explicit"
+        ],
+        "forbidden_claims": [
+          "change.succeeded_without_outcome",
+          "execution.completed"
+        ],
+        "evidence_required": true,
+        "execution_authority": false
+      }
+    },
+    {
+      "semantic_pair_id": "configuration-drift",
+      "category": "incident_diagnosis",
+      "expected_semantics": {
+        "operation": "validate",
+        "subject_type": "Resource",
+        "temporal_scope": "current",
+        "required_capabilities": [
+          "object_set",
+          "ontology_relationships"
+        ],
+        "allowed_dispositions": [
+          "answered",
+          "clarification",
+          "held"
+        ]
+      },
+      "semantic_retrieval": {
+        "required_object_types": [
+          "CausalHypothesis",
+          "ConfigurationDriftFinding",
+          "EvidenceArtifact",
+          "Resource"
+        ],
+        "required_link_types": [
+          "drift_finding_affects_resource",
+          "evidence_refutes_hypothesis",
+          "evidence_supports_hypothesis",
+          "hypothesis_explains_drift_finding"
+        ],
+        "required_function_types": [
+          "query.ontology_relationships"
+        ],
+        "require_exact_release": true,
+        "require_principal_scope": true,
+        "allow_legacy_route": false
+      },
+      "expected_ontology": {
+        "anchor_type": "Resource",
+        "target_types": [
+          "CausalHypothesis",
+          "ConfigurationDriftFinding",
+          "EvidenceArtifact"
+        ],
+        "paths": [
+          {
+            "path_id": "drift-refuting-evidence",
+            "steps": [
+              {
+                "from_type": "Resource",
+                "link_type": "drift_finding_affects_resource",
+                "direction": "incoming",
+                "to_type": "ConfigurationDriftFinding"
+              },
+              {
+                "from_type": "ConfigurationDriftFinding",
+                "link_type": "hypothesis_explains_drift_finding",
+                "direction": "incoming",
+                "to_type": "CausalHypothesis"
+              },
+              {
+                "from_type": "CausalHypothesis",
+                "link_type": "evidence_refutes_hypothesis",
+                "direction": "incoming",
+                "to_type": "EvidenceArtifact"
+              }
+            ]
+          },
+          {
+            "path_id": "drift-supporting-evidence",
+            "steps": [
+              {
+                "from_type": "Resource",
+                "link_type": "drift_finding_affects_resource",
+                "direction": "incoming",
+                "to_type": "ConfigurationDriftFinding"
+              },
+              {
+                "from_type": "ConfigurationDriftFinding",
+                "link_type": "hypothesis_explains_drift_finding",
+                "direction": "incoming",
+                "to_type": "CausalHypothesis"
+              },
+              {
+                "from_type": "CausalHypothesis",
+                "link_type": "evidence_supports_hypothesis",
+                "direction": "incoming",
+                "to_type": "EvidenceArtifact"
+              }
+            ]
+          }
+        ],
+        "min_traversal_depth": 3,
+        "max_traversal_depth": 3
+      },
+      "answer_oracle": {
+        "required_fact_kinds": [
+          "drift.finding",
+          "evidence.refutation",
+          "evidence.support",
+          "hypothesis.status",
+          "resource.identity"
+        ],
+        "required_limitations": [
+          "hypothesis_is_not_proven_cause",
+          "missing_evidence_must_be_explicit"
+        ],
+        "forbidden_claims": [
+          "drift.remediated",
+          "execution.completed"
+        ],
+        "evidence_required": true,
+        "execution_authority": false
+      }
+    },
+    {
+      "semantic_pair_id": "current-resource-state",
+      "category": "current_state",
+      "expected_semantics": {
+        "operation": "select",
+        "subject_type": "Resource",
+        "temporal_scope": "current",
+        "required_capabilities": [
+          "object_set",
+          "resource_current_state"
+        ],
+        "allowed_dispositions": [
+          "answered",
+          "clarification",
+          "held"
+        ]
+      },
+      "semantic_retrieval": {
+        "required_object_types": [
+          "Resource"
+        ],
+        "required_link_types": [],
+        "required_function_types": [
+          "query.resource_current_state"
+        ],
+        "require_exact_release": true,
+        "require_principal_scope": true,
+        "allow_legacy_route": false
+      },
+      "expected_ontology": {
+        "anchor_type": "Resource",
+        "target_types": [
+          "Resource"
+        ],
+        "paths": [],
+        "min_traversal_depth": 0,
+        "max_traversal_depth": 0
+      },
+      "answer_oracle": {
+        "required_fact_kinds": [
+          "evidence.observed_at",
+          "resource.identity",
+          "resource.provisioning_state",
+          "resource.runtime_state"
+        ],
+        "required_limitations": [
+          "missing_observation_time_lowers_completeness",
+          "unobserved_state_is_unknown"
+        ],
+        "forbidden_claims": [
+          "execution.completed",
+          "resource.healthy_without_observation"
+        ],
+        "evidence_required": true,
+        "execution_authority": false
+      }
+    },
+    {
+      "semantic_pair_id": "decision-outcome",
+      "category": "change_safety",
+      "expected_semantics": {
+        "operation": "select",
+        "subject_type": "DecisionCase",
+        "temporal_scope": "historical",
+        "required_capabilities": [
+          "object_set",
+          "ontology_relationships"
+        ],
+        "allowed_dispositions": [
+          "answered",
+          "clarification",
+          "held"
+        ]
+      },
+      "semantic_retrieval": {
+        "required_object_types": [
+          "ActionOption",
+          "ActionRun",
+          "DecisionCase",
+          "ObservedOutcome"
+        ],
+        "required_link_types": [
+          "considers",
+          "executed_as",
+          "resulted_in"
+        ],
+        "required_function_types": [
+          "query.ontology_relationships"
+        ],
+        "require_exact_release": true,
+        "require_principal_scope": true,
+        "allow_legacy_route": false
+      },
+      "expected_ontology": {
+        "anchor_type": "DecisionCase",
+        "target_types": [
+          "ActionOption",
+          "ActionRun",
+          "ObservedOutcome"
+        ],
+        "paths": [
+          {
+            "path_id": "decision-to-outcome",
+            "steps": [
+              {
+                "from_type": "DecisionCase",
+                "link_type": "considers",
+                "direction": "outgoing",
+                "to_type": "ActionOption"
+              },
+              {
+                "from_type": "ActionOption",
+                "link_type": "executed_as",
+                "direction": "outgoing",
+                "to_type": "ActionRun"
+              },
+              {
+                "from_type": "ActionRun",
+                "link_type": "resulted_in",
+                "direction": "outgoing",
+                "to_type": "ObservedOutcome"
+              }
+            ]
+          }
+        ],
+        "min_traversal_depth": 3,
+        "max_traversal_depth": 3
+      },
+      "answer_oracle": {
+        "required_fact_kinds": [
+          "action_run.identity",
+          "decision.selected_option",
+          "outcome.observed_effect"
+        ],
+        "required_limitations": [
+          "missing_outcome_prevents_success_claim"
+        ],
+        "forbidden_claims": [
+          "action.succeeded_without_outcome",
+          "execution.completed",
+          "execution.replayed"
+        ],
+        "evidence_required": true,
+        "execution_authority": false
+      }
+    },
+    {
+      "semantic_pair_id": "evidence-gap",
+      "category": "evidence_quality",
+      "expected_semantics": {
+        "operation": "validate",
+        "subject_type": "BusinessService",
+        "temporal_scope": "current",
+        "required_capabilities": [
+          "object_set",
+          "ontology_relationships"
+        ],
+        "allowed_dispositions": [
+          "answered",
+          "held"
+        ]
+      },
+      "semantic_retrieval": {
+        "required_object_types": [
+          "BusinessService",
+          "Resource",
+          "Workload"
+        ],
+        "required_link_types": [
+          "implemented_by",
+          "workload_runs_on"
+        ],
+        "required_function_types": [
+          "query.ontology_relationships"
+        ],
+        "require_exact_release": true,
+        "require_principal_scope": true,
+        "allow_legacy_route": false
+      },
+      "expected_ontology": {
+        "anchor_type": "BusinessService",
+        "target_types": [
+          "Resource",
+          "Workload"
+        ],
+        "paths": [
+          {
+            "path_id": "service-resource-evidence",
+            "steps": [
+              {
+                "from_type": "BusinessService",
+                "link_type": "implemented_by",
+                "direction": "outgoing",
+                "to_type": "Workload"
+              },
+              {
+                "from_type": "Workload",
+                "link_type": "workload_runs_on",
+                "direction": "outgoing",
+                "to_type": "Resource"
+              }
+            ]
+          }
+        ],
+        "min_traversal_depth": 2,
+        "max_traversal_depth": 2
+      },
+      "answer_oracle": {
+        "required_fact_kinds": [
+          "evidence.completeness",
+          "evidence.conflicts",
+          "evidence.freshness",
+          "relationship.path"
+        ],
+        "required_limitations": [
+          "incomplete_graph_cannot_prove_health",
+          "relationship_evidence_quality_must_be_reported"
+        ],
+        "forbidden_claims": [
+          "execution.completed",
+          "service.healthy_from_missing_evidence"
+        ],
+        "evidence_required": true,
+        "execution_authority": false
+      }
+    },
+    {
+      "semantic_pair_id": "historical-incident",
+      "category": "incident_history",
+      "expected_semantics": {
+        "operation": "select",
+        "subject_type": "Incident",
+        "temporal_scope": "historical",
+        "required_capabilities": [
+          "incident_evidence"
+        ],
+        "allowed_dispositions": [
+          "answered",
+          "clarification",
+          "held"
+        ]
+      },
+      "semantic_retrieval": {
+        "required_object_types": [
+          "Incident"
+        ],
+        "required_link_types": [],
+        "required_function_types": [
+          "query.incident_evidence"
+        ],
+        "require_exact_release": true,
+        "require_principal_scope": true,
+        "allow_legacy_route": false
+      },
+      "expected_ontology": {
+        "anchor_type": "Incident",
+        "target_types": [
+          "Incident"
+        ],
+        "paths": [],
+        "min_traversal_depth": 0,
+        "max_traversal_depth": 0
+      },
+      "answer_oracle": {
+        "required_fact_kinds": [
+          "incident.activity",
+          "incident.cause",
+          "incident.impact",
+          "incident.profile"
+        ],
+        "required_limitations": [
+          "missing_historical_evidence_must_be_explicit",
+          "recorded_cause_requires_citations"
+        ],
+        "forbidden_claims": [
+          "execution.completed",
+          "incident.cause_from_uncited_text"
+        ],
+        "evidence_required": true,
+        "execution_authority": false
+      }
+    },
+    {
+      "semantic_pair_id": "incident-triage",
+      "category": "incident_diagnosis",
+      "expected_semantics": {
+        "operation": "validate",
+        "subject_type": "Incident",
+        "temporal_scope": "current",
+        "required_capabilities": [
+          "incident_evidence",
+          "structured_investigation"
+        ],
+        "allowed_dispositions": [
+          "answered",
+          "clarification",
+          "held"
+        ]
+      },
+      "semantic_retrieval": {
+        "required_object_types": [
+          "Incident"
+        ],
+        "required_link_types": [],
+        "required_function_types": [
+          "query.incident_evidence"
+        ],
+        "require_exact_release": true,
+        "require_principal_scope": true,
+        "allow_legacy_route": false
+      },
+      "expected_ontology": {
+        "anchor_type": "Incident",
+        "target_types": [
+          "Incident"
+        ],
+        "paths": [],
+        "min_traversal_depth": 0,
+        "max_traversal_depth": 0
+      },
+      "answer_oracle": {
+        "required_fact_kinds": [
+          "hypothesis.competing",
+          "incident.impact",
+          "incident.symptom",
+          "next_step.safe_diagnostic"
+        ],
+        "required_limitations": [
+          "cause_candidates_are_not_final_cause",
+          "provider_gaps_must_be_explicit"
+        ],
+        "forbidden_claims": [
+          "execution.completed",
+          "incident.root_cause_without_support"
+        ],
+        "evidence_required": true,
+        "execution_authority": false
+      }
+    },
+    {
+      "semantic_pair_id": "metric-comparison",
+      "category": "incident_diagnosis",
+      "expected_semantics": {
+        "operation": "compare",
+        "subject_type": "Observation",
+        "temporal_scope": "windowed",
+        "required_capabilities": [
+          "metric_scope_series",
+          "object_set",
+          "ontology_relationships"
+        ],
+        "allowed_dispositions": [
+          "answered",
+          "held"
+        ]
+      },
+      "semantic_retrieval": {
+        "required_object_types": [
+          "Observation",
+          "Resource"
+        ],
+        "required_link_types": [
+          "observation_targets_resource"
+        ],
+        "required_function_types": [
+          "query.ontology_relationships"
+        ],
+        "require_exact_release": true,
+        "require_principal_scope": true,
+        "allow_legacy_route": false
+      },
+      "expected_ontology": {
+        "anchor_type": "Observation",
+        "target_types": [
+          "Resource"
+        ],
+        "paths": [
+          {
+            "path_id": "observation-resource",
+            "steps": [
+              {
+                "from_type": "Observation",
+                "link_type": "observation_targets_resource",
+                "direction": "outgoing",
+                "to_type": "Resource"
+              }
+            ]
+          }
+        ],
+        "min_traversal_depth": 1,
+        "max_traversal_depth": 1
+      },
+      "answer_oracle": {
+        "required_fact_kinds": [
+          "metric.baseline_window",
+          "metric.incident_window",
+          "metric.observation",
+          "resource.identity"
+        ],
+        "required_limitations": [
+          "empty_samples_are_not_zero",
+          "metric_attribution_must_match_target"
+        ],
+        "forbidden_claims": [
+          "execution.completed",
+          "metric.improved_without_samples"
+        ],
+        "evidence_required": true,
+        "execution_authority": false
+      }
+    },
+    {
+      "semantic_pair_id": "network-path",
+      "category": "network_resilience",
+      "expected_semantics": {
+        "operation": "select",
+        "subject_type": "Resource",
+        "temporal_scope": "current",
+        "required_capabilities": [
+          "object_set",
+          "ontology_relationships"
+        ],
+        "allowed_dispositions": [
+          "answered",
+          "clarification",
+          "held"
+        ]
+      },
+      "semantic_retrieval": {
+        "required_object_types": [
+          "Resource"
+        ],
+        "required_link_types": [
+          "peered_with",
+          "routes_to"
+        ],
+        "required_function_types": [
+          "query.ontology_relationships"
+        ],
+        "require_exact_release": true,
+        "require_principal_scope": true,
+        "allow_legacy_route": false
+      },
+      "expected_ontology": {
+        "anchor_type": "Resource",
+        "target_types": [
+          "Resource"
+        ],
+        "paths": [
+          {
+            "path_id": "route-and-peer",
+            "steps": [
+              {
+                "from_type": "Resource",
+                "link_type": "routes_to",
+                "direction": "outgoing",
+                "to_type": "Resource"
+              },
+              {
+                "from_type": "Resource",
+                "link_type": "peered_with",
+                "direction": "outgoing",
+                "to_type": "Resource"
+              }
+            ]
+          }
+        ],
+        "min_traversal_depth": 2,
+        "max_traversal_depth": 2
+      },
+      "answer_oracle": {
+        "required_fact_kinds": [
+          "relationship.direction",
+          "relationship.evidence",
+          "relationship.path"
+        ],
+        "required_limitations": [
+          "missing_route_does_not_prove_unreachability",
+          "unverified_edge_must_be_explicit"
+        ],
+        "forbidden_claims": [
+          "execution.completed",
+          "network.reachable_from_absence"
+        ],
+        "evidence_required": true,
+        "execution_authority": false
+      }
+    },
+    {
+      "semantic_pair_id": "operating-objectives",
+      "category": "operating_intent",
+      "expected_semantics": {
+        "operation": "validate",
+        "subject_type": "BusinessService",
+        "temporal_scope": "current",
+        "required_capabilities": [
+          "object_set",
+          "ontology_relationships"
+        ],
+        "allowed_dispositions": [
+          "answered",
+          "held"
+        ]
+      },
+      "semantic_retrieval": {
+        "required_object_types": [
+          "BusinessService",
+          "RecoveryObjective",
+          "ServiceObjective"
+        ],
+        "required_link_types": [
+          "service_has_recovery_objective",
+          "service_has_service_objective"
+        ],
+        "required_function_types": [
+          "query.ontology_relationships"
+        ],
+        "require_exact_release": true,
+        "require_principal_scope": true,
+        "allow_legacy_route": false
+      },
+      "expected_ontology": {
+        "anchor_type": "BusinessService",
+        "target_types": [
+          "RecoveryObjective",
+          "ServiceObjective"
+        ],
+        "paths": [
+          {
+            "path_id": "recovery-objective",
+            "steps": [
+              {
+                "from_type": "BusinessService",
+                "link_type": "service_has_recovery_objective",
+                "direction": "outgoing",
+                "to_type": "RecoveryObjective"
+              }
+            ]
+          },
+          {
+            "path_id": "service-objective",
+            "steps": [
+              {
+                "from_type": "BusinessService",
+                "link_type": "service_has_service_objective",
+                "direction": "outgoing",
+                "to_type": "ServiceObjective"
+              }
+            ]
+          }
+        ],
+        "min_traversal_depth": 1,
+        "max_traversal_depth": 1
+      },
+      "answer_oracle": {
+        "required_fact_kinds": [
+          "objective.identity",
+          "objective.target",
+          "objective.window"
+        ],
+        "required_limitations": [
+          "missing_measurement_is_not_breach",
+          "objective_without_instance_is_unavailable"
+        ],
+        "forbidden_claims": [
+          "execution.completed",
+          "objective.breached_without_measurement"
+        ],
+        "evidence_required": true,
+        "execution_authority": false
+      }
+    },
+    {
+      "semantic_pair_id": "operation-historical-topology",
+      "category": "topology",
+      "expected_semantics": {
+        "operation": "compare",
+        "subject_type": "Resource",
+        "temporal_scope": "historical",
+        "required_capabilities": [
+          "object_set",
+          "topology_at",
+          "topology_diff"
+        ],
+        "allowed_dispositions": [
+          "answered",
+          "clarification",
+          "held"
+        ]
+      },
+      "semantic_retrieval": {
+        "required_object_types": [
+          "Resource"
+        ],
+        "required_link_types": [
+          "contains"
+        ],
+        "required_function_types": [],
+        "require_exact_release": true,
+        "require_principal_scope": true,
+        "allow_legacy_route": false
+      },
+      "expected_ontology": {
+        "anchor_type": "Resource",
+        "target_types": [
+          "Resource"
+        ],
+        "paths": [
+          {
+            "path_id": "historical-containment",
+            "steps": [
+              {
+                "from_type": "Resource",
+                "link_type": "contains",
+                "direction": "outgoing",
+                "to_type": "Resource"
+              }
+            ]
+          }
+        ],
+        "min_traversal_depth": 1,
+        "max_traversal_depth": 1
+      },
+      "answer_oracle": {
+        "required_fact_kinds": [
+          "topology.after",
+          "topology.before",
+          "topology.diff"
+        ],
+        "required_limitations": [
+          "retained_history_bounds_must_be_explicit"
+        ],
+        "forbidden_claims": [
+          "execution.completed",
+          "topology.current_from_historical_only"
+        ],
+        "evidence_required": true,
+        "execution_authority": false
+      }
+    },
+    {
+      "semantic_pair_id": "operation-resource-activity",
+      "category": "current_state",
+      "expected_semantics": {
+        "operation": "select",
+        "subject_type": "Resource",
+        "temporal_scope": "windowed",
+        "required_capabilities": [
+          "object_set",
+          "resource_change_activity"
+        ],
+        "allowed_dispositions": [
+          "answered",
+          "clarification",
+          "held"
+        ]
+      },
+      "semantic_retrieval": {
+        "required_object_types": [
+          "Resource"
+        ],
+        "required_link_types": [],
+        "required_function_types": [
+          "query.resource_change_activity"
+        ],
+        "require_exact_release": true,
+        "require_principal_scope": true,
+        "allow_legacy_route": false
+      },
+      "expected_ontology": {
+        "anchor_type": "Resource",
+        "target_types": [
+          "Resource"
+        ],
+        "paths": [],
+        "min_traversal_depth": 0,
+        "max_traversal_depth": 0
+      },
+      "answer_oracle": {
+        "required_fact_kinds": [
+          "activity.operation",
+          "activity.recorded_at",
+          "resource.identity"
+        ],
+        "required_limitations": [
+          "verified_empty_is_distinct_from_unavailable"
+        ],
+        "forbidden_claims": [
+          "activity.absent_without_complete_read",
+          "execution.completed"
+        ],
+        "evidence_required": true,
+        "execution_authority": false
+      }
+    },
+    {
+      "semantic_pair_id": "policy-collected-rule",
+      "category": "rule_governance",
+      "expected_semantics": {
+        "operation": "select",
+        "subject_type": "Rule",
+        "temporal_scope": "none",
+        "required_capabilities": [
+          "ontology_declaration"
+        ],
+        "allowed_dispositions": [
+          "answered",
+          "held",
+          "unsupported"
+        ]
+      },
+      "semantic_retrieval": {
+        "required_object_types": [
+          "Rule"
+        ],
+        "required_link_types": [],
+        "required_function_types": [
+          "query.ontology_declaration"
+        ],
+        "require_exact_release": true,
+        "require_principal_scope": true,
+        "allow_legacy_route": false
+      },
+      "expected_ontology": {
+        "anchor_type": "Rule",
+        "target_types": [
+          "Rule"
+        ],
+        "paths": [],
+        "min_traversal_depth": 0,
+        "max_traversal_depth": 0
+      },
+      "answer_oracle": {
+        "required_fact_kinds": [
+          "rule.identity",
+          "rule.state"
+        ],
+        "required_limitations": [
+          "collected_rule_is_reference_only"
+        ],
+        "forbidden_claims": [
+          "execution.completed",
+          "rule.active",
+          "rule.violated_without_evaluation"
+        ],
+        "evidence_required": true,
+        "execution_authority": false
+      }
+    },
+    {
+      "semantic_pair_id": "policy-ontology-release-health",
+      "category": "evidence_quality",
+      "expected_semantics": {
+        "operation": "validate",
+        "subject_type": "Resource",
+        "temporal_scope": "historical",
+        "required_capabilities": [
+          "ontology_evidence_health",
+          "ontology_release_diff"
+        ],
+        "allowed_dispositions": [
+          "answered",
+          "held"
+        ]
+      },
+      "semantic_retrieval": {
+        "required_object_types": [
+          "Resource"
+        ],
+        "required_link_types": [],
+        "required_function_types": [
+          "query.ontology_evidence_health",
+          "query.ontology_release_diff"
+        ],
+        "require_exact_release": true,
+        "require_principal_scope": true,
+        "allow_legacy_route": false
+      },
+      "expected_ontology": {
+        "anchor_type": "Resource",
+        "target_types": [
+          "Resource"
+        ],
+        "paths": [],
+        "min_traversal_depth": 0,
+        "max_traversal_depth": 0
+      },
+      "answer_oracle": {
+        "required_fact_kinds": [
+          "evidence.completeness",
+          "evidence.freshness",
+          "ontology.release_diff"
+        ],
+        "required_limitations": [
+          "unavailable_is_not_verified_zero",
+          "unretained_schema_is_not_reconstructed"
+        ],
+        "forbidden_claims": [
+          "execution.completed",
+          "ontology.release_healthy_without_receipt"
+        ],
+        "evidence_required": true,
+        "execution_authority": false
+      }
+    },
+    {
+      "semantic_pair_id": "private-connectivity",
+      "category": "network_resilience",
+      "expected_semantics": {
+        "operation": "select",
+        "subject_type": "Resource",
+        "temporal_scope": "current",
+        "required_capabilities": [
+          "object_set",
+          "ontology_relationships"
+        ],
+        "allowed_dispositions": [
+          "answered",
+          "clarification",
+          "held",
+          "unsupported"
+        ]
+      },
+      "semantic_retrieval": {
+        "required_object_types": [
+          "Resource"
+        ],
+        "required_link_types": [
+          "attached_to",
+          "routes_to"
+        ],
+        "required_function_types": [
+          "query.ontology_relationships"
+        ],
+        "require_exact_release": true,
+        "require_principal_scope": true,
+        "allow_legacy_route": false
+      },
+      "expected_ontology": {
+        "anchor_type": "Resource",
+        "target_types": [
+          "Resource"
+        ],
+        "paths": [
+          {
+            "path_id": "attachment",
+            "steps": [
+              {
+                "from_type": "Resource",
+                "link_type": "attached_to",
+                "direction": "outgoing",
+                "to_type": "Resource"
+              }
+            ]
+          },
+          {
+            "path_id": "observed-route",
+            "steps": [
+              {
+                "from_type": "Resource",
+                "link_type": "routes_to",
+                "direction": "outgoing",
+                "to_type": "Resource"
+              }
+            ]
+          }
+        ],
+        "min_traversal_depth": 1,
+        "max_traversal_depth": 1
+      },
+      "answer_oracle": {
+        "required_fact_kinds": [
+          "relationship.attachment",
+          "relationship.direction",
+          "relationship.route"
+        ],
+        "required_limitations": [
+          "attachment_does_not_prove_reachability",
+          "dns_state_requires_separate_evidence"
+        ],
+        "forbidden_claims": [
+          "execution.completed",
+          "network.connected_from_attachment_only"
+        ],
+        "evidence_required": true,
+        "execution_authority": false
+      }
+    },
+    {
+      "semantic_pair_id": "recovery-plan",
+      "category": "recovery",
+      "expected_semantics": {
+        "operation": "validate",
+        "subject_type": "RecoveryPlan",
+        "temporal_scope": "current",
+        "required_capabilities": [
+          "object_set",
+          "ontology_relationships"
+        ],
+        "allowed_dispositions": [
+          "answered",
+          "clarification",
+          "held"
+        ]
+      },
+      "semantic_retrieval": {
+        "required_object_types": [
+          "CausalHypothesis",
+          "RecoveryPlan",
+          "Resource"
+        ],
+        "required_link_types": [
+          "recovery_addresses_hypothesis",
+          "recovery_targets_resource"
+        ],
+        "required_function_types": [
+          "query.ontology_relationships"
+        ],
+        "require_exact_release": true,
+        "require_principal_scope": true,
+        "allow_legacy_route": false
+      },
+      "expected_ontology": {
+        "anchor_type": "RecoveryPlan",
+        "target_types": [
+          "CausalHypothesis",
+          "Resource"
+        ],
+        "paths": [
+          {
+            "path_id": "recovery-hypothesis",
+            "steps": [
+              {
+                "from_type": "RecoveryPlan",
+                "link_type": "recovery_addresses_hypothesis",
+                "direction": "outgoing",
+                "to_type": "CausalHypothesis"
+              }
+            ]
+          },
+          {
+            "path_id": "recovery-resource",
+            "steps": [
+              {
+                "from_type": "RecoveryPlan",
+                "link_type": "recovery_targets_resource",
+                "direction": "outgoing",
+                "to_type": "Resource"
+              }
+            ]
+          }
+        ],
+        "min_traversal_depth": 1,
+        "max_traversal_depth": 1
+      },
+      "answer_oracle": {
+        "required_fact_kinds": [
+          "hypothesis.identity",
+          "recovery_plan.identity",
+          "resource.identity"
+        ],
+        "required_limitations": [
+          "plan_is_not_approval",
+          "required_safeguards_must_be_explicit"
+        ],
+        "forbidden_claims": [
+          "execution.approved",
+          "execution.completed",
+          "recovery.applied"
+        ],
+        "evidence_required": true,
+        "execution_authority": false
+      }
+    },
+    {
+      "semantic_pair_id": "resource-classification",
+      "category": "current_state",
+      "expected_semantics": {
+        "operation": "select",
+        "subject_type": "Resource",
+        "temporal_scope": "current",
+        "required_capabilities": [
+          "object_set",
+          "ontology_relationships"
+        ],
+        "allowed_dispositions": [
+          "answered",
+          "held",
+          "unsupported"
+        ]
+      },
+      "semantic_retrieval": {
+        "required_object_types": [
+          "Resource",
+          "ResourceType"
+        ],
+        "required_link_types": [
+          "resource_classified_as"
+        ],
+        "required_function_types": [
+          "query.ontology_relationships"
+        ],
+        "require_exact_release": true,
+        "require_principal_scope": true,
+        "allow_legacy_route": false
+      },
+      "expected_ontology": {
+        "anchor_type": "Resource",
+        "target_types": [
+          "ResourceType"
+        ],
+        "paths": [
+          {
+            "path_id": "resource-type-classification",
+            "steps": [
+              {
+                "from_type": "Resource",
+                "link_type": "resource_classified_as",
+                "direction": "outgoing",
+                "to_type": "ResourceType"
+              }
+            ]
+          }
+        ],
+        "min_traversal_depth": 1,
+        "max_traversal_depth": 1
+      },
+      "answer_oracle": {
+        "required_fact_kinds": [
+          "resource.identity",
+          "resource_type.identity",
+          "resource_type.mapping_evidence"
+        ],
+        "required_limitations": [
+          "unclassified_resource_has_no_type_specific_semantics"
+        ],
+        "forbidden_claims": [
+          "execution.completed",
+          "resource_type.inferred_from_name"
+        ],
+        "evidence_required": true,
+        "execution_authority": false
+      }
+    },
+    {
+      "semantic_pair_id": "resource-containment",
+      "category": "topology",
+      "expected_semantics": {
+        "operation": "select",
+        "subject_type": "Resource",
+        "temporal_scope": "current",
+        "required_capabilities": [
+          "object_set",
+          "ontology_relationships"
+        ],
+        "allowed_dispositions": [
+          "answered",
+          "clarification",
+          "held"
+        ]
+      },
+      "semantic_retrieval": {
+        "required_object_types": [
+          "Resource"
+        ],
+        "required_link_types": [
+          "attached_to",
+          "contains"
+        ],
+        "required_function_types": [
+          "query.ontology_relationships"
+        ],
+        "require_exact_release": true,
+        "require_principal_scope": true,
+        "allow_legacy_route": false
+      },
+      "expected_ontology": {
+        "anchor_type": "Resource",
+        "target_types": [
+          "Resource"
+        ],
+        "paths": [
+          {
+            "path_id": "attached-resource",
+            "steps": [
+              {
+                "from_type": "Resource",
+                "link_type": "attached_to",
+                "direction": "incoming",
+                "to_type": "Resource"
+              }
+            ]
+          },
+          {
+            "path_id": "containing-parent",
+            "steps": [
+              {
+                "from_type": "Resource",
+                "link_type": "contains",
+                "direction": "incoming",
+                "to_type": "Resource"
+              }
+            ]
+          }
+        ],
+        "min_traversal_depth": 1,
+        "max_traversal_depth": 1
+      },
+      "answer_oracle": {
+        "required_fact_kinds": [
+          "relationship.attachment",
+          "relationship.containment",
+          "relationship.direction"
+        ],
+        "required_limitations": [
+          "inverse_traversal_must_preserve_stored_direction"
+        ],
+        "forbidden_claims": [
+          "execution.completed",
+          "ownership.rewritten"
+        ],
+        "evidence_required": true,
+        "execution_authority": false
+      }
+    },
+    {
+      "semantic_pair_id": "resource-evidence-health",
+      "category": "evidence_quality",
+      "expected_semantics": {
+        "operation": "validate",
+        "subject_type": "Resource",
+        "temporal_scope": "current",
+        "required_capabilities": [
+          "ontology_evidence_health"
+        ],
+        "allowed_dispositions": [
+          "answered",
+          "held"
+        ]
+      },
+      "semantic_retrieval": {
+        "required_object_types": [
+          "Resource"
+        ],
+        "required_link_types": [],
+        "required_function_types": [
+          "query.ontology_evidence_health"
+        ],
+        "require_exact_release": true,
+        "require_principal_scope": true,
+        "allow_legacy_route": false
+      },
+      "expected_ontology": {
+        "anchor_type": "Resource",
+        "target_types": [
+          "Resource"
+        ],
+        "paths": [],
+        "min_traversal_depth": 0,
+        "max_traversal_depth": 0
+      },
+      "answer_oracle": {
+        "required_fact_kinds": [
+          "evidence.completeness",
+          "evidence.conflicts",
+          "evidence.freshness",
+          "evidence.source_revision"
+        ],
+        "required_limitations": [
+          "incomplete_evidence_cannot_prove_health"
+        ],
+        "forbidden_claims": [
+          "evidence.complete_without_receipt",
+          "execution.completed"
+        ],
+        "evidence_required": true,
+        "execution_authority": false
+      }
+    },
+    {
+      "semantic_pair_id": "rule-applicability",
+      "category": "rule_governance",
+      "expected_semantics": {
+        "operation": "select",
+        "subject_type": "Rule",
+        "temporal_scope": "none",
+        "required_capabilities": [
+          "ontology_declaration",
+          "ontology_relationships"
+        ],
+        "allowed_dispositions": [
+          "answered",
+          "held"
+        ]
+      },
+      "semantic_retrieval": {
+        "required_object_types": [
+          "ActionType",
+          "ResourceType",
+          "Rule",
+          "SignalType"
+        ],
+        "required_link_types": [
+          "applies_to",
+          "remediates",
+          "triggered_by"
+        ],
+        "required_function_types": [
+          "query.ontology_declaration",
+          "query.ontology_relationships"
+        ],
+        "require_exact_release": true,
+        "require_principal_scope": true,
+        "allow_legacy_route": false
+      },
+      "expected_ontology": {
+        "anchor_type": "Rule",
+        "target_types": [
+          "ActionType",
+          "ResourceType",
+          "SignalType"
+        ],
+        "paths": [
+          {
+            "path_id": "rule-action",
+            "steps": [
+              {
+                "from_type": "Rule",
+                "link_type": "remediates",
+                "direction": "outgoing",
+                "to_type": "ActionType"
+              }
+            ]
+          },
+          {
+            "path_id": "rule-resource-type",
+            "steps": [
+              {
+                "from_type": "Rule",
+                "link_type": "applies_to",
+                "direction": "outgoing",
+                "to_type": "ResourceType"
+              }
+            ]
+          },
+          {
+            "path_id": "rule-signal",
+            "steps": [
+              {
+                "from_type": "Rule",
+                "link_type": "triggered_by",
+                "direction": "outgoing",
+                "to_type": "SignalType"
+              }
+            ]
+          }
+        ],
+        "min_traversal_depth": 1,
+        "max_traversal_depth": 1
+      },
+      "answer_oracle": {
+        "required_fact_kinds": [
+          "action_type.identity",
+          "resource_type.identity",
+          "rule.identity",
+          "signal_type.identity"
+        ],
+        "required_limitations": [
+          "catalog_relationships_do_not_prove_current_finding"
+        ],
+        "forbidden_claims": [
+          "execution.completed",
+          "rule.violated_without_evaluation"
+        ],
+        "evidence_required": true,
+        "execution_authority": false
+      }
+    },
+    {
+      "semantic_pair_id": "service-agent-authority",
+      "category": "ownership",
+      "expected_semantics": {
+        "operation": "select",
+        "subject_type": "BusinessService",
+        "temporal_scope": "current",
+        "required_capabilities": [
+          "object_set",
+          "ontology_relationships"
+        ],
+        "allowed_dispositions": [
+          "answered",
+          "held"
+        ]
+      },
+      "semantic_retrieval": {
+        "required_object_types": [
+          "Agent",
+          "BusinessService",
+          "Resource",
+          "Workload"
+        ],
+        "required_link_types": [
+          "implemented_by",
+          "owns",
+          "workload_runs_on"
+        ],
+        "required_function_types": [
+          "query.ontology_relationships"
+        ],
+        "require_exact_release": true,
+        "require_principal_scope": true,
+        "allow_legacy_route": false
+      },
+      "expected_ontology": {
+        "anchor_type": "BusinessService",
+        "target_types": [
+          "Agent",
+          "Resource",
+          "Workload"
+        ],
+        "paths": [
+          {
+            "path_id": "service-resource-agent",
+            "steps": [
+              {
+                "from_type": "BusinessService",
+                "link_type": "implemented_by",
+                "direction": "outgoing",
+                "to_type": "Workload"
+              },
+              {
+                "from_type": "Workload",
+                "link_type": "workload_runs_on",
+                "direction": "outgoing",
+                "to_type": "Resource"
+              },
+              {
+                "from_type": "Resource",
+                "link_type": "owns",
+                "direction": "incoming",
+                "to_type": "Agent"
+              }
+            ]
+          }
+        ],
+        "min_traversal_depth": 3,
+        "max_traversal_depth": 3
+      },
+      "answer_oracle": {
+        "required_fact_kinds": [
+          "agent.identity",
+          "agent.ownership_scope",
+          "relationship.path",
+          "service.identity"
+        ],
+        "required_limitations": [
+          "ontology_ownership_does_not_grant_execution"
+        ],
+        "forbidden_claims": [
+          "agent.authorized_to_execute",
+          "execution.completed"
+        ],
+        "evidence_required": true,
+        "execution_authority": false
+      }
+    },
+    {
+      "semantic_pair_id": "service-current-health",
+      "category": "current_state",
+      "expected_semantics": {
+        "operation": "select",
+        "subject_type": "BusinessService",
+        "temporal_scope": "current",
+        "required_capabilities": [
+          "object_set",
+          "ontology_relationships",
+          "resource_current_state"
+        ],
+        "allowed_dispositions": [
+          "answered",
+          "clarification",
+          "held"
+        ]
+      },
+      "semantic_retrieval": {
+        "required_object_types": [
+          "BusinessService",
+          "Resource",
+          "Workload"
+        ],
+        "required_link_types": [
+          "implemented_by",
+          "workload_runs_on"
+        ],
+        "required_function_types": [
+          "query.ontology_relationships",
+          "query.resource_current_state"
+        ],
+        "require_exact_release": true,
+        "require_principal_scope": true,
+        "allow_legacy_route": false
+      },
+      "expected_ontology": {
+        "anchor_type": "BusinessService",
+        "target_types": [
+          "Resource",
+          "Workload"
+        ],
+        "paths": [
+          {
+            "path_id": "service-runtime",
+            "steps": [
+              {
+                "from_type": "BusinessService",
+                "link_type": "implemented_by",
+                "direction": "outgoing",
+                "to_type": "Workload"
+              },
+              {
+                "from_type": "Workload",
+                "link_type": "workload_runs_on",
+                "direction": "outgoing",
+                "to_type": "Resource"
+              }
+            ]
+          }
+        ],
+        "min_traversal_depth": 2,
+        "max_traversal_depth": 2
+      },
+      "answer_oracle": {
+        "required_fact_kinds": [
+          "relationship.path",
+          "resource.runtime_state",
+          "service.identity",
+          "workload.identity"
+        ],
+        "required_limitations": [
+          "missing_resource_state_is_unknown",
+          "partial_service_graph_must_be_explicit"
+        ],
+        "forbidden_claims": [
+          "execution.completed",
+          "service.healthy_from_partial_graph"
+        ],
+        "evidence_required": true,
+        "execution_authority": false
+      }
+    },
+    {
+      "semantic_pair_id": "service-impact",
+      "category": "service_impact",
+      "expected_semantics": {
+        "operation": "select",
+        "subject_type": "Resource",
+        "temporal_scope": "current",
+        "required_capabilities": [
+          "object_set",
+          "ontology_relationships"
+        ],
+        "allowed_dispositions": [
+          "answered",
+          "clarification",
+          "held"
+        ]
+      },
+      "semantic_retrieval": {
+        "required_object_types": [
+          "BusinessService",
+          "Resource",
+          "Workload"
+        ],
+        "required_link_types": [
+          "implemented_by",
+          "workload_runs_on"
+        ],
+        "required_function_types": [
+          "query.ontology_relationships"
+        ],
+        "require_exact_release": true,
+        "require_principal_scope": true,
+        "allow_legacy_route": false
+      },
+      "expected_ontology": {
+        "anchor_type": "Resource",
+        "target_types": [
+          "BusinessService",
+          "Workload"
+        ],
+        "paths": [
+          {
+            "path_id": "resource-service-impact",
+            "steps": [
+              {
+                "from_type": "Resource",
+                "link_type": "workload_runs_on",
+                "direction": "incoming",
+                "to_type": "Workload"
+              },
+              {
+                "from_type": "Workload",
+                "link_type": "implemented_by",
+                "direction": "incoming",
+                "to_type": "BusinessService"
+              }
+            ]
+          }
+        ],
+        "min_traversal_depth": 2,
+        "max_traversal_depth": 2
+      },
+      "answer_oracle": {
+        "required_fact_kinds": [
+          "relationship.path",
+          "resource.identity",
+          "service.identity",
+          "workload.identity"
+        ],
+        "required_limitations": [
+          "missing_service_edge_means_no_verified_impact",
+          "topology_adjacency_is_not_service_impact"
+        ],
+        "forbidden_claims": [
+          "execution.completed",
+          "service.affected_from_containment_only"
+        ],
+        "evidence_required": true,
+        "execution_authority": false
+      }
+    },
+    {
+      "semantic_pair_id": "service-ownership",
+      "category": "ownership",
+      "expected_semantics": {
+        "operation": "select",
+        "subject_type": "BusinessService",
+        "temporal_scope": "current",
+        "required_capabilities": [
+          "object_set",
+          "ontology_relationships"
+        ],
+        "allowed_dispositions": [
+          "answered",
+          "held"
+        ]
+      },
+      "semantic_retrieval": {
+        "required_object_types": [
+          "BusinessService",
+          "Ownership"
+        ],
+        "required_link_types": [
+          "service_owned_by"
+        ],
+        "required_function_types": [
+          "query.ontology_relationships"
+        ],
+        "require_exact_release": true,
+        "require_principal_scope": true,
+        "allow_legacy_route": false
+      },
+      "expected_ontology": {
+        "anchor_type": "BusinessService",
+        "target_types": [
+          "Ownership"
+        ],
+        "paths": [
+          {
+            "path_id": "service-owner",
+            "steps": [
+              {
+                "from_type": "BusinessService",
+                "link_type": "service_owned_by",
+                "direction": "outgoing",
+                "to_type": "Ownership"
+              }
+            ]
+          }
+        ],
+        "min_traversal_depth": 1,
+        "max_traversal_depth": 1
+      },
+      "answer_oracle": {
+        "required_fact_kinds": [
+          "ownership.accountable",
+          "ownership.escalation_ref",
+          "ownership.evidence",
+          "service.identity"
+        ],
+        "required_limitations": [
+          "missing_owner_must_be_reported_as_unknown"
+        ],
+        "forbidden_claims": [
+          "execution.completed",
+          "ownership.inferred_from_resource_name"
+        ],
+        "evidence_required": true,
+        "execution_authority": false
+      }
+    },
+    {
+      "semantic_pair_id": "topology-dependency",
+      "category": "topology",
+      "expected_semantics": {
+        "operation": "select",
+        "subject_type": "BusinessService",
+        "temporal_scope": "current",
+        "required_capabilities": [
+          "object_set",
+          "ontology_relationships"
+        ],
+        "allowed_dispositions": [
+          "answered",
+          "clarification",
+          "held"
+        ]
+      },
+      "semantic_retrieval": {
+        "required_object_types": [
+          "BusinessService",
+          "Resource",
+          "Workload"
+        ],
+        "required_link_types": [
+          "implemented_by",
+          "workload_depends_on",
+          "workload_runs_on"
+        ],
+        "required_function_types": [
+          "query.ontology_relationships"
+        ],
+        "require_exact_release": true,
+        "require_principal_scope": true,
+        "allow_legacy_route": false
+      },
+      "expected_ontology": {
+        "anchor_type": "BusinessService",
+        "target_types": [
+          "Resource",
+          "Workload"
+        ],
+        "paths": [
+          {
+            "path_id": "service-dependency-runtime",
+            "steps": [
+              {
+                "from_type": "BusinessService",
+                "link_type": "implemented_by",
+                "direction": "outgoing",
+                "to_type": "Workload"
+              },
+              {
+                "from_type": "Workload",
+                "link_type": "workload_depends_on",
+                "direction": "outgoing",
+                "to_type": "Workload"
+              },
+              {
+                "from_type": "Workload",
+                "link_type": "workload_runs_on",
+                "direction": "outgoing",
+                "to_type": "Resource"
+              }
+            ]
+          }
+        ],
+        "min_traversal_depth": 3,
+        "max_traversal_depth": 3
+      },
+      "answer_oracle": {
+        "required_fact_kinds": [
+          "dependency.direction",
+          "relationship.path",
+          "resource.identity",
+          "workload.identity"
+        ],
+        "required_limitations": [
+          "dependency_does_not_prove_failure_propagation",
+          "truncated_path_must_be_explicit"
+        ],
+        "forbidden_claims": [
+          "dependency.failed_without_state",
+          "execution.completed"
+        ],
+        "evidence_required": true,
+        "execution_authority": false
+      }
+    },
+    {
+      "semantic_pair_id": "workload-dependency",
+      "category": "service_impact",
+      "expected_semantics": {
+        "operation": "validate",
+        "subject_type": "Workload",
+        "temporal_scope": "current",
+        "required_capabilities": [
+          "object_set",
+          "ontology_relationships",
+          "resource_current_state"
+        ],
+        "allowed_dispositions": [
+          "answered",
+          "clarification",
+          "held"
+        ]
+      },
+      "semantic_retrieval": {
+        "required_object_types": [
+          "Resource",
+          "Workload"
+        ],
+        "required_link_types": [
+          "workload_depends_on",
+          "workload_runs_on"
+        ],
+        "required_function_types": [
+          "query.ontology_relationships",
+          "query.resource_current_state"
+        ],
+        "require_exact_release": true,
+        "require_principal_scope": true,
+        "allow_legacy_route": false
+      },
+      "expected_ontology": {
+        "anchor_type": "Workload",
+        "target_types": [
+          "Resource",
+          "Workload"
+        ],
+        "paths": [
+          {
+            "path_id": "workload-dependency-runtime",
+            "steps": [
+              {
+                "from_type": "Workload",
+                "link_type": "workload_depends_on",
+                "direction": "outgoing",
+                "to_type": "Workload"
+              },
+              {
+                "from_type": "Workload",
+                "link_type": "workload_runs_on",
+                "direction": "outgoing",
+                "to_type": "Resource"
+              }
+            ]
+          }
+        ],
+        "min_traversal_depth": 2,
+        "max_traversal_depth": 2
+      },
+      "answer_oracle": {
+        "required_fact_kinds": [
+          "dependency.direction",
+          "resource.runtime_state",
+          "workload.identity"
+        ],
+        "required_limitations": [
+          "correlation_does_not_prove_cause",
+          "missing_dependency_state_is_unknown"
+        ],
+        "forbidden_claims": [
+          "dependency.caused_degradation_without_evidence",
+          "execution.completed"
+        ],
+        "evidence_required": true,
+        "execution_authority": false
+      }
+    }
+  ]
+}

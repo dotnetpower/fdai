@@ -41,9 +41,11 @@ replay, shadow comparison, and the ordinary promotion gate.
 
 ![Design at a glance. The main stages are Benchmark or live incident, Saga audit evidence, Muninn operational case revision, Deterministic failure fingerprint, Norns cohort analysis, Inert RuleCandidate, Mimir replay and shadow gate, Rule catalog, ActionType catalog, T1 similarity reuse with current checks, Risk, approval, execution, and audit.](../../diagrams/generated/fdai-roadmap-rules-and-detection-operational-learning-ontology-01.en.svg)
 
-The evaluation adapter is only an evidence source. It emits the same canonical case inputs as a
-production incident, then leaves the normal agent-owned learning path to decide whether the case
-contributes to a candidate.
+When active, an evaluation adapter is only an evidence source. It emits the same canonical case
+inputs as a production incident, then leaves the normal agent-owned learning path to decide whether
+the case contributes to a candidate. The current evaluation host integration is dormant, so no
+adapter supplies case-history intake today. The conversational corpus under `eval/golden-dataset/`
+is regression input, not an operational case or learning authority.
 
 The O1 compiler accepts only canonical identifiers, SHA-256 digests, booleans, and bounded counts
 declared by each receipt schema. It rejects unknown fields, inconsistent action or outcome facts,
@@ -352,18 +354,22 @@ the only activation path; Saga seals review outcomes from Mimir-owned `object.ru
 | O4 current-evidence T1 reuse | implemented | `services/core-control-plane/tests/core/tiers/t1_lightweight/test_contextual_reuse.py`; `tests/core/test_control_loop_t1_wire.py` | Missing, stale, changed, or unsafe current evidence holds for review without mutation. |
 | O5-O6 Azure evidence bindings | validated | [Delivery plan](#delivery-plan); `services/core-control-plane/src/fdai/delivery/azure/operational_evidence.py`; focused delivery tests | Repository-recorded non-production AKS and read-only Azure drills provide the required operational evidence without a production claim. |
 | O7 promotion measurement | in-progress | `services/core-control-plane/src/fdai/core/measurement/operational_promotion.py`; `operational_promotion_runner.py`; `services/core-control-plane/tests/core/measurement/test_operational_promotion.py` | The gate and durable receipt path are implemented, but required action-specific live days and confidence samples remain incomplete. |
+| Evaluation-adapter case intake | deferred | [Benchmark adapter dormant status](../interfaces/benchmark-adapters.md#dormant-status) | No current EvaluationHost or adapter runtime can emit case inputs. The semantic golden dataset remains outside case history and learning. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | `current change`; delivery-plan evidence and focused source/tests listed in the scope table. | Complete deployment bindings and O7 action-specific evidence thresholds. |
+| 2026-08-21 | deferred | Corrected evaluation intake after the host integration was found absent from the current tree. Kept the new semantic golden dataset outside operational-case and promotion authority. | `current change`; benchmark adapter dormant-status decision; `eval/golden-dataset/`; focused dataset contract checks. | Reopen adapter intake only with a restored governed host and canonical case-input receipts. |
 
 ### Remaining work
 
 - [ ] Bind the O3 production validator and pull-request publisher and prove quarantine, retry, audit, and idempotent publication end to end.
 - [ ] Bind the Forseti-owned causal projection, frozen/live evidence source, and receipt verifiers in the target deployment.
 - [ ] Accumulate the O7 per-action live days, sample sizes, complete recurrence windows, Wilson bounds, and zero-escape evidence required for promotion review.
+- [ ] If evaluation host integration is reactivated, prove that adapter results enter only through
+  canonical operational-case receipts and cannot treat golden-answer success as promotion evidence.
 
 ## Related docs
 

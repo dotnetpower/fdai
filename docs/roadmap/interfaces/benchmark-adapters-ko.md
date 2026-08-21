@@ -1,32 +1,43 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 2f5dfe02a012e0a38f7c19ac01c15dfce4bf7754
-translation_revised: 2026-08-20
+translation_source_sha: ff8acbfe57485ec1026442d56e8e905b0ae1200f
+translation_revised: 2026-08-21
 ---
 
 # 벤치마크 어댑터
 
-이 설계는 FDAI 런타임에 특정 벤치마크 패키지를 추가하지 않고 외부 평가 실행 장치를 FDAI에
-연결하는 방법을 정의합니다. 독립 SDK가 neutral 계약과 범위가 제한된 실행기를 소유하고, FDAI는
-공개 호스트와 그 뒤의 통제된 실행을 소유합니다.
+이 보존 설계는 FDAI 런타임에 특정 벤치마크 패키지를 추가하지 않고 외부 평가 실행 장치를
+FDAI에 연결하는 방법을 정의합니다. 독립 SDK는 중립 계약과 범위가 제한된 실행기를 보존하지만,
+현재 FDAI 런타임에는 이 흐름을 완성할 공개 호스트가 없습니다.
 
 > **범위:** 벤치마크 어댑터는 실행 장치 수명 주기와 데이터를 변환합니다. FDAI 액션을 판단,
 > 승인, 승격 또는 실행하지 않습니다.
 >
-> **구현 상태:** 독립 패키지 SDK, 공개 호스트 및 세션, 기능 attenuation, 산출물
-> 보관, workspace 정책 브로커, SREGym 이행, CyberGym acceptance driver, 호환성
-> 파사드, installed-adapter 발견, 범위가 제한된 Kubernetes 근거, 실행기 준비 상태 검사 및
-> 의존성 게이트가 구현되었습니다.
+> **구현 상태:** 휴면 상태입니다. 독립 패키지 SDK와 외부 driver 패키지는 구현 및 집중 테스트
+> 상태를 유지합니다. `EvaluationHost`, 평가 런타임 진입점, 집중 호스트 테스트 모음, 이전 버전
+> 호환성 파사드는 2026-08-08 서비스 분해 과정에서 제거됐고 현재 트리에 대체 구현이 없습니다.
 
 ## 설계 요약
 
-FDAI 휠에는 SREGym, CyberGym 또는 다른 실행 장치 프로토콜이 포함되지 않습니다. 외부
-driver는 `fdai-evaluation-sdk`에 의존하고 공개 `EvaluationHost`를 받은 뒤 범위가 제한된 세션을
-시작합니다. 호스트는 neutral 작업을 타입이 지정된 유입으로 변환하고 결정, risk, 승인, 실행 및
-감사를 FDAI 내부에 유지합니다.
+목표 흐름은 SREGym, CyberGym 또는 다른 실행 장치 프로토콜을 FDAI 휠 밖에 유지합니다. 외부
+driver는 `fdai-evaluation-sdk`에 의존하고 공개 `EvaluationHost`를 받아 범위가 제한된 세션을
+시작합니다. 현재 FDAI 조립은 이 호스트를 제공하지 않습니다.
 
 ![설계 요약. 주요 단계는 External harness, External driver, Evaluation SDK, Public EvaluationHost, Capability and custody brokers, FDAI typed ingress and control loop, EvaluationResult입니다.](../../diagrams/generated/fdai-roadmap-interfaces-benchmark-adapters-01.ko.svg)
+
+## 휴면 상태
+
+- 루트 FDAI `dev` extra는 `fdai-evaluation-sdk`, SREGym, CyberGym을 설치하지 않습니다.
+- 세 분포는 workspace 구성원으로 유지되어 CI가 패키지 테스트, strict typing, 경계 검사, 독립
+  wheel 빌드를 계속 실행합니다.
+- 현재 트리에는 `services/core-control-plane/src/fdai/evaluation/` 및
+  `services/core-control-plane/src/fdai/benchmarking/`이 없습니다.
+- [`eval/golden-dataset/`](../../../eval/golden-dataset/)은 이중 언어 대화형 의미 회귀를 위한 활성
+  저장소 corpus입니다. 실제 semantic-turn 경로를 사용하며 이 SDK를 다시 활성화하지 않습니다.
+
+아래의 상세 호스트, 보관, SREGym 조립 절은 보존된 목표 설계입니다. 현재 런타임 구현 주장으로
+읽으면 안 됩니다.
 
 ## 패키지 경계
 
@@ -35,9 +46,9 @@ driver는 `fdai-evaluation-sdk`에 의존하고 공개 `EvaluationHost`를 받�
 | 계층 | 위치 | 책임 |
 |-------|------|------|
 | Evaluation SDK | `evaluation-sdk/` | 변경할 수 없는 요청, 작업, 결과, 대상, 기능, workspace, 산출물, 증적, 어댑터, 호스트 및 실행기 계약입니다. |
-| FDAI 호스트 | `services/core-control-plane/src/fdai/evaluation/` | 타입이 지정된 유입, 기능 attenuation, workspace 및 산출물 정책, 결과 대응, 정리 및 감사입니다. |
+| FDAI 호스트 | 현재 없음 | 연기된 타입 지정 유입, 기능 축소, workspace 및 산출물 정책, 결과 대응, 정리 및 감사입니다. |
 | 실행 장치 driver | `benchmarks/<name>/` | 실행 장치 수명 주기, neutral 작업 대응, 외부 검증, 패키지 의존성 및 테스트입니다. |
-| 호환성 파사드 | `services/core-control-plane/src/fdai/benchmarking/` | 이행 기간의 이전 방식 텍스트 작업/제출, 플러그인, 연결 및 실행기 API입니다. |
+| 호환성 파사드 | 현재 없음 | 제거된 이전 방식 텍스트 작업/제출, 플러그인, 연결 및 실행기 API입니다. |
 
 실행 장치 driver는 별도 Python 분포입니다. FDAI만 설치하면 벤치마크 통합이
 설치되거나 활성화되지 않습니다. Driver를 제거해도 FDAI 런타임은 변경되지 않습니다.
@@ -128,6 +139,9 @@ Workspace 접근은 호스트 경로 또는 raw 명령 문자열을 노출하지
   정의, 예상 답변 또는 grading 내부를 검사하지 않습니다.
 
 ## SREGym driver
+
+> **현재 가용성:** 패키지 동작과 테스트는 보존되지만 FDAI 호스트를 다시 도입하기 전에는 SREGym
+> 평가 세션을 시작할 수 없습니다. 이 절의 준비 상태 및 실제 조립 문단은 보존된 목표 설계입니다.
 
 독립 `benchmarks/sregym/` 분포는 현재 다음 conductor 표면을 변환합니다.
 
@@ -469,9 +483,9 @@ PoC에 대해 상태 0으로 종료되어야 합니다. 비정상 종료를 nonz
 
 ## 호환성 및 적용
 
-이전 방식 `fdai.benchmarking` API는 `0.1.x` release 줄에서 유지됩니다. 호출자가
-`fdai-evaluation-sdk`로 이행하는 동안 기존 계약, 실행기 및 플러그인 모음이 계속 통과합니다.
-제거는 한 번의 documented minor release 구간 이후 `0.2.0` 이상에서만 가능합니다.
+이전 방식 `fdai.benchmarking` API는 더 이상 존재하지 않습니다. 패키지 보존은 독립 SDK와 driver
+분포에만 적용됩니다. 삭제된 파사드만 복원해서는 호스트, 조립 또는 권한 경계를 복원할 수 없으며,
+지원되는 재활성화 경로가 아닙니다.
 
 `check-evaluation-boundaries.py`는 Python AST로 가져오기와 호출을 분석합니다. CI는 FDAI의 벤치마크
 가져오기, driver의 비공개 FDAI 가져오기, SDK의 FDAI 구현 가져오기, 메타데이터 또는 로그의 binary
@@ -484,9 +498,9 @@ mypy 및 Ruff를 통과해야 합니다.
 
 통합을 개발할 때 다음 focused 모음을 사용합니다.
 
-루트 `dev` extra는 cross-package 통합 테스트를 collect할 수 있도록 두 driver 분포를
-workspace-only 의존성으로 연결합니다. FDAI 런타임 의존성에는 포함되지 않으며 각 휠은 계속
-독립적으로 빌드할 수 있습니다. `uv sync --extra dev --frozen`으로 이 dev 환경을 준비합니다.
+보존된 패키지를 작업할 때는 `uv sync --all-packages --extra dev --frozen`을 사용합니다. 루트
+`dev` extra는 이 패키지에 의존하지 않지만 `--all-packages`는 패키지 범위 테스트와 빌드를 위해
+독립 workspace 구성원을 모두 설치합니다.
 
 ```bash
 .venv/bin/python -m pytest -q --no-cov evaluation-sdk/tests
@@ -507,25 +521,28 @@ PYTHONPATH=evaluation-sdk/src:benchmarks/cybergym/src .venv/bin/python -m pytest
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| Evaluation SDK | implemented | `evaluation-sdk/src/fdai_evaluation_sdk/`; `evaluation-sdk/tests/` | 버전이 지정된 계약, 기능 축소, workspace 정책, 보관 및 실행기 수명 주기에 focused 검사가 있습니다. |
-| FDAI evaluation 호스트 통합 | in-progress | `services/core-control-plane/src/fdai/evaluation/` | 호스트 구현은 있지만 현재 트리에서 전용 focused Core evaluation 모음을 찾지 못했습니다. Driver 테스트는 전체 FDAI 호스트 구현이 아니라 공개 SDK 경계를 실행합니다. |
-| SREGym driver 및 준비 상태 계약 | implemented | `benchmarks/sregym/`; `benchmarks/sregym/tests/` | 독립적으로 패키징된 어댑터와 플러그인이 있습니다. 실제 클러스터 준비 상태 탐색 및 시나리오 캠페인 통과는 패키지 구현이 아니라 운영 근거입니다. |
-| CyberGym driver 및 shadow 실행기 | implemented | `benchmarks/cybergym/`; `benchmarks/cybergym/tests/`; `scripts/benchmarking/run_cybergym.py` | 두 모드, 외부 검증 증적, workspace 격리, 경로 제한 및 단계별 검증이 구현되고 focused 테스트를 거쳤습니다. |
-| Evaluation 의존성 및 호환성 게이트 | implemented | `scripts/quality/architecture/check-evaluation-boundaries.py`; `services/core-control-plane/src/fdai/benchmarking/` | AST 경계 적용과 `0.1.x` 호환성 파사드가 있습니다. 제거는 문서화된 release 구간을 계속 통과해야 합니다. |
-| 관리되는 실제 benchmark 근거 | in-progress | [SREGym driver](#sregym-driver); [CyberGym driver](#cybergym-driver) | 저장소 테스트는 동작 방식을 입증합니다. 정확한 대상 이미지와 의존성을 사용한 관리되는 SREGym 준비 상태 및 공식 CyberGym 실행 증적은 여기에 보존되지 않았습니다. |
+| Evaluation SDK 패키지 | implemented | `evaluation-sdk/src/fdai_evaluation_sdk/`, `evaluation-sdk/tests/`, evaluation-package CI 작업 | 버전이 지정된 계약과 실행기 수명 주기는 런타임 통합이 휴면인 동안에도 집중 테스트와 독립 빌드를 유지합니다. |
+| FDAI evaluation 호스트 통합 | deferred | 현재 트리에 `services/core-control-plane/src/fdai/evaluation/`이 없음, 이 문서의 [휴면 상태 결정](#휴면-상태) | 공개 호스트, 런타임 진입점, 집중 호스트 테스트 모음이 없습니다. 재활성화에는 검토된 새 구현과 근거 경계가 필요합니다. |
+| SREGym driver 패키지 | implemented | `benchmarks/sregym/`, `benchmarks/sregym/tests/` | 어댑터 동작은 계속 테스트합니다. 현재 FDAI 호스트로는 어댑터를 실행할 수 없습니다. |
+| CyberGym 패키지 및 독립 shadow 실행기 | implemented | `benchmarks/cybergym/`, `benchmarks/cybergym/tests/`, `scripts/benchmarking/run_cybergym.py` | 어댑터 동작을 계속 테스트하며 명시적인 저장소 shadow 실행기는 FDAI 호스트 통합과 별도로 유지합니다. |
+| Evaluation 의존성 및 경계 게이트 | implemented | 루트 `pyproject.toml`, `uv.lock`, `scripts/quality/architecture/check-evaluation-boundaries.py` | 런타임과 루트 개발 의존성은 휴면 패키지를 제외하고 all-package CI는 격리된 계약과 경계를 보존합니다. |
+| 통제된 실제 benchmark 근거 | deferred | [휴면 상태](#휴면-상태) | 호스트 통합이 휴면인 동안에는 새 실제 benchmark 근거가 필요하지 않습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 구현 ledger를 도입했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 패키지 source, focused 모음 및 경계 검사입니다. | 실행 권한을 높이지 않고 관리되는 준비 상태 및 benchmark 실행 근거를 보존해야 합니다. |
+| 2026-08-21 | deferred | 서비스 분해가 호스트, 런타임 진입점, 호스트 테스트, 호환성 파사드를 제거한 뒤에도 남아 있던 활성 호스트 주장을 정정했습니다. 세 휴면 패키지를 루트 `dev` 의존성 표면에서 제거하고 workspace 패키지 테스트와 빌드는 유지했습니다. | `current change`, `pyproject.toml`, `uv.lock`, 패키지 README, 패키지 테스트 68개 통과, lock 검사 및 all-package frozen sync 통과 | 검토된 호스트 설계, 집중 호스트 테스트 모음, 통제된 end-to-end 근거를 함께 승인할 때까지 통합을 휴면 상태로 유지합니다. |
 
 ### 남은 작업
 
-- [ ] Benchmark 구현을 가져오지 않으면서 ingress, workspace 보관, 기능 축소, 외부 검증, 정리 및 실패 경계를 다루는 focused FDAI evaluation-host 테스트를 추가합니다.
-- [ ] 다이제스트로 고정된 대상 이미지에서 `fdai-evaluation-runner check --adapter sregym`을 실행하고 선언된 모든 Kubernetes 및 근거 기반 RCA 준비 상태 탐색에 대한 관리되는 증적을 보존합니다.
-- [ ] 관찰 전용 권한을 보존하는 공식 SREGym 시나리오 증적 하나 이상과 숨겨진 입력을 노출하지 않고 필수 검증 단계를 모두 입증하는 공식 CyberGym 증적 하나 이상을 보존합니다.
-- [ ] 실제 결과를 운영 근거로 취급하기 전에 정확한 이미지, 패키지, 카탈로그, 정책, benchmark 개정, 의존성 및 검증 증적 다이제스트를 기록합니다.
+- [x] 독립 workspace 패키지 테스트와 wheel 빌드를 유지하면서 휴면 SDK와 benchmark 패키지를
+  루트 FDAI `dev` 의존성 표면에서 제거했습니다.
+- [ ] 재활성화 전에 service-owned `EvaluationHost`, 집중 유입, 보관, 기능 축소, 정리 및 실패
+  테스트, 명시적 런타임 진입점, 동일한 검토 개정 번호의 통제된 end-to-end 증적 하나를 구현합니다.
+- [ ] 대화형 의미 회귀는 `eval/golden-dataset/`에 유지하고 이 휴면 호스트 통합을 통해 실행하지
+  않습니다.
 
 ## 관련 문서
 

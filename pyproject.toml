@@ -26,12 +26,6 @@ dependencies = []
 [project.optional-dependencies]
 # Development tooling. Concrete runtime deps still arrive with their own P0 tasks.
 dev = [
-    # Root integration tests exercise the independently packaged drivers through
-    # the public SDK/host boundary. Dev-only workspace bindings keep them out of
-    # the FDAI runtime wheel while making the repository suite self-contained.
-    "fdai-benchmark-cybergym>=0.1,<0.2",
-    "fdai-benchmark-sregym>=0.1,<0.2",
-    "fdai-evaluation-sdk>=0.1,<0.2",
     "fdai-service-contracts==0.1.0",
     # Root integration tests span the five independently owned distributions.
     # Runtime images resolve dependencies from each service pyproject instead.

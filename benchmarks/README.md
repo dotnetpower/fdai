@@ -1,8 +1,13 @@
 # Evaluation drivers
 
-This directory contains independently packaged adapters for external evaluation harnesses. FDAI's
+This directory retains independently packaged adapters for external evaluation harnesses. FDAI's
 generic contracts live in the separate `evaluation-sdk/` distribution. No harness package is
-installed with the base FDAI distribution.
+installed with the base FDAI distribution or its root `dev` extra.
+
+> **Runtime status:** The SDK-host integration is dormant because the current Core distribution
+> has no `EvaluationHost` composition. Package tests and wheel builds remain active preservation
+> gates. The repository-level CyberGym shadow runner is independent of that missing host and keeps
+> its existing explicit command path.
 
 ## Layout
 
@@ -21,5 +26,5 @@ load benchmark entry points in production. Keep harness protocols, datasets, val
 optional dependencies in the driver distribution. Request semantic capabilities for evidence and
 use the governed host path for mutations.
 
-The owning design is
+The retained design and reactivation boundary are in
 [`docs/roadmap/interfaces/benchmark-adapters.md`](../docs/roadmap/interfaces/benchmark-adapters.md).

@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 9a23acdd6e2f9806cb33ca44749180b78768ff5c
+translation_source_sha: ed8b2da4d9828c63a3dab7e36099467d95fe97b4
 translation_revised: 2026-08-21
 ---
 # 프로젝트 구조
@@ -22,7 +22,7 @@ translation_revised: 2026-08-21
 | 인벤토리 신원 완전성 경계 | implemented | `shared/providers/inventory.py`, `delivery/azure/{arg_query,inventory}.py`, `composition/wire_inventory.py`, focused 검사 259개 통과 | Shared는 exact coverage 증적을 소유하고 Azure delivery는 범위가 제한된 native 신원 읽기를 소유하며 composition은 프로바이더 I/O를 Core로 옮기지 않고 두 경로를 연결합니다. |
 | 질문에 결속된 의미 필터 근거 확인 | 구현됨 | `core/conversation/semantic_planning_value_filters.py`, `tests/conversation/test_semantic_planning.py`, focused 계획 검사(`79 passed`) | Core는 발화에 명시된 카탈로그 값 그룹 또는 검증된 frame이 보존하고 해당 발화에 그대로 존재하는 정확한 자유 텍스트 subject 하나로만 후보 ObjectSet을 좁힐 수 있습니다. 프로바이더 I/O, 판단, 승인, 변경 또는 실행 권한은 추가하지 않습니다. |
 | 의미 frame 구성 경계 | 구현됨 | `core/conversation/semantic_planning_frame.py`, 집중 planner, tier-routing, investigation 및 Azure adapter 검사 111개 통과 | 집중 Core 모듈이 후보 frame을 정확한 입력 및 investigation identity에 결속하고 서버 소유 명확화 맥락만 해석합니다. 프로바이더 I/O를 수행하지 않으며 판단, 승인, 변경 또는 실행 권한을 부여하지 않습니다. |
-| Evaluation 및 의미 회귀 경계 | in-progress | `evaluation-sdk/`, `benchmarks/`, `eval/golden-dataset/`, `tests/integration/evaluation/test_golden_dataset.py` (`4 passed`) | 외부 호스트 통합은 휴면 상태이며 Core에 존재하지 않습니다. 보존된 패키지는 독립 workspace 구성원으로 유지합니다. 새로운 영어와 한국어 20쌍 corpus는 스키마, 카탈로그 신원, 관계 방향, 깊이, 근거, 읽기 전용 권한을 검증합니다. 답변 결과에 대한 캠페인 실행 연결은 남아 있습니다. |
+| Evaluation 및 의미 회귀 경계 | in-progress | `evaluation-sdk/`, `benchmarks/`, `eval/golden-dataset/`, `tests/integration/evaluation/test_golden_dataset.py` (`7 passed`) | 외부 호스트 통합은 휴면 상태이며 Core에 존재하지 않습니다. 보존된 패키지는 독립 workspace 구성원으로 유지합니다. 생성된 corpus는 expectation 35개, 표현 방식 8개, 균형 잡힌 관점 7개와 모든 검토된 보증 축에 걸친 영어와 한국어 280쌍을 포함합니다. 답변 결과에 대한 캠페인 실행 연결은 남아 있습니다. |
 | 통제된 규칙 발견 시작 경계 | implemented | `core/readiness/discovery_activation.py`, `runtime/discovery_activation.py`, `runtime/bootstrap*.py`, `agents/norns.py`, 집중 활성화 및 연결 검사 | Core는 최신 선행 조건 근거를 집약하고, 런타임은 기본적으로 닫힌 결정을 Norns의 비활성 후보 게시 경계에만 주입하며, 감독되는 새로 고침이 실패하면 카탈로그 또는 승격 권한을 바꾸지 않고 로컬 게이트를 닫습니다. |
 | 로컬 telemetry 쓰기 경계 | implemented | `shared/telemetry/logging.py`, `capture-local-service-log.py`, 집중 telemetry·launcher·provider integration·framework layout 검사 | Shared telemetry는 범위가 제한된 구조화 경고 보존과 의존성 요약을 소유합니다. 로컬 launcher는 터미널 표시와 완전한 회전 파일 캡처를 소유하며, 어느 경로도 에이전트 전달이나 권한을 바꾸지 않습니다. |
 | Pre-dispatch kinetic safety 경계 | implemented | `core/operational_planning/kinetic_safety.py`, `delivery/kinetic_safety.py`, `delivery/kinetic_proposal.py`, `runtime/control_loop.py`, 집중 dispatch, HIL, artifact, proposal 및 runtime 검사(`119 passed`) | Core는 프로바이더 중립 ordering seam을 선언합니다. Delivery는 영속 OperationalPlan 및 proposal lineage를 다시 검증하고 correlation index에 있는 기존 exact V2 proposal과 기존 typed Action을 결합하며 runtime은 모든 Thor 실행기 전에 ControlLoop와 HIL resume이 하나의 writer를 공유하도록 합니다. Proposal이 없으면 legacy 동작을 유지하고 invalid evidence는 권한을 높이지 않은 채 dispatch를 차단합니다. |
@@ -30,6 +30,7 @@ translation_revised: 2026-08-21
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-21 | implemented | 온톨로지 또는 답변 oracle을 중복하지 않고 정적 의미 corpus를 손으로 작성한 20쌍에서 생성된 이중 언어 280쌍으로 확장했습니다. 균형 잡힌 7관점 coverage, 문서에서 도출한 historical topology, release health, cost, recurrence, unsafe-action, resource-evidence, agent-authority 사례, 결정론적 source-to-artifact drift 검사를 추가했습니다. | `current change`, `eval/golden-dataset/{coverage,expectations,questions}*`, `build_golden_dataset.py`, 집중 dataset 검사 7개 통과 | 답변 회귀 coverage를 주장하기 전에 확장된 corpus를 기존 의미 캠페인에 연결합니다. |
 | 2026-08-21 | in-progress | 서비스 분해가 evaluation 호스트와 호환성 파사드를 제거한 뒤 물리 배치를 정정했습니다. 로캘 중립 온톨로지 탐색 및 답변 oracle을 갖춘 별도 이중 언어 cloud-operations golden dataset을 추가했습니다. | `current change`, `eval/golden-dataset/`, `tests/integration/evaluation/test_golden_dataset.py` 4개 통과, 휴면 패키지 테스트 68개 통과 | 자동 답변 회귀 coverage를 주장하기 전에 corpus를 기존 의미 질문 캠페인에 연결합니다. |
 | 2026-08-20 | 구현됨 | 정확한 후보 전용 frame 구성과 서버 소유 명확화 해석을 의미 플래너에서 집중 Core 모듈로 추출했습니다. 플래너는 기존 private adapter 표면을 유지하면서 적용되는 800줄 상한 아래로 돌아왔으며 frame digest, 명확화, 권한 또는 I/O 동작은 바뀌지 않았습니다. | `current change`, `semantic_planning.py`, `semantic_planning_frame.py`, 집중 의미 테스트 111개와 작업 범위 Ruff, formatting, strict mypy 및 강제 파일 LOC 검사 통과 | 구조 상한 복구에 남은 작업은 없습니다. |
 | 2026-08-20 | 구현됨 | 후보 계획 경계에서 결정론적 복수 필터 보존을 완성했습니다. 모델이 선택한 존재 조건식이 카탈로그에 선언된 다른 필터를 더 이상 누락하지 않으며, frame이 보존한 정확한 자유 텍스트 subject는 운영자가 그대로 작성한 경우에만 fragment 조건식이 됩니다. | `current change`, [이슈 #241](https://github.com/dotnetpower/fdai/issues/241), 의미 계획 검사 79개 통과, Ruff, formatting 및 strict mypy 통과 | 작업을 닫기 전에 인증된 Console 및 3개 viewport 표현 근거를 보존합니다. |

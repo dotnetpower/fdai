@@ -1225,7 +1225,10 @@
         "docs/roadmap/interfaces/ontology-query-coverage-implementation-plan*.md",
         "docs/roadmap/interfaces/continuous-question-space*.md",
         "config/ontology-query-competency.json",
+        "eval/golden-dataset/**",
+        "scripts/automation/build_golden_dataset.py",
         "scripts/quality/architecture/check-ontology-query-coverage.py",
+        "tests/integration/evaluation/test_golden_dataset.py",
         "rule-catalog/vocabulary/**"
       ],
       "must_read": [
@@ -1249,6 +1252,7 @@
         "docs/roadmap/interfaces/operator-console-module-map.md"
       ],
       "validate": [
+        "uv run pytest -q --no-cov tests/integration/evaluation/test_golden_dataset.py -o addopts=''",
         "uv run pytest -q --no-cov services/core-control-plane/tests/core/conversation services/core-control-plane/tests/core/ontology_platform services/operator-service/tests",
         "uv run python scripts/quality/architecture/check-ontology-query-coverage.py",
         "uv run python scripts/quality/architecture/check-independent-services.py"

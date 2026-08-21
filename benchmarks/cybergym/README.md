@@ -4,12 +4,16 @@ This independent package maps CyberGym-E2E tasks to the benchmark-neutral
 `fdai-evaluation-sdk`. It does not import FDAI runtime, core, agent, delivery, or composition
 implementations.
 
+> **Runtime status:** The SDK-host adapter path is dormant because the current Core distribution
+> has no `EvaluationHost`. The repository-level shadow runner documented below is a separate,
+> explicit command path and remains available without claiming FDAI host integration.
+
 ## Layout
 
 | Path | Purpose |
 |------|---------|
 | `src/fdai_bench_cybergym/adapter.py` | Maps `e2e` and `patch-only` tasks, declared outputs, and external validation receipts. |
-| `services/core-control-plane/tests/test_adapter.py` | Verifies both modes, bounds, hidden-oracle isolation, and SDK runner compatibility. |
+| `tests/test_adapter.py` | Verifies both modes, bounds, hidden-oracle isolation, and SDK runner compatibility. |
 
 ## Contracts
 

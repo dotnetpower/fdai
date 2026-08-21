@@ -1,8 +1,8 @@
 ---
 title: 운영 학습 온톨로지
 translation_of: operational-learning-ontology.md
-translation_source_sha: 15eb2fe540427cbd6852231a1a3f084e268f0700
-translation_revised: 2026-08-20
+translation_source_sha: d8ca801f5d8b637e72689781b4ef4d24e5e7279a
+translation_revised: 2026-08-21
 ---
 # 운영 학습 온톨로지
 
@@ -44,9 +44,11 @@ FDAI는 두 계층으로 학습합니다. **Operational 사례**는 관측, 결�
 
 ![한눈에 보는 설계. 주요 단계는 Benchmark or live incident, Saga audit evidence, Muninn operational case revision, Deterministic failure fingerprint, Norns cohort analysis, Inert RuleCandidate, Mimir replay and shadow gate, Rule catalog, ActionType catalog, T1 similarity reuse with current checks, Risk, approval, execution, and audit입니다.](../../diagrams/generated/fdai-roadmap-rules-and-detection-operational-learning-ontology-01.ko.svg)
 
-Evaluation 어댑터는 증거 소스일 뿐입니다. 운영 인시던트와 동일한 정본 사례
+활성 상태의 Evaluation 어댑터는 근거 소스일 뿐입니다. 운영 인시던트와 동일한 정본 사례
 입력을 방출한 뒤, 해당 사례가 후보에 기여할지는 일반 agent-owned learning 경로가
-결정합니다.
+결정합니다. 현재 evaluation 호스트 통합은 휴면 상태이므로 어떤 어댑터도 case-history 입력을
+제공하지 않습니다. `eval/golden-dataset/` 아래 대화형 corpus는 회귀 입력이며 operational case나
+학습 권한이 아닙니다.
 
 O1 컴파일러는 각 증적 스키마가 선언한 정본 식별자, SHA-256 다이제스트, boolean,
 범위가 제한된 개수만 받습니다. 알 수 없음 필드, 불일치하는 액션 또는 결과 사실, raw 리소스
@@ -357,18 +359,22 @@ serialize하고 실패한 증적을 격리 구역하며 backpressure를 적용�
 | O4 현재 근거 T1 재사용 | implemented | `services/core-control-plane/tests/core/tiers/t1_lightweight/test_contextual_reuse.py`; `tests/core/test_control_loop_t1_wire.py` | 현재 근거가 누락되거나 오래됐거나 변경됐거나 안전하지 않으면 변경 없이 검토 대기합니다. |
 | O5-O6 Azure 근거 연결 | validated | [제공 계획](#제공-계획); `services/core-control-plane/src/fdai/delivery/azure/operational_evidence.py`; 집중 전달 테스트 | 저장소에 기록된 비운영 AKS 및 읽기 전용 Azure 훈련이 운영 환경 주장을 하지 않으면서 필요한 운영 근거를 제공합니다. |
 | O7 승격 측정 | in-progress | `services/core-control-plane/src/fdai/core/measurement/operational_promotion.py`; `operational_promotion_runner.py`; `services/core-control-plane/tests/core/measurement/test_operational_promotion.py` | 게이트와 영속 증적 경로는 구현됐지만 필요한 작업별 live 일수와 신뢰도 표본은 아직 부족합니다. |
+| Evaluation adapter case 입력 | deferred | [Benchmark adapter 휴면 상태](../interfaces/benchmark-adapters-ko.md#휴면-상태) | 현재 EvaluationHost 또는 adapter runtime이 case 입력을 방출할 수 없습니다. Semantic golden dataset은 case history와 learning 밖에 유지됩니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했습니다. | `current change`; 제공 계획 근거와 구현 범위 표의 집중 소스 및 테스트. | 배포 연결과 O7 작업별 근거 임계값을 완성합니다. |
+| 2026-08-21 | deferred | 현재 트리에 호스트 통합이 없음을 확인한 뒤 evaluation 입력 설명을 정정했습니다. 새로운 semantic golden dataset은 operational-case 및 promotion authority 밖에 유지했습니다. | `current change`, benchmark adapter 휴면 상태 결정, `eval/golden-dataset/`, 집중 dataset contract 검사 | 통제된 호스트와 canonical case-input 증적을 복원할 때만 adapter 입력을 다시 엽니다. |
 
 ### 남은 작업
 
 - [ ] O3 운영 검증기와 pull request 게시자를 연결하고 격리, 재시도, 감사, 멱등 게시를 종단 간 증명합니다.
 - [ ] 대상 배포에 Forseti 소유 causal 변환 결과, 동결/live 근거 원본, 증적 검증기를 연결합니다.
 - [ ] 승격 검토에 필요한 O7 작업별 live 일수, 표본 크기, 완전한 재발 구간, Wilson 경계, 위반 0건 근거를 누적합니다.
+- [ ] Evaluation 호스트 통합을 다시 활성화하면 adapter 결과가 canonical operational-case 증적만
+   통과하고 golden-answer 성공을 promotion evidence로 취급할 수 없음을 입증합니다.
 
 ## 관련 문서
 

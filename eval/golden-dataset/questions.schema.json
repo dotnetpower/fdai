@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/dotnetpower/fdai/eval/golden-dataset/questions.schema.json",
+  "title": "FDAI localized golden questions",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "dataset_version", "source_digest", "locale", "questions"],
+  "properties": {
+    "schema_version": {"const": "2.0.0"},
+    "dataset_version": {"type": "string", "pattern": "^[1-9][0-9]*\\.[0-9]+\\.[0-9]+$"},
+    "source_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+    "locale": {"enum": ["en", "ko"]},
+    "questions": {
+      "type": "array",
+      "minItems": 200,
+      "maxItems": 500,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "case_id",
+          "expectation_id",
+          "runtime_context",
+          "variation_kind",
+          "question"
+        ],
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,159}$"
+          },
+          "expectation_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9.-]{0,127}$"
+          },
+          "runtime_context": {
+            "enum": [
+              "explicit_target_required",
+              "incident_binding",
+              "none",
+              "server_scope"
+            ]
+          },
+          "variation_kind": {
+            "enum": [
+              "audit_oriented",
+              "concise",
+              "contrastive",
+              "direct",
+              "evidence_first",
+              "investigative",
+              "operator_colloquial",
+              "uncertainty_aware"
+            ]
+          },
+          "question": {"type": "string", "minLength": 8, "maxLength": 400}
+        }
+      }
+    }
+  }
+}

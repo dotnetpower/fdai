@@ -1,0 +1,196 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/dotnetpower/fdai/eval/golden-dataset/expectations.schema.json",
+  "title": "FDAI cloud operations golden expectations",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "dataset_version", "cases"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "dataset_version": {"type": "string", "pattern": "^[1-9][0-9]*\\.[0-9]+\\.[0-9]+$"},
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 200,
+      "items": {"$ref": "#/$defs/case"}
+    }
+  },
+  "$defs": {
+    "identifier": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._:-]{0,255}$"},
+    "catalogName": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9._-]{0,127}$"},
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "semantic_pair_id",
+        "category",
+        "expected_semantics",
+        "semantic_retrieval",
+        "expected_ontology",
+        "answer_oracle"
+      ],
+      "properties": {
+        "semantic_pair_id": {"$ref": "#/$defs/identifier"},
+        "category": {
+          "enum": [
+            "change_safety",
+            "current_state",
+            "evidence_quality",
+            "incident_diagnosis",
+            "incident_history",
+            "network_resilience",
+            "operating_intent",
+            "ownership",
+            "recovery",
+            "rule_governance",
+            "service_impact",
+            "topology"
+          ]
+        },
+        "expected_semantics": {"$ref": "#/$defs/semantics"},
+        "semantic_retrieval": {"$ref": "#/$defs/retrieval"},
+        "expected_ontology": {"$ref": "#/$defs/ontology"},
+        "answer_oracle": {"$ref": "#/$defs/answerOracle"}
+      }
+    },
+    "semantics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation",
+        "subject_type",
+        "temporal_scope",
+        "required_capabilities",
+        "allowed_dispositions"
+      ],
+      "properties": {
+        "operation": {"enum": ["action_draft", "aggregate", "compare", "select", "validate"]},
+        "subject_type": {"$ref": "#/$defs/catalogName"},
+        "temporal_scope": {"enum": ["current", "historical", "none", "windowed"]},
+        "required_capabilities": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/identifier"}
+        },
+        "allowed_dispositions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"enum": ["action_draft", "answered", "clarification", "held", "unsupported"]}
+        }
+      }
+    },
+    "retrieval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required_object_types",
+        "required_link_types",
+        "required_function_types",
+        "require_exact_release",
+        "require_principal_scope",
+        "allow_legacy_route"
+      ],
+      "properties": {
+        "required_object_types": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/catalogName"}
+        },
+        "required_link_types": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/identifier"}
+        },
+        "required_function_types": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/identifier"}
+        },
+        "require_exact_release": {"const": true},
+        "require_principal_scope": {"const": true},
+        "allow_legacy_route": {"const": false}
+      }
+    },
+    "ontology": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["anchor_type", "target_types", "paths", "min_traversal_depth", "max_traversal_depth"],
+      "properties": {
+        "anchor_type": {"$ref": "#/$defs/catalogName"},
+        "target_types": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/catalogName"}
+        },
+        "paths": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {"$ref": "#/$defs/path"}
+        },
+        "min_traversal_depth": {"type": "integer", "minimum": 0, "maximum": 5},
+        "max_traversal_depth": {"type": "integer", "minimum": 0, "maximum": 5}
+      }
+    },
+    "path": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path_id", "steps"],
+      "properties": {
+        "path_id": {"$ref": "#/$defs/identifier"},
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 5,
+          "items": {"$ref": "#/$defs/pathStep"}
+        }
+      }
+    },
+    "pathStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from_type", "link_type", "direction", "to_type"],
+      "properties": {
+        "from_type": {"$ref": "#/$defs/catalogName"},
+        "link_type": {"$ref": "#/$defs/identifier"},
+        "direction": {"enum": ["incoming", "outgoing"]},
+        "to_type": {"$ref": "#/$defs/catalogName"}
+      }
+    },
+    "answerOracle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required_fact_kinds",
+        "required_limitations",
+        "forbidden_claims",
+        "evidence_required",
+        "execution_authority"
+      ],
+      "properties": {
+        "required_fact_kinds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/identifier"}
+        },
+        "required_limitations": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/identifier"}
+        },
+        "forbidden_claims": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/identifier"}
+        },
+        "evidence_required": {"const": true},
+        "execution_authority": {"const": false}
+      }
+    }
+  }
+}

@@ -4,26 +4,40 @@ title: Benchmark Adapters
 
 # Benchmark Adapters
 
-This design defines how external evaluation harnesses connect to FDAI without adding a
-benchmark-specific package to the FDAI runtime. A standalone SDK owns neutral contracts and a
-bounded runner. FDAI owns the public host and governed execution behind it.
+This retained design defines how external evaluation harnesses could connect to FDAI without
+adding a benchmark-specific package to the FDAI runtime. A standalone SDK preserves neutral
+contracts and a bounded runner. The current FDAI runtime does not provide the public host required
+to complete that flow.
 
 > **Scope:** A benchmark adapter translates harness lifecycle and data. It does not judge, approve,
 > promote, or execute an FDAI action.
 >
-> **Implementation status:** The independently packageable SDK, public host and session,
-> capability attenuation, artifact custody, workspace policy broker, SREGym migration, CyberGym
-> acceptance driver, installed-adapter discovery, bounded Kubernetes evidence, runner readiness
-> checks, compatibility facade, and dependency gates are implemented.
+> **Implementation status:** Dormant. The independently packageable SDK and external driver
+> packages remain implemented and focused-tested. The `EvaluationHost`, evaluation runtime entry
+> points, focused host suite, and legacy compatibility facade were removed during the 2026-08-08
+> service extraction and have no replacement in the current tree.
 
 ## Design at a glance
 
-The FDAI wheel contains no SREGym, CyberGym, or other harness protocol. An external driver depends
-on `fdai-evaluation-sdk`, receives a public `EvaluationHost`, and initiates a bounded session. The
-host turns neutral tasks into typed ingress and keeps decision, risk, approval, execution, and audit
-inside FDAI.
+The target flow keeps SREGym, CyberGym, and other harness protocols outside the FDAI wheel. An
+external driver would depend on `fdai-evaluation-sdk`, receive a public `EvaluationHost`, and
+initiate a bounded session. No current FDAI composition supplies that host.
 
 ![Design at a glance. The main stages are External harness, External driver, Evaluation SDK, Public EvaluationHost, Capability and custody brokers, FDAI typed ingress and control loop, EvaluationResult.](../../diagrams/generated/fdai-roadmap-interfaces-benchmark-adapters-01.en.svg)
+
+## Dormant status
+
+- The root FDAI `dev` extra does not install `fdai-evaluation-sdk`, SREGym, or CyberGym.
+- The three distributions remain workspace members so CI can run package tests, strict typing,
+  boundary checks, and independent wheel builds.
+- `services/core-control-plane/src/fdai/evaluation/` and
+  `services/core-control-plane/src/fdai/benchmarking/` do not exist in the current tree.
+- [`eval/golden-dataset/`](../../../eval/golden-dataset/) is the active repository corpus for
+  bilingual conversational semantic regression. It uses the live semantic-turn path and does not
+  reactivate this SDK.
+
+The detailed host, custody, and SREGym composition sections below are retained target design. They
+must not be read as claims about the current runtime.
 
 ## Package boundary
 
@@ -32,9 +46,9 @@ The layers have different release and dependency boundaries:
 | Layer | Location | Responsibility |
 |-------|----------|----------------|
 | Evaluation SDK | `evaluation-sdk/` | Immutable request, task, result, target, capability, workspace, artifact, receipt, adapter, host, and runner contracts. |
-| FDAI host | `services/core-control-plane/src/fdai/evaluation/` | Typed ingress, capability attenuation, workspace and artifact policy, result mapping, cleanup, and audit. |
+| FDAI host | Not present | Deferred typed ingress, capability attenuation, workspace and artifact policy, result mapping, cleanup, and audit. |
 | Harness driver | `benchmarks/<name>/` | Harness lifecycle, neutral task mapping, external validation, package dependencies, and tests. |
-| Compatibility facade | `services/core-control-plane/src/fdai/benchmarking/` | Legacy text task/submission, plugin, binding, and runner API during migration. |
+| Compatibility facade | Not present | Removed legacy text task/submission, plugin, binding, and runner API. |
 
 A harness driver is a separate Python distribution. Installing FDAI alone does not install or
 activate a benchmark integration. Removing a driver leaves the FDAI runtime unchanged.
@@ -124,6 +138,10 @@ The following boundaries apply to every plugin:
   does not inspect problem definitions, expected answers, or grading internals.
 
 ## SREGym driver
+
+> **Current availability:** Package mechanics and tests are retained, but an SREGym evaluation
+> session cannot start without a reintroduced FDAI host. Readiness and live-composition paragraphs
+> in this section describe the retained target design.
 
 The independent `benchmarks/sregym/` distribution currently translates these conductor surfaces:
 
@@ -470,9 +488,9 @@ paths and rejects any overlap.
 
 ## Compatibility and enforcement
 
-The legacy `fdai.benchmarking` API remains available through the `0.1.x` release line. Its existing
-contract, runner, and plugin suites stay green while callers migrate to `fdai-evaluation-sdk`.
-Removal is eligible only in `0.2.0` or later after one documented minor release window.
+The legacy `fdai.benchmarking` API is no longer present. Package preservation now applies only to
+the standalone SDK and driver distributions. Restoring the deleted facade alone would not restore
+the host, composition, or authority boundary and is not a supported reactivation path.
 
 `check-evaluation-boundaries.py` parses imports and calls with Python AST. CI blocks benchmark
 imports into FDAI, private FDAI imports from drivers, FDAI implementation imports from the SDK,
@@ -485,9 +503,9 @@ SREGym, and CyberGym wheels independently.
 
 Use these focused suites while developing an integration:
 
-The root `dev` extra binds both driver distributions as workspace-only dependencies so
-`uv sync --extra dev --frozen` can collect the cross-package integration tests. They remain absent
-from FDAI runtime dependencies and independently buildable wheels.
+Use `uv sync --all-packages --extra dev --frozen` when working on the retained packages. The root
+`dev` extra does not depend on them, but `--all-packages` installs all independent workspace
+members for package-scoped tests and builds.
 
 ```bash
 .venv/bin/python -m pytest -q --no-cov evaluation-sdk/tests
@@ -508,25 +526,29 @@ and both benchmark lifecycles.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| Evaluation SDK | implemented | `evaluation-sdk/src/fdai_evaluation_sdk/`; `evaluation-sdk/tests/` | Versioned contracts, capability attenuation, workspace policy, custody, and runner lifecycle have focused coverage. |
-| FDAI evaluation host integration | in-progress | `services/core-control-plane/src/fdai/evaluation/` | The host implementation exists, but no dedicated focused Core evaluation suite was found in the current tree. Driver tests exercise the public SDK boundary, not the complete FDAI host implementation. |
-| SREGym driver and readiness contract | implemented | `benchmarks/sregym/`; `benchmarks/sregym/tests/` | The independently packaged adapter and plugin exist. Passing a live cluster readiness probe and scenario campaign remains operational evidence, not package implementation. |
-| CyberGym driver and shadow runner | implemented | `benchmarks/cybergym/`; `benchmarks/cybergym/tests/`; `scripts/benchmarking/run_cybergym.py` | Both modes, external validation receipts, workspace isolation, path bounds, and staged validation are implemented and focused-tested. |
-| Evaluation dependency and compatibility gates | implemented | `scripts/quality/architecture/check-evaluation-boundaries.py`; `services/core-control-plane/src/fdai/benchmarking/` | AST boundary enforcement and the `0.1.x` compatibility facade exist; removal remains gated by the documented release window. |
-| Governed live benchmark evidence | in-progress | [SREGym driver](#sregym-driver); [CyberGym driver](#cybergym-driver) | Repository tests prove mechanics. Governed SREGym readiness and official CyberGym run receipts from the exact target images and dependencies are not retained here. |
+| Evaluation SDK package | implemented | `evaluation-sdk/src/fdai_evaluation_sdk/`; `evaluation-sdk/tests/`; evaluation-package CI job | Versioned contracts and runner lifecycle remain focused-tested and independently buildable while runtime integration is dormant. |
+| FDAI evaluation host integration | deferred | Current-tree absence of `services/core-control-plane/src/fdai/evaluation/`; this document's [dormant-status decision](#dormant-status) | No public host, runtime entry point, or focused host suite exists. Reactivation requires a new reviewed implementation and evidence boundary. |
+| SREGym driver package | implemented | `benchmarks/sregym/`; `benchmarks/sregym/tests/` | Adapter mechanics remain tested. No current FDAI host can run the adapter. |
+| CyberGym package and independent shadow runner | implemented | `benchmarks/cybergym/`; `benchmarks/cybergym/tests/`; `scripts/benchmarking/run_cybergym.py` | Adapter mechanics remain tested, and the explicit repository shadow runner remains separate from FDAI host integration. |
+| Evaluation dependency and boundary gates | implemented | Root `pyproject.toml`; `uv.lock`; `scripts/quality/architecture/check-evaluation-boundaries.py` | Runtime and root development dependencies omit the dormant packages; all-package CI preserves their isolated contracts and boundaries. |
+| Governed live benchmark evidence | deferred | [Dormant status](#dormant-status) | No new live benchmark evidence is required while host integration remains dormant. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. | `current change`; package source, focused suites, and boundary checks listed in the scope table. | Retain governed readiness and benchmark-run evidence without raising execution authority. |
+| 2026-08-21 | deferred | Corrected the stale active-host claim after service extraction had removed the host, runtime entry points, host tests, and compatibility facade. Removed the three dormant packages from the root `dev` dependency surface while retaining workspace package tests and builds. | `current change`; `pyproject.toml`; `uv.lock`; package READMEs; 68 package tests passed; lock check and all-package frozen sync passed. | Keep the integration dormant until a reviewed host design, focused host suite, and governed end-to-end evidence are approved together. |
 
 ### Remaining work
 
-- [ ] Add focused FDAI evaluation-host tests for ingress, workspace custody, attenuation, external validation, cleanup, and failure boundaries without importing benchmark implementations.
-- [ ] Run `fdai-evaluation-runner check --adapter sregym` in the digest-pinned target image and retain a governed receipt for every declared Kubernetes and grounded-RCA readiness probe.
-- [ ] Retain at least one official SREGym scenario receipt that preserves observation-only authority and one official CyberGym receipt that proves all required validation stages without exposing hidden inputs.
-- [ ] Record exact image, package, catalog, policy, benchmark revision, dependency, and validation-receipt digests before treating any live result as operational evidence.
+- [x] Remove dormant SDK and benchmark packages from the root FDAI `dev` dependency surface while
+  retaining independent workspace package tests and wheel builds.
+- [ ] Before reactivation, implement a service-owned `EvaluationHost`, focused ingress, custody,
+  attenuation, cleanup, and failure tests, an explicit runtime entry point, and one governed
+  end-to-end receipt on the same reviewed revision.
+- [ ] Keep conversational semantic regression under `eval/golden-dataset/`; do not route that
+  corpus through this dormant host integration.
 
 ## Related docs
 

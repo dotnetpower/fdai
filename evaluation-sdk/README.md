@@ -1,8 +1,14 @@
 # FDAI evaluation SDK
 
-This standalone package defines benchmark-neutral contracts for external evaluation drivers. It
-contains no FDAI control-plane, agent, delivery, runtime, composition, benchmark, oracle, dataset,
-or grader implementation.
+This retained standalone package defines benchmark-neutral contracts for external evaluation
+drivers. It contains no FDAI control-plane, agent, delivery, runtime, composition, benchmark,
+oracle, dataset, or grader implementation.
+
+> **Runtime status:** Dormant. The current Core distribution has no `EvaluationHost`, evaluation
+> runtime entry point, or legacy `fdai.benchmarking` facade. The root FDAI `dev` extra does not
+> install this package or its benchmark drivers. The package remains a workspace member so CI can
+> preserve its contracts, focused tests, type checks, and independently buildable wheel until a
+> reviewed host reactivation is approved.
 
 ## Public API
 
@@ -21,8 +27,8 @@ outside declared bounds fail validation.
 
 ## Driver lifecycle
 
-An external driver receives an `EvaluationHost` from its launcher. It does not discover or build
-FDAI runtime internals.
+The retained runner contract expects an external driver to receive an `EvaluationHost` from its
+launcher. The current FDAI runtime does not provide that host.
 
 ```python
 from fdai_evaluation_sdk import EvaluationRunner
@@ -42,11 +48,12 @@ after success, failure, timeout, or cancellation.
 - External validation receipts remain untrusted for FDAI execution.
 - Benchmark packages, protocols, hidden tests, oracles, and graders stay outside this package.
 
-## Migration
+## Reactivation boundary
 
-Existing `fdai.benchmarking` callers can remain on the legacy facade through the FDAI `0.1.x`
-release line while moving to this SDK. The compatibility surface is eligible for removal only in
-FDAI `0.2.0` or later after one documented minor release window.
+Reactivation requires a service-owned public host, focused host integration tests, an explicit
+composition and runtime entry point, and governed end-to-end evidence. Restoring only a package
+dependency or the deleted compatibility facade is insufficient. The active conversational
+regression corpus lives under `eval/golden-dataset/` and does not depend on this SDK.
 
 ## Testing
 

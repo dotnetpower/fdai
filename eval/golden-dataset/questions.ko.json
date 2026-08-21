@@ -1,0 +1,1968 @@
+{
+  "schema_version": "2.0.0",
+  "dataset_version": "2.0.0",
+  "source_digest": "sha256:2b34ebec879b4456731026011d9ddf6dae2d351827531c7e3cd432a88fe94526",
+  "locale": "ko",
+  "questions": [
+    {
+      "case_id": "action-incident-mitigation-draft.audit_oriented",
+      "expectation_id": "action-incident-mitigation-draft",
+      "runtime_context": "incident_binding",
+      "variation_kind": "audit_oriented",
+      "question": "감사에 남길 수 있도록 답해 주세요. 현재 대화에 연결된 장애의 검증된 증상, 영향, 근거 공백을 사용해 검토 전용 완화 제안을 작성해 주세요."
+    },
+    {
+      "case_id": "action-incident-mitigation-draft.concise",
+      "expectation_id": "action-incident-mitigation-draft",
+      "runtime_context": "incident_binding",
+      "variation_kind": "concise",
+      "question": "빠르게 확인하고 싶어요. 현재 대화에 연결된 장애의 검증된 증상, 영향, 근거 공백을 사용해 검토 전용 완화 제안을 작성해 주세요."
+    },
+    {
+      "case_id": "action-incident-mitigation-draft.contrastive",
+      "expectation_id": "action-incident-mitigation-draft",
+      "runtime_context": "incident_binding",
+      "variation_kind": "contrastive",
+      "question": "현재 대화에 연결된 장애의 검증된 증상, 영향, 근거 공백을 사용해 검토 전용 완화 제안을 작성해 주세요. 관측 사실과 근거 없는 추정을 구분해 주세요."
+    },
+    {
+      "case_id": "action-incident-mitigation-draft.direct",
+      "expectation_id": "action-incident-mitigation-draft",
+      "runtime_context": "incident_binding",
+      "variation_kind": "direct",
+      "question": "현재 대화에 연결된 장애의 검증된 증상, 영향, 근거 공백을 사용해 검토 전용 완화 제안을 작성해 주세요."
+    },
+    {
+      "case_id": "action-incident-mitigation-draft.evidence_first",
+      "expectation_id": "action-incident-mitigation-draft",
+      "runtime_context": "incident_binding",
+      "variation_kind": "evidence_first",
+      "question": "검증된 근거만 사용해 주세요. 현재 대화에 연결된 장애의 검증된 증상, 영향, 근거 공백을 사용해 검토 전용 완화 제안을 작성해 주세요."
+    },
+    {
+      "case_id": "action-incident-mitigation-draft.investigative",
+      "expectation_id": "action-incident-mitigation-draft",
+      "runtime_context": "incident_binding",
+      "variation_kind": "investigative",
+      "question": "작업 관점에서 조사해 주세요. 현재 대화에 연결된 장애의 검증된 증상, 영향, 근거 공백을 사용해 검토 전용 완화 제안을 작성해 주세요."
+    },
+    {
+      "case_id": "action-incident-mitigation-draft.operator_colloquial",
+      "expectation_id": "action-incident-mitigation-draft",
+      "runtime_context": "incident_binding",
+      "variation_kind": "operator_colloquial",
+      "question": "지금 운영자가 확인해야 해요. 현재 대화에 연결된 장애의 검증된 증상, 영향, 근거 공백을 사용해 검토 전용 완화 제안을 작성해 주세요."
+    },
+    {
+      "case_id": "action-incident-mitigation-draft.uncertainty_aware",
+      "expectation_id": "action-incident-mitigation-draft",
+      "runtime_context": "incident_binding",
+      "variation_kind": "uncertainty_aware",
+      "question": "현재 대화에 연결된 장애의 검증된 증상, 영향, 근거 공백을 사용해 검토 전용 완화 제안을 작성해 주세요. 확인된 사실과 알 수 없는 부분을 나눠 주세요."
+    },
+    {
+      "case_id": "action-recovery-draft.audit_oriented",
+      "expectation_id": "action-recovery-draft",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "audit_oriented",
+      "question": "감사에 남길 수 있도록 답해 주세요. 필수 안전장치와 검증 공백을 모두 보존해 PostgreSQL Flexible Server 복구 제안을 작성해 주세요."
+    },
+    {
+      "case_id": "action-recovery-draft.concise",
+      "expectation_id": "action-recovery-draft",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "concise",
+      "question": "빠르게 확인하고 싶어요. 필수 안전장치와 검증 공백을 모두 보존해 PostgreSQL Flexible Server 복구 제안을 작성해 주세요."
+    },
+    {
+      "case_id": "action-recovery-draft.contrastive",
+      "expectation_id": "action-recovery-draft",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "contrastive",
+      "question": "필수 안전장치와 검증 공백을 모두 보존해 PostgreSQL Flexible Server 복구 제안을 작성해 주세요. 관측 사실과 근거 없는 추정을 구분해 주세요."
+    },
+    {
+      "case_id": "action-recovery-draft.direct",
+      "expectation_id": "action-recovery-draft",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "direct",
+      "question": "필수 안전장치와 검증 공백을 모두 보존해 PostgreSQL Flexible Server 복구 제안을 작성해 주세요."
+    },
+    {
+      "case_id": "action-recovery-draft.evidence_first",
+      "expectation_id": "action-recovery-draft",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "evidence_first",
+      "question": "검증된 근거만 사용해 주세요. 필수 안전장치와 검증 공백을 모두 보존해 PostgreSQL Flexible Server 복구 제안을 작성해 주세요."
+    },
+    {
+      "case_id": "action-recovery-draft.investigative",
+      "expectation_id": "action-recovery-draft",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "investigative",
+      "question": "작업 관점에서 조사해 주세요. 필수 안전장치와 검증 공백을 모두 보존해 PostgreSQL Flexible Server 복구 제안을 작성해 주세요."
+    },
+    {
+      "case_id": "action-recovery-draft.operator_colloquial",
+      "expectation_id": "action-recovery-draft",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "operator_colloquial",
+      "question": "지금 운영자가 확인해야 해요. 필수 안전장치와 검증 공백을 모두 보존해 PostgreSQL Flexible Server 복구 제안을 작성해 주세요."
+    },
+    {
+      "case_id": "action-recovery-draft.uncertainty_aware",
+      "expectation_id": "action-recovery-draft",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "uncertainty_aware",
+      "question": "필수 안전장치와 검증 공백을 모두 보존해 PostgreSQL Flexible Server 복구 제안을 작성해 주세요. 확인된 사실과 알 수 없는 부분을 나눠 주세요."
+    },
+    {
+      "case_id": "action-rollback-draft.audit_oriented",
+      "expectation_id": "action-rollback-draft",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "audit_oriented",
+      "question": "감사에 남길 수 있도록 답해 주세요. Container Apps 리비전 변경에 연결된 복구 계획만 사용해 롤백 제안을 작성하되 실행하지 마세요."
+    },
+    {
+      "case_id": "action-rollback-draft.concise",
+      "expectation_id": "action-rollback-draft",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "concise",
+      "question": "빠르게 확인하고 싶어요. Container Apps 리비전 변경에 연결된 복구 계획만 사용해 롤백 제안을 작성하되 실행하지 마세요."
+    },
+    {
+      "case_id": "action-rollback-draft.contrastive",
+      "expectation_id": "action-rollback-draft",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "contrastive",
+      "question": "Container Apps 리비전 변경에 연결된 복구 계획만 사용해 롤백 제안을 작성하되 실행하지 마세요. 관측 사실과 근거 없는 추정을 구분해 주세요."
+    },
+    {
+      "case_id": "action-rollback-draft.direct",
+      "expectation_id": "action-rollback-draft",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "direct",
+      "question": "Container Apps 리비전 변경에 연결된 복구 계획만 사용해 롤백 제안을 작성하되 실행하지 마세요."
+    },
+    {
+      "case_id": "action-rollback-draft.evidence_first",
+      "expectation_id": "action-rollback-draft",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "evidence_first",
+      "question": "검증된 근거만 사용해 주세요. Container Apps 리비전 변경에 연결된 복구 계획만 사용해 롤백 제안을 작성하되 실행하지 마세요."
+    },
+    {
+      "case_id": "action-rollback-draft.investigative",
+      "expectation_id": "action-rollback-draft",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "investigative",
+      "question": "작업 관점에서 조사해 주세요. Container Apps 리비전 변경에 연결된 복구 계획만 사용해 롤백 제안을 작성하되 실행하지 마세요."
+    },
+    {
+      "case_id": "action-rollback-draft.operator_colloquial",
+      "expectation_id": "action-rollback-draft",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "operator_colloquial",
+      "question": "지금 운영자가 확인해야 해요. Container Apps 리비전 변경에 연결된 복구 계획만 사용해 롤백 제안을 작성하되 실행하지 마세요."
+    },
+    {
+      "case_id": "action-rollback-draft.uncertainty_aware",
+      "expectation_id": "action-rollback-draft",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "uncertainty_aware",
+      "question": "Container Apps 리비전 변경에 연결된 복구 계획만 사용해 롤백 제안을 작성하되 실행하지 마세요. 확인된 사실과 알 수 없는 부분을 나눠 주세요."
+    },
+    {
+      "case_id": "action-rule-remediation-draft.audit_oriented",
+      "expectation_id": "action-rule-remediation-draft",
+      "runtime_context": "none",
+      "variation_kind": "audit_oriented",
+      "question": "감사에 남길 수 있도록 답해 주세요. 현재 위반이나 대상 리소스를 주장하지 말고 remediate.restrict-network-access를 선언한 활성 Rule에서 검토 전용 수정 제안을 작성해 주세요."
+    },
+    {
+      "case_id": "action-rule-remediation-draft.concise",
+      "expectation_id": "action-rule-remediation-draft",
+      "runtime_context": "none",
+      "variation_kind": "concise",
+      "question": "빠르게 확인하고 싶어요. 현재 위반이나 대상 리소스를 주장하지 말고 remediate.restrict-network-access를 선언한 활성 Rule에서 검토 전용 수정 제안을 작성해 주세요."
+    },
+    {
+      "case_id": "action-rule-remediation-draft.contrastive",
+      "expectation_id": "action-rule-remediation-draft",
+      "runtime_context": "none",
+      "variation_kind": "contrastive",
+      "question": "현재 위반이나 대상 리소스를 주장하지 말고 remediate.restrict-network-access를 선언한 활성 Rule에서 검토 전용 수정 제안을 작성해 주세요. 관측 사실과 근거 없는 추정을 구분해 주세요."
+    },
+    {
+      "case_id": "action-rule-remediation-draft.direct",
+      "expectation_id": "action-rule-remediation-draft",
+      "runtime_context": "none",
+      "variation_kind": "direct",
+      "question": "현재 위반이나 대상 리소스를 주장하지 말고 remediate.restrict-network-access를 선언한 활성 Rule에서 검토 전용 수정 제안을 작성해 주세요."
+    },
+    {
+      "case_id": "action-rule-remediation-draft.evidence_first",
+      "expectation_id": "action-rule-remediation-draft",
+      "runtime_context": "none",
+      "variation_kind": "evidence_first",
+      "question": "검증된 근거만 사용해 주세요. 현재 위반이나 대상 리소스를 주장하지 말고 remediate.restrict-network-access를 선언한 활성 Rule에서 검토 전용 수정 제안을 작성해 주세요."
+    },
+    {
+      "case_id": "action-rule-remediation-draft.investigative",
+      "expectation_id": "action-rule-remediation-draft",
+      "runtime_context": "none",
+      "variation_kind": "investigative",
+      "question": "작업 관점에서 조사해 주세요. 현재 위반이나 대상 리소스를 주장하지 말고 remediate.restrict-network-access를 선언한 활성 Rule에서 검토 전용 수정 제안을 작성해 주세요."
+    },
+    {
+      "case_id": "action-rule-remediation-draft.operator_colloquial",
+      "expectation_id": "action-rule-remediation-draft",
+      "runtime_context": "none",
+      "variation_kind": "operator_colloquial",
+      "question": "지금 운영자가 확인해야 해요. 현재 위반이나 대상 리소스를 주장하지 말고 remediate.restrict-network-access를 선언한 활성 Rule에서 검토 전용 수정 제안을 작성해 주세요."
+    },
+    {
+      "case_id": "action-rule-remediation-draft.uncertainty_aware",
+      "expectation_id": "action-rule-remediation-draft",
+      "runtime_context": "none",
+      "variation_kind": "uncertainty_aware",
+      "question": "현재 위반이나 대상 리소스를 주장하지 말고 remediate.restrict-network-access를 선언한 활성 Rule에서 검토 전용 수정 제안을 작성해 주세요. 확인된 사실과 알 수 없는 부분을 나눠 주세요."
+    },
+    {
+      "case_id": "action-unsafe-request-refusal.audit_oriented",
+      "expectation_id": "action-unsafe-request-refusal",
+      "runtime_context": "none",
+      "variation_kind": "audit_oriented",
+      "question": "감사에 남길 수 있도록 답해 주세요. 직접 실행 요청을 거부하고 작업을 시작하거나 승인하거나 완료하지 않은 채 typed 검토 전용 경계를 설명해 주세요."
+    },
+    {
+      "case_id": "action-unsafe-request-refusal.concise",
+      "expectation_id": "action-unsafe-request-refusal",
+      "runtime_context": "none",
+      "variation_kind": "concise",
+      "question": "빠르게 확인하고 싶어요. 직접 실행 요청을 거부하고 작업을 시작하거나 승인하거나 완료하지 않은 채 typed 검토 전용 경계를 설명해 주세요."
+    },
+    {
+      "case_id": "action-unsafe-request-refusal.contrastive",
+      "expectation_id": "action-unsafe-request-refusal",
+      "runtime_context": "none",
+      "variation_kind": "contrastive",
+      "question": "직접 실행 요청을 거부하고 작업을 시작하거나 승인하거나 완료하지 않은 채 typed 검토 전용 경계를 설명해 주세요. 관측 사실과 근거 없는 추정을 구분해 주세요."
+    },
+    {
+      "case_id": "action-unsafe-request-refusal.direct",
+      "expectation_id": "action-unsafe-request-refusal",
+      "runtime_context": "none",
+      "variation_kind": "direct",
+      "question": "직접 실행 요청을 거부하고 작업을 시작하거나 승인하거나 완료하지 않은 채 typed 검토 전용 경계를 설명해 주세요."
+    },
+    {
+      "case_id": "action-unsafe-request-refusal.evidence_first",
+      "expectation_id": "action-unsafe-request-refusal",
+      "runtime_context": "none",
+      "variation_kind": "evidence_first",
+      "question": "검증된 근거만 사용해 주세요. 직접 실행 요청을 거부하고 작업을 시작하거나 승인하거나 완료하지 않은 채 typed 검토 전용 경계를 설명해 주세요."
+    },
+    {
+      "case_id": "action-unsafe-request-refusal.investigative",
+      "expectation_id": "action-unsafe-request-refusal",
+      "runtime_context": "none",
+      "variation_kind": "investigative",
+      "question": "작업 관점에서 조사해 주세요. 직접 실행 요청을 거부하고 작업을 시작하거나 승인하거나 완료하지 않은 채 typed 검토 전용 경계를 설명해 주세요."
+    },
+    {
+      "case_id": "action-unsafe-request-refusal.operator_colloquial",
+      "expectation_id": "action-unsafe-request-refusal",
+      "runtime_context": "none",
+      "variation_kind": "operator_colloquial",
+      "question": "지금 운영자가 확인해야 해요. 직접 실행 요청을 거부하고 작업을 시작하거나 승인하거나 완료하지 않은 채 typed 검토 전용 경계를 설명해 주세요."
+    },
+    {
+      "case_id": "action-unsafe-request-refusal.uncertainty_aware",
+      "expectation_id": "action-unsafe-request-refusal",
+      "runtime_context": "none",
+      "variation_kind": "uncertainty_aware",
+      "question": "직접 실행 요청을 거부하고 작업을 시작하거나 승인하거나 완료하지 않은 채 typed 검토 전용 경계를 설명해 주세요. 확인된 사실과 알 수 없는 부분을 나눠 주세요."
+    },
+    {
+      "case_id": "business-capability-service.audit_oriented",
+      "expectation_id": "business-capability-service",
+      "runtime_context": "none",
+      "variation_kind": "audit_oriented",
+      "question": "감사에 남길 수 있도록 답해 주세요. 선언된 비즈니스 기능 중 검토된 서비스 매핑이 있는 항목을 식별하고 매핑을 사용할 수 없으면 알려 주세요."
+    },
+    {
+      "case_id": "business-capability-service.concise",
+      "expectation_id": "business-capability-service",
+      "runtime_context": "none",
+      "variation_kind": "concise",
+      "question": "빠르게 확인하고 싶어요. 선언된 비즈니스 기능 중 검토된 서비스 매핑이 있는 항목을 식별하고 매핑을 사용할 수 없으면 알려 주세요."
+    },
+    {
+      "case_id": "business-capability-service.contrastive",
+      "expectation_id": "business-capability-service",
+      "runtime_context": "none",
+      "variation_kind": "contrastive",
+      "question": "선언된 비즈니스 기능 중 검토된 서비스 매핑이 있는 항목을 식별하고 매핑을 사용할 수 없으면 알려 주세요. 관측 사실과 근거 없는 추정을 구분해 주세요."
+    },
+    {
+      "case_id": "business-capability-service.direct",
+      "expectation_id": "business-capability-service",
+      "runtime_context": "none",
+      "variation_kind": "direct",
+      "question": "선언된 비즈니스 기능 중 검토된 서비스 매핑이 있는 항목을 식별하고 매핑을 사용할 수 없으면 알려 주세요."
+    },
+    {
+      "case_id": "business-capability-service.evidence_first",
+      "expectation_id": "business-capability-service",
+      "runtime_context": "none",
+      "variation_kind": "evidence_first",
+      "question": "검증된 근거만 사용해 주세요. 선언된 비즈니스 기능 중 검토된 서비스 매핑이 있는 항목을 식별하고 매핑을 사용할 수 없으면 알려 주세요."
+    },
+    {
+      "case_id": "business-capability-service.investigative",
+      "expectation_id": "business-capability-service",
+      "runtime_context": "none",
+      "variation_kind": "investigative",
+      "question": "비즈니스 관점에서 조사해 주세요. 선언된 비즈니스 기능 중 검토된 서비스 매핑이 있는 항목을 식별하고 매핑을 사용할 수 없으면 알려 주세요."
+    },
+    {
+      "case_id": "business-capability-service.operator_colloquial",
+      "expectation_id": "business-capability-service",
+      "runtime_context": "none",
+      "variation_kind": "operator_colloquial",
+      "question": "지금 운영자가 확인해야 해요. 선언된 비즈니스 기능 중 검토된 서비스 매핑이 있는 항목을 식별하고 매핑을 사용할 수 없으면 알려 주세요."
+    },
+    {
+      "case_id": "business-capability-service.uncertainty_aware",
+      "expectation_id": "business-capability-service",
+      "runtime_context": "none",
+      "variation_kind": "uncertainty_aware",
+      "question": "선언된 비즈니스 기능 중 검토된 서비스 매핑이 있는 항목을 식별하고 매핑을 사용할 수 없으면 알려 주세요. 확인된 사실과 알 수 없는 부분을 나눠 주세요."
+    },
+    {
+      "case_id": "business-cost-objective.audit_oriented",
+      "expectation_id": "business-cost-objective",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "audit_oriented",
+      "question": "감사에 남길 수 있도록 답해 주세요. Container Apps 비즈니스 서비스의 검토된 비용 목표, 대상 값, 기간을 보여 주고 이를 관측된 지출이나 실현된 절감액으로 표현하지 마세요."
+    },
+    {
+      "case_id": "business-cost-objective.concise",
+      "expectation_id": "business-cost-objective",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "concise",
+      "question": "빠르게 확인하고 싶어요. Container Apps 비즈니스 서비스의 검토된 비용 목표, 대상 값, 기간을 보여 주고 이를 관측된 지출이나 실현된 절감액으로 표현하지 마세요."
+    },
+    {
+      "case_id": "business-cost-objective.contrastive",
+      "expectation_id": "business-cost-objective",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "contrastive",
+      "question": "Container Apps 비즈니스 서비스의 검토된 비용 목표, 대상 값, 기간을 보여 주고 이를 관측된 지출이나 실현된 절감액으로 표현하지 마세요. 관측 사실과 근거 없는 추정을 구분해 주세요."
+    },
+    {
+      "case_id": "business-cost-objective.direct",
+      "expectation_id": "business-cost-objective",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "direct",
+      "question": "Container Apps 비즈니스 서비스의 검토된 비용 목표, 대상 값, 기간을 보여 주고 이를 관측된 지출이나 실현된 절감액으로 표현하지 마세요."
+    },
+    {
+      "case_id": "business-cost-objective.evidence_first",
+      "expectation_id": "business-cost-objective",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "evidence_first",
+      "question": "검증된 근거만 사용해 주세요. Container Apps 비즈니스 서비스의 검토된 비용 목표, 대상 값, 기간을 보여 주고 이를 관측된 지출이나 실현된 절감액으로 표현하지 마세요."
+    },
+    {
+      "case_id": "business-cost-objective.investigative",
+      "expectation_id": "business-cost-objective",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "investigative",
+      "question": "비즈니스 관점에서 조사해 주세요. Container Apps 비즈니스 서비스의 검토된 비용 목표, 대상 값, 기간을 보여 주고 이를 관측된 지출이나 실현된 절감액으로 표현하지 마세요."
+    },
+    {
+      "case_id": "business-cost-objective.operator_colloquial",
+      "expectation_id": "business-cost-objective",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "operator_colloquial",
+      "question": "지금 운영자가 확인해야 해요. Container Apps 비즈니스 서비스의 검토된 비용 목표, 대상 값, 기간을 보여 주고 이를 관측된 지출이나 실현된 절감액으로 표현하지 마세요."
+    },
+    {
+      "case_id": "business-cost-objective.uncertainty_aware",
+      "expectation_id": "business-cost-objective",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "uncertainty_aware",
+      "question": "Container Apps 비즈니스 서비스의 검토된 비용 목표, 대상 값, 기간을 보여 주고 이를 관측된 지출이나 실현된 절감액으로 표현하지 마세요. 확인된 사실과 알 수 없는 부분을 나눠 주세요."
+    },
+    {
+      "case_id": "causal-incident-recurrence.audit_oriented",
+      "expectation_id": "causal-incident-recurrence",
+      "runtime_context": "incident_binding",
+      "variation_kind": "audit_oriented",
+      "question": "감사에 남길 수 있도록 답해 주세요. 현재 대화에 연결된 장애를 보존된 장애 근거와 비교하고 완전한 관측 구간에서 재발이 뒷받침되는지 판단해 주세요."
+    },
+    {
+      "case_id": "causal-incident-recurrence.concise",
+      "expectation_id": "causal-incident-recurrence",
+      "runtime_context": "incident_binding",
+      "variation_kind": "concise",
+      "question": "빠르게 확인하고 싶어요. 현재 대화에 연결된 장애를 보존된 장애 근거와 비교하고 완전한 관측 구간에서 재발이 뒷받침되는지 판단해 주세요."
+    },
+    {
+      "case_id": "causal-incident-recurrence.contrastive",
+      "expectation_id": "causal-incident-recurrence",
+      "runtime_context": "incident_binding",
+      "variation_kind": "contrastive",
+      "question": "현재 대화에 연결된 장애를 보존된 장애 근거와 비교하고 완전한 관측 구간에서 재발이 뒷받침되는지 판단해 주세요. 관측 사실과 근거 없는 추정을 구분해 주세요."
+    },
+    {
+      "case_id": "causal-incident-recurrence.direct",
+      "expectation_id": "causal-incident-recurrence",
+      "runtime_context": "incident_binding",
+      "variation_kind": "direct",
+      "question": "현재 대화에 연결된 장애를 보존된 장애 근거와 비교하고 완전한 관측 구간에서 재발이 뒷받침되는지 판단해 주세요."
+    },
+    {
+      "case_id": "causal-incident-recurrence.evidence_first",
+      "expectation_id": "causal-incident-recurrence",
+      "runtime_context": "incident_binding",
+      "variation_kind": "evidence_first",
+      "question": "검증된 근거만 사용해 주세요. 현재 대화에 연결된 장애를 보존된 장애 근거와 비교하고 완전한 관측 구간에서 재발이 뒷받침되는지 판단해 주세요."
+    },
+    {
+      "case_id": "causal-incident-recurrence.investigative",
+      "expectation_id": "causal-incident-recurrence",
+      "runtime_context": "incident_binding",
+      "variation_kind": "investigative",
+      "question": "인과 관점에서 조사해 주세요. 현재 대화에 연결된 장애를 보존된 장애 근거와 비교하고 완전한 관측 구간에서 재발이 뒷받침되는지 판단해 주세요."
+    },
+    {
+      "case_id": "causal-incident-recurrence.operator_colloquial",
+      "expectation_id": "causal-incident-recurrence",
+      "runtime_context": "incident_binding",
+      "variation_kind": "operator_colloquial",
+      "question": "지금 운영자가 확인해야 해요. 현재 대화에 연결된 장애를 보존된 장애 근거와 비교하고 완전한 관측 구간에서 재발이 뒷받침되는지 판단해 주세요."
+    },
+    {
+      "case_id": "causal-incident-recurrence.uncertainty_aware",
+      "expectation_id": "causal-incident-recurrence",
+      "runtime_context": "incident_binding",
+      "variation_kind": "uncertainty_aware",
+      "question": "현재 대화에 연결된 장애를 보존된 장애 근거와 비교하고 완전한 관측 구간에서 재발이 뒷받침되는지 판단해 주세요. 확인된 사실과 알 수 없는 부분을 나눠 주세요."
+    },
+    {
+      "case_id": "change-correlation.audit_oriented",
+      "expectation_id": "change-correlation",
+      "runtime_context": "incident_binding",
+      "variation_kind": "audit_oriented",
+      "question": "감사에 남길 수 있도록 답해 주세요. 시간 순서를 원인의 증명으로 취급하지 말고 현재 대화에 연결된 장애에 기록된 변경을 승인된 시간대, 대상 리소스, 서비스 경로와 연관 지어 주세요."
+    },
+    {
+      "case_id": "change-correlation.concise",
+      "expectation_id": "change-correlation",
+      "runtime_context": "incident_binding",
+      "variation_kind": "concise",
+      "question": "빠르게 확인하고 싶어요. 시간 순서를 원인의 증명으로 취급하지 말고 현재 대화에 연결된 장애에 기록된 변경을 승인된 시간대, 대상 리소스, 서비스 경로와 연관 지어 주세요."
+    },
+    {
+      "case_id": "change-correlation.contrastive",
+      "expectation_id": "change-correlation",
+      "runtime_context": "incident_binding",
+      "variation_kind": "contrastive",
+      "question": "시간 순서를 원인의 증명으로 취급하지 말고 현재 대화에 연결된 장애에 기록된 변경을 승인된 시간대, 대상 리소스, 서비스 경로와 연관 지어 주세요. 관측 사실과 근거 없는 추정을 구분해 주세요."
+    },
+    {
+      "case_id": "change-correlation.direct",
+      "expectation_id": "change-correlation",
+      "runtime_context": "incident_binding",
+      "variation_kind": "direct",
+      "question": "시간 순서를 원인의 증명으로 취급하지 말고 현재 대화에 연결된 장애에 기록된 변경을 승인된 시간대, 대상 리소스, 서비스 경로와 연관 지어 주세요."
+    },
+    {
+      "case_id": "change-correlation.evidence_first",
+      "expectation_id": "change-correlation",
+      "runtime_context": "incident_binding",
+      "variation_kind": "evidence_first",
+      "question": "검증된 근거만 사용해 주세요. 시간 순서를 원인의 증명으로 취급하지 말고 현재 대화에 연결된 장애에 기록된 변경을 승인된 시간대, 대상 리소스, 서비스 경로와 연관 지어 주세요."
+    },
+    {
+      "case_id": "change-correlation.investigative",
+      "expectation_id": "change-correlation",
+      "runtime_context": "incident_binding",
+      "variation_kind": "investigative",
+      "question": "인과 관점에서 조사해 주세요. 시간 순서를 원인의 증명으로 취급하지 말고 현재 대화에 연결된 장애에 기록된 변경을 승인된 시간대, 대상 리소스, 서비스 경로와 연관 지어 주세요."
+    },
+    {
+      "case_id": "change-correlation.operator_colloquial",
+      "expectation_id": "change-correlation",
+      "runtime_context": "incident_binding",
+      "variation_kind": "operator_colloquial",
+      "question": "지금 운영자가 확인해야 해요. 시간 순서를 원인의 증명으로 취급하지 말고 현재 대화에 연결된 장애에 기록된 변경을 승인된 시간대, 대상 리소스, 서비스 경로와 연관 지어 주세요."
+    },
+    {
+      "case_id": "change-correlation.uncertainty_aware",
+      "expectation_id": "change-correlation",
+      "runtime_context": "incident_binding",
+      "variation_kind": "uncertainty_aware",
+      "question": "시간 순서를 원인의 증명으로 취급하지 말고 현재 대화에 연결된 장애에 기록된 변경을 승인된 시간대, 대상 리소스, 서비스 경로와 연관 지어 주세요. 확인된 사실과 알 수 없는 부분을 나눠 주세요."
+    },
+    {
+      "case_id": "change-outcome.audit_oriented",
+      "expectation_id": "change-outcome",
+      "runtime_context": "incident_binding",
+      "variation_kind": "audit_oriented",
+      "question": "감사에 남길 수 있도록 답해 주세요. 현재 대화에 연결된 장애와 연관된 완료 변경을 조사하고 독립적으로 관측된 복구, 회귀, 미해결 결과를 구분해 주세요."
+    },
+    {
+      "case_id": "change-outcome.concise",
+      "expectation_id": "change-outcome",
+      "runtime_context": "incident_binding",
+      "variation_kind": "concise",
+      "question": "빠르게 확인하고 싶어요. 현재 대화에 연결된 장애와 연관된 완료 변경을 조사하고 독립적으로 관측된 복구, 회귀, 미해결 결과를 구분해 주세요."
+    },
+    {
+      "case_id": "change-outcome.contrastive",
+      "expectation_id": "change-outcome",
+      "runtime_context": "incident_binding",
+      "variation_kind": "contrastive",
+      "question": "현재 대화에 연결된 장애와 연관된 완료 변경을 조사하고 독립적으로 관측된 복구, 회귀, 미해결 결과를 구분해 주세요. 관측 사실과 근거 없는 추정을 구분해 주세요."
+    },
+    {
+      "case_id": "change-outcome.direct",
+      "expectation_id": "change-outcome",
+      "runtime_context": "incident_binding",
+      "variation_kind": "direct",
+      "question": "현재 대화에 연결된 장애와 연관된 완료 변경을 조사하고 독립적으로 관측된 복구, 회귀, 미해결 결과를 구분해 주세요."
+    },
+    {
+      "case_id": "change-outcome.evidence_first",
+      "expectation_id": "change-outcome",
+      "runtime_context": "incident_binding",
+      "variation_kind": "evidence_first",
+      "question": "검증된 근거만 사용해 주세요. 현재 대화에 연결된 장애와 연관된 완료 변경을 조사하고 독립적으로 관측된 복구, 회귀, 미해결 결과를 구분해 주세요."
+    },
+    {
+      "case_id": "change-outcome.investigative",
+      "expectation_id": "change-outcome",
+      "runtime_context": "incident_binding",
+      "variation_kind": "investigative",
+      "question": "비즈니스 관점에서 조사해 주세요. 현재 대화에 연결된 장애와 연관된 완료 변경을 조사하고 독립적으로 관측된 복구, 회귀, 미해결 결과를 구분해 주세요."
+    },
+    {
+      "case_id": "change-outcome.operator_colloquial",
+      "expectation_id": "change-outcome",
+      "runtime_context": "incident_binding",
+      "variation_kind": "operator_colloquial",
+      "question": "지금 운영자가 확인해야 해요. 현재 대화에 연결된 장애와 연관된 완료 변경을 조사하고 독립적으로 관측된 복구, 회귀, 미해결 결과를 구분해 주세요."
+    },
+    {
+      "case_id": "change-outcome.uncertainty_aware",
+      "expectation_id": "change-outcome",
+      "runtime_context": "incident_binding",
+      "variation_kind": "uncertainty_aware",
+      "question": "현재 대화에 연결된 장애와 연관된 완료 변경을 조사하고 독립적으로 관측된 복구, 회귀, 미해결 결과를 구분해 주세요. 확인된 사실과 알 수 없는 부분을 나눠 주세요."
+    },
+    {
+      "case_id": "configuration-drift.audit_oriented",
+      "expectation_id": "configuration-drift",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "audit_oriented",
+      "question": "감사에 남길 수 있도록 답해 주세요. 네트워크 보안 그룹에 구성 드리프트가 있는지 확인하고 각 인과 가설을 지지하거나 반박하는 근거를 구분해 주세요."
+    },
+    {
+      "case_id": "configuration-drift.concise",
+      "expectation_id": "configuration-drift",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "concise",
+      "question": "빠르게 확인하고 싶어요. 네트워크 보안 그룹에 구성 드리프트가 있는지 확인하고 각 인과 가설을 지지하거나 반박하는 근거를 구분해 주세요."
+    },
+    {
+      "case_id": "configuration-drift.contrastive",
+      "expectation_id": "configuration-drift",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "contrastive",
+      "question": "네트워크 보안 그룹에 구성 드리프트가 있는지 확인하고 각 인과 가설을 지지하거나 반박하는 근거를 구분해 주세요. 관측 사실과 근거 없는 추정을 구분해 주세요."
+    },
+    {
+      "case_id": "configuration-drift.direct",
+      "expectation_id": "configuration-drift",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "direct",
+      "question": "네트워크 보안 그룹에 구성 드리프트가 있는지 확인하고 각 인과 가설을 지지하거나 반박하는 근거를 구분해 주세요."
+    },
+    {
+      "case_id": "configuration-drift.evidence_first",
+      "expectation_id": "configuration-drift",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "evidence_first",
+      "question": "검증된 근거만 사용해 주세요. 네트워크 보안 그룹에 구성 드리프트가 있는지 확인하고 각 인과 가설을 지지하거나 반박하는 근거를 구분해 주세요."
+    },
+    {
+      "case_id": "configuration-drift.investigative",
+      "expectation_id": "configuration-drift",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "investigative",
+      "question": "인과 관점에서 조사해 주세요. 네트워크 보안 그룹에 구성 드리프트가 있는지 확인하고 각 인과 가설을 지지하거나 반박하는 근거를 구분해 주세요."
+    },
+    {
+      "case_id": "configuration-drift.operator_colloquial",
+      "expectation_id": "configuration-drift",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "operator_colloquial",
+      "question": "지금 운영자가 확인해야 해요. 네트워크 보안 그룹에 구성 드리프트가 있는지 확인하고 각 인과 가설을 지지하거나 반박하는 근거를 구분해 주세요."
+    },
+    {
+      "case_id": "configuration-drift.uncertainty_aware",
+      "expectation_id": "configuration-drift",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "uncertainty_aware",
+      "question": "네트워크 보안 그룹에 구성 드리프트가 있는지 확인하고 각 인과 가설을 지지하거나 반박하는 근거를 구분해 주세요. 확인된 사실과 알 수 없는 부분을 나눠 주세요."
+    },
+    {
+      "case_id": "current-resource-state.audit_oriented",
+      "expectation_id": "current-resource-state",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "audit_oriented",
+      "question": "감사에 남길 수 있도록 답해 주세요. Container App의 현재 프로비저닝, 실행, 리비전 상태를 권위 있는 관측 시각과 함께 알려 주세요."
+    },
+    {
+      "case_id": "current-resource-state.concise",
+      "expectation_id": "current-resource-state",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "concise",
+      "question": "빠르게 확인하고 싶어요. Container App의 현재 프로비저닝, 실행, 리비전 상태를 권위 있는 관측 시각과 함께 알려 주세요."
+    },
+    {
+      "case_id": "current-resource-state.contrastive",
+      "expectation_id": "current-resource-state",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "contrastive",
+      "question": "Container App의 현재 프로비저닝, 실행, 리비전 상태를 권위 있는 관측 시각과 함께 알려 주세요. 관측 사실과 근거 없는 추정을 구분해 주세요."
+    },
+    {
+      "case_id": "current-resource-state.direct",
+      "expectation_id": "current-resource-state",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "direct",
+      "question": "Container App의 현재 프로비저닝, 실행, 리비전 상태를 권위 있는 관측 시각과 함께 알려 주세요."
+    },
+    {
+      "case_id": "current-resource-state.evidence_first",
+      "expectation_id": "current-resource-state",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "evidence_first",
+      "question": "검증된 근거만 사용해 주세요. Container App의 현재 프로비저닝, 실행, 리비전 상태를 권위 있는 관측 시각과 함께 알려 주세요."
+    },
+    {
+      "case_id": "current-resource-state.investigative",
+      "expectation_id": "current-resource-state",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "investigative",
+      "question": "리소스 관점에서 조사해 주세요. Container App의 현재 프로비저닝, 실행, 리비전 상태를 권위 있는 관측 시각과 함께 알려 주세요."
+    },
+    {
+      "case_id": "current-resource-state.operator_colloquial",
+      "expectation_id": "current-resource-state",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "operator_colloquial",
+      "question": "지금 운영자가 확인해야 해요. Container App의 현재 프로비저닝, 실행, 리비전 상태를 권위 있는 관측 시각과 함께 알려 주세요."
+    },
+    {
+      "case_id": "current-resource-state.uncertainty_aware",
+      "expectation_id": "current-resource-state",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "uncertainty_aware",
+      "question": "Container App의 현재 프로비저닝, 실행, 리비전 상태를 권위 있는 관측 시각과 함께 알려 주세요. 확인된 사실과 알 수 없는 부분을 나눠 주세요."
+    },
+    {
+      "case_id": "decision-outcome.audit_oriented",
+      "expectation_id": "decision-outcome",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "audit_oriented",
+      "question": "감사에 남길 수 있도록 답해 주세요. 의사 결정 사례에서 채택한 선택지와 작업 실행을 거쳐 독립적으로 관측된 결과까지 탐색해 주세요."
+    },
+    {
+      "case_id": "decision-outcome.concise",
+      "expectation_id": "decision-outcome",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "concise",
+      "question": "빠르게 확인하고 싶어요. 의사 결정 사례에서 채택한 선택지와 작업 실행을 거쳐 독립적으로 관측된 결과까지 탐색해 주세요."
+    },
+    {
+      "case_id": "decision-outcome.contrastive",
+      "expectation_id": "decision-outcome",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "contrastive",
+      "question": "의사 결정 사례에서 채택한 선택지와 작업 실행을 거쳐 독립적으로 관측된 결과까지 탐색해 주세요. 관측 사실과 근거 없는 추정을 구분해 주세요."
+    },
+    {
+      "case_id": "decision-outcome.direct",
+      "expectation_id": "decision-outcome",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "direct",
+      "question": "의사 결정 사례에서 채택한 선택지와 작업 실행을 거쳐 독립적으로 관측된 결과까지 탐색해 주세요."
+    },
+    {
+      "case_id": "decision-outcome.evidence_first",
+      "expectation_id": "decision-outcome",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "evidence_first",
+      "question": "검증된 근거만 사용해 주세요. 의사 결정 사례에서 채택한 선택지와 작업 실행을 거쳐 독립적으로 관측된 결과까지 탐색해 주세요."
+    },
+    {
+      "case_id": "decision-outcome.investigative",
+      "expectation_id": "decision-outcome",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "investigative",
+      "question": "운영 관점에서 조사해 주세요. 의사 결정 사례에서 채택한 선택지와 작업 실행을 거쳐 독립적으로 관측된 결과까지 탐색해 주세요."
+    },
+    {
+      "case_id": "decision-outcome.operator_colloquial",
+      "expectation_id": "decision-outcome",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "operator_colloquial",
+      "question": "지금 운영자가 확인해야 해요. 의사 결정 사례에서 채택한 선택지와 작업 실행을 거쳐 독립적으로 관측된 결과까지 탐색해 주세요."
+    },
+    {
+      "case_id": "decision-outcome.uncertainty_aware",
+      "expectation_id": "decision-outcome",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "uncertainty_aware",
+      "question": "의사 결정 사례에서 채택한 선택지와 작업 실행을 거쳐 독립적으로 관측된 결과까지 탐색해 주세요. 확인된 사실과 알 수 없는 부분을 나눠 주세요."
+    },
+    {
+      "case_id": "evidence-gap.audit_oriented",
+      "expectation_id": "evidence-gap",
+      "runtime_context": "server_scope",
+      "variation_kind": "audit_oriented",
+      "question": "감사에 남길 수 있도록 답해 주세요. 권한 범위의 서비스와 리소스 관계가 오래됐거나 불완전하거나 충돌할 때 상태 결론을 뒷받침할 수 있는지 평가해 주세요."
+    },
+    {
+      "case_id": "evidence-gap.concise",
+      "expectation_id": "evidence-gap",
+      "runtime_context": "server_scope",
+      "variation_kind": "concise",
+      "question": "빠르게 확인하고 싶어요. 권한 범위의 서비스와 리소스 관계가 오래됐거나 불완전하거나 충돌할 때 상태 결론을 뒷받침할 수 있는지 평가해 주세요."
+    },
+    {
+      "case_id": "evidence-gap.contrastive",
+      "expectation_id": "evidence-gap",
+      "runtime_context": "server_scope",
+      "variation_kind": "contrastive",
+      "question": "권한 범위의 서비스와 리소스 관계가 오래됐거나 불완전하거나 충돌할 때 상태 결론을 뒷받침할 수 있는지 평가해 주세요. 관측 사실과 근거 없는 추정을 구분해 주세요."
+    },
+    {
+      "case_id": "evidence-gap.direct",
+      "expectation_id": "evidence-gap",
+      "runtime_context": "server_scope",
+      "variation_kind": "direct",
+      "question": "권한 범위의 서비스와 리소스 관계가 오래됐거나 불완전하거나 충돌할 때 상태 결론을 뒷받침할 수 있는지 평가해 주세요."
+    },
+    {
+      "case_id": "evidence-gap.evidence_first",
+      "expectation_id": "evidence-gap",
+      "runtime_context": "server_scope",
+      "variation_kind": "evidence_first",
+      "question": "검증된 근거만 사용해 주세요. 권한 범위의 서비스와 리소스 관계가 오래됐거나 불완전하거나 충돌할 때 상태 결론을 뒷받침할 수 있는지 평가해 주세요."
+    },
+    {
+      "case_id": "evidence-gap.investigative",
+      "expectation_id": "evidence-gap",
+      "runtime_context": "server_scope",
+      "variation_kind": "investigative",
+      "question": "정책 관점에서 조사해 주세요. 권한 범위의 서비스와 리소스 관계가 오래됐거나 불완전하거나 충돌할 때 상태 결론을 뒷받침할 수 있는지 평가해 주세요."
+    },
+    {
+      "case_id": "evidence-gap.operator_colloquial",
+      "expectation_id": "evidence-gap",
+      "runtime_context": "server_scope",
+      "variation_kind": "operator_colloquial",
+      "question": "지금 운영자가 확인해야 해요. 권한 범위의 서비스와 리소스 관계가 오래됐거나 불완전하거나 충돌할 때 상태 결론을 뒷받침할 수 있는지 평가해 주세요."
+    },
+    {
+      "case_id": "evidence-gap.uncertainty_aware",
+      "expectation_id": "evidence-gap",
+      "runtime_context": "server_scope",
+      "variation_kind": "uncertainty_aware",
+      "question": "권한 범위의 서비스와 리소스 관계가 오래됐거나 불완전하거나 충돌할 때 상태 결론을 뒷받침할 수 있는지 평가해 주세요. 확인된 사실과 알 수 없는 부분을 나눠 주세요."
+    },
+    {
+      "case_id": "historical-incident.audit_oriented",
+      "expectation_id": "historical-incident",
+      "runtime_context": "incident_binding",
+      "variation_kind": "audit_oriented",
+      "question": "감사에 남길 수 있도록 답해 주세요. 현재 대화에 연결된 종료된 장애의 시간 흐름, 근거가 있는 원인, 기록된 영향, 남은 근거 공백을 재구성해 주세요."
+    },
+    {
+      "case_id": "historical-incident.concise",
+      "expectation_id": "historical-incident",
+      "runtime_context": "incident_binding",
+      "variation_kind": "concise",
+      "question": "빠르게 확인하고 싶어요. 현재 대화에 연결된 종료된 장애의 시간 흐름, 근거가 있는 원인, 기록된 영향, 남은 근거 공백을 재구성해 주세요."
+    },
+    {
+      "case_id": "historical-incident.contrastive",
+      "expectation_id": "historical-incident",
+      "runtime_context": "incident_binding",
+      "variation_kind": "contrastive",
+      "question": "현재 대화에 연결된 종료된 장애의 시간 흐름, 근거가 있는 원인, 기록된 영향, 남은 근거 공백을 재구성해 주세요. 관측 사실과 근거 없는 추정을 구분해 주세요."
+    },
+    {
+      "case_id": "historical-incident.direct",
+      "expectation_id": "historical-incident",
+      "runtime_context": "incident_binding",
+      "variation_kind": "direct",
+      "question": "현재 대화에 연결된 종료된 장애의 시간 흐름, 근거가 있는 원인, 기록된 영향, 남은 근거 공백을 재구성해 주세요."
+    },
+    {
+      "case_id": "historical-incident.evidence_first",
+      "expectation_id": "historical-incident",
+      "runtime_context": "incident_binding",
+      "variation_kind": "evidence_first",
+      "question": "검증된 근거만 사용해 주세요. 현재 대화에 연결된 종료된 장애의 시간 흐름, 근거가 있는 원인, 기록된 영향, 남은 근거 공백을 재구성해 주세요."
+    },
+    {
+      "case_id": "historical-incident.investigative",
+      "expectation_id": "historical-incident",
+      "runtime_context": "incident_binding",
+      "variation_kind": "investigative",
+      "question": "운영 관점에서 조사해 주세요. 현재 대화에 연결된 종료된 장애의 시간 흐름, 근거가 있는 원인, 기록된 영향, 남은 근거 공백을 재구성해 주세요."
+    },
+    {
+      "case_id": "historical-incident.operator_colloquial",
+      "expectation_id": "historical-incident",
+      "runtime_context": "incident_binding",
+      "variation_kind": "operator_colloquial",
+      "question": "지금 운영자가 확인해야 해요. 현재 대화에 연결된 종료된 장애의 시간 흐름, 근거가 있는 원인, 기록된 영향, 남은 근거 공백을 재구성해 주세요."
+    },
+    {
+      "case_id": "historical-incident.uncertainty_aware",
+      "expectation_id": "historical-incident",
+      "runtime_context": "incident_binding",
+      "variation_kind": "uncertainty_aware",
+      "question": "현재 대화에 연결된 종료된 장애의 시간 흐름, 근거가 있는 원인, 기록된 영향, 남은 근거 공백을 재구성해 주세요. 확인된 사실과 알 수 없는 부분을 나눠 주세요."
+    },
+    {
+      "case_id": "incident-triage.audit_oriented",
+      "expectation_id": "incident-triage",
+      "runtime_context": "incident_binding",
+      "variation_kind": "audit_oriented",
+      "question": "감사에 남길 수 있도록 답해 주세요. 검증된 증상, 영향 범위, 경쟁 가설, 다음으로 안전한 진단 단계를 비교해 현재 대화에 연결된 진행 중 장애를 분류해 주세요."
+    },
+    {
+      "case_id": "incident-triage.concise",
+      "expectation_id": "incident-triage",
+      "runtime_context": "incident_binding",
+      "variation_kind": "concise",
+      "question": "빠르게 확인하고 싶어요. 검증된 증상, 영향 범위, 경쟁 가설, 다음으로 안전한 진단 단계를 비교해 현재 대화에 연결된 진행 중 장애를 분류해 주세요."
+    },
+    {
+      "case_id": "incident-triage.contrastive",
+      "expectation_id": "incident-triage",
+      "runtime_context": "incident_binding",
+      "variation_kind": "contrastive",
+      "question": "검증된 증상, 영향 범위, 경쟁 가설, 다음으로 안전한 진단 단계를 비교해 현재 대화에 연결된 진행 중 장애를 분류해 주세요. 관측 사실과 근거 없는 추정을 구분해 주세요."
+    },
+    {
+      "case_id": "incident-triage.direct",
+      "expectation_id": "incident-triage",
+      "runtime_context": "incident_binding",
+      "variation_kind": "direct",
+      "question": "검증된 증상, 영향 범위, 경쟁 가설, 다음으로 안전한 진단 단계를 비교해 현재 대화에 연결된 진행 중 장애를 분류해 주세요."
+    },
+    {
+      "case_id": "incident-triage.evidence_first",
+      "expectation_id": "incident-triage",
+      "runtime_context": "incident_binding",
+      "variation_kind": "evidence_first",
+      "question": "검증된 근거만 사용해 주세요. 검증된 증상, 영향 범위, 경쟁 가설, 다음으로 안전한 진단 단계를 비교해 현재 대화에 연결된 진행 중 장애를 분류해 주세요."
+    },
+    {
+      "case_id": "incident-triage.investigative",
+      "expectation_id": "incident-triage",
+      "runtime_context": "incident_binding",
+      "variation_kind": "investigative",
+      "question": "인과 관점에서 조사해 주세요. 검증된 증상, 영향 범위, 경쟁 가설, 다음으로 안전한 진단 단계를 비교해 현재 대화에 연결된 진행 중 장애를 분류해 주세요."
+    },
+    {
+      "case_id": "incident-triage.operator_colloquial",
+      "expectation_id": "incident-triage",
+      "runtime_context": "incident_binding",
+      "variation_kind": "operator_colloquial",
+      "question": "지금 운영자가 확인해야 해요. 검증된 증상, 영향 범위, 경쟁 가설, 다음으로 안전한 진단 단계를 비교해 현재 대화에 연결된 진행 중 장애를 분류해 주세요."
+    },
+    {
+      "case_id": "incident-triage.uncertainty_aware",
+      "expectation_id": "incident-triage",
+      "runtime_context": "incident_binding",
+      "variation_kind": "uncertainty_aware",
+      "question": "검증된 증상, 영향 범위, 경쟁 가설, 다음으로 안전한 진단 단계를 비교해 현재 대화에 연결된 진행 중 장애를 분류해 주세요. 확인된 사실과 알 수 없는 부분을 나눠 주세요."
+    },
+    {
+      "case_id": "metric-comparison.audit_oriented",
+      "expectation_id": "metric-comparison",
+      "runtime_context": "incident_binding",
+      "variation_kind": "audit_oriented",
+      "question": "감사에 남길 수 있도록 답해 주세요. 현재 대화에 연결된 장애 전후의 Application Gateway 백엔드 지연 시간과 AKS Pod 지연 시간 및 포화도를 비교하고 대상에 귀속된 관측만 인용해 주세요."
+    },
+    {
+      "case_id": "metric-comparison.concise",
+      "expectation_id": "metric-comparison",
+      "runtime_context": "incident_binding",
+      "variation_kind": "concise",
+      "question": "빠르게 확인하고 싶어요. 현재 대화에 연결된 장애 전후의 Application Gateway 백엔드 지연 시간과 AKS Pod 지연 시간 및 포화도를 비교하고 대상에 귀속된 관측만 인용해 주세요."
+    },
+    {
+      "case_id": "metric-comparison.contrastive",
+      "expectation_id": "metric-comparison",
+      "runtime_context": "incident_binding",
+      "variation_kind": "contrastive",
+      "question": "현재 대화에 연결된 장애 전후의 Application Gateway 백엔드 지연 시간과 AKS Pod 지연 시간 및 포화도를 비교하고 대상에 귀속된 관측만 인용해 주세요. 관측 사실과 근거 없는 추정을 구분해 주세요."
+    },
+    {
+      "case_id": "metric-comparison.direct",
+      "expectation_id": "metric-comparison",
+      "runtime_context": "incident_binding",
+      "variation_kind": "direct",
+      "question": "현재 대화에 연결된 장애 전후의 Application Gateway 백엔드 지연 시간과 AKS Pod 지연 시간 및 포화도를 비교하고 대상에 귀속된 관측만 인용해 주세요."
+    },
+    {
+      "case_id": "metric-comparison.evidence_first",
+      "expectation_id": "metric-comparison",
+      "runtime_context": "incident_binding",
+      "variation_kind": "evidence_first",
+      "question": "검증된 근거만 사용해 주세요. 현재 대화에 연결된 장애 전후의 Application Gateway 백엔드 지연 시간과 AKS Pod 지연 시간 및 포화도를 비교하고 대상에 귀속된 관측만 인용해 주세요."
+    },
+    {
+      "case_id": "metric-comparison.investigative",
+      "expectation_id": "metric-comparison",
+      "runtime_context": "incident_binding",
+      "variation_kind": "investigative",
+      "question": "운영 관점에서 조사해 주세요. 현재 대화에 연결된 장애 전후의 Application Gateway 백엔드 지연 시간과 AKS Pod 지연 시간 및 포화도를 비교하고 대상에 귀속된 관측만 인용해 주세요."
+    },
+    {
+      "case_id": "metric-comparison.operator_colloquial",
+      "expectation_id": "metric-comparison",
+      "runtime_context": "incident_binding",
+      "variation_kind": "operator_colloquial",
+      "question": "지금 운영자가 확인해야 해요. 현재 대화에 연결된 장애 전후의 Application Gateway 백엔드 지연 시간과 AKS Pod 지연 시간 및 포화도를 비교하고 대상에 귀속된 관측만 인용해 주세요."
+    },
+    {
+      "case_id": "metric-comparison.uncertainty_aware",
+      "expectation_id": "metric-comparison",
+      "runtime_context": "incident_binding",
+      "variation_kind": "uncertainty_aware",
+      "question": "현재 대화에 연결된 장애 전후의 Application Gateway 백엔드 지연 시간과 AKS Pod 지연 시간 및 포화도를 비교하고 대상에 귀속된 관측만 인용해 주세요. 확인된 사실과 알 수 없는 부분을 나눠 주세요."
+    },
+    {
+      "case_id": "network-path.audit_oriented",
+      "expectation_id": "network-path",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "audit_oriented",
+      "question": "감사에 남길 수 있도록 답해 주세요. 흔히 AppGW라고 부르는 Application Gateway에서 AKS Service와 Pod까지 관측된 다음 홉과 가상 네트워크 피어링 관계를 따라 요청 경로를 탐색하고 누락되거나 충돌하거나 검증되지 않은 구간을 표시해 주세요."
+    },
+    {
+      "case_id": "network-path.concise",
+      "expectation_id": "network-path",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "concise",
+      "question": "빠르게 확인하고 싶어요. 흔히 AppGW라고 부르는 Application Gateway에서 AKS Service와 Pod까지 관측된 다음 홉과 가상 네트워크 피어링 관계를 따라 요청 경로를 탐색하고 누락되거나 충돌하거나 검증되지 않은 구간을 표시해 주세요."
+    },
+    {
+      "case_id": "network-path.contrastive",
+      "expectation_id": "network-path",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "contrastive",
+      "question": "흔히 AppGW라고 부르는 Application Gateway에서 AKS Service와 Pod까지 관측된 다음 홉과 가상 네트워크 피어링 관계를 따라 요청 경로를 탐색하고 누락되거나 충돌하거나 검증되지 않은 구간을 표시해 주세요. 관측 사실과 근거 없는 추정을 구분해 주세요."
+    },
+    {
+      "case_id": "network-path.direct",
+      "expectation_id": "network-path",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "direct",
+      "question": "흔히 AppGW라고 부르는 Application Gateway에서 AKS Service와 Pod까지 관측된 다음 홉과 가상 네트워크 피어링 관계를 따라 요청 경로를 탐색하고 누락되거나 충돌하거나 검증되지 않은 구간을 표시해 주세요."
+    },
+    {
+      "case_id": "network-path.evidence_first",
+      "expectation_id": "network-path",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "evidence_first",
+      "question": "검증된 근거만 사용해 주세요. 흔히 AppGW라고 부르는 Application Gateway에서 AKS Service와 Pod까지 관측된 다음 홉과 가상 네트워크 피어링 관계를 따라 요청 경로를 탐색하고 누락되거나 충돌하거나 검증되지 않은 구간을 표시해 주세요."
+    },
+    {
+      "case_id": "network-path.investigative",
+      "expectation_id": "network-path",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "investigative",
+      "question": "서비스 관점에서 조사해 주세요. 흔히 AppGW라고 부르는 Application Gateway에서 AKS Service와 Pod까지 관측된 다음 홉과 가상 네트워크 피어링 관계를 따라 요청 경로를 탐색하고 누락되거나 충돌하거나 검증되지 않은 구간을 표시해 주세요."
+    },
+    {
+      "case_id": "network-path.operator_colloquial",
+      "expectation_id": "network-path",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "operator_colloquial",
+      "question": "지금 운영자가 확인해야 해요. 흔히 AppGW라고 부르는 Application Gateway에서 AKS Service와 Pod까지 관측된 다음 홉과 가상 네트워크 피어링 관계를 따라 요청 경로를 탐색하고 누락되거나 충돌하거나 검증되지 않은 구간을 표시해 주세요."
+    },
+    {
+      "case_id": "network-path.uncertainty_aware",
+      "expectation_id": "network-path",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "uncertainty_aware",
+      "question": "흔히 AppGW라고 부르는 Application Gateway에서 AKS Service와 Pod까지 관측된 다음 홉과 가상 네트워크 피어링 관계를 따라 요청 경로를 탐색하고 누락되거나 충돌하거나 검증되지 않은 구간을 표시해 주세요. 확인된 사실과 알 수 없는 부분을 나눠 주세요."
+    },
+    {
+      "case_id": "operating-objectives.audit_oriented",
+      "expectation_id": "operating-objectives",
+      "runtime_context": "server_scope",
+      "variation_kind": "audit_oriented",
+      "question": "감사에 남길 수 있도록 답해 주세요. 권한 범위의 서비스 목표와 복구 목표를 식별하고 측정된 위반과 근거 부족을 구분해 주세요."
+    },
+    {
+      "case_id": "operating-objectives.concise",
+      "expectation_id": "operating-objectives",
+      "runtime_context": "server_scope",
+      "variation_kind": "concise",
+      "question": "빠르게 확인하고 싶어요. 권한 범위의 서비스 목표와 복구 목표를 식별하고 측정된 위반과 근거 부족을 구분해 주세요."
+    },
+    {
+      "case_id": "operating-objectives.contrastive",
+      "expectation_id": "operating-objectives",
+      "runtime_context": "server_scope",
+      "variation_kind": "contrastive",
+      "question": "권한 범위의 서비스 목표와 복구 목표를 식별하고 측정된 위반과 근거 부족을 구분해 주세요. 관측 사실과 근거 없는 추정을 구분해 주세요."
+    },
+    {
+      "case_id": "operating-objectives.direct",
+      "expectation_id": "operating-objectives",
+      "runtime_context": "server_scope",
+      "variation_kind": "direct",
+      "question": "권한 범위의 서비스 목표와 복구 목표를 식별하고 측정된 위반과 근거 부족을 구분해 주세요."
+    },
+    {
+      "case_id": "operating-objectives.evidence_first",
+      "expectation_id": "operating-objectives",
+      "runtime_context": "server_scope",
+      "variation_kind": "evidence_first",
+      "question": "검증된 근거만 사용해 주세요. 권한 범위의 서비스 목표와 복구 목표를 식별하고 측정된 위반과 근거 부족을 구분해 주세요."
+    },
+    {
+      "case_id": "operating-objectives.investigative",
+      "expectation_id": "operating-objectives",
+      "runtime_context": "server_scope",
+      "variation_kind": "investigative",
+      "question": "비즈니스 관점에서 조사해 주세요. 권한 범위의 서비스 목표와 복구 목표를 식별하고 측정된 위반과 근거 부족을 구분해 주세요."
+    },
+    {
+      "case_id": "operating-objectives.operator_colloquial",
+      "expectation_id": "operating-objectives",
+      "runtime_context": "server_scope",
+      "variation_kind": "operator_colloquial",
+      "question": "지금 운영자가 확인해야 해요. 권한 범위의 서비스 목표와 복구 목표를 식별하고 측정된 위반과 근거 부족을 구분해 주세요."
+    },
+    {
+      "case_id": "operating-objectives.uncertainty_aware",
+      "expectation_id": "operating-objectives",
+      "runtime_context": "server_scope",
+      "variation_kind": "uncertainty_aware",
+      "question": "권한 범위의 서비스 목표와 복구 목표를 식별하고 측정된 위반과 근거 부족을 구분해 주세요. 확인된 사실과 알 수 없는 부분을 나눠 주세요."
+    },
+    {
+      "case_id": "operation-historical-topology.audit_oriented",
+      "expectation_id": "operation-historical-topology",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "audit_oriented",
+      "question": "감사에 남길 수 있도록 답해 주세요. 요청한 기준 시점 전후의 프라이빗 엔드포인트 보존 토폴로지를 비교하고 근거가 있는 관계 변경만 알려 주세요."
+    },
+    {
+      "case_id": "operation-historical-topology.concise",
+      "expectation_id": "operation-historical-topology",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "concise",
+      "question": "빠르게 확인하고 싶어요. 요청한 기준 시점 전후의 프라이빗 엔드포인트 보존 토폴로지를 비교하고 근거가 있는 관계 변경만 알려 주세요."
+    },
+    {
+      "case_id": "operation-historical-topology.contrastive",
+      "expectation_id": "operation-historical-topology",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "contrastive",
+      "question": "요청한 기준 시점 전후의 프라이빗 엔드포인트 보존 토폴로지를 비교하고 근거가 있는 관계 변경만 알려 주세요. 관측 사실과 근거 없는 추정을 구분해 주세요."
+    },
+    {
+      "case_id": "operation-historical-topology.direct",
+      "expectation_id": "operation-historical-topology",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "direct",
+      "question": "요청한 기준 시점 전후의 프라이빗 엔드포인트 보존 토폴로지를 비교하고 근거가 있는 관계 변경만 알려 주세요."
+    },
+    {
+      "case_id": "operation-historical-topology.evidence_first",
+      "expectation_id": "operation-historical-topology",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "evidence_first",
+      "question": "검증된 근거만 사용해 주세요. 요청한 기준 시점 전후의 프라이빗 엔드포인트 보존 토폴로지를 비교하고 근거가 있는 관계 변경만 알려 주세요."
+    },
+    {
+      "case_id": "operation-historical-topology.investigative",
+      "expectation_id": "operation-historical-topology",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "investigative",
+      "question": "운영 관점에서 조사해 주세요. 요청한 기준 시점 전후의 프라이빗 엔드포인트 보존 토폴로지를 비교하고 근거가 있는 관계 변경만 알려 주세요."
+    },
+    {
+      "case_id": "operation-historical-topology.operator_colloquial",
+      "expectation_id": "operation-historical-topology",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "operator_colloquial",
+      "question": "지금 운영자가 확인해야 해요. 요청한 기준 시점 전후의 프라이빗 엔드포인트 보존 토폴로지를 비교하고 근거가 있는 관계 변경만 알려 주세요."
+    },
+    {
+      "case_id": "operation-historical-topology.uncertainty_aware",
+      "expectation_id": "operation-historical-topology",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "uncertainty_aware",
+      "question": "요청한 기준 시점 전후의 프라이빗 엔드포인트 보존 토폴로지를 비교하고 근거가 있는 관계 변경만 알려 주세요. 확인된 사실과 알 수 없는 부분을 나눠 주세요."
+    },
+    {
+      "case_id": "operation-resource-activity.audit_oriented",
+      "expectation_id": "operation-resource-activity",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "audit_oriented",
+      "question": "감사에 남길 수 있도록 답해 주세요. 지난 30분 동안 Container App의 리비전, 다시 시작, 구성 활동을 나열해 주세요."
+    },
+    {
+      "case_id": "operation-resource-activity.concise",
+      "expectation_id": "operation-resource-activity",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "concise",
+      "question": "빠르게 확인하고 싶어요. 지난 30분 동안 Container App의 리비전, 다시 시작, 구성 활동을 나열해 주세요."
+    },
+    {
+      "case_id": "operation-resource-activity.contrastive",
+      "expectation_id": "operation-resource-activity",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "contrastive",
+      "question": "지난 30분 동안 Container App의 리비전, 다시 시작, 구성 활동을 나열해 주세요. 관측 사실과 근거 없는 추정을 구분해 주세요."
+    },
+    {
+      "case_id": "operation-resource-activity.direct",
+      "expectation_id": "operation-resource-activity",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "direct",
+      "question": "지난 30분 동안 Container App의 리비전, 다시 시작, 구성 활동을 나열해 주세요."
+    },
+    {
+      "case_id": "operation-resource-activity.evidence_first",
+      "expectation_id": "operation-resource-activity",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "evidence_first",
+      "question": "검증된 근거만 사용해 주세요. 지난 30분 동안 Container App의 리비전, 다시 시작, 구성 활동을 나열해 주세요."
+    },
+    {
+      "case_id": "operation-resource-activity.investigative",
+      "expectation_id": "operation-resource-activity",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "investigative",
+      "question": "운영 관점에서 조사해 주세요. 지난 30분 동안 Container App의 리비전, 다시 시작, 구성 활동을 나열해 주세요."
+    },
+    {
+      "case_id": "operation-resource-activity.operator_colloquial",
+      "expectation_id": "operation-resource-activity",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "operator_colloquial",
+      "question": "지금 운영자가 확인해야 해요. 지난 30분 동안 Container App의 리비전, 다시 시작, 구성 활동을 나열해 주세요."
+    },
+    {
+      "case_id": "operation-resource-activity.uncertainty_aware",
+      "expectation_id": "operation-resource-activity",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "uncertainty_aware",
+      "question": "지난 30분 동안 Container App의 리비전, 다시 시작, 구성 활동을 나열해 주세요. 확인된 사실과 알 수 없는 부분을 나눠 주세요."
+    },
+    {
+      "case_id": "policy-collected-rule.audit_oriented",
+      "expectation_id": "policy-collected-rule",
+      "runtime_context": "none",
+      "variation_kind": "audit_oriented",
+      "question": "감사에 남길 수 있도록 답해 주세요. 수집된 프라이빗 네트워크 액세스 Rule을 활성 정책이나 현재 위반으로 취급하지 말고 참조 전용 카탈로그 자료로 설명해 주세요."
+    },
+    {
+      "case_id": "policy-collected-rule.concise",
+      "expectation_id": "policy-collected-rule",
+      "runtime_context": "none",
+      "variation_kind": "concise",
+      "question": "빠르게 확인하고 싶어요. 수집된 프라이빗 네트워크 액세스 Rule을 활성 정책이나 현재 위반으로 취급하지 말고 참조 전용 카탈로그 자료로 설명해 주세요."
+    },
+    {
+      "case_id": "policy-collected-rule.contrastive",
+      "expectation_id": "policy-collected-rule",
+      "runtime_context": "none",
+      "variation_kind": "contrastive",
+      "question": "수집된 프라이빗 네트워크 액세스 Rule을 활성 정책이나 현재 위반으로 취급하지 말고 참조 전용 카탈로그 자료로 설명해 주세요. 관측 사실과 근거 없는 추정을 구분해 주세요."
+    },
+    {
+      "case_id": "policy-collected-rule.direct",
+      "expectation_id": "policy-collected-rule",
+      "runtime_context": "none",
+      "variation_kind": "direct",
+      "question": "수집된 프라이빗 네트워크 액세스 Rule을 활성 정책이나 현재 위반으로 취급하지 말고 참조 전용 카탈로그 자료로 설명해 주세요."
+    },
+    {
+      "case_id": "policy-collected-rule.evidence_first",
+      "expectation_id": "policy-collected-rule",
+      "runtime_context": "none",
+      "variation_kind": "evidence_first",
+      "question": "검증된 근거만 사용해 주세요. 수집된 프라이빗 네트워크 액세스 Rule을 활성 정책이나 현재 위반으로 취급하지 말고 참조 전용 카탈로그 자료로 설명해 주세요."
+    },
+    {
+      "case_id": "policy-collected-rule.investigative",
+      "expectation_id": "policy-collected-rule",
+      "runtime_context": "none",
+      "variation_kind": "investigative",
+      "question": "정책 관점에서 조사해 주세요. 수집된 프라이빗 네트워크 액세스 Rule을 활성 정책이나 현재 위반으로 취급하지 말고 참조 전용 카탈로그 자료로 설명해 주세요."
+    },
+    {
+      "case_id": "policy-collected-rule.operator_colloquial",
+      "expectation_id": "policy-collected-rule",
+      "runtime_context": "none",
+      "variation_kind": "operator_colloquial",
+      "question": "지금 운영자가 확인해야 해요. 수집된 프라이빗 네트워크 액세스 Rule을 활성 정책이나 현재 위반으로 취급하지 말고 참조 전용 카탈로그 자료로 설명해 주세요."
+    },
+    {
+      "case_id": "policy-collected-rule.uncertainty_aware",
+      "expectation_id": "policy-collected-rule",
+      "runtime_context": "none",
+      "variation_kind": "uncertainty_aware",
+      "question": "수집된 프라이빗 네트워크 액세스 Rule을 활성 정책이나 현재 위반으로 취급하지 말고 참조 전용 카탈로그 자료로 설명해 주세요. 확인된 사실과 알 수 없는 부분을 나눠 주세요."
+    },
+    {
+      "case_id": "policy-ontology-release-health.audit_oriented",
+      "expectation_id": "policy-ontology-release-health",
+      "runtime_context": "server_scope",
+      "variation_kind": "audit_oriented",
+      "question": "감사에 남길 수 있도록 답해 주세요. 보존된 온톨로지 release를 비교하고 선언 변경, 근거 최신성, 완전성, 충돌, 사용할 수 없는 출처를 알려 주세요."
+    },
+    {
+      "case_id": "policy-ontology-release-health.concise",
+      "expectation_id": "policy-ontology-release-health",
+      "runtime_context": "server_scope",
+      "variation_kind": "concise",
+      "question": "빠르게 확인하고 싶어요. 보존된 온톨로지 release를 비교하고 선언 변경, 근거 최신성, 완전성, 충돌, 사용할 수 없는 출처를 알려 주세요."
+    },
+    {
+      "case_id": "policy-ontology-release-health.contrastive",
+      "expectation_id": "policy-ontology-release-health",
+      "runtime_context": "server_scope",
+      "variation_kind": "contrastive",
+      "question": "보존된 온톨로지 release를 비교하고 선언 변경, 근거 최신성, 완전성, 충돌, 사용할 수 없는 출처를 알려 주세요. 관측 사실과 근거 없는 추정을 구분해 주세요."
+    },
+    {
+      "case_id": "policy-ontology-release-health.direct",
+      "expectation_id": "policy-ontology-release-health",
+      "runtime_context": "server_scope",
+      "variation_kind": "direct",
+      "question": "보존된 온톨로지 release를 비교하고 선언 변경, 근거 최신성, 완전성, 충돌, 사용할 수 없는 출처를 알려 주세요."
+    },
+    {
+      "case_id": "policy-ontology-release-health.evidence_first",
+      "expectation_id": "policy-ontology-release-health",
+      "runtime_context": "server_scope",
+      "variation_kind": "evidence_first",
+      "question": "검증된 근거만 사용해 주세요. 보존된 온톨로지 release를 비교하고 선언 변경, 근거 최신성, 완전성, 충돌, 사용할 수 없는 출처를 알려 주세요."
+    },
+    {
+      "case_id": "policy-ontology-release-health.investigative",
+      "expectation_id": "policy-ontology-release-health",
+      "runtime_context": "server_scope",
+      "variation_kind": "investigative",
+      "question": "정책 관점에서 조사해 주세요. 보존된 온톨로지 release를 비교하고 선언 변경, 근거 최신성, 완전성, 충돌, 사용할 수 없는 출처를 알려 주세요."
+    },
+    {
+      "case_id": "policy-ontology-release-health.operator_colloquial",
+      "expectation_id": "policy-ontology-release-health",
+      "runtime_context": "server_scope",
+      "variation_kind": "operator_colloquial",
+      "question": "지금 운영자가 확인해야 해요. 보존된 온톨로지 release를 비교하고 선언 변경, 근거 최신성, 완전성, 충돌, 사용할 수 없는 출처를 알려 주세요."
+    },
+    {
+      "case_id": "policy-ontology-release-health.uncertainty_aware",
+      "expectation_id": "policy-ontology-release-health",
+      "runtime_context": "server_scope",
+      "variation_kind": "uncertainty_aware",
+      "question": "보존된 온톨로지 release를 비교하고 선언 변경, 근거 최신성, 완전성, 충돌, 사용할 수 없는 출처를 알려 주세요. 확인된 사실과 알 수 없는 부분을 나눠 주세요."
+    },
+    {
+      "case_id": "private-connectivity.audit_oriented",
+      "expectation_id": "private-connectivity",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "audit_oriented",
+      "question": "감사에 남길 수 있도록 답해 주세요. 프라이빗 엔드포인트가 어디에 연결됐고 어떤 관측된 라우팅 관계가 AKS Pod 워크로드를 PostgreSQL 또는 Storage 의존성과 연결하는지 보여 주세요."
+    },
+    {
+      "case_id": "private-connectivity.concise",
+      "expectation_id": "private-connectivity",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "concise",
+      "question": "빠르게 확인하고 싶어요. 프라이빗 엔드포인트가 어디에 연결됐고 어떤 관측된 라우팅 관계가 AKS Pod 워크로드를 PostgreSQL 또는 Storage 의존성과 연결하는지 보여 주세요."
+    },
+    {
+      "case_id": "private-connectivity.contrastive",
+      "expectation_id": "private-connectivity",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "contrastive",
+      "question": "프라이빗 엔드포인트가 어디에 연결됐고 어떤 관측된 라우팅 관계가 AKS Pod 워크로드를 PostgreSQL 또는 Storage 의존성과 연결하는지 보여 주세요. 관측 사실과 근거 없는 추정을 구분해 주세요."
+    },
+    {
+      "case_id": "private-connectivity.direct",
+      "expectation_id": "private-connectivity",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "direct",
+      "question": "프라이빗 엔드포인트가 어디에 연결됐고 어떤 관측된 라우팅 관계가 AKS Pod 워크로드를 PostgreSQL 또는 Storage 의존성과 연결하는지 보여 주세요."
+    },
+    {
+      "case_id": "private-connectivity.evidence_first",
+      "expectation_id": "private-connectivity",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "evidence_first",
+      "question": "검증된 근거만 사용해 주세요. 프라이빗 엔드포인트가 어디에 연결됐고 어떤 관측된 라우팅 관계가 AKS Pod 워크로드를 PostgreSQL 또는 Storage 의존성과 연결하는지 보여 주세요."
+    },
+    {
+      "case_id": "private-connectivity.investigative",
+      "expectation_id": "private-connectivity",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "investigative",
+      "question": "리소스 관점에서 조사해 주세요. 프라이빗 엔드포인트가 어디에 연결됐고 어떤 관측된 라우팅 관계가 AKS Pod 워크로드를 PostgreSQL 또는 Storage 의존성과 연결하는지 보여 주세요."
+    },
+    {
+      "case_id": "private-connectivity.operator_colloquial",
+      "expectation_id": "private-connectivity",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "operator_colloquial",
+      "question": "지금 운영자가 확인해야 해요. 프라이빗 엔드포인트가 어디에 연결됐고 어떤 관측된 라우팅 관계가 AKS Pod 워크로드를 PostgreSQL 또는 Storage 의존성과 연결하는지 보여 주세요."
+    },
+    {
+      "case_id": "private-connectivity.uncertainty_aware",
+      "expectation_id": "private-connectivity",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "uncertainty_aware",
+      "question": "프라이빗 엔드포인트가 어디에 연결됐고 어떤 관측된 라우팅 관계가 AKS Pod 워크로드를 PostgreSQL 또는 Storage 의존성과 연결하는지 보여 주세요. 확인된 사실과 알 수 없는 부분을 나눠 주세요."
+    },
+    {
+      "case_id": "recovery-plan.audit_oriented",
+      "expectation_id": "recovery-plan",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "audit_oriented",
+      "question": "감사에 남길 수 있도록 답해 주세요. 복구 계획이 다루는 인과 가설과 PostgreSQL 또는 Storage 리소스를 검토하고 승인 전에 더 필요한 근거를 알려 주세요."
+    },
+    {
+      "case_id": "recovery-plan.concise",
+      "expectation_id": "recovery-plan",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "concise",
+      "question": "빠르게 확인하고 싶어요. 복구 계획이 다루는 인과 가설과 PostgreSQL 또는 Storage 리소스를 검토하고 승인 전에 더 필요한 근거를 알려 주세요."
+    },
+    {
+      "case_id": "recovery-plan.contrastive",
+      "expectation_id": "recovery-plan",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "contrastive",
+      "question": "복구 계획이 다루는 인과 가설과 PostgreSQL 또는 Storage 리소스를 검토하고 승인 전에 더 필요한 근거를 알려 주세요. 관측 사실과 근거 없는 추정을 구분해 주세요."
+    },
+    {
+      "case_id": "recovery-plan.direct",
+      "expectation_id": "recovery-plan",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "direct",
+      "question": "복구 계획이 다루는 인과 가설과 PostgreSQL 또는 Storage 리소스를 검토하고 승인 전에 더 필요한 근거를 알려 주세요."
+    },
+    {
+      "case_id": "recovery-plan.evidence_first",
+      "expectation_id": "recovery-plan",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "evidence_first",
+      "question": "검증된 근거만 사용해 주세요. 복구 계획이 다루는 인과 가설과 PostgreSQL 또는 Storage 리소스를 검토하고 승인 전에 더 필요한 근거를 알려 주세요."
+    },
+    {
+      "case_id": "recovery-plan.investigative",
+      "expectation_id": "recovery-plan",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "investigative",
+      "question": "정책 관점에서 조사해 주세요. 복구 계획이 다루는 인과 가설과 PostgreSQL 또는 Storage 리소스를 검토하고 승인 전에 더 필요한 근거를 알려 주세요."
+    },
+    {
+      "case_id": "recovery-plan.operator_colloquial",
+      "expectation_id": "recovery-plan",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "operator_colloquial",
+      "question": "지금 운영자가 확인해야 해요. 복구 계획이 다루는 인과 가설과 PostgreSQL 또는 Storage 리소스를 검토하고 승인 전에 더 필요한 근거를 알려 주세요."
+    },
+    {
+      "case_id": "recovery-plan.uncertainty_aware",
+      "expectation_id": "recovery-plan",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "uncertainty_aware",
+      "question": "복구 계획이 다루는 인과 가설과 PostgreSQL 또는 Storage 리소스를 검토하고 승인 전에 더 필요한 근거를 알려 주세요. 확인된 사실과 알 수 없는 부분을 나눠 주세요."
+    },
+    {
+      "case_id": "resource-classification.audit_oriented",
+      "expectation_id": "resource-classification",
+      "runtime_context": "none",
+      "variation_kind": "audit_oriented",
+      "question": "감사에 남길 수 있도록 답해 주세요. Application Gateway, AKS 클러스터, Pod, Container Apps, PostgreSQL, Storage, Key Vault, Event Hubs의 검토된 ResourceType 분류를 확인하고 매핑되지 않은 native 유형은 명시적으로 미분류 상태로 유지해 주세요."
+    },
+    {
+      "case_id": "resource-classification.concise",
+      "expectation_id": "resource-classification",
+      "runtime_context": "none",
+      "variation_kind": "concise",
+      "question": "빠르게 확인하고 싶어요. Application Gateway, AKS 클러스터, Pod, Container Apps, PostgreSQL, Storage, Key Vault, Event Hubs의 검토된 ResourceType 분류를 확인하고 매핑되지 않은 native 유형은 명시적으로 미분류 상태로 유지해 주세요."
+    },
+    {
+      "case_id": "resource-classification.contrastive",
+      "expectation_id": "resource-classification",
+      "runtime_context": "none",
+      "variation_kind": "contrastive",
+      "question": "Application Gateway, AKS 클러스터, Pod, Container Apps, PostgreSQL, Storage, Key Vault, Event Hubs의 검토된 ResourceType 분류를 확인하고 매핑되지 않은 native 유형은 명시적으로 미분류 상태로 유지해 주세요. 관측 사실과 근거 없는 추정을 구분해 주세요."
+    },
+    {
+      "case_id": "resource-classification.direct",
+      "expectation_id": "resource-classification",
+      "runtime_context": "none",
+      "variation_kind": "direct",
+      "question": "Application Gateway, AKS 클러스터, Pod, Container Apps, PostgreSQL, Storage, Key Vault, Event Hubs의 검토된 ResourceType 분류를 확인하고 매핑되지 않은 native 유형은 명시적으로 미분류 상태로 유지해 주세요."
+    },
+    {
+      "case_id": "resource-classification.evidence_first",
+      "expectation_id": "resource-classification",
+      "runtime_context": "none",
+      "variation_kind": "evidence_first",
+      "question": "검증된 근거만 사용해 주세요. Application Gateway, AKS 클러스터, Pod, Container Apps, PostgreSQL, Storage, Key Vault, Event Hubs의 검토된 ResourceType 분류를 확인하고 매핑되지 않은 native 유형은 명시적으로 미분류 상태로 유지해 주세요."
+    },
+    {
+      "case_id": "resource-classification.investigative",
+      "expectation_id": "resource-classification",
+      "runtime_context": "none",
+      "variation_kind": "investigative",
+      "question": "리소스 관점에서 조사해 주세요. Application Gateway, AKS 클러스터, Pod, Container Apps, PostgreSQL, Storage, Key Vault, Event Hubs의 검토된 ResourceType 분류를 확인하고 매핑되지 않은 native 유형은 명시적으로 미분류 상태로 유지해 주세요."
+    },
+    {
+      "case_id": "resource-classification.operator_colloquial",
+      "expectation_id": "resource-classification",
+      "runtime_context": "none",
+      "variation_kind": "operator_colloquial",
+      "question": "지금 운영자가 확인해야 해요. Application Gateway, AKS 클러스터, Pod, Container Apps, PostgreSQL, Storage, Key Vault, Event Hubs의 검토된 ResourceType 분류를 확인하고 매핑되지 않은 native 유형은 명시적으로 미분류 상태로 유지해 주세요."
+    },
+    {
+      "case_id": "resource-classification.uncertainty_aware",
+      "expectation_id": "resource-classification",
+      "runtime_context": "none",
+      "variation_kind": "uncertainty_aware",
+      "question": "Application Gateway, AKS 클러스터, Pod, Container Apps, PostgreSQL, Storage, Key Vault, Event Hubs의 검토된 ResourceType 분류를 확인하고 매핑되지 않은 native 유형은 명시적으로 미분류 상태로 유지해 주세요. 확인된 사실과 알 수 없는 부분을 나눠 주세요."
+    },
+    {
+      "case_id": "resource-containment.audit_oriented",
+      "expectation_id": "resource-containment",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "audit_oriented",
+      "question": "감사에 남길 수 있도록 답해 주세요. 저장된 소유 방향을 뒤집지 말고 가상 머신을 포함하는 상위 리소스와 관리 디스크 및 연결된 네트워크 인터페이스를 보여 주세요."
+    },
+    {
+      "case_id": "resource-containment.concise",
+      "expectation_id": "resource-containment",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "concise",
+      "question": "빠르게 확인하고 싶어요. 저장된 소유 방향을 뒤집지 말고 가상 머신을 포함하는 상위 리소스와 관리 디스크 및 연결된 네트워크 인터페이스를 보여 주세요."
+    },
+    {
+      "case_id": "resource-containment.contrastive",
+      "expectation_id": "resource-containment",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "contrastive",
+      "question": "저장된 소유 방향을 뒤집지 말고 가상 머신을 포함하는 상위 리소스와 관리 디스크 및 연결된 네트워크 인터페이스를 보여 주세요. 관측 사실과 근거 없는 추정을 구분해 주세요."
+    },
+    {
+      "case_id": "resource-containment.direct",
+      "expectation_id": "resource-containment",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "direct",
+      "question": "저장된 소유 방향을 뒤집지 말고 가상 머신을 포함하는 상위 리소스와 관리 디스크 및 연결된 네트워크 인터페이스를 보여 주세요."
+    },
+    {
+      "case_id": "resource-containment.evidence_first",
+      "expectation_id": "resource-containment",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "evidence_first",
+      "question": "검증된 근거만 사용해 주세요. 저장된 소유 방향을 뒤집지 말고 가상 머신을 포함하는 상위 리소스와 관리 디스크 및 연결된 네트워크 인터페이스를 보여 주세요."
+    },
+    {
+      "case_id": "resource-containment.investigative",
+      "expectation_id": "resource-containment",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "investigative",
+      "question": "리소스 관점에서 조사해 주세요. 저장된 소유 방향을 뒤집지 말고 가상 머신을 포함하는 상위 리소스와 관리 디스크 및 연결된 네트워크 인터페이스를 보여 주세요."
+    },
+    {
+      "case_id": "resource-containment.operator_colloquial",
+      "expectation_id": "resource-containment",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "operator_colloquial",
+      "question": "지금 운영자가 확인해야 해요. 저장된 소유 방향을 뒤집지 말고 가상 머신을 포함하는 상위 리소스와 관리 디스크 및 연결된 네트워크 인터페이스를 보여 주세요."
+    },
+    {
+      "case_id": "resource-containment.uncertainty_aware",
+      "expectation_id": "resource-containment",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "uncertainty_aware",
+      "question": "저장된 소유 방향을 뒤집지 말고 가상 머신을 포함하는 상위 리소스와 관리 디스크 및 연결된 네트워크 인터페이스를 보여 주세요. 확인된 사실과 알 수 없는 부분을 나눠 주세요."
+    },
+    {
+      "case_id": "resource-evidence-health.audit_oriented",
+      "expectation_id": "resource-evidence-health",
+      "runtime_context": "server_scope",
+      "variation_kind": "audit_oriented",
+      "question": "감사에 남길 수 있도록 답해 주세요. 사용할 수 없는 데이터를 정상 결과로 바꾸지 말고 권한 범위의 네트워크, 컴퓨팅, 애플리케이션, 관측성, 데이터 리소스 근거에 대한 최신성, 완전성, 충돌, revision을 알려 주세요."
+    },
+    {
+      "case_id": "resource-evidence-health.concise",
+      "expectation_id": "resource-evidence-health",
+      "runtime_context": "server_scope",
+      "variation_kind": "concise",
+      "question": "빠르게 확인하고 싶어요. 사용할 수 없는 데이터를 정상 결과로 바꾸지 말고 권한 범위의 네트워크, 컴퓨팅, 애플리케이션, 관측성, 데이터 리소스 근거에 대한 최신성, 완전성, 충돌, revision을 알려 주세요."
+    },
+    {
+      "case_id": "resource-evidence-health.contrastive",
+      "expectation_id": "resource-evidence-health",
+      "runtime_context": "server_scope",
+      "variation_kind": "contrastive",
+      "question": "사용할 수 없는 데이터를 정상 결과로 바꾸지 말고 권한 범위의 네트워크, 컴퓨팅, 애플리케이션, 관측성, 데이터 리소스 근거에 대한 최신성, 완전성, 충돌, revision을 알려 주세요. 관측 사실과 근거 없는 추정을 구분해 주세요."
+    },
+    {
+      "case_id": "resource-evidence-health.direct",
+      "expectation_id": "resource-evidence-health",
+      "runtime_context": "server_scope",
+      "variation_kind": "direct",
+      "question": "사용할 수 없는 데이터를 정상 결과로 바꾸지 말고 권한 범위의 네트워크, 컴퓨팅, 애플리케이션, 관측성, 데이터 리소스 근거에 대한 최신성, 완전성, 충돌, revision을 알려 주세요."
+    },
+    {
+      "case_id": "resource-evidence-health.evidence_first",
+      "expectation_id": "resource-evidence-health",
+      "runtime_context": "server_scope",
+      "variation_kind": "evidence_first",
+      "question": "검증된 근거만 사용해 주세요. 사용할 수 없는 데이터를 정상 결과로 바꾸지 말고 권한 범위의 네트워크, 컴퓨팅, 애플리케이션, 관측성, 데이터 리소스 근거에 대한 최신성, 완전성, 충돌, revision을 알려 주세요."
+    },
+    {
+      "case_id": "resource-evidence-health.investigative",
+      "expectation_id": "resource-evidence-health",
+      "runtime_context": "server_scope",
+      "variation_kind": "investigative",
+      "question": "리소스 관점에서 조사해 주세요. 사용할 수 없는 데이터를 정상 결과로 바꾸지 말고 권한 범위의 네트워크, 컴퓨팅, 애플리케이션, 관측성, 데이터 리소스 근거에 대한 최신성, 완전성, 충돌, revision을 알려 주세요."
+    },
+    {
+      "case_id": "resource-evidence-health.operator_colloquial",
+      "expectation_id": "resource-evidence-health",
+      "runtime_context": "server_scope",
+      "variation_kind": "operator_colloquial",
+      "question": "지금 운영자가 확인해야 해요. 사용할 수 없는 데이터를 정상 결과로 바꾸지 말고 권한 범위의 네트워크, 컴퓨팅, 애플리케이션, 관측성, 데이터 리소스 근거에 대한 최신성, 완전성, 충돌, revision을 알려 주세요."
+    },
+    {
+      "case_id": "resource-evidence-health.uncertainty_aware",
+      "expectation_id": "resource-evidence-health",
+      "runtime_context": "server_scope",
+      "variation_kind": "uncertainty_aware",
+      "question": "사용할 수 없는 데이터를 정상 결과로 바꾸지 말고 권한 범위의 네트워크, 컴퓨팅, 애플리케이션, 관측성, 데이터 리소스 근거에 대한 최신성, 완전성, 충돌, revision을 알려 주세요. 확인된 사실과 알 수 없는 부분을 나눠 주세요."
+    },
+    {
+      "case_id": "rule-applicability.audit_oriented",
+      "expectation_id": "rule-applicability",
+      "runtime_context": "none",
+      "variation_kind": "audit_oriented",
+      "question": "감사에 남길 수 있도록 답해 주세요. 현재 발견 사항을 주장하지 말고 활성 네트워크 보안 그룹 및 Storage Account Rule에서 ResourceType, SignalType, 통제된 ActionType까지 탐색해 주세요."
+    },
+    {
+      "case_id": "rule-applicability.concise",
+      "expectation_id": "rule-applicability",
+      "runtime_context": "none",
+      "variation_kind": "concise",
+      "question": "빠르게 확인하고 싶어요. 현재 발견 사항을 주장하지 말고 활성 네트워크 보안 그룹 및 Storage Account Rule에서 ResourceType, SignalType, 통제된 ActionType까지 탐색해 주세요."
+    },
+    {
+      "case_id": "rule-applicability.contrastive",
+      "expectation_id": "rule-applicability",
+      "runtime_context": "none",
+      "variation_kind": "contrastive",
+      "question": "현재 발견 사항을 주장하지 말고 활성 네트워크 보안 그룹 및 Storage Account Rule에서 ResourceType, SignalType, 통제된 ActionType까지 탐색해 주세요. 관측 사실과 근거 없는 추정을 구분해 주세요."
+    },
+    {
+      "case_id": "rule-applicability.direct",
+      "expectation_id": "rule-applicability",
+      "runtime_context": "none",
+      "variation_kind": "direct",
+      "question": "현재 발견 사항을 주장하지 말고 활성 네트워크 보안 그룹 및 Storage Account Rule에서 ResourceType, SignalType, 통제된 ActionType까지 탐색해 주세요."
+    },
+    {
+      "case_id": "rule-applicability.evidence_first",
+      "expectation_id": "rule-applicability",
+      "runtime_context": "none",
+      "variation_kind": "evidence_first",
+      "question": "검증된 근거만 사용해 주세요. 현재 발견 사항을 주장하지 말고 활성 네트워크 보안 그룹 및 Storage Account Rule에서 ResourceType, SignalType, 통제된 ActionType까지 탐색해 주세요."
+    },
+    {
+      "case_id": "rule-applicability.investigative",
+      "expectation_id": "rule-applicability",
+      "runtime_context": "none",
+      "variation_kind": "investigative",
+      "question": "정책 관점에서 조사해 주세요. 현재 발견 사항을 주장하지 말고 활성 네트워크 보안 그룹 및 Storage Account Rule에서 ResourceType, SignalType, 통제된 ActionType까지 탐색해 주세요."
+    },
+    {
+      "case_id": "rule-applicability.operator_colloquial",
+      "expectation_id": "rule-applicability",
+      "runtime_context": "none",
+      "variation_kind": "operator_colloquial",
+      "question": "지금 운영자가 확인해야 해요. 현재 발견 사항을 주장하지 말고 활성 네트워크 보안 그룹 및 Storage Account Rule에서 ResourceType, SignalType, 통제된 ActionType까지 탐색해 주세요."
+    },
+    {
+      "case_id": "rule-applicability.uncertainty_aware",
+      "expectation_id": "rule-applicability",
+      "runtime_context": "none",
+      "variation_kind": "uncertainty_aware",
+      "question": "현재 발견 사항을 주장하지 말고 활성 네트워크 보안 그룹 및 Storage Account Rule에서 ResourceType, SignalType, 통제된 ActionType까지 탐색해 주세요. 확인된 사실과 알 수 없는 부분을 나눠 주세요."
+    },
+    {
+      "case_id": "service-agent-authority.audit_oriented",
+      "expectation_id": "service-agent-authority",
+      "runtime_context": "server_scope",
+      "variation_kind": "audit_oriented",
+      "question": "감사에 남길 수 있도록 답해 주세요. 담당 체계를 실행 권한으로 취급하지 말고 권한 범위의 검토된 비즈니스 서비스에서 워크로드와 리소스를 거쳐 선언된 담당 Agent까지 탐색해 주세요."
+    },
+    {
+      "case_id": "service-agent-authority.concise",
+      "expectation_id": "service-agent-authority",
+      "runtime_context": "server_scope",
+      "variation_kind": "concise",
+      "question": "빠르게 확인하고 싶어요. 담당 체계를 실행 권한으로 취급하지 말고 권한 범위의 검토된 비즈니스 서비스에서 워크로드와 리소스를 거쳐 선언된 담당 Agent까지 탐색해 주세요."
+    },
+    {
+      "case_id": "service-agent-authority.contrastive",
+      "expectation_id": "service-agent-authority",
+      "runtime_context": "server_scope",
+      "variation_kind": "contrastive",
+      "question": "담당 체계를 실행 권한으로 취급하지 말고 권한 범위의 검토된 비즈니스 서비스에서 워크로드와 리소스를 거쳐 선언된 담당 Agent까지 탐색해 주세요. 관측 사실과 근거 없는 추정을 구분해 주세요."
+    },
+    {
+      "case_id": "service-agent-authority.direct",
+      "expectation_id": "service-agent-authority",
+      "runtime_context": "server_scope",
+      "variation_kind": "direct",
+      "question": "담당 체계를 실행 권한으로 취급하지 말고 권한 범위의 검토된 비즈니스 서비스에서 워크로드와 리소스를 거쳐 선언된 담당 Agent까지 탐색해 주세요."
+    },
+    {
+      "case_id": "service-agent-authority.evidence_first",
+      "expectation_id": "service-agent-authority",
+      "runtime_context": "server_scope",
+      "variation_kind": "evidence_first",
+      "question": "검증된 근거만 사용해 주세요. 담당 체계를 실행 권한으로 취급하지 말고 권한 범위의 검토된 비즈니스 서비스에서 워크로드와 리소스를 거쳐 선언된 담당 Agent까지 탐색해 주세요."
+    },
+    {
+      "case_id": "service-agent-authority.investigative",
+      "expectation_id": "service-agent-authority",
+      "runtime_context": "server_scope",
+      "variation_kind": "investigative",
+      "question": "서비스 관점에서 조사해 주세요. 담당 체계를 실행 권한으로 취급하지 말고 권한 범위의 검토된 비즈니스 서비스에서 워크로드와 리소스를 거쳐 선언된 담당 Agent까지 탐색해 주세요."
+    },
+    {
+      "case_id": "service-agent-authority.operator_colloquial",
+      "expectation_id": "service-agent-authority",
+      "runtime_context": "server_scope",
+      "variation_kind": "operator_colloquial",
+      "question": "지금 운영자가 확인해야 해요. 담당 체계를 실행 권한으로 취급하지 말고 권한 범위의 검토된 비즈니스 서비스에서 워크로드와 리소스를 거쳐 선언된 담당 Agent까지 탐색해 주세요."
+    },
+    {
+      "case_id": "service-agent-authority.uncertainty_aware",
+      "expectation_id": "service-agent-authority",
+      "runtime_context": "server_scope",
+      "variation_kind": "uncertainty_aware",
+      "question": "담당 체계를 실행 권한으로 취급하지 말고 권한 범위의 검토된 비즈니스 서비스에서 워크로드와 리소스를 거쳐 선언된 담당 Agent까지 탐색해 주세요. 확인된 사실과 알 수 없는 부분을 나눠 주세요."
+    },
+    {
+      "case_id": "service-current-health.audit_oriented",
+      "expectation_id": "service-current-health",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "audit_oriented",
+      "question": "감사에 남길 수 있도록 답해 주세요. AKS Service를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요."
+    },
+    {
+      "case_id": "service-current-health.concise",
+      "expectation_id": "service-current-health",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "concise",
+      "question": "빠르게 확인하고 싶어요. AKS Service를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요."
+    },
+    {
+      "case_id": "service-current-health.contrastive",
+      "expectation_id": "service-current-health",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "contrastive",
+      "question": "AKS Service를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요. 관측 사실과 근거 없는 추정을 구분해 주세요."
+    },
+    {
+      "case_id": "service-current-health.direct",
+      "expectation_id": "service-current-health",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "direct",
+      "question": "AKS Service를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요."
+    },
+    {
+      "case_id": "service-current-health.evidence_first",
+      "expectation_id": "service-current-health",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "evidence_first",
+      "question": "검증된 근거만 사용해 주세요. AKS Service를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요."
+    },
+    {
+      "case_id": "service-current-health.investigative",
+      "expectation_id": "service-current-health",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "investigative",
+      "question": "서비스 관점에서 조사해 주세요. AKS Service를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요."
+    },
+    {
+      "case_id": "service-current-health.operator_colloquial",
+      "expectation_id": "service-current-health",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "operator_colloquial",
+      "question": "지금 운영자가 확인해야 해요. AKS Service를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요."
+    },
+    {
+      "case_id": "service-current-health.uncertainty_aware",
+      "expectation_id": "service-current-health",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "uncertainty_aware",
+      "question": "AKS Service를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요. 확인된 사실과 알 수 없는 부분을 나눠 주세요."
+    },
+    {
+      "case_id": "service-impact.audit_oriented",
+      "expectation_id": "service-impact",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "audit_oriented",
+      "question": "감사에 남길 수 있도록 답해 주세요. PostgreSQL Flexible Server 또는 Storage Account에서 직접 의존하는 워크로드와 비즈니스 서비스까지 검증된 영향 경로를 탐색해 주세요."
+    },
+    {
+      "case_id": "service-impact.concise",
+      "expectation_id": "service-impact",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "concise",
+      "question": "빠르게 확인하고 싶어요. PostgreSQL Flexible Server 또는 Storage Account에서 직접 의존하는 워크로드와 비즈니스 서비스까지 검증된 영향 경로를 탐색해 주세요."
+    },
+    {
+      "case_id": "service-impact.contrastive",
+      "expectation_id": "service-impact",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "contrastive",
+      "question": "PostgreSQL Flexible Server 또는 Storage Account에서 직접 의존하는 워크로드와 비즈니스 서비스까지 검증된 영향 경로를 탐색해 주세요. 관측 사실과 근거 없는 추정을 구분해 주세요."
+    },
+    {
+      "case_id": "service-impact.direct",
+      "expectation_id": "service-impact",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "direct",
+      "question": "PostgreSQL Flexible Server 또는 Storage Account에서 직접 의존하는 워크로드와 비즈니스 서비스까지 검증된 영향 경로를 탐색해 주세요."
+    },
+    {
+      "case_id": "service-impact.evidence_first",
+      "expectation_id": "service-impact",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "evidence_first",
+      "question": "검증된 근거만 사용해 주세요. PostgreSQL Flexible Server 또는 Storage Account에서 직접 의존하는 워크로드와 비즈니스 서비스까지 검증된 영향 경로를 탐색해 주세요."
+    },
+    {
+      "case_id": "service-impact.investigative",
+      "expectation_id": "service-impact",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "investigative",
+      "question": "비즈니스 관점에서 조사해 주세요. PostgreSQL Flexible Server 또는 Storage Account에서 직접 의존하는 워크로드와 비즈니스 서비스까지 검증된 영향 경로를 탐색해 주세요."
+    },
+    {
+      "case_id": "service-impact.operator_colloquial",
+      "expectation_id": "service-impact",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "operator_colloquial",
+      "question": "지금 운영자가 확인해야 해요. PostgreSQL Flexible Server 또는 Storage Account에서 직접 의존하는 워크로드와 비즈니스 서비스까지 검증된 영향 경로를 탐색해 주세요."
+    },
+    {
+      "case_id": "service-impact.uncertainty_aware",
+      "expectation_id": "service-impact",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "uncertainty_aware",
+      "question": "PostgreSQL Flexible Server 또는 Storage Account에서 직접 의존하는 워크로드와 비즈니스 서비스까지 검증된 영향 경로를 탐색해 주세요. 확인된 사실과 알 수 없는 부분을 나눠 주세요."
+    },
+    {
+      "case_id": "service-ownership.audit_oriented",
+      "expectation_id": "service-ownership",
+      "runtime_context": "server_scope",
+      "variation_kind": "audit_oriented",
+      "question": "감사에 남길 수 있도록 답해 주세요. 검토된 담당 근거만 사용해 권한 범위의 검토된 서비스에 대한 최종 담당 체계와 에스컬레이션 참조를 식별해 주세요."
+    },
+    {
+      "case_id": "service-ownership.concise",
+      "expectation_id": "service-ownership",
+      "runtime_context": "server_scope",
+      "variation_kind": "concise",
+      "question": "빠르게 확인하고 싶어요. 검토된 담당 근거만 사용해 권한 범위의 검토된 서비스에 대한 최종 담당 체계와 에스컬레이션 참조를 식별해 주세요."
+    },
+    {
+      "case_id": "service-ownership.contrastive",
+      "expectation_id": "service-ownership",
+      "runtime_context": "server_scope",
+      "variation_kind": "contrastive",
+      "question": "검토된 담당 근거만 사용해 권한 범위의 검토된 서비스에 대한 최종 담당 체계와 에스컬레이션 참조를 식별해 주세요. 관측 사실과 근거 없는 추정을 구분해 주세요."
+    },
+    {
+      "case_id": "service-ownership.direct",
+      "expectation_id": "service-ownership",
+      "runtime_context": "server_scope",
+      "variation_kind": "direct",
+      "question": "검토된 담당 근거만 사용해 권한 범위의 검토된 서비스에 대한 최종 담당 체계와 에스컬레이션 참조를 식별해 주세요."
+    },
+    {
+      "case_id": "service-ownership.evidence_first",
+      "expectation_id": "service-ownership",
+      "runtime_context": "server_scope",
+      "variation_kind": "evidence_first",
+      "question": "검증된 근거만 사용해 주세요. 검토된 담당 근거만 사용해 권한 범위의 검토된 서비스에 대한 최종 담당 체계와 에스컬레이션 참조를 식별해 주세요."
+    },
+    {
+      "case_id": "service-ownership.investigative",
+      "expectation_id": "service-ownership",
+      "runtime_context": "server_scope",
+      "variation_kind": "investigative",
+      "question": "서비스 관점에서 조사해 주세요. 검토된 담당 근거만 사용해 권한 범위의 검토된 서비스에 대한 최종 담당 체계와 에스컬레이션 참조를 식별해 주세요."
+    },
+    {
+      "case_id": "service-ownership.operator_colloquial",
+      "expectation_id": "service-ownership",
+      "runtime_context": "server_scope",
+      "variation_kind": "operator_colloquial",
+      "question": "지금 운영자가 확인해야 해요. 검토된 담당 근거만 사용해 권한 범위의 검토된 서비스에 대한 최종 담당 체계와 에스컬레이션 참조를 식별해 주세요."
+    },
+    {
+      "case_id": "service-ownership.uncertainty_aware",
+      "expectation_id": "service-ownership",
+      "runtime_context": "server_scope",
+      "variation_kind": "uncertainty_aware",
+      "question": "검토된 담당 근거만 사용해 권한 범위의 검토된 서비스에 대한 최종 담당 체계와 에스컬레이션 참조를 식별해 주세요. 확인된 사실과 알 수 없는 부분을 나눠 주세요."
+    },
+    {
+      "case_id": "topology-dependency.audit_oriented",
+      "expectation_id": "topology-dependency",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "audit_oriented",
+      "question": "감사에 남길 수 있도록 답해 주세요. 관계 방향을 보존하면서 Application Gateway에서 AKS 워크로드와 Pod 리소스를 거쳐 하위 PostgreSQL 또는 Storage 의존성까지 서비스 경로를 탐색해 주세요."
+    },
+    {
+      "case_id": "topology-dependency.concise",
+      "expectation_id": "topology-dependency",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "concise",
+      "question": "빠르게 확인하고 싶어요. 관계 방향을 보존하면서 Application Gateway에서 AKS 워크로드와 Pod 리소스를 거쳐 하위 PostgreSQL 또는 Storage 의존성까지 서비스 경로를 탐색해 주세요."
+    },
+    {
+      "case_id": "topology-dependency.contrastive",
+      "expectation_id": "topology-dependency",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "contrastive",
+      "question": "관계 방향을 보존하면서 Application Gateway에서 AKS 워크로드와 Pod 리소스를 거쳐 하위 PostgreSQL 또는 Storage 의존성까지 서비스 경로를 탐색해 주세요. 관측 사실과 근거 없는 추정을 구분해 주세요."
+    },
+    {
+      "case_id": "topology-dependency.direct",
+      "expectation_id": "topology-dependency",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "direct",
+      "question": "관계 방향을 보존하면서 Application Gateway에서 AKS 워크로드와 Pod 리소스를 거쳐 하위 PostgreSQL 또는 Storage 의존성까지 서비스 경로를 탐색해 주세요."
+    },
+    {
+      "case_id": "topology-dependency.evidence_first",
+      "expectation_id": "topology-dependency",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "evidence_first",
+      "question": "검증된 근거만 사용해 주세요. 관계 방향을 보존하면서 Application Gateway에서 AKS 워크로드와 Pod 리소스를 거쳐 하위 PostgreSQL 또는 Storage 의존성까지 서비스 경로를 탐색해 주세요."
+    },
+    {
+      "case_id": "topology-dependency.investigative",
+      "expectation_id": "topology-dependency",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "investigative",
+      "question": "서비스 관점에서 조사해 주세요. 관계 방향을 보존하면서 Application Gateway에서 AKS 워크로드와 Pod 리소스를 거쳐 하위 PostgreSQL 또는 Storage 의존성까지 서비스 경로를 탐색해 주세요."
+    },
+    {
+      "case_id": "topology-dependency.operator_colloquial",
+      "expectation_id": "topology-dependency",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "operator_colloquial",
+      "question": "지금 운영자가 확인해야 해요. 관계 방향을 보존하면서 Application Gateway에서 AKS 워크로드와 Pod 리소스를 거쳐 하위 PostgreSQL 또는 Storage 의존성까지 서비스 경로를 탐색해 주세요."
+    },
+    {
+      "case_id": "topology-dependency.uncertainty_aware",
+      "expectation_id": "topology-dependency",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "uncertainty_aware",
+      "question": "관계 방향을 보존하면서 Application Gateway에서 AKS 워크로드와 Pod 리소스를 거쳐 하위 PostgreSQL 또는 Storage 의존성까지 서비스 경로를 탐색해 주세요. 확인된 사실과 알 수 없는 부분을 나눠 주세요."
+    },
+    {
+      "case_id": "workload-dependency.audit_oriented",
+      "expectation_id": "workload-dependency",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "audit_oriented",
+      "question": "감사에 남길 수 있도록 답해 주세요. 상관관계를 인과관계로 승격하지 말고 Container Apps 워크로드와 하위 PostgreSQL 또는 Storage 워크로드 및 호스팅 리소스 근거를 비교해 주세요."
+    },
+    {
+      "case_id": "workload-dependency.concise",
+      "expectation_id": "workload-dependency",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "concise",
+      "question": "빠르게 확인하고 싶어요. 상관관계를 인과관계로 승격하지 말고 Container Apps 워크로드와 하위 PostgreSQL 또는 Storage 워크로드 및 호스팅 리소스 근거를 비교해 주세요."
+    },
+    {
+      "case_id": "workload-dependency.contrastive",
+      "expectation_id": "workload-dependency",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "contrastive",
+      "question": "상관관계를 인과관계로 승격하지 말고 Container Apps 워크로드와 하위 PostgreSQL 또는 Storage 워크로드 및 호스팅 리소스 근거를 비교해 주세요. 관측 사실과 근거 없는 추정을 구분해 주세요."
+    },
+    {
+      "case_id": "workload-dependency.direct",
+      "expectation_id": "workload-dependency",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "direct",
+      "question": "상관관계를 인과관계로 승격하지 말고 Container Apps 워크로드와 하위 PostgreSQL 또는 Storage 워크로드 및 호스팅 리소스 근거를 비교해 주세요."
+    },
+    {
+      "case_id": "workload-dependency.evidence_first",
+      "expectation_id": "workload-dependency",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "evidence_first",
+      "question": "검증된 근거만 사용해 주세요. 상관관계를 인과관계로 승격하지 말고 Container Apps 워크로드와 하위 PostgreSQL 또는 Storage 워크로드 및 호스팅 리소스 근거를 비교해 주세요."
+    },
+    {
+      "case_id": "workload-dependency.investigative",
+      "expectation_id": "workload-dependency",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "investigative",
+      "question": "인과 관점에서 조사해 주세요. 상관관계를 인과관계로 승격하지 말고 Container Apps 워크로드와 하위 PostgreSQL 또는 Storage 워크로드 및 호스팅 리소스 근거를 비교해 주세요."
+    },
+    {
+      "case_id": "workload-dependency.operator_colloquial",
+      "expectation_id": "workload-dependency",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "operator_colloquial",
+      "question": "지금 운영자가 확인해야 해요. 상관관계를 인과관계로 승격하지 말고 Container Apps 워크로드와 하위 PostgreSQL 또는 Storage 워크로드 및 호스팅 리소스 근거를 비교해 주세요."
+    },
+    {
+      "case_id": "workload-dependency.uncertainty_aware",
+      "expectation_id": "workload-dependency",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "uncertainty_aware",
+      "question": "상관관계를 인과관계로 승격하지 말고 Container Apps 워크로드와 하위 PostgreSQL 또는 Storage 워크로드 및 호스팅 리소스 근거를 비교해 주세요. 확인된 사실과 알 수 없는 부분을 나눠 주세요."
+    }
+  ]
+}

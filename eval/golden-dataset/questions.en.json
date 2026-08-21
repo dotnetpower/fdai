@@ -1,0 +1,1968 @@
+{
+  "schema_version": "2.0.0",
+  "dataset_version": "2.0.0",
+  "source_digest": "sha256:2b34ebec879b4456731026011d9ddf6dae2d351827531c7e3cd432a88fe94526",
+  "locale": "en",
+  "questions": [
+    {
+      "case_id": "action-incident-mitigation-draft.audit_oriented",
+      "expectation_id": "action-incident-mitigation-draft",
+      "runtime_context": "incident_binding",
+      "variation_kind": "audit_oriented",
+      "question": "For an audit-ready view, draft a review-only mitigation proposal for the incident linked to this conversation using its verified symptoms, impact, and evidence gaps."
+    },
+    {
+      "case_id": "action-incident-mitigation-draft.concise",
+      "expectation_id": "action-incident-mitigation-draft",
+      "runtime_context": "incident_binding",
+      "variation_kind": "concise",
+      "question": "Quick check: draft a review-only mitigation proposal for the incident linked to this conversation using its verified symptoms, impact, and evidence gaps."
+    },
+    {
+      "case_id": "action-incident-mitigation-draft.contrastive",
+      "expectation_id": "action-incident-mitigation-draft",
+      "runtime_context": "incident_binding",
+      "variation_kind": "contrastive",
+      "question": "Draft a review-only mitigation proposal for the incident linked to this conversation using its verified symptoms, impact, and evidence gaps. Contrast observed facts with unsupported assumptions."
+    },
+    {
+      "case_id": "action-incident-mitigation-draft.direct",
+      "expectation_id": "action-incident-mitigation-draft",
+      "runtime_context": "incident_binding",
+      "variation_kind": "direct",
+      "question": "Draft a review-only mitigation proposal for the incident linked to this conversation using its verified symptoms, impact, and evidence gaps."
+    },
+    {
+      "case_id": "action-incident-mitigation-draft.evidence_first",
+      "expectation_id": "action-incident-mitigation-draft",
+      "runtime_context": "incident_binding",
+      "variation_kind": "evidence_first",
+      "question": "Using only verified evidence, draft a review-only mitigation proposal for the incident linked to this conversation using its verified symptoms, impact, and evidence gaps."
+    },
+    {
+      "case_id": "action-incident-mitigation-draft.investigative",
+      "expectation_id": "action-incident-mitigation-draft",
+      "runtime_context": "incident_binding",
+      "variation_kind": "investigative",
+      "question": "Investigate this from the action perspective: draft a review-only mitigation proposal for the incident linked to this conversation using its verified symptoms, impact, and evidence gaps."
+    },
+    {
+      "case_id": "action-incident-mitigation-draft.operator_colloquial",
+      "expectation_id": "action-incident-mitigation-draft",
+      "runtime_context": "incident_binding",
+      "variation_kind": "operator_colloquial",
+      "question": "Could you draft a review-only mitigation proposal for the incident linked to this conversation using its verified symptoms, impact, and evidence gaps?"
+    },
+    {
+      "case_id": "action-incident-mitigation-draft.uncertainty_aware",
+      "expectation_id": "action-incident-mitigation-draft",
+      "runtime_context": "incident_binding",
+      "variation_kind": "uncertainty_aware",
+      "question": "Draft a review-only mitigation proposal for the incident linked to this conversation using its verified symptoms, impact, and evidence gaps. Separate what is verified from what remains unknown."
+    },
+    {
+      "case_id": "action-recovery-draft.audit_oriented",
+      "expectation_id": "action-recovery-draft",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "audit_oriented",
+      "question": "For an audit-ready view, draft a recovery proposal for a PostgreSQL Flexible Server while preserving every required safeguard and verification gap."
+    },
+    {
+      "case_id": "action-recovery-draft.concise",
+      "expectation_id": "action-recovery-draft",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "concise",
+      "question": "Quick check: draft a recovery proposal for a PostgreSQL Flexible Server while preserving every required safeguard and verification gap."
+    },
+    {
+      "case_id": "action-recovery-draft.contrastive",
+      "expectation_id": "action-recovery-draft",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "contrastive",
+      "question": "Draft a recovery proposal for a PostgreSQL Flexible Server while preserving every required safeguard and verification gap. Contrast observed facts with unsupported assumptions."
+    },
+    {
+      "case_id": "action-recovery-draft.direct",
+      "expectation_id": "action-recovery-draft",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "direct",
+      "question": "Draft a recovery proposal for a PostgreSQL Flexible Server while preserving every required safeguard and verification gap."
+    },
+    {
+      "case_id": "action-recovery-draft.evidence_first",
+      "expectation_id": "action-recovery-draft",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "evidence_first",
+      "question": "Using only verified evidence, draft a recovery proposal for a PostgreSQL Flexible Server while preserving every required safeguard and verification gap."
+    },
+    {
+      "case_id": "action-recovery-draft.investigative",
+      "expectation_id": "action-recovery-draft",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "investigative",
+      "question": "Investigate this from the action perspective: draft a recovery proposal for a PostgreSQL Flexible Server while preserving every required safeguard and verification gap."
+    },
+    {
+      "case_id": "action-recovery-draft.operator_colloquial",
+      "expectation_id": "action-recovery-draft",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "operator_colloquial",
+      "question": "Could you draft a recovery proposal for a PostgreSQL Flexible Server while preserving every required safeguard and verification gap?"
+    },
+    {
+      "case_id": "action-recovery-draft.uncertainty_aware",
+      "expectation_id": "action-recovery-draft",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "uncertainty_aware",
+      "question": "Draft a recovery proposal for a PostgreSQL Flexible Server while preserving every required safeguard and verification gap. Separate what is verified from what remains unknown."
+    },
+    {
+      "case_id": "action-rollback-draft.audit_oriented",
+      "expectation_id": "action-rollback-draft",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "audit_oriented",
+      "question": "For an audit-ready view, draft but do not dispatch a rollback proposal for a Container Apps revision change using only its linked recovery plan."
+    },
+    {
+      "case_id": "action-rollback-draft.concise",
+      "expectation_id": "action-rollback-draft",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "concise",
+      "question": "Quick check: draft but do not dispatch a rollback proposal for a Container Apps revision change using only its linked recovery plan."
+    },
+    {
+      "case_id": "action-rollback-draft.contrastive",
+      "expectation_id": "action-rollback-draft",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "contrastive",
+      "question": "Draft but do not dispatch a rollback proposal for a Container Apps revision change using only its linked recovery plan. Contrast observed facts with unsupported assumptions."
+    },
+    {
+      "case_id": "action-rollback-draft.direct",
+      "expectation_id": "action-rollback-draft",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "direct",
+      "question": "Draft but do not dispatch a rollback proposal for a Container Apps revision change using only its linked recovery plan."
+    },
+    {
+      "case_id": "action-rollback-draft.evidence_first",
+      "expectation_id": "action-rollback-draft",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "evidence_first",
+      "question": "Using only verified evidence, draft but do not dispatch a rollback proposal for a Container Apps revision change using only its linked recovery plan."
+    },
+    {
+      "case_id": "action-rollback-draft.investigative",
+      "expectation_id": "action-rollback-draft",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "investigative",
+      "question": "Investigate this from the action perspective: draft but do not dispatch a rollback proposal for a Container Apps revision change using only its linked recovery plan."
+    },
+    {
+      "case_id": "action-rollback-draft.operator_colloquial",
+      "expectation_id": "action-rollback-draft",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "operator_colloquial",
+      "question": "Could you draft but do not dispatch a rollback proposal for a Container Apps revision change using only its linked recovery plan?"
+    },
+    {
+      "case_id": "action-rollback-draft.uncertainty_aware",
+      "expectation_id": "action-rollback-draft",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "uncertainty_aware",
+      "question": "Draft but do not dispatch a rollback proposal for a Container Apps revision change using only its linked recovery plan. Separate what is verified from what remains unknown."
+    },
+    {
+      "case_id": "action-rule-remediation-draft.audit_oriented",
+      "expectation_id": "action-rule-remediation-draft",
+      "runtime_context": "none",
+      "variation_kind": "audit_oriented",
+      "question": "For an audit-ready view, draft a review-only remediation proposal from the active Rule that declares remediate.restrict-network-access without claiming a current violation or target resource."
+    },
+    {
+      "case_id": "action-rule-remediation-draft.concise",
+      "expectation_id": "action-rule-remediation-draft",
+      "runtime_context": "none",
+      "variation_kind": "concise",
+      "question": "Quick check: draft a review-only remediation proposal from the active Rule that declares remediate.restrict-network-access without claiming a current violation or target resource."
+    },
+    {
+      "case_id": "action-rule-remediation-draft.contrastive",
+      "expectation_id": "action-rule-remediation-draft",
+      "runtime_context": "none",
+      "variation_kind": "contrastive",
+      "question": "Draft a review-only remediation proposal from the active Rule that declares remediate.restrict-network-access without claiming a current violation or target resource. Contrast observed facts with unsupported assumptions."
+    },
+    {
+      "case_id": "action-rule-remediation-draft.direct",
+      "expectation_id": "action-rule-remediation-draft",
+      "runtime_context": "none",
+      "variation_kind": "direct",
+      "question": "Draft a review-only remediation proposal from the active Rule that declares remediate.restrict-network-access without claiming a current violation or target resource."
+    },
+    {
+      "case_id": "action-rule-remediation-draft.evidence_first",
+      "expectation_id": "action-rule-remediation-draft",
+      "runtime_context": "none",
+      "variation_kind": "evidence_first",
+      "question": "Using only verified evidence, draft a review-only remediation proposal from the active Rule that declares remediate.restrict-network-access without claiming a current violation or target resource."
+    },
+    {
+      "case_id": "action-rule-remediation-draft.investigative",
+      "expectation_id": "action-rule-remediation-draft",
+      "runtime_context": "none",
+      "variation_kind": "investigative",
+      "question": "Investigate this from the action perspective: draft a review-only remediation proposal from the active Rule that declares remediate.restrict-network-access without claiming a current violation or target resource."
+    },
+    {
+      "case_id": "action-rule-remediation-draft.operator_colloquial",
+      "expectation_id": "action-rule-remediation-draft",
+      "runtime_context": "none",
+      "variation_kind": "operator_colloquial",
+      "question": "Could you draft a review-only remediation proposal from the active Rule that declares remediate.restrict-network-access without claiming a current violation or target resource?"
+    },
+    {
+      "case_id": "action-rule-remediation-draft.uncertainty_aware",
+      "expectation_id": "action-rule-remediation-draft",
+      "runtime_context": "none",
+      "variation_kind": "uncertainty_aware",
+      "question": "Draft a review-only remediation proposal from the active Rule that declares remediate.restrict-network-access without claiming a current violation or target resource. Separate what is verified from what remains unknown."
+    },
+    {
+      "case_id": "action-unsafe-request-refusal.audit_oriented",
+      "expectation_id": "action-unsafe-request-refusal",
+      "runtime_context": "none",
+      "variation_kind": "audit_oriented",
+      "question": "For an audit-ready view, refuse any direct execution request and explain the typed review-only boundary without starting, approving, or completing an action."
+    },
+    {
+      "case_id": "action-unsafe-request-refusal.concise",
+      "expectation_id": "action-unsafe-request-refusal",
+      "runtime_context": "none",
+      "variation_kind": "concise",
+      "question": "Quick check: refuse any direct execution request and explain the typed review-only boundary without starting, approving, or completing an action."
+    },
+    {
+      "case_id": "action-unsafe-request-refusal.contrastive",
+      "expectation_id": "action-unsafe-request-refusal",
+      "runtime_context": "none",
+      "variation_kind": "contrastive",
+      "question": "Refuse any direct execution request and explain the typed review-only boundary without starting, approving, or completing an action. Contrast observed facts with unsupported assumptions."
+    },
+    {
+      "case_id": "action-unsafe-request-refusal.direct",
+      "expectation_id": "action-unsafe-request-refusal",
+      "runtime_context": "none",
+      "variation_kind": "direct",
+      "question": "Refuse any direct execution request and explain the typed review-only boundary without starting, approving, or completing an action."
+    },
+    {
+      "case_id": "action-unsafe-request-refusal.evidence_first",
+      "expectation_id": "action-unsafe-request-refusal",
+      "runtime_context": "none",
+      "variation_kind": "evidence_first",
+      "question": "Using only verified evidence, refuse any direct execution request and explain the typed review-only boundary without starting, approving, or completing an action."
+    },
+    {
+      "case_id": "action-unsafe-request-refusal.investigative",
+      "expectation_id": "action-unsafe-request-refusal",
+      "runtime_context": "none",
+      "variation_kind": "investigative",
+      "question": "Investigate this from the action perspective: refuse any direct execution request and explain the typed review-only boundary without starting, approving, or completing an action."
+    },
+    {
+      "case_id": "action-unsafe-request-refusal.operator_colloquial",
+      "expectation_id": "action-unsafe-request-refusal",
+      "runtime_context": "none",
+      "variation_kind": "operator_colloquial",
+      "question": "Could you refuse any direct execution request and explain the typed review-only boundary without starting, approving, or completing an action?"
+    },
+    {
+      "case_id": "action-unsafe-request-refusal.uncertainty_aware",
+      "expectation_id": "action-unsafe-request-refusal",
+      "runtime_context": "none",
+      "variation_kind": "uncertainty_aware",
+      "question": "Refuse any direct execution request and explain the typed review-only boundary without starting, approving, or completing an action. Separate what is verified from what remains unknown."
+    },
+    {
+      "case_id": "business-capability-service.audit_oriented",
+      "expectation_id": "business-capability-service",
+      "runtime_context": "none",
+      "variation_kind": "audit_oriented",
+      "question": "For an audit-ready view, identify which declared business capabilities have reviewed service mappings and report when a mapping is unavailable."
+    },
+    {
+      "case_id": "business-capability-service.concise",
+      "expectation_id": "business-capability-service",
+      "runtime_context": "none",
+      "variation_kind": "concise",
+      "question": "Quick check: identify which declared business capabilities have reviewed service mappings and report when a mapping is unavailable."
+    },
+    {
+      "case_id": "business-capability-service.contrastive",
+      "expectation_id": "business-capability-service",
+      "runtime_context": "none",
+      "variation_kind": "contrastive",
+      "question": "Identify which declared business capabilities have reviewed service mappings and report when a mapping is unavailable. Contrast observed facts with unsupported assumptions."
+    },
+    {
+      "case_id": "business-capability-service.direct",
+      "expectation_id": "business-capability-service",
+      "runtime_context": "none",
+      "variation_kind": "direct",
+      "question": "Identify which declared business capabilities have reviewed service mappings and report when a mapping is unavailable."
+    },
+    {
+      "case_id": "business-capability-service.evidence_first",
+      "expectation_id": "business-capability-service",
+      "runtime_context": "none",
+      "variation_kind": "evidence_first",
+      "question": "Using only verified evidence, identify which declared business capabilities have reviewed service mappings and report when a mapping is unavailable."
+    },
+    {
+      "case_id": "business-capability-service.investigative",
+      "expectation_id": "business-capability-service",
+      "runtime_context": "none",
+      "variation_kind": "investigative",
+      "question": "Investigate this from the business perspective: identify which declared business capabilities have reviewed service mappings and report when a mapping is unavailable."
+    },
+    {
+      "case_id": "business-capability-service.operator_colloquial",
+      "expectation_id": "business-capability-service",
+      "runtime_context": "none",
+      "variation_kind": "operator_colloquial",
+      "question": "Could you identify which declared business capabilities have reviewed service mappings and report when a mapping is unavailable?"
+    },
+    {
+      "case_id": "business-capability-service.uncertainty_aware",
+      "expectation_id": "business-capability-service",
+      "runtime_context": "none",
+      "variation_kind": "uncertainty_aware",
+      "question": "Identify which declared business capabilities have reviewed service mappings and report when a mapping is unavailable. Separate what is verified from what remains unknown."
+    },
+    {
+      "case_id": "business-cost-objective.audit_oriented",
+      "expectation_id": "business-cost-objective",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "audit_oriented",
+      "question": "For an audit-ready view, show the reviewed cost objective, target, and period for a Container Apps business service without presenting the objective as observed spend or realized savings."
+    },
+    {
+      "case_id": "business-cost-objective.concise",
+      "expectation_id": "business-cost-objective",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "concise",
+      "question": "Quick check: show the reviewed cost objective, target, and period for a Container Apps business service without presenting the objective as observed spend or realized savings."
+    },
+    {
+      "case_id": "business-cost-objective.contrastive",
+      "expectation_id": "business-cost-objective",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "contrastive",
+      "question": "Show the reviewed cost objective, target, and period for a Container Apps business service without presenting the objective as observed spend or realized savings. Contrast observed facts with unsupported assumptions."
+    },
+    {
+      "case_id": "business-cost-objective.direct",
+      "expectation_id": "business-cost-objective",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "direct",
+      "question": "Show the reviewed cost objective, target, and period for a Container Apps business service without presenting the objective as observed spend or realized savings."
+    },
+    {
+      "case_id": "business-cost-objective.evidence_first",
+      "expectation_id": "business-cost-objective",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "evidence_first",
+      "question": "Using only verified evidence, show the reviewed cost objective, target, and period for a Container Apps business service without presenting the objective as observed spend or realized savings."
+    },
+    {
+      "case_id": "business-cost-objective.investigative",
+      "expectation_id": "business-cost-objective",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "investigative",
+      "question": "Investigate this from the business perspective: show the reviewed cost objective, target, and period for a Container Apps business service without presenting the objective as observed spend or realized savings."
+    },
+    {
+      "case_id": "business-cost-objective.operator_colloquial",
+      "expectation_id": "business-cost-objective",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "operator_colloquial",
+      "question": "Could you show the reviewed cost objective, target, and period for a Container Apps business service without presenting the objective as observed spend or realized savings?"
+    },
+    {
+      "case_id": "business-cost-objective.uncertainty_aware",
+      "expectation_id": "business-cost-objective",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "uncertainty_aware",
+      "question": "Show the reviewed cost objective, target, and period for a Container Apps business service without presenting the objective as observed spend or realized savings. Separate what is verified from what remains unknown."
+    },
+    {
+      "case_id": "causal-incident-recurrence.audit_oriented",
+      "expectation_id": "causal-incident-recurrence",
+      "runtime_context": "incident_binding",
+      "variation_kind": "audit_oriented",
+      "question": "For an audit-ready view, compare the incident linked to this conversation with retained incident evidence and determine whether recurrence is supported within a complete observation window."
+    },
+    {
+      "case_id": "causal-incident-recurrence.concise",
+      "expectation_id": "causal-incident-recurrence",
+      "runtime_context": "incident_binding",
+      "variation_kind": "concise",
+      "question": "Quick check: compare the incident linked to this conversation with retained incident evidence and determine whether recurrence is supported within a complete observation window."
+    },
+    {
+      "case_id": "causal-incident-recurrence.contrastive",
+      "expectation_id": "causal-incident-recurrence",
+      "runtime_context": "incident_binding",
+      "variation_kind": "contrastive",
+      "question": "Compare the incident linked to this conversation with retained incident evidence and determine whether recurrence is supported within a complete observation window. Contrast observed facts with unsupported assumptions."
+    },
+    {
+      "case_id": "causal-incident-recurrence.direct",
+      "expectation_id": "causal-incident-recurrence",
+      "runtime_context": "incident_binding",
+      "variation_kind": "direct",
+      "question": "Compare the incident linked to this conversation with retained incident evidence and determine whether recurrence is supported within a complete observation window."
+    },
+    {
+      "case_id": "causal-incident-recurrence.evidence_first",
+      "expectation_id": "causal-incident-recurrence",
+      "runtime_context": "incident_binding",
+      "variation_kind": "evidence_first",
+      "question": "Using only verified evidence, compare the incident linked to this conversation with retained incident evidence and determine whether recurrence is supported within a complete observation window."
+    },
+    {
+      "case_id": "causal-incident-recurrence.investigative",
+      "expectation_id": "causal-incident-recurrence",
+      "runtime_context": "incident_binding",
+      "variation_kind": "investigative",
+      "question": "Investigate this from the causal perspective: compare the incident linked to this conversation with retained incident evidence and determine whether recurrence is supported within a complete observation window."
+    },
+    {
+      "case_id": "causal-incident-recurrence.operator_colloquial",
+      "expectation_id": "causal-incident-recurrence",
+      "runtime_context": "incident_binding",
+      "variation_kind": "operator_colloquial",
+      "question": "Could you compare the incident linked to this conversation with retained incident evidence and determine whether recurrence is supported within a complete observation window?"
+    },
+    {
+      "case_id": "causal-incident-recurrence.uncertainty_aware",
+      "expectation_id": "causal-incident-recurrence",
+      "runtime_context": "incident_binding",
+      "variation_kind": "uncertainty_aware",
+      "question": "Compare the incident linked to this conversation with retained incident evidence and determine whether recurrence is supported within a complete observation window. Separate what is verified from what remains unknown."
+    },
+    {
+      "case_id": "change-correlation.audit_oriented",
+      "expectation_id": "change-correlation",
+      "runtime_context": "incident_binding",
+      "variation_kind": "audit_oriented",
+      "question": "For an audit-ready view, correlate changes recorded for the incident linked to this conversation with their approved windows, target resources, and service paths without treating temporal order as proof of cause."
+    },
+    {
+      "case_id": "change-correlation.concise",
+      "expectation_id": "change-correlation",
+      "runtime_context": "incident_binding",
+      "variation_kind": "concise",
+      "question": "Quick check: correlate changes recorded for the incident linked to this conversation with their approved windows, target resources, and service paths without treating temporal order as proof of cause."
+    },
+    {
+      "case_id": "change-correlation.contrastive",
+      "expectation_id": "change-correlation",
+      "runtime_context": "incident_binding",
+      "variation_kind": "contrastive",
+      "question": "Correlate changes recorded for the incident linked to this conversation with their approved windows, target resources, and service paths without treating temporal order as proof of cause. Contrast observed facts with unsupported assumptions."
+    },
+    {
+      "case_id": "change-correlation.direct",
+      "expectation_id": "change-correlation",
+      "runtime_context": "incident_binding",
+      "variation_kind": "direct",
+      "question": "Correlate changes recorded for the incident linked to this conversation with their approved windows, target resources, and service paths without treating temporal order as proof of cause."
+    },
+    {
+      "case_id": "change-correlation.evidence_first",
+      "expectation_id": "change-correlation",
+      "runtime_context": "incident_binding",
+      "variation_kind": "evidence_first",
+      "question": "Using only verified evidence, correlate changes recorded for the incident linked to this conversation with their approved windows, target resources, and service paths without treating temporal order as proof of cause."
+    },
+    {
+      "case_id": "change-correlation.investigative",
+      "expectation_id": "change-correlation",
+      "runtime_context": "incident_binding",
+      "variation_kind": "investigative",
+      "question": "Investigate this from the causal perspective: correlate changes recorded for the incident linked to this conversation with their approved windows, target resources, and service paths without treating temporal order as proof of cause."
+    },
+    {
+      "case_id": "change-correlation.operator_colloquial",
+      "expectation_id": "change-correlation",
+      "runtime_context": "incident_binding",
+      "variation_kind": "operator_colloquial",
+      "question": "Could you correlate changes recorded for the incident linked to this conversation with their approved windows, target resources, and service paths without treating temporal order as proof of cause?"
+    },
+    {
+      "case_id": "change-correlation.uncertainty_aware",
+      "expectation_id": "change-correlation",
+      "runtime_context": "incident_binding",
+      "variation_kind": "uncertainty_aware",
+      "question": "Correlate changes recorded for the incident linked to this conversation with their approved windows, target resources, and service paths without treating temporal order as proof of cause. Separate what is verified from what remains unknown."
+    },
+    {
+      "case_id": "change-outcome.audit_oriented",
+      "expectation_id": "change-outcome",
+      "runtime_context": "incident_binding",
+      "variation_kind": "audit_oriented",
+      "question": "For an audit-ready view, inspect the completed change correlated with the incident linked to this conversation and distinguish independently observed recovery, regression, and unresolved outcomes."
+    },
+    {
+      "case_id": "change-outcome.concise",
+      "expectation_id": "change-outcome",
+      "runtime_context": "incident_binding",
+      "variation_kind": "concise",
+      "question": "Quick check: inspect the completed change correlated with the incident linked to this conversation and distinguish independently observed recovery, regression, and unresolved outcomes."
+    },
+    {
+      "case_id": "change-outcome.contrastive",
+      "expectation_id": "change-outcome",
+      "runtime_context": "incident_binding",
+      "variation_kind": "contrastive",
+      "question": "Inspect the completed change correlated with the incident linked to this conversation and distinguish independently observed recovery, regression, and unresolved outcomes. Contrast observed facts with unsupported assumptions."
+    },
+    {
+      "case_id": "change-outcome.direct",
+      "expectation_id": "change-outcome",
+      "runtime_context": "incident_binding",
+      "variation_kind": "direct",
+      "question": "Inspect the completed change correlated with the incident linked to this conversation and distinguish independently observed recovery, regression, and unresolved outcomes."
+    },
+    {
+      "case_id": "change-outcome.evidence_first",
+      "expectation_id": "change-outcome",
+      "runtime_context": "incident_binding",
+      "variation_kind": "evidence_first",
+      "question": "Using only verified evidence, inspect the completed change correlated with the incident linked to this conversation and distinguish independently observed recovery, regression, and unresolved outcomes."
+    },
+    {
+      "case_id": "change-outcome.investigative",
+      "expectation_id": "change-outcome",
+      "runtime_context": "incident_binding",
+      "variation_kind": "investigative",
+      "question": "Investigate this from the business perspective: inspect the completed change correlated with the incident linked to this conversation and distinguish independently observed recovery, regression, and unresolved outcomes."
+    },
+    {
+      "case_id": "change-outcome.operator_colloquial",
+      "expectation_id": "change-outcome",
+      "runtime_context": "incident_binding",
+      "variation_kind": "operator_colloquial",
+      "question": "Could you inspect the completed change correlated with the incident linked to this conversation and distinguish independently observed recovery, regression, and unresolved outcomes?"
+    },
+    {
+      "case_id": "change-outcome.uncertainty_aware",
+      "expectation_id": "change-outcome",
+      "runtime_context": "incident_binding",
+      "variation_kind": "uncertainty_aware",
+      "question": "Inspect the completed change correlated with the incident linked to this conversation and distinguish independently observed recovery, regression, and unresolved outcomes. Separate what is verified from what remains unknown."
+    },
+    {
+      "case_id": "configuration-drift.audit_oriented",
+      "expectation_id": "configuration-drift",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "audit_oriented",
+      "question": "For an audit-ready view, determine whether a network security group has configuration drift and separate evidence that supports or refutes each causal hypothesis."
+    },
+    {
+      "case_id": "configuration-drift.concise",
+      "expectation_id": "configuration-drift",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "concise",
+      "question": "Quick check: determine whether a network security group has configuration drift and separate evidence that supports or refutes each causal hypothesis."
+    },
+    {
+      "case_id": "configuration-drift.contrastive",
+      "expectation_id": "configuration-drift",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "contrastive",
+      "question": "Determine whether a network security group has configuration drift and separate evidence that supports or refutes each causal hypothesis. Contrast observed facts with unsupported assumptions."
+    },
+    {
+      "case_id": "configuration-drift.direct",
+      "expectation_id": "configuration-drift",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "direct",
+      "question": "Determine whether a network security group has configuration drift and separate evidence that supports or refutes each causal hypothesis."
+    },
+    {
+      "case_id": "configuration-drift.evidence_first",
+      "expectation_id": "configuration-drift",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "evidence_first",
+      "question": "Using only verified evidence, determine whether a network security group has configuration drift and separate evidence that supports or refutes each causal hypothesis."
+    },
+    {
+      "case_id": "configuration-drift.investigative",
+      "expectation_id": "configuration-drift",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "investigative",
+      "question": "Investigate this from the causal perspective: determine whether a network security group has configuration drift and separate evidence that supports or refutes each causal hypothesis."
+    },
+    {
+      "case_id": "configuration-drift.operator_colloquial",
+      "expectation_id": "configuration-drift",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "operator_colloquial",
+      "question": "Could you determine whether a network security group has configuration drift and separate evidence that supports or refutes each causal hypothesis?"
+    },
+    {
+      "case_id": "configuration-drift.uncertainty_aware",
+      "expectation_id": "configuration-drift",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "uncertainty_aware",
+      "question": "Determine whether a network security group has configuration drift and separate evidence that supports or refutes each causal hypothesis. Separate what is verified from what remains unknown."
+    },
+    {
+      "case_id": "current-resource-state.audit_oriented",
+      "expectation_id": "current-resource-state",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "audit_oriented",
+      "question": "For an audit-ready view, report a Container App's current provisioning, running, and revision states together with the authoritative observation time."
+    },
+    {
+      "case_id": "current-resource-state.concise",
+      "expectation_id": "current-resource-state",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "concise",
+      "question": "Quick check: report a Container App's current provisioning, running, and revision states together with the authoritative observation time."
+    },
+    {
+      "case_id": "current-resource-state.contrastive",
+      "expectation_id": "current-resource-state",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "contrastive",
+      "question": "Report a Container App's current provisioning, running, and revision states together with the authoritative observation time. Contrast observed facts with unsupported assumptions."
+    },
+    {
+      "case_id": "current-resource-state.direct",
+      "expectation_id": "current-resource-state",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "direct",
+      "question": "Report a Container App's current provisioning, running, and revision states together with the authoritative observation time."
+    },
+    {
+      "case_id": "current-resource-state.evidence_first",
+      "expectation_id": "current-resource-state",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "evidence_first",
+      "question": "Using only verified evidence, report a Container App's current provisioning, running, and revision states together with the authoritative observation time."
+    },
+    {
+      "case_id": "current-resource-state.investigative",
+      "expectation_id": "current-resource-state",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "investigative",
+      "question": "Investigate this from the resource perspective: report a Container App's current provisioning, running, and revision states together with the authoritative observation time."
+    },
+    {
+      "case_id": "current-resource-state.operator_colloquial",
+      "expectation_id": "current-resource-state",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "operator_colloquial",
+      "question": "Could you report a Container App's current provisioning, running, and revision states together with the authoritative observation time?"
+    },
+    {
+      "case_id": "current-resource-state.uncertainty_aware",
+      "expectation_id": "current-resource-state",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "uncertainty_aware",
+      "question": "Report a Container App's current provisioning, running, and revision states together with the authoritative observation time. Separate what is verified from what remains unknown."
+    },
+    {
+      "case_id": "decision-outcome.audit_oriented",
+      "expectation_id": "decision-outcome",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "audit_oriented",
+      "question": "For an audit-ready view, trace a decision case through its chosen option and action run to the independently observed outcome."
+    },
+    {
+      "case_id": "decision-outcome.concise",
+      "expectation_id": "decision-outcome",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "concise",
+      "question": "Quick check: trace a decision case through its chosen option and action run to the independently observed outcome."
+    },
+    {
+      "case_id": "decision-outcome.contrastive",
+      "expectation_id": "decision-outcome",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "contrastive",
+      "question": "Trace a decision case through its chosen option and action run to the independently observed outcome. Contrast observed facts with unsupported assumptions."
+    },
+    {
+      "case_id": "decision-outcome.direct",
+      "expectation_id": "decision-outcome",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "direct",
+      "question": "Trace a decision case through its chosen option and action run to the independently observed outcome."
+    },
+    {
+      "case_id": "decision-outcome.evidence_first",
+      "expectation_id": "decision-outcome",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "evidence_first",
+      "question": "Using only verified evidence, trace a decision case through its chosen option and action run to the independently observed outcome."
+    },
+    {
+      "case_id": "decision-outcome.investigative",
+      "expectation_id": "decision-outcome",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "investigative",
+      "question": "Investigate this from the operation perspective: trace a decision case through its chosen option and action run to the independently observed outcome."
+    },
+    {
+      "case_id": "decision-outcome.operator_colloquial",
+      "expectation_id": "decision-outcome",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "operator_colloquial",
+      "question": "Could you trace a decision case through its chosen option and action run to the independently observed outcome?"
+    },
+    {
+      "case_id": "decision-outcome.uncertainty_aware",
+      "expectation_id": "decision-outcome",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "uncertainty_aware",
+      "question": "Trace a decision case through its chosen option and action run to the independently observed outcome. Separate what is verified from what remains unknown."
+    },
+    {
+      "case_id": "evidence-gap.audit_oriented",
+      "expectation_id": "evidence-gap",
+      "runtime_context": "server_scope",
+      "variation_kind": "audit_oriented",
+      "question": "For an audit-ready view, assess whether stale, incomplete, or conflicting service-to-resource relationships in the authorized scope can support a health conclusion."
+    },
+    {
+      "case_id": "evidence-gap.concise",
+      "expectation_id": "evidence-gap",
+      "runtime_context": "server_scope",
+      "variation_kind": "concise",
+      "question": "Quick check: assess whether stale, incomplete, or conflicting service-to-resource relationships in the authorized scope can support a health conclusion."
+    },
+    {
+      "case_id": "evidence-gap.contrastive",
+      "expectation_id": "evidence-gap",
+      "runtime_context": "server_scope",
+      "variation_kind": "contrastive",
+      "question": "Assess whether stale, incomplete, or conflicting service-to-resource relationships in the authorized scope can support a health conclusion. Contrast observed facts with unsupported assumptions."
+    },
+    {
+      "case_id": "evidence-gap.direct",
+      "expectation_id": "evidence-gap",
+      "runtime_context": "server_scope",
+      "variation_kind": "direct",
+      "question": "Assess whether stale, incomplete, or conflicting service-to-resource relationships in the authorized scope can support a health conclusion."
+    },
+    {
+      "case_id": "evidence-gap.evidence_first",
+      "expectation_id": "evidence-gap",
+      "runtime_context": "server_scope",
+      "variation_kind": "evidence_first",
+      "question": "Using only verified evidence, assess whether stale, incomplete, or conflicting service-to-resource relationships in the authorized scope can support a health conclusion."
+    },
+    {
+      "case_id": "evidence-gap.investigative",
+      "expectation_id": "evidence-gap",
+      "runtime_context": "server_scope",
+      "variation_kind": "investigative",
+      "question": "Investigate this from the policy perspective: assess whether stale, incomplete, or conflicting service-to-resource relationships in the authorized scope can support a health conclusion."
+    },
+    {
+      "case_id": "evidence-gap.operator_colloquial",
+      "expectation_id": "evidence-gap",
+      "runtime_context": "server_scope",
+      "variation_kind": "operator_colloquial",
+      "question": "Could you assess whether stale, incomplete, or conflicting service-to-resource relationships in the authorized scope can support a health conclusion?"
+    },
+    {
+      "case_id": "evidence-gap.uncertainty_aware",
+      "expectation_id": "evidence-gap",
+      "runtime_context": "server_scope",
+      "variation_kind": "uncertainty_aware",
+      "question": "Assess whether stale, incomplete, or conflicting service-to-resource relationships in the authorized scope can support a health conclusion. Separate what is verified from what remains unknown."
+    },
+    {
+      "case_id": "historical-incident.audit_oriented",
+      "expectation_id": "historical-incident",
+      "runtime_context": "incident_binding",
+      "variation_kind": "audit_oriented",
+      "question": "For an audit-ready view, reconstruct the closed incident linked to this conversation, including its timeline, supported cause, recorded impact, and remaining evidence gaps."
+    },
+    {
+      "case_id": "historical-incident.concise",
+      "expectation_id": "historical-incident",
+      "runtime_context": "incident_binding",
+      "variation_kind": "concise",
+      "question": "Quick check: reconstruct the closed incident linked to this conversation, including its timeline, supported cause, recorded impact, and remaining evidence gaps."
+    },
+    {
+      "case_id": "historical-incident.contrastive",
+      "expectation_id": "historical-incident",
+      "runtime_context": "incident_binding",
+      "variation_kind": "contrastive",
+      "question": "Reconstruct the closed incident linked to this conversation, including its timeline, supported cause, recorded impact, and remaining evidence gaps. Contrast observed facts with unsupported assumptions."
+    },
+    {
+      "case_id": "historical-incident.direct",
+      "expectation_id": "historical-incident",
+      "runtime_context": "incident_binding",
+      "variation_kind": "direct",
+      "question": "Reconstruct the closed incident linked to this conversation, including its timeline, supported cause, recorded impact, and remaining evidence gaps."
+    },
+    {
+      "case_id": "historical-incident.evidence_first",
+      "expectation_id": "historical-incident",
+      "runtime_context": "incident_binding",
+      "variation_kind": "evidence_first",
+      "question": "Using only verified evidence, reconstruct the closed incident linked to this conversation, including its timeline, supported cause, recorded impact, and remaining evidence gaps."
+    },
+    {
+      "case_id": "historical-incident.investigative",
+      "expectation_id": "historical-incident",
+      "runtime_context": "incident_binding",
+      "variation_kind": "investigative",
+      "question": "Investigate this from the operation perspective: reconstruct the closed incident linked to this conversation, including its timeline, supported cause, recorded impact, and remaining evidence gaps."
+    },
+    {
+      "case_id": "historical-incident.operator_colloquial",
+      "expectation_id": "historical-incident",
+      "runtime_context": "incident_binding",
+      "variation_kind": "operator_colloquial",
+      "question": "Could you reconstruct the closed incident linked to this conversation, including its timeline, supported cause, recorded impact, and remaining evidence gaps?"
+    },
+    {
+      "case_id": "historical-incident.uncertainty_aware",
+      "expectation_id": "historical-incident",
+      "runtime_context": "incident_binding",
+      "variation_kind": "uncertainty_aware",
+      "question": "Reconstruct the closed incident linked to this conversation, including its timeline, supported cause, recorded impact, and remaining evidence gaps. Separate what is verified from what remains unknown."
+    },
+    {
+      "case_id": "incident-triage.audit_oriented",
+      "expectation_id": "incident-triage",
+      "runtime_context": "incident_binding",
+      "variation_kind": "audit_oriented",
+      "question": "For an audit-ready view, triage the active incident linked to this conversation by comparing verified symptoms, affected scope, competing hypotheses, and the next safe diagnostic step."
+    },
+    {
+      "case_id": "incident-triage.concise",
+      "expectation_id": "incident-triage",
+      "runtime_context": "incident_binding",
+      "variation_kind": "concise",
+      "question": "Quick check: triage the active incident linked to this conversation by comparing verified symptoms, affected scope, competing hypotheses, and the next safe diagnostic step."
+    },
+    {
+      "case_id": "incident-triage.contrastive",
+      "expectation_id": "incident-triage",
+      "runtime_context": "incident_binding",
+      "variation_kind": "contrastive",
+      "question": "Triage the active incident linked to this conversation by comparing verified symptoms, affected scope, competing hypotheses, and the next safe diagnostic step. Contrast observed facts with unsupported assumptions."
+    },
+    {
+      "case_id": "incident-triage.direct",
+      "expectation_id": "incident-triage",
+      "runtime_context": "incident_binding",
+      "variation_kind": "direct",
+      "question": "Triage the active incident linked to this conversation by comparing verified symptoms, affected scope, competing hypotheses, and the next safe diagnostic step."
+    },
+    {
+      "case_id": "incident-triage.evidence_first",
+      "expectation_id": "incident-triage",
+      "runtime_context": "incident_binding",
+      "variation_kind": "evidence_first",
+      "question": "Using only verified evidence, triage the active incident linked to this conversation by comparing verified symptoms, affected scope, competing hypotheses, and the next safe diagnostic step."
+    },
+    {
+      "case_id": "incident-triage.investigative",
+      "expectation_id": "incident-triage",
+      "runtime_context": "incident_binding",
+      "variation_kind": "investigative",
+      "question": "Investigate this from the causal perspective: triage the active incident linked to this conversation by comparing verified symptoms, affected scope, competing hypotheses, and the next safe diagnostic step."
+    },
+    {
+      "case_id": "incident-triage.operator_colloquial",
+      "expectation_id": "incident-triage",
+      "runtime_context": "incident_binding",
+      "variation_kind": "operator_colloquial",
+      "question": "Could you triage the active incident linked to this conversation by comparing verified symptoms, affected scope, competing hypotheses, and the next safe diagnostic step?"
+    },
+    {
+      "case_id": "incident-triage.uncertainty_aware",
+      "expectation_id": "incident-triage",
+      "runtime_context": "incident_binding",
+      "variation_kind": "uncertainty_aware",
+      "question": "Triage the active incident linked to this conversation by comparing verified symptoms, affected scope, competing hypotheses, and the next safe diagnostic step. Separate what is verified from what remains unknown."
+    },
+    {
+      "case_id": "metric-comparison.audit_oriented",
+      "expectation_id": "metric-comparison",
+      "runtime_context": "incident_binding",
+      "variation_kind": "audit_oriented",
+      "question": "For an audit-ready view, compare Application Gateway backend latency with AKS Pod latency and saturation before and during the incident linked to this conversation and cite only target-attributed observations."
+    },
+    {
+      "case_id": "metric-comparison.concise",
+      "expectation_id": "metric-comparison",
+      "runtime_context": "incident_binding",
+      "variation_kind": "concise",
+      "question": "Quick check: compare Application Gateway backend latency with AKS Pod latency and saturation before and during the incident linked to this conversation and cite only target-attributed observations."
+    },
+    {
+      "case_id": "metric-comparison.contrastive",
+      "expectation_id": "metric-comparison",
+      "runtime_context": "incident_binding",
+      "variation_kind": "contrastive",
+      "question": "Compare Application Gateway backend latency with AKS Pod latency and saturation before and during the incident linked to this conversation and cite only target-attributed observations. Contrast observed facts with unsupported assumptions."
+    },
+    {
+      "case_id": "metric-comparison.direct",
+      "expectation_id": "metric-comparison",
+      "runtime_context": "incident_binding",
+      "variation_kind": "direct",
+      "question": "Compare Application Gateway backend latency with AKS Pod latency and saturation before and during the incident linked to this conversation and cite only target-attributed observations."
+    },
+    {
+      "case_id": "metric-comparison.evidence_first",
+      "expectation_id": "metric-comparison",
+      "runtime_context": "incident_binding",
+      "variation_kind": "evidence_first",
+      "question": "Using only verified evidence, compare Application Gateway backend latency with AKS Pod latency and saturation before and during the incident linked to this conversation and cite only target-attributed observations."
+    },
+    {
+      "case_id": "metric-comparison.investigative",
+      "expectation_id": "metric-comparison",
+      "runtime_context": "incident_binding",
+      "variation_kind": "investigative",
+      "question": "Investigate this from the operation perspective: compare Application Gateway backend latency with AKS Pod latency and saturation before and during the incident linked to this conversation and cite only target-attributed observations."
+    },
+    {
+      "case_id": "metric-comparison.operator_colloquial",
+      "expectation_id": "metric-comparison",
+      "runtime_context": "incident_binding",
+      "variation_kind": "operator_colloquial",
+      "question": "Could you compare Application Gateway backend latency with AKS Pod latency and saturation before and during the incident linked to this conversation and cite only target-attributed observations?"
+    },
+    {
+      "case_id": "metric-comparison.uncertainty_aware",
+      "expectation_id": "metric-comparison",
+      "runtime_context": "incident_binding",
+      "variation_kind": "uncertainty_aware",
+      "question": "Compare Application Gateway backend latency with AKS Pod latency and saturation before and during the incident linked to this conversation and cite only target-attributed observations. Separate what is verified from what remains unknown."
+    },
+    {
+      "case_id": "network-path.audit_oriented",
+      "expectation_id": "network-path",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "audit_oriented",
+      "question": "For an audit-ready view, trace the request path from an Application Gateway commonly called AppGW through observed next-hop and virtual-network peering links toward an AKS Service and Pod while marking missing, conflicting, or unverified segments."
+    },
+    {
+      "case_id": "network-path.concise",
+      "expectation_id": "network-path",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "concise",
+      "question": "Quick check: trace the request path from an Application Gateway commonly called AppGW through observed next-hop and virtual-network peering links toward an AKS Service and Pod while marking missing, conflicting, or unverified segments."
+    },
+    {
+      "case_id": "network-path.contrastive",
+      "expectation_id": "network-path",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "contrastive",
+      "question": "Trace the request path from an Application Gateway commonly called AppGW through observed next-hop and virtual-network peering links toward an AKS Service and Pod while marking missing, conflicting, or unverified segments. Contrast observed facts with unsupported assumptions."
+    },
+    {
+      "case_id": "network-path.direct",
+      "expectation_id": "network-path",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "direct",
+      "question": "Trace the request path from an Application Gateway commonly called AppGW through observed next-hop and virtual-network peering links toward an AKS Service and Pod while marking missing, conflicting, or unverified segments."
+    },
+    {
+      "case_id": "network-path.evidence_first",
+      "expectation_id": "network-path",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "evidence_first",
+      "question": "Using only verified evidence, trace the request path from an Application Gateway commonly called AppGW through observed next-hop and virtual-network peering links toward an AKS Service and Pod while marking missing, conflicting, or unverified segments."
+    },
+    {
+      "case_id": "network-path.investigative",
+      "expectation_id": "network-path",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "investigative",
+      "question": "Investigate this from the service perspective: trace the request path from an Application Gateway commonly called AppGW through observed next-hop and virtual-network peering links toward an AKS Service and Pod while marking missing, conflicting, or unverified segments."
+    },
+    {
+      "case_id": "network-path.operator_colloquial",
+      "expectation_id": "network-path",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "operator_colloquial",
+      "question": "Could you trace the request path from an Application Gateway commonly called AppGW through observed next-hop and virtual-network peering links toward an AKS Service and Pod while marking missing, conflicting, or unverified segments?"
+    },
+    {
+      "case_id": "network-path.uncertainty_aware",
+      "expectation_id": "network-path",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "uncertainty_aware",
+      "question": "Trace the request path from an Application Gateway commonly called AppGW through observed next-hop and virtual-network peering links toward an AKS Service and Pod while marking missing, conflicting, or unverified segments. Separate what is verified from what remains unknown."
+    },
+    {
+      "case_id": "operating-objectives.audit_oriented",
+      "expectation_id": "operating-objectives",
+      "runtime_context": "server_scope",
+      "variation_kind": "audit_oriented",
+      "question": "For an audit-ready view, identify service and recovery objectives in the authorized scope and distinguish measured breaches from missing evidence."
+    },
+    {
+      "case_id": "operating-objectives.concise",
+      "expectation_id": "operating-objectives",
+      "runtime_context": "server_scope",
+      "variation_kind": "concise",
+      "question": "Quick check: identify service and recovery objectives in the authorized scope and distinguish measured breaches from missing evidence."
+    },
+    {
+      "case_id": "operating-objectives.contrastive",
+      "expectation_id": "operating-objectives",
+      "runtime_context": "server_scope",
+      "variation_kind": "contrastive",
+      "question": "Identify service and recovery objectives in the authorized scope and distinguish measured breaches from missing evidence. Contrast observed facts with unsupported assumptions."
+    },
+    {
+      "case_id": "operating-objectives.direct",
+      "expectation_id": "operating-objectives",
+      "runtime_context": "server_scope",
+      "variation_kind": "direct",
+      "question": "Identify service and recovery objectives in the authorized scope and distinguish measured breaches from missing evidence."
+    },
+    {
+      "case_id": "operating-objectives.evidence_first",
+      "expectation_id": "operating-objectives",
+      "runtime_context": "server_scope",
+      "variation_kind": "evidence_first",
+      "question": "Using only verified evidence, identify service and recovery objectives in the authorized scope and distinguish measured breaches from missing evidence."
+    },
+    {
+      "case_id": "operating-objectives.investigative",
+      "expectation_id": "operating-objectives",
+      "runtime_context": "server_scope",
+      "variation_kind": "investigative",
+      "question": "Investigate this from the business perspective: identify service and recovery objectives in the authorized scope and distinguish measured breaches from missing evidence."
+    },
+    {
+      "case_id": "operating-objectives.operator_colloquial",
+      "expectation_id": "operating-objectives",
+      "runtime_context": "server_scope",
+      "variation_kind": "operator_colloquial",
+      "question": "Could you identify service and recovery objectives in the authorized scope and distinguish measured breaches from missing evidence?"
+    },
+    {
+      "case_id": "operating-objectives.uncertainty_aware",
+      "expectation_id": "operating-objectives",
+      "runtime_context": "server_scope",
+      "variation_kind": "uncertainty_aware",
+      "question": "Identify service and recovery objectives in the authorized scope and distinguish measured breaches from missing evidence. Separate what is verified from what remains unknown."
+    },
+    {
+      "case_id": "operation-historical-topology.audit_oriented",
+      "expectation_id": "operation-historical-topology",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "audit_oriented",
+      "question": "For an audit-ready view, compare a private endpoint's retained topology before and after the requested cutoff and report only evidence-backed relationship changes."
+    },
+    {
+      "case_id": "operation-historical-topology.concise",
+      "expectation_id": "operation-historical-topology",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "concise",
+      "question": "Quick check: compare a private endpoint's retained topology before and after the requested cutoff and report only evidence-backed relationship changes."
+    },
+    {
+      "case_id": "operation-historical-topology.contrastive",
+      "expectation_id": "operation-historical-topology",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "contrastive",
+      "question": "Compare a private endpoint's retained topology before and after the requested cutoff and report only evidence-backed relationship changes. Contrast observed facts with unsupported assumptions."
+    },
+    {
+      "case_id": "operation-historical-topology.direct",
+      "expectation_id": "operation-historical-topology",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "direct",
+      "question": "Compare a private endpoint's retained topology before and after the requested cutoff and report only evidence-backed relationship changes."
+    },
+    {
+      "case_id": "operation-historical-topology.evidence_first",
+      "expectation_id": "operation-historical-topology",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "evidence_first",
+      "question": "Using only verified evidence, compare a private endpoint's retained topology before and after the requested cutoff and report only evidence-backed relationship changes."
+    },
+    {
+      "case_id": "operation-historical-topology.investigative",
+      "expectation_id": "operation-historical-topology",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "investigative",
+      "question": "Investigate this from the operation perspective: compare a private endpoint's retained topology before and after the requested cutoff and report only evidence-backed relationship changes."
+    },
+    {
+      "case_id": "operation-historical-topology.operator_colloquial",
+      "expectation_id": "operation-historical-topology",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "operator_colloquial",
+      "question": "Could you compare a private endpoint's retained topology before and after the requested cutoff and report only evidence-backed relationship changes?"
+    },
+    {
+      "case_id": "operation-historical-topology.uncertainty_aware",
+      "expectation_id": "operation-historical-topology",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "uncertainty_aware",
+      "question": "Compare a private endpoint's retained topology before and after the requested cutoff and report only evidence-backed relationship changes. Separate what is verified from what remains unknown."
+    },
+    {
+      "case_id": "operation-resource-activity.audit_oriented",
+      "expectation_id": "operation-resource-activity",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "audit_oriented",
+      "question": "For an audit-ready view, list revision, restart, and configuration activity for a Container App within the past 30 minutes."
+    },
+    {
+      "case_id": "operation-resource-activity.concise",
+      "expectation_id": "operation-resource-activity",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "concise",
+      "question": "Quick check: list revision, restart, and configuration activity for a Container App within the past 30 minutes."
+    },
+    {
+      "case_id": "operation-resource-activity.contrastive",
+      "expectation_id": "operation-resource-activity",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "contrastive",
+      "question": "List revision, restart, and configuration activity for a Container App within the past 30 minutes. Contrast observed facts with unsupported assumptions."
+    },
+    {
+      "case_id": "operation-resource-activity.direct",
+      "expectation_id": "operation-resource-activity",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "direct",
+      "question": "List revision, restart, and configuration activity for a Container App within the past 30 minutes."
+    },
+    {
+      "case_id": "operation-resource-activity.evidence_first",
+      "expectation_id": "operation-resource-activity",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "evidence_first",
+      "question": "Using only verified evidence, list revision, restart, and configuration activity for a Container App within the past 30 minutes."
+    },
+    {
+      "case_id": "operation-resource-activity.investigative",
+      "expectation_id": "operation-resource-activity",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "investigative",
+      "question": "Investigate this from the operation perspective: list revision, restart, and configuration activity for a Container App within the past 30 minutes."
+    },
+    {
+      "case_id": "operation-resource-activity.operator_colloquial",
+      "expectation_id": "operation-resource-activity",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "operator_colloquial",
+      "question": "Could you list revision, restart, and configuration activity for a Container App within the past 30 minutes?"
+    },
+    {
+      "case_id": "operation-resource-activity.uncertainty_aware",
+      "expectation_id": "operation-resource-activity",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "uncertainty_aware",
+      "question": "List revision, restart, and configuration activity for a Container App within the past 30 minutes. Separate what is verified from what remains unknown."
+    },
+    {
+      "case_id": "policy-collected-rule.audit_oriented",
+      "expectation_id": "policy-collected-rule",
+      "runtime_context": "none",
+      "variation_kind": "audit_oriented",
+      "question": "For an audit-ready view, describe collected private-network-access Rules as reference-only catalog material without treating them as active policy or current violations."
+    },
+    {
+      "case_id": "policy-collected-rule.concise",
+      "expectation_id": "policy-collected-rule",
+      "runtime_context": "none",
+      "variation_kind": "concise",
+      "question": "Quick check: describe collected private-network-access Rules as reference-only catalog material without treating them as active policy or current violations."
+    },
+    {
+      "case_id": "policy-collected-rule.contrastive",
+      "expectation_id": "policy-collected-rule",
+      "runtime_context": "none",
+      "variation_kind": "contrastive",
+      "question": "Describe collected private-network-access Rules as reference-only catalog material without treating them as active policy or current violations. Contrast observed facts with unsupported assumptions."
+    },
+    {
+      "case_id": "policy-collected-rule.direct",
+      "expectation_id": "policy-collected-rule",
+      "runtime_context": "none",
+      "variation_kind": "direct",
+      "question": "Describe collected private-network-access Rules as reference-only catalog material without treating them as active policy or current violations."
+    },
+    {
+      "case_id": "policy-collected-rule.evidence_first",
+      "expectation_id": "policy-collected-rule",
+      "runtime_context": "none",
+      "variation_kind": "evidence_first",
+      "question": "Using only verified evidence, describe collected private-network-access Rules as reference-only catalog material without treating them as active policy or current violations."
+    },
+    {
+      "case_id": "policy-collected-rule.investigative",
+      "expectation_id": "policy-collected-rule",
+      "runtime_context": "none",
+      "variation_kind": "investigative",
+      "question": "Investigate this from the policy perspective: describe collected private-network-access Rules as reference-only catalog material without treating them as active policy or current violations."
+    },
+    {
+      "case_id": "policy-collected-rule.operator_colloquial",
+      "expectation_id": "policy-collected-rule",
+      "runtime_context": "none",
+      "variation_kind": "operator_colloquial",
+      "question": "Could you describe collected private-network-access Rules as reference-only catalog material without treating them as active policy or current violations?"
+    },
+    {
+      "case_id": "policy-collected-rule.uncertainty_aware",
+      "expectation_id": "policy-collected-rule",
+      "runtime_context": "none",
+      "variation_kind": "uncertainty_aware",
+      "question": "Describe collected private-network-access Rules as reference-only catalog material without treating them as active policy or current violations. Separate what is verified from what remains unknown."
+    },
+    {
+      "case_id": "policy-ontology-release-health.audit_oriented",
+      "expectation_id": "policy-ontology-release-health",
+      "runtime_context": "server_scope",
+      "variation_kind": "audit_oriented",
+      "question": "For an audit-ready view, compare retained ontology releases and report declaration changes, evidence freshness, completeness, conflicts, and unavailable sources."
+    },
+    {
+      "case_id": "policy-ontology-release-health.concise",
+      "expectation_id": "policy-ontology-release-health",
+      "runtime_context": "server_scope",
+      "variation_kind": "concise",
+      "question": "Quick check: compare retained ontology releases and report declaration changes, evidence freshness, completeness, conflicts, and unavailable sources."
+    },
+    {
+      "case_id": "policy-ontology-release-health.contrastive",
+      "expectation_id": "policy-ontology-release-health",
+      "runtime_context": "server_scope",
+      "variation_kind": "contrastive",
+      "question": "Compare retained ontology releases and report declaration changes, evidence freshness, completeness, conflicts, and unavailable sources. Contrast observed facts with unsupported assumptions."
+    },
+    {
+      "case_id": "policy-ontology-release-health.direct",
+      "expectation_id": "policy-ontology-release-health",
+      "runtime_context": "server_scope",
+      "variation_kind": "direct",
+      "question": "Compare retained ontology releases and report declaration changes, evidence freshness, completeness, conflicts, and unavailable sources."
+    },
+    {
+      "case_id": "policy-ontology-release-health.evidence_first",
+      "expectation_id": "policy-ontology-release-health",
+      "runtime_context": "server_scope",
+      "variation_kind": "evidence_first",
+      "question": "Using only verified evidence, compare retained ontology releases and report declaration changes, evidence freshness, completeness, conflicts, and unavailable sources."
+    },
+    {
+      "case_id": "policy-ontology-release-health.investigative",
+      "expectation_id": "policy-ontology-release-health",
+      "runtime_context": "server_scope",
+      "variation_kind": "investigative",
+      "question": "Investigate this from the policy perspective: compare retained ontology releases and report declaration changes, evidence freshness, completeness, conflicts, and unavailable sources."
+    },
+    {
+      "case_id": "policy-ontology-release-health.operator_colloquial",
+      "expectation_id": "policy-ontology-release-health",
+      "runtime_context": "server_scope",
+      "variation_kind": "operator_colloquial",
+      "question": "Could you compare retained ontology releases and report declaration changes, evidence freshness, completeness, conflicts, and unavailable sources?"
+    },
+    {
+      "case_id": "policy-ontology-release-health.uncertainty_aware",
+      "expectation_id": "policy-ontology-release-health",
+      "runtime_context": "server_scope",
+      "variation_kind": "uncertainty_aware",
+      "question": "Compare retained ontology releases and report declaration changes, evidence freshness, completeness, conflicts, and unavailable sources. Separate what is verified from what remains unknown."
+    },
+    {
+      "case_id": "private-connectivity.audit_oriented",
+      "expectation_id": "private-connectivity",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "audit_oriented",
+      "question": "For an audit-ready view, show what a private endpoint is attached to and which observed route links connect an AKS Pod workload to its PostgreSQL or Storage dependency."
+    },
+    {
+      "case_id": "private-connectivity.concise",
+      "expectation_id": "private-connectivity",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "concise",
+      "question": "Quick check: show what a private endpoint is attached to and which observed route links connect an AKS Pod workload to its PostgreSQL or Storage dependency."
+    },
+    {
+      "case_id": "private-connectivity.contrastive",
+      "expectation_id": "private-connectivity",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "contrastive",
+      "question": "Show what a private endpoint is attached to and which observed route links connect an AKS Pod workload to its PostgreSQL or Storage dependency. Contrast observed facts with unsupported assumptions."
+    },
+    {
+      "case_id": "private-connectivity.direct",
+      "expectation_id": "private-connectivity",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "direct",
+      "question": "Show what a private endpoint is attached to and which observed route links connect an AKS Pod workload to its PostgreSQL or Storage dependency."
+    },
+    {
+      "case_id": "private-connectivity.evidence_first",
+      "expectation_id": "private-connectivity",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "evidence_first",
+      "question": "Using only verified evidence, show what a private endpoint is attached to and which observed route links connect an AKS Pod workload to its PostgreSQL or Storage dependency."
+    },
+    {
+      "case_id": "private-connectivity.investigative",
+      "expectation_id": "private-connectivity",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "investigative",
+      "question": "Investigate this from the resource perspective: show what a private endpoint is attached to and which observed route links connect an AKS Pod workload to its PostgreSQL or Storage dependency."
+    },
+    {
+      "case_id": "private-connectivity.operator_colloquial",
+      "expectation_id": "private-connectivity",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "operator_colloquial",
+      "question": "Could you show what a private endpoint is attached to and which observed route links connect an AKS Pod workload to its PostgreSQL or Storage dependency?"
+    },
+    {
+      "case_id": "private-connectivity.uncertainty_aware",
+      "expectation_id": "private-connectivity",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "uncertainty_aware",
+      "question": "Show what a private endpoint is attached to and which observed route links connect an AKS Pod workload to its PostgreSQL or Storage dependency. Separate what is verified from what remains unknown."
+    },
+    {
+      "case_id": "recovery-plan.audit_oriented",
+      "expectation_id": "recovery-plan",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "audit_oriented",
+      "question": "For an audit-ready view, review which causal hypothesis and PostgreSQL or storage resources a recovery plan addresses and name the evidence still required before approval."
+    },
+    {
+      "case_id": "recovery-plan.concise",
+      "expectation_id": "recovery-plan",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "concise",
+      "question": "Quick check: review which causal hypothesis and PostgreSQL or storage resources a recovery plan addresses and name the evidence still required before approval."
+    },
+    {
+      "case_id": "recovery-plan.contrastive",
+      "expectation_id": "recovery-plan",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "contrastive",
+      "question": "Review which causal hypothesis and PostgreSQL or storage resources a recovery plan addresses and name the evidence still required before approval. Contrast observed facts with unsupported assumptions."
+    },
+    {
+      "case_id": "recovery-plan.direct",
+      "expectation_id": "recovery-plan",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "direct",
+      "question": "Review which causal hypothesis and PostgreSQL or storage resources a recovery plan addresses and name the evidence still required before approval."
+    },
+    {
+      "case_id": "recovery-plan.evidence_first",
+      "expectation_id": "recovery-plan",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "evidence_first",
+      "question": "Using only verified evidence, review which causal hypothesis and PostgreSQL or storage resources a recovery plan addresses and name the evidence still required before approval."
+    },
+    {
+      "case_id": "recovery-plan.investigative",
+      "expectation_id": "recovery-plan",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "investigative",
+      "question": "Investigate this from the policy perspective: review which causal hypothesis and PostgreSQL or storage resources a recovery plan addresses and name the evidence still required before approval."
+    },
+    {
+      "case_id": "recovery-plan.operator_colloquial",
+      "expectation_id": "recovery-plan",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "operator_colloquial",
+      "question": "Could you review which causal hypothesis and PostgreSQL or storage resources a recovery plan addresses and name the evidence still required before approval?"
+    },
+    {
+      "case_id": "recovery-plan.uncertainty_aware",
+      "expectation_id": "recovery-plan",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "uncertainty_aware",
+      "question": "Review which causal hypothesis and PostgreSQL or storage resources a recovery plan addresses and name the evidence still required before approval. Separate what is verified from what remains unknown."
+    },
+    {
+      "case_id": "resource-classification.audit_oriented",
+      "expectation_id": "resource-classification",
+      "runtime_context": "none",
+      "variation_kind": "audit_oriented",
+      "question": "For an audit-ready view, resolve reviewed ResourceType classifications for Application Gateway, AKS clusters, Pods, Container Apps, PostgreSQL, Storage, Key Vault, and Event Hubs while keeping an unmapped native type explicitly unclassified."
+    },
+    {
+      "case_id": "resource-classification.concise",
+      "expectation_id": "resource-classification",
+      "runtime_context": "none",
+      "variation_kind": "concise",
+      "question": "Quick check: resolve reviewed ResourceType classifications for Application Gateway, AKS clusters, Pods, Container Apps, PostgreSQL, Storage, Key Vault, and Event Hubs while keeping an unmapped native type explicitly unclassified."
+    },
+    {
+      "case_id": "resource-classification.contrastive",
+      "expectation_id": "resource-classification",
+      "runtime_context": "none",
+      "variation_kind": "contrastive",
+      "question": "Resolve reviewed ResourceType classifications for Application Gateway, AKS clusters, Pods, Container Apps, PostgreSQL, Storage, Key Vault, and Event Hubs while keeping an unmapped native type explicitly unclassified. Contrast observed facts with unsupported assumptions."
+    },
+    {
+      "case_id": "resource-classification.direct",
+      "expectation_id": "resource-classification",
+      "runtime_context": "none",
+      "variation_kind": "direct",
+      "question": "Resolve reviewed ResourceType classifications for Application Gateway, AKS clusters, Pods, Container Apps, PostgreSQL, Storage, Key Vault, and Event Hubs while keeping an unmapped native type explicitly unclassified."
+    },
+    {
+      "case_id": "resource-classification.evidence_first",
+      "expectation_id": "resource-classification",
+      "runtime_context": "none",
+      "variation_kind": "evidence_first",
+      "question": "Using only verified evidence, resolve reviewed ResourceType classifications for Application Gateway, AKS clusters, Pods, Container Apps, PostgreSQL, Storage, Key Vault, and Event Hubs while keeping an unmapped native type explicitly unclassified."
+    },
+    {
+      "case_id": "resource-classification.investigative",
+      "expectation_id": "resource-classification",
+      "runtime_context": "none",
+      "variation_kind": "investigative",
+      "question": "Investigate this from the resource perspective: resolve reviewed ResourceType classifications for Application Gateway, AKS clusters, Pods, Container Apps, PostgreSQL, Storage, Key Vault, and Event Hubs while keeping an unmapped native type explicitly unclassified."
+    },
+    {
+      "case_id": "resource-classification.operator_colloquial",
+      "expectation_id": "resource-classification",
+      "runtime_context": "none",
+      "variation_kind": "operator_colloquial",
+      "question": "Could you resolve reviewed ResourceType classifications for Application Gateway, AKS clusters, Pods, Container Apps, PostgreSQL, Storage, Key Vault, and Event Hubs while keeping an unmapped native type explicitly unclassified?"
+    },
+    {
+      "case_id": "resource-classification.uncertainty_aware",
+      "expectation_id": "resource-classification",
+      "runtime_context": "none",
+      "variation_kind": "uncertainty_aware",
+      "question": "Resolve reviewed ResourceType classifications for Application Gateway, AKS clusters, Pods, Container Apps, PostgreSQL, Storage, Key Vault, and Event Hubs while keeping an unmapped native type explicitly unclassified. Separate what is verified from what remains unknown."
+    },
+    {
+      "case_id": "resource-containment.audit_oriented",
+      "expectation_id": "resource-containment",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "audit_oriented",
+      "question": "For an audit-ready view, show a virtual machine's containing parent, managed disks, and attached network interfaces without reversing stored ownership direction."
+    },
+    {
+      "case_id": "resource-containment.concise",
+      "expectation_id": "resource-containment",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "concise",
+      "question": "Quick check: show a virtual machine's containing parent, managed disks, and attached network interfaces without reversing stored ownership direction."
+    },
+    {
+      "case_id": "resource-containment.contrastive",
+      "expectation_id": "resource-containment",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "contrastive",
+      "question": "Show a virtual machine's containing parent, managed disks, and attached network interfaces without reversing stored ownership direction. Contrast observed facts with unsupported assumptions."
+    },
+    {
+      "case_id": "resource-containment.direct",
+      "expectation_id": "resource-containment",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "direct",
+      "question": "Show a virtual machine's containing parent, managed disks, and attached network interfaces without reversing stored ownership direction."
+    },
+    {
+      "case_id": "resource-containment.evidence_first",
+      "expectation_id": "resource-containment",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "evidence_first",
+      "question": "Using only verified evidence, show a virtual machine's containing parent, managed disks, and attached network interfaces without reversing stored ownership direction."
+    },
+    {
+      "case_id": "resource-containment.investigative",
+      "expectation_id": "resource-containment",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "investigative",
+      "question": "Investigate this from the resource perspective: show a virtual machine's containing parent, managed disks, and attached network interfaces without reversing stored ownership direction."
+    },
+    {
+      "case_id": "resource-containment.operator_colloquial",
+      "expectation_id": "resource-containment",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "operator_colloquial",
+      "question": "Could you show a virtual machine's containing parent, managed disks, and attached network interfaces without reversing stored ownership direction?"
+    },
+    {
+      "case_id": "resource-containment.uncertainty_aware",
+      "expectation_id": "resource-containment",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "uncertainty_aware",
+      "question": "Show a virtual machine's containing parent, managed disks, and attached network interfaces without reversing stored ownership direction. Separate what is verified from what remains unknown."
+    },
+    {
+      "case_id": "resource-evidence-health.audit_oriented",
+      "expectation_id": "resource-evidence-health",
+      "runtime_context": "server_scope",
+      "variation_kind": "audit_oriented",
+      "question": "For an audit-ready view, report freshness, completeness, conflicts, and revisions for network, compute, application, observability, and data-resource evidence in the authorized scope without converting unavailable data into a healthy result."
+    },
+    {
+      "case_id": "resource-evidence-health.concise",
+      "expectation_id": "resource-evidence-health",
+      "runtime_context": "server_scope",
+      "variation_kind": "concise",
+      "question": "Quick check: report freshness, completeness, conflicts, and revisions for network, compute, application, observability, and data-resource evidence in the authorized scope without converting unavailable data into a healthy result."
+    },
+    {
+      "case_id": "resource-evidence-health.contrastive",
+      "expectation_id": "resource-evidence-health",
+      "runtime_context": "server_scope",
+      "variation_kind": "contrastive",
+      "question": "Report freshness, completeness, conflicts, and revisions for network, compute, application, observability, and data-resource evidence in the authorized scope without converting unavailable data into a healthy result. Contrast observed facts with unsupported assumptions."
+    },
+    {
+      "case_id": "resource-evidence-health.direct",
+      "expectation_id": "resource-evidence-health",
+      "runtime_context": "server_scope",
+      "variation_kind": "direct",
+      "question": "Report freshness, completeness, conflicts, and revisions for network, compute, application, observability, and data-resource evidence in the authorized scope without converting unavailable data into a healthy result."
+    },
+    {
+      "case_id": "resource-evidence-health.evidence_first",
+      "expectation_id": "resource-evidence-health",
+      "runtime_context": "server_scope",
+      "variation_kind": "evidence_first",
+      "question": "Using only verified evidence, report freshness, completeness, conflicts, and revisions for network, compute, application, observability, and data-resource evidence in the authorized scope without converting unavailable data into a healthy result."
+    },
+    {
+      "case_id": "resource-evidence-health.investigative",
+      "expectation_id": "resource-evidence-health",
+      "runtime_context": "server_scope",
+      "variation_kind": "investigative",
+      "question": "Investigate this from the resource perspective: report freshness, completeness, conflicts, and revisions for network, compute, application, observability, and data-resource evidence in the authorized scope without converting unavailable data into a healthy result."
+    },
+    {
+      "case_id": "resource-evidence-health.operator_colloquial",
+      "expectation_id": "resource-evidence-health",
+      "runtime_context": "server_scope",
+      "variation_kind": "operator_colloquial",
+      "question": "Could you report freshness, completeness, conflicts, and revisions for network, compute, application, observability, and data-resource evidence in the authorized scope without converting unavailable data into a healthy result?"
+    },
+    {
+      "case_id": "resource-evidence-health.uncertainty_aware",
+      "expectation_id": "resource-evidence-health",
+      "runtime_context": "server_scope",
+      "variation_kind": "uncertainty_aware",
+      "question": "Report freshness, completeness, conflicts, and revisions for network, compute, application, observability, and data-resource evidence in the authorized scope without converting unavailable data into a healthy result. Separate what is verified from what remains unknown."
+    },
+    {
+      "case_id": "rule-applicability.audit_oriented",
+      "expectation_id": "rule-applicability",
+      "runtime_context": "none",
+      "variation_kind": "audit_oriented",
+      "question": "For an audit-ready view, trace active network-security-group and storage-account Rules to their ResourceType, SignalType, and governed ActionType without asserting a current finding."
+    },
+    {
+      "case_id": "rule-applicability.concise",
+      "expectation_id": "rule-applicability",
+      "runtime_context": "none",
+      "variation_kind": "concise",
+      "question": "Quick check: trace active network-security-group and storage-account Rules to their ResourceType, SignalType, and governed ActionType without asserting a current finding."
+    },
+    {
+      "case_id": "rule-applicability.contrastive",
+      "expectation_id": "rule-applicability",
+      "runtime_context": "none",
+      "variation_kind": "contrastive",
+      "question": "Trace active network-security-group and storage-account Rules to their ResourceType, SignalType, and governed ActionType without asserting a current finding. Contrast observed facts with unsupported assumptions."
+    },
+    {
+      "case_id": "rule-applicability.direct",
+      "expectation_id": "rule-applicability",
+      "runtime_context": "none",
+      "variation_kind": "direct",
+      "question": "Trace active network-security-group and storage-account Rules to their ResourceType, SignalType, and governed ActionType without asserting a current finding."
+    },
+    {
+      "case_id": "rule-applicability.evidence_first",
+      "expectation_id": "rule-applicability",
+      "runtime_context": "none",
+      "variation_kind": "evidence_first",
+      "question": "Using only verified evidence, trace active network-security-group and storage-account Rules to their ResourceType, SignalType, and governed ActionType without asserting a current finding."
+    },
+    {
+      "case_id": "rule-applicability.investigative",
+      "expectation_id": "rule-applicability",
+      "runtime_context": "none",
+      "variation_kind": "investigative",
+      "question": "Investigate this from the policy perspective: trace active network-security-group and storage-account Rules to their ResourceType, SignalType, and governed ActionType without asserting a current finding."
+    },
+    {
+      "case_id": "rule-applicability.operator_colloquial",
+      "expectation_id": "rule-applicability",
+      "runtime_context": "none",
+      "variation_kind": "operator_colloquial",
+      "question": "Could you trace active network-security-group and storage-account Rules to their ResourceType, SignalType, and governed ActionType without asserting a current finding?"
+    },
+    {
+      "case_id": "rule-applicability.uncertainty_aware",
+      "expectation_id": "rule-applicability",
+      "runtime_context": "none",
+      "variation_kind": "uncertainty_aware",
+      "question": "Trace active network-security-group and storage-account Rules to their ResourceType, SignalType, and governed ActionType without asserting a current finding. Separate what is verified from what remains unknown."
+    },
+    {
+      "case_id": "service-agent-authority.audit_oriented",
+      "expectation_id": "service-agent-authority",
+      "runtime_context": "server_scope",
+      "variation_kind": "audit_oriented",
+      "question": "For an audit-ready view, trace reviewed business services in the authorized scope through their workloads and resources to the declared owning Agent without treating ownership as execution permission."
+    },
+    {
+      "case_id": "service-agent-authority.concise",
+      "expectation_id": "service-agent-authority",
+      "runtime_context": "server_scope",
+      "variation_kind": "concise",
+      "question": "Quick check: trace reviewed business services in the authorized scope through their workloads and resources to the declared owning Agent without treating ownership as execution permission."
+    },
+    {
+      "case_id": "service-agent-authority.contrastive",
+      "expectation_id": "service-agent-authority",
+      "runtime_context": "server_scope",
+      "variation_kind": "contrastive",
+      "question": "Trace reviewed business services in the authorized scope through their workloads and resources to the declared owning Agent without treating ownership as execution permission. Contrast observed facts with unsupported assumptions."
+    },
+    {
+      "case_id": "service-agent-authority.direct",
+      "expectation_id": "service-agent-authority",
+      "runtime_context": "server_scope",
+      "variation_kind": "direct",
+      "question": "Trace reviewed business services in the authorized scope through their workloads and resources to the declared owning Agent without treating ownership as execution permission."
+    },
+    {
+      "case_id": "service-agent-authority.evidence_first",
+      "expectation_id": "service-agent-authority",
+      "runtime_context": "server_scope",
+      "variation_kind": "evidence_first",
+      "question": "Using only verified evidence, trace reviewed business services in the authorized scope through their workloads and resources to the declared owning Agent without treating ownership as execution permission."
+    },
+    {
+      "case_id": "service-agent-authority.investigative",
+      "expectation_id": "service-agent-authority",
+      "runtime_context": "server_scope",
+      "variation_kind": "investigative",
+      "question": "Investigate this from the service perspective: trace reviewed business services in the authorized scope through their workloads and resources to the declared owning Agent without treating ownership as execution permission."
+    },
+    {
+      "case_id": "service-agent-authority.operator_colloquial",
+      "expectation_id": "service-agent-authority",
+      "runtime_context": "server_scope",
+      "variation_kind": "operator_colloquial",
+      "question": "Could you trace reviewed business services in the authorized scope through their workloads and resources to the declared owning Agent without treating ownership as execution permission?"
+    },
+    {
+      "case_id": "service-agent-authority.uncertainty_aware",
+      "expectation_id": "service-agent-authority",
+      "runtime_context": "server_scope",
+      "variation_kind": "uncertainty_aware",
+      "question": "Trace reviewed business services in the authorized scope through their workloads and resources to the declared owning Agent without treating ownership as execution permission. Separate what is verified from what remains unknown."
+    },
+    {
+      "case_id": "service-current-health.audit_oriented",
+      "expectation_id": "service-current-health",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "audit_oriented",
+      "question": "For an audit-ready view, map an AKS Service to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns."
+    },
+    {
+      "case_id": "service-current-health.concise",
+      "expectation_id": "service-current-health",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "concise",
+      "question": "Quick check: map an AKS Service to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns."
+    },
+    {
+      "case_id": "service-current-health.contrastive",
+      "expectation_id": "service-current-health",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "contrastive",
+      "question": "Map an AKS Service to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns. Contrast observed facts with unsupported assumptions."
+    },
+    {
+      "case_id": "service-current-health.direct",
+      "expectation_id": "service-current-health",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "direct",
+      "question": "Map an AKS Service to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns."
+    },
+    {
+      "case_id": "service-current-health.evidence_first",
+      "expectation_id": "service-current-health",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "evidence_first",
+      "question": "Using only verified evidence, map an AKS Service to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns."
+    },
+    {
+      "case_id": "service-current-health.investigative",
+      "expectation_id": "service-current-health",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "investigative",
+      "question": "Investigate this from the service perspective: map an AKS Service to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns."
+    },
+    {
+      "case_id": "service-current-health.operator_colloquial",
+      "expectation_id": "service-current-health",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "operator_colloquial",
+      "question": "Could you map an AKS Service to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns?"
+    },
+    {
+      "case_id": "service-current-health.uncertainty_aware",
+      "expectation_id": "service-current-health",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "uncertainty_aware",
+      "question": "Map an AKS Service to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns. Separate what is verified from what remains unknown."
+    },
+    {
+      "case_id": "service-impact.audit_oriented",
+      "expectation_id": "service-impact",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "audit_oriented",
+      "question": "For an audit-ready view, trace the verified impact path from a PostgreSQL Flexible Server or storage account to its directly dependent workload and business service."
+    },
+    {
+      "case_id": "service-impact.concise",
+      "expectation_id": "service-impact",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "concise",
+      "question": "Quick check: trace the verified impact path from a PostgreSQL Flexible Server or storage account to its directly dependent workload and business service."
+    },
+    {
+      "case_id": "service-impact.contrastive",
+      "expectation_id": "service-impact",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "contrastive",
+      "question": "Trace the verified impact path from a PostgreSQL Flexible Server or storage account to its directly dependent workload and business service. Contrast observed facts with unsupported assumptions."
+    },
+    {
+      "case_id": "service-impact.direct",
+      "expectation_id": "service-impact",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "direct",
+      "question": "Trace the verified impact path from a PostgreSQL Flexible Server or storage account to its directly dependent workload and business service."
+    },
+    {
+      "case_id": "service-impact.evidence_first",
+      "expectation_id": "service-impact",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "evidence_first",
+      "question": "Using only verified evidence, trace the verified impact path from a PostgreSQL Flexible Server or storage account to its directly dependent workload and business service."
+    },
+    {
+      "case_id": "service-impact.investigative",
+      "expectation_id": "service-impact",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "investigative",
+      "question": "Investigate this from the business perspective: trace the verified impact path from a PostgreSQL Flexible Server or storage account to its directly dependent workload and business service."
+    },
+    {
+      "case_id": "service-impact.operator_colloquial",
+      "expectation_id": "service-impact",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "operator_colloquial",
+      "question": "Could you trace the verified impact path from a PostgreSQL Flexible Server or storage account to its directly dependent workload and business service?"
+    },
+    {
+      "case_id": "service-impact.uncertainty_aware",
+      "expectation_id": "service-impact",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "uncertainty_aware",
+      "question": "Trace the verified impact path from a PostgreSQL Flexible Server or storage account to its directly dependent workload and business service. Separate what is verified from what remains unknown."
+    },
+    {
+      "case_id": "service-ownership.audit_oriented",
+      "expectation_id": "service-ownership",
+      "runtime_context": "server_scope",
+      "variation_kind": "audit_oriented",
+      "question": "For an audit-ready view, identify accountable ownership and escalation references for reviewed services in the authorized scope using only reviewed ownership evidence."
+    },
+    {
+      "case_id": "service-ownership.concise",
+      "expectation_id": "service-ownership",
+      "runtime_context": "server_scope",
+      "variation_kind": "concise",
+      "question": "Quick check: identify accountable ownership and escalation references for reviewed services in the authorized scope using only reviewed ownership evidence."
+    },
+    {
+      "case_id": "service-ownership.contrastive",
+      "expectation_id": "service-ownership",
+      "runtime_context": "server_scope",
+      "variation_kind": "contrastive",
+      "question": "Identify accountable ownership and escalation references for reviewed services in the authorized scope using only reviewed ownership evidence. Contrast observed facts with unsupported assumptions."
+    },
+    {
+      "case_id": "service-ownership.direct",
+      "expectation_id": "service-ownership",
+      "runtime_context": "server_scope",
+      "variation_kind": "direct",
+      "question": "Identify accountable ownership and escalation references for reviewed services in the authorized scope using only reviewed ownership evidence."
+    },
+    {
+      "case_id": "service-ownership.evidence_first",
+      "expectation_id": "service-ownership",
+      "runtime_context": "server_scope",
+      "variation_kind": "evidence_first",
+      "question": "Using only verified evidence, identify accountable ownership and escalation references for reviewed services in the authorized scope using only reviewed ownership evidence."
+    },
+    {
+      "case_id": "service-ownership.investigative",
+      "expectation_id": "service-ownership",
+      "runtime_context": "server_scope",
+      "variation_kind": "investigative",
+      "question": "Investigate this from the service perspective: identify accountable ownership and escalation references for reviewed services in the authorized scope using only reviewed ownership evidence."
+    },
+    {
+      "case_id": "service-ownership.operator_colloquial",
+      "expectation_id": "service-ownership",
+      "runtime_context": "server_scope",
+      "variation_kind": "operator_colloquial",
+      "question": "Could you identify accountable ownership and escalation references for reviewed services in the authorized scope using only reviewed ownership evidence?"
+    },
+    {
+      "case_id": "service-ownership.uncertainty_aware",
+      "expectation_id": "service-ownership",
+      "runtime_context": "server_scope",
+      "variation_kind": "uncertainty_aware",
+      "question": "Identify accountable ownership and escalation references for reviewed services in the authorized scope using only reviewed ownership evidence. Separate what is verified from what remains unknown."
+    },
+    {
+      "case_id": "topology-dependency.audit_oriented",
+      "expectation_id": "topology-dependency",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "audit_oriented",
+      "question": "For an audit-ready view, trace a service from Application Gateway through an AKS workload and its Pod resources to downstream PostgreSQL or Storage dependencies while preserving relationship direction."
+    },
+    {
+      "case_id": "topology-dependency.concise",
+      "expectation_id": "topology-dependency",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "concise",
+      "question": "Quick check: trace a service from Application Gateway through an AKS workload and its Pod resources to downstream PostgreSQL or Storage dependencies while preserving relationship direction."
+    },
+    {
+      "case_id": "topology-dependency.contrastive",
+      "expectation_id": "topology-dependency",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "contrastive",
+      "question": "Trace a service from Application Gateway through an AKS workload and its Pod resources to downstream PostgreSQL or Storage dependencies while preserving relationship direction. Contrast observed facts with unsupported assumptions."
+    },
+    {
+      "case_id": "topology-dependency.direct",
+      "expectation_id": "topology-dependency",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "direct",
+      "question": "Trace a service from Application Gateway through an AKS workload and its Pod resources to downstream PostgreSQL or Storage dependencies while preserving relationship direction."
+    },
+    {
+      "case_id": "topology-dependency.evidence_first",
+      "expectation_id": "topology-dependency",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "evidence_first",
+      "question": "Using only verified evidence, trace a service from Application Gateway through an AKS workload and its Pod resources to downstream PostgreSQL or Storage dependencies while preserving relationship direction."
+    },
+    {
+      "case_id": "topology-dependency.investigative",
+      "expectation_id": "topology-dependency",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "investigative",
+      "question": "Investigate this from the service perspective: trace a service from Application Gateway through an AKS workload and its Pod resources to downstream PostgreSQL or Storage dependencies while preserving relationship direction."
+    },
+    {
+      "case_id": "topology-dependency.operator_colloquial",
+      "expectation_id": "topology-dependency",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "operator_colloquial",
+      "question": "Could you trace a service from Application Gateway through an AKS workload and its Pod resources to downstream PostgreSQL or Storage dependencies while preserving relationship direction?"
+    },
+    {
+      "case_id": "topology-dependency.uncertainty_aware",
+      "expectation_id": "topology-dependency",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "uncertainty_aware",
+      "question": "Trace a service from Application Gateway through an AKS workload and its Pod resources to downstream PostgreSQL or Storage dependencies while preserving relationship direction. Separate what is verified from what remains unknown."
+    },
+    {
+      "case_id": "workload-dependency.audit_oriented",
+      "expectation_id": "workload-dependency",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "audit_oriented",
+      "question": "For an audit-ready view, compare a Container Apps workload with its downstream PostgreSQL or storage workload and hosting-resource evidence without promoting correlation to causation."
+    },
+    {
+      "case_id": "workload-dependency.concise",
+      "expectation_id": "workload-dependency",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "concise",
+      "question": "Quick check: compare a Container Apps workload with its downstream PostgreSQL or storage workload and hosting-resource evidence without promoting correlation to causation."
+    },
+    {
+      "case_id": "workload-dependency.contrastive",
+      "expectation_id": "workload-dependency",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "contrastive",
+      "question": "Compare a Container Apps workload with its downstream PostgreSQL or storage workload and hosting-resource evidence without promoting correlation to causation. Contrast observed facts with unsupported assumptions."
+    },
+    {
+      "case_id": "workload-dependency.direct",
+      "expectation_id": "workload-dependency",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "direct",
+      "question": "Compare a Container Apps workload with its downstream PostgreSQL or storage workload and hosting-resource evidence without promoting correlation to causation."
+    },
+    {
+      "case_id": "workload-dependency.evidence_first",
+      "expectation_id": "workload-dependency",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "evidence_first",
+      "question": "Using only verified evidence, compare a Container Apps workload with its downstream PostgreSQL or storage workload and hosting-resource evidence without promoting correlation to causation."
+    },
+    {
+      "case_id": "workload-dependency.investigative",
+      "expectation_id": "workload-dependency",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "investigative",
+      "question": "Investigate this from the causal perspective: compare a Container Apps workload with its downstream PostgreSQL or storage workload and hosting-resource evidence without promoting correlation to causation."
+    },
+    {
+      "case_id": "workload-dependency.operator_colloquial",
+      "expectation_id": "workload-dependency",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "operator_colloquial",
+      "question": "Could you compare a Container Apps workload with its downstream PostgreSQL or storage workload and hosting-resource evidence without promoting correlation to causation?"
+    },
+    {
+      "case_id": "workload-dependency.uncertainty_aware",
+      "expectation_id": "workload-dependency",
+      "runtime_context": "explicit_target_required",
+      "variation_kind": "uncertainty_aware",
+      "question": "Compare a Container Apps workload with its downstream PostgreSQL or storage workload and hosting-resource evidence without promoting correlation to causation. Separate what is verified from what remains unknown."
+    }
+  ]
+}

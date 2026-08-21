@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/dotnetpower/fdai/eval/golden-dataset/coverage.schema.json",
+  "title": "FDAI golden question coverage matrix",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "dataset_version", "expectations"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "dataset_version": {"const": "2.0.0"},
+    "expectations": {
+      "type": "array",
+      "minItems": 35,
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "expectation_id",
+          "perspective",
+          "evidence_posture",
+          "case_class",
+          "anchor_kind",
+          "runtime_context",
+          "expected_posture",
+          "action_posture",
+          "rule_state",
+          "result_bound"
+        ],
+        "properties": {
+          "expectation_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9.-]{0,127}$"
+          },
+          "perspective": {
+            "enum": ["action", "business", "causal", "operation", "policy", "resource", "service"]
+          },
+          "evidence_posture": {
+            "enum": ["conflicting", "fresh", "incomplete", "stale", "unavailable"]
+          },
+          "case_class": {
+            "enum": ["access_filtered", "boundary", "positive", "zero_match"]
+          },
+          "anchor_kind": {
+            "enum": ["none", "selected_incident", "selected_object", "server_scope"]
+          },
+          "runtime_context": {
+            "enum": [
+              "explicit_target_required",
+              "incident_binding",
+              "none",
+              "server_scope"
+            ]
+          },
+          "expected_posture": {
+            "enum": ["action_draft", "answer", "clarify", "hold", "unsupported"]
+          },
+          "action_posture": {"enum": ["advise_only", "draft_only"]},
+          "rule_state": {"enum": ["active", "collected", "not_applicable"]},
+          "result_bound": {"type": "integer", "minimum": 1, "maximum": 1000}
+        }
+      }
+    }
+  }
+}
