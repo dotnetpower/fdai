@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 5280005a42281b45f1fe23f4b670e2fecbbbc1af
+translation_source_sha: b91933891c28093fbd2d9941d06997dc62e8a934
 translation_revised: 2026-08-22
 ---
 # 배포 리소스 규약
@@ -21,7 +21,7 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 |------|------|------|------|
 | Core control plane startup probe | not-applicable | `current change`; 서비스 root에서 `terraform fmt`와 `terraform validate` 통과 | Health 포트를 늦게 여는 부팅을 덮으려고 startup probe 예산을 세 번 조정했습니다. 이제 런타임이 startup readiness보다 먼저 포트를 열어 liveness가 즉시 응답하므로 이 probe는 필요 없습니다. 보호된 갱신 계약도 image와 revision suffix 변경만 rollback을 증명하므로 이 probe를 거부했습니다. |
 | CAF 명명 및 `fdai:` 소유권 tag | implemented | `infra/main.tf`, `infra/bootstrap/main.tf` 및 집중 Terraform test | Terraform이 이름과 tag를 계산하고 런타임 코드는 출력을 사용합니다. |
-| Event Bus 제품 토픽 namespace | in-progress | `current change`; `infra/main.tf`, 서비스 기본값, 배포 준비 및 집중 Event Bus와 Terraform 검사 | 활성 제품 접두사 토픽은 `fdai.*`를 사용합니다. 배포된 namespace를 validated로 분류하려면 보호된 계획, exact apply, drain 및 post-apply 증적이 필요합니다. |
+| Event Bus 제품 토픽 namespace | validated | 보호된 platform 적용 `32475924808`, Operator 적용 `32514233525`, 최종 실제 entity, RBAC, 환경, 서비스 상태, canary, HIL, stage, inventory, semantic 및 lag 관측 | 두 namespace에는 현재 `fdai.*` 제품 토픽만 있으며 runtime principal은 entity 범위 Event Hubs role을 사용하고 service 5개가 모두 healthy합니다. 승인된 개발 backlog는 삭제된 legacy entity와 함께 폐기했습니다. |
 | 독립 service Terraform state root | validated | `config/independent-service-live-evidence-manifest.json` 및 `config/independent-service-remote-evidence.json` | Service root 5개 모두에 통제된 계획, 적용, 상태, peer 격리 및 rollback 근거가 있습니다. |
 | 이전 방식 platform 및 ops-bootstrap Terraform state root | implemented | `infra/main.tf`, `infra/bootstrap/main.tf`, `.github/workflows/deploy-dev.yml` 및 집중 Terraform과 workflow 검사 | 안정적인 backend key와 배포 메커니즘은 제공되지만, 이 두 root의 통제된 적용 증적은 리포지토리에 보존되어 있지 않습니다. |
 | OHL scale-out evidence target 명명 및 tag | implemented | `infra/main.tf`의 current change, `terraform -chdir=infra test -filter=tests/dev_operations_gateway.tftest.hcl` 결과 8 passed | 실제 프로비저닝 및 recurrence evidence는 열려 있습니다. |
@@ -35,6 +35,7 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-22 | validated | 보호된 Event Bus namespace migration 및 post-apply transport 감사를 완료했습니다. 최종 inventory에는 `aw.*` entity 또는 runtime binding이 없고, runtime Event Hubs role은 entity 범위이며, service 5개가 모두 healthy합니다. Canary 및 inventory Job이 성공했고, HIL은 효과가 없는 unknown-park decision을 소비했으며, Core는 stage 토픽을 binding했고, Operator semantic bridge는 request와 typed projection을 상관시켰고, 활성 Core consumer lag는 0이었습니다. 승인된 개발 backlog는 drain하지 않고 폐기했습니다. | Platform plan/apply `32475286429`/`32475924808`, worker 적용 `32491597630`, Operator plan/apply `32513787359`/`32514233525`, canary `ca-fdai-dev-krc-core-canary-7hdxtnq`, inventory `ca-fdai-dev-krc-core-inventory-xxv64n0`, semantic request `9b63de78-fb18-4dfc-80f4-2ececb7ed72b` 및 projection `880f1a24-463c-5414-8910-867f8a0bd6da`. Core 적용 `32505670219`은 exact plan 적용 및 health를 통과한 뒤 동시 Operator state serial 변경 때문에 peer receipt만 실패했으며 최종 5-service audit가 결과 live state를 다시 검증했습니다. | 이슈 #253에 남은 작업이 없습니다. |
 | 2026-08-22 | implemented | 동일 image 토픽 전환은 schema 변경 없이 유지하면서, image가 변경되는 봉인된 토픽 rollout은 service 소유 database migration을 먼저 실행하도록 했습니다. 이전의 무조건적인 skip 때문에 더 최신 Operator image가 baseline service migration head에서 시작해 준비되지 못하고 자동 rollback되었습니다. | 실패한 Operator 적용 `32505673096`, `service-deploy.yml`의 `current change`, 집중 workflow contract 테스트. | 정확한 Operator plan을 다시 생성하고 적용한 뒤 semantic request 및 projection transport를 입증합니다. |
 | 2026-08-21 | implemented | 실제 이행 감사에서 배포된 두 환경 값이 비어 있음을 확인한 뒤 Core 의미 요청 및 변환 결과 토픽을 정본 논리 이름에 결합했습니다. 두 값이 모두 비어 있으면 Core 의미 소비자가 비활성화되며 런타임 기본값으로 대체되지 않습니다. 이제 봉인된 이행 overlay가 두 값을 모두 요구하고 부분적이거나 무관한 환경 변경은 계속 차단합니다. | `current change`; `service_contract.py`; Core Terraform 변수 경계 2개; 집중 서비스 배포 및 의미 Terraform 검사 143개 통과; Ruff, strict mypy, Terraform 서식 및 검증, 독립 서비스 구조 검사 통과. | Event Bus 이행을 validated로 분류하기 전에 검토된 Core 후속 계획 하나를 적용하고 인증된 요청 및 변환 결과 왕복을 입증합니다. |
 | 2026-08-21 | in-progress | 활성 Event Bus 토픽 계약에서 문서화되지 않은 `aw.*` 제품 접두사를 정본 `fdai.*` 접두사로 교체했습니다. 과거 검증 행은 실제로 관찰한 이름을 유지합니다. 계약별 `runtime.*`, `object.*`, `operator.*`, `core.*` 토픽과 Event Bus가 아닌 채널은 이 접두사 이행 범위에 포함되지 않습니다. | `current change`; 명명 소유 문서, Terraform 토픽 선언과 역할, 서비스 기본값, 배포 준비 및 집중 Event Bus와 Terraform 검사. | 모든 entity 교체를 명시하는 보호된 계획을 실행하고, 검토된 계획을 정확히 적용하며, 이전 entity를 drain하거나 만료시킨 뒤 post-apply 런타임 근거를 보존합니다. |
@@ -78,10 +79,10 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 - [ ] 이전 방식 platform 및 ops-bootstrap root의 리포지토리에 안전한 통제된 적용 증적을
   보존합니다. 각 증적은 해당 root를 `validated`로 전환하기 전에 backend key, exact protected
   계획, source revision, target identity 및 post-apply 검증을 결합해야 합니다.
-- [ ] Exact plan과 source revision을 결합하고, 모든 `aw.*`에서 `fdai.*`로의 entity 교체와
-  role scope 갱신을 보여 주며, 무관한 교체나 삭제가 없음을 보고하고, 이전 보존 record를
-  drain하거나 만료시키며, post-apply startup, canary, HIL, stage, inventory 및 semantic
-  transport 검사를 통과하는 보호된 Event Bus 이행 증적을 하나 보존합니다.
+- [x] 보호된 platform 적용 `32475924808`, Operator 적용 `32514233525` 및 최종 live audit가
+  exact plan과 source revision을 결합하고, 모든 `aw.*`에서 `fdai.*`로의 entity 및 종속 role
+  scope 전환과 무관한 교체 또는 삭제가 없음을 보여 주며, 승인된 개발 backlog 폐기를
+  기록하고 startup, canary, HIL, stage, inventory, semantic 및 lag 검사를 통과했습니다.
 - [ ] OHL target이 결정론적 이름, 애플리케이션 resource group 배치, 비공개 subnet 및 필수
   `fdai:` tag를 유지함을 보여 주는 protected 적용 증적을 기록합니다.
 - [ ] `caj-<workload>-migrate`가 성공한 뒤 검토된 Core image digest를 사용하는
