@@ -50,8 +50,8 @@ variable "event_topics" {
     inventory_raw        = optional(string, "fdai.inventory.raw")
     pipeline_stages      = optional(string, "fdai.pipeline.stages")
     startup_probe        = optional(string, "runtime.startup.probe")
-    semantic_requests    = optional(string, "")
-    semantic_projections = optional(string, "")
+    semantic_requests    = optional(string, "operator.semantic-turn.requests")
+    semantic_projections = optional(string, "core.semantic-turn.projections")
     semantic_physical    = optional(string, "fdai.pantheon.objects")
   })
 }

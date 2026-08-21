@@ -76,19 +76,29 @@ def test_core_service_root_exports_operational_transport_topics() -> None:
             ("hil_decisions", "fdai.hil.decisions"),
             ("inventory_raw", "fdai.inventory.raw"),
             ("pipeline_stages", "fdai.pipeline.stages"),
+            ("semantic_requests", _REQUEST_TOPIC),
+            ("semantic_projections", _PROJECTION_TOPIC),
         ):
             assert f"{topic_field}" in variables
             assert f'optional(string, "{default}")' in variables
 
 
 def test_independent_service_child_modules_type_semantic_topic_inputs() -> None:
-    for relative in (
-        "infra/services/core-control-plane/modules/core-control-plane/variables.tf",
-        "infra/services/operator-service/modules/operator-service/variables.tf",
+    for relative, request_default, projection_default in (
+        (
+            "infra/services/core-control-plane/modules/core-control-plane/variables.tf",
+            _REQUEST_TOPIC,
+            _PROJECTION_TOPIC,
+        ),
+        (
+            "infra/services/operator-service/modules/operator-service/variables.tf",
+            "",
+            "",
+        ),
     ):
         text = (_ROOT / relative).read_text(encoding="utf-8")
-        assert 'semantic_requests    = optional(string, "")' in text
-        assert 'semantic_projections = optional(string, "")' in text
+        assert f'semantic_requests    = optional(string, "{request_default}")' in text
+        assert f'semantic_projections = optional(string, "{projection_default}")' in text
         assert 'semantic_physical    = optional(string, "fdai.pantheon.objects")' in text
 
 

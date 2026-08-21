@@ -1189,6 +1189,60 @@ def test_plan_guard_requires_complete_core_transport_migration(guard: ModuleType
         )
 
 
+def test_plan_guard_allows_core_semantic_topic_follow_up(guard: ModuleType) -> None:
+    service = "core-control-plane"
+    address = "module.core_control_plane.module.container_app.azurerm_container_app.service"
+    plan = _plan(address, ["update"])
+    contract = guard.resolve_service(service, "dev")
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    expected = guard.event_bus_topic_migration(service, surface="environment")
+    logical_topics = {
+        "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC",
+        "FDAI_SEMANTIC_TURN_REQUEST_TOPIC",
+    }
+    for side in ("before", "after"):
+        resource = change[side]
+        container = resource["template"][0]["container"][0]
+        container["command"] = ["fdai-core-control-plane"]
+        container["env"] = [
+            {"name": name, "value": "configured"} for name in contract.required_environment
+        ]
+        resource["tags"] = {"fdai:component": service}
+        state_store = next(
+            item for item in container["env"] if item["name"] == "FDAI_STATE_STORE_DSN"
+        )
+        state_store["secret_name"] = "database-dsn"
+        state_store["value"] = "" if side == "before" else None
+        for name, expected_value in expected.items():
+            item = next(item for item in container["env"] if item["name"] == name)
+            item["value"] = (
+                "" if side == "before" and name in logical_topics else expected_value
+            )
+
+    guard.validate_plan(
+        plan,
+        service=service,
+        environment="dev",
+        image_ref="image",
+        event_bus_topic_migration=True,
+    )
+
+    after_environment = change["after"]["template"][0]["container"][0]["env"]
+    next(
+        item
+        for item in after_environment
+        if item["name"] == "FDAI_SEMANTIC_TURN_REQUEST_TOPIC"
+    )["value"] = ""
+    with pytest.raises(guard.PlanGuardError, match="unapproved environment"):
+        guard.validate_plan(
+            plan,
+            service=service,
+            environment="dev",
+            image_ref="image",
+            event_bus_topic_migration=True,
+        )
+
+
 def test_plan_guard_allows_aligned_event_bus_topic_follow_up(guard: ModuleType) -> None:
     address = "module.operator_service.module.container_app.azurerm_container_app.service"
     plan = _plan(address, ["update"])
@@ -1906,6 +1960,8 @@ def test_tfvars_derives_disabled_operator_channel_edge_without_mutating_source(
                 "inventory_raw": "aw.inventory.raw",
                 "pipeline_stages": "aw.pipeline.stages",
                 "semantic_physical": "aw.pantheon.objects",
+                "semantic_projections": "",
+                "semantic_requests": "",
             },
             {
                 "canary": "fdai.control.canary",
@@ -1914,6 +1970,8 @@ def test_tfvars_derives_disabled_operator_channel_edge_without_mutating_source(
                 "inventory_raw": "fdai.inventory.raw",
                 "pipeline_stages": "fdai.pipeline.stages",
                 "semantic_physical": "fdai.pantheon.objects",
+                "semantic_projections": "core.semantic-turn.projections",
+                "semantic_requests": "operator.semantic-turn.requests",
             },
         ),
         (

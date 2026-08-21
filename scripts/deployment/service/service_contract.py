@@ -25,6 +25,8 @@ _EVENT_BUS_TOPIC_MIGRATION = {
             "inventory_raw": "fdai.inventory.raw",
             "pipeline_stages": "fdai.pipeline.stages",
             "semantic_physical": "fdai.pantheon.objects",
+            "semantic_projections": "core.semantic-turn.projections",
+            "semantic_requests": "operator.semantic-turn.requests",
         },
         "environment": {
             "FDAI_CANARY_TOPIC": "fdai.control.canary",
@@ -33,6 +35,8 @@ _EVENT_BUS_TOPIC_MIGRATION = {
             "KAFKA_TOPIC_EVENTS": "fdai.change.events",
             "FDAI_STAGE_TOPIC": "fdai.pipeline.stages",
             "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC": "fdai.pantheon.objects",
+            "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC": "core.semantic-turn.projections",
+            "FDAI_SEMANTIC_TURN_REQUEST_TOPIC": "operator.semantic-turn.requests",
         },
     },
     "operator-service": {
