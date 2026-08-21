@@ -2,7 +2,6 @@
 title: Deploy and Onboard
 ---
 # Deploy and Onboard
-
 How to provision and onboard FDAI in Azure so it is ready to observe. This file owns **the concrete deployment inventory, bootstrap sequence, and distribution/deployment responsibility split**; the deployment lifecycle (CI/CD, progressive delivery, rollback, DR) remains in [deployment.md](deployment.md).
 
 Azure focus: this document targets an Azure subscription. Non-Azure providers are TBD (see [Implementation Focus](../../../.github/copilot-instructions.md#implementation-focus-must)). All identifiers are synthetic per [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md).
@@ -35,6 +34,7 @@ Azure focus: this document targets an Azure subscription. Non-Azure providers ar
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-21 | implemented | Removed the protected runner's implicit system-pip dependency. The workflow installs the repository-pinned uv release and runs model resolution and production readiness from the frozen Core package environment. | `current change`; failed protected plan run `32434472993`; focused deployment workflow contract, YAML parsing, and dependency command checks. | Rerun the exact Event Bus migration plan and retain its protected plan/apply evidence. |
 | 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and added protected provisioning plus a proposal-only Job for the bounded OHL evidence target. | current change; focused Terraform tests report 8 passed and publisher/workflow tests report 13 passed. | Apply the exact plans, deploy attested runtime images, and complete the live evidence campaign. |
 | 2026-08-13 | implemented | Isolated local destructive migration validation from the active local runtime PostgreSQL cluster. | Current change; Compose configuration passed, focused queue and local-environment tests passed (68 tests), and isolated migration upgrade/downgrade checks passed (2 tests). | No remaining implementation work for local validation database isolation. |
 | 2026-08-13 | implemented | Corrected the protected platform plan and exact-apply state from `validated` to `implemented`; workflow source proves the mechanism, but the repository does not retain a governed platform apply receipt. | current change; `.github/workflows/deploy-dev.yml`; roadmap, translation, and documentation checks. | Retain a repository-safe governed platform apply receipt before restoring `validated`. |

@@ -146,6 +146,22 @@ def test_platform_workflow_isolates_monitoring_plan_changes() -> None:
         assert neutral_type in preflight_step
 
 
+def test_platform_workflow_does_not_require_system_pip() -> None:
+    assert "uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990" in _LEGACY_WORKFLOW
+    assert 'version: "0.11.32"' in _LEGACY_WORKFLOW
+    assert "python3 -m pip" not in _LEGACY_WORKFLOW
+
+    resolver_step = _LEGACY_WORKFLOW.split(
+        "- name: Resolve and seal model capabilities", maxsplit=1
+    )[1].split("- name: Ensure protected storage containers", maxsplit=1)[0]
+    assert "uv run --frozen --package fdai-core-control-plane python" in resolver_step
+
+    readiness_step = _LEGACY_WORKFLOW.split(
+        "- name: Verify production architecture-review evidence", maxsplit=1
+    )[1].split("- name: Bind production Terraform inputs", maxsplit=1)[0]
+    assert "uv run --frozen --package fdai-core-control-plane python" in readiness_step
+
+
 def test_platform_workflow_plan_metadata_python_is_compilable() -> None:
     step = _LEGACY_WORKFLOW.split("- name: Store protected plan artifact", maxsplit=1)[1].split(
         "- name: Publish sanitized plan metadata", maxsplit=1

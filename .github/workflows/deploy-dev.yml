@@ -301,6 +301,12 @@ jobs:
           ref: ${{ inputs.commit_sha != '' && inputs.commit_sha || github.sha }}
           fetch-depth: 0
 
+      - name: Install pinned uv for deployment Python
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          version: "0.11.32"
+          enable-cache: false
+
       - name: Validate runtime image request
         env:
           APPLY: ${{ inputs.apply }}
@@ -451,14 +457,11 @@ jobs:
             exit 1
           fi
 
-      - name: Install readiness gate dependency
-        if: inputs.environment == 'prod'
-        run: python3 -m pip install --quiet pyyaml
-        working-directory: ${{ github.workspace }}
-
       - name: Verify production architecture-review evidence
         if: inputs.environment == 'prod'
-        run: python3 scripts/governance/check-arb-readiness.py --require-production-ready
+        run: >-
+          uv run --frozen --package fdai-core-control-plane python
+          scripts/governance/check-arb-readiness.py --require-production-ready
         working-directory: ${{ github.workspace }}
 
       - name: Bind production Terraform inputs
@@ -519,11 +522,11 @@ jobs:
             echo "MODEL_RESOLVER_DEPLOYER_OBJECT_ID must name the deployment principal." >&2
             exit 1
           fi
-          python3 -m pip install --quiet 'pyyaml==6.0.3'
           resolved="$RUNNER_TEMP/resolved-models.json"
           manifest="$RUNNER_TEMP/deployment-models.json"
           PYTHONPATH="$GITHUB_WORKSPACE/services/core-control-plane/src:$GITHUB_WORKSPACE/packages/service-contracts/src" \
-            python3 -m fdai.rule_catalog.schema.llm_resolver_cli \
+            uv run --frozen --package fdai-core-control-plane python \
+              -m fdai.rule_catalog.schema.llm_resolver_cli \
               --registry rule-catalog/llm-registry.yaml \
               --region "$TF_VAR_region" \
               --subscription-id "$ARM_SUBSCRIPTION_ID" \
