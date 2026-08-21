@@ -747,12 +747,39 @@ jobs:
             "${migration_args[@]}"
 
       - name: Apply service-owned database migrations
-        if: ${{ inputs.apply && !inputs.event_bus_topic_migration }}
+        if: ${{ inputs.apply }}
         env:
           INITIAL_CUTOVER: ${{ inputs.initial_cutover }}
+          EVENT_BUS_TOPIC_MIGRATION: ${{ inputs.event_bus_topic_migration }}
           SERVICE: ${{ inputs.service }}
         run: |
           set -euo pipefail
+          if [[ "$EVENT_BUS_TOPIC_MIGRATION" == "true" ]]; then
+            primary_name="$(
+              jq -er '.target.primary_container.name' \
+                "$RUNNER_TEMP/service-plan-bundle/service-context.json"
+            )"
+            image_changed="$(
+              jq -er --arg primary_name "$primary_name" '
+                [
+                  .resource_changes[]
+                  | select(.change.actions == ["update"])
+                  | .change
+                  | {
+                      before: (.before.template[0].container[] | select(.name == $primary_name) | .image),
+                      after: (.after.template[0].container[] | select(.name == $primary_name) | .image)
+                    }
+                ]
+                | if length == 1 then .[0].before != .[0].after
+                  else error("topic migration plan must contain one service image comparison")
+                  end
+              ' "$RUNNER_TEMP/service-plan-bundle/service-plan.json"
+            )"
+            if [[ "$image_changed" != "true" ]]; then
+              echo "same-image Event Bus topic migration skips service database migrations"
+              exit 0
+            fi
+          fi
           migration_secret_name="$(
             jq -er --arg service "$SERVICE" \
               '.services[$service].migration_dsn_secret_name' \

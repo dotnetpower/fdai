@@ -725,7 +725,7 @@ def test_service_workflow_seals_event_bus_topic_migration_mode() -> None:
     assert "event_bus_topic_migration:" in _WORKFLOW
     assert "Event Bus topic migration cannot be combined with another transition." in _WORKFLOW
     assert (
-        _WORKFLOW.count("EVENT_BUS_TOPIC_MIGRATION: ${{ inputs.event_bus_topic_migration }}") == 5
+        _WORKFLOW.count("EVENT_BUS_TOPIC_MIGRATION: ${{ inputs.event_bus_topic_migration }}") == 6
     )
     assert _WORKFLOW.count("migration_args+=(--event-bus-topic-migration)") == 4
     assert _WORKFLOW.count('"${migration_args[@]}"') == 5
@@ -733,7 +733,14 @@ def test_service_workflow_seals_event_bus_topic_migration_mode() -> None:
     migration_step = _WORKFLOW.split("- name: Apply service-owned database migrations", maxsplit=1)[
         1
     ].split("- name: Upload service migration adoption evidence", maxsplit=1)[0]
-    assert "inputs.apply && !inputs.event_bus_topic_migration" in migration_step
+    assert "if: ${{ inputs.apply }}" in migration_step
+    assert ".target.primary_container.name" in migration_step
+    assert '.change.actions == ["update"]' in migration_step
+    assert ".[0].before != .[0].after" in migration_step
+    assert (
+        "same-image Event Bus topic migration skips service database migrations" in migration_step
+    )
+    assert 'run_migration "$migration_command" upgrade head' in migration_step
 
 
 def test_apply_has_post_apply_health_and_no_destroy_command() -> None:

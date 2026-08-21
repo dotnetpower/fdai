@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 43bd391e10e2c48895203384d4a48b65101cc8d8
+translation_source_sha: 5280005a42281b45f1fe23f4b670e2fecbbbc1af
 translation_revised: 2026-08-22
 ---
 # 배포 리소스 규약
@@ -35,6 +35,7 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-22 | implemented | 동일 image 토픽 전환은 schema 변경 없이 유지하면서, image가 변경되는 봉인된 토픽 rollout은 service 소유 database migration을 먼저 실행하도록 했습니다. 이전의 무조건적인 skip 때문에 더 최신 Operator image가 baseline service migration head에서 시작해 준비되지 못하고 자동 rollback되었습니다. | 실패한 Operator 적용 `32505673096`, `service-deploy.yml`의 `current change`, 집중 workflow contract 테스트. | 정확한 Operator plan을 다시 생성하고 적용한 뒤 semantic request 및 projection transport를 입증합니다. |
 | 2026-08-21 | implemented | 실제 이행 감사에서 배포된 두 환경 값이 비어 있음을 확인한 뒤 Core 의미 요청 및 변환 결과 토픽을 정본 논리 이름에 결합했습니다. 두 값이 모두 비어 있으면 Core 의미 소비자가 비활성화되며 런타임 기본값으로 대체되지 않습니다. 이제 봉인된 이행 overlay가 두 값을 모두 요구하고 부분적이거나 무관한 환경 변경은 계속 차단합니다. | `current change`; `service_contract.py`; Core Terraform 변수 경계 2개; 집중 서비스 배포 및 의미 Terraform 검사 143개 통과; Ruff, strict mypy, Terraform 서식 및 검증, 독립 서비스 구조 검사 통과. | Event Bus 이행을 validated로 분류하기 전에 검토된 Core 후속 계획 하나를 적용하고 인증된 요청 및 변환 결과 왕복을 입증합니다. |
 | 2026-08-21 | in-progress | 활성 Event Bus 토픽 계약에서 문서화되지 않은 `aw.*` 제품 접두사를 정본 `fdai.*` 접두사로 교체했습니다. 과거 검증 행은 실제로 관찰한 이름을 유지합니다. 계약별 `runtime.*`, `object.*`, `operator.*`, `core.*` 토픽과 Event Bus가 아닌 채널은 이 접두사 이행 범위에 포함되지 않습니다. | `current change`; 명명 소유 문서, Terraform 토픽 선언과 역할, 서비스 기본값, 배포 준비 및 집중 Event Bus와 Terraform 검사. | 모든 entity 교체를 명시하는 보호된 계획을 실행하고, 검토된 계획을 정확히 적용하며, 이전 entity를 drain하거나 만료시킨 뒤 post-apply 런타임 근거를 보존합니다. |
 | 2026-08-21 | implemented | 실제 모델 조정이 Event Bus 계획에 무관한 모델 교체를 추가한 뒤 migration-only 보호 계획 모드를 추가했습니다. 이 모드는 두 Event Bus module, 토픽 범위 역할 및 토픽을 사용하는 Job 3개만 대상으로 지정합니다. Guard는 선언된 모든 이전/후속 작업과 역할 교체를 요구하고, 해당 집합과 검토된 제자리 갱신 외부의 변경 주소를 모두 차단합니다. | 보호된 계획 실행 `32466635579`; `.github/workflows/deploy-dev.yml` 및 `tests/integration/scripts/test_service_deploy_workflow.py`의 `current change`; 집중 이행 guard 검사 2개 통과. | Exact apply 전에 새 migration-only 보호 계획을 생성하고 검토합니다. |
