@@ -567,7 +567,7 @@ def test_database_url_and_exact_operator_role_must_be_configured_together(
         {KAFKA_BOOTSTRAP_SERVERS_ENV: "example.servicebus.windows.net:9093"},
         {SEMANTIC_REQUEST_TOPIC_ENV: "operator.semantic-turn.requests"},
         {SEMANTIC_PROJECTION_TOPIC_ENV: "core.semantic-turn.projections"},
-        {SEMANTIC_PHYSICAL_TOPIC_ENV: "aw.pantheon.objects"},
+        {SEMANTIC_PHYSICAL_TOPIC_ENV: "fdai.pantheon.objects"},
     ],
 )
 def test_semantic_kafka_environment_is_all_or_none(overrides: Mapping[str, str]) -> None:
@@ -596,7 +596,7 @@ def test_semantic_kafka_environment_preserves_optional_transport_ids() -> None:
             KAFKA_BOOTSTRAP_SERVERS_ENV: "example.servicebus.windows.net:9093",
             SEMANTIC_REQUEST_TOPIC_ENV: "operator.semantic-turn.requests",
             SEMANTIC_PROJECTION_TOPIC_ENV: "core.semantic-turn.projections",
-            SEMANTIC_PHYSICAL_TOPIC_ENV: "aw.pantheon.objects",
+            SEMANTIC_PHYSICAL_TOPIC_ENV: "fdai.pantheon.objects",
             SEMANTIC_CONSUMER_GROUP_ENV: "operator-group",
             SEMANTIC_KAFKA_CLIENT_ID_ENV: "operator-client",
             SEMANTIC_OUTBOX_NAMESPACE_ENV: "issue63.run-1",
@@ -608,7 +608,7 @@ def test_semantic_kafka_environment_preserves_optional_transport_ids() -> None:
 
     assert environment.semantic_consumer_group_id == "operator-group"
     assert environment.semantic_kafka_client_id == "operator-client"
-    assert environment.semantic_physical_topic == "aw.pantheon.objects"
+    assert environment.semantic_physical_topic == "fdai.pantheon.objects"
     assert environment.semantic_outbox_namespace == "issue63.run-1"
     assert environment.managed_identity_client_id == "command-identity"
 

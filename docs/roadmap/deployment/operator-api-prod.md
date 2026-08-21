@@ -61,7 +61,7 @@ transport. This document covers the deployed production composition.
   exception text are never logged.
 - **Kafka-backed Live and Agent observation.** The factory always registers the authenticated
   `/live/stream` and `/agents/stream` read routes. When the Kafka bootstrap endpoint is configured,
-  one service-owned consumer group reads `aw.pipeline.stages`, validates stage and Pantheon runtime-state
+  one service-owned consumer group reads `fdai.pipeline.stages`, validates stage and Pantheon runtime-state
   records, and fans accepted records into separate bounded process-local SSE sinks. The app
   lifespan starts and stops the relay and closes its independently owned Kafka
   consumer. Without Kafka configuration, the route remains connected with
@@ -101,7 +101,7 @@ Optional (defaults apply):
 | `FDAI_OPERATOR_DATABASE_CONNECT_TIMEOUT_S` | `10` | Bounds the TCP and authentication handshake so an unavailable database fails promptly. |
 | `FDAI_KAFKA_BOOTSTRAP_SERVERS` | empty | Starts the semantic transport and the shared Live/Agent observation relay. Uses the Event Hubs Kafka endpoint on `:9093`. An empty value leaves both SSE routes connected in `Awaiting source` without fabricating runtime evidence. |
 | `KAFKA_TOPIC_EVENTS` | empty | With Kafka bootstrap, enables `POST /chat/action` for typed actions and the confirmed incident workflow. The value is the same raw ingress topic consumed by Huginn. |
-| `FDAI_STAGE_TOPIC` | `aw.pipeline.stages` | Stage topic published by the worker and consumed by the Live and Agents relays. The worker and Operator API should use the same value. |
+| `FDAI_STAGE_TOPIC` | `fdai.pipeline.stages` | Stage topic published by the worker and consumed by the Live and Agents relays. The worker and Operator API should use the same value. |
 | `FDAI_INCIDENT_SLA_POLICY_JSON` | empty (disabled) | Strict JSON object with positive `acknowledge_seconds` and `resolve_seconds` values for every `sev1` through `sev5`; enables durable A2 SLA-breach monitoring. |
 | `FDAI_INCIDENT_SLA_INTERVAL_SECONDS` | `60` | Positive SLA scan interval; used only when the policy JSON is present. |
 | `FDAI_IAM_DIRECTORY_PROVIDER` | empty (directory search disabled) | Enables Owner-only human-directory search. The implemented value is `entra`; unsupported future provider names fail startup. |

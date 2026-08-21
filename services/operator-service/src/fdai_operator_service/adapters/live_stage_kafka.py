@@ -55,7 +55,7 @@ class LiveStageKafkaConfig:
     """Configure one bounded Kafka consumer for the Core stage topic."""
 
     bootstrap_servers: str
-    stage_topic: str = "aw.pipeline.stages"
+    stage_topic: str = "fdai.pipeline.stages"
     group_id: str = "fdai-operator-live-stage-v1"
     client_id: str = "fdai-operator-live-stage"
     security_protocol: Literal["SASL_SSL", "PLAINTEXT"] = "SASL_SSL"

@@ -150,7 +150,7 @@ async def test_plaintext_consumer_starts_and_stops_progress_monitor(
     monitor_stopped = asyncio.Event()
 
     class _Message:
-        topic = "aw.change.events"
+        topic = "fdai.change.events"
         key = b"resource"
         value = b'{"event_id": "e"}'
         offset = 1
@@ -181,7 +181,7 @@ async def test_plaintext_consumer_starts_and_stops_progress_monitor(
     monkeypatch.setattr(event_bus_module, "AIOKafkaConsumer", _Consumer)
     monkeypatch.setattr(event_bus_module, "_monitor_consumer_progress", _monitor)
     iterator = _iter_consumer(
-        topic="aw.change.events",
+        topic="fdai.change.events",
         group_id="fdai-pantheon.Huginn",
         config=_cfg(
             bootstrap_servers="127.0.0.1:19092",
@@ -313,7 +313,7 @@ async def test_producer_start_failure_stops_partial_producer(
     bus = EventHubsKafkaBus(identity=_StaticIdentity(), config=_cfg())
 
     with pytest.raises(RuntimeError, match="broker unavailable"):
-        await bus.publish("aw.control.events", "event-1", {"event_id": "event-1"})
+        await bus.publish("fdai.control.events", "event-1", {"event_id": "event-1"})
 
     assert len(instances) == 1
     assert instances[0].stopped is True
@@ -347,9 +347,9 @@ async def test_publish_failure_discards_cached_producer_for_retry(
     bus = EventHubsKafkaBus(identity=_StaticIdentity(), config=_cfg())
 
     with pytest.raises(RuntimeError, match="producer transport failed"):
-        await bus.publish("aw.control.events", "event-1", {"event_id": "event-1"})
+        await bus.publish("fdai.control.events", "event-1", {"event_id": "event-1"})
 
-    receipt = await bus.publish("aw.control.events", "event-2", {"event_id": "event-2"})
+    receipt = await bus.publish("fdai.control.events", "event-2", {"event_id": "event-2"})
     assert len(instances) == 2
     assert instances[0].stopped is True
     assert receipt.partition == 1
@@ -381,15 +381,15 @@ async def test_dead_letter_uses_canonical_redrive_envelope(
     bus = EventHubsKafkaBus(identity=_StaticIdentity(), config=_cfg())
 
     await bus.dead_letter(
-        "aw.control.events",
+        "fdai.control.events",
         "event-1",
         {"event_id": "event-1"},
         reason="handler error",
     )
 
-    assert sent["topic"] == "aw.control.events.dlq"
+    assert sent["topic"] == "fdai.control.events.dlq"
     assert json.loads(sent["value"]) == {
-        "original_topic": "aw.control.events",
+        "original_topic": "fdai.control.events",
         "payload": {"event_id": "event-1"},
         "reason": "handler error",
     }
@@ -445,7 +445,7 @@ async def test_consumer_receives_event_hubs_safe_connection_windows(
 
     monkeypatch.setattr(event_bus_module, "AIOKafkaConsumer", _RecordingConsumer)
     iterator = _iter_consumer(
-        topic="aw.control.canary",
+        topic="fdai.control.canary",
         group_id="fdai-canary",
         config=_cfg(),
         identity=_StaticIdentity(),
@@ -471,7 +471,7 @@ async def test_consumer_commits_once_per_batch_not_per_event(
 
     class _Message:
         def __init__(self, offset: int) -> None:
-            self.topic = "aw.control.canary"
+            self.topic = "fdai.control.canary"
             self.key = b"resource"
             self.value = b'{"event_id": "e"}'
             self.offset = offset
@@ -498,7 +498,7 @@ async def test_consumer_commits_once_per_batch_not_per_event(
 
     monkeypatch.setattr(event_bus_module, "AIOKafkaConsumer", _RecordingConsumer)
     iterator = _iter_consumer(
-        topic="aw.control.canary",
+        topic="fdai.control.canary",
         group_id="fdai-canary",
         config=_cfg(commit_max_records=3, commit_interval_seconds=3600.0),
         identity=_StaticIdentity(),
@@ -523,7 +523,7 @@ async def test_consumer_flushes_partial_batch_before_token_refresh(
     delivered = 0
 
     class _Message:
-        topic = "aw.control.canary"
+        topic = "fdai.control.canary"
         partition = 0
         key = b"resource"
         value = b'{"event_id": "e"}'
@@ -562,7 +562,7 @@ async def test_consumer_flushes_partial_batch_before_token_refresh(
     monkeypatch.setattr(event_bus_module, "AIOKafkaConsumer", _RecordingConsumer)
     monkeypatch.setattr(event_bus_module, "_token_refresh_delay", lambda **_kwargs: 0.01)
     iterator = _iter_consumer(
-        topic="aw.control.canary",
+        topic="fdai.control.canary",
         group_id="fdai-canary",
         config=_cfg(commit_max_records=50, commit_interval_seconds=3600.0),
         identity=_StaticIdentity(),
@@ -585,7 +585,7 @@ async def test_consumer_flushes_partial_batch_at_commit_interval_while_idle(
     delivered = False
 
     class _Message:
-        topic = "aw.change.events"
+        topic = "fdai.change.events"
         partition = 0
         key = b"resource"
         value = b'{"event_id":"e"}'
@@ -617,7 +617,7 @@ async def test_consumer_flushes_partial_batch_at_commit_interval_while_idle(
     monkeypatch.setattr(event_bus_module, "AIOKafkaConsumer", _IdleConsumer)
     monkeypatch.setattr(event_bus_module, "_token_refresh_delay", lambda **_kwargs: 3600.0)
     iterator = _iter_consumer(
-        topic="aw.change.events",
+        topic="fdai.change.events",
         group_id="fdai-pantheon.Huginn",
         config=_cfg(commit_max_records=50, commit_interval_seconds=0.01),
         identity=_StaticIdentity(),
@@ -642,7 +642,7 @@ async def test_consumer_exports_partition_progress_and_lag_after_commit(
     delivered = False
 
     class _Message:
-        topic = "aw.change.events"
+        topic = "fdai.change.events"
         partition = 1
         key = b"resource"
         value = b'{"event_id": "e"}'
@@ -669,13 +669,13 @@ async def test_consumer_exports_partition_progress_and_lag_after_commit(
             return None
 
         def highwater(self, partition: object) -> int:
-            assert partition == TopicPartition("aw.change.events", 1)
+            assert partition == TopicPartition("fdai.change.events", 1)
             return 13
 
     monkeypatch.setattr(event_bus_module, "AIOKafkaConsumer", _RecordingConsumer)
     caplog.set_level(logging.INFO, logger=event_bus_module.__name__)
     iterator = _iter_consumer(
-        topic="aw.change.events",
+        topic="fdai.change.events",
         group_id="fdai-pantheon.Huginn",
         config=_cfg(commit_max_records=1),
         identity=_StaticIdentity(),
@@ -689,7 +689,7 @@ async def test_consumer_exports_partition_progress_and_lag_after_commit(
     progress = next(
         record for record in caplog.records if record.message == "event_bus_consumer_progress"
     )
-    assert progress.topic == "aw.change.events"
+    assert progress.topic == "fdai.change.events"
     assert progress.consumer_group == "fdai-pantheon.Huginn"
     assert progress.partition == 1
     assert progress.committed_offset == 8
@@ -703,7 +703,7 @@ async def test_consumer_exports_lag_heartbeat_without_commit_progress(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     heartbeat_emitted = asyncio.Event()
-    topic_partition = TopicPartition("aw.change.events", 0)
+    topic_partition = TopicPartition("fdai.change.events", 0)
 
     class _StalledConsumer:
         def assignment(self) -> set[TopicPartition]:
@@ -724,7 +724,7 @@ async def test_consumer_exports_lag_heartbeat_without_commit_progress(
     monitor = asyncio.create_task(
         event_bus_module._monitor_consumer_progress(
             _StalledConsumer(),
-            topic="aw.change.events",
+            topic="fdai.change.events",
             group_id="fdai-pantheon.Huginn",
             interval_seconds=0.001,
         )
@@ -748,7 +748,7 @@ async def test_consumer_heartbeat_uses_position_before_the_first_commit(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     heartbeat_emitted = asyncio.Event()
-    topic_partition = TopicPartition("aw.change.events", 0)
+    topic_partition = TopicPartition("fdai.change.events", 0)
 
     class _ColdConsumer:
         def assignment(self) -> set[TopicPartition]:
@@ -773,7 +773,7 @@ async def test_consumer_heartbeat_uses_position_before_the_first_commit(
     monitor = asyncio.create_task(
         event_bus_module._monitor_consumer_progress(
             _ColdConsumer(),
-            topic="aw.change.events",
+            topic="fdai.change.events",
             group_id="fdai-pantheon.Huginn",
             interval_seconds=0.001,
         )
@@ -794,7 +794,7 @@ async def test_consumer_heartbeat_uses_position_before_the_first_commit(
 async def test_consumer_heartbeat_bounds_a_stalled_broker_read(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    topic_partition = TopicPartition("aw.change.events", 0)
+    topic_partition = TopicPartition("fdai.change.events", 0)
 
     class _StalledConsumer:
         def assignment(self) -> set[TopicPartition]:
@@ -809,7 +809,7 @@ async def test_consumer_heartbeat_bounds_a_stalled_broker_read(
     monitor = asyncio.create_task(
         event_bus_module._monitor_consumer_progress(
             _StalledConsumer(),
-            topic="aw.change.events",
+            topic="fdai.change.events",
             group_id="fdai-pantheon.Huginn",
             interval_seconds=0.001,
         )
@@ -826,7 +826,7 @@ async def test_consumer_heartbeat_bounds_a_stalled_broker_read(
 async def test_consumer_heartbeat_skips_unchanged_caught_up_partition(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    topic_partition = TopicPartition("aw.change.events", 0)
+    topic_partition = TopicPartition("fdai.change.events", 0)
     committed_calls = 0
 
     class _IdleConsumer:
@@ -847,7 +847,7 @@ async def test_consumer_heartbeat_skips_unchanged_caught_up_partition(
     monitor = asyncio.create_task(
         event_bus_module._monitor_consumer_progress(
             _IdleConsumer(),
-            topic="aw.change.events",
+            topic="fdai.change.events",
             group_id="fdai-pantheon.Huginn",
             interval_seconds=0.001,
         )
@@ -901,7 +901,7 @@ async def test_consumer_cancels_fetch_before_transport_shutdown(
 
     monkeypatch.setattr(event_bus_module, "AIOKafkaConsumer", _RecordingConsumer)
     iterator = _iter_consumer(
-        topic="aw.control.canary",
+        topic="fdai.control.canary",
         group_id="fdai-canary",
         config=_cfg(),
         identity=_StaticIdentity(),
@@ -944,7 +944,7 @@ async def test_consumer_bounds_group_leave_and_closes_client(
     await asyncio.wait_for(
         event_bus_module._stop_consumer(
             _HangingConsumer(),  # type: ignore[arg-type]
-            topic="aw.control.canary",
+            topic="fdai.control.canary",
             group_id="fdai-canary",
         ),
         timeout=0.1,
@@ -955,7 +955,7 @@ async def test_consumer_bounds_group_leave_and_closes_client(
         item for item in caplog.records if item.message == "event_bus_consumer_stop_timed_out"
     )
     assert record.timeout_seconds == 0.01
-    assert record.topic == "aw.control.canary"
+    assert record.topic == "fdai.control.canary"
     assert record.consumer_group == "fdai-canary"
 
 
@@ -986,7 +986,7 @@ async def test_consumer_logs_owned_identity_instead_of_connection_success_noise(
         assert dependency_logger.level == logging.WARNING
         caplog.set_level(logging.INFO, logger=event_bus_module.__name__)
         iterator = _iter_consumer(
-            topic="aw.control.canary",
+            topic="fdai.control.canary",
             group_id="fdai-canary",
             config=_cfg(),
             identity=_StaticIdentity(),
@@ -999,7 +999,7 @@ async def test_consumer_logs_owned_identity_instead_of_connection_success_noise(
         dependency_logger.setLevel(previous_level)
 
     record = next(item for item in caplog.records if item.message == "event_bus_consumer_started")
-    assert record.topic == "aw.control.canary"
+    assert record.topic == "fdai.control.canary"
     assert record.consumer_group == "fdai-canary"
     assert record.client_id == "fdai-core"
     assert record.auth_mechanism == "OAUTHBEARER"
@@ -1053,7 +1053,7 @@ async def test_consumer_restarts_before_token_expiry(monkeypatch: pytest.MonkeyP
             return SimpleNamespace(
                 key=b"event-1",
                 value=b'{"event_id":"event-1"}',
-                topic="aw.control.canary",
+                topic="fdai.control.canary",
                 offset=7,
             )
 
@@ -1063,7 +1063,7 @@ async def test_consumer_restarts_before_token_expiry(monkeypatch: pytest.MonkeyP
     monkeypatch.setattr(event_bus_module, "AIOKafkaConsumer", _RefreshingConsumer)
     identity = _ExpiringIdentity()
     iterator = _iter_consumer(
-        topic="aw.control.canary",
+        topic="fdai.control.canary",
         group_id="fdai-canary",
         config=_cfg(token_refresh_margin_seconds=0.04, token_refresh_jitter_seconds=0),
         identity=identity,
@@ -1096,7 +1096,7 @@ async def test_consumer_start_failure_stops_consumer(monkeypatch: pytest.MonkeyP
 
     monkeypatch.setattr(event_bus_module, "AIOKafkaConsumer", _StartFailingConsumer)
     iterator = _iter_consumer(
-        topic="aw.control.canary",
+        topic="fdai.control.canary",
         group_id="fdai-canary",
         config=_cfg(),
         identity=_StaticIdentity(),

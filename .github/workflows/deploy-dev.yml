@@ -749,7 +749,7 @@ jobs:
           inventory_principal="$(az identity show --resource-group "$rg" --name "id-fdai-${TF_VAR_env}-${TF_VAR_region_short}-inventory" --query principalId -o tsv 2>/dev/null || true)"
           subscription_scope="/subscriptions/${ARM_SUBSCRIPTION_ID}"
           acr_scope="$(az acr show --resource-group "$rg" --name "crfdai${TF_VAR_env}${TF_VAR_region_short}" --query id -o tsv 2>/dev/null || true)"
-          eventhubs_scope="$(az eventhubs eventhub show --resource-group "$rg" --namespace-name "$namespace" --name aw.change.events --query id -o tsv 2>/dev/null || true)"
+          eventhubs_scope="$(az eventhubs eventhub show --resource-group "$rg" --namespace-name "$namespace" --name fdai.change.events --query id -o tsv 2>/dev/null || true)"
 
           role_assignment_id() {
             local scope="$1"
@@ -770,16 +770,16 @@ jobs:
               "$(az cognitiveservices account show --resource-group "$rg" --name "oai-fdai-${TF_VAR_env}-${TF_VAR_region_short}" --query id -o tsv 2>/dev/null || true)"
           fi
 
-          for topic in aw.pantheon.objects; do
+          for topic in fdai.pantheon.objects; do
             id="$(az eventhubs eventhub show --resource-group "$rg" --namespace-name "$namespace" --name "$topic" --query id -o tsv 2>/dev/null || true)"
             import_if_missing "module.event_bus.azurerm_eventhub.topic[\"$topic\"]" "$id"
           done
-          for topic in aw.pantheon.objects; do
+          for topic in fdai.pantheon.objects; do
             name="$topic.dlq"
             id="$(az eventhubs eventhub show --resource-group "$rg" --namespace-name "$namespace" --name "$name" --query id -o tsv 2>/dev/null || true)"
             import_if_missing "module.event_bus.azurerm_eventhub.dlq[\"$topic\"]" "$id"
           done
-          for topic in aw.hil.decisions aw.pipeline.stages; do
+          for topic in fdai.hil.decisions fdai.pipeline.stages; do
             id="$(az eventhubs eventhub show --resource-group "$rg" --namespace-name "$namespace" --name "$topic" --query id -o tsv 2>/dev/null || true)"
             import_if_missing "module.event_bus.azurerm_eventhub.auxiliary[\"$topic\"]" "$id"
           done

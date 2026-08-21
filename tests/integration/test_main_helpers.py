@@ -60,7 +60,7 @@ def app_config() -> AppConfig:
             },
             "kafka": {
                 "bootstrap_servers": "evhns.example:9093",
-                "topic_events": "aw.change.events",
+                "topic_events": "fdai.change.events",
             },
             "postgres": {"host": "psql.example", "database": "fdai"},
             "runtime": {"env": "dev"},

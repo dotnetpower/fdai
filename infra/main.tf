@@ -2,18 +2,18 @@
 # Deterministic name suffixes.
 # -----------------------------------------------------------------------
 moved {
-  from = azurerm_role_assignment.executor_eventhubs_data_owner
-  to   = azurerm_role_assignment.executor_eventhubs_data_owner["aw.change.events"]
+  from = azurerm_role_assignment.executor_eventhubs_data_owner["aw.change.events"]
+  to   = azurerm_role_assignment.executor_eventhubs_data_owner["fdai.change.events"]
 }
 
 moved {
-  from = azurerm_role_assignment.command_api_eventhubs_sender[0]
-  to   = azurerm_role_assignment.command_api_eventhubs_sender["aw.change.events"]
+  from = azurerm_role_assignment.command_api_eventhubs_sender["aw.change.events"]
+  to   = azurerm_role_assignment.command_api_eventhubs_sender["fdai.change.events"]
 }
 
 moved {
-  from = azurerm_role_assignment.command_api_eventhubs_receiver[0]
-  to   = azurerm_role_assignment.command_api_eventhubs_receiver["aw.pipeline.stages"]
+  from = azurerm_role_assignment.command_api_eventhubs_receiver["aw.pipeline.stages"]
+  to   = azurerm_role_assignment.command_api_eventhubs_receiver["fdai.pipeline.stages"]
 }
 
 moved {
@@ -87,21 +87,21 @@ locals {
   tags = merge(local.base_tags, var.additional_tags)
 
   # Kafka topics served by Event Hubs (see docs/roadmap/deployment/deploy-and-onboard.md § Event Source Subscription).
-  canary_topic                   = "aw.control.canary"
-  inventory_raw_topic            = "aw.inventory.raw"
+  canary_topic                   = "fdai.control.canary"
+  inventory_raw_topic            = "fdai.inventory.raw"
   startup_probe_topic            = "runtime.startup.probe"
   executor_command_topic         = "object.executor-command"
   executor_receipt_topic         = "object.executor-receipt"
   semantic_turn_request_topic    = "operator.semantic-turn.requests"
   semantic_turn_projection_topic = "core.semantic-turn.projections"
-  semantic_turn_physical_topic   = "aw.pantheon.objects"
+  semantic_turn_physical_topic   = "fdai.pantheon.objects"
   event_topics = [
-    "aw.change.events",
-    "aw.dr.events",
-    "aw.finops.events",
-    "aw.pantheon.objects",
+    "fdai.change.events",
+    "fdai.dr.events",
+    "fdai.finops.events",
+    "fdai.pantheon.objects",
   ]
-  event_auxiliary_topics = ["aw.hil.decisions", "aw.pipeline.stages"]
+  event_auxiliary_topics = ["fdai.hil.decisions", "fdai.pipeline.stages"]
 }
 
 # -----------------------------------------------------------------------
@@ -572,8 +572,8 @@ import {
 resource "azurerm_role_assignment" "command_api_eventhubs_sender" {
   for_each = var.enable_operator_api ? {
     (local.event_topics[0]) = module.event_bus.topic_ids[local.event_topics[0]]
-    "aw.pantheon.objects"   = module.event_bus.topic_ids["aw.pantheon.objects"]
-    "aw.hil.decisions"      = module.event_bus.auxiliary_topic_ids["aw.hil.decisions"]
+    "fdai.pantheon.objects" = module.event_bus.topic_ids["fdai.pantheon.objects"]
+    "fdai.hil.decisions"    = module.event_bus.auxiliary_topic_ids["fdai.hil.decisions"]
   } : {}
   scope                = each.value
   role_definition_name = "Azure Event Hubs Data Sender"
@@ -582,7 +582,7 @@ resource "azurerm_role_assignment" "command_api_eventhubs_sender" {
 
 resource "azurerm_role_assignment" "command_api_eventhubs_receiver" {
   for_each = var.enable_operator_api ? {
-    "aw.pipeline.stages"                 = module.event_bus.auxiliary_topic_ids["aw.pipeline.stages"]
+    "fdai.pipeline.stages"               = module.event_bus.auxiliary_topic_ids["fdai.pipeline.stages"]
     (local.semantic_turn_physical_topic) = module.event_bus.topic_ids[local.semantic_turn_physical_topic]
   } : {}
   scope                = each.value
@@ -651,21 +651,21 @@ resource "azurerm_role_assignment" "ingestion_migration_acr_pull" {
 
 resource "azurerm_role_assignment" "ingestion_eventhubs_sender" {
   count                = var.enable_document_ingestion ? 1 : 0
-  scope                = module.event_bus.auxiliary_topic_ids["aw.pipeline.stages"]
+  scope                = module.event_bus.auxiliary_topic_ids["fdai.pipeline.stages"]
   role_definition_name = "Azure Event Hubs Data Sender"
   principal_id         = module.ingestion_identity[0].principal_id
 }
 
 resource "azurerm_role_assignment" "ingestion_worker_eventhubs_sender" {
   count                = var.enable_document_ingestion && !var.ingestion_cohost_worker ? 1 : 0
-  scope                = module.event_bus.auxiliary_topic_ids["aw.pipeline.stages"]
+  scope                = module.event_bus.auxiliary_topic_ids["fdai.pipeline.stages"]
   role_definition_name = "Azure Event Hubs Data Sender"
   principal_id         = module.ingestion_worker_identity[0].principal_id
 }
 
 resource "azurerm_role_assignment" "ingestion_eventhubs_receiver" {
   count                = var.enable_document_ingestion && var.ingestion_cohost_worker ? 1 : 0
-  scope                = module.event_bus.topic_ids["aw.pantheon.objects"]
+  scope                = module.event_bus.topic_ids["fdai.pantheon.objects"]
   role_definition_name = "Azure Event Hubs Data Receiver"
   principal_id         = module.ingestion_identity[0].principal_id
 }
@@ -674,14 +674,14 @@ resource "azurerm_role_assignment" "ingestion_eventhubs_receiver" {
 # pipeline-stage receiver through the protected successor-pair plan gate.
 resource "azurerm_role_assignment" "ingestion_worker_eventhubs_receiver" {
   count                = 0
-  scope                = module.event_bus.auxiliary_topic_ids["aw.pipeline.stages"]
+  scope                = module.event_bus.auxiliary_topic_ids["fdai.pipeline.stages"]
   role_definition_name = "Azure Event Hubs Data Receiver"
   principal_id         = module.ingestion_worker_identity[0].principal_id
 }
 
 resource "azurerm_role_assignment" "ingestion_worker_pantheon_receiver" {
   count                = var.enable_document_ingestion && !var.ingestion_cohost_worker ? 1 : 0
-  scope                = module.event_bus.topic_ids["aw.pantheon.objects"]
+  scope                = module.event_bus.topic_ids["fdai.pantheon.objects"]
   role_definition_name = "Azure Event Hubs Data Receiver"
   principal_id         = module.ingestion_worker_identity[0].principal_id
 }
@@ -732,7 +732,7 @@ resource "azurerm_role_assignment" "inventory_eventhubs_sender" {
 }
 
 resource "azurerm_role_assignment" "inventory_stage_sender" {
-  scope                = module.event_bus.auxiliary_topic_ids["aw.pipeline.stages"]
+  scope                = module.event_bus.auxiliary_topic_ids["fdai.pipeline.stages"]
   role_definition_name = "Azure Event Hubs Data Sender"
   principal_id         = module.inventory_identity.principal_id
 }
@@ -2394,7 +2394,7 @@ module "ingestion_gateway" {
   ocr_endpoint                   = var.document_ocr_endpoint
   ocr_operation_timeout_seconds  = var.document_ocr_operation_timeout_seconds
   kafka_bootstrap_servers        = module.event_bus.kafka_bootstrap
-  document_event_topic           = "aw.pipeline.stages"
+  document_event_topic           = "fdai.pipeline.stages"
   runtime_env                    = var.env == "" ? "dev" : var.env
   max_file_size_bytes            = var.document_max_file_size_bytes
   max_batch_count                = var.document_max_batch_count

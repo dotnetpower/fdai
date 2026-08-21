@@ -1,8 +1,8 @@
 ---
 title: 시작과 라이프사이클(Startup and Lifecycle)
 translation_of: startup-and-lifecycle.md
-translation_source_sha: d5fb72b2b63f0da36673f0b81e8a801c6eb6f138
-translation_revised: 2026-08-19
+translation_source_sha: b2a2babd66f7946f19907d837a971ef0ee09e220
+translation_revised: 2026-08-21
 ---
 
 # 시작과 라이프사이클(시작 and 수명 주기)
@@ -257,7 +257,7 @@ stopped/deallocated 상태로 되돌렸습니다.
    CSP-중립 이벤트 버스 계약
    ([csp-neutrality-ko.md § 이벤트버스 계약](../architecture/csp-neutrality-ko.md#1-이벤트버스-계약--kafka-와이어-프로토콜)).
 2. **Kafka 토픽 + 컨슈머 그룹** - Event Hubs 네임스페이스에 첫날 토픽들을 생성
-   (`aw.change.events`, `aw.dr.events`, `aw.finops.events`, 그리고 그들의 `<topic>.dlq`
+   (`fdai.change.events`, `fdai.dr.events`, `fdai.finops.events`, 그리고 그들의 `<topic>.dlq`
    형제) 하고 `event-ingest` 를 위한 컨슈머 그룹 등록.
 3. **멱등성 prime** - event-ingest 레이어가 처음 수신 시 모든 들어오는 이벤트에
    **멱등성 키** 를 스탬프하여 리플레이가 종단 no-op.

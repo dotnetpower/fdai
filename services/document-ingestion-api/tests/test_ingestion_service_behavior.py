@@ -88,7 +88,7 @@ def test_worker_production_requires_explicit_clamav_endpoint() -> None:
         "FDAI_EMBEDDING_ENDPOINT": "https://example.invalid",
         "FDAI_EMBEDDING_DEPLOYMENT": "embedding",
         "FDAI_KAFKA_BOOTSTRAP_SERVERS": "example.invalid:9093",
-        "FDAI_DOCUMENT_EVENT_TOPIC": "aw.pipeline.stages",
+        "FDAI_DOCUMENT_EVENT_TOPIC": "fdai.pipeline.stages",
     }
 
     with pytest.raises(
@@ -116,7 +116,7 @@ def test_worker_production_rejects_non_sidecar_clamav_endpoint(key: str, value: 
         "FDAI_EMBEDDING_ENDPOINT": "https://example.invalid",
         "FDAI_EMBEDDING_DEPLOYMENT": "embedding",
         "FDAI_KAFKA_BOOTSTRAP_SERVERS": "example.invalid:9093",
-        "FDAI_DOCUMENT_EVENT_TOPIC": "aw.pipeline.stages",
+        "FDAI_DOCUMENT_EVENT_TOPIC": "fdai.pipeline.stages",
         "FDAI_CLAMAV_HOST": "127.0.0.1",
         "FDAI_CLAMAV_PORT": "3310",
         key: value,
@@ -1174,7 +1174,7 @@ class FixedWorkerOutboxSink(WorkerDocumentActivitySink):
         rows: list[dict[str, object]],
         event_bus: RecordingEventBus,
     ) -> None:
-        super().__init__(dsn="postgresql://unused", event_bus=event_bus, event_topic="aw.events")
+        super().__init__(dsn="postgresql://unused", event_bus=event_bus, event_topic="fdai.events")
         self._rows = rows
         self.marked: list[UUID] = []
 
@@ -1195,8 +1195,8 @@ class FixedApiOutboxSink(ApiDocumentActivitySink):
         super().__init__(
             config=PostgresApiConfig(dsn="postgresql://unused"),
             publisher=publisher,
-            topic="aw.events",
-            pantheon_topic="aw.pantheon.objects",
+            topic="fdai.events",
+            pantheon_topic="fdai.pantheon.objects",
         )
         self._rows = rows
         self.marked: list[UUID] = []
@@ -1239,10 +1239,10 @@ async def test_worker_outbox_uses_configured_transport_for_valid_and_poison_rows
     )
 
     assert await sink.drain() == 1
-    assert event_bus.published == [("aw.events", valid.key, valid.payload)]
+    assert event_bus.published == [("fdai.events", valid.key, valid.payload)]
     assert event_bus.dead_letters == [
         (
-            "aw.events",
+            "fdai.events",
             "document-1",
             {"outbox_event_id": str(poison_id)},
             "invalid_document_worker_outbox_event",
@@ -1317,7 +1317,7 @@ async def test_api_outbox_dead_letters_poison_row_without_starving_valid_event()
     assert await sink.drain() == 1
     assert publisher.published == [
         (
-            "aw.pantheon.objects.dlq",
+            "fdai.pantheon.objects.dlq",
             "document-1",
             {
                 "original_topic": "object.event",
@@ -1326,7 +1326,7 @@ async def test_api_outbox_dead_letters_poison_row_without_starving_valid_event()
             },
         ),
         (
-            "aw.pantheon.objects",
+            "fdai.pantheon.objects",
             valid.key,
             valid.payload | {"_fdai_logical_topic": valid.topic},
         ),

@@ -37,17 +37,17 @@ def _raw_event() -> dict[str, object]:
 
 async def test_resource_change_consumer_publishes_canonical_event() -> None:
     bus = InMemoryEventBus()
-    await bus.publish("aw.inventory.raw", "raw-1", _raw_event())
+    await bus.publish("fdai.inventory.raw", "raw-1", _raw_event())
 
     await _consume_resource_changes(
         bus=bus,
-        raw_topic="aw.inventory.raw",
-        canonical_topic="aw.change.events",
+        raw_topic="fdai.inventory.raw",
+        canonical_topic="fdai.change.events",
         resource_types=_registry(),
         stop=asyncio.Event(),
     )
 
-    records = [item async for item in bus.subscribe("aw.change.events", "assert")]
+    records = [item async for item in bus.subscribe("fdai.change.events", "assert")]
     assert len(records) == 1
     assert records[0].payload["event_type"] == "inventory.resource_changed"
     assert records[0].payload["payload"]["inventory_change"]["kind"] == "upsert"
@@ -55,17 +55,17 @@ async def test_resource_change_consumer_publishes_canonical_event() -> None:
 
 async def test_resource_change_consumer_dead_letters_malformed_event() -> None:
     bus = InMemoryEventBus()
-    await bus.publish("aw.inventory.raw", "raw-1", {"eventType": 42})
+    await bus.publish("fdai.inventory.raw", "raw-1", {"eventType": 42})
 
     await _consume_resource_changes(
         bus=bus,
-        raw_topic="aw.inventory.raw",
-        canonical_topic="aw.change.events",
+        raw_topic="fdai.inventory.raw",
+        canonical_topic="fdai.change.events",
         resource_types=_registry(),
         stop=asyncio.Event(),
     )
 
-    records = [item async for item in bus.subscribe("aw.inventory.raw.dlq", "assert")]
+    records = [item async for item in bus.subscribe("fdai.inventory.raw.dlq", "assert")]
     assert len(records) == 1
     assert records[0].payload["reason"].startswith("resource_discovery_normalize_error")
 
@@ -75,33 +75,33 @@ async def test_resource_change_publish_failure_retries_raw_event() -> None:
         fail_canonical = False
 
         async def publish(self, topic, key, payload):  # type: ignore[no-untyped-def]
-            if self.fail_canonical and topic == "aw.change.events":
+            if self.fail_canonical and topic == "fdai.change.events":
                 raise RuntimeError("synthetic canonical publish failure")
             return await super().publish(topic, key, payload)
 
     bus = FailingCanonicalBus()
-    await bus.publish("aw.inventory.raw", "raw-1", _raw_event())
+    await bus.publish("fdai.inventory.raw", "raw-1", _raw_event())
     bus.fail_canonical = True
 
     with pytest.raises(RuntimeError, match="canonical publish failure"):
         await _consume_resource_changes(
             bus=bus,
-            raw_topic="aw.inventory.raw",
-            canonical_topic="aw.change.events",
+            raw_topic="fdai.inventory.raw",
+            canonical_topic="fdai.change.events",
             resource_types=_registry(),
             stop=asyncio.Event(),
         )
 
-    assert [item async for item in bus.subscribe("aw.inventory.raw.dlq", "assert")] == []
+    assert [item async for item in bus.subscribe("fdai.inventory.raw.dlq", "assert")] == []
     bus.fail_canonical = False
     await _consume_resource_changes(
         bus=bus,
-        raw_topic="aw.inventory.raw",
-        canonical_topic="aw.change.events",
+        raw_topic="fdai.inventory.raw",
+        canonical_topic="fdai.change.events",
         resource_types=_registry(),
         stop=asyncio.Event(),
     )
-    records = [item async for item in bus.subscribe("aw.change.events", "assert")]
+    records = [item async for item in bus.subscribe("fdai.change.events", "assert")]
     assert len(records) == 1
 
 
@@ -120,14 +120,14 @@ async def test_resource_change_consumer_closes_subscription_on_stop() -> None:
             return _stream()
 
     bus = ClosingBus()
-    await bus.publish("aw.inventory.raw", "raw-1", _raw_event())
+    await bus.publish("fdai.inventory.raw", "raw-1", _raw_event())
     stop = asyncio.Event()
     stop.set()
 
     await _consume_resource_changes(
         bus=bus,
-        raw_topic="aw.inventory.raw",
-        canonical_topic="aw.change.events",
+        raw_topic="fdai.inventory.raw",
+        canonical_topic="fdai.change.events",
         resource_types=_registry(),
         stop=stop,
     )

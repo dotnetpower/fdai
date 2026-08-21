@@ -22,10 +22,10 @@ variables {
   startup_phase_timeout_seconds       = 75
   inventory_identity_id               = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-inventory"
   inventory_identity_client_id        = "00000000-0000-0000-0000-000000000000"
-  inventory_raw_topic                 = "aw.inventory.raw"
+  inventory_raw_topic                 = "fdai.inventory.raw"
   canary_identity_id                  = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-canary"
   canary_identity_client_id           = "00000000-0000-0000-0000-000000000000"
-  canary_topic                        = "aw.control.canary"
+  canary_topic                        = "fdai.control.canary"
   operational_kafka_bootstrap_servers = "example.servicebus.windows.net:9093"
   inventory_dsn_secret_id             = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example/providers/Microsoft.KeyVault/vaults/kv-example/secrets/inventory-dsn"
   image                               = "mcr.microsoft.com/example/fdai@sha256:0000000000000000000000000000000000000000000000000000000000000000"

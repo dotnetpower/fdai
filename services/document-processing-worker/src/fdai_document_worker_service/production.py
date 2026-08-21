@@ -158,7 +158,7 @@ def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
     event_bus = MultiplexedEventBus(
         bus=raw_bus,
         logical_topics=frozenset({"object.event", "object.audit-entry", "object.context-index"}),
-        physical_topic=env.get("FDAI_PANTHEON_OBJECT_TOPIC", "aw.pantheon.objects").strip(),
+        physical_topic=env.get("FDAI_PANTHEON_OBJECT_TOPIC", "fdai.pantheon.objects").strip(),
     )
     metadata = PostgresDocumentMetadataStore(config=PostgresWorkerConfig(dsn=dsn))
     ocr_endpoint = (

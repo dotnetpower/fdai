@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Provision the FDAI minimum-set inventory on Azure - two equivalent paths (azd turnkey or Terraform direct), preview first, apply only when the plan looks right.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 6f17ccfbf31b5868eb648e39ab08424b0029e0b0 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: b17a18e6df8feeb430819263584a435b2602f0eb }]
 ---
 
 # Deploy Quickstart
@@ -111,7 +111,7 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
    identity holds only its scoped, minimum permissions (least privilege). Then
    confirm each of these:
    - Subscription Event Grid delivery uses the inventory managed identity to
-     reach `aw.inventory.raw` on the operational Event Hubs shard.
+     reach `fdai.inventory.raw` on the operational Event Hubs shard.
    - The primary shard stays inside its ten-entity Standard limit, and Huginn
      projects a test resource change.
    - The Inventory Job wakes every minute, PostgreSQL keeps healthy full scans

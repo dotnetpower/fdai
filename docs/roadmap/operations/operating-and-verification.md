@@ -127,7 +127,7 @@ A mostly event-driven system has a specific silent failure mode: **no events arr
 healthy**. Mitigation: a periodic canary on a separately authorized topic.
 
 - A **synthetic event** is emitted every five minutes from a Container Apps Job into
-  `aw.control.canary` on the same Event Hubs namespace.
+  `fdai.control.canary` on the same Event Hubs namespace.
 - A dedicated UAMI can only pull the image and send to Event Hubs. The core's separate canary
   consumer accepts only `source=fdai.canary-job` and `event_type=fdai.control.canary`.
 - The canary path records ingest, route, and audit stages plus a no-op audit entry. It never

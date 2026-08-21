@@ -38,9 +38,9 @@ from fdai.shared.providers.event_bus import EventBus
 from .metric_source import MetricBurnRateSource
 from .registry import SloRegistry
 
-SLO_BURN_EVENT_TOPIC: Final[str] = "aw.slo.events"
-"""Event-ingest topic burn-rate breaches re-enter on (``aw.<domain>.events``
-convention, mirroring ``aw.change.events``)."""
+SLO_BURN_EVENT_TOPIC: Final[str] = "fdai.slo.events"
+"""Event-ingest topic burn-rate breaches re-enter on (``fdai.<domain>.events``
+convention, mirroring ``fdai.change.events``)."""
 
 _LOGGER = logging.getLogger(__name__)
 

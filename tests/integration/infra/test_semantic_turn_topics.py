@@ -10,7 +10,7 @@ _PROJECTION_TOPIC = "core.semantic-turn.projections"
 _REQUEST_ENV = "FDAI_SEMANTIC_TURN_REQUEST_TOPIC"
 _PROJECTION_ENV = "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC"
 _PHYSICAL_ENV = "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC"
-_PHYSICAL_TOPIC = "aw.pantheon.objects"
+_PHYSICAL_TOPIC = "fdai.pantheon.objects"
 
 
 def test_root_terraform_multiplexes_semantic_topics_over_provisioned_scope() -> None:
@@ -59,7 +59,7 @@ def test_independent_service_child_modules_type_semantic_topic_inputs() -> None:
         text = (_ROOT / relative).read_text(encoding="utf-8")
         assert 'semantic_requests    = optional(string, "")' in text
         assert 'semantic_projections = optional(string, "")' in text
-        assert 'semantic_physical    = optional(string, "aw.pantheon.objects")' in text
+        assert 'semantic_physical    = optional(string, "fdai.pantheon.objects")' in text
 
 
 def test_legacy_container_modules_export_exact_semantic_env_vars() -> None:

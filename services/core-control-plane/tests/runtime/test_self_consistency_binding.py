@@ -65,7 +65,7 @@ def test_default_container_config_keeps_sampling_off() -> None:
             },
             "kafka": {
                 "bootstrap_servers": "evhns-fdai.example.local:9093",
-                "topic_events": "aw.change.events",
+                "topic_events": "fdai.change.events",
             },
             "postgres": {"host": "psql-fdai.example.local", "database": "fdai"},
             "rule_catalog": {"ref": "main"},
@@ -85,7 +85,7 @@ def test_self_consistency_keys_load_through_the_config_boundary() -> None:
             "AZURE_SUBSCRIPTION_ID": "00000000-0000-0000-0000-000000000000",
             "AZURE_REGION": "krc",
             "KAFKA_BOOTSTRAP_SERVERS": "evhns-fdai.example.local:9093",
-            "KAFKA_TOPIC_EVENTS": "aw.change.events",
+            "KAFKA_TOPIC_EVENTS": "fdai.change.events",
             "POSTGRES_HOST": "psql-fdai.example.local",
             "POSTGRES_DATABASE": "fdai",
             "RUNTIME_ENV": "dev",

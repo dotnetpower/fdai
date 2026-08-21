@@ -1,8 +1,8 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 840eeea2202e4c0b318e86f947e7630dcdc13168
-translation_revised: 2026-08-20
+translation_source_sha: 52bf41bb077d8801ebef380826422589de9ba314
+translation_revised: 2026-08-21
 ---
 # 배포 리소스 규약
 
@@ -21,6 +21,7 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 |------|------|------|------|
 | Core control plane startup probe | not-applicable | `current change`; 서비스 root에서 `terraform fmt`와 `terraform validate` 통과 | Health 포트를 늦게 여는 부팅을 덮으려고 startup probe 예산을 세 번 조정했습니다. 이제 런타임이 startup readiness보다 먼저 포트를 열어 liveness가 즉시 응답하므로 이 probe는 필요 없습니다. 보호된 갱신 계약도 image와 revision suffix 변경만 rollback을 증명하므로 이 probe를 거부했습니다. |
 | CAF 명명 및 `fdai:` 소유권 tag | implemented | `infra/main.tf`, `infra/bootstrap/main.tf` 및 집중 Terraform test | Terraform이 이름과 tag를 계산하고 런타임 코드는 출력을 사용합니다. |
+| Event Bus 제품 토픽 namespace | in-progress | `current change`; `infra/main.tf`, 서비스 기본값, 배포 준비 및 집중 Event Bus와 Terraform 검사 | 활성 제품 접두사 토픽은 `fdai.*`를 사용합니다. 배포된 namespace를 validated로 분류하려면 보호된 계획, exact apply, drain 및 post-apply 증적이 필요합니다. |
 | 독립 service Terraform state root | validated | `config/independent-service-live-evidence-manifest.json` 및 `config/independent-service-remote-evidence.json` | Service root 5개 모두에 통제된 계획, 적용, 상태, peer 격리 및 rollback 근거가 있습니다. |
 | 이전 방식 platform 및 ops-bootstrap Terraform state root | implemented | `infra/main.tf`, `infra/bootstrap/main.tf`, `.github/workflows/deploy-dev.yml` 및 집중 Terraform과 workflow 검사 | 안정적인 backend key와 배포 메커니즘은 제공되지만, 이 두 root의 통제된 적용 증적은 리포지토리에 보존되어 있지 않습니다. |
 | OHL scale-out evidence target 명명 및 tag | implemented | `infra/main.tf`의 current change, `terraform -chdir=infra test -filter=tests/dev_operations_gateway.tftest.hcl` 결과 8 passed | 실제 프로비저닝 및 recurrence evidence는 열려 있습니다. |
@@ -34,6 +35,7 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-21 | in-progress | 활성 Event Bus 토픽 계약에서 문서화되지 않은 `aw.*` 제품 접두사를 정본 `fdai.*` 접두사로 교체했습니다. 과거 검증 행은 실제로 관찰한 이름을 유지합니다. 계약별 `runtime.*`, `object.*`, `operator.*`, `core.*` 토픽과 Event Bus가 아닌 채널은 이 접두사 이행 범위에 포함되지 않습니다. | `current change`; 명명 소유 문서, Terraform 토픽 선언과 역할, 서비스 기본값, 배포 준비 및 집중 Event Bus와 Terraform 검사. | 모든 entity 교체를 명시하는 보호된 계획을 실행하고, 검토된 계획을 정확히 적용하며, 이전 entity를 drain하거나 만료시킨 뒤 post-apply 런타임 근거를 보존합니다. |
 | 2026-08-18 | implemented | core control plane에 범위가 제한된 startup probe를 부여했습니다. 런타임이 health 포트를 열기 전에 startup readiness를 평가하므로 약 91초인 liveness 예산이 정상 기동 중에 소진되었고, 이전 리비전은 healthy한 상태로 남은 채 새 리비전마다 `CrashLoopBackOff`에 빠졌습니다. Startup probe는 포트가 응답할 때까지 liveness와 readiness를 유예합니다. | `current change`; 서비스 root에서 `terraform fmt`, `terraform init -backend=false`, `terraform validate` 통과; 독립 서비스 계약 검사 `27 passed`, 서비스 Terraform root 스위트 통과, drift 계약 `7 passed`, CI 계약 `36 passed`. 측정된 원인: 실패한 replica가 `startup_ok`를 남긴 뒤 `notification_route_unavailable`에서 멈추고 `health_server_ready`가 없었으며, 시스템 이벤트는 readiness probe 반복 실패를 보고했고, 로컬 기동은 `startup_ok`에서 `startup_readiness_evaluated`까지 27초가 걸렸습니다. | 배포 환경에서 새 리비전이 `Healthy`에 도달하는지 확인합니다. 이슈 #181에서 추적합니다. |
 | 2026-08-18 | implemented | Core startup probe 결합을 제거했습니다. PR #194가 런타임이 startup readiness보다 먼저 health 포트를 열게 만들어 liveness가 즉시 응답하므로 느린 부팅을 덮을 probe가 필요 없습니다. Probe를 유지하면 core 배포도 계속 막혔습니다. 보호된 갱신 계약은 image와 revision suffix 변경만 rollback을 증명하므로 probe 블록을 추가하는 계획은 거부되었습니다. | `current change`; 서비스 root에서 `terraform fmt`와 `terraform validate` 통과. 측정된 원인: 계획 실행 `32113084153`이 image 변경과 함께 `+ startup_probe`를 보여 주었고 `guard_plan.py`가 `protected update changes fields rollback cannot prove`를 보고했습니다. | 다음 보호된 계획이 image와 revision suffix만 담는지, 새 리비전이 `Healthy`에 도달하는지 확인합니다. #181에서 추적합니다. |
 | 2026-08-13 | implemented | 이전 provenance를 재구성하지 않고 implementation ledger를 도입하고 선택적 OHL VM Scale Set 규약을 추가했습니다. | current change, 집중 Terraform test 결과 8 passed | Exact protected 적용 및 실제 OHL 근거를 수집합니다. |
@@ -62,6 +64,10 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 - [ ] 이전 방식 platform 및 ops-bootstrap root의 리포지토리에 안전한 통제된 적용 증적을
   보존합니다. 각 증적은 해당 root를 `validated`로 전환하기 전에 backend key, exact protected
   계획, source revision, target identity 및 post-apply 검증을 결합해야 합니다.
+- [ ] Exact plan과 source revision을 결합하고, 모든 `aw.*`에서 `fdai.*`로의 entity 교체와
+  role scope 갱신을 보여 주며, 무관한 교체나 삭제가 없음을 보고하고, 이전 보존 record를
+  drain하거나 만료시키며, post-apply startup, canary, HIL, stage, inventory 및 semantic
+  transport 검사를 통과하는 보호된 Event Bus 이행 증적을 하나 보존합니다.
 - [ ] OHL target이 결정론적 이름, 애플리케이션 resource group 배치, 비공개 subnet 및 필수
   `fdai:` tag를 유지함을 보여 주는 protected 적용 증적을 기록합니다.
 - [ ] `caj-<workload>-migrate`가 성공한 뒤 검토된 Core image digest를 사용하는
@@ -97,6 +103,26 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 
 기본 **리소스 그룹**은 `rg-fdai`입니다. 구독 범위 배치가 필요한 리소스 종류를 제외하면
 시스템이 프로비저닝하는 모든 리소스가 이 리소스 그룹에 속합니다. 현재 해당 예외는 없습니다.
+
+### Event Bus 제품 토픽 namespace
+
+FDAI 제품 namespace를 사용하는 Event Bus 토픽은 `fdai.`로 시작하고
+`fdai.<domain>.<purpose>` 형식을 따릅니다. 현재 예로 `fdai.change.events`,
+`fdai.pantheon.objects`, `fdai.pipeline.stages`가 있습니다. Dead-letter entity는 전체 토픽
+이름에 `.dlq`를 추가합니다. 예를 들면 `fdai.change.events.dlq`입니다.
+
+Terraform이 provision된 토픽 이름을 소유하고 각 런타임에 설정으로 전달합니다. 애플리케이션
+기본값은 로컬 기동을 지원하며 Terraform에서 선택한 이름과 일치해야 합니다. 별도의 명명 권위를
+만들지 않습니다. 문서화되지 않은 `aw.` 제품 접두사는 legacy이며 활성 토픽 기본값이나 새 인프라
+선언에서 허용되지 않습니다. 과거 근거는 실제로 관찰한 `aw.*` 이름을 유지하므로 이후 이름 변경이
+이전 검증 주장을 다시 쓰지 않습니다.
+
+이 제품 접두사 규칙은 계약별 `runtime.*`, `object.*`, `operator.*`, `core.*` 토픽의 이름을
+바꾸지 않으며 SSE 채널, OpenTelemetry 키, Entra 그룹 또는 chat 명령에도 적용되지 않습니다.
+Provision된 Event Hub entity 이름 변경은 제자리 이름 변경이 아니라 교체입니다. 따라서 배포는
+보호된 계획과 exact apply를 사용하고, 모든 role scope와 producer/consumer binding을 검증하며,
+이전 entity의 보존 record를 drain하거나 만료시키고, 이전 경로를 삭제하기 전에 post-apply
+transport 근거를 기록합니다.
 
 ### Day-zero 인벤토리용 CAF 접두사
 
@@ -168,7 +194,7 @@ Core 및 Operator 서비스 루트는 semantic-turn 요청과 변환 결과 토�
 받으므로 이전 방식 리터럴이 Terraform-selected 토픽을 가릴 수 없습니다.
 루트 변수와 하위 서비스 모듈은 동일한 optional `semantic_requests` 및
 `semantic_projections` 필드를 선언합니다. 또한 두 logical topic을 운반하는 provision된 Event Hub인
-`semantic_physical`을 선언합니다. 기본 physical topic은 `aw.pantheon.objects`입니다. 기존
+`semantic_physical`을 선언합니다. 기본 physical topic은 `fdai.pantheon.objects`입니다. 기존
 logical-topic envelope와 `.dlq` sibling은 Event Hubs entity를 추가로 소비하지 않으면서 schema 격리,
 안정적인 partition key, logical topic별 hash consumer group 및 dead-letter routing을 유지합니다.
 logical request와 projection 이름은 서로 다른 contract 및 설정 값으로 유지되며, 어느 쪽도 독립된

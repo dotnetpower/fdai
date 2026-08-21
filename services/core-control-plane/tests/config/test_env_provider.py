@@ -16,7 +16,7 @@ VALID_ENV: dict[str, str] = {
     "AZURE_SUBSCRIPTION_ID": "00000000-0000-0000-0000-000000000000",
     "AZURE_REGION": "krc",
     "KAFKA_BOOTSTRAP_SERVERS": "evhns-fdai.example.local:9093",
-    "KAFKA_TOPIC_EVENTS": "aw.change.events",
+    "KAFKA_TOPIC_EVENTS": "fdai.change.events",
     "POSTGRES_HOST": "psql-fdai.example.local",
     "POSTGRES_DATABASE": "fdai",
     "RUNTIME_ENV": "dev",
@@ -27,7 +27,7 @@ def test_env_provider_reads_valid_env() -> None:
     cfg = EnvVarConfigProvider(env=VALID_ENV).get()
     assert isinstance(cfg, AppConfig)
     assert cfg.azure.region == "krc"
-    assert cfg.kafka.topic_events == "aw.change.events"
+    assert cfg.kafka.topic_events == "fdai.change.events"
     # Default RG is applied even when the env var is omitted.
     assert cfg.azure.resource_group == "rg-fdai"
 

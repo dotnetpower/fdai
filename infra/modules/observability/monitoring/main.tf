@@ -192,7 +192,7 @@ resource "azurerm_monitor_scheduled_query_rules_alert_v2" "consumer_lag" {
       ContainerAppConsoleLogs_CL
       | extend log = parse_json(Log_s)
       | where tostring(log.message) == "event_bus_consumer_progress"
-      | where tostring(log.topic) == "aw.change.events"
+      | where tostring(log.topic) == "fdai.change.events"
       | summarize consumer_lag=max(tolong(log.consumer_lag)) by tostring(log.consumer_group), toint(log.partition)
       | where consumer_lag > ${var.event_bus_consumer_lag_threshold}
     KQL

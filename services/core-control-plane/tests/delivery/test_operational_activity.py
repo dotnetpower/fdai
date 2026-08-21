@@ -88,7 +88,7 @@ async def test_inventory_observer_publishes_after_durable_transitions() -> None:
         active=True,
         evidence_count=12,
     )
-    events = [event async for event in bus.subscribe("aw.pipeline.stages", "test")]
+    events = [event async for event in bus.subscribe("fdai.pipeline.stages", "test")]
 
     assert [event.payload["status"] for event in events] == ["started", "completed"]
     assert events[-1].payload["evidence_count"] == 12
@@ -110,7 +110,7 @@ async def test_inventory_observer_publishes_bounded_failure_code() -> None:
             message="transport error",
         ),
     )
-    events = [event async for event in bus.subscribe("aw.pipeline.stages", "test")]
+    events = [event async for event in bus.subscribe("fdai.pipeline.stages", "test")]
 
     assert events[-1].payload["status"] == "failed"
     assert events[-1].payload["reason_codes"] == ["network_blocked"]

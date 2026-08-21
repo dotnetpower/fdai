@@ -140,7 +140,7 @@ def build_application(environ: Mapping[str, str]) -> Starlette:
         config=database,
         publisher=publisher,
         topic=env["FDAI_DOCUMENT_EVENT_TOPIC"].strip(),
-        pantheon_topic=env.get("FDAI_PANTHEON_OBJECT_TOPIC", "aw.pantheon.objects").strip(),
+        pantheon_topic=env.get("FDAI_PANTHEON_OBJECT_TOPIC", "fdai.pantheon.objects").strip(),
     )
     access = ClaimsDocumentAccessProvider()
     service = DocumentIngestionService(

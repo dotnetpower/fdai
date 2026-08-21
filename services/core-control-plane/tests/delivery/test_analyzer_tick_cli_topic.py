@@ -11,13 +11,13 @@ from fdai.delivery.analyzer_tick_cli import (
 
 
 def test_findings_default_to_the_raw_ingress_topic() -> None:
-    assert resolve_finding_topic({INGRESS_TOPIC_ENV: "aw.change.events"}) == "aw.change.events"
+    assert resolve_finding_topic({INGRESS_TOPIC_ENV: "fdai.change.events"}) == "fdai.change.events"
 
 
 def test_explicit_analyzer_topic_overrides_the_ingress_topic() -> None:
-    environ = {TOPIC_ENV: "aw.custom.events", INGRESS_TOPIC_ENV: "aw.change.events"}
+    environ = {TOPIC_ENV: "fdai.custom.events", INGRESS_TOPIC_ENV: "fdai.change.events"}
 
-    assert resolve_finding_topic(environ) == "aw.custom.events"
+    assert resolve_finding_topic(environ) == "fdai.custom.events"
 
 
 def test_missing_ingress_topic_is_a_configuration_error() -> None:

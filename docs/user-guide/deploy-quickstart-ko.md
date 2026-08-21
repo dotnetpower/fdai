@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: FDAI 최소 Azure 인벤토리를 프로비저닝하는 방법. azd 턴키와 Terraform 직접 실행 두 경로 모두 먼저 미리보고, 계획이 맞을 때만 적용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 57c34809cd2db806bc81477ed0e8e50415c45b48
+translation_source_sha: 09a9171128735b8881729571fc441592edb73a3f
 translation_revised: 2026-08-21
 ---
 
@@ -102,7 +102,7 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
 1. **인벤토리 검증.** 리소스가 만들어졌는지, 실행기 자격 증명이 지정된 범위에서 최소
    권한만 갖는지 확인합니다. 그런 다음 아래 항목을 확인합니다.
    - 구독 Event Grid 전달이 인벤토리 관리 자격 증명으로 운영 Event Hubs 샤드의
-     `aw.inventory.raw`에 도달합니다.
+     `fdai.inventory.raw`에 도달합니다.
    - 기본 샤드가 Standard 엔터티 10개 제한 안에 있고, Huginn이 테스트 리소스 변경을
      투영합니다.
    - 인벤토리 작업이 매분 깨어나고, PostgreSQL이 정상 전체 스캔을 6시간으로 유지하며,

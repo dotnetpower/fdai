@@ -29,7 +29,7 @@ from fdai.shared.providers.event_bus import EventBus
 
 _LOGGER = logging.getLogger(__name__)
 
-ANALYZER_EVENT_TOPIC = "aw.observability.events"
+ANALYZER_EVENT_TOPIC = "fdai.observability.events"
 ANALYZER_EVENT_SOURCE = "fdai.delivery.analyzer_tick"
 DEFAULT_WINDOW_SECONDS = 300
 

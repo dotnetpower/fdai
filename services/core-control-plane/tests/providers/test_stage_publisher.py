@@ -236,7 +236,7 @@ class TestSseSinkStagePublisher:
 class TestEventBusStagePublisher:
     async def test_emit_publishes_to_topic(self) -> None:
         bus = InMemoryEventBus()
-        pub = EventBusStagePublisher(bus, topic="aw.pipeline.stages")
+        pub = EventBusStagePublisher(bus, topic="fdai.pipeline.stages")
         ev = StageEvent(
             event_id="evt-1",
             correlation_id="corr-1",
@@ -247,7 +247,7 @@ class TestEventBusStagePublisher:
         await pub.emit(ev)
         # Consumer group id is arbitrary for the in-memory fake.
         received: list[EventEnvelope] = []
-        agen = bus.subscribe("aw.pipeline.stages", "test-consumer")
+        agen = bus.subscribe("fdai.pipeline.stages", "test-consumer")
         try:
             envelope = await asyncio.wait_for(agen.__anext__(), timeout=1.0)
             received.append(envelope)
@@ -255,7 +255,7 @@ class TestEventBusStagePublisher:
             aclose = getattr(agen, "aclose", None)
             if aclose is not None:
                 await aclose()
-        assert received[0].topic == "aw.pipeline.stages"
+        assert received[0].topic == "fdai.pipeline.stages"
         assert received[0].key == "evt-1"  # default key selector = event_id
         assert received[0].payload["stage"] == "route"
 

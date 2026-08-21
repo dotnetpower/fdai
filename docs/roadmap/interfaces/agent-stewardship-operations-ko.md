@@ -1,7 +1,7 @@
 ---
 translation_of: agent-stewardship-operations.md
-translation_source_sha: 648b89a13ecdba3fbb0af6a03fa18a7750868a22
-translation_revised: 2026-08-20
+translation_source_sha: 489a71e6c077da0dd99a06d8255ba66ee77b1289
+translation_revised: 2026-08-21
 title: 에이전트 운영 책임 수명 주기
 ---
 # 에이전트 운영 책임 수명 주기
@@ -46,6 +46,7 @@ Handover-map 스키마와 소유권 개념은
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-21 | implemented | Ingestion API의 fallback Pantheon transport를 정본 `fdai.pantheon.objects` Event Bus 토픽에 맞췄습니다. Terraform이 계속 명명 권위를 가지며, 이 변경은 담당 체계 해석, 알림 순서, RBAC, 승인 또는 실행 권한을 바꾸지 않습니다. | `current change`; ingestion composition 기본값, Event Bus 명명 계약 및 집중 독립 서비스 검사. | 배포 명명 소유 문서가 추적하는 보호된 Event Bus 이행 및 post-apply transport 증적을 보존합니다. |
 | 2026-08-18 | in-progress | stewardship webhook과 저장소 handover intake를 구성하는 ingestion API composition이 개별 파서 대신 공유 계약으로 실행 장소를 해석하도록 했습니다. 장소가 선택하는 자격 증명이나 엔드포인트가 다른 서비스와 어긋날 수 없습니다. stewardship 수명주기 동작은 바뀌지 않았습니다. | `current change`, `services/document-ingestion-api/tests`가 다른 독립 서비스 suite와 함께 focused 874건 통과(스킵 1건), venue 게이트가 소스 트리 6개에서 OK 보고 | 아래의 미연결 병합 후 소유권 효과와 예약 신원 상태 점검은 계속 열려 있습니다. |
 | 2026-08-13 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했으며, 시작, 초안 생성, 서명된 병합 수신, 미구현 운영 효과를 구분하도록 수명 주기 주장을 바로잡았습니다. | `current change`; 구현 범위 표에 나열된 소스와 집중 검사. | 거버넌스 PR 게시, 병합 후 효과, 예약 실행되는 신원 상태 검사를 완료한 뒤 런타임 근거를 보존합니다. |
 | 2026-08-16 | in-progress | 내용 기반 키, 검토 전용 렌더링, 닫힘 실패 초안 검증을 갖춘 인수인계 산출물에서 `RemediationPrPublisher`로 이어지는 멱등 경로를 조립했습니다. | `pytest services/core-control-plane/tests/core/stewardship/test_governance.py`가 모호한 전송 실패 이후 초안 PR 하나를 재사용하는 재시도와 PR 본문의 제한된 경고 렌더링을 포함해 집중 테스트 9개를 통과했습니다. | 운영 조립에 서비스를 연결하고 병합 후 소유권 효과와 예약 신원 상태 검사를 완료해야 합니다. |

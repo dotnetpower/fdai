@@ -56,7 +56,7 @@ def test_observation_campaign_uses_inventory_read_identity_and_shared_runtime_co
     assert 'role_definition_name = "Monitoring Reader"' in root
     assert 'role_definition_name = "Log Analytics Reader"' in root
     assert 'role_definition_name = "Cost Management Reader"' in root
-    assert 'module.event_bus.auxiliary_topic_ids["aw.pipeline.stages"]' in root
+    assert 'module.event_bus.auxiliary_topic_ids["fdai.pipeline.stages"]' in root
 
 
 def test_operator_api_command_identity_can_publish_owned_objects() -> None:
@@ -68,7 +68,7 @@ def test_operator_api_command_identity_can_publish_owned_objects() -> None:
     assert 'name  = "FDAI_COMMAND_MI_CLIENT_ID"' in module
     assert "value = var.command_api_identity_client_id" in module
     assert re.search(
-        r'"aw\.pantheon\.objects"\s*=\s*module\.event_bus\.topic_ids\["aw\.pantheon\.objects"\]',
+        r'"fdai\.pantheon\.objects"\s*=\s*module\.event_bus\.topic_ids\["fdai\.pantheon\.objects"\]',
         root,
     )
     assert re.search(

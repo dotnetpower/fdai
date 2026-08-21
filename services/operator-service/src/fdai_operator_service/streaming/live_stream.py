@@ -15,7 +15,7 @@ from starlette.routing import Route
 
 from fdai_operator_service.streaming.shutdown import shutting_down
 
-_CHANNEL: Final = "aw.pipeline.stages"
+_CHANNEL: Final = "fdai.pipeline.stages"
 _KEEPALIVE: Final = b": keepalive\n\n"
 _MAX_FIELD_CHARS: Final = 8_192
 _MAX_DATA_CHARS: Final = 256 * 1_024

@@ -208,7 +208,7 @@ def test_runner_preserves_allowlisted_consumer_context_only(tmp_path: Path) -> N
     environment["FDAI_LOCAL_SERVICE_LOG_FORMAT"] = "json-plain"
     payload = (
         '{"level":"INFO","logger":"fdai.delivery.azure.event_bus",'
-        '"message":"event_bus_consumer_started","topic":"aw.change.events",'
+        '"message":"event_bus_consumer_started","topic":"fdai.change.events",'
         '"consumer_group":"fdai-local-pantheon.Huginn",'
         '"client_id":"fdai-core","auth_mechanism":"OAUTHBEARER",'
         '"validation_reason":"target-bound causal evidence requires '
@@ -238,7 +238,7 @@ def test_runner_preserves_allowlisted_consumer_context_only(tmp_path: Path) -> N
     formatted_line = next(
         line for line in current.splitlines() if "event_bus_consumer_started" in line
     )
-    assert 'topic="aw.change.events"' in formatted_line
+    assert 'topic="fdai.change.events"' in formatted_line
     assert 'consumer_group="fdai-local-pantheon.Huginn"' in formatted_line
     assert 'client_id="fdai-core"' in formatted_line
     assert 'auth_mechanism="OAUTHBEARER"' in formatted_line

@@ -11,7 +11,7 @@ from typing import Final
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.hil_registry import HilApprovalRegistry, HilDecisionReceipt
 
-DEFAULT_HIL_DECISION_TOPIC: Final[str] = "aw.hil.decisions"
+DEFAULT_HIL_DECISION_TOPIC: Final[str] = "fdai.hil.decisions"
 _LOGGER = logging.getLogger(__name__)
 HilDecisionPublisher = Callable[[HilDecisionReceipt], Awaitable[None]]
 

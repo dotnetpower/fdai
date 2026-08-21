@@ -132,7 +132,7 @@ uses them or does not.
 | `identity_resource_id` | string | Azure resource id of a managed identity |
 | `identity_principal_id` | string | OID of the same identity (for role assignments) |
 | `secret_ref_envelope` | object | `{ vault_name, secret_name, key_vault_reference }` |
-| `topics` | list(string) | day-zero: `["aw.change.events", "aw.dr.events", "aw.finops.events"]` |
+| `topics` | list(string) | day-zero: `["fdai.change.events", "fdai.dr.events", "fdai.finops.events"]` |
 | `connection_string_ref` | string | pointer to a Key Vault secret; **never the raw value** |
 | `log_workspace_id` | string | Log Analytics workspace resource id |
 | `log_workspace_customer_id` | string | Log Analytics workspace customer GUID (auto-wired into the core app for metric KQL and the Operator API for bounded Command Deck KQL as `FDAI_MONITOR_WORKSPACE_ID`) |
@@ -174,7 +174,7 @@ observation-mode continuity issues. Full latency analysis:
 - Event-based paths (`KubeEvents`, Activity Log, forwarded diagnostics via
   the Kafka bus): unchanged, sub-second (already event-driven).
 
-Azure resource writes and deletes use a dedicated `aw.inventory.raw` Event Hub.
+Azure resource writes and deletes use a dedicated `fdai.inventory.raw` Event Hub.
 A subscription-scoped Event Grid subscription delivers with the inventory
 user-assigned managed identity, while Event Hubs local authentication remains
 disabled. The core normalizes that raw stream into the canonical change topic

@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 6f17ccfbf31b5868eb648e39ab08424b0029e0b0
+translation_source_sha: b17a18e6df8feeb430819263584a435b2602f0eb
 translation_revised: 2026-08-21
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -308,7 +308,7 @@ CAF 접두사, 결정론적 길이 처리, `fdai:` 태그 네임스페이스, �
 | 2 | **Container Apps** (5개 독립 서비스) | Core는 `minReplicas: 1`을 유지하고 Operator, Ingestion API, Processing Worker, Isolated Executor는 각 서비스 계약에 따라 확장됩니다. | 완료된 토폴로지는 Core, Operator, 수집, 처리, 실행 소유권을 분리합니다. | Isolated Executor만 효과 권한을 보유합니다. [Compute 형태](#compute-형태-현재-core와-5개-서비스-목표)를 참조하세요. |
 | 3 | **Container Apps 작업** | Consumption | 스케줄 프로브와 out-of-band 변경 감지 | Azure Functions 대체; 환경 공유 |
 | 4 | **Event Hubs 이름 공간 샤드** | Standard 2개 (각 1 TU, auto-inflate off) | Kafka-와이어 이벤트 버스 (`:9093` 엔드포인트) | 기본은 통제된 유입, DLQ, HIL 및 단계를 소유합니다. Operational은 canary + DLQ, 전용 synthetic 시작 round-trip, raw 인벤토리, 실행기 명령 + DLQ 및 실행기 증적 개체를 소유합니다. Core는 배포 구성을 통해 operational 초기화 엔드포인트와 시작 토픽을 받습니다. |
-| 5 | **Event Grid 인벤토리 system 토픽 + 구독 + Diagnostic Settings** | global 구독 이벤트 전달 / Log Analytics | Resource 쓰기/삭제를 `aw.inventory.raw`로 보내고 플랫폼 진단을 workspace로 보냄 | Terraform은 Azure 정본 lowercase 타입으로 tracked 토픽 하나를 adopt하고 send-only 인벤토리 UAMI를 할당하며 dedicated system-topic 구독 API를 사용합니다. 발견이 모호하면 계획을 차단합니다. |
+| 5 | **Event Grid 인벤토리 system 토픽 + 구독 + Diagnostic Settings** | global 구독 이벤트 전달 / Log Analytics | Resource 쓰기/삭제를 `fdai.inventory.raw`로 보내고 플랫폼 진단을 workspace로 보냄 | Terraform은 Azure 정본 lowercase 타입으로 tracked 토픽 하나를 adopt하고 send-only 인벤토리 UAMI를 할당하며 dedicated system-topic 구독 API를 사용합니다. 발견이 모호하면 계획을 차단합니다. |
 | 6 | **PostgreSQL Flexible Server** | Dev: Burstable **B1ms**, HA 비활성, 7일 백업; prod: zone-redundant HA, 35일 geo 백업 | 감사 + KPI + 패턴 라이브러리 + **pgvector** T1 임베딩, 단일 저장 | Terraform은 `vector`와 `pg_trgm`을 허용 목록하고 운영은 `ZoneRedundant` HA를 요구하며, 로컬 Compose는 별도 bind-mounted initializer 없이 같은 Alembic-owned `vector` 확장을 사용합니다. |
 | 7 | **Key Vault** | Standard | **Container Apps native 시크릿 + Key Vault 참조**로 소비되는 시크릿 백엔드 - [시크릿 계약](../architecture/csp-neutrality-ko.md#3-시크릿-계약--환경변수--k8s-secret) 구현 | Premium (HSM) 불필요; 앱은 시크릿 SDK 호출 안 함 |
 | 8 | **User-assigned Managed Identity** | - | 실행기의 최소권한, 액션-화이트리스트 아이덴티티; [워크로드 아이덴티티 계약](../architecture/csp-neutrality-ko.md#4-워크로드-아이덴티티-계약--oidc-토큰) 구현 | 단계 1은 built-in 롤 구성으로 RG-스코프의 **하나의** MI (`mi-aw-executor`) 배포; 단계 3에서 도메인별 MI로 분할 - [security-and-identity-ko.md § 신원 대응 (Phased)](../architecture/security-and-identity-ko.md#identity-mapping-phased) 참조 |
@@ -318,7 +318,7 @@ CAF 접두사, 결정론적 길이 처리, `fdai:` 태그 네임스페이스, �
 | 12 | **ADLS Gen2 문서 계정** (**명시적 선택**, `enable_document_ingestion`) | StorageV2 Standard ZRS, HNS | 비공개 격리 구역, 변경할 수 없는 통제된 버전, derived 묶음 | 비공개 모드에서 Shared Key와 공개 접근 비활성화; soft 삭제 + 수명 주기; `blob`과 `dfs` 비공개 엔드포인트 |
 | 13 | **Case-history Blob 계정** (`enable_case_history`) | StorageV2 Standard ZRS | 재생 및 통제된 Norns 분석용 내용 기반 주소를 가진 prediction/인시던트 사례 개정 번호 | Shared Key 비활성화, 비공개 컨테이너, versioning, 변경 피드, soft 삭제, 범위가 제한된 old-version 수명 주기, Defender scanner private-link 접근, 전용 case-history UAMI 데이터 역할, `blob` 비공개 엔드포인트. 실행기 MI에는 Blob 역할을 부여하지 않습니다. |
 | 14 | **문서 인제스트 Container Apps** (**명시적 선택**) | Consumption, 공개 API + ClamAV를 포함한 내부 워커 | 인증된 범위가 제한된 업로드 중계와 독립적으로 규모되는 안전성 검사, 추출, pgvector 인덱싱, 수명 주기 이벤트 | API, 워커, 이행 UAMI를 분리합니다. 워커만 Event Hubs 수신과 OCR 권한을 받으며 런타임 신원에는 실행기 권한이 없습니다. |
-| 15 | **Control-loop canary 작업** | Consumption, 5분마다 실행 | `aw.control.canary`에 멱등 이벤트 하나를 게시합니다. | 전용 UAMI에는 ACR pull과 Event Hubs 전송만 있으며, 코어는 별도 소비자 경로에서 no-op 감사를 기록합니다. |
+| 15 | **Control-loop canary 작업** | Consumption, 5분마다 실행 | `fdai.control.canary`에 멱등 이벤트 하나를 게시합니다. | 전용 UAMI에는 ACR pull과 Event Hubs 전송만 있으며, 코어는 별도 소비자 경로에서 no-op 감사를 기록합니다. |
 | 16 | **개발 operations Function App** (**명시적 선택**, `enable_dev_operations_gateway`) | Flex Consumption FC1 | 로컬 개발에서 비공개 리소스로 등록된 읽기, 쓰기, execute 연산을 중계합니다. | dev 및 private-networking 전용이며 수명 주기 precondition으로 강제되고 `infra/tests/dev_operations_gateway.tftest.hcl`이 이를 검증합니다. Easy Auth 뒤에서 **공개** 인바운드 엔드포인트를 종단합니다. 개발자가 도달해야 하기 때문이며, 따라서 폐쇄망에서는 꺼둔 채로 둡니다. 전용 `/27` 서브넷, 비공개 AAD-only 배포 및 멱등성 저장소, Easy Auth, 분리된 읽기 담당/실행기 UAMI, 일회용 server-issued 변경 계획 증적을 사용합니다. 임의 URL, ARM 경로, 명령, 조회 표면은 제공하지 않습니다. |
 | 17 | **OHL scale-out evidence VM Scale Set + proposal Job** (**명시적 선택**, `enable_ohl_scale_out_evidence_target`) | Uniform `Standard_B1s`, 용량 `1`, manual Consumption Job | 통제된 `ops.scale-out` 근거용으로 범위가 제한된 non-production target 및 normal-ingress shadow proposal | dev, 비공개 networking 및 operations gateway가 필요합니다. 배포는 region에서 사용할 수 있는 exact image version을 공급하고 변경 가능한 `latest`를 거부합니다. 전용 `/27` subnet에는 public IP가 없습니다. Proposal UAMI에는 ACR pull과 primary Event Hub send만 있습니다. Protected provider staging은 검증된 rollback 전에 capacity를 `2`까지만 늘릴 수 있습니다. |
 로컬 parity 프로필은 동일한 5개 service package를 loopback PostgreSQL과 Redpanda,
@@ -357,7 +357,7 @@ Event Hubs Kafka를 계속 요구합니다.
 - **Topic-scoped Event Hubs 역할** - 실행기는 이름 공간이 아니라 현재 프로비저닝된 각 허브
   개체에 데이터 Owner를 받습니다. 인벤토리와 canary는 각자의 토픽에만 전송할 수 있습니다.
   Operator API 명령 신원은 제안, HIL 결정, pantheon 객체 메시지를 전송하고
-  단계 토픽을 수신합니다. 문서 인제스트는 `aw.pipeline.stages`로 제한됩니다.
+  단계 토픽을 수신합니다. 문서 인제스트는 `fdai.pipeline.stages`로 제한됩니다.
 - **Static Web Apps (Free 계층, 명시적 선택)** - `enable_console=true`일 때 읽기 전용 콘솔을 호스팅합니다.
 - **Design-mocks Static Web App (Free 계층, 명시적 선택)** - `enable_design_mocks=true`일 때 격리된
   정적 디자인 검토 아티팩트를 호스팅합니다. 아티팩트 빌더는 `index.html`, `mocks/`,
@@ -416,7 +416,7 @@ networking과 digest-pinned FDAI 및 ClamAV 이미지를 요구합니다.
 - **Core 시작 왕복**: 독립적인 Core는 synthetic 시작 기록을 publish하기 전에 고유 operational Event Hubs 소비자 그룹의 결합을 12초 동안 기다립니다. 탐색별 기한은 30초이고 단계 기한은 75초이므로 기본 시도 2회를 위한 범위가 제한된 headroom을 확보합니다. 배포는 이 순서가 보장된 값을 조정할 수 있지만 자신이 publish한 exact 기록을 consume하지 못하면 탐색은 준비된 상태가 되지 않습니다.
 - **복제본 하한**: 기본값은 복제본 하나입니다. 검증된 Kafka scaler 없이 0으로 설정하면 Event Hubs 데이터로 깨어나지 않으므로 Terraform은 scale-to-zero를 주장하지 않습니다.
 - **분리 기준**: 목표는 Core, Operator, 인제스트 API, 처리 워커, Isolated 실행기이며 권한 전환은 [서비스 승격과 데이터 소유권](../architecture/service-graduation-and-ownership-ko.md)의 모든 게이트를 따릅니다.
-- **신원 분리**: Operator API 읽기/명령과 인제스트 API/워커/이행 principal을 분리합니다. 워커는 `aw.pantheon.objects`에서 Saga/Muninn 객체만 수신하고 `aw.pipeline.stages`로 단계 사실을 전송합니다. `ingestion_cohost_worker=true`는 두 범위를 API 신원으로 돌립니다.
+- **신원 분리**: Operator API 읽기/명령과 인제스트 API/워커/이행 principal을 분리합니다. 워커는 `fdai.pantheon.objects`에서 Saga/Muninn 객체만 수신하고 `fdai.pipeline.stages`로 단계 사실을 전송합니다. `ingestion_cohost_worker=true`는 두 범위를 API 신원으로 돌립니다.
 - **실행기 배포와 전환**: `enable_isolated_executor=true`는 내부 앱과 ACR pull, 명령 수신, 증적/DLQ 전송, state-secret 읽기만 가진 전용 UAMI를 프로비저닝합니다. 기본값은 `false`이며 private-runner 작업 흐름은 기본 plan-only를 유지하고 checksum-pinned GitHub CLI를 설치하며 embedded plan-metadata 코드를 syntax-check하고 `ghcr.io/<owner>/<repo>/fdai-core-control-plane`의 Core 산출물 증명을 검증한 뒤 동일한 ACR 다이제스트를 연결하고 최신 개정 번호를 상태 검사에 포함합니다. `promote_runtime_image=true`는 재구축 없이 검증된 다이제스트를 ACR `fdai` 저장소로 가져오기하지만 exact 적용은 승격을 거부하고 protected 계획만 사용하며 convergence에도 같은 런타임 다이제스트를 복원합니다. `enable_isolated_executor_authority_cutover=true`는 개발 operations 게이트웨이도 요구하며 Core의 게이트웨이 및 버티컬 효과 접근을 제거하고 isolated 신원을 승인하며 Core에는 전송 계층/읽기 접근만 유지합니다. `verify_executor_effect=true`는 non-interactive 실행기에서 명시적 pseudo-terminal을 통해 reversible NSG 룰 탐색을 실행하고 원격 exit 상태를 보존합니다. 중복 전달은 변경할 수 없는 액션 및 명령 신원을 유지하도록 하나의 issued-at 시각을 공유하고 정리는 새 범위가 제한된 기한을 받습니다. Azure Resource Manager에서 효과를 확인하고 중복 쓰기를 차단하며 오프셋과 최종 증적을 기록한 뒤 정리합니다. 900초가 지나면 실패합니다.
 - **OHL evidence target**: `enable_ohl_scale_out_evidence_target=true`는 `dev`에만 전용 Uniform
   VM Scale Set 하나와 manual proposal Job 하나를 추가합니다. 비공개 networking, development
@@ -536,7 +536,7 @@ Console은 Settings > 런타임 policies에서 안전한 subset을 변환 결과
 | `FDAI_TOOL_CALL_FAKE` | env | test-only | Automated 테스트에서 실행기 tool-call 경로를 `RecordingToolExecutor`로 바꿉니다. Interactive 로컬 시작은 실행기를 연결하지 않습니다. |
 | `FDAI_WORKFLOW_SHADOW` | env | 업스트림 | Event-triggered 카탈로그 작업 흐름은 기본적으로 non-mutating shadow 모드로 실행됩니다. 명시적 maintenance 비활성화에만 `0`, `false`, `no`, `off`를 설정합니다. |
 | `FDAI_WORKFLOW_ENFORCE_ALLOWLIST` | env | 배포 / 로컬 | Owner가 `mode=enforce`로 시작할 수 있는 작업 흐름 이름의 comma-separated 목록입니다. Event Hubs 명령 전송 계층이 필요하며 액션 단계는 일반 승격/risk/HIL/실행기 경로로 재진입합니다. |
-| `KAFKA_TOPIC_EVENTS` / `FDAI_STAGE_TOPIC` | env | 업스트림 / 로컬 | Deployed 런타임과 Azure-backed interactive 전송 계층이 공유하는 이벤트 및 단계 토픽입니다. Kafka 초기화와 이벤트 토픽이 모두 없으면 interactive 로컬은 `aw.events`와 범위가 제한된 로컬 EventBus/SSE 어댑터를 사용합니다. |
+| `KAFKA_TOPIC_EVENTS` / `FDAI_STAGE_TOPIC` | env | 업스트림 / 로컬 | Deployed 런타임과 Azure-backed interactive 전송 계층이 공유하는 이벤트 및 단계 토픽입니다. Kafka 초기화와 이벤트 토픽이 모두 없으면 interactive 로컬은 `fdai.events`와 범위가 제한된 로컬 EventBus/SSE 어댑터를 사용합니다. |
 | `FDAI_IRP_ENABLED` / `FDAI_IRP_BUDGET_SECONDS` | env | 업스트림 | alert-shaped 이벤트를 budgeted 조사 -> 타입이 지정된 제안 경로로 처리합니다. 제안은 표준 risk/HIL/실행기 루프에 재진입합니다. |
 | `FDAI_CHAOS_CONTEXT_JSON` / `FDAI_CHAOS_ENFORCE` | env | 배포 | promoted chaos injector 런타임 맥락. 명시 플래그가 `1`이고 시나리오가 promoted 상태이며 injector와 탐색이 모두 등록된 경우에만 강제 적용을 허용합니다. |
 | `FDAI_JIRA_BASE_URL` / `FDAI_JIRA_ACCOUNT_EMAIL` / `FDAI_JIRA_API_TOKEN_SECRET` / `FDAI_JIRA_TOOL_MAP_JSON` | env + KV 참조 | 배포 | 운영 `JiraToolExecutor`를 설정합니다. `TOOL_MAP_JSON`은 `tool.open-incident-ticket`을 Jira project 키에 매핑합니다. 토큰 값은 KV-backed `FDAI_SECRET_<API_TOKEN_SECRET>`에서 해석하며 대응에 토큰을 넣지 않습니다. 영속 Jira 원장과 distributed 리소스 잠금을 위해 `FDAI_STATE_STORE_DSN`이 필요합니다. |
@@ -544,7 +544,7 @@ Console은 Settings > 런타임 policies에서 안전한 subset을 변환 결과
 | `FDAI_PROFILE_ID` | env | 배포 | `rule-catalog/profiles/` 에서 한 프로파일을 선택 ([rule-catalog-profiles-ko.md](../rules-and-detection/rule-catalog-profiles-ko.md) 참조). 시작 시 바인딩되며, 비어 있거나 없으면 전체 카탈로그를 유지합니다. |
 | `FDAI_NARRATOR_PROVIDER` / `FDAI_NARRATOR_BASE_URL` / `FDAI_NARRATOR_MODEL` / `FDAI_NARRATOR_API_VERSION` / `FDAI_NARRATOR_API_KEY` | env + KV 참조 | 배포 | Operator-console 서술기 translator 설정 ([operator-console-ko.md](../interfaces/operator-console-ko.md) 참조); `API_KEY` 는 반드시 KV 경유. 빈 프로바이더 = 결정론적 폴백. |
 | `FDAI_CHATOPS_APPROVE_CALLBACK_URL` / `FDAI_CHATOPS_REJECT_CALLBACK_URL` / `FDAI_CHATOPS_WEBHOOK_SECRET` / `FDAI_CHATOPS_TIMEOUT_SECONDS` | env + KV 참조 | 배포 | Chatops HIL 콜백 엔드포인트와 공유 웹훅 시크릿입니다. 시크릿 은 반드시 KV를 경유합니다. 시크릿 을 설정하면 운영 콜백 경로 와 영속 Postgres 결정 레지스트리 가 활성화됩니다. |
-| `FDAI_KAFKA_BOOTSTRAP_SERVERS` / `FDAI_HIL_DECISION_TOPIC` | env | 배포 / 업스트림 | Operator API 가 영속 HIL 결정 증적 를 publish 하는 Event Hubs Kafka 엔드포인트 입니다. 토픽 기본값은 `aw.hil.decisions`이며 코어 가 같은 토픽 을 소비하고 재개/실행 을 소유합니다. |
+| `FDAI_KAFKA_BOOTSTRAP_SERVERS` / `FDAI_HIL_DECISION_TOPIC` | env | 배포 / 업스트림 | Operator API 가 영속 HIL 결정 증적 를 publish 하는 Event Hubs Kafka 엔드포인트 입니다. 토픽 기본값은 `fdai.hil.decisions`이며 코어 가 같은 토픽 을 소비하고 재개/실행 을 소유합니다. |
 | `FDAI_KAFKA_BOOTSTRAP_SERVERS` / `FDAI_SEMANTIC_TURN_REQUEST_TOPIC` / `FDAI_SEMANTIC_TURN_PROJECTION_TOPIC` | env | 배포 / 업스트림 | Operator 의미 전송 계층 구성입니다. 세 값은 모두 함께 설정하며 부분 구성은 시작을 차단합니다. 요청과 변환 결과 값은 프로비저닝된 `operator-core-request` 및 `core-operator-projection` 개체를 지정합니다. 선택 항목인 `FDAI_SEMANTIC_TURN_CONSUMER_GROUP_ID`와 `FDAI_SEMANTIC_TURN_KAFKA_CLIENT_ID`는 안정적인 서비스 기본값을 재정의합니다. `FDAI_COMMAND_MI_CLIENT_ID`는 `OAUTHBEARER`용 명령 신원을 선택하며 연결 문자열 또는 shared 키는 지원하지 않습니다. 로컬 preparation은 Terraform 출력에 같은 토픽이 이미 있을 때만 값을 복사하고 해당 실행에서는 dev-only 서술기를 비활성화합니다. |
 | `FDAI_GITOPS_API_BASE` / `FDAI_GITOPS_DEFAULT_BRANCH` / `FDAI_GITOPS_BRANCH_PREFIX` / `FDAI_GITOPS_TIMEOUT_SECONDS` | env | 배포 | `gitops-pr` 어댑터 대상 repo 설정 (GitHub App / Azure DevOps). 인증 시크릿 은 플랫폼 App installation 을 통해 흐르고 env var 아님. |
 | `FDAI_GITOPS_TOKEN` / `FDAI_GITOPS_OWNER` / `FDAI_GITOPS_REPO` / `FDAI_GITHUB_WORKFLOW_TOOLS_ENFORCE` | KV 참조 + env | 배포 | fix/release/security/인시던트/IRP 산출물용 GitHub 변경 피드 및 작업 흐름 도구 연결. 강제 적용 플래그는 ActionType 승격 및 risk/HIL 게이트를 우회하지 않습니다. |
@@ -576,8 +576,8 @@ Onboarding 콘솔은 모든 Azure 탐색 입력이 있을 때만 `probe_mode=con
 | 버티컬 | Azure 신호 후보 | 딜리버리 |
 |--------|----------------|---------|
 | 변경 | Activity Log (resource-write / 삭제), 변경 Analysis, Resource Health | 정본 Event Hubs Kafka 유입으로 push하며 Huginn이 실시간 발견 정규화를 소유하고 인벤토리 sync 작업이 전체 그래프를 조정합니다. |
-| DR / Chaos | Resource Health, 백업 금고 이벤트, PostgreSQL / SQL replication-lag 메트릭, restore-rehearsal 결과 | Diagnostic Settings + 스케줄 Container Apps 작업 프로브 → Kafka 토픽 (`aw.dr.events`) |
-| FinOps | 비용 이상 알림, 예산 알림, Advisor 비용 권고 | 비용 관리 pull → Kafka 토픽 (`aw.finops.events`); 이상 알림은 같은 Diagnostic-Settings 경로로 fan in |
+| DR / Chaos | Resource Health, 백업 금고 이벤트, PostgreSQL / SQL replication-lag 메트릭, restore-rehearsal 결과 | Diagnostic Settings + 스케줄 Container Apps 작업 프로브 → Kafka 토픽 (`fdai.dr.events`) |
+| FinOps | 비용 이상 알림, 예산 알림, Advisor 비용 권고 | 비용 관리 pull → Kafka 토픽 (`fdai.finops.events`); 이상 알림은 같은 Diagnostic-Settings 경로로 fan in |
 
 모든 이벤트는 유입에서 **멱등성 키가 스탬프** 되어 리플레이는 no-op; DLQ는 도달 가능
 해야 하며 어디에서든 강제 적용이 활성화되기 전에

@@ -36,8 +36,8 @@ def test_ingestion_consumers_receive_from_the_physical_pantheon_topic() -> None:
         "ingestion_worker_eventhubs_receiver",
     )
 
-    expected_scope = 'scope                = module.event_bus.topic_ids["aw.pantheon.objects"]'
+    expected_scope = 'scope                = module.event_bus.topic_ids["fdai.pantheon.objects"]'
     assert expected_scope in cohost
     assert expected_scope in worker
     assert "count                = 0" in retired
-    assert 'auxiliary_topic_ids["aw.pipeline.stages"]' in retired
+    assert 'auxiliary_topic_ids["fdai.pipeline.stages"]' in retired

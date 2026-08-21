@@ -26,7 +26,7 @@ def _repo(tmp_path: Path, *, provider_mode: int = 0o600) -> Path:
                 "FDAI_KAFKA_BOOTSTRAP_SERVERS=127.0.0.1:19092",
                 "FDAI_SEMANTIC_TURN_REQUEST_TOPIC=operator.semantic-turn.requests",
                 "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC=core.semantic-turn.projections",
-                "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC=aw.pantheon.objects",
+                "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC=fdai.pantheon.objects",
             )
         )
         + "\n",

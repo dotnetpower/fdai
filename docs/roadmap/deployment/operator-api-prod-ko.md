@@ -1,8 +1,8 @@
 ---
 title: 콘솔 Operator API 프로덕션 배포
 translation_of: operator-api-prod.md
-translation_source_sha: d85b861fc62956fa3322ae6c791e04cf87f4b9e5
-translation_revised: 2026-08-14
+translation_source_sha: ace6d28ba35869f46c90438a5cc976014e48b712
+translation_revised: 2026-08-21
 ---
 # 콘솔 Operator API 프로덕션 배포
 
@@ -61,7 +61,7 @@ translation_revised: 2026-08-14
   exception 텍스트는 기록하지 않습니다.
 - **Kafka 기반 실시간 및 에이전트 관찰.** 팩토리는 인증된 `/live/stream`과
   `/agents/stream` 읽기 경로를 항상 등록합니다. Kafka 초기화 엔드포인트가 구성되면
-  하나의 서비스 소유 소비자 그룹이 `aw.pipeline.stages`를 읽고 단계 및 Pantheon 런타임
+  하나의 서비스 소유 소비자 그룹이 `fdai.pipeline.stages`를 읽고 단계 및 Pantheon 런타임
   상태 레코드를 검증한 뒤 허용된 레코드를 별도의 범위 제한 프로세스 내부 SSE 싱크로 전달합니다. 앱 수명 주기는 중계를 시작하고
   중지하며 중계가 독립적으로 소유한 Kafka 소비자를 닫습니다. Kafka 구성이 없으면
   경로는 연결 유지 신호를 보내며 `Awaiting source`를 표시합니다. 전송 연결을
@@ -101,7 +101,7 @@ translation_revised: 2026-08-14
 | `FDAI_OPERATOR_DATABASE_CONNECT_TIMEOUT_S` | `10` | TCP와 인증 연결 시간을 제한하여 사용할 수 없는 데이터베이스가 신속히 실패하도록 합니다. |
 | `FDAI_KAFKA_BOOTSTRAP_SERVERS` | 비어 있음 | 의미 전송과 공유 실시간/에이전트 관찰 중계를 시작합니다. `:9093`의 Event Hubs Kafka 엔드포인트를 사용합니다. 값이 비어 있으면 두 SSE 경로는 런타임 근거를 날조하지 않고 `Awaiting source` 상태로 연결을 유지합니다. |
 | `KAFKA_TOPIC_EVENTS` | 비어 있음 | Kafka 초기화와 함께 타입이 지정된 액션 및 confirmed 인시던트 작업 흐름용 `POST /chat/action`을 활성화합니다. Huginn이 consume하는 raw 유입 토픽과 같은 값을 사용합니다. |
-| `FDAI_STAGE_TOPIC` | `aw.pipeline.stages` | 워커가 게시하고 실제 운영 및 에이전트 중계가 소비하는 단계 토픽입니다. 워커와 Operator API는 같은 값을 사용하는 것이 좋습니다. |
+| `FDAI_STAGE_TOPIC` | `fdai.pipeline.stages` | 워커가 게시하고 실제 운영 및 에이전트 중계가 소비하는 단계 토픽입니다. 워커와 Operator API는 같은 값을 사용하는 것이 좋습니다. |
 | `FDAI_INCIDENT_SLA_POLICY_JSON` | 비어 있음(비활성화된) | 모든 `sev1`부터 `sev5`까지 긍정 `acknowledge_seconds` 및 `resolve_seconds` 값을 가진 strict JSON 객체입니다. 영속 A2 SLA-breach 모니터링을 활성화합니다. |
 | `FDAI_INCIDENT_SLA_INTERVAL_SECONDS` | `60` | 긍정 SLA 검사 간격입니다. Policy JSON이 있을 때만 사용합니다. |
 | `FDAI_IAM_DIRECTORY_PROVIDER` | 비어 있음 (디렉터리 검색 비활성화) | Owner 전용 사용자 디렉터리 검색을 활성화합니다. 구현된 값은 `entra`이며 지원되지 않는 향후 프로바이더 이름은 시작을 차단합니다. |

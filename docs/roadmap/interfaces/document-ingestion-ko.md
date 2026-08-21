@@ -1,8 +1,8 @@
 ---
 title: 문서 인제스트와 Drop Zone
 translation_of: document-ingestion.md
-translation_source_sha: eca72b81cb50e6e0839ca82c1b45bd4c9d60dea1
-translation_revised: 2026-08-20
+translation_source_sha: 7d9a2b2033a24e559e9db178b333faf113376113
+translation_revised: 2026-08-21
 ---
 # 문서 인제스트와 투입 구역
 
@@ -315,7 +315,7 @@ StorageV2 계정을 사용합니다. HNS 계정에는 Blob versioning을 사용�
 
 공개 콘솔은 인증된 인제스트 게이트웨이로 바이트를 전송합니다. 게이트웨이는 선언된 크기를
 검증하고 요청 전체를 기억에 버퍼하지 않은 채 비공개 ADLS로 스트림하며 SHA-256과 크기
-메타데이터를 봉인한 후 shared `aw.pipeline.stages` 토픽에 `document.received`를 publish합니다. 영속 Kafka
+메타데이터를 봉인한 후 shared `fdai.pipeline.stages` 토픽에 `document.received`를 publish합니다. 영속 Kafka
 소비자 그룹이 워커를 at-least-once로 실행하며 커밋되지 않은 실패는 재시작 후
 재시도합니다. ClamAV는 replica-local sidecar로 실행되고 clean 문서만 추출, pgvector
 인덱싱, quarantine-to-governed atomic 이름 변경에 도달합니다.

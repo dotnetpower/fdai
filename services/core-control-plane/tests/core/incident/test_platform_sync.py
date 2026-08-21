@@ -61,7 +61,7 @@ async def test_sync_publishes_stable_bounded_event() -> None:
     sync = IncidentPlatformSync(
         provider=_Provider(),
         event_bus=bus,
-        topic="aw.incidents",
+        topic="fdai.incidents",
         limit=20,
     )
 

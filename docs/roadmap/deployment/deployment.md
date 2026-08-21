@@ -121,7 +121,7 @@ prod topology so shadow evaluation is representative.
     The primary shard owns governed ingress, its DLQs, HIL, and pipeline stages. The operational
     shard owns canary + DLQ, startup round-trip, raw inventory, Executor command + DLQ, and
     Executor receipt entities. This stays within the Standard tier's ten-entity namespace limit.
-    Subscription resource writes/deletes are forwarded to `aw.inventory.raw` by a managed-identity
+    Subscription resource writes/deletes are forwarded to `fdai.inventory.raw` by a managed-identity
     Event Grid subscription. No Service Bus or custom Event Grid topic exists.
   - **PostgreSQL Flexible Server** (Burstable B1ms, 1 zone, 7-day backup) as the single store
     for audit + KPI + pattern library + **pgvector** T1 embeddings.

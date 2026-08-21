@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Narrator, DI Seams, and Session Model
 translation_of: operator-console-runtime-model.md
-translation_source_sha: 3cde049634d68b569a2badf44975d4cfa7609fa3
-translation_revised: 2026-08-14
+translation_source_sha: f959c94f31e854f6f6d53f1aa1e6e32f6f84ab3d
+translation_revised: 2026-08-21
 ---
 
 # Operator Console - Narrator, DI Seams, and 세션 모델
@@ -83,7 +83,7 @@ Settings는 정제된 프로바이더, Foundry project 구성 여부, 에이전�
 ### 4.1.1 프로세스 간 에이전트 introspection
 
 Core 런타임만 Pantheon을 소유합니다. 분리된 Operator API는 두 번째 에이전트 런타임을 내장하지 않고
-`aw.pantheon.objects`에 multiplex한 범위가 제한된 logical 서비스 토픽 두 개로 Bragi에 접근합니다.
+`fdai.pantheon.objects`에 multiplex한 범위가 제한된 logical 서비스 토픽 두 개로 Bragi에 접근합니다.
 Server-echo 탐색으로 응답 소비자를 확인하고 재시도 중 같은 joining 소비자를 재사용하며 최초
 Event Hubs 그룹 결합을 최대 20초 허용합니다. 요청은 silent 잘림 없이 최대 2,000자 질문과 process-secret salted
 SHA-256 user/세션 참조를 전달합니다. 응답은 답변 16 KiB, 전체 결과 64 KiB, 대기 20초,

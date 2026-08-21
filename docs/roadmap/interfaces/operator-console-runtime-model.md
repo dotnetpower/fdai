@@ -81,7 +81,7 @@ endpoint, Azure resource ID, tenant identity, or credentials.
 ### 4.1.1 Cross-process agent introspection
 
 The core runtime remains the only Pantheon owner. A separate Operator API reaches Bragi through two
-bounded logical service topics multiplexed over `aw.pantheon.objects`; it never embeds another
+bounded logical service topics multiplexed over `fdai.pantheon.objects`; it never embeds another
 agent runtime. A server-echo probe confirms the response consumer, reuses the same joining consumer
 across retries, and allows 20 seconds for the initial Event Hubs group join. A request carries a
 2,000-character maximum question with no silent truncation plus process-secret salted SHA-256 user/session references. The response is

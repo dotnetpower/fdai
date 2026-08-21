@@ -469,7 +469,7 @@ variable "kafka_bootstrap_servers" {
 variable "kafka_topic_events" {
   description = "Primary event-ingest topic (`KAFKA_TOPIC_EVENTS`)."
   type        = string
-  default     = "aw.change.events"
+  default     = "fdai.change.events"
 }
 
 variable "semantic_turn_request_topic" {

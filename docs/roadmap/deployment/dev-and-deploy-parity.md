@@ -255,7 +255,7 @@ Pantheon bridge starts, Uvicorn completes application startup, or Vite publishes
 respectively, so a spawned process isn't presented as a ready service.
 The standard local Azure profile uses the same lock by default when `FDAI_RUNTIME_LOCK_FILE` is unset, so a direct `python -m fdai` launch cannot bypass the singleton guard. Production runtimes continue to use a process lock only when the deployment configures one explicitly.
 The core runtime remains the only Pantheon owner, and local and deployed interactive reads use the same execution-mode policy and fail startup when intent IDs, Heimdall ownership, or plan bindings drift. Embedded direct Pantheon chat delegation is fixture-only. With `FDAI_OPERATOR_API_EMBED_PANTHEON=0`, the Operator API reaches Bragi's conversational port through bounded request and response logical topics on the
-existing `aw.pantheon.objects` transport. A startup probe confirms the response consumer before traffic is accepted. The client reuses a joining consumer across retries and allows a 20-second initial Event Hubs group join.
+existing `fdai.pantheon.objects` transport. A startup probe confirms the response consumer before traffic is accepted. The client reuses a joining consumer across retries and allows a 20-second initial Event Hubs group join.
 `GET /chat/health` reads semantic bridge worker readiness directly and does not require a durable
 `conversation/chat.health` projection row. It returns HTTP 200 with `starting` or `event-bridge`
 mode so a missing unrelated projection cannot be reported as an unreachable model.
@@ -460,7 +460,7 @@ The Agent hub retains one latest validated `agent.state` event per agent and see
 registering each new subscriber under the same lock. This bounded process-local snapshot hydrates a
 refresh without polling, but it is not durable history replay and disappears when the Operator process
 restarts. `FDAI_LIVE_STAGE_CONSUMER_GROUP_ID` must still be distinct for every independently running
-Operator process or replica so each hub consumes the complete `aw.pipeline.stages` stream. Its default
+Operator process or replica so each hub consumes the complete `fdai.pipeline.stages` stream. Its default
 preserves single-process compatibility only. The isolated E2E launcher always replaces an inherited
 value with a UUID-scoped group and never joins the group used by the browser-serving Operator.
 
@@ -508,7 +508,7 @@ Agent Activity keeps live runtime frames separate from durable source projection
 copies scan or read history into the action audit chain. Selecting an observed agent still shows its live state, current work, runtime binding, state timestamp, stream provenance, and incident
 context without inferring an audit event.
 The headless Pantheon publishes health-derived `agent.runtime-state` frames on the same
-`aw.pipeline.stages` transport that carries control-loop progress. The Operator API distinguishes
+`fdai.pipeline.stages` transport that carries control-loop progress. The Operator API distinguishes
 runtime-state frames from stage frames and forwards only agents whose consumers are live and whose
 health probe isn't in error. Interactive local and deployment use this same cross-process path; the
 local profile changes the PostgreSQL binding, not agent activation or stream semantics.

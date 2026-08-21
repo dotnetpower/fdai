@@ -34,7 +34,7 @@ def _bus() -> MultiplexedEventBus:
     return MultiplexedEventBus(
         bus=LocalEventBus(),
         logical_topics=AGENT_INTROSPECTION_TOPICS,
-        physical_topic="aw.pantheon.objects",
+        physical_topic="fdai.pantheon.objects",
     )
 
 
@@ -332,7 +332,7 @@ async def test_conflicting_duplicate_request_is_not_replayed_as_original() -> No
 
     assert runtime.ask.await_count == 1
     assert isinstance(bus.bus, LocalEventBus)
-    records = bus.bus._records["aw.pantheon.objects"]  # noqa: SLF001 - wire assertion
+    records = bus.bus._records["fdai.pantheon.objects"]  # noqa: SLF001 - wire assertion
     assert records[-1][1]["result"]["handoff_reason"] == "request_id_conflict"
 
 

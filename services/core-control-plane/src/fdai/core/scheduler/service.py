@@ -42,7 +42,7 @@ from fdai.shared.telemetry.transitions import (
 
 _LOGGER = logging.getLogger(__name__)
 
-SCHEDULE_EVENT_TOPIC = "aw.schedule.events"
+SCHEDULE_EVENT_TOPIC = "fdai.schedule.events"
 _SOURCE = "fdai.core.scheduler"
 
 

@@ -16,12 +16,22 @@ variable "resource_group_name" {
 variable "topics" {
   description = "Kafka topics to provision under this namespace. DLQ siblings (<topic>.dlq) are auto-created."
   type        = list(string)
+
+  validation {
+    condition     = alltrue([for topic in var.topics : !startswith(topic, "aw.")])
+    error_message = "The legacy aw. product topic prefix is not supported; use fdai. instead."
+  }
 }
 
 variable "auxiliary_topics" {
   description = "Event Hub entities that do not receive a generated DLQ sibling."
   type        = list(string)
   default     = []
+
+  validation {
+    condition     = alltrue([for topic in var.auxiliary_topics : !startswith(topic, "aw.")])
+    error_message = "The legacy aw. product topic prefix is not supported; use fdai. instead."
+  }
 }
 
 variable "partition_count" {

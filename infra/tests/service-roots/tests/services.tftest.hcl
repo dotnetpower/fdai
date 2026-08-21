@@ -86,7 +86,7 @@ run "document_ingestion_api_plan" {
     }
     image          = "registry.example.com/ingestion@sha256:0000000000000000000000000000000000000000000000000000000000000000"
     identity       = { resource_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-ingestion", client_id = "ingestion-client" }
-    event_topics   = { pipeline_stages = "aw.pipeline.stages" }
+    event_topics   = { pipeline_stages = "fdai.pipeline.stages" }
     database       = { dsn_secret_id = "https://example.vault.azure.net/secrets/ingestion-dsn", role = "fdai_ingestion_api" }
     document_store = { account_name = "storageexample", account_url = "https://storage.example.com", source_file_system = "documents" }
     rollback       = { strategy = "previous-revision", previous_image = "registry.example.com/ingestion@sha256:1111111111111111111111111111111111111111111111111111111111111111" }
@@ -122,7 +122,7 @@ run "document_processing_worker_plan" {
     image        = "registry.example.com/document-worker@sha256:0000000000000000000000000000000000000000000000000000000000000000"
     clamav       = { image = "registry.example.com/clamav@sha256:2222222222222222222222222222222222222222222222222222222222222222", host = "127.0.0.1", port = 3310 }
     identity     = { resource_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-document-worker", client_id = "document-worker-client" }
-    event_topics = { pipeline_stages = "aw.pipeline.stages", pantheon_objects = "aw.pantheon.objects" }
+    event_topics = { pipeline_stages = "fdai.pipeline.stages", pantheon_objects = "fdai.pantheon.objects" }
     database     = { dsn_secret_id = "https://example.vault.azure.net/secrets/document-worker-dsn", role = "fdai_ingestion_worker" }
     document_store = {
       account_name        = "storageexample"

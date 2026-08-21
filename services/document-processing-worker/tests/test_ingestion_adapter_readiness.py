@@ -61,7 +61,7 @@ _WORKER_ENV = {
     "FDAI_EMBEDDING_ENDPOINT": "https://example.invalid",
     "FDAI_EMBEDDING_DEPLOYMENT": "embedding",
     "FDAI_KAFKA_BOOTSTRAP_SERVERS": "example.invalid:9093",
-    "FDAI_DOCUMENT_EVENT_TOPIC": "aw.pipeline.stages",
+    "FDAI_DOCUMENT_EVENT_TOPIC": "fdai.pipeline.stages",
     "FDAI_CLAMAV_HOST": "127.0.0.1",
     "FDAI_CLAMAV_PORT": "3310",
 }

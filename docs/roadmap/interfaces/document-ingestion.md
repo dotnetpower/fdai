@@ -311,7 +311,7 @@ it reports a missing source only when neither the source nor target can complete
 
 The public console sends bytes to the authenticated ingestion gateway. The gateway validates the
 declared size, streams the request to private ADLS without buffering the whole file, seals SHA-256
-and size metadata, and publishes `document.received` to the shared `aw.pipeline.stages` topic. A durable Kafka
+and size metadata, and publishes `document.received` to the shared `fdai.pipeline.stages` topic. A durable Kafka
 consumer group runs the worker at least once; uncommitted failures are retried after restart.
 ClamAV runs as a replica-local sidecar, and only a clean document reaches extraction, pgvector
 indexing, and the atomic quarantine-to-governed rename.

@@ -25,7 +25,7 @@ from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.sse import SseEvent
 from fdai.shared.providers.stage_publisher import ObservationSource
 
-DEFAULT_STAGE_TOPIC = "aw.pipeline.stages"
+DEFAULT_STAGE_TOPIC = "fdai.pipeline.stages"
 DEFAULT_RUNTIME_STATE_INTERVAL_SECONDS = 15.0
 DEFAULT_RUNTIME_STATE_STARTUP_RETRY_SECONDS = 0.25
 

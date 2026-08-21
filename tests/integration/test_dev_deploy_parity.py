@@ -48,7 +48,7 @@ _LIVE_DEPLOY_ENV_LOCAL_FAKE: Mapping[str, str] = {
     "KAFKA_BOOTSTRAP_SERVERS": "evhns-fdai-dev-krc.servicebus.windows.net:9093",
     "KAFKA_SECURITY_PROTOCOL": "SASL_SSL",
     "KAFKA_SASL_MECHANISM": "OAUTHBEARER",
-    "KAFKA_TOPIC_EVENTS": "aw.change.events",
+    "KAFKA_TOPIC_EVENTS": "fdai.change.events",
     "POSTGRES_HOST": "psql-fdai-dev-krc.postgres.database.azure.com",
     "POSTGRES_DATABASE": "fdai",
     "RUNTIME_ENV": "dev",

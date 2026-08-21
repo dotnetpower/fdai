@@ -55,7 +55,7 @@ require_source_contract \
   'offset reset policy'
 require_source_contract \
   "${repository_root}/services/core-control-plane/src/fdai/delivery/ingestion_gateway/prod.py" \
-  '"aw.pantheon.objects"' \
+  '"fdai.pantheon.objects"' \
   'pantheon physical topic'
 require_source_contract \
   "${repository_root}/services/core-control-plane/src/fdai/delivery/persistence/postgres_document_ingestion.py" \
@@ -63,12 +63,12 @@ require_source_contract \
   'durable claim namespace'
 require_source_contract_count \
   "${repository_root}/infra/main.tf" \
-  'scope                = module.event_bus.auxiliary_topic_ids["aw.pipeline.stages"]' \
+  'scope                = module.event_bus.auxiliary_topic_ids["fdai.pipeline.stages"]' \
   3 \
   'pipeline stage role scopes'
 require_source_contract_count \
   "${repository_root}/infra/main.tf" \
-  'scope                = module.event_bus.topic_ids["aw.pantheon.objects"]' \
+  'scope                = module.event_bus.topic_ids["fdai.pantheon.objects"]' \
   2 \
   'pantheon object role scopes'
 

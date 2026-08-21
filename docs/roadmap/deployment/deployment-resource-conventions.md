@@ -18,6 +18,7 @@ deployment-specific values outside the upstream distribution.
 |------|-------|----------|-------|
 | Core control plane startup probe | not-applicable | `current change`; `terraform fmt` and `terraform validate` pass on the service root | Three attempts sized a startup probe to cover a boot that opened the health port late. The runtime now opens that port before startup readiness runs, so liveness answers immediately and the probe is unnecessary. The protected update contract also rejected it, because it proves rollback only for an image and revision-suffix change. |
 | CAF naming and `fdai:` ownership tags | implemented | `infra/main.tf`, `infra/bootstrap/main.tf`, and focused Terraform tests | Terraform computes names and tags; runtime code consumes outputs. |
+| Event Bus product topic namespace | in-progress | `current change`; `infra/main.tf`, service defaults, deployment preparation, and focused Event Bus and Terraform checks | Active product-prefixed topics use `fdai.*`. A protected plan, exact apply, drain, and post-apply receipt are still required before the deployed namespace is validated. |
 | Independent-service Terraform state roots | validated | `config/independent-service-live-evidence-manifest.json` and `config/independent-service-remote-evidence.json` | All five service roots have governed plan, apply, health, peer-isolation, and rollback evidence. |
 | Legacy platform and ops-bootstrap Terraform state roots | implemented | `infra/main.tf`, `infra/bootstrap/main.tf`, `.github/workflows/deploy-dev.yml`, and focused Terraform and workflow checks | Stable backend keys and deployment mechanisms are shipped; governed apply receipts for these two roots are not retained in the repository. |
 | OHL scale-out evidence target naming and tags | implemented | current change in `infra/main.tf`; `terraform -chdir=infra test -filter=tests/dev_operations_gateway.tftest.hcl` reports 8 passed | Live provisioning and recurrence evidence remain open. |
@@ -31,6 +32,7 @@ deployment-specific values outside the upstream distribution.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-21 | in-progress | Replaced the undocumented `aw.*` product prefix in active Event Bus topic contracts with the canonical `fdai.*` prefix. Historical validation rows retain the names they actually observed. Contract-specific `runtime.*`, `object.*`, `operator.*`, and `core.*` topics and non-Event-Bus channels remain outside this prefix migration. | `current change`; naming owner, Terraform topic declarations and roles, service defaults, deployment preparation, and focused Event Bus and Terraform checks. | Run a protected plan that makes every entity replacement explicit, apply the exact reviewed plan, drain or expire the old entities, and retain post-apply runtime evidence. |
 | 2026-08-18 | implemented | Gave the core control plane a bounded startup probe. Its runtime evaluates startup readiness before it opens the health port, so the liveness budget of roughly 91 seconds expired during a normal boot and every new revision entered `CrashLoopBackOff` while the previous revision stayed healthy. A startup probe defers liveness and readiness until the port answers. | `current change`; `terraform fmt`, `terraform init -backend=false`, and `terraform validate` pass on the service root; independent-service contract checks `27 passed`, service Terraform root suite passed, drift contract `7 passed`, CI contract `36 passed`. Measured cause: the failing replica logged `startup_ok` then stopped at `notification_route_unavailable` with no `health_server_ready`, system events reported repeated readiness probe failures, and a local boot took 27 s from `startup_ok` to `startup_readiness_evaluated`. | Confirm a new revision reaches `Healthy` on the deployed environment; tracked on issue #181. |
 | 2026-08-18 | implemented | Removed the core startup probe binding. PR #194 made the runtime open its health port before startup readiness runs, so liveness answers immediately and no probe has to cover a slow boot. Keeping the probe also blocked every core deploy: the protected update contract proves rollback only for an image and revision-suffix change, so a plan that added a probe block was refused. | `current change`; `terraform fmt` and `terraform validate` pass on the service root. Measured cause: plan run `32113084153` showed `+ startup_probe` alongside the image change and `guard_plan.py` reported `protected update changes fields rollback cannot prove`. | Confirm the next protected plan contains only the image and revision suffix, and that the new revision reaches `Healthy`; tracked on #181. |
 | 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and added the optional OHL VM Scale Set convention. | current change; focused Terraform tests report 8 passed. | Capture the exact protected apply and live OHL evidence. |
@@ -59,6 +61,10 @@ deployment-specific values outside the upstream distribution.
 - [ ] Retain repository-safe governed apply receipts for the legacy platform and ops-bootstrap
   roots. Each receipt must bind the backend key, exact protected plan, source revision, target
   identity, and post-apply verification before those roots advance to `validated`.
+- [ ] Retain one protected Event Bus migration receipt that binds the exact plan and source
+  revision, shows every `aw.*` to `fdai.*` entity replacement and role-scope update, reports no
+  unrelated replacement or deletion, drains or expires old retained records, and passes the
+  post-apply startup, canary, HIL, stage, inventory, and semantic transport checks.
 - [ ] Record a protected apply receipt showing the OHL target keeps its deterministic name,
   application-resource-group placement, private subnet, and required `fdai:` tags.
 - [ ] Record a protected apply and execution receipt showing `caj-<workload>-migrate` succeeds
@@ -95,6 +101,26 @@ Pattern:
 The default **resource group** is `rg-fdai` (fixed by user directive). Everything the
 system provisions lives under that RG unless a resource type requires a subscription-scope
 placement (none today).
+
+### Event Bus product topic namespace
+
+An Event Bus topic that uses the FDAI product namespace starts with `fdai.` and follows
+`fdai.<domain>.<purpose>`. Current examples include `fdai.change.events`,
+`fdai.pantheon.objects`, and `fdai.pipeline.stages`. A dead-letter entity appends `.dlq` to the
+complete topic name, such as `fdai.change.events.dlq`.
+
+Terraform owns provisioned topic names and passes them to each runtime through configuration.
+Application defaults support local startup and must match the Terraform-selected names; they do
+not create a second naming authority. The undocumented `aw.` product prefix is legacy and is not
+accepted in an active topic default or new infrastructure declaration. Historical evidence keeps
+the exact `aw.*` name that was observed so a later rename cannot rewrite a prior validation claim.
+
+This product-prefix rule does not rename contract-specific `runtime.*`, `object.*`, `operator.*`,
+or `core.*` topics, nor does it apply to SSE channels, OpenTelemetry keys, Entra groups, or chat
+commands. Changing a provisioned Event Hub entity name is a replacement, not an in-place rename.
+A deployment therefore uses a protected plan and exact apply, verifies every role scope and
+producer/consumer binding, drains or expires retained records on the old entity, and records
+post-apply transport evidence before deleting the old path.
 
 ### CAF prefixes for the day-zero inventory
 
@@ -166,7 +192,7 @@ not derive, rename, or substitute these cross-service channels. Each Container A
 name once, so a legacy literal cannot shadow the Terraform-selected topic.
 The root variable and its child service module declare the same optional `semantic_requests` and
 `semantic_projections` fields. They also declare `semantic_physical`, the provisioned Event Hub
-that carries both logical topics. The default physical topic is `aw.pantheon.objects`, whose
+that carries both logical topics. The default physical topic is `fdai.pantheon.objects`, whose
 existing logical-topic envelope and `.dlq` sibling preserve schema isolation, stable partition
 keys, per-logical-topic hashed consumer groups, and dead-letter routing without consuming another
 Event Hubs entity. The logical request and projection names remain distinct contract and

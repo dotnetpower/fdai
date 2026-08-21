@@ -99,7 +99,7 @@ receives only the server-owned allowlist and injected provider; operator text ca
 endpoint, deployment, credential, or provider scope.
 
 Local and deployed semantic turns also use the same logical request and projection names. When the
-deployment multiplexes them over `aw.pantheon.objects`, both modes use the same physical marker,
+deployment multiplexes them over `fdai.pantheon.objects`, both modes use the same physical marker,
 hashed consumer-group derivation, managed-identity transport, and shared physical DLQ behavior.
 
 Local and deployed Operator API composition also exposes the same service-owned, authenticated,

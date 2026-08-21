@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: adfdab67bca0a645e15e08c364ccf2c32a3039bd
+translation_source_sha: 85ede3eb16ba014462a16427db2916c3f8014309
 translation_revised: 2026-08-20
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -258,7 +258,7 @@ VS 코드는 Pantheon 브리지 시작, Uvicorn 애플리케이션 시작 완료
 Vite 로컬 주소 게시를 각각 확인한 뒤에만 background 작업을 준비된으로 표시합니다. 따라서 프로세스가
 생성되기만 한 상태를 준비된 서비스로 표시하지 않습니다.
 표준 로컬 Azure 프로파일은 `FDAI_RUNTIME_LOCK_FILE`이 설정되지 않아도 같은 잠금을 기본값으로 사용하므로, `python -m fdai`를 직접 실행해도 singleton 가드를 우회할 수 없습니다. 운영 런타임은 배포에서 명시적으로 구성한 경우에만 프로세스 잠금을 계속 사용합니다.
-Core 런타임만 Pantheon을 소유하며 로컬 및 deployed interactive 읽기는 같은 execution-mode 정책을 사용하고 의도 ID, Heimdall 소유권 또는 계획 연결 표류 시 시작을 차단합니다. Embedded direct Pantheon 채팅 위임은 fixture-only입니다. `FDAI_OPERATOR_API_EMBED_PANTHEON=0`일 때 Operator API는 기존 `aw.pantheon.objects` 전송 계층의 범위가 제한된 요청/응답 logical 토픽을 통해 Bragi conversational
+Core 런타임만 Pantheon을 소유하며 로컬 및 deployed interactive 읽기는 같은 execution-mode 정책을 사용하고 의도 ID, Heimdall 소유권 또는 계획 연결 표류 시 시작을 차단합니다. Embedded direct Pantheon 채팅 위임은 fixture-only입니다. `FDAI_OPERATOR_API_EMBED_PANTHEON=0`일 때 Operator API는 기존 `fdai.pantheon.objects` 전송 계층의 범위가 제한된 요청/응답 logical 토픽을 통해 Bragi conversational
 포트에 접근합니다. 시작 탐색으로 응답 소비자 준비를 확인한 후 트래픽을 받습니다. 클라이언트는 재시도 중 joining 소비자를 재사용하고 최초 Event Hubs 그룹 결합을 최대 20초 허용합니다.
 `GET /chat/health`는 semantic bridge worker 준비 상태를 직접 읽으며 영속
 `conversation/chat.health` projection row를 요구하지 않습니다. 관련 없는 projection 누락을 접근할 수
@@ -456,7 +456,7 @@ Live 및 Agent 관찰에는 서로 다른 프로세스 내부 재생 규칙이 �
 구독 이후 이벤트만 전달합니다. Agent hub는 agent별로 검증된 최신 `agent.state` 이벤트 하나를
 보존하고 새 구독자를 같은 잠금 안에서 등록하면서 이 값들을 초기값으로 제공합니다. 범위가 제한된
 이 프로세스 내부 스냅샷은 polling 없이 새로 고침을 초기화하지만 영속 이력 재생은 아니며 Operator
-프로세스가 다시 시작되면 사라집니다. 각 hub가 전체 `aw.pipeline.stages` 스트림을 consume하려면
+프로세스가 다시 시작되면 사라집니다. 각 hub가 전체 `fdai.pipeline.stages` 스트림을 consume하려면
 독립적으로 실행되는 Operator 프로세스 또는 복제본마다 `FDAI_LIVE_STAGE_CONSUMER_GROUP_ID`가
 계속 고유해야 합니다. 기본값은 단일 프로세스 호환성만 유지합니다. 격리된 E2E launcher는 상속된
 값을 항상 UUID 범위 그룹으로 교체하며 브라우저에 서비스를 제공하는 Operator가 사용하는 그룹에
@@ -505,7 +505,7 @@ PostgreSQL trusted-artifact 기록에서 활성화된 카탈로그를 재구성�
 프로파일은 모두 `/agents/stream`을 적용하기 전에 `GET /agents/activity`를 불러오며 검사 또는 읽기
 이력을 액션 감사 체인에 복사하지 않습니다. 관찰된 에이전트를 선택하면 감사 이벤트를 추론하지 않고
 실제 운영 상태, 현재 작업, 런타임 연결, 상태 시각, 스트림 출처 이력 및 인시던트 맥락을 표시합니다.
-Headless Pantheon은 control-loop 진행 상황을 전달하는 동일한 `aw.pipeline.stages` 전송 계층에 실제
+Headless Pantheon은 control-loop 진행 상황을 전달하는 동일한 `fdai.pipeline.stages` 전송 계층에 실제
 상태에서 파생한 `agent.runtime-state` 프레임을 발행합니다. Operator API는 runtime-state 프레임과 단계
 프레임을 구분하고 소비자가 실제 운영이며 상태 탐색이 오류가 아닌 에이전트만 전달합니다. Interactive
 로컬과 배포는 같은 프로세스 간 경로를 사용하며 로컬 프로파일은 에이전트 activation이나 스트림

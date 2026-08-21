@@ -107,10 +107,10 @@ describe("agent activity durable refresh", () => {
 
   test("reloads durable audit for work and completed handler transitions", () => {
     expect(shouldRefreshAuditForAgentMessage(
-      stateMessage("collecting", "Processing aw.change.events", "corr-1"),
+      stateMessage("collecting", "Processing fdai.change.events", "corr-1"),
     )).toBe(true);
     expect(shouldRefreshAuditForAgentMessage(
-      stateMessage("watching", "Processed aw.change.events"),
+      stateMessage("watching", "Processed fdai.change.events"),
     )).toBe(true);
   });
 

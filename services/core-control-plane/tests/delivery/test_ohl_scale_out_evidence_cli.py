@@ -21,7 +21,7 @@ _INITIATOR = "00000000-0000-0000-0000-000000000001"
 def _config(**overrides: object) -> OhlScaleOutProposalConfig:
     values: dict[str, object] = {
         "bootstrap_servers": "event.example.com:9093",
-        "topic": "aw.change.events",
+        "topic": "fdai.change.events",
         "target_resource_id": _TARGET,
         "initiator_principal": _INITIATOR,
         "campaign_id": "campaign-20260813",
@@ -53,10 +53,10 @@ async def test_publish_uses_target_partition_key_and_primary_topic() -> None:
 
     receipt = await publish_scale_out_proposal(config, event_bus)
     envelopes = [
-        envelope async for envelope in event_bus.subscribe("aw.change.events", "test-reader")
+        envelope async for envelope in event_bus.subscribe("fdai.change.events", "test-reader")
     ]
 
-    assert receipt.topic == "aw.change.events"
+    assert receipt.topic == "fdai.change.events"
     assert len(envelopes) == 1
     assert envelopes[0].key == _TARGET
     assert envelopes[0].payload == build_scale_out_proposal(config)

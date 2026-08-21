@@ -200,7 +200,7 @@ describe("agents.model", () => {
       msg: {
         ...stateMsg("Huginn", "watching"),
         ts: "2026-07-12T00:00:15+00:00",
-        detail: "Processed aw.change.events",
+        detail: "Processed fdai.change.events",
       },
     });
 

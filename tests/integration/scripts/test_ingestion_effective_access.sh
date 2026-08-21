@@ -25,7 +25,7 @@ cat >"${work_dir}/evidence.json" <<'EOF'
       "database_role": "fdai_ingestion_api",
       "expected_role_assignments": [
         {"role_name": "AcrPull", "scope": "/registries/fdai"},
-        {"role_name": "Azure Event Hubs Data Sender", "scope": "/eventhubs/aw.pipeline.stages"},
+        {"role_name": "Azure Event Hubs Data Sender", "scope": "/eventhubs/fdai.pipeline.stages"},
         {"role_name": "Cognitive Services OpenAI User", "scope": "/models/fdai"},
         {"role_name": "Key Vault Secrets User", "scope": "/secrets/ingestion-api-dsn"},
         {"role_name": "Storage Blob Data Contributor", "scope": "/storage/documents"}
@@ -37,8 +37,8 @@ cat >"${work_dir}/evidence.json" <<'EOF'
       "database_role": "fdai_ingestion_worker",
       "expected_role_assignments": [
         {"role_name": "AcrPull", "scope": "/registries/fdai"},
-        {"role_name": "Azure Event Hubs Data Receiver", "scope": "/eventhubs/aw.pantheon.objects"},
-        {"role_name": "Azure Event Hubs Data Sender", "scope": "/eventhubs/aw.pipeline.stages"},
+        {"role_name": "Azure Event Hubs Data Receiver", "scope": "/eventhubs/fdai.pantheon.objects"},
+        {"role_name": "Azure Event Hubs Data Sender", "scope": "/eventhubs/fdai.pipeline.stages"},
         {"role_name": "Cognitive Services OpenAI User", "scope": "/models/fdai"},
         {"role_name": "Key Vault Secrets User", "scope": "/secrets/ingestion-worker-dsn"},
         {"role_name": "Storage Blob Data Contributor", "scope": "/storage/documents"}

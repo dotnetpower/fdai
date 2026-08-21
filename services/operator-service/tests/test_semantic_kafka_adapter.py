@@ -171,7 +171,7 @@ def _multiplexed_bus(monkeypatch) -> tuple[OperatorSemanticKafkaBus, Credential]
         OperatorSemanticKafkaBus(
             config=OperatorSemanticKafkaConfig(
                 bootstrap_servers="example.servicebus.windows.net:9093",
-                physical_topic="aw.pantheon.objects",
+                physical_topic="fdai.pantheon.objects",
             ),
             credential=credential,  # type: ignore[arg-type]
         ),
@@ -206,7 +206,7 @@ async def test_multiplexed_producer_preserves_key_and_marks_logical_topic(monkey
     producer = Producer.latest
     assert producer is not None
     physical_topic, key, encoded = producer.sent[0]
-    assert physical_topic == "aw.pantheon.objects"
+    assert physical_topic == "fdai.pantheon.objects"
     assert key == b"request-1"
     payload = json.loads(encoded)
     assert payload.pop(LOGICAL_TOPIC_FIELD) == "operator.semantic-turn.requests"
@@ -259,13 +259,13 @@ async def test_consumer_commits_only_after_yielded_payload_is_processed(monkeypa
 async def test_multiplexed_consumer_filters_and_commits_other_logical_topics(monkeypatch) -> None:  # type: ignore[no-untyped-def]
     Consumer.messages = [
         SimpleNamespace(
-            topic="aw.pantheon.objects",
+            topic="fdai.pantheon.objects",
             key=b"other-1",
             value=(b'{"_fdai_logical_topic":"object.verdict","status":"ignored"}'),
             offset=3,
         ),
         SimpleNamespace(
-            topic="aw.pantheon.objects",
+            topic="fdai.pantheon.objects",
             key=b"request-1",
             value=(b'{"_fdai_logical_topic":"core.semantic-turn.projections","status":"answer"}'),
             offset=4,
@@ -277,7 +277,7 @@ async def test_multiplexed_consumer_filters_and_commits_other_logical_topics(mon
     assert await anext(stream) == {"status": "answer"}
     consumer = Consumer.latest
     assert consumer is not None
-    assert consumer.topic == "aw.pantheon.objects"
+    assert consumer.topic == "fdai.pantheon.objects"
     assert consumer.kwargs["group_id"] == multiplexed_consumer_group(
         "operator-semantic-turn-v1",
         "core.semantic-turn.projections",
@@ -299,7 +299,7 @@ async def test_multiplexed_dead_letter_uses_shared_physical_dlq(monkeypatch) -> 
     producer = Producer.latest
     assert producer is not None
     physical_topic, key, encoded = producer.sent[0]
-    assert physical_topic == "aw.pantheon.objects.dlq"
+    assert physical_topic == "fdai.pantheon.objects.dlq"
     assert key == b"request-1"
     assert json.loads(encoded) == {
         LOGICAL_TOPIC_FIELD: "core.semantic-turn.projections",

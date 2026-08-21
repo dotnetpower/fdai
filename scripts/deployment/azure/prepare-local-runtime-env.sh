@@ -300,7 +300,7 @@ fi
 inventory_topic="$(printf '%s' "$operational_topics_json" | "$REPO_ROOT/.venv/bin/python" -c '
 import json, sys
 topics = json.load(sys.stdin)
-required = "aw.inventory.raw"
+required = "fdai.inventory.raw"
 print(required if isinstance(topics, list) and required in topics else "")
 ')"
 
@@ -346,10 +346,10 @@ grep -vE '^(AZURE_TENANT_ID|AZURE_SUBSCRIPTION_ID|AZURE_RESOURCE_GROUP|AZURE_REG
   printf 'FDAI_KAFKA_BOOTSTRAP_SERVERS=127.0.0.1:19092\n'
   printf 'FDAI_SEMANTIC_TURN_REQUEST_TOPIC=operator.semantic-turn.requests\n'
   printf 'FDAI_SEMANTIC_TURN_PROJECTION_TOPIC=core.semantic-turn.projections\n'
-  printf 'FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC=aw.pantheon.objects\n'
-  printf 'KAFKA_TOPIC_EVENTS=aw.change.events\n'
-  printf 'FDAI_STAGE_TOPIC=aw.pipeline.stages\n'
-  printf 'FDAI_PANTHEON_OBJECT_TOPIC=aw.pantheon.objects\n'
+  printf 'FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC=fdai.pantheon.objects\n'
+  printf 'KAFKA_TOPIC_EVENTS=fdai.change.events\n'
+  printf 'FDAI_STAGE_TOPIC=fdai.pipeline.stages\n'
+  printf 'FDAI_PANTHEON_OBJECT_TOPIC=fdai.pantheon.objects\n'
   if [[ -n "$inventory_topic" ]]; then
     printf 'FDAI_INVENTORY_RAW_TOPIC=%s\n' "$inventory_topic"
   fi
@@ -374,7 +374,7 @@ grep -vE '^(AZURE_TENANT_ID|AZURE_SUBSCRIPTION_ID|AZURE_RESOURCE_GROUP|AZURE_REG
   # (~13s). Route the startup round-trip probe to an existing DLQ topic and widen
   # settle/timeouts so startup readiness reaches "ready" instead of blocking the
   # Pantheon on a probe deadline. Deployed runtimes join faster inside the VNet.
-  printf 'FDAI_STARTUP_KAFKA_PROBE_TOPIC=aw.change.events.dlq\n'
+  printf 'FDAI_STARTUP_KAFKA_PROBE_TOPIC=fdai.change.events.dlq\n'
   printf 'FDAI_STARTUP_KAFKA_SETTLE_SECONDS=20\n'
   printf 'FDAI_STARTUP_PROBE_TIMEOUT_SECONDS=90\n'
   printf 'FDAI_STARTUP_PHASE_TIMEOUT_SECONDS=180\n'

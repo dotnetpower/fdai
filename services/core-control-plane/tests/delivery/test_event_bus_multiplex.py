@@ -55,8 +55,9 @@ async def test_non_multiplexed_topic_passes_through() -> None:
         physical_topic="objects",
     )
 
-    await bus.publish("aw.change.events", "one", {"kind": "raw"})
-    assert (await anext(bus.subscribe("aw.change.events", "core"))).topic == ("aw.change.events")
+    await bus.publish("fdai.change.events", "one", {"kind": "raw"})
+    received = await anext(bus.subscribe("fdai.change.events", "core"))
+    assert received.topic == "fdai.change.events"
 
 
 async def test_multiplexed_dead_letter_round_trip_preserves_logical_topic() -> None:

@@ -1,8 +1,8 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 11e2e69664444044ed8ae29b865d0bb6a2417fed
-translation_revised: 2026-08-20
+translation_source_sha: d616bd2c9a4f910ace997a5d98904c1da05059f3
+translation_revised: 2026-08-21
 ---
 
 # 배포(배포)
@@ -124,7 +124,7 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
     샤드는 canary + DLQ, 시작 round-trip, raw 인벤토리, 실행기 명령 + DLQ 및 실행기
     증적 개체를 소유하며 Standard 계층의 이름 공간당 개체 10개 제한을 지킵니다.
     구독 리소스 쓰기/삭제는 managed-identity Event Grid 구독이
-    `aw.inventory.raw`로 forward합니다. 독립 Service Bus와 custom Event Grid 토픽은 없습니다.
+    `fdai.inventory.raw`로 forward합니다. 독립 Service Bus와 custom Event Grid 토픽은 없습니다.
   - **PostgreSQL Flexible Server** (Burstable B1ms, 1 영역, 7일 백업) 을 감사 + KPI +
     패턴 라이브러리 + **pgvector** T1 임베딩의 단일 저장소로.
   - **비공개 StorageV2 case-history 계정**에 Shared Key 비활성화, Blob versioning,

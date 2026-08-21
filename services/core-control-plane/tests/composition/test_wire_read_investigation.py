@@ -240,7 +240,7 @@ async def test_resource_state_publishes_privacy_bounded_activity() -> None:
         "What is the current state of vm-01?",
         {"session_id": "session-one", "user_id": "reader-one"},
     )
-    events = [event async for event in bus.subscribe("aw.pipeline.stages", "test")]
+    events = [event async for event in bus.subscribe("fdai.pipeline.stages", "test")]
 
     assert [event.payload["status"] for event in events] == ["started", "completed"]
     assert events[-1].payload["owner_agent"] == "Heimdall"
@@ -272,7 +272,7 @@ async def test_repeated_resource_state_reads_keep_distinct_activity_identity(
 
     await hook(question, context)
     await hook(question, context)
-    events = [event async for event in bus.subscribe("aw.pipeline.stages", "test")]
+    events = [event async for event in bus.subscribe("fdai.pipeline.stages", "test")]
 
     correlation_ids = [event.payload["correlation_id"] for event in events]
     assert len(correlation_ids) == 4
@@ -311,7 +311,7 @@ async def test_cross_source_state_conflict_lowers_the_answer_and_activity() -> N
         "What is the current state of vm-01?",
         {"session_id": "session-one", "user_id": "reader-one"},
     )
-    agreed_events = [event async for event in agreed_bus.subscribe("aw.pipeline.stages", "test")]
+    agreed_events = [event async for event in agreed_bus.subscribe("fdai.pipeline.stages", "test")]
 
     assert agreed is not None
     assert agreed["answer"] == "vm-01 is currently running."
@@ -327,7 +327,7 @@ async def test_cross_source_state_conflict_lowers_the_answer_and_activity() -> N
         {"session_id": "session-one", "user_id": "reader-one"},
     )
     contested_events = [
-        event async for event in contested_bus.subscribe("aw.pipeline.stages", "test")
+        event async for event in contested_bus.subscribe("fdai.pipeline.stages", "test")
     ]
 
     assert contested is not None

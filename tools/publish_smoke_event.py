@@ -13,7 +13,7 @@ Env vars:
   namespace host, e.g. ``<caf-eventhubs-namespace>.servicebus.windows.net``.
   Never hardcoded here per generic-scope.instructions.md (no endpoints in
   the repo); every environment / region has a different value.
-- ``FDAI_EVENT_HUB_TOPIC`` (optional, default ``aw.change.events``) -
+- ``FDAI_EVENT_HUB_TOPIC`` (optional, default ``fdai.change.events``) -
   Kafka topic to publish to. The default is the change-event topic every
   FDAI deployment provisions; a fork can point at a custom topic.
 """
@@ -34,7 +34,7 @@ from typing import Any
 from aiokafka import AIOKafkaProducer
 from aiokafka.abc import AbstractTokenProvider
 
-_DEFAULT_TOPIC = "aw.change.events"
+_DEFAULT_TOPIC = "fdai.change.events"
 
 
 def _resolve_namespace() -> str:

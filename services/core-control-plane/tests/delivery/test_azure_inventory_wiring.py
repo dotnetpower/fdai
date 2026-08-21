@@ -51,7 +51,7 @@ def _container():
             },
             "kafka": {
                 "bootstrap_servers": "example:9093",
-                "topic_events": "aw.change.events",
+                "topic_events": "fdai.change.events",
             },
             "postgres": {"host": "example.local", "database": "fdai"},
             "runtime": {"env": "dev"},

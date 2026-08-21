@@ -294,7 +294,7 @@ async def _run() -> int:
                 bus=bus,
                 logical_topics=_RUNTIME_LOGICAL_TOPICS,
                 physical_topic=os.environ.get(
-                    "FDAI_PANTHEON_OBJECT_TOPIC", "aw.pantheon.objects"
+                    "FDAI_PANTHEON_OBJECT_TOPIC", "fdai.pantheon.objects"
                 ).strip(),
             )
             auxiliary_bootstrap = os.environ.get(_AUXILIARY_KAFKA_BOOTSTRAP_ENV, "").strip()

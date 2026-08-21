@@ -1,8 +1,8 @@
 ---
 title: 운영과 검증(Operating and Verification)
 translation_of: operating-and-verification.md
-translation_source_sha: 477f20b9fa1db311812dd03916b2f5b4ad900e11
-translation_revised: 2026-08-20
+translation_source_sha: d3259d79ee8fd5b52712a498b88f66ce25b31fb1
+translation_revised: 2026-08-21
 ---
 
 # 운영과 검증(Operating and 검증)
@@ -126,7 +126,7 @@ HTTPS가 필수이며 엔드포인트의 자격 증명, 조회 문자열, 조각
 조용한 실패 모드가 있습니다. 별도로 권한을 부여한 토픽의 주기적 canary로 완화합니다.
 
 - **합성 이벤트**는 Container Apps 작업에서 5분마다 같은 Event Hubs 이름 공간의
-  `aw.control.canary`로 게시됩니다.
+  `fdai.control.canary`로 게시됩니다.
 - 전용 UAMI는 이미지를 pull하고 Event Hubs에 전송할 수만 있습니다. 코어의 별도 canary 소비자는
   `source=fdai.canary-job`과 `event_type=fdai.control.canary`만 허용합니다.
 - Canary 경로는 ingest, 경로, 감사 단계와 no-op 감사 항목을 기록합니다. T0/T1/T2, risk 게이트,

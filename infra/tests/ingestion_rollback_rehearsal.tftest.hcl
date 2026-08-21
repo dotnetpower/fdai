@@ -45,7 +45,7 @@ variables {
   embedding_deployment             = "embedding"
   ocr_endpoint                     = ""
   kafka_bootstrap_servers          = "kafka.example.com:9093"
-  document_event_topic             = "aw.pipeline.stages"
+  document_event_topic             = "fdai.pipeline.stages"
   runtime_env                      = "dev"
   document_collections             = "operations"
 }

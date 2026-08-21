@@ -173,12 +173,12 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         'elif [[ "$*" == *"output -raw event_bus_operational_kafka_bootstrap"* ]]; then\n'
         "  printf 'example-ops.servicebus.windows.net:9093'\n"
         'elif [[ "$*" == *"output -json event_bus_topics"* ]]; then\n'
-        '  printf \'["aw.finops.events","aw.change.events","aw.pantheon.objects"]\'\n'
+        '  printf \'["fdai.finops.events","fdai.change.events","fdai.pantheon.objects"]\'\n'
         + semantic_outputs
         + 'elif [[ "$*" == *"output -json event_bus_auxiliary_topics"* ]]; then\n'
-        "  printf '[\"aw.pipeline.stages\"]'\n"
+        "  printf '[\"fdai.pipeline.stages\"]'\n"
         'elif [[ "$*" == *"output -json event_bus_operational_topics"* ]]; then\n'
-        '  printf \'["aw.control.canary","aw.control.canary.dlq","aw.inventory.raw"]\'\n'
+        '  printf \'["fdai.control.canary","fdai.control.canary.dlq","fdai.inventory.raw"]\'\n'
         'elif [[ "$*" == *"output -raw resource_group_name"* ]]; then\n'
         "  printf 'rg-example'\n"
         'elif [[ "$*" == *"output -raw log_workspace_customer_id"* ]]; then\n'
@@ -247,11 +247,11 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         "FDAI_KAFKA_BOOTSTRAP_SERVERS=127.0.0.1:19092",
         "FDAI_SEMANTIC_TURN_REQUEST_TOPIC=operator.semantic-turn.requests",
         "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC=core.semantic-turn.projections",
-        "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC=aw.pantheon.objects",
-        "KAFKA_TOPIC_EVENTS=aw.change.events",
-        "FDAI_STAGE_TOPIC=aw.pipeline.stages",
-        "FDAI_PANTHEON_OBJECT_TOPIC=aw.pantheon.objects",
-        "FDAI_INVENTORY_RAW_TOPIC=aw.inventory.raw",
+        "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC=fdai.pantheon.objects",
+        "KAFKA_TOPIC_EVENTS=fdai.change.events",
+        "FDAI_STAGE_TOPIC=fdai.pipeline.stages",
+        "FDAI_PANTHEON_OBJECT_TOPIC=fdai.pantheon.objects",
+        "FDAI_INVENTORY_RAW_TOPIC=fdai.inventory.raw",
         "POSTGRES_HOST=127.0.0.1",
         "POSTGRES_DATABASE=fdai",
         "FDAI_DATABASE_URL=postgresql+psycopg://fdai:devonly@127.0.0.1:5432/fdai",
@@ -266,7 +266,7 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         "AUTONOMY_MODE_DEFAULT=shadow",
         "FDAI_START_CONSUMER=1",
         "FDAI_START_PANTHEON=1",
-        "FDAI_STARTUP_KAFKA_PROBE_TOPIC=aw.change.events.dlq",
+        "FDAI_STARTUP_KAFKA_PROBE_TOPIC=fdai.change.events.dlq",
         "FDAI_STARTUP_KAFKA_SETTLE_SECONDS=20",
         "FDAI_STARTUP_PROBE_TIMEOUT_SECONDS=90",
         "FDAI_STARTUP_PHASE_TIMEOUT_SECONDS=180",
@@ -300,7 +300,7 @@ def test_detects_single_log_workspace_when_terraform_state_omits_customer_id(
         'if [[ "$*" == *"output -raw event_bus_kafka_bootstrap"* ]]; then\n'
         "  printf 'example.servicebus.windows.net:9093'\n"
         'elif [[ "$*" == *"output -json event_bus_topics"* ]]; then\n'
-        "  printf '[\"aw.change.events\"]'\n"
+        "  printf '[\"fdai.change.events\"]'\n"
         'elif [[ "$*" == *"output -raw resource_group_name"* ]]; then\n'
         "  printf 'rg-example'\n"
         'elif [[ "$*" == *"output -raw executor_identity_resource_id"* ]]; then\n'
@@ -400,7 +400,7 @@ def test_uses_local_semantic_topics_without_inventory_invalidation(tmp_path: Pat
         'if [[ "$*" == *"output -raw event_bus_kafka_bootstrap"* ]]; then\n'
         "  printf 'example.servicebus.windows.net:9093'\n"
         'elif [[ "$*" == *"output -json event_bus_topics"* ]]; then\n'
-        "  printf '[\"aw.change.events\"]'\n"
+        "  printf '[\"fdai.change.events\"]'\n"
         'elif [[ "$*" == *"output -json event_bus_auxiliary_topics"* ]]; then\n'
         "  exit 1\n"
         'elif [[ "$*" == *"output -raw resource_group_name"* ]]; then\n'
@@ -472,7 +472,7 @@ def test_rejects_cli_subscription_that_differs_from_terraform(tmp_path: Path) ->
         'if [[ "$*" == *"output -raw event_bus_kafka_bootstrap"* ]]; then\n'
         "  printf 'example.servicebus.windows.net:9093'\n"
         'elif [[ "$*" == *"output -json event_bus_topics"* ]]; then\n'
-        "  printf '[\"aw.change.events\"]'\n"
+        "  printf '[\"fdai.change.events\"]'\n"
         'elif [[ "$*" == *"output -json event_bus_auxiliary_topics"* ]]; then\n'
         "  printf '[]'\n"
         'elif [[ "$*" == *"output -raw resource_group_name"* ]]; then\n'
@@ -596,7 +596,7 @@ def test_detects_gateway_via_azure_cli_when_terraform_state_omits_it(tmp_path: P
         'if [[ "$*" == *"output -raw event_bus_kafka_bootstrap"* ]]; then\n'
         "  printf 'example.servicebus.windows.net:9093'\n"
         'elif [[ "$*" == *"output -json event_bus_topics"* ]]; then\n'
-        "  printf '[\"aw.change.events\"]'\n"
+        "  printf '[\"fdai.change.events\"]'\n"
         'elif [[ "$*" == *"output -raw resource_group_name"* ]]; then\n'
         "  printf 'rg-example'\n"
         'elif [[ "$*" == *"output -raw executor_identity_resource_id"* ]]; then\n'

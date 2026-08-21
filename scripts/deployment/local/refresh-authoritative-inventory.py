@@ -123,7 +123,7 @@ async def refresh() -> InventoryOntologyProjectionResult:
     )
     activity_publisher = EventBusOperationalActivityPublisher(
         event_bus=event_bus,
-        topic=os.environ.get("FDAI_STAGE_TOPIC", "aw.pipeline.stages").strip(),
+        topic=os.environ.get("FDAI_STAGE_TOPIC", "fdai.pipeline.stages").strip(),
     )
     observed_store = ObservedInventorySnapshotStore(
         store=snapshot_store,

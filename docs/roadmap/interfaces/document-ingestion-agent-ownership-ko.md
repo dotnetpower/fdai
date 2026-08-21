@@ -1,7 +1,7 @@
 ---
 translation_of: document-ingestion-agent-ownership.md
-translation_source_sha: 0b3f085b95ee898fb1857aa21492a034a9528e9a
-translation_revised: 2026-08-20
+translation_source_sha: 9b3c670b4cb48a35be7d57f2b04724c616ad8764
+translation_revised: 2026-08-21
 ---
 
 # 문서 인제스트 에이전트 소유권
@@ -15,7 +15,7 @@ translation_revised: 2026-08-20
 
 ## 설계 개요
 
-업로드는 `Event`입니다. 각 파이프라인 단계는 `aw.pipeline.stages`에서 타입이 지정된 객체를
+업로드는 `Event`입니다. 각 파이프라인 단계는 `fdai.pipeline.stages`에서 타입이 지정된 객체를
 발행하거나 소비합니다. 워커나 게이트웨이의 부수 효과는 소유 에이전트의 결정을 대체할 수
 없습니다.
 
@@ -99,7 +99,7 @@ PostgreSQL 점유를 획득합니다. 점유는 워커 소유자, 시도 id, 개
 lifetime, scaling, managed 신원, database 권한 부여만 변경합니다. API는 워커 소비자 그룹을
 구독하지 않고 워커는 업로드 유입을 노출하지 않으며, 어느 프로세스도 배포 역할에서
 judgment, 승인, 감사, memory 또는 실행기 권한을 얻지 않습니다. Topic-scoped RBAC는
-워커가 `aw.pantheon.objects`에서 Saga와 Muninn 객체를 수신하고 `aw.pipeline.stages`로 단계
+워커가 `fdai.pantheon.objects`에서 Saga와 Muninn 객체를 수신하고 `fdai.pipeline.stages`로 단계
 사실을 보내게 하며, 분리 모드의 API 신원에는 워커 수신 권한을 부여하지 않습니다.
 각 프로세스는 연결된 user-assigned 신원 클라이언트 id도 `FDAI_MI_CLIENT_ID`로 받습니다. Storage,
 Event Hubs, 모델, 선택적 OCR 및 stewardship 어댑터는 해당 exact 신원을 선택하며 주변 또는

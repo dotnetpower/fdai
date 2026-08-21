@@ -4,7 +4,7 @@ Implements the shadow-mode attribution + response pipeline documented in
 [phase-1-rule-catalog-t0.md § Out-of-Band Detection]:
 
 1. **Signal source** - Azure Activity Log records already flowing
-   through the Kafka event-ingest topic (``aw.change.events``). The
+   through the Kafka event-ingest topic (``fdai.change.events``). The
    detector is invoked BEFORE :class:`~fdai.core.trust_router.TrustRouter`
    by :class:`~fdai.core.control_loop.ControlLoop` for events whose
    ``signal_kind == "azure.activity_log"``; every other event stream
@@ -23,14 +23,14 @@ Implements the shadow-mode attribution + response pipeline documented in
    - :attr:`~ChangeAttribution.OUT_OF_BAND` - the change appears to
      originate outside a merged remediation PR / known pipeline. This
      is the only attribution that produces a shadow reconcile PR and
-     an alert on the ``aw.change.out-of-band`` topic.
+     an alert on the ``fdai.change.out-of-band`` topic.
 
 3. **Response** - for :attr:`~ChangeAttribution.OUT_OF_BAND` the
    detector emits (in this exact order):
 
    a. an audit entry (append-only, shadow mode);
    b. an alert :class:`~fdai.shared.providers.event_bus.EventBus`
-      record on ``aw.change.out-of-band`` (never a Kafka publish keyed
+      record on ``fdai.change.out-of-band`` (never a Kafka publish keyed
       globally - always per-resource for ordering);
    c. a **shadow reconcile PR** through the injected
       :class:`~fdai.shared.providers.remediation_pr.RemediationPrPublisher`.
@@ -89,9 +89,9 @@ ACTIVITY_LOG_SIGNAL_KIND: Final[str] = "azure.activity_log"
 decide whether to invoke the detector. Kept here so the sender + the
 receiver share one canonical string."""
 
-OUT_OF_BAND_ALERT_TOPIC: Final[str] = "aw.change.out-of-band"
+OUT_OF_BAND_ALERT_TOPIC: Final[str] = "fdai.change.out-of-band"
 """Kafka topic (CSP-neutral naming) the detector uses for its alert
-events. Complements the day-zero ``aw.change.events`` topic in
+events. Complements the day-zero ``fdai.change.events`` topic in
 :file:`infra/main.tf` - a fork MAY override via config, but the string
 lives here so tests do not drift from wire."""
 
@@ -313,7 +313,7 @@ class ChangeSafetyDetector:
         pr_url: str | None = None
         pr_error: str | None = None
 
-        # 1. Alert event on aw.change.out-of-band.
+        # 1. Alert event on fdai.change.out-of-band.
         try:
             receipt = await self._event_bus.publish(
                 alert_topic,
@@ -523,7 +523,7 @@ def _alert_payload(
     reason: str,
     resource_id: str | None,
 ) -> Mapping[str, Any]:
-    """Build the wire payload for the ``aw.change.out-of-band`` topic."""
+    """Build the wire payload for the ``fdai.change.out-of-band`` topic."""
     payload = {
         "schema_version": "1.0.0",
         "alert_event_id": str(uuid5(_ATTRIBUTION_NAMESPACE, str(event.event_id))),

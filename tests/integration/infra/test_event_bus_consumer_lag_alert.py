@@ -13,7 +13,7 @@ def test_monitoring_alerts_on_exported_ingress_consumer_lag() -> None:
     assert 'resource "azurerm_monitor_scheduled_query_rules_alert_v2" "consumer_lag"' in module
     assert "scopes = [var.log_analytics_workspace_id]" in normalized
     assert 'tostring(log.message) == "event_bus_consumer_progress"' in module
-    assert 'tostring(log.topic) == "aw.change.events"' in module
+    assert 'tostring(log.topic) == "fdai.change.events"' in module
     assert "max(tolong(log.consumer_lag))" in module
     assert "tostring(log.consumer_group)" in module
     assert "toint(log.partition)" in module

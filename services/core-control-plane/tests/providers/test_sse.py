@@ -143,7 +143,7 @@ async def test_broadcaster_relays_event_bus_to_sse_channel() -> None:
     broadcaster = SseBroadcaster(
         event_bus=bus,
         sse_sink=sink,
-        topic_channel_map={"aw.change.events": "aw.change.stream"},
+        topic_channel_map={"fdai.change.events": "aw.change.stream"},
     )
 
     received: list[SseEvent] = []
@@ -164,12 +164,12 @@ async def test_broadcaster_relays_event_bus_to_sse_channel() -> None:
     await broadcaster.run()
 
     await bus.publish(
-        "aw.change.events",
+        "fdai.change.events",
         key="rg-example",
         payload={"correlation_id": "corr-a", "event_id": "evt-1", "n": 1},
     )
     await bus.publish(
-        "aw.change.events",
+        "fdai.change.events",
         key="rg-example",
         payload={"event_id": "evt-2", "n": 2},
     )
@@ -186,7 +186,7 @@ async def test_broadcaster_relays_event_bus_to_sse_channel() -> None:
     assert received[1].id == "evt-2"
     # Data is JSON-encoded and MUST embed the original topic + payload.
     body = json.loads(received[0].data)
-    assert body["topic"] == "aw.change.events"
+    assert body["topic"] == "fdai.change.events"
     assert body["payload"]["n"] == 1
 
 

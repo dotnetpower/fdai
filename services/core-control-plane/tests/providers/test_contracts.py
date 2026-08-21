@@ -124,10 +124,10 @@ async def test_event_bus_publish_receipt_has_monotonic_offsets(
     factory: Callable[[], EventBus],
 ) -> None:
     bus = factory()
-    r1 = await bus.publish("aw.change.events", "rg-example", {"n": 1})
-    r2 = await bus.publish("aw.change.events", "rg-example", {"n": 2})
-    assert r1.topic == "aw.change.events"
-    assert r2.topic == "aw.change.events"
+    r1 = await bus.publish("fdai.change.events", "rg-example", {"n": 1})
+    r2 = await bus.publish("fdai.change.events", "rg-example", {"n": 2})
+    assert r1.topic == "fdai.change.events"
+    assert r2.topic == "fdai.change.events"
     if r1.offset is not None and r2.offset is not None:
         assert r2.offset > r1.offset
 
@@ -138,10 +138,10 @@ async def test_event_bus_subscribe_returns_publish_order(
 ) -> None:
     bus = factory()
     for i in range(3):
-        await bus.publish("aw.change.events", f"key-{i}", {"n": i})
+        await bus.publish("fdai.change.events", f"key-{i}", {"n": i})
 
     got: list[int] = []
-    async for envelope in bus.subscribe("aw.change.events", "group-a"):
+    async for envelope in bus.subscribe("fdai.change.events", "group-a"):
         got.append(int(envelope.payload["n"]))
     assert got == [0, 1, 2]
 
@@ -151,14 +151,14 @@ async def test_event_bus_two_groups_see_same_messages(
     factory: Callable[[], EventBus],
 ) -> None:
     bus = factory()
-    await bus.publish("aw.change.events", "k", {"n": 1})
-    await bus.publish("aw.change.events", "k", {"n": 2})
+    await bus.publish("fdai.change.events", "k", {"n": 1})
+    await bus.publish("fdai.change.events", "k", {"n": 2})
 
     a: list[int] = []
-    async for e in bus.subscribe("aw.change.events", "group-a"):
+    async for e in bus.subscribe("fdai.change.events", "group-a"):
         a.append(int(e.payload["n"]))
     b: list[int] = []
-    async for e in bus.subscribe("aw.change.events", "group-b"):
+    async for e in bus.subscribe("fdai.change.events", "group-b"):
         b.append(int(e.payload["n"]))
     assert a == [1, 2]
     assert b == [1, 2]
@@ -169,22 +169,22 @@ async def test_event_bus_same_group_resumes_from_committed_offset(
     factory: Callable[[], EventBus],
 ) -> None:
     bus = factory()
-    await bus.publish("aw.change.events", "k", {"n": 1})
-    await bus.publish("aw.change.events", "k", {"n": 2})
+    await bus.publish("fdai.change.events", "k", {"n": 1})
+    await bus.publish("fdai.change.events", "k", {"n": 2})
 
     first_pass: list[int] = []
-    async for e in bus.subscribe("aw.change.events", "group-a"):
+    async for e in bus.subscribe("fdai.change.events", "group-a"):
         first_pass.append(int(e.payload["n"]))
     assert first_pass == [1, 2]
 
     second_pass: list[int] = []
-    async for e in bus.subscribe("aw.change.events", "group-a"):
+    async for e in bus.subscribe("fdai.change.events", "group-a"):
         second_pass.append(int(e.payload["n"]))
     assert second_pass == []
 
-    await bus.publish("aw.change.events", "k", {"n": 3})
+    await bus.publish("fdai.change.events", "k", {"n": 3})
     third_pass: list[int] = []
-    async for e in bus.subscribe("aw.change.events", "group-a"):
+    async for e in bus.subscribe("fdai.change.events", "group-a"):
         third_pass.append(int(e.payload["n"]))
     assert third_pass == [3]
 
@@ -194,15 +194,15 @@ async def test_event_bus_dead_letter_uses_topic_dlq_convention(
     factory: Callable[[], EventBus],
 ) -> None:
     bus = factory()
-    await bus.publish("aw.change.events", "k", {"n": 1})
-    await bus.dead_letter("aw.change.events", "k", {"n": 1}, reason="poison")
+    await bus.publish("fdai.change.events", "k", {"n": 1})
+    await bus.dead_letter("fdai.change.events", "k", {"n": 1}, reason="poison")
 
     envelopes = []
-    async for e in bus.subscribe("aw.change.events.dlq", "auditor"):
+    async for e in bus.subscribe("fdai.change.events.dlq", "auditor"):
         envelopes.append(e)
     assert len(envelopes) == 1
-    assert envelopes[0].topic == "aw.change.events.dlq"
-    assert envelopes[0].payload["original_topic"] == "aw.change.events"
+    assert envelopes[0].topic == "fdai.change.events.dlq"
+    assert envelopes[0].payload["original_topic"] == "fdai.change.events"
     assert envelopes[0].payload["reason"] == "poison"
 
 

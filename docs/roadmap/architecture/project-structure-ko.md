@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: d16176139f7dd809843a81d3af4ba150fb1f7083
+translation_source_sha: 9a23acdd6e2f9806cb33ca44749180b78768ff5c
 translation_revised: 2026-08-21
 ---
 # 프로젝트 구조
@@ -22,6 +22,7 @@ translation_revised: 2026-08-21
 | 인벤토리 신원 완전성 경계 | implemented | `shared/providers/inventory.py`, `delivery/azure/{arg_query,inventory}.py`, `composition/wire_inventory.py`, focused 검사 259개 통과 | Shared는 exact coverage 증적을 소유하고 Azure delivery는 범위가 제한된 native 신원 읽기를 소유하며 composition은 프로바이더 I/O를 Core로 옮기지 않고 두 경로를 연결합니다. |
 | 질문에 결속된 의미 필터 근거 확인 | 구현됨 | `core/conversation/semantic_planning_value_filters.py`, `tests/conversation/test_semantic_planning.py`, focused 계획 검사(`79 passed`) | Core는 발화에 명시된 카탈로그 값 그룹 또는 검증된 frame이 보존하고 해당 발화에 그대로 존재하는 정확한 자유 텍스트 subject 하나로만 후보 ObjectSet을 좁힐 수 있습니다. 프로바이더 I/O, 판단, 승인, 변경 또는 실행 권한은 추가하지 않습니다. |
 | 의미 frame 구성 경계 | 구현됨 | `core/conversation/semantic_planning_frame.py`, 집중 planner, tier-routing, investigation 및 Azure adapter 검사 111개 통과 | 집중 Core 모듈이 후보 frame을 정확한 입력 및 investigation identity에 결속하고 서버 소유 명확화 맥락만 해석합니다. 프로바이더 I/O를 수행하지 않으며 판단, 승인, 변경 또는 실행 권한을 부여하지 않습니다. |
+| Evaluation 및 의미 회귀 경계 | in-progress | `evaluation-sdk/`, `benchmarks/`, `eval/golden-dataset/`, `tests/integration/evaluation/test_golden_dataset.py` (`4 passed`) | 외부 호스트 통합은 휴면 상태이며 Core에 존재하지 않습니다. 보존된 패키지는 독립 workspace 구성원으로 유지합니다. 새로운 영어와 한국어 20쌍 corpus는 스키마, 카탈로그 신원, 관계 방향, 깊이, 근거, 읽기 전용 권한을 검증합니다. 답변 결과에 대한 캠페인 실행 연결은 남아 있습니다. |
 | 통제된 규칙 발견 시작 경계 | implemented | `core/readiness/discovery_activation.py`, `runtime/discovery_activation.py`, `runtime/bootstrap*.py`, `agents/norns.py`, 집중 활성화 및 연결 검사 | Core는 최신 선행 조건 근거를 집약하고, 런타임은 기본적으로 닫힌 결정을 Norns의 비활성 후보 게시 경계에만 주입하며, 감독되는 새로 고침이 실패하면 카탈로그 또는 승격 권한을 바꾸지 않고 로컬 게이트를 닫습니다. |
 | 로컬 telemetry 쓰기 경계 | implemented | `shared/telemetry/logging.py`, `capture-local-service-log.py`, 집중 telemetry·launcher·provider integration·framework layout 검사 | Shared telemetry는 범위가 제한된 구조화 경고 보존과 의존성 요약을 소유합니다. 로컬 launcher는 터미널 표시와 완전한 회전 파일 캡처를 소유하며, 어느 경로도 에이전트 전달이나 권한을 바꾸지 않습니다. |
 | Pre-dispatch kinetic safety 경계 | implemented | `core/operational_planning/kinetic_safety.py`, `delivery/kinetic_safety.py`, `delivery/kinetic_proposal.py`, `runtime/control_loop.py`, 집중 dispatch, HIL, artifact, proposal 및 runtime 검사(`119 passed`) | Core는 프로바이더 중립 ordering seam을 선언합니다. Delivery는 영속 OperationalPlan 및 proposal lineage를 다시 검증하고 correlation index에 있는 기존 exact V2 proposal과 기존 typed Action을 결합하며 runtime은 모든 Thor 실행기 전에 ControlLoop와 HIL resume이 하나의 writer를 공유하도록 합니다. Proposal이 없으면 legacy 동작을 유지하고 invalid evidence는 권한을 높이지 않은 채 dispatch를 차단합니다. |
@@ -29,6 +30,7 @@ translation_revised: 2026-08-21
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-21 | in-progress | 서비스 분해가 evaluation 호스트와 호환성 파사드를 제거한 뒤 물리 배치를 정정했습니다. 로캘 중립 온톨로지 탐색 및 답변 oracle을 갖춘 별도 이중 언어 cloud-operations golden dataset을 추가했습니다. | `current change`, `eval/golden-dataset/`, `tests/integration/evaluation/test_golden_dataset.py` 4개 통과, 휴면 패키지 테스트 68개 통과 | 자동 답변 회귀 coverage를 주장하기 전에 corpus를 기존 의미 질문 캠페인에 연결합니다. |
 | 2026-08-20 | 구현됨 | 정확한 후보 전용 frame 구성과 서버 소유 명확화 해석을 의미 플래너에서 집중 Core 모듈로 추출했습니다. 플래너는 기존 private adapter 표면을 유지하면서 적용되는 800줄 상한 아래로 돌아왔으며 frame digest, 명확화, 권한 또는 I/O 동작은 바뀌지 않았습니다. | `current change`, `semantic_planning.py`, `semantic_planning_frame.py`, 집중 의미 테스트 111개와 작업 범위 Ruff, formatting, strict mypy 및 강제 파일 LOC 검사 통과 | 구조 상한 복구에 남은 작업은 없습니다. |
 | 2026-08-20 | 구현됨 | 후보 계획 경계에서 결정론적 복수 필터 보존을 완성했습니다. 모델이 선택한 존재 조건식이 카탈로그에 선언된 다른 필터를 더 이상 누락하지 않으며, frame이 보존한 정확한 자유 텍스트 subject는 운영자가 그대로 작성한 경우에만 fragment 조건식이 됩니다. | `current change`, [이슈 #241](https://github.com/dotnetpower/fdai/issues/241), 의미 계획 검사 79개 통과, Ruff, formatting 및 strict mypy 통과 | 작업을 닫기 전에 인증된 Console 및 3개 viewport 표현 근거를 보존합니다. |
 | 2026-08-19 | implemented | 보존 경고 쓰기를 hot path에서 추가 전용으로 유지하고, 프로세스 간 24시간 압축을 조정하며, 잠금 대기와 구조화 레코드에 상한을 두고, 완전한 로컬 파일 캡처를 터미널 역압력과 분리했습니다. 반복 aiokafka와 Pantheon 관찰자 실패는 서로 다른 최초·주기 근거를 보존하고, 관찰자 복구는 전달이나 권한을 바꾸지 않고 bridge 소유 횟수를 기록합니다. | [이슈 #220](https://github.com/dotnetpower/fdai/issues/220), 집중 검사에서 telemetry 18건·launcher 16건·provider integration 45건·framework layout 11건 통과, Ruff 및 strict mypy 통과, 비평 16회 결과 Low 잔여 tradeoff만 남음 | 구현을 런타임 근거로 취급하기 전에 실제 로컬 프로세스를 다시 시작합니다. 배포 및 승격 근거는 변경되지 않았습니다. |
@@ -181,15 +183,14 @@ fdai/
 │   │   ├── pipeline/           # watch -> collect -> shadow/regression; distill은 DocumentEnvelope provenance bridge, cross-format equivalence 및 review-only ontology gate 추가
 │   │   └── codegen/            # 저작 헬퍼 (`new_action_type`, `new_object_type`) - 스캐폴드 생성만, 라이브 카탈로그 변경 안 함
 │   ├── agents/                # 판테온 런타임 - 15개 agent, typed topic, 선택적 exact-proposal Verdict binding, v2 conversation charter 및 bounded T1/T2 deliberation; [agent-pantheon-ko.md](../agents/agent-pantheon-ko.md) 참조
-│   ├── evaluation/            # public EvaluationHost 구현, capability attenuation, workspace policy, artifact custody, typed ingress 및 judgment 전 diagnostic ontology observation
-│   ├── benchmarking/          # legacy benchmark contract와 runner를 위한 임시 0.1.x compatibility facade
 │   ├── composition/           # composition root 패키지 (G-3, 트래커 #14): `__init__.py` facade + `_helpers.py` Container/LlmBindings(optional conversation T2 synthesis 포함) + request-role executor를 사용하는 exact-release semantic query assembly와 영속 비교 저장소를 직접 소유하는 context-selection shadow 실행기를 연결하는 `wire_context_selection.py`를 포함한 focused `wire_*` binder
 │   ├── runtime/               # reviewed alias-free metric-semantic catalog loading, exact Rule 세대 문서 스냅샷과 replay가 동일한 reconciliation, versioned isolated Executor shadow/effect handling, stable-offset remote client, EventBus/DLQ/health supervision, production entry point, reversible authority probe, operating-model 및 diagnostic-catalog startup projection/status, durable T2 recovery observation/backfill, Thor/Vidar 실행과 rollback을 사용하는 StateStore-backed proposer route selection, deadline-bound 영속 변환 결과 재생을 포함한 semantic runtime availability/readiness binding, transport/identity binding, startup readiness, worker gating 및 Norns post-turn review를 포함한 headless lifecycle/composition
 │   └── __main__.py            # 진입점 (P1 컨트롤 루프 기동)
 ├── services/core-control-plane/{src/fdai_core_service,tests}/ # Core entry point와 test
 ├── services/{operator-service,document-ingestion-api,document-processing-worker,isolated-executor}/와 packages/service-contracts/ # 독립 package, shared SDK, test, 타입이 고정된 semantic JSONB 영속성 및 projection row에 의존하지 않는 process-owned semantic bridge 상태
-├── evaluation-sdk/            # 독립적으로 package할 수 있는 neutral evaluation contract와 runner; FDAI implementation import 없음
-├── benchmarks/                # 독립적으로 package된 external-harness driver; FDAI wheel에 포함되지 않음
+├── evaluation-sdk/            # 휴면 상태의 독립 패키지 evaluation 계약과 실행기; FDAI 런타임 의존성 밖에서 보존
+├── benchmarks/                # 휴면 외부 실행 장치 driver 패키지와 별도의 명시적 CyberGym shadow 실행기
+├── eval/golden-dataset/       # 활성 이중 언어 의미 회귀 corpus와 온톨로지 탐색 oracle; 캠페인 연결은 남아 있음
 ├── extensions/                # 독립적으로 package된 optional capability; FDAI wheel에 포함되지 않음
 │   └── code-assurance/         # read-only bounded GitHub PR code/security review + governed skill asset
 ├── rule-catalog/              # catalog-as-code 데이터 (YAML) - Python 아님; 파이프라인은 services/core-control-plane/src/fdai/rule_catalog/ 에
@@ -550,7 +551,7 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
 | Risk 채점 & thresholds | risk-gate 구성 | - | 범용 임계값 | 고객 리스크 정책 |
 | 모델 프로바이더 | 모델 클라이언트 (기능별) | - | 설정된 기본 엔드포인트 | 고객 승인 모델 |
 | **실시간 아웃바운드 스트림** | `SseSink` (비동기 publish + async-iterator 구독, SSE 페이로드) | - | `InMemorySseSink` (테스트/데브); HTTP `text/event-stream` 어댑터는 콘솔 읽기 전용 표면과 함께 랜딩 | 양방향 표면이 필요하면 WebSocket 어댑터로 교체; 헤드리스 관찰기는 웹훅 전용. `shared/streaming/SseBroadcaster` 가 `EventBus` 토픽을 채널로 릴레이. |
-| **파이프라인 스테이지 발행자** | `StagePublisher` (`shared/providers/stage_publisher.py`) 의 `emit(StageEvent)` | - | `NullStagePublisher` (기본 - 스테이지 코드가 관찰 사이드이펙트 없이 실행되도록 유지) | 인프로세스 데브 / 단일 레플리카: `SseSinkStagePublisher` 가 `SseSink` 로 바로 동시 확산. 멀티 레플리카 프로덕션: `EventBusStagePublisher` 가 Kafka 토픽(기본 `aw.pipeline.stages`) 에 발행하고 기존 `SseBroadcaster` 가 모든 레플리카가 소비하는 SSE 채널로 릴레이. 파이프라인 스테이지 (`event_ingest`, `trust_router`, T0/T1/T2, `risk_gate`, `executor`, `audit`) 가 프로토콜을 받도록 backward-compat - 업스트림 기본은 아무 것도 발행 하지 않음. |
+| **파이프라인 스테이지 발행자** | `StagePublisher` (`shared/providers/stage_publisher.py`) 의 `emit(StageEvent)` | - | `NullStagePublisher` (기본 - 스테이지 코드가 관찰 사이드이펙트 없이 실행되도록 유지) | 인프로세스 데브 / 단일 레플리카: `SseSinkStagePublisher` 가 `SseSink` 로 바로 동시 확산. 멀티 레플리카 프로덕션: `EventBusStagePublisher` 가 Kafka 토픽(기본 `fdai.pipeline.stages`) 에 발행하고 기존 `SseBroadcaster` 가 모든 레플리카가 소비하는 SSE 채널로 릴레이. 파이프라인 스테이지 (`event_ingest`, `trust_router`, T0/T1/T2, `risk_gate`, `executor`, `audit`) 가 프로토콜을 받도록 backward-compat - 업스트림 기본은 아무 것도 발행 하지 않음. |
 | **콘솔 읽기 패널** | `ReadPanel` (`delivery/operator_api/panels.py`) | - | 코어 라우트만 (`/audit`, `/kpi`, `/hil-queue`); `ExampleFinOpsPanel` 은 참조용으로 제공되지만 UI 최소화를 위해 **미등록** | 포크가 `OperatorApiConfig.extra_panels` (각각 GET 전용 라우트로 래핑, 빌드 시 경로 검증) + 콘솔 `panels.tsx` 레지스트리 항목으로 버티컬 대시보드(FinOps 비용, 드리프트 보드, DR 드릴 이력) 추가 |
 | **LLM 계량(metering)** | `MeteringSink` / `MeteringReader` (`core/metering/sink.py`); `MeteringEmitter`가 명시적인 `control_plane` 또는 `operator_chat` 범위와 함께 프로바이더가 측정한 `usage`를 기록 | - | 단일 프로세스 dev 실행 장치는 하나의 `InMemoryMeteringSink`를 공유합니다. T1, T2, 서술기 어댑터가 측정된 토큰을 발행합니다. 독립적인 Operator 서비스는 `GET /kpi/llm-cost`를 유지하고 SELECT-only 역할로 영속 `llm_invocation` 행을 읽으며 상세를 제한하되 token-only 집계는 정확하게 유지합니다. Interactive 로컬은 준비된 권위 있는 입력에서 정제된 인벤토리와 Settings 변환 결과를 별도로 materialize합니다. | 설정된 가격은 내부 예산 컨트롤에 남고 프로바이더 지출로 변환 결과되지 않으며, 누락된 프로바이더는 synthetic 대신 사용 불가 상태를 유지합니다. |
 | **Infra 모듈** | `infra/modules/<seam>/` (Terraform 서브-모듈, `var.<seam>_kind` 로 선택) | - | Container Apps + PostgreSQL Flex + Event Hubs Kafka + Key Vault + Log Analytics | [csp-neutrality-ko.md § 승인된 대안 Azure 구현](csp-neutrality-ko.md#승인된-대안-azure-구현approved-alternative-azure-implementations) 에 따라 다른 서브-모듈 선택; 모듈의 출력 계약은 고정 유지 |

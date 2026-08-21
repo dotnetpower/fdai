@@ -260,7 +260,7 @@ Before any event can be judged, ingress must be attached to Azure signals:
    an **Event Hubs Kafka topic** - this is the CSP-neutral event bus contract
    ([csp-neutrality.md § Event bus contract](../architecture/csp-neutrality.md#1-event-bus-contract--kafka-wire-protocol)).
 2. **Kafka topics + consumer groups** - create the day-zero topics on the Event Hubs
-   namespace (`aw.change.events`, `aw.dr.events`, `aw.finops.events`, and their `<topic>.dlq`
+   namespace (`fdai.change.events`, `fdai.dr.events`, `fdai.finops.events`, and their `<topic>.dlq`
    siblings) and register the consumer group for `event-ingest`.
 3. **Idempotency prime** - the event-ingest layer stamps an **idempotency key** on every
    incoming event on first receipt so a replay is a no-op end to end.

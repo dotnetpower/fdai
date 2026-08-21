@@ -1,8 +1,8 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: a16dcede884688824657f66f06096184c47bad53
-translation_revised: 2026-08-19
+translation_source_sha: 1775a8155477380ad6bbb449a447f7b1e8ae1029
+translation_revised: 2026-08-21
 ---
 # 서술기 라우팅과 지연 시간
 
@@ -99,7 +99,7 @@ realtime 계열은 새 T2 역할 후보로 제공하지 않습니다. 모델 선
 선택할 수 없습니다.
 
 로컬과 배포 환경의 semantic turn도 동일한 logical 요청 및 변환 결과 이름을 사용합니다. 배포가
-이를 `aw.pantheon.objects`로 multiplex할 때 두 모드는 동일한 physical marker, hash 기반
+이를 `fdai.pantheon.objects`로 multiplex할 때 두 모드는 동일한 physical marker, hash 기반
 consumer-group 파생, managed-identity 전송 및 shared physical DLQ 동작을 사용합니다.
 
 로컬과 배포 환경의 Operator API 조립은 고정된 parity 매니페스트에 있는 서비스 소유의 인증된

@@ -69,44 +69,44 @@ override_module {
     namespace_name  = "evhns-fdai"
     kafka_bootstrap = "evhns-fdai.servicebus.example.com:9093"
     topics = [
-      "aw.change.events",
-      "aw.dr.events",
-      "aw.finops.events",
-      "aw.pantheon.objects",
+      "fdai.change.events",
+      "fdai.dr.events",
+      "fdai.finops.events",
+      "fdai.pantheon.objects",
     ]
     topic_ids = {
-      "aw.change.events"    = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai/eventhubs/aw.change.events"
-      "aw.dr.events"        = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai/eventhubs/aw.dr.events"
-      "aw.finops.events"    = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai/eventhubs/aw.finops.events"
-      "aw.pantheon.objects" = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai/eventhubs/aw.pantheon.objects"
+      "fdai.change.events"    = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai/eventhubs/fdai.change.events"
+      "fdai.dr.events"        = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai/eventhubs/fdai.dr.events"
+      "fdai.finops.events"    = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai/eventhubs/fdai.finops.events"
+      "fdai.pantheon.objects" = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai/eventhubs/fdai.pantheon.objects"
     }
     dlq_topics = [
-      "aw.change.events.dlq",
-      "aw.dr.events.dlq",
-      "aw.finops.events.dlq",
-      "aw.pantheon.objects.dlq",
+      "fdai.change.events.dlq",
+      "fdai.dr.events.dlq",
+      "fdai.finops.events.dlq",
+      "fdai.pantheon.objects.dlq",
     ]
     dlq_topic_ids = {
-      "aw.change.events.dlq"    = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai/eventhubs/aw.change.events.dlq"
-      "aw.dr.events.dlq"        = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai/eventhubs/aw.dr.events.dlq"
-      "aw.finops.events.dlq"    = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai/eventhubs/aw.finops.events.dlq"
-      "aw.pantheon.objects.dlq" = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai/eventhubs/aw.pantheon.objects.dlq"
+      "fdai.change.events.dlq"    = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai/eventhubs/fdai.change.events.dlq"
+      "fdai.dr.events.dlq"        = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai/eventhubs/fdai.dr.events.dlq"
+      "fdai.finops.events.dlq"    = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai/eventhubs/fdai.finops.events.dlq"
+      "fdai.pantheon.objects.dlq" = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai/eventhubs/fdai.pantheon.objects.dlq"
     }
     auxiliary_topic_ids = {
-      "aw.hil.decisions"   = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai/eventhubs/aw.hil.decisions"
-      "aw.pipeline.stages" = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai/eventhubs/aw.pipeline.stages"
+      "fdai.hil.decisions"   = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai/eventhubs/fdai.hil.decisions"
+      "fdai.pipeline.stages" = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai/eventhubs/fdai.pipeline.stages"
     }
     all_topic_ids = {
-      "aw.change.events"        = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai/eventhubs/aw.change.events"
-      "aw.dr.events"            = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai/eventhubs/aw.dr.events"
-      "aw.finops.events"        = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai/eventhubs/aw.finops.events"
-      "aw.pantheon.objects"     = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai/eventhubs/aw.pantheon.objects"
-      "aw.change.events.dlq"    = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai/eventhubs/aw.change.events.dlq"
-      "aw.dr.events.dlq"        = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai/eventhubs/aw.dr.events.dlq"
-      "aw.finops.events.dlq"    = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai/eventhubs/aw.finops.events.dlq"
-      "aw.pantheon.objects.dlq" = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai/eventhubs/aw.pantheon.objects.dlq"
-      "aw.hil.decisions"        = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai/eventhubs/aw.hil.decisions"
-      "aw.pipeline.stages"      = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai/eventhubs/aw.pipeline.stages"
+      "fdai.change.events"        = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai/eventhubs/fdai.change.events"
+      "fdai.dr.events"            = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai/eventhubs/fdai.dr.events"
+      "fdai.finops.events"        = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai/eventhubs/fdai.finops.events"
+      "fdai.pantheon.objects"     = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai/eventhubs/fdai.pantheon.objects"
+      "fdai.change.events.dlq"    = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai/eventhubs/fdai.change.events.dlq"
+      "fdai.dr.events.dlq"        = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai/eventhubs/fdai.dr.events.dlq"
+      "fdai.finops.events.dlq"    = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai/eventhubs/fdai.finops.events.dlq"
+      "fdai.pantheon.objects.dlq" = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai/eventhubs/fdai.pantheon.objects.dlq"
+      "fdai.hil.decisions"        = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai/eventhubs/fdai.hil.decisions"
+      "fdai.pipeline.stages"      = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai/eventhubs/fdai.pipeline.stages"
     }
   }
 }
@@ -117,28 +117,28 @@ override_module {
     namespace_id    = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai-ops"
     namespace_name  = "evhns-fdai-ops"
     kafka_bootstrap = "evhns-fdai-ops.servicebus.example.com:9093"
-    topics          = ["aw.control.canary", "runtime.startup.probe"]
+    topics          = ["fdai.control.canary", "runtime.startup.probe"]
     topic_ids = {
-      "aw.control.canary"     = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai-ops/eventhubs/aw.control.canary"
+      "fdai.control.canary"   = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai-ops/eventhubs/fdai.control.canary"
       "runtime.startup.probe" = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai-ops/eventhubs/runtime.startup.probe"
     }
     dlq_topics = [
-      "aw.control.canary.dlq",
+      "fdai.control.canary.dlq",
       "runtime.startup.probe.dlq",
     ]
     dlq_topic_ids = {
-      "aw.control.canary.dlq"     = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai-ops/eventhubs/aw.control.canary.dlq"
+      "fdai.control.canary.dlq"   = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai-ops/eventhubs/fdai.control.canary.dlq"
       "runtime.startup.probe.dlq" = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai-ops/eventhubs/runtime.startup.probe.dlq"
     }
     auxiliary_topic_ids = {
-      "aw.inventory.raw" = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai-ops/eventhubs/aw.inventory.raw"
+      "fdai.inventory.raw" = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai-ops/eventhubs/fdai.inventory.raw"
     }
     all_topic_ids = {
-      "aw.control.canary"         = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai-ops/eventhubs/aw.control.canary"
+      "fdai.control.canary"       = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai-ops/eventhubs/fdai.control.canary"
       "runtime.startup.probe"     = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai-ops/eventhubs/runtime.startup.probe"
-      "aw.control.canary.dlq"     = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai-ops/eventhubs/aw.control.canary.dlq"
+      "fdai.control.canary.dlq"   = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai-ops/eventhubs/fdai.control.canary.dlq"
       "runtime.startup.probe.dlq" = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai-ops/eventhubs/runtime.startup.probe.dlq"
-      "aw.inventory.raw"          = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai-ops/eventhubs/aw.inventory.raw"
+      "fdai.inventory.raw"        = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.EventHub/namespaces/evhns-fdai-ops/eventhubs/fdai.inventory.raw"
     }
   }
 }
@@ -301,7 +301,7 @@ run "split_roles_are_independent_by_default" {
         output.ingestion_effective_access_evidence.identities.api.expected_role_assignments,
         {
           role_name = "Azure Event Hubs Data Sender"
-          scope     = module.event_bus.auxiliary_topic_ids["aw.pipeline.stages"]
+          scope     = module.event_bus.auxiliary_topic_ids["fdai.pipeline.stages"]
         },
       )
     )
@@ -333,14 +333,14 @@ run "split_roles_are_independent_by_default" {
         output.ingestion_effective_access_evidence.identities.worker.expected_role_assignments,
         {
           role_name = "Azure Event Hubs Data Receiver"
-          scope     = module.event_bus.topic_ids["aw.pantheon.objects"]
+          scope     = module.event_bus.topic_ids["fdai.pantheon.objects"]
         },
       ) &&
       contains(
         output.ingestion_effective_access_evidence.identities.worker.expected_role_assignments,
         {
           role_name = "Azure Event Hubs Data Sender"
-          scope     = module.event_bus.auxiliary_topic_ids["aw.pipeline.stages"]
+          scope     = module.event_bus.auxiliary_topic_ids["fdai.pipeline.stages"]
         },
       )
     )

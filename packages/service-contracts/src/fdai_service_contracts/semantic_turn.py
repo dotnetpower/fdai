@@ -22,7 +22,7 @@ Digest = Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")]
 BoundedId = Annotated[str, Field(min_length=1, max_length=256)]
 SEMANTIC_REQUEST_TOPIC = "operator.semantic-turn.requests"
 SEMANTIC_PROJECTION_TOPIC = "core.semantic-turn.projections"
-SEMANTIC_PHYSICAL_TOPIC = "aw.pantheon.objects"
+SEMANTIC_PHYSICAL_TOPIC = "fdai.pantheon.objects"
 MAX_SEMANTIC_EVIDENCE_REFS = 12
 """Turn-level evidence references a projected semantic result may carry."""
 LOGICAL_TOPIC_FIELD = "_fdai_logical_topic"

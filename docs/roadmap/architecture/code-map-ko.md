@@ -1,8 +1,8 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 9c3a079211fbf082b64f517723b3ddb28998fc73
-translation_revised: 2026-08-20
+translation_source_sha: f99e409cf32fbea4317c242e3aad227db05e8bfc
+translation_revised: 2026-08-21
 ---
 # 코드 맵
 
@@ -73,6 +73,7 @@ translation_revised: 2026-08-20
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-21 | implemented | 공유 semantic physical-topic 기본값과 Operator Kafka fixture를 `fdai.pantheon.objects`에 맞췄습니다. Logical request/projection 이름, hash consumer group, 서비스 소유권, 근거 권한 및 읽기 전용 실행 권한은 바뀌지 않습니다. | `current change`; 공유 semantic 계약, Core 및 Operator adapter, 집중 semantic transport와 독립 서비스 검사. | 배포 명명 소유 문서가 추적하는 보호된 Event Bus 이행 및 post-apply semantic round-trip 증적을 보존합니다. |
 | 2026-08-20 | 진행 중 | 아래 인과 조사 행의 tracking owner를 정정했습니다. 해당 행의 이슈 #242 링크는 잘못 기록했습니다. 이슈 #242는 golden 및 generative question assurance를 소유하고, 인증된 인과 diagnosis parity와 실제 throttling blocker는 이슈 #244가 소유합니다. | [이슈 #244](https://github.com/dotnetpower/fdai/issues/244), 인증된 resource-filter 답변, 표준 로컬 Console의 타입이 지정된 인과 보류 | 이슈 #244의 인증된 인과 diagnosis 종료 조건을 완료합니다. |
 | 2026-08-20 | 구현됨 | 인증된 resource-group 재실행에서 선언된 type은 유지했지만 운영자가 작성한 name fragment를 누락해 resource group 42개 전체를 반환한 뒤 frame prompt를 v29로 올렸습니다. 이제 free-text와 선언된 type을 함께 사용하는 filter는 Core가 검증된 ObjectSet을 좁히기 전에 별도의 subject 및 measure 축을 보존해야 합니다. | `current change`, [이슈 #242](https://github.com/dotnetpower/fdai/issues/242), 기존 이중 언어 multi-filter grounding 테스트 및 집중 prompt 계약 | Core를 재시작하고 수정된 인증 답변을 보존한 뒤 slowdown 비교를 실행합니다. |
 | 2026-08-20 | 구현됨 | 인과 통합 호환성 종결을 완료했습니다. Azure frame adapter를 직접 호출하는 기존 경로는 빈 metric concept 기본값을 유지하고, production 계획 경로는 검토된 registry를 계속 명시적으로 전달합니다. 검증기 회귀 테스트는 dependency-bound scoped query-table 계약을 고정하고 새 Operator 표현 테스트는 service suite 소유자 하나만 가집니다. | `current change`, [이슈 #242](https://github.com/dotnetpower/fdai/issues/242), 집중 adapter 및 검증기 검사 27개, 수정된 인과 통합 slice 233개 통과 | 정확한 commit 및 통합 range selector를 실행한 뒤 인증된 Console 답변 두 개를 보존합니다. |
