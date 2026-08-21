@@ -146,6 +146,18 @@ def test_platform_workflow_isolates_monitoring_plan_changes() -> None:
         assert neutral_type in preflight_step
 
 
+def test_platform_gateway_plan_targets_active_moved_role_collections() -> None:
+    target_expression = _LEGACY_WORKFLOW[_LEGACY_WORKFLOW.index("TF_CLI_ARGS_plan:") :]
+    target_expression = target_expression[: target_expression.index("\n")]
+
+    for address in (
+        "azurerm_role_assignment.command_api_eventhubs_receiver",
+        "azurerm_role_assignment.command_api_eventhubs_sender",
+        "azurerm_role_assignment.executor_eventhubs_data_owner",
+    ):
+        assert f"-target={address}" in target_expression
+
+
 def test_platform_workflow_does_not_require_system_pip() -> None:
     assert "uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990" in _LEGACY_WORKFLOW
     assert 'version: "0.11.32"' in _LEGACY_WORKFLOW
