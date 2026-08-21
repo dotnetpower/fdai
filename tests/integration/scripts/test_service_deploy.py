@@ -1110,9 +1110,13 @@ def test_plan_guard_allows_exact_event_bus_topic_migration(guard: ModuleType) ->
     for environment in (before_environment, after_environment):
         environment[:] = [item for item in environment if item["name"] not in expected]
     before_environment.extend(
-        {"name": name, "value": f"legacy.{index}"} for index, name in enumerate(expected, start=1)
+        {"name": name, "value": f"legacy.{index}", "secret_name": ""}
+        for index, name in enumerate(expected, start=1)
     )
     after_environment.extend({"name": name, "value": value} for name, value in expected.items())
+    for item in before_environment:
+        if "value" in item:
+            item.setdefault("secret_name", "")
 
     guard.validate_plan(
         plan,

@@ -249,6 +249,16 @@ def _environment_by_name(container: dict[str, Any], *, address: str) -> dict[str
     return result
 
 
+def _environment_binding(item: dict[str, Any] | None) -> tuple[Any, Any] | None:
+    if item is None:
+        return None
+    secret_name = item.get("secret_name")
+    return (
+        item.get("value"),
+        None if secret_name in (None, "") else secret_name,
+    )
+
+
 def _guard_event_bus_topic_migration(
     before: dict[str, Any],
     after: dict[str, Any],
@@ -271,7 +281,8 @@ def _guard_event_bus_topic_migration(
     changed_names = {
         name
         for name in set(before_environment) | set(after_environment)
-        if before_environment.get(name) != after_environment.get(name)
+        if _environment_binding(before_environment.get(name))
+        != _environment_binding(after_environment.get(name))
     }
     violations: list[str] = []
     if changed_names != set(expected_values):
