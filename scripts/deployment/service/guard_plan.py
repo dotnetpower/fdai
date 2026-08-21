@@ -767,7 +767,7 @@ def _guard_initial_worker_drift(
     return expected == after
 
 
-def _guard_aligned_initial_drift(
+def _guard_aligned_transition_drift(
     resource_drift: Any,
     *,
     contract: ServiceContract,
@@ -1057,9 +1057,9 @@ def validate_plan(
         )
     )
     allowed_aligned_drift = (
-        initial_cutover
+        (initial_cutover or event_bus_topic_migration)
         and selected_before is not None
-        and _guard_aligned_initial_drift(
+        and _guard_aligned_transition_drift(
             resource_drift,
             contract=contract,
             planned_before=selected_before,

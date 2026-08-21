@@ -1128,6 +1128,53 @@ def test_plan_guard_allows_exact_event_bus_topic_migration(guard: ModuleType) ->
     )
 
 
+def test_plan_guard_allows_only_aligned_topic_rollback_drift(guard: ModuleType) -> None:
+    address = "module.operator_service.module.container_app.azurerm_container_app.service"
+    plan = _plan(address, ["update"])
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    before_environment = change["before"]["template"][0]["container"][0]["env"]
+    after_environment = change["after"]["template"][0]["container"][0]["env"]
+    expected = guard.event_bus_topic_migration("operator-service", surface="environment")
+    for environment in (before_environment, after_environment):
+        environment[:] = [item for item in environment if item["name"] not in expected]
+    before_environment.extend(
+        {"name": name, "value": f"legacy.{index}"} for index, name in enumerate(expected, start=1)
+    )
+    after_environment.extend({"name": name, "value": value} for name, value in expected.items())
+    drift_before = copy.deepcopy(change["before"])
+    drift_before["latest_revision_name"] = "service--planned"
+    drift_before["template"][0]["container"][0]["image"] = "new-image"
+    drift_after = copy.deepcopy(change["before"])
+    plan["resource_drift"] = [
+        {
+            "address": address,
+            "change": {
+                "actions": ["update"],
+                "before": drift_before,
+                "after": drift_after,
+            },
+        }
+    ]
+
+    guard.validate_plan(
+        plan,
+        service="operator-service",
+        environment="dev",
+        image_ref="image",
+        event_bus_topic_migration=True,
+    )
+
+    drift_after["identity"] = []
+    with pytest.raises(guard.PlanGuardError, match="platform or peer resource drift"):
+        guard.validate_plan(
+            plan,
+            service="operator-service",
+            environment="dev",
+            image_ref="image",
+            event_bus_topic_migration=True,
+        )
+
+
 def test_plan_guard_rejects_broad_event_bus_topic_migration(guard: ModuleType) -> None:
     address = "module.operator_service.module.container_app.azurerm_container_app.service"
     plan = _plan(address, ["update"])
