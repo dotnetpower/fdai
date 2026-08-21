@@ -19,11 +19,19 @@ _DIGEST_PATTERN = re.compile(r"sha256:[0-9a-f]{64}")
 _EVENT_BUS_TOPIC_MIGRATION = {
     "core-control-plane": {
         "tfvars": {
+            "canary": "fdai.control.canary",
             "events": "fdai.change.events",
+            "hil_decisions": "fdai.hil.decisions",
+            "inventory_raw": "fdai.inventory.raw",
+            "pipeline_stages": "fdai.pipeline.stages",
             "semantic_physical": "fdai.pantheon.objects",
         },
         "environment": {
+            "FDAI_CANARY_TOPIC": "fdai.control.canary",
+            "FDAI_HIL_DECISION_TOPIC": "fdai.hil.decisions",
+            "FDAI_INVENTORY_RAW_TOPIC": "fdai.inventory.raw",
             "KAFKA_TOPIC_EVENTS": "fdai.change.events",
+            "FDAI_STAGE_TOPIC": "fdai.pipeline.stages",
             "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC": "fdai.pantheon.objects",
         },
     },

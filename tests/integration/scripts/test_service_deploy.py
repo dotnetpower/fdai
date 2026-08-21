@@ -755,6 +755,13 @@ def test_core_contract_requires_complete_bootstrap_environment(contract: ModuleT
         "POSTGRES_HOST",
         "POSTGRES_DATABASE",
         "FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS",
+        "FDAI_CANARY_TOPIC",
+        "FDAI_HIL_DECISION_TOPIC",
+        "FDAI_INVENTORY_RAW_TOPIC",
+        "FDAI_STAGE_TOPIC",
+        "FDAI_SEMANTIC_TURN_REQUEST_TOPIC",
+        "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC",
+        "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC",
         "FDAI_STARTUP_KAFKA_PROBE_TOPIC",
         "FDAI_STARTUP_KAFKA_SETTLE_SECONDS",
         "FDAI_STARTUP_PROBE_TIMEOUT_SECONDS",
@@ -1126,6 +1133,49 @@ def test_plan_guard_allows_exact_event_bus_topic_migration(guard: ModuleType) ->
         image_ref="image",
         event_bus_topic_migration=True,
     )
+
+
+def test_plan_guard_requires_complete_core_transport_migration(guard: ModuleType) -> None:
+    service = "core-control-plane"
+    address = "module.core_control_plane.module.container_app.azurerm_container_app.service"
+    plan = _plan(address, ["update"])
+    contract = guard.resolve_service(service, "dev")
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    expected = guard.event_bus_topic_migration(service, surface="environment")
+    for side in ("before", "after"):
+        resource = change[side]
+        container = resource["template"][0]["container"][0]
+        container["command"] = ["fdai-core-control-plane"]
+        container["env"] = [
+            {"name": name, "value": "configured"} for name in contract.required_environment
+        ]
+        resource["tags"] = {"fdai:component": service}
+        environment = container["env"]
+        for name, expected_value in expected.items():
+            item = next(item for item in environment if item["name"] == name)
+            item["value"] = expected_value if side == "after" else f"legacy.{name.lower()}"
+
+    guard.validate_plan(
+        plan,
+        service=service,
+        environment="dev",
+        image_ref="image",
+        event_bus_topic_migration=True,
+    )
+
+    after_environment = change["after"]["template"][0]["container"][0]["env"]
+    partial_name = "FDAI_CANARY_TOPIC"
+    next(item for item in after_environment if item["name"] == partial_name)["value"] = (
+        f"legacy.{partial_name.lower()}"
+    )
+    with pytest.raises(guard.PlanGuardError, match="unapproved environment"):
+        guard.validate_plan(
+            plan,
+            service=service,
+            environment="dev",
+            image_ref="image",
+            event_bus_topic_migration=True,
+        )
 
 
 def test_plan_guard_allows_aligned_event_bus_topic_follow_up(guard: ModuleType) -> None:
@@ -1838,8 +1888,22 @@ def test_tfvars_derives_disabled_operator_channel_edge_without_mutating_source(
     [
         (
             "core-control-plane",
-            {"events": "aw.change.events", "semantic_physical": "aw.pantheon.objects"},
-            {"events": "fdai.change.events", "semantic_physical": "fdai.pantheon.objects"},
+            {
+                "canary": "aw.control.canary",
+                "events": "aw.change.events",
+                "hil_decisions": "aw.hil.decisions",
+                "inventory_raw": "aw.inventory.raw",
+                "pipeline_stages": "aw.pipeline.stages",
+                "semantic_physical": "aw.pantheon.objects",
+            },
+            {
+                "canary": "fdai.control.canary",
+                "events": "fdai.change.events",
+                "hil_decisions": "fdai.hil.decisions",
+                "inventory_raw": "fdai.inventory.raw",
+                "pipeline_stages": "fdai.pipeline.stages",
+                "semantic_physical": "fdai.pantheon.objects",
+            },
         ),
         (
             "operator-service",

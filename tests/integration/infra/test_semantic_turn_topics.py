@@ -51,6 +51,36 @@ def test_core_and_operator_service_roots_export_exact_semantic_env_vars() -> Non
         assert "var.event_topics.semantic_physical" in text
 
 
+def test_core_service_root_exports_operational_transport_topics() -> None:
+    module = (
+        _ROOT / "infra/services/core-control-plane/modules/core-control-plane/main.tf"
+    ).read_text(encoding="utf-8")
+    expected = {
+        "FDAI_CANARY_TOPIC": "canary",
+        "FDAI_HIL_DECISION_TOPIC": "hil_decisions",
+        "FDAI_INVENTORY_RAW_TOPIC": "inventory_raw",
+        "FDAI_STAGE_TOPIC": "pipeline_stages",
+    }
+    for environment_name, topic_field in expected.items():
+        assert (
+            f'{{ name = "{environment_name}", value = var.event_topics.{topic_field} }}' in module
+        )
+
+    for relative in (
+        "infra/services/core-control-plane/variables.tf",
+        "infra/services/core-control-plane/modules/core-control-plane/variables.tf",
+    ):
+        variables = (_ROOT / relative).read_text(encoding="utf-8")
+        for topic_field, default in (
+            ("canary", "fdai.control.canary"),
+            ("hil_decisions", "fdai.hil.decisions"),
+            ("inventory_raw", "fdai.inventory.raw"),
+            ("pipeline_stages", "fdai.pipeline.stages"),
+        ):
+            assert f"{topic_field}" in variables
+            assert f'optional(string, "{default}")' in variables
+
+
 def test_independent_service_child_modules_type_semantic_topic_inputs() -> None:
     for relative in (
         "infra/services/core-control-plane/modules/core-control-plane/variables.tf",

@@ -27,9 +27,13 @@ variable "identity" {
 }
 variable "event_topics" {
   type = object({
+    canary               = optional(string, "fdai.control.canary")
     events               = string
     executor_command     = string
     executor_receipt     = string
+    hil_decisions        = optional(string, "fdai.hil.decisions")
+    inventory_raw        = optional(string, "fdai.inventory.raw")
+    pipeline_stages      = optional(string, "fdai.pipeline.stages")
     startup_probe        = optional(string, "runtime.startup.probe")
     semantic_requests    = optional(string, "")
     semantic_projections = optional(string, "")
