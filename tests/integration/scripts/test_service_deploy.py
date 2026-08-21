@@ -1750,6 +1750,75 @@ def test_tfvars_derives_disabled_operator_channel_edge_without_mutating_source(
     assert payload["environments"]["dev"]["operator-service"]["channel_edge"]["enabled"] is True
 
 
+@pytest.mark.parametrize(
+    ("service", "legacy_topics", "expected_topics"),
+    [
+        (
+            "core-control-plane",
+            {"events": "aw.change.events", "semantic_physical": "aw.pantheon.objects"},
+            {"events": "fdai.change.events", "semantic_physical": "fdai.pantheon.objects"},
+        ),
+        (
+            "operator-service",
+            {
+                "events": "aw.change.events",
+                "semantic_requests": "operator.semantic-turn.requests",
+                "semantic_projections": "core.semantic-turn.projections",
+                "semantic_physical": "aw.pantheon.objects",
+            },
+            {
+                "events": "fdai.change.events",
+                "semantic_requests": "operator.semantic-turn.requests",
+                "semantic_projections": "core.semantic-turn.projections",
+                "semantic_physical": "fdai.pantheon.objects",
+            },
+        ),
+        (
+            "document-ingestion-api",
+            {"pipeline_stages": "aw.pipeline.stages"},
+            {"pipeline_stages": "fdai.pipeline.stages"},
+        ),
+        (
+            "document-processing-worker",
+            {
+                "pipeline_stages": "aw.pipeline.stages",
+                "pantheon_objects": "aw.pantheon.objects",
+            },
+            {
+                "pipeline_stages": "fdai.pipeline.stages",
+                "pantheon_objects": "fdai.pantheon.objects",
+            },
+        ),
+    ],
+)
+def test_tfvars_materializes_exact_event_bus_topic_migration(
+    tfvars: ModuleType,
+    service: str,
+    legacy_topics: dict[str, str],
+    expected_topics: dict[str, str],
+) -> None:
+    payload = {
+        "environments": {
+            "dev": {
+                service: {
+                    "name": "example",
+                    "event_topics": copy.deepcopy(legacy_topics),
+                }
+            }
+        }
+    }
+
+    selected = tfvars.select_tfvars(
+        payload,
+        service=service,
+        environment="dev",
+        migrate_event_bus_topics=True,
+    )
+
+    assert selected["event_topics"] == expected_topics
+    assert payload["environments"]["dev"][service]["event_topics"] == legacy_topics
+
+
 def test_state_migration_resolves_exact_source_and_destination(
     migration: ModuleType,
 ) -> None:

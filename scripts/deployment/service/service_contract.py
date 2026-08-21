@@ -16,6 +16,46 @@ _MATRIX_PATH = _SCRIPT_ROOT / "service-matrix.json"
 _MIGRATION_PATH = _REPO_ROOT / "infra" / "services" / "state-migration.json"
 _ENVIRONMENTS = frozenset({"dev", "staging", "prod"})
 _DIGEST_PATTERN = re.compile(r"sha256:[0-9a-f]{64}")
+_EVENT_BUS_TOPIC_MIGRATION = {
+    "core-control-plane": {
+        "tfvars": {
+            "events": "fdai.change.events",
+            "semantic_physical": "fdai.pantheon.objects",
+        },
+        "environment": {
+            "KAFKA_TOPIC_EVENTS": "fdai.change.events",
+            "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC": "fdai.pantheon.objects",
+        },
+    },
+    "operator-service": {
+        "tfvars": {
+            "events": "fdai.change.events",
+            "semantic_requests": "operator.semantic-turn.requests",
+            "semantic_projections": "core.semantic-turn.projections",
+            "semantic_physical": "fdai.pantheon.objects",
+        },
+        "environment": {
+            "KAFKA_TOPIC_EVENTS": "fdai.change.events",
+            "FDAI_SEMANTIC_TURN_REQUEST_TOPIC": "operator.semantic-turn.requests",
+            "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC": "core.semantic-turn.projections",
+            "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC": "fdai.pantheon.objects",
+        },
+    },
+    "document-ingestion-api": {
+        "tfvars": {"pipeline_stages": "fdai.pipeline.stages"},
+        "environment": {"FDAI_DOCUMENT_EVENT_TOPIC": "fdai.pipeline.stages"},
+    },
+    "document-processing-worker": {
+        "tfvars": {
+            "pipeline_stages": "fdai.pipeline.stages",
+            "pantheon_objects": "fdai.pantheon.objects",
+        },
+        "environment": {
+            "FDAI_DOCUMENT_EVENT_TOPIC": "fdai.pipeline.stages",
+            "FDAI_PANTHEON_OBJECT_TOPIC": "fdai.pantheon.objects",
+        },
+    },
+}
 
 
 class ServiceContractError(ValueError):
@@ -129,6 +169,17 @@ def resolve_service(service: str, environment: str) -> ServiceContract:
         entrypoint=raw["entrypoint"],
         required_environment=tuple(required_environment),
     )
+
+
+def event_bus_topic_migration(service: str, *, surface: str) -> dict[str, str]:
+    """Return the exact reviewed topic values for one deployment surface."""
+    if surface not in {"tfvars", "environment"}:
+        raise ServiceContractError("Event Bus migration surface must be tfvars or environment")
+    migration = _EVENT_BUS_TOPIC_MIGRATION.get(service)
+    if migration is None:
+        raise ServiceContractError(f"Event Bus topic migration is not supported for {service}")
+    values = migration[surface]
+    return dict(values)
 
 
 def validate_image_reference(contract: ServiceContract, repository: str, reference: str) -> str:

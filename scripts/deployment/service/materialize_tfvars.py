@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from service_contract import ServiceContractError, resolve_service
+from service_contract import ServiceContractError, event_bus_topic_migration, resolve_service
 
 
 class TfvarsError(ValueError):
@@ -24,6 +24,7 @@ def select_tfvars(
     service: str,
     environment: str,
     operator_channel_edge_enabled: bool | None = None,
+    migrate_event_bus_topics: bool = False,
 ) -> dict[str, Any]:
     """Select exactly one environment/service object and reserve image for the workflow."""
     resolve_service(service, environment)
@@ -46,6 +47,11 @@ def select_tfvars(
         if not isinstance(channel_edge, dict):
             raise TfvarsError("operator tfvars must contain a channel_edge object")
         channel_edge["enabled"] = operator_channel_edge_enabled
+    if migrate_event_bus_topics:
+        event_topics = materialized.get("event_topics")
+        if not isinstance(event_topics, dict):
+            raise TfvarsError("service tfvars must contain an event_topics object")
+        event_topics.update(event_bus_topic_migration(service, surface="tfvars"))
     return materialized
 
 
@@ -65,6 +71,7 @@ def main() -> int:
         "--operator-channel-edge-enabled",
         choices=("true", "false"),
     )
+    parser.add_argument("--event-bus-topic-migration", action="store_true")
     args = parser.parse_args()
     try:
         raw = json.load(sys.stdin)
@@ -80,6 +87,7 @@ def main() -> int:
             service=args.service,
             environment=args.environment,
             operator_channel_edge_enabled=edge_enabled,
+            migrate_event_bus_topics=args.event_bus_topic_migration,
         )
         write_tfvars(args.output, selected)
     except (OSError, json.JSONDecodeError, ServiceContractError, TfvarsError) as exc:

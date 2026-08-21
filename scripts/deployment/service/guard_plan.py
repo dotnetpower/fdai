@@ -10,7 +10,12 @@ import re
 from pathlib import Path
 from typing import Any
 
-from service_contract import ServiceContract, ServiceContractError, resolve_service
+from service_contract import (
+    ServiceContract,
+    ServiceContractError,
+    event_bus_topic_migration,
+    resolve_service,
+)
 
 
 class PlanGuardError(ValueError):
@@ -20,25 +25,6 @@ class PlanGuardError(ValueError):
 _DIGEST_IMAGE = re.compile(r"[^\s]+@sha256:[0-9a-f]{64}")
 _ALLOWED_SIDECARS = {
     "document-processing-worker": frozenset({"clamav"}),
-}
-_EVENT_BUS_TOPIC_MIGRATION_ENVIRONMENT = {
-    "core-control-plane": {
-        "KAFKA_TOPIC_EVENTS": "fdai.change.events",
-        "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC": "fdai.pantheon.objects",
-    },
-    "operator-service": {
-        "KAFKA_TOPIC_EVENTS": "fdai.change.events",
-        "FDAI_SEMANTIC_TURN_REQUEST_TOPIC": "operator.semantic-turn.requests",
-        "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC": "core.semantic-turn.projections",
-        "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC": "fdai.pantheon.objects",
-    },
-    "document-ingestion-api": {
-        "FDAI_DOCUMENT_EVENT_TOPIC": "fdai.pipeline.stages",
-    },
-    "document-processing-worker": {
-        "FDAI_DOCUMENT_EVENT_TOPIC": "fdai.pipeline.stages",
-        "FDAI_PANTHEON_OBJECT_TOPIC": "fdai.pantheon.objects",
-    },
 }
 _OPERATOR_CHANNEL_EDGE_ADDRESS = (
     "module.operator_service.module.channel_edge[0].azurerm_container_app.service"
@@ -270,9 +256,10 @@ def _guard_event_bus_topic_migration(
     address: str,
     contract: ServiceContract,
 ) -> list[str]:
-    expected_values = _EVENT_BUS_TOPIC_MIGRATION_ENVIRONMENT.get(contract.service)
-    if expected_values is None:
-        return [f"Event Bus topic migration is not supported for {contract.service}"]
+    try:
+        expected_values = event_bus_topic_migration(contract.service, surface="environment")
+    except ServiceContractError as exc:
+        return [str(exc)]
     before_primary = _primary_container(before, address=address, contract=contract)
     after_primary = _primary_container(after, address=address, contract=contract)
     if any(

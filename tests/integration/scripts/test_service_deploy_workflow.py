@@ -725,10 +725,10 @@ def test_service_workflow_seals_event_bus_topic_migration_mode() -> None:
     assert "event_bus_topic_migration:" in _WORKFLOW
     assert "Event Bus topic migration cannot be combined with another transition." in _WORKFLOW
     assert (
-        _WORKFLOW.count("EVENT_BUS_TOPIC_MIGRATION: ${{ inputs.event_bus_topic_migration }}") == 4
+        _WORKFLOW.count("EVENT_BUS_TOPIC_MIGRATION: ${{ inputs.event_bus_topic_migration }}") == 5
     )
-    assert _WORKFLOW.count("migration_args+=(--event-bus-topic-migration)") == 3
-    assert _WORKFLOW.count('"${migration_args[@]}"') == 4
+    assert _WORKFLOW.count("migration_args+=(--event-bus-topic-migration)") == 4
+    assert _WORKFLOW.count('"${migration_args[@]}"') == 5
     assert "event-bus-topic-migration" in _WORKFLOW
     migration_step = _WORKFLOW.split("- name: Apply service-owned database migrations", maxsplit=1)[
         1
