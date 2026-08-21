@@ -235,6 +235,7 @@ jobs:
       TF_VAR_chatops_webhook_url: ${{ secrets.CHATOPS_WEBHOOK_URL }}
       TF_VAR_chatops_webhook_secret: ${{ secrets.CHATOPS_WEBHOOK_SECRET }}
       EVENT_BUS_TOPIC_MIGRATION: ${{ startsWith(inputs.request_id, 'plan-evh-') || startsWith(inputs.request_id, 'apply-evh-') }}
+      EVENT_BUS_TOPIC_MIGRATION_JOBS: ${{ startsWith(inputs.request_id, 'plan-evh-jobs-') || startsWith(inputs.request_id, 'apply-evh-jobs-') }}
     steps:
       - name: Verify protected workflow source
         working-directory: ${{ runner.temp }}
@@ -423,23 +424,32 @@ jobs:
         if: ${{ env.EVENT_BUS_TOPIC_MIGRATION == 'true' }}
         run: |
           set -euo pipefail
-          targets=(
-            '-target=module.event_bus'
-            '-target=module.event_bus_auxiliary'
-            '-target=azurerm_role_assignment.canary_eventhubs_sender'
-            '-target=azurerm_role_assignment.command_api_eventhubs_receiver'
-            '-target=azurerm_role_assignment.command_api_eventhubs_sender'
-            '-target=azurerm_role_assignment.executor_eventhubs_data_owner'
-            '-target=azurerm_role_assignment.ingestion_eventhubs_sender'
-            '-target=azurerm_role_assignment.ingestion_worker_eventhubs_sender'
-            '-target=azurerm_role_assignment.ingestion_worker_pantheon_receiver'
-            '-target=azurerm_role_assignment.inventory_eventhubs_raw_sender'
-            '-target=azurerm_role_assignment.inventory_eventhubs_sender'
-            '-target=azurerm_role_assignment.inventory_stage_sender'
-            '-target=module.compute.azurerm_container_app_job.analyzer_tick'
-            '-target=module.compute.azurerm_container_app_job.canary'
-            '-target=module.compute.azurerm_container_app_job.inventory'
-          )
+          if [[ "$EVENT_BUS_TOPIC_MIGRATION_JOBS" == "true" ]]; then
+            targets=(
+              '-target=module.compute.azurerm_container_app_job.oob'
+              '-target=module.compute.azurerm_container_app_job.scheduler_tick'
+              '-target=module.measurement_runners.azurerm_container_app_job.baseline_regression'
+              '-target=module.measurement_runners.azurerm_container_app_job.pattern_growth'
+            )
+          else
+            targets=(
+              '-target=module.event_bus'
+              '-target=module.event_bus_auxiliary'
+              '-target=azurerm_role_assignment.canary_eventhubs_sender'
+              '-target=azurerm_role_assignment.command_api_eventhubs_receiver'
+              '-target=azurerm_role_assignment.command_api_eventhubs_sender'
+              '-target=azurerm_role_assignment.executor_eventhubs_data_owner'
+              '-target=azurerm_role_assignment.ingestion_eventhubs_sender'
+              '-target=azurerm_role_assignment.ingestion_worker_eventhubs_sender'
+              '-target=azurerm_role_assignment.ingestion_worker_pantheon_receiver'
+              '-target=azurerm_role_assignment.inventory_eventhubs_raw_sender'
+              '-target=azurerm_role_assignment.inventory_eventhubs_sender'
+              '-target=azurerm_role_assignment.inventory_stage_sender'
+              '-target=module.compute.azurerm_container_app_job.analyzer_tick'
+              '-target=module.compute.azurerm_container_app_job.canary'
+              '-target=module.compute.azurerm_container_app_job.inventory'
+            )
+          fi
           printf 'TF_CLI_ARGS_plan=%s\n' "${targets[*]}" >> "$GITHUB_ENV"
 
       - name: Validate remote plan request
@@ -450,7 +460,7 @@ jobs:
           PLAN_COMMIT_SHA: ${{ inputs.commit_sha }}
         run: |
           set -euo pipefail
-          if [[ ! "$PLAN_REQUEST_ID" =~ ^plan-([0-9a-f]{24}|evh-[0-9a-f]{20})$ ]]; then
+          if [[ ! "$PLAN_REQUEST_ID" =~ ^plan-([0-9a-f]{24}|evh-[0-9a-f]{20}|evh-jobs-[0-9a-f]{16})$ ]]; then
             echo "request_id must be a bounded fdaictl plan id." >&2
             exit 1
           fi
@@ -481,7 +491,7 @@ jobs:
           APPLY_PLAN_DIGEST: ${{ inputs.plan_digest }}
         run: |
           set -euo pipefail
-          if [[ ! "$APPLY_REQUEST_ID" =~ ^apply-([0-9a-f]{24}|evh-[0-9a-f]{20})$ ]]; then
+          if [[ ! "$APPLY_REQUEST_ID" =~ ^apply-([0-9a-f]{24}|evh-[0-9a-f]{20}|evh-jobs-[0-9a-f]{16})$ ]]; then
             echo "apply request_id must be a bounded fdaictl id." >&2
             exit 1
           fi
@@ -1058,6 +1068,7 @@ jobs:
         if: ${{ !inputs.apply && inputs.request_id != '' }}
         env:
           MIGRATE_EVENT_BUS_TOPICS: ${{ env.EVENT_BUS_TOPIC_MIGRATION }}
+          MIGRATE_EVENT_BUS_JOBS: ${{ env.EVENT_BUS_TOPIC_MIGRATION_JOBS }}
         run: |
           set -euo pipefail
           terraform show -json dev.plan > dev.plan.review.json
@@ -1206,20 +1217,31 @@ jobs:
               print(f"- {address}")
             raise SystemExit(1)
           if os.environ.get("MIGRATE_EVENT_BUS_TOPICS") == "true":
-            required_actions = {
-              **{address: ("delete",) for address in migration_successors},
-              **{address: ("create",) for address in migration_successors.values()},
-              **{address: ("delete", "create") for address in migration_replacements},
+            job_followup_actions = {
+              "module.compute.azurerm_container_app_job.oob": ("update",),
+              "module.compute.azurerm_container_app_job.scheduler_tick[0]": ("update",),
+              "module.measurement_runners.azurerm_container_app_job.baseline_regression":
+                ("update",),
+              "module.measurement_runners.azurerm_container_app_job.pattern_growth":
+                ("update",),
             }
-            required_updates = {
-              "module.compute.azurerm_container_app_job.analyzer_tick[0]",
-              "module.compute.azurerm_container_app_job.canary[0]",
-              "module.compute.azurerm_container_app_job.inventory[0]",
-              "module.event_bus.azurerm_eventhub_namespace.primary",
-            }
-            required_actions.update(
-              {address: ("update",) for address in required_updates}
-            )
+            if os.environ.get("MIGRATE_EVENT_BUS_JOBS") == "true":
+              required_actions = job_followup_actions
+            else:
+              required_actions = {
+                **{address: ("delete",) for address in migration_successors},
+                **{address: ("create",) for address in migration_successors.values()},
+                **{address: ("delete", "create") for address in migration_replacements},
+              }
+              required_updates = {
+                "module.compute.azurerm_container_app_job.analyzer_tick[0]",
+                "module.compute.azurerm_container_app_job.canary[0]",
+                "module.compute.azurerm_container_app_job.inventory[0]",
+                "module.event_bus.azurerm_eventhub_namespace.primary",
+              }
+              required_actions.update(
+                {address: ("update",) for address in required_updates}
+              )
             invalid_actions = sorted(
               address
               for address, actions in required_actions.items()

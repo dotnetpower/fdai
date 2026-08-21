@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 1ad2b7765b9517cdd34e5bb03e2c9ee009cb7289
+translation_source_sha: 5e203eb8649ddfc27af012dc34fcc5d66e51e746
 translation_revised: 2026-08-21
 ---
 # 배포 리소스 규약
@@ -37,6 +37,7 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 |------|------|------|------|-----------|
 | 2026-08-21 | in-progress | 활성 Event Bus 토픽 계약에서 문서화되지 않은 `aw.*` 제품 접두사를 정본 `fdai.*` 접두사로 교체했습니다. 과거 검증 행은 실제로 관찰한 이름을 유지합니다. 계약별 `runtime.*`, `object.*`, `operator.*`, `core.*` 토픽과 Event Bus가 아닌 채널은 이 접두사 이행 범위에 포함되지 않습니다. | `current change`; 명명 소유 문서, Terraform 토픽 선언과 역할, 서비스 기본값, 배포 준비 및 집중 Event Bus와 Terraform 검사. | 모든 entity 교체를 명시하는 보호된 계획을 실행하고, 검토된 계획을 정확히 적용하며, 이전 entity를 drain하거나 만료시킨 뒤 post-apply 런타임 근거를 보존합니다. |
 | 2026-08-21 | implemented | 실제 모델 조정이 Event Bus 계획에 무관한 모델 교체를 추가한 뒤 migration-only 보호 계획 모드를 추가했습니다. 이 모드는 두 Event Bus module, 토픽 범위 역할 및 토픽을 사용하는 Job 3개만 대상으로 지정합니다. Guard는 선언된 모든 이전/후속 작업과 역할 교체를 요구하고, 해당 집합과 검토된 제자리 갱신 외부의 변경 주소를 모두 차단합니다. | 보호된 계획 실행 `32466635579`; `.github/workflows/deploy-dev.yml` 및 `tests/integration/scripts/test_service_deploy_workflow.py`의 `current change`; 집중 이행 guard 검사 2개 통과. | Exact apply 전에 새 migration-only 보호 계획을 생성하고 검토합니다. |
+| 2026-08-21 | in-progress | 정확한 entity 및 RBAC 이행을 적용한 뒤 독립 service root와 대상에 포함되지 않은 이전 방식 Job 4개가 여전히 `aw.*` 환경 값을 유지하는 것을 확인했습니다. 정확히 Job 4개만 처리하는 후속 모드를 추가했습니다. 독립 소유 App은 service별 보호 계획 및 적용 경로를 유지합니다. | 보호된 계획 `32475286429`; exact apply `32475924808`; `.github/workflows/deploy-dev.yml` 및 집중 workflow guard의 `current change`; 실제 entity, RBAC, 환경 및 상태 감사. | Job 4개 후속 적용과 Core, Operator, ingestion API, processing worker service 계획을 적용한 뒤 transport 검증을 다시 실행합니다. |
 | 2026-08-21 | implemented | Terraform이 `for_each` 이동을 제외한 계획을 거부한 뒤 활성 Event Hubs 역할 할당 컬렉션 3개를 개발 gateway 대상 계획에 추가했습니다. | 보호된 계획 실행 `32454927035`에서 누락된 대상이 확인되었습니다. `current change`에서 `.github/workflows/deploy-dev.yml`을 갱신했으며 집중 workflow 계약 스위트의 테스트 34개가 통과했습니다. | 새 보호된 계획을 생성하고 검토한 뒤 적용하고 아래의 이행 근거를 검증합니다. |
 | 2026-08-21 | implemented | 보호된 source Bash guard에 잘못 삽입된 Python 조각을 제거하고 해당 단계에 shell 문법 회귀 검사를 추가했습니다. | 보호된 실행 `32458761662`는 Azure 로그인 전에 실패했습니다. `current change`의 집중 배포 workflow 스위트에서 guard의 `bash -n`을 포함한 테스트 46개가 통과했습니다. | 새 보호된 계획을 생성하고 검토합니다. 실패한 실행에서는 Terraform 또는 Azure 변경이 발생하지 않았습니다. |
 | 2026-08-18 | implemented | core control plane에 범위가 제한된 startup probe를 부여했습니다. 런타임이 health 포트를 열기 전에 startup readiness를 평가하므로 약 91초인 liveness 예산이 정상 기동 중에 소진되었고, 이전 리비전은 healthy한 상태로 남은 채 새 리비전마다 `CrashLoopBackOff`에 빠졌습니다. Startup probe는 포트가 응답할 때까지 liveness와 readiness를 유예합니다. | `current change`; 서비스 root에서 `terraform fmt`, `terraform init -backend=false`, `terraform validate` 통과; 독립 서비스 계약 검사 `27 passed`, 서비스 Terraform root 스위트 통과, drift 계약 `7 passed`, CI 계약 `36 passed`. 측정된 원인: 실패한 replica가 `startup_ok`를 남긴 뒤 `notification_route_unavailable`에서 멈추고 `health_server_ready`가 없었으며, 시스템 이벤트는 readiness probe 반복 실패를 보고했고, 로컬 기동은 `startup_ok`에서 `startup_readiness_evaluated`까지 27초가 걸렸습니다. | 배포 환경에서 새 리비전이 `Healthy`에 도달하는지 확인합니다. 이슈 #181에서 추적합니다. |
@@ -133,6 +134,10 @@ transport 근거를 기록합니다.
 토픽 범위 역할 할당, analyzer, canary 및 inventory Job으로만 제한합니다. Guard는 선언된 모든
 이전/후속 작업, 역할 교체, primary namespace 갱신 및 해당 Job 3개의 갱신을 요구합니다. 계획을
 봉인하기 전에 그 밖의 모든 변경 주소를 차단합니다.
+Entity 전환 뒤 실제 감사에서 토픽 환경이 오래된 것으로 확인되면 `plan-evh-jobs-<16-hex>`와
+`apply-evh-jobs-<16-hex>`를 사용해 OOB, scheduler, baseline 및 growth Job만 갱신합니다. 독립 소유
+Container App은 `service-deploy.yml`을 사용하며, 이전 방식 platform 계획이 해당 리소스의 소유권을
+다시 가져오지 않습니다.
 
 ### Day-zero 인벤토리용 CAF 접두사
 

@@ -221,6 +221,13 @@ def test_platform_event_bus_migration_uses_isolated_targets() -> None:
     assert "module.llm_azure_openai" not in step
     assert "module.operator_api" not in step
     assert "if: ${{ env.EVENT_BUS_TOPIC_MIGRATION == 'true' }}" in step
+    for address in (
+        "module.compute.azurerm_container_app_job.oob",
+        "module.compute.azurerm_container_app_job.scheduler_tick",
+        "module.measurement_runners.azurerm_container_app_job.baseline_regression",
+        "module.measurement_runners.azurerm_container_app_job.pattern_growth",
+    ):
+        assert f"'-target={address}'" in step
 
     for name in (
         "Reconcile Foundry web-search agent",
@@ -369,6 +376,43 @@ def test_platform_destructive_guard_accepts_exact_migration_and_rejects_unrelate
             assert exc.code == 1
         else:
             raise AssertionError("migration-only guard accepted an incomplete or unrelated plan")
+
+    job_followup_changes = [
+        {"address": address, "change": {"actions": ["update"]}}
+        for address in (
+            "module.compute.azurerm_container_app_job.oob",
+            "module.compute.azurerm_container_app_job.scheduler_tick[0]",
+            "module.measurement_runners.azurerm_container_app_job.baseline_regression",
+            "module.measurement_runners.azurerm_container_app_job.pattern_growth",
+        )
+    ]
+    monkeypatch.setenv("MIGRATE_EVENT_BUS_JOBS", "true")
+    plan_path.write_text(
+        json.dumps({"resource_changes": job_followup_changes}),
+        encoding="utf-8",
+    )
+    runpy.run_path(str(script_path), run_name="__main__")
+
+    for invalid_changes in (
+        job_followup_changes[:-1],
+        job_followup_changes
+        + [
+            {
+                "address": "module.console[0].azurerm_static_web_app.console",
+                "change": {"actions": ["delete"]},
+            }
+        ],
+    ):
+        plan_path.write_text(
+            json.dumps({"resource_changes": invalid_changes}),
+            encoding="utf-8",
+        )
+        try:
+            runpy.run_path(str(script_path), run_name="__main__")
+        except SystemExit as exc:
+            assert exc.code == 1
+        else:
+            raise AssertionError("Event Bus Job follow-up guard accepted an invalid plan")
 
 
 def test_platform_workflow_does_not_require_system_pip() -> None:
