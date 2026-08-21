@@ -123,10 +123,6 @@ on:
         description: "Provision the action group, alerts, and diagnostic settings."
         type: boolean
         default: false
-      migrate_event_bus_topics:
-        description: "Restrict planning to the reviewed aw.* to fdai.* Event Hubs migration."
-        type: boolean
-        default: false
       production_core_image:
         description: "Prod-only signed image reference pinned by sha256 digest."
         type: string
@@ -238,6 +234,7 @@ jobs:
       TF_VAR_enable_chatops_hil: ${{ secrets.CHATOPS_WEBHOOK_URL != '' && secrets.CHATOPS_WEBHOOK_SECRET != '' }}
       TF_VAR_chatops_webhook_url: ${{ secrets.CHATOPS_WEBHOOK_URL }}
       TF_VAR_chatops_webhook_secret: ${{ secrets.CHATOPS_WEBHOOK_SECRET }}
+      EVENT_BUS_TOPIC_MIGRATION: ${{ startsWith(inputs.request_id, 'plan-evh-') || startsWith(inputs.request_id, 'apply-evh-') }}
     steps:
       - name: Verify protected workflow source
         working-directory: ${{ runner.temp }}
@@ -397,7 +394,7 @@ jobs:
           fi
 
       - name: Validate Event Bus migration request
-        if: ${{ inputs.migrate_event_bus_topics }}
+        if: ${{ env.EVENT_BUS_TOPIC_MIGRATION == 'true' }}
         env:
           CUTOVER_ISOLATED_EXECUTOR_AUTHORITY: ${{ inputs.cutover_isolated_executor_authority }}
           DEPLOY_DESIGN_MOCKS: ${{ inputs.deploy_design_mocks }}
@@ -423,7 +420,7 @@ jobs:
           fi
 
       - name: Bind Event Bus migration Terraform targets
-        if: ${{ inputs.migrate_event_bus_topics }}
+        if: ${{ env.EVENT_BUS_TOPIC_MIGRATION == 'true' }}
         run: |
           set -euo pipefail
           targets=(
@@ -453,7 +450,7 @@ jobs:
           PLAN_COMMIT_SHA: ${{ inputs.commit_sha }}
         run: |
           set -euo pipefail
-          if [[ ! "$PLAN_REQUEST_ID" =~ ^plan-[0-9a-f]{24}$ ]]; then
+          if [[ ! "$PLAN_REQUEST_ID" =~ ^plan-([0-9a-f]{24}|evh-[0-9a-f]{20})$ ]]; then
             echo "request_id must be a bounded fdaictl plan id." >&2
             exit 1
           fi
@@ -484,7 +481,7 @@ jobs:
           APPLY_PLAN_DIGEST: ${{ inputs.plan_digest }}
         run: |
           set -euo pipefail
-          if [[ ! "$APPLY_REQUEST_ID" =~ ^apply-[0-9a-f]{24}$ ]]; then
+          if [[ ! "$APPLY_REQUEST_ID" =~ ^apply-([0-9a-f]{24}|evh-[0-9a-f]{20})$ ]]; then
             echo "apply request_id must be a bounded fdaictl id." >&2
             exit 1
           fi
@@ -1060,7 +1057,7 @@ jobs:
       - name: Reject destructive protected plan
         if: ${{ !inputs.apply && inputs.request_id != '' }}
         env:
-          MIGRATE_EVENT_BUS_TOPICS: ${{ inputs.migrate_event_bus_topics }}
+          MIGRATE_EVENT_BUS_TOPICS: ${{ env.EVENT_BUS_TOPIC_MIGRATION }}
         run: |
           set -euo pipefail
           terraform show -json dev.plan > dev.plan.review.json
@@ -1791,7 +1788,7 @@ jobs:
           fi
 
       - name: Reconcile Foundry web-search agent
-        if: ${{ inputs.apply && !inputs.deploy_design_mocks && !inputs.migrate_event_bus_topics && vars.OPERATOR_API_WEB_SEARCH_ENABLED == 'true' }}
+        if: ${{ inputs.apply && !inputs.deploy_design_mocks && env.EVENT_BUS_TOPIC_MIGRATION != 'true' && vars.OPERATOR_API_WEB_SEARCH_ENABLED == 'true' }}
         env:
           WEB_SEARCH_ALLOWED_DOMAINS_JSON: "${{ vars.OPERATOR_API_WEB_SEARCH_ALLOWED_DOMAINS_JSON || '[]' }}"
         run: |
@@ -1810,7 +1807,7 @@ jobs:
           PYTHONPATH=../src python3 -m fdai.delivery.azure.foundry_agent_reconciler "${args[@]}"
 
       - name: Prepare exact development operations gateway source
-        if: ${{ inputs.apply && inputs.deploy_dev_operations_gateway && !inputs.migrate_event_bus_topics }}
+        if: ${{ inputs.apply && inputs.deploy_dev_operations_gateway && env.EVENT_BUS_TOPIC_MIGRATION != 'true' }}
         env:
           APPLY_CONTEXT_DIGEST: ${{ inputs.context_digest }}
           APPLY_COMMIT_SHA: ${{ inputs.commit_sha }}
@@ -1844,7 +1841,7 @@ jobs:
           echo "GATEWAY_DEPLOYMENT_STARTED_EPOCH=$(date -u +%s)" >> "$GITHUB_ENV"
 
       - name: Publish exact development operations gateway source
-        if: ${{ inputs.apply && inputs.deploy_dev_operations_gateway && !inputs.migrate_event_bus_topics }}
+        if: ${{ inputs.apply && inputs.deploy_dev_operations_gateway && env.EVENT_BUS_TOPIC_MIGRATION != 'true' }}
         uses: Azure/functions-action@bc63708cc6539760eea18d8a7de4ce8ef5fdf593 # v1.5.6
         with:
           app-name: ${{ env.GATEWAY_FUNCTION_APP }}
@@ -1852,7 +1849,7 @@ jobs:
           remote-build: true
 
       - name: Verify exact development operations gateway source
-        if: ${{ inputs.apply && inputs.deploy_dev_operations_gateway && !inputs.migrate_event_bus_topics }}
+        if: ${{ inputs.apply && inputs.deploy_dev_operations_gateway && env.EVENT_BUS_TOPIC_MIGRATION != 'true' }}
         run: |
           set -euo pipefail
           resource_id="$GATEWAY_FUNCTION_RESOURCE_ID"
@@ -1994,7 +1991,7 @@ jobs:
           echo "Design mocks: https://$hostname" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Run schema migration
-        if: ${{ inputs.apply && !inputs.migrate_event_bus_topics && (inputs.deploy_operator_api || inputs.deploy_document_ingestion) }}
+        if: ${{ inputs.apply && env.EVENT_BUS_TOPIC_MIGRATION != 'true' && (inputs.deploy_operator_api || inputs.deploy_document_ingestion) }}
         run: |
           set -euo pipefail
           rg="$(terraform output -raw resource_group_name)"

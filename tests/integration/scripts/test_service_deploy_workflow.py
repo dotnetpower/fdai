@@ -110,6 +110,15 @@ def test_platform_workflow_exposes_opt_in_monitoring_for_every_environment() -> 
     assert "TF_VAR_enable_monitoring: ${{ inputs.deploy_monitoring }}" in _LEGACY_WORKFLOW
 
 
+def test_platform_workflow_stays_within_dispatch_input_limit() -> None:
+    inputs = _LEGACY_WORKFLOW.split("workflow_dispatch:\n    inputs:\n", maxsplit=1)[1].split(
+        "\npermissions:", maxsplit=1
+    )[0]
+    names = re.findall(r"^      ([a-z_]+):$", inputs, re.MULTILINE)
+
+    assert len(names) <= 25
+
+
 def test_platform_protected_source_guard_is_valid_bash() -> None:
     script = _LEGACY_WORKFLOW.split("- name: Verify protected workflow source", maxsplit=1)[
         1
@@ -183,7 +192,10 @@ def test_platform_gateway_plan_targets_active_moved_role_collections() -> None:
 
 
 def test_platform_event_bus_migration_uses_isolated_targets() -> None:
-    assert "migrate_event_bus_topics:" in _LEGACY_WORKFLOW
+    assert "migrate_event_bus_topics:" not in _LEGACY_WORKFLOW
+    assert "plan-evh-" in _LEGACY_WORKFLOW
+    assert "apply-evh-" in _LEGACY_WORKFLOW
+    assert "EVENT_BUS_TOPIC_MIGRATION:" in _LEGACY_WORKFLOW
     step = _LEGACY_WORKFLOW.split("- name: Bind Event Bus migration Terraform targets", maxsplit=1)[
         1
     ].split("- name: Validate remote plan request", maxsplit=1)[0]
@@ -208,7 +220,7 @@ def test_platform_event_bus_migration_uses_isolated_targets() -> None:
         assert f"'-target={address}'" in step
     assert "module.llm_azure_openai" not in step
     assert "module.operator_api" not in step
-    assert "if: ${{ inputs.migrate_event_bus_topics }}" in step
+    assert "if: ${{ env.EVENT_BUS_TOPIC_MIGRATION == 'true' }}" in step
 
     for name in (
         "Reconcile Foundry web-search agent",
@@ -220,7 +232,7 @@ def test_platform_event_bus_migration_uses_isolated_targets() -> None:
         side_effect_step = _LEGACY_WORKFLOW.split(f"- name: {name}", maxsplit=1)[1].split(
             "\n      - name:", maxsplit=1
         )[0]
-        assert "!inputs.migrate_event_bus_topics" in side_effect_step
+        assert "env.EVENT_BUS_TOPIC_MIGRATION != 'true'" in side_effect_step
 
 
 def test_platform_plan_allows_only_exact_event_hub_topic_migration_deletes() -> None:

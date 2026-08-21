@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 9cf51a6be4592877703d9df97a9ff186b24cbdec
+translation_source_sha: 1ad2b7765b9517cdd34e5bb03e2c9ee009cb7289
 translation_revised: 2026-08-21
 ---
 # 배포 리소스 규약
@@ -128,7 +128,8 @@ Provision된 Event Hub entity 이름 변경은 제자리 이름 변경이 아니
 transport 근거를 기록합니다.
 명시적으로 폐기 승인된 비권위 개발 backlog는 exact apply에서 legacy entity를 삭제할 때 대신
 제거할 수 있습니다.
-이 전환에서는 `migrate_event_bus_topics=true`를 설정해 보호된 계획의 대상을 두 Event Bus module,
+이 전환에서는 `plan-evh-<20-hex>` request id를 사용하고 exact apply에서는
+`apply-evh-<20-hex>` request id를 사용합니다. 이 모드는 보호된 계획의 대상을 두 Event Bus module,
 토픽 범위 역할 할당, analyzer, canary 및 inventory Job으로만 제한합니다. Guard는 선언된 모든
 이전/후속 작업, 역할 교체, primary namespace 갱신 및 해당 Job 3개의 갱신을 요구합니다. 계획을
 봉인하기 전에 그 밖의 모든 변경 주소를 차단합니다.

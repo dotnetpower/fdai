@@ -126,10 +126,11 @@ producer/consumer binding, drains or expires retained records on the old entity,
 post-apply transport evidence before deleting the old path.
 An explicitly approved, non-authoritative development backlog may instead be discarded when the
 exact apply deletes the legacy entities.
-Set `migrate_event_bus_topics=true` for this cutover so the protected plan targets only both Event
-Bus modules, topic-scoped role assignments, and the analyzer, canary, and inventory Jobs. The
-guard requires every declared old/successor action, role replacement, primary namespace update,
-and update to those three Jobs. It rejects every other changed address before the plan is sealed.
+Use a `plan-evh-<20-hex>` request id for this cutover and an `apply-evh-<20-hex>` request id for
+its exact apply. This mode targets only both Event Bus modules, topic-scoped role assignments, and
+the analyzer, canary, and inventory Jobs. The guard requires every declared old/successor action,
+role replacement, primary namespace update, and update to those three Jobs. It rejects every other
+changed address before the plan is sealed.
 
 ### CAF prefixes for the day-zero inventory
 
