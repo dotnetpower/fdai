@@ -32,6 +32,11 @@ from fdai.core.metering.sink import InMemoryMeteringSink
 from fdai.core.metering.usage import TokenUsage
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 
+from tests.agents.semantic_judgment_support import (
+    restart_action_type,
+    semantic_test_boundary,
+)
+
 PromptCheck = tuple[str, Callable[[str], bool]]
 
 _CRITIQUE_ROUNDS: tuple[tuple[str, tuple[PromptCheck, ...]], ...] = (
@@ -251,6 +256,8 @@ def _runtime(*, t2: T2ConversationSynthesizer | None = None) -> PantheonRuntime:
     runtime = PantheonRuntime.build(
         provider=InMemoryEventBus(),
         raw_event_topic="fdai.events",
+        conversation_semantic_judgment=semantic_test_boundary(),
+        action_types=(restart_action_type(),),
         conversation_embedding_model=_CrossDomainEmbedding(),
         semantic_router_config=SemanticRouterConfig(
             cosine_threshold=0.6,
@@ -291,7 +298,7 @@ def test_deliberation_requires_t1_instead_of_falling_back_to_t0() -> None:
     )
 
     assert result["status"] == "abstain"
-    assert result["reason"] == "t1_unavailable"
+    assert result["reason"] == "semantic_unavailable"
     assert result["rounds"] == []
 
 
@@ -546,7 +553,7 @@ def test_t2_failure_preserves_t1_discussion(
 def test_deliberation_action_intent_requires_typed_pipeline() -> None:
     result = asyncio.run(
         _runtime().deliberate(
-            question="scale down vm-1 now",
+            question="restart vm-1 now",
             requester="Forseti",
             correlation_id="corr-action",
         )
@@ -568,6 +575,7 @@ def test_t2_synthesis_stops_at_the_declared_budget_instead_of_calling_again() ->
         PantheonRuntime.build(
             provider=InMemoryEventBus(),
             raw_event_topic="fdai.events",
+            conversation_semantic_judgment=semantic_test_boundary(),
             conversation_embedding_model=_CrossDomainEmbedding(),
             semantic_router_config=SemanticRouterConfig(
                 cosine_threshold=0.6, margin_threshold=0.08
@@ -659,6 +667,7 @@ def test_a_zero_budget_never_calls_the_model_at_all() -> None:
         PantheonRuntime.build(
             provider=InMemoryEventBus(),
             raw_event_topic="fdai.events",
+            conversation_semantic_judgment=semantic_test_boundary(),
             conversation_embedding_model=_CrossDomainEmbedding(),
             semantic_router_config=SemanticRouterConfig(
                 cosine_threshold=0.6, margin_threshold=0.08
@@ -787,6 +796,7 @@ def _priced_runtime(
         PantheonRuntime.build(
             provider=InMemoryEventBus(),
             raw_event_topic="fdai.events",
+            conversation_semantic_judgment=semantic_test_boundary(),
             conversation_embedding_model=_CrossDomainEmbedding(),
             semantic_router_config=SemanticRouterConfig(
                 cosine_threshold=0.6, margin_threshold=0.08

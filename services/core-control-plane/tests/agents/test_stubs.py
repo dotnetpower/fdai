@@ -53,7 +53,12 @@ def test_conversation_port_refuses_action_intent() -> None:
     # The conversational port describes actions but MUST NOT execute one
     # (agent-pantheon.md 7.7): a command re-enters the typed pipeline.
     for agent in instantiate_pantheon().values():
-        result = asyncio.run(agent.on_conversation_turn("restart the database now", {}))
+        result = asyncio.run(
+            agent.on_conversation_turn(
+                "restart the database now",
+                {"semantic_action_posture": "draft_only"},
+            )
+        )
         assert result["answer"] is None
         assert result["abstain_reason"] == "requires_typed_pipeline"
         assert result["requires_typed_pipeline"] is True

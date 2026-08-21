@@ -10,6 +10,11 @@ from fdai.agents._framework.runtime import PantheonRuntime
 from fdai.agents._framework.semantic_routing import SemanticRouterConfig
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 
+from tests.agents.semantic_judgment_support import (
+    restart_action_type,
+    semantic_test_boundary,
+)
+
 _NAMES = tuple(spec.name for spec in PANTHEON_SPECS)
 
 
@@ -46,6 +51,8 @@ def _runtime(model: KeywordEmbedding, *, margin: float = 0.08) -> PantheonRuntim
     return PantheonRuntime.build(
         provider=InMemoryEventBus(),
         raw_event_topic="fdai.events",
+        conversation_semantic_judgment=semantic_test_boundary(),
+        action_types=(restart_action_type(),),
         conversation_embedding_model=model,
         semantic_router_config=SemanticRouterConfig(
             cosine_threshold=0.6,
@@ -93,17 +100,17 @@ def test_korean_t1_query_routes_to_cost_agent_and_caches_domains() -> None:
     )
 
     assert first is not None and first.primary_agent == "Njord"
-    assert first.answer["routing_method"] == "t1_semantic"
-    assert first.answer["semantic_score"] == 1.0
+    assert first.answer["routing_method"] == "semantic_judgment"
+    assert first.answer["semantic_score"] is None
     tools = sum(len(spec.conversation.tool_specs) for spec in PANTHEON_SPECS)
-    # Agent-domain catalog + route query + tool catalog + tool query.
-    assert first_call_count == len(PANTHEON_SPECS) + tools + 2
+    # Shared judgment owns agent routing; embedding is used only for owned tools.
+    assert first_call_count == tools + 1
     assert second is not None and second.primary_agent == "Njord"
-    # Both catalogs are cached; only the route and tool queries remain.
-    assert len(model.calls) == first_call_count + 2
+    # The tool catalog is cached; only one tool query remains.
+    assert len(model.calls) == first_call_count + 1
 
 
-def test_low_semantic_margin_abstains_instead_of_guessing() -> None:
+def test_agent_embedding_margin_does_not_replace_shared_judgment() -> None:
     model = KeywordEmbedding()
     runtime = _runtime(model, margin=0.1)
 
@@ -120,7 +127,7 @@ def test_low_semantic_margin_abstains_instead_of_guessing() -> None:
     assert turn.answer["handoff_needed"] is True
 
 
-def test_embedding_error_preserves_abstention() -> None:
+def test_agent_embedding_error_does_not_replace_shared_judgment() -> None:
     model = KeywordEmbedding()
     model.raise_on_query = True
     runtime = _runtime(model)

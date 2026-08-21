@@ -4,6 +4,11 @@ import pytest
 from fdai.agents import Bragi, Heimdall, PantheonRuntime
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 
+from tests.agents.semantic_judgment_support import (
+    semantic_test_boundary,
+    semantic_test_proposal,
+)
+
 
 @pytest.mark.parametrize(
     "question",
@@ -21,15 +26,14 @@ from fdai.shared.providers.testing.event_bus import InMemoryEventBus
     ],
 )
 def test_bragi_routes_bilingual_read_investigations_to_heimdall(question: str) -> None:
-    decision = Bragi().route(question)
+    decision = Bragi().route(semantic_test_proposal(question))
     assert decision.primary_agent == "Heimdall"
-    assert decision.tie_break is not None
-    assert decision.tie_break.startswith("read_investigation:")
+    assert decision.tie_break == "score"
     assert decision.contributors == ()
 
 
 def test_explicit_agent_still_precedes_read_investigation_routing() -> None:
-    decision = Bragi().route("Saga, who stopped vm-01?")
+    decision = Bragi().route(semantic_test_proposal("Saga, who stopped vm-01?"))
     assert decision.primary_agent == "Saga"
     assert decision.tie_break == "explicit_agent"
 
@@ -47,7 +51,7 @@ async def test_bragi_routes_to_composed_heimdall_read_responder() -> None:
             "facts": {"status": "matched", "evidence_refs": ("evidence:one",)},
         }
 
-    bragi = Bragi()
+    bragi = Bragi(semantic_judgment=semantic_test_boundary())
     heimdall = Heimdall(read_investigation_hook=investigate)
     bragi.register_responder("Heimdall", heimdall.on_conversation_turn)
 
@@ -89,6 +93,7 @@ async def test_runtime_read_investigation_never_publishes_event_or_invokes_thor(
         raw_event_topic="fdai.events",
         read_investigation_hook=investigate,
         thor_executor=execute,
+        conversation_semantic_judgment=semantic_test_boundary(),
     )
     turn = await runtime.ask(
         session_id="session-one",

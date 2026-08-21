@@ -143,6 +143,7 @@ def test_numeric_semantic_mismatch_requires_review() -> None:
 
 def test_provider_observation_requires_fresh_external_receipt() -> None:
     claim, text = _claim("The resource topology is observed on the provider.")
+    claim = replace(claim, authority=AuthorityClass.PROVIDER_OBSERVATION)
     assert claim.authority is AuthorityClass.PROVIDER_OBSERVATION
     proposal = _proposal(claim)
     missing = verify_ontology_proposal(proposal, claim, _context(claim, text))

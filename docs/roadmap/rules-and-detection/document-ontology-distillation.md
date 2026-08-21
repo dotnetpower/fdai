@@ -31,10 +31,12 @@ revision.
 
 ## Design at a glance
 
-The pipeline inventories claims before extraction so omitted statements remain measurable. It then
-maps each claim to existing ontology declarations, verifies exact source support and authoritative
-external evidence, and stages a reviewable graph diff. Approved proposals create a new immutable
-revision; reconciliation keeps accepted intent separate from observed external truth.
+The model proposes bounded source ranges, and Core inventories the exact structural units inside
+those ranges before proposal verification. Structural inventory does not infer meaning or
+criticality from phrase dictionaries. Frozen annotations measure omissions independently, while
+deterministic reconciliation maps accepted candidates to source-backed claims and stages a
+reviewable graph diff. Approved proposals create a new immutable revision; reconciliation keeps
+accepted intent separate from observed external truth.
 
 ![Design at a glance. The main stages are Governed document, Claim inventory, Typed extraction, Deterministic verification, Ontology change proposal, Accountable review, Immutable ontology revision, Authority reconciliation, Shadow measurement.](../../diagrams/generated/fdai-roadmap-rules-and-detection-document-ontology-distillation-01.en.svg)
 
@@ -67,25 +69,18 @@ the prior record.
 
 ## Claim inventory
 
-Coverage starts before ontology extraction. A claim inventory records every statement that may
-carry operational meaning, including:
+Coverage starts from bounded structural units, not lexical inference. For each model-cited source
+range, the inventory preserves sentence boundaries and provenance while removing tags, comments,
+and source shortcodes so markup cannot become claim text. Every new structural claim begins with
+`kind: unclassified`, `signals: [unclassified]`, `authority: unclassified`, and `critical: false`.
+Only model-extracted candidates, governed source policy, external evidence, and frozen evaluation
+annotations supply semantic classification or criticality.
 
-- normative terms, thresholds, units, prohibitions, and conditional branches;
-- service, workload, resource, environment, and owner references;
-- dependency, containment, implementation, and escalation relationships;
-- procedures, actions, rollback steps, stop conditions, and expected effects;
-- event-time observations, historical incidents, and declared effective intervals.
-
-Each claim ends in exactly one disposition: `mapped`, `ignored_with_reason`, or `needs_review`.
-Duplicate claim ids, missing dispositions, overlapping contradictory dispositions, and candidate
-references to unknown claims fail validation. Structural heuristics and a model-backed detector may
-both propose claims, but the deterministic ledger performs the completeness accounting.
-
-For backward compatibility, each claim retains one primary `ClaimKind` in `kind` and records every
-detected semantic class in the ordered `signals` tuple. The inventory recognizes bounded English
-and Korean normative, relationship, threshold, and imperative forms. It preserves sentence
-boundaries around technical versions and URLs, and removes tags, comments, and source shortcodes
-before classification so markup cannot become claim text.
+Each inventoried claim ends in exactly one disposition: `mapped`, `ignored_with_reason`, or
+`needs_review`. Duplicate claim ids, missing dispositions, overlapping contradictory dispositions,
+and candidate references to unknown claims fail validation. The deterministic ledger performs
+completeness accounting without guessing which words imply a rule, procedure, observation, or
+authority class.
 
 ## Authority classes
 
@@ -498,7 +493,7 @@ cost-required assessment and deployment availability remain unpassed until prici
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| Proposal, claim inventory, and deterministic gates | implemented | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_claims.py`; `ontology_verify.py`; `ontology_review.py`; focused tests in `tests/rule_catalog/pipeline/distill/` | D0-D4 contracts and fail-closed review packaging are implemented. |
+| Proposal, claim inventory, and deterministic gates | implemented | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_claims.py`; `ontology_verify.py`; `ontology_review.py`; focused tests in `tests/rule_catalog/pipeline/distill/` | D0-D4 contracts and fail-closed review packaging are implemented. Structural inventory remains unclassified until model and governed evidence supply meaning. |
 | Envelope provenance and format equivalence | implemented | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_ingestion.py`; `ontology_evaluation.py`; `tests/rule_catalog/pipeline/distill/test_ontology_format_equivalence.py` | Structured locators and normalized proposal identities are covered with synthetic cross-format evidence. |
 | Real-corpus extraction conformance | in-progress | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_conformance.py`; `ontology_corpus_gate.py`; `tests/rule_catalog/pipeline/distill/test_ontology_conformance.py` | English Markdown and SGML partitions are covered. Required PDF, Office, OCR, and Korean annotations remain open. |
 | T2 ontology model council | implemented | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_council.py`; `ontology_council_reducer.py`; `tests/rule_catalog/pipeline/distill/test_ontology_council.py` | Blind ballots, deterministic consensus, disagreement evidence, and bounded receipts are implemented without authority. |
@@ -509,6 +504,7 @@ cost-required assessment and deployment availability remain unpassed until prici
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | `current change`; current source, hardening record, and focused tests listed in the scope table. | Close the missing corpus partitions and retain governed shadow evidence. |
+| 2026-08-21 | implemented | Removed lexical semantic and authority inference from structural claim inventory. Model-cited source ranges remain content-addressed and replayable, but claims stay unclassified and non-critical until model output and governed evidence classify them. Provider-observation verification now requires an explicitly classified claim plus a fresh external receipt. | `current change`; focused ontology format, verifier, semantic investigation, and public-corpus regressions passed within the 304-case slice; diff-scoped changed tests passed 3176 cases with 7 environment-gated skips. | Keep missing PDF, Office, OCR, and Korean provider partitions and live-shadow promotion evidence open. |
 
 ### Remaining work
 

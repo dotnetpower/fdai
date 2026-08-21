@@ -312,7 +312,7 @@ def test_fake_fetch_runs_inventory_and_reports_unbound_provider(tmp_path: Path) 
     assert fetcher.calls == [_URL]
     assert report["summary"] == {
         "annotation_count": 2,
-        "annotation_detected_count": 2,
+        "annotation_detected_count": 0,
         "candidate_count": 0,
         "extraction_success_count": 0,
         "manual_count": 1,
@@ -513,7 +513,9 @@ def test_url_fetcher_returns_bounded_content_and_disables_redirects(
     )
 
 
-def test_annotation_hash_fails_closed_and_signal_miss_is_accounted(tmp_path: Path) -> None:
+def test_annotation_hash_fails_closed_and_semantic_signals_remain_unclassified(
+    tmp_path: Path,
+) -> None:
     manifest = load_manifest(_write_manifest(tmp_path, _manifest_payload()))
     source = manifest.sources[0]
     bad_hash = replace(
@@ -541,7 +543,7 @@ def test_annotation_hash_fails_closed_and_signal_miss_is_accounted(tmp_path: Pat
         fetcher=FakeFetcher(),
     )
     assert report["summary"]["annotation_count"] == 2
-    assert report["summary"]["annotation_detected_count"] == 1
+    assert report["summary"]["annotation_detected_count"] == 0
 
 
 def test_cli_writes_stdout_output_file_and_reports_failure(

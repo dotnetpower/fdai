@@ -344,6 +344,41 @@ class Bragi(Agent):
         correlation_id: str = "",
     ) -> dict[str, Any]:
         """Delegate one bounded read-only discussion to the framework orchestrator."""
+        if self._semantic_judgment is None:
+            return {
+                "requester": requester,
+                "trace_ref": correlation_id,
+                "authority": "presentation_only",
+                "rounds": [],
+                "status": "abstain",
+                "reason": "semantic_unavailable",
+            }
+        judgment_result = await asyncio.to_thread(
+            self._semantic_judgment.judge,
+            utterance=question,
+            context=(),
+            capabilities=_semantic_capabilities(self._action_type_names),
+        )
+        judgment = judgment_result.proposal if judgment_result.accepted else None
+        if judgment is None:
+            return {
+                "requester": requester,
+                "trace_ref": correlation_id,
+                "authority": "presentation_only",
+                "rounds": [],
+                "status": "abstain",
+                "reason": "semantic_unavailable",
+            }
+        if judgment.action_posture == "draft_only":
+            return {
+                "requester": requester,
+                "trace_ref": correlation_id,
+                "authority": "presentation_only",
+                "rounds": [],
+                "status": "abstain",
+                "reason": "requires_typed_pipeline",
+                "requires_typed_pipeline": True,
+            }
         return await self._deliberator.deliberate(
             question=question,
             requester=requester,

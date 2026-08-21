@@ -1,7 +1,7 @@
 ---
 translation_of: document-ontology-distillation.md
-translation_source_sha: f4240a2fef0027ec97386a3d5a7bf60eec9b3e92
-translation_revised: 2026-08-20
+translation_source_sha: ea3089491866bef83d0c7651c72cfcb3b8aa2da0
+translation_revised: 2026-08-21
 ---
 # 문서 온톨로지 증류
 
@@ -33,10 +33,11 @@ translation_revised: 2026-08-20
 
 ## 한눈에 보는 설계
 
-파이프라인은 추출 전에 점유 인벤토리를 만들어 누락된 문장을 측정할 수 있게 합니다. 그런 다음 각
-점유를 기존 온톨로지 선언에 대응하고, 정확한 출처 근거와 권위 있는 외부
-근거를 검증한 뒤 검토 가능한 그래프 차이를 단계합니다. 승인된 제안은 새로운 변경할 수 없는
-개정 번호를 만들며, 조정은 승인된 의도와 관측된 외부 사실을 분리합니다.
+모델은 범위가 제한된 출처 구간을 제안하고, Core는 제안 검증 전에 해당 구간의 정확한 구조
+단위를 인벤토리에 기록합니다. 구조 인벤토리는 문구 사전으로 의미나 중요도를 추론하지 않습니다.
+고정된 주석이 누락을 독립적으로 측정하고, 결정론적 조정은 수락된 후보를 출처 근거가 있는
+점유에 매핑해 검토 가능한 그래프 차이를 준비합니다. 승인된 제안은 새로운 변경할 수 없는 개정
+번호를 만들며, 조정은 승인된 의도와 관측된 외부 사실을 분리합니다.
 
 ![한눈에 보는 설계. 주요 단계는 승인된 문서, Claim inventory, Typed extraction, 결정론적 검증, Ontology change proposal, 책임 있는 검토, Immutable ontology revision, Authority reconciliation, Shadow measurement입니다.](../../diagrams/generated/fdai-roadmap-rules-and-detection-document-ontology-distillation-01.ko.svg)
 
@@ -69,25 +70,17 @@ projected -> superseded | rolled_back
 
 ## 점유 인벤토리
 
-커버리지는 온톨로지 추출 전에 시작합니다. 점유 인벤토리는 다음과 같이 운영 의미를 담을 수
-있는 모든 문장을 기록합니다.
+커버리지는 어휘 추론이 아니라 범위가 제한된 구조 단위에서 시작합니다. 모델이 인용한 각 출처
+구간에서 인벤토리는 태그, 주석, 출처 shortcode를 제거하면서 문장 경계와 출처 이력을
+보존하므로 markup이 점유 텍스트가 될 수 없습니다. 새로운 구조 점유는 모두
+`kind: unclassified`, `signals: [unclassified]`, `authority: unclassified`, `critical: false`로
+시작합니다. 모델이 추출한 후보, 통제된 출처 정책, 외부 근거, 고정된 평가 주석만 의미 분류나
+중요도를 제공합니다.
 
-- normative 용어, 임계값, 단위, prohibition 및 conditional 가지
-- 서비스, 워크로드, 리소스, 환경 및 소유자 참조
-- 의존성, containment, 구현 및 에스컬레이션 관계
-- procedure, 액션, 롤백 단계, stop 조건 및 예상 효과
-- event-time 관측, historical 인시던트 및 declared effective 간격
-
-각 점유는 `mapped`, `ignored_with_reason` 또는 `needs_review` 중 정확히 하나로 종료합니다. 중복 점유
-id, 처리 결과 누락, 서로 모순되는 중복 처리 결과 및 알 수 없는 점유를 참조하는 후보는
-검증에 실패합니다. Structural heuristic과 model-backed detector가 모두 점유를 제안할 수 있지만,
-결정론적 원장이 완전성 accounting을 수행합니다.
-
-하위 호환성을 위해 각 점유는 `kind`에 하나의 기본 `ClaimKind`를 유지하고, 감지된 모든 의미
-등급을 순서가 있는 `signals` 튜플에 기록합니다. 인벤토리는 제한된 영어와 한국어 normative,
-관계, 임계값 및 imperative 표현을 인식합니다. Technical 버전과 URL 주변의 sentence
-경계를 보존하고 분류 전에 tag, comment 및 출처 shortcode를 제거하므로 markup이 점유
-텍스트가 되지 않습니다.
+인벤토리에 기록된 각 점유는 `mapped`, `ignored_with_reason`, `needs_review` 중 정확히 하나의
+처리 결과로 끝납니다. 중복 점유 id, 처리 결과 누락, 서로 모순되는 처리 결과 겹침, 알 수 없는
+점유를 참조하는 후보는 검증에 실패합니다. 결정론적 원장은 어떤 단어가 규칙, 절차, 관측 또는
+권한 등급을 의미하는지 추측하지 않고 완전성을 계산합니다.
 
 ## 권한 등급
 
@@ -501,7 +494,7 @@ D4d 실제 운영 검사는 세 pinned 배포 모두에서 Entra-authenticated s
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| 제안, 점유 인벤토리, 결정론적 게이트 | implemented | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_claims.py`; `ontology_verify.py`; `ontology_review.py`; `tests/rule_catalog/pipeline/distill/`의 집중 테스트 | D0-D4 계약과 실패 시 차단되는 검토 패키지가 구현되어 있습니다. |
+| 제안, 점유 인벤토리, 결정론적 게이트 | implemented | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_claims.py`; `ontology_verify.py`; `ontology_review.py`; `tests/rule_catalog/pipeline/distill/`의 집중 테스트 | D0-D4 계약과 실패 시 차단되는 검토 패키지가 구현되어 있습니다. 구조 인벤토리는 모델과 통제된 근거가 의미를 제공할 때까지 분류되지 않은 상태를 유지합니다. |
 | 묶음 출처 이력 및 형식 동등성 | implemented | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_ingestion.py`; `ontology_evaluation.py`; `tests/rule_catalog/pipeline/distill/test_ontology_format_equivalence.py` | 구조화된 위치와 정규화된 제안 신원을 합성 교차 형식 근거로 검증합니다. |
 | 실제 말뭉치 추출 적합성 | in-progress | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_conformance.py`; `ontology_corpus_gate.py`; `tests/rule_catalog/pipeline/distill/test_ontology_conformance.py` | 영어 Markdown 및 SGML 구획은 검증됐습니다. 필수 PDF, Office, OCR, 한국어 주석은 남아 있습니다. |
 | T2 온톨로지 모델 위원회 | implemented | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_council.py`; `ontology_council_reducer.py`; `tests/rule_catalog/pipeline/distill/test_ontology_council.py` | 블라인드 투표, 결정론적 합의, 불일치 근거, 범위가 제한된 증적이 권한 없이 구현되어 있습니다. |
@@ -512,6 +505,7 @@ D4d 실제 운영 검사는 세 pinned 배포 모두에서 Entra-authenticated s
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했습니다. | `current change`; 구현 범위 표의 현재 소스, 하드닝 기록, 집중 테스트. | 누락된 말뭉치 구획을 닫고 관리되는 shadow 근거를 보존합니다. |
+| 2026-08-21 | implemented | 구조 점유 인벤토리에서 어휘 기반 의미 및 권한 추론을 제거했습니다. 모델이 인용한 출처 구간은 내용 주소가 지정되고 replay할 수 있지만, 모델 출력과 통제된 근거가 분류할 때까지 점유는 분류되지 않은 비중요 상태를 유지합니다. 프로바이더 관측 검증은 이제 명시적으로 분류된 점유와 최신 외부 증적을 요구합니다. | `current change`; 집중 온톨로지 형식, 검증기, 의미 조사, 공개 말뭉치 회귀 검사가 304개 검사 범위 안에서 통과했습니다. 변경 범위 테스트 3176개가 통과했고 환경 제한 skip 7개가 있었습니다. | 누락된 PDF, Office, OCR, 한국어 프로바이더 구획과 실제 shadow 승격 근거를 열린 상태로 유지합니다. |
 
 ### 남은 작업
 

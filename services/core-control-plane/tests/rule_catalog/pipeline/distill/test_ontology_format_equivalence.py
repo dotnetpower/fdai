@@ -162,7 +162,7 @@ async def test_formats_produce_equivalent_claims_proposals_and_graph() -> None:
 
         assert package.package_digest == replay.package_digest
         assert package.summary.total_claims == 4
-        assert package.summary.critical_claims == 4
+        assert package.summary.critical_claims == 0
         assert package.summary.mapped_claims == 4
         assert package.summary.unresolved_claims == 0
         assert package.summary.denied_proposals == 0

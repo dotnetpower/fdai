@@ -293,16 +293,12 @@ async def test_an_oversized_question_never_reaches_the_embedding_provider() -> N
 
 
 # ---------------------------------------------------------------------------
-# Tier order. Measured: meaning 13/14, lexical 3/14, lexical-first 11/14.
+# Model-backed meaning is the only natural-language tool selector.
 # ---------------------------------------------------------------------------
 
 
 async def test_meaning_leads_and_a_weak_word_match_cannot_veto_it() -> None:
-    """Lexical-first measured worse than meaning alone, so it does not lead.
-
-    'resource' appears in a Freyr fact key, so the lexical tier answers
-    this question confidently and wrongly. Meaning must still decide.
-    """
+    """A model-backed semantic match selects the owned tool."""
     question = "should we scale this up"
     planner = _planner(_KeywordEmbedding())
 
@@ -312,34 +308,33 @@ async def test_meaning_leads_and_a_weak_word_match_cannot_veto_it() -> None:
     assert plans[0].tier == "t1_semantic"
 
 
-async def test_no_embedding_bound_keeps_exactly_the_lexical_result() -> None:
-    """The tier is additive: without it, nothing about today changes."""
-    from fdai.agents._framework.tool_planner import plan_conversation_tools
+async def test_no_embedding_bound_fails_closed_without_a_plan() -> None:
+    assert (
+        await plan_tools(
+            "pending approvals and approval policy",
+            semantic=None,
+            agents=("Var",),
+            limit=3,
+        )
+        == ()
+    )
 
-    question = "pending approvals and approval policy"
 
-    assert await plan_tools(
-        question, semantic=None, agents=("Var",), limit=3
-    ) == plan_conversation_tools(question, agents=("Var",), limit=3)
-
-
-async def test_a_silent_semantic_abstention_degrades_to_the_words() -> None:
-    """Meaning that finds nothing must not erase what the words found."""
+async def test_a_silent_semantic_abstention_fails_closed() -> None:
     planner = _planner(_KeywordEmbedding(), config=SemanticToolConfig(cosine_threshold=0.9))
     question = "pending approvals cost"
 
     plans = await plan_tools(question, semantic=planner, agents=("Var",), limit=3)
 
-    assert plans
-    assert plans[0].tier == "t0_lexical"
+    assert plans == ()
 
 
-async def test_a_broken_provider_degrades_to_the_words() -> None:
+async def test_a_broken_provider_fails_closed() -> None:
     plans: Sequence[object] = await plan_tools(
         "pending approvals", semantic=_planner(_BrokenEmbedding()), agents=("Var",), limit=3
     )
 
-    assert plans
+    assert plans == ()
 
 
 async def test_a_cancelled_question_does_not_abandon_the_cache_build() -> None:
@@ -649,11 +644,11 @@ async def test_a_plan_names_the_tier_that_selected_it() -> None:
     """The two scores are not comparable, so the tier cannot be inferred."""
     from fdai.agents._framework.tool_planner import plan_conversation_tools
 
-    lexical = plan_conversation_tools("pending approvals", agents=("Var",))
+    projected = plan_conversation_tools(("read_pending_approvals",), agents=("Var",))
     semantic = await _planner(_KeywordEmbedding()).plan("approval", agents=("Var",))
 
-    assert lexical and semantic
-    assert {plan.tier for plan in lexical} == {"t0_lexical"}
+    assert projected and semantic
+    assert {plan.tier for plan in projected} == {"semantic_judgment"}
     assert {plan.tier for plan in semantic} == {"t1_semantic"}
 
 

@@ -385,7 +385,12 @@ def test_conversational_port_composes_the_prompt_for_the_turn() -> None:
 def test_command_intent_turn_composes_the_refusal_layer() -> None:
     odin = Odin()
 
-    envelope = asyncio.run(odin.on_conversation_turn("restart vm-01 now", {}))
+    envelope = asyncio.run(
+        odin.on_conversation_turn(
+            "restart vm-01 now",
+            {"semantic_action_posture": "draft_only"},
+        )
+    )
 
     assert envelope["requires_typed_pipeline"] is True
     assert envelope["prompt_composition"]["layers"][-1] == "action_intent"

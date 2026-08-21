@@ -435,7 +435,7 @@ def test_semantic_service_compiles_and_projects_full_investigation_receipts() ->
     assert evidence.execution_authority is False
 
 
-def test_semantic_service_completes_omitted_investigation_without_t2() -> None:
+def test_semantic_service_rejects_omitted_investigation_without_t2() -> None:
     utterance = "A서비스가 갑자기 왜 느려졌어?"
     frame = {
         "operation": "explain_change",
@@ -468,9 +468,9 @@ def test_semantic_service_completes_omitted_investigation_without_t2() -> None:
         purpose="operations-review",
     )
 
-    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
-    assert outcome.investigation_intent is not None
-    assert outcome.plan is not None
-    assert len(outcome.plan.nodes) == 13
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.reason == "semantic_plan_invalid"
+    assert outcome.investigation_intent is None
+    assert outcome.plan is None
     assert (t1.frame_calls, t1.plan_calls) == (1, 0)
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)

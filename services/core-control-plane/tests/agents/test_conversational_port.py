@@ -13,11 +13,27 @@ from fdai.agents._framework.runtime import PantheonRuntime
 from fdai.agents.bragi import Bragi
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 
+from tests.agents.semantic_judgment_support import (
+    restart_action_type,
+    semantic_test_boundary,
+    semantic_tool_embedding,
+)
+
 _RAW_TOPIC = "fdai.events"
 
 
-def _runtime(**kwargs: object) -> PantheonRuntime:
-    return PantheonRuntime.build(provider=InMemoryEventBus(), raw_event_topic=_RAW_TOPIC, **kwargs)
+def _runtime(
+    *,
+    provider: InMemoryEventBus | None = None,
+    **kwargs: object,
+) -> PantheonRuntime:
+    kwargs.setdefault("conversation_semantic_judgment", semantic_test_boundary())
+    kwargs.setdefault("action_types", (restart_action_type(),))
+    return PantheonRuntime.build(
+        provider=provider or InMemoryEventBus(),
+        raw_event_topic=_RAW_TOPIC,
+        **kwargs,
+    )
 
 
 def test_ask_routes_to_primary_agent() -> None:
@@ -175,7 +191,7 @@ def test_question_without_owner_never_calls_tool_answer_path() -> None:
     )
 
     assert turn.primary_agent is None
-    assert turn.answer["abstain_reason"] == "no_route"
+    assert turn.answer["abstain_reason"] == "semantic_unavailable"
     assert calls == 0
 
 
@@ -189,7 +205,7 @@ def test_ask_tracks_session_turns() -> None:
 
 def test_ask_publishes_canonical_bragi_turn_without_raw_bodies() -> None:
     provider = InMemoryEventBus()
-    runtime = PantheonRuntime.build(provider=provider, raw_event_topic=_RAW_TOPIC)
+    runtime = _runtime(provider=provider)
 
     asyncio.run(runtime.ask(session_id="s1", user_id="u1", question="cost breakdown"))
 
@@ -245,7 +261,7 @@ def test_ask_handoff_publishes_bragi_owned_escalation() -> None:
     assert payload["producer_principal"] == "Bragi"
     assert payload["emitting_agent"] == "Bragi"
     assert payload["correlation_id"] == "s1"
-    assert payload["failure_reason_code"] == "no_route"
+    assert payload["failure_reason_code"] == "semantic_unavailable"
 
 
 def test_ask_handoff_escalates_to_saga_issue_and_dedups() -> None:
@@ -340,7 +356,10 @@ def test_normal_ask_uses_semantic_tool_selection_within_the_routed_owner() -> No
 
 def test_selected_tool_failure_reason_survives_to_the_final_answer() -> None:
     """A specific timeout must not collapse into only a generic handoff reason."""
-    runtime = _runtime(conversation_tool_timeout_seconds=0.01)
+    runtime = _runtime(
+        conversation_embedding_model=semantic_tool_embedding(),
+        conversation_tool_timeout_seconds=0.01,
+    )
     freyr = runtime.agents["Freyr"]
 
     async def hangs(_question: str, _context: dict[str, object]) -> object:
@@ -389,7 +408,7 @@ def test_ask_refuses_action_intent_and_routes_to_typed_pipeline() -> None:
 
 def test_korean_action_intent_routes_to_typed_pipeline() -> None:
     provider = InMemoryEventBus()
-    runtime = PantheonRuntime.build(provider=provider, raw_event_topic=_RAW_TOPIC)
+    runtime = _runtime(provider=provider)
 
     turn = asyncio.run(
         runtime.ask(
@@ -411,7 +430,7 @@ def test_korean_action_intent_routes_to_typed_pipeline() -> None:
 
 def test_action_command_publishes_digest_only_correlated_turn() -> None:
     provider = InMemoryEventBus()
-    runtime = PantheonRuntime.build(provider=provider, raw_event_topic=_RAW_TOPIC)
+    runtime = _runtime(provider=provider)
 
     turn = asyncio.run(
         runtime.ask(
@@ -516,7 +535,7 @@ def test_unbound_owned_projection_reports_unavailable(
     agent: str,
     availability_key: str,
 ) -> None:
-    runtime = _runtime()
+    runtime = _runtime(conversation_embedding_model=semantic_tool_embedding())
     turn = asyncio.run(
         runtime.ask(
             session_id=f"unbound-{agent}",
@@ -533,7 +552,7 @@ def test_unbound_owned_projection_reports_unavailable(
 
 def test_read_only_ask_never_submits_action_proposal() -> None:
     provider = InMemoryEventBus()
-    runtime = PantheonRuntime.build(provider=provider, raw_event_topic=_RAW_TOPIC)
+    runtime = _runtime(provider=provider)
 
     turn = asyncio.run(
         runtime.ask(
@@ -593,7 +612,7 @@ def test_operator_and_a2a_questions_are_bounded_before_responder_calls() -> None
 
 
 def test_session_turns_are_bounded_with_monotonic_indices() -> None:
-    bragi = Bragi()
+    bragi = Bragi(semantic_judgment=semantic_test_boundary())
 
     async def responder(_question: str, _context: dict) -> dict:
         return {"primary_agent": "Njord", "answer": "cost", "facts": {}}
@@ -711,12 +730,13 @@ def test_introspect_a2a_publishes_digest_only_attribution() -> None:
     assert "answer" not in payload
 
 
-def test_introspect_a2a_refuses_action_intent() -> None:
+def test_introspect_a2a_does_not_infer_action_posture_from_words() -> None:
     runtime = _runtime()
     result = asyncio.run(runtime.introspect("Thor", "restart vm-1", requester="Odin"))
     assert result is not None
-    assert result["abstain_reason"] == "requires_typed_pipeline"
-    assert result["requires_typed_pipeline"] is True
+    assert result["primary_agent"] == "Thor"
+    assert result["answer"] is not None
+    assert "requires_typed_pipeline" not in result
     assert result["requester"] == "Odin"
 
 
@@ -809,7 +829,10 @@ def test_introspect_a2a_holds_owner_mismatch() -> None:
 
 
 def test_primary_responder_timeout_becomes_handoff() -> None:
-    bragi = Bragi(responder_timeout_seconds=0.001)
+    bragi = Bragi(
+        semantic_judgment=semantic_test_boundary(),
+        responder_timeout_seconds=0.001,
+    )
 
     async def slow(_question: str, _context: dict) -> dict:
         await asyncio.sleep(60)
@@ -831,7 +854,11 @@ def test_primary_responder_timeout_must_be_positive() -> None:
 
 
 def test_proposal_sink_timeout_fails_closed() -> None:
-    bragi = Bragi(proposal_timeout_seconds=0.001)
+    bragi = Bragi(
+        semantic_judgment=semantic_test_boundary(),
+        action_type_names=("ops.restart-service",),
+        proposal_timeout_seconds=0.001,
+    )
 
     async def slow(_proposal: dict) -> dict:
         await asyncio.sleep(60)
@@ -849,7 +876,11 @@ def test_proposal_sink_timeout_fails_closed() -> None:
 
 
 def test_proposal_sink_exception_fails_closed_without_detail() -> None:
-    bragi = Bragi(proposal_timeout_seconds=0.1)
+    bragi = Bragi(
+        semantic_judgment=semantic_test_boundary(),
+        action_type_names=("ops.restart-service",),
+        proposal_timeout_seconds=0.1,
+    )
 
     async def fail(_proposal: dict) -> dict:
         raise RuntimeError("password=supersecretvalue")
