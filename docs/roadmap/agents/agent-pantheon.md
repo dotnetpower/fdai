@@ -8,8 +8,7 @@ FDAI's fixed organization of 15 named agents owns the cloud-operations runtime. 
 
 > **Scope:** the pantheon is customer-agnostic. Every agent name, object type, and action referenced below is generic. Per-customer bindings live in a fork ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 >
-> **Implementation focus:** Azure is the only implemented target; the pantheon talks to the Kafka wire (Event Hubs on `:9093`) already declared in [app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)
-> ([Implementation Focus](../../../.github/copilot-instructions.md#implementation-focus-must)).
+> **Implementation focus:** Azure is the only implemented target; the pantheon talks to the Kafka wire (Event Hubs on `:9093`) already declared in [app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md) ([Implementation Focus](../../../.github/copilot-instructions.md#implementation-focus-must)).
 
 Consumers of this document:
 

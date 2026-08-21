@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 2f53f39a40ae3ea580dcf298d6a899f26238fb01
+translation_source_sha: ee59312a75f80bcf2ca0b643c96c518833431d1b
 translation_revised: 2026-08-21
 ---
 
@@ -16,13 +16,11 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임
 이 문서의 소비자:
 
 - 이벤트 기반 코어는 §4 와 §6 의 에이전트 / 토픽 소유권 테이블을 읽고 스키마로 검증한 pub/sub 를 wire 한다.
-- 오퍼레이터 콘솔 ([operator-console.md](../interfaces/operator-console-ko.md)) 은 §6.3 과
-  §6.5 를 읽고 자연어 질문을 per-user 맥락 로 기본 에이전트 에 라우팅한다.
+- 오퍼레이터 콘솔 ([operator-console.md](../interfaces/operator-console-ko.md)) 은 §6.3 과 §6.5 를 읽고 자연어 질문을 per-user 맥락 로 기본 에이전트 에 라우팅한다.
 - 룰-카탈로그와 실행기 ([action-ontology.md](../decisioning/action-ontology-ko.md),
   [execution-model.md](../decisioning/execution-model-ko.md)) 는 §7 을 읽고 각 ActionType 을
   initiator / 판정자 / 승인자 / 실행기 / auditor 에 바인딩한다.
-- 포크는 §10 을 읽고 어느 경계 이 열려 있고 (토픽 구독, 구성
-  재정의) 어느 것이 잠겨 있는지 (에이전트 추가 금지, 이름 변경 금지) 확인한다.
+- 포크는 §10 을 읽고 어느 경계 이 열려 있고 (토픽 구독, 구성 재정의) 어느 것이 잠겨 있는지 (에이전트 추가 금지, 이름 변경 금지) 확인한다.
 
 ## 구현 상태
 

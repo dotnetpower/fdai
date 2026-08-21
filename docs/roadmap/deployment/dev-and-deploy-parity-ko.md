@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 4e12ff51ed657b10a6db98bacee621c0965e6325
+translation_source_sha: 0e448c0f1c2ba77789da1c85869a848611e9215f
 translation_revised: 2026-08-21
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -209,31 +209,14 @@ executor 권한을 변경하지 않습니다.
 카탈로그의 변경 불가능한 개정 번호를 Operator 변환 결과 저장소에 기록합니다. 이러한 선언은 발견된
 문제, 관측된 인벤토리, 준비 상태 또는 실행 권한을 만들지 않습니다. 프로바이더를 사용할 수 없거나
 권한이 없으면 고정본 데이터로 대체하지 않고 인벤토리를 명시적으로 사용할 수 없는 상태로 유지합니다.
-자동 시작에는 신뢰된 workspace와 커밋된 `task.allowAutomaticTasks` 정책이 계속 필요하며 브라우저
-Entra 인증이나 서비스 권한을 약화하지 않습니다. 각 장기 실행 시작 작업은
-`instancePolicy: silent`를 사용합니다. 작업 재연결 또는 다른 자동 시작 요청이 기존 인스턴스를
-찾으면 VS Code는 해당 인스턴스를 유지하고 중복 요청을 무시하므로 작업 인스턴스 선택창을 열지
-않습니다. 프로세스가 살아 있는 동안 VS Code가 태스크 인스턴스 메타데이터를 잃으면 런처는 이
-체크아웃이 보유한 서비스 로그 잠금을 확인하고 `event=reused`를 내보냅니다. 다른 자식 프로세스를
-시작하지 않고 백그라운드 준비 완료 판정을 끝냅니다. 재사용하려면 저장된 실행 fingerprint가 현재
-서비스 소유 source, private 환경, 의존성 선언, 감독 코드 및 정확한 자식 명령과도 일치해야 합니다.
-입력이 바뀌면 자동 시작이 해당 managed 같은 체크아웃 태스크를 검증하고 교체합니다. 소유권 metadata가
-없거나 다른 체크아웃 또는 unmanaged 프로세스이면 signal을 보내지 않고 실패합니다. 다른
-체크아웃이 소유한 포트 또는 Core 런타임 잠금은 받아들이지 않고 계속 시작 실패로 처리합니다.
-시작하거나 재사용한 뒤에는 범위가 제한된 15초 검사에서 이 체크아웃이 소유한 Core 프로세스,
-10초보다 오래되지 않은 Pantheon heartbeat, Console SPA, Operator API, Document Ingestion API,
-Document Processing Worker 및 격리 Executor probe가 모두 성공해야 합니다. 따라서 listener가 준비
-상태 probe에 응답하지 않거나 Core event loop가 heartbeat를 중단하면 집계 시작은 이를 정상으로
-보고하지 않고 실패합니다. 로컬 서비스 종료에는 10초의 정상 종료 시간이 있으며, 이후 launcher가
-자식 process group을 강제로 종료하고 singleton 잠금을 해제합니다. 각 child는 기록된 session leader이며
-태스크 wrapper가 사라지면 `SIGTERM`을 받으므로 태스크 정리가 unmanaged 서비스를 남기지 않습니다.
-집계 작업 밖에서 개별 서비스 작업 또는 standalone debug launch를 시작할 때는
-`console: prepare full stack`을 먼저 실행합니다.
-Git에서 제외된 로컬 런타임 환경은 검증 cluster를 `FDAI_VALIDATION_DATABASE_URL`로
-기록합니다. Detached 중앙 검증 queue는 선택된 통합 테스트에 이 값만
-`FDAI_DATABASE_URL`로 매핑합니다. 파괴적인 migration 테스트에는 활성 런타임 DSN을 전달하지
-않습니다. Alembic이 만들고 제거하는 데이터베이스 role은 테스트 table이 다른 데이터베이스를
-사용해도 cluster-global이므로 별도 volume과 PostgreSQL cluster가 필요합니다.
+자동 시작에는 신뢰된 workspace와 커밋된 정책이 필요하며 권한을 약화하지 않습니다. 재사용에는 이
+체크아웃의 잠금과 정확한 입력 fingerprint가 필요하고, 변경되거나 다른 소유권은 관리 대상만 교체하거나
+실패합니다. 15초 게이트는 체크아웃 소유 Core, 최신 heartbeat, 정상 service probe를 요구합니다.
+종료는 10초 뒤 자식 process group을 중지하고 wrapper가 사라지면 그 leader에 signal을 보냅니다.
+개별 서비스 또는 debug launch 전에는 `console: prepare full stack`을 실행합니다.
+Git에서 제외된 로컬 런타임 환경은 검증 cluster를 `FDAI_VALIDATION_DATABASE_URL`로 기록하고,
+분리된 검증 queue는 선택된 통합 테스트에 이 값만 `FDAI_DATABASE_URL`로 매핑합니다. 활성 런타임
+DSN은 전달하지 않습니다. Alembic role 변경은 cluster-global이므로 별도 cluster가 필요합니다.
 같은 이행이 로컬 및 deployed PostgreSQL에 principal 범위 `conversation_image` 저장소를
 만듭니다. 따라서 두 프로파일의 Command Deck 이력은 동일한 인증 Operator API 경로를 통해 전송된
 이미지를 복원하며, 어느 프로파일도 inline base64를 턴 메타데이터 또는 브라우저 대화 기록 캐시에

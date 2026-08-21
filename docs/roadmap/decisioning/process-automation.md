@@ -451,16 +451,11 @@ entry opens the conversational designer.
 
 ### 8.1 Conversational designer
 
-The designer is a **chat that co-designs the workflow with the operator**, not
-a form. It asks deep, plain-language questions, restates what it understood,
-and offers option chips the way an assistant proposes next actions - so a
-non-expert reaches a valid workflow by answering questions, never by learning
-the schema. Deterministic stage transitions remain in the interview engine
-([`workflow-builder.chat.ts`](../../../console/src/routes/workflow-builder.chat.ts)),
-a slot-filling state machine that never invents a mutation the `ActionType`
-palette does not already carry. Free-text meaning comes only from a verified
-server-owned semantic judgment. A text-only browser call abstains instead of
-falling back to lexical inference.
+The designer is a **chat that co-designs the workflow with the operator**, not a form. Its
+deterministic interview engine asks plain-language questions, restates understanding, and offers
+option chips without inventing mutations outside the `ActionType` palette. Free-text meaning comes
+only from verified server-owned semantic judgment; a text-only browser call does not use lexical
+fallback ([`workflow-builder.chat.ts`](../../../console/src/routes/workflow-builder.chat.ts)).
 
 The engine walks a fixed set of stages
 (`welcome -> need_action -> need_trigger -> confirm_plan -> offer_extra ->
@@ -472,12 +467,10 @@ Design properties:
 - the welcome turn shows **worked examples** (e.g. "when a pod on
   `aks-cluster-01` runs hot, notify me"), so the operator sees what kinds of
   processes are expressible before typing;
-- a verified semantic workflow judgment may prefill exact trigger and
-  `ActionType` identities through
-  [`suggestDraftFromJudgment`](../../../console/src/routes/workflow-builder.intent.ts).
-  The projection requires confidence of at least `0.75`, no ambiguity, and
-  `execution_authority=false`; unknown or duplicate identities fail closed and
-  the interview asks for the missing fields;
+- a verified semantic workflow judgment may prefill exact trigger and `ActionType` identities
+  through [`suggestDraftFromJudgment`](../../../console/src/routes/workflow-builder.intent.ts).
+  It requires confidence of at least `0.75`, no ambiguity, and `execution_authority=false`;
+  unknown or duplicate identities leave the fields for the interview;
 - after each answer the engine **restates its understanding** as one plain
   "when -> do" sentence, and at `offer_extra` it proposes further steps
   (another action, a guard, a notification) as chips the operator accepts or

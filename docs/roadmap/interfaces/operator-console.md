@@ -141,25 +141,13 @@ selector continues to require server-owned action lifecycle evidence.
   remains the response owner.
   An agent-card Ask opens with a compact projected-state line list; its longer fixed context stays non-rendered for backend history, and the visible report streams in bounded two-word bursts.
   Web Investigation animates only received branch frames with elapsed time, typed badges, and staggered status rows. A terminal investigation keeps its session header and observed steps visible beside the final answer; only redacted command output and timestamps remain in disclosures. A source branch linked to an observed execution step is represented once on that step rather than repeated as a separate row. Full workspace reserves one 760 px reading measure for the desktop answer and structured evidence, keeps long-table headers visible while rows scroll, and uses the full mobile viewport with labeled-row reflow and no horizontal overflow. Phase markers, a 15 px conversation scale, and one dark command/code surface keep the production hierarchy aligned with the execution mock. The browser never replays work or invents progress.
-  Observed activity distinguishes actual process commands from canonical server queries with a
-  required `input_kind` contract. Inventory, subscription-health, and read-investigation activity
-  uses `query`: it renders the verifier-accepted typed query, authority, snapshot provenance, and
-  bounded result projection without inventing Azure CLI argv or an exit code. Web labels a validated
-  inventory query as `IQL`; source and result disclosures each close. A strict bounded execution
-  receipt uses one terminal icon for Azure CLI and ARG commands. New receipts derive placeholder-only
-  argv from a registered plan and show page count, result count, and at most ten allowlisted preview
-  rows while omitting live subscription ids, raw resource ids, credentials, pagination tokens, and
-  provider errors. Rows identify snapshot-refresh work while IQL filters that snapshot. The browser
-  never reconstructs a command from IQL; a missing or invalid receipt produces no provider row.
-  Other server queries retain `QUERY`, and only a provider receipt that records a process invocation
-  uses `command`. An additive execution target separates inter-service `transport` from the actual
-  `interface_kind`, service, component, operation, and provider-neutral source. A Core
-  ontology ObjectSet read is therefore presented as an internal typed query, never as a CLI command
-  or the unrelated `GET /ontology/graph` projection. Event-only lifecycle steps present their
-  recorded explanation, owner, outcome, authority, and observation time without a terminal surface;
-  absence of an external command is secondary evidence rather than the primary message. Older
-  records without these fields stay `Not recorded`, and the browser never derives them or a request
-  ingress from tool names. Slack, Teams, and durable replay preserve the query/command distinction.
+  Observed activity uses `input_kind` to separate process commands from canonical server queries.
+  Query rows show verified typed input, authority, snapshot provenance, and bounded results without
+  inventing CLI arguments, exit codes, endpoints, or provider errors. Execution provenance keeps
+  inter-service `transport` separate from interface, service, component, operation, and
+  provider-neutral source, so ObjectSet reads remain internal typed queries. Lifecycle-only events
+  show recorded explanation, owner, outcome, authority, and observation time; older records remain
+  `Not recorded`. Web, Slack, Teams, and durable replay preserve the query/command distinction.
   A narrator milestone settles the preceding activity group before the next group begins. Web shows
   the milestone as a compact progress note, opens only the current group, and restores completed
   groups in causal order. Slack and Teams edit the same cumulative redacted activity projection.

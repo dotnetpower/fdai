@@ -19,11 +19,9 @@ provider adapters gather evidence without using Thor's execution identity.
 
 ## Design at a glance
 
-A read investigation stays outside the mutation control loop. The shared semantic judgment
-boundary proposes a typed intent and source-grounded targets. Deterministic validation and exact
-resource resolution then select read tools and choose a direct, streamed, or detached execution
-mode from measured tool latency. Every answer cites normalized server-owned evidence or reports
-that evidence is unavailable.
+A read investigation stays outside the mutation control loop. Shared semantic judgment proposes
+typed intent and source-grounded targets; deterministic validation and exact resource resolution
+select tools and execution mode. Answers cite normalized evidence or report it unavailable.
 
 ![Design at a glance. The main stages are Operator, Bragi conversation, Read investigation planner, Heimdall investigation, Durable background task, Attenuated read-tool gateway, Resource Graph or inventory, Activity Log, Resource Health, Guest or Monitor logs, Normalized evidence.](../../diagrams/generated/fdai-roadmap-interfaces-azure-read-investigations-01.en.svg)
 

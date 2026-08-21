@@ -204,35 +204,16 @@ authoritative inputs without copying tenant identifiers, resource endpoints, or 
 also writes immutable revisions of the reviewed Rule and Ontology reference catalogs to the
 Operator projection store. These declarations do not create findings, observed inventory,
 readiness, or execution authority. An unavailable or unauthorized provider leaves inventory
-explicitly unavailable instead of
-substituting fixture data. Automatic startup still requires a trusted workspace and the committed
-`task.allowAutomaticTasks` policy; it doesn't weaken browser Entra authentication or service
-authority. Each long-running startup task uses `instancePolicy: silent`. When task reconnection or
-another automatic start request finds an existing instance, VS Code preserves that instance and
-ignores the duplicate request instead of opening the task-instance picker. If VS Code loses the
-task-instance metadata while the process remains alive, the launcher recognizes this checkout's
-held service-log lock, emits `event=reused`, and completes the background readiness matcher without
-starting another child. Reuse also requires the stored launch fingerprint to match current
-service-owned source, private environment, dependency declarations, supervision code, and the
-exact child command. Changed inputs make automatic startup validate and replace that managed
-same-checkout task; missing ownership metadata, another checkout, or an unmanaged process fails
-without sending it a signal. A port or Core runtime lock owned by another checkout still fails startup instead
-of being adopted. After every start or reuse, a bounded 15-second check requires a Core process
-owned by this checkout, a Pantheon heartbeat no older than ten seconds, and successful probes from
-the Console SPA, Operator API, Document Ingestion API, Document Processing Worker, and isolated
-Executor. A listener that doesn't answer its readiness probe, or a Core event loop that stops
-heartbeating, therefore fails the aggregate startup instead of being reported as healthy. Local
-service shutdown has a ten-second graceful window, after which the launcher force-stops the child
-process group and releases the singleton lock. Each child is the recorded session leader and
-receives `SIGTERM` if its task wrapper disappears, so task cleanup cannot leave an unmanaged
-service behind. Run
-`console: prepare full stack` first when starting an individual service task or standalone debug
-launch outside the aggregate task.
+explicitly unavailable instead of substituting fixture data. Automatic startup requires a trusted
+workspace and committed policy without weakening authority. Reuse requires this checkout's lock
+and exact input fingerprint; changed or foreign ownership replaces only the managed task or fails.
+A 15-second gate requires checkout-owned Core, a recent heartbeat, and healthy service probes.
+Shutdown allows ten seconds before stopping the child group; wrapper loss signals its leader. Run
+`console: prepare full stack` before an individual service or debug launch.
 The ignored local runtime environment records the validation cluster as
-`FDAI_VALIDATION_DATABASE_URL`. The detached central validation queue maps only that value to
-`FDAI_DATABASE_URL` for selected integration tests. It never supplies the active runtime DSN to
-destructive migration tests. A separate volume and PostgreSQL cluster are required because database
-roles created and removed by Alembic are cluster-global even when test tables use another database.
+`FDAI_VALIDATION_DATABASE_URL`; the detached validation queue maps only that value to
+`FDAI_DATABASE_URL` for selected integration tests. It never supplies the active runtime DSN.
+A separate cluster is required because Alembic role changes are cluster-global.
 The same migration creates the principal-scoped `conversation_image` repository in local and
 deployed PostgreSQL. Command Deck history therefore restores sent images through the same
 authenticated Operator API route in both profiles; neither profile stores inline base64 in turn

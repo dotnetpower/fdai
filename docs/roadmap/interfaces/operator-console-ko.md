@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 2a8c0639d2231b289c9bd21acf04ad27108df826
+translation_source_sha: 453d2ce2c305638acde35b84589f0844a2279933
 translation_revised: 2026-08-21
 ---
 # FDAI Console 대화
@@ -142,24 +142,13 @@ intent-graph 도구보다 정본 glossary를 먼저 사용합니다. 이 우선�
   됩니다.
   에이전트 카드의 Ask는 간결한 projected-state 줄 목록으로 시작합니다. 더 긴 고정 맥락은 백엔드 이력용으로 화면에 표시하지 않으며 visible 보고는 범위가 제한된 2단어 burst로 스트림합니다.
   Web 조사는 수신한 가지 프레임만 경과 시간, 타입이 지정된 배지 및 staggered 상태 행으로 animate합니다. 최종 조사는 최종 답변 옆에 세션 헤더와 관찰된 단계를 계속 표시하며 민감정보가 제거된 명령 출력과 시각만 공개에 접어 둡니다. 관찰된 실행 단계와 연결된 출처 가지는 별도 행으로 반복하지 않고 해당 단계에 한 번만 표시합니다. Full workspace는 desktop 답변과 구조화된 근거에 하나의 760 px 읽기 폭을 사용하고 행을 스크롤하는 동안 긴 표 머리글을 계속 표시하며 mobile 뷰포트에서는 레이블 행 재배치와 함께 가로 overflow 없이 전체 폭을 사용합니다. Phase 표시, 15 px 대화 규모, 하나의 dark 명령/코드 표면으로 운영 hierarchy를 실행 mock과 맞춥니다. 브라우저는 작업을 재생하거나 진행 상황을 invent하지 않습니다.
-  관찰된 활동은 필수 `input_kind` 계약으로 실제 프로세스 명령과 정본 서버 조회를
-  구분합니다. 인벤토리, subscription-health 및 read-investigation 활동은 `query`를 사용합니다.
-  검증기가 승인한 타입이 지정된 조회, 권한, 스냅샷 출처 이력 및 범위가 제한된 결과 변환 결과를 렌더링하며
-  Azure CLI argv 또는 exit 코드를 만들지 않습니다. Web은 검증된 인벤토리 조회를 `IQL`로
-  표시하며 출처와 결과 공개를 각각 닫습니다. Strict 범위가 제한된 증적은 Azure CLI와 ARG에
-  같은 최종 icon을 사용합니다. 새 증적은 등록된 계획에서 자리 표시자 전용 argv를 파생하고
-  페이지 수, 결과 수 및 허용 목록된 미리 보기 행 최대 10개를 표시하면서 실제 구독 id,
-  raw 리소스 id, 자격 증명, 페이지 나누기 토큰 및 프로바이더 오류를 생략합니다. 행은 snapshot-refresh 작업을
-  식별하며 브라우저는 IQL에서 명령을 재구성하지 않습니다. 유효한 증적이 없으면 프로바이더 행도
-  만들지 않습니다. 다른 서버 조회는 `QUERY`를 유지하고
-  프로세스 호출을 기록한 프로바이더 증적만 `command`를 사용합니다. 추가 방식의 실행 대상은
-  서비스 간 `transport`와 실제 `interface_kind`, service, component, operation,
-  provider-neutral source를 분리합니다. 따라서 Core ontology ObjectSet 읽기는 내부 typed query로
-  표시되며 CLI command 또는 관련 없는 `GET /ontology/graph` projection으로 표시되지 않습니다.
-  Event-only lifecycle 단계는 terminal surface 없이 기록된 설명, owner, outcome, authority 및
-  observation time을 표시하고 외부 command 부재는 기본 message가 아니라 보조 evidence가 됩니다.
-  이 field가 없는 이전 record는 `기록되지 않음`으로 유지하며 browser는 tool name에서 값이나
-  요청 ingress를 derive하지 않습니다. Slack, Teams 및 영속 replay는 조회/명령 구분을 보존합니다.
+  관찰된 활동은 `input_kind`로 프로세스 명령과 정본 서버 조회를 구분합니다. 조회 행은 CLI 인자,
+  종료 코드, endpoint 또는 프로바이더 오류를 만들지 않고 검증된 타입 입력, 권한, 스냅샷 출처 이력,
+  범위가 제한된 결과를 표시합니다. 실행 출처 이력은 서비스 간 `transport`와 interface, service,
+  component, operation, provider-neutral source를 분리하므로 ObjectSet 읽기는 내부 typed query로
+  유지됩니다. 수명 주기 전용 event는 기록된 설명, owner, outcome, authority, observation time을
+  표시하고 이전 record는 `기록되지 않음`으로 유지합니다. Web, Slack, Teams 및 영속 replay는
+  조회/명령 구분을 보존합니다.
   Narrator 이정표는 다음 그룹이 시작되기 전에 앞선 활동 그룹을 settled 상태로 바꿉니다.
   Web은 이정표를 간결한 진행 상황 note로 표시하고 현재 그룹만 펼치며 completed 그룹을 causal
   순서로 복원합니다. Slack과 Teams는 같은 cumulative 민감정보가 제거된 활동 변환 결과를 수정합니다.

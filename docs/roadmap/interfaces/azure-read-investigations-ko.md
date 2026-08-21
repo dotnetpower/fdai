@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: ee506ceacb3dce3b7ce4c02746135af9d031824b
+translation_source_sha: c851ee4c07a02a71b37642aa4ee3cb487482e143
 translation_revised: 2026-08-21
 ---
 
@@ -21,10 +21,9 @@ Thor의 실행 신원을 사용하지 않고 근거를 수집합니다.
 
 ## 설계 개요
 
-읽기 조사는 변경 컨트롤 루프 밖에 유지됩니다. 공유 의미 판단 경계가 타입이 지정된 의도와
-source-grounded 대상을 제안합니다. 결정론적 검증과 exact resource 해석이 읽기 도구를 선택한
-다음 측정된 도구 지연 시간을 기준으로 direct, streamed 또는 detached 실행 모드를 선택합니다.
-모든 답변은 정규화된 서버가 소유한 근거를 인용하거나 근거가 사용 불가임을 보고합니다.
+읽기 조사는 변경 컨트롤 루프 밖에 유지됩니다. 공유 의미 판단이 타입이 지정된 의도와 출처에
+근거한 대상을 제안하고, 결정론적 검증과 exact resource 해석이 도구와 실행 모드를 선택합니다.
+답변은 정규화된 근거를 인용하거나 사용할 수 없음을 보고합니다.
 
 ![설계 개요. 주요 단계는 Operator, Bragi conversation, Read investigation planner, Heimdall investigation, Durable background task, Attenuated read-tool gateway, Resource Graph or inventory, Activity Log, Resource Health, Guest or Monitor logs, Normalized evidence입니다.](../../diagrams/generated/fdai-roadmap-interfaces-azure-read-investigations-01.ko.svg)
 
