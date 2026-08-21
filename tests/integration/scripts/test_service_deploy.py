@@ -1142,6 +1142,12 @@ def test_plan_guard_requires_complete_core_transport_migration(guard: ModuleType
     contract = guard.resolve_service(service, "dev")
     change = plan["resource_changes"][0]["change"]  # type: ignore[index]
     expected = guard.event_bus_topic_migration(service, surface="environment")
+    newly_bound = {
+        "FDAI_CANARY_TOPIC",
+        "FDAI_HIL_DECISION_TOPIC",
+        "FDAI_INVENTORY_RAW_TOPIC",
+        "FDAI_STAGE_TOPIC",
+    }
     for side in ("before", "after"):
         resource = change[side]
         container = resource["template"][0]["container"][0]
@@ -1151,9 +1157,14 @@ def test_plan_guard_requires_complete_core_transport_migration(guard: ModuleType
         ]
         resource["tags"] = {"fdai:component": service}
         environment = container["env"]
+        state_store = next(item for item in environment if item["name"] == "FDAI_STATE_STORE_DSN")
+        state_store["secret_name"] = "database-dsn"
+        state_store["value"] = "" if side == "before" else None
         for name, expected_value in expected.items():
             item = next(item for item in environment if item["name"] == name)
-            item["value"] = expected_value if side == "after" else f"legacy.{name.lower()}"
+            item["value"] = expected_value
+        if side == "before":
+            container["env"] = [item for item in environment if item["name"] not in newly_bound]
 
     guard.validate_plan(
         plan,

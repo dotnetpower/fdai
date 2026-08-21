@@ -253,9 +253,10 @@ def _environment_binding(item: dict[str, Any] | None) -> tuple[Any, Any] | None:
     if item is None:
         return None
     secret_name = item.get("secret_name")
+    normalized_secret = None if secret_name in (None, "") else secret_name
     return (
-        item.get("value"),
-        None if secret_name in (None, "") else secret_name,
+        None if normalized_secret is not None else item.get("value"),
+        normalized_secret,
     )
 
 
@@ -284,17 +285,17 @@ def _guard_event_bus_topic_migration(
         if _environment_binding(before_environment.get(name))
         != _environment_binding(after_environment.get(name))
     }
-    aligned_follow_up = not changed_names and all(
-        _environment_binding(after_environment.get(name)) == (expected_value, None)
+    invalid_names = sorted(
+        name
         for name, expected_value in expected_values.items()
+        if _environment_binding(after_environment.get(name)) != (expected_value, None)
     )
     violations: list[str] = []
-    if changed_names != set(expected_values) and not aligned_follow_up:
-        unexpected = sorted(changed_names.difference(expected_values))
-        missing = sorted(set(expected_values).difference(changed_names))
+    unexpected = sorted(changed_names.difference(expected_values))
+    if unexpected or invalid_names:
         violations.append(
             "Event Bus topic migration changes unapproved environment at "
-            f"{address}: unexpected={unexpected}, missing={missing}"
+            f"{address}: unexpected={unexpected}, missing={invalid_names}"
         )
     for name, expected_value in expected_values.items():
         item = after_environment.get(name)
