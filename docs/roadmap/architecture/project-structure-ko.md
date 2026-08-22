@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 6c8d45a587cb486367a103fb255e2240d95a4b5e
+translation_source_sha: f8674256a272aaa32597b06887f1a19fc577be97
 translation_revised: 2026-08-22
 ---
 # 프로젝트 구조
@@ -21,7 +21,7 @@ translation_revised: 2026-08-22
 | 리소스 검색 계약 경계 | implemented | `fdai_service_contracts/discovery.py`, `fdai_service_contracts/discovery_evidence.py`, `core/discovery/router.py`, 집중 검색 검사 (`44 passed`) | 공유 SDK는 불변이고 권한이 없는 wire 레코드를 소유하고 Core는 프로바이더 중립적인 정확히 동등한 라우팅과 병합을 소유하며 Azure delivery는 버전이 고정된 프로파일, 렌더링, 실행 증적 및 커버리지 조정을 소유합니다. |
 | 인벤토리 신원 완전성 경계 | implemented | `shared/providers/inventory.py`, `delivery/azure/{arg_query,inventory}.py`, `composition/wire_inventory.py`, focused 검사 259개 통과 | Shared는 exact coverage 증적을 소유하고 Azure delivery는 범위가 제한된 native 신원 읽기를 소유하며 composition은 프로바이더 I/O를 Core로 옮기지 않고 두 경로를 연결합니다. |
 | 질문에 결속된 의미 필터 근거 확인 | 구현됨 | `core/conversation/semantic_planning_value_filters.py`, `tests/conversation/test_semantic_planning.py`, focused 계획 검사(`79 passed`) | Core는 발화에 명시된 카탈로그 값 그룹 또는 검증된 frame이 보존하고 해당 발화에 그대로 존재하는 정확한 자유 텍스트 subject 하나로만 후보 ObjectSet을 좁힐 수 있습니다. 프로바이더 I/O, 판단, 승인, 변경 또는 실행 권한은 추가하지 않습니다. |
-| 의미 frame 구성 경계 | 구현됨 | `core/conversation/semantic_planning_frame.py`, 집중 planner, tier-routing, investigation 및 Azure adapter 검사 111개 통과 | 집중 Core 모듈이 후보 frame을 정확한 입력 및 investigation identity에 결속하고 서버 소유 명확화 맥락만 해석합니다. 프로바이더 I/O를 수행하지 않으며 판단, 승인, 변경 또는 실행 권한을 부여하지 않습니다. |
+| 의미 frame 및 plan 정렬 경계 | 구현됨 | `core/conversation/semantic_planning_frame.py`, `core/conversation/semantic_planning_alignment.py`, 집중 플래너 검사 90개 통과 | 집중 Core 모듈은 후보 frame을 정확한 입력 및 investigation identity에 결속하고 서버 소유 명확화 맥락만 해석하며, plan이 승인된 frame과 정확한 기능군을 보존하는지 검증합니다. 프로바이더 I/O를 수행하지 않으며 판단, 승인, 변경 또는 실행 권한을 부여하지 않습니다. |
 | 정확한 대상 메트릭 시계열 경계 | validated | `core/conversation/semantic_resource_metric_planning.py`, `core/ontology_platform/resource_metric_queries.py`, `composition/wire_semantic_query.py`, Operator `presentation_artifact_v2.py`, 집중 검사, 인증된 표준 포트 Console 증적 | Core는 서버 소유 시계열 plan을 선택했고 온톨로지 플랫폼은 완전한 범위 제한 행 20/20개를 반환했으며 조립은 기존 메트릭 프로바이더에 도달했고 Operator는 세 viewport에서 검증된 시계열 artifact를 렌더링했습니다. 어떤 서비스도 다른 서비스 구현을 import하지 않았고 브라우저는 프로바이더 또는 실행 권한을 받지 않았습니다. |
 | Evaluation 및 의미 회귀 경계 | in-progress | `evaluation-sdk/`, `benchmarks/`, `eval/golden-dataset/`, `tests/integration/evaluation/test_golden_dataset.py` (`7 passed`) | 외부 호스트 통합은 휴면 상태이며 Core에 존재하지 않습니다. 보존된 패키지는 독립 workspace 구성원으로 유지합니다. 생성된 corpus는 expectation 35개, 표현 방식 8개, 균형 잡힌 관점 7개와 모든 검토된 보증 축에 걸친 영어와 한국어 280쌍을 포함합니다. 답변 결과에 대한 캠페인 실행 연결은 남아 있습니다. |
 | 통제된 규칙 발견 시작 경계 | implemented | `core/readiness/discovery_activation.py`, `runtime/discovery_activation.py`, `runtime/bootstrap*.py`, `agents/norns.py`, 집중 활성화 및 연결 검사 | Core는 최신 선행 조건 근거를 집약하고, 런타임은 기본적으로 닫힌 결정을 Norns의 비활성 후보 게시 경계에만 주입하며, 감독되는 새로 고침이 실패하면 카탈로그 또는 승격 권한을 바꾸지 않고 로컬 게이트를 닫습니다. |

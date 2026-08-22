@@ -32,7 +32,7 @@ describe("conversation turn attachment failures", () => {
   it("renders sent images above the question without filenames and opens a modal", () => {
     const attachmentsIndex = presenters.indexOf("<ConversationTurnAttachments");
     const questionIndex = presenters.indexOf(
-      '<div class="deck-turn-body">',
+      '<div class="deck-turn-body ',
       attachmentsIndex,
     );
     expect(attachmentsIndex).toBeGreaterThan(-1);

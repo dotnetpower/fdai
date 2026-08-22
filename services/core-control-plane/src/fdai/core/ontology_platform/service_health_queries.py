@@ -59,7 +59,7 @@ class ServiceHealthObservation:
         ):
             if not value.strip() or len(value) > maximum:
                 raise ValueError(f"Service Health {name} MUST be bounded and non-empty")
-        for name, value, maximum in (
+        for name, optional_value, maximum in (
             ("resource_name", self.resource_name, 256),
             ("resource_type", self.resource_type, 256),
             ("resource_group", self.resource_group, 256),
@@ -68,7 +68,9 @@ class ServiceHealthObservation:
             ("impact_status", self.impact_status, 64),
             ("impact_evidence_ref", self.impact_evidence_ref, 256),
         ):
-            if value is not None and (not value.strip() or len(value) > maximum):
+            if optional_value is not None and (
+                not optional_value.strip() or len(optional_value) > maximum
+            ):
                 raise ValueError(f"Service Health {name} MUST be bounded when present")
         if self.impact_start_at.tzinfo is None or self.observed_at.tzinfo is None:
             raise ValueError("Service Health timestamps MUST be timezone-aware")

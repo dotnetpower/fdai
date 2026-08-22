@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import logging
 import os
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 from urllib.parse import urlsplit
 
 import httpx
@@ -26,6 +26,32 @@ from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _LOGGER = logging.getLogger("fdai.startup")
 _AZURE_OPENAI_HOST_SUFFIX = ".openai.azure.com"
+
+
+class _IdentityRequestFlags(NamedTuple):
+    telemetry: bool
+    gateway: bool
+    case_history: bool
+    vertical_execution: bool
+
+
+def _identity_request_flags(
+    environment: Mapping[str, str],
+    vertical_identity_environment: Mapping[str, str],
+) -> _IdentityRequestFlags:
+    """Resolve which optional runtime features require a workload identity."""
+    return _IdentityRequestFlags(
+        telemetry=bool(
+            environment.get("FDAI_MONITOR_WORKSPACE_ID", "").strip()
+            or environment.get("FDAI_PROMETHEUS_ENDPOINT", "").strip()
+        ),
+        gateway=bool(environment.get("FDAI_DEV_OPERATIONS_GATEWAY_URL", "").strip()),
+        case_history=bool(environment.get("FDAI_CASE_HISTORY_CONTAINER_URL", "").strip()),
+        vertical_execution=any(
+            environment.get(env_var, "").strip()
+            for env_var in vertical_identity_environment.values()
+        ),
+    )
 
 
 def _direct_model_endpoint_resolver(endpoint: str) -> Callable[[str], str]:

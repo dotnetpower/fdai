@@ -45,7 +45,7 @@ from fdai.runtime.bootstrap_bindings import (
     build_runtime_workload_identity as _build_runtime_workload_identity,
 )
 from fdai.runtime.bootstrap_bindings import (
-    build_vertical_execution_identities as _build_vertical_execution_identities_impl,
+    build_vertical_execution_identities as _build_vertical_execution_identities,
 )
 from fdai.runtime.bootstrap_bindings import (
     case_history_identity_client_id as _case_history_identity_client_id,
@@ -129,6 +129,7 @@ from fdai.runtime.configuration import (
     _attach_runtime_metric_provider,
     _direct_model_endpoint_resolver,
     _finalize_llm_bindings,
+    _identity_request_flags,
     _new_http_client,
     _resolve_catalog_root,
     _resolve_policies_root,
@@ -182,18 +183,6 @@ _LOGGER = logging.getLogger("fdai.startup")
 _AUXILIARY_KAFKA_BOOTSTRAP_ENV = "FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS"
 
 
-def _build_vertical_execution_identities(
-    *,
-    http_client: httpx.AsyncClient | None,
-) -> dict[str, Any]:
-    """Preserve the bootstrap test seam while delegating provider construction."""
-    return _build_vertical_execution_identities_impl(
-        http_client,
-        identity_environment=VERTICAL_IDENTITY_ENV,
-        identity_builder=_build_runtime_workload_identity,
-    )
-
-
 async def _run() -> int:
     container = default_container_from_env()
     summary = _summarize_config(container)
@@ -223,23 +212,15 @@ async def _run() -> int:
 
     try:
         health_server = await open_health_port()
-        telemetry_requested = bool(
-            os.environ.get("FDAI_MONITOR_WORKSPACE_ID", "").strip()
-            or os.environ.get("FDAI_PROMETHEUS_ENDPOINT", "").strip()
-        )
-        gateway_requested = bool(os.environ.get("FDAI_DEV_OPERATIONS_GATEWAY_URL", "").strip())
-        case_history_requested = bool(os.environ.get("FDAI_CASE_HISTORY_CONTAINER_URL", "").strip())
-        vertical_execution_requested = any(
-            os.environ.get(env_var, "").strip() for env_var in VERTICAL_IDENTITY_ENV.values()
-        )
-        if case_history_requested:
+        identity_requests = _identity_request_flags(os.environ, VERTICAL_IDENTITY_ENV)
+        if identity_requests.case_history:
             _case_history_identity_client_id(os.environ)
         if (
             container.config.llm.mode == LlmMode.AZURE
-            or telemetry_requested
-            or gateway_requested
-            or case_history_requested
-            or vertical_execution_requested
+            or identity_requests.telemetry
+            or identity_requests.gateway
+            or identity_requests.case_history
+            or identity_requests.vertical_execution
         ):
             http_client = _new_http_client()
             identity = _build_runtime_workload_identity(http_client)
@@ -255,7 +236,7 @@ async def _run() -> int:
                 "azure_llm_bindings_attached",
                 extra={"cross_check_models": len(bindings.cross_check_models)},
             )
-        elif telemetry_requested:
+        elif identity_requests.telemetry:
             if http_client is None or identity is None:
                 raise RuntimeError("Azure telemetry requires HTTP and workload identity bindings")
             container = _attach_runtime_metric_provider(

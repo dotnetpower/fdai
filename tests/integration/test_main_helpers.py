@@ -1077,7 +1077,7 @@ def test_build_direct_api_executor_binds_vertical_identity_routes(
 def test_build_vertical_execution_identities_uses_dedicated_env_bindings(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from fdai.runtime import bootstrap
+    from fdai.runtime.bootstrap_bindings import build_vertical_execution_identities
     from fdai.shared.providers.testing.workload_identity import StaticWorkloadIdentity
 
     monkeypatch.setenv("FDAI_CHANGE_MI_CLIENT_ID", "change-client")
@@ -1090,10 +1090,9 @@ def test_build_vertical_execution_identities_uses_dedicated_env_bindings(
         bound.append(client_id_env)
         return StaticWorkloadIdentity(audience="audience", token=client_id_env)
 
-    monkeypatch.setattr(bootstrap, "_build_runtime_workload_identity", build)
     client = httpx.AsyncClient()
     try:
-        identities = bootstrap._build_vertical_execution_identities(http_client=client)
+        identities = build_vertical_execution_identities(client, identity_builder=build)
     finally:
         asyncio.run(client.aclose())
 

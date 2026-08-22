@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 from fdai_service_contracts.ontology_query import (
     OntologyQueryNode,
@@ -110,7 +110,7 @@ def _lookback_seconds(temporal_scope: dict[str, Any]) -> int | None:
     value = temporal_scope["lookback_seconds"]
     if isinstance(value, bool) or not isinstance(value, int) or not 60 <= value <= 86_400:
         return None
-    return value
+    return cast(int, value)
 
 
 def _has_event_function(descriptors: tuple[dict[str, Any], ...]) -> bool:

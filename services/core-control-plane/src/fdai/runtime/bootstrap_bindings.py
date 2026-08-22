@@ -248,7 +248,7 @@ def build_runtime_workload_identity(
 def build_vertical_execution_identities(
     http_client: httpx.AsyncClient | None,
     *,
-    identity_environment: Mapping[str, str],
+    identity_environment: Mapping[str, str] = VERTICAL_IDENTITY_ENV,
     identity_builder: WorkloadIdentityBuilder = build_runtime_workload_identity,
 ) -> dict[str, WorkloadIdentity]:
     """Build only configured vertical identities through the shared workload-identity seam."""

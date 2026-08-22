@@ -119,7 +119,9 @@ describe("grounded reply presentation", () => {
       "utf8",
     );
 
-    expect(component).toContain('class="deck-gr-tool deck-gr-review"');
+    expect(component).toContain(
+      'class="deck-gr-tool deck-gr-review cs-deck-tool"',
+    );
     expect(component).not.toContain('class="deck-gr-review-status"');
     expect(component).not.toContain("TrajectoryStatusTrigger");
     expect(component).not.toContain("ConversationTrajectoryResults");

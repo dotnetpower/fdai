@@ -6,6 +6,7 @@ import { describe, expect, test } from "vitest";
 const SOURCE_ROOT = join(import.meta.dirname, "..");
 const ACCESSIBLE_NATIVE_TITLE_ELEMENTS = new Set(["iframe"]);
 const VISIBLE_TITLE_COMPONENTS = new Set([
+  "ComboChart",
   "DetailSection",
   "EmptyState",
   "EvidenceSection",
@@ -17,6 +18,7 @@ const VISIBLE_TITLE_COMPONENTS = new Set([
   "RecordFacts",
   "RecordList",
   "RelationshipDirection",
+  "TrendChart",
   "TypeSelector",
   "UnavailableView",
 ]);
