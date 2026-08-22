@@ -1,8 +1,8 @@
 ---
 title: Near-real-time detection paths
 translation_of: near-real-time-detection-paths.md
-translation_source_sha: dfff20c6b2af4b7db5e3c7b52802856c8aa52aa6
-translation_revised: 2026-08-21
+translation_source_sha: 91d87b9637ec380fdedb3f7ada18516c72fd6674
+translation_revised: 2026-08-22
 ---
 
 # 근실시간 감지 경로
@@ -148,12 +148,13 @@ Saga는 전환을 감사하고, Forseti는 스냅샷을 권한 상한으로 사�
 변경을 실행할 수 없습니다. Operator API와 콘솔은 Muninn 판정을 변환 결과하며 다시 계산하지 않습니다.
 Muninn은 `generated_at`이 엄격히 더 새로운 경우에만 대상의 최신 스냅샷을 교체하므로 순서가 바뀌거나
 재전달된 표류가 영속 준비도를 과거로 되돌릴 수 없습니다.
-인벤토리 기반 대상은 그래프 최신성과 커버리지 근거를 발견 dimension에 전달합니다.
-Stale 스냅샷 또는 degraded 커버리지는 passed가 아니라 사용 불가가 됩니다. Heimdall은
-표류를 publish하지만 복구를 실행하지 않습니다. 인벤토리 작업은 매분 기동하며, 다른 후보가
-수집 중이거나 마지막 성공이 6시간 이내이면서 조정되지 않은 변경이 없으면 건너뜁니다.
-실패한 시도는 범위가 제한된 백오프 뒤에 재시도합니다. 관측된 변경은 하한을 넘으면 앞당겨
-조정합니다. 아무것도 바뀌지 않았을 때 전체 ARG/ARM 검사 주기는 6시간입니다.
+Inventory 기반 대상은 그래프 최신성과 범위 근거를 발견 dimension에 전달합니다. Stale
+snapshot 또는 degraded 범위는 passed가 아니라 사용 불가가 됩니다. Heimdall은 drift를
+publish하지만 복구를 실행하지 않습니다. 수집은
+[지속형 운영 인스턴스 그래프](../architecture/continuous-operational-instance-graph-ko.md)의 적응형
+원본 정책을 따릅니다. lag, 변경량, 최대 노후 시간, 공급자 예산, throttling, circuit 상태가 다음
+delta 또는 완전한 reconciliation 시도를 결정합니다. 현재 고정 정기 간격은 controller가 구현되고
+측정될 때까지 이전 구성으로 유지됩니다.
 
 ## 조합 규칙
 

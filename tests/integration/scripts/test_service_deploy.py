@@ -1215,9 +1215,7 @@ def test_plan_guard_allows_core_semantic_topic_follow_up(guard: ModuleType) -> N
         state_store["value"] = "" if side == "before" else None
         for name, expected_value in expected.items():
             item = next(item for item in container["env"] if item["name"] == name)
-            item["value"] = (
-                "" if side == "before" and name in logical_topics else expected_value
-            )
+            item["value"] = "" if side == "before" and name in logical_topics else expected_value
 
     guard.validate_plan(
         plan,
@@ -1228,11 +1226,9 @@ def test_plan_guard_allows_core_semantic_topic_follow_up(guard: ModuleType) -> N
     )
 
     after_environment = change["after"]["template"][0]["container"][0]["env"]
-    next(
-        item
-        for item in after_environment
-        if item["name"] == "FDAI_SEMANTIC_TURN_REQUEST_TOPIC"
-    )["value"] = ""
+    next(item for item in after_environment if item["name"] == "FDAI_SEMANTIC_TURN_REQUEST_TOPIC")[
+        "value"
+    ] = ""
     with pytest.raises(guard.PlanGuardError, match="unapproved environment"):
         guard.validate_plan(
             plan,

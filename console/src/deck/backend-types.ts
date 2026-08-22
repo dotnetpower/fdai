@@ -109,7 +109,7 @@ export interface AnswerVerification {
 }
 
 export interface SemanticProjectionReceipt {
-  readonly schema_version: "1.0.0";
+  readonly schema_version: "1.0.0" | "2.0.0";
   readonly projection_id: string;
   readonly request_id: string;
   readonly disposition: "answered" | "held" | "clarification" | "unsupported" | "action_draft" | "cancelled";
@@ -120,6 +120,46 @@ export interface SemanticProjectionReceipt {
   readonly principal_manifest_digest?: string;
   readonly plan_digest?: string;
   readonly execution_receipt_digest?: string;
+  readonly assurance_observation?: SemanticAssuranceObservation;
+  readonly execution_authority: false;
+}
+
+export interface SemanticAssuranceFrame {
+  readonly operation: "select" | "aggregate" | "compare" | "explain_change" | "validate" | "action_draft";
+  readonly subject_types: readonly string[];
+  readonly measure_concepts: readonly string[];
+  readonly temporal_scope: "none" | "current" | "windowed" | "historical";
+  readonly output_shape: string;
+  readonly frame_digest: string;
+}
+
+export interface SemanticAssurancePathStep {
+  readonly from_type: string;
+  readonly link_type: string;
+  readonly direction: "outgoing" | "incoming";
+  readonly to_type: string;
+}
+
+export interface SemanticAssurancePath {
+  readonly path_id: string;
+  readonly steps: readonly SemanticAssurancePathStep[];
+}
+
+export interface SemanticAssuranceObservation {
+  readonly schema_version: "1.0.0";
+  readonly frame: SemanticAssuranceFrame | null;
+  readonly capabilities: readonly string[];
+  readonly object_types: readonly string[];
+  readonly link_types: readonly string[];
+  readonly function_types: readonly string[];
+  readonly ontology_paths: readonly SemanticAssurancePath[];
+  readonly fact_kinds: readonly string[];
+  readonly limitation_kinds: readonly string[];
+  readonly claim_kinds: readonly string[];
+  readonly evidence_posture: "fresh" | "stale" | "incomplete" | "conflicting" | "unavailable";
+  readonly authority_posture: "read_only" | "draft_only";
+  readonly read_performed: boolean;
+  readonly observation_digest: string;
   readonly execution_authority: false;
 }
 
@@ -595,6 +635,7 @@ export interface StreamCallbacks {
   ) => void;
   readonly signal?: AbortSignal;
   readonly sessionId?: string;
+  readonly semanticPlanningProfile?: "interactive" | "golden_campaign_no_t2";
   readonly targetAgent?: string;
   readonly conversationBinding?: import("./open-deck").IncidentConversationBinding;
   /** Inline image attachments to escalate this turn to a vision narrator. */

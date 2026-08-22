@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -58,7 +58,9 @@ from fdai.core.ontology_platform.resource_ingress_queries import (
 )
 from fdai.core.ontology_platform.resource_metric_queries import (
     RESOURCE_METRIC_FUNCTION_NAME,
+    RESOURCE_METRIC_SERIES_FUNCTION_NAME,
     resource_metric_function_type,
+    resource_metric_series_function_type,
 )
 from fdai.rule_catalog.schema.inventory_query_language import (
     InventoryQueryLanguageRegistry,
@@ -494,7 +496,7 @@ def test_evidence_validation_keeps_concrete_subject_clarification() -> None:
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
-def test_misclassified_evidence_validation_retries_frame_then_holds() -> None:
+def test_misclassified_evidence_validation_fails_closed_without_t2() -> None:
     manifest, definition = _fixture()
     t1 = _Model(
         frame=_frame(operation="validate", output_shape="resource_list"),
@@ -512,13 +514,13 @@ def test_misclassified_evidence_validation_retries_frame_then_holds() -> None:
     outcome = _run(_service(t1, t2, manifest))
 
     assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
-    assert outcome.reason == "semantic_evidence_validation_unavailable"
+    assert outcome.reason == "semantic_plan_invalid"
     assert outcome.plan is None
     assert (t1.frame_calls, t1.plan_calls) == (1, 0)
-    assert (t2.frame_calls, t2.plan_calls) == (1, 0)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
-def test_misclassified_causal_frame_retries_frame_with_t2() -> None:
+def test_misclassified_causal_frame_fails_closed_without_t2() -> None:
     manifest, definition = _fixture()
     t1 = _Model(
         frame=_frame(operation="select", output_shape="causal_evidence"),
@@ -535,9 +537,10 @@ def test_misclassified_causal_frame_retries_frame_with_t2() -> None:
 
     outcome = _run(service)
 
-    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
-    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
-    assert (t2.frame_calls, t2.plan_calls) == (1, 0)
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.reason == "semantic_plan_invalid"
+    assert (t1.frame_calls, t1.plan_calls) == (1, 0)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
 def test_target_bound_causal_frame_omission_does_not_invoke_t2() -> None:
@@ -1126,6 +1129,158 @@ def test_exact_target_memory_percentage_builds_seven_day_metric_read_without_t2(
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
+def test_exact_target_memory_percentage_chart_builds_metric_series_without_t2() -> None:
+    class _ReturningVerifier:
+        def verify(self, plan: Any, *, manifest: object) -> Any:
+            assert manifest is not None
+            return plan
+
+    manifest, _ = _fixture(
+        property_values=_container_app_property_values(),
+        include_resource_type=True,
+        function_types=(resource_metric_series_function_type(),),
+    )
+    t1 = _Model(
+        frame=_frame(
+            subject_constraints=["Resource", "app-example"],
+            measure_concepts=["resource.memory.usage_pct"],
+            temporal_scope={"lookback_seconds": 604800},
+            output_shape="target_resource_metric_series",
+        ),
+        plan={"nodes": [], "output_node_ids": []},
+    )
+    t2 = _Model(frame=None, plan=None)
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_ReturningVerifier(),  # type: ignore[arg-type]
+        metric_concepts=("resource.memory.usage_pct",),
+        now=lambda: NOW,
+    )
+
+    outcome = _run(
+        service,
+        utterance=("app-example Container App의 지난 7일 메모리 사용률을 시각화해 줘."),
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == "target_resource_metric_series"
+    assert outcome.plan is not None
+    target, metric = outcome.plan.nodes
+    assert target.kind is QueryNodeKind.OBJECT_SET
+    assert metric.kind is QueryNodeKind.FUNCTION
+    assert metric.depends_on == (target.node_id,)
+    assert metric.arguments["function_name"] == RESOURCE_METRIC_SERIES_FUNCTION_NAME
+    assert metric.arguments["arguments"] == {
+        "metric_concept": "resource.memory.usage_pct",
+        "window_seconds": int(timedelta(days=7).total_seconds()),
+    }
+    assert metric.arguments["dependency_arguments"] == {target.node_id: "query_result"}
+    assert outcome.plan.execution_authority is False
+    assert (t1.frame_calls, t1.plan_calls) == (1, 0)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+def test_exact_target_chart_normalizes_aggregate_metric_frame_without_t2() -> None:
+    class _ReturningVerifier:
+        def verify(self, plan: Any, *, manifest: object) -> Any:
+            assert manifest is not None
+            return plan
+
+    manifest, _ = _fixture(
+        property_values=_container_app_property_values(),
+        include_resource_type=True,
+        function_types=(resource_metric_series_function_type(),),
+    )
+    t1 = _Model(
+        frame=_frame(
+            subject_constraints=["Resource", "ca-fdai-dev-krc-core"],
+            measure_concepts=["resource.memory.usage_pct"],
+            temporal_scope={"lookback_seconds": 604800},
+            output_shape="target_resource_metric",
+        ),
+        plan={"nodes": [], "output_node_ids": []},
+    )
+    t2 = _Model(frame=None, plan=None)
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_ReturningVerifier(),  # type: ignore[arg-type]
+        metric_concepts=("resource.memory.usage_pct",),
+        now=lambda: NOW,
+    )
+
+    outcome = _run(
+        service,
+        utterance=(
+            "지난 1주일간 ca-fdai-dev-krc-core Container App의 메모리 사용률(%)을 시각화해줘."
+        ),
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == "target_resource_metric_series"
+    assert outcome.plan is not None
+    assert outcome.plan.nodes[-1].arguments["function_name"] == (
+        RESOURCE_METRIC_SERIES_FUNCTION_NAME
+    )
+    assert (t1.frame_calls, t1.plan_calls) == (1, 0)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+def test_exact_target_chart_normalizes_temporal_comparison_frame_without_t2() -> None:
+    class _ReturningVerifier:
+        def verify(self, plan: Any, *, manifest: object) -> Any:
+            assert manifest is not None
+            return plan
+
+    manifest, _ = _fixture(
+        property_values=_container_app_property_values(),
+        include_resource_type=True,
+        function_types=(resource_metric_series_function_type(),),
+    )
+    t1 = _Model(
+        frame=_frame(
+            operation="compare",
+            subject_constraints=["Resource", "ca-fdai-dev-krc-core"],
+            measure_concepts=["resource.memory.usage_pct"],
+            temporal_scope={"lookback_seconds": 604800},
+            output_shape="temporal_comparison",
+        ),
+        plan={"nodes": [], "output_node_ids": []},
+    )
+    t2 = _Model(frame=None, plan=None)
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_ReturningVerifier(),  # type: ignore[arg-type]
+        metric_concepts=("resource.memory.usage_pct",),
+        now=lambda: NOW,
+    )
+
+    outcome = _run(
+        service,
+        utterance=(
+            "지난 1주일간 ca-fdai-dev-krc-core Container App의 메모리 사용률(%)을 시각화해줘."
+        ),
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None
+    assert outcome.frame.operation is SemanticOperation.SELECT
+    assert outcome.frame.output_shape == "target_resource_metric_series"
+    assert outcome.plan is not None
+    assert outcome.plan.nodes[-1].arguments["function_name"] == (
+        RESOURCE_METRIC_SERIES_FUNCTION_NAME
+    )
+    assert (t1.frame_calls, t1.plan_calls) == (1, 0)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
 def test_exact_target_health_assessment_builds_bounded_read_without_t2() -> None:
     manifest, _ = _fixture(
         function_types=(
@@ -1322,10 +1477,10 @@ def test_wrong_error_activity_frame_is_not_lexically_rewritten(
     outcome = _run(_service(t1, t2, manifest), utterance=utterance)
 
     assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
-    assert outcome.frame is not None
-    assert outcome.frame.output_shape == "causal_evidence"
+    assert outcome.reason == "semantic_plan_invalid"
+    assert outcome.frame is None
     assert (t1.frame_calls, t1.plan_calls) == (1, 1)
-    assert (t2.frame_calls, t2.plan_calls) == (0, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
 def test_ambiguous_target_health_assessment_clarifies_without_broad_read() -> None:
@@ -1513,7 +1668,7 @@ def test_causal_current_revision_question_does_not_complete_state_frame() -> Non
 
 
 @pytest.mark.parametrize("requirement", ("principal_scope", "purpose"))
-def test_t1_server_bound_clarification_retries_only_frame_with_t2(requirement: str) -> None:
+def test_t1_server_bound_clarification_fails_closed_without_t2(requirement: str) -> None:
     manifest, definition = _fixture()
     t1 = _Model(
         frame=_frame(
@@ -1527,9 +1682,10 @@ def test_t1_server_bound_clarification_retries_only_frame_with_t2(requirement: s
 
     outcome = _run(_service(t1, t2, manifest))
 
-    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
-    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
-    assert (t2.frame_calls, t2.plan_calls) == (1, 0)
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.reason == "semantic_plan_invalid"
+    assert (t1.frame_calls, t1.plan_calls) == (1, 0)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
 def test_unavailable_t1_frame_retries_only_frame_with_t2() -> None:
@@ -1605,18 +1761,19 @@ def test_unavailable_targetless_collection_frame_does_not_reduce_to_candidates()
     assert outcome.execution_authority is False
 
 
-def test_invalid_t1_plan_retries_only_plan_with_t2() -> None:
+def test_invalid_t1_plan_fails_closed_without_t2() -> None:
     manifest, definition = _fixture()
     t1 = _Model(frame=_frame(), plan={"nodes": [], "output_node_ids": []})
     t2 = _Model(frame=_frame(), plan=_plan(definition))
 
     outcome = _run(_service(t1, t2, manifest))
 
-    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.reason == "semantic_plan_invalid"
     assert (t1.frame_calls, t1.plan_calls) == (1, 1)
-    assert (t2.frame_calls, t2.plan_calls) == (0, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
     assert t1.plan_evaluation_times == [NOW]
-    assert t2.plan_evaluation_times == [NOW]
+    assert t2.plan_evaluation_times == []
 
 
 def _container_app_property_values() -> tuple[PropertyValueDomain, ...]:
@@ -1762,7 +1919,7 @@ def test_invalid_targetless_investigation_discovers_candidates_before_t2() -> No
     assert outcome.execution_authority is False
 
 
-def test_mismatched_specialized_t1_plan_retries_only_plan_with_t2() -> None:
+def test_mismatched_specialized_t1_plan_fails_closed_without_t2() -> None:
     manifest, definition = _fixture()
     t1 = _Model(
         frame=_frame(output_shape="resource_list"),
@@ -1779,9 +1936,10 @@ def test_mismatched_specialized_t1_plan_retries_only_plan_with_t2() -> None:
 
     outcome = _run(service)
 
-    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.reason == "semantic_plan_invalid"
     assert (t1.frame_calls, t1.plan_calls) == (1, 1)
-    assert (t2.frame_calls, t2.plan_calls) == (0, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
 def test_matching_specialized_t1_plan_never_invokes_t2() -> None:
@@ -1818,7 +1976,7 @@ def test_strict_v2_specialized_frames_reject_generic_substitutes(output_shape: s
 
     assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
     assert (t1.frame_calls, t1.plan_calls) == (1, 1)
-    assert (t2.frame_calls, t2.plan_calls) == (0, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
 @pytest.mark.parametrize(
@@ -1895,7 +2053,7 @@ def test_exact_declaration_plan_never_invokes_t2() -> None:
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
-def test_declaration_frame_without_exact_measure_retries_with_t2() -> None:
+def test_declaration_frame_without_exact_measure_fails_closed_without_t2() -> None:
     manifest, _definition = _fixture()
     declaration_plan = _function_plan(
         "query.ontology_declaration",
@@ -1925,12 +2083,13 @@ def test_declaration_frame_without_exact_measure_retries_with_t2() -> None:
 
     outcome = _run(service)
 
-    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
-    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
-    assert (t2.frame_calls, t2.plan_calls) == (1, 0)
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.reason == "semantic_plan_invalid"
+    assert (t1.frame_calls, t1.plan_calls) == (1, 0)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
-def test_declaration_frame_with_non_select_operation_retries_with_t2() -> None:
+def test_declaration_frame_with_non_select_operation_fails_closed_without_t2() -> None:
     manifest, _definition = _fixture()
     declaration_plan = _declaration_sections_plan("detail")
     t1 = _Model(
@@ -1958,9 +2117,10 @@ def test_declaration_frame_with_non_select_operation_retries_with_t2() -> None:
 
     outcome = _run(service)
 
-    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
-    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
-    assert (t2.frame_calls, t2.plan_calls) == (1, 0)
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.reason == "semantic_plan_invalid"
+    assert (t1.frame_calls, t1.plan_calls) == (1, 0)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
 def test_all_requested_declaration_sections_must_be_outputs() -> None:
@@ -1984,9 +2144,10 @@ def test_all_requested_declaration_sections_must_be_outputs() -> None:
 
     outcome = _run(service)
 
-    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.reason == "semantic_plan_invalid"
     assert (t1.frame_calls, t1.plan_calls) == (1, 1)
-    assert (t2.frame_calls, t2.plan_calls) == (0, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
 def test_declaration_plan_rejects_hidden_unrelated_nodes() -> None:
@@ -2010,9 +2171,10 @@ def test_declaration_plan_rejects_hidden_unrelated_nodes() -> None:
 
     outcome = _run(service)
 
-    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.reason == "semantic_plan_invalid"
     assert (t1.frame_calls, t1.plan_calls) == (1, 1)
-    assert (t2.frame_calls, t2.plan_calls) == (0, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
 def test_declaration_plan_rejects_spoofed_output_kind() -> None:
@@ -2036,9 +2198,10 @@ def test_declaration_plan_rejects_spoofed_output_kind() -> None:
 
     outcome = _run(service)
 
-    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.reason == "semantic_plan_invalid"
     assert (t1.frame_calls, t1.plan_calls) == (1, 1)
-    assert (t2.frame_calls, t2.plan_calls) == (0, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
 def test_manifest_cannot_satisfy_exact_declaration_frame() -> None:
@@ -2071,9 +2234,10 @@ def test_manifest_cannot_satisfy_exact_declaration_frame() -> None:
 
     outcome = _run(service)
 
-    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.reason == "semantic_plan_invalid"
     assert (t1.frame_calls, t1.plan_calls) == (1, 1)
-    assert (t2.frame_calls, t2.plan_calls) == (0, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
 def test_object_set_cannot_satisfy_exact_declaration_frame() -> None:
@@ -2106,9 +2270,10 @@ def test_object_set_cannot_satisfy_exact_declaration_frame() -> None:
 
     outcome = _run(service)
 
-    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.reason == "semantic_plan_invalid"
     assert (t1.frame_calls, t1.plan_calls) == (1, 1)
-    assert (t2.frame_calls, t2.plan_calls) == (0, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
 def test_exact_rule_declaration_plan_never_invokes_t2() -> None:
@@ -2187,9 +2352,10 @@ def test_declaration_plan_name_must_match_exact_frame_subject() -> None:
 
     outcome = _run(service)
 
-    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.reason == "semantic_plan_invalid"
     assert (t1.frame_calls, t1.plan_calls) == (1, 1)
-    assert (t2.frame_calls, t2.plan_calls) == (0, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
 @pytest.mark.parametrize(
@@ -2242,9 +2408,10 @@ def test_declaration_plan_axes_must_match_exact_frame_and_manifest(
 
     outcome = _run(service)
 
-    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.reason == "semantic_plan_invalid"
     assert (t1.frame_calls, t1.plan_calls) == (1, 1)
-    assert (t2.frame_calls, t2.plan_calls) == (0, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
 def test_named_instance_question_never_settles_for_a_schema_frame() -> None:
@@ -2264,11 +2431,11 @@ def test_named_instance_question_never_settles_for_a_schema_frame() -> None:
 
     outcome = _run(service, utterance=_NAMED_INSTANCE_UTTERANCE)
 
-    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
-    assert outcome.plan is not None
-    assert tuple(node.kind for node in outcome.plan.nodes) == (QueryNodeKind.OBJECT_SET,)
-    assert (t1.frame_calls, t2.frame_calls) == (1, 1)
-    assert t2.plan_calls == 1
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.reason == "semantic_plan_invalid"
+    assert outcome.plan is None
+    assert (t1.frame_calls, t2.frame_calls) == (1, 0)
+    assert (t1.plan_calls, t2.plan_calls) == (0, 0)
 
 
 def test_named_instance_question_is_unsupported_when_both_tiers_answer_the_schema() -> None:
@@ -2290,7 +2457,7 @@ def test_named_instance_question_is_unsupported_when_both_tiers_answer_the_schem
     assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
     assert outcome.plan is None
     assert (t1.frame_calls, t1.plan_calls) == (1, 0)
-    assert (t2.frame_calls, t2.plan_calls) == (1, 0)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
 def test_declared_vocabulary_keeps_a_hyphenated_schema_question_answerable() -> None:
@@ -2348,9 +2515,10 @@ def test_incident_function_cannot_satisfy_resource_frame() -> None:
 
     outcome = _run(service)
 
-    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.reason == "semantic_plan_invalid"
     assert (t1.frame_calls, t1.plan_calls) == (1, 1)
-    assert (t2.frame_calls, t2.plan_calls) == (0, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
 def _incident_evidence_plan(*, incident_id: str, correlation_id: str) -> dict[str, object]:
@@ -2692,9 +2860,10 @@ def test_aggregation_frame_requires_aggregate_plan() -> None:
 
     outcome = _run(service, utterance="Count matching resources.")
 
-    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.reason == "semantic_plan_invalid"
     assert (t1.frame_calls, t1.plan_calls) == (1, 1)
-    assert (t2.frame_calls, t2.plan_calls) == (0, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
 def test_listing_frame_rejects_an_aggregate_plan() -> None:
@@ -2719,11 +2888,11 @@ def test_listing_frame_rejects_an_aggregate_plan() -> None:
         utterance="현재 범위에서 볼 수 있는 리소스 클래스를 보여 주세요.",
     )
 
-    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
-    assert outcome.plan is not None
-    assert all(node.kind is not QueryNodeKind.AGGREGATE for node in outcome.plan.nodes)
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.reason == "semantic_plan_invalid"
+    assert outcome.plan is None
     assert (t1.frame_calls, t1.plan_calls) == (1, 1)
-    assert (t2.frame_calls, t2.plan_calls) == (0, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
 def test_aggregation_words_do_not_rewrite_a_self_consistent_select_frame() -> None:
@@ -2844,7 +3013,7 @@ def test_listing_words_do_not_lexically_veto_a_verified_aggregate_frame(
     assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
     assert outcome.reason == "semantic_plan_invalid"
     assert (t1.frame_calls, t1.plan_calls) == (1, 1)
-    assert (t2.frame_calls, t2.plan_calls) == (0, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
 @pytest.mark.parametrize(
@@ -2896,7 +3065,7 @@ def test_aggregation_operation_and_output_shape_must_match(
 
     assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
     assert (t1.frame_calls, t1.plan_calls) == (1, 0)
-    assert (t2.frame_calls, t2.plan_calls) == (1, 0)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
 def test_manifest_function_may_feed_declaration_aggregate_output() -> None:
@@ -2987,7 +3156,7 @@ def test_operational_count_never_aggregates_the_declaration_manifest(
 
     assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
     assert outcome.plan is None
-    assert (t1.plan_calls, t2.plan_calls) == (1, 1)
+    assert (t1.plan_calls, t2.plan_calls) == (1, 0)
 
 
 def test_property_filter_frame_requires_object_set_predicate() -> None:
@@ -3008,9 +3177,10 @@ def test_property_filter_frame_requires_object_set_predicate() -> None:
 
     outcome = _run(service)
 
-    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.reason == "semantic_plan_invalid"
     assert (t1.frame_calls, t1.plan_calls) == (1, 1)
-    assert (t2.frame_calls, t2.plan_calls) == (0, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
 def test_property_filter_binds_missing_exact_frame_property() -> None:
@@ -3069,7 +3239,7 @@ def test_property_filter_does_not_bind_a_nonclosed_frame(
     outcome = _run(service)
 
     assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
-    assert (t1.plan_calls, t2.plan_calls) == (1, 1)
+    assert (t1.plan_calls, t2.plan_calls) == (1, 0)
 
 
 def test_scope_denial_never_invokes_t2() -> None:

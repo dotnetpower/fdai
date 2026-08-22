@@ -1,8 +1,8 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: 5882ef61785da8b7b1a7d287627d0ea3d6b1baf7
-translation_revised: 2026-08-21
+translation_source_sha: a294e2c507fd473de922af4e8a63f4e0bbf608e5
+translation_revised: 2026-08-22
 ---
 # FDAI 로드맵
 
@@ -82,6 +82,7 @@ canonical 영문 roadmap context를 실제 4,500줄로 제한합니다. Route가
 | 10c | [causal-incident-graph-ko.md](rules-and-detection/causal-incident-graph-ko.md) | 온톨로지 기반 causal 가설, support/refutation 근거, 근거 grade, 결과 종결 |
 | 10d | [document-ontology-distillation-ko.md](rules-and-detection/document-ontology-distillation-ko.md) | 승인된 운영 문서를 결정론적으로 검증되는 근거에 기반한 review-only 온톨로지 객체/링크 제안으로 compile |
 | 10e | [policy-abstraction-and-control-objectives-ko.md](rules-and-detection/policy-abstraction-and-control-objectives-ko.md) | 공급자 중립 통제 목표, 근거 포함 Rule 바인딩, 권한 경계, 코퍼스 규모 세대, 이행 및 구현 범위 |
+| 10g | [continuous-operational-instance-graph-ko.md](architecture/continuous-operational-instance-graph-ko.md) | 지속적인 부하 인식 리소스 관측, 온톨로지 인스턴스 수렴, 그래프 우선 실시간 보강, 타입 지정 rollup, 검증된 archive, 범위가 제한된 purge |
 | 11 | [deploy-and-onboard-ko.md](deployment/deploy-and-onboard-ko.md) | 구체적인 Azure 리소스 인벤토리, 부트스트랩 순서, 포크 vs 코어 분리 |
 | 11d | [production-deployment-hardening-ko.md](deployment/production-deployment-hardening-ko.md) | 운영 잠금, 내구성, 비공개 네트워킹, 신뢰할 수 있는 이미지, 모니터링 및 비용 상한 |
 | 11a | [deployment-resource-conventions-ko.md](deployment/deployment-resource-conventions-ko.md) | 결정론적 CAF 리소스 이름, 소유권 태그, 배포 공급 태그 규칙 |

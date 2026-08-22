@@ -719,6 +719,50 @@
   var modalEl = null;
   var lastTrigger = null;
   var inertRoots = [];
+  var chartMarkTooltip = null;
+
+  function showChartMarkTooltip(mark, label) {
+    if (!chartMarkTooltip) {
+      chartMarkTooltip = document.createElement("div");
+      chartMarkTooltip.id = "cs-chart-mark-tip";
+      chartMarkTooltip.className = "cs-chart-mark-tip";
+      chartMarkTooltip.setAttribute("role", "tooltip");
+      document.body.appendChild(chartMarkTooltip);
+    }
+    var rect = mark.getBoundingClientRect();
+    chartMarkTooltip.textContent = label;
+    chartMarkTooltip.classList.remove("is-side", "is-left", "is-clamped");
+    chartMarkTooltip.hidden = false;
+    if (mark.classList.contains("cs-family-series-slice") || mark.classList.contains("cs-composition-slice")) {
+      var tooltipWidth = chartMarkTooltip.offsetWidth;
+      var rightLeft = rect.right + 8;
+      var leftLeft = rect.left - tooltipWidth - 8;
+      var fitsRight = rightLeft + tooltipWidth <= window.innerWidth - 16;
+      var fitsLeft = leftLeft >= 16;
+      var useLeft = !fitsRight && fitsLeft;
+      chartMarkTooltip.classList.add("is-side");
+      chartMarkTooltip.classList.toggle("is-left", useLeft);
+      if (!fitsRight && !fitsLeft) {
+        chartMarkTooltip.classList.add("is-clamped");
+        chartMarkTooltip.style.left = Math.max(16, Math.min(
+          rect.left + rect.width / 2 - tooltipWidth / 2,
+          window.innerWidth - tooltipWidth - 16
+        )) + "px";
+      } else {
+        chartMarkTooltip.style.left = (useLeft ? rect.left - 8 : rightLeft) + "px";
+      }
+      chartMarkTooltip.style.top = (rect.top + rect.height / 2) + "px";
+    } else {
+      chartMarkTooltip.style.left = (rect.left + rect.width / 2) + "px";
+      chartMarkTooltip.style.top = rect.top + "px";
+    }
+    mark.setAttribute("aria-describedby", chartMarkTooltip.id);
+  }
+
+  function hideChartMarkTooltip(mark) {
+    if (chartMarkTooltip) chartMarkTooltip.hidden = true;
+    mark.removeAttribute("aria-describedby");
+  }
 
   function ensureModal() {
     if (modalEl) return modalEl;
@@ -796,7 +840,7 @@
     inertRoots = [];
   }
 
-  function openModal(trigger) {
+  function openModal(trigger, focusReturn) {
     var title   = trigger.getAttribute("data-chart-title") || "Details";
     var sub     = trigger.getAttribute("data-chart-sub") || "";
     var source  = trigger.getAttribute("data-chart-source") || "";
@@ -833,7 +877,7 @@
     if (source) { footEl.textContent = source; footEl.hidden = false; }
     else { footEl.hidden = true; }
 
-    lastTrigger = trigger;
+    lastTrigger = focusReturn || trigger;
     m.hidden = false;
     isolateModal(m);
     document.body.classList.add("cs-modal-open");
@@ -849,11 +893,12 @@
   }
 
   document.addEventListener("click", function (event) {
-    var trigger = event.target.closest(".js-chartable");
+    var inspect = event.target.closest("[data-cs-chart-inspect]");
+    if (!inspect) return;
+    var trigger = inspect.closest(".js-chartable");
     if (!trigger) return;
-    if (event.target.closest("a, button, [role=button]") && event.target.closest("a, button, [role=button]") !== trigger) return;
     event.preventDefault();
-    openModal(trigger);
+    openModal(trigger, inspect);
   });
 
   document.addEventListener("keydown", function (event) {
@@ -875,14 +920,30 @@
     }
   });
 
-  // Make chartables keyboard-activatable.
   document.addEventListener("DOMContentLoaded", function () {
-    document.querySelectorAll(".js-chartable").forEach(function (el) {
-      if (!el.hasAttribute("tabindex")) el.setAttribute("tabindex", "0");
-      if (!el.hasAttribute("role")) el.setAttribute("role", "button");
-      el.addEventListener("keydown", function (e) {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openModal(el); }
+    var chartMarks = "[data-chart-mark], .cs-heatmap-cell[title]";
+    document.querySelectorAll(chartMarks).forEach(function (mark) {
+      var label = mark.getAttribute("data-tooltip") || mark.getAttribute("title");
+      if (!mark.hasAttribute("tabindex")) mark.setAttribute("tabindex", "0");
+      if (!mark.hasAttribute("role")) mark.setAttribute("role", "img");
+      if (label && !mark.hasAttribute("aria-label")) mark.setAttribute("aria-label", label);
+      if (!label) return;
+      mark.addEventListener("pointerenter", function (event) {
+        if (event.pointerType !== "touch") showChartMarkTooltip(mark, label);
       });
+      mark.addEventListener("pointerleave", function () {
+        if (document.activeElement !== mark) hideChartMarkTooltip(mark);
+      });
+    });
+    document.addEventListener("focusin", function (event) {
+      var mark = event.target.closest ? event.target.closest(chartMarks) : null;
+      if (!mark) return;
+      var label = mark.getAttribute("data-tooltip") || mark.getAttribute("title");
+      if (label) showChartMarkTooltip(mark, label);
+    });
+    document.addEventListener("focusout", function (event) {
+      var mark = event.target.closest ? event.target.closest(chartMarks) : null;
+      if (mark) hideChartMarkTooltip(mark);
     });
   });
 })();

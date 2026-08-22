@@ -210,6 +210,29 @@ capture_output() {
     --backup-count "$backup_count"
 }
 
+probe_loopback_port() {
+  local loopback="$1"
+  local port="$2"
+  python3 - "$loopback" "$port" "$service_lock_fd" <<'PY'
+import os
+import socket
+import sys
+
+host = sys.argv[1]
+port = int(sys.argv[2])
+try:
+    os.close(int(sys.argv[3]))
+except OSError:
+    pass
+
+family = socket.AF_INET6 if ":" in host else socket.AF_INET
+with socket.socket(family, socket.SOCK_STREAM) as probe:
+    probe.settimeout(0.25)
+    raise SystemExit(0 if probe.connect_ex((host, port)) == 0 else 1)
+PY
+}
+
+active_owner_result=""
 active_owner() {
   # The log-file lock above only isolates this checkout. A second checkout can
   # already own the resources the service is a singleton on, so report those
@@ -237,22 +260,22 @@ active_owner() {
     flock -n -E 75 "$runtime_lock" true
     flock_status=$?
     if (( flock_status == 75 )); then
-      printf 'runtime-lock=%s' "$runtime_lock"
+      active_owner_result="runtime-lock=$runtime_lock"
       return 0
     fi
     if (( flock_status != 0 )); then
-      printf 'runtime-lock-unusable=%s exit=%s' "$runtime_lock" "$flock_status"
+      active_owner_result="runtime-lock-unusable=$runtime_lock exit=$flock_status"
       return 0
     fi
   fi
   if [[ "$port" =~ ^[1-9][0-9]*$ ]]; then
     # A server bound with --host localhost listens on IPv6 loopback on a dual-stack
-    # host, and probing only 127.0.0.1 called that port free right up to the child's
-    # own bind failure. Probe both loopback families and name the one that answers.
+    # host. Bound both probes so a filtered loopback address cannot retain the
+    # service lock past the supervisor readiness deadline.
     local loopback
     for loopback in 127.0.0.1 ::1; do
-      if (exec 3<>"/dev/tcp/$loopback/$port") 2>/dev/null; then
-        printf 'port=%s:%s' "$loopback" "$port"
+      if probe_loopback_port "$loopback" "$port"; then
+        active_owner_result="port=$loopback:$port"
         return 0
       fi
     done
@@ -260,8 +283,8 @@ active_owner() {
   return 1
 }
 
-if owner="$(active_owner "$@")"; then
-  echo "service already running: $service ($owner)" >&2
+if active_owner "$@"; then
+  echo "service already running: $service ($active_owner_result)" >&2
   exit 75
 fi
 

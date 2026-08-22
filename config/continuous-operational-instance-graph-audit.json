@@ -1,0 +1,377 @@
+{
+  "schema_version": "1.0.0",
+  "package_id": "OI-01",
+  "design_owner": "docs/roadmap/architecture/continuous-operational-instance-graph.md",
+  "stages": [
+    {
+      "id": "provider-push-ingress",
+      "family": "collection",
+      "state": "implemented",
+      "owner": {
+        "status": "assigned",
+        "path": "services/core-control-plane/src/fdai/runtime/consumers.py",
+        "symbol": "_consume_resource_changes"
+      },
+      "bindings": [
+        {
+          "state": "bound",
+          "path": "infra/main.tf",
+          "symbol": "azurerm_eventgrid_system_topic_event_subscription.inventory_resource_changes"
+        },
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/delivery/azure/resource_change.py",
+          "symbol": "normalize_resource_change_events"
+        },
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/runtime/bootstrap_tasks.py",
+          "symbol": "run_runtime_tasks"
+        }
+      ],
+      "tests": [
+        "services/core-control-plane/tests/delivery/azure/test_resource_change.py",
+        "services/core-control-plane/tests/runtime/test_resource_discovery_consumer.py"
+      ],
+      "missing_binding": null
+    },
+    {
+      "id": "resumable-delta-cursor",
+      "family": "collection",
+      "state": "implemented",
+      "owner": {
+        "status": "assigned",
+        "path": "services/core-control-plane/src/fdai/delivery/inventory_delta.py",
+        "symbol": "forward_inventory_delta"
+      },
+      "bindings": [
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/delivery/azure/activity_log.py",
+          "symbol": "AzureActivityLogFactory.build_fetch_fn"
+        },
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/delivery/inventory_sync_cli.py",
+          "symbol": "_forward_recovery_deltas"
+        }
+      ],
+      "tests": [
+        "services/core-control-plane/tests/delivery/test_inventory_delta.py",
+        "services/core-control-plane/tests/delivery/test_azure_inventory_wiring.py"
+      ],
+      "missing_binding": null
+    },
+    {
+      "id": "complete-reconciliation",
+      "family": "collection",
+      "state": "implemented",
+      "owner": {
+        "status": "assigned",
+        "path": "services/core-control-plane/src/fdai/delivery/inventory_sync.py",
+        "symbol": "InventorySyncCoordinator.run"
+      },
+      "bindings": [
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/delivery/azure/inventory.py",
+          "symbol": "AzureResourceGraphInventory.full_snapshot"
+        },
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/delivery/persistence/postgres_inventory_snapshot.py",
+          "symbol": "PostgresInventorySnapshotStore"
+        },
+        {
+          "state": "bound",
+          "path": "alembic/versions/20260714_0015_inventory_snapshots.py",
+          "symbol": "upgrade"
+        }
+      ],
+      "tests": [
+        "services/core-control-plane/tests/delivery/test_inventory_sync.py",
+        "services/core-control-plane/tests/delivery/azure/test_inventory.py",
+        "services/core-control-plane/tests/persistence/test_postgres_inventory_snapshot.py"
+      ],
+      "missing_binding": null
+    },
+    {
+      "id": "normalized-observation-ingress",
+      "family": "collection",
+      "state": "implemented",
+      "owner": {
+        "status": "assigned",
+        "path": "services/core-control-plane/src/fdai/delivery/persistence/postgres_inventory_delta.py",
+        "symbol": "PostgresInventoryDeltaProjector.__call__"
+      },
+      "bindings": [
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/runtime/providers.py",
+          "symbol": "_build_inventory_delta_projector"
+        },
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/runtime/bootstrap_pantheon.py",
+          "symbol": "initialize_pantheon"
+        }
+      ],
+      "tests": [
+        "services/core-control-plane/tests/persistence/test_inventory_delta_validation.py"
+      ],
+      "missing_binding": null
+    },
+    {
+      "id": "snapshot-promotion",
+      "family": "projection",
+      "state": "implemented",
+      "owner": {
+        "status": "assigned",
+        "path": "services/core-control-plane/src/fdai/delivery/persistence/postgres_inventory_snapshot.py",
+        "symbol": "PostgresInventorySnapshotStore.promote"
+      },
+      "bindings": [
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/delivery/inventory_sync.py",
+          "symbol": "InventorySyncCoordinator.run"
+        },
+        {
+          "state": "bound",
+          "path": "alembic/versions/20260714_0015_inventory_snapshots.py",
+          "symbol": "upgrade"
+        }
+      ],
+      "tests": [
+        "services/core-control-plane/tests/persistence/test_postgres_inventory_snapshot.py",
+        "services/core-control-plane/tests/delivery/test_inventory_sync.py"
+      ],
+      "missing_binding": null
+    },
+    {
+      "id": "realtime-overlay",
+      "family": "projection",
+      "state": "implemented",
+      "owner": {
+        "status": "assigned",
+        "path": "services/core-control-plane/src/fdai/delivery/persistence/postgres_inventory_delta.py",
+        "symbol": "PostgresInventoryDeltaProjector.__call__"
+      },
+      "bindings": [
+        {
+          "state": "bound",
+          "path": "alembic/versions/20260718_0035_inventory_realtime_overlay.py",
+          "symbol": "upgrade"
+        },
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/delivery/persistence/postgres_inventory_graph.py",
+          "symbol": "load_rooted_inventory_graph"
+        },
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/delivery/persistence/postgres_inventory_snapshot.py",
+          "symbol": "PostgresInventorySnapshotStore.promote"
+        }
+      ],
+      "tests": [
+        "services/core-control-plane/tests/persistence/test_inventory_delta_validation.py",
+        "services/core-control-plane/tests/persistence/test_postgres_inventory_snapshot.py"
+      ],
+      "missing_binding": null
+    },
+    {
+      "id": "ontology-projection",
+      "family": "projection",
+      "state": "implemented",
+      "owner": {
+        "status": "assigned",
+        "path": "services/core-control-plane/src/fdai/runtime/inventory_ontology.py",
+        "symbol": "InventoryOntologyProjector.apply"
+      },
+      "bindings": [
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/core/ontology_platform/inventory_projection.py",
+          "symbol": "build_inventory_ontology_projection"
+        },
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/delivery/inventory_sync_cli.py",
+          "symbol": "_build_ontology_observer"
+        }
+      ],
+      "tests": [
+        "services/core-control-plane/tests/runtime/test_inventory_ontology.py",
+        "services/core-control-plane/tests/core/ontology_platform/test_inventory_projection.py"
+      ],
+      "missing_binding": null
+    },
+    {
+      "id": "topology-history",
+      "family": "projection",
+      "state": "implemented",
+      "owner": {
+        "status": "assigned",
+        "path": "services/core-control-plane/src/fdai/delivery/inventory_topology_history.py",
+        "symbol": "InventoryTopologyHistoryPublisher.publish"
+      },
+      "bindings": [
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/delivery/persistence/postgres_topology_history.py",
+          "symbol": "PostgresTopologyHistoryStore"
+        },
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/delivery/inventory_sync_cli.py",
+          "symbol": "_build_ontology_observer"
+        },
+        {
+          "state": "bound",
+          "path": "service-migrations/branches/core-control-plane/versions/20260810_core_topology_history.py",
+          "symbol": "upgrade"
+        }
+      ],
+      "tests": [
+        "services/core-control-plane/tests/delivery/test_inventory_topology_history.py",
+        "services/core-control-plane/tests/delivery/persistence/test_postgres_topology_history.py",
+        "services/core-control-plane/tests/core/ontology_platform/test_topology_history.py"
+      ],
+      "missing_binding": null
+    },
+    {
+      "id": "graph-first-query",
+      "family": "query",
+      "state": "in-progress",
+      "owner": {
+        "status": "assigned",
+        "path": "services/core-control-plane/src/fdai/core/ontology_platform/query_gateway.py",
+        "symbol": "SecuredObjectSetQueryGateway.materialize"
+      },
+      "bindings": [
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/composition/wire_semantic_query.py",
+          "symbol": "build_semantic_query_runtime"
+        },
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/core/ontology_platform/query_gateway.py",
+          "symbol": "SecuredObjectSetQueryGateway"
+        }
+      ],
+      "tests": [
+        "services/core-control-plane/tests/core/ontology_platform/test_query_gateway.py",
+        "services/core-control-plane/tests/composition/test_wire_semantic_query.py"
+      ],
+      "missing_binding": "No deterministic policy reduces graph freshness, completeness, conflicts, history intent, and deadline into use_graph, refresh_then_query, use_live_evidence, query_archive, or hold before query execution."
+    },
+    {
+      "id": "bounded-live-read",
+      "family": "query",
+      "state": "in-progress",
+      "owner": {
+        "status": "assigned",
+        "path": "services/core-control-plane/src/fdai/composition/wire_read_investigation.py",
+        "symbol": "ResourceStateShadowHook.__call__"
+      },
+      "bindings": [
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/core/read_investigation/service.py",
+          "symbol": "ReadInvestigationService.execute"
+        },
+        {
+          "state": "partial",
+          "path": "services/core-control-plane/src/fdai/composition/wire_read_investigation.py",
+          "symbol": "compose_resource_state_shadow_hook"
+        }
+      ],
+      "tests": [
+        "services/core-control-plane/tests/core/read_investigation/test_service.py",
+        "services/core-control-plane/tests/composition/test_wire_read_investigation.py"
+      ],
+      "missing_binding": "The bounded provider read is an optional resource-state shadow path and is not selected by the graph evidence refresh policy for ordinary semantic queries."
+    },
+    {
+      "id": "live-evidence-write-through",
+      "family": "query",
+      "state": "not-started",
+      "owner": {
+        "status": "unassigned",
+        "path": null,
+        "symbol": null
+      },
+      "bindings": [],
+      "tests": [],
+      "missing_binding": "No owner or adapter publishes a successful bounded live read through canonical observation ingress and the realtime overlay while preserving partial-read and complete-generation authority."
+    },
+    {
+      "id": "adaptive-scheduling",
+      "family": "collection",
+      "state": "in-progress",
+      "owner": {
+        "status": "assigned",
+        "path": "services/core-control-plane/src/fdai/delivery/persistence/postgres_inventory_reconciliation.py",
+        "symbol": "PostgresInventoryReconciliationGate.__call__"
+      },
+      "bindings": [
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/delivery/inventory_sync_cli.py",
+          "symbol": "_run_due_once"
+        },
+        {
+          "state": "partial",
+          "path": "services/core-control-plane/src/fdai/delivery/inventory_job_config.py",
+          "symbol": "InventoryJobConfig"
+        }
+      ],
+      "tests": [
+        "services/core-control-plane/tests/delivery/test_inventory_reconciliation_gate.py",
+        "services/core-control-plane/tests/delivery/test_inventory_sync_cli.py"
+      ],
+      "missing_binding": "The due reducer handles routine age, change demand, abandoned attempts, and exponential failure backoff, but it does not consume target freshness, cursor lag, event rate, provider Retry-After or remaining quota, endpoint concurrency, or circuit-open recovery state."
+    },
+    {
+      "id": "retention-holds",
+      "family": "retention",
+      "state": "not-started",
+      "owner": {
+        "status": "unassigned",
+        "path": null,
+        "symbol": null
+      },
+      "bindings": [],
+      "tests": [],
+      "missing_binding": "No operational-graph retention policy, hold registry, source-coverage deletion gate, or durable purge receipt is assigned or implemented for inventory snapshots, overlays, or topology history."
+    },
+    {
+      "id": "typed-rollup",
+      "family": "retention",
+      "state": "not-started",
+      "owner": {
+        "status": "unassigned",
+        "path": null,
+        "symbol": null
+      },
+      "bindings": [],
+      "tests": [],
+      "missing_binding": "No semantic rollup policy or store preserves source count, covered and missing intervals, observed zero, conflicts, completeness, and mergeable statistics by fact kind."
+    },
+    {
+      "id": "archive-lifecycle",
+      "family": "archive",
+      "state": "not-started",
+      "owner": {
+        "status": "unassigned",
+        "path": null,
+        "symbol": null
+      },
+      "bindings": [],
+      "tests": [],
+      "missing_binding": "No immutable partition writer, content-addressed archive manifest, verification and restore sampler, hot archive index, retention-hold check, or safe-to-retry purge receipt exists for operational graph history."
+    }
+  ]
+}

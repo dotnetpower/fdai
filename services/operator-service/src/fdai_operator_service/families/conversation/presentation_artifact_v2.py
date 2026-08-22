@@ -90,6 +90,7 @@ _OUTPUT_SHAPES = frozenset(
         "target_health_assessment",
         "target_ingress_configuration",
         "target_resource_metric",
+        "target_resource_metric_series",
         "temporal_comparison",
         "topology_graph",
     }
@@ -161,6 +162,18 @@ def compile_presentation_artifact_v2(
             },
         )
     shape = analyze_evidence_shape(output, verified=_semantic_is_verified(semantic))
+    sampling_description: str | None = None
+    if output_shape == "target_resource_metric_series" and shape.records:
+        sampling = _metric_series_sampling(shape)
+        if sampling is None:
+            return None
+        source_count, displayed_count, strategy = sampling
+        sampling_description = _metric_series_sampling_description(
+            source_count=source_count,
+            displayed_count=displayed_count,
+            strategy=strategy,
+            korean=locale.casefold().startswith("ko"),
+        )
     intent = _presentation_intent(
         operation=cast(str, operation),
         output_shape=cast(str, output_shape),
@@ -174,6 +187,7 @@ def compile_presentation_artifact_v2(
         locale=locale,
         evidence_refs=evidence_refs,
         preferred_columns=(_preferred_columns(cast(str, output_shape))),
+        time_series_description=sampling_description,
     )
     if block is None:
         return None
@@ -462,6 +476,8 @@ def _presentation_intent(
     output_shape: str,
     shape: EvidenceShape,
 ) -> PresentationIntent:
+    if output_shape == "target_resource_metric_series":
+        return PresentationIntent.TREND
     if output_shape == "temporal_comparison":
         return (
             PresentationIntent.TREND if len(shape.records) >= 3 else PresentationIntent.COMPARISON
@@ -504,6 +520,7 @@ def _preferred_columns(output_shape: str) -> tuple[str, ...]:
         "subscription_service_health": _SERVICE_HEALTH_COLUMNS,
         "target_ingress_configuration": _RESOURCE_INGRESS_COLUMNS,
         "target_resource_metric": _RESOURCE_METRIC_COLUMNS,
+        "target_resource_metric_series": ("timestamp", "value", "unit", "metric"),
     }.get(output_shape, ())
 
 
@@ -515,6 +532,7 @@ def _compile_block(
     locale: str,
     evidence_refs: list[object],
     preferred_columns: tuple[str, ...] = (),
+    time_series_description: str | None = None,
 ) -> JsonObject | None:
     korean = locale.casefold().startswith("ko")
     refs = cast(list[str], evidence_refs[:_MAX_REFS])
@@ -606,7 +624,12 @@ def _compile_block(
         return _coverage_block(shape, exact_table=exact_table, korean=korean, refs=refs, base=base)
     if kind is PresentationKind.TIME_SERIES:
         return _time_series_block(
-            shape, exact_table=exact_table, korean=korean, refs=refs, base=base
+            shape,
+            exact_table=exact_table,
+            korean=korean,
+            refs=refs,
+            base=base,
+            sampling_description=time_series_description,
         )
     if kind is PresentationKind.COMPARISON:
         return _comparison_block(
@@ -700,6 +723,7 @@ def _time_series_block(
     korean: bool,
     refs: list[str],
     base: Mapping[str, object],
+    sampling_description: str | None,
 ) -> JsonObject | None:
     if (
         shape.timestamp_field is None
@@ -709,6 +733,13 @@ def _time_series_block(
     ):
         return None
     metric = _cell(shape.records[0].get(shape.metric_field))
+    description = (
+        f"{metric} 메트릭의 정렬된 관찰값입니다."
+        if korean
+        else f"Ordered observations for the {metric} metric."
+    )
+    if sampling_description is not None:
+        description = f"{description} {sampling_description}"
     return cast(
         JsonObject,
         {
@@ -718,9 +749,7 @@ def _time_series_block(
             "title": "검증된 추세" if korean else "Verified trend",
             "evidence_refs": refs,
             "data": {
-                "description": f"{metric} 메트릭의 정렬된 관찰값입니다."
-                if korean
-                else f"Ordered observations for the {metric} metric.",
+                "description": description,
                 "metric": metric,
                 "unit": shape.units[0],
                 "points": [
@@ -733,6 +762,52 @@ def _time_series_block(
                 "exact_table": exact_table,
             },
         },
+    )
+
+
+def _metric_series_sampling(shape: EvidenceShape) -> tuple[int, int, str] | None:
+    fields = ("source_sample_count", "displayed_sample_count", "sampling_strategy")
+    metadata = {tuple(record.get(field) for field in fields) for record in shape.records}
+    if len(metadata) != 1:
+        return None
+    source_count, displayed_count, strategy = next(iter(metadata))
+    if (
+        not isinstance(source_count, int)
+        or isinstance(source_count, bool)
+        or not isinstance(displayed_count, int)
+        or isinstance(displayed_count, bool)
+        or not isinstance(strategy, str)
+        or displayed_count != len(shape.records)
+        or not 3 <= displayed_count <= 40
+        or source_count < displayed_count
+    ):
+        return None
+    if strategy == "none" and source_count == displayed_count:
+        return source_count, displayed_count, strategy
+    if strategy == "min_max_envelope_v1" and source_count > displayed_count:
+        return source_count, displayed_count, strategy
+    return None
+
+
+def _metric_series_sampling_description(
+    *,
+    source_count: int,
+    displayed_count: int,
+    strategy: str,
+    korean: bool,
+) -> str:
+    if strategy == "none":
+        return (
+            f"검증된 provider 표본 {source_count}개를 모두 표시합니다."
+            if korean
+            else f"Displays all {source_count} verified provider samples."
+        )
+    return (
+        f"검증된 provider 표본 {source_count}개 중 양 끝점과 구간별 최솟값/최댓값 "
+        f"{displayed_count}개를 표시합니다."
+        if korean
+        else f"Displays {displayed_count} endpoint and min/max envelope points from "
+        f"{source_count} verified provider samples."
     )
 
 

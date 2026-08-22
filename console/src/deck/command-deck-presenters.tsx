@@ -606,13 +606,13 @@ export function TurnBubble({
   return (
     <article
       id={`deck-turn-${turn.id}`}
-      class={`deck-turn deck-turn-${turn.role}${isActivity ? " deck-turn-activity" : ""}${turn.source === "context" ? " is-context" : ""}${turn.streaming ? " is-streaming" : ""}${searchMatch ? " is-search-match" : ""}${activeSearchMatch ? " is-active-search-match" : ""}${isInvestigationFlow ? " is-investigation-flow" : ""}${investigationFlowStart ? " is-flow-start" : ""}${investigationFlowEnd ? " is-flow-end" : ""}`}
+      class={`deck-turn cs-deck-turn ${isDeck ? "cs-deck-agent-turn" : "cs-deck-user-turn"} deck-turn-${turn.role}${isActivity ? " deck-turn-activity" : ""}${turn.source === "context" ? " is-context" : ""}${turn.streaming ? " is-streaming" : ""}${searchMatch ? " is-search-match" : ""}${activeSearchMatch ? " is-active-search-match" : ""}${isInvestigationFlow ? " is-investigation-flow" : ""}${investigationFlowStart ? " is-flow-start" : ""}${investigationFlowEnd ? " is-flow-end" : ""}`}
     >
       {isDeck && (!isInvestigationFlow || investigationFlowStart) ? (
-        <header class="deck-turn-head">
-          <span class="deck-turn-role deck-turn-agent">
+        <header class="deck-turn-head cs-deck-turn-head">
+          <span class="deck-turn-role deck-turn-agent cs-deck-agent-name">
             <span
-              class="deck-turn-agent-icon"
+              class="deck-turn-agent-icon cs-deck-agent-icon"
               aria-hidden="true"
               style={{
                 WebkitMaskImage: agentIconUrl(turn.agent ?? DEFAULT_NARRATOR),
@@ -622,10 +622,10 @@ export function TurnBubble({
             {replyAgentLabel(turn.agent ?? DEFAULT_NARRATOR, turn.delegation)}
           </span>
           {isInvestigationFlow && !isInvestigationFinalAnswer ? (
-            <span class="deck-turn-source">{t("deck.investigation.title")}</span>
+            <span class="deck-turn-source cs-deck-agent-source">{t("deck.investigation.title")}</span>
           ) : turn.source ? (
             <Tooltip content={routerTooltip(turn.router) ?? t("deck.tooltip.replySource")}>
-              <span class="deck-turn-source">{turn.source}</span>
+              <span class="deck-turn-source cs-deck-agent-source">{turn.source}</span>
             </Tooltip>
           ) : null}
         </header>
@@ -676,7 +676,7 @@ export function TurnBubble({
           {turn.attachments && turn.attachments.length > 0 ? (
             <ConversationTurnAttachments attachments={turn.attachments} />
           ) : null}
-          <div class="deck-turn-body">
+          <div class="deck-turn-body cs-deck-user-bubble">
             {turn.text.split("\n").map((line, index) => (
               <p key={index} class="deck-turn-line">{line}</p>
             ))}
@@ -705,7 +705,7 @@ export function TurnBubble({
         />
       ) : null}
       {!isInvestigationFlow || isInvestigationFinalAnswer ? (
-        <div class="deck-turn-foot">
+        <div class="deck-turn-foot cs-deck-turn-foot">
           <TurnRecordedTime turn={turn} />
         </div>
       ) : null}
@@ -720,7 +720,7 @@ function TurnRecordedTime({ turn }: { readonly turn: Turn }) {
   if (timestamp && turn.recordedAt) {
     return (
       <Tooltip content={t("deck.presentation.recordedValue", { value: turn.recordedAt })}>
-        <time class="deck-turn-time muted" dateTime={turn.recordedAt}>
+        <time class="deck-turn-time cs-deck-turn-time muted" dateTime={turn.recordedAt}>
           {timestamp.time}
         </time>
       </Tooltip>

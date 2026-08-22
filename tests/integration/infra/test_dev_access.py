@@ -159,6 +159,8 @@ def test_dev_access_ships_repeatable_client_checks() -> None:
     assert '"label": "dev-access: configure VPN on folder open"' in tasks
     assert '"command": "bash tools/dev-access/scripts/vscode-startup.sh"' in tasks
     assert '"problemMatcher": "$gcc"' in tasks
+    assert '"revealProblems": "onProblem"' in tasks
+    assert '"close": true' in tasks
     assert '"runOn": "folderOpen"' in tasks
     assert '"instanceLimit": 1' in tasks
     assert "terraform.tfstate" in startup
@@ -168,6 +170,7 @@ def test_dev_access_ships_repeatable_client_checks() -> None:
     assert '"${route_line}" != *" via "*' in startup
     assert "ROUTE_RETRY_ATTEMPTS=8" in startup
     assert "ROUTE_RETRY_SECONDS=1" in startup
+    assert "README.md:1:1: error:" in startup
     assert startup.index("Microsoft.AzureVpn") < startup.index("ROUTE_RETRY_ATTEMPTS; attempt++")
     assert '"${route_line}" == *" via "*' in wsl_dns
     assert 'wsl-dns.sh" apply' in startup

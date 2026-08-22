@@ -3,6 +3,10 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 
 const styles = readFileSync(fileURLToPath(new URL("../styles.css", import.meta.url)), "utf8");
+const sharedStyles = readFileSync(
+  fileURLToPath(new URL("../../../ui/calm-slate-primitives.css", import.meta.url)),
+  "utf8",
+);
 const sidebarStyles = readFileSync(
   fileURLToPath(new URL("./conversation-sidebar.css", import.meta.url)),
   "utf8",
@@ -185,7 +189,8 @@ describe("Command Deck workspace hierarchy", () => {
   });
 
   test("aligns answers, structured evidence, and the composer to one calm reading measure", () => {
-    expect(styles).toContain("--deck-reading-width: 760px;");
+    expect(sharedStyles).toContain("--cs-deck-reading-width: 780px;");
+    expect(styles).toContain("--deck-reading-width: var(--cs-deck-reading-width);");
     expect(styles).toMatch(/\.deck-overlay-mode-workspace \{[^}]*inset: var\(--header-height\) 0 0 var\(--rail-width, 88px\);[^}]*width: auto;[^}]*height: auto;[^}]*min-width: 0;[^}]*min-height: 0;/s);
     expect(styles).toMatch(
       /\.deck-overlay-mode-workspace \.deck-transcript-inner \{[^}]*padding-inline: clamp\(24px, 6vw, 60px\);/s,
@@ -229,8 +234,8 @@ describe("Command Deck workspace hierarchy", () => {
   });
 
   test("keeps pending stages visible in a stable compact source slot", () => {
-    expect(styles).toMatch(/\.deck-rt-slot \{[^}]*height: 88px;[^}]*overflow: hidden;/s);
-    expect(styles).toMatch(/\.deck-rt-source \{[^}]*min-height: 28px;/s);
+    expect(sharedStyles).toMatch(/\.cs-grounding-source-window \{[^}]*height: 88px;[^}]*overflow: hidden;/s);
+    expect(sharedStyles).toMatch(/\.cs-grounding-source \{[^}]*min-height: 28px;/s);
     expect(styles).not.toContain(".deck-rt-source::after");
     expect(styles).toMatch(/@keyframes deck-rt-rise \{\s*from \{ opacity: 0;/s);
     expect(styles).toMatch(/@keyframes deck-rt-pop \{\s*from \{ opacity: 0;/s);

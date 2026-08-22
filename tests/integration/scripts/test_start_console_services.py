@@ -1,0 +1,267 @@
+from __future__ import annotations
+
+import shutil
+import stat
+import subprocess
+import time
+from pathlib import Path
+
+_BASH = "/usr/bin/bash"
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+_DEV_UP_SCRIPT = _REPO_ROOT / "scripts/deployment/local/dev-up.sh"
+_PREPARE_SCRIPT = _REPO_ROOT / "scripts/deployment/local/prepare-console-full-stack.sh"
+_START_SCRIPT = _REPO_ROOT / "scripts/deployment/local/start-console-services.sh"
+
+
+def _write_executable(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+    path.chmod(path.stat().st_mode | stat.S_IXUSR)
+
+
+def test_supervisor_reports_a_service_that_exits_before_readiness(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    start_script = repo / "scripts/deployment/local/start-console-services.sh"
+    start_script.parent.mkdir(parents=True)
+    shutil.copy2(_START_SCRIPT, start_script)
+    (repo / ".fdai/logs").mkdir(parents=True)
+
+    _write_executable(
+        repo / "scripts/deployment/local/run-console-service.sh",
+        """#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$1" == "document-ingestion-api" ]]; then
+  exit 9
+fi
+exec sleep 10
+""",
+    )
+    _write_executable(
+        repo / ".venv/bin/python",
+        """#!/usr/bin/env bash
+set -euo pipefail
+    exec sleep 10
+""",
+    )
+
+    started = time.monotonic()
+    result = subprocess.run(  # noqa: S603 - fixed test script and executable.
+        [_BASH, str(start_script)],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=3,
+    )
+
+    assert time.monotonic() - started < 2
+    assert result.returncode == 9
+    assert "service exited before readiness: document-ingestion-api" in result.stderr
+
+
+def test_supervisor_propagates_an_immediate_readiness_failure(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    start_script = repo / "scripts/deployment/local/start-console-services.sh"
+    start_script.parent.mkdir(parents=True)
+    shutil.copy2(_START_SCRIPT, start_script)
+    (repo / ".fdai/logs").mkdir(parents=True)
+    _write_executable(
+        repo / "scripts/deployment/local/run-console-service.sh",
+        "#!/usr/bin/env bash\nexec sleep 10\n",
+    )
+    _write_executable(repo / ".venv/bin/python", "#!/usr/bin/env bash\nexit 7\n")
+
+    result = subprocess.run(  # noqa: S603 - fixed test script and executable.
+        [_BASH, str(start_script)],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=3,
+    )
+
+    assert result.returncode == 7
+    assert "service=console-stack event=ready" not in result.stdout
+
+
+def test_preparation_reuses_an_unchanged_healthy_stack(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    prepare_script = repo / "scripts/deployment/local/prepare-console-full-stack.sh"
+    prepare_script.parent.mkdir(parents=True)
+    shutil.copy2(_PREPARE_SCRIPT, prepare_script)
+    digest = "a" * 64
+    required_outputs = (
+        ".fdai/local-runtime.env",
+        ".fdai/local-operator-service.env",
+        ".fdai/local-document-ingestion-api.env",
+        ".fdai/local-document-processing-worker.env",
+        ".fdai/local-isolated-executor.env",
+    )
+    for relative in required_outputs:
+        output = repo / relative
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text("prepared\n", encoding="utf-8")
+    (repo / "console").mkdir()
+    (repo / "console/.env.local").write_text("prepared\n", encoding="utf-8")
+    _write_executable(repo / "console/node_modules/.bin/vite", "#!/usr/bin/env bash\nexit 0\n")
+    (repo / ".fdai/console-full-stack-preparation.sha256").write_text(
+        f"{digest}\n",
+        encoding="utf-8",
+    )
+    _write_executable(
+        repo / ".venv/bin/python",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+case "$1" in
+  */local-service-input-digest.py) printf '%s\\n' {digest!r} ;;
+  */developer-workflow.py) exit 0 ;;
+  *) printf 'unexpected python call: %s\\n' "$1" >&2; exit 99 ;;
+esac
+""",
+    )
+
+    result = subprocess.run(  # noqa: S603 - fixed test script and executable.
+        [_BASH, str(prepare_script)],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=3,
+    )
+
+    assert result.returncode == 0
+    assert "service=console-preparation event=reused" in result.stdout
+    assert result.stderr == ""
+
+
+def test_preparation_reports_a_missing_console_environment(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    prepare_script = repo / "scripts/deployment/local/prepare-console-full-stack.sh"
+    prepare_script.parent.mkdir(parents=True)
+    shutil.copy2(_PREPARE_SCRIPT, prepare_script)
+    _write_executable(repo / ".venv/bin/python", "#!/usr/bin/env bash\nexit 99\n")
+
+    result = subprocess.run(  # noqa: S603 - fixed test script and executable.
+        [_BASH, str(prepare_script)],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=3,
+    )
+
+    assert result.returncode == 1
+    assert result.stderr == "missing local Console environment: console/.env.local\n"
+
+
+def test_preparation_reports_missing_console_dependencies(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    prepare_script = repo / "scripts/deployment/local/prepare-console-full-stack.sh"
+    prepare_script.parent.mkdir(parents=True)
+    shutil.copy2(_PREPARE_SCRIPT, prepare_script)
+    _write_executable(repo / ".venv/bin/python", "#!/usr/bin/env bash\nexit 99\n")
+    (repo / "console").mkdir()
+    (repo / "console/.env.local").write_text("prepared\n", encoding="utf-8")
+
+    result = subprocess.run(  # noqa: S603 - fixed test script and executable.
+        [_BASH, str(prepare_script)],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=3,
+    )
+
+    assert result.returncode == 1
+    assert result.stderr == ("missing Console dependencies: run npm --prefix console install\n")
+
+
+def test_force_preparation_bypasses_a_healthy_cache(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    prepare_script = repo / "scripts/deployment/local/prepare-console-full-stack.sh"
+    prepare_script.parent.mkdir(parents=True)
+    shutil.copy2(_PREPARE_SCRIPT, prepare_script)
+    (repo / "console").mkdir()
+    (repo / "console/.env.local").write_text("prepared\n", encoding="utf-8")
+    _write_executable(repo / "console/node_modules/.bin/vite", "#!/usr/bin/env bash\nexit 0\n")
+    marker = repo / ".fdai/console-full-stack-preparation.sha256"
+    marker.parent.mkdir(parents=True)
+    marker.write_text(f"{'0' * 64}\n", encoding="utf-8")
+    _write_executable(
+        repo / ".venv/bin/python",
+        """#!/usr/bin/env bash
+if [[ "$1" == */local-service-input-digest.py ]]; then
+  printf '%064d\n' 0
+  exit 0
+fi
+exit 99
+""",
+    )
+
+    result = subprocess.run(  # noqa: S603 - fixed test script and executable.
+        [_BASH, str(prepare_script), "--force"],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=3,
+    )
+
+    assert result.returncode != 0
+    assert "service=console-preparation event=reused" not in result.stdout
+    assert not marker.exists()
+
+
+def _run_dev_up_with_fake_docker(
+    tmp_path: Path,
+    docker_body: str,
+) -> subprocess.CompletedProcess[str]:
+    repo = tmp_path / "repo"
+    compose_dir = repo / "infra/local"
+    compose_dir.mkdir(parents=True)
+    (compose_dir / ".env").write_text("prepared\n", encoding="utf-8")
+    bin_dir = tmp_path / "bin"
+    _write_executable(
+        bin_dir / "git",
+        f"""#!/usr/bin/env bash
+printf '%s\\n' {str(repo)!r}
+""",
+    )
+    _write_executable(bin_dir / "docker", docker_body)
+    environment = {"PATH": f"{bin_dir}:/usr/bin:/bin"}
+    return subprocess.run(  # noqa: S603 - fixed test script and executable.
+        [_BASH, str(_DEV_UP_SCRIPT)],
+        cwd=repo,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=3,
+    )
+
+
+def test_dev_up_reports_a_missing_compose_plugin(tmp_path: Path) -> None:
+    result = _run_dev_up_with_fake_docker(
+        tmp_path,
+        """#!/usr/bin/env bash
+exit 1
+""",
+    )
+
+    assert result.returncode == 1
+    assert "Docker Compose v2 is required" in result.stderr
+
+
+def test_dev_up_reports_an_unavailable_docker_daemon(tmp_path: Path) -> None:
+    result = _run_dev_up_with_fake_docker(
+        tmp_path,
+        """#!/usr/bin/env bash
+if [[ "$*" == "compose version" ]]; then
+  exit 0
+fi
+exit 1
+""",
+    )
+
+    assert result.returncode == 1
+    assert "Docker daemon is unavailable" in result.stderr

@@ -39,6 +39,10 @@ describe("presentation module registry", () => {
       fileURLToPath(new URL("../structured-reply.css", import.meta.url)),
       "utf8",
     );
+    const chartCss = readFileSync(
+      fileURLToPath(new URL("../../components/charts.css", import.meta.url)),
+      "utf8",
+    );
     const value = readFileSync(
       fileURLToPath(new URL("./value.tsx", import.meta.url)),
       "utf8",
@@ -50,7 +54,8 @@ describe("presentation module registry", () => {
     expect(css).toMatch(/\.deck-presentation-exact-values > summary \{[^}]*min-height: 44px;/s);
     expect(css).toMatch(/\.deck-presentation-block\.is-collapsible > summary \{[^}]*min-height: 44px;/s);
     expect(css).toContain(".deck-presentation-exact-values > summary:focus-visible");
-    expect(css).toContain(".deck-presentation-series-point:focus-visible");
+    expect(chartCss).toContain(".fd-chart-point:focus-visible");
+    expect(chartCss).toContain(".fd-bar-track:focus-visible");
     expect(css).toContain(".deck-presentation-comparison-track:focus-visible");
     expect(css).toContain("@media (prefers-reduced-motion: reduce)");
     expect(value).toContain("isOpaqueIdentifierField(columnKey, label)");

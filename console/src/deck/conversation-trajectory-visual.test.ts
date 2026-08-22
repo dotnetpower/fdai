@@ -3,6 +3,10 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 
 const styles = readFileSync(fileURLToPath(new URL("../styles.css", import.meta.url)), "utf8");
+const sharedStyles = readFileSync(
+  fileURLToPath(new URL("../../../ui/calm-slate-primitives.css", import.meta.url)),
+  "utf8",
+);
 const source = readFileSync(
   fileURLToPath(new URL("./conversation-trajectory-view.tsx", import.meta.url)),
   "utf8",
@@ -36,8 +40,17 @@ describe("observed trajectory typography", () => {
     expect(styles).toContain("text-overflow: ellipsis; white-space: nowrap;");
   });
 
+  test("uses the shared run-record geometry contract", () => {
+    expect(source).toContain('class="deck-trajectory cs-run-record"');
+    expect(source).toContain('class="deck-trajectory-summary cs-run-record-summary"');
+    expect(source).toContain('class="deck-trajectory-body cs-run-record-body"');
+    expect(source).toContain("deck-trajectory-phase-strip cs-run-phase-strip");
+    expect(sharedStyles).toContain(".cs-run-record-summary");
+    expect(sharedStyles).toContain("grid-template-columns: repeat(6, minmax(0, 1fr));");
+  });
+
   test("keeps read and evidence status in the run record, not the reply footer", () => {
-    expect(source).toContain('class="deck-trajectory-phase-strip"');
+    expect(source).toContain('class="deck-trajectory-phase-strip cs-run-phase-strip"');
     expect(source).not.toContain('class="deck-trajectory-results"');
     expect(reply).not.toContain('class="deck-trajectory-status-trigger"');
     expect(reply).not.toContain('class="deck-trajectory-flyout"');

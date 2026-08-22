@@ -57,6 +57,7 @@ def is_exempt(relative: str) -> bool:
     return (
         name.endswith("-ko.md")
         or name in {"readme.md", "index.md"}
+        or relative == "docs/roadmap/architecture/code-map.md"
         or relative == "docs/roadmap/architecture/fdai-constitution.md"
         or "decisions" in path.parts
     )

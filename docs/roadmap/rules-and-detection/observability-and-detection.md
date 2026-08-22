@@ -509,17 +509,17 @@ check. Publish failure keeps a scheduled item retryable and returns a non-zero j
 Azure resource create, update, and delete signals flow continuously through the canonical Event
 Hubs ingress. Huginn owns this real-time discovery ingress and preserves the resource identity,
 change kind, and bounded properties in the normalized Event. A dedicated projector applies
-resource, link, and tombstone deltas to the durable inventory overlay in partition order. The
-Inventory job separately promotes a complete ARG/ARM reconciliation snapshot every six hours by
-default and retires overlay entries covered by the new generation. Heimdall detects stale
-snapshots, cursor lag, fallback spikes, and coverage loss. A missing, degraded, or stale freshness
-lookup routes graph-dependent actions to human review. Inventory-backed readiness probes preserve
-that freshness state instead of asserting discovery success. Heimdall remains an observer. The
-Inventory job checks durable attempt state every minute and runs the normal six-hour scan when due
-or when an observed change remains unreconciled above its floor. A re-arming no-progress deadline
-and an absolute ceiling let a stalled source fail without terminating a slow source that continues
-to produce batches. Failed attempts retry under exponential backoff, without granting job-start
-authority to the core runtime.
+resource, link, and tombstone deltas to the durable inventory overlay in partition order. Complete
+ARG/ARM reconciliation remains a separate bounded completeness proof, but the target policy runs it
+adaptively rather than using a fixed six-hour freshness cadence. Durable lag, churn, maximum
+staleness, request budgets, provider throttling, bounded backoff, and circuit state determine the
+next action. Heimdall detects stale snapshots, cursor lag, fallback spikes, coverage loss, and
+provider pressure. A missing, degraded, or stale freshness lookup routes graph-dependent actions
+to human review. Inventory-backed readiness probes preserve that freshness state instead of
+asserting discovery success. Heimdall remains an observer. A re-arming no-progress deadline and an
+absolute ceiling let a stalled source fail without terminating a slow source that continues to
+produce batches. The complete collection, retention, rollup, and archive contract is defined in
+[Continuous Operational Instance Graph](../architecture/continuous-operational-instance-graph.md).
 
 ## Implementation status
 

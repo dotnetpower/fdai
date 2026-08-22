@@ -255,6 +255,7 @@
     "timestamp": "Timestamp",
     "value": "Value",
     "trendAria": "{label} trend",
+    "median": "Median",
     "noTabs": "No tabs configured.",
     "rank": "Rank",
     "noRows": "No rows.",

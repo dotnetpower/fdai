@@ -15,6 +15,7 @@ from fdai_service_contracts import (
     OperatorRole,
     PackageResourceSchemaRegistry,
     SemanticBoundContext,
+    SemanticPlanningProfile,
     SemanticPriorTurn,
     SemanticTurnPrincipal,
     SemanticTurnRequest,
@@ -59,6 +60,7 @@ class SemanticTurnEnvelopeBuilder:
             view_context_digest=_optional_digest(proposal.body.get("view_context")),
             bound_context=_bound_context(proposal.body.get("conversation_context")),
             prior_turns=_prior_turns(proposal.body.get("history")),
+            planning_profile=_planning_profile(proposal.body),
             cancelled=proposal.cancellation,
         )
         semantic_payload = semantic_turn.model_dump(mode="json", exclude_none=True)
@@ -115,6 +117,19 @@ def _turn_sequence(body: Mapping[str, object]) -> int:
     if not isinstance(value, int) or isinstance(value, bool) or value < 0:
         raise ValueError("turn_sequence MUST be a non-negative integer")
     return value
+
+
+def _planning_profile(body: Mapping[str, object]) -> SemanticPlanningProfile:
+    value = body.get(
+        "semantic_planning_profile",
+        SemanticPlanningProfile.INTERACTIVE.value,
+    )
+    if not isinstance(value, str):
+        raise ValueError("semantic_planning_profile is unsupported")
+    try:
+        return SemanticPlanningProfile(value)
+    except ValueError as exc:
+        raise ValueError("semantic_planning_profile is unsupported") from exc
 
 
 def _deadline(body: Mapping[str, object], requested_at: datetime) -> datetime:

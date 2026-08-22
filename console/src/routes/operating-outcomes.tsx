@@ -12,6 +12,7 @@ import { getLocale } from "../i18n";
 import { t } from "./i18n/analytics";
 import { currentRoute, routeHref } from "../router";
 import type { AnalyticsData } from "./analytics-data";
+import { TrendChart } from "../components/charts";
 
 export const OUTCOME_KEYS = [
   "auto-resolution",
@@ -108,7 +109,7 @@ export function OperatingOutcomeBody({
       <EvidenceStrip autonomy={autonomy} />
       <OutcomeKpis autonomy={autonomy} metric={metric} active={active} contract={contract} />
       <div class="outcome-analysis-grid">
-        <TrendChart values={trend ?? []} active={active} label={t("analytics.outcomes.trend", { metric: metricLabel })} />
+        <OutcomeTrendChart values={trend ?? []} active={active} label={t("analytics.outcomes.trend", { metric: metricLabel })} />
         {active === "auto-resolution" ? (
           <GuardBoundary autonomy={autonomy} />
         ) : (
@@ -239,7 +240,7 @@ function OutcomeKpis({
   );
 }
 
-function TrendChart({
+function OutcomeTrendChart({
   values,
   active,
   label,
@@ -249,25 +250,15 @@ function TrendChart({
   readonly label: string;
 }) {
   if (values.length < 2) return <ProjectionGap heading={label} message={t("analytics.trendUnavailable")} />;
-  const maximum = Math.max(...values);
-  const minimum = Math.min(...values);
-  const range = maximum - minimum || 1;
-  const points = values.map((value, index) => {
-    const x = (index / (values.length - 1)) * 100;
-    const y = 36 - ((value - minimum) / range) * 32;
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  }).join(" ");
   return (
-    <figure class="analytics-trend">
-      <figcaption>{label}</figcaption>
-      <svg viewBox="0 0 100 40" role="img" aria-label={label} preserveAspectRatio="none">
-        <polyline points={points} fill="none" stroke="currentColor" stroke-width="1.5" />
-      </svg>
-      <div class="analytics-trend-range muted">
-        <span>{formatOutcomeMetric(minimum, active)}</span>
-        <span>{formatOutcomeMetric(maximum, active)}</span>
-      </div>
-    </figure>
+    <TrendChart
+      className="analytics-trend"
+      title={label}
+      points={values.map((value, index) => ({ label: `${index + 1}`, value }))}
+      formatValue={(value) => formatOutcomeMetric(value, active)}
+      summary={formatOutcomeMetric(values.at(-1)!, active)}
+      referenceLabel={t("analytics.median")}
+    />
   );
 }
 

@@ -112,7 +112,9 @@ from fdai.core.ontology_platform.resource_ingress_queries import (
 )
 from fdai.core.ontology_platform.resource_metric_queries import (
     RESOURCE_METRIC_FUNCTION_NAME,
+    RESOURCE_METRIC_SERIES_FUNCTION_NAME,
     resource_metric_inventory_function,
+    resource_metric_series_function,
 )
 from fdai.core.ontology_platform.resource_state_queries import (
     RESOURCE_STATE_FUNCTION_NAME,
@@ -346,6 +348,17 @@ def build_semantic_query_runtime(
             ),
         )
         bound_function_names.add(resource_metric_declaration.name)
+        resource_metric_series_declaration = declarations[RESOURCE_METRIC_SERIES_FUNCTION_NAME]
+        function_registry.register_contextual(
+            resource_metric_series_declaration,
+            resource_metric_series_function(
+                ontology_release,
+                registry=metric_registry,
+                provider=metric_window_provider,
+                now=evaluation_cutoff,
+            ),
+        )
+        bound_function_names.add(resource_metric_series_declaration.name)
     correlation_declaration = declarations[ERROR_ACTIVITY_CORRELATION_FUNCTION_NAME]
     function_registry.register_contextual(
         correlation_declaration,

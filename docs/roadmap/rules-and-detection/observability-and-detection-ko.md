@@ -1,8 +1,8 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 388e444d322494d3908a6e37eb0bb7eea7460392
-translation_revised: 2026-08-21
+translation_source_sha: c2438adf521c2ec9fa0ef30ed853ea41d69a7dd4
+translation_revised: 2026-08-22
 ---
 
 # 관측성과 감지(Observability and Detection)
@@ -483,17 +483,17 @@ telemetry / metrics
 
 Azure 리소스 생성, 갱신, 삭제 신호는 정본 Event Hubs 유입을 통해 계속
 흐릅니다. Huginn은 이 실시간 발견 유입을 소유하고 정규화된 Event에 리소스 신원,
-변경 종류, 범위가 제한된 속성을 보존합니다. Dedicated projector는 파티션 순서에 따라 리소스,
-링크, tombstone delta를 영속 인벤토리 오버레이에 적용합니다. 인벤토리 작업은 별도로 기본 6시간마다
-완전한 ARG/ARM 조정 스냅샷을 promote하고 새 세대에 포함된 오버레이 항목을
-정리합니다. Heimdall은 stale 스냅샷, 커서 lag, 대체 경로 spike, 커버리지 loss를 감지합니다.
-최신성 조회가 없거나 degraded 또는 stale이면 graph-dependent 액션을 사람 검토로 보냅니다.
-인벤토리 기반 준비 상태 탐색은 발견 성공을 단정하지 않고 해당 최신성 상태를
-보존하며 Heimdall은 관찰기로 유지됩니다. 인벤토리 작업은 매분 영속 시도 상태를 확인하고
-실행 조건이 충족되거나 관측된 변경이 하한을 넘어 아직 조정되지 않았을 때 정상 6시간 검사를
-실행합니다. 진행 시 다시 설정되는 무진행 마감과 절대 상한은 계속 배치를 내는 느린 출처를
-종료하지 않으면서 멈춘 출처를 실패시킵니다. 실패한 시도는 지수 백오프 뒤에 재시도합니다.
-Core 런타임에는 job-start 권한을 부여하지 않습니다.
+변경 종류, 범위가 제한된 속성을 보존합니다. 전용 projector는 partition 순서에 따라 리소스,
+링크, tombstone delta를 durable inventory overlay에 적용합니다. 완전한 ARG/ARM
+reconciliation은 별도의 범위가 제한된 완전성 증명으로 유지하지만, 목표 정책은 고정된 6시간
+최신성 cadence 대신 이를 적응형으로 실행합니다. Durable lag, 변경량, 최대 노후 시간, 요청 예산,
+공급자 throttling, 범위가 제한된 backoff, circuit 상태가 다음 작업을 결정합니다. Heimdall은
+stale snapshot, cursor lag, 대체 경로 spike, 범위 loss, 공급자 압력을 감지합니다. 최신성 조회가
+없거나 degraded 또는 stale이면 graph-dependent 작업을 사람 검토로 보냅니다. Inventory 기반
+준비 상태 probe는 발견 성공을 단정하지 않고 해당 최신성 상태를 보존하며 Heimdall은 관찰기로
+유지됩니다. 진행 시 다시 설정되는 무진행 마감과 절대 상한은 계속 batch를 내는 느린 원본을
+종료하지 않으면서 멈춘 원본을 실패시킵니다. 전체 수집, 보존, rollup, archive 계약은
+[지속형 운영 인스턴스 그래프](../architecture/continuous-operational-instance-graph-ko.md)에 정의됩니다.
 
 ## 구현 상태
 

@@ -45,7 +45,12 @@ from .semantic_investigation_planning import (
     InvestigationClarificationRequiredError,
     compile_investigation_plan,
 )
-from .semantic_planning_cascade import ProposalRejectedError, SemanticPlanningCascade
+from .semantic_planning_cascade import (
+    BOUNDED_T2_ESCALATION_POLICY,
+    ProposalRejectedError,
+    SemanticPlanningCascade,
+    SemanticPlanningEscalationPolicy,
+)
 from .semantic_planning_frame import (
     build_semantic_frame as _build_frame,
 )
@@ -91,6 +96,7 @@ from .semantic_resource_event_planning import compile_resource_event_plan
 from .semantic_resource_health_planning import compile_resource_health_plan
 from .semantic_resource_metric_planning import (
     compile_exact_resource_metric_plan,
+    compile_exact_resource_metric_series_plan,
     compile_resource_metric_plan,
 )
 from .semantic_resource_state_planning import compile_resource_state_plan
@@ -145,6 +151,7 @@ _EXACT_RESOURCE_TARGET_OUTPUTS = frozenset(
         SemanticOutputShape.TARGET_HEALTH_ASSESSMENT,
         SemanticOutputShape.TARGET_INGRESS_CONFIGURATION,
         SemanticOutputShape.TARGET_RESOURCE_METRIC,
+        SemanticOutputShape.TARGET_RESOURCE_METRIC_SERIES,
         SemanticOutputShape.TEMPORAL_COMPARISON,
         SemanticOutputShape.TOPOLOGY_GRAPH,
     }
@@ -225,7 +232,7 @@ def _resource_target_clarification(
 
 
 class SemanticPlanningService:
-    """Build a T1 proposal and escalate only a failed proposal to T2 verification."""
+    """Build a T1 proposal and apply an explicit policy to bounded T2 fallback."""
 
     def __init__(
         self,
@@ -238,6 +245,7 @@ class SemanticPlanningService:
         metric_concepts: Sequence[str] = (),
         inventory_query_language: InventoryQueryLanguageRegistry | None = None,
         investigation_window_seconds: int = 900,
+        escalation_policy: SemanticPlanningEscalationPolicy = BOUNDED_T2_ESCALATION_POLICY,
         now: Callable[[], datetime] | None = None,
     ) -> None:
         self._manifests = manifests
@@ -256,6 +264,7 @@ class SemanticPlanningService:
             frame_builder=_build_frame,
             plan_builder=_build_plan,
             inventory_query_language=inventory_query_language,
+            escalation_policy=escalation_policy,
         )
 
     def plan(
@@ -266,6 +275,7 @@ class SemanticPlanningService:
         principal: Principal,
         purpose: str,
         bound_incident: BoundIncident | None = None,
+        escalation_policy: SemanticPlanningEscalationPolicy | None = None,
     ) -> SemanticPlanningOutcome:
         """Return a verified plan, one clarification, or a typed safe hold."""
 
@@ -293,6 +303,7 @@ class SemanticPlanningService:
                 metric_concepts=self._metric_concepts,
                 principal=principal,
                 purpose=purpose,
+                escalation_policy=escalation_policy,
             )
             if frame_result is None:
                 return _outcome(
@@ -464,6 +475,18 @@ class SemanticPlanningService:
                 if plan is not None:
                     plan_source = "server_resource_health_inventory"
             if plan is None:
+                plan = compile_exact_resource_metric_series_plan(
+                    frame=frame,
+                    utterance=utterance,
+                    manifest=manifest,
+                    verifier=self._verifier,
+                    evaluation_time=evaluation_time,
+                    purpose=purpose,
+                    available_metric_concepts=self._metric_concepts,
+                )
+                if plan is not None:
+                    plan_source = "server_target_resource_metric_series"
+            if plan is None:
                 plan = compile_exact_resource_metric_plan(
                     frame=frame,
                     utterance=utterance,
@@ -589,6 +612,7 @@ class SemanticPlanningService:
                     purpose=purpose,
                     manifest=manifest,
                     evaluation_time=evaluation_time,
+                    escalation_policy=escalation_policy,
                 )
             if plan is None:
                 return _outcome(

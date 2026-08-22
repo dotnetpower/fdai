@@ -104,6 +104,13 @@ second session is blocked only while that reservation is at most 30 minutes old 
 still dirty. The same session refreshes its reservation on each edit, and a clean target can be
 claimed immediately. Reservations live under the Git directory and never enter a commit.
 
+When the user explicitly directs a session to supersede an active reservation, copy the owner
+session from the collision message into the next `apply_patch` explanation as
+`FDAI_EDIT_OVERRIDE=<owner-session>`. The marker applies to that one patch only, must match the
+current reservation owner exactly, and transfers only the paths named by the patch. The reservation
+records the superseded session and override time. Design-context, protected-path, commit-scope,
+destructive-Git, and validation-route checks still run normally; the marker bypasses none of them.
+
 For an explicit manual queue diagnostic, enqueue the exact revision and use the optional
 `Integration Validator` custom agent:
 

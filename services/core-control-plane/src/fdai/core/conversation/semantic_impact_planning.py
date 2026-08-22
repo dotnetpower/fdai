@@ -227,6 +227,37 @@ def _service_impact_path(
     return shortest[0] if len(shortest) == 1 else None
 
 
+def service_impact_query_sides(
+    descriptors: tuple[dict[str, Any], ...],
+) -> tuple[str, ...] | None:
+    """Return query-side ids for the unique shortest Resource-to-service path."""
+
+    path = _service_impact_path(descriptors)
+    if path is None:
+        return None
+    link_types, direction = path
+    query_ids: list[str] = []
+    for link_type in link_types:
+        selected = tuple(
+            descriptor
+            for descriptor in descriptors
+            if descriptor.get("kind") == "link" and descriptor.get("name") == link_type
+        )
+        if len(selected) != 1 or not isinstance(selected[0].get("query_sides"), Mapping):
+            return None
+        sides = selected[0]["query_sides"]
+        matching = tuple(
+            side.get("query_id")
+            for side in sides.values()
+            if isinstance(side, Mapping) and side.get("direction") == direction
+        )
+        if len(matching) != 1 or not isinstance(matching[0], str):
+            return None
+        query_ids.append(matching[0])
+    return tuple(query_ids)
+
+
 __all__ = [
     "compile_target_impact_plan",
+    "service_impact_query_sides",
 ]

@@ -434,18 +434,20 @@ use the same view-classification rules so local and deployed consoles keep the s
   point enrichment. The inventory projector owns durable resource, link, and tombstone
   application. Heimdall monitors freshness, delivery lag, fallback, and coverage degradation;
   it does not query the cloud inventory.
-- **Periodic reconciliation remains required**. The importable Inventory sync CLI produces a complete
-  ARG/ARM generation on its six-hour default cadence, promotes it atomically, and retires
-  overlay entries already covered by that generation. A delta stream is never treated as a
-  proof of completeness. The job drains the change stream and checks durable attempt state every
-  minute, but scans only when the six-hour interval is due, an observed change remains unreconciled
-  above its floor, or a failed attempt's backoff expires. A change is unreconciled when this control
-  plane recorded it after the active snapshot started. One attempt has a re-arming no-progress
-  deadline and an absolute ceiling, and all ARG shards share a sustained request budget. Local refresh and
-  the deployed job share durable attempt transitions, active-pointer verification, and bounded
-  activity publication. Recovery deltas serialize each scope before reading or advancing its
-  cursor. The job retains the read-only inventory identity, and Heimdall neither queries the
-  provider nor starts the job.
+- **Continuous reconciliation remains required**. The Inventory path continuously combines the
+  change stream, resumable deltas, and complete ARG/ARM reconciliation generations. A delta stream
+  is never treated as proof of completeness. Durable source policy controls target freshness,
+  minimum and maximum intervals, priority, request and byte budgets, concurrency, provider
+  `Retry-After`, bounded backoff, and circuit state. The current fixed routine interval remains a
+  legacy configuration until the adaptive controller passes its exit criteria. A change is
+  unreconciled when this control plane recorded it after the active snapshot started. One attempt
+  has a re-arming no-progress deadline and an absolute ceiling, and all ARG shards share a
+  sustained request budget. Local refresh and deployed workers share durable attempt transitions,
+  active-pointer verification, and bounded activity publication. Recovery deltas serialize each
+  scope before reading or advancing its cursor. Workers retain the read-only inventory identity,
+  and Heimdall neither queries the provider nor starts collection. Retention, rollup, archive, and
+  purge rules are owned by
+  [Continuous Operational Instance Graph](continuous-operational-instance-graph.md).
 - **Unknown `ResourceType` or LinkType** opens an issue and is dropped; the adapter never
   auto-registers a new ontology type at runtime. Full provider scans may preserve an otherwise
   unknown native resource identity only through the predeclared `unclassified-resource` type

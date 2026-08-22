@@ -57,19 +57,19 @@ export function ConversationTrajectoryView({
   return (
     <div class={`deck-trajectory-cluster is-${presentation.workProgress}`}>
       <details
-        class="deck-trajectory"
+        class="deck-trajectory cs-run-record"
         open={open}
         onToggle={(event) => setOpen(event.currentTarget.open)}
       >
-      <summary class="deck-trajectory-summary">
-        <span class="deck-trajectory-title">
-          <span class="deck-trajectory-glyph" aria-hidden="true" />
-          <span class="deck-trajectory-title-copy">
-            <small>{t("deck.trajectory.runRecord")}</small>
-            <strong>{t("deck.trajectory.title")}</strong>
+      <summary class="deck-trajectory-summary cs-run-record-summary">
+        <span class="deck-trajectory-title cs-run-record-title">
+          <span class="deck-trajectory-glyph cs-run-record-glyph" aria-hidden="true" />
+          <span class="deck-trajectory-title-copy cs-run-record-title-copy">
+            <small class="cs-run-record-kicker">{t("deck.trajectory.runRecord")}</small>
+            <strong class="cs-run-record-heading">{t("deck.trajectory.title")}</strong>
           </span>
         </span>
-        <span class="deck-trajectory-stats">
+        <span class="deck-trajectory-stats cs-run-record-stats">
           {t(!showModelTrace
             ? "deck.trajectory.summaryTraceOff"
             : answer.modelTrace
@@ -83,14 +83,14 @@ export function ConversationTrajectoryView({
             verification: phaseStateLabel(presentation.phaseStates.verification),
           })}
         </span>
-        <span class="deck-trajectory-duration">
+        <span class="deck-trajectory-duration cs-run-record-duration">
           {trajectory.durationMs === undefined
             ? t("deck.trajectory.sequenceOnly")
             : t("deck.trajectory.endToEndDuration", {
                 duration: formatDuration(trajectory.durationMs),
               })}
         </span>
-        <span class="deck-trajectory-chevron" aria-hidden="true" />
+        <span class="deck-trajectory-chevron cs-run-record-chevron" aria-hidden="true" />
         {open ? (
           <span class="deck-trajectory-question">
             <small>{t("deck.trajectory.phase.input")}</small>
@@ -99,7 +99,7 @@ export function ConversationTrajectoryView({
         ) : null}
       </summary>
       {open ? (
-        <div class="deck-trajectory-body">
+        <div class="deck-trajectory-body cs-run-record-body">
           <PhaseStrip phaseStates={presentation.phaseStates} />
           <PhaseDetails
             trajectory={trajectory}
@@ -258,10 +258,10 @@ function PhaseStrip({
   readonly phaseStates: Readonly<Record<TrajectoryPhase, TrajectoryPhaseState>>;
 }) {
   return (
-    <ol class="deck-trajectory-phase-strip" aria-label={t("deck.trajectory.phaseLabel")}>
+    <ol class="deck-trajectory-phase-strip cs-run-phase-strip" aria-label={t("deck.trajectory.phaseLabel")}>
       {TRAJECTORY_PHASES.map((phase, index) => (
-        <li key={phase} data-state={phaseStates[phase]}>
-          <span aria-hidden="true">{phaseMark(phaseStates[phase], index)}</span>
+        <li class="cs-run-phase" key={phase} data-state={phaseStates[phase]}>
+          <span class="cs-run-phase-mark" aria-hidden="true">{phaseMark(phaseStates[phase], index)}</span>
           <strong>{t(`deck.trajectory.phase.${phase}`)}</strong>
           <small>{phaseStateLabel(phaseStates[phase])}</small>
         </li>

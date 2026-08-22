@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import yaml
+from fdai.delivery.golden_question_dataset import load_golden_question_dataset
 from jsonschema import Draft202012Validator
 from scripts.automation.build_golden_dataset import VARIATION_KINDS, build_payloads
 
@@ -102,6 +103,18 @@ def test_golden_dataset_satisfies_strict_schemas_and_bilingual_parity() -> None:
         for key, items in keyed_arrays
         if key == "required_function_types"
     )
+
+
+def test_golden_dataset_loads_into_core_assurance_corpus() -> None:
+    corpus = load_golden_question_dataset(_DATASET_ROOT)
+
+    assert corpus.corpus_version == "2.0.0"
+    assert corpus.source_digest == _json("questions.en.json")["source_digest"]
+    assert len(corpus.cases) == 560
+    assert len({case.semantic_pair_id for case in corpus.cases}) == 280
+    assert {case.locale for case in corpus.cases} == {"en", "ko"}
+    assert all(case.expected_ontology is not None for case in corpus.cases)
+    assert all(case.required_limitations for case in corpus.cases)
 
 
 def test_golden_generated_artifacts_match_reviewed_source() -> None:

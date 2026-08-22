@@ -3,12 +3,20 @@ import {
   asRows,
   boundedRatio,
   finiteNumber,
-  normalizedPointPositions,
   numericPoints,
   percent,
-  sparkline,
 } from "./process-view-widget-utils";
-import { formatNumber, t } from "./i18n/workflow";
+import { formatDateTimeValue, formatNumber, t } from "./i18n/workflow";
+import {
+  ComparisonBarChart,
+  DensityHeatmap,
+  DonutChart,
+  ProgressBar,
+  ProgressCircle,
+  ScatterChart,
+  SparkLineChart,
+} from "../components/charts";
+import { tremorChartColor } from "../components/chart-colors";
 
 export const GRAPH_WIDGET_TYPES = new Set([
   "change",
@@ -51,19 +59,14 @@ function ChangeWidget({ widget }: { readonly widget: RenderedWidget }) {
 function DistributionWidget({ widget }: { readonly widget: RenderedWidget }) {
   const buckets = asRows(widget.data["buckets"]);
   const maximum = Math.max(1, ...buckets.map((bucket) => finiteNumber(bucket["count"]) ?? 0));
+  const items = buckets.map((bucket) => ({
+    label: t("workflow.process.bucketLimit", { value: displayValue(bucket["le"]) }),
+    value: finiteNumber(bucket["count"]) ?? 0,
+  }));
   return (
     <section class="process-widget-section" aria-labelledby={`${widget.id}-title`}>
       <h3 id={`${widget.id}-title`}>{widget.title}</h3>
-      <div class="report-bars">
-        {buckets.map((bucket, index) => {
-          const count = finiteNumber(bucket["count"]) ?? 0;
-          return <div class="report-bar-row" key={`${displayValue(bucket["le"])}-${index}`}>
-            <span>{t("workflow.process.bucketLimit", { value: displayValue(bucket["le"]) })}</span>
-            <span class="report-bar-track" aria-hidden="true"><span style={{ width: `${Math.max(0, count / maximum) * 100}%` }} /></span>
-            <strong>{displayValue(bucket["count"])}</strong>
-          </div>;
-        })}
-      </div>
+      <ComparisonBarChart label={widget.title} items={items} maximum={maximum} formatValue={formatNumber} />
       {buckets.length === 0 ? <p class="muted small">{t("workflow.process.noDistributionBuckets")}</p> : null}
     </section>
   );
@@ -71,19 +74,14 @@ function DistributionWidget({ widget }: { readonly widget: RenderedWidget }) {
 
 function HeatmapWidget({ widget }: { readonly widget: RenderedWidget }) {
   const series = asRows(widget.data["series"]);
-  const values = series.flatMap((item) => numericPoints(item["points"]).map(([, value]) => value));
-  const maximum = Math.max(1, ...values.map((value) => Math.abs(value)));
+  const rows = series.map((item) => ({
+    label: displayValue(item["label"]),
+    cells: numericPoints(item["points"]).map(([timestamp, value]) => ({ label: formatDateTimeValue(timestamp), value })),
+  }));
   return (
     <section class="process-widget-section" aria-labelledby={`${widget.id}-title`}>
       <h3 id={`${widget.id}-title`}>{widget.title}</h3>
-      <div class="scroll"><table class="report-matrix"><caption class="sr-only">{t("workflow.process.valuesCaption", { title: widget.title })}</caption><tbody>
-        {series.map((item, rowIndex) => <tr key={`${displayValue(item["label"])}-${rowIndex}`}>
-          <th scope="row">{displayValue(item["label"])}</th>
-          {numericPoints(item["points"]).map(([timestamp, value], columnIndex) => (
-            <td key={`${timestamp}-${columnIndex}`} style={{ "--cell-intensity": Math.min(1, Math.abs(value) / maximum) }} aria-label={`${timestamp}: ${value}`}>{value}</td>
-          ))}
-        </tr>)}
-      </tbody></table></div>
+      <DensityHeatmap label={t("workflow.process.valuesCaption", { title: widget.title })} rows={rows} formatValue={formatNumber} />
       {series.length === 0 ? <p class="muted small">{t("workflow.process.noHeatmapSeries")}</p> : null}
     </section>
   );
@@ -91,30 +89,37 @@ function HeatmapWidget({ widget }: { readonly widget: RenderedWidget }) {
 
 function PieWidget({ widget }: { readonly widget: RenderedWidget }) {
   const slices = asRows(widget.data["slices"]);
+  const segments = slices.map((slice) => ({
+    label: displayValue(slice["label"]),
+    value: boundedRatio(slice["percent"]) ?? 0,
+    detail: displayValue(slice["value"]),
+  }));
   return (
     <section class="process-widget-section" aria-labelledby={`${widget.id}-title`}>
       <h3 id={`${widget.id}-title`}>{widget.title}</h3>
-      <div class="report-segments" role="img" aria-label={t("workflow.process.distributionAria", { title: widget.title })}>
-        {slices.map((slice, index) => <span key={`${displayValue(slice["label"])}-${index}`} style={{ flexGrow: boundedRatio(slice["percent"]) ?? 0 }} />)}
-      </div>
-      <dl class="report-legend">
-        {slices.map((slice, index) => <div key={`${displayValue(slice["label"])}-${index}`}><dt>{displayValue(slice["label"])}</dt><dd>{displayValue(slice["value"])} ({percent(slice["percent"])})</dd></div>)}
-      </dl>
+      <DonutChart label={t("workflow.process.distributionAria", { title: widget.title })} segments={segments} formatValue={(value) => percent(value)} />
       {slices.length === 0 ? <p class="muted small">{t("workflow.process.noSlices")}</p> : null}
     </section>
   );
 }
 
 function ScatterWidget({ widget }: { readonly widget: RenderedWidget }) {
-  const points = normalizedPointPositions(asRows(widget.data["points"]));
+  const points = asRows(widget.data["points"]).flatMap((row, index) => {
+    const x = finiteNumber(row["x"]);
+    const y = finiteNumber(row["y"]);
+    if (x === null || y === null) return [];
+    return [{
+      label: displayValue(row["label"] ?? `${index + 1}`),
+      x,
+      y,
+      ...(row["group"] === undefined ? {} : { group: displayValue(row["group"]) }),
+    }];
+  });
   return (
     <section class="process-widget-section" aria-labelledby={`${widget.id}-title`}>
       <h3 id={`${widget.id}-title`}>{widget.title}</h3>
-      {points.length > 0 ? <svg class="report-xyplot" viewBox="0 0 320 96" role="img" aria-label={t("workflow.process.scatterAria", { title: widget.title, count: formatNumber(points.length) })}>
-        <path d="M8 8 V88 H312" fill="none" stroke="currentColor" opacity=".35" />
-        {points.map((point, index) => <circle key={index} cx={point.x} cy={point.y} r="4"><title>{t("workflow.process.scatterTooltip", { x: displayValue(point.row["x"]), y: displayValue(point.row["y"]), group: displayValue(point.row["group"]) })}</title></circle>)}
-      </svg> : <p class="muted small">{t("workflow.process.noScatterPoints")}</p>}
-      <details><summary>{t("workflow.process.dataPoints")}</summary><ul class="report-compact-list">{points.map((point, index) => <li key={index}>{t(point.row["group"] === undefined ? "workflow.process.scatterPoint" : "workflow.process.scatterPointGroup", { x: displayValue(point.row["x"]), y: displayValue(point.row["y"]), group: displayValue(point.row["group"]) })}</li>)}</ul></details>
+      {points.length > 0 ? <ScatterChart label={t("workflow.process.scatterAria", { title: widget.title, count: formatNumber(points.length) })} points={points} formatX={formatNumber} formatY={formatNumber} /> : <p class="muted small">{t("workflow.process.noScatterPoints")}</p>}
+      <details><summary>{t("workflow.process.dataPoints")}</summary><ul class="report-compact-list">{points.map((point, index) => <li key={index}>{t(point.group === undefined ? "workflow.process.scatterPoint" : "workflow.process.scatterPointGroup", { x: formatNumber(point.x), y: formatNumber(point.y), group: point.group ?? "" })}</li>)}</ul></details>
     </section>
   );
 }
@@ -128,8 +133,8 @@ function SparklineWidget({ widget }: { readonly widget: RenderedWidget }) {
         const values = Array.isArray(item["values"])
           ? item["values"].flatMap((value) => finiteNumber(value) ?? [])
           : [];
-        const points = values.map((value, pointIndex) => [pointIndex, value] as const);
-        return <article key={`${displayValue(item["label"])}-${index}`}><strong>{displayValue(item["label"])}</strong><svg viewBox="0 0 160 48" role="img" aria-label={t("workflow.process.trendAria", { label: displayValue(item["label"]) })}><polyline points={sparkline(points, 160, 48)} fill="none" stroke="currentColor" stroke-width="2" /></svg><span class="muted small">{t("workflow.process.sparklineStats", { min: displayValue(item["min"]), max: displayValue(item["max"]), last: displayValue(item["last"]) })}</span></article>;
+        const label = displayValue(item["label"]);
+        return <article key={`${label}-${index}`}><strong>{label}</strong><SparkLineChart label={t("workflow.process.trendAria", { label })} points={values.map((value, pointIndex) => ({ label: `${pointIndex + 1}`, value }))} formatValue={formatNumber} color={tremorChartColor(index)} /><span class="muted small">{t("workflow.process.sparklineStats", { min: displayValue(item["min"]), max: displayValue(item["max"]), last: displayValue(item["last"]) })}</span></article>;
       })}</div>
       {series.length === 0 ? <p class="muted small">{t("workflow.process.noSparklineSeries")}</p> : null}
     </section>
@@ -138,10 +143,10 @@ function SparklineWidget({ widget }: { readonly widget: RenderedWidget }) {
 
 function GaugeWidget({ widget }: { readonly widget: RenderedWidget }) {
   const ratio = boundedRatio(widget.data["ratio"]);
-  return <section class="process-widget-section" aria-labelledby={`${widget.id}-title`}><h3 id={`${widget.id}-title`}>{widget.title}</h3><div class="report-gauge" role="meter" aria-valuemin={finiteNumber(widget.data["min"]) ?? 0} aria-valuemax={finiteNumber(widget.data["max"]) ?? 100} aria-valuenow={finiteNumber(widget.data["value"]) ?? undefined}><span style={{ "--gauge-ratio": ratio ?? 0 }} /><strong>{displayValue(widget.data["value"])} {displayValue(widget.data["unit"])}</strong><small>{t("workflow.process.gaugeRange", { min: displayValue(widget.data["min"]), max: displayValue(widget.data["max"]) })}</small></div></section>;
+  return <section class="process-widget-section" aria-labelledby={`${widget.id}-title`}><h3 id={`${widget.id}-title`}>{widget.title}</h3><div class="report-gauge"><ProgressCircle label={widget.title} value={ratio ?? 0} formatValue={() => `${displayValue(widget.data["value"])} ${displayValue(widget.data["unit"])}`} /><small>{t("workflow.process.gaugeRange", { min: displayValue(widget.data["min"]), max: displayValue(widget.data["max"]) })}</small></div></section>;
 }
 
 function ProgressWidget({ widget }: { readonly widget: RenderedWidget }) {
   const ratio = boundedRatio(widget.data["ratio"]);
-  return <section class="process-widget-section" aria-labelledby={`${widget.id}-title`}><h3 id={`${widget.id}-title`}>{widget.title}</h3><div class="report-progress-head"><strong>{displayValue(widget.data["current"])} / {displayValue(widget.data["target"])} {displayValue(widget.data["unit"])}</strong><span>{percent(ratio)}</span></div><progress max={1} value={ratio ?? 0}>{percent(ratio)}</progress>{ratio === null ? <p class="muted small">{t("workflow.process.ratioUnavailable")}</p> : null}</section>;
+  return <section class="process-widget-section" aria-labelledby={`${widget.id}-title`}><h3 id={`${widget.id}-title`}>{widget.title}</h3><div class="report-progress-head"><strong>{displayValue(widget.data["current"])} / {displayValue(widget.data["target"])} {displayValue(widget.data["unit"])}</strong></div><ProgressBar label={widget.title} value={ratio ?? 0} formatValue={(value) => percent(value)} />{ratio === null ? <p class="muted small">{t("workflow.process.ratioUnavailable")}</p> : null}</section>;
 }

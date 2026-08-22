@@ -49,6 +49,12 @@ maintainer's local VS Code state.
 
 ## Local server start requests
 
+- Launch long-running local services through the committed VS Code tasks or launch configurations,
+  never through a persistent `run_in_terminal` session. Copilot monitors its own persistent
+  terminals for input and can inject a noisy input-needed notification into later chat turns when
+  a healthy service continuously emits logs. Use `console: start core runtime` when only the Core
+  Runtime needs recovery, and close any earlier agent-owned service terminal after its process has
+  been replaced by the task-owned process.
 - Treat an unqualified request to start the Console, Console web, local server, servers, backend,
   or full stack as a request for the complete `Console Web: Full Stack` topology. Start or verify
   all five independently packaged backend services plus the SPA: Core Control Plane, Operator

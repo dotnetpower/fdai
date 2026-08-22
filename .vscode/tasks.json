@@ -47,9 +47,10 @@
       "problemMatcher": "$gcc",
       "presentation": {
         "reveal": "silent",
+        "revealProblems": "onProblem",
         "panel": "dedicated",
         "group": "dev-access",
-        "close": false,
+        "close": true,
         "showReuseMessage": false
       },
       "runOptions": {
@@ -126,6 +127,32 @@
       },
       "runOptions": {
         "instanceLimit": 1
+      }
+    },
+    {
+      "label": "console: start core runtime",
+      "type": "shell",
+      "command": "bash scripts/deployment/local/run-console-service.sh core-runtime",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "console-core-runtime",
+        "pattern": { "regexp": "^(?!)$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "service=core-runtime event=starting$",
+          "endsPattern": "service=core-runtime event=starting$"
+        }
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "group": "console-full-stack",
+        "clear": true,
+        "showReuseMessage": false
+      },
+      "runOptions": {
+        "instanceLimit": 1,
+        "instancePolicy": "silent"
       }
     },
     {

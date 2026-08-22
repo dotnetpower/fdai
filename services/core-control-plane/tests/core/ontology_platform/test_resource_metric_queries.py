@@ -29,8 +29,11 @@ from fdai.core.ontology_platform.query_gateway import (
 )
 from fdai.core.ontology_platform.resource_metric_queries import (
     RESOURCE_METRIC_FUNCTION_NAME,
+    RESOURCE_METRIC_SERIES_FUNCTION_NAME,
     resource_metric_function_type,
     resource_metric_inventory_function,
+    resource_metric_series_function,
+    resource_metric_series_function_type,
 )
 from fdai.shared.contracts.models import CeilingRole
 from fdai.shared.ontology.release import build_ontology_release
@@ -175,6 +178,71 @@ async def _invoke(
     return result
 
 
+class _SeriesProvider(_Provider):
+    async def read(
+        self,
+        *,
+        definition: MetricSemanticDefinition,
+        resource_id: str,
+        start: datetime,
+        end: datetime,
+    ) -> MetricWindow:
+        self.calls.append(resource_id)
+        span = end - start
+        samples = tuple(
+            MetricSample(
+                timestamp=start + span * (index + 1) / 46,
+                value=999.0 if index == 22 else float(index),
+            )
+            for index in range(45)
+        )
+        return MetricWindow(
+            concept_id=definition.concept_id,
+            resource_id=resource_id,
+            unit=definition.canonical_unit,
+            start=start,
+            end=end,
+            samples=samples,
+            complete=True,
+            evidence_refs=(f"metric-provider:{resource_id}",),
+        )
+
+
+async def _invoke_series(
+    provider: _Provider,
+    *,
+    resource_count: int,
+    window_seconds: int = 900,
+) -> dict[str, object]:
+    declaration = resource_metric_series_function_type()
+    release = build_ontology_release(function_types=(declaration,))
+    registry = OntologyFunctionRegistry(release=release)
+    registry.register_contextual(
+        declaration,
+        resource_metric_series_function(
+            release,
+            registry=REGISTRY,
+            provider=provider,
+            now=lambda: NOW,
+        ),
+    )
+    result = await registry.invoke(
+        RESOURCE_METRIC_SERIES_FUNCTION_NAME,
+        {
+            "query_result": _query_result(resource_count).model_dump(mode="json"),
+            "metric_concept": "resource.saturation",
+            "window_seconds": window_seconds,
+        },
+        context=FunctionInvocationContext(
+            caller_agent="Bragi",
+            caller_role=CeilingRole.READER,
+            purposes=("operations-review",),
+        ),
+    )
+    assert isinstance(result, dict)
+    return result
+
+
 def test_metric_function_declares_bounded_no_authority_inputs() -> None:
     declaration = resource_metric_function_type()
 
@@ -183,6 +251,20 @@ def test_metric_function_declares_bounded_no_authority_inputs() -> None:
         "metric_concepts",
         "window_seconds",
     }
+    assert declaration.required_role is CeilingRole.READER
+    assert declaration.network_allowed is False
+    assert declaration.credentials_allowed is False
+
+
+def test_metric_series_function_declares_exact_bounded_no_authority_inputs() -> None:
+    declaration = resource_metric_series_function_type()
+
+    assert set(declaration.input_schema["properties"]) == {
+        "query_result",
+        "metric_concept",
+        "window_seconds",
+    }
+    assert declaration.output_schema["properties"]["rows"]["maxItems"] == 20
     assert declaration.required_role is CeilingRole.READER
     assert declaration.network_allowed is False
     assert declaration.credentials_allowed is False
@@ -234,3 +316,35 @@ async def test_metric_function_marks_collection_sampling_incomplete() -> None:
     assert result["truncation_reason"] == "resource_metric_scope_sampled"
     assert len(result["rows"]) == 16
     assert len(provider.calls) == 16
+
+
+async def test_metric_series_function_projects_ordered_spike_preserving_points() -> None:
+    provider = _SeriesProvider()
+
+    result = await _invoke_series(provider, resource_count=1, window_seconds=604800)
+
+    assert result["complete"] is True
+    assert result["truncation_reason"] is None
+    rows = result["rows"]
+    assert isinstance(rows, list)
+    assert len(rows) == 20
+    values = [row["values"] for row in rows]
+    timestamps = [value["timestamp"] for value in values]
+    assert timestamps == sorted(timestamps)
+    assert 999.0 in {value["value"] for value in values}
+    assert all(value["source_sample_count"] == 45 for value in values)
+    assert all(value["displayed_sample_count"] == 20 for value in values)
+    assert all(value["sampling_strategy"] == "min_max_envelope_v1" for value in values)
+    assert all(value["execution_authority"] is False for value in values)
+    assert provider.calls == ["resource-00"]
+
+
+async def test_metric_series_function_rejects_ambiguous_resource_before_provider_read() -> None:
+    provider = _SeriesProvider()
+
+    result = await _invoke_series(provider, resource_count=2)
+
+    assert result["complete"] is False
+    assert result["truncation_reason"] == "resource_identity_ambiguous"
+    assert result["rows"] == []
+    assert provider.calls == []

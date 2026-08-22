@@ -172,6 +172,10 @@ describe("upsertEvidenceBranch", () => {
       fileURLToPath(new URL("../styles.css", import.meta.url)),
       "utf8",
     );
+    const sharedStyles = readFileSync(
+      fileURLToPath(new URL("../../../ui/calm-slate-primitives.css", import.meta.url)),
+      "utf8",
+    );
     const presenter = readFileSync(
       fileURLToPath(new URL("./command-deck-presenters.tsx", import.meta.url)),
       "utf8",
@@ -203,14 +207,15 @@ describe("upsertEvidenceBranch", () => {
     expect(component).toContain("answerSettled ? (");
     expect(component).toContain("is-answer-settled");
     expect(component).toContain('key="answer-settled"');
-    expect(component).toContain('<summary class="deck-investigation-head">{head}</summary>');
+    expect(component).not.toMatch(/key="answer-settled"[\s\S]*?class=\{`deck-investigation[^>]*\sopen(?:\s|>)/);
+    expect(component).toContain('<summary class="deck-investigation-head cs-work-summary">{head}</summary>');
     expect(component).toContain("{body}");
     expect(component).toContain("!answerSettled ? (");
     expect(styles).toContain(".deck-investigation > summary.deck-investigation-head { cursor: pointer; }");
     expect(styles).toContain(".deck-investigation.is-answer-settled .deck-investigation-head");
     expect(component).not.toContain("deck-investigation-activity-disclosure");
     expect(styles).toContain(".deck-investigation-head::-webkit-details-marker { display: none; }");
-    expect(component).toContain('class="deck-investigation-readonly"');
+    expect(component).toContain('class="deck-investigation-readonly cs-work-summary-safety"');
     expect(component).toContain('t("deck.investigation.readOnly")');
     expect(component).toContain('class="deck-investigation-item-disclosure"');
     expect(component).toContain('open={activity.status === "running" ||');
@@ -277,16 +282,20 @@ describe("upsertEvidenceBranch", () => {
     expect(styles).toMatch(/\.deck-progress-note-mark\s*\{[^}]*color:\s*var\(--accent\);/);
     expect(styles).toContain(".deck-execution-axis {");
     expect(styles).toContain("repeating-linear-gradient(to right");
-    expect(retrieval).toContain('class="deck-turn-head deck-rt-agent-head"');
-    expect(retrieval).toContain('class="deck-turn-source"');
+    expect(retrieval).toContain('class="deck-turn-head deck-rt-agent-head cs-deck-turn-head"');
+    expect(retrieval).toContain('class="deck-turn-source cs-deck-agent-source"');
     expect(retrieval).toContain('class="deck-rt-stage-copy"');
     expect(retrieval).toContain('class="deck-rt-ico" aria-hidden="true">{stage.glyph}</span>');
     expect(retrieval).toContain('class="deck-rt-mode">{t("deck.retrieval.compact")}</span>');
     expect(retrieval).toContain('<details open class="deck-rt-sources">');
     expect(retrieval).toContain("sources.slice(Math.max(0, shown - VISIBLE), shown)");
     expect(retrieval).not.toContain("translateY(${-rolled * CARD_PITCH_PX}px)");
-    expect(styles).toMatch(
-      /\.deck-rt-stage\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*20px minmax\(0, 1fr\) auto 14px;/s,
+    expect(retrieval).toContain('class="deck-rt cs-grounding-panel"');
+    expect(retrieval).toContain('class="deck-rt-head cs-grounding-head"');
+    expect(retrieval).toContain("deck-rt-stage cs-grounding-stage");
+    expect(retrieval).toContain("deck-rt-source cs-grounding-source");
+    expect(sharedStyles).toMatch(
+      /\.cs-grounding-stage\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*20px minmax\(0, 1fr\) auto 14px;/s,
     );
     expect(styles).toMatch(
       /\.deck-rt-stage-copy\s*\{[^}]*display:\s*flex;[^}]*align-items:\s*baseline;[^}]*overflow:\s*hidden;/s,
@@ -294,19 +303,19 @@ describe("upsertEvidenceBranch", () => {
     expect(styles).toMatch(
       /\.deck-rt-detail\s*\{[^}]*text-overflow:\s*ellipsis;[^}]*white-space:\s*nowrap;/s,
     );
-    expect(styles).toMatch(/\.deck-rt-head\s*\{[^}]*display:\s*flex;/s);
+    expect(sharedStyles).toMatch(/\.cs-grounding-head\s*\{[^}]*display:\s*flex;/s);
     expect(styles).toMatch(/\.deck-rt-sub\s*\{[^}]*text-overflow:\s*ellipsis;[^}]*white-space:\s*nowrap;/s);
     expect(styles).toMatch(
       /\.deck-rt-txt\s*\{[^}]*flex-direction:\s*column;[^}]*align-items:\s*flex-start;/s,
     );
-    expect(styles).toMatch(/\.deck-rt-source\s*\{[^}]*min-height:\s*28px;/s);
+    expect(sharedStyles).toMatch(/\.cs-grounding-source\s*\{[^}]*min-height:\s*28px;/s);
     expect(styles).toMatch(
       /@media \(max-width: 640px\)[\s\S]*\.deck-rt-stage\s*\{[^}]*grid-template-columns:\s*20px minmax\(0, 1fr\) auto;/s,
     );
     expect(view).toContain("showPreparingAnswer");
     expect(view).toContain("inFlight && !finalAnswerPresent");
     expect(view).toContain("index === activeOperatorIndex");
-    expect(view).toContain('class="deck-composer-inner"');
+    expect(view).toContain('class="deck-composer-inner cs-deck-composer-grid"');
     expect(view).toContain('class="deck-transcript-inner"');
     expect(styles).toContain("overflow-anchor: none;");
     expect(styles).toContain("padding: 16px 42px 28px;");

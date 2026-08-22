@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 4c4ad484ae5ef7044b1bd571d82c5aa7743d7cb1
+translation_source_sha: 9df8384c7c01b7aea10b73d5e6f06a6484b647e4
 translation_revised: 2026-08-22
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -17,7 +17,6 @@ translation_revised: 2026-08-22
 
 ## 구현 상태
 ### 구현 범위
-
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 자동화 테스트 고정본 격리 | implemented | `tests/`, `console/tests/` 및 리포지토리 테스트 모음이 실행하는 고정본 전용 composition 경로 | 결정론적 고정본은 권위 있는 interactive 프로파일 밖에 유지됩니다. |
@@ -43,6 +42,7 @@ translation_revised: 2026-08-22
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
+| 2026-08-22 | validated | Core Runtime이 범위가 제한된 프로바이더 초기화를 완료하고 첫 Pantheon heartbeat를 내보낼 수 있도록 clean Console 시작 준비 상태 게이트를 15초에서 60초로 늘렸습니다. 제한 없는 Bash `/dev/tcp` 소유권 확인을 연결 전에 상속된 서비스 잠금을 닫는 250ms IPv4 및 IPv6 소켓 검사로 교체하여, 필터링된 loopback 포트가 준비 상태 기한을 넘겨 소유자 정보만 있는 잠금을 유지하지 않도록 했습니다. | [이슈 #254](https://github.com/dotnetpower/fdai/issues/254), `current change`, `scripts/automation/run-local-service.sh`, `scripts/deployment/local/start-console-services.sh`, 집중 실행기 및 workspace 작업 계약 테스트 28개 통과, clean 표준 시작에서 6/6 준비 상태 도달, port 5273 및 8010-8013의 HTTP 200 응답, 관리 잠금 6개 유지 확인 | #254의 잔여 작업이 없습니다. |
 | 2026-08-22 | implemented | 폴더를 열 때 실행하던 전체 스택 시작을 명시적 `console: start full stack` 작업으로 바꾸고, 호출자가 하나뿐인 준비 작업 9개를 통합했으며, 서비스 작업 블록 8개와 별도 준비 상태 확인 작업을 supervisor 하나로 교체했습니다. Supervisor는 서비스마다 허용 목록 기반 실행기, 잠금, fingerprint, 로그 및 프로세스 수명주기를 각각 유지합니다. 작업 수를 29개에서 11개로 줄였습니다. | `current change`, `.vscode/tasks.json`, `scripts/deployment/local/{prepare-console-full-stack,start-console-services,run-console-service}.sh`, 집중 workspace 작업 계약 테스트 4개 통과, 세 스크립트의 `bash -n` 통과 | Console 구성이 필요할 때 명시적 전체 스택 작업을 실행합니다. |
 | 2026-08-21 | implemented | Cognitive deployment를 변경할 수 있는 계획에만 중요한 모델 완결성 검사를 적용했습니다. 개발 게이트웨이 대상 계획은 기존 모델 계정과 호출자 RBAC를 계속 수렴하지만 대상 집합에 cognitive deployment가 없으므로 관련 없는 모델 해석을 건너뜁니다. | `current change`, `.github/workflows/deploy-dev.yml`, 집중 모델 수명 주기 및 보호 workflow 테스트, Terraform 전 불일치를 드러낸 보호 실행 `32435485872`와 `32435748272`. | 동일한 Event Bus 이행 계획을 다시 실행합니다. 모델 레지스트리를 바꾸기 전에 별도의 Foundry 다중 발행기 endpoint 이행을 설계합니다. |
 | 2026-08-21 | implemented | 빈 기능 맵이 기존 embedding deployment 삭제를 암시한 사실을 확인한 뒤 개발 게이트웨이 예외를 정정했습니다. 이제 게이트웨이 대상 계획은 모델 해석을 유지하면서 완결성 결과만 차단하지 않습니다. | 보호된 계획 실행 `32456242726`, `current change`, 집중 모델 수명 주기 및 보호 workflow 스위트의 테스트 44개 통과. | 동일한 Event Bus 이행 계획을 다시 실행하고 적용 전에 모델 deployment 변경이 없음을 확인합니다. |
@@ -114,14 +114,12 @@ translation_revised: 2026-08-22
   ([#152](https://github.com/dotnetpower/fdai/issues/152)).
 
 ## 전수조사 - 로컬 동작 vs Azure 필요
-
 2026-07-21 기준. "자동화 테스트"는 테스트 실행기가 실행하는 pytest 또는 committed mock을
 뜻합니다. "Full-stack 로컬"은 운영자에 브라우저 Entra를 사용하고 서버 측 Azure 어댑터에
 현재 Azure CLI 맥락을 사용하는 VS 코드 compound launch입니다. 테스트 고정본은 이 launch
 프로파일에서 활성화되지 않습니다.
 
 ### 자동화 테스트에서 완전 동작 (Azure 불필요)
-
 | 서브시스템 | 로컬 백엔드 | 비고 |
 |-----------|-------------|------|
 | T0 결정론 엔진 | `opa` 바이너리 + Rego 정책 + 룰 카탈로그 | 100% 오프라인; CI 동등성 게이트가 증명 |
@@ -212,9 +210,11 @@ executor 권한을 변경하지 않습니다.
 권한이 없으면 고정본 데이터로 대체하지 않고 인벤토리를 명시적으로 사용할 수 없는 상태로 유지합니다.
 전체 스택 시작에는 신뢰된 workspace와 커밋된 정책이 필요하며 권한을 약화하지 않습니다. 재사용에는 이
 체크아웃의 잠금과 정확한 입력 fingerprint가 필요하고, 변경되거나 다른 소유권은 관리 대상만 교체하거나
-실패합니다. 15초 게이트는 체크아웃 소유 Core, 최신 heartbeat, 정상 service probe를 요구합니다.
-종료는 10초 뒤 자식 process group을 중지하고 wrapper가 사라지면 그 leader에 signal을 보냅니다.
-개별 서비스 또는 debug launch 전에는 `console: prepare full stack`을 실행합니다.
+실패합니다. 60초 게이트는 체크아웃 소유 Core, 최신 heartbeat, 정상 service probe를 요구합니다.
+Loopback 소유권 확인에는 범위가 250ms로 제한된 IPv4 및 IPv6 소켓 검사를 사용하며 연결 중에는
+서비스 잠금을 유지하지 않습니다. 종료는 10초 뒤 자식 process group을 중지하고 wrapper가 사라지면
+그 leader에 signal을 보냅니다. 개별 서비스 또는 debug launch 전에는
+`console: prepare full stack`을 실행합니다.
 Git에서 제외된 로컬 런타임 환경은 검증 cluster를 `FDAI_VALIDATION_DATABASE_URL`로 기록하고,
 분리된 검증 queue는 선택된 통합 테스트에 이 값만 `FDAI_DATABASE_URL`로 매핑합니다. 활성 런타임
 DSN은 전달하지 않습니다. Alembic role 변경은 cluster-global이므로 별도 cluster가 필요합니다.

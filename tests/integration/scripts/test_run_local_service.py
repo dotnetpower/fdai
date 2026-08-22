@@ -885,6 +885,43 @@ def test_runner_refuses_a_port_owned_by_another_process(tmp_path: Path) -> None:
     assert not log_file.exists() or "child-ran" not in log_file.read_text(encoding="utf-8")
 
 
+def test_runner_bounds_an_unavailable_loopback_port_probe(tmp_path: Path) -> None:
+    log_file = tmp_path / "logs" / "operator-api.log"
+    environment = os.environ.copy()
+    environment["FDAI_LOCAL_SERVICE_REUSE_EXISTING"] = "1"
+    environment["FDAI_LOCAL_SERVICE_INPUT_DIGEST"] = "a" * 64
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as reservation:
+        reservation.bind(("127.0.0.1", 0))
+        port = reservation.getsockname()[1]
+
+    started = time.monotonic()
+    result = subprocess.run(  # noqa: S603 - fixed test command
+        [
+            _BASH,
+            str(_RUNNER),
+            "operator-api",
+            str(log_file),
+            "--",
+            _BASH,
+            "-c",
+            "echo child-ran",
+            "--",
+            "--port",
+            str(port),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=3,
+        env=environment,
+    )
+
+    assert time.monotonic() - started < 2
+    assert result.returncode == 0
+    assert "child-ran" in result.stdout
+    assert "/dev/tcp" not in _RUNNER.read_text(encoding="utf-8")
+
+
 def test_runner_refuses_a_port_owned_on_ipv6_loopback(tmp_path: Path) -> None:
     """--host localhost binds IPv6 loopback on a dual-stack host; that still owns the port."""
     log_file = tmp_path / "logs" / "operator-api.log"

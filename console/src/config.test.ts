@@ -7,6 +7,13 @@ afterEach(() => {
 });
 
 describe("console config", () => {
+  test("uses the canonical local API origins by default", () => {
+    const config = loadConfig();
+
+    expect(config.operatorApiBaseUrl).toBe("http://127.0.0.1:8010");
+    expect(config.ingestionApiBaseUrl).toBe("http://127.0.0.1:8011");
+  });
+
   test("loads a configured authentication token timeout", () => {
     vi.stubEnv("VITE_AUTH_TOKEN_TIMEOUT_MS", "2500");
 

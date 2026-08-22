@@ -744,23 +744,23 @@ export function InvestigationTimeline({
       {running ? (
         <span class="deck-investigation-spinner" aria-hidden="true" />
       ) : (
-        <span class="deck-investigation-state" aria-hidden="true">
+        <span class="deck-investigation-state cs-work-summary-mark" aria-hidden="true">
           <span class="deck-marker-glyph">
             {tone === "completed" ? "\u2713" : tone === "failed" ? "\u00d7" : tone === "partial" ? "~" : "!"}
           </span>
         </span>
       )}
-      <span class="deck-investigation-session-copy">
-        <strong>{phaseTitle}</strong>
-        <small>{eventSummary} · {formatDuration(running ? elapsedMs : finalDurationMs)}</small>
+      <span class="deck-investigation-session-copy cs-work-summary-copy">
+        <strong class="cs-work-summary-title">{phaseTitle}</strong>
+        <small class="cs-work-summary-meta">{eventSummary} · {formatDuration(running ? elapsedMs : finalDurationMs)}</small>
       </span>
       {!answerSettled ? (
         <span class="deck-investigation-session-summary muted">{summary}</span>
       ) : null}
-      <span class="deck-investigation-readonly">
+      <span class="deck-investigation-readonly cs-work-summary-safety">
         {t("deck.investigation.readOnly")}
       </span>
-      <span class={`deck-investigation-badge is-${running ? "running" : tone}`}>
+      <span class={`deck-investigation-badge cs-work-summary-badge is-${running ? "running" : tone}`}>
         {statusLabel(running ? "running" : tone)}
       </span>
     </>
@@ -783,10 +783,9 @@ export function InvestigationTimeline({
         <details
           key="answer-settled"
           class={`deck-investigation is-settled is-${tone} is-answer-settled`}
-          open
           aria-label={t("deck.investigation.label")}
         >
-          <summary class="deck-investigation-head">{head}</summary>
+          <summary class="deck-investigation-head cs-work-summary">{head}</summary>
           {body}
         </details>
       ) : (
@@ -796,7 +795,7 @@ export function InvestigationTimeline({
           open={running}
           aria-label={t("deck.investigation.label")}
         >
-          <summary class="deck-investigation-head">{head}</summary>
+          <summary class="deck-investigation-head cs-work-summary">{head}</summary>
           {body}
           {running && allObservedEventsSettled ? <InvestigationNextSkeleton /> : null}
         </details>

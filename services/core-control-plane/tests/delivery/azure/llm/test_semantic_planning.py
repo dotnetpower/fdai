@@ -207,6 +207,67 @@ async def test_adapter_normalizes_non_authoritative_evidence_tokens() -> None:
     ]
 
 
+async def test_adapter_defaults_omitted_frame_confidence_to_zero_without_retry() -> None:
+    payload = _frame_payload()
+    del payload["confidence"]
+    requests = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal requests
+        requests += 1
+        return _response(payload)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        model = AzureOpenAISemanticPlanningModel(
+            identity=_Identity(),  # type: ignore[arg-type]
+            http_client=client,
+            config=_config(),
+            owner_loop=asyncio.get_running_loop(),
+        )
+        frame_raw = await asyncio.to_thread(
+            model.propose_frame,
+            utterance="Summarize the current evidence",
+            context=(),
+            descriptors=({"kind": "object", "name": "Resource"},),
+            principal_role="reader",
+            purpose="operations-review",
+        )
+
+    assert frame_raw is not None
+    assert frame_raw["confidence"] == 0.0
+    assert requests == 1
+
+
+async def test_adapter_does_not_replace_explicit_invalid_frame_confidence() -> None:
+    payload = _frame_payload()
+    payload["confidence"] = "high"
+    requests = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal requests
+        requests += 1
+        return _response(payload)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        model = AzureOpenAISemanticPlanningModel(
+            identity=_Identity(),  # type: ignore[arg-type]
+            http_client=client,
+            config=_config(),
+            owner_loop=asyncio.get_running_loop(),
+        )
+        frame_raw = await asyncio.to_thread(
+            model.propose_frame,
+            utterance="Summarize the current evidence",
+            context=(),
+            descriptors=({"kind": "object", "name": "Resource"},),
+            principal_role="reader",
+            purpose="operations-review",
+        )
+
+    assert frame_raw is None
+    assert requests == 3
+
+
 async def test_adapter_rejects_free_form_output_shape() -> None:
     payload = _frame_payload()
     payload["output_shape"] = "Resource summary table"

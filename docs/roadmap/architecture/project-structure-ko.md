@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: ed8b2da4d9828c63a3dab7e36099467d95fe97b4
-translation_revised: 2026-08-21
+translation_source_sha: 6c8d45a587cb486367a103fb255e2240d95a4b5e
+translation_revised: 2026-08-22
 ---
 # 프로젝트 구조
 
@@ -22,6 +22,7 @@ translation_revised: 2026-08-21
 | 인벤토리 신원 완전성 경계 | implemented | `shared/providers/inventory.py`, `delivery/azure/{arg_query,inventory}.py`, `composition/wire_inventory.py`, focused 검사 259개 통과 | Shared는 exact coverage 증적을 소유하고 Azure delivery는 범위가 제한된 native 신원 읽기를 소유하며 composition은 프로바이더 I/O를 Core로 옮기지 않고 두 경로를 연결합니다. |
 | 질문에 결속된 의미 필터 근거 확인 | 구현됨 | `core/conversation/semantic_planning_value_filters.py`, `tests/conversation/test_semantic_planning.py`, focused 계획 검사(`79 passed`) | Core는 발화에 명시된 카탈로그 값 그룹 또는 검증된 frame이 보존하고 해당 발화에 그대로 존재하는 정확한 자유 텍스트 subject 하나로만 후보 ObjectSet을 좁힐 수 있습니다. 프로바이더 I/O, 판단, 승인, 변경 또는 실행 권한은 추가하지 않습니다. |
 | 의미 frame 구성 경계 | 구현됨 | `core/conversation/semantic_planning_frame.py`, 집중 planner, tier-routing, investigation 및 Azure adapter 검사 111개 통과 | 집중 Core 모듈이 후보 frame을 정확한 입력 및 investigation identity에 결속하고 서버 소유 명확화 맥락만 해석합니다. 프로바이더 I/O를 수행하지 않으며 판단, 승인, 변경 또는 실행 권한을 부여하지 않습니다. |
+| 정확한 대상 메트릭 시계열 경계 | validated | `core/conversation/semantic_resource_metric_planning.py`, `core/ontology_platform/resource_metric_queries.py`, `composition/wire_semantic_query.py`, Operator `presentation_artifact_v2.py`, 집중 검사, 인증된 표준 포트 Console 증적 | Core는 서버 소유 시계열 plan을 선택했고 온톨로지 플랫폼은 완전한 범위 제한 행 20/20개를 반환했으며 조립은 기존 메트릭 프로바이더에 도달했고 Operator는 세 viewport에서 검증된 시계열 artifact를 렌더링했습니다. 어떤 서비스도 다른 서비스 구현을 import하지 않았고 브라우저는 프로바이더 또는 실행 권한을 받지 않았습니다. |
 | Evaluation 및 의미 회귀 경계 | in-progress | `evaluation-sdk/`, `benchmarks/`, `eval/golden-dataset/`, `tests/integration/evaluation/test_golden_dataset.py` (`7 passed`) | 외부 호스트 통합은 휴면 상태이며 Core에 존재하지 않습니다. 보존된 패키지는 독립 workspace 구성원으로 유지합니다. 생성된 corpus는 expectation 35개, 표현 방식 8개, 균형 잡힌 관점 7개와 모든 검토된 보증 축에 걸친 영어와 한국어 280쌍을 포함합니다. 답변 결과에 대한 캠페인 실행 연결은 남아 있습니다. |
 | 통제된 규칙 발견 시작 경계 | implemented | `core/readiness/discovery_activation.py`, `runtime/discovery_activation.py`, `runtime/bootstrap*.py`, `agents/norns.py`, 집중 활성화 및 연결 검사 | Core는 최신 선행 조건 근거를 집약하고, 런타임은 기본적으로 닫힌 결정을 Norns의 비활성 후보 게시 경계에만 주입하며, 감독되는 새로 고침이 실패하면 카탈로그 또는 승격 권한을 바꾸지 않고 로컬 게이트를 닫습니다. |
 | 로컬 telemetry 쓰기 경계 | implemented | `shared/telemetry/logging.py`, `capture-local-service-log.py`, 집중 telemetry·launcher·provider integration·framework layout 검사 | Shared telemetry는 범위가 제한된 구조화 경고 보존과 의존성 요약을 소유합니다. 로컬 launcher는 터미널 표시와 완전한 회전 파일 캡처를 소유하며, 어느 경로도 에이전트 전달이나 권한을 바꾸지 않습니다. |
@@ -30,6 +31,8 @@ translation_revised: 2026-08-21
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-22 | validated | 기존 Core, 조립, Operator, Console 소유 경계 전체에서 정확한 대상 메트릭 시계열 경로를 검증했습니다. | `current change`, 집중 격리 검사 4개와 Ruff 및 strict mypy 통과, 인증된 Console 근거가 `server_target_resource_metric_series`, 완전한 행 20/20개, 표시 잘림 없음, `1440x900`, `993x641`, `390x844`에서 문서 또는 Deck overflow 없음을 기록 | 이 기능의 패키지, 프로세스, 신원, 영속성 또는 서비스 경계 작업은 남아 있지 않습니다. |
+| 2026-08-22 | implemented | 기존 서비스 소유권 안에 정확한 대상 메트릭 시계열 경로를 추가했습니다. Core는 의미 계약을 통해 타입이 지정된 범위 제한 표를 반환하고 Operator는 sampling metadata를 독립적으로 검증한 뒤 presentation block을 컴파일합니다. | `current change`, 집중 메트릭, 플래너, 조립, prompt, Operator 표현 검사 43개 통과 | 인증된 표준 포트 Browser 근거를 보존합니다. 패키지, 프로세스, 신원, 영속성 또는 서비스 경계 변경은 남아 있지 않습니다. |
 | 2026-08-21 | implemented | 온톨로지 또는 답변 oracle을 중복하지 않고 정적 의미 corpus를 손으로 작성한 20쌍에서 생성된 이중 언어 280쌍으로 확장했습니다. 균형 잡힌 7관점 coverage, 문서에서 도출한 historical topology, release health, cost, recurrence, unsafe-action, resource-evidence, agent-authority 사례, 결정론적 source-to-artifact drift 검사를 추가했습니다. | `current change`, `eval/golden-dataset/{coverage,expectations,questions}*`, `build_golden_dataset.py`, 집중 dataset 검사 7개 통과 | 답변 회귀 coverage를 주장하기 전에 확장된 corpus를 기존 의미 캠페인에 연결합니다. |
 | 2026-08-21 | in-progress | 서비스 분해가 evaluation 호스트와 호환성 파사드를 제거한 뒤 물리 배치를 정정했습니다. 로캘 중립 온톨로지 탐색 및 답변 oracle을 갖춘 별도 이중 언어 cloud-operations golden dataset을 추가했습니다. | `current change`, `eval/golden-dataset/`, `tests/integration/evaluation/test_golden_dataset.py` 4개 통과, 휴면 패키지 테스트 68개 통과 | 자동 답변 회귀 coverage를 주장하기 전에 corpus를 기존 의미 질문 캠페인에 연결합니다. |
 | 2026-08-20 | 구현됨 | 정확한 후보 전용 frame 구성과 서버 소유 명확화 해석을 의미 플래너에서 집중 Core 모듈로 추출했습니다. 플래너는 기존 private adapter 표면을 유지하면서 적용되는 800줄 상한 아래로 돌아왔으며 frame digest, 명확화, 권한 또는 I/O 동작은 바뀌지 않았습니다. | `current change`, `semantic_planning.py`, `semantic_planning_frame.py`, 집중 의미 테스트 111개와 작업 범위 Ruff, formatting, strict mypy 및 강제 파일 LOC 검사 통과 | 구조 상한 복구에 남은 작업은 없습니다. |
@@ -401,11 +404,12 @@ fdai/
   `event_type` 생략은 계속 지원합니다.
   `links_complete`가 없거나 false이면 관찰하지 못한 관계를 제거하지 않습니다. 스냅샷 승격은
   exclusive 승격 게이트를 유지하므로 어떤 delta 트랜잭션과도 동시에 실행되지 않습니다. 전용
-  인벤토리 sync 작업은 기본 6시간마다 Azure Resource Graph를 조회하고 ARM 대체 경로를 사용해 완전한
-  조정 스냅샷을 원자적으로 promote합니다. Heimdall은 발견 최신성, lag,
-  커버리지를 관찰하며 복구를 시작하지 않습니다. 작업은 매분 영속 시도 상태를 확인하고
-  정상 6시간 검사 간격을 유지하되 관측된 변경이 하한을 넘으면 앞당겨 조정하며, 실패한 시도는
-  범위가 제한된 백오프가 끝난 뒤 재시도합니다. 로컬 실행 장치는
+  inventory sync 경로는 Azure Resource Graph와 ARM 대체 경로의 완전한 reconciliation
+  snapshot을 원자적으로 promote합니다. Heimdall은 최신성, lag, 범위를 관찰하며 복구를 시작하지
+  않습니다. 현재 고정 정기 간격은 이전 구성입니다. 목표는
+  [지속형 운영 인스턴스 그래프](continuous-operational-instance-graph-ko.md)의 원본 예산, 공급자
+  rate limit, 범위가 제한된 backoff, 최대 노후 목표에 따라 이벤트 ingress, 재개 가능한 delta,
+  부하 인식 reconciliation을 지속적으로 결합합니다. 로컬 실행 장치는
   Azure 발견을 실행하지 않습니다.
   Organization은 디렉터리와 Org chart 보기를 제공하며, `?view=org`는 실시간 보고 계층의 직접
   링크를 유지하고 각 노드는 해당 에이전트의 런타임 상세 포커스를 엽니다.

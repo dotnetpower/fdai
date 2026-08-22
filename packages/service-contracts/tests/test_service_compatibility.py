@@ -697,3 +697,17 @@ def test_wire_fixtures_cover_each_contract_and_all_five_services() -> None:
 
     assert fixture_contracts == {contract["id"] for contract in contracts}
     assert participants == SERVICE_IDS
+
+
+def test_wire_fixture_versions_match_declared_producer_releases() -> None:
+    manifest = _manifest()
+    contracts = {
+        contract["id"]: contract for contract in manifest["contracts"] if isinstance(contract, dict)
+    }
+
+    for fixture in _fixture_array("wire-payloads.json"):
+        contract = contracts[fixture["contract_id"]]
+        release = fixture["producer_release"]
+        declared_version = contract["producer_schemas"][release]["version"]
+
+        assert fixture["payload"]["schema_version"] == declared_version

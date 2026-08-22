@@ -1,8 +1,8 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: f06b3558547f1364108502602799ec855757d0d2
-translation_revised: 2026-08-21
+translation_source_sha: e8566b826b6ea769d0f504262618dc994062a856
+translation_revised: 2026-08-22
 ---
 
 # CSP-중립성 계약
@@ -440,17 +440,18 @@ coverage가 대응되지 않거나 잘리면 응답을 강등합니다.
   지점 enrichment를 소유합니다. 인벤토리 projector는 영속 리소스, 링크, tombstone
   적용을 소유합니다. Heimdall은 최신성, 전달 lag, 대체 경로, 커버리지 성능 저하를
   관찰하며 cloud 인벤토리를 직접 조회하지 않습니다.
-- **주기적 조정은 계속 필요합니다.** 가져올 수 있는 인벤토리 sync CLI는 기본 6시간 주기로
-  완전한 ARG/ARM 세대를 만들고 원자적으로 promote하며, 해당 세대에 이미
-  반영된 오버레이 항목을 정리합니다. Delta 스트림만으로 완전성을 증명하지 않습니다.
-  작업은 매분 변경 스트림을 비우고 영속 시도 상태를 확인하지만, 6시간 간격이 due이거나
-  관측된 변경이 하한을 넘어 아직 조정되지 않았거나 실패한 시도의 백오프가 끝난 경우에만
-  검사합니다. 변경은 이 컨트롤 플레인이 활성 스냅샷 시작 뒤에 기록했을 때 미조정으로 봅니다.
-  시도 하나에는 진행 시 다시 설정되는 무진행 마감과 절대 상한이 있고, 모든 ARG 샤드는 지속
-  요청 예산을 공유합니다. 로컬 새로 고침과 배포 작업은 영속 시도 전이, 활성 포인터
-  검증 및 범위가 제한된 활동 발행을 공유합니다. 복구 delta는 cursor를 읽거나 전진하기 전에 각
-  scope를 직렬화합니다. 작업은 읽기 전용 인벤토리 신원을 유지하며 Heimdall은 프로바이더를 직접
-  조회하거나 작업을 시작하지 않습니다.
+- **지속형 reconciliation은 계속 필요합니다.** Inventory 경로는 변경 스트림, 재개 가능한
+  delta, 완전한 ARG/ARM reconciliation 세대를 지속적으로 결합합니다. Delta 스트림만으로
+  완전성을 증명하지 않습니다. Durable 원본 정책은 목표 최신성, 최소 및 최대 간격, 우선순위,
+  요청 및 byte 예산, 동시성, 공급자 `Retry-After`, 범위가 제한된 backoff, circuit 상태를
+  제어합니다. 현재 고정 정기 간격은 적응형 controller가 종료 조건을 통과할 때까지 이전 구성으로
+  유지됩니다. 변경은 이 컨트롤 플레인이 활성 snapshot 시작 뒤에 기록했을 때 미조정으로 봅니다.
+  시도 하나에는 진행 시 다시 설정되는 무진행 마감과 절대 상한이 있고, 모든 ARG shard는 지속
+  요청 예산을 공유합니다. 로컬 새로 고침과 배포 worker는 durable 시도 전이, 활성 pointer 검증,
+  범위가 제한된 활동 게시를 공유합니다. 복구 delta는 cursor를 읽거나 전진하기 전에 각 scope를
+  직렬화합니다. Worker는 읽기 전용 inventory 신원을 유지하며 Heimdall은 공급자를 직접 조회하거나
+  수집을 시작하지 않습니다. 보존, rollup, archive, purge 규칙은
+  [지속형 운영 인스턴스 그래프](continuous-operational-instance-graph-ko.md)가 소유합니다.
 - **미인식 `ResourceType` 또는 LinkType** 은 이슈를 열고 드롭됩니다. 어댑터는 런타임에 새
   온톨로지 타입을 자동 등록하지 않습니다. 전체 프로바이더 스캔은 미리 선언된
   `unclassified-resource` 타입을 통해서만 알려지지 않은 native 리소스 신원을 보존할 수 있습니다.

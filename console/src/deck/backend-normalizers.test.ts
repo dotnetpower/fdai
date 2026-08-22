@@ -76,6 +76,70 @@ describe("parseSemanticProjectionReceipt", () => {
     expect(parseSemanticProjectionReceipt({ ...held, unavailable_reason: "runtime_failed" }))
       .toBeUndefined();
   });
+
+  it("preserves a strict version 2 semantic assurance observation", () => {
+    const observation = {
+      schema_version: "1.0.0",
+      frame: {
+        operation: "select",
+        subject_types: ["Resource"],
+        measure_concepts: [],
+        temporal_scope: "current",
+        output_shape: "resource_current_state",
+        frame_digest: DIGEST,
+      },
+      capabilities: ["object_set", "resource_current_state"],
+      object_types: ["Resource"],
+      link_types: [],
+      function_types: ["query.resource_current_state"],
+      ontology_paths: [],
+      fact_kinds: ["resource.identity"],
+      limitation_kinds: [],
+      claim_kinds: [],
+      evidence_posture: "fresh",
+      authority_posture: "read_only",
+      read_performed: true,
+      observation_digest: DIGEST,
+      execution_authority: false,
+    };
+    const receipt = semanticReceipt({
+      schema_version: "2.0.0",
+      assurance_observation: observation,
+    });
+
+    expect(parseSemanticProjectionReceipt(receipt)).toEqual(receipt);
+  });
+
+  it.each([
+    { capabilities: ["resource_current_state", "object_set"] },
+    { fact_kinds: ["resource.identity", "resource.identity"] },
+    { execution_authority: true },
+    { unexpected: true },
+  ])("rejects malformed semantic assurance observations: %o", (override) => {
+    const observation = {
+      schema_version: "1.0.0",
+      frame: null,
+      capabilities: ["object_set"],
+      object_types: ["Resource"],
+      link_types: [],
+      function_types: [],
+      ontology_paths: [],
+      fact_kinds: [],
+      limitation_kinds: [],
+      claim_kinds: [],
+      evidence_posture: "fresh",
+      authority_posture: "read_only",
+      read_performed: true,
+      observation_digest: DIGEST,
+      execution_authority: false,
+      ...override,
+    };
+
+    expect(parseSemanticProjectionReceipt(semanticReceipt({
+      schema_version: "2.0.0",
+      assurance_observation: observation,
+    }))).toBeUndefined();
+  });
 });
 
 function claim(overrides: Record<string, unknown> = {}) {
@@ -200,6 +264,23 @@ describe("parseDelegation", () => {
 });
 
 describe("parseAnswerVerification", () => {
+  it("keeps ontology-query claims independent from verified plan-check counts", () => {
+    const parsed = parseAnswerVerification(verification({
+      authority: "ontology-query",
+      claims: [
+        claim({ claim_id: "semantic-fact", text: "resource.runtime_state" }),
+        claim({
+          claim_id: "semantic-limitation",
+          text: "missing_resource_state_is_unknown",
+        }),
+      ],
+      evidence_manifest: undefined,
+    }));
+
+    expect(parsed?.status).toBe("verified");
+    expect(parsed?.claims).toHaveLength(2);
+  });
+
   it.each([
     { checks_completed: -1, checks_total: 1 },
     { checks_completed: 1.5, checks_total: 2 },

@@ -112,11 +112,12 @@ The canonical topology is the console SPA (`5273`) plus all five independent bac
 Core Control Plane, Operator API (`8010`), Document Ingestion API (`8011`), Document Processing
 Worker (`8012` health), and isolated Executor (`8013` health).
 
-- VS Code (recommended): trust the workspace. Automatic workspace tasks are
-  enabled in `.vscode/settings.json`, so `console: Operator API (Local Entra)`
-  prepares and starts the Operator API without prompting whenever the folder opens.
-  Use the `Console Web: Full Stack` compound from Run and Debug. It prepares Docker PostgreSQL,
-  Redpanda, and ClamAV, upgrades all five migration branches, and starts every service plus the SPA.
+- VS Code (recommended): trust the workspace, then run the `console: start full stack` task for
+  managed service reuse or the `Console Web: Full Stack` compound when you need debugger-owned
+  processes. Both paths prepare Docker PostgreSQL, Redpanda, and ClamAV, upgrade all five migration
+  branches, and start every service plus the SPA. Startup reuses an unchanged healthy preparation;
+  run `bash scripts/deployment/local/prepare-console-full-stack.sh --force` when you need to refresh
+  migrations, generated environments, authoritative projections, and Entra redirects explicitly.
 - Optional dev data stack (Postgres + Redpanda) for persistence tests:
 
   ```bash

@@ -59,7 +59,7 @@ function positiveIntegerEnv(key: string, fallback: string): number {
 export function loadConfig(): ConsoleConfig {
   const devMode = envVar("VITE_DEV_MODE", "0") === "1";
   return {
-    operatorApiBaseUrl: envVar("VITE_OPERATOR_API_BASE_URL", "http://127.0.0.1:8000"),
+    operatorApiBaseUrl: envVar("VITE_OPERATOR_API_BASE_URL", "http://127.0.0.1:8010"),
     ingestionApiBaseUrl: envVar("VITE_INGESTION_API_BASE_URL", "http://127.0.0.1:8011"),
     msalClientId: envVar("VITE_MSAL_CLIENT_ID"),
     msalTenantId: envVar("VITE_MSAL_TENANT_ID"),

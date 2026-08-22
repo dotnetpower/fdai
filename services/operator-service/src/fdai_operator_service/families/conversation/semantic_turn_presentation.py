@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Mapping
 from typing import cast
@@ -16,6 +17,8 @@ from fdai_operator_service.families.conversation.presentation_rows import (
 from fdai_operator_service.families.conversation.presentation_rows import (
     readable_row as _readable_row,
 )
+from fdai_service_contracts import SemanticAssuranceObservation
+from pydantic import ValidationError
 
 _SEMANTIC_ROUTE_BY_DISPOSITION = {
     "answered": "verified_query_plan",
@@ -33,6 +36,7 @@ _MAX_SUMMARY_ITEMS = 16
 _MAX_TABLE_COLUMNS = 6
 _MAX_TABLE_ROWS = 40
 _MAX_CELL_CHARS = 512
+_MAX_SEMANTIC_VERIFICATION_CLAIMS = 64
 _INVESTIGATION_COMPARISON_NODE_IDS = frozenset({"symptom-change", "symptom-comparison"})
 # Categorical fields worth charting once a result is complete, most specific
 # first. A single-value field yields no chart; the table already says it.
@@ -87,6 +91,10 @@ def semantic_done_event_data(
     )
     answer_plan = semantic_answer_plan(technical_details)
     conversation_context = semantic_conversation_context(technical_details)
+    verification_claims = _semantic_verification_claims(
+        semantic_receipt,
+        evidence_refs=evidence_refs,
+    )
     return cast(
         JsonObject,
         {
@@ -104,7 +112,7 @@ def semantic_done_event_data(
                 "reason_code": (
                     "semantic_answer_missing" if missing_answer else semantic.get("reason_code")
                 ),
-                "claims": [],
+                "claims": verification_claims,
                 "failed_claim_ids": [],
             },
             "intent_graph": semantic.get("intent_graph"),
@@ -125,6 +133,51 @@ def semantic_done_event_data(
             **({"semantic_receipt": semantic_receipt} if semantic_receipt is not None else {}),
         },
     )
+
+
+def _semantic_verification_claims(
+    semantic_receipt: Mapping[str, object] | None,
+    *,
+    evidence_refs: list[str],
+) -> list[JsonObject]:
+    if semantic_receipt is None or semantic_receipt.get("schema_version") != "2.0.0":
+        return []
+    assurance = semantic_receipt.get("assurance_observation")
+    if not isinstance(assurance, Mapping):
+        return []
+    raw_claims = assurance.get("claim_kinds")
+    if not isinstance(raw_claims, list) or any(not isinstance(item, str) for item in raw_claims):
+        raise ValueError("stored semantic assurance claim kinds are malformed")
+    if len(raw_claims) > _MAX_SEMANTIC_VERIFICATION_CLAIMS:
+        raise ValueError("stored semantic assurance exceeds the verification claim bound")
+    return [
+        cast(
+            JsonObject,
+            {
+                "claim_id": "semantic-"
+                + hashlib.sha256(claim_kind.encode("utf-8")).hexdigest()[:24],
+                "kind": _semantic_claim_kind(claim_kind),
+                "text": claim_kind,
+                "span": {"start": 0, "end": 0},
+                "raw_value": claim_kind,
+                "normalized_value": claim_kind,
+                "unit": None,
+                "anchors": ["semantic_assurance"],
+                "status": "supported",
+                "evidence_refs": list(evidence_refs),
+                "reason_code": None,
+            },
+        )
+        for claim_kind in raw_claims
+    ]
+
+
+def _semantic_claim_kind(claim_kind: str) -> str:
+    if claim_kind.endswith(("_at", ".window")) or "recorded_at" in claim_kind:
+        return "timestamp"
+    if any(token in claim_kind for token in ("cause", "causal", "correlation")):
+        return "causal"
+    return "scope"
 
 
 def _readable_gap(gap: str, *, korean: bool) -> str:
@@ -1366,8 +1419,18 @@ def _semantic_receipt(
         raise ValueError("stored answered semantic projection is missing exact evidence digests")
     if semantic.get("execution_authority") is not False:
         raise ValueError("stored semantic projection MUST deny execution authority")
+    raw_assurance = semantic.get("assurance_observation")
+    assurance: dict[str, object] | None = None
+    if raw_assurance is not None:
+        try:
+            assurance = cast(
+                dict[str, object],
+                SemanticAssuranceObservation.model_validate(raw_assurance).model_dump(mode="json"),
+            )
+        except ValidationError as error:
+            raise ValueError("stored semantic assurance observation is malformed") from error
     return {
-        "schema_version": "1.0.0",
+        "schema_version": "2.0.0" if assurance is not None else "1.0.0",
         "projection_id": projection_id,
         "request_id": request_id,
         "disposition": disposition,
@@ -1375,6 +1438,7 @@ def _semantic_receipt(
         **({"semantic_route": semantic_route} if semantic_route is not None else {}),
         **({"unavailable_reason": unavailable_reason} if unavailable_reason is not None else {}),
         **digests,
+        **({"assurance_observation": assurance} if assurance is not None else {}),
         "execution_authority": False,
     }
 

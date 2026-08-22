@@ -10,6 +10,19 @@
 
 set -euo pipefail
 
+if ! command -v docker >/dev/null 2>&1; then
+  echo "dev-up: Docker CLI is required but was not found on PATH" >&2
+  exit 1
+fi
+if ! docker compose version >/dev/null 2>&1; then
+  echo "dev-up: Docker Compose v2 is required; install the docker compose plugin" >&2
+  exit 1
+fi
+if ! docker info >/dev/null 2>&1; then
+  echo "dev-up: Docker daemon is unavailable; start Docker and retry" >&2
+  exit 1
+fi
+
 repo_root="$(git rev-parse --show-toplevel)"
 compose_dir="${repo_root}/infra/local"
 cd "${compose_dir}"

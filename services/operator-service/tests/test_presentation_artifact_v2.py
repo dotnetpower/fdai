@@ -439,6 +439,8 @@ def test_v2_collection_evidence_uses_bounded_verified_tables(
     assert [item["label"] for item in cast(list[dict[str, str]], data["columns"])] == (
         expected_labels
     )
+    assert "traffic_rules" not in str(data)
+    assert "evidence_refs" not in str(data)
 
 
 @pytest.mark.parametrize(
@@ -499,8 +501,65 @@ def test_v2_exact_target_outputs_preserve_the_requested_axis(
     assert [item["label"] for item in cast(list[dict[str, str]], data["columns"])] == (
         expected_labels
     )
-    assert "traffic_rules" not in str(data)
-    assert "evidence_refs" not in str(data)
+
+
+def test_target_resource_metric_series_renders_verified_time_series() -> None:
+    rows = [
+        {
+            "name": "app-example",
+            "type": "compute.container-app",
+            "timestamp": f"2026-08-22T01:0{index}:00+00:00",
+            "value": 20.0 + index,
+            "metric": "resource.memory.usage_pct",
+            "unit": "percent",
+            "source_sample_count": 3,
+            "displayed_sample_count": 3,
+            "sampling_strategy": "none",
+            "execution_authority": False,
+        }
+        for index in range(3)
+    ]
+
+    artifact = compile_presentation_artifact_v2(
+        semantic=_SEMANTIC,
+        technical_details=_details(rows, output_shape="target_resource_metric_series"),
+        locale="en",
+    )
+
+    assert artifact is not None
+    block = cast(list[dict[str, object]], artifact["blocks"])[0]
+    assert (block["slot_id"], block["kind"]) == ("trend", "time_series")
+    data = cast(dict[str, object], block["data"])
+    assert data["metric"] == "resource.memory.usage_pct"
+    assert data["unit"] == "percent"
+    assert len(cast(list[dict[str, object]], data["points"])) == 3
+    assert data["description"] == (
+        "Ordered observations for the resource.memory.usage_pct metric. "
+        "Displays all 3 verified provider samples."
+    )
+
+
+def test_target_resource_metric_series_rejects_inconsistent_sampling_metadata() -> None:
+    rows = [
+        {
+            "timestamp": f"2026-08-22T01:0{index}:00+00:00",
+            "value": 20.0 + index,
+            "metric": "resource.memory.usage_pct",
+            "unit": "percent",
+            "source_sample_count": 4 if index == 2 else 3,
+            "displayed_sample_count": 3,
+            "sampling_strategy": "none",
+        }
+        for index in range(3)
+    ]
+
+    artifact = compile_presentation_artifact_v2(
+        semantic=_SEMANTIC,
+        technical_details=_details(rows, output_shape="target_resource_metric_series"),
+        locale="en",
+    )
+
+    assert artifact is None
 
 
 def test_v2_resource_event_history_uses_chronological_timeline() -> None:

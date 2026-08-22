@@ -85,6 +85,7 @@ cap, narrow its owner set or split a multi-responsibility owner instead of addin
 | 10c | [causal-incident-graph.md](rules-and-detection/causal-incident-graph.md) | ontology-grounded causal hypotheses, support and refutation evidence, evidence grades, and outcome closure |
 | 10d | [document-ontology-distillation.md](rules-and-detection/document-ontology-distillation.md) | compiling governed operational documents into grounded, review-only ontology object and link proposals with deterministic verification |
 | 10e | [policy-abstraction-and-control-objectives.md](rules-and-detection/policy-abstraction-and-control-objectives.md) | provider-neutral control objectives, proof-carrying Rule bindings, authority boundaries, corpus-scale generations, migration, and implementation scope |
+| 10g | [continuous-operational-instance-graph.md](architecture/continuous-operational-instance-graph.md) | continuous load-aware resource observation, ontology instance convergence, graph-first live enrichment, typed rollups, verified archive, and bounded purge |
 | 11 | [deploy-and-onboard.md](deployment/deploy-and-onboard.md) | concrete Azure resource inventory, bootstrap sequence, fork vs core split |
 | 11d | [production-deployment-hardening.md](deployment/production-deployment-hardening.md) | production locks, durability, private networking, trusted images, monitoring, and cost ceilings |
 | 11a | [deployment-resource-conventions.md](deployment/deployment-resource-conventions.md) | deterministic CAF resource names, ownership tags, and deployment-supplied tag rules |

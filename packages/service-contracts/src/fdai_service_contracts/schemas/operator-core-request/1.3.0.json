@@ -86,6 +86,11 @@
             }
           }
         },
+        "planning_profile": {
+          "type": "string",
+          "enum": ["interactive", "golden_campaign_no_t2"],
+          "default": "interactive"
+        },
         "cancelled": {"type": "boolean", "default": false},
         "execution_authority": {"const": false}
       }

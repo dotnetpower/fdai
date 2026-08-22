@@ -7,7 +7,9 @@ import json
 import logging
 import re
 from collections.abc import Mapping
+from dataclasses import dataclass
 from datetime import datetime
+from enum import StrEnum
 from typing import Any, Protocol
 
 from fdai_service_contracts.ontology_query import (
@@ -30,6 +32,7 @@ from .semantic_ingress_planning import normalize_ingress_proposal
 from .semantic_investigation import (
     VerifiedInvestigationIntent,
     normalize_investigation_competitors,
+    normalize_investigation_relationships,
     normalize_investigation_symptom,
     normalize_investigation_target,
     verify_investigation_intent,
@@ -86,6 +89,7 @@ _SPECIALIZED_FUNCTIONS_BY_OUTPUT_SHAPE = {
     "target_health_assessment": frozenset({"query.target_health_assessment"}),
     "target_ingress_configuration": frozenset({"query.resource_ingress_configuration"}),
     "target_resource_metric": frozenset({"query.resource_metric_inventory"}),
+    "target_resource_metric_series": frozenset({"query.resource_metric_series"}),
 }
 _SPECIALIZED_OPERATIONS_BY_OUTPUT_SHAPE = {
     "contextual_resource_list": SemanticOperation.SELECT,
@@ -102,6 +106,7 @@ _SPECIALIZED_OPERATIONS_BY_OUTPUT_SHAPE = {
     "target_health_assessment": SemanticOperation.VALIDATE,
     "target_ingress_configuration": SemanticOperation.SELECT,
     "target_resource_metric": SemanticOperation.SELECT,
+    "target_resource_metric_series": SemanticOperation.SELECT,
 }
 _SPECIALIZED_FUNCTION_OUTPUT_SHAPES = {
     function_name: output_shape
@@ -121,6 +126,7 @@ _REQUIRED_NODE_KINDS_BY_OUTPUT_SHAPE = {
     "resource_state_list": frozenset({QueryNodeKind.FUNCTION}),
     "resource_target_candidates": frozenset({QueryNodeKind.OBJECT_SET}),
     "subscription_service_health": frozenset({QueryNodeKind.FUNCTION}),
+    "target_resource_metric_series": frozenset({QueryNodeKind.FUNCTION}),
     "temporal_comparison": frozenset(
         {
             QueryNodeKind.EVIDENCE_JOIN,
@@ -209,8 +215,43 @@ class ProposalRejectedError(RuntimeError):
         self.failure_type = failure_type
 
 
+class SemanticPlanningEscalationTrigger(StrEnum):
+    """Typed T1 outcomes that an escalation policy may admit to T2."""
+
+    FRAME_UNAVAILABLE = "frame_unavailable"
+    FRAME_SCHEMA_INVALID = "frame_schema_invalid"
+    FRAME_BUILD_REJECTED = "frame_build_rejected"
+    PLAN_UNAVAILABLE = "plan_unavailable"
+    PLAN_SCHEMA_INVALID = "plan_schema_invalid"
+    PLAN_BUILD_REJECTED = "plan_build_rejected"
+    PLAN_VERIFICATION_REJECTED = "plan_verification_rejected"
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticPlanningEscalationPolicy:
+    """Allow only explicitly listed T1 outcomes to spend T2 capacity."""
+
+    allowed_triggers: frozenset[SemanticPlanningEscalationTrigger]
+
+    def allows(self, trigger: SemanticPlanningEscalationTrigger) -> bool:
+        """Return whether one typed T1 outcome may retry the same stage with T2."""
+
+        return trigger in self.allowed_triggers
+
+
+BOUNDED_T2_ESCALATION_POLICY = SemanticPlanningEscalationPolicy(
+    allowed_triggers=frozenset(
+        {
+            SemanticPlanningEscalationTrigger.FRAME_UNAVAILABLE,
+            SemanticPlanningEscalationTrigger.PLAN_UNAVAILABLE,
+        }
+    )
+)
+NO_T2_ESCALATION_POLICY = SemanticPlanningEscalationPolicy(allowed_triggers=frozenset())
+
+
 class SemanticPlanningCascade:
-    """Try T1 first and retry one failed proposal stage with optional T2."""
+    """Try T1 first and apply an explicit policy to any optional T2 retry."""
 
     def __init__(
         self,
@@ -221,9 +262,11 @@ class SemanticPlanningCascade:
         frame_builder: FrameBuilder,
         plan_builder: PlanBuilder,
         inventory_query_language: InventoryQueryLanguageRegistry | None = None,
+        escalation_policy: SemanticPlanningEscalationPolicy = BOUNDED_T2_ESCALATION_POLICY,
     ) -> None:
         self._model = model
         self._escalation_model = escalation_model
+        self._escalation_policy = escalation_policy
         self._verifier = verifier
         self._frame_builder = frame_builder
         self._plan_builder = plan_builder
@@ -238,6 +281,7 @@ class SemanticPlanningCascade:
         metric_concepts: tuple[str, ...],
         principal: Principal,
         purpose: str,
+        escalation_policy: SemanticPlanningEscalationPolicy | None = None,
     ) -> (
         tuple[
             SemanticFrameProposal,
@@ -273,7 +317,11 @@ class SemanticPlanningCascade:
                             },
                         )
                         return (*fallback, None)
-                if self._should_escalate(tier=tier, stage="frame", reason="unavailable"):
+                if self._should_escalate(
+                    tier=tier,
+                    trigger=SemanticPlanningEscalationTrigger.FRAME_UNAVAILABLE,
+                    escalation_policy=escalation_policy,
+                ):
                     continue
                 return None
             proposal: SemanticFrameProposal | None = None
@@ -313,17 +361,22 @@ class SemanticPlanningCascade:
                         inventory_query_language=self._inventory_query_language,
                     )
                     investigation = normalize_investigation_competitors(investigation)
+                    investigation = normalize_investigation_target(
+                        investigation,
+                        subject_constraints=proposal.subject_constraints,
+                        utterance=utterance,
+                        descriptors=descriptors,
+                    )
+                    investigation = normalize_investigation_relationships(
+                        investigation,
+                        descriptors=descriptors,
+                    )
                     proposal = proposal.model_copy(
                         update={
                             "measure_concepts": tuple(
                                 measure.concept_id for measure in investigation.symptom_measures
                             ),
-                            "investigation": normalize_investigation_target(
-                                investigation,
-                                subject_constraints=proposal.subject_constraints,
-                                utterance=utterance,
-                                descriptors=descriptors,
-                            ),
+                            "investigation": investigation,
                         }
                     )
                 _validate_frame_proposal(proposal, utterance=utterance, descriptors=descriptors)
@@ -350,8 +403,8 @@ class SemanticPlanningCascade:
                     return (*fallback, None)
                 if self._should_escalate(
                     tier=tier,
-                    stage="frame",
-                    reason="invalid",
+                    trigger=SemanticPlanningEscalationTrigger.FRAME_SCHEMA_INVALID,
+                    escalation_policy=escalation_policy,
                     validation_reason=_safe_frame_rejection_reason(exc),
                 ):
                     continue
@@ -374,7 +427,11 @@ class SemanticPlanningCascade:
                 )
                 if fallback is not None:
                     return (*fallback, None)
-                if self._should_escalate(tier=tier, stage="frame", reason="invalid"):
+                if self._should_escalate(
+                    tier=tier,
+                    trigger=SemanticPlanningEscalationTrigger.FRAME_BUILD_REJECTED,
+                    escalation_policy=escalation_policy,
+                ):
                     continue
                 raise ProposalRejectedError("frame_build", type(exc).__name__) from exc
             return proposal, frame, investigation_intent
@@ -390,6 +447,7 @@ class SemanticPlanningCascade:
         purpose: str,
         manifest: QueryManifest,
         evaluation_time: datetime,
+        escalation_policy: SemanticPlanningEscalationPolicy | None = None,
     ) -> OntologyQueryPlan | None:
         for tier, model in self._planning_models():
             raw = model.propose_plan(
@@ -401,13 +459,21 @@ class SemanticPlanningCascade:
                 evaluation_time=evaluation_time,
             )
             if raw is None:
-                if self._should_escalate(tier=tier, stage="plan", reason="unavailable"):
+                if self._should_escalate(
+                    tier=tier,
+                    trigger=SemanticPlanningEscalationTrigger.PLAN_UNAVAILABLE,
+                    escalation_policy=escalation_policy,
+                ):
                     continue
                 return None
             try:
                 proposal = QueryPlanProposal.model_validate(raw)
             except (ValidationError, TypeError, ValueError) as exc:
-                if self._should_escalate(tier=tier, stage="plan", reason="invalid"):
+                if self._should_escalate(
+                    tier=tier,
+                    trigger=SemanticPlanningEscalationTrigger.PLAN_SCHEMA_INVALID,
+                    escalation_policy=escalation_policy,
+                ):
                     continue
                 raise ProposalRejectedError("plan_validation", type(exc).__name__) from exc
             try:
@@ -420,14 +486,22 @@ class SemanticPlanningCascade:
                     evaluation_time=evaluation_time,
                 )
             except (TypeError, ValueError) as exc:
-                if self._should_escalate(tier=tier, stage="plan", reason="invalid"):
+                if self._should_escalate(
+                    tier=tier,
+                    trigger=SemanticPlanningEscalationTrigger.PLAN_BUILD_REJECTED,
+                    escalation_policy=escalation_policy,
+                ):
                     continue
                 raise ProposalRejectedError("plan_build", type(exc).__name__) from exc
             try:
                 self._verifier.verify(plan, manifest=manifest)
                 _verify_frame_plan_alignment(frame, plan, descriptors=manifest.descriptors)
             except ValueError as exc:
-                if self._should_escalate(tier=tier, stage="plan", reason="invalid"):
+                if self._should_escalate(
+                    tier=tier,
+                    trigger=SemanticPlanningEscalationTrigger.PLAN_VERIFICATION_REJECTED,
+                    escalation_policy=escalation_policy,
+                ):
                     continue
                 raise ProposalRejectedError("plan_verify", type(exc).__name__) from exc
             return plan
@@ -442,21 +516,26 @@ class SemanticPlanningCascade:
         self,
         *,
         tier: str,
-        stage: str,
-        reason: str,
+        trigger: SemanticPlanningEscalationTrigger,
+        escalation_policy: SemanticPlanningEscalationPolicy | None,
         validation_reason: str | None = None,
     ) -> bool:
         if tier != "t1" or self._escalation_model is None:
             return False
-        if validation_reason == (
-            "target-bound causal evidence requires structured investigation intent"
-        ):
+        policy = escalation_policy or self._escalation_policy
+        if not policy.allows(trigger):
+            _LOGGER.info(
+                "semantic_planning_t2_withheld",
+                extra={
+                    "trigger": trigger.value,
+                    "validation_reason": validation_reason,
+                },
+            )
             return False
         _LOGGER.info(
             "semantic_planning_t2_escalated",
             extra={
-                "stage": stage,
-                "reason": reason,
+                "trigger": trigger.value,
                 "validation_reason": validation_reason,
             },
         )
@@ -848,4 +927,11 @@ def _object_set_has_multiple_existence_only_predicates(arguments_json: str) -> b
     )
 
 
-__all__ = ["ProposalRejectedError", "SemanticPlanningCascade"]
+__all__ = [
+    "BOUNDED_T2_ESCALATION_POLICY",
+    "NO_T2_ESCALATION_POLICY",
+    "ProposalRejectedError",
+    "SemanticPlanningCascade",
+    "SemanticPlanningEscalationPolicy",
+    "SemanticPlanningEscalationTrigger",
+]

@@ -63,6 +63,43 @@
       ]
     },
     {
+      "id": "continuous-operational-instance-graph",
+      "paths": [
+        "docs/roadmap/architecture/continuous-operational-instance-graph*.md",
+        "config/continuous-operational-instance-graph-audit.json",
+        "scripts/quality/architecture/check-continuous-operational-instance-graph-audit.py",
+        "tests/integration/scripts/test_continuous_operational_instance_graph_audit.py",
+        "services/core-control-plane/src/fdai/shared/providers/inventory*.py",
+        "services/core-control-plane/src/fdai/core/ontology_platform/inventory_projection.py",
+        "services/core-control-plane/src/fdai/core/ontology_platform/topology_history.py",
+        "services/core-control-plane/src/fdai/delivery/inventory_*.py",
+        "services/core-control-plane/src/fdai/delivery/azure/inventory.py",
+        "services/core-control-plane/src/fdai/runtime/inventory_ontology.py",
+        "services/core-control-plane/src/fdai/delivery/persistence/postgres_*inventory*.py",
+        "services/core-control-plane/src/fdai/delivery/persistence/postgres_*topology*.py",
+        "infra/modules/compute/container-apps/inventory_job.tf"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/app-shape.instructions.md",
+        "docs/roadmap/architecture/continuous-operational-instance-graph.md",
+        "docs/roadmap/architecture/operating-ontology.md",
+        "docs/roadmap/architecture/operating-ontology-platform.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/architecture/continuous-operational-instance-graph.md",
+        "docs/roadmap/architecture/code-map.md",
+        "docs/roadmap/architecture/project-structure.md",
+        "docs/roadmap/rules-and-detection/observability-and-detection.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov tests/integration/scripts/test_continuous_operational_instance_graph_audit.py",
+        "uv run python scripts/quality/architecture/check-continuous-operational-instance-graph-audit.py",
+        "uv run pytest -q --no-cov services/core-control-plane/tests/delivery/test_inventory_sync.py services/core-control-plane/tests/runtime/test_inventory_ontology.py services/core-control-plane/tests/core/ontology_platform/test_inventory_projection.py",
+        "python3 scripts/quality/architecture/check-design-routes.py"
+      ]
+    },
+    {
       "id": "constitution",
       "paths": [
         ".github/copilot-instructions.md",
@@ -1239,6 +1276,7 @@
         "docs/roadmap/interfaces/continuous-question-space.md",
         "docs/roadmap/architecture/operating-ontology.md",
         "docs/roadmap/architecture/operating-ontology-platform.md",
+        "docs/roadmap/architecture/continuous-operational-instance-graph.md",
         "docs/roadmap/rules-and-detection/rule-semantic-retrieval.md",
         "docs/roadmap/rules-and-detection/causal-incident-graph.md",
         "docs/roadmap/interfaces/operator-console.md"
@@ -1248,6 +1286,7 @@
         "docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md",
         "docs/roadmap/interfaces/continuous-question-space.md",
         "docs/roadmap/architecture/operating-ontology-platform.md",
+        "docs/roadmap/architecture/continuous-operational-instance-graph.md",
         "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/interfaces/operator-console-module-map.md"
       ],
@@ -1297,12 +1336,14 @@
         "docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md",
         "docs/roadmap/interfaces/continuous-question-space.md",
         "docs/roadmap/architecture/operating-ontology.md",
-        "docs/roadmap/architecture/operating-ontology-platform.md"
+        "docs/roadmap/architecture/operating-ontology-platform.md",
+        "docs/roadmap/architecture/continuous-operational-instance-graph.md"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md",
         "docs/roadmap/interfaces/continuous-question-space.md",
         "docs/roadmap/architecture/operating-ontology-platform.md",
+        "docs/roadmap/architecture/continuous-operational-instance-graph.md",
         "docs/roadmap/architecture/code-map.md"
       ],
       "validate": [

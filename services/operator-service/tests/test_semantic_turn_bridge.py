@@ -87,6 +87,35 @@ def test_semantic_envelope_defaults_to_core_operations_review_purpose() -> None:
 
     semantic_turn = cast(dict[str, object], envelope["semantic_turn"])
     assert semantic_turn["purpose"] == "operations-review"
+    assert semantic_turn["planning_profile"] == "interactive"
+
+
+def test_semantic_envelope_carries_golden_campaign_no_t2_profile() -> None:
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal(
+            body={
+                "prompt": "Show current operations evidence.",
+                "semantic_planning_profile": "golden_campaign_no_t2",
+            }
+        )
+    )
+
+    semantic_turn = cast(dict[str, object], envelope["semantic_turn"])
+    assert semantic_turn["planning_profile"] == "golden_campaign_no_t2"
+
+
+def test_semantic_envelope_rejects_unknown_planning_profile() -> None:
+    build = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build
+
+    with pytest.raises(ValueError, match="semantic_planning_profile is unsupported"):
+        build(
+            _proposal(
+                body={
+                    "prompt": "Show current operations evidence.",
+                    "semantic_planning_profile": "unbounded",
+                }
+            )
+        )
 
 
 def test_semantic_envelope_forwards_bound_incident_conversation_context() -> None:
@@ -1237,6 +1266,44 @@ def test_answered_done_exposes_exact_no_authority_semantic_receipt() -> None:
         "execution_receipt_digest": semantic["execution_receipt_digest"],
         "execution_authority": False,
     }
+
+
+def test_answered_done_preserves_typed_semantic_assurance_observation() -> None:
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+    projection = _projection(envelope, disposition="answered", answered_evidence=True)
+    assurance: dict[str, object] = {
+        "schema_version": "1.0.0",
+        "frame": None,
+        "capabilities": ["object_set"],
+        "object_types": ["Resource"],
+        "link_types": [],
+        "function_types": [],
+        "ontology_paths": [],
+        "fact_kinds": ["resource.runtime_state"],
+        "limitation_kinds": ["missing_resource_state_is_unknown"],
+        "claim_kinds": ["missing_resource_state_is_unknown", "resource.runtime_state"],
+        "evidence_posture": "fresh",
+        "authority_posture": "read_only",
+        "read_performed": True,
+        "execution_authority": False,
+    }
+    assurance["observation_digest"] = query_content_digest(assurance)
+    semantic = cast(dict[str, object], projection["semantic_result"])
+    semantic["assurance_observation"] = assurance
+
+    done = semantic_turn_runtime_module._done_event_data(projection)
+
+    receipt = cast(dict[str, object], done["semantic_receipt"])
+    assert receipt["schema_version"] == "2.0.0"
+    assert receipt["assurance_observation"] == assurance
+    assert receipt["execution_authority"] is False
+    verification = cast(dict[str, object], done["verification"])
+    claims = cast(list[dict[str, object]], verification["claims"])
+    assert [claim["text"] for claim in claims] == assurance["claim_kinds"]
+    assert all(claim["status"] == "supported" for claim in claims)
+    assert all(claim["span"] == {"start": 0, "end": 0} for claim in claims)
 
 
 def test_verified_causal_goals_project_as_detailed_query_activities() -> None:

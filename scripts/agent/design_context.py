@@ -45,6 +45,11 @@ PATCH_PATH = re.compile(
 )
 CONTEXT_DOCUMENT_SUFFIXES = frozenset({".json", ".md", ".yaml", ".yml"})
 EDIT_RESERVATION_TTL_SECONDS = 30 * 60
+EDIT_RESERVATION_OVERRIDE_PREFIX = "FDAI_EDIT_OVERRIDE="
+EDIT_RESERVATION_OVERRIDE_PATTERN = re.compile(
+    rf"(?:^|\s){EDIT_RESERVATION_OVERRIDE_PREFIX}"
+    r"(?P<session>[A-Za-z0-9_.-]{1,128})(?=\s|$)"
+)
 
 
 def _payload_value(payload: dict[str, Any], *names: str) -> Any:
@@ -180,6 +185,15 @@ def _target_is_dirty(target: str) -> bool:
     )
 
 
+def _edit_reservation_override(payload: dict[str, Any]) -> str | None:
+    """Return the one-shot owner session named in an apply-patch explanation."""
+    if _tool_name(payload) != "apply_patch":
+        return None
+    explanation = str(_tool_input(payload).get("explanation") or "")
+    matches = EDIT_RESERVATION_OVERRIDE_PATTERN.findall(explanation)
+    return matches[0] if len(matches) == 1 else None
+
+
 def enforce_edit_reservations(payload: dict[str, Any]) -> dict[str, Any]:
     """Reserve dirty edit targets for one active agent session."""
     targets = _edit_targets(payload)
@@ -198,18 +212,27 @@ def enforce_edit_reservations(payload: dict[str, Any]) -> dict[str, Any]:
         reservations = loaded.get("reservations") if isinstance(loaded, dict) else None
         active = reservations if isinstance(reservations, dict) else {}
         now = time.time()
+        override_session = _edit_reservation_override(payload)
+        overridden: dict[str, str] = {}
         for target in targets:
             reservation = active.get(target)
             if not isinstance(reservation, dict) or reservation.get("session") == session:
                 continue
+            owner_session = str(reservation.get("session") or "")
             updated_at = reservation.get("updated_at")
             current = isinstance(updated_at, (int, float)) and (
                 now - float(updated_at) <= EDIT_RESERVATION_TTL_SECONDS
             )
             if current and _target_is_dirty(target):
+                if owner_session and override_session == owner_session:
+                    overridden[target] = owner_session
+                    continue
                 reason = (
-                    f"FDAI edit collision: {target} is reserved by another active agent session. "
-                    "Wait for its focused commit or edit a non-overlapping path."
+                    f"FDAI edit collision: {target} is reserved by active agent session "
+                    f"'{owner_session}'. Wait for its focused commit or edit a non-overlapping "
+                    "path. After explicit user approval to supersede that session, retry one "
+                    f"apply_patch request with {EDIT_RESERVATION_OVERRIDE_PREFIX}{owner_session} "
+                    "in its explanation."
                 )
                 return {
                     "systemMessage": reason,
@@ -220,7 +243,20 @@ def enforce_edit_reservations(payload: dict[str, Any]) -> dict[str, Any]:
                     },
                 }
         for target in targets:
-            active[target] = {"session": session, "updated_at": now}
+            previous = active.get(target)
+            reservation = {"session": session, "updated_at": now}
+            if target in overridden:
+                reservation.update(
+                    {
+                        "overrode_session": overridden[target],
+                        "override_at": now,
+                    }
+                )
+            elif isinstance(previous, dict) and previous.get("session") == session:
+                for key in ("overrode_session", "override_at"):
+                    if key in previous:
+                        reservation[key] = previous[key]
+            active[target] = reservation
         state_path.write_text(
             json.dumps({"reservations": active, "version": 1}, sort_keys=True) + "\n",
             encoding="utf-8",
@@ -674,10 +710,13 @@ def pre_tool_use(payload: dict[str, Any]) -> dict[str, Any]:
     if tool_name == "read_file":
         return record_read(payload)
     if tool_name in EDIT_TOOL_NAMES:
+        edit_result = enforce_edit(payload)
+        if edit_result.get("hookSpecificOutput", {}).get("permissionDecision") == "deny":
+            return edit_result
         reservation_result = enforce_edit_reservations(payload)
         if reservation_result.get("hookSpecificOutput", {}).get("permissionDecision") == "deny":
             return reservation_result
-        return enforce_edit(payload)
+        return {"continue": True}
     if tool_name not in TERMINAL_TOOL_NAMES and tool_name != "runTests":
         return {"continue": True}
     destructive_result = enforce_destructive_git(payload)

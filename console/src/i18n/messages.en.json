@@ -2676,6 +2676,8 @@
       "preparingChart": "Preparing chart",
       "preparingChartProgress": "Preparing chart...",
       "lineChart": "Line chart",
+      "barChart": "Bar chart",
+      "median": "Median",
       "agentActivity": {
         "title": "Recorded agent activity",
         "count": "{count} observed",

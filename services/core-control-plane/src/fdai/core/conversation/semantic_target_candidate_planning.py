@@ -42,6 +42,7 @@ _TARGET_SCOPED_OUTPUTS = frozenset(
         SemanticOutputShape.TARGET_HEALTH_ASSESSMENT,
         SemanticOutputShape.TARGET_INGRESS_CONFIGURATION,
         SemanticOutputShape.TARGET_RESOURCE_METRIC,
+        SemanticOutputShape.TARGET_RESOURCE_METRIC_SERIES,
         SemanticOutputShape.TEMPORAL_COMPARISON,
         SemanticOutputShape.TOPOLOGY_GRAPH,
     }

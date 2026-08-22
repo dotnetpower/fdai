@@ -30,6 +30,8 @@ interface TooltipProps {
   readonly delay?: number;
   readonly sideOffset?: number;
   readonly variant?: "backend" | "image-preview";
+  readonly anchorClassName?: string;
+  readonly anchorStyle?: JSX.CSSProperties;
 }
 
 export function Tooltip(props: TooltipProps) {
@@ -46,6 +48,8 @@ function ActiveTooltip({
   delay,
   sideOffset = 4,
   variant,
+  anchorClassName,
+  anchorStyle,
 }: TooltipProps & { readonly content: ComponentChildren }) {
   const id = useId();
   const anchorRef = useRef<HTMLSpanElement | null>(null);
@@ -164,7 +168,8 @@ function ActiveTooltip({
   return (
     <span
       ref={anchorRef}
-      class="tooltip-anchor"
+      class={`tooltip-anchor${anchorClassName ? ` ${anchorClassName}` : ""}`}
+      style={anchorStyle}
       onPointerEnter={(event) => {
         if (event.pointerType !== "touch") show(pointerDelay);
       }}

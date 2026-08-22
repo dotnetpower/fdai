@@ -255,6 +255,7 @@
     "timestamp": "타임스탬프",
     "value": "값",
     "trendAria": "{label} 추세",
+    "median": "중앙값",
     "noTabs": "구성된 탭이 없습니다.",
     "rank": "순위",
     "noRows": "행이 없습니다.",

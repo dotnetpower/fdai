@@ -70,6 +70,7 @@ export function createBackendRequestPayload(
   binding?: IncidentConversationBinding,
   attachments?: readonly ChatAttachment[],
   targetAgent?: string,
+  semanticPlanningProfile?: "interactive" | "golden_campaign_no_t2",
 ): Record<string, unknown> {
   const locale = responseLocale(prompt);
   const includeModelTrace = readConsolePreferences().showModelTrace;
@@ -84,6 +85,9 @@ export function createBackendRequestPayload(
     prompt,
     locale,
     session_id: sessionId,
+    ...(semanticPlanningProfile && semanticPlanningProfile !== "interactive"
+      ? { semantic_planning_profile: semanticPlanningProfile }
+      : {}),
     ...(targetAgent ? { target_agent: targetAgent } : {}),
     ...(resourceContext ? { resource_context: resourceContext } : {}),
     ...(evidenceFreshnessContext

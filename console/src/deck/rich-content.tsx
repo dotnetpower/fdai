@@ -15,7 +15,6 @@
  * I/O, no privileged calls; the only state is per-chart hover.
  */
 
-import { useState } from "preact/hooks";
 import hljs from "highlight.js/lib/core";
 import bash from "highlight.js/lib/languages/bash";
 import dockerfile from "highlight.js/lib/languages/dockerfile";
@@ -34,12 +33,12 @@ import {
   parseAnswer,
   parseInline,
   parseStreamingAnswer,
-  type ChartDatum,
   type ChartSpec,
   type InlineCiteMark,
   type ListItem,
 } from "./rich-parse";
 import { Tooltip } from "../components/tooltip";
+import { ComparisonBarChart, TrendChart } from "../components/charts";
 
 // Register the languages that plausibly appear in FDAI answers (config, IaC,
 // policy, glue). Unregistered languages fall back to auto-detect, then plain.
@@ -288,45 +287,6 @@ export function CodeBlock({
   );
 }
 
-// Distinct hues so a multi-category chart is readable; rotated by bar index.
-const CHART_PALETTE = [
-  "#4c8dff",
-  "#22c55e",
-  "#f5a623",
-  "#a855f7",
-  "#ec4899",
-  "#14b8a6",
-  "#e5484d",
-  "#64748b",
-];
-
-// Domain labels that carry a conventional color (severity, gate decision,
-// outcome). Matched as a whole word or substring of the bar label.
-const SEVERITY_COLORS: Record<string, string> = {
-  critical: "#e5484d",
-  high: "#f5a623",
-  medium: "#4c8dff",
-  low: "#8b98a5",
-  error: "#e5484d",
-  warning: "#f5a623",
-  deny: "#e5484d",
-  hil: "#f5a623",
-  abstain: "#64748b",
-  auto: "#22c55e",
-  ok: "#22c55e",
-  pass: "#22c55e",
-  fail: "#e5484d",
-};
-
-function barColor(d: ChartDatum, i: number): string {
-  if (d.color) return d.color;
-  const key = d.label.toLowerCase().trim();
-  for (const [word, color] of Object.entries(SEVERITY_COLORS)) {
-    if (key === word || key.includes(word)) return color;
-  }
-  return CHART_PALETTE[i % CHART_PALETTE.length] ?? "#4c8dff";
-}
-
 function ChartPending() {
   return (
     <figure class="deck-chart deck-chart-pending" aria-label={t("deck.rich.preparingChart")}>
@@ -346,113 +306,38 @@ function ChartPending() {
 }
 
 function MiniChart({ spec }: { readonly spec: ChartSpec }) {
-  const [hover, setHover] = useState<number | null>(null);
   const max = Math.max(...spec.data.map((d) => Math.abs(d.value)), 1);
   // A word unit ("rules") reads better with a space; a symbol unit ("%", "$")
   // stays attached to the number.
   const unit = spec.unit ?? "";
   const sep = /^[A-Za-z]/.test(unit) ? " " : "";
-  const fmt = (d: ChartDatum) => `${d.value}${sep}${unit}`;
+  const fmt = (value: number) => `${value}${sep}${unit}`;
   return (
     <figure class="deck-chart">
       {spec.title ? <figcaption class="deck-chart-title">{spec.title}</figcaption> : null}
-      <div class="deck-chart-bars">
-        {spec.data.map((d, i) => {
-          const pct = Math.max(2, Math.round((Math.abs(d.value) / max) * 100));
-          return (
-            <div
-              key={i}
-              class={`deck-chart-row${hover === i ? " is-hover" : ""}`}
-              onMouseEnter={() => setHover(i)}
-              onMouseLeave={() => setHover((h) => (h === i ? null : h))}
-            >
-              <span class="deck-chart-label">{d.label}</span>
-              <span class="deck-chart-track">
-                <span
-                  class="deck-chart-fill"
-                  style={{ width: `${pct}%`, background: barColor(d, i) }}
-                />
-              </span>
-              <span class="deck-chart-val">{fmt(d)}</span>
-              {hover === i ? (
-                <span class="deck-chart-tip" role="tooltip">
-                  {d.label}: {fmt(d)}
-                </span>
-              ) : null}
-            </div>
-          );
-        })}
-      </div>
+      <ComparisonBarChart
+        label={spec.title ?? t("deck.rich.barChart")}
+        items={spec.data.map((datum) => ({ label: datum.label, value: Math.abs(datum.value) }))}
+        maximum={max}
+        formatValue={fmt}
+      />
     </figure>
   );
 }
 
 function LineChart({ spec }: { readonly spec: ChartSpec }) {
-  const [hover, setHover] = useState<number | null>(null);
-  const data = spec.data;
-  const n = data.length;
-  const values = data.map((d) => d.value);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
   const unit = spec.unit ?? "";
   const sep = /^[A-Za-z]/.test(unit) ? " " : "";
-  const W = 300;
-  const H = 96;
-  const padX = 10;
-  const padTop = 12;
-  const padBottom = 22;
-  const innerW = W - padX * 2;
-  const innerH = H - padTop - padBottom;
-  const span = Math.max(1, n - 1);
-  const x = (i: number) => padX + (n <= 1 ? innerW / 2 : (i / span) * innerW);
-  const y = (v: number) =>
-    padTop + innerH - (max === min ? innerH / 2 : ((v - min) / (max - min)) * innerH);
-  const pts = data.map((d, i) => `${x(i)},${y(d.value)}`).join(" ");
-  const showLabels = n <= 8;
   return (
-    <figure class="deck-chart">
-      {spec.title ? <figcaption class="deck-chart-title">{spec.title}</figcaption> : null}
-      <svg viewBox={`0 0 ${W} ${H}`} class="deck-line-svg" role="img" aria-label={spec.title ?? t("deck.rich.lineChart")}>
-        <polyline
-          class="deck-line-path"
-          points={pts}
-          fill="none"
-          vector-effect="non-scaling-stroke"
-        />
-        {data.map((d, i) => (
-          <g
-            key={i}
-            onMouseEnter={() => setHover(i)}
-            onMouseLeave={() => setHover((h) => (h === i ? null : h))}
-          >
-            <rect
-              x={x(i) - innerW / (2 * span)}
-              y={padTop}
-              width={innerW / span}
-              height={innerH}
-              fill="transparent"
-            />
-            <circle
-              cx={x(i)}
-              cy={y(d.value)}
-              r={hover === i ? 4 : 2.5}
-              class="deck-line-dot"
-              vector-effect="non-scaling-stroke"
-            />
-            {hover === i ? (
-              <text x={x(i)} y={y(d.value) - 6} class="deck-line-tip" text-anchor="middle">
-                {`${d.value}${sep}${unit}`}
-              </text>
-            ) : null}
-            {showLabels ? (
-              <text x={x(i)} y={H - 7} class="deck-line-xlabel" text-anchor="middle">
-                {d.label.length > 7 ? `${d.label.slice(0, 7)}` : d.label}
-              </text>
-            ) : null}
-          </g>
-        ))}
-      </svg>
-    </figure>
+    <TrendChart
+      className="deck-chart"
+      title={spec.title ?? t("deck.rich.lineChart")}
+      points={spec.data}
+      formatValue={(value) => `${value}${sep}${unit}`}
+      summary={`${spec.data.at(-1)!.value}${sep}${unit}`}
+      referenceLabel={t("deck.rich.median")}
+      compact
+    />
   );
 }
 

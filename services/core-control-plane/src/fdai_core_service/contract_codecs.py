@@ -13,6 +13,7 @@ OPERATOR_REQUEST_CONSUMER_V13 = ConsumerCodec(
 OPERATOR_PROJECTION_PRODUCER_V1 = ProducerCodec("core-operator-projection", "N-1", "1.0.0")
 OPERATOR_PROJECTION_PRODUCER_V11 = ProducerCodec("core-operator-projection", "N", "1.1.0")
 OPERATOR_PROJECTION_PRODUCER_V12 = ProducerCodec("core-operator-projection", "N", "1.2.0")
+OPERATOR_PROJECTION_PRODUCER_V13 = ProducerCodec("core-operator-projection", "N", "1.3.0")
 DOCUMENT_AUDIT_PRODUCER_V1 = ProducerCodec("document-worker-audit", "N-1", "1.0.0")
 DOCUMENT_AUDIT_PRODUCER_V11 = ProducerCodec("document-worker-audit", "N", "1.0.0")
 DOCUMENT_INDEX_PRODUCER_V1 = ProducerCodec("document-worker-index", "N-1", "1.0.0")

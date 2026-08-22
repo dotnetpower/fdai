@@ -12,7 +12,6 @@ All profiles share **one control path**: only composition-root adapters and cred
 
 ## Implementation status
 ### Implementation scope
-
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Automated-test fixture isolation | implemented | `tests/`, `console/tests/`, and the fixture-only composition paths exercised by the repository test suites | Deterministic fixtures remain outside authoritative interactive profiles. |
@@ -38,6 +37,7 @@ All profiles share **one control path**: only composition-root adapters and cred
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-22 | validated | Extended the clean Console startup readiness gate from 15 seconds to 60 seconds so Core Runtime can complete bounded provider initialization and emit its first Pantheon heartbeat. Replaced unbounded Bash `/dev/tcp` ownership checks with 250 ms IPv4 and IPv6 socket probes that close the inherited service lock before connecting, so a filtered loopback port cannot retain an owner-only lock past the readiness deadline. | [Issue #254](https://github.com/dotnetpower/fdai/issues/254); `current change`; `scripts/automation/run-local-service.sh`; `scripts/deployment/local/start-console-services.sh`; focused launcher and workspace task contracts passed 28 tests; a clean standard start reached 6/6 readiness and HTTP 200 on ports 5273 and 8010-8013 with all six managed locks held. | No remaining work for #254. |
 | 2026-08-22 | implemented | Replaced folder-open full-stack startup with the explicit `console: start full stack` task, consolidated nine single-caller preparation tasks, and replaced eight service task blocks plus the separate readiness task with one supervisor. The supervisor retains one allowlisted launcher, lock, fingerprint, log, and process lifecycle per service. The task inventory fell from 29 to 11. | `current change`; `.vscode/tasks.json`; `scripts/deployment/local/{prepare-console-full-stack,start-console-services,run-console-service}.sh`; focused workspace task contract passed 4 tests; all three scripts passed `bash -n`. | Run the explicit full-stack task when the Console topology is needed. |
 | 2026-08-21 | implemented | Scoped critical model completeness checks to plans that can change cognitive deployments. Development-gateway targeted plans still converge the existing model account and caller RBAC, but skip unrelated model resolution because their target set contains no cognitive deployment. | `current change`; `.github/workflows/deploy-dev.yml`; focused model-lifecycle and protected-workflow tests; protected runs `32435485872` and `32435748272` exposed the pre-Terraform mismatch. | Rerun the exact Event Bus migration plan; design a separate Foundry multi-publisher endpoint migration before changing the model registry. |
 | 2026-08-21 | implemented | Corrected the development-gateway exception after its empty capability map implied deletion of an existing embedding deployment. Gateway-targeted plans now retain model resolution while making completeness findings non-blocking. | Protected plan run `32456242726`; `current change`; focused model-lifecycle and protected-workflow suites passed 44 tests. | Rerun the exact Event Bus migration plan and require no model deployment change before apply. |
@@ -109,14 +109,12 @@ All profiles share **one control path**: only composition-root adapters and cred
   ([#152](https://github.com/dotnetpower/fdai/issues/152)).
 
 ## Audit - What Works Local, What Needs Azure
-
 Snapshot as of 2026-07-21. "Automated test" means pytest or a committed mock invoked by the
 test runner. "Full-stack local" means the VS Code compound launch using browser Entra for the
 operator and the current Azure CLI context for server-side Azure adapters. Test fixtures are never
 enabled by that launch profile.
 
 ### Fully working in automated tests (no Azure needed)
-
 | Subsystem | Local backend | Notes |
 |-----------|---------------|-------|
 | T0 deterministic engine | `opa` binary + Rego policies + rule catalog | 100% offline; the CI parity gate proves this |
@@ -208,9 +206,11 @@ readiness, or execution authority. An unavailable or unauthorized provider leave
 explicitly unavailable instead of substituting fixture data. Full-stack startup requires a trusted
 workspace and committed policy without weakening authority. Reuse requires this checkout's lock
 and exact input fingerprint; changed or foreign ownership replaces only the managed task or fails.
-A 15-second gate requires checkout-owned Core, a recent heartbeat, and healthy service probes.
-Shutdown allows ten seconds before stopping the child group; wrapper loss signals its leader. Run
-`console: prepare full stack` before an individual service or debug launch.
+A 60-second gate requires checkout-owned Core, a recent heartbeat, and healthy service probes.
+Loopback ownership checks use bounded 250 ms IPv4 and IPv6 socket probes and do not retain the
+service lock while connecting. Shutdown allows ten seconds before stopping the child group;
+wrapper loss signals its leader. Run `console: prepare full stack` before an individual service or
+debug launch.
 The ignored local runtime environment records the validation cluster as
 `FDAI_VALIDATION_DATABASE_URL`; the detached validation queue maps only that value to
 `FDAI_DATABASE_URL` for selected integration tests. It never supplies the active runtime DSN.

@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FDAI chart primitives</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+    <style>
+      body { margin: 0; padding: 32px; background: var(--bg); }
+      main { width: min(100%, 1080px); margin: 0 auto; }
+      .chart-fixture-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+      .chart-fixture-panel { min-width: 0; padding: 20px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-elevated); }
+      .chart-fixture-panel > h2 { margin: 0 0 16px; font-size: 15px; }
+      @media (max-width: 760px) {
+        body { padding: 20px; }
+        .chart-fixture-grid { grid-template-columns: minmax(0, 1fr); }
+        .chart-fixture-panel { padding: 16px; }
+      }
+    </style>
+  </head>
+  <body>
+    <main id="chart-fixture-root"></main>
+    <script type="module">
+      import { h, render } from "preact";
+      import {
+        AreaChart,
+        BarChart,
+        ComparisonBarChart,
+        ComboChart,
+        DensityHeatmap,
+        DistributionBar,
+        DonutChart,
+        LineChart,
+        MetricChartFrame,
+        MetricDonutChart,
+        MetricSeriesChart,
+        ProgressBar,
+        ProgressCircle,
+        ScatterChart,
+        SparkAreaChart,
+        SparkBarChart,
+        SparkLineChart,
+        Tracker,
+        TrendChart,
+      } from "/src/components/charts.tsx";
+
+      const trend = [18, 24, 21, 31, 27, 36, 29].map((value, index) => ({
+        label: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][index],
+        value,
+      }));
+      const comparison = [
+        { label: "SRE", value: 91, baseline: 72 },
+        { label: "Change Safety", value: 84, baseline: 66 },
+        { label: "Resilience", value: 88, baseline: 78 },
+        { label: "Cost Governance", value: 76, baseline: 58 },
+      ];
+      const seriesData = trend.map((point, index) => ({
+        label: point.label,
+        values: [
+          point.value,
+          [14, 18, 17, 22, 23, 26, 28][index],
+          [16, 20, 23, 25, 28, 31, 33][index],
+        ],
+      }));
+      const series = [
+        { label: "Observed", color: "blue" },
+        { label: "Baseline", color: "emerald" },
+        { label: "Forecast", color: "violet" },
+      ];
+      const portfolioLabels = [
+        "Aug 25", "Aug 27", "Aug 29", "Aug 31", "Sep 02", "Sep 04",
+        "Sep 06", "Sep 08", "Sep 10", "Sep 12", "Sep 14", "Sep 16",
+        "Sep 18", "Sep 20", "Sep 22", "Sep 24", "Sep 26",
+      ];
+      const portfolioData = portfolioLabels.map((label, index) => ({
+        label,
+        values: [
+          [6840, 7450, 6590, 7720, 7210, 6930, 8010, 5480, 7649, 9120, 8370, 7190, 7060, 8240, 8750, 8810, 9620][index],
+          [6120, 6100, 6480, 6820, 7110, 7290, 7310, 7520, 10139.2, 9840, 10020, 9440, 8210, 8750, 9910, 8740, 9380][index],
+          [9340, 9260, 9100, 8820, 8590, 8320, 8210, 8490, 11143.8, 10920, 10140, 9820, 7420, 9170, 8430, 8160, 7980][index],
+        ],
+      }));
+      const portfolioSeries = [
+        { label: "ETF Shares Vital", color: "blue", kind: "line" },
+        { label: "Vitainvest Core", color: "cyan", kind: "line" },
+        { label: "iShares Tech Growth", color: "fuchsia", kind: "line" },
+      ];
+      const allocation = [
+        { label: "Travel", value: 6730, color: "cyan", detail: "32.1%" },
+        { label: "IT & equipment", value: 4120, color: "blue", detail: "19.6%" },
+        { label: "Training", value: 3920, color: "violet", detail: "18.6%" },
+        { label: "Office supplies", value: 3210, color: "pink", detail: "15.3%" },
+        { label: "Communication", value: 3010, color: "fuchsia", detail: "14.3%" },
+      ];
+      const currency = (value) => `$${value.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+      const distribution = [
+        { label: "Auto", value: 899, detail: "72%" },
+        { label: "Approval", value: 225, detail: "18%" },
+        { label: "Review", value: 87, detail: "7%" },
+        { label: "Deny", value: 37, detail: "3%" },
+      ];
+      const heatmapValues = [
+        [8, 7, 6, 7, 8, 5, 4],
+        [21, 29, 20, 31, 22, 11, 9],
+        [30, 38, 31, 36, 29, 18, 10],
+        [19, 27, 18, 26, 20, 10, 6],
+      ];
+      const heatmap = heatmapValues.map((values, rowIndex) => ({
+        label: ["00-06", "06-12", "12-18", "18-24"][rowIndex],
+        cells: values.map((value, columnIndex) => ({
+          label: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][columnIndex],
+          value,
+        })),
+      }));
+      const panel = (title, child) => h("section", { class: "chart-fixture-panel" }, h("h2", null, title), child);
+
+      render(
+        h("div", { class: "chart-fixture-grid", "data-chart-fixture-ready": "true" },
+          panel("Incident volume", h(TrendChart, {
+            title: "Incident volume",
+            description: "Seven-day synthetic trend",
+            points: trend,
+            formatValue: (value) => `${value}`,
+            summary: "29",
+            summaryHint: "8% below peak",
+            referenceLabel: "Median",
+          })),
+          panel("Area chart", h(AreaChart, {
+            title: "Observed volume",
+            description: "Observed, baseline, and forecast",
+            data: seriesData,
+            series,
+            formatValue: (value) => `${value}`,
+          })),
+          panel("Line chart", h(LineChart, {
+            title: "Observed volume",
+            description: "Observed, baseline, and forecast",
+            data: seriesData,
+            series,
+            formatValue: (value) => `${value}`,
+          })),
+          panel("Bar chart", h(BarChart, {
+            title: "Observed volume",
+            description: "Grouped by day",
+            data: seriesData,
+            series,
+            formatValue: (value) => `${value}`,
+          })),
+          panel("Combo chart", h(ComboChart, {
+            title: "Volume and baseline",
+            description: "Bars with a baseline line",
+            data: seriesData,
+            series: [
+              { label: "Observed", color: "blue", kind: "bar" },
+              { label: "Baseline", color: "emerald", kind: "line" },
+              { label: "Forecast", color: "violet", kind: "area" },
+            ],
+            formatValue: (value) => `${value}`,
+          })),
+          panel("Bar list / Outcome assurance", h(ComparisonBarChart, {
+            label: "Outcome assurance by domain",
+            items: comparison,
+            maximum: 100,
+            formatValue: (value) => `${value}%`,
+          })),
+          panel("Category bar / Gate decision mix", h(DistributionBar, {
+            label: "Gate decision distribution",
+            segments: distribution,
+            formatValue: (value) => value.toLocaleString("en-US"),
+          })),
+          panel("Donut chart", h(DonutChart, {
+            label: "Gate decision distribution",
+            segments: distribution,
+            formatValue: (value) => value.toLocaleString("en-US"),
+          })),
+          panel("Spark area", h(SparkAreaChart, {
+            label: "Compact area trend",
+            points: trend,
+            formatValue: (value) => `${value}`,
+            color: "violet",
+          })),
+          panel("Spark line", h(SparkLineChart, {
+            label: "Compact line trend",
+            points: trend,
+            formatValue: (value) => `${value}`,
+            color: "cyan",
+          })),
+          panel("Spark bar", h(SparkBarChart, {
+            label: "Compact bar trend",
+            points: trend,
+            formatValue: (value) => `${value}`,
+            color: "pink",
+          })),
+          panel("Progress bar", h(ProgressBar, {
+            label: "Promotion progress",
+            value: .72,
+            color: "emerald",
+          })),
+          panel("Progress circle", h(ProgressCircle, {
+            label: "Evidence coverage",
+            value: .84,
+            color: "amber",
+          })),
+          panel("Tracker", h(Tracker, {
+            label: "Recent evaluation states",
+            blocks: [
+              "emerald", "emerald", "blue", "blue", "amber", "emerald",
+              "violet", "emerald", "gray", "blue", "emerald", "fuchsia",
+            ].map((color, index) => ({ label: `Window ${index + 1}`, color, detail: "Synthetic state" })),
+          })),
+          panel("Scatter chart", h(ScatterChart, {
+            label: "Latency and evidence coverage",
+            points: [
+              { label: "T0", x: 12, y: 94, group: "Deterministic" },
+              { label: "T1", x: 28, y: 88, group: "Adaptive" },
+              { label: "T2", x: 62, y: 76, group: "Reasoning" },
+              { label: "Review", x: 48, y: 82, group: "Adaptive" },
+              { label: "Replay", x: 20, y: 91, group: "Deterministic" },
+            ],
+            formatX: (value) => `${value} ms`,
+            formatY: (value) => `${value}%`,
+          })),
+          panel("Event density", h(DensityHeatmap, {
+            label: "Average events by weekday and time window",
+            rows: heatmap,
+            formatValue: (value) => `${value}`,
+          })),
+          panel("Portfolio performance composition", h(MetricSeriesChart, {
+            label: "Portfolio value",
+            value: "$328,505.10",
+            detail: "+$4,430.90 (4.1%) · Past 24 hours",
+            description: "Portfolio performance by holding",
+            data: portfolioData,
+            series: portfolioSeries,
+            formatValue: currency,
+            showYAxis: true,
+            yAxisWidth: 66,
+            xAxisTickCount: 6,
+          })),
+          panel("Interactive KPI area composition", h(MetricSeriesChart, {
+            label: "Evidence volume",
+            value: "29",
+            detail: "Sun",
+            description: "Hover updates the KPI and date",
+            data: seriesData.map((datum) => ({ label: datum.label, values: [datum.values[0]] })),
+            series: [{ label: "Evidence", color: "blue", kind: "area" }],
+            formatValue: (value) => `${value}`,
+            valueForDatum: (datum) => `${datum.values[0]}`,
+            detailForDatum: (datum) => datum.label,
+            showLegend: false,
+            showYAxis: false,
+            showGridLines: false,
+          })),
+          panel("Current versus previous composition", h(MetricSeriesChart, {
+            label: "Today's queries",
+            value: "5,730",
+            detail: "24-hour comparison",
+            description: "Current and previous request volume",
+            data: seriesData.map((datum) => ({ label: datum.label, values: [datum.values[0] * 180, datum.values[1] * 175] })),
+            series: [
+              { label: "Current", color: "blue", kind: "line" },
+              { label: "Previous", color: "gray", kind: "line" },
+            ],
+            summaries: [
+              { label: "Today", value: "5,730", color: "blue" },
+              { label: "Yesterday", value: "4,510", color: "gray" },
+            ],
+            formatValue: (value) => value.toLocaleString("en-US"),
+            showLegend: false,
+            showYAxis: false,
+            startEndOnly: true,
+          })),
+          panel("Allocation donut composition", h(MetricDonutChart, {
+            label: "Total expenses by category",
+            value: "$20,990",
+            detail: "Current review window",
+            segments: allocation,
+            formatValue: currency,
+          })),
+          panel("Custom tooltip bar composition", h(MetricSeriesChart, {
+            label: "Training load",
+            value: "145 bpm",
+            detail: "Running and cycling",
+            description: "Monthly activity load",
+            data: [
+              { label: "Jan", values: [167, 145] }, { label: "Feb", values: [125, 110] },
+              { label: "Mar", values: [156, 149] }, { label: "Apr", values: [165, 112] },
+              { label: "May", values: [153, 138] }, { label: "Jun", values: [124, 145] },
+            ],
+            series: [
+              { label: "Running", color: "blue", kind: "bar" },
+              { label: "Cycling", color: "violet", kind: "bar" },
+            ],
+            formatValue: (value) => `${value} bpm`,
+            showLegend: false,
+            showYAxis: true,
+            yAxisWidth: 58,
+          })),
+          panel("Responsive monitoring area composition", h(MetricSeriesChart, {
+            label: "Log monitoring",
+            value: "4,328",
+            detail: "Events in the current window",
+            description: "Name lookup and connection events",
+            data: [
+              { label: "08:00", values: [2100, 1540] }, { label: "10:00", values: [2800, 1940] },
+              { label: "12:00", values: [2480, 2320] }, { label: "14:00", values: [3900, 2710] },
+              { label: "16:00", values: [4328, 2980] }, { label: "18:00", values: [3740, 3360] },
+            ],
+            series: [
+              { label: "Name lookup", color: "blue", kind: "area" },
+              { label: "Connection", color: "pink", kind: "area" },
+            ],
+            formatValue: (value) => value.toLocaleString("en-US"),
+            showYAxis: true,
+            maxValue: 5000,
+            yAxisWidth: 54,
+          })),
+          panel("Uptime category composition", h(MetricChartFrame, {
+            label: "Uptime summary",
+            value: "90.1%",
+            detail: "Average uptime in the last month",
+          }, h(DistributionBar, {
+            label: "Uptime distribution",
+            segments: [
+              { label: "99% uptime", value: 90.1, detail: "225 days" },
+              { label: "1% downtime", value: 8.2, detail: "20 days" },
+              { label: "Unmeasured", value: 1.7, detail: "4 days" },
+            ],
+            formatValue: (value) => `${value}%`,
+          }))),
+        ),
+        document.querySelector("#chart-fixture-root"),
+      );
+    </script>
+  </body>
+</html>

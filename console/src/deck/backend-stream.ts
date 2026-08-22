@@ -203,6 +203,7 @@ export async function askBackendStream(
           callbacks.conversationBinding,
           callbacks.attachments,
           callbacks.targetAgent,
+          callbacks.semanticPlanningProfile,
         ),
       ),
       signal: callbacks.signal ?? null,

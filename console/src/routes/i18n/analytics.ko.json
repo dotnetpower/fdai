@@ -21,6 +21,7 @@
   "notApplicable": "해당 없음",
   "current": "현재",
   "baseline": "기준선",
+  "median": "중앙값",
   "direction": "개선 방향",
   "higherBetter": "높을수록 좋음",
   "lowerBetter": "낮을수록 좋음",

@@ -1,10 +1,9 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 1a802e42894fdee300334199104dc66f4176d2f2
-translation_revised: 2026-08-21
+translation_source_sha: 329b1769327361c8f75587e1e3ac7f97cc3a4496
+translation_revised: 2026-08-22
 ---
-
 # 콘솔 근거 및 복원력
 이 문서는 운영자 콘솔의 근거 출처 이력, localization, 스트림 복구, 영속 재생 및 아키텍처 지도 복원력 계약을 소유합니다. 대화형 도구 및 RBAC 계약은 [operator-console-ko.md](operator-console-ko.md)에 유지됩니다.
 ## 구현 상태
@@ -26,7 +25,6 @@ translation_revised: 2026-08-21
 | 감독 대상 보증 의존성 캐시 | implemented | `console/vite.config.ts`, `scripts/automation/run_ontology_assurance.py`, focused Console 및 supervisor 검사 11개와 타입 검사 통과 | 일반 Console 시작은 Vite의 표준 의존성 캐시를 유지합니다. 감독 대상 온톨로지 보증 Console마다 실행 루트 안의 캐시를 지정해 동시에 실행되는 optimizer가 측정 대상 Browser import를 무효화하지 못하게 합니다. |
 | Console 시작 연결 상태 | implemented | `console/src/app.tsx`, `console/src/routes/login.tsx`, 집중 시작 및 로그인 테스트 3개, Console 타입 검사, 인증된 Browser 결함 주입 | 최초 Operator API 네트워크 실패 시 경로 골격 대신 성운 기반 서비스 시작 상태를 표시하고, 데이터를 닫힌 상태로 유지하며, 재시도 성공 뒤 요청한 경로로 자동 복귀합니다. HTTP 및 인증 실패는 기존 복구 흐름을 유지합니다. |
 ### 구현 이력
-
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
 | 2026-08-13 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 온톨로지 보증 아티팩트를 정확한 source, configuration, workspace, 인증, request 및 projection 출처 이력에 연결했습니다. | 현재 변경의 `console/tests/live-e2e/ontology-query-assurance*.ts`, focused Vitest 25개 및 Console 타입 검사 통과. | 정확한 중앙 검증 receipt를 얻은 뒤 seeded 영/한 100-case cohort 전에 인증된 probe 하나를 실행합니다. |
@@ -90,8 +88,11 @@ translation_revised: 2026-08-21
 | 2026-08-19 | 구현됨 | 구조화된 답변을 얇은 shell과 종류별 레지스트리 모듈로 분리하고 엄격한 v2 parsing을 추가했으며 bar, coverage, time-series, comparison 및 timeline 블록을 의미 설명, 키보드로 접근 가능한 값, reduced-motion 동작 및 접힌 exact 표와 함께 렌더링했습니다. | `current change`, [이슈 #234](https://github.com/dotnetpower/fdai/issues/234), 집중 parser, registry 및 assurance 검사 115개와 Console 타입 검사 및 운영 빌드 통과 | 긴 한국어, 시각, 불투명 식별자 및 사용 불가 상태를 포함하는 데스크톱, 제한된 화면 및 모바일 Browser 근거를 보존합니다. |
 | 2026-08-19 | 구현됨 | 실제 Command Deck 집약기, parser, registry 및 renderer를 통과해 v2 time-series 모듈을 데스크톱, 제한된 화면 및 모바일 크기에서 실행했습니다. Fixture는 긴 한국어, 정확한 시각, 불투명 식별자, 키보드 focus, exact 값 공개 및 reduced motion을 포함합니다. | `current change`, [이슈 #234](https://github.com/dotnetpower/fdai/issues/234), 1440 x 900, 993 x 641, 390 x 844의 집중 Playwright가 7.4초에 통과했고 측정된 문서, workspace, chart overflow가 모두 0이었으며 screenshot을 검토했습니다. | 통제된 인증 런타임 근거는 별도입니다. 이 synthetic Browser 검사는 표현 mechanics만 입증합니다. |
 | 2026-08-21 | implemented | 인증된 초기화에서 Operator API 네트워크 실패를 처음 관찰하면 Dashboard 골격 대신 기존 성운 로그인 화면에 서비스 시작 상태를 표시하도록 했습니다. 화면은 서버 시작을 알리고 자동으로 재시도하며 액세스 확인이 성공할 때까지 요청한 경로를 닫힌 상태로 유지합니다. | `current change`, `bootstrap-retry.test.ts` 및 `login.test.ts` 집중 테스트 3개 통과, Console 타입 검사 통과, 인증된 Browser 결함 주입에서 시작 상태, 가로 넘침 없음, 새로고침 없는 `/overview` 자동 복귀를 확인했습니다. | 통제된 Browser 아티팩트는 보존하지 않았습니다. 제한된 시작 재시도 일정을 모두 사용한 뒤에는 기존 수동 액세스 재시도와 다시 로그인 복구 흐름을 유지합니다. |
+| 2026-08-22 | implemented | 공유 Preact 추세, 비교 막대, 분포 및 밀도 히트맵 기본 컴포넌트를 추가하고 운영 결과, 프로세스 보고서, 기존 Command Deck 차트, 검증된 v2 막대 및 시계열 표현에 적용했습니다. 지원되는 모든 표시점은 키보드로 검사할 수 있고, 정확한 값은 화면에 유지되거나 기존 표 펼침 영역에서 확인할 수 있습니다. 중앙값과 기준선 레이블을 지역화했으며 정적 갤러리는 synthetic 출처와 명시적 데이터 검사 명령을 표시합니다. | `current change`, `console/src/components/charts.{tsx,css}`, 집중 차트, 분석, 프로세스, 레지스트리 및 작업 영역 Vitest 검사 35개 통과, Console 타입 검사 및 카탈로그 동등성 검사 통과, 정적 갤러리 계약 8개 통과, 격리된 Playwright가 1440 x 900, 993 x 641, 390 x 844에서 운영 컴포넌트를 렌더링하고 문서, 패널, 히트맵 넘침이 모두 0임을 확인했으며 스크린샷을 검토했습니다. | 로컬 Operator API를 사용할 수 없어 표준 인증 경로의 런타임 관측을 만들지 못했습니다. 런타임 검증을 주장하기 전에 통제된 인증 차트 관측을 별도로 보존합니다. |
+| 2026-08-22 | implemented | 공개된 순서의 정확한 Tremor Raw `500` 색상표로 차트 계열을 완성했습니다. 색상은 blue, emerald, violet, amber, gray, cyan, pink, lime, fuchsia입니다. 형식화된 목록은 공식 차트 및 데이터 시각화 내보내기 13종인 AreaChart, BarChart, BarList, CategoryBar, ComboChart, DonutChart, LineChart, ProgressBar, ProgressCircle, SparkAreaChart, SparkBarChart, SparkLineChart, Tracker를 모두 포함합니다. FDAI 산점도와 히트맵도 같은 색상표와 접근성 계약을 사용하며, 프로세스 보고서 경로는 이제 공유 도넛, 산점도, 스파크, 진행률 막대, 진행률 원 기본 컴포넌트를 사용합니다. | `current change`, `chart-colors.ts`, `charts-series.tsx`, `charts-compact.tsx`, `charts-scatter.tsx`, 프로세스 그래프 렌더러, 완전한 정적 갤러리, 집중 차트 및 프로세스 검사 19개 통과, Console 타입 검사 통과, 시안 계약 8개 통과, 격리된 Playwright가 1440 x 900, 993 x 641, 390 x 844에서 운영 패널 16개를 렌더링하고 문서, 패널, 히트맵 넘침이 모두 0임을 확인했습니다. 세션 브라우저는 계산된 정확한 9개 hex 값과 card 넘침 0을 유지하면서 family card 6개를 3열, 2열, 1열로 렌더링했습니다. | 통제된 인증 런타임 근거는 별도입니다. 보존된 브라우저 근거는 synthetic 표현 근거이며 측정 또는 작업 권한을 부여하지 않습니다. |
+| 2026-08-22 | implemented | 전체 크기 영역, 선, 그룹 막대 및 복합 차트에 범주 전체 pointer 및 키보드 검사를 추가했습니다. 이제 활성 x축 범주 하나가 모든 유한 series 값을 구조화된 tooltip에 표시하고 세로 안내선과 색상이 일치하는 점을 함께 보여 줍니다. 추세 범주, 도넛 및 원형 시각 요소, 진행률 막대와 원도 정확한 값을 직접 표시합니다. 정적 family 표본도 장식 전용 도식 대신 동등한 3-series 및 표시점별 검사를 제공합니다. | `current change`, `tooltip.tsx`, `charts-series.tsx`, `charts-compact.tsx`, `charts.tsx`, `charts.css`, 운영 fixture 및 `mocks/ui/components.html`, focused 차트, tooltip 및 Process 검사 27개 통과, Console typecheck, production build 및 entry bundle 통과, 정적 갤러리 계약 8개 통과, 격리된 Playwright가 1440 x 900, 993 x 641, 390 x 844에서 측정된 overflow 0으로 통과했습니다. Browser 검토에서 운영 범주 target은 53 x 139 px이며 tooltip 행 3개와 활성 안내점이 표시됐고, 정적 target은 44 x 122 px이며 동일한 Thursday 정확한 값을 표시했습니다. | 통제된 인증 런타임 근거는 별도입니다. 이 synthetic 검사는 표현과 상호작용 mechanics만 입증하며 측정 또는 작업 권한을 부여하지 않습니다. |
+| 2026-08-22 | implemented | 기본 컴포넌트 목록이 다루지 않았던 dashboard composition을 추가했습니다. `TREMOR_CHART_COMPOSITIONS`는 포트폴리오 성과, 상호작용 KPI 영역, 현재-이전 선, 자산 배분 도넛, 사용자 정의 tooltip 막대, 반응형 모니터링 영역, 가동 시간 범주의 지원 family 7종을 고정합니다. 공유 `MetricChartFrame`, `MetricSeriesChart`, `MetricDonutChart`는 차트 geometry를 복제하지 않고 KPI 값, 변화 context, 요약, 제한된 날짜 tick, y축 값, legend, 반응형 variant 및 활성 datum 갱신을 조합합니다. 포트폴리오 표본은 날짜 17개, 보유 항목 3개, 제한된 날짜 tick 6개, 통화 formatting 및 3행 grouped tooltip으로 검토한 Tremor pattern과 일치합니다. | `current change`, `charts-composed.tsx`, 확장된 `charts-series.tsx`, 운영 panel 23개 fixture 및 정적 dashboard-composition card 7개, focused 차트, tooltip 및 Process 검사 29개 통과, Console typecheck, production build 및 entry bundle 통과, 정적 갤러리 계약 8개 통과, 격리된 Playwright가 1440 x 900, 993 x 641, 390 x 844에서 통과했습니다. Browser 검사에서 document, fixture, panel, card 및 iframe overflow가 모두 0이었고, 정적 composition은 desktop 3열, 제한된 iframe 2열, mobile 1열로 렌더링됐으며 mobile 포트폴리오 tooltip은 375 px iframe 내부로 제한됐습니다. | 통제된 인증 런타임 근거는 별도입니다. 값과 Browser 관측은 synthetic 표현 근거이며 측정 또는 작업 권한을 부여하지 않습니다. |
 ### 잔여 작업
-
 - [ ] 정확한 중앙 검증 receipt와 인증된 probe를 확보한 뒤 seeded 영/한 100-case cohort에서 통과한 통제 아티팩트 하나를 보존합니다.
 - [x] 에이전트 스트림 열림, 갱신된 하트비트 시각, 페이지를 두 번 새로고친 뒤 `Runtime agent initialized` 활동 행 0개를 보여 주는 통제된 Browser Entra 아티팩트를 보존합니다.
 - [x] 백그라운드 알림과 활성 탭 attention 스트림을 유지하면서 새 Dashboard 접근 검사가 완료되는 통제된 세 탭 Browser Entra 아티팩트를 보존합니다.
@@ -107,7 +108,6 @@ translation_revised: 2026-08-21
   993 x 641, 390 x 844에서 키보드, reduced-motion, 정확한 값 대체 경로, 긴 한국어,
   불투명 식별자, 시각, 빈 상태 및 사용 불가 상태를 검증합니다.
 ## 탐색 컨텍스트
-
 활동 Bar 영역을 선택하면 Explorer가 열리고 운영자의 로컬 순서 및 표시 설정에 따라 첫 번째 visible 패널로 이동합니다. Command Deck이 닫혀 있거나 floating 상태여도 이 탐색은 동작하며, full-workspace Deck은 경로가 변경되기 전에 닫힙니다.
 다른 화면의 cached 대화 선택은 범위가 제한된 exception입니다. Console은 대화 출처로 이동할 때 conversation-owned synchronous 경로 이벤트만 suppress한 뒤 대화 기록을 활성화합니다. Transient default-session 전환 또는 close/reopen focus cycle 없이 Deck을 열린 상태로 유지합니다.
 Same-screen 및 에이전트 대화는 탐색 없이 전환합니다.

@@ -15,6 +15,7 @@ from fdai.rule_catalog.schema.inventory_query_language import (
     query_signal_span,
 )
 
+from .semantic_impact_planning import service_impact_query_sides
 from .semantic_target_identity import exact_target_from_constraints
 
 _INTENT_ID_PATTERN = r"^[a-z][a-z0-9_.-]{0,79}$"
@@ -267,6 +268,43 @@ def normalize_investigation_target(
             )
         }
     )
+
+
+def normalize_investigation_relationships(
+    proposal: InvestigationIntentProposal,
+    *,
+    descriptors: Sequence[Mapping[str, Any]],
+) -> InvestigationIntentProposal:
+    """Bind one exact Resource investigation to the unique manifest service path."""
+
+    targets = tuple(
+        entity
+        for entity in proposal.entities
+        if entity.role is InvestigationEntityRole.AFFECTED_TARGET
+    )
+    if len(targets) != 1 or targets[0].object_type_candidates != ("Resource",):
+        return proposal
+    relationships = tuple(
+        relationship
+        for relationship in proposal.relationship_intents
+        if relationship.source_mention_id == targets[0].mention_id
+        and relationship.target_mention_id is None
+    )
+    if len(relationships) != 1 or len(proposal.relationship_intents) != 1:
+        return proposal
+    relationship = relationships[0]
+    if any(
+        hypothesis.relationship_id != relationship.relationship_id
+        for hypothesis in proposal.hypotheses
+    ):
+        return proposal
+    canonical_path = service_impact_query_sides(
+        tuple(dict(descriptor) for descriptor in descriptors)
+    )
+    if canonical_path is None or relationship.query_side_candidates == canonical_path:
+        return proposal
+    normalized = relationship.model_copy(update={"query_side_candidates": canonical_path})
+    return proposal.model_copy(update={"relationship_intents": (normalized,)})
 
 
 def _relationship_source_type(
@@ -635,6 +673,7 @@ __all__ = [
     "InvestigationTemporalRole",
     "VerifiedInvestigationIntent",
     "normalize_investigation_competitors",
+    "normalize_investigation_relationships",
     "normalize_investigation_symptom",
     "normalize_investigation_target",
     "verify_investigation_intent",

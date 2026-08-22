@@ -194,7 +194,7 @@ export function GroundedReply({
           ) : null}
         </div>
       ) : null}
-      <div class="deck-turn-body">
+      <div class="deck-turn-body cs-deck-answer">
         {showAnswerState ? (
           <span class={`deck-answer-state is-${answerState}`} role="status">
             {t(`deck.answerState.${answerState}`)}
@@ -325,7 +325,7 @@ export function GroundedReply({
       ) : null}
 
       {!streaming && (verification || text.trim().length > 0 || cites.length > 0) ? (
-        <div class="deck-gr-actions">
+        <div class="deck-gr-actions cs-deck-action-row">
           {verification ? (
             <Tooltip content={verificationLabel(verification)}>
               <div
@@ -356,7 +356,7 @@ export function GroundedReply({
               <Tooltip content={copied ? t("deck.tooltip.copied") : t("deck.tooltip.copyReply")}>
                 <button
                   type="button"
-                  class="deck-gr-tool deck-gr-icon"
+                  class="deck-gr-tool deck-gr-icon cs-deck-tool cs-deck-tool-icon"
                   onClick={copy}
                   aria-label={t("deck.tooltip.copyReply")}
                 >
@@ -367,7 +367,7 @@ export function GroundedReply({
                 <Tooltip content={t("deck.tooltip.regenerateHint")}>
                   <button
                     type="button"
-                    class="deck-gr-tool deck-gr-icon"
+                    class="deck-gr-tool deck-gr-icon cs-deck-tool cs-deck-tool-icon"
                     onClick={onRegenerate}
                     aria-label={t("deck.tooltip.regenerate")}
                   >
@@ -375,7 +375,7 @@ export function GroundedReply({
                   </button>
                 </Tooltip>
               ) : null}
-              <a class="deck-gr-tool deck-gr-review" href={assuranceHref(turnId)}>
+              <a class="deck-gr-tool deck-gr-review cs-deck-tool" href={assuranceHref(turnId)}>
                 {t("deck.reviewAnswer")}
               </a>
             </>
@@ -386,7 +386,7 @@ export function GroundedReply({
               <Tooltip placement="top-end" content={sourceButtonLabel}>
                 <button
                   type="button"
-                  class="deck-gr-pill"
+                  class="deck-gr-pill cs-deck-pill"
                   onClick={() => setOpen((v) => !v)}
                   aria-expanded={open}
                   aria-label={sourceButtonLabel}

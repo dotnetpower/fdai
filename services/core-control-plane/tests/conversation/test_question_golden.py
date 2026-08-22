@@ -9,6 +9,9 @@ from fdai.core.conversation.question_campaign import QuestionCampaignHardZeroCou
 from fdai.core.conversation.question_golden import (
     GoldenAuthorityPosture,
     GoldenCaseCertification,
+    GoldenOntologyExpectation,
+    GoldenOntologyPath,
+    GoldenOntologyPathStep,
     GoldenQuestionCase,
     GoldenSemanticFrame,
     build_golden_corpus,
@@ -76,6 +79,49 @@ def test_golden_corpus_is_replay_stable_and_bilingual() -> None:
     assert first == second
     assert tuple(item.locale for item in first.cases) == ("en", "ko")
     assert first.cases[0].expectation_digest == first.cases[1].expectation_digest
+
+
+def test_golden_case_preserves_typed_dataset_dimensions() -> None:
+    case = replace(
+        _case(locale="en", case_id="resource-state-en"),
+        expected_frame=GoldenSemanticFrame(
+            operation="select",
+            subject="resource",
+            measure_concepts=(),
+            output_shape=None,
+            temporal_scope="current",
+        ),
+        required_object_types=("BusinessService", "Resource"),
+        required_link_types=("service_depends_on_resource",),
+        required_function_types=("query.ontology_relationships",),
+        expected_ontology=GoldenOntologyExpectation(
+            anchor_type="BusinessService",
+            target_types=("Resource",),
+            paths=(
+                GoldenOntologyPath(
+                    path_id="service-resource",
+                    steps=(
+                        GoldenOntologyPathStep(
+                            from_type="BusinessService",
+                            link_type="service_depends_on_resource",
+                            direction="outgoing",
+                            to_type="Resource",
+                        ),
+                    ),
+                ),
+            ),
+            min_traversal_depth=1,
+            max_traversal_depth=1,
+        ),
+        required_limitations=("missing_evidence_must_remain_unknown",),
+        runtime_context="server_scope",
+        variation_kind="evidence_first",
+    )
+
+    assert case.expected_frame.temporal_scope == "current"
+    assert case.expected_ontology is not None
+    assert case.expected_ontology.paths[0].steps[0].to_type == "Resource"
+    assert case.expectation_digest.startswith("sha256:")
 
 
 def test_golden_corpus_rejects_missing_locale_and_expectation_drift() -> None:

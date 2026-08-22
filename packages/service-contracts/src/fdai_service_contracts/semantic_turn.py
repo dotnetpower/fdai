@@ -13,6 +13,7 @@ from pydantic import Field, model_validator
 from fdai_service_contracts.ontology_query import (
     GoalTaskReceipt,
     QueryContract,
+    SemanticOperation,
     TaskStatus,
     content_digest,
 )
@@ -28,6 +29,117 @@ MAX_SEMANTIC_EVIDENCE_REFS = 12
 LOGICAL_TOPIC_FIELD = "_fdai_logical_topic"
 _RULE_COMPONENT_PATTERN = r"^[a-z][a-z0-9_.-]{0,79}$"
 _MAX_RULE_CANDIDATES = 50
+_ASSURANCE_IDENTIFIER_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$"
+_MAX_ASSURANCE_ITEMS = 128
+_MAX_ASSURANCE_PATHS = 16
+
+
+class SemanticAssuranceFrame(QueryContract):
+    """Verified semantic-frame identity retained without operator text."""
+
+    operation: SemanticOperation
+    subject_types: Annotated[
+        tuple[Annotated[str, Field(pattern=_ASSURANCE_IDENTIFIER_PATTERN)], ...],
+        Field(max_length=16),
+    ] = ()
+    measure_concepts: Annotated[
+        tuple[Annotated[str, Field(pattern=_ASSURANCE_IDENTIFIER_PATTERN)], ...],
+        Field(max_length=16),
+    ] = ()
+    temporal_scope: Literal["none", "current", "windowed", "historical"]
+    output_shape: Annotated[str, Field(pattern=_ASSURANCE_IDENTIFIER_PATTERN)]
+    frame_digest: Digest
+
+    @model_validator(mode="after")
+    def _sets_are_canonical(self) -> SemanticAssuranceFrame:
+        _require_ordered_unique("semantic assurance subject types", self.subject_types)
+        _require_ordered_unique("semantic assurance measure concepts", self.measure_concepts)
+        return self
+
+
+class SemanticAssurancePathStep(QueryContract):
+    """One exact ontology declaration step selected by a verified read plan."""
+
+    from_type: Annotated[str, Field(pattern=_ASSURANCE_IDENTIFIER_PATTERN)]
+    link_type: Annotated[str, Field(pattern=_ASSURANCE_IDENTIFIER_PATTERN)]
+    direction: Literal["outgoing", "incoming"]
+    to_type: Annotated[str, Field(pattern=_ASSURANCE_IDENTIFIER_PATTERN)]
+
+
+class SemanticAssurancePath(QueryContract):
+    """One bounded ontology path selected by a verified read plan."""
+
+    path_id: Annotated[str, Field(pattern=_ASSURANCE_IDENTIFIER_PATTERN)]
+    steps: Annotated[tuple[SemanticAssurancePathStep, ...], Field(min_length=1, max_length=5)]
+
+
+class SemanticAssuranceObservation(QueryContract):
+    """Content-free semantic and safety observation for release assurance."""
+
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    frame: SemanticAssuranceFrame | None = None
+    capabilities: Annotated[
+        tuple[Annotated[str, Field(pattern=_ASSURANCE_IDENTIFIER_PATTERN)], ...],
+        Field(max_length=_MAX_ASSURANCE_ITEMS),
+    ] = ()
+    object_types: Annotated[
+        tuple[Annotated[str, Field(pattern=_ASSURANCE_IDENTIFIER_PATTERN)], ...],
+        Field(max_length=_MAX_ASSURANCE_ITEMS),
+    ] = ()
+    link_types: Annotated[
+        tuple[Annotated[str, Field(pattern=_ASSURANCE_IDENTIFIER_PATTERN)], ...],
+        Field(max_length=_MAX_ASSURANCE_ITEMS),
+    ] = ()
+    function_types: Annotated[
+        tuple[Annotated[str, Field(pattern=_ASSURANCE_IDENTIFIER_PATTERN)], ...],
+        Field(max_length=_MAX_ASSURANCE_ITEMS),
+    ] = ()
+    ontology_paths: Annotated[
+        tuple[SemanticAssurancePath, ...], Field(max_length=_MAX_ASSURANCE_PATHS)
+    ] = ()
+    fact_kinds: Annotated[
+        tuple[Annotated[str, Field(pattern=_ASSURANCE_IDENTIFIER_PATTERN)], ...],
+        Field(max_length=_MAX_ASSURANCE_ITEMS),
+    ] = ()
+    limitation_kinds: Annotated[
+        tuple[Annotated[str, Field(pattern=_ASSURANCE_IDENTIFIER_PATTERN)], ...],
+        Field(max_length=_MAX_ASSURANCE_ITEMS),
+    ] = ()
+    claim_kinds: Annotated[
+        tuple[Annotated[str, Field(pattern=_ASSURANCE_IDENTIFIER_PATTERN)], ...],
+        Field(max_length=_MAX_ASSURANCE_ITEMS),
+    ] = ()
+    evidence_posture: Literal["fresh", "stale", "incomplete", "conflicting", "unavailable"]
+    authority_posture: Literal["read_only", "draft_only"]
+    read_performed: bool
+    observation_digest: Digest
+    execution_authority: Literal[False] = False
+
+    @model_validator(mode="after")
+    def _observation_is_canonical(self) -> SemanticAssuranceObservation:
+        for name, values in (
+            ("capabilities", self.capabilities),
+            ("object types", self.object_types),
+            ("link types", self.link_types),
+            ("function types", self.function_types),
+            ("fact kinds", self.fact_kinds),
+            ("limitation kinds", self.limitation_kinds),
+            ("claim kinds", self.claim_kinds),
+        ):
+            _require_ordered_unique(f"semantic assurance {name}", values)
+        path_ids = tuple(path.path_id for path in self.ontology_paths)
+        _require_ordered_unique("semantic assurance ontology paths", path_ids)
+        expected_digest = content_digest(
+            self.model_dump(mode="json", exclude={"observation_digest"})
+        )
+        if self.observation_digest != expected_digest:
+            raise ValueError("semantic assurance observation digest does not match content")
+        return self
+
+
+def _require_ordered_unique(name: str, values: tuple[str, ...]) -> None:
+    if values != tuple(sorted(set(values))):
+        raise ValueError(f"{name} MUST be ordered and unique")
 
 
 def multiplexed_consumer_group(group_id: str, logical_topic: str) -> str:
@@ -45,6 +157,13 @@ class SemanticTurnDisposition(StrEnum):
     UNSUPPORTED = "unsupported"
     ACTION_DRAFT = "action_draft"
     CANCELLED = "cancelled"
+
+
+class SemanticPlanningProfile(StrEnum):
+    """Request-scoped ceiling for Console semantic planning fallback."""
+
+    INTERACTIVE = "interactive"
+    GOLDEN_CAMPAIGN_NO_T2 = "golden_campaign_no_t2"
 
 
 SemanticRoute = Literal[
@@ -116,6 +235,7 @@ class SemanticTurnRequest(QueryContract):
     view_context_digest: Digest | None = None
     bound_context: SemanticBoundContext | None = None
     prior_turns: Annotated[tuple[SemanticPriorTurn, ...], Field(max_length=12)] = ()
+    planning_profile: SemanticPlanningProfile = SemanticPlanningProfile.INTERACTIVE
     cancelled: bool = False
     execution_authority: Literal[False] = False
 
@@ -142,6 +262,7 @@ class SemanticTurnResult(QueryContract):
     checks_completed: Annotated[int, Field(ge=0, le=64)] = 0
     checks_total: Annotated[int, Field(ge=0, le=64)] = 0
     answer: Annotated[str, Field(min_length=1, max_length=64_000)] | None = None
+    assurance_observation: SemanticAssuranceObservation | None = None
     execution_authority: Literal[False] = False
 
     @model_validator(mode="after")
@@ -348,6 +469,11 @@ __all__ = [
     "RuleSearchRank",
     "RuleSearchRequest",
     "RuleSearchReceipt",
+    "SemanticAssuranceFrame",
+    "SemanticAssuranceObservation",
+    "SemanticAssurancePath",
+    "SemanticAssurancePathStep",
+    "SemanticPlanningProfile",
     "SemanticPriorTurn",
     "SemanticTurnDisposition",
     "SemanticTurnPrincipal",

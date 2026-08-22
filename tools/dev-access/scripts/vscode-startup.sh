@@ -27,7 +27,7 @@ if [[ ! -s "${INFRA_DIR}/terraform.tfstate" ]]; then
 fi
 
 if ! dns_resolver_ip="$(terraform -chdir="${INFRA_DIR}" output -raw dns_resolver_inbound_ip 2>/dev/null)"; then
-  printf 'error: FDAI dev-access state exists but its DNS Resolver output is unavailable\n' >&2
+  printf 'tools/dev-access/README.md:1:1: error: FDAI dev-access state exists but its DNS Resolver output is unavailable\n' >&2
   exit 21
 fi
 

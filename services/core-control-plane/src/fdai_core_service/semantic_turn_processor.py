@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from typing import Any, Protocol
 from uuid import UUID, uuid5
 
+from fdai.core.conversation.semantic_planning_cascade import NO_T2_ESCALATION_POLICY
 from fdai.core.conversation.semantic_planning_models import BoundIncident
 from fdai.core.conversation.semantic_runtime import (
     SemanticTurnResult as RuntimeSemanticTurnResult,
@@ -34,6 +35,8 @@ from fdai_service_contracts import (
     OperatorRole,
     RuleSearchProjection,
     RuleSearchRequest,
+    SemanticAssuranceObservation,
+    SemanticPlanningProfile,
     SemanticRoute,
     SemanticTurnDisposition,
     SemanticTurnRequest,
@@ -50,9 +53,10 @@ from fdai_service_contracts.ontology_query import (
 )
 
 from .contract_codecs import (
-    OPERATOR_PROJECTION_PRODUCER_V12,
+    OPERATOR_PROJECTION_PRODUCER_V13,
     OPERATOR_REQUEST_CONSUMER_V13,
 )
+from .semantic_assurance_projection import project_semantic_assurance
 from .semantic_relationship_projection import (
     project_ontology_relationships,
     render_ontology_relationship_answer,
@@ -411,6 +415,11 @@ class SemanticTurnProcessor:
                 principal=principal,
                 cancelled=runtime_cancelled,
                 bound_incident=_bound_incident(request),
+                **(
+                    {"escalation_policy": NO_T2_ESCALATION_POLICY}
+                    if request.planning_profile is SemanticPlanningProfile.GOLDEN_CAMPAIGN_NO_T2
+                    else {}
+                ),
             )
         )
         cancellation_task = asyncio.create_task(cancelled.wait()) if cancelled is not None else None
@@ -479,7 +488,7 @@ class SemanticTurnProcessor:
             if extensions.technical_details is not None:
                 payload["technical_details"] = extensions.technical_details
         projection = {
-            "schema_version": "1.2.0",
+            "schema_version": "1.3.0",
             "projection_id": projection_id,
             "request_id": envelope["request_id"],
             "correlation_id": envelope["correlation_id"],
@@ -490,7 +499,7 @@ class SemanticTurnProcessor:
             "evidence_digest": evidence_digest,
             "semantic_result": semantic_result,
         }
-        return OPERATOR_PROJECTION_PRODUCER_V12.encode(projection)
+        return OPERATOR_PROJECTION_PRODUCER_V13.encode(projection)
 
     def _held_projection(
         self,
@@ -633,7 +642,16 @@ def _project_runtime_result(
         )
         disposition = result.disposition if result.disposition in reason_codes else "held"
         answer = result.planning.clarification if result.disposition == "clarification" else None
-        return _terminal_result(request, disposition, reason_code, answer=answer), None
+        return _terminal_result(
+            request,
+            disposition,
+            reason_code,
+            answer=answer,
+            assurance_observation=project_semantic_assurance(
+                result,
+                disposition=disposition,
+            ),
+        ), None
 
     planning = result.planning
     plan = planning.plan
@@ -641,16 +659,20 @@ def _project_runtime_result(
     execution = result.execution
     verified_plan_failure = _verified_plan_failure(result, plan, execution)
     if verified_plan_failure is not None or frame is None or plan is None or execution is None:
-        return _evidence_incomplete(request, verified_plan_failure or "plan_missing"), None
+        return _evidence_incomplete(
+            request,
+            verified_plan_failure or "plan_missing",
+            result=result,
+        ), None
     evidence_refs = tuple(
         dict.fromkeys(
             evidence_ref for receipt in execution.receipts for evidence_ref in receipt.evidence_refs
         )
     )
     if not evidence_refs:
-        return _evidence_incomplete(request, "no_evidence_refs"), None
+        return _evidence_incomplete(request, "no_evidence_refs", result=result), None
     if len(evidence_refs) > MAX_SEMANTIC_EVIDENCE_REFS:
-        return _evidence_incomplete(request, "too_many_evidence_refs"), None
+        return _evidence_incomplete(request, "too_many_evidence_refs", result=result), None
     execution_receipt_digest = content_digest(
         {
             "plan_digest": execution.plan_digest,
@@ -662,13 +684,21 @@ def _project_runtime_result(
     checks_total = len(execution.receipts)
     rule_search_found, rule_search, rule_search_node_id = _project_rule_search(result, execution)
     if rule_search_found and rule_search is None:
-        return _evidence_incomplete(request, "rule_search_projection_rejected"), None
+        return _evidence_incomplete(
+            request,
+            "rule_search_projection_rejected",
+            result=result,
+        ), None
     incident_found, incident_evidence, incident_node_id = _project_incident_evidence(
         result,
         execution,
     )
     if incident_found and incident_evidence is None:
-        return _evidence_incomplete(request, "incident_evidence_projection_rejected"), None
+        return _evidence_incomplete(
+            request,
+            "incident_evidence_projection_rejected",
+            result=result,
+        ), None
     unsatisfied_binding = _unsatisfied_incident_binding(request, incident_evidence)
     if unsatisfied_binding is not None:
         return _terminal_result(
@@ -682,7 +712,11 @@ def _project_runtime_result(
         execution,
     )
     if relationships_found and relationships is None:
-        return _evidence_incomplete(request, "relationship_projection_rejected"), None
+        return _evidence_incomplete(
+            request,
+            "relationship_projection_rejected",
+            result=result,
+        ), None
     answer, technical_details = _render_query_answer(
         request,
         execution,
@@ -696,7 +730,7 @@ def _project_runtime_result(
         ontology_relationships_node_id=relationships_node_id,
     )
     if answer is None or technical_details is None:
-        return _evidence_incomplete(request, "answer_rendering_rejected"), None
+        return _evidence_incomplete(request, "answer_rendering_rejected", result=result), None
     return ContractSemanticTurnResult(
         disposition=SemanticTurnDisposition.ANSWERED,
         reason_code="semantic_answer_verified",
@@ -714,6 +748,10 @@ def _project_runtime_result(
         checks_completed=checks_total,
         checks_total=checks_total,
         answer=answer,
+        assurance_observation=project_semantic_assurance(
+            result,
+            disposition="answered",
+        ),
     ), _SemanticProjectionExtensions(
         rule_search=rule_search,
         technical_details=technical_details,
@@ -773,6 +811,10 @@ def _project_execution_hold(
         checks_completed=completed,
         checks_total=len(execution.receipts),
         answer=_render_execution_hold_answer(request, execution),
+        assurance_observation=project_semantic_assurance(
+            result,
+            disposition="held",
+        ),
     )
 
 
@@ -1280,9 +1322,18 @@ def _verified_plan_failure(
 def _evidence_incomplete(
     request: SemanticTurnRequest,
     failure_type: str,
+    *,
+    result: RuntimeSemanticTurnResult | None = None,
 ) -> ContractSemanticTurnResult:
     _LOGGER.warning("semantic_turn_evidence_incomplete", extra={"failure_type": failure_type})
-    return _terminal_result(request, "held", "semantic_evidence_incomplete")
+    return _terminal_result(
+        request,
+        "held",
+        "semantic_evidence_incomplete",
+        assurance_observation=(
+            project_semantic_assurance(result, disposition="held") if result is not None else None
+        ),
+    )
 
 
 def _projected_answer_evidence_is_complete(
@@ -1344,6 +1395,7 @@ def _terminal_result(
     reason_code: str,
     *,
     answer: str | None = None,
+    assurance_observation: SemanticAssuranceObservation | None = None,
 ) -> ContractSemanticTurnResult:
     semantic_route = _ROUTE_BY_DISPOSITION.get(disposition)
     unavailable_reason: SemanticUnavailableReason | None = None
@@ -1362,6 +1414,7 @@ def _terminal_result(
         turn_id=request.turn_id,
         turn_sequence=request.turn_sequence,
         answer=answer or _terminal_answer(request.locale, disposition, reason_code),
+        assurance_observation=assurance_observation,
     )
 
 
@@ -2964,7 +3017,7 @@ def _canonical_projection(encoded: bytes, *, request_digest: str) -> bytes:
         raise ValueError("stored semantic projection payload MUST be an object")
     if projection_payload.get("request_digest") != request_digest:
         raise SemanticTurnRejectedError("semantic_idempotency_conflict")
-    return OPERATOR_PROJECTION_PRODUCER_V12.encode(loaded)
+    return OPERATOR_PROJECTION_PRODUCER_V13.encode(loaded)
 
 
 def _aware_utc(value: datetime, *, field: str) -> datetime:

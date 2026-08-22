@@ -94,8 +94,7 @@ code { font-family: var(--cs-font-mono); font-size: .88em; background: var(--cs-
 .cs-heading-link:hover { color: var(--cs-steel); text-decoration: none; }
 .cs-components-page .cs-badge-num { width: 24px; height: 24px; margin-top: 0; border-radius: 0; background: transparent; color: var(--cs-text-soft); font-family: var(--cs-font-mono); font-size: 10px; font-weight: 600; }
 .cs-components-page .cs-section-title .cs-desc { max-width: 68ch; font-size: var(--cs-type-compact-size); line-height: var(--cs-type-compact-line-height); }
-.cs-components-page .js-chartable { position: relative; padding-bottom: 34px; }
-.cs-components-page .js-chartable::after { position: absolute; right: 14px; bottom: 10px; color: var(--cs-steel); content: "Inspect data"; font-size: var(--cs-type-label-size); font-weight: 600; }
+.cs-components-page .js-chartable { position: relative; }
 .cs-interaction-matrix { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 24px; padding: 20px 0; border-top: 1px solid var(--cs-hairline); border-bottom: 1px solid var(--cs-hairline); }
 .cs-interaction-sample { display: grid; align-content: start; gap: 8px; }
 .cs-interaction-sample > span { color: var(--cs-text-soft); font-size: var(--cs-type-label-size); font-weight: 600; }
@@ -764,6 +763,28 @@ body.cs-has-sidebar { padding-left: var(--cs-sidebar-w); }
 .cs-stackbar-legend .dot { width: 8px; height: 8px; border-radius: 2px; display: inline-block; margin-right: 5px; vertical-align: middle; }
 
 /* Chart gallery - static SVG/CSS views with data-table modal fallback. */
+.cs-chart-grid,
+.cs-chart-family-grid {
+  --tremor-blue: #3b82f6;
+  --tremor-emerald: #10b981;
+  --tremor-violet: #8b5cf6;
+  --tremor-amber: #f59e0b;
+  --tremor-gray: #6b7280;
+  --tremor-cyan: #06b6d4;
+  --tremor-pink: #ec4899;
+  --tremor-lime: #84cc16;
+  --tremor-fuchsia: #d946ef;
+}
+.cs-chart-composition-grid {
+  --tremor-blue: #3b82f6;
+  --tremor-emerald: #10b981;
+  --tremor-violet: #8b5cf6;
+  --tremor-amber: #f59e0b;
+  --tremor-gray: #6b7280;
+  --tremor-cyan: #06b6d4;
+  --tremor-pink: #ec4899;
+  --tremor-fuchsia: #d946ef;
+}
 .cs-chart-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 0 0 24px; }
 .cs-chart-card { min-width: 0; margin: 0; padding: 18px; border: 1px solid var(--cs-hairline); border-radius: 8px; background: var(--cs-card); box-shadow: 0 2px 8px rgba(46,54,64,.04); }
 .cs-chart-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
@@ -772,57 +793,235 @@ body.cs-has-sidebar { padding-left: var(--cs-sidebar-w); }
 .cs-chart-value { flex: 0 0 auto; text-align: right; }
 .cs-chart-value strong { display: block; font-size: 22px; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .cs-chart-value small { display: block; margin-top: 3px; color: var(--cs-sage); font-size: 10px; }
+.cs-chart-svg-wrap { position: relative; }
 .cs-chart-svg { display: block; width: 100%; height: auto; overflow: visible; }
-.cs-chart-gridline { stroke: var(--cs-hairline); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.cs-chart-gridline { stroke: color-mix(in srgb, var(--cs-hairline) 72%, transparent); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .cs-chart-axis { fill: var(--cs-text-soft); font-family: var(--cs-font); font-size: 8px; letter-spacing: 0; }
-.cs-chart-area { fill: rgba(68,104,142,.08); }
-.cs-chart-line { fill: none; stroke: var(--cs-steel); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
-.cs-chart-point { fill: var(--cs-card); stroke: var(--cs-steel); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.cs-chart-area { fill: color-mix(in srgb, var(--tremor-blue) 9%, transparent); }
+.cs-chart-reference { fill: none; stroke: color-mix(in srgb, var(--cs-text-soft) 58%, transparent); stroke-width: 1; stroke-dasharray: 3 4; vector-effect: non-scaling-stroke; }
+.cs-chart-line { fill: none; stroke: var(--tremor-blue); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.cs-chart-point { fill: var(--cs-card); stroke: var(--tremor-blue); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.cs-chart-point.is-current { fill: var(--tremor-blue); stroke: var(--cs-card); stroke-width: 2.5; }
+.cs-chart-annotation { fill: var(--cs-text-soft); font-family: var(--cs-font); font-size: 7px; font-weight: 600; letter-spacing: 0; }
+[data-chart-mark] { cursor: crosshair; }
+[data-chart-mark]:focus-visible { outline: 2px solid var(--cs-steel); outline-offset: 2px; }
+.cs-chart-spot { position: absolute; left: var(--spot-x); top: var(--spot-y); width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: transparent; transform: translate(-50%, -50%); }
+.cs-chart-spot::after { position: absolute; inset: 50% auto auto 50%; width: 7px; height: 7px; border: 2px solid var(--tremor-blue); border-radius: 50%; background: var(--cs-card); content: ""; transform: translate(-50%, -50%); }
+.cs-chart-spot.is-current::after { background: var(--tremor-blue); box-shadow: 0 0 0 2px var(--cs-card); }
+.cs-chart-spot:hover::after,
+.cs-chart-spot:focus-visible::after { width: 10px; height: 10px; }
+.cs-chart-mark-tip { position: fixed; z-index: 1000; max-width: min(280px, calc(100vw - 32px)); padding: 6px 8px; border: 1px solid var(--cs-hairline); border-radius: 5px; background: var(--cs-text); color: var(--cs-card); box-shadow: 0 4px 14px rgba(0,0,0,.18); font-size: 10px; line-height: 1.35; overflow-wrap: anywhere; pointer-events: none; transform: translate(-50%, calc(-100% - 8px)); }
+.cs-chart-mark-tip.is-side { transform: translate(0, -50%); }
+.cs-chart-mark-tip.is-side.is-left { transform: translate(-100%, -50%); }
+.cs-chart-mark-tip.is-side.is-clamped { transform: translate(0, -50%); }
 .cs-chart-bars { display: grid; gap: 11px; margin-top: 18px; }
-.cs-chart-bar-row { display: grid; grid-template-columns: 78px minmax(0, 1fr) 34px; align-items: center; gap: 8px; }
+.cs-chart-bar-row { display: grid; grid-template-columns: 78px minmax(0, 1fr) 42px; align-items: center; gap: 8px; }
 .cs-chart-bar-row > span { overflow: hidden; color: var(--cs-text-soft); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-.cs-chart-bar-row > strong { font-size: 11px; font-variant-numeric: tabular-nums; text-align: right; }
+.cs-chart-bar-row > strong { font-size: 11px; font-variant-numeric: tabular-nums; line-height: 1.05; text-align: right; }
+.cs-chart-bar-row > strong small { display: block; margin-top: 3px; color: var(--cs-sage); font-size: 8px; font-weight: 600; }
 .cs-chart-bar-track { position: relative; height: 8px; border-radius: var(--cs-radius-pill); background: var(--cs-shade); }
 .cs-chart-bar-baseline, .cs-chart-bar-current { position: absolute; inset: 0 auto 0 0; border-radius: inherit; }
-.cs-chart-bar-baseline { width: var(--baseline); background: rgba(68,104,142,.18); }
-.cs-chart-bar-current { top: 2px; bottom: 2px; width: var(--current); background: var(--cs-steel); }
+.cs-chart-bar-baseline { top: -3px; bottom: -3px; left: var(--baseline); width: 2px; border-radius: 1px; background: var(--cs-text-soft); }
+.cs-chart-bar-current { width: var(--current); background: var(--tremor-blue); }
 .cs-chart-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 13px; color: var(--cs-text-soft); font-size: 10px; }
 .cs-chart-legend span { display: inline-flex; align-items: center; gap: 5px; }
-.cs-chart-legend i { width: 8px; height: 8px; border-radius: 2px; background: var(--legend-color, var(--cs-steel)); }
-.cs-chart-legend .is-baseline i { background: rgba(68,104,142,.18); }
-.cs-chart-donut-layout { display: grid; grid-template-columns: 132px minmax(0, 1fr); align-items: center; gap: 18px; min-height: 154px; }
-.cs-chart-donut { position: relative; width: 132px; height: 132px; }
-.cs-chart-donut svg { display: block; width: 100%; height: 100%; transform: rotate(-90deg); }
-.cs-chart-donut-track, .cs-chart-donut-segment { fill: none; stroke-width: 8; }
-.cs-chart-donut-track { stroke: var(--cs-shade); }
-.cs-chart-donut-segment { stroke: var(--segment-color); stroke-dasharray: var(--segment-size) calc(100 - var(--segment-size)); stroke-dashoffset: calc(-1 * var(--segment-offset)); }
-.cs-chart-donut-center { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; }
-.cs-chart-donut-center strong { font-size: 24px; line-height: 1; font-variant-numeric: tabular-nums; }
-.cs-chart-donut-center small { margin-top: 4px; color: var(--cs-text-soft); font-size: 9px; text-transform: uppercase; }
-.cs-chart-donut-legend { display: grid; grid-template-columns: 1fr; gap: 7px; }
-.cs-chart-donut-legend span { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto; align-items: center; gap: 6px; color: var(--cs-text-soft); font-size: 10px; }
-.cs-chart-donut-legend i { width: 8px; height: 8px; border-radius: 50%; background: var(--legend-color); }
-.cs-chart-donut-legend b { color: var(--cs-text); font-size: 11px; font-variant-numeric: tabular-nums; }
+.cs-chart-legend i { width: 8px; height: 8px; border-radius: 2px; background: var(--legend-color, var(--tremor-blue)); }
+.cs-chart-legend .is-baseline i { width: 2px; border-radius: 1px; background: var(--cs-text-soft); }
+.cs-chart-distribution { display: grid; align-content: center; gap: 22px; min-height: 154px; }
+.cs-chart-distribution-bar { display: flex; width: 100%; height: 14px; overflow: hidden; border-radius: 4px; background: var(--cs-shade); }
+.cs-chart-distribution-bar i { display: block; height: 100%; }
+.cs-chart-distribution-bar .is-auto { background: var(--tremor-blue); }
+.cs-chart-distribution-bar .is-approval { background: var(--tremor-emerald); }
+.cs-chart-distribution-bar .is-review { background: var(--tremor-violet); }
+.cs-chart-distribution-bar .is-deny { background: var(--tremor-amber); }
+.cs-chart-distribution-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 20px; }
+.cs-chart-distribution-list span { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto; align-items: center; gap: 7px; min-width: 0; }
+.cs-chart-distribution-list span > i { width: 8px; height: 8px; border-radius: 2px; background: var(--legend-color); }
+.cs-chart-distribution-list b { overflow: hidden; color: var(--cs-text-soft); font-size: 10px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.cs-chart-distribution-list strong { font-size: 11px; font-variant-numeric: tabular-nums; }
+.cs-chart-distribution-list small { display: none; }
 .cs-heatmap { display: grid; grid-template-columns: 34px repeat(7, minmax(18px, 1fr)); gap: 5px; align-items: center; margin-top: 16px; }
 .cs-heatmap-label { color: var(--cs-text-soft); font-size: 9px; text-align: center; }
 .cs-heatmap-label.is-row { text-align: right; }
 .cs-heatmap-cell { min-height: 25px; border: 1px solid rgba(68,104,142,.05); border-radius: 4px; background: var(--cs-shade); }
-.cs-heatmap-cell.is-1 { background: rgba(68,104,142,.14); }
-.cs-heatmap-cell.is-2 { background: rgba(68,104,142,.30); }
-.cs-heatmap-cell.is-3 { background: rgba(68,104,142,.52); }
-.cs-heatmap-cell.is-4 { background: rgba(68,104,142,.78); }
-.cs-heatmap-legend { justify-content: flex-end; }
-.cs-heatmap-legend i { background: rgba(68,104,142,.18); }
-.cs-heatmap-legend .is-high i { background: rgba(68,104,142,.78); }
+.cs-heatmap-cell.is-1 { background: color-mix(in srgb, var(--tremor-blue) 18%, var(--cs-card)); }
+.cs-heatmap-cell.is-2 { background: color-mix(in srgb, var(--tremor-blue) 36%, var(--cs-card)); }
+.cs-heatmap-cell.is-3 { background: color-mix(in srgb, var(--tremor-blue) 58%, var(--cs-card)); }
+.cs-heatmap-cell.is-4 { background: color-mix(in srgb, var(--tremor-blue) 82%, var(--cs-card)); }
+.cs-heatmap-cell.is-peak { box-shadow: 0 0 0 1px var(--cs-card), 0 0 0 2px var(--cs-steel); }
+.cs-heatmap-scale { display: grid; grid-template-columns: auto minmax(72px, 112px) auto; justify-content: end; align-items: center; gap: 7px; margin-top: 12px; color: var(--cs-text-soft); font-size: 9px; font-variant-numeric: tabular-nums; }
+.cs-heatmap-scale i { height: 5px; border-radius: var(--cs-radius-pill); background: linear-gradient(90deg, var(--cs-shade), var(--tremor-blue)); }
+.cs-chart-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; padding-top: 10px; border-top: 1px solid var(--cs-hairline); }
+.cs-chart-foot > span { overflow: hidden; color: var(--cs-text-soft); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.cs-chart-foot button { flex: 0 0 auto; min-height: 30px; padding: 4px 8px; border: 1px solid var(--cs-hairline); border-radius: 5px; background: transparent; color: var(--cs-steel); font: 600 10px var(--cs-font); cursor: pointer; }
+.cs-chart-foot button:hover { border-color: color-mix(in srgb, var(--cs-steel) 40%, var(--cs-hairline)); background: var(--cs-shade); }
+.cs-chart-foot button:focus-visible { outline: 2px solid var(--cs-steel); outline-offset: 2px; }
+.cs-chart-family-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin: 4px 0 12px; }
+.cs-chart-family-head h3 { margin: 0; font-size: 14px; }
+.cs-chart-family-head p { margin: 0; color: var(--cs-text-soft); font-size: 10px; }
+.cs-chart-family-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 24px; }
+.cs-chart-family-card { display: grid; grid-template-rows: auto minmax(96px, 1fr) auto; min-width: 0; min-height: 190px; padding: 14px; border: 1px solid var(--cs-hairline); border-radius: 8px; background: var(--cs-card); }
+.cs-chart-family-card > div:first-child { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.cs-chart-family-card h4 { margin: 0; font-size: 12px; }
+.cs-chart-family-card > div:first-child span { color: var(--cs-text-soft); font-size: 9px; }
+.cs-chart-family-card > svg,
+.cs-family-series > svg { width: 100%; height: 100%; }
+.cs-chart-family-card svg .is-grid { fill: none; stroke: var(--cs-hairline); stroke-width: 1; }
+.cs-chart-family-card svg .is-area { opacity: .15; }
+.cs-chart-family-card svg .is-line { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.cs-chart-family-card svg .is-blue { fill: var(--tremor-blue); stroke: var(--tremor-blue); }
+.cs-chart-family-card svg .is-emerald { fill: var(--tremor-emerald); stroke: var(--tremor-emerald); }
+.cs-chart-family-card svg .is-violet { fill: var(--tremor-violet); stroke: var(--tremor-violet); }
+.cs-chart-family-card footer { display: flex; flex-wrap: wrap; gap: 5px 10px; padding-top: 8px; border-top: 1px solid var(--cs-hairline); color: var(--cs-text-soft); font-size: 9px; }
+.cs-chart-family-card footer span { display: inline-flex; align-items: center; gap: 4px; }
+.cs-chart-family-card footer i { width: 7px; height: 7px; border-radius: 2px; background: currentColor; }
+.cs-chart-family-card .is-blue { color: var(--tremor-blue); background: var(--tremor-blue); }
+.cs-chart-family-card .is-emerald { color: var(--tremor-emerald); background: var(--tremor-emerald); }
+.cs-chart-family-card .is-violet { color: var(--tremor-violet); background: var(--tremor-violet); }
+.cs-chart-family-card .is-amber { color: var(--tremor-amber); background: var(--tremor-amber); }
+.cs-chart-family-card .is-gray { color: var(--tremor-gray); background: var(--tremor-gray); }
+.cs-chart-family-card .is-cyan { color: var(--tremor-cyan); background: var(--tremor-cyan); }
+.cs-chart-family-card .is-pink { color: var(--tremor-pink); background: var(--tremor-pink); }
+.cs-chart-family-card .is-lime { color: var(--tremor-lime); background: var(--tremor-lime); }
+.cs-chart-family-card .is-fuchsia { color: var(--tremor-fuchsia); background: var(--tremor-fuchsia); }
+.cs-family-series { position: relative; min-height: 96px; }
+.cs-family-series-slice { position: absolute; top: 0; bottom: 0; left: var(--slice-left); width: 14.29%; padding: 0; border: 0; background: transparent; cursor: crosshair; }
+.cs-family-series-slice::before { position: absolute; top: 8px; bottom: 8px; left: var(--point-x); width: 1px; background: color-mix(in srgb, var(--cs-text-soft) 50%, transparent); content: ""; opacity: 0; }
+.cs-family-series-slice > i { position: absolute; left: var(--point-x); top: var(--point-y); width: 7px; height: 7px; border: 2px solid currentColor; border-radius: 50%; background: var(--cs-card); opacity: 0; transform: translate(-50%, -50%); }
+.cs-family-series-slice:hover::before,
+.cs-family-series-slice:hover > i,
+.cs-family-series-slice:focus-visible::before,
+.cs-family-series-slice:focus-visible > i { opacity: 1; }
+.cs-family-bars { position: relative; display: flex; align-items: end; justify-content: space-around; gap: 5px; padding: 12px 8px 8px; }
+.cs-family-bars > span { position: relative; width: 18%; height: var(--bar-a); border-radius: 2px 2px 0 0; background: var(--tremor-violet); }
+.cs-family-bars > span::after { position: absolute; right: 0; bottom: 0; width: 44%; height: var(--bar-b); border-radius: 2px 2px 0 0; background: var(--tremor-amber); content: ""; }
+.cs-family-bars svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.cs-family-bars svg path { fill: none; stroke: var(--tremor-blue); stroke-width: 2; }
+.cs-family-radials { display: flex; align-items: center; justify-content: space-evenly; gap: 16px; }
+.cs-family-radials > i { display: grid; place-items: center; width: 78px; aspect-ratio: 1; border-radius: 50%; background: conic-gradient(var(--tremor-blue) 0 52%, var(--tremor-emerald) 52% 76%, var(--tremor-violet) 76% 91%, var(--tremor-amber) 91%); }
+.cs-family-radials .is-donut::after { width: 48px; aspect-ratio: 1; border-radius: 50%; background: var(--cs-card); content: ""; }
+.cs-family-radials b { position: absolute; z-index: 1; color: var(--cs-text); font: 600 10px var(--cs-font); }
+.cs-family-sparks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: center; gap: 8px; }
+.cs-family-sparks svg { width: 100%; height: 44px; }
+.cs-family-sparks .is-spark-area { fill: color-mix(in srgb, var(--tremor-cyan) 20%, transparent); }
+.cs-family-sparks .is-spark-line { fill: none; stroke-width: 2; stroke-linecap: round; }
+.cs-family-sparks .is-cyan { stroke: var(--tremor-cyan); }
+.cs-family-sparks .is-pink { stroke: var(--tremor-pink); }
+.cs-family-spark-bars { display: flex; align-items: end; gap: 3px; height: 34px; }
+.cs-family-spark-bars i { flex: 1; border-radius: 1px 1px 0 0; background: var(--tremor-lime); }
+.cs-family-progress { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; }
+.cs-family-progress > span { height: 8px; border-radius: 999px; background: var(--cs-shade); }
+.cs-family-progress > span i { display: block; width: 72%; height: 100%; border-radius: inherit; background: var(--tremor-emerald); }
+.cs-family-progress strong { font-size: 11px; }
+.cs-family-progress em { display: grid; place-items: center; width: 64px; aspect-ratio: 1; border-radius: 50%; background: conic-gradient(var(--tremor-amber) 0 84%, var(--cs-shade) 84%); color: var(--cs-text); font: normal 600 10px var(--cs-font); }
+.cs-family-progress em::before { position: absolute; width: 44px; aspect-ratio: 1; border-radius: 50%; background: var(--cs-card); content: ""; }
+.cs-family-progress em { position: relative; }
+.cs-family-progress em::after { position: relative; content: "84%"; }
+.cs-family-progress em { font-size: 0; }
+.cs-family-tracker { display: flex; gap: 2px; align-items: stretch; height: 20px; margin-top: 18px; }
+.cs-family-tracker i { flex: 1; min-width: 2px; border-radius: 2px; }
+.cs-family-scatter { position: relative; min-height: 70px; margin-top: 6px; border-bottom: 1px solid var(--cs-hairline); border-left: 1px solid var(--cs-hairline); }
+.cs-family-scatter i { position: absolute; left: var(--x); top: var(--y); width: 7px; height: 7px; border-radius: 50%; transform: translate(-50%, -50%); }
+.cs-family-bars > [data-chart-mark]:hover,
+.cs-family-bars > [data-chart-mark]:focus-visible,
+.cs-family-tracker [data-chart-mark]:hover,
+.cs-family-tracker [data-chart-mark]:focus-visible,
+.cs-family-scatter [data-chart-mark]:hover,
+.cs-family-scatter [data-chart-mark]:focus-visible { filter: brightness(1.12) saturate(1.08); }
+.cs-family-scatter [data-chart-mark]:hover,
+.cs-family-scatter [data-chart-mark]:focus-visible { width: 10px; height: 10px; }
+.cs-chart-composition-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin: 4px 0 12px; }
+.cs-chart-composition-head h3 { margin: 0; font-size: 14px; }
+.cs-chart-composition-head p { margin: 0; color: var(--cs-text-soft); font-size: 10px; }
+.cs-chart-composition-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 24px; }
+.cs-chart-composition-card { display: grid; align-content: start; min-width: 0; min-height: 240px; padding: 16px; border: 1px solid var(--cs-hairline); border-radius: 8px; background: var(--cs-card); }
+.cs-chart-composition-card.is-wide { grid-column: span 2; min-height: 390px; }
+.cs-chart-composition-card > header { display: grid; gap: 3px; }
+.cs-chart-composition-card > header span { color: var(--cs-text-soft); font-size: 11px; }
+.cs-chart-composition-card > header strong { font-size: 23px; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.cs-chart-composition-card > header small { color: var(--cs-text-soft); font-size: 9px; }
+.cs-composition-legend { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px 14px; margin-top: 18px; color: var(--cs-text-soft); font-size: 9px; }
+.cs-composition-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.cs-composition-legend i,
+.cs-composition-summary dt i { width: 8px; height: 3px; border-radius: 2px; background: currentColor; }
+.cs-composition-series { position: relative; min-height: 230px; margin-top: 4px; }
+.cs-composition-series > svg,
+.cs-composition-mini-series > svg { display: block; width: 100%; height: 100%; }
+.cs-chart-composition-card svg .is-grid { fill: none; stroke: var(--cs-hairline); stroke-width: 1; }
+.cs-chart-composition-card svg .is-line { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.cs-chart-composition-card svg .is-area { opacity: .12; }
+.cs-chart-composition-card svg .is-blue { stroke: var(--tremor-blue); }
+.cs-chart-composition-card svg .is-cyan { stroke: var(--tremor-cyan); }
+.cs-chart-composition-card svg .is-fuchsia { stroke: var(--tremor-fuchsia); }
+.cs-chart-composition-card svg .is-pink { stroke: var(--tremor-pink); }
+.cs-chart-composition-card svg .is-gray { fill: none; stroke: var(--tremor-gray); }
+.cs-chart-composition-card svg .is-area.is-blue { fill: var(--tremor-blue); }
+.cs-chart-composition-card svg .is-area.is-cyan { fill: var(--tremor-cyan); }
+.cs-chart-composition-card svg .is-area.is-fuchsia { fill: var(--tremor-fuchsia); }
+.cs-chart-composition-card svg .is-area.is-pink { fill: var(--tremor-pink); }
+.cs-chart-composition-card svg .is-y-axis,
+.cs-chart-composition-card svg .is-x-axis { fill: var(--cs-text-soft); font: 8px var(--cs-font); letter-spacing: 0; }
+.cs-chart-composition-card svg .is-y-axis { text-anchor: end; }
+.cs-composition-slice { position: absolute; top: 0; bottom: 18px; left: var(--slice-left); width: 20%; padding: 0; border: 0; background: transparent; cursor: crosshair; }
+.cs-composition-slice::before { position: absolute; top: 8px; bottom: 0; left: var(--point-x); width: 1px; background: color-mix(in srgb, var(--cs-text-soft) 50%, transparent); content: ""; opacity: 0; }
+.cs-composition-slice > i { position: absolute; top: var(--point-y); left: var(--point-x); width: 8px; height: 8px; border: 2px solid currentColor; border-radius: 50%; background: var(--cs-card); opacity: 0; transform: translate(-50%, -50%); }
+.cs-composition-slice:hover::before,
+.cs-composition-slice:hover > i,
+.cs-composition-slice:focus-visible::before,
+.cs-composition-slice:focus-visible > i { opacity: 1; }
+.cs-composition-mini-series { height: 116px; margin-top: 20px; cursor: crosshair; }
+.cs-composition-summary { display: flex; flex-wrap: wrap; gap: 10px 20px; margin: 16px 0 0; }
+.cs-composition-summary > div { display: grid; gap: 3px; }
+.cs-composition-summary dt { display: flex; align-items: center; gap: 6px; color: var(--cs-text-soft); font-size: 9px; }
+.cs-composition-summary dd { margin: 0; font-size: 14px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.cs-composition-allocation { display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; gap: 16px; margin-top: 22px; }
+.cs-composition-allocation > i { display: block; width: 96px; aspect-ratio: 1; border-radius: 50%; background: conic-gradient(var(--tremor-cyan) 0 32.1%, var(--tremor-blue) 32.1% 51.7%, var(--tremor-violet) 51.7% 70.3%, var(--tremor-pink) 70.3% 85.6%, var(--tremor-fuchsia) 85.6%); cursor: crosshair; }
+.cs-composition-allocation > i::after { display: block; width: 56px; aspect-ratio: 1; margin: 20px; border-radius: 50%; background: var(--cs-card); content: ""; }
+.cs-composition-allocation ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.cs-composition-allocation li { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto; align-items: center; gap: 6px; color: var(--cs-text-soft); font-size: 9px; }
+.cs-composition-allocation li b { width: 8px; height: 8px; border-radius: 2px; }
+.cs-composition-allocation li strong { color: var(--cs-text); font-variant-numeric: tabular-nums; }
+.cs-composition-bars { display: flex; align-items: end; justify-content: space-around; gap: 8px; height: 130px; margin-top: 16px; border-bottom: 1px solid var(--cs-hairline); }
+.cs-composition-bars > i { position: relative; width: 16%; height: var(--a); border-radius: 2px 2px 0 0; background: var(--tremor-blue); cursor: crosshair; }
+.cs-composition-bars > i::after { position: absolute; right: 0; bottom: 0; width: 44%; height: var(--b); border-radius: 2px 2px 0 0; background: var(--tremor-violet); content: ""; }
+.cs-composition-uptime { display: flex; width: 100%; height: 12px; overflow: hidden; margin-top: 28px; border-radius: 4px; background: var(--cs-shade); cursor: crosshair; }
+.cs-composition-uptime i { display: block; height: 100%; }
+.cs-chart-composition-card .is-blue { color: var(--tremor-blue); }
+.cs-chart-composition-card .is-cyan { color: var(--tremor-cyan); }
+.cs-chart-composition-card .is-violet { color: var(--tremor-violet); }
+.cs-chart-composition-card .is-amber { color: var(--tremor-amber); }
+.cs-chart-composition-card .is-gray { color: var(--tremor-gray); }
+.cs-chart-composition-card .is-fuchsia { color: var(--tremor-fuchsia); }
+.cs-chart-composition-card i.is-blue,
+.cs-chart-composition-card b.is-blue { background: var(--tremor-blue); }
+.cs-chart-composition-card i.is-cyan,
+.cs-chart-composition-card b.is-cyan { background: var(--tremor-cyan); }
+.cs-chart-composition-card i.is-violet,
+.cs-chart-composition-card b.is-violet { background: var(--tremor-violet); }
+.cs-chart-composition-card i.is-amber,
+.cs-chart-composition-card b.is-amber { background: var(--tremor-amber); }
+.cs-chart-composition-card i.is-gray,
+.cs-chart-composition-card b.is-gray { background: var(--tremor-gray); }
+.cs-chart-composition-card i.is-fuchsia,
+.cs-chart-composition-card b.is-fuchsia { background: var(--tremor-fuchsia); }
 @media (max-width: 900px) { .cs-chart-grid { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .cs-chart-family-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 900px) { .cs-chart-composition-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 520px) {
   .cs-chart-card { padding: 14px; }
-  .cs-chart-donut-layout { grid-template-columns: 108px minmax(0, 1fr); gap: 12px; }
-  .cs-chart-donut { width: 108px; height: 108px; }
-  .cs-chart-donut-legend { grid-template-columns: 1fr; gap: 5px; }
-  .cs-chart-bar-row { grid-template-columns: 62px minmax(0, 1fr) 30px; }
+  .cs-chart-bar-row { grid-template-columns: 62px minmax(0, 1fr) 38px; }
+  .cs-chart-distribution-list { column-gap: 12px; }
   .cs-heatmap { grid-template-columns: 28px repeat(7, minmax(16px, 1fr)); gap: 3px; }
   .cs-heatmap-cell { min-height: 21px; }
+  .cs-chart-foot { align-items: flex-start; }
+  .cs-chart-foot > span { white-space: normal; }
+  .cs-chart-family-head { display: grid; gap: 4px; }
+  .cs-chart-family-grid { grid-template-columns: minmax(0, 1fr); }
+  .cs-chart-composition-head { display: grid; gap: 4px; }
+  .cs-chart-composition-grid { grid-template-columns: minmax(0, 1fr); }
+  .cs-chart-composition-card.is-wide { grid-column: auto; min-height: 360px; }
+  .cs-composition-legend { justify-content: flex-start; }
+  .cs-composition-series { min-height: 210px; }
 }
 
 /* Meta list - compact key/value strip used in HIL card, ActionType detail */

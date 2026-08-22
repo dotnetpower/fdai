@@ -113,11 +113,12 @@ including Entra sign-in endpoints, continue to use the workstation's default DNS
 
 When VS Code opens the FDAI workspace, the `dev-access: configure VPN on folder open` task runs
 automatically. A checkout without local `infra/terraform.tfstate` is a quiet no-op. When the VPN is
-connected, the task applies WSL DNS without revealing a terminal. When it is disconnected, the task
-opens Azure VPN Client once and gives the mirrored WSL route a bounded seven-second grace window.
-This absorbs route propagation after WSL or VPN restart without hiding a real disconnect. If the
-route is still unavailable, the task exits with an actionable error so VS Code reveals the failed
-task. The task never connects without the developer's Entra sign-in and MFA.
+connected, the task applies WSL DNS without revealing a terminal and closes its terminal after
+success. When it is disconnected, the task opens Azure VPN Client once and gives the mirrored WSL
+route a bounded seven-second grace window. This absorbs route propagation after WSL or VPN restart
+without hiding a real disconnect. If the route is still unavailable, the task exits with an
+actionable error in the VS Code Problems panel. The task never connects without the developer's
+Entra sign-in and MFA.
 
 ### Use direct VNet access from an Azure VM
 

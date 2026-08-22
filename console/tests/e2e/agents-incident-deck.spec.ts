@@ -81,6 +81,7 @@ async function installOperatorApiFixture(
     readonly executionTimeline?: boolean;
     readonly modelTrace?: boolean;
     readonly presentationArtifact?: Record<string, unknown>;
+    readonly streamDelayMs?: number;
   } = {},
 ): Promise<{
   readonly chatBody: () => Record<string, unknown> | null;
@@ -280,6 +281,9 @@ async function installOperatorApiFixture(
             : {}),
         })}`,
       );
+      if (options.streamDelayMs && options.streamDelayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, options.streamDelayMs));
+      }
       await sse(route, frames);
       return;
     }
@@ -511,6 +515,7 @@ test("defaults to the right dock and restores the last display mode", async ({ p
 
 test("keeps a mock-aligned execution timeline in full workspace", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name === "mobile-chromium", "Mobile hides workspace layout controls.");
+  await page.setViewportSize({ width: 1440, height: 900 });
   await page.addInitScript(() => {
     localStorage.setItem("fdai:console:show-model-trace", "true");
   });
@@ -537,8 +542,17 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
   await expect(investigation.locator(".deck-investigation-badge")).toHaveText("Completed");
   await expect(investigation.locator(".deck-branch-item")).toHaveCount(0);
   await expect(investigation).toHaveClass(/is-answer-settled/);
-  await expect(investigation).toHaveAttribute("open", "");
+  await expect(investigation).not.toHaveAttribute("open", "");
   await expect(investigation.locator(".deck-investigation-item")).toHaveCount(2);
+  await expect(investigation.getByText("Inspect server-owned read evidence")).not.toBeVisible();
+  const settledGeometry = await investigation.evaluate((root) => ({
+    height: root.getBoundingClientRect().height,
+    documentOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  }));
+  expect(settledGeometry.height).toBeLessThanOrEqual(44);
+  expect(settledGeometry.documentOverflow).toBe(0);
+  await investigation.locator(":scope > summary").click();
+  await expect(investigation).toHaveAttribute("open", "");
   await expect(investigation.getByText("Inspect server-owned read evidence")).toBeVisible();
   const queryDisclosure = investigation.locator(".deck-investigation-item-disclosure", {
     hasText: "Inspect server-owned read evidence",
@@ -753,6 +767,148 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
   expect(metrics.commandScrollbar).not.toBe("auto");
   expect(metrics.outputScrollbar).not.toBe("auto");
   expect(metrics.modelMessageScrollbar).not.toBe("auto");
+});
+
+test("keeps completed observed work compact across supported viewports", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("fdai.deck.layout.v1", "workspace");
+  });
+  await installOperatorApiFixture(page, { executionTimeline: true });
+
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 993, height: 641 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto(`/agents?view=org&agent=Var&correlation=${encodeURIComponent(correlationId)}`);
+    await page.getByRole("button", { name: "Open command deck" }).click();
+    const workspace = page.getByRole("dialog", { name: "Command deck" });
+    await workspace.getByRole("toolbar", { name: "Workspace tools" })
+      .getByRole("button", { name: /New conversation/ }).click();
+    await workspace.getByPlaceholder(/Ask anything/i).fill("List resource groups");
+    await workspace.getByRole("button", { name: "Send" }).click();
+
+    await expect(workspace.getByText(/no grounded root cause with citations is recorded/i))
+      .toBeVisible();
+    const investigation = workspace.locator(".deck-investigation.is-answer-settled");
+    const runRecord = workspace.locator(".deck-trajectory");
+    await expect(investigation).not.toHaveAttribute("open", "");
+    await expect(runRecord).not.toHaveAttribute("open", "");
+
+    const geometry = await workspace.evaluate((root) => {
+      const answer = root.querySelector<HTMLElement>(".deck-turn.is-flow-end");
+      const investigation = root.querySelector<HTMLElement>(
+        ".deck-investigation.is-answer-settled",
+      );
+      const transcript = root.querySelector<HTMLElement>(".deck-transcript");
+      const answerBody = root.querySelector<HTMLElement>(".deck-turn.is-flow-end .deck-turn-body");
+      const runRecord = root.querySelector<HTMLElement>(".deck-trajectory");
+      const runSummary = root.querySelector<HTMLElement>(".deck-trajectory-summary");
+      const runStats = root.querySelector<HTMLElement>(".deck-trajectory-stats");
+      const runDuration = root.querySelector<HTMLElement>(".deck-trajectory-duration");
+      const actionControls = Array.from(root.querySelectorAll<HTMLElement>(
+        ".deck-gr-actions button, .deck-gr-actions a",
+      ));
+      const composer = root.querySelector<HTMLElement>(".deck-input-row");
+      const composerInput = root.querySelector<HTMLElement>(".deck-input");
+      const agentSource = root.querySelector<HTMLElement>(".deck-turn-source");
+      const timestamp = root.querySelector<HTMLElement>(".deck-turn-time");
+      const answerBounds = answer?.getBoundingClientRect();
+      const transcriptBounds = transcript?.getBoundingClientRect();
+      const runRecordStyle = runRecord ? getComputedStyle(runRecord) : null;
+      return {
+        answerInsideViewport: Boolean(
+          answerBounds && transcriptBounds &&
+            answerBounds.bottom > transcriptBounds.top && answerBounds.top < transcriptBounds.bottom,
+        ),
+        investigationHeight: investigation?.getBoundingClientRect().height ?? Number.POSITIVE_INFINITY,
+        answerWidth: answerBounds?.width ?? 0,
+        answerFontSize: answerBody ? getComputedStyle(answerBody).fontSize : "",
+        runRecordHeight: runRecord?.getBoundingClientRect().height ?? 0,
+        runSummaryHeight: runSummary?.getBoundingClientRect().height ?? 0,
+        runRecordBorderWidth: runRecordStyle?.borderTopWidth ?? "",
+        runRecordRadius: runRecordStyle?.borderRadius ?? "",
+        runStatsFontSize: runStats ? getComputedStyle(runStats).fontSize : "",
+        runDurationFontSize: runDuration ? getComputedStyle(runDuration).fontSize : "",
+        minimumActionHeight: Math.min(
+          ...actionControls.map((control) => control.getBoundingClientRect().height),
+        ),
+        composerHeight: composer?.getBoundingClientRect().height ?? 0,
+        composerInputHeight: composerInput?.getBoundingClientRect().height ?? 0,
+        agentSourceFontSize: agentSource ? getComputedStyle(agentSource).fontSize : "",
+        timestampFontSize: timestamp ? getComputedStyle(timestamp).fontSize : "",
+        documentOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        transcriptOverflow: transcript ? transcript.scrollWidth - transcript.clientWidth : -1,
+      };
+    });
+    expect(geometry.answerInsideViewport).toBe(true);
+    expect(geometry.investigationHeight).toBeLessThanOrEqual(viewport.width <= 640 ? 72 : 44);
+    if (viewport.width >= 993) expect(geometry.answerWidth).toBe(780);
+    else expect(geometry.answerWidth).toBeLessThanOrEqual(viewport.width - 24);
+    expect(geometry.answerFontSize).toBe("15px");
+    expect(geometry.runRecordBorderWidth).toBe("1px");
+    expect(geometry.runRecordRadius).toBe("8px");
+    expect(geometry.runRecordHeight).toBeGreaterThanOrEqual(54);
+    expect(geometry.runRecordHeight).toBeLessThanOrEqual(viewport.width <= 720 ? 82 : 56);
+    expect(geometry.runSummaryHeight).toBeGreaterThanOrEqual(52);
+    expect(geometry.runStatsFontSize).toBe(viewport.width <= 720 ? "12px" : "14px");
+    expect(geometry.runDurationFontSize).toBe(viewport.width <= 720 ? "11px" : "13px");
+    expect(geometry.minimumActionHeight).toBeGreaterThanOrEqual(viewport.width <= 640 ? 44 : 32);
+    expect(geometry.composerHeight).toBeLessThanOrEqual(72);
+    expect(geometry.composerInputHeight).toBeGreaterThanOrEqual(viewport.width <= 640 ? 44 : 40);
+    expect(geometry.agentSourceFontSize).toBe("12px");
+    expect(geometry.timestampFontSize).toBe("12px");
+    expect(geometry.documentOverflow).toBe(0);
+    expect(geometry.transcriptOverflow).toBe(0);
+  }
+});
+
+test("uses shared preparation geometry before the terminal answer", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.addInitScript(() => {
+    localStorage.setItem("fdai.deck.layout.v1", "workspace");
+  });
+  await installOperatorApiFixture(page, { streamDelayMs: 1000 });
+  await page.goto(`/agents?view=org&agent=Var&correlation=${encodeURIComponent(correlationId)}`);
+  await page.getByRole("button", { name: "Open command deck" }).click();
+  const workspace = page.getByRole("dialog", { name: "Command deck" });
+  await workspace.getByPlaceholder(/Ask anything/i).fill("List resource groups");
+  await workspace.getByRole("button", { name: "Send" }).click();
+
+  const preparation = workspace.locator(".deck-rt.cs-grounding-panel");
+  await expect(preparation).toBeVisible();
+  await expect(preparation.locator(".deck-rt-source.cs-grounding-source")).toHaveCount(3);
+  const geometry = await preparation.evaluate((panel) => {
+    const head = panel.querySelector<HTMLElement>(".cs-grounding-head");
+    const stage = panel.querySelector<HTMLElement>(".cs-grounding-stage");
+    const sourceWindow = panel.querySelector<HTMLElement>(".cs-grounding-source-window");
+    const source = panel.querySelector<HTMLElement>(".cs-grounding-source");
+    const agentSource = panel.closest(".deck-rt-turn")?.querySelector<HTMLElement>(
+      ".cs-deck-agent-source",
+    );
+    const panelStyle = getComputedStyle(panel);
+    return {
+      width: panel.getBoundingClientRect().width,
+      borderWidth: panelStyle.borderTopWidth,
+      radius: panelStyle.borderRadius,
+      headHeight: head?.getBoundingClientRect().height ?? 0,
+      stageHeight: stage?.getBoundingClientRect().height ?? 0,
+      sourceWindowHeight: sourceWindow?.getBoundingClientRect().height ?? 0,
+      sourceHeight: source?.getBoundingClientRect().height ?? 0,
+      agentSourceFontSize: agentSource ? getComputedStyle(agentSource).fontSize : "",
+    };
+  });
+  expect(geometry.width).toBe(780);
+  expect(geometry.borderWidth).toBe("1px");
+  expect(geometry.radius).toBe("7px");
+  expect(geometry.headHeight).toBeGreaterThanOrEqual(36);
+  expect(geometry.stageHeight).toBeGreaterThanOrEqual(30);
+  expect(geometry.sourceWindowHeight).toBe(88);
+  expect(geometry.sourceHeight).toBeGreaterThanOrEqual(28);
+  expect(geometry.agentSourceFontSize).toBe("12px");
+  await expect(workspace.getByText(/no grounded root cause with citations is recorded/i))
+    .toBeVisible();
 });
 
 test("keeps responsive table labels visual-only at 320px", async ({ page }) => {

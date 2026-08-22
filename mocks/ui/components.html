@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Components - Calm Slate</title>
-  <link rel="stylesheet" href="assets/calm-slate.css?v=component-gallery-v2" />
+  <link rel="stylesheet" href="assets/calm-slate.css?v=component-gallery-v11" />
 </head>
 <body class="cs-components-page">
   <main class="cs-container cs-page">
@@ -368,53 +368,170 @@
     <section class="cs-section" id="data-views" aria-labelledby="data-views-title">
       <div class="cs-section-head">
         <span class="cs-badge-num" aria-hidden="true">13</span>
-        <div class="cs-section-title"><h2 id="data-views-title">Charts &amp; structured summaries</h2><p class="cs-desc">Trend, comparison, distribution, and density charts with inspectable source data.</p></div>
+        <div class="cs-section-title"><h2 id="data-views-title">Charts &amp; structured summaries</h2><p class="cs-desc">The complete Tremor chart family, plus FDAI comparison, distribution, density, progress, and scatter views with inspectable source data.</p></div>
       </div>
       <div class="cs-chart-grid">
         <figure class="cs-chart-card js-chartable" aria-label="Incident volume trend. Select to inspect daily values." data-chart-title="Incident volume" data-chart-sub="Seven-day synthetic trend" data-chart-columns='["Day","Incidents"]' data-chart-rows='[["Mon","18"],["Tue","24"],["Wed","21"],["Thu","31"],["Fri","27"],["Sat","36"],["Sun","29"]]' data-chart-num-cols="[1]" data-chart-source="Synthetic preview - 7-day window">
           <figcaption class="cs-chart-head"><div><h3>Incident volume</h3><p>7-day trend</p></div><span class="cs-chart-value"><strong>29</strong><small>8% below peak</small></span></figcaption>
-          <svg class="cs-chart-svg" viewBox="0 0 360 150" role="img" aria-label="Line chart rising from 18 incidents on Monday to a peak of 36 on Saturday, ending at 29 on Sunday">
-            <path class="cs-chart-gridline" d="M28 24H348 M28 62H348 M28 100H348 M28 128H348" />
-            <path class="cs-chart-area" d="M28 104 L81 82 L134 91 L188 50 L241 66 L294 28 L348 58 L348 128 L28 128 Z" />
-            <path class="cs-chart-line" d="M28 104 L81 82 L134 91 L188 50 L241 66 L294 28 L348 58" />
-            <g class="cs-chart-point"><circle cx="28" cy="104" r="3" /><circle cx="81" cy="82" r="3" /><circle cx="134" cy="91" r="3" /><circle cx="188" cy="50" r="3" /><circle cx="241" cy="66" r="3" /><circle cx="294" cy="28" r="3" /><circle cx="348" cy="58" r="3" /></g>
-            <g class="cs-chart-axis" text-anchor="middle"><text x="28" y="145">Mon</text><text x="81" y="145">Tue</text><text x="134" y="145">Wed</text><text x="188" y="145">Thu</text><text x="241" y="145">Fri</text><text x="294" y="145">Sat</text><text x="348" y="145">Sun</text></g>
-          </svg>
+          <div class="cs-chart-svg-wrap">
+            <svg class="cs-chart-svg" viewBox="0 0 360 150" role="img" aria-label="Line chart rising from 18 incidents on Monday to a peak of 36 on Saturday, ending at 29 on Sunday, with a seven-day median reference of 27">
+              <path class="cs-chart-gridline" d="M28 28H348 M28 66H348 M28 104H348 M28 128H348" />
+              <path class="cs-chart-area" d="M28 104 L81 82 L134 91 L188 50 L241 66 L294 28 L348 58 L348 128 L28 128 Z" />
+              <path class="cs-chart-reference" d="M28 66H348" />
+              <path class="cs-chart-line" d="M28 104 L81 82 L134 91 L188 50 L241 66 L294 28 L348 58" />
+              <g class="cs-chart-point is-peak"><circle cx="294" cy="28" r="4" /></g>
+              <g class="cs-chart-point is-current"><circle cx="348" cy="58" r="4" /></g>
+              <g class="cs-chart-annotation"><text x="294" y="15" text-anchor="middle">Peak 36</text><text x="32" y="63">Median 27</text></g>
+              <g class="cs-chart-axis" text-anchor="middle"><text x="28" y="145">Mon</text><text x="81" y="145">Tue</text><text x="134" y="145">Wed</text><text x="188" y="145">Thu</text><text x="241" y="145">Fri</text><text x="294" y="145">Sat</text><text x="348" y="145">Sun</text></g>
+            </svg>
+            <button class="cs-chart-spot is-peak" type="button" style="--spot-x:81.67%;--spot-y:18.67%" data-chart-mark data-tooltip="Saturday peak: 36 incidents"></button>
+            <button class="cs-chart-spot is-current" type="button" style="--spot-x:96.67%;--spot-y:38.67%" data-chart-mark data-tooltip="Sunday current: 29 incidents"></button>
+          </div>
+          <div class="cs-chart-foot"><span>Synthetic preview · 7-day window</span><button type="button" data-cs-chart-inspect>Inspect data</button></div>
         </figure>
 
         <figure class="cs-chart-card js-chartable" aria-label="Outcome assurance by domain. Select to inspect current and baseline values." data-chart-title="Outcome assurance" data-chart-sub="Current versus baseline" data-chart-columns='["Domain","Baseline","Current"]' data-chart-rows='[["SRE","72%","91%"],["Change","66%","84%"],["Resilience","78%","88%"],["Cost","58%","76%"]]' data-chart-num-cols="[1,2]" data-chart-source="Synthetic preview - current review window">
           <figcaption class="cs-chart-head"><div><h3>Outcome assurance</h3><p>Current vs baseline</p></div><span class="cs-chart-value"><strong>85%</strong><small>17 pts improved</small></span></figcaption>
           <div class="cs-chart-bars" aria-hidden="true">
-            <div class="cs-chart-bar-row"><span>SRE</span><div class="cs-chart-bar-track" style="--baseline:72%;--current:91%"><i class="cs-chart-bar-baseline"></i><i class="cs-chart-bar-current"></i></div><strong>91%</strong></div>
-            <div class="cs-chart-bar-row"><span>Change</span><div class="cs-chart-bar-track" style="--baseline:66%;--current:84%"><i class="cs-chart-bar-baseline"></i><i class="cs-chart-bar-current"></i></div><strong>84%</strong></div>
-            <div class="cs-chart-bar-row"><span>Resilience</span><div class="cs-chart-bar-track" style="--baseline:78%;--current:88%"><i class="cs-chart-bar-baseline"></i><i class="cs-chart-bar-current"></i></div><strong>88%</strong></div>
-            <div class="cs-chart-bar-row"><span>Cost</span><div class="cs-chart-bar-track" style="--baseline:58%;--current:76%"><i class="cs-chart-bar-baseline"></i><i class="cs-chart-bar-current"></i></div><strong>76%</strong></div>
+            <div class="cs-chart-bar-row"><span>SRE</span><div class="cs-chart-bar-track" style="--baseline:72%;--current:91%" data-chart-mark data-tooltip="SRE: 91%, baseline 72%, improved 19 points"><i class="cs-chart-bar-current"></i><i class="cs-chart-bar-baseline"></i></div><strong>91%<small>+19</small></strong></div>
+            <div class="cs-chart-bar-row"><span>Change</span><div class="cs-chart-bar-track" style="--baseline:66%;--current:84%" data-chart-mark data-tooltip="Change: 84%, baseline 66%, improved 18 points"><i class="cs-chart-bar-current"></i><i class="cs-chart-bar-baseline"></i></div><strong>84%<small>+18</small></strong></div>
+            <div class="cs-chart-bar-row"><span>Resilience</span><div class="cs-chart-bar-track" style="--baseline:78%;--current:88%" data-chart-mark data-tooltip="Resilience: 88%, baseline 78%, improved 10 points"><i class="cs-chart-bar-current"></i><i class="cs-chart-bar-baseline"></i></div><strong>88%<small>+10</small></strong></div>
+            <div class="cs-chart-bar-row"><span>Cost</span><div class="cs-chart-bar-track" style="--baseline:58%;--current:76%" data-chart-mark data-tooltip="Cost: 76%, baseline 58%, improved 18 points"><i class="cs-chart-bar-current"></i><i class="cs-chart-bar-baseline"></i></div><strong>76%<small>+18</small></strong></div>
           </div>
-          <div class="cs-chart-legend" aria-hidden="true"><span><i></i>Current</span><span class="is-baseline"><i></i>Baseline</span></div>
+          <div class="cs-chart-legend" aria-hidden="true"><span><i></i>Current</span><span class="is-baseline"><i></i>Baseline marker</span></div>
+          <div class="cs-chart-foot"><span>Synthetic preview · current review window</span><button type="button" data-cs-chart-inspect>Inspect data</button></div>
         </figure>
 
         <figure class="cs-chart-card js-chartable" aria-label="Gate decision distribution. Select to inspect outcome counts." data-chart-title="Gate decision mix" data-chart-sub="Last 1,248 decisions" data-chart-columns='["Decision","Count","Share"]' data-chart-rows='[["Auto","899","72%"],["Approval","225","18%"],["Review","87","7%"],["Deny","37","3%"]]' data-chart-num-cols="[1,2]" data-chart-source="Synthetic preview - rolling 60-minute window">
           <figcaption class="cs-chart-head"><div><h3>Gate decision mix</h3><p>Rolling 60 minutes</p></div><span class="cs-chart-value"><strong>1,248</strong><small>decisions</small></span></figcaption>
-          <div class="cs-chart-donut-layout">
-            <div class="cs-chart-donut" aria-hidden="true">
-              <svg viewBox="0 0 42 42"><circle class="cs-chart-donut-track" cx="21" cy="21" r="15.9155" pathLength="100" /><circle class="cs-chart-donut-segment" style="--segment-color:var(--cs-sage);--segment-size:72;--segment-offset:0" cx="21" cy="21" r="15.9155" pathLength="100" /><circle class="cs-chart-donut-segment" style="--segment-color:var(--cs-terracotta);--segment-size:18;--segment-offset:72" cx="21" cy="21" r="15.9155" pathLength="100" /><circle class="cs-chart-donut-segment" style="--segment-color:var(--cs-plum);--segment-size:7;--segment-offset:90" cx="21" cy="21" r="15.9155" pathLength="100" /><circle class="cs-chart-donut-segment" style="--segment-color:var(--cs-dusty-red);--segment-size:3;--segment-offset:97" cx="21" cy="21" r="15.9155" pathLength="100" /></svg>
-              <span class="cs-chart-donut-center"><strong>72%</strong><small>auto</small></span>
+          <div class="cs-chart-distribution" aria-hidden="true">
+            <div class="cs-chart-distribution-bar"><i class="is-auto" style="width:72%" data-chart-mark data-tooltip="Auto: 899 decisions, 72%"></i><i class="is-approval" style="width:18%" data-chart-mark data-tooltip="Approval: 225 decisions, 18%"></i><i class="is-review" style="width:7%" data-chart-mark data-tooltip="Review: 87 decisions, 7%"></i><i class="is-deny" style="width:3%" data-chart-mark data-tooltip="Deny: 37 decisions, 3%"></i></div>
+            <div class="cs-chart-distribution-list">
+              <span><i style="--legend-color:var(--tremor-blue)"></i><b>Auto</b><strong>72%</strong><small>899</small></span>
+              <span><i style="--legend-color:var(--tremor-emerald)"></i><b>Approval</b><strong>18%</strong><small>225</small></span>
+              <span><i style="--legend-color:var(--tremor-violet)"></i><b>Review</b><strong>7%</strong><small>87</small></span>
+              <span><i style="--legend-color:var(--tremor-amber)"></i><b>Deny</b><strong>3%</strong><small>37</small></span>
             </div>
-            <div class="cs-chart-donut-legend"><span><i style="--legend-color:var(--cs-sage)"></i>Auto <b>899</b></span><span><i style="--legend-color:var(--cs-terracotta)"></i>Approval <b>225</b></span><span><i style="--legend-color:var(--cs-plum)"></i>Review <b>87</b></span><span><i style="--legend-color:var(--cs-dusty-red)"></i>Deny <b>37</b></span></div>
           </div>
+          <div class="cs-chart-foot"><span>Synthetic preview · rolling 60 minutes</span><button type="button" data-cs-chart-inspect>Inspect data</button></div>
         </figure>
 
-        <figure class="cs-chart-card js-chartable" aria-label="Event density by weekday and six-hour window. Select to inspect summarized values." data-chart-title="Event density" data-chart-sub="Average events by weekday and time window" data-chart-columns='["Window","Mon","Tue","Wed","Thu","Fri","Sat","Sun"]' data-chart-rows='[["00-06","Low","Low","Low","Low","Low","Low","Low"],["06-12","Medium","High","Medium","High","Medium","Low","Low"],["12-18","High","Peak","High","Peak","High","Medium","Low"],["18-24","Medium","High","Medium","High","Medium","Low","Low"]]' data-chart-source="Synthetic preview - four-week average">
+        <figure class="cs-chart-card js-chartable" aria-label="Event density by weekday and six-hour window. Select to inspect average event counts." data-chart-title="Event density" data-chart-sub="Average events by weekday and time window" data-chart-columns='["Window","Mon","Tue","Wed","Thu","Fri","Sat","Sun"]' data-chart-rows='[["00-06","8","7","6","7","8","5","4"],["06-12","21","29","20","31","22","11","9"],["12-18","30","38","31","36","29","18","10"],["18-24","19","27","18","26","20","10","6"]]' data-chart-num-cols="[1,2,3,4,5,6,7]" data-chart-source="Synthetic preview - four-week average">
           <figcaption class="cs-chart-head"><div><h3>Event density</h3><p>Weekday x time window</p></div><span class="cs-chart-value"><strong>14:00</strong><small>peak window</small></span></figcaption>
           <div class="cs-heatmap" aria-hidden="true">
             <span></span><span class="cs-heatmap-label">M</span><span class="cs-heatmap-label">T</span><span class="cs-heatmap-label">W</span><span class="cs-heatmap-label">T</span><span class="cs-heatmap-label">F</span><span class="cs-heatmap-label">S</span><span class="cs-heatmap-label">S</span>
-            <span class="cs-heatmap-label is-row">00</span><i class="cs-heatmap-cell is-1"></i><i class="cs-heatmap-cell is-1"></i><i class="cs-heatmap-cell"></i><i class="cs-heatmap-cell is-1"></i><i class="cs-heatmap-cell is-1"></i><i class="cs-heatmap-cell"></i><i class="cs-heatmap-cell"></i>
-            <span class="cs-heatmap-label is-row">06</span><i class="cs-heatmap-cell is-2"></i><i class="cs-heatmap-cell is-3"></i><i class="cs-heatmap-cell is-2"></i><i class="cs-heatmap-cell is-3"></i><i class="cs-heatmap-cell is-2"></i><i class="cs-heatmap-cell is-1"></i><i class="cs-heatmap-cell is-1"></i>
-            <span class="cs-heatmap-label is-row">12</span><i class="cs-heatmap-cell is-3"></i><i class="cs-heatmap-cell is-4"></i><i class="cs-heatmap-cell is-3"></i><i class="cs-heatmap-cell is-4"></i><i class="cs-heatmap-cell is-3"></i><i class="cs-heatmap-cell is-2"></i><i class="cs-heatmap-cell is-1"></i>
-            <span class="cs-heatmap-label is-row">18</span><i class="cs-heatmap-cell is-2"></i><i class="cs-heatmap-cell is-3"></i><i class="cs-heatmap-cell is-2"></i><i class="cs-heatmap-cell is-3"></i><i class="cs-heatmap-cell is-2"></i><i class="cs-heatmap-cell is-1"></i><i class="cs-heatmap-cell"></i>
+            <span class="cs-heatmap-label is-row">00</span><i class="cs-heatmap-cell is-1" title="Monday 00-06: 8 average events"></i><i class="cs-heatmap-cell is-1" title="Tuesday 00-06: 7 average events"></i><i class="cs-heatmap-cell" title="Wednesday 00-06: 6 average events"></i><i class="cs-heatmap-cell is-1" title="Thursday 00-06: 7 average events"></i><i class="cs-heatmap-cell is-1" title="Friday 00-06: 8 average events"></i><i class="cs-heatmap-cell" title="Saturday 00-06: 5 average events"></i><i class="cs-heatmap-cell" title="Sunday 00-06: 4 average events"></i>
+            <span class="cs-heatmap-label is-row">06</span><i class="cs-heatmap-cell is-2" title="Monday 06-12: 21 average events"></i><i class="cs-heatmap-cell is-3" title="Tuesday 06-12: 29 average events"></i><i class="cs-heatmap-cell is-2" title="Wednesday 06-12: 20 average events"></i><i class="cs-heatmap-cell is-3" title="Thursday 06-12: 31 average events"></i><i class="cs-heatmap-cell is-2" title="Friday 06-12: 22 average events"></i><i class="cs-heatmap-cell is-1" title="Saturday 06-12: 11 average events"></i><i class="cs-heatmap-cell is-1" title="Sunday 06-12: 9 average events"></i>
+            <span class="cs-heatmap-label is-row">12</span><i class="cs-heatmap-cell is-3" title="Monday 12-18: 30 average events"></i><i class="cs-heatmap-cell is-4 is-peak" title="Tuesday 12-18: 38 average events"></i><i class="cs-heatmap-cell is-3" title="Wednesday 12-18: 31 average events"></i><i class="cs-heatmap-cell is-4" title="Thursday 12-18: 36 average events"></i><i class="cs-heatmap-cell is-3" title="Friday 12-18: 29 average events"></i><i class="cs-heatmap-cell is-2" title="Saturday 12-18: 18 average events"></i><i class="cs-heatmap-cell is-1" title="Sunday 12-18: 10 average events"></i>
+            <span class="cs-heatmap-label is-row">18</span><i class="cs-heatmap-cell is-2" title="Monday 18-24: 19 average events"></i><i class="cs-heatmap-cell is-3" title="Tuesday 18-24: 27 average events"></i><i class="cs-heatmap-cell is-2" title="Wednesday 18-24: 18 average events"></i><i class="cs-heatmap-cell is-3" title="Thursday 18-24: 26 average events"></i><i class="cs-heatmap-cell is-2" title="Friday 18-24: 20 average events"></i><i class="cs-heatmap-cell is-1" title="Saturday 18-24: 10 average events"></i><i class="cs-heatmap-cell" title="Sunday 18-24: 6 average events"></i>
           </div>
-          <div class="cs-chart-legend cs-heatmap-legend" aria-hidden="true"><span><i></i>Low</span><span class="is-high"><i></i>Peak</span></div>
+          <div class="cs-heatmap-scale" aria-hidden="true"><span>4 avg</span><i></i><span>38 avg</span></div>
+          <div class="cs-chart-foot"><span>Synthetic preview · four-week average</span><button type="button" data-cs-chart-inspect>Inspect data</button></div>
         </figure>
+      </div>
+      <div class="cs-chart-family-head"><h3>Complete chart family</h3><p>Exact Tremor Raw palette: blue, emerald, violet, amber, gray, cyan, pink, lime, and fuchsia.</p></div>
+      <div class="cs-chart-family-grid">
+        <article class="cs-chart-family-card">
+          <div><h4>Area &amp; line</h4><span>3-series hover</span></div>
+          <div class="cs-family-series" role="group" aria-label="Observed, baseline, and forecast series by weekday">
+            <svg viewBox="0 0 240 92" aria-hidden="true">
+              <path class="is-grid" d="M8 18H232 M8 50H232 M8 82H232" />
+              <path class="is-area is-blue" d="M8 70 L45 54 L82 64 L120 32 L157 45 L195 16 L232 40 L232 82 L8 82 Z" />
+              <path class="is-line is-blue" d="M8 70 L45 54 L82 64 L120 32 L157 45 L195 16 L232 40" />
+              <path class="is-line is-emerald" d="M8 76 L45 68 L82 58 L120 62 L157 36 L195 42 L232 26" />
+              <path class="is-line is-violet" d="M8 72 L45 64 L82 54 L120 50 L157 43 L195 31 L232 24" />
+            </svg>
+            <button type="button" class="cs-family-series-slice" style="--slice-left:0%;--point-x:23%" data-chart-mark data-tooltip="Monday. Observed: 18. Baseline: 14. Forecast: 16"><i class="is-blue" style="--point-y:76%"></i><i class="is-emerald" style="--point-y:83%"></i><i class="is-violet" style="--point-y:78%"></i></button>
+            <button type="button" class="cs-family-series-slice" style="--slice-left:14.285%;--point-x:31%" data-chart-mark data-tooltip="Tuesday. Observed: 24. Baseline: 18. Forecast: 20"><i class="is-blue" style="--point-y:59%"></i><i class="is-emerald" style="--point-y:74%"></i><i class="is-violet" style="--point-y:70%"></i></button>
+            <button type="button" class="cs-family-series-slice" style="--slice-left:28.57%;--point-x:39%" data-chart-mark data-tooltip="Wednesday. Observed: 21. Baseline: 17. Forecast: 23"><i class="is-blue" style="--point-y:70%"></i><i class="is-emerald" style="--point-y:63%"></i><i class="is-violet" style="--point-y:59%"></i></button>
+            <button type="button" class="cs-family-series-slice" style="--slice-left:42.855%;--point-x:50%" data-chart-mark data-tooltip="Thursday. Observed: 31. Baseline: 22. Forecast: 25"><i class="is-blue" style="--point-y:35%"></i><i class="is-emerald" style="--point-y:67%"></i><i class="is-violet" style="--point-y:54%"></i></button>
+            <button type="button" class="cs-family-series-slice" style="--slice-left:57.14%;--point-x:58%" data-chart-mark data-tooltip="Friday. Observed: 27. Baseline: 23. Forecast: 28"><i class="is-blue" style="--point-y:49%"></i><i class="is-emerald" style="--point-y:39%"></i><i class="is-violet" style="--point-y:47%"></i></button>
+            <button type="button" class="cs-family-series-slice" style="--slice-left:71.425%;--point-x:69%" data-chart-mark data-tooltip="Saturday. Observed: 36. Baseline: 26. Forecast: 31"><i class="is-blue" style="--point-y:17%"></i><i class="is-emerald" style="--point-y:46%"></i><i class="is-violet" style="--point-y:34%"></i></button>
+            <button type="button" class="cs-family-series-slice" style="--slice-left:85.71%;--point-x:77%" data-chart-mark data-tooltip="Sunday. Observed: 29. Baseline: 28. Forecast: 33"><i class="is-blue" style="--point-y:43%"></i><i class="is-emerald" style="--point-y:28%"></i><i class="is-violet" style="--point-y:26%"></i></button>
+          </div>
+          <footer><span><i class="is-blue"></i>Observed</span><span><i class="is-emerald"></i>Baseline</span><span><i class="is-violet"></i>Forecast</span></footer>
+        </article>
+        <article class="cs-chart-family-card">
+          <div><h4>Bar &amp; combo</h4><span>Grouped + mixed</span></div>
+          <div class="cs-family-bars" role="img" aria-label="Grouped bar and combo chart specimens">
+            <span style="--bar-a:54%;--bar-b:38%" data-chart-mark data-tooltip="Monday. Observed: 54. Baseline: 38. Trend: 65"></span><span style="--bar-a:72%;--bar-b:62%" data-chart-mark data-tooltip="Tuesday. Observed: 72. Baseline: 62. Trend: 38"></span><span style="--bar-a:44%;--bar-b:70%" data-chart-mark data-tooltip="Wednesday. Observed: 44. Baseline: 70. Trend: 56"></span><span style="--bar-a:84%;--bar-b:55%" data-chart-mark data-tooltip="Thursday. Observed: 84. Baseline: 55. Trend: 25"></span><span style="--bar-a:68%;--bar-b:78%" data-chart-mark data-tooltip="Friday. Observed: 68. Baseline: 78. Trend: 34"></span>
+            <svg viewBox="0 0 240 92" aria-hidden="true"><path d="M10 65 L64 38 L118 56 L172 25 L230 34" /></svg>
+          </div>
+          <footer><span><i class="is-violet"></i>Bar</span><span><i class="is-amber"></i>Combo</span></footer>
+        </article>
+        <article class="cs-chart-family-card">
+          <div><h4>Donut &amp; pie</h4><span>Composition</span></div>
+          <div class="cs-family-radials" aria-label="Donut and pie chart specimens using four Tremor colors"><i class="is-donut" data-chart-mark data-tooltip="Donut total: 1,248. Auto: 649. Approval: 300. Review: 187. Deny: 112"><b>1,248</b></i><i class="is-pie" data-chart-mark data-tooltip="Pie share. Auto: 52%. Approval: 24%. Review: 15%. Deny: 9%"></i></div>
+          <footer><span><i class="is-blue"></i>Blue</span><span><i class="is-emerald"></i>Emerald</span><span><i class="is-violet"></i>Violet</span><span><i class="is-amber"></i>Amber</span></footer>
+        </article>
+        <article class="cs-chart-family-card">
+          <div><h4>Spark charts</h4><span>Area · line · bar</span></div>
+          <div class="cs-family-sparks">
+            <svg viewBox="0 0 100 34" role="img" aria-label="Spark area chart" data-chart-mark data-tooltip="Spark area. Current: 36. Minimum: 18. Six observations"><path class="is-spark-area" d="M1 30 L18 22 L36 26 L54 10 L72 17 L99 3 L99 33 L1 33 Z" /><path class="is-spark-line is-cyan" d="M1 30 L18 22 L36 26 L54 10 L72 17 L99 3" /></svg>
+            <svg viewBox="0 0 100 34" role="img" aria-label="Spark line chart" data-chart-mark data-tooltip="Spark line. Current: 34. Minimum: 19. Six observations"><path class="is-spark-line is-pink" d="M1 26 L18 18 L36 22 L54 8 L72 14 L99 4" /></svg>
+            <div class="cs-family-spark-bars" role="img" aria-label="Spark bar chart" data-chart-mark data-tooltip="Spark bars. Current: 47. Maximum: 47. Six observations"><i style="height:42%"></i><i style="height:68%"></i><i style="height:52%"></i><i style="height:86%"></i><i style="height:72%"></i><i style="height:94%"></i></div>
+          </div>
+          <footer><span><i class="is-cyan"></i>Area</span><span><i class="is-pink"></i>Line</span><span><i class="is-lime"></i>Bar</span></footer>
+        </article>
+        <article class="cs-chart-family-card">
+          <div><h4>Progress</h4><span>Bar + circle</span></div>
+          <div class="cs-family-progress"><span data-chart-mark data-tooltip="Promotion progress: 72%"><i></i></span><strong>72%</strong><em data-chart-mark data-tooltip="Evidence coverage: 84%">84%</em></div>
+          <footer><span><i class="is-emerald"></i>Progress bar</span><span><i class="is-amber"></i>Progress circle</span></footer>
+        </article>
+        <article class="cs-chart-family-card">
+          <div><h4>Tracker &amp; scatter</h4><span>State + correlation</span></div>
+          <div class="cs-family-tracker" aria-label="Tracker blocks in the Tremor palette"><i class="is-blue" data-chart-mark data-tooltip="Window 1: observed"></i><i class="is-emerald" data-chart-mark data-tooltip="Window 2: verified"></i><i class="is-emerald" data-chart-mark data-tooltip="Window 3: verified"></i><i class="is-amber" data-chart-mark data-tooltip="Window 4: review"></i><i class="is-violet" data-chart-mark data-tooltip="Window 5: reasoning"></i><i class="is-gray" data-chart-mark data-tooltip="Window 6: unavailable"></i><i class="is-cyan" data-chart-mark data-tooltip="Window 7: collecting"></i><i class="is-pink" data-chart-mark data-tooltip="Window 8: exception"></i><i class="is-lime" data-chart-mark data-tooltip="Window 9: recovered"></i><i class="is-fuchsia" data-chart-mark data-tooltip="Window 10: escalated"></i></div>
+          <div class="cs-family-scatter" aria-label="Scatter chart using Tremor blue, emerald, and violet"><i class="is-blue" style="--x:14%;--y:70%" data-chart-mark data-tooltip="T0. Latency: 12 ms. Coverage: 94%"></i><i class="is-emerald" style="--x:32%;--y:46%" data-chart-mark data-tooltip="T1. Latency: 28 ms. Coverage: 88%"></i><i class="is-violet" style="--x:58%;--y:62%" data-chart-mark data-tooltip="T2. Latency: 62 ms. Coverage: 76%"></i><i class="is-blue" style="--x:76%;--y:28%" data-chart-mark data-tooltip="Review. Latency: 48 ms. Coverage: 82%"></i><i class="is-emerald" style="--x:90%;--y:42%" data-chart-mark data-tooltip="Replay. Latency: 20 ms. Coverage: 91%"></i></div>
+          <footer><span><i class="is-gray"></i>Tracker</span><span><i class="is-blue"></i>Scatter</span></footer>
+        </article>
+      </div>
+      <div class="cs-chart-composition-head"><h3>Dashboard compositions</h3><p>Seven production-ready Tremor block patterns composed from the shared chart primitives.</p></div>
+      <div class="cs-chart-composition-grid">
+        <article class="cs-chart-composition-card is-wide">
+          <header><span>Portfolio value</span><strong>$328,505.10</strong><small>+$4,430.90 (4.1%) · Past 24 hours</small></header>
+          <div class="cs-composition-legend"><span class="is-blue"><i></i>ETF Shares Vital</span><span class="is-cyan"><i></i>Vitainvest Core</span><span class="is-fuchsia"><i></i>iShares Tech Growth</span></div>
+          <div class="cs-composition-series" role="group" aria-label="Portfolio performance by holding">
+            <svg viewBox="0 0 520 210" aria-hidden="true">
+              <path class="is-grid" d="M58 18H508 M58 63H508 M58 108H508 M58 153H508 M58 188H508" />
+              <g class="is-y-axis"><text x="52" y="22">$12k</text><text x="52" y="67">$9k</text><text x="52" y="112">$6k</text><text x="52" y="157">$3k</text></g>
+              <path class="is-line is-blue" d="M60 136 L88 112 L116 145 L144 93 L172 118 L200 131 L228 82 L256 176 L284 121 L312 57 L340 86 L368 122 L396 128 L424 80 L452 62 L480 59 L508 24" />
+              <path class="is-line is-cyan" d="M60 166 L88 166 L116 153 L144 142 L172 132 L200 126 L228 124 L256 117 L284 89 L312 82 L340 77 L368 92 L396 132 L424 114 L452 81 L480 116 L508 95" />
+              <path class="is-line is-fuchsia" d="M60 88 L88 91 L116 97 L144 108 L172 119 L200 129 L228 132 L256 122 L284 62 L312 66 L340 83 L368 91 L396 145 L424 86 L452 117 L480 128 L508 135" />
+              <g class="is-x-axis"><text x="60" y="205">Aug 25</text><text x="150" y="205">Aug 31</text><text x="240" y="205">Sep 06</text><text x="330" y="205">Sep 14</text><text x="420" y="205">Sep 20</text><text x="508" y="205" text-anchor="end">Sep 26</text></g>
+            </svg>
+            <button type="button" class="cs-composition-slice" style="--slice-left:0%;--point-x:22%" data-chart-mark data-tooltip="Aug 25. ETF Shares Vital: $6,840. Vitainvest Core: $6,120. iShares Tech Growth: $9,340"><i class="is-blue" style="--point-y:64%"></i><i class="is-cyan" style="--point-y:79%"></i><i class="is-fuchsia" style="--point-y:42%"></i></button>
+            <button type="button" class="cs-composition-slice" style="--slice-left:20%;--point-x:40%" data-chart-mark data-tooltip="Sep 02. ETF Shares Vital: $7,210. Vitainvest Core: $7,110. iShares Tech Growth: $8,590"><i class="is-blue" style="--point-y:56%"></i><i class="is-cyan" style="--point-y:63%"></i><i class="is-fuchsia" style="--point-y:57%"></i></button>
+            <button type="button" class="cs-composition-slice" style="--slice-left:40%;--point-x:50%" data-chart-mark data-tooltip="Sep 10. ETF Shares Vital: $7,649. Vitainvest Core: $10,139.2. iShares Tech Growth: $11,143.8"><i class="is-blue" style="--point-y:58%"></i><i class="is-cyan" style="--point-y:42%"></i><i class="is-fuchsia" style="--point-y:30%"></i></button>
+            <button type="button" class="cs-composition-slice" style="--slice-left:60%;--point-x:60%" data-chart-mark data-tooltip="Sep 18. ETF Shares Vital: $7,060. Vitainvest Core: $8,210. iShares Tech Growth: $7,420"><i class="is-blue" style="--point-y:61%"></i><i class="is-cyan" style="--point-y:63%"></i><i class="is-fuchsia" style="--point-y:69%"></i></button>
+            <button type="button" class="cs-composition-slice" style="--slice-left:80%;--point-x:78%" data-chart-mark data-tooltip="Sep 26. ETF Shares Vital: $9,620. Vitainvest Core: $9,380. iShares Tech Growth: $7,980"><i class="is-blue" style="--point-y:12%"></i><i class="is-cyan" style="--point-y:45%"></i><i class="is-fuchsia" style="--point-y:64%"></i></button>
+          </div>
+        </article>
+        <article class="cs-chart-composition-card">
+          <header><span>Evidence volume</span><strong>29</strong><small>Sunday · hover updates KPI</small></header>
+          <div class="cs-composition-mini-series" data-chart-mark data-tooltip="Thursday. Evidence volume: 31"><svg viewBox="0 0 240 92" aria-hidden="true"><path class="is-area is-blue" d="M8 75 L45 58 L82 66 L120 30 L157 47 L195 14 L232 40 L232 84 L8 84 Z"/><path class="is-line is-blue" d="M8 75 L45 58 L82 66 L120 30 L157 47 L195 14 L232 40"/></svg></div>
+        </article>
+        <article class="cs-chart-composition-card">
+          <header><span>Today's queries</span><strong>5,730</strong><small>24-hour comparison</small></header>
+          <dl class="cs-composition-summary"><div class="is-blue"><dt><i></i>Today</dt><dd>5,730</dd></div><div class="is-gray"><dt><i></i>Yesterday</dt><dd>4,510</dd></div></dl>
+          <div class="cs-composition-mini-series" data-chart-mark data-tooltip="18:00. Current: 5,730. Previous: 4,510"><svg viewBox="0 0 240 92" aria-hidden="true"><path class="is-line is-blue" d="M8 72 L45 58 L82 63 L120 38 L157 48 L195 22 L232 30"/><path class="is-line is-gray" d="M8 80 L45 72 L82 68 L120 61 L157 52 L195 49 L232 42"/></svg></div>
+        </article>
+        <article class="cs-chart-composition-card">
+          <header><span>Total expenses by category</span><strong>$20,990</strong><small>Current review window</small></header>
+          <div class="cs-composition-allocation"><i data-chart-mark data-tooltip="Travel: $6,730, 32.1%. IT & equipment: $4,120, 19.6%. Training: $3,920, 18.6%. Office supplies: $3,210, 15.3%. Communication: $3,010, 14.3%"></i><ul><li><b class="is-cyan"></b>Travel <strong>$6,730</strong></li><li><b class="is-blue"></b>IT &amp; equipment <strong>$4,120</strong></li><li><b class="is-violet"></b>Training <strong>$3,920</strong></li></ul></div>
+        </article>
+        <article class="cs-chart-composition-card">
+          <header><span>Training load</span><strong>145 bpm</strong><small>Custom grouped tooltip</small></header>
+          <div class="cs-composition-bars"><i style="--a:78%;--b:64%" data-chart-mark data-tooltip="January. Running: 167 bpm. Cycling: 145 bpm"></i><i style="--a:58%;--b:48%" data-chart-mark data-tooltip="February. Running: 125 bpm. Cycling: 110 bpm"></i><i style="--a:72%;--b:69%" data-chart-mark data-tooltip="March. Running: 156 bpm. Cycling: 149 bpm"></i><i style="--a:76%;--b:51%" data-chart-mark data-tooltip="April. Running: 165 bpm. Cycling: 112 bpm"></i><i style="--a:70%;--b:63%" data-chart-mark data-tooltip="May. Running: 153 bpm. Cycling: 138 bpm"></i></div>
+        </article>
+        <article class="cs-chart-composition-card">
+          <header><span>Log monitoring</span><strong>4,328</strong><small>Name lookup and connection</small></header>
+          <div class="cs-composition-mini-series" data-chart-mark data-tooltip="16:00. Name lookup: 4,328. Connection: 2,980"><svg viewBox="0 0 240 92" aria-hidden="true"><path class="is-area is-blue" d="M8 68 L52 55 L96 60 L140 28 L184 15 L232 34 L232 84 L8 84 Z"/><path class="is-line is-blue" d="M8 68 L52 55 L96 60 L140 28 L184 15 L232 34"/><path class="is-area is-pink" d="M8 77 L52 70 L96 62 L140 48 L184 40 L232 30 L232 84 L8 84 Z"/><path class="is-line is-pink" d="M8 77 L52 70 L96 62 L140 48 L184 40 L232 30"/></svg></div>
+        </article>
+        <article class="cs-chart-composition-card">
+          <header><span>Uptime summary</span><strong>90.1%</strong><small>Average uptime in the last month</small></header>
+          <div class="cs-composition-uptime" data-chart-mark data-tooltip="99% uptime: 90.1%, 225 days. 1% downtime: 8.2%, 20 days. Unmeasured: 1.7%, 4 days"><i class="is-blue" style="width:90.1%"></i><i class="is-amber" style="width:8.2%"></i><i class="is-gray" style="width:1.7%"></i></div>
+          <dl class="cs-composition-summary"><div class="is-blue"><dt><i></i>99% uptime</dt><dd>225</dd></div><div class="is-amber"><dt><i></i>1% downtime</dt><dd>20</dd></div></dl>
+        </article>
       </div>
       <div class="cs-compare cs-mb-24">
         <div class="cs-compare-col is-asis"><h4>Before</h4><ul><li>Manual triage queue</li><li>Unmeasured response time</li></ul></div>
@@ -776,7 +893,7 @@
   <footer class="cs-footer">
     <div class="cs-container"><span>FDAI UI kit - Calm Slate theme.</span></div>
   </footer>
-  <script src="assets/calm-slate.js?v=shared-primitives-v2"></script>
+  <script src="assets/calm-slate.js?v=shared-primitives-v8"></script>
   <script>
     (function () {
       var index = document.querySelector(".cs-gallery-index");

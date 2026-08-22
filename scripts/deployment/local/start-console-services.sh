@@ -16,10 +16,14 @@ services=(
 )
 child_pids=()
 active_pids=()
+readiness_pid=""
 
 stop_children() {
   local pid
   trap - EXIT INT TERM
+  if [[ -n "$readiness_pid" ]] && kill -0 "$readiness_pid" 2>/dev/null; then
+    kill -TERM "$readiness_pid" 2>/dev/null || true
+  fi
   for pid in "${child_pids[@]}"; do
     if kill -0 "$pid" 2>/dev/null; then
       kill -TERM "$pid" 2>/dev/null || true
@@ -28,6 +32,9 @@ stop_children() {
   for pid in "${child_pids[@]}"; do
     wait "$pid" 2>/dev/null || true
   done
+  if [[ -n "$readiness_pid" ]]; then
+    wait "$readiness_pid" 2>/dev/null || true
+  fi
 }
 
 handle_signal() {
@@ -65,7 +72,39 @@ done
 "$repo_root/.venv/bin/python" \
   "$repo_root/scripts/automation/developer-workflow.py" \
   local-services \
-  --wait-seconds 15
+  --wait-seconds 60 &
+readiness_pid="$!"
+
+pending_pids=("${child_pids[@]}")
+while [[ -n "$readiness_pid" ]]; do
+  completed_pid=""
+  if wait -n -p completed_pid "$readiness_pid" "${pending_pids[@]}"; then
+    exit_code=0
+  else
+    exit_code=$?
+  fi
+  if [[ "$completed_pid" == "$readiness_pid" ]]; then
+    readiness_pid=""
+    if (( exit_code != 0 )); then
+      exit "$exit_code"
+    fi
+    break
+  fi
+  for index in "${!pending_pids[@]}"; do
+    if [[ "${pending_pids[$index]}" != "$completed_pid" ]]; then
+      continue
+    fi
+    if (( exit_code != 0 )); then
+      printf 'service exited before readiness: %s (exit_code=%s, log=.fdai/logs/%s.log)\n' \
+        "${services[$index]}" \
+        "$exit_code" \
+        "${services[$index]}" >&2
+      exit "$exit_code"
+    fi
+    unset 'pending_pids[index]'
+    break
+  done
+done
 require_managed_locks
 printf '%s service=console-stack event=ready\n' "$(date '+%Y-%m-%dT%H:%M:%S.%6N%:z')"
 

@@ -12,6 +12,10 @@ from types import MappingProxyType, SimpleNamespace
 from typing import Any, cast
 
 import pytest
+from fdai.core.conversation.semantic_planning_cascade import (
+    NO_T2_ESCALATION_POLICY,
+    SemanticPlanningEscalationPolicy,
+)
 from fdai.core.conversation.semantic_planning_models import BoundIncident
 from fdai.core.conversation.semantic_runtime import (
     SemanticTurnResult as RuntimeSemanticTurnResult,
@@ -520,6 +524,7 @@ class _Runtime:
         self.principals: list[Principal] = []
         self.prior_turns: tuple[Turn, ...] = ()
         self.bound_incidents: list[BoundIncident | None] = []
+        self.escalation_policies: list[SemanticPlanningEscalationPolicy | None] = []
 
     async def handle(
         self,
@@ -529,12 +534,14 @@ class _Runtime:
         principal: Principal,
         cancelled: asyncio.Event | None = None,
         bound_incident: BoundIncident | None = None,
+        escalation_policy: SemanticPlanningEscalationPolicy | None = None,
     ) -> RuntimeSemanticTurnResult:
         assert utterance == "Show current operations evidence."
         self.calls += 1
         self.principals.append(principal)
         self.prior_turns = prior_turns
         self.bound_incidents.append(bound_incident)
+        self.escalation_policies.append(escalation_policy)
         if self.failure is not None:
             raise self.failure
         if self.wait_for_cancel:
@@ -558,11 +565,13 @@ class _ContendedRuntime(_Runtime):
         principal: Principal,
         cancelled: asyncio.Event | None = None,
         bound_incident: BoundIncident | None = None,
+        escalation_policy: SemanticPlanningEscalationPolicy | None = None,
     ) -> RuntimeSemanticTurnResult:
         self.calls += 1
         self.principals.append(principal)
         self.prior_turns = prior_turns
         self.bound_incidents.append(bound_incident)
+        self.escalation_policies.append(escalation_policy)
         self.entered.set()
         await self.release.wait()
         return self.result
@@ -602,6 +611,7 @@ def _request(
     prior_turns: list[dict[str, str]] | None = None,
     bound_context: dict[str, str] | None = None,
     locale: str = "en",
+    planning_profile: str = "interactive",
 ) -> dict[str, object]:
     semantic_turn: dict[str, object] = {
         "utterance": "Show current operations evidence.",
@@ -619,10 +629,14 @@ def _request(
         "cancelled": cancelled,
         "execution_authority": False,
     }
+    if planning_profile != "interactive":
+        semantic_turn["planning_profile"] = planning_profile
     if bound_context is not None:
         semantic_turn["bound_context"] = bound_context
     return {
-        "schema_version": "1.3.0" if bound_context is not None else "1.2.0",
+        "schema_version": (
+            "1.3.0" if bound_context is not None or planning_profile != "interactive" else "1.2.0"
+        ),
         "request_id": "00000000-0000-0000-0000-000000000101",
         "correlation_id": "semantic-correlation-1",
         "idempotency_key": idempotency_key,
@@ -1256,6 +1270,21 @@ async def test_absent_bound_context_adds_no_anchor_turn() -> None:
     )
 
     assert [turn.direction for turn in runtime.prior_turns] == ["inbound"]
+
+
+async def test_golden_campaign_profile_injects_no_t2_policy_only_for_campaign() -> None:
+    runtime = _Runtime()
+    processor = _processor(runtime)
+
+    await processor.process(_request(idempotency_key="interactive-turn"))
+    await processor.process(
+        _request(
+            idempotency_key="golden-turn",
+            planning_profile="golden_campaign_no_t2",
+        )
+    )
+
+    assert runtime.escalation_policies == [None, NO_T2_ESCALATION_POLICY]
 
 
 async def test_clarification_projection_preserves_specific_question() -> None:

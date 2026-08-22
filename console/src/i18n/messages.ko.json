@@ -2676,6 +2676,8 @@
       "preparingChart": "차트 준비 중",
       "preparingChartProgress": "차트 준비 중...",
       "lineChart": "선형 차트",
+      "barChart": "막대 차트",
+      "median": "중앙값",
       "agentActivity": {
         "title": "기록된 에이전트 활동",
         "count": "관찰 {count}건",

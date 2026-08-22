@@ -1,11 +1,10 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 453d2ce2c305638acde35b84589f0844a2279933
-translation_revised: 2026-08-21
+translation_source_sha: 74efb6a76cfa61659a5ce8f9472b11b0dd40f0d7
+translation_revised: 2026-08-22
 ---
 # FDAI Console 대화
-
 사람 오퍼레이터가 CLI, Teams, Slack, 웹 챗을 통해 FDAI에 **역으로 말할 수 있는** 방식입니다. 별도 제품이 아닌 FDAI Console의 **대화형 표면**로서 계층 아키텍처, 도구 카탈로그, LLM tier, 세션 지속성, 도구별 RBAC, 안전 invariant, 롤아웃 상태를 정의합니다.
 
 Push 방향 (시스템 → 사람) 알림은 [channels-and-notifications.md](channels-and-notifications-ko.md)에 있고, 운영 화면과 요청은 [console-operations-ko.md](console-operations-ko.md)에 정의되며 SPA는 [project-structure.md § 콘솔/](../architecture/project-structure-ko.md#console-static-web-app)에 있습니다. 근거 출처 이력, 스트림 복구, localization 및 아키텍처 지도 복원력은 [console-evidence-and-resilience-ko.md](console-evidence-and-resilience-ko.md)가 소유합니다. Login 초기화는 역할이 할당된 principal의 접근을 검증된 App 역할에서 도출하고 선택적 access-request 변환 결과를 요구하지 않으며, 역할이 없을 때 해당 변환 결과가 사용 불가이면 접근을 계속 차단합니다. 로컬 개발의 독립 서비스 어댑터는 모델 서술에만 Azure CLI를 사용할 수 있고 provider-read 또는 실행 권한은 없습니다. 온톨로지는 하나의 exact-release 레지스트리 변환 결과에서 검토된 의미 모델과 카탈로그 토폴로지를 제공합니다. 런타임 인스턴스는 보안 receipt를 기반으로 하는 별도의 목적 범위 컨텍스트 스냅샷에만 표시됩니다.
@@ -24,9 +23,7 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 > 고객-무관: 아래의 모든 채널 id, LLM 배포 이름, 리소스 id, 그룹 이름은 자리 표시자. 포크는 구성으로 실제 값을 공급합니다 ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 
 ## 구현 상태
-
 ### 구현 범위
-
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 영속/실시간 현재 상태 활동 identity | 구현됨 | `read_investigation_latency.py`, `fdai_operator_service/activity_projection.py`, focused 영속성 및 projection 테스트 (`6 passed`) | Snapshot 재생과 실제 운영 프레임은 운영자 질문, 리소스 identity 또는 실행 권한을 저장하지 않고 하나의 hash-correlation activity id로 수렴합니다. |
@@ -44,9 +41,12 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 | 온톨로지 보증 cohort release oracle | implemented | `console/tests/live-e2e/ontology-query-assurance.{ts,spec.ts,test.ts}`, 집중 보증 테스트 101개 통과 | 전체 cohort operation coverage는 고정 개수를 복제하지 않고 결과 histogram을 결정론적으로 생성된 cohort와 비교합니다. 누락 또는 대체 operation은 실패하고 extension operation은 작성된 범위 제한 분포를 유지합니다. |
 
 ### 구현 이력
-
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-22 | implemented | 디자인 시안 index를 Console shell로 간주하지 않고 동일한 adaptive answer DOM을 운영 형태의 workspace specimen으로 감쌌습니다. 선택적 모드는 50 px Deck header, 검색 및 layout control, 220 px 데스크톱 대화 이력, 36 px workspace toolbar, 자체 스크롤을 소유하는 transcript, 69 px composer, 1100 px constrained-desktop 대화 overlay, 닫기 및 scrim 동작을 갖춘 82% 모바일 대화 drawer를 추가합니다. | `current change`, `mocks/ui/deck-sources-v2.html`, 집중 시각 계약 52개 통과, 운영 Playwright 검사 3개 통과, Console Vite build 11.16초 완료 및 entry bundle gate 통과. 브라우저 검사에서 desktop workspace 1129 x 694, header 50 px, conversations 220 px, toolbar 36 px, composer 69 px, overflow 0을 측정했습니다. 바깥 viewport 993 px에서는 전체 transcript 위에 240 px overlay를 사용했고 모바일 drawer를 닫으면 overflow 0으로 transcript가 복원됐습니다. | 저장소 루트의 디자인 시안 navigation은 specimen 외부의 host tool로 유지되며, 운영 Activity rail도 Deck overlay 외부에 남습니다. 전체 Console typecheck는 `console/src/components/charts-composed.tsx`의 이번 변경과 무관한 `exactOptionalPropertyTypes` 오류 3건으로 계속 차단됩니다. |
+| 2026-08-22 | implemented | 실제 근거 없는 답변을 합성된 검증 성공 상태와 비교하지 않도록 adaptive-response 시안에 명시적인 검증 미완료 및 펼침 상태를 추가했습니다. 이 시나리오는 기존 compact 및 검증 완료 흐름을 유지하면서 범위가 제한된 답변, 근거 없는 claim 동작, 2/2 근거 요약, 관찰되지 않은 Plan 및 Collaboration 단계, 검증 미완료 Verification 단계, 펼쳐진 6행 process record 및 44 px 모바일 답변 control을 운영 화면과 동일하게 표현합니다. | `current change`, `mocks/ui/deck-sources-v2.html`, `ui/calm-slate-primitives.css`, 집중 시각 계약 51개 통과, 운영 Playwright 검사 3개 통과, 정확한 Console Vite build 12.02초 완료 및 entry bundle gate 통과. 브라우저 검사는 1440 x 900과 390 x 844의 같은 상태 시안을 가로 overflow 0으로 확인했습니다. | 디자인 시안 index와 운영 Activity rail, 대화 이력, 검색, locale 및 운영자가 선택한 disclosure 상태는 의도적으로 다른 shell 또는 session 상태로 유지합니다. 전체 Console typecheck는 현재 `console/src/components/charts-composed.tsx`의 이번 변경과 무관한 `exactOptionalPropertyTypes` 오류 3건으로 차단되며, 이 변경은 해당 파일을 수정하지 않습니다. |
+| 2026-08-22 | implemented | Command Deck 동등성 범위를 공용 panel 배치에서 운영자 및 에이전트 turn, Bragi identity, 출처 메타데이터, 답변 typography, 완료 작업 요약, 답변 control, Run record 계층, 준비 출처 및 composer를 포괄하는 공용 시각 역할 45개로 확장했습니다. 운영 화면과 adaptive mock은 이제 780 px 읽기 폭, 38 px 데스크톱 작업 요약, 54 px 데스크톱 Run record, 최대 3개 출처 카드 노출, 간결한 2행 모바일 Run record 및 한 행 44 px composer control을 공유합니다. | `current change`, `ui/calm-slate-primitives.css`, 운영 Deck presenter, `mocks/ui/deck-sources-v2.html`, 집중 동등성 검사 50개 통과, 1440 x 900, 993 x 641, 390 x 844 및 지연된 준비 상태 배치를 포함한 집중 운영 Playwright 3개 통과, Console 타입 검사, 운영 빌드 및 entry bundle 통과. 정적 mock 브라우저 검사에서 overflow 없이 데스크톱 역할이 일치했고 모바일 Run record 75.6 px, 작업 요약 66 px, composer 67 px 및 overflow 0을 측정했습니다. | 인증된 데스크톱 Console을 검토했지만 모바일 크기 변경 중 access check가 만료됐습니다. 합성 운영 Playwright와 정적 mock 근거는 세 viewport를 모두 다루지만, 통제된 런타임 검증을 주장하기 전에 새 인증 모바일 관찰을 보존해야 합니다. |
+| 2026-08-22 | implemented | 완료된 관찰 작업의 강제 펼침 상태를 제거해 문서화된 답변 우선 최종 계층을 복원했습니다. 안정적인 근거 확인 및 Run record 배치는 운영 Console과 adaptive-response 시안이 함께 사용하는 공용 Calm Slate 프리미티브에서 제공하며, 정확한 실행 근거는 운영자가 펼친 뒤 계속 확인할 수 있습니다. | `current change`, `ui/calm-slate-primitives.css`, `console/src/deck/investigation-timeline.tsx`, `console/src/deck/retrieval-trace.tsx`, `console/src/deck/conversation-trajectory-view.tsx`, `mocks/ui/deck-sources-v2.html`, 집중 시각 계약 48개 통과, Console 타입 검사 및 운영 빌드 통과, 1440 x 900 집중 운영 Playwright와 1440 x 900, 993 x 641, 390 x 844 운영 Playwright에서 문서 및 대화 내용 가로 overflow 0 확인, 1440 x 900 정적 시안에서 outer 및 iframe overflow 0 측정 | 이전에 인증된 Browser Entra 세션은 reload 뒤 새로운 대화형 로그인이 필요했으므로 이 변경은 합성 운영 화면과 정적 시안의 표현 근거만 주장합니다. 통제된 런타임 검증을 주장하기 전에 새로 인증된 최종 답변 관찰을 보존해야 합니다. |
 | 2026-08-21 | implemented | 비어 있는 terminal 형태의 수명 주기 이벤트를 기록된 설명과 중립적인 사실로 대체하고 Operator activity, 채널 중립 영속 replay, Console decoding, browser cache 및 Run record replay 전체에 엄격한 optional 실행 출처 이력을 추가했습니다. 이제 ontology ObjectSet 읽기는 사람이 이해할 수 있는 조회 범위, exact JSON, 결과 수, 완전성 및 raw output 전에 내부 Core 인터페이스, 실행기, 작업, provider-neutral source, transport 및 해당하지 않는 endpoint를 식별합니다. 이전 record는 provenance가 기록되지 않았음을 표시합니다. | `current change`, 집중 channel 및 Operator activity 검사 128개, 집중 Console provenance 및 workspace 검사 84개 통과, Ruff, strict mypy, Console typecheck, 운영 build, entry bundle, catalog parity, readable Hangul, punctuation 및 whitespace 통과, 인증된 1440 x 900, 993 x 641, 390 x 844에서 document, transcript, panel overflow 0 및 composer overlap 없음 | Browser 관찰은 표현 근거이며 통제된 runtime artifact가 아닙니다. 새 turn은 provenance를 받고 변경할 수 없는 이전 turn은 명시적으로 unavailable 상태를 유지합니다. |
 | 2026-08-21 | implemented | 직접 비교에서 공용 typography가 지나치게 크고 stage icon이 비어 있으며 source row가 과도하게 압축된 사실을 확인한 뒤 운영 `답변 준비 중` 표면을 실행 중인 adaptive-response v2 시안과 맞췄습니다. 이제 실제 컴포넌트는 시안의 간결 badge, glyph 계층, 7 px panel, 36 px header, 30 px stage, 88 px source slot, 11/10.5/9.5/8.5 px text role을 사용합니다. Preview가 stream되는 동안 source window 높이는 고정되며 card별 scan animation이 관찰된 진행 상황과 경쟁하지 않습니다. | `current change`, 집중 시각 계약 31개 통과, Console typecheck, 운영 build, entry bundle, catalog parity, readable Hangul, punctuation, editor diagnostics 통과. 표준 인증 Console에서 source row 38.45 px를 시안의 38.57 px와 비교했고 panel 및 document overflow는 0이었으며 screenshot을 검토했습니다. | Browser 비교는 표현 근거이며 통제된 runtime 산출물이 아닙니다. Semantic stage, source count, authority를 바꾸지 않고 더 넓은 conversation 근거를 별도로 보존합니다. |
 | 2026-08-13 | 구현됨 | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 현재 상태 활동 identity 계약을 기록했습니다. | 현재 출처와 `test_read_investigation_latency.py`, `test_activity_projection.py`, 통과한 focused 테스트 | Snapshot-first hydration과 실제 운영 수렴의 통제된 cross-service 동등성 근거를 기록합니다. |

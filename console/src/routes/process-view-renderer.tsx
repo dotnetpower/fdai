@@ -10,6 +10,7 @@ import { CONTENT_WIDGET_TYPES, ContentWidget } from "./process-view-widgets.cont
 import { BLOCKED_REPORT_WIDGET_TYPES } from "./process-view-widget-contract";
 import { WORKFLOW_WIDGET_TYPES, WorkflowPresentationWidget } from "./process-view-widgets.workflow";
 import { formatDateTimeValue, formatNumber, statusLabel, t } from "./i18n/workflow";
+import { ComparisonBarChart, TrendChart } from "../components/charts";
 
 export const SUPPORTED_REPORT_WIDGET_TYPES = new Set([
   "query_value", "bar_chart", "timeseries", "top_list", "table",
@@ -74,23 +75,14 @@ function BarChartWidget({ widget }: { readonly widget: RenderedWidget }) {
   const bars = asRows(widget.data["bars"]);
   const values = bars.map((bar) => numericBarValue(bar["value"]));
   const max = Math.max(1, ...values.filter((value): value is number => value !== null));
+  const items = bars.flatMap((bar) => {
+    const value = numericBarValue(bar["value"]);
+    return value === null ? [] : [{ label: displayValue(bar["label"]), value }];
+  });
   return (
     <section class="process-widget-section report-bar-chart" aria-labelledby={`${widget.id}-title`}>
       <h3 id={`${widget.id}-title`}>{widget.title}</h3>
-      <div class="report-bars">
-        {bars.map((bar, index) => {
-          const value = numericBarValue(bar["value"]);
-          return (
-            <div class="report-bar-row" key={`${widget.id}-${index}`} aria-label={`${displayValue(bar["label"])}: ${displayValue(bar["value"])}`}>
-              <span>{displayValue(bar["label"])}</span>
-              <span class="report-bar-track" aria-hidden="true">
-                <span style={{ width: `${barWidthPercent(value, max)}%` }} />
-              </span>
-              <strong>{displayValue(bar["value"])}</strong>
-            </div>
-          );
-        })}
-      </div>
+      <ComparisonBarChart label={widget.title} items={items} maximum={max} formatValue={formatNumber} />
       {bars.length === 0 ? <p class="muted small">{t("workflow.process.noData")}</p> : null}
     </section>
   );
@@ -103,15 +95,21 @@ function TimeseriesWidget({ widget }: { readonly widget: RenderedWidget }) {
       <h3 id={`${widget.id}-title`}>{widget.title}</h3>
       {series.map((item, index) => {
         const points = numericPoints(item["points"]);
+        const seriesLabel = displayValue(item["label"]);
         return (
           <div class="report-series" key={`${widget.id}-${index}`}>
-            <span class="muted small">{displayValue(item["label"])}</span>
             {points.length > 0 ? (
-              <svg viewBox="0 0 320 96" role="img" aria-label={t("workflow.process.trendAria", { label: displayValue(item["label"]) })}>
-                <polyline points={sparkline(points, 320, 96)} fill="none" stroke="currentColor" stroke-width="2" />
-              </svg>
+              <TrendChart
+                title={seriesLabel}
+                description={t("workflow.process.trendAria", { label: seriesLabel })}
+                points={points.map(([timestamp, value]) => ({ label: formatDateTimeValue(timestamp), value, detail: String(timestamp) }))}
+                formatValue={formatNumber}
+                summary={formatNumber(points.at(-1)![1])}
+                referenceLabel={t("workflow.process.median")}
+                compact
+              />
             ) : <p class="muted small">{t("workflow.process.noPoints")}</p>}
-            {points.length > 0 ? <details><summary>{t("workflow.process.dataPoints")}</summary><div class="scroll"><table class="data-table"><caption class="sr-only">{t("workflow.process.pointsCaption", { label: displayValue(item["label"]) })}</caption><thead><tr><th scope="col">{t("workflow.process.timestamp")}</th><th scope="col">{t("workflow.process.value")}</th></tr></thead><tbody>{points.map(([timestamp, value], pointIndex) => <tr key={`${timestamp}-${pointIndex}`}><td>{formatDateTimeValue(timestamp)}</td><td>{formatNumber(value)}</td></tr>)}</tbody></table></div></details> : null}
+            {points.length > 0 ? <details><summary>{t("workflow.process.dataPoints")}</summary><div class="scroll"><table class="data-table"><caption class="sr-only">{t("workflow.process.pointsCaption", { label: seriesLabel })}</caption><thead><tr><th scope="col">{t("workflow.process.timestamp")}</th><th scope="col">{t("workflow.process.value")}</th></tr></thead><tbody>{points.map(([timestamp, value], pointIndex) => <tr key={`${timestamp}-${pointIndex}`}><td>{formatDateTimeValue(timestamp)}</td><td>{formatNumber(value)}</td></tr>)}</tbody></table></div></details> : null}
           </div>
         );
       })}
@@ -353,20 +351,6 @@ function numericPoints(value: unknown): readonly (readonly [number, number])[] {
       ? [[point[0] as number, point[1] as number] as const]
       : [],
   );
-}
-
-function sparkline(points: readonly (readonly [number, number])[], width: number, height: number): string {
-  const xs = points.map(([x]) => x);
-  const ys = points.map(([, y]) => y);
-  const minX = Math.min(...xs);
-  const maxX = Math.max(...xs);
-  const minY = Math.min(...ys);
-  const maxY = Math.max(...ys);
-  const rangeX = maxX - minX || 1;
-  const rangeY = maxY - minY || 1;
-  return points.map(([x, y]) =>
-    `${(((x - minX) / rangeX) * width).toFixed(1)},${(height - ((y - minY) / rangeY) * height).toFixed(1)}`,
-  ).join(" ");
 }
 
 function pillForCheck(status: string): "success" | "warning" | "danger" | "neutral" {

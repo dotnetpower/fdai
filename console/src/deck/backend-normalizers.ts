@@ -20,6 +20,10 @@ import type {
   RouterCandidate,
   RouterSnapshot,
   ResourceContext,
+  SemanticAssuranceFrame,
+  SemanticAssuranceObservation,
+  SemanticAssurancePath,
+  SemanticAssurancePathStep,
   SemanticProjectionReceipt,
 } from "./backend-types";
 import { PANTHEON } from "../routes/agents.model";
@@ -35,6 +39,22 @@ const RESOURCE_EVIDENCE_PREFIXES = ["inventory:", "subscription-health:"] as con
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const DIGEST_PATTERN = /^sha256:[0-9a-f]{64}$/;
 const SEMANTIC_REASON_PATTERN = /^[a-z0-9_]{1,128}$/;
+const SEMANTIC_ASSURANCE_IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/;
+const SEMANTIC_OPERATIONS = new Set<SemanticAssuranceFrame["operation"]>([
+  "select",
+  "aggregate",
+  "compare",
+  "explain_change",
+  "validate",
+  "action_draft",
+]);
+const SEMANTIC_EVIDENCE_POSTURES = new Set<SemanticAssuranceObservation["evidence_posture"]>([
+  "fresh",
+  "stale",
+  "incomplete",
+  "conflicting",
+  "unavailable",
+]);
 const SEMANTIC_DISPOSITIONS = new Set<SemanticProjectionReceipt["disposition"]>([
   "answered",
   "held",
@@ -71,8 +91,9 @@ export function parseSemanticProjectionReceipt(
   const disposition = record.disposition;
   const semanticRoute = record.semantic_route;
   const unavailableReason = record.unavailable_reason;
+  const schemaVersion = record.schema_version;
   if (
-    record.schema_version !== "1.0.0" ||
+    (schemaVersion !== "1.0.0" && schemaVersion !== "2.0.0") ||
     typeof record.projection_id !== "string" ||
     !UUID_PATTERN.test(record.projection_id) ||
     typeof record.request_id !== "string" ||
@@ -119,8 +140,15 @@ export function parseSemanticProjectionReceipt(
   if (disposition === "answered" && Object.keys(digests).length !== digestKeys.length) {
     return undefined;
   }
+  const assuranceObservation = schemaVersion === "2.0.0"
+    ? parseSemanticAssuranceObservation(record.assurance_observation)
+    : undefined;
+  if (
+    (schemaVersion === "2.0.0" && assuranceObservation === undefined) ||
+    (schemaVersion === "1.0.0" && record.assurance_observation !== undefined)
+  ) return undefined;
   return {
-    schema_version: "1.0.0",
+    schema_version: schemaVersion,
     projection_id: record.projection_id,
     request_id: record.request_id,
     disposition: disposition as SemanticProjectionReceipt["disposition"],
@@ -132,8 +160,181 @@ export function parseSemanticProjectionReceipt(
       unavailable_reason: unavailableReason as NonNullable<SemanticProjectionReceipt["unavailable_reason"]>,
     } : {}),
     ...digests,
+    ...(assuranceObservation !== undefined ? {
+      assurance_observation: assuranceObservation,
+    } : {}),
     execution_authority: false,
   };
+}
+
+function parseSemanticAssuranceObservation(raw: unknown): SemanticAssuranceObservation | undefined {
+  const record = asExactRecord(raw, [
+    "schema_version",
+    "frame",
+    "capabilities",
+    "object_types",
+    "link_types",
+    "function_types",
+    "ontology_paths",
+    "fact_kinds",
+    "limitation_kinds",
+    "claim_kinds",
+    "evidence_posture",
+    "authority_posture",
+    "read_performed",
+    "observation_digest",
+    "execution_authority",
+  ]);
+  if (record === undefined) return undefined;
+  const frame = record.frame === null ? null : parseSemanticAssuranceFrame(record.frame);
+  const capabilities = parseOrderedIdentifiers(record.capabilities, 128);
+  const objectTypes = parseOrderedIdentifiers(record.object_types, 128);
+  const linkTypes = parseOrderedIdentifiers(record.link_types, 128);
+  const functionTypes = parseOrderedIdentifiers(record.function_types, 128);
+  const factKinds = parseOrderedIdentifiers(record.fact_kinds, 128);
+  const limitationKinds = parseOrderedIdentifiers(record.limitation_kinds, 128);
+  const claimKinds = parseOrderedIdentifiers(record.claim_kinds, 128);
+  const paths = parseSemanticAssurancePaths(record.ontology_paths);
+  if (
+    record.schema_version !== "1.0.0" ||
+    (record.frame !== null && frame === undefined) ||
+    capabilities === undefined ||
+    objectTypes === undefined ||
+    linkTypes === undefined ||
+    functionTypes === undefined ||
+    factKinds === undefined ||
+    limitationKinds === undefined ||
+    claimKinds === undefined ||
+    paths === undefined ||
+    typeof record.evidence_posture !== "string" ||
+    !SEMANTIC_EVIDENCE_POSTURES.has(
+      record.evidence_posture as SemanticAssuranceObservation["evidence_posture"],
+    ) ||
+    (record.authority_posture !== "read_only" && record.authority_posture !== "draft_only") ||
+    typeof record.read_performed !== "boolean" ||
+    typeof record.observation_digest !== "string" ||
+    !DIGEST_PATTERN.test(record.observation_digest) ||
+    record.execution_authority !== false
+  ) return undefined;
+  return {
+    schema_version: "1.0.0",
+    frame: frame ?? null,
+    capabilities,
+    object_types: objectTypes,
+    link_types: linkTypes,
+    function_types: functionTypes,
+    ontology_paths: paths,
+    fact_kinds: factKinds,
+    limitation_kinds: limitationKinds,
+    claim_kinds: claimKinds,
+    evidence_posture: record.evidence_posture as SemanticAssuranceObservation["evidence_posture"],
+    authority_posture: record.authority_posture,
+    read_performed: record.read_performed,
+    observation_digest: record.observation_digest,
+    execution_authority: false,
+  };
+}
+
+function parseSemanticAssuranceFrame(raw: unknown): SemanticAssuranceFrame | undefined {
+  const record = asExactRecord(raw, [
+    "operation",
+    "subject_types",
+    "measure_concepts",
+    "temporal_scope",
+    "output_shape",
+    "frame_digest",
+  ]);
+  if (record === undefined) return undefined;
+  const subjects = parseOrderedIdentifiers(record.subject_types, 16);
+  const measures = parseOrderedIdentifiers(record.measure_concepts, 16);
+  if (
+    typeof record.operation !== "string" ||
+    !SEMANTIC_OPERATIONS.has(record.operation as SemanticAssuranceFrame["operation"]) ||
+    subjects === undefined ||
+    measures === undefined ||
+    !["none", "current", "windowed", "historical"].includes(String(record.temporal_scope)) ||
+    typeof record.output_shape !== "string" ||
+    !SEMANTIC_ASSURANCE_IDENTIFIER_PATTERN.test(record.output_shape) ||
+    typeof record.frame_digest !== "string" ||
+    !DIGEST_PATTERN.test(record.frame_digest)
+  ) return undefined;
+  return {
+    operation: record.operation as SemanticAssuranceFrame["operation"],
+    subject_types: subjects,
+    measure_concepts: measures,
+    temporal_scope: record.temporal_scope as SemanticAssuranceFrame["temporal_scope"],
+    output_shape: record.output_shape,
+    frame_digest: record.frame_digest,
+  };
+}
+
+function parseSemanticAssurancePaths(raw: unknown): readonly SemanticAssurancePath[] | undefined {
+  if (!Array.isArray(raw) || raw.length > 16) return undefined;
+  const parsed = raw.map(parseSemanticAssurancePath);
+  if (parsed.some((item) => item === undefined)) return undefined;
+  const paths = parsed as SemanticAssurancePath[];
+  const pathIds = paths.map((path) => path.path_id);
+  return isOrderedUnique(pathIds) ? paths : undefined;
+}
+
+function parseSemanticAssurancePath(raw: unknown): SemanticAssurancePath | undefined {
+  const record = asExactRecord(raw, ["path_id", "steps"]);
+  if (
+    record === undefined ||
+    typeof record.path_id !== "string" ||
+    !SEMANTIC_ASSURANCE_IDENTIFIER_PATTERN.test(record.path_id) ||
+    !Array.isArray(record.steps) ||
+    record.steps.length < 1 ||
+    record.steps.length > 5
+  ) return undefined;
+  const parsed = record.steps.map(parseSemanticAssurancePathStep);
+  if (parsed.some((item) => item === undefined)) return undefined;
+  return { path_id: record.path_id, steps: parsed as SemanticAssurancePathStep[] };
+}
+
+function parseSemanticAssurancePathStep(raw: unknown): SemanticAssurancePathStep | undefined {
+  const record = asExactRecord(raw, ["from_type", "link_type", "direction", "to_type"]);
+  if (
+    record === undefined ||
+    ![record.from_type, record.link_type, record.to_type].every(
+      (item) => typeof item === "string" && SEMANTIC_ASSURANCE_IDENTIFIER_PATTERN.test(item),
+    ) ||
+    (record.direction !== "outgoing" && record.direction !== "incoming")
+  ) return undefined;
+  return {
+    from_type: record.from_type as string,
+    link_type: record.link_type as string,
+    direction: record.direction,
+    to_type: record.to_type as string,
+  };
+}
+
+function parseOrderedIdentifiers(raw: unknown, maxItems: number): readonly string[] | undefined {
+  if (
+    !Array.isArray(raw) ||
+    raw.length > maxItems ||
+    raw.some((item) => typeof item !== "string" || !SEMANTIC_ASSURANCE_IDENTIFIER_PATTERN.test(item))
+  ) return undefined;
+  return isOrderedUnique(raw as string[]) ? raw as string[] : undefined;
+}
+
+function isOrderedUnique(values: readonly string[]): boolean {
+  for (let index = 1; index < values.length; index += 1) {
+    const previous = values[index - 1];
+    const current = values[index];
+    if (previous === undefined || current === undefined || previous >= current) return false;
+  }
+  return true;
+}
+
+function asExactRecord(raw: unknown, keys: readonly string[]): Record<string, unknown> | undefined {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return undefined;
+  const record = raw as Record<string, unknown>;
+  const actual = Object.keys(record).sort();
+  const expected = [...keys].sort();
+  return actual.length === expected.length && actual.every((key, index) => key === expected[index])
+    ? record
+    : undefined;
 }
 
 export function parseResourceContext(raw: unknown): ResourceContext | undefined {
@@ -842,7 +1043,10 @@ function verificationArtifactsAgree(input: {
   }
   if (input.claims.length > 0) {
     const supported = input.claims.length - actualFailedClaimIds.length;
-    if (input.checksTotal !== input.claims.length || input.checksCompleted !== supported) return false;
+    if (
+      input.authority !== "ontology-query" &&
+      (input.checksTotal !== input.claims.length || input.checksCompleted !== supported)
+    ) return false;
   }
   if (input.manifest === undefined) return true;
   if (input.authority !== input.manifest.authority) return false;

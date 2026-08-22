@@ -11,6 +11,7 @@ from fdai.core.conversation.intent_graph import build_intent_graph_evidence
 from fdai.core.conversation.semantic_investigation import (
     InvestigationIntentProposal,
     normalize_investigation_competitors,
+    normalize_investigation_relationships,
     normalize_investigation_symptom,
     normalize_investigation_target,
     verify_investigation_intent,
@@ -591,6 +592,136 @@ def test_relationship_path_repairs_omitted_outer_target_type(
         descriptors=_manifest().descriptors,
         metric_concepts=METRICS,
     )
+
+
+def test_exact_resource_causal_frame_replaces_mixed_path_with_unique_service_path() -> None:
+    utterance = "service-example-api Container App 요청이 갑자기 시간 초과돼. 원인을 조사해 줘."
+    investigation = _verified_intent().model_dump(
+        mode="python",
+        exclude={
+            "schema_version",
+            "input_digest",
+            "intent_digest",
+            "authority",
+            "execution_authority",
+        },
+    )
+    investigation["entities"][0]["span"] = _span(utterance, "Container App")
+    investigation["entities"][0]["object_type_candidates"] = ["ContainerApp"]
+    investigation["symptom_measures"][0]["span"] = _span(utterance, "시간 초과")
+    investigation["symptom_measures"][0]["concept_id"] = "request.timeout"
+    investigation["temporal_cues"][0]["span"] = _span(utterance, "갑자기")
+    investigation["relationship_intents"][0]["span"] = _span(utterance, "원인을")
+    investigation["relationship_intents"][0]["query_side_candidates"] = [
+        "workload_runs_on_resource.incoming",
+        "workload_runs_on_resource.outgoing",
+    ]
+    investigation["hypotheses"][0]["span"] = _span(utterance, "원인을")
+    investigation["hypotheses"][1]["span"] = _span(utterance, "조사해")
+    frame = {
+        "operation": "explain_change",
+        "subject_constraints": ["ContainerApp", "service-example-api"],
+        "measure_concepts": ["request.timeout"],
+        "temporal_scope": {"cue": "current_failure"},
+        "output_shape": "causal_evidence",
+        "evidence_requirements": ["support_and_refutation"],
+        "unresolved_terms": [],
+        "clarification_requirements": [],
+        "clarification": None,
+        "investigation": investigation,
+        "confidence": 0.9,
+    }
+    t1 = _InvestigationModel(frame)
+    t2 = _InvestigationModel(frame)
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(),
+        verifier=_verifier(),
+        metric_concepts=METRICS,
+        inventory_query_language=INVENTORY_LANGUAGE,
+        now=lambda: NOW,
+    )
+
+    outcome = service.plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.investigation_intent is not None
+    assert outcome.investigation_intent.relationship_intents[0].query_side_candidates == (
+        "workload_runs_on_resource.incoming",
+        "service_implemented_by_workload.incoming",
+    )
+    assert outcome.plan is not None
+    assert len(outcome.plan.nodes) == 13
+    assert outcome.plan.execution_authority is False
+    assert (t1.frame_calls, t1.plan_calls) == (1, 0)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+def test_exact_resource_causal_frame_does_not_choose_an_ambiguous_service_path() -> None:
+    proposal_data = _verified_intent().model_dump(
+        mode="python",
+        exclude={
+            "schema_version",
+            "input_digest",
+            "intent_digest",
+            "authority",
+            "execution_authority",
+        },
+    )
+    proposal_data["entities"][0]["object_type_candidates"] = ["Resource"]
+    proposal_data["relationship_intents"][0]["query_side_candidates"] = [
+        "workload_runs_on_resource.incoming",
+        "workload_runs_on_resource.outgoing",
+    ]
+    proposal = InvestigationIntentProposal.model_validate(proposal_data)
+    descriptors = (
+        *_manifest().descriptors,
+        {
+            "kind": "link",
+            "name": "alternate_runs_on_resource",
+            "from_type": "AlternateWorkload",
+            "to_type": "Resource",
+            "query_sides": {
+                "source": {
+                    "query_id": "alternate_runs_on_resource.outgoing",
+                    "direction": "outgoing",
+                },
+                "target": {
+                    "query_id": "alternate_runs_on_resource.incoming",
+                    "direction": "incoming",
+                },
+            },
+        },
+        {
+            "kind": "link",
+            "name": "alternate_service_implementation",
+            "from_type": "BusinessService",
+            "to_type": "AlternateWorkload",
+            "query_sides": {
+                "source": {
+                    "query_id": "alternate_service_implementation.outgoing",
+                    "direction": "outgoing",
+                },
+                "target": {
+                    "query_id": "alternate_service_implementation.incoming",
+                    "direction": "incoming",
+                },
+            },
+        },
+    )
+
+    normalized = normalize_investigation_relationships(
+        proposal,
+        descriptors=descriptors,
+    )
+
+    assert normalized is proposal
 
 
 def test_relationship_path_does_not_repair_mixed_target_types() -> None:

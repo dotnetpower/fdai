@@ -167,25 +167,25 @@ export function RetrievalTrace({
   const iconUrl = `url("${typeof import.meta.env.BASE_URL === "string" ? import.meta.env.BASE_URL : "/"}agent-icons/bragi.svg")`;
 
   return (
-    <article class="deck-rt-turn">
-      <header class="deck-turn-head deck-rt-agent-head">
-        <span class="deck-turn-role deck-turn-agent">
+    <article class="deck-rt-turn cs-deck-turn cs-deck-agent-turn">
+      <header class="deck-turn-head deck-rt-agent-head cs-deck-turn-head">
+        <span class="deck-turn-role deck-turn-agent cs-deck-agent-name">
           <span
-            class="deck-turn-agent-icon"
+            class="deck-turn-agent-icon cs-deck-agent-icon"
             aria-hidden="true"
             style={{ WebkitMaskImage: iconUrl, maskImage: iconUrl }}
           />
           Bragi
         </span>
-        <span class="deck-turn-source">{t("deck.retrieval.groundingReadOnly")}</span>
+        <span class="deck-turn-source cs-deck-agent-source">{t("deck.retrieval.groundingReadOnly")}</span>
       </header>
-      <section class="deck-rt" aria-label={t("deck.retrieval.preparingAnswer")}>
+      <section class="deck-rt cs-grounding-panel" aria-label={t("deck.retrieval.preparingAnswer")}>
         <span class="sr-only" role="status" aria-live="polite">
           {t("deck.retrieval.status", {
             detail: progress?.label ?? t("deck.retrieval.readingCurrentSources"),
           })}
         </span>
-        <header class="deck-rt-head">
+        <header class="deck-rt-head cs-grounding-head">
           <span class="deck-rt-spin" aria-hidden="true" />
           <span class="deck-rt-title">{t("deck.retrieval.preparingAnswer")}</span>
           <span class="deck-rt-sub muted">
@@ -201,7 +201,7 @@ export function RetrievalTrace({
         {stages.map((stage, index) => (
           <li
             key={`${stage.label}-${index}`}
-            class={`deck-rt-stage ${stage.done ? "is-done" : "is-active"}`}
+            class={`deck-rt-stage cs-grounding-stage ${stage.done ? "is-done" : "is-active"}`}
           >
             <span class="deck-rt-ico" aria-hidden="true">{stage.glyph}</span>
             <span class="deck-rt-stage-copy">
@@ -222,12 +222,12 @@ export function RetrievalTrace({
             <span>{t("deck.retrieval.readingSources")}</span>
             <span>{Math.min(shown, sourceCount)}/{sourceCount}</span>
           </summary>
-          <div class="deck-rt-slot">
+          <div class="deck-rt-slot cs-grounding-source-window">
             <ul
               class="deck-rt-strip"
             >
               {visibleSources.map((source, index) => (
-                <li key={`${source.kind}-${source.label}-${index}`} class="deck-rt-source">
+                <li key={`${source.kind}-${source.label}-${index}`} class="deck-rt-source cs-grounding-source">
                   <span class={`deck-rt-badge is-${source.kind}`}>{source.kind}</span>
                   <span class="deck-rt-txt">
                     <span class="deck-rt-k">{source.label}</span>

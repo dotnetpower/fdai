@@ -128,7 +128,10 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     frame = prompts.get_base("semantic.query.frame")
     plan = prompts.get_base("semantic.query.plan")
 
-    assert frame.version == 36
+    assert frame.version == 37
+    assert "target_resource_metric and target_resource_metric_series" in frame.body
+    assert "aggregate such as average, minimum, maximum, sum, or count" in frame.body
+    assert "explicitly requests a trend, time series, graph, chart, or visualization" in frame.body
     assert "Never replace a requested evidence family" in frame.body
     assert "uses select with subscription_service_health" in frame.body
     assert "service_health.active_event" in frame.body

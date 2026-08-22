@@ -854,7 +854,85 @@ def test_edit_reservation_blocks_another_session_on_dirty_target(
 
     assert first == {"continue": True}
     assert blocked["hookSpecificOutput"]["permissionDecision"] == "deny"
+    assert "FDAI_EDIT_OVERRIDE=session-a" in blocked["systemMessage"]
     assert renewed == {"continue": True}
+
+
+def test_edit_reservation_override_requires_exact_owner_session(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    module = _load_module()
+    state_path = tmp_path / "state.json"
+    monkeypatch.setattr(module, "_reservation_state_path", lambda: state_path)
+    monkeypatch.setattr(module, "_reservation_lock_path", lambda: tmp_path / "state.lock")
+    monkeypatch.setattr(module, "_target_is_dirty", lambda target: True)
+    patch = "*** Begin Patch\n*** Update File: scripts/example.py\n*** End Patch"
+
+    assert module.enforce_edit_reservations(
+        {"session_id": "session-a", "tool_name": "apply_patch", "tool_input": {"input": patch}}
+    ) == {"continue": True}
+    wrong_owner = module.enforce_edit_reservations(
+        {
+            "session_id": "session-b",
+            "tool_name": "apply_patch",
+            "tool_input": {
+                "input": patch,
+                "explanation": "User approved FDAI_EDIT_OVERRIDE=session-c",
+            },
+        }
+    )
+    assert wrong_owner["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+    assert module.enforce_edit_reservations(
+        {
+            "session_id": "session-b",
+            "tool_name": "apply_patch",
+            "tool_input": {
+                "input": patch,
+                "explanation": "User approved FDAI_EDIT_OVERRIDE=session-a",
+            },
+        }
+    ) == {"continue": True}
+    reservation = json.loads(state_path.read_text(encoding="utf-8"))["reservations"][
+        "scripts/example.py"
+    ]
+    assert reservation["session"] == "session-b"
+    assert reservation["overrode_session"] == "session-a"
+    assert isinstance(reservation["override_at"], float)
+
+
+def test_edit_reservation_override_does_not_bypass_design_context(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    module = _load_module()
+    state_path = tmp_path / "state.json"
+    monkeypatch.setattr(module, "_state_path", lambda payload: tmp_path / "receipt.json")
+    monkeypatch.setattr(module, "_reservation_state_path", lambda: state_path)
+    monkeypatch.setattr(module, "_reservation_lock_path", lambda: tmp_path / "state.lock")
+    monkeypatch.setattr(module, "_target_is_dirty", lambda target: True)
+    target = REPO_ROOT / "scripts/agent/design_context.py"
+    patch = f"*** Begin Patch\n*** Update File: {target}\n*** End Patch"
+    assert module.enforce_edit_reservations(
+        {"session_id": "session-a", "tool_name": "apply_patch", "tool_input": {"input": patch}}
+    ) == {"continue": True}
+
+    result = module.pre_tool_use(
+        {
+            "session_id": "session-b",
+            "tool_name": "apply_patch",
+            "tool_input": {
+                "input": patch,
+                "explanation": "User approved FDAI_EDIT_OVERRIDE=session-a",
+            },
+        }
+    )
+
+    assert result["hookSpecificOutput"]["permissionDecision"] == "deny"
+    assert "FDAI design context is incomplete" in result["systemMessage"]
+    reservation = json.loads(state_path.read_text(encoding="utf-8"))["reservations"][
+        "scripts/agent/design_context.py"
+    ]
+    assert reservation["session"] == "session-a"
 
 
 def test_clean_target_can_replace_another_session_reservation(

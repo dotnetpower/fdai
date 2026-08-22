@@ -8,6 +8,7 @@ import type {
 import type { PresentationModuleProps } from "./types";
 import { presentationTimestamp } from "../presentation-value";
 import { PresentationTable } from "./table";
+import { ComparisonBarChart, TrendChart } from "../../components/charts";
 
 export function ChartModule({ block }: PresentationModuleProps) {
   if (block.kind === "bar" || block.kind === "coverage") return <BarOrCoverage block={block} />;
@@ -57,77 +58,40 @@ function BarOrCoverage({
     : block.kind === "coverage"
     ? Math.max(1, items.reduce((sum, item) => sum + item.value, 0))
     : Math.max(1, ...items.map((item) => item.value));
+  const chartItems = items.map((item) => {
+    const exact = block.kind === "coverage" && accessible && "total" in item
+      ? `${item.value} / ${item.total}`
+      : `${item.value}`;
+    return { label: item.label, value: item.value, formattedValue: exact };
+  });
   return (
     <div class="deck-presentation-accessible-chart">
       {accessible ? <p>{block.data.description}</p> : null}
-      <div class="deck-presentation-bars">
-        {items.map((item) => {
-          const total = block.kind === "coverage" && accessible && "total" in item
-            ? item.total
-            : denominator;
-          const width = item.value === 0 ? 0 : Math.max(2, (item.value / total) * 100);
-          const exact = block.kind === "coverage" && accessible && "total" in item
-            ? `${item.value} / ${item.total}`
-            : `${item.value}`;
-          return (
-            <div key={item.label} class="deck-presentation-bar-row" data-tone={item.tone}>
-              <span class="deck-presentation-bar-label">{item.label}</span>
-              <Tooltip content={`${item.label}: ${exact}`}>
-                <span
-                  class="deck-presentation-bar-track"
-                  tabIndex={0}
-                  role="img"
-                  aria-label={`${item.label}: ${exact}`}
-                >
-                  <span style={{ width: `${width}%` }} />
-                </span>
-              </Tooltip>
-              <strong>{exact}</strong>
-            </div>
-          );
-        })}
-      </div>
+      <ComparisonBarChart label={accessible ? block.data.description : block.kind} items={chartItems} maximum={denominator} formatValue={(value) => `${value}`} />
       {accessible ? <ExactTableDisclosure data={block.data.exactTable} /> : null}
     </div>
   );
 }
 
 function TimeSeries({ block }: { readonly block: Extract<PresentationBlock, { kind: "time_series" }> }) {
-  const values = block.data.points.map((point) => point.value);
-  const minimum = Math.min(...values);
-  const maximum = Math.max(...values);
-  const range = Math.max(1, maximum - minimum);
+  const locale = getLocale() === "ko" ? "ko-KR" : "en-US";
   return (
     <div class="deck-presentation-accessible-chart">
-      <p>{block.data.description}</p>
-      <ol
-        class="deck-presentation-series"
-        aria-label={block.data.description}
-        style={timeSeriesStyle(block.data.points.length)}
-      >
-        {block.data.points.map((point) => {
-          const height = 18 + ((point.value - minimum) / range) * 72;
-          const label = `${point.timestamp}: ${point.value} ${block.data.unit}`;
-          const timestamp = presentationTimestamp(
-            point.timestamp,
-            getLocale() === "ko" ? "ko-KR" : "en-US",
-          );
-          return (
-            <li key={point.timestamp}>
-              <span class="deck-presentation-series-column" aria-hidden="true">
-                <span style={{ height: `${height}%` }} />
-              </span>
-              <Tooltip content={label}>
-                <span class="deck-presentation-series-point" tabIndex={0} role="img" aria-label={label} />
-              </Tooltip>
-              <strong>{point.value}</strong>
-              <time dateTime={point.timestamp}>
-                {timestamp ? <><span>{timestamp.date}</span><span>{timestamp.time}</span></> : point.timestamp}
-              </time>
-            </li>
-          );
+      <TrendChart
+        title={block.data.description}
+        points={block.data.points.map((point) => {
+          const timestamp = presentationTimestamp(point.timestamp, locale);
+          return {
+            label: timestamp ? `${timestamp.date} ${timestamp.time}` : point.timestamp,
+            value: point.value,
+            detail: point.timestamp,
+          };
         })}
-      </ol>
+        formatValue={(value) => `${value} ${block.data.unit}`}
+        summary={`${block.data.points.at(-1)!.value} ${block.data.unit}`}
+        referenceLabel={t("deck.rich.median")}
+        compact
+      />
       <ExactTableDisclosure data={block.data.exactTable} />
     </div>
   );

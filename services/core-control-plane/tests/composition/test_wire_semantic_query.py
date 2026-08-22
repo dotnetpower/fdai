@@ -54,6 +54,7 @@ from fdai.core.ontology_platform.resource_ingress_queries import (
 )
 from fdai.core.ontology_platform.resource_metric_queries import (
     RESOURCE_METRIC_FUNCTION_NAME,
+    RESOURCE_METRIC_SERIES_FUNCTION_NAME,
 )
 from fdai.core.ontology_platform.resource_state_queries import RESOURCE_STATE_FUNCTION_NAME
 from fdai.core.ontology_platform.service_health_queries import (
@@ -990,6 +991,7 @@ async def test_runtime_exposes_only_bound_question_space_capabilities() -> None:
     assert RESOURCE_HEALTH_FUNCTION_NAME not in model.function_names
     assert RESOURCE_EVENT_FUNCTION_NAME not in model.function_names
     assert RESOURCE_METRIC_FUNCTION_NAME not in model.function_names
+    assert RESOURCE_METRIC_SERIES_FUNCTION_NAME not in model.function_names
     assert SERVICE_HEALTH_FUNCTION_NAME not in model.function_names
     assert ONTOLOGY_RELEASE_DIFF_FUNCTION_NAME not in model.function_names
     assert ONTOLOGY_EVIDENCE_HEALTH_FUNCTION_NAME not in model.function_names
@@ -1100,6 +1102,7 @@ async def test_runtime_exposes_resource_metrics_only_with_registry_and_provider(
     )
 
     assert RESOURCE_METRIC_FUNCTION_NAME in model.function_names
+    assert RESOURCE_METRIC_SERIES_FUNCTION_NAME in model.function_names
 
 
 async def test_runtime_exposes_bound_catalog_search_to_planner() -> None:

@@ -310,6 +310,7 @@ def _validated_content(  # noqa: UP047 - pinned mypy does not parse PEP 695 func
 
 def _normalize_frame_tokens(payload: dict[str, Any]) -> dict[str, Any]:
     normalized = dict(payload)
+    normalized.setdefault("confidence", 0.0)
     evidence_requirements = normalized.get("evidence_requirements")
     if isinstance(evidence_requirements, list):
         normalized["evidence_requirements"] = [

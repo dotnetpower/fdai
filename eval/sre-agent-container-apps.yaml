@@ -21,11 +21,12 @@ validation:
     execution_authority: false
   exact_target_follow_up:
     state: in_progress
-    open_capabilities:
+    validated_capabilities:
       - Typed Container App ingress projection.
-      - Seven-day exact-target change activity.
       - Container Apps MemoryPercentage metric semantics and bounded seven-day aggregation.
-      - Deterministic exact-target causal investigation completion.
+    open_capabilities:
+      - Seven-day exact-target change activity.
+      - Deterministic exact-target causal investigation completion with the documented 13-node plan.
 cases:
   - case_id: container-apps-list
     source_prompt: List all my container apps
@@ -85,6 +86,10 @@ cases:
       source_complete: true
       exact_target_next_step: true
       execution_authority: false
+      exact_target_live_outcome: verified_configuration_table
+      exact_target_plan_nodes: 2
+      exact_target_evidence_checks: 8
+      unavailable_fields_inferred: false
   - case_id: container-app-active-revision
     source_prompt: Which revision of my container app is currently active?
     korean_prompt: 내 Container App에서 현재 활성화된 리비전은 무엇이야?
@@ -117,6 +122,13 @@ cases:
       source_complete: true
       exact_target_next_step: true
       execution_authority: false
+      exact_target_live_outcome: verified_metric_aggregation_table
+      exact_target_plan_nodes: 2
+      exact_target_evidence_checks: 8
+      exact_target_metric_concept: resource.memory.usage_pct
+      exact_target_unit: percent
+      exact_target_window_seconds: 604800
+      chart_invented: false
       sensitive_internal_output: false
   - case_id: container-app-change-history
     source_prompt: What changed in my container app in the last week?
@@ -134,6 +146,14 @@ cases:
       source_complete: true
       exact_target_next_step: true
       execution_authority: false
+      exact_target_live_outcome: verified_causal_answer
+      exact_target_model_tier: t1
+      exact_target_t2_invoked: false
+      exact_target_symptom: request.errors
+      exact_target_plan_nodes: 15
+      documented_plan_nodes: 13
+      documented_plan_shape_satisfied: false
+      provider_gap_explicit: true
   - case_id: container-app-memory-chart
     source_prompt: Show me visualization of memory utilization % for my container app for last week
     korean_prompt: 지난 1주일간 내 Container App의 메모리 사용률(%)을 시각화해 줘.

@@ -238,7 +238,7 @@ export function CommandDeckView({
 
       {open ? (
         <div
-          class={`deck-overlay deck-overlay-mode-${layoutMode}${dragging ? " is-dragging" : ""}`}
+          class={`deck-overlay cs-deck-surface deck-overlay-mode-${layoutMode}${dragging ? " is-dragging" : ""}`}
           role={layoutMode === "workspace" ? "dialog" : "complementary"}
           aria-modal={layoutMode === "workspace" ? "true" : undefined}
           aria-label={t("deck.label")}
@@ -439,14 +439,14 @@ export function CommandDeckView({
           </div>
 
           <form
-            class="deck-input-row"
+            class="deck-input-row cs-deck-composer-shell"
             onSubmit={(event) => {
               event.preventDefault();
               if (onRunSlashCommand(draft)) return;
               onSubmit(draft);
             }}
           >
-            <div class="deck-composer-inner">
+            <div class="deck-composer-inner cs-deck-composer-grid">
               {slashSuggestions.length > 0 ? (
                 <ul class="deck-slash-palette" aria-label={t("deck.slashCommands")}>
                   {slashSuggestions.map((command, index) => (
@@ -470,7 +470,7 @@ export function CommandDeckView({
               <ComposerAttachments />
               <textarea
                 ref={inputRef}
-                class="deck-input"
+                class="deck-input cs-deck-composer-input"
                 placeholder={t("deck.inputPlaceholder")}
                 aria-label={t("deck.inputPlaceholderContext", { route: routeLabel })}
                 value={draft}
@@ -482,7 +482,7 @@ export function CommandDeckView({
                 {inFlight ? (
                   <button
                     type="button"
-                    class="deck-btn deck-btn-stop"
+                    class="deck-btn deck-btn-stop cs-deck-composer-send"
                     onClick={onStopStream}
                   >
                     {t("deck.stop")}
@@ -490,7 +490,7 @@ export function CommandDeckView({
                 ) : (
                   <button
                     type="submit"
-                    class="deck-btn deck-btn-primary"
+                    class="deck-btn deck-btn-primary cs-deck-composer-send"
                     disabled={draft.trim().length === 0}
                   >
                     {t("deck.send")}

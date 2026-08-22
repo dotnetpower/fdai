@@ -25,7 +25,10 @@ from .resource_event_queries import resource_event_function_type
 from .resource_health_assessment_queries import target_health_assessment_function_type
 from .resource_health_queries import resource_health_function_type
 from .resource_ingress_queries import resource_ingress_function_type
-from .resource_metric_queries import resource_metric_function_type
+from .resource_metric_queries import (
+    resource_metric_function_type,
+    resource_metric_series_function_type,
+)
 from .resource_state_queries import resource_state_function_type
 from .service_health_queries import service_health_function_type
 
@@ -52,6 +55,7 @@ def operational_function_types(
         resource_health_function_type(),
         resource_ingress_function_type(),
         resource_metric_function_type(),
+        resource_metric_series_function_type(),
         resource_state_function_type(),
         service_health_function_type(),
         error_activity_correlation_function_type(),

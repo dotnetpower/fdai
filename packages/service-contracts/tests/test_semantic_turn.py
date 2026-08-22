@@ -11,6 +11,7 @@ from fdai_service_contracts import (
     GoalTaskReceipt,
     RuleSearchProjection,
     RuleSearchReceipt,
+    SemanticAssuranceObservation,
     SemanticTurnResult,
     query_content_digest,
     rule_search_query_digest,
@@ -133,6 +134,59 @@ def test_semantic_result_accepts_typed_unavailability() -> None:
 
     assert result.semantic_route is None
     assert result.unavailable_reason == "semantic_planner_unavailable"
+
+
+def _assurance_observation_payload() -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "schema_version": "1.0.0",
+        "frame": {
+            "operation": "select",
+            "subject_types": ["Incident"],
+            "measure_concepts": [],
+            "temporal_scope": "current",
+            "output_shape": "incident_evidence",
+            "frame_digest": f"sha256:{'a' * 64}",
+        },
+        "capabilities": ["incident_evidence"],
+        "object_types": ["Incident"],
+        "link_types": [],
+        "function_types": ["query.incident_evidence"],
+        "ontology_paths": [],
+        "fact_kinds": ["incident.evidence"],
+        "limitation_kinds": ["incident_evidence_gaps_must_be_preserved"],
+        "claim_kinds": [],
+        "evidence_posture": "incomplete",
+        "authority_posture": "read_only",
+        "read_performed": True,
+        "execution_authority": False,
+    }
+    payload["observation_digest"] = query_content_digest(payload)
+    return payload
+
+
+def test_semantic_assurance_observation_accepts_content_addressed_typed_axes() -> None:
+    observation = SemanticAssuranceObservation.model_validate(_assurance_observation_payload())
+
+    assert observation.fact_kinds == ("incident.evidence",)
+    assert observation.execution_authority is False
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    (
+        lambda payload: payload["capabilities"].extend(["incident_evidence"]),
+        lambda payload: payload.__setitem__("observation_digest", f"sha256:{'0' * 64}"),
+    ),
+    ids=("duplicate-axis", "digest-mismatch"),
+)
+def test_semantic_assurance_observation_rejects_noncanonical_content(
+    mutation: Callable[[dict[str, Any]], object],
+) -> None:
+    payload = _assurance_observation_payload()
+    mutation(payload)
+
+    with pytest.raises(ValidationError, match="semantic assurance"):
+        SemanticAssuranceObservation.model_validate(payload)
 
 
 @pytest.mark.parametrize(

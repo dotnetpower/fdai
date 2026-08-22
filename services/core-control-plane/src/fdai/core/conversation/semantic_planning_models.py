@@ -87,6 +87,7 @@ class SemanticOutputShape(StrEnum):
     TARGET_HEALTH_ASSESSMENT = "target_health_assessment"
     TARGET_INGRESS_CONFIGURATION = "target_ingress_configuration"
     TARGET_RESOURCE_METRIC = "target_resource_metric"
+    TARGET_RESOURCE_METRIC_SERIES = "target_resource_metric_series"
     TEMPORAL_COMPARISON = "temporal_comparison"
     TOPOLOGY_GRAPH = "topology_graph"
 

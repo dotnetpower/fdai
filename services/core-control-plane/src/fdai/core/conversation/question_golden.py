@@ -15,10 +15,27 @@ from fdai.core.conversation.question_perspectives import QuestionEvidencePosture
 _DIGEST_PATTERN = re.compile(r"sha256:[0-9a-f]{64}")
 _SEMVER_PATTERN = re.compile(r"[1-9][0-9]*\.[0-9]+\.[0-9]+")
 _IDENTIFIER_PATTERN = re.compile(r"[a-z0-9][a-z0-9._:-]{0,255}")
+_CATALOG_NAME_PATTERN = re.compile(r"[A-Za-z][A-Za-z0-9._-]{0,127}")
 _ALLOWED_DISPOSITIONS = frozenset(
     {"answered", "clarification", "held", "unsupported", "action_draft"}
 )
 _LOCALES = frozenset({"en", "ko"})
+_TEMPORAL_SCOPES = frozenset({"current", "historical", "none", "windowed"})
+_RUNTIME_CONTEXTS = frozenset(
+    {"explicit_target_required", "incident_binding", "none", "server_scope"}
+)
+_VARIATION_KINDS = frozenset(
+    {
+        "audit_oriented",
+        "concise",
+        "contrastive",
+        "direct",
+        "evidence_first",
+        "investigative",
+        "operator_colloquial",
+        "uncertainty_aware",
+    }
+)
 
 
 class GoldenAuthorityPosture(StrEnum):
@@ -35,16 +52,20 @@ class GoldenSemanticFrame:
     operation: str
     subject: str
     measure_concepts: tuple[str, ...]
-    output_shape: str
+    output_shape: str | None
+    temporal_scope: str = "none"
 
     def __post_init__(self) -> None:
-        for name, value in (
-            ("operation", self.operation),
-            ("subject", self.subject),
-            ("output_shape", self.output_shape),
-        ):
+        for name, value in (("operation", self.operation), ("subject", self.subject)):
             if _IDENTIFIER_PATTERN.fullmatch(value) is None:
                 raise ValueError(f"golden semantic frame {name} is invalid")
+        if (
+            self.output_shape is not None
+            and _IDENTIFIER_PATTERN.fullmatch(self.output_shape) is None
+        ):
+            raise ValueError("golden semantic frame output_shape is invalid")
+        if self.temporal_scope not in _TEMPORAL_SCOPES:
+            raise ValueError("golden semantic frame temporal_scope is invalid")
         _require_ordered_identifiers("golden semantic frame measures", self.measure_concepts)
 
     @property
@@ -52,6 +73,72 @@ class GoldenSemanticFrame:
         """Return the canonical frame identity used by certification."""
 
         return _digest(asdict(self))
+
+
+@dataclass(frozen=True, slots=True)
+class GoldenOntologyPathStep:
+    """One directed declaration step expected in a golden semantic plan."""
+
+    from_type: str
+    link_type: str
+    direction: str
+    to_type: str
+
+    def __post_init__(self) -> None:
+        _require_catalog_names("golden ontology step types", (self.from_type, self.to_type))
+        if _IDENTIFIER_PATTERN.fullmatch(self.link_type) is None:
+            raise ValueError("golden ontology step link type is invalid")
+        if self.direction not in {"incoming", "outgoing"}:
+            raise ValueError("golden ontology step direction is invalid")
+
+
+@dataclass(frozen=True, slots=True)
+class GoldenOntologyPath:
+    """One bounded ordered ontology path expected by a golden question."""
+
+    path_id: str
+    steps: tuple[GoldenOntologyPathStep, ...]
+
+    def __post_init__(self) -> None:
+        if _IDENTIFIER_PATTERN.fullmatch(self.path_id) is None:
+            raise ValueError("golden ontology path id is invalid")
+        if not 1 <= len(self.steps) <= 5:
+            raise ValueError("golden ontology path MUST contain 1..5 steps")
+        if any(
+            previous.to_type != current.from_type
+            for previous, current in zip(self.steps, self.steps[1:], strict=False)
+        ):
+            raise ValueError("golden ontology path steps MUST be contiguous")
+
+
+@dataclass(frozen=True, slots=True)
+class GoldenOntologyExpectation:
+    """Typed anchor, target, path, and traversal bounds for one golden pair."""
+
+    anchor_type: str
+    target_types: tuple[str, ...]
+    paths: tuple[GoldenOntologyPath, ...]
+    min_traversal_depth: int
+    max_traversal_depth: int
+
+    def __post_init__(self) -> None:
+        _require_catalog_names("golden ontology anchor", (self.anchor_type,))
+        _require_catalog_names(
+            "golden ontology targets", self.target_types, ordered=True, required=True
+        )
+        if self.paths != tuple(sorted(self.paths, key=lambda item: item.path_id)):
+            raise ValueError("golden ontology paths MUST be ordered")
+        if len({item.path_id for item in self.paths}) != len(self.paths):
+            raise ValueError("golden ontology path ids MUST be unique")
+        if not 0 <= self.min_traversal_depth <= self.max_traversal_depth <= 5:
+            raise ValueError("golden ontology traversal bounds are invalid")
+        depths = tuple(len(item.steps) for item in self.paths)
+        if depths and (
+            min(depths) != self.min_traversal_depth or max(depths) != self.max_traversal_depth
+        ):
+            raise ValueError("golden ontology path depths conflict with traversal bounds")
+        if not depths and (self.min_traversal_depth != 0 or self.max_traversal_depth != 0):
+            raise ValueError("empty golden ontology paths require zero traversal bounds")
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,6 +156,13 @@ class GoldenQuestionCase:
     forbidden_claims: tuple[str, ...]
     evidence_posture: QuestionEvidencePosture
     authority_posture: GoldenAuthorityPosture
+    required_object_types: tuple[str, ...] = ()
+    required_link_types: tuple[str, ...] = ()
+    required_function_types: tuple[str, ...] = ()
+    expected_ontology: GoldenOntologyExpectation | None = None
+    required_limitations: tuple[str, ...] = ()
+    runtime_context: str = "none"
+    variation_kind: str = "direct"
 
     def __post_init__(self) -> None:
         for name, value in (
@@ -92,6 +186,16 @@ class GoldenQuestionCase:
             raise ValueError("golden allowed dispositions are invalid")
         _require_ordered_identifiers("golden required facts", self.required_facts)
         _require_ordered_identifiers("golden forbidden claims", self.forbidden_claims)
+        _require_catalog_names(
+            "golden required object types", self.required_object_types, ordered=True
+        )
+        _require_ordered_identifiers("golden required link types", self.required_link_types)
+        _require_ordered_identifiers("golden required function types", self.required_function_types)
+        _require_ordered_identifiers("golden required limitations", self.required_limitations)
+        if self.runtime_context not in _RUNTIME_CONTEXTS:
+            raise ValueError("golden runtime context is invalid")
+        if self.variation_kind not in _VARIATION_KINDS:
+            raise ValueError("golden variation kind is invalid")
         if not isinstance(self.evidence_posture, QuestionEvidencePosture):
             raise ValueError("golden evidence posture MUST be a declared enum value")
         if not isinstance(self.authority_posture, GoldenAuthorityPosture):
@@ -108,6 +212,15 @@ class GoldenQuestionCase:
                 "allowed_dispositions": self.allowed_dispositions,
                 "required_facts": self.required_facts,
                 "forbidden_claims": self.forbidden_claims,
+                "required_object_types": self.required_object_types,
+                "required_link_types": self.required_link_types,
+                "required_function_types": self.required_function_types,
+                "expected_ontology": (
+                    asdict(self.expected_ontology) if self.expected_ontology is not None else None
+                ),
+                "required_limitations": self.required_limitations,
+                "runtime_context": self.runtime_context,
+                "variation_kind": self.variation_kind,
                 "evidence_posture": self.evidence_posture.value,
                 "authority_posture": self.authority_posture.value,
             }
@@ -122,6 +235,7 @@ class GoldenQuestionCorpus:
     corpus_version: str
     cases: tuple[GoldenQuestionCase, ...]
     corpus_digest: str
+    source_digest: str | None = None
 
     def __post_init__(self) -> None:
         if self.schema_version != "1.0.0" or _SEMVER_PATTERN.fullmatch(self.corpus_version) is None:
@@ -131,6 +245,8 @@ class GoldenQuestionCorpus:
         if len({item.case_id for item in self.cases}) != len(self.cases):
             raise ValueError("golden case ids MUST be unique")
         _require_bilingual_pairs(self.cases)
+        if self.source_digest is not None:
+            _require_digest("golden corpus source", self.source_digest)
         _require_digest("golden corpus", self.corpus_digest)
         if self.corpus_digest != _corpus_digest(self):
             raise ValueError("golden corpus digest does not match content")
@@ -217,6 +333,7 @@ def build_golden_corpus(
     *,
     corpus_version: str,
     cases: Sequence[GoldenQuestionCase],
+    source_digest: str | None = None,
 ) -> GoldenQuestionCorpus:
     """Build a canonical corpus and reject locale or expectation drift."""
 
@@ -225,12 +342,14 @@ def build_golden_corpus(
     object.__setattr__(provisional, "schema_version", "1.0.0")
     object.__setattr__(provisional, "corpus_version", corpus_version)
     object.__setattr__(provisional, "cases", ordered_cases)
+    object.__setattr__(provisional, "source_digest", source_digest)
     object.__setattr__(provisional, "corpus_digest", _corpus_digest(provisional))
     return GoldenQuestionCorpus(
         schema_version=provisional.schema_version,
         corpus_version=provisional.corpus_version,
         cases=provisional.cases,
         corpus_digest=provisional.corpus_digest,
+        source_digest=provisional.source_digest,
     )
 
 
@@ -319,6 +438,7 @@ def _corpus_digest(corpus: GoldenQuestionCorpus) -> str:
         {
             "schema_version": corpus.schema_version,
             "corpus_version": corpus.corpus_version,
+            "source_digest": corpus.source_digest,
             "cases": [
                 {
                     **asdict(case),
@@ -347,6 +467,21 @@ def _require_ordered_identifiers(
         raise ValueError(f"{name} contain an invalid identifier")
 
 
+def _require_catalog_names(
+    name: str,
+    values: tuple[str, ...],
+    *,
+    ordered: bool = False,
+    required: bool = False,
+) -> None:
+    if required and not values:
+        raise ValueError(f"{name} MUST be non-empty")
+    if ordered and values != tuple(sorted(set(values))):
+        raise ValueError(f"{name} MUST be ordered and unique")
+    if any(_CATALOG_NAME_PATTERN.fullmatch(value) is None for value in values):
+        raise ValueError(f"{name} contain an invalid catalog name")
+
+
 def _require_digest(name: str, value: str) -> None:
     if _DIGEST_PATTERN.fullmatch(value) is None:
         raise ValueError(f"{name} MUST be a canonical SHA-256 value")
@@ -367,6 +502,9 @@ __all__ = [
     "GoldenAuthorityPosture",
     "GoldenCaseCertification",
     "GoldenCertificationReceipt",
+    "GoldenOntologyExpectation",
+    "GoldenOntologyPath",
+    "GoldenOntologyPathStep",
     "GoldenQuestionCase",
     "GoldenQuestionCorpus",
     "GoldenSemanticFrame",

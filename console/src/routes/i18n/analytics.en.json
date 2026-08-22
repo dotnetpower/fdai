@@ -21,6 +21,7 @@
   "notApplicable": "Not applicable",
   "current": "Current",
   "baseline": "Baseline",
+  "median": "Median",
   "direction": "Better when",
   "higherBetter": "Higher",
   "lowerBetter": "Lower",

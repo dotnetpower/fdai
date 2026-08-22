@@ -59,10 +59,11 @@ def test_workspace_uses_one_instruction_and_git_sync_path() -> None:
     assert settings["git.autofetch"] is False
 
 
-def test_workspace_suppresses_terminal_exit_toast() -> None:
+def test_workspace_suppresses_non_actionable_terminal_alerts() -> None:
     settings = _load_jsonc(REPO_ROOT / ".vscode" / "settings.json")
     assert isinstance(settings, dict)
 
+    assert settings["terminal.integrated.environmentChangesIndicator"] == "off"
     assert settings["terminal.integrated.showExitAlert"] is False
 
 
@@ -70,7 +71,7 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
     tasks = _load_jsonc(REPO_ROOT / ".vscode" / "tasks.json")
     assert isinstance(tasks, dict)
     tasks_by_label = {task["label"]: task for task in tasks["tasks"]}
-    assert len(tasks_by_label) == 11
+    assert len(tasks_by_label) == 12
 
     prepare_stack = tasks_by_label["console: prepare full stack"]
     assert prepare_stack["command"] == (
@@ -137,14 +138,34 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
         "dev-access: configure VPN on folder open",
     }
 
+    dev_access = tasks_by_label["dev-access: configure VPN on folder open"]
+    assert dev_access["presentation"]["close"] is True
+    assert dev_access["presentation"]["revealProblems"] == "onProblem"
+
     visible_tasks = {task["label"] for task in tasks["tasks"] if not task.get("hide", False)}
     assert visible_tasks == {
         "git: pull now (rebase, autostash)",
         "console: Playwright quick (desktop)",
         "design mocks: serve (5373)",
         "console: prepare full stack",
+        "console: start core runtime",
         "console: start full stack",
         "channel edge: Operator Slack and Teams (Local)",
+    }
+
+    core_runtime = tasks_by_label["console: start core runtime"]
+    assert core_runtime["command"] == (
+        "bash scripts/deployment/local/run-console-service.sh core-runtime"
+    )
+    assert core_runtime["isBackground"] is True
+    assert core_runtime["runOptions"] == {
+        "instanceLimit": 1,
+        "instancePolicy": "silent",
+    }
+    assert core_runtime["problemMatcher"]["background"] == {
+        "activeOnStart": True,
+        "beginsPattern": "service=core-runtime event=starting$",
+        "endsPattern": "service=core-runtime event=starting$",
     }
 
     local_services = tasks_by_label["console: start local services"]
@@ -192,6 +213,7 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
     assert "run-console-service.sh" in supervisor_script
     assert "developer-workflow.py" in supervisor_script
     assert "local-services" in supervisor_script
+    assert "--wait-seconds 60" in supervisor_script
     assert "require_managed_locks" in supervisor_script
     assert 'flock -n -E 75 "$lock_file" true' in supervisor_script
     assert "service=console-stack event=ready" in supervisor_script

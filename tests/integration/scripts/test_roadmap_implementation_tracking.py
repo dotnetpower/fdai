@@ -135,6 +135,7 @@ def test_non_owner_roadmap_documents_are_exempt() -> None:
 
     assert module.is_exempt("docs/roadmap/README.md")
     assert module.is_exempt("docs/roadmap/architecture/index.md")
+    assert module.is_exempt("docs/roadmap/architecture/code-map.md")
     assert module.is_exempt("docs/roadmap/architecture/fdai-constitution.md")
     assert module.is_exempt("docs/roadmap/architecture/decisions/0001-example.md")
     assert module.is_exempt("docs/roadmap/architecture/owner-ko.md")

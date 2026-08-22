@@ -101,6 +101,60 @@ test("component gallery keeps the remediated interaction and accessibility contr
   assert.match(stylesheet, /semantic-type-v2/);
   assert.match(stylesheet, /small, code, dt, dd, th, time, kbd, svg text/);
   assert.match(stylesheet, /\.cs-components-page \.cs-heading-link \{[^}]*width: 44px;[^}]*height: 44px/);
+  assert.equal((components.match(/data-cs-chart-inspect/g) || []).length, 4);
+  assert.match(navigation, /event\.target\.closest\("\[data-cs-chart-inspect\]"\)/);
+  assert.match(navigation, /var chartMarks = "\[data-chart-mark\], \.cs-heatmap-cell\[title\]"/);
+  assert.match(navigation, /document\.querySelectorAll\(chartMarks\)/);
+  assert.match(navigation, /showChartMarkTooltip\(mark, label\)/);
+  assert.match(navigation, /mark\.classList\.contains\("cs-family-series-slice"\).*mark\.classList\.contains\("cs-composition-slice"\)/);
+  assert.match(navigation, /classList\.toggle\("is-left", useLeft\)/);
+  assert.match(navigation, /!fitsRight && !fitsLeft/);
+  assert.match(navigation, /classList\.add\("is-clamped"\)/);
+  assert.match(navigation, /document\.addEventListener\("focusin"/);
+  assert.match(navigation, /lastTrigger = focusReturn \|\| trigger/);
+  assert.match(stylesheet, /\.cs-chart-mark-tip \{[^}]*position: fixed/);
+  assert.doesNotMatch(navigation, /querySelectorAll\("\.js-chartable"\)/);
+});
+
+test("chart specimens retain their precision-first visual contracts", () => {
+  const start = components.indexOf('<section class="cs-section" id="data-views"');
+  const end = components.indexOf("</section>", start);
+  const charts = components.slice(start, end);
+
+  assert.equal((charts.match(/class="cs-chart-card js-chartable"/g) || []).length, 4);
+  assert.match(charts, /class="cs-chart-reference"/);
+  assert.match(charts, /Peak 36/);
+  assert.match(charts, /Median 27/);
+  assert.match(charts, /class="cs-chart-distribution-bar"/);
+  assert.doesNotMatch(charts, /cs-chart-donut/);
+  assert.match(charts, /data-chart-num-cols="\[1,2,3,4,5,6,7\]"/);
+  assert.match(charts, /class="cs-heatmap-cell is-4 is-peak"/);
+  assert.match(stylesheet, /\.cs-chart-bar-baseline \{[^}]*left: var\(--baseline\)/);
+  assert.match(stylesheet, /\.cs-heatmap-cell\.is-peak/);
+  ["#3b82f6", "#10b981", "#8b5cf6", "#f59e0b", "#6b7280", "#06b6d4", "#ec4899", "#84cc16", "#d946ef"]
+    .forEach((hex) => assert.match(stylesheet, new RegExp(hex)));
+  assert.match(stylesheet, /\[data-chart-mark\]:focus-visible/);
+  assert.equal((charts.match(/class="cs-chart-foot"/g) || []).length, 4);
+  assert.equal((charts.match(/class="cs-chart-family-card"/g) || []).length, 6);
+  assert.equal((charts.match(/class="cs-chart-composition-card/g) || []).length, 7);
+  [
+    "Portfolio value", "Evidence volume", "Today's queries", "Total expenses by category",
+    "Training load", "Log monitoring", "Uptime summary",
+  ].forEach((label) => assert.match(charts, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))));
+  assert.match(charts, /\$328,505\.10/);
+  assert.match(charts, /Sep 10\. ETF Shares Vital: \$7,649\. Vitainvest Core: \$10,139\.2\. iShares Tech Growth: \$11,143\.8/);
+  assert.match(stylesheet, /\.cs-chart-composition-card\.is-wide/);
+  assert.match(stylesheet, /\.cs-composition-slice:hover::before/);
+  assert.match(stylesheet, /svg \.is-area\.is-blue \{ fill: var\(--tremor-blue\)/);
+  assert.doesNotMatch(stylesheet, /\.cs-chart-composition-card svg \.is-blue \{ fill:/);
+  assert.equal((charts.match(/class="cs-family-series-slice"/g) || []).length, 7);
+  assert.ok((charts.match(/data-chart-mark/g) || []).length >= 44);
+  assert.match(charts, /Thursday\. Observed: 31\. Baseline: 22\. Forecast: 25/);
+  assert.match(stylesheet, /\.cs-family-series-slice:hover::before/);
+  assert.match(stylesheet, /\.cs-chart-mark-tip\.is-side\.is-left/);
+  assert.match(stylesheet, /\.cs-chart-mark-tip\.is-side\.is-clamped/);
+  ["Area &amp; line", "Bar &amp; combo", "Donut &amp; pie", "Spark charts", "Progress", "Tracker &amp; scatter"]
+    .forEach((label) => assert.match(charts, new RegExp(label)));
 });
 
 test("both mock shells preserve exact component section routes", () => {
