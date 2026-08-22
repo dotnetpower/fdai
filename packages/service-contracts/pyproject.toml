@@ -2,6 +2,7 @@
 name = "fdai-service-contracts"
 version = "0.1.0"
 description = "Implementation-free contracts for independently released FDAI services"
+readme = "README.md"
 requires-python = ">=3.12"
 dependencies = ["jsonschema>=4.23,<5", "pydantic>=2.11,<3"]
 
@@ -13,7 +14,7 @@ build-backend = "hatchling.build"
 packages = ["src/fdai_service_contracts"]
 
 [tool.hatch.build.targets.sdist]
-include = ["src/fdai_service_contracts", "pyproject.toml"]
+include = ["src/fdai_service_contracts", "pyproject.toml", "README.md"]
 
 [tool.ruff]
 line-length = 100
