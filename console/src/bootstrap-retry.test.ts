@@ -10,27 +10,33 @@ describe("withStartupTransportRetry", () => {
       .mockRejectedValueOnce(new TypeError("Failed to fetch"))
       .mockResolvedValue("ready");
     const wait = vi.fn(async () => undefined);
+    const onRetry = vi.fn();
 
     await expect(withStartupTransportRetry(operation, {
       delaysMs: [250, 500],
       wait,
+      onRetry,
     })).resolves.toBe("ready");
 
     expect(operation).toHaveBeenCalledTimes(3);
     expect(wait.mock.calls).toEqual([[250], [500]]);
+    expect(onRetry.mock.calls).toEqual([[250], [500]]);
   });
 
   it("does not retry an HTTP or authentication response", async () => {
     const error = new OperatorApiError(401, "Authentication token unavailable");
     const operation = vi.fn<() => Promise<never>>().mockRejectedValue(error);
     const wait = vi.fn(async () => undefined);
+    const onRetry = vi.fn();
 
     await expect(withStartupTransportRetry(operation, {
       delaysMs: [250, 500],
       wait,
+      onRetry,
     })).rejects.toBe(error);
 
     expect(operation).toHaveBeenCalledOnce();
     expect(wait).not.toHaveBeenCalled();
+    expect(onRetry).not.toHaveBeenCalled();
   });
 });

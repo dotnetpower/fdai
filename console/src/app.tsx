@@ -37,7 +37,7 @@ import {
 import { withStartupTransportRetry } from "./bootstrap-retry";
 
 interface AppState {
-  readonly status: "loading" | "ready" | "access-error" | "error";
+  readonly status: "loading" | "starting" | "ready" | "access-error" | "error";
   readonly config?: ConsoleConfig;
   readonly auth?: AuthContext;
   readonly client?: OperatorApiClient;
@@ -150,7 +150,14 @@ export function App() {
         let iamSelf: IamSelfStatus | undefined;
         if (shouldLoadIamSelf(auth)) {
           try {
-            iamSelf = await withStartupTransportRetry(() => client.iamSelf());
+            iamSelf = await withStartupTransportRetry(() => client.iamSelf(), {
+              onRetry: () => {
+                if (cancelled) return;
+                setState((current) => current.status === "loading"
+                  ? { status: "starting", config, auth, client }
+                  : current);
+              },
+            });
           } catch (err) {
             handleUnauthorized({
               message: err instanceof Error ? err.message : String(err),
@@ -200,6 +207,23 @@ export function App() {
       <main class="console-bootstrap">
         <PanelLoading title={loadingPanel.label} subtitle={loadingPanel.subtitle} />
       </main>
+    );
+  }
+
+  if (state.status === "starting") {
+    const { auth } = state;
+    if (!auth) {
+      return <div class="empty error">{t("console.internalStateMissing")}</div>;
+    }
+    const loadingPanel = panelForId(panelId);
+    return (
+      <Suspense fallback={(
+        <main class="console-bootstrap">
+          <PanelLoading title={loadingPanel.label} subtitle={loadingPanel.subtitle} />
+        </main>
+      )}>
+        <LoginRoute auth={auth} startup />
+      </Suspense>
     );
   }
 

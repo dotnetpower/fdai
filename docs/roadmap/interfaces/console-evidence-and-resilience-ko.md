@@ -1,8 +1,8 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: f2d08ef2e8845bcca53c530e9339bb966ae18b3e
-translation_revised: 2026-08-19
+translation_source_sha: 1a802e42894fdee300334199104dc66f4176d2f2
+translation_revised: 2026-08-21
 ---
 
 # 콘솔 근거 및 복원력
@@ -24,7 +24,7 @@ translation_revised: 2026-08-19
 | 선택적 report PDF 컨트롤 | validated | `console/src/routes/reports.tsx`; service-local Operator PDF 어댑터; `docs/baselines/incident-rca-report-assurance-2026-08-15.json`; focused Console 및 Operator 테스트 | Catalog와 runtime registry가 함께 `pdf`를 표시했고 인증된 Browser Entra가 no-RCA 사용 불가 동작을 보존하면서 범위가 제한된 38809-byte PDF를 검증했습니다. |
 | 대화 검색 요청 복원력 | implemented | `console/src/routes/conversation-search.tsx`, `console/src/routes/conversation-search.test.tsx`, focused Console 테스트 (`22 passed`) 및 타입 검사 | 검색 generation은 오래된 결과 및 맥락 쓰기를 거부합니다. Generation 범위 in-flight key는 rerender 전 중복 맥락 요청을 억제하고 검색 간 결과를 섞지 않습니다. |
 | 감독 대상 보증 의존성 캐시 | implemented | `console/vite.config.ts`, `scripts/automation/run_ontology_assurance.py`, focused Console 및 supervisor 검사 11개와 타입 검사 통과 | 일반 Console 시작은 Vite의 표준 의존성 캐시를 유지합니다. 감독 대상 온톨로지 보증 Console마다 실행 루트 안의 캐시를 지정해 동시에 실행되는 optimizer가 측정 대상 Browser import를 무효화하지 못하게 합니다. |
-
+| Console 시작 연결 상태 | implemented | `console/src/app.tsx`, `console/src/routes/login.tsx`, 집중 시작 및 로그인 테스트 3개, Console 타입 검사, 인증된 Browser 결함 주입 | 최초 Operator API 네트워크 실패 시 경로 골격 대신 성운 기반 서비스 시작 상태를 표시하고, 데이터를 닫힌 상태로 유지하며, 재시도 성공 뒤 요청한 경로로 자동 복귀합니다. HTTP 및 인증 실패는 기존 복구 흐름을 유지합니다. |
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
@@ -89,7 +89,7 @@ translation_revised: 2026-08-19
 | 2026-08-19 | 진행 중 | 산출물 검증, 블록 조회 및 종류별 렌더링을 분리한 뒤 Web 표현 레지스트리 설계를 승인했습니다. | `current change`, 이 소유 문서 쌍 | 범위 상태를 바꾸기 전에 렌더러를 분리하고 접근 가능한 v2 차트 모듈을 추가하며 데스크톱, 제한된 화면 및 모바일 근거를 보존합니다. |
 | 2026-08-19 | 구현됨 | 구조화된 답변을 얇은 shell과 종류별 레지스트리 모듈로 분리하고 엄격한 v2 parsing을 추가했으며 bar, coverage, time-series, comparison 및 timeline 블록을 의미 설명, 키보드로 접근 가능한 값, reduced-motion 동작 및 접힌 exact 표와 함께 렌더링했습니다. | `current change`, [이슈 #234](https://github.com/dotnetpower/fdai/issues/234), 집중 parser, registry 및 assurance 검사 115개와 Console 타입 검사 및 운영 빌드 통과 | 긴 한국어, 시각, 불투명 식별자 및 사용 불가 상태를 포함하는 데스크톱, 제한된 화면 및 모바일 Browser 근거를 보존합니다. |
 | 2026-08-19 | 구현됨 | 실제 Command Deck 집약기, parser, registry 및 renderer를 통과해 v2 time-series 모듈을 데스크톱, 제한된 화면 및 모바일 크기에서 실행했습니다. Fixture는 긴 한국어, 정확한 시각, 불투명 식별자, 키보드 focus, exact 값 공개 및 reduced motion을 포함합니다. | `current change`, [이슈 #234](https://github.com/dotnetpower/fdai/issues/234), 1440 x 900, 993 x 641, 390 x 844의 집중 Playwright가 7.4초에 통과했고 측정된 문서, workspace, chart overflow가 모두 0이었으며 screenshot을 검토했습니다. | 통제된 인증 런타임 근거는 별도입니다. 이 synthetic Browser 검사는 표현 mechanics만 입증합니다. |
-
+| 2026-08-21 | implemented | 인증된 초기화에서 Operator API 네트워크 실패를 처음 관찰하면 Dashboard 골격 대신 기존 성운 로그인 화면에 서비스 시작 상태를 표시하도록 했습니다. 화면은 서버 시작을 알리고 자동으로 재시도하며 액세스 확인이 성공할 때까지 요청한 경로를 닫힌 상태로 유지합니다. | `current change`, `bootstrap-retry.test.ts` 및 `login.test.ts` 집중 테스트 3개 통과, Console 타입 검사 통과, 인증된 Browser 결함 주입에서 시작 상태, 가로 넘침 없음, 새로고침 없는 `/overview` 자동 복귀를 확인했습니다. | 통제된 Browser 아티팩트는 보존하지 않았습니다. 제한된 시작 재시도 일정을 모두 사용한 뒤에는 기존 수동 액세스 재시도와 다시 로그인 복구 흐름을 유지합니다. |
 ### 잔여 작업
 
 - [ ] 정확한 중앙 검증 receipt와 인증된 probe를 확보한 뒤 seeded 영/한 100-case cohort에서 통과한 통제 아티팩트 하나를 보존합니다.
@@ -704,9 +704,9 @@ authentication 또는 전송 계층 실패는 전달합니다. 조사 행은 pen
 최종 상태 하나로 진행합니다. Stale backward 프레임과 최종 replacement는 무시하므로 completed,
 실패한 또는 사용 불가 연산이 spinner로 돌아가지 않습니다.
 
-Console 데이터를 열기 전에 초기화는 인증된 `GET /iam/self`로 principal을 확인합니다. 전송 계층
-실패는 데이터를 닫힌 상태로 유지하고 access-check 재시도 및 sign-in을 제공합니다. Operator API가
-unreachable일 때 redirect 루프가 생기므로 자동 redirect는 시작하지 않습니다.
+Console 데이터를 열기 전에 초기화는 인증된 `GET /iam/self`로 principal을 확인합니다.
+최초 네트워크 실패는 데이터를 닫힌 상태로 유지하고 기존 성운 화면을 서비스 시작 상태로 표시하며 제한된 일정에 따라 재시도합니다. 재시도에 성공하면 자동으로 계속합니다.
+이 일정을 모두 사용한 뒤에는 액세스 확인 재시도와 다시 로그인을 제공합니다. Operator API에 연결할 수 없을 때 리디렉션 루프가 생기므로 자동 리디렉션은 시작하지 않습니다.
 
 ## 아키텍처 지도 복원력
 

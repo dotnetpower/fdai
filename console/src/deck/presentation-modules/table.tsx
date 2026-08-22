@@ -8,59 +8,75 @@ export function TableModule({ block }: PresentationModuleProps) {
 }
 
 export function PresentationTable({ data }: { readonly data: PresentationTableData }) {
+  const layout = presentationTableLayout(data.columns.length);
   return (
-    <table class="deck-presentation-table">
-      <thead>
-        <tr>{data.columns.map((column) => (
-          <th
-            key={column.key}
-            scope="col"
-            data-column={column.key}
-            data-field={presentationFieldRole(column.label)}
-          >
-            {column.label}
-          </th>
-        ))}</tr>
-      </thead>
-      <tbody>
-        {data.rows.map((row, rowIndex) => (
-          <tr key={rowIndex}>
-            {data.columns.map((column) => (
-              <td
-                key={column.key}
-                data-column={column.key}
-                data-field={presentationFieldRole(column.label)}
-              >
-                <span class="deck-presentation-cell-label" aria-hidden="true">
-                  {column.label}
-                </span>
-                {data.statusKey !== null && column.key === data.statusKey ? (
-                  <span class="deck-presentation-status" data-tone={statusTone(row[column.key])}>
+    <div class="deck-presentation-table-wrap" data-layout={layout}>
+      <table class="deck-presentation-table" data-layout={layout}>
+        <thead>
+          <tr>{data.columns.map((column) => (
+            <th
+              key={column.key}
+              scope="col"
+              data-column={column.key}
+              data-field={presentationFieldRole(column.label)}
+            >
+              {presentationColumnLabel(column.label)}
+            </th>
+          ))}</tr>
+        </thead>
+        <tbody>
+          {data.rows.map((row, rowIndex) => (
+            <tr key={rowIndex}>
+              {data.columns.map((column) => (
+                <td
+                  key={column.key}
+                  data-column={column.key}
+                  data-field={presentationFieldRole(column.label)}
+                >
+                  <span class="deck-presentation-cell-label" aria-hidden="true">
+                    {presentationColumnLabel(column.label)}
+                  </span>
+                  {data.statusKey !== null && column.key === data.statusKey ? (
+                    <span class="deck-presentation-status" data-tone={statusTone(row[column.key])}>
+                      <PresentationValue
+                        value={row[column.key] ?? ""}
+                        columnKey={column.key}
+                        label={column.label}
+                      />
+                    </span>
+                  ) : (
                     <PresentationValue
                       value={row[column.key] ?? ""}
                       columnKey={column.key}
                       label={column.label}
                     />
-                  </span>
-                ) : (
-                  <PresentationValue
-                    value={row[column.key] ?? ""}
-                    columnKey={column.key}
-                    label={column.label}
-                  />
-                )}
-              </td>
-            ))}
-          </tr>
-        ))}
-      </tbody>
-    </table>
+                  )}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
 export function presentationFieldRole(label: string): string | undefined {
   const leaf = label.trim().split(".").at(-1)?.toLowerCase();
-  return leaf === "name" || leaf === "type" || leaf === "location" ? leaf : undefined;
+  if (leaf === "name" || leaf === "type" || leaf === "location") return leaf;
+  if (leaf?.endsWith("_at") || leaf === "recorded") return "timestamp";
+  if (leaf?.includes("concept")) return "concept";
+  if (leaf?.includes("state") || leaf === "status") return "state";
+  return undefined;
+}
+
+export function presentationColumnLabel(label: string): string {
+  return label.trim().replace(/[._]+/g, " ");
+}
+
+export function presentationTableLayout(columnCount: number): "balanced" | "compact" | "wide" {
+  if (columnCount <= 3) return "compact";
+  return columnCount === 4 ? "balanced" : "wide";
 }
 
 function statusTone(value: string | undefined): "neutral" | "positive" | "warning" {

@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 53eba62ddff2ac8190f2037cc0dca83abf6ef07f
+translation_source_sha: edcdf82f69b08336b7a18c43bf6987ac9d78769a
 translation_revised: 2026-08-22
 ---
 # 코드 맵
@@ -67,6 +67,7 @@ translation_revised: 2026-08-22
 | 서비스 간 의미 Rule 변환 결과 | 구현됨 | `fdai_service_contracts/semantic_turn.py`, `fdai_core_service/semantic_turn_processor.py`, `fdai_operator_service/postgres_semantic_turn_store.py`, 통과한 의미 경로 테스트 94개 | 공유 버전 1.2 계약, Core 처리 및 Operator 영속성은 후보 전용 권한, 범위가 제한된 기한, 복구 가능한 소유권 및 principal 범위의 exact 읽기와 함께 검증된 정확한 함수 호출 증적 및 정규 다이제스트를 보존합니다. 계약 검증은 내용, 다이제스트, 작업, 의도, 기능 및 최종 상태 차이를 거부합니다. 통제된 실제 운영 보증은 [온톨로지 조회 coverage 계획](../interfaces/ontology-query-coverage-implementation-plan-ko.md#남은-작업)에 열린 항목으로 남아 있습니다. |
 | Console 의미 증적 projection | 구현됨 | `semantic_turn.py`, `semantic_turn_processor.py`, `semantic_turn_runtime.py`, `presentation_rows.py`, `presentation_artifact_v2.py`, `console/src/deck/backend-normalizers.ts`, 집중 Operator 검사 20개 통과 | 타입이 지정된 경로, 구체적인 명확화 답변, 사용 불가 사유, 보증 다이제스트, 근거 참조 및 `execution_authority=false`가 prose 추론 없이 shared 계약, Core 결과, exact Operator 읽기, 최종 스트림, 영속 transcript, replay 및 Console 표현을 통과합니다. Operator 표현 변환 결과는 읽기 쉬운 `name`, `type`, `location` 필드를 끌어올리고, 읽을 수 있는 사실이 있으면 기본 표에서 기술 identity를 제외하며, identity-only fallback과 변경되지 않은 기술 결과를 유지합니다. 통제된 브라우저 및 무작위 보증 기록은 온톨로지 조회 coverage 계획의 열린 항목으로 남아 있습니다. |
 | 검증된 zero-result 표현 | 구현됨 | `presentation_planner.py`, `presentation_artifact_v2.py`, 집중 Operator presentation 검사 41개 통과 | Operator는 verified complete zero-row result를 unavailable, incomplete, unverified evidence와 구분합니다. Complete zero는 exact row-count 사실만 포함하는 neutral bilingual empty state로 표시하며 다른 evidence gap은 모두 warning으로 유지합니다. Event, cause, missing value, authority, provider fact를 추론하지 않습니다. |
+| 시간 순서 timeline 표현 | 구현됨 | `presentation_planner.py`, `presentation_artifact_v2.py`, `tests/test_presentation_artifact_v2.py`, 집중 Operator presentation 검사 28개 통과 | 영향 시작 시각과 발생 시각 필드가 인식되는 timestamp 역할에 추가되며, 시간 순서 의도는 지원되는 레코드 집합에 선택 값이 비어 있어도 timeline 블록을 유지합니다. 명시된 제한 사항과 불완전한 근거는 여전히 레코드 표시로 되돌아갑니다. |
 | 검증된 표현 의도 변환 결과 | 구현됨 | `fdai_core_service/semantic_turn_processor.py`, `test_semantic_turn_processor.py`, 집중 processor 검사 62개 통과 | Core는 검증된 의미 operation과 output-shape token만 exact 기술 출력 옆에 보존합니다. Downstream 표현은 질문이나 모델 서술을 다시 해석하지 않고 배치를 선택할 수 있으며, 이 변환 결과는 벤더, 승인, 변경 또는 실행 권한을 추가하지 않습니다. |
 | 채널 표현 렌더러 seam | 구현됨 | `shared/providers/channel_presentation.py`, `delivery/channels/`, 집중 채널 렌더러 검사 40개 통과 | Shared는 변경할 수 없는 기능, 묶음, 페이로드 및 렌더러 Protocol 정의를 소유합니다. Delivery는 엄격한 산출물 정규화와 순수 Teams/Slack 페이로드 구성을 소유합니다. Fork는 core를 편집하지 않고 사용자 지정 렌더러를 주입할 수 있으며 전송, 신원, 확인 응답 또는 실행 권한을 추가하지 않습니다. |
 | Slack A3 전송 경계 | 진행 중 | Core-local `delivery/channels/slack_*.py` prototype, 집중 channel 및 gateway 검사 76개 통과 | Prototype은 exact-body HMAC, replay 거부, 닫힌 workspace/sender 정규화, 범위가 제한된 queue admission, 고정 Slack method 및 확인 응답 분류를 증명합니다. 운영 Operator 구현과 조립은 열린 상태입니다. |
@@ -81,6 +82,7 @@ translation_revised: 2026-08-22
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-22 | implemented | 검증된 레코드 집합에 선택 값이 비어 있어도 시간 순서 timeline 블록을 유지하고, 영향 시작 시각과 발생 시각 필드를 timestamp 역할로 인식하도록 했습니다. | `current change`, `presentation_planner.py`, `presentation_artifact_v2.py`, 집중 Operator presentation 검사 28개 통과 | 이 표현 변경에 대해 통제된 채널 또는 브라우저 증적은 주장하지 않습니다. |
 | 2026-08-22 | validated | 정확한 신원이 없는 Resource 하위 유형 질문을 위해 서버 소유 대상 후보 검색을 추가했습니다. 스키마로 검증한 단수 또는 컬렉션 신호는 후보 대체 경로만 제한하고 컬렉션을 우선하므로, 사용할 수 없거나 유효하지 않은 단수 모델 frame도 기능 선택을 바꾸지 않고 검증된 후보를 반환할 수 있습니다. | `current change`, 집중 의미 플래너 검사 204개 통과, Ruff, formatter, strict mypy 통과, current-source 인증 한국어 SRE 예시 행렬의 첫 턴 8/8이 검증된 결과를 반환했고 context-required, unsupported, held, unverified, 의미 대체 답변은 모두 0건 | 정확한 대상 인그레스, 7일 활동, Container Apps `MemoryPercentage`, 결정론적 인과 조사 완성을 연결한 뒤 별도의 정확한 대상 행렬을 보존합니다. |
 | 2026-08-21 | implemented | 한국어 Console 질문 30개 캠페인에서 드러난 네 가지 의미 대체 경로를 닫고 컬렉션 범위 Resource 상태 계획을 추가했습니다. 경로는 정확한 대상과 컬렉션 상태 구분, 모델 피연산자 근거 확인, 지원되지 않는 근거 커버리지, 누락된 맥락 범위입니다. 언어 레지스트리는 이제 상태 근거 권한을 의미 frame으로 전달하고 prompt는 후보로만 유지되며 정확한 FunctionType 정렬이 결정론적 경계로 남습니다. | `current change`, 작업 소유 상태 플래너, FunctionType, 값 필터, 조립, prompt, 처리기, 표현 경로, 집중 검사, 검증된 상태 행과 타입 기반 보류를 확인한 인증된 로컬 Console 수정 후 관측 | 누락된 전용 FunctionType과 타입이 지정된 선택 화면 맥락을 바인딩한 뒤 exact source에 대한 통제된 이중 언어 보증을 보존합니다. |
 | 2026-08-21 | implemented | 출처 줄 상한을 복구하기 위해서만 결정론적 의미 plan 구성, 서술자 검증, 범위가 제한된 맥락 및 안전한 진단 렌더링을 `semantic_planning_support.py`로 분리했습니다. `SemanticPlanningService`는 공개 facade로 유지되며 모든 plan을 계속 `execution_authority=false`로 결속하고 검증합니다. | `current change`; 집중 의미 계획 검사 160개 통과; 변경 파일 Ruff, format, mypy 통과; 저장소 LOC gate hard failure 0건으로 통과. | 기존 통제된 실제 운영 및 보증 근거는 바뀌지 않습니다. 계획, 모델, 정책 또는 권한 동작은 변경되지 않았습니다. |

@@ -6567,7 +6567,9 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
     display: none;
   }
   .deck-source-readiness-items {
-    width: 100%;
+    flex: 1 1 auto;
+    width: auto;
+    max-width: 100%;
   }
 }
 
@@ -7534,6 +7536,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   resize: none;
 }
 .deck-overlay-mode-workspace .deck-transcript-inner {
+  width: min(100%, 1200px);
   padding-inline: clamp(24px, 6vw, 60px);
 }
 .deck-resume-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: min(100%, 780px); box-sizing: border-box; padding: 6px 9px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg); color: var(--fg-muted); font-size: 12px; }
@@ -7849,6 +7852,10 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-overlay-mode-workspace .deck-turn-activity,
 .deck-overlay-mode-workspace .deck-progress-note {
   width: min(100%, var(--deck-reading-width));
+}
+.deck-overlay-mode-workspace .deck-turn-deck:has(.deck-presentation-table[data-layout="wide"]) {
+  width: min(100%, 1080px);
+  max-width: 1080px;
 }
 .deck-turn-deck.is-streaming {
   animation: deck-answer-enter 0.24s cubic-bezier(0.22, 0.61, 0.36, 1) both;
@@ -10540,6 +10547,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
     border-radius: 0;
     resize: none;
   }
+  .deck-overlay-mode-dock .deck-dock-resize-handle { display: none; }
   .deck-invoke { gap: 8px; padding: 0 12px; }
   .deck-invoke-context,
   .deck-invoke-kbd { display: none; }
@@ -13552,6 +13560,21 @@ body.aa-log-fullscreen-fallback { overflow: hidden; }
   outline-offset: 3px;
 }
 .login-actions { display: grid; gap: 10px; }
+.login-startup {
+  display: grid;
+  gap: 10px;
+  color: #dce4ff;
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: left;
+}
+.login-startup-bar {
+  width: 100%;
+  height: 4px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(160, 180, 255, 0.14);
+}
 .login-actions button:disabled {
   cursor: wait;
   opacity: 0.68;

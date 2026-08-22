@@ -91,7 +91,15 @@ class PresentationDecision:
     include_exact_table: bool = False
 
 
-_TIMESTAMP_FIELDS = ("timestamp", "recorded_at", "observed_at", "time", "ts")
+_TIMESTAMP_FIELDS = (
+    "timestamp",
+    "impact_start_at",
+    "occurred_at",
+    "recorded_at",
+    "observed_at",
+    "time",
+    "ts",
+)
 _METRIC_FIELDS = ("metric", "metric_name", "concept_id")
 _UNIT_FIELDS = ("unit", "canonical_unit")
 _CATEGORY_FIELDS = ("category", "label", "name", "type", "status", "location")
@@ -194,7 +202,11 @@ def plan_presentation(
             PresentationKind.CALLOUT,
             "verified_empty_result" if shape.complete else "evidence_unavailable",
         )
-    if shape.limitations or not shape.complete or shape.missing_values:
+    if shape.limitations or not shape.complete:
+        return _fallback_for_records(shape, "evidence_incomplete")
+    if shape.missing_values and not (
+        intent is PresentationIntent.CHRONOLOGY and _supports_timeline(shape)
+    ):
         return _fallback_for_records(shape, "evidence_incomplete")
 
     if intent is PresentationIntent.THRESHOLD and _supports_threshold(shape):

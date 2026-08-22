@@ -13,13 +13,16 @@ interface LoginRouteProps {
   readonly allowDevBypass?: boolean;
   readonly onDevBypass?: () => Promise<void>;
   readonly accessRecovery?: AccessRecovery;
+  readonly startup?: boolean;
 }
 
 export function loginRouteMode(
   allowDevBypass: boolean,
   accessRecovery: AccessRecovery | undefined,
-): "access-recovery" | "local" | "sign-in" {
+  startup = false,
+): "access-recovery" | "startup" | "local" | "sign-in" {
   if (accessRecovery) return "access-recovery";
+  if (startup) return "startup";
   return allowDevBypass ? "local" : "sign-in";
 }
 
@@ -34,8 +37,9 @@ export function LoginRoute({
   allowDevBypass = false,
   onDevBypass,
   accessRecovery,
+  startup = false,
 }: LoginRouteProps) {
-  const mode = loginRouteMode(allowDevBypass, accessRecovery);
+  const mode = loginRouteMode(allowDevBypass, accessRecovery, startup);
   const [signingIn, setSigningIn] = useState(false);
   const [checkingDev, setCheckingDev] = useState(false);
   const [checkingAccess, setCheckingAccess] = useState(false);
@@ -87,19 +91,30 @@ export function LoginRoute({
 
       <main class="login-panel" role="main">
         <p class="login-eyebrow">
-          {mode === "local" ? t("login.localEyebrow") : t("login.eyebrow")}
+          {mode === "startup"
+            ? t("login.startupEyebrow")
+            : mode === "local"
+              ? t("login.localEyebrow")
+              : t("login.eyebrow")}
         </p>
         <h1 class="login-title">FDAI Console</h1>
         <p class="login-subtitle">
           {mode === "access-recovery"
             ? t("accessRequired.checkFailed")
-            : mode === "local"
-              ? t("login.localSubtitle")
-              : t("login.subtitle")}
+            : mode === "startup"
+              ? t("login.startupSubtitle")
+              : mode === "local"
+                ? t("login.localSubtitle")
+                : t("login.subtitle")}
         </p>
 
         <div class="login-actions">
-          {mode === "access-recovery" ? (
+          {mode === "startup" ? (
+            <div class="login-startup" role="status" aria-live="polite" aria-busy="true">
+              <span class="login-startup-bar skeleton-shimmer" aria-hidden="true" />
+              <span>{t("login.startupStatus")}</span>
+            </div>
+          ) : mode === "access-recovery" ? (
             <button
               type="button"
               class="login-signin"
@@ -153,9 +168,11 @@ export function LoginRoute({
         <p class="login-foot">
           {mode === "access-recovery"
             ? t("accessRequired.recoveryHint")
-            : mode === "local"
-              ? t("login.localFoot")
-              : t("login.foot")}
+            : mode === "startup"
+              ? t("login.startupFoot")
+              : mode === "local"
+                ? t("login.localFoot")
+                : t("login.foot")}
         </p>
       </main>
     </div>

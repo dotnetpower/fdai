@@ -168,6 +168,12 @@ describe("Command Deck workspace hierarchy", () => {
     expect(styles).toContain(".deck-turn-head > .tooltip-anchor .deck-turn-source { max-width: 100%; }");
     expect(structuredStyles).toContain("@media (max-width: 560px)");
     expect(structuredStyles).toMatch(/@media \(max-width: 560px\)[\s\S]*\.deck-presentation-table,[\s\S]*display: block;/);
+    expect(styles).toMatch(
+      /@media \(max-width: 640px\)[\s\S]*\.deck-source-readiness-items \{[^}]*flex: 1 1 auto;[^}]*width: auto;[^}]*max-width: 100%;/s,
+    );
+    expect(styles).toMatch(
+      /@media \(max-width: 640px\)[\s\S]*\.deck-overlay-mode-dock \.deck-dock-resize-handle \{ display: none; \}/,
+    );
   });
 
   test("matches the mock's flat report-table hierarchy", () => {
@@ -200,14 +206,23 @@ describe("Command Deck workspace hierarchy", () => {
     expect(structuredStyles).toMatch(
       /\.deck-presentation-table \{[^}]*width: 100%;[^}]*max-width: 100%;/s,
     );
+    expect(tableModule).toContain('class="deck-presentation-table-wrap"');
+    expect(tableModule).toContain("data-layout={layout}");
+    expect(structuredStyles).toMatch(
+      /\.deck-presentation-table\[data-layout="wide"\] \{[^}]*min-width: 960px;[^}]*table-layout: auto;/s,
+    );
     expect(structuredStyles).toMatch(
       /\.deck-presentation-table th \{[^}]*position: sticky;[^}]*top: 0;[^}]*z-index: 1;/s,
     );
     expect(tableModule).toContain("data-field={presentationFieldRole(column.label)}");
-    expect(structuredStyles).toContain('.deck-presentation-table th[data-field="name"],');
-    expect(structuredStyles).toContain('.deck-presentation-table td[data-field="name"] { width: 58%; }');
-    expect(structuredStyles).toContain('.deck-presentation-table td[data-field="type"] { width: 24%; }');
-    expect(structuredStyles).toContain('.deck-presentation-table td[data-field="location"] { width: 18%; }');
+    expect(tableModule).toContain("presentationColumnLabel(column.label)");
+    expect(structuredStyles).toContain('.deck-presentation-table[data-layout="compact"] th[data-field="name"],');
+    expect(structuredStyles).toContain('.deck-presentation-table[data-layout="compact"] td[data-field="name"] { width: 58%; }');
+    expect(structuredStyles).toContain('.deck-presentation-table[data-layout="wide"] td[data-field="timestamp"] { min-width: 156px; }');
+    expect(structuredStyles).toMatch(
+      /@container deck-transcript \(max-width: 1000px\)[\s\S]*\.deck-presentation-table\[data-layout="wide"\][\s\S]*display: block;/,
+    );
+    expect(styles).toContain('.deck-turn-deck:has(.deck-presentation-table[data-layout="wide"])');
     expect(structuredStyles).toMatch(
       /@media \(max-width: 560px\)[\s\S]*\.deck-presentation-table th \{ position: static; \}/,
     );

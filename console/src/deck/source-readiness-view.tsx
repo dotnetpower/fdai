@@ -84,7 +84,6 @@ export function SourceReadinessStrip({ client }: { readonly client: OperatorApiC
           >
             <span class="deck-source-status-dot" aria-hidden="true" />
             <span>{t(`deck.sourceReadiness.source.${item.key}`)}</span>
-            <span class="sr-only">: {t(`deck.sourceReadiness.status.${item.availability}`)}</span>
           </a>
         ))}
       </span>

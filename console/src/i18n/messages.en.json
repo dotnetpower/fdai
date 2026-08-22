@@ -2034,8 +2034,11 @@
   "login": {
     "eyebrow": "Operator sign-in",
     "localEyebrow": "Local console",
+    "startupEyebrow": "Service connection",
     "subtitle": "Autonomous cloud operations control plane",
     "localSubtitle": "Choose an identity session or continue with the local development ceiling.",
+    "startupSubtitle": "FDAI Console is waiting for its services to start.",
+    "startupStatus": "Connecting to the Operator API...",
     "signInEntra": "Sign in with Entra ID",
     "signInAgain": "Sign in again",
     "signingIn": "Starting sign-in...",
@@ -2044,6 +2047,7 @@
     "checkingDev": "Checking local dev access...",
     "devBypassFailed": "Local dev access is unavailable for this API ({error}). Sign in with Microsoft Entra ID.",
     "localFoot": "The dev bypass is session-scoped and never available in production.",
+    "startupFoot": "This page will continue automatically when the service is ready.",
     "foot": "Read-only operator console. Changes are governed and high-risk actions require human approval.",
     "signOut": "Sign out",
     "exitLocalSession": "Exit local session"
@@ -2514,6 +2518,19 @@
       "contextGoal": "Screen or model context",
       "dependsOn": "After {goals}",
       "planned": "Planned",
+      "goalInstruction": {
+        "aggregate": "Summarize the verified results",
+        "compareMetrics": "Compare the measured windows",
+        "compareTopology": "Compare the retained topology",
+        "combineEvidence": "Combine evidence and test the conclusion",
+        "inspectEvidence": "Inspect the required evidence",
+        "inspectMetrics": "Read the bounded metric window",
+        "inspectRelationships": "Trace the verified relationship path",
+        "inspectTargets": "Identify the exact resources in scope",
+        "inspectTopology": "Read the retained topology snapshot",
+        "shapeResults": "Order and shape the verified results",
+        "verifyCapability": "Run the registered read-only check"
+      },
       "evidenceMode": {
         "screen_grounded": "screen grounded",
         "operational_grounded": "operationally grounded",

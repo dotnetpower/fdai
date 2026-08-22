@@ -22,6 +22,54 @@ from fdai_operator_service.families.conversation.presentation_planner import (
 _MAX_COLUMNS = 6
 _MAX_CELL_CHARS = 512
 _MAX_REFS = 8
+_RESOURCE_STATE_COLUMNS = (
+    "name",
+    "type",
+    "observed_state",
+    "state_concept",
+    "source_observed_at",
+    "inventory_read_at",
+)
+_RESOURCE_HEALTH_COLUMNS = (
+    "name",
+    "type",
+    "observed_state",
+    "health_concept",
+    "health_kind",
+    "source_observed_at",
+)
+_RESOURCE_METRIC_COLUMNS = (
+    "name",
+    "type",
+    "metric_concept",
+    "value",
+    "unit",
+    "window_end",
+)
+_RESOURCE_EVENT_COLUMNS = (
+    "occurred_at",
+    "name",
+    "type",
+    "event_kind",
+    "status",
+    "classification",
+)
+_RESOURCE_INGRESS_COLUMNS = (
+    "name",
+    "ingress_enabled",
+    "external",
+    "fqdn",
+    "target_port",
+    "transport",
+)
+_SERVICE_HEALTH_COLUMNS = (
+    "impact_start_at",
+    "event_type",
+    "title",
+    "level",
+    "impacted_resource_count",
+    "resource_name",
+)
 _OPERATIONS = frozenset({"select", "compare", "explain_change", "validate", "action_draft"})
 _OUTPUT_SHAPES = frozenset(
     {
@@ -31,9 +79,17 @@ _OUTPUT_SHAPES = frozenset(
         "ontology_manifest",
         "ontology_relationships",
         "property_filtered_resources",
+        "resource_event_history",
+        "resource_health_list",
         "resource_list",
+        "resource_metric_list",
+        "resource_state_list",
+        "resource_target_candidates",
+        "subscription_service_health",
         "target_error_activity_correlation",
         "target_health_assessment",
+        "target_ingress_configuration",
+        "target_resource_metric",
         "temporal_comparison",
         "topology_graph",
     }
@@ -117,10 +173,20 @@ def compile_presentation_artifact_v2(
         shape=shape,
         locale=locale,
         evidence_refs=evidence_refs,
+        preferred_columns=(_preferred_columns(cast(str, output_shape))),
     )
     if block is None:
         return None
     blocks = [block]
+    if output_shape == "resource_target_candidates":
+        overview = _target_candidates_overview(
+            output,
+            locale=locale,
+            evidence_refs=evidence_refs,
+        )
+        if overview is None:
+            return None
+        blocks.insert(0, overview)
     limitation = _limitation_block(output, shape=shape, locale=locale, evidence_refs=evidence_refs)
     if limitation is not None and block["slot_id"] != "limitations":
         blocks.append(limitation)
@@ -131,6 +197,55 @@ def compile_presentation_artifact_v2(
             "layout": "stack",
             "evidence_refs": evidence_refs[:_MAX_REFS],
             "blocks": blocks,
+        },
+    )
+
+
+def _target_candidates_overview(
+    output: Mapping[str, object],
+    *,
+    locale: str,
+    evidence_refs: list[object],
+) -> JsonObject | None:
+    """Keep the exact-target selection step visible beside candidate rows."""
+
+    total = output.get("total_rows")
+    complete = output.get("source_complete")
+    if not isinstance(total, int) or total < 0 or not isinstance(complete, bool):
+        return None
+    korean = locale.casefold().startswith("ko")
+    return cast(
+        JsonObject,
+        {
+            "slot_id": "overview",
+            "kind": "summary",
+            "title": "확인된 대상 후보" if korean else "Verified target candidates",
+            "emphasis": "primary",
+            "collapsed": False,
+            "evidence_refs": cast(list[str], evidence_refs[:_MAX_REFS]),
+            "data": {
+                "items": [
+                    {
+                        "label": "검증된 후보" if korean else "Verified candidates",
+                        "value": str(total),
+                        "tone": "neutral",
+                    },
+                    {
+                        "label": "범위 완전성" if korean else "Scope completeness",
+                        "value": "complete" if complete else "incomplete",
+                        "tone": "neutral" if complete else "attention",
+                    },
+                    {
+                        "label": "다음 단계" if korean else "Next step",
+                        "value": (
+                            "표에서 확인할 리소스의 정확한 이름 또는 리소스 ID를 지정하세요."
+                            if korean
+                            else "Choose the exact resource name or resource ID from the table."
+                        ),
+                        "tone": "attention",
+                    },
+                ]
+            },
         },
     )
 
@@ -363,9 +478,33 @@ def _presentation_intent(
         return PresentationIntent.SUMMARY if len(shape.records) == 1 else PresentationIntent.EXACT
     if output_shape == "topology_graph" and shape.timestamp_field is not None:
         return PresentationIntent.CHRONOLOGY
-    if output_shape in {"resource_list", "property_filtered_resources"}:
+    if output_shape == "resource_event_history":
+        return PresentationIntent.CHRONOLOGY
+    if output_shape == "subscription_service_health":
+        return PresentationIntent.CHRONOLOGY
+    if output_shape in {
+        "resource_health_list",
+        "resource_list",
+        "resource_metric_list",
+        "property_filtered_resources",
+        "resource_state_list",
+        "resource_target_candidates",
+    }:
         return PresentationIntent.EXACT
     return PresentationIntent.EXACT
+
+
+def _preferred_columns(output_shape: str) -> tuple[str, ...]:
+    return {
+        "resource_event_history": _RESOURCE_EVENT_COLUMNS,
+        "resource_health_list": _RESOURCE_HEALTH_COLUMNS,
+        "resource_metric_list": _RESOURCE_METRIC_COLUMNS,
+        "resource_state_list": _RESOURCE_STATE_COLUMNS,
+        "resource_target_candidates": ("name", "type"),
+        "subscription_service_health": _SERVICE_HEALTH_COLUMNS,
+        "target_ingress_configuration": _RESOURCE_INGRESS_COLUMNS,
+        "target_resource_metric": _RESOURCE_METRIC_COLUMNS,
+    }.get(output_shape, ())
 
 
 def _compile_block(
@@ -375,10 +514,11 @@ def _compile_block(
     shape: EvidenceShape,
     locale: str,
     evidence_refs: list[object],
+    preferred_columns: tuple[str, ...] = (),
 ) -> JsonObject | None:
     korean = locale.casefold().startswith("ko")
     refs = cast(list[str], evidence_refs[:_MAX_REFS])
-    exact_table = _exact_table(shape)
+    exact_table = _exact_table(shape, preferred_columns=preferred_columns)
     base: dict[str, object] = {
         "emphasis": "primary",
         "collapsed": False,
@@ -682,8 +822,15 @@ def _timeline_block(
     )
 
 
-def _exact_table(shape: EvidenceShape) -> JsonObject | None:
-    selected = shape.columns[:_MAX_COLUMNS]
+def _exact_table(
+    shape: EvidenceShape,
+    *,
+    preferred_columns: tuple[str, ...] = (),
+) -> JsonObject | None:
+    selected = tuple(
+        [field for field in preferred_columns if field in shape.columns]
+        + [field for field in shape.columns if field not in preferred_columns]
+    )[:_MAX_COLUMNS]
     if not selected or not shape.records:
         return None
     return cast(

@@ -6,7 +6,8 @@ describe("Login route mode", () => {
     const recovery = { error: "Failed to fetch", retry: async () => undefined };
 
     expect(loginRouteMode(false, recovery)).toBe("access-recovery");
-    expect(loginRouteMode(true, recovery)).toBe("access-recovery");
+    expect(loginRouteMode(true, recovery, true)).toBe("access-recovery");
+    expect(loginRouteMode(false, undefined, true)).toBe("startup");
     expect(loginRouteMode(true, undefined)).toBe("local");
     expect(loginRouteMode(false, undefined)).toBe("sign-in");
   });

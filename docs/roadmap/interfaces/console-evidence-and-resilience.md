@@ -21,7 +21,7 @@ This document owns the operator console contracts for evidence provenance, local
 | Optional report PDF control | validated | `console/src/routes/reports.tsx`; service-local Operator PDF adapter; `docs/baselines/incident-rca-report-assurance-2026-08-15.json`; focused Console and Operator tests | Catalog and runtime registry jointly advertised `pdf`; authenticated Browser Entra rendered the report and verified a bounded 38809-byte PDF while preserving no-RCA unavailable behavior. |
 | Conversation search request resilience | implemented | `console/src/routes/conversation-search.tsx`; `console/src/routes/conversation-search.test.tsx`; focused Console tests (`22 passed`) and typecheck | Search generations reject stale result and context writes. A generation-scoped in-flight key suppresses duplicate context requests before rerender without mixing results across searches. |
 | Supervised assurance dependency cache | implemented | `console/vite.config.ts`; `scripts/automation/run_ontology_assurance.py`; focused Console and supervisor checks (`11 passed`) and typecheck | Ordinary Console starts retain Vite's standard dependency cache. Each supervised ontology-assurance Console receives a cache inside its run root so concurrent optimizers cannot invalidate measured Browser imports. |
-
+| Console startup connection state | implemented | `console/src/app.tsx`; `console/src/routes/login.tsx`; focused startup and login tests (`3 passed`); Console typecheck; authenticated Browser fault injection | The first Operator API network failure replaces the route skeleton with the nebula service-starting state, keeps data closed, and automatically returns to the requested route after a successful retry. HTTP and authentication failures retain the existing recovery flow. |
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
@@ -86,7 +86,7 @@ This document owns the operator console contracts for evidence provenance, local
 | 2026-08-19 | in-progress | Accepted the Web presentation registry design after separating artifact validation, block lookup, and per-kind rendering. | `current change`; this owner document pair. | Split the renderer, add accessible v2 chart modules, and retain desktop, constrained, and mobile evidence before changing the scope state. |
 | 2026-08-19 | implemented | Split structured replies into a thin shell and per-kind registry modules, added strict v2 parsing, and rendered bar, coverage, time-series, comparison, and timeline blocks with semantic descriptions, keyboard-reachable values, reduced-motion behavior, and collapsed exact tables. | `current change`; [Issue #234](https://github.com/dotnetpower/fdai/issues/234); focused parser, registry, and assurance checks passed 115 cases; Console typecheck and production build passed. | Retain desktop, constrained, and mobile Browser evidence with long Korean, timestamps, opaque identifiers, and unavailable states. |
 | 2026-08-19 | implemented | Exercised the v2 time-series module through the real Command Deck reducer, parser, registry, and renderer at desktop, constrained, and mobile sizes. The fixture included long Korean, exact timestamps, opaque ids, keyboard focus, an exact-value disclosure, and reduced motion. | `current change`; [Issue #234](https://github.com/dotnetpower/fdai/issues/234); focused Playwright passed in 7.4 seconds at 1440 x 900, 993 x 641, and 390 x 844 with zero measured document, workspace, or chart overflow; screenshots were reviewed. | Governed authenticated runtime evidence remains separate; this synthetic Browser check proves presentation mechanics only. |
-
+| 2026-08-21 | implemented | Replaced the Dashboard skeleton with the existing nebula sign-in surface when authenticated bootstrap first observes an Operator API network failure. The screen names service startup, retries automatically, and leaves the requested route closed until access verification succeeds. | `current change`; `bootstrap-retry.test.ts` and `login.test.ts` passed 3 focused tests; Console typecheck passed; authenticated Browser fault injection showed the startup state, zero horizontal overflow, and automatic `/overview` recovery without reload. | No governed Browser artifact was retained. Manual access retry and sign-in recovery remain unchanged after the bounded startup schedule is exhausted. |
 ### Remaining work
 
 - [ ] Retain one passing governed artifact from the seeded bilingual 100-case cohort after the exact centralized receipt and authenticated probe exist.
@@ -714,9 +714,9 @@ timeout, and propagates other authentication or transport failures. Investigatio
 from pending to running to one terminal state; stale backward frames and terminal replacements are
 ignored so a completed, failed, or unavailable operation cannot return to a spinner.
 
-Before opening console data, bootstrap verifies the principal through authenticated
-`GET /iam/self`. Transport failure keeps data closed and offers access-check retry and sign-in. It
-does not start an automatic redirect because an unreachable Operator API would cause a redirect loop.
+Before opening console data, bootstrap verifies the principal through authenticated `GET /iam/self`.
+An initial network failure keeps data closed, presents the existing nebula surface as a service-starting state, and retries on a bounded schedule; a successful retry continues automatically.
+After that schedule is exhausted, the surface offers access-check retry and sign-in. It does not start an automatic redirect because an unreachable Operator API would cause a redirect loop.
 
 ## Architecture-map resilience
 

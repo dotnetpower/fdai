@@ -100,6 +100,13 @@
   color: var(--fg);
 }
 
+.deck-presentation-table-wrap {
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-gutter: stable;
+}
+
 .deck-presentation-table {
   width: 100%;
   max-width: 100%;
@@ -108,6 +115,16 @@
   border: 0;
   border-top: 1px solid var(--border);
   font-size: 13px;
+}
+
+.deck-presentation-table[data-layout="balanced"] {
+  min-width: 720px;
+  table-layout: auto;
+}
+
+.deck-presentation-table[data-layout="wide"] {
+  min-width: 960px;
+  table-layout: auto;
 }
 
 .deck-presentation-table th,
@@ -133,6 +150,12 @@
   border-bottom: 2px solid var(--accent-strong, var(--accent));
 }
 
+.deck-presentation-table[data-layout="balanced"] th,
+.deck-presentation-table[data-layout="wide"] th {
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
 .deck-presentation-table tbody tr:nth-child(even) {
   background: transparent;
 }
@@ -142,12 +165,22 @@
 .deck-presentation-table td[data-column="mode"] { width: 82px; }
 .deck-presentation-table th[data-column$="ref"],
 .deck-presentation-table td[data-column$="ref"] { width: 104px; }
-.deck-presentation-table th[data-field="name"],
-.deck-presentation-table td[data-field="name"] { width: 58%; }
-.deck-presentation-table th[data-field="type"],
-.deck-presentation-table td[data-field="type"] { width: 24%; }
-.deck-presentation-table th[data-field="location"],
-.deck-presentation-table td[data-field="location"] { width: 18%; }
+.deck-presentation-table[data-layout="compact"] th[data-field="name"],
+.deck-presentation-table[data-layout="compact"] td[data-field="name"] { width: 58%; }
+.deck-presentation-table[data-layout="compact"] th[data-field="type"],
+.deck-presentation-table[data-layout="compact"] td[data-field="type"] { width: 24%; }
+.deck-presentation-table[data-layout="compact"] th[data-field="location"],
+.deck-presentation-table[data-layout="compact"] td[data-field="location"] { width: 18%; }
+.deck-presentation-table[data-layout="wide"] th[data-field="name"],
+.deck-presentation-table[data-layout="wide"] td[data-field="name"] { min-width: 240px; }
+.deck-presentation-table[data-layout="wide"] th[data-field="type"],
+.deck-presentation-table[data-layout="wide"] td[data-field="type"] { min-width: 132px; }
+.deck-presentation-table[data-layout="wide"] th[data-field="state"],
+.deck-presentation-table[data-layout="wide"] td[data-field="state"] { min-width: 108px; }
+.deck-presentation-table[data-layout="wide"] th[data-field="concept"],
+.deck-presentation-table[data-layout="wide"] td[data-field="concept"] { min-width: 176px; }
+.deck-presentation-table[data-layout="wide"] th[data-field="timestamp"],
+.deck-presentation-table[data-layout="wide"] td[data-field="timestamp"] { min-width: 156px; }
 .deck-presentation-cell-label { display: none; }
 
 .deck-presentation-timestamp {
@@ -505,6 +538,46 @@
   .deck-presentation-bar-track > span,
   .deck-presentation-series-column > span,
   .deck-presentation-comparison-track > span { transition: none; }
+}
+
+@container deck-transcript (max-width: 1000px) {
+  .deck-presentation-table-wrap[data-layout="wide"] { overflow-x: visible; }
+  .deck-presentation-table[data-layout="wide"],
+  .deck-presentation-table[data-layout="wide"] tbody,
+  .deck-presentation-table[data-layout="wide"] tr {
+    display: block;
+    min-width: 0;
+  }
+  .deck-presentation-table[data-layout="wide"] thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+  .deck-presentation-table[data-layout="wide"] tr {
+    padding: 7px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .deck-presentation-table[data-layout="wide"] tr:last-child { border-bottom: 0; }
+  .deck-presentation-table[data-layout="wide"] td,
+  .deck-presentation-table[data-layout="wide"] td[data-column] {
+    display: grid;
+    grid-template-columns: minmax(128px, 28%) minmax(0, 1fr);
+    gap: 10px;
+    width: auto;
+    min-width: 0;
+    padding: 5px 9px;
+    border-bottom: 0;
+  }
+  .deck-presentation-table[data-layout="wide"] .deck-presentation-cell-label {
+    display: block;
+    color: var(--fg-muted);
+    font-size: 12px;
+    font-weight: 650;
+  }
 }
 
 @container deck-transcript (max-width: 560px) {

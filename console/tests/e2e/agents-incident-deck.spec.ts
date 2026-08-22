@@ -8,6 +8,9 @@ const incident = {
   incident_id: incidentId,
   ticket_id: null,
   title: "Environment tag required",
+  title_source: "recorded_title",
+  source: null,
+  response_plan: null,
   severity: "medium",
   status: "in_progress",
   status_source: "incident_lifecycle",
@@ -19,6 +22,40 @@ const incident = {
   latest_mode: "shadow",
   history_count: 3,
   involved_agents: ["Var", "Forseti"],
+};
+
+const incidentMetrics = {
+  source: "deterministic browser fixture",
+  snapshot_seq: 1,
+  denominator: 1,
+  matched_total: 1,
+  truncated: false,
+  window_from: null,
+  window_to: null,
+  cohorts: {
+    agent_mitigated: 0,
+    agent_assisted: 0,
+    human_mitigated: 0,
+    pending: 1,
+    integrity_excluded: 0,
+  },
+  drilldown: {
+    agent_mitigated: [],
+    agent_assisted: [],
+    human_mitigated: [],
+    pending: [correlationId],
+    integrity_excluded: [],
+  },
+  drilldown_truncated: {
+    agent_mitigated: false,
+    agent_assisted: false,
+    human_mitigated: false,
+    pending: false,
+    integrity_excluded: false,
+  },
+  median_time_to_mitigate_seconds: null,
+  time_to_mitigate_sample_size: 0,
+  terminal_rule: "resolved_and_independently_verified",
 };
 
 function json(route: Route, payload: unknown, status = 200): Promise<void> {
@@ -73,7 +110,7 @@ async function installOperatorApiFixture(
       return;
     }
     if (path === "/incidents") {
-      await json(route, { items: [incident], next_cursor: null });
+      await json(route, { items: [incident], next_cursor: null, metrics: incidentMetrics });
       return;
     }
     if (path === "/agents/stream") {
@@ -413,7 +450,8 @@ test("renders accessible v2 presentation at desktop constrained and mobile viewp
   }
 });
 
-test("defaults to the right dock and restores the last display mode", async ({ page }) => {
+test("defaults to the right dock and restores the last display mode", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "mobile-chromium", "Mobile uses one full-width Deck mode.");
   await installOperatorApiFixture(page);
   await page.goto(
     `/agents?view=org&agent=Var&correlation=${encodeURIComponent(correlationId)}`,
@@ -425,13 +463,23 @@ test("defaults to the right dock and restores the last display mode", async ({ p
   await deck.getByRole("button", { name: "Full workspace" }).click();
   const tooltipWorkspace = page.getByRole("dialog", { name: "Command deck" });
   await tooltipWorkspace.locator(".deck-backend-header").focus();
-  const backendTooltip = page.locator('.app-tooltip[data-state="instant-open"]', {
-    hasText: "chat mode azure-ad-routed",
-  });
-  await expect(backendTooltip).toContainText("chat mode azure-ad-routed");
+  const backendTooltip = page.locator('.app-tooltip[data-variant="backend"]');
+  await expect(backendTooltip).toBeVisible();
+  await expect(backendTooltip.locator(".deck-backend-tooltip-context")).toContainText(
+    "chat mode",
+  );
+  await expect(backendTooltip.locator(".deck-backend-tooltip-context strong")).toHaveText(
+    "azure-ad-routed",
+  );
+  await expect(backendTooltip.locator(".deck-backend-tooltip-endpoint")).toHaveText(
+    "https://chat.example.com",
+  );
+  await expect(backendTooltip.locator(".deck-backend-tooltip-choice strong")).toHaveText(
+    "narrator-fast",
+  );
+  await expect(backendTooltip.locator(".deck-backend-tooltip-candidate")).toHaveCount(2);
   await expect(backendTooltip).not.toContainText("{endpoint}");
   await expect(backendTooltip).not.toContainText("{candidates}");
-  expect((await backendTooltip.innerText()).split("\n")).toHaveLength(4);
   await tooltipWorkspace.getByRole("button", { name: "Dock right" }).click();
   deck = page.getByRole("complementary", { name: "Command deck" });
   await expect(deck.getByRole("button", { name: "Dock right" })).toHaveAttribute(
@@ -461,7 +509,8 @@ test("defaults to the right dock and restores the last display mode", async ({ p
   await expect(workspace).toHaveClass(/deck-overlay-mode-workspace/);
 });
 
-test("keeps a mock-aligned execution timeline in full workspace", async ({ page }) => {
+test("keeps a mock-aligned execution timeline in full workspace", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "mobile-chromium", "Mobile hides workspace layout controls.");
   await page.addInitScript(() => {
     localStorage.setItem("fdai:console:show-model-trace", "true");
   });
@@ -511,7 +560,7 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
   await eventDisclosure.locator(":scope > summary").click();
   await expect(eventDisclosure).toHaveAttribute("open", "");
   await expect(eventDisclosure.locator(".deck-investigation-no-execution")).toHaveText(
-    "No command or query was recorded by the server for this step.",
+    "No external command or provider request was executed in this step.",
   );
   const activityGeometry = await investigation.evaluate((root) => {
     const list = root.querySelector<HTMLElement>(".deck-investigation-list")!;
@@ -739,17 +788,46 @@ test("keeps responsive table labels visual-only at 320px", async ({ page }) => {
   const metrics = await deck.evaluate((root) => {
     const wrap = root.querySelector<HTMLElement>(".deck-table-wrap");
     const cell = root.querySelector<HTMLElement>(".deck-table td");
+    const sourceReadiness = root.querySelector<HTMLElement>(".deck-source-readiness");
+    const sourceItems = root.querySelector<HTMLElement>(".deck-source-readiness-items");
+    const sourceSummary = root.querySelector<HTMLElement>(".deck-source-readiness-summary");
+    const rootRect = root.getBoundingClientRect();
+    const elementGeometry = (element: HTMLElement) => {
+      const rect = element.getBoundingClientRect();
+      return {
+        left: Math.round(rect.left),
+        right: Math.round(rect.right),
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+        overflowX: getComputedStyle(element).overflowX,
+      };
+    };
+    const overflowers = Array.from(root.querySelectorAll<HTMLElement>("*"))
+      .map((element) => {
+        const rect = element.getBoundingClientRect();
+        return {
+          selector: `${element.tagName.toLowerCase()}.${element.className}`,
+          left: Math.round(rect.left),
+          right: Math.round(rect.right),
+        };
+      })
+      .filter(({ left, right }) => left < rootRect.left - 1 || right > rootRect.right + 1)
+      .slice(0, 12);
     return {
       deckOverflow: root.scrollWidth > root.clientWidth,
+      rootClientWidth: root.clientWidth,
+      rootScrollWidth: root.scrollWidth,
+      sourceReadiness: sourceReadiness ? elementGeometry(sourceReadiness) : null,
+      sourceItems: sourceItems ? elementGeometry(sourceItems) : null,
+      sourceSummary: sourceSummary ? elementGeometry(sourceSummary) : null,
       tableOverflow: wrap ? wrap.scrollWidth > wrap.clientWidth : true,
       cellDisplay: cell ? getComputedStyle(cell).display : "",
+      overflowers,
     };
   });
-  expect(metrics).toEqual({
-    deckOverflow: false,
-    tableOverflow: false,
-    cellDisplay: "grid",
-  });
+  expect(metrics.deckOverflow, JSON.stringify(metrics, null, 2)).toBe(false);
+  expect(metrics.tableOverflow).toBe(false);
+  expect(metrics.cellDisplay).toBe("grid");
 });
 
 test("pins a Var incident through the deck and renders a grounded Bragi answer", async ({
@@ -769,7 +847,10 @@ test("pins a Var incident through the deck and renders a grounded Bragi answer",
 
   const deck = page.getByRole("complementary", { name: "Command deck" });
   await expect(deck).toBeVisible();
-  await expect(deck.getByText(`Var / ${incidentId}`, { exact: true }).first()).toBeVisible();
+  await expect(deck.getByText(
+    `Selected incident ${incidentId} (${correlationId}) from Var's Events view.`,
+    { exact: true },
+  )).toBeVisible();
   await expect(deck.getByLabel("Conversation").getByText("Bragi", { exact: true })).toBeVisible();
 
   const prompt = deck.getByPlaceholder(/Ask anything/i);
@@ -799,7 +880,7 @@ test("pins a Var incident through the deck and renders a grounded Bragi answer",
 
 test("renders a sent image inside the operator turn without caching its bytes", async ({
   page,
-}) => {
+}, testInfo) => {
   const fixture = await installOperatorApiFixture(page, { answer: "The image is available." });
   await page.goto(
     `/agents?view=org&agent=Var&correlation=${encodeURIComponent(correlationId)}`,
@@ -824,15 +905,17 @@ test("renders a sent image inside the operator turn without caching its bytes", 
   expect(thumbnailBox?.width).toBe(54);
   expect(thumbnailBox?.height).toBe(54);
 
-  await stagedImage.locator(".deck-attach-thumb").hover();
-  const largePreview = page.locator(".deck-attach-preview-layer img");
-  await expect(largePreview).toBeVisible();
-  await expect(page.locator(
-    '.app-tooltip[data-variant="image-preview"][data-state="instant-open"]',
-  )).toHaveCount(1);
-  await expect.poll(() => largePreview.evaluate((image: HTMLImageElement) => image.naturalWidth))
-    .toBeGreaterThan(0);
-  expect((await largePreview.boundingBox())?.width).toBeGreaterThan(300);
+  if (testInfo.project.name !== "mobile-chromium") {
+    await stagedImage.locator(".deck-attach-thumb").hover();
+    const largePreview = page.locator(".deck-attach-preview-layer img");
+    await expect(largePreview).toBeVisible();
+    await expect(page.locator(
+      '.app-tooltip[data-variant="image-preview"][data-state="instant-open"]',
+    )).toHaveCount(1);
+    await expect.poll(() => largePreview.evaluate((image: HTMLImageElement) => image.naturalWidth))
+      .toBeGreaterThan(0);
+    expect((await largePreview.boundingBox())?.width).toBeGreaterThan(300);
+  }
 
   await deck.getByPlaceholder(/Ask anything/i).fill("What is shown?");
   await deck.getByRole("button", { name: "Send" }).click();

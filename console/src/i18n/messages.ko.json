@@ -2034,8 +2034,11 @@
   "login": {
     "eyebrow": "운영자 로그인",
     "localEyebrow": "로컬 콘솔",
+    "startupEyebrow": "서비스 연결",
     "subtitle": "자율 클라우드 운영 control plane",
     "localSubtitle": "ID 세션을 선택하거나 로컬 개발 권한 상한으로 계속하세요.",
+    "startupSubtitle": "FDAI Console이 서비스 시작을 기다리고 있습니다.",
+    "startupStatus": "Operator API 연결 중...",
     "signInEntra": "Entra ID로 로그인",
     "signInAgain": "다시 로그인",
     "signingIn": "로그인 시작 중...",
@@ -2044,6 +2047,7 @@
     "checkingDev": "로컬 dev 액세스 확인 중...",
     "devBypassFailed": "이 API에서는 로컬 dev 액세스를 사용할 수 없습니다({error}). Microsoft Entra ID로 로그인하세요.",
     "localFoot": "Dev bypass는 현재 세션에만 유지되며 production에서는 사용할 수 없습니다.",
+    "startupFoot": "서비스가 준비되면 자동으로 계속합니다.",
     "foot": "읽기 전용 운영자 콘솔입니다. 변경은 통제되며 고위험 작업은 사람 승인이 필요합니다.",
     "signOut": "로그아웃",
     "exitLocalSession": "로컬 세션 종료"
@@ -2514,6 +2518,19 @@
       "contextGoal": "화면 또는 모델 컨텍스트",
       "dependsOn": "{goals} 이후",
       "planned": "계획됨",
+      "goalInstruction": {
+        "aggregate": "검증된 결과를 요약합니다",
+        "compareMetrics": "측정 구간을 비교합니다",
+        "compareTopology": "보존된 토폴로지를 비교합니다",
+        "combineEvidence": "근거를 결합해 결론을 검증합니다",
+        "inspectEvidence": "필요한 근거를 확인합니다",
+        "inspectMetrics": "제한된 지표 구간을 조회합니다",
+        "inspectRelationships": "검증된 관계 경로를 추적합니다",
+        "inspectTargets": "범위의 정확한 리소스를 식별합니다",
+        "inspectTopology": "보존된 토폴로지 스냅샷을 조회합니다",
+        "shapeResults": "검증된 결과를 정렬하고 구성합니다",
+        "verifyCapability": "등록된 읽기 전용 검사를 실행합니다"
+      },
       "evidenceMode": {
         "screen_grounded": "화면 근거",
         "operational_grounded": "운영 근거",

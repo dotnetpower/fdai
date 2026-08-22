@@ -46,6 +46,11 @@ describe("observed trajectory typography", () => {
     expect(reply).not.toContain("conversation-trajectory-results.css");
   });
 
+  test("presents verified goals as instructions while retaining capability evidence", () => {
+    expect(source).toContain("intentGoalInstruction(goal.intent)");
+    expect(source).toContain("goal.capability ?? t(\"deck.trajectory.contextGoal\")");
+  });
+
   test("exposes the exact semantic receipt in verification technical details", () => {
     expect(source).toContain('data-testid="semantic-projection-receipt"');
     expect(source).toContain('data-testid="semantic-projection-id"');

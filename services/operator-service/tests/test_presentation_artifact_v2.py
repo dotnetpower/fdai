@@ -304,6 +304,301 @@ def test_v2_resource_table_keeps_stable_cardinality(row_count: int) -> None:
     assert len(cast(list[object], data["rows"])) == row_count
 
 
+def test_v2_target_candidates_render_as_a_verified_name_type_table() -> None:
+    details = _details(
+        [
+            {"name": "app-api", "type": "compute.container-app"},
+            {"name": "app-worker", "type": "compute.container-app"},
+        ],
+        output_shape="resource_target_candidates",
+    )
+    outputs = cast(list[dict[str, object]], details["outputs"])
+    outputs[0]["source_complete"] = True
+
+    artifact = compile_presentation_artifact_v2(
+        semantic=_SEMANTIC,
+        technical_details=details,
+        locale="ko",
+    )
+
+    assert artifact is not None
+    blocks = cast(list[dict[str, object]], artifact["blocks"])
+    assert [block["slot_id"] for block in blocks] == ["overview", "records"]
+    overview = cast(dict[str, object], blocks[0]["data"])
+    items = cast(list[dict[str, str]], overview["items"])
+    assert items == [
+        {"label": "검증된 후보", "value": "2", "tone": "neutral"},
+        {"label": "범위 완전성", "value": "complete", "tone": "neutral"},
+        {
+            "label": "다음 단계",
+            "value": "표에서 확인할 리소스의 정확한 이름 또는 리소스 ID를 지정하세요.",
+            "tone": "attention",
+        },
+    ]
+    block = blocks[1]
+    assert (block["slot_id"], block["kind"]) == ("records", "table")
+    data = cast(dict[str, object], block["data"])
+    assert data["columns"] == [
+        {"key": "c0", "label": "name"},
+        {"key": "c1", "label": "type"},
+    ]
+
+
+def test_v2_resource_state_rows_render_as_a_korean_verified_table() -> None:
+    details = _details(
+        [
+            {
+                "name": "database-a",
+                "type": "postgresql-server",
+                "observed_state": "Stopped",
+                "state_concept": "resource_state.stopped",
+                "source_observed_at": "2026-08-21T11:00:00+00:00",
+                "inventory_read_at": "2026-08-21T11:05:00+00:00",
+                "execution_authority": False,
+            }
+        ],
+        output_shape="resource_state_list",
+    )
+
+    artifact = compile_presentation_artifact_v2(
+        semantic=_SEMANTIC,
+        technical_details=details,
+        locale="ko",
+    )
+
+    assert artifact is not None
+    block = cast(list[dict[str, object]], artifact["blocks"])[0]
+    assert (block["slot_id"], block["kind"], block["title"]) == (
+        "records",
+        "table",
+        "검증된 행",
+    )
+    data = cast(dict[str, object], block["data"])
+    assert data["columns"][:4] == [
+        {"key": "c0", "label": "name"},
+        {"key": "c1", "label": "type"},
+        {"key": "c2", "label": "observed_state"},
+        {"key": "c3", "label": "state_concept"},
+    ]
+
+
+@pytest.mark.parametrize(
+    ("output_shape", "row", "expected_labels"),
+    (
+        (
+            "resource_health_list",
+            {
+                "name": "service-a",
+                "type": "app-service",
+                "observed_state": "unavailable",
+                "health_concept": "resource_health.not_ready",
+                "health_kind": "platform_initiated",
+                "source_observed_at": "2026-08-21T11:00:00+00:00",
+                "execution_authority": False,
+            },
+            [
+                "name",
+                "type",
+                "observed_state",
+                "health_concept",
+                "health_kind",
+                "source_observed_at",
+            ],
+        ),
+        (
+            "resource_metric_list",
+            {
+                "name": "service-a",
+                "type": "container-app",
+                "metric_concept": "resource.saturation",
+                "value": 12000000.0,
+                "unit": "nanocores",
+                "window_end": "2026-08-21T11:00:00+00:00",
+                "complete": True,
+                "execution_authority": False,
+            },
+            ["name", "type", "metric_concept", "value", "unit", "window_end"],
+        ),
+    ),
+)
+def test_v2_collection_evidence_uses_bounded_verified_tables(
+    output_shape: str,
+    row: Mapping[str, object],
+    expected_labels: list[str],
+) -> None:
+    artifact = compile_presentation_artifact_v2(
+        semantic=_SEMANTIC,
+        technical_details=_details([row], output_shape=output_shape),
+        locale="en",
+    )
+
+    assert artifact is not None
+    block = cast(list[dict[str, object]], artifact["blocks"])[0]
+    assert (block["slot_id"], block["kind"]) == ("records", "table")
+    data = cast(dict[str, object], block["data"])
+    assert [item["label"] for item in cast(list[dict[str, str]], data["columns"])] == (
+        expected_labels
+    )
+
+
+@pytest.mark.parametrize(
+    ("output_shape", "row", "expected_labels"),
+    (
+        (
+            "target_ingress_configuration",
+            {
+                "name": "app-example",
+                "ingress_enabled": True,
+                "external": True,
+                "fqdn": "app.example.com",
+                "target_port": 8080,
+                "transport": "Auto",
+                "allow_insecure": False,
+                "traffic_rules": [{"latest_revision": True, "weight": 100}],
+                "source_observed_at": "2026-08-22T00:59:00+00:00",
+                "inventory_read_at": "2026-08-22T01:00:00+00:00",
+                "execution_authority": False,
+            },
+            ["name", "ingress_enabled", "external", "fqdn", "target_port", "transport"],
+        ),
+        (
+            "target_resource_metric",
+            {
+                "name": "app-example",
+                "type": "compute.container-app",
+                "metric_concept": "resource.memory.usage_pct",
+                "value": 63.5,
+                "unit": "percent",
+                "aggregation": "average",
+                "sample_count": 12,
+                "window_start": "2026-08-15T01:00:00+00:00",
+                "window_end": "2026-08-22T01:00:00+00:00",
+                "complete": True,
+                "evidence_refs": ["azure-metric:memory-percentage"],
+                "execution_authority": False,
+            },
+            ["name", "type", "metric_concept", "value", "unit", "window_end"],
+        ),
+    ),
+)
+def test_v2_exact_target_outputs_preserve_the_requested_axis(
+    output_shape: str,
+    row: Mapping[str, object],
+    expected_labels: list[str],
+) -> None:
+    artifact = compile_presentation_artifact_v2(
+        semantic=_SEMANTIC,
+        technical_details=_details([row], output_shape=output_shape),
+        locale="en",
+    )
+
+    assert artifact is not None
+    block = cast(list[dict[str, object]], artifact["blocks"])[0]
+    assert (block["slot_id"], block["kind"]) == ("records", "table")
+    data = cast(dict[str, object], block["data"])
+    assert [item["label"] for item in cast(list[dict[str, str]], data["columns"])] == (
+        expected_labels
+    )
+    assert "traffic_rules" not in str(data)
+    assert "evidence_refs" not in str(data)
+
+
+def test_v2_resource_event_history_uses_chronological_timeline() -> None:
+    artifact = compile_presentation_artifact_v2(
+        semantic=_SEMANTIC,
+        technical_details=_details(
+            [
+                {
+                    "occurred_at": "2026-08-21T10:00:00+00:00",
+                    "name": "service-a",
+                    "type": "container-app",
+                    "event_kind": "availability_status",
+                    "status": "unavailable",
+                    "classification": "platform_initiated",
+                },
+                {
+                    "occurred_at": "2026-08-21T10:05:00+00:00",
+                    "name": "service-a",
+                    "type": "container-app",
+                    "event_kind": "resource_annotation",
+                    "status": "downtime",
+                    "classification": "customer_initiated",
+                },
+            ],
+            output_shape="resource_event_history",
+        ),
+        locale="ko",
+    )
+
+    assert artifact is not None
+    block = cast(list[dict[str, object]], artifact["blocks"])[0]
+    assert (block["slot_id"], block["kind"], block["title"]) == (
+        "timeline",
+        "timeline",
+        "검증된 타임라인",
+    )
+    data = cast(dict[str, object], block["data"])
+    exact_table = cast(dict[str, object], data["exact_table"])
+    assert [item["label"] for item in cast(list[dict[str, str]], exact_table["columns"])] == [
+        "occurred_at",
+        "name",
+        "type",
+        "event_kind",
+        "status",
+        "classification",
+    ]
+
+
+def test_v2_service_health_uses_active_event_timeline() -> None:
+    artifact = compile_presentation_artifact_v2(
+        semantic=_SEMANTIC,
+        technical_details=_details(
+            [
+                {
+                    "impact_start_at": "2026-08-21T10:00:00+00:00",
+                    "event_type": "service_issue",
+                    "title": "Regional connectivity issue",
+                    "level": "warning",
+                    "impacted_resource_count": 1,
+                    "resource_name": "service-a",
+                    "status": "active",
+                    "execution_authority": False,
+                },
+                {
+                    "impact_start_at": "2026-08-21T11:00:00+00:00",
+                    "event_type": "planned_maintenance",
+                    "title": "Planned maintenance",
+                    "level": "informational",
+                    "impacted_resource_count": 0,
+                    "resource_name": None,
+                    "status": "active",
+                    "execution_authority": False,
+                },
+            ],
+            output_shape="subscription_service_health",
+        ),
+        locale="ko",
+    )
+
+    assert artifact is not None
+    block = cast(list[dict[str, object]], artifact["blocks"])[0]
+    assert (block["slot_id"], block["kind"], block["title"]) == (
+        "timeline",
+        "timeline",
+        "검증된 타임라인",
+    )
+    data = cast(dict[str, object], block["data"])
+    exact_table = cast(dict[str, object], data["exact_table"])
+    assert [item["label"] for item in cast(list[dict[str, str]], exact_table["columns"])] == [
+        "impact_start_at",
+        "event_type",
+        "title",
+        "level",
+        "impacted_resource_count",
+        "resource_name",
+    ]
+
+
 def test_v2_zero_resource_rows_render_typed_empty_evidence() -> None:
     artifact = compile_presentation_artifact_v2(
         semantic=_SEMANTIC,

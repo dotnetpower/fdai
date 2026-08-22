@@ -13,6 +13,7 @@ const STARTUP_RETRY_DELAYS_MS = [
 interface StartupRetryOptions {
   readonly delaysMs?: readonly number[];
   readonly wait?: (delayMs: number) => Promise<void>;
+  readonly onRetry?: (delayMs: number) => void;
 }
 
 function isFetchNetworkError(error: unknown): error is TypeError {
@@ -40,6 +41,7 @@ export async function withStartupTransportRetry<T>(
       return await operation();
     } catch (error) {
       if (!isFetchNetworkError(error)) throw error;
+      options.onRetry?.(delayMs);
       await wait(delayMs);
     }
   }

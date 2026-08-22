@@ -89,6 +89,7 @@ describe("Command Deck source readiness", () => {
     expect(source).toContain("if (!hasVerifiedSourceReadiness(state.sources)) return null;");
     expect(source).toContain('class={`deck-source-status is-${item.availability}`}');
     expect(source).toContain('aria-label={`${t(`deck.sourceReadiness.source.${item.key}`)}: ${t(`deck.sourceReadiness.status.${item.availability}`)}`}');
+    expect(source).not.toContain('<span class="sr-only">: {t(`deck.sourceReadiness.status.${item.availability}`)}</span>');
     expect(source).toContain("panelPath(SOURCE_PANELS[item.key])");
     expect(source).not.toContain("item.source?.source");
     expect(source).not.toContain("item.source?.reason");

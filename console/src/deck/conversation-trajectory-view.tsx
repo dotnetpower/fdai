@@ -22,6 +22,7 @@ import {
   type TrajectoryPhase,
   type TrajectoryPhaseState,
 } from "./conversation-trajectory-presentation";
+import { intentGoalInstruction } from "./intent-goal-presentation";
 import { JsonCodeBlock } from "./json-code-block";
 import { ModelTraceWaterfall } from "./model-trace-waterfall";
 
@@ -228,7 +229,9 @@ function IntentGraphPhase({
                 {String(goalIndex + 1).padStart(2, "0")}
               </span>
               <span class="deck-trajectory-goal-copy">
-                <strong>{t("deck.trajectory.goalLabel", { index: goalIndex + 1 })}</strong>
+                <strong>{t(
+                  `deck.trajectory.goalInstruction.${intentGoalInstruction(goal.intent)}`,
+                )}</strong>
                 <code>{goal.capability ?? t("deck.trajectory.contextGoal")}</code>
                 {goal.depends_on.length > 0 ? (
                   <small>{t("deck.trajectory.dependsOn", {
