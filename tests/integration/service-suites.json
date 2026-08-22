@@ -47,6 +47,7 @@
           "services/core-control-plane/tests/pipeline",
           "services/core-control-plane/tests/runtime",
           "services/core-control-plane/tests/scenarios",
+          "services/core-control-plane/tests/test_semantic_assurance_projection.py",
           "services/core-control-plane/tests/test_semantic_turn_processor.py",
           "services/core-control-plane/tests/verticals"
         ],

@@ -296,6 +296,13 @@
       "issue": 252
     },
     {
+      "path": "services/core-control-plane/src/fdai/core/conversation/semantic_resource_metric_planning.py",
+      "disposition": "retain",
+      "owner": "semantic-conversation",
+      "reason": "Retains exact resource identity and registered metric capability validation after structured intent selection.",
+      "issue": 252
+    },
+    {
       "path": "services/core-control-plane/src/fdai/core/conversation/semantic_resource_state_planning.py",
       "disposition": "retain",
       "owner": "semantic-conversation",
