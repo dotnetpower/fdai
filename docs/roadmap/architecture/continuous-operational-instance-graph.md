@@ -20,21 +20,7 @@ Continuous collection combines push events, resumable provider deltas, and adapt
 It does not use a fixed six-hour scan as the normal freshness mechanism and does not run an
 unbounded tight polling loop.
 
-```mermaid
-flowchart LR
-    P[Provider events and delta APIs] --> I[Durable observation ingress]
-    I --> N[Normalize and adjudicate]
-    N --> G[Current operational graph]
-    N --> H[Bitemporal observation history]
-    H --> R[Typed rollups]
-    H --> A[Verified archive]
-    Q[Verified semantic query] --> G
-    G --> F{Evidence current and complete?}
-    F -->|yes| O[Evidence-backed result]
-    F -->|no| L[Bounded live read]
-    L --> I
-    L --> O
-```
+![Design at a glance. The main stages are Provider events and delta APIs, Durable observation ingress, Normalize and adjudicate, Current operational graph, Bitemporal observation history, Typed rollups, Verified archive, Verified semantic query, Evidence current and complete?, Evidence-backed result, Bounded live read.](../../diagrams/generated/fdai-roadmap-architecture-continuous-operational-instance-graph-01.en.svg)
 
 ## Non-negotiable invariants
 

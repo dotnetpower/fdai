@@ -1,0 +1,257 @@
+{
+  "id": "fdai-roadmap-architecture-continuous-operational-instance-graph-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Design at a glance",
+      "description": "FDAI flow for Design at a glance.",
+      "alt": "Design at a glance. The main stages are Provider events and delta APIs, Durable observation ingress, Normalize and adjudicate, Current operational graph, Bitemporal observation history, Typed rollups, Verified archive, Verified semantic query, Evidence current and complete?, Evidence-backed result, Bounded live read."
+    },
+    "ko": {
+      "title": "설계 개요",
+      "description": "설계 개요에 대한 FDAI 흐름입니다.",
+      "alt": "설계 개요. 주요 단계는 Provider events and delta APIs, Durable observation ingress, Normalize and adjudicate, Current operational graph, Bitemporal observation history, Typed rollups, Verified archive, Verified semantic query, Evidence current and complete?, Evidence-backed result, Bounded live read입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-roadmap-architecture-continuous-operational-instance-graph-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-roadmap-architecture-continuous-operational-instance-graph-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "p",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Provider events and delta APIs",
+        "ko": "Provider events and delta APIs"
+      },
+      "description": {
+        "en": "Provider events and delta APIs",
+        "ko": "Provider events and delta APIs"
+      }
+    },
+    {
+      "id": "i",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Durable observation ingress",
+        "ko": "Durable observation ingress"
+      },
+      "description": {
+        "en": "Durable observation ingress",
+        "ko": "Durable observation ingress"
+      }
+    },
+    {
+      "id": "n",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Normalize and adjudicate",
+        "ko": "Normalize and adjudicate"
+      },
+      "description": {
+        "en": "Normalize and adjudicate",
+        "ko": "Normalize and adjudicate"
+      }
+    },
+    {
+      "id": "g",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Current operational graph",
+        "ko": "Current operational graph"
+      },
+      "description": {
+        "en": "Current operational graph",
+        "ko": "Current operational graph"
+      }
+    },
+    {
+      "id": "h",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Bitemporal observation history",
+        "ko": "Bitemporal observation history"
+      },
+      "description": {
+        "en": "Bitemporal observation history",
+        "ko": "Bitemporal observation history"
+      }
+    },
+    {
+      "id": "r",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Typed rollups",
+        "ko": "Typed rollups"
+      },
+      "description": {
+        "en": "Typed rollups",
+        "ko": "Typed rollups"
+      }
+    },
+    {
+      "id": "a",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Verified archive",
+        "ko": "Verified archive"
+      },
+      "description": {
+        "en": "Verified archive",
+        "ko": "Verified archive"
+      }
+    },
+    {
+      "id": "q",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Verified semantic query",
+        "ko": "Verified semantic query"
+      },
+      "description": {
+        "en": "Verified semantic query",
+        "ko": "Verified semantic query"
+      }
+    },
+    {
+      "id": "f",
+      "kind": "decision",
+      "shape": "diamond",
+      "label": {
+        "en": "Evidence current and complete?",
+        "ko": "Evidence current and complete?"
+      },
+      "description": {
+        "en": "Evidence current and complete?",
+        "ko": "Evidence current and complete?"
+      }
+    },
+    {
+      "id": "o",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Evidence-backed result",
+        "ko": "Evidence-backed result"
+      },
+      "description": {
+        "en": "When: yes",
+        "ko": "조건: yes"
+      }
+    },
+    {
+      "id": "l",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Bounded live read",
+        "ko": "Bounded live read"
+      },
+      "description": {
+        "en": "When: no",
+        "ko": "조건: no"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "p",
+      "to": "i",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "i",
+      "to": "n",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "n",
+      "to": "g",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "n",
+      "to": "h",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "h",
+      "to": "r",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "h",
+      "to": "a",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "q",
+      "to": "g",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "g",
+      "to": "f",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-09",
+      "from": "f",
+      "to": "o",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-10",
+      "from": "f",
+      "to": "l",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-11",
+      "from": "l",
+      "to": "i",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-12",
+      "from": "l",
+      "to": "o",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

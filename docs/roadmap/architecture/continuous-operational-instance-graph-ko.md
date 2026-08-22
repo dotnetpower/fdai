@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 6a517d6d721cdecaf27dc517854390b1e2651960
+translation_source_sha: 2f6bbc97782e2d9db9305d02fa283620325765f0
 translation_revised: 2026-08-22
 ---
 # 지속형 운영 인스턴스 그래프
@@ -21,21 +21,7 @@ translation_revised: 2026-08-22
 일반 최신성 수단으로 고정된 6시간 scan을 사용하지 않으며, 제한 없는 촘촘한 polling loop도
 실행하지 않습니다.
 
-```mermaid
-flowchart LR
-    P[Provider events and delta APIs] --> I[Durable observation ingress]
-    I --> N[Normalize and adjudicate]
-    N --> G[Current operational graph]
-    N --> H[Bitemporal observation history]
-    H --> R[Typed rollups]
-    H --> A[Verified archive]
-    Q[Verified semantic query] --> G
-    G --> F{Evidence current and complete?}
-    F -->|yes| O[Evidence-backed result]
-    F -->|no| L[Bounded live read]
-    L --> I
-    L --> O
-```
+![설계 개요. 주요 단계는 Provider events and delta APIs, Durable observation ingress, Normalize and adjudicate, Current operational graph, Bitemporal observation history, Typed rollups, Verified archive, Verified semantic query, Evidence current and complete?, Evidence-backed result, Bounded live read입니다.](../../diagrams/generated/fdai-roadmap-architecture-continuous-operational-instance-graph-01.ko.svg)
 
 ## 변경할 수 없는 불변식
 
