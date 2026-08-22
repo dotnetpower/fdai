@@ -1,0 +1,189 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  echo "Usage: $0 <service>" >&2
+  exit 2
+}
+
+if [[ $# -ne 1 ]]; then
+  usage
+fi
+
+service="$1"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+cd "$repo_root"
+
+case "$service" in
+  core-runtime|inventory-reconciliation|observation-campaign)
+    env_file=".fdai/local-runtime.env"
+    source_root="services/core-control-plane/src"
+    project_file="services/core-control-plane/pyproject.toml"
+    ;;
+  operator-api)
+    env_file=".fdai/local-operator-service.env"
+    source_root="services/operator-service/src"
+    project_file="services/operator-service/pyproject.toml"
+    ;;
+  operator-channel-edge)
+    env_file=".fdai/local-channel-edge.env"
+    source_root="services/operator-service/src"
+    project_file="services/operator-service/pyproject.toml"
+    ;;
+  document-ingestion-api)
+    env_file=".fdai/local-document-ingestion-api.env"
+    source_root="services/document-ingestion-api/src"
+    project_file="services/document-ingestion-api/pyproject.toml"
+    ;;
+  document-processing-worker)
+    env_file=".fdai/local-document-processing-worker.env"
+    source_root="services/document-processing-worker/src"
+    project_file="services/document-processing-worker/pyproject.toml"
+    ;;
+  isolated-executor)
+    env_file=".fdai/local-isolated-executor.env"
+    source_root="services/isolated-executor/src"
+    project_file="services/isolated-executor/pyproject.toml"
+    ;;
+  console-frontend)
+    env_file=""
+    source_root="console/src"
+    project_file="console/package.json"
+    ;;
+  *)
+    echo "Unsupported local Console service: $service" >&2
+    exit 2
+    ;;
+esac
+
+if [[ "$service" == "operator-channel-edge" ]]; then
+  bash "$repo_root/scripts/deployment/local/prepare-channel-edge-env.sh"
+fi
+
+if [[ "$service" == "console-frontend" ]]; then
+  digest_inputs=(
+    "$source_root"
+    "$project_file"
+    console/.env.local
+    console/package-lock.json
+    console/vite.config.ts
+    console/tsconfig.json
+    scripts/deployment/local/run-console-service.sh
+  )
+else
+  digest_inputs=(
+    "$env_file"
+    "$source_root"
+    packages/service-contracts/src
+    "$project_file"
+    pyproject.toml
+    uv.lock
+    scripts/deployment/local/run-console-service.sh
+  )
+fi
+input_digest="$(
+  "$repo_root/.venv/bin/python" \
+    "$repo_root/scripts/automation/local-service-input-digest.py" \
+    "${digest_inputs[@]}"
+)"
+
+if [[ -n "$env_file" ]]; then
+  set -a
+  # shellcheck source=/dev/null
+  source "$repo_root/$env_file"
+  set +a
+fi
+
+export FDAI_LOCAL_SERVICE_INPUT_DIGEST="$input_digest"
+export FDAI_LOCAL_SERVICE_LOG_FORMAT=json-plain
+export FDAI_LOCAL_SERVICE_RESTART_STALE=1
+export FDAI_LOCAL_SERVICE_REUSE_EXISTING=1
+
+service_pythonpath="$repo_root/$source_root:$repo_root/packages/service-contracts/src${PYTHONPATH:+:$PYTHONPATH}"
+case "$service" in
+  core-runtime)
+    service_command=(
+      env -u AZURE_CONFIG_DIR
+      FDAI_PANTHEON_HEARTBEAT_SECONDS=2
+      FDAI_RUNTIME_LOCK_FILE="$repo_root/.fdai/core-runtime.lock"
+      PYTHONPATH="$service_pythonpath"
+      "$repo_root/.venv/bin/python" -m fdai
+    )
+    ;;
+  operator-api)
+    service_command=(
+      env -u AZURE_CONFIG_DIR
+      PYTHONPATH="$service_pythonpath"
+      "$repo_root/.venv/bin/python" -m uvicorn
+      fdai_operator_service.main:create_app
+      --factory --host 127.0.0.1 --port 8010 --no-access-log
+    )
+    ;;
+  operator-channel-edge)
+    service_command=(
+      env -u AZURE_CONFIG_DIR
+      PYTHONPATH="$service_pythonpath"
+      "$repo_root/.venv/bin/fdai-operator-channel-edge"
+    )
+    ;;
+  inventory-reconciliation)
+    service_command=(
+      env -u AZURE_CONFIG_DIR
+      FDAI_EXECUTION_VENUE=local
+      FDAI_INVENTORY_DSN="$FDAI_STATE_STORE_DSN"
+      FDAI_INVENTORY_SCOPES="$AZURE_SUBSCRIPTION_ID"
+      FDAI_INVENTORY_RECOVERY_DELTA=1
+      PYTHONPATH="$service_pythonpath"
+      "$repo_root/.venv/bin/python" -m fdai.delivery.inventory_sync_cli --loop
+    )
+    ;;
+  observation-campaign)
+    service_command=(
+      env -u AZURE_CONFIG_DIR
+      FDAI_EXECUTION_VENUE=local
+      FDAI_OBSERVATION_DSN="$FDAI_STATE_STORE_DSN"
+      FDAI_OBSERVATION_SCOPES="$AZURE_SUBSCRIPTION_ID"
+      PYTHONPATH="$service_pythonpath"
+      "$repo_root/.venv/bin/python" -m fdai.delivery.observation_campaign_cli --loop
+    )
+    ;;
+  document-ingestion-api)
+    service_command=(
+      env -u AZURE_CONFIG_DIR
+      PYTHONPATH="$service_pythonpath"
+      "$repo_root/.venv/bin/python" -m uvicorn
+      fdai_ingestion_api_service.main:create_app
+      --factory --host 127.0.0.1 --port 8011 --no-access-log
+    )
+    ;;
+  document-processing-worker)
+    service_command=(
+      env -u AZURE_CONFIG_DIR
+      PYTHONPATH="$service_pythonpath"
+      "$repo_root/.venv/bin/fdai-document-processing-worker"
+    )
+    ;;
+  isolated-executor)
+    service_command=(
+      env -u AZURE_CONFIG_DIR
+      PYTHONPATH="$service_pythonpath"
+      "$repo_root/.venv/bin/fdai-isolated-executor-service"
+    )
+    ;;
+  console-frontend)
+    service_command=(
+      env
+      VITE_DEV_MODE=0
+      VITE_LOCAL_AZURE_CLI_AUTH=0
+      VITE_OPERATOR_API_BASE_URL=http://127.0.0.1:8010
+      VITE_INGESTION_API_BASE_URL=http://127.0.0.1:8011
+      npm --prefix "$repo_root/console" run dev -- --port 5273 --strictPort
+    )
+    ;;
+esac
+
+exec bash "$repo_root/scripts/automation/run-local-service.sh" \
+  "$service" \
+  "$repo_root/.fdai/logs/$service.log" \
+  -- \
+  "${service_command[@]}"

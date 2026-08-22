@@ -23,7 +23,7 @@ All profiles share **one control path**: only composition-root adapters and cred
 | Local control-loop change-event ingress | validated | `.vscode/tasks.json`, `infra/modules/compute/container-apps/inventory_job.tf`, `tests/integration/infra/test_inventory_repair_wiring.py`; one local run published 5 authoritative `inventory.resource_changed` events and the authenticated Live surface reported `Runtime observed` with `5 routed events` | The local inventory reconciliation task binds `FDAI_INVENTORY_RECOVERY_DELTA=1` exactly as the VNet-integrated deployed job does, so the Activity Log delta reaches `aw.change.events` in both venues. The deployed job still disables the delta when no infrastructure subnet exists. |
 | Local and deployed composition parity | implemented | `.vscode/tasks.json`, `.vscode/launch.json`, `scripts/deployment/local/`, `infra/`, `fdai_operator_service/composition.py`, service integration tests, and focused Operator checks (`51 passed`) | Composition roots select credentials and adapters without changing evidence authority. Local and deployed Operator composition register the same Reader-scoped `GET /browser-evidence` route and authoritative data-source identity; missing PostgreSQL remains unavailable rather than synthetic. |
 | Standalone A3 channel-edge parity | implemented | `channel_edge/`; `prepare-channel-edge-env.sh`; `.vscode/tasks.json`; `infra/services/operator-service`; platform edge identity/RBAC; focused edge and local-launch checks | Both venues run the same Operator-distribution ASGI factory, PostgreSQL stores, semantic EventBus bridge, provider routes, and readiness logic on port 8014. Local uses private 0600 provider input and Redpanda; deployed uses Key Vault references, Event Hubs Kafka, and a dedicated non-executor Managed Identity. Missing provider configuration leaves the optional capability unavailable rather than synthetic. |
-| Primary-worktree automatic startup isolation | implemented | `.vscode/tasks.json` and `tests/integration/scripts/test_vscode_workspace_performance.py`; focused automatic-start contract passed | Folder-open startup runs only from the primary checkout so linked worktrees cannot race for the standard ports. Explicit preparation and service-start tasks remain available in linked worktrees. |
+| Explicit primary-worktree full-stack startup | implemented | `.vscode/tasks.json`, `prepare-console-full-stack.sh`, `start-console-services.sh`, `run-console-service.sh`, and `tests/integration/scripts/test_vscode_workspace_performance.py`; focused workspace task contract | Folder-open no longer runs migrations, authoritative refreshes, or application services. One preparation script preserves ordered setup. One supervisor task starts independently managed service processes through an allowlisted launcher and emits readiness only after the complete topology passes its gate. |
 | Local diagnostic logging resilience | implemented | `capture-local-service-log.py`, `fdai.shared.telemetry.logging`, and focused telemetry and launcher checks | Warning retention appends without per-record compaction, local file capture is isolated from terminal backpressure, oversized records are bounded, and repeated dependency failures preserve first, periodic, and distinct-failure evidence. |
 | Folder-open dev-access route stabilization | implemented | `tools/dev-access/scripts/vscode-startup.sh`; `tests/integration/infra/test_dev_access.py`; focused dev-access tests | The task opens Azure VPN Client at most once, retries the mirrored WSL route eight times over a bounded seven-second grace window, applies DNS after a direct route appears, and retains exit `20` for a real disconnect. Workstations without local state and direct-VNet machines remain quiet. |
 | Repository-scoped roadmap campaign capacity | implemented | `roadmap_verification_watchdog.py`, `test_roadmap_verification_watchdog.py`, and the randomized campaign operator contract in `scripts/README.md` | FDAI session leases and recent Copilot activity are both counted only for this repository. Linked worktrees resolve the primary checkout before deriving the VS Code workspace id. Another workspace cannot hold FDAI work, while the 900-second activity window and two-session campaign ceiling still protect concurrent FDAI editing. |
@@ -38,6 +38,7 @@ All profiles share **one control path**: only composition-root adapters and cred
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-22 | implemented | Replaced folder-open full-stack startup with the explicit `console: start full stack` task, consolidated nine single-caller preparation tasks, and replaced eight service task blocks plus the separate readiness task with one supervisor. The supervisor retains one allowlisted launcher, lock, fingerprint, log, and process lifecycle per service. The task inventory fell from 29 to 11. | `current change`; `.vscode/tasks.json`; `scripts/deployment/local/{prepare-console-full-stack,start-console-services,run-console-service}.sh`; focused workspace task contract passed 4 tests; all three scripts passed `bash -n`. | Run the explicit full-stack task when the Console topology is needed. |
 | 2026-08-21 | implemented | Scoped critical model completeness checks to plans that can change cognitive deployments. Development-gateway targeted plans still converge the existing model account and caller RBAC, but skip unrelated model resolution because their target set contains no cognitive deployment. | `current change`; `.github/workflows/deploy-dev.yml`; focused model-lifecycle and protected-workflow tests; protected runs `32435485872` and `32435748272` exposed the pre-Terraform mismatch. | Rerun the exact Event Bus migration plan; design a separate Foundry multi-publisher endpoint migration before changing the model registry. |
 | 2026-08-21 | implemented | Corrected the development-gateway exception after its empty capability map implied deletion of an existing embedding deployment. Gateway-targeted plans now retain model resolution while making completeness findings non-blocking. | Protected plan run `32456242726`; `current change`; focused model-lifecycle and protected-workflow suites passed 44 tests. | Rerun the exact Event Bus migration plan and require no model deployment change before apply. |
 | 2026-08-21 | implemented | Filtered `hil-only` resolver records from the Terraform capability input while retaining them in the sealed evidence artifact. | Protected plan run `32460379091` exposed the boundary mismatch; `current change`; focused model-lifecycle checks passed 9 tests. | Rerun the exact Event Bus migration plan and require no model deployment change before apply. |
@@ -190,13 +191,16 @@ transport uses Docker Redpanda on `127.0.0.1:19092`. A deployed Azure process se
 Event Hubs Kafka endpoint. Venue selection never changes evidence authority, promotion state,
 human identity, or executor authority.
 
-Opening the trusted primary checkout runs `console: start full stack automatically`. The aggregate
-task first confirms that the checkout owns the shared Git directory, completes
-`console: prepare full stack` once, then starts the five backend services and Console SPA in
-parallel without per-service confirmation clicks. A linked worktree skips folder-open startup so
-two VS Code windows cannot replace each other's processes on the standard ports. Developers can
-still run `console: prepare full stack` and `console: start local services` explicitly from a linked
-worktree after stopping the primary stack. Preparation starts runtime PostgreSQL on port
+Opening a workspace doesn't start the Console topology. Run `console: start full stack` explicitly
+from the trusted primary checkout when you need it. The aggregate task first confirms that the
+checkout owns the shared Git directory, completes `console: prepare full stack` once, then starts
+the five backend services and Console SPA in parallel without per-service confirmation clicks.
+Keeping startup explicit prevents migrations, authoritative refreshes, and long-running services
+from competing with editor initialization. `prepare-console-full-stack.sh` owns the ordered setup,
+and one background task runs `start-console-services.sh`. The supervisor starts each
+`run-console-service.sh` process in parallel with an allowlisted service name, waits for the shared
+readiness gate, and forwards shutdown. Each service retains its own lock, fingerprint, log, and
+process lifecycle. Preparation starts runtime PostgreSQL on port
 `5432`, an isolated validation PostgreSQL cluster on port `5433`, Redpanda, and ClamAV. It advances
 the frozen legacy Alembic lineage and adopts and upgrades all five service-owned migration branches
 under a single-instance limit. The same preparation refreshes read-only Azure Resource Graph
@@ -205,7 +209,7 @@ authoritative inputs without copying tenant identifiers, resource endpoints, or 
 also writes immutable revisions of the reviewed Rule and Ontology reference catalogs to the
 Operator projection store. These declarations do not create findings, observed inventory,
 readiness, or execution authority. An unavailable or unauthorized provider leaves inventory
-explicitly unavailable instead of substituting fixture data. Automatic startup requires a trusted
+explicitly unavailable instead of substituting fixture data. Full-stack startup requires a trusted
 workspace and committed policy without weakening authority. Reuse requires this checkout's lock
 and exact input fingerprint; changed or foreign ownership replaces only the managed task or fails.
 A 15-second gate requires checkout-owned Core, a recent heartbeat, and healthy service probes.

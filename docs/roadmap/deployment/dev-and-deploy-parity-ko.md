@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 2bba3f51ca74d00ca158f0318a35cc16fe058aa6
-translation_revised: 2026-08-21
+translation_source_sha: f0781f4af124cb99ff78879536aa3bc0e3e844b9
+translation_revised: 2026-08-22
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
 
@@ -28,7 +28,7 @@ translation_revised: 2026-08-21
 | 로컬 컨트롤 루프 변경 이벤트 유입 | validated | `.vscode/tasks.json`, `infra/modules/compute/container-apps/inventory_job.tf`, `tests/integration/infra/test_inventory_repair_wiring.py`, 로컬 실행 1회가 권위 있는 `inventory.resource_changed` 이벤트 5건을 발행했고 인증된 Live 화면이 `Runtime observed`와 `5 routed events`를 보고 | 로컬 inventory reconciliation 태스크가 VNet 통합 배포 job과 똑같이 `FDAI_INVENTORY_RECOVERY_DELTA=1`을 바인딩하므로 Activity Log delta가 두 장소 모두에서 `aw.change.events`에 도달합니다. 배포 job은 infrastructure subnet이 없으면 여전히 delta를 비활성화합니다. |
 | 로컬 및 배포 composition 동등성 | implemented | `.vscode/tasks.json`, `.vscode/launch.json`, `scripts/deployment/local/`, `infra/`, `fdai_operator_service/composition.py`, 서비스 통합 테스트 및 focused Operator 검사(`51 passed`) | Composition root는 근거 권한을 바꾸지 않고 자격 증명과 어댑터를 선택합니다. 로컬 및 배포 Operator composition은 같은 Reader 범위 `GET /browser-evidence` 경로와 권위 있는 데이터 출처 ID를 등록하며 PostgreSQL이 없으면 합성 데이터 대신 사용 불가를 반환합니다. |
 | 독립 A3 channel-edge 동등성 | 구현됨 | `channel_edge/`, `prepare-channel-edge-env.sh`, `.vscode/tasks.json`, `infra/services/operator-service`, 플랫폼 edge identity/RBAC, 집중 edge 및 로컬 실행 검사 | 두 venue는 port 8014에서 동일한 Operator distribution ASGI factory, PostgreSQL store, 의미 EventBus bridge, 프로바이더 경로 및 readiness 논리를 실행합니다. Local은 private 0600 provider input과 Redpanda를 사용하고 deployed는 Key Vault reference, Event Hubs Kafka 및 전용 non-executor Managed Identity를 사용합니다. Provider 구성이 없으면 선택적 기능은 synthetic 대신 unavailable 상태를 유지합니다. |
-| Primary worktree 자동 시작 격리 | implemented | `.vscode/tasks.json`과 `tests/integration/scripts/test_vscode_workspace_performance.py`, 집중 자동 시작 계약 통과 | 폴더 열기 자동 시작은 primary checkout에서만 실행되므로 연결된 worktree가 표준 포트를 두고 경합하지 않습니다. 명시적 준비 및 서비스 시작 작업은 연결된 worktree에서도 계속 사용할 수 있습니다. |
+| Primary worktree 명시적 전체 스택 시작 | implemented | `.vscode/tasks.json`, `prepare-console-full-stack.sh`, `start-console-services.sh`, `run-console-service.sh`, `tests/integration/scripts/test_vscode_workspace_performance.py`, 집중 workspace 작업 계약 | 폴더를 열 때 더 이상 이행, 권위 데이터 새로 고침 또는 애플리케이션 서비스를 실행하지 않습니다. 준비 스크립트 하나가 순서가 있는 설정을 보존합니다. Supervisor 작업 하나가 허용 목록 기반 실행기로 독립 관리 서비스 프로세스를 시작하고 전체 구성이 게이트를 통과한 뒤에만 준비 상태를 알립니다. |
 | 로컬 진단 로그 복원력 | implemented | `capture-local-service-log.py`, `fdai.shared.telemetry.logging`, 집중 telemetry 및 launcher 검사 | 경고 보존은 레코드별 압축 없이 추가하고, 로컬 파일 캡처는 터미널 역압력과 격리하며, 과대 레코드는 범위를 제한하고, 반복 의존성 실패는 최초·주기·서로 다른 실패 근거를 보존합니다. |
 | 폴더 열기 dev-access 경로 안정화 | implemented | `tools/dev-access/scripts/vscode-startup.sh`, `tests/integration/infra/test_dev_access.py`, 집중 dev-access 테스트 | 태스크는 Azure VPN Client를 최대 한 번 열고 범위가 제한된 7초 유예 시간 동안 mirrored WSL 경로를 8번 확인합니다. Direct 경로가 나타나면 DNS를 적용하고 실제 연결 끊김에는 exit `20`을 유지합니다. 로컬 상태가 없는 workstation과 direct-VNet 머신은 계속 조용히 종료합니다. |
 | 리포지토리 범위 roadmap campaign 용량 | implemented | `roadmap_verification_watchdog.py`, `test_roadmap_verification_watchdog.py`, `scripts/README.md`의 무작위 campaign 운영 계약 | FDAI session lease와 최근 Copilot 활동을 모두 이 리포지토리 범위에서만 계산합니다. Linked worktree는 VS Code workspace ID를 도출하기 전에 primary checkout을 해석합니다. 다른 workspace는 FDAI 작업을 보류할 수 없으며, 900초 활동 창과 campaign 세션 2개 상한은 FDAI 동시 편집을 계속 보호합니다. |
@@ -43,6 +43,7 @@ translation_revised: 2026-08-21
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
+| 2026-08-22 | implemented | 폴더를 열 때 실행하던 전체 스택 시작을 명시적 `console: start full stack` 작업으로 바꾸고, 호출자가 하나뿐인 준비 작업 9개를 통합했으며, 서비스 작업 블록 8개와 별도 준비 상태 확인 작업을 supervisor 하나로 교체했습니다. Supervisor는 서비스마다 허용 목록 기반 실행기, 잠금, fingerprint, 로그 및 프로세스 수명주기를 각각 유지합니다. 작업 수를 29개에서 11개로 줄였습니다. | `current change`, `.vscode/tasks.json`, `scripts/deployment/local/{prepare-console-full-stack,start-console-services,run-console-service}.sh`, 집중 workspace 작업 계약 테스트 4개 통과, 세 스크립트의 `bash -n` 통과 | Console 구성이 필요할 때 명시적 전체 스택 작업을 실행합니다. |
 | 2026-08-21 | implemented | Cognitive deployment를 변경할 수 있는 계획에만 중요한 모델 완결성 검사를 적용했습니다. 개발 게이트웨이 대상 계획은 기존 모델 계정과 호출자 RBAC를 계속 수렴하지만 대상 집합에 cognitive deployment가 없으므로 관련 없는 모델 해석을 건너뜁니다. | `current change`, `.github/workflows/deploy-dev.yml`, 집중 모델 수명 주기 및 보호 workflow 테스트, Terraform 전 불일치를 드러낸 보호 실행 `32435485872`와 `32435748272`. | 동일한 Event Bus 이행 계획을 다시 실행합니다. 모델 레지스트리를 바꾸기 전에 별도의 Foundry 다중 발행기 endpoint 이행을 설계합니다. |
 | 2026-08-21 | implemented | 빈 기능 맵이 기존 embedding deployment 삭제를 암시한 사실을 확인한 뒤 개발 게이트웨이 예외를 정정했습니다. 이제 게이트웨이 대상 계획은 모델 해석을 유지하면서 완결성 결과만 차단하지 않습니다. | 보호된 계획 실행 `32456242726`, `current change`, 집중 모델 수명 주기 및 보호 workflow 스위트의 테스트 44개 통과. | 동일한 Event Bus 이행 계획을 다시 실행하고 적용 전에 모델 deployment 변경이 없음을 확인합니다. |
 | 2026-08-21 | implemented | `hil-only` 해석기 레코드를 Terraform 기능 입력에서 제외하면서 봉인된 근거 산출물에는 유지했습니다. | 보호된 계획 실행 `32460379091`에서 경계 불일치를 확인했습니다. `current change`의 집중 모델 수명 주기 검사에서 테스트 9개가 통과했습니다. | 동일한 Event Bus 이행 계획을 다시 실행하고 적용 전에 모델 deployment 변경이 없음을 확인합니다. |
@@ -195,13 +196,16 @@ managed-resource identity가 없는 영속 shadow consumer입니다. 이 venue�
 Event Hubs Kafka endpoint를 사용합니다. Venue 선택은 근거 권한, 승격 상태, 사람 신원 또는
 executor 권한을 변경하지 않습니다.
 
-신뢰된 primary checkout을 열면 `console: start full stack automatically`가 실행됩니다. 이 집계
-작업은 먼저 checkout이 공유 Git 디렉터리를 소유하는지 확인하고 `console: prepare full stack`을
-한 번 완료한 다음 서비스별 확인 클릭 없이 백엔드 서비스 5개와 Console SPA를 병렬로 시작합니다.
-연결된 worktree는 폴더 열기 자동 시작을 건너뛰므로 VS Code 창 두 개가 표준 포트의 프로세스를
-서로 교체하지 않습니다. 개발자는 primary stack을 중지한 뒤 연결된 worktree에서
-`console: prepare full stack`과 `console: start local services`를 명시적으로 실행할 수 있습니다.
-준비 작업은 port `5432`의 런타임 PostgreSQL, port `5433`의
+작업 영역을 열어도 Console 구성을 시작하지 않습니다. 필요할 때 신뢰된 primary checkout에서
+`console: start full stack`을 명시적으로 실행합니다. 이 집계 작업은 먼저 checkout이 공유 Git
+디렉터리를 소유하는지 확인하고 `console: prepare full stack`을 한 번 완료한 다음 서비스별 확인
+클릭 없이 백엔드 서비스 5개와 Console SPA를 병렬로 시작합니다. 명시적 시작은 이행, 권위 데이터
+새로 고침 및 장기 실행 서비스가 편집기 초기화와 경쟁하지 않게 합니다.
+`prepare-console-full-stack.sh`이 순서가 있는 설정을 담당하고 background 작업 하나가
+`start-console-services.sh`을 실행합니다. Supervisor는 허용된 서비스 이름으로 각
+`run-console-service.sh` 프로세스를 병렬 시작하고 공유 준비 상태 게이트를 기다린 뒤 종료 신호를
+전달합니다. 각 서비스는 자체 잠금, fingerprint, 로그 및 프로세스 수명주기를 유지합니다. 준비 작업은
+port `5432`의 런타임 PostgreSQL, port `5433`의
 격리된 검증 PostgreSQL cluster, Redpanda 및 ClamAV를 시작합니다. 고정된 이전 방식 Alembic
 계보를 전진시킨 후 서비스가 소유한 이행 가지 5개를 모두 채택하고 업그레이드합니다. 단일 인스턴스
 한도로 중복 실행도 막습니다. 동일한 준비는 읽기 전용 Azure Resource Graph 인벤토리를 새로 읽고,
@@ -210,7 +214,7 @@ executor 권한을 변경하지 않습니다.
 카탈로그의 변경 불가능한 개정 번호를 Operator 변환 결과 저장소에 기록합니다. 이러한 선언은 발견된
 문제, 관측된 인벤토리, 준비 상태 또는 실행 권한을 만들지 않습니다. 프로바이더를 사용할 수 없거나
 권한이 없으면 고정본 데이터로 대체하지 않고 인벤토리를 명시적으로 사용할 수 없는 상태로 유지합니다.
-자동 시작에는 신뢰된 workspace와 커밋된 정책이 필요하며 권한을 약화하지 않습니다. 재사용에는 이
+전체 스택 시작에는 신뢰된 workspace와 커밋된 정책이 필요하며 권한을 약화하지 않습니다. 재사용에는 이
 체크아웃의 잠금과 정확한 입력 fingerprint가 필요하고, 변경되거나 다른 소유권은 관리 대상만 교체하거나
 실패합니다. 15초 게이트는 체크아웃 소유 Core, 최신 heartbeat, 정상 service probe를 요구합니다.
 종료는 10초 뒤 자식 process group을 중지하고 wrapper가 사라지면 그 leader에 signal을 보냅니다.

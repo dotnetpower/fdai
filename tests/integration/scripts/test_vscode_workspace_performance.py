@@ -66,46 +66,102 @@ def test_workspace_suppresses_terminal_exit_toast() -> None:
     assert settings["terminal.integrated.showExitAlert"] is False
 
 
-def test_workspace_starts_complete_console_topology_automatically() -> None:
+def test_workspace_exposes_explicit_complete_console_topology() -> None:
     tasks = _load_jsonc(REPO_ROOT / ".vscode" / "tasks.json")
     assert isinstance(tasks, dict)
     tasks_by_label = {task["label"]: task for task in tasks["tasks"]}
+    assert len(tasks_by_label) == 11
 
-    prepare_state = tasks_by_label["console: prepare local state"]
-    assert "runOn" not in prepare_state["runOptions"]
-    assert prepare_state["runOptions"]["instanceLimit"] == 1
-    assert (
-        "console: prepare local state" in tasks_by_label["console: prepare full stack"]["dependsOn"]
+    prepare_stack = tasks_by_label["console: prepare full stack"]
+    assert prepare_stack["command"] == (
+        "bash scripts/deployment/local/prepare-console-full-stack.sh"
     )
+    assert "dependsOn" not in prepare_stack
+    assert prepare_stack["runOptions"] == {"instanceLimit": 1}
 
-    automatic_start = tasks_by_label["console: start full stack automatically"]
-    assert automatic_start["dependsOrder"] == "sequence"
-    assert automatic_start["dependsOn"] == [
-        "console: require primary worktree for automatic start",
+    removed_preparation_tasks = {
+        "console: prepare local state",
+        "console: prepare local runtime env",
+        "console: refresh authoritative inventory",
+        "console: refresh authoritative settings",
+        "console: refresh authoritative catalogs",
+        "console: prepare local Operator Service env",
+        "console: prepare local independent service envs",
+        "console: sync local Entra redirects",
+    }
+    assert removed_preparation_tasks.isdisjoint(tasks_by_label)
+
+    preparation_script = (
+        REPO_ROOT / "scripts" / "deployment" / "local" / "prepare-console-full-stack.sh"
+    ).read_text(encoding="utf-8")
+    preparation_steps = [
+        "prepare-console-state.sh",
+        "prepare-local-runtime-env.sh",
+        "refresh-authoritative-inventory.py",
+        "materialize-authoritative-settings.py",
+        "materialize-authoritative-catalogs.py",
+        "prepare-operator-service-env.sh",
+        "prepare-independent-service-envs.sh",
+    ]
+    preparation_positions = [preparation_script.index(step) for step in preparation_steps]
+    assert preparation_positions == sorted(preparation_positions)
+    assert preparation_script.rfind("\nsync_entra_redirects") > preparation_positions[-1]
+
+    full_stack = tasks_by_label["console: start full stack"]
+    assert full_stack["dependsOrder"] == "sequence"
+    assert full_stack["dependsOn"] == [
+        "console: require primary worktree",
         "console: prepare full stack",
         "console: start local services",
-        "console: verify local services",
     ]
-    assert automatic_start["runOptions"] == {
-        "runOn": "folderOpen",
+    assert full_stack["runOptions"] == {
         "instanceLimit": 1,
         "instancePolicy": "silent",
     }
 
-    automatic_start_guard = tasks_by_label["console: require primary worktree for automatic start"]
-    assert automatic_start_guard["type"] == "shell"
-    assert "--git-dir" in automatic_start_guard["command"]
-    assert "--git-common-dir" in automatic_start_guard["command"]
-    assert "exit 75" in automatic_start_guard["command"]
-    assert automatic_start_guard["problemMatcher"] == []
+    start_guard = tasks_by_label["console: require primary worktree"]
+    assert start_guard["type"] == "shell"
+    assert "--git-dir" in start_guard["command"]
+    assert "--git-common-dir" in start_guard["command"]
+    assert "exit 75" in start_guard["command"]
+    assert start_guard["problemMatcher"] == []
+
+    folder_open_tasks = {
+        task["label"]
+        for task in tasks["tasks"]
+        if task.get("runOptions", {}).get("runOn") == "folderOpen"
+    }
+    assert folder_open_tasks == {
+        "hooks: install (core.hooksPath)",
+        "git: auto-pull (background)",
+        "dev-access: configure VPN on folder open",
+    }
+
+    visible_tasks = {task["label"] for task in tasks["tasks"] if not task.get("hide", False)}
+    assert visible_tasks == {
+        "git: pull now (rebase, autostash)",
+        "console: Playwright quick (desktop)",
+        "design mocks: serve (5373)",
+        "console: prepare full stack",
+        "console: start full stack",
+        "channel edge: Operator Slack and Teams (Local)",
+    }
 
     local_services = tasks_by_label["console: start local services"]
-    assert local_services["dependsOrder"] == "parallel"
+    assert local_services["command"] == ("bash scripts/deployment/local/start-console-services.sh")
+    assert local_services["isBackground"] is True
+    assert "dependsOn" not in local_services
     assert local_services["runOptions"] == {
         "instanceLimit": 1,
         "instancePolicy": "silent",
     }
-    assert local_services["dependsOn"] == [
+    assert local_services["problemMatcher"]["background"] == {
+        "activeOnStart": True,
+        "beginsPattern": "service=console-stack event=starting$",
+        "endsPattern": "service=console-stack event=ready$",
+    }
+
+    removed_service_tasks = {
         "console: Core Control Plane (Local Docker)",
         "console: Operator API (Local Entra)",
         "console: Document Ingestion API (Local Docker)",
@@ -114,43 +170,53 @@ def test_workspace_starts_complete_console_topology_automatically() -> None:
         "console: Inventory Reconciliation (Local)",
         "console: Observation Campaign (Local)",
         "console: frontend (Browser Entra)",
-    ]
-    for service_label in local_services["dependsOn"]:
-        assert "dependsOn" not in tasks_by_label[service_label]
-        assert tasks_by_label[service_label]["runOptions"] == {
-            "instanceLimit": 1,
-            "instancePolicy": "silent",
-        }
-        if service_label != "console: frontend (Browser Entra)":
-            service_task = tasks_by_label[service_label]
-            assert "local-service-input-digest.py" in service_task["command"]
-            assert 'FDAI_LOCAL_SERVICE_INPUT_DIGEST="$input_digest"' in service_task["command"]
-            assert "FDAI_LOCAL_SERVICE_RESTART_STALE=1" in service_task["command"]
-            assert "FDAI_LOCAL_SERVICE_REUSE_EXISTING=1" in service_task["command"]
-            assert "event=reused$" in service_task["problemMatcher"]["background"]["endsPattern"]
-
-    core = tasks_by_label["console: Core Control Plane (Local Docker)"]
-    assert "FDAI_PANTHEON_HEARTBEAT_SECONDS=2" in core["command"]
-
-    readiness = tasks_by_label["console: verify local services"]
-    assert "developer-workflow.py local-services --wait-seconds 15" in readiness["command"]
-    assert readiness["runOptions"] == {
-        "instanceLimit": 1,
-        "instancePolicy": "silent",
+        "console: verify local services",
     }
+    assert removed_service_tasks.isdisjoint(tasks_by_label)
 
-    channel_prepare = tasks_by_label["channel edge: prepare local env"]
-    assert "prepare-channel-edge-env.sh" in channel_prepare["command"]
+    supervisor_script = (
+        REPO_ROOT / "scripts" / "deployment" / "local" / "start-console-services.sh"
+    ).read_text(encoding="utf-8")
+    managed_services = (
+        "core-runtime",
+        "operator-api",
+        "document-ingestion-api",
+        "document-processing-worker",
+        "isolated-executor",
+        "inventory-reconciliation",
+        "observation-campaign",
+        "console-frontend",
+    )
+    for service_name in managed_services:
+        assert f"  {service_name}\n" in supervisor_script
+    assert "run-console-service.sh" in supervisor_script
+    assert "developer-workflow.py" in supervisor_script
+    assert "local-services" in supervisor_script
+    assert "require_managed_locks" in supervisor_script
+    assert 'flock -n -E 75 "$lock_file" true' in supervisor_script
+    assert "service=console-stack event=ready" in supervisor_script
+
+    service_script = (
+        REPO_ROOT / "scripts" / "deployment" / "local" / "run-console-service.sh"
+    ).read_text(encoding="utf-8")
+    assert "local-service-input-digest.py" in service_script
+    assert "console/.env.local" in service_script
+    assert 'export FDAI_LOCAL_SERVICE_INPUT_DIGEST="$input_digest"' in service_script
+    assert "export FDAI_LOCAL_SERVICE_RESTART_STALE=1" in service_script
+    assert "export FDAI_LOCAL_SERVICE_REUSE_EXISTING=1" in service_script
+    for service_name in (*managed_services, "operator-channel-edge"):
+        assert service_name in service_script
+
+    assert "FDAI_PANTHEON_HEARTBEAT_SECONDS=2" in service_script
+
+    assert "channel edge: prepare local env" not in tasks_by_label
     channel_edge = tasks_by_label["channel edge: Operator Slack and Teams (Local)"]
-    assert channel_edge["dependsOn"] == ["channel edge: prepare local env"]
-    assert "fdai-operator-channel-edge" in channel_edge["command"]
-    assert ".fdai/local-channel-edge.env" in channel_edge["command"]
-    assert "operator-channel-edge" not in local_services["dependsOn"]
-    assert "local-service-input-digest.py" in channel_edge["command"]
-    assert 'FDAI_LOCAL_SERVICE_INPUT_DIGEST="$input_digest"' in channel_edge["command"]
-    assert "FDAI_LOCAL_SERVICE_RESTART_STALE=1" in channel_edge["command"]
+    assert "dependsOn" not in channel_edge
+    assert channel_edge["command"] == (
+        "bash scripts/deployment/local/run-console-service.sh operator-channel-edge"
+    )
+    assert "prepare-channel-edge-env.sh" in service_script
 
-    campaign = tasks_by_label["console: Observation Campaign (Local)"]
-    assert "fdai.delivery.observation_campaign_cli --loop" in campaign["command"]
-    assert 'FDAI_OBSERVATION_DSN="$FDAI_STATE_STORE_DSN"' in campaign["command"]
-    assert 'FDAI_OBSERVATION_SCOPES="$AZURE_SUBSCRIPTION_ID"' in campaign["command"]
+    assert "fdai.delivery.observation_campaign_cli" in service_script
+    assert 'FDAI_OBSERVATION_DSN="$FDAI_STATE_STORE_DSN"' in service_script
+    assert 'FDAI_OBSERVATION_SCOPES="$AZURE_SUBSCRIPTION_ID"' in service_script
