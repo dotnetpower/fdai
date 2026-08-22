@@ -254,13 +254,6 @@
       "issue": 252
     },
     {
-      "path": "services/core-control-plane/src/fdai/core/conversation/semantic_current_state_planning.py",
-      "disposition": "retain",
-      "owner": "semantic-conversation",
-      "reason": "Retains exact runtime resource identifier validation after structured intent selection.",
-      "issue": 252
-    },
-    {
       "path": "services/core-control-plane/src/fdai/core/conversation/semantic_error_activity_planning.py",
       "disposition": "retain",
       "owner": "semantic-conversation",
@@ -303,6 +296,20 @@
       "issue": 252
     },
     {
+      "path": "services/core-control-plane/src/fdai/core/conversation/semantic_resource_state_planning.py",
+      "disposition": "retain",
+      "owner": "semantic-conversation",
+      "reason": "Retains exact runtime resource identifier validation after structured state intent selection.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai/core/conversation/semantic_target_identity.py",
+      "disposition": "retain",
+      "owner": "semantic-conversation",
+      "reason": "Retains exact target identifier syntax validation shared by structured planners.",
+      "issue": 252
+    },
+    {
       "path": "services/core-control-plane/src/fdai/core/ontology_platform/semantic_plans.py",
       "disposition": "retain",
       "owner": "ontology-platform",
@@ -321,6 +328,13 @@
       "disposition": "retain",
       "owner": "llm-delivery",
       "reason": "Retains APIM route evidence identifier and capacity-unit schema validation.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai/delivery/azure/resource_event_history.py",
+      "disposition": "retain",
+      "owner": "azure-delivery",
+      "reason": "Retains case-folded ARM identifier and provider event field matching for retained change history.",
       "issue": 252
     },
     {
