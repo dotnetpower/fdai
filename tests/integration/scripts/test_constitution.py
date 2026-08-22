@@ -154,6 +154,18 @@ def test_missing_mirror_and_obsolete_phrase_are_rejected() -> None:
     assert any("obsolete constitutional phrase" in error for error in errors)
 
 
+def test_missing_core_principle_is_rejected() -> None:
+    module = _load_module()
+    texts = _valid_texts(module)
+    instruction = ".github/copilot-instructions.md"
+    texts[instruction] = texts[instruction].replace("Language never grants authority.", "")
+
+    assert any(
+        instruction in error and "missing required constitutional phrase" in error
+        for error in module.validate_texts(texts)
+    )
+
+
 def test_obsolete_safeguard_count_is_rejected_across_roadmap() -> None:
     module = _load_module()
     texts = _valid_texts(module)

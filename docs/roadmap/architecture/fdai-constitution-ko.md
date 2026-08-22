@@ -1,8 +1,8 @@
 ---
 title: FDAI 헌법
 translation_of: fdai-constitution.md
-translation_source_sha: 859d04f308770ee579b679025eb60f707f7402eb
-translation_revised: 2026-08-17
+translation_source_sha: d1464ccab1866fdd17ce2a57ea10a76e904f1daf
+translation_revised: 2026-08-21
 ---
 # FDAI 헌법
 
@@ -27,6 +27,18 @@ FDAI는 증거로 관리되는 자율 클라우드 운영 컨트롤 플레인입
 사용하여 관측, 결정, 계획, 권한 확인, 실행, 검증, 복구, 감사 및 학습을 수행합니다. 사람은
 정책, 위험 및 위임 권한을 정의하며, FDAI는 이러한 경계를 약화하지 않고 사람 접점을
 최소화합니다.
+
+## 핵심 원칙
+
+모든 설계, 계약, 구현, 워크플로우 및 배포는
+[FDAI 핵심 원칙](../../../.github/copilot-instructions.md#fdai-core-principles-must)을 반드시 따라야
+합니다. 이 절은 본 헌법을 압축한 운영 계약입니다. 자연어를 권한이 아닌 형식화된 의도로
+해석하고, 의미를 운영 온톨로지에 연결하고, 관계와 시간 범위가 제한된 근거를 함께 추론하고,
+결정론적으로 먼저 판단하고, 에이전트 및 이벤트 경계를 보존하고, 근거에 따라 주장을 관리하고,
+자율성을 제한하고, 효과를 독립적으로 검증합니다.
+
+이 원칙은 제1조부터 제10조를 구체화하며 재정의하지 않습니다. 원칙의 의미를 변경하는 것은
+헌법 개정이며 제10조의 절차를 반드시 따라야 합니다.
 
 ## 제1조: 목적과 범위
 
@@ -328,6 +340,7 @@ purpose -> constitutional requirement -> ontology or schema -> policy -> agent r
 
 | 알아볼 내용 | 참고 문서 |
 |-------------|-----------|
+| 필수 핵심 운영 원칙 | [FDAI 핵심 원칙](../../../.github/copilot-instructions.md#fdai-core-principles-must) |
 | 항상 적용되는 엔지니어링 규칙 | [Copilot 지침](../../../.github/copilot-instructions.md) |
 | 제어 루프와 에이전트 런타임 | [아키텍처 지침](../../../.github/instructions/architecture.instructions.md) |
 | 정확성 메트릭과 0 임계값 | [목표 및 메트릭](goals-and-metrics-ko.md) |

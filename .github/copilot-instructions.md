@@ -1,176 +1,107 @@
 # FDAI - Copilot Instructions
 
-Autonomous cloud operations control plane - an **AIOps** approach whose initial verticals
-are **Resilience** (disaster recovery and chaos/resilience testing), **Change Safety** (safe
-change, ARB, and drift remediation), and **Cost Governance** (FinOps). SRE/SLO is the operating
-model across those verticals; additional AIOps domains such as posture management are future scope.
-Goal: minimize human intervention by resolving most events deterministically and using LLMs
-only for the residual ambiguous cases.
+FDAI is an autonomous cloud-operations control plane for Resilience, Change Safety, and Cost
+Governance. SRE/SLO is the operating model. Resolve repeatable events deterministically and use
+LLMs only for residual ambiguity.
 
 The [FDAI Constitution](../docs/roadmap/architecture/fdai-constitution.md) is the highest design
-authority. This file is its short always-on execution summary; scoped instructions and detailed
-designs may refine the constitution but never override it.
+authority; this file is its compact always-on execution contract. Scoped instructions and designs
+may refine it, but the Constitution always prevails.
 
-This file is the small always-on contract. Detailed rules are loaded through
-[`design-routes.json`](../scripts/lib/design-routes.json). Resolve the route-selected context once
-per task before changing behavior. The workspace hook hard-blocks only framework-surface,
-constitutional, and design-gate edits when required context is missing or stale; ordinary edits
-remain unblocked. Pre-commit checks staged design-document impact, and pre-push validates the
-committed snapshot. Request each route-selected context document with a direct `read_file` call;
-current VS Code does not invoke workspace hooks for reads nested in parallel wrappers. The single
-pre-tool hook records only requested design-context paths; no post-tool hook receives or logs tool
-response bodies. A more specific instruction wins a conflict only within the Constitution's bounds;
-the Constitution always prevails.
+Load task-specific context through [`design-routes.json`](../scripts/lib/design-routes.json) before
+changing behavior. Request each required document with a direct `read_file` call because nested
+parallel reads are not recorded by the design-context hook. Pre-commit checks staged design impact;
+pre-push validates the committed snapshot.
 
-## Core Principles (MUST)
+## FDAI Core Principles (MUST)
 
-1. **Agent-driven:** Every capability belongs to an independently and concurrently runnable agent.
-   Authority-bearing collaboration and state transitions use schema-validated event-bus pub/sub only; direct agent calls, RPC,
-   implementation imports, and shared mutable workflow state are prohibited.
-2. **Deterministic-first:** Resolve repeatable decisions with deterministic rules. Adaptive T2
-   decisions require mixed-model, verifier, grounding, risk, and approval gates. `T0`, `T1`, and
-   `T2` describe FDAI product runtime behavior; they do not authorize a coding session to invoke a
-   live model or wait for a product fallback unless the current request explicitly requires live
-   validation.
-3. **Safe autonomy:** Every autonomous state-changing action requires all seven safeguards: a stop condition,
-   rollback, blast-radius limit, dry-run, logical-target lock, idempotency key, and two-phase audit record. New capabilities start in
-   shadow and change mode only through the authoritative promotion registry; runtime, environment,
-   and fork status never promote or demote them.
-4. **Evidence-governed:** Every decision and action is attributable, observable, and replayable.
-   Insufficient evidence results in abstention or escalation. High-impact execution requires either
-   current human approval or valid standing human authorization; silence alone never grants authority.
-   Human App Roles and the executor workload identity stay distinct; self-approval is prohibited.
-5. **Secure boundaries:** Keep the repository customer-agnostic and free of secrets, tenant values,
-   endpoints, and customer identifiers. Azure is the implemented target, provider contracts stay
+1. **Intent-grounded:** Interpret natural language as typed intent: goal, target, scope, time, and
+   constraints. Ambiguity requires clarification or abstention. Language never grants authority.
+2. **Ontology-grounded:** Ground every entity, state, relationship, evidence item, and action in
+   the canonical operating ontology. The ontology validates meaning and never grants authority.
+3. **Relationship- and time-aware:** Correlate topology and dependencies with time-bounded
+   telemetry, traces, and changes. Preserve effective time, event time, recorded time, freshness,
+   completeness, and provenance. Never equate correlation with causation.
+4. **Deterministic-first:** Resolve repeatable decisions with rules and policies. Use T2 reasoning
+   only for grounded, mixed-model, verifier-checked, risk-gated, and approval-gated residual
+   ambiguity. `T0`, `T1`, and `T2` describe product runtime behavior.
+   They do not authorize a coding session to invoke a live model unless explicitly requested for
+   live validation.
+5. **Agent-driven:** Assign every capability to an independently runnable accountable agent.
+   Authority-bearing collaboration and state transitions use schema-validated event-bus pub/sub
+   only, without direct agent calls or shared mutable workflow state.
+6. **Evidence-governed:** Make every conclusion and action attributable, observable, explainable,
+   and replayable. Insufficient, stale, incomplete, or conflicting evidence requires bounded
+   recovery, abstention, denial, or escalation.
+7. **Safely autonomous:** Execute state changes only with explicit current human approval or valid
+   standing human authorization when required. Silence never grants authority, self-approval is
+   prohibited, and human and executor identities remain distinct. Require all seven safeguards:
+   stop condition, tested rollback, blast-radius limit, successful dry-run, logical-target lock,
+   stable idempotency key, and two-phase audit. New capabilities start in shadow mode and change
+   mode only through the authoritative promotion registry.
+8. **Effect-verified:** Verify expected effects through an independent authoritative observation.
+   Dispatch, broker acceptance, or an API success is not an operational success.
+9. **Secure boundaries:** Keep the repository customer-agnostic and free of secrets, tenant values,
+   endpoints, and customer identifiers. Azure is the implemented target, provider contracts remain
    neutral, and non-Azure adapters require explicit approval.
+
+If any applicable principle cannot be satisfied, FDAI MUST NOT act. It MUST produce an explicit
+unknown, no-op, denial, rollback, or human-review outcome with an audit record.
 
 ## Agent Workflow (MUST)
 
-1. Classify the request before implementation. A design pass is required when the change affects
-   architecture, public contracts, security or authority boundaries, cross-subsystem behavior,
-   persistent data flow, or presents multiple viable approaches with material tradeoffs. A small
-   local fix, mechanical edit, or implementation of an already-approved design does not require a
-   new design artifact.
-2. For design-required work, draft the smallest sufficient design, critique it against the user
-   requirements, route-selected documents, simplicity, failure modes, operability, and validation,
-   then revise the design before implementation. Resolve material critique findings in the revised
-   design; do not preserve rejected alternatives as implementation work.
-3. For any task that needs an implementation plan, derive it from the revised design when one is
-   required. Identify dependencies, shared files or mutable state, and validation joins; mark
-   independent work explicitly and execute it in parallel with available parallel tools, subagents,
-   or isolated worktrees. Keep dependent work sequential, and do not parallelize tasks that can
-   race on the same files, state, authority decision, or generated artifact. Every parallel branch
-   must have a bounded output and an explicit merge or verification point.
-4. Before a high-risk framework-surface, constitutional, or design-gate edit, read every
-   route-selected design document. For ordinary changes, resolve the controlling route context
-   once per task before changing behavior; do not serialize work through unrelated reference docs.
-5. Make the smallest coherent change, update affected contracts and docs, and never hand-edit
-   generated runtime artifacts. Keep the current user-visible objective primary: incidental Git,
-   CI, validation-queue, deployment, or provider failures MUST NOT replace unfinished requested
-   implementation with a troubleshooting task. Record or defer a non-blocking failure and continue
-   the requested work. Troubleshoot it only when it blocks the next required local edit or check,
-   or when the user explicitly asks for that troubleshooting.
-6. Worker sessions run only the narrowest executable check that can falsify their change. They
-   MUST NOT run repository-wide checks, unscoped tests, or direct `verify.sh --fast` / `--all`
-   unless the user explicitly names a merge/release-wide check.
-   A session MUST NOT delegate validation of a dirty worktree to another execution session because
-   that process can stage, restore, or discard task-owned changes. Delegated validation requires a
-   clean committed snapshot in an isolated worktree; validate dirty task-owned paths directly in
-   the owning session until they are committed.
-   Follow the diff-scoped and parallel-worktree rules in
-   [coding-conventions.instructions.md](instructions/coding-conventions.instructions.md).
-7. Commits do not enqueue repository-wide validation, and normal pushes do not require local
-   validation receipts. Worker sessions own focused checks for their changes; pre-push validates
-   the exact committed snapshot with bounded structural gates, and CI is the authoritative
-   integration validator for each pushed SHA. The `Integration Validator` and
-   `make validation-run` remain opt-in diagnostics for an explicitly enqueued revision.
-   Use `make validation-all` only at an explicit merge or release boundary. Start a remote or
-   filesystem wait only when its result is required by the current request. Use one bounded,
-   event-driven watcher with a declared deadline and no-progress deadline; on expiry or a terminal
-   failure, stop waiting and report the last state. Do not restart the same wait or rerun the same
-   remote operation without a new change or explicit user request.
-8. Do not commit by default. Commit only when the user explicitly requests it, when an explicitly
-   invoked workflow declares commits as its deliverable, or when a user-requested deployment or
-   external state change requires an exact revision. A commit is a finalization step after the
-   requested behavior and focused checks are complete; staging, hook, signing, or push problems
-   MUST NOT interrupt unfinished implementation. Stage only task-owned files and hunks, and never
-   commit failed or incomplete work. Except for a repository-owned workflow whose documented
-   purpose is to create a generated commit, every agent-authored commit MUST originate in the
-   active local checkout: validate the change, inspect the local diff, create the local commit,
-   and then push that exact commit. Agents MUST NOT use a hosting content API, Git data API, web
-   edit, bot, or equivalent remote-write path to create a remote-only commit. Push only when the
-   user or invoked workflow explicitly requests it, then verify the remote ref resolves to the
-   expected local commit.
-9. Treat slow network-dependent work as a post-validation phase. Do not watch or rerun GitHub
-   Actions, deploy or provision Azure, or build or push container images while implementation or
-   focused tests are incomplete. When the requested external phase requires an exact revision,
-   commit the finished slice first. Deployment and release work must target a pushed SHA whose
-   required CI checks and workflow-specific protected preflight pass; local queue receipts are not
-   an authority boundary. Lightweight read-only identity and context checks may run earlier; they
-   must not become long polling or remote troubleshooting.
-10. Prevent interactive sensitive-input prompts before starting a command. Prefer an existing
-   authenticated session, workload identity, credential-store reference, documented
-   non-interactive mode, or provider-hosted browser/device authorization flow, and use a
-   non-secret readiness check first. Passwords, passphrases, tokens, API keys, MFA or recovery
-   codes, connection strings, private keys, and secret values MUST NOT cross chat,
-   `vscode_askQuestions`, tool arguments, `send_to_terminal`, command lines, generated files,
-   logs, or task output. Do not start `sudo`, password login, or another known prompting command
-   through an agent tool. If a running terminal still requires sensitive input, tell the user to
-   enter it directly in that terminal, preserve the exact continuation point, and treat the pause
-   as an authentication handoff rather than task failure or completion. After confirmation,
-   verify only non-secret authentication state and resume without repeating completed work or
-   requesting the value again. Never weaken authentication, authorization, certificate checks,
-   or another security control to avoid the prompt.
-11. Bound every wait and every long-running command. Before starting work that can exceed a few
-   minutes, declare an explicit budget, a per-stage deadline, and a no-progress deadline, and emit
-   a progress signal as each unit completes. One long total timeout MUST NOT stand in for a
-   per-stage deadline or a progress signal, because it makes a stalled run indistinguishable from a
-   slow one. Make long work resumable so an interruption does not discard completed results, and
-   prefer many short verifiable steps over one long opaque step. Batch related fixes into one
-   verification round instead of repeating a full live gate after each small change, and run
-   full-cohort or release-scale checks only at an explicit release or evidence boundary. Live
-   network, Azure, or model-backed validation requires an explicit request or a user-named exit
-   criterion. Run at most one live reproduction per local hypothesis. An unexpected `T2` fallback,
-   HTTP `429`/`503`, provider timeout, or deadline expiry is a terminal inconclusive result for that
-   attempt: capture bounded diagnostics, return to local analysis, and do not retry the same live
-   request in the current turn.
+1. Classify the request first. Architecture, public contracts, authority, cross-subsystem behavior,
+   persistent data flow, or material tradeoffs require a small design, critique, and revision before
+   implementation. Local fixes and already-approved designs do not require a new design artifact.
+2. Resolve route-selected context once per task. Read every required document directly before a
+   high-risk edit. Make the smallest coherent change, update affected contracts and docs, never
+   hand-edit generated artifacts, and keep the user's requested outcome ahead of incidental tooling.
+3. Derive plans from the revised design. Parallelize only independent work with bounded outputs and
+   an explicit merge or verification point; keep shared files, state, and authority decisions serial.
+4. Run the narrowest executable check that can falsify the change. Worker sessions MUST NOT run
+   repository-wide checks or `verify.sh --fast` / `--all` unless explicitly requested. A session
+   MUST NOT delegate validation of a dirty worktree. Delegated validation requires a clean committed snapshot in an isolated worktree.
+   CI owns integration validation for pushed SHAs, and
+   `make validation-all` is reserved for explicit merge or release boundaries.
+5. Do not commit by default. Commit only when explicitly requested or required by an invoked
+   workflow or external operation. Git, hook, signing, or push failures MUST NOT interrupt unfinished implementation.
+   Except for repository-owned generated workflows, every agent-authored commit MUST originate in the
+   active local checkout after focused validation and diff review. Never create a remote-only commit.
+   Push only when requested, then verify the remote ref resolves to the expected local commit.
+6. Treat GitHub Actions, Azure operations, container publication, and other slow network work as a
+   post-validation phase. Deployment and release target a pushed SHA with required CI and protected
+   preflight; local validation receipts never grant authority.
+7. Prevent sensitive-input prompts. Secrets MUST NOT cross chat, tools, command lines, generated
+   files, logs, or task output. Use existing identity or provider-hosted authorization; if a running
+   terminal requests a secret, the user enters it directly. Never weaken a security control.
+8. Bound long work with total, per-stage, and no-progress deadlines plus progress signals. Live
+   network, Azure, or model validation requires an explicit request. An unexpected `T2` fallback,
+   HTTP `429`/`503`, provider timeout, or deadline expiry ends that attempt; capture bounded evidence
+   and do not retry the same live request without a new hypothesis or explicit request.
 
 ## Local Development Efficiency (MUST)
 
-- Ordinary local development, debugging, reproduction, and focused validation MUST use the
-   loopback Docker PostgreSQL stores and service-owned local DSNs first. Inspect the active local
-   environment, migrations, and local records before considering an Azure PostgreSQL operation;
-   never use the remote database to explain state that is reproduced locally.
-- Azure PostgreSQL reads, writes, migrations, or data synchronization are deployment work. Perform
-   them only through the protected deployment workflow, or during an explicitly requested live
-   Azure validation after focused local checks are complete. Never source an Azure PostgreSQL DSN
-   into an interactive local process or copy database contents between venues ad hoc.
-- VPN and private-endpoint state MUST be measured, not assumed. Before reporting a VPN disconnect
-   or private endpoint as unreachable, inspect the folder-open dev-access task result or run the
-   committed dev-access readiness check for the exact target. Distinguish VPN, DNS, route, endpoint,
-   authorization, and application failures in the result; one is not evidence of another.
-- Reuse a healthy running local stack, its generated `.fdai/local-*.env` files, and existing local
-   artifacts. Prefer the smallest local query or focused check that can answer the question, and
-   defer network-dependent GitHub or Azure work until local implementation and validation require it.
+- Use loopback Docker PostgreSQL, service-owned local DSNs, the active local environment, and local
+  records first. Never use a remote database to explain locally reproduced state.
+- Azure PostgreSQL access is deployment work and runs only through the protected workflow or an
+  explicitly requested live validation after focused checks. Never source its DSN locally or copy
+  database contents between venues ad hoc.
+- Reuse a healthy local stack and `.fdai/local-*.env`. Measure VPN, DNS, route, endpoint,
+  authorization, and application state independently before diagnosing private connectivity.
 
 ## Issue Lifecycle (MUST)
 
 - Every new issue includes explicit, observable **Exit criteria** as a checkbox list.
 - Read-only analysis and reproduction do not require an issue. Reuse or create one before the
-   first task-owned commit or external state change.
-- Use `python3 scripts/automation/project-board.py start <issue-number>` when GitHub is available.
-   Project updates are best-effort and MUST NOT block local implementation, focused validation,
-   commits, pushes, or CI. Report deferred synchronization and retry later.
+  first task-owned commit or external state change. Use `project-board.py start <issue-number>`
+  when GitHub is available; Project updates are best-effort and never block local work.
 - Issue content, labels, evidence comments, and open or closed state are authoritative. Project
-   fields are a derived execution view. Assignment records accountability; only `In progress`
-   records active work.
+  fields are derived; only `In progress` records active work.
 - The WIP limit of two applies to active `Story` and `Bug` outcomes per maintainer. Child `Task`
-   items do not consume another outcome slot and the board never replaces edit reservations.
-- After working on or reviewing an issue, add an English comment with evidence and residual work.
-- When every exit criterion is satisfied, add the `completed` label. Keep the issue open while
-  any residual work remains; close it only when no residual work remains.
-- For another author's issue, add `review-needed` and wait for confirmation before closing. A
-  reopened issue loses `completed` until its exit criteria are satisfied again.
+  items do not consume another slot, and the board never replaces edit reservations.
+- After work or review, add an English evidence comment. Add `completed` only when every criterion
+  is satisfied; residual work keeps the issue open. For another author's issue, add
+  `review-needed` and wait for confirmation before closing.
 
 English is the canonical/default language, and Korean is a fully supported localization language.
 Commit Korean prose as readable UTF-8, never as encoded escapes. Identifiers, paths, branches,

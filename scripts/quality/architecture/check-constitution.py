@@ -43,6 +43,12 @@ REQUIRED_PHRASES: Mapping[str, tuple[str, ...]] = {
         "standing human authorization",
         "always prevails.",
         "SRE/SLO is the operating",
+        "FDAI Core Principles",
+        "Language never grants authority.",
+        "Never equate correlation with causation.",
+        "the authoritative promotion registry",
+        "Dispatch, broker acceptance, or an API success is not an operational success.",
+        "customer-agnostic and free of secrets",
     ),
     ".github/instructions/architecture.instructions.md": (
         "docs/roadmap/architecture/fdai-constitution.md",
@@ -65,6 +71,8 @@ REQUIRED_PHRASES: Mapping[str, tuple[str, ...]] = {
     ),
     "docs/roadmap/architecture/fdai-constitution.md": (
         "config/constitution-traceability.json",
+        "MUST follow the\n[FDAI Core Principles]",
+        "Changing their meaning is a\nconstitutional amendment",
         "block any claim of complete constitutional runtime conformance",
         "Execution venue does not change control-plane behavior",
         "resource-group-equivalent or narrower",
@@ -83,6 +91,10 @@ REQUIRED_PHRASES: Mapping[str, tuple[str, ...]] = {
         "at least two normalized, distinct humans",
         "renewal creates a new immutable revision",
         "Dependency loss preserves only paths",
+    ),
+    "docs/roadmap/architecture/fdai-constitution-ko.md": (
+        "FDAI 핵심 원칙",
+        "원칙의 의미를 변경하는 것은\n헌법 개정",
     ),
     "docs/roadmap/architecture/goals-and-metrics.md": (
         "Current coverage gap",

@@ -26,6 +26,19 @@ reasoning, and separated authority to observe, decide, plan, authorize, execute,
 audit, and learn. Humans define policy, risk, and delegated authority; FDAI minimizes human
 touchpoints without weakening those boundaries.
 
+## Core principles
+
+Every design, contract, implementation, workflow, and deployment MUST follow the
+[FDAI Core Principles](../../../.github/copilot-instructions.md#fdai-core-principles-must). That section
+is the compact operational reading of this Constitution: interpret natural language
+as typed intent without treating language as authority; ground meaning in the operating ontology;
+reason over relationships and time-bounded evidence; decide deterministically first; preserve
+agent and event boundaries; govern claims with evidence; constrain autonomy; and verify effects
+independently.
+
+These principles refine Articles 1-10 and never override them. Changing their meaning is a
+constitutional amendment and MUST follow Article 10.
+
 ## Article 1: Purpose and scope
 
 **FDAI-CONST-001 - Autonomous cloud operations.** FDAI exists to minimize human intervention in
@@ -331,6 +344,7 @@ under the governance policy. Implementation status and target metrics never amen
 
 | To learn about | Read |
 |----------------|------|
+| Mandatory core operating principles | [FDAI Core Principles](../../../.github/copilot-instructions.md#fdai-core-principles-must) |
 | Always-on engineering rules | [Copilot instructions](../../../.github/copilot-instructions.md) |
 | Control loop and agent runtime | [Architecture instructions](../../../.github/instructions/architecture.instructions.md) |
 | Accuracy metrics and zero thresholds | [Goals and Metrics](goals-and-metrics.md) |

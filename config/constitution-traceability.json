@@ -14,7 +14,7 @@
     {
       "id": "FDAI-CONST-002",
       "status": "partial",
-      "owner_docs": ["docs/roadmap/architecture/goals-and-metrics.md", "docs/roadmap/architecture/outcome-assurance.md"],
+      "owner_docs": [".github/copilot-instructions.md", "docs/roadmap/architecture/goals-and-metrics.md", "docs/roadmap/architecture/outcome-assurance.md"],
       "implementation": ["services/core-control-plane/src/fdai/core/risk_gate", "services/core-control-plane/src/fdai/core/measurement"],
       "schemas": ["services/core-control-plane/src/fdai/shared/contracts/action/schema.json", "services/core-control-plane/src/fdai/shared/contracts/response-outcome/schema.json"],
       "tests": ["services/core-control-plane/tests/core/risk_gate", "services/core-control-plane/tests/core/measurement"],
@@ -24,7 +24,7 @@
     {
       "id": "FDAI-CONST-003",
       "status": "implemented",
-      "owner_docs": ["docs/roadmap/agents/agent-pantheon.md"],
+      "owner_docs": [".github/copilot-instructions.md", "docs/roadmap/agents/agent-pantheon.md"],
       "implementation": ["services/core-control-plane/src/fdai/agents/_framework/pantheon.py", "services/core-control-plane/src/fdai/agents/_framework/runtime.py"],
       "schemas": [],
       "tests": ["services/core-control-plane/tests/agents/test_pantheon_doc_parity.py", "services/core-control-plane/tests/agents/test_pantheon_concurrency_proof.py"],
@@ -34,7 +34,7 @@
     {
       "id": "FDAI-CONST-004",
       "status": "partial",
-      "owner_docs": ["docs/roadmap/architecture/operating-ontology.md", "docs/roadmap/architecture/operating-ontology-metamodel.md", "docs/roadmap/rules-and-detection/rule-governance.md"],
+      "owner_docs": [".github/copilot-instructions.md", "docs/roadmap/architecture/operating-ontology.md", "docs/roadmap/architecture/operating-ontology-metamodel.md", "docs/roadmap/rules-and-detection/rule-governance.md"],
       "implementation": ["services/core-control-plane/src/fdai/shared/ontology", "services/core-control-plane/src/fdai/core/operational_learning"],
       "schemas": ["services/core-control-plane/src/fdai/shared/contracts/ontology/object-type.json", "services/core-control-plane/src/fdai/shared/contracts/ontology/action-type.json"],
       "tests": ["services/core-control-plane/tests/agents/test_ontology_alignment.py", "services/core-control-plane/tests/core/operational_learning"],
@@ -64,7 +64,7 @@
     {
       "id": "FDAI-CONST-007",
       "status": "partial",
-      "owner_docs": ["docs/roadmap/architecture/security-and-identity.md", "docs/roadmap/decisioning/action-ontology.md"],
+      "owner_docs": [".github/copilot-instructions.md", "docs/roadmap/architecture/security-and-identity.md", "docs/roadmap/decisioning/action-ontology.md"],
       "implementation": ["services/core-control-plane/src/fdai/shared/contracts/models/action.py", "services/core-control-plane/src/fdai/core/executor"],
       "schemas": ["services/core-control-plane/src/fdai/shared/contracts/action/schema.json", "services/core-control-plane/src/fdai/shared/contracts/ontology/action-type.json"],
       "tests": ["services/core-control-plane/tests/core/executor/test_executor.py", "services/core-control-plane/tests/core/executor/test_lock.py"],
@@ -74,7 +74,7 @@
     {
       "id": "FDAI-CONST-008",
       "status": "planned",
-      "owner_docs": ["docs/roadmap/decisioning/escalation-and-standing-authority.md", "docs/roadmap/decisioning/risk-classification.md"],
+      "owner_docs": [".github/copilot-instructions.md", "docs/roadmap/decisioning/escalation-and-standing-authority.md", "docs/roadmap/decisioning/risk-classification.md"],
       "implementation": ["services/core-control-plane/src/fdai/core/hil_resume", "services/core-control-plane/src/fdai/core/standing_authority"],
       "schemas": ["services/core-control-plane/src/fdai/shared/contracts/authority/standing-authorization.json"],
       "tests": ["services/core-control-plane/tests/core/hil_resume", "services/core-control-plane/tests/core/standing_authority"],
@@ -94,7 +94,7 @@
     {
       "id": "FDAI-CONST-010",
       "status": "implemented",
-      "owner_docs": ["docs/roadmap/architecture/fdai-constitution.md", "scripts/lib/design-routes.json"],
+      "owner_docs": [".github/copilot-instructions.md", "docs/roadmap/architecture/fdai-constitution.md", "scripts/lib/design-routes.json"],
       "implementation": ["scripts/quality/architecture/check-constitution.py", "scripts/agent/design_context.py"],
       "schemas": ["config/constitution-traceability.json"],
       "tests": ["tests/integration/scripts/test_constitution.py", "tests/integration/scripts/test_design_context.py"],
