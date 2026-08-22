@@ -27,6 +27,8 @@ from types import MappingProxyType
 from fdai.delivery.azure.demo_queries import (
     METRIC_BACKEND_FIRST_BYTE_MS,
     METRIC_CONTAINER_APP_CPU_NANOCORES,
+    METRIC_CONTAINER_APP_MEMORY_PERCENT,
+    METRIC_CONTAINER_APP_REQUEST_TIMEOUTS,
     METRIC_HEALTHY_HOST_COUNT,
     METRIC_MYSQL_ACTIVE_CONNECTIONS,
     METRIC_MYSQL_CPU_PERCENT,
@@ -65,6 +67,18 @@ _CONTAINER_APP_CPU_NANOCORES = MetricsApiTemplate(
     aggregation="Average",
 )
 
+_CONTAINER_APP_MEMORY_PERCENT = MetricsApiTemplate(
+    azure_metric_name="MemoryPercentage",
+    aggregation="Average",
+    interval="PT5M",
+)
+
+_CONTAINER_APP_REQUEST_TIMEOUTS = MetricsApiTemplate(
+    azure_metric_name="ResiliencyRequestTimeouts",
+    aggregation="Total",
+    interval="PT5M",
+)
+
 _CONTAINER_APP_RESPONSE_TIME_MS = MetricsApiTemplate(
     azure_metric_name="ResponseTime",
     aggregation="Average",
@@ -78,6 +92,8 @@ _ANALYZER_QUERIES: Mapping[str, MetricsApiTemplate] = MappingProxyType(
         METRIC_BACKEND_FIRST_BYTE_MS: _APPGW_BACKEND_FIRST_BYTE,
         METRIC_HEALTHY_HOST_COUNT: _APPGW_HEALTHY_HOST_COUNT,
         METRIC_CONTAINER_APP_CPU_NANOCORES: _CONTAINER_APP_CPU_NANOCORES,
+        METRIC_CONTAINER_APP_MEMORY_PERCENT: _CONTAINER_APP_MEMORY_PERCENT,
+        METRIC_CONTAINER_APP_REQUEST_TIMEOUTS: _CONTAINER_APP_REQUEST_TIMEOUTS,
         METRIC_SERVICE_REQUEST_DURATION_MS: _CONTAINER_APP_RESPONSE_TIME_MS,
     }
 )

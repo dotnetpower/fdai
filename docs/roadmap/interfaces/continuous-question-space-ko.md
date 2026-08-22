@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 98be239a5c60f2c8d366cb1c377f5bf1e5046947
-translation_revised: 2026-08-21
+translation_source_sha: cc59f2e77d37525f79d353ea6811fed2e0e59946
+translation_revised: 2026-08-22
 ---
 # 지속형 질문 공간
 
@@ -38,6 +38,7 @@ translation_revised: 2026-08-21
 | 정확한 대상 영향 계획 | implemented | `semantic_impact_planning.py`, `semantic_planning_cascade.py`, 집중 tier-routing 검사(`81 passed`) | T1이 `select`, exact 대상 하나, 명시적 impact cue, 유일한 검토 service path 하나를 보존하면 Core는 T2 없이 impact frame을 완성하고 incoming `workload_runs_on` 및 `implemented_by`를 통해 `Resource -> Workload -> BusinessService`를 컴파일합니다. Service edge가 없으면 빈 근거 결과를 반환하며 `contains`, `attached_to`, classification edge로 service blast radius를 추론하지 않습니다. Plan은 `execution_authority=false`인 읽기 전용입니다. |
 | 정확한 대상 bounded activity 계획 | implemented | `semantic_activity_planning.py`, `resource_activity_queries.py`, Operator presentation planner 및 artifact, 집중 tier-routing 및 presentation 검사(`86 + 41 passed`) | Exact target 하나와 1분 이상 24시간 이하 lookback 하나가 있는 명시적인 revision-status 또는 restart 질문은 generic listing, evidence-validation scan, causal diagnosis가 아니라 bounded activity read입니다. T1이 read-only frame에서 해당 exact 사실을 보존하면 Core는 이를 `select/temporal_comparison`으로 완성하고 exact Resource ObjectSet과 `query.resource_change_activity`를 컴파일합니다. `why` 또는 root-cause 표현, action 또는 aggregation operation, 누락되거나 중복된 window, 모호한 target, 누락된 function binding은 완성하지 않습니다. 검증되고 완전한 0-row 결과는 neutral typed empty state로 표시하며 불완전하거나 사용할 수 없는 evidence는 warning으로 유지합니다. Plan은 `execution_authority=false`인 읽기 전용입니다. |
 | 정확한 대상 current-state 계획 | implemented | `semantic_current_state_planning.py`, `resource_current_state_queries.py`, Azure current-state normalizer, Operator presentation rows, 집중 Core 및 Operator 검사(`105 + 42 passed`) | Exact target 하나와 current, revision, ready cue가 있는 요청은 Resource ObjectSet과 `query.resource_current_state`를 컴파일합니다. Causal completion과 같이 유일한 3-segment 이상 runtime identifier span은 잘못된 model subject constraint보다 우선합니다. Exact identity가 0개 또는 여러 개이면 plan proposal 전에 typed subject clarification을 반환하며 더 짧은 이름은 verified hyphenated subject가 필요합니다. 한국어 조사가 뒤따르는 English cue를 인식하고 문장 끝 punctuation은 마지막 identifier를 숨기지 않습니다. Azure normalizer는 ready를 만들지 않고 revision name 두 개를 보존합니다. Provider observation time이 없으면 completeness를 낮춥니다. Causal, action, aggregate 요청은 그대로 유지합니다. |
+| 정확한 대상이 없는 하위 유형 질문 커버리지 | validated | `semantic_target_candidate_planning.py`, `inventory-query-language.yaml`, `eval/sre-agent-container-apps.yaml`, 집중 플래너 검사 204개 통과, 인증된 한국어 Console 행렬 | 컬렉션 표현은 하위 유형 컬렉션 경로를 유지합니다. 정확한 신원이 하나로 정해지지 않은 단수 하위 유형 질문은 모델을 사용할 수 없거나 frame이 유효하지 않아도 범위가 제한된 검증 후보와 정확한 대상 선택 다음 단계를 반환합니다. Current-source SRE 예시 8개 행렬은 첫 턴 전체가 검증된 결과로 완료됐으며 context-required, unsupported, held, unverified, 의미 대체 카운터는 모두 0이었습니다. 이 행은 별도의 정확한 대상 후속 기능을 인증하지 않습니다. |
 | 공유 의미 판단 경계 | implemented | `core/conversation/semantic_judgment.py`, `fdai_service_contracts/semantic_judgment.py`, Azure 모델 adapter 및 집중 경계 보증 | 범위가 제한된 context와 capability descriptor가 스키마로 검증된 intent, target, facet, confidence, ambiguity, discourse mode, action posture를 생성합니다. Unbound, unavailable, malformed, ambiguous, low-confidence 결과는 명시적으로 유지되고 exact-source, knowledge-status, reference-context 또는 phrase classifier로 fallback하지 않습니다. Exact capability availability, query verification, policy, authorization, execution은 결정론적으로 유지됩니다. |
 | 2026-08-21 | implemented | Exact-source, knowledge-status, reference-context, investigation-completion phrase classifier를 공유 구조화 의미 판단 경계로 교체했습니다. 결정론적 capability 및 evidence 검증은 유지되고 모델 실패에는 lexical fallback이 없습니다. | `current change`; 의미 경계, 고정 35/280 기반 edge assurance, 저장소 routing guard 집중 검사. | 실제 exact-source 인증은 exact committed revision을 위한 별도 근거로 유지됩니다. |
 | 후보 생성 및 검증 | implemented | `core/conversation/question_candidates.py`; `delivery/azure/llm/question_generation.py`; `scripts/automation/question_space_copilot.py`; 집중 생성기 및 검증기 검사 | 로컬 Copilot은 명시적으로만 실행되고 도구가 비활성화됩니다. 예약 생성은 분리된 `t1.question.generator`와 `t1.question.reviewer` 기능을 사용합니다. 불변 필드, 로캘, 식별자, 포함된 자격 증명, 실행 가능한 텍스트, 프롬프트 주입, 중복, 초안 자세, 독립 동등성은 안전하게 차단됩니다. |
@@ -54,6 +55,7 @@ translation_revised: 2026-08-21
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-22 | validated | Azure SRE Agent Container Apps 예시 8개에서 정확한 대상이 없는 하위 유형 답변 공백을 닫았습니다. 버전이 지정된 대상 수 어휘를 사용해 Core가 단수 대상 선택과 컬렉션 요청을 구분하고 서버 소유 후보 대체 경로만 제한합니다. 요청된 운영 기능은 선택하지 않습니다. | `current change`, 집중 플래너 검사 204개와 정적 검사 통과, current-source 인증 Console에서 첫 턴 8/8이 검증된 결과를 반환했고 context-required, unsupported, held, unverified, 의미 대체 답변은 모두 0건, 실제 리소스 신원은 저장소에 보존하지 않음 | 타입이 지정된 인그레스, 7일 활동, `MemoryPercentage`, 결정론적 인과 조사를 위한 별도 정확한 대상 행렬 7/7을 완료하고 보존합니다. |
 | 2026-08-21 | implemented | Metric, 네트워크 경로, 프라이빗 연결, 분류, 상태, 의존성 질문에 Application Gateway, AKS, Pod의 공식 리소스 종류 어휘를 추가했습니다. Corpus는 일반 약어 `AppGW`를 `Application Gateway`와 함께 사용하고 Pod를 AKS 워크로드를 통해 도달하는 Resource로 유지하며 모든 실제 인스턴스 식별자를 계속 제외합니다. | `current change`, canonical source 재생성으로 영어 280개와 한국어 280개 질문 생성, 집중 dataset 검사 9개 통과 | 리소스 어휘 사례를 golden-first 의미 캠페인으로 실행하고 대상 명확화 또는 근거 조회 전에 약어가 정확한 catalog 기반 리소스 종류로만 해석되는지 확인합니다. |
 | 2026-08-21 | implemented | 지원되지 않는 선택 객체 표현을 명시적인 runtime-context 분류로 교체했습니다. Corpus는 읽기 전용으로 정제한 인벤토리 검토에서 일반화한 네트워크, 컴퓨팅, Container Apps, PostgreSQL, Storage, Key Vault, Event Hubs, 관측성 시나리오를 사용하며 실제 식별자나 공급자 페이로드는 보존하지 않습니다. 장애 질문은 구현된 대화 결속만 사용하고 결속되지 않은 리소스, 서비스, 변경, 의사 결정, 복구 계획, 워크로드 질문은 대상 명확화를 요구합니다. | `current change`, `eval/golden-dataset/`, 생성기 및 집중 dataset 검사 9개 통과 | 수정된 corpus를 golden-first 의미 캠페인으로 실행하고 모든 `explicit_target_required` 사례가 운영 조회 전에 명확화를 반환하는지 확인합니다. |
 | 2026-08-21 | implemented | 결정론적 생성, 정확한 artifact drift 탐지, 균형 잡힌 관점 7개, 모든 검토된 보증 축, expectation당 표현 방식 8개, 문서에서 확인한 historical topology, release health, cost, recurrence, unsafe-action, resource-evidence, agent-authority surface를 사용해 저장소 corpus를 이중 언어 280쌍으로 확장했습니다. | `current change`, `eval/golden-dataset/`, `build_golden_dataset.py`, 집중 dataset 검사 7개 통과 | 런타임 인증을 바꾸기 전에 확장된 corpus를 기존 golden-first 의미 캠페인으로 실행합니다. |
@@ -119,6 +121,9 @@ translation_revised: 2026-08-21
 
 ### 남은 작업
 
+- [ ] Container Apps 예시의 정확한 대상 후속 행렬 7/7을 완료합니다. 타입이 지정된 인그레스
+  출력, 범위가 제한된 7일 변경 활동, 공식 `MemoryPercentage` 의미 규칙, 일반 Resource 행으로
+  대체하지 않는 결정론적 인과 조사를 요구합니다.
 - [ ] `eval/golden-dataset/`을 기존 golden-first 의미 캠페인으로 불러오고, 고정 답변 문자열을
   비교하지 않으면서 typed frame, 기능, 온톨로지 경로, 근거, 한계,
   `execution_authority=false`를 평가하는 exact-source 인증을 보존합니다.

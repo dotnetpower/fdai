@@ -13,6 +13,13 @@ from fdai.shared.contracts.models import (
 )
 
 RESOURCE_CURRENT_STATE_FUNCTION_NAME = "query.resource_current_state"
+RESOURCE_CURRENT_STATE_MEASURE_CONCEPTS = (
+    "active_revision",
+    "provisioning_status",
+    "ready_revision_name",
+    "revision_name",
+    "running_status",
+)
 
 
 def resource_current_state_function_type() -> OntologyFunctionType:
@@ -34,6 +41,7 @@ def resource_current_state_function_type() -> OntologyFunctionType:
             "type": "object",
             "additionalProperties": False,
             "required": ["rows", "complete", "truncation_reason"],
+            "x-fdai-measure-concepts": list(RESOURCE_CURRENT_STATE_MEASURE_CONCEPTS),
             "properties": {
                 "rows": {"type": "array", "maxItems": 1},
                 "complete": {"type": "boolean"},
@@ -55,5 +63,6 @@ def resource_current_state_function_type() -> OntologyFunctionType:
 
 __all__ = [
     "RESOURCE_CURRENT_STATE_FUNCTION_NAME",
+    "RESOURCE_CURRENT_STATE_MEASURE_CONCEPTS",
     "resource_current_state_function_type",
 ]

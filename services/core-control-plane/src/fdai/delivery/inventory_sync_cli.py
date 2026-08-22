@@ -539,14 +539,18 @@ async def _run_due_once() -> InventoryJobConfig:
                 f"change records published {published}"
                 if published is not None
                 else "change stream unavailable"
-            )
+            ),
+            flush=True,
         )
         return config
     result = await run(config)
     if result.active:
-        print(f"inventory snapshot promoted from {result.source}")
+        print(f"inventory snapshot promoted from {result.source}", flush=True)
     else:
-        print(f"inventory snapshot from {result.source} superseded by a newer attempt")
+        print(
+            f"inventory snapshot from {result.source} superseded by a newer attempt",
+            flush=True,
+        )
     return config
 
 

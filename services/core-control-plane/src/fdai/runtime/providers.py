@@ -379,6 +379,72 @@ def _build_read_investigation_provider(
     )
 
 
+def _build_resource_health_collection_reader(
+    *,
+    identity: Any = None,
+    http_client: Any = None,
+) -> Any:
+    """Bind collection Resource Health only from server-owned Azure scope."""
+
+    subscription_id = os.environ.get("AZURE_SUBSCRIPTION_ID", "").strip()
+    if identity is None or http_client is None or not subscription_id:
+        return None
+    from fdai.delivery.azure.resource_health_collection import (
+        AzureResourceHealthCollectionConfig,
+        AzureResourceHealthCollectionReader,
+    )
+
+    return AzureResourceHealthCollectionReader(
+        identity=identity,
+        http_client=http_client,
+        config=AzureResourceHealthCollectionConfig(subscription_id=subscription_id),
+    )
+
+
+def _build_resource_event_history_reader(
+    *,
+    identity: Any = None,
+    http_client: Any = None,
+) -> Any:
+    """Bind Resource Health history only from server-owned Azure scope."""
+
+    subscription_id = os.environ.get("AZURE_SUBSCRIPTION_ID", "").strip()
+    if identity is None or http_client is None or not subscription_id:
+        return None
+    from fdai.delivery.azure.resource_event_history import (
+        AzureResourceEventHistoryConfig,
+        AzureResourceEventHistoryReader,
+    )
+
+    return AzureResourceEventHistoryReader(
+        identity=identity,
+        http_client=http_client,
+        config=AzureResourceEventHistoryConfig(subscription_id=subscription_id),
+    )
+
+
+def _build_service_health_reader(
+    *,
+    identity: Any = None,
+    http_client: Any = None,
+) -> Any:
+    """Bind active Service Health only from server-owned Azure scope."""
+
+    subscription_id = os.environ.get("AZURE_SUBSCRIPTION_ID", "").strip()
+    if identity is None or http_client is None or not subscription_id:
+        return None
+    from fdai.delivery.azure.service_health import (
+        AzureServiceHealthConfig,
+        AzureServiceHealthReader,
+    )
+
+    return AzureServiceHealthReader(
+        identity=identity,
+        http_client=http_client,
+        config=AzureServiceHealthConfig(subscription_id=subscription_id),
+    )
+
+
 def _build_inventory_delta_projector() -> Any:
     dsn = (
         os.environ.get("FDAI_INVENTORY_DSN", "").strip()

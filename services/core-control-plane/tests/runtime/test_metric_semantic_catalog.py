@@ -30,10 +30,29 @@ def test_shipped_metric_semantics_load_without_language_aliases() -> None:
     assert set(registry.definitions) >= {
         "request.volume",
         "request.errors",
+        "request.timeout",
+        "resource.activation.failure",
         "storage.write.success",
         "network.change",
+        "resource.memory.available_pct",
+        "resource.memory.usage_pct",
     }
     assert not hasattr(registry.resolve("request.volume"), "aliases")
+    assert (
+        registry.resolve("resource.memory.available_pct").provider_metric
+        == "host.memory.available_pct"
+    )
+    memory_usage = registry.resolve("resource.memory.usage_pct")
+    assert memory_usage.provider_metric == "container_app_memory_percentage"
+    assert memory_usage.canonical_unit == "percent"
+    assert memory_usage.aggregation.value == "average"
+    timeout = registry.resolve("request.timeout")
+    assert timeout.provider_metric == "container_app_resiliency_request_timeouts"
+    assert timeout.canonical_unit == "count"
+    assert timeout.aggregation.value == "sum"
+    activation = registry.resolve("resource.activation.failure")
+    assert activation.provider_metric == "container_app_activation_failure_count"
+    assert activation.canonical_unit == "count"
 
 
 async def test_metric_provider_binding_preserves_zero_and_marks_empty_as_gap() -> None:

@@ -8,9 +8,11 @@ from typing import Any
 
 import pytest
 from fdai.composition.semantic_query_model_targets import t1_model_targets, t2_model_targets
+from fdai.core.conversation.semantic_activity_planning import normalize_activity_proposal
 from fdai.core.conversation.semantic_planning import SemanticPlanningService
 from fdai.core.conversation.semantic_planning_models import (
     BoundIncident,
+    SemanticFrameProposal,
     SemanticPlanningDisposition,
 )
 from fdai.core.conversation.semantic_runtime import SemanticConversationRuntime
@@ -49,6 +51,18 @@ from fdai.core.ontology_platform.resource_error_activity_correlation_queries imp
 )
 from fdai.core.ontology_platform.resource_health_assessment_queries import (
     target_health_assessment_function_type,
+)
+from fdai.core.ontology_platform.resource_ingress_queries import (
+    RESOURCE_INGRESS_FUNCTION_NAME,
+    resource_ingress_function_type,
+)
+from fdai.core.ontology_platform.resource_metric_queries import (
+    RESOURCE_METRIC_FUNCTION_NAME,
+    resource_metric_function_type,
+)
+from fdai.rule_catalog.schema.inventory_query_language import (
+    InventoryQueryLanguageRegistry,
+    QueryTerms,
 )
 from fdai.rule_catalog.schema.llm_resolver import (
     CapabilityStatus,
@@ -300,12 +314,65 @@ def _manifest_aggregate_plan(*, kinds: tuple[str, ...] = ("object",)) -> dict[st
     return plan
 
 
-def _service(t1: _Model, t2: _Model, manifest: Any) -> SemanticPlanningService:
+def _target_cardinality_language() -> InventoryQueryLanguageRegistry:
+    return InventoryQueryLanguageRegistry(
+        schema_version="1.1.0",
+        version="1.1.0",
+        default_scope="subscription",
+        default_activity_lookback_seconds=604800,
+        current_requires_fresh=True,
+        suffixes=("은", "는", "이", "가", "의", "을", "를"),
+        signals={
+            "target_singular": QueryTerms(terms=("my", "this", "내", "해당")),
+            "target_collection": QueryTerms(
+                terms=("all", "every", "list", "모두", "모든", "전체", "목록")
+            ),
+        },
+        query_kinds={},
+        groupings={},
+        projections={},
+        scopes={},
+        states={},
+        operations={},
+        time_units={},
+    )
+
+
+def _activity_language() -> InventoryQueryLanguageRegistry:
+    return InventoryQueryLanguageRegistry(
+        schema_version="1.1.0",
+        version="1.1.0",
+        default_scope="subscription",
+        default_activity_lookback_seconds=604800,
+        current_requires_fresh=True,
+        suffixes=("은", "는", "이", "가", "의", "을", "를"),
+        signals={
+            "activity": QueryTerms(terms=("changed", "변경", "변경됐어")),
+            "causal_diagnosis": QueryTerms(terms=("why", "cause", "왜", "원인")),
+        },
+        query_kinds={},
+        groupings={},
+        projections={},
+        scopes={},
+        states={},
+        operations={},
+        time_units={},
+    )
+
+
+def _service(
+    t1: _Model,
+    t2: _Model,
+    manifest: Any,
+    *,
+    inventory_query_language: InventoryQueryLanguageRegistry | None = None,
+) -> SemanticPlanningService:
     return SemanticPlanningService(
         model=t1,
         escalation_model=t2,
         manifests=_ManifestProvider(manifest),
         verifier=OntologyQueryPlanVerifier(available_kinds=(QueryNodeKind.OBJECT_SET,)),
+        inventory_query_language=inventory_query_language,
         now=lambda: NOW,
     )
 
@@ -331,7 +398,7 @@ def test_valid_t1_plan_never_invokes_t2() -> None:
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
-def test_evidence_validation_plan_is_built_from_the_principal_scope() -> None:
+def test_evidence_validation_without_a_coverage_function_is_unsupported() -> None:
     manifest, definition = _fixture()
     t1 = _Model(
         frame=_frame(
@@ -345,18 +412,14 @@ def test_evidence_validation_plan_is_built_from_the_principal_scope() -> None:
 
     outcome = _run(_service(t1, t2, manifest))
 
-    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
-    assert outcome.plan is not None
-    assert tuple(node.kind for node in outcome.plan.nodes) == (QueryNodeKind.OBJECT_SET,)
-    assert outcome.plan.nodes[0].arguments["definition"]["selector"] == {
-        "kind": "object_type",
-        "name": "Resource",
-    }
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.reason == "semantic_evidence_validation_unavailable"
+    assert outcome.plan is None
     assert (t1.frame_calls, t1.plan_calls) == (1, 0)
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
-def test_evidence_validation_subject_clarification_uses_principal_scope() -> None:
+def test_evidence_validation_subject_clarification_resolves_then_holds() -> None:
     manifest, definition = _fixture()
     t1 = _Model(
         frame=_frame(
@@ -374,16 +437,16 @@ def test_evidence_validation_subject_clarification_uses_principal_scope() -> Non
 
     outcome = _run(_service(t1, t2, manifest))
 
-    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.reason == "semantic_evidence_validation_unavailable"
     assert outcome.frame is not None
     assert outcome.frame.subject_constraints == ("Resource",)
-    assert outcome.plan is not None
-    assert tuple(node.kind for node in outcome.plan.nodes) == (QueryNodeKind.OBJECT_SET,)
+    assert outcome.plan is None
     assert (t1.frame_calls, t1.plan_calls) == (1, 0)
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
-def test_evidence_validation_resource_identity_uses_principal_scope() -> None:
+def test_evidence_validation_resource_identity_resolves_then_holds() -> None:
     manifest, definition = _fixture()
     t1 = _Model(
         frame=_frame(
@@ -401,7 +464,8 @@ def test_evidence_validation_resource_identity_uses_principal_scope() -> None:
 
     outcome = _run(_service(t1, t2, manifest))
 
-    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.reason == "semantic_evidence_validation_unavailable"
     assert outcome.frame is not None
     assert outcome.frame.subject_constraints == ("Resource",)
     assert (t1.frame_calls, t1.plan_calls) == (1, 0)
@@ -430,7 +494,7 @@ def test_evidence_validation_keeps_concrete_subject_clarification() -> None:
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
-def test_misclassified_evidence_validation_retries_only_frame_with_t2() -> None:
+def test_misclassified_evidence_validation_retries_frame_then_holds() -> None:
     manifest, definition = _fixture()
     t1 = _Model(
         frame=_frame(operation="validate", output_shape="resource_list"),
@@ -447,9 +511,9 @@ def test_misclassified_evidence_validation_retries_only_frame_with_t2() -> None:
 
     outcome = _run(_service(t1, t2, manifest))
 
-    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
-    assert outcome.plan is not None
-    assert tuple(node.kind for node in outcome.plan.nodes) == (QueryNodeKind.OBJECT_SET,)
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.reason == "semantic_evidence_validation_unavailable"
+    assert outcome.plan is None
     assert (t1.frame_calls, t1.plan_calls) == (1, 0)
     assert (t2.frame_calls, t2.plan_calls) == (1, 0)
 
@@ -687,6 +751,21 @@ def test_exact_target_impact_builds_service_path_without_t2() -> None:
             "api-example",
             7200,
         ),
+        (
+            "api-example의 지난 7일 변경 이력을 시간과 근거와 함께 보여줘.",
+            "api-example",
+            604800,
+        ),
+        (
+            "api-example의 지난 1주일 변경 이력을 시간과 근거와 함께 보여줘.",
+            "api-example",
+            604800,
+        ),
+        (
+            "Show the changes for api-example over the last week with evidence.",
+            "api-example",
+            604800,
+        ),
     ),
 )
 def test_exact_target_activity_builds_bounded_read_without_t2(
@@ -739,6 +818,114 @@ def test_exact_target_activity_builds_bounded_read_without_t2(
     assert outcome.plan.execution_authority is False
     assert (t1.frame_calls, t1.plan_calls) == (1, 0)
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+def test_temporal_comparison_exact_activity_frame_is_normalized_without_t2() -> None:
+    class _ReturningVerifier:
+        def verify(self, plan: Any, *, manifest: object) -> Any:
+            assert manifest is not None
+            return plan
+
+    utterance = "지난 1주일 동안 api-example-prod Container App에서 무엇이 변경됐어?"
+    manifest, _ = _fixture(function_types=(resource_activity_function_type(),))
+    t1 = _Model(
+        frame=_frame(
+            operation="compare",
+            subject_constraints=["Resource"],
+            measure_concepts=["change_activity"],
+            temporal_scope={"lookback_seconds": 604800},
+            output_shape="temporal_comparison",
+        ),
+        plan=None,
+    )
+    t2 = _Model(frame=None, plan=None)
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_ReturningVerifier(),  # type: ignore[arg-type]
+        inventory_query_language=_activity_language(),
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service, utterance=utterance)
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None
+    assert outcome.frame.operation is SemanticOperation.SELECT
+    assert outcome.frame.output_shape == "target_activity"
+    assert outcome.plan is not None
+    assert tuple(node.kind for node in outcome.plan.nodes) == (
+        QueryNodeKind.OBJECT_SET,
+        QueryNodeKind.FUNCTION,
+    )
+    assert outcome.plan.nodes[1].arguments["function_name"] == RESOURCE_ACTIVITY_FUNCTION_NAME
+    assert outcome.plan.nodes[1].arguments["arguments"] == {"lookback_seconds": 604800}
+    assert (t1.frame_calls, t1.plan_calls) == (1, 0)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+@pytest.mark.parametrize(
+    ("utterance", "operation", "subjects"),
+    (
+        (
+            "지난 1주일 동안 api-example에서 왜 변경이 발생했어?",
+            "compare",
+            ["Resource", "api-example"],
+        ),
+        (
+            "지난 1주일 동안 Container App에서 무엇이 변경됐어?",
+            "compare",
+            ["Resource"],
+        ),
+        (
+            "지난 1주일 동안 api-example-prod와 api-worker-prod에서 무엇이 변경됐어?",
+            "compare",
+            ["Resource"],
+        ),
+        (
+            "지난 1주일과 지난 1일 동안 api-example에서 무엇이 변경됐어?",
+            "compare",
+            ["Resource", "api-example"],
+        ),
+        (
+            "지난 1주일 동안 api-example 변경을 집계해 줘.",
+            "aggregate",
+            ["Resource", "api-example"],
+        ),
+        (
+            "지난 1주일 동안 api-example 변경관리 현황을 보여줘.",
+            "compare",
+            ["Resource", "api-example"],
+        ),
+    ),
+)
+def test_activity_normalization_keeps_ambiguous_or_non_read_frames_closed(
+    utterance: str,
+    operation: str,
+    subjects: list[str],
+) -> None:
+    manifest, _ = _fixture(function_types=(resource_activity_function_type(),))
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(
+            operation=operation,
+            subject_constraints=subjects,
+            measure_concepts=["change_activity"],
+            temporal_scope={"lookback_seconds": 604800},
+            output_shape=(
+                "aggregation_table" if operation == "aggregate" else "temporal_comparison"
+            ),
+        )
+    )
+
+    normalized = normalize_activity_proposal(
+        proposal,
+        utterance=utterance,
+        descriptors=manifest.descriptors,
+        inventory_query_language=_activity_language(),
+    )
+
+    assert normalized is proposal
 
 
 @pytest.mark.parametrize(
@@ -829,6 +1016,110 @@ def test_exact_target_current_state_builds_function_read_without_t2(
     assert current_state.arguments["arguments"] == {}
     assert current_state.arguments["dependency_arguments"] == {
         "current-state-target": "query_result"
+    }
+    assert outcome.plan.execution_authority is False
+    assert (t1.frame_calls, t1.plan_calls) == (1, 0)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+def test_exact_target_ingress_builds_typed_function_read_without_t2() -> None:
+    class _ReturningVerifier:
+        def verify(self, plan: Any, *, manifest: object) -> Any:
+            assert manifest is not None
+            return plan
+
+    manifest, _ = _fixture(
+        property_values=_container_app_property_values(),
+        include_resource_type=True,
+        function_types=(resource_ingress_function_type(),),
+    )
+    t1 = _Model(
+        frame=_frame(
+            subject_constraints=["Resource", "app-example"],
+            measure_concepts=["ingress_configuration"],
+            output_shape="property_filtered_resources",
+        ),
+        plan={"nodes": [], "output_node_ids": []},
+    )
+    t2 = _Model(frame=None, plan=None)
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_ReturningVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(
+        service,
+        utterance="app-example의 인그레스 구성을 근거와 함께 보여줘.",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == "target_ingress_configuration"
+    assert outcome.plan is not None
+    target, ingress = outcome.plan.nodes
+    assert target.arguments["definition"]["predicates"] == [
+        {"property": "id", "operator": "equals", "equals": "app-example"},
+        {"property": "type", "operator": "equals", "equals": "compute.container-app"},
+    ]
+    assert ingress.arguments["function_name"] == RESOURCE_INGRESS_FUNCTION_NAME
+    assert ingress.arguments["dependency_arguments"] == {"ingress-target": "query_result"}
+    assert outcome.plan.execution_authority is False
+    assert (t1.frame_calls, t1.plan_calls) == (1, 0)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+def test_exact_target_memory_percentage_builds_seven_day_metric_read_without_t2() -> None:
+    class _ReturningVerifier:
+        def verify(self, plan: Any, *, manifest: object) -> Any:
+            assert manifest is not None
+            return plan
+
+    manifest, _ = _fixture(
+        property_values=_container_app_property_values(),
+        include_resource_type=True,
+        function_types=(resource_metric_function_type(),),
+    )
+    t1 = _Model(
+        frame=_frame(
+            subject_constraints=["Resource", "app-example"],
+            measure_concepts=["resource.memory.usage_pct"],
+            temporal_scope={"lookback_seconds": 604800},
+            output_shape="resource_metric_list",
+        ),
+        plan={"nodes": [], "output_node_ids": []},
+    )
+    t2 = _Model(frame=None, plan=None)
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_ReturningVerifier(),  # type: ignore[arg-type]
+        metric_concepts=("resource.memory.usage_pct",),
+        now=lambda: NOW,
+    )
+
+    outcome = _run(
+        service,
+        utterance=("app-example Container App의 지난 7일 평균 메모리 사용률을 근거와 함께 보여줘."),
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == "target_resource_metric"
+    assert outcome.plan is not None
+    target, metric = outcome.plan.nodes
+    assert target.arguments["definition"]["predicates"] == [
+        {"property": "type", "operator": "equals", "equals": "compute.container-app"},
+        {"property": "id", "operator": "equals", "equals": "app-example"},
+    ]
+    assert target.arguments["definition"]["limit"] == 2
+    assert metric.arguments["function_name"] == RESOURCE_METRIC_FUNCTION_NAME
+    assert metric.arguments["arguments"] == {
+        "metric_concepts": ["resource.memory.usage_pct"],
+        "window_seconds": 604800,
     }
     assert outcome.plan.execution_authority is False
     assert (t1.frame_calls, t1.plan_calls) == (1, 0)
@@ -1253,6 +1544,67 @@ def test_unavailable_t1_frame_retries_only_frame_with_t2() -> None:
     assert (t2.frame_calls, t2.plan_calls) == (1, 0)
 
 
+def test_unavailable_targetless_t1_frame_discovers_candidates_before_t2() -> None:
+    manifest, definition = _fixture(
+        property_values=_container_app_property_values(),
+        include_resource_type=True,
+    )
+    t1 = _Model(frame=None, plan=None)
+    t2 = _Model(frame=_frame(), plan=_plan(definition))
+
+    outcome = _run(
+        _service(
+            t1,
+            t2,
+            manifest,
+            inventory_query_language=_target_cardinality_language(),
+        ),
+        utterance="내 Container App에서 HTTP 500 오류가 발생하는 이유는 무엇이야?",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == "resource_target_candidates"
+    assert outcome.plan is not None
+    assert (t1.frame_calls, t1.plan_calls) == (1, 0)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+    assert outcome.execution_authority is False
+
+
+def test_unavailable_targetless_collection_frame_does_not_reduce_to_candidates() -> None:
+    manifest, definition = _fixture(
+        property_values=_container_app_property_values(),
+        include_resource_type=True,
+    )
+    t1 = _Model(frame=None, plan=None)
+    t2 = _Model(
+        frame=_frame(
+            subject_constraints=["Resource"],
+            measure_concepts=["cpu"],
+            output_shape="property_filtered_resources",
+        ),
+        plan=_plan(definition),
+    )
+
+    outcome = _run(
+        _service(
+            t1,
+            t2,
+            manifest,
+            inventory_query_language=_target_cardinality_language(),
+        ),
+        utterance="Show CPU telemetry for all Container Apps.",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == "property_filtered_resources"
+    assert outcome.plan is not None
+    assert (t1.frame_calls, t1.plan_calls) == (1, 0)
+    assert t2.frame_calls == 1
+    assert outcome.execution_authority is False
+
+
 def test_invalid_t1_plan_retries_only_plan_with_t2() -> None:
     manifest, definition = _fixture()
     t1 = _Model(frame=_frame(), plan={"nodes": [], "output_node_ids": []})
@@ -1265,6 +1617,149 @@ def test_invalid_t1_plan_retries_only_plan_with_t2() -> None:
     assert (t2.frame_calls, t2.plan_calls) == (0, 1)
     assert t1.plan_evaluation_times == [NOW]
     assert t2.plan_evaluation_times == [NOW]
+
+
+def _container_app_property_values() -> tuple[PropertyValueDomain, ...]:
+    return (
+        PropertyValueDomain(
+            object_type="Resource",
+            property_name="type",
+            values=("compute.container-app",),
+            groups=(
+                PropertyValueGroup(
+                    id="compute-container-app",
+                    values=("compute.container-app",),
+                    terms=("container app", "container apps"),
+                ),
+            ),
+        ),
+    )
+
+
+def test_invalid_targetless_t1_plan_discovers_candidates_before_t2() -> None:
+    manifest, definition = _fixture(
+        property_values=_container_app_property_values(),
+        include_resource_type=True,
+    )
+    t1 = _Model(
+        frame=_frame(
+            subject_constraints=["Resource"],
+            measure_concepts=["ingress"],
+            output_shape="property_filtered_resources",
+            unresolved_terms=["resource_identity"],
+            clarification_requirements=["resource_identity"],
+            clarification="Which exact resource should I inspect?",
+        ),
+        plan={"nodes": [], "output_node_ids": []},
+    )
+    t2 = _Model(frame=_frame(), plan=_plan(definition))
+
+    outcome = _run(
+        _service(t1, t2, manifest),
+        utterance="How is ingress configured for my Container App?",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == "resource_target_candidates"
+    assert outcome.plan is not None
+    assert outcome.plan.nodes[0].arguments["definition"]["predicates"] == [
+        {
+            "property": "type",
+            "operator": "equals",
+            "equals": "compute.container-app",
+        }
+    ]
+    assert (t1.frame_calls, t1.plan_calls) == (1, 0)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+    assert outcome.execution_authority is False
+
+
+def test_invalid_targetless_investigation_discovers_candidates_before_t2() -> None:
+    utterance = "Why is my Container App timing out?"
+
+    def span(text: str) -> dict[str, object]:
+        start = utterance.index(text)
+        return {"start": start, "end": start + len(text), "text": text}
+
+    manifest, definition = _fixture(
+        property_values=_container_app_property_values(),
+        include_resource_type=True,
+    )
+    investigation = {
+        "operation": "explain_change",
+        "entities": [
+            {
+                "mention_id": "target",
+                "span": span("Container App"),
+                "role": "affected_target",
+                "object_type_candidates": ["ContainerApp"],
+            }
+        ],
+        "symptom_measures": [
+            {
+                "measure_id": "timeouts",
+                "span": span("timing out"),
+                "concept_id": "request.timeout",
+                "target_mention_id": "target",
+                "direction": "increase",
+            }
+        ],
+        "primary_symptom_measure_id": "timeouts",
+        "temporal_cues": [{"cue_id": "onset", "span": span("timing out"), "role": "onset"}],
+        "relationship_intents": [
+            {
+                "relationship_id": "dependencies",
+                "span": span("Why"),
+                "source_mention_id": "target",
+                "target_mention_id": None,
+                "query_side_candidates": ["depends_on.outgoing"],
+            }
+        ],
+        "hypotheses": [
+            {
+                "hypothesis_id": "dependency-latency",
+                "span": span("Why"),
+                "relationship_id": "dependencies",
+                "cause_measure_concept": "dependency.latency",
+                "effect_measure_id": "timeouts",
+                "competing_explanations": ["resource-saturation"],
+            },
+            {
+                "hypothesis_id": "resource-saturation",
+                "span": span("Why"),
+                "relationship_id": "dependencies",
+                "cause_measure_concept": "resource.saturation",
+                "effect_measure_id": "timeouts",
+                "competing_explanations": ["dependency-latency"],
+            },
+        ],
+        "evidence_standard": "support_and_refutation",
+        "answer_shape": "diagnosis",
+        "confidence": 0.9,
+    }
+    t1 = _Model(
+        frame=_frame(
+            operation="explain_change",
+            subject_constraints=["Resource", "Container App"],
+            measure_concepts=["request.timeout"],
+            output_shape="causal_evidence",
+            investigation=investigation,
+        ),
+        plan=None,
+    )
+    t2 = _Model(frame=_frame(), plan=_plan(definition))
+
+    outcome = _run(_service(t1, t2, manifest), utterance=utterance)
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == "resource_target_candidates"
+    assert outcome.plan is not None
+    assert tuple(node.kind for node in outcome.plan.nodes) == (QueryNodeKind.OBJECT_SET,)
+    assert (t1.frame_calls, t1.plan_calls) == (1, 0)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+    assert outcome.execution_authority is False
 
 
 def test_mismatched_specialized_t1_plan_retries_only_plan_with_t2() -> None:

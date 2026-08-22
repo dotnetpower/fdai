@@ -93,9 +93,36 @@ from fdai.core.ontology_platform.resource_error_activity_correlation_queries imp
     ERROR_ACTIVITY_CORRELATION_FUNCTION_NAME,
     error_activity_correlation_function,
 )
+from fdai.core.ontology_platform.resource_event_queries import (
+    RESOURCE_EVENT_FUNCTION_NAME,
+    ResourceEventCollectionReader,
+    resource_event_history_function,
+)
 from fdai.core.ontology_platform.resource_health_assessment_queries import (
     TARGET_HEALTH_ASSESSMENT_FUNCTION_NAME,
     target_health_assessment_function,
+)
+from fdai.core.ontology_platform.resource_health_queries import (
+    RESOURCE_HEALTH_FUNCTION_NAME,
+    ResourceHealthCollectionReader,
+    resource_health_inventory_function,
+)
+from fdai.core.ontology_platform.resource_ingress_queries import (
+    RESOURCE_INGRESS_FUNCTION_NAME,
+)
+from fdai.core.ontology_platform.resource_metric_queries import (
+    RESOURCE_METRIC_FUNCTION_NAME,
+    resource_metric_inventory_function,
+)
+from fdai.core.ontology_platform.resource_state_queries import (
+    RESOURCE_STATE_FUNCTION_NAME,
+    RESOURCE_STATE_MEASURE_CONCEPTS,
+    resource_state_inventory_function,
+)
+from fdai.core.ontology_platform.service_health_queries import (
+    SERVICE_HEALTH_FUNCTION_NAME,
+    ServiceHealthReader,
+    service_health_function,
 )
 from fdai.core.prompts.registry import FileSystemPromptRegistry
 from fdai.delivery.azure.llm.semantic_planning import (
@@ -105,7 +132,15 @@ from fdai.delivery.azure.llm.semantic_planning import (
 from fdai.delivery.azure.semantic_resource_current_state import (
     semantic_resource_current_state_function,
 )
+from fdai.delivery.azure.semantic_resource_ingress import (
+    semantic_resource_ingress_function,
+)
 from fdai.delivery.semantic_resource_activity import semantic_resource_activity_function
+from fdai.rule_catalog.schema.inventory_query_language import (
+    InventoryQueryLanguageRegistry,
+    QueryEvidenceAuthority,
+    load_inventory_query_language_from_mapping,
+)
 from fdai.rule_catalog.schema.ontology_catalog import OntologyCatalog, load_ontology_catalog
 from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
 from fdai.shared.config.models import LlmMode
@@ -157,7 +192,11 @@ def build_semantic_query_runtime(
     metric_window_provider: MetricWindowProvider | None = None,
     incident_evidence_reader: IncidentEvidenceReader | None = None,
     read_investigation_provider: ReadInvestigationProvider | None = None,
+    resource_health_reader: ResourceHealthCollectionReader | None = None,
+    resource_event_reader: ResourceEventCollectionReader | None = None,
+    service_health_reader: ServiceHealthReader | None = None,
     property_values: Sequence[PropertyValueDomain] = (),
+    inventory_query_language: InventoryQueryLanguageRegistry | None = None,
     purpose: str = "operations-review",
     now: Callable[[], datetime] | None = None,
 ) -> SemanticConversationRuntime:
@@ -169,6 +208,8 @@ def build_semantic_query_runtime(
         raise ValueError("catalog semantic index and digest MUST be supplied together")
     if (metric_registry is None) != (metric_window_provider is None):
         raise ValueError("metric semantic registry and window provider MUST be supplied together")
+    if resource_health_reader is not None and inventory_query_language is None:
+        raise ValueError("Resource Health reader requires inventory query language semantics")
     function_types = operational_function_types(ontology_catalog.function_types)
     expected_release = build_ontology_release(
         object_types=ontology_catalog.object_types,
@@ -248,6 +289,63 @@ def build_semantic_query_runtime(
         semantic_resource_current_state_function(ontology_release),
     )
     bound_function_names.add(current_state_declaration.name)
+    ingress_declaration = declarations[RESOURCE_INGRESS_FUNCTION_NAME]
+    function_registry.register_contextual(
+        ingress_declaration,
+        semantic_resource_ingress_function(ontology_release),
+    )
+    bound_function_names.add(ingress_declaration.name)
+    resource_state_declaration = declarations[RESOURCE_STATE_FUNCTION_NAME]
+    function_registry.register_contextual(
+        resource_state_declaration,
+        resource_state_inventory_function(ontology_release),
+    )
+    bound_function_names.add(resource_state_declaration.name)
+    if resource_event_reader is not None:
+        resource_event_declaration = declarations[RESOURCE_EVENT_FUNCTION_NAME]
+        function_registry.register_contextual(
+            resource_event_declaration,
+            resource_event_history_function(
+                ontology_release,
+                reader=resource_event_reader,
+            ),
+        )
+        bound_function_names.add(resource_event_declaration.name)
+    if resource_health_reader is not None and inventory_query_language is not None:
+        resource_health_declaration = declarations[RESOURCE_HEALTH_FUNCTION_NAME]
+        function_registry.register_contextual(
+            resource_health_declaration,
+            resource_health_inventory_function(
+                ontology_release,
+                reader=resource_health_reader,
+                health_state_values=_resource_health_state_values(
+                    inventory_query_language,
+                ),
+            ),
+        )
+        bound_function_names.add(resource_health_declaration.name)
+    if service_health_reader is not None:
+        service_health_declaration = declarations[SERVICE_HEALTH_FUNCTION_NAME]
+        function_registry.register_contextual(
+            service_health_declaration,
+            service_health_function(
+                ontology_release,
+                reader=service_health_reader,
+            ),
+        )
+        bound_function_names.add(service_health_declaration.name)
+    if metric_registry is not None and metric_window_provider is not None:
+        resource_metric_declaration = declarations[RESOURCE_METRIC_FUNCTION_NAME]
+        function_registry.register_contextual(
+            resource_metric_declaration,
+            resource_metric_inventory_function(
+                ontology_release,
+                registry=metric_registry,
+                provider=metric_window_provider,
+                now=evaluation_cutoff,
+            ),
+        )
+        bound_function_names.add(resource_metric_declaration.name)
     correlation_declaration = declarations[ERROR_ACTIVITY_CORRELATION_FUNCTION_NAME]
     function_registry.register_contextual(
         correlation_declaration,
@@ -411,6 +509,7 @@ def build_semantic_query_runtime(
         metric_concepts=(
             tuple(sorted(metric_registry.definitions)) if metric_registry is not None else ()
         ),
+        inventory_query_language=inventory_query_language,
     )
 
     def executor_for(principal: Principal) -> OntologyQueryPlanExecutor:
@@ -471,6 +570,9 @@ def compose_azure_semantic_query_runtime(
     metric_window_provider: MetricWindowProvider | None = None,
     incident_evidence_reader: IncidentEvidenceReader | None = None,
     read_investigation_provider: ReadInvestigationProvider | None = None,
+    resource_health_reader: ResourceHealthCollectionReader | None = None,
+    resource_event_reader: ResourceEventCollectionReader | None = None,
+    service_health_reader: ServiceHealthReader | None = None,
 ) -> SemanticQueryRuntimeComposition:
     """Compose Azure semantic querying over optional exact Rule retrieval."""
 
@@ -543,7 +645,11 @@ def compose_azure_semantic_query_runtime(
             metric_window_provider=metric_window_provider,
             incident_evidence_reader=incident_evidence_reader,
             read_investigation_provider=read_investigation_provider,
+            resource_health_reader=resource_health_reader,
+            resource_event_reader=resource_event_reader,
+            service_health_reader=service_health_reader,
             property_values=_resource_type_property_values(catalog_root),
+            inventory_query_language=_inventory_query_language(catalog_root),
             purpose=purpose,
         )
     except (OSError, LookupError, TypeError, ValueError):
@@ -557,6 +663,30 @@ def _resource_type_property_values(catalog_root: Path) -> tuple[PropertyValueDom
         yaml.safe_load(vocabulary.read_text(encoding="utf-8"))
     )
     return resource_type_value_domains(registry)
+
+
+def _inventory_query_language(catalog_root: Path) -> InventoryQueryLanguageRegistry:
+    vocabulary = catalog_root / "vocabulary" / "inventory-query-language.yaml"
+    return load_inventory_query_language_from_mapping(
+        yaml.safe_load(vocabulary.read_text(encoding="utf-8"))
+    )
+
+
+def _resource_health_state_values(
+    registry: InventoryQueryLanguageRegistry,
+) -> dict[str, tuple[str, ...]]:
+    state_measures = frozenset(RESOURCE_STATE_MEASURE_CONCEPTS)
+    groups: dict[str, tuple[str, ...]] = {}
+    for state_id, state in registry.states.items():
+        normalized = {f"resource_state.{value}" for value in state.values}
+        if (
+            state.evidence_authority is not QueryEvidenceAuthority.CURRENT_INVENTORY
+            or not normalized <= state_measures
+        ):
+            groups[f"resource_health.{state_id}"] = state.values
+    if not groups:
+        raise ValueError("inventory query language declares no Resource Health semantics")
+    return groups
 
 
 def _unavailable(reason: str) -> SemanticQueryRuntimeComposition:

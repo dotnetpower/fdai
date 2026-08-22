@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import httpx
 import pytest
@@ -24,6 +24,7 @@ from fdai.delivery.inventory_sync_cli import (
     _forward_recovery_deltas,
     _load_relationship_mapping_catalog,
     _resolve_resource_types,
+    _run_due_once,
     _workload_identity,
 )
 from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
@@ -296,6 +297,39 @@ async def test_change_stream_is_skipped_when_disabled(monkeypatch: pytest.Monkey
 
     assert await _drain_change_stream(config) == 0
     assert called is False
+
+
+async def test_not_due_tick_flushes_service_readiness_status(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = InventoryJobConfig.from_env(
+        {
+            "FDAI_INVENTORY_DSN": "postgresql://example",
+            "AZURE_SUBSCRIPTION_ID": "sub-1",
+        }
+    )
+    runtime_settings = SimpleNamespace(effective_values=AsyncMock(return_value={}))
+    printed = Mock()
+    monkeypatch.setattr(
+        "fdai.delivery.runtime_settings.runtime_settings_service_from_env",
+        lambda _: runtime_settings,
+    )
+    monkeypatch.setattr(InventoryJobConfig, "from_env", lambda **_: config)
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_sync_cli._drain_change_stream",
+        AsyncMock(return_value=0),
+    )
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_sync_cli.PostgresInventoryReconciliationGate",
+        lambda **_: AsyncMock(return_value=False),
+    )
+    monkeypatch.setattr("builtins.print", printed)
+
+    assert await _run_due_once() is config
+    printed.assert_called_once_with(
+        "inventory reconciliation not due; change records published 0",
+        flush=True,
+    )
 
 
 def test_job_config_rejects_unsigned_declarative_fallback() -> None:

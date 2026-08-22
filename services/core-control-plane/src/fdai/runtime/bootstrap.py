@@ -156,6 +156,9 @@ from fdai.runtime.providers import (
     _build_inventory_delta_projector,
     _build_operator_memory_store,
     _build_read_investigation_provider,
+    _build_resource_event_history_reader,
+    _build_resource_health_collection_reader,
+    _build_service_health_reader,
 )
 from fdai.runtime.readiness import (
     StartupReadinessRuntime,
@@ -571,6 +574,18 @@ async def _run() -> int:
                 identity=identity,
                 http_client=http_client,
             )
+            resource_health_reader = _build_resource_health_collection_reader(
+                identity=identity,
+                http_client=http_client,
+            )
+            resource_event_reader = _build_resource_event_history_reader(
+                identity=identity,
+                http_client=http_client,
+            )
+            service_health_reader = _build_service_health_reader(
+                identity=identity,
+                http_client=http_client,
+            )
             semantic_composition = compose_azure_semantic_query_runtime(
                 container=container,
                 ontology_release=control_loop.ontology_release,
@@ -591,6 +606,9 @@ async def _run() -> int:
                 metric_window_provider=metric_window_provider,
                 incident_evidence_reader=incident_evidence_reader,
                 read_investigation_provider=read_investigation_provider,
+                resource_health_reader=resource_health_reader,
+                resource_event_reader=resource_event_reader,
+                service_health_reader=service_health_reader,
             )
             semantic_turn_binding = _build_semantic_turn_binding(
                 state_store=incident_audit_store,

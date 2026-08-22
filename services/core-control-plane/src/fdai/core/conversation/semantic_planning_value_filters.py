@@ -22,7 +22,7 @@ MAX_GROUNDED_FILTER_VALUES = 16
 _FREE_TEXT_FRAGMENT_PROPERTIES = ("name", "label", "id")
 
 
-def _stated_value_filters(
+def stated_value_filters(
     utterance: str,
     descriptors: Sequence[Mapping[str, Any]],
 ) -> dict[tuple[str, str], tuple[str, ...]]:
@@ -81,13 +81,17 @@ def _term_stated(term: str, lowered_utterance: str) -> bool:
         before = lowered_utterance[start - 1] if start else " "
         after_index = start + len(needle)
         after = lowered_utterance[after_index] if after_index < len(lowered_utterance) else " "
-        if not before.isalnum() and not after.isalnum():
+        if not _ascii_alphanumeric(before) and not _ascii_alphanumeric(after):
             return True
         start = lowered_utterance.find(needle, start + 1)
     return False
 
 
-def _stated_subject_fragment(
+def _ascii_alphanumeric(value: str) -> bool:
+    return value.isascii() and value.isalnum()
+
+
+def stated_subject_fragment(
     utterance: str,
     subject_constraints: Sequence[str],
     descriptors: Sequence[Mapping[str, Any]],
@@ -168,8 +172,8 @@ def ground_stated_value_filters(
     superset. Rewriting it can only narrow the result, and every operand comes
     from the declared domain the verifier checks.
     """
-    filters = _stated_value_filters(utterance, descriptors)
-    subject_fragment = _stated_subject_fragment(
+    filters = stated_value_filters(utterance, descriptors)
+    subject_fragment = stated_subject_fragment(
         utterance,
         subject_constraints,
         descriptors,
@@ -195,6 +199,49 @@ def ground_stated_value_filters(
     }
     narrowed = OntologyQueryPlan.model_validate({**payload, "plan_digest": content_digest(payload)})
     return narrowed, tuple(grounded)
+
+
+def verify_stated_value_filter_operands(
+    plan: OntologyQueryPlan,
+    *,
+    utterance: str,
+    descriptors: Sequence[Mapping[str, Any]],
+) -> None:
+    """Reject model-proposed enum operands that the operator did not state."""
+    filters = stated_value_filters(utterance, descriptors)
+    for node in plan.nodes:
+        if node.kind.value != "object_set":
+            continue
+        definition = node.arguments.get("definition")
+        selector = definition.get("selector") if isinstance(definition, Mapping) else None
+        predicates = definition.get("predicates") if isinstance(definition, Mapping) else None
+        object_type = selector.get("name") if isinstance(selector, Mapping) else None
+        if not isinstance(object_type, str) or not isinstance(predicates, list):
+            continue
+        properties = _object_properties(object_type, descriptors)
+        for predicate in predicates:
+            if not isinstance(predicate, Mapping):
+                continue
+            property_name = predicate.get("property")
+            if not isinstance(property_name, str):
+                continue
+            operator = predicate.get("operator")
+            declaration = properties.get(property_name)
+            if (
+                operator in {"exists", "absent"}
+                or not isinstance(declaration, Mapping)
+                or not isinstance(declaration.get("value_groups"), list)
+            ):
+                continue
+            operands = predicate.get("values") if operator == "in" else [predicate.get("equals")]
+            stated_values = filters.get((object_type, property_name))
+            if (
+                not isinstance(operands, (list, tuple))
+                or not operands
+                or stated_values is None
+                or not set(operands) <= set(stated_values)
+            ):
+                raise ValueError("semantic enum predicate operand is not grounded in the utterance")
 
 
 def _grounded_object_set(
@@ -225,12 +272,23 @@ def _grounded_object_set(
         property_name = predicate.get("property") if isinstance(predicate, Mapping) else None
         if isinstance(property_name, str):
             selected_properties.add(property_name)
-        if not isinstance(predicate, Mapping) or predicate.get("operator") != "exists":
-            rewritten.append(predicate)
-            continue
         values = (
             filters.get((object_type, property_name)) if isinstance(property_name, str) else None
         )
+        if (
+            isinstance(predicate, Mapping)
+            and predicate.get("operator") == "in"
+            and values is not None
+            and set(values) <= set(str(value) for value in predicate.get("values", ()))
+        ):
+            narrowed = _value_predicate(str(property_name), values)
+            rewritten.append(narrowed)
+            grounded.append(f"{object_type}.{property_name}")
+            changed = changed or dict(predicate) != narrowed
+            continue
+        if not isinstance(predicate, Mapping) or predicate.get("operator") != "exists":
+            rewritten.append(predicate)
+            continue
         if values is not None:
             rewritten.append(_value_predicate(str(property_name), values))
             grounded.append(f"{object_type}.{property_name}")
@@ -321,4 +379,10 @@ def _value_predicate(property_name: str, values: tuple[str, ...]) -> dict[str, o
     )
 
 
-__all__ = ["MAX_GROUNDED_FILTER_VALUES", "ground_stated_value_filters"]
+__all__ = [
+    "MAX_GROUNDED_FILTER_VALUES",
+    "ground_stated_value_filters",
+    "stated_subject_fragment",
+    "stated_value_filters",
+    "verify_stated_value_filter_operands",
+]

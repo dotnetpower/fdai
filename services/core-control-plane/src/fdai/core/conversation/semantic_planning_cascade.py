@@ -19,13 +19,34 @@ from fdai_service_contracts.ontology_query import (
 from pydantic import ValidationError
 
 from fdai.core.ontology_platform import OntologyQueryPlanVerifier, QueryManifest
+from fdai.rule_catalog.schema.inventory_query_language import InventoryQueryLanguageRegistry
 
-from .semantic_investigation import VerifiedInvestigationIntent, verify_investigation_intent
+from .semantic_activity_planning import normalize_activity_proposal
+from .semantic_current_state_planning import (
+    exact_target_from_constraints,
+    normalize_current_state_proposal,
+)
+from .semantic_ingress_planning import normalize_ingress_proposal
+from .semantic_investigation import (
+    VerifiedInvestigationIntent,
+    normalize_investigation_competitors,
+    normalize_investigation_symptom,
+    normalize_investigation_target,
+    verify_investigation_intent,
+)
 from .semantic_planning_models import (
     ClarificationRequirement,
     QueryPlanProposal,
     SemanticFrameProposal,
+    SemanticOutputShape,
     SemanticPlanningModel,
+)
+from .semantic_planning_value_filters import stated_value_filters
+from .semantic_resource_metric_planning import normalize_exact_resource_metric_proposal
+from .semantic_resource_state_planning import normalize_resource_state_proposal
+from .semantic_target_candidate_planning import (
+    build_resource_target_candidates_fallback,
+    resource_target_candidates_apply_to_proposal,
 )
 from .session import Principal
 
@@ -45,6 +66,7 @@ _RUNTIME_INSTANCE_TOKEN = re.compile(
 )
 _MAX_SCANNED_TOKENS = 32
 _SPECIALIZED_FUNCTIONS_BY_OUTPUT_SHAPE = {
+    "contextual_resource_list": frozenset({"query.contextual_resources"}),
     "incident_evidence": frozenset({"query.incident_evidence"}),
     "inventory_impact": frozenset({"query.inventory_impact"}),
     "ontology_declaration": frozenset({"query.ontology_declaration"}),
@@ -53,17 +75,33 @@ _SPECIALIZED_FUNCTIONS_BY_OUTPUT_SHAPE = {
     "ontology_release_evidence_health": frozenset(
         {"query.ontology_evidence_health", "query.ontology_release_diff"}
     ),
+    "resource_event_history": frozenset({"query.resource_event_history"}),
+    "resource_health_list": frozenset({"query.resource_health_inventory"}),
+    "resource_metric_list": frozenset({"query.resource_metric_inventory"}),
+    "resource_state_list": frozenset({"query.resource_state_inventory"}),
+    "subscription_service_health": frozenset({"query.subscription_service_health"}),
     "target_activity": frozenset({"query.resource_activity"}),
     "target_current_state": frozenset({"query.resource_current_state"}),
     "target_error_activity_correlation": frozenset({"query.resource_error_activity_correlation"}),
     "target_health_assessment": frozenset({"query.target_health_assessment"}),
+    "target_ingress_configuration": frozenset({"query.resource_ingress_configuration"}),
+    "target_resource_metric": frozenset({"query.resource_metric_inventory"}),
 }
 _SPECIALIZED_OPERATIONS_BY_OUTPUT_SHAPE = {
+    "contextual_resource_list": SemanticOperation.SELECT,
     "inventory_impact": SemanticOperation.SELECT,
+    "resource_event_history": SemanticOperation.SELECT,
+    "resource_health_list": SemanticOperation.SELECT,
+    "resource_metric_list": SemanticOperation.SELECT,
+    "resource_state_list": SemanticOperation.SELECT,
+    "resource_target_candidates": SemanticOperation.SELECT,
+    "subscription_service_health": SemanticOperation.SELECT,
     "target_activity": SemanticOperation.SELECT,
     "target_current_state": SemanticOperation.SELECT,
     "target_error_activity_correlation": SemanticOperation.COMPARE,
     "target_health_assessment": SemanticOperation.VALIDATE,
+    "target_ingress_configuration": SemanticOperation.SELECT,
+    "target_resource_metric": SemanticOperation.SELECT,
 }
 _SPECIALIZED_FUNCTION_OUTPUT_SHAPES = {
     function_name: output_shape
@@ -80,6 +118,9 @@ _REQUIRED_NODE_KINDS_BY_OUTPUT_SHAPE = {
     "causal_evidence": frozenset({QueryNodeKind.EVIDENCE_JOIN}),
     "evidence_validation": frozenset({QueryNodeKind.OBJECT_SET}),
     "property_filtered_resources": frozenset({QueryNodeKind.OBJECT_SET}),
+    "resource_state_list": frozenset({QueryNodeKind.FUNCTION}),
+    "resource_target_candidates": frozenset({QueryNodeKind.OBJECT_SET}),
+    "subscription_service_health": frozenset({QueryNodeKind.FUNCTION}),
     "temporal_comparison": frozenset(
         {
             QueryNodeKind.EVIDENCE_JOIN,
@@ -98,6 +139,7 @@ _SAFE_FRAME_REJECTION_REASONS = frozenset(
         "explicit aggregation request requires aggregation_table output",
         "explicit impact request requires inventory_impact output",
         "explicit listing request cannot use aggregation_table output",
+        "historical semantic request requires a temporal capability",
         "investigation entity ids MUST be unique",
         "investigation entity type is absent from the principal manifest",
         "investigation hypothesis competitors are invalid",
@@ -123,7 +165,9 @@ _SAFE_FRAME_REJECTION_REASONS = frozenset(
         "semantic clarification requests server-bound context",
         "semantic declaration frame requires an exact declaration measure",
         "semantic explain_change operation requires causal_evidence output",
+        "semantic property-filter plan cannot use multiple existence-only predicates",
         "semantic Rule state frame requires the exact Rule declaration",
+        "resource target candidates are server-owned",
         "specialized semantic output requires its fixed operation",
         "semantic validate operation requires evidence_validation output",
         "structured investigation intent requires semantic causal evidence",
@@ -176,12 +220,14 @@ class SemanticPlanningCascade:
         verifier: OntologyQueryPlanVerifier,
         frame_builder: FrameBuilder,
         plan_builder: PlanBuilder,
+        inventory_query_language: InventoryQueryLanguageRegistry | None = None,
     ) -> None:
         self._model = model
         self._escalation_model = escalation_model
         self._verifier = verifier
         self._frame_builder = frame_builder
         self._plan_builder = plan_builder
+        self._inventory_query_language = inventory_query_language
 
     def propose_frame(
         self,
@@ -210,11 +256,76 @@ class SemanticPlanningCascade:
                 purpose=purpose,
             )
             if raw is None:
+                if tier == "t1":
+                    fallback = build_resource_target_candidates_fallback(
+                        utterance=utterance,
+                        context=context,
+                        descriptors=descriptors,
+                        confidence=0.0,
+                        inventory_query_language=self._inventory_query_language,
+                    )
+                    if fallback is not None:
+                        _LOGGER.info(
+                            "semantic_planning_candidate_recovered",
+                            extra={
+                                "stage": "frame_unavailable",
+                                "recovery": "resource_target_candidates",
+                            },
+                        )
+                        return (*fallback, None)
                 if self._should_escalate(tier=tier, stage="frame", reason="unavailable"):
                     continue
                 return None
+            proposal: SemanticFrameProposal | None = None
             try:
                 proposal = SemanticFrameProposal.model_validate(raw)
+                proposal = normalize_activity_proposal(
+                    proposal,
+                    utterance=utterance,
+                    descriptors=descriptors,
+                    inventory_query_language=self._inventory_query_language,
+                )
+                proposal = normalize_ingress_proposal(
+                    proposal,
+                    descriptors=descriptors,
+                )
+                proposal = normalize_current_state_proposal(
+                    proposal,
+                    utterance=utterance,
+                    descriptors=descriptors,
+                )
+                proposal = normalize_exact_resource_metric_proposal(
+                    proposal,
+                    utterance=utterance,
+                    descriptors=descriptors,
+                )
+                proposal = normalize_resource_state_proposal(
+                    proposal,
+                    utterance=utterance,
+                    descriptors=descriptors,
+                    inventory_query_language=self._inventory_query_language,
+                )
+                if proposal.investigation is not None:
+                    investigation = normalize_investigation_symptom(
+                        proposal.investigation,
+                        utterance=utterance,
+                        metric_concepts=metric_concepts,
+                        inventory_query_language=self._inventory_query_language,
+                    )
+                    investigation = normalize_investigation_competitors(investigation)
+                    proposal = proposal.model_copy(
+                        update={
+                            "measure_concepts": tuple(
+                                measure.concept_id for measure in investigation.symptom_measures
+                            ),
+                            "investigation": normalize_investigation_target(
+                                investigation,
+                                subject_constraints=proposal.subject_constraints,
+                                utterance=utterance,
+                                descriptors=descriptors,
+                            ),
+                        }
+                    )
                 _validate_frame_proposal(proposal, utterance=utterance, descriptors=descriptors)
                 investigation_intent = (
                     verify_investigation_intent(
@@ -227,6 +338,16 @@ class SemanticPlanningCascade:
                     else None
                 )
             except (ValidationError, TypeError, ValueError) as exc:
+                fallback = _candidate_frame_fallback(
+                    tier=tier,
+                    proposal=proposal,
+                    utterance=utterance,
+                    context=context,
+                    descriptors=descriptors,
+                    inventory_query_language=self._inventory_query_language,
+                )
+                if fallback is not None:
+                    return (*fallback, None)
                 if self._should_escalate(
                     tier=tier,
                     stage="frame",
@@ -243,6 +364,16 @@ class SemanticPlanningCascade:
                     investigation_intent=investigation_intent,
                 )
             except (TypeError, ValueError) as exc:
+                fallback = _candidate_frame_fallback(
+                    tier=tier,
+                    proposal=proposal,
+                    utterance=utterance,
+                    context=context,
+                    descriptors=descriptors,
+                    inventory_query_language=self._inventory_query_language,
+                )
+                if fallback is not None:
+                    return (*fallback, None)
                 if self._should_escalate(tier=tier, stage="frame", reason="invalid"):
                     continue
                 raise ProposalRejectedError("frame_build", type(exc).__name__) from exc
@@ -332,6 +463,43 @@ class SemanticPlanningCascade:
         return True
 
 
+def _candidate_frame_fallback(
+    *,
+    tier: str,
+    proposal: SemanticFrameProposal | None,
+    utterance: str,
+    context: tuple[str, ...],
+    descriptors: tuple[dict[str, Any], ...],
+    inventory_query_language: InventoryQueryLanguageRegistry | None,
+) -> tuple[SemanticFrameProposal, SemanticProblemFrame] | None:
+    if (
+        tier != "t1"
+        or proposal is None
+        or proposal.operation is SemanticOperation.ACTION_DRAFT
+        or proposal.output_shape is SemanticOutputShape.RESOURCE_TARGET_CANDIDATES
+        or not resource_target_candidates_apply_to_proposal(
+            proposal,
+            utterance=utterance,
+            descriptors=descriptors,
+            inventory_query_language=inventory_query_language,
+        )
+    ):
+        return None
+    fallback = build_resource_target_candidates_fallback(
+        utterance=utterance,
+        context=context,
+        descriptors=descriptors,
+        confidence=proposal.confidence,
+        inventory_query_language=inventory_query_language,
+    )
+    if fallback is not None:
+        _LOGGER.info(
+            "semantic_planning_candidate_recovered",
+            extra={"stage": "frame", "recovery": "resource_target_candidates"},
+        )
+    return fallback
+
+
 def _safe_frame_rejection_reason(exc: Exception) -> str:
     message = str(exc)
     if type(exc) is ValueError and message in _SAFE_FRAME_REJECTION_REASONS:
@@ -345,6 +513,7 @@ def _validate_frame_proposal(
     utterance: str,
     descriptors: tuple[dict[str, Any], ...],
 ) -> None:
+    _reject_server_owned_output_shape(proposal.output_shape)
     if _SERVER_BOUND_REQUIREMENTS.intersection(proposal.clarification_requirements):
         raise ValueError("semantic clarification requests server-bound context")
     is_evidence_validation = proposal.output_shape in {
@@ -368,6 +537,11 @@ def _validate_frame_proposal(
         is_causal_evidence
         and proposal.investigation is None
         and _has_target_bound_subject(proposal, descriptors=descriptors)
+        and not _is_resource_candidate_request(
+            proposal,
+            utterance=utterance,
+            descriptors=descriptors,
+        )
     ):
         raise ValueError("target-bound causal evidence requires structured investigation intent")
     if proposal.output_shape in _SCHEMA_LEVEL_OUTPUT_SHAPES and _names_runtime_instance(
@@ -375,6 +549,15 @@ def _validate_frame_proposal(
         descriptors=descriptors,
     ):
         raise ValueError("schema-level semantic frame names a runtime resource instance")
+    if proposal.temporal_scope and proposal.output_shape in {
+        SemanticOutputShape.CONTEXTUAL_RESOURCE_LIST,
+        SemanticOutputShape.PROPERTY_FILTERED_RESOURCES,
+        SemanticOutputShape.RESOURCE_LIST,
+        SemanticOutputShape.RESOURCE_STATE_LIST,
+        SemanticOutputShape.TARGET_CURRENT_STATE,
+        SemanticOutputShape.TARGET_INGRESS_CONFIGURATION,
+    }:
+        raise ValueError("historical semantic request requires a temporal capability")
     if proposal.output_shape == "ontology_declaration":
         measures = frozenset(proposal.measure_concepts)
         if (
@@ -388,6 +571,11 @@ def _validate_frame_proposal(
             measures != {"rule_state"} or proposal.subject_constraints != ("Rule",)
         ):
             raise ValueError("semantic Rule state frame requires the exact Rule declaration")
+
+
+def _reject_server_owned_output_shape(output_shape: SemanticOutputShape) -> None:
+    if output_shape is SemanticOutputShape.RESOURCE_TARGET_CANDIDATES:
+        raise ValueError("resource target candidates are server-owned")
 
 
 def _names_runtime_instance(
@@ -426,6 +614,25 @@ def _has_target_bound_subject(
     }
     return any(
         subject.casefold() not in declared_subjects for subject in proposal.subject_constraints
+    )
+
+
+def _is_resource_candidate_request(
+    proposal: SemanticFrameProposal,
+    *,
+    utterance: str,
+    descriptors: tuple[dict[str, Any], ...],
+) -> bool:
+    """Recognize a typed Resource category that still lacks one exact identity."""
+
+    filters = stated_value_filters(utterance, descriptors)
+    return bool(filters.get(("Resource", "type"))) and (
+        exact_target_from_constraints(
+            proposal.subject_constraints,
+            utterance=utterance,
+            descriptors=descriptors,
+        )
+        is None
     )
 
 
@@ -491,6 +698,14 @@ def _verify_frame_plan_alignment(
         if node.kind is QueryNodeKind.OBJECT_SET
     ):
         raise ValueError("semantic property-filter plan requires a predicate")
+    if frame.output_shape == "property_filtered_resources" and any(
+        _object_set_has_multiple_existence_only_predicates(node.arguments_json)
+        for node in plan.nodes
+        if node.kind is QueryNodeKind.OBJECT_SET
+    ):
+        raise ValueError(
+            "semantic property-filter plan cannot use multiple existence-only predicates"
+        )
     _verify_manifest_aggregate_source(frame, plan)
 
     output_node_ids = set(plan.output_node_ids)
@@ -615,6 +830,22 @@ def _object_set_has_predicates(arguments_json: str) -> bool:
         return False
     definition = arguments.get("definition")
     return isinstance(definition, Mapping) and bool(definition.get("predicates"))
+
+
+def _object_set_has_multiple_existence_only_predicates(arguments_json: str) -> bool:
+    arguments = json.loads(arguments_json)
+    if not isinstance(arguments, Mapping):
+        return False
+    definition = arguments.get("definition")
+    predicates = definition.get("predicates") if isinstance(definition, Mapping) else None
+    return (
+        isinstance(predicates, list)
+        and len(predicates) > 1
+        and all(
+            isinstance(predicate, Mapping) and predicate.get("operator") == "exists"
+            for predicate in predicates
+        )
+    )
 
 
 __all__ = ["ProposalRejectedError", "SemanticPlanningCascade"]

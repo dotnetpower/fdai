@@ -52,8 +52,9 @@ NOW = datetime(2026, 8, 20, 12, 0, tzinfo=UTC)
 class _Provider:
     transport = "test"
 
-    def __init__(self) -> None:
+    def __init__(self, *, expected_lookback_seconds: int = 3600) -> None:
         self.calls: list[ReadToolId] = []
+        self.expected_lookback_seconds = expected_lookback_seconds
 
     async def resolve_resource(
         self,
@@ -87,7 +88,7 @@ class _Provider:
         del limits
         self.calls.append(ReadToolId.QUERY_RESOURCE_ACTIVITY)
         assert resource.name == "service-example-api"
-        assert lookback_seconds == 3600
+        assert lookback_seconds == self.expected_lookback_seconds
         record = ReadEvidenceRecord(
             occurred_at=NOW,
             status="succeeded",
@@ -222,6 +223,30 @@ async def test_semantic_activity_runs_exact_resolution_and_activity_steps() -> N
     values = rows[0]["values"]
     assert values["operation"] == "microsoft_app_containerapps_write"
     assert values["execution_authority"] is False
+
+
+async def test_semantic_activity_accepts_bounded_seven_day_lookback() -> None:
+    provider = _Provider(expected_lookback_seconds=604800)
+    declaration = resource_activity_function_type()
+    release = build_ontology_release(function_types=(declaration,))
+    registry = OntologyFunctionRegistry(release=release)
+    registry.register_contextual(
+        declaration,
+        semantic_resource_activity_function(release, provider=provider),  # type: ignore[arg-type]
+    )
+
+    result = await registry.invoke(
+        RESOURCE_ACTIVITY_FUNCTION_NAME,
+        {
+            "query_result": _query_result().model_dump(mode="json"),
+            "lookback_seconds": 604800,
+        },
+        context=_context(),
+    )
+
+    assert isinstance(result, dict)
+    assert provider.calls == [ReadToolId.RESOLVE_RESOURCE, ReadToolId.QUERY_RESOURCE_ACTIVITY]
+    assert result["complete"] is True
 
 
 async def test_semantic_activity_rejects_incomplete_target_before_provider_io() -> None:

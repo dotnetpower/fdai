@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import json
 from collections.abc import Mapping
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from types import MappingProxyType, SimpleNamespace
 from typing import Any, cast
@@ -46,6 +47,7 @@ from fdai_core_service.semantic_turn_consumer import (
 from fdai_core_service.semantic_turn_processor import (
     SemanticTurnProcessor,
     SemanticTurnRejectedError,
+    _answer_row_values,
     _incident_next_step_text,
     _render_general_query_answer,
     _typed_extension_answer_output,
@@ -82,6 +84,29 @@ RULE_QUERY_DIGEST = (
         json.dumps(RULE_QUERY, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
 )
+
+
+def test_answer_row_values_lifts_display_fields_without_provider_payloads() -> None:
+    values = {
+        "id": "resource-1",
+        "object_type": "Resource",
+        "properties": {
+            "name": "app-one",
+            "type": "compute.container-app",
+            "properties": {
+                "location": "example-region",
+                "configuration": {"ingress": {"external": True}},
+            },
+        },
+    }
+
+    assert _answer_row_values(values) == {
+        "id": "resource-1",
+        "object_type": "Resource",
+        "name": "app-one",
+        "type": "compute.container-app",
+        "location": "example-region",
+    }
 
 
 def test_impact_answer_separates_observed_scope_inference_and_gaps() -> None:
@@ -1484,6 +1509,102 @@ async def test_answered_projection_requires_complete_exact_evidence() -> None:
     assert semantic["checks_completed"] == semantic["checks_total"] == 1
     assert semantic["semantic_route"] == "verified_query_plan"
     assert semantic["execution_authority"] is False
+
+
+async def test_answered_projection_keeps_a_complete_small_resource_list() -> None:
+    result = _runtime_result("answered")
+    assert result.execution is not None
+    rows = tuple(
+        QueryRow.from_values(
+            f"resource-{index}",
+            {
+                "id": f"resource-{index}",
+                "object_type": "Resource",
+                "properties": {
+                    "name": f"app-{index}",
+                    "type": "compute.container-app",
+                    "properties": {
+                        "location": "example-region",
+                        "configuration": {"large": "x" * 10_000},
+                    },
+                },
+            },
+        )
+        for index in range(9)
+    )
+    execution = replace(
+        result.execution,
+        results=MappingProxyType(
+            {
+                "resources": QueryNodeResult(
+                    value=QueryTable(rows=rows, complete=True),
+                    evidence_refs=("inventory:evidence-1",),
+                )
+            }
+        ),
+    )
+
+    projection = _projection(
+        await _processor(_Runtime(replace(result, execution=execution))).process(_request())
+    )
+
+    output = projection["payload"]["technical_details"]["outputs"][0]
+    assert output["returned_rows"] == output["total_rows"] == 9
+    assert output["display_truncated"] is False
+    assert [row["values"]["name"] for row in output["rows"]] == [
+        f"app-{index}" for index in range(9)
+    ]
+    assert all("configuration" not in row["values"] for row in output["rows"])
+
+
+async def test_target_candidates_answer_names_verified_choices_in_korean() -> None:
+    result = _runtime_result("answered")
+    planning = SimpleNamespace(
+        plan=result.planning.plan,
+        frame=SimpleNamespace(
+            operation=SemanticOperation.SELECT,
+            output_shape="resource_target_candidates",
+        ),
+        manifest_digest=result.planning.manifest_digest,
+    )
+    assert result.execution is not None
+    rows = tuple(
+        QueryRow.from_values(
+            f"resource-{index}",
+            {
+                "id": f"resource-{index}",
+                "object_type": "Resource",
+                "properties": {
+                    "name": name,
+                    "type": "compute.container-app",
+                },
+            },
+        )
+        for index, name in enumerate(("app-api", "app-worker"), start=1)
+    )
+    execution = replace(
+        result.execution,
+        results=MappingProxyType(
+            {
+                "resources": QueryNodeResult(
+                    value=QueryTable(rows=rows, complete=True),
+                    evidence_refs=("inventory:evidence-1",),
+                )
+            }
+        ),
+    )
+
+    projection = _projection(
+        await _processor(_Runtime(replace(result, planning=planning, execution=execution))).process(
+            _request(locale="ko")
+        )
+    )
+
+    answer = projection["semantic_result"]["answer"]
+    assert "app-api" in answer
+    assert "app-worker" in answer
+    assert "정확한 이름 또는 리소스 ID" in answer
+    assert "execution_authority=false" in answer
 
 
 async def test_incident_evidence_answer_reports_missing_recorded_rca() -> None:

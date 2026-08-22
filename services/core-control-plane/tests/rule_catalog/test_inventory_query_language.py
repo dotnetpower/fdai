@@ -6,8 +6,12 @@ import pytest
 import yaml
 from fdai.rule_catalog.schema.inventory_query_language import (
     InventoryQueryLanguageRegistryError,
+    QueryTargetCardinality,
     inventory_query_language_digest,
     load_inventory_query_language_from_mapping,
+    query_signal_matches,
+    query_signal_span,
+    query_target_cardinality,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -25,6 +29,84 @@ def test_shipped_inventory_query_language_loads() -> None:
     assert registry.states["degraded"].evidence_authority == "subscription_health"
     assert registry.states["unavailable"].evidence_authority == "subscription_health"
     assert registry.states["inactive"].suppresses == ("running",)
+    assert query_signal_matches(
+        "Container App 요청이 갑자기 시간 초과돼.",
+        registry,
+        "symptom_request_timeout",
+    )
+    assert not query_signal_matches(
+        "Container App 요청은 정상적으로 완료됐어.",
+        registry,
+        "symptom_request_timeout",
+    )
+    assert query_signal_matches(
+        "Container App에서 무엇이 변경됐어?",
+        registry,
+        "activity",
+    )
+    activation_utterance = "Container App이 activation failed 상태야."
+    activation_start = activation_utterance.index("activation failed")
+    assert query_signal_span(
+        activation_utterance,
+        registry,
+        "symptom_activation_failure",
+    ) == (
+        activation_start,
+        activation_start + len("activation failed"),
+        "activation failed",
+    )
+    assert query_signal_span(
+        "request timed out",
+        registry,
+        "symptom_request_timeout",
+    ) == (0, len("request timed out"), "request timed out")
+    unicode_prefix_utterance = "Straße request timeout"
+    timeout_start = unicode_prefix_utterance.index("request timeout")
+    assert query_signal_span(
+        unicode_prefix_utterance,
+        registry,
+        "symptom_request_timeout",
+    ) == (
+        timeout_start,
+        timeout_start + len("request timeout"),
+        "request timeout",
+    )
+    assert (
+        query_signal_span(
+            "HTTP 500 이후 다시 HTTP 500 오류가 발생했어.",
+            registry,
+            "symptom_request_error",
+        )
+        is None
+    )
+    assert (
+        query_target_cardinality(
+            "내가 관리하는 Container App 상태를 보여줘",
+            registry,
+        )
+        is QueryTargetCardinality.SINGULAR
+    )
+    assert (
+        query_target_cardinality(
+            "내 Container Apps 목록을 모두 보여줘",
+            registry,
+        )
+        is QueryTargetCardinality.COLLECTION
+    )
+    assert (
+        query_target_cardinality(
+            "해당 Container Apps 목록을 보여줘",
+            registry,
+        )
+        is QueryTargetCardinality.COLLECTION
+    )
+    assert (
+        query_target_cardinality(
+            "Show the small Container Apps",
+            registry,
+        )
+        is QueryTargetCardinality.UNKNOWN
+    )
     assert all(
         entry.description for entry in (*registry.states.values(), *registry.operations.values())
     )

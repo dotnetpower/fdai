@@ -128,11 +128,35 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     frame = prompts.get_base("semantic.query.frame")
     plan = prompts.get_base("semantic.query.plan")
 
-    assert frame.version == 30
+    assert frame.version == 36
+    assert "Never replace a requested evidence family" in frame.body
+    assert "uses select with subscription_service_health" in frame.body
+    assert "service_health.active_event" in frame.body
+    assert "Service Health and Resource Health are distinct evidence families" in frame.body
+    assert "uses select with resource_health_list" in frame.body
+    assert "uses select with resource_metric_list" in frame.body
+    assert "uses select with resource_event_history" in frame.body
+    assert "A current snapshot never answers a historical event question" in frame.body
+    assert "combines operational inventory state with health or readiness" in frame.body
+    assert "Do not answer only the operational-state subset" in frame.body
+    assert "empty state subset" in frame.body
+    assert "uses select with contextual_resource_list" in frame.body
+    assert "A Resource subtype is never one exact identity for a configuration facet" in frame.body
+    assert "Never substitute the complete principal-visible resource set" in frame.body
+    assert "collection-scoped request" in frame.body
+    assert "select with resource_state_list" in frame.body
+    assert "canonical resource_state.<value> measure" in frame.body
+    assert "never requires one exact resource identity" in frame.body
+    assert "never converts missing, stale, synthetic, or conflicting state evidence" in frame.body
     assert "First close the target-bound diagnosis invariant" in frame.body
     assert "investigation MUST be a non-null structured investigation object" in frame.body
     assert "never a phrase list or provider-specific resource name" in frame.body
     assert "output_shape to exactly one capability family" in frame.body
+    assert "Preserve active revision as active_revision" in frame.body
+    assert (
+        "A resource subtype identifies Resource.type, not one exact Resource identity" in frame.body
+    )
+    assert "when the exact name or id is missing" in frame.body
     assert "aggregation_table for a count or grouping" in frame.body
     assert "operation aggregate together with aggregation_table" in frame.body
     assert "no other operation or output family is valid" in frame.body

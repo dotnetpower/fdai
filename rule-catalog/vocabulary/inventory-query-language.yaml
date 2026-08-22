@@ -1,5 +1,5 @@
 schema_version: "1.1.0"
-version: "1.1.30"
+version: "1.1.34"
 default_scope: subscription
 default_activity_lookback_seconds: 604800
 current_requires_fresh: true
@@ -7,6 +7,10 @@ suffixes: [은, 는, 이, 가, 의, 에, 에서, 엔, 을, 를, 도, 만, 와, �
 signals:
   resource_subject:
     terms: [resource, resources, asset, assets, inventory, azure resource, azure resources, 리소스, 인벤토리, Azure 리소스]
+  target_singular:
+    terms: [my, this, that, 내, 해당]
+  target_collection:
+    terms: [all, every, list, inventory list, 모두, 모든, 전체, 목록]
   read:
     terms: [how many, count, list, show, which, what, where, find, status, summary, exist, are any, 몇 개, 개수, 목록, 보여줘, 보여, 어떤, 어디, 찾아, 찾아줘, 상태, 있어, 알려줘]
   state_inspection:
@@ -19,10 +23,16 @@ signals:
     terms: [why, cause, latency, slow, cpu, memory, throughput, usage, utilization, affected, impact, blast radius, 왜, 원인, 지연, 느려, 메트릭, 사용률, 이용률, 처리량, 영향, 영향 범위]
   causal_diagnosis:
     terms: [why, cause, root cause, 왜, 원인, 근본 원인]
+  symptom_activation_failure:
+    terms: [activation failed, activation failure, activation failures, 활성화 실패]
+  symptom_request_timeout:
+    terms: [request timeout, request timed out, requests timed out, timed out, 시간 초과, 시간 초과돼, 시간 초과되는, 타임아웃]
+  symptom_request_error:
+    terms: [HTTP 500, HTTP 5xx, status 500, 500 error, server error, 서버 오류]
   temporal:
     terms: [recent, recently, last, past, history, when, since when, became, 최근, 지난, 이력, 언제, 누가]
   activity:
-    terms: [changed resources, created resources, deleted resources, updated resources, resource changes, 변경된 리소스, 생성된 리소스, 삭제된 리소스, 수정된 리소스]
+    terms: [changed resources, created resources, deleted resources, updated resources, resource changes, changed, changes, change history, restart, revision status, 변경된 리소스, 생성된 리소스, 삭제된 리소스, 수정된 리소스, 변경, 변경됐어, 재시작]
   workload:
     terms: [deployment, deployments, deploying, pod, pods, node, nodes, node pool, node pools, workload, workloads, running apps, 배포, 파드, 노드, 노드 풀, 워크로드, 실행 중인 앱]
   platform_health:

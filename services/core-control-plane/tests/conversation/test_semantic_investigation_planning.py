@@ -3,11 +3,16 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
+import yaml
 from fdai.core.conversation.intent_graph import build_intent_graph_evidence
 from fdai.core.conversation.semantic_investigation import (
     InvestigationIntentProposal,
+    normalize_investigation_competitors,
+    normalize_investigation_symptom,
+    normalize_investigation_target,
     verify_investigation_intent,
 )
 from fdai.core.conversation.semantic_investigation_planning import (
@@ -29,6 +34,9 @@ from fdai.core.ontology_platform.resource_activity_queries import (
     RESOURCE_ACTIVITY_FUNCTION_NAME,
     resource_activity_function_type,
 )
+from fdai.rule_catalog.schema.inventory_query_language import (
+    load_inventory_query_language_from_mapping,
+)
 from fdai.shared.contracts.models import (
     CeilingRole,
     LinkCardinality,
@@ -47,7 +55,22 @@ from fdai_service_contracts.ontology_query import (
 
 NOW = datetime(2026, 8, 20, 4, 0, tzinfo=UTC)
 DIGEST = "sha256:" + ("a" * 64)
-METRICS = ("dependency.latency", "resource.saturation", "service.latency")
+REPO_ROOT = Path(__file__).resolve().parents[4]
+INVENTORY_LANGUAGE = load_inventory_query_language_from_mapping(
+    yaml.safe_load(
+        (REPO_ROOT / "rule-catalog/vocabulary/inventory-query-language.yaml").read_text(
+            encoding="utf-8"
+        )
+    )
+)
+METRICS = (
+    "dependency.latency",
+    "request.errors",
+    "request.timeout",
+    "resource.activation.failure",
+    "resource.saturation",
+    "service.latency",
+)
 
 
 class _ManifestProvider:
@@ -472,5 +495,483 @@ def test_semantic_service_rejects_omitted_investigation_without_t2() -> None:
     assert outcome.reason == "semantic_plan_invalid"
     assert outcome.investigation_intent is None
     assert outcome.plan is None
+    assert (t1.frame_calls, t1.plan_calls) == (1, 0)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+def test_exact_outer_frame_repairs_only_the_affected_target_type_and_span() -> None:
+    utterance = "service-example-api Container App이 갑자기 느려졌어. 원인을 조사해 줘."
+    proposal = _verified_intent().model_dump(
+        mode="python",
+        exclude={
+            "schema_version",
+            "input_digest",
+            "intent_digest",
+            "authority",
+            "execution_authority",
+        },
+    )
+    proposal["entities"][0]["span"] = _span(utterance, "Container App")
+    proposal["entities"][0]["object_type_candidates"] = ["ContainerApp"]
+    proposal["relationship_intents"][0]["query_side_candidates"] = [
+        "workload_runs_on_resource.incoming",
+        "service_implemented_by_workload.incoming",
+    ]
+    proposal["symptom_measures"][0]["span"] = _span(utterance, "느려졌어")
+    proposal["temporal_cues"][0]["span"] = _span(utterance, "갑자기")
+    proposal["relationship_intents"][0]["span"] = _span(utterance, "원인을")
+    proposal["hypotheses"][0]["span"] = _span(utterance, "원인을")
+    proposal["hypotheses"][1]["span"] = _span(utterance, "조사해")
+    investigation = InvestigationIntentProposal.model_validate(proposal)
+
+    repaired = normalize_investigation_target(
+        investigation,
+        subject_constraints=("Resource", "service-example-api"),
+        utterance=utterance,
+        descriptors=_manifest().descriptors,
+    )
+
+    assert repaired is not None
+    target = repaired.entities[0]
+    assert target.span.text == "service-example-api"
+    assert target.object_type_candidates == ("Resource",)
+    assert repaired.symptom_measures == investigation.symptom_measures
+    assert repaired.relationship_intents == investigation.relationship_intents
+    assert repaired.hypotheses == investigation.hypotheses
+    verified = verify_investigation_intent(
+        repaired,
+        utterance=utterance,
+        descriptors=_manifest().descriptors,
+        metric_concepts=METRICS,
+    )
+    assert verified.entities[0].object_type_candidates == ("Resource",)
+
+
+@pytest.mark.parametrize("candidate_types", ((), ("ContainerApp",)))
+def test_relationship_path_repairs_omitted_outer_target_type(
+    candidate_types: tuple[str, ...],
+) -> None:
+    utterance = "service-example-api Container App이 갑자기 느려졌어. 원인을 조사해 줘."
+    proposal = _verified_intent().model_dump(
+        mode="python",
+        exclude={
+            "schema_version",
+            "input_digest",
+            "intent_digest",
+            "authority",
+            "execution_authority",
+        },
+    )
+    proposal["entities"][0]["span"] = _span(utterance, "Container App")
+    proposal["entities"][0]["object_type_candidates"] = list(candidate_types)
+    proposal["relationship_intents"][0]["query_side_candidates"] = [
+        "workload_runs_on_resource.incoming",
+        "service_implemented_by_workload.incoming",
+    ]
+    proposal["symptom_measures"][0]["span"] = _span(utterance, "느려졌어")
+    proposal["temporal_cues"][0]["span"] = _span(utterance, "갑자기")
+    proposal["relationship_intents"][0]["span"] = _span(utterance, "원인을")
+    proposal["hypotheses"][0]["span"] = _span(utterance, "원인을")
+    proposal["hypotheses"][1]["span"] = _span(utterance, "조사해")
+    investigation = InvestigationIntentProposal.model_validate(proposal)
+
+    repaired = normalize_investigation_target(
+        investigation,
+        subject_constraints=("ContainerApp",),
+        utterance=utterance,
+        descriptors=_manifest().descriptors,
+    )
+
+    target = repaired.entities[0]
+    assert target.span.text == "service-example-api"
+    assert target.object_type_candidates == ("Resource",)
+    verify_investigation_intent(
+        repaired,
+        utterance=utterance,
+        descriptors=_manifest().descriptors,
+        metric_concepts=METRICS,
+    )
+
+
+def test_relationship_path_does_not_repair_mixed_target_types() -> None:
+    utterance = "service-example-api Container App이 갑자기 느려졌어. 원인을 조사해 줘."
+    proposal = _verified_intent().model_dump(
+        mode="python",
+        exclude={
+            "schema_version",
+            "input_digest",
+            "intent_digest",
+            "authority",
+            "execution_authority",
+        },
+    )
+    proposal["entities"][0]["span"] = _span(utterance, "Container App")
+    proposal["entities"][0]["object_type_candidates"] = ["Resource", "ContainerApp"]
+    proposal["relationship_intents"][0]["query_side_candidates"] = [
+        "workload_runs_on_resource.incoming",
+        "service_implemented_by_workload.incoming",
+    ]
+    proposal["symptom_measures"][0]["span"] = _span(utterance, "느려졌어")
+    proposal["temporal_cues"][0]["span"] = _span(utterance, "갑자기")
+    proposal["relationship_intents"][0]["span"] = _span(utterance, "원인을")
+    proposal["hypotheses"][0]["span"] = _span(utterance, "원인을")
+    proposal["hypotheses"][1]["span"] = _span(utterance, "조사해")
+    investigation = InvestigationIntentProposal.model_validate(proposal)
+
+    normalized = normalize_investigation_target(
+        investigation,
+        subject_constraints=("ContainerApp",),
+        utterance=utterance,
+        descriptors=_manifest().descriptors,
+    )
+
+    assert normalized is investigation
+    with pytest.raises(
+        ValueError,
+        match="investigation entity type is absent from the principal manifest",
+    ):
+        verify_investigation_intent(
+            normalized,
+            utterance=utterance,
+            descriptors=_manifest().descriptors,
+            metric_concepts=METRICS,
+        )
+
+
+@pytest.mark.parametrize(
+    ("subject_constraints", "candidate_types"),
+    (
+        pytest.param(
+            ("Resource", "service-example-api"),
+            ("Resource", "ContainerApp"),
+            id="mixed-valid-and-invalid-target-types",
+        ),
+        pytest.param(
+            ("Resource", "BusinessService", "service-example-api"),
+            ("ContainerApp",),
+            id="ambiguous-outer-types",
+        ),
+        pytest.param(
+            ("Resource", "service-example-api", "service-example-worker"),
+            ("ContainerApp",),
+            id="multiple-residual-identities",
+        ),
+    ),
+)
+def test_exact_outer_frame_does_not_repair_ambiguous_target_evidence(
+    subject_constraints: tuple[str, ...],
+    candidate_types: tuple[str, ...],
+) -> None:
+    utterance = (
+        "service-example-api와 service-example-worker Container App이 갑자기 느려졌어. "
+        "원인을 조사해 줘."
+    )
+    proposal = _verified_intent().model_dump(
+        mode="python",
+        exclude={
+            "schema_version",
+            "input_digest",
+            "intent_digest",
+            "authority",
+            "execution_authority",
+        },
+    )
+    proposal["entities"][0]["span"] = _span(utterance, "Container App")
+    proposal["entities"][0]["object_type_candidates"] = list(candidate_types)
+    proposal["relationship_intents"][0]["query_side_candidates"] = [
+        "workload_runs_on_resource.incoming",
+        "service_implemented_by_workload.incoming",
+    ]
+    proposal["symptom_measures"][0]["span"] = _span(utterance, "느려졌어")
+    proposal["temporal_cues"][0]["span"] = _span(utterance, "갑자기")
+    proposal["relationship_intents"][0]["span"] = _span(utterance, "원인을")
+    proposal["hypotheses"][0]["span"] = _span(utterance, "원인을")
+    proposal["hypotheses"][1]["span"] = _span(utterance, "조사해")
+    investigation = InvestigationIntentProposal.model_validate(proposal)
+
+    normalized = normalize_investigation_target(
+        investigation,
+        subject_constraints=subject_constraints,
+        utterance=utterance,
+        descriptors=_manifest().descriptors,
+    )
+
+    assert normalized == investigation
+    with pytest.raises(
+        ValueError,
+        match="investigation entity type is absent from the principal manifest",
+    ):
+        verify_investigation_intent(
+            normalized,
+            utterance=utterance,
+            descriptors=_manifest().descriptors,
+            metric_concepts=METRICS,
+        )
+
+
+def test_wholly_invalid_hypothesis_competitors_are_rebound_to_proposed_ids() -> None:
+    utterance = "A서비스가 갑자기 왜 느려졌어?"
+    proposal = _verified_intent().model_dump(
+        mode="python",
+        exclude={
+            "schema_version",
+            "input_digest",
+            "intent_digest",
+            "authority",
+            "execution_authority",
+        },
+    )
+    proposal["hypotheses"][0]["competing_explanations"] = ["network-delay"]
+    proposal["hypotheses"][1]["competing_explanations"] = ["cpu-pressure"]
+    investigation = InvestigationIntentProposal.model_validate(proposal)
+
+    normalized = normalize_investigation_competitors(investigation)
+
+    assert normalized.hypotheses[0].competing_explanations == ("resource-saturation",)
+    assert normalized.hypotheses[1].competing_explanations == ("dependency-latency",)
+    verified = verify_investigation_intent(
+        normalized,
+        utterance=utterance,
+        descriptors=_manifest().descriptors,
+        metric_concepts=METRICS,
+    )
+    assert len(verified.hypotheses) == 2
+
+
+def test_mixed_valid_and_invalid_hypothesis_competitors_remain_rejected() -> None:
+    utterance = "A서비스가 갑자기 왜 느려졌어?"
+    proposal = _verified_intent().model_dump(
+        mode="python",
+        exclude={
+            "schema_version",
+            "input_digest",
+            "intent_digest",
+            "authority",
+            "execution_authority",
+        },
+    )
+    proposal["hypotheses"][0]["competing_explanations"] = [
+        "resource-saturation",
+        "network-delay",
+    ]
+    investigation = InvestigationIntentProposal.model_validate(proposal)
+
+    normalized = normalize_investigation_competitors(investigation)
+
+    assert normalized is investigation
+    with pytest.raises(ValueError, match="investigation hypothesis competitors are invalid"):
+        verify_investigation_intent(
+            normalized,
+            utterance=utterance,
+            descriptors=_manifest().descriptors,
+            metric_concepts=METRICS,
+        )
+
+
+def test_multiple_reviewed_symptom_signals_do_not_rewrite_one_measure() -> None:
+    utterance = "요청 시간 초과와 HTTP 500 오류가 함께 발생했어."
+    proposal = _verified_intent().model_dump(
+        mode="python",
+        exclude={
+            "schema_version",
+            "input_digest",
+            "intent_digest",
+            "authority",
+            "execution_authority",
+        },
+    )
+    proposal["symptom_measures"][0]["span"] = _span(utterance, "시간 초과")
+    proposal["symptom_measures"][0]["concept_id"] = "request.duration"
+    investigation = InvestigationIntentProposal.model_validate(proposal)
+
+    normalized = normalize_investigation_symptom(
+        investigation,
+        utterance=utterance,
+        metric_concepts=METRICS,
+        inventory_query_language=INVENTORY_LANGUAGE,
+    )
+
+    assert normalized is investigation
+
+
+def test_reviewed_symptom_rebinds_a_downstream_effect_span() -> None:
+    utterance = "A서비스가 activation failed 상태에서 갑자기 멈췄어. 원인을 조사해 줘."
+    proposal = _verified_intent().model_dump(
+        mode="python",
+        exclude={
+            "schema_version",
+            "input_digest",
+            "intent_digest",
+            "authority",
+            "execution_authority",
+        },
+    )
+    proposal["symptom_measures"][0]["span"] = _span(utterance, "멈췄어")
+    proposal["symptom_measures"][0]["concept_id"] = "service.availability"
+    investigation = InvestigationIntentProposal.model_validate(proposal)
+
+    normalized = normalize_investigation_symptom(
+        investigation,
+        utterance=utterance,
+        metric_concepts=METRICS,
+        inventory_query_language=INVENTORY_LANGUAGE,
+    )
+
+    assert normalized.symptom_measures[0].concept_id == "resource.activation.failure"
+    assert normalized.symptom_measures[0].span.text == "activation failed"
+    assert normalized.symptom_measures[0].span.start == utterance.index("activation failed")
+
+
+@pytest.mark.parametrize("candidate_types", (None, ["ContainerApp"]))
+@pytest.mark.parametrize("include_frame_target", (True, False))
+@pytest.mark.parametrize("canonical_symptom_candidate", (True, False))
+@pytest.mark.parametrize("include_canonical_outer_type", (True, False))
+@pytest.mark.parametrize(
+    ("utterance", "symptom", "concept_id", "candidate_concept_id"),
+    (
+        (
+            "service-example-api Container App이 activation failed 상태에서 갑자기 멈췄어. "
+            "원인을 조사해 줘.",
+            "activation failed",
+            "resource.activation.failure",
+            "container.activation.failure",
+        ),
+        (
+            "service-example-api Container App 요청이 갑자기 시간 초과돼. 원인을 조사해 줘.",
+            "시간 초과",
+            "request.timeout",
+            "container.request.timeout",
+        ),
+        (
+            "service-example-api Container App에서 갑자기 HTTP 500 오류가 발생해. "
+            "원인을 조사해 줘.",
+            "HTTP 500",
+            "request.errors",
+            "http.response.500",
+        ),
+    ),
+)
+def test_exact_resource_causal_frame_repairs_missing_or_provider_target_type_without_t2(
+    candidate_types: list[str] | None,
+    include_frame_target: bool,
+    canonical_symptom_candidate: bool,
+    include_canonical_outer_type: bool,
+    utterance: str,
+    symptom: str,
+    concept_id: str,
+    candidate_concept_id: str,
+) -> None:
+    proposed_concept_id = concept_id if canonical_symptom_candidate else candidate_concept_id
+    target_entity: dict[str, object] = {
+        "mention_id": "target",
+        "span": _span(utterance, "Container App"),
+        "role": "affected_target",
+    }
+    if candidate_types is not None:
+        target_entity["object_type_candidates"] = candidate_types
+    investigation = {
+        "operation": "explain_change",
+        "entities": [target_entity],
+        "symptom_measures": [
+            {
+                "measure_id": "symptom",
+                "span": _span(utterance, symptom),
+                "concept_id": proposed_concept_id,
+                "target_mention_id": "target",
+                "direction": "increase",
+            }
+        ],
+        "primary_symptom_measure_id": "symptom",
+        "temporal_cues": [
+            {
+                "cue_id": "onset",
+                "span": _span(utterance, "갑자기"),
+                "role": "onset",
+            }
+        ],
+        "relationship_intents": [
+            {
+                "relationship_id": "dependencies",
+                "span": _span(utterance, "원인을"),
+                "source_mention_id": "target",
+                "target_mention_id": None,
+                "query_side_candidates": [
+                    "workload_runs_on_resource.incoming",
+                    "service_implemented_by_workload.incoming",
+                ],
+            }
+        ],
+        "hypotheses": [
+            {
+                "hypothesis_id": "dependency-latency",
+                "span": _span(utterance, "원인을"),
+                "relationship_id": "dependencies",
+                "cause_measure_concept": "dependency.latency",
+                "effect_measure_id": "symptom",
+                "competing_explanations": ["resource-saturation"],
+            },
+            {
+                "hypothesis_id": "resource-saturation",
+                "span": _span(utterance, "조사해"),
+                "relationship_id": "dependencies",
+                "cause_measure_concept": "resource.saturation",
+                "effect_measure_id": "symptom",
+                "competing_explanations": ["dependency-latency"],
+            },
+        ],
+        "evidence_standard": "support_and_refutation",
+        "answer_shape": "diagnosis",
+        "confidence": 0.9,
+    }
+    frame = {
+        "operation": "explain_change",
+        "subject_constraints": [
+            *(("Resource",) if include_canonical_outer_type else ("ContainerApp",)),
+            *(["service-example-api"] if include_frame_target else []),
+        ],
+        "measure_concepts": [proposed_concept_id],
+        "temporal_scope": {"cue": "current_failure"},
+        "output_shape": "causal_evidence",
+        "evidence_requirements": ["support_and_refutation"],
+        "unresolved_terms": [],
+        "clarification_requirements": [],
+        "clarification": None,
+        "investigation": investigation,
+        "confidence": 0.9,
+    }
+    t1 = _InvestigationModel(frame)
+    t2 = _InvestigationModel(frame)
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(),
+        verifier=_verifier(),
+        metric_concepts=METRICS,
+        inventory_query_language=INVENTORY_LANGUAGE,
+        now=lambda: NOW,
+    )
+
+    outcome = service.plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.investigation_intent is not None
+    assert outcome.frame is not None
+    assert outcome.frame.measure_concepts == (concept_id,)
+    assert outcome.investigation_intent.symptom_measures[0].concept_id == concept_id
+    target = next(
+        entity
+        for entity in outcome.investigation_intent.entities
+        if entity.role.value == "affected_target"
+    )
+    assert target.span.text == "service-example-api"
+    assert target.object_type_candidates == ("Resource",)
+    assert outcome.plan is not None
+    assert len(outcome.plan.nodes) == 13
+    assert outcome.plan.execution_authority is False
     assert (t1.frame_calls, t1.plan_calls) == (1, 0)
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)

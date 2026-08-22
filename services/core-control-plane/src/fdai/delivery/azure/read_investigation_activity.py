@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import time
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Final
@@ -32,7 +33,8 @@ from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _MANAGEMENT_ORIGIN = "https://management.azure.com"
 _MANAGEMENT_AUDIENCE = "https://management.azure.com/.default"
-_API_VERSION = "2015-04-01"
+_ACTIVITY_API_VERSION = "2015-04-01"
+_RESOURCE_HEALTH_API_VERSION = "2025-05-01"
 
 
 @dataclass(frozen=True, slots=True)
@@ -118,7 +120,7 @@ class AzureActivityReadInvestigationProvider:
             token = await self._identity.get_token(_MANAGEMENT_AUDIENCE)
             response = await self._http.get(
                 endpoint,
-                params={"api-version": _API_VERSION, "$filter": filter_value},
+                params={"api-version": _ACTIVITY_API_VERSION, "$filter": filter_value},
                 headers={"Authorization": f"Bearer {token.token}"},
                 timeout=min(self._config.timeout_seconds, limits.timeout_seconds),
             )
@@ -211,11 +213,124 @@ class AzureActivityReadInvestigationProvider:
             ),
         )
 
-    async def query_resource_health(self, resource, *, lookback_seconds, limits):  # type: ignore[no-untyped-def]
-        return await self._base.query_resource_health(
-            resource,
-            lookback_seconds=lookback_seconds,
-            limits=limits,
+    async def query_resource_health(
+        self,
+        resource: ResolvedResource,
+        *,
+        lookback_seconds: int,
+        limits: ReadToolLimits,
+    ) -> ReadEvidenceAttempt:
+        """Read current Resource Health for one already scope-resolved target."""
+
+        del lookback_seconds
+        started = time.monotonic()
+        observed_at = datetime.now(UTC)
+        try:
+            resource_id = azure_arm_resource_id(
+                resource.resource_ref,
+                subscription_id=self._config.subscription_id,
+            )
+        except ValueError:
+            return self._unavailable(
+                resource,
+                observed_at=observed_at,
+                started=started,
+                limitation=EvidenceLimitationKind.SOURCE_UNAVAILABLE,
+                detail="exact Resource Health target is unavailable",
+                tool_id=ReadToolId.QUERY_RESOURCE_HEALTH,
+                authority="azure.resource_health",
+            )
+        endpoint = (
+            f"{_MANAGEMENT_ORIGIN}{resource_id}/providers/"
+            "Microsoft.ResourceHealth/availabilityStatuses/current"
+        )
+        try:
+            token = await self._identity.get_token(_MANAGEMENT_AUDIENCE)
+            response = await self._http.get(
+                endpoint,
+                params={"api-version": _RESOURCE_HEALTH_API_VERSION},
+                headers={"Authorization": f"Bearer {token.token}"},
+                timeout=min(self._config.timeout_seconds, limits.timeout_seconds),
+            )
+        except (httpx.HTTPError, TimeoutError):
+            return self._unavailable(
+                resource,
+                observed_at=observed_at,
+                started=started,
+                limitation=EvidenceLimitationKind.SOURCE_UNAVAILABLE,
+                detail="Resource Health transport unavailable",
+                tool_id=ReadToolId.QUERY_RESOURCE_HEALTH,
+                authority="azure.resource_health",
+            )
+        if response.status_code in {401, 403}:
+            return self._unavailable(
+                resource,
+                observed_at=observed_at,
+                started=started,
+                limitation=EvidenceLimitationKind.UNAUTHORIZED,
+                detail="Resource Health authorization unavailable",
+                tool_id=ReadToolId.QUERY_RESOURCE_HEALTH,
+                authority="azure.resource_health",
+            )
+        if response.status_code != 200:
+            return self._unavailable(
+                resource,
+                observed_at=observed_at,
+                started=started,
+                limitation=EvidenceLimitationKind.SOURCE_UNAVAILABLE,
+                detail=f"Resource Health returned HTTP {response.status_code}",
+                tool_id=ReadToolId.QUERY_RESOURCE_HEALTH,
+                authority="azure.resource_health",
+            )
+        if len(response.content) > limits.max_output_bytes:
+            return self._unavailable(
+                resource,
+                observed_at=observed_at,
+                started=started,
+                limitation=EvidenceLimitationKind.BYTE_LIMIT,
+                detail="Resource Health response exceeded the byte limit",
+                tool_id=ReadToolId.QUERY_RESOURCE_HEALTH,
+                authority="azure.resource_health",
+            )
+        try:
+            payload = response.json()
+        except ValueError:
+            payload = None
+        record = _resource_health_record(payload, observed_at=observed_at)
+        if record is None:
+            return self._unavailable(
+                resource,
+                observed_at=observed_at,
+                started=started,
+                limitation=EvidenceLimitationKind.SOURCE_UNAVAILABLE,
+                detail="Resource Health response shape unavailable",
+                tool_id=ReadToolId.QUERY_RESOURCE_HEALTH,
+                authority="azure.resource_health",
+            )
+        evidence = ReadEvidenceEnvelope(
+            status=EvidenceStatus.MATCHED,
+            authority="azure.resource_health",
+            resource_ref=resource.resource_ref,
+            observed_at=observed_at,
+            freshness=EvidenceFreshness.LIVE,
+            truncated=False,
+            records=(record,),
+            evidence_refs=(
+                _resource_health_evidence_ref(record, resource_ref=resource.resource_ref),
+            ),
+        )
+        return ReadEvidenceAttempt(
+            tool_id=ReadToolId.QUERY_RESOURCE_HEALTH,
+            evidence=evidence,
+            receipt=_receipt(
+                outcome=ToolCallOutcome.SUCCEEDED,
+                detail="bounded Resource Health read completed",
+                started=started,
+                result_count=1,
+                recorded_at=observed_at,
+                tool_id=ReadToolId.QUERY_RESOURCE_HEALTH,
+                operation_class="resource_health",
+            ),
         )
 
     async def query_guest_shutdown_events(self, resource, *, lookback_seconds, limits):  # type: ignore[no-untyped-def]
@@ -239,12 +354,14 @@ class AzureActivityReadInvestigationProvider:
         started: float,
         limitation: EvidenceLimitationKind,
         detail: str,
+        tool_id: ReadToolId = ReadToolId.QUERY_RESOURCE_ACTIVITY,
+        authority: str = "azure.activity_log",
     ) -> ReadEvidenceAttempt:
         return ReadEvidenceAttempt(
-            tool_id=ReadToolId.QUERY_RESOURCE_ACTIVITY,
+            tool_id=tool_id,
             evidence=ReadEvidenceEnvelope(
                 status=EvidenceStatus.UNAVAILABLE,
-                authority="azure.activity_log",
+                authority=authority,
                 resource_ref=resource.resource_ref,
                 observed_at=observed_at,
                 freshness=EvidenceFreshness.LIVE,
@@ -258,6 +375,12 @@ class AzureActivityReadInvestigationProvider:
                 detail=detail,
                 started=started,
                 recorded_at=observed_at,
+                tool_id=tool_id,
+                operation_class=(
+                    "resource_health"
+                    if tool_id is ReadToolId.QUERY_RESOURCE_HEALTH
+                    else "control_plane_activity"
+                ),
             ),
         )
 
@@ -292,6 +415,46 @@ def _activity_record(
             correlation if isinstance(correlation, str) and correlation.strip() else None
         ),
     )
+
+
+def _resource_health_record(
+    raw: object,
+    *,
+    observed_at: datetime,
+) -> ReadEvidenceRecord | None:
+    if not isinstance(raw, Mapping):
+        return None
+    properties = raw.get("properties")
+    if not isinstance(properties, Mapping):
+        return None
+    availability = properties.get("availabilityState")
+    if not isinstance(availability, str) or not availability.strip():
+        return None
+    reason = properties.get("reasonType")
+    reported_at = _timestamp(properties.get("reportedTime"))
+    occurred_at = reported_at or _timestamp(properties.get("occurredTime")) or observed_at
+    return ReadEvidenceRecord(
+        occurred_at=occurred_at,
+        status=_machine_token(availability),
+        state=_machine_token(availability),
+        health_kind=_health_kind(reason),
+    )
+
+
+def _health_kind(value: object) -> str:
+    if not isinstance(value, str) or not value.strip():
+        return "status_only"
+    normalized = _machine_token(value)
+    if normalized in {"platform_initiated", "platforminitiated"}:
+        return "platform_initiated"
+    if normalized in {
+        "customer_initiated",
+        "customerinitiated",
+        "user_initiated",
+        "userinitiated",
+    }:
+        return "customer_initiated"
+    return normalized
 
 
 def _resource_id_matches(
@@ -350,6 +513,17 @@ def _activity_evidence_ref(record: ReadEvidenceRecord, *, resource_ref: str) -> 
     return f"azure-activity:{hashlib.sha256(material.encode()).hexdigest()}"
 
 
+def _resource_health_evidence_ref(
+    record: ReadEvidenceRecord,
+    *,
+    resource_ref: str,
+) -> str:
+    material = (
+        f"{resource_ref}|{record.occurred_at.isoformat()}|{record.state}|{record.health_kind}"
+    )
+    return f"azure-resource-health:{hashlib.sha256(material.encode()).hexdigest()}"
+
+
 def _receipt(
     *,
     outcome: ToolCallOutcome,
@@ -358,17 +532,19 @@ def _receipt(
     recorded_at: datetime,
     result_count: int = 0,
     truncated: bool = False,
+    tool_id: ReadToolId = ReadToolId.QUERY_RESOURCE_ACTIVITY,
+    operation_class: str = "control_plane_activity",
 ) -> ToolCallReceipt:
     digest = hashlib.sha256(
         f"{recorded_at.isoformat()}|{detail}|{result_count}".encode()
     ).hexdigest()
     return ToolCallReceipt(
         outcome=outcome,
-        receipt_ref=f"azure-activity-read:{digest}",
+        receipt_ref=f"azure-read:{digest}",
         detail=detail,
-        tool_id=ReadToolId.QUERY_RESOURCE_ACTIVITY.value,
+        tool_id=tool_id.value,
         transport="azure_rest",
-        operation_class="control_plane_activity",
+        operation_class=operation_class,
         execution_duration_ms=max(0, round((time.monotonic() - started) * 1_000)),
         result_count=result_count,
         truncated=truncated,

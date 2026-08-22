@@ -38,10 +38,34 @@ from fdai.core.ontology_platform.resource_current_state_queries import (
 from fdai.core.ontology_platform.resource_error_activity_correlation_queries import (
     ERROR_ACTIVITY_CORRELATION_FUNCTION_NAME,
 )
+from fdai.core.ontology_platform.resource_event_queries import (
+    RESOURCE_EVENT_FUNCTION_NAME,
+    ResourceEventCollection,
+)
 from fdai.core.ontology_platform.resource_health_assessment_queries import (
     TARGET_HEALTH_ASSESSMENT_FUNCTION_NAME,
 )
+from fdai.core.ontology_platform.resource_health_queries import (
+    RESOURCE_HEALTH_FUNCTION_NAME,
+    ResourceHealthCollection,
+)
+from fdai.core.ontology_platform.resource_ingress_queries import (
+    RESOURCE_INGRESS_FUNCTION_NAME,
+)
+from fdai.core.ontology_platform.resource_metric_queries import (
+    RESOURCE_METRIC_FUNCTION_NAME,
+)
+from fdai.core.ontology_platform.resource_state_queries import RESOURCE_STATE_FUNCTION_NAME
+from fdai.core.ontology_platform.service_health_queries import (
+    SERVICE_HEALTH_FUNCTION_NAME,
+    ServiceHealthCollection,
+)
 from fdai.delivery.catalog_search import InMemoryCatalogSemanticIndex
+from fdai.rule_catalog.schema.inventory_query_language import (
+    InventoryQueryLanguageRegistry,
+    QueryEvidenceAuthority,
+    QueryValues,
+)
 from fdai.rule_catalog.schema.ontology_catalog import OntologyCatalog
 from fdai.rule_catalog.schema.property_semantic import empty_property_semantic_registry
 from fdai.shared.contracts.models import (
@@ -752,6 +776,78 @@ class _ManifestCaptureModel(_Model):
         return super().propose_plan(**kwargs)
 
 
+class _EmptyResourceHealthReader:
+    async def read_current(
+        self,
+        *,
+        resource_ids: tuple[str, ...],
+    ) -> ResourceHealthCollection:
+        return ResourceHealthCollection(
+            resource_ids=resource_ids,
+            observations=(),
+            observed_at=NOW,
+            complete=False,
+            limitation="resource_health_coverage_incomplete",
+            attempt_ref="azure-resource-health-query:empty",
+        )
+
+
+class _EmptyResourceEventReader:
+    async def read_history(
+        self,
+        *,
+        resource_ids: tuple[str, ...],
+        event_families: tuple[str, ...],
+        lookback_seconds: int,
+    ) -> ResourceEventCollection:
+        assert event_families == ("resource_event.resource_health",)
+        assert 60 <= lookback_seconds <= 86400
+        return ResourceEventCollection(
+            resource_ids=resource_ids,
+            events=(),
+            observed_at=NOW,
+            complete=True,
+            limitation=None,
+            attempt_ref="azure-resource-event:empty",
+        )
+
+
+class _EmptyServiceHealthReader:
+    async def read_active(self) -> ServiceHealthCollection:
+        return ServiceHealthCollection(
+            observations=(),
+            observed_at=NOW,
+            complete=True,
+            limitation=None,
+            attempt_ref="azure-service-health:empty",
+        )
+
+
+def _health_language() -> InventoryQueryLanguageRegistry:
+    return InventoryQueryLanguageRegistry(
+        schema_version="1.1.0",
+        version="1.0.0",
+        default_scope="subscription",
+        default_activity_lookback_seconds=3600,
+        current_requires_fresh=True,
+        suffixes=(),
+        signals={},
+        query_kinds={},
+        groupings={},
+        projections={},
+        scopes={},
+        states={
+            "not_ready": QueryValues(
+                terms=("not ready", "준비되지 않은"),
+                values=("failed", "degraded", "unavailable"),
+                evidence_authority=QueryEvidenceAuthority.SUBSCRIPTION_HEALTH,
+            )
+        },
+        operations={},
+        time_units={},
+    )
+
+
 class _EmptyIncidentEvidenceReader:
     async def list_incident_evidence(
         self,
@@ -887,11 +983,123 @@ async def test_runtime_exposes_only_bound_question_space_capabilities() -> None:
     assert result.disposition == "answered"
     assert ONTOLOGY_DECLARATION_FUNCTION_NAME in model.function_names
     assert RESOURCE_CURRENT_STATE_FUNCTION_NAME in model.function_names
+    assert RESOURCE_INGRESS_FUNCTION_NAME in model.function_names
+    assert RESOURCE_STATE_FUNCTION_NAME in model.function_names
     assert ERROR_ACTIVITY_CORRELATION_FUNCTION_NAME in model.function_names
     assert TARGET_HEALTH_ASSESSMENT_FUNCTION_NAME in model.function_names
+    assert RESOURCE_HEALTH_FUNCTION_NAME not in model.function_names
+    assert RESOURCE_EVENT_FUNCTION_NAME not in model.function_names
+    assert RESOURCE_METRIC_FUNCTION_NAME not in model.function_names
+    assert SERVICE_HEALTH_FUNCTION_NAME not in model.function_names
     assert ONTOLOGY_RELEASE_DIFF_FUNCTION_NAME not in model.function_names
     assert ONTOLOGY_EVIDENCE_HEALTH_FUNCTION_NAME not in model.function_names
     assert INVENTORY_IMPACT_FUNCTION_NAME not in model.function_names
+
+
+async def test_runtime_exposes_resource_health_only_when_reader_and_catalog_are_bound() -> None:
+    object_type = _object_type()
+    model = _ManifestCaptureModel(_definition())
+    release = build_ontology_release(
+        object_types=(object_type,),
+        function_types=operational_function_types(()),
+    )
+    store = InMemoryOntologyInstanceStore(object_types=(object_type,), link_types=())
+
+    runtime = build_semantic_query_runtime(
+        model=model,
+        ontology_release=release,
+        ontology_catalog=_catalog(object_type),
+        ontology_store=store,
+        resource_health_reader=_EmptyResourceHealthReader(),
+        inventory_query_language=_health_language(),
+        now=lambda: NOW,
+    )
+    await runtime.handle(
+        utterance="Show resources",
+        prior_turns=(),
+        principal=Principal(id="reader", role=Role.READER),
+    )
+
+    assert RESOURCE_HEALTH_FUNCTION_NAME in model.function_names
+
+
+async def test_runtime_exposes_resource_event_history_only_when_reader_is_bound() -> None:
+    object_type = _object_type()
+    model = _ManifestCaptureModel(_definition())
+    runtime = build_semantic_query_runtime(
+        model=model,
+        ontology_release=build_ontology_release(
+            object_types=(object_type,),
+            function_types=operational_function_types(()),
+        ),
+        ontology_catalog=_catalog(object_type),
+        ontology_store=InMemoryOntologyInstanceStore(
+            object_types=(object_type,),
+            link_types=(),
+        ),
+        resource_event_reader=_EmptyResourceEventReader(),
+        now=lambda: NOW,
+    )
+    await runtime.handle(
+        utterance="Show resources",
+        prior_turns=(),
+        principal=Principal(id="reader", role=Role.READER),
+    )
+
+    assert RESOURCE_EVENT_FUNCTION_NAME in model.function_names
+
+
+async def test_runtime_exposes_service_health_only_when_reader_is_bound() -> None:
+    object_type = _object_type()
+    model = _ManifestCaptureModel(_definition())
+    runtime = build_semantic_query_runtime(
+        model=model,
+        ontology_release=build_ontology_release(
+            object_types=(object_type,),
+            function_types=operational_function_types(()),
+        ),
+        ontology_catalog=_catalog(object_type),
+        ontology_store=InMemoryOntologyInstanceStore(
+            object_types=(object_type,),
+            link_types=(),
+        ),
+        service_health_reader=_EmptyServiceHealthReader(),
+        now=lambda: NOW,
+    )
+    await runtime.handle(
+        utterance="Show resources",
+        prior_turns=(),
+        principal=Principal(id="reader", role=Role.READER),
+    )
+
+    assert SERVICE_HEALTH_FUNCTION_NAME in model.function_names
+
+
+async def test_runtime_exposes_resource_metrics_only_with_registry_and_provider() -> None:
+    object_type = _object_type()
+    model = _ManifestCaptureModel(_definition())
+    runtime = build_semantic_query_runtime(
+        model=model,
+        ontology_release=build_ontology_release(
+            object_types=(object_type,),
+            function_types=operational_function_types(()),
+        ),
+        ontology_catalog=_catalog(object_type),
+        ontology_store=InMemoryOntologyInstanceStore(
+            object_types=(object_type,),
+            link_types=(),
+        ),
+        metric_registry=_metric_registry(),
+        metric_window_provider=_IncompleteMetricWindowProvider(),
+        now=lambda: NOW,
+    )
+    await runtime.handle(
+        utterance="Show resources",
+        prior_turns=(),
+        principal=Principal(id="reader", role=Role.READER),
+    )
+
+    assert RESOURCE_METRIC_FUNCTION_NAME in model.function_names
 
 
 async def test_runtime_exposes_bound_catalog_search_to_planner() -> None:

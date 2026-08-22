@@ -342,15 +342,26 @@ async def test_shipped_azure_metrics_api_queries_are_valid() -> None:
     validators, and their metric-names correspond to a real analyzer
     metric so a lookup miss never occurs at runtime."""
     from fdai.delivery.azure.demo_queries import (
+        METRIC_CONTAINER_APP_MEMORY_PERCENT,
+        METRIC_CONTAINER_APP_REQUEST_TIMEOUTS,
         METRIC_SERVICE_REQUEST_DURATION_MS,
+        resource_metric_queries,
         sre_demo_analyzer_queries,
     )
     from fdai.delivery.azure.metrics_api_queries import azure_metrics_api_queries
 
     shipped = azure_metrics_api_queries()
-    assert set(shipped) - {METRIC_SERVICE_REQUEST_DURATION_MS} <= set(
-        sre_demo_analyzer_queries()
+    assert set(shipped) - {METRIC_SERVICE_REQUEST_DURATION_MS} <= (
+        set(sre_demo_analyzer_queries()) | set(resource_metric_queries())
     ), "every Metrics API template MUST be an analyzer or reviewed semantic metric"
     assert shipped[METRIC_SERVICE_REQUEST_DURATION_MS].azure_metric_name == "ResponseTime"
     assert shipped[METRIC_SERVICE_REQUEST_DURATION_MS].aggregation == "Average"
-    assert len(shipped) == 6
+    memory = shipped[METRIC_CONTAINER_APP_MEMORY_PERCENT]
+    assert memory.azure_metric_name == "MemoryPercentage"
+    assert memory.aggregation == "Average"
+    assert memory.interval == "PT5M"
+    timeout = shipped[METRIC_CONTAINER_APP_REQUEST_TIMEOUTS]
+    assert timeout.azure_metric_name == "ResiliencyRequestTimeouts"
+    assert timeout.aggregation == "Total"
+    assert timeout.interval == "PT5M"
+    assert len(shipped) == 8

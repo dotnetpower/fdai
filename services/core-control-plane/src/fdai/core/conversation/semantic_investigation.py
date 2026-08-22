@@ -9,8 +9,21 @@ from typing import Annotated, Any, Literal
 from fdai_service_contracts.ontology_query import SemanticOperation, content_digest
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from fdai.rule_catalog.schema.inventory_query_language import (
+    InventoryQueryLanguageRegistry,
+    query_signal_matches,
+    query_signal_span,
+)
+
+from .semantic_target_identity import exact_target_from_constraints
+
 _INTENT_ID_PATTERN = r"^[a-z][a-z0-9_.-]{0,79}$"
 _MAX_UTTERANCE_CHARS = 32_000
+_SYMPTOM_CONCEPT_BY_SIGNAL = (
+    ("symptom_activation_failure", "resource.activation.failure"),
+    ("symptom_request_timeout", "request.timeout"),
+    ("symptom_request_error", "request.errors"),
+)
 
 
 class _IntentRecord(BaseModel):
@@ -82,7 +95,7 @@ class InvestigationEntityMention(_IntentRecord):
     span: IntentSourceSpan
     role: InvestigationEntityRole
     object_type_candidates: tuple[Annotated[str, Field(min_length=1, max_length=128)], ...] = Field(
-        min_length=1, max_length=8
+        default=(), max_length=8
     )
 
     @field_validator("object_type_candidates")
@@ -192,6 +205,166 @@ class VerifiedInvestigationIntent(_IntentRecord):
         if self.intent_digest != content_digest(body):
             raise ValueError("verified investigation intent digest does not match its content")
         return self
+
+
+def normalize_investigation_target(
+    proposal: InvestigationIntentProposal,
+    *,
+    subject_constraints: tuple[str, ...],
+    utterance: str,
+    descriptors: Sequence[Mapping[str, Any]],
+) -> InvestigationIntentProposal:
+    """Repair one wholly unrecognized affected target from exact outer-frame facts."""
+
+    available_types = {
+        name
+        for descriptor in descriptors
+        if descriptor.get("kind") in {"object", "interface"}
+        if isinstance((name := descriptor.get("name")), str)
+    }
+    declared_types = tuple(subject for subject in subject_constraints if subject in available_types)
+    targets = tuple(
+        entity
+        for entity in proposal.entities
+        if entity.role is InvestigationEntityRole.AFFECTED_TARGET
+    )
+    target_text = exact_target_from_constraints(
+        subject_constraints,
+        utterance=utterance,
+        descriptors=tuple(dict(descriptor) for descriptor in descriptors),
+    )
+    if len(declared_types) > 1 or len(targets) != 1 or target_text is None:
+        return proposal
+    target = targets[0]
+    canonical_type = (
+        declared_types[0]
+        if declared_types
+        else _relationship_source_type(
+            proposal.relationship_intents,
+            source_mention_id=target.mention_id,
+            descriptors=descriptors,
+        )
+    )
+    if canonical_type not in available_types:
+        return proposal
+    candidate_types = set(target.object_type_candidates)
+    if candidate_types.intersection(available_types) and candidate_types != {canonical_type}:
+        return proposal
+    start = utterance.index(target_text)
+    repaired_target = target.model_copy(
+        update={
+            "span": target.span.model_copy(
+                update={"start": start, "end": start + len(target_text), "text": target_text}
+            ),
+            "object_type_candidates": (canonical_type,),
+        }
+    )
+    return proposal.model_copy(
+        update={
+            "entities": tuple(
+                repaired_target if entity.mention_id == target.mention_id else entity
+                for entity in proposal.entities
+            )
+        }
+    )
+
+
+def _relationship_source_type(
+    relationships: tuple[InvestigationRelationshipIntent, ...],
+    *,
+    source_mention_id: str,
+    descriptors: Sequence[Mapping[str, Any]],
+) -> str | None:
+    available_sides = _relationship_sides(descriptors)
+    source_types = {
+        endpoints[0]
+        for relationship in relationships
+        if relationship.source_mention_id == source_mention_id
+        if relationship.query_side_candidates
+        if (endpoints := available_sides.get(relationship.query_side_candidates[0])) is not None
+    }
+    return next(iter(source_types)) if len(source_types) == 1 else None
+
+
+def normalize_investigation_competitors(
+    proposal: InvestigationIntentProposal,
+) -> InvestigationIntentProposal:
+    """Rebind only wholly invalid competitor refs to the proposed hypothesis set."""
+
+    hypothesis_ids = tuple(hypothesis.hypothesis_id for hypothesis in proposal.hypotheses)
+    if len(hypothesis_ids) != len(set(hypothesis_ids)):
+        return proposal
+    id_set = frozenset(hypothesis_ids)
+    references = tuple(
+        (hypothesis.hypothesis_id, competitor)
+        for hypothesis in proposal.hypotheses
+        for competitor in hypothesis.competing_explanations
+    )
+    if not references or any(
+        not hypothesis.competing_explanations for hypothesis in proposal.hypotheses
+    ):
+        return proposal
+    valid = tuple(
+        competitor in id_set and competitor != hypothesis_id
+        for hypothesis_id, competitor in references
+    )
+    if any(valid):
+        return proposal
+    return proposal.model_copy(
+        update={
+            "hypotheses": tuple(
+                hypothesis.model_copy(
+                    update={
+                        "competing_explanations": tuple(
+                            candidate
+                            for candidate in hypothesis_ids
+                            if candidate != hypothesis.hypothesis_id
+                        )
+                    }
+                )
+                for hypothesis in proposal.hypotheses
+            )
+        }
+    )
+
+
+def normalize_investigation_symptom(
+    proposal: InvestigationIntentProposal,
+    *,
+    utterance: str,
+    metric_concepts: Sequence[str],
+    inventory_query_language: InventoryQueryLanguageRegistry | None,
+) -> InvestigationIntentProposal:
+    """Bind one exact reviewed symptom phrase to its canonical metric concept."""
+
+    if len(proposal.symptom_measures) != 1 or inventory_query_language is None:
+        return proposal
+    matches = tuple(
+        (signal_name, concept_id)
+        for signal_name, concept_id in _SYMPTOM_CONCEPT_BY_SIGNAL
+        if concept_id in metric_concepts
+        and query_signal_matches(utterance, inventory_query_language, signal_name)
+    )
+    if len(matches) != 1:
+        return proposal
+    signal_name, concept_id = matches[0]
+    measure = proposal.symptom_measures[0]
+    signal_span = query_signal_span(utterance, inventory_query_language, signal_name)
+    if proposal.primary_symptom_measure_id != measure.measure_id or signal_span is None:
+        return proposal
+    start, end, text = signal_span
+    return proposal.model_copy(
+        update={
+            "symptom_measures": (
+                measure.model_copy(
+                    update={
+                        "concept_id": concept_id,
+                        "span": IntentSourceSpan(start=start, end=end, text=text),
+                    }
+                ),
+            )
+        }
+    )
 
 
 def verify_investigation_intent(
@@ -332,7 +505,10 @@ def _verify_entities(
     for entity in entities:
         if entity.mention_id in by_id:
             raise ValueError("investigation entity ids MUST be unique")
-        if not set(entity.object_type_candidates) <= available_types:
+        if (
+            not entity.object_type_candidates
+            or not set(entity.object_type_candidates) <= available_types
+        ):
             raise ValueError("investigation entity type is absent from the principal manifest")
         by_id[entity.mention_id] = entity
     return by_id
@@ -458,5 +634,8 @@ __all__ = [
     "InvestigationTemporalCue",
     "InvestigationTemporalRole",
     "VerifiedInvestigationIntent",
+    "normalize_investigation_competitors",
+    "normalize_investigation_symptom",
+    "normalize_investigation_target",
     "verify_investigation_intent",
 ]

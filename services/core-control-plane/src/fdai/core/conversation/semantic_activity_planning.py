@@ -12,6 +12,7 @@ from fdai_service_contracts.ontology_query import (
     OntologyQueryNode,
     OntologyQueryPlan,
     QueryNodeKind,
+    SemanticOperation,
     SemanticProblemFrame,
     canonical_json,
     content_digest,
@@ -27,16 +28,84 @@ from fdai.core.ontology_platform import (
     QueryManifest,
 )
 from fdai.core.ontology_platform.resource_activity_queries import (
+    MAX_RESOURCE_ACTIVITY_LOOKBACK_SECONDS,
     RESOURCE_ACTIVITY_FUNCTION_NAME,
 )
+from fdai.rule_catalog.schema.inventory_query_language import (
+    InventoryQueryLanguageRegistry,
+    query_signal_matches,
+)
 
-from .semantic_planning_models import SemanticOutputShape
+from .semantic_planning_models import SemanticFrameProposal, SemanticOutputShape
+from .semantic_target_identity import exact_target_from_constraints
 
 _LOGGER = logging.getLogger(__name__)
-_LOOKBACK = re.compile(
-    r"(?:\b(?:last|past)\s+|지난\s*)(?P<count>\d{1,4})\s*"
-    r"(?P<unit>minutes?|mins?|hours?|분|시간)\b"
+_NORMALIZABLE_OUTPUTS = frozenset(
+    {
+        SemanticOutputShape.CAUSAL_EVIDENCE,
+        SemanticOutputShape.EVIDENCE_VALIDATION,
+        SemanticOutputShape.PROPERTY_FILTERED_RESOURCES,
+        SemanticOutputShape.RESOURCE_LIST,
+        SemanticOutputShape.TEMPORAL_COMPARISON,
+    }
 )
+_READ_ONLY_OPERATIONS = frozenset(
+    {
+        SemanticOperation.COMPARE,
+        SemanticOperation.EXPLAIN_CHANGE,
+        SemanticOperation.SELECT,
+        SemanticOperation.VALIDATE,
+    }
+)
+_LOOKBACK = re.compile(
+    r"(?:\b(?:last|past)\s+|지난\s*)"
+    r"(?P<count>\d{1,4}|one|a)?\s*"
+    r"(?:(?P<unit_en>minutes?|mins?|hours?|days?|weeks?)\b|"
+    r"(?P<unit_ko>주일|시간|분|일|주)(?=$|[\s.,!?은는이가의에을를도만와과로]))"
+)
+
+
+def normalize_activity_proposal(
+    proposal: SemanticFrameProposal,
+    *,
+    utterance: str,
+    descriptors: tuple[dict[str, Any], ...],
+    inventory_query_language: InventoryQueryLanguageRegistry | None,
+) -> SemanticFrameProposal:
+    """Restore exact bounded activity only from unambiguous catalog signals."""
+
+    if (
+        proposal.output_shape is SemanticOutputShape.TARGET_ACTIVITY
+        and proposal.operation is SemanticOperation.SELECT
+    ):
+        return proposal
+    if (
+        inventory_query_language is None
+        or proposal.operation not in _READ_ONLY_OPERATIONS
+        or proposal.output_shape not in _NORMALIZABLE_OUTPUTS
+        or proposal.investigation is not None
+        or proposal.unresolved_terms
+        or proposal.clarification_requirements
+        or not query_signal_matches(utterance, inventory_query_language, "activity")
+        or query_signal_matches(utterance, inventory_query_language, "causal_diagnosis")
+        or not _has_activity_function(descriptors)
+    ):
+        return proposal
+    lookback_seconds = _activity_lookback_seconds(utterance)
+    target = exact_target_from_constraints(
+        proposal.subject_constraints,
+        utterance=utterance,
+        descriptors=descriptors,
+    )
+    if lookback_seconds is None or target is None:
+        return proposal
+    return proposal.model_copy(
+        update={
+            "operation": SemanticOperation.SELECT,
+            "output_shape": SemanticOutputShape.TARGET_ACTIVITY,
+            "temporal_scope": {"lookback_seconds": lookback_seconds},
+        }
+    )
 
 
 def compile_target_activity_plan(
@@ -53,7 +122,7 @@ def compile_target_activity_plan(
     if frame.output_shape != SemanticOutputShape.TARGET_ACTIVITY:
         return None
     lookback_seconds = _activity_lookback_seconds(utterance)
-    target_name = _exact_target_from_constraints(
+    target_name = exact_target_from_constraints(
         frame.subject_constraints,
         utterance=utterance,
         descriptors=manifest.descriptors,
@@ -131,32 +200,23 @@ def _activity_lookback_seconds(utterance: str) -> int | None:
     matches = tuple(_LOOKBACK.finditer(utterance.casefold()))
     if len(matches) != 1:
         return None
-    count = int(matches[0].group("count"))
-    unit = matches[0].group("unit")
-    seconds = count * (3600 if unit in {"hour", "hours", "시간"} else 60)
-    return seconds if 60 <= seconds <= 86_400 else None
-
-
-def _exact_target_from_constraints(
-    subject_constraints: tuple[str, ...],
-    *,
-    utterance: str,
-    descriptors: tuple[dict[str, Any], ...],
-) -> str | None:
-    declared = {
-        name.casefold()
-        for descriptor in descriptors
-        if descriptor.get("kind") in {"object", "interface"}
-        if isinstance((name := descriptor.get("name")), str)
-    }
-    folded = utterance.casefold()
-    candidates = tuple(
-        subject
-        for subject in subject_constraints
-        if subject.casefold() not in declared
-        if folded.count(subject.casefold()) == 1
-    )
-    return candidates[0] if len(candidates) == 1 else None
+    raw_count = matches[0].group("count")
+    count = 1 if raw_count in {None, "a", "one"} else int(raw_count)
+    unit = matches[0].group("unit_en") or matches[0].group("unit_ko")
+    unit_seconds = {
+        "day": 86_400,
+        "days": 86_400,
+        "일": 86_400,
+        "week": 604_800,
+        "weeks": 604_800,
+        "주": 604_800,
+        "주일": 604_800,
+        "hour": 3_600,
+        "hours": 3_600,
+        "시간": 3_600,
+    }.get(unit, 60)
+    seconds = count * unit_seconds
+    return seconds if 60 <= seconds <= MAX_RESOURCE_ACTIVITY_LOOKBACK_SECONDS else None
 
 
 def _resource_identity_property(descriptors: tuple[dict[str, Any], ...]) -> str | None:
@@ -179,4 +239,4 @@ def _has_activity_function(descriptors: tuple[dict[str, Any], ...]) -> bool:
     )
 
 
-__all__ = ["compile_target_activity_plan"]
+__all__ = ["compile_target_activity_plan", "normalize_activity_proposal"]

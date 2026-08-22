@@ -1,0 +1,203 @@
+schema_version: "1.0.0"
+suite_id: azure-sre-agent-container-apps-examples
+source_surface: Microsoft Azure SRE Agent suggested questions
+execution_authority: false
+workflow: one_by_one
+targetless_contract:
+  collection_request: Return the complete verified subtype list when bounded evidence permits it.
+  singular_request: Return verified subtype candidates and ask for one exact name or resource ID.
+  candidate_scope: authoritative_inventory
+  capability_selection: unchanged
+validation:
+  source: authenticated local Console on the current source digest
+  first_turn_matrix:
+    cases: 8
+    verified: 8
+    context_required: 0
+    unsupported: 0
+    held: 0
+    unverified: 0
+    semantic_substitution: 0
+    execution_authority: false
+  exact_target_follow_up:
+    state: in_progress
+    open_capabilities:
+      - Typed Container App ingress projection.
+      - Seven-day exact-target change activity.
+      - Container Apps MemoryPercentage metric semantics and bounded seven-day aggregation.
+      - Deterministic exact-target causal investigation completion.
+cases:
+  - case_id: container-apps-list
+    source_prompt: List all my container apps
+    korean_prompt: 내 Container Apps 목록을 모두 보여줘.
+    review_state: completed
+    expected_semantics:
+      operation: inventory_listing
+      target_type: compute.container-app
+      target_context: server_scope
+    required_answer:
+      - List only exact Container App resources.
+      - Preserve authoritative snapshot completeness and observation time.
+      - Distinguish a verified empty result from unavailable or conflicting inventory evidence.
+      - Return every verified row when the bounded complete result fits the answer contract.
+    forbidden_behavior:
+      - Include Container App environments or jobs in the app list.
+      - Expose account identifiers, raw provider payloads, or hidden model reasoning.
+      - Claim execution authority.
+    comparison:
+      borrow:
+        - Start with subscription-scoped resource discovery.
+        - State a verified empty result directly when the source is complete.
+      improve:
+        - Reconcile conflicting inventory sources before concluding that no apps exist.
+        - Show a verified intent instruction while keeping the exact capability available for audit.
+      fdai_result: exact_subtype_complete_list
+  - case_id: container-app-ingress
+    source_prompt: What is the ingress configuration for my container app?
+    korean_prompt: 내 Container App의 인그레스 구성은 어떻게 되어 있어?
+    review_state: completed
+    expected_semantics:
+      operation: configuration_read
+      target_type: compute.container-app
+      target_context: explicit_target_required
+    required_answer:
+      - Return the bounded verified Container App candidates before reading configuration.
+      - Ask the operator to select one exact Container App name or resource ID.
+      - State that the requested configuration will be checked against available evidence.
+      - Separate fields without authoritative evidence as limitations.
+      - Preserve the read-only boundary and grant no execution authority.
+    forbidden_behavior:
+      - Treat the Container App resource type as an exact resource identity.
+      - Query every Container App and present an empty list as an ingress answer.
+      - Expose account identifiers, commands, provider payloads, or hidden model reasoning.
+    comparison:
+      borrow:
+        - Require an exact name or resource ID before provider inspection.
+        - Tell the operator what the bounded inspection will do after clarification.
+      improve:
+        - Stop before plan proposal and evidence-provider execution when identity is missing.
+        - Promise only typed available evidence and name unavailable fields as limitations.
+        - Return the clarification in the operator's language with no internal identifiers.
+      fdai_result: verified_target_candidates_with_exact_target_next_step
+    validation:
+      live_console_outcome: verified_target_candidates
+      candidate_count_positive: true
+      source_complete: true
+      exact_target_next_step: true
+      execution_authority: false
+  - case_id: container-app-active-revision
+    source_prompt: Which revision of my container app is currently active?
+    korean_prompt: 내 Container App에서 현재 활성화된 리비전은 무엇이야?
+    review_state: completed
+    expected_semantics:
+      operation: current_state
+      target_type: compute.container-app
+      target_context: explicit_target_required
+    required_answer:
+      - Return the bounded verified Container App candidates before reading current state.
+      - Ask the operator to select one exact Container App name or resource ID.
+      - Preserve active revision as a typed current-state measure rather than a subtype listing.
+      - Keep exact-target reads on the query.resource_current_state path.
+      - Preserve the read-only boundary and grant no execution authority.
+    forbidden_behavior:
+      - Treat the Container App resource type as an exact resource identity.
+      - Query or list every Container App when the exact target is missing.
+      - Expose account identifiers, provider payloads, memory, or hidden model reasoning.
+    comparison:
+      borrow:
+        - Require an exact name or resource ID before current-state inspection.
+      improve:
+        - Stop before model plan proposal and provider execution when identity is missing.
+        - Preserve the active-revision intent through the typed current-state capability.
+        - Return the clarification in the operator's language without internal identifiers.
+      fdai_result: verified_target_candidates_with_current_state_next_step
+    validation:
+      live_console_outcome: verified_target_candidates
+      candidate_count_positive: true
+      source_complete: true
+      exact_target_next_step: true
+      execution_authority: false
+      sensitive_internal_output: false
+  - case_id: container-app-change-history
+    source_prompt: What changed in my container app in the last week?
+    korean_prompt: 지난 1주일 동안 내 Container App에서 무엇이 변경됐어?
+    review_state: completed
+    expected_semantics:
+      operation: temporal_comparison
+      target_type: compute.container-app
+      target_context: explicit_target_required
+    comparison:
+      fdai_result: verified_target_candidates_with_history_next_step
+    validation:
+      live_console_outcome: verified_target_candidates
+      candidate_count_positive: true
+      source_complete: true
+      exact_target_next_step: true
+      execution_authority: false
+  - case_id: container-app-memory-chart
+    source_prompt: Show me visualization of memory utilization % for my container app for last week
+    korean_prompt: 지난 1주일간 내 Container App의 메모리 사용률(%)을 시각화해 줘.
+    review_state: completed
+    expected_semantics:
+      operation: metric_series
+      target_type: compute.container-app
+      target_context: explicit_target_required
+    forbidden_behavior:
+      - Substitute available memory percentage for memory utilization percentage.
+      - Invent a chart without authoritative metric samples.
+    comparison:
+      fdai_result: verified_target_candidates_with_metric_next_step
+    validation:
+      live_console_outcome: verified_target_candidates
+      candidate_count_positive: true
+      source_complete: true
+      exact_target_next_step: true
+      execution_authority: false
+  - case_id: container-app-activation-failed
+    source_prompt: My container app is stuck in activation failed state
+    korean_prompt: 내 Container App이 activation failed 상태에서 멈춰 있어. 원인을 조사해 줘.
+    review_state: completed
+    expected_semantics:
+      operation: causal_analysis
+      target_type: compute.container-app
+      target_context: explicit_target_required
+    comparison:
+      fdai_result: verified_target_candidates_with_causal_next_step
+    validation:
+      live_console_outcome: verified_target_candidates
+      candidate_count_positive: true
+      source_complete: true
+      exact_target_next_step: true
+      execution_authority: false
+  - case_id: container-app-timeout
+    source_prompt: Why is my container app timed out?
+    korean_prompt: 내 Container App 요청이 시간 초과되는 이유는 무엇이야?
+    review_state: completed
+    expected_semantics:
+      operation: causal_analysis
+      target_type: compute.container-app
+      target_context: explicit_target_required
+    comparison:
+      fdai_result: verified_target_candidates_with_causal_next_step
+    validation:
+      live_console_outcome: verified_target_candidates
+      candidate_count_positive: true
+      source_complete: true
+      exact_target_next_step: true
+      execution_authority: false
+  - case_id: container-app-http-500
+    source_prompt: Why is my container app throwing 500s?
+    korean_prompt: 내 Container App에서 HTTP 500 오류가 발생하는 이유는 무엇이야?
+    review_state: completed
+    expected_semantics:
+      operation: causal_analysis
+      target_type: compute.container-app
+      target_context: explicit_target_required
+    comparison:
+      fdai_result: verified_target_candidates_with_causal_next_step
+    validation:
+      live_console_outcome: verified_target_candidates
+      candidate_count_positive: true
+      source_complete: true
+      exact_target_next_step: true
+      execution_authority: false

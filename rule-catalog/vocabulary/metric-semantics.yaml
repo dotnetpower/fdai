@@ -24,6 +24,12 @@ definitions:
     aggregation: sum
     description: Completed server requests classified as errors in the bounded window.
     monotonic: true
+  - concept_id: request.timeout
+    provider_metric: container_app_resiliency_request_timeouts
+    canonical_unit: count
+    aggregation: sum
+    description: Requests that timed out while waiting for a response in the bounded window.
+    monotonic: true
   - concept_id: request.volume
     provider_metric: http.server.request.count
     canonical_unit: count
@@ -35,6 +41,24 @@ definitions:
     canonical_unit: nanocores
     aggregation: average
     description: CPU consumption of the bounded runtime resource.
+    monotonic: false
+  - concept_id: resource.activation.failure
+    provider_metric: container_app_activation_failure_count
+    canonical_unit: count
+    aggregation: sum
+    description: Container activation failures observed for the bounded runtime resource.
+    monotonic: true
+  - concept_id: resource.memory.available_pct
+    provider_metric: host.memory.available_pct
+    canonical_unit: percent
+    aggregation: average
+    description: Available host memory percentage for the bounded runtime resource.
+    monotonic: false
+  - concept_id: resource.memory.usage_pct
+    provider_metric: container_app_memory_percentage
+    canonical_unit: percent
+    aggregation: average
+    description: Percentage of the memory limit used by the bounded runtime resource.
     monotonic: false
   - concept_id: service.latency
     provider_metric: service_request_duration_ms

@@ -134,6 +134,84 @@ async def test_activity_read_filters_one_exact_resolved_target() -> None:
     assert result.evidence.truncated is False
 
 
+async def test_activity_read_preserves_one_bounded_seven_day_filter() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json={"value": []})
+
+    before = datetime.now(UTC)
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        provider = AzureActivityReadInvestigationProvider(
+            base=_BaseProvider(),  # type: ignore[arg-type]
+            identity=_Identity(),  # type: ignore[arg-type]
+            http_client=client,
+            config=AzureActivityReadConfig(subscription_id=SUBSCRIPTION_ID),
+        )
+        result = await provider.query_resource_activity(
+            _resource(),
+            lookback_seconds=604800,
+            limits=_limits(),
+        )
+    after = datetime.now(UTC)
+
+    filter_value = requests[0].url.params["$filter"]
+    lower_text = filter_value.split("eventTimestamp ge '", 1)[1].split("'", 1)[0]
+    upper_text = filter_value.split("eventTimestamp le '", 1)[1].split("'", 1)[0]
+    lower = datetime.fromisoformat(lower_text.replace("Z", "+00:00"))
+    upper = datetime.fromisoformat(upper_text.replace("Z", "+00:00"))
+    assert upper - lower == timedelta(days=7)
+    assert before.replace(microsecond=0) <= upper <= after
+    assert result.evidence.status is EvidenceStatus.NONE
+
+
+async def test_resource_health_read_returns_exact_provider_status() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "properties": {
+                    "availabilityState": "Unavailable",
+                    "reasonType": "PlatformInitiated",
+                    "occurredTime": "2026-08-20T11:54:00Z",
+                    "reportedTime": "2026-08-20T11:55:00Z",
+                }
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        provider = AzureActivityReadInvestigationProvider(
+            base=_BaseProvider(),  # type: ignore[arg-type]
+            identity=_Identity(),  # type: ignore[arg-type]
+            http_client=client,
+            config=AzureActivityReadConfig(subscription_id=SUBSCRIPTION_ID),
+        )
+        result = await provider.query_resource_health(
+            _resource(),
+            lookback_seconds=3600,
+            limits=_limits(),
+        )
+
+    assert len(requests) == 1
+    assert requests[0].headers["Authorization"] == "Bearer test-token"
+    assert requests[0].url.path.endswith(
+        "/providers/Microsoft.ResourceHealth/availabilityStatuses/current"
+    )
+    assert result.tool_id.value == "query_resource_health"
+    assert result.evidence.authority == "azure.resource_health"
+    assert result.evidence.status is EvidenceStatus.MATCHED
+    assert len(result.evidence.records) == 1
+    assert result.evidence.records[0].state == "unavailable"
+    assert result.evidence.records[0].health_kind == "platform_initiated"
+    assert result.evidence.records[0].occurred_at == datetime(2026, 8, 20, 11, 55, tzinfo=UTC)
+    assert result.evidence.evidence_refs[0].startswith("azure-resource-health:")
+    assert result.evidence.truncated is False
+
+
 async def test_activity_read_caps_results_and_marks_truncation() -> None:
     rows = [
         {

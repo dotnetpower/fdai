@@ -13,13 +13,14 @@ from fdai.shared.contracts.models import (
 )
 
 RESOURCE_ACTIVITY_FUNCTION_NAME = "query.resource_change_activity"
+MAX_RESOURCE_ACTIVITY_LOOKBACK_SECONDS = 7 * 24 * 60 * 60
 
 
 def resource_activity_function_type() -> OntologyFunctionType:
     """Return the fixed read-only declaration for bounded change activity."""
     return OntologyFunctionType(
         name=RESOURCE_ACTIVITY_FUNCTION_NAME,
-        version="1.0.0",
+        version="1.1.0",
         kind=OntologyFunctionKind.QUERY,
         artifact_digest=f"sha256:{hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}",
         publisher="fdai",
@@ -29,7 +30,11 @@ def resource_activity_function_type() -> OntologyFunctionType:
             "required": ["query_result", "lookback_seconds"],
             "properties": {
                 "query_result": {"type": "object"},
-                "lookback_seconds": {"type": "integer", "minimum": 60, "maximum": 86400},
+                "lookback_seconds": {
+                    "type": "integer",
+                    "minimum": 60,
+                    "maximum": MAX_RESOURCE_ACTIVITY_LOOKBACK_SECONDS,
+                },
             },
         },
         output_schema={
@@ -55,4 +60,8 @@ def resource_activity_function_type() -> OntologyFunctionType:
     )
 
 
-__all__ = ["RESOURCE_ACTIVITY_FUNCTION_NAME", "resource_activity_function_type"]
+__all__ = [
+    "MAX_RESOURCE_ACTIVITY_LOOKBACK_SECONDS",
+    "RESOURCE_ACTIVITY_FUNCTION_NAME",
+    "resource_activity_function_type",
+]

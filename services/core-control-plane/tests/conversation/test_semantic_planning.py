@@ -32,6 +32,31 @@ from fdai.core.ontology_platform import (
     build_query_manifest,
 )
 from fdai.core.ontology_platform.property_values import PropertyValueDomain, PropertyValueGroup
+from fdai.core.ontology_platform.resource_event_queries import (
+    RESOURCE_EVENT_FUNCTION_NAME,
+    resource_event_function_type,
+)
+from fdai.core.ontology_platform.resource_health_queries import (
+    RESOURCE_HEALTH_FUNCTION_NAME,
+    resource_health_function_type,
+)
+from fdai.core.ontology_platform.resource_metric_queries import (
+    RESOURCE_METRIC_FUNCTION_NAME,
+    resource_metric_function_type,
+)
+from fdai.core.ontology_platform.resource_state_queries import (
+    RESOURCE_STATE_FUNCTION_NAME,
+    resource_state_function_type,
+)
+from fdai.core.ontology_platform.service_health_queries import (
+    SERVICE_HEALTH_FUNCTION_NAME,
+    service_health_function_type,
+)
+from fdai.rule_catalog.schema.inventory_query_language import (
+    InventoryQueryLanguageRegistry,
+    QueryEvidenceAuthority,
+    QueryValues,
+)
 from fdai.shared.contracts.models import (
     CeilingRole,
     OntologyObjectType,
@@ -157,12 +182,22 @@ def _plan(definition: ObjectSetDefinition) -> dict[str, object]:
     }
 
 
-def _service(model: _Model, manifest: Any) -> SemanticPlanningService:
+def _service(
+    model: _Model,
+    manifest: Any,
+    *,
+    inventory_query_language: InventoryQueryLanguageRegistry | None = None,
+    metric_concepts: tuple[str, ...] = (),
+) -> SemanticPlanningService:
     return SemanticPlanningService(
         model=model,
         manifests=_ManifestProvider(manifest),
-        verifier=OntologyQueryPlanVerifier(available_kinds=(QueryNodeKind.OBJECT_SET,)),
+        verifier=OntologyQueryPlanVerifier(
+            available_kinds=(QueryNodeKind.OBJECT_SET, QueryNodeKind.FUNCTION)
+        ),
         now=lambda: NOW,
+        inventory_query_language=inventory_query_language,
+        metric_concepts=metric_concepts,
     )
 
 
@@ -756,7 +791,36 @@ def test_frame_proposal_rejects_free_form_output_shape() -> None:
         SemanticFrameProposal.model_validate(_frame(output_shape="whatever_the_model_wants"))
 
 
-def _typed_fixture(*, groups: tuple[PropertyValueGroup, ...]) -> tuple[Any, ObjectSetDefinition]:
+def test_model_cannot_select_server_owned_target_candidates() -> None:
+    manifest, definition = _fixture()
+    model = _Model(
+        frame=_frame(output_shape="resource_target_candidates"),
+        plan=_plan(definition),
+    )
+
+    outcome = _service(model, manifest).plan(
+        utterance="Show possible targets.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.plan is None
+    assert outcome.execution_authority is False
+    assert model.plan_calls == 0
+
+
+def _typed_fixture(
+    *,
+    groups: tuple[PropertyValueGroup, ...],
+    extra_values: tuple[str, ...] = (),
+    include_resource_health: bool = False,
+    include_resource_event: bool = False,
+    include_resource_metric: bool = False,
+    include_resource_state: bool = False,
+    include_service_health: bool = False,
+) -> tuple[Any, ObjectSetDefinition]:
     resource = OntologyObjectType(
         schema_version="1.0.0",
         name="Resource",
@@ -768,18 +832,40 @@ def _typed_fixture(*, groups: tuple[PropertyValueGroup, ...]) -> tuple[Any, Obje
             "name": PropertyDecl(type=PropertyType.STRING),
         },
     )
-    release = build_ontology_release(object_types=(resource,))
+    function_types = tuple(
+        function
+        for function in (
+            resource_event_function_type() if include_resource_event else None,
+            resource_health_function_type() if include_resource_health else None,
+            resource_metric_function_type() if include_resource_metric else None,
+            resource_state_function_type() if include_resource_state else None,
+            service_health_function_type() if include_service_health else None,
+        )
+        if function is not None
+    )
+    release = build_ontology_release(
+        object_types=(resource,),
+        function_types=function_types,
+    )
     manifest = build_query_manifest(
         release=release,
         principal_role=CeilingRole.READER,
         purposes=("operations-review",),
         principal_scope_digest=DIGEST,
         object_types=(resource,),
+        functions=function_types,
+        bound_function_names=tuple(function.name for function in function_types),
         property_values=(
             PropertyValueDomain(
                 object_type="Resource",
                 property_name="type",
-                values=("compute.vm", "resource-group", "storage.account"),
+                values=tuple(
+                    sorted(
+                        {"compute.vm", "resource-group", "storage.account"}
+                        | {value for group in groups for value in group.values}
+                        | set(extra_values)
+                    )
+                ),
                 groups=groups,
             ),
         ),
@@ -804,6 +890,39 @@ _VM_GROUP = PropertyValueGroup(
     values=("compute.vm",),
     terms=("vm", "가상 머신"),
 )
+
+
+def _inventory_query_language() -> InventoryQueryLanguageRegistry:
+    return InventoryQueryLanguageRegistry(
+        schema_version="1.1.0",
+        version="1.1.0",
+        default_scope="subscription",
+        default_activity_lookback_seconds=604800,
+        current_requires_fresh=True,
+        suffixes=(),
+        signals={},
+        query_kinds={},
+        groupings={},
+        projections={},
+        scopes={},
+        states={
+            "inactive": QueryValues(
+                terms=("not running", "실행 중이 아닌", "실행 중이 아니"),
+                values=("stopped", "deallocated"),
+            ),
+            "not_ready": QueryValues(
+                terms=("not ready", "준비되지 않은"),
+                values=("failed", "degraded", "unavailable"),
+                evidence_authority=QueryEvidenceAuthority.SUBSCRIPTION_HEALTH,
+            ),
+            "running": QueryValues(
+                terms=("running", "실행 중"),
+                values=("running",),
+            ),
+        },
+        operations={},
+        time_units={},
+    )
 
 
 def _grounded_predicates(model: _Model, manifest: Any, utterance: str) -> list[dict[str, Any]]:
@@ -881,9 +1000,9 @@ def test_unstated_frame_subject_never_becomes_a_filter_operand() -> None:
     predicates = _grounded_predicates(model, manifest, "리소스 그룹을 모두 보여줘")
 
     assert predicates == [
-        {"operator": "exists", "property": "name"},
         {"property": "type", "operator": "equals", "equals": "resource-group"},
     ]
+    assert model.plan_calls == 0
 
 
 def test_stated_value_group_with_several_values_narrows_to_a_membership_predicate() -> None:
@@ -903,6 +1022,962 @@ def test_stated_value_group_with_several_values_narrows_to_a_membership_predicat
     assert predicates == [
         {"property": "type", "operator": "in", "values": ["compute.vm", "storage.account"]}
     ]
+
+
+def test_stated_subtype_narrows_an_overbroad_membership_predicate() -> None:
+    container_app = PropertyValueGroup(
+        id="compute-container-app",
+        values=("compute.container-app",),
+        terms=("container app", "container apps"),
+    )
+    manifest, definition = _typed_fixture(
+        groups=(container_app,),
+        extra_values=("compute.container-app-environment", "compute.container-app-job"),
+    )
+    overbroad = definition.model_copy(
+        update={
+            "predicates": (
+                ObjectPredicate(
+                    property="type",
+                    operator=ObjectPredicateOperator.IN,
+                    values=(
+                        "compute.container-app",
+                        "compute.container-app-environment",
+                        "compute.container-app-job",
+                    ),
+                ),
+            )
+        }
+    )
+    model = _Model(
+        frame=_frame(output_shape="property_filtered_resources"),
+        plan=_plan(overbroad),
+    )
+
+    predicates = _grounded_predicates(model, manifest, "내 Container Apps 목록을 모두 보여줘.")
+
+    assert predicates == [
+        {"property": "type", "operator": "equals", "equals": "compute.container-app"}
+    ]
+
+
+@pytest.mark.parametrize(
+    "output_shape",
+    ("property_filtered_resources", "resource_list"),
+)
+def test_stated_subtype_builds_a_model_free_filter_plan(output_shape: str) -> None:
+    container_app = PropertyValueGroup(
+        id="compute-container-app",
+        values=("compute.container-app",),
+        terms=("container app", "container apps"),
+    )
+    manifest, _definition = _typed_fixture(groups=(container_app,))
+    model = _Model(
+        frame=_frame(output_shape=output_shape),
+        plan=None,
+    )
+
+    outcome = _service(model, manifest).plan(
+        utterance="내 Container Apps 목록을 모두 보여줘.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.plan is not None
+    assert outcome.plan.nodes[0].arguments["definition"]["predicates"] == [
+        {"property": "type", "operator": "equals", "equals": "compute.container-app"}
+    ]
+    assert model.plan_calls == 0
+
+
+@pytest.mark.parametrize(
+    ("utterance", "subject"),
+    (
+        (
+            "내 Container App의 인그레스 구성은 어떻게 되어 있어?",
+            "내 Container App",
+        ),
+        (
+            "How is ingress configured for my Container App?",
+            "my Container App",
+        ),
+    ),
+)
+def test_target_scoped_subtype_query_discovers_exact_resource_candidates(
+    utterance: str,
+    subject: str,
+) -> None:
+    container_app = PropertyValueGroup(
+        id="compute-container-app",
+        values=("compute.container-app",),
+        terms=("container app", "container apps"),
+    )
+    manifest, _definition = _typed_fixture(groups=(container_app,))
+    model = _Model(
+        frame=_frame(
+            subject_constraints=["Resource", subject],
+            measure_concepts=["ingress"],
+            output_shape="property_filtered_resources",
+        ),
+        plan=None,
+    )
+
+    outcome = _service(model, manifest).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.reason == "semantic_plan_verified"
+    assert outcome.clarification is None
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == "resource_target_candidates"
+    assert outcome.plan is not None
+    assert outcome.plan.nodes[0].arguments["definition"]["predicates"] == [
+        {
+            "property": "type",
+            "operator": "equals",
+            "equals": "compute.container-app",
+        }
+    ]
+    assert outcome.execution_authority is False
+    assert model.plan_calls == 0
+
+
+def test_resource_identity_clarification_discovers_verified_candidates() -> None:
+    container_app = PropertyValueGroup(
+        id="compute-container-app",
+        values=("compute.container-app",),
+        terms=("container app", "container apps"),
+    )
+    manifest, _definition = _typed_fixture(groups=(container_app,))
+    model = _Model(
+        frame=_frame(
+            subject_constraints=["Resource"],
+            unresolved_terms=["resource_identity"],
+            clarification_requirements=["resource_identity"],
+            clarification="Which exact resource should I inspect?",
+            output_shape="property_filtered_resources",
+        ),
+        plan=None,
+    )
+
+    outcome = _service(model, manifest).plan(
+        utterance="내 Container App의 인그레스 구성은 어떻게 되어 있어?",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == "resource_target_candidates"
+    assert outcome.plan is not None
+    assert model.plan_calls == 0
+    assert outcome.execution_authority is False
+
+
+def test_subject_and_measure_clarification_discovers_verified_candidates() -> None:
+    container_app = PropertyValueGroup(
+        id="compute-container-app",
+        values=("compute.container-app",),
+        terms=("container app", "container apps"),
+    )
+    manifest, _definition = _typed_fixture(groups=(container_app,))
+    model = _Model(
+        frame=_frame(
+            subject_constraints=["Resource"],
+            unresolved_terms=["Container App", "ingress configuration"],
+            clarification_requirements=["subject", "measure"],
+            clarification="Which target and configuration should I inspect?",
+            output_shape="property_filtered_resources",
+        ),
+        plan=None,
+    )
+
+    outcome = _service(model, manifest).plan(
+        utterance="내 Container App의 인그레스 구성은 어떻게 되어 있어?",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == "resource_target_candidates"
+    assert outcome.plan is not None
+    assert model.plan_calls == 0
+    assert outcome.execution_authority is False
+
+
+def test_temporal_subtype_query_discovers_exact_resource_candidates() -> None:
+    container_app = PropertyValueGroup(
+        id="compute-container-app",
+        values=("compute.container-app",),
+        terms=("container app", "container apps"),
+    )
+    manifest, _definition = _typed_fixture(groups=(container_app,))
+    model = _Model(
+        frame=_frame(
+            operation="compare",
+            subject_constraints=["Resource", "Container App"],
+            temporal_scope={"lookback_seconds": 604800},
+            output_shape="temporal_comparison",
+        ),
+        plan=None,
+    )
+
+    outcome = _service(model, manifest).plan(
+        utterance="지난 1주일 동안 내 Container App에서 무엇이 변경됐어?",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.reason == "semantic_plan_verified"
+    assert outcome.clarification is None
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == "resource_target_candidates"
+    assert outcome.plan is not None
+    assert tuple(node.kind for node in outcome.plan.nodes) == (QueryNodeKind.OBJECT_SET,)
+    assert outcome.plan.nodes[0].arguments["definition"]["predicates"] == [
+        {
+            "property": "type",
+            "operator": "equals",
+            "equals": "compute.container-app",
+        }
+    ]
+    assert outcome.execution_authority is False
+    assert model.plan_calls == 0
+
+
+@pytest.mark.parametrize(
+    ("utterance", "frame_overrides"),
+    (
+        (
+            "내 Container App에서 현재 활성화된 리비전은 무엇이야?",
+            {
+                "subject_constraints": ["Resource", "Container App"],
+                "measure_concepts": ["active_revision"],
+                "output_shape": "target_current_state",
+            },
+        ),
+        (
+            "지난 1주일간 내 Container App의 메모리 사용률(%)을 시각화해 줘.",
+            {
+                "subject_constraints": ["Resource", "내 Container App"],
+                "measure_concepts": ["resource.memory.available_pct"],
+                "temporal_scope": {"lookback_seconds": 604800},
+                "output_shape": "resource_metric_list",
+            },
+        ),
+        (
+            "내 Container App이 activation failed 상태에서 멈춰 있어. 원인을 조사해 줘.",
+            {
+                "operation": "explain_change",
+                "subject_constraints": ["Resource", "Container App"],
+                "measure_concepts": ["activation_state"],
+                "output_shape": "causal_evidence",
+            },
+        ),
+        (
+            "내 Container App 요청이 시간 초과되는 이유는 무엇이야?",
+            {
+                "operation": "explain_change",
+                "subject_constraints": ["Resource", "Container App"],
+                "measure_concepts": ["request_timeout"],
+                "output_shape": "causal_evidence",
+            },
+        ),
+        (
+            "내 Container App에서 HTTP 500 오류가 발생하는 이유는 무엇이야?",
+            {
+                "operation": "explain_change",
+                "subject_constraints": ["Resource", "Container App"],
+                "measure_concepts": ["http_500"],
+                "output_shape": "causal_evidence",
+            },
+        ),
+    ),
+)
+def test_targetless_sre_examples_discover_verified_container_app_candidates(
+    utterance: str,
+    frame_overrides: dict[str, object],
+) -> None:
+    container_app = PropertyValueGroup(
+        id="compute-container-app",
+        values=("compute.container-app",),
+        terms=("container app", "container apps"),
+    )
+    manifest, _definition = _typed_fixture(groups=(container_app,))
+    model = _Model(frame=_frame(**frame_overrides), plan=None)
+
+    outcome = _service(model, manifest).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == "resource_target_candidates"
+    assert outcome.plan is not None
+    assert tuple(node.kind for node in outcome.plan.nodes) == (QueryNodeKind.OBJECT_SET,)
+    assert outcome.plan.nodes[0].arguments["definition"]["predicates"] == [
+        {
+            "property": "type",
+            "operator": "equals",
+            "equals": "compute.container-app",
+        }
+    ]
+    assert model.plan_calls == 0
+    assert outcome.execution_authority is False
+
+
+def test_broad_subtype_measure_query_does_not_require_an_exact_resource() -> None:
+    container_app = PropertyValueGroup(
+        id="compute-container-app",
+        values=("compute.container-app",),
+        terms=("container app", "container apps"),
+    )
+    manifest, _definition = _typed_fixture(groups=(container_app,))
+    model = _Model(
+        frame=_frame(
+            measure_concepts=["cpu"],
+            output_shape="property_filtered_resources",
+        ),
+        plan=None,
+    )
+
+    outcome = _service(model, manifest).plan(
+        utterance="Show CPU telemetry for all Container Apps.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.clarification is None
+    assert outcome.execution_authority is False
+    assert model.plan_calls == 0
+
+
+@pytest.mark.parametrize(
+    ("utterance", "initial_output_shape", "expected_concepts"),
+    (
+        (
+            "중지된 데이터베이스 있어?",
+            "property_filtered_resources",
+            ["resource_state.stopped"],
+        ),
+        (
+            "현재 중지된 데이터베이스가 있나요?",
+            "resource_state_list",
+            ["resource_state.stopped"],
+        ),
+        (
+            "현재 멈춰 있는 DB를 종류별로 보여줘.",
+            "resource_state_list",
+            ["resource_state.stopped"],
+        ),
+        (
+            "중지된 데이터베이스 서비스와 일시 중지된 데이터베이스 서비스를 구분해서 보여줘.",
+            "property_filtered_resources",
+            ["resource_state.paused", "resource_state.stopped"],
+        ),
+        (
+            "실패 상태인 Azure 리소스가 있어?",
+            "property_filtered_resources",
+            ["resource_state.failed"],
+        ),
+        (
+            "실패, 성능 저하 또는 사용 불가능 상태인 리소스를 보여줘.",
+            "resource_state_list",
+            [
+                "resource_state.degraded",
+                "resource_state.failed",
+                "resource_state.unavailable",
+            ],
+        ),
+    ),
+)
+def test_broad_resource_state_query_uses_a_collection_capability(
+    utterance: str,
+    initial_output_shape: str,
+    expected_concepts: list[str],
+) -> None:
+    database = PropertyValueGroup(
+        id="database",
+        values=("mysql-server", "postgresql-server", "sql-database"),
+        terms=("database", "databases", "db", "데이터베이스"),
+    )
+    manifest, _definition = _typed_fixture(
+        groups=(database,),
+        include_resource_state=True,
+    )
+    model = _Model(
+        frame=_frame(
+            subject_constraints=["Resource", "database"],
+            measure_concepts=["resource_state.running", "status"],
+            output_shape=initial_output_shape,
+        ),
+        plan=None,
+    )
+
+    outcome = _service(model, manifest).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.clarification is None
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == "resource_state_list"
+    assert outcome.plan is not None
+    assert tuple(node.kind for node in outcome.plan.nodes) == (
+        QueryNodeKind.OBJECT_SET,
+        QueryNodeKind.FUNCTION,
+    )
+    assert outcome.plan.nodes[1].arguments["function_name"] == RESOURCE_STATE_FUNCTION_NAME
+    assert outcome.plan.nodes[1].arguments["arguments"] == {"state_concepts": expected_concepts}
+    assert model.plan_calls == 0
+    assert outcome.execution_authority is False
+
+
+def test_current_resource_state_cannot_substitute_for_historical_events() -> None:
+    database = PropertyValueGroup(
+        id="database",
+        values=("mysql-server", "postgresql-server", "sql-database"),
+        terms=("database", "databases", "db", "데이터베이스"),
+    )
+    manifest, _definition = _typed_fixture(
+        groups=(database,),
+        include_resource_state=True,
+    )
+    model = _Model(
+        frame=_frame(
+            measure_concepts=["resource_state.running"],
+            temporal_scope={"lookback_seconds": 86400},
+            output_shape="resource_state_list",
+        ),
+        plan=None,
+    )
+
+    outcome = _service(model, manifest).plan(
+        utterance="지난 24시간의 리소스 상태 이벤트를 시간순으로 보여줘.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.plan is None
+    assert outcome.execution_authority is False
+    assert model.plan_calls == 0
+
+
+def test_resource_health_history_uses_exact_event_function() -> None:
+    manifest, _definition = _typed_fixture(
+        groups=(_VM_GROUP,),
+        include_resource_event=True,
+    )
+    model = _Model(
+        frame=_frame(
+            subject_constraints=["Resource", "compute-vm"],
+            measure_concepts=["resource_event.resource_health"],
+            temporal_scope={"lookback_seconds": 86400},
+            output_shape="resource_event_history",
+        ),
+        plan=None,
+    )
+
+    outcome = _service(model, manifest).plan(
+        utterance="지난 24시간의 가상 머신 Resource Health 이벤트를 시간순으로 보여줘.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.plan is not None
+    assert tuple(node.kind for node in outcome.plan.nodes) == (
+        QueryNodeKind.OBJECT_SET,
+        QueryNodeKind.FUNCTION,
+    )
+    assert outcome.plan.nodes[1].arguments["function_name"] == RESOURCE_EVENT_FUNCTION_NAME
+    assert outcome.plan.nodes[1].arguments["arguments"] == {
+        "event_families": ["resource_event.resource_health"],
+        "lookback_seconds": 86400,
+    }
+    assert model.plan_calls == 0
+    assert outcome.execution_authority is False
+
+
+def test_platform_impact_uses_server_scoped_service_health_function() -> None:
+    manifest, _definition = _typed_fixture(
+        groups=(_VM_GROUP,),
+        include_service_health=True,
+    )
+    model = _Model(
+        frame=_frame(
+            subject_constraints=["Resource"],
+            measure_concepts=["service_health.active_event"],
+            output_shape="subscription_service_health",
+        ),
+        plan=None,
+    )
+
+    outcome = _service(model, manifest).plan(
+        utterance="현재 Azure 구독에 활성 서비스 장애나 예정된 유지 관리가 있어?",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.plan is not None
+    assert tuple(node.kind for node in outcome.plan.nodes) == (QueryNodeKind.FUNCTION,)
+    assert outcome.plan.nodes[0].arguments == {
+        "function_name": SERVICE_HEALTH_FUNCTION_NAME,
+        "arguments": {},
+        "dependency_arguments": {},
+    }
+    assert model.plan_calls == 0
+    assert outcome.execution_authority is False
+
+
+def test_mixed_inventory_state_and_health_preserves_the_health_family() -> None:
+    application_service = PropertyValueGroup(
+        id="application-service",
+        values=("app-service",),
+        terms=("app service", "앱 서비스"),
+    )
+    manifest, _definition = _typed_fixture(
+        groups=(application_service,),
+        include_resource_health=True,
+        include_resource_state=True,
+    )
+    model = _Model(
+        frame=_frame(
+            subject_constraints=["Resource", "application-service"],
+            measure_concepts=["resource_state.running"],
+            output_shape="resource_state_list",
+        ),
+        plan=None,
+    )
+
+    outcome = _service(
+        model,
+        manifest,
+        inventory_query_language=_inventory_query_language(),
+    ).plan(
+        utterance="실행 중이 아니거나 준비되지 않은 앱 서비스를 보여줘.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == "resource_health_list"
+    assert outcome.frame.measure_concepts == (
+        "resource_health.not_ready",
+        "resource_state.deallocated",
+        "resource_state.stopped",
+    )
+    assert outcome.plan is not None
+    assert tuple(node.kind for node in outcome.plan.nodes) == (
+        QueryNodeKind.OBJECT_SET,
+        QueryNodeKind.FUNCTION,
+    )
+    assert outcome.plan.nodes[1].arguments["function_name"] == RESOURCE_HEALTH_FUNCTION_NAME
+    assert outcome.plan.nodes[1].arguments["arguments"] == {
+        "health_concepts": ["resource_health.not_ready"],
+        "state_concepts": ["resource_state.deallocated", "resource_state.stopped"],
+    }
+    assert model.plan_calls == 0
+    assert outcome.execution_authority is False
+
+
+def test_mixed_inventory_state_and_health_holds_when_health_function_is_unbound() -> None:
+    application_service = PropertyValueGroup(
+        id="application-service",
+        values=("app-service",),
+        terms=("app service", "앱 서비스"),
+    )
+    manifest, _definition = _typed_fixture(
+        groups=(application_service,),
+        include_resource_state=True,
+    )
+    model = _Model(
+        frame=_frame(
+            subject_constraints=["Resource", "application-service"],
+            measure_concepts=["resource_state.running"],
+            output_shape="resource_state_list",
+        ),
+        plan=None,
+    )
+
+    outcome = _service(
+        model,
+        manifest,
+        inventory_query_language=_inventory_query_language(),
+    ).plan(
+        utterance="실행 중이 아니거나 준비되지 않은 앱 서비스를 보여줘.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == "resource_health_list"
+    assert outcome.plan is None
+    assert outcome.execution_authority is False
+
+
+def test_broad_resource_metric_query_uses_reviewed_metric_function() -> None:
+    manifest, _definition = _typed_fixture(
+        groups=(_VM_GROUP,),
+        include_resource_metric=True,
+    )
+    model = _Model(
+        frame=_frame(
+            subject_constraints=["Resource", "compute-vm"],
+            measure_concepts=["resource.saturation"],
+            temporal_scope={"lookback_seconds": 1800},
+            output_shape="resource_metric_list",
+        ),
+        plan=None,
+    )
+
+    outcome = _service(
+        model,
+        manifest,
+        metric_concepts=("resource.saturation",),
+    ).plan(
+        utterance="지난 30분 동안 가상 머신 CPU 사용률을 보여줘.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.plan is not None
+    assert tuple(node.kind for node in outcome.plan.nodes) == (
+        QueryNodeKind.OBJECT_SET,
+        QueryNodeKind.FUNCTION,
+    )
+    assert outcome.plan.nodes[1].arguments["function_name"] == RESOURCE_METRIC_FUNCTION_NAME
+    assert outcome.plan.nodes[1].arguments["arguments"] == {
+        "metric_concepts": ["resource.saturation"],
+        "window_seconds": 1800,
+    }
+    assert model.plan_calls == 0
+    assert outcome.execution_authority is False
+
+
+def test_broad_resource_metric_query_rejects_unreviewed_concept() -> None:
+    manifest, _definition = _typed_fixture(
+        groups=(_VM_GROUP,),
+        include_resource_metric=True,
+    )
+    model = _Model(
+        frame=_frame(
+            measure_concepts=["resource.memory.pressure"],
+            output_shape="resource_metric_list",
+        ),
+        plan=None,
+    )
+
+    outcome = _service(
+        model,
+        manifest,
+        metric_concepts=("resource.saturation",),
+    ).plan(
+        utterance="메모리 압력이 있는 리소스를 보여줘.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.plan is None
+    assert outcome.execution_authority is False
+
+
+def test_broad_memory_observation_uses_reviewed_available_percentage() -> None:
+    manifest, _definition = _typed_fixture(
+        groups=(_VM_GROUP,),
+        include_resource_metric=True,
+    )
+    model = _Model(
+        frame=_frame(
+            subject_constraints=["Resource", "compute-vm"],
+            measure_concepts=["resource.memory.available_pct"],
+            output_shape="resource_metric_list",
+        ),
+        plan=None,
+    )
+
+    outcome = _service(
+        model,
+        manifest,
+        metric_concepts=("resource.memory.available_pct",),
+    ).plan(
+        utterance="가상 머신의 현재 가용 메모리 비율을 보여줘.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.plan is not None
+    assert outcome.plan.nodes[1].arguments["arguments"] == {
+        "metric_concepts": ["resource.memory.available_pct"],
+        "window_seconds": 900,
+    }
+    assert outcome.execution_authority is False
+
+
+def test_catalog_current_state_group_stays_on_the_state_capability() -> None:
+    database = PropertyValueGroup(
+        id="database",
+        values=("mysql-server", "postgresql-server", "sql-database"),
+        terms=("database", "db", "데이터베이스"),
+    )
+    manifest, _definition = _typed_fixture(
+        groups=(database,),
+        include_resource_state=True,
+    )
+    model = _Model(
+        frame=_frame(
+            subject_constraints=["Resource", "database"],
+            measure_concepts=["resource_state.running"],
+            output_shape="resource_state_list",
+        ),
+        plan=None,
+    )
+
+    outcome = _service(
+        model,
+        manifest,
+        inventory_query_language=_inventory_query_language(),
+    ).plan(
+        utterance="현재 실행 중이 아닌 DB를 보여줘.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == "resource_state_list"
+    assert outcome.plan is not None
+    assert outcome.plan.nodes[1].arguments["arguments"] == {
+        "state_concepts": ["resource_state.deallocated", "resource_state.stopped"]
+    }
+    assert outcome.execution_authority is False
+
+
+def test_resource_state_collection_does_not_promote_subject_phrase_to_name_filter() -> None:
+    manifest, _definition = _typed_fixture(
+        groups=(_VM_GROUP,),
+        include_resource_state=True,
+    )
+    model = _Model(
+        frame=_frame(
+            subject_constraints=["Resource", "할당 해제된 가상 머신"],
+            measure_concepts=["resource_state.deallocated"],
+            output_shape="resource_state_list",
+        ),
+        plan=None,
+    )
+
+    outcome = _service(model, manifest).plan(
+        utterance="할당 해제된 가상 머신을 모두 찾아줘.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.plan is not None
+    assert outcome.plan.nodes[0].arguments["definition"]["predicates"] == [
+        {"property": "type", "operator": "equals", "equals": "compute.vm"}
+    ]
+    assert outcome.execution_authority is False
+
+
+@pytest.mark.parametrize(
+    "output_shape",
+    (
+        "contextual_resource_list",
+        "resource_event_history",
+        "resource_health_list",
+        "resource_metric_list",
+    ),
+)
+def test_specialized_collection_family_rejects_a_generic_object_set(
+    output_shape: str,
+) -> None:
+    manifest, definition = _fixture()
+    model = _Model(
+        frame=_frame(output_shape=output_shape),
+        plan=_plan(definition),
+    )
+
+    outcome = _service(model, manifest).plan(
+        utterance="Review the requested specialized resource evidence.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.plan is None
+    assert outcome.execution_authority is False
+    assert model.plan_calls == 1
+
+
+def test_property_filter_rejects_multiple_existence_only_predicates() -> None:
+    manifest, definition = _typed_fixture(groups=(_RESOURCE_GROUP_GROUP, _VM_GROUP))
+    broad = definition.model_copy(
+        update={
+            "predicates": tuple(
+                ObjectPredicate(property=property_name, operator=ObjectPredicateOperator.EXISTS)
+                for property_name in ("type", "name", "properties")
+            )
+        }
+    )
+    model = _Model(
+        frame=_frame(
+            measure_concepts=["type", "location", "state"],
+            output_shape="property_filtered_resources",
+        ),
+        plan=_plan(broad),
+    )
+
+    outcome = _service(model, manifest).plan(
+        utterance="List this group's resources with type, region, and state.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.plan is None
+    assert outcome.execution_authority is False
+    assert model.plan_calls == 1
+
+
+def test_property_filter_rejects_unstated_declared_value_operand() -> None:
+    manifest, definition = _typed_fixture(groups=(_RESOURCE_GROUP_GROUP, _VM_GROUP))
+    narrowed = definition.model_copy(
+        update={
+            "predicates": (
+                ObjectPredicate(
+                    property="type",
+                    operator=ObjectPredicateOperator.EQUALS,
+                    equals="resource-group",
+                ),
+            )
+        }
+    )
+    model = _Model(
+        frame=_frame(output_shape="property_filtered_resources"),
+        plan=_plan(narrowed),
+    )
+
+    outcome = _service(model, manifest).plan(
+        utterance="List this group's resources with type, region, and state.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.plan is None
+    assert outcome.execution_authority is False
+    assert model.plan_calls == 1
+
+
+def test_target_health_without_identity_discovers_verified_candidates() -> None:
+    container_app = PropertyValueGroup(
+        id="compute-container-app",
+        values=("compute.container-app",),
+        terms=("container app", "container apps"),
+    )
+    manifest, _definition = _typed_fixture(groups=(container_app,))
+    model = _Model(
+        frame=_frame(
+            operation="validate",
+            subject_constraints=["Resource", "my Container App"],
+            measure_concepts=["health", "readiness"],
+            output_shape="target_health_assessment",
+            evidence_requirements=["application_health", "evidence_gaps"],
+        ),
+        plan=None,
+    )
+
+    outcome = _service(model, manifest).plan(
+        utterance="Is my Container App healthy?",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.clarification is None
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == "resource_target_candidates"
+    assert outcome.plan is not None
+    assert outcome.plan.nodes[0].arguments["definition"]["predicates"] == [
+        {
+            "property": "type",
+            "operator": "equals",
+            "equals": "compute.container-app",
+        }
+    ]
+    assert outcome.execution_authority is False
+    assert model.plan_calls == 0
+
+
+def test_target_scoped_subtype_query_with_exact_name_continues_planning() -> None:
+    container_app = PropertyValueGroup(
+        id="compute-container-app",
+        values=("compute.container-app",),
+        terms=("container app", "container apps"),
+    )
+    manifest, _definition = _typed_fixture(groups=(container_app,))
+    model = _Model(
+        frame=_frame(
+            subject_constraints=["Resource", "orders-api-prod"],
+            measure_concepts=["ingress"],
+            output_shape="property_filtered_resources",
+        ),
+        plan=None,
+    )
+
+    outcome = _service(model, manifest).plan(
+        utterance="orders-api-prod Container App의 인그레스 구성을 보여줘.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.clarification is None
+    assert outcome.execution_authority is False
+    assert model.plan_calls == 0
 
 
 def test_unstated_value_leaves_the_existence_predicate_unchanged() -> None:
@@ -932,7 +2007,7 @@ def test_a_term_inside_a_longer_word_does_not_ground_a_filter() -> None:
     assert predicates == [{"property": "type", "operator": "exists"}]
 
 
-def test_a_planner_supplied_value_filter_is_never_rewritten() -> None:
+def test_stated_subtype_bypasses_a_conflicting_planner_filter() -> None:
     manifest, definition = _typed_fixture(groups=(_RESOURCE_GROUP_GROUP, _VM_GROUP))
     narrow = definition.model_copy(
         update={
@@ -949,7 +2024,8 @@ def test_a_planner_supplied_value_filter_is_never_rewritten() -> None:
 
     predicates = _grounded_predicates(model, manifest, "리소스그룹 모두 알려줘")
 
-    assert predicates == [{"property": "type", "operator": "equals", "equals": "storage.account"}]
+    assert predicates == [{"property": "type", "operator": "equals", "equals": "resource-group"}]
+    assert model.plan_calls == 0
 
 
 def test_hidden_property_plan_is_rejected_before_execution() -> None:

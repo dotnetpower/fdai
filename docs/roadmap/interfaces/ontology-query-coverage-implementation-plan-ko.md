@@ -1,7 +1,7 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 46694e34c11d94ff63c39ac5886eab917045ad3b
-translation_revised: 2026-08-21
+translation_source_sha: 72346e7faf5e46d644c1305aa2429e619bb2b206
+translation_revised: 2026-08-22
 ---
 
 # 온톨로지 조회 커버리지 구현 계획
@@ -154,6 +154,8 @@ translation_revised: 2026-08-21
 | 통제된 운영 보증 | 진행 중 | [온톨로지 조회 무작위 보증](ontology-query-randomized-assurance-ko.md)과 아래의 검증된 기준선 공백 표 | 로컬 검사는 안전하게 실패하는 조립을 입증하지만 운영 준비 상태를 입증하는 통제된 실제 서비스 간 증적은 없습니다. |
 | 타입 기반 Console 보증 실행기 | 구현됨 | `console-routes.spec.ts`, `ontology-query-assurance.ts`, `ontology-query-assurance.spec.ts`, focused Console 검사 | 한 실행기는 게시, Core 처리, exact projection 읽기 및 인증된 증적 렌더링을 검증합니다. Seed 기반 100-turn 실행기는 타입 전용 oracle로 영어 50개와 한국어 50개 prompt를 다룹니다. 보존 artifact가 통과하기 전에는 어느 구현도 실제 운영 근거가 아닙니다. |
 | T1 명확화 평가 | 구현됨 | `semantic_planning_models.py`, `semantic_planning_cascade.py`, focused tier-routing 및 prompt 검사 | Frame 제안은 누락된 사용자 맥락을 범위가 제한된 `clarification_requirements`로 분류합니다. 정당한 T1 명확화는 T2 없이 종료되고, Core가 이미 바인딩한 principal 범위 또는 용도를 요청하는 제안은 결정론적으로 유효하지 않으며 frame 단계만 T2로 한 번 재시도할 수 있습니다. |
+| 컬렉션 범위 Resource 상태 및 근거 기능군 격리 | implemented | `semantic_resource_state_planning.py`, `resource_state_queries.py`, `semantic_planning_value_filters.py`, `inventory-query-language.yaml`, 집중 플래너, FunctionType, 조립, prompt 및 표현 검사 | 서버 소유 FunctionType이 보안이 적용된 Resource 컬렉션을 완전한 observed `StateFactMetadata`로 필터링합니다. 스키마로 검증한 언어 레지스트리는 현재 인벤토리 상태와 구독 상태 평가를 분리하며, 바인딩되지 않은 상태 평가, 메트릭, 이력, 맥락 및 커버리지 기능군은 관련 없는 Resource 행 대신 타입이 지정된 보류를 반환합니다. 인증된 로컬 Console 관측은 구현 주장을 뒷받침하지만 통제된 릴리스 근거는 아닙니다. |
+| 정확한 대상이 없는 Resource 하위 유형 후보 계약 | validated | `semantic_target_candidate_planning.py`, `inventory_query_language.py`, `inventory-query-language.yaml`, 집중 계획 검사 204개 통과, 인증된 한국어 Console 행렬 | Core는 정확한 신원이 하나로 정해지지 않은 단수 하위 유형 요청을 보안이 적용된 유형 필터 ObjectSet 하나로 바꾸고 `execution_authority=false`를 보존합니다. 스키마로 검증한 대상 수 신호는 FunctionType을 선택할 수 없고 컬렉션은 항상 단수보다 우선하며 정확한 신원은 후보 축소를 우회합니다. Current-source SRE 예시 첫 턴 8개는 hard-zero 표현 카운터가 모두 0인 검증된 목록 또는 후보 답변으로 완료됐습니다. 정확한 대상 기능 완성은 열린 상태입니다. |
 | 명시적 리소스 필터 근거 확인 | 구현됨 | `semantic_planning_value_filters.py`, `test_semantic_planning.py`, focused 플래너 검사(`27 passed`) | Core는 발화에 명시된 모든 카탈로그 값 필터와 frame이 보존한 정확한 자유 텍스트 subject 하나를 유지합니다. 결과를 좁히는 조건식만 추가하고 subject가 발화에 그대로 존재해야 하며 실행 권한을 부여하지 않습니다. |
 | 정확한 대상 상태 근거 평가 | validated | `semantic_health_planning.py`, `resource_health_assessment_queries.py`, 운영 의미 조립, 집중 검사 및 인증된 Console 증적 | 의미 런타임은 정확한 대상 하나와 명시적인 근거 또는 상태 평가 축이 있을 때만 보존된 읽기 전용 상태 frame을 수정합니다. Core는 범위가 제한된 노드 7개와 결정론적 평가 FunctionType을 컴파일합니다. 준비 상태, 애플리케이션 작업 성공, 의존성, 프로세스 재시작, 메모리, 로그, 최신성 근거가 불완전하면 명시적인 제한으로 유지되며 정상 상태로 보고할 수 없습니다. 같은 질문의 런타임은 T2나 관련 없는 행 없이 노드 7/7과 근거 검사 13/13을 완료했습니다. |
 | 정확한 대상 요청 오류 및 Activity Log 상관 평가 | validated | `semantic_error_activity_planning.py`, `resource_error_activity_correlation_queries.py`, Azure 메트릭 및 읽기 조사 프로바이더, 집중 검사 및 인증된 Console 증적 | Core는 정확한 Resource 읽기 하나, 길이가 같은 직전/현재 `request.errors` 구간, 같은 구간의 Activity Log 읽기, 원인을 단정하지 않는 결정론적 reducer를 컴파일합니다. 완전한 0은 누락 근거와 구분하고 동시 관측은 인과관계가 되지 않으며 모델이 작성한 프로바이더 명령이나 실행 권한을 허용하지 않습니다. 재시작 후 같은 질문은 노드 5/5와 근거 검사 11/11을 완료했습니다. Activity Log는 검증된 0건을 반환했고 사용할 수 없는 요청 오류 매핑은 명시적인 공백으로 유지했습니다. |
@@ -165,6 +167,8 @@ translation_revised: 2026-08-21
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-22 | validated | 정확한 대상이 없는 Resource 하위 유형 질문에 서버 소유 후보 조회 형태와 스키마로 검증한 단수 및 컬렉션 게이트를 추가했습니다. 유효하지 않거나 사용할 수 없는 단수 모델 frame은 T2 전에 복구할 수 있고 컬렉션 요청과 정확한 대상은 기존 기능 경로를 유지합니다. | `current change`, 집중 플래너 검사 204개 통과, Ruff, formatter, strict mypy 통과, 인증된 current-source Console에서 한국어 SRE 예시 첫 턴 8개 전체가 context-required, unsupported, held, unverified, 의미 대체 답변, 실행 권한 없이 완료됨 | 타입이 지정된 정확한 대상 인그레스, 범위가 제한된 7일 활동, 공식 Container Apps `MemoryPercentage`, 결정론적 인과 조사 완성을 추가합니다. 검증 범위를 확대하기 전에 정확한 대상 증적 7/7을 보존합니다. |
+| 2026-08-21 | implemented | SRE Agent 비교 표면에서 가져온 서로 다른 한국어 Console 질문 30개를 실행하고 드러난 상태 및 근거 기능군 대체를 수정했습니다. Core는 이제 `query.resource_state_inventory`로 컬렉션 상태를 컴파일하고, 근거가 없는 모델 enum 피연산자와 표시 필드용 존재 조건식을 거부하며, 카탈로그가 선언한 구독 상태 평가를 현재 인벤토리 상태와 분리하고, 근거 커버리지 또는 화면 범위가 없으면 넓은 Resource 답변 전에 멈춥니다. Frame prompt v31-v34는 후보 지침으로만 유지되고 exact 매니페스트, 서버 소유 plan, 결정론적 기능 정렬이 계속 권한을 가집니다. | `current change`, 집중 의미 계획, tier-routing, FunctionType, 조립, prompt 레지스트리, Operator 표현 검사, 인증된 로컬 Console 수정 후 관측. 중지된 데이터베이스 상태 행은 검증된 결과로 반환했고 맥락, 혼합 상태 평가, 인벤토리 커버리지 및 바인딩되지 않은 근거 기능군은 관련 없는 행이나 실행 권한 없이 보류했습니다. | 전용 컬렉션 상태 평가, 메트릭, 이벤트 이력, 인벤토리/상태 커버리지 및 맥락 Resource FunctionType을 바인딩합니다. Console, Operator, Core 전체에 타입이 지정된 선택 화면/그룹 신원을 전달한 뒤 런타임 보증을 높이기 전에 통제된 이중 언어 캠페인 산출물을 보존합니다. |
 | 2026-08-21 | validated | 정확한 요청 오류 및 Activity Log 상관 질문에 대한 일반 근거 보류를 서버 소유 5-node plan과 소스에서 파생한 결정론적 reducer로 교체했습니다. Reducer는 이어지는 동일 길이 구간을 비교하고 검증된 0을 사용할 수 없는 텔레메트리와 구분하며 `causal_claim_supported=false`와 `execution_authority=false`를 고정합니다. | `current change`, 집중 플래너, reducer, 조립, 처리기, Operator 표현 테스트 218개, Ruff, formatter, strict mypy, ontology-query coverage, independent-service, file-LOC, fanout, diff 검사 통과, 인증된 Console이 `plan_source=server_target_error_activity`와 T2 없이 5.8초에 노드 5/5와 근거 검사 11/11을 source 6개로 완료 | `http.server.request.error.count`의 권한 있는 Azure 매핑을 결속합니다. 현재 Container Apps direct Metrics map은 CPU와 응답 시간은 노출하지만 요청 오류는 노출하지 않으므로, 정확한 Activity Log 0건은 보존하되 오류 추세와 상관관계는 확인되지 않은 상태로 유지합니다. |
 | 2026-08-21 | validated | 같은 질문의 정확한 대상 상태 대체 결함을 닫았습니다. 이전에는 `validate/evidence_validation` frame이 principal 범위 ObjectSet을 만들고 관련 없는 행 586개 중 20개를 반환했습니다. 전용 상태 기능군은 I/O 전에 대상, 현재 상태, 범위가 제한된 활동, 검토된 메트릭 3개, 결정론적 근거 불충분 reducer를 결속합니다. | `current change`, 인증된 Azure/FDAI 비교, 집중 플래너, 함수, 처리기, 표현, 조립 검사 202개, Ruff, formatter, strict mypy, ontology-query coverage, independent-service, design-route gate 통과, 재시작 후 Console이 6.7초에 노드 7/7과 근거 검사 13/13을 `execution_authority=false`로 완료 | 프로세스 재시작, 런타임 로그, 메모리, 의존성, 성공한 작업 근거는 열린 프로바이더 작업으로 유지하며 답변에 명시해야 합니다. |
 | 2026-08-13 | 진행 중 | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했습니다. | 구현 범위 표에 나열된 현재 출처, 테스트 및 상태 근거 | 아래의 실제 운영 보증 및 프로바이더 조립 근거를 확보합니다. |
@@ -242,7 +246,12 @@ translation_revised: 2026-08-21
 | 2026-08-20 | 구현됨 | 모델이 `Resource.name exists`만 제안한 경우에도 모든 명시적 필터를 보존하도록 했습니다. Core는 frame이 보존한 정확한 이름 조각과 카탈로그가 선언한 리소스 타입 값 그룹을 결합해, 전체 Resource 집합을 실행하는 대신 이름 조각과 리소스 타입 조건식으로 결과를 좁힙니다. 운영자 발화에 없는 subject는 피연산자로 승격하지 않습니다. | `current change`, `semantic_planning_value_filters.py`, `test_semantic_planning.py`, 영어와 한국어를 포함한 focused 의미 계획 파일 27개 사례 통과 | Core를 재시작하고 좁혀진 검증 쿼리, 읽기 쉬운 표, 범위가 제한된 trace 및 가로 overflow가 없음을 보여 주는 인증된 Console 결과를 보존합니다. |
 ### 남은 작업
 
+- [ ] 별도의 정확한 대상 Container Apps 후속 증적 7/7을 완료합니다. 일반 ObjectSet 대체 없이
+  타입이 지정된 인그레스 변환 결과, 범위가 제한된 7일 활동, 공식 `MemoryPercentage` 의미
+  규칙, 결정론적 인과 조사 완성을 입증해야 합니다.
 - [ ] Operator 게시, Core 처리, exact Operator 변환 결과 읽기 및 인증된 Console 렌더링을 포함하는 통제된 요청-Console 증적 하나를 기록합니다. 이중 언어 무작위 보증 집단을 다시 실행하고 통과한 두 근거 기록을 연결합니다.
+- [ ] 전용 `query.resource_health_inventory`, `query.resource_metric_inventory`, `query.resource_event_history`, 인벤토리/상태 커버리지 및 맥락 Resource FunctionType을 바인딩합니다. 각 권위 있는 근거 출처와 검증기 스키마가 준비될 때까지 타입이 지정된 사용 불가 결과를 유지합니다.
+- [ ] 인증된 선택 화면 또는 리소스 그룹 신원 하나를 Console, Operator, Core 계약 전체에 전달하고, 맥락 컬렉션 조회가 principal 가시 Resource 집합으로 넓어질 수 없음을 입증합니다.
 - [x] Canonical `Incident` 인스턴스를 현재 온톨로지 저장소에 projection해 bounded `ObjectSet`으로 선택할 수 있게 했습니다.
 - [x] 선택적인 인용 기반 기록 원인, 영향 근거, 인용 및 명시적 공백이 있는 correlation-scoped 감사 근거 위에 읽기 전용 `query.incident_evidence` FunctionType을 등록했습니다.
 - [ ] 인시던트 답변을 프로파일, 상관 근거 및 명시적 공백으로 제한하고 다음 안전 단계를 후보 `SemanticOperation.ACTION_DRAFT`로만 표현합니다. 인증된 Console 증적도 보존합니다.

@@ -222,6 +222,8 @@ METRIC_MYSQL_ACTIVE_CONNECTIONS = "active_connections"
 METRIC_APIM_HTTP_5XX_RATE = "http_5xx_rate"
 METRIC_APIM_BACKEND_LATENCY_MS = "backend_latency_ms"
 METRIC_CONTAINER_APP_CPU_NANOCORES = "container_app_cpu_nanocores"
+METRIC_CONTAINER_APP_MEMORY_PERCENT = "container_app_memory_percentage"
+METRIC_CONTAINER_APP_REQUEST_TIMEOUTS = "container_app_resiliency_request_timeouts"
 METRIC_DEPENDENCY_DURATION_MS = "dependency_duration_ms"
 METRIC_SERVICE_REQUEST_DURATION_MS = "service_request_duration_ms"
 
@@ -412,6 +414,32 @@ _CONTAINER_APP_CPU_NANOCORES = MetricKqlTemplate(
     label_columns=("resource_id",),
 )
 
+_CONTAINER_APP_MEMORY_PERCENT = MetricKqlTemplate(
+    kql=(
+        "AzureMetrics "
+        "| where ResourceProvider == 'MICROSOFT.APP' "
+        "and MetricName == 'MemoryPercentage' "
+        "| summarize v = avg(Average) "
+        "  by bin(TimeGenerated, 5m), resource_id = tolower(_ResourceId) "
+        "| project TimeGenerated, v, resource_id"
+    ),
+    value_column="v",
+    label_columns=("resource_id",),
+)
+
+_CONTAINER_APP_REQUEST_TIMEOUTS = MetricKqlTemplate(
+    kql=(
+        "AzureMetrics "
+        "| where ResourceProvider == 'MICROSOFT.APP' "
+        "and MetricName == 'ResiliencyRequestTimeouts' "
+        "| summarize v = sum(Total) "
+        "  by bin(TimeGenerated, 5m), resource_id = tolower(_ResourceId) "
+        "| project TimeGenerated, v, resource_id"
+    ),
+    value_column="v",
+    label_columns=("resource_id",),
+)
+
 
 _ANALYZER_QUERIES: Mapping[str, MetricKqlTemplate] = MappingProxyType(
     {
@@ -463,6 +491,13 @@ _SEMANTIC_INVESTIGATION_QUERIES: Mapping[str, MetricKqlTemplate] = MappingProxyT
     }
 )
 
+_RESOURCE_METRIC_QUERIES: Mapping[str, MetricKqlTemplate] = MappingProxyType(
+    {
+        METRIC_CONTAINER_APP_MEMORY_PERCENT: _CONTAINER_APP_MEMORY_PERCENT,
+        METRIC_CONTAINER_APP_REQUEST_TIMEOUTS: _CONTAINER_APP_REQUEST_TIMEOUTS,
+    }
+)
+
 
 def sre_demo_analyzer_queries() -> Mapping[str, MetricKqlTemplate]:
     """Return the KQL templates for every metric requested by
@@ -494,6 +529,12 @@ def semantic_investigation_queries() -> Mapping[str, MetricKqlTemplate]:
     return _SEMANTIC_INVESTIGATION_QUERIES
 
 
+def resource_metric_queries() -> Mapping[str, MetricKqlTemplate]:
+    """Return exact-resource platform metric fallbacks exported to Azure Monitor Logs."""
+
+    return _RESOURCE_METRIC_QUERIES
+
+
 def default_metric_queries() -> Mapping[str, MetricKqlTemplate]:
     """Return the union of capture, analyzer, and semantic-investigation queries.
 
@@ -505,7 +546,12 @@ def default_metric_queries() -> Mapping[str, MetricKqlTemplate]:
     union is unambiguous; a metric shipped in more than one map is a defect.
     """
     merged: dict[str, MetricKqlTemplate] = {}
-    for catalog in (_DEMO_CAPTURE, _ANALYZER_QUERIES, _SEMANTIC_INVESTIGATION_QUERIES):
+    for catalog in (
+        _DEMO_CAPTURE,
+        _ANALYZER_QUERIES,
+        _SEMANTIC_INVESTIGATION_QUERIES,
+        _RESOURCE_METRIC_QUERIES,
+    ):
         for key, template in catalog.items():
             if key in merged:  # pragma: no cover - defended by catalog tests
                 raise RuntimeError(f"metric name {key!r} collides between default query catalogs")
@@ -516,6 +562,8 @@ def default_metric_queries() -> Mapping[str, MetricKqlTemplate]:
 __all__ = [
     "METRIC_APIM_BACKEND_LATENCY_MS",
     "METRIC_CONTAINER_APP_CPU_NANOCORES",
+    "METRIC_CONTAINER_APP_MEMORY_PERCENT",
+    "METRIC_CONTAINER_APP_REQUEST_TIMEOUTS",
     "METRIC_DEPENDENCY_DURATION_MS",
     "METRIC_APIM_HTTP_5XX_RATE",
     "METRIC_BACKEND_FIRST_BYTE_MS",
@@ -534,6 +582,7 @@ __all__ = [
     "METRIC_ROLLOUT_STALL_SECONDS",
     "METRIC_ROLLOUT_STALL_DURATION_SECONDS",
     "default_metric_queries",
+    "resource_metric_queries",
     "semantic_investigation_queries",
     "sre_demo_analyzer_queries",
     "sre_demo_capture_queries",

@@ -1432,7 +1432,7 @@ def _render_query_answer(
         for row in table.rows[:20]:
             candidate_rows: list[dict[str, object]] = [
                 *rows,
-                {"row_id": row.row_id, "values": row.values},
+                {"row_id": row.row_id, "values": _answer_row_values(row.values)},
             ]
             candidate = [
                 *outputs,
@@ -1473,6 +1473,41 @@ def _render_query_answer(
         )
     )
     return (answer, technical_details) if len(answer) <= 64_000 else (None, None)
+
+
+_ANSWER_ROW_LIFTED_FIELDS = (
+    "name",
+    "revision_name",
+    "ready_revision_name",
+    "running_status",
+    "source_observed_at",
+    "inventory_read_at",
+    "provisioning_status",
+    "type",
+    "status",
+    "location",
+)
+
+
+def _answer_row_values(values: Mapping[str, object]) -> dict[str, object]:
+    """Keep bounded scalar answer fields and exclude nested provider payloads."""
+    projected = {
+        field: value
+        for field, value in values.items()
+        if isinstance(field, str) and field and not isinstance(value, Mapping | list)
+    }
+    current: list[Mapping[str, object]] = [values]
+    for _depth in range(2):
+        nested = [
+            value for item in current for value in item.values() if isinstance(value, Mapping)
+        ]
+        for item in nested:
+            for field in _ANSWER_ROW_LIFTED_FIELDS:
+                value = item.get(field)
+                if value is not None and not isinstance(value, Mapping | list):
+                    projected.setdefault(field, value)
+        current = nested
+    return projected
 
 
 def _incident_answer_output(
@@ -1913,6 +1948,13 @@ def _render_general_query_answer(
     result contains and leaves the machinery in technical details.
     """
     korean = request.locale.casefold().startswith("ko")
+    target_candidates_answer = _render_target_candidates_answer(
+        outputs,
+        korean=korean,
+        output_shape=output_shape,
+    )
+    if target_candidates_answer is not None:
+        return target_candidates_answer
     causal_answer = _render_causal_query_answer(outputs, korean=korean)
     if causal_answer is not None:
         return causal_answer
@@ -1978,6 +2020,96 @@ def _render_general_query_answer(
             ),
         ]
     )
+    return "\n".join(lines)
+
+
+def _render_target_candidates_answer(
+    outputs: list[dict[str, object]],
+    *,
+    korean: bool,
+    output_shape: str | None,
+) -> str | None:
+    """Name bounded verified candidates instead of returning a context-only hold."""
+
+    if output_shape != "resource_target_candidates" or len(outputs) != 1:
+        return None
+    output = outputs[0]
+    rows = output.get("rows")
+    if not isinstance(rows, list):
+        return None
+    candidates: list[tuple[str, str | None]] = []
+    for row in rows[:8]:
+        values = row.get("values") if isinstance(row, Mapping) else None
+        if not isinstance(values, Mapping):
+            continue
+        name = values.get("name")
+        resource_type = values.get("type")
+        if not isinstance(name, str) or not name.strip():
+            continue
+        candidates.append(
+            (
+                name.strip(),
+                resource_type.strip()
+                if isinstance(resource_type, str) and resource_type.strip()
+                else None,
+            )
+        )
+    total = output.get("total_rows")
+    total_count = total if isinstance(total, int) and total >= 0 else len(candidates)
+    complete = output.get("source_complete") is True
+    limitation = output.get("source_truncation_reason")
+    if korean:
+        lines = ["## 확인된 대상 후보", ""]
+        if candidates:
+            lines.extend(
+                f"- `{name}`" + (f" ({resource_type})" if resource_type is not None else "")
+                for name, resource_type in candidates
+            )
+        else:
+            lines.append("- 현재 검증된 inventory에서 일치하는 대상 후보를 찾지 못했습니다.")
+        lines.extend(
+            [
+                "",
+                "## 범위와 다음 단계",
+                "",
+                f"- 검증된 후보 수: {total_count}",
+                f"- 후보 범위 완전성: {'complete' if complete else 'incomplete'}",
+            ]
+        )
+        if not complete:
+            lines.append(f"- 제한 사항: {str(limitation or 'inventory_scope_incomplete')}")
+        if candidates:
+            lines.append(
+                "- 위 후보 중 확인할 리소스의 정확한 이름 또는 리소스 ID를 지정하면 "
+                "요청한 운영 근거를 이어서 검증할 수 있습니다."
+            )
+        lines.extend(["", "`execution_authority=false`"])
+        return "\n".join(lines)
+    lines = ["## Verified target candidates", ""]
+    if candidates:
+        lines.extend(
+            f"- `{name}`" + (f" ({resource_type})" if resource_type is not None else "")
+            for name, resource_type in candidates
+        )
+    else:
+        lines.append("- No matching target candidate was found in the verified inventory.")
+    lines.extend(
+        [
+            "",
+            "## Scope and next step",
+            "",
+            f"- Verified candidate count: {total_count}",
+            f"- Candidate scope completeness: {'complete' if complete else 'incomplete'}",
+        ]
+    )
+    if not complete:
+        lines.append(f"- Limitation: {str(limitation or 'inventory_scope_incomplete')}")
+    if candidates:
+        lines.append(
+            "- Provide the exact resource name or resource ID from the candidates above to "
+            "continue with the requested operational evidence read."
+        )
+    lines.extend(["", "`execution_authority=false`"])
     return "\n".join(lines)
 
 
