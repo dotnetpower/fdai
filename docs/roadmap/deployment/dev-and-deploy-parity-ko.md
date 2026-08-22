@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: f0781f4af124cb99ff78879536aa3bc0e3e844b9
+translation_source_sha: 4c4ad484ae5ef7044b1bd571d82c5aa7743d7cb1
 translation_revised: 2026-08-22
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -196,16 +196,12 @@ managed-resource identity가 없는 영속 shadow consumer입니다. 이 venue�
 Event Hubs Kafka endpoint를 사용합니다. Venue 선택은 근거 권한, 승격 상태, 사람 신원 또는
 executor 권한을 변경하지 않습니다.
 
-작업 영역을 열어도 Console 구성을 시작하지 않습니다. 필요할 때 신뢰된 primary checkout에서
-`console: start full stack`을 명시적으로 실행합니다. 이 집계 작업은 먼저 checkout이 공유 Git
-디렉터리를 소유하는지 확인하고 `console: prepare full stack`을 한 번 완료한 다음 서비스별 확인
-클릭 없이 백엔드 서비스 5개와 Console SPA를 병렬로 시작합니다. 명시적 시작은 이행, 권위 데이터
-새로 고침 및 장기 실행 서비스가 편집기 초기화와 경쟁하지 않게 합니다.
-`prepare-console-full-stack.sh`이 순서가 있는 설정을 담당하고 background 작업 하나가
-`start-console-services.sh`을 실행합니다. Supervisor는 허용된 서비스 이름으로 각
-`run-console-service.sh` 프로세스를 병렬 시작하고 공유 준비 상태 게이트를 기다린 뒤 종료 신호를
-전달합니다. 각 서비스는 자체 잠금, fingerprint, 로그 및 프로세스 수명주기를 유지합니다. 준비 작업은
-port `5432`의 런타임 PostgreSQL, port `5433`의
+작업 영역을 열어도 Console 구성을 시작하지 않습니다. 신뢰된 primary checkout에서
+`console: start full stack`을 명시적으로 실행하면 준비 작업이 편집기 초기화와 경쟁하지 않습니다.
+이 작업은 공유 Git 디렉터리 소유를 확인하고 `prepare-console-full-stack.sh`을 한 번 수행한 뒤
+`start-console-services.sh`을 실행합니다. Supervisor는 허용된 각 `run-console-service.sh`을 자체
+잠금, fingerprint, 로그 및 수명주기와 함께 병렬 시작하고, 공유 준비 상태 게이트를 기다린 뒤 종료
+신호를 전달합니다. 준비 작업은 port `5432`의 런타임 PostgreSQL, port `5433`의
 격리된 검증 PostgreSQL cluster, Redpanda 및 ClamAV를 시작합니다. 고정된 이전 방식 Alembic
 계보를 전진시킨 후 서비스가 소유한 이행 가지 5개를 모두 채택하고 업그레이드합니다. 단일 인스턴스
 한도로 중복 실행도 막습니다. 동일한 준비는 읽기 전용 Azure Resource Graph 인벤토리를 새로 읽고,

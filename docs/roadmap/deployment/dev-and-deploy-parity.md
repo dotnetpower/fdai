@@ -191,17 +191,13 @@ transport uses Docker Redpanda on `127.0.0.1:19092`. A deployed Azure process se
 Event Hubs Kafka endpoint. Venue selection never changes evidence authority, promotion state,
 human identity, or executor authority.
 
-Opening a workspace doesn't start the Console topology. Run `console: start full stack` explicitly
-from the trusted primary checkout when you need it. The aggregate task first confirms that the
-checkout owns the shared Git directory, completes `console: prepare full stack` once, then starts
-the five backend services and Console SPA in parallel without per-service confirmation clicks.
-Keeping startup explicit prevents migrations, authoritative refreshes, and long-running services
-from competing with editor initialization. `prepare-console-full-stack.sh` owns the ordered setup,
-and one background task runs `start-console-services.sh`. The supervisor starts each
-`run-console-service.sh` process in parallel with an allowlisted service name, waits for the shared
-readiness gate, and forwards shutdown. Each service retains its own lock, fingerprint, log, and
-process lifecycle. Preparation starts runtime PostgreSQL on port
-`5432`, an isolated validation PostgreSQL cluster on port `5433`, Redpanda, and ClamAV. It advances
+Opening a workspace doesn't start the Console topology; run `console: start full stack` explicitly
+from the trusted primary checkout so setup never competes with editor initialization. The task
+verifies shared-Git ownership, runs `prepare-console-full-stack.sh` once, then runs
+`start-console-services.sh`, which launches each allowlisted `run-console-service.sh` in parallel
+with its own lock, fingerprint, log, and lifecycle, waits for the shared readiness gate, and
+forwards shutdown. Preparation starts runtime PostgreSQL on port `5432`, an isolated validation
+PostgreSQL cluster on port `5433`, Redpanda, and ClamAV. It advances
 the frozen legacy Alembic lineage and adopts and upgrades all five service-owned migration branches
 under a single-instance limit. The same preparation refreshes read-only Azure Resource Graph
 inventory and materializes sanitized model and runtime Settings projections from prepared
