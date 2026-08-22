@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Provision the FDAI minimum-set inventory on Azure - two equivalent paths (azd turnkey or Terraform direct), preview first, apply only when the plan looks right.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 39e8714a40991455692d1a55695ae08e02ebdd25 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 4f72b0402b3d60d1b4847f567f7735b7126b9c68 }]
 ---
 
 # Deploy Quickstart
@@ -61,9 +61,11 @@ first, so you can review the plan before you run the separate apply step.
 Preview first, and apply only when the plan matches what you expect. Both paths
 provision the same `infra/` Terraform, so pick whichever fits your workflow.
 
-During a protected move to private networking, the only delete FDAI accepts is
-retiring the broad PostgreSQL Azure-services firewall rule. If the plan shows a
-replacement at that address, or any other delete, stop the apply.
+During a protected move to private networking, FDAI accepts a delete only for a
+reviewed retirement or migration that the protected workflow already allows, such
+as retiring the broad PostgreSQL Azure-services firewall rule. If the plan shows a
+replacement at that address, a drifted version of a reviewed migration, or any
+other delete, stop the apply.
 
 When the development operations gateway uses a protected targeted plan, verify that the AI
 account and its role collection are both present. This lets network and authorization changes

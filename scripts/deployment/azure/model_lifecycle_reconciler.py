@@ -10,7 +10,7 @@ import sys
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
-_SCHEMA_VERSION = "fdai.model-lifecycle-proposal.v1"
+_SCHEMA_VERSION = "fdai.model-lifecycle-proposal.v2"
 _PROVIDER_FAILURES = frozenset({"ambiguous", "rate_limited", "unavailable", "unsupported_response"})
 
 
@@ -41,8 +41,14 @@ def reconcile_model_lifecycle(
             "capability": capability,
             "current_family": previous.get("family"),
             "current_publisher": previous.get("publisher"),
+            "current_sku": previous.get("sku"),
+            "current_capacity_unit": previous.get("capacity_unit"),
+            "current_capacity_value": previous.get("capacity_value"),
             "proposed_family": proposed.get("family"),
             "proposed_publisher": proposed.get("publisher"),
+            "proposed_sku": proposed.get("sku"),
+            "proposed_capacity_unit": proposed.get("capacity_unit"),
+            "proposed_capacity_value": proposed.get("capacity_value"),
             "proposed_status": proposed.get("status", "unavailable"),
         }
         changes.append(change)
@@ -50,6 +56,16 @@ def reconcile_model_lifecycle(
             compatibility.add("model_family_change")
         if previous.get("publisher") != proposed.get("publisher"):
             compatibility.add("publisher_change")
+        if previous.get("sku") != proposed.get("sku"):
+            compatibility.add("sku_change")
+        if (
+            previous.get("capacity_unit"),
+            previous.get("capacity_value"),
+        ) != (
+            proposed.get("capacity_unit"),
+            proposed.get("capacity_value"),
+        ):
+            compatibility.add("capacity_change")
         if proposed.get("status") not in {"resolved", "capacity-reduced"}:
             compatibility.add("capability_degradation")
 
@@ -112,9 +128,24 @@ def _capability_index(payload: Mapping[str, object]) -> dict[str, dict[str, obje
         indexed[name] = {
             "family": _optional_string(raw.get("family")),
             "publisher": _optional_string(raw.get("publisher")),
+            "sku": _optional_string(raw.get("sku")),
+            **_capacity(raw),
             "status": _required_string(raw.get("status"), "capability status"),
         }
     return indexed
+
+
+def _capacity(raw: Mapping[str, object]) -> dict[str, object]:
+    unit = raw.get("capacity_unit", "tpm")
+    if unit not in {"tpm", "ptu"}:
+        raise ValueError("capability capacity unit must be tpm or ptu")
+    key = "capacity_value" if unit == "ptu" else "capacity_tpm"
+    value = raw.get(key)
+    if value is None:
+        return {"capacity_unit": unit, "capacity_value": None}
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise ValueError("capability capacity value must be a non-negative integer")
+    return {"capacity_unit": unit, "capacity_value": value}
 
 
 def _sanitize_deprecations(

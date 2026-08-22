@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 39e8714a40991455692d1a55695ae08e02ebdd25
+translation_source_sha: 4f72b0402b3d60d1b4847f567f7735b7126b9c68
 translation_revised: 2026-08-21
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -38,6 +38,7 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-21 | implemented | 보호된 runner의 암묵적인 system pip 의존성을 제거했습니다. Workflow는 저장소가 pin한 uv release를 설치하고 frozen Core package 환경에서 model resolution과 production readiness를 실행합니다. | `current change`; 실패한 보호 계획 실행 `32434472993`; 집중 배포 workflow 계약, YAML parsing 및 dependency command 검사. | 정확한 Event Bus 이행 계획을 다시 실행하고 protected plan/apply 근거를 보존합니다. |
+| 2026-08-21 | implemented | 파괴적 계획 게이트를 유지하면서 검토된 임베딩 이행 하나를 승인했습니다. Terraform 계획이 정확한 주소, 계정 연결, 모델 계열, 기존 `GlobalStandard` 용량 1, 목표 `Standard` 용량 200과 일치할 때만 `t1.embedding` 교체를 허용합니다. 삭제 전용 계획과 값이 달라진 교체는 계속 차단됩니다. | `current change`; `.github/workflows/deploy-dev.yml`; 집중 파괴적 계획 검사 2개 통과. | 정확한 보호 계획을 적용하고 새 배포와 런타임 연결을 검증한 뒤 증적을 보존하고 일회성 전환 승인을 제거합니다. |
 | 2026-08-13 | implemented | 이전 provenance를 재구성하지 않고 implementation ledger를 도입하고 범위가 제한된 OHL evidence target의 protected provisioning 및 proposal-only Job을 추가했습니다. | current change, 집중 Terraform test 결과 8 passed 및 publisher/workflow test 결과 13 passed | Exact 계획을 적용하고 증명된 런타임 이미지를 배포한 뒤 실제 evidence campaign을 완료합니다. |
 | 2026-08-13 | implemented | 로컬 파괴적 migration 검증을 활성 로컬 런타임 PostgreSQL cluster에서 격리했습니다. | 현재 변경, Compose configuration 통과, focused queue 및 local-environment test 68개 통과, 격리된 migration upgrade/downgrade 검사 2개 통과. | 로컬 검증 데이터베이스 격리에 남은 구현 작업은 없습니다. |
 | 2026-08-13 | implemented | Protected platform 계획 및 exact 적용 상태를 `validated`에서 `implemented`로 정정했습니다. Workflow source는 메커니즘을 입증하지만 리포지토리는 통제된 platform 적용 증적을 보존하지 않습니다. | current change, `.github/workflows/deploy-dev.yml`, roadmap, 번역 및 문서 검사 | `validated`로 복원하기 전에 리포지토리에 안전한 통제된 platform 적용 증적을 보존합니다. |
@@ -186,10 +187,9 @@ Health acceptance는 적용 증적을 기록하기 전에 코어 Container App�
 `Provisioned`와 `Healthy`인지 확인합니다. 선택된 Operator API 및 인제스트 개정 번호도 healthy여야
 하며 shared 유입 `/healthz` 응답은 고정된 성공 페이로드를 반환해야 합니다. 런타임을
 계획하지 않는 design-mocks-only 적용만 예외입니다.
-Protected-plan 삭제 게이트는 broad PostgreSQL Azure-services firewall 경로를 닫거나, 검토된
-분리 이전 인제스트 권한 부여를 삭제하면서 모든 exact API 또는 워커 successor를 같은 계획에서
-pure-create하는 범위가 제한된 security retirement만 허용합니다. 기존 주소 replacement, 누락되거나
-생성이 아닌 successor, 그 밖의 모든 삭제는 계속 차단됩니다.
+Protected-plan 삭제 게이트는 broad PostgreSQL Azure-services firewall 경로를 닫거나, 검토된 분리 이전 인제스트 권한 부여를 삭제하면서 모든 exact API 또는 워커 successor를 같은 계획에서 pure-create하는 범위가 제한된 security retirement만 허용합니다.
+또한 계획 JSON이 정확한 주소, 계정, 모델 계열, 기존 SKU/용량, 목표 SKU/용량, 교체 작업과 일치할 때만 검토된 `t1.embedding` 이행을 허용합니다.
+모델 삭제 전용 변경, 값이 달라진 교체, 누락되거나 생성이 아닌 successor, 그 밖의 모든 삭제는 계속 차단됩니다.
 [`infra/bootstrap/README.md`](../../../infra/bootstrap/README.md).
 Scheduled driver는 Terraform이 관리합니다. `SCHEDULER_TICK_CRON_EXPRESSION` 및
 `ANALYZER_TICK_CRON_EXPRESSION`은 기존 작업을 설정하고, `forecast_tick_cron_expression`과

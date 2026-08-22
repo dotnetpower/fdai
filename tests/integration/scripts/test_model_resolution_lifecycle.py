@@ -53,7 +53,13 @@ def test_exact_apply_restores_the_plan_sealed_model_manifest() -> None:
     assert 'echo "TF_VAR_resolved_capabilities=$capabilities_json"' in _DEPLOY
 
 
-def _resolved(family: str = "gpt-4o", *, status: str = "resolved") -> dict[str, object]:
+def _resolved(
+    family: str = "gpt-4o",
+    *,
+    status: str = "resolved",
+    sku: str = "GlobalStandard",
+    capacity_tpm: int = 1_000,
+) -> dict[str, object]:
     return {
         "schema_version": "1.0.0",
         "capabilities": [
@@ -61,6 +67,8 @@ def _resolved(family: str = "gpt-4o", *, status: str = "resolved") -> dict[str, 
                 "name": "t2.reasoner.primary",
                 "family": family,
                 "publisher": "OpenAI",
+                "sku": sku,
+                "capacity_tpm": capacity_tpm,
                 "status": status,
             }
         ],
@@ -98,14 +106,48 @@ def test_lifecycle_reconciler_proposes_sanitized_family_change() -> None:
             "capability": "t2.reasoner.primary",
             "current_family": "gpt-4o",
             "current_publisher": "OpenAI",
+            "current_sku": "GlobalStandard",
+            "current_capacity_unit": "tpm",
+            "current_capacity_value": 1_000,
             "proposed_family": "gpt-5",
             "proposed_publisher": "OpenAI",
+            "proposed_sku": "GlobalStandard",
+            "proposed_capacity_unit": "tpm",
+            "proposed_capacity_value": 1_000,
             "proposed_status": "resolved",
         }
     ]
     assert result["compatibility_impact"] == ["model_family_change"]
     assert result["activation_authority"] is False
     assert len(str(result["proposal_digest"])) == 64
+
+
+def test_lifecycle_reconciler_proposes_sku_and_capacity_change() -> None:
+    result = reconcile_model_lifecycle(
+        current=_resolved(),
+        candidate=_resolved(sku="Standard", capacity_tpm=200_000),
+        deprecations=(),
+    )
+
+    assert result["status"] == "proposal"
+    assert result["changes"] == [
+        {
+            "capability": "t2.reasoner.primary",
+            "current_family": "gpt-4o",
+            "current_publisher": "OpenAI",
+            "current_sku": "GlobalStandard",
+            "current_capacity_unit": "tpm",
+            "current_capacity_value": 1_000,
+            "proposed_family": "gpt-4o",
+            "proposed_publisher": "OpenAI",
+            "proposed_sku": "Standard",
+            "proposed_capacity_unit": "tpm",
+            "proposed_capacity_value": 200_000,
+            "proposed_status": "resolved",
+        }
+    ]
+    assert result["compatibility_impact"] == ["capacity_change", "sku_change"]
+    assert result["activation_authority"] is False
 
 
 def test_lifecycle_reconciler_proposes_review_for_current_family_deprecation() -> None:
@@ -129,7 +171,7 @@ def test_lifecycle_reconciler_abstains_on_provider_failure() -> None:
     )
 
     assert result == {
-        "schema_version": "fdai.model-lifecycle-proposal.v1",
+        "schema_version": "fdai.model-lifecycle-proposal.v2",
         "status": "abstained",
         "reason": "rate_limited",
         "activation_authority": False,

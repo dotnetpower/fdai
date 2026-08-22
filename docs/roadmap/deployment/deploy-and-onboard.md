@@ -35,6 +35,7 @@ Azure focus: this document targets an Azure subscription. Non-Azure providers ar
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-21 | implemented | Removed the protected runner's implicit system-pip dependency. The workflow installs the repository-pinned uv release and runs model resolution and production readiness from the frozen Core package environment. | `current change`; failed protected plan run `32434472993`; focused deployment workflow contract, YAML parsing, and dependency command checks. | Rerun the exact Event Bus migration plan and retain its protected plan/apply evidence. |
+| 2026-08-21 | implemented | Kept the destructive-plan gate closed while approving one reviewed embedding migration. The gate accepts the `t1.embedding` replacement only when the Terraform plan matches the exact address, account binding, model family, `GlobalStandard` capacity 1 source, and `Standard` capacity 200 target. Delete-only and any drifted replacement remain blocked. | `current change`; `.github/workflows/deploy-dev.yml`; focused destructive-plan checks passed 2 cases. | Apply the exact protected plan, verify the new deployment and runtime binding, retain the receipt, and remove the one-transition approval. |
 | 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and added protected provisioning plus a proposal-only Job for the bounded OHL evidence target. | current change; focused Terraform tests report 8 passed and publisher/workflow tests report 13 passed. | Apply the exact plans, deploy attested runtime images, and complete the live evidence campaign. |
 | 2026-08-13 | implemented | Isolated local destructive migration validation from the active local runtime PostgreSQL cluster. | Current change; Compose configuration passed, focused queue and local-environment tests passed (68 tests), and isolated migration upgrade/downgrade checks passed (2 tests). | No remaining implementation work for local validation database isolation. |
 | 2026-08-13 | implemented | Corrected the protected platform plan and exact-apply state from `validated` to `implemented`; workflow source proves the mechanism, but the repository does not retain a governed platform apply receipt. | current change; `.github/workflows/deploy-dev.yml`; roadmap, translation, and documentation checks. | Retain a repository-safe governed platform apply receipt before restoring `validated`. |
@@ -182,10 +183,9 @@ and `Healthy` before an apply receipt can be recorded. Selected Operator API and
 revisions must also be healthy, and their shared ingress `/healthz` responses must return the
 fixed success payload. Design-mocks-only applies are the sole exception because they do not plan
 the runtime.
-The protected-plan delete gate permits only bounded security retirements: closing the broad
-PostgreSQL Azure-services firewall path, or deleting one of the reviewed pre-split ingestion grants
-when every exact API or worker successor is pure-created in the same plan. A replacement at the old
-address, a missing or non-create successor, and every other delete remain blocked.
+The protected-plan delete gate permits only bounded security retirements: closing the broad PostgreSQL Azure-services firewall path, or deleting one of the reviewed pre-split ingestion grants when every exact API or worker successor is pure-created in the same plan.
+It also permits the reviewed `t1.embedding` migration only when the plan JSON matches the exact address, account, family, source SKU/capacity, target SKU/capacity, and replacement action.
+A delete-only model change, a drifted replacement, a missing or non-create successor, and every other delete remain blocked.
 Full runbook: [`infra/bootstrap/README.md`](../../../infra/bootstrap/README.md).
 Scheduled drivers remain Terraform-owned. `SCHEDULER_TICK_CRON_EXPRESSION` and
 `ANALYZER_TICK_CRON_EXPRESSION` configure the existing jobs; `forecast_tick_cron_expression` and

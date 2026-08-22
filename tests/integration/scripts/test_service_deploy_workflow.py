@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 import json
+import os
 import re
 import runpy
 import shutil
@@ -242,6 +243,70 @@ def test_platform_event_bus_migration_uses_isolated_targets() -> None:
         assert "env.EVENT_BUS_TOPIC_MIGRATION != 'true'" in side_effect_step
 
 
+def test_platform_event_bus_migration_preserves_existing_console_topology(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    step_name = "- name: Preserve Event Bus migration console topology"
+    assert _LEGACY_WORKFLOW.index("- name: Terraform init") < _LEGACY_WORKFLOW.index(step_name)
+    assert _LEGACY_WORKFLOW.index(step_name) < _LEGACY_WORKFLOW.index("- name: Terraform plan")
+    step = _LEGACY_WORKFLOW.split(step_name, maxsplit=1)[1].split(
+        "- name: Install pinned GitHub CLI for image verification", maxsplit=1
+    )[0]
+    assert "if: ${{ env.EVENT_BUS_TOPIC_MIGRATION == 'true' }}" in step
+    source = textwrap.dedent(step.split("run: |", maxsplit=1)[1]).strip() + "\n"
+    script = tmp_path / "preserve-event-bus-console.sh"
+    script.write_text(source, encoding="utf-8")
+    bash = shutil.which("bash")
+
+    assert bash is not None
+    subprocess.run(  # noqa: S603 - resolved Bash with repository-controlled workflow input.
+        [bash, "-n", str(script)], check=True
+    )
+    terraform = tmp_path / "terraform"
+    terraform.write_text(
+        """#!/usr/bin/env bash
+set -euo pipefail
+[[ "$#" == 2 && "$1" == "state" && "$2" == "list" ]]
+if [[ "${FAKE_TERRAFORM_FAIL:-0}" == "1" ]]; then
+  exit 42
+fi
+printf '%s\n' "${FAKE_TERRAFORM_STATE:-}"
+""",
+        encoding="utf-8",
+    )
+    terraform.chmod(0o755)
+    github_env = tmp_path / "github.env"
+    monkeypatch.setenv("PATH", f"{tmp_path}:{os.environ['PATH']}")
+    monkeypatch.setenv("RUNNER_TEMP", str(tmp_path))
+    monkeypatch.setenv("GITHUB_ENV", str(github_env))
+
+    monkeypatch.setenv(
+        "FAKE_TERRAFORM_STATE",
+        "module.console[0].azurerm_static_web_app.console",
+    )
+    subprocess.run(  # noqa: S603 - resolved Bash with repository-controlled workflow input.
+        [bash, str(script)], check=True
+    )
+    assert github_env.read_text(encoding="utf-8") == "TF_VAR_enable_console=true\n"
+
+    github_env.write_text("", encoding="utf-8")
+    monkeypatch.setenv(
+        "FAKE_TERRAFORM_STATE",
+        "module.event_bus.azurerm_eventhub_namespace.primary",
+    )
+    subprocess.run(  # noqa: S603 - resolved Bash with repository-controlled workflow input.
+        [bash, str(script)], check=True
+    )
+    assert github_env.read_text(encoding="utf-8") == ""
+
+    monkeypatch.setenv("FAKE_TERRAFORM_FAIL", "1")
+    completed = subprocess.run(  # noqa: S603 - resolved Bash with repository-controlled input.
+        [bash, str(script)], check=False
+    )
+    assert completed.returncode == 42
+
+
 def test_platform_plan_allows_only_exact_event_hub_topic_migration_deletes() -> None:
     guard = _LEGACY_WORKFLOW.split("- name: Reject destructive protected plan", maxsplit=1)[
         1
@@ -413,6 +478,80 @@ def test_platform_destructive_guard_accepts_exact_migration_and_rejects_unrelate
             assert exc.code == 1
         else:
             raise AssertionError("Event Bus Job follow-up guard accepted an invalid plan")
+
+
+def test_platform_destructive_guard_accepts_only_exact_embedding_replacement(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    step = _LEGACY_WORKFLOW.split("- name: Reject destructive protected plan", maxsplit=1)[1].split(
+        "- name: Run complete Azure live preflight", maxsplit=1
+    )[0]
+    match = re.search(r"python3 - <<'PY'\n(?P<source>.*?)\n\s+PY", step, re.DOTALL)
+
+    assert match is not None
+    source = textwrap.dedent(match.group("source"))
+    address = 'module.llm_azure_openai[0].azurerm_cognitive_deployment.capability["t1.embedding"]'
+    before = {
+        "name": "t1.embedding",
+        "cognitive_account_id": "same-account",
+        "model": [{"format": "OpenAI", "name": "text-embedding-3-small", "version": "1"}],
+        "sku": [{"name": "GlobalStandard", "capacity": 1}],
+    }
+    after = {
+        "name": "t1.embedding",
+        "cognitive_account_id": "same-account",
+        "model": [{"format": "OpenAI", "name": "text-embedding-3-small", "version": None}],
+        "sku": [{"name": "Standard", "capacity": 200}],
+    }
+    exact_change = {
+        "address": address,
+        "change": {"actions": ["delete", "create"], "before": before, "after": after},
+    }
+    plan_path = tmp_path / "dev.plan.review.json"
+    script_path = tmp_path / "deploy_dev_destructive_guard.py"
+    monkeypatch.chdir(tmp_path)
+    script_path.write_text(source, encoding="utf-8")
+    plan_path.write_text(
+        json.dumps({"resource_changes": [exact_change]}),
+        encoding="utf-8",
+    )
+    runpy.run_path(str(script_path), run_name="__main__")
+
+    monkeypatch.setenv("MIGRATE_EVENT_BUS_TOPICS", "true")
+    try:
+        runpy.run_path(str(script_path), run_name="__main__")
+    except SystemExit as exc:
+        assert exc.code == 1
+    else:
+        raise AssertionError("migration-only guard accepted the exact model replacement")
+    monkeypatch.delenv("MIGRATE_EVENT_BUS_TOPICS")
+
+    mutations = (
+        ("change", "actions", ["delete"]),
+        ("after", "cognitive_account_id", "another-account"),
+        ("before", "sku", [{"name": "GlobalStandard", "capacity": 2}]),
+        ("after", "sku", [{"name": "Standard", "capacity": 100}]),
+        (
+            "after",
+            "model",
+            [{"format": "OpenAI", "name": "text-embedding-3-large", "version": None}],
+        ),
+    )
+    for owner, field, value in mutations:
+        changed = json.loads(json.dumps(exact_change))
+        target = changed["change"] if owner == "change" else changed["change"][owner]
+        target[field] = value
+        plan_path.write_text(
+            json.dumps({"resource_changes": [changed]}),
+            encoding="utf-8",
+        )
+        try:
+            runpy.run_path(str(script_path), run_name="__main__")
+        except SystemExit as exc:
+            assert exc.code == 1
+        else:
+            raise AssertionError(f"destructive guard accepted drifted model field: {owner}.{field}")
 
 
 def test_platform_workflow_does_not_require_system_pip() -> None:

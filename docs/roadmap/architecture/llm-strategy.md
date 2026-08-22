@@ -21,12 +21,13 @@ the threat model in [security-and-identity.md](security-and-identity.md).
 | T2 cross-check, verifier, grounding, confidence, and rubric | implemented | `core/quality_gate/`; `delivery/azure/llm/rubric.py`; focused quality-gate and Azure adapter tests | The four required legs and optional subtractive rubric exist. Missing or invalid evidence lowers the result to denial, abstention, or human review. |
 | Escalation policy and same-publisher primary latency routing | implemented | `core/quality_gate/escalation_ladder.py`; `delivery/azure/llm/latency_routed_cross_check.py`; `composition/wire_llm.py`; focused routing tests | The ladder remains never-authoritative, and primary failover cannot cross into the secondary publisher. |
 | Operational model evidence and enforce promotion | in-progress | `core/measurement/model_tracking.py`; [Goals and Metrics](goals-and-metrics.md#implementation-status) | Measurement and promotion contracts exist, but one retained live cohort for every active T1/T2 capability is not evidenced here. |
-| Weekly model reconciler and reviewed replacement flow | implemented | `.github/workflows/model-lifecycle-reconcile.yml`; `scripts/deployment/azure/model_lifecycle_reconciler.py`; focused lifecycle and protected-workflow tests | The scheduled path emits sanitized evidence, abstains on provider failure, and opens an idempotent draft proposal with no activation authority. A governed run receipt and reviewed replacement remain open. |
+| Weekly model reconciler and reviewed replacement flow | implemented | `.github/workflows/model-lifecycle-reconcile.yml`; `scripts/deployment/azure/model_lifecycle_reconciler.py`; focused lifecycle and protected-workflow tests | The scheduled path compares family, publisher, status, SKU, capacity unit, and capacity value, emits sanitized evidence, abstains on provider failure, and opens an idempotent draft proposal with no activation authority. A governed run receipt and reviewed replacement remain open. |
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and aligned the quality-gate status with current resolver, rubric, escalation, and latency-routing code. | `current change`; registry, quality-gate, Azure adapter, composition, and measurement paths listed above. | Retain operational model evidence and implement the governed reconciler flow. |
 | 2026-08-19 | implemented | Bound live model resolution to protected planning, sealed the exact full and deployment manifests into plan metadata, restored the same JSON and SHA for apply, and added a proposal-only weekly lifecycle reconciler. | `current change`; focused model lifecycle, plan verifier, Operator narrator, Terraform, and privileged-workflow checks. | Retain one governed reconciler run and separately review any draft replacement before registry or deployment change. |
+| 2026-08-21 | implemented | Versioned lifecycle proposals to include SKU and effective capacity after an existing `GlobalStandard` 1K TPM embedding deployment and the reviewed `Standard` 200K TPM candidate were incorrectly classified as no change. The protected plan permits only that exact address, family, account binding, source SKU/capacity, target SKU/capacity, and replacement action. | `current change`; `model_lifecycle_reconciler.py`; `deploy-dev.yml`; focused lifecycle checks passed 5 cases and destructive-plan checks passed 2 cases. | Apply only the exact protected plan, verify the replacement and runtime binding, retain the apply receipt, and remove the bounded migration approval after convergence. |
 ### Remaining work
 - [ ] Retain a pinned live-shadow cohort for every enabled T1/T2 capability with model identity, cost, latency, disagreement, grounding, verifier, rubric, outcome, and guard evidence.
 - [ ] Retain a governed scheduled-run receipt proving deprecation or family drift creates only a sanitized draft PR, and verify an unmerged expiry lowers the affected capability to human review.
@@ -500,10 +501,9 @@ otherwise it binds the single primary unchanged.
 
 ### Reconciler Job
 
-The planned weekly Job watches newer preferred families, deprecations within 60 days, and measured
-capacity or quality drift. It opens only a bounded issue or draft PR and an A2 alert; it never
-changes the live mapping. An expired unmerged replacement lowers the capability to human review,
-and any accepted registry change still needs Owner review plus frozen-scenario shadow replay.
+The planned weekly Job watches newer preferred families, deprecations within 60 days, and measured capacity or quality drift. It opens only a bounded issue or draft PR and an A2 alert; it never changes the live mapping.
+Proposal schema v2 compares SKU and effective capacity unit/value in addition to family, publisher, and status, so an in-place scale or replacement cannot be misclassified as no change.
+An expired unmerged replacement lowers the capability to human review, and any accepted registry change still needs Owner review plus frozen-scenario shadow replay.
 
 ### Mixed-Model Family Strategies
 

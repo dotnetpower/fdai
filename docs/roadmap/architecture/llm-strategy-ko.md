@@ -1,8 +1,8 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: e4b72aa8cb2b3d695b616f269ccc644bc935f501
-translation_revised: 2026-08-20
+translation_source_sha: ab1332e442e76c03756ca68948c8372e99a017eb
+translation_revised: 2026-08-21
 ---
 
 # LLM 전략(LLM Strategy)
@@ -25,12 +25,13 @@ translation_revised: 2026-08-20
 | T2 교차 검사, 검증기, 근거 확인, 신뢰도 및 rubric | implemented | `core/quality_gate/`; `delivery/azure/llm/rubric.py`; 집중 quality 게이트 및 Azure 어댑터 테스트 | 필수 4개 경로와 선택적 감산 rubric이 있습니다. 근거가 없거나 잘못되면 거부, 판단 보류 또는 사람 검토로 결과를 낮춥니다. |
 | 에스컬레이션 정책과 같은 발행기 primary 지연 시간 라우팅 | implemented | `core/quality_gate/escalation_ladder.py`; `delivery/azure/llm/latency_routed_cross_check.py`; `composition/wire_llm.py`; 집중 라우팅 테스트 | 에스컬레이션 단계는 권한을 갖지 않으며 primary 대체 경로는 secondary 발행기로 넘어갈 수 없습니다. |
 | 운영 모델 근거와 강제 적용 승격 | in-progress | `core/measurement/model_tracking.py`; [목표와 메트릭](goals-and-metrics-ko.md#구현-상태) | 측정과 승격 계약이 있지만 모든 활성 T1/T2 기능의 보존된 실제 운영 집단은 이 문서에서 입증되지 않습니다. |
-| 주간 모델 조정기와 검토된 교체 흐름 | implemented | `.github/workflows/model-lifecycle-reconcile.yml`; `scripts/deployment/azure/model_lifecycle_reconciler.py`; 집중 수명 주기 및 보호된 workflow 테스트 | 예약 실행 경로는 정제된 근거를 만들고, 공급자 실패 시 판단을 보류하며, 활성화 권한이 없는 멱등적 초안 제안만 엽니다. 통제된 실행 증적과 검토된 교체는 열려 있습니다. |
+| 주간 모델 조정기와 검토된 교체 흐름 | implemented | `.github/workflows/model-lifecycle-reconcile.yml`; `scripts/deployment/azure/model_lifecycle_reconciler.py`; 집중 수명 주기 및 보호된 workflow 테스트 | 예약 실행 경로는 모델 계열, 발행자, 상태, SKU, 용량 단위, 용량 값을 비교하고 정제된 근거를 만듭니다. 공급자 실패 시 판단을 보류하며, 활성화 권한이 없는 멱등적 초안 제안만 엽니다. 통제된 실행 증적과 검토된 교체는 열려 있습니다. |
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 이전 이력을 재구성하지 않고 구현 원장을 도입했으며 quality 게이트 상태를 현재 resolver, rubric, 에스컬레이션 및 지연 시간 라우팅 코드에 맞췄습니다. | `current change`; 위의 레지스트리, quality 게이트, Azure 어댑터, 조립 및 측정 경로입니다. | 운영 모델 근거를 보존하고 통제된 조정기 흐름을 구현합니다. |
 | 2026-08-19 | implemented | 실제 모델 해석을 보호된 계획에 연결하고, 정확한 전체 및 배포 매니페스트를 계획 메타데이터에 봉인했으며, 적용 시 같은 JSON과 SHA를 복원하고, 제안 전용 주간 수명 주기 조정기를 추가했습니다. | `current change`; 집중 모델 수명 주기, 계획 검증기, Operator 서술기, Terraform 및 권한 workflow 검사. | 통제된 조정기 실행을 한 번 보존하고, 레지스트리나 배포를 바꾸기 전에 모든 교체 초안을 별도로 검토합니다. |
+| 2026-08-21 | implemented | 기존 `GlobalStandard` 1K TPM 임베딩 배포와 검토된 `Standard` 200K TPM 후보를 변경 없음으로 잘못 분류한 문제를 수정했습니다. 수명 주기 제안은 이제 SKU와 유효 용량을 포함합니다. 보호된 계획은 정확한 주소, 모델 계열, 계정 연결, 기존 SKU/용량, 목표 SKU/용량, 교체 작업이 모두 일치할 때만 이 전환을 허용합니다. | `current change`; `model_lifecycle_reconciler.py`; `deploy-dev.yml`; 집중 수명 주기 검사 5개와 파괴적 계획 검사 2개 통과. | 정확한 보호 계획만 적용하고 교체와 런타임 연결을 검증한 뒤 적용 증적을 보존하고 수렴 후 범위가 제한된 이행 승인을 제거합니다. |
 ### 남은 작업
 - [ ] 활성화된 모든 T1/T2 기능에 대해 모델 신원, 비용, 지연 시간, 불일치, 근거 확인, 검증기, rubric, 결과 및 가드 근거가 포함된 고정된 실제 운영 shadow 집단을 보존합니다.
 - [ ] 사용 중단 또는 모델 계열 표류가 정제된 초안 PR만 만드는 통제된 예약 실행 증적을 보존하고, 병합되지 않은 만료가 해당 기능을 사람 검토로 낮춤을 검증합니다.
@@ -482,10 +483,9 @@ collapse" 위험은 *쌍 전체*를 속도로 라우팅할 때의 문제이고, 
 
 ### 조정기 작업
 
-계획된 주간 작업은 더 선호되는 새 계열, 60일 안의 사용 중단, 측정된 용량 또는 품질 표류를
-감시합니다. 범위가 제한된 이슈 또는 초안 PR과 A2 알림만 만들며 실제 매핑을 바꾸지 않습니다.
-병합되지 않은 교체가 만료되면 기능을 사람 검토로 낮추고, 승인된 레지스트리 변경도 Owner 검토와
-고정 시나리오 shadow 재현을 통과해야 합니다.
+계획된 주간 작업은 더 선호되는 새 계열, 60일 안의 사용 중단, 측정된 용량 또는 품질 표류를 감시합니다. 범위가 제한된 이슈 또는 초안 PR과 A2 알림만 만들며 실제 매핑을 바꾸지 않습니다.
+제안 스키마 v2는 모델 계열, 발행자, 상태뿐 아니라 SKU와 유효 용량 단위/값도 비교하므로 제자리 확장이나 교체를 변경 없음으로 잘못 분류하지 않습니다.
+병합되지 않은 교체가 만료되면 기능을 사람 검토로 낮추고, 승인된 레지스트리 변경도 Owner 검토와 고정 시나리오 shadow 재현을 통과해야 합니다.
 
 ### Mixed-Model 계열 전략
 

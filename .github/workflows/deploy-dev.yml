@@ -663,6 +663,17 @@ jobs:
             -backend-config="container_name=tfstate" \
             -backend-config="key=fdai-${{ inputs.environment }}.tfstate"
 
+      - name: Preserve Event Bus migration console topology
+        if: ${{ env.EVENT_BUS_TOPIC_MIGRATION == 'true' }}
+        run: |
+          set -euo pipefail
+          state_list="$RUNNER_TEMP/event-bus-migration-state.txt"
+          trap 'rm -f "$state_list"' EXIT
+          terraform state list > "$state_list"
+          if grep -Fxq 'module.console[0].azurerm_static_web_app.console' "$state_list"; then
+            echo "TF_VAR_enable_console=true" >> "$GITHUB_ENV"
+          fi
+
       - name: Install pinned GitHub CLI for image verification
         if: ${{ !inputs.apply && inputs.deploy_isolated_executor }}
         env:
@@ -1178,12 +1189,63 @@ jobs:
             "azurerm_role_assignment.inventory_eventhubs_sender",
             "azurerm_role_assignment.inventory_stage_sender",
           }
-          actions_by_address = {
-            str(change.get("address", "unknown")): tuple(
-              change.get("change", {}).get("actions", [])
-            )
+          approved_model_replacements = {
+            "module.llm_azure_openai[0].azurerm_cognitive_deployment."
+            "capability[\"t1.embedding\"]": {
+              "name": "t1.embedding",
+              "family": "text-embedding-3-small",
+              "before_sku": "GlobalStandard",
+              "before_capacity": 1,
+              "after_sku": "Standard",
+              "after_capacity": 200,
+            },
+          }
+          resource_changes = {
+            str(change.get("address", "unknown")): change
             for change in plan.get("resource_changes", [])
           }
+          actions_by_address = {
+            address: tuple(change.get("change", {}).get("actions", []))
+            for address, change in resource_changes.items()
+          }
+
+          def singleton_block(resource, key):
+            blocks = resource.get(key) if isinstance(resource, dict) else None
+            if not isinstance(blocks, list) or len(blocks) != 1:
+              return None
+            return blocks[0] if isinstance(blocks[0], dict) else None
+
+          def exact_model_replacement(change, expected):
+            details = change.get("change", {})
+            before = details.get("before")
+            after = details.get("after")
+            if not isinstance(before, dict) or not isinstance(after, dict):
+              return False
+            before_model = singleton_block(before, "model")
+            after_model = singleton_block(after, "model")
+            before_sku = singleton_block(before, "sku")
+            after_sku = singleton_block(after, "sku")
+            return (
+              tuple(details.get("actions", [])) == ("delete", "create")
+              and before.get("name") == after.get("name") == expected["name"]
+              and isinstance(before.get("cognitive_account_id"), str)
+              and bool(before.get("cognitive_account_id"))
+              and before.get("cognitive_account_id")
+              == after.get("cognitive_account_id")
+              and before_model is not None
+              and after_model is not None
+              and before_model.get("format") == after_model.get("format") == "OpenAI"
+              and before_model.get("name")
+              == after_model.get("name")
+              == expected["family"]
+              and before_sku is not None
+              and after_sku is not None
+              and before_sku.get("name") == expected["before_sku"]
+              and before_sku.get("capacity") == expected["before_capacity"]
+              and after_sku.get("name") == expected["after_sku"]
+              and after_sku.get("capacity") == expected["after_capacity"]
+            )
+
           destructive = sorted(
             (
               str(change.get("address", "unknown")),
@@ -1196,6 +1258,11 @@ jobs:
           for address, actions in destructive:
             if address in migration_replacements:
               if actions != ("delete", "create"):
+                unexpected.append(address)
+            elif address in approved_model_replacements:
+              if not exact_model_replacement(
+                resource_changes[address], approved_model_replacements[address]
+              ):
                 unexpected.append(address)
             elif address in permitted_retirements:
               if actions != ("delete",) or any(
@@ -1272,6 +1339,8 @@ jobs:
               )
             elif address in migration_replacements:
               print(f"Protected plan permits exact Event Hubs RBAC replacement: {address}")
+            elif address in approved_model_replacements:
+              print(f"Protected plan permits exact Azure OpenAI replacement: {address}")
             else:
               successors = permitted_retirements[address]
               successor_text = ", ".join(successors) if successors else "closed public path"
