@@ -81,6 +81,7 @@ from fdai.core.workflow import (
     StateStoreAutomationHoldLedger,
     StateStoreWorkflowOutcomeLedger,
 )
+from fdai.delivery.catalog_exemption import CatalogExemptionRegistry
 from fdai.delivery.kinetic_proposal import StateStoreKineticActionProposalStore
 from fdai.delivery.kinetic_safety import ExistingProposalKineticSafetyWriter
 from fdai.delivery.persistence.state_store_preconditions import (
@@ -308,7 +309,10 @@ def _build_control_loop(
     profile_binding = bind_rule_profile(rules, catalog_root=catalog_root)
     active_rules: Sequence[Rule] = rules if profile_binding is None else profile_binding.rules
     index = RuleIndex.build(active_rules, signal_types=signal_types)
-    governance_catalog = load_governance_catalog(catalog_root)
+    governance_catalog = load_governance_catalog(
+        catalog_root,
+        known_rule_versions={rule.id: rule.version for rule in rules},
+    )
 
     # Workflow catalog (fail-closed if the directory exists but any file is
     # invalid). Cross-references every step's action_type_ref / compensated_by
@@ -390,7 +394,10 @@ def _build_control_loop(
                 }
             )
         ),
-        exemption_registry=container.exemption_registry,
+        exemption_registry=CatalogExemptionRegistry(
+            governance_catalog.exemptions,
+            fallback=container.exemption_registry,
+        ),
     )
     llm_bindings = container.require_llm_bindings()
     t1 = T1Tier(

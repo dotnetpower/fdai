@@ -699,10 +699,9 @@ def test_active_exemption_short_circuits_to_abstain() -> None:
     """A scoped human-override MUST suppress execution even when every
     other check would have returned AUTO (architecture.instructions
     § Human Override)."""
-    from fdai.shared.providers.exemption import (
-        InMemoryExemptionRecord,
-        InMemoryExemptionRegistry,
-    )
+    from fdai.delivery.catalog_exemption import CatalogExemptionRegistry
+    from fdai.rule_catalog.schema.exemption import load_exemption_from_mapping
+    from fdai.shared.providers.exemption import empty_exemption_registry
 
     registry = ActionPromotionRegistry(allow_legacy_metrics=True)
     action_type = _shipped_action_types()["remediate.tag-add"]
@@ -716,17 +715,26 @@ def test_active_exemption_short_circuits_to_abstain() -> None:
     )
     registry.consider_promotion(action_type=action_type, metrics=metrics)
 
-    exemption_registry = InMemoryExemptionRegistry(
-        records=(
-            InMemoryExemptionRecord(
-                exemption_id="exempt-42",
-                rule_id="object-storage.owner-tag.required",
-                resource_group=None,
-                resource_ref="resource:example/rg/x",  # matches _action target
-                expires_at=datetime.now(tz=UTC).replace(year=2099),
-                justification="vetted legacy workload",
-            ),
-        )
+    exemption = load_exemption_from_mapping(
+        {
+            "schema_version": "1.0.0",
+            "id": "exempt-42",
+            "rule_id": "object-storage.owner-tag.required",
+            "scope": {
+                "subscription_id": "00000000-0000-0000-0000-000000000000",
+                "resource_ref": "resource:example/rg/x",
+            },
+            "justification": "A reviewed legacy workload remains temporarily exempted.",
+            "requested_by": "00000000-0000-0000-0000-000000000001",
+            "approved_by": "00000000-0000-0000-0000-000000000002",
+            "state": "active",
+            "created_at": "2026-07-01T00:00:00Z",
+            "expires_at": "2099-01-01T00:00:00Z",
+        }
+    )
+    exemption_registry = CatalogExemptionRegistry(
+        (exemption,),
+        fallback=empty_exemption_registry(),
     )
     gate = RiskGate(registry=registry, exemption_registry=exemption_registry)
     rule = _shipped_rules_by_id()["object-storage.owner-tag.required"]

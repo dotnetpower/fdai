@@ -17,6 +17,27 @@
     "created_at",
     "expires_at"
   ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {"state": {"const": "revoked"}},
+        "required": ["state"]
+      },
+      "then": {
+        "required": ["revoked_at", "revoked_by"],
+        "properties": {
+          "revoked_at": {"type": "string", "format": "date-time"},
+          "revoked_by": {"type": "string", "format": "uuid"}
+        }
+      },
+      "else": {
+        "properties": {
+          "revoked_at": {"type": "null"},
+          "revoked_by": {"type": "null"}
+        }
+      }
+    }
+  ],
   "properties": {
     "schema_version": {
       "type": "string",

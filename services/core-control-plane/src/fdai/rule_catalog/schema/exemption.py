@@ -16,14 +16,14 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
 from importlib import resources
 from typing import Annotated, Any
 from uuid import UUID
 
 from jsonschema import Draft202012Validator
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 _SCHEMA_PACKAGE = "fdai.rule_catalog.schema"
 _SCHEMA_FILE = "exemption.schema.json"
@@ -56,6 +56,13 @@ class ExemptionError(ValueError):
 
 
 class ExemptionState(StrEnum):
+    """Reviewed lifecycle state.
+
+    The expiry job records ``active -> expired``. A reviewed revocation records
+    ``active -> revoked``. Both target states are terminal; ``revoked_at`` is
+    audit metadata, not a scheduled future transition.
+    """
+
     ACTIVE = "active"
     EXPIRED = "expired"
     REVOKED = "revoked"
@@ -110,6 +117,17 @@ class Exemption(BaseModel):
     revoked_at: datetime | None = None
     revoked_by: UUID | None = None
 
+    @field_validator("created_at", "expires_at", "revoked_at")
+    @classmethod
+    def _require_utc_timestamp(cls, value: datetime | None) -> datetime | None:
+        if value is None:
+            return None
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("timestamp MUST include an explicit UTC offset")
+        if value.utcoffset() != UTC.utcoffset(value):
+            raise ValueError("timestamp MUST use UTC")
+        return value
+
     @model_validator(mode="after")
     def _require_distinct_approver(self) -> Exemption:
         if self.requested_by == self.approved_by:
@@ -125,6 +143,19 @@ class Exemption(BaseModel):
             raise ValueError("expires_at MUST be strictly after created_at")
         return self
 
+    @model_validator(mode="after")
+    def _require_consistent_revocation(self) -> Exemption:
+        has_revoked_at = self.revoked_at is not None
+        has_revoked_by = self.revoked_by is not None
+        if self.state is ExemptionState.REVOKED:
+            if not has_revoked_at or not has_revoked_by:
+                raise ValueError("revoked state MUST set both revoked_at and revoked_by")
+            if self.revoked_at is not None and self.revoked_at < self.created_at:
+                raise ValueError("revoked_at MUST be at or after created_at")
+        elif has_revoked_at or has_revoked_by:
+            raise ValueError("non-revoked state MUST NOT set revoked_at or revoked_by")
+        return self
+
 
 # ---------------------------------------------------------------------------
 # Loader
@@ -134,6 +165,23 @@ class Exemption(BaseModel):
 def _load_json_schema() -> dict[str, Any]:
     raw = resources.files(_SCHEMA_PACKAGE).joinpath(_SCHEMA_FILE).read_text(encoding="utf-8")
     return json.loads(raw)  # type: ignore[no-any-return]
+
+
+def parse_exemption_json(text: str) -> dict[str, Any]:
+    """Parse one exemption document and reject duplicate keys at any depth."""
+
+    def _unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError(f"duplicate JSON key {key!r}")
+            result[key] = value
+        return result
+
+    raw = json.loads(text, object_pairs_hook=_unique_object)
+    if not isinstance(raw, dict):
+        raise ValueError("top-level JSON must be an object")
+    return raw
 
 
 def load_exemption_from_mapping(raw: Mapping[str, Any]) -> Exemption:
@@ -174,4 +222,5 @@ __all__ = [
     "ExemptionScope",
     "ExemptionState",
     "load_exemption_from_mapping",
+    "parse_exemption_json",
 ]

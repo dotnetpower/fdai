@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 723bfd2703da8764dd08ec3a1d784bd2d0dd1252
+translation_source_sha: 6b39dd18cc4abc37935a2e4fc49d4c7019771a27
 translation_revised: 2026-08-23
 ---
 # 온톨로지 구조 모델
@@ -205,6 +205,7 @@ Operator 변환 결과는 출처 세대, 온톨로지 release, 쿼리 상한, �
 | 순서가 있는 형식화된 경로 쿼리 | implemented | `TypedPathDefinition`, `QueryNodeKind.TYPED_PATH`, 결정적 검증기, 보안 적용 handler, composition binding, 집중 쿼리 검사 | 기존 v1 탐색은 LinkType 하나만 받습니다. 형식화된 경로는 방향이 고정된 단계 1-8개를 실행하고 불완전한 중간 근거에서 보류합니다. |
 | 링크 역할과 의미 특성 | implemented | 공유 LinkType 계약 및 스키마, 쿼리 매니페스트, 수정된 런타임 선언 6개와 분류 선언 2개, 카탈로그 테스트 | 선택적인 빈 필드는 기존 provenance를 보존합니다. 검토된 필드는 역방향 edge나 표현 레이아웃을 만들지 않습니다. |
 | 완전성과 표현 분리 | implemented | 권위 있는 온톨로지 그래프 materializer, 통합 테스트, Console 디코더 및 LinkType 검사기, 이중 언어 제품 카탈로그, 타입 검사, 프로덕션 빌드 | 선언 그래프는 독립적인 제한 계열 4개를 전달하고 범위 내 모든 LinkType의 역할과 특성을 노출합니다. 이 주장은 다른 checkout의 별도 미커밋 인스턴스 탐색기를 포함하지 않습니다. |
+| 거버넌스 아티팩트 분리 | implemented | `rule_catalog/schema/governance_catalog.py`; `delivery/catalog_exemption.py`; 집중 거버넌스 로더 및 registry 테스트 | 배정과 exemption은 검증된 catalog-as-code 입력입니다. 온톨로지 사실로 변환되지 않으며 쿼리, 승인 또는 실행 권한을 부여하지 않습니다. |
 | 적대적 하드닝 | implemented | 아래의 15회 하드닝 기록, 집중 Python 테스트 308개, 집중 Console 테스트 29개, 변경된 Python 파일 29개의 Ruff, 변경된 source 파일 19개의 strict mypy, Console 타입 검사 및 프로덕션 빌드 | 검증된 모든 High 또는 Medium 발견 사항을 해결했습니다. Low 관찰만 남았습니다. |
 
 ### 구현 이력
@@ -215,6 +216,7 @@ Operator 변환 결과는 출처 세대, 온톨로지 release, 쿼리 상한, �
 | 2026-08-23 | implemented | 작업 권한이나 과거 링크 방향을 바꾸지 않고 명시적 ResourceClass 분류 체계, 순서가 있는 형식화된 경로, LinkType 탐색 역할 및 의미 특성, exact 매니페스트 변환 결과, 제한을 보존하는 선언 표현을 추가했습니다. | `current change`; 집중 카탈로그, 쿼리, 계약, materializer, Console 검사, Ruff, strict mypy, Console 타입 검사 및 프로덕션 빌드입니다. | 최소 10회의 적대적 비평 및 하드닝을 완료하고 검증된 Low 초과 발견 사항을 모두 해결한 뒤 최종 집중 및 diff 검증 묶음을 실행합니다. |
 | 2026-08-23 | implemented | 적대적 하드닝을 15회 완료했습니다. 형식화된 경로 composition, 범위가 제한된 반복, 분류 근거 무결성, 분류 체계 아이덴티티와 상한, exact-release 호환성, Console 디코딩, 출시 호환성, production 분류 체계 클로저 통합 결함을 해결했습니다. | `current change`; 집중 Python 테스트 308개와 집중 Console 테스트 29개가 통과했고, 변경된 Python 파일 29개의 Ruff, 변경된 source 파일 19개의 strict mypy, Console 타입 검사 및 프로덕션 빌드가 통과했습니다. | 문서 쌍, 로드맵, 번역, 문장 부호, 설계 경로, 최종 diff 검사를 실행합니다. |
 | 2026-08-23 | implemented | 검증된 Low 초과 발견 사항 없이 범위가 제한된 구현 및 문서 gate 묶음을 완료했습니다. | `current change`; 변경된 한국어 문서 3개의 번역 품질 및 readable-Hangul 검사, 변경 문서 6개의 문장 부호 검사, 파생 출처, 로드맵 추적, 문서 크기, 설계 경로, 664개 파일 링크 검사가 통과했습니다. | 이 문서의 범위가 제한된 작업에는 남은 항목이 없습니다. |
+| 2026-08-23 | implemented | 불변 거버넌스 배정과 exemption이 온톨로지 구조 그래프 외부의 catalog-as-code 입력으로 유지됨을 기록했습니다. | `current change`; 거버넌스 카탈로그, exemption registry 및 집중 시작 검사입니다. | 이 경계로 인한 온톨로지 변환 또는 권한 작업은 없습니다. |
 
 ### 하드닝 기록
 

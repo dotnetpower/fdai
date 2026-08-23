@@ -1,8 +1,8 @@
 ---
 title: 규칙 거버넌스(Rule Governance)
 translation_of: rule-governance.md
-translation_source_sha: ab55621ca628affd0736e8d05c8ab1c2a531ce7f
-translation_revised: 2026-08-20
+translation_source_sha: 66e1599698707a606ab28f4c351e1b896673dbfb
+translation_revised: 2026-08-23
 ---
 
 # 규칙 거버넌스(Rule 거버넌스)
@@ -23,11 +23,13 @@ shadow-before-enforce 및 안전 불변식을 준수.
 > 따라 합성 자리 표시자.
 
 > **구현 상태**: 효과/범위/배정/rule-set 도메인 모델, strict YAML loaders, 디렉터리
-> 카탈로그 로더 및 효과/적용 전이 CI가 구현되어 있습니다. Resolved 배정을
-> T0 런타임이 소비하는 조립은 아직 남아 있습니다. Exemption은 별도 Azure-shaped
-> 스키마/로더와 CLI가 있지만 거버넌스 디렉터리 로더, 만료 작업 및 알림 배선에는
-> 포함되지 않습니다. 재정의 스키마/로더/런타임 해석과 거버넌스 PR OID/정족수 CI는
-> 아직 목표 설계입니다.
+> 카탈로그 로더, 효과/적용 전이 CI 및 T0 런타임 배정 소비가 구현되어 있습니다.
+> 시작 시 하나의 불변 거버넌스 카탈로그를 로드하고 T0는 일반 권한 부여와 안전성
+> 검토 전에 해석된 범위, 제외, 선택기, 효과, 적용, 파라미터 및 우선순위를 적용합니다.
+> 같은 카탈로그가 strict Azure-shaped exemption을 로드해 안전성 검토에 바인딩합니다.
+> 최대 기간, 예약 만료, 만료 전 알림 및 라이프사이클 감사 전달은 남아 있습니다.
+> 재정의 해석은 아직 목표 설계입니다. Pull request 신원 검사는 구현됐으며 trusted
+> verifier 배포는 외부 작업입니다.
 
 ## 카탈로그 검색
 
@@ -153,8 +155,10 @@ Azure Policy는 *정의* 를 *할당* 과 *예외* 에서 분리. FDAI가 이를
 > base 참조 와 working 트리 의 카탈로그 를 materialize 해 거부된 전이가 있으면 빌드를 실패시킴.
 > 게이트는 **효과 + 적용** 전이를 관장하며 범위 / blast-radius **확대**는 플래그하지 않음(낮은
 > specificity 범위 는 더 타이트한 `selector` 로 상쇄될 수 있어, 건전한 확대 검사는 specificity
-> 휴리스틱이 아닌 커버리지 분석이 필요) - 이는 별도 future 검사. 남은 후속은 resolved 배정 를
-> 소비하는 T0 런타임.
+> 휴리스틱이 아닌 커버리지 분석이 필요) - 이는 별도 future 검사. 런타임 시작은 이
+> 카탈로그를 한 번 로드하고 T0는 각 발견 사항을 불변 배정 튜플에 대해 해석합니다.
+> `audit`/`disabled` 및 비적용 결정은 관찰 전용으로 남고, 파라미터 동점은 사람 검토가
+> 필요하며, `remediate+enforce`도 실행 권한 부여와 통합 안전성 검토를 통과합니다.
 >
 > ship 된 catalog-as-code 스키마는 이제 아래 "YAML Shapes" 섹션과 일치함: 공유 `Provenance` 값 객체
 > ([`provenance.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/provenance.py)), `kind`
@@ -227,11 +231,16 @@ Exemption은 Azure Policy exemption처럼 스코프의 할당을 waive:
 
 - 현재 필수 필드: `rule_id`, resource-group 또는 리소스로 좁혀진 Azure-shaped `scope`,
   **justification**, 서로 다른 `requested_by` / `approved_by` UUID, `state`, `created_at`,
-  `expires_at`. 로더는 no self-exemption과 `expires_at > created_at`을 강제합니다.
+  `expires_at`. 로더는 no self-exemption, 명시적 UTC 시각, `expires_at > created_at` 및
+  일관된 terminal revocation 메타데이터를 강제합니다.
 - 현재 스키마는 배정 참조나 waiver/mitigated category를 저장하지 않고, 설정된 최대
   기간도 강제하지 않습니다. 이 메타데이터와 maximum-duration 정책은 후속 계약입니다.
-- Auto-renew는 지원되지 않습니다. 만료 시 재적용과 사전 ChatOps 알림은 아직 배선되지 않은 운영
-  작업 흐름이며, 현재 산출물 상태는 CLI/검토 프로세스가 갱신해야 합니다.
+- 런타임 시작은 검토된 exemption JSON을 같은 불변 거버넌스 카탈로그에 로드하고,
+  구독과 범위를 검증하는 registry를 안전성 검토에 바인딩합니다. 잘못되거나 중복된
+  데이터, 알 수 없는 룰, 잘못된 ARM 리소스 id, 만료 및 revoked 상태는 실패 시 닫히거나
+  매치되지 않습니다.
+- Auto-renew는 지원되지 않습니다. 독립 실행 만료 명령은 있지만 예약 실행, 만료 전
+  ChatOps 알림 및 라이프사이클 감사 전달은 아직 배선되지 않은 작업 흐름입니다.
 - 모든 exemption과 만료는 감사; exemption은 기저 발견 사항의 감사 기록을 절대 억제하지 않음 -
   발생 안 함이 아니라 *왜 수용됐는지* 기록.
 
@@ -438,8 +447,8 @@ provenance:
   created_by: assignment-operator
 ```
 
-> `rule-set`과 `assignment`는 거버넌스 카탈로그 로더가 읽는 strict 스키마를 갖고,
-> `exemption`은 별도 strict 스키마/CLI가 읽습니다. `override` 형태는 아직 목표 예시이며 로더가
+> `rule-set`, `assignment`, `exemption`은 거버넌스 카탈로그 로더가 읽는 strict 스키마를
+> 갖고, `exemption`은 집중 검증 및 만료 CLI도 유지합니다. `override` 형태는 아직 목표 예시이며 로더가
 > 없습니다. 각 rule-set 멤버는
 > 규칙 `version` 을 고정; 각 `parameter_overrides` 값은 대상 규칙이 그 파라미터에 선언한
 > 타입에 대해 검증하는 것은 아직 후속 작업이며 현재 배정 스키마는 문자열 값을 받습니다.
@@ -456,10 +465,10 @@ provenance:
 |------|------|------|------|
 | 효과, 범위, 배정, rule-set 계약 | implemented | `services/core-control-plane/src/fdai/rule_catalog/schema/effect.py`; `scope.py`; `assignment.py`; `rule_set.py`; 집중 스키마 테스트 | 엄격한 모델이 잘못된 범위, 참조, 효과, rule-set 확장을 거부합니다. |
 | 거버넌스 카탈로그 및 전이 CI | implemented | `services/core-control-plane/src/fdai/rule_catalog/schema/governance_catalog.py`; `governance_transitions.py`; `scripts/governance/check-governance-transitions.py`; `.github/workflows/ci.yml` | 디렉터리 로딩과 검토된 효과/적용 전이 검사가 연결되어 있습니다. |
-| Exemption 및 만료 | in-progress | `services/core-control-plane/src/fdai/rule_catalog/schema/exemption.py`; `exemption_cli.py`; `scripts/governance/exemption-expire.py`; 집중 exemption 테스트 | 엄격한 아티팩트와 독립 실행 만료 명령이 있습니다. 카탈로그 로딩, 예약 실행, 최대 기간, 알림은 남아 있습니다. |
+| Exemption 및 만료 | in-progress | `services/core-control-plane/src/fdai/rule_catalog/schema/exemption.py`; `governance_catalog.py`; `delivery/catalog_exemption.py`; `runtime/control_loop.py`; `scripts/governance/exemption-expire.py`; 집중 로더, registry, 안전성 검토 및 런타임 테스트 | 시작 시 불변 strict 아티팩트를 로드하고 안전성 검토가 이를 소비합니다. 예약 실행, 설정된 최대 기간, 알림 및 라이프사이클 감사 전달은 남아 있습니다. |
 | 재정의 아티팩트 및 해석 | not-started | [재정의](#재정의); 현재 변경의 소스 감사 | 재정의 전용 스키마, 디렉터리 로더, 우선순위 해석기, 런타임 소비자가 없습니다. |
-| T0 배정 소비 | not-started | [구현 상태 요약](#규칙-거버넌스rule-governance); 현재 변경의 소스 감사 | T0 조립은 해석된 배정을 로드하거나 효과 및 적용 결정을 사용하지 않습니다. |
-| 거버넌스 pull request 신원 검사 | in-progress | `services/core-control-plane/src/fdai/rule_catalog/schema/governance_review_authority.py`; `services/core-control-plane/tests/rule_catalog/schema/test_governance_review_authority.py`; [관리자 컨트롤 흐름](#관리자-컨트롤-흐름-gitops-버튼-아님) | 운영자 신원, 필수 역할, 정족수, 자기 승인 방지에 대한 순수 결정이 존재하며 실패 시 닫힙니다. 이를 CI 게이트에서 실제 pull request 리뷰 메타데이터에 연결하는 작업은 남아 있습니다. |
+| T0 배정 소비 | implemented | `services/core-control-plane/src/fdai/runtime/control_loop.py`; `services/core-control-plane/src/fdai/core/control_loop/_execution.py`; `services/core-control-plane/src/fdai/core/control_loop/_process.py`; 집중 거버넌스 및 파이프라인 테스트 | 하나의 불변 시작 카탈로그가 범위, 제외, 선택기, 효과, 적용, 파라미터 및 우선순위를 제공합니다. 적용되는 remediation도 실행 권한 부여와 통합 안전성 검토를 통과합니다. |
+| 거버넌스 pull request 신원 검사 | implemented | `services/core-control-plane/src/fdai/rule_catalog/schema/governance_review_authority.py`; `services/core-control-plane/src/fdai/delivery/gitops_pr/governance_review.py`; `scripts/governance/check-governance-review-authority.py`; `.github/workflows/ci.yml`; 집중 권한, 메타데이터, CLI 및 workflow 테스트 | CI는 exact-head GitHub commit, review, Check Run 사실을 수집하고 구성된 trusted verifier App의 identity 근거만 수락합니다. 구성이나 attestation이 없으면 관리되는 변경을 차단합니다. 외부 Entra verifier 배포와 차단 후 해소된 운영 근거 보존은 남아 있습니다. |
 
 ### 구현 이력
 
@@ -472,13 +481,18 @@ provenance:
 | 2026-08-17 | in-progress | 절대 시각이 아닌 head 커밋 시각이 실패 시 닫히도록 검토 권한 결정을 강화했습니다: 모호한 시점과 신선도를 비교하지 않으며 어떤 승인도 정족수에 포함되지 않습니다. | `current change`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/python -m pytest -q --no-cov services/core-control-plane/tests/rule_catalog/schema/test_governance_review_authority.py` 가 17개 테스트를 통과했습니다. | 이 결정을 거버넌스 CI 게이트의 실제 pull request 리뷰 메타데이터에 연결하고 차단 후 해소된 근거 기록 하나를 보존합니다. |
 | 2026-08-18 | in-progress | `shared/ontology/threshold_bounds.py`를 추가해 제공되는 `ontology/action-type` 계약에서 promotion gate의 수치 범위를 읽고 단일 검사기를 제공합니다. `ShadowDwellThresholds`는 하한과 정확도 상한을 직접 명시하지 않고 그 선언에서 도출하며, focused sweep 하나가 등록된 모든 적응형 임계값이 선언된 범위 안에 머문다는 점과 pydantic `PromotionGate` 모델과 JSON 계약이 서로 어긋나질 수 없음을 증명합니다. 온톨로지 선언이 없는 `GraphModelPromotionPolicy` 비율 임계값 2개는 숨기지 않고 명시적 공백으로 기록했습니다. | `current change`, `tests/core/operational_learning` focused 테스트 88건 통과, `tests/core/risk_gate`·`tests/core/measurement`·`tests/core/assurance_twin`·`tests/rule_catalog` 1716건 통과, 작업 범위 Ruff·format·strict mypy 통과 | `min_fidelity`와 `max_recurrence_rate`의 온톨로지 범위를 선언해 unbound 집합에서 제외하고, 등록부를 promotion gate 밖의 탐지·라우팅 임계값까지 확장해야 합니다. |
 
+| 2026-08-23 | in-progress | GitHub 리뷰 상태, exact commit, 시각을 배포에서 검증한 Entra OID, FDAI 역할, phishing-resistant assurance와 결합하는 엄격한 전달 경계를 추가했습니다. 최신 decisive review 상태를 사용하고 오래된 revision은 순수 권한 결정에 그대로 전달하며 누락되거나 이른 attestation은 실패 시 닫힙니다. | `current change`; `delivery/gitops_pr/governance_review.py`; 집중 메타데이터 및 권한 테스트 23개 통과 | 배포 소유 identity/assurance provider와 실제 pull request 메타데이터 collector를 CI에 연결한 뒤 차단 후 해소된 근거 record를 보존합니다. |
+| 2026-08-23 | implemented | 권한 결정을 GitHub의 exact-head PR, commit, review, Check Run 메타데이터에 연결했습니다. 구성된 verifier App이 성공한 exact-head Check Run에 범위가 제한된 Entra principal bundle을 게시해야 합니다. App id 부재, 누락되거나 실패한 check, 오래된 revision, 검증되지 않은 역할, 약한 assurance, 자기 승인, 정족수 부족은 CI를 차단합니다. Assignment 변경은 transition intent가 독립적으로 입증될 때까지 더 엄격한 enforce-promotion 등급을 사용합니다. | `current change`; `scripts/governance/check-governance-review-authority.py`; `.github/workflows/ci.yml`; 집중 governance CLI, bridge, 권한 및 workflow 테스트 69개 통과 | Trusted Entra verifier GitHub App을 배포하고 차단 후 해소된 관리 PR 근거 record 하나를 보존합니다. |
+| 2026-08-23 | in-progress | 불변 T0 배정 소비를 완료하고 strict exemption 아티팩트를 시작 거버넌스 카탈로그와 안전성 검토에 통합했습니다. JSON 중복 키 탐지, UTC 및 terminal 상태 검증, 알 수 없는 룰과 중복 활성 범위 차단, exact 리소스 identity, 정규 ARM 범위 parsing, 구독 격리, 결정론적 fallback 및 두 registry의 terminal revocation을 하드닝했습니다. | `current change`; 집중 거버넌스 로더, exemption 모델/CLI, catalog/fallback registry, 런타임 조립, 안전성 검토 및 T0 파이프라인 검사가 통과했습니다. 12개 적대적 하드닝 라운드 후 이 구현 범위에 Medium 이상 finding이 남지 않았습니다. | 최대 exemption 기간과 알림 lead time을 구성한 뒤 예약 만료, 알림 및 라이프사이클 감사 전달을 연결합니다. 재정의 전달과 trusted-verifier 배포는 별도입니다. |
+
 ### 남은 작업
 
-- [ ] 시작 시 하나의 불변 거버넌스 카탈로그를 로드하고 T0가 안전성 검토를 우회하지 않으면서 해석된 효과, 적용, 범위, 제외, 우선순위를 적용함을 증명합니다.
-- [ ] Exemption을 거버넌스 카탈로그에 통합하고 구성된 최대 기간을 적용하며 만료 일정을 실행하고 감사 근거와 함께 만료 전 알림을 전달합니다.
+- [x] 시작 시 하나의 불변 거버넌스 카탈로그를 로드하고 T0가 안전성 검토를 우회하지 않으면서 해석된 효과, 적용, 범위, 제외, 우선순위를 적용함을 증명했습니다. 집중 파이프라인 검사는 `remediate+enforce`도 통합 안전성 결정을 따름을 증명합니다.
+- [ ] 최대 exemption 기간과 알림 lead time을 구성하고 적용한 뒤 만료 일정을 실행하고 라이프사이클 감사 근거와 함께 만료 전 알림을 전달합니다. 카탈로그 로딩과 안전성 검토 소비는 구현됐습니다.
 - [ ] 리소스 그룹 이하 범위 검사와 함께 범위가 제한된 재정의 스키마, 로더, 우선순위 해석기, 런타임 소비를 구현합니다.
 - [x] 결정론적 pull request 검토 권한 결정이 운영자 신원, 변경 클래스별 필수 역량, 서로 다른 승인자 정족수, 고위험 phishing-resistant 승인, 리비전에 바인딩된 승인 신선도, 작성자·공동 작성자·커미터 자기 승인 방지를 적용하며, `services/core-control-plane/tests/rule_catalog/schema/test_governance_review_authority.py` 로 증명됩니다.
-- [ ] 이 결정을 거버넌스 CI 게이트의 실제 pull request 리뷰 메타데이터에 연결하고, 자기 승인 또는 정족수 미달 변경이 차단되고 수정된 변경이 통과한 근거 기록 하나를 보존합니다.
+- [x] 결정을 exact-head pull request, commit, review, trusted verifier Check Run 메타데이터에 연결했습니다. Trusted attestation이 없으면 실패 시 닫히며 집중 CLI 및 workflow 테스트가 수락, 정족수 미달, 자기 승인, 신뢰하지 않는 App 사례를 검증합니다.
+- [ ] Trusted Entra verifier GitHub App을 배포하고 `FDAI_GOVERNANCE_IDENTITY_APP_ID`를 구성한 뒤 자기 승인 또는 정족수 미달 변경이 차단되고 수정된 변경이 통과한 근거 기록 하나를 보존합니다.
 
 ## 열림 Decisions
 

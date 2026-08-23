@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -39,6 +40,7 @@ def test_empty_root_is_empty_catalog(tmp_path: Path) -> None:
     cat = load_governance_catalog(tmp_path)
     assert cat.assignments == ()
     assert cat.rule_sets == ()
+    assert cat.exemptions == ()
 
 
 def test_loads_assignments_and_rule_sets(tmp_path: Path) -> None:
@@ -155,3 +157,96 @@ def test_yml_extension_is_loaded(tmp_path: Path) -> None:
     cat = load_governance_catalog(tmp_path)
     assert [r.id for r in cat.rule_sets] == ["security-baseline"]
     assert [a.id for a in cat.assignments] == ["assign-baseline-rg-a"]
+
+
+def _valid_exemption(*, exemption_id: str = "exemption.rule-a.rg-a") -> dict[str, object]:
+    return {
+        "schema_version": "1.0.0",
+        "id": exemption_id,
+        "rule_id": "rule-a",
+        "scope": {
+            "subscription_id": "00000000-0000-0000-0000-000000000000",
+            "resource_group": "rg-a",
+        },
+        "justification": "A bounded migration exception is approved for this resource group.",
+        "requested_by": "00000000-0000-0000-0000-000000000001",
+        "approved_by": "00000000-0000-0000-0000-000000000002",
+        "state": "active",
+        "created_at": "2026-08-01T00:00:00Z",
+        "expires_at": "2026-09-01T00:00:00Z",
+    }
+
+
+def _write_exemption(root: Path, name: str, payload: object) -> None:
+    directory = root / "exemptions"
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / name).write_text(json.dumps(payload), encoding="utf-8")
+
+
+def test_loads_exemptions_and_validates_rule_reference(tmp_path: Path) -> None:
+    _write_exemption(tmp_path, "rule-a.json", _valid_exemption())
+
+    catalog = load_governance_catalog(tmp_path, known_rule_versions={"rule-a": "1.0.0"})
+
+    assert [exemption.id for exemption in catalog.exemptions] == ["exemption.rule-a.rg-a"]
+
+
+def test_invalid_and_duplicate_exemptions_are_aggregated(tmp_path: Path) -> None:
+    _write_exemption(tmp_path, "a.json", _valid_exemption())
+    _write_exemption(tmp_path, "b.json", _valid_exemption())
+    (tmp_path / "exemptions" / "broken.json").write_text("{", encoding="utf-8")
+
+    with pytest.raises(GovernanceLoadError) as exc_info:
+        load_governance_catalog(tmp_path)
+
+    messages = [issue.message for issue in exc_info.value.issues]
+    assert any("duplicate id" in message for message in messages)
+    assert any("invalid JSON" in message for message in messages)
+
+
+def test_unknown_exemption_rule_is_rejected(tmp_path: Path) -> None:
+    _write_exemption(tmp_path, "rule-a.json", _valid_exemption())
+
+    with pytest.raises(GovernanceLoadError) as exc_info:
+        load_governance_catalog(tmp_path, known_rule_versions={})
+
+    assert any("references unknown rule id" in issue.message for issue in exc_info.value.issues)
+
+
+def test_unknown_explicit_assignment_rule_is_rejected(tmp_path: Path) -> None:
+    _write(tmp_path, "assignments", "a.yaml", _VALID_ASSIGNMENT)
+
+    with pytest.raises(GovernanceLoadError) as exc_info:
+        load_governance_catalog(tmp_path, known_rule_versions={})
+
+    assert any(
+        issue.key == "assign-baseline-rg-a:r.encryption"
+        and issue.message == "references unknown rule id"
+        for issue in exc_info.value.issues
+    )
+
+
+def test_duplicate_json_key_in_exemption_is_rejected(tmp_path: Path) -> None:
+    directory = tmp_path / "exemptions"
+    directory.mkdir()
+    (directory / "duplicate.json").write_text(
+        '{"schema_version":"1.0.0","state":"active","state":"revoked"}',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(GovernanceLoadError) as exc_info:
+        load_governance_catalog(tmp_path)
+
+    assert any("duplicate JSON key 'state'" in issue.message for issue in exc_info.value.issues)
+
+
+def test_duplicate_active_exemption_scope_is_rejected(tmp_path: Path) -> None:
+    _write_exemption(tmp_path, "a.json", _valid_exemption(exemption_id="exemption.rule-a.a"))
+    _write_exemption(tmp_path, "b.json", _valid_exemption(exemption_id="exemption.rule-a.b"))
+
+    with pytest.raises(GovernanceLoadError) as exc_info:
+        load_governance_catalog(tmp_path)
+
+    assert any(
+        "duplicate active exemption scope" in issue.message for issue in exc_info.value.issues
+    )

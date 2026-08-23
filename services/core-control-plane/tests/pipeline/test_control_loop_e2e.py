@@ -639,6 +639,69 @@ async def test_governance_audit_effect_observes_without_pr(
 
 @requires_opa
 @pytest.mark.asyncio
+async def test_governance_remediate_enforce_still_obeys_risk_gate(
+    shipped_catalog: tuple[Any, Any],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fdai.core.risk_gate.gate import (
+        ActionPromotionRegistry,
+        RiskDecision,
+        RiskDecisionOutcome,
+        RiskGate,
+    )
+    from fdai.core.risk_gate.risk_table import load_risk_table
+    from fdai.rule_catalog.schema.assignment import Assignment
+    from fdai.rule_catalog.schema.effect import Effect, Enforcement
+    from fdai.rule_catalog.schema.scope import Scope, ScopeLevel
+
+    rules, _action_types = shipped_catalog
+    object_storage_rule_ids = frozenset(
+        rule.id for rule in rules if rule.resource_type == "object-storage"
+    )
+    assignment = Assignment(
+        id="enforce-object-storage-remediation",
+        target_rule_ids=object_storage_rule_ids,
+        scope=Scope(level=ScopeLevel.RESOURCE, id="stg-open"),
+        effect=Effect.REMEDIATE,
+        enforcement=Enforcement.ENFORCE,
+    )
+    gate = RiskGate(registry=ActionPromotionRegistry())
+
+    def _deny(**kwargs: Any) -> RiskDecision:
+        return RiskDecision(
+            outcome=RiskDecisionOutcome.DENY,
+            action_id=str(kwargs["action"].action_id),
+            effective_mode=Mode.SHADOW,
+            reasons=("forced_deny_for_governance_test",),
+        )
+
+    monkeypatch.setattr(gate, "evaluate", _deny)
+    table = load_risk_table(REPO_ROOT / "rule-catalog" / "risk-classification.yaml")
+    loop, publisher, audit = _make_loop(
+        shipped_catalog,
+        risk_table=table,
+        risk_gate=gate,
+        governance_assignments=(assignment,),
+    )
+
+    result = await loop.process(
+        _make_event(
+            idempotency_key="e-governance-enforce-gated",
+            resource_type="object-storage",
+            resource_id="stg-open",
+            props={"public_access": "enabled", "tags": {"owner": "team-a"}},
+        )
+    )
+
+    assert result.outcome is ControlLoopOutcome.DENIED
+    assert not publisher.records
+    kinds = [entry["entry"].get("action_kind") for entry in audit.audit_entries]
+    assert "governance.assignment_resolved" in kinds
+    assert "risk_gate.unified" in kinds
+
+
+@requires_opa
+@pytest.mark.asyncio
 async def test_multiple_rules_fire_on_one_resource_e2e(
     shipped_catalog: tuple[Any, Any],
 ) -> None:

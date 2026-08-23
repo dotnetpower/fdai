@@ -101,3 +101,54 @@ def test_invalid_state_is_rejected() -> None:
     raw["state"] = "pending"  # not in enum
     with pytest.raises(ExemptionError):
         load_exemption_from_mapping(raw)
+
+
+def test_revoked_state_requires_actor_and_time() -> None:
+    raw = _valid_raw()
+    raw["state"] = "revoked"
+
+    with pytest.raises(ExemptionError):
+        load_exemption_from_mapping(raw)
+
+    raw["revoked_at"] = "2026-07-06T00:00:00Z"
+    raw["revoked_by"] = "00000000-0000-0000-0000-000000000003"
+    exemption = load_exemption_from_mapping(raw)
+    assert exemption.state is ExemptionState.REVOKED
+
+
+@pytest.mark.parametrize("state", ["active", "expired"])
+def test_non_revoked_state_rejects_revocation_metadata(state: str) -> None:
+    raw = _valid_raw()
+    raw["state"] = state
+    raw["revoked_at"] = "2026-07-06T00:00:00Z"
+    raw["revoked_by"] = "00000000-0000-0000-0000-000000000003"
+
+    with pytest.raises(ExemptionError):
+        load_exemption_from_mapping(raw)
+
+
+def test_revocation_cannot_predate_creation() -> None:
+    raw = _valid_raw()
+    raw["state"] = "revoked"
+    raw["revoked_at"] = "2026-07-04T00:00:00Z"
+    raw["revoked_by"] = "00000000-0000-0000-0000-000000000003"
+
+    with pytest.raises(ExemptionError):
+        load_exemption_from_mapping(raw)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("created_at", "2026-07-05T00:00:00"),
+        ("expires_at", "2026-08-05T01:00:00+01:00"),
+    ],
+)
+def test_timestamps_must_be_explicit_utc(field: str, value: str) -> None:
+    raw = _valid_raw()
+    raw[field] = value
+
+    with pytest.raises(ExemptionError) as exc_info:
+        load_exemption_from_mapping(raw)
+
+    assert any(field in issue.key for issue in exc_info.value.issues)

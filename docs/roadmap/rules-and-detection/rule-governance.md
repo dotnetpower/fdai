@@ -19,11 +19,14 @@ shadow-before-enforce and safety invariants in
 > [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md).
 
 > **Implementation status**: Effect/scope/assignment/rule-set domain models, strict YAML loaders,
-> the directory catalog loader, and effect/enforcement transition CI are implemented. T0 runtime
-> composition doesn't consume resolved assignments yet. Exemptions have a separate Azure-shaped
-> schema/loader and CLI, but aren't part of the governance directory loader and have no expiry job
-> or notification wiring. Override schema/loader/runtime resolution and governance PR OID/quorum CI
-> remain target design.
+> the directory catalog loader, effect/enforcement transition CI, and T0 runtime assignment
+> consumption are implemented. Startup loads one immutable governance catalog, and T0 applies
+> resolved scope, exclusions, selectors, effect, enforcement, parameters, and precedence before
+> ordinary authorization and safety checks. The catalog now loads strict Azure-shaped exemptions
+> and binds them to the safety check. Maximum duration, scheduled expiry, ahead-of-expiry
+> notifications, and lifecycle audit delivery remain open. Override resolution remains target
+> design. Pull-request identity checks are implemented; trusted-verifier deployment remains
+> external work.
 
 ## Catalog retrieval
 
@@ -153,7 +156,10 @@ assignment's top-level `effect` is the default for rules without an override.
 > a rejected transition. The gate governs **effect + enforcement** transitions; it does not flag a
 > scope / blast-radius **widening** (a lower-specificity scope can be offset by a tighter `selector`, so a
 > sound widening check needs coverage analysis, not a specificity heuristic) - that is a separate
-> future check. The remaining follow-up is the T0 runtime that consumes a resolved assignment.
+> future check. Runtime startup now loads this catalog once, and T0 resolves each finding against
+> the immutable assignment tuple. Audit/disabled and non-enforcing decisions remain
+> observation-only; parameter ties require human review; remediate+enforce still passes through
+> execution authorization and the unified safety check.
 >
 > The shipped catalog-as-code schema now matches the "YAML Shapes" section below: a shared
 > `Provenance` value object ([`provenance.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/provenance.py)),
@@ -229,12 +235,17 @@ An exemption waives an assignment for a scope, like an Azure Policy exemption:
 
 - Current required fields are `rule_id`, an Azure-shaped `scope` bounded to a resource group or
   resource, **justification**, distinct `requested_by` / `approved_by` UUIDs, `state`, `created_at`,
-  and `expires_at`. The loader enforces no self-exemption and `expires_at > created_at`.
+  and `expires_at`. The loader enforces no self-exemption, explicit UTC timestamps,
+  `expires_at > created_at`, and consistent terminal revocation metadata.
 - The current schema doesn't store an assignment reference or waiver/mitigated category and doesn't
   enforce a configured maximum duration. That metadata and maximum-duration policy are follow-up
   contracts.
-- Auto-renew isn't supported. Re-application on expiry and ahead-of-expiry ChatOps alerts are
-  unwired operational workflows; the CLI/review process currently updates artifact state.
+- Runtime startup loads reviewed exemption JSON into the same immutable governance catalog and
+  binds a subscription- and scope-verifying registry to the safety check. Invalid or duplicate
+  data, unknown rules, malformed ARM resource ids, expired state, and revoked state fail closed or
+  do not match.
+- Auto-renew isn't supported. A standalone expiry command exists, but scheduled execution,
+  ahead-of-expiry ChatOps alerts, and lifecycle audit delivery remain unwired workflows.
 - Every exemption and its expiry is audited; an exemption never suppresses the audit record of the
   underlying finding - it records *why* it was accepted, not that it did not occur.
 
@@ -448,8 +459,8 @@ provenance:
   created_by: assignment-operator
 ```
 
-> `rule-set` and `assignment` have strict schemas read by the governance catalog loader;
-> `exemption` has a separate strict schema/CLI. The `override` shape is a target example with no
+> `rule-set`, `assignment`, and `exemption` have strict schemas read by the governance catalog
+> loader; `exemption` also retains focused validation and expiry CLIs. The `override` shape is a target example with no
 > loader yet. Each rule-set member pins a rule `version`. Typed validation of
 > `parameter_overrides` remains follow-up work; the current assignment schema accepts string
 > values. Exemption `requested_by` must differ from `approved_by`. The assignment above is intentionally held **fully
@@ -465,10 +476,10 @@ provenance:
 |------|-------|----------|-------|
 | Effect, scope, assignment, and rule-set contracts | implemented | `services/core-control-plane/src/fdai/rule_catalog/schema/effect.py`; `scope.py`; `assignment.py`; `rule_set.py`; focused schema tests | Strict models reject invalid scopes, references, effects, and rule-set expansion. |
 | Governance catalog and transition CI | implemented | `services/core-control-plane/src/fdai/rule_catalog/schema/governance_catalog.py`; `governance_transitions.py`; `scripts/governance/check-governance-transitions.py`; `.github/workflows/ci.yml` | Directory loading and reviewed effect/enforcement transition checks are wired. |
-| Exemptions and expiry | in-progress | `services/core-control-plane/src/fdai/rule_catalog/schema/exemption.py`; `exemption_cli.py`; `scripts/governance/exemption-expire.py`; focused exemption tests | Strict artifacts and a standalone expiry command exist. Catalog loading, scheduled execution, maximum duration, and notifications remain open. |
+| Exemptions and expiry | in-progress | `services/core-control-plane/src/fdai/rule_catalog/schema/exemption.py`; `governance_catalog.py`; `delivery/catalog_exemption.py`; `runtime/control_loop.py`; `scripts/governance/exemption-expire.py`; focused loader, registry, safety-check, and runtime tests | Startup loads immutable strict artifacts and the safety check consumes them. Scheduled execution, configured maximum duration, notifications, and lifecycle audit delivery remain open. |
 | Override artifact and resolution | not-started | [Overrides](#overrides); current change source audit | No override-specific schema, directory loader, precedence resolver, or runtime consumer exists. |
-| T0 assignment consumption | not-started | [Implementation status summary](#rule-governance); current change source audit | T0 composition doesn't load resolved assignments or apply their effect and enforcement decisions. |
-| Governance pull-request identity checks | in-progress | `services/core-control-plane/src/fdai/rule_catalog/schema/governance_review_authority.py`; `services/core-control-plane/tests/rule_catalog/schema/test_governance_review_authority.py`; [Administrator control flow](#administrator-control-flow-gitops-not-buttons) | The pure operator-identity, required-role, quorum, and no-self-approval decision exists and fails closed. Binding it to real pull-request review metadata in the CI gate remains open. |
+| T0 assignment consumption | implemented | `services/core-control-plane/src/fdai/runtime/control_loop.py`; `services/core-control-plane/src/fdai/core/control_loop/_execution.py`; `services/core-control-plane/src/fdai/core/control_loop/_process.py`; focused governance and pipeline tests | One immutable startup catalog supplies scope, exclusions, selectors, effect, enforcement, parameters, and precedence. Enforcing remediation still passes through execution authorization and the unified safety check. |
+| Governance pull-request identity checks | implemented | `services/core-control-plane/src/fdai/rule_catalog/schema/governance_review_authority.py`; `services/core-control-plane/src/fdai/delivery/gitops_pr/governance_review.py`; `scripts/governance/check-governance-review-authority.py`; `.github/workflows/ci.yml`; focused authority, metadata, CLI, and workflow tests | CI fetches exact-head GitHub commit, review, and Check Run facts and accepts identity evidence only from the configured trusted verifier App. Missing configuration or attestation blocks governed changes. Deploying that external Entra verifier and retaining blocked-then-cleared evidence remain operational work. |
 
 ### Implementation history
 
@@ -481,13 +492,18 @@ provenance:
 | 2026-08-17 | in-progress | Hardened the review-authority decision so a head commit time that is not absolute fails closed: freshness is never compared against an ambiguous instant and no approval counts toward the quorum. | `current change`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/python -m pytest -q --no-cov services/core-control-plane/tests/rule_catalog/schema/test_governance_review_authority.py` passed 17 tests. | Bind the decision to real pull-request review metadata in the governance CI gate and retain one blocked-then-cleared evidence record. |
 | 2026-08-18 | in-progress | Added `shared/ontology/threshold_bounds.py`, which reads the numeric promotion-gate bounds from the shipped `ontology/action-type` contract and offers one checker. `ShadowDwellThresholds` now derives its floors and its accuracy ceiling from that declaration instead of restating them, and one focused sweep proves every registered adaptive threshold stays inside its declared bound while the pydantic `PromotionGate` model and the JSON contract cannot drift apart. Two `GraphModelPromotionPolicy` rate thresholds have no ontology declaration and are named as an explicit gap rather than left silent. | `current change`; `tests/core/operational_learning` passed 88 focused cases; `tests/core/risk_gate`, `tests/core/measurement`, `tests/core/assurance_twin`, and `tests/rule_catalog` passed 1716 cases; task-scoped Ruff, format, and strict mypy passed. | Declare ontology bounds for `min_fidelity` and `max_recurrence_rate`, then move them out of the unbound set; extend the registry beyond the promotion gate to detection and routing thresholds. |
 
+| 2026-08-23 | in-progress | Added a strict delivery boundary that joins GitHub review state, exact commit, and timestamp to deployment-verified Entra OID, FDAI roles, and phishing-resistant assurance. Latest decisive review state wins, stale revisions remain visible to the pure authority decision, and missing or early attestations fail closed. | `current change`; `delivery/gitops_pr/governance_review.py`; focused metadata and authority tests passed 23 cases. | Bind a deployment-owned identity/assurance provider and real pull-request metadata collector into CI, then retain a blocked-and-cleared evidence record. |
+| 2026-08-23 | implemented | Connected the authority decision to GitHub's exact-head PR, commit, review, and Check Run metadata. A configured verifier App must publish the bounded Entra principal bundle in its successful exact-head Check Run; an absent App id, missing or failed check, stale revision, unverified role, weak assurance, self-approval, or insufficient quorum blocks CI. Assignment changes use the stricter enforce-promotion class until transition intent is independently proven. | `current change`; `scripts/governance/check-governance-review-authority.py`; `.github/workflows/ci.yml`; focused governance CLI, bridge, authority, and workflow tests passed 69 cases. | Deploy the trusted Entra verifier GitHub App and retain one blocked-then-cleared governed PR evidence record. |
+| 2026-08-23 | in-progress | Completed immutable T0 assignment consumption and integrated strict exemption artifacts into the startup governance catalog and safety check. Hardened duplicate JSON detection, UTC and terminal-state validation, unknown-rule and duplicate-active-scope rejection, exact resource identity, canonical ARM scope parsing, subscription isolation, deterministic fallback, and terminal revocation across both registries. | `current change`; focused governance loader, exemption model/CLI, catalog and fallback registry, runtime composition, safety-check, and T0 pipeline checks passed. Twelve adversarial hardening rounds leave no Medium-or-higher implementation finding in this slice. | Configure maximum exemption duration and alert lead time, then wire scheduled expiry, notifications, and lifecycle audit delivery. Override delivery and trusted-verifier deployment remain separate. |
+
 ### Remaining work
 
-- [ ] Load one immutable governance catalog at startup and prove T0 applies resolved effect, enforcement, scope, exclusions, and precedence without bypassing the safety check.
-- [ ] Integrate exemptions into the governance catalog, enforce a configured maximum duration, schedule expiry, and deliver ahead-of-expiry notifications with audit evidence.
+- [x] Load one immutable governance catalog at startup and prove T0 applies resolved effect, enforcement, scope, exclusions, and precedence without bypassing the safety check. Focused pipeline coverage proves remediate+enforce still obeys the unified safety decision.
+- [ ] Configure and enforce the maximum exemption duration and alert lead time, then schedule expiry and deliver ahead-of-expiry notifications with lifecycle audit evidence. Catalog loading and safety-check consumption are implemented.
 - [ ] Implement the bounded override schema, loader, precedence resolver, and runtime consumption with resource-group-or-narrower scope checks.
 - [x] The deterministic pull-request review-authority decision enforces operator identity, the required capability per change class, a distinct-approver quorum, phishing-resistant high-risk approvals, revision-bound approval freshness, and author/co-author/committer self-approval prevention, proven by `services/core-control-plane/tests/rule_catalog/schema/test_governance_review_authority.py`.
-- [ ] Bind that decision to real pull-request review metadata in the governance CI gate and retain one evidence record showing a self-approval or sub-quorum change blocked and the corrected change cleared.
+- [x] Bind the decision to exact-head pull-request, commit, review, and trusted verifier Check Run metadata in CI. Missing trusted attestation fails closed; focused CLI and workflow tests cover accepted, sub-quorum, self-approval, and untrusted-App cases.
+- [ ] Deploy the trusted Entra verifier GitHub App, configure `FDAI_GOVERNANCE_IDENTITY_APP_ID`, and retain one evidence record showing a self-approval or sub-quorum change blocked and the corrected change cleared.
 
 ## Open Decisions
 

@@ -18,19 +18,14 @@ Usage
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from pathlib import Path
 
-from .exemption import ExemptionError, load_exemption_from_mapping
+from .exemption import ExemptionError, load_exemption_from_mapping, parse_exemption_json
 
 
 def _load_json_file(path: Path) -> dict[str, object]:
-    with path.open("r", encoding="utf-8") as fh:
-        loaded = json.load(fh)
-    if not isinstance(loaded, dict):
-        raise ValueError(f"{path}: top-level JSON must be an object")
-    return loaded
+    return parse_exemption_json(path.read_text(encoding="utf-8"))
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -49,7 +44,7 @@ def main(argv: list[str] | None = None) -> int:
         except FileNotFoundError:
             print(f"[FAIL] {path}: file not found", file=sys.stderr)
             failures += 1
-        except (json.JSONDecodeError, ValueError) as exc:
+        except ValueError as exc:
             print(f"[FAIL] {path}: {exc}", file=sys.stderr)
             failures += 1
         except ExemptionError as exc:

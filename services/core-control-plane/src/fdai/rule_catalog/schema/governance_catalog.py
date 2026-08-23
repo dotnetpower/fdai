@@ -1,7 +1,7 @@
 """Directory loader for the governance catalog-as-code.
 
-Reads every assignment and rule-set YAML file under a catalog root and returns a
-:class:`GovernanceCatalog`. This is the I/O boundary (it reads files); the
+Reads every assignment, rule-set, and exemption file under a catalog root and
+returns a :class:`GovernanceCatalog`. This is the I/O boundary (it reads files); the
 per-document validation + domain mapping stays in
 :mod:`fdai.rule_catalog.schema.governance_loader`, which is pure. Issues from
 every file are aggregated so one load surfaces the whole catalog's problems.
@@ -10,6 +10,7 @@ Layout (CSP-neutral, catalog-as-code):
 
     <root>/assignments/*.{yaml,yml}   -> Assignment
     <root>/rule-sets/*.{yaml,yml}     -> RuleSet
+    <root>/exemptions/*.json          -> Exemption
 
 A missing subdirectory is empty, not an error. Duplicate ids within a kind are
 rejected (a catalog cannot bind two assignments under one id).
@@ -25,6 +26,13 @@ from typing import Any
 import yaml
 
 from fdai.rule_catalog.schema.assignment import Assignment
+from fdai.rule_catalog.schema.exemption import (
+    Exemption,
+    ExemptionError,
+    ExemptionState,
+    load_exemption_from_mapping,
+    parse_exemption_json,
+)
 from fdai.rule_catalog.schema.governance_loader import (
     GovernanceLoadError,
     GovernanceLoadIssue,
@@ -35,14 +43,16 @@ from fdai.rule_catalog.schema.rule_set import RuleSet
 
 _ASSIGNMENTS_DIR = "assignments"
 _RULE_SETS_DIR = "rule-sets"
+_EXEMPTIONS_DIR = "exemptions"
 
 
 @dataclass(frozen=True, slots=True)
 class GovernanceCatalog:
-    """The loaded governance catalog: all assignments + rule-sets."""
+    """The immutable assignment, rule-set, and exemption catalog."""
 
     assignments: tuple[Assignment, ...] = ()
     rule_sets: tuple[RuleSet, ...] = ()
+    exemptions: tuple[Exemption, ...] = ()
 
 
 def _load_dir[T](
@@ -95,12 +105,50 @@ def _load_dir[T](
     return tuple(loaded)
 
 
+def _load_exemptions(
+    directory: Path,
+    issues: list[GovernanceLoadIssue],
+) -> tuple[Exemption, ...]:
+    if not directory.is_dir():
+        return ()
+    loaded: list[Exemption] = []
+    seen: dict[str, str] = {}
+    for path in sorted(directory.glob("*.json")):
+        try:
+            raw = parse_exemption_json(path.read_text(encoding="utf-8"))
+        except ValueError as exc:
+            issues.append(GovernanceLoadIssue(key=path.name, message=f"invalid JSON: {exc}"))
+            continue
+        except UnicodeDecodeError as exc:
+            issues.append(GovernanceLoadIssue(key=path.name, message=f"not UTF-8 text: {exc}"))
+            continue
+        try:
+            exemption = load_exemption_from_mapping(raw)
+        except ExemptionError as exc:
+            issues.extend(
+                GovernanceLoadIssue(key=f"{path.name}:{issue.key}", message=issue.message)
+                for issue in exc.issues
+            )
+            continue
+        if exemption.id in seen:
+            issues.append(
+                GovernanceLoadIssue(
+                    key=path.name,
+                    message=f"duplicate id {exemption.id!r} (also in {seen[exemption.id]})",
+                )
+            )
+            continue
+        seen[exemption.id] = path.name
+        loaded.append(exemption)
+    return tuple(loaded)
+
+
 def load_governance_catalog(
     root: Path,
     *,
     known_rule_versions: Mapping[str, str] | None = None,
 ) -> GovernanceCatalog:
-    """Load every assignment + rule-set YAML under ``root``.
+    """Load every governed assignment, rule-set, and exemption under ``root``.
 
     Rule-sets load first so an assignment that binds a rule-set (by ``rule_set``
     id, rather than an explicit ``target_rule_ids`` list) can be resolved. Raises
@@ -119,9 +167,19 @@ def load_governance_catalog(
         lambda a: a.id,
         issues,
     )
+    if known_rule_versions is not None:
+        issues.extend(_assignment_reference_issues(assignments, known_rule_versions))
+    exemptions = _load_exemptions(root / _EXEMPTIONS_DIR, issues)
+    issues.extend(_duplicate_active_exemption_issues(exemptions))
+    if known_rule_versions is not None:
+        issues.extend(_exemption_reference_issues(exemptions, known_rule_versions))
     if issues:
         raise GovernanceLoadError(issues)
-    return GovernanceCatalog(assignments=assignments, rule_sets=rule_sets)
+    return GovernanceCatalog(
+        assignments=assignments,
+        rule_sets=rule_sets,
+        exemptions=exemptions,
+    )
 
 
 def _rule_set_reference_issues(
@@ -144,6 +202,67 @@ def _rule_set_reference_issues(
                         ),
                     )
                 )
+    return issues
+
+
+def _exemption_reference_issues(
+    exemptions: tuple[Exemption, ...],
+    known_rule_versions: Mapping[str, str],
+) -> list[GovernanceLoadIssue]:
+    return [
+        GovernanceLoadIssue(
+            key=f"{exemption.id}:{exemption.rule_id}",
+            message="references unknown rule id",
+        )
+        for exemption in exemptions
+        if exemption.rule_id not in known_rule_versions
+    ]
+
+
+def _assignment_reference_issues(
+    assignments: tuple[Assignment, ...],
+    known_rule_versions: Mapping[str, str],
+) -> list[GovernanceLoadIssue]:
+    return [
+        GovernanceLoadIssue(
+            key=f"{assignment.id}:{rule_id}",
+            message="references unknown rule id",
+        )
+        for assignment in assignments
+        for rule_id in sorted(assignment.target_rule_ids)
+        if rule_id not in known_rule_versions
+    ]
+
+
+def _duplicate_active_exemption_issues(
+    exemptions: tuple[Exemption, ...],
+) -> list[GovernanceLoadIssue]:
+    issues: list[GovernanceLoadIssue] = []
+    seen: dict[tuple[str, str, str], str] = {}
+    for exemption in exemptions:
+        if exemption.state is not ExemptionState.ACTIVE:
+            continue
+        scope = exemption.scope
+        if scope.resource_ref is not None:
+            scope_kind = "resource"
+            scope_value = scope.resource_ref.casefold()
+        else:
+            scope_kind = "resource-group"
+            scope_value = f"{scope.subscription_id}/{scope.resource_group}".casefold()
+        key = (exemption.rule_id, scope_kind, scope_value)
+        prior = seen.get(key)
+        if prior is not None:
+            issues.append(
+                GovernanceLoadIssue(
+                    key=exemption.id,
+                    message=(
+                        "duplicate active exemption scope for rule "
+                        f"{exemption.rule_id!r} (also in {prior!r})"
+                    ),
+                )
+            )
+        else:
+            seen[key] = exemption.id
     return issues
 
 

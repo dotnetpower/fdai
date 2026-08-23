@@ -15,6 +15,7 @@ from fdai.core.executor import (
     ShadowExecutor,
     ToolCallShadowExecutor,
 )
+from fdai.delivery.catalog_exemption import CatalogExemptionRegistry
 from fdai.delivery.kinetic_safety import ExistingProposalKineticSafetyWriter
 from fdai.runtime.bootstrap_lifecycle import build_mutation_dependency_readiness
 from fdai.runtime.control_loop import _build_control_loop, _legacy_executor_bindings
@@ -110,4 +111,5 @@ def test_core_and_hil_share_port_instances_and_readiness(app_config: AppConfig) 
     assert coordinator._pre_dispatch_kinetic_safety_writer is writer
     assert writer._proposal_store._store is writer._artifact_store._store is loop._audit_store
     assert loop._risk_gate is not None
+    assert isinstance(loop._risk_gate._exemptions, CatalogExemptionRegistry)
     assert "governance.promote-effect-model" in loop._risk_gate._config.hil_authority_action_types

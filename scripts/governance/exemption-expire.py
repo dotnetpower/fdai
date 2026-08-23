@@ -25,6 +25,7 @@ from fdai.rule_catalog.schema.exemption import (
     ExemptionError,
     ExemptionState,
     load_exemption_from_mapping,
+    parse_exemption_json,
 )
 
 
@@ -35,9 +36,9 @@ def _now() -> datetime:
 def _expire_one(path: Path, *, apply: bool) -> bool:
     """Return True if a state change happened (or would happen in dry-run)."""
     try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
+        raw = parse_exemption_json(path.read_text(encoding="utf-8"))
         exemption = load_exemption_from_mapping(raw)
-    except (json.JSONDecodeError, ExemptionError) as exc:
+    except (ValueError, ExemptionError) as exc:
         print(f"[skip] {path}: invalid ({exc})", file=sys.stderr)
         return False
 
