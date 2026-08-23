@@ -19,6 +19,13 @@ def _write_executable(path: Path, content: str) -> None:
     path.chmod(path.stat().st_mode | stat.S_IXUSR)
 
 
+def _write_ready_dependency_script(repo: Path) -> None:
+    _write_executable(
+        repo / "scripts/deployment/local/dev-up.sh",
+        "#!/usr/bin/env bash\nexit 0\n",
+    )
+
+
 def test_supervisor_reports_a_service_that_exits_before_readiness(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     start_script = repo / "scripts/deployment/local/start-console-services.sh"
@@ -81,6 +88,7 @@ def test_supervisor_propagates_an_immediate_readiness_failure(tmp_path: Path) ->
     )
 
     assert result.returncode == 7
+    assert "service=console-stack event=started" in result.stdout
     assert "service=console-stack event=ready" not in result.stdout
 
 
@@ -104,6 +112,7 @@ def test_preparation_reuses_an_unchanged_healthy_stack(tmp_path: Path) -> None:
     (repo / "console").mkdir()
     (repo / "console/.env.local").write_text("prepared\n", encoding="utf-8")
     _write_executable(repo / "console/node_modules/.bin/vite", "#!/usr/bin/env bash\nexit 0\n")
+    _write_ready_dependency_script(repo)
     (repo / ".fdai/console-full-stack-preparation.sha256").write_text(
         f"{digest}\n",
         encoding="utf-8",
@@ -132,6 +141,113 @@ esac
     assert result.returncode == 0
     assert "service=console-preparation event=reused" in result.stdout
     assert result.stderr == ""
+
+
+def _staged_preparation_repo(
+    tmp_path: Path,
+    *,
+    stale_stage: str | None = None,
+) -> tuple[Path, dict[str, str]]:
+    repo = tmp_path / "repo"
+    prepare_script = repo / "scripts/deployment/local/prepare-console-full-stack.sh"
+    prepare_script.parent.mkdir(parents=True)
+    shutil.copy2(_PREPARE_SCRIPT, prepare_script)
+    _write_ready_dependency_script(repo)
+    (repo / "console").mkdir()
+    (repo / "console/.env.local").write_text(
+        "VITE_MSAL_TENANT_ID=tenant\nVITE_MSAL_CLIENT_ID=client\n",
+        encoding="utf-8",
+    )
+    _write_executable(repo / "console/node_modules/.bin/vite", "#!/usr/bin/env bash\nexit 0\n")
+    for relative in (
+        ".fdai/local-runtime.env",
+        ".fdai/local-operator-service.env",
+        ".fdai/local-document-ingestion-api.env",
+        ".fdai/local-document-processing-worker.env",
+        ".fdai/local-isolated-executor.env",
+    ):
+        output = repo / relative
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text("prepared\n", encoding="utf-8")
+    digest = "c" * 64
+    marker_dir = repo / ".fdai/console-preparation"
+    marker_dir.mkdir(parents=True)
+    stages = (
+        "local-state",
+        "runtime-environment",
+        "authoritative-inventory",
+        "authoritative-settings",
+        "authoritative-catalogs",
+        "service-environments",
+        "entra-redirects",
+    )
+    for stage in stages:
+        if stage != stale_stage:
+            (marker_dir / f"{stage}.sha256").write_text(f"{digest}\n", encoding="utf-8")
+    _write_executable(
+        repo / ".venv/bin/python",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+case "$1" in
+  */local-service-input-digest.py) printf '%s\\n' {digest!r} ;;
+  */sync-entra-spa-redirect.py) exit 0 ;;
+  *) printf 'unexpected python call: %s\\n' "$1" >&2; exit 99 ;;
+esac
+""",
+    )
+    bin_dir = tmp_path / "bin"
+    _write_executable(
+        bin_dir / "docker",
+        """#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$1" == "volume" && "$2" == "inspect" ]]; then
+  printf 'fdai-pgdata 2026-08-23T00:00:00Z\\n'
+  printf 'fdai-validation-pgdata 2026-08-23T00:00:00Z\\n'
+  exit 0
+fi
+exit 99
+""",
+    )
+    _write_executable(bin_dir / "terraform", "#!/usr/bin/env bash\nexit 0\n")
+    _write_executable(bin_dir / "az", "#!/usr/bin/env bash\nexit 0\n")
+    _write_executable(bin_dir / "npm", "#!/usr/bin/env bash\nexit 0\n")
+    return repo, {"PATH": f"{bin_dir}:/usr/bin:/bin"}
+
+
+def test_preparation_reuses_each_unchanged_stage_when_stack_is_stopped(tmp_path: Path) -> None:
+    repo, environment = _staged_preparation_repo(tmp_path)
+
+    result = subprocess.run(  # noqa: S603 - fixed test script and executable.
+        [_BASH, str(repo / "scripts/deployment/local/prepare-console-full-stack.sh")],
+        cwd=repo,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=3,
+    )
+
+    assert result.returncode == 0
+    assert result.stdout.count("event=reused") == 7
+    assert "stage=entra-redirects event=completed" not in result.stdout
+
+
+def test_preparation_reruns_only_the_invalidated_stage(tmp_path: Path) -> None:
+    repo, environment = _staged_preparation_repo(tmp_path, stale_stage="entra-redirects")
+
+    result = subprocess.run(  # noqa: S603 - fixed test script and executable.
+        [_BASH, str(repo / "scripts/deployment/local/prepare-console-full-stack.sh")],
+        cwd=repo,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=3,
+    )
+
+    assert result.returncode == 0
+    assert result.stdout.count("event=reused") == 6
+    assert result.stdout.count("stage=entra-redirects event=completed") == 1
 
 
 def test_preparation_reports_a_missing_console_environment(tmp_path: Path) -> None:

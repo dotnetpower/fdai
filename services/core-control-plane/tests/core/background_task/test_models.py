@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -121,6 +122,8 @@ def test_task_rejects_mutation_profile_or_invalid_retention() -> None:
             created_at=task.created_at,
             retention_until=task.created_at,
         )
+    with pytest.raises(ValueError, match="Heimdall accountability"):
+        replace(task, accountable_agent="Bragi")
 
 
 def test_completion_outbox_requires_lease_and_terminal_timestamp() -> None:

@@ -336,6 +336,13 @@ class ReadInvestigationProvider(Protocol):
     ) -> ReadEvidenceAttempt: ...
 
 
+@runtime_checkable
+class ReadInvestigationDiscoveryRefresher(Protocol):
+    """Refresh optional read-transport availability without invoking a read."""
+
+    async def discover(self) -> bool: ...
+
+
 def _identifier(name: str, value: str) -> None:
     if not value.strip() or len(value) > _MAX_ID or any(ord(char) < 32 for char in value):
         raise ValueError(f"{name} MUST be a bounded identifier")
@@ -358,6 +365,7 @@ __all__ = [
     "ReadEvidenceEnvelope",
     "ReadEvidenceAttempt",
     "ReadEvidenceRecord",
+    "ReadInvestigationDiscoveryRefresher",
     "ReadInvestigationIntent",
     "ReadInvestigationProvider",
     "ReadLatencyProfileStore",

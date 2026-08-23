@@ -12,6 +12,7 @@ from fdai.shared.providers.inventory import (
     LinkRecord,
     RelationshipDrop,
     RelationshipDropReason,
+    RelationshipUnavailableReason,
     ResourceRecord,
 )
 from fdai.shared.providers.state_evidence import (
@@ -234,21 +235,33 @@ def _verification_receipt(
 
 def _drop(reason: RelationshipDropReason, link: LinkRecord) -> RelationshipDrop:
     evidence = link.mapping_evidence
+    unavailable_reason = None
+    if reason is RelationshipDropReason.MISSING_SOURCE_ENDPOINT:
+        unavailable_reason = RelationshipUnavailableReason.SOURCE_OUTSIDE_ACTIVE_GENERATION
+    elif reason is RelationshipDropReason.MISSING_TARGET_ENDPOINT:
+        unavailable_reason = RelationshipUnavailableReason.TARGET_OUTSIDE_ACTIVE_GENERATION
+    elif reason is RelationshipDropReason.TARGET_TYPE_MISMATCH:
+        unavailable_reason = RelationshipUnavailableReason.TARGET_PROVIDER_TYPE_UNMODELED
     return RelationshipDrop(
         reason=reason,
         mapping_id=evidence.mapping_id if evidence is not None else None,
         source_property_path=evidence.source_property_path if evidence is not None else None,
+        source_provider_type=evidence.source_provider_type if evidence is not None else None,
+        target_provider_type=evidence.target_provider_type if evidence is not None else None,
+        unavailable_reason=unavailable_reason,
     )
 
 
 def _canonical_drops(drops: Sequence[RelationshipDrop]) -> tuple[RelationshipDrop, ...]:
     return tuple(
         sorted(
-            set(drops),
+            drops,
             key=lambda item: (
                 item.reason.value,
                 item.mapping_id or "",
                 item.source_property_path or "",
+                item.source_provider_type or "",
+                item.target_provider_type or "",
             ),
         )
     )

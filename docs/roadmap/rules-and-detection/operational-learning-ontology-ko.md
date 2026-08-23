@@ -1,8 +1,8 @@
 ---
 title: 운영 학습 온톨로지
 translation_of: operational-learning-ontology.md
-translation_source_sha: d8ca801f5d8b637e72689781b4ef4d24e5e7279a
-translation_revised: 2026-08-21
+translation_source_sha: 2f376c3e666a3046bb52b9625432f8e2f495ed35
+translation_revised: 2026-08-23
 ---
 # 운영 학습 온톨로지
 
@@ -27,8 +27,12 @@ translation_revised: 2026-08-21
 > sealed 변환 결과를 실패 지문별로 묶고, Norns는 기존 합의 및 비율 한도 경로로
 > balanced inert 후보를 발행합니다. Operational T1 reuse는 현재 근거를 요구하고 causal 및
 > Dynamic grade는 권위 있는 증적을 요구하며 승격은 검증된 변경할 수 없는 O7 증적을 요구합니다.
-> 배포는 O3 검증기와 PR 발행기, Forseti-owned causal 변환 결과, 고정된/실제 운영 근거 출처,
-> 증적 검증기를 연결해야 합니다. Mimir는 owned 룰 토픽으로 검토 결과를 발행하고 Saga는
+> O3는 이제 완전한 배포 구성이 있을 때 결정론적 고정 시나리오 검증기와 비활성 초안 PR
+> 발행기를 연결합니다. O7에는 엄격한 변경 불가능 파일 근거 원본, 매니페스트에 바인딩된 causal
+> 및 측정 단위 검증기, 영속 증적 저장소, 일회성 측정 작업이 있습니다. Heimdall은 typed 최종
+> ActionRun 관측 경로와 Azure Container Apps `ops.scale-out` collector를 갖추었고 배포는
+> signed-context issuer, 완전한 Forseti 소유 lineage 입력, 작업별 live 근거를 계속 제공합니다.
+> Mimir는 owned 룰 토픽으로 검토 결과를 발행하고 Saga는
 > owned 감사 토픽에 이를 봉인합니다.
 > 재현된 의미 수집 실패는 Huginn을 통해 들어와 Heimdall-owned 독립적인 검증
 > 근거가 되고 Saga가 감사하며 Muninn이 context-index 토픽으로 materialize합니다. Norns는 shadow
@@ -347,6 +351,32 @@ serialize하고 실패한 증적을 격리 구역하며 backpressure를 적용�
 | Azure absorption | 모든 non-Kubernetes 처리가 정본 리소스 타입, Azure 근거 프로바이더, 담당 에이전트, 통제된 액션 프로바이더 또는 명시적인 no-mutation 결과, non-production 증명을 지정합니다. |
 | 커버리지 honesty | 누락 프로바이더 커버리지는 명시적인 지원하지 않는 표면으로 남고 `operationalized` 또는 `azure_validated`를 충족할 수 없습니다. |
 
+## O7 근거 배포 계약
+
+O7 작업은 검토된 근거를 소비하며 live 관측을 수집하거나 만들어내지 않습니다. 배포는 digest만
+포함한 JSON 파일을 고정된 런타임 이미지에 패키징하거나 보호된 읽기 전용 mount로 제공합니다.
+구성된 근거 root는 컨테이너 내부의 절대 경로이고 manifest와 모든 batch 경로는 상대 경로로
+root 안에 유지됩니다. Symlink, 일반 파일이 아닌 항목, 경로 이탈, 크기 상한 초과, digest 불일치,
+알 수 없는 필드, 검증되지 않은 causal 또는 측정 단위 참조는 실패 시 차단됩니다.
+
+Manifest는 `schema_version: 1.0.0`을 사용하며 정확히 다음 필드를 포함합니다.
+
+- `batches`: ActionType별 `action_type_name`, 상대 `path`, 예상 정본 `content_digest` 항목입니다.
+- `causal_receipt_digests`: 허용되는 causal receipt SHA-256 digest의 완전한 목록입니다.
+- `unit_evidence_refs`: 정본 측정 단위 id와 정확한 근거 digest 집합의 매핑입니다.
+
+각 batch는 전체 FDAI 개정 번호, 시나리오 집합 버전, ActionType 이름, 버전 및 digest, 봉인 시각,
+범위가 제한된 record를 바인딩합니다. Record는 정본 시나리오 사례, cohort, 관측 시각, 실행 및
+rollback 사실, 재발 구간 상태, causal receipt, Dynamic 검토 상태, 고유 근거 digest를 담습니다.
+Correction은 같은 측정 단위의 `audit_sequence`만 높일 수 있고 cohort, 사례, 관측 시각 또는
+causal 계보를 바꿀 수 없습니다.
+
+Terraform은 `operational_promotion_measurement_enabled=true`일 때만 Container Apps 작업을
+생성합니다. 배포는 전체 불변 `operational_promotion_measurement_revision`, 절대 경로인
+`operational_promotion_evidence_root`, 상대 경로인 `operational_promotion_manifest`도 제공합니다.
+작업은 기존 managed identity와 Key Vault 기반 StateStore DSN을 재사용합니다. 측정하고 증적을
+저장할 뿐 카탈로그, 승격 registry 또는 실행기 권한은 갖지 않습니다.
+
 ## 구현 상태
 
 ### 구현 범위
@@ -355,10 +385,10 @@ serialize하고 실패한 증적을 격리 구역하며 backpressure를 적용�
 |------|------|------|------|
 | O0-O1 사례 계약 및 변환 결과 | implemented | `services/core-control-plane/src/fdai/core/case_history/`; `services/core-control-plane/tests/core/case_history/test_operational_case.py`; `test_service.py` | 불변 입력, 정본 지문, 부정적 결과, 수정본, 영속성을 검증합니다. |
 | O2 코호트 학습 | implemented | `services/core-control-plane/src/fdai/core/operational_learning/patterns.py`; `services/core-control-plane/tests/agents/test_operating_pattern_learning_e2e.py`; `test_norns_operating_pattern.py` | Muninn은 범위가 제한된 코호트를 봉인하고 Norns는 합의를 통해 균형 잡힌 비활성 후보만 발행합니다. |
-| O3 카탈로그 컴파일 | in-progress | `services/core-control-plane/src/fdai/core/operational_learning/catalog.py`; `review.py`; `services/core-control-plane/tests/core/operational_learning/test_catalog_compilation.py` | 핵심 검토 패키지는 구현됐습니다. 운영 검증기와 pull request 게시자는 배포 연결로 남아 있습니다. |
+| O3 카탈로그 컴파일 | implemented | `services/core-control-plane/src/fdai/core/operational_learning/catalog.py`; `services/core-control-plane/src/fdai/delivery/gitops_pr/catalog_validator.py`; `catalog_review.py`; `services/core-control-plane/src/fdai/runtime/operational_catalog_review.py`; 집중 O3 테스트 | 완전한 구성이 있으면 기존 Rule 스키마 검증, 결정론적 고정 replay, 회귀 및 정책 검사, 내용 기반 주소가 지정된 비활성 초안 PR을 연결합니다. 구성이 없거나 일부만 있으면 사용할 수 없는 상태를 유지하거나 시작을 차단합니다. |
 | O4 현재 근거 T1 재사용 | implemented | `services/core-control-plane/tests/core/tiers/t1_lightweight/test_contextual_reuse.py`; `tests/core/test_control_loop_t1_wire.py` | 현재 근거가 누락되거나 오래됐거나 변경됐거나 안전하지 않으면 변경 없이 검토 대기합니다. |
 | O5-O6 Azure 근거 연결 | validated | [제공 계획](#제공-계획); `services/core-control-plane/src/fdai/delivery/azure/operational_evidence.py`; 집중 전달 테스트 | 저장소에 기록된 비운영 AKS 및 읽기 전용 Azure 훈련이 운영 환경 주장을 하지 않으면서 필요한 운영 근거를 제공합니다. |
-| O7 승격 측정 | in-progress | `services/core-control-plane/src/fdai/core/measurement/operational_promotion.py`; `operational_promotion_runner.py`; `services/core-control-plane/tests/core/measurement/test_operational_promotion.py` | 게이트와 영속 증적 경로는 구현됐지만 필요한 작업별 live 일수와 신뢰도 표본은 아직 부족합니다. |
+| O7 승격 측정 | in-progress | `services/core-control-plane/src/fdai/core/measurement/operational_promotion.py`; `operational_promotion_runner.py`; `services/core-control-plane/src/fdai/delivery/measurement/operational_promotion_evidence.py`; `measurement_runner_cli.py`; `infra/modules/measurement-runners/`; 집중 O7 테스트 및 Terraform 검증 | 근거 consumer, exact-digest 검증기, 영속 증적 저장소, opt-in 예약 작업을 구현했습니다. 현재 runtime producer는 live batch를 만들지 않으며 필요한 작업별 live 일수와 신뢰도 표본도 아직 부족합니다. |
 | Evaluation adapter case 입력 | deferred | [Benchmark adapter 휴면 상태](../interfaces/benchmark-adapters-ko.md#휴면-상태) | 현재 EvaluationHost 또는 adapter runtime이 case 입력을 방출할 수 없습니다. Semantic golden dataset은 case history와 learning 밖에 유지됩니다. |
 
 ### 구현 이력
@@ -367,11 +397,21 @@ serialize하고 실패한 증적을 격리 구역하며 backpressure를 적용�
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했습니다. | `current change`; 제공 계획 근거와 구현 범위 표의 집중 소스 및 테스트. | 배포 연결과 O7 작업별 근거 임계값을 완성합니다. |
 | 2026-08-21 | deferred | 현재 트리에 호스트 통합이 없음을 확인한 뒤 evaluation 입력 설명을 정정했습니다. 새로운 semantic golden dataset은 operational-case 및 promotion authority 밖에 유지했습니다. | `current change`, benchmark adapter 휴면 상태 결정, `eval/golden-dataset/`, 집중 dataset contract 검사 | 통제된 호스트와 canonical case-input 증적을 복원할 때만 adapter 입력을 다시 엽니다. |
+| 2026-08-23 | implemented | O3를 기존 Rule loader, shadow evaluator, regression gate, 초안 전용 GitOps adapter에 연결했습니다. 게시된 artifact는 내용 기반 주소를 가지며 초안 Rule 또는 ActionType을 활성화할 수 없습니다. | `current change`; `delivery/gitops_pr/{catalog_validator,catalog_review}.py`; `runtime/operational_catalog_review.py`; 집중 O3 테스트 통과 | 구성된 배포에서 관리되는 초안 PR 증적을 보존합니다. |
+| 2026-08-23 | in-progress | exact-digest O7 근거 consumer, 매니페스트 바인딩 causal 및 측정 단위 검증기, 영속 증적 저장, opt-in `operational-promotion` Container Apps 작업을 추가했습니다. | `current change`; `delivery/measurement/operational_promotion_evidence.py`; `delivery/measurement_runner_cli.py`; `infra/modules/measurement-runners/`; 집중 O7 테스트 및 Terraform 검증 통과 | 관리되는 live-batch producer를 구현한 뒤 작업별 batch를 공급하고 관측 및 재발 구간을 닫습니다. |
 
 ### 남은 작업
 
-- [ ] O3 운영 검증기와 pull request 게시자를 연결하고 격리, 재시도, 감사, 멱등 게시를 종단 간 증명합니다.
-- [ ] 대상 배포에 Forseti 소유 causal 변환 결과, 동결/live 근거 원본, 증적 검증기를 연결합니다.
+- [x] O3 운영 검증기와 pull request 게시자를 연결했습니다. 집중 컴파일러, Mimir, 게시자,
+   재시도, 감사, 멱등성 검사가 로컬 종단 경로를 증명합니다. 배포 PR 증적은 구현 작업이 아니라
+   운영 검증으로 남습니다.
+- [ ] 배포 소유 signed-context issuer를 연결하고 Forseti 소유 causal lineage projection에 필요한
+   누락 planning 속성을 보존합니다. Exact-plan resolver, Heimdall typed producer, Azure scale-out
+   collector, 검증된 mailbox, O7 근거 원본과 증적 검증기는 구현됐지만 완전한 lineage record를
+   materialize할 runtime producer는 아직 없습니다.
+- [ ] Projector를 연결하기 전에 catalog의 one-to-many `expects` 관계와 runtime lineage의 singular
+   `expected_effect_ref`를 조정합니다. 선택된 option의 모든 effect를 보존하고 하나의 metric을
+   선택하거나 날조하지 않는 migration-backed contract와 focused test가 종료 조건입니다.
 - [ ] 승격 검토에 필요한 O7 작업별 live 일수, 표본 크기, 완전한 재발 구간, Wilson 경계, 위반 0건 근거를 누적합니다.
 - [ ] Evaluation 호스트 통합을 다시 활성화하면 adapter 결과가 canonical operational-case 증적만
    통과하고 golden-answer 성공을 promotion evidence로 취급할 수 없음을 입증합니다.

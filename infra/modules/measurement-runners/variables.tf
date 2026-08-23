@@ -8,6 +8,11 @@ variable "growth_job_name" {
   type        = string
 }
 
+variable "operational_promotion_job_name" {
+  description = "Container Apps Job name for immutable operational-promotion measurement."
+  type        = string
+}
+
 variable "baseline_cron_expression" {
   description = "Cron for the baseline regression job. Daily at 02:00 UTC - off-peak and one hour before the 03:00 UTC rule watcher."
   type        = string
@@ -18,6 +23,41 @@ variable "growth_cron_expression" {
   description = "Cron for the pattern-growth intake job. Every 15 minutes; each invocation drains the audit outcome stream and exits (scale-to-zero when idle)."
   type        = string
   default     = "*/15 * * * *"
+}
+
+variable "operational_promotion_enabled" {
+  description = "Create the operational-promotion measurement Job. Evidence must already exist in the pinned image or a protected mount."
+  type        = bool
+  default     = false
+}
+
+variable "operational_promotion_cron_expression" {
+  description = "Cron for operational-promotion measurement. Daily after baseline measurement by default."
+  type        = string
+  default     = "30 2 * * *"
+}
+
+variable "operational_promotion_fdai_revision" {
+  description = "Full immutable FDAI source revision bound to every operational-promotion batch."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.operational_promotion_fdai_revision == "" || can(regex("^(?:[0-9a-f]{40}|[0-9a-f]{64})$", var.operational_promotion_fdai_revision))
+    error_message = "operational_promotion_fdai_revision must be empty or a full lowercase immutable revision."
+  }
+}
+
+variable "operational_promotion_evidence_root" {
+  description = "Absolute container path containing reviewed digest-only operational-promotion evidence."
+  type        = string
+  default     = ""
+}
+
+variable "operational_promotion_manifest" {
+  description = "Manifest path relative to operational_promotion_evidence_root."
+  type        = string
+  default     = ""
 }
 
 variable "container_app_environment_id" {

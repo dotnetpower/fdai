@@ -17,6 +17,7 @@ import json
 from collections.abc import Awaitable, Callable, Mapping
 from copy import deepcopy
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any, Protocol, runtime_checkable
 
@@ -406,7 +407,7 @@ class Thor(Agent):
                 success = await self._executor({"run": run})
             except Exception as exc:  # noqa: BLE001 (surface adapter errors)
                 success = False
-                run.outcome = f"executor error: {exc}"
+                run.outcome = f"executor_error:{type(exc).__name__}"
             run.transition(ActionRunState.SUCCEEDED if success else ActionRunState.FAILED)
             if not success and run.outcome is None:
                 run.outcome = "executor returned false"
@@ -521,6 +522,8 @@ class Thor(Agent):
             "workflow_action": deepcopy(run.workflow_action),
             "kinetic_proposal": deepcopy(run.kinetic_proposal),
         }
+        if run.state in _TERMINAL_STATES:
+            payload["terminal_at"] = datetime.now(tz=UTC).isoformat().replace("+00:00", "Z")
         await self.bus.publish("Thor", "object.action-run", payload)
 
     # ---- conversational port -------------------------------------------

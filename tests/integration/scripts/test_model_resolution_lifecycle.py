@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from pathlib import Path
 
+import pytest
 from scripts.deployment.azure.model_lifecycle_reconciler import reconcile_model_lifecycle
 
 _ROOT = Path(__file__).resolve().parents[3]
@@ -75,6 +78,11 @@ def _resolved(
     }
 
 
+def _digest(value: dict[str, object]) -> str:
+    canonical = json.dumps(value, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
+
+
 def test_lifecycle_reconciler_is_idempotent_when_mapping_is_current() -> None:
     first = reconcile_model_lifecycle(
         current=_resolved(),
@@ -90,6 +98,8 @@ def test_lifecycle_reconciler_is_idempotent_when_mapping_is_current() -> None:
     assert first == second
     assert first["status"] == "no-change"
     assert first["changes"] == []
+    assert first["affected_capabilities"] == []
+    assert first["source_models_digest"] == _digest(_resolved())
     assert first["activation_authority"] is False
 
 
@@ -118,6 +128,8 @@ def test_lifecycle_reconciler_proposes_sanitized_family_change() -> None:
         }
     ]
     assert result["compatibility_impact"] == ["model_family_change"]
+    assert result["affected_capabilities"] == ["t2.reasoner.primary"]
+    assert result["source_models_digest"] == _digest(_resolved())
     assert result["activation_authority"] is False
     assert len(str(result["proposal_digest"])) == 64
 
@@ -147,6 +159,7 @@ def test_lifecycle_reconciler_proposes_sku_and_capacity_change() -> None:
         }
     ]
     assert result["compatibility_impact"] == ["capacity_change", "sku_change"]
+    assert result["affected_capabilities"] == ["t2.reasoner.primary"]
     assert result["activation_authority"] is False
 
 
@@ -160,6 +173,94 @@ def test_lifecycle_reconciler_proposes_review_for_current_family_deprecation() -
     assert result["status"] == "proposal"
     assert result["deprecations"] == [{"family": "gpt-4o", "retirement_date": "2027-01-01"}]
     assert "current_family_deprecated" in result["compatibility_impact"]
+    assert result["affected_capabilities"] == ["t2.reasoner.primary"]
+
+
+def test_lifecycle_reconciler_rejects_malformed_retirement_date() -> None:
+    with pytest.raises(ValueError, match="ISO 8601"):
+        reconcile_model_lifecycle(
+            current=_resolved(),
+            candidate=_resolved(),
+            deprecations=({"family": "gpt-4o", "retirement_date": "soon"},),
+        )
+
+
+def test_lifecycle_reconciler_ignores_unrelated_deprecation() -> None:
+    result = reconcile_model_lifecycle(
+        current=_resolved(),
+        candidate=_resolved(),
+        deprecations=({"family": "other-family", "retirement_date": "2027-01-01"},),
+    )
+
+    assert result["status"] == "no-change"
+    assert result["deprecations"] == []
+    assert result["affected_capabilities"] == []
+
+
+def test_lifecycle_reconciler_rejects_boolean_capacity() -> None:
+    candidate = _resolved()
+    capability = candidate["capabilities"][0]  # type: ignore[index]
+    capability["capacity_tpm"] = True  # type: ignore[index]
+
+    with pytest.raises(ValueError, match="non-negative integer"):
+        reconcile_model_lifecycle(
+            current=_resolved(),
+            candidate=candidate,
+            deprecations=(),
+        )
+
+
+@pytest.mark.parametrize("name", ["invalid", "t3.reasoner", "t2." + "x" * 65])
+def test_lifecycle_reconciler_rejects_invalid_capability_name(name: str) -> None:
+    candidate = _resolved()
+    capability = candidate["capabilities"][0]  # type: ignore[index]
+    capability["name"] = name  # type: ignore[index]
+
+    with pytest.raises(ValueError, match="bounded T1/T2"):
+        reconcile_model_lifecycle(
+            current=_resolved(),
+            candidate=candidate,
+            deprecations=(),
+        )
+
+
+def test_lifecycle_reconciler_accounts_for_capability_addition_and_removal() -> None:
+    current = _resolved()
+    candidate = _resolved()
+    current["capabilities"] = [
+        *current["capabilities"],  # type: ignore[list-item]
+        {
+            "name": "t1.judge",
+            "family": "gpt-4o-mini",
+            "publisher": "OpenAI",
+            "sku": "Standard",
+            "capacity_tpm": 10_000,
+            "status": "resolved",
+        },
+    ]
+    candidate["capabilities"] = [
+        *candidate["capabilities"],  # type: ignore[list-item]
+        {
+            "name": "t2.rca",
+            "family": "gpt-5",
+            "publisher": "OpenAI",
+            "sku": "Standard",
+            "capacity_tpm": 10_000,
+            "status": "resolved",
+        },
+    ]
+
+    result = reconcile_model_lifecycle(
+        current=current,
+        candidate=candidate,
+        deprecations=(),
+    )
+
+    changes = {str(item["capability"]): item for item in result["changes"]}  # type: ignore[union-attr]
+    assert changes["t1.judge"]["proposed_status"] == "unavailable"
+    assert changes["t2.rca"]["current_family"] is None
+    assert result["affected_capabilities"] == ["t1.judge", "t2.rca"]
+    assert "capability_degradation" in result["compatibility_impact"]
 
 
 def test_lifecycle_reconciler_abstains_on_provider_failure() -> None:
@@ -171,10 +272,12 @@ def test_lifecycle_reconciler_abstains_on_provider_failure() -> None:
     )
 
     assert result == {
-        "schema_version": "fdai.model-lifecycle-proposal.v2",
+        "schema_version": "fdai.model-lifecycle-proposal.v3",
         "status": "abstained",
         "reason": "rate_limited",
         "activation_authority": False,
+        "source_models_digest": _digest(_resolved()),
+        "affected_capabilities": [],
         "changes": [],
         "deprecations": [],
         "compatibility_impact": [],

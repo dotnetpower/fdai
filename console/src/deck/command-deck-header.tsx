@@ -39,7 +39,7 @@ export function CommandDeckHeader({
   readonly onClose: () => void;
 }) {
   return (
-    <div class="deck-header">
+    <div class="deck-header cs-deck-workspace-header">
       <div class="deck-header-title" onMouseDown={onFloatingDragStart}>
         <span class="deck-header-glyph" aria-hidden="true">
           <svg viewBox="0 0 16 16" width="14" height="14">

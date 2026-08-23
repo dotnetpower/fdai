@@ -541,6 +541,65 @@ def test_local_services_command_fails_for_an_incomplete_topology(
     assert "unavailable: operator-api" in output
 
 
+def test_local_services_report_can_scope_readiness_to_core_runtime(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_module()
+    monkeypatch.setattr(
+        module,
+        "_local_services_diagnostic",
+        lambda _root: {
+            "ready_count": 5,
+            "service_count": 6,
+            "services": [
+                {"name": "core-runtime", "ready": False},
+                {"name": "operator-api", "ready": True},
+            ],
+            "status": "warning",
+            "unavailable_services": ["core-runtime"],
+        },
+    )
+
+    result = module.local_services_report(
+        Path.cwd(),
+        wait_seconds=0,
+        selected_names=("core-runtime",),
+    )
+
+    assert result["status"] == "warning"
+    assert result["ready_count"] == 0
+    assert result["service_count"] == 1
+    assert result["unavailable_services"] == ["core-runtime"]
+
+
+def test_local_services_command_forwards_core_only_scope(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_module()
+    calls: list[tuple[str, ...]] = []
+
+    def report(
+        _root: Path,
+        *,
+        wait_seconds: float,
+        selected_names: tuple[str, ...] = (),
+    ) -> dict[str, object]:
+        assert wait_seconds == 0
+        calls.append(selected_names)
+        return {
+            "attempt_count": 1,
+            "ready_count": 1,
+            "service_count": 1,
+            "status": "ok",
+            "unavailable_services": [],
+        }
+
+    monkeypatch.setattr(module, "local_services_report", report)
+
+    assert module.main(["local-services", "--wait-seconds", "0", "--only", "core-runtime"]) == 0
+    assert calls == [("core-runtime",)]
+
+
 def test_resume_rejects_malformed_handover_schema(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

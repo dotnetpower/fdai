@@ -20,6 +20,7 @@ interface Props {
   readonly onCameraViewChange: (view: ArchitectureCameraView) => void;
   readonly displayOptions: ArchitectureDisplayOptions;
   readonly onToggleDisplay: (key: keyof ArchitectureDisplayOptions) => void;
+  readonly cameraLocked?: boolean;
 }
 
 const CAMERA_LABELS: Readonly<Record<ArchitectureCameraView, string>> = {
@@ -61,6 +62,7 @@ export function ArchitectureInspector({
   onCameraViewChange,
   displayOptions,
   onToggleDisplay,
+  cameraLocked = false,
 }: Props) {
   const byId = new Map(graph.resources.map((resource) => [resource.id, resource]));
   const parent = selected?.parent_id ? byId.get(selected.parent_id) ?? null : null;
@@ -138,19 +140,20 @@ export function ArchitectureInspector({
       </section>
       <details class="architecture-map-settings">
         <summary>{t("mapDisplay")}</summary>
-        <h4>{t("view")}</h4>
+        {!cameraLocked ? <><h4>{t("view")}</h4>
         <div class="architecture-camera-control" role="group" aria-label={t("cameraView")}>
           {(["top", "iso", "front"] as const).map((view) => (
             <button
               type="button"
               class={cameraView === view ? "is-active" : ""}
               aria-pressed={cameraView === view}
+              disabled={cameraLocked}
               onClick={() => onCameraViewChange(view)}
             >
               {t(CAMERA_LABELS[view])}
             </button>
           ))}
-        </div>
+        </div></> : null}
         <h4>{t("display")}</h4>
         <div class="architecture-display-options">
           {([

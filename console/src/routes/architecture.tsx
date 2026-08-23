@@ -3,6 +3,18 @@ import { isOptionalOperatorApiUnavailable, OperatorApiError, type OperatorApiCli
 import { ArchitectureInspector } from "../components/architecture-inspector";
 import { ArchitectureMap, type ArchitectureMapHandle } from "../components/architecture-map";
 import { ArchitectureOverviewPanel } from "../components/architecture-overview-panel";
+import { ArchitectureNetworkTools } from "../components/architecture-network-tools";
+import { ArchitectureNetworkMap } from "../components/architecture-network-map";
+import {
+  DEFAULT_ARCHITECTURE_NETWORK_FILTERS,
+  architectureNetworkFocusGraph,
+  defaultArchitectureNetworkFocusId,
+  exportArchitectureNetworkSvg,
+  filterArchitectureNetworkGraph,
+  layoutArchitectureNetworkFocusGraph,
+  traceArchitectureNetworkPath,
+  type ArchitectureNetworkFilters,
+} from "../components/architecture-network-focus";
 import { architectureCanvasHeight } from "../components/architecture-map.geometry";
 import { layoutArchitecturePresentation } from "../components/architecture-map-layout";
 import { ArchitectureRelationIndex } from "../components/architecture-relation-index";
@@ -79,7 +91,7 @@ export async function loadArchitectureGraph(
   client: Pick<OperatorApiClient, "panel">,
   requestedView: string | null,
 ): Promise<InventoryGraphResponse> {
-  const params = { depth: "4", include: "contains,attached_to,depends_on" };
+  const params = { depth: "4", include: "contains,attached_to,depends_on,peered_with" };
   if (requestedView === null) {
     return client.panel<InventoryGraphResponse>("/inventory/graph", params);
   }
@@ -113,6 +125,7 @@ export function ArchitectureRoute({ client }: Props) {
   const [displayOptions, setDisplayOptions] = useState<ArchitectureDisplayOptions>({
     ...DEFAULT_ARCHITECTURE_DISPLAY_OPTIONS,
   });
+  const [mapMode, setMapMode] = useState<"map" | "network">("map");
   const mapRef = useRef<ArchitectureMapHandle>(null);
   const cachePollAttemptRef = useRef(0);
 
@@ -189,6 +202,20 @@ export function ArchitectureRoute({ client }: Props) {
     setDisplayOptions((previous) => ({ ...previous, [key]: !previous[key] }));
   }
 
+  function changeMapMode(mode: "map" | "network"): void {
+    setMapMode(mode);
+    if (mode === "network" && selectedId === null && state.status === "ready") {
+      const defaultFocusId = defaultArchitectureNetworkFocusId(state.data);
+      if (defaultFocusId) {
+        setSelectedId(defaultFocusId);
+        replaceRouteState(architectureHref(defaultFocusId, viewScope));
+      }
+    }
+    const view = mode === "network" ? "top" : DEFAULT_ARCHITECTURE_CAMERA_VIEW;
+    setCameraView(view);
+    mapRef.current?.setView(view);
+  }
+
   return (
     <div class="stack architecture-route">
       <PageHeader
@@ -216,6 +243,8 @@ export function ArchitectureRoute({ client }: Props) {
             onZoomChange={setZoomPercent}
             displayOptions={displayOptions}
             onToggleDisplay={toggleDisplay}
+            mapMode={mapMode}
+            onMapModeChange={changeMapMode}
           />
         )}
       </AsyncBoundary>
@@ -236,6 +265,8 @@ function ArchitectureBody({
   onZoomChange,
   displayOptions,
   onToggleDisplay,
+  mapMode,
+  onMapModeChange,
 }: {
   readonly graph: InventoryGraphResponse;
   readonly requestedView: string | null;
@@ -249,11 +280,39 @@ function ArchitectureBody({
   readonly onZoomChange: (percent: number) => void;
   readonly displayOptions: ArchitectureDisplayOptions;
   readonly onToggleDisplay: (key: keyof ArchitectureDisplayOptions) => void;
+  readonly mapMode: "map" | "network";
+  readonly onMapModeChange: (mode: "map" | "network") => void;
 }) {
-  const presentedGraph = useMemo(
-    () => layoutArchitecturePresentation(graph, selectedId),
+  const [networkFilters, setNetworkFilters] = useState<ArchitectureNetworkFilters>({
+    ...DEFAULT_ARCHITECTURE_NETWORK_FILTERS,
+  });
+  const [pathSourceId, setPathSourceId] = useState<string | null>(null);
+  const [pathTargetId, setPathTargetId] = useState<string | null>(null);
+  const networkFocusGraph = useMemo(
+    () => architectureNetworkFocusGraph(graph, selectedId),
     [graph, selectedId],
   );
+  const filteredNetworkGraph = useMemo(
+    () => filterArchitectureNetworkGraph(networkFocusGraph, networkFilters),
+    [networkFocusGraph, networkFilters],
+  );
+  const presentationSource = mapMode === "network" ? filteredNetworkGraph : graph;
+  const presentedGraph = useMemo(
+    () => mapMode === "network"
+      ? layoutArchitectureNetworkFocusGraph(presentationSource)
+      : layoutArchitecturePresentation(presentationSource, selectedId),
+    [mapMode, presentationSource, selectedId],
+  );
+  const networkPath = useMemo(
+    () => traceArchitectureNetworkPath(networkFocusGraph, pathSourceId, pathTargetId),
+    [networkFocusGraph, pathSourceId, pathTargetId],
+  );
+  const highlightedIds = networkPath?.status === "found"
+    ? new Set(networkPath.resourceIds)
+    : undefined;
+  const effectiveDisplayOptions = mapMode === "network"
+    ? { ...displayOptions, showReflections: false, showGrid: false }
+    : displayOptions;
   const visibleSelectedId = architectureResourceExists(presentedGraph.resources, selectedId)
     ? selectedId
     : null;
@@ -319,8 +378,8 @@ function ArchitectureBody({
     <div class="architecture-workspace">
       <div class={`architecture-stage${selected ? " has-selection" : ""}`}>
         <div
-          class="architecture-canvas-shell"
-          style={`--architecture-canvas-height: ${architectureCanvasHeight(presentedGraph)}px`}
+          class={`architecture-canvas-shell${mapMode === "network" ? " is-network-mode" : ""}`}
+          style={`--architecture-canvas-height: ${mapMode === "network" ? 480 : architectureCanvasHeight(presentedGraph)}px`}
         >
           <p id="architecture-map-description" class="sr-only">
             {t("mapDescription", {
@@ -328,31 +387,71 @@ function ArchitectureBody({
               links: presentedGraph.links.length,
             })}
           </p>
-          <ArchitectureMap
-            ref={mapRef}
-            graph={presentedGraph}
-            selectedId={visibleSelectedId}
-            onSelect={onSelect}
-            options={displayOptions}
-            onZoomChange={onZoomChange}
-            descriptionId="architecture-map-description"
-          />
-          <ArchitectureOverviewPanel
+          {mapMode === "network" ? (
+            <ArchitectureNetworkMap
+              graph={presentedGraph}
+              selectedId={visibleSelectedId}
+              {...(highlightedIds ? { highlightedIds } : {})}
+              onSelect={onSelect}
+              descriptionId="architecture-map-description"
+            />
+          ) : (
+            <ArchitectureMap
+              ref={mapRef}
+              graph={presentedGraph}
+              selectedId={visibleSelectedId}
+              onSelect={onSelect}
+              options={effectiveDisplayOptions}
+              onZoomChange={onZoomChange}
+              descriptionId="architecture-map-description"
+            />
+          )}
+          <div class="architecture-mode-switch segmented-control" role="group" aria-label={t("network.mode") }>
+            <button type="button" class={mapMode === "map" ? "active" : ""} aria-pressed={mapMode === "map"} onClick={() => onMapModeChange("map")}>{t("network.mapMode")}</button>
+            <button type="button" class={mapMode === "network" ? "active" : ""} aria-pressed={mapMode === "network"} onClick={() => onMapModeChange("network")}>{t("network.networkMode")}</button>
+          </div>
+          {mapMode === "map" ? <ArchitectureOverviewPanel
             graph={graph}
             onViewScopeChange={onViewScopeChange}
-          />
-          <div class="architecture-zoom-controls" role="group" aria-label={t("zoomControls")}>
+          /> : null}
+          {mapMode === "map" ? <div class="architecture-zoom-controls" role="group" aria-label={t("zoomControls")}>
             <button type="button" onClick={() => mapRef.current?.zoomIn()} aria-label={t("zoomIn")}>+</button>
             <output aria-label={t("zoomLevel")} aria-live="polite">{zoomPercent}%</output>
             <button type="button" onClick={() => mapRef.current?.zoomOut()} aria-label={t("zoomOut")}>-</button>
             <button type="button" onClick={() => mapRef.current?.fit()} aria-label={t("fitMap")}>{t("fit")}</button>
-          </div>
+          </div> : null}
           <div class="architecture-edge-legend" aria-label={t("relationshipLegend")}>
             <span><i class="is-dependency" aria-hidden="true" />{t("relationship.dependsOn")}</span>
             <span><i class="is-attachment" aria-hidden="true" />{t("relationship.attachedTo")}</span>
+            <span><i class="is-peering" aria-hidden="true" />{t("relationship.peersWith")}</span>
             <span><i class="is-boundary" aria-hidden="true" />{t("relationship.boundary")}</span>
           </div>
         </div>
+        {mapMode === "network" ? (
+          <ArchitectureNetworkTools
+            graph={networkFocusGraph}
+            sourceId={pathSourceId}
+            targetId={pathTargetId}
+            result={networkPath}
+            filters={networkFilters}
+            onSourceChange={setPathSourceId}
+            onTargetChange={setPathTargetId}
+            onToggleFilter={(key) => setNetworkFilters((previous) => ({
+              ...previous,
+              [key]: !previous[key],
+            }))}
+            onExportSvg={() => {
+              void exportArchitectureNetworkSvg(presentedGraph, networkPath).then((svg) =>
+                downloadTextArtifact("observed-network-topology.svg", "image/svg+xml", svg)
+              );
+            }}
+            onExportPng={() => {
+              void exportArchitectureNetworkSvg(presentedGraph, networkPath).then(
+                downloadSanitizedNetworkPng,
+              );
+            }}
+          />
+        ) : null}
         <ArchitectureInspector
           graph={graph}
           selected={selected}
@@ -361,11 +460,46 @@ function ArchitectureBody({
           onCameraViewChange={onCameraViewChange}
           displayOptions={displayOptions}
           onToggleDisplay={onToggleDisplay}
+          cameraLocked={mapMode === "network"}
         />
       </div>
-      <ArchitectureRelationIndex graph={presentedGraph} onSelect={onSelect} />
+      <ArchitectureRelationIndex graph={mapMode === "network" ? graph : presentedGraph} onSelect={onSelect} />
     </div>
   );
+}
+
+function downloadTextArtifact(filename: string, mediaType: string, content: string): void {
+  const url = URL.createObjectURL(new Blob([content], { type: mediaType }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+async function downloadSanitizedNetworkPng(svg: string): Promise<void> {
+  const sourceUrl = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
+  try {
+    const image = new Image();
+    image.src = sourceUrl;
+    await image.decode();
+    const canvas = document.createElement("canvas");
+    canvas.width = 1200;
+    canvas.height = 720;
+    const context = canvas.getContext("2d");
+    if (!context) return;
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    const png = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+    if (!png) return;
+    const pngUrl = URL.createObjectURL(png);
+    const link = document.createElement("a");
+    link.href = pngUrl;
+    link.download = "observed-network-topology.png";
+    link.click();
+    URL.revokeObjectURL(pngUrl);
+  } finally {
+    URL.revokeObjectURL(sourceUrl);
+  }
 }
 
 export function formatAge(timestamp: string, now = Date.now()): string {

@@ -54,6 +54,7 @@ Consumers of this document:
 | 2026-08-16 | implemented | Made Thor apply the dispatch-time kinetic proposal binding again when it rehydrates a durable ActionRun, so a tampered row cannot restore another correlation's exact arguments. No AgentSpec, topic, ownership, or authority change. | `current change`; [`thor.py`](../../../services/core-control-plane/src/fdai/agents/thor.py) and [`test_thor_durable.py`](../../../services/core-control-plane/tests/agents/test_thor_durable.py); focused kinetic, durable-replay, runtime, and factory checks passed 140 cases. | Retain governed live evidence for the rehydration path alongside the existing kinetic remaining work. |
 | 2026-08-17 | implemented | Preserved bounded distributed-trace continuity evidence from Huginn normalization through Heimdall's repeated-event anomaly and Incident candidate. Unknown reason codes and forged action fields are dropped, and the sensing path gains no judgment or action authority. | `current change`; `test_trace_continuity_chain.py`; focused trace-to-Incident chain passed. | Retain governed live trace-discontinuity, Incident, approval, and recovery evidence in issue #142. |
 | 2026-08-21 | implemented | Completed the semantic-judgment migration regressions without restoring phrase-based routing. Bragi uses the shared judgment boundary for operator routing, read-investigation ownership, action posture, and read-only deliberation; unavailable or rejected meaning fails closed. AgentSpec, topics, ownership, model policy, and action authority are unchanged. | `current change`; focused agent, deliberation, read-investigation, and semantic-tool checks passed 304 cases; diff-scoped changed tests passed 3176 cases with 7 environment-gated skips. | Retain governed operator-path evidence and the existing live KPI and promotion evidence; no authority or promotion state changed. |
+| 2026-08-23 | implemented | Added Heimdall's read-only terminal `object.action-run` subscription. The handler restores exact correlation-indexed pre-dispatch artifacts, binds collection to Thor's terminal timestamp, invokes an injected independent collector, and writes only verifier-accepted post-terminal observations. Heimdall ownership, publications, deterministic hot path, LLM policy, and action authority remain unchanged. | `current change`; Pantheon parity, runtime topic, handler, artifact, Azure collector, and composition checks. | Bind the deployment-owned signed-context issuer and retain a governed live closure receipt. |
 
 ### Remaining work
 - [ ] Retain a live-shadow cohort with measured per-agent and system KPIs, sample counts,
@@ -62,7 +63,8 @@ Consumers of this document:
   only injected failures, without widening any agent's authority.
 - [x] Bind the argument-bound kinetic proposal producer and optional Forseti source through the existing Verdict path without changing AgentSpec, ownership, subscriptions, or publications.
 - [x] Complete the Core pre-dispatch receipt consumer before every Thor-owned executor without changing AgentSpec, topics, or agent authority.
-- [ ] Bind the Forseti source in production composition and the independent observer through the existing Verdict and ActionRun topics, then retain governed live evidence.
+- [x] Bind the independent observer through the existing ActionRun topic without changing execution authority.
+- [ ] Bind the deployment-owned signed-context issuer and remaining Forseti lineage properties, then retain governed live evidence.
 - [x] Complete the Rule generation chain with a production trigger, exact Heimdall receipt binding,
   and Mimir-owned activation publication; focused checks reach `activated` without added authority.
 - [ ] Complete an independent promotion review for each eligible capability and retain the
@@ -155,7 +157,7 @@ operations / interface), `3` = governance staff.
 | Thor | Responder | 2 | ActionRun, ActionAttempt | (dispatches; owns none directly - see §7.1) | no |
 | Forseti | Judge | 2 | Verdict, RCA, SecurityEvent, ArbitrationRequest | produces verdicts; optional context can only lower autonomy; no executor role | yes (T2 abstain only) |
 | Huginn | Event Collector / Real-time Resource Discovery | 2 | Event, Change | ingest_event, normalize_change | no |
-| Heimdall | Observer | 2 | Anomaly, Drift, Forecast, ForecastOutcome, RetrievalValidation | detect_anomaly, detect_drift, forecast, close_forecast_outcome, validate_retrieval_failure, validate_rule_generation, notify_admin_privilege_violation | no |
+| Heimdall | Observer | 2 | Anomaly, Drift, Forecast, ForecastOutcome, RetrievalValidation | detect_anomaly, detect_drift, forecast, close_forecast_outcome, observe_terminal_action_effect, validate_retrieval_failure, validate_rule_generation, notify_admin_privilege_violation | no |
 | Vidar | Recovery | 2 | Rollback | perform_rollback, dr_failover | no |
 | Var | Approver | 2 | Approval | approve_action, reject_action | no |
 | Bragi | Narrator | 2 | Conversation, Turn, UserPreference, HandoffEscalation, PostTurnReview | translate_intent | yes (translator only) |
@@ -385,7 +387,7 @@ Each consumer closes its subscription inside its own task, so the broker adapter
 | object.verdict | Forseti | Thor, Saga, Odin |
 | object.arbitration-request | Forseti | Odin |
 | object.arbitration-decision | Odin | Forseti |
-| object.action-run | Thor | Vidar, Var, Saga |
+| object.action-run | Thor | Heimdall (terminal effect observation), Vidar, Var, Saga |
 | object.approval | Var | Thor, Saga |
 | object.rollback | Vidar | Thor (ActionRun projection), Saga |
 | object.audit-entry | Saga | Norns, Muninn (document index gate), Var (document HIL) |

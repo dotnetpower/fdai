@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from uuid import uuid4
 
 import pytest
 from fdai.core.ontology_platform.kinetics import MutationPlan
@@ -115,6 +116,53 @@ async def test_identical_store_replay_is_one_durable_record() -> None:
 
     assert replayed == first
     assert len(records) == 1
+
+
+async def test_correlation_index_restores_exact_action_after_restart() -> None:
+    action, plan, action_type, release = _inputs()
+    state_store = InMemoryStateStore()
+    correlation_id = "correlation-exact-1"
+    await StateStoreExecutedActionArtifactStore(store=state_store).store(
+        action=action,
+        plan=plan,
+        action_type=action_type,
+        active_release=release,
+        correlation_id=correlation_id,
+    )
+
+    restored = await StateStoreExecutedActionArtifactStore(
+        store=state_store
+    ).resolve_by_correlation(correlation_id)
+
+    assert restored is not None
+    restored_action, restored_artifacts = restored
+    assert restored_action == action
+    assert restored_artifacts == ResolvedReconciliationArtifacts(plan, action_type, release)
+
+
+async def test_correlation_index_rejects_different_action() -> None:
+    action, plan, action_type, release = _inputs()
+    adapter = StateStoreExecutedActionArtifactStore(store=InMemoryStateStore())
+    correlation_id = "correlation-conflict-1"
+    await adapter.store(
+        action=action,
+        plan=plan,
+        action_type=action_type,
+        active_release=release,
+        correlation_id=correlation_id,
+    )
+    different_action = action.model_copy(
+        update={"action_id": uuid4(), "idempotency_key": "different-action"}
+    )
+
+    with pytest.raises(KineticSafetyArtifactConflictError):
+        await adapter.store(
+            action=different_action,
+            plan=plan,
+            action_type=action_type,
+            active_release=release,
+            correlation_id=correlation_id,
+        )
 
 
 async def test_same_action_id_with_different_plan_conflicts() -> None:

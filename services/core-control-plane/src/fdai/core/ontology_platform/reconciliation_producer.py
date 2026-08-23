@@ -63,6 +63,21 @@ class ExecutedActionObservationSource(Protocol):
     ) -> ExecutedActionObservation | None: ...
 
 
+class ExecutedActionObservationCollector(Protocol):
+    """Collect one independent post-action observation without granting authority."""
+
+    async def collect(
+        self,
+        *,
+        action: Action,
+        artifacts: ResolvedReconciliationArtifacts,
+        execution_outcome: str,
+        execution_completed_at: datetime,
+        execution_receipt_ref: str | None,
+        correlation_id: str,
+    ) -> ExecutedActionObservation | None: ...
+
+
 class EffectReconciliationRequestSink(Protocol):
     """Produce at most one typed reconciliation request after ordinary dispatch."""
 
@@ -77,6 +92,7 @@ class EffectReconciliationRequestSink(Protocol):
 __all__ = [
     "EffectReconciliationRequestSink",
     "ExecutedActionObservation",
+    "ExecutedActionObservationCollector",
     "ExecutedActionObservationSource",
     "ExecutedActionReconciliationArtifactSource",
     "ReconciliationRequestProduction",

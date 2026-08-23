@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import cast
 
 import psycopg
 import pytest
@@ -23,8 +25,14 @@ from fdai.delivery.persistence.postgres_inventory_snapshot import (
     PostgresInventoryGraphProvider,
     PostgresInventorySnapshotStore,
     PostgresInventorySnapshotStoreConfig,
+    _snapshot_relationship_props,
 )
-from fdai.shared.providers.inventory import InventoryBatch, LinkRecord, ResourceRecord
+from fdai.shared.providers.inventory import (
+    InventoryBatch,
+    LinkRecord,
+    ProviderRelationshipEvidence,
+    ResourceRecord,
+)
 from fdai.shared.providers.inventory_snapshot import (
     InventoryAttemptFailure,
     InventoryCoverageManifest,
@@ -33,6 +41,51 @@ from fdai.shared.providers.inventory_snapshot import (
 
 pytestmark = pytest.mark.integration
 _REPO_ROOT = Path(__file__).resolve().parents[4]
+
+
+def test_snapshot_relationship_props_retain_reviewed_configuration_evidence() -> None:
+    evidence = ProviderRelationshipEvidence(
+        mapping_id="azure.container-app-depends-on-managed-environment",
+        mapping_revision=f"sha256:{'1' * 64}",
+        mapping_receipt_ref="catalog-receipt:provider-relationships:azure-arg-v1",
+        provider_identity="azure",
+        source_identity="azure-resource-graph",
+        source_property_path="properties.managedEnvironmentId",
+        source_schema_version="azure-resource-graph-resources@2022-10-01",
+        source_schema_digest=f"sha256:{'2' * 64}",
+        observed_schema_digest=f"sha256:{'2' * 64}",
+        evidence_method="deterministic-cross-check",
+        freshness_ceiling_seconds=21600,
+        endpoint_orientation="owner_to_referenced",
+        provider_owner_id="container-app-1",
+        observation_receipt_ref=f"sha256:{'3' * 64}",
+    )
+
+    properties = _snapshot_relationship_props(
+        LinkRecord(
+            from_id="container-app-1",
+            from_type="compute.container-app",
+            link_type="depends_on",
+            to_id="environment-1",
+            to_type="compute.container-app-environment",
+            mapping_evidence=evidence,
+        )
+    )
+
+    assert properties == {
+        "provider_relationship_evidence": {
+            "mapping_id": "azure.container-app-depends-on-managed-environment",
+            "mapping_revision": f"sha256:{'1' * 64}",
+            "mapping_receipt_ref": "catalog-receipt:provider-relationships:azure-arg-v1",
+            "source_identity": "azure-resource-graph",
+            "source_property_path": "properties.managedEnvironmentId",
+            "source_schema_version": "azure-resource-graph-resources@2022-10-01",
+            "source_schema_digest": f"sha256:{'2' * 64}",
+            "evidence_method": "deterministic-cross-check",
+            "freshness_ceiling_seconds": 21600,
+            "observation_receipt_ref": f"sha256:{'3' * 64}",
+        }
+    }
 
 
 def _dsn() -> str:
@@ -214,6 +267,38 @@ async def test_inventory_coverage_summary_does_not_decode_resource_properties() 
     assert summary["resource_count"] == 1
     assert summary["link_count"] == 0
     assert summary["truncated"] is False
+
+
+async def test_inventory_graph_exposes_sanitized_collection_health_projection() -> None:
+    _upgrade()
+    config = PostgresInventorySnapshotStoreConfig(dsn=_dsn())
+    store = PostgresInventorySnapshotStore(config=config)
+    provider = PostgresInventoryGraphProvider(config=config)
+    manifest = _manifest("arg")
+    attempt = await store.begin(manifest)
+    await store.stage(
+        attempt,
+        InventoryBatch(resources=(ResourceRecord("health-resource", "compute.vm"),)),
+    )
+    await store.promote(attempt, manifest)
+    collection_health = {
+        "schema_version": "1.0.0",
+        "source_alias": "arg-snapshot",
+        "cursor": {"state": "lagging", "lag_seconds": 120.0, "complete": True},
+        "overlay": {"state": "closed", "pending_resources": 0},
+        "mutation_authority": False,
+        "execution_authority": False,
+    }
+    async with await psycopg.AsyncConnection.connect(_dsn()) as connection:
+        await connection.execute(
+            "INSERT INTO state_kv (key, value) VALUES (%s, %s::jsonb) "
+            "ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=NOW()",
+            ("inventory-collection-health", json.dumps(collection_health)),
+        )
+
+    graph = await provider(None, 1, ("contains",))
+
+    assert graph["collection_health"] == collection_health
 
 
 async def test_rooted_inventory_graph_respects_depth_and_limit() -> None:
@@ -434,7 +519,7 @@ async def test_inventory_graph_read_uses_consistent_read_only_transaction() -> N
                 "SELECT current_setting('transaction_isolation') AS isolation, "
                 "current_setting('transaction_read_only') AS read_only"
             )
-            row = await cursor.fetchone()
+            row = cast(dict[str, object] | None, await cursor.fetchone())
             assert row is not None
             self.transaction_state = (str(row["isolation"]), str(row["read_only"]))
 
@@ -633,6 +718,78 @@ async def test_complete_relationship_set_tombstones_missing_owned_link() -> None
             ("rg-complete/vm", "rg-complete"),
         )
         assert await cursor.fetchone() == ("delete",)
+
+
+async def test_partial_live_evidence_preserves_snapshot_properties_and_links() -> None:
+    _upgrade()
+    config = PostgresInventorySnapshotStoreConfig(dsn=_dsn())
+    store = PostgresInventorySnapshotStore(config=config)
+    projector = PostgresInventoryDeltaProjector(config=config)
+    graph_provider = PostgresInventoryGraphProvider(config=config)
+    context_provider = PostgresInventoryContextProvider(config=config)
+    manifest = _manifest("arg")
+    attempt = await store.begin(manifest)
+    await store.stage(
+        attempt,
+        InventoryBatch(
+            resources=(
+                ResourceRecord("rg-live", "resource-group", {"name": "group"}),
+                ResourceRecord(
+                    "rg-live/vm",
+                    "compute.vm",
+                    {"name": "vm", "location": "example-region"},
+                ),
+            ),
+            links=(
+                LinkRecord(
+                    from_id="rg-live",
+                    from_type="resource-group",
+                    link_type="contains",
+                    to_id="rg-live/vm",
+                    to_type="compute.vm",
+                ),
+            ),
+        ),
+    )
+    await store.promote(attempt, manifest)
+
+    result = await projector(
+        {
+            "event_id": "event-live-evidence",
+            "idempotency_key": "inventory-live-evidence",
+            "inventory_change": {
+                "kind": "upsert",
+                "properties_complete": False,
+                "resource": {
+                    "resource_id": "rg-live/vm",
+                    "type": "compute.vm",
+                    "props": {"live_evidence": {"state": "running"}},
+                    "provider_ref": None,
+                    "last_seen": _after_snapshot(manifest, 1),
+                },
+                "links_complete": False,
+                "links": [],
+            },
+        }
+    )
+    graph = await graph_provider(
+        None,
+        2,
+        ("contains",),
+        root="rg-live",
+    )
+    vm = await context_provider("rg-live/vm")
+
+    assert result.outcome is InventoryDeltaApplyOutcome.APPLIED
+    assert vm is not None
+    assert vm["props"] == {
+        "name": "vm",
+        "location": "example-region",
+        "live_evidence": {"state": "running"},
+    }
+    assert any(
+        link["source"] == "rg-live" and link["target"] == "rg-live/vm" for link in graph["links"]
+    )
 
 
 async def test_stale_resource_delete_does_not_tombstone_current_relationships() -> None:

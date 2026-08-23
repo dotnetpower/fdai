@@ -1,6 +1,11 @@
 variable "name" {
   description = "Operator service Container App name."
   type        = string
+
+  validation {
+    condition     = can(regex("-operator-api$", var.name))
+    error_message = "Operator service Container App name must end with -operator-api."
+  }
 }
 variable "platform" {
   description = "Shared platform outputs supplied by the platform state owner."
@@ -112,15 +117,16 @@ variable "channel_edge" {
 variable "event_topics" {
   description = "Event Hub entities used for typed operator requests."
   type = object({
-    events               = string
-    semantic_requests    = optional(string, "")
-    semantic_projections = optional(string, "")
-    semantic_physical    = optional(string, "fdai.pantheon.objects")
+    events                      = string
+    semantic_requests           = optional(string, "")
+    semantic_projections        = optional(string, "")
+    semantic_physical           = optional(string, "fdai.pantheon.objects")
+    read_investigation_requests = optional(string, "")
   })
 }
 variable "database" {
   description = "Role-scoped Operator database secret reference."
-  type        = object({ dsn_secret_id = string, role = string })
+  type        = object({ dsn_secret_id = string, host = optional(string, ""), role = string })
   sensitive   = true
 }
 variable "health" {

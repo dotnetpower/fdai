@@ -32,7 +32,8 @@ from ..shared.config.models import LlmMode
 from ..shared.providers.distiller import Distiller
 from ..shared.providers.ontology_council import CouncilModelIdentity, OntologyCouncilModel
 from ..shared.providers.workload_identity import WorkloadIdentity
-from ._helpers import Container, LlmBindingsUnavailableError, _load_resolved_models
+from ._helpers import Container, LlmBindingsUnavailableError
+from .resolved_models import _load_resolved_models
 
 ONTOLOGY_COUNCIL_CAPABILITIES = (
     "t2.ontology.council.alpha",

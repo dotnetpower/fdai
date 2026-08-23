@@ -3,7 +3,14 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 import pytest
+from fdai.delivery.inventory_scheduler import CollectionScheduleAction
+from fdai.delivery.inventory_source_policy import (
+    CollectionPriorityPolicy,
+    CollectionSourceKind,
+    SourceCollectionPolicy,
+)
 from fdai.delivery.persistence.postgres_inventory_reconciliation import (
+    adaptive_reconciliation_decision,
     failure_retry_delay_seconds,
     has_unreconciled_change,
     inventory_reconciliation_due,
@@ -143,3 +150,68 @@ def test_failure_backoff_outranks_interval_and_change_demand() -> None:
         )
         is False
     )
+
+
+def _adaptive_policy() -> SourceCollectionPolicy:
+    return SourceCollectionPolicy(
+        source_id="arg-snapshot",
+        source_kind=CollectionSourceKind.SNAPSHOT,
+        target_freshness_seconds=120,
+        max_staleness_seconds=600,
+        min_poll_interval_seconds=10,
+        max_poll_interval_seconds=120,
+        budget_window_seconds=60,
+        max_requests_per_window=10,
+        max_bytes_per_window=1024,
+        global_concurrency_limit=2,
+        scope_concurrency_limit=1,
+        resource_type_concurrency_limit=1,
+        endpoint_concurrency_limit=1,
+        max_cursor_pages=1,
+        max_objects=1,
+        max_relationships=1,
+        max_run_seconds=60,
+        no_progress_timeout_seconds=30,
+        jitter_ratio=0.0,
+        backoff_base_seconds=5,
+        backoff_max_seconds=60,
+        circuit_failure_threshold=3,
+        circuit_probe_interval_seconds=30,
+        priority=CollectionPriorityPolicy(
+            base=1,
+            changed_boost=2,
+            stale_boost=3,
+            critical_boost=4,
+            operator_requested_boost=5,
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    ("failure_code", "abandoned", "failure_streak", "expected_reason"),
+    [
+        ("throttled", False, 1, "throttled"),
+        ("source_unavailable", False, 1, "timeout"),
+        (None, True, 1, "no_progress"),
+        ("throttled", False, 3, "circuit_open"),
+    ],
+)
+def test_adaptive_gate_maps_durable_failure_pressure(
+    failure_code: str | None,
+    abandoned: bool,
+    failure_streak: int,
+    expected_reason: str,
+) -> None:
+    decision = adaptive_reconciliation_decision(
+        policy=_adaptive_policy(),
+        age_seconds=600,
+        in_progress=False,
+        failure_streak=failure_streak,
+        failure_age_seconds=0,
+        failure_code=failure_code,
+        abandoned_attempt=abandoned,
+        change_demand=True,
+    )
+
+    assert decision.action is CollectionScheduleAction.WAIT
+    assert decision.reason_codes == (expected_reason,)

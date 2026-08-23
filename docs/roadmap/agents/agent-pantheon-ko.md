@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: ee0791a941dfa62829b94d3c39628a8e59d51bd4
-translation_revised: 2026-08-21
+translation_source_sha: bfce74ee0768df1604206da4337aa65ee80167f3
+translation_revised: 2026-08-23
 ---
 
 # 에이전트 판테온
@@ -54,13 +54,15 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임
 | 2026-08-16 | implemented | Thor가 내구 ActionRun을 복원할 때도 dispatch 시점의 kinetic proposal 결속 검사를 다시 적용하도록 해서, 변조된 레코드가 다른 correlation의 정확한 인자를 복원하지 못하게 했습니다. AgentSpec, topic, 소유권, 권한은 바뀌지 않았습니다. | `current change`, [`thor.py`](../../../services/core-control-plane/src/fdai/agents/thor.py)와 [`test_thor_durable.py`](../../../services/core-control-plane/tests/agents/test_thor_durable.py), 집중 kinetic/내구 재생/runtime/factory 검사 140건 통과 | 기존 kinetic 잔여 작업과 함께 복원 경로의 통제된 실사용 증거를 확보합니다. |
 | 2026-08-17 | implemented | Huginn 정규화에서 Heimdall의 반복 Event anomaly와 인시던트 후보까지 범위가 제한된 분산 추적 연속성 근거를 보존했습니다. 알 수 없는 사유 코드와 위조된 작업 필드는 버리고 sensing 경로에 판단 또는 작업 권한을 추가하지 않습니다. | `current change`; `test_trace_continuity_chain.py`; 집중 추적-인시던트 체인 통과. | 이슈 #142에서 통제된 실시간 추적 불연속, 인시던트, 승인, 복구 근거를 보존합니다. |
 | 2026-08-21 | implemented | 문구 기반 라우팅을 복원하지 않고 의미 판단 이행의 회귀 문제를 마무리했습니다. Bragi는 운영자 라우팅, 읽기 조사 소유권, 작업 태세, 읽기 전용 숙의에 공유 판단 경계를 사용하며, 의미를 사용할 수 없거나 판단이 거부되면 실패 시 차단합니다. AgentSpec, 토픽, 소유권, 모델 정책, 작업 권한은 바뀌지 않았습니다. | `current change`; 집중 에이전트, 숙의, 읽기 조사, 의미 도구 검사 304개 통과; 변경 범위 테스트 3176개 통과 및 환경 제한 skip 7개. | 통제된 운영자 경로 근거와 기존 실제 KPI 및 승격 근거를 보존합니다. 권한이나 승격 상태는 바뀌지 않았습니다. |
+| 2026-08-23 | implemented | Heimdall의 read-only 최종 `object.action-run` 구독을 추가했습니다. Handler는 exact correlation-indexed pre-dispatch artifact를 복원하고 collection을 Thor의 terminal timestamp에 결속하며 주입된 independent collector를 호출하고 verifier가 수락한 post-terminal observation만 기록합니다. Heimdall ownership, publication, deterministic hot path, LLM policy, action authority는 바뀌지 않습니다. | `current change`; Pantheon parity, runtime topic, handler, artifact, Azure collector, composition 검사 | 배포 소유 signed-context issuer를 연결하고 관리되는 live closure 증적을 보존합니다. |
 
 ### 남은 작업
 - [ ] 하나의 고정된 리비전에서 에이전트별 및 시스템 KPI, 표본 수, 신뢰 구간, 보호 메트릭과 권위 있는 결과 증적을 측정한 실제 shadow 코호트를 보존합니다.
 - [ ] 에이전트 권한을 넓히지 않고 주입된 장애만이 아닌 운영 의존성에 대해 선언된 성능 저하 동작을 입증합니다.
 - [x] AgentSpec, 소유권, 구독 또는 발행을 바꾸지 않고 기존 Verdict 경로에 argument-bound kinetic proposal producer와 선택적 Forseti source를 연결합니다.
 - [x] AgentSpec, topic 또는 agent 권한을 바꾸지 않고 모든 Thor 소유 실행기 전에 Core pre-dispatch receipt consumer를 완료합니다.
-- [ ] 운영 조립에서 Forseti source와 독립 observer를 기존 Verdict 및 ActionRun topic을 통해 연결한 뒤 통제된 실제 운영 근거를 보존합니다.
+- [x] 실행 권한을 바꾸지 않고 existing ActionRun topic을 통해 independent observer를 연결했습니다.
+- [ ] 배포 소유 signed-context issuer와 남은 Forseti lineage 속성을 연결한 뒤 관리되는 live 근거를 보존합니다.
 - [x] 운영 trigger, 정확한 Heimdall 증적 연결 및 Mimir 소유 활성화 발행으로 Rule 세대
   체인을 완료했으며, 집중 검사는 권한 추가 없이 `activated` 결과에 도달합니다.
 - [ ] 적격 기능마다 독립적인 승격 검토를 완료하고, enforce 운영을 보고하기 전에 권위 있는 승격 증적을 보존합니다.
@@ -150,7 +152,7 @@ operations / 인터페이스), `3` = 거버넌스 staff.
 | Thor | 응답자 | 2 | ActionRun, ActionAttempt | (전달 만; 직접 소유 없음 - §7.1) | no |
 | Forseti | Judge | 2 | Verdict, RCA, SecurityEvent, ArbitrationRequest | 판정 생성; 선택적 맥락은 자율성을 낮출 수만 있음; 실행기 역할 없음 | yes (T2 abstain 시만) |
 | Huginn | Event Collector / 실시간 Resource 발견 | 2 | Event, Change | ingest_event, normalize_change | no |
-| Heimdall | Observer | 2 | Anomaly, Drift, Forecast, ForecastOutcome, RetrievalValidation | detect_anomaly, detect_drift, 예측, close_forecast_outcome, validate_retrieval_failure, validate_rule_generation, notify_admin_privilege_violation | no |
+| Heimdall | Observer | 2 | Anomaly, Drift, Forecast, ForecastOutcome, RetrievalValidation | detect_anomaly, detect_drift, 예측, close_forecast_outcome, observe_terminal_action_effect, validate_retrieval_failure, validate_rule_generation, notify_admin_privilege_violation | no |
 | Vidar | 복구 | 2 | Rollback | perform_rollback, dr_failover | no |
 | Var | Approver | 2 | Approval | approve_action, reject_action | no |
 | Bragi | Narrator | 2 | Conversation, Turn, UserPreference, HandoffEscalation, PostTurnReview | translate_intent | yes (translator 만) |
@@ -380,7 +382,7 @@ Dead-letter 쓰기는 제한된 재시도 대기 후 소비자를 재시작합�
 | 객체.판정 | Forseti | Thor, Saga, Odin |
 | 객체.arbitration-request | Forseti | Odin |
 | 객체.arbitration-decision | Odin | Forseti |
-| 객체.action-run | Thor | Vidar, Var, Saga |
+| 객체.action-run | Thor | Heimdall(최종 효과 관측), Vidar, Var, Saga |
 | 객체.승인 | Var | Thor, Saga |
 | 객체.롤백 | Vidar | Thor (ActionRun 변환 결과), Saga |
 | 객체.audit-entry | Saga | Norns, Muninn (문서 인덱스 게이트), Var (문서 HIL) |

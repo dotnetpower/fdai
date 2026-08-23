@@ -1,7 +1,7 @@
 ---
 translation_of: operational-hypothesis-loop.md
-translation_source_sha: 5374030260ade3ef4f5a24269cae07cdd74a522a
-translation_revised: 2026-08-20
+translation_source_sha: 69e214d9ed83224f67469ee76228800227ace465
+translation_revised: 2026-08-23
 ---
 # 운영 가설 루프
 
@@ -171,8 +171,19 @@ exact receipt, artifact, active pointer, ontology release, property semantics, i
 - **Thor, Var 및 Vidar:** 기존 ActionType 경로에서 execution, 사람 승인 및 rollback ownership을
   유지합니다.
 
-Agent 구현이나 `PANTHEON_SPECS` subscription 변경은 필요하지 않습니다. Runtime은 mechanical
-binder에 필요한 reconciliation transport channel 두 개만 등록합니다.
+Heimdall은 관찰자 역할로만 최종 `object.action-run` 이벤트를 구독합니다. 안정적인 correlation
+index를 통해 pre-dispatch kinetic artifact 저장소에서 정확한 `Action`과 semantic V2 plan을
+복원하며 ActionRun payload에서 어느 body도 다시 만들지 않습니다. 주입된 collector는 하나의
+`ExecutedActionObservation`을 만들 수 있고 기존 mailbox는 Heimdall producer 경계에서 이를
+검증하고 봉인합니다. Artifact 누락, legacy Action, shadow 실행, 지원하지 않는 ActionType, 사용할
+수 없는 근거, signed-context issuer 누락은 관측을 만들지 않으며 권한을 부여하지 않습니다.
+
+첫 concrete collector는 Azure Container Apps `ops.scale-out`으로 제한됩니다. Promoted inventory의
+`AzureOperationalSnapshot`을 사용하고 정확한 대상 및 plan 이후 snapshot을 요구하며 불변 plan이
+이미 선언한 expected-property 이름만 투영합니다. 모든 속성은 snapshot의 finite metric으로
+존재해야 합니다. 배포가 제공하는 issuer는 독립 observer, executor, source, verifier credential
+계보를 `AuthenticatedObservationContext`에 바인딩해야 하며 collector는 자체 주장을 verified로
+표시할 수 없습니다.
 
 ## Competency 및 수락
 
@@ -216,7 +227,7 @@ Worker는 public contract를 통해 이러한 capability를 evidence source 또�
 | Lane A 그래프 근거 | implemented | `services/core-control-plane/src/fdai/delivery/azure/graph_dynamic_evidence.py`; `services/core-control-plane/tests/delivery/azure/test_graph_dynamic_evidence.py`; `services/core-control-plane/tests/composition/test_wire_azure_operational_evidence.py` | 범위가 제한된 병렬 근거 구성이 일부 전제 조건과 시간 초과에 실패 시 차단됩니다. |
 | Lane B 영향 조정 | implemented | `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation.py`; `reconciliation_events.py`; `reconciliation_producer.py`; `reconciliation_request_outbox.py`; `delivery/reconciliation_runtime.py`; `delivery/reconciliation_request.py`; `delivery/reconciliation_request_publication.py`; 집중 조정 및 ControlLoop 테스트 | 요청, 결과, 원장, 일반 실행 producer 및 제안 전용 outbox 경로가 실행 권한 없이 구현되어 있습니다. Legacy Action은 producer 대상이 아닙니다. |
 | 검열 및 충돌 에피소드 처리 | implemented | `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_contracts.py`(`EffectObservationEnvelope.censoring_refs`); `reconciliation.py`(`_unscorable_reason`); `services/core-control-plane/tests/core/ontology_platform/test_reconciliation.py` | 검열되거나 충돌하는 에피소드는 `HOLD_UNSCORABLE` 시도 근거로 보류되며, 종결 일치나 복구 요청이 되지 않습니다. |
-| Production reconciliation source | in-progress | `ReconciliationArtifactSource` 및 `ReconciliationObservationSource` protocol; runtime composition 테스트 | Runtime은 production exact-plan 및 independent-observation source를 받을 수 있지만 upstream production adapter 또는 통제된 live 증적은 아직 없습니다. |
+| Production reconciliation source | in-progress | `delivery/reconciliation_artifacts.py`; `delivery/reconciliation_observations.py`; `delivery/azure/executed_action_observation.py`; Heimdall 최종 ActionRun hook 및 runtime composition; 집중 source 및 runtime 테스트 | Runtime은 correlation-indexed pre-dispatch artifact를 정확히 복원하고 Azure Container Apps `ops.scale-out` expected property를 검증 mailbox에 수집할 수 있습니다. 배포는 signed-context issuer를 계속 바인딩해야 하며 통제된 live 증적은 아직 없습니다. |
 | Lane C 계보 및 역량 조회 | implemented | `services/core-control-plane/src/fdai/core/assurance_twin/`; `services/core-control-plane/tests/rule_catalog/test_operational_hypothesis_loop_competency.py` | 기존 온톨로지 객체가 병렬 집계 없이 고정된 여섯 조회 등급에 답합니다. 이 입증은 테스트가 공급한 레코드 기준입니다. 어떤 조립 루트도 `OperationalHypothesisLineageProjector`를 구성하지 않으므로 운영은 이 객체들을 하나도 생성하지 않습니다. |
 | Lane D 그래프 모델 승격 | implemented | `services/core-control-plane/src/fdai/delivery/graph_model_promotion.py`; `core/assurance_twin/model_promotion.py`; `tests/delivery/test_graph_model_promotion.py` | 정확한 아티팩트와 롤백 신원이 기존 승인 및 작업 경로에 도달하며, 근거는 스스로 승격할 수 없습니다. |
 | 관찰자 귀속 및 시간 초과 분류 | implemented | `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_identity.py`; `reconciliation_contracts.py`(`ReconciliationOutcome.observer_identity_record`); `reconciliation.py`(`_timeout_reason_code`); `services/core-control-plane/tests/core/ontology_platform/test_reconciliation_identity.py` | 모든 결과가 주체 값을 담지 않는 관찰자·실행자·소스·검증자 기록과 파생된 독립성 판정을 바인딩하고, 시간이 초과된 각 에피소드는 복구 라우팅을 유지한 채 결정론적 분류를 담습니다. |
@@ -233,11 +244,13 @@ Worker는 public contract를 통해 이러한 capability를 evidence source 또�
 | 2026-08-16 | implemented | Censoring 판정을 마감 분류보다 앞으로 옮겨 늦게 평가된 검열 에피소드가 시간 초과 복구 요청으로 승격되지 않도록 했습니다. | `current change`; `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation.py`(`_episode_validity_reason`); `services/core-control-plane/tests/core/ontology_platform/test_reconciliation.py`; 집중 실행 `pytest services/core-control-plane/tests/core/ontology_platform` 338개 통과. | 통제된 live 에피소드로 재발 관측 구간을 닫습니다. |
 | 2026-08-17 | implemented | 모든 조정 결과에 바인딩되는 주체 값 없는 관찰자 신원 기록과 결정론적 시간 초과 분류를 추가했습니다. 결과 스키마를 `1.1.0`, durable 집합체 스키마를 `1.2.0` 으로 올려, 기록 이전에 저장된 집합체는 귀속 없이 재생되는 대신 실패로 닫힙니다. | `current change`; `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_identity.py`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/python -m pytest -q --no-cov services/core-control-plane/tests/core/ontology_platform/test_reconciliation_identity.py services/core-control-plane/tests/core/ontology_platform/test_reconciliation.py services/core-control-plane/tests/core/ontology_platform/test_reconciliation_hardening.py services/core-control-plane/tests/core/ontology_platform/test_state_store_reconciliation.py services/core-control-plane/tests/core/ontology_platform/test_reconciliation_binding.py` 68개 통과. | 프로덕션 관측 어댑터를 바인딩하고 보호된 live 훈련과 재발 근거를 보존합니다. |
 | 2026-08-17 | implemented | 바인딩된 귀속 필드 이름을 `observer_identity_record` 로 정해 결과 이벤트의 원본 관찰자 신원 문자열과 혼동되지 않게 했고, 기록되는 소스 권위 토큰을 제한했으며, 귀속 없이 기록된 지속 집계에 대한 실패 시 닫힘 회귀 테스트를 추가했습니다. | `current change`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/python -m pytest -q --no-cov services/core-control-plane/tests/core/ontology_platform/test_reconciliation_identity.py` 가 12개 테스트를 통과했습니다. | 프로덕션 관찰 어댑터를 연결하고 보호된 실제 드릴 및 재발 근거를 보존합니다. |
+| 2026-08-23 | in-progress | 영속 kinetic artifact 저장소를 production exact-plan source로 재사용하고, 쓰기와 replay에서 서명된 identity 분리를 검증하는 Heimdall 전용 StateStore 관측 mailbox를 추가했습니다. 기존 관측 검증기가 있으면 완전한 배포 조립이 자동으로 연결됩니다. | `current change`; `delivery/reconciliation_observations.py`; `runtime/bootstrap_bindings.py`; 집중 reconciliation 및 bootstrap 테스트 통과 | 권위 있는 Heimdall provider를 mailbox에 연결하고 완전한 계보 record를 materialize한 뒤 관리되는 live 종결 근거를 보존합니다. |
+| 2026-08-23 | in-progress | 최종 ActionRun 관측 경로를 추가했습니다. Correlation-indexed exact kinetic artifact, Heimdall typed 구독, plan이 선언한 expected property만 투영하는 Azure Container Apps `ops.scale-out` collector를 사용합니다. | `current change`; 최종 관측 구현 및 집중 테스트 | Managed identity 기반 signed-context issuer를 연결하고 통제된 live 종결 증적을 보존하며 Lane C 투영 전에 누락된 lineage 속성을 보존합니다. |
 
 ### 남은 작업
 
-- [ ] Production exact-plan artifact 및 independent-observation adapter를 연결한 뒤 publication
-  failure와 restart 동안 held 또는 pending evidence를 보존하는 집중 통합 테스트를 통과합니다.
+- [ ] Managed identity 기반 signed-context issuer를 Azure Container Apps `ops.scale-out`
+  collector에 연결한 뒤 검증 mailbox에 통제된 live 관측 하나를 보존합니다.
 - [ ] 보호된 live 훈련을 실행하고 정확한 사전 조건, dry-run, 프로바이더, 독립 결과, 롤백, 감사 증적을 보존합니다.
 - [ ] 통제된 live 에피소드로 재발 관측 구간을 닫고 그 결과 재발 근거를 보존합니다.
 - [x] 검열되거나 충돌하는 에피소드가 계속 채점 불가로 남습니다. 근거는 `services/core-control-plane/src/fdai/core/ontology_platform/`의 `EffectObservationEnvelope.censoring_refs`와 `_unscorable_reason`, 그리고 `services/core-control-plane/tests/core/ontology_platform/test_reconciliation.py`의 집중 사례입니다.

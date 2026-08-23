@@ -43,6 +43,10 @@ class _FrozenTreatmentModel:
             "clarification": self._treatment.get("clarification"),
             "discourse_mode": self._treatment["discourse_mode"],
             "action_posture": self._treatment["action_posture"],
+            "action_subject": self._treatment.get(
+                "action_subject",
+                "ActionType" if self._treatment["action_posture"] == "draft_only" else "none",
+            ),
             "authority": "candidate_only",
             "execution_authority": False,
         }

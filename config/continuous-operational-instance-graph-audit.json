@@ -259,13 +259,19 @@
           "state": "bound",
           "path": "services/core-control-plane/src/fdai/core/ontology_platform/query_gateway.py",
           "symbol": "SecuredObjectSetQueryGateway"
+        },
+        {
+          "state": "partial",
+          "path": "services/core-control-plane/src/fdai/core/ontology_platform/graph_evidence_refresh.py",
+          "symbol": "decide_graph_evidence_refresh"
         }
       ],
       "tests": [
         "services/core-control-plane/tests/core/ontology_platform/test_query_gateway.py",
-        "services/core-control-plane/tests/composition/test_wire_semantic_query.py"
+        "services/core-control-plane/tests/composition/test_wire_semantic_query.py",
+        "services/core-control-plane/tests/core/ontology_platform/test_graph_evidence_refresh.py"
       ],
-      "missing_binding": "No deterministic policy reduces graph freshness, completeness, conflicts, history intent, and deadline into use_graph, refresh_then_query, use_live_evidence, query_archive, or hold before query execution."
+      "missing_binding": "The pure policy now reduces freshness, completeness, conflicts, history intent, verified live evidence, and deadline into five typed outcomes, but ordinary semantic query composition does not invoke it before execution."
     },
     {
       "id": "bounded-live-read",
@@ -286,92 +292,180 @@
           "state": "partial",
           "path": "services/core-control-plane/src/fdai/composition/wire_read_investigation.py",
           "symbol": "compose_resource_state_shadow_hook"
+        },
+        {
+          "state": "partial",
+          "path": "services/core-control-plane/src/fdai/delivery/inventory_live_evidence.py",
+          "symbol": "InventoryLiveEvidenceWriter.publish"
         }
       ],
       "tests": [
         "services/core-control-plane/tests/core/read_investigation/test_service.py",
-        "services/core-control-plane/tests/composition/test_wire_read_investigation.py"
+        "services/core-control-plane/tests/composition/test_wire_read_investigation.py",
+        "services/core-control-plane/tests/delivery/test_inventory_live_evidence.py"
       ],
-      "missing_binding": "The bounded provider read is an optional resource-state shadow path and is not selected by the graph evidence refresh policy for ordinary semantic queries."
+      "missing_binding": "The bounded provider read and canonical write-through adapter exist, but ordinary semantic queries do not select and bind them through the graph evidence refresh decision."
     },
     {
       "id": "live-evidence-write-through",
       "family": "query",
-      "state": "not-started",
+      "state": "in-progress",
       "owner": {
-        "status": "unassigned",
-        "path": null,
-        "symbol": null
+        "status": "assigned",
+        "path": "services/core-control-plane/src/fdai/delivery/inventory_live_evidence.py",
+        "symbol": "InventoryLiveEvidenceWriter.publish"
       },
-      "bindings": [],
-      "tests": [],
-      "missing_binding": "No owner or adapter publishes a successful bounded live read through canonical observation ingress and the realtime overlay while preserving partial-read and complete-generation authority."
+      "bindings": [
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/delivery/persistence/postgres_inventory_delta.py",
+          "symbol": "PostgresInventoryDeltaProjector.__call__"
+        }
+      ],
+      "tests": [
+        "services/core-control-plane/tests/delivery/test_inventory_live_evidence.py",
+        "services/core-control-plane/tests/persistence/test_postgres_inventory_snapshot.py"
+      ],
+      "missing_binding": "The adapter emits safe partial overlays through canonical ingress, but no ordinary semantic-query composition invokes it after a successful bounded live read."
     },
     {
       "id": "adaptive-scheduling",
       "family": "collection",
-      "state": "in-progress",
+      "state": "implemented",
       "owner": {
         "status": "assigned",
-        "path": "services/core-control-plane/src/fdai/delivery/persistence/postgres_inventory_reconciliation.py",
-        "symbol": "PostgresInventoryReconciliationGate.__call__"
+        "path": "services/core-control-plane/src/fdai/delivery/inventory_scheduler.py",
+        "symbol": "calculate_collection_schedule"
       },
       "bindings": [
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/delivery/inventory_source_policy.py",
+          "symbol": "load_inventory_collection_policy"
+        },
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/delivery/persistence/postgres_inventory_reconciliation.py",
+          "symbol": "PostgresInventoryReconciliationGate.schedule"
+        },
         {
           "state": "bound",
           "path": "services/core-control-plane/src/fdai/delivery/inventory_sync_cli.py",
           "symbol": "_run_due_once"
         },
         {
-          "state": "partial",
-          "path": "services/core-control-plane/src/fdai/delivery/inventory_job_config.py",
-          "symbol": "InventoryJobConfig"
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/delivery/inventory_collection_health.py",
+          "symbol": "build_inventory_collection_health_projection"
         }
       ],
       "tests": [
+        "services/core-control-plane/tests/delivery/test_inventory_source_policy.py",
+        "services/core-control-plane/tests/delivery/test_inventory_scheduler.py",
         "services/core-control-plane/tests/delivery/test_inventory_reconciliation_gate.py",
-        "services/core-control-plane/tests/delivery/test_inventory_sync_cli.py"
+        "services/core-control-plane/tests/delivery/test_inventory_sync_cli.py",
+        "services/core-control-plane/tests/delivery/test_inventory_collection_health.py"
       ],
-      "missing_binding": "The due reducer handles routine age, change demand, abandoned attempts, and exponential failure backoff, but it does not consume target freshness, cursor lag, event rate, provider Retry-After or remaining quota, endpoint concurrency, or circuit-open recovery state."
+      "missing_binding": null
     },
     {
       "id": "retention-holds",
       "family": "retention",
-      "state": "not-started",
+      "state": "implemented",
       "owner": {
-        "status": "unassigned",
-        "path": null,
-        "symbol": null
+        "status": "assigned",
+        "path": "services/core-control-plane/src/fdai/delivery/operational_archive_purge.py",
+        "symbol": "OperationalArchivePurgeCoordinator.purge"
       },
-      "bindings": [],
-      "tests": [],
-      "missing_binding": "No operational-graph retention policy, hold registry, source-coverage deletion gate, or durable purge receipt is assigned or implemented for inventory snapshots, overlays, or topology history."
+      "bindings": [
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/core/ontology_platform/archive_retention.py",
+          "symbol": "evaluate_retention_holds"
+        },
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/delivery/persistence/postgres_operational_archive.py",
+          "symbol": "PostgresOperationalArchiveStore.append_hold"
+        },
+        {
+          "state": "bound",
+          "path": "service-migrations/branches/core-control-plane/versions/20260822_core_operational_archive.py",
+          "symbol": "upgrade"
+        }
+      ],
+      "tests": [
+        "services/core-control-plane/tests/delivery/test_operational_archive_purge.py",
+        "tests/integration/test_operational_instance_retention.py",
+        "tests/integration/services/test_service_migration_inventory.py"
+      ],
+      "missing_binding": null
     },
     {
       "id": "typed-rollup",
       "family": "retention",
-      "state": "not-started",
+      "state": "implemented",
       "owner": {
-        "status": "unassigned",
-        "path": null,
-        "symbol": null
+        "status": "assigned",
+        "path": "services/core-control-plane/src/fdai/core/ontology_platform/semantic_rollup.py",
+        "symbol": "build_semantic_rollup"
       },
-      "bindings": [],
-      "tests": [],
-      "missing_binding": "No semantic rollup policy or store preserves source count, covered and missing intervals, observed zero, conflicts, completeness, and mergeable statistics by fact kind."
+      "bindings": [
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/core/ontology_platform/semantic_rollup_merge.py",
+          "symbol": "merge_semantic_rollups"
+        },
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/delivery/inventory_rollup.py",
+          "symbol": "inventory_revision_to_rollup_observation"
+        }
+      ],
+      "tests": [
+        "services/core-control-plane/tests/core/ontology_platform/test_semantic_rollup.py",
+        "tests/integration/test_operational_instance_retention.py"
+      ],
+      "missing_binding": null
     },
     {
       "id": "archive-lifecycle",
       "family": "archive",
-      "state": "not-started",
+      "state": "implemented",
       "owner": {
-        "status": "unassigned",
-        "path": null,
-        "symbol": null
+        "status": "assigned",
+        "path": "services/core-control-plane/src/fdai/core/ontology_platform/archive_manifest.py",
+        "symbol": "build_archive_manifest"
       },
-      "bindings": [],
-      "tests": [],
-      "missing_binding": "No immutable partition writer, content-addressed archive manifest, verification and restore sampler, hot archive index, retention-hold check, or safe-to-retry purge receipt exists for operational graph history."
+      "bindings": [
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/core/ontology_platform/archive_retention.py",
+          "symbol": "evaluate_restore_sample"
+        },
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/delivery/operational_archive_purge.py",
+          "symbol": "OperationalArchivePurgeCoordinator"
+        },
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/delivery/persistence/postgres_operational_archive.py",
+          "symbol": "PostgresOperationalArchiveStore"
+        },
+        {
+          "state": "bound",
+          "path": "service-migrations/branches/core-control-plane/versions/20260822_core_operational_archive.py",
+          "symbol": "upgrade"
+        }
+      ],
+      "tests": [
+        "services/core-control-plane/tests/core/ontology_platform/test_archive_manifest.py",
+        "services/core-control-plane/tests/delivery/test_operational_archive_purge.py",
+        "tests/integration/test_operational_instance_retention.py",
+        "tests/integration/services/test_service_migration_inventory.py"
+      ],
+      "missing_binding": null
     }
   ]
 }

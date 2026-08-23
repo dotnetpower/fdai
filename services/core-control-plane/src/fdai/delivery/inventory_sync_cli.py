@@ -23,12 +23,18 @@ from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdent
 from fdai.delivery.azure.event_bus import EventHubsKafkaBus, EventHubsKafkaBusConfig
 from fdai.delivery.azure.inventory import AzureInventoryConfig, AzureResourceGraphInventory
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
+from fdai.delivery.inventory_collection_health import (
+    CollectionCoverageGap,
+    InventoryCollectionHealthInput,
+    build_inventory_collection_health_projection,
+)
 from fdai.delivery.inventory_delta import forward_inventory_delta
 from fdai.delivery.inventory_job_config import (
     InventoryJobConfig,
     read_bool_env,
     verify_declarative_sha256,
 )
+from fdai.delivery.inventory_scheduler import CollectionScheduleDecision
 from fdai.delivery.inventory_sync import (
     InventoryPromotionObserver,
     InventorySyncCoordinator,
@@ -47,6 +53,7 @@ from fdai.delivery.persistence import (
     PostgresStateStoreConfig,
 )
 from fdai.delivery.persistence.postgres_inventory_reconciliation import (
+    InventoryReconciliationHealthState,
     PostgresInventoryReconciliationGate,
 )
 from fdai.delivery.persistence.postgres_inventory_snapshot import (
@@ -100,6 +107,7 @@ from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _REPO_ROOT = repo_asset_root()
 _LOGGER = logging.getLogger(__name__)
+_COLLECTION_HEALTH_STATE_KEY = "inventory-collection-health"
 
 
 @dataclass(frozen=True, slots=True)
@@ -152,7 +160,13 @@ def _build_sources(
     sources: list[InventorySource] = []
     for source_priority, source_name in enumerate(config.source_order):
         observation_kind = InventoryObservationKind.OBSERVED
-        link_types: tuple[str, ...] = ("contains", "attached_to", "depends_on")
+        link_types: tuple[str, ...] = (
+            "contains",
+            "attached_to",
+            "depends_on",
+            "peered_with",
+            "routes_to",
+        )
         inventory: Inventory
         if source_name == "arg":
             query_factory = AzureArgQueryFactory(
@@ -166,14 +180,25 @@ def _build_sources(
                     requests_per_second=config.arg_requests_per_second,
                 ),
             )
+            query = AzureArmInventoryFactory(
+                identity=identity,
+                resource_types=vocabulary,
+                http_client=http_client,
+                config=AzureArmInventoryFactoryConfig(
+                    subscription_scopes=config.scopes,
+                    arm_endpoint=config.management_endpoint,
+                    audience=config.management_audience,
+                ),
+            ).build_child_overlay_query_fn(query_factory.build_query_fn())
             inventory = AzureResourceGraphInventory(
                 config=AzureInventoryConfig(
                     resource_types=resource_types,
                     subscription_scopes=config.scopes,
                 ),
-                query=query_factory.build_query_fn(),
+                query=query,
                 scope_coverage=query_factory.build_scope_coverage_fn(),
                 unmapped_resources=query_factory.build_unmapped_resource_query_fn(),
+                generation_relationships=query_factory.build_generation_relationship_fn(),
             )
         elif source_name == "arm":
             link_types = ("contains",)
@@ -520,10 +545,18 @@ async def _run_due_once() -> InventoryJobConfig:
         freshness_budget_seconds=config.freshness_budget_seconds,
     )
     published = await _drain_change_stream(config)
-    due = await PostgresInventoryReconciliationGate(
+    reconciliation_gate = PostgresInventoryReconciliationGate(
         config=snapshot_config,
         change_min_interval_seconds=config.change_min_interval_seconds,
-    )(config.reconciliation_interval_seconds)
+        source_policy=config.snapshot_policy(config.source_order[0]),
+        cursor_scopes=config.scopes,
+    )
+    due = await reconciliation_gate(config.reconciliation_interval_seconds)
+    await _publish_collection_health(
+        config,
+        health_state=reconciliation_gate.last_health_state,
+        decision=reconciliation_gate.last_decision,
+    )
     if not due:
         _LOGGER.info(
             "inventory_reconciliation_not_due",
@@ -552,6 +585,60 @@ async def _run_due_once() -> InventoryJobConfig:
             flush=True,
         )
     return config
+
+
+async def _publish_collection_health(
+    config: InventoryJobConfig,
+    *,
+    health_state: InventoryReconciliationHealthState | None,
+    decision: CollectionScheduleDecision | None,
+) -> None:
+    """Persist one sanitized aggregate projection for principal-gated reads."""
+
+    if not isinstance(health_state, InventoryReconciliationHealthState) or not isinstance(
+        decision, CollectionScheduleDecision
+    ):
+        return
+    policy = config.snapshot_policy(config.source_order[0])
+    gaps: list[CollectionCoverageGap] = []
+    if health_state.cursor_lag_seconds is None:
+        gaps.append(CollectionCoverageGap.CURSOR_UNAVAILABLE)
+    elif health_state.cursor_lag_seconds > policy.target_freshness_seconds:
+        gaps.append(CollectionCoverageGap.CURSOR_LAGGING)
+    overlay_complete = (
+        health_state.overlay_resource_count == 0 and health_state.overlay_relationship_count == 0
+    )
+    if not overlay_complete:
+        gaps.append(CollectionCoverageGap.OVERLAY_INCOMPLETE)
+    if not health_state.coverage_complete:
+        gaps.append(CollectionCoverageGap.SNAPSHOT_INCOMPLETE)
+    if health_state.newer_failure:
+        gaps.append(CollectionCoverageGap.SOURCE_UNAVAILABLE)
+    projection = build_inventory_collection_health_projection(
+        InventoryCollectionHealthInput(
+            source_alias=policy.source_id,
+            measured_at=health_state.measured_at,
+            cursor_lag_seconds=health_state.cursor_lag_seconds,
+            cursor_complete=health_state.cursor_complete,
+            overlay_pending_resources=health_state.overlay_resource_count,
+            overlay_pending_relationships=health_state.overlay_relationship_count,
+            overlay_complete=overlay_complete,
+            evidence_age_seconds=health_state.evidence_age_seconds,
+            target_freshness_seconds=policy.target_freshness_seconds,
+            max_staleness_seconds=policy.max_staleness_seconds,
+            visible_resource_count=health_state.resource_count,
+            visible_relationship_count=health_state.relationship_count,
+            coverage_complete=health_state.coverage_complete and not health_state.newer_failure,
+            coverage_gaps=tuple(gaps),
+            provider_pressure=health_state.provider_pressure,
+            retry_after_seconds=None,
+            budget_remaining_ratio=None,
+            schedule=decision,
+        )
+    )
+    await PostgresStateStore(config=PostgresStateStoreConfig(dsn=config.dsn)).write_state(
+        _COLLECTION_HEALTH_STATE_KEY, projection
+    )
 
 
 async def _drain_change_stream(config: InventoryJobConfig) -> int | None:

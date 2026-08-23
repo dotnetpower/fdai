@@ -47,6 +47,7 @@ def _judgment(
             "unresolved_terms": [],
             "clarification": None,
             "action_posture": "advise_only",
+            "action_subject": "none",
             "execution_authority": False,
         }
     )

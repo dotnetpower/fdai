@@ -11,6 +11,10 @@ from ..delivery.azure.activity_log import (
     AzureActivityLogFactoryConfig,
 )
 from ..delivery.azure.arg_query import AzureArgQueryFactory, AzureArgQueryFactoryConfig
+from ..delivery.azure.arm_inventory import (
+    AzureArmInventoryFactory,
+    AzureArmInventoryFactoryConfig,
+)
 from ..delivery.azure.inventory import AzureInventoryConfig, AzureResourceGraphInventory
 from ..rule_catalog.schema.resource_type import ResourceTypeRegistry
 from ..shared.providers.workload_identity import WorkloadIdentity
@@ -39,6 +43,16 @@ def bind_azure_inventory(
         http_client=http_client,
         config=arg_config,
     )
+    query = AzureArmInventoryFactory(
+        identity=identity,
+        resource_types=resource_types,
+        http_client=http_client,
+        config=AzureArmInventoryFactoryConfig(
+            subscription_scopes=arg_config.subscription_scopes,
+            arm_endpoint=arg_config.arg_endpoint,
+            audience=arg_config.audience,
+        ),
+    ).build_child_overlay_query_fn(query_factory.build_query_fn())
     delta_fetch = (
         AzureActivityLogFactory(
             identity=identity,
@@ -51,9 +65,10 @@ def bind_azure_inventory(
     )
     inventory = AzureResourceGraphInventory(
         config=inventory_config,
-        query=query_factory.build_query_fn(),
+        query=query,
         scope_coverage=query_factory.build_scope_coverage_fn(),
         unmapped_resources=query_factory.build_unmapped_resource_query_fn(),
+        generation_relationships=query_factory.build_generation_relationship_fn(),
         delta_fetch=delta_fetch,
     )
     return replace(container, inventory=inventory)

@@ -1,8 +1,8 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 8a21b211a812cd94fd8fe0703cd19d23ed7e4878
-translation_revised: 2026-08-22
+translation_source_sha: d211dd3ddf40e317fc5c68561765ae570a97ab94
+translation_revised: 2026-08-23
 ---
 # 배포 리소스 규약
 
@@ -21,6 +21,7 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 |------|------|------|------|
 | Core control plane startup probe | not-applicable | `current change`; 서비스 root에서 `terraform fmt`와 `terraform validate` 통과 | Health 포트를 늦게 여는 부팅을 덮으려고 startup probe 예산을 세 번 조정했습니다. 이제 런타임이 startup readiness보다 먼저 포트를 열어 liveness가 즉시 응답하므로 이 probe는 필요 없습니다. 보호된 갱신 계약도 image와 revision suffix 변경만 rollback을 증명하므로 이 probe를 거부했습니다. |
 | CAF 명명 및 `fdai:` 소유권 tag | implemented | `infra/main.tf`, `infra/bootstrap/main.tf` 및 집중 Terraform test | Terraform이 이름과 tag를 계산하고 런타임 코드는 출력을 사용합니다. |
+| Operator API 물리 리소스 이름 | implemented | `infra/main.tf`, `infra/services/operator-service/variables.tf` 및 `tests/integration/infra/test_operator_api_resource_naming.py` | 새 계획은 워크로드 신원과 Container App에 `operator-api` 구성 요소를 사용합니다. 기존 개발 리소스에는 검토된 교체 적용이 아직 필요합니다. |
 | Event Bus 제품 토픽 namespace | validated | 보호된 platform 적용 `32475924808`, Operator 적용 `32514233525`, 최종 실제 entity, RBAC, 환경, 서비스 상태, canary, HIL, stage, inventory, semantic 및 lag 관측 | 두 namespace에는 현재 `fdai.*` 제품 토픽만 있으며 runtime principal은 entity 범위 Event Hubs role을 사용하고 service 5개가 모두 healthy합니다. 승인된 개발 backlog는 삭제된 legacy entity와 함께 폐기했습니다. |
 | 독립 service Terraform state root | validated | `config/independent-service-live-evidence-manifest.json` 및 `config/independent-service-remote-evidence.json` | Service root 5개 모두에 통제된 계획, 적용, 상태, peer 격리 및 rollback 근거가 있습니다. |
 | 이전 방식 platform 및 ops-bootstrap Terraform state root | implemented | `infra/main.tf`, `infra/bootstrap/main.tf`, `.github/workflows/deploy-dev.yml` 및 집중 Terraform과 workflow 검사 | 안정적인 backend key와 배포 메커니즘은 제공되지만, 이 두 root의 통제된 적용 증적은 리포지토리에 보존되어 있지 않습니다. |
@@ -35,6 +36,7 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-23 | implemented | 이전 `readapi` 물리 이름 선언을 현재 `operator-api` 구성 요소로 교체하고 독립 Operator 서비스 입력도 같은 접미사를 사용하도록 요구했습니다. 기존 Terraform 상태를 계속 해석할 수 있도록 과거 `moved` 주소는 유지합니다. | `current change`; `infra/main.tf`; `infra/services/operator-service/variables.tf`; 집중 명명 테스트 및 Terraform 검증 | 보호된 개발 교체를 실행하고 봉인된 Operator 서비스 입력을 새 앱과 워크로드 신원으로 갱신한 뒤 상태 및 신원 근거를 보존합니다. |
 | 2026-08-22 | validated | 보호된 Event Bus namespace migration 및 post-apply transport 감사를 완료했습니다. 최종 inventory에는 `aw.*` entity 또는 runtime binding이 없고, runtime Event Hubs role은 entity 범위이며, service 5개가 모두 healthy합니다. Canary 및 inventory Job이 성공했고, HIL은 효과가 없는 unknown-park decision을 소비했으며, Core는 stage 토픽을 binding했고, Operator semantic bridge는 request와 typed projection을 상관시켰고, 활성 Core consumer lag는 0이었습니다. 승인된 개발 backlog는 drain하지 않고 폐기했습니다. | Platform plan/apply `32475286429`/`32475924808`, worker 적용 `32491597630`, Operator plan/apply `32513787359`/`32514233525`, canary `ca-fdai-dev-krc-core-canary-7hdxtnq`, inventory `ca-fdai-dev-krc-core-inventory-xxv64n0`, semantic request `00000000-0000-0000-0000-000000000000` 및 projection `00000000-0000-0000-0000-000000000000`. Core 적용 `32505670219`은 exact plan 적용 및 health를 통과한 뒤 동시 Operator state serial 변경 때문에 peer receipt만 실패했으며 최종 5-service audit가 결과 live state를 다시 검증했습니다. | 이슈 #253에 남은 작업이 없습니다. |
 | 2026-08-22 | implemented | 동일 image 토픽 전환은 schema 변경 없이 유지하면서, image가 변경되는 봉인된 토픽 rollout은 service 소유 database migration을 먼저 실행하도록 했습니다. 이전의 무조건적인 skip 때문에 더 최신 Operator image가 baseline service migration head에서 시작해 준비되지 못하고 자동 rollback되었습니다. | 실패한 Operator 적용 `32505673096`, `service-deploy.yml`의 `current change`, 집중 workflow contract 테스트. | 정확한 Operator plan을 다시 생성하고 적용한 뒤 semantic request 및 projection transport를 입증합니다. |
 | 2026-08-21 | implemented | 실제 이행 감사에서 배포된 두 환경 값이 비어 있음을 확인한 뒤 Core 의미 요청 및 변환 결과 토픽을 정본 논리 이름에 결합했습니다. 두 값이 모두 비어 있으면 Core 의미 소비자가 비활성화되며 런타임 기본값으로 대체되지 않습니다. 이제 봉인된 이행 overlay가 두 값을 모두 요구하고 부분적이거나 무관한 환경 변경은 계속 차단합니다. | `current change`; `service_contract.py`; Core Terraform 변수 경계 2개; 집중 서비스 배포 및 의미 Terraform 검사 143개 통과; Ruff, strict mypy, Terraform 서식 및 검증, 독립 서비스 구조 검사 통과. | Event Bus 이행을 validated로 분류하기 전에 검토된 Core 후속 계획 하나를 적용하고 인증된 요청 및 변환 결과 왕복을 입증합니다. |
@@ -78,6 +80,10 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 | 2026-08-20 | validated | 수정된 stateful Event Bus 지연 규칙을 보호된 monitoring-only 경로로 적용하고 ARM의 `autoMitigate=true`를 확인했으며, 정제된 합성 지연 행 하나로 실제 조건을 시험했습니다. 경고는 `2026-08-20T15:36:09Z`에 발생하고 구성된 정상화 기간 뒤 `2026-08-20T16:02:10Z`에 자동 해제되었습니다. | 보호된 적용 실행 `32383519737`은 생성 0개, 제자리 변경 1개, 삭제 0개였고 정확한 경고 인스턴스 관측이 `Fired` 이후 `Resolved`를 기록했으며 집중 경고 검사 3개가 통과했습니다. | Event Bus 소비자 지연 경고 배포 및 stateful 복구 계약에 남은 작업은 없습니다. |
 ### 남은 작업
 
+- [ ] `id-<workload>-<env>-<region>-operator-api`와
+  `ca-<workload>-<env>-<region>-operator-api`를 생성하고 독립 Operator 서비스를 새 워크로드
+  신원에 연결하며 상태와 동료 서비스 격리를 검증한 뒤 후속 리소스가 준비된 후에만 이전 `readapi`
+  리소스를 제거하는 보호된 개발 교체를 적용합니다.
 - [ ] 이전 방식 platform 및 ops-bootstrap root의 리포지토리에 안전한 통제된 적용 증적을
   보존합니다. 각 증적은 해당 root를 `validated`로 전환하기 전에 backend key, exact protected
   계획, source revision, target identity 및 post-apply 검증을 결합해야 합니다.
@@ -117,6 +123,12 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 - **env** (`dev`/`staging`/`prod`)와 **지역** (`krc`/`weu`/`eus`): 리소스를 나란히
   배포할 때만 접미사로 추가합니다. Day-zero 배포는 접미사를 사용하지 않습니다.
 - **인스턴스** (`01`, `02`, ...): 한 환경에 여러 복사본이 있을 때만 추가합니다.
+
+Operator API는 물리 구성 요소로 `operator-api`를 사용합니다. 워크로드 신원 이름은
+`id-<workload>[-<env>][-<region>]-operator-api`이고 Container App 이름은
+`ca-<workload>[-<env>][-<region>]-operator-api`입니다. 이전 `readapi` 토큰은 과거 Terraform
+`moved` 주소와 보존된 근거에서만 유효합니다. 기존 배포는 검토된 보호 계획을 통해 물리 리소스를
+교체하며 제자리에서 이름을 바꾸지 않습니다.
 
 기본 **리소스 그룹**은 `rg-fdai`입니다. 구독 범위 배치가 필요한 리소스 종류를 제외하면
 시스템이 프로비저닝하는 모든 리소스가 이 리소스 그룹에 속합니다. 현재 해당 예외는 없습니다.

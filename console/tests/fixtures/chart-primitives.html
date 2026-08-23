@@ -11,6 +11,8 @@
       .chart-fixture-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
       .chart-fixture-panel { min-width: 0; padding: 20px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-elevated); }
       .chart-fixture-panel > h2 { margin: 0 0 16px; font-size: 15px; }
+      .catalog-progress-row, .catalog-spark-row { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; }
+      .catalog-callback-status { display: block; margin-top: 10px; color: var(--fg-muted); font-size: 11px; }
       @media (max-width: 760px) {
         body { padding: 20px; }
         .chart-fixture-grid { grid-template-columns: minmax(0, 1fr); }
@@ -113,6 +115,69 @@
         })),
       }));
       const panel = (title, child) => h("section", { class: "chart-fixture-panel" }, h("h2", null, title), child);
+      const catalogPanel = (title, child) => h("section", { class: "chart-fixture-panel", "data-tremor-catalog-example": title }, h("h2", null, title), child);
+      const axisSeries = [
+        { label: "Solar panels", color: "blue" },
+        { label: "Inverters", color: "cyan" },
+      ];
+      const axisData = [
+        { label: "Jan", values: [2890, 2338] }, { label: "Feb", values: [2756, 2103] },
+        { label: "Mar", values: [3322, 2194] }, { label: "Apr", values: [3470, 2108] },
+        { label: "May", values: [3475, 1812] }, { label: "Jun", values: [3129, 1726] },
+      ];
+      const percentValue = (value) => `${Math.round(value)}%`;
+      const money = (value) => `$${Math.round(value).toLocaleString("en-US")}`;
+      const customTooltip = (datum, entries) => h("span", { class: "fd-series-tooltip is-custom" },
+        h("strong", null, `${datum.label} custom`),
+        ...entries.map((entry) => h("span", { key: entry.label },
+          h("i", { style: { "--series-color": entry.color } }),
+          h("span", null, entry.label),
+          h("b", null, money(entry.value)),
+        )),
+      );
+      const officialCatalogPanels = [
+        catalogPanel("Area Chart", h("div", null, h(AreaChart, { title: "Area chart", data: axisData, series: axisSeries, formatValue: money, onValueChange: (datum) => { const output = document.querySelector("[data-series-selection]"); if (output) output.textContent = datum ? `Selected: ${datum.label}` : "No selection"; } }), h("output", { class: "catalog-callback-status", "data-series-selection": "true" }, "No selection"))),
+        catalogPanel("Area Chart with stacked categories", h(AreaChart, { title: "Stacked area", data: axisData, series: axisSeries, formatValue: money, type: "stacked" })),
+        catalogPanel("Area Chart with percentages", h(AreaChart, { title: "Percent area", data: axisData, series: axisSeries, formatValue: percentValue, type: "percent", showYAxis: true })),
+        catalogPanel("Area Chart with axis titles", h(AreaChart, { title: "Area with titles", data: axisData, series: axisSeries, formatValue: money, xAxisLabel: "Month", yAxisLabel: "Spend Category", fill: "solid", showYAxis: true })),
+        catalogPanel("Area Chart with only start and end x-axis labels", h(AreaChart, { title: "Bounded area axis", data: axisData, series: axisSeries, formatValue: money, startEndOnly: true })),
+        catalogPanel("Area Chart with tooltip callback", h(MetricSeriesChart, { label: "Revenue by month", value: "$3,129", detail: "Jun", data: axisData.map((datum) => ({ label: datum.label, values: [datum.values[0]] })), series: [{ label: "Revenue", color: "blue", kind: "area" }], formatValue: money, valueForDatum: (datum) => money(datum.values[0]), detailForDatum: (datum) => datum.label, showLegend: false, showYAxis: false, startEndOnly: true })),
+        catalogPanel("Bar Chart", h(BarChart, { title: "Bar chart", data: axisData, series: axisSeries, formatValue: money })),
+        catalogPanel("Bar Chart with stacked categories", h(BarChart, { title: "Stacked bars", data: axisData, series: axisSeries, formatValue: money, type: "stacked" })),
+        catalogPanel("Bar Chart with percentages", h(BarChart, { title: "Percent bars", data: axisData, series: axisSeries, formatValue: percentValue, type: "percent", showYAxis: true })),
+        catalogPanel("Bar Chart with axis titles", h(BarChart, { title: "Bars with titles", data: axisData, series: axisSeries, formatValue: money, xAxisLabel: "Month", yAxisLabel: "Spend Category", showYAxis: true })),
+        catalogPanel("Vertical Bar Chart", h(BarChart, { title: "Vertical layout", data: axisData, series: axisSeries, formatValue: money, layout: "vertical", showYAxis: true, yAxisWidth: 80 })),
+        catalogPanel("Bar Chart with only start and end x-axis labels", h(BarChart, { title: "Bounded bar axis", data: axisData, series: axisSeries, formatValue: money, startEndOnly: true })),
+        catalogPanel("Grouped Bar Chart", h(BarChart, { title: "Grouped bars", data: seriesData, series, formatValue: (value) => `${value}` })),
+        catalogPanel("Bar Chart with conditional formatting", h(BarChart, { title: "Conditional bars", data: [{ label: "Jan", values: [120] }, { label: "Feb", values: [-70] }, { label: "Mar", values: [95] }, { label: "Apr", values: [-35] }], series: [{ label: "Change", colorForValue: (value) => value >= 0 ? "emerald" : "pink" }], formatValue: (value) => `${value}` })),
+        catalogPanel("Bar Chart with custom styling", h(BarChart, { title: "Custom styling", className: "catalog-custom-bars", data: axisData, series: [{ label: "Output", color: "blue" }], formatValue: money, yAxisWidth: 60, showYAxis: true })),
+        catalogPanel("Bar Chart with rounded-sm top corner bars", h(BarChart, { title: "Rounded bars", data: axisData, series: [{ label: "Output", color: "violet" }], formatValue: money, barRadius: 5 })),
+        catalogPanel("Bar Chart with gradient bars", h(BarChart, { title: "Gradient bars", data: [{ label: "Jan", values: [167] }, { label: "Feb", values: [-90] }, { label: "Mar", values: [280] }, { label: "Apr", values: [215] }], series: [{ label: "Value", color: "blue" }], formatValue: (value) => `${value}`, maxValue: 400, barGradient: true })),
+        catalogPanel("Line Chart", h(LineChart, { title: "Line chart", data: axisData, series: axisSeries, formatValue: money })),
+        catalogPanel("Line Chart with axis titles", h(LineChart, { title: "Line with titles", data: axisData, series: axisSeries, formatValue: money, xAxisLabel: "Month", yAxisLabel: "Spend Category", showYAxis: true })),
+        catalogPanel("Line Chart with only start and end x-axis labels", h(LineChart, { title: "Bounded line axis", data: axisData, series: axisSeries, formatValue: money, startEndOnly: true })),
+        catalogPanel("Line Chart with custom tooltip", h(LineChart, { title: "Custom tooltip line", data: axisData, series: axisSeries, formatValue: money, showLegend: false, yAxisWidth: 35, showYAxis: true, customTooltip })),
+        catalogPanel("ComboChart", h(ComboChart, { title: "Combo chart", data: axisData, series: [{ label: "Solar panels", color: "blue", kind: "bar" }, { label: "Inverters", color: "cyan", kind: "line" }], formatValue: money })),
+        catalogPanel("Donut Chart", h(DonutChart, { label: "Revenue by category", segments: distribution, formatValue: (value) => value.toLocaleString("en-US") })),
+        catalogPanel("Donut Chart as pie variant", h(DonutChart, { label: "Revenue pie", segments: distribution, formatValue: (value) => value.toLocaleString("en-US"), variant: "pie" })),
+        catalogPanel("Donut Chart with tooltip callback", h("div", null, h(DonutChart, { label: "Callback donut", segments: distribution, formatValue: (value) => value.toLocaleString("en-US"), onActiveSegmentChange: (segment) => { const output = document.querySelector("[data-donut-callback]"); if (output) output.textContent = segment ? `${segment.label}: ${segment.value}` : "No active segment"; } }), h("output", { class: "catalog-callback-status", "data-donut-callback": "true" }, "No active segment"))),
+        catalogPanel("Progress Circle", h(ProgressCircle, { label: "Progress circle", value: .64 })),
+        catalogPanel("Progress Circle with its default variants", h("div", { class: "catalog-progress-row" }, ...["default", "warning", "success", "error"].map((variant) => h(ProgressCircle, { key: variant, label: `${variant} progress`, value: .64, variant, radius: 45 })))),
+        catalogPanel("Progress Circle complemented by a metric", h(MetricChartFrame, { label: "Spend management control", value: "$340/$450", detail: "Current budget" }, h(ProgressCircle, { label: "Spend progress", value: .75 }, h("span", null, "75%")))),
+        catalogPanel("Spark Chart", h("div", { class: "catalog-spark-row" }, h(SparkAreaChart, { label: "Spark area", points: trend, formatValue: (value) => `${value}`, color: "blue" }), h(SparkLineChart, { label: "Spark line", points: trend, formatValue: (value) => `${value}`, color: "violet" }), h(SparkBarChart, { label: "Spark bar", points: trend, formatValue: (value) => `${value}`, color: "fuchsia" }))),
+        catalogPanel("Category Bar", h(DistributionBar, { label: "Category bar", segments: [{ label: "Low", value: 55 }, { label: "Medium", value: 30 }, { label: "High", value: 15 }], formatValue: (value) => `${value}` })),
+        catalogPanel("Category Bar with marker", h(DistributionBar, { label: "Category marker", segments: [{ label: "Low", value: 10 }, { label: "Medium", value: 10 }, { label: "High", value: 20 }], marker: { value: 17, tooltip: "68", showAnimation: true }, formatValue: (value) => `${value}` })),
+        catalogPanel("Tracker", h(Tracker, { label: "Deployment tracker", blocks: ["emerald", "emerald", "blue", "amber", "emerald", "pink", "gray"].map((color, index) => ({ label: `Window ${index + 1}`, color })) })),
+        catalogPanel("Bar List", h(ComparisonBarChart, { label: "Page visitors", items: [{ label: "/home", value: 843 }, { label: "/documentation", value: 384 }, { label: "/blocks", value: 108 }, { label: "/imprint", value: 46 }, { label: "/cancellation", value: 3 }], formatValue: (value) => `${value} Visitors` })),
+      ];
+      const edgePanels = [
+        panel("Gap-preserving area edge", h(AreaChart, { title: "Gap preservation", data: [{ label: "A", values: [10] }, { label: "B", values: [Number.NaN] }, { label: "C", values: [20] }, { label: "D", values: [30] }], series: [{ label: "Observed", color: "blue" }], formatValue: (value) => `${value}` })),
+        panel("Invalid percent edge", h(AreaChart, { title: "Invalid percent", data: [{ label: "A", values: [50, -30, 20] }], series: [{ label: "Positive", color: "blue" }, { label: "Negative", color: "pink" }, { label: "Other", color: "cyan" }], type: "percent", formatValue: (value) => `${value}%` })),
+        panel("Nine-color category edge", h(DistributionBar, { label: "Nine category colors", segments: ["Blue", "Emerald", "Violet", "Amber", "Gray", "Cyan", "Pink", "Lime", "Fuchsia"].map((label) => ({ label, value: 10 })), formatValue: (value) => `${value}` })),
+        panel("Zero-total marker edge", h(DistributionBar, { label: "Zero total marker", segments: [{ label: "No data", value: 0 }], marker: { value: 17, tooltip: "Unavailable", showAnimation: true }, formatValue: (value) => `${value}` })),
+        panel("Single-point spark edge", h(SparkBarChart, { label: "Single point spark", points: [{ label: "Only", value: 42 }], formatValue: (value) => `${value}`, color: "lime" })),
+        panel("Invalid BarList edge", h(ComparisonBarChart, { label: "Invalid BarList values", items: [{ label: "Valid", value: 20, baseline: 10 }, { label: "Negative current", value: -5, baseline: 4 }, { label: "Negative baseline", value: 8, baseline: -2 }], formatValue: (value) => `${value}` })),
+      ];
 
       render(
         h("div", { class: "chart-fixture-grid", "data-chart-fixture-ready": "true" },
@@ -328,6 +393,8 @@
             ],
             formatValue: (value) => `${value}%`,
           }))),
+          ...officialCatalogPanels,
+          ...edgePanels,
         ),
         document.querySelector("#chart-fixture-root"),
       );

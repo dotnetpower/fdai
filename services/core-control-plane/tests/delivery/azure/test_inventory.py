@@ -35,6 +35,7 @@ from fdai.shared.providers import (
     ProviderTypeCount,
     ResourceRecord,
 )
+from fdai.shared.providers.inventory import RelationshipDropReason
 
 
 def _rr(resource_id: str, rtype: str = "compute.vm") -> ResourceRecord:
@@ -58,12 +59,14 @@ def _adapter(
     concurrency: int = 4,
     scope_coverage=None,
     unmapped_resources=None,
+    generation_relationships=None,
 ) -> AzureResourceGraphInventory:
     return AzureResourceGraphInventory(
         config=AzureInventoryConfig(resource_types=types, max_concurrent_queries=concurrency),
         query=query,
         scope_coverage=scope_coverage,
         unmapped_resources=unmapped_resources,
+        generation_relationships=generation_relationships,
     )
 
 
@@ -101,6 +104,90 @@ async def test_full_snapshot_ends_with_final_true() -> None:
     assert seen[-1].links == ()
     assert sum(not batch.final and not batch.resources and not batch.links for batch in seen) == 2
     assert all(batch.final is False for batch in seen[:-1])
+
+
+@pytest.mark.asyncio
+async def test_full_snapshot_emits_complete_generation_relationships_before_fence() -> None:
+    async def _q(rt: str) -> tuple[Sequence[ResourceRecord], Sequence[LinkRecord]]:
+        return (_rr(f"{rt}/1"),), ()
+
+    def _relationships(resources: Sequence[ResourceRecord]) -> ResourceQueryResult:
+        assert len(resources) == 2
+        return ResourceQueryResult(
+            links=(
+                LinkRecord(
+                    from_id=resources[0].resource_id,
+                    from_type=resources[0].type,
+                    link_type="depends_on",
+                    to_id=resources[1].resource_id,
+                    to_type=resources[1].type,
+                ),
+            )
+        )
+
+    seen = [
+        batch
+        async for batch in _adapter(
+            _q,
+            generation_relationships=_relationships,
+        ).full_snapshot()
+    ]
+
+    assert [link.link_type for batch in seen for link in batch.links] == ["depends_on"]
+    assert seen[-1].final is True
+
+
+@pytest.mark.asyncio
+async def test_full_snapshot_drops_generation_relationship_with_missing_target() -> None:
+    async def _q(rt: str) -> tuple[Sequence[ResourceRecord], Sequence[LinkRecord]]:
+        return (_rr(f"{rt}/1"),), ()
+
+    def _relationships(resources: Sequence[ResourceRecord]) -> ResourceQueryResult:
+        return ResourceQueryResult(
+            links=(_lr(resources[0].resource_id, "missing-target", "depends_on"),)
+        )
+
+    seen = [
+        batch
+        async for batch in _adapter(
+            _q,
+            generation_relationships=_relationships,
+        ).full_snapshot()
+    ]
+
+    assert not any(batch.links for batch in seen)
+    assert {drop.reason for batch in seen for drop in batch.relationship_drops} == {
+        RelationshipDropReason.MISSING_TARGET_ENDPOINT
+    }
+    assert seen[-1].final is True
+
+
+@pytest.mark.asyncio
+async def test_full_snapshot_preserves_distinct_missing_target_drop_counts() -> None:
+    async def _q(rt: str) -> tuple[Sequence[ResourceRecord], Sequence[LinkRecord]]:
+        return (_rr(f"{rt}/1"),), ()
+
+    def _relationships(resources: Sequence[ResourceRecord]) -> ResourceQueryResult:
+        return ResourceQueryResult(
+            links=(
+                _lr(resources[0].resource_id, "missing-target-1", "depends_on"),
+                _lr(resources[1].resource_id, "missing-target-2", "depends_on"),
+            )
+        )
+
+    seen = [
+        batch
+        async for batch in _adapter(
+            _q,
+            generation_relationships=_relationships,
+        ).full_snapshot()
+    ]
+    drops = [drop for batch in seen for drop in batch.relationship_drops]
+
+    assert [drop.reason for drop in drops] == [
+        RelationshipDropReason.MISSING_TARGET_ENDPOINT,
+        RelationshipDropReason.MISSING_TARGET_ENDPOINT,
+    ]
 
 
 @pytest.mark.asyncio
@@ -223,9 +310,16 @@ async def test_full_snapshot_emits_no_evidence_when_unmapped_identities_do_not_r
 async def test_full_snapshot_dedupes_identical_resources_and_links() -> None:
     async def _q(rt: str) -> tuple[Sequence[ResourceRecord], Sequence[LinkRecord]]:
         # Same resource id repeated three times; same link twice.
+        link = LinkRecord(
+            from_id="dup",
+            from_type=rt,
+            link_type="depends_on",
+            to_id="dup",
+            to_type=rt,
+        )
         return (
             [_rr("dup", rtype=rt)] * 3,
-            [_lr("child", "parent")] * 2,
+            [link] * 2,
         )
 
     adapter = _adapter(_q, types=("compute.vm",))
@@ -245,7 +339,13 @@ async def test_full_snapshot_dedupes_identical_resources_and_links() -> None:
 
 @pytest.mark.asyncio
 async def test_full_snapshot_dedupes_identical_links_across_shards() -> None:
-    link = _lr("child", "parent")
+    link = LinkRecord(
+        from_id="compute.vm",
+        from_type="compute.vm",
+        link_type="depends_on",
+        to_id="object-storage",
+        to_type="object-storage",
+    )
 
     async def _q(rt: str) -> tuple[Sequence[ResourceRecord], Sequence[LinkRecord]]:
         return (_rr(rt, rtype=rt),), (link,)
@@ -264,7 +364,13 @@ async def test_full_snapshot_dedupes_identical_links_across_shards() -> None:
 @pytest.mark.asyncio
 async def test_full_snapshot_drops_conflicting_links_across_shards() -> None:
     async def _q(rt: str) -> tuple[Sequence[ResourceRecord], Sequence[LinkRecord]]:
-        link = _lr("child", "parent")
+        link = LinkRecord(
+            from_id="compute.vm",
+            from_type="compute.vm",
+            link_type="depends_on",
+            to_id="object-storage",
+            to_type="object-storage",
+        )
         if rt == "object-storage":
             link = LinkRecord(
                 from_id=link.from_id,

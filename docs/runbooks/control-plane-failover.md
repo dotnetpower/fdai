@@ -44,7 +44,7 @@ export FDAI_BUNDLE_DIGEST='<lowercase-sha256>'
 export FDAI_COMMIT_SHA='<40-character-git-sha>'
 export FDAI_RECOVERY_PLAN_ID='<recovery-plan-id>'
 export FDAI_RECOVERY_EPOCH='<positive-integer>'
-export FDAI_READ_API_BASE_URL='https://<read-api-origin>'
+export FDAI_OPERATOR_API_BASE_URL='https://<operator-api-origin>'
 ```
 
 The operator obtains `FDAI_OPERATOR_BEARER_TOKEN` through the approved interactive identity flow
@@ -87,7 +87,7 @@ Stop if any of these bindings is absent:
      -H "Authorization: Bearer $FDAI_OPERATOR_BEARER_TOKEN" \
      -H 'Content-Type: application/json' \
      -d "{\"engaged\":true,\"reason\":\"Regional recovery fence for plan $FDAI_RECOVERY_PLAN_ID\",\"request_id\":\"$FDAI_RECOVERY_PLAN_ID-fence-$FDAI_RECOVERY_EPOCH\"}" \
-     "$FDAI_READ_API_BASE_URL/system/kill-switch"
+   "$FDAI_OPERATOR_API_BASE_URL/system/kill-switch"
    ```
 
 4. Stop new scheduler dispatch and approval delivery. Existing action receipts remain evidence;

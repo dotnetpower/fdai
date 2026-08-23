@@ -6,12 +6,15 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import sys
 from collections.abc import Mapping, Sequence
+from datetime import date
 from pathlib import Path
 
-_SCHEMA_VERSION = "fdai.model-lifecycle-proposal.v2"
+_SCHEMA_VERSION = "fdai.model-lifecycle-proposal.v3"
 _PROVIDER_FAILURES = frozenset({"ambiguous", "rate_limited", "unavailable", "unsupported_response"})
+_CAPABILITY = re.compile(r"^(t1|t2)\.[a-z][a-z0-9._-]{1,63}$")
 
 
 def reconcile_model_lifecycle(
@@ -22,11 +25,20 @@ def reconcile_model_lifecycle(
     provider_error: str | None = None,
 ) -> dict[str, object]:
     """Return deterministic review evidence without changing an active mapping."""
+    source_models_digest = _mapping_digest(current)
     if provider_error is not None:
         reason = provider_error if provider_error in _PROVIDER_FAILURES else "provider_failure"
-        return _base_result(status="abstained", reason=reason)
+        return _base_result(
+            status="abstained",
+            reason=reason,
+            source_models_digest=source_models_digest,
+        )
     if candidate is None:
-        return _base_result(status="abstained", reason="unavailable")
+        return _base_result(
+            status="abstained",
+            reason="unavailable",
+            source_models_digest=source_models_digest,
+        )
 
     current_capabilities = _capability_index(current)
     candidate_capabilities = _capability_index(candidate)
@@ -77,22 +89,43 @@ def reconcile_model_lifecycle(
     sanitized_deprecations = _sanitize_deprecations(deprecations, current_families)
     if sanitized_deprecations:
         compatibility.add("current_family_deprecated")
+    deprecated_families = {item["family"] for item in sanitized_deprecations}
+    affected_capabilities = sorted(
+        {str(change["capability"]) for change in changes}
+        | {
+            capability
+            for capability, current_capability in current_capabilities.items()
+            if current_capability.get("family") in deprecated_families
+        }
+    )
 
     status = "proposal" if changes or sanitized_deprecations else "no-change"
-    result = _base_result(status=status, reason=None)
+    result = _base_result(
+        status=status,
+        reason=None,
+        source_models_digest=source_models_digest,
+    )
     result["changes"] = changes
     result["deprecations"] = sanitized_deprecations
     result["compatibility_impact"] = sorted(compatibility)
+    result["affected_capabilities"] = affected_capabilities
     if status == "proposal":
         result["proposal_digest"] = _proposal_digest(result)
     return result
 
 
-def _base_result(*, status: str, reason: str | None) -> dict[str, object]:
+def _base_result(
+    *,
+    status: str,
+    reason: str | None,
+    source_models_digest: str,
+) -> dict[str, object]:
     result: dict[str, object] = {
         "schema_version": _SCHEMA_VERSION,
         "status": status,
         "activation_authority": False,
+        "source_models_digest": source_models_digest,
+        "affected_capabilities": [],
         "changes": [],
         "deprecations": [],
         "compatibility_impact": [],
@@ -105,6 +138,8 @@ def _base_result(*, status: str, reason: str | None) -> dict[str, object]:
             "status": result["status"],
             "reason": result["reason"],
             "activation_authority": result["activation_authority"],
+            "source_models_digest": result["source_models_digest"],
+            "affected_capabilities": result["affected_capabilities"],
             "changes": result["changes"],
             "deprecations": result["deprecations"],
             "compatibility_impact": result["compatibility_impact"],
@@ -123,8 +158,10 @@ def _capability_index(payload: Mapping[str, object]) -> dict[str, dict[str, obje
         if not isinstance(raw, Mapping):
             raise ValueError("resolved model capability must be an object")
         name = raw.get("name")
-        if not isinstance(name, str) or not name or name in indexed:
-            raise ValueError("resolved model capability name must be unique and non-empty")
+        if not isinstance(name, str) or _CAPABILITY.fullmatch(name) is None:
+            raise ValueError("resolved model capability name must be a bounded T1/T2 id")
+        if name in indexed:
+            raise ValueError("resolved model capability name must be unique")
         indexed[name] = {
             "family": _optional_string(raw.get("family")),
             "publisher": _optional_string(raw.get("publisher")),
@@ -156,6 +193,10 @@ def _sanitize_deprecations(
     for raw in deprecations:
         family = _required_string(raw.get("family"), "deprecation family")
         retirement_date = _required_string(raw.get("retirement_date"), "retirement date")
+        try:
+            date.fromisoformat(retirement_date)
+        except ValueError as exc:
+            raise ValueError("retirement date must be an ISO 8601 calendar date") from exc
         if family not in current_families:
             continue
         sanitized[(family, retirement_date)] = {
@@ -181,6 +222,11 @@ def _proposal_digest(result: Mapping[str, object]) -> str:
     digest_input = dict(result)
     digest_input["proposal_digest"] = None
     canonical = json.dumps(digest_input, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def _mapping_digest(value: Mapping[str, object]) -> str:
+    canonical = json.dumps(value, separators=(",", ":"), sort_keys=True).encode("utf-8")
     return hashlib.sha256(canonical).hexdigest()
 
 

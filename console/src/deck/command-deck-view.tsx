@@ -238,7 +238,7 @@ export function CommandDeckView({
 
       {open ? (
         <div
-          class={`deck-overlay cs-deck-surface deck-overlay-mode-${layoutMode}${dragging ? " is-dragging" : ""}`}
+          class={`deck-overlay cs-deck-surface cs-deck-workspace-shell deck-overlay-mode-${layoutMode}${dragging ? " is-dragging" : ""}`}
           role={layoutMode === "workspace" ? "dialog" : "complementary"}
           aria-modal={layoutMode === "workspace" ? "true" : undefined}
           aria-label={t("deck.label")}
@@ -282,19 +282,19 @@ export function CommandDeckView({
             {srStatus}
           </div>
 
-          <div class="deck-source-readiness-slot">
+          <div class="deck-source-readiness-slot cs-deck-source-readiness-slot">
             <SourceReadinessStrip client={client} />
           </div>
 
           <div
-            class={`deck-body${showConversations ? " has-conversations" : ""}${showDigest ? " has-digest" : ""}`}
+            class={`deck-body cs-deck-workspace-body${showConversations ? " has-conversations" : ""}${showDigest ? " has-digest" : ""}`}
             style={`--deck-conversation-width: ${conversationWidth}px`}
           >
             {showConversations ? (
               <>
                 <button
                   type="button"
-                  class="deck-conversations-scrim"
+                  class="deck-conversations-scrim cs-deck-conversation-scrim"
                   aria-label={t("deck.closeConversations")}
                   onClick={() => setShowConversations(false)}
                 />
@@ -317,8 +317,8 @@ export function CommandDeckView({
                 />
               </>
             ) : null}
-            <div class="deck-transcript-column">
-              <div class="deck-transcript-tools" role="toolbar" aria-label={t("deck.workspaceTools")}>
+            <div class="deck-transcript-column cs-deck-transcript-column">
+              <div class="deck-transcript-tools cs-deck-workspace-toolbar" role="toolbar" aria-label={t("deck.workspaceTools")}>
                 <button type="button" onClick={onNewConversation}>+ {t("deck.newConversation")}</button>
                 <button
                   type="button"
@@ -429,7 +429,7 @@ export function CommandDeckView({
               </section>
             </div>
 
-            {showDigest ? <aside class="deck-digest" aria-label={t("deck.digest.label")}>
+            {showDigest ? <aside class="deck-digest cs-deck-digest-panel" aria-label={t("deck.digest.label")}>
               <div class="deck-digest-header">
                 <span class="deck-digest-title">{t("deck.digest.title")}</span>
                 {snapshot ? <ContextFreshnessIndicator capturedAt={snapshot.capturedAt} /> : null}

@@ -201,6 +201,13 @@ resource "azurerm_container_app" "operator_api" {
           value = env.value
         }
       }
+      dynamic "env" {
+        for_each = var.read_investigation_request_topic == "" ? [] : [var.read_investigation_request_topic]
+        content {
+          name  = "FDAI_READ_INVESTIGATION_REQUEST_TOPIC"
+          value = env.value
+        }
+      }
       env {
         name  = "AZURE_SUBSCRIPTION_ID"
         value = var.azure_subscription_id

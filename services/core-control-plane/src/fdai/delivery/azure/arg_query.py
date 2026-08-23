@@ -72,7 +72,7 @@ Safety / cost invariants
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -117,6 +117,9 @@ from fdai.delivery.azure.arg_transport import (
     fetch_arg_pages,
     fetch_arg_row_pages,
 )
+from fdai.delivery.azure.generation_relationships import (
+    project_complete_generation_relationships,
+)
 from fdai.delivery.azure.inventory import (
     ResourceQueryFn,
     ResourceQueryResult,
@@ -140,6 +143,7 @@ from fdai.shared.providers.inventory import (
     LinkRecord,
     ProviderScopeCoverage,
     ProviderTypeCount,
+    RelationshipDrop,
     ResourceRecord,
 )
 from fdai.shared.providers.workload_identity import WorkloadIdentity
@@ -151,6 +155,7 @@ _DEFAULT_PAGE_SIZE: Final[int] = 1000
 _DEFAULT_MAX_PAGES: Final[int] = 32
 _DEFAULT_TIMEOUT_SECONDS: Final[float] = 30.0
 _DEFAULT_MAX_PROPS_BYTES: Final[int] = 64 * 1024
+_SUBNET_PROVIDER_TYPE: Final[str] = "Microsoft.Network/virtualNetworks/subnets"
 _DEFAULT_RELATIONSHIP_MAPPING_ROOT: Final[Path] = Path(
     "rule-catalog/vocabulary/provider-relationship-mappings"
 )
@@ -307,9 +312,25 @@ class AzureArgQueryFactory:
             )
             if resource_type == "network.subnet":
                 subnet_records: list[ResourceRecord] = []
+                subnet_relationships: list[LinkRecord] = []
+                relationship_drops: list[RelationshipDrop] = list(shard.relationship_drops)
                 for vnet in shard.resources:
                     nested_records, _legacy_links = _materialize_nested_subnets(vnet)
                     subnet_records.extend(nested_records)
+                    for record in nested_records:
+                        properties = record.props.get("properties")
+                        projected = self._project_links(
+                            {
+                                "id": record.provider_ref,
+                                "type": _SUBNET_PROVIDER_TYPE,
+                                "properties": properties if isinstance(properties, Mapping) else {},
+                            },
+                            record,
+                        )
+                        subnet_relationships.extend(
+                            link for link in projected.links if link.link_type != "contains"
+                        )
+                        relationship_drops.extend(projected.dropped)
                 subnet_ids = {record.resource_id for record in subnet_records}
                 subnet_links = tuple(
                     link
@@ -318,8 +339,8 @@ class AzureArgQueryFactory:
                 )
                 return ResourceQueryResult(
                     resources=tuple(subnet_records),
-                    links=subnet_links,
-                    relationship_drops=shard.relationship_drops,
+                    links=(*subnet_links, *subnet_relationships),
+                    relationship_drops=tuple(relationship_drops),
                 )
             return shard
 
@@ -349,6 +370,26 @@ class AzureArgQueryFactory:
             return self._project_scope_coverage(rows)
 
         return _fetch
+
+    def build_generation_relationship_fn(
+        self,
+    ) -> Callable[[Sequence[ResourceRecord]], ResourceQueryResult]:
+        """Return exact cross-resource joins evaluated only after all ARG shards complete."""
+
+        def _project(resources: Sequence[ResourceRecord]) -> ResourceQueryResult:
+            result = project_complete_generation_relationships(
+                resources,
+                catalog=self._relationship_mappings,
+                arm_to_neutral=self._arm_to_neutral,
+                arm_id_to_type=_arm_id_to_type,
+                to_neutral_id=_to_neutral_id,
+            )
+            return ResourceQueryResult(
+                links=result.links,
+                relationship_drops=result.dropped,
+            )
+
+        return _project
 
     def build_unmapped_resource_query_fn(
         self,
@@ -408,14 +449,21 @@ class AzureArgQueryFactory:
         normalized = arm_type.lower()
         resource_groups = normalized == "microsoft.resources/resourcegroups"
         subscriptions = normalized == "microsoft.resources/subscriptions"
-        table = "ResourceContainers" if resource_groups or subscriptions else "Resources"
+        role_assignments = normalized == "microsoft.authorization/roleassignments"
+        table = (
+            "ResourceContainers"
+            if resource_groups or subscriptions
+            else "AuthorizationResources"
+            if role_assignments
+            else "Resources"
+        )
         query_type = (
             "microsoft.resources/subscriptions/resourcegroups" if resource_groups else arm_type
         )
         return (
             f"{table} | where type =~ '{query_type}' "
             "| order by id asc "
-            "| project id, type, name, location, kind, sku, tags, properties, "
+            "| project id, type, name, location, kind, sku, identity, tags, properties, "
             "resourceGroup, subscriptionId"
         )
 
@@ -429,6 +477,9 @@ class AzureArgQueryFactory:
             "| where type =~ 'microsoft.resources/subscriptions/resourcegroups' "
             "| summarize resource_count=count() "
             f"by provider_type='{_RESOURCE_GROUP_PROVIDER_TYPE}') "
+            "| union (AuthorizationResources "
+            "| where type =~ 'microsoft.authorization/roleassignments' "
+            "| summarize resource_count=count() by provider_type=tolower(type)) "
             "| summarize resource_count=sum(resource_count) by provider_type "
             "| order by provider_type asc"
         )
@@ -552,6 +603,7 @@ class AzureArgQueryFactory:
             arm_id_to_type=_arm_id_to_type,
             to_neutral_id=_to_neutral_id,
             external_reference_resolver=_resolve_acr_login_server_to_arm_id,
+            source_identity="azure-resource-graph",
         )
 
     def _map_row(self, row: Mapping[str, Any], *, resource_type: str) -> ResourceRecord | None:
@@ -585,7 +637,16 @@ class AzureArgQueryFactory:
         subscription_id = row.get("subscriptionId")
         if isinstance(subscription_id, str) and subscription_id:
             props["subscriptionId"] = subscription_id
-        for key in ("name", "location", "kind", "sku", "tags", "properties", "resourceGroup"):
+        for key in (
+            "name",
+            "location",
+            "kind",
+            "sku",
+            "identity",
+            "tags",
+            "properties",
+            "resourceGroup",
+        ):
             if key in row and row[key] is not None:
                 props[key] = row[key]
         if status := resource_operational_status(row):
@@ -661,6 +722,7 @@ def _extract_attached_to_links_from_row(
         arm_id_to_type=_arm_id_to_type,
         to_neutral_id=_to_neutral_id,
         external_reference_resolver=_resolve_acr_login_server_to_arm_id,
+        source_identity="azure-resource-graph",
     )
     return tuple(link for link in result.links if link.link_type == "attached_to")
 
@@ -681,6 +743,7 @@ def _extract_depends_on_links_from_row(
         arm_id_to_type=_arm_id_to_type,
         to_neutral_id=_to_neutral_id,
         external_reference_resolver=_resolve_acr_login_server_to_arm_id,
+        source_identity="azure-resource-graph",
     )
     return tuple(link for link in result.links if link.link_type == "depends_on")
 

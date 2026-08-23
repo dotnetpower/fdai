@@ -50,6 +50,7 @@ class RuntimeTaskConfiguration:
     rule_generation_reconciliation: RuleGenerationReconciliation | None
     case_history_retention_publisher: CaseHistoryRetentionTickPublisher | None
     environment: Mapping[str, str]
+    read_investigation_binding: Any = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -163,6 +164,18 @@ async def run_runtime_tasks(
         bus=config.bus,
         stop=config.stop,
     )
+    read_investigation_task: asyncio.Task[None] | None = None
+    if config.read_investigation_binding is not None:
+        read_investigation_task = asyncio.create_task(
+            config.readiness.run_when_ready(
+                config.stop,
+                lambda: config.read_investigation_binding.run(
+                    bus=config.bus,
+                    stop=config.stop,
+                ),
+            ),
+            name="read-investigation-runtime",
+        )
     if config.control_loop._hil_resume_coordinator is not None:
         from fdai.delivery.chatops.hil_decision import DEFAULT_HIL_DECISION_TOPIC
 
@@ -334,6 +347,7 @@ async def run_runtime_tasks(
             hil_escalation_task,
             case_history_retention_task,
             semantic_turn_task,
+            read_investigation_task,
             effect_reconciliation_request_task,
             discovery_activation_task,
         ),

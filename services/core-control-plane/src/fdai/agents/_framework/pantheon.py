@@ -244,6 +244,7 @@ _HEIMDALL = AgentSpec(
     initiates=(),
     subscribes=(
         "object.event",
+        "object.action-run",
         "object.security-event",
         "object.chaos-experiment",
         "object.rule-generation-build-result",

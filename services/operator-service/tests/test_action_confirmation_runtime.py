@@ -207,6 +207,7 @@ async def test_store_claim_uses_generic_proposal_dispatch_fields(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     statements: list[str] = []
+    parameters_seen: list[Mapping[str, object]] = []
 
     async def fetch_all(
         self: PostgresFamilyStore,
@@ -215,6 +216,7 @@ async def test_store_claim_uses_generic_proposal_dispatch_fields(
     ) -> list[dict[str, object]]:
         del self
         statements.append(statement)
+        parameters_seen.append(parameters)
         return [
             {
                 "key": "operator:proposal:conversation:one",
@@ -240,6 +242,11 @@ async def test_store_claim_uses_generic_proposal_dispatch_fields(
     assert "ORDER BY COALESCE((value ->> 'attempt')::integer, 0)" in statements[0]
     assert "value ->> 'accepted_at'" in statements[0]
     assert "value ->> 'state'" not in statements[0]
+    assert "LIKE %(proposal_prefix)s" in statements[0]
+    assert "operator-proposal:%" not in statements[0]
+    assert "'claim_id', %(claim_id)s::text" in statements[0]
+    assert "'claim_worker_id', %(worker_id)s::text" in statements[0]
+    assert parameters_seen[0]["proposal_prefix"] == "operator-proposal:%"
 
 
 async def test_store_ack_requires_active_dispatch_claim(

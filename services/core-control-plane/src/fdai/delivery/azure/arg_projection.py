@@ -189,6 +189,9 @@ def materialize_nested_subnets(
         props: dict[str, Any] = {
             "name": name if isinstance(name, str) and name else provider_ref.rsplit("/", 1)[-1],
         }
+        nested_properties = raw_subnet.get("properties")
+        if isinstance(nested_properties, Mapping):
+            props["properties"] = dict(nested_properties)
         resource_group = vnet.props.get("resourceGroup")
         if isinstance(resource_group, str) and resource_group:
             props["resourceGroup"] = resource_group
@@ -202,6 +205,7 @@ def materialize_nested_subnets(
                 type=_SUBNET_TYPE,
                 props=props,
                 provider_ref=provider_ref,
+                last_seen=vnet.last_seen,
             )
         )
         links.append(
@@ -332,5 +336,6 @@ def _mapped_links(
         arm_id_to_type=arm_id_to_type,
         to_neutral_id=to_neutral_id,
         external_reference_resolver=external_reference_resolver,
+        source_identity="azure-resource-graph",
     )
     return tuple(link for link in result.links if link.link_type == link_type)

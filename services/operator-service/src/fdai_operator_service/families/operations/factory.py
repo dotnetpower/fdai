@@ -34,6 +34,8 @@ from fdai_operator_service.families.operations.manifest import (
 )
 from fdai_operator_service.redaction import redact_projection
 from fdai_service_contracts import OperatorPrincipal, OperatorRole
+from fdai_service_contracts.read_investigation import ReadInvestigationProposalBody
+from pydantic import ValidationError
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response, StreamingResponse
 from starlette.routing import Route
@@ -183,7 +185,7 @@ async def _projection(
             report_pdf_encoder=report_pdf_encoder,
         )
     except ProjectionNotFoundError:
-        if entry.operation == "blast_radius.simulate":
+        if entry.operation in {"blast_radius.simulate", "ontology.instance.explore"}:
             return _error(404, "target resource is not available in the active inventory")
         return _error(404, "ontology declaration is not available")
     except ProjectionUnavailableError:
@@ -235,6 +237,14 @@ async def _proposal(
     body = await _json_body(request)
     if isinstance(body, Response):
         return body
+    if entry.operation == "read_investigation.start":
+        try:
+            body = ReadInvestigationProposalBody.model_validate(body).model_dump(
+                mode="json",
+                exclude_none=True,
+            )
+        except ValidationError:
+            return _error(400, "invalid read investigation request")
     idempotency_key = request.headers.get("idempotency-key", "").strip()
     if not idempotency_key or len(idempotency_key) > 256:
         return _error(400, "Idempotency-Key MUST contain 1 to 256 characters")

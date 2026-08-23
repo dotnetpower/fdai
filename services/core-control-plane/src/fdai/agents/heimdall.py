@@ -71,6 +71,9 @@ ReadInvestigationHook = Callable[[str, dict[str, Any]], Awaitable[dict[str, Any]
 OperationalEvidenceHook = Callable[[dict[str, Any]], Awaitable[Mapping[str, Any]]]
 """Composition-provided bounded evidence collector for one operational Event."""
 
+ActionObservationHook = Callable[[dict[str, Any]], Awaitable[bool]]
+"""Composition-provided terminal ActionRun observation handler."""
+
 _LOG = logging.getLogger(__name__)
 
 #: The admin-card rate limit is per rolling hour. A limiter that never reset
@@ -109,6 +112,7 @@ class Heimdall(HeimdallForecastMixin, Agent):
         incident_candidate_hook: IncidentCandidateHook | None = None,
         read_investigation_hook: ReadInvestigationHook | None = None,
         operational_evidence_hook: OperationalEvidenceHook | None = None,
+        action_observation_hook: ActionObservationHook | None = None,
         alert_rate_per_hour: int = 5,
         clock: Callable[[], float] | None = None,
         forecast_clock: Callable[[], datetime] | None = None,
@@ -134,6 +138,7 @@ class Heimdall(HeimdallForecastMixin, Agent):
         self._incident_candidate_hook = incident_candidate_hook
         self._read_investigation_hook = read_investigation_hook
         self._operational_evidence_hook = operational_evidence_hook
+        self._action_observation_hook = action_observation_hook
         self._alert_rate_per_hour = alert_rate_per_hour
         # Per-initiator rolling-hour alert budget: (window_start, count).
         # Injected clock keeps the window deterministic under test; defaults
@@ -195,7 +200,17 @@ class Heimdall(HeimdallForecastMixin, Agent):
         return True
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
-        if topic == RULE_GENERATION_BUILD_RESULT_TOPIC:
+        if topic == "object.action-run":
+            if self._action_observation_hook is None:
+                self.record_behavior("action_effect_observation:unavailable")
+                return
+            recorded = await self._action_observation_hook(payload)
+            self.record_behavior(
+                "action_effect_observation:recorded"
+                if recorded
+                else "action_effect_observation:held"
+            )
+        elif topic == RULE_GENERATION_BUILD_RESULT_TOPIC:
             await self._validate_rule_generation(payload)
         elif topic == "object.event":
             retrieval_validation = retrieval_validation_from_event(payload)

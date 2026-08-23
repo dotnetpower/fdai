@@ -1,0 +1,539 @@
+import type { JSX } from "preact";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { createPortal } from "preact/compat";
+import { Tooltip } from "../components/tooltip";
+import { routeHref } from "../router";
+import { formatDateTime, t } from "./i18n/ontology";
+import {
+  buildInstanceEdgeGeometry,
+  buildInstanceGraphLayout,
+  buildInstanceTimeline,
+  clampInstanceGraphScale,
+  countInstanceLinkTypes,
+  INSTANCE_NODE_HEIGHT,
+  INSTANCE_NODE_WIDTH,
+  instanceGraphPathNodeIds,
+  instanceGraphScrollTarget,
+  instanceGraphWheelScale,
+  instanceGraphZoomScrollTarget,
+  showInstanceEdgeLabels,
+  type InstanceTimelineEvent,
+  type InstanceTimelineSegment,
+} from "./ontology-instance-graph.model";
+import { ontologyInstanceIconForResourceType } from "./ontology-instance-resource-icons";
+import {
+  ontologyInstanceTrafficDirection,
+  type OntologyInstanceExploration,
+} from "./ontology-instances.model";
+
+interface Props {
+  readonly data: OntologyInstanceExploration;
+  readonly onSelect: (resourceId: string | null) => void;
+}
+
+type HistoryPreview =
+  | { readonly kind: "event"; readonly event: InstanceTimelineEvent }
+  | { readonly kind: "segment"; readonly segment: InstanceTimelineSegment };
+
+interface InstanceGraphTooltipState {
+  readonly x: number;
+  readonly y: number;
+  readonly title: string;
+  readonly detail: string;
+  readonly status?: string;
+}
+
+interface InstanceGraphPanState {
+  readonly pointerId: number;
+  readonly clientX: number;
+  readonly clientY: number;
+  readonly scrollLeft: number;
+  readonly scrollTop: number;
+}
+
+/** Renders one bounded Resource neighborhood and its authority-preserving audit history. */
+export function OntologyInstanceGraph({ data, onSelect }: Props) {
+  const layout = useMemo(() => buildInstanceGraphLayout(data), [data]);
+  const timeline = useMemo(
+    () => buildInstanceTimeline(data.timeline.items, data.source_cutoff),
+    [data.source_cutoff, data.timeline.items],
+  );
+  const graphRef = useRef<HTMLDivElement>(null);
+  const graphScrollRef = useRef<HTMLDivElement>(null);
+  const graphScaleRef = useRef(1);
+  const pendingScrollRef = useRef<{ readonly left: number; readonly top: number } | null>(null);
+  const panStateRef = useRef<InstanceGraphPanState | null>(null);
+  const [preview, setPreview] = useState<HistoryPreview | null>(null);
+    const [graphTooltip, setGraphTooltip] = useState<InstanceGraphTooltipState | null>(null);
+  const [focusedResourceId, setFocusedResourceId] = useState<string | null>(null);
+  const [graphScale, setGraphScale] = useState(1);
+  const [isPanning, setIsPanning] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
+  const showEdgeLabels = showInstanceEdgeLabels(layout.edges.length);
+  const focusedPath = useMemo(
+    () => focusedResourceId === null
+      ? new Set<string>()
+      : instanceGraphPathNodeIds(layout.nodes, focusedResourceId),
+    [focusedResourceId, layout.nodes],
+  );
+  const linkTypeCounts = useMemo(() => {
+    const displayed = new Map(
+      countInstanceLinkTypes(layout.edges.map((edge) => edge.link))
+        .map((item) => [item.linkType, item.count]),
+    );
+    return countInstanceLinkTypes(data.links).map((item) => ({
+      ...item,
+      displayed: displayed.get(item.linkType) ?? 0,
+    }));
+  }, [data.links, layout.edges]);
+  const defaultPreview = timeline.events.length > 0
+    ? { kind: "event", event: timeline.events[timeline.events.length - 1]! } as const
+    : null;
+  const visiblePreview = preview ?? defaultPreview;
+  const rootNode = layout.nodes.find((node) => node.resource.id === data.root_id)!;
+
+  const changeScale = (requestedScale: number, fit = false): void => {
+    const scroll = graphScrollRef.current;
+    if (!scroll) return;
+    const nextScale = clampInstanceGraphScale(requestedScale);
+    if (nextScale === graphScaleRef.current && !fit) return;
+    pendingScrollRef.current = fit
+      ? { left: 0, top: 0 }
+      : instanceGraphZoomScrollTarget({
+          layout,
+          scrollLeft: scroll.scrollLeft,
+          scrollTop: scroll.scrollTop,
+          viewportWidth: scroll.clientWidth,
+          viewportHeight: scroll.clientHeight,
+          currentScale: graphScaleRef.current,
+          nextScale,
+        });
+    graphScaleRef.current = nextScale;
+    setGraphScale(nextScale);
+  };
+
+  const startPan = (event: JSX.TargetedPointerEvent<HTMLDivElement>): void => {
+    if (event.button !== 0 || !(event.target instanceof Element)) return;
+    if (event.target.closest(".ontology-instance-node")) return;
+    const scroll = event.currentTarget;
+    panStateRef.current = {
+      pointerId: event.pointerId,
+      clientX: event.clientX,
+      clientY: event.clientY,
+      scrollLeft: scroll.scrollLeft,
+      scrollTop: scroll.scrollTop,
+    };
+    scroll.setPointerCapture(event.pointerId);
+    setIsPanning(true);
+    event.preventDefault();
+  };
+
+  const movePan = (event: JSX.TargetedPointerEvent<HTMLDivElement>): void => {
+    const pan = panStateRef.current;
+    if (!pan || pan.pointerId !== event.pointerId) return;
+    event.currentTarget.scrollLeft = pan.scrollLeft - (event.clientX - pan.clientX);
+    event.currentTarget.scrollTop = pan.scrollTop - (event.clientY - pan.clientY);
+    event.preventDefault();
+  };
+
+  const finishPan = (event: JSX.TargetedPointerEvent<HTMLDivElement>): void => {
+    const pan = panStateRef.current;
+    if (!pan || pan.pointerId !== event.pointerId) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    panStateRef.current = null;
+    setIsPanning(false);
+  };
+
+  useEffect(() => {
+    const sync = (): void => setFullscreen(document.fullscreenElement === graphRef.current);
+    document.addEventListener("fullscreenchange", sync);
+    return () => document.removeEventListener("fullscreenchange", sync);
+  }, []);
+
+  useEffect(() => {
+    const scroll = graphScrollRef.current;
+    if (!scroll) return;
+    graphScaleRef.current = 1;
+    setGraphScale(1);
+    const centerSelected = (): void => {
+      const target = instanceGraphScrollTarget(
+        layout,
+        data.root_id,
+        scroll.clientWidth,
+        scroll.clientHeight,
+        graphScaleRef.current,
+      );
+      scroll.scrollLeft = target.left;
+      scroll.scrollTop = target.top;
+    };
+    centerSelected();
+    const observer = new ResizeObserver(centerSelected);
+    observer.observe(scroll);
+    return () => observer.disconnect();
+  }, [data.root_id, layout]);
+
+  useEffect(() => {
+    const scroll = graphScrollRef.current;
+    const pending = pendingScrollRef.current;
+    if (!scroll || !pending) return;
+    const frame = requestAnimationFrame(() => {
+      scroll.scrollLeft = pending.left;
+      scroll.scrollTop = pending.top;
+      pendingScrollRef.current = null;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [graphScale]);
+
+  const toggleFullscreen = async (): Promise<void> => {
+    const graph = graphRef.current;
+    if (!graph) return;
+    if (document.fullscreenElement === graph) {
+      await document.exitFullscreen();
+      return;
+    }
+    if (document.fullscreenElement !== null) await document.exitFullscreen();
+    await graph.requestFullscreen({ navigationUI: "hide" });
+  };
+
+  return (
+    <div class="ontology-instance-graph" ref={graphRef}>
+      <div class="ontology-instance-graph-key" aria-label={t("ontology.instances.graphLegend") }>
+        <div>
+          <span><i class="is-direction" aria-hidden="true" />{t("ontology.instances.storedDirection")}</span>
+          <span><i class="is-traffic" aria-hidden="true" />{t("ontology.instances.verifiedTrafficPath")}</span>
+          <span><i class="is-access" aria-hidden="true" />{t("ontology.instances.accessContext")}</span>
+          <span><i class="is-containment" aria-hidden="true" />{t("ontology.instances.containmentContext")}</span>
+        </div>
+        <div class="ontology-instance-graph-tools" aria-label={t("ontology.instances.graphControls") }>
+          <Tooltip content={t(fullscreen
+            ? "ontology.instances.exitFullscreen"
+            : "ontology.instances.fullscreen")}>
+            <button
+              type="button"
+              aria-label={t(fullscreen
+                ? "ontology.instances.exitFullscreen"
+                : "ontology.instances.fullscreen")}
+              aria-pressed={fullscreen}
+              onClick={() => void toggleFullscreen()}
+            >
+              <span aria-hidden="true">{fullscreen ? "×" : "⛶"}</span>
+            </button>
+          </Tooltip>
+        </div>
+      </div>
+      {!showEdgeLabels ? (
+        <div class="ontology-instance-dense-legend" aria-label={t("ontology.instances.relationshipTypes") }>
+          <span>
+            {t("ontology.instances.relationshipTypes")} · {layout.edges.length}/{data.links.length}
+          </span>
+          <ul>
+            {linkTypeCounts.map((item) => (
+              <li key={item.linkType}>
+                <i class={`is-${item.linkType}`} aria-hidden="true" />
+                <strong>{t(`ontology.instances.link.${item.linkType}`)}</strong>
+                <span>{item.displayed}/{item.count}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      <div
+        class={`ontology-instance-graph-scroll${isPanning ? " is-panning" : ""}`}
+        ref={graphScrollRef}
+        aria-label={t("ontology.instances.graphViewport")}
+        tabIndex={0}
+        onPointerDown={startPan}
+        onPointerMove={movePan}
+        onPointerUp={finishPan}
+        onPointerCancel={finishPan}
+        onWheel={(event) => {
+          event.preventDefault();
+          changeScale(instanceGraphWheelScale(graphScaleRef.current, event.deltaY));
+        }}
+      >
+        <svg
+          class={`ontology-instance-graph-canvas${focusedResourceId === null ? "" : " has-focus-path"}`}
+          data-layout-direction={layout.direction}
+          data-graph-scale={graphScale.toFixed(2)}
+          viewBox={`0 0 ${layout.width} ${layout.height}`}
+          role="group"
+          aria-label={t("ontology.instances.graphTitle")}
+          aria-describedby="ontology-instance-map-description"
+          style={{
+            width: `${layout.width * graphScale}px`,
+            minWidth: `${layout.width * graphScale}px`,
+            height: `${layout.height * graphScale}px`,
+            minHeight: `${layout.height * graphScale}px`,
+          }}
+        >
+          <defs>
+            <marker id="ontology-instance-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+              <path d="M0 0L10 5L0 10z" />
+            </marker>
+          </defs>
+          <g class="ontology-instance-direction-bands" aria-hidden="true">
+            <rect class="is-incoming" x="0" y="0" width={rootNode.x} height={layout.height} />
+            <rect class="is-selected" x={rootNode.x} y="0" width={INSTANCE_NODE_WIDTH} height={layout.height} />
+            <rect class="is-outgoing" x={rootNode.x + INSTANCE_NODE_WIDTH} y="0" width={Math.max(0, layout.width - rootNode.x - INSTANCE_NODE_WIDTH)} height={layout.height} />
+            <text x={Math.max(70, rootNode.x / 2)} y="19">{t("ontology.common.incoming")}</text>
+            <text x={rootNode.x + INSTANCE_NODE_WIDTH / 2} y="19">{t("ontology.instances.selectedResource")}</text>
+            <text x={rootNode.x + INSTANCE_NODE_WIDTH + Math.max(70, (layout.width - rootNode.x - INSTANCE_NODE_WIDTH) / 2)} y="19">{t("ontology.common.outgoing")}</text>
+          </g>
+          {layout.edges.map((edge) => {
+            const geometry = buildInstanceEdgeGeometry(
+              edge.source,
+              edge.target,
+              edge.parallelOffset,
+              edge.targetPortOffset,
+              edge.longChannel,
+            );
+            const trafficDirection = ontologyInstanceTrafficDirection(edge.link, data.root_id);
+            const relationshipLabel = t(`ontology.instances.link.${edge.link.link_type}`);
+            const label = trafficDirection === null
+              ? relationshipLabel
+              : `${relationshipLabel} - ${t(`ontology.instances.verified.${trafficDirection}`)}`;
+            const onFocusedPath = focusedPath.has(edge.source.resource.id)
+              && focusedPath.has(edge.target.resource.id)
+              && (
+                edge.source.parentId === edge.target.resource.id
+                || edge.target.parentId === edge.source.resource.id
+              );
+            const showLabel = showEdgeLabels || edge.emphasis === "direct" || onFocusedPath;
+            const sourceName = edge.source.resource.name ?? edge.source.resource.resource_type;
+            const targetName = edge.target.resource.name ?? edge.target.resource.resource_type;
+            return (
+              <g
+                key={`${edge.link.source}:${edge.link.link_type}:${edge.link.target}`}
+                onPointerEnter={(event) => setGraphTooltip({
+                  x: event.clientX + 12,
+                  y: event.clientY + 12,
+                  title: label,
+                  detail: `${sourceName} -> ${targetName}`,
+                })}
+                onPointerMove={(event) => setGraphTooltip((current) => current === null ? null : {
+                  ...current,
+                  x: event.clientX + 12,
+                  y: event.clientY + 12,
+                })}
+                onPointerLeave={() => setGraphTooltip(null)}
+              >
+                <path
+                  class={`ontology-instance-edge is-${edge.link.link_type} is-${edge.emphasis} is-${edge.lane}-lane is-${edge.graphDirection}${trafficDirection === null ? "" : ` is-verified-${trafficDirection}`}${onFocusedPath ? " is-focus-path" : ""}`}
+                  data-source-id={edge.link.source}
+                  data-target-id={edge.link.target}
+                  data-source-x={edge.source.x}
+                  data-target-x={edge.target.x}
+                  data-graph-direction={edge.graphDirection}
+                  data-traffic-direction={trafficDirection ?? "unverified"}
+                  d={geometry.path}
+                />
+                {showLabel ? (
+                  <text
+                    class={`ontology-instance-edge-label is-${edge.emphasis}${onFocusedPath ? " is-focus-path" : ""}`}
+                    x={geometry.labelX}
+                    y={geometry.labelY}
+                  >
+                    {label}
+                  </text>
+                ) : null}
+              </g>
+            );
+          })}
+          {layout.nodes.map((node) => {
+            const resource = node.resource;
+            const displayName = resource.name ?? resource.resource_type;
+            const onFocusedPath = focusedPath.has(resource.id);
+            return (
+              <g
+                key={node.key}
+                data-node-key={node.key}
+                data-resource-id={resource.id}
+                data-side={node.side}
+                data-level={node.level}
+                transform={`translate(${node.x} ${node.y})`}
+              >
+                <a
+                  class={`ontology-instance-node is-${node.emphasis} is-${node.lane}-lane${resource.id === data.root_id ? " is-selected" : ""}${onFocusedPath ? " is-focus-path" : ""}`}
+                  href={routeHref("ontology", { params: { view: "instances", instance: resource.id } })}
+                  aria-label={`${displayName}, ${resource.resource_type}, ${resource.status ?? t("ontology.instances.notObserved")}`}
+                  onPointerEnter={(event) => {
+                    setFocusedResourceId(resource.id);
+                    setGraphTooltip({
+                      x: event.clientX + 12,
+                      y: event.clientY + 12,
+                      title: displayName,
+                      detail: resource.resource_type,
+                      status: resource.status ?? t("ontology.instances.notObserved"),
+                    });
+                  }}
+                  onPointerMove={(event) => setGraphTooltip({
+                    x: event.clientX + 12,
+                    y: event.clientY + 12,
+                    title: displayName,
+                    detail: resource.resource_type,
+                    status: resource.status ?? t("ontology.instances.notObserved"),
+                  })}
+                  onPointerLeave={() => {
+                    setFocusedResourceId(null);
+                    setGraphTooltip(null);
+                  }}
+                  onFocus={(event) => {
+                    const rect = event.currentTarget.getBoundingClientRect();
+                    setFocusedResourceId(resource.id);
+                    setGraphTooltip({
+                      x: rect.right + 8,
+                      y: rect.top,
+                      title: displayName,
+                      detail: resource.resource_type,
+                      status: resource.status ?? t("ontology.instances.notObserved"),
+                    });
+                  }}
+                  onBlur={() => {
+                    setFocusedResourceId(null);
+                    setGraphTooltip(null);
+                  }}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    onSelect(resource.id);
+                  }}
+                >
+                  <rect width={INSTANCE_NODE_WIDTH} height={INSTANCE_NODE_HEIGHT} rx="5" />
+                  <image href={ontologyInstanceIconForResourceType(resource.resource_type)} x="12" y="14" width="22" height="22" aria-hidden="true" />
+                  <foreignObject x="43" y="8" width="121" height="54" aria-hidden="true">
+                    <div class="ontology-instance-node-copy">
+                      <strong>{displayName}</strong>
+                      <span>{resource.resource_type}</span>
+                      <span class="ontology-instance-node-state">{resource.status ?? t("ontology.instances.notObserved")}</span>
+                    </div>
+                  </foreignObject>
+                </a>
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+      <InstanceGraphTooltip state={graphTooltip} />
+      <section class="ontology-instance-history" aria-labelledby="ontology-instance-history-title">
+        <header>
+          <div>
+            <span>{t("ontology.instances.historyEyebrow")}</span>
+            <h4 id="ontology-instance-history-title">{t("ontology.instances.historyTitle")}</h4>
+          </div>
+          <HistoryPreview preview={visiblePreview} />
+        </header>
+        <div class="ontology-instance-history-scroll">
+          <div class="ontology-instance-history-chart">
+            <div class="ontology-instance-history-axis" aria-hidden="true">
+              <span>{formatShortTime(timeline.startAt)}</span>
+              <span>{formatShortTime(new Date((Date.parse(timeline.startAt) + Date.parse(timeline.endAt)) / 2).toISOString())}</span>
+              <span>{formatShortTime(timeline.endAt)}</span>
+            </div>
+            <div class="ontology-instance-history-row">
+              <span>{t("ontology.instances.stateLane")}</span>
+              <div class="ontology-instance-history-track">
+                {timeline.segments.map((segment, index) => (
+                  <button
+                    key={`${segment.observedAt ?? "unknown"}:${index}`}
+                    type="button"
+                    class={`ontology-instance-state-segment${segment.state === null ? " is-unknown" : ""}`}
+                    style={{ left: `${segment.start}%`, width: `${segment.width}%` }}
+                    aria-label={segmentLabel(segment)}
+                    onMouseEnter={() => setPreview({ kind: "segment", segment })}
+                    onMouseLeave={() => setPreview(null)}
+                    onFocus={() => setPreview({ kind: "segment", segment })}
+                    onBlur={() => setPreview(null)}
+                    onClick={() => setPreview({ kind: "segment", segment })}
+                  >
+                    {segment.width >= 9 ? segment.state ?? t("ontology.instances.unknownState") : ""}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div class="ontology-instance-history-row">
+              <span>{t("ontology.instances.eventLane")}</span>
+              <div class="ontology-instance-history-track is-events">
+                {timeline.events.map((event) => (
+                  <button
+                    key={event.activity.sequence}
+                    type="button"
+                    class="ontology-instance-event-marker"
+                    style={{ left: `${event.position}%` }}
+                    aria-label={`${formatDateTime(event.activity.recorded_at)} - ${event.summary} - ${t("ontology.instances.historyEventCount", { count: event.clusterSize })}`}
+                    onMouseEnter={() => setPreview({ kind: "event", event })}
+                    onMouseLeave={() => setPreview(null)}
+                    onFocus={() => setPreview({ kind: "event", event })}
+                    onBlur={() => setPreview(null)}
+                    onClick={() => setPreview({ kind: "event", event })}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+        {!data.timeline.complete ? <p>{t("ontology.instances.timelineTruncated")}</p> : null}
+      </section>
+    </div>
+  );
+}
+
+function InstanceGraphTooltip({ state }: { readonly state: InstanceGraphTooltipState | null }) {
+  if (state === null || typeof document === "undefined") return null;
+  const left = Math.max(16, Math.min(state.x, window.innerWidth - 336));
+  const top = Math.max(16, Math.min(state.y, window.innerHeight - 112));
+  return createPortal(
+    <span
+      role="tooltip"
+      class="app-tooltip ontology-instance-graph-tooltip"
+      data-state="instant-open"
+      data-side="right"
+      style={{ left: `${left}px`, top: `${top}px` }}
+    >
+      <strong>{state.title}</strong>
+      <span>{state.detail}</span>
+      {state.status ? <span>{state.status}</span> : null}
+    </span>,
+    document.body,
+  );
+}
+
+function HistoryPreview({ preview }: { readonly preview: HistoryPreview | null }) {
+  if (preview === null) {
+    return (
+      <div class="ontology-instance-history-preview" aria-live="polite">
+        <strong>{t("ontology.instances.noEvents")}</strong>
+        <span>{t("ontology.instances.noStateEvidence")}</span>
+      </div>
+    );
+  }
+  if (preview.kind === "segment") {
+    const segment = preview.segment;
+    return (
+      <div class="ontology-instance-history-preview" aria-live="polite">
+        <strong>{segment.state ?? t("ontology.instances.unknownState")}</strong>
+        <span>{segment.observedAt ? formatDateTime(segment.observedAt) : t("ontology.instances.noStateEvidence")}</span>
+        {segment.evidenceRef ? <code>{segment.evidenceRef}</code> : null}
+      </div>
+    );
+  }
+  const event = preview.event;
+  return (
+    <div class="ontology-instance-history-preview" aria-live="polite">
+      <strong>{event.summary}</strong>
+      <span>{formatDateTime(event.activity.recorded_at)} - {event.activity.actor} - {t("ontology.instances.historyEventCount", { count: event.clusterSize })}</span>
+      <a href={routeHref("audit", {
+        params: { from_seq: String(event.activity.sequence), through_seq: String(event.activity.sequence) },
+      })}>{event.activity.evidence_ref}</a>
+    </div>
+  );
+}
+
+function segmentLabel(segment: InstanceTimelineSegment): string {
+  const state = segment.state ?? t("ontology.instances.unknownState");
+  return segment.observedAt ? `${state} - ${formatDateTime(segment.observedAt)}` : state;
+}
+
+function formatShortTime(value: string): string {
+  return new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+}

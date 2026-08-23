@@ -22,7 +22,7 @@ from fdai.delivery.persistence.postgres_inventory_graph_helpers import (
     _source_priority,
     _unavailable_graph,
 )
-from fdai.shared.providers.inventory import InventoryBatch
+from fdai.shared.providers.inventory import InventoryBatch, LinkRecord
 from fdai.shared.providers.inventory_snapshot import (
     InventoryAttemptFailure,
     InventoryCoverageManifest,
@@ -156,7 +156,10 @@ class PostgresInventorySnapshotStore:
                             item.link_type,
                             item.to_id,
                             item.to_type,
-                            _canonical_json_mapping(item.link_props, "snapshot relationship props"),
+                            _canonical_json_mapping(
+                                _snapshot_relationship_props(item),
+                                "snapshot relationship props",
+                            ),
                         )
                         for item in batch.links[offset : offset + self._config.write_batch_size]
                     ]
@@ -311,6 +314,27 @@ def _canonical_json_mapping(value: object, field: str) -> str:
         raise ValueError(f"{field} MUST be JSON-compatible") from exc
 
 
+def _snapshot_relationship_props(link: LinkRecord) -> Mapping[str, object]:
+    """Retain reviewed mapping evidence without exposing provider payloads."""
+
+    properties: dict[str, object] = dict(link.link_props)
+    evidence = link.mapping_evidence
+    if evidence is not None:
+        properties["provider_relationship_evidence"] = {
+            "mapping_id": evidence.mapping_id,
+            "mapping_revision": evidence.mapping_revision,
+            "mapping_receipt_ref": evidence.mapping_receipt_ref,
+            "source_identity": evidence.source_identity,
+            "source_property_path": evidence.source_property_path,
+            "source_schema_version": evidence.source_schema_version,
+            "source_schema_digest": evidence.source_schema_digest,
+            "evidence_method": evidence.evidence_method,
+            "freshness_ceiling_seconds": evidence.freshness_ceiling_seconds,
+            "observation_receipt_ref": evidence.observation_receipt_ref,
+        }
+    return properties
+
+
 class PostgresInventoryGraphProvider:
     """Serve the active immutable inventory generation to the Operator API."""
 
@@ -412,6 +436,10 @@ class PostgresInventoryGraphProvider:
                 "FROM inventory_realtime_resource"
             )
             overlay = await overlay_cursor.fetchone()
+            collection_health_cursor = await connection.execute(
+                "SELECT value FROM state_kv WHERE key='inventory-collection-health'"
+            )
+            collection_health_row = await collection_health_cursor.fetchone()
             rows: Sequence[Mapping[str, Any]]
             if root is not None:
                 rooted = await load_rooted_inventory_graph(
@@ -512,6 +540,12 @@ class PostgresInventoryGraphProvider:
         elif operating_scope["unmapped_resource_count"]:
             coverage_gaps.append("operating_scope_unmapped")
         degraded = freshness != "fresh" or bool(coverage_gaps)
+        collection_health = (
+            collection_health_row["value"]
+            if collection_health_row is not None
+            and isinstance(collection_health_row["value"], Mapping)
+            else None
+        )
         return {
             "snapshot_id": snapshot["id"],
             "snapshot_at": completed.isoformat(),
@@ -529,6 +563,7 @@ class PostgresInventoryGraphProvider:
                 "pending_changes": pending_changes,
                 "latest_at": overlay_latest.isoformat() if overlay_latest is not None else None,
             },
+            "collection_health": collection_health,
             "active_view": projection["active_view"],
             "resources": projection_resources,
             "links": [link for link in projection["links"] if link["type"] in link_types],

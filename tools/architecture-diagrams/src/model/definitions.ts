@@ -71,7 +71,8 @@ const diagramDefinitions: Record<DiagramKind, DiagramDefinition> = {
   network: {
     kind: "network",
     layoutStrategy: "layered",
-    hierarchyHandling: "SEPARATE_CHILDREN",
+    hierarchyHandling: "INCLUDE_CHILDREN",
+    edgeRouting: "ORTHOGONAL",
   },
   "conceptual-flow": {
     kind: "conceptual-flow",

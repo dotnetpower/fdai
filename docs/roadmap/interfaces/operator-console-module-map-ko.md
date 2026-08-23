@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: a5b490074fd59992a2fe8c292fbd517ad1143569
+translation_source_sha: 4bbce3a5a319908a3f06c4450e52c485f15e389f
 translation_revised: 2026-08-23
 ---
 # Operator Console 모듈 지도 and Boundaries
@@ -31,11 +31,13 @@ file-count 목표가 아닌 설명 기준이지만, executable 완전성 게이�
 | 지속형 질문 공간 및 온톨로지 구조 표현 | 구현됨 | [지속형 질문 공간](continuous-question-space-ko.md), `console/tests/live-e2e/ontology-query-assurance.ts`, `console/src/routes/ontology.types.ts`, `console/src/routes/ontology-links.tsx`, 집중 Console 테스트 | Console 하네스는 고정된 이중 언어 100개 분류와 strict v2 22개 셀 oracle을 소유합니다. 온톨로지 워크벤치는 LinkType 역할, 의미 특성, 독립적인 제한 계열을 안전하게 실패하도록 디코딩하고 읽기 전용으로 표시하며 실행 컨트롤을 노출하지 않습니다. 이 두 표면은 런타임 인프라가 되지 않으면서 정확한 계획 기능, 전송 신원, 답변 턴의 완전한 근거, 권한 없는 실행 0을 검증합니다. |
 | 브라우저 근거 메타데이터 패널 경계 | 구현됨 | `console/src/routes/browser-evidence.tsx`, `console/src/panels.tsx`, focused decoder, panel 및 router 검사(`26 passed`) | 기존 Evidence 탐색 경로는 정확한 payload-free Operator 묶음만 사용합니다. 컨트롤과 수집 또는 구조화된 페이로드를 거부하고 변경 명령을 렌더링하지 않으며 인증된 배포 읽기 근거는 별도 런타임 gate로 유지합니다. |
 | 공유 의미 행 projection | 구현됨 | `families/conversation/presentation_rows.py`, v1 및 v2 표현 모듈, focused Operator 표현 검사(`82 passed`) | 범위가 제한된 순수 projection 하나가 직접 scalar를 유지하고 검증된 중첩 property bag에서 최대 두 단계까지 `name`, `type`, `status`, `location`만 끌어올립니다. 읽기 쉬운 사실이 있으면 기본 표에서 불투명한 `id`와 `object_type` 열을 제외하고, identity만 있는 결과에서는 해당 필드를 계속 표시합니다. 변경하지 않은 exact 행은 기술 세부에 유지합니다. |
+| 의미 스트림 PostgreSQL 취소 | 구현됨 | `postgres_family_store.py`, `test_postgres_family_store_cancellation.py`, focused 의미 bridge 검사(`76 passed`), Ruff 및 strict mypy | AnyIO 스트림 취소는 범위가 제한된 psycopg 쿼리 취소와 연결 종료를 완료한 뒤 전파됩니다. 더 이상 transaction rollback과 경합하지 않으며 HTTP 계약, 데이터베이스 소유권 또는 실행 권한을 변경하지 않습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-23 | 구현됨 | SSE 연결 해제가 의미 replay 쿼리를 취소할 때 관측된 PostgreSQL rollback 경합을 제거했습니다. 단일 문장 family 쿼리는 autocommit 모드에서도 PostgreSQL 문장 원자성을 유지하고 session statement timeout을 사용하며, 원래 취소를 다시 발생시키기 전에 범위가 제한된 취소 및 연결 종료 정리만 shield합니다. | `current change`, 정확한 AnyIO 및 `pg_sleep` 재현은 수정 전 실패하고 수정 후 psycopg 경고 없이 통과, focused 의미 bridge 검사 76개 통과, Ruff 및 strict mypy 통과 | 이 취소 결함에 남은 추가 작업은 없습니다. |
 | 2026-08-19 | implemented | 고정된 로캘 50/50 분할을 보존하면서 읽기 전용 보증 하네스에 strict v2 선언, 릴리스/근거, 인벤토리 영향, Rule 상태 셀을 추가했습니다. | [Issue #233](https://github.com/dotnetpower/fdai/issues/233), [지속형 질문 공간](continuous-question-space-ko.md), 집중 Console 테스트 100개 | seeded 인증 전에 정확한 소스의 인증된 strict-v2 증적을 보존합니다. |
 | 2026-08-20 | 구현됨 | Legacy와 v2 표현에서 읽기 쉬운 의미 행 projection을 통합했습니다. 이전 v2 분석기는 모든 중첩 mapping을 버렸기 때문에 exact 근거에 이름, 타입, 위치가 있어도 검증된 Resource 행이 `id`와 `object_type`만 표시했습니다. | `current change`, [이슈 #241](https://github.com/dotnetpower/fdai/issues/241), focused 표현 및 의미 bridge 검사 94개 통과, Ruff, formatting, strict mypy 통과 | 커밋된 source로 Operator API를 재시작한 뒤 인증된 세 viewport 근거를 보존합니다. |
 | 2026-08-20 | 구현됨 | 인증된 검토에서 표시된 `id`와 `object_type` 열이 운영자용 이름, 타입, 위치 필드를 압축하는 것을 확인한 뒤 기본 검증 행 계층을 교정했습니다. 공유 projection은 읽기 쉬운 사실이 있으면 불투명한 identity 열을 제외하고 identity만 있는 결과에서는 대체 표시로 유지하며, 기술 세부의 exact 행은 변경하지 않습니다. | `current change`, `presentation_rows.py`, focused Operator 표현 검사 82개와 Command Deck 시각 검사 19개, Console typecheck 및 운영 build 통과 | 이 source로 Operator API를 재시작한 뒤 인증된 desktop, constrained-desktop, mobile 근거를 보존합니다. |

@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Any, Final
 
 from fdai.core.background_task import (
+    BackgroundReadInvestigationSpec,
     BackgroundTask,
     BackgroundTaskAttempt,
     BackgroundTaskBudget,
@@ -20,6 +21,7 @@ from fdai.core.background_task import (
     BackgroundTaskStatus,
     BackgroundTaskUsage,
 )
+from fdai.shared.providers.read_investigation import ReadInvestigationIntent
 
 ATTEMPT_COLUMNS: Final = (
     "attempt_id, task_id, owner_principal_id, idempotency_key, task, "
@@ -123,6 +125,20 @@ def task_to_dict(task: BackgroundTask) -> dict[str, Any]:
         "idempotency_key": task.idempotency_key,
         "created_at": task.created_at.isoformat(),
         "retention_until": task.retention_until.isoformat(),
+        "investigation": (
+            {
+                "intent": task.investigation.intent.value,
+                "resource_name": task.investigation.resource_name,
+                "scope_ref": task.investigation.scope_ref,
+                "lookback_seconds": task.investigation.lookback_seconds,
+                "resource_type": task.investigation.resource_type,
+                "resource_group": task.investigation.resource_group,
+                "explicit_deep": task.investigation.explicit_deep,
+            }
+            if task.investigation is not None
+            else None
+        ),
+        "accountable_agent": task.accountable_agent,
         "retryable": task.retryable,
     }
 
@@ -160,6 +176,8 @@ def _task(raw: dict[str, Any]) -> BackgroundTask:
     budget = _mapping(raw["budget"])
     thread_id = origin.get("thread_id")
     message_id = origin.get("message_id")
+    investigation_raw = raw.get("investigation")
+    investigation = _mapping(investigation_raw) if investigation_raw is not None else None
     return BackgroundTask(
         task_id=str(raw["task_id"]),
         owner_principal_id=str(raw["owner_principal_id"]),
@@ -185,6 +203,30 @@ def _task(raw: dict[str, Any]) -> BackgroundTask:
         idempotency_key=str(raw["idempotency_key"]),
         created_at=datetime.fromisoformat(str(raw["created_at"])),
         retention_until=datetime.fromisoformat(str(raw["retention_until"])),
+        investigation=(
+            BackgroundReadInvestigationSpec(
+                intent=ReadInvestigationIntent(str(investigation["intent"])),
+                resource_name=str(investigation["resource_name"]),
+                scope_ref=str(investigation["scope_ref"]),
+                lookback_seconds=int(investigation["lookback_seconds"]),
+                resource_type=(
+                    str(investigation["resource_type"])
+                    if investigation.get("resource_type") is not None
+                    else None
+                ),
+                resource_group=(
+                    str(investigation["resource_group"])
+                    if investigation.get("resource_group") is not None
+                    else None
+                ),
+                explicit_deep=bool(investigation.get("explicit_deep", False)),
+            )
+            if investigation is not None
+            else None
+        ),
+        accountable_agent=(
+            str(raw["accountable_agent"]) if raw.get("accountable_agent") is not None else None
+        ),
         retryable=bool(raw["retryable"]),
     )
 

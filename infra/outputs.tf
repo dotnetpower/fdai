@@ -68,10 +68,11 @@ output "event_bus_topics" {
 }
 
 output "event_bus_semantic_topics" {
-  description = "Logical semantic-turn topic names multiplexed over the physical event bus."
+  description = "Logical Operator/Core topic names multiplexed over the physical event bus."
   value = [
     local.semantic_turn_request_topic,
     local.semantic_turn_projection_topic,
+    local.read_investigation_request_topic,
   ]
 }
 
@@ -168,6 +169,11 @@ output "measurement_baseline_job_name" {
 output "measurement_growth_job_name" {
   description = "Pattern-growth intake Container Apps Job name (Phase-4 T1 library growth)."
   value       = module.measurement_runners.growth_job_name
+}
+
+output "measurement_operational_promotion_job_name" {
+  description = "Operational-promotion measurement Job name, or null when disabled."
+  value       = module.measurement_runners.operational_promotion_job_name
 }
 
 

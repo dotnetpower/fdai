@@ -45,7 +45,7 @@ variable "event_topics" {
 }
 variable "database" {
   description = "Role-scoped worker database secret reference."
-  type        = object({ dsn_secret_id = string, role = string })
+  type        = object({ dsn_secret_id = string, host = optional(string, ""), role = string })
   sensitive   = true
 }
 variable "document_store" {

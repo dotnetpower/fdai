@@ -39,7 +39,17 @@ class BackgroundTaskStore(Protocol):
         task: BackgroundTask,
         *,
         quota: BackgroundTaskQuotaPolicy | None = None,
+        requires_creation_audit: bool = False,
     ) -> tuple[BackgroundTaskAttempt, bool]: ...
+
+    async def creation_audited(self, task_id: str) -> bool | None: ...
+
+    async def mark_creation_audited(
+        self,
+        task_id: str,
+        *,
+        now: datetime,
+    ) -> BackgroundTaskAttempt: ...
 
     async def get(
         self,
@@ -166,6 +176,7 @@ class InMemoryBackgroundTaskStore:
         self._idempotency: dict[tuple[str, str], str] = {}
         self._progress: dict[str, list[BackgroundTaskProgress]] = {}
         self._completions: dict[str, BackgroundTaskCompletion] = {}
+        self._creation_audited: set[str] = set()
         self._lock = asyncio.Lock()
         self._clock = clock or (lambda: datetime.now(UTC))
 
@@ -174,6 +185,7 @@ class InMemoryBackgroundTaskStore:
         task: BackgroundTask,
         *,
         quota: BackgroundTaskQuotaPolicy | None = None,
+        requires_creation_audit: bool = False,
     ) -> tuple[BackgroundTaskAttempt, bool]:
         async with self._lock:
             dedup_key = (task.owner_principal_id, task.idempotency_key)
@@ -211,7 +223,30 @@ class InMemoryBackgroundTaskStore:
             self._attempt_by_task[task.task_id] = attempt.attempt_id
             self._idempotency[dedup_key] = attempt.attempt_id
             self._progress[attempt.attempt_id] = []
+            if not requires_creation_audit:
+                self._creation_audited.add(attempt.attempt_id)
             return attempt, True
+
+    async def creation_audited(self, task_id: str) -> bool | None:
+        async with self._lock:
+            attempt_id = self._attempt_by_task.get(task_id)
+            if attempt_id is None:
+                return None
+            return attempt_id in self._creation_audited
+
+    async def mark_creation_audited(
+        self,
+        task_id: str,
+        *,
+        now: datetime,
+    ) -> BackgroundTaskAttempt:
+        _aware_input("creation audit time", now)
+        async with self._lock:
+            attempt_id = self._attempt_by_task.get(task_id)
+            if attempt_id is None:
+                raise LookupError("background task not found")
+            self._creation_audited.add(attempt_id)
+            return self._attempts[attempt_id]
 
     async def get(
         self,
@@ -260,6 +295,7 @@ class InMemoryBackgroundTaskStore:
                     attempt
                     for attempt in self._attempts.values()
                     if attempt.status is BackgroundTaskStatus.QUEUED
+                    and attempt.attempt_id in self._creation_audited
                 ),
                 key=lambda item: (item.task.created_at, item.attempt_id),
             )
@@ -577,11 +613,21 @@ class InMemoryBackgroundTaskStore:
                 (
                     completion
                     for completion in self._completions.values()
-                    if completion.state is BackgroundTaskCompletionState.SENDING
-                    and completion.lease is not None
-                    and completion.lease.expires_at <= now
+                    if (
+                        completion.state is BackgroundTaskCompletionState.SENDING
+                        and completion.lease is not None
+                        and completion.lease.expires_at <= now
+                    )
+                    or (
+                        completion.state
+                        not in {
+                            BackgroundTaskCompletionState.DELIVERED,
+                            BackgroundTaskCompletionState.ABANDONED,
+                        }
+                        and completion.retention_until <= now
+                    )
                 ),
-                key=lambda item: (item.lease.expires_at if item.lease else now, item.attempt_id),
+                key=lambda item: (item.retention_until, item.attempt_id),
             )[:limit]
             reconciled: list[BackgroundTaskCompletion] = []
             for current in candidates:
@@ -598,7 +644,9 @@ class InMemoryBackgroundTaskStore:
                     ),
                     due_at=min(now, current.retention_until),
                     lease=None,
-                    last_error_code="process_lost",
+                    last_error_code=(
+                        "retention_expired" if now >= current.retention_until else "process_lost"
+                    ),
                     terminal_at=now if abandon else None,
                 )
                 self._completions[current.attempt_id] = updated

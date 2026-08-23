@@ -8,8 +8,10 @@ from fdai.core.background_task.coordinator import (
     ProgressCallback,
 )
 from fdai.core.background_task.models import (
+    BACKGROUND_TASK_ACCOUNTABLE_AGENT,
     MAX_COMPLETION_ATTEMPTS,
     TERMINAL_BACKGROUND_STATUSES,
+    BackgroundReadInvestigationSpec,
     BackgroundTask,
     BackgroundTaskAttempt,
     BackgroundTaskBudget,
@@ -32,6 +34,9 @@ from fdai.core.background_task.quota import (
     background_task_quota_usage,
     enforce_background_task_quota,
 )
+from fdai.core.background_task.read_investigation_executor import (
+    ReadInvestigationBackgroundExecutor,
+)
 from fdai.core.background_task.service import BackgroundTaskAudit, BackgroundTaskService
 from fdai.core.background_task.store import (
     BackgroundTaskConflictError,
@@ -41,6 +46,7 @@ from fdai.core.background_task.store import (
 
 __all__ = [
     "ACTIVE_BACKGROUND_STATUSES",
+    "BACKGROUND_TASK_ACCOUNTABLE_AGENT",
     "MAX_COMPLETION_ATTEMPTS",
     "TERMINAL_BACKGROUND_STATUSES",
     "BackgroundTaskCompletionSink",
@@ -58,6 +64,7 @@ __all__ = [
     "BackgroundTaskLease",
     "BackgroundTaskOrigin",
     "BackgroundTaskProgress",
+    "BackgroundReadInvestigationSpec",
     "BackgroundTaskQuotaExceededError",
     "BackgroundTaskQuotaPolicy",
     "BackgroundTaskQuotaUsage",
@@ -67,6 +74,7 @@ __all__ = [
     "BackgroundTaskService",
     "BackgroundTaskUsage",
     "InMemoryBackgroundTaskStore",
+    "ReadInvestigationBackgroundExecutor",
     "ProgressCallback",
     "background_task_quota_time",
     "background_task_quota_usage",

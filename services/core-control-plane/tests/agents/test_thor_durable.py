@@ -270,6 +270,27 @@ def test_legacy_verdict_without_kinetic_proposal_is_unchanged() -> None:
     executor.assert_awaited_once()
 
 
+def test_executor_exception_outcome_omits_sensitive_message() -> None:
+    async def failing_executor(_context: object) -> bool:
+        raise RuntimeError("password=must-not-enter-audit")
+
+    thor = Thor(executor=failing_executor)
+
+    run = asyncio.run(
+        thor.dispatch_verdict(
+            {
+                "correlation_id": "executor-error-1",
+                "action_type": "ops.restart-service",
+                "risk_verdict": "auto",
+                "resource_id": "vm-1",
+            }
+        )
+    )
+
+    assert run.state is ActionRunState.FAILED
+    assert run.outcome == "executor_error:RuntimeError"
+
+
 def test_thor_deletes_terminal_run_from_store() -> None:
     store = _FakeActionRunStore()
     thor = Thor(state_store=store, shadow_by_default=True)

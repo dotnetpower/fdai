@@ -23,6 +23,8 @@ _EXPECTED_FILES = frozenset(
     {
         "__init__.py",
         "_helpers.py",
+        # Loads and filters resolved-model artifacts for the focused binders.
+        "resolved_models.py",
         "wire_llm.py",
         "wire_distiller.py",
         "wire_azure.py",
@@ -203,6 +205,7 @@ def test_no_external_caller_reaches_into_wire_files() -> None:
 _LOC_LIMITS = {
     "__init__.py": 400,
     "_helpers.py": 400,
+    "resolved_models.py": 100,
     "wire_azure.py": 400,
     "wire_llm.py": 800,  # holds the ~308-LOC bind_azure_llm_bindings body
     "wire_semantic_judgment.py": 200,

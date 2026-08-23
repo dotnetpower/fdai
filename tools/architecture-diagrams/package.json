@@ -17,6 +17,7 @@
     "build:viewer": "tsx src/viewer/build-cli.ts"
   },
   "dependencies": {
+    "@fdai/network-topology-contracts": "file:../../packages/network-topology-contracts",
     "@resvg/resvg-js": "^2.6.2",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",

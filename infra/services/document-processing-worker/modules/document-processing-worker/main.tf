@@ -34,6 +34,7 @@ module "container_app" {
   }]
   environment = [
     { name = "FDAI_DATABASE_URL", secret_name = "database-dsn" },
+    { name = "POSTGRES_HOST", value = var.database.host },
     { name = "FDAI_DATABASE_ROLE", value = var.database.role },
     { name = "PGOPTIONS", value = "-c role=${var.database.role}" },
     { name = "FDAI_INGESTION_DEPLOYMENT_ROLE", value = "worker" },

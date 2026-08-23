@@ -97,6 +97,7 @@ class AzureOpenAISemanticPlanningModel:
         principal_role: str,
         purpose: str,
         metric_concepts: tuple[str, ...] = (),
+        semantic_judgment: Mapping[str, Any] | None = None,
     ) -> Mapping[str, Any] | None:
         """Return one validated frame proposal or ``None`` on bounded failure."""
 
@@ -107,6 +108,7 @@ class AzureOpenAISemanticPlanningModel:
             "metric_concepts": metric_concepts,
             "principal_role": principal_role,
             "purpose": purpose,
+            "semantic_judgment": semantic_judgment,
         }
         if not _bounded_input(payload, context=context, descriptors=descriptors):
             return None

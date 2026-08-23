@@ -504,6 +504,7 @@ export interface PresentationAccessibleChartData {
   readonly unit: string;
   readonly items: readonly PresentationChartItem[];
   readonly exactTable: PresentationTableData;
+  readonly visualization?: "bar" | "bar_list" | "donut";
 }
 
 export interface PresentationCoverageItem extends PresentationChartItem {
@@ -539,7 +540,8 @@ export type PresentationBlock =
     }
   | PresentationBlockBase & {
       readonly kind: "coverage";
-      readonly data: Omit<PresentationAccessibleChartData, "items"> & {
+      readonly data: Omit<PresentationAccessibleChartData, "items" | "visualization"> & {
+        readonly visualization?: "category_bar";
         readonly items: readonly PresentationCoverageItem[];
       };
     }
@@ -549,6 +551,7 @@ export type PresentationBlock =
         readonly description: string;
         readonly metric: string;
         readonly unit: string;
+        readonly visualization?: "area" | "line";
         readonly points: readonly { readonly timestamp: string; readonly value: number }[];
         readonly exactTable: PresentationTableData;
       };
@@ -559,6 +562,7 @@ export type PresentationBlock =
         readonly description: string;
         readonly metric: string;
         readonly unit: string;
+        readonly visualization?: "comparison_bar";
         readonly items: readonly {
           readonly role: "baseline" | "current" | "target" | "before" | "after";
           readonly label: string;
@@ -571,7 +575,28 @@ export type PresentationBlock =
       readonly kind: "timeline";
       readonly data: {
         readonly description: string;
+        readonly visualization?: "tracker";
         readonly items: readonly { readonly timestamp: string; readonly label: string }[];
+        readonly exactTable: PresentationTableData;
+      };
+    }
+  | PresentationBlockBase & {
+      readonly kind: "scatter";
+      readonly data: {
+        readonly description: string;
+        readonly xLabel: string;
+        readonly yLabel: string;
+        readonly points: readonly { readonly label: string; readonly x: number; readonly y: number }[];
+        readonly exactTable: PresentationTableData;
+      };
+    }
+  | PresentationBlockBase & {
+      readonly kind: "heatmap";
+      readonly data: {
+        readonly description: string;
+        readonly rowLabel: string;
+        readonly columnLabel: string;
+        readonly cells: readonly { readonly row: string; readonly column: string; readonly value: number }[];
         readonly exactTable: PresentationTableData;
       };
     }

@@ -305,6 +305,12 @@ variable "semantic_turn_physical_topic" {
   default     = ""
 }
 
+variable "read_investigation_request_topic" {
+  description = "Logical read-investigation request topic multiplexed over the semantic physical Event Hub."
+  type        = string
+  default     = ""
+}
+
 variable "azure_subscription_id" {
   description = "Subscription inspected by the onboarding ResourceProbe."
   type        = string

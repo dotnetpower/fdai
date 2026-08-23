@@ -28,6 +28,7 @@ def _details(
     operation: str = "select",
     output_shape: str = "aggregation_table",
     total: int | None = None,
+    presentation_semantics: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
     return {
         "schema_version": 1,
@@ -35,6 +36,11 @@ def _details(
         "presentation_context": {
             "operation": operation,
             "output_shape": output_shape,
+            **(
+                {"presentation_semantics": dict(presentation_semantics)}
+                if presentation_semantics is not None
+                else {}
+            ),
         },
         "outputs": [
             {
@@ -229,6 +235,269 @@ def test_v2_compiler_selects_from_typed_context_and_shape(
         data = cast(dict[str, object], block["data"])
         assert isinstance(data["description"], str)
         assert data["exact_table"]
+
+
+@pytest.mark.parametrize(
+    ("shape", "rows", "fields", "operation", "output_shape", "kind", "visualization"),
+    (
+        (
+            "temporal_series",
+            [
+                {
+                    "timestamp": f"2026-08-19T00:0{i}:00Z",
+                    "metric": "requests",
+                    "value": i + 1,
+                    "unit": "count",
+                }
+                for i in range(3)
+            ],
+            {},
+            "compare",
+            "temporal_comparison",
+            "time_series",
+            "line",
+        ),
+        (
+            "cumulative_series",
+            [
+                {
+                    "timestamp": f"2026-08-19T00:0{i}:00Z",
+                    "metric": "cost",
+                    "cumulative_value": i + 1,
+                    "unit": "usd",
+                }
+                for i in range(3)
+            ],
+            {},
+            "compare",
+            "temporal_comparison",
+            "time_series",
+            "area",
+        ),
+        (
+            "categorical_comparison",
+            [
+                {"category": "A", "value": 3, "unit": "count"},
+                {"category": "B", "value": 5, "unit": "count"},
+            ],
+            {},
+            "select",
+            "aggregation_table",
+            "bar",
+            "bar",
+        ),
+        (
+            "ranking",
+            [
+                {"rank": 1, "category": "A", "value": 5, "unit": "count"},
+                {"rank": 2, "category": "B", "value": 3, "unit": "count"},
+            ],
+            {},
+            "select",
+            "aggregation_table",
+            "bar",
+            "bar_list",
+        ),
+        (
+            "part_to_whole",
+            [
+                {"category": "A", "value": 3, "total": 10, "unit": "count"},
+                {"category": "B", "value": 7, "total": 10, "unit": "count"},
+            ],
+            {},
+            "select",
+            "aggregation_table",
+            "bar",
+            "donut",
+        ),
+        (
+            "coverage",
+            [{"category": "Observed", "numerator": 8, "denominator": 10}],
+            {},
+            "select",
+            "aggregation_table",
+            "coverage",
+            "category_bar",
+        ),
+        (
+            "role_comparison",
+            [{"baseline": 4, "current": 6, "target": 8, "unit": "seconds"}],
+            {},
+            "compare",
+            "temporal_comparison",
+            "comparison",
+            "comparison_bar",
+        ),
+        (
+            "chronology",
+            [
+                {"timestamp": "2026-08-19T00:00:00Z", "event": "accepted"},
+                {"timestamp": "2026-08-19T00:01:00Z", "event": "verified"},
+            ],
+            {},
+            "select",
+            "topology_graph",
+            "timeline",
+            "tracker",
+        ),
+        (
+            "correlation",
+            [
+                {"name": "A", "latency": 12, "coverage": 94},
+                {"name": "B", "latency": 28, "coverage": 88},
+            ],
+            {"label": "name", "x": "latency", "y": "coverage"},
+            "select",
+            "aggregation_table",
+            "scatter",
+            None,
+        ),
+        (
+            "categorical_matrix",
+            [
+                {"day": "Mon", "window": "AM", "count": 3},
+                {"day": "Tue", "window": "PM", "count": 5},
+            ],
+            {"row": "window", "column": "day", "value": "count"},
+            "select",
+            "aggregation_table",
+            "heatmap",
+            None,
+        ),
+    ),
+)
+def test_v2_compiler_runs_ten_ontology_visualization_scenarios(
+    shape: str,
+    rows: list[Mapping[str, object]],
+    fields: Mapping[str, str],
+    operation: str,
+    output_shape: str,
+    kind: str,
+    visualization: str | None,
+) -> None:
+    artifact = compile_presentation_artifact_v2(
+        semantic=_SEMANTIC,
+        technical_details=_details(
+            rows,
+            operation=operation,
+            output_shape=output_shape,
+            presentation_semantics={"shape": shape, "fields": fields},
+        ),
+        locale="en",
+    )
+    assert artifact is not None
+    block = cast(list[dict[str, object]], artifact["blocks"])[0]
+    assert block["kind"] == kind
+    data = cast(dict[str, object], block["data"])
+    if visualization is not None:
+        assert data["visualization"] == visualization
+    assert data["exact_table"]
+
+
+def test_v2_compiler_rejects_unrecognized_presentation_semantics() -> None:
+    details = _details(
+        [{"category": "A", "value": 3, "unit": "count"}],
+        presentation_semantics={"shape": "invented_chart", "fields": {}},
+    )
+    assert (
+        compile_presentation_artifact_v2(
+            semantic=_SEMANTIC,
+            technical_details=details,
+            locale="en",
+        )
+        is None
+    )
+
+
+def test_v2_compiler_rejects_evidence_refs_that_exceed_the_artifact_bound() -> None:
+    semantic = {
+        **_SEMANTIC,
+        "evidence_refs": [f"ontology-function:evidence-{index}" for index in range(9)],
+    }
+
+    assert (
+        compile_presentation_artifact_v2(
+            semantic=semantic,
+            technical_details=_details(
+                [
+                    {"category": "A", "value": 3, "unit": "count"},
+                    {"category": "B", "value": 5, "unit": "count"},
+                ]
+            ),
+            locale="en",
+        )
+        is None
+    )
+
+
+def test_v2_compiler_rejects_cells_that_exceed_the_exact_value_bound() -> None:
+    assert (
+        compile_presentation_artifact_v2(
+            semantic=_SEMANTIC,
+            technical_details=_details(
+                [
+                    {"category": "A" * 600, "value": 3, "unit": "count"},
+                    {"category": "B", "value": 5, "unit": "count"},
+                ]
+            ),
+            locale="en",
+        )
+        is None
+    )
+
+
+@pytest.mark.parametrize(
+    "presentation_semantics",
+    (
+        {"shape": "temporal_series", "fields": {"x": "value"}},
+        {
+            "shape": "correlation",
+            "fields": {
+                "label": "name",
+                "x": "latency",
+                "y": "coverage",
+                "color": "name",
+            },
+        },
+        {
+            "shape": "categorical_matrix",
+            "fields": {"row": "window", "column": "day"},
+        },
+    ),
+)
+def test_v2_compiler_rejects_fields_not_owned_by_the_semantic_shape(
+    presentation_semantics: Mapping[str, object],
+) -> None:
+    details = _details(
+        [
+            {
+                "name": "A",
+                "latency": 12,
+                "coverage": 94,
+                "window": "AM",
+                "day": "Mon",
+                "value": 1,
+            },
+            {
+                "name": "B",
+                "latency": 28,
+                "coverage": 88,
+                "window": "PM",
+                "day": "Tue",
+                "value": 2,
+            },
+        ],
+        presentation_semantics=presentation_semantics,
+    )
+
+    assert (
+        compile_presentation_artifact_v2(
+            semantic=_SEMANTIC,
+            technical_details=details,
+            locale="en",
+        )
+        is None
+    )
 
 
 def test_unit_mismatch_and_missing_values_fall_back_without_coercion() -> None:

@@ -44,6 +44,17 @@ class _Appender:
         self.turns[turn.turn_id] = turn
 
 
+class _Audit:
+    def __init__(self) -> None:
+        self.events: list[str] = []
+
+    async def record_completed(self, attempt: BackgroundTaskAttempt) -> None:
+        self.events.append(f"completed:{attempt.attempt_id}")
+
+    async def record_delivery_enqueued(self, attempt: BackgroundTaskAttempt) -> None:
+        self.events.append(f"delivery-enqueued:{attempt.attempt_id}")
+
+
 def _task() -> BackgroundTask:
     return BackgroundTask(
         task_id="task-1",
@@ -92,10 +103,15 @@ def _attempt(
     )
 
 
-def _sink(appender: _Appender, store: InMemoryConversationDeliveryStore):
+def _sink(
+    appender: _Appender,
+    store: InMemoryConversationDeliveryStore,
+    audit: _Audit | None = None,
+):
     return ConversationCompletionSink(
         appender=appender,
         deliveries=store,
+        audit=audit or _Audit(),
         scope_ref="scope-1",
         binding_id="binding-1",
         clock=lambda: NOW,
@@ -105,8 +121,9 @@ def _sink(appender: _Appender, store: InMemoryConversationDeliveryStore):
 async def test_publish_appends_the_turn_and_submits_one_reply() -> None:
     appender = _Appender()
     store = InMemoryConversationDeliveryStore()
+    audit = _Audit()
 
-    await _sink(appender, store).publish(_attempt())
+    await _sink(appender, store, audit).publish(_attempt())
 
     (turn,) = appender.turns.values()
     assert turn.text.startswith("[Background task result: completed]")
@@ -117,6 +134,7 @@ async def test_publish_appends_the_turn_and_submits_one_reply() -> None:
     assert len(snapshot.deliveries) == 1
     assert snapshot.deliveries[0].conversation_id == "conversation-1"
     assert snapshot.deliveries[0].principal_id == "principal-1"
+    assert audit.events == ["completed:attempt-1", "delivery-enqueued:attempt-1"]
 
 
 async def test_replay_reuses_the_same_turn_and_delivery() -> None:
@@ -229,3 +247,18 @@ async def test_delivery_failure_is_recoverable_without_duplicating_the_turn() ->
     assert len(appender.turns) == 1
     snapshot = await store.snapshot()
     assert len(snapshot.deliveries) == 1
+
+
+async def test_delivery_failure_does_not_record_enqueued_audit() -> None:
+    class _FailingStore(InMemoryConversationDeliveryStore):
+        async def put(self, record: OutboundDeliveryRecord) -> OutboundDeliveryRecord:
+            del record
+            raise RuntimeError("delivery store unavailable")
+
+    appender = _Appender()
+    audit = _Audit()
+
+    with pytest.raises(RuntimeError, match="delivery store unavailable"):
+        await _sink(appender, _FailingStore(), audit).publish(_attempt())
+
+    assert audit.events == ["completed:attempt-1"]

@@ -294,6 +294,7 @@ async def test_scope_coverage_counts_unmapped_provider_types_without_materializi
 
     assert observed_query.startswith("Resources | summarize resource_count=count()")
     assert "| union (ResourceContainers" in observed_query
+    assert "| union (AuthorizationResources" in observed_query
     assert "microsoft.resources/subscriptions/resourcegroups" in observed_query
     assert coverage.provider_object_count == 6
     assert coverage.mapped_provider_object_count == 3
@@ -1572,6 +1573,18 @@ def test_subscription_query_uses_resource_containers() -> None:
     assert "type =~ 'Microsoft.Resources/subscriptions'" in query
 
 
+def test_role_assignment_query_uses_authorization_resources() -> None:
+    factory = AzureArgQueryFactory(
+        identity=_identity(),
+        resource_types=_vocab(),
+        http_client=httpx.AsyncClient(),
+        config=AzureArgQueryFactoryConfig(subscription_scopes=("sub-1",)),
+    )
+    query = factory._build_query(arm_type="Microsoft.Authorization/roleAssignments")
+    assert query.startswith("AuthorizationResources |")
+    assert "type =~ 'Microsoft.Authorization/roleAssignments'" in query
+
+
 def test_subscription_neutral_id_is_the_scope_anchor() -> None:
     from fdai.delivery.azure.arg_query import _to_neutral_id
 
@@ -1855,9 +1868,16 @@ async def test_subnet_shard_queries_vnets_and_materializes_nested_records() -> N
         "/subscriptions/00000000-0000-0000-0000-000000000001/"
         "resourceGroups/rg-example/providers/Microsoft.Network/virtualNetworks/vnet-example"
     )
+    nsg_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-example/providers/Microsoft.Network/"
+        "networkSecurityGroups/nsg-example"
+    )
 
     def _handler(request: httpx.Request) -> httpx.Response:
-        assert "Microsoft.Network/virtualNetworks" in str(request.read())
+        request_body = str(request.read())
+        assert "Microsoft.Network/virtualNetworks" in request_body
+        assert "identity" in request_body
         return httpx.Response(
             200,
             json={
@@ -1868,7 +1888,13 @@ async def test_subnet_shard_queries_vnets_and_materializes_nested_records() -> N
                         extra={
                             "resourceGroup": "rg-example",
                             "properties": {
-                                "subnets": [{"id": f"{vnet_id}/subnets/app", "name": "app"}]
+                                "subnets": [
+                                    {
+                                        "id": f"{vnet_id}/subnets/app",
+                                        "name": "app",
+                                        "properties": {"networkSecurityGroup": {"id": nsg_id}},
+                                    }
+                                ]
                             },
                         },
                     )
@@ -1886,9 +1912,10 @@ async def test_subnet_shard_queries_vnets_and_materializes_nested_records() -> N
         resources, links = await factory.build_query_fn()("network.subnet")
 
     assert [resource.type for resource in resources] == ["network.subnet"]
-    assert [(link.from_type, link.link_type, link.to_type) for link in links] == [
-        ("network.vnet", "contains", "network.subnet")
-    ]
+    assert {(link.from_type, link.link_type, link.to_type) for link in links} == {
+        ("network.subnet", "attached_to", "network.nsg"),
+        ("network.vnet", "contains", "network.subnet"),
+    }
 
 
 def test_extract_attached_to_from_subnet_reference() -> None:
@@ -2214,6 +2241,525 @@ def test_reviewed_mapping_drives_vm_attachment_orientation() -> None:
     ]
     assert attached[0].mapping_evidence is not None
     assert attached[0].mapping_evidence.mapping_id == "azure.vm-nic-attached-to-vm"
+
+
+def test_reviewed_mapping_projects_container_app_environment_dependency() -> None:
+    from pathlib import Path
+
+    from fdai.delivery.azure.arg_projection import (
+        arm_id_to_type,
+        build_arm_to_neutral_map,
+        to_neutral_id,
+    )
+    from fdai.delivery.azure.arg_relationships import project_provider_relationships
+    from fdai.rule_catalog.schema.provider_relationship_mapping import (
+        load_provider_relationship_mapping_catalog,
+    )
+
+    catalog = load_provider_relationship_mapping_catalog(
+        Path("rule-catalog/vocabulary/provider-relationship-mappings")
+    )
+    reverse = build_arm_to_neutral_map(_vocab())
+    app_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-example/providers/Microsoft.App/containerApps/app-example"
+    )
+    environment_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-example/providers/Microsoft.App/managedEnvironments/env-example"
+    )
+    owner = ResourceRecord(
+        resource_id=to_neutral_id(app_id),
+        type="compute.container-app",
+        provider_ref=app_id,
+    )
+
+    result = project_provider_relationships(
+        {
+            "id": app_id,
+            "type": "Microsoft.App/containerApps",
+            "properties": {"managedEnvironmentId": environment_id},
+        },
+        owner=owner,
+        arm_to_neutral=reverse,
+        catalog=catalog,
+        arm_id_to_type=arm_id_to_type,
+        to_neutral_id=to_neutral_id,
+    )
+
+    dependencies = [link for link in result.links if link.link_type == "depends_on"]
+    assert result.dropped == ()
+    assert [(link.from_id, link.to_id) for link in dependencies] == [
+        (owner.resource_id, to_neutral_id(environment_id))
+    ]
+    assert dependencies[0].mapping_evidence is not None
+    assert dependencies[0].mapping_evidence.mapping_id == (
+        "azure.container-app-depends-on-managed-environment"
+    )
+    assert dependencies[0].mapping_evidence.source_property_path == (
+        "properties.managedEnvironmentId"
+    )
+
+
+def test_reviewed_mapping_reads_user_assigned_identity_map_keys() -> None:
+    from pathlib import Path
+
+    from fdai.delivery.azure.arg_projection import (
+        arm_id_to_type,
+        build_arm_to_neutral_map,
+        to_neutral_id,
+    )
+    from fdai.delivery.azure.arg_relationships import project_provider_relationships
+    from fdai.rule_catalog.schema.provider_relationship_mapping import (
+        load_provider_relationship_mapping_catalog,
+    )
+
+    catalog = load_provider_relationship_mapping_catalog(
+        Path("rule-catalog/vocabulary/provider-relationship-mappings")
+    )
+    reverse = build_arm_to_neutral_map(_vocab())
+    app_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-example/providers/Microsoft.App/containerApps/app-example"
+    )
+    identity_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-example/providers/Microsoft.ManagedIdentity/"
+        "userAssignedIdentities/id-example"
+    )
+    owner = ResourceRecord(
+        resource_id=to_neutral_id(app_id),
+        type="compute.container-app",
+        provider_ref=app_id,
+    )
+
+    result = project_provider_relationships(
+        {
+            "id": app_id,
+            "type": "Microsoft.App/containerApps",
+            "identity": {"userAssignedIdentities": {identity_id: {}}},
+        },
+        owner=owner,
+        arm_to_neutral=reverse,
+        catalog=catalog,
+        arm_id_to_type=arm_id_to_type,
+        to_neutral_id=to_neutral_id,
+    )
+
+    identity_links = [
+        link
+        for link in result.links
+        if link.mapping_evidence is not None
+        and link.mapping_evidence.mapping_id == "azure.resource-attached-to-managed-identity"
+    ]
+    assert [(link.from_id, link.to_id, link.link_type) for link in identity_links] == [
+        (owner.resource_id, to_neutral_id(identity_id), "attached_to")
+    ]
+
+
+def test_reviewed_mapping_projects_private_dns_zone_parent() -> None:
+    from pathlib import Path
+
+    from fdai.delivery.azure.arg_projection import (
+        arm_id_to_type,
+        build_arm_to_neutral_map,
+        to_neutral_id,
+    )
+    from fdai.delivery.azure.arg_relationships import project_provider_relationships
+    from fdai.rule_catalog.schema.provider_relationship_mapping import (
+        load_provider_relationship_mapping_catalog,
+    )
+
+    catalog = load_provider_relationship_mapping_catalog(
+        Path("rule-catalog/vocabulary/provider-relationship-mappings")
+    )
+    reverse = build_arm_to_neutral_map(_vocab())
+    zone_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-example/providers/Microsoft.Network/"
+        "privateDnsZones/privatelink.example.com"
+    )
+    link_id = f"{zone_id}/virtualNetworkLinks/link-example"
+    owner = ResourceRecord(
+        resource_id=to_neutral_id(link_id),
+        type="network.private-dns-zone-link",
+        provider_ref=link_id,
+    )
+
+    result = project_provider_relationships(
+        {
+            "id": link_id,
+            "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+        },
+        owner=owner,
+        arm_to_neutral=reverse,
+        catalog=catalog,
+        arm_id_to_type=arm_id_to_type,
+        to_neutral_id=to_neutral_id,
+    )
+
+    parent_links = [
+        link
+        for link in result.links
+        if link.mapping_evidence is not None
+        and link.mapping_evidence.mapping_id == "azure.private-dns-zone-contains-vnet-link"
+    ]
+    assert [(link.from_id, link.to_id, link.link_type) for link in parent_links] == [
+        (to_neutral_id(zone_id), owner.resource_id, "contains")
+    ]
+
+
+def test_reviewed_mapping_projects_role_assignment_scope() -> None:
+    from pathlib import Path
+
+    from fdai.delivery.azure.arg_projection import (
+        arm_id_to_type,
+        build_arm_to_neutral_map,
+        to_neutral_id,
+    )
+    from fdai.delivery.azure.arg_relationships import project_provider_relationships
+    from fdai.rule_catalog.schema.provider_relationship_mapping import (
+        load_provider_relationship_mapping_catalog,
+    )
+
+    catalog = load_provider_relationship_mapping_catalog(
+        Path("rule-catalog/vocabulary/provider-relationship-mappings")
+    )
+    reverse = build_arm_to_neutral_map(_vocab())
+    scope_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-example/providers/Microsoft.KeyVault/vaults/vault-example"
+    )
+    assignment_id = (
+        f"{scope_id}/providers/Microsoft.Authorization/roleAssignments/"
+        "00000000-0000-0000-0000-000000000002"
+    )
+    owner = ResourceRecord(
+        resource_id=to_neutral_id(assignment_id),
+        type="authorization.role-assignment",
+        provider_ref=assignment_id,
+    )
+
+    result = project_provider_relationships(
+        {
+            "id": assignment_id,
+            "type": "Microsoft.Authorization/roleAssignments",
+            "properties": {"scope": scope_id},
+        },
+        owner=owner,
+        arm_to_neutral=reverse,
+        catalog=catalog,
+        arm_id_to_type=arm_id_to_type,
+        to_neutral_id=to_neutral_id,
+    )
+
+    scope_links = [
+        link
+        for link in result.links
+        if link.mapping_evidence is not None
+        and link.mapping_evidence.mapping_id == "azure.role-assignment-attached-to-scope"
+    ]
+    assert [(link.from_id, link.to_id, link.link_type) for link in scope_links] == [
+        (owner.resource_id, to_neutral_id(scope_id), "attached_to")
+    ]
+
+
+def test_reviewed_mapping_ignores_unmatched_role_assignment_principal() -> None:
+    from pathlib import Path
+
+    from fdai.delivery.azure.arg_projection import (
+        arm_id_to_type,
+        build_arm_to_neutral_map,
+        to_neutral_id,
+    )
+    from fdai.delivery.azure.arg_relationships import project_provider_relationships
+    from fdai.rule_catalog.schema.provider_relationship_mapping import (
+        load_provider_relationship_mapping_catalog,
+    )
+
+    catalog = load_provider_relationship_mapping_catalog(
+        Path("rule-catalog/vocabulary/provider-relationship-mappings")
+    )
+    assignment_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/providers/"
+        "Microsoft.Authorization/roleAssignments/"
+        "00000000-0000-0000-0000-000000000002"
+    )
+    owner = ResourceRecord(
+        resource_id=to_neutral_id(assignment_id),
+        type="authorization.role-assignment",
+        provider_ref=assignment_id,
+    )
+
+    result = project_provider_relationships(
+        {
+            "id": assignment_id,
+            "type": "Microsoft.Authorization/roleAssignments",
+            "properties": {"principalId": "00000000-0000-0000-0000-000000000003"},
+        },
+        owner=owner,
+        arm_to_neutral=build_arm_to_neutral_map(_vocab()),
+        catalog=catalog,
+        arm_id_to_type=arm_id_to_type,
+        to_neutral_id=to_neutral_id,
+        external_reference_resolver=lambda _reference: None,
+        source_identity="azure-resource-graph-complete-generation",
+    )
+
+    assert result.links == ()
+    assert result.dropped == ()
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "plain.topic.name",
+        "user@example.com",
+        "redis://127.0.0.1:6379/0",
+        "http://localhost:8080",
+        "https://app.example.com,http://localhost:3000",
+        (
+            "/subscriptions/00000000-0000-0000-0000-000000000001/"
+            "resourceGroups/rg-example/providers/Microsoft.Network/"
+            "virtualNetworks/vnet-example/subnets/subnet-example"
+        ),
+    ],
+)
+def test_reviewed_mapping_ignores_unresolved_non_resource_environment_values(
+    value: str,
+) -> None:
+    from pathlib import Path
+
+    from fdai.delivery.azure.arg_projection import (
+        arm_id_to_type,
+        build_arm_to_neutral_map,
+        to_neutral_id,
+    )
+    from fdai.delivery.azure.arg_relationships import project_provider_relationships
+    from fdai.rule_catalog.schema.provider_relationship_mapping import (
+        load_provider_relationship_mapping_catalog,
+    )
+
+    catalog = load_provider_relationship_mapping_catalog(
+        Path("rule-catalog/vocabulary/provider-relationship-mappings")
+    )
+    app_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-example/providers/Microsoft.App/containerApps/app-example"
+    )
+    owner = ResourceRecord(
+        resource_id=to_neutral_id(app_id),
+        type="compute.container-app",
+        provider_ref=app_id,
+    )
+
+    result = project_provider_relationships(
+        {
+            "id": app_id,
+            "type": "Microsoft.App/containerApps",
+            "properties": {"template": {"containers": [{"env": [{"value": value}]}]}},
+        },
+        owner=owner,
+        arm_to_neutral=build_arm_to_neutral_map(_vocab()),
+        catalog=catalog,
+        arm_id_to_type=arm_id_to_type,
+        to_neutral_id=to_neutral_id,
+        external_reference_resolver=lambda _reference: None,
+        source_identity="azure-resource-graph-complete-generation",
+    )
+
+    assert result.links == ()
+    assert result.dropped == ()
+
+
+def test_reviewed_mapping_keeps_external_environment_endpoint_unavailable() -> None:
+    from pathlib import Path
+
+    from fdai.delivery.azure.arg_projection import (
+        arm_id_to_type,
+        build_arm_to_neutral_map,
+        to_neutral_id,
+    )
+    from fdai.delivery.azure.arg_relationships import project_provider_relationships
+    from fdai.rule_catalog.schema.provider_relationship_mapping import (
+        load_provider_relationship_mapping_catalog,
+    )
+    from fdai.shared.providers.inventory import RelationshipDropReason
+
+    catalog = load_provider_relationship_mapping_catalog(
+        Path("rule-catalog/vocabulary/provider-relationship-mappings")
+    )
+    app_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-example/providers/Microsoft.App/containerApps/app-example"
+    )
+    owner = ResourceRecord(
+        resource_id=to_neutral_id(app_id),
+        type="compute.container-app",
+        provider_ref=app_id,
+    )
+
+    result = project_provider_relationships(
+        {
+            "id": app_id,
+            "type": "Microsoft.App/containerApps",
+            "properties": {
+                "template": {
+                    "containers": [{"env": [{"value": "https://external.example.com/api"}]}]
+                }
+            },
+        },
+        owner=owner,
+        arm_to_neutral=build_arm_to_neutral_map(_vocab()),
+        catalog=catalog,
+        arm_id_to_type=arm_id_to_type,
+        to_neutral_id=to_neutral_id,
+        external_reference_resolver=lambda _reference: None,
+        source_identity="azure-resource-graph-complete-generation",
+    )
+
+    assert result.links == ()
+    assert [drop.reason for drop in result.dropped] == [RelationshipDropReason.UNRESOLVED_REFERENCE]
+
+
+@pytest.mark.parametrize(
+    ("scope_id", "expected_type"),
+    [
+        (
+            "/subscriptions/00000000-0000-0000-0000-000000000001",
+            "subscription",
+        ),
+        (
+            "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-example",
+            "resource-group",
+        ),
+    ],
+)
+def test_reviewed_mapping_projects_providerless_role_assignment_scope(
+    scope_id: str,
+    expected_type: str,
+) -> None:
+    from pathlib import Path
+
+    from fdai.delivery.azure.arg_projection import (
+        arm_id_to_type,
+        build_arm_to_neutral_map,
+        to_neutral_id,
+    )
+    from fdai.delivery.azure.arg_relationships import project_provider_relationships
+    from fdai.rule_catalog.schema.provider_relationship_mapping import (
+        load_provider_relationship_mapping_catalog,
+    )
+
+    catalog = load_provider_relationship_mapping_catalog(
+        Path("rule-catalog/vocabulary/provider-relationship-mappings")
+    )
+    assignment_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/providers/"
+        "Microsoft.Authorization/roleAssignments/"
+        "00000000-0000-0000-0000-000000000002"
+    )
+    owner = ResourceRecord(
+        resource_id=to_neutral_id(assignment_id),
+        type="authorization.role-assignment",
+        provider_ref=assignment_id,
+    )
+
+    result = project_provider_relationships(
+        {
+            "id": assignment_id,
+            "type": "Microsoft.Authorization/roleAssignments",
+            "properties": {"scope": scope_id},
+        },
+        owner=owner,
+        arm_to_neutral=build_arm_to_neutral_map(_vocab()),
+        catalog=catalog,
+        arm_id_to_type=arm_id_to_type,
+        to_neutral_id=to_neutral_id,
+    )
+
+    assert [
+        (link.to_id, link.to_type)
+        for link in result.links
+        if link.mapping_evidence is not None
+        and link.mapping_evidence.mapping_id == "azure.role-assignment-attached-to-scope"
+    ] == [(to_neutral_id(scope_id), expected_type)]
+
+
+def test_reviewed_mapping_projects_private_dns_zone_group_closure() -> None:
+    from pathlib import Path
+
+    from fdai.delivery.azure.arg_projection import (
+        arm_id_to_type,
+        build_arm_to_neutral_map,
+        to_neutral_id,
+    )
+    from fdai.delivery.azure.arg_relationships import project_provider_relationships
+    from fdai.rule_catalog.schema.provider_relationship_mapping import (
+        load_provider_relationship_mapping_catalog,
+    )
+
+    catalog = load_provider_relationship_mapping_catalog(
+        Path("rule-catalog/vocabulary/provider-relationship-mappings")
+    )
+    reverse = build_arm_to_neutral_map(_vocab())
+    endpoint_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-example/providers/Microsoft.Network/privateEndpoints/pe-example"
+    )
+    group_id = f"{endpoint_id}/privateDnsZoneGroups/default"
+    zone_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-example/providers/Microsoft.Network/"
+        "privateDnsZones/privatelink.example.com"
+    )
+    owner = ResourceRecord(
+        resource_id=to_neutral_id(group_id),
+        type="network.private-dns-zone-group",
+        provider_ref=group_id,
+    )
+
+    result = project_provider_relationships(
+        {
+            "id": group_id,
+            "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+            "properties": {
+                "privateDnsZoneConfigs": [{"properties": {"privateDnsZoneId": zone_id}}]
+            },
+        },
+        owner=owner,
+        arm_to_neutral=reverse,
+        catalog=catalog,
+        arm_id_to_type=arm_id_to_type,
+        to_neutral_id=to_neutral_id,
+        source_identity="azure-resource-manager-network",
+        observed_schema_digest=(
+            "sha256:85f648ec3f355e57c946e3e7fafad89e5b06ac8b8804eaa6ebba779a6aa939fb"
+        ),
+    )
+
+    assert {
+        (
+            link.mapping_evidence.mapping_id if link.mapping_evidence is not None else None,
+            link.from_id,
+            link.link_type,
+            link.to_id,
+        )
+        for link in result.links
+    } == {
+        (
+            "azure.private-endpoint-contains-dns-zone-group",
+            to_neutral_id(endpoint_id),
+            "contains",
+            owner.resource_id,
+        ),
+        (
+            "azure.private-dns-zone-group-attached-to-zone",
+            owner.resource_id,
+            "attached_to",
+            to_neutral_id(zone_id),
+        ),
+    }
 
 
 def test_reviewed_mapping_does_not_make_resource_group_contain_itself() -> None:

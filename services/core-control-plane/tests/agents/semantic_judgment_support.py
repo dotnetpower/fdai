@@ -39,6 +39,7 @@ class FrozenSemanticJudgmentModel:
         explicit_agents = _explicit_agent_targets(utterance, folded)
         targets: list[dict[str, object]] = []
         action_posture = "advise_only"
+        action_subject = "none"
         if action is not None:
             targets.append(action)
             resource = _RESOURCE.search(utterance)
@@ -53,6 +54,7 @@ class FrozenSemanticJudgmentModel:
                 )
             primary_intent = "action_request"
             action_posture = "draft_only"
+            action_subject = "ActionType"
         elif explicit_agents:
             targets.extend(explicit_agents)
             primary_intent = "open_question"
@@ -69,6 +71,7 @@ class FrozenSemanticJudgmentModel:
             "unresolved_terms": [],
             "clarification": None,
             "action_posture": action_posture,
+            "action_subject": action_subject,
             "execution_authority": False,
         }
 

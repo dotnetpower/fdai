@@ -45,11 +45,26 @@ class ProjectionReader(Protocol):
 
 
 @dataclass(frozen=True, slots=True)
+class InventoryRelationshipDropClassification:
+    """One sanitized mapping-specific relationship coverage gap."""
+
+    reason: str
+    mapping_id: str
+    source_property_path: str
+    source_provider_type: str
+    target_provider_type: str
+    unavailable_reason: str
+    count: int
+
+
+@dataclass(frozen=True, slots=True)
 class InventoryImpactContext:
     """Exact active inventory generation and its authoritative observation cutoff."""
 
     snapshot_id: str
     observed_at: datetime
+    relationship_drop_reasons: tuple[str, ...] = ()
+    relationship_drop_classifications: tuple[InventoryRelationshipDropClassification, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -89,6 +104,114 @@ class InventoryImpactReader(Protocol):
         limit: int,
     ) -> InventoryImpactLinkPage:
         """Return stored-direction links from one bounded frontier."""
+        ...
+
+
+@dataclass(frozen=True, slots=True)
+class InventoryInstanceResource:
+    """One active-snapshot Resource row for bounded instance exploration."""
+
+    resource_id: str
+    resource_type: str
+    properties: Mapping[str, object]
+    last_seen: datetime | None
+
+
+@dataclass(frozen=True, slots=True)
+class InventoryRelationshipEvidence:
+    """Allowlisted provider configuration provenance for one inventory relationship."""
+
+    source_identity: str
+    source_property_path: str
+    mapping_id: str
+    evidence_method: str
+    freshness_ceiling_seconds: int
+
+
+@dataclass(frozen=True, slots=True)
+class InventoryInstanceEdge:
+    """One instance relationship with optional provider configuration provenance."""
+
+    source: str
+    target: str
+    link_type: str
+    evidence: InventoryRelationshipEvidence | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class InventoryInstanceNeighborhood:
+    """One exact root and its bounded bidirectional inventory neighborhood."""
+
+    resources: tuple[InventoryInstanceResource, ...]
+    edges: tuple[InventoryInstanceEdge, ...]
+    truncated: bool
+    truncation_reasons: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class InventoryInstanceResourcePage:
+    """One deterministic active-generation Resource directory page."""
+
+    resources: tuple[InventoryInstanceResource, ...]
+    truncated: bool
+
+
+@dataclass(frozen=True, slots=True)
+class InventoryInstanceActivity:
+    """One sanitized durable activity record bound to an exact Resource identity."""
+
+    sequence: int
+    action_kind: str
+    actor: str
+    recorded_at: datetime
+    correlation_id: str | None
+    facts: Mapping[str, str]
+
+
+@dataclass(frozen=True, slots=True)
+class InventoryInstanceActivityPage:
+    """A newest-first bounded activity page with explicit truncation state."""
+
+    activities: tuple[InventoryInstanceActivity, ...]
+    truncated: bool
+
+
+class InventoryInstanceReader(Protocol):
+    """Read the active Resource neighborhood and durable activity without mutation authority."""
+
+    async def read_inventory_impact_context(self) -> InventoryImpactContext | None:
+        """Return the active inventory generation shared by graph and Resource rows."""
+        ...
+
+    async def read_inventory_instance_neighborhood(
+        self,
+        *,
+        snapshot_id: str,
+        root_id: str,
+        link_types: tuple[str, ...],
+        depth: int,
+        limit: int,
+    ) -> InventoryInstanceNeighborhood:
+        """Return a bounded bidirectional neighborhood and all links among its Resources."""
+        ...
+
+    async def read_inventory_instances(
+        self,
+        *,
+        snapshot_id: str,
+        search: str | None,
+        limit: int,
+    ) -> InventoryInstanceResourcePage:
+        """Return a bounded active-generation Resource directory page."""
+        ...
+
+    async def read_inventory_instance_activity(
+        self,
+        *,
+        resource_id: str,
+        limit: int,
+    ) -> InventoryInstanceActivityPage:
+        """Return sanitized exact-resource audit activity in newest-first order."""
         ...
 
 
@@ -210,6 +333,7 @@ __all__ = [
     "InventoryImpactEdge",
     "InventoryImpactLinkPage",
     "InventoryImpactReader",
+    "InventoryRelationshipDropClassification",
     "ProjectionQuery",
     "ProjectionReader",
     "ProjectionNotFoundError",

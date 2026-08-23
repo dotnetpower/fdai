@@ -104,6 +104,22 @@ export const TERMS = {
     tech: "process",
     seeAlso: "workflow-builder",
   },
+  backgroundTask: {
+    term: "background task",
+    plain:
+      "an owner-scoped detached read-only investigation with durable progress and a terminal result; inspecting it grants no cancel, retry, mutation, or execution authority",
+    tech: "background_task",
+    seeAlso: "background-tasks",
+    match: "task_id",
+  },
+  resource: {
+    term: "Resource",
+    plain:
+      "one observed cloud resource identity in the current inventory generation; graph selection and traversal remain read-only",
+    tech: "Resource",
+    seeAlso: "ontology",
+    match: "resource_id",
+  },
   viewSpec: {
     term: "ViewSpec",
     plain:

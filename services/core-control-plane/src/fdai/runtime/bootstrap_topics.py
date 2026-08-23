@@ -1,5 +1,6 @@
 """Assemble the complete logical topic registry for the Core runtime bus."""
 
+from fdai_service_contracts.read_investigation import READ_INVESTIGATION_REQUEST_TOPIC
 from fdai_service_contracts.semantic_turn import (
     SEMANTIC_PROJECTION_TOPIC,
     SEMANTIC_REQUEST_TOPIC,
@@ -13,7 +14,14 @@ from fdai.runtime.bootstrap_bindings import RECONCILIATION_TOPICS, RULE_GENERATI
 RUNTIME_LOGICAL_TOPICS = (
     OWNED_OBJECT_TOPICS
     | AGENT_INTROSPECTION_TOPICS
-    | frozenset({_TRANSITION_TOPIC, SEMANTIC_REQUEST_TOPIC, SEMANTIC_PROJECTION_TOPIC})
+    | frozenset(
+        {
+            _TRANSITION_TOPIC,
+            SEMANTIC_REQUEST_TOPIC,
+            SEMANTIC_PROJECTION_TOPIC,
+            READ_INVESTIGATION_REQUEST_TOPIC,
+        }
+    )
     | RECONCILIATION_TOPICS
     | RULE_GENERATION_TOPICS
 )

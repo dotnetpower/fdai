@@ -126,9 +126,45 @@ def test_semantic_plan_prompt_pins_the_object_set_verifier_envelope() -> None:
 def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> None:
     prompts = FileSystemPromptRegistry(_CATALOG)
     frame = prompts.get_base("semantic.query.frame")
+    judgment = prompts.get_base("semantic.judgment")
     plan = prompts.get_base("semantic.query.plan")
 
-    assert frame.version == 37
+    assert frame.version == 38
+    assert "An exact ActionType target is not required" in judgment.body
+    assert "rollback proposal -> Change" in judgment.body
+    assert "The requested deliverable determines action_subject" in judgment.body
+    assert "uses a linked recovery plan therefore uses Change" in judgment.body
+    assert "value and its source span MUST copy the localized text exactly" in judgment.body
+    assert "source-grounded canonical object_type target" in judgment.body
+    assert "exact supplied query.<LinkType> as primary_intent" in judgment.body
+    assert "both supplied endpoint ObjectTypes" in judgment.body
+    assert "Do not reinterpret an objective definition as observed cost" in judgment.body
+    assert "without execution" in judgment.body
+    assert "operation action_draft and output_shape action_draft" in frame.body
+    assert "a recovery proposal uses RecoveryPlan" in frame.body
+    assert "an authority-boundary refusal uses ActionType" in frame.body
+    assert "The requested deliverable takes precedence" in frame.body
+    assert "Bind time from the requested data plane" in frame.body
+    assert "active operational mappings" in frame.body
+    assert "mixed declaration-and-instance relationship questions" in frame.body
+    assert "declared non-Resource operating object types" in frame.body
+    assert "do not substitute topology_at for that coverage" in frame.body
+    assert "Ground localized operating-object labels" in frame.body
+    assert "never translated display labels" in frame.body
+    assert "trusted bound Incident with retained incident evidence" in frame.body
+    assert 'subject_constraints ["Incident"]' in frame.body
+    assert 'temporal_scope {"kind":"historical"}' in frame.body
+    assert "historical evidence comparison, not explain_change causal diagnosis" in frame.body
+    assert "semantic_judgment primary_intent is query.resource_change_activity" in frame.body
+    assert 'subject_constraints ["Change"]' in frame.body
+    assert 'temporal_scope {"kind":"windowed"}' in frame.body
+    assert "correlates recorded changes without claiming cause" in frame.body
+    assert "A function-only plan is invalid for current mapping coverage" in plan.body
+    assert "All endpoint object sets and the function are output nodes" in plan.body
+    assert "separately schema-validated candidate-only T1 classification" in frame.body
+    assert "Never provide only one or two members of this triple" in frame.body
+    assert "it never converts the request into select" in frame.body
+    assert "never starts, approves, dispatches, completes, or verifies an action" in frame.body
     assert "target_resource_metric and target_resource_metric_series" in frame.body
     assert "aggregate such as average, minimum, maximum, sum, or count" in frame.body
     assert "explicitly requests a trend, time series, graph, chart, or visualization" in frame.body

@@ -19,6 +19,10 @@ const source = readFileSync(
   fileURLToPath(new URL("./command-deck-view.tsx", import.meta.url)),
   "utf8",
 );
+const header = readFileSync(
+  fileURLToPath(new URL("./command-deck-header.tsx", import.meta.url)),
+  "utf8",
+);
 const presenters = readFileSync(
   fileURLToPath(new URL("./command-deck-presenters.tsx", import.meta.url)),
   "utf8",
@@ -40,10 +44,24 @@ describe("Command Deck workspace hierarchy", () => {
   test("opens transcript-first and adds columns only for requested panels", () => {
     expect(source).toContain("const [showConversations, setShowConversations] = useState(false);");
     expect(source).toContain("const [showDigest, setShowDigest] = useState(false);");
-    expect(source).toContain('class="deck-source-readiness-slot"');
+    expect(source).toContain('class="deck-source-readiness-slot cs-deck-source-readiness-slot"');
     expect(sidebarStyles).toContain("grid-template-columns: var(--deck-conversation-width, 240px) minmax(0, 1fr);");
     expect(styles).toContain(".deck-body.has-digest { grid-template-columns: minmax(0, 1fr) 280px; }");
     expect(styles).toMatch(/\.deck-overlay \{[^}]*grid-template-columns: minmax\(0, 1fr\);/s);
+    for (const role of [
+      "cs-deck-workspace-shell",
+      "cs-deck-workspace-header",
+      "cs-deck-source-readiness-slot",
+      "cs-deck-workspace-body",
+      "cs-deck-conversation-panel",
+      "cs-deck-conversation-scrim",
+      "cs-deck-transcript-column",
+      "cs-deck-workspace-toolbar",
+      "cs-deck-digest-panel",
+    ]) {
+      expect(sharedStyles).toContain(`.${role}`);
+      expect(`${source}\n${header}\n${presenters}`).toContain(role);
+    }
   });
 
   test("loads conversation history incrementally", () => {
@@ -107,7 +125,7 @@ describe("Command Deck workspace hierarchy", () => {
     );
     expect(source).toContain("onDismiss={() => setShowConversations(false)}");
     expect(presenters).toContain('class="deck-conversations-dismiss"');
-    expect(source).toContain('class="deck-conversations-scrim"');
+    expect(source).toContain('class="deck-conversations-scrim cs-deck-conversation-scrim"');
     expect(sidebarStyles).toMatch(/@media \(max-width: 1100px\)[\s\S]*\.deck-overlay-mode-workspace \.deck-conversations-scrim \{[^}]*position: absolute;[^}]*inset: 0;[^}]*display: block;/);
   });
 
@@ -133,7 +151,7 @@ describe("Command Deck workspace hierarchy", () => {
 
   test("keeps the latest-message action in the toolbar instead of over transcript content", () => {
     const toolbar = source.slice(
-      source.indexOf('class="deck-transcript-tools"'),
+      source.indexOf('class="deck-transcript-tools cs-deck-workspace-toolbar"'),
       source.indexOf('class="deck-transcript"'),
     );
     expect(toolbar).toContain('class="deck-jump"');

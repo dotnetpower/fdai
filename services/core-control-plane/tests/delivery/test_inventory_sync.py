@@ -21,6 +21,9 @@ from fdai.shared.providers.inventory import (
     InventoryBatch,
     ProviderScopeCoverage,
     ProviderTypeCount,
+    RelationshipDrop,
+    RelationshipDropReason,
+    RelationshipUnavailableReason,
     ResourceRecord,
 )
 from fdai.shared.providers.inventory_snapshot import (
@@ -392,6 +395,51 @@ async def test_promotion_observer_receives_verified_kubernetes_relationships() -
         link.observation_metadata is not None and link.observation_metadata.verified
         for link in observed[0].links
     )
+
+
+async def test_promotion_manifest_preserves_relationship_coverage_gaps() -> None:
+    store = _Store()
+    await InventorySyncCoordinator(store=store).run(
+        [
+            _source(
+                "arg",
+                _Inventory(
+                    [
+                        InventoryBatch(
+                            relationship_drops=(
+                                RelationshipDrop(
+                                    reason=RelationshipDropReason.UNRESOLVED_REFERENCE,
+                                    mapping_id="azure.example-depends-on-target",
+                                    source_property_path="properties.target",
+                                    source_provider_type="Microsoft.Example/widgets",
+                                    unavailable_reason=(
+                                        RelationshipUnavailableReason.REFERENCE_NOT_OBSERVED
+                                    ),
+                                ),
+                            ),
+                            final=True,
+                        )
+                    ]
+                ),
+            )
+        ]
+    )
+
+    assert store.promoted_manifests[0].metadata["relationship_complete"] is False
+    assert store.promoted_manifests[0].metadata["relationship_drop_reasons"] == [
+        "unresolved_reference"
+    ]
+    assert store.promoted_manifests[0].metadata["relationship_drop_classifications"] == [
+        {
+            "reason": "unresolved_reference",
+            "mapping_id": "azure.example-depends-on-target",
+            "source_property_path": "properties.target",
+            "source_provider_type": "Microsoft.Example/widgets",
+            "target_provider_type": "unresolved",
+            "unavailable_reason": "reference_not_observed",
+            "count": 1,
+        }
+    ]
 
 
 async def test_promotion_observer_is_not_called_for_a_failed_stream() -> None:

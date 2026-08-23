@@ -87,14 +87,15 @@ locals {
   tags = merge(local.base_tags, var.additional_tags)
 
   # Kafka topics served by Event Hubs (see docs/roadmap/deployment/deploy-and-onboard.md § Event Source Subscription).
-  canary_topic                   = "fdai.control.canary"
-  inventory_raw_topic            = "fdai.inventory.raw"
-  startup_probe_topic            = "runtime.startup.probe"
-  executor_command_topic         = "object.executor-command"
-  executor_receipt_topic         = "object.executor-receipt"
-  semantic_turn_request_topic    = "operator.semantic-turn.requests"
-  semantic_turn_projection_topic = "core.semantic-turn.projections"
-  semantic_turn_physical_topic   = "fdai.pantheon.objects"
+  canary_topic                     = "fdai.control.canary"
+  inventory_raw_topic              = "fdai.inventory.raw"
+  startup_probe_topic              = "runtime.startup.probe"
+  executor_command_topic           = "object.executor-command"
+  executor_receipt_topic           = "object.executor-receipt"
+  semantic_turn_request_topic      = "operator.semantic-turn.requests"
+  semantic_turn_projection_topic   = "core.semantic-turn.projections"
+  semantic_turn_physical_topic     = "fdai.pantheon.objects"
+  read_investigation_request_topic = "operator.read-investigation.requests"
   event_topics = [
     "fdai.change.events",
     "fdai.dr.events",
@@ -360,10 +361,9 @@ module "notification_identity" {
 # the API image and read the state-store DSN, but receives no VM Run Command or
 # mutation role. This preserves the console/proposal identity boundary.
 module "operator_api_identity" {
-  count  = var.enable_operator_api ? 1 : 0
-  source = "./modules/identity/user-assigned-mi"
-  # Keep the pre-rename physical name so existing deployments are not replaced.
-  name                = "id-${var.workload}${local.full_suffix}-readapi"
+  count               = var.enable_operator_api ? 1 : 0
+  source              = "./modules/identity/user-assigned-mi"
+  name                = "id-${var.workload}${local.full_suffix}-operator-api"
   resource_group_name = module.resource_group.name
   location            = var.region
   tags                = local.tags
@@ -1790,6 +1790,7 @@ module "compute" {
   semantic_turn_request_topic         = local.semantic_turn_request_topic
   semantic_turn_projection_topic      = local.semantic_turn_projection_topic
   semantic_turn_physical_topic        = local.semantic_turn_physical_topic
+  read_investigation_request_topic    = local.read_investigation_request_topic
   postgres_host                       = module.state_store.fqdn
   postgres_database                   = module.state_store.database_name
   runtime_env                         = var.env == "" ? "dev" : var.env
@@ -2079,24 +2080,29 @@ module "llm_private_endpoint" {
 }
 
 # -----------------------------------------------------------------------
-# Phase-4 continuous measurement - two Container Apps Jobs that wire the
-# regression detector + pattern-growth intake into scheduled runs.
+# Phase-4 continuous measurement - baseline and growth jobs plus an optional
+# operational-promotion evidence measurement job.
 # The jobs share the same Container Apps env + user-assigned MI as the
 # core app + rule watcher (least privilege - no extra role assignments).
 # -----------------------------------------------------------------------
 module "measurement_runners" {
   source = "./modules/measurement-runners"
 
-  baseline_job_name            = "caj-${var.workload}${local.full_suffix}-baseline"
-  growth_job_name              = "caj-${var.workload}${local.full_suffix}-growth"
-  container_app_environment_id = module.compute.environment_id
-  location                     = var.region
-  resource_group_name          = module.resource_group.name
-  executor_identity_id         = module.identity.resource_id
-  image                        = var.core_image
-  acr_login_server             = module.container_registry.login_server
-  scenario_set_version         = var.measurement_scenario_set_version
-  state_store_dsn_secret_id    = azurerm_key_vault_secret.state_store_dsn.id
+  baseline_job_name                   = "caj-${var.workload}${local.full_suffix}-baseline"
+  growth_job_name                     = "caj-${var.workload}${local.full_suffix}-growth"
+  operational_promotion_job_name      = "caj-${var.workload}${local.full_suffix}-promotion"
+  container_app_environment_id        = module.compute.environment_id
+  location                            = var.region
+  resource_group_name                 = module.resource_group.name
+  executor_identity_id                = module.identity.resource_id
+  image                               = var.core_image
+  acr_login_server                    = module.container_registry.login_server
+  scenario_set_version                = var.measurement_scenario_set_version
+  operational_promotion_enabled       = var.operational_promotion_measurement_enabled
+  operational_promotion_fdai_revision = var.operational_promotion_measurement_revision
+  operational_promotion_evidence_root = var.operational_promotion_evidence_root
+  operational_promotion_manifest      = var.operational_promotion_manifest
+  state_store_dsn_secret_id           = azurerm_key_vault_secret.state_store_dsn.id
   environment = merge({
     AZURE_TENANT_ID                   = data.azurerm_client_config.current.tenant_id
     AZURE_SUBSCRIPTION_ID             = data.azurerm_client_config.current.subscription_id
@@ -2246,8 +2252,7 @@ module "operator_api" {
   count  = var.enable_operator_api ? 1 : 0
   source = "./modules/operator-api/container-app"
 
-  # Keep the pre-rename physical name so existing deployments are not replaced.
-  name                              = "ca-${var.workload}${local.full_suffix}-readapi"
+  name                              = "ca-${var.workload}${local.full_suffix}-operator-api"
   migrate_job_name                  = "caj-${var.workload}${local.full_suffix}-migrate"
   catalog_job_name                  = "caj-${var.workload}${local.full_suffix}-catalog"
   container_app_environment_id      = module.compute.environment_id
@@ -2311,6 +2316,7 @@ module "operator_api" {
   semantic_turn_request_topic        = local.semantic_turn_request_topic
   semantic_turn_projection_topic     = local.semantic_turn_projection_topic
   semantic_turn_physical_topic       = local.semantic_turn_physical_topic
+  read_investigation_request_topic   = local.read_investigation_request_topic
   azure_subscription_id              = data.azurerm_client_config.current.subscription_id
   azure_resource_group               = module.resource_group.name
   executor_principal_id              = module.identity.principal_id

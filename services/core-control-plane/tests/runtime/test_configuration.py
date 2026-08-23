@@ -21,7 +21,7 @@ def test_catalog_candidates_prefer_complete_container_payload() -> None:
 
 
 def test_bootstrap_binds_symptom_index_to_resolved_catalog() -> None:
-    bootstrap = Path("services/core-control-plane/src/fdai/runtime/bootstrap.py").read_text(
+    bootstrap = Path("services/core-control-plane/src/fdai/runtime/bootstrap_core.py").read_text(
         encoding="utf-8"
     )
 

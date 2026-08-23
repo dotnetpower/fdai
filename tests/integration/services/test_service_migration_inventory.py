@@ -67,6 +67,12 @@ def test_every_legacy_table_has_one_migrator_and_one_write_contract() -> None:
         "executor_receipt_outbox",
         "conversation_channel_message_claim",
         "operator_incident_projection",
+        "operational_archive_manifest",
+        "operational_archive_coverage_receipt",
+        "operational_archive_purge_receipt",
+        "operational_archive_restore_receipt",
+        "operational_archive_verification_receipt",
+        "operational_retention_hold_event",
         "question_campaign",
         "question_campaign_attempt",
         "question_campaign_case_claim",
@@ -654,6 +660,46 @@ def test_operator_active_inventory_pointer_has_exact_read_only_grant() -> None:
     }
 
 
+def test_operator_realtime_inventory_overlay_has_exact_read_only_grant() -> None:
+    revision_path = (
+        MIGRATION_ROOT
+        / "branches/operator-service/versions/20260822_operator_inventory_realtime_read.py"
+    )
+    source = revision_path.read_text(encoding="utf-8")
+    migration = runpy.run_path(str(revision_path))
+
+    assert (
+        "down_revision: str | Sequence[str] | None = "
+        '"operator_a3_channel_delivery_20260819"' in source
+    )
+    assert migration["owned_tables"] == ()
+    assert "FROM PUBLIC, fdai_operator" in source
+    for table in ("inventory_realtime_resource", "inventory_realtime_link"):
+        assert table in source
+    assert "GRANT SELECT ON TABLE" in source
+    assert "GRANT INSERT" not in source
+    assert "GRANT UPDATE" not in source
+    assert "GRANT DELETE" not in source
+
+    raw = json.loads((MIGRATION_ROOT / "ownership.json").read_text(encoding="utf-8"))
+    dependency = next(
+        item
+        for item in raw["migration_dependencies"]
+        if item["consumer_revision"] == "operator_inventory_realtime_read_20260822"
+    )
+    assert dependency == {
+        "consumer_service": "operator-service",
+        "consumer_revision": "operator_inventory_realtime_read_20260822",
+        "provider_service": "core-control-plane",
+        "provider_revision": "core_runtime_role_20260809",
+        "schema_prerequisites": [
+            "inventory_realtime_resource",
+            "inventory_realtime_link",
+        ],
+        "provider_rollback": "blocked-until-operator-read-grant-rollback",
+    }
+
+
 def test_worker_migration_widens_claim_check_and_blocks_inflight_deletion() -> None:
     revision_path = (
         MIGRATION_ROOT
@@ -1211,6 +1257,12 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
         MIGRATION_ROOT / "branches/core-control-plane/versions/20260820_core_question_assurance.py"
     )
     question_assurance_migration = inventory_module.load_revision_metadata(question_assurance_path)
+    operational_archive_path = (
+        MIGRATION_ROOT / "branches/core-control-plane/versions/20260822_core_operational_archive.py"
+    )
+    operational_archive_migration = inventory_module.load_revision_metadata(
+        operational_archive_path
+    )
 
     expected_tables = {
         table for table, owner in ownership.table_migrators.items() if owner == "core-control-plane"
@@ -1222,6 +1274,7 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
         | set(incident_projection_migration.owned_tables)
         | set(question_campaign_migration.owned_tables)
         | set(question_assurance_migration.owned_tables)
+        | set(operational_archive_migration.owned_tables)
     )
     assert granted_tables == expected_tables
     source = role_path.read_text(encoding="utf-8")

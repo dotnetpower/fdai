@@ -4,6 +4,7 @@ import { describe, expect, test, vi } from "vitest";
 import { DEFAULT_NAVIGATION_PREFERENCES } from "../navigation-preferences";
 import {
   firstVisiblePanelInGroup,
+  navigationGroupSelectionAction,
   nextMenuItemIndex,
   visibleNavigationGroups,
   workspaceGroupNavigationPath,
@@ -74,6 +75,30 @@ describe("navigation shell groups", () => {
     )).toBe("/live");
     expect(accepted).toHaveBeenCalledOnce();
     expect(ignored).toHaveBeenCalledOnce();
+  });
+
+  test("toggles the selected group without navigating and opens a different group", () => {
+    expect(navigationGroupSelectionAction("governance", "governance", true)).toEqual({
+      explorerOpen: false,
+      navigate: false,
+    });
+    expect(navigationGroupSelectionAction("governance", "governance", false)).toEqual({
+      explorerOpen: true,
+      navigate: false,
+    });
+    expect(navigationGroupSelectionAction("governance", "operations", false)).toEqual({
+      explorerOpen: true,
+      navigate: true,
+    });
+  });
+
+  test("exposes Explorer disclosure state on Activity Bar group buttons", () => {
+    expect(source).toContain('aria-expanded={expanded}');
+    expect(source).toContain('aria-controls="navigation-explorer"');
+    expect(source).toContain('id="navigation-explorer"');
+    expect(source).toContain('aria-hidden={!preferences.explorerOpen}');
+    expect(source).toContain('inert={!preferences.explorerOpen}');
+    expect(source).not.toContain("aria-pressed={selected && preferences.explorerOpen}");
   });
 
   test("implements wrapping keyboard navigation for the action menu", () => {

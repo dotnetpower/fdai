@@ -318,6 +318,10 @@ jobs:
   governance-runtime-contracts:
     name: catalog and governance runtime contracts
     runs-on: ubuntu-24.04
+    permissions:
+      checks: read
+      contents: read
+      pull-requests: read
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -334,6 +338,42 @@ jobs:
 
       - name: Install frozen runtime workspace
         run: uv sync --frozen --package fdai-core-control-plane --no-dev
+
+      - name: Enforce governance review authority
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          TRUSTED_APP_ID: ${{ vars.FDAI_GOVERNANCE_IDENTITY_APP_ID }}
+        run: |
+          set -euo pipefail
+          changed="$RUNNER_TEMP/governance-changed-files.txt"
+          git diff --name-only "$PR_BASE_SHA...$PR_HEAD_SHA" > "$changed"
+          if ! grep -Eq '^(rule-catalog/(rules|rule-sets|governance/(assignments|exemptions|overrides))/|policies/risk|.*risk-classification)' "$changed"; then
+            echo "No governed catalog changes require identity review."
+            exit 0
+          fi
+          if [[ ! "$TRUSTED_APP_ID" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::FDAI_GOVERNANCE_IDENTITY_APP_ID must name the trusted Entra verifier GitHub App"
+            exit 1
+          fi
+          gh api --paginate --slurp \
+            "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/reviews?per_page=100" \
+            > "$RUNNER_TEMP/governance-reviews.json"
+          gh api "repos/$GITHUB_REPOSITORY/commits/$PR_HEAD_SHA" \
+            > "$RUNNER_TEMP/governance-commit.json"
+          gh api --paginate --slurp -H "Accept: application/vnd.github+json" \
+            "repos/$GITHUB_REPOSITORY/commits/$PR_HEAD_SHA/check-runs?per_page=100" \
+            > "$RUNNER_TEMP/governance-checks.json"
+          uv run python scripts/governance/check-governance-review-authority.py \
+            --event "$GITHUB_EVENT_PATH" \
+            --commit "$RUNNER_TEMP/governance-commit.json" \
+            --reviews "$RUNNER_TEMP/governance-reviews.json" \
+            --checks "$RUNNER_TEMP/governance-checks.json" \
+            --changed-files "$changed" \
+            --trusted-app-id "$TRUSTED_APP_ID"
 
       - name: Install OPA (Rego runner)
         run: |

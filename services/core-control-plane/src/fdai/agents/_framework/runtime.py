@@ -40,6 +40,7 @@ from fdai.agents._framework.tool_prefetch import prefetch_tools
 from fdai.agents._framework.tool_semantic import SemanticToolPlanner
 from fdai.agents.bragi import Bragi, RoutingDecision, Turn
 from fdai.agents.heimdall import (
+    ActionObservationHook,
     Heimdall,
     IncidentCandidateHook,
     OperationalEvidenceHook,
@@ -135,6 +136,7 @@ class PantheonRuntime:
         heimdall_alert_rate_per_hour: int = 5,
         read_investigation_hook: ReadInvestigationHook | None = None,
         operational_evidence_hook: OperationalEvidenceHook | None = None,
+        heimdall_action_observation_hook: ActionObservationHook | None = None,
         discovery_projector: DiscoveryProjector | None = None,
         scenario_coverage_aggregator: ScenarioCoverageAggregator | None = None,
         post_turn_review: PostTurnReviewCoordinator | None = None,
@@ -168,11 +170,8 @@ class PantheonRuntime:
     ) -> PantheonRuntime:
         """Instantiate + wire the pantheon against ``provider``.
 
-        ``raw_event_topic`` is the P1 ingress topic. Huginn consumes it under a
-        distinct group, so the pantheon remains a parallel shadow.
-
-        ``enforce`` defaults to ``False`` so Thor is judge-and-log only. Set it
-        only after explicit, separately reviewed promotion.
+        ``raw_event_topic`` is Huginn's P1 ingress topic. ``enforce`` defaults
+        to ``False`` and changes only after separately reviewed promotion.
 
         ``saga`` injects a durable auditor (a fork wires an append-only
         StateStore-backed ``Saga``); the default is the in-memory audit
@@ -304,6 +303,7 @@ class PantheonRuntime:
             forecast_closer=forecast_closer,
             forecast_store=forecast_store,
             operational_evidence_hook=operational_evidence_hook,
+            action_observation_hook=heimdall_action_observation_hook,
         )
         if saga is not None:
             instantiated["Saga"] = saga

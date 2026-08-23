@@ -18,6 +18,7 @@ deployment-specific values outside the upstream distribution.
 |------|-------|----------|-------|
 | Core control plane startup probe | not-applicable | `current change`; `terraform fmt` and `terraform validate` pass on the service root | Three attempts sized a startup probe to cover a boot that opened the health port late. The runtime now opens that port before startup readiness runs, so liveness answers immediately and the probe is unnecessary. The protected update contract also rejected it, because it proves rollback only for an image and revision-suffix change. |
 | CAF naming and `fdai:` ownership tags | implemented | `infra/main.tf`, `infra/bootstrap/main.tf`, and focused Terraform tests | Terraform computes names and tags; runtime code consumes outputs. |
+| Operator API physical resource names | implemented | `infra/main.tf`, `infra/services/operator-service/variables.tf`, and `tests/integration/infra/test_operator_api_resource_naming.py` | New plans use the `operator-api` component for the workload identity and Container App. Existing development resources still require a reviewed replacement apply. |
 | Event Bus product topic namespace | validated | Protected platform apply `32475924808`; Operator apply `32514233525`; final live entity, RBAC, environment, service-health, canary, HIL, stage, inventory, semantic, and lag observations | Both namespaces contain only current `fdai.*` product topics, runtime principals use entity-scoped Event Hubs roles, all five services are healthy, and the approved development backlog was discarded with the deleted legacy entities. |
 | Independent-service Terraform state roots | validated | `config/independent-service-live-evidence-manifest.json` and `config/independent-service-remote-evidence.json` | All five service roots have governed plan, apply, health, peer-isolation, and rollback evidence. |
 | Legacy platform and ops-bootstrap Terraform state roots | implemented | `infra/main.tf`, `infra/bootstrap/main.tf`, `.github/workflows/deploy-dev.yml`, and focused Terraform and workflow checks | Stable backend keys and deployment mechanisms are shipped; governed apply receipts for these two roots are not retained in the repository. |
@@ -32,6 +33,7 @@ deployment-specific values outside the upstream distribution.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-23 | implemented | Replaced the legacy `readapi` physical-name declarations with the current `operator-api` component and required the independent Operator service input to use the same suffix. Historical Terraform `moved` addresses remain so existing state can still be interpreted. | `current change`; `infra/main.tf`; `infra/services/operator-service/variables.tf`; focused naming tests and Terraform validation | Run the protected development replacement, update the sealed Operator service inputs to the new app and workload identity, and retain health and identity evidence. |
 | 2026-08-22 | validated | Completed the protected Event Bus namespace migration and post-apply transport audit. The final inventory contains no `aw.*` entity or runtime binding, runtime Event Hubs roles are entity-scoped, all five services are healthy, canary and inventory Jobs succeeded, HIL consumed a no-effect unknown-park decision, Core bound the stage topic, the Operator semantic bridge correlated a request and typed projection, and active Core consumer lag was zero. The approved development backlog was discarded rather than drained. | Platform plan/apply `32475286429`/`32475924808`; worker apply `32491597630`; Operator plan/apply `32513787359`/`32514233525`; canary `ca-fdai-dev-krc-core-canary-7hdxtnq`; inventory `ca-fdai-dev-krc-core-inventory-xxv64n0`; semantic request `00000000-0000-0000-0000-000000000000` and projection `00000000-0000-0000-0000-000000000000`. Core apply `32505670219` applied and passed health, then failed only its peer receipt because the concurrent Operator state serial changed; the final five-service audit reverified the resulting live state. | None for issue #253. |
 | 2026-08-22 | implemented | Preserved schema-free same-image topic transitions while requiring service-owned database migration before an image-changing sealed topic rollout. The previous unconditional skip let a newer Operator image start against the baseline service migration head and remain not ready until automatic rollback. | Failed Operator apply `32505673096`; `current change` in `service-deploy.yml`; focused workflow contract tests. | Recreate and apply the exact Operator plan, then prove semantic request and projection transport. |
 | 2026-08-21 | implemented | Bound the Core semantic request and projection topics to their canonical logical names after the live migration audit found both deployed environment values empty. An empty pair disables the Core semantic consumer; it is not a runtime default. The sealed migration overlay now requires both values and still rejects a partial or unrelated environment change. | `current change`; `service_contract.py`; both Core Terraform variable boundaries; focused service deployment and semantic Terraform checks passed 143 cases; Ruff, strict mypy, Terraform formatting and validation, and independent-service structure checks passed. | Apply one reviewed Core follow-up plan and prove the authenticated request/projection round trip before classifying the Event Bus migration as validated. |
@@ -75,6 +77,11 @@ deployment-specific values outside the upstream distribution.
 | 2026-08-20 | validated | Applied the corrected stateful Event Bus lag rule through the protected monitoring-only path, verified ARM `autoMitigate=true`, and exercised the live condition with one sanitized synthetic lag row. The alert fired at `2026-08-20T15:36:09Z` and resolved automatically at `2026-08-20T16:02:10Z` after the configured clear periods. | Protected apply run `32383519737` changed 0 resources by creation, 1 in place, and 0 by destruction; exact alert instance observations recorded `Fired` then `Resolved`; focused alert checks passed 3 cases. | None for the Event Bus consumer lag alert deployment and stateful recovery contract. |
 ### Remaining work
 
+- [ ] Apply a protected development replacement that creates
+  `id-<workload>-<env>-<region>-operator-api` and
+  `ca-<workload>-<env>-<region>-operator-api`, binds the independent Operator service to the new
+  workload identity, verifies health and peer isolation, and removes the legacy `readapi`
+  resources only after the successor is ready.
 - [ ] Retain repository-safe governed apply receipts for the legacy platform and ops-bootstrap
   roots. Each receipt must bind the backend key, exact protected plan, source revision, target
   identity, and post-apply verification before those roots advance to `validated`.
@@ -115,6 +122,12 @@ Pattern:
   when the resource is deployed side-by-side; the day-zero deployment keeps names
   suffix-free.
 - **instance** (`01`, `02`, ...) is added only when multiple copies exist in one env.
+
+The Operator API uses `operator-api` as its physical component. Its workload identity is named
+`id-<workload>[-<env>][-<region>]-operator-api`, and its Container App is named
+`ca-<workload>[-<env>][-<region>]-operator-api`. The legacy `readapi` token is valid only in
+historical Terraform `moved` addresses and retained evidence. An existing deployment replaces the
+physical resources through a reviewed protected plan; it does not rename them in place.
 
 The default **resource group** is `rg-fdai` (fixed by user directive). Everything the
 system provisions lives under that RG unless a resource type requires a subscription-scope

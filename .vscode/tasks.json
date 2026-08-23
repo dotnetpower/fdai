@@ -132,7 +132,7 @@
     {
       "label": "console: start core runtime",
       "type": "shell",
-      "command": "bash scripts/deployment/local/run-console-service.sh core-runtime",
+      "command": "bash scripts/deployment/local/run-console-service.sh core-runtime --wait-ready",
       "isBackground": true,
       "problemMatcher": {
         "owner": "console-core-runtime",
@@ -140,13 +140,29 @@
         "background": {
           "activeOnStart": true,
           "beginsPattern": "service=core-runtime event=starting$",
-          "endsPattern": "service=core-runtime event=starting$"
+          "endsPattern": "service=core-runtime event=ready$"
         }
       },
       "presentation": {
         "reveal": "silent",
         "panel": "dedicated",
         "group": "console-full-stack",
+        "clear": true,
+        "showReuseMessage": false
+      },
+      "runOptions": {
+        "instanceLimit": 1,
+        "instancePolicy": "silent"
+      }
+    },
+    {
+      "label": "console: restart core runtime",
+      "type": "shell",
+      "command": "bash scripts/deployment/local/run-console-service.sh core-runtime --wait-ready",
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "group": "console-core-restart",
         "clear": true,
         "showReuseMessage": false
       },
@@ -167,7 +183,7 @@
         "background": {
           "activeOnStart": true,
           "beginsPattern": "service=console-stack event=starting$",
-          "endsPattern": "service=console-stack event=ready$"
+          "endsPattern": "service=console-stack event=started$"
         }
       },
       "presentation": {
@@ -175,6 +191,24 @@
         "panel": "dedicated",
         "group": "console-full-stack",
         "clear": true,
+        "showReuseMessage": false
+      },
+      "runOptions": {
+        "instanceLimit": 1,
+        "instancePolicy": "silent"
+      }
+    },
+    {
+      "label": "console: wait full stack ready",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/bin/python scripts/automation/developer-workflow.py local-services --wait-seconds 60",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "silent",
+        "revealProblems": "onProblem",
+        "panel": "dedicated",
+        "group": "console-full-stack",
+        "close": true,
         "showReuseMessage": false
       },
       "runOptions": {

@@ -284,6 +284,24 @@ async def test_branch_already_exists_is_idempotent() -> None:
     assert receipt.pr_ref == "acme/iac#2"
 
 
+@pytest.mark.asyncio
+async def test_unrelated_branch_validation_error_is_not_idempotent() -> None:
+    def _handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if request.method == "GET" and path.endswith("/pulls"):
+            return httpx.Response(200, json=[])
+        if request.method == "GET" and path.endswith("/git/refs/heads/main"):
+            return httpx.Response(200, json={"object": {"sha": "deadbeef"}})
+        if request.method == "POST" and path.endswith("/git/refs"):
+            return httpx.Response(422, json={"message": "Validation Failed"})
+        raise AssertionError(f"unexpected {request.method} {path}")
+
+    adapter = _adapter(httpx.MockTransport(_handler))
+
+    with pytest.raises(GitOpsPrError, match="HTTP 422"):
+        await adapter.publish(_pr(idempotency_key="k1"))
+
+
 # ---------------------------------------------------------------------------
 # Failure paths
 # ---------------------------------------------------------------------------

@@ -399,6 +399,30 @@ variable "measurement_scenario_set_version" {
   default     = "v2026.07"
 }
 
+variable "operational_promotion_measurement_enabled" {
+  description = "Create the digest-only operational-promotion measurement Job. Disabled upstream until reviewed evidence is packaged or mounted."
+  type        = bool
+  default     = false
+}
+
+variable "operational_promotion_measurement_revision" {
+  description = "Full immutable FDAI source revision expected by operational-promotion evidence."
+  type        = string
+  default     = ""
+}
+
+variable "operational_promotion_evidence_root" {
+  description = "Absolute path inside the runtime image or protected mount containing reviewed operational-promotion evidence."
+  type        = string
+  default     = ""
+}
+
+variable "operational_promotion_manifest" {
+  description = "Manifest path relative to operational_promotion_evidence_root."
+  type        = string
+  default     = ""
+}
+
 
 variable "dr_drill_enabled" {
   description = "Toggle the scheduled DB-DR drill Container Apps Job. Upstream ships false so a generic deploy does not incur drill cost until the fork signs off on the runbook in docs/runbooks/db-dr-drill.md."

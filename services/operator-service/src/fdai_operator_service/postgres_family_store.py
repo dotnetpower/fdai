@@ -6,21 +6,36 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, Final
+from typing import Any, Final, cast
 from uuid import uuid4
 
+import anyio
 import psycopg
 from psycopg.rows import dict_row
 
 from fdai_operator_service.environment import EXPECTED_DATABASE_ROLE
+from fdai_operator_service.families.conversation.background_tasks import (
+    BackgroundTaskProgressProjection,
+    BackgroundTaskProjection,
+)
+from fdai_operator_service.families.conversation.contracts import JsonObject
 from fdai_operator_service.families.operations.contracts import (
     InventoryImpactContext,
     InventoryImpactEdge,
     InventoryImpactLinkPage,
+    InventoryInstanceActivity,
+    InventoryInstanceActivityPage,
+    InventoryInstanceEdge,
+    InventoryInstanceNeighborhood,
+    InventoryInstanceResource,
+    InventoryInstanceResourcePage,
+    InventoryRelationshipDropClassification,
+    InventoryRelationshipEvidence,
 )
 from fdai_operator_service.postgres_semantic_turn_store import (
     PostgresSemanticTurnRepository,
@@ -35,6 +50,15 @@ from fdai_operator_service.postgres_semantic_turn_store import (
 _PROJECTION_PREFIX: Final = "operator-projection:"
 _PROPOSAL_PREFIX: Final = "operator-proposal:"
 _CONTEXT_SELECTION_PREFIX: Final = "context-selection:evaluation:"
+_LOGGER = logging.getLogger(__name__)
+_MAX_INSTANCE_NEIGHBORHOOD_DEPTH: Final = 8
+_MAX_INSTANCE_NEIGHBORHOOD_LINKS: Final = 1_600
+_BACKGROUND_TASK_STATUSES: Final = frozenset(
+    {"queued", "claimed", "running", "succeeded", "failed", "cancelled", "timed_out", "unknown"}
+)
+_BACKGROUND_COMPLETION_STATES: Final = frozenset(
+    {"pending", "sending", "failed", "delivered", "abandoned"}
+)
 _CONVERSATION_TURN_COLUMNS: Final = (
     "turn.turn_id, turn.conversation_id, turn.turn_index, turn.role, turn.content, "
     "turn.recorded_at, turn.metadata, record.channel_id"
@@ -100,6 +124,20 @@ SELECT (
     AND NOT has_table_privilege(current_user, 'inventory_active', 'TRUNCATE')
     AND NOT has_table_privilege(current_user, 'inventory_active', 'REFERENCES')
     AND NOT has_table_privilege(current_user, 'inventory_active', 'TRIGGER')
+    AND has_table_privilege(current_user, 'inventory_realtime_resource', 'SELECT')
+    AND NOT has_table_privilege(current_user, 'inventory_realtime_resource', 'INSERT')
+    AND NOT has_table_privilege(current_user, 'inventory_realtime_resource', 'UPDATE')
+    AND NOT has_table_privilege(current_user, 'inventory_realtime_resource', 'DELETE')
+    AND NOT has_table_privilege(current_user, 'inventory_realtime_resource', 'TRUNCATE')
+    AND NOT has_table_privilege(current_user, 'inventory_realtime_resource', 'REFERENCES')
+    AND NOT has_table_privilege(current_user, 'inventory_realtime_resource', 'TRIGGER')
+    AND has_table_privilege(current_user, 'inventory_realtime_link', 'SELECT')
+    AND NOT has_table_privilege(current_user, 'inventory_realtime_link', 'INSERT')
+    AND NOT has_table_privilege(current_user, 'inventory_realtime_link', 'UPDATE')
+    AND NOT has_table_privilege(current_user, 'inventory_realtime_link', 'DELETE')
+    AND NOT has_table_privilege(current_user, 'inventory_realtime_link', 'TRUNCATE')
+    AND NOT has_table_privilege(current_user, 'inventory_realtime_link', 'REFERENCES')
+    AND NOT has_table_privilege(current_user, 'inventory_realtime_link', 'TRIGGER')
     AND has_table_privilege(current_user, 'conversation_record', 'SELECT')
     AND NOT has_table_privilege(current_user, 'conversation_record', 'INSERT')
     AND NOT has_table_privilege(current_user, 'conversation_record', 'UPDATE')
@@ -114,6 +152,27 @@ SELECT (
     AND NOT has_table_privilege(current_user, 'conversation_turn', 'TRUNCATE')
     AND NOT has_table_privilege(current_user, 'conversation_turn', 'REFERENCES')
     AND NOT has_table_privilege(current_user, 'conversation_turn', 'TRIGGER')
+    AND has_table_privilege(current_user, 'background_task_attempt', 'SELECT')
+    AND NOT has_table_privilege(current_user, 'background_task_attempt', 'INSERT')
+    AND NOT has_table_privilege(current_user, 'background_task_attempt', 'UPDATE')
+    AND NOT has_table_privilege(current_user, 'background_task_attempt', 'DELETE')
+    AND NOT has_table_privilege(current_user, 'background_task_attempt', 'TRUNCATE')
+    AND NOT has_table_privilege(current_user, 'background_task_attempt', 'REFERENCES')
+    AND NOT has_table_privilege(current_user, 'background_task_attempt', 'TRIGGER')
+    AND has_table_privilege(current_user, 'background_task_progress', 'SELECT')
+    AND NOT has_table_privilege(current_user, 'background_task_progress', 'INSERT')
+    AND NOT has_table_privilege(current_user, 'background_task_progress', 'UPDATE')
+    AND NOT has_table_privilege(current_user, 'background_task_progress', 'DELETE')
+    AND NOT has_table_privilege(current_user, 'background_task_progress', 'TRUNCATE')
+    AND NOT has_table_privilege(current_user, 'background_task_progress', 'REFERENCES')
+    AND NOT has_table_privilege(current_user, 'background_task_progress', 'TRIGGER')
+    AND has_table_privilege(current_user, 'background_task_completion', 'SELECT')
+    AND NOT has_table_privilege(current_user, 'background_task_completion', 'INSERT')
+    AND NOT has_table_privilege(current_user, 'background_task_completion', 'UPDATE')
+    AND NOT has_table_privilege(current_user, 'background_task_completion', 'DELETE')
+    AND NOT has_table_privilege(current_user, 'background_task_completion', 'TRUNCATE')
+    AND NOT has_table_privilege(current_user, 'background_task_completion', 'REFERENCES')
+    AND NOT has_table_privilege(current_user, 'background_task_completion', 'TRIGGER')
        ) AS ready
   FROM pg_catalog.pg_roles AS login_role
  WHERE login_role.rolname = current_user
@@ -171,6 +230,21 @@ class ActionProposalClaim:
     claim_id: str
     principal_id: str
     payload: Mapping[str, object]
+    attempt: int
+
+
+@dataclass(frozen=True, slots=True)
+class ReadInvestigationProposalClaim:
+    """One lease-fenced read proposal awaiting versioned Core publication."""
+
+    key: str
+    claim_id: str
+    request_id: str
+    principal_id: str
+    idempotency_key: str
+    correlation_id: str | None
+    payload: Mapping[str, object]
+    accepted_at: str
     attempt: int
 
 
@@ -295,11 +369,162 @@ class PostgresFamilyStore:
             )
         return _json_object(rows[0].get("value"), label=key)
 
+    async def list_background_tasks(
+        self,
+        *,
+        owner_principal_id: str,
+        before_updated_at: datetime | None,
+        before_task_id: str | None,
+        limit: int,
+    ) -> tuple[BackgroundTaskProjection, ...]:
+        """Read one bounded task page filtered in SQL by authenticated owner."""
+
+        _bounded_identifier("owner_principal_id", owner_principal_id)
+        if not 1 <= limit <= 101:
+            raise ValueError("background task page limit MUST be in [1, 101]")
+        if (before_updated_at is None) != (before_task_id is None):
+            raise ValueError("background task cursor MUST be complete")
+        if before_task_id is not None:
+            _bounded_identifier("before_task_id", before_task_id)
+        rows = await self._fetch_all(
+            """
+            SELECT attempt.task_id, attempt.attempt_id,
+                   attempt.task ->> 'kind' AS task_kind,
+                   attempt.status, attempt.revision,
+                   attempt.created_at, attempt.updated_at, attempt.retention_until,
+                   attempt.lease_expires_at,
+                   attempt.task -> 'budget' AS budget,
+                   attempt.usage,
+                   LEFT(attempt.task ->> 'prompt', 500) AS request_summary,
+                   LENGTH(attempt.task ->> 'prompt') > 500 AS request_truncated,
+                   attempt.task ->> 'accountable_agent' AS accountable_agent,
+                   LEFT(attempt.result ->> 'summary', 2000) AS result_summary,
+                   LENGTH(attempt.result ->> 'summary') > 2000 AS result_truncated,
+                   ARRAY(
+                       SELECT evidence.value
+                         FROM jsonb_array_elements_text(
+                             COALESCE(attempt.result -> 'evidence_refs', '[]'::jsonb)
+                         ) WITH ORDINALITY AS evidence(value, ordinal)
+                        ORDER BY evidence.ordinal
+                        LIMIT 16
+                   ) AS evidence_refs,
+                   COALESCE(jsonb_array_length(attempt.result -> 'evidence_refs'), 0) > 16
+                       AS evidence_truncated,
+                   attempt.result ->> 'terminal_reason' AS terminal_reason,
+                   (attempt.result ->> 'started_at')::timestamptz AS started_at,
+                   (attempt.result ->> 'finished_at')::timestamptz AS finished_at,
+                   completion.state AS completion_state
+              FROM background_task_attempt AS attempt
+              LEFT JOIN background_task_completion AS completion
+                ON completion.attempt_id = attempt.attempt_id
+             WHERE attempt.owner_principal_id = %(owner_principal_id)s
+               AND (%(before_updated_at)s::timestamptz IS NULL
+                    OR (attempt.updated_at, attempt.task_id)
+                       < (%(before_updated_at)s::timestamptz, %(before_task_id)s))
+             ORDER BY attempt.updated_at DESC, attempt.task_id DESC
+             LIMIT %(limit)s
+            """,
+            {
+                "owner_principal_id": owner_principal_id,
+                "before_updated_at": before_updated_at,
+                "before_task_id": before_task_id,
+                "limit": limit,
+            },
+        )
+        return tuple(_background_task_projection(row) for row in rows)
+
+    async def read_background_task(
+        self,
+        *,
+        owner_principal_id: str,
+        task_id: str,
+    ) -> BackgroundTaskProjection | None:
+        """Read one task only when the authenticated principal owns it."""
+
+        _bounded_identifier("owner_principal_id", owner_principal_id)
+        _bounded_identifier("task_id", task_id)
+        rows = await self._fetch_all(
+            """
+            SELECT attempt.task_id, attempt.attempt_id,
+                   attempt.task ->> 'kind' AS task_kind,
+                   attempt.status, attempt.revision,
+                   attempt.created_at, attempt.updated_at, attempt.retention_until,
+                   attempt.lease_expires_at,
+                   attempt.task -> 'budget' AS budget,
+                   attempt.usage,
+                   LEFT(attempt.task ->> 'prompt', 500) AS request_summary,
+                   LENGTH(attempt.task ->> 'prompt') > 500 AS request_truncated,
+                   attempt.task ->> 'accountable_agent' AS accountable_agent,
+                   LEFT(attempt.result ->> 'summary', 2000) AS result_summary,
+                   LENGTH(attempt.result ->> 'summary') > 2000 AS result_truncated,
+                   ARRAY(
+                       SELECT evidence.value
+                         FROM jsonb_array_elements_text(
+                             COALESCE(attempt.result -> 'evidence_refs', '[]'::jsonb)
+                         ) WITH ORDINALITY AS evidence(value, ordinal)
+                        ORDER BY evidence.ordinal
+                        LIMIT 16
+                   ) AS evidence_refs,
+                   COALESCE(jsonb_array_length(attempt.result -> 'evidence_refs'), 0) > 16
+                       AS evidence_truncated,
+                   attempt.result ->> 'terminal_reason' AS terminal_reason,
+                   (attempt.result ->> 'started_at')::timestamptz AS started_at,
+                   (attempt.result ->> 'finished_at')::timestamptz AS finished_at,
+                   completion.state AS completion_state
+              FROM background_task_attempt AS attempt
+              LEFT JOIN background_task_completion AS completion
+                ON completion.attempt_id = attempt.attempt_id
+             WHERE attempt.owner_principal_id = %(owner_principal_id)s
+               AND attempt.task_id = %(task_id)s
+             LIMIT 1
+            """,
+            {"owner_principal_id": owner_principal_id, "task_id": task_id},
+        )
+        return None if not rows else _background_task_projection(rows[0])
+
+    async def read_background_task_progress(
+        self,
+        *,
+        owner_principal_id: str,
+        task_id: str,
+        after_sequence: int,
+        limit: int,
+    ) -> tuple[BackgroundTaskProgressProjection, ...]:
+        """Read monotonic progress through an owner-filtered task join."""
+
+        _bounded_identifier("owner_principal_id", owner_principal_id)
+        _bounded_identifier("task_id", task_id)
+        if not -1 <= after_sequence <= 2**31:
+            raise ValueError("background task progress cursor is outside the bounded range")
+        if not 1 <= limit <= 256:
+            raise ValueError("background task progress limit MUST be in [1, 256]")
+        rows = await self._fetch_all(
+            """
+            SELECT progress.sequence, progress.kind, progress.message,
+                   progress.at, progress.usage
+              FROM background_task_progress AS progress
+              JOIN background_task_attempt AS attempt
+                ON attempt.attempt_id = progress.attempt_id
+               AND attempt.owner_principal_id = %(owner_principal_id)s
+               AND attempt.task_id = %(task_id)s
+             WHERE progress.sequence > %(after_sequence)s
+             ORDER BY progress.sequence ASC
+             LIMIT %(limit)s
+            """,
+            {
+                "owner_principal_id": owner_principal_id,
+                "task_id": task_id,
+                "after_sequence": after_sequence,
+                "limit": limit,
+            },
+        )
+        return tuple(_background_task_progress(row) for row in rows)
+
     async def read_inventory_impact_context(self) -> InventoryImpactContext | None:
         """Read the exact active snapshot identity and cutoff without provider payloads."""
 
         rows = await self._fetch_all(
-            "SELECT snapshot.id, snapshot.completed_at "
+            "SELECT snapshot.id, snapshot.completed_at, snapshot.metadata "
             "FROM inventory_active AS active "
             "JOIN inventory_snapshot AS snapshot ON snapshot.id = active.snapshot_id "
             "WHERE active.singleton = TRUE "
@@ -312,12 +537,32 @@ class PostgresFamilyStore:
         snapshot_id = str(rows[0].get("id") or "")
         if not snapshot_id:
             raise PostgresFamilyStoreUnavailable("active inventory snapshot identity is malformed")
+        raw_metadata = rows[0].get("metadata")
+        metadata = (
+            {}
+            if raw_metadata is None
+            else _json_object(raw_metadata, label="active inventory metadata")
+        )
+        raw_reasons = metadata.get("relationship_drop_reasons", [])
+        if not isinstance(raw_reasons, list) or any(
+            not isinstance(reason, str) or not reason.strip() or len(reason) > 128
+            for reason in raw_reasons
+        ):
+            raise PostgresFamilyStoreUnavailable(
+                "active inventory relationship coverage is malformed"
+            )
+        relationship_drop_reasons = tuple(sorted(set(raw_reasons)))
+        relationship_drop_classifications = _relationship_drop_classifications(
+            metadata.get("relationship_drop_classifications", [])
+        )
         return InventoryImpactContext(
             snapshot_id=snapshot_id,
             observed_at=_stored_timestamp(
                 rows[0].get("completed_at"),
                 label="active inventory snapshot",
             ),
+            relationship_drop_reasons=relationship_drop_reasons,
+            relationship_drop_classifications=relationship_drop_classifications,
         )
 
     async def inventory_resource_exists(self, *, snapshot_id: str, resource_id: str) -> bool:
@@ -371,6 +616,270 @@ class PostgresFamilyStore:
                 )
                 for row in rows[:limit]
             ),
+            truncated=len(rows) > limit,
+        )
+
+    async def read_inventory_instance_neighborhood(
+        self,
+        *,
+        snapshot_id: str,
+        root_id: str,
+        link_types: tuple[str, ...],
+        depth: int,
+        limit: int,
+    ) -> InventoryInstanceNeighborhood:
+        """Read one bounded active-snapshot component without RG sibling inference."""
+
+        if not root_id.strip() or len(root_id) > 1_024:
+            raise ValueError("instance root_id MUST be a bounded non-empty string")
+        if not link_types or len(link_types) > 16:
+            raise ValueError("instance link types MUST contain 1 to 16 values")
+        if not 1 <= depth <= _MAX_INSTANCE_NEIGHBORHOOD_DEPTH:
+            raise ValueError("instance depth MUST be in [1, 8]")
+        if not 1 <= limit <= 200:
+            raise ValueError("instance resource limit MUST be in [1, 200]")
+        root_rows = await self._fetch_all(
+            "WITH effective_resources AS ("
+            "SELECT resource_id, resource_type, props, last_seen "
+            "FROM inventory_snapshot_resource WHERE snapshot_id=%(snapshot_id)s "
+            "AND NOT EXISTS (SELECT 1 FROM inventory_realtime_resource overlay "
+            "WHERE overlay.resource_id=inventory_snapshot_resource.resource_id) "
+            "UNION ALL SELECT resource_id, resource_type, props, observed_at "
+            "FROM inventory_realtime_resource WHERE change_kind='upsert') "
+            "SELECT resource_id, resource_type, props, last_seen FROM effective_resources "
+            "WHERE resource_id=%(root_id)s",
+            {
+                "snapshot_id": snapshot_id,
+                "root_id": root_id,
+            },
+        )
+        if not root_rows:
+            return InventoryInstanceNeighborhood(resources=(), edges=(), truncated=False)
+        root_type = str(root_rows[0].get("resource_type") or "")
+        selected = {root_id}
+        frontier = {root_id}
+        resource_truncated = False
+        adjacent_truncated = False
+        for _ in range(depth):
+            if not frontier:
+                break
+            edge_rows = await self._fetch_all(
+                "WITH effective_links AS ("
+                "SELECT from_id, from_type, link_type, to_id, to_type, props "
+                "FROM inventory_snapshot_link WHERE snapshot_id=%(snapshot_id)s "
+                "AND NOT EXISTS (SELECT 1 FROM inventory_realtime_link overlay "
+                "WHERE overlay.from_id=inventory_snapshot_link.from_id "
+                "AND overlay.link_type=inventory_snapshot_link.link_type "
+                "AND overlay.to_id=inventory_snapshot_link.to_id) "
+                "UNION ALL SELECT from_id, from_type, link_type, to_id, to_type, props "
+                "FROM inventory_realtime_link WHERE change_kind='upsert') "
+                "SELECT from_id, from_type, link_type, to_id, to_type, props "
+                "FROM effective_links WHERE link_type=ANY(%(link_types)s) "
+                "AND ((from_id=ANY(%(frontier)s) AND NOT (to_id=ANY(%(selected)s))) "
+                "OR (to_id=ANY(%(frontier)s) AND NOT (from_id=ANY(%(selected)s)))) "
+                "ORDER BY LEAST(from_id, to_id), GREATEST(from_id, to_id), "
+                "link_type, from_id, to_id LIMIT %(probe)s",
+                {
+                    "snapshot_id": snapshot_id,
+                    "link_types": list(link_types),
+                    "frontier": sorted(frontier),
+                    "selected": sorted(selected),
+                    "probe": _MAX_INSTANCE_NEIGHBORHOOD_LINKS + 1,
+                },
+            )
+            if len(edge_rows) > _MAX_INSTANCE_NEIGHBORHOOD_LINKS:
+                adjacent_truncated = True
+                edge_rows = edge_rows[:_MAX_INSTANCE_NEIGHBORHOOD_LINKS]
+            next_frontier: set[str] = set()
+            for row in edge_rows:
+                for endpoint, endpoint_type in (
+                    (str(row.get("from_id") or ""), str(row.get("from_type") or "")),
+                    (str(row.get("to_id") or ""), str(row.get("to_type") or "")),
+                ):
+                    if not endpoint or endpoint in selected:
+                        continue
+                    if len(selected) >= limit:
+                        resource_truncated = True
+                        continue
+                    selected.add(endpoint)
+                    if endpoint_type not in {"resource-group", "subscription"} or root_type in {
+                        "resource-group",
+                        "subscription",
+                    }:
+                        next_frontier.add(endpoint)
+            frontier = next_frontier
+        resource_rows = await self._fetch_all(
+            "WITH effective_resources AS ("
+            "SELECT resource_id, resource_type, props, last_seen "
+            "FROM inventory_snapshot_resource WHERE snapshot_id=%(snapshot_id)s "
+            "AND NOT EXISTS (SELECT 1 FROM inventory_realtime_resource overlay "
+            "WHERE overlay.resource_id=inventory_snapshot_resource.resource_id) "
+            "UNION ALL SELECT resource_id, resource_type, props, observed_at "
+            "FROM inventory_realtime_resource WHERE change_kind='upsert') "
+            "SELECT resource_id, resource_type, props, last_seen FROM effective_resources "
+            "WHERE resource_id = ANY(%(resource_ids)s) "
+            "ORDER BY resource_id",
+            {
+                "snapshot_id": snapshot_id,
+                "resource_ids": sorted(selected),
+            },
+        )
+        induced_rows = await self._fetch_all(
+            "WITH effective_links AS ("
+            "SELECT from_id, from_type, link_type, to_id, to_type, props "
+            "FROM inventory_snapshot_link WHERE snapshot_id=%(snapshot_id)s "
+            "AND NOT EXISTS (SELECT 1 FROM inventory_realtime_link overlay "
+            "WHERE overlay.from_id=inventory_snapshot_link.from_id "
+            "AND overlay.link_type=inventory_snapshot_link.link_type "
+            "AND overlay.to_id=inventory_snapshot_link.to_id) "
+            "UNION ALL SELECT from_id, from_type, link_type, to_id, to_type, props "
+            "FROM inventory_realtime_link WHERE change_kind='upsert') "
+            "SELECT from_id, link_type, to_id, props FROM effective_links "
+            "WHERE link_type = ANY(%(link_types)s) "
+            "AND from_id = ANY(%(resource_ids)s) "
+            "AND to_id = ANY(%(resource_ids)s) "
+            "ORDER BY CASE WHEN from_id = %(root_id)s OR to_id = %(root_id)s "
+            "THEN 0 ELSE 1 END, from_id, link_type, to_id "
+            "LIMIT %(probe)s",
+            {
+                "snapshot_id": snapshot_id,
+                "link_types": list(link_types),
+                "resource_ids": sorted(selected),
+                "root_id": root_id,
+                "probe": _MAX_INSTANCE_NEIGHBORHOOD_LINKS + 1,
+            },
+        )
+        selected_induced_rows = induced_rows[:_MAX_INSTANCE_NEIGHBORHOOD_LINKS]
+        induced_truncated = len(induced_rows) > _MAX_INSTANCE_NEIGHBORHOOD_LINKS
+        truncation_reasons = tuple(
+            reason
+            for reason, active in (
+                ("adjacent_edge_limit", adjacent_truncated),
+                ("resource_limit", resource_truncated),
+                ("link_limit", induced_truncated),
+            )
+            if active
+        )
+        return InventoryInstanceNeighborhood(
+            resources=tuple(
+                InventoryInstanceResource(
+                    resource_id=str(row.get("resource_id") or ""),
+                    resource_type=str(row.get("resource_type") or ""),
+                    properties=_json_object(
+                        row.get("props"),
+                        label="inventory instance Resource properties",
+                    ),
+                    last_seen=_optional_timestamp(row.get("last_seen")),
+                )
+                for row in resource_rows
+            ),
+            edges=tuple(
+                InventoryInstanceEdge(
+                    source=str(row.get("from_id") or ""),
+                    target=str(row.get("to_id") or ""),
+                    link_type=str(row.get("link_type") or ""),
+                    evidence=_instance_relationship_evidence(row.get("props")),
+                )
+                for row in selected_induced_rows
+            ),
+            truncated=bool(truncation_reasons),
+            truncation_reasons=truncation_reasons,
+        )
+
+    async def read_inventory_instances(
+        self,
+        *,
+        snapshot_id: str,
+        search: str | None,
+        limit: int,
+    ) -> InventoryInstanceResourcePage:
+        """Read a bounded active-generation Resource directory with optional search."""
+
+        if search is not None and (not search.strip() or len(search) > 256):
+            raise ValueError("instance search MUST contain 1 to 256 characters")
+        if not 1 <= limit <= 200:
+            raise ValueError("instance directory limit MUST be in [1, 200]")
+        pattern = f"%{_escape_like(search.strip())}%" if search is not None else None
+        rows = await self._fetch_all(
+            "SELECT resource_id, resource_type, props, last_seen "
+            "FROM inventory_snapshot_resource "
+            "WHERE snapshot_id = %(snapshot_id)s "
+            "AND (%(pattern)s::text IS NULL "
+            "OR COALESCE(props ->> 'name', '') ILIKE %(pattern)s ESCAPE '\\' "
+            "OR resource_type ILIKE %(pattern)s ESCAPE '\\' "
+            "OR resource_id ILIKE %(pattern)s ESCAPE '\\') "
+            "ORDER BY COALESCE(NULLIF(props ->> 'name', ''), resource_id), resource_id "
+            "LIMIT %(probe)s",
+            {
+                "snapshot_id": snapshot_id,
+                "pattern": pattern,
+                "probe": limit + 1,
+            },
+        )
+        return InventoryInstanceResourcePage(
+            resources=tuple(
+                InventoryInstanceResource(
+                    resource_id=str(row.get("resource_id") or ""),
+                    resource_type=str(row.get("resource_type") or ""),
+                    properties=_json_object(
+                        row.get("props"),
+                        label="inventory instance directory Resource properties",
+                    ),
+                    last_seen=_optional_timestamp(row.get("last_seen")),
+                )
+                for row in rows[:limit]
+            ),
+            truncated=len(rows) > limit,
+        )
+
+    async def read_inventory_instance_activity(
+        self,
+        *,
+        resource_id: str,
+        limit: int,
+    ) -> InventoryInstanceActivityPage:
+        """Read newest durable audit facts with an exact structured Resource identity match."""
+
+        if not resource_id.strip() or len(resource_id) > 1_024:
+            raise ValueError("instance activity resource_id MUST be bounded")
+        if not 1 <= limit <= 100:
+            raise ValueError("instance activity limit MUST be in [1, 100]")
+        rows = await self._fetch_all(
+            "SELECT seq, correlation_id, actor, action_kind, entry, created_at "
+            "FROM audit_log "
+            "WHERE entry #>> '{payload,resource_id}' = %(resource_id)s "
+            "ORDER BY seq DESC "
+            "LIMIT %(probe)s",
+            {"resource_id": resource_id, "probe": limit + 1},
+        )
+        activities: list[InventoryInstanceActivity] = []
+        for row in rows[:limit]:
+            sequence = row.get("seq")
+            actor = row.get("actor")
+            action_kind = row.get("action_kind")
+            if (
+                not isinstance(sequence, int)
+                or not isinstance(actor, str)
+                or not isinstance(action_kind, str)
+            ):
+                raise PostgresFamilyStoreUnavailable("instance activity row is malformed")
+            entry = _json_object(row.get("entry"), label=f"audit_log[{sequence}].entry")
+            payload = _json_object(entry.get("payload"), label=f"audit_log[{sequence}].payload")
+            activities.append(
+                InventoryInstanceActivity(
+                    sequence=sequence,
+                    action_kind=action_kind,
+                    actor=actor,
+                    recorded_at=_stored_timestamp(
+                        row.get("created_at"),
+                        label=f"audit_log[{sequence}]",
+                    ),
+                    correlation_id=_activity_correlation(row, payload),
+                    facts=_instance_activity_facts(payload),
+                )
+            )
+        return InventoryInstanceActivityPage(
+            activities=tuple(activities),
             truncated=len(rows) > limit,
         )
 
@@ -855,7 +1364,7 @@ class PostgresFamilyStore:
             WITH candidate AS (
                 SELECT key
                   FROM state_kv
-                 WHERE key LIKE 'operator-proposal:%'
+                                 WHERE key LIKE %(proposal_prefix)s
                                      AND value ->> 'family' = 'conversation'
                                      AND value ->> 'operation' = 'chat.action.confirm'
                    AND (
@@ -873,8 +1382,8 @@ class PostgresFamilyStore:
             UPDATE state_kv AS proposal
                SET value = proposal.value || jsonb_build_object(
                    'dispatch_status', 'claimed',
-                   'claim_id', %(claim_id)s,
-                   'claim_worker_id', %(worker_id)s,
+                   'claim_id', %(claim_id)s::text,
+                   'claim_worker_id', %(worker_id)s::text,
                    'claim_expires_at', NOW() + make_interval(secs => %(lease_seconds)s),
                    'attempt', COALESCE((proposal.value ->> 'attempt')::integer, 0) + 1
                ),
@@ -885,6 +1394,7 @@ class PostgresFamilyStore:
             """,
             {
                 "claim_id": claim_id,
+                "proposal_prefix": "operator-proposal:%",
                 "worker_id": worker_id,
                 "lease_seconds": lease_seconds,
             },
@@ -910,6 +1420,127 @@ class PostgresFamilyStore:
             principal_id=principal_id,
             payload=dict(payload),
             attempt=attempt,
+        )
+
+    async def claim_read_investigation_proposal(
+        self,
+        *,
+        worker_id: str,
+        lease_seconds: int,
+    ) -> ReadInvestigationProposalClaim | None:
+        """Lease the oldest pending read-investigation proposal for publication."""
+
+        _bounded_component("worker_id", worker_id)
+        if not 1 <= lease_seconds <= 300:
+            raise ValueError("lease_seconds MUST be in [1, 300]")
+        claim_id = str(uuid4())
+        rows = await self._fetch_all(
+            """
+            WITH candidate AS (
+                SELECT key
+                  FROM state_kv
+                                 WHERE key LIKE %(proposal_prefix)s
+                   AND (
+                        (
+                            value ->> 'family' = 'operations'
+                            AND value ->> 'operation' = 'read_investigation.start'
+                        )
+                        OR (
+                            value ->> 'family' = 'conversation'
+                            AND value ->> 'operation' = 'background.cancel'
+                        )
+                   )
+                   AND (
+                        value ->> 'dispatch_status' = 'pending'
+                        OR (
+                            value ->> 'dispatch_status' = 'claimed'
+                            AND (value ->> 'claim_expires_at')::timestamptz <= NOW()
+                        )
+                   )
+                 ORDER BY COALESCE((value ->> 'attempt')::integer, 0),
+                          value ->> 'accepted_at', key
+                 FOR UPDATE SKIP LOCKED
+                 LIMIT 1
+            )
+            UPDATE state_kv AS proposal
+               SET value = proposal.value || jsonb_build_object(
+                   'dispatch_status', 'claimed',
+                   'claim_id', %(claim_id)s::text,
+                   'claim_worker_id', %(worker_id)s::text,
+                   'claim_expires_at', NOW() + make_interval(secs => %(lease_seconds)s),
+                   'attempt', COALESCE((proposal.value ->> 'attempt')::integer, 0) + 1
+               ),
+                   updated_at = NOW()
+              FROM candidate
+             WHERE proposal.key = candidate.key
+         RETURNING proposal.key, proposal.value
+            """,
+            {
+                "claim_id": claim_id,
+                "proposal_prefix": "operator-proposal:%",
+                "worker_id": worker_id,
+                "lease_seconds": lease_seconds,
+            },
+        )
+        if not rows:
+            return None
+        key = rows[0].get("key")
+        value = _json_object(rows[0].get("value"), label="read investigation proposal claim")
+        proposal_id = value.get("proposal_id")
+        principal_id = value.get("principal_id")
+        idempotency_key = value.get("idempotency_key")
+        accepted_at = value.get("accepted_at")
+        payload = value.get("payload")
+        attempt = value.get("attempt")
+        if (
+            not isinstance(key, str)
+            or not isinstance(proposal_id, str)
+            or not isinstance(principal_id, str)
+            or not isinstance(idempotency_key, str)
+            or not isinstance(accepted_at, str)
+            or not isinstance(payload, Mapping)
+            or not isinstance(attempt, int)
+            or isinstance(attempt, bool)
+        ):
+            raise PostgresFamilyStoreUnavailable("read investigation proposal claim is malformed")
+        correlation_id = payload.get("correlation_id")
+        if correlation_id is not None and not isinstance(correlation_id, str):
+            raise PostgresFamilyStoreUnavailable("read investigation correlation is malformed")
+        return ReadInvestigationProposalClaim(
+            key=key,
+            claim_id=str(value.get("claim_id") or claim_id),
+            request_id=proposal_id,
+            principal_id=principal_id,
+            idempotency_key=idempotency_key,
+            correlation_id=correlation_id,
+            payload=dict(payload),
+            accepted_at=accepted_at,
+            attempt=attempt,
+        )
+
+    async def mark_proposal_published(self, *, key: str, claim_id: str) -> bool:
+        """Close one active generic proposal claim after broker acceptance."""
+
+        return await self.mark_action_proposal_published(key=key, claim_id=claim_id)
+
+    async def release_proposal_claim(self, *, key: str, claim_id: str) -> bool:
+        """Release one active generic proposal claim for bounded retry."""
+
+        return await self.release_action_proposal_claim(key=key, claim_id=claim_id)
+
+    async def mark_proposal_rejected(
+        self,
+        *,
+        key: str,
+        claim_id: str,
+        reason_code: str,
+    ) -> bool:
+        """Close one malformed generic proposal claim without transport retry."""
+
+        return await self.mark_action_proposal_rejected(
+            key=key,
+            claim_id=claim_id,
+            reason_code=reason_code,
         )
 
     async def mark_action_proposal_published(self, *, key: str, claim_id: str) -> bool:
@@ -1174,23 +1805,35 @@ class PostgresFamilyStore:
         statement: str,
         parameters: Mapping[str, object],
     ) -> list[dict[str, Any]]:
+        connection: psycopg.AsyncConnection[dict[str, Any]] | None = None
         try:
-            async with await psycopg.AsyncConnection.connect(
+            connection = await psycopg.AsyncConnection.connect(
                 _psycopg_dsn(self._config.dsn),
                 row_factory=dict_row,
                 connect_timeout=self._config.connect_timeout_s,
-            ) as connection:
-                async with connection.transaction():
-                    await _set_statement_timeout(
-                        connection,
-                        self._config.statement_timeout_ms,
-                    )
-                    cursor = await connection.execute(statement, parameters)
-                    return list(await cursor.fetchall())
+                autocommit=True,
+            )
+            await connection.execute(
+                "SELECT set_config('statement_timeout', %s, false)",
+                (str(self._config.statement_timeout_ms),),
+            )
+            cursor = await connection.execute(statement, parameters)
+            return list(await cursor.fetchall())
+        except anyio.get_cancelled_exc_class():
+            if connection is not None:
+                await _cancel_and_close(
+                    connection,
+                    timeout_s=self._config.connect_timeout_s,
+                )
+                connection = None
+            raise
         except psycopg.Error as exc:
             raise PostgresFamilyStoreUnavailable(
                 "authoritative PostgreSQL family store is unavailable"
             ) from exc
+        finally:
+            if connection is not None and not connection.closed:
+                await connection.close()
 
 
 class UnavailablePostgresFamilyStore(PostgresFamilyStore):
@@ -1224,6 +1867,37 @@ class UnavailablePostgresFamilyStore(PostgresFamilyStore):
     async def read_projection(self, *, family: str, operation: str) -> dict[str, object]:
         del family, operation
         raise PostgresFamilyStoreUnavailable("authoritative projection is unavailable")
+
+    async def list_background_tasks(
+        self,
+        *,
+        owner_principal_id: str,
+        before_updated_at: datetime | None,
+        before_task_id: str | None,
+        limit: int,
+    ) -> tuple[BackgroundTaskProjection, ...]:
+        del owner_principal_id, before_updated_at, before_task_id, limit
+        raise PostgresFamilyStoreUnavailable("background task projection is unavailable")
+
+    async def read_background_task(
+        self,
+        *,
+        owner_principal_id: str,
+        task_id: str,
+    ) -> BackgroundTaskProjection | None:
+        del owner_principal_id, task_id
+        raise PostgresFamilyStoreUnavailable("background task projection is unavailable")
+
+    async def read_background_task_progress(
+        self,
+        *,
+        owner_principal_id: str,
+        task_id: str,
+        after_sequence: int,
+        limit: int,
+    ) -> tuple[BackgroundTaskProgressProjection, ...]:
+        del owner_principal_id, task_id, after_sequence, limit
+        raise PostgresFamilyStoreUnavailable("background task projection is unavailable")
 
     async def read_state_page(
         self,
@@ -1351,10 +2025,187 @@ def _projection_key(family: str, operation: str) -> str:
     return f"{_PROJECTION_PREFIX}{family}:{operation}"
 
 
+def _background_task_projection(row: Mapping[str, object]) -> BackgroundTaskProjection:
+    task_status = _required_row_text(row, "status")
+    if task_status not in _BACKGROUND_TASK_STATUSES:
+        raise PostgresFamilyStoreUnavailable("background task status is malformed")
+    completion_state = _optional_row_text(row, "completion_state")
+    if completion_state is not None and completion_state not in _BACKGROUND_COMPLETION_STATES:
+        raise PostgresFamilyStoreUnavailable("background task completion_state is malformed")
+    accountable_agent = _optional_row_text(row, "accountable_agent")
+    if accountable_agent is not None and accountable_agent != "Heimdall":
+        raise PostgresFamilyStoreUnavailable("background task accountable_agent is malformed")
+    evidence_refs = _background_evidence_refs(row.get("evidence_refs"))
+    return BackgroundTaskProjection(
+        task_id=_required_row_text(row, "task_id"),
+        attempt_id=_required_row_text(row, "attempt_id"),
+        kind=_required_row_text(row, "task_kind"),
+        status=task_status,
+        revision=_required_row_integer(row, "revision"),
+        created_at=_stored_timestamp(row.get("created_at"), label="background task creation"),
+        updated_at=_stored_timestamp(row.get("updated_at"), label="background task update"),
+        retention_until=_stored_timestamp(
+            row.get("retention_until"), label="background task retention"
+        ),
+        lease_expires_at=_optional_timestamp(row.get("lease_expires_at")),
+        budget=cast(JsonObject, _json_object(row.get("budget"), label="background task budget")),
+        usage=cast(JsonObject, _json_object(row.get("usage"), label="background task usage")),
+        terminal_reason=_optional_row_text(row, "terminal_reason"),
+        started_at=_optional_timestamp(row.get("started_at")),
+        finished_at=_optional_timestamp(row.get("finished_at")),
+        completion_state=completion_state,
+        request_summary=_optional_row_text(row, "request_summary", maximum=500),
+        request_truncated=_required_row_boolean(row, "request_truncated"),
+        accountable_agent=accountable_agent,
+        result_summary=_optional_row_text(row, "result_summary", maximum=2_000),
+        result_truncated=_required_row_boolean(row, "result_truncated"),
+        evidence_refs=evidence_refs,
+        evidence_truncated=_required_row_boolean(row, "evidence_truncated"),
+    )
+
+
+def _background_evidence_refs(value: object) -> tuple[str, ...]:
+    if not isinstance(value, list | tuple) or len(value) > 16:
+        raise PostgresFamilyStoreUnavailable("background task evidence_refs are malformed")
+    refs = tuple(value)
+    if any(not isinstance(ref, str) or not ref.strip() or len(ref) > 256 for ref in refs):
+        raise PostgresFamilyStoreUnavailable("background task evidence_refs are malformed")
+    if len(set(refs)) != len(refs):
+        raise PostgresFamilyStoreUnavailable("background task evidence_refs are malformed")
+    return cast(tuple[str, ...], refs)
+
+
+def _background_task_progress(
+    row: Mapping[str, object],
+) -> BackgroundTaskProgressProjection:
+    return BackgroundTaskProgressProjection(
+        sequence=_required_row_integer(row, "sequence", minimum=0),
+        kind=_required_row_text(row, "kind"),
+        message=_required_row_text(row, "message", maximum=1_000),
+        at=_stored_timestamp(row.get("at"), label="background task progress"),
+        usage=cast(
+            JsonObject,
+            _json_object(row.get("usage"), label="background task progress usage"),
+        ),
+    )
+
+
+def _required_row_text(
+    row: Mapping[str, object],
+    field: str,
+    *,
+    maximum: int = 256,
+) -> str:
+    value = row.get(field)
+    if not isinstance(value, str) or not value.strip() or len(value) > maximum:
+        raise PostgresFamilyStoreUnavailable(f"background task {field} is malformed")
+    return value
+
+
+def _optional_row_text(
+    row: Mapping[str, object],
+    field: str,
+    *,
+    maximum: int = 256,
+) -> str | None:
+    value = row.get(field)
+    if value is None:
+        return None
+    return _required_row_text(row, field, maximum=maximum)
+
+
+def _required_row_boolean(row: Mapping[str, object], field: str) -> bool:
+    value = row.get(field)
+    if not isinstance(value, bool):
+        raise PostgresFamilyStoreUnavailable(f"background task {field} is malformed")
+    return value
+
+
+def _required_row_integer(
+    row: Mapping[str, object],
+    field: str,
+    *,
+    minimum: int = 1,
+) -> int:
+    value = row.get(field)
+    if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
+        raise PostgresFamilyStoreUnavailable(f"background task {field} is malformed")
+    return value
+
+
 def _stored_timestamp(value: object, *, label: str) -> datetime:
     if isinstance(value, datetime):
         return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
     raise PostgresFamilyStoreUnavailable(f"{label} record has no write timestamp")
+
+
+def _optional_timestamp(value: object) -> datetime | None:
+    if value is None:
+        return None
+    return _stored_timestamp(value, label="optional inventory observation")
+
+
+def _activity_correlation(
+    row: Mapping[str, object],
+    payload: Mapping[str, object],
+) -> str | None:
+    for value in (row.get("correlation_id"), payload.get("correlation_id")):
+        if isinstance(value, str) and value.strip() and len(value) <= 256:
+            return value.strip()
+    return None
+
+
+def _instance_activity_facts(payload: Mapping[str, object]) -> dict[str, str]:
+    facts: dict[str, str] = {}
+    for key in (
+        "action_type",
+        "decision",
+        "mode",
+        "outcome",
+        "reason",
+        "risk_verdict",
+        "state",
+        "tier",
+        "verdict",
+    ):
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip() and len(value) <= 256:
+            facts[key] = value.strip()
+    return facts
+
+
+def _instance_relationship_evidence(value: object) -> InventoryRelationshipEvidence | None:
+    if value is None:
+        return None
+    properties = _json_object(value, label="inventory instance relationship properties")
+    raw_evidence = properties.get("provider_relationship_evidence")
+    if raw_evidence is None:
+        return None
+    evidence = _json_object(
+        raw_evidence,
+        label="inventory instance provider relationship evidence",
+    )
+
+    def required_text(key: str) -> str:
+        raw = evidence.get(key)
+        if not isinstance(raw, str) or not raw.strip() or len(raw) > 512:
+            raise PostgresFamilyStoreUnavailable(
+                f"inventory instance relationship evidence {key} is malformed"
+            )
+        return raw.strip()
+
+    freshness = evidence.get("freshness_ceiling_seconds")
+    if isinstance(freshness, bool) or not isinstance(freshness, int) or freshness < 1:
+        raise PostgresFamilyStoreUnavailable(
+            "inventory instance relationship evidence freshness is malformed"
+        )
+    return InventoryRelationshipEvidence(
+        source_identity=required_text("source_identity"),
+        source_property_path=required_text("source_property_path"),
+        mapping_id=required_text("mapping_id"),
+        evidence_method=required_text("evidence_method"),
+        freshness_ceiling_seconds=freshness,
+    )
 
 
 def _proposal_key(family: str, idempotency_key: str) -> str:
@@ -1370,6 +2221,11 @@ def _bounded_component(name: str, value: str) -> None:
         raise ValueError(f"{name} MUST be a bounded non-empty string")
 
 
+def _bounded_identifier(name: str, value: str) -> None:
+    if not value.strip() or len(value) > 256 or any(ord(character) < 32 for character in value):
+        raise ValueError(f"{name} MUST be a bounded identifier")
+
+
 def _digest(value: Mapping[str, object]) -> str:
     encoded = json.dumps(value, separators=(",", ":"), sort_keys=True).encode()
     return hashlib.sha256(encoded).hexdigest()
@@ -1383,6 +2239,91 @@ def _json_object(value: object, *, label: str) -> dict[str, object]:
     if not isinstance(value, dict):
         raise PostgresFamilyStoreUnavailable(f"{label} is not a JSON object")
     return {str(key): item for key, item in value.items()}
+
+
+def _relationship_drop_classifications(
+    value: object,
+) -> tuple[InventoryRelationshipDropClassification, ...]:
+    """Decode bounded mapping-specific coverage without provider resource identities."""
+
+    if not isinstance(value, list) or len(value) > 256:
+        raise PostgresFamilyStoreUnavailable(
+            "active inventory relationship classifications are malformed"
+        )
+    allowed_unavailable_reasons = {
+        "reference_not_observed",
+        "source_outside_active_generation",
+        "target_outside_active_generation",
+        "target_provider_type_unmodeled",
+        "unclassified",
+    }
+    classifications: list[InventoryRelationshipDropClassification] = []
+    for raw_item in value:
+        item = _json_object(raw_item, label="active inventory relationship classification")
+        fields: dict[str, str] = {}
+        for name, maximum in (
+            ("reason", 128),
+            ("mapping_id", 256),
+            ("source_property_path", 512),
+            ("source_provider_type", 512),
+            ("target_provider_type", 512),
+            ("unavailable_reason", 128),
+        ):
+            raw_field = item.get(name)
+            if not isinstance(raw_field, str) or not raw_field.strip() or len(raw_field) > maximum:
+                raise PostgresFamilyStoreUnavailable(
+                    "active inventory relationship classification is malformed"
+                )
+            fields[name] = raw_field
+        raw_count = item.get("count")
+        if (
+            isinstance(raw_count, bool)
+            or not isinstance(raw_count, int)
+            or not 1 <= raw_count <= (2**31) - 1
+            or fields["unavailable_reason"] not in allowed_unavailable_reasons
+        ):
+            raise PostgresFamilyStoreUnavailable(
+                "active inventory relationship classification is malformed"
+            )
+        classifications.append(
+            InventoryRelationshipDropClassification(
+                reason=fields["reason"],
+                mapping_id=fields["mapping_id"],
+                source_property_path=fields["source_property_path"],
+                source_provider_type=fields["source_provider_type"],
+                target_provider_type=fields["target_provider_type"],
+                unavailable_reason=fields["unavailable_reason"],
+                count=raw_count,
+            )
+        )
+    identities = [
+        (
+            item.reason,
+            item.mapping_id,
+            item.source_property_path,
+            item.source_provider_type,
+            item.target_provider_type,
+            item.unavailable_reason,
+        )
+        for item in classifications
+    ]
+    if len(set(identities)) != len(identities):
+        raise PostgresFamilyStoreUnavailable(
+            "active inventory relationship classifications are duplicated"
+        )
+    return tuple(
+        sorted(
+            classifications,
+            key=lambda item: (
+                item.reason,
+                item.mapping_id,
+                item.source_property_path,
+                item.source_provider_type,
+                item.target_provider_type,
+                item.unavailable_reason,
+            ),
+        )
+    )
 
 
 def _psycopg_dsn(value: str) -> str:
@@ -1401,6 +2342,32 @@ async def _set_statement_timeout(
         "SELECT set_config('statement_timeout', %s, true)",
         (str(timeout_ms),),
     )
+
+
+async def _cancel_and_close(
+    connection: psycopg.AsyncConnection[Any],
+    *,
+    timeout_s: int,
+) -> None:
+    """Finish query cancellation and close without masking the caller's cancellation."""
+    try:
+        with anyio.move_on_after(timeout_s, shield=True) as cancel_scope:
+            await connection.cancel_safe(timeout=float(timeout_s))
+        if cancel_scope.cancel_called:
+            _LOGGER.warning("postgres_query_cancel_cleanup_timed_out")
+    except Exception as exc:  # noqa: BLE001 - preserve the original cancellation
+        _LOGGER.warning(
+            "postgres_query_cancel_cleanup_failed",
+            extra={"error_class": type(exc).__name__},
+        )
+    try:
+        with anyio.CancelScope(shield=True):
+            await connection.close()
+    except Exception as exc:  # noqa: BLE001 - preserve the original cancellation
+        _LOGGER.warning(
+            "postgres_query_close_cleanup_failed",
+            extra={"error_class": type(exc).__name__},
+        )
 
 
 __all__ = [

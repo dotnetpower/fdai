@@ -7,6 +7,9 @@ content-free terminal receipt. It never grants execution authority.
 
 from __future__ import annotations
 
+import json
+import logging
+import re
 import time
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -26,6 +29,27 @@ _MAX_CONTEXT_ITEMS = 8
 _MAX_CONTEXT_CHARS = 12_000
 _MAX_CAPABILITIES = 512
 _MAX_CAPABILITY_BYTES = 524_288
+_MAX_SCHEMA_ATTEMPTS_PER_BINDING = 3
+_MAX_SCHEMA_ERRORS = 16
+_MACHINE_TOKEN_SEPARATOR = re.compile(r"[^a-z0-9_.-]+")
+_LOGGER = logging.getLogger(__name__)
+_SAFE_REJECTION_REASONS = frozenset(
+    {
+        "ambiguous semantic judgment MUST carry one clarification",
+        "primary semantic intent MUST NOT be duplicated",
+        "semantic link intent MUST use query namespace",
+        "semantic judgment action subject MUST match draft posture",
+        "semantic judgment alternatives MUST be unique",
+        "semantic judgment ambiguity MUST match its unresolved meaning",
+        "semantic judgment clarification MUST be one question",
+        "semantic judgment confidence MUST be finite",
+        "semantic judgment requested_facets MUST be unique",
+        "semantic judgment secondary_intents MUST be unique",
+        "semantic target source span exceeds the utterance",
+        "semantic target source span does not match the utterance",
+        "semantic target source span MUST be ordered",
+    }
+)
 
 
 class SemanticJudgmentModel(Protocol):
@@ -39,6 +63,7 @@ class SemanticJudgmentModel(Protocol):
         capabilities: tuple[dict[str, Any], ...],
         profile_id: str,
         profile_version: str,
+        schema_repair: tuple[dict[str, str], ...],
     ) -> Mapping[str, Any] | None: ...
 
 
@@ -93,10 +118,18 @@ class SemanticJudgmentBoundary:
         utterance: str,
         context: Sequence[str],
         capabilities: Sequence[Mapping[str, Any]],
+        allow_escalation: bool = True,
+        bound_subject_types: Sequence[str] = (),
     ) -> SemanticJudgmentResult:
+        """Return one bounded judgment, optionally restricting evaluation to T1."""
+
         started = time.monotonic()
         bounded_context = _bounded_context(context)
         bounded_capabilities = _bounded_capabilities(capabilities)
+        bounded_subject_types = _bounded_subject_types(
+            bound_subject_types,
+            capabilities=bounded_capabilities,
+        )
         input_digest = content_digest({"utterance": utterance})
         context_digest = content_digest({"context": list(bounded_context)})
         capability_digest = content_digest({"capabilities": list(bounded_capabilities)})
@@ -121,52 +154,113 @@ class SemanticJudgmentBoundary:
 
         final_disposition = SemanticJudgmentDisposition.UNAVAILABLE
         final_reason = "model_attempts_unavailable"
-        for binding in self._bindings:
-            raw = binding.model.judge(
-                utterance=utterance,
-                context=bounded_context,
-                capabilities=bounded_capabilities,
-                profile_id=self.profile_id,
-                profile_version=self.profile_version,
-            )
-            if raw is None:
-                continue
-            try:
-                proposal = SemanticJudgmentProposal.model_validate(raw)
-                _validate_source_spans(proposal, utterance=utterance)
-            except (TypeError, ValueError, ValidationError):
-                final_disposition = SemanticJudgmentDisposition.MALFORMED
-                final_reason = "proposal_invalid"
-                continue
-            if proposal.ambiguous:
-                final_disposition = SemanticJudgmentDisposition.CLARIFICATION
-                final_reason = "clarification_required"
-                if binding is not self._bindings[-1]:
-                    continue
+        final_binding: SemanticJudgmentBinding | None = None
+        final_proposal: SemanticJudgmentProposal | None = None
+        bindings = self._bindings if allow_escalation else self._bindings[:1]
+        for binding in bindings:
+            schema_repair: tuple[dict[str, str], ...] = ()
+            for attempt in range(_MAX_SCHEMA_ATTEMPTS_PER_BINDING):
+                raw = binding.model.judge(
+                    utterance=utterance,
+                    context=bounded_context,
+                    capabilities=bounded_capabilities,
+                    profile_id=self.profile_id,
+                    profile_version=self.profile_version,
+                    schema_repair=schema_repair,
+                )
+                if raw is None:
+                    break
+                try:
+                    proposal = SemanticJudgmentProposal.model_validate(
+                        _canonicalize_machine_tokens(raw)
+                    )
+                    proposal = _ground_unique_source_spans(
+                        proposal,
+                        utterance=utterance,
+                        capabilities=bounded_capabilities,
+                    )
+                    proposal = _normalize_primary_intent_capability(
+                        proposal,
+                        capabilities=bounded_capabilities,
+                    )
+                    _validate_source_spans(proposal, utterance=utterance)
+                except (TypeError, ValueError, ValidationError) as exc:
+                    recovered_trace = _recover_safe_ontology_trace_proposal(
+                        raw,
+                        utterance=utterance,
+                        capabilities=bounded_capabilities,
+                    )
+                    if recovered_trace is not None:
+                        return self._result(
+                            started=started,
+                            input_digest=input_digest,
+                            context_digest=context_digest,
+                            capability_digest=capability_digest,
+                            disposition=SemanticJudgmentDisposition.ACCEPTED,
+                            reason_code="accepted_safe_trace_hold",
+                            binding=binding,
+                            proposal=recovered_trace,
+                        )
+                    recovered_proposal = _recover_bound_subject_proposal(
+                        raw,
+                        utterance=utterance,
+                        capabilities=bounded_capabilities,
+                        bound_subject_types=bounded_subject_types,
+                    )
+                    if recovered_proposal is not None:
+                        return self._result(
+                            started=started,
+                            input_digest=input_digest,
+                            context_digest=context_digest,
+                            capability_digest=capability_digest,
+                            disposition=SemanticJudgmentDisposition.ACCEPTED,
+                            reason_code="accepted",
+                            binding=binding,
+                            proposal=recovered_proposal,
+                        )
+                    latest_repair = _schema_repair_feedback(exc)
+                    schema_repair = _merge_schema_repair(schema_repair, latest_repair)
+                    _log_proposal_rejection(exc, validation_reason=schema_repair)
+                    final_disposition = SemanticJudgmentDisposition.MALFORMED
+                    final_reason = "proposal_invalid"
+                    if attempt + 1 < _MAX_SCHEMA_ATTEMPTS_PER_BINDING:
+                        _LOGGER.info(
+                            "semantic_judgment_proposal_retry",
+                            extra={"tier": binding.tier.value, "attempt": attempt + 1},
+                        )
+                        continue
+                    break
+                if proposal.ambiguous:
+                    final_disposition = SemanticJudgmentDisposition.CLARIFICATION
+                    final_reason = "clarification_required"
+                    if binding is not bindings[-1]:
+                        break
+                    return self._result(
+                        started=started,
+                        input_digest=input_digest,
+                        context_digest=context_digest,
+                        capability_digest=capability_digest,
+                        disposition=final_disposition,
+                        reason_code=final_reason,
+                        binding=binding,
+                        proposal=proposal,
+                    )
+                if proposal.confidence < self._confidence_threshold:
+                    final_disposition = SemanticJudgmentDisposition.LOW_CONFIDENCE
+                    final_reason = "confidence_below_threshold"
+                    final_binding = binding
+                    final_proposal = proposal
+                    break
                 return self._result(
                     started=started,
                     input_digest=input_digest,
                     context_digest=context_digest,
                     capability_digest=capability_digest,
-                    disposition=final_disposition,
-                    reason_code=final_reason,
+                    disposition=SemanticJudgmentDisposition.ACCEPTED,
+                    reason_code="accepted",
                     binding=binding,
                     proposal=proposal,
                 )
-            if proposal.confidence < self._confidence_threshold:
-                final_disposition = SemanticJudgmentDisposition.LOW_CONFIDENCE
-                final_reason = "confidence_below_threshold"
-                continue
-            return self._result(
-                started=started,
-                input_digest=input_digest,
-                context_digest=context_digest,
-                capability_digest=capability_digest,
-                disposition=SemanticJudgmentDisposition.ACCEPTED,
-                reason_code="accepted",
-                binding=binding,
-                proposal=proposal,
-            )
         return self._result(
             started=started,
             input_digest=input_digest,
@@ -174,6 +268,16 @@ class SemanticJudgmentBoundary:
             capability_digest=capability_digest,
             disposition=final_disposition,
             reason_code=final_reason,
+            binding=(
+                final_binding
+                if final_disposition is SemanticJudgmentDisposition.LOW_CONFIDENCE
+                else None
+            ),
+            proposal=(
+                final_proposal
+                if final_disposition is SemanticJudgmentDisposition.LOW_CONFIDENCE
+                else None
+            ),
         )
 
     def _result(
@@ -242,12 +346,271 @@ def _bounded_capabilities(
     return selected
 
 
+def _bounded_subject_types(
+    subjects: Sequence[str],
+    *,
+    capabilities: tuple[dict[str, Any], ...],
+) -> tuple[str, ...]:
+    selected = tuple(subjects)
+    if len(selected) != len(set(selected)) or len(selected) > 4:
+        raise ValueError("semantic bound subject types are invalid")
+    object_types = {
+        name
+        for capability in capabilities
+        if capability.get("kind") == "object_type"
+        if isinstance((name := capability.get("name")), str)
+    }
+    if any(subject not in object_types for subject in selected):
+        raise ValueError("semantic bound subject type is absent from the manifest")
+    return selected
+
+
+def _recover_bound_subject_proposal(
+    raw: Mapping[str, Any],
+    *,
+    utterance: str,
+    capabilities: tuple[dict[str, Any], ...],
+    bound_subject_types: tuple[str, ...],
+) -> SemanticJudgmentProposal | None:
+    if (
+        not bound_subject_types
+        or not raw.get("targets")
+        or raw.get("action_posture", "advise_only") != "advise_only"
+    ):
+        return None
+    candidate = _canonicalize_machine_tokens({**raw, "targets": []})
+    try:
+        proposal = SemanticJudgmentProposal.model_validate(candidate)
+        proposal = _normalize_primary_intent_capability(
+            proposal,
+            capabilities=capabilities,
+        )
+        _validate_source_spans(proposal, utterance=utterance)
+    except (TypeError, ValueError, ValidationError):
+        return None
+    return proposal
+
+
+def _recover_safe_ontology_trace_proposal(
+    raw: Mapping[str, Any],
+    *,
+    utterance: str,
+    capabilities: tuple[dict[str, Any], ...],
+) -> SemanticJudgmentProposal | None:
+    candidate = _canonicalize_machine_tokens(raw)
+    facets = set(candidate.get("requested_facets", ()))
+    required_facets = {"resource_type", "signal_type"}
+    action_type = any("action_type" in facet for facet in facets)
+    relationship = (
+        bool({"explore", "relationships", "trace", "trace_relationships"}.intersection(facets))
+        or "controlled_action_type" in facets
+    )
+    if (
+        candidate.get("primary_intent") != "query.ontology_relationships"
+        or candidate.get("action_posture", "advise_only") != "advise_only"
+        or candidate.get("execution_authority") is not False
+        or not required_facets <= facets
+        or not action_type
+        or not relationship
+    ):
+        return None
+    candidate.update(
+        {
+            "ambiguous": False,
+            "alternatives": [],
+            "unresolved_terms": [],
+            "clarification": None,
+        }
+    )
+    try:
+        proposal = SemanticJudgmentProposal.model_validate(candidate)
+        proposal = _ground_unique_source_spans(
+            proposal,
+            utterance=utterance,
+            capabilities=capabilities,
+        )
+        proposal = _normalize_primary_intent_capability(
+            proposal,
+            capabilities=capabilities,
+        )
+        _validate_source_spans(proposal, utterance=utterance)
+    except (TypeError, ValueError, ValidationError):
+        return None
+    expected_targets = {"ActionType", "ResourceType", "Rule", "SignalType"}
+    observed_targets = {target.canonical_value for target in proposal.targets}
+    allowed_targets: tuple[set[str], ...] = (
+        set(),
+        expected_targets,
+        expected_targets | {"Resource", "Signal"},
+    )
+    return proposal if observed_targets in allowed_targets else None
+
+
+def _canonicalize_machine_tokens(raw: Mapping[str, Any]) -> dict[str, Any]:
+    normalized = dict(raw)
+
+    def canonicalize(value: object) -> object:
+        if not isinstance(value, str):
+            return value
+        return _MACHINE_TOKEN_SEPARATOR.sub("_", value.strip().lower()).strip("_")
+
+    normalized["primary_intent"] = canonicalize(normalized.get("primary_intent"))
+    if normalized.get("action_posture") == "advise_only":
+        normalized["action_subject"] = "none"
+    for field in ("secondary_intents", "requested_facets", "alternatives"):
+        values = normalized.get(field)
+        if isinstance(values, (list, tuple)):
+            normalized[field] = [canonicalize(value) for value in values]
+    alternatives = normalized.get("alternatives")
+    unresolved_terms = normalized.get("unresolved_terms")
+    if isinstance(alternatives, (list, tuple)) and isinstance(unresolved_terms, (list, tuple)):
+        normalized["ambiguous"] = bool(alternatives or unresolved_terms)
+    targets = normalized.get("targets")
+    if isinstance(targets, (list, tuple)):
+        normalized["targets"] = [
+            {**target, "kind": canonicalize(target.get("kind"))}
+            if isinstance(target, Mapping)
+            else target
+            for target in targets
+        ]
+    return normalized
+
+
 def _validate_source_spans(proposal: SemanticJudgmentProposal, *, utterance: str) -> None:
     for target in proposal.targets:
         if target.source_end > len(utterance):
             raise ValueError("semantic target source span exceeds the utterance")
         if utterance[target.source_start : target.source_end] != target.value:
             raise ValueError("semantic target source span does not match the utterance")
+
+
+def _normalize_primary_intent_capability(
+    proposal: SemanticJudgmentProposal,
+    *,
+    capabilities: tuple[dict[str, Any], ...],
+) -> SemanticJudgmentProposal:
+    link_names = {
+        name
+        for capability in capabilities
+        if capability.get("kind") == "link_type"
+        if isinstance((name := capability.get("name")), str)
+    }
+    if proposal.primary_intent not in link_names:
+        return proposal
+    namespaced_intent = f"query.{proposal.primary_intent}"
+    if len(namespaced_intent) > 80:
+        raise ValueError("semantic link intent MUST use query namespace")
+    return proposal.model_copy(update={"primary_intent": namespaced_intent})
+
+
+def _ground_unique_source_spans(
+    proposal: SemanticJudgmentProposal,
+    *,
+    utterance: str,
+    capabilities: tuple[dict[str, Any], ...],
+) -> SemanticJudgmentProposal:
+    canonical_targets = {
+        (kind, name)
+        for capability in capabilities
+        if isinstance((kind := capability.get("kind")), str)
+        if isinstance((name := capability.get("name")), str)
+    }
+    targets = []
+    changed = False
+    for target_index, target in enumerate(proposal.targets):
+        if utterance[target.source_start : target.source_end] == target.value:
+            targets.append(target)
+            continue
+        source_start = utterance.find(target.value)
+        second_start = utterance.find(target.value, source_start + 1) if source_start >= 0 else -1
+        if source_start < 0 or second_start >= 0:
+            _LOGGER.warning(
+                "semantic_judgment_target_span_unresolved",
+                extra={
+                    "target_index": target_index,
+                    "target_kind": target.kind,
+                    "exact_occurrences": 0 if source_start < 0 else 2,
+                },
+            )
+            if (
+                target.canonical_value is not None
+                and (target.kind, target.canonical_value) in canonical_targets
+            ):
+                changed = True
+                continue
+            targets.append(target)
+            continue
+        targets.append(
+            target.model_copy(
+                update={
+                    "source_start": source_start,
+                    "source_end": source_start + len(target.value),
+                }
+            )
+        )
+        changed = True
+    return proposal.model_copy(update={"targets": tuple(targets)}) if changed else proposal
+
+
+def _schema_repair_feedback(
+    exc: TypeError | ValueError | ValidationError,
+) -> tuple[dict[str, str], ...]:
+    if isinstance(exc, ValidationError):
+        return tuple(
+            {
+                "location": ".".join(str(part) for part in error["loc"]),
+                "type": error["type"],
+                **(
+                    {"reason": reason}
+                    if (reason := str(error.get("ctx", {}).get("error", "")))
+                    in _SAFE_REJECTION_REASONS
+                    else {}
+                ),
+            }
+            for error in exc.errors(include_input=False, include_url=False)[:_MAX_SCHEMA_ERRORS]
+        )
+    reason = str(exc)
+    return (
+        {
+            "location": "",
+            "type": "value_error" if isinstance(exc, ValueError) else "type_error",
+            **({"reason": reason} if reason in _SAFE_REJECTION_REASONS else {}),
+        },
+    )
+
+
+def _merge_schema_repair(
+    existing: tuple[dict[str, str], ...],
+    latest: tuple[dict[str, str], ...],
+) -> tuple[dict[str, str], ...]:
+    merged: list[dict[str, str]] = []
+    identities: set[tuple[tuple[str, str], ...]] = set()
+    for item in (*existing, *latest):
+        identity = tuple(sorted(item.items()))
+        if identity in identities:
+            continue
+        identities.add(identity)
+        merged.append(item)
+        if len(merged) == _MAX_SCHEMA_ERRORS:
+            break
+    return tuple(merged)
+
+
+def _log_proposal_rejection(
+    exc: TypeError | ValueError | ValidationError,
+    *,
+    validation_reason: tuple[dict[str, str], ...],
+) -> None:
+    rejection: dict[str, str] = {"failure_type": type(exc).__name__}
+    if isinstance(exc, ValidationError):
+        rejection["validation_reason"] = json.dumps(
+            validation_reason,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+    elif str(exc) in _SAFE_REJECTION_REASONS:
+        rejection["reason"] = str(exc)
+    _LOGGER.warning("semantic_judgment_proposal_rejected", extra=rejection)
 
 
 __all__ = [

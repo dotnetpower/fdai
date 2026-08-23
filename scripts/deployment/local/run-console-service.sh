@@ -2,15 +2,22 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 <service>" >&2
+  echo "Usage: $0 <service> [--wait-ready]" >&2
   exit 2
 }
 
-if [[ $# -ne 1 ]]; then
+if [[ $# -lt 1 || $# -gt 2 ]]; then
   usage
 fi
 
 service="$1"
+wait_ready=0
+if [[ $# -eq 2 ]]; then
+  if [[ "$2" != "--wait-ready" || "$service" != "core-runtime" ]]; then
+    usage
+  fi
+  wait_ready=1
+fi
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 cd "$repo_root"
 
@@ -182,8 +189,47 @@ case "$service" in
     ;;
 esac
 
-exec bash "$repo_root/scripts/automation/run-local-service.sh" \
-  "$service" \
-  "$repo_root/.fdai/logs/$service.log" \
-  -- \
+runner=(
+  bash "$repo_root/scripts/automation/run-local-service.sh"
+  "$service"
+  "$repo_root/.fdai/logs/$service.log"
+  --
   "${service_command[@]}"
+)
+if [[ "$wait_ready" == "0" ]]; then
+  exec "${runner[@]}"
+fi
+
+"${runner[@]}" &
+runner_pid="$!"
+"$repo_root/.venv/bin/python" \
+  "$repo_root/scripts/automation/developer-workflow.py" \
+  local-services \
+  --wait-seconds 60 \
+  --only core-runtime >/dev/null &
+readiness_pid="$!"
+
+completed_pid=""
+if wait -n -p completed_pid "$runner_pid" "$readiness_pid"; then
+  completed_status=0
+else
+  completed_status=$?
+fi
+if [[ "$completed_pid" == "$runner_pid" ]]; then
+  if (( completed_status != 0 )); then
+    kill -TERM "$readiness_pid" 2>/dev/null || true
+    wait "$readiness_pid" 2>/dev/null || true
+    exit "$completed_status"
+  fi
+  if ! wait "$readiness_pid"; then
+    exit 1
+  fi
+elif (( completed_status != 0 )); then
+  kill -TERM "$runner_pid" 2>/dev/null || true
+  wait "$runner_pid" 2>/dev/null || true
+  exit 1
+fi
+printf '%s service=core-runtime event=ready\n' "$(date '+%Y-%m-%dT%H:%M:%S.%6N%:z')"
+if kill -0 "$runner_pid" 2>/dev/null; then
+  wait "$runner_pid"
+fi

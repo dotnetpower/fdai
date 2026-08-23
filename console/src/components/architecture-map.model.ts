@@ -1,5 +1,12 @@
 import { routeHref } from "../router";
 import { hasArchitectureResourceAbbreviation } from "./architecture-resource-abbreviations";
+import type {
+  NetworkConnectionKind,
+  NetworkDirection,
+  NetworkEvidencePosture,
+  NetworkPolicy,
+  NetworkTrafficClass,
+} from "@fdai/network-topology-contracts";
 
 export interface InventoryResource {
   readonly id: string;
@@ -20,6 +27,13 @@ export interface InventoryLink {
   readonly source: string;
   readonly target: string;
   readonly type: "contains" | "attached_to" | "depends_on" | "peered_with";
+  readonly connection_kind?: NetworkConnectionKind;
+  readonly direction?: NetworkDirection;
+  readonly traffic_class?: NetworkTrafficClass;
+  readonly policy?: NetworkPolicy;
+  readonly protocol?: string;
+  readonly port?: string;
+  readonly evidence_posture?: Exclude<NetworkEvidencePosture, "expected">;
 }
 
 export interface ArchitectureView {
@@ -206,6 +220,7 @@ const TYPE_LAYER: Readonly<Record<string, ArchitectureLayer>> = {
   "network.route-table": "network",
   "network.private-dns-zone": "network",
   "network.private-dns-zone-link": "network",
+  "network.private-dns-zone-group": "network",
   "network.dns-resolver": "network",
   "network.dns-resolver-inbound-endpoint": "network",
   "network.virtual-network-gateway": "network",
@@ -219,6 +234,7 @@ const TYPE_LAYER: Readonly<Record<string, ArchitectureLayer>> = {
   cache: "data",
   "redis-enterprise": "data",
   "managed-identity": "security",
+  "authorization.role-assignment": "security",
   certificate: "security",
   "log-workspace": "observability",
   "metrics-workspace": "observability",
@@ -297,6 +313,7 @@ const TYPE_COLOR_TOKEN: Readonly<Record<string, ArchitectureResourceColorToken>>
   "network.route-table": "load-balancer",
   "network.private-dns-zone": "dns-zone",
   "network.private-dns-zone-link": "dns-zone",
+  "network.private-dns-zone-group": "dns-zone",
   "network.dns-resolver": "dns-zone",
   "network.dns-resolver-inbound-endpoint": "dns-zone",
   "network.virtual-network-gateway": "application-gateway",
@@ -310,6 +327,7 @@ const TYPE_COLOR_TOKEN: Readonly<Record<string, ArchitectureResourceColorToken>>
   cache: "redis",
   "redis-enterprise": "redis",
   "managed-identity": "managed-identity",
+  "authorization.role-assignment": "managed-identity",
   certificate: "certificate",
   "log-workspace": "log-analytics",
   "metrics-workspace": "azure-monitor",
@@ -406,9 +424,11 @@ const COMPACT_TYPES = new Set([
   "network.interface",
   "network.private-dns-zone",
   "network.private-dns-zone-link",
+  "network.private-dns-zone-group",
   "network.dns-resolver",
   "network.dns-resolver-inbound-endpoint",
   "managed-identity",
+  "authorization.role-assignment",
   "certificate",
 ]);
 const NETWORK_LANE_TYPES = new Set([
@@ -427,8 +447,10 @@ const AUXILIARY_TYPES = new Set([
   "file-share",
   "kubernetes-node-pool",
   "managed-identity",
+  "authorization.role-assignment",
   "network.dns-resolver-inbound-endpoint",
   "network.private-dns-zone-link",
+  "network.private-dns-zone-group",
 ]);
 const SHAPE_GEOMETRY: Readonly<Record<ArchitectureNodeShape, ArchitectureNodeGeometry>> = {
   block: { width: 1.04, depth: .76, height: .34 },

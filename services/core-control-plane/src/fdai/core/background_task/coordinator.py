@@ -85,15 +85,31 @@ class BackgroundTaskCoordinator:
         self._clock = clock or (lambda: datetime.now(UTC))
         self._active: dict[str, asyncio.Task[BackgroundTaskAttempt]] = {}
         self._ticks: set[asyncio.Task[tuple[BackgroundTaskAttempt, ...]]] = set()
+        self._run_lock = asyncio.Lock()
+        self._wake_pending = False
         self._completion_retry_due_at: datetime | None = None
         self._completion_retry_task: asyncio.Task[None] | None = None
 
     def wake(self) -> None:
-        tick = asyncio.create_task(self.run_once(), name="background-task-tick")
+        self._wake_pending = True
+        if any(not tick.done() for tick in self._ticks):
+            return
+        tick = asyncio.create_task(self._run_wake_cycles(), name="background-task-tick")
         self._ticks.add(tick)
         tick.add_done_callback(self._ticks.discard)
 
+    async def _run_wake_cycles(self) -> tuple[BackgroundTaskAttempt, ...]:
+        results: tuple[BackgroundTaskAttempt, ...] = ()
+        while self._wake_pending:
+            self._wake_pending = False
+            results = await self.run_once()
+        return results
+
     async def run_once(self) -> tuple[BackgroundTaskAttempt, ...]:
+        async with self._run_lock:
+            return await self._run_once()
+
+    async def _run_once(self) -> tuple[BackgroundTaskAttempt, ...]:
         await self._store.reconcile_expired(now=self._clock(), limit=1_000)
         await self._store.reconcile_completion_expired(now=self._clock(), limit=1_000)
         await self._drain_completions()
@@ -135,12 +151,17 @@ class BackgroundTaskCoordinator:
         return tuple(results)
 
     async def cancel(self, task_id: str, *, actor: str, is_admin: bool = False) -> None:
-        await self._store.cancel(
-            task_id,
-            actor=actor,
-            is_admin=is_admin,
-            now=self._clock(),
-        )
+        current = await self._store.get(task_id)
+        if current is not None and current.status is BackgroundTaskStatus.CANCELLED:
+            if current.task.owner_principal_id != actor and not is_admin:
+                raise PermissionError("only the owner or an administrator can cancel the task")
+        else:
+            await self._store.cancel(
+                task_id,
+                actor=actor,
+                is_admin=is_admin,
+                now=self._clock(),
+            )
         active = self._active.get(task_id)
         if active is not None and not active.done():
             active.cancel()
@@ -262,6 +283,8 @@ class BackgroundTaskCoordinator:
         return completed
 
     async def _drain_completions(self) -> None:
+        if self._completion_sink is None:
+            return
         while True:
             claims = []
             for _ in range(self._config.max_concurrency):
@@ -290,9 +313,10 @@ class BackgroundTaskCoordinator:
     ) -> None:
         completion, attempt = claim
         try:
-            if self._completion_sink is not None:
-                async with asyncio.timeout(self._completion_publish_timeout_seconds):
-                    await self._completion_sink.publish(attempt)
+            if self._completion_sink is None:  # pragma: no cover - guarded before claim
+                raise RuntimeError("background task completion sink is unavailable")
+            async with asyncio.timeout(self._completion_publish_timeout_seconds):
+                await self._completion_sink.publish(attempt)
             await self._store.finish_completion(
                 attempt.attempt_id,
                 lease_token=lease_token,
@@ -368,7 +392,7 @@ class BackgroundTaskCoordinator:
         configured = self._config.completion_timeout_seconds
         if configured is not None:
             return configured
-        return max(0.05, min(float(self._config.lease_seconds), 1.0))
+        return max(0.05, self._config.lease_seconds / 2)
 
 
 class _ProgressReporter:

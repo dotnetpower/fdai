@@ -15,6 +15,8 @@ from fdai_operator_service.families.conversation.presentation_planner import (
     EvidenceShape,
     PresentationIntent,
     PresentationKind,
+    SemanticShape,
+    VisualizationKind,
     analyze_evidence_shape,
     plan_presentation,
 )
@@ -109,12 +111,17 @@ def compile_presentation_artifact_v2(
     evidence_refs = semantic.get("evidence_refs")
     if (
         not isinstance(context, Mapping)
-        or set(context) != {"operation", "output_shape"}
+        or set(context)
+        not in (
+            {"operation", "output_shape"},
+            {"operation", "output_shape", "presentation_semantics"},
+        )
         or not isinstance(outputs, list)
         or len(outputs) != 1
         or not isinstance(outputs[0], Mapping)
         or not isinstance(evidence_refs, list)
         or not evidence_refs
+        or len(evidence_refs) > _MAX_REFS
         or any(not isinstance(item, str) for item in evidence_refs)
     ):
         return None
@@ -122,6 +129,10 @@ def compile_presentation_artifact_v2(
     output_shape = context.get("output_shape")
     if operation not in _OPERATIONS or output_shape not in _OUTPUT_SHAPES:
         return None
+    semantics = _presentation_semantics(context.get("presentation_semantics"))
+    if context.get("presentation_semantics") is not None and semantics is None:
+        return None
+    semantic_shape, semantic_fields = semantics or (None, {})
     output = cast(Mapping[str, object], outputs[0])
     if isinstance(output.get("incident_profile"), Mapping):
         return None
@@ -161,7 +172,12 @@ def compile_presentation_artifact_v2(
                 "blocks": blocks,
             },
         )
-    shape = analyze_evidence_shape(output, verified=_semantic_is_verified(semantic))
+    shape = analyze_evidence_shape(
+        output,
+        verified=_semantic_is_verified(semantic),
+        semantic_shape=semantic_shape,
+        semantic_fields=semantic_fields,
+    )
     sampling_description: str | None = None
     if output_shape == "target_resource_metric_series" and shape.records:
         sampling = _metric_series_sampling(shape)
@@ -188,6 +204,7 @@ def compile_presentation_artifact_v2(
         evidence_refs=evidence_refs,
         preferred_columns=(_preferred_columns(cast(str, output_shape))),
         time_series_description=sampling_description,
+        visualization=decision.visualization,
     )
     if block is None:
         return None
@@ -476,6 +493,10 @@ def _presentation_intent(
     output_shape: str,
     shape: EvidenceShape,
 ) -> PresentationIntent:
+    if shape.semantic_shape is SemanticShape.CORRELATION:
+        return PresentationIntent.CORRELATION
+    if shape.semantic_shape is SemanticShape.CATEGORICAL_MATRIX:
+        return PresentationIntent.MATRIX
     if output_shape == "target_resource_metric_series":
         return PresentationIntent.TREND
     if output_shape == "temporal_comparison":
@@ -533,10 +554,10 @@ def _compile_block(
     evidence_refs: list[object],
     preferred_columns: tuple[str, ...] = (),
     time_series_description: str | None = None,
+    visualization: VisualizationKind = VisualizationKind.NONE,
 ) -> JsonObject | None:
     korean = locale.casefold().startswith("ko")
     refs = cast(list[str], evidence_refs[:_MAX_REFS])
-    exact_table = _exact_table(shape, preferred_columns=preferred_columns)
     base: dict[str, object] = {
         "emphasis": "primary",
         "collapsed": False,
@@ -578,8 +599,6 @@ def _compile_block(
                 },
             },
         )
-    if exact_table is None:
-        return None
     if kind is PresentationKind.SUMMARY:
         record = shape.records[0]
         return cast(
@@ -597,6 +616,9 @@ def _compile_block(
                 },
             },
         )
+    exact_table = _exact_table(shape, preferred_columns=preferred_columns)
+    if exact_table is None:
+        return None
     if kind in {PresentationKind.TABLE, PresentationKind.LIST, PresentationKind.THRESHOLD_TABLE}:
         slot = "metrics" if kind is PresentationKind.THRESHOLD_TABLE else "records"
         title = (
@@ -619,9 +641,23 @@ def _compile_block(
             },
         )
     if kind is PresentationKind.BAR:
-        return _bar_block(shape, exact_table=exact_table, korean=korean, refs=refs, base=base)
+        return _bar_block(
+            shape,
+            exact_table=exact_table,
+            korean=korean,
+            refs=refs,
+            base=base,
+            visualization=visualization,
+        )
     if kind is PresentationKind.COVERAGE:
-        return _coverage_block(shape, exact_table=exact_table, korean=korean, refs=refs, base=base)
+        return _coverage_block(
+            shape,
+            exact_table=exact_table,
+            korean=korean,
+            refs=refs,
+            base=base,
+            visualization=visualization,
+        )
     if kind is PresentationKind.TIME_SERIES:
         return _time_series_block(
             shape,
@@ -630,13 +666,30 @@ def _compile_block(
             refs=refs,
             base=base,
             sampling_description=time_series_description,
+            visualization=visualization,
         )
     if kind is PresentationKind.COMPARISON:
         return _comparison_block(
-            shape, exact_table=exact_table, korean=korean, refs=refs, base=base
+            shape,
+            exact_table=exact_table,
+            korean=korean,
+            refs=refs,
+            base=base,
+            visualization=visualization,
         )
     if kind is PresentationKind.TIMELINE:
-        return _timeline_block(shape, exact_table=exact_table, korean=korean, refs=refs, base=base)
+        return _timeline_block(
+            shape,
+            exact_table=exact_table,
+            korean=korean,
+            refs=refs,
+            base=base,
+            visualization=visualization,
+        )
+    if kind is PresentationKind.SCATTER:
+        return _scatter_block(shape, exact_table=exact_table, korean=korean, refs=refs, base=base)
+    if kind is PresentationKind.HEATMAP:
+        return _heatmap_block(shape, exact_table=exact_table, korean=korean, refs=refs, base=base)
     return None
 
 
@@ -647,6 +700,7 @@ def _bar_block(
     korean: bool,
     refs: list[str],
     base: Mapping[str, object],
+    visualization: VisualizationKind,
 ) -> JsonObject | None:
     if shape.category_field is None or shape.current_field is None or len(shape.units) != 1:
         return None
@@ -663,6 +717,7 @@ def _bar_block(
                 if korean
                 else "Compares categorical values with one unit.",
                 "unit": shape.units[0],
+                "visualization": visualization.value,
                 "items": [
                     {
                         "label": _cell(record.get(shape.category_field)),
@@ -684,6 +739,7 @@ def _coverage_block(
     korean: bool,
     refs: list[str],
     base: Mapping[str, object],
+    visualization: VisualizationKind,
 ) -> JsonObject | None:
     if shape.numerator_field is None or shape.denominator_field is None:
         return None
@@ -701,6 +757,7 @@ def _coverage_block(
                 if korean
                 else "Compares verified numerators and denominators.",
                 "unit": "ratio",
+                "visualization": visualization.value,
                 "items": [
                     {
                         "label": _cell(record.get(label_field)),
@@ -724,6 +781,7 @@ def _time_series_block(
     refs: list[str],
     base: Mapping[str, object],
     sampling_description: str | None,
+    visualization: VisualizationKind,
 ) -> JsonObject | None:
     if (
         shape.timestamp_field is None
@@ -752,6 +810,7 @@ def _time_series_block(
                 "description": description,
                 "metric": metric,
                 "unit": shape.units[0],
+                "visualization": visualization.value,
                 "points": [
                     {
                         "timestamp": record[shape.timestamp_field],
@@ -818,6 +877,7 @@ def _comparison_block(
     korean: bool,
     refs: list[str],
     base: Mapping[str, object],
+    visualization: VisualizationKind,
 ) -> JsonObject | None:
     if len(shape.units) != 1:
         return None
@@ -849,6 +909,7 @@ def _comparison_block(
                 else f"Compares role-bound values for {metric}.",
                 "metric": metric,
                 "unit": shape.units[0],
+                "visualization": visualization.value,
                 "items": items,
                 "exact_table": exact_table,
             },
@@ -863,6 +924,7 @@ def _timeline_block(
     korean: bool,
     refs: list[str],
     base: Mapping[str, object],
+    visualization: VisualizationKind,
 ) -> JsonObject | None:
     if shape.timestamp_field is None:
         return None
@@ -884,6 +946,7 @@ def _timeline_block(
                 "description": "근거가 되는 순서를 보존합니다."
                 if korean
                 else "Preserves the evidence-bearing order.",
+                "visualization": visualization.value,
                 "items": [
                     {
                         "timestamp": record[shape.timestamp_field],
@@ -897,11 +960,131 @@ def _timeline_block(
     )
 
 
+def _scatter_block(
+    shape: EvidenceShape,
+    *,
+    exact_table: JsonObject,
+    korean: bool,
+    refs: list[str],
+    base: Mapping[str, object],
+) -> JsonObject | None:
+    fields = dict(shape.semantic_fields)
+    x_field = fields.get("x")
+    y_field = fields.get("y")
+    label_field = fields.get("label") or shape.category_field
+    if x_field not in shape.numeric_fields or y_field not in shape.numeric_fields:
+        return None
+    return cast(
+        JsonObject,
+        {
+            **base,
+            "slot_id": "correlation",
+            "kind": "scatter",
+            "title": "검증된 상관관계" if korean else "Verified correlation",
+            "evidence_refs": refs,
+            "data": {
+                "description": "두 검증된 수치 축을 비교합니다."
+                if korean
+                else "Compares two verified numeric axes.",
+                "x_label": x_field,
+                "y_label": y_field,
+                "points": [
+                    {
+                        "label": _cell(record.get(label_field)) if label_field else str(index + 1),
+                        "x": record[x_field],
+                        "y": record[y_field],
+                    }
+                    for index, record in enumerate(shape.records)
+                ],
+                "exact_table": exact_table,
+            },
+        },
+    )
+
+
+def _heatmap_block(
+    shape: EvidenceShape,
+    *,
+    exact_table: JsonObject,
+    korean: bool,
+    refs: list[str],
+    base: Mapping[str, object],
+) -> JsonObject | None:
+    fields = dict(shape.semantic_fields)
+    row_field = fields.get("row")
+    column_field = fields.get("column")
+    value_field = fields.get("value")
+    if not row_field or not column_field or value_field not in shape.numeric_fields:
+        return None
+    return cast(
+        JsonObject,
+        {
+            **base,
+            "slot_id": "matrix",
+            "kind": "heatmap",
+            "title": "검증된 행렬" if korean else "Verified matrix",
+            "evidence_refs": refs,
+            "data": {
+                "description": "두 범주 차원의 검증된 값을 비교합니다."
+                if korean
+                else "Compares verified values across two categorical dimensions.",
+                "row_label": row_field,
+                "column_label": column_field,
+                "cells": [
+                    {
+                        "row": _cell(record.get(row_field)),
+                        "column": _cell(record.get(column_field)),
+                        "value": record[value_field],
+                    }
+                    for record in shape.records
+                ],
+                "exact_table": exact_table,
+            },
+        },
+    )
+
+
+def _presentation_semantics(
+    raw: object,
+) -> tuple[SemanticShape, dict[str, str]] | None:
+    if not isinstance(raw, Mapping) or set(raw) != {"shape", "fields"}:
+        return None
+    raw_shape = raw.get("shape")
+    if not isinstance(raw_shape, str):
+        return None
+    try:
+        shape = SemanticShape(raw_shape)
+    except ValueError:
+        return None
+    fields = raw.get("fields")
+    if not isinstance(fields, Mapping) or any(
+        not isinstance(key, str) or not isinstance(value, str) or not key or not value
+        for key, value in fields.items()
+    ):
+        return None
+    parsed_fields = cast(dict[str, str], dict(fields))
+    expected_fields = {
+        SemanticShape.CORRELATION: {"label", "x", "y"},
+        SemanticShape.CATEGORICAL_MATRIX: {"row", "column", "value"},
+    }.get(shape, set())
+    if set(parsed_fields) != expected_fields or len(set(parsed_fields.values())) != len(
+        parsed_fields
+    ):
+        return None
+    return shape, parsed_fields
+
+
 def _exact_table(
     shape: EvidenceShape,
     *,
     preferred_columns: tuple[str, ...] = (),
 ) -> JsonObject | None:
+    if any(len(field) > _MAX_CELL_CHARS for field in shape.columns) or any(
+        len(_render_cell(record.get(field))) > _MAX_CELL_CHARS
+        for record in shape.records
+        for field in shape.columns
+    ):
+        return None
     selected = tuple(
         [field for field in preferred_columns if field in shape.columns]
         + [field for field in shape.columns if field not in preferred_columns]
@@ -975,6 +1158,10 @@ def _semantic_is_verified(semantic: Mapping[str, object]) -> bool:
 
 
 def _cell(value: object) -> str:
+    return _render_cell(value)[:_MAX_CELL_CHARS]
+
+
+def _render_cell(value: object) -> str:
     if value is None:
         rendered = ""
     elif isinstance(value, str):
@@ -988,7 +1175,7 @@ def _cell(value: object) -> str:
     cleaned = "".join(
         " " if ord(character) < 32 or ord(character) == 127 else character for character in rendered
     ).strip()
-    return cleaned[:_MAX_CELL_CHARS] if cleaned else "-"
+    return cleaned if cleaned else "-"
 
 
 __all__ = ["compile_presentation_artifact_v2"]

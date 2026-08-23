@@ -157,7 +157,8 @@ export function nodeGeometry(
         nodeBodyLines(node, locale, maxBodyUnits, descriptionAsBody).length,
     ),
   );
-  const hasIcon = Boolean(node.icon) || node.kind === "agent";
+  const hasIcon = Boolean(node.icon) || node.kind === "agent" ||
+    (iconPresentation && Boolean(node.resourceType));
   const textHeight = lineCount * nodeLineHeight;
   const bodyHeight = bodyLineCount * bodyLineHeight;
   const iconSize = iconPresentation ? REFERENCE_NODE_ICON_SIZE : NODE_ICON_SIZE;

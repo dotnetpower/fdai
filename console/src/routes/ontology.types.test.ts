@@ -123,6 +123,7 @@ describe("ontology view model", () => {
     expect(ontologyView("unknown")).toBe("map");
     expect(ontologyView("links")).toBe("links");
     expect(ontologyView("actions")).toBe("actions");
+    expect(ontologyView("instances")).toBe("instances");
     expect(ontologyView("map")).toBe("map");
     expect(ontologyView("topology")).toBe("topology");
   });

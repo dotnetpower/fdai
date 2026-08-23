@@ -119,12 +119,12 @@ async def test_projects_merged_runtime_catalog_idempotently_to_typed_store(
 
 def test_bootstrap_syncs_the_release_history_before_reading_persisted_incidents() -> None:
     """A persisted object pins an earlier release, so the read MUST follow the sync."""
-    source = (_ROOT / "services/core-control-plane/src/fdai/runtime/bootstrap.py").read_text(
+    source = (_ROOT / "services/core-control-plane/src/fdai/runtime/bootstrap_core.py").read_text(
         encoding="utf-8"
     )
 
     sync_at = source.index("await sync_ontology_catalog(")
-    read_at = source.index("await incident_registry.bind_projection(")
+    read_at = source.index("await incident_runtime.bind_projection(")
 
     assert sync_at < read_at
 

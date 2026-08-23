@@ -20,6 +20,7 @@ from fdai.core.ontology_platform import (
     ReconciliationArtifactResolver,
 )
 from fdai.core.rca import TemporalCausalityConfig
+from fdai.delivery.azure.executed_action_observation import AzureObservationContextIssuer
 from fdai.delivery.azure.graph_dynamic_evidence import (
     AzureGraphDynamicSimulationRequestProvider,
     AzureGraphInterventionPolicy,
@@ -53,6 +54,11 @@ def _bind(
     graph_policies: dict[str, AzureGraphInterventionPolicy] | None = None,
     graph_effect_models: GraphEffectModelReader | None = None,
     graph_effect_model_causal_evidence: GraphEffectModelCausalEvidenceVerifier | None = None,
+    action_observation_context_issuer: AzureObservationContextIssuer | None = None,
+    action_observation_verifier: ObservationContextVerifier | None = None,
+    reconciliation_artifact_resolver: ReconciliationArtifactResolver | None = None,
+    action_observer_identity: str | None = None,
+    action_observation_source_identity: str | None = None,
 ) -> Container:
     provider = _provider()
     return bind_azure_operational_evidence(
@@ -81,6 +87,11 @@ def _bind(
         graph_policies=graph_policies,
         graph_effect_models=graph_effect_models,
         graph_effect_model_causal_evidence=graph_effect_model_causal_evidence,
+        action_observation_context_issuer=action_observation_context_issuer,
+        action_observation_verifier=action_observation_verifier,
+        reconciliation_artifact_resolver=reconciliation_artifact_resolver,
+        action_observer_identity=action_observer_identity,
+        action_observation_source_identity=action_observation_source_identity,
     )
 
 
@@ -166,3 +177,33 @@ def test_complete_reconciliation_prerequisites_bind_together(container: Containe
 
     assert bound.reconciliation_artifact_resolver is not None
     assert bound.reconciliation_observation_verifier is not None
+
+
+def test_complete_action_observation_prerequisites_bind_collector(container: Container) -> None:
+    issuer = cast(AzureObservationContextIssuer, object())
+    verifier = cast(ObservationContextVerifier, object())
+    resolver = cast(ReconciliationArtifactResolver, object())
+
+    bound = _bind(
+        container,
+        action_observation_context_issuer=issuer,
+        action_observation_verifier=verifier,
+        reconciliation_artifact_resolver=resolver,
+        action_observer_identity="observer:heimdall:1",
+        action_observation_source_identity="source:azure-monitor:1",
+    )
+
+    assert bound.executed_action_observation_collector is not None
+
+
+def test_partial_action_observation_prerequisites_fail_at_composition(
+    container: Container,
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match="executed-Action observation prerequisites MUST be bound together",
+    ):
+        _bind(
+            container,
+            action_observation_context_issuer=cast(AzureObservationContextIssuer, object()),
+        )

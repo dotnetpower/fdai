@@ -50,6 +50,8 @@ The panel registry in [`src/panels.tsx`](src/panels.tsx) groups the complete
 operator surface into five stable navigation domains: Overview, Operations,
 Agents, Governance, and Evidence. An icon-only Activity Bar selects a domain,
 opens the adjacent Explorer, and navigates to that domain's first visible panel.
+Selecting the open domain again collapses the Explorer without changing the
+current route; selecting the same domain while collapsed restores its Explorer.
 Settings is pinned to the bottom of the Activity Bar and uses the same Explorer
 pattern. Page titles render a compact domain / panel hierarchy when the labels
 differ (for example, `Overview / Dashboard` and `Overview / LLM usage`). A root
@@ -266,11 +268,13 @@ The Governance routes share the Calm Slate information hierarchy from
 Architecture is intentionally unchanged because it has no matching governance
 mock and already owns a specialized inventory canvas.
 
-- **Ontology** presents the structured `GET /ontology/graph` response as three
+- **Ontology** presents the structured catalog and operational instance projections as
   URL-addressable views. Objects uses a deterministic 2D one-hop neighborhood,
   Links shows endpoint and cardinality contracts, and Actions provides a
-  filterable ActionType safety-contract catalog. The Mermaid source remains an
-  ObjectType fallback and evidence view.
+  filterable ActionType safety-contract catalog. Instances resolves an exact Resource
+  autocomplete selection through the existing read-only URL state and uses FDAI tooltips for
+  Resource and relationship details. The Mermaid source remains an ObjectType fallback and
+  evidence view.
 - **Rules** preserves server-side facets, paging, detected issues, and the detail
   drawer. Facets render as count-bearing chips, while list rows expose only
   recorded provenance, category, source, affected count, and version. The UI
@@ -313,6 +317,27 @@ guessed into an application. Every view uses the same boundary-normalization pas
 rendering, so a resource cannot appear outside its declared parent scope. The right-side Map
 controls provide Iso / Top / Front camera presets, layer and display toggles, and the canvas
 includes Zoom in / out / Fit controls.
+
+The `Network` presentation mode keeps the same authoritative response and switches to a bounded 2D
+focus over the selected VNet or the observed VNet with the most subnet containment. It rebuilds
+VNet and subnet geometry only from reported containment and bounded `attached_to` membership. The
+source and destination controls trace the shortest typed `attached_to`, `depends_on`, or
+`peered_with` path. A fresh, complete graph can report `No observed path`; stale, partial,
+truncated, or relationship-incomplete evidence reports `Path unknown` instead. Layout order and
+resource names never become traffic or reachability evidence.
+
+Known network resource types use the same reviewed official Azure SVG files as the static compiler;
+an unmapped type keeps the stable abbreviation fallback. Relationship paths terminate at node and
+region boundaries, use a neutral halo plus typed endpoint dot when nested boundaries reduce
+contrast, and keep mobile icon nodes and mode controls at a 44 px minimum target.
+The live map and downloaded report share an obstacle-aware orthogonal router. Peer VNet boundaries
+connect through a direct header corridor, dependency and peering arrowheads preserve direction, and
+the self-contained export embeds reviewed SVG source without fetching a local or remote icon URL.
+
+Network filters are presentation-only. SVG and PNG export use one sanitized, identifier-free SVG
+report that retains snapshot time, freshness, completeness, resource-type labels, and
+`Read-only observed topology`. The browser never exports raw provider ids, resource names,
+credentials, endpoints, or subscription ids.
 
 The canvas renders floor reflections first, then opaque resource bodies, connection paths,
 and finally resource abbreviations and labels. This keeps dependency lines visible above the

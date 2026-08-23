@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: f8674256a272aaa32597b06887f1a19fc577be97
-translation_revised: 2026-08-22
+translation_source_sha: 2ed475219c6204d66a1ce75d9b585a383193e221
+translation_revised: 2026-08-23
 ---
 # 프로젝트 구조
 
@@ -27,11 +27,13 @@ translation_revised: 2026-08-22
 | 통제된 규칙 발견 시작 경계 | implemented | `core/readiness/discovery_activation.py`, `runtime/discovery_activation.py`, `runtime/bootstrap*.py`, `agents/norns.py`, 집중 활성화 및 연결 검사 | Core는 최신 선행 조건 근거를 집약하고, 런타임은 기본적으로 닫힌 결정을 Norns의 비활성 후보 게시 경계에만 주입하며, 감독되는 새로 고침이 실패하면 카탈로그 또는 승격 권한을 바꾸지 않고 로컬 게이트를 닫습니다. |
 | 로컬 telemetry 쓰기 경계 | implemented | `shared/telemetry/logging.py`, `capture-local-service-log.py`, 집중 telemetry·launcher·provider integration·framework layout 검사 | Shared telemetry는 범위가 제한된 구조화 경고 보존과 의존성 요약을 소유합니다. 로컬 launcher는 터미널 표시와 완전한 회전 파일 캡처를 소유하며, 어느 경로도 에이전트 전달이나 권한을 바꾸지 않습니다. |
 | Pre-dispatch kinetic safety 경계 | implemented | `core/operational_planning/kinetic_safety.py`, `delivery/kinetic_safety.py`, `delivery/kinetic_proposal.py`, `runtime/control_loop.py`, 집중 dispatch, HIL, artifact, proposal 및 runtime 검사(`119 passed`) | Core는 프로바이더 중립 ordering seam을 선언합니다. Delivery는 영속 OperationalPlan 및 proposal lineage를 다시 검증하고 correlation index에 있는 기존 exact V2 proposal과 기존 typed Action을 결합하며 runtime은 모든 Thor 실행기 전에 ControlLoop와 HIL resume이 하나의 writer를 공유하도록 합니다. Proposal이 없으면 legacy 동작을 유지하고 invalid evidence는 권한을 높이지 않은 채 dispatch를 차단합니다. |
+| 백그라운드 작업 읽기 및 완료 경계 | in-progress | `core/background_task/`, `delivery/persistence/background_task_completion_audit.py`, Operator `families/conversation/background_tasks.py`, Operator 읽기 migration, Console 백그라운드 작업 경로, 집중 Core, Operator, migration 및 Console 검사 | Core는 분리 작업 상태와 완료 순서를 소유하고 delivery는 원자적 감사 표시를 소유하며 Operator는 `SELECT`만 사용해 소유자 조건의 변환 결과를 읽고 Console은 변경 컨트롤을 제공하지 않습니다. 프로덕션 제안 consumer, 실행기, 조정기 및 싱크 연결은 남아 있습니다. |
 
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-22 | validated | 기존 Core, 조립, Operator, Console 소유 경계 전체에서 정확한 대상 메트릭 시계열 경로를 검증했습니다. | `current change`, 집중 격리 검사 4개와 Ruff 및 strict mypy 통과, 인증된 Console 근거가 `server_target_resource_metric_series`, 완전한 행 20/20개, 표시 잘림 없음, `1440x900`, `993x641`, `390x844`에서 문서 또는 Deck overflow 없음을 기록 | 이 기능의 패키지, 프로세스, 신원, 영속성 또는 서비스 경계 작업은 남아 있지 않습니다. |
+| 2026-08-23 | in-progress | 서비스 간 구현 import나 작업 변경 권한을 추가하지 않고 백그라운드 작업 완료 감사 어댑터, 소유자 범위 Operator 읽기 변환 결과와 최소 권한 migration, 이중 언어 Console 점검 경로를 추가했습니다. | `current change`, 집중 Core 싱크/감사, Operator 변환 결과/제품군, 서비스 migration inventory 및 Console decoder 검사와 Ruff, strict mypy, Console typecheck, 프로덕션 build. | 생성 또는 취소 컨트롤을 추가하기 전에 versioned 제안 consumer를 정의하고 실행기, 조정기, 완료 싱크 및 감사 writer를 연결합니다. |
 | 2026-08-22 | implemented | 기존 서비스 소유권 안에 정확한 대상 메트릭 시계열 경로를 추가했습니다. Core는 의미 계약을 통해 타입이 지정된 범위 제한 표를 반환하고 Operator는 sampling metadata를 독립적으로 검증한 뒤 presentation block을 컴파일합니다. | `current change`, 집중 메트릭, 플래너, 조립, prompt, Operator 표현 검사 43개 통과 | 인증된 표준 포트 Browser 근거를 보존합니다. 패키지, 프로세스, 신원, 영속성 또는 서비스 경계 변경은 남아 있지 않습니다. |
 | 2026-08-21 | implemented | 온톨로지 또는 답변 oracle을 중복하지 않고 정적 의미 corpus를 손으로 작성한 20쌍에서 생성된 이중 언어 280쌍으로 확장했습니다. 균형 잡힌 7관점 coverage, 문서에서 도출한 historical topology, release health, cost, recurrence, unsafe-action, resource-evidence, agent-authority 사례, 결정론적 source-to-artifact drift 검사를 추가했습니다. | `current change`, `eval/golden-dataset/{coverage,expectations,questions}*`, `build_golden_dataset.py`, 집중 dataset 검사 7개 통과 | 답변 회귀 coverage를 주장하기 전에 확장된 corpus를 기존 의미 캠페인에 연결합니다. |
 | 2026-08-21 | in-progress | 서비스 분해가 evaluation 호스트와 호환성 파사드를 제거한 뒤 물리 배치를 정정했습니다. 로캘 중립 온톨로지 탐색 및 답변 oracle을 갖춘 별도 이중 언어 cloud-operations golden dataset을 추가했습니다. | `current change`, `eval/golden-dataset/`, `tests/integration/evaluation/test_golden_dataset.py` 4개 통과, 휴면 패키지 테스트 68개 통과 | 자동 답변 회귀 coverage를 주장하기 전에 corpus를 기존 의미 질문 캠페인에 연결합니다. |
@@ -93,7 +95,7 @@ fdai/
 │   │   ├── trajectory/         # authorization-first observable trajectory projection, version policy, reviewed aggregate, offline validation, provider-neutral 보존 claim 조정
 │   │   ├── case_history/       # canonical revision, strict operational receipt, artifact-first intake, scoped retrieval, backfill 및 retention
 │   │   ├── task_worker/        # 격리된 depth-one 읽기 전용 worker: capability 축소, lifecycle, 영구 state, parent synthesis
-│   │   ├── background_task/    # 영구 detached read: lease/CAS, atomic completion outbox, bounded retry, process-loss, retention purge
+│   │   ├── background_task/    # 영구 detached read: lease/CAS, atomic completion outbox, replay-idempotent 인계, bounded retry, process-loss, retention purge
 │   │   ├── read_investigation/ # Exact-resource VM/network planning, evidence, immutable provider-vs-graph shadow comparison과 그 결정적 교차 출처 충돌 판정, latency policy, owner-scoped direct/stream replay, honest cost usage, SSE heartbeat, stream-close cancellation. Cloud SDK와 execution authority 없음
 │   │   ├── briefing/           # report-feed evidence 기반 결정적 opening/scheduled briefing
 │   │   ├── scheduler/          # create/pause/resume/edit/run-now/cancel lifecycle, cron dispatch, run history, blueprint, 범위 제한 continuation
@@ -160,7 +162,7 @@ fdai/
 │   │   ├── channels/           # 순수 Teams/Slack 표현과 인증된 범위 제한 A3 전송; executor identity 없음
 │   │   ├── chatops/            # 채널 어댑터 (Teams / Slack / email / webhook / pager / SMS)
 │   │   ├── notifications/      # 채널별 sender; sibling `incident_platform/`은 PagerDuty/ServiceNow lifecycle 및 PagerDuty roster adapter 제공
-│   │   ├── persistence/        # Forecast episode/outbox 및 relational case-history backfill을 포함한 Postgres / pgvector store
+│   │   ├── persistence/        # Forecast episode/outbox, relational case-history backfill 및 원자적 background-task 완료 감사 표시를 포함한 Postgres / pgvector store
 │   │   ├── operating_model/    # bounded JSON deployment operating-model adapter; startup-only, all-before-write
 │   │   ├── runtime_settings.py  # allowlist된 env default + revisioned StateStore override; executor identity 또는 promotion authority 없음
 │   │   ├── behavior_knowledge/ # in-memory hybrid behavior index, tracked-source freshness, built-in behavior seed
@@ -187,7 +189,7 @@ fdai/
 │   │   ├── pipeline/           # watch -> collect -> shadow/regression; distill은 DocumentEnvelope provenance bridge, cross-format equivalence 및 review-only ontology gate 추가
 │   │   └── codegen/            # 저작 헬퍼 (`new_action_type`, `new_object_type`) - 스캐폴드 생성만, 라이브 카탈로그 변경 안 함
 │   ├── agents/                # 판테온 런타임 - 15개 agent, typed topic, 선택적 exact-proposal Verdict binding, v2 conversation charter 및 bounded T1/T2 deliberation; [agent-pantheon-ko.md](../agents/agent-pantheon-ko.md) 참조
-│   ├── composition/           # composition root 패키지 (G-3, 트래커 #14): `__init__.py` facade + `_helpers.py` Container/LlmBindings(optional conversation T2 synthesis 포함) + request-role executor를 사용하는 exact-release semantic query assembly와 영속 비교 저장소를 직접 소유하는 context-selection shadow 실행기를 연결하는 `wire_context_selection.py`를 포함한 focused `wire_*` binder
+│   ├── composition/           # composition root 패키지 (G-3, 트래커 #14): `__init__.py` facade + `_helpers.py` Container/LlmBindings + `resolved_models.py` artifact loading/capability helper + request-role executor를 사용하는 exact-release semantic query assembly와 영속 비교 저장소를 직접 소유하는 context-selection shadow 실행기를 연결하는 `wire_context_selection.py`를 포함한 focused `wire_*` binder
 │   ├── runtime/               # reviewed alias-free metric-semantic catalog loading, exact Rule 세대 문서 스냅샷과 replay가 동일한 reconciliation, versioned isolated Executor shadow/effect handling, stable-offset remote client, EventBus/DLQ/health supervision, production entry point, reversible authority probe, operating-model 및 diagnostic-catalog startup projection/status, durable T2 recovery observation/backfill, Thor/Vidar 실행과 rollback을 사용하는 StateStore-backed proposer route selection, deadline-bound 영속 변환 결과 재생을 포함한 semantic runtime availability/readiness binding, transport/identity binding, startup readiness, worker gating 및 Norns post-turn review를 포함한 headless lifecycle/composition
 │   └── __main__.py            # 진입점 (P1 컨트롤 루프 기동)
 ├── services/core-control-plane/{src/fdai_core_service,tests}/ # Core entry point와 test
@@ -247,7 +249,7 @@ fdai/
 │       ├── dev/
 │       ├── staging/
 │       └── prod/
-├── console/                   # 얇은 SPA (Vite + Preact) - 운영자 보기, 제한된 governed command, 로컬 표시 설정, 관찰 전용 IAM Assignments
+├── console/                   # 얇은 SPA (Vite + Preact) - 운영자 보기, 소유자 범위 background-task 점검, 제한된 governed command, 로컬 표시 설정, 관찰 전용 IAM Assignments
 │   ├── src/                    # 셸, 패널 레지스트리, GET 전용 클라이언트, 라우트, 브라우저 로컬 환경 설정
 │   ├── index.html              # Vite 진입점
 │   ├── package.json            # 의존: preact, @azure/msal-browser
@@ -505,6 +507,14 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
   `OperationalPromotionUnitVerifier`가 변경할 수 없는 근거를 해석합니다. 운영 레지스트리는
   이 연결 없이는 shadow를 유지하며 raw scalar 메트릭은 test-only 이전 방식 고정본 모드입니다.
   Promotion-state 새로 고침 실패는 stale 적용을 재사용하지 않고 unified system-health 상한을 낮춥니다.
+- **Operational catalog 검토 및 측정**: `DeterministicCatalogValidator`는 고정 시나리오 디렉터리에서
+  제공된 Rule loader, shadow evaluator, regression gate를 재사용합니다.
+  `GitOpsCatalogReviewPublisher`는 내용 기반 주소가 지정된 비활성 검토 package만 게시합니다.
+  `operational-promotion` 측정 작업은 exact-digest batch와 매니페스트 바인딩 causal 및 측정 단위
+  근거만 받아 승격 상태를 바꾸지 않고 증적을 저장합니다.
+- **독립 효과 관측**: 영속 kinetic artifact 저장소가 exact-plan source입니다.
+  `StateStoreExecutedActionObservationStore`는 서명된 맥락이 쓰기와 replay에서 구성된 검증기를
+  통과한 Heimdall 귀속 관측만 받습니다. 근거가 없으면 held 상태를 유지합니다.
 - **Azure operational 근거**: `bind_azure_operational_evidence`는 strict promoted-inventory
   스냅샷 읽기 담당, 현재 안전성 평가기, 구성된 Azure 메트릭, 범위가 제한된 가지 estimator,
   effect-model 읽기 담당을 조립합니다. Temporal 어댑터는 근거 hashing 전에 non-finite 메트릭

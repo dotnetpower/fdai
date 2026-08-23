@@ -42,17 +42,18 @@ variable "identity" {
 variable "event_topics" {
   description = "Event Hub entity names owned by the shared event-bus state."
   type = object({
-    canary               = optional(string, "fdai.control.canary")
-    events               = string
-    executor_command     = string
-    executor_receipt     = string
-    hil_decisions        = optional(string, "fdai.hil.decisions")
-    inventory_raw        = optional(string, "fdai.inventory.raw")
-    pipeline_stages      = optional(string, "fdai.pipeline.stages")
-    startup_probe        = optional(string, "runtime.startup.probe")
-    semantic_requests    = optional(string, "operator.semantic-turn.requests")
-    semantic_projections = optional(string, "core.semantic-turn.projections")
-    semantic_physical    = optional(string, "fdai.pantheon.objects")
+    canary                      = optional(string, "fdai.control.canary")
+    events                      = string
+    executor_command            = string
+    executor_receipt            = string
+    hil_decisions               = optional(string, "fdai.hil.decisions")
+    inventory_raw               = optional(string, "fdai.inventory.raw")
+    pipeline_stages             = optional(string, "fdai.pipeline.stages")
+    startup_probe               = optional(string, "runtime.startup.probe")
+    semantic_requests           = optional(string, "operator.semantic-turn.requests")
+    semantic_projections        = optional(string, "core.semantic-turn.projections")
+    semantic_physical           = optional(string, "fdai.pantheon.objects")
+    read_investigation_requests = optional(string, "operator.read-investigation.requests")
   })
 }
 
@@ -60,6 +61,7 @@ variable "database" {
   description = "Role-scoped database secret reference supplied by the state-store state owner."
   type = object({
     dsn_secret_id = string
+    host          = optional(string, "")
     role          = string
   })
   sensitive = true

@@ -34,8 +34,9 @@ if [[ ! -x "$repo_root/console/node_modules/.bin/vite" ]]; then
   exit 1
 fi
 
-preparation_marker="$repo_root/.fdai/console-full-stack-preparation.sha256"
-preparation_inputs=(
+legacy_preparation_marker="$repo_root/.fdai/console-full-stack-preparation.sha256"
+stage_marker_dir="$repo_root/.fdai/console-preparation"
+legacy_preparation_inputs=(
   console/.env.local
   pyproject.toml
   uv.lock
@@ -59,21 +60,28 @@ for optional_input in \
   .fdai/resolved-models-vision.json \
   infra/terraform.tfstate; do
   if [[ -f "$repo_root/$optional_input" ]]; then
-    preparation_inputs+=("$optional_input")
+    legacy_preparation_inputs+=("$optional_input")
   fi
 done
 
-preparation_digest() {
+path_digest() {
   "$repo_root/.venv/bin/python" \
     "$repo_root/scripts/automation/local-service-input-digest.py" \
-    "${preparation_inputs[@]}"
+    --paths-only \
+    "$@"
 }
 
-can_reuse_preparation() {
+legacy_digest() {
+  "$repo_root/.venv/bin/python" \
+    "$repo_root/scripts/automation/local-service-input-digest.py" \
+    "$@"
+}
+
+can_reuse_legacy_preparation() {
   local current_digest="$1"
   local output
-  [[ -f "$preparation_marker" ]] || return 1
-  [[ "$(<"$preparation_marker")" == "$current_digest" ]] || return 1
+  [[ -f "$legacy_preparation_marker" ]] || return 1
+  [[ "$(<"$legacy_preparation_marker")" == "$current_digest" ]] || return 1
   for output in "${required_outputs[@]}"; do
     [[ -s "$repo_root/$output" ]] || return 1
   done
@@ -83,36 +91,81 @@ can_reuse_preparation() {
     --wait-seconds 0 >/dev/null
 }
 
-write_preparation_marker() {
-  local digest="$1"
+write_marker() {
+  local marker="$1"
+  local digest="$2"
   local temporary
-  mkdir -p "$(dirname "$preparation_marker")"
+  mkdir -p "$(dirname "$marker")"
   umask 077
-  temporary="$(mktemp "${preparation_marker}.XXXXXX")"
-  trap 'rm -f "$temporary"' EXIT
+  temporary="$(mktemp "${marker}.XXXXXX")"
   printf '%s\n' "$digest" > "$temporary"
-  mv "$temporary" "$preparation_marker"
-  trap - EXIT
+  mv "$temporary" "$marker"
 }
 
-current_digest="$(preparation_digest)"
-if [[ "$force_preparation" == "0" ]] && can_reuse_preparation "$current_digest"; then
-  printf '%s service=console-preparation event=reused\n' \
-    "$(date '+%Y-%m-%dT%H:%M:%S.%6N%:z')"
-  exit 0
+stage_reusable() {
+  local name="$1"
+  local digest="$2"
+  shift 2
+  local marker="$stage_marker_dir/$name.sha256"
+  local output
+  [[ "$force_preparation" == "0" ]] || return 1
+  [[ -f "$marker" ]] || return 1
+  [[ "$(<"$marker")" == "$digest" ]] || return 1
+  for output in "$@"; do
+    [[ -s "$output" ]] || return 1
+  done
+}
+
+run_stage() {
+  local name="$1"
+  local digest="$2"
+  local callback="$3"
+  shift 3
+  local marker="$stage_marker_dir/$name.sha256"
+  if stage_reusable "$name" "$digest" "$@"; then
+    printf '%s service=console-preparation stage=%s event=reused\n' \
+      "$(date '+%Y-%m-%dT%H:%M:%S.%6N%:z')" "$name"
+    return
+  fi
+  rm -f "$marker"
+  "$callback"
+  write_marker "$marker" "$digest"
+  printf '%s service=console-preparation stage=%s event=completed\n' \
+    "$(date '+%Y-%m-%dT%H:%M:%S.%6N%:z')" "$name"
+}
+
+write_database_identity() {
+  local target="$stage_marker_dir/database-volumes.sha256"
+  local temporary
+  mkdir -p "$stage_marker_dir"
+  umask 077
+  temporary="$(mktemp "${target}.XXXXXX")"
+  docker volume inspect \
+    --format '{{.Name}} {{.CreatedAt}}' \
+    fdai-pgdata fdai-validation-pgdata \
+    | sha256sum \
+    | cut -d' ' -f1 > "$temporary"
+  mv "$temporary" "$target"
+}
+
+if [[ "$force_preparation" == "1" ]]; then
+  rm -f "$legacy_preparation_marker"
+  rm -f "$stage_marker_dir"/*.sha256
 fi
 
-rm -f "$preparation_marker"
 terraform_bin="${FDAI_TERRAFORM_BIN:-terraform}"
 az_bin="${FDAI_AZ_BIN:-az}"
-if ! command -v "$terraform_bin" >/dev/null 2>&1; then
-  echo "missing Terraform CLI: $terraform_bin" >&2
-  exit 1
-fi
-if ! command -v "$az_bin" >/dev/null 2>&1; then
-  echo "missing Azure CLI: $az_bin" >&2
-  exit 1
-fi
+
+require_cloud_tools() {
+  if ! command -v "$terraform_bin" >/dev/null 2>&1; then
+    echo "missing Terraform CLI: $terraform_bin" >&2
+    return 1
+  fi
+  if ! command -v "$az_bin" >/dev/null 2>&1; then
+    echo "missing Azure CLI: $az_bin" >&2
+    return 1
+  fi
+}
 
 run_runtime_projection() (
   set -a
@@ -137,13 +190,143 @@ sync_entra_redirects() (
   done
 )
 
-bash "$repo_root/scripts/deployment/local/prepare-console-state.sh"
-env -u AZURE_CONFIG_DIR \
-  bash "$repo_root/scripts/deployment/azure/prepare-local-runtime-env.sh"
-run_runtime_projection "$repo_root/scripts/deployment/local/refresh-authoritative-inventory.py"
-run_runtime_projection "$repo_root/scripts/deployment/local/materialize-authoritative-settings.py"
-run_runtime_projection "$repo_root/scripts/deployment/local/materialize-authoritative-catalogs.py"
-bash "$repo_root/scripts/deployment/local/prepare-operator-service-env.sh"
-bash "$repo_root/scripts/deployment/local/prepare-independent-service-envs.sh"
-sync_entra_redirects
-write_preparation_marker "$(preparation_digest)"
+prepare_local_state() {
+  bash "$repo_root/scripts/deployment/local/prepare-console-state.sh" --dependencies-ready
+}
+
+prepare_runtime_environment() {
+  require_cloud_tools
+  env -u AZURE_CONFIG_DIR \
+    bash "$repo_root/scripts/deployment/azure/prepare-local-runtime-env.sh"
+}
+
+refresh_inventory() {
+  require_cloud_tools
+  run_runtime_projection "$repo_root/scripts/deployment/local/refresh-authoritative-inventory.py"
+}
+
+materialize_settings() {
+  run_runtime_projection "$repo_root/scripts/deployment/local/materialize-authoritative-settings.py"
+}
+
+materialize_catalogs() {
+  run_runtime_projection "$repo_root/scripts/deployment/local/materialize-authoritative-catalogs.py"
+}
+
+prepare_service_environments() {
+  bash "$repo_root/scripts/deployment/local/prepare-operator-service-env.sh"
+  bash "$repo_root/scripts/deployment/local/prepare-independent-service-envs.sh"
+}
+
+prepare_entra_redirects() {
+  require_cloud_tools
+  sync_entra_redirects
+}
+
+bash "$repo_root/scripts/deployment/local/dev-up.sh"
+
+if [[ "$force_preparation" == "0" && -f "$legacy_preparation_marker" ]]; then
+  current_legacy_digest="$(legacy_digest "${legacy_preparation_inputs[@]}")"
+  if can_reuse_legacy_preparation "$current_legacy_digest"; then
+    printf '%s service=console-preparation event=reused\n' \
+      "$(date '+%Y-%m-%dT%H:%M:%S.%6N%:z')"
+    exit 0
+  fi
+fi
+rm -f "$legacy_preparation_marker"
+
+write_database_identity
+database_identity="$stage_marker_dir/database-volumes.sha256"
+
+local_state_inputs=(
+  pyproject.toml
+  uv.lock
+  alembic
+  service-migrations
+  infra/local/docker-compose.yml
+  infra/local/.env.example
+  scripts/deployment/local/dev-up.sh
+  scripts/deployment/local/prepare-console-state.sh
+  "$database_identity"
+)
+runtime_environment_inputs=(
+  console/.env.local
+  pyproject.toml
+  uv.lock
+  packages/service-contracts/src/fdai_service_contracts/semantic_turn.py
+  scripts/deployment/azure/prepare-local-runtime-env.sh
+)
+for optional_input in \
+  resolved-models.json \
+  .fdai/resolved-models-vision.json \
+  infra/terraform.tfstate; do
+  if [[ -f "$repo_root/$optional_input" ]]; then
+    runtime_environment_inputs+=("$optional_input")
+  fi
+done
+inventory_inputs=(
+  .fdai/local-runtime.env
+  rule-catalog
+  scripts/deployment/local/refresh-authoritative-inventory.py
+  "$database_identity"
+)
+settings_inputs=(
+  .fdai/local-runtime.env
+  scripts/deployment/local/materialize-authoritative-settings.py
+  "$database_identity"
+)
+catalog_inputs=(
+  .fdai/local-runtime.env
+  config
+  policies
+  rule-catalog
+  scripts/deployment/local/materialize-authoritative-catalogs.py
+  "$database_identity"
+)
+service_environment_inputs=(
+  .fdai/local-runtime.env
+  console/.env.local
+  scripts/deployment/local/prepare-operator-service-env.sh
+  scripts/deployment/local/prepare-independent-service-envs.sh
+)
+entra_inputs=(
+  console/.env.local
+  scripts/deployment/azure/sync-entra-spa-redirect.py
+)
+
+run_stage \
+  local-state \
+  "$(path_digest "${local_state_inputs[@]}")" \
+  prepare_local_state
+run_stage \
+  runtime-environment \
+  "$(path_digest "${runtime_environment_inputs[@]}")" \
+  prepare_runtime_environment \
+  "$repo_root/.fdai/local-runtime.env"
+run_stage \
+  authoritative-inventory \
+  "$(path_digest "${inventory_inputs[@]}")" \
+  refresh_inventory
+run_stage \
+  authoritative-settings \
+  "$(path_digest "${settings_inputs[@]}")" \
+  materialize_settings
+run_stage \
+  authoritative-catalogs \
+  "$(path_digest "${catalog_inputs[@]}")" \
+  materialize_catalogs
+run_stage \
+  service-environments \
+  "$(path_digest "${service_environment_inputs[@]}")" \
+  prepare_service_environments \
+  "$repo_root/.fdai/local-operator-service.env" \
+  "$repo_root/.fdai/local-document-ingestion-api.env" \
+  "$repo_root/.fdai/local-document-processing-worker.env" \
+  "$repo_root/.fdai/local-isolated-executor.env"
+run_stage \
+  entra-redirects \
+  "$(path_digest "${entra_inputs[@]}")" \
+  prepare_entra_redirects
+
+printf '%s service=console-preparation event=completed\n' \
+  "$(date '+%Y-%m-%dT%H:%M:%S.%6N%:z')"

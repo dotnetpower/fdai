@@ -77,11 +77,47 @@
 .architecture-partial-badge { display: block; margin: 0 10px 8px; padding: 4px 7px; border-radius: 4px; background: color-mix(in oklab, var(--warning) 12%, var(--bg-elevated)); color: var(--warning); font-size: 9px; font-weight: 700; }
 .architecture-stage { display: grid; grid-template-columns: minmax(0, 1fr); min-height: 0; }
 .architecture-canvas-shell { position: relative; isolation: isolate; min-width: 0; min-height: var(--architecture-canvas-height, 640px); overflow: hidden; background: var(--architecture-map-background); }
+.architecture-canvas-shell.is-network-mode { height: var(--architecture-canvas-height, 480px); min-height: 0; }
 .architecture-map-frame { position: relative; z-index: 0; width: 100%; height: 100%; min-width: 0; min-height: 0; }
 .architecture-map { width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
 .architecture-map:active { cursor: grabbing; }
+.architecture-network-map-frame { height: 100%; overflow: auto; overscroll-behavior: contain; }
+.architecture-network-map-svg { display: block; width: 100%; height: 100%; background: var(--architecture-map-background); }
+.architecture-network-region { cursor: pointer; color: #5e7890; }
+.architecture-network-region > rect { fill-opacity: .07; stroke: currentColor; stroke-width: 1.25px; stroke-dasharray: 6 4; vector-effect: non-scaling-stroke; }
+.architecture-network-region > text { fill: var(--architecture-map-label-text); font-size: .32px; font-weight: 700; letter-spacing: 0; }
+.architecture-network-region[data-resource-type="network.subnet"] > rect,
+.architecture-network-region[data-resource-type="subnet"] > rect { fill-opacity: .12; stroke-dasharray: 4 3; }
+.architecture-network-link path { fill: none; vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round; }
+.architecture-network-link .architecture-network-link-halo { stroke: var(--bg-elevated); stroke-width: 6px; opacity: .92; }
+.architecture-network-link .architecture-network-link-path { stroke: #426f87; stroke-width: 2.5px; opacity: 1; }
+.architecture-network-link.is-attached_to .architecture-network-link-path { stroke: #12715a; stroke-width: 3px; }
+.architecture-network-link.is-peered_with .architecture-network-link-path { stroke: #315f82; stroke-width: 3px; }
+.architecture-network-link-endpoint-halo { fill: var(--bg-elevated); }
+.architecture-network-link-endpoint { fill: #426f87; }
+.architecture-network-link.is-attached_to .architecture-network-link-endpoint { fill: #12715a; }
+.architecture-network-link.is-peered_with .architecture-network-link-endpoint { fill: #315f82; }
+.architecture-network-map-svg marker path { fill: #426f87; }
+.architecture-network-node { cursor: pointer; }
+.architecture-network-node-hit { fill: transparent; stroke: none; pointer-events: all; }
+.architecture-network-node-surface { stroke: rgba(24,45,58,.38); stroke-width: 1.25px; vector-effect: non-scaling-stroke; }
+.architecture-network-node.has-official-icon > .architecture-network-node-surface { fill: var(--bg-elevated); }
+.architecture-network-node-icon { pointer-events: none; }
+.architecture-network-node-glyph { fill: #fff; font-size: .38px; font-weight: 800; text-anchor: middle; dominant-baseline: middle; }
+.architecture-network-node-label { fill: var(--architecture-map-label-text); font-size: .28px; font-weight: 700; text-anchor: middle; }
+.architecture-network-node.is-selected > .architecture-network-node-surface,
+.architecture-network-region.is-selected > rect { stroke: var(--architecture-map-selected-label-text); stroke-width: 3px; }
+.architecture-network-region.is-selected > rect { stroke-dasharray: none; }
+.architecture-network-node.is-muted,
+.architecture-network-region.is-muted,
+.architecture-network-link.is-muted { opacity: .42; }
+.architecture-network-node:focus,
+.architecture-network-region:focus { outline: none; }
+.architecture-network-node:focus-visible > .architecture-network-node-surface,
+.architecture-network-region:focus-visible > rect { stroke: var(--accent); stroke-width: 3px; }
 .architecture-resource-picker { position: absolute; top: 12px; left: 12px; z-index: 4; width: min(300px, calc(100% - 76px)); }
 .architecture-resource-picker select { width: 100%; min-height: 32px; border: 1px solid var(--border); border-radius: 5px; background: color-mix(in oklab, var(--bg-elevated) 96%, transparent); color: var(--fg); padding: 0 30px 0 9px; font-size: 11px; box-shadow: 0 3px 10px rgba(29,42,56,.08); }
+.architecture-mode-switch { position: absolute; top: 12px; left: 324px; z-index: 5; box-shadow: 0 3px 10px rgba(29,42,56,.08); }
 .architecture-inspector {
   display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(320px, .6fr); gap: 32px;
   padding: 20px; background: var(--bg-elevated); border-top: 1px solid var(--border);
@@ -148,9 +184,33 @@
 .architecture-edge-legend span { display: inline-flex; align-items: center; gap: 6px; }
 .architecture-edge-legend i { display: inline-block; width: 20px; height: 8px; }
 .architecture-edge-legend .is-dependency { border-top: 2px solid #426f87; }
-.architecture-edge-legend .is-attachment { border-top: 2px dashed #397a5d; }
+.architecture-edge-legend .is-attachment { border-top: 3px solid #12715a; }
+.architecture-edge-legend .is-peering { border-top: 3px double #315f82; }
 .architecture-edge-legend .is-boundary { border: 1px solid var(--accent); background: color-mix(in oklab, var(--accent) 12%, transparent); }
 .architecture-relation-index { border-top: 1px solid var(--border); background: var(--bg-elevated); }
+.architecture-network-tools { display: grid; gap: 14px; padding: 16px 20px; border-top: 1px solid var(--border); background: var(--bg-elevated); }
+.architecture-network-tools-heading { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
+.architecture-network-tools-heading h3 { margin: 0; font-size: 14px; }
+.architecture-network-tools-heading p { margin: 4px 0 0; max-width: 72ch; color: var(--fg-muted); font-size: 11px; line-height: 1.45; }
+.architecture-network-export { display: flex; align-self: flex-start; gap: 6px; }
+.architecture-network-export button { width: 44px; height: 44px; min-width: 44px; min-height: 44px; border: 1px solid var(--border); border-radius: 5px; background: var(--bg-elevated); color: var(--fg); font-size: 10px; font-weight: 700; }
+.architecture-network-path-controls { display: grid; grid-template-columns: minmax(180px, 1fr) 24px minmax(180px, 1fr) minmax(220px, .8fr); gap: 10px; align-items: end; }
+.architecture-network-path-controls label { display: grid; gap: 5px; color: var(--fg-muted); font-size: 10px; font-weight: 700; }
+.architecture-network-path-controls select { width: 100%; min-width: 0; min-height: 40px; border: 1px solid var(--border); border-radius: 5px; background: var(--bg-elevated); color: var(--fg); padding: 0 30px 0 9px; font-size: 11px; }
+.architecture-network-path-arrow { align-self: center; color: var(--fg-muted); text-align: center; }
+.architecture-network-path-result { display: flex; align-items: center; min-height: 40px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 5px; color: var(--fg-muted); font-size: 11px; line-height: 1.35; }
+.architecture-network-path-result.is-found { color: var(--success); background: color-mix(in oklab, var(--success) 8%, var(--bg-elevated)); }
+.architecture-network-path-result.is-unknown { color: var(--warning); background: color-mix(in oklab, var(--warning) 8%, var(--bg-elevated)); }
+.architecture-network-path-hops { display: grid; gap: 5px; margin: 0; padding: 0; list-style: none; }
+.architecture-network-path-hops li { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 8px; background: var(--bg-subtle); border-radius: 5px; font-size: 10px; }
+.architecture-network-path-hops code { color: var(--fg-muted); font-size: 9px; }
+.architecture-network-path-hops small { color: var(--fg-muted); }
+.architecture-network-filters { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 7px 12px; margin: 0; padding: 10px 0 0; border: 0; border-top: 1px solid var(--border); }
+.architecture-network-filters legend { padding: 0 8px 0 0; color: var(--fg-muted); font-size: 10px; font-weight: 700; }
+.architecture-network-filters label { display: flex; align-items: center; gap: 6px; min-height: 32px; color: var(--fg-muted); font-size: 10px; }
+.architecture-network-tools button:focus-visible,
+.architecture-network-tools select:focus-visible,
+.architecture-network-tools input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .architecture-relation-index > summary { padding: 14px 16px; }
 .architecture-index-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, .8fr); gap: 24px; padding: 0 16px 18px; }
 .architecture-index-grid h3 { margin: 6px 0 10px; font-size: 13px; }
@@ -263,18 +323,27 @@
 .finding-architecture-link:hover { text-decoration: underline; }
 
 @media (max-width: 1100px) {
+  .architecture-canvas-shell.is-network-mode { height: 340px; }
   .architecture-overview-panel { top: 56px; width: min(220px, calc(100% - 24px)); }
   .architecture-stage { grid-template-columns: minmax(0, 1fr); }
   .architecture-inspector { grid-template-columns: minmax(0, 1fr); }
   .architecture-selection-section { min-height: 0; }
+  .architecture-network-path-controls { grid-template-columns: minmax(0, 1fr) 20px minmax(0, 1fr); }
+  .architecture-network-path-result { grid-column: 1 / -1; }
+  .architecture-network-filters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (max-width: 620px) {
   .architecture-workspace { border-inline: 0; border-radius: 0; }
   .architecture-canvas-shell { min-height: min(var(--architecture-canvas-height, 640px), 520px); }
+  .architecture-canvas-shell.is-network-mode { height: 400px; min-height: 0; }
+  .architecture-network-map-svg { width: 720px; max-width: none; }
   .architecture-overview-panel { top: 54px; right: 8px; width: min(200px, calc(100% - 16px)); }
   .architecture-resource-picker { width: calc(100% - 24px); }
+  .architecture-resource-picker select { min-height: 44px; }
+  .architecture-mode-switch { top: 54px; left: 8px; }
+  .architecture-mode-switch button { min-height: 44px; }
   .architecture-edge-legend { right: 58px; max-width: none; }
-  .architecture-edge-legend span:nth-child(3) { display: none; }
+  .architecture-edge-legend span:nth-child(4) { display: none; }
   .architecture-inspector { padding: 18px 14px; }
   .architecture-index-grid { grid-template-columns: minmax(0, 1fr); padding-inline: 12px; }
   .architecture-index-table-wrap { overflow-x: visible; }
@@ -286,6 +355,13 @@
   .architecture-index-grid button { overflow-wrap: anywhere; }
   .architecture-index-relationships li { grid-template-columns: minmax(0, 1fr); gap: 3px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
   .architecture-index-relationships span { text-align: left; }
+  .architecture-network-tools { padding: 14px; }
+  .architecture-network-tools-heading { align-items: stretch; }
+  .architecture-network-path-controls { grid-template-columns: minmax(0, 1fr); }
+  .architecture-network-path-arrow { display: none; }
+  .architecture-network-path-result { grid-column: auto; }
+  .architecture-network-path-hops li { grid-template-columns: minmax(0, 1fr); }
+  .architecture-network-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 /* Console SPA styling - deliberately minimal, no design-system dep.
  * The console is a low-frequency, read-only surface for operators; a
@@ -16453,4 +16529,53 @@ body.aa-log-fullscreen-fallback { overflow: hidden; }
     animation-iteration-count: 1 !important;
     transition-duration: 0s !important;
   }
+}
+
+@media (max-width: 640px) {
+  .background-tasks-route .data-table-wrap {
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .background-tasks-route .data-table,
+  .background-tasks-route .data-table tbody {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+  .background-tasks-route .data-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  .background-tasks-route .data-table tr {
+    display: grid;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .background-tasks-route .data-table tr:last-child { border-bottom: 0; }
+  .background-tasks-route .data-table td {
+    display: grid;
+    grid-template-columns: minmax(82px, 0.36fr) minmax(0, 1fr);
+    gap: 8px;
+    min-width: 0;
+    padding: 7px 0;
+    border: 0;
+    align-items: start;
+    overflow-wrap: anywhere;
+  }
+  .background-tasks-route .data-table td::before {
+    content: attr(data-label);
+    color: var(--fg-muted);
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .background-tasks-route .detail-grid {
+    grid-template-columns: minmax(96px, 0.4fr) minmax(0, 1fr);
+  }
+  .background-tasks-route .btn { min-height: 44px; }
 }

@@ -16,8 +16,12 @@ from fdai.delivery.gitops_pr.adapter import (
     GitOpsPrConfig,
     GitOpsPrError,
 )
+from fdai.delivery.gitops_pr.catalog_review import GitOpsCatalogReviewPublisher
+from fdai.delivery.gitops_pr.catalog_validator import DeterministicCatalogValidator
 
 __all__ = [
+    "DeterministicCatalogValidator",
+    "GitOpsCatalogReviewPublisher",
     "GitOpsPrAdapter",
     "GitOpsPrConfig",
     "GitOpsPrError",

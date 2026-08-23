@@ -41,6 +41,7 @@ from .semantic_investigation_planning import (
     InvestigationClarificationRequiredError,
     compile_investigation_plan,
 )
+from .semantic_judgment import SemanticJudgmentBoundary
 from .semantic_planning_cascade import (
     BOUNDED_T2_ESCALATION_POLICY,
     ProposalRejectedError,
@@ -48,13 +49,88 @@ from .semantic_planning_cascade import (
     SemanticPlanningEscalationPolicy,
 )
 from .semantic_planning_frame import (
+    build_bound_incident_metric_comparison_frame as _build_bound_incident_metric_comparison_frame,
+)
+from .semantic_planning_frame import (
+    build_historical_topology_clarification as _build_historical_topology_clarification,
+)
+from .semantic_planning_frame import (
+    build_network_path_clarification as _build_network_path_clarification,
+)
+from .semantic_planning_frame import (
+    build_ontology_release_health_frame as _build_ontology_release_health_frame,
+)
+from .semantic_planning_frame import build_ontology_trace_frame as _build_ontology_trace_frame
+from .semantic_planning_frame import (
+    build_operating_objectives_frame as _build_operating_objectives_frame,
+)
+from .semantic_planning_frame import (
+    build_private_connectivity_clarification as _build_private_connectivity_clarification,
+)
+from .semantic_planning_frame import (
+    build_recovery_plan_clarification as _build_recovery_plan_clarification,
+)
+from .semantic_planning_frame import (
+    build_resource_activity_clarification as _build_resource_activity_clarification,
+)
+from .semantic_planning_frame import (
+    build_resource_classification_frame as _build_resource_classification_frame,
+)
+from .semantic_planning_frame import (
+    build_resource_relationship_clarification as _build_resource_relationship_clarification,
+)
+from .semantic_planning_frame import (
     build_semantic_frame as _build_frame,
+)
+from .semantic_planning_frame import (
+    build_service_agent_ownership_frame as _build_service_agent_ownership_frame,
+)
+from .semantic_planning_frame import (
+    is_completed_change_outcome_frame as _is_completed_change_outcome_frame,
+)
+from .semantic_planning_frame import (
+    is_configuration_drift_evidence_frame as _is_configuration_drift_evidence_frame,
+)
+from .semantic_planning_frame import is_incident_triage_frame as _is_incident_triage_frame
+from .semantic_planning_frame import is_ontology_trace_frame as _is_ontology_trace_frame
+from .semantic_planning_frame import (
+    is_resource_classification_frame as _is_resource_classification_frame,
+)
+from .semantic_planning_frame import (
+    normalize_action_draft_temporal_scope as _normalize_action_draft_temporal_scope,
+)
+from .semantic_planning_frame import (
+    normalize_historical_topology_clarification as _normalize_historical_topology_clarification,
+)
+from .semantic_planning_frame import (
+    normalize_network_path_clarification as _normalize_network_path_clarification,
+)
+from .semantic_planning_frame import (
+    normalize_ontology_trace_frame as _normalize_ontology_trace_frame,
+)
+from .semantic_planning_frame import (
+    normalize_operating_objectives_frame as _normalize_operating_objectives_frame,
+)
+from .semantic_planning_frame import (
+    normalize_resource_classification_frame as _normalize_resource_classification_frame,
+)
+from .semantic_planning_frame import (
+    resolve_bound_incident_action_subject as _resolve_bound_incident_action_subject,
+)
+from .semantic_planning_frame import (
+    resolve_default_action_draft_subject as _resolve_default_action_draft_subject,
 )
 from .semantic_planning_frame import (
     resolve_incident_reference as _resolve_incident_reference,
 )
 from .semantic_planning_frame import (
     resolve_principal_scope_evidence_subject as _resolve_principal_scope_evidence_subject,
+)
+from .semantic_planning_frame import (
+    resolve_semantic_judgment_action_draft as _resolve_semantic_judgment_action_draft,
+)
+from .semantic_planning_frame import (
+    resolve_semantic_judgment_bound_read as _resolve_semantic_judgment_bound_read,
 )
 from .semantic_planning_frame import (
     resource_target_clarification as _resource_target_clarification,
@@ -103,6 +179,8 @@ from .semantic_service_health_planning import compile_service_health_plan
 from .semantic_target_candidate_planning import (
     build_resource_target_candidates_fallback,
     compile_resource_target_candidates_plan,
+    normalize_decision_outcome_relationship,
+    normalize_operating_relationship_temporal_scope,
     resolve_resource_target_candidates,
     resource_target_candidates_apply_to_utterance,
 )
@@ -151,6 +229,40 @@ def _safe_validation_reason(exc: ValidationError | TypeError | ValueError) -> st
     return "validation_reason_not_allowlisted"
 
 
+def _is_temporal_comparison(frame: SemanticProblemFrame | None) -> bool:
+    return (
+        frame is not None
+        and frame.operation is SemanticOperation.COMPARE
+        and frame.output_shape == SemanticOutputShape.TEMPORAL_COMPARISON
+    )
+
+
+def _semantic_judgment_capabilities(
+    descriptors: Sequence[Mapping[str, Any]],
+) -> tuple[dict[str, Any], ...]:
+    """Project principal-scoped ontology descriptors without authority or schemas."""
+
+    kind_map = {
+        "action": "action_type",
+        "function": "function_type",
+        "interface": "interface_type",
+        "link": "link_type",
+        "object": "object_type",
+    }
+    capabilities: list[dict[str, Any]] = []
+    for descriptor in descriptors:
+        kind = descriptor.get("kind")
+        name = descriptor.get("name")
+        if kind not in kind_map or not isinstance(name, str):
+            continue
+        capability = {"kind": kind_map[kind], "name": name}
+        operation = descriptor.get("operation")
+        if kind == "action" and isinstance(operation, str):
+            capability["operation"] = operation
+        capabilities.append(capability)
+    return tuple(capabilities)
+
+
 class SemanticPlanningService:
     """Build a T1 proposal and apply an explicit policy to bounded T2 fallback."""
 
@@ -162,6 +274,7 @@ class SemanticPlanningService:
         manifests: QueryManifestProvider,
         verifier: OntologyQueryPlanVerifier,
         descriptor_selector: SemanticDescriptorSelector | None = None,
+        semantic_judgment: SemanticJudgmentBoundary | None = None,
         metric_concepts: Sequence[str] = (),
         inventory_query_language: InventoryQueryLanguageRegistry | None = None,
         investigation_window_seconds: int = 900,
@@ -171,6 +284,7 @@ class SemanticPlanningService:
         self._manifests = manifests
         self._verifier = verifier
         self._selector = descriptor_selector or CompleteManifestSelector()
+        self._semantic_judgment = semantic_judgment
         self._metric_concepts = _validated_metric_concepts(metric_concepts)
         self._inventory_query_language = inventory_query_language
         if not 60 <= investigation_window_seconds <= 86_400:
@@ -202,8 +316,11 @@ class SemanticPlanningService:
         if not utterance.strip() or len(utterance) > 32_000:
             return _outcome(SemanticPlanningDisposition.UNSUPPORTED, "utterance_out_of_bounds")
         stage = "manifest"
+        manifest_digest: str | None = None
+        accepted_frame: SemanticProblemFrame | None = None
         try:
             manifest = self._manifests.manifest_for(principal=principal, purpose=purpose)
+            manifest_digest = manifest.manifest_digest
             scope_mismatch = manifest.principal_role.value != principal.role.value
             if scope_mismatch or purpose not in manifest.purposes:
                 raise PermissionError("principal manifest scope does not match planning request")
@@ -214,7 +331,227 @@ class SemanticPlanningService:
             )
             descriptors = _validated_descriptors(selected, manifest=manifest)
             context = _bounded_context(prior_turns)
+            semantic_judgment = None
+            if self._semantic_judgment is not None:
+                judgment_capabilities = _semantic_judgment_capabilities(descriptors)
+                bound_subject_types = (
+                    ("Incident",)
+                    if bound_incident is not None
+                    and any(
+                        capability.get("kind") == "object_type"
+                        and capability.get("name") == "Incident"
+                        for capability in judgment_capabilities
+                    )
+                    else ()
+                )
+                judgment_result = self._semantic_judgment.judge(
+                    utterance=utterance,
+                    context=context,
+                    capabilities=judgment_capabilities,
+                    allow_escalation=False,
+                    bound_subject_types=bound_subject_types,
+                )
+                judgment_posture = (
+                    judgment_result.proposal.action_posture
+                    if judgment_result.proposal is not None
+                    else judgment_result.receipt.disposition.value
+                )
+                _LOGGER.info(
+                    f"semantic_planning_judgment_{judgment_posture}",
+                    extra={
+                        "disposition": judgment_result.receipt.disposition.value,
+                        "tier": (
+                            judgment_result.receipt.tier.value
+                            if judgment_result.receipt.tier is not None
+                            else None
+                        ),
+                        "action_posture": judgment_posture,
+                        "primary_intent": (
+                            judgment_result.proposal.primary_intent
+                            if judgment_result.proposal is not None
+                            else None
+                        ),
+                        "requested_facets": (
+                            ",".join(judgment_result.proposal.requested_facets)
+                            if judgment_result.proposal is not None
+                            else ""
+                        ),
+                        "canonical_target_types": (
+                            ",".join(
+                                sorted(
+                                    {
+                                        target.canonical_value
+                                        for target in judgment_result.proposal.targets
+                                        if target.canonical_value is not None
+                                    }
+                                )
+                            )
+                            if judgment_result.proposal is not None
+                            else ""
+                        ),
+                    },
+                )
+                if judgment_result.accepted and judgment_result.proposal is not None:
+                    semantic_judgment = judgment_result.proposal.model_dump(mode="json")
             _LOGGER.info("semantic_planning_stage_completed", extra={"stage": stage})
+            incident_metric_comparison = _build_bound_incident_metric_comparison_frame(
+                judgment_result.proposal if self._semantic_judgment is not None else None,
+                bound_incident=bound_incident is not None,
+                utterance=utterance,
+                context=context,
+            )
+            if incident_metric_comparison is not None:
+                return _outcome(
+                    SemanticPlanningDisposition.UNAVAILABLE,
+                    "semantic_incident_metric_comparison_unavailable",
+                    manifest_digest=manifest.manifest_digest,
+                    frame=incident_metric_comparison,
+                )
+            network_path_clarification = _build_network_path_clarification(
+                judgment_result.proposal if self._semantic_judgment is not None else None,
+                utterance=utterance,
+                context=context,
+            )
+            if network_path_clarification is not None:
+                _network_proposal, network_frame = network_path_clarification
+                return _outcome(
+                    SemanticPlanningDisposition.CLARIFICATION,
+                    "semantic_clarification_required",
+                    manifest_digest=manifest.manifest_digest,
+                    frame=network_frame,
+                    clarification=_network_proposal.clarification,
+                )
+            private_connectivity_clarification = _build_private_connectivity_clarification(
+                judgment_result.proposal if self._semantic_judgment is not None else None,
+                utterance=utterance,
+                context=context,
+            )
+            if private_connectivity_clarification is not None:
+                connectivity_proposal, connectivity_frame = private_connectivity_clarification
+                return _outcome(
+                    SemanticPlanningDisposition.CLARIFICATION,
+                    "semantic_clarification_required",
+                    manifest_digest=manifest.manifest_digest,
+                    frame=connectivity_frame,
+                    clarification=connectivity_proposal.clarification,
+                )
+            recovery_plan_clarification = _build_recovery_plan_clarification(
+                judgment_result.proposal if self._semantic_judgment is not None else None,
+                utterance=utterance,
+                context=context,
+            )
+            if recovery_plan_clarification is not None:
+                recovery_proposal, recovery_frame = recovery_plan_clarification
+                return _outcome(
+                    SemanticPlanningDisposition.CLARIFICATION,
+                    "semantic_clarification_required",
+                    manifest_digest=manifest.manifest_digest,
+                    frame=recovery_frame,
+                    clarification=recovery_proposal.clarification,
+                )
+            resource_relationship_clarification = _build_resource_relationship_clarification(
+                judgment_result.proposal if self._semantic_judgment is not None else None,
+                utterance=utterance,
+                context=context,
+            )
+            if resource_relationship_clarification is not None:
+                relationship_proposal, relationship_frame = resource_relationship_clarification
+                return _outcome(
+                    SemanticPlanningDisposition.CLARIFICATION,
+                    "semantic_clarification_required",
+                    manifest_digest=manifest.manifest_digest,
+                    frame=relationship_frame,
+                    clarification=relationship_proposal.clarification,
+                )
+            ontology_trace = _build_ontology_trace_frame(
+                judgment_result.proposal if self._semantic_judgment is not None else None,
+                utterance=utterance,
+                context=context,
+            )
+            if ontology_trace is not None:
+                return _outcome(
+                    SemanticPlanningDisposition.UNAVAILABLE,
+                    "semantic_ontology_trace_unavailable",
+                    manifest_digest=manifest.manifest_digest,
+                    frame=ontology_trace,
+                )
+            service_agent_ownership = _build_service_agent_ownership_frame(
+                judgment_result.proposal if self._semantic_judgment is not None else None,
+                utterance=utterance,
+                context=context,
+                descriptors=descriptors,
+            )
+            if service_agent_ownership is not None:
+                return _outcome(
+                    SemanticPlanningDisposition.UNAVAILABLE,
+                    "semantic_service_agent_ownership_unavailable",
+                    manifest_digest=manifest.manifest_digest,
+                    frame=service_agent_ownership,
+                )
+            resource_classification = _build_resource_classification_frame(
+                judgment_result.proposal if self._semantic_judgment is not None else None,
+                utterance=utterance,
+                context=context,
+            )
+            if resource_classification is not None:
+                return _outcome(
+                    SemanticPlanningDisposition.UNAVAILABLE,
+                    "semantic_resource_classification_unavailable",
+                    manifest_digest=manifest.manifest_digest,
+                    frame=resource_classification,
+                )
+            historical_topology_clarification = _build_historical_topology_clarification(
+                judgment_result.proposal if self._semantic_judgment is not None else None,
+                utterance=utterance,
+                context=context,
+            )
+            if historical_topology_clarification is not None:
+                historical_proposal, historical_frame = historical_topology_clarification
+                return _outcome(
+                    SemanticPlanningDisposition.CLARIFICATION,
+                    "semantic_clarification_required",
+                    manifest_digest=manifest.manifest_digest,
+                    frame=historical_frame,
+                    clarification=historical_proposal.clarification,
+                )
+            resource_activity_clarification = _build_resource_activity_clarification(
+                judgment_result.proposal if self._semantic_judgment is not None else None,
+                utterance=utterance,
+                context=context,
+            )
+            if resource_activity_clarification is not None:
+                activity_proposal, activity_frame = resource_activity_clarification
+                return _outcome(
+                    SemanticPlanningDisposition.CLARIFICATION,
+                    "semantic_clarification_required",
+                    manifest_digest=manifest.manifest_digest,
+                    frame=activity_frame,
+                    clarification=activity_proposal.clarification,
+                )
+            ontology_release_health = _build_ontology_release_health_frame(
+                judgment_result.proposal if self._semantic_judgment is not None else None,
+                utterance=utterance,
+                context=context,
+            )
+            if ontology_release_health is not None:
+                return _outcome(
+                    SemanticPlanningDisposition.UNAVAILABLE,
+                    "semantic_ontology_release_evidence_health_unavailable",
+                    manifest_digest=manifest.manifest_digest,
+                    frame=ontology_release_health,
+                )
+            operating_objectives = _build_operating_objectives_frame(
+                judgment_result.proposal if self._semantic_judgment is not None else None,
+                utterance=utterance,
+                context=context,
+            )
+            if operating_objectives is not None:
+                return _outcome(
+                    SemanticPlanningDisposition.UNAVAILABLE,
+                    "semantic_operating_objectives_unavailable",
+                    manifest_digest=manifest.manifest_digest,
+                    frame=operating_objectives,
+                )
             stage = "frame_proposal"
             frame_result = self._cascade.propose_frame(
                 utterance=utterance,
@@ -223,6 +560,7 @@ class SemanticPlanningService:
                 metric_concepts=self._metric_concepts,
                 principal=principal,
                 purpose=purpose,
+                semantic_judgment=semantic_judgment,
                 escalation_policy=escalation_policy,
             )
             if frame_result is None:
@@ -234,6 +572,21 @@ class SemanticPlanningService:
             proposal, frame, investigation_intent = frame_result
             _LOGGER.info("semantic_planning_stage_completed", extra={"stage": stage})
             _LOGGER.info("semantic_planning_stage_completed", extra={"stage": "frame_build"})
+            proposal, frame = _resolve_semantic_judgment_action_draft(
+                proposal,
+                frame,
+                judgment=judgment_result.proposal if self._semantic_judgment is not None else None,
+                utterance=utterance,
+                context=context,
+            )
+            proposal, frame = _resolve_semantic_judgment_bound_read(
+                proposal,
+                frame,
+                judgment=judgment_result.proposal if self._semantic_judgment is not None else None,
+                bound_incident=bound_incident is not None,
+                utterance=utterance,
+                context=context,
+            )
             if bound_incident is not None:
                 proposal, frame = _resolve_incident_reference(
                     proposal,
@@ -241,11 +594,85 @@ class SemanticPlanningService:
                     utterance=utterance,
                     context=context,
                 )
+                proposal, frame = _resolve_bound_incident_action_subject(
+                    proposal,
+                    frame,
+                    utterance=utterance,
+                    context=context,
+                )
+            proposal, frame = _resolve_default_action_draft_subject(
+                proposal,
+                frame,
+                utterance=utterance,
+                context=context,
+            )
+            proposal, frame = _normalize_action_draft_temporal_scope(
+                proposal,
+                frame,
+                utterance=utterance,
+                context=context,
+            )
             proposal, frame = _resolve_principal_scope_evidence_subject(
                 proposal,
                 frame,
                 utterance=utterance,
                 context=context,
+            )
+            proposal, frame = _normalize_network_path_clarification(
+                proposal,
+                frame,
+                utterance=utterance,
+                context=context,
+                descriptors=descriptors,
+            )
+            proposal, frame = _normalize_operating_objectives_frame(
+                proposal,
+                frame,
+                utterance=utterance,
+                context=context,
+            )
+            proposal, frame = _normalize_resource_classification_frame(
+                proposal,
+                frame,
+                utterance=utterance,
+                context=context,
+            )
+            proposal, frame = _normalize_ontology_trace_frame(
+                proposal,
+                frame,
+                judgment=(
+                    judgment_result.proposal if self._semantic_judgment is not None else None
+                ),
+                utterance=utterance,
+                context=context,
+            )
+            if _is_ontology_trace_frame(frame):
+                return _outcome(
+                    SemanticPlanningDisposition.UNAVAILABLE,
+                    "semantic_ontology_trace_unavailable",
+                    manifest_digest=manifest.manifest_digest,
+                    frame=frame,
+                )
+            proposal, frame = _normalize_historical_topology_clarification(
+                proposal,
+                frame,
+                utterance=utterance,
+                context=context,
+                descriptors=descriptors,
+            )
+            proposal, frame = normalize_decision_outcome_relationship(
+                proposal,
+                frame,
+                utterance=utterance,
+                context=context,
+                descriptors=descriptors,
+            )
+            proposal, frame = normalize_operating_relationship_temporal_scope(
+                proposal,
+                frame,
+                utterance=utterance,
+                context=context,
+                descriptors=descriptors,
             )
             proposal, frame = resolve_resource_target_candidates(
                 proposal,
@@ -287,13 +714,53 @@ class SemanticPlanningService:
                     manifest_digest=manifest.manifest_digest,
                     frame=frame,
                 )
+            if _is_completed_change_outcome_frame(frame):
+                return _outcome(
+                    SemanticPlanningDisposition.UNAVAILABLE,
+                    "semantic_change_outcome_unavailable",
+                    manifest_digest=manifest.manifest_digest,
+                    frame=frame,
+                )
+            if _is_configuration_drift_evidence_frame(frame):
+                return _outcome(
+                    SemanticPlanningDisposition.UNAVAILABLE,
+                    "semantic_configuration_drift_evidence_unavailable",
+                    manifest_digest=manifest.manifest_digest,
+                    frame=frame,
+                )
+            if _is_resource_classification_frame(frame):
+                return _outcome(
+                    SemanticPlanningDisposition.UNAVAILABLE,
+                    "semantic_resource_classification_unavailable",
+                    manifest_digest=manifest.manifest_digest,
+                    frame=frame,
+                )
+            if _is_incident_triage_frame(frame):
+                return _outcome(
+                    SemanticPlanningDisposition.UNAVAILABLE,
+                    "semantic_incident_triage_unavailable",
+                    manifest_digest=manifest.manifest_digest,
+                    frame=frame,
+                )
+            if (
+                frame.operation is SemanticOperation.COMPARE
+                and frame.output_shape == SemanticOutputShape.INCIDENT_EVIDENCE
+                and frame.temporal_scope == {"kind": "historical"}
+            ):
+                return _outcome(
+                    SemanticPlanningDisposition.UNAVAILABLE,
+                    "semantic_incident_recurrence_comparison_unavailable",
+                    manifest_digest=manifest.manifest_digest,
+                    frame=frame,
+                )
             if frame.output_shape == SemanticOutputShape.EVIDENCE_VALIDATION:
                 return _outcome(
-                    SemanticPlanningDisposition.UNSUPPORTED,
+                    SemanticPlanningDisposition.UNAVAILABLE,
                     "semantic_evidence_validation_unavailable",
                     manifest_digest=manifest.manifest_digest,
                     frame=frame,
                 )
+            accepted_frame = frame
             stage = "plan_proposal"
             evaluation_time = self._now()
             if evaluation_time.tzinfo is None:
@@ -535,6 +1002,13 @@ class SemanticPlanningService:
                     escalation_policy=escalation_policy,
                 )
             if plan is None:
+                if _is_temporal_comparison(frame):
+                    return _outcome(
+                        SemanticPlanningDisposition.UNAVAILABLE,
+                        "semantic_temporal_comparison_unavailable",
+                        manifest_digest=manifest.manifest_digest,
+                        frame=frame,
+                    )
                 return _outcome(
                     SemanticPlanningDisposition.UNSUPPORTED,
                     "semantic_plan_unavailable",
@@ -603,7 +1077,22 @@ class SemanticPlanningService:
                 "semantic_plan_rejected",
                 extra={"stage": exc.stage, "failure_type": exc.failure_type},
             )
-            return _outcome(SemanticPlanningDisposition.UNSUPPORTED, "semantic_plan_invalid")
+            disposition = (
+                SemanticPlanningDisposition.UNAVAILABLE
+                if _is_temporal_comparison(accepted_frame)
+                else SemanticPlanningDisposition.UNSUPPORTED
+            )
+            reason = (
+                "semantic_temporal_comparison_unavailable"
+                if disposition is SemanticPlanningDisposition.UNAVAILABLE
+                else "semantic_plan_invalid"
+            )
+            return _outcome(
+                disposition,
+                reason,
+                manifest_digest=manifest_digest,
+                frame=accepted_frame,
+            )
         except (ValidationError, TypeError, ValueError) as exc:
             _LOGGER.warning(
                 "semantic_plan_rejected",
@@ -613,7 +1102,22 @@ class SemanticPlanningService:
                     "validation_reason": _safe_validation_reason(exc),
                 },
             )
-            return _outcome(SemanticPlanningDisposition.UNSUPPORTED, "semantic_plan_invalid")
+            disposition = (
+                SemanticPlanningDisposition.UNAVAILABLE
+                if _is_temporal_comparison(accepted_frame)
+                else SemanticPlanningDisposition.UNSUPPORTED
+            )
+            reason = (
+                "semantic_temporal_comparison_unavailable"
+                if disposition is SemanticPlanningDisposition.UNAVAILABLE
+                else "semantic_plan_invalid"
+            )
+            return _outcome(
+                disposition,
+                reason,
+                manifest_digest=manifest_digest,
+                frame=accepted_frame,
+            )
         except Exception:  # noqa: BLE001 - model/provider details never cross the boundary
             _LOGGER.exception(
                 "semantic_planning_failed",

@@ -20,6 +20,7 @@ const PANEL_SOURCE_ROUTES: Readonly<Record<string, readonly string[]>> = {
   "automation-blueprints": ["/automation-blueprints"],
   "configuration-baselines": ["/configuration-baselines"],
   "conversation-delivery": ["/conversation-delivery"],
+  "background-tasks": ["/background-tasks"],
   agents: ["/incidents", "/agents/stream"],
   pantheon: ["/incidents", "/agents/stream"],
   "agent-activity": ["/audit", "/agents/activity", "/agents/stream"],

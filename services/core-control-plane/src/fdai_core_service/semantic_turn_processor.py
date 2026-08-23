@@ -57,6 +57,7 @@ from .contract_codecs import (
     OPERATOR_REQUEST_CONSUMER_V13,
 )
 from .semantic_assurance_projection import project_semantic_assurance
+from .semantic_presentation_semantics import project_presentation_semantics
 from .semantic_relationship_projection import (
     project_ontology_relationships,
     render_ontology_relationship_answer,
@@ -1507,6 +1508,18 @@ def _render_query_answer(
         "presentation_context": {
             "operation": operation,
             "output_shape": output_shape,
+            **(
+                {"presentation_semantics": presentation_semantics}
+                if (
+                    presentation_semantics := project_presentation_semantics(
+                        operation=operation,
+                        output_shape=output_shape,
+                        outputs=outputs,
+                    )
+                )
+                is not None
+                else {}
+            ),
         },
         "outputs": outputs,
     }

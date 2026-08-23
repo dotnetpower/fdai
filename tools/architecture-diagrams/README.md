@@ -165,6 +165,30 @@ values instead of pixel-level styling:
 - Set `step` on an edge to render a numbered flow badge separately from its
   localized label.
 
+Network diagrams use `kind: network`, `posture: expected`, and
+`canvas.profile: network-azure-reference`. The authored contract imports the shared
+provider-neutral vocabulary from `@fdai/network-topology-contracts` and keeps it additive to the
+existing group, node, and edge kinds:
+
+- Set `canvas.networkPreset` to `hub-spoke`, `dual-ingress`, or
+  `private-endpoint-fanout` for compact compound layout and crossing minimization.
+- Use `networkRole` on groups and nodes for external, on-premises, DMZ, hub, spoke, VNet, subnet,
+  and private-endpoint meaning.
+- Use `connectionKind`, `direction`, `trafficClass`, `policy`, `protocol`, `port`, `nextHop`, and
+  `sourceEvidence: expected` on network edges. These values document intent and never prove
+  observed reachability.
+- Use `resourceType` for reviewed automatic mapping to an allowlisted official Azure icon. Unknown
+  types remain text cards and never borrow a similar product icon.
+- Use `annotations` for routing intent and policy notes instead of presenting them as resource
+  nodes.
+
+The canonical `azure-hub-spoke-network-reference` fixture compiles to a bilingual `1600x900` SVG
+and PNG with network-boundary, icon, route, annotation, and clipping checks.
+Network presets reroute automatic edges after final compound placement. Use `orthogonal-gap` for a
+row-to-row connection that must follow the open gap between sibling groups before entering the
+target boundary. Canonical checks require every edge endpoint to touch its current node or group,
+and the deterministic font subset covers every printable character in the bilingual diagram corpus.
+
 High-level overviews keep architecture responsibilities in separate labeled
 groups instead of merging every human and delivery surface into one box. The
 renderer preserves ELK's collision-aware orthogonal route, then rounds each

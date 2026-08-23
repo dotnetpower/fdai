@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 4f72b0402b3d60d1b4847f567f7735b7126b9c68
-translation_revised: 2026-08-21
+translation_source_sha: 7fd2de16e2f07401ca54b930e544cd7236a22b84
+translation_revised: 2026-08-23
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 시스템이 관측 준비되도록 하는 방법. 이 문서는 **구체적 배포 인벤토리, 부트스트랩 순서, 분포/배포 책임 분리**의 진실 원본입니다; 배포 라이프사이클(CI/CD, progressive 전달, 롤백, DR)은 [deployment-ko.md](deployment-ko.md)에 남습니다.
@@ -531,7 +531,8 @@ Console은 Settings > 런타임 policies에서 안전한 subset을 변환 결과
 | `FDAI_INVENTORY_RECONCILIATION_INTERVAL_SECONDS` | env | 업스트림 | 인벤토리 작업의 정상 full-scan 간격입니다. 기본 작업 cron은 10분마다 wake하지만 PostgreSQL 시도 상태가 간격 due 전 검사를 건너뜀하고 newer 실패한/abandoned 시도는 다음 틱에 재시도합니다. |
 | `FDAI_EMAIL_ENDPOINT` / `FDAI_EMAIL_SENDER_ADDRESS` / `FDAI_EMAIL_RECIPIENT_ADDRESSES_JSON` / `FDAI_NOTIFICATION_MI_CLIENT_ID` | env | 업스트림 / 배포 | ACS 이메일 A2/A4 채널을 활성화합니다. Terraform이 엔드포인트와 Azure-managed 발신자를 파생하고 전용 알림 MI를 연결한 뒤 클라이언트 id를 주입합니다. 배포 구성은 `NOTIFICATION_EMAIL_RECIPIENTS_JSON`으로 수신자를 공급하며 앱에는 접근 키나 연결 문자열이 들어가지 않습니다. 부분 설정은 시작을 차단합니다. |
 | `FDAI_CONSOLE_BASE_URL` | env | 배포 | 인시던트 이메일의 읽기 전용 근거 링크를 만드는 공개 HTTPS 출처입니다. Console을 활성화하면 Terraform이 Static Web App hostname에서 파생합니다. 값이 없으면 이메일 전달은 계속되며 렌더러는 인시던트 CTA를 생략합니다. |
-| `FDAI_MEASUREMENT_MODE` | env | 업스트림 | `infra/modules/measurement-runners/`의 Container Apps 작업 항목 지점을 선택합니다. `baseline`은 고정된 시나리오 회귀 측정을 실행하고 `growth`는 검토된 결과를 pattern-growth intake로 전달합니다. 액션 권한은 승격 및 risk 게이트가 독립적으로 관리합니다. |
+| `FDAI_MEASUREMENT_MODE` | env | 업스트림 | `infra/modules/measurement-runners/`의 Container Apps 작업 항목 지점을 선택합니다. `baseline`은 고정된 시나리오 회귀 측정을 실행하고, `growth`는 검토된 결과를 pattern-growth intake로 전달하며, `operational-promotion`은 승격 없이 불변 작업별 근거를 평가합니다. 액션 권한은 승격 및 risk 게이트가 독립적으로 관리합니다. |
+| `FDAI_REVISION` / `FDAI_OPERATIONAL_PROMOTION_EVIDENCE_ROOT` / `FDAI_OPERATIONAL_PROMOTION_MANIFEST` | env | 배포 | Opt-in operational-promotion 작업에 필요합니다. Revision은 전체 불변 소스 개정 번호이고 root는 고정 이미지 또는 보호된 읽기 전용 mount가 제공하는 컨테이너 절대 경로이며 manifest는 해당 root 기준 상대 경로입니다. 근거 파일은 raw provider payload가 아니라 범위가 제한된 정본 사실과 digest를 담습니다. |
 | `FDAI_DIRECT_API_FAKE` | env | test-only / dev-local | `1`이면 실행기 direct-API 경로를 in-memory shadow 가짜로 바꿉니다. Automated 테스트는 명시적으로 설정하고, `prepare-local-runtime-env.sh`는 operations 게이트웨이를 찾지 못할 때만 - Terraform 상태에도 없고 리소스 그룹의 실제 운영 Azure CLI 탐색(`func-*-devgw-*`와 해당 App Service Authentication 대상)로도 복구되지 않을 때 - interactive 로컬 dev에서 이를 자동 주입하여 실제 운영 백엔드 없이도 `execution_path: direct_api` 전달을 유지합니다. `FDAI_DEV_OPERATIONS_GATEWAY_URL`과 상호 배타적입니다. |
 | `FDAI_TOOL_CALL_FAKE` | env | test-only | Automated 테스트에서 실행기 tool-call 경로를 `RecordingToolExecutor`로 바꿉니다. Interactive 로컬 시작은 실행기를 연결하지 않습니다. |
 | `FDAI_WORKFLOW_SHADOW` | env | 업스트림 | Event-triggered 카탈로그 작업 흐름은 기본적으로 non-mutating shadow 모드로 실행됩니다. 명시적 maintenance 비활성화에만 `0`, `false`, `no`, `off`를 설정합니다. |

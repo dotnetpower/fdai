@@ -35,6 +35,9 @@ interface DiagramManifest {
   kind: string;
   locales: Record<Locale, ManifestText>;
   assets: Record<Locale, { svg: string; png?: string }>;
+  posture?: string | null;
+  profile?: string;
+  networkPreset?: string | null;
   nodes: Array<{
     id: string;
     kind: string;
@@ -56,6 +59,11 @@ interface DiagramManifest {
     label: Record<Locale, string>;
     description: Record<Locale, string>;
     content?: Array<Record<Locale, string>>;
+    networkRole?: string;
+    addresses?: string[];
+    listener?: string;
+    sku?: string;
+    securityFacts?: Array<Record<Locale, string>>;
   }>;
   edges: Array<{
     id: string;
@@ -65,6 +73,14 @@ interface DiagramManifest {
     label: Record<Locale, string> | null;
     weight?: number;
     step?: number;
+    connectionKind?: string;
+    direction?: string;
+    trafficClass?: string;
+    policy?: string;
+    protocol?: string;
+    port?: string;
+    nextHop?: string;
+    sourceEvidence?: string;
   }>;
 }
 
@@ -574,13 +590,22 @@ class ArchitectureDiagramElement extends HTMLElement {
       const outgoing = edge.from === nodeId;
       const peerId = outgoing ? edge.to : edge.from;
       const peer = manifest.nodes.find((candidate) => candidate.id === peerId);
-      const kind =
+      const kind = edge.connectionKind ??
         edgeKindLabels[locale][
           edge.kind as keyof (typeof edgeKindLabels)[Locale]
         ] ?? edge.kind;
       const step = edge.step ? `${edge.step}. ` : "";
       const weight = edge.weight ? ` (${edge.weight})` : "";
-      flow.textContent = `${step}${outgoing ? labels.outgoing : labels.incoming}: ${kind}${weight} - ${peer?.label[locale] ?? peerId}`;
+      const networkDetails = [
+        edge.direction,
+        edge.trafficClass,
+        edge.policy,
+        edge.protocol,
+        edge.port ? `port ${edge.port}` : null,
+        edge.nextHop ? `next hop ${edge.nextHop}` : null,
+        edge.sourceEvidence,
+      ].filter(Boolean).join(", ");
+      flow.textContent = `${step}${outgoing ? labels.outgoing : labels.incoming}: ${kind}${weight}${networkDetails ? ` (${networkDetails})` : ""} - ${peer?.label[locale] ?? peerId}`;
       flows.append(flow);
     }
     const close = toolbarButton(X, labels.closeDetails, () => {

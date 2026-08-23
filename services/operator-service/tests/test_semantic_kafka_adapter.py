@@ -198,6 +198,34 @@ async def test_producer_uses_managed_identity_and_idempotent_sasl_ssl(monkeypatc
     assert producer.stopped == 1
 
 
+async def test_producer_allows_only_configured_read_investigation_topic(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setattr(kafka_module, "AIOKafkaProducer", Producer)
+    credential = Credential()
+    bus = OperatorSemanticKafkaBus(
+        config=OperatorSemanticKafkaConfig(
+            bootstrap_servers="example.servicebus.windows.net:9093",
+            read_investigation_topic="operator.read-investigation.requests",
+        ),
+        credential=credential,  # type: ignore[arg-type]
+    )
+
+    await bus.publish(
+        "operator.read-investigation.requests",
+        "request-1",
+        {"schema_version": "1.0.0", "execution_authority": False},
+    )
+    with pytest.raises(ValueError, match="not configured"):
+        await bus.publish("operator.other.requests", "request-1", {})
+
+    producer = Producer.latest
+    assert producer is not None
+    assert producer.sent[0][0] == "operator.read-investigation.requests"
+    assert json.loads(producer.sent[0][2]) == {
+        "execution_authority": False,
+        "schema_version": "1.0.0",
+    }
+
+
 async def test_multiplexed_producer_preserves_key_and_marks_logical_topic(monkeypatch) -> None:  # type: ignore[no-untyped-def]
     bus, _ = _multiplexed_bus(monkeypatch)
 

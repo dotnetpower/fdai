@@ -50,6 +50,16 @@ _EFFECTIVE_RESOURCE_TYPES_QUERY = (
     "SELECT resource_id, resource_type FROM effective_resources "
     "WHERE resource_id=ANY(%s::text[])"
 )
+_EFFECTIVE_RESOURCE_QUERY = (
+    "WITH effective_resource AS ("
+    "SELECT r.resource_type, r.props, r.provider_ref "
+    "FROM inventory_snapshot_resource r WHERE r.snapshot_id=%s AND r.resource_id=%s "
+    "AND NOT EXISTS (SELECT 1 FROM inventory_realtime_resource d "
+    "WHERE d.resource_id=r.resource_id) UNION ALL "
+    "SELECT d.resource_type, d.props, d.provider_ref FROM inventory_realtime_resource d "
+    "WHERE d.resource_id=%s AND d.change_kind='upsert') "
+    "SELECT resource_type, props, provider_ref FROM effective_resource LIMIT 1"
+)
 _UPSERT_REALTIME_LINK = (
     "INSERT INTO inventory_realtime_link "
     "(from_id, from_type, link_type, to_id, to_type, change_kind, props, "
@@ -152,6 +162,7 @@ class PostgresInventoryDeltaProjector:
             for link in links
         )
         links_complete = _optional_bool(change, "links_complete", default=False)
+        properties_complete = _optional_bool(change, "properties_complete", default=True)
         if len(links) > self._max_links:
             raise ValueError(f"inventory_change.links exceeds cap ({self._max_links})")
         _reject_duplicate_link_keys(links)
@@ -160,6 +171,10 @@ class PostgresInventoryDeltaProjector:
             raise ValueError("inventory resource delete can carry only link deletes")
         if links_complete and any(kind != "upsert" for kind in link_kinds):
             raise ValueError("complete inventory links can carry only link upserts")
+        if not properties_complete and (change_kind != "upsert" or links_complete or links):
+            raise ValueError(
+                "partial inventory properties require an upsert without relationship changes"
+            )
         if any(not _link_owned_by(resource_id, link) for link in links):
             raise ValueError("inventory change relationships MUST be owned by the changed resource")
         covered_resource_types = _covered_resource_types(resource_type, links)
@@ -199,6 +214,14 @@ class PostgresInventoryDeltaProjector:
                     resource_id=resource_id,
                     resource_type=resource_type,
                 )
+                if not properties_complete:
+                    resource_props_json, provider_ref = await _merge_partial_resource_properties(
+                        connection,
+                        snapshot_id=str(coverage["id"]),
+                        resource_id=resource_id,
+                        incoming=props,
+                        provider_ref=provider_ref,
+                    )
                 resource_cursor = await connection.execute(
                     "INSERT INTO inventory_realtime_resource "
                     "(resource_id, change_kind, resource_type, props, provider_ref, "
@@ -517,6 +540,36 @@ async def _validate_resource_type(
     row = await cursor.fetchone()
     if row is not None and str(row["resource_type"]) != resource_type:
         raise ValueError("inventory resource type does not match the effective resource type")
+
+
+async def _merge_partial_resource_properties(
+    connection: psycopg.AsyncConnection[Any],
+    *,
+    snapshot_id: str,
+    resource_id: str,
+    incoming: Mapping[str, Any],
+    provider_ref: str | None,
+) -> tuple[str, str | None]:
+    """Merge bounded live evidence into an existing exact Resource only."""
+
+    cursor = await connection.execute(
+        _EFFECTIVE_RESOURCE_QUERY,
+        (snapshot_id, resource_id, resource_id),
+    )
+    row = await cursor.fetchone()
+    if row is None:
+        raise ValueError("partial inventory properties require an existing resource")
+    current_props = row["props"]
+    if not isinstance(current_props, Mapping):
+        raise ValueError("effective inventory resource props MUST be an object")
+    merged = {**current_props, **incoming}
+    retained_provider_ref = provider_ref
+    if retained_provider_ref is None and row["provider_ref"] is not None:
+        retained_provider_ref = str(row["provider_ref"])
+    return (
+        _canonical_json_mapping(merged, "merged partial inventory resource props"),
+        retained_provider_ref,
+    )
 
 
 async def _reconcile_links(

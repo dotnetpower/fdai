@@ -1,8 +1,8 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: afb86866a8e504a0a2305eb31dee5cc5f50b783a
-translation_revised: 2026-08-21
+translation_source_sha: 9b860cd799683b9b7da7f782c54d7175e2cf728c
+translation_revised: 2026-08-23
 ---
 
 # 사용자 RBAC와 Entra 아이덴티티
@@ -209,11 +209,11 @@ App Roles를 정본 표면으로 쓰는 이유:
 Coarse 롤은 PR과 API 레이어에서 **quorum + justification + 저자≠승인자** 검사로 안전하게
 만들어짐:
 
-> **구현 상태**: 런타임에는 기능 검사, `RoleEnforcer.no_self_approval`, risk-gate quorum이
-> 구현되어 있습니다. 아래 PR trailer, diff-risk, 검토자 OID, justification 검사는 목표 CI
-> 계약이며 현재 `.github/workflows/`에는 구현되어 있지 않습니다. 현재 `.github/CODEOWNERS`는
-> exemption, risk 분류 및 framework 표면을 upstream 소유자에게 라우팅하지만 아래
-> `@aw-approvers` 템플릿 전체를 구현하지 않습니다.
+> **구현 상태**: 런타임 기능 검사, `RoleEnforcer.no_self_approval`, risk-gate quorum을
+> 구현했습니다. CI는 이제 exact-head GitHub PR, commit, review, Check Run 사실을 구성된 trusted
+> verifier App이 발급한 Entra principal bundle과 결합합니다. Trusted attestation이 없으면 실패
+> 시 닫힙니다. 해당 App 배포, 초안 생성 시 human OID trailer 기록, justification 적용, 완전한
+> `@aw-approvers` CODEOWNERS 구성은 남아 있습니다.
 
 ### 5.1 목표 CODEOWNERS (단일 승인자 그룹, 경로-기반 리뷰어 카운트)
 

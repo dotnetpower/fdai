@@ -50,6 +50,7 @@ class _ActionJudgmentModel:
                 "unresolved_terms": [],
                 "clarification": None,
                 "action_posture": "advise_only",
+                "action_subject": "none",
                 "execution_authority": False,
             }
         source_action, canonical = (
@@ -91,6 +92,7 @@ class _ActionJudgmentModel:
             "unresolved_terms": [],
             "clarification": None,
             "action_posture": "draft_only",
+            "action_subject": "ActionType",
             "execution_authority": False,
         }
 

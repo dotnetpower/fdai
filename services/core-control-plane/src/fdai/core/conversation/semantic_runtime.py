@@ -9,11 +9,13 @@ from typing import Any, Literal
 
 from fdai_service_contracts.ontology_query import (
     IntentGraphEvidence,
+    QueryNodeKind,
     project_intent_graph,
     project_intent_graph_evidence,
 )
 
 from fdai.core.ontology_platform import OntologyQueryPlanExecutor, QueryPlanExecution
+from fdai.core.ontology_platform.query_values import QueryTable
 
 from .intent_graph import build_intent_graph_evidence
 from .semantic_planning import SemanticPlanningService
@@ -125,20 +127,53 @@ class SemanticConversationRuntime:
             execution=execution,
         )
         disposition: Literal["answered", "held", "cancelled"]
+        reason = f"semantic_execution_{execution.status}"
         if execution.status == "completed":
-            disposition = "answered"
+            if _current_relationship_mapping_unavailable(planning, execution):
+                disposition = "held"
+                reason = "semantic_current_relationship_mapping_unavailable"
+            else:
+                disposition = "answered"
         elif execution.status == "cancelled":
             disposition = "cancelled"
         else:
             disposition = "held"
         return SemanticTurnResult(
             disposition=disposition,
-            reason=f"semantic_execution_{execution.status}",
+            reason=reason,
             planning=planning,
             execution=execution,
             intent_graph=project_intent_graph(planning.intent_graph),
             intent_graph_evidence=project_intent_graph_evidence(evidence),
         )
+
+
+def _current_relationship_mapping_unavailable(
+    planning: SemanticPlanningOutcome,
+    execution: QueryPlanExecution,
+) -> bool:
+    """Hold current mapping coverage when any endpoint ObjectSet is empty."""
+
+    frame = planning.frame
+    plan = planning.plan
+    if (
+        frame is None
+        or plan is None
+        or frame.output_shape != "ontology_relationships"
+        or frame.temporal_scope != {"kind": "current"}
+    ):
+        return False
+    output_node_ids = set(plan.output_node_ids)
+    endpoint_node_ids = {
+        node.node_id
+        for node in plan.nodes
+        if node.kind is QueryNodeKind.OBJECT_SET and node.node_id in output_node_ids
+    }
+    return bool(endpoint_node_ids) and any(
+        isinstance(node_result.value, QueryTable) and not node_result.value.rows
+        for node_id in endpoint_node_ids
+        if (node_result := execution.results.get(node_id)) is not None
+    )
 
 
 def _terminal(

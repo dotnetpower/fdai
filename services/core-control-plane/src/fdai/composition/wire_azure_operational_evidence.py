@@ -13,7 +13,12 @@ from fdai.core.assurance_twin import (
     GraphEffectModelCausalEvidenceVerifier,
     GraphEffectModelReader,
 )
+from fdai.core.ontology_platform import ObservationContextVerifier, ReconciliationArtifactResolver
 from fdai.core.rca import TemporalCausalityConfig
+from fdai.delivery.azure.executed_action_observation import (
+    AzureContainerAppScaleOutObservationCollector,
+    AzureObservationContextIssuer,
+)
 from fdai.delivery.azure.graph_dynamic_evidence import (
     AzureGraphDynamicSimulationRequestProvider,
     AzureGraphInterventionPolicy,
@@ -57,6 +62,11 @@ def bind_azure_operational_evidence(
     graph_policies: Mapping[str, AzureGraphInterventionPolicy] | None = None,
     graph_effect_models: GraphEffectModelReader | None = None,
     graph_effect_model_causal_evidence: GraphEffectModelCausalEvidenceVerifier | None = None,
+    action_observation_context_issuer: AzureObservationContextIssuer | None = None,
+    action_observation_verifier: ObservationContextVerifier | None = None,
+    reconciliation_artifact_resolver: ReconciliationArtifactResolver | None = None,
+    action_observer_identity: str | None = None,
+    action_observation_source_identity: str | None = None,
 ) -> Container:
     """Bind read-only Azure evidence, including graph Dynamic when complete.
 
@@ -93,6 +103,27 @@ def bind_azure_operational_evidence(
             action_types=cast(Mapping[str, OntologyActionType], graph_action_types),
             policies=cast(Mapping[str, AzureGraphInterventionPolicy], graph_policies),
         )
+    action_observation_bindings = (
+        action_observation_context_issuer,
+        action_observation_verifier,
+        reconciliation_artifact_resolver,
+        action_observer_identity,
+        action_observation_source_identity,
+    )
+    if any(item is not None for item in action_observation_bindings) and not all(
+        item is not None and item != "" for item in action_observation_bindings
+    ):
+        raise ValueError("Azure executed-Action observation prerequisites MUST be bound together")
+    action_observation_collector = (
+        AzureContainerAppScaleOutObservationCollector(
+            snapshots=snapshots,
+            context_issuer=action_observation_context_issuer,
+            observer_identity=cast(str, action_observer_identity),
+            source_identity=cast(str, action_observation_source_identity),
+        )
+        if action_observation_context_issuer is not None
+        else None
+    )
     return replace(
         container,
         current_reuse_verifier=AzureCurrentReuseVerifier(
@@ -115,6 +146,9 @@ def bind_azure_operational_evidence(
         graph_dynamic_simulation_request_provider=graph_request_provider,
         graph_effect_model_reader=graph_effect_models,
         graph_effect_model_causal_evidence_verifier=graph_effect_model_causal_evidence,
+        reconciliation_artifact_resolver=reconciliation_artifact_resolver,
+        reconciliation_observation_verifier=action_observation_verifier,
+        executed_action_observation_collector=action_observation_collector,
     )
 
 

@@ -10,6 +10,7 @@ from fdai.shared.providers.inventory import (
     LinkRecord,
     ProviderRelationshipEvidence,
     RelationshipDropReason,
+    RelationshipUnavailableReason,
     ResourceRecord,
 )
 
@@ -42,6 +43,8 @@ def _evidence(
         endpoint_orientation="referenced_to_owner",
         provider_owner_id=owner_id,
         observation_receipt_ref=observation_receipt_ref,
+        source_provider_type="Microsoft.Compute/virtualMachines",
+        target_provider_type="Microsoft.Network/networkInterfaces",
     )
 
 
@@ -110,6 +113,29 @@ def test_missing_target_endpoint_is_absent_and_reported() -> None:
     assert {drop.reason for drop in result.dropped} == {
         RelationshipDropReason.MISSING_TARGET_ENDPOINT
     }
+    assert result.dropped[0].source_provider_type == "Microsoft.Compute/virtualMachines"
+    assert result.dropped[0].target_provider_type == "Microsoft.Network/networkInterfaces"
+    assert result.dropped[0].unavailable_reason is (
+        RelationshipUnavailableReason.TARGET_OUTSIDE_ACTIVE_GENERATION
+    )
+
+
+def test_distinct_missing_target_candidates_keep_their_counts() -> None:
+    result = _verify(
+        resources=(
+            _resource("nic-1", "network.interface"),
+            _resource("nic-2", "network.interface"),
+        ),
+        links=(
+            _link(to_id="missing-vm-1"),
+            _link(from_id="nic-2", to_id="missing-vm-2"),
+        ),
+    )
+
+    assert [drop.reason for drop in result.dropped] == [
+        RelationshipDropReason.MISSING_TARGET_ENDPOINT,
+        RelationshipDropReason.MISSING_TARGET_ENDPOINT,
+    ]
 
 
 def test_duplicate_edge_fails_closed() -> None:

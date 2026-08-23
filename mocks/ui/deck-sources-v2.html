@@ -27,59 +27,116 @@
     .ex-controls { display: flex; align-items: center; gap: 7px; flex: 0 0 auto; }
     .ex-control { min-height: 34px; padding: 6px 11px; border: 1px solid var(--cs-hairline); border-radius: 7px; background: var(--cs-card); color: var(--cs-text); font: 600 12px var(--cs-font); cursor: pointer; }
     .ex-control:hover { border-color: #b9c0c8; background: var(--cs-shade); }
-    .ex-control:focus-visible, .ex-step-toggle:focus-visible, .ex-summary-toggle:focus-visible, .ex-copy:focus-visible { outline: 2px solid rgba(53,109,155,.42); outline-offset: 2px; }
+    .ex-control:focus-visible, .ex-step-toggle:focus-visible, .ex-summary-toggle:focus-visible, .ex-copy:focus-visible, .ex-workbench button:focus-visible, .ex-workbench input:focus-visible, .ex-workbench textarea:focus-visible { outline: 2px solid rgba(53,109,155,.42); outline-offset: 2px; }
 
     .ex-workbench { width: min(900px, 100%); margin: 0 auto; overflow: clip; border: 1px solid var(--ex-line); border-radius: 8px; background: #fff; box-shadow: 0 10px 34px rgba(31,36,40,.08); }
     .ex-windowbar { min-height: 39px; display: flex; align-items: center; gap: 7px; padding: 0 13px; border-bottom: 1px solid var(--ex-line); background: #f3f4f6; color: var(--ex-muted); font-size: 11.5px; }
     .ex-window-dot { width: 9px; height: 9px; border-radius: 50%; background: #c8cdd2; }
-    .ex-window-title { margin-left: 5px; color: var(--ex-ink); font-weight: 600; }
+    .ex-window-title { min-width: 0; display: flex; align-items: center; gap: 5px; margin-left: 5px; color: var(--ex-ink); font-weight: 600; white-space: nowrap; }
+    .ex-window-glyph { width: 16px; height: 16px; display: grid; place-items: center; color: var(--ex-blue); }
+    .ex-window-glyph svg { display: block; }
+    .ex-window-route { overflow: hidden; text-overflow: ellipsis; }
+    .ex-backend-status { display: inline-flex; align-items: center; gap: 5px; margin-left: 4px; padding: 2px 7px; border: 1px solid color-mix(in oklab, var(--cs-terracotta) 40%, var(--ex-line)); border-radius: 999px; background: color-mix(in oklab, var(--cs-terracotta) 9%, var(--cs-card)); color: var(--cs-terracotta); font: 10px var(--cs-font-mono); }
+    .ex-backend-status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--cs-terracotta); }
     .ex-window-context { margin-left: auto; font-family: "JetBrains Mono", monospace; font-size: 10.5px; }
-    .ex-window-search, .ex-window-layout, .ex-workspace-tools, .ex-conversations { display: none; }
-    .ex-window-search { width: min(320px, 32vw); min-height: 32px; box-sizing: border-box; margin-left: auto; padding: 5px 10px; border: 1px solid var(--ex-line); border-radius: 8px; background: var(--cs-card); color: var(--ex-muted); font: 12px var(--cs-font); }
+    .ex-window-search, .ex-window-layout, .ex-workspace-tools, .ex-conversations, .ex-digest, .ex-source-readiness-slot { display: none; }
+    .ex-window-search { width: min(320px, 32vw); min-height: 32px; box-sizing: border-box; margin-left: auto; align-items: center; gap: 4px; padding: 2px 4px 2px 8px; border: 1px solid var(--ex-line); border-radius: 8px; background: var(--cs-card); color: var(--ex-muted); }
+    .ex-window-search-input { min-width: 0; flex: 1 1 auto; padding: 4px 2px; border: 0; outline: 0 !important; background: transparent; color: var(--ex-ink); font: 12px var(--cs-font); }
+    .ex-window-search-count { min-width: 24px; color: var(--ex-muted); font: 10px var(--cs-font-mono); text-align: center; }
+    .ex-window-search button { width: 26px; height: 26px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: var(--ex-muted); font: 13px var(--cs-font); }
+    .ex-window-search button:disabled { opacity: .35; }
+    .ex-window-search kbd { padding: 2px 4px; border: 1px solid var(--ex-line); border-radius: 4px; background: var(--cs-shade); font: 9px var(--cs-font-mono); white-space: nowrap; }
     .ex-window-layout { align-items: center; gap: 2px; padding: 2px; border: 1px solid var(--ex-line); border-radius: 7px; background: var(--cs-shade); }
     .ex-window-layout button { width: 28px; height: 28px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: var(--ex-muted); font: 15px var(--cs-font); cursor: pointer; }
     .ex-window-layout button[aria-pressed="true"] { background: var(--cs-card); color: var(--ex-blue); }
-    .ex-conversations { padding: 14px 10px 18px; overflow-y: auto; border-right: 1px solid var(--ex-line); background: var(--cs-card); }
+    .ex-close-deck { width: 28px; height: 28px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: var(--ex-muted); font: 18px var(--cs-font); }
+    .ex-workspace-body { display: contents; }
+    .ex-conversations { padding: 14px 10px 18px; overflow-y: auto; }
     .ex-conversations-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+    .ex-conversations-head-actions { display: inline-flex; align-items: center; gap: 4px; }
+    .ex-conversations-count { min-width: 20px; padding: 1px 6px; border-radius: 999px; background: var(--cs-shade); color: var(--ex-muted); font-size: 10px; text-align: center; }
     .ex-conversations-head strong { font-size: 12px; text-transform: uppercase; }
     .ex-conversations-close { display: none; width: 32px; height: 32px; padding: 0; border: 1px solid var(--ex-line); border-radius: 6px; background: transparent; color: var(--ex-muted); font: 18px var(--cs-font); }
-    .ex-conversation-search { width: 100%; min-height: 32px; box-sizing: border-box; margin-bottom: 8px; padding: 5px 8px; border: 1px solid var(--ex-line); border-radius: 6px; background: var(--cs-card); color: var(--ex-ink); font: 12px var(--cs-font); }
+    .ex-conversation-controls { display: grid; grid-template-columns: minmax(0, 1fr) 32px; gap: 6px; margin-bottom: 8px; }
+    .ex-conversation-search { width: 100%; min-height: 32px; box-sizing: border-box; padding: 5px 8px; border: 1px solid var(--ex-line); border-radius: 6px; background: var(--cs-card); color: var(--ex-ink); font: 12px var(--cs-font); }
+    .ex-conversation-new { width: 32px; height: 32px; padding: 0; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--ex-muted); font-size: 18px; }
     .ex-conversation-filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 8px; border-bottom: 1px solid var(--ex-line); }
     .ex-conversation-filters button { min-height: 30px; padding: 4px 2px; border: 0; background: transparent; color: var(--ex-muted); font: 11px var(--cs-font); }
     .ex-conversation-filters button[aria-pressed="true"] { color: var(--ex-ink); box-shadow: inset 0 -2px var(--ex-blue); }
     .ex-conversation-list { display: grid; gap: 3px; margin: 0; padding: 0; list-style: none; }
-    .ex-conversation-item { min-width: 0; display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 7px; padding: 8px; border: 1px solid transparent; border-radius: 6px; }
-    .ex-conversation-item.is-active { border-color: color-mix(in oklab, var(--ex-blue) 24%, var(--ex-line)); background: color-mix(in oklab, var(--ex-blue) 8%, var(--cs-card)); }
-    .ex-conversation-avatar { width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%; background: var(--ex-blue); color: #fff; font-size: 8px; font-weight: 700; }
+    .ex-conversation-group { display: grid; gap: 3px; }
+    .ex-conversation-group + .ex-conversation-group { margin-top: 10px; }
+    .ex-conversation-group h3 { margin: 0; padding: 2px 8px; color: var(--ex-muted); font-size: 9.5px; font-weight: 700; text-transform: uppercase; }
+    .ex-conversation-item { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) 28px 28px; align-items: center; }
+    .ex-conversation-select { width: 100%; min-width: 0; display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 7px; padding: 8px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+    .ex-conversation-item.is-active .ex-conversation-select { border-color: color-mix(in oklab, var(--ex-blue) 24%, var(--ex-line)); background: color-mix(in oklab, var(--ex-blue) 8%, var(--cs-card)); }
+    .ex-conversation-favorite, .ex-conversation-remove { width: 28px; height: 28px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: var(--ex-muted); opacity: 0; }
+    .ex-conversation-item:hover .ex-conversation-favorite, .ex-conversation-item:hover .ex-conversation-remove, .ex-conversation-item:focus-within .ex-conversation-favorite, .ex-conversation-item:focus-within .ex-conversation-remove, .ex-conversation-favorite[aria-pressed="true"] { opacity: 1; }
+    .ex-conversation-favorite[aria-pressed="true"] { color: var(--cs-terracotta); }
+    .ex-conversation-resize { position: absolute; top: 0; right: 0; bottom: 0; width: 8px; padding: 0; border: 0; background: transparent; cursor: col-resize; }
+    .ex-conversation-resize:focus-visible { outline-offset: -3px; }
+    .ex-conversation-avatar { width: 20px; height: 20px; display: block; background-color: var(--ex-blue); -webkit-mask: url("../../console/public/agent-icons/bragi.svg") center / contain no-repeat; mask: url("../../console/public/agent-icons/bragi.svg") center / contain no-repeat; }
     .ex-conversation-copy { min-width: 0; display: grid; gap: 2px; }
     .ex-conversation-copy strong, .ex-conversation-copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .ex-conversation-copy strong { color: var(--ex-ink); font-size: 12px; font-weight: 500; }
     .ex-conversation-copy small { color: var(--ex-muted); font-size: 10px; }
-    .ex-workspace-tools { min-height: 36px; align-items: center; gap: 6px; padding: 2px 12px; overflow-x: auto; border-bottom: 1px solid color-mix(in oklab, var(--ex-line) 65%, transparent); white-space: nowrap; }
+    .ex-workspace-tools { padding: 2px 12px; overflow-x: auto; border-bottom: 1px solid color-mix(in oklab, var(--ex-line) 65%, transparent); white-space: nowrap; }
     .ex-workspace-tools button { min-height: 32px; padding: 4px 9px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--ex-muted); font: 12px var(--cs-font); }
     .ex-workspace-tools button:hover, .ex-workspace-tools button[aria-pressed="true"] { border-color: var(--ex-line); background: var(--cs-shade); color: var(--ex-ink); }
     .ex-workspace-tools .ex-jump-latest { margin-left: auto; }
-    .ex-conversations-scrim { display: none; }
-    .ex-workbench[data-shell="workspace"] { position: relative; width: 100%; height: min(720px, calc(100vh - 154px)); min-height: 600px; display: grid; grid-template-columns: 220px minmax(0, 1fr); grid-template-rows: 50px 36px minmax(0, 1fr) auto; box-shadow: none; }
-    .ex-workbench[data-shell="workspace"] .ex-windowbar { grid-column: 1 / -1; grid-row: 1; min-height: 50px; background: var(--cs-card); }
+    .ex-digest { padding: 16px 18px 24px; }
+    .ex-digest-head { position: sticky; top: -16px; z-index: 1; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--ex-line); background: var(--cs-card); }
+    .ex-digest-title { color: var(--ex-blue); font-size: 11px; font-weight: 700; text-transform: uppercase; }
+    .ex-digest-freshness { display: flex; align-items: center; gap: 6px; color: var(--ex-muted); font-size: 11px; }
+    .ex-digest-freshness[data-state="stale"] time { color: var(--cs-terracotta); }
+    .ex-digest-stale { padding: 2px 5px; border-radius: 4px; background: color-mix(in oklab, var(--cs-terracotta) 12%, transparent); color: var(--cs-terracotta); font-weight: 700; }
+    .ex-digest-refresh { min-height: 28px; padding: 3px 7px; border: 1px solid var(--ex-line); border-radius: 5px; background: transparent; color: var(--ex-ink); font: 11px var(--cs-font); }
+    .ex-digest-list { display: grid; gap: 0; margin: 10px 0 0; }
+    .ex-digest-list div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; padding: 5px 0; border-bottom: 1px dashed color-mix(in oklab, var(--ex-line) 60%, transparent); }
+    .ex-digest-list dt { color: var(--ex-muted); font: 11.5px var(--cs-font-mono); overflow-wrap: anywhere; }
+    .ex-digest-list dd { margin: 0; color: var(--ex-ink); font-size: 12px; text-align: right; }
+    .ex-source-readiness-slot { min-height: 0; }
+    .ex-source-readiness { min-height: 32px; display: flex; align-items: center; gap: 8px; box-sizing: border-box; padding: 4px 16px; border-bottom: 1px solid var(--ex-line); color: var(--ex-muted); font-size: 11px; }
+    .ex-source-readiness strong { color: var(--ex-ink); }
+    .ex-source-status { min-height: 28px; display: inline-flex; align-items: center; gap: 5px; box-sizing: border-box; padding: 2px 6px; border: 1px solid var(--ex-line); border-radius: 999px; background: var(--cs-card); color: var(--ex-muted); text-decoration: none; }
+    .ex-source-status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--ex-green); }
+    .ex-source-readiness.is-loading { min-height: 32px; }
+    .ex-source-skeleton { width: 86px; height: 12px; border-radius: 6px; background: linear-gradient(90deg, #eef1f3 25%, #dde3e7 45%, #eef1f3 65%); background-size: 240% 100%; animation: cs-skeleton-pulse 1.4s ease-in-out infinite; }
+    .ex-source-readiness.is-error { color: var(--cs-dusty-red); }
+    .ex-source-readiness.is-error a { color: var(--ex-blue); }
+    .ex-workbench[data-shell="workspace"] { width: 100%; height: min(720px, calc(100vh - 154px)); min-height: 600px; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: 50px auto minmax(0, 1fr) auto; box-shadow: none; }
+    .ex-workbench[data-shell="workspace"] .ex-windowbar { min-width: 0; grid-row: 1; min-height: 50px; overflow: hidden; background: var(--cs-card); }
     .ex-workbench[data-shell="workspace"] .ex-window-dot { display: none; }
     .ex-workbench[data-shell="workspace"] .ex-window-title { margin-left: 0; font-size: 14px; }
     .ex-workbench[data-shell="workspace"] .ex-window-context { margin-left: 0; text-transform: uppercase; }
     .ex-workbench[data-shell="workspace"] .ex-window-search, .ex-workbench[data-shell="workspace"] .ex-window-layout { display: flex; }
-    .ex-workbench[data-shell="workspace"] .ex-conversations { grid-column: 1; grid-row: 2 / 5; display: block; }
-    .ex-workbench[data-shell="workspace"] .ex-workspace-tools { grid-column: 2; grid-row: 2; display: flex; }
-    .ex-workbench[data-shell="workspace"] .ex-thread { grid-column: 2; grid-row: 3; min-height: 0; overflow-y: auto; padding: 16px 42px 28px; }
-    .ex-workbench[data-shell="workspace"] .ex-composer { grid-column: 2; grid-row: 4; width: 100%; }
+    .ex-workbench[data-shell="workspace"] .ex-source-readiness-slot { grid-row: 2; display: block; }
+    .ex-workbench[data-shell="workspace"] .ex-workspace-body { grid-row: 3; display: grid; }
+    .ex-workbench[data-shell="workspace"] .ex-conversations { display: block; }
+    .ex-workbench[data-shell="workspace"] .ex-transcript-column { min-width: 0; min-height: 0; }
+    .ex-workbench[data-shell="workspace"] .ex-workspace-tools { display: flex; }
+    .ex-workbench[data-shell="workspace"] .ex-thread { min-height: 0; overflow-y: auto; padding: 16px 42px 28px; }
+    .ex-workbench[data-shell="workspace"] .ex-digest { display: block; }
+    .ex-workbench[data-shell="workspace"] .ex-composer { grid-row: 4; width: 100%; }
+    .ex-workbench[data-shell="workspace"][data-layout="dock"] { width: min(440px, 100%); margin-right: 0; }
+    .ex-workbench[data-shell="workspace"][data-layout="floating"] { width: min(440px, 100%); height: min(680px, calc(100vh - 154px)); margin-inline: auto; box-shadow: 0 18px 52px rgba(31,36,40,.18); }
+    .ex-workbench[data-layout="dock"] .ex-window-context,
+    .ex-workbench[data-layout="floating"] .ex-window-context,
+    .ex-workbench[data-layout="dock"] .ex-window-search,
+    .ex-workbench[data-layout="floating"] .ex-window-search { display: none; }
+    .ex-workbench[data-layout="dock"] .ex-workspace-body.has-conversations,
+    .ex-workbench[data-layout="floating"] .ex-workspace-body.has-conversations { grid-template-columns: minmax(0, 1fr); }
+    .ex-workbench[data-layout="dock"] .ex-conversations,
+    .ex-workbench[data-layout="floating"] .ex-conversations { position: absolute; z-index: 4; inset: 0 auto 0 0; width: min(300px, 82%); box-sizing: border-box; box-shadow: 8px 0 22px rgb(15 23 42 / 18%); }
+    .ex-workbench[data-layout="dock"] .ex-digest,
+    .ex-workbench[data-layout="floating"] .ex-digest,
+    .ex-workbench[data-layout="dock"] .ex-digest-toggle,
+    .ex-workbench[data-layout="floating"] .ex-digest-toggle { display: none; }
+    .ex-search-match { border-radius: 3px; background: color-mix(in oklab, var(--ex-blue) 14%, transparent); outline: 2px solid color-mix(in oklab, var(--ex-blue) 38%, transparent); }
     @media (max-width: 1100px) {
-      .ex-workbench[data-shell="workspace"] { grid-template-columns: minmax(0, 1fr); grid-template-rows: 50px 36px minmax(0, 1fr) auto; }
-      .ex-workbench[data-shell="workspace"] .ex-windowbar { grid-column: 1; }
-      .ex-workbench[data-shell="workspace"] .ex-workspace-tools { grid-column: 1; grid-row: 2; }
-      .ex-workbench[data-shell="workspace"] .ex-thread { grid-column: 1; grid-row: 3; }
-      .ex-workbench[data-shell="workspace"] .ex-composer { grid-column: 1; grid-row: 4; }
-      .ex-workbench[data-shell="workspace"] .ex-conversations { position: absolute; z-index: 20; inset: 50px auto 0 0; width: min(240px, 82%); box-sizing: border-box; box-shadow: 8px 0 22px rgb(15 23 42 / 18%); }
-      .ex-workbench[data-shell="workspace"][data-conversations="closed"] .ex-conversations { display: none; }
-      .ex-workbench[data-shell="workspace"][data-conversations="open"] .ex-conversations-scrim { position: absolute; z-index: 19; inset: 50px 0 0; display: block; border: 0; background: rgb(15 23 42 / 18%); }
+      .ex-digest-toggle { display: none; }
       .ex-conversations-close { display: block; width: 44px; height: 44px; }
+      .ex-conversation-resize { display: none; }
     }
 
     .ex-thread { min-height: 640px; padding: 22px clamp(16px, 4vw, 42px) 96px; scroll-padding-bottom: 96px; background: #fff; }
@@ -335,30 +392,39 @@
     .ex-unverified-phase[data-state="unverified"] .ex-unverified-phase-state { color: var(--cs-terracotta); }
 
     .ex-composer { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; }
-    .ex-composer-scope { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--ex-muted); font-size: 11px; }
-    .ex-composer-scope strong { overflow: hidden; color: var(--ex-ink); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-    .ex-composer-records::before { content: "\00b7"; margin-right: 8px; }
-    .ex-composer-freshness { margin-left: auto; color: var(--ex-green); font-size: 10px; }
     .ex-attach { width: 40px; min-height: 40px; border-radius: 10px; background: #fff; color: var(--ex-muted); font: 400 22px/1 var(--cs-font); cursor: pointer; }
     .ex-composer-input { overflow-y: hidden; }
     .ex-composer-input::placeholder { color: var(--ex-muted); }
     .ex-send { cursor: pointer; }
-    .ex-workbench[data-mode="complete"] .ex-composer-scope { display: none; }
     [hidden] { display: none !important; }
-    @media (max-width: 720px) {
+    @media (max-width: 900px) {
       .ex-page-header { align-items: flex-start; flex-direction: column; }
-      .ex-controls { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .ex-controls { width: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .ex-workbench[data-shell="workspace"] .ex-window-search { display: none; }
+      .ex-backend-status { display: none; }
+    }
+    @media (max-width: 720px) {
+      .ex-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .ex-control { min-width: 0; min-height: 46px; padding-inline: 6px; }
       .ex-thread { min-height: 590px; padding: 17px 12px 72px; scroll-padding-bottom: 72px; }
       .ex-window-context { display: none; }
-      .ex-workbench[data-shell="workspace"] { height: calc(100vh - 92px); min-height: 620px; grid-template-columns: minmax(0, 1fr); grid-template-rows: 50px 44px minmax(0, 1fr) auto; }
-      .ex-workbench[data-shell="workspace"] .ex-windowbar { grid-column: 1; }
-      .ex-workbench[data-shell="workspace"] .ex-window-search { display: none; }
-      .ex-workbench[data-shell="workspace"] .ex-workspace-tools { grid-column: 1; grid-row: 2; min-height: 44px; }
+      .ex-workbench[data-shell="workspace"] { height: calc(100vh - 92px); min-height: 620px; grid-template-rows: auto auto minmax(0, 1fr) auto; }
+      .ex-workbench[data-shell="workspace"] .ex-windowbar { min-height: 0; flex-wrap: wrap; padding-block: 6px; }
+      .ex-workbench[data-shell="workspace"] .ex-window-title { min-width: 0; flex: 1 1 0; }
+      .ex-workbench[data-shell="workspace"] .ex-window-layout { display: none; }
+      .ex-workbench[data-shell="workspace"] .ex-window-search { order: 3; width: 100%; min-height: 44px; display: flex; flex: 1 0 100%; margin-left: 0; }
+      .ex-window-search-input { min-height: 44px; }
+      .ex-window-search button, .ex-close-deck { width: 44px; height: 44px; }
+      .ex-window-search kbd { display: none; }
+      .ex-source-readiness { min-height: 44px; overflow-x: auto; padding-inline: 12px; }
+      .ex-source-status { min-height: 44px; }
+      .ex-workbench[data-shell="workspace"] .ex-workspace-tools { min-height: 44px; }
       .ex-workbench[data-shell="workspace"] .ex-workspace-tools button { min-height: 44px; }
-      .ex-workbench[data-shell="workspace"] .ex-thread { grid-column: 1; grid-row: 3; }
-      .ex-workbench[data-shell="workspace"] .ex-composer { grid-column: 1; grid-row: 4; }
-      .ex-workbench[data-shell="workspace"] .ex-conversations { width: min(300px, 82%); }
+      .ex-workbench[data-shell="workspace"] .cs-deck-conversation-panel { width: min(300px, 82%); }
+      .ex-conversation-controls { grid-template-columns: minmax(0, 1fr) 44px; }
+      .ex-conversation-search, .ex-conversation-filters button, .ex-conversation-select { min-height: 44px; box-sizing: border-box; }
+      .ex-conversation-new, .ex-conversation-favorite, .ex-conversation-remove { width: 44px; height: 44px; opacity: 1; }
+      .ex-conversation-item { grid-template-columns: minmax(0, 1fr) 44px 44px; }
       .ex-step-toggle { grid-template-columns: 18px minmax(0, 1fr) 16px; }
       .ex-step-duration { display: none; }
       .ex-step { padding-left: 30px; }
@@ -385,8 +451,6 @@
       .ex-unverified-phase { grid-template-columns: 24px minmax(0, 1fr); }
       .ex-unverified-phase-state { grid-column: 2; }
       .ex-composer { grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; }
-      .ex-composer-scope { flex-wrap: wrap; }
-      .ex-composer-freshness { width: 100%; margin-left: 0; }
       .ex-attach { width: 44px; min-height: 44px; }
       .ex-composer-input { min-height: 44px; }
       .ex-send { min-height: 44px; padding-inline: 12px; }
@@ -409,41 +473,61 @@
         <button class="ex-control" id="ex-replay" type="button">Replay investigation</button>
         <button class="ex-control" id="ex-finish" type="button">Show result</button>
         <button class="ex-control" id="ex-unverified" type="button">Show unverified</button>
+        <button class="ex-control" id="ex-sources" type="button" aria-pressed="false">Source state</button>
         <button class="ex-control" id="ex-workspace" type="button" aria-pressed="false">Workspace shell</button>
       </div>
     </header>
 
-    <section class="ex-workbench cs-deck-surface" id="ex-workbench" data-mode="retrieval" data-shell="specimen" data-conversations="closed" aria-label="Adaptive Command deck response mock">
-      <div class="ex-windowbar">
+    <section class="ex-workbench cs-deck-surface cs-deck-workspace-shell" id="ex-workbench" data-mode="retrieval" data-shell="specimen" data-layout="workspace" data-conversations="closed" data-digest="closed" aria-label="Adaptive Command deck response mock">
+      <div class="ex-windowbar cs-deck-workspace-header">
         <span class="ex-window-dot"></span><span class="ex-window-dot"></span><span class="ex-window-dot"></span>
-        <span class="ex-window-title">FDAI Command deck</span>
-        <span class="ex-window-context" id="ex-window-context">compact retrieval / read-only</span>
-        <input class="ex-window-search" type="search" aria-label="Search this conversation" placeholder="Search this conversation" />
+        <span class="ex-window-title"><span class="ex-window-glyph" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14"><path d="M3 2.75h10a1.5 1.5 0 0 1 1.5 1.5v6a1.5 1.5 0 0 1-1.5 1.5H7L3.5 14v-2.25H3a1.5 1.5 0 0 1-1.5-1.5v-6A1.5 1.5 0 0 1 3 2.75Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" /></svg></span><span>Command deck</span><span aria-hidden="true">&middot;</span><span class="ex-window-route">Dashboard</span><span class="ex-backend-status">deterministic</span></span>
+        <span class="ex-window-context" id="ex-window-context" hidden>compact retrieval / read-only</span>
+        <div class="ex-window-search" role="search">
+          <span aria-hidden="true">&#8981;</span>
+          <input class="ex-window-search-input" type="search" aria-label="Search this conversation" placeholder="Search this conversation" />
+          <span class="ex-window-search-count" aria-live="polite"></span>
+          <button type="button" class="ex-search-previous" aria-label="Previous match" disabled>&uarr;</button>
+          <button type="button" class="ex-search-next" aria-label="Next match" disabled>&darr;</button>
+          <kbd>Ctrl K</kbd>
+        </div>
         <span class="ex-window-layout" aria-label="Command deck layout">
-          <button type="button" aria-label="Floating panel">&#9645;</button>
-          <button type="button" aria-label="Dock right">&#9707;</button>
-          <button type="button" aria-label="Full workspace" aria-pressed="true">&#9974;</button>
-          <button type="button" aria-label="Close command deck">&times;</button>
+          <button type="button" data-layout="floating" aria-label="Floating panel" aria-pressed="false">&#9645;</button>
+          <button type="button" data-layout="dock" aria-label="Dock right" aria-pressed="false">&#9707;</button>
+          <button type="button" data-layout="workspace" aria-label="Full workspace" aria-pressed="true">&#9974;</button>
         </span>
+        <button type="button" class="ex-close-deck" aria-label="Close command deck">&times;</button>
       </div>
-      <button type="button" class="ex-conversations-scrim" aria-label="Close conversations"></button>
-      <aside class="ex-conversations" aria-label="Conversations">
-        <div class="ex-conversations-head"><strong>Conversations</strong><button type="button" class="ex-conversations-close" aria-label="Close conversations">&times;</button></div>
-        <input class="ex-conversation-search" type="search" aria-label="Search conversations" placeholder="Search conversations" />
-        <div class="ex-conversation-filters" role="group" aria-label="Conversation filters"><button type="button" aria-pressed="true">My chats</button><button type="button">Unread</button><button type="button">Favorites</button></div>
-        <ol class="ex-conversation-list">
-          <li class="ex-conversation-item"><span class="ex-conversation-avatar">Br</span><span class="ex-conversation-copy"><strong>Any stopped databases?</strong><small>Yesterday 05:33 PM</small></span></li>
-          <li class="ex-conversation-item is-active"><span class="ex-conversation-avatar">Br</span><span class="ex-conversation-copy"><strong>Show all Container Apps</strong><small>Yesterday 05:16 PM</small></span></li>
-          <li class="ex-conversation-item"><span class="ex-conversation-avatar">Br</span><span class="ex-conversation-copy"><strong>Bragi</strong><small>Aug 18</small></span></li>
-          <li class="ex-conversation-item"><span class="ex-conversation-avatar">Br</span><span class="ex-conversation-copy"><strong>New conversation</strong><small>Aug 18</small></span></li>
-          <li class="ex-conversation-item"><span class="ex-conversation-avatar">Br</span><span class="ex-conversation-copy"><strong>Resource group inventory</strong><small>Aug 17</small></span></li>
-          <li class="ex-conversation-item"><span class="ex-conversation-avatar">Br</span><span class="ex-conversation-copy"><strong>Current subscription state</strong><small>Aug 17</small></span></li>
-        </ol>
+      <div class="ex-source-readiness-slot cs-deck-source-readiness-slot">
+        <nav class="ex-source-readiness" hidden></nav>
+      </div>
+      <div class="ex-workspace-body cs-deck-workspace-body">
+      <button type="button" class="ex-conversations-scrim cs-deck-conversation-scrim" aria-label="Close conversations" hidden></button>
+      <aside class="ex-conversations cs-deck-conversation-panel" aria-label="Conversations" hidden>
+        <div class="ex-conversations-head"><strong>Conversations</strong><span class="ex-conversations-head-actions"><span class="ex-conversations-count">20+</span><button type="button" class="ex-conversations-close" aria-label="Close conversations">&times;</button></span></div>
+        <div class="ex-conversation-controls"><input class="ex-conversation-search" type="search" aria-label="Filter conversations" placeholder="Filter conversations" /><button type="button" class="ex-conversation-new" aria-label="New conversation">+</button></div>
+        <div class="ex-conversation-filters" role="group" aria-label="Conversation filters"><button type="button" data-filter="all" aria-pressed="true">Mine</button><button type="button" data-filter="unread" aria-pressed="false">Unread</button><button type="button" data-filter="favorite" aria-pressed="false">Favorites</button></div>
+        <div class="ex-conversation-list">
+          <section class="ex-conversation-group" aria-label="Current screen"><h3>Current screen</h3>
+            <div class="ex-conversation-item" data-filter="unread"><button class="ex-conversation-select" type="button"><span class="ex-conversation-avatar" aria-hidden="true"></span><span class="ex-conversation-copy"><strong>Any stopped databases?</strong><small>Yesterday 05:33 PM</small></span></button><button type="button" class="ex-conversation-favorite" aria-label="Add favorite: Any stopped databases?" aria-pressed="false">&#9734;</button></div>
+            <div class="ex-conversation-item is-active" data-filter="favorite"><button class="ex-conversation-select" type="button" aria-current="true"><span class="ex-conversation-avatar" aria-hidden="true"></span><span class="ex-conversation-copy"><strong>Show all Container Apps</strong><small>Yesterday 05:16 PM</small></span></button><button type="button" class="ex-conversation-favorite" aria-label="Remove favorite: Show all Container Apps" aria-pressed="true">&#9733;</button></div>
+          </section>
+          <section class="ex-conversation-group" aria-label="Other screens"><h3>Other screens</h3>
+            <div class="ex-conversation-item"><button class="ex-conversation-select" type="button"><span class="ex-conversation-avatar" aria-hidden="true"></span><span class="ex-conversation-copy"><strong>New conversation</strong><small>Dashboard &middot; Aug 18</small></span></button><button type="button" class="ex-conversation-favorite" aria-label="Add favorite: New conversation" aria-pressed="false">&#9734;</button><button type="button" class="ex-conversation-remove" aria-label="Remove cached conversation: New conversation">&times;</button></div>
+            <div class="ex-conversation-item" data-filter="favorite"><button class="ex-conversation-select" type="button"><span class="ex-conversation-avatar" aria-hidden="true"></span><span class="ex-conversation-copy"><strong>Resource group inventory</strong><small>Inventory &middot; Aug 17</small></span></button><button type="button" class="ex-conversation-favorite" aria-label="Remove favorite: Resource group inventory" aria-pressed="true">&#9733;</button><button type="button" class="ex-conversation-remove" aria-label="Remove cached conversation: Resource group inventory">&times;</button></div>
+            <div class="ex-conversation-item" data-filter="unread"><button class="ex-conversation-select" type="button"><span class="ex-conversation-avatar" aria-hidden="true"></span><span class="ex-conversation-copy"><strong>Current subscription state</strong><small>Inventory &middot; Aug 17</small></span></button><button type="button" class="ex-conversation-favorite" aria-label="Add favorite: Current subscription state" aria-pressed="false">&#9734;</button><button type="button" class="ex-conversation-remove" aria-label="Remove cached conversation: Current subscription state">&times;</button></div>
+          </section>
+          <section class="ex-conversation-group" aria-label="Agent conversations"><h3>Agent conversations</h3>
+            <div class="ex-conversation-item"><button class="ex-conversation-select" type="button"><span class="ex-conversation-avatar" aria-hidden="true"></span><span class="ex-conversation-copy"><strong>Bragi</strong><small>Agent &middot; Aug 18</small></span></button><button type="button" class="ex-conversation-favorite" aria-label="Add favorite: Bragi" aria-pressed="false">&#9734;</button><button type="button" class="ex-conversation-remove" aria-label="Remove cached conversation: Bragi">&times;</button></div>
+          </section>
+        </div>
+        <button type="button" class="ex-conversation-resize" role="separator" aria-label="Conversations" aria-orientation="vertical" aria-valuemin="180" aria-valuemax="360" aria-valuenow="240"></button>
       </aside>
-      <div class="ex-workspace-tools" role="toolbar" aria-label="Conversation workspace tools">
-        <button type="button">+ New conversation</button>
-        <button type="button" class="ex-conversations-toggle" aria-pressed="true">Conversations <span>20+</span></button>
-        <button type="button">What I see <span>17</span></button>
+      <div class="ex-transcript-column cs-deck-transcript-column">
+      <div class="ex-workspace-tools cs-deck-workspace-toolbar" role="toolbar" aria-label="Conversation workspace tools">
+        <button type="button" class="ex-new-conversation">+ New conversation</button>
+        <button type="button" class="ex-conversations-toggle" aria-pressed="false">Conversations <span>20+</span></button>
+        <button type="button" class="ex-digest-toggle" aria-pressed="false">What I see <span>17</span></button>
         <button type="button" class="ex-jump-latest">&#8595; Jump to latest</button>
       </div>
       <div class="ex-thread">
@@ -660,9 +744,14 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
           </div>
         </article>
       </div>
+      </div>
+      <aside class="ex-digest cs-deck-digest-panel" aria-label="What the deck sees" hidden>
+        <div class="ex-digest-head"><strong class="ex-digest-title">What I see</strong><span class="ex-digest-freshness" data-state="stale"><time datetime="2026-08-22T06:00:00Z">27 min ago</time><span class="ex-digest-stale">stale</span><button type="button" class="ex-digest-refresh">Refresh</button></span></div>
+        <div class="ex-digest-groups"><section><h4>Overview</h4><dl class="ex-digest-list"><div><dt>Health</dt><dd>Needs attention</dd></div><div><dt>Events</dt><dd>500</dd></div></dl></section><section><h4>Page</h4><dl class="ex-digest-list"><div><dt>Route</dt><dd>Dashboard</dd></div><div><dt>Records</dt><dd>17</dd></div><div><dt>Authority</dt><dd>Read-only</dd></div></dl></section></div>
+      </aside>
+      </div>
       <footer class="ex-composer cs-deck-composer-shell cs-deck-composer-grid">
-        <div class="ex-composer-scope"><strong>Dashboard</strong><span class="ex-composer-records">29 grounded records</span><span class="ex-composer-freshness">Context current</span></div>
-        <button class="ex-attach cs-deck-tool cs-deck-tool-icon" type="button" aria-label="Attach evidence" title="Attach evidence">+</button>
+        <button class="ex-attach cs-deck-tool cs-deck-tool-icon" type="button" aria-label="Attach evidence" aria-pressed="false" title="Attach evidence">+</button>
         <textarea class="ex-composer-input cs-deck-composer-input" rows="1" aria-label="Message" placeholder="Ask anything about Dashboard, or type / for commands"></textarea>
         <button class="ex-send cs-deck-composer-send" type="button">Send</button>
       </footer>
@@ -723,6 +812,17 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
       ];
       var runHost = document.getElementById("ex-run");
       var workbench = document.getElementById("ex-workbench");
+      var workspaceBody = workbench.querySelector(".ex-workspace-body");
+      var conversationsPanel = workbench.querySelector(".ex-conversations");
+      var conversationsScrim = workbench.querySelector(".ex-conversations-scrim");
+      var digestPanel = workbench.querySelector(".ex-digest");
+      var transcript = workbench.querySelector(".ex-thread");
+      var transcriptSearch = workbench.querySelector(".ex-window-search-input");
+      var transcriptSearchCount = workbench.querySelector(".ex-window-search-count");
+      var transcriptSearchPrevious = workbench.querySelector(".ex-search-previous");
+      var transcriptSearchNext = workbench.querySelector(".ex-search-next");
+      var sourceReadiness = workbench.querySelector(".ex-source-readiness");
+      var composerInput = workbench.querySelector(".ex-composer-input");
       var windowContext = document.getElementById("ex-window-context");
       var promotion = document.getElementById("ex-promotion");
       var operatorMessage = document.querySelector(".ex-user-message");
@@ -773,6 +873,11 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
       var nextSkeleton = null;
       var runToken = 0;
       var waits = [];
+      var transcriptMatches = [];
+      var activeTranscriptMatch = -1;
+      var conversationWidth = 240;
+      var conversationCount = 20;
+      var sourceReadinessState = "hidden";
 
       function create(tag, className, text) { var node = document.createElement(tag); if (className) node.className = className; if (text != null) node.textContent = text; return node; }
       function wait(ms, token) { return new Promise(function (resolve) { var timer = setTimeout(function () { resolve(token === runToken); }, ms); waits.push(timer); }); }
@@ -1202,9 +1307,9 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
         await streamFinalAnswer(token);
       }
 
-      async function runCompact() {
+      async function runCompact(question) {
         var token = reset();
-        operatorMessage.textContent = "What is the current health state of the example API?";
+        operatorMessage.textContent = question || "What is the current health state of the example API?";
         if (!await runPreparation("compact", token)) return;
         settlePreparation(3, "Compact");
         answerLead.textContent = "The available read-only sources are sufficient, so this turn stays compact.";
@@ -1214,25 +1319,287 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
       function setWorkspaceShell(enabled) {
         var workspaceButton = document.getElementById("ex-workspace");
         workbench.dataset.shell = enabled ? "workspace" : "specimen";
-        workbench.dataset.conversations = enabled ? "open" : "closed";
+        setConversations(false);
+        setDigest(false);
         workspaceButton.setAttribute("aria-pressed", String(enabled));
         workspaceButton.textContent = enabled ? "Specimen shell" : "Workspace shell";
       }
 
       function setConversations(open) {
+        open = Boolean(open && workbench.dataset.shell === "workspace");
         workbench.dataset.conversations = open ? "open" : "closed";
+        workspaceBody.classList.toggle("has-conversations", open);
+        conversationsPanel.hidden = !open;
+        conversationsScrim.hidden = !open;
         var toggle = workbench.querySelector(".ex-conversations-toggle");
         toggle.setAttribute("aria-pressed", String(open));
       }
 
+      function setDigest(open) {
+        open = Boolean(open && workbench.dataset.shell === "workspace" && workbench.dataset.layout === "workspace");
+        workbench.dataset.digest = open ? "open" : "closed";
+        workspaceBody.classList.toggle("has-digest", open);
+        digestPanel.hidden = !open;
+        workbench.querySelector(".ex-digest-toggle").setAttribute("aria-pressed", String(open));
+      }
+
+      function setSourceReadiness(state) {
+        sourceReadinessState = state;
+        sourceReadiness.hidden = state === "hidden";
+        sourceReadiness.className = "ex-source-readiness";
+        sourceReadiness.replaceChildren();
+        sourceReadiness.removeAttribute("role");
+        sourceReadiness.removeAttribute("aria-label");
+        sourceReadiness.removeAttribute("aria-busy");
+        var toggle = document.getElementById("ex-sources");
+        toggle.setAttribute("aria-pressed", String(state !== "hidden"));
+        if (state === "hidden") {
+          toggle.textContent = "Source state";
+          return;
+        }
+        if (state === "loading") {
+          sourceReadiness.classList.add("is-loading");
+          sourceReadiness.setAttribute("role", "status");
+          sourceReadiness.setAttribute("aria-busy", "true");
+          sourceReadiness.setAttribute("aria-label", "Loading evidence sources");
+          sourceReadiness.appendChild(create("span", "ex-source-skeleton"));
+          sourceReadiness.appendChild(create("span", "ex-source-skeleton"));
+          sourceReadiness.appendChild(create("span", "ex-source-skeleton"));
+          toggle.textContent = "Show source error";
+          return;
+        }
+        if (state === "error") {
+          sourceReadiness.classList.add("is-error");
+          sourceReadiness.setAttribute("role", "status");
+          sourceReadiness.appendChild(create("span", "", "Evidence sources unavailable"));
+          var diagnostics = create("a", "", "Open diagnostics");
+          diagnostics.href = "#diagnostics";
+          sourceReadiness.appendChild(diagnostics);
+          toggle.textContent = "Show ready sources";
+          return;
+        }
+        sourceReadiness.setAttribute("role", "navigation");
+        sourceReadiness.setAttribute("aria-label", "Evidence sources");
+        sourceReadiness.appendChild(create("strong", "", "Evidence sources"));
+        ["Screen available", "Azure available", "Workspace available"].forEach(function (label) {
+          var link = create("a", "ex-source-status", label);
+          link.href = "#evidence";
+          sourceReadiness.appendChild(link);
+        });
+        toggle.textContent = "Hide sources";
+      }
+
+      function advanceSourceReadiness() {
+        var states = ["hidden", "loading", "error", "ready"];
+        setSourceReadiness(states[(states.indexOf(sourceReadinessState) + 1) % states.length]);
+      }
+
+      function setLayout(layout) {
+        workbench.dataset.layout = layout;
+        Array.prototype.forEach.call(workbench.querySelectorAll(".ex-window-layout [data-layout]"), function (button) {
+          button.setAttribute("aria-pressed", String(button.dataset.layout === layout));
+        });
+        if (layout !== "workspace") setDigest(false);
+      }
+
+      function filterConversations() {
+        var query = workbench.querySelector(".ex-conversation-search").value.trim().toLowerCase();
+        var activeFilter = workbench.querySelector(".ex-conversation-filters [aria-pressed=\"true\"]").dataset.filter;
+        Array.prototype.forEach.call(workbench.querySelectorAll(".ex-conversation-item"), function (item) {
+          var matchesText = !query || item.textContent.toLowerCase().indexOf(query) >= 0;
+          var matchesFilter = activeFilter === "all" ||
+            (activeFilter === "unread" && item.dataset.filter === "unread") ||
+            (activeFilter === "favorite" && item.querySelector(".ex-conversation-favorite").getAttribute("aria-pressed") === "true");
+          item.hidden = !(matchesText && matchesFilter);
+        });
+      }
+
+      function selectConversation(item) {
+        Array.prototype.forEach.call(workbench.querySelectorAll(".ex-conversation-item"), function (candidate) {
+          var active = candidate === item;
+          candidate.classList.toggle("is-active", active);
+          candidate.querySelector(".ex-conversation-select").setAttribute("aria-current", active ? "true" : "false");
+        });
+        windowContext.textContent = "conversation / " + item.querySelector("strong").textContent;
+        setConversations(false);
+      }
+
+      function startNewConversation() {
+        Array.prototype.forEach.call(workbench.querySelectorAll(".ex-conversation-item"), function (item) {
+          item.classList.remove("is-active");
+          item.querySelector(".ex-conversation-select").setAttribute("aria-current", "false");
+        });
+        setConversations(false);
+        setDigest(false);
+        windowContext.textContent = "new conversation / Dashboard";
+        runCompact("What can I investigate from the current Dashboard context?");
+      }
+
+      function applyTranscriptSearch() {
+        var query = transcriptSearch.value.trim().toLowerCase();
+        Array.prototype.forEach.call(transcript.querySelectorAll(".ex-search-match"), function (node) { node.classList.remove("ex-search-match"); });
+        transcriptMatches = query ? Array.prototype.filter.call(transcript.querySelectorAll("p, strong, code"), function (node) {
+          return node.textContent.toLowerCase().indexOf(query) >= 0;
+        }) : [];
+        activeTranscriptMatch = transcriptMatches.length ? 0 : -1;
+        renderTranscriptSearch();
+      }
+
+      function renderTranscriptSearch() {
+        Array.prototype.forEach.call(transcript.querySelectorAll(".ex-search-match"), function (node) { node.classList.remove("ex-search-match"); });
+        var match = transcriptMatches[activeTranscriptMatch];
+        transcriptSearchCount.textContent = transcriptSearch.value.trim() ? (match ? (activeTranscriptMatch + 1) + "/" + transcriptMatches.length : "0/0") : "";
+        transcriptSearchPrevious.disabled = transcriptMatches.length === 0;
+        transcriptSearchNext.disabled = transcriptMatches.length === 0;
+        if (!match) return;
+        match.classList.add("ex-search-match");
+        match.scrollIntoView({ block: "center" });
+      }
+
+      function moveTranscriptSearch(direction) {
+        if (!transcriptMatches.length) return;
+        activeTranscriptMatch = (activeTranscriptMatch + direction + transcriptMatches.length) % transcriptMatches.length;
+        renderTranscriptSearch();
+      }
+
+      function resizeConversations(nextWidth) {
+        conversationWidth = Math.max(180, Math.min(360, nextWidth));
+        workspaceBody.style.setProperty("--cs-deck-conversation-width", conversationWidth + "px");
+        workbench.querySelector(".ex-conversation-resize").setAttribute("aria-valuenow", String(conversationWidth));
+      }
+
+      function updateConversationCount() {
+        workbench.querySelector(".ex-conversations-count").textContent = conversationCount + "+";
+        workbench.querySelector(".ex-conversations-toggle span").textContent = conversationCount + "+";
+      }
+
       document.getElementById("ex-replay").addEventListener("click", run);
-      document.getElementById("ex-compact").addEventListener("click", runCompact);
+      document.getElementById("ex-compact").addEventListener("click", function () { runCompact(); });
       document.getElementById("ex-finish").addEventListener("click", function () { restoreExpandedPresentation(); reset(); runToken += 1; clearWaits(); completeRun(); });
       document.getElementById("ex-unverified").addEventListener("click", showUnverifiedResult);
+      document.getElementById("ex-sources").addEventListener("click", advanceSourceReadiness);
       document.getElementById("ex-workspace").addEventListener("click", function () { setWorkspaceShell(workbench.dataset.shell !== "workspace"); });
       workbench.querySelector(".ex-conversations-toggle").addEventListener("click", function () { setConversations(workbench.dataset.conversations !== "open"); });
+      workbench.querySelector(".ex-digest-toggle").addEventListener("click", function () { setDigest(workbench.dataset.digest !== "open"); });
       workbench.querySelector(".ex-conversations-close").addEventListener("click", function () { setConversations(false); });
       workbench.querySelector(".ex-conversations-scrim").addEventListener("click", function () { setConversations(false); });
+      workbench.querySelector(".ex-new-conversation").addEventListener("click", startNewConversation);
+      workbench.querySelector(".ex-conversation-new").addEventListener("click", startNewConversation);
+      workbench.querySelector(".ex-jump-latest").addEventListener("click", function () {
+        transcript.dataset.position = "latest";
+        transcript.scrollTo({ top: transcript.scrollHeight, behavior: "smooth" });
+      });
+      workbench.querySelector(".ex-close-deck").addEventListener("click", function () { setWorkspaceShell(false); });
+      transcriptSearch.addEventListener("input", applyTranscriptSearch);
+      transcriptSearch.addEventListener("keydown", function (event) { if (event.key === "Enter") { event.preventDefault(); moveTranscriptSearch(event.shiftKey ? -1 : 1); } });
+      transcriptSearchPrevious.addEventListener("click", function () { moveTranscriptSearch(-1); });
+      transcriptSearchNext.addEventListener("click", function () { moveTranscriptSearch(1); });
+      Array.prototype.forEach.call(workbench.querySelectorAll(".ex-window-layout [data-layout]"), function (button) {
+        button.addEventListener("click", function () { setLayout(button.dataset.layout); });
+      });
+      workbench.querySelector(".ex-conversation-search").addEventListener("input", filterConversations);
+      Array.prototype.forEach.call(workbench.querySelectorAll(".ex-conversation-filters button"), function (button) {
+        button.addEventListener("click", function () {
+          Array.prototype.forEach.call(button.parentElement.children, function (candidate) { candidate.setAttribute("aria-pressed", String(candidate === button)); });
+          filterConversations();
+        });
+      });
+      Array.prototype.forEach.call(workbench.querySelectorAll(".ex-conversation-item"), function (item) {
+        item.querySelector(".ex-conversation-select").addEventListener("click", function () { selectConversation(item); });
+        item.querySelector(".ex-conversation-favorite").addEventListener("click", function (event) {
+          var button = event.currentTarget;
+          var favorite = button.getAttribute("aria-pressed") !== "true";
+          var label = item.querySelector("strong").textContent;
+          button.setAttribute("aria-pressed", String(favorite));
+          button.setAttribute("aria-label", (favorite ? "Remove favorite: " : "Add favorite: ") + label);
+          button.textContent = favorite ? "★" : "☆";
+          filterConversations();
+        });
+        var remove = item.querySelector(".ex-conversation-remove");
+        if (remove) remove.addEventListener("click", function () {
+          item.remove();
+          conversationCount = Math.max(0, conversationCount - 1);
+          updateConversationCount();
+          filterConversations();
+        });
+      });
+      var conversationResize = workbench.querySelector(".ex-conversation-resize");
+      conversationResize.addEventListener("keydown", function (event) {
+        if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+        event.preventDefault();
+        resizeConversations(conversationWidth + (event.key === "ArrowLeft" ? -20 : 20));
+      });
+      conversationResize.addEventListener("mousedown", function (event) {
+        if (event.button !== 0) return;
+        event.preventDefault();
+        var startX = event.clientX;
+        var startWidth = conversationWidth;
+        function move(moveEvent) { resizeConversations(startWidth + moveEvent.clientX - startX); }
+        function stop() { window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", stop); }
+        window.addEventListener("mousemove", move);
+        window.addEventListener("mouseup", stop);
+      });
+      workbench.querySelector(".ex-digest-refresh").addEventListener("click", function () {
+        var freshness = workbench.querySelector(".ex-digest-freshness");
+        freshness.dataset.state = "fresh";
+        freshness.querySelector("time").textContent = "Just now";
+        freshness.querySelector("time").setAttribute("datetime", new Date().toISOString());
+        freshness.querySelector(".ex-digest-stale").hidden = true;
+        freshness.querySelector(".ex-digest-refresh").hidden = true;
+      });
+      workbench.addEventListener("keydown", function (event) {
+        if (event.key !== "Tab" || workbench.dataset.shell !== "workspace" || workbench.dataset.layout !== "workspace") return;
+        var focusable = Array.prototype.filter.call(workbench.querySelectorAll("a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex=\"-1\"])") , function (element) {
+          return element.getBoundingClientRect().height > 0;
+        });
+        if (!focusable.length) return;
+        var first = focusable[0];
+        var last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      });
+      document.addEventListener("keydown", function (event) {
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k" && workbench.dataset.shell === "workspace") {
+          event.preventDefault();
+          transcriptSearch.focus();
+          transcriptSearch.select();
+          return;
+        }
+        if (event.key === "Escape" && workbench.dataset.shell === "workspace") {
+          event.preventDefault();
+          if (document.activeElement === transcriptSearch) {
+            transcriptSearch.value = "";
+            applyTranscriptSearch();
+            composerInput.focus();
+          } else {
+            setWorkspaceShell(false);
+          }
+        }
+      });
+      workbench.querySelector(".ex-attach").addEventListener("click", function (event) {
+        var button = event.currentTarget;
+        var attached = button.getAttribute("aria-pressed") !== "true";
+        button.setAttribute("aria-pressed", String(attached));
+        button.textContent = attached ? "✓" : "+";
+        button.setAttribute("aria-label", attached ? "Remove staged evidence" : "Attach evidence");
+      });
+      workbench.querySelector(".ex-send").addEventListener("click", function () {
+        var question = composerInput.value.trim();
+        if (!question) return;
+        composerInput.value = "";
+        runCompact(question);
+      });
+      composerInput.addEventListener("keydown", function (event) {
+        if (event.key === "Enter" && !event.shiftKey) {
+          event.preventDefault();
+          workbench.querySelector(".ex-send").click();
+        }
+      });
       run();
     }());
   </script>

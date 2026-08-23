@@ -10,14 +10,21 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from fdai.delivery.azure.arg_transport import DEFAULT_ARG_REQUESTS_PER_SECOND
+from fdai.delivery.inventory_source_policy import (
+    InventoryCollectionPolicy,
+    SourceCollectionPolicy,
+    load_inventory_collection_policy,
+)
 from fdai.delivery.inventory_sync import (
     DEFAULT_ATTEMPT_DEADLINE_SECONDS,
     DEFAULT_PROGRESS_DEADLINE_SECONDS,
     MAX_ATTEMPT_DEADLINE_SECONDS,
 )
+from fdai.delivery.repo_assets import repo_asset_root
 
 _DEFAULT_LOOP_SECONDS = 60
 _DEFAULT_CHANGE_MIN_INTERVAL_SECONDS = 120
+_DEFAULT_COLLECTION_POLICY_PATH = repo_asset_root() / "config" / "inventory-collection-policy.json"
 _MANAGEMENT_AUDIENCE_BY_ORIGIN = {
     "https://management.azure.com": "https://management.azure.com/.default",
     "https://management.chinacloudapi.cn": "https://management.chinacloudapi.cn/.default",
@@ -46,6 +53,14 @@ class InventoryJobConfig:
     recovery_delta_enabled: bool = True
     declarative_path: Path | None = None
     declarative_sha256: str | None = None
+    collection_policy: InventoryCollectionPolicy | None = None
+
+    def snapshot_policy(self, source_name: str) -> SourceCollectionPolicy:
+        """Return the validated snapshot policy for one configured fallback source."""
+
+        if self.collection_policy is None:
+            raise RuntimeError("inventory collection policy is unavailable")
+        return self.collection_policy.source(f"{source_name}-snapshot")
 
     @classmethod
     def from_env(
@@ -103,6 +118,12 @@ class InventoryJobConfig:
         )
         declarative_value = source.get("FDAI_INVENTORY_DECLARATIVE_PATH", "").strip()
         declarative_sha256 = source.get("FDAI_INVENTORY_DECLARATIVE_SHA256", "").strip() or None
+        collection_policy_path = Path(
+            source.get(
+                "FDAI_INVENTORY_COLLECTION_POLICY_PATH",
+                str(_DEFAULT_COLLECTION_POLICY_PATH),
+            ).strip()
+        )
 
         if not dsn:
             raise ValueError("FDAI_INVENTORY_DSN MUST NOT be empty")
@@ -136,6 +157,18 @@ class InventoryJobConfig:
             raise ValueError(
                 "declarative fallback requires FDAI_INVENTORY_DECLARATIVE_PATH and SHA256"
             )
+        collection_policy = load_inventory_collection_policy(collection_policy_path)
+        _validate_collection_policy_bindings(
+            collection_policy,
+            source_order=source_order,
+            freshness_seconds=freshness,
+            reconciliation_interval_seconds=reconciliation_interval,
+            change_min_interval_seconds=change_min_interval,
+            progress_deadline_seconds=progress_deadline,
+            attempt_deadline_seconds=attempt_deadline,
+            arg_requests_per_second=arg_requests_per_second,
+            recovery_delta_enabled=recovery_delta_enabled,
+        )
         return cls(
             dsn=dsn,
             scopes=scopes,
@@ -153,6 +186,7 @@ class InventoryJobConfig:
             recovery_delta_enabled=recovery_delta_enabled,
             declarative_path=Path(declarative_value) if declarative_value else None,
             declarative_sha256=declarative_sha256,
+            collection_policy=collection_policy,
         )
 
 
@@ -172,6 +206,51 @@ def _validate_management_origin(endpoint: str, audience: str) -> None:
         raise ValueError("FDAI_INVENTORY_MANAGEMENT_ENDPOINT MUST be an approved HTTPS ARM origin")
     if audience != _MANAGEMENT_AUDIENCE_BY_ORIGIN[normalized]:
         raise ValueError("FDAI_INVENTORY_MANAGEMENT_AUDIENCE MUST match the ARM origin")
+
+
+def _validate_collection_policy_bindings(
+    policy: InventoryCollectionPolicy,
+    *,
+    source_order: tuple[str, ...],
+    freshness_seconds: int,
+    reconciliation_interval_seconds: int,
+    change_min_interval_seconds: int,
+    progress_deadline_seconds: int,
+    attempt_deadline_seconds: int,
+    arg_requests_per_second: float,
+    recovery_delta_enabled: bool,
+) -> None:
+    for source_name in source_order:
+        try:
+            source_policy = policy.source(f"{source_name}-snapshot")
+        except KeyError as exc:
+            raise ValueError(
+                f"inventory collection policy is missing {source_name}-snapshot"
+            ) from exc
+        if freshness_seconds > source_policy.max_staleness_seconds:
+            raise ValueError("inventory freshness exceeds the source maximum staleness")
+        if not (
+            source_policy.min_poll_interval_seconds
+            <= reconciliation_interval_seconds
+            <= source_policy.max_poll_interval_seconds
+        ):
+            raise ValueError("inventory reconciliation interval is outside the source policy")
+        if change_min_interval_seconds < source_policy.min_poll_interval_seconds:
+            raise ValueError("inventory change interval is below the source policy minimum")
+        if progress_deadline_seconds > source_policy.no_progress_timeout_seconds:
+            raise ValueError("inventory progress deadline exceeds the source no-progress bound")
+        if attempt_deadline_seconds > source_policy.max_run_seconds:
+            raise ValueError("inventory attempt deadline exceeds the source run bound")
+        if source_name == "arg" and (
+            arg_requests_per_second * source_policy.budget_window_seconds
+            > source_policy.max_requests_per_window
+        ):
+            raise ValueError("inventory ARG request rate exceeds the source request budget")
+    if recovery_delta_enabled:
+        try:
+            policy.source("activity-log-delta")
+        except KeyError as exc:
+            raise ValueError("inventory collection policy is missing activity-log-delta") from exc
 
 
 def _freshness_seconds(

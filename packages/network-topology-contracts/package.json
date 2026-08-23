@@ -1,0 +1,19 @@
+{
+  "name": "@fdai/network-topology-contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared provider-neutral vocabulary for authored and observed network topology presentation.",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.js"
+    }
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

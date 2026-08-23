@@ -491,6 +491,8 @@ body.cs-has-sidebar { padding-left: var(--cs-sidebar-w); }
 .cs-input:disabled, .cs-select:disabled, .cs-textarea:disabled { background: var(--cs-shade); color: var(--cs-text-soft); cursor: not-allowed; }
 .cs-textarea { min-height: 96px; resize: vertical; }
 .cs-help { margin-top: 5px; color: var(--cs-text-soft); font-size: var(--cs-type-label-size); line-height: var(--cs-type-label-line-height); }
+.cs-autocomplete-demo { max-width: 620px; padding-bottom: 366px; }
+.cs-autocomplete-demo .cs-combobox-list { max-height: 360px; }
 .cs-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; }
 .cs-form-grid .cs-field.is-wide { grid-column: 1 / -1; }
 .cs-choice-group { display: flex; flex-wrap: wrap; gap: 10px 18px; }
@@ -785,6 +787,16 @@ body.cs-has-sidebar { padding-left: var(--cs-sidebar-w); }
   --tremor-pink: #ec4899;
   --tremor-fuchsia: #d946ef;
 }
+.cs-chart-catalog-grid {
+  --tremor-blue: #3b82f6;
+  --tremor-emerald: #10b981;
+  --tremor-violet: #8b5cf6;
+  --tremor-amber: #f59e0b;
+  --tremor-gray: #6b7280;
+  --tremor-cyan: #06b6d4;
+  --tremor-pink: #ec4899;
+  --tremor-fuchsia: #d946ef;
+}
 .cs-chart-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 0 0 24px; }
 .cs-chart-card { min-width: 0; margin: 0; padding: 18px; border: 1px solid var(--cs-hairline); border-radius: 8px; background: var(--cs-card); box-shadow: 0 2px 8px rgba(46,54,64,.04); }
 .cs-chart-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
@@ -1004,9 +1016,62 @@ body.cs-has-sidebar { padding-left: var(--cs-sidebar-w); }
 .cs-chart-composition-card b.is-gray { background: var(--tremor-gray); }
 .cs-chart-composition-card i.is-fuchsia,
 .cs-chart-composition-card b.is-fuchsia { background: var(--tremor-fuchsia); }
+.cs-chart-catalog-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin: 4px 0 12px; }
+.cs-chart-catalog-head h3 { margin: 0; font-size: 14px; }
+.cs-chart-catalog-head p { margin: 0; color: var(--cs-text-soft); font-size: 10px; }
+.cs-chart-catalog-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 24px; }
+.cs-chart-catalog-card { display: grid; grid-template-rows: auto 112px; min-width: 0; padding: 14px; border: 1px solid var(--cs-hairline); border-radius: 8px; background: var(--cs-card); }
+.cs-chart-catalog-card > header { display: grid; grid-template-columns: 22px minmax(0, 1fr); align-items: start; gap: 6px; }
+.cs-chart-catalog-card > header span { color: var(--cs-text-soft); font-size: 9px; font-variant-numeric: tabular-nums; }
+.cs-chart-catalog-card h4 { margin: 0; font-size: 11px; line-height: 1.35; }
+.cs-catalog-visual { position: relative; min-width: 0; margin-top: 10px; cursor: crosshair; }
+.cs-catalog-visual > svg { display: block; width: 100%; height: 100%; }
+.cs-catalog-visual svg .is-grid { fill: none; stroke: var(--cs-hairline); stroke-width: 1; }
+.cs-catalog-visual svg .is-line { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.cs-catalog-visual svg .is-area { opacity: .14; }
+.cs-catalog-visual svg .is-blue { fill: var(--tremor-blue); stroke: var(--tremor-blue); }
+.cs-catalog-visual svg .is-cyan { fill: var(--tremor-cyan); stroke: var(--tremor-cyan); }
+.cs-catalog-visual svg .is-line.is-blue,
+.cs-catalog-visual svg .is-line.is-cyan { fill: none; }
+.cs-catalog-visual.is-line svg .is-blue,
+.cs-catalog-visual.is-line svg .is-cyan { fill: none; }
+.cs-catalog-visual.is-bar { display: flex; align-items: end; justify-content: space-around; gap: 6px; padding: 8px 10px 0; border-bottom: 1px solid var(--cs-hairline); }
+.cs-catalog-visual.is-bar > i,
+.cs-catalog-visual.is-combo > i { width: 14%; height: var(--v); border-radius: 2px 2px 0 0; background: var(--tremor-blue); }
+.cs-catalog-visual.is-bar.is-grouped > i::after,
+.cs-catalog-visual.is-bar.is-stacked > i::after,
+.cs-catalog-visual.is-bar.is-percent > i::after { display: block; width: 100%; height: 38%; background: var(--tremor-cyan); content: ""; }
+.cs-catalog-visual.is-bar.is-vertical { display: grid; align-content: space-evenly; border-bottom: 0; }
+.cs-catalog-visual.is-bar.is-vertical > i { width: var(--v); height: 12px; }
+.cs-catalog-visual.is-bar.is-conditional > i:nth-child(even) { background: var(--tremor-pink); }
+.cs-catalog-visual.is-bar.is-rounded > i { border-radius: 5px 5px 0 0; }
+.cs-catalog-visual.is-bar.is-gradient > i { background: linear-gradient(180deg, color-mix(in srgb, var(--tremor-blue) 62%, transparent), var(--tremor-blue)); }
+.cs-catalog-visual.is-combo { display: flex; align-items: end; justify-content: space-around; padding: 8px 10px 0; border-bottom: 1px solid var(--cs-hairline); }
+.cs-catalog-visual.is-combo svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.cs-catalog-visual.is-combo svg path { fill: none; stroke: var(--tremor-cyan); stroke-width: 2; }
+.cs-catalog-visual.is-donut { display: grid; place-items: center; }
+.cs-catalog-visual.is-donut > i { display: block; width: 92px; aspect-ratio: 1; border-radius: 50%; background: conic-gradient(var(--tremor-blue) 0 52%, var(--tremor-cyan) 52% 76%, var(--tremor-violet) 76% 91%, var(--tremor-fuchsia) 91%); }
+.cs-catalog-visual.is-donut:not(.is-pie) > i::after { display: block; width: 54px; aspect-ratio: 1; margin: 19px; border-radius: 50%; background: var(--cs-card); content: ""; }
+.cs-catalog-visual.is-progress { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.cs-catalog-visual.is-progress > i { display: block; width: 62px; aspect-ratio: 1; border-radius: 50%; background: conic-gradient(var(--tremor-blue) 0 64%, var(--cs-shade) 64%); }
+.cs-catalog-visual.is-progress > i::after { display: block; width: 42px; aspect-ratio: 1; margin: 10px; border-radius: 50%; background: var(--cs-card); content: ""; }
+.cs-catalog-visual.is-progress.is-variants > i:nth-child(2) { background: conic-gradient(var(--tremor-amber) 0 64%, var(--cs-shade) 64%); }
+.cs-catalog-visual.is-progress.is-variants > i:nth-child(3) { background: conic-gradient(var(--tremor-emerald) 0 64%, var(--cs-shade) 64%); }
+.cs-catalog-visual.is-progress.is-metric strong { position: absolute; font-size: 10px; }
+.cs-catalog-visual.is-category { display: flex; align-items: center; height: 28px; overflow: visible; margin-top: 42px; border-radius: 4px; background: var(--cs-shade); }
+.cs-catalog-visual.is-category > i { height: 100%; flex: 2; background: var(--tremor-blue); }
+.cs-catalog-visual.is-category > i:nth-child(2) { flex: 1; background: var(--tremor-cyan); }
+.cs-catalog-visual.is-category > i:nth-child(3) { flex: .7; background: var(--tremor-violet); }
+.cs-catalog-visual.is-category > b { position: absolute; top: -5px; bottom: -5px; left: 43%; width: 2px; background: var(--cs-text); }
+.cs-catalog-visual.is-tracker { display: flex; align-items: center; gap: 3px; }
+.cs-catalog-visual.is-tracker > i { flex: 1; height: 28px; border-radius: 2px; background: var(--tremor-emerald); }
+.cs-catalog-visual.is-tracker > i:nth-child(3n) { background: var(--tremor-amber); }
+.cs-catalog-visual.is-bar-list { display: grid; align-content: center; gap: 7px; }
+.cs-catalog-visual.is-bar-list > i { display: block; width: var(--v); height: 12px; border-radius: 2px; background: var(--tremor-blue); }
 @media (max-width: 900px) { .cs-chart-grid { grid-template-columns: 1fr; } }
 @media (max-width: 900px) { .cs-chart-family-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 900px) { .cs-chart-composition-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 900px) { .cs-chart-catalog-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 520px) {
   .cs-chart-card { padding: 14px; }
   .cs-chart-bar-row { grid-template-columns: 62px minmax(0, 1fr) 38px; }
@@ -1019,6 +1084,8 @@ body.cs-has-sidebar { padding-left: var(--cs-sidebar-w); }
   .cs-chart-family-grid { grid-template-columns: minmax(0, 1fr); }
   .cs-chart-composition-head { display: grid; gap: 4px; }
   .cs-chart-composition-grid { grid-template-columns: minmax(0, 1fr); }
+  .cs-chart-catalog-head { display: grid; gap: 4px; }
+  .cs-chart-catalog-grid { grid-template-columns: minmax(0, 1fr); }
   .cs-chart-composition-card.is-wide { grid-column: auto; min-height: 360px; }
   .cs-composition-legend { justify-content: flex-start; }
   .cs-composition-series { min-height: 210px; }

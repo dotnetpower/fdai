@@ -8,12 +8,24 @@ import type {
 import type { PresentationModuleProps } from "./types";
 import { presentationTimestamp } from "../presentation-value";
 import { PresentationTable } from "./table";
-import { ComparisonBarChart, TrendChart } from "../../components/charts";
+import {
+  AreaChart,
+  BarChart,
+  BarList,
+  CategoryBar,
+  ComparisonBarChart,
+  DensityHeatmap,
+  DonutChart,
+  LineChart,
+  ScatterChart,
+} from "../../components/charts";
 
 export function ChartModule({ block }: PresentationModuleProps) {
   if (block.kind === "bar" || block.kind === "coverage") return <BarOrCoverage block={block} />;
   if (block.kind === "time_series") return <TimeSeries block={block} />;
   if (block.kind === "comparison") return <Comparison block={block} />;
+  if (block.kind === "scatter") return <Scatter block={block} />;
+  if (block.kind === "heatmap") return <Heatmap block={block} />;
   return null;
 }
 
@@ -64,10 +76,61 @@ function BarOrCoverage({
       : `${item.value}`;
     return { label: item.label, value: item.value, formattedValue: exact };
   });
+  if (block.kind === "bar") {
+    const data = block.data;
+    if ("description" in data && data.visualization === "donut") {
+      return (
+        <div class="deck-presentation-accessible-chart">
+          <p>{data.description}</p>
+          <DonutChart label={data.description} segments={items} formatValue={(value) => `${value} ${data.unit}`} />
+          <ExactTableDisclosure data={data.exactTable} />
+        </div>
+      );
+    }
+    if ("description" in data && data.visualization === "bar") {
+      return (
+        <div class="deck-presentation-accessible-chart">
+          <p>{data.description}</p>
+          <BarChart
+            title={data.description}
+            data={items.map((item) => ({ label: item.label, values: [item.value] }))}
+            series={[{ label: data.unit, color: "blue" }]}
+            formatValue={(value) => `${value} ${data.unit}`}
+            showLegend={false}
+          />
+          <ExactTableDisclosure data={data.exactTable} />
+        </div>
+      );
+    }
+  }
+  if (block.kind === "coverage") {
+    const data = block.data;
+    if ("description" in data && data.visualization === "category_bar") {
+      return (
+        <div class="deck-presentation-accessible-chart">
+          <p>{data.description}</p>
+          {items.map((item) => "total" in item ? (
+            <div key={item.label} class="deck-presentation-category-row">
+              <strong>{item.label}</strong>
+              <CategoryBar
+                label={item.label}
+                segments={[
+                  { label: item.label, value: item.value },
+                  { label: data.unit, value: item.total - item.value },
+                ]}
+                formatValue={(value) => `${value}`}
+              />
+            </div>
+          ) : null)}
+          <ExactTableDisclosure data={data.exactTable} />
+        </div>
+      );
+    }
+  }
   return (
     <div class="deck-presentation-accessible-chart">
       {accessible ? <p>{block.data.description}</p> : null}
-      <ComparisonBarChart label={accessible ? block.data.description : block.kind} items={chartItems} maximum={denominator} formatValue={(value) => `${value}`} />
+      <BarList label={accessible ? block.data.description : block.kind} items={chartItems} maximum={denominator} formatValue={(value) => `${value}`} />
       {accessible ? <ExactTableDisclosure data={block.data.exactTable} /> : null}
     </div>
   );
@@ -75,23 +138,59 @@ function BarOrCoverage({
 
 function TimeSeries({ block }: { readonly block: Extract<PresentationBlock, { kind: "time_series" }> }) {
   const locale = getLocale() === "ko" ? "ko-KR" : "en-US";
+  const data = block.data.points.map((point) => {
+    const timestamp = presentationTimestamp(point.timestamp, locale);
+    return {
+      label: timestamp ? `${timestamp.date} ${timestamp.time}` : point.timestamp,
+      values: [point.value],
+      detail: point.timestamp,
+    };
+  });
+  const Chart = block.data.visualization === "area" ? AreaChart : LineChart;
   return (
     <div class="deck-presentation-accessible-chart">
-      <TrendChart
+      <Chart
         title={block.data.description}
-        points={block.data.points.map((point) => {
-          const timestamp = presentationTimestamp(point.timestamp, locale);
-          return {
-            label: timestamp ? `${timestamp.date} ${timestamp.time}` : point.timestamp,
-            value: point.value,
-            detail: point.timestamp,
-          };
-        })}
+        data={data}
+        series={[{ label: block.data.metric, color: "blue" }]}
         formatValue={(value) => `${value} ${block.data.unit}`}
-        summary={`${block.data.points.at(-1)!.value} ${block.data.unit}`}
-        referenceLabel={t("deck.rich.median")}
-        compact
+        showLegend={false}
+        showYAxis
+        startEndOnly={data.length > 8}
       />
+      <ExactTableDisclosure data={block.data.exactTable} />
+    </div>
+  );
+}
+
+function Scatter({ block }: { readonly block: Extract<PresentationBlock, { kind: "scatter" }> }) {
+  return (
+    <div class="deck-presentation-accessible-chart">
+      <p>{block.data.description}</p>
+      <ScatterChart
+        label={block.data.description}
+        points={block.data.points}
+        formatX={(value) => `${value} ${block.data.xLabel}`}
+        formatY={(value) => `${value} ${block.data.yLabel}`}
+      />
+      <ExactTableDisclosure data={block.data.exactTable} />
+    </div>
+  );
+}
+
+function Heatmap({ block }: { readonly block: Extract<PresentationBlock, { kind: "heatmap" }> }) {
+  const columns = [...new Set(block.data.cells.map((cell) => cell.column))];
+  const rows = [...new Set(block.data.cells.map((cell) => cell.row))].map((row) => ({
+    label: row,
+    cells: columns.map((column) => {
+      const cell = block.data.cells.find((candidate) => candidate.row === row && candidate.column === column);
+      return { label: column, value: cell?.value ?? Number.NaN };
+    }),
+  }));
+  return (
+    <div class="deck-presentation-accessible-chart">
+      <p>{block.data.description}</p>
+      <DensityHeatmap label={block.data.description} rows={rows} formatValue={(value) => Number.isFinite(value) ? `${value}` : "-"} />
       <ExactTableDisclosure data={block.data.exactTable} />
     </div>
   );

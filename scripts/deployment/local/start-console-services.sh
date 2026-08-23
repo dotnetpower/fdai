@@ -68,6 +68,7 @@ for service in "${services[@]}"; do
   bash "$repo_root/scripts/deployment/local/run-console-service.sh" "$service" &
   child_pids+=("$!")
 done
+printf '%s service=console-stack event=started\n' "$(date '+%Y-%m-%dT%H:%M:%S.%6N%:z')"
 
 "$repo_root/.venv/bin/python" \
   "$repo_root/scripts/automation/developer-workflow.py" \

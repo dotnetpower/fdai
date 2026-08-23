@@ -20,7 +20,7 @@ bounded progress contract for progressive Operator Console conversations.
 | Bilingual randomized release gate | in-progress | [`ontology-query-assurance-readiness.ts`](../../../console/tests/live-e2e/ontology-query-assurance-readiness.ts), [`ontology-query-assurance.test.ts`](../../../console/tests/live-e2e/ontology-query-assurance.test.ts) | Focused assurance tests passed 49 cases. Every governed run now requires a bounded run id and derives a stable question-scoped backend session id, so checkpoint resume preserves identity while a new run cannot reuse another run's durable semantic projection. A full cohort cannot report `production_ready=true` without evidence-complete answered turns in both English and Korean. A new passing 100-case artifact remains required. |
 | Semantic clarification presentation | implemented | [`verification-presentation.ts`](../../../console/src/deck/verification-presentation.ts), [`verification-presentation.test.ts`](../../../console/src/deck/verification-presentation.test.ts) | `semantic_clarification_required` renders as `Context required`; the focused Console suite passed 13 tests. Classification covers only reason codes the control plane emits. An authenticated retained receipt remains open. |
 | Verified semantic answer presentation | validated | [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py), [`semantic_turn_presentation.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_presentation.py), [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), [`semantic-answer-presentation.spec.ts`](../../../console/tests/live-e2e/semantic-answer-presentation.spec.ts), `.fdai/live-validation/semantic-answer-presentation-244d003ef77bd37dc0041f0b6a29634cdbaacb91-post-validation/` | The bounded authenticated Web/Korean path is validated at centrally validated source revision `244d003ef` with an explicit workspace patch digest. The first and regenerated turns retained five observed phases, the same incident and technical-output digests, read-only evidence collection, no primary JSON, and `execution_authority=false`. This state does not claim Teams, Slack, the four-stage ontology runner, or the bilingual 100-case cohort. |
-| Deterministic cross-channel presentation planning | implemented | `presentation_rows.py`; `presentation_planner.py`; `presentation_artifact_v2.py`; `semantic_turn_presentation.py`; focused Operator checks (`82 passed`) | Verified operation, output shape, cardinality, field roles, finite values, units, denominator, timestamp order, completeness, and limitations select the block. Legacy and v2 paths share one bounded readable-row projection that omits opaque identity from a readable default table while preserving an identity-only fallback and exact technical rows. |
+| Deterministic cross-channel presentation planning | implemented | `semantic_presentation_semantics.py`; `semantic_turn_processor.py`; `presentation_rows.py`; `presentation_planner.py`; `presentation_artifact_v2.py`; `presentation.py`; Console artifact and module registry; focused semantic presentation (`137 passed`), Console deck (`693 passed`), and chart browser (`4 passed`) checks | Core derives renderer-neutral semantics from verified terminal rows. Operator revalidates shape-specific roles and row invariants before selecting one of ten visualizations. Web and channel artifact boundaries apply the same bounded schema. Legacy and v2 paths preserve readable rows and exact technical values. The model cannot select a chart component. |
 
 ### Implementation history
 
@@ -58,6 +58,9 @@ bounded progress contract for progressive Operator Console conversations.
 | 2026-08-19 | implemented | Implemented the pure evidence-shape analyzer, deterministic decision matrix, verified-frame metadata projection, and additive v2 compiler. Unknown typed context, missing values, mixed units, unclear denominators, low cardinality, truncation, and incomplete verification degrade to exact records, a limitation, or canonical text without inventing zero. | `current change`; [Issue #234](https://github.com/dotnetpower/fdai/issues/234); focused planner, compiler, and producer/Console contract checks passed 33 cases; Ruff, formatting, and strict mypy passed. | Implement and verify the pure Teams, Slack, and injected custom capability renderers. |
 | 2026-08-20 | implemented | Reused one readable-row projection in both legacy and v2 paths and extended it over the actual two-level Resource property shape. The artifact now leads with name, type, and location while preserving opaque identity and the untouched evidence row in technical details; nested tags and provider payloads never become display columns. | `current change`; [Issue #241](https://github.com/dotnetpower/fdai/issues/241); focused v2 compiler, planner, and semantic bridge checks passed 94 cases; Ruff, formatting, and strict mypy passed. | Retain authenticated desktop, constrained-desktop, and mobile evidence after the Operator restart. |
 | 2026-08-20 | implemented | Corrected the preceding readable-row policy after authenticated review showed that trailing `id` and `object_type` columns still flattened the useful hierarchy. Readable tables now display operator-facing facts without those columns, identity-only results retain a visible fallback, and untouched exact rows remain available in technical details. | `current change`; `presentation_rows.py`; focused Operator presentation checks passed 82 cases, Command Deck visual checks passed 19 cases, and Console typecheck and production build passed. | Retain authenticated desktop, constrained-desktop, and mobile evidence after restarting the Operator API on this source. |
+| 2026-08-21 | implemented | Extended deterministic presentation planning from broad block choice to ten ontology-grounded visualization choices. Strict v2 artifacts carry additive hints or typed scatter and heatmap blocks; Console renders the shared chart primitives, while Slack and Teams reduce them to exact facts. Unknown cross-kind hints fail closed, and older v2 artifacts round-trip without synthesized fields. | `current change`; planner and compiler checks passed 67 cases, Console artifact and registry checks passed 28 cases, channel renderer checks passed 5 cases, and Console typecheck passed. | Retain authenticated Web and governed Slack/Teams runtime receipts before raising this capability to `validated`. |
+| 2026-08-22 | implemented | Wired renderer-neutral semantic metadata into the Core terminal producer and hardened the complete selection boundary. Explicit comparison roles now precede generic temporal fields; semantic field-role maps are exact per shape; ranking, part-to-whole, cumulative, and matrix variants require row-level proof; duplicate matrix coordinates and decreasing cumulative values fall back without inventing meaning. | `current change`; focused Core projector/wiring and Operator planner/compiler checks passed 90 cases, Console parser/registry/primitive checks passed 45 cases, channel reduction checks passed 13 cases, Ruff and Console typecheck passed. | Retain authenticated Web and governed Slack/Teams runtime receipts before raising this capability to `validated`. |
+| 2026-08-22 | implemented | Completed three independent adversarial reviews with more than 48 checks and repeated focused hardening until no confirmed Medium-or-higher residual remained. Accepted fixes fail closed on over-bound evidence references and exact cells, require semantic labels and shared RFC 3339 ordering, and align Web with Slack/Teams for chart values, tones, roles, references, tables, text bounds, slots, envelope types, item schemas, v1 integers, and control characters. The bounded six-column readable table, valid negative comparison/scatter domains, and sparse heatmap placeholder were rechecked and retained. | `current change`; focused semantic presentation checks passed 137 cases; Console deck passed 693 cases; desktop/mobile chart Playwright passed 4 cases; Ruff, strict mypy, Console typecheck, and production build passed. | Only Low display tradeoffs remain: sparse heatmap gaps use an explicit `-`, and some safe chart fallbacks use a generic reason. Exact technical rows remain available. Governed Web and Slack/Teams runtime receipts remain required for `validated`. |
 
 ### Remaining work
 
@@ -67,6 +70,9 @@ bounded progress contract for progressive Operator Console conversations.
   evidence-complete answered turns in both locales, without replacing the 2026-08-11 baseline.
 - [ ] Record governed Teams and Slack reduction receipts before claiming channel-wide runtime
   validation.
+- [x] Complete at least 20 independent visualization critiques and repeat focused hardening until
+  no confirmed Medium-or-higher residual remains; 48 checks, 137 focused Python cases, 693 Console
+  deck cases, and four desktop/mobile browser cases provide the current evidence.
 - [x] Implement and focused-test the deterministic evidence-shape analyzer and v2 planner decision
   matrix, including v1 replay, chart fallback, and malformed or unbound artifact rejection.
 - [x] Replace fenced machine JSON as the primary semantic answer with localized, deterministic
@@ -133,14 +139,48 @@ table block with the same evidence references. Unit mismatch, a missing value, a
 denominator, low cardinality, truncation, or incomplete verification blocks chart selection.
 `unavailable` stays unavailable and never becomes zero.
 
+### Ontology-grounded visualization selection
+
+The ontology describes semantic roles and relationships, not chart library names. The Core
+terminal producer derives one closed `semantic_shape` plus bounded field-role bindings from the
+verified operation, output shape, and exact rows. It omits metadata when the relationship is not
+proven. The deterministic planner maps that meaning to a visualization hint. A model may propose
+typed intent for later verification, but it cannot emit a component name, override a field role,
+or change a fallback.
+
+| Verified semantic shape | Visualization hint | Artifact block | Exact fallback |
+|-------------------------|--------------------|----------------|----------------|
+| Ordered observations of one metric | `line` | `time_series` | Exact table |
+| Ordered magnitude or accumulated change | `area` | `time_series` | Exact table; values must be nondecreasing |
+| Comparable categorical values | `bar` | `bar` | Exact table |
+| Ranked categorical values | `bar_list` | `bar` | Exact table; positive unique ordered ranks required |
+| Parts of one verified whole | `donut` | `bar` | Exact table; one positive total and matching part sum required |
+| Verified numerator and denominator | `category_bar` | `coverage` | Exact table and limitation when invalid |
+| Baseline, current, target, before, or after roles | `comparison_bar` | `comparison` | Exact table |
+| Ordered events or activities | `tracker` | `timeline` | Exact table or list |
+| Two bound numeric axes | `scatter` | `scatter` | Exact table |
+| Two categorical dimensions and one numeric value | `heatmap` | `heatmap` | Exact table; coordinates must be unique |
+
+The planner selects `line` instead of `area` when the verified semantics do not establish
+magnitude or accumulation. It selects `bar` instead of `donut` when the records do not establish
+parts of one whole. A correlation shape permits a scatter plot but never upgrades correlation to
+causation.
+
+Operator treats `presentation_semantics` as a claim to verify, not as renderer authority. Only
+`label/x/y` are accepted for correlation and only `row/column/value` for a matrix; the other eight
+shapes accept no field-role map. Invalid roles, duplicate bindings, missing proof fields, or failed
+row invariants retain the exact table and select the safer generic visualization or no chart.
+
 ### Version and failure contract
 
 `presentation_artifact` v1 remains byte-for-byte replay compatible. Version 2 adds typed
-`time_series`, `comparison`, and `timeline` blocks plus explicit chart descriptions and units. A
-v2 consumer validates exact keys, per-kind bounds, ordered timestamps, finite values, compatible
-units, unique slots, and receipt-bound evidence references. An unknown version, block, field, or
-reference rejects the complete artifact and renders the readable canonical text. It never renders
-raw JSON as the primary answer.
+`time_series`, `comparison`, `timeline`, `scatter`, and `heatmap` blocks plus explicit chart
+descriptions, units, and additive visualization hints. A v2 consumer validates exact keys,
+kind-specific hint allowlists, per-kind bounds, ordered timestamps, finite values, compatible
+units, unique slots, and receipt-bound evidence references. An absent hint on an older v2 artifact
+keeps its existing wire shape and deterministic renderer default. An unknown version, block,
+field, hint, or reference rejects the complete artifact and renders the readable canonical text.
+It never renders raw JSON as the primary answer.
 
 Every chart block carries a semantic description and an adjacent exact-value table unless the
 block itself is already an accessible table. Web can show the full module. Teams and Slack reduce

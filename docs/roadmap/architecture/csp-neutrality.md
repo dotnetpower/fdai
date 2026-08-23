@@ -21,7 +21,7 @@ boundaries in [project-structure.md](project-structure.md), the tech choices in
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Event bus, runtime, secret, and workload-identity contracts | implemented | `shared/providers/`; `delivery/azure/`; `infra/modules/event-bus/`; `infra/modules/compute/`; `infra/modules/secret-store/`; focused adapter and infrastructure tests | Azure uses Kafka on Event Hubs, OCI Container Apps, native secret references, and workload identity behind provider-neutral contracts. |
-| Inventory snapshot, delta, and bounded graph projection | implemented | `shared/providers/inventory.py`; `delivery/azure/{arg_transport,inventory}.py`; `delivery/inventory_sync_cli.py`; focused inventory and projection tests | Full reconciliation, ordered deltas, proactive shared request pacing, progress and absolute deadlines, atomic generation promotion, and bounded read projections are implemented. Live completeness remains deployment evidence, not a code-path claim. |
+| Inventory collection, complete-generation relationships, and bounded graph projection | implemented | `shared/providers/inventory.py`; `delivery/azure/generation_relationships.py`; `delivery/inventory_sync.py`; `delivery/inventory_live_evidence.py`; `core/ontology_platform/graph_evidence_refresh.py`; focused inventory, relationship, refresh, and projection tests | Continuous collection, exact relationship evidence and explicit drop reasons, atomic promotion, graph-first refresh decisions, safe live-evidence write-through, and bounded read projections are implemented. Ordinary semantic query composition does not yet bind refresh selection and live write-through end to end. Deployed completeness remains separate validation evidence. |
 | Metric, log, and trace query contracts | implemented | `shared/providers/metric.py`; `log_query.py`; `trace_query.py`; `delivery/azure/metric_logs.py`; `delivery/azure/log_query.py`; `delivery/azure/telemetry_query.py` | Azure Monitor and Log Analytics adapters exist, while absent configuration intentionally leaves the no-op bindings active. |
 | Governed operational evidence for all eight contracts | in-progress | [Deploy and Onboard implementation status](../deployment/deploy-and-onboard.md#implementation-status); observation campaign adapters under `delivery/azure/` | Independent-service deployment is validated, but this owner document does not retain one current governed campaign proving every inventory and telemetry contract together. |
 | Non-Azure provider implementations | deferred | [Implementation Focus](../../../.github/copilot-instructions.md#implementation-focus-must) | Contract shapes are retained for portability. No AWS, GCP, or other provider adapter is in the approved implementation scope. |
@@ -45,11 +45,13 @@ boundaries in [project-structure.md](project-structure.md), the tech choices in
 | 2026-08-19 | implemented | Added bounded provider-native scope coverage to the CSP-neutral `InventoryBatch` final fence and projected it into immutable snapshot metadata only during promotion. Counts reconcile before construction, non-final batches cannot carry the evidence, and static source metadata cannot impersonate a completed capture. | [Issue #216](https://github.com/dotnetpower/fdai/issues/216); focused provider-contract and inventory-sync tests pass 31 cases; task-scoped Ruff and strict mypy pass. | Bind the Azure scope-wide type aggregation producer and retain the measured unmapped counts in a promoted snapshot. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and recorded Azure contract implementations separately from operational evidence and deferred non-Azure adapters. | `current change`; provider, delivery, infrastructure, and deployment evidence listed in the scope table. | Retain one governed eight-contract campaign and keep non-Azure work deferred until explicitly scoped. |
 | 2026-08-20 | implemented | Made inventory collection continuous without creating a second graph writer. The minute tick drains provider changes before its due check, a configurable floor coalesces change-triggered scans, all ARG shards share proactive pacing, reactive resets are capped, and each source has re-arming progress plus absolute deadlines. | [Issue #139](https://github.com/dotnetpower/fdai/issues/139); current source and focused ARG, inventory, scheduling, configuration, projection, and infrastructure checks. | Retain an exact-revision protected apply, measured minute cadence and cost, and one real provider-change reconciliation receipt before changing this scope to `validated`. |
+| 2026-08-23 | implemented | Extended Contract 5 from snapshot and delta transport to complete-generation relationship evidence and graph-first read behavior. Reviewed provider mappings carry exact source and endpoint evidence, suppressed candidates retain typed drop and unavailable reasons, the pure refresh reducer selects one of five no-authority outcomes, and verified bounded live reads write through canonical partial overlays. Read-only Console projections preserve stored relationship type, direction, evidence, and incomplete coverage without becoming a second inventory source. | `current change`; [Continuous Operational Instance Graph](continuous-operational-instance-graph.md), [Network Topology Visualization](../interfaces/network-topology-visualization.md), `shared/providers/inventory.py`, `core/ontology_platform/graph_evidence_refresh.py`, `delivery/inventory_live_evidence.py`, and the focused checks recorded by those owner documents. | Bind refresh selection and live write-through into ordinary semantic query composition, retain an exact-revision governed campaign, and preserve deployed freshness, pressure, and cost evidence before raising the new slices to `validated`. |
 
 ### Remaining work
 
 - [ ] Retain a governed Azure campaign receipt that binds the exact revision and proves event, runtime, secret, identity, inventory, metric, log, and trace behavior with failure and freshness cases.
-- [ ] Prove the bounded inventory graph route against a current complete generation, including rooted traversal, truncation reasons, stale fallback, and no authority gain.
+- [ ] Bind graph refresh selection and live-evidence write-through into ordinary semantic query composition, then retain a composed receipt covering all five outcomes without observation, mutation, or execution authority.
+- [ ] Retain exact-revision governed inventory graph and Console evidence that covers rooted traversal, relationship drop and unavailable reasons, stored-edge direction, truncation, incomplete-graph `unknown`, stale fallback, and no authority gain.
 - [ ] Keep non-Azure adapters unimplemented until an approved target supplies contract-parity tests for ordering, replay, identity, inventory, and telemetry behavior.
 
 ## Principle
@@ -307,15 +309,29 @@ single `Inventory` Protocol with two operations returning CSP-neutral records:
   as a bounded recovery source. The periodic full snapshot remains authoritative for
   reconciliation and atomically replaces the base generation after repairing missed signals.
 
+Complete generations can also emit reviewed provider relationships. Each candidate carries the
+mapping revision, exact source property, provider endpoint types, observation receipt, freshness
+ceiling, and stored direction before independent verification. A candidate that cannot close both
+endpoints is not converted into an edge. Its bounded `RelationshipDrop` instead preserves a typed
+drop reason and, when known, a stable unavailable reason such as `target_outside_active_generation`,
+`target_provider_type_unmodeled`, or `reference_not_observed`.
+
 The read-only console consumes a separate projection of the promoted graph through
 `GET /inventory/graph`. The route is enabled only when
 `OperatorApiConfig.inventory_graph_provider` is injected. It returns CSP-neutral `Resource`
-records plus `contains` / `attached_to` / `depends_on` links, snapshot freshness, and
+records plus typed links such as `contains`, `attached_to`, `depends_on`, `peered_with`, and
+`routes_to`, snapshot freshness, and
 truncation metadata. The route never calls Azure Resource Graph directly and never receives
 the executor identity. Each returned Resource also carries a reviewed operating-scope
 `service_ref`. A bounded reverse lookup over `workload_runs_on` and `implemented_by` emits
 `unknown_service` for no mapping or conflicting mappings, and the response degrades when that
 coverage is unmapped or truncated.
+
+The Console can derive instance-focus and Network presentations from the same authoritative
+response, as defined by [Network Topology Visualization](../interfaces/network-topology-visualization.md).
+These read-only projections preserve stored relationship type, source, target, mapping evidence,
+freshness, and completeness. Layout order never becomes traffic or reachability evidence, and an
+incomplete relationship set returns `unknown` instead of claiming that no observed path exists.
 
 A resource-centered request supplies `root=<resource-id>`, `depth=1..8`, and
 `limit=1..1000`. The provider traverses both incoming and outgoing allowlisted links over the
@@ -438,8 +454,9 @@ use the same view-classification rules so local and deployed consoles keep the s
   change stream, resumable deltas, and complete ARG/ARM reconciliation generations. A delta stream
   is never treated as proof of completeness. Durable source policy controls target freshness,
   minimum and maximum intervals, priority, request and byte budgets, concurrency, provider
-  `Retry-After`, bounded backoff, and circuit state. The current fixed routine interval remains a
-  legacy configuration until the adaptive controller passes its exit criteria. A change is
+  `Retry-After`, bounded backoff, and circuit state. The implemented deterministic scheduler selects
+  one bounded next action from those inputs; deployed cadence, pressure, and cost remain operational
+  validation evidence. A change is
   unreconciled when this control plane recorded it after the active snapshot started. One attempt
   has a re-arming no-progress deadline and an absolute ceiling, and all ARG shards share a
   sustained request budget. Local refresh and deployed workers share durable attempt transitions,
@@ -448,6 +465,12 @@ use the same view-classification rules so local and deployed consoles keep the s
   and Heimdall neither queries the provider nor starts collection. Retention, rollup, archive, and
   purge rules are owned by
   [Continuous Operational Instance Graph](continuous-operational-instance-graph.md).
+- **Graph-first refresh is deterministic and authority-free**. The verified query requirement,
+  current graph freshness and completeness, ontology release, conflicts, explicit live-read policy,
+  deadline, and archive status reduce to exactly one result: `use_graph`, `refresh_then_query`,
+  `use_live_evidence`, `query_archive`, or `hold`. The result chooses a bounded read path only. It
+  carries no observation, mutation, or execution authority, and verified live evidence re-enters
+  inventory through the canonical partial overlay without replacing complete properties or links.
 - **Unknown `ResourceType` or LinkType** opens an issue and is dropped; the adapter never
   auto-registers a new ontology type at runtime. Full provider scans may preserve an otherwise
   unknown native resource identity only through the predeclared `unclassified-resource` type

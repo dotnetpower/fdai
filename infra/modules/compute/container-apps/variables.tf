@@ -490,6 +490,12 @@ variable "semantic_turn_physical_topic" {
   default     = ""
 }
 
+variable "read_investigation_request_topic" {
+  description = "Logical read-investigation request topic multiplexed over the semantic physical Event Hub."
+  type        = string
+  default     = ""
+}
+
 variable "postgres_host" {
   description = "Postgres Flexible Server FQDN (`POSTGRES_HOST`) - non-secret label used for the startup log summary."
   type        = string

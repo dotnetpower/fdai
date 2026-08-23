@@ -17,6 +17,7 @@
     "kind": {
       "enum": ["context", "container", "component", "deployment", "data-flow", "flowchart", "graph", "network", "conceptual-flow", "sequence", "swimlane", "state", "decision-tree", "domain", "entity-relationship", "timeline", "gantt", "class-diagram", "user-journey", "pie", "quadrant", "requirement", "git-graph", "c4-context", "c4-container", "c4-component", "c4-deployment", "mindmap", "sankey", "xy-chart", "block", "packet", "kanban", "architecture", "radar", "venn", "wardley", "cynefin", "railroad", "ishikawa", "event-modeling", "tree-view"]
     },
+    "posture": { "const": "expected" },
     "updated": { "type": "string", "format": "date" },
     "locales": {
       "type": "object",
@@ -39,7 +40,8 @@
         "xAxis": { "$ref": "#/definitions/localizedText" },
         "yAxis": { "$ref": "#/definitions/localizedText" },
         "padding": { "type": "integer", "minimum": 16, "maximum": 160, "default": 40 },
-        "profile": { "enum": ["default", "azure-reference", "conceptual"], "default": "default" }
+        "profile": { "enum": ["default", "azure-reference", "network-azure-reference", "conceptual"], "default": "default" },
+        "networkPreset": { "enum": ["hub-spoke", "dual-ingress", "private-endpoint-fanout"] }
       }
     },
     "groups": {
@@ -54,6 +56,11 @@
     "edges": {
       "type": "array",
       "items": { "$ref": "#/definitions/edge" }
+    },
+    "annotations": {
+      "type": "array",
+      "maxItems": 12,
+      "items": { "$ref": "#/definitions/annotation" }
     },
     "legend": {
       "type": "array",
@@ -114,7 +121,21 @@
         "placement": { "enum": ["top", "below", "right"] },
         "placementGap": { "type": "integer", "minimum": 8, "maximum": 240 },
         "alignWith": { "$ref": "#/definitions/id" },
-        "width": { "type": "integer", "minimum": 152, "maximum": 1200 }
+        "width": { "type": "integer", "minimum": 152, "maximum": 1200 },
+        "networkRole": { "$ref": "#/definitions/networkBoundaryRole" },
+        "addressPrefixes": {
+          "type": "array",
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 80 }
+        },
+        "region": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "availabilityZones": {
+          "type": "array",
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 32 }
+        }
       }
     },
     "port": {
@@ -139,6 +160,7 @@
         "tone": { "enum": ["input", "interpretation", "model", "policy", "decision", "execution", "feedback", "store", "neutral"] },
         "badge": { "type": "integer", "minimum": 1, "maximum": 99 },
         "icon": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+        "resourceType": { "type": "string", "minLength": 1, "maxLength": 180 },
         "label": { "$ref": "#/definitions/localizedText" },
         "description": { "$ref": "#/definitions/localizedText" },
         "content": {
@@ -174,6 +196,20 @@
         "ports": {
           "type": "array",
           "items": { "$ref": "#/definitions/port" }
+        },
+        "networkRole": { "$ref": "#/definitions/networkBoundaryRole" },
+        "addresses": {
+          "type": "array",
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 120 }
+        },
+        "listener": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "sku": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "securityFacts": {
+          "type": "array",
+          "maxItems": 8,
+          "items": { "$ref": "#/definitions/localizedText" }
         }
       }
     },
@@ -192,10 +228,41 @@
         "kind": { "enum": ["request", "event", "approval", "mutation", "audit", "rollback", "read", "write", "feedback", "sequence", "transition", "association", "dependency", "timeline"] },
         "label": { "$ref": "#/definitions/localizedText" },
         "protocol": { "type": "string", "minLength": 1 },
-        "route": { "enum": ["diagonal", "curve", "orthogonal", "orthogonal-shortest", "orthogonal-horizontal", "orthogonal-trunk", "orthogonal-top", "orthogonal-above", "orthogonal-right", "orthogonal-outer", "orthogonal-approval"] },
+        "route": { "enum": ["diagonal", "curve", "orthogonal", "orthogonal-shortest", "orthogonal-horizontal", "orthogonal-trunk", "orthogonal-top", "orthogonal-above", "orthogonal-gap", "orthogonal-right", "orthogonal-outer", "orthogonal-approval"] },
         "lane": { "type": "integer", "minimum": -8, "maximum": 8 },
         "step": { "type": "integer", "minimum": 1, "maximum": 99 },
-        "weight": { "type": "number", "exclusiveMinimum": 0, "maximum": 12 }
+        "weight": { "type": "number", "exclusiveMinimum": 0, "maximum": 12 },
+        "connectionKind": { "$ref": "#/definitions/networkConnectionKind" },
+        "direction": { "enum": ["forward", "reverse", "bidirectional"] },
+        "trafficClass": { "enum": ["internet", "private", "management", "hybrid"] },
+        "policy": { "enum": ["allow", "deny", "inspect", "bypass"] },
+        "port": { "type": "string", "pattern": "^[0-9]{1,5}(?:-[0-9]{1,5})?$" },
+        "nextHop": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "sourceEvidence": { "const": "expected" }
+      }
+    },
+    "networkBoundaryRole": {
+      "enum": ["external", "on-premises", "dmz", "hub", "spoke", "virtual-network", "subnet", "private-endpoint"]
+    },
+    "networkConnectionKind": {
+      "enum": ["vnet-peering", "vnet-connection", "expressroute", "vpn", "private-link", "service-endpoint", "routing", "traffic"]
+    },
+    "annotation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "body", "tone", "placement"],
+      "properties": {
+        "id": { "$ref": "#/definitions/id" },
+        "title": { "$ref": "#/definitions/localizedText" },
+        "body": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": { "$ref": "#/definitions/localizedText" }
+        },
+        "tone": { "enum": ["information", "policy"] },
+        "placement": { "enum": ["top-left", "top-right", "bottom-left", "bottom-right"] },
+        "anchor": { "$ref": "#/definitions/id" }
       }
     },
     "legendItem": {

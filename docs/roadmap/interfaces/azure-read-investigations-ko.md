@@ -1,8 +1,8 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: c851ee4c07a02a71b37642aa4ee3cb487482e143
-translation_revised: 2026-08-21
+translation_source_sha: 79b97c49c718b776472048953680511d0ff740ed
+translation_revised: 2026-08-23
 ---
 
 # Azure 읽기 조사
@@ -18,6 +18,11 @@ Thor의 실행 신원을 사용하지 않고 근거를 수집합니다.
 > **검색 명령 커버리지:** 프로바이더 전체 리소스 검색, ARG 특수 표, 정제된 재현 명령 및
 > 커버리지 조정은
 > [Azure Resource 발견 Command 커버리지](azure-resource-discovery-commands-ko.md)에서 정의합니다.
+>
+> **현재 구현 경계:** 실행 중인 Pantheon은 Heimdall의 대화형 읽기 훅을 통해 `resource_state`를
+> 조합합니다. Operator 요청 전송은 등록된 의도 7개 모두에 대해 분리된 Core 실행기에도
+> 도달합니다. 게스트 로그, NSG 룰 및 VNet 피어링은 타입이 지정된 프로바이더가 구성될 때까지
+> 명시적인 사용 불가 근거를 반환합니다. Direct 및 streamed 실행과 최종 대화 전달은 열린 상태입니다.
 
 ## 설계 개요
 
@@ -31,6 +36,7 @@ Thor의 실행 신원을 사용하지 않고 근거를 수집합니다.
 
 | 컴포넌트 | 책임 | 수행하지 않는 작업 |
 |-----------|------|---------------------|
+| 운영자 서비스 | 운영자를 인증하고 요청 범위를 제한하며 `read_investigation.start` 제안을 영속적으로 저장한 뒤 저장된 스트림 레코드만 재생합니다. | 프로바이더 읽기를 실행하거나 제안 수락을 조사 완료로 보고하지 않습니다. |
 | Bragi | Operator 턴을 분류하고 대화 맥락을 보존하며 진행 상황과 최종 답변을 운영자 로케일로 렌더링합니다. | Privileged 자격 증명으로 Azure를 조회하거나 변경 실행 가능 여부를 결정하지 않습니다. |
 | Heimdall | `resource_change_history` 및 `external_actor` 조사 의미를 소유하고 읽기 근거를 correlate하며 불확실성을 명시합니다. | Azure SDK를 가져오기하거나 `az`를 spawn하거나 승인 또는 리소스 변경을 수행하지 않습니다. |
 | Huginn | 전달된 Azure 신호를 지속적으로 ingest하고 normalize하여 이후 상관관계에 사용합니다. | Ad hoc conversational 요청을 제공하지 않습니다. |
@@ -39,8 +45,17 @@ Thor의 실행 신원을 사용하지 않고 근거를 수집합니다.
 | 작업 워커 | 격리된 depth-one attenuated 읽기 조사 하나를 실행합니다. | Pantheon에 합류하거나 Pantheon 객체를 publish하거나 실행 권한을 상속하지 않습니다. |
 
 Operator 질문은 `object.event`로 publish하지 않습니다. 해당 토픽은 detection, judgment, risk 및
-실행 처리로 들어갑니다. Detached 조사는 선택적 wake 신호를 내보내기 전에
-작업을 저장합니다. PostgreSQL이 정본이고 wake 신호는 전달 힌트일 뿐입니다.
+실행 처리로 들어갑니다. 현재 운영자 API는 `202`를 반환하거나 SSE 재생을 시작하기 전에 제안과
+발신함 레코드를 저장합니다. 아직 이 제안을 분리 작업으로 바꾸는 운영 소비자는 없으므로 영속적
+Operator 발신함은 이제 버전이 지정된 요청 또는 취소를 publish하고, 선택적 Core consumer는
+소유자 범위 영속 작업을 생성하거나 취소합니다. 영속 수락은 여전히 프로바이더 작업 완료 근거가
+아닙니다. PostgreSQL이 정본이고 coordinator wake 신호는 전달 힌트일 뿐입니다.
+
+운영 인계는 버전이 지정된 권한 없는 `read-investigation-request` 계약을 사용합니다. Operator는
+영속 수락과 CAS로 보호되는 발행을 소유하고, Core는 요청을 소비하며 실행 원장 및 background-task
+테이블의 유일한 런타임 쓰기 담당입니다. 전송은 at-least-once이므로 Core는 영속 작업 생성 또는
+최종 실행 원장 저장 뒤에만 브로커 offset을 커밋합니다. 선택적 조정기는 기존 Core 서비스 안에서
+시작하며 다른 Pantheon 구성원, 서비스 distribution 또는 실행기 신원이 아닙니다.
 
 ## 구현 상태
 
@@ -51,21 +66,23 @@ Operator 질문은 `object.event`로 publish하지 않습니다. 해당 토픽�
 | Bragi 및 Heimdall 라우팅 | 구현됨 | 스키마로 검증된 영어, 한국어, 혼합 언어 의미 판단이 정확히 등록된 의도만 projection하고 결과 read contract를 Heimdall로 경로합니다. | 모델 실패는 lexical fallback 없이 clarification 또는 unavailable을 반환합니다. |
 | 조사 근거 신호 | 구현됨 | 한계된 read-investigation 훅은 Heimdall 대화형 포트의 owned 근거로 계산되므로, 로컬 신호 구간이 차기 전에도 조사 가능한 턴에는 evidence-gap 프롬프트 계층이 붙지 않습니다. | - |
 | Exact 리소스 해석 | 구현됨 | `not_found`, 범위가 제한된 `ambiguous`, scope-bound exact 참조가 해석 성공 전 이력 조회를 중지합니다. | - |
-| 타입이 지정된 의도 렌더링 | 구현됨 | 등록된 읽기 의도 7개가 모두 타입이 지정된 근거 필드와 관측 시간을 렌더링합니다. 렌더러가 없는 enum을 추가하면 범용 성공 문자열을 반환하지 않고 exhaustive 타입 검사가 실패합니다. | - |
+| 타입이 지정된 의도 및 계획 계약 | 구현됨 | `ReadInvestigationIntent`, `ReadToolId`, 변경할 수 없는 계획 사양, 플래너 검사 및 정규화된 근거 묶음이 등록된 의도 7개를 모두 다룹니다. | 계약 커버리지만으로 모든 의도에 운영 환경에서 도달할 수 있음을 증명하지는 않습니다. |
 | 카탈로그/런타임 연결 | 구현됨 | 카탈로그 의도 ID가 런타임 enum과 정확히 일치하고 모든 읽기 의도를 Heimdall이 계속 소유하며 계획 ID가 unique인 경우에만 로컬 및 deployed 조립이 프로바이더 I/O 전에 시작됩니다. | - |
 | 플래너 의도 커버리지 | 구현됨 | 하나의 변경할 수 없는 런타임 의도 spec이 계획 ID, 기본값 및 interactive 도구, 조회 구간을 소유합니다. Enum 공백은 가져오기 및 exhaustive 테스트에서 실패하고 카탈로그 plan-ID 표류는 시작에서 차단됩니다. | - |
 | Resource-state 온톨로지 shadow 비교 | 구현됨 | 영속 인벤토리 조립은 authoritative 상태 읽기를 제공하고 exact 런타임 release는 `inventory.select_resources`를 제공하며 Heimdall 읽기 훅은 온톨로지 조회를 shadow로 실행합니다. 비교기는 요청, 프로파일, 계획, 호출, 결과 계보를 다시 검증하고 하나의 trusted 기준 시점과 300초 최신성 상한을 적용하며 principal-scoped 변경할 수 없는 증적을 `StateStore`에 추가합니다. 요청자 및 대화 참조는 안정적인 불투명 hash이므로 영속 shadow 증적은 원시 신원 값 없이 소유 범위를 유지합니다. 한 번의 호출 안에서는 영속 및 실시간 활동이 불투명한 hash correlation을 공유합니다. Principal, 대화 및 질문이 같아도 반복 호출에는 서로 다른 correlation을 부여하고 논리적 요청 멱등성 키는 안정적으로 유지합니다. 프로파일은 질문, 리소스 identity 또는 호출 token을 저장하지 않고 latency 감사에 correlation을 추가하지 않습니다. Shadow 실패는 authoritative 답변을 변경하거나 재시도하지 않습니다. 교차 출처 충돌은 처분을 낮추기만 합니다. 실시간 읽기와 변환된 그래프 사이의 상태 또는 신원 불일치는 하나의 `derived` 충돌로 판정되어 증적 다이제스트에 보존되고, hook은 경합 중인 상태를 보류하며 활동을 degraded/최신성 unknown으로 보고합니다. 관측 시각 차이만 있는 경우는 충돌이 아닙니다. | 실제 cross-service 동등성 증적은 release 근거로 남아 있습니다. |
 | 대화형 리소스 연속성 | 구현됨 | Command Deck은 서버가 선택한 인벤토리 리소스 하나를 최종 턴 사이에 유지합니다. Resource Health 이력은 리소스 그룹, 시각 및 상태로 구성된 완전한 anomalous-event 기준점 하나도 유지할 수 있습니다. 생략된 이력 및 장애 직전 후속 질문은 의미 및 공개 웹 계획 수립을 우회하고, Heimdall이 범위가 제한된 맥락을 다시 검증한 뒤 일치하는 읽기 근거를 직접 반환합니다. | - |
 | 구독 범위 신원 | 구현됨 | 현재 구독 신원 질문은 서버에 구성된된 구독 이름과 상태를 Azure Resource Manager에서 읽고, masked 구독 ID만 렌더링하며, 서술기 모델을 호출하지 않습니다. | - |
 | 구독 상태 일괄 점검 | 구현됨 | 명시적인 구독 점검, 일반적인 service-outage 질문 및 일반적인 degraded 또는 사용 불가 resource-state 질문이 구성된 읽기 담당 범위를 사용합니다. 인벤토리 언어 카탈로그가 가용성 의미에 대해 Resource Health 권한을 선택합니다. 프로바이더는 구성된 resource-group 허용 목록을 기본으로 사용합니다. 명시적인 서버가 소유한 구독 모드는 interactive 로컬 상태 범위를 구독 인벤토리와 맞춥니다. Platform-impact 읽기는 활성 서비스 Health 이벤트와 impacted 리소스를 조회하고 장애를 maintenance 및 참고용과 분리한 다음 Resource Health 원인과 correlate합니다. 다른 diagnosis 읽기는 최대 16개 supported 리소스의 대표 메트릭을 동시성 4 이하로 확인할 수 있습니다. | - |
-| Azure 근거 어댑터 | 구현됨 | REST는 상태, Activity Log, Resource Health, 게스트 로그, 구성된 NSG 룰 및 VNet 피어링 속성을 지원합니다. Interactive 로컬은 실행기 신원을 받지 않고 등록된 개발 operations 게이트웨이를 통해 NSG 및 피어링 읽기를 전달할 수 있습니다. 타입이 지정된 CLI 대체 경로는 등록된 계획으로 리소스, VM 상태, Activity Log를 지원합니다. | - |
-| 선택적 Azure MCP 읽기 | 구현됨 | 공식 MCP Python SDK가 고정된 Azure MCP 서버를 stdio로 시작하고 트래픽 전에 이름 공간 허용 목록을 탐색합니다. VM 상태, Activity Log, Resource Health에 사용하며 사용 불가 상태이거나 circuit 차단기에서 차단되면 타입이 지정된 REST로 즉시 대체 경로합니다. | - |
+| 도달 가능한 운영 프로바이더 조합 | 진행 중 | `runtime/providers.py`는 promoted-inventory 해석 및 상태 읽기를 조합하고, Azure 신원과 구독 설정이 있으면 범위가 제한된 Activity Log 및 Resource Health REST 읽기로 감쌉니다. | 이 조합에서 게스트 로그, NSG 룰 및 VNet 피어링은 명시적인 사용 불가 근거 묶음을 반환합니다. |
+| 선택적 Azure MCP 읽기 | 구현됨 | `fdai.delivery.azure.mcp_read_investigation`, `runtime/providers.py`, `runtime/read_investigation_runtime.py`는 허용 목록에 있는 Resource Health 읽기를 범위가 제한된 stdio 탐색, 계획별 한도, 회로 차단기, exact 리소스 정규화, 주기적 복구 probe 및 REST 대체 경로와 함께 조합합니다. | MCP는 `FDAI_AZURE_MCP_ENABLED`로 명시적으로 선택해야 합니다. 다른 읽기 도구는 타입이 지정된 프로바이더를 유지하거나 명시적인 사용 불가 상태를 반환합니다. |
 | Read-tool attenuation | 구현됨 | `background.read-only`는 읽기 담당 도구 7개만 포함하고 변경, 승인, 셸, arbitrary-query, nested-worker 기능을 차단합니다. | - |
-| 실행 모드 및 진행 상황 | 구현됨 | 영속 p50/p95 프로파일이 cloud I/O 전에 direct, streamed, detached 모드를 선택합니다. Exact 해석은 barrier이며 독립 근거 도구는 범위가 제한된 병렬 한도 안에서 실행됩니다. Streamed 모드는 범위가 제한된 진행 상황과 SSE comment 하트비트를 전송하고, 스트림 close는 프로바이더 작업을 취소하며, 최종 이벤트는 한 번만 발생합니다. | - |
-| Interactive 정책 동등성 | 구현됨 | 로컬 및 deployed 대화 조립은 동일한 명시적 direct, streamed 및 multi-source 임계값을 사용합니다. 어댑터 지연 시간은 다를 수 있지만 execution-mode 정책은 환경에 따라 달라지지 않습니다. | - |
-| Direct 및 streamed 재생 | 구현됨 | Owner-scoped PostgreSQL 실행 원장이 정본 요청을 점유하고 임차 기간을 renew하며 reclaim 시도를 제한합니다. 최종 사용량을 보존하고 프로바이더를 다시 호출하지 않고 completed 결과를 재생합니다. Command Deck direct 읽기도 같은 실행기를 사용합니다. Interactive 로컬 PostgreSQL 프로파일도 같은 실행 저장소를 제공하며 in-memory 재생 경로로 대체하지 않습니다. | - |
-| Detached 실행 및 할당량 | 구현됨 | 타입이 지정된 실행기는 서술기 이력, 화면 상태, 이벤트 버스, Thor, 실행기 신원을 받지 않습니다. Per-principal 동시성, 비용, wall-clock, tool-call 할당량은 영속 creation에서 적용됩니다. | - |
-| 완료 인계 | 구현됨 | 최종 결과와 pending 완료 발신함이 원자적으로 커밋됩니다. 범위가 제한된 재시도는 조사를 다시 실행하지 않고 멱등적 대화 및 reply-ledger 인계를 재생합니다. | - |
+| 운영자 API 제안 수신 | 구현됨 | `POST /read-investigations`는 Contributor 또는 Owner 권한을 요구하고 `202`를 반환하기 전에 멱등적인 `read_investigation.start` 제안 하나를 저장하며 영속 요청 스트림에서만 SSE 재생을 시작합니다. | 제안 수락은 최종 프로바이더 완료와 계속 구분됩니다. |
+| 교차 프로세스 요청 전송 | 구현됨 | Operator CAS 발신함은 정확한 `1.0.0` 권한 없는 요청 또는 소유자 범위 취소를 publish합니다. Core consumer는 digest와 partition key를 검증하고 소유자 및 멱등성 키로 중복을 제거하며 wake 전에 영속화하고 malformed 또는 충돌 레코드를 dead-letter 처리합니다. | 관리되는 재시작 및 deployed 전송 receipt는 검증 근거로 남아 있습니다. |
+| 실행 모드 및 진행 상황 | 진행 중 | 코어 서비스는 exact-resource 우선 실행, 범위가 제한된 병렬 읽기, 타입이 지정된 진행 상황 및 테스트된 direct/streamed/detached 선택 정책을 적용합니다. | 수락된 API 제안은 현재 detached 경로로만 들어가며 운영자 API는 interactive 정책을 생성하거나 프로바이더 실행을 스트리밍하지 않습니다. |
+| Interactive 정책 동등성 | 진행 중 | 하나의 공유 interactive 정책 함수가 실행 장소와 독립적으로 임계값을 정의합니다. | 현재 운영 조합이 이 함수를 사용하지 않으므로 아직 실행 가능한 동등성 근거가 아닙니다. |
+| Direct 및 streamed 재생 | 진행 중 | 소유자 범위 PostgreSQL 실행 원장이 점유, 임차 갱신, 범위가 제한된 재점유, 최종 사용량 및 결과 재생을 구현하며 집중 영속성 테스트가 있습니다. | Detached 전용 운영 binding은 사용하지 않는 저장소를 생성하지 않습니다. Direct 또는 streamed 조합은 열린 상태입니다. |
+| Detached 실행 및 할당량 | 구현됨 | 선택적 Core binding은 PostgreSQL 작업 저장소, 타입이 지정된 실행기, 감독되는 coordinator, exact 요청 consumer, 할당량, 취소, 조정 및 범위가 제한된 종료를 생성합니다. 등록된 의도 7개는 exact-resource 우선 계획을 유지하며 지원하지 않는 프로바이더는 명시적인 사용 불가 근거를 반환합니다. | 완료 전달과 관리되는 재시작 근거는 별도입니다. |
+| 완료 인계 | 진행 중 | 원자적인 최종 상태 및 발신함 영속성, 멱등적인 대화 완료 싱크, 원자적 단일 기록 완료 감사 표식이 집중 테스트와 함께 존재합니다. | 운영 coordinator에는 완료 싱크가 없습니다. 연결 전에 버전이 지정된 Core-to-Operator 완료 계약과 Operator 소유 대화 전달 어댑터를 정의해야 합니다. |
 | 실제 운영 Azure 시나리오 근거 | 진행 중 | 호출자 귀속, Resource Health, 승인되지 않은 범위 및 모호한 이름은 읽기 전용 실제 운영 검증을 통과했습니다. | Guest-event 일치와 실제 프로바이더 `429`는 release 근거 공백으로 남습니다. |
 
 ### 구현 이력
@@ -77,9 +94,27 @@ Operator 질문은 `object.event`로 publish하지 않습니다. 해당 토픽�
 | 2026-08-13 | 구현됨 | 원시 요청자 및 대화 참조를 안정적인 불투명 hash로 대체하여 영속 shadow 증적에서 원시 신원을 노출하지 않고 principal 범위를 유지했습니다. | 현재 변경의 `wire_read_investigation.py` 및 `test_wire_read_investigation.py`; 영속 증적 privacy 및 identity 분리를 포함한 집중 composition 스위트의 테스트 5개가 통과했습니다. | 실제 cross-service 동등성 증적을 기록하고 아래의 실제 운영 Azure 시나리오 공백을 해소합니다. |
 | 2026-08-15 | 구현됨 | 실시간 프로바이더 읽기와 인벤토리로 변환된 그래프 상태를 하나의 `derived` 교차 출처 사실로 판정하고, 그 충돌을 증적 다이제스트에 보존했으며, 충돌이 있으면 단정된 상태를 보류하고 종료 활동을 강등하도록 했습니다. | `current change`, `test_resource_state_shadow.py` 판정 테스트와 일치 대조군이 있는 `test_wire_read_investigation.py::test_cross_source_state_conflict_lowers_the_answer_and_activity` | 실제 cross-service 동등성 증적을 기록하고 아래의 실제 운영 Azure 시나리오 공백을 해소합니다. |
 | 2026-08-21 | 구현됨 | 언어별 읽기 의도 분류를 공유 candidate-only 의미 판단으로 교체하고 결정론적 exact resource-id parsing, plan 소유권, 근거 예산, 프로바이더 권한을 유지했습니다. | `current change`; 집중 read-investigation 검사 9개가 통과했고 저장소 semantic-routing guard에 migrate 경로가 없습니다. | 실제 cross-service 동등성 증적과 아래의 실제 운영 Azure 시나리오 공백을 해소합니다. |
+| 2026-08-23 | 진행 중 | 운영자 서비스 분리 이후 이전 범위의 과도한 주장을 바로잡았습니다. 영속 제안 수신은 구현되었지만 운영 소비자, 전체 프로바이더 집합, 실행 모드 연결, 재생 저장소 연결, 분리 조정기, 완료 싱크 연결 및 Azure MCP 어댑터는 아직 완성되지 않았습니다. | `current change`; 읽기 조사, 조합 및 운영자 제안 집중 테스트 118개와 번역, 한국어 품질, 한글, 문장부호, 설계 라우트 및 로드맵 장부 검사가 통과했습니다. | 수락된 제안이 범위가 제한된 읽기 경로에서 실행되도록 만든 뒤 교차 서비스 및 실제 프로바이더 근거를 보존합니다. |
+| 2026-08-23 | 구현됨 | Detached 실행기를 조립하거나 시작하지 않고 영속 대화 인계 앞뒤에 원자적 단일 기록 `background-task.completed` 및 `background-task.delivery-enqueued` 표식을 추가했습니다. | `current change`; 집중 완료 싱크 및 StateStore 감사 검사 14개, Ruff 및 strict mypy가 통과했습니다. | 프로덕션 제안 consumer가 구현된 뒤 완료 싱크 및 조정기와 함께 감사 writer를 연결합니다. |
+| 2026-08-23 | 구현됨 | 버전이 지정된 Operator-to-Core 시작 및 취소 전송, 선택적 Core detached coordinator, 타입이 지정된 7개 의도 실행기, 소유자 범위 작업 projection 및 로컬/deployed 논리 토픽 구성을 추가했습니다. 하드닝으로 중복 취소, coordinator tick 동시성, wake burst, 제어문자 계약 drift 및 UTC 자정 교차 PostgreSQL active 할당량을 수정했습니다. | `current change`; 집중 계약, Operator, Core, background-task, PostgreSQL, MCP, 토픽 및 로컬 환경 게이트 152개가 skip 또는 warning 없이 통과했고 자정 교차 할당량 검사가 로컬 PostgreSQL에서 통과했습니다. | 최종 완료 전송을 정의하고 Operator 소유 전달 경로를 연결하며 direct/streamed 실행을 실행 원장에 연결하고 MCP 운영 탐색 및 복구를 완료합니다. |
+| 2026-08-23 | 구현됨 | 생성 감사 점유 차단, Core 시각의 요청 생성, 순서가 보존된 시작 및 취소를 위한 단일 작업 수명 주기 partition key, 싱크가 없는 완료의 범위가 제한된 보존 및 authoritative REST 대체 경로를 사용하는 선택적 Resource Health MCP 탐색과 복구로 통합 분리 경로를 하드닝했습니다. | `current change`; 라우팅된 읽기 조사 검사 800개, 집중 전송 및 background 검사 67개, MCP 검사 5개, 격리 PostgreSQL 영속성 검사 15개가 통과했고 작업 범위 Ruff 및 strict mypy가 통과했습니다. | 최종 완료 전송을 정의하고 direct 및 streamed 실행을 연결하며 관리되는 재시작 및 실제 프로바이더 근거를 보존합니다. |
 
 ### 남은 작업
 
+- [x] 각 영속 `read_investigation.start` 제안에 대해 버전이 지정된
+  `read-investigation-request` 전송을 구현하고 주체 범위, 멱등성, 취소 및 범위가 제한된 SSE
+  재생을 보존하는 운영 조합에서 소비합니다.
+- [x] 구성되지 않은 게스트 로그, NSG 및 VNet 피어링 도구를 명시적인 사용 불가 상태로 유지하고
+  운영 분리 조합을 통해 등록된 의도 7개가 exact-resource 우선 계획을 유지함을 검증합니다.
+- [ ] Direct 및 streamed 실행을 PostgreSQL 실행 저장소와 공유 정책 뒤에 배치한 뒤 운영 환경에서
+  두 모드를 활성화하기 전에 소유자 범위 재생 및 연결 해제 취소 검사를 통과합니다.
+- [ ] [영속 대화 전달](durable-conversation-delivery-ko.md)과
+  [서비스 승격 및 데이터 소유권](../architecture/service-graduation-and-ownership-ko.md)에 버전이 지정된
+  Core-to-Operator 최종 완료 계약을 정의한 뒤 Core에 Operator 대화 쓰기 권한을 주지 않고 완료 싱크와
+  감사 writer를 연결합니다.
+- [x] 선택적 Azure MCP Resource Health 어댑터, 허용 목록 probe, 회로 차단기, 주기적 복구,
+  계획별 한도 및 REST 대체 경로를 구현합니다. 다른 MCP 읽기 도구는 exact-resource 스키마와
+  정규화기를 검토할 때까지 사용할 수 없는 상태로 유지합니다.
 - [ ] Snapshot-first hydration과 동일 호출의 영속/실시간 identity를 증명하는 실제 cross-service 동등성 증적을 기록합니다.
 - [ ] 관리되는 실제 운영 Azure 시나리오 근거에서 guest-event 일치와 실제 프로바이더 `429` 응답을 검증합니다.
 
@@ -235,7 +270,11 @@ Graph를 갱신하거나 프로바이더 증적을 convergence로 취급하거�
 Azure MCP는 등록된 도구를 위한 추가 읽기 전송 계층을 제공할 수 있습니다. 이 프로바이더는 선택 사항입니다. MCP가 없거나, 연결할 수 없거나, 권한이 없거나, 허용 목록 도구가 누락되어도 Resource
 Graph와 타입이 지정된 REST 프로바이더가 권위 있는 프로바이더로 유지되며 요청을 계속 처리합니다.
 
-Operator API는 트래픽을 받기 전에 범위가 제한된 MCP handshake와 `tools/list` 탐색을 한 번 수행합니다.
+> **구현 상태:** 선택적 어댑터는 exact-resource Resource Health에만 구현되어 있습니다.
+> `FDAI_AZURE_MCP_ENABLED`가 true가 아니면 운영 wrapper는 비활성 상태입니다. 다른 읽기 도구는
+> 타입이 지정된 프로바이더를 계속 사용하거나 명시적인 사용 불가 근거를 반환합니다.
+
+어댑터는 MCP 트래픽을 받기 전에 범위가 제한된 MCP handshake와 `tools/list` 탐색을 한 번 수행합니다.
 초기 기한은 구성 가능하며 최대 10초입니다. 탐색 실패는 기능을 사용 불가로 기록하지만
 Operator API 시작을 차단하지 않습니다. 사용 불가 상태의 요청은 MCP 서버에 접속하지 않고 기존
 프로바이더를 즉시 사용합니다. Background 상태 monitor는 호출 없는 탐색을 다시 시도합니다. 발견이
@@ -457,6 +496,10 @@ Activity Log miss는 누구도 VM을 중지하지 않았음을 증명하지 않�
 `InvestigationExecutionPolicy`는 측정된 계획 추정치에서 하나의 모드를 선택합니다. 임계값은
 라우팅 코드의 리터럴이 아니라 구성입니다.
 
+> **구현 상태:** 정책, 지연 시간, 진행 상황, 실행 원장, 배경 작업 및 작업자 구성 요소에는
+> 집중 테스트가 있습니다. 현재 운영 소스는 이를 `POST /read-investigations` 뒤에 조합하지
+> 않습니다. 이 엔드포인트는 제안을 저장하고 재생할 뿐입니다.
+
 | 모드 | 권장 초기 p95 구간 | 동작 |
 |------|--------------------|------|
 | `direct` | 최대 4초 | 현재 요청에서 실행하고 답변 하나를 반환합니다. |
@@ -464,7 +507,7 @@ Activity Log miss는 누구도 VM을 중지하지 않았음을 증명하지 않�
 | `detached` | 15초 초과, multi-source 동시 확산 또는 명시적 deep 조사 | 영속 background 작업을 만들고 작업 참조를 즉시 반환합니다. |
 
 이 값은 시작 구성이며 performance 점유가 아닙니다. 배포 소유자는 대상 환경에서
-같은 시나리오 집합을 측정한 후 값을 교체하는 것이 좋습니다. Detached 작업은 기존
+같은 시나리오 집합을 측정한 후 값을 교체하는 것이 좋습니다. 조합된 뒤 분리 작업은 기존
 `queued -> claimed -> running -> terminal` 상태 머신을 재사용합니다. 워커는 상위 대화 기록,
 화면 상태, 변경 가능한 기억, 셸, 실행기 신원 또는 변경 도구를 받지 않습니다.
 
@@ -473,11 +516,9 @@ Direct 및 streamed 요청은 인증된 principal과 멱등성 키로 식별하�
 포함한 정본 요청 변환 결과의 다이제스트를 저장합니다. 일치하는 completed 요청은 변경할 수 없는
 결과를 재생합니다. 활성 요청은 범위가 제한된 재시도 간격을 반환하고 실패한 또는 만료된 요청은
 총 세 번까지 키를 reclaim할 수 있습니다. 임차 기간은 원래 wall-clock 상한 안에서만 renew되며 최종
-행은 보존이 끝난 후에만 제거됩니다. Command Deck 어댑터도 원장을 우회해 프로바이더 서비스를
-직접 호출하지 않고 같은 direct 실행기를 사용합니다. Conversational 응답자는 이 범위가 제한된
-진행 상황 경로에서 direct 및 streamed 계획을 모두 실행하며, detached 선택만 durable-task 인계를
-반환합니다. 초기 streamed 상한은 20초이므로 cold exact Activity Log 귀속 추정치가 열림 채팅
-스트림에서 완료될 수 있고, 범용 read-investigation 경로는 초기 15초 상한을 유지합니다.
+행은 보존이 끝난 후에만 제거됩니다. 운영 소비자는 프로바이더를 원장 밖에서 직접 호출하지 않고
+direct 실행기를 이 원장 뒤에 배치해야 합니다. Direct 및 streamed 계획은 범위가 제한된 진행 상황
+경로를 사용하고 detached 선택만 durable-task 인계를 반환합니다.
 
 Detached creation은 맥락 연결에도 같은 정본 요청 다이제스트를 사용합니다. 따라서 예산 또는
 다른 요청 필드가 달라진 상태에서 키를 재사용하면 다른 한도로 생성된 작업을 재생하지 않고
@@ -505,6 +546,10 @@ delayed 이정표 하나를 보내고 고정 wall-clock 예산 안에서 계속�
 
 ## 진행 상황 및 완료 전달
 
+현재 운영자 API SSE 응답은 수락된 제안에 대해 이미 저장된 레코드를 재생합니다. 아직 프로바이더
+실행을 스트리밍하지 않습니다. 아래 동작은 운영 소비자가 연결된 뒤 실행 전송 계층이 따라야 하는
+계약입니다.
+
 진행 상황은 raw 프로바이더 명령 또는 출력이 아니라 운영자에게 의미 있는 이정표를 설명합니다.
 
 ```text
@@ -527,7 +572,7 @@ ordered 인계와 실행 근거를 렌더링하고 Bragi가 최종 답변을 렌
 상세와 이정표 텍스트는 opaque 리소스 자리 표시자를 사용하며, authorized 최종 답변만
 정규화된 근거의 리소스 이름을 표시할 수 있습니다.
 
-기존 보고기는 이벤트를 coalesce하고 개수를 제한합니다. Direct Command Deck 스트림은 도구가 시작하고
+실행 보고기는 이벤트를 coalesce하고 개수를 제한합니다. Direct 스트림은 도구가 시작하고
 완료될 때 `activity` 이벤트를 보내고, 리소스 해석과 근거 수집이 운영자 경험을
 실질적으로 바꿀 때 범위가 제한된 `milestone` 메시지를 보냅니다. 활동은 실제 완료 순서를 따르지만
 최종 근거는 결정적인 계획 순서를 유지합니다. Streamed 프로바이더 호출이 idle인 동안 경로는
@@ -553,42 +598,20 @@ Azure 읽기는 구성된 리소스 그룹으로 범위가 제한된 dedicated `
 신원에 실수로 더 넓은 권한이 있더라도 프로바이더 어댑터는 resolved 범위 밖의 리소스를
 거부합니다.
 
-운영은 `FDAI_AZURE_READER_SUBSCRIPTION_ID`, `FDAI_AZURE_READER_CLIENT_ID`, 비어 있지 않은
-comma-separated `FDAI_AZURE_READER_RESOURCE_GROUPS` 허용 목록이 모두 있을 때만 경로를 등록합니다.
-`FDAI_MONITOR_WORKSPACE_ID`는 선택적이며, 없으면 다른 출처는 계속 사용할 수 있지만 게스트 종료
-근거는 `unavailable`을 반환합니다. 읽기 담당 연결이 활성화되면 시작은 트래픽을 받기 전에
-run-ledger 표를 탐색하고 필요한 이행이 없으면 즉시 실패합니다.
+현재 운영자 서비스는 Contributor 및 Owner 역할에 `POST /read-investigations`를 등록합니다.
+서비스 소유 발신함을 통해 멱등적인 제안을 저장하며 Azure 자격 증명이나 프로바이더 어댑터를
+보유하지 않습니다. 코어 런타임은 인벤토리 또는 상태 저장소 DSN이 있으면 promoted-inventory
+읽기를 별도로 조합합니다. Azure 신원, HTTP 클라이언트 및 서버 소유 구독을 사용할 수 있으면
+Activity Log 및 Resource Health REST 읽기를 추가합니다. 입력이 누락되면 범위를 넓히거나 fixture로
+대체하지 않고 해당 출처를 사용 불가로 유지합니다.
 
-배포된 Operator API는 dedicated Operator API managed 신원과 해당 신원이 읽기 담당을 가진 리소스
-그룹에서 세 읽기 담당 설정을 제공합니다. 이 읽기 담당 연결이 있으면 Azure MCP는 기본적으로
-활성화된입니다. `FDAI_AZURE_MCP_ENABLED=false`는 REST 경로를 비활성화하지 않고 MCP만
-비활성화합니다. 설정이 없고 선택적 Azure MCP SDK가 설치되지 않은 경우 조립은 시작을
-차단하지 않고 REST 경로를 유지합니다. 명시적인 `true`는 선택적 의존성을 요구하며 누락 시
-빠르게 실패합니다. Stdio 하위는 Azure 신원 엔드포인트 필드, Azure 클라이언트 및 구독 선택,
-TLS와 프로세스 경로 필드, 텔레메트리 선호 설정만 받습니다. 데이터베이스 URL, 웹훅 및 다른 애플리케이션
-시크릿은 하위 환경에 복사되지 않습니다.
-
-범위가 제한된 컨트롤은 `FDAI_AZURE_MCP_STARTUP_TIMEOUT_SECONDS`,
-`FDAI_AZURE_MCP_CALL_TIMEOUT_SECONDS`, `FDAI_AZURE_MCP_HEALTH_INTERVAL_SECONDS`,
-`FDAI_AZURE_MCP_RESET_TIMEOUT_SECONDS`입니다. `FDAI_AZURE_MCP_COMMAND`는 경로 또는 인자가 아닌
-하나의 executable 이름만 받습니다. Command 인자는 `server start`로 서버가 소유한 상태를
-유지합니다.
-
-고정된 Azure MCP 패키지에는 glibc-linked .NET executable이 포함되며 musl 휠 또는 출처
-분포는 제공되지 않습니다. 따라서 런타임 이미지는 digest-pinned Python Debian slim을
-사용하고 ICU를 설치하며, .NET 번들 추출과 user 캐시를 위한 writable nonroot 위치를
-제공합니다. Container 검증은 이미지를 빌드하고 UID 65532로 `azmcp tools list`를 실행합니다.
-Base-image 변경은 추출, globalization 또는 캐시 경고 없이 해당 smoke 테스트가 통과해야
-완료됩니다.
-
-Interactive 로컬은 현재 Azure CLI 토큰과 같은 서버가 소유한 범위를 사용합니다. 로컬 런타임
-환경 generator는 활성 CLI 구독이 Terraform과 일치하는지 확인한 후 applied
-구독 및 리소스 그룹을 제공합니다. 이 자격 증명은 Thor에 전달되지 않습니다.
-
-Detached-task API는 별도의 `start-read-investigation` 기능을 사용합니다. 기여자, Approver,
-Owner 역할은 이 기능을 받으며 읽기 담당과 Break-Glass는 받지 않습니다. Per-principal 동시성,
-daily reserved 또는 measured 비용, tool-call, wall-clock 할당량은 영속 작업 creation에서 원자적으로
-적용되며 PR-authoring 권한과 분리됩니다.
+`FDAI_AZURE_READER_*` 런타임 연결은 구현되어 있지 않습니다. 선택적 MCP Resource Health 읽기는
+`FDAI_AZURE_MCP_ENABLED`, `FDAI_AZURE_MCP_STARTUP_TIMEOUT_SECONDS`,
+`FDAI_AZURE_MCP_CALL_TIMEOUT_SECONDS`, `FDAI_AZURE_MCP_DISCOVERY_INTERVAL_SECONDS`를 사용합니다.
+조합은 `resourcehealth` namespace를 고정하고 허용 목록에 있는 Azure 신원 환경만 전달하며 탐색,
+권한 확인, 전송 또는 정규화를 사용할 수 없으면 REST를 authoritative 경로로 유지합니다. 마찬가지로
+분리 작업의 주체별 동시성, 비용, wall-clock 및 tool-call 할당량은 제안 소비자가 영속 작업을
+원자적으로 생성한 뒤에만 운영자 API 보장이 됩니다.
 
 감사 기록에는 요청자, 의도, 선택된 도구, 범위 다이제스트, 작업 또는 요청 id, 소요 시간, 최종
 상태, 근거 참조 및 전달 결과가 포함됩니다. Bearer 토큰, raw 점유, raw CLI 출력,
@@ -615,11 +638,16 @@ daily reserved 또는 measured 비용, tool-call, wall-clock 할당량은 영속
 ## 구현 순서 및 release 게이트
 
 1. 프로바이더 중립적인 계약, 타입이 지정된 도구, 정규화된 근거 및 bilingual 라우팅이 구현되었습니다.
-2. Direct, streamed, detached 실행, 영속 증적 및 지연 시간 프로파일, 할당량, 의미 진행 상황,
-  origin-channel 완료 큐에 추가가 구현되었습니다.
-3. Structural 테스트는 이 경로가 실행기를 가져오기하지 않고 Thor를 참조하지 않으며 `object.event`를
+2. Promoted-inventory 상태, Activity Log 및 Resource Health 읽기가 현재 `resource_state` 경로에
+  조합되어 있습니다. 게스트 로그, NSG 룰, VNet 피어링 및 Azure MCP는 운영 조합에서 사용할 수
+  없습니다.
+3. 운영자 서비스는 `read_investigation.start`를 영속적으로 수락합니다. Direct, streamed 및 detached
+  실행을 담당할 운영 소비자는 아직 구현되지 않았습니다.
+4. 실행 원장, 지연 시간, 진행 상황, 배경 작업, 작업자, 할당량 및 완료 구성 요소에는 집중 테스트가
+  있지만 운영 조합과 교차 서비스 증적이 필요합니다.
+5. Structural 테스트는 이 경로가 실행기를 가져오기하지 않고 Thor를 참조하지 않으며 `object.event`를
   publish하지 않음을 증명합니다.
-4. 읽기 전용 실제 운영 검증은 호출자 귀속, Resource Health, 승인되지 않은 범위 및 모호한
+6. 읽기 전용 실제 운영 검증은 호출자 귀속, Resource Health, 승인되지 않은 범위 및 모호한
   이름을 검증했습니다. Dedicated 검증 환경이 retained 게스트 종료 이벤트와 자연스럽게
   발생한 프로바이더 `429`를 제공할 때까지 기능은 configuration-gated 상태를 유지합니다.
 

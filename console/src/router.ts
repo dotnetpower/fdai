@@ -15,6 +15,7 @@ export const PANEL_PATHS: Readonly<Record<string, string>> = {
   processes: "/processes",
   "workflow-apps": "/workflow-apps",
   "scheduler-runs": "/scheduler-runs",
+  "background-tasks": "/background-tasks",
   "scheduled-continuations": "/scheduled-continuations",
   "conversation-delivery": "/conversation-delivery",
   "conversation-assurance": "/conversation-assurance",

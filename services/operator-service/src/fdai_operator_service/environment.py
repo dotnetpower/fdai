@@ -32,6 +32,7 @@ SEMANTIC_PHYSICAL_TOPIC_ENV = "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC"
 SEMANTIC_OUTBOX_NAMESPACE_ENV = "FDAI_SEMANTIC_TURN_OUTBOX_NAMESPACE"
 SEMANTIC_CONSUMER_GROUP_ENV = "FDAI_SEMANTIC_TURN_CONSUMER_GROUP_ID"
 SEMANTIC_KAFKA_CLIENT_ID_ENV = "FDAI_SEMANTIC_TURN_KAFKA_CLIENT_ID"
+READ_INVESTIGATION_REQUEST_TOPIC_ENV = "FDAI_READ_INVESTIGATION_REQUEST_TOPIC"
 MANAGED_IDENTITY_CLIENT_ID_ENV = "FDAI_COMMAND_MI_CLIENT_ID"
 DEFAULT_HOST = "0.0.0.0"  # noqa: S104 - Container ingress terminates external HTTPS.
 DEFAULT_PORT = 8000
@@ -89,6 +90,7 @@ class OperatorEnvironment:
     semantic_outbox_namespace: str | None
     semantic_consumer_group_id: str
     semantic_kafka_client_id: str
+    read_investigation_request_topic: str | None
     managed_identity_client_id: str | None
 
     @classmethod
@@ -208,6 +210,21 @@ class OperatorEnvironment:
         semantic_kafka_client_id = (
             values.get(SEMANTIC_KAFKA_CLIENT_ID_ENV, "").strip() or DEFAULT_SEMANTIC_KAFKA_CLIENT_ID
         )
+        read_investigation_request_topic = (
+            values.get(READ_INVESTIGATION_REQUEST_TOPIC_ENV, "").strip() or None
+        )
+        if read_investigation_request_topic is not None and kafka_bootstrap_servers is None:
+            raise OperatorServiceConfigurationError(
+                f"{READ_INVESTIGATION_REQUEST_TOPIC_ENV} requires {KAFKA_BOOTSTRAP_SERVERS_ENV}"
+            )
+        if read_investigation_request_topic is not None and read_investigation_request_topic in {
+            semantic_request_topic,
+            semantic_projection_topic,
+            semantic_physical_topic,
+        }:
+            raise OperatorServiceConfigurationError(
+                f"{READ_INVESTIGATION_REQUEST_TOPIC_ENV} MUST be distinct from semantic topics"
+            )
         managed_identity_client_id = values.get(MANAGED_IDENTITY_CLIENT_ID_ENV, "").strip() or None
 
         return cls(
@@ -235,6 +252,7 @@ class OperatorEnvironment:
             semantic_outbox_namespace=semantic_outbox_namespace,
             semantic_consumer_group_id=semantic_consumer_group_id,
             semantic_kafka_client_id=semantic_kafka_client_id,
+            read_investigation_request_topic=read_investigation_request_topic,
             managed_identity_client_id=managed_identity_client_id,
         )
 
@@ -304,6 +322,7 @@ __all__ = [
     "NARRATOR_PROBE_INTERVAL_ENV",
     "JWKS_URI_ENV",
     "PORT_ENV",
+    "READ_INVESTIGATION_REQUEST_TOPIC_ENV",
     "SEMANTIC_CONSUMER_GROUP_ENV",
     "SEMANTIC_KAFKA_CLIENT_ID_ENV",
     "SEMANTIC_PROJECTION_TOPIC_ENV",

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from typing import Any
 
@@ -23,7 +24,12 @@ from fdai.rule_catalog.schema.inventory_query_language import (
 )
 
 from .semantic_current_state_planning import exact_target_from_constraints
-from .semantic_planning_frame import build_semantic_frame
+from .semantic_planning_frame import (
+    build_semantic_frame,
+    is_configuration_drift_evidence_frame,
+    is_historical_topology_clarification_frame,
+    is_network_path_clarification_frame,
+)
 from .semantic_planning_models import (
     ClarificationRequirement,
     SemanticFrameProposal,
@@ -54,6 +60,22 @@ _CANDIDATE_RESOLVABLE_REQUIREMENTS = frozenset(
         ClarificationRequirement.SUBJECT,
     }
 )
+_TARGET_BOUND_OPERATING_INTENT_TYPES = frozenset(
+    {
+        "ArchitectureConstraint",
+        "ChangeWindow",
+        "CostObjective",
+        "Ownership",
+        "RecoveryObjective",
+        "ServiceObjective",
+    }
+)
+_DECISION_OUTCOME_LINEAGE_TYPES = (
+    "DecisionCase",
+    "ActionOption",
+    "ActionRun",
+    "ObservedOutcome",
+)
 
 
 def build_resource_target_candidates_fallback(
@@ -63,6 +85,7 @@ def build_resource_target_candidates_fallback(
     descriptors: tuple[dict[str, Any], ...],
     confidence: float,
     inventory_query_language: InventoryQueryLanguageRegistry | None = None,
+    temporal_scope: dict[str, str] | None = None,
 ) -> tuple[SemanticFrameProposal, SemanticProblemFrame] | None:
     """Build a server-owned candidate frame from a verified Resource type only."""
 
@@ -87,7 +110,7 @@ def build_resource_target_candidates_fallback(
         operation=SemanticOperation.SELECT,
         subject_constraints=("Resource",),
         measure_concepts=(),
-        temporal_scope={},
+        temporal_scope=temporal_scope or {},
         output_shape=SemanticOutputShape.RESOURCE_TARGET_CANDIDATES,
         evidence_requirements=("authoritative_inventory",),
         unresolved_terms=(),
@@ -103,6 +126,90 @@ def build_resource_target_candidates_fallback(
     )
 
 
+def build_non_resource_target_clarification(
+    proposal: SemanticFrameProposal,
+    *,
+    utterance: str,
+    context: tuple[str, ...],
+    descriptors: tuple[dict[str, Any], ...],
+    inventory_query_language: InventoryQueryLanguageRegistry | None = None,
+) -> tuple[SemanticFrameProposal, SemanticProblemFrame] | None:
+    """Preserve an operating-object subject instead of substituting Resource candidates."""
+
+    cardinality = query_target_cardinality(utterance, inventory_query_language)
+    subject_types = _non_resource_object_subjects(proposal.subject_constraints, descriptors)
+    subject_types = _expand_operating_intent_subjects(subject_types, descriptors)
+    allow_unknown_cardinality = bool(
+        _TARGET_BOUND_OPERATING_INTENT_TYPES.intersection(subject_types)
+    )
+    if (
+        cardinality is QueryTargetCardinality.COLLECTION
+        or (cardinality is not QueryTargetCardinality.SINGULAR and not allow_unknown_cardinality)
+        or not stated_value_filters(utterance, descriptors).get(("Resource", "type"))
+    ):
+        return None
+    if not subject_types:
+        return None
+    if (
+        exact_target_from_constraints(
+            proposal.subject_constraints,
+            utterance=utterance,
+            descriptors=descriptors,
+        )
+        is not None
+    ):
+        return None
+    target_type = subject_types[0]
+    korean = re.search(r"[가-힣]", utterance) is not None
+    resolved = proposal.model_copy(
+        update={
+            "operation": SemanticOperation.SELECT,
+            "subject_constraints": subject_types,
+            "temporal_scope": {"kind": "current"},
+            "output_shape": SemanticOutputShape.ONTOLOGY_RELATIONSHIPS,
+            "unresolved_terms": (f"{target_type} identity",),
+            "clarification_requirements": (ClarificationRequirement.SUBJECT,),
+            "clarification": (
+                f"확인할 정확한 {target_type} 이름 또는 ID를 알려주세요?"
+                if korean
+                else f"Provide the exact {target_type} name or ID?"
+            ),
+            "investigation": None,
+        }
+    )
+    return resolved, build_semantic_frame(resolved, utterance=utterance, context=context)
+
+
+def _expand_operating_intent_subjects(
+    subject_types: tuple[str, ...],
+    descriptors: tuple[dict[str, Any], ...],
+) -> tuple[str, ...]:
+    selected = set(subject_types)
+    if not _TARGET_BOUND_OPERATING_INTENT_TYPES.intersection(selected) and selected != {
+        "BusinessService"
+    }:
+        return subject_types
+    for descriptor in descriptors:
+        if descriptor.get("kind") != "link":
+            continue
+        source_type = descriptor.get("from_type")
+        target_type = descriptor.get("to_type")
+        if (
+            isinstance(source_type, str)
+            and isinstance(target_type, str)
+            and target_type in _TARGET_BOUND_OPERATING_INTENT_TYPES
+            and (source_type in selected or target_type in selected)
+        ):
+            selected.update((source_type, target_type))
+    return tuple(
+        name
+        for descriptor in descriptors
+        if descriptor.get("kind") == "object"
+        if isinstance((name := descriptor.get("name")), str)
+        if name in selected
+    )
+
+
 def resource_target_candidates_apply_to_utterance(
     frame: SemanticProblemFrame,
     *,
@@ -112,6 +219,8 @@ def resource_target_candidates_apply_to_utterance(
 ) -> bool:
     """Apply recovery only to a target-scoped or grounded residual subject."""
 
+    if _has_non_resource_object_subject(frame.subject_constraints, descriptors):
+        return False
     cardinality = query_target_cardinality(utterance, inventory_query_language)
     if cardinality is QueryTargetCardinality.COLLECTION:
         return False
@@ -136,6 +245,8 @@ def resource_target_candidates_apply_to_proposal(
 ) -> bool:
     """Gate frame recovery to structured target intent without phrase routing."""
 
+    if _has_non_resource_object_subject(proposal.subject_constraints, descriptors):
+        return False
     cardinality = query_target_cardinality(utterance, inventory_query_language)
     if cardinality is QueryTargetCardinality.COLLECTION:
         return False
@@ -164,6 +275,21 @@ def resolve_resource_target_candidates(
 ) -> tuple[SemanticFrameProposal, SemanticProblemFrame]:
     """Replace a first-turn exact-target hold with bounded subtype discovery."""
 
+    if (
+        frame.output_shape == SemanticOutputShape.TARGET_CURRENT_STATE
+        and "active_revision" not in frame.measure_concepts
+    ):
+        return proposal, frame
+    if frame.output_shape == SemanticOutputShape.TOPOLOGY_GRAPH:
+        return proposal, frame
+    if is_configuration_drift_evidence_frame(frame):
+        return proposal, frame
+    if is_network_path_clarification_frame(frame):
+        return proposal, frame
+    if is_historical_topology_clarification_frame(frame):
+        return proposal, frame
+    if _has_non_resource_object_subject(proposal.subject_constraints, descriptors):
+        return proposal, frame
     cardinality = query_target_cardinality(utterance, inventory_query_language)
     if cardinality is QueryTargetCardinality.COLLECTION:
         return proposal, frame
@@ -208,7 +334,131 @@ def resolve_resource_target_candidates(
         confidence=proposal.confidence,
         inventory_query_language=inventory_query_language,
     )
-    return fallback if fallback is not None else (proposal, frame)
+    if fallback is None:
+        return proposal, frame
+    temporal_scope = frame.temporal_scope
+    if not temporal_scope and frame.output_shape == SemanticOutputShape.TARGET_CURRENT_STATE:
+        temporal_scope = {"kind": "current"}
+    if not temporal_scope:
+        return fallback
+    candidate, _candidate_frame = fallback
+    candidate = candidate.model_copy(update={"temporal_scope": temporal_scope})
+    return candidate, build_semantic_frame(candidate, utterance=utterance, context=context)
+
+
+def normalize_operating_relationship_temporal_scope(
+    proposal: SemanticFrameProposal,
+    frame: SemanticProblemFrame,
+    *,
+    utterance: str,
+    context: tuple[str, ...],
+    descriptors: tuple[dict[str, Any], ...],
+) -> tuple[SemanticFrameProposal, SemanticProblemFrame]:
+    """Bind runtime operating-object relationships to the current data plane."""
+
+    subject_types = _non_resource_object_subjects(proposal.subject_constraints, descriptors)
+    measures = set(proposal.measure_concepts)
+    schema_trace = (
+        set(proposal.subject_constraints) == {"ActionType", "ResourceType", "Rule", "SignalType"}
+        and {"resource_type", "signal_type"} <= measures
+        and any("action_type" in measure for measure in measures)
+        and (
+            bool({"explore", "relationships", "trace"}.intersection(measures))
+            or "controlled_action_type" in measures
+        )
+    )
+    if (
+        frame.operation is not SemanticOperation.SELECT
+        or frame.output_shape != SemanticOutputShape.ONTOLOGY_RELATIONSHIPS
+        or not subject_types
+        or proposal.temporal_scope
+        or schema_trace
+    ):
+        return proposal, frame
+    resolved = proposal.model_copy(update={"temporal_scope": {"kind": "current"}})
+    return resolved, build_semantic_frame(resolved, utterance=utterance, context=context)
+
+
+def normalize_decision_outcome_relationship(
+    proposal: SemanticFrameProposal,
+    frame: SemanticProblemFrame,
+    *,
+    utterance: str,
+    context: tuple[str, ...],
+    descriptors: tuple[dict[str, Any], ...],
+) -> tuple[SemanticFrameProposal, SemanticProblemFrame]:
+    """Restore the canonical historical decision-to-outcome relationship path."""
+
+    subject_types = set(_non_resource_object_subjects(proposal.subject_constraints, descriptors))
+    if (
+        frame.operation is not SemanticOperation.SELECT
+        or frame.output_shape != SemanticOutputShape.ONTOLOGY_RELATIONSHIPS
+        or not {"DecisionCase", "ObservedOutcome"} <= subject_types
+        or not {"ActionOption", "ActionRun"}.intersection(subject_types)
+    ):
+        return proposal, frame
+    declared_types = {
+        name
+        for descriptor in descriptors
+        if descriptor.get("kind") == "object"
+        if isinstance((name := descriptor.get("name")), str)
+    }
+    exact_target = exact_target_from_constraints(
+        proposal.subject_constraints,
+        utterance=utterance,
+        descriptors=descriptors,
+    )
+    target_constraints = tuple(
+        constraint
+        for constraint in proposal.subject_constraints
+        if constraint not in declared_types
+    )
+    if exact_target is not None and exact_target not in target_constraints:
+        target_constraints = (*target_constraints, exact_target)
+    needs_target = exact_target is None
+    korean = re.search(r"[가-힣]", utterance) is not None
+    resolved = proposal.model_copy(
+        update={
+            "subject_constraints": (*_DECISION_OUTCOME_LINEAGE_TYPES, *target_constraints),
+            "temporal_scope": {"kind": "historical"},
+            "unresolved_terms": ("DecisionCase identity",) if needs_target else (),
+            "clarification_requirements": (
+                (ClarificationRequirement.SUBJECT,) if needs_target else ()
+            ),
+            "clarification": (
+                (
+                    "추적할 정확한 DecisionCase 이름 또는 ID를 알려주세요?"
+                    if korean
+                    else "Provide the exact DecisionCase name or ID?"
+                )
+                if needs_target
+                else None
+            ),
+            "investigation": None,
+        }
+    )
+    return resolved, build_semantic_frame(resolved, utterance=utterance, context=context)
+
+
+def _has_non_resource_object_subject(
+    constraints: tuple[str, ...],
+    descriptors: tuple[dict[str, Any], ...],
+) -> bool:
+    return bool(_non_resource_object_subjects(constraints, descriptors))
+
+
+def _non_resource_object_subjects(
+    constraints: tuple[str, ...],
+    descriptors: tuple[dict[str, Any], ...],
+) -> tuple[str, ...]:
+    object_types = {
+        name
+        for descriptor in descriptors
+        if descriptor.get("kind") == "object"
+        if isinstance((name := descriptor.get("name")), str)
+        if name != "Resource"
+    }
+    return tuple(constraint for constraint in constraints if constraint in object_types)
 
 
 def compile_resource_target_candidates_plan(
@@ -264,8 +514,11 @@ def compile_resource_target_candidates_plan(
 
 
 __all__ = [
+    "build_non_resource_target_clarification",
     "build_resource_target_candidates_fallback",
     "compile_resource_target_candidates_plan",
+    "normalize_decision_outcome_relationship",
+    "normalize_operating_relationship_temporal_scope",
     "resource_target_candidates_apply_to_proposal",
     "resource_target_candidates_apply_to_utterance",
     "resolve_resource_target_candidates",

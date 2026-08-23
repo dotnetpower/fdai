@@ -1,5 +1,5 @@
 // Phase-4 continuous-measurement runners - Container Apps Jobs that wire the
-// two library-only measurement modules into scheduled processes:
+// library-only measurement modules into scheduled processes:
 //
 //   src/fdai/core/measurement/runners.py::AutomatedBaselineRunner
 //   src/fdai/core/measurement/runners.py::PatternGrowthIntakeRunner
@@ -8,7 +8,8 @@
 //   docs/roadmap/phases/phase-4-scale.md § Continuous Measurement
 //   docs/roadmap/phases/phase-4-scale.md § Pattern Library Growth (T1)
 //
-// Two jobs, one shared Container Apps environment + user-assigned MI (the
+// Baseline and growth always ship. Operational promotion is an opt-in third
+// job over reviewed digest-only evidence. All jobs share one Container Apps environment + MI (the
 // same one the core app + rule-watcher already use). No new seams are
 // introduced - cadence + identity + logging are provided by the caller so a
 // non-Azure adapter can render the same manifest without touching the core.
@@ -161,6 +162,100 @@ resource "azurerm_container_app_job" "pattern_growth" {
           value = env.value
         }
       }
+    }
+  }
+
+  tags = var.tags
+}
+
+resource "azurerm_container_app_job" "operational_promotion" {
+  count = var.operational_promotion_enabled ? 1 : 0
+
+  name                         = var.operational_promotion_job_name
+  container_app_environment_id = var.container_app_environment_id
+  resource_group_name          = var.resource_group_name
+  location                     = var.location
+  workload_profile_name        = "Consumption"
+  replica_timeout_in_seconds   = 1800
+  replica_retry_limit          = 1
+
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [var.executor_identity_id]
+  }
+
+  dynamic "registry" {
+    for_each = var.acr_login_server == "" ? toset([]) : toset(["1"])
+    content {
+      server   = var.acr_login_server
+      identity = var.executor_identity_id
+    }
+  }
+
+  secret {
+    name                = "state-store-dsn"
+    identity            = var.executor_identity_id
+    key_vault_secret_id = var.state_store_dsn_secret_id
+  }
+
+  schedule_trigger_config {
+    cron_expression          = var.operational_promotion_cron_expression
+    replica_completion_count = 1
+    parallelism              = 1
+  }
+
+  template {
+    container {
+      name    = "measurement-operational-promotion"
+      image   = var.image
+      cpu     = 0.5
+      memory  = "1Gi"
+      command = ["python", "-m", "fdai.delivery.measurement_runner_cli"]
+      args    = ["operational-promotion"]
+
+      env {
+        name  = "FDAI_MEASUREMENT_MODE"
+        value = "operational-promotion"
+      }
+      env {
+        name  = "FDAI_SCENARIO_SET_VERSION"
+        value = var.scenario_set_version
+      }
+      env {
+        name  = "FDAI_REVISION"
+        value = var.operational_promotion_fdai_revision
+      }
+      env {
+        name  = "FDAI_OPERATIONAL_PROMOTION_EVIDENCE_ROOT"
+        value = var.operational_promotion_evidence_root
+      }
+      env {
+        name  = "FDAI_OPERATIONAL_PROMOTION_MANIFEST"
+        value = var.operational_promotion_manifest
+      }
+      env {
+        name        = "FDAI_STATE_STORE_DSN"
+        secret_name = "state-store-dsn"
+      }
+      dynamic "env" {
+        for_each = var.environment
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
+    }
+  }
+
+  lifecycle {
+    precondition {
+      condition = (
+        var.operational_promotion_fdai_revision != "" &&
+        startswith(var.operational_promotion_evidence_root, "/") &&
+        var.operational_promotion_manifest != "" &&
+        !startswith(var.operational_promotion_manifest, "/")
+      )
+      error_message = "operational promotion requires an immutable revision, absolute evidence root, and relative manifest path."
     }
   }
 

@@ -8,6 +8,17 @@
   "migration_dependencies": [
     {
       "consumer_service": "operator-service",
+      "consumer_revision": "operator_inventory_realtime_read_20260822",
+      "provider_service": "core-control-plane",
+      "provider_revision": "core_runtime_role_20260809",
+      "schema_prerequisites": [
+        "inventory_realtime_resource",
+        "inventory_realtime_link"
+      ],
+      "provider_rollback": "blocked-until-operator-read-grant-rollback"
+    },
+    {
+      "consumer_service": "operator-service",
       "consumer_revision": "operator_inventory_active_read_20260819",
       "provider_service": "core-control-plane",
       "provider_revision": "core_runtime_role_20260809",
@@ -81,6 +92,12 @@
       "ontology_object_type",
       "ontology_release",
       "ontology_resource",
+      "operational_archive_manifest",
+      "operational_archive_coverage_receipt",
+      "operational_archive_purge_receipt",
+      "operational_archive_restore_receipt",
+      "operational_archive_verification_receipt",
+      "operational_retention_hold_event",
       "operator_incident_projection",
       "process_event",
       "process_projection_outbox",
@@ -212,6 +229,12 @@
       "ontology_object_type",
       "ontology_release",
       "ontology_resource",
+      "operational_archive_manifest",
+      "operational_archive_coverage_receipt",
+      "operational_archive_purge_receipt",
+      "operational_archive_restore_receipt",
+      "operational_archive_verification_receipt",
+      "operational_retention_hold_event",
       "process_event",
       "process_projection_outbox",
       "process_runtime",

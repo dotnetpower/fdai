@@ -1,4 +1,5 @@
 import { getLocale } from "../../i18n";
+import { Tracker } from "../../components/charts";
 import { presentationTimestamp } from "../presentation-value";
 import type { PresentationModuleProps } from "./types";
 import { ExactTableDisclosure } from "./charts";
@@ -8,6 +9,10 @@ export function TimelineModule({ block }: PresentationModuleProps) {
   return (
     <div class="deck-presentation-accessible-chart">
       <p>{block.data.description}</p>
+      <Tracker
+        label={block.data.description}
+        blocks={block.data.items.map((item) => ({ label: item.label, detail: item.timestamp }))}
+      />
       <ol class="deck-presentation-timeline">
         {block.data.items.map((item) => {
           const timestamp = presentationTimestamp(

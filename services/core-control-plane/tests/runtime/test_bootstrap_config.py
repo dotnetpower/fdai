@@ -214,7 +214,7 @@ def test_reconciliation_request_binding_requires_complete_producer_sources() -> 
         )
         is None
     )
-    with pytest.raises(RuntimeError, match="requires artifact and observation sources"):
+    with pytest.raises(RuntimeError, match="requires an observation source or verifier"):
         build_effect_reconciliation_request_binding(
             state_store=store,
             event_bus=bus,

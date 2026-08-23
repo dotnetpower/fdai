@@ -42,6 +42,7 @@ class AzureOperationalSnapshot:
     owner_digest: str
     observed_at: datetime
     evidence_refs: tuple[str, ...]
+    resource_revision: int | None = None
     metric_values: Mapping[str, float] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -54,6 +55,8 @@ class AzureOperationalSnapshot:
                 raise ValueError("Azure operational snapshot digests MUST be SHA-256")
         if not 1 <= len(self.evidence_refs) <= _MAX_EVIDENCE_REFS:
             raise ValueError("Azure operational snapshot evidence refs MUST be bounded")
+        if self.resource_revision is not None and self.resource_revision < 1:
+            raise ValueError("Azure operational snapshot revision MUST be positive")
         if len(set(self.evidence_refs)) != len(self.evidence_refs):
             raise ValueError("Azure operational snapshot evidence refs MUST be unique")
         if any(
@@ -123,6 +126,9 @@ class AzureCachedOperationalSnapshotSource:
             owner_digest=_required_string(context, "owner_digest"),
             observed_at=_timestamp(context, "observed_at"),
             evidence_refs=_string_tuple(context, "evidence_refs"),
+            resource_revision=(
+                value.get("revision") if isinstance(value.get("revision"), int) else None
+            ),
             metric_values=_metric_values(context) if "metric_values" in context else {},
         )
 

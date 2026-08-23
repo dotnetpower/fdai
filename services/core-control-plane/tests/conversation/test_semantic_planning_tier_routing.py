@@ -4,18 +4,67 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any
 
 import pytest
 from fdai.composition.semantic_query_model_targets import t1_model_targets, t2_model_targets
 from fdai.core.conversation.semantic_activity_planning import normalize_activity_proposal
+from fdai.core.conversation.semantic_judgment import (
+    SemanticJudgmentBinding,
+    SemanticJudgmentBoundary,
+)
 from fdai.core.conversation.semantic_planning import SemanticPlanningService
+from fdai.core.conversation.semantic_planning_cascade import (
+    _judgment_link_subjects,
+    _judgment_object_subjects,
+    _validate_frame_proposal,
+)
+from fdai.core.conversation.semantic_planning_frame import (
+    build_bound_incident_metric_comparison_frame,
+    build_historical_topology_clarification,
+    build_network_path_clarification,
+    build_ontology_release_health_frame,
+    build_ontology_trace_frame,
+    build_operating_objectives_frame,
+    build_private_connectivity_clarification,
+    build_recovery_plan_clarification,
+    build_resource_activity_clarification,
+    build_resource_classification_frame,
+    build_resource_relationship_clarification,
+    build_semantic_frame,
+    build_service_agent_ownership_frame,
+    is_completed_change_outcome_frame,
+    is_configuration_drift_evidence_frame,
+    is_historical_topology_clarification_frame,
+    is_incident_triage_frame,
+    is_network_path_clarification_frame,
+    is_ontology_trace_frame,
+    is_resource_classification_frame,
+    normalize_historical_topology_clarification,
+    normalize_network_path_clarification,
+    normalize_ontology_trace_frame,
+    normalize_operating_objectives_frame,
+    normalize_resource_classification_frame,
+    resolve_semantic_judgment_action_draft,
+    resolve_semantic_judgment_bound_read,
+)
 from fdai.core.conversation.semantic_planning_models import (
     BoundIncident,
+    ClarificationRequirement,
     SemanticFrameProposal,
     SemanticPlanningDisposition,
 )
-from fdai.core.conversation.semantic_runtime import SemanticConversationRuntime
+from fdai.core.conversation.semantic_runtime import (
+    SemanticConversationRuntime,
+    _current_relationship_mapping_unavailable,
+)
+from fdai.core.conversation.semantic_target_candidate_planning import (
+    build_non_resource_target_clarification,
+    normalize_decision_outcome_relationship,
+    normalize_operating_relationship_temporal_scope,
+    resource_target_candidates_apply_to_proposal,
+)
 from fdai.core.conversation.session import Principal, Role
 from fdai.core.ontology_platform import (
     METRIC_ARGUMENT_SCHEMAS,
@@ -25,6 +74,8 @@ from fdai.core.ontology_platform import (
     ObjectSetDefinition,
     OntologyQueryPlanExecutor,
     OntologyQueryPlanVerifier,
+    QueryNodeResult,
+    QueryPlanExecution,
     build_query_manifest,
 )
 from fdai.core.ontology_platform.evidence_health_queries import (
@@ -36,6 +87,7 @@ from fdai.core.ontology_platform.incident_queries import (
 )
 from fdai.core.ontology_platform.inventory_impact_queries import inventory_impact_function_type
 from fdai.core.ontology_platform.property_values import PropertyValueDomain, PropertyValueGroup
+from fdai.core.ontology_platform.query_values import QueryRow, QueryTable
 from fdai.core.ontology_platform.release_diff_queries import ontology_release_diff_function_type
 from fdai.core.ontology_platform.resource_activity_queries import (
     RESOURCE_ACTIVITY_FUNCTION_NAME,
@@ -75,7 +127,9 @@ from fdai.rule_catalog.schema.llm_resolver import (
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.shared.contracts.models import (
     CeilingRole,
+    LinkCardinality,
     OntologyFunctionType,
+    OntologyLinkType,
     OntologyObjectType,
     PropertyDecl,
     PropertyType,
@@ -83,6 +137,10 @@ from fdai.shared.contracts.models import (
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.ontology.release import build_ontology_release
 from fdai_service_contracts.ontology_query import QueryNodeKind, SemanticOperation
+from fdai_service_contracts.semantic_judgment import (
+    SemanticJudgmentProposal,
+    SemanticJudgmentTier,
+)
 
 NOW = datetime(2026, 8, 14, tzinfo=UTC)
 ROOT = Path(__file__).resolve().parents[4]
@@ -116,6 +174,99 @@ class _Model:
         return self.plan
 
 
+class _DraftJudgmentModel:
+    def judge(self, *, utterance: str, **_kwargs: Any) -> dict[str, object]:
+        return {
+            "primary_intent": "action_request",
+            "targets": [
+                {
+                    "kind": "action_type",
+                    "value": "Draft",
+                    "canonical_value": "ops.restart-service",
+                    "source_start": 0,
+                    "source_end": 5,
+                }
+            ],
+            "confidence": 0.95,
+            "ambiguous": False,
+            "action_posture": "draft_only",
+            "action_subject": "Change",
+            "execution_authority": False,
+        }
+
+
+class _ActionTypeOnlyDraftJudgmentModel(_DraftJudgmentModel):
+    def judge(self, *, utterance: str, **_kwargs: Any) -> dict[str, object]:
+        value = "remediate.restrict-network-access"
+        start = utterance.index(value)
+        return {
+            "primary_intent": "action_request",
+            "targets": [
+                {
+                    "kind": "action_type",
+                    "value": value,
+                    "canonical_value": value,
+                    "source_start": start,
+                    "source_end": start + len(value),
+                }
+            ],
+            "confidence": 0.95,
+            "ambiguous": False,
+            "action_posture": "draft_only",
+            "action_subject": "Rule",
+            "execution_authority": False,
+        }
+
+
+class _LowConfidenceDraftJudgmentModel(_DraftJudgmentModel):
+    def judge(self, *, utterance: str, **kwargs: Any) -> dict[str, object]:
+        proposal = super().judge(utterance=utterance, **kwargs)
+        proposal["confidence"] = 0.5
+        return proposal
+
+
+class _OperatingSubjectJudgmentModel:
+    def judge(self, *, utterance: str, **_kwargs: Any) -> dict[str, object]:
+        targets = []
+        source_values = (
+            (("비용 목표", "CostObjective"), ("비즈니스 서비스", "BusinessService"))
+            if "비용 목표" in utterance
+            else (
+                ("cost objective", "CostObjective"),
+                ("business service", "BusinessService"),
+            )
+        )
+        for value, canonical_value in source_values:
+            source_start = utterance.index(value)
+            targets.append(
+                {
+                    "kind": "object_type",
+                    "value": value,
+                    "canonical_value": canonical_value,
+                    "source_start": source_start,
+                    "source_end": source_start + len(value),
+                }
+            )
+        return {
+            "primary_intent": "cost_objective_detail",
+            "targets": targets,
+            "confidence": 0.95,
+            "ambiguous": False,
+            "action_posture": "advise_only",
+            "action_subject": "none",
+            "execution_authority": False,
+        }
+
+
+class _JudgmentAwareModel(_Model):
+    def propose_frame(self, **kwargs: Any) -> Any:
+        self.frame_calls += 1
+        judgment = kwargs.get("semantic_judgment")
+        assert isinstance(judgment, dict)
+        assert judgment.get("action_posture") == "draft_only"
+        return _frame()
+
+
 class _AcceptingVerifier:
     def verify(self, _plan: object, *, manifest: object) -> None:
         assert manifest is not None
@@ -127,6 +278,8 @@ def _fixture(
     include_rule: bool = False,
     include_resource_type: bool = False,
     function_types: tuple[OntologyFunctionType, ...] = (),
+    additional_object_types: tuple[OntologyObjectType, ...] = (),
+    additional_link_types: tuple[OntologyLinkType, ...] = (),
 ) -> tuple[Any, ObjectSetDefinition]:
     resource = OntologyObjectType(
         schema_version="1.0.0",
@@ -150,14 +303,23 @@ def _fixture(
         key="id",
         properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
     )
-    object_types = (resource, rule) if include_rule else (resource,)
-    release = build_ontology_release(object_types=object_types, function_types=function_types)
+    object_types = (
+        (resource, *additional_object_types, rule)
+        if include_rule
+        else (resource, *additional_object_types)
+    )
+    release = build_ontology_release(
+        object_types=object_types,
+        link_types=additional_link_types,
+        function_types=function_types,
+    )
     manifest = build_query_manifest(
         release=release,
         principal_role=CeilingRole.READER,
         purposes=("operations-review",),
         principal_scope_digest=DIGEST,
         object_types=object_types,
+        link_types=additional_link_types,
         functions=function_types,
         bound_function_names=tuple(item.name for item in function_types),
         property_values=property_values,
@@ -400,7 +562,7 @@ def test_valid_t1_plan_never_invokes_t2() -> None:
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
-def test_evidence_validation_without_a_coverage_function_is_unsupported() -> None:
+def test_evidence_validation_without_a_coverage_function_is_unavailable() -> None:
     manifest, definition = _fixture()
     t1 = _Model(
         frame=_frame(
@@ -414,7 +576,7 @@ def test_evidence_validation_without_a_coverage_function_is_unsupported() -> Non
 
     outcome = _run(_service(t1, t2, manifest))
 
-    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.disposition is SemanticPlanningDisposition.UNAVAILABLE
     assert outcome.reason == "semantic_evidence_validation_unavailable"
     assert outcome.plan is None
     assert (t1.frame_calls, t1.plan_calls) == (1, 0)
@@ -439,7 +601,7 @@ def test_evidence_validation_subject_clarification_resolves_then_holds() -> None
 
     outcome = _run(_service(t1, t2, manifest))
 
-    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.disposition is SemanticPlanningDisposition.UNAVAILABLE
     assert outcome.reason == "semantic_evidence_validation_unavailable"
     assert outcome.frame is not None
     assert outcome.frame.subject_constraints == ("Resource",)
@@ -466,7 +628,7 @@ def test_evidence_validation_resource_identity_resolves_then_holds() -> None:
 
     outcome = _run(_service(t1, t2, manifest))
 
-    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.disposition is SemanticPlanningDisposition.UNAVAILABLE
     assert outcome.reason == "semantic_evidence_validation_unavailable"
     assert outcome.frame is not None
     assert outcome.frame.subject_constraints == ("Resource",)
@@ -659,6 +821,35 @@ def test_current_topology_question_does_not_trigger_impact_rejection() -> None:
     assert outcome.disposition is SemanticPlanningDisposition.PLANNED
     assert (t1.frame_calls, t1.plan_calls) == (1, 1)
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+def test_targetless_topology_question_asks_for_exact_resource_before_candidates() -> None:
+    manifest, definition = _fixture(
+        property_values=_container_app_property_values(),
+        include_resource_type=True,
+    )
+    t1 = _Model(
+        frame=_frame(output_shape="topology_graph", temporal_scope={"kind": "current"}),
+        plan=_plan(definition),
+    )
+    service = SemanticPlanningService(
+        model=t1,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service, utterance="Show topology for my Container App.")
+
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.frame is not None
+    assert outcome.frame.subject_constraints == ("Resource",)
+    assert outcome.frame.output_shape == "ontology_relationships"
+    assert outcome.frame.temporal_scope == {"kind": "current"}
+    assert outcome.execution_authority is False
+    assert outcome.plan is None
+    assert t1.frame_calls == 1
+    assert t1.plan_calls == 0
 
 
 def test_exact_target_impact_builds_service_path_without_t2() -> None:
@@ -866,6 +1057,107 @@ def test_temporal_comparison_exact_activity_frame_is_normalized_without_t2() -> 
     assert outcome.plan.nodes[1].arguments["arguments"] == {"lookback_seconds": 604800}
     assert (t1.frame_calls, t1.plan_calls) == (1, 0)
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+@pytest.mark.parametrize(
+    ("frame", "expected_disposition", "expected_reason"),
+    [
+        (
+            _frame(
+                operation="compare",
+                subject_constraints=["Change"],
+                temporal_scope={"kind": "windowed"},
+                output_shape="temporal_comparison",
+            ),
+            SemanticPlanningDisposition.UNAVAILABLE,
+            "semantic_temporal_comparison_unavailable",
+        ),
+        (
+            _frame(),
+            SemanticPlanningDisposition.UNSUPPORTED,
+            "semantic_plan_invalid",
+        ),
+    ],
+)
+def test_invalid_temporal_comparison_holds_without_widening_other_failures(
+    frame: dict[str, object],
+    expected_disposition: SemanticPlanningDisposition,
+    expected_reason: str,
+) -> None:
+    class _RejectingVerifier:
+        def verify(self, _plan: object, *, manifest: object) -> None:
+            assert manifest is not None
+            raise ValueError("invalid test plan")
+
+    manifest, definition = _fixture()
+    service = SemanticPlanningService(
+        model=_Model(frame=frame, plan=_plan(definition)),
+        manifests=_ManifestProvider(manifest),
+        verifier=_RejectingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is expected_disposition
+    assert outcome.reason == expected_reason
+    assert outcome.execution_authority is False
+
+
+def test_change_comparison_rejects_generic_topology_substitution() -> None:
+    class _ReturningVerifier:
+        def verify(self, plan: Any, *, manifest: object) -> Any:
+            assert manifest is not None
+            return plan
+
+    manifest, _definition = _fixture()
+    t1 = _Model(
+        frame=_frame(
+            operation="compare",
+            subject_constraints=["Change"],
+            measure_concepts=["change_activity_correlation"],
+            temporal_scope={"kind": "windowed"},
+            output_shape="temporal_comparison",
+        ),
+        plan={
+            "nodes": [
+                {
+                    "node_id": "baseline",
+                    "kind": "topology_at",
+                    "depends_on": [],
+                    "arguments": {},
+                    "output_kind": "topology.graph",
+                },
+                {
+                    "node_id": "current",
+                    "kind": "topology_at",
+                    "depends_on": [],
+                    "arguments": {},
+                    "output_kind": "topology.graph",
+                },
+                {
+                    "node_id": "difference",
+                    "kind": "topology_diff",
+                    "depends_on": ["baseline", "current"],
+                    "arguments": {},
+                    "output_kind": "topology.diff",
+                },
+            ],
+            "output_node_ids": ["difference"],
+        },
+    )
+    service = SemanticPlanningService(
+        model=t1,
+        manifests=_ManifestProvider(manifest),
+        verifier=_ReturningVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNAVAILABLE
+    assert outcome.reason == "semantic_temporal_comparison_unavailable"
+    assert outcome.execution_authority is False
 
 
 @pytest.mark.parametrize(
@@ -1478,7 +1770,10 @@ def test_wrong_error_activity_frame_is_not_lexically_rewritten(
 
     assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
     assert outcome.reason == "semantic_plan_invalid"
-    assert outcome.frame is None
+    assert outcome.frame is not None
+    assert outcome.frame.operation is SemanticOperation.EXPLAIN_CHANGE
+    assert outcome.frame.output_shape == "causal_evidence"
+    assert outcome.plan is None
     assert (t1.frame_calls, t1.plan_calls) == (1, 1)
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
@@ -1727,6 +2022,912 @@ def test_unavailable_targetless_t1_frame_discovers_candidates_before_t2() -> Non
     assert outcome.execution_authority is False
 
 
+def test_resource_candidates_do_not_replace_non_resource_operating_subjects() -> None:
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(
+            subject_constraints=["BusinessService", "CostObjective"],
+            unresolved_terms=["business_service_identity"],
+            clarification_requirements=["subject"],
+            clarification="Which business service should I inspect?",
+        )
+    )
+    descriptors = (
+        {
+            "kind": "object",
+            "name": "Resource",
+            "properties": {
+                "type": {
+                    "value_groups": [
+                        {
+                            "terms": ["Container Apps"],
+                            "values": ["compute.container-app"],
+                        }
+                    ]
+                }
+            },
+        },
+        {"kind": "object", "name": "BusinessService"},
+        {"kind": "object", "name": "CostObjective"},
+    )
+
+    assert (
+        resource_target_candidates_apply_to_proposal(
+            proposal,
+            utterance="Show the cost objective for a Container Apps business service.",
+            descriptors=descriptors,
+            inventory_query_language=_target_cardinality_language(),
+        )
+        is False
+    )
+
+
+def test_non_resource_operating_subject_returns_target_clarification() -> None:
+    business_service = OntologyObjectType(
+        schema_version="1.0.0",
+        name="BusinessService",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    cost_objective = OntologyObjectType(
+        schema_version="1.0.0",
+        name="CostObjective",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    manifest, _definition = _fixture(
+        property_values=_container_app_property_values(),
+        include_resource_type=True,
+        additional_object_types=(business_service, cost_objective),
+    )
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(
+            subject_constraints=["BusinessService", "CostObjective"],
+            output_shape="ontology_relationships",
+        )
+    )
+
+    resolved = build_non_resource_target_clarification(
+        proposal,
+        utterance="Show the cost objective for my Container App business service.",
+        context=(),
+        descriptors=manifest.descriptors,
+        inventory_query_language=_target_cardinality_language(),
+    )
+
+    assert resolved is not None
+    resolved_proposal, frame = resolved
+    assert resolved_proposal.clarification_requirements == (ClarificationRequirement.SUBJECT,)
+    assert frame.subject_constraints == ("BusinessService", "CostObjective")
+    assert frame.temporal_scope == {"kind": "current"}
+    assert frame.output_shape == "ontology_relationships"
+
+
+def test_operating_mapping_frame_normalizes_to_current() -> None:
+    business_capability = OntologyObjectType(
+        schema_version="1.0.0",
+        name="BusinessCapability",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    business_service = OntologyObjectType(
+        schema_version="1.0.0",
+        name="BusinessService",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    manifest, definition = _fixture(
+        additional_object_types=(business_capability, business_service),
+    )
+    t1 = _Model(
+        frame=_frame(
+            subject_constraints=["BusinessCapability", "BusinessService"],
+            output_shape="ontology_relationships",
+        ),
+        plan=_plan(definition),
+    )
+    t2 = _Model(frame=None, plan=None)
+
+    outcome = _run(_service(t1, t2, manifest))
+
+    assert outcome.frame is not None
+    assert outcome.frame.subject_constraints == ("BusinessCapability", "BusinessService")
+    assert outcome.frame.temporal_scope == {"kind": "current"}
+
+
+@pytest.mark.parametrize(
+    ("proposed_scope", "expected_scope"),
+    [({}, {"kind": "current"}), ({"kind": "historical"}, {"kind": "historical"})],
+)
+def test_single_endpoint_relationship_uses_current_unless_scope_is_explicit(
+    proposed_scope: dict[str, object],
+    expected_scope: dict[str, object],
+) -> None:
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(
+            subject_constraints=["BusinessCapability"],
+            temporal_scope=proposed_scope,
+            output_shape="ontology_relationships",
+        )
+    )
+    descriptors = (
+        {"kind": "object", "name": "Resource"},
+        {"kind": "object", "name": "BusinessCapability"},
+    )
+
+    _resolved_proposal, frame = normalize_operating_relationship_temporal_scope(
+        proposal,
+        build_semantic_frame(proposal, utterance="", context=()),
+        utterance="",
+        context=(),
+        descriptors=descriptors,
+    )
+
+    assert frame.temporal_scope == expected_scope
+
+
+@pytest.mark.parametrize(
+    ("utterance", "clarification"),
+    [
+        (
+            "Trace a decision through its action run to the observed outcome.",
+            "Provide the exact DecisionCase name or ID?",
+        ),
+        (
+            "의사 결정에서 작업 실행을 거쳐 관측된 결과까지 추적해 주세요.",
+            "추적할 정확한 DecisionCase 이름 또는 ID를 알려주세요?",
+        ),
+    ],
+)
+def test_decision_outcome_relationship_restores_lineage_and_requests_target(
+    utterance: str,
+    clarification: str,
+) -> None:
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(
+            subject_constraints=["ActionRun", "Decision", "DecisionCase", "ObservedOutcome"],
+            temporal_scope={"kind": "current"},
+            output_shape="ontology_relationships",
+        )
+    )
+    descriptors = tuple(
+        {"kind": "object", "name": name}
+        for name in (
+            "Resource",
+            "Decision",
+            "DecisionCase",
+            "ActionOption",
+            "ActionRun",
+            "ObservedOutcome",
+        )
+    )
+
+    resolved, frame = normalize_decision_outcome_relationship(
+        proposal,
+        build_semantic_frame(proposal, utterance=utterance, context=()),
+        utterance=utterance,
+        context=(),
+        descriptors=descriptors,
+    )
+
+    assert frame.subject_constraints == (
+        "DecisionCase",
+        "ActionOption",
+        "ActionRun",
+        "ObservedOutcome",
+    )
+    assert frame.temporal_scope == {"kind": "historical"}
+    assert resolved.clarification_requirements == (ClarificationRequirement.SUBJECT,)
+    assert resolved.clarification == clarification
+
+
+def test_decision_outcome_relationship_clarifies_before_plan_proposal() -> None:
+    object_types = tuple(
+        OntologyObjectType(
+            schema_version="1.0.0",
+            name=name,
+            version="1.0.0",
+            key="id",
+            properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+        )
+        for name in (
+            "Decision",
+            "DecisionCase",
+            "ActionOption",
+            "ActionRun",
+            "ObservedOutcome",
+        )
+    )
+    manifest, _definition = _fixture(additional_object_types=object_types)
+    model = _Model(
+        frame=_frame(
+            subject_constraints=["ActionRun", "Decision", "DecisionCase", "ObservedOutcome"],
+            temporal_scope={"kind": "current"},
+            output_shape="ontology_relationships",
+        ),
+        plan=None,
+    )
+    service = SemanticPlanningService(
+        model=model,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(
+        service,
+        utterance=(
+            "Trace a decision through its chosen option and action run to the observed outcome."
+        ),
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.frame is not None
+    assert outcome.frame.subject_constraints == (
+        "DecisionCase",
+        "ActionOption",
+        "ActionRun",
+        "ObservedOutcome",
+    )
+    assert outcome.frame.temporal_scope == {"kind": "historical"}
+    assert outcome.execution_authority is False
+    assert outcome.plan is None
+    assert model.plan_calls == 0
+
+
+def test_operating_intent_clarification_restores_reviewed_service_endpoint() -> None:
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(
+            subject_constraints=["CostObjective"],
+            output_shape="ontology_relationships",
+        )
+    )
+    descriptors = (
+        {
+            "kind": "object",
+            "name": "Resource",
+            "properties": {
+                "type": {
+                    "value_groups": [
+                        {
+                            "terms": ["Container Apps"],
+                            "values": ["compute.container-app"],
+                        }
+                    ]
+                }
+            },
+        },
+        {"kind": "object", "name": "BusinessService"},
+        {"kind": "object", "name": "CostObjective"},
+        {
+            "kind": "link",
+            "name": "service_has_cost_objective",
+            "from_type": "BusinessService",
+            "to_type": "CostObjective",
+        },
+    )
+
+    resolved = build_non_resource_target_clarification(
+        proposal,
+        utterance="Container Apps 비용 목표를 보여 주세요.",
+        context=(),
+        descriptors=descriptors,
+        inventory_query_language=_target_cardinality_language(),
+    )
+
+    assert resolved is not None
+    _resolved_proposal, frame = resolved
+    assert frame.subject_constraints == ("BusinessService", "CostObjective")
+    assert frame.temporal_scope == {"kind": "current"}
+
+
+def test_lone_business_service_restores_reviewed_objective_endpoint() -> None:
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(
+            subject_constraints=["BusinessService"],
+            output_shape="ontology_relationships",
+        )
+    )
+    descriptors = (
+        {
+            "kind": "object",
+            "name": "Resource",
+            "properties": {
+                "type": {
+                    "value_groups": [
+                        {
+                            "terms": ["Container Apps"],
+                            "values": ["compute.container-app"],
+                        }
+                    ]
+                }
+            },
+        },
+        {"kind": "object", "name": "BusinessService"},
+        {"kind": "object", "name": "CostObjective"},
+        {
+            "kind": "link",
+            "name": "service_has_cost_objective",
+            "from_type": "BusinessService",
+            "to_type": "CostObjective",
+        },
+    )
+
+    resolved = build_non_resource_target_clarification(
+        proposal,
+        utterance="Container Apps 비즈니스 서비스의 목표를 보여 주세요.",
+        context=(),
+        descriptors=descriptors,
+        inventory_query_language=_target_cardinality_language(),
+    )
+
+    assert resolved is not None
+    _resolved_proposal, frame = resolved
+    assert frame.subject_constraints == ("BusinessService", "CostObjective")
+    assert frame.temporal_scope == {"kind": "current"}
+
+
+def test_invalid_non_resource_frame_recovers_to_target_clarification() -> None:
+    business_service = OntologyObjectType(
+        schema_version="1.0.0",
+        name="BusinessService",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    cost_objective = OntologyObjectType(
+        schema_version="1.0.0",
+        name="CostObjective",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    manifest, definition = _fixture(
+        property_values=_container_app_property_values(),
+        include_resource_type=True,
+        additional_object_types=(business_service, cost_objective),
+    )
+    t1 = _Model(
+        frame=_frame(
+            subject_constraints=["Resource"],
+            output_shape="resource_target_candidates",
+            unresolved_terms=["resource_identity"],
+            clarification_requirements=["resource_identity"],
+            clarification="Which exact resource should I inspect?",
+        ),
+        plan=None,
+    )
+    t2 = _Model(frame=_frame(), plan=_plan(definition))
+    judgment = SemanticJudgmentBoundary(
+        profile_id="semantic-planning.test",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=_OperatingSubjectJudgmentModel(),
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+    )
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        semantic_judgment=judgment,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        inventory_query_language=_target_cardinality_language(),
+        now=lambda: NOW,
+    )
+
+    outcome = _run(
+        service,
+        utterance="Show the cost objective for my Container App business service.",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.frame is not None
+    assert outcome.frame.subject_constraints == ("BusinessService", "CostObjective")
+    assert outcome.frame.temporal_scope == {"kind": "current"}
+    assert outcome.frame.output_shape == "ontology_relationships"
+    assert (t1.frame_calls, t2.frame_calls) == (1, 0)
+
+
+def test_invalid_korean_objective_frame_preserves_manifest_subject() -> None:
+    business_service = OntologyObjectType(
+        schema_version="1.0.0",
+        name="BusinessService",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    cost_objective = OntologyObjectType(
+        schema_version="1.0.0",
+        name="CostObjective",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    manifest, definition = _fixture(
+        property_values=_container_app_property_values(),
+        include_resource_type=True,
+        additional_object_types=(business_service, cost_objective),
+        additional_link_types=(
+            OntologyLinkType(
+                schema_version="1.0.0",
+                name="service_has_cost_objective",
+                version="1.0.0",
+                from_type="BusinessService",
+                to_type="CostObjective",
+                cardinality=LinkCardinality.MANY_TO_MANY,
+            ),
+        ),
+    )
+    t1 = _Model(
+        frame=_frame(
+            subject_constraints=["CostObjective"],
+            output_shape="ontology_declaration",
+        ),
+        plan=None,
+    )
+    t2 = _Model(frame=None, plan=_plan(definition))
+
+    outcome = _run(
+        _service(
+            t1,
+            t2,
+            manifest,
+            inventory_query_language=_target_cardinality_language(),
+        ),
+        utterance=("Container Apps 비즈니스 서비스의 검토된 비용 목표와 기간을 보여 주세요."),
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.frame is not None
+    assert outcome.frame.subject_constraints == ("BusinessService", "CostObjective")
+    assert outcome.frame.temporal_scope == {"kind": "current"}
+    assert outcome.plan is None
+    assert (t1.frame_calls, t1.plan_calls) == (1, 0)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+@pytest.mark.parametrize(
+    "utterance",
+    (
+        (
+            "Show the reviewed cost objective, target, and period for a Container Apps "
+            "business service without presenting the objective as observed spend or "
+            "realized savings."
+        ),
+        (
+            "Container Apps 비즈니스 서비스의 검토된 비용 목표, 대상 값, 기간을 보여 주고 "
+            "이를 관측된 지출이나 실현된 절감액으로 표현하지 마세요."
+        ),
+    ),
+    ids=("en", "ko"),
+)
+def test_valid_broad_resource_frame_recovers_non_resource_target_clarification(
+    utterance: str,
+) -> None:
+    business_service = OntologyObjectType(
+        schema_version="1.0.0",
+        name="BusinessService",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    cost_objective = OntologyObjectType(
+        schema_version="1.0.0",
+        name="CostObjective",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    manifest, definition = _fixture(
+        property_values=_container_app_property_values(),
+        include_resource_type=True,
+        additional_object_types=(business_service, cost_objective),
+    )
+    t1 = _Model(frame=_frame(), plan=_plan(definition))
+    t2 = _Model(frame=None, plan=None)
+    judgment = SemanticJudgmentBoundary(
+        profile_id="semantic-planning.test",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=_OperatingSubjectJudgmentModel(),
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+    )
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        semantic_judgment=judgment,
+        manifests=_ManifestProvider(manifest),
+        verifier=OntologyQueryPlanVerifier(available_kinds=(QueryNodeKind.OBJECT_SET,)),
+        inventory_query_language=_target_cardinality_language(),
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service, utterance=utterance)
+
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.frame is not None
+    assert outcome.frame.subject_constraints == ("BusinessService", "CostObjective")
+    assert outcome.frame.temporal_scope == {"kind": "current"}
+    assert outcome.frame.output_shape == "ontology_relationships"
+    assert outcome.plan is None
+    assert (t1.frame_calls, t1.plan_calls) == (1, 0)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+def test_unavailable_cost_objective_frame_recovers_target_clarification() -> None:
+    business_service = OntologyObjectType(
+        schema_version="1.0.0",
+        name="BusinessService",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    cost_objective = OntologyObjectType(
+        schema_version="1.0.0",
+        name="CostObjective",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    manifest, _definition = _fixture(
+        property_values=_container_app_property_values(),
+        include_resource_type=True,
+        additional_object_types=(business_service, cost_objective),
+    )
+    t1 = _Model(frame=None, plan=None)
+    t2 = _Model(frame=None, plan=None)
+
+    outcome = _run(
+        _service(
+            t1,
+            t2,
+            manifest,
+            inventory_query_language=_target_cardinality_language(),
+        ),
+        utterance=("Show the reviewed cost objective for a Container Apps business service."),
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.frame is not None
+    assert outcome.frame.subject_constraints == ("BusinessService", "CostObjective")
+    assert outcome.frame.temporal_scope == {"kind": "current"}
+    assert outcome.plan is None
+    assert (t1.frame_calls, t1.plan_calls) == (1, 0)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+def test_partial_cost_objective_frame_recovers_target_clarification() -> None:
+    business_service = OntologyObjectType(
+        schema_version="1.0.0",
+        name="BusinessService",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    cost_objective = OntologyObjectType(
+        schema_version="1.0.0",
+        name="CostObjective",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    manifest, definition = _fixture(
+        property_values=_container_app_property_values(),
+        include_resource_type=True,
+        additional_object_types=(business_service, cost_objective),
+    )
+    t1 = _Model(
+        frame=_frame(
+            subject_constraints=["BusinessService", "target", "period"],
+            output_shape="ontology_relationships",
+        ),
+        plan=_plan(definition),
+    )
+    t2 = _Model(frame=None, plan=None)
+
+    outcome = _run(
+        _service(
+            t1,
+            t2,
+            manifest,
+            inventory_query_language=_target_cardinality_language(),
+        ),
+        utterance=("Show the reviewed cost objective for a Container Apps business service."),
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.frame is not None
+    assert outcome.frame.subject_constraints == ("BusinessService", "CostObjective")
+    assert outcome.frame.temporal_scope == {"kind": "current"}
+    assert outcome.plan is None
+    assert (t1.frame_calls, t1.plan_calls) == (1, 0)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+@pytest.mark.parametrize(
+    "utterance",
+    (
+        "Show the cost objective for a Container Apps business service.",
+        "Container Apps 비즈니스 서비스의 비용 목표를 보여 주세요.",
+    ),
+    ids=("en", "ko"),
+)
+def test_valid_non_resource_objective_frame_requires_exact_target(
+    utterance: str,
+) -> None:
+    business_service = OntologyObjectType(
+        schema_version="1.0.0",
+        name="BusinessService",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    cost_objective = OntologyObjectType(
+        schema_version="1.0.0",
+        name="CostObjective",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    manifest, definition = _fixture(
+        property_values=_container_app_property_values(),
+        include_resource_type=True,
+        additional_object_types=(business_service, cost_objective),
+    )
+    t1 = _Model(
+        frame=_frame(
+            subject_constraints=["BusinessService", "CostObjective"],
+            output_shape="ontology_relationships",
+        ),
+        plan=_plan(definition),
+    )
+    t2 = _Model(frame=None, plan=None)
+
+    outcome = _run(
+        _service(
+            t1,
+            t2,
+            manifest,
+            inventory_query_language=_target_cardinality_language(),
+        ),
+        utterance=utterance,
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.frame is not None
+    assert outcome.frame.subject_constraints == ("BusinessService", "CostObjective")
+    assert outcome.frame.temporal_scope == {"kind": "current"}
+    assert outcome.plan is None
+    assert (t1.frame_calls, t1.plan_calls) == (1, 0)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+@pytest.mark.parametrize(
+    "utterance",
+    (
+        "List all Container Apps business services and their cost objectives.",
+        "모든 Container Apps 비즈니스 서비스와 비용 목표를 목록으로 보여 주세요.",
+    ),
+    ids=("en", "ko"),
+)
+def test_non_resource_collection_does_not_become_target_clarification(
+    utterance: str,
+) -> None:
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(subject_constraints=["BusinessService", "CostObjective"])
+    )
+    descriptors = (
+        {"kind": "object", "name": "Resource"},
+        {"kind": "object", "name": "BusinessService"},
+        {"kind": "object", "name": "CostObjective"},
+        {
+            "kind": "property_value",
+            "object_type": "Resource",
+            "property": "type",
+            "canonical_value": "compute.container-app",
+            "query_terms": ["Container Apps"],
+        },
+    )
+
+    assert (
+        build_non_resource_target_clarification(
+            proposal,
+            utterance=utterance,
+            context=(),
+            descriptors=descriptors,
+            inventory_query_language=_target_cardinality_language(),
+        )
+        is None
+    )
+
+
+@pytest.mark.parametrize(
+    ("utterance", "query_term"),
+    (
+        (
+            "Identify which declared business capabilities have reviewed service mappings.",
+            "service",
+        ),
+        ("검토된 서비스 매핑이 있는 선언된 비즈니스 기능을 식별해 주세요.", "서비스"),
+    ),
+    ids=("en", "ko"),
+)
+def test_unknown_cardinality_non_resource_mapping_does_not_clarify(
+    utterance: str,
+    query_term: str,
+) -> None:
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(subject_constraints=["BusinessCapability", "BusinessService"])
+    )
+    descriptors = (
+        {"kind": "object", "name": "Resource"},
+        {"kind": "object", "name": "BusinessCapability"},
+        {"kind": "object", "name": "BusinessService"},
+        {
+            "kind": "property_value",
+            "object_type": "Resource",
+            "property": "type",
+            "canonical_value": "compute.service",
+            "query_terms": [query_term],
+        },
+    )
+
+    assert (
+        build_non_resource_target_clarification(
+            proposal,
+            utterance=utterance,
+            context=(),
+            descriptors=descriptors,
+            inventory_query_language=_target_cardinality_language(),
+        )
+        is None
+    )
+
+
+def test_non_resource_objective_with_exact_identity_does_not_clarify() -> None:
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(subject_constraints=["BusinessService", "CostObjective", "service-example-api"])
+    )
+    descriptors = (
+        {"kind": "object", "name": "Resource"},
+        {"kind": "object", "name": "BusinessService"},
+        {"kind": "object", "name": "CostObjective"},
+        {
+            "kind": "property_value",
+            "object_type": "Resource",
+            "property": "type",
+            "canonical_value": "compute.container-app",
+            "query_terms": ["Container Apps"],
+        },
+    )
+
+    assert (
+        build_non_resource_target_clarification(
+            proposal,
+            utterance="Show the cost objective for service-example-api Container Apps service.",
+            context=(),
+            descriptors=descriptors,
+            inventory_query_language=_target_cardinality_language(),
+        )
+        is None
+    )
+
+
+def test_judgment_subject_recovery_ignores_unbound_canonical_target() -> None:
+    descriptors = (
+        {"kind": "object", "name": "Resource"},
+        {"kind": "object", "name": "BusinessService"},
+    )
+    judgment = {
+        "targets": [
+            {
+                "kind": "object_type",
+                "canonical_value": "CostObjective",
+            }
+        ]
+    }
+
+    assert _judgment_object_subjects(judgment, descriptors=descriptors) == ()
+
+
+def test_judgment_subject_recovery_binds_exact_source_values() -> None:
+    descriptors = (
+        {"kind": "object", "name": "Resource"},
+        {"kind": "object", "name": "BusinessService"},
+        {"kind": "object", "name": "CostObjective"},
+    )
+    judgment = {
+        "targets": [
+            {"kind": "object_type", "value": "cost objective"},
+            {"kind": "object_type", "value": "business service"},
+        ]
+    }
+
+    assert _judgment_object_subjects(judgment, descriptors=descriptors) == (
+        "BusinessService",
+        "CostObjective",
+    )
+
+
+def test_judgment_subject_recovery_accepts_manifest_backed_canonical_targets() -> None:
+    descriptors = (
+        {"kind": "object", "name": "Resource"},
+        {"kind": "object", "name": "BusinessService"},
+        {"kind": "object", "name": "CostObjective"},
+    )
+    judgment = {
+        "targets": [
+            {
+                "kind": "objective",
+                "value": "cost objective",
+                "canonical_value": "CostObjective",
+            },
+            {
+                "kind": "service",
+                "value": "business service",
+                "canonical_value": "BusinessService",
+            },
+        ]
+    }
+
+    assert _judgment_object_subjects(judgment, descriptors=descriptors) == (
+        "BusinessService",
+        "CostObjective",
+    )
+
+
+def test_judgment_link_intent_recovers_manifest_endpoints() -> None:
+    descriptors = (
+        {"kind": "object", "name": "Resource"},
+        {"kind": "object", "name": "BusinessService"},
+        {"kind": "object", "name": "CostObjective"},
+        {
+            "kind": "link",
+            "name": "service_has_cost_objective",
+            "from_type": "BusinessService",
+            "to_type": "CostObjective",
+        },
+    )
+
+    assert _judgment_link_subjects(
+        {"primary_intent": "query.service_has_cost_objective"},
+        descriptors=descriptors,
+        required_subjects=("BusinessService",),
+    ) == ("BusinessService", "CostObjective")
+
+
+def test_unrelated_judgment_link_intent_does_not_replace_object_subject() -> None:
+    descriptors = (
+        {"kind": "object", "name": "BusinessCapability"},
+        {"kind": "object", "name": "BusinessService"},
+        {"kind": "object", "name": "ServiceObjective"},
+        {
+            "kind": "link",
+            "name": "service_has_service_objective",
+            "from_type": "BusinessService",
+            "to_type": "ServiceObjective",
+        },
+    )
+
+    assert (
+        _judgment_link_subjects(
+            {"primary_intent": "query.service_has_service_objective"},
+            descriptors=descriptors,
+            required_subjects=("BusinessCapability",),
+        )
+        == ()
+    )
+
+
 def test_unavailable_targetless_collection_frame_does_not_reduce_to_candidates() -> None:
     manifest, definition = _fixture(
         property_values=_container_app_property_values(),
@@ -1770,6 +2971,8 @@ def test_invalid_t1_plan_fails_closed_without_t2() -> None:
 
     assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
     assert outcome.reason == "semantic_plan_invalid"
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == "resource_list"
     assert (t1.frame_calls, t1.plan_calls) == (1, 1)
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
     assert t1.plan_evaluation_times == [NOW]
@@ -1829,6 +3032,96 @@ def test_invalid_targetless_t1_plan_discovers_candidates_before_t2() -> None:
     ]
     assert (t1.frame_calls, t1.plan_calls) == (1, 0)
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+    assert outcome.execution_authority is False
+
+
+def test_targetless_current_state_requests_exact_resource_clarification() -> None:
+    manifest, definition = _fixture(
+        property_values=_container_app_property_values(),
+        include_resource_type=True,
+        function_types=(resource_current_state_function_type(),),
+    )
+    t1 = _Model(
+        frame=_frame(
+            subject_constraints=["Resource"],
+            measure_concepts=["provisioning_status", "running_status"],
+            output_shape="target_current_state",
+            unresolved_terms=["resource_identity"],
+            clarification_requirements=["resource_identity"],
+            clarification="Which exact resource should I inspect?",
+        ),
+        plan={"nodes": [], "output_node_ids": []},
+    )
+    t2 = _Model(frame=_frame(), plan=_plan(definition))
+
+    outcome = _run(
+        _service(t1, t2, manifest),
+        utterance="Report a Container App's current provisioning and running states.",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == "target_current_state"
+    assert outcome.frame.temporal_scope == {}
+    assert outcome.plan is None
+    assert outcome.execution_authority is False
+
+
+def test_current_state_judgment_recovery_preserves_current_candidate_scope() -> None:
+    class _CurrentStateJudgmentModel:
+        def judge(self, **_kwargs: Any) -> dict[str, object]:
+            return {
+                "primary_intent": "query.resource_current_state",
+                "targets": [],
+                "confidence": 0.95,
+                "ambiguous": False,
+                "action_posture": "advise_only",
+                "execution_authority": False,
+            }
+
+    manifest, definition = _fixture(
+        property_values=_container_app_property_values(),
+        include_resource_type=True,
+        function_types=(resource_current_state_function_type(),),
+    )
+    t1 = _Model(
+        frame=_frame(
+            operation="validate",
+            subject_constraints=["Resource"],
+            output_shape="target_current_state",
+        ),
+        plan={"nodes": [], "output_node_ids": []},
+    )
+    t2 = _Model(frame=_frame(), plan=_plan(definition))
+    judgment = SemanticJudgmentBoundary(
+        profile_id="semantic-planning.test",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=_CurrentStateJudgmentModel(),
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+    )
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=OntologyQueryPlanVerifier(available_kinds=(QueryNodeKind.OBJECT_SET,)),
+        semantic_judgment=judgment,
+        now=lambda: NOW,
+    )
+
+    outcome = _run(
+        service,
+        utterance="Report a Container App's current provisioning and running states.",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == "target_current_state"
+    assert outcome.frame.temporal_scope == {}
+    assert outcome.plan is None
     assert outcome.execution_authority is False
 
 
@@ -2053,6 +3346,119 @@ def test_exact_declaration_plan_never_invokes_t2() -> None:
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
+def test_current_relationship_mapping_rejects_function_only_plan() -> None:
+    manifest, _definition = _fixture()
+    t1 = _Model(
+        frame=_frame(
+            subject_constraints=["Resource"],
+            temporal_scope={"kind": "current"},
+            output_shape="ontology_relationships",
+        ),
+        plan=_function_plan(
+            "query.ontology_relationships",
+            output_kind="ontology.relationships",
+            function_arguments={"object_types": ["Resource"], "limit": 100},
+        ),
+    )
+    service = SemanticPlanningService(
+        model=t1,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.reason == "semantic_plan_invalid"
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == "ontology_relationships"
+    assert outcome.frame.temporal_scope == {"kind": "current"}
+
+
+def test_current_relationship_mapping_preserves_endpoint_object_set() -> None:
+    manifest, definition = _fixture()
+    plan = _function_plan(
+        "query.ontology_relationships",
+        output_kind="ontology.relationships",
+        function_arguments={"object_types": ["Resource"], "limit": 100},
+    )
+    plan["nodes"] = [*_plan(definition)["nodes"], *plan["nodes"]]  # type: ignore[misc]
+    plan["output_node_ids"] = ["resources", "function-result"]
+    t1 = _Model(
+        frame=_frame(
+            subject_constraints=["Resource"],
+            temporal_scope={"kind": "current"},
+            output_shape="ontology_relationships",
+        ),
+        plan=plan,
+    )
+    service = SemanticPlanningService(
+        model=t1,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+
+
+def test_current_relationship_mapping_holds_an_empty_endpoint() -> None:
+    manifest, definition = _fixture()
+    plan = _function_plan(
+        "query.ontology_relationships",
+        output_kind="ontology.relationships",
+        function_arguments={"object_types": ["Resource"], "limit": 100},
+    )
+    plan["nodes"] = [*_plan(definition)["nodes"], *plan["nodes"]]  # type: ignore[misc]
+    plan["output_node_ids"] = ["resources", "function-result"]
+    service = SemanticPlanningService(
+        model=_Model(
+            frame=_frame(
+                subject_constraints=["Resource"],
+                temporal_scope={"kind": "current"},
+                output_shape="ontology_relationships",
+            ),
+            plan=plan,
+        ),
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+    planning = _run(service)
+    assert planning.plan is not None
+    empty_execution = QueryPlanExecution(
+        plan_digest=planning.plan.plan_digest,
+        status="completed",
+        results=MappingProxyType(
+            {"resources": QueryNodeResult(value=QueryTable(rows=(), complete=True))}
+        ),
+        receipts=(),
+        output_node_ids=planning.plan.output_node_ids,
+    )
+    populated_execution = QueryPlanExecution(
+        plan_digest=planning.plan.plan_digest,
+        status="completed",
+        results=MappingProxyType(
+            {
+                "resources": QueryNodeResult(
+                    value=QueryTable(
+                        rows=(QueryRow.from_values("resource-a", {"id": "resource-a"}),),
+                        complete=True,
+                    )
+                )
+            }
+        ),
+        receipts=(),
+        output_node_ids=planning.plan.output_node_ids,
+    )
+
+    assert _current_relationship_mapping_unavailable(planning, empty_execution) is True
+    assert _current_relationship_mapping_unavailable(planning, populated_execution) is False
+
+
 def test_declaration_frame_without_exact_measure_fails_closed_without_t2() -> None:
     manifest, _definition = _fixture()
     declaration_plan = _function_plan(
@@ -2121,6 +3527,346 @@ def test_declaration_frame_with_non_select_operation_fails_closed_without_t2() -
     assert outcome.reason == "semantic_plan_invalid"
     assert (t1.frame_calls, t1.plan_calls) == (1, 0)
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+def test_action_draft_frame_terminates_before_plan_without_t2() -> None:
+    manifest, _definition = _fixture()
+    t1 = _Model(
+        frame=_frame(
+            operation="action_draft",
+            subject_constraints=["Incident"],
+            temporal_scope={"kind": "current"},
+            output_shape="action_draft",
+            evidence_requirements=["verified_incident_evidence"],
+        ),
+        plan=None,
+    )
+    t2 = _Model(frame=_frame(), plan=None)
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.ACTION_DRAFT
+    assert outcome.reason == "governed_action_draft_required"
+    assert outcome.frame is not None
+    assert outcome.frame.operation is SemanticOperation.ACTION_DRAFT
+    assert outcome.frame.output_shape == "action_draft"
+    assert (t1.frame_calls, t1.plan_calls) == (1, 0)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+def test_bound_incident_supplies_missing_action_draft_subject() -> None:
+    manifest, _definition = _fixture()
+    t1 = _Model(
+        frame=_frame(
+            operation="action_draft",
+            subject_constraints=["review-only request"],
+            temporal_scope={"kind": "current"},
+            output_shape="action_draft",
+        ),
+        plan=None,
+    )
+    service = SemanticPlanningService(
+        model=t1,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = service.plan(
+        utterance="Draft a review-only mitigation proposal.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        bound_incident=BoundIncident(
+            incident_id="incident-a",
+            correlation_id="correlation-a",
+        ),
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.ACTION_DRAFT
+    assert outcome.frame is not None
+    assert outcome.frame.subject_constraints == ("Incident", "review-only request")
+    assert t1.plan_calls == 0
+
+
+def test_empty_unbound_action_draft_defaults_to_action_type_subject() -> None:
+    manifest, _definition = _fixture()
+    t1 = _Model(
+        frame=_frame(
+            operation="action_draft",
+            subject_constraints=[],
+            output_shape="action_draft",
+        ),
+        plan=None,
+    )
+    service = SemanticPlanningService(
+        model=t1,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.ACTION_DRAFT
+    assert outcome.frame is not None
+    assert outcome.frame.subject_constraints == ("ActionType",)
+    assert outcome.frame.temporal_scope == {}
+    assert t1.plan_calls == 0
+
+
+def test_low_confidence_draft_posture_can_only_lower_to_action_draft() -> None:
+    manifest, _definition = _fixture()
+    t1 = _Model(frame=_frame(), plan=None)
+    judgment = SemanticJudgmentBoundary(
+        profile_id="semantic-planning.test",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=_LowConfidenceDraftJudgmentModel(),
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+    )
+    service = SemanticPlanningService(
+        model=t1,
+        semantic_judgment=judgment,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service, utterance="Draft a review-only incident mitigation proposal.")
+
+    assert outcome.disposition is SemanticPlanningDisposition.ACTION_DRAFT
+    assert outcome.frame is not None
+    assert outcome.frame.subject_constraints == ("Change",)
+    assert outcome.execution_authority is False
+
+
+def test_low_confidence_advise_posture_does_not_replace_candidate_frame() -> None:
+    manifest, definition = _fixture()
+    t1 = _Model(frame=_frame(), plan=_plan(definition))
+    judgment_model = _OperatingSubjectJudgmentModel()
+    original_judge = judgment_model.judge
+
+    def low_confidence_judge(**kwargs: Any) -> dict[str, object]:
+        proposal = original_judge(**kwargs)
+        proposal["confidence"] = 0.5
+        return proposal
+
+    judgment_model.judge = low_confidence_judge  # type: ignore[method-assign]
+    judgment = SemanticJudgmentBoundary(
+        profile_id="semantic-planning.test",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=judgment_model,
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+    )
+    service = SemanticPlanningService(
+        model=t1,
+        semantic_judgment=judgment,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service, utterance="Show the cost objective for a business service.")
+
+    assert outcome.frame is not None
+    assert outcome.frame.subject_constraints == ("Resource",)
+    assert outcome.frame.output_shape == "resource_list"
+    assert outcome.execution_authority is False
+
+
+def test_t1_draft_judgment_is_forwarded_to_frame_planning() -> None:
+    manifest, _definition = _fixture()
+    t1 = _JudgmentAwareModel(
+        frame=_frame(
+            operation="action_draft",
+            subject_constraints=["ActionType"],
+            output_shape="action_draft",
+        ),
+        plan=None,
+    )
+    judgment = SemanticJudgmentBoundary(
+        profile_id="semantic-planning.test",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=_DraftJudgmentModel(),
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+    )
+    service = SemanticPlanningService(
+        model=t1,
+        semantic_judgment=judgment,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service, utterance="Draft a rollback proposal")
+
+    assert outcome.disposition is SemanticPlanningDisposition.ACTION_DRAFT
+    assert outcome.frame is not None
+    assert outcome.frame.subject_constraints == ("Change",)
+    assert outcome.frame.temporal_scope == {"kind": "historical"}
+    assert t1.plan_calls == 0
+
+
+def test_typed_draft_judgment_canonicalizes_mismatched_candidate_frame() -> None:
+    manifest, _definition = _fixture()
+    t1 = _Model(frame=_frame(), plan=None)
+    judgment = SemanticJudgmentBoundary(
+        profile_id="semantic-planning.test",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=_DraftJudgmentModel(),
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+    )
+    service = SemanticPlanningService(
+        model=t1,
+        semantic_judgment=judgment,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service, utterance="Draft a rollback proposal")
+
+    assert outcome.disposition is SemanticPlanningDisposition.ACTION_DRAFT
+    assert outcome.frame is not None
+    assert outcome.frame.operation is SemanticOperation.ACTION_DRAFT
+    assert outcome.frame.subject_constraints == ("Change",)
+    assert outcome.frame.temporal_scope == {"kind": "historical"}
+    assert outcome.frame.output_shape == "action_draft"
+    assert outcome.execution_authority is False
+    assert (t1.frame_calls, t1.plan_calls) == (1, 0)
+
+
+def test_draft_judgment_preserves_verified_frame_artifact_subject() -> None:
+    manifest, _definition = _fixture()
+    t1 = _Model(
+        frame=_frame(
+            operation="action_draft",
+            subject_constraints=["Rule", "remediate.restrict-network-access"],
+            output_shape="action_draft",
+        ),
+        plan=None,
+    )
+    judgment = SemanticJudgmentBoundary(
+        profile_id="semantic-planning.test",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=_ActionTypeOnlyDraftJudgmentModel(),
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+    )
+    service = SemanticPlanningService(
+        model=t1,
+        semantic_judgment=judgment,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(
+        service,
+        utterance="Draft remediate.restrict-network-access from the active Rule",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.ACTION_DRAFT
+    assert outcome.frame is not None
+    assert outcome.frame.subject_constraints == (
+        "Rule",
+        "remediate.restrict-network-access",
+    )
+    assert outcome.frame.temporal_scope == {}
+
+
+def test_incomplete_action_draft_does_not_invent_action_type_subject() -> None:
+    manifest, _definition = _fixture()
+    t1 = _Model(
+        frame=_frame(
+            operation="action_draft",
+            subject_constraints=["PostgreSQL Flexible Server"],
+            unresolved_terms=["resource_identity"],
+            clarification_requirements=["resource_identity"],
+            output_shape="action_draft",
+        ),
+        plan=None,
+    )
+    service = SemanticPlanningService(
+        model=t1,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.frame is not None
+    assert outcome.frame.subject_constraints == ("PostgreSQL Flexible Server",)
+    assert t1.plan_calls == 0
+
+
+@pytest.mark.parametrize(
+    ("subject_constraints", "proposed_scope", "expected_scope"),
+    [
+        (("ActionType",), {"kind": "current"}, {}),
+        (("Change",), {"kind": "current"}, {"kind": "historical"}),
+        (("Incident",), {}, {"kind": "current"}),
+        (("RecoveryPlan",), {}, {"kind": "current"}),
+        (("Rule", "remediate.restrict-network-access"), {"kind": "current"}, {}),
+    ],
+)
+def test_action_draft_derives_temporal_scope_from_subject_type(
+    subject_constraints: tuple[str, ...],
+    proposed_scope: dict[str, str],
+    expected_scope: dict[str, str],
+) -> None:
+    manifest, _definition = _fixture()
+    t1 = _Model(
+        frame=_frame(
+            operation="action_draft",
+            subject_constraints=list(subject_constraints),
+            temporal_scope=proposed_scope,
+            output_shape="action_draft",
+        ),
+        plan=None,
+    )
+    service = SemanticPlanningService(
+        model=t1,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.ACTION_DRAFT
+    assert outcome.frame is not None
+    assert outcome.frame.subject_constraints == subject_constraints
+    assert outcome.frame.temporal_scope == expected_scope
+    assert t1.plan_calls == 0
 
 
 def test_all_requested_declaration_sections_must_be_outputs() -> None:
@@ -2524,7 +4270,7 @@ def test_incident_function_cannot_satisfy_resource_frame() -> None:
 def _incident_evidence_plan(*, incident_id: str, correlation_id: str) -> dict[str, object]:
     plan = _function_plan("query.incident_evidence", output_kind="incident.evidence")
     node = plan["nodes"][0]  # type: ignore[index]
-    node["arguments"]["arguments"] = {  # type: ignore[index]
+    node["arguments"]["arguments"] = {
         "incident_id": incident_id,
         "correlation_id": correlation_id,
         "limit": 50,
@@ -2632,6 +4378,3546 @@ def test_anchored_incident_read_is_built_from_the_binding_without_a_plan_proposa
         "limit": INCIDENT_EVIDENCE_MAX_RECORDS,
     }
     assert outcome.execution_authority is False
+
+
+def test_bound_incident_historical_comparison_holds_without_recurrence_capability() -> None:
+    manifest = _anchored_fixture()
+    model = _Model(
+        frame=_frame(
+            operation="compare",
+            subject_constraints=["Incident"],
+            temporal_scope={"kind": "historical"},
+            output_shape="incident_evidence",
+        ),
+        plan=None,
+    )
+    service = SemanticPlanningService(
+        model=model,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = service.plan(
+        utterance="Compare this incident with retained evidence for recurrence.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        bound_incident=BoundIncident(
+            incident_id="00000000-0000-0000-0000-000000000702",
+            correlation_id="bound-incident",
+        ),
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNAVAILABLE
+    assert outcome.reason == "semantic_incident_recurrence_comparison_unavailable"
+    assert outcome.frame is not None
+    assert outcome.frame.operation is SemanticOperation.COMPARE
+    assert outcome.frame.subject_constraints == ("Incident",)
+    assert outcome.frame.temporal_scope == {"kind": "historical"}
+    assert outcome.plan is None
+    assert model.plan_calls == 0
+
+
+@pytest.mark.parametrize(
+    "primary_intent",
+    ["query.incident_evidence", "query.resource_error_activity_correlation"],
+)
+def test_judgment_recurrence_restores_bound_historical_frame(primary_intent: str) -> None:
+    utterance = "Compare retained incident evidence for recurrence."
+    proposal = SemanticFrameProposal.model_validate(_frame())
+    judgment = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment.update(
+        {
+            "primary_intent": primary_intent,
+            "requested_facets": ["compare", "recurrence_supported"],
+            "targets": [],
+        }
+    )
+    typed_judgment = SemanticJudgmentProposal.model_validate(judgment)
+
+    resolved, frame = resolve_semantic_judgment_bound_read(
+        proposal,
+        build_semantic_frame(proposal, utterance=utterance, context=()),
+        judgment=typed_judgment,
+        bound_incident=True,
+        utterance=utterance,
+        context=(),
+    )
+
+    assert resolved.operation is SemanticOperation.COMPARE
+    assert frame.subject_constraints == ("Incident",)
+    assert frame.temporal_scope == {"kind": "historical"}
+    assert frame.output_shape == "incident_evidence"
+
+
+@pytest.mark.parametrize(
+    "requested_facets",
+    [
+        ["approved_windows", "correlation", "temporal_order_not_cause"],
+        ["approved_windows", "target_resources", "temporal_order_not_causation"],
+        ["approved_windows", "target_resources", "correlation", "changes_recorded"],
+        ["approved_windows", "target_resources", "correlation_without_causation"],
+        ["approved_windows", "without_treating_temporal_order_as_proof_of_cause"],
+        ["approved_windows", "target_resources", "service_paths", "no_causal_inference"],
+        ["approved_time_window", "target_resource", "service_path", "change_activity"],
+        ["approved_time_window", "target_resource", "service_path", "related_changes"],
+        ["approved_time_window", "target_resource", "service_path", "linked_incident"],
+    ],
+)
+def test_judgment_change_correlation_restores_windowed_frame(
+    requested_facets: list[str],
+) -> None:
+    utterance = "Correlate incident changes without treating temporal order as cause."
+    proposal = SemanticFrameProposal.model_validate(_frame())
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": "query.resource_change_activity",
+            "requested_facets": requested_facets,
+            "targets": [],
+        }
+    )
+    judgment = SemanticJudgmentProposal.model_validate(judgment_data)
+
+    _resolved, frame = resolve_semantic_judgment_bound_read(
+        proposal,
+        build_semantic_frame(proposal, utterance=utterance, context=()),
+        judgment=judgment,
+        bound_incident=True,
+        utterance=utterance,
+        context=(),
+    )
+
+    assert frame.operation is SemanticOperation.COMPARE
+    assert frame.subject_constraints == ("Change",)
+    assert frame.temporal_scope == {"kind": "windowed"}
+    assert frame.output_shape == "temporal_comparison"
+
+
+def test_general_incident_relationship_judgment_does_not_become_change_comparison() -> None:
+    utterance = "Show the incident relationship evidence."
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(subject_constraints=["Incident"], output_shape="ontology_relationships")
+    )
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": "query.ontology_relationships",
+            "requested_facets": ["approved_windows", "no_causal_inference"],
+            "targets": [],
+        }
+    )
+    judgment = SemanticJudgmentProposal.model_validate(judgment_data)
+
+    _resolved, frame = resolve_semantic_judgment_bound_read(
+        proposal,
+        build_semantic_frame(proposal, utterance=utterance, context=()),
+        judgment=judgment,
+        bound_incident=True,
+        utterance=utterance,
+        context=(),
+    )
+
+    assert frame.operation is SemanticOperation.SELECT
+    assert frame.subject_constraints == ("Incident",)
+    assert frame.temporal_scope == {}
+    assert frame.output_shape == "ontology_relationships"
+
+
+def test_windowed_change_activity_without_change_or_incident_facet_stays_select() -> None:
+    utterance = "Show resource activity in the approved window."
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(subject_constraints=["Change"], output_shape="ontology_relationships")
+    )
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": "query.resource_change_activity",
+            "requested_facets": ["approved_time_window", "target_resource"],
+            "targets": [],
+        }
+    )
+    judgment = SemanticJudgmentProposal.model_validate(judgment_data)
+
+    _resolved, frame = resolve_semantic_judgment_bound_read(
+        proposal,
+        build_semantic_frame(proposal, utterance=utterance, context=()),
+        judgment=judgment,
+        bound_incident=True,
+        utterance=utterance,
+        context=(),
+    )
+
+    assert frame.operation is SemanticOperation.SELECT
+    assert frame.subject_constraints == ("Change",)
+    assert frame.output_shape == "ontology_relationships"
+
+
+@pytest.mark.parametrize(
+    ("primary_intent", "requested_facets"),
+    [
+        (
+            "query.resource_change_activity",
+            ["completed_change", "recovery_outcomes", "regression_outcomes"],
+        ),
+        (
+            "query.resource_event_history",
+            ["completed_change", "unresolved_outcome", "observed_results"],
+        ),
+        (
+            "query.incident_evidence",
+            [
+                "completed_change",
+                "recovery",
+                "regression",
+                "unresolved_result",
+                "independently_observed",
+            ],
+        ),
+    ],
+)
+def test_completed_change_outcome_restores_historical_relationship_frame(
+    primary_intent: str,
+    requested_facets: list[str],
+) -> None:
+    utterance = "Inspect the completed change outcome."
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(
+            subject_constraints=["Change", "Incident"],
+            output_shape="ontology_relationships",
+        )
+    )
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": primary_intent,
+            "requested_facets": requested_facets,
+            "targets": [],
+        }
+    )
+
+    _resolved, frame = resolve_semantic_judgment_bound_read(
+        proposal,
+        build_semantic_frame(proposal, utterance=utterance, context=()),
+        judgment=SemanticJudgmentProposal.model_validate(judgment_data),
+        bound_incident=True,
+        utterance=utterance,
+        context=(),
+    )
+
+    assert frame.operation is SemanticOperation.SELECT
+    assert frame.subject_constraints == ("Change",)
+    assert is_completed_change_outcome_frame(frame)
+    assert "change_outcome_relationship" not in frame.measure_concepts
+    assert frame.temporal_scope == {"kind": "historical"}
+    assert frame.output_shape == "ontology_relationships"
+
+
+def test_recurrence_precedes_completed_change_outcome_for_incident_evidence() -> None:
+    utterance = "Compare recurrence evidence after the completed change."
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(subject_constraints=["Incident"], output_shape="ontology_relationships")
+    )
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": "query.incident_evidence",
+            "requested_facets": [
+                "recurrence",
+                "completed_change",
+                "recovery",
+                "regression",
+            ],
+            "targets": [],
+        }
+    )
+
+    _resolved, frame = resolve_semantic_judgment_bound_read(
+        proposal,
+        build_semantic_frame(proposal, utterance=utterance, context=()),
+        judgment=SemanticJudgmentProposal.model_validate(judgment_data),
+        bound_incident=True,
+        utterance=utterance,
+        context=(),
+    )
+
+    assert frame.operation is SemanticOperation.COMPARE
+    assert frame.subject_constraints == ("Incident",)
+    assert frame.temporal_scope == {"kind": "historical"}
+    assert frame.output_shape == "incident_evidence"
+
+
+@pytest.mark.parametrize(
+    "requested_facets",
+    [["completed_change", "incident_linkage"], ["recovery_outcomes", "regression_outcomes"]],
+)
+def test_incomplete_change_outcome_facets_do_not_restore_historical_frame(
+    requested_facets: list[str],
+) -> None:
+    utterance = "Inspect the change relationship."
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(subject_constraints=["Change"], output_shape="ontology_relationships")
+    )
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": "query.resource_change_activity",
+            "requested_facets": requested_facets,
+            "targets": [],
+        }
+    )
+
+    _resolved, frame = resolve_semantic_judgment_bound_read(
+        proposal,
+        build_semantic_frame(proposal, utterance=utterance, context=()),
+        judgment=SemanticJudgmentProposal.model_validate(judgment_data),
+        bound_incident=True,
+        utterance=utterance,
+        context=(),
+    )
+
+    assert frame.temporal_scope == {}
+
+
+@pytest.mark.parametrize(
+    ("primary_intent", "requested_facets"),
+    [
+        (
+            "query.resource_change_activity",
+            ["completed_change", "not_recovery_needed"],
+        ),
+        (
+            "query.resource_change_activity",
+            ["determine_recurrence_supported"],
+        ),
+    ],
+)
+def test_negated_outcome_or_wrong_intent_recurrence_stays_select(
+    primary_intent: str,
+    requested_facets: list[str],
+) -> None:
+    utterance = "Inspect the change relationship."
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(subject_constraints=["Change"], output_shape="ontology_relationships")
+    )
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": primary_intent,
+            "requested_facets": requested_facets,
+            "targets": [],
+        }
+    )
+
+    _resolved, frame = resolve_semantic_judgment_bound_read(
+        proposal,
+        build_semantic_frame(proposal, utterance=utterance, context=()),
+        judgment=SemanticJudgmentProposal.model_validate(judgment_data),
+        bound_incident=True,
+        utterance=utterance,
+        context=(),
+    )
+
+    assert frame.operation is SemanticOperation.SELECT
+    assert frame.subject_constraints == ("Change",)
+    assert frame.temporal_scope == {}
+    assert frame.output_shape == "ontology_relationships"
+
+
+def test_change_outcome_frame_holds_before_unverified_plan_execution() -> None:
+    change = OntologyObjectType(
+        schema_version="1.0.0",
+        name="Change",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    manifest, _definition = _fixture(additional_object_types=(change,))
+    model = _Model(
+        frame=_frame(
+            subject_constraints=["Change"],
+            measure_concepts=["completed_change", "recovery_outcomes"],
+            temporal_scope={"kind": "historical"},
+            output_shape="ontology_relationships",
+        ),
+        plan=None,
+    )
+    service = SemanticPlanningService(
+        model=model,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service, utterance="Inspect the completed change outcome.")
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNAVAILABLE
+    assert outcome.reason == "semantic_change_outcome_unavailable"
+    assert outcome.execution_authority is False
+    assert outcome.plan is None
+    assert model.plan_calls == 0
+
+
+@pytest.mark.parametrize(
+    ("primary_intent", "requested_facets"),
+    [
+        (
+            "query.resource_change_activity",
+            [
+                "configuration_drift",
+                "separate_evidence",
+                "supports_each_causal_hypothesis",
+                "refutes_each_causal_hypothesis",
+            ],
+        ),
+        (
+            "query.resource_error_activity_correlation",
+            [
+                "configuration_drift",
+                "evidence_supporting_hypotheses",
+                "evidence_refuting_hypotheses",
+            ],
+        ),
+        (
+            "query.resource_event_history",
+            [
+                "drift_presence",
+                "evidence_supports_hypothesis",
+                "evidence_refutes_hypothesis",
+                "causal_hypotheses",
+            ],
+        ),
+    ],
+)
+def test_configuration_drift_judgment_restores_resource_validation_frame(
+    primary_intent: str,
+    requested_facets: list[str],
+) -> None:
+    utterance = "Validate configuration drift evidence for the target resource."
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(
+            subject_constraints=["CausalHypothesis", "EvidenceArtifact"],
+            measure_concepts=["configuration_drift"],
+            output_shape="ontology_relationships",
+        )
+    )
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": primary_intent,
+            "requested_facets": requested_facets,
+            "targets": [],
+        }
+    )
+
+    _resolved, frame = resolve_semantic_judgment_bound_read(
+        proposal,
+        build_semantic_frame(proposal, utterance=utterance, context=()),
+        judgment=SemanticJudgmentProposal.model_validate(judgment_data),
+        bound_incident=False,
+        utterance=utterance,
+        context=(),
+    )
+
+    assert is_configuration_drift_evidence_frame(frame)
+    assert frame.operation is SemanticOperation.VALIDATE
+    assert frame.subject_constraints == ("Resource",)
+    assert frame.temporal_scope == {"kind": "current"}
+    assert frame.output_shape == "evidence_validation"
+
+
+@pytest.mark.parametrize(
+    ("primary_intent", "requested_facets"),
+    [
+        (
+            "query.target_health_assessment",
+            [
+                "stale_relationships",
+                "incomplete_relationships",
+                "conflicting_relationships",
+                "service_to_resource_relationships",
+                "health_conclusion",
+            ],
+        ),
+        (
+            "query.target_health_assessment",
+            [
+                "status_conclusion_support",
+                "service_resource_relationship",
+                "staleness",
+                "incompleteness",
+                "conflict",
+            ],
+        ),
+        (
+            "query.resource_state_inventory",
+            [
+                "service",
+                "resource",
+                "relationship",
+                "stale",
+                "incomplete",
+                "conflicting",
+                "state_conclusion",
+            ],
+        ),
+        (
+            "query.target_health_assessment",
+            [
+                "status_conclusion",
+                "supporting_evidence",
+                "service_resource_relation",
+                "authorization_scope",
+            ],
+        ),
+    ],
+)
+def test_service_relationship_evidence_gap_restores_validation_frame(
+    primary_intent: str,
+    requested_facets: list[str],
+) -> None:
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(
+            subject_constraints=["Resource"],
+            temporal_scope={"kind": "current"},
+            output_shape="evidence_validation",
+        )
+    )
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": primary_intent,
+            "requested_facets": requested_facets,
+            "targets": [],
+        }
+    )
+
+    _resolved, frame = resolve_semantic_judgment_bound_read(
+        proposal,
+        build_semantic_frame(proposal, utterance="", context=()),
+        judgment=SemanticJudgmentProposal.model_validate(judgment_data),
+        bound_incident=False,
+        utterance="",
+        context=(),
+    )
+
+    assert frame.operation is SemanticOperation.VALIDATE
+    assert frame.subject_constraints == ("BusinessService", "Workload", "Resource")
+    assert frame.temporal_scope == {"kind": "current"}
+    assert frame.output_shape == "evidence_validation"
+
+
+@pytest.mark.parametrize(
+    ("primary_intent", "requested_facets"),
+    [
+        (
+            "query.target_health_assessment",
+            [
+                "freshness",
+                "completeness",
+                "conflicts",
+                "revisions",
+                "evidence",
+                "scope",
+                "authorized_scope",
+                "healthy_result",
+            ],
+        ),
+        (
+            "query.resource_health_inventory",
+            [
+                "freshness",
+                "completeness",
+                "conflicts",
+                "revisions",
+                "network_resource_evidence",
+                "compute_resource_evidence",
+                "authorized_scope",
+                "avoid_healthy_result_inference",
+            ],
+        ),
+    ],
+)
+def test_resource_evidence_health_restores_current_validation_frame(
+    primary_intent: str,
+    requested_facets: list[str],
+) -> None:
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(
+            subject_constraints=["BusinessService"],
+            temporal_scope={"kind": "historical"},
+            output_shape="ontology_relationships",
+        )
+    )
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": primary_intent,
+            "requested_facets": requested_facets,
+            "targets": [],
+        }
+    )
+
+    _resolved, frame = resolve_semantic_judgment_bound_read(
+        proposal,
+        build_semantic_frame(proposal, utterance="", context=()),
+        judgment=SemanticJudgmentProposal.model_validate(judgment_data),
+        bound_incident=False,
+        utterance="",
+        context=(),
+    )
+
+    assert frame.operation is SemanticOperation.VALIDATE
+    assert frame.subject_constraints == ("Resource",)
+    assert frame.temporal_scope == {"kind": "current"}
+    assert frame.output_shape == "evidence_validation"
+    assert frame.execution_authority is False
+
+
+@pytest.mark.parametrize(
+    "requested_facets",
+    [
+        ["service_resource_relationship"],
+        ["staleness", "incompleteness", "conflict"],
+    ],
+)
+def test_incomplete_service_relationship_evidence_gap_does_not_normalize(
+    requested_facets: list[str],
+) -> None:
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(
+            subject_constraints=["Resource"],
+            temporal_scope={"kind": "current"},
+            output_shape="evidence_validation",
+        )
+    )
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": "query.target_health_assessment",
+            "requested_facets": requested_facets,
+            "targets": [],
+        }
+    )
+
+    _resolved, frame = resolve_semantic_judgment_bound_read(
+        proposal,
+        build_semantic_frame(proposal, utterance="", context=()),
+        judgment=SemanticJudgmentProposal.model_validate(judgment_data),
+        bound_incident=False,
+        utterance="",
+        context=(),
+    )
+
+    assert frame.subject_constraints == ("Resource",)
+
+
+@pytest.mark.parametrize(
+    ("primary_intent", "requested_facets"),
+    [
+        (
+            "query.incident_evidence",
+            [
+                "verified_symptoms",
+                "affected_scope",
+                "competing_hypotheses",
+                "next_safe_diagnostic_step",
+            ],
+        ),
+        (
+            "query.target_health_assessment",
+            [
+                "validated_symptom",
+                "impact_scope",
+                "competing_hypotheses",
+                "safest_next_diagnostic_step",
+            ],
+        ),
+    ],
+)
+def test_bound_incident_triage_restores_current_validation_frame(
+    primary_intent: str,
+    requested_facets: list[str],
+) -> None:
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(
+            subject_constraints=["Conversation", "Incident"],
+            temporal_scope={"kind": "current"},
+            output_shape="ontology_relationships",
+        )
+    )
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": primary_intent,
+            "requested_facets": requested_facets,
+            "targets": [],
+        }
+    )
+
+    _resolved, frame = resolve_semantic_judgment_bound_read(
+        proposal,
+        build_semantic_frame(proposal, utterance="", context=()),
+        judgment=SemanticJudgmentProposal.model_validate(judgment_data),
+        bound_incident=True,
+        utterance="",
+        context=(),
+    )
+
+    assert is_incident_triage_frame(frame)
+
+
+def test_bound_incident_triage_holds_before_generic_incident_read() -> None:
+    incident = OntologyObjectType(
+        schema_version="1.0.0",
+        name="Incident",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    function = incident_evidence_function_type()
+    release = build_ontology_release(
+        object_types=(incident,),
+        function_types=(function,),
+    )
+    manifest = build_query_manifest(
+        release=release,
+        principal_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        principal_scope_digest=DIGEST,
+        object_types=(incident,),
+        functions=(function,),
+        bound_function_names=(function.name,),
+    )
+    model = _Model(
+        frame=_frame(
+            subject_constraints=["Incident"],
+            temporal_scope={"kind": "current"},
+            output_shape="ontology_relationships",
+        ),
+        plan=None,
+    )
+    judgment_model = _OperatingSubjectJudgmentModel()
+    judgment_model.judge = lambda **_kwargs: {
+        "primary_intent": "query.incident_evidence",
+        "targets": [],
+        "requested_facets": [
+            "verified_symptoms",
+            "affected_scope",
+            "competing_hypotheses",
+            "next_safe_diagnostic_step",
+        ],
+        "confidence": 0.95,
+        "ambiguous": False,
+        "action_posture": "advise_only",
+        "action_subject": "none",
+        "execution_authority": False,
+    }
+    judgment = SemanticJudgmentBoundary(
+        profile_id="semantic-planning.test",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=judgment_model,
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+    )
+    service = SemanticPlanningService(
+        model=model,
+        semantic_judgment=judgment,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = service.plan(
+        utterance="Triage the bound incident.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        bound_incident=BoundIncident(
+            incident_id="00000000-0000-0000-0000-000000000703",
+            correlation_id="bound-triage",
+        ),
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNAVAILABLE
+    assert outcome.reason == "semantic_incident_triage_unavailable"
+    assert outcome.execution_authority is False
+    assert outcome.plan is None
+    assert model.plan_calls == 0
+
+
+@pytest.mark.parametrize(
+    "requested_facets",
+    [
+        ["comparison", "incident_window", "attributed_observations"],
+        ["compare", "incident", "window", "observation", "attribution"],
+        ["comparison", "incident_context", "source_grounded_observations"],
+        ["comparison", "pre_post_incident", "quote_observed_only", "target_attribution"],
+        ["comparison", "citation", "incident_context", "pre_post_incident"],
+    ],
+)
+def test_bound_incident_metric_comparison_builds_windowed_observation_frame(
+    requested_facets: list[str],
+) -> None:
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": "query.resource_metric_series",
+            "requested_facets": requested_facets,
+            "targets": [],
+        }
+    )
+
+    frame = build_bound_incident_metric_comparison_frame(
+        SemanticJudgmentProposal.model_validate(judgment_data),
+        bound_incident=True,
+        utterance="Compare bound incident metrics.",
+        context=(),
+    )
+
+    assert frame is not None
+    assert frame.operation is SemanticOperation.COMPARE
+    assert frame.subject_constraints == ("Observation",)
+    assert frame.temporal_scope == {"kind": "windowed"}
+    assert frame.output_shape == "temporal_comparison"
+    assert frame.execution_authority is False
+
+
+def test_bound_incident_metric_comparison_accepts_allowlisted_declaration_targets() -> None:
+    utterance = "Compare Incident and Resource observations."
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": "query.resource_metric_series",
+            "requested_facets": ["compare", "incident_context"],
+            "targets": [
+                {
+                    "kind": "incident_context",
+                    "value": "Incident",
+                    "canonical_value": "Incident",
+                    "source_start": 8,
+                    "source_end": 16,
+                },
+                {
+                    "kind": "resource_scope",
+                    "value": "Resource",
+                    "canonical_value": "Resource",
+                    "source_start": 21,
+                    "source_end": 29,
+                },
+            ],
+        }
+    )
+
+    frame = build_bound_incident_metric_comparison_frame(
+        SemanticJudgmentProposal.model_validate(judgment_data),
+        bound_incident=True,
+        utterance=utterance,
+        context=(),
+    )
+
+    assert frame is not None
+    assert frame.subject_constraints == ("Observation",)
+    assert frame.execution_authority is False
+
+
+@pytest.mark.parametrize(
+    ("bound_incident", "requested_facets", "canonical_target"),
+    [
+        (False, ["comparison", "incident_window", "attributed_observations"], None),
+        (True, ["comparison", "target_window"], None),
+        (True, ["not_comparison", "incident_window", "attributed_observations"], None),
+        (True, ["comparison", "incident_window", "attributed_observations"], "resource-a"),
+    ],
+)
+def test_incident_metric_comparison_requires_complete_unanchored_bound_judgment(
+    bound_incident: bool,
+    requested_facets: list[str],
+    canonical_target: str | None,
+) -> None:
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": "query.resource_metric_series",
+            "requested_facets": requested_facets,
+            "targets": (
+                []
+                if canonical_target is None
+                else [
+                    {
+                        "kind": "resource",
+                        "value": "resource-a",
+                        "canonical_value": canonical_target,
+                        "source_start": 0,
+                        "source_end": 10,
+                    }
+                ]
+            ),
+        }
+    )
+
+    frame = build_bound_incident_metric_comparison_frame(
+        SemanticJudgmentProposal.model_validate(judgment_data),
+        bound_incident=bound_incident,
+        utterance="Resource comparison.",
+        context=(),
+    )
+
+    assert frame is None
+
+
+def test_bound_incident_metric_comparison_holds_before_frame_model() -> None:
+    observation = OntologyObjectType(
+        schema_version="1.0.0",
+        name="Observation",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    manifest, _definition = _fixture(additional_object_types=(observation,))
+    model = _Model(
+        frame=_frame(operation="explain_change", output_shape="causal_evidence"),
+        plan=None,
+    )
+    judgment_model = _OperatingSubjectJudgmentModel()
+    judgment_model.judge = lambda **_kwargs: {
+        "primary_intent": "query.resource_metric_series",
+        "targets": [],
+        "requested_facets": [
+            "comparison",
+            "incident_window",
+            "backend_latency",
+            "pod_latency",
+            "saturation",
+            "citation_only",
+            "attributed_observations",
+        ],
+        "confidence": 0.95,
+        "ambiguous": False,
+        "action_posture": "advise_only",
+        "action_subject": "none",
+        "execution_authority": False,
+    }
+    judgment = SemanticJudgmentBoundary(
+        profile_id="semantic-planning.test",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=judgment_model,
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+    )
+    service = SemanticPlanningService(
+        model=model,
+        semantic_judgment=judgment,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = service.plan(
+        utterance="Compare bound incident metrics.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        bound_incident=BoundIncident(
+            incident_id="00000000-0000-0000-0000-000000000704",
+            correlation_id="bound-metric-comparison",
+        ),
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNAVAILABLE
+    assert outcome.reason == "semantic_incident_metric_comparison_unavailable"
+    assert outcome.frame is not None
+    assert outcome.frame.operation is SemanticOperation.COMPARE
+    assert outcome.frame.subject_constraints == ("Observation",)
+    assert outcome.frame.temporal_scope == {"kind": "windowed"}
+    assert outcome.execution_authority is False
+    assert outcome.plan is None
+    assert model.frame_calls == 0
+    assert model.plan_calls == 0
+
+
+@pytest.mark.parametrize(
+    "requested_facets",
+    [
+        ["request_path", "next_hop", "virtual_network_peering"],
+        ["network_path", "next_hop", "virtual_network_peering_relationship"],
+    ],
+)
+def test_network_path_judgment_builds_exact_resource_clarification(
+    requested_facets: list[str],
+) -> None:
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": "query.ontology_relationships",
+            "requested_facets": requested_facets,
+            "targets": [],
+        }
+    )
+
+    result = build_network_path_clarification(
+        SemanticJudgmentProposal.model_validate(judgment_data),
+        utterance="Trace the network path.",
+        context=(),
+    )
+
+    assert result is not None
+    proposal, frame = result
+    assert frame.operation is SemanticOperation.SELECT
+    assert frame.subject_constraints == ("Resource",)
+    assert frame.temporal_scope == {"kind": "current"}
+    assert frame.output_shape == "ontology_relationships"
+    assert proposal.clarification_requirements == (ClarificationRequirement.SUBJECT,)
+    assert frame.execution_authority is False
+
+
+def test_resource_activity_judgment_accepts_uncanonicalized_resource_kind() -> None:
+    utterance = "Inspect Container App activity."
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": "query.resource_change_activity",
+            "requested_facets": [
+                "revision",
+                "restart",
+                "configuration_activity",
+                "past_30_minutes",
+            ],
+            "targets": [
+                {
+                    "kind": "resource_kind",
+                    "value": "Container App",
+                    "canonical_value": None,
+                    "source_start": 8,
+                    "source_end": 21,
+                }
+            ],
+        }
+    )
+
+    result = build_resource_activity_clarification(
+        SemanticJudgmentProposal.model_validate(judgment_data),
+        utterance=utterance,
+        context=(),
+    )
+
+    assert result is not None
+    _proposal, frame = result
+    assert frame.subject_constraints == ("Resource",)
+    assert frame.execution_authority is False
+
+
+@pytest.mark.parametrize(
+    ("primary_intent", "requested_facets", "canonical_target"),
+    [
+        ("query.resource_metric_series", ["request_path", "next_hop", "peering"], None),
+        ("query.ontology_relationships", ["request_path", "peering"], None),
+        ("query.ontology_relationships", ["not_request_path", "next_hop", "peering"], None),
+        ("query.ontology_relationships", ["request_path", "next_hop", "peering"], "resource-a"),
+    ],
+)
+def test_network_path_clarification_rejects_incomplete_or_concrete_judgment(
+    primary_intent: str,
+    requested_facets: list[str],
+    canonical_target: str | None,
+) -> None:
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": primary_intent,
+            "requested_facets": requested_facets,
+            "targets": (
+                []
+                if canonical_target is None
+                else [
+                    {
+                        "kind": "resource",
+                        "value": "resource-a",
+                        "canonical_value": canonical_target,
+                        "source_start": 0,
+                        "source_end": 10,
+                    }
+                ]
+            ),
+        }
+    )
+
+    result = build_network_path_clarification(
+        SemanticJudgmentProposal.model_validate(judgment_data),
+        utterance="resource-a network path.",
+        context=(),
+    )
+
+    assert result is None
+
+
+def test_network_path_judgment_clarifies_before_candidate_frame_model() -> None:
+    manifest, _definition = _fixture(include_resource_type=True)
+    model = _Model(frame=_frame(), plan=None)
+    judgment_model = _OperatingSubjectJudgmentModel()
+    judgment_model.judge = lambda **_kwargs: {
+        "primary_intent": "query.ontology_relationships",
+        "targets": [],
+        "requested_facets": [
+            "request_path",
+            "next_hop",
+            "virtual_network_peering",
+            "missing_segments",
+            "conflicting_segments",
+        ],
+        "confidence": 0.95,
+        "ambiguous": False,
+        "action_posture": "advise_only",
+        "action_subject": "none",
+        "execution_authority": False,
+    }
+    judgment = SemanticJudgmentBoundary(
+        profile_id="semantic-planning.test",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=judgment_model,
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+    )
+    service = SemanticPlanningService(
+        model=model,
+        semantic_judgment=judgment,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service, utterance="Trace the network path.")
+
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.reason == "semantic_clarification_required"
+    assert outcome.frame is not None
+    assert outcome.frame.subject_constraints == ("Resource",)
+    assert outcome.frame.temporal_scope == {"kind": "current"}
+    assert outcome.execution_authority is False
+    assert outcome.plan is None
+    assert model.frame_calls == 0
+    assert model.plan_calls == 0
+
+
+def test_model_network_path_frame_clarifies_when_judgment_is_unavailable() -> None:
+    manifest, _definition = _fixture(include_resource_type=True)
+    model = _Model(
+        frame=_frame(
+            measure_concepts=["request_path", "next_hop", "virtual_network_peering"],
+            output_shape="topology_graph",
+        ),
+        plan=None,
+    )
+    service = SemanticPlanningService(
+        model=model,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service, utterance="Trace the network path.")
+
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.frame is not None
+    assert is_network_path_clarification_frame(outcome.frame)
+    assert outcome.execution_authority is False
+    assert outcome.plan is None
+    assert model.frame_calls == 1
+    assert model.plan_calls == 0
+
+
+def test_multi_object_topology_frame_clarifies_without_localized_facets() -> None:
+    pod = OntologyObjectType(
+        schema_version="1.0.0",
+        name="Pod",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    manifest, _definition = _fixture(additional_object_types=(pod,))
+    model = _Model(
+        frame=_frame(
+            subject_constraints=["Pod", "Resource"],
+            output_shape="ontology_relationships",
+        ),
+        plan=None,
+    )
+    service = SemanticPlanningService(
+        model=model,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service, utterance="리소스 간 연결 경로를 확인해줘.")
+
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.frame is not None
+    assert is_network_path_clarification_frame(outcome.frame)
+    assert outcome.frame.subject_constraints == ("Resource",)
+    assert outcome.frame.temporal_scope == {"kind": "current"}
+    assert outcome.execution_authority is False
+    assert model.frame_calls == 1
+    assert model.plan_calls == 0
+
+
+@pytest.mark.parametrize(
+    "requested_facets",
+    [
+        ["service_objective", "recovery_objective", "measured_breaches", "missing_evidence"],
+        ["service_objectives", "recovery_objectives", "measured_violation", "evidence_gap"],
+        ["service_objectives", "recovery_objectives", "breaches", "missing_evidence"],
+        ["service_objective", "recovery_objective", "violation", "evidence_gap"],
+        ["service", "recovery_objective", "distinguish_measured_breaches", "missing_evidence"],
+    ],
+)
+def test_operating_objective_judgment_builds_canonical_validation_frame(
+    requested_facets: list[str],
+) -> None:
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": "query.target_health_assessment",
+            "requested_facets": requested_facets,
+            "targets": [],
+        }
+    )
+
+    frame = build_operating_objectives_frame(
+        SemanticJudgmentProposal.model_validate(judgment_data),
+        utterance="Validate operating objectives.",
+        context=(),
+    )
+
+    assert frame is not None
+    assert frame.operation is SemanticOperation.VALIDATE
+    assert frame.subject_constraints == (
+        "BusinessService",
+        "RecoveryObjective",
+        "ServiceObjective",
+    )
+    assert frame.temporal_scope == {"kind": "current"}
+    assert frame.output_shape == "evidence_validation"
+    assert frame.execution_authority is False
+
+
+def test_operating_objective_relationship_intent_builds_validation_frame() -> None:
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": "query.service_has_recovery_objective",
+            "requested_facets": [
+                "service",
+                "recovery_objective",
+                "distinguish_measured_breaches",
+                "missing_evidence",
+            ],
+            "targets": [],
+        }
+    )
+
+    frame = build_operating_objectives_frame(
+        SemanticJudgmentProposal.model_validate(judgment_data),
+        utterance="Validate operating objectives.",
+        context=(),
+    )
+
+    assert frame is not None
+    assert frame.operation is SemanticOperation.VALIDATE
+    assert frame.subject_constraints == (
+        "BusinessService",
+        "RecoveryObjective",
+        "ServiceObjective",
+    )
+
+
+def test_model_operating_objectives_frame_holds_without_judgment() -> None:
+    business_service = OntologyObjectType(
+        schema_version="1.0.0",
+        name="BusinessService",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    manifest, _definition = _fixture(additional_object_types=(business_service,))
+    model = _Model(
+        frame=_frame(
+            operation="validate",
+            measure_concepts=[
+                "service_objective",
+                "recovery_objective",
+                "measured_breaches",
+                "missing_evidence",
+            ],
+            temporal_scope={"kind": "current"},
+            output_shape="evidence_validation",
+        ),
+        plan=None,
+    )
+    service = SemanticPlanningService(
+        model=model,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service, utterance="Validate operating objectives.")
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNAVAILABLE
+    assert outcome.frame is not None
+    assert outcome.frame.subject_constraints == (
+        "BusinessService",
+        "RecoveryObjective",
+        "ServiceObjective",
+    )
+    assert outcome.frame.temporal_scope == {"kind": "current"}
+    assert outcome.execution_authority is False
+    assert outcome.plan is None
+    assert model.frame_calls == 1
+    assert model.plan_calls == 0
+
+
+def test_incomplete_operating_objective_facets_do_not_normalize() -> None:
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(
+            operation="validate",
+            measure_concepts=["service_objective", "recovery_objective", "missing_evidence"],
+            output_shape="evidence_validation",
+        )
+    )
+    frame = build_semantic_frame(proposal, utterance="Validate objectives.", context=())
+
+    resolved, resolved_frame = normalize_operating_objectives_frame(
+        proposal,
+        frame,
+        utterance="Validate objectives.",
+        context=(),
+    )
+
+    assert resolved is proposal
+    assert resolved_frame is frame
+
+
+def test_historical_topology_frame_requires_exact_resource_before_planning() -> None:
+    manifest, definition = _fixture()
+    model = _Model(
+        frame=_frame(
+            operation="compare",
+            subject_constraints=["Change"],
+            measure_concepts=[
+                "after",
+                "before",
+                "evidence_backed",
+                "relationship_changes",
+                "requested_cutoff",
+                "retained_topology",
+            ],
+            temporal_scope={"kind": "windowed"},
+            output_shape="temporal_comparison",
+        ),
+        plan=_plan(definition),
+    )
+    service = SemanticPlanningService(
+        model=model,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service, utterance="Compare retained topology.")
+
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.frame is not None
+    assert is_historical_topology_clarification_frame(outcome.frame)
+    assert outcome.frame.subject_constraints == ("Resource",)
+    assert outcome.frame.temporal_scope == {"kind": "historical"}
+    assert outcome.execution_authority is False
+    assert outcome.plan is None
+    assert model.frame_calls == 1
+    assert model.plan_calls == 0
+
+
+def test_typed_topology_comparison_requires_exact_resource_before_planning() -> None:
+    manifest, definition = _fixture()
+    model = _Model(
+        frame=_frame(
+            operation="compare",
+            subject_constraints=["Resource"],
+            measure_concepts=[],
+            temporal_scope={"kind": "windowed"},
+            output_shape="topology_graph",
+        ),
+        plan=_plan(definition),
+    )
+    service = SemanticPlanningService(
+        model=model,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service, utterance="Compare retained topology.")
+
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.frame is not None
+    assert outcome.frame.operation is SemanticOperation.COMPARE
+    assert outcome.frame.subject_constraints == ("Resource",)
+    assert outcome.frame.temporal_scope == {"kind": "historical"}
+    assert outcome.frame.output_shape == "temporal_comparison"
+    assert outcome.execution_authority is False
+    assert outcome.plan is None
+    assert model.frame_calls == 1
+    assert model.plan_calls == 0
+
+
+@pytest.mark.parametrize(
+    ("operation", "output_shape", "temporal_scope", "subject_constraints"),
+    [
+        ("select", "topology_graph", {"kind": "windowed"}, ["Resource"]),
+        ("compare", "resource_list", {"kind": "windowed"}, ["Resource"]),
+        ("compare", "topology_graph", {"kind": "current"}, ["Resource"]),
+        ("compare", "topology_graph", {"kind": "windowed"}, ["resource-a"]),
+    ],
+)
+def test_typed_topology_comparison_does_not_capture_other_frame_shapes(
+    operation: str,
+    output_shape: str,
+    temporal_scope: dict[str, str],
+    subject_constraints: list[str],
+) -> None:
+    manifest, _definition = _fixture()
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(
+            operation=operation,
+            subject_constraints=subject_constraints,
+            measure_concepts=[],
+            temporal_scope=temporal_scope,
+            output_shape=output_shape,
+        )
+    )
+    frame = build_semantic_frame(
+        proposal,
+        utterance="Compare resource-a topology.",
+        context=(),
+    )
+
+    resolved, resolved_frame = normalize_historical_topology_clarification(
+        proposal,
+        frame,
+        utterance="Compare resource-a topology.",
+        context=(),
+        descriptors=manifest.descriptors,
+    )
+
+    assert resolved is proposal
+    assert resolved_frame is frame
+
+
+@pytest.mark.parametrize(
+    "requested_facets",
+    [
+        [
+            "comparison",
+            "before",
+            "after",
+            "requested_cutoff",
+            "retained_topology",
+            "relationship_changes",
+        ],
+        [
+            "comparison",
+            "requested_timeframe",
+            "preserve_topology",
+            "relationship_changes",
+        ],
+        [
+            "before_cutoff",
+            "after_cutoff",
+            "relationship_changes",
+            "evidence_backed",
+        ],
+        [
+            "comparison",
+            "baseline_time_window",
+            "private_endpoint_preservation_topology",
+            "evidence_grounded_relationship_changes",
+            "only_report_supported_changes",
+        ],
+        [
+            "comparison",
+            "requested_timeframe",
+            "private_endpoint_retention_topology",
+            "evidence_grounded_relationship_changes",
+        ],
+        [
+            "comparison",
+            "baseline_timeframe",
+            "before_and_after",
+            "private_endpoint",
+            "preservation_topology",
+            "evidence_grounded",
+            "relationship_changes_only",
+        ],
+        [
+            "comparison",
+            "baseline",
+            "current_state",
+            "relationship_changes",
+            "evidence_grounded_only",
+            "private_endpoint_preservation_topology",
+            "time_window_before_after",
+        ],
+        [
+            "comparison",
+            "requested_time_reference",
+            "private_endpoint",
+            "preservation_topology",
+            "evidence_grounded_relations_only",
+            "relation_changes",
+        ],
+    ],
+)
+def test_historical_topology_judgment_builds_resource_clarification(
+    requested_facets: list[str],
+) -> None:
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": "query.resource_change_activity",
+            "requested_facets": requested_facets,
+            "targets": [],
+        }
+    )
+
+    result = build_historical_topology_clarification(
+        SemanticJudgmentProposal.model_validate(judgment_data),
+        utterance="Compare retained topology.",
+        context=(),
+    )
+
+    assert result is not None
+    proposal, frame = result
+    assert frame.operation is SemanticOperation.COMPARE
+    assert frame.subject_constraints == ("Resource",)
+    assert frame.temporal_scope == {"kind": "historical"}
+    assert proposal.clarification_requirements == (ClarificationRequirement.SUBJECT,)
+    assert frame.execution_authority is False
+
+
+def test_historical_topology_event_history_judgment_builds_clarification() -> None:
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": "query.resource_event_history",
+            "requested_facets": [
+                "compare",
+                "retained_topology",
+                "before",
+                "after",
+                "requested_cutoff",
+                "evidence_backed_relationship_changes",
+            ],
+            "targets": [],
+        }
+    )
+
+    result = build_historical_topology_clarification(
+        SemanticJudgmentProposal.model_validate(judgment_data),
+        utterance="Compare retained topology.",
+        context=(),
+    )
+
+    assert result is not None
+    _proposal, frame = result
+    assert frame.subject_constraints == ("Resource",)
+    assert frame.temporal_scope == {"kind": "historical"}
+
+
+@pytest.mark.parametrize(
+    "requested_facets",
+    [
+        [
+            "baseline_time_window",
+            "private_endpoint_preservation_topology",
+            "evidence_grounded_relationship_changes",
+        ],
+        [
+            "comparison",
+            "private_endpoint_preservation_topology",
+            "evidence_grounded_relationship_changes",
+        ],
+        [
+            "comparison",
+            "baseline_time_window",
+            "evidence_grounded_relationship_changes",
+        ],
+        [
+            "comparison",
+            "baseline_time_window",
+            "private_endpoint_preservation_topology",
+        ],
+    ],
+)
+def test_incomplete_baseline_topology_judgment_does_not_build_clarification(
+    requested_facets: list[str],
+) -> None:
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": "query.resource_change_activity",
+            "requested_facets": requested_facets,
+            "targets": [],
+        }
+    )
+
+    result = build_historical_topology_clarification(
+        SemanticJudgmentProposal.model_validate(judgment_data),
+        utterance="Compare retained topology.",
+        context=(),
+    )
+
+    assert result is None
+
+
+def test_incomplete_historical_topology_facets_do_not_normalize() -> None:
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(
+            operation="compare",
+            measure_concepts=[
+                "before",
+                "retained_topology",
+                "requested_cutoff",
+                "relationship_changes",
+            ],
+            output_shape="temporal_comparison",
+        )
+    )
+    frame = build_semantic_frame(proposal, utterance="Compare topology.", context=())
+
+    resolved, resolved_frame = normalize_historical_topology_clarification(
+        proposal,
+        frame,
+        utterance="Compare topology.",
+        context=(),
+        descriptors=(),
+    )
+
+    assert resolved is proposal
+    assert resolved_frame is frame
+
+
+@pytest.mark.parametrize(
+    "requested_facets",
+    [
+        ["revision", "restart", "configuration_activity", "past_30_minutes"],
+        ["last_30_minutes", "revision", "restart", "configuration_activity", "list"],
+        ["revision", "restart", "configuration", "last_30_minutes", "list"],
+        ["resource_change_activity", "time_window", "resource_kind", "activity_types"],
+    ],
+)
+def test_resource_activity_judgment_builds_exact_target_clarification(
+    requested_facets: list[str],
+) -> None:
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": "query.resource_change_activity",
+            "requested_facets": requested_facets,
+            "targets": [],
+        }
+    )
+
+    result = build_resource_activity_clarification(
+        SemanticJudgmentProposal.model_validate(judgment_data),
+        utterance="Inspect bounded Resource activity.",
+        context=(),
+    )
+
+    assert result is not None
+    proposal, frame = result
+    assert frame.operation is SemanticOperation.SELECT
+    assert frame.subject_constraints == ("Resource",)
+    assert frame.temporal_scope == {"kind": "windowed"}
+    assert frame.output_shape == "target_activity"
+    assert proposal.clarification_requirements == (ClarificationRequirement.SUBJECT,)
+    assert frame.execution_authority is False
+
+
+@pytest.mark.parametrize(
+    ("primary_intent", "requested_facets", "canonical_target"),
+    [
+        (
+            "query.resource_event_history",
+            ["revision", "restart", "configuration_activity", "past_30_minutes"],
+            None,
+        ),
+        (
+            "query.resource_change_activity",
+            ["restart", "configuration_activity", "past_30_minutes"],
+            None,
+        ),
+        (
+            "query.resource_change_activity",
+            ["revision", "configuration_activity", "past_30_minutes"],
+            None,
+        ),
+        (
+            "query.resource_change_activity",
+            ["revision", "restart", "past_30_minutes"],
+            None,
+        ),
+        (
+            "query.resource_change_activity",
+            ["revision", "restart", "configuration_activity"],
+            None,
+        ),
+        (
+            "query.resource_change_activity",
+            ["time_window", "resource_kind", "activity_types"],
+            None,
+        ),
+        (
+            "query.resource_change_activity",
+            ["resource_change_activity", "resource_kind", "activity_types"],
+            None,
+        ),
+        (
+            "query.resource_change_activity",
+            ["resource_change_activity", "time_window", "activity_types"],
+            None,
+        ),
+        (
+            "query.resource_change_activity",
+            ["resource_change_activity", "time_window", "resource_kind"],
+            None,
+        ),
+        (
+            "query.resource_change_activity",
+            ["revision", "restart", "configuration_activity", "past_30_minutes"],
+            "resource-a",
+        ),
+    ],
+)
+def test_resource_activity_clarification_rejects_incomplete_or_concrete_judgment(
+    primary_intent: str,
+    requested_facets: list[str],
+    canonical_target: str | None,
+) -> None:
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": primary_intent,
+            "requested_facets": requested_facets,
+            "targets": (
+                []
+                if canonical_target is None
+                else [
+                    {
+                        "kind": "resource",
+                        "value": "resource-a",
+                        "canonical_value": canonical_target,
+                        "source_start": 0,
+                        "source_end": 10,
+                    }
+                ]
+            ),
+        }
+    )
+
+    result = build_resource_activity_clarification(
+        SemanticJudgmentProposal.model_validate(judgment_data),
+        utterance="resource-a activity.",
+        context=(),
+    )
+
+    assert result is None
+
+
+def test_resource_activity_judgment_clarifies_before_invalid_frame_model() -> None:
+    manifest, _definition = _fixture(include_resource_type=True)
+    model = _Model(
+        frame=_frame(operation="action_draft", output_shape="action_draft"),
+        plan=None,
+    )
+    judgment_model = _OperatingSubjectJudgmentModel()
+    judgment_model.judge = lambda **_kwargs: {
+        "primary_intent": "query.resource_change_activity",
+        "targets": [],
+        "requested_facets": [
+            "revision",
+            "restart",
+            "configuration_activity",
+            "past_30_minutes",
+        ],
+        "confidence": 0.95,
+        "ambiguous": False,
+        "action_posture": "advise_only",
+        "action_subject": "none",
+        "execution_authority": False,
+    }
+    judgment = SemanticJudgmentBoundary(
+        profile_id="semantic-planning.test",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=judgment_model,
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+    )
+    service = SemanticPlanningService(
+        model=model,
+        semantic_judgment=judgment,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service, utterance="Inspect bounded Resource activity.")
+
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.frame is not None
+    assert outcome.frame.operation is SemanticOperation.SELECT
+    assert outcome.frame.subject_constraints == ("Resource",)
+    assert outcome.frame.temporal_scope == {"kind": "windowed"}
+    assert outcome.execution_authority is False
+    assert outcome.plan is None
+    assert model.frame_calls == 0
+    assert model.plan_calls == 0
+
+
+@pytest.mark.parametrize(
+    ("primary_intent", "requested_facets"),
+    [
+        (
+            "query.ontology_declaration",
+            [
+                "declaration_changes",
+                "evidence_freshness",
+                "completeness",
+                "conflicts",
+                "unavailable_sources",
+            ],
+        ),
+        (
+            "query.ontology_relationships",
+            [
+                "declaration_change",
+                "evidence_freshness",
+                "completeness",
+                "conflict",
+                "unavailable_source",
+            ],
+        ),
+    ],
+)
+def test_ontology_release_health_judgment_builds_historical_validation_frame(
+    primary_intent: str,
+    requested_facets: list[str],
+) -> None:
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": primary_intent,
+            "requested_facets": requested_facets,
+            "targets": [],
+        }
+    )
+
+    frame = build_ontology_release_health_frame(
+        SemanticJudgmentProposal.model_validate(judgment_data),
+        utterance="Validate retained release evidence.",
+        context=(),
+    )
+
+    assert frame is not None
+    assert frame.operation is SemanticOperation.VALIDATE
+    assert frame.subject_constraints == ("Resource",)
+    assert frame.temporal_scope == {"kind": "historical"}
+    assert frame.output_shape == "ontology_release_evidence_health"
+    assert frame.execution_authority is False
+
+
+@pytest.mark.parametrize("canonical_target", ["Ontology", "PolicyArtifact", "Rule"])
+def test_ontology_release_health_accepts_catalog_declaration_target(
+    canonical_target: str,
+) -> None:
+    utterance = f"Validate {canonical_target} release evidence."
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": "query.ontology_relationships",
+            "requested_facets": [
+                "declaration_change",
+                "evidence_freshness",
+                "completeness",
+                "conflicts",
+                "unavailable_sources",
+            ],
+            "targets": [
+                {
+                    "kind": "object_type",
+                    "value": canonical_target,
+                    "canonical_value": canonical_target,
+                    "source_start": 9,
+                    "source_end": 9 + len(canonical_target),
+                }
+            ],
+        }
+    )
+
+    frame = build_ontology_release_health_frame(
+        SemanticJudgmentProposal.model_validate(judgment_data),
+        utterance=utterance,
+        context=(),
+    )
+
+    assert frame is not None
+    assert frame.subject_constraints == ("Resource",)
+    assert frame.execution_authority is False
+
+
+@pytest.mark.parametrize(
+    ("primary_intent", "requested_facets", "canonical_target"),
+    [
+        (
+            "query.manifest",
+            [
+                "declaration_changes",
+                "evidence_freshness",
+                "completeness",
+                "conflicts",
+                "unavailable_sources",
+            ],
+            None,
+        ),
+        (
+            "query.ontology_declaration",
+            ["evidence_freshness", "completeness", "conflicts", "unavailable_sources"],
+            None,
+        ),
+        (
+            "query.ontology_declaration",
+            ["declaration_changes", "completeness", "conflicts", "unavailable_sources"],
+            None,
+        ),
+        (
+            "query.ontology_declaration",
+            [
+                "declaration_changes",
+                "evidence_freshness",
+                "completeness",
+                "conflicts",
+                "unavailable_sources",
+            ],
+            "resource-a",
+        ),
+    ],
+)
+def test_ontology_release_health_rejects_incomplete_or_concrete_judgment(
+    primary_intent: str,
+    requested_facets: list[str],
+    canonical_target: str | None,
+) -> None:
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": primary_intent,
+            "requested_facets": requested_facets,
+            "targets": (
+                []
+                if canonical_target is None
+                else [
+                    {
+                        "kind": "resource",
+                        "value": "resource-a",
+                        "canonical_value": canonical_target,
+                        "source_start": 0,
+                        "source_end": 10,
+                    }
+                ]
+            ),
+        }
+    )
+
+    frame = build_ontology_release_health_frame(
+        SemanticJudgmentProposal.model_validate(judgment_data),
+        utterance="resource-a release evidence.",
+        context=(),
+    )
+
+    assert frame is None
+
+
+def test_ontology_release_health_holds_before_invalid_frame_model() -> None:
+    manifest, _definition = _fixture()
+    model = _Model(
+        frame=_frame(operation="action_draft", output_shape="action_draft"),
+        plan=None,
+    )
+    judgment_model = _OperatingSubjectJudgmentModel()
+    judgment_model.judge = lambda **_kwargs: {
+        "primary_intent": "query.ontology_declaration",
+        "targets": [],
+        "requested_facets": [
+            "declaration_changes",
+            "evidence_freshness",
+            "completeness",
+            "conflicts",
+            "unavailable_sources",
+        ],
+        "confidence": 0.95,
+        "ambiguous": False,
+        "action_posture": "advise_only",
+        "action_subject": "none",
+        "execution_authority": False,
+    }
+    judgment = SemanticJudgmentBoundary(
+        profile_id="semantic-planning.test",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=judgment_model,
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+    )
+    service = SemanticPlanningService(
+        model=model,
+        semantic_judgment=judgment,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service, utterance="Validate retained release evidence.")
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNAVAILABLE
+    assert outcome.reason == "semantic_ontology_release_evidence_health_unavailable"
+    assert outcome.frame is not None
+    assert outcome.frame.operation is SemanticOperation.VALIDATE
+    assert outcome.frame.subject_constraints == ("Resource",)
+    assert outcome.frame.temporal_scope == {"kind": "historical"}
+    assert outcome.execution_authority is False
+    assert outcome.plan is None
+    assert model.frame_calls == 0
+    assert model.plan_calls == 0
+
+
+@pytest.mark.parametrize(
+    "requested_facets",
+    [
+        ["attached_to", "routes_to", "workload_depends_on"],
+        [
+            "connected_to",
+            "observed_routing_relationship",
+            "aks_pod_workload",
+            "postgresql_dependency",
+            "storage_dependency",
+        ],
+    ],
+)
+def test_private_connectivity_judgment_builds_resource_clarification(
+    requested_facets: list[str],
+) -> None:
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": "query.ontology_relationships",
+            "requested_facets": requested_facets,
+            "targets": [],
+        }
+    )
+
+    result = build_private_connectivity_clarification(
+        SemanticJudgmentProposal.model_validate(judgment_data),
+        utterance="Inspect private connectivity.",
+        context=(),
+    )
+
+    assert result is not None
+    proposal, frame = result
+    assert frame.operation is SemanticOperation.SELECT
+    assert frame.subject_constraints == ("Resource",)
+    assert frame.temporal_scope == {"kind": "current"}
+    assert frame.output_shape == "ontology_relationships"
+    assert proposal.clarification_requirements == (ClarificationRequirement.SUBJECT,)
+    assert frame.execution_authority is False
+
+
+def test_private_connectivity_accepts_catalog_targets() -> None:
+    utterance = "Inspect Workload attached_to private connectivity."
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": "query.ontology_relationships",
+            "requested_facets": [
+                "connected_to",
+                "observed_routing_relationship",
+                "aks_pod_workload",
+                "postgresql_dependency",
+                "storage_dependency",
+            ],
+            "targets": [
+                {
+                    "kind": "object_type",
+                    "value": "Workload",
+                    "canonical_value": "Workload",
+                    "source_start": 8,
+                    "source_end": 16,
+                },
+                {
+                    "kind": "link_type",
+                    "value": "attached_to",
+                    "canonical_value": "attached_to",
+                    "source_start": 17,
+                    "source_end": 28,
+                },
+            ],
+        }
+    )
+
+    result = build_private_connectivity_clarification(
+        SemanticJudgmentProposal.model_validate(judgment_data),
+        utterance=utterance,
+        context=(),
+    )
+
+    assert result is not None
+    _proposal, frame = result
+    assert frame.subject_constraints == ("Resource",)
+    assert frame.execution_authority is False
+
+
+@pytest.mark.parametrize(
+    ("primary_intent", "requested_facets", "canonical_target"),
+    [
+        (
+            "query.resource_change_activity",
+            ["attached_to", "routes_to", "workload_depends_on"],
+            None,
+        ),
+        ("query.ontology_relationships", ["routes_to", "workload_depends_on"], None),
+        ("query.ontology_relationships", ["attached_to", "workload_depends_on"], None),
+        ("query.ontology_relationships", ["attached_to", "routes_to"], None),
+        (
+            "query.ontology_relationships",
+            ["attached_to", "routes_to", "workload_depends_on"],
+            "resource-a",
+        ),
+    ],
+)
+def test_private_connectivity_rejects_incomplete_or_concrete_judgment(
+    primary_intent: str,
+    requested_facets: list[str],
+    canonical_target: str | None,
+) -> None:
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": primary_intent,
+            "requested_facets": requested_facets,
+            "targets": (
+                []
+                if canonical_target is None
+                else [
+                    {
+                        "kind": "resource",
+                        "value": "resource-a",
+                        "canonical_value": canonical_target,
+                        "source_start": 0,
+                        "source_end": 10,
+                    }
+                ]
+            ),
+        }
+    )
+
+    result = build_private_connectivity_clarification(
+        SemanticJudgmentProposal.model_validate(judgment_data),
+        utterance="resource-a private connectivity.",
+        context=(),
+    )
+
+    assert result is None
+
+
+def test_private_connectivity_clarifies_before_generic_topology_plan() -> None:
+    manifest, definition = _fixture()
+    model = _Model(frame=_frame(output_shape="topology_graph"), plan=_plan(definition))
+    judgment_model = _OperatingSubjectJudgmentModel()
+    judgment_model.judge = lambda **_kwargs: {
+        "primary_intent": "query.ontology_relationships",
+        "targets": [],
+        "requested_facets": ["attached_to", "routes_to", "workload_depends_on"],
+        "confidence": 0.95,
+        "ambiguous": False,
+        "action_posture": "advise_only",
+        "action_subject": "none",
+        "execution_authority": False,
+    }
+    judgment = SemanticJudgmentBoundary(
+        profile_id="semantic-planning.test",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=judgment_model,
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+    )
+    service = SemanticPlanningService(
+        model=model,
+        semantic_judgment=judgment,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service, utterance="Inspect private connectivity.")
+
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.frame is not None
+    assert outcome.frame.subject_constraints == ("Resource",)
+    assert outcome.frame.temporal_scope == {"kind": "current"}
+    assert outcome.execution_authority is False
+    assert outcome.plan is None
+    assert model.frame_calls == 0
+    assert model.plan_calls == 0
+
+
+@pytest.mark.parametrize(
+    "requested_facets",
+    [
+        ["causal_hypothesis", "resource_targets", "required_evidence", "approval"],
+        ["causal_hypothesis", "target_resources", "evidence_required", "approval"],
+        [
+            "causal_hypothesis",
+            "recovery_plan",
+            "resources",
+            "evidence_still_required",
+            "approval",
+        ],
+        ["causal_hypothesis", "resources", "evidence_required_before_approval"],
+        ["review", "approval_readiness", "additional_evidence_needed"],
+    ],
+)
+def test_recovery_plan_judgment_builds_validation_clarification(
+    requested_facets: list[str],
+) -> None:
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": "query.linked_artifact_targets",
+            "requested_facets": requested_facets,
+            "targets": [],
+        }
+    )
+
+    result = build_recovery_plan_clarification(
+        SemanticJudgmentProposal.model_validate(judgment_data),
+        utterance="Review the recovery plan.",
+        context=(),
+    )
+
+    assert result is not None
+    proposal, frame = result
+    assert frame.operation is SemanticOperation.VALIDATE
+    assert frame.subject_constraints == ("RecoveryPlan",)
+    assert frame.temporal_scope == {"kind": "current"}
+    assert frame.output_shape == "ontology_relationships"
+    assert proposal.clarification_requirements == (ClarificationRequirement.SUBJECT,)
+    assert frame.execution_authority is False
+
+
+def test_recovery_plan_target_health_judgment_builds_clarification() -> None:
+    utterance = "Review CausalHypothesis RecoveryPlan Resource readiness."
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    targets = []
+    for value in ("CausalHypothesis", "RecoveryPlan", "Resource"):
+        start = utterance.index(value)
+        targets.append(
+            {
+                "kind": "object_type",
+                "value": value,
+                "canonical_value": value,
+                "source_start": start,
+                "source_end": start + len(value),
+            }
+        )
+    judgment_data.update(
+        {
+            "primary_intent": "query.target_health_assessment",
+            "requested_facets": [
+                "review",
+                "approval_readiness",
+                "additional_evidence_needed",
+            ],
+            "targets": targets,
+        }
+    )
+
+    result = build_recovery_plan_clarification(
+        SemanticJudgmentProposal.model_validate(judgment_data),
+        utterance=utterance,
+        context=(),
+    )
+
+    assert result is not None
+    _proposal, frame = result
+    assert frame.operation is SemanticOperation.VALIDATE
+    assert frame.subject_constraints == ("RecoveryPlan",)
+    assert frame.temporal_scope == {"kind": "current"}
+    assert frame.execution_authority is False
+
+
+@pytest.mark.parametrize(
+    ("primary_intent", "requested_facets", "canonical_target"),
+    [
+        (
+            "query.ontology_relationships",
+            ["causal_hypothesis", "resource_targets", "required_evidence", "approval"],
+            None,
+        ),
+        (
+            "query.linked_artifact_targets",
+            ["resource_targets", "required_evidence", "approval"],
+            None,
+        ),
+        (
+            "query.linked_artifact_targets",
+            ["causal_hypothesis", "required_evidence", "approval"],
+            None,
+        ),
+        (
+            "query.linked_artifact_targets",
+            ["causal_hypothesis", "resource_targets", "approval"],
+            None,
+        ),
+        (
+            "query.linked_artifact_targets",
+            ["causal_hypothesis", "resource_targets", "required_evidence", "approval"],
+            "recovery-plan-a",
+        ),
+    ],
+)
+def test_recovery_plan_rejects_incomplete_or_concrete_judgment(
+    primary_intent: str,
+    requested_facets: list[str],
+    canonical_target: str | None,
+) -> None:
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": primary_intent,
+            "requested_facets": requested_facets,
+            "targets": (
+                []
+                if canonical_target is None
+                else [
+                    {
+                        "kind": "recovery_plan",
+                        "value": "recovery-plan-a",
+                        "canonical_value": canonical_target,
+                        "source_start": 0,
+                        "source_end": 15,
+                    }
+                ]
+            ),
+        }
+    )
+
+    result = build_recovery_plan_clarification(
+        SemanticJudgmentProposal.model_validate(judgment_data),
+        utterance="recovery-plan-a review.",
+        context=(),
+    )
+
+    assert result is None
+
+
+def test_recovery_plan_clarifies_before_generic_relationship_plan() -> None:
+    manifest, definition = _fixture()
+    model = _Model(
+        frame=_frame(
+            subject_constraints=["Approval", "CausalHypothesis", "RecoveryPlan"],
+            temporal_scope={"kind": "current"},
+            output_shape="ontology_relationships",
+        ),
+        plan=_plan(definition),
+    )
+    judgment_model = _OperatingSubjectJudgmentModel()
+    judgment_model.judge = lambda **_kwargs: {
+        "primary_intent": "query.linked_artifact_targets",
+        "targets": [],
+        "requested_facets": [
+            "causal_hypothesis",
+            "resource_targets",
+            "required_evidence",
+            "approval",
+        ],
+        "confidence": 0.95,
+        "ambiguous": False,
+        "action_posture": "advise_only",
+        "action_subject": "none",
+        "execution_authority": False,
+    }
+    judgment = SemanticJudgmentBoundary(
+        profile_id="semantic-planning.test",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=judgment_model,
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+    )
+    service = SemanticPlanningService(
+        model=model,
+        semantic_judgment=judgment,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service, utterance="Review the recovery plan.")
+
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.frame is not None
+    assert outcome.frame.operation is SemanticOperation.VALIDATE
+    assert outcome.frame.subject_constraints == ("RecoveryPlan",)
+    assert outcome.frame.temporal_scope == {"kind": "current"}
+    assert outcome.execution_authority is False
+    assert outcome.plan is None
+    assert model.frame_calls == 0
+    assert model.plan_calls == 0
+
+
+def test_resource_classification_judgment_builds_current_frame() -> None:
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": "query.resource_state_inventory",
+            "requested_facets": [
+                "resource_type_classifications",
+                "mapped_types",
+                "unmapped_native_type",
+                "keep_unclassified",
+            ],
+            "targets": [],
+        }
+    )
+
+    frame = build_resource_classification_frame(
+        SemanticJudgmentProposal.model_validate(judgment_data),
+        utterance="Inspect Resource classifications.",
+        context=(),
+    )
+
+    assert frame is not None
+    assert frame.operation is SemanticOperation.SELECT
+    assert frame.subject_constraints == ("Resource",)
+    assert frame.temporal_scope == {"kind": "current"}
+    assert frame.output_shape == "ontology_relationships"
+    assert frame.execution_authority is False
+
+
+@pytest.mark.parametrize(
+    ("primary_intent", "direction_facet"),
+    [
+        ("query.resource_relationships", "preserve_ownership_direction"),
+        ("query.resource_current_state", "non_reversed_ownership_direction"),
+    ],
+)
+def test_resource_relationship_judgment_requests_exact_resource(
+    primary_intent: str,
+    direction_facet: str,
+) -> None:
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": primary_intent,
+            "requested_facets": [
+                "containing_parent",
+                "managed_disks",
+                "attached_network_interfaces",
+                direction_facet,
+            ],
+            "targets": [],
+        }
+    )
+
+    resolved = build_resource_relationship_clarification(
+        SemanticJudgmentProposal.model_validate(judgment_data),
+        utterance="Inspect current Resource relationships.",
+        context=(),
+    )
+
+    assert resolved is not None
+    proposal, frame = resolved
+    assert proposal.clarification_requirements == (ClarificationRequirement.SUBJECT,)
+    assert frame.operation is SemanticOperation.SELECT
+    assert frame.subject_constraints == ("Resource",)
+    assert frame.temporal_scope == {"kind": "current"}
+    assert frame.output_shape == "ontology_relationships"
+    assert frame.execution_authority is False
+
+
+@pytest.mark.parametrize(
+    ("targets", "trace_facet", "limitation_facet"),
+    [
+        ([], "trace_relationships", "no_current_finding"),
+        ([], "explore", "controlled"),
+        ([], "relationships", "scope"),
+        (["ActionType", "ResourceType", "Rule", "SignalType"], "trace", "governed"),
+        (
+            ["ActionType", "Resource", "ResourceType", "Rule", "Signal", "SignalType"],
+            "trace",
+            "governed",
+        ),
+        (
+            ["ActionType", "ResourceType", "Rule", "SignalType"],
+            "trace_relationships",
+            "without_current_finding",
+        ),
+    ],
+)
+def test_ontology_trace_judgment_builds_schema_frame_without_current_finding(
+    targets: list[str],
+    trace_facet: str,
+    limitation_facet: str,
+) -> None:
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": "query.ontology_relationships",
+            "requested_facets": [
+                "resource_type",
+                "signal_type",
+                "action_type",
+                trace_facet,
+                limitation_facet,
+            ],
+            "targets": [
+                {
+                    "kind": "object_type",
+                    "value": target,
+                    "canonical_value": target,
+                    "source_start": 0,
+                    "source_end": len(target),
+                }
+                for target in targets
+            ],
+        }
+    )
+
+    frame = build_ontology_trace_frame(
+        SemanticJudgmentProposal.model_validate(judgment_data),
+        utterance="Inspect schema traceability.",
+        context=(),
+    )
+
+    assert frame is not None
+    assert frame.operation is SemanticOperation.SELECT
+    assert frame.subject_constraints == ("ActionType", "ResourceType", "Rule", "SignalType")
+    assert frame.temporal_scope == {}
+    assert frame.output_shape == "ontology_relationships"
+    assert frame.execution_authority is False
+
+
+def _service_agent_ownership_judgment(
+    *,
+    targets: tuple[str, ...] = ("Agent", "Resource", "Workload"),
+    facets: tuple[str, ...] = (
+        "business_services",
+        "workloads",
+        "resources",
+        "declared_owning_agent",
+        "ownership_not_execution_permission",
+    ),
+) -> SemanticJudgmentProposal:
+    return SemanticJudgmentProposal.model_validate(
+        {
+            "primary_intent": "query.ontology_relationships",
+            "targets": [
+                {
+                    "kind": "object_type",
+                    "value": target,
+                    "canonical_value": target,
+                    "source_start": 0,
+                    "source_end": len(target),
+                }
+                for target in targets
+            ],
+            "requested_facets": list(facets),
+            "confidence": 0.95,
+            "ambiguous": False,
+            "action_posture": "advise_only",
+            "action_subject": "none",
+            "authority": "candidate_only",
+            "execution_authority": False,
+        }
+    )
+
+
+def _service_agent_ownership_descriptors() -> tuple[dict[str, object], ...]:
+    return (
+        *(
+            {"kind": "object", "name": name}
+            for name in ("Agent", "BusinessService", "Resource", "Workload")
+        ),
+        {
+            "kind": "link",
+            "name": "implemented_by",
+            "from_type": "BusinessService",
+            "to_type": "Workload",
+        },
+        {
+            "kind": "link",
+            "name": "owns",
+            "from_type": "Agent",
+            "to_type": "Resource",
+        },
+        {
+            "kind": "link",
+            "name": "workload_runs_on",
+            "from_type": "Workload",
+            "to_type": "Resource",
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "targets",
+    [
+        ("Agent",),
+        ("Agent", "Resource", "Workload"),
+        ("Agent", "BusinessService", "Resource", "Workload"),
+    ],
+)
+def test_service_agent_ownership_judgment_builds_exact_current_frame(
+    targets: tuple[str, ...],
+) -> None:
+    frame = build_service_agent_ownership_frame(
+        _service_agent_ownership_judgment(targets=targets),
+        utterance="Inspect service ownership.",
+        context=(),
+        descriptors=_service_agent_ownership_descriptors(),
+    )
+
+    assert frame is not None
+    assert frame.operation is SemanticOperation.SELECT
+    assert frame.subject_constraints == ("Agent", "BusinessService", "Resource", "Workload")
+    assert frame.temporal_scope == {"kind": "current"}
+    assert frame.output_shape == "ontology_relationships"
+    assert frame.execution_authority is False
+
+
+def test_service_agent_ownership_accepts_reviewed_authorization_context() -> None:
+    frame = build_service_agent_ownership_frame(
+        _service_agent_ownership_judgment(
+            targets=("Agent", "AuthorizationPolicyAssignment", "Resource", "Workload"),
+            facets=(
+                "reviewed_business_services",
+                "authorized_scope",
+                "workloads",
+                "resources",
+                "declared_owning_agent",
+                "ownership_not_execution_permission",
+            ),
+        ),
+        utterance="Inspect service ownership.",
+        context=(),
+        descriptors=_service_agent_ownership_descriptors(),
+    )
+
+    assert frame is not None
+    assert frame.subject_constraints == ("Agent", "BusinessService", "Resource", "Workload")
+    assert frame.execution_authority is False
+
+
+def test_service_agent_ownership_accepts_unbound_permission_contrast() -> None:
+    frame = build_service_agent_ownership_frame(
+        _service_agent_ownership_judgment(
+            targets=(),
+            facets=(
+                "business_services",
+                "authorized_scope",
+                "workloads",
+                "resources",
+                "owning_agent",
+                "ownership_vs_execution_permission",
+            ),
+        ),
+        utterance="Inspect service ownership.",
+        context=(),
+        descriptors=_service_agent_ownership_descriptors(),
+    )
+
+    assert frame is not None
+    assert frame.subject_constraints == ("Agent", "BusinessService", "Resource", "Workload")
+    assert frame.execution_authority is False
+
+
+@pytest.mark.parametrize(
+    ("judgment", "descriptors"),
+    [
+        (
+            _service_agent_ownership_judgment(
+                facets=("business_services", "workloads", "resources", "declared_owning_agent")
+            ),
+            _service_agent_ownership_descriptors(),
+        ),
+        (
+            _service_agent_ownership_judgment(
+                targets=("Agent", "Ownership", "Resource", "Workload")
+            ),
+            _service_agent_ownership_descriptors(),
+        ),
+        (
+            _service_agent_ownership_judgment(),
+            tuple(
+                descriptor
+                for descriptor in _service_agent_ownership_descriptors()
+                if descriptor.get("name") != "owns"
+            ),
+        ),
+    ],
+)
+def test_service_agent_ownership_requires_complete_exact_typed_structure(
+    judgment: SemanticJudgmentProposal,
+    descriptors: tuple[dict[str, object], ...],
+) -> None:
+    assert (
+        build_service_agent_ownership_frame(
+            judgment,
+            utterance="Inspect service ownership.",
+            context=(),
+            descriptors=descriptors,
+        )
+        is None
+    )
+
+
+def test_service_agent_ownership_holds_before_model_frame_or_plan() -> None:
+    utterance = "Inspect Agent Resource Workload ownership for BusinessService."
+
+    class _OwnershipJudgmentModel:
+        def judge(self, **_kwargs: Any) -> dict[str, object]:
+            return {
+                "primary_intent": "query.ontology_relationships",
+                "targets": [
+                    {
+                        "kind": "object_type",
+                        "value": target,
+                        "canonical_value": target,
+                        "source_start": utterance.index(target),
+                        "source_end": utterance.index(target) + len(target),
+                    }
+                    for target in ("Agent", "Resource", "Workload")
+                ],
+                "requested_facets": [
+                    "business_services",
+                    "workloads",
+                    "resources",
+                    "declared_owning_agent",
+                    "ownership_not_execution_permission",
+                ],
+                "confidence": 0.95,
+                "ambiguous": False,
+                "action_posture": "advise_only",
+                "execution_authority": False,
+            }
+
+    def object_type(name: str) -> OntologyObjectType:
+        return OntologyObjectType(
+            schema_version="1.0.0",
+            name=name,
+            version="1.0.0",
+            key="id",
+            properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+        )
+
+    manifest, _definition = _fixture(
+        additional_object_types=tuple(
+            object_type(name) for name in ("Agent", "BusinessService", "Workload")
+        ),
+        additional_link_types=(
+            OntologyLinkType(
+                schema_version="1.0.0",
+                name="implemented_by",
+                version="1.0.0",
+                from_type="BusinessService",
+                to_type="Workload",
+                cardinality=LinkCardinality.ONE_TO_MANY,
+            ),
+            OntologyLinkType(
+                schema_version="1.0.0",
+                name="owns",
+                version="1.0.0",
+                from_type="Agent",
+                to_type="Resource",
+                cardinality=LinkCardinality.MANY_TO_MANY,
+            ),
+            OntologyLinkType(
+                schema_version="1.0.0",
+                name="workload_runs_on",
+                version="1.0.0",
+                from_type="Workload",
+                to_type="Resource",
+                cardinality=LinkCardinality.MANY_TO_MANY,
+            ),
+        ),
+    )
+    model = _Model(frame=_frame(), plan=None)
+    judgment = SemanticJudgmentBoundary(
+        profile_id="semantic-planning.test",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=_OwnershipJudgmentModel(),  # type: ignore[arg-type]
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+    )
+    service = SemanticPlanningService(
+        model=model,
+        semantic_judgment=judgment,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service, utterance=utterance)
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNAVAILABLE
+    assert outcome.reason == "semantic_service_agent_ownership_unavailable"
+    assert outcome.frame is not None
+    assert outcome.frame.subject_constraints == (
+        "Agent",
+        "BusinessService",
+        "Resource",
+        "Workload",
+    )
+    assert outcome.frame.temporal_scope == {"kind": "current"}
+    assert outcome.execution_authority is False
+    assert (model.frame_calls, model.plan_calls) == (0, 0)
+
+
+@pytest.mark.parametrize(
+    ("trace_facet", "limitation_facet"),
+    [
+        ("trace", "without_asserting_current_finding"),
+        ("trace_relationships", "without_current_finding"),
+    ],
+)
+def test_complete_ontology_trace_frame_allows_unrelated_identifier_shaped_token(
+    trace_facet: str,
+    limitation_facet: str,
+) -> None:
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(
+            subject_constraints=["ActionType", "ResourceType", "Rule", "SignalType"],
+            measure_concepts=[
+                "action_type",
+                "resource_type",
+                "signal_type",
+                trace_facet,
+                limitation_facet,
+            ],
+            output_shape="ontology_relationships",
+        )
+    )
+
+    _validate_frame_proposal(
+        proposal,
+        utterance="Trace declarations for provider-native-three-part terminology.",
+        descriptors=(),
+    )
+
+
+def test_incomplete_ontology_trace_frame_keeps_runtime_instance_guard() -> None:
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(
+            subject_constraints=["ActionType", "ResourceType", "Rule", "SignalType"],
+            measure_concepts=["resource_type", "trace_relationships"],
+            output_shape="ontology_relationships",
+        )
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="schema-level semantic frame names a runtime resource instance",
+    ):
+        _validate_frame_proposal(
+            proposal,
+            utterance="Inspect exact-runtime-three-part",
+            descriptors=(),
+        )
+
+
+def test_advise_only_ontology_trace_demotes_action_draft_candidate() -> None:
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(
+            operation="action_draft",
+            subject_constraints=["ActionType", "ResourceType", "Rule", "SignalType"],
+            output_shape="action_draft",
+        )
+    )
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": "query.ontology_relationships",
+            "requested_facets": [
+                "resource_type",
+                "signal_type",
+                "action_type",
+                "trace",
+                "governed",
+            ],
+            "targets": [],
+        }
+    )
+
+    _resolved, frame = resolve_semantic_judgment_action_draft(
+        proposal,
+        build_semantic_frame(proposal, utterance="", context=()),
+        judgment=SemanticJudgmentProposal.model_validate(judgment_data),
+        utterance="",
+        context=(),
+    )
+
+    assert frame.operation is SemanticOperation.SELECT
+    assert frame.subject_constraints == ("ActionType", "ResourceType", "Rule", "SignalType")
+    assert frame.temporal_scope == {}
+    assert frame.output_shape == "ontology_relationships"
+    assert frame.execution_authority is False
+
+
+@pytest.mark.parametrize(
+    ("requested_facets", "subject_constraints", "expected_temporal_scope"),
+    [
+        (
+            ["resource_type", "signal_type", "controlled_action_type"],
+            ["ActionType", "ResourceType", "Rule", "SignalType"],
+            {},
+        ),
+        (
+            ["resource_type", "signal_type", "action_type", "scope", "relationships"],
+            ["ActionType", "ResourceType", "Rule", "SignalType"],
+            {},
+        ),
+        (
+            ["resource_type", "signal_type", "action_type", "relationships"],
+            ["ActionType", "ResourceType", "SignalType"],
+            {"kind": "current"},
+        ),
+    ],
+)
+def test_controlled_action_trace_normalizes_only_exact_schema_subjects(
+    requested_facets: list[str],
+    subject_constraints: list[str],
+    expected_temporal_scope: dict[str, str],
+) -> None:
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(
+            subject_constraints=subject_constraints,
+            temporal_scope={"kind": "current"},
+            output_shape="ontology_relationships",
+        )
+    )
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": "query.ontology_relationships",
+            "requested_facets": requested_facets,
+            "targets": [],
+        }
+    )
+
+    _resolved, frame = normalize_ontology_trace_frame(
+        proposal,
+        build_semantic_frame(proposal, utterance="", context=()),
+        judgment=SemanticJudgmentProposal.model_validate(judgment_data),
+        utterance="",
+        context=(),
+    )
+    _resolved, frame = normalize_operating_relationship_temporal_scope(
+        _resolved,
+        frame,
+        utterance="",
+        context=(),
+        descriptors=tuple(
+            {"kind": "object", "name": name}
+            for name in ("ActionType", "ResourceType", "Rule", "SignalType")
+        ),
+    )
+
+    assert frame.temporal_scope == expected_temporal_scope
+    assert frame.execution_authority is False
+    assert is_ontology_trace_frame(frame) is (expected_temporal_scope == {})
+
+
+@pytest.mark.parametrize(
+    ("subject_constraints", "expected_temporal_scope"),
+    [
+        (["ActionType", "ResourceType", "Rule", "SignalType"], {}),
+        (["ActionType", "ResourceType", "SignalType"], {"kind": "current"}),
+    ],
+)
+def test_candidate_only_trace_normalizes_only_exact_schema_subjects(
+    subject_constraints: list[str],
+    expected_temporal_scope: dict[str, str],
+) -> None:
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(
+            subject_constraints=subject_constraints,
+            measure_concepts=["resource_type", "signal_type", "controlled_action_type"],
+            temporal_scope={"kind": "current"},
+            output_shape="ontology_relationships",
+        )
+    )
+
+    _resolved, frame = normalize_ontology_trace_frame(
+        proposal,
+        build_semantic_frame(proposal, utterance="", context=()),
+        judgment=None,
+        utterance="",
+        context=(),
+    )
+
+    assert frame.temporal_scope == expected_temporal_scope
+    assert frame.execution_authority is False
+    assert is_ontology_trace_frame(frame) is (expected_temporal_scope == {})
+
+
+@pytest.mark.parametrize(
+    ("primary_intent", "requested_facets"),
+    [
+        (
+            "query.ontology_relationships",
+            ["resource_type_classifications", "unclassified_native_type"],
+        ),
+        (
+            "query.resource_state_inventory",
+            [
+                "reviewed_resourcetype_classification",
+                "mapping",
+                "native_unclassified_state",
+                "explicit_unclassified_retention",
+            ],
+        ),
+        (
+            "query.ontology_relationships",
+            ["resource_type_classifications", "unmapped_native_type_unclassified"],
+        ),
+        (
+            "query.resource_state_inventory",
+            [
+                "resource_type_classification",
+                "unmapped_native_types",
+                "keep_unclassified",
+            ],
+        ),
+        (
+            "query.resource_state_inventory",
+            [
+                "reviewed_resource_type_classification",
+                "mapping",
+                "unmapped_native_types",
+                "explicit_unclassified_state",
+            ],
+        ),
+        (
+            "query.resource_state_inventory",
+            [
+                "resource_type_classification",
+                "reviewed_classification",
+                "native_unmapped_types",
+                "unclassified_state",
+                "mapping",
+            ],
+        ),
+        (
+            "query.ontology_relationships",
+            [
+                "reviewed_resource_type_classification",
+                "mapping_status",
+                "native_types_unclassified",
+            ],
+        ),
+        (
+            "query.resource_classified_as",
+            [
+                "reviewed",
+                "resourcetype_classification",
+                "mapping",
+                "native_type",
+                "unclassified_state",
+            ],
+        ),
+        (
+            "query.resource_state_inventory",
+            [
+                "reviewed_resource_type_classification",
+                "explicit_unclassified_native_types",
+                "mapping_status",
+            ],
+        ),
+    ],
+)
+def test_resource_classification_accepts_typed_variants(
+    primary_intent: str,
+    requested_facets: list[str],
+) -> None:
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": primary_intent,
+            "requested_facets": requested_facets,
+            "targets": [],
+        }
+    )
+
+    frame = build_resource_classification_frame(
+        SemanticJudgmentProposal.model_validate(judgment_data),
+        utterance="Inspect Resource classifications.",
+        context=(),
+    )
+
+    assert frame is not None
+    assert frame.subject_constraints == ("Resource",)
+    assert frame.temporal_scope == {"kind": "current"}
+    assert frame.execution_authority is False
+
+
+@pytest.mark.parametrize(
+    ("primary_intent", "requested_facets", "canonical_target"),
+    [
+        (
+            "query.manifest",
+            [
+                "resource_type_classifications",
+                "mapped_types",
+                "unmapped_native_type",
+                "keep_unclassified",
+            ],
+            None,
+        ),
+        (
+            "query.resource_state_inventory",
+            ["mapped_types", "unmapped_native_type", "keep_unclassified"],
+            None,
+        ),
+        (
+            "query.resource_state_inventory",
+            ["resource_type_classifications", "mapped_types", "keep_unclassified"],
+            None,
+        ),
+        (
+            "query.resource_state_inventory",
+            [
+                "resource_type_classifications",
+                "mapped_types",
+                "unmapped_native_type",
+                "keep_unclassified",
+            ],
+            "resource-a",
+        ),
+    ],
+)
+def test_resource_classification_rejects_incomplete_or_concrete_judgment(
+    primary_intent: str,
+    requested_facets: list[str],
+    canonical_target: str | None,
+) -> None:
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": primary_intent,
+            "requested_facets": requested_facets,
+            "targets": (
+                []
+                if canonical_target is None
+                else [
+                    {
+                        "kind": "resource",
+                        "value": "resource-a",
+                        "canonical_value": canonical_target,
+                        "source_start": 0,
+                        "source_end": 10,
+                    }
+                ]
+            ),
+        }
+    )
+
+    frame = build_resource_classification_frame(
+        SemanticJudgmentProposal.model_validate(judgment_data),
+        utterance="resource-a classification.",
+        context=(),
+    )
+
+    assert frame is None
+
+
+def test_resource_classification_holds_before_generic_type_exists_plan() -> None:
+    manifest, definition = _fixture(include_resource_type=True)
+    model = _Model(
+        frame=_frame(output_shape="property_filtered_resources"),
+        plan=_plan(definition),
+    )
+    judgment_model = _OperatingSubjectJudgmentModel()
+    judgment_model.judge = lambda **_kwargs: {
+        "primary_intent": "query.resource_state_inventory",
+        "targets": [],
+        "requested_facets": [
+            "resource_type_classifications",
+            "mapped_types",
+            "unmapped_native_type",
+            "keep_unclassified",
+        ],
+        "confidence": 0.95,
+        "ambiguous": False,
+        "action_posture": "advise_only",
+        "action_subject": "none",
+        "execution_authority": False,
+    }
+    judgment = SemanticJudgmentBoundary(
+        profile_id="semantic-planning.test",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=judgment_model,
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+    )
+    service = SemanticPlanningService(
+        model=model,
+        semantic_judgment=judgment,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service, utterance="Inspect Resource classifications.")
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNAVAILABLE
+    assert outcome.reason == "semantic_resource_classification_unavailable"
+    assert outcome.frame is not None
+    assert outcome.frame.subject_constraints == ("Resource",)
+    assert outcome.frame.temporal_scope == {"kind": "current"}
+    assert outcome.execution_authority is False
+    assert outcome.plan is None
+    assert model.frame_calls == 0
+    assert model.plan_calls == 0
+
+
+def test_model_classification_facets_normalize_to_current_resource_frame() -> None:
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(
+            subject_constraints=["Resource", "ResourceType"],
+            measure_concepts=[
+                "reviewed_resource_type_classification",
+                "mapping",
+                "unmapped_native_types",
+                "explicit_unclassified_state",
+            ],
+            output_shape="ontology_relationships",
+        )
+    )
+    frame = build_semantic_frame(proposal, utterance="Inspect classifications.", context=())
+
+    _resolved, resolved_frame = normalize_resource_classification_frame(
+        proposal,
+        frame,
+        utterance="Inspect classifications.",
+        context=(),
+    )
+
+    assert is_resource_classification_frame(resolved_frame)
+    assert resolved_frame.subject_constraints == ("Resource",)
+    assert resolved_frame.temporal_scope == {"kind": "current"}
+    assert resolved_frame.execution_authority is False
+
+
+def test_incomplete_model_classification_facets_do_not_normalize() -> None:
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(
+            subject_constraints=["Resource", "ResourceType"],
+            measure_concepts=["reviewed_resource_type_classification", "mapping"],
+            output_shape="ontology_relationships",
+        )
+    )
+    frame = build_semantic_frame(proposal, utterance="Inspect classifications.", context=())
+
+    resolved, resolved_frame = normalize_resource_classification_frame(
+        proposal,
+        frame,
+        utterance="Inspect classifications.",
+        context=(),
+    )
+
+    assert resolved is proposal
+    assert resolved_frame is frame
+
+
+@pytest.mark.parametrize("subject_constraints", [[], ["resource-a"]])
+def test_model_classification_facets_do_not_widen_subject_scope(
+    subject_constraints: list[str],
+) -> None:
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(
+            subject_constraints=subject_constraints,
+            measure_concepts=["resource_type_classification", "unmapped_native_types"],
+            output_shape="ontology_relationships",
+        )
+    )
+    frame = build_semantic_frame(proposal, utterance="Inspect classifications.", context=())
+
+    resolved, resolved_frame = normalize_resource_classification_frame(
+        proposal,
+        frame,
+        utterance="Inspect classifications.",
+        context=(),
+    )
+
+    assert resolved is proposal
+    assert resolved_frame is frame
+
+
+@pytest.mark.parametrize(
+    "measure_concepts",
+    [
+        ["request_path", "virtual_network_peering"],
+        ["not_request_path", "next_hop", "virtual_network_peering"],
+    ],
+)
+def test_incomplete_model_network_path_frame_is_not_normalized(
+    measure_concepts: list[str],
+) -> None:
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(measure_concepts=measure_concepts, output_shape="ontology_relationships")
+    )
+    frame = build_semantic_frame(proposal, utterance="Trace topology.", context=())
+
+    resolved, resolved_frame = normalize_network_path_clarification(
+        proposal,
+        frame,
+        utterance="Trace topology.",
+        context=(),
+        descriptors=(),
+    )
+
+    assert resolved is proposal
+    assert resolved_frame is frame
+
+
+def test_targetless_resource_topology_normalizes_without_value_filter() -> None:
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(
+            subject_constraints=["PostgreSQL", "Resource", "Storage"],
+            measure_concepts=[],
+            output_shape="topology_graph",
+        )
+    )
+    frame = build_semantic_frame(proposal, utterance="Inspect private topology.", context=())
+
+    resolved, resolved_frame = normalize_network_path_clarification(
+        proposal,
+        frame,
+        utterance="Inspect private topology.",
+        context=(),
+        descriptors=(),
+    )
+
+    assert resolved.operation is SemanticOperation.SELECT
+    assert resolved_frame.subject_constraints == ("Resource",)
+    assert resolved_frame.temporal_scope == {"kind": "current"}
+    assert resolved_frame.output_shape == "ontology_relationships"
+    assert resolved.clarification_requirements == (ClarificationRequirement.SUBJECT,)
+    assert resolved_frame.execution_authority is False
+
+
+@pytest.mark.parametrize(
+    "requested_facets",
+    [
+        ["configuration_drift", "evidence_supporting_hypotheses"],
+        ["configuration_drift", "evidence_refuting_hypotheses"],
+        ["configuration_drift", "supporting_refutation"],
+        [
+            "configuration_drift",
+            "support_not_available",
+            "evidence_refuting_hypotheses",
+        ],
+    ],
+)
+def test_incomplete_configuration_drift_evidence_does_not_normalize(
+    requested_facets: list[str],
+) -> None:
+    utterance = "Inspect configuration drift evidence."
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(
+            subject_constraints=["CausalHypothesis"],
+            output_shape="ontology_relationships",
+        )
+    )
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": "query.resource_error_activity_correlation",
+            "requested_facets": requested_facets,
+            "targets": [],
+        }
+    )
+
+    _resolved, frame = resolve_semantic_judgment_bound_read(
+        proposal,
+        build_semantic_frame(proposal, utterance=utterance, context=()),
+        judgment=SemanticJudgmentProposal.model_validate(judgment_data),
+        bound_incident=False,
+        utterance=utterance,
+        context=(),
+    )
+
+    assert frame.operation is SemanticOperation.SELECT
+    assert frame.subject_constraints == ("CausalHypothesis",)
+    assert frame.output_shape == "ontology_relationships"
+
+
+def test_configuration_drift_validation_holds_before_plan_execution() -> None:
+    manifest, _definition = _fixture(
+        property_values=_container_app_property_values(),
+        include_resource_type=True,
+    )
+    model = _Model(
+        frame=_frame(
+            operation="validate",
+            subject_constraints=["Resource"],
+            measure_concepts=[
+                "configuration_drift",
+                "evidence_supporting_hypotheses",
+                "evidence_refuting_hypotheses",
+            ],
+            temporal_scope={"kind": "current"},
+            output_shape="evidence_validation",
+        ),
+        plan=None,
+    )
+    service = SemanticPlanningService(
+        model=model,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(
+        service,
+        utterance="Validate configuration drift evidence for a container app.",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNAVAILABLE
+    assert outcome.reason == "semantic_configuration_drift_evidence_unavailable"
+    assert outcome.execution_authority is False
+    assert outcome.plan is None
+    assert model.plan_calls == 0
 
 
 def test_bound_read_ignores_every_identity_the_frame_and_proposal_carry() -> None:

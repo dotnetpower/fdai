@@ -12,6 +12,7 @@ from fdai_service_contracts.ontology_query import QueryContract, content_digest
 
 Digest = Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")]
 MachineToken = Annotated[str, Field(pattern=r"^[a-z][a-z0-9_.-]{0,79}$")]
+CanonicalIdentity = Annotated[str, Field(pattern=r"^[A-Za-z][A-Za-z0-9_.-]{0,255}$")]
 
 
 class SemanticDiscourseMode(StrEnum):
@@ -45,7 +46,7 @@ class SemanticTarget(QueryContract):
 
     kind: MachineToken
     value: Annotated[str, Field(min_length=1, max_length=256)]
-    canonical_value: MachineToken | None = None
+    canonical_value: CanonicalIdentity | None = None
     source_start: Annotated[int, Field(ge=0, le=32_000)]
     source_end: Annotated[int, Field(gt=0, le=32_000)]
 
@@ -74,6 +75,7 @@ class SemanticJudgmentProposal(QueryContract):
     clarification: Annotated[str, Field(min_length=1, max_length=512)] | None = None
     discourse_mode: SemanticDiscourseMode = SemanticDiscourseMode.DIRECT
     action_posture: Literal["advise_only", "draft_only"] = "advise_only"
+    action_subject: Literal["none", "ActionType", "Change", "Incident", "RecoveryPlan", "Rule"]
     authority: Literal["candidate_only"] = "candidate_only"
     execution_authority: Literal[False] = False
 
@@ -101,6 +103,8 @@ class SemanticJudgmentProposal(QueryContract):
             or not self.clarification.endswith("?")
         ):
             raise ValueError("semantic judgment clarification MUST be one question")
+        if (self.action_posture == "draft_only") != (self.action_subject != "none"):
+            raise ValueError("semantic judgment action subject MUST match draft posture")
         return self
 
     @property

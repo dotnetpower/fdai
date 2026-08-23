@@ -21,7 +21,7 @@ variable "identity" {
 }
 variable "event_topics" { type = object({ command = string, receipt = string, dlq_suffix = string }) }
 variable "database" {
-  type      = object({ dsn_secret_id = string, role = string })
+  type      = object({ dsn_secret_id = string, host = optional(string, ""), role = string })
   sensitive = true
 }
 variable "health" { type = object({ port = number, liveness_path = string, readiness_path = string, startup_path = optional(string), interval_seconds = optional(number, 30), timeout_seconds = optional(number, 3), failure_count_threshold = optional(number, 3), startup_failure_count = optional(number, 30) }) }

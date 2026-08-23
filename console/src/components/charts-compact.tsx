@@ -1,3 +1,5 @@
+import type { ComponentChildren, JSX } from "preact";
+import { useState } from "preact/hooks";
 import { Tooltip } from "./tooltip";
 import {
   TREMOR_CHART_HEX,
@@ -18,6 +20,7 @@ interface DonutChartProps {
   readonly formatValue: (value: number) => string;
   readonly showLabel?: boolean;
   readonly variant?: "donut" | "pie";
+  readonly onActiveSegmentChange?: (segment: DonutChartSegment | null) => void;
 }
 
 export interface SparkChartPoint {
@@ -37,6 +40,9 @@ interface ProgressChartProps {
   readonly value: number;
   readonly formatValue?: (value: number) => string;
   readonly color?: TremorChartColor;
+  readonly variant?: "default" | "error" | "success" | "warning";
+  readonly radius?: number;
+  readonly children?: ComponentChildren;
 }
 
 export interface TrackerBlock {
@@ -59,7 +65,9 @@ export function DonutChart({
   formatValue,
   showLabel = true,
   variant = "donut",
+  onActiveSegmentChange,
 }: DonutChartProps) {
+  const [activeSegment, setActiveSegment] = useState<DonutChartSegment | null>(null);
   const finite = segments.filter((segment) => Number.isFinite(segment.value) && segment.value >= 0);
   const total = finite.reduce((sum, segment) => sum + segment.value, 0);
   let offset = 0;
@@ -72,13 +80,53 @@ export function DonutChart({
   });
   const background = total === 0 ? "var(--tremor-gray)" : `conic-gradient(from 0deg, ${stops.join(", ")})`;
   const formattedTotal = formatValue(total);
+  const tooltipSegments = activeSegment ? [activeSegment] : finite;
+
+  function activate(segment: DonutChartSegment | null): void {
+    setActiveSegment((current) => {
+      if (current === segment) return current;
+      onActiveSegmentChange?.(segment);
+      return segment;
+    });
+  }
+
+  function activatePointerSegment(event: JSX.TargetedPointerEvent<HTMLButtonElement>): void {
+    if (total === 0) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = event.clientX - rect.left - rect.width / 2;
+    const y = event.clientY - rect.top - rect.height / 2;
+    if (variant === "donut" && Math.hypot(x, y) < rect.width * .29) {
+      activate(null);
+      return;
+    }
+    const ratio = (Math.atan2(y, x) + Math.PI / 2 + Math.PI * 2) % (Math.PI * 2) / (Math.PI * 2);
+    let cumulative = 0;
+    activate(finite.find((segment) => {
+      cumulative += segment.value / total;
+      return ratio <= cumulative;
+    }) ?? finite.at(-1) ?? null);
+  }
+
+  function activateKeyboardSegment(event: JSX.TargetedKeyboardEvent<HTMLButtonElement>): void {
+    if (finite.length === 0 || !["ArrowDown", "ArrowLeft", "ArrowRight", "ArrowUp", "End", "Home"].includes(event.key)) return;
+    event.preventDefault();
+    const currentIndex = activeSegment === null ? -1 : finite.indexOf(activeSegment);
+    const nextIndex = event.key === "Home"
+      ? 0
+      : event.key === "End"
+        ? finite.length - 1
+        : event.key === "ArrowLeft" || event.key === "ArrowUp"
+          ? (currentIndex <= 0 ? finite.length : currentIndex) - 1
+          : (currentIndex + 1) % finite.length;
+    activate(finite[nextIndex] ?? null);
+  }
   return (
     <div class="fd-donut-chart" aria-label={label}>
       <Tooltip
         content={
           <span class="fd-series-tooltip">
             <strong>{label}</strong>
-            {finite.map((segment, index) => (
+            {tooltipSegments.map((segment, index) => (
               <span key={`${segment.label}-${index}`}>
                 <i style={{ "--series-color": TREMOR_CHART_HEX[segment.color ?? tremorChartColor(index)] }} />
                 <span>{segment.label}</span>
@@ -90,7 +138,7 @@ export function DonutChart({
         placement="top"
         anchorClassName="fd-donut-tooltip"
       >
-        <button type="button" class={`fd-donut-visual is-${variant}`} aria-label={`${label}: ${formattedTotal}`} style={{ "--donut-background": background }}>
+        <button type="button" class={`fd-donut-visual is-${variant}`} aria-label={activeSegment ? `${label}: ${activeSegment.label}, ${formatValue(activeSegment.value)}` : `${label}: ${formattedTotal}`} style={{ "--donut-background": background }} onPointerMove={activatePointerSegment} onPointerLeave={() => activate(null)} onKeyDown={activateKeyboardSegment} onBlur={() => activate(null)}>
           {showLabel && variant === "donut" ? <strong>{formattedTotal}</strong> : null}
         </button>
       </Tooltip>
@@ -100,13 +148,15 @@ export function DonutChart({
           const exact = formatValue(segment.value);
           const accessible = `${segment.label}: ${exact}${segment.detail ? `. ${segment.detail}` : ""}`;
           return (
-            <Tooltip key={`${segment.label}-${index}`} content={accessible} placement="top">
-              <button type="button" role="listitem" aria-label={accessible} style={{ "--series-color": color }}>
-                <i />
-                <span>{segment.label}</span>
-                <strong>{exact}</strong>
-              </button>
-            </Tooltip>
+            <div role="listitem" key={`${segment.label}-${index}`}>
+              <Tooltip content={accessible} placement="top">
+                <button type="button" aria-label={accessible} style={{ "--series-color": color }} onPointerEnter={() => activate(segment)} onPointerLeave={() => activate(null)} onFocus={() => activate(segment)} onBlur={() => activate(null)}>
+                  <i />
+                  <span>{segment.label}</span>
+                  <strong>{exact}</strong>
+                </button>
+              </Tooltip>
+            </div>
           );
         })}
       </div>
@@ -185,19 +235,24 @@ export function ProgressCircle({
   label,
   value,
   formatValue = (current) => `${Math.round(current * 100)}%`,
-  color = "blue",
+  color,
+  variant = "default",
+  radius = 44,
+  children,
 }: ProgressChartProps) {
   const ratio = clampRatio(value);
   const circumference = Math.PI * 2 * 16;
   const exact = formatValue(ratio);
+  const diameter = Math.max(48, Math.min(160, radius * 2));
+  const resolvedColor = color ?? ({ default: "blue", error: "pink", success: "emerald", warning: "amber" } as const)[variant];
   return (
-    <Tooltip content={`${label}: ${exact}`} placement="top" anchorClassName="fd-progress-circle-tooltip">
-      <div class="fd-progress-circle" role="meter" aria-label={label} aria-valuemin={0} aria-valuemax={1} aria-valuenow={ratio} style={{ "--series-color": TREMOR_CHART_HEX[color] }}>
+    <Tooltip content={`${label}: ${exact}`} placement="top" anchorClassName="fd-progress-circle-tooltip" anchorStyle={{ "--progress-diameter": `${diameter}px` }}>
+      <div class="fd-progress-circle" role="meter" aria-label={label} aria-valuemin={0} aria-valuemax={1} aria-valuenow={ratio} data-variant={variant} style={{ "--series-color": TREMOR_CHART_HEX[resolvedColor], "--progress-diameter": `${diameter}px` }}>
         <svg viewBox="0 0 40 40" aria-hidden="true">
           <circle class="fd-progress-circle-track" cx="20" cy="20" r="16" />
           <circle class="fd-progress-circle-value" cx="20" cy="20" r="16" stroke-dasharray={`${circumference * ratio} ${circumference}`} />
         </svg>
-        <strong>{exact}</strong>
+        <strong>{children ?? exact}</strong>
       </div>
     </Tooltip>
   );
@@ -210,9 +265,11 @@ export function Tracker({ label, blocks }: TrackerProps) {
         const color = TREMOR_CHART_HEX[block.color ?? "gray"];
         const accessible = `${block.label}${block.detail ? `: ${block.detail}` : ""}`;
         return (
-          <Tooltip key={`${block.label}-${index}`} content={accessible} placement="top">
-            <button type="button" role="listitem" aria-label={accessible} style={{ "--series-color": color }} />
-          </Tooltip>
+          <div role="listitem" key={`${block.label}-${index}`}>
+            <Tooltip content={accessible} placement="top">
+              <button type="button" aria-label={accessible} style={{ "--series-color": color }} />
+            </Tooltip>
+          </div>
         );
       })}
     </div>

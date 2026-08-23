@@ -1,7 +1,7 @@
 ---
 translation_of: azure-resource-discovery-commands.md
-translation_source_sha: aac91fa5ab09ef4136054c5e85184d6db4ebac4d
-translation_revised: 2026-08-20
+translation_source_sha: 51884384db27213cb6cf7072347713905450e525
+translation_revised: 2026-08-23
 ---
 
 # Azure 리소스 검색 명령 커버리지
@@ -37,6 +37,7 @@ FDAI는 운영자 질문을 형식화된 검색 의도로 컴파일하고, 해�
 | 인벤토리 언어 레지스트리 | implemented | [`inventory_query_language.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/inventory_query_language.py), [`test_inventory_query_language.py`](../../../services/core-control-plane/tests/rule_catalog/test_inventory_query_language.py) | 검증된 레지스트리와 요약값이 있습니다. 이는 `InventoryQuery` 또는 `DiscoveryQueryPlan` 컴파일러가 아닙니다. |
 | 선택적 Azure 인벤토리 어댑터 | implemented | [`arg_query.py`](../../../services/core-control-plane/src/fdai/delivery/azure/arg_query.py), [`inventory.py`](../../../services/core-control-plane/src/fdai/delivery/azure/inventory.py), [`arm_inventory.py`](../../../services/core-control-plane/src/fdai/delivery/azure/arm_inventory.py) 및 집중 테스트 | ARG와 ARM 어댑터는 카탈로그에서 확인한 리소스 타입을 제한된 페이지 처리와 실패 시 차단 동작으로 조회합니다. 중앙 검색 계획 라우터를 뜻하지는 않습니다. |
 | 선택적 운영자 인벤토리 필터링 | implemented | [`_system_inventory_tool.py`](../../../services/core-control-plane/src/fdai/core/conversation/_system_inventory_tool.py), [`test_system_tools.py`](../../../services/core-control-plane/tests/conversation/test_system_tools.py) | 도구는 제공된 스냅샷을 중립 타입, ID 부분 문자열 및 리소스 그룹으로 필터링합니다. 범용 검색 의도를 컴파일하지는 않습니다. |
+| 대화형 읽기 의도 경계 | implemented | [`semantic_judgment.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_judgment.py), [`routing.py`](../../../services/core-control-plane/src/fdai/core/read_investigation/routing.py), 집중 의미 판단 및 읽기 조사 라우팅 테스트 | 공유 후보 전용 의미 판단이 영어, 한국어 및 혼합 언어의 의미와 출처에 근거한 대상을 제안합니다. 결정론적 코드는 정확히 등록된 의도, 리소스 신원, 예산 및 근거 권한 검사를 유지합니다. 이 경계는 `DiscoveryIntent` 컴파일러나 검색 백엔드 라우터가 아닙니다. |
 | Console 프로바이더 실행 정보 파싱 | implemented | [`inventory-execution-display.ts`](../../../console/src/deck/inventory-execution-display.ts) 및 집중 테스트 | Console은 구조가 유효하고 민감정보가 제거되었으며 범위가 제한된 `provider_execution` 레코드만 IQL과 분리해 표시합니다. |
 | 프로바이더 실행 증적 생성 | implemented | [`discovery_receipts.py`](../../../services/core-control-plane/src/fdai/delivery/azure/discovery_receipts.py), [`discovery_evidence.py`](../../../packages/service-contracts/src/fdai_service_contracts/discovery_evidence.py), 집중 Python 및 Console 파서 테스트 | 생성기는 정확한 등록 계획과 제한된 결과 요약을 받으며 raw argv, 자격 증명, 연속 토큰, 리소스 id 또는 프로바이더 오류를 받지 않습니다. |
 | 포괄적 검색 계약과 프로파일 | implemented | [`discovery.py`](../../../packages/service-contracts/src/fdai_service_contracts/discovery.py), [`discovery_profiles.py`](../../../services/core-control-plane/src/fdai/delivery/azure/discovery_profiles.py), [`discovery_observations.py`](../../../services/core-control-plane/src/fdai/delivery/azure/discovery_observations.py), 집중 계약 및 delivery 테스트 (`44 passed`) | 고정되고 digest에 바인딩된 의도, 계획, 프로파일 및 매핑되거나 미매핑된 프로바이더 관찰이 실행 가능한 텍스트와 해석되지 않은 수정자를 거부합니다. 계획은 정규화, ARG 또는 ARM API, Azure CLI 및 extension 버전을 고정합니다. |
@@ -52,7 +53,8 @@ FDAI는 운영자 질문을 형식화된 검색 의도로 컴파일하고, 해�
 | 2026-08-14 | in-progress | 정규화와 관찰된 ARG, ARM, Azure CLI 및 Resource Graph extension 버전을 추가적 프로파일/계획 리비전 `1.1.0`에 고정하고, 검토된 영어/한국어 시나리오 3쌍이 동일한 typed routing 및 권한 검사를 생성함을 증명했습니다. | `current change`; 집중 검색 테스트 `40 passed`, 작업 범위 Ruff, strict mypy 및 Core import 경계 gate가 통과했습니다. | 주장한 리소스 컨테이너 및 ARM 리소스 universe에 대해 최신 통제된 읽기 전용 canary 증적을 보존합니다. |
 | 2026-08-14 | in-progress | 독립 리뷰 뒤 자리 표시자는 유효하게 유지하면서 redirect, 제어 문자 및 실행 가능한 shell 단어를 서버와 Console 경계 모두에서 거부하도록 명령 근거를 강화했습니다. | `current change`; 집중 검색 테스트 `44 passed`, Console 파서 테스트 `11 passed`, strict mypy, Ruff 및 Console typecheck가 통과했습니다. | 주장한 리소스 컨테이너 및 ARM 리소스 universe에 대해 최신 통제된 읽기 전용 canary 증적을 보존합니다. |
 | 2026-08-14 | validated | 구독 범위 리소스 컨테이너 및 ARM 리소스 주장에 대해 통제된 집계 전용 Azure CLI canary를 기록하고, 개수와 프로바이더 타입 집합 digest만 보존했으며, 실행 권한이나 공백 없이 두 주장을 조정했습니다. | `current change`; [`record-azure-discovery-canary.py`](../../../scripts/automation/record-azure-discovery-canary.py), [`azure-discovery-live-evidence.json`](../../../config/azure-discovery-live-evidence.json), 집중 recorder 테스트 `4 passed`, 오프라인 증적 검증 및 recorder 커밋의 중앙 검증 증적이 통과했습니다. | 선언된 검색 프로파일 주장 2개에는 남은 작업이 없습니다. 더 넓은 universe를 검증하기 전에 별도 주장과 증적을 추가합니다. |
-| 2026-08-18 | 구현됨 | 고정된 네 개의 명사 쌍 없이 표현된 한국어 상태 요청을 인식하도록 했습니다. `상태` 앞의 리소스 종류 명사 또는 `상태` 뒤의 요청 동사를 현재 상태 읽기로 분류하며, 피어링·상태·이력·귀속 경로의 우선순위는 그대로 유지됩니다. | `current change`, `core/read_investigation/routing.py`, `tests/core/read_investigation/test_routing.py`, focused 읽기 조사 및 에이전트 검사 1269건 통과, 작업 범위 Ruff 및 format 통과 | 결정론적 경로는 여전히 에이전트 선택에만 관여하며 Console 의미 턴은 이를 참조하지 않습니다. |
+| 2026-08-18 | implemented | 고정된 네 개의 명사 쌍 없이 표현된 한국어 상태 요청을 인식하도록 했습니다. `상태` 앞의 리소스 종류 명사 또는 `상태` 뒤의 요청 동사를 현재 상태 읽기로 분류하며, 피어링·상태·이력·귀속 경로의 우선순위는 그대로 유지됩니다. | `current change`, `core/read_investigation/routing.py`, `tests/core/read_investigation/test_routing.py`, focused 읽기 조사 및 에이전트 검사 1269건 통과, 작업 범위 Ruff 및 format 통과 | 결정론적 경로는 여전히 에이전트 선택에만 관여하며 Console 의미 턴은 이를 참조하지 않습니다. |
+| 2026-08-21 | implemented | 앞 행의 언어별 분류기를 공유 후보 전용 의미 판단으로 대체했습니다. 읽기 조사 라우팅은 수락된 판단 뒤에 정확한 식별자만 파싱하며, 결정론적인 등록 의도, 계획 소유권, 근거 예산 및 프로바이더 권한 검사는 그대로 유지됩니다. | 커밋 `8fd040a7`, [`semantic_judgment.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_judgment.py), [`routing.py`](../../../services/core-control-plane/src/fdai/core/read_investigation/routing.py), [`check-chat-semantic-routing.py`](../../../scripts/quality/architecture/check-chat-semantic-routing.py), 집중 읽기 조사 검사 9건 통과, 의미 라우팅 검사에서 이행 경로 0건 확인 | 검색 프로파일 컴파일과 백엔드 선택은 별도의 결정론적 경계로 유지됩니다. |
 
 ### 남은 작업
 
@@ -147,8 +149,10 @@ KQL, URL, 명령 id, 확장 name 또는 argv를 작성할 수 없습니다.
 - 서버 소유 범위와 최신성, 결과, 페이지, 바이트 및 wall-clock 제한을 포함합니다.
 - 재현 가능한 명령 설명 요청 여부를 포함합니다.
 
-값은 제한되고 정규화된 상태를 유지합니다. 모델이 제안한 의도는 결정론적 검증기가 모든
-필드를 수락하고 해석되지 않은 modifier를 거부하기 전까지 권한이 없습니다.
+자연어 분류는 이 계약의 범위 밖입니다. 대화 경계에서 공유 후보 전용 의미 판단이 의미와
+출처에 근거한 대상을 제안할 수 있지만, 결정론적 코드가 수락된 제안을 이 제한된 형태로
+변환해야 합니다. 모델이 제안한 의도는 결정론적 검증기가 모든 필드를 수락하고 해석되지 않은
+수식어를 거부하기 전까지 권한이 없습니다.
 
 ### 검색 조회 계획
 
@@ -174,7 +178,7 @@ KQL, URL, 명령 id, 확장 name 또는 argv를 작성할 수 없습니다.
 - 민감정보 제거 및 substitution 지침입니다.
 - 서버가 REST 또는 인벤토리를 사용했으며 표시된 CLI는 동등한 재현 명령일 뿐인 경우의 설명입니다.
 
-향후 `CommandExplanation` 렌더러는 catalog-owned 구문과 별도로 검증된 scalar 값만 인용합니다.
+구현된 `CommandExplanation` 렌더러는 카탈로그 소유 구문과 별도로 검증된 스칼라 값만 인용합니다.
 접근 토큰, 테넌트 id, 실제 구독 id, raw 리소스 id, shell 운영자, 환경 배정
 또는 프로바이더 오류 텍스트는 렌더링하지 않습니다. 현재 범용 스냅샷 증적은 더 좁은 예외로,
 인증된 콘솔에 구독 id와 실행된 범용 argv를 표시하지만 페이지 나누기 토큰, 자격 증명,

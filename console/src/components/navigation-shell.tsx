@@ -28,6 +28,11 @@ interface Props {
   readonly devMode: boolean;
 }
 
+interface GroupSelectionAction {
+  readonly explorerOpen: boolean;
+  readonly navigate: boolean;
+}
+
 const MOBILE_QUERY = "(max-width: 720px)";
 
 export function visibleNavigationGroups(devMode: boolean): readonly (typeof PANEL_GROUPS)[number][] {
@@ -133,11 +138,20 @@ export function NavigationShell({ activePanelId, principalId, devMode }: Props) 
   }
 
   function selectGroup(group: PanelGroup): void {
-    const workspacePath = workspaceGroupNavigationPath(group, preferences);
+    const action = navigationGroupSelectionAction(
+      selectedGroup,
+      group,
+      preferences.explorerOpen,
+    );
+    if (!action.explorerOpen) {
+      setExplorerOpen(false);
+      return;
+    }
     setSelectedGroup(group);
     setExplorerOpen(true);
-    if (workspacePath) {
-      navigate(workspacePath);
+    if (action.navigate) {
+      const workspacePath = workspaceGroupNavigationPath(group, preferences);
+      if (workspacePath) navigate(workspacePath);
     }
   }
 
@@ -242,16 +256,17 @@ export function NavigationShell({ activePanelId, principalId, devMode }: Props) 
   }
 
   const renderGroupButton = (group: (typeof PANEL_GROUPS)[number]) => {
-    const selected = group.id === selectedGroup;
+    const expanded = group.id === selectedGroup && preferences.explorerOpen;
     return (
       <li key={group.id}>
         <Tooltip content={group.label} placement="right">
           <button
             ref={(element) => { groupRefs.current.set(group.id, element); }}
             type="button"
-            class={`activity-bar-button ${selected ? "active" : ""}`}
+            class={`activity-bar-button ${expanded ? "active" : ""}`}
             aria-label={group.label}
-            aria-pressed={selected && preferences.explorerOpen}
+            aria-expanded={expanded}
+            aria-controls="navigation-explorer"
             onClick={() => selectGroup(group.id)}
             onKeyDown={(event) => {
               if (event.key === "ArrowDown") {
@@ -296,7 +311,13 @@ export function NavigationShell({ activePanelId, principalId, devMode }: Props) 
         </ul>
       </nav>
 
-      <aside class={`navigation-explorer ${editing ? "editing" : ""}`} aria-label={t("nav.explorerLabel")}>
+      <aside
+        id="navigation-explorer"
+        class={`navigation-explorer ${editing ? "editing" : ""}`}
+        aria-label={t("nav.explorerLabel")}
+        aria-hidden={!preferences.explorerOpen}
+        inert={!preferences.explorerOpen}
+      >
         <header class="navigation-explorer-head">
           <div>
             <strong>{selectedMeta.label}</strong>
@@ -480,6 +501,17 @@ export function workspaceGroupNavigationPath(
   if (firstPanel === undefined) return null;
   closeWorkspaceDeck();
   return panelPath(firstPanel.id);
+}
+
+export function navigationGroupSelectionAction(
+  selectedGroup: PanelGroup,
+  requestedGroup: PanelGroup,
+  explorerOpen: boolean,
+): GroupSelectionAction {
+  if (selectedGroup === requestedGroup) {
+    return { explorerOpen: !explorerOpen, navigate: false };
+  }
+  return { explorerOpen: true, navigate: true };
 }
 
 function isMobile(): boolean {

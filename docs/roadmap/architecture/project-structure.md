@@ -25,11 +25,13 @@ The system is a **headless control plane + thin console + ChatOps**, not one web
 | Local telemetry write boundary | implemented | `shared/telemetry/logging.py`; `capture-local-service-log.py`; focused telemetry, launcher, provider-integration, and framework-layout checks | Shared telemetry owns bounded structured warning retention and dependency summaries. The local launcher owns terminal presentation and complete rotating file capture; neither path changes agent delivery or authority. |
 | Pre-dispatch kinetic safety boundary | implemented | `core/operational_planning/kinetic_safety.py`; `delivery/kinetic_safety.py`; `delivery/kinetic_proposal.py`; `runtime/control_loop.py`; focused dispatch, HIL, artifact, proposal, and runtime checks (`119 passed`) | Core declares the provider-neutral ordering seam. Delivery revalidates the durable OperationalPlan and proposal lineage, joins the existing correlation-indexed exact V2 proposal to the existing typed Action, and runtime shares one writer across ControlLoop and HIL resume before every Thor executor. Missing proposals preserve legacy behavior; invalid evidence blocks dispatch without raising authority. |
 | Trajectory retention claim boundary | implemented | `shared/providers/trajectory.py`; `core/trajectory/datasets.py`; `delivery/persistence/postgres_trajectory.py`; trajectory migrations and focused retention checks | The shared seam defines `completed -> deleting -> deleted` and idempotent artifact deletion. Core coordinates the claim without storage authority, while delivery owns PostgreSQL CAS, legal-hold exclusion, restart recovery, and tombstone persistence. |
+| Background-task read and completion boundary | in-progress | `core/background_task/`; `delivery/persistence/background_task_completion_audit.py`; Operator `families/conversation/background_tasks.py`; Operator read migration; Console background-task route; focused Core, Operator, migration, and Console checks | Core owns detached-task state and completion ordering, delivery owns atomic audit markers, Operator reads owner-filtered projections with `SELECT` only, and Console exposes no mutation controls. The production proposal consumer, executor, coordinator, and sink binding remain open. |
 
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-22 | validated | Validated the exact-target metric-series path across the existing Core, composition, Operator, and Console ownership boundaries. | `current change`; four focused isolation checks, Ruff, and strict mypy passed; authenticated Console evidence recorded `server_target_resource_metric_series`, 20/20 complete rows, no display truncation, and no document or Deck overflow at `1440x900`, `993x641`, or `390x844`. | No package, process, identity, persistence, or service-boundary work remains for this capability. |
+| 2026-08-23 | in-progress | Added the background-task completion audit adapter, owner-scoped Operator read projection and least-privilege migration, and bilingual Console inspection route without introducing a cross-service implementation import or task mutation authority. | `current change`; focused Core sink/audit, Operator projection/family, service-migration inventory, and Console decoder checks plus Ruff, strict mypy, Console typecheck, and production build. | Define the versioned proposal consumer and bind the executor, coordinator, completion sink, and audit writer before adding create or cancel controls. |
 | 2026-08-22 | implemented | Added an exact-target metric-series path within existing service ownership. Core returns the typed bounded table through the semantic contract, while Operator independently validates sampling metadata and compiles the presentation block. | `current change`; focused metric, planner, composition, prompt, and Operator presentation checks passed 43 cases. | Retain authenticated standard-port Browser evidence; no package, process, identity, persistence, or service boundary changes remain. |
 | 2026-08-21 | implemented | Expanded the static semantic corpus from 20 hand-authored pairs to 280 generated bilingual pairs without duplicating ontology or answer oracles. Added balanced seven-perspective coverage, document-driven historical topology, release health, cost, recurrence, unsafe-action, resource-evidence, and agent-authority cases, and deterministic source-to-artifact drift checks. | `current change`; `eval/golden-dataset/{coverage,expectations,questions}*`; `build_golden_dataset.py`; focused dataset checks passed 7 cases. | Bind the expanded corpus to the existing semantic campaign before claiming answer regression coverage. |
 | 2026-08-21 | in-progress | Corrected the physical layout after the service extraction removed the evaluation host and compatibility facade. Added a separate bilingual cloud-operations golden dataset with locale-neutral ontology traversal and answer oracles. | `current change`; `eval/golden-dataset/`; `tests/integration/evaluation/test_golden_dataset.py` passed 4 cases; dormant package tests passed 68 cases. | Bind the corpus to the existing semantic question campaign before claiming automated answer regression coverage. |
@@ -94,7 +96,7 @@ fdai/
 │   │   ├── trajectory/         # authorization-first observable trajectory projection, reviewed aggregate, offline validation, and provider-neutral retention claim coordination
 │   │   ├── case_history/       # canonical revisions, strict operational receipts, artifact-first intake, scoped retrieval, backfill, and retention
 │   │   ├── task_worker/        # isolated depth-one read-only workers: capability attenuation, lifecycle, durable state, and parent synthesis
-│   │   ├── background_task/    # durable detached reads: lease/CAS, atomic completion outbox, bounded retry, process-loss, and retention purge
+│   │   ├── background_task/    # durable detached reads: lease/CAS, atomic completion outbox, replay-idempotent handoff, bounded retry, process-loss, and retention purge
 │   │   ├── read_investigation/ # exact-resource VM/network planning, evidence, immutable provider-vs-graph shadow comparison and its deterministic cross-source conflict adjudication, latency policy, owner-scoped direct/stream replay, honest cost usage, SSE heartbeats, and stream-close cancellation; no cloud SDK or execution authority
 │   │   ├── briefing/           # deterministic opening/scheduled briefings over report-feed evidence
 │   │   ├── scheduler/          # create/pause/resume/edit/run-now/cancel lifecycle, cron dispatch, run history, blueprints, and scoped continuations
@@ -161,7 +163,7 @@ fdai/
 │   │   ├── channels/           # pure Teams/Slack presentation plus authenticated bounded A3 transports; no executor identity
 │   │   ├── chatops/            # channel adapters (Teams / Slack / email / webhook / pager / SMS)
 │   │   ├── notifications/      # per-channel senders; sibling `incident_platform/` provides PagerDuty/ServiceNow lifecycle and PagerDuty roster adapters
-│   │   ├── persistence/        # Postgres / pgvector stores, including forecast episodes/outbox and relational case-history backfill
+│   │   ├── persistence/        # Postgres / pgvector stores, including forecast episodes/outbox, relational case-history backfill, and atomic background-task completion audit markers
 │   │   ├── operating_model/    # bounded JSON deployment operating-model adapter; startup-only and all-before-write
 │   │   ├── runtime_settings.py  # allowlisted env defaults + revisioned StateStore overrides; no executor identity or promotion authority
 │   │   ├── behavior_knowledge/ # in-memory hybrid behavior index, tracked-source freshness, and built-in behavior seeds
@@ -188,7 +190,7 @@ fdai/
 │   │   ├── pipeline/           # watch -> collect -> shadow/regression; distill adds the DocumentEnvelope provenance bridge, cross-format equivalence, and review-only ontology gates
 │   │   └── codegen/            # authoring helpers (`new_action_type`, `new_object_type`) - generate scaffolds, never mutate the live catalog
 │   ├── agents/                # pantheon runtime - 15 named agents, typed topics, optional exact-proposal Verdict binding, v2 conversation charters, and bounded T1/T2 deliberation; see [agent-pantheon.md](../agents/agent-pantheon.md)
-│   ├── composition/           # composition root package (G-3, tracker #14): `__init__.py` facade + `_helpers.py` Container/LlmBindings (including optional conversation T2 synthesis) + focused `wire_*` binders, including exact-release semantic query assembly with request-role executors and `wire_context_selection.py` for the bounded context-selection shadow runner that owns its durable comparison store
+│   ├── composition/           # composition root package (G-3, tracker #14): `__init__.py` facade + `_helpers.py` Container/LlmBindings + `resolved_models.py` artifact loading/capability helpers + focused `wire_*` binders, including exact-release semantic query assembly with request-role executors and `wire_context_selection.py` for the bounded context-selection shadow runner that owns its durable comparison store
 │   ├── runtime/               # headless lifecycle and composition, including reviewed alias-free metric-semantic catalog loading, exact Rule generation document snapshots and replay-identical reconciliation, versioned isolated Executor shadow/effect handling, stable-offset remote client, EventBus/DLQ/health supervision, production entry point, reversible authority probe, operating-model and diagnostic-catalog startup projection/status, durable T2 recovery observation/backfill, StateStore-backed proposer route selection with Thor/Vidar execution and rollback, semantic runtime availability/readiness binding with deadline-bounded durable projection replay, transport/identity bindings, startup readiness, worker gating, and post-turn review wiring into Norns
 │   └── __main__.py            # entry point (starts the P1 control loop)
 ├── services/core-control-plane/{src/fdai_core_service,tests}/ # Core entry point and tests
@@ -248,7 +250,7 @@ fdai/
 │       ├── dev/
 │       ├── staging/
 │       └── prod/
-├── console/                   # thin SPA (Vite + Preact) - operator views, bounded governed commands, local display settings, and observation-only IAM Assignments
+├── console/                   # thin SPA (Vite + Preact) - operator views, owner-scoped background-task inspection, bounded governed commands, local display settings, and observation-only IAM Assignments
 │   ├── src/                    # shell, panel registry, GET-only client, routes, browser-local preferences
 │   ├── index.html              # Vite entrypoint
 │   ├── package.json            # deps: preact, @azure/msal-browser
@@ -512,6 +514,14 @@ clean (see the fork model in
   `OperationalPromotionUnitVerifier` resolve immutable evidence. The production registry remains
   shadow without them; raw scalar metrics are a test-only legacy fixture mode. A promotion-state
   refresh failure lowers the unified system-health ceiling instead of reusing stale enforcement.
+- **Operational catalog review and measurement**: `DeterministicCatalogValidator` reuses the
+  shipped Rule loader, shadow evaluator, and regression gate over a frozen scenario directory.
+  `GitOpsCatalogReviewPublisher` publishes only a content-addressed inert review package. The
+  `operational-promotion` measurement job accepts only exact-digest batches and manifest-bound
+  causal and unit evidence, then stores a receipt without changing promotion state.
+- **Independent effect observation**: the durable kinetic artifact store is the exact-plan source.
+  `StateStoreExecutedActionObservationStore` accepts only Heimdall-attributed observations whose
+  signed context passes the configured verifier on write and replay. Missing evidence remains held.
 - **Azure operational evidence**: `bind_azure_operational_evidence` composes a strict promoted-
   inventory snapshot reader, current safety evaluator, configured Azure metrics, bounded branch
   estimator, and effect-model reader. Temporal adapters reject non-finite metric values before

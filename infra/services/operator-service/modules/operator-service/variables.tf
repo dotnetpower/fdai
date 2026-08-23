@@ -4,14 +4,15 @@ variable "image" { type = string }
 variable "identity" { type = object({ runtime_resource_id = string, runtime_client_id = string, command_resource_id = string, command_client_id = string, edge_resource_id = optional(string, ""), edge_client_id = optional(string, "") }) }
 variable "event_topics" {
   type = object({
-    events               = string
-    semantic_requests    = optional(string, "")
-    semantic_projections = optional(string, "")
-    semantic_physical    = optional(string, "fdai.pantheon.objects")
+    events                      = string
+    semantic_requests           = optional(string, "")
+    semantic_projections        = optional(string, "")
+    semantic_physical           = optional(string, "fdai.pantheon.objects")
+    read_investigation_requests = optional(string, "")
   })
 }
 variable "database" {
-  type      = object({ dsn_secret_id = string, role = string })
+  type      = object({ dsn_secret_id = string, host = optional(string, ""), role = string })
   sensitive = true
 }
 variable "health" { type = object({ port = number, liveness_path = string, readiness_path = string, startup_path = optional(string), interval_seconds = optional(number, 30), timeout_seconds = optional(number, 3), failure_count_threshold = optional(number, 3), startup_failure_count = optional(number, 30) }) }

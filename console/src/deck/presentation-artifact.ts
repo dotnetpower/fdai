@@ -38,6 +38,8 @@ const SLOT_KINDS: Readonly<Record<string, ReadonlySet<PresentationBlock["kind"]>
   trend: new Set(["time_series", "table"]),
   comparison: new Set(["comparison", "table"]),
   timeline: new Set(["timeline", "table", "list"]),
+  correlation: new Set(["scatter", "table"]),
+  matrix: new Set(["heatmap", "table"]),
 };
 const V1_KINDS = new Set<PresentationBlock["kind"]>([
   "summary", "callout", "table", "threshold_table", "list", "coverage", "bar", "evidence",
@@ -194,6 +196,14 @@ function parseBlock(
     const data = schemaVersion === 2 ? parseTimeline(raw.data) : null;
     return data ? { ...base, kind: "timeline", data } : null;
   }
+  if (raw.kind === "scatter") {
+    const data = schemaVersion === 2 ? parseScatter(raw.data) : null;
+    return data ? { ...base, kind: "scatter", data } : null;
+  }
+  if (raw.kind === "heatmap") {
+    const data = schemaVersion === 2 ? parseHeatmap(raw.data) : null;
+    return data ? { ...base, kind: "heatmap", data } : null;
+  }
   if (raw.kind === "evidence") {
     const items = parseLabelValues(raw.data);
     return items ? { ...base, kind: "evidence", data: { items } } : null;
@@ -241,16 +251,19 @@ function parseChartItems(
 }
 
 function parseAccessibleBar(data: Record<string, unknown>) {
-  if (!hasExactKeys(data, ["description", "unit", "items", "exact_table"])) return null;
+  if (!hasLegacyOrVisualizedKeys(data, ["description", "unit", "items", "exact_table"])) return null;
   const description = text(data.description);
   const unit = text(data.unit, 64);
   const items = parseChartItems({ items: data.items }, false);
   const exactTable = isRecord(data.exact_table) ? parseTable(data.exact_table) : null;
-  return description && unit && items && exactTable ? { description, unit, items, exactTable } : null;
+  const visualization = chartVisualization(data.visualization, ["bar", "bar_list", "donut"]);
+  return description && unit && items && exactTable && visualization !== null
+    ? { description, unit, items, exactTable, ...(visualization ? { visualization } : {}) }
+    : null;
 }
 
 function parseAccessibleCoverage(data: Record<string, unknown>) {
-  if (!hasExactKeys(data, ["description", "unit", "items", "exact_table"]) ||
+  if (!hasLegacyOrVisualizedKeys(data, ["description", "unit", "items", "exact_table"]) ||
       !Array.isArray(data.items) || data.items.length === 0 || data.items.length > MAX_ITEMS) {
     return null;
   }
@@ -276,11 +289,14 @@ function parseAccessibleCoverage(data: Record<string, unknown>) {
       tone: rawItem.tone as PresentationTone,
     });
   }
-  return description && unit && exactTable ? { description, unit, items, exactTable } : null;
+  const visualization = chartVisualization(data.visualization, ["category_bar"]);
+  return description && unit && exactTable && visualization !== null
+    ? { description, unit, items, exactTable, ...(visualization ? { visualization } : {}) }
+    : null;
 }
 
 function parseTimeSeries(data: Record<string, unknown>) {
-  if (!hasExactKeys(data, ["description", "metric", "unit", "points", "exact_table"]) ||
+  if (!hasLegacyOrVisualizedKeys(data, ["description", "metric", "unit", "points", "exact_table"]) ||
       !Array.isArray(data.points) || data.points.length < 3 || data.points.length > MAX_ROWS) {
     return null;
   }
@@ -296,13 +312,14 @@ function parseTimeSeries(data: Record<string, unknown>) {
     points.push({ timestamp, value: rawPoint.value as number });
   }
   if (!timestampsStrictlyIncrease(points.map((point) => point.timestamp))) return null;
-  return description && metric && unit && exactTable
-    ? { description, metric, unit, points, exactTable }
+  const visualization = chartVisualization(data.visualization, ["area", "line"]);
+  return description && metric && unit && exactTable && visualization !== null
+    ? { description, metric, unit, points, exactTable, ...(visualization ? { visualization } : {}) }
     : null;
 }
 
 function parseComparison(data: Record<string, unknown>) {
-  if (!hasExactKeys(data, ["description", "metric", "unit", "items", "exact_table"]) ||
+  if (!hasLegacyOrVisualizedKeys(data, ["description", "metric", "unit", "items", "exact_table"]) ||
       !Array.isArray(data.items) || data.items.length < 2 || data.items.length > 5) return null;
   const description = text(data.description);
   const metric = text(data.metric);
@@ -319,13 +336,14 @@ function parseComparison(data: Record<string, unknown>) {
     roles.add(rawItem.role);
     items.push({ role: rawItem.role as typeof items[number]["role"], label, value: rawItem.value as number });
   }
-  return description && metric && unit && exactTable
-    ? { description, metric, unit, items, exactTable }
+  const visualization = chartVisualization(data.visualization, ["comparison_bar"]);
+  return description && metric && unit && exactTable && visualization !== null
+    ? { description, metric, unit, items, exactTable, ...(visualization ? { visualization } : {}) }
     : null;
 }
 
 function parseTimeline(data: Record<string, unknown>) {
-  if (!hasExactKeys(data, ["description", "items", "exact_table"]) ||
+  if (!hasLegacyOrVisualizedKeys(data, ["description", "items", "exact_table"]) ||
       !Array.isArray(data.items) || data.items.length < 2 || data.items.length > MAX_ROWS) return null;
   const description = text(data.description);
   const exactTable = isRecord(data.exact_table) ? parseTable(data.exact_table) : null;
@@ -338,7 +356,53 @@ function parseTimeline(data: Record<string, unknown>) {
     items.push({ timestamp, label });
   }
   if (!timestampsStrictlyIncrease(items.map((item) => item.timestamp))) return null;
-  return description && exactTable ? { description, items, exactTable } : null;
+  const visualization = chartVisualization(data.visualization, ["tracker"]);
+  return description && exactTable && visualization !== null
+    ? { description, items, exactTable, ...(visualization ? { visualization } : {}) }
+    : null;
+}
+
+function parseScatter(data: Record<string, unknown>) {
+  if (!hasExactKeys(data, ["description", "x_label", "y_label", "points", "exact_table"]) ||
+      !Array.isArray(data.points) || data.points.length < 2 || data.points.length > MAX_ROWS) return null;
+  const description = text(data.description);
+  const xLabel = text(data.x_label);
+  const yLabel = text(data.y_label);
+  const exactTable = isRecord(data.exact_table) ? parseTable(data.exact_table) : null;
+  const points: { label: string; x: number; y: number }[] = [];
+  for (const rawPoint of data.points) {
+    if (!isRecord(rawPoint) || !hasExactKeys(rawPoint, ["label", "x", "y"]) ||
+        !finiteNumber(rawPoint.x) || !finiteNumber(rawPoint.y)) return null;
+    const label = text(rawPoint.label);
+    if (!label) return null;
+    points.push({ label, x: rawPoint.x as number, y: rawPoint.y as number });
+  }
+  return description && xLabel && yLabel && exactTable
+    ? { description, xLabel, yLabel, points, exactTable }
+    : null;
+}
+
+function parseHeatmap(data: Record<string, unknown>) {
+  if (!hasExactKeys(data, ["description", "row_label", "column_label", "cells", "exact_table"]) ||
+      !Array.isArray(data.cells) || data.cells.length < 2 || data.cells.length > MAX_ROWS) return null;
+  const description = text(data.description);
+  const rowLabel = text(data.row_label);
+  const columnLabel = text(data.column_label);
+  const exactTable = isRecord(data.exact_table) ? parseTable(data.exact_table) : null;
+  const cells: { row: string; column: string; value: number }[] = [];
+  const coordinates = new Set<string>();
+  for (const rawCell of data.cells) {
+    if (!isRecord(rawCell) || !hasExactKeys(rawCell, ["row", "column", "value"]) ||
+        !finiteNumber(rawCell.value)) return null;
+    const row = text(rawCell.row);
+    const column = text(rawCell.column);
+    if (!row || !column || coordinates.has(`${row}\u0000${column}`)) return null;
+    coordinates.add(`${row}\u0000${column}`);
+    cells.push({ row, column, value: rawCell.value as number });
+  }
+  return description && rowLabel && columnLabel && exactTable
+    ? { description, rowLabel, columnLabel, cells, exactTable }
+    : null;
 }
 
 function parseTable(data: Record<string, unknown>): {
@@ -394,6 +458,7 @@ function blockDataToWire(block: PresentationBlock): Record<string, unknown> {
     description: block.data.description,
     metric: block.data.metric,
     unit: block.data.unit,
+    ...(block.data.visualization ? { visualization: block.data.visualization } : {}),
     points: block.data.points.map((point) => ({ ...point })),
     exact_table: tableDataToWire(block.data.exactTable),
   };
@@ -401,18 +466,35 @@ function blockDataToWire(block: PresentationBlock): Record<string, unknown> {
     description: block.data.description,
     metric: block.data.metric,
     unit: block.data.unit,
+    ...(block.data.visualization ? { visualization: block.data.visualization } : {}),
     items: block.data.items.map((item) => ({ ...item })),
     exact_table: tableDataToWire(block.data.exactTable),
   };
   if (block.kind === "timeline") return {
     description: block.data.description,
+    ...(block.data.visualization ? { visualization: block.data.visualization } : {}),
     items: block.data.items.map((item) => ({ ...item })),
+    exact_table: tableDataToWire(block.data.exactTable),
+  };
+  if (block.kind === "scatter") return {
+    description: block.data.description,
+    x_label: block.data.xLabel,
+    y_label: block.data.yLabel,
+    points: block.data.points.map((point) => ({ ...point })),
+    exact_table: tableDataToWire(block.data.exactTable),
+  };
+  if (block.kind === "heatmap") return {
+    description: block.data.description,
+    row_label: block.data.rowLabel,
+    column_label: block.data.columnLabel,
+    cells: block.data.cells.map((cell) => ({ ...cell })),
     exact_table: tableDataToWire(block.data.exactTable),
   };
   if ((block.kind === "bar" || block.kind === "coverage") && "description" in block.data) {
     return {
       description: block.data.description,
       unit: block.data.unit,
+      ...(block.data.visualization ? { visualization: block.data.visualization } : {}),
       items: block.data.items.map((item) => ({ ...item })),
       exact_table: tableDataToWire(block.data.exactTable),
     };
@@ -428,6 +510,7 @@ function persistedDataToWire(kind: unknown, data: Record<string, unknown>): Reco
     description: data.description,
     metric: data.metric,
     unit: data.unit,
+    ...("visualization" in data ? { visualization: data.visualization } : {}),
     points: data.points,
     exact_table: persistedTableToWire(data.exactTable),
   };
@@ -435,17 +518,34 @@ function persistedDataToWire(kind: unknown, data: Record<string, unknown>): Reco
     description: data.description,
     metric: data.metric,
     unit: data.unit,
+    ...("visualization" in data ? { visualization: data.visualization } : {}),
     items: data.items,
     exact_table: persistedTableToWire(data.exactTable),
   };
   if (kind === "timeline") return {
     description: data.description,
+    ...("visualization" in data ? { visualization: data.visualization } : {}),
     items: data.items,
+    exact_table: persistedTableToWire(data.exactTable),
+  };
+  if (kind === "scatter") return {
+    description: data.description,
+    x_label: data.xLabel,
+    y_label: data.yLabel,
+    points: data.points,
+    exact_table: persistedTableToWire(data.exactTable),
+  };
+  if (kind === "heatmap") return {
+    description: data.description,
+    row_label: data.rowLabel,
+    column_label: data.columnLabel,
+    cells: data.cells,
     exact_table: persistedTableToWire(data.exactTable),
   };
   if ((kind === "bar" || kind === "coverage") && "description" in data) return {
     description: data.description,
     unit: data.unit,
+    ...("visualization" in data ? { visualization: data.visualization } : {}),
     items: data.items,
     exact_table: persistedTableToWire(data.exactTable),
   };
@@ -518,4 +618,19 @@ function isRecord(raw: unknown): raw is Record<string, unknown> {
 function hasExactKeys(record: Record<string, unknown>, expected: readonly string[]): boolean {
   const keys = Object.keys(record);
   return keys.length === expected.length && expected.every((key) => key in record);
+}
+
+function hasLegacyOrVisualizedKeys(
+  record: Record<string, unknown>,
+  legacy: readonly string[],
+): boolean {
+  return hasExactKeys(record, legacy) || hasExactKeys(record, [...legacy, "visualization"]);
+}
+
+function chartVisualization<T extends string>(
+  raw: unknown,
+  allowed: readonly T[],
+): T | undefined | null {
+  if (raw === undefined) return undefined;
+  return typeof raw === "string" && allowed.includes(raw as T) ? raw as T : null;
 }

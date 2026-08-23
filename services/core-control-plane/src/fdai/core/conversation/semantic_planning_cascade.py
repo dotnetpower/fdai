@@ -39,6 +39,10 @@ from .semantic_planning_alignment import (
     DECLARATION_SECTIONS_BY_MEASURE,
     verify_frame_plan_alignment,
 )
+from .semantic_planning_frame import (
+    build_semantic_frame,
+    canonicalize_semantic_judgment_frame_proposal,
+)
 from .semantic_planning_models import (
     ClarificationRequirement,
     QueryPlanProposal,
@@ -50,6 +54,7 @@ from .semantic_planning_value_filters import stated_value_filters
 from .semantic_resource_metric_planning import normalize_exact_resource_metric_proposal
 from .semantic_resource_state_planning import normalize_resource_state_proposal
 from .semantic_target_candidate_planning import (
+    build_non_resource_target_clarification,
     build_resource_target_candidates_fallback,
     resource_target_candidates_apply_to_proposal,
 )
@@ -230,6 +235,7 @@ class SemanticPlanningCascade:
         metric_concepts: tuple[str, ...],
         principal: Principal,
         purpose: str,
+        semantic_judgment: Mapping[str, Any] | None = None,
         escalation_policy: SemanticPlanningEscalationPolicy | None = None,
     ) -> (
         tuple[
@@ -247,15 +253,43 @@ class SemanticPlanningCascade:
                 metric_concepts=metric_concepts,
                 principal_role=principal.role.value,
                 purpose=purpose,
+                semantic_judgment=copy.deepcopy(semantic_judgment),
             )
             if raw is None:
                 if tier == "t1":
+                    clarification = _judgment_non_resource_target_clarification(
+                        None,
+                        semantic_judgment=semantic_judgment,
+                        utterance=utterance,
+                        context=context,
+                        descriptors=descriptors,
+                        inventory_query_language=self._inventory_query_language,
+                    )
+                    if clarification is not None:
+                        _LOGGER.info(
+                            "semantic_planning_candidate_recovered",
+                            extra={
+                                "stage": "frame_unavailable",
+                                "recovery": "non_resource_target_clarification",
+                            },
+                        )
+                        return (*clarification, None)
+                    current_state_clarification = _current_state_clarification_fallback(
+                        semantic_judgment=semantic_judgment,
+                        utterance=utterance,
+                        context=context,
+                        descriptors=descriptors,
+                        confidence=0.0,
+                    )
+                    if current_state_clarification is not None:
+                        return (*current_state_clarification, None)
                     fallback = build_resource_target_candidates_fallback(
                         utterance=utterance,
                         context=context,
                         descriptors=descriptors,
                         confidence=0.0,
                         inventory_query_language=self._inventory_query_language,
+                        temporal_scope=_judgment_candidate_temporal_scope(semantic_judgment),
                     )
                     if fallback is not None:
                         _LOGGER.info(
@@ -302,6 +336,10 @@ class SemanticPlanningCascade:
                     descriptors=descriptors,
                     inventory_query_language=self._inventory_query_language,
                 )
+                proposal = canonicalize_semantic_judgment_frame_proposal(
+                    proposal,
+                    judgment=semantic_judgment,
+                )
                 if proposal.investigation is not None:
                     investigation = normalize_investigation_symptom(
                         proposal.investigation,
@@ -343,6 +381,7 @@ class SemanticPlanningCascade:
                 fallback = _candidate_frame_fallback(
                     tier=tier,
                     proposal=proposal,
+                    semantic_judgment=semantic_judgment,
                     utterance=utterance,
                     context=context,
                     descriptors=descriptors,
@@ -369,6 +408,7 @@ class SemanticPlanningCascade:
                 fallback = _candidate_frame_fallback(
                     tier=tier,
                     proposal=proposal,
+                    semantic_judgment=semantic_judgment,
                     utterance=utterance,
                     context=context,
                     descriptors=descriptors,
@@ -383,6 +423,28 @@ class SemanticPlanningCascade:
                 ):
                     continue
                 raise ProposalRejectedError("frame_build", type(exc).__name__) from exc
+            clarification = _judgment_non_resource_target_clarification(
+                proposal,
+                semantic_judgment=semantic_judgment,
+                utterance=utterance,
+                context=context,
+                descriptors=descriptors,
+                inventory_query_language=self._inventory_query_language,
+            )
+            if clarification is None:
+                clarification = build_non_resource_target_clarification(
+                    proposal,
+                    utterance=utterance,
+                    context=context,
+                    descriptors=descriptors,
+                    inventory_query_language=self._inventory_query_language,
+                )
+            if clarification is not None:
+                _LOGGER.info(
+                    "semantic_planning_candidate_recovered",
+                    extra={"stage": "frame", "recovery": "non_resource_target_clarification"},
+                )
+                return (*clarification, None)
             return proposal, frame, investigation_intent
         return None
 
@@ -495,22 +557,76 @@ def _candidate_frame_fallback(
     *,
     tier: str,
     proposal: SemanticFrameProposal | None,
+    semantic_judgment: Mapping[str, Any] | None,
     utterance: str,
     context: tuple[str, ...],
     descriptors: tuple[dict[str, Any], ...],
     inventory_query_language: InventoryQueryLanguageRegistry | None,
 ) -> tuple[SemanticFrameProposal, SemanticProblemFrame] | None:
-    if (
-        tier != "t1"
-        or proposal is None
-        or proposal.operation is SemanticOperation.ACTION_DRAFT
-        or proposal.output_shape is SemanticOutputShape.RESOURCE_TARGET_CANDIDATES
-        or not resource_target_candidates_apply_to_proposal(
-            proposal,
-            utterance=utterance,
-            descriptors=descriptors,
-            inventory_query_language=inventory_query_language,
+    if tier != "t1" or (
+        proposal is not None and proposal.operation is SemanticOperation.ACTION_DRAFT
+    ):
+        return None
+    judgment_clarification = _judgment_non_resource_target_clarification(
+        proposal,
+        semantic_judgment=semantic_judgment,
+        utterance=utterance,
+        context=context,
+        descriptors=descriptors,
+        inventory_query_language=inventory_query_language,
+    )
+    if judgment_clarification is not None:
+        _LOGGER.info(
+            "semantic_planning_candidate_recovered",
+            extra={"stage": "frame", "recovery": "non_resource_target_clarification"},
         )
+        return judgment_clarification
+    current_state_clarification = _current_state_clarification_fallback(
+        semantic_judgment=semantic_judgment,
+        utterance=utterance,
+        context=context,
+        descriptors=descriptors,
+        confidence=proposal.confidence if proposal is not None else 0.0,
+    )
+    if current_state_clarification is not None:
+        _LOGGER.info(
+            "semantic_planning_candidate_recovered",
+            extra={"stage": "frame", "recovery": "current_state_clarification"},
+        )
+        return current_state_clarification
+    if proposal is not None:
+        _LOGGER.info(
+            "semantic_planning_candidate_recovery_unavailable",
+            extra={
+                "operation": proposal.operation.value,
+                "output_shape": proposal.output_shape.value,
+                "proposal_object_subjects": ",".join(
+                    _non_resource_proposal_subjects(proposal, descriptors=descriptors)
+                ),
+            },
+        )
+    if proposal is None:
+        return None
+    clarification = build_non_resource_target_clarification(
+        proposal,
+        utterance=utterance,
+        context=context,
+        descriptors=descriptors,
+        inventory_query_language=inventory_query_language,
+    )
+    if clarification is not None:
+        _LOGGER.info(
+            "semantic_planning_candidate_recovered",
+            extra={"stage": "frame", "recovery": "non_resource_target_clarification"},
+        )
+        return clarification
+    if proposal.output_shape is SemanticOutputShape.RESOURCE_TARGET_CANDIDATES:
+        return None
+    if not resource_target_candidates_apply_to_proposal(
+        proposal,
+        utterance=utterance,
+        descriptors=descriptors,
+        inventory_query_language=inventory_query_language,
     ):
         return None
     fallback = build_resource_target_candidates_fallback(
@@ -519,6 +635,9 @@ def _candidate_frame_fallback(
         descriptors=descriptors,
         confidence=proposal.confidence,
         inventory_query_language=inventory_query_language,
+        temporal_scope=(
+            proposal.temporal_scope or _judgment_candidate_temporal_scope(semantic_judgment)
+        ),
     )
     if fallback is not None:
         _LOGGER.info(
@@ -526,6 +645,270 @@ def _candidate_frame_fallback(
             extra={"stage": "frame", "recovery": "resource_target_candidates"},
         )
     return fallback
+
+
+def _judgment_candidate_temporal_scope(
+    semantic_judgment: Mapping[str, Any] | None,
+) -> dict[str, str] | None:
+    if semantic_judgment is None:
+        return None
+    return (
+        {"kind": "current"}
+        if semantic_judgment.get("primary_intent") == "query.resource_current_state"
+        else None
+    )
+
+
+def _current_state_clarification_fallback(
+    *,
+    semantic_judgment: Mapping[str, Any] | None,
+    utterance: str,
+    context: tuple[str, ...],
+    descriptors: tuple[dict[str, Any], ...],
+    confidence: float,
+) -> tuple[SemanticFrameProposal, SemanticProblemFrame] | None:
+    if (
+        semantic_judgment is None
+        or semantic_judgment.get("primary_intent") != "query.resource_current_state"
+    ):
+        return None
+    proposal = normalize_current_state_proposal(
+        SemanticFrameProposal(
+            operation=SemanticOperation.SELECT,
+            subject_constraints=("Resource",),
+            measure_concepts=(),
+            temporal_scope={},
+            output_shape=SemanticOutputShape.TARGET_CURRENT_STATE,
+            evidence_requirements=("authoritative_inventory",),
+            unresolved_terms=(),
+            clarification_requirements=(),
+            clarification=None,
+            investigation=None,
+            confidence=confidence,
+        ),
+        utterance=utterance,
+        descriptors=descriptors,
+    )
+    return proposal, build_semantic_frame(proposal, utterance=utterance, context=context)
+
+
+def _judgment_non_resource_target_clarification(
+    proposal: SemanticFrameProposal | None,
+    *,
+    semantic_judgment: Mapping[str, Any] | None,
+    utterance: str,
+    context: tuple[str, ...],
+    descriptors: tuple[dict[str, Any], ...],
+    inventory_query_language: InventoryQueryLanguageRegistry | None,
+) -> tuple[SemanticFrameProposal, SemanticProblemFrame] | None:
+    if (
+        proposal is not None
+        and exact_target_from_constraints(
+            proposal.subject_constraints,
+            utterance=utterance,
+            descriptors=descriptors,
+        )
+        is not None
+    ):
+        return None
+    judgment_subjects = _judgment_object_subjects(
+        semantic_judgment,
+        descriptors=descriptors,
+    )
+    judgment_link_subjects = _judgment_link_subjects(
+        semantic_judgment,
+        descriptors=descriptors,
+        required_subjects=judgment_subjects,
+    )
+    unique_link_subjects = _unique_reviewed_link_subjects(
+        judgment_subjects,
+        descriptors=descriptors,
+    )
+    stated_subjects = _stated_object_subjects(utterance, descriptors=descriptors)
+    proposal_subjects = (
+        _non_resource_proposal_subjects(proposal, descriptors=descriptors)
+        if proposal is not None
+        else ()
+    )
+    selected_subjects = tuple(
+        subject
+        for subject in _descriptor_object_types(descriptors)
+        if subject
+        in {
+            *judgment_subjects,
+            *judgment_link_subjects,
+            *unique_link_subjects,
+            *stated_subjects,
+            *proposal_subjects,
+        }
+    )
+    if not selected_subjects:
+        return None
+    if proposal is None:
+        confidence = semantic_judgment.get("confidence") if semantic_judgment is not None else 0.0
+        proposal = SemanticFrameProposal(
+            operation=SemanticOperation.SELECT,
+            subject_constraints=selected_subjects,
+            measure_concepts=(),
+            temporal_scope={},
+            output_shape=SemanticOutputShape.ONTOLOGY_RELATIONSHIPS,
+            evidence_requirements=(),
+            unresolved_terms=(),
+            clarification_requirements=(),
+            clarification=None,
+            investigation=None,
+            confidence=confidence if isinstance(confidence, float) else 0.0,
+        )
+    clarification = build_non_resource_target_clarification(
+        proposal.model_copy(update={"subject_constraints": selected_subjects}),
+        utterance=utterance,
+        context=context,
+        descriptors=descriptors,
+        inventory_query_language=inventory_query_language,
+    )
+    if clarification is not None:
+        return clarification
+    if len(selected_subjects) < 2:
+        return None
+    recovered = proposal.model_copy(
+        update={
+            "operation": SemanticOperation.SELECT,
+            "subject_constraints": selected_subjects,
+            "measure_concepts": (),
+            "temporal_scope": {"kind": "current"},
+            "output_shape": SemanticOutputShape.ONTOLOGY_RELATIONSHIPS,
+            "evidence_requirements": (),
+            "unresolved_terms": (),
+            "clarification_requirements": (),
+            "clarification": None,
+            "investigation": None,
+        }
+    )
+    return recovered, build_semantic_frame(recovered, utterance=utterance, context=context)
+
+
+def _non_resource_proposal_subjects(
+    proposal: SemanticFrameProposal,
+    *,
+    descriptors: tuple[dict[str, Any], ...],
+) -> tuple[str, ...]:
+    declared = set(_descriptor_object_types(descriptors))
+    return tuple(subject for subject in proposal.subject_constraints if subject in declared)
+
+
+def _descriptor_object_types(
+    descriptors: tuple[dict[str, Any], ...],
+) -> tuple[str, ...]:
+    return tuple(
+        name
+        for descriptor in descriptors
+        if descriptor.get("kind") == "object"
+        if isinstance((name := descriptor.get("name")), str)
+        if name != "Resource"
+    )
+
+
+def _stated_object_subjects(
+    utterance: str,
+    *,
+    descriptors: tuple[dict[str, Any], ...],
+) -> tuple[str, ...]:
+    normalized_utterance = " ".join(re.findall(r"[a-z0-9]+", utterance.casefold()))
+    selected = set()
+    for object_type in _descriptor_object_types(descriptors):
+        label = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", object_type).casefold()
+        if re.search(rf"(?:^| ){re.escape(label)}(?: |$)", normalized_utterance):
+            selected.add(object_type)
+    return tuple(
+        object_type
+        for object_type in _descriptor_object_types(descriptors)
+        if object_type in selected
+    )
+
+
+def _judgment_object_subjects(
+    judgment: Mapping[str, Any] | None,
+    *,
+    descriptors: tuple[dict[str, Any], ...],
+) -> tuple[str, ...]:
+    if judgment is None:
+        return ()
+    object_types = _descriptor_object_types(descriptors)
+    object_types_by_source_value = {
+        re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", name).casefold(): name for name in object_types
+    }
+    targets = judgment.get("targets")
+    if not isinstance(targets, list):
+        return ()
+    selected: set[str] = set()
+    for target in targets:
+        if not isinstance(target, Mapping):
+            continue
+        canonical_value = target.get("canonical_value")
+        source_value = target.get("value")
+        if isinstance(canonical_value, str) and canonical_value in object_types:
+            selected.add(canonical_value)
+        elif target.get("kind") == "object_type" and isinstance(source_value, str):
+            matched = object_types_by_source_value.get(" ".join(source_value.casefold().split()))
+            if matched is not None:
+                selected.add(matched)
+    return tuple(name for name in object_types if name in selected)
+
+
+def _judgment_link_subjects(
+    judgment: Mapping[str, Any] | None,
+    *,
+    descriptors: tuple[dict[str, Any], ...],
+    required_subjects: tuple[str, ...] = (),
+) -> tuple[str, ...]:
+    if judgment is None:
+        return ()
+    primary_intent = judgment.get("primary_intent")
+    if not isinstance(primary_intent, str) or not primary_intent.startswith("query."):
+        return ()
+    link_name = primary_intent.removeprefix("query.")
+    for descriptor in descriptors:
+        if descriptor.get("kind") != "link" or descriptor.get("name") != link_name:
+            continue
+        endpoints = (descriptor.get("from_type"), descriptor.get("to_type"))
+        if all(isinstance(endpoint, str) for endpoint in endpoints) and (
+            not required_subjects or set(required_subjects).intersection(endpoints)
+        ):
+            object_types = _descriptor_object_types(descriptors)
+            return tuple(endpoint for endpoint in object_types if endpoint in endpoints)
+    return ()
+
+
+def _unique_reviewed_link_subjects(
+    subjects: tuple[str, ...],
+    *,
+    descriptors: tuple[dict[str, Any], ...],
+) -> tuple[str, ...]:
+    if len(subjects) != 1:
+        return ()
+    subject = subjects[0]
+    candidates: list[tuple[str, str]] = []
+    for descriptor in descriptors:
+        if descriptor.get("kind") != "link":
+            continue
+        source_type = descriptor.get("from_type")
+        target_type = descriptor.get("to_type")
+        if (
+            isinstance(source_type, str)
+            and isinstance(target_type, str)
+            and subject in {source_type, target_type}
+            and source_type != "Resource"
+            and target_type != "Resource"
+        ):
+            candidates.append((source_type, target_type))
+    if len(candidates) != 1:
+        return ()
+    endpoints = candidates[0]
+    return tuple(
+        object_type
+        for object_type in _descriptor_object_types(descriptors)
+        if object_type in endpoints
+    )
 
 
 def _safe_frame_rejection_reason(exc: Exception) -> str:
@@ -548,6 +931,9 @@ def _validate_frame_proposal(
         "evidence_validation",
         "target_health_assessment",
     }
+    is_action_draft = proposal.output_shape is SemanticOutputShape.ACTION_DRAFT
+    if (proposal.operation is SemanticOperation.ACTION_DRAFT) != is_action_draft:
+        raise ValueError("semantic action_draft operation requires action_draft output")
     if (proposal.operation is SemanticOperation.VALIDATE) != is_evidence_validation:
         raise ValueError("semantic validate operation requires evidence_validation output")
     is_causal_evidence = proposal.output_shape == "causal_evidence"
@@ -572,9 +958,13 @@ def _validate_frame_proposal(
         )
     ):
         raise ValueError("target-bound causal evidence requires structured investigation intent")
-    if proposal.output_shape in _SCHEMA_LEVEL_OUTPUT_SHAPES and _names_runtime_instance(
-        (utterance, *proposal.subject_constraints),
-        descriptors=descriptors,
+    if (
+        proposal.output_shape in _SCHEMA_LEVEL_OUTPUT_SHAPES
+        and not _is_complete_ontology_trace_proposal(proposal)
+        and _names_runtime_instance(
+            (utterance, *proposal.subject_constraints),
+            descriptors=descriptors,
+        )
     ):
         raise ValueError("schema-level semantic frame names a runtime resource instance")
     if proposal.temporal_scope and proposal.output_shape in {
@@ -627,6 +1017,34 @@ def _names_runtime_instance(
         return False
     declared = _declared_vocabulary(descriptors)
     return any(candidate.casefold() not in declared for candidate in candidates)
+
+
+def _is_complete_ontology_trace_proposal(proposal: SemanticFrameProposal) -> bool:
+    required_measures = {
+        "action_type",
+        "resource_type",
+        "signal_type",
+    }
+    return (
+        proposal.operation is SemanticOperation.SELECT
+        and proposal.output_shape is SemanticOutputShape.ONTOLOGY_RELATIONSHIPS
+        and set(proposal.subject_constraints)
+        == {"ActionType", "ResourceType", "Rule", "SignalType"}
+        and required_measures <= set(proposal.measure_concepts)
+        and bool({"trace", "trace_relationships"}.intersection(proposal.measure_concepts))
+        and bool(
+            {
+                "no_current_finding",
+                "without_asserting_current_finding",
+                "without_current_finding",
+            }.intersection(proposal.measure_concepts)
+        )
+        and not proposal.temporal_scope
+        and not proposal.unresolved_terms
+        and not proposal.clarification_requirements
+        and proposal.clarification is None
+        and proposal.investigation is None
+    )
 
 
 def _has_target_bound_subject(

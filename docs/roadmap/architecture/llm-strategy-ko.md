@@ -1,41 +1,46 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: ab1332e442e76c03756ca68948c8372e99a017eb
-translation_revised: 2026-08-21
+translation_source_sha: b9ea6eaefbef59a4d12641951723d7f7efc8ce25
+translation_revised: 2026-08-23
 ---
 
 # LLM 전략(LLM Strategy)
 
-이 설계는 LLM을 **덜 사용** , 더 사용 아님. 모델은 **T2** 대체 경로이며 T0와 T1이 케이스를
-해결하지 못했을 때만 도달; 결정론적 검증이 승인하기 전까지 그 출력은 실행에 절대 신뢰되지 않음.
-실행 자격은 그 검증이 부여, **절대 모델이 아님**. 이 문서는
-[architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) 의
-티어와 quality-gate 규칙과
+이 설계는 LLM을 **덜 사용**합니다. 모델은 **T2** 대체 경로이며 T0와 T1이 사례를 해결하지 못했을
+때만 사용합니다. 결정론적 검증이 승인하기 전에는 모델 출력을 실행에 사용하지 않습니다. 실행 자격은 검증이 부여하며 **모델은 부여하지 않습니다**. 이 문서는
+[architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) 의 티어와 quality-gate 규칙과
 [security-and-identity-ko.md](security-and-identity-ko.md) 의 위협 모델을 확장.
 
-> 아래 모델 이름은 **채택 시점에 확인** 할 권장. 가용성, 가격, 미리 보기 상태는 변경됨; 구체
-> 모델은 시나리오 세트에서 측정된 비용/quality로 선택, 가정 아님. 이 문서로 특정 모델이 고정되지
-> 않음.
+> 아래 모델 이름은 **채택 시점에 확인**할 권장 사항입니다. 가용성, 가격, 미리 보기 상태는 바뀔 수 있습니다.
+> 구체적인 모델은 가정이 아니라 시나리오 세트에서 측정한 비용과 품질로 선택합니다. 이 문서는 특정 모델을 고정하지 않습니다.
 ## 구현 상태
 ### 구현 범위
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 기능 레지스트리, 해석 및 프로비저닝 평가 | implemented | `rule-catalog/llm-registry.yaml`; `rule_catalog/schema/llm_resolver.py`; `provisioning_assessment.py`; 집중 resolver 테스트 | 기능과 모델 대응, 명시적 용량 단위, 혼합 발행기 불변식 및 실패 시 차단 준비 상태를 실행할 수 있습니다. |
+| 후보 전용 의미 판단 및 계획 | implemented | `core/conversation/semantic_judgment.py`; `core/conversation/semantic_planning.py`; `composition/wire_semantic_query.py`; Azure 의미 어댑터; 집중 판단 및 계획 테스트 | 범위가 제한된 T1 판단은 같은 바인딩에서 잘못된 스키마 출력을 다시 시도한 후 선택적으로 T2로 전환합니다. 수락된 의미는 계획에 사용될 수 있지만 실행 권한을 부여하지 않습니다. |
 | T2 교차 검사, 검증기, 근거 확인, 신뢰도 및 rubric | implemented | `core/quality_gate/`; `delivery/azure/llm/rubric.py`; 집중 quality 게이트 및 Azure 어댑터 테스트 | 필수 4개 경로와 선택적 감산 rubric이 있습니다. 근거가 없거나 잘못되면 거부, 판단 보류 또는 사람 검토로 결과를 낮춥니다. |
-| 에스컬레이션 정책과 같은 발행기 primary 지연 시간 라우팅 | implemented | `core/quality_gate/escalation_ladder.py`; `delivery/azure/llm/latency_routed_cross_check.py`; `composition/wire_llm.py`; 집중 라우팅 테스트 | 에스컬레이션 단계는 권한을 갖지 않으며 primary 대체 경로는 secondary 발행기로 넘어갈 수 없습니다. |
+| 에스컬레이션 정책과 같은 발행기 primary 지연 시간 라우팅 | implemented | `core/quality_gate/escalation_ladder.py`; `delivery/azure/llm/latency_routed_cross_check.py`; `composition/wire_llm.py`; 집중 라우팅 테스트 | 에스컬레이션 단계는 권한을 갖지 않으며 지연 시간 선택은 secondary 발행기로 넘어갈 수 없습니다. 별도의 범위 제한 제안자 대체 경로는 등록된 secondary 제안자를 호출할 수 있지만, 해당 후보도 같은 quality 게이트로 다시 들어갑니다. |
+| T2 제안자 장애 조치, 영속 복구 근거 및 통제된 경로 선택 | implemented | `core/tiers/t2_reasoning/recovery.py`; `runtime/t2_{recovery,route_registry}.py`; `ops.switch-t2-proposer-route`; 집중 런타임 및 판테온 체인 테스트 | 실제 제안자 시도마다 예산을 예약하고 민감정보가 제거된 영속 근거를 발행합니다. 최종 소진은 Thor가 경로 변경을 영속화하기 전에 사람 승인으로 이동하며, Vidar는 실패한 변경만 복원합니다. 이 문서에는 통제된 배포 복구 캠페인이 보존되어 있지 않습니다. |
+| 모델 수명 주기 만료 검토 메커니즘 | implemented | `model_lifecycle_review.py`; `model_lifecycle_reconciler.py` 제안 스키마 v3; 집중 수명 주기 및 Key Vault 출처 테스트 | 제안은 정확한 출처 다이제스트와 영향 기능을 결합합니다. 만료된 미병합 검토는 매핑을 바꾸지 않고 권한 없는 보류를 만듭니다. 직접 Key Vault 출처 어댑터가 있지만 시작 로드, PR 수명주기 관측, 결정 영속화 및 런타임 보류 적용은 열려 있습니다. |
 | 운영 모델 근거와 강제 적용 승격 | in-progress | `core/measurement/model_tracking.py`; [목표와 메트릭](goals-and-metrics-ko.md#구현-상태) | 측정과 승격 계약이 있지만 모든 활성 T1/T2 기능의 보존된 실제 운영 집단은 이 문서에서 입증되지 않습니다. |
-| 주간 모델 조정기와 검토된 교체 흐름 | implemented | `.github/workflows/model-lifecycle-reconcile.yml`; `scripts/deployment/azure/model_lifecycle_reconciler.py`; 집중 수명 주기 및 보호된 workflow 테스트 | 예약 실행 경로는 모델 계열, 발행자, 상태, SKU, 용량 단위, 용량 값을 비교하고 정제된 근거를 만듭니다. 공급자 실패 시 판단을 보류하며, 활성화 권한이 없는 멱등적 초안 제안만 엽니다. 통제된 실행 증적과 검토된 교체는 열려 있습니다. |
+| 주간 모델 조정기와 검토된 교체 흐름 | in-progress | `.github/workflows/model-lifecycle-reconcile.yml`; `scripts/deployment/azure/model_lifecycle_reconciler.py`; 집중 수명 주기 및 보호된 workflow 테스트 | 제안 전용 경로는 모델 계열, 발행자, 상태, SKU, 용량 단위, 용량 값을 비교하고 정제된 근거를 만듭니다. 공급자 실패 시 판단을 보류하며, 활성화 권한이 없는 멱등적 초안을 열 수 있습니다. 만료된 제안을 평가하거나 런타임 보류 상태로 연결하는 경로가 없고, 통제된 실행 증적도 보존되어 있지 않습니다. |
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 이전 이력을 재구성하지 않고 구현 원장을 도입했으며 quality 게이트 상태를 현재 resolver, rubric, 에스컬레이션 및 지연 시간 라우팅 코드에 맞췄습니다. | `current change`; 위의 레지스트리, quality 게이트, Azure 어댑터, 조립 및 측정 경로입니다. | 운영 모델 근거를 보존하고 통제된 조정기 흐름을 구현합니다. |
 | 2026-08-19 | implemented | 실제 모델 해석을 보호된 계획에 연결하고, 정확한 전체 및 배포 매니페스트를 계획 메타데이터에 봉인했으며, 적용 시 같은 JSON과 SHA를 복원하고, 제안 전용 주간 수명 주기 조정기를 추가했습니다. | `current change`; 집중 모델 수명 주기, 계획 검증기, Operator 서술기, Terraform 및 권한 workflow 검사. | 통제된 조정기 실행을 한 번 보존하고, 레지스트리나 배포를 바꾸기 전에 모든 교체 초안을 별도로 검토합니다. |
 | 2026-08-21 | implemented | 기존 `GlobalStandard` 1K TPM 임베딩 배포와 검토된 `Standard` 200K TPM 후보를 변경 없음으로 잘못 분류한 문제를 수정했습니다. 수명 주기 제안은 이제 SKU와 유효 용량을 포함합니다. 보호된 계획은 정확한 주소, 모델 계열, 계정 연결, 기존 SKU/용량, 목표 SKU/용량, 교체 작업이 모두 일치할 때만 이 전환을 허용합니다. | `current change`; `model_lifecycle_reconciler.py`; `deploy-dev.yml`; 집중 수명 주기 검사 5개와 파괴적 계획 검사 2개 통과. | 정확한 보호 계획만 적용하고 교체와 런타임 연결을 검증한 뒤 적용 증적을 보존하고 수렴 후 범위가 제한된 이행 승인을 제거합니다. |
+| 2026-08-23 | implemented | 후보 전용 의미 판단을 읽기 전용 의미 계획에 연결하고, 선택적 T2 전환 전에 같은 바인딩에서 최대 3회의 스키마 복구를 시도하며, 액션 자세와 액션 주체의 정합성을 적용했습니다. | `current change`; `semantic_judgment.py`; `semantic_planning.py`; `wire_semantic_query.py`; 집중 의미 판단, 어댑터, 티어 라우팅 및 조립 검사. | 보존된 실제 운영 shadow 집단에 스키마 복구 시도, 복구, 전환 및 계획 처리 결과 측정을 추가합니다. |
+| 2026-08-23 | implemented | 제공된 T2 제안자 복구 계약을 이 소유 문서에 기록했습니다. 범위가 제한된 시도는 Huginn 유입 전에 민감정보가 제거된 증적을 영속화합니다. 최종 소진은 Heimdall이 축약하고 Forseti가 판정하며, 승인된 경로 변경은 Thor, 추가 전용 감사 및 상관관계로 제한된 Vidar 롤백을 사용합니다. 복구된 시도는 관측으로 남고 새 승인을 열지 않습니다. | 커밋 `68f0d4014`와 `e96416ce1`; `recovery.py`; `t2_recovery.py`; `t2_route_registry.py`; `test_{t2_recovery,t2_route_registry}.py`; `test_t2_recovery_chain.py`. | 재시작 복구, 소진에서 승인으로의 전환, 경로 변경, 실패한 검증의 롤백, 오래된 롤백 거부 및 새 승인 없는 복구를 입증하는 정확한 개정 번호의 통제된 캠페인을 보존합니다. |
+| 2026-08-23 | in-progress | 소스와 workflow 검토에서 제안 만료가 영향받는 기능을 사람 검토로 낮추지 않는다는 점을 확인해 수명 주기 범위를 바로잡았습니다. 예약 workflow는 제안 전용으로 유지되며 보존된 실행이 없습니다. | `current change`; `.github/workflows/model-lifecycle-reconcile.yml`; `scripts/deployment/azure/model_lifecycle_reconciler.py`; 집중 수명 주기 계약 테스트. | 권위 있는 런타임 모델 소스에 만료-보류 경로를 구현한 뒤 보호된 예약 실행을 한 번 보존하고 모든 교체 초안을 별도로 검토합니다. |
+| 2026-08-23 | implemented | 로컬에서 실행 가능한 만료 검토 범위를 추가했습니다. 수명 주기 제안 v3는 정본 출처 모델 다이제스트와 영향 기능을 기록합니다. 순수 평가기는 해당 정확한 출처의 만료된 미병합 제안만 보류하고 늦은 병합 근거를 거부합니다. Operator 소유 비동기 Key Vault 출처는 공식 Azure vault origin과 audience, 정확한 secret 신원, 크기, JSON 깊이, 활성화 및 만료 상태, 전체 마감, secret-safe 오류와 표현을 검증합니다. | `current change`; 집중 수명 주기 및 Key Vault 테스트; 15회의 비평 및 하드닝 라운드는 검증된 Medium 이상 결함 없이 종료됐습니다. | 비동기 출처 로드와 신뢰할 수 있는 PR 수명주기 관측을 시작 과정에 연결하고, 결정을 영속화 및 검증한 뒤 모델 매핑을 바꾸지 않고 기능 바인딩 전에 보류를 적용합니다. |
 ### 남은 작업
-- [ ] 활성화된 모든 T1/T2 기능에 대해 모델 신원, 비용, 지연 시간, 불일치, 근거 확인, 검증기, rubric, 결과 및 가드 근거가 포함된 고정된 실제 운영 shadow 집단을 보존합니다.
-- [ ] 사용 중단 또는 모델 계열 표류가 정제된 초안 PR만 만드는 통제된 예약 실행 증적을 보존하고, 병합되지 않은 만료가 해당 기능을 사람 검토로 낮춤을 검증합니다.
-- [ ] 선택적 rubric, 에스컬레이션 호출 또는 primary pool 행동은 고정된 재현과 독립 검토 후 권위 있는 레지스트리를 통해서만 승격하며 누락된 바인딩은 실패 시 차단을 유지합니다.
+- [ ] [목표와 메트릭](goals-and-metrics-ko.md#남은-작업)과 [Agent Pantheon 구현 계획](../agents/agent-pantheon-implementation-ko.md#남은-작업)의 실제 운영 KPI 선행 조건을 충족한 뒤, 활성화된 모든 T1/T2 기능에 대해 모델 신원, 비용, 지연 시간, 스키마 복구 시도와 복구 결과, 전환, 계획 처리 결과, 불일치, 근거 확인, 검증기, rubric, 결과 및 가드 근거가 포함된 고정된 실제 운영 shadow 집단을 보존합니다.
+- [ ] 범위가 제한된 시도 예산, 재시작 후 영속 증적 전달, 최종 소진에서 사람 승인으로의 전환, 감사된 경로 변경, 상관관계로 제한된 롤백 및 새 승인 없는 복구를 입증하는 통제된 T2 복구 캠페인을 보존합니다.
+- [ ] 구현된 만료 미병합 평가기와 직접 Key Vault 출처 어댑터를 비동기 시작 소유자를 통해 연결합니다. 신뢰할 수 있는 PR 수명주기 관측, 제안 및 결정 다이제스트 검증, 영속화, 바인딩 전 기능 보류를 추가합니다. 영향받는 기능이 모델 매핑을 바꾸지 않고 사람 검토로 이동함을 입증한 뒤, 사용 중단 또는 모델 계열 표류가 정제된 초안 PR만 만드는 통제된 예약 실행 증적을 보존합니다. 시작 및 출처 계약은 [Narrator 라우팅 및 지연 시간](../interfaces/narrator-routing-and-latency-ko.md#남은-작업)이 소유합니다.
+- [ ] 선택적 rubric, 에스컬레이션 호출 또는 primary pool 행동은 고정된 재현과 독립 검토 후 [권위 있는 ActionType 레지스트리](../decisioning/action-ontology-ko.md#33-governance)를 통해서만 승격하며 누락된 바인딩은 실패 시 차단을 유지합니다.
 
 ## 모델 티어
 
@@ -60,12 +65,12 @@ translation_revised: 2026-08-21
 
 ## T1 - 경량 티어
 
-- **임베딩**: 인시던트를 벡터화하고 과거 패턴에 매칭할 작은 임베딩 모델. 비용 효율 hosted 임베딩
-  모델 선호, 또는 데이터 잔류지나 비용이 요구할 때 로컬 sentence-transformer
-  ([데이터 Privacy](#data-privacy-and-residency) 참조). 벡터를 상태 옆에 저장(예: pgvector).
-- **소형 판단 모델**: 루틴 케이스 분류와 학습된 액션 선택을 위한 소형/저렴 지시 모델. 프롬프트
-  짧고 근거에 기반한 유지; 입력은 신뢰할 수 없는 취급
-  ([Prompt-Injection Defense](#prompt-injection-defense) 참조).
+- **임베딩**: 작은 임베딩 모델이 인시던트를 벡터화하고 과거 패턴과 대응시킵니다. 비용 효율이 높은 호스팅 모델을 우선 사용하고, 데이터 잔류지나 비용이 요구하면 로컬 sentence-transformer를
+  사용합니다([데이터 프라이버시](#data-privacy-and-residency) 참조). 벡터는 상태 옆에 저장합니다(예: pgvector).
+- **후보 전용 의미 판단**: 소형 지시 모델이 범위가 제한된 문맥과 주체 범위로 제한된 기능을 사용해 타입이 지정된 의도, 대상, 요청 정보, 신뢰도, 모호성 및 액션 자세를 제안합니다.
+  스키마가 잘못되면 범위가 제한되고 민감정보가 제거된 복구 정보만 전달하며 같은 바인딩에서 최대 3회 시도한 후 선택적으로 T2 바인딩으로 전환합니다. 호출자는 전환을 비활성화할 수 있습니다.
+- **검증된 계획 입력**: 수락된 판단은 신뢰할 수 없는 입력 묶음 안에서 의미 계획으로 전달됩니다. 결정론적 코드는 `advise_only`를 `action_subject: none`으로 정규화하고, `draft_only`에는 타입이 지정된
+  주체를 요구하며, 결과 프레임과 계획을 검증합니다. 어느 모델도 권한이나 실행 자격을 부여하지 않습니다.
 - 목표: 프론티어 왕복 없이 이벤트의 ~15-20% 흡수.
 
 ## T2 - 추론 티어 (Quality 게이트 필수)
@@ -419,67 +424,42 @@ Narrator 배포 선택, 멀티모달 탐색, 사용자별 선호 설정, TTFT, �
 소유합니다. T2 quality-gate 배정은 system-governed 상태를 유지하며 same-publisher T2 기본
 예외는 아래에 이어집니다.
 
-### T2 기본 지연 시간 풀 (invariant-safe, 명시적 선택)
+### T2 기본 라우팅 및 통제된 복구
 
-"T2 에서 지연 라우팅 금지" 규칙에는 리뷰를 마친 예외가 정확히 하나 있다:
-**`t2.reasoner.primary` 슬롯 내부에서, 동일 발행기 후보들 사이에서만** 라우팅.
-이는 구조적으로 invariant-safe 이고 quality 게이트 를 약화시키지 않는다. 기본 의
-*발행기* 는 절대 바뀌지 않고, 같은 발행기 의 어느 배포 가 특정 호출에
-답하느냐만 달라지기 때문이다.
+T2는 서로 다른 두 복구 범위를 사용합니다. 호출별 지연 시간 라우팅은
+`t2.reasoner.primary` 슬롯 안의 배포 중 하나를 선택합니다. 요청 간 제안자 복구는 통제된 액션
+파이프라인을 통해서만 선호하는 등록 제안자 경로를 바꿉니다. 어느 범위도 모델 출력에 권한을
+부여하거나 mixed-model quality 게이트를 약화하지 않습니다.
 
-**왜 안전한가.** Mixed-model 불변식 는 *배포* 가 아니라 *발행기* 를
-제약한다(`t2.reasoner.primary.publisher != t2.reasoner.secondary.publisher`).
-기본 풀 이 `{gpt-4o, gpt-5.4, gpt-4.1}` - 전부 OpenAI - 라면 어느 배포
-가 지연 경쟁에서 이기든 기본 발행기 는 `OpenAI` 로 유지되어, 교차 검증 는
-여전히 서로 다른 OpenAI-vs-secondary(예: Anthropic) 쌍을 돌린다. "교차 검증
-collapse" 위험은 *쌍 전체*를 속도로 라우팅할 때의 문제이고, 쌍의 한쪽을 위해
-교체 가능한 동일 발행기 배포 중에서 고르는 것에는 해당하지 않는다.
+- **동일 발행기 지연 시간 풀:** 모든 primary 풀 배포는 하나의 발행기를 공유하고, 그 발행기는
+  `t2.reasoner.secondary`와 달라야 합니다. 지연 시간 라우팅은 primary 슬롯에만 적용되고,
+  secondary 교차 검사, Critic, Judge 및 에스컬레이션 단계는 고정된 역할을 유지합니다. 리졸버는
+  발행기가 섞인 풀을 거부합니다. `llm.t2_primary_latency_routing`은 기본값이 `true`이며 후보가
+  두 개 이상일 때만 활성화되고, 후보가 하나이면 해당 primary를 그대로 사용합니다.
+- **범위가 제한된 호출 내 선택:** 라우터는 선택한 배포를 기록하고, 프로바이더 오류 텍스트 없이
+  실패를 분류하며, 범위가 제한된 cooldown을 적용하고, 남은 동일 발행기 배포를 각각 최대 한 번
+  시도합니다. 교차 검사의 secondary를 지연 시간 primary로 대체하지 않습니다.
+  `ModelHealthTransitionSink`는 선택, 비정상 및 복구된 배포 상태를 영속화합니다. 이 기록의 실패는
+  실패한 모델 호출을 성공으로 바꾸거나 이미 성공한 제안을 차단하지 않습니다.
+- **예산이 적용된 제안자 대체 경로:** `BoundedFailoverT2Proposer`는 실제 호출 전에 공유 T2 예산을
+  예약하고 등록된 `primary` 및 `secondary` 제안자 경로를 각각 최대 한 번 시도합니다. 모든 후보는
+  신뢰할 수 없는 상태로 같은 검증기, 근거 확인, 교차 검사 및 리스크 게이트에 다시 들어갑니다.
+  예산 소진이나 전체 후보 실패는 더 약한 판단을 반환하지 않습니다.
+- **영속 근거:** 각 시도는 경로 역할, 시도 번호, 상태, 실패 등급, 최종 상태 및 복구 상태를 담되
+  끝점이나 예외 텍스트는 제외한 `T2AttemptReceipt`를 발행합니다. 런타임은 Huginn 유입 전에 증적과
+  감사 항목을 저장하고, 전달되지 않은 증적을 다시 보내며, 프로바이더 호출을 재생하지 않고 범위가
+  제한된 이전 실패를 구체화할 수 있습니다.
+- **통제된 경로 변경:** 복구 증적은 정보로만 남습니다. 최종 후보 소진만 Heimdall 이상과 Forseti의
+  `ops.switch-t2-proposer-route` `hil` 결정이 됩니다. Var가 승인을 운반하고, Thor가 멱등 CAS 경로
+  변경을 수행하며, Saga가 감사 체인을 보존하고, Vidar가 실패한 상관관계의 변경만 복원합니다.
+  오래된 롤백은 더 최신 경로 개정을 덮어쓸 수 없습니다. ActionType은 shadow 우선이며 강제 적용된
+  전환 전에 사람 승인이 필요합니다.
+- **읽기 전용 가시성:** 경로 상태와 증적은 재시작 후에도 유지됩니다. Operator 변환 결과는 모델
+  상태와 민감정보가 제거된 복구 상세를 표시할 수 있지만 경로 변경, cooldown 해제, 승인 또는
+  배포 승격을 수행할 수 없습니다.
 
-**하드 규칙(MUST).**
-
-- **동일 발행기 만.** 기본 지연 시간 풀 의 모든 배포 는 하나의
-  발행기 를 공유해야 한다. 리졸버는 후보가 두 발행기 에 걸친 풀 을
-  거부하고, 확장된 mixed-model 불변식 는 풀 의 단일 발행기 가 여전히
-  `t2.reasoner.secondary` 와 다른지 재검증한다. cross-publisher 기본 풀 은
-  설정 선택이 아니라 quality-gate 결함이다.
-- **기본 슬롯만.** 풀 은 기본 제안자 만 라우팅한다. `secondary`,
-  `t2.critic`, `t2.rubric.judge`, 에스컬레이션 단계 구조 는 절대 지연 라우팅되지
-  않는다 - 결정성과 distinct-publisher 역할은 그대로다.
-- **기본 강제 적용 on.** `llm.t2_primary_latency_routing` 기본값 `true`.
-  리졸버가 동일 발행기 `t2.reasoner.primary` 후보를 2개 이상
-  발행(`--emit-primary-pool`) 할 때만 활성화되며, 1개 풀은 단일 기본
-  를 그대로 바인딩한다. 포크는 플래그를 `false` 로 설정해 단일
-  최선호 기본 를 pin 할 수 있다. 라우터는 구조적으로 invariant-safe
-  (동일 발행기 풀)라 켜도 quality 게이트 를 약화시키지 않는다.
-- **감사 에 pick 기록.** 라우팅된 모든 호출은 선택된 배포 를 감사 항목에
-  기록하므로, 라이브 pick 이 측정된 p50 에 따라 달라져도 재생(판정자 전용, 재실행
-  안 함)는 결정론적으로 유지된다.
-- **범위가 제한된 in-call 장애 조치.** 선택된 기본 배포가 raise하면 라우터는 penalty를
-  기록하고 남은 동일 발행기 기본을 각각 최대 한 번 시도합니다. 보조 발행기로
-  넘어가거나 비평자 및 판정자 연결을 변경하지 않습니다. 모든 기본 후보가 실패하면
-  마지막 오류가 전파되고 quality 게이트는 더 약한 judgment를 조용히 수락하지 않고 사람 검토로
-  경로합니다.
-- **실패 상태 및 cooldown.** 라우터는 프로바이더 오류 텍스트를 보존하지 않고 auth,
-  rate-limit, overloaded, 시간 초과, 전송 계층, 알 수 없음 실패를 분류합니다. 각 실패는 capped
-  multiplier를 사용하는 범위가 제한된 per-deployment cooldown을 설정합니다. Healthy 후보는 계속
-  조건을 충족하며 만료된 후보는 복구 탐색으로 예열에 다시 들어가고 성공은 실패
-  상태를 clear합니다. 모든 기본이 cooling 중이면 라우터는 fail fast하고 사례는 사람 검토로
-  이동합니다. Cooldown은 보조 발행기를 replacement 기본으로 선택하지 않습니다.
-- **영속 라우팅 전이.** 실패, 복구, selected-deployment 이벤트는 role-agnostic
-  `ModelHealthTransitionSink`를 통해 덧붙이기됩니다. 기록에는 모델 역할, 배포, 민감정보가 제거된
-  실패 등급, 범위가 제한된 cooldown, 고정된 선택 사유가 포함되며 프로바이더 오류 텍스트는 포함되지
-  않습니다. PostgreSQL 영속성은 프로세스 재시작 후에도 유지되고 같은 계약이 서술기,
-  T1, 다른 T2 역할 이벤트를 받을 수 있습니다. 텔레메트리 영속성 실패는 로그되지만 모델
-  장애 조치 또는 successful 제안을 차단하지 않습니다.
-- **Operator 가시성.** Operator API는 최신 선택된 배포, 장애 조치 사유,
-  unhealthy/recovered 후보, cooldown을 Settings > Models에 project합니다. Console은 읽기 전용을
-  유지하며 라우팅 변경, cooldown 해제, 배포 승격을 수행할 수 없습니다.
-
-**해석기 + 배선.** 리졸버는 `collect_narrator` 가 `narrator_candidates` 를
-발행 하는 것과 동일하게 `t2.reasoner.primary` 후보 풀(선호 순서의 viable 동일
-발행기 계열)을 발행 한다; 조립 은 플래그가 on 이고 풀 이 2개 이상일
-때 기본 `CrossCheckModel` 을 `LatencyRoutedCrossCheckModel` 로 감싸고, 그렇지
-않으면 단일 기본 를 그대로 바인딩한다.
+조립은 구성된 제안자가 해당 프로토콜을 노출할 때만 관측기와 선택기를 연결합니다. 그렇지 않으면
+기존 단일 경로 동작을 유지합니다.
 
 ### 조정기 작업
 

@@ -3,35 +3,41 @@ title: LLM Strategy
 ---
 # LLM Strategy
 
-The design **uses the LLM less**, not more. A model is the **T2** fallback, reached only after
-T0 and T1 cannot resolve a case, and its output is never trusted for execution until
-deterministic verification approves it. Execution eligibility is granted by that verification,
-**never by the model**. This file expands the tier and quality-gate rules in
+The design **uses the LLM less**, not more. A model is the **T2** fallback, reached only after T0 and
+T1 cannot resolve a case, and its output is never trusted for execution until deterministic verification approves it. Execution eligibility is granted by that verification, **never by the model**. This file expands the tier and quality-gate rules in
 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) and
 the threat model in [security-and-identity.md](security-and-identity.md).
 
-> Model names below are recommendations to **confirm at adoption time**. Availability,
-> pricing, and preview status change; pick the concrete model by measured cost/quality on the
-> scenario set, never by assumption. No specific model is fixed by this document.
+> Model names below are recommendations to **confirm at adoption time**. Availability, pricing,
+> and preview status change; pick the concrete model by measured cost/quality on the scenario set,
+> never by assumption. No specific model is fixed by this document.
 ## Implementation status
 ### Implementation scope
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Capability registry, resolution, and provisioning assessment | implemented | `rule-catalog/llm-registry.yaml`; `rule_catalog/schema/llm_resolver.py`; `provisioning_assessment.py`; focused resolver tests | Capability-to-model mappings, explicit capacity units, mixed-publisher invariants, and fail-closed readiness are executable. |
+| Candidate-only semantic judgment and planning | implemented | `core/conversation/semantic_judgment.py`; `core/conversation/semantic_planning.py`; `composition/wire_semantic_query.py`; Azure semantic adapters; focused judgment and planning tests | Bounded T1 judgment retries malformed schema output on the same binding before optional T2 escalation. Accepted meaning can guide planning but grants no execution authority. |
 | T2 cross-check, verifier, grounding, confidence, and rubric | implemented | `core/quality_gate/`; `delivery/azure/llm/rubric.py`; focused quality-gate and Azure adapter tests | The four required legs and optional subtractive rubric exist. Missing or invalid evidence lowers the result to denial, abstention, or human review. |
-| Escalation policy and same-publisher primary latency routing | implemented | `core/quality_gate/escalation_ladder.py`; `delivery/azure/llm/latency_routed_cross_check.py`; `composition/wire_llm.py`; focused routing tests | The ladder remains never-authoritative, and primary failover cannot cross into the secondary publisher. |
+| Escalation policy and same-publisher primary latency routing | implemented | `core/quality_gate/escalation_ladder.py`; `delivery/azure/llm/latency_routed_cross_check.py`; `composition/wire_llm.py`; focused routing tests | The ladder remains never-authoritative, and latency selection cannot cross into the secondary publisher. A separate bounded proposer fallback can invoke the registered secondary proposer, but its candidate still enters the same quality gate. |
+| T2 proposer failover, durable recovery evidence, and governed route selection | implemented | `core/tiers/t2_reasoning/recovery.py`; `runtime/t2_{recovery,route_registry}.py`; `ops.switch-t2-proposer-route`; focused runtime and pantheon-chain tests | Every attempted proposer reserves budget and emits sanitized durable evidence. Terminal exhaustion reaches human approval before Thor can persist a route change, and Vidar restores only the failed change. No governed deployed recovery campaign is retained here. |
+| Model lifecycle expiry review mechanics | implemented | `model_lifecycle_review.py`; `model_lifecycle_reconciler.py` proposal schema v3; focused lifecycle and Key Vault source tests | Proposals bind the exact source digest and affected capabilities. Expired unmerged reviews produce authority-free holds without changing mappings. The direct Key Vault source adapter exists, but startup loading, PR lifecycle observation, decision persistence, and runtime hold application remain open. |
 | Operational model evidence and enforce promotion | in-progress | `core/measurement/model_tracking.py`; [Goals and Metrics](goals-and-metrics.md#implementation-status) | Measurement and promotion contracts exist, but one retained live cohort for every active T1/T2 capability is not evidenced here. |
-| Weekly model reconciler and reviewed replacement flow | implemented | `.github/workflows/model-lifecycle-reconcile.yml`; `scripts/deployment/azure/model_lifecycle_reconciler.py`; focused lifecycle and protected-workflow tests | The scheduled path compares family, publisher, status, SKU, capacity unit, and capacity value, emits sanitized evidence, abstains on provider failure, and opens an idempotent draft proposal with no activation authority. A governed run receipt and reviewed replacement remain open. |
+| Weekly model reconciler and reviewed replacement flow | in-progress | `.github/workflows/model-lifecycle-reconcile.yml`; `scripts/deployment/azure/model_lifecycle_reconciler.py`; focused lifecycle and protected-workflow tests | The proposal-only path compares family, publisher, status, SKU, capacity unit, and capacity value, emits sanitized evidence, abstains on provider failure, and can open an idempotent draft with no activation authority. It has no expired-proposal evaluator or runtime hold binding, and no governed run receipt is retained. |
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and aligned the quality-gate status with current resolver, rubric, escalation, and latency-routing code. | `current change`; registry, quality-gate, Azure adapter, composition, and measurement paths listed above. | Retain operational model evidence and implement the governed reconciler flow. |
 | 2026-08-19 | implemented | Bound live model resolution to protected planning, sealed the exact full and deployment manifests into plan metadata, restored the same JSON and SHA for apply, and added a proposal-only weekly lifecycle reconciler. | `current change`; focused model lifecycle, plan verifier, Operator narrator, Terraform, and privileged-workflow checks. | Retain one governed reconciler run and separately review any draft replacement before registry or deployment change. |
 | 2026-08-21 | implemented | Versioned lifecycle proposals to include SKU and effective capacity after an existing `GlobalStandard` 1K TPM embedding deployment and the reviewed `Standard` 200K TPM candidate were incorrectly classified as no change. The protected plan permits only that exact address, family, account binding, source SKU/capacity, target SKU/capacity, and replacement action. | `current change`; `model_lifecycle_reconciler.py`; `deploy-dev.yml`; focused lifecycle checks passed 5 cases and destructive-plan checks passed 2 cases. | Apply only the exact protected plan, verify the replacement and runtime binding, retain the apply receipt, and remove the bounded migration approval after convergence. |
+| 2026-08-23 | implemented | Connected candidate-only semantic judgment to read-only semantic planning, added up to three same-binding schema-repair attempts before optional T2 escalation, and enforced action-posture and action-subject alignment. | `current change`; `semantic_judgment.py`; `semantic_planning.py`; `wire_semantic_query.py`; focused semantic judgment, adapter, tier-routing, and composition checks. | Add schema-repair attempt, recovery, escalation, and planning-disposition measures to the retained live-shadow cohort. |
+| 2026-08-23 | implemented | Recorded the shipped T2 proposer recovery contract in this owner document. Bounded attempts persist sanitized receipts before Huginn ingress; terminal exhaustion is reduced by Heimdall and judged by Forseti; approved route changes use Thor, append-only audit, and correlation-fenced Vidar rollback. A recovered attempt remains an observation and does not open another approval. | Commits `68f0d4014` and `e96416ce1`; `recovery.py`; `t2_recovery.py`; `t2_route_registry.py`; `test_{t2_recovery,t2_route_registry}.py`; `test_t2_recovery_chain.py`. | Retain one exact-revision governed campaign proving restart recovery, exhaustion-to-approval, route switch, failed verification rollback, stale rollback rejection, and recovery without a new approval. |
+| 2026-08-23 | in-progress | Corrected the lifecycle scope after source and workflow review found that proposal expiry does not lower an affected capability to human review. The scheduled workflow remains proposal-only and has no retained run. | `current change`; `.github/workflows/model-lifecycle-reconcile.yml`; `scripts/deployment/azure/model_lifecycle_reconciler.py`; focused lifecycle contract tests. | Implement the expiry-to-hold path against the authoritative runtime model source, then retain one protected scheduled run and separately review any draft replacement. |
+| 2026-08-23 | implemented | Added the locally executable expiry-review slice. Lifecycle proposal v3 records the canonical source-model digest and affected capabilities. A pure evaluator holds only an expired, unmerged proposal for that exact source and rejects late merge evidence. The Operator-owned async Key Vault source validates official Azure vault origins and audiences, exact secret identity, size, JSON depth, enabled and expiration state, total deadline, and secret-safe errors and representation. | `current change`; focused lifecycle and Key Vault tests; 15 critique-and-harden rounds ended with no verified Medium-or-higher defect. | Bind asynchronous source loading and trusted PR lifecycle observations into startup, persist and verify decisions, then apply holds before capability binding without changing the model mapping. |
 ### Remaining work
-- [ ] Retain a pinned live-shadow cohort for every enabled T1/T2 capability with model identity, cost, latency, disagreement, grounding, verifier, rubric, outcome, and guard evidence.
-- [ ] Retain a governed scheduled-run receipt proving deprecation or family drift creates only a sanitized draft PR, and verify an unmerged expiry lowers the affected capability to human review.
-- [ ] Promote optional rubric, escalation invocation, or primary-pool behavior only through the authoritative registry after frozen replay and independent review; keep missing bindings fail-closed.
+- [ ] Retain a pinned live-shadow cohort for every enabled T1/T2 capability with model identity, cost, latency, schema-repair attempts and recovery, escalation, planning disposition, disagreement, grounding, verifier, rubric, outcome, and guard evidence after the live KPI prerequisites in [Goals and Metrics](goals-and-metrics.md#remaining-work) and the [Agent Pantheon implementation plan](../agents/agent-pantheon-implementation.md#remaining-work) are satisfied.
+- [ ] Retain a governed T2 recovery campaign proving bounded attempt budgets, durable receipt forwarding after restart, terminal exhaustion to human approval, an audited route switch, correlation-fenced rollback, and recovery without a new approval.
+- [ ] Bind the implemented expired-unmerged evaluator and direct Key Vault source adapter through an asynchronous startup owner. Add trusted PR lifecycle observation, proposal and decision digest verification, persistence, and pre-binding capability holds. Prove the affected capability moves to human review without changing its model mapping, then retain a governed scheduled-run receipt showing deprecation or family drift creates only a sanitized draft PR. The startup/source contract is owned by [Narrator Routing and Latency](../interfaces/narrator-routing-and-latency.md#remaining-work).
+- [ ] Promote optional rubric, escalation invocation, or primary-pool behavior only through the [authoritative ActionType registry](../decisioning/action-ontology.md#33-governance) after frozen replay and independent review; keep missing bindings fail-closed.
 
 ## Model Tiers
 
@@ -55,13 +61,12 @@ stream, so T0+T1+T2 sum to ~100%; T0 (~70-80%) is documented in
 
 ## T1 - Lightweight Tier
 
-- **Embeddings**: a small embedding model to vectorize incidents and match past patterns.
-  Prefer a cost-efficient hosted embedding model, or a local sentence-transformer where data
-  residency or cost demands it (see [Data Privacy](#data-privacy-and-residency)). Store
-  vectors next to state (e.g. pgvector).
-- **Small judgment model**: a small/cheap instruction model to classify routine cases and
-  select a learned action. Keep prompts short and grounded; treat inputs as untrusted
-  (see [Prompt-Injection Defense](#prompt-injection-defense)).
+- **Embeddings**: a small embedding model vectorizes incidents and matches past patterns. Prefer a cost-efficient hosted model, or a local sentence-transformer where residency or cost requires it (see
+  [Data Privacy](#data-privacy-and-residency)). Store vectors next to state (e.g. pgvector).
+- **Candidate-only semantic judgment**: a small instruction model proposes typed intent, targets, requested facts, confidence, ambiguity, and action posture from bounded context and principal-scoped capabilities.
+  Invalid schema output receives only bounded, sanitized repair facts and retries the same binding up to three times before an optional T2 binding; callers can disable escalation.
+- **Verified planning input**: accepted judgment is passed to semantic planning inside the untrusted input envelope. Deterministic code normalizes `advise_only` to `action_subject: none`, requires a typed
+  subject for `draft_only`, and validates the resulting frame and plan. Neither model grants authorization or execution eligibility.
 - Goal: absorb ~15-20% of events without a frontier round-trip.
 
 ## T2 - Reasoning Tier (Quality Gate Required)
@@ -436,68 +441,43 @@ and runtime delivery decisions are owned by
 [Narrator Routing and Latency](../interfaces/narrator-routing-and-latency.md). T2 quality-gate
 assignments remain system-governed; the same-publisher T2 primary exception follows below.
 
-### T2 Primary Latency Pool (invariant-safe, opt-in)
+### T2 Primary Routing and Governed Recovery
 
-The blanket "no latency routing in T2" rule has exactly one reviewed exception:
-routing **within the `t2.reasoner.primary` slot, among same-publisher candidates
-only**. This is invariant-safe by construction and does not weaken the quality
-gate, because it never changes the primary's *publisher* - only which deployment
-of that same publisher answers a given call.
+T2 uses two separate recovery scopes. Per-call latency routing selects among deployments inside
+the `t2.reasoner.primary` slot. Cross-request proposer recovery changes which registered proposer
+route is preferred only through the governed action pipeline. Neither scope grants model output
+authority or weakens the mixed-model quality gate.
 
-**Why it is safe.** The mixed-model invariant constrains *publishers*
-(`t2.reasoner.primary.publisher != t2.reasoner.secondary.publisher`), not
-deployments. If the primary pool is `{gpt-4o, gpt-5.4, gpt-4.1}` - all OpenAI -
-the primary publisher stays `OpenAI` no matter which deployment wins the latency
-race, so the cross-check still runs a distinct OpenAI-vs-secondary (e.g. Anthropic)
-pair. The "collapse the cross-check" hazard applies to routing the *whole* T2 pair
-by speed; it does not apply to picking among interchangeable same-publisher
-deployments for one side of the pair.
+- **Same-publisher latency pool:** Every primary-pool deployment shares one publisher, and that
+  publisher remains distinct from `t2.reasoner.secondary`. Only the primary slot is latency-routed;
+  the secondary cross-check, Critic, Judge, and escalation ladder keep fixed roles. The resolver
+  rejects a cross-publisher pool. `llm.t2_primary_latency_routing` defaults to `true`, activates
+  only for at least two emitted candidates, and leaves a single primary unchanged.
+- **Bounded in-call selection:** The router records the selected deployment, classifies failures
+  without provider error text, applies bounded cooldown, and tries each remaining same-publisher
+  deployment at most once. It never substitutes the cross-check secondary as the latency primary.
+  `ModelHealthTransitionSink` persists selected, unhealthy, and recovered deployment state; its
+  failure does not turn a failed model call into success or block an already successful proposal.
+- **Budgeted proposer fallback:** `BoundedFailoverT2Proposer` reserves shared T2 budget before each
+  actual invocation and tries at most the registered `primary` and `secondary` proposer routes once
+  each. Every candidate remains untrusted and re-enters the same verifier, grounding, cross-check,
+  and risk gates. Budget exhaustion or total candidate failure returns no weaker judgment.
+- **Durable evidence:** Each attempt emits a sanitized `T2AttemptReceipt` with route role, attempt,
+  status, failure class, terminal state, and recovery state, but no endpoint or exception text. The
+  runtime stores the receipt and audit entry before Huginn ingress, retries unforwarded receipts,
+  and can materialize bounded legacy failures without replaying a provider call.
+- **Governed route change:** A recovered receipt remains informational. Only terminal candidate
+  exhaustion becomes a Heimdall anomaly and Forseti `hil` decision for
+  `ops.switch-t2-proposer-route`. Var carries the approval, Thor performs the idempotent CAS route
+  change, Saga preserves the audit chain, and Vidar restores only the failed correlation's change.
+  A stale rollback cannot overwrite a newer route revision. The ActionType stays shadow-first and
+  requires human approval before any enforced switch.
+- **Read-only visibility:** Route state and receipts survive restart. Operator projections can show
+  model health and sanitized recovery details, but cannot switch a route, clear cooldown, approve,
+  or promote a deployment.
 
-**Hard rules (MUST).**
-
-- **Same publisher only.** Every deployment in the primary latency pool MUST share
-  one publisher. The resolver rejects a pool whose candidates span two publishers,
-  and the extended mixed-model invariant re-checks that the pool's single publisher
-  still differs from `t2.reasoner.secondary`. A cross-publisher primary pool is a
-  quality-gate defect, not a configuration choice.
-- **Primary slot only.** The pool routes only the primary proposer. `secondary`,
-  `t2.critic`, `t2.rubric.judge`, and the escalation ladder are never
-  latency-routed - their determinism and distinct-publisher roles are unchanged.
-- **Enforced on by default.** `llm.t2_primary_latency_routing` defaults to
-  `true`. It activates only when the resolver emits >= 2 same-publisher
-  `t2.reasoner.primary` candidates (via `--emit-primary-pool`); a single-entry
-  pool binds the one primary unchanged. A fork sets the flag `false` to pin the
-  single most-preferred primary. The router is invariant-safe by construction
-  (same-publisher pool), so enabling it does not weaken the quality gate.
-- **Audit-recorded pick.** Every routed call records the chosen deployment in the
-  audit entry, so replay (judge-only, never re-executes) stays deterministic even
-  though the live pick varies with measured p50.
-- **Bounded in-call failover.** If the selected primary deployment raises, the router records a
-  penalty and tries each remaining same-publisher primary at most once. It never crosses into the
-  secondary publisher or changes critic and judge bindings. If every primary candidate fails, the
-  final error propagates and the quality gate routes the case to human review rather than silently
-  accepting a weaker judgment.
-- **Failure health and cooldown.** The router classifies auth, rate-limit, overloaded, timeout,
-  transport, and unknown failures without retaining provider error text. Each failure sets a
-  bounded per-deployment cooldown with a capped multiplier. Healthy candidates remain eligible;
-  an expired candidate re-enters warm-up as a recovery probe, and a success clears its failure
-  state. When every primary is cooling down, the router fails fast and the case moves to human
-  review. Cooldown never selects the secondary publisher as a replacement primary.
-- **Durable routing transitions.** Failure, recovery, and selected-deployment events are appended
-  through a role-agnostic `ModelHealthTransitionSink`. Records contain the model role, deployment,
-  redacted failure class, bounded cooldown, and a stable selection reason - never provider error
-  text. PostgreSQL persistence survives process restart and the same contract accepts narrator,
-  T1, and other T2 role events. Telemetry persistence failure is logged but does not block model
-  failover or a successful proposal.
-- **Operator visibility.** The Operator API projects the latest selected deployment, failover reason,
-  unhealthy/recovered candidates, and cooldown on Settings > Models. The console remains read-only;
-  it cannot alter routing, clear cooldown, or promote a deployment.
-
-**Resolver + wiring.** The resolver emits a `t2.reasoner.primary` candidate pool
-the same way `collect_narrator` emits `narrator_candidates` (viable same-publisher
-families in preference order); composition wraps the primary `CrossCheckModel` in a
-`LatencyRoutedCrossCheckModel` when the flag is on and the pool has >= 2 entries,
-otherwise it binds the single primary unchanged.
+Composition binds these observers and selectors only when the configured proposer exposes the
+corresponding protocols. Otherwise the existing single-route behavior remains unchanged.
 
 ### Reconciler Job
 

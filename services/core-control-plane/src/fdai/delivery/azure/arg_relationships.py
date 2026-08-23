@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import hashlib
+import ipaddress
 import json
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urlparse
 
 from fdai.rule_catalog.schema.provider_relationship_mapping import (
     EndpointOrientation,
@@ -20,6 +22,7 @@ from fdai.shared.providers.inventory import (
     ProviderRelationshipEvidence,
     RelationshipDrop,
     RelationshipDropReason,
+    RelationshipUnavailableReason,
     ResourceRecord,
 )
 
@@ -31,6 +34,8 @@ ARG_RELATIONSHIP_SOURCE_SCHEMA_DIGEST = (
 ArmIdToType = Callable[[str], str | None]
 ToNeutralId = Callable[[str], str]
 ExternalReferenceResolver = Callable[[str], str | None]
+_OPEN_ENV_VALUE_PATH = "properties.template.containers[].env[].value"
+_ROLE_ASSIGNMENT_PRINCIPAL_MAPPING_ID = "azure.role-assignment-attached-to-managed-identity"
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,6 +68,8 @@ def project_provider_relationships(
     arm_id_to_type: ArmIdToType,
     to_neutral_id: ToNeutralId,
     external_reference_resolver: ExternalReferenceResolver | None = None,
+    resolved_neutral_types: Mapping[str, str] | None = None,
+    source_identity: str | None = None,
     observed_schema_digest: str = ARG_RELATIONSHIP_SOURCE_SCHEMA_DIGEST,
 ) -> RelationshipProjectionResult:
     """Project provider references using only reviewed mapping direction and paths.
@@ -79,10 +86,20 @@ def project_provider_relationships(
     candidates: list[_Candidate] = []
     dropped: list[RelationshipDrop] = []
     for mapping in catalog.mappings:
-        if not _mapping_applies(mapping, source_provider_type=source_provider_type):
+        if not _mapping_applies(
+            mapping,
+            source_provider_type=source_provider_type,
+            source_identity=source_identity,
+        ):
             continue
         if mapping.source_schema.digest != observed_schema_digest:
-            dropped.append(_drop(RelationshipDropReason.STALE_SOURCE_SCHEMA_DIGEST, mapping))
+            dropped.append(
+                _drop(
+                    RelationshipDropReason.STALE_SOURCE_SCHEMA_DIGEST,
+                    mapping,
+                    source_provider_type=source_provider_type,
+                )
+            )
             continue
         for match in _path_matches(row, mapping.source_property_path):
             if not isinstance(match.value, str) or not match.value.strip():
@@ -101,8 +118,22 @@ def project_provider_relationships(
                     else None
                 )
                 if resolved_reference is None:
+                    if not _is_unresolved_reference_candidate(mapping, provider_reference):
+                        continue
+                    dropped.append(
+                        _drop(
+                            RelationshipDropReason.UNRESOLVED_REFERENCE,
+                            mapping,
+                            source_provider_type=source_provider_type,
+                            unavailable_reason=(
+                                RelationshipUnavailableReason.REFERENCE_NOT_OBSERVED
+                            ),
+                        )
+                    )
                     continue
                 provider_reference = resolved_reference
+            elif not _is_provider_reference_candidate(mapping, provider_reference):
+                continue
             target_provider_type = _target_provider_type(
                 mapping,
                 provider_reference,
@@ -112,13 +143,41 @@ def project_provider_relationships(
                 target_provider_type,
                 mapping.target_provider_types,
             ):
+                if mapping.source_property_path == _OPEN_ENV_VALUE_PATH:
+                    continue
+                dropped.append(
+                    _drop(
+                        RelationshipDropReason.TARGET_TYPE_MISMATCH,
+                        mapping,
+                        source_provider_type=source_provider_type,
+                        target_provider_type=target_provider_type,
+                        unavailable_reason=(
+                            RelationshipUnavailableReason.TARGET_PROVIDER_TYPE_UNMODELED
+                        ),
+                    )
+                )
                 continue
-            referenced_type = arm_to_neutral.get(target_provider_type.casefold())
+            referenced_type = (
+                resolved_neutral_types.get(provider_reference.casefold())
+                if resolved_neutral_types is not None
+                else None
+            ) or arm_to_neutral.get(target_provider_type.casefold())
             if referenced_type is None and target_provider_type.casefold() == (
                 "microsoft.resources/resourcegroups"
             ):
                 referenced_type = "resource-group"
             if referenced_type is None:
+                dropped.append(
+                    _drop(
+                        RelationshipDropReason.TARGET_TYPE_MISMATCH,
+                        mapping,
+                        source_provider_type=source_provider_type,
+                        target_provider_type=target_provider_type,
+                        unavailable_reason=(
+                            RelationshipUnavailableReason.TARGET_PROVIDER_TYPE_UNMODELED
+                        ),
+                    )
+                )
                 continue
             referenced_id = to_neutral_id(provider_reference)
             evidence = _mapping_evidence(
@@ -126,6 +185,8 @@ def project_provider_relationships(
                 mapping,
                 owner_id=owner.resource_id,
                 referenced_provider_id=provider_reference,
+                source_provider_type=source_provider_type,
+                target_provider_type=target_provider_type,
                 observed_schema_digest=observed_schema_digest,
             )
             record = _oriented_link(
@@ -176,7 +237,7 @@ def project_provider_relationships(
         links=tuple(links),
         dropped=tuple(
             sorted(
-                set(dropped),
+                dropped,
                 key=lambda item: (
                     item.reason.value,
                     item.mapping_id or "",
@@ -206,10 +267,18 @@ def _mapping_applies(
     mapping: ProviderRelationshipMapping,
     *,
     source_provider_type: str,
+    source_identity: str | None,
 ) -> bool:
-    return mapping.provider.casefold() == "azure" and (
-        "*" in mapping.source_provider_types
-        or source_provider_type in mapping.source_provider_types
+    return (
+        mapping.provider.casefold() == "azure"
+        and (
+            source_identity is None
+            or mapping.source_identity.casefold() == source_identity.casefold()
+        )
+        and (
+            "*" in mapping.source_provider_types
+            or source_provider_type in mapping.source_provider_types
+        )
     )
 
 
@@ -221,12 +290,58 @@ def _target_provider_type(
 ) -> str | None:
     if mapping.source_property_path == "id.resourceGroup":
         return "microsoft.resources/resourcegroups"
+    scope_parts = [part for part in provider_reference.split("/") if part]
+    if len(scope_parts) == 2 and scope_parts[0].casefold() == "subscriptions":
+        return "microsoft.resources/subscriptions"
+    if (
+        len(scope_parts) == 4
+        and scope_parts[0].casefold() == "subscriptions"
+        and scope_parts[2].casefold() == "resourcegroups"
+    ):
+        return "microsoft.resources/resourcegroups"
     return arm_id_to_type(provider_reference)
 
 
 def _provider_type_allowed(provider_type: str, allowed: Sequence[str]) -> bool:
     canonical = provider_type.casefold()
     return "*" in allowed or canonical in allowed
+
+
+def _is_provider_reference_candidate(
+    mapping: ProviderRelationshipMapping,
+    reference: str,
+) -> bool:
+    if mapping.source_property_path != _OPEN_ENV_VALUE_PATH:
+        return True
+    return reference.casefold().startswith("/subscriptions/")
+
+
+def _is_unresolved_reference_candidate(
+    mapping: ProviderRelationshipMapping,
+    reference: str,
+) -> bool:
+    if mapping.mapping_id == _ROLE_ASSIGNMENT_PRINCIPAL_MAPPING_ID:
+        return False
+    if mapping.source_property_path != _OPEN_ENV_VALUE_PATH:
+        return True
+    text = reference.strip()
+    if "://" not in text or "," in text or any(char.isspace() for char in text):
+        return False
+    try:
+        parsed = urlparse(text)
+        hostname = parsed.hostname
+    except ValueError:
+        return False
+    if not parsed.scheme.isalpha() or hostname is None:
+        return False
+    canonical_hostname = hostname.casefold().rstrip(".")
+    if canonical_hostname == "localhost":
+        return False
+    try:
+        ipaddress.ip_address(canonical_hostname)
+    except ValueError:
+        return "." in canonical_hostname
+    return False
 
 
 def _oriented_link(
@@ -259,6 +374,8 @@ def _mapping_evidence(
     *,
     owner_id: str,
     referenced_provider_id: str,
+    source_provider_type: str,
+    target_provider_type: str,
     observed_schema_digest: str,
 ) -> ProviderRelationshipEvidence:
     receipt_payload = json.dumps(
@@ -287,6 +404,8 @@ def _mapping_evidence(
         endpoint_orientation=mapping.endpoint_orientation.value,
         provider_owner_id=owner_id,
         observation_receipt_ref=observation_receipt,
+        source_provider_type=source_provider_type,
+        target_provider_type=target_provider_type,
     )
 
 
@@ -330,11 +449,18 @@ def _shadowed_contains_candidate_ids(candidates: Sequence[_Candidate]) -> set[in
 def _drop(
     reason: RelationshipDropReason,
     mapping: ProviderRelationshipMapping,
+    *,
+    source_provider_type: str | None = None,
+    target_provider_type: str | None = None,
+    unavailable_reason: RelationshipUnavailableReason | None = None,
 ) -> RelationshipDrop:
     return RelationshipDrop(
         reason=reason,
         mapping_id=mapping.mapping_id,
         source_property_path=mapping.source_property_path,
+        source_provider_type=source_provider_type,
+        target_provider_type=target_provider_type,
+        unavailable_reason=unavailable_reason,
     )
 
 
@@ -363,14 +489,31 @@ def _path_matches(row: Mapping[str, Any], path: str) -> tuple[_PathMatch, ...]:
         return (_PathMatch(parent, ()),) if parent is not None else ()
     matches = [_PathMatch(row, ())]
     for segment in path.split("."):
+        mapping_keys = segment.endswith("{keys}")
+        mapping_values = segment.endswith("{values}")
         collection = segment.endswith("[]")
-        key = segment[:-2] if collection else segment
+        key = (
+            segment[:-6]
+            if mapping_keys
+            else segment[:-8]
+            if mapping_values
+            else segment[:-2]
+            if collection
+            else segment
+        )
         next_matches: list[_PathMatch] = []
         for match in matches:
             if not isinstance(match.value, Mapping):
                 continue
             child = match.value.get(key)
-            if collection:
+            if mapping_keys or mapping_values:
+                if not isinstance(child, Mapping):
+                    continue
+                next_matches.extend(
+                    _PathMatch(item, (*match.indexes, index))
+                    for index, item in enumerate(child.keys() if mapping_keys else child.values())
+                )
+            elif collection:
                 if not isinstance(child, Sequence) or isinstance(child, (str, bytes)):
                     continue
                 next_matches.extend(

@@ -67,8 +67,8 @@ test("assigns specialized layout strategies to non-topology diagrams", () => {
   assert.equal(diagramDefinition("sankey").layoutStrategy, "layered");
 });
 
-test("keeps compound-edge handling isolated to deployment views", () => {
-  const compoundKinds = new Set(["deployment", "c4-deployment", "architecture"]);
+test("keeps compound-edge handling on deployment and network topology views", () => {
+  const compoundKinds = new Set(["deployment", "network", "c4-deployment", "architecture"]);
   for (const kind of supportedDiagramKinds()) {
     assert.equal(
       diagramDefinition(kind).hierarchyHandling,

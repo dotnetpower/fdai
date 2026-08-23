@@ -49,8 +49,9 @@ semantic_bootstrap="${FDAI_KAFKA_BOOTSTRAP_SERVERS:-}"
 semantic_request_topic="${FDAI_SEMANTIC_TURN_REQUEST_TOPIC:-}"
 semantic_projection_topic="${FDAI_SEMANTIC_TURN_PROJECTION_TOPIC:-}"
 semantic_physical_topic="${FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC:-}"
-if [[ -n "$semantic_request_topic" || -n "$semantic_projection_topic" || -n "$semantic_physical_topic" ]]; then
-  if [[ -z "$semantic_bootstrap" || -z "$semantic_request_topic" || -z "$semantic_projection_topic" || -z "$semantic_physical_topic" ]]; then
+read_investigation_topic="${FDAI_READ_INVESTIGATION_REQUEST_TOPIC:-}"
+if [[ -n "$semantic_request_topic" || -n "$semantic_projection_topic" || -n "$semantic_physical_topic" || -n "$read_investigation_topic" ]]; then
+  if [[ -z "$semantic_bootstrap" || -z "$semantic_request_topic" || -z "$semantic_projection_topic" || -z "$semantic_physical_topic" || -z "$read_investigation_topic" ]]; then
     echo "local semantic Kafka values MUST already be configured together" >&2
     exit 1
   fi
@@ -82,6 +83,7 @@ grep -vE '^(FDAI_DATABASE_URL|FDAI_DATABASE_ROLE|FDAI_ENTRA_TENANT_ID|FDAI_API_A
     printf 'FDAI_SEMANTIC_TURN_REQUEST_TOPIC=%s\n' "$semantic_request_topic"
     printf 'FDAI_SEMANTIC_TURN_PROJECTION_TOPIC=%s\n' "$semantic_projection_topic"
     printf 'FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC=%s\n' "$semantic_physical_topic"
+    printf 'FDAI_READ_INVESTIGATION_REQUEST_TOPIC=%s\n' "$read_investigation_topic"
   else
     printf 'FDAI_OPERATOR_SERVICE_LOCAL_AZURE_NARRATOR=1\n'
   fi

@@ -53,8 +53,11 @@ maintainer's local VS Code state.
   never through a persistent `run_in_terminal` session. Copilot monitors its own persistent
   terminals for input and can inject a noisy input-needed notification into later chat turns when
   a healthy service continuously emits logs. Use `console: start core runtime` when only the Core
-  Runtime needs recovery, and close any earlier agent-owned service terminal after its process has
-  been replaced by the task-owned process.
+  Runtime needs recovery; that task waits for a fresh Pantheon heartbeat. The `console: start full
+  stack` task returns after the supervisor spawns every managed launcher while the supervisor keeps
+  the 60-second readiness gate. Run `console: wait full stack ready` before reporting success or
+  starting work that requires the complete topology. Close any earlier agent-owned service terminal
+  after its process has been replaced by the task-owned process.
 - Treat an unqualified request to start the Console, Console web, local server, servers, backend,
   or full stack as a request for the complete `Console Web: Full Stack` topology. Start or verify
   all five independently packaged backend services plus the SPA: Core Control Plane, Operator
@@ -150,11 +153,11 @@ requested WSL path. A Blob or anchor download has the same user-visible failure 
   shared page as `--origin` and the Playwright target as `--storage-origin`. The receiver validates
   the POST against the shared origin while writing the bootstrap local storage for the target
   origin.
-- In one browser evaluation, POST an object containing `location.origin` and
-  `Object.entries(sessionStorage)` to the receiver as `text/plain;charset=UTF-8`. Keep this a CORS
-  simple request: adding JSON content type or custom headers introduces an `OPTIONS` preflight that
-  consumes the one-request receiver. Return only the HTTP status and item count; never return or log
-  the serialized authentication values.
+- In one browser evaluation, POST an object containing `location.origin`,
+  `Object.entries(localStorage)`, and `Object.entries(sessionStorage)` to the receiver as
+  `text/plain;charset=UTF-8`. Keep this a CORS simple request: adding JSON content type or custom
+  headers introduces an `OPTIONS` preflight that consumes the one-request receiver. Return only the
+  HTTP status and item counts; never return or log the serialized authentication values.
 - The receiver accepts only the configured Console origin, validates the payload shape and size,
   serializes `fdai:e2e:browser-entra-session` in the Playwright bootstrap shape used by
   `console/tests/live-e2e/browser-entra-state.ts`, writes beneath ignored `.fdai/live-validation/`

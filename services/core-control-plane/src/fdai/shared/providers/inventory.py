@@ -61,7 +61,18 @@ class RelationshipDropReason(StrEnum):
     MISSING_TARGET_ENDPOINT = "missing_target_endpoint"
     PARTIAL_GENERATION = "partial_generation"
     STALE_SOURCE_SCHEMA_DIGEST = "stale_source_schema_digest"
+    TARGET_TYPE_MISMATCH = "target_type_mismatch"
+    UNRESOLVED_REFERENCE = "unresolved_reference"
     UNVERIFIED_METADATA = "unverified_metadata"
+
+
+class RelationshipUnavailableReason(StrEnum):
+    """Stable reason that a suppressed relationship cannot become an active edge."""
+
+    REFERENCE_NOT_OBSERVED = "reference_not_observed"
+    SOURCE_OUTSIDE_ACTIVE_GENERATION = "source_outside_active_generation"
+    TARGET_OUTSIDE_ACTIVE_GENERATION = "target_outside_active_generation"
+    TARGET_PROVIDER_TYPE_UNMODELED = "target_provider_type_unmodeled"
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,14 +82,23 @@ class RelationshipDrop:
     reason: RelationshipDropReason
     mapping_id: str | None = None
     source_property_path: str | None = None
+    source_provider_type: str | None = None
+    target_provider_type: str | None = None
+    unavailable_reason: RelationshipUnavailableReason | None = None
 
     def __post_init__(self) -> None:
         for field_name, value in (
             ("mapping_id", self.mapping_id),
             ("source_property_path", self.source_property_path),
+            ("source_provider_type", self.source_provider_type),
+            ("target_provider_type", self.target_provider_type),
         ):
             if value is not None and not value.strip():
                 raise ValueError(f"RelationshipDrop.{field_name} MUST be non-empty when supplied")
+        if self.unavailable_reason is not None and not isinstance(
+            self.unavailable_reason, RelationshipUnavailableReason
+        ):
+            raise ValueError("RelationshipDrop.unavailable_reason MUST be typed")
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,6 +119,8 @@ class ProviderRelationshipEvidence:
     endpoint_orientation: str
     provider_owner_id: str
     observation_receipt_ref: str
+    source_provider_type: str | None = None
+    target_provider_type: str | None = None
 
     def __post_init__(self) -> None:
         for field_name, value in (
@@ -118,6 +140,15 @@ class ProviderRelationshipEvidence:
         ):
             if not value.strip():
                 raise ValueError(f"ProviderRelationshipEvidence.{field_name} MUST be non-empty")
+        for optional_field_name, optional_value in (
+            ("source_provider_type", self.source_provider_type),
+            ("target_provider_type", self.target_provider_type),
+        ):
+            if optional_value is not None and not optional_value.strip():
+                raise ValueError(
+                    f"ProviderRelationshipEvidence.{optional_field_name} "
+                    "MUST be non-empty when supplied"
+                )
         if self.freshness_ceiling_seconds < 1:
             raise ValueError("ProviderRelationshipEvidence.freshness_ceiling_seconds MUST be >= 1")
 

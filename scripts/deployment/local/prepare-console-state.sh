@@ -7,7 +7,13 @@ validation_database_url="postgresql+psycopg://fdai:devonly@127.0.0.1:5433/fdai_v
 adoption_dir="$repo_root/.fdai/service-migration-adoption"
 rollback_reference="$(git -C "$repo_root" rev-parse HEAD)"
 
-bash "$repo_root/scripts/deployment/local/dev-up.sh"
+if [[ $# -gt 1 || ( $# -eq 1 && "${1:-}" != "--dependencies-ready" ) ]]; then
+  echo "Usage: $0 [--dependencies-ready]" >&2
+  exit 2
+fi
+if [[ $# -eq 0 ]]; then
+  bash "$repo_root/scripts/deployment/local/dev-up.sh"
+fi
 FDAI_DATABASE_URL="$validation_database_url" \
   "$repo_root/.venv/bin/python" -m alembic -c "$repo_root/alembic.ini" upgrade head
 FDAI_DATABASE_URL="$database_url" \

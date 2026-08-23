@@ -25,6 +25,7 @@ def _proposal() -> SemanticJudgmentProposal:
         requested_facets=("health", "freshness"),
         confidence=0.94,
         ambiguous=False,
+        action_subject="none",
         discourse_mode=SemanticDiscourseMode.DIRECT,
     )
 
@@ -60,11 +61,24 @@ def test_proposal_carries_bounded_meaning_without_authority() -> None:
     assert proposal.proposal_digest.startswith("sha256:")
 
 
+def test_target_accepts_canonical_ontology_identity_case() -> None:
+    target = SemanticTarget(
+        kind="object_type",
+        value="change",
+        canonical_value="Change",
+        source_start=0,
+        source_end=6,
+    )
+
+    assert target.canonical_value == "Change"
+
+
 def test_ambiguous_proposal_requires_one_question() -> None:
     proposal = SemanticJudgmentProposal(
         primary_intent="resource.status",
         confidence=0.61,
         ambiguous=True,
+        action_subject="none",
         alternatives=("resource.health", "resource.lifecycle"),
         clarification="Do you mean health or lifecycle status?",
         discourse_mode=SemanticDiscourseMode.QUOTED,
@@ -77,6 +91,7 @@ def test_ambiguous_proposal_requires_one_question() -> None:
             primary_intent="resource.status",
             confidence=0.61,
             ambiguous=False,
+            action_subject="none",
             alternatives=("resource.health",),
         )
 
@@ -122,6 +137,7 @@ def test_contract_rejects_unknown_fields_and_execution_authority() -> None:
             primary_intent="resource.health",
             confidence=1.0,
             ambiguous=False,
+            action_subject="none",
             execution_authority=True,
         )
     with pytest.raises(ValidationError):
@@ -129,5 +145,24 @@ def test_contract_rejects_unknown_fields_and_execution_authority() -> None:
             primary_intent="resource.health",
             confidence=1.0,
             ambiguous=False,
+            action_subject="none",
             lexical_fallback="health",
+        )
+
+
+@pytest.mark.parametrize(
+    ("action_posture", "action_subject"),
+    [("advise_only", "Change"), ("draft_only", "none")],
+)
+def test_action_subject_must_match_action_posture(
+    action_posture: str,
+    action_subject: str,
+) -> None:
+    with pytest.raises(ValidationError, match="action subject MUST match draft posture"):
+        SemanticJudgmentProposal(
+            primary_intent="action_request",
+            confidence=1.0,
+            ambiguous=False,
+            action_posture=action_posture,  # type: ignore[arg-type]
+            action_subject=action_subject,  # type: ignore[arg-type]
         )

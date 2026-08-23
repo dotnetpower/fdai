@@ -6,10 +6,13 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 
+from fdai.shared.providers.read_investigation import ReadInvestigationIntent
+
 _MAX_ID = 256
 _MAX_PROMPT = 4_000
 _MAX_PROGRESS = 1_000
 MAX_COMPLETION_ATTEMPTS = 8
+BACKGROUND_TASK_ACCOUNTABLE_AGENT = "Heimdall"
 
 
 class BackgroundTaskKind(StrEnum):
@@ -93,6 +96,29 @@ class BackgroundTaskBudget:
 
 
 @dataclass(frozen=True, slots=True)
+class BackgroundReadInvestigationSpec:
+    """Persist the verified meaning and server-owned scope for isolated execution."""
+
+    intent: ReadInvestigationIntent
+    resource_name: str
+    scope_ref: str
+    lookback_seconds: int
+    resource_type: str | None = None
+    resource_group: str | None = None
+    explicit_deep: bool = False
+
+    def __post_init__(self) -> None:
+        _text("resource_name", self.resource_name, 512)
+        _id("scope_ref", self.scope_ref)
+        if self.resource_type is not None:
+            _id("resource_type", self.resource_type)
+        if self.resource_group is not None:
+            _text("resource_group", self.resource_group, 512)
+        if not 60 <= self.lookback_seconds <= 2_592_000:
+            raise ValueError("lookback_seconds MUST be in [60, 2592000]")
+
+
+@dataclass(frozen=True, slots=True)
 class BackgroundTask:
     task_id: str
     owner_principal_id: str
@@ -106,6 +132,8 @@ class BackgroundTask:
     idempotency_key: str
     created_at: datetime
     retention_until: datetime
+    investigation: BackgroundReadInvestigationSpec | None = None
+    accountable_agent: str | None = None
     retryable: bool = False
 
     def __post_init__(self) -> None:
@@ -127,6 +155,11 @@ class BackgroundTask:
             raise ValueError("only read_only_investigation is supported")
         if self.capability_profile_id != "background.read-only":
             raise ValueError("background tasks require the background.read-only profile")
+        if (
+            self.accountable_agent is not None
+            and self.accountable_agent != BACKGROUND_TASK_ACCOUNTABLE_AGENT
+        ):
+            raise ValueError("read-only background tasks require Heimdall accountability")
 
 
 @dataclass(frozen=True, slots=True)
@@ -303,6 +336,7 @@ def _aware(name: str, value: datetime) -> None:
 
 
 __all__ = [
+    "BACKGROUND_TASK_ACCOUNTABLE_AGENT",
     "MAX_COMPLETION_ATTEMPTS",
     "TERMINAL_BACKGROUND_STATUSES",
     "BackgroundTask",

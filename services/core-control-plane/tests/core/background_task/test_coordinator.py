@@ -5,6 +5,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from time import perf_counter
 
+import pytest
 from fdai.core.background_task import (
     BackgroundTask,
     BackgroundTaskAttempt,
@@ -150,6 +151,30 @@ async def test_coordinator_runs_bounded_tasks_and_persists_before_handoff() -> N
         assert len(await store.progress(attempt.task.task_id)) == 2
 
 
+async def test_missing_completion_sink_keeps_outbox_pending() -> None:
+    store = InMemoryBackgroundTaskStore()
+    await store.create(_task("background-pending-completion"))
+    coordinator = BackgroundTaskCoordinator(
+        store=store,
+        executor=_Executor(),
+        config=BackgroundTaskCoordinatorConfig(coordinator_id="coordinator-no-sink"),
+    )
+
+    completed = await coordinator.run_once()
+
+    assert completed[0].status is BackgroundTaskStatus.SUCCEEDED
+    claim = await store.claim_completion(
+        coordinator="completion-probe",
+        lease_token="completion-probe-token",
+        now=datetime.now(UTC),
+        lease_seconds=30,
+    )
+    assert claim is not None
+    completion, attempt = claim
+    assert completion.state.value == "sending"
+    assert attempt == completed[0]
+
+
 async def test_completion_retry_does_not_rerun_terminal_task() -> None:
     store = InMemoryBackgroundTaskStore()
     await store.create(_task("background-retry"))
@@ -211,6 +236,19 @@ async def test_completion_handoff_timeout_is_bounded_and_retries_without_rerun()
     assert sink.calls == 2
 
 
+def test_default_completion_timeout_uses_half_the_lease() -> None:
+    coordinator = BackgroundTaskCoordinator(
+        store=InMemoryBackgroundTaskStore(),
+        executor=_Executor(),
+        config=BackgroundTaskCoordinatorConfig(
+            coordinator_id="coordinator-timeout-default",
+            lease_seconds=30,
+        ),
+    )
+
+    assert coordinator._completion_publish_timeout_seconds == 15.0  # noqa: SLF001
+
+
 class _LeaseLostStore(InMemoryBackgroundTaskStore):
     """A store whose lease renewal always conflicts (lease lost mid-flight)."""
 
@@ -267,6 +305,109 @@ async def test_coordinator_failure_timeout_and_owner_cancel_are_terminal() -> No
     await slow.cancel("background-cancel", actor="operator-one")
     cancelled = await run
     assert cancelled[0].status is BackgroundTaskStatus.CANCELLED
+
+
+async def test_concurrent_ticks_share_one_concurrency_limit() -> None:
+    store = InMemoryBackgroundTaskStore()
+    for suffix in ("a", "b"):
+        await store.create(_task(f"background-concurrent-{suffix}"))
+    executor = _Executor(delay=0.05)
+    coordinator = BackgroundTaskCoordinator(
+        store=store,
+        executor=executor,
+        config=BackgroundTaskCoordinatorConfig(
+            coordinator_id="coordinator-concurrent",
+            max_concurrency=1,
+        ),
+    )
+
+    first, second = await asyncio.gather(
+        coordinator.run_once(),
+        coordinator.run_once(),
+    )
+
+    assert len(first) == 1
+    assert len(second) == 1
+    assert executor.max_active == 1
+
+
+async def test_wake_burst_coalesces_pending_ticks() -> None:
+    store = InMemoryBackgroundTaskStore()
+    await store.create(_task("background-wake-burst"))
+    coordinator = BackgroundTaskCoordinator(
+        store=store,
+        executor=_Executor(delay=0.05),
+        config=BackgroundTaskCoordinatorConfig(coordinator_id="coordinator-wake-burst"),
+    )
+
+    for _ in range(100):
+        coordinator.wake()
+
+    assert len(coordinator._ticks) == 1  # noqa: SLF001 - focused task-lifecycle invariant
+    await coordinator.shutdown()
+
+
+async def test_wake_during_tick_runs_one_followup_cycle() -> None:
+    store = InMemoryBackgroundTaskStore()
+    await store.create(_task("background-wake-first"))
+    coordinator = BackgroundTaskCoordinator(
+        store=store,
+        executor=_Executor(delay=0.05),
+        config=BackgroundTaskCoordinatorConfig(
+            coordinator_id="coordinator-wake-followup",
+            max_concurrency=1,
+        ),
+    )
+    coordinator.wake()
+    await asyncio.sleep(0)
+    await store.create(_task("background-wake-second"))
+
+    coordinator.wake()
+    await coordinator.shutdown()
+
+    attempts = await store.list()
+    assert {attempt.status for attempt in attempts} == {BackgroundTaskStatus.SUCCEEDED}
+
+
+async def test_coordinator_does_not_repeat_an_already_durable_cancel() -> None:
+    store = InMemoryBackgroundTaskStore()
+    await store.create(_task("background-cancelled"))
+    await store.cancel(
+        "background-cancelled",
+        actor="operator-one",
+        is_admin=False,
+        now=datetime.now(UTC),
+    )
+    coordinator = BackgroundTaskCoordinator(
+        store=store,
+        executor=_Executor(),
+        config=BackgroundTaskCoordinatorConfig(coordinator_id="coordinator-cancelled"),
+    )
+
+    await coordinator.cancel("background-cancelled", actor="operator-one")
+
+    cancelled = await store.get("background-cancelled")
+    assert cancelled is not None
+    assert cancelled.status is BackgroundTaskStatus.CANCELLED
+
+
+async def test_coordinator_preserves_authorization_for_repeated_cancel() -> None:
+    store = InMemoryBackgroundTaskStore()
+    await store.create(_task("background-cancelled-owner"))
+    await store.cancel(
+        "background-cancelled-owner",
+        actor="operator-one",
+        is_admin=False,
+        now=datetime.now(UTC),
+    )
+    coordinator = BackgroundTaskCoordinator(
+        store=store,
+        executor=_Executor(),
+        config=BackgroundTaskCoordinatorConfig(coordinator_id="coordinator-cancelled-owner"),
+    )
+
+    with pytest.raises(PermissionError, match="owner or an administrator"):
+        await coordinator.cancel("background-cancelled-owner", actor="operator-two")
 
 
 async def test_shutdown_cancels_after_bounded_drain() -> None:

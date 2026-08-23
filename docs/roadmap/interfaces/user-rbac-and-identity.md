@@ -213,10 +213,10 @@ Coarse roles are made safe by **quorum + justification + author≠approver** che
 PR and API layer:
 
 > **Implementation status**: Runtime capability checks, `RoleEnforcer.no_self_approval`, and
-> risk-gate quorum are implemented. The PR trailer, diff-risk, reviewer OID, and justification
-> checks below are the target CI contract and aren't implemented in `.github/workflows/`.
-> Current `.github/CODEOWNERS` routes exemptions, risk classification, and framework surfaces to
-> the upstream owner; it doesn't implement the complete `@aw-approvers` template below.
+> risk-gate quorum are implemented. CI now joins exact-head GitHub PR, commit, review, and Check Run
+> facts to an Entra principal bundle emitted by a configured trusted verifier App. Missing trusted
+> attestation fails closed. Deploying that App, recording the human OID trailer at draft creation,
+> justification enforcement, and the complete `@aw-approvers` CODEOWNERS layout remain open.
 
 ### 5.1 Target CODEOWNERS (single approver group, path-based reviewer count)
 

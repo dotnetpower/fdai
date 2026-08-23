@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import Protocol
-from uuid import uuid4
+
+from fdai_service_contracts.read_investigation import read_investigation_task_id
 
 from fdai.core.background_task.models import (
+    BACKGROUND_TASK_ACCOUNTABLE_AGENT,
+    BackgroundReadInvestigationSpec,
     BackgroundTask,
     BackgroundTaskAttempt,
     BackgroundTaskBudget,
@@ -28,10 +32,12 @@ class BackgroundTaskService:
         store: BackgroundTaskStore,
         audit: BackgroundTaskAudit,
         quota_policy: BackgroundTaskQuotaPolicy | None = None,
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._store = store
         self._audit = audit
         self._quota_policy = quota_policy or BackgroundTaskQuotaPolicy()
+        self._clock = clock or (lambda: datetime.now(UTC))
 
     async def create(
         self,
@@ -43,14 +49,15 @@ class BackgroundTaskService:
         correlation_id: str,
         idempotency_key: str,
         budget: BackgroundTaskBudget | None = None,
+        investigation: BackgroundReadInvestigationSpec | None = None,
         now: datetime | None = None,
         retention_days: int = 30,
     ) -> tuple[BackgroundTaskAttempt, bool]:
         if not 1 <= retention_days <= 90:
             raise ValueError("retention_days MUST be in [1, 90]")
-        created_at = now or datetime.now(UTC)
+        created_at = now or self._clock()
         task = BackgroundTask(
-            task_id=f"background-{uuid4().hex}",
+            task_id=_task_id(owner_principal_id, idempotency_key),
             owner_principal_id=owner_principal_id,
             origin=origin,
             kind=BackgroundTaskKind.READ_ONLY_INVESTIGATION,
@@ -62,9 +69,18 @@ class BackgroundTaskService:
             idempotency_key=idempotency_key,
             created_at=created_at,
             retention_until=created_at + timedelta(days=retention_days),
+            investigation=investigation,
+            accountable_agent=BACKGROUND_TASK_ACCOUNTABLE_AGENT,
         )
-        attempt, created = await self._store.create(task, quota=self._quota_policy)
-        if created:
+        attempt, created = await self._store.create(
+            task,
+            quota=self._quota_policy,
+            requires_creation_audit=True,
+        )
+        audited = await self._store.creation_audited(task.task_id)
+        if audited is None:  # pragma: no cover - store create contract
+            raise RuntimeError("created background task is unavailable")
+        if not audited:
             await self._audit.append(
                 {
                     "action_kind": "background-task.created",
@@ -73,8 +89,13 @@ class BackgroundTaskService:
                     "correlation_id": correlation_id,
                     "idempotency_key": idempotency_key,
                     "capability_profile_id": task.capability_profile_id,
+                    "accountable_agent": task.accountable_agent,
                     "created_at": created_at.isoformat(),
                 }
+            )
+            attempt = await self._store.mark_creation_audited(
+                task.task_id,
+                now=self._clock(),
             )
         return attempt, created
 
@@ -90,7 +111,7 @@ class BackgroundTaskService:
             task_id,
             actor=actor,
             is_admin=is_admin,
-            now=now or datetime.now(UTC),
+            now=now or self._clock(),
         )
         await self._audit.append(
             {
@@ -102,6 +123,10 @@ class BackgroundTaskService:
             }
         )
         return cancelled
+
+
+def _task_id(owner_principal_id: str, idempotency_key: str) -> str:
+    return read_investigation_task_id(owner_principal_id, idempotency_key)
 
 
 __all__ = ["BackgroundTaskAudit", "BackgroundTaskService"]

@@ -175,6 +175,7 @@ class StateStoreExecutedActionArtifactStore:
     """Atomically persist and resolve exact pre-dispatch kinetic artifacts."""
 
     _KEY_PREFIX = "ontology:kinetic-safety-artifact:"
+    _CORRELATION_KEY_PREFIX = "ontology:kinetic-safety-correlation:"
     _MAX_RECORD_BYTES = 16 * 1024 * 1024
 
     def __init__(self, *, store: StateStore) -> None:
@@ -187,6 +188,7 @@ class StateStoreExecutedActionArtifactStore:
         plan: MutationPlan,
         action_type: OntologyActionType,
         active_release: OntologyRelease,
+        correlation_id: str | None = None,
     ) -> KineticSafetyReceipt:
         """Persist one immutable all-before-dispatch artifact record."""
 
@@ -219,17 +221,22 @@ class StateStoreExecutedActionArtifactStore:
                 "plan_digest": receipt.plan_digest,
             },
         )
-        if created:
-            return receipt
-        existing = await self._store.read_state(key)
-        if existing is None:
-            raise RuntimeError("kinetic safety artifact write lost durable state")
-        prior = _parse(existing)
-        if prior[0] != receipt or dict(existing) != record:
-            raise KineticSafetyArtifactConflictError(
-                "kinetic safety Action identity was reused with different content"
+        if not created:
+            existing = await self._store.read_state(key)
+            if existing is None:
+                raise RuntimeError("kinetic safety artifact write lost durable state")
+            prior = _parse(existing)
+            if prior[0] != receipt or dict(existing) != record:
+                raise KineticSafetyArtifactConflictError(
+                    "kinetic safety Action identity was reused with different content"
+                )
+        if correlation_id is not None:
+            await self._claim_correlation_index(
+                correlation_id=correlation_id,
+                action=action,
+                receipt=receipt,
             )
-        return prior[0]
+        return receipt
 
     async def resolve(self, action: Action) -> ResolvedReconciliationArtifacts | None:
         """Resolve only a previously stored exact V2 plan for this Action."""
@@ -254,9 +261,81 @@ class StateStoreExecutedActionArtifactStore:
             active_release=active_release,
         )
 
+    async def resolve_by_correlation(
+        self,
+        correlation_id: str,
+    ) -> tuple[Action, ResolvedReconciliationArtifacts] | None:
+        """Restore an exact Action and its artifacts from the pre-dispatch index."""
+
+        raw = await self._store.read_state(self._correlation_key(correlation_id))
+        if raw is None:
+            return None
+        try:
+            if raw.get("schema_version") != "1.0.0" or raw.get("correlation_id") != correlation_id:
+                raise ValueError("correlation identity mismatch")
+            action = Action.model_validate(raw["action"])
+            action_digest = reconciliation_content_digest(action.model_dump(mode="json"))
+            if (
+                raw.get("action_id") != str(action.action_id)
+                or raw.get("action_digest") != action_digest
+                or raw.get("artifact_key") != self._key(action)
+            ):
+                raise ValueError("indexed Action identity mismatch")
+        except (KeyError, TypeError, ValueError) as exc:
+            raise RuntimeError(
+                "durable kinetic safety correlation index failed validation"
+            ) from exc
+        artifacts = await self.resolve(action)
+        if artifacts is None or raw.get("plan_digest") != artifacts.plan.digest:
+            raise RuntimeError("kinetic safety correlation index lost its exact artifact")
+        return action, artifacts
+
+    async def _claim_correlation_index(
+        self,
+        *,
+        correlation_id: str,
+        action: Action,
+        receipt: KineticSafetyReceipt,
+    ) -> None:
+        if not correlation_id or len(correlation_id) > 512:
+            raise ValueError("kinetic safety correlation id MUST be bounded")
+        key = self._correlation_key(correlation_id)
+        record = {
+            "schema_version": "1.0.0",
+            "correlation_id": correlation_id,
+            "action_id": str(action.action_id),
+            "action_digest": receipt.action_digest,
+            "artifact_key": self._key(action),
+            "plan_digest": receipt.plan_digest,
+            "action": action.model_dump(mode="json"),
+        }
+        created = await self._store.write_state_with_audit_if_absent(
+            key,
+            record,
+            {
+                "action_kind": "kinetic_safety.correlation_indexed",
+                "actor": "kinetic-safety-artifact-store",
+                "action_id": str(action.action_id),
+                "correlation_id": correlation_id,
+                "action_digest": receipt.action_digest,
+                "plan_digest": receipt.plan_digest,
+            },
+        )
+        if created:
+            return
+        existing = await self._store.read_state(key)
+        if existing != record:
+            raise KineticSafetyArtifactConflictError(
+                "kinetic safety correlation identity was reused with different content"
+            )
+
     @classmethod
     def _key(cls, action: Action) -> str:
         return f"{cls._KEY_PREFIX}{action.action_id}"
+
+    @classmethod
+    def _correlation_key(cls, correlation_id: str) -> str:
+        return f"{cls._CORRELATION_KEY_PREFIX}{correlation_id}"
 
 
 def _record(

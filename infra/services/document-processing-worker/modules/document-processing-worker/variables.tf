@@ -23,7 +23,7 @@ variable "clamav" {
 variable "identity" { type = object({ resource_id = string, client_id = string }) }
 variable "event_topics" { type = object({ pipeline_stages = string, pantheon_objects = string }) }
 variable "database" {
-  type      = object({ dsn_secret_id = string, role = string })
+  type      = object({ dsn_secret_id = string, host = optional(string, ""), role = string })
   sensitive = true
 }
 variable "document_store" { type = object({ account_name = string, account_url = string, source_file_system = string, derived_file_system = string }) }

@@ -261,7 +261,7 @@ def _verifier() -> OntologyQueryPlanVerifier:
         available_kinds=(
             QueryNodeKind.OBJECT_SET,
             QueryNodeKind.FUNCTION,
-            QueryNodeKind.RELATIONSHIP_TRAVERSAL,
+            QueryNodeKind.TYPED_PATH,
             QueryNodeKind.METRIC_SCOPE_SERIES,
             QueryNodeKind.METRIC_COMPARISON,
             QueryNodeKind.TOPOLOGY_AT,
@@ -295,7 +295,7 @@ def test_compiler_builds_entity_topology_temporal_and_competing_hypothesis_waves
     assert tuple(node.kind for node in plan.nodes) == (
         QueryNodeKind.OBJECT_SET,
         QueryNodeKind.FUNCTION,
-        QueryNodeKind.RELATIONSHIP_TRAVERSAL,
+        QueryNodeKind.TYPED_PATH,
         QueryNodeKind.METRIC_SCOPE_SERIES,
         QueryNodeKind.METRIC_SCOPE_SERIES,
         QueryNodeKind.METRIC_COMPARISON,
@@ -324,11 +324,18 @@ def test_compiler_builds_entity_topology_temporal_and_competing_hypothesis_waves
         "dependency_arguments": {"resolve-target": "query_result"},
     }
     assert plan.nodes[2].depends_on == ("resolve-target",)
-    assert plan.nodes[2].arguments["link_types"] == [
-        "service_implemented_by_workload",
-        "workload_runs_on_resource",
+    assert plan.nodes[2].arguments["steps"] == [
+        {
+            "link_type": "service_implemented_by_workload",
+            "direction": "outgoing",
+            "selector": {"kind": "object_type", "name": "Workload"},
+        },
+        {
+            "link_type": "workload_runs_on_resource",
+            "direction": "outgoing",
+            "selector": {"kind": "object_type", "name": "Resource"},
+        },
     ]
-    assert plan.nodes[2].arguments["max_depth"] == 2
     assert plan.nodes[-1].depends_on == (
         "cause-resource-saturation",
         "symptom-current",

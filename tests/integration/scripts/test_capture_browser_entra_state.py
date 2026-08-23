@@ -55,12 +55,32 @@ def test_build_storage_state_can_target_an_isolated_console_origin() -> None:
     assert state["origins"][0]["origin"] == "http://localhost:5275"
 
 
+def test_build_storage_state_preserves_local_storage_entries() -> None:
+    module = _load_module()
+
+    state = module.build_storage_state(
+        {
+            "origin": module.DEFAULT_ORIGIN,
+            "sessionStorage": [],
+            "localStorage": [["msal.account", "signed-in"]],
+        },
+        module.DEFAULT_ORIGIN,
+    )
+
+    assert state["origins"][0]["localStorage"] == [{"name": "msal.account", "value": "signed-in"}]
+
+
 @pytest.mark.parametrize(
     "payload",
     [
         {"origin": "http://example.com", "sessionStorage": []},
         {"origin": "http://localhost:5273", "sessionStorage": [["key"]]},
         {"origin": "http://localhost:5273", "sessionStorage": [["key", 1]]},
+        {
+            "origin": "http://localhost:5273",
+            "sessionStorage": [],
+            "localStorage": [["key", 1]],
+        },
     ],
 )
 def test_build_storage_state_rejects_untrusted_payloads(payload: object) -> None:

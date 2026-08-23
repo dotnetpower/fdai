@@ -138,7 +138,7 @@ def compile_investigation_plan(
     for relationship in intent.relationship_intents:
         traversal_id = f"expand-{relationship.relationship_id}"
         traversal_ids[relationship.relationship_id] = traversal_id
-        link_types, direction, target_object_type = _relationship_path(
+        steps, _target_object_type = _relationship_path(
             relationship,
             manifest=manifest,
             source_type=target_type,
@@ -146,16 +146,10 @@ def compile_investigation_plan(
         nodes.append(
             _node(
                 traversal_id,
-                QueryNodeKind.RELATIONSHIP_TRAVERSAL,
+                QueryNodeKind.TYPED_PATH,
                 depends_on=(resolve_id,),
                 arguments={
-                    "selector": {
-                        "kind": ObjectSelectorKind.OBJECT_TYPE.value,
-                        "name": target_object_type,
-                    },
-                    "link_types": list(link_types),
-                    "direction": direction,
-                    "max_depth": len(link_types),
+                    "steps": list(steps),
                     "as_of": windows.current_end.isoformat(),
                     "purpose": purpose,
                     "limit": 100,
@@ -328,10 +322,10 @@ def _relationship_path(
     *,
     manifest: QueryManifest,
     source_type: str,
-) -> tuple[tuple[str, ...], str, str]:
+) -> tuple[tuple[dict[str, object], ...], str]:
     current_type = source_type
     direction: str | None = None
-    link_types: list[str] = []
+    steps: list[dict[str, object]] = []
     for query_id in relationship.query_side_candidates:
         descriptor, side = _query_side(manifest, query_id=query_id)
         side_direction = side.get("direction")
@@ -353,10 +347,19 @@ def _relationship_path(
         if current_type != expected_source or not isinstance(expected_target, str):
             raise ValueError("investigation relationship path endpoint does not compose")
         current_type = expected_target
-        link_types.append(str(descriptor["name"]))
+        steps.append(
+            {
+                "link_type": str(descriptor["name"]),
+                "direction": side_direction,
+                "selector": {
+                    "kind": ObjectSelectorKind.OBJECT_TYPE.value,
+                    "name": expected_target,
+                },
+            }
+        )
     if direction is None:
         raise ValueError("investigation relationship path is empty")
-    return tuple(link_types), direction, current_type
+    return tuple(steps), current_type
 
 
 def _query_side(

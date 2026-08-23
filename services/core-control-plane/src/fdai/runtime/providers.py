@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +12,7 @@ from fdai.core.executor.lock import ResourceLockManager
 from fdai.core.tiers.t1_lightweight.testing import InMemoryPatternLibrary
 from fdai.core.tiers.t1_lightweight.tier import PatternLibrary
 from fdai.shared.providers.idempotency import IdempotencyStore
+from fdai.shared.providers.read_investigation import ReadInvestigationProvider
 from fdai.shared.providers.resource_lock import ResourceLock
 from fdai.shared.providers.testing.ontology_instance import InMemoryOntologyInstanceStore
 from fdai.shared.providers.testing.process_runtime import InMemoryProcessRuntimeStore
@@ -342,12 +344,14 @@ def _build_read_investigation_provider(
     *,
     identity: Any = None,
     http_client: Any = None,
+    environment: Mapping[str, str] | None = None,
 ) -> Any:
     """Bind promoted inventory reads for the optional resource-state investigation path."""
 
+    values = environment or os.environ
     dsn = (
-        os.environ.get("FDAI_INVENTORY_DSN", "").strip()
-        or os.environ.get("FDAI_STATE_STORE_DSN", "").strip()
+        values.get("FDAI_INVENTORY_DSN", "").strip()
+        or values.get("FDAI_STATE_STORE_DSN", "").strip()
     )
     if not dsn:
         return None
@@ -359,11 +363,11 @@ def _build_read_investigation_provider(
     from fdai.delivery.read_investigation import InventoryReadInvestigationProvider
 
     config = PostgresInventorySnapshotStoreConfig(dsn=dsn)
-    provider = InventoryReadInvestigationProvider(
+    provider: ReadInvestigationProvider = InventoryReadInvestigationProvider(
         graph_reader=PostgresInventoryGraphProvider(config=config),
         context_reader=PostgresInventoryContextProvider(config=config),
     )
-    subscription_id = os.environ.get("AZURE_SUBSCRIPTION_ID", "").strip()
+    subscription_id = values.get("AZURE_SUBSCRIPTION_ID", "").strip()
     if identity is None or http_client is None or not subscription_id:
         return provider
     from fdai.delivery.azure.read_investigation_activity import (
@@ -371,12 +375,86 @@ def _build_read_investigation_provider(
         AzureActivityReadInvestigationProvider,
     )
 
-    return AzureActivityReadInvestigationProvider(
+    provider = AzureActivityReadInvestigationProvider(
         base=provider,
         identity=identity,
         http_client=http_client,
         config=AzureActivityReadConfig(subscription_id=subscription_id),
     )
+    enabled = _optional_boolean(values, "FDAI_AZURE_MCP_ENABLED")
+    if not enabled:
+        return provider
+    from fdai.delivery.azure.mcp_read_investigation import (
+        AzureMcpClient,
+        AzureMcpClientConfig,
+        AzureMcpReadInvestigationProvider,
+        StdioAzureMcpSessionFactory,
+        resource_health_binding,
+    )
+
+    mcp_config = AzureMcpClientConfig(
+        startup_timeout_seconds=_optional_float(
+            values,
+            "FDAI_AZURE_MCP_STARTUP_TIMEOUT_SECONDS",
+            default=10.0,
+        ),
+        call_timeout_seconds=_optional_float(
+            values,
+            "FDAI_AZURE_MCP_CALL_TIMEOUT_SECONDS",
+            default=30.0,
+        ),
+        namespaces=("resourcehealth",),
+    )
+    session_environment = {
+        name: value
+        for name in (
+            "AZURE_AUTHORITY_HOST",
+            "AZURE_CLIENT_ID",
+            "AZURE_CONFIG_DIR",
+            "AZURE_FEDERATED_TOKEN_FILE",
+            "AZURE_SUBSCRIPTION_ID",
+            "AZURE_TENANT_ID",
+        )
+        if (value := values.get(name, "").strip())
+    }
+    client = AzureMcpClient(
+        sessions=StdioAzureMcpSessionFactory(
+            config=mcp_config,
+            environment=session_environment,
+        ),
+        config=mcp_config,
+    )
+    return AzureMcpReadInvestigationProvider(
+        base=provider,
+        client=client,
+        bindings=(resource_health_binding(),),
+    )
+
+
+def _optional_boolean(values: Mapping[str, str], name: str) -> bool:
+    raw = values.get(name, "").strip().casefold()
+    if not raw:
+        return False
+    if raw in {"1", "true", "yes", "on"}:
+        return True
+    if raw in {"0", "false", "no", "off"}:
+        return False
+    raise RuntimeError(f"{name} MUST be a boolean value")
+
+
+def _optional_float(
+    values: Mapping[str, str],
+    name: str,
+    *,
+    default: float,
+) -> float:
+    raw = values.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        return float(raw)
+    except ValueError as exc:
+        raise RuntimeError(f"{name} MUST be numeric") from exc
 
 
 def _build_resource_health_collection_reader(

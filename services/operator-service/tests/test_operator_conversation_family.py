@@ -446,6 +446,32 @@ async def test_confirmation_body_caps_and_unavailable_dependencies_fail_closed()
     assert read_unavailable.json()["error"]["code"] == "unavailable"
 
 
+async def test_background_projection_store_failure_uses_safe_unavailable_envelope() -> None:
+    class _UnavailableBackgroundStore(_Reader):
+        async def read_background_task(self, **kwargs: object):
+            del kwargs
+            from fdai_operator_service.postgres_family_store import (
+                PostgresFamilyStoreUnavailable,
+            )
+
+            raise PostgresFamilyStoreUnavailable("database detail MUST NOT escape")
+
+    adapter = PostgresConversationAdapters(cast(PostgresFamilyStore, _UnavailableBackgroundStore()))
+    async with AsyncClient(
+        transport=ASGITransport(app=_app(reader=adapter)), base_url="http://test"
+    ) as client:
+        response = await client.get("/background-tasks/task-one")
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "error": {
+            "code": "unavailable",
+            "message": "authoritative background task projection is unavailable",
+        }
+    }
+    assert "database detail" not in response.text
+
+
 async def test_sse_frames_support_replay_redaction_and_close() -> None:
     streams = _Streams()
     async with AsyncClient(

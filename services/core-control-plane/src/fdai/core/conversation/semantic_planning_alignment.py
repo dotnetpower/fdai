@@ -13,6 +13,8 @@ from fdai_service_contracts.ontology_query import (
     SemanticProblemFrame,
 )
 
+from .semantic_planning_frame import CHANGE_ACTIVITY_COMPARISON_MEASURE
+
 _SPECIALIZED_FUNCTIONS_BY_OUTPUT_SHAPE = {
     "contextual_resource_list": frozenset({"query.contextual_resources"}),
     "incident_evidence": frozenset({"query.incident_evidence"}),
@@ -97,17 +99,33 @@ def verify_frame_plan_alignment(
         raise ValueError(
             "semantic property-filter plan cannot use multiple existence-only predicates"
         )
+    _verify_current_relationship_mapping(frame, plan, descriptors=descriptors)
     _verify_manifest_aggregate_source(frame, plan)
 
     output_node_ids = set(plan.output_node_ids)
+    selected_functions: set[str] = set()
     selected_output_functions: set[str] = set()
     for node in plan.nodes:
-        if node.kind is not QueryNodeKind.FUNCTION or node.node_id not in output_node_ids:
+        if node.kind is not QueryNodeKind.FUNCTION:
             continue
         arguments = json.loads(node.arguments_json)
         function_name = arguments.get("function_name") if isinstance(arguments, Mapping) else None
         if isinstance(function_name, str):
-            selected_output_functions.add(function_name)
+            selected_functions.add(function_name)
+            if node.node_id in output_node_ids:
+                selected_output_functions.add(function_name)
+
+    if (
+        CHANGE_ACTIVITY_COMPARISON_MEASURE in frame.measure_concepts
+        and not {
+            "query.ontology_relationships",
+            "query.resource_change_activity",
+        }
+        <= selected_functions
+    ):
+        raise ValueError(
+            "semantic change comparison requires exact activity and relationship reads"
+        )
 
     expected_functions = _SPECIALIZED_FUNCTIONS_BY_OUTPUT_SHAPE.get(frame.output_shape)
     if expected_functions is not None and not expected_functions <= selected_output_functions:
@@ -119,6 +137,37 @@ def verify_frame_plan_alignment(
     ):
         raise ValueError("semantic plan selects a function outside the frame output")
     _verify_ontology_declaration_subject(frame, plan, descriptors=descriptors)
+
+
+def _verify_current_relationship_mapping(
+    frame: SemanticProblemFrame,
+    plan: OntologyQueryPlan,
+    *,
+    descriptors: tuple[dict[str, Any], ...],
+) -> None:
+    """Require current endpoint instances beside their declared relationship."""
+
+    if frame.output_shape != "ontology_relationships" or frame.temporal_scope != {
+        "kind": "current"
+    }:
+        return
+    requested_types = {
+        constraint
+        for constraint in frame.subject_constraints
+        if any(
+            descriptor.get("kind") == "object" and descriptor.get("name") == constraint
+            for descriptor in descriptors
+        )
+    }
+    output_node_ids = set(plan.output_node_ids)
+    selected_types = {
+        selector_name
+        for node in plan.nodes
+        if node.kind is QueryNodeKind.OBJECT_SET and node.node_id in output_node_ids
+        if (selector_name := _object_set_selector_name(node.arguments_json)) is not None
+    }
+    if not requested_types or not requested_types <= selected_types:
+        raise ValueError("semantic current relationship plan requires endpoint ObjectSets")
 
 
 def _verify_manifest_aggregate_source(
@@ -221,6 +270,18 @@ def _object_set_has_predicates(arguments_json: str) -> bool:
         return False
     definition = arguments.get("definition")
     return isinstance(definition, Mapping) and bool(definition.get("predicates"))
+
+
+def _object_set_selector_name(arguments_json: str) -> str | None:
+    arguments = json.loads(arguments_json)
+    if not isinstance(arguments, Mapping):
+        return None
+    definition = arguments.get("definition")
+    selector = definition.get("selector") if isinstance(definition, Mapping) else None
+    if not isinstance(selector, Mapping) or selector.get("kind") != "object_type":
+        return None
+    name = selector.get("name")
+    return name if isinstance(name, str) else None
 
 
 def _object_set_has_multiple_existence_only_predicates(arguments_json: str) -> bool:

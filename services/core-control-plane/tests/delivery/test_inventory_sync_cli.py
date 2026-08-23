@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import hashlib
+import json
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any, cast
 from unittest.mock import AsyncMock, Mock
 
 import httpx
@@ -16,6 +19,11 @@ from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdent
 from fdai.delivery.azure.inventory import AzureResourceGraphInventory
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
 from fdai.delivery.inventory_job_config import InventoryJobConfig, verify_declarative_sha256
+from fdai.delivery.inventory_scheduler import (
+    CollectionScheduleAction,
+    CollectionScheduleDecision,
+    ProviderPressure,
+)
 from fdai.delivery.inventory_sync import PromotedInventoryObservation
 from fdai.delivery.inventory_sync_cli import (
     _build_ontology_observer,
@@ -23,11 +31,19 @@ from fdai.delivery.inventory_sync_cli import (
     _drain_change_stream,
     _forward_recovery_deltas,
     _load_relationship_mapping_catalog,
+    _publish_collection_health,
     _resolve_resource_types,
     _run_due_once,
     _workload_identity,
 )
-from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
+from fdai.delivery.operational_activity import EventBusOperationalActivityPublisher
+from fdai.delivery.persistence.postgres_inventory_reconciliation import (
+    InventoryReconciliationHealthState,
+)
+from fdai.rule_catalog.schema.resource_type import (
+    ResourceTypeRegistry,
+    load_resource_type_registry_from_mapping,
+)
 from fdai.runtime.inventory_ontology import InventoryOntologyProjectionStatus
 from fdai.shared.providers.inventory import ResourceRecord
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
@@ -36,14 +52,14 @@ from fdai.shared.providers.testing.workload_identity import StaticWorkloadIdenti
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 
 
-def _vocabulary():
+def _vocabulary() -> ResourceTypeRegistry:
     path = _REPO_ROOT / "rule-catalog" / "vocabulary" / "resource-types.yaml"
     return load_resource_type_registry_from_mapping(
         yaml.safe_load(path.read_text(encoding="utf-8"))
     )
 
 
-def _ontology_observer_harness(monkeypatch: pytest.MonkeyPatch):
+def _ontology_observer_harness(monkeypatch: pytest.MonkeyPatch) -> tuple[Any, ...]:
     config = InventoryJobConfig.from_env(
         {
             "FDAI_INVENTORY_DSN": "postgresql://example",
@@ -89,7 +105,7 @@ def _ontology_observer_harness(monkeypatch: pytest.MonkeyPatch):
     observer = _build_ontology_observer(
         config,
         vocabulary=_vocabulary(),
-        publisher=activity_publisher,
+        publisher=cast(EventBusOperationalActivityPublisher, activity_publisher),
         evidence_counts={},
     )
     return (
@@ -112,6 +128,10 @@ def _promoted_observation(generation: str) -> PromotedInventoryObservation:
     )
 
 
+def _http_ok(_: httpx.Request) -> httpx.Response:
+    return httpx.Response(200, json={})
+
+
 def test_job_config_defaults_to_arg_then_arm() -> None:
     config = InventoryJobConfig.from_env(
         {
@@ -131,6 +151,8 @@ def test_job_config_defaults_to_arg_then_arm() -> None:
     assert config.attempt_deadline_seconds == 1500
     assert config.arg_requests_per_second == 3.0
     assert config.recovery_delta_enabled is True
+    assert config.snapshot_policy("arg").max_requests_per_window == 180
+    assert config.collection_policy is not None
 
 
 async def test_inventory_job_selects_only_the_venue_specific_identity(
@@ -138,7 +160,7 @@ async def test_inventory_job_selects_only_the_venue_specific_identity(
 ) -> None:
     monkeypatch.setenv("IDENTITY_ENDPOINT", "https://identity.example/token")
     monkeypatch.setenv("IDENTITY_HEADER", "test-header")
-    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda _: None)) as client:
+    async with httpx.AsyncClient(transport=httpx.MockTransport(_http_ok)) as client:
         monkeypatch.setenv("FDAI_EXECUTION_VENUE", "local")
         local = _workload_identity(http_client=client)
         monkeypatch.setenv("FDAI_EXECUTION_VENUE", "deployed")
@@ -228,6 +250,27 @@ def test_job_config_reads_continuous_scan_overrides() -> None:
     assert config.attempt_deadline_seconds == 600
     assert config.arg_requests_per_second == 1.5
     assert config.recovery_delta_enabled is False
+
+
+def test_job_config_rejects_settings_outside_source_policy(tmp_path: Path) -> None:
+    policy_path = tmp_path / "policy.json"
+    policy_document = json.loads(
+        (_REPO_ROOT / "config" / "inventory-collection-policy.json").read_text(encoding="utf-8")
+    )
+    arg_policy = next(
+        source for source in policy_document["sources"] if source["source_id"] == "arg-snapshot"
+    )
+    arg_policy["max_staleness_seconds"] = 30_000
+    policy_path.write_text(json.dumps(policy_document), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="freshness exceeds"):
+        InventoryJobConfig.from_env(
+            {
+                "FDAI_INVENTORY_DSN": "postgresql://example",
+                "AZURE_SUBSCRIPTION_ID": "sub-1",
+                "FDAI_INVENTORY_COLLECTION_POLICY_PATH": str(policy_path),
+            }
+        )
 
 
 @pytest.mark.parametrize(
@@ -332,6 +375,64 @@ async def test_not_due_tick_flushes_service_readiness_status(
     )
 
 
+async def test_collection_health_persists_only_sanitized_aggregate_state(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = InventoryJobConfig.from_env(
+        {
+            "FDAI_INVENTORY_DSN": "postgresql://example",
+            "AZURE_SUBSCRIPTION_ID": "sub-1",
+        }
+    )
+    store = SimpleNamespace(write_state=AsyncMock())
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_sync_cli.PostgresStateStore",
+        lambda **_: store,
+    )
+    health_state = InventoryReconciliationHealthState(
+        measured_at=datetime(2026, 8, 22, 2, 0, tzinfo=UTC),
+        evidence_age_seconds=300,
+        resource_count=100,
+        relationship_count=200,
+        overlay_resource_count=3,
+        overlay_relationship_count=5,
+        cursor_lag_seconds=None,
+        cursor_complete=False,
+        coverage_complete=True,
+        provider_pressure=ProviderPressure.THROTTLED,
+        newer_failure=True,
+    )
+    decision = CollectionScheduleDecision(
+        action=CollectionScheduleAction.WAIT,
+        due_in_seconds=60,
+        interval_seconds=60,
+        priority=10,
+        concurrency_limit=1,
+        freshness_available=False,
+        reason_codes=("provider_retry_after",),
+    )
+
+    await _publish_collection_health(
+        config,
+        health_state=health_state,
+        decision=decision,
+    )
+
+    key, projection = store.write_state.await_args.args
+    assert key == "inventory-collection-health"
+    assert projection["source_alias"] == "arg-snapshot"
+    assert projection["cursor"]["state"] == "unavailable"
+    assert projection["overlay"]["state"] == "open"
+    assert projection["provider_pressure"]["state"] == "throttled"
+    assert projection["next_action"]["reason_codes"] == ["provider_retry_after"]
+    assert projection["coverage"]["gap_codes"] == [
+        "cursor_unavailable",
+        "overlay_incomplete",
+        "source_unavailable",
+    ]
+    assert projection["execution_authority"] is False
+
+
 def test_job_config_rejects_unsigned_declarative_fallback() -> None:
     with pytest.raises(ValueError, match="requires"):
         InventoryJobConfig.from_env(
@@ -343,7 +444,7 @@ def test_job_config_rejects_unsigned_declarative_fallback() -> None:
         )
 
 
-def test_declarative_sha_verification(tmp_path) -> None:
+def test_declarative_sha_verification(tmp_path: Path) -> None:
     fixture = tmp_path / "inventory.yaml"
     fixture.write_text("resources: []\nlinks: []\n", encoding="utf-8")
     digest = hashlib.sha256(fixture.read_bytes()).hexdigest()
@@ -378,7 +479,7 @@ async def test_source_builder_preserves_order_and_fallback_coverage() -> None:
         audience="https://management.azure.com/.default",
         token="test-token",  # noqa: S106 - deterministic test credential
     )
-    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda _: None)) as client:
+    async with httpx.AsyncClient(transport=httpx.MockTransport(_http_ok)) as client:
         sources = _build_sources(
             config=config,
             vocabulary=vocabulary,
@@ -393,10 +494,13 @@ async def test_source_builder_preserves_order_and_fallback_coverage() -> None:
         "contains",
         "attached_to",
         "depends_on",
+        "peered_with",
+        "routes_to",
     )
     assert isinstance(sources[0].inventory, AzureResourceGraphInventory)
     assert sources[0].inventory._scope_coverage is not None  # noqa: SLF001
     assert sources[0].inventory._unmapped_resources is not None  # noqa: SLF001
+    assert sources[0].inventory._generation_relationships is not None  # noqa: SLF001
     assert sources[1].manifest.metadata["link_types"] == ("contains",)
     assert isinstance(sources[1].inventory, AzureResourceGraphInventory)
     assert sources[1].inventory._scope_coverage is None  # noqa: SLF001
@@ -483,12 +587,12 @@ async def test_recovery_delta_forwards_every_scope(monkeypatch: pytest.MonkeyPat
         audience="https://management.azure.com/.default",
         token="test-token",  # noqa: S106 - deterministic test credential
     )
-    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda _: None)) as client:
+    async with httpx.AsyncClient(transport=httpx.MockTransport(_http_ok)) as client:
         locked_scopes: list[str] = []
 
         class ScopeLock:
             @asynccontextmanager
-            async def acquire(self, resource_id: str):
+            async def acquire(self, resource_id: str) -> AsyncIterator[None]:
                 locked_scopes.append(resource_id)
                 yield
 

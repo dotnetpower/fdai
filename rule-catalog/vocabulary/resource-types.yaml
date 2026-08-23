@@ -27,7 +27,7 @@
 #
 # All values are English, secret-free, and customer-agnostic.
 schema_version: "1.0.0"
-version: "0.3.7"
+version: "0.3.8"
 category_query_terms:
   database: [database, databases, db, dbs, 데이터베이스, 디비]
 query_groups:
@@ -189,6 +189,11 @@ types:
     description: Binding between a private DNS zone and a virtual network.
     azure_arm_type: Microsoft.Network/privateDnsZones/virtualNetworkLinks
     typical_parents: [network.private-dns-zone]
+  - id: network.private-dns-zone-group
+    category: network
+    description: Private Endpoint binding to one or more private DNS zones.
+    azure_arm_type: Microsoft.Network/privateEndpoints/privateDnsZoneGroups
+    typical_parents: [network.private-endpoint]
   - id: network.dns-resolver
     category: network
     description: Managed recursive DNS resolver attached to a virtual network.
@@ -299,6 +304,11 @@ types:
     description: User-assigned or system-assigned workload identity.
     azure_arm_type: Microsoft.ManagedIdentity/userAssignedIdentities
     query_terms: [managed identity, managed identities, 관리형 id, 관리 id]
+    typical_parents: [resource-group]
+  - id: authorization.role-assignment
+    category: security
+    description: Scoped Azure role grant binding one principal to one authorization scope.
+    azure_arm_type: Microsoft.Authorization/roleAssignments
     typical_parents: [resource-group]
   - id: certificate
     category: security

@@ -16,6 +16,10 @@ from fdai.delivery.azure.arg_query import (
     AzureArgQueryFactory,
     AzureArgQueryFactoryConfig,
 )
+from fdai.delivery.azure.arm_inventory import (
+    AzureArmInventoryFactory,
+    AzureArmInventoryFactoryConfig,
+)
 from fdai.delivery.azure.dev_workload_identity import AzureCliWorkloadIdentity
 from fdai.delivery.azure.event_bus import EventHubsKafkaBus, EventHubsKafkaBusConfig
 from fdai.delivery.azure.inventory import AzureInventoryConfig, AzureResourceGraphInventory
@@ -155,18 +159,29 @@ async def refresh() -> InventoryOntologyProjectionResult:
 
     try:
         async with httpx.AsyncClient() as client:
-            query = AzureArgQueryFactory(
+            query_factory = AzureArgQueryFactory(
                 identity=AsyncAzureCliIdentity(),
                 resource_types=resource_types,
                 http_client=client,
                 config=AzureArgQueryFactoryConfig(subscription_scopes=(subscription_id,)),
-            ).build_query_fn()
+            )
+            query = AzureArmInventoryFactory(
+                identity=AsyncAzureCliIdentity(),
+                resource_types=resource_types,
+                http_client=client,
+                config=AzureArmInventoryFactoryConfig(
+                    subscription_scopes=(subscription_id,),
+                ),
+            ).build_child_overlay_query_fn(query_factory.build_query_fn())
             inventory = AzureResourceGraphInventory(
                 config=AzureInventoryConfig(
                     resource_types=query_types,
                     subscription_scopes=(subscription_id,),
                 ),
                 query=query,
+                scope_coverage=query_factory.build_scope_coverage_fn(),
+                unmapped_resources=query_factory.build_unmapped_resource_query_fn(),
+                generation_relationships=query_factory.build_generation_relationship_fn(),
             )
             source = InventorySource(
                 name="azure-resource-graph",

@@ -71,7 +71,7 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
     tasks = _load_jsonc(REPO_ROOT / ".vscode" / "tasks.json")
     assert isinstance(tasks, dict)
     tasks_by_label = {task["label"]: task for task in tasks["tasks"]}
-    assert len(tasks_by_label) == 12
+    assert len(tasks_by_label) == 13
 
     prepare_stack = tasks_by_label["console: prepare full stack"]
     assert prepare_stack["command"] == (
@@ -95,18 +95,23 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
     preparation_script = (
         REPO_ROOT / "scripts" / "deployment" / "local" / "prepare-console-full-stack.sh"
     ).read_text(encoding="utf-8")
-    preparation_steps = [
-        "prepare-console-state.sh",
-        "prepare-local-runtime-env.sh",
-        "refresh-authoritative-inventory.py",
-        "materialize-authoritative-settings.py",
-        "materialize-authoritative-catalogs.py",
-        "prepare-operator-service-env.sh",
-        "prepare-independent-service-envs.sh",
+    preparation_stages = [
+        "local-state",
+        "runtime-environment",
+        "authoritative-inventory",
+        "authoritative-settings",
+        "authoritative-catalogs",
+        "service-environments",
+        "entra-redirects",
     ]
-    preparation_positions = [preparation_script.index(step) for step in preparation_steps]
+    preparation_positions = [
+        preparation_script.index(f"run_stage \\\n  {stage} \\\n") for stage in preparation_stages
+    ]
     assert preparation_positions == sorted(preparation_positions)
-    assert preparation_script.rfind("\nsync_entra_redirects") > preparation_positions[-1]
+    assert (
+        preparation_script.index('bash "$repo_root/scripts/deployment/local/dev-up.sh"')
+        < (preparation_positions[0])
+    )
 
     full_stack = tasks_by_label["console: start full stack"]
     assert full_stack["dependsOrder"] == "sequence"
@@ -150,22 +155,23 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
         "console: prepare full stack",
         "console: start core runtime",
         "console: start full stack",
+        "console: wait full stack ready",
         "channel edge: Operator Slack and Teams (Local)",
     }
 
     core_runtime = tasks_by_label["console: start core runtime"]
     assert core_runtime["command"] == (
-        "bash scripts/deployment/local/run-console-service.sh core-runtime"
+        "bash scripts/deployment/local/run-console-service.sh core-runtime --wait-ready"
     )
     assert core_runtime["isBackground"] is True
     assert core_runtime["runOptions"] == {
-        "instanceLimit": 1,
+        "instanceLimit": 2,
         "instancePolicy": "silent",
     }
     assert core_runtime["problemMatcher"]["background"] == {
         "activeOnStart": True,
         "beginsPattern": "service=core-runtime event=starting$",
-        "endsPattern": "service=core-runtime event=starting$",
+        "endsPattern": "service=core-runtime event=ready$",
     }
 
     local_services = tasks_by_label["console: start local services"]
@@ -179,7 +185,14 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
     assert local_services["problemMatcher"]["background"] == {
         "activeOnStart": True,
         "beginsPattern": "service=console-stack event=starting$",
-        "endsPattern": "service=console-stack event=ready$",
+        "endsPattern": "service=console-stack event=started$",
+    }
+
+    wait_ready = tasks_by_label["console: wait full stack ready"]
+    assert wait_ready["command"].endswith("developer-workflow.py local-services --wait-seconds 60")
+    assert wait_ready["runOptions"] == {
+        "instanceLimit": 1,
+        "instancePolicy": "silent",
     }
 
     removed_service_tasks = {
@@ -213,6 +226,7 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
     assert "run-console-service.sh" in supervisor_script
     assert "developer-workflow.py" in supervisor_script
     assert "local-services" in supervisor_script
+    assert supervisor_script.index("event=started") < supervisor_script.index("--wait-seconds 60")
     assert "--wait-seconds 60" in supervisor_script
     assert "require_managed_locks" in supervisor_script
     assert 'flock -n -E 75 "$lock_file" true' in supervisor_script
@@ -226,6 +240,10 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
     assert 'export FDAI_LOCAL_SERVICE_INPUT_DIGEST="$input_digest"' in service_script
     assert "export FDAI_LOCAL_SERVICE_RESTART_STALE=1" in service_script
     assert "export FDAI_LOCAL_SERVICE_REUSE_EXISTING=1" in service_script
+    assert "--only core-runtime" in service_script
+    assert service_script.index("--only core-runtime") < service_script.index(
+        "service=core-runtime event=ready"
+    )
     for service_name in (*managed_services, "operator-channel-edge"):
         assert service_name in service_script
 

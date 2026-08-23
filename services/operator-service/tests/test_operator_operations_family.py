@@ -35,6 +35,8 @@ HEADERS = {"Authorization": "Bearer reader"}
 LEGACY_ROUTE_SNAPSHOT = {
     (("GET", "HEAD"), "/inventory/graph", "handler"),
     (("GET", "HEAD"), "/ontology/graph", "handler"),
+    (("GET", "HEAD"), "/ontology/instances", "ontology_instances"),
+    (("GET", "HEAD"), "/ontology/instances/explore", "ontology_instance_explore"),
     (
         ("GET", "HEAD"),
         "/ontology/declarations/{kind:str}/{name:str}",
@@ -201,7 +203,7 @@ def test_manifest_preserves_exact_legacy_paths_methods_and_names() -> None:
         )
         for entry in OPERATIONS_ROUTE_MANIFEST
     } == LEGACY_ROUTE_SNAPSHOT
-    assert len(OPERATIONS_ROUTE_MANIFEST) == 34
+    assert len(OPERATIONS_ROUTE_MANIFEST) == 36
 
 
 def test_automation_blueprints_projection_is_reader_gated_and_read_only() -> None:
@@ -360,6 +362,50 @@ def test_projection_requires_reader_bounds_pagination_and_redacts() -> None:
         params={"limit": ("25",), "cursor": ("next",), "link": ("contains", "depends_on")},
         limit=25,
         cursor="next",
+        roles=frozenset({OperatorRole.READER}),
+        purpose="operations-review",
+    )
+
+
+def test_instance_explorer_forwards_bounded_root_and_activity_query() -> None:
+    dependencies = RecordingDependencies()
+    response = _client(dependencies).get(
+        "/ontology/instances/explore?root=resource-one&activity_limit=20&limit=50",
+        headers=HEADERS,
+    )
+
+    assert response.status_code == 200
+    assert dependencies.queries[-1] == ProjectionQuery(
+        operation="ontology.instance.explore",
+        principal_id="reader-oid",
+        path={},
+        params={
+            "root": ("resource-one",),
+            "activity_limit": ("20",),
+            "limit": ("50",),
+        },
+        limit=50,
+        cursor=None,
+        roles=frozenset({OperatorRole.READER}),
+        purpose="operations-review",
+    )
+
+
+def test_instance_directory_forwards_bounded_search() -> None:
+    dependencies = RecordingDependencies()
+    response = _client(dependencies).get(
+        "/ontology/instances?search=container-app&limit=25",
+        headers=HEADERS,
+    )
+
+    assert response.status_code == 200
+    assert dependencies.queries[-1] == ProjectionQuery(
+        operation="ontology.instance.list",
+        principal_id="reader-oid",
+        path={},
+        params={"search": ("container-app",), "limit": ("25",)},
+        limit=25,
+        cursor=None,
         roles=frozenset({OperatorRole.READER}),
         purpose="operations-review",
     )
@@ -591,7 +637,11 @@ def test_read_investigation_only_writes_durable_event_proposal() -> None:
     reader = client.post(
         "/read-investigations",
         headers={**HEADERS, "Idempotency-Key": "idem-1"},
-        json={"prompt": "inspect"},
+        json={
+            "prompt": "inspect",
+            "intent": "resource_state",
+            "resource_name": "service-one",
+        },
     )
     accepted = client.post(
         "/read-investigations",
@@ -600,7 +650,11 @@ def test_read_investigation_only_writes_durable_event_proposal() -> None:
             "Idempotency-Key": "idem-1",
             "X-Correlation-ID": "corr-1",
         },
-        json={"prompt": "inspect"},
+        json={
+            "prompt": "inspect",
+            "intent": "resource_state",
+            "resource_name": "service-one",
+        },
     )
 
     assert reader.status_code == 403
@@ -612,9 +666,27 @@ def test_read_investigation_only_writes_durable_event_proposal() -> None:
             principal_id="contributor-oid",
             idempotency_key="idem-1",
             correlation_id="corr-1",
-            payload={"prompt": "inspect"},
+            payload={
+                "prompt": "inspect",
+                "intent": "resource_state",
+                "resource_name": "service-one",
+                "explicit_deep": False,
+            },
         )
     ]
+
+
+def test_read_investigation_rejects_untyped_body_before_durable_acceptance() -> None:
+    dependencies = RecordingDependencies()
+
+    response = _client(dependencies).post(
+        "/read-investigations",
+        headers={"Authorization": "Bearer contributor", "Idempotency-Key": "idem-1"},
+        json={"prompt": "inspect"},
+    )
+
+    assert response.status_code == 400
+    assert dependencies.proposals == []
 
 
 def test_webhook_verifies_before_proposing_and_never_mutates_provider() -> None:
@@ -673,7 +745,11 @@ def test_read_investigation_sse_replays_only_after_durable_proposal() -> None:
             "Last-Event-ID": "7",
             "Accept": "text/event-stream",
         },
-        json={"prompt": "inspect"},
+        json={
+            "prompt": "inspect",
+            "intent": "resource_state",
+            "resource_name": "service-one",
+        },
     ) as response:
         body = b"".join(response.iter_bytes()).decode()
 

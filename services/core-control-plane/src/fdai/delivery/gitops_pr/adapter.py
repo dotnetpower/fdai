@@ -57,6 +57,17 @@ _DEFAULT_BRANCH_PREFIX: Final[str] = "fdai/shadow"
 class GitOpsPrError(RuntimeError):
     """Raised when a GitHub REST call fails or returns an unusable body."""
 
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int | None = None,
+        response_message: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.response_message = response_message
+
 
 @dataclass(frozen=True, slots=True)
 class GitOpsPrConfig:
@@ -199,8 +210,17 @@ class GitOpsPrAdapter(RemediationPrPublisher):
         except httpx.HTTPError as exc:
             raise GitOpsPrError(f"POST {url} failed: {exc}") from exc
         if response.status_code not in ok_statuses:
+            response_message = None
+            try:
+                payload = response.json()
+                if isinstance(payload, dict) and isinstance(payload.get("message"), str):
+                    response_message = payload["message"]
+            except ValueError:
+                pass
             raise GitOpsPrError(
-                f"POST {url} → HTTP {response.status_code}: {response.text[:200]!r}"
+                f"POST {url} → HTTP {response.status_code}: {response.text[:200]!r}",
+                status_code=response.status_code,
+                response_message=response_message,
             )
         try:
             return response.json()
@@ -263,8 +283,7 @@ class GitOpsPrAdapter(RemediationPrPublisher):
         try:
             await self._post_json(url, body, ok_statuses=(201,))
         except GitOpsPrError as exc:
-            if "422" in str(exc):
-                # 422 means the branch already exists - idempotent path.
+            if exc.status_code == 422 and exc.response_message == "Reference already exists":
                 return
             raise
 

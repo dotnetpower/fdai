@@ -65,6 +65,7 @@ from fdai.shared.providers.inventory import (
     ProviderScopeCoverage,
     RelationshipDrop,
     RelationshipDropReason,
+    RelationshipUnavailableReason,
     ResourceRecord,
 )
 
@@ -97,6 +98,7 @@ ResourceQueryFn = Callable[
 ]
 ScopeCoverageFn = Callable[[], Awaitable[ProviderScopeCoverage]]
 UnmappedResourceQueryFn = Callable[[], Awaitable[ResourceQueryResult]]
+GenerationRelationshipFn = Callable[[Sequence[ResourceRecord]], ResourceQueryResult]
 
 
 @dataclass(frozen=True, slots=True)
@@ -192,6 +194,7 @@ class AzureResourceGraphInventory:
         query: ResourceQueryFn,
         scope_coverage: ScopeCoverageFn | None = None,
         unmapped_resources: UnmappedResourceQueryFn | None = None,
+        generation_relationships: GenerationRelationshipFn | None = None,
         delta_fetch: ActivityLogFetchFn | None = None,
     ) -> None:
         if config.max_concurrent_queries < 1:
@@ -204,6 +207,7 @@ class AzureResourceGraphInventory:
         self._query = query
         self._scope_coverage = scope_coverage
         self._unmapped_resources = unmapped_resources
+        self._generation_relationships = generation_relationships
         self._delta_fetch = delta_fetch
 
     # ------------------------------------------------------------------
@@ -319,12 +323,23 @@ class AzureResourceGraphInventory:
         resources = _dedupe_resources(
             resource for batch in completed for resource in batch.resources
         )
-        links, generation_drops = _validate_links(
-            link for batch in completed for link in batch.links
+        generation_relationships = (
+            self._generation_relationships(resources)
+            if self._generation_relationships is not None
+            else ResourceQueryResult()
         )
+        links, generation_drops = _validate_links(
+            (
+                *(link for batch in completed for link in batch.links),
+                *generation_relationships.links,
+            )
+        )
+        links, endpoint_drops = _close_generation_endpoints(resources, links)
         relationship_drops = (
             tuple(drop for batch in completed for drop in batch.relationship_drops)
+            + generation_relationships.relationship_drops
             + generation_drops
+            + endpoint_drops
         )
         if resources or links or relationship_drops:
             yield InventoryBatch(
@@ -430,9 +445,75 @@ def _validate_links(
                 source_property_path=(
                     evidence.source_property_path if evidence is not None else None
                 ),
+                source_provider_type=(
+                    evidence.source_provider_type if evidence is not None else None
+                ),
+                target_provider_type=(
+                    evidence.target_provider_type if evidence is not None else None
+                ),
             )
         )
     return tuple(links), tuple(drops)
+
+
+def _close_generation_endpoints(
+    resources: Sequence[ResourceRecord],
+    links: Sequence[LinkRecord],
+) -> tuple[tuple[LinkRecord, ...], tuple[RelationshipDrop, ...]]:
+    """Keep only candidates whose exact typed endpoints exist in this complete generation."""
+
+    resource_types = {resource.resource_id: resource.type for resource in resources}
+    closed: list[LinkRecord] = []
+    drops: list[RelationshipDrop] = []
+    for link in links:
+        source_type = resource_types.get(link.from_id)
+        target_type = resource_types.get(link.to_id)
+        reason: RelationshipDropReason | None = None
+        if source_type is None:
+            reason = RelationshipDropReason.MISSING_SOURCE_ENDPOINT
+        elif target_type is None:
+            reason = RelationshipDropReason.MISSING_TARGET_ENDPOINT
+        elif (source_type, target_type) != (link.from_type, link.to_type):
+            reason = RelationshipDropReason.TARGET_TYPE_MISMATCH
+        if reason is None:
+            closed.append(link)
+            continue
+        evidence = link.mapping_evidence
+        unavailable_reason = None
+        if reason is RelationshipDropReason.MISSING_SOURCE_ENDPOINT:
+            unavailable_reason = RelationshipUnavailableReason.SOURCE_OUTSIDE_ACTIVE_GENERATION
+        elif reason is RelationshipDropReason.MISSING_TARGET_ENDPOINT:
+            unavailable_reason = RelationshipUnavailableReason.TARGET_OUTSIDE_ACTIVE_GENERATION
+        elif reason is RelationshipDropReason.TARGET_TYPE_MISMATCH:
+            unavailable_reason = RelationshipUnavailableReason.TARGET_PROVIDER_TYPE_UNMODELED
+        drops.append(
+            RelationshipDrop(
+                reason=reason,
+                mapping_id=evidence.mapping_id if evidence is not None else None,
+                source_property_path=(
+                    evidence.source_property_path if evidence is not None else None
+                ),
+                source_provider_type=(
+                    evidence.source_provider_type if evidence is not None else None
+                ),
+                target_provider_type=(
+                    evidence.target_provider_type if evidence is not None else None
+                ),
+                unavailable_reason=unavailable_reason,
+            )
+        )
+    return tuple(closed), tuple(
+        sorted(
+            drops,
+            key=lambda item: (
+                item.reason.value,
+                item.mapping_id or "",
+                item.source_property_path or "",
+                item.source_provider_type or "",
+                item.target_provider_type or "",
+            ),
+        )
+    )
 
 
 def _reconcile_unmapped_resources(
@@ -475,6 +556,7 @@ __all__ = [
     "ActivityLogPage",
     "AzureInventoryConfig",
     "AzureResourceGraphInventory",
+    "GenerationRelationshipFn",
     "ResourceQueryFn",
     "ResourceQueryResult",
     "UnmappedResourceQueryFn",

@@ -1,3 +1,13 @@
+import type {
+  NetworkBoundaryRole,
+  NetworkConnectionKind,
+  NetworkDirection,
+  NetworkEvidencePosture,
+  NetworkLayoutPreset,
+  NetworkPolicy,
+  NetworkTrafficClass,
+} from "@fdai/network-topology-contracts";
+
 export type Locale = "en" | "ko";
 export type Direction = "RIGHT" | "DOWN";
 export type LocalizedText = Record<Locale, string>;
@@ -94,6 +104,10 @@ export interface DiagramGroup {
   placementGap?: number;
   alignWith?: string;
   width?: number;
+  networkRole?: NetworkBoundaryRole;
+  addressPrefixes?: string[];
+  region?: string;
+  availabilityZones?: string[];
 }
 
 export interface DiagramPort {
@@ -110,6 +124,7 @@ export interface DiagramNode {
   tone?: DiagramTone;
   badge?: number;
   icon?: string;
+  resourceType?: string;
   label: LocalizedText;
   description?: LocalizedText;
   content?: LocalizedText[];
@@ -128,6 +143,11 @@ export interface DiagramNode {
   width?: number;
   height?: number;
   ports?: DiagramPort[];
+  networkRole?: NetworkBoundaryRole;
+  addresses?: string[];
+  listener?: string;
+  sku?: string;
+  securityFacts?: LocalizedText[];
 }
 
 export type EdgeKind =
@@ -162,18 +182,36 @@ export interface DiagramEdge {
     | "orthogonal-trunk"
     | "orthogonal-top"
     | "orthogonal-above"
+    | "orthogonal-gap"
     | "orthogonal-right"
     | "orthogonal-outer"
     | "orthogonal-approval";
   lane?: number;
   step?: number;
   weight?: number;
+  connectionKind?: NetworkConnectionKind;
+  direction?: NetworkDirection;
+  trafficClass?: NetworkTrafficClass;
+  policy?: NetworkPolicy;
+  port?: string;
+  nextHop?: string;
+  sourceEvidence?: Extract<NetworkEvidencePosture, "expected">;
+}
+
+export interface DiagramAnnotation {
+  id: string;
+  title: LocalizedText;
+  body: LocalizedText[];
+  tone: "information" | "policy";
+  placement: "top-left" | "top-right" | "bottom-left" | "bottom-right";
+  anchor?: string;
 }
 
 export interface DiagramSpec {
   id: string;
   version: number;
   kind: DiagramKind;
+  posture?: "expected";
   updated?: string;
   formats?: Array<"svg" | "png">;
   locales: Record<Locale, DiagramDocumentText>;
@@ -185,14 +223,23 @@ export interface DiagramSpec {
     xAxis?: LocalizedText;
     yAxis?: LocalizedText;
     padding?: number;
-    profile?: "default" | "azure-reference" | "conceptual";
+    profile?: "default" | "azure-reference" | "network-azure-reference" | "conceptual";
+    networkPreset?: NetworkLayoutPreset;
   };
   groups: DiagramGroup[];
   nodes: DiagramNode[];
   edges: DiagramEdge[];
+  annotations?: DiagramAnnotation[];
   legend?: Array<
     | { kind: EdgeKind; tone?: never; label: LocalizedText }
     | { kind?: never; tone: DiagramTone; label: LocalizedText }
   >;
   references?: Array<{ label: LocalizedText; url: string }>;
+}
+
+/** Returns whether a profile uses compact Azure reference geometry. */
+export function isReferenceDiagramProfile(
+  profile: DiagramSpec["canvas"]["profile"],
+): boolean {
+  return profile === "azure-reference" || profile === "network-azure-reference";
 }

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
 from typing import Any, Literal, cast
 
@@ -28,6 +29,9 @@ _FUNCTION_CAPABILITY = {
     "query.resource_change_activity": "resource_change_activity",
     "query.resource_current_state": "resource_current_state",
 }
+_FUNCTION_OBJECT_TYPES = {
+    "query.incident_evidence": ("Incident",),
+}
 _OUTPUT_CAPABILITY = {
     "structured_investigation": "structured_investigation",
     "temporal_comparison": "temporal_comparison",
@@ -38,11 +42,13 @@ _WINDOWED_OUTPUTS = {
     "target_error_activity_correlation",
     "target_health_assessment",
 }
+_CURRENT_OUTPUTS = {"target_current_state"}
 _HISTORICAL_OUTPUTS = {
     "ontology_release_evidence_health",
     "temporal_comparison",
     "topology_diff",
 }
+_MACHINE_TOKEN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$")
 
 
 def project_semantic_assurance(
@@ -96,7 +102,7 @@ def _project_frame(result: RuntimeSemanticTurnResult) -> SemanticAssuranceFrame 
     ):
         return None
     subjects = _subject_types(getattr(frame, "subject_constraints", ()))
-    measures = _ordered_strings(getattr(frame, "measure_concepts", ()))
+    measures = _measure_concepts(getattr(frame, "measure_concepts", ()))
     return SemanticAssuranceFrame(
         operation=operation,
         subject_types=subjects,
@@ -112,17 +118,26 @@ def _temporal_scope(
     *,
     output_shape: str,
 ) -> Literal["none", "current", "windowed", "historical"]:
-    if output_shape in _HISTORICAL_OUTPUTS:
-        return "historical"
-    if output_shape in _WINDOWED_OUTPUTS:
-        return "windowed"
     temporal = getattr(frame, "temporal_scope", None)
     if isinstance(temporal, Mapping) and temporal:
         keys = set(temporal)
+        values = {item.casefold() for item in temporal.values() if isinstance(item, str) and item}
+        if values & {"historical", "history", "past"}:
+            return "historical"
+        if values & {"current", "now"}:
+            return "current"
+        if values & {"windowed", "window", "range", "bounded"}:
+            return "windowed"
         if keys & {"baseline", "current", "from", "to", "window", "lookback"}:
             return "windowed"
         if keys & {"as_of", "previous_release", "known_at"}:
             return "historical"
+        return "current"
+    if output_shape in _HISTORICAL_OUTPUTS:
+        return "historical"
+    if output_shape in _WINDOWED_OUTPUTS:
+        return "windowed"
+    if output_shape in _CURRENT_OUTPUTS:
         return "current"
     return "none"
 
@@ -150,6 +165,7 @@ def _plan_declarations(
         if isinstance(function_name, str) and function_name:
             function_types.add(function_name)
             capabilities.add(_FUNCTION_CAPABILITY.get(function_name, function_name))
+            object_types.update(_FUNCTION_OBJECT_TYPES.get(function_name, ()))
         function_arguments = arguments.get("arguments")
         if isinstance(function_arguments, Mapping):
             raw_object_types = function_arguments.get("object_types")
@@ -345,6 +361,22 @@ def _ordered_strings(values: object) -> tuple[str, ...]:
     if not isinstance(values, Sequence) or isinstance(values, (str, bytes)):
         return ()
     return tuple(sorted({item for item in values if isinstance(item, str) and item}))
+
+
+def _measure_concepts(values: object) -> tuple[str, ...]:
+    """Project verified concepts to collision-resistant machine tokens."""
+
+    concepts = _ordered_strings(values)
+    return tuple(
+        sorted(
+            {
+                item
+                if _MACHINE_TOKEN.fullmatch(item) is not None
+                else f"concept:{content_digest(item).removeprefix('sha256:')}"
+                for item in concepts
+            }
+        )
+    )
 
 
 def _mapping_has_conflict(value: Mapping[str, Any]) -> bool:

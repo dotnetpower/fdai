@@ -19,6 +19,506 @@ mappings:
       require_source_endpoint: true
       require_target_endpoint: true
 
+  - mapping_id: azure.resource-attached-to-managed-identity
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: ["*"]
+    source_property_path: identity.userAssignedIdentities{keys}
+    target_provider_types: [Microsoft.ManagedIdentity/userAssignedIdentities]
+    link_type: attached_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.role-assignment-attached-to-scope
+    provider: azure
+    source_identity: azure-resource-graph-complete-generation
+    source_provider_types: [Microsoft.Authorization/roleAssignments]
+    source_property_path: properties.scope
+    target_provider_types: ["*"]
+    link_type: attached_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.role-assignment-attached-to-managed-identity
+    provider: azure
+    source_identity: azure-resource-graph-complete-generation
+    source_provider_types: [Microsoft.Authorization/roleAssignments]
+    source_property_path: properties.principalId
+    target_provider_types: [Microsoft.ManagedIdentity/userAssignedIdentities]
+    reference_format: resolved_name
+    link_type: attached_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.container-app-depends-on-managed-environment
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.App/containerApps]
+    source_property_path: properties.managedEnvironmentId
+    target_provider_types: [Microsoft.App/managedEnvironments]
+    link_type: depends_on
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.container-job-depends-on-managed-environment
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.App/jobs]
+    source_property_path: properties.environmentId
+    target_provider_types: [Microsoft.App/managedEnvironments]
+    link_type: depends_on
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.container-workload-depends-on-registry
+    provider: azure
+    source_identity: azure-resource-graph-complete-generation
+    source_provider_types: [Microsoft.App/containerApps, Microsoft.App/jobs]
+    source_property_path: properties.configuration.registries[].server
+    target_provider_types: [Microsoft.ContainerRegistry/registries]
+    reference_format: resolved_name
+    link_type: depends_on
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.container-workload-depends-on-configured-endpoint
+    provider: azure
+    source_identity: azure-resource-graph-complete-generation
+    source_provider_types: [Microsoft.App/containerApps, Microsoft.App/jobs]
+    source_property_path: properties.template.containers[].env[].value
+    target_provider_types:
+      - Microsoft.ApiManagement/service
+      - Microsoft.App/containerApps
+      - Microsoft.Communication/communicationServices
+      - Microsoft.ContainerRegistry/registries
+      - Microsoft.CognitiveServices/accounts
+      - Microsoft.DBforMySQL/flexibleServers
+      - Microsoft.DBforPostgreSQL/flexibleServers
+      - Microsoft.EventHub/namespaces
+      - Microsoft.KeyVault/vaults
+      - Microsoft.OperationalInsights/workspaces
+      - Microsoft.RedisEnterprise/redisEnterprise
+      - Microsoft.Storage/storageAccounts
+      - Microsoft.Web/sites
+      - Microsoft.Web/staticSites
+    reference_format: resolved_name
+    link_type: depends_on
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.container-workload-depends-on-key-vault-secret
+    provider: azure
+    source_identity: azure-resource-graph-complete-generation
+    source_provider_types: [Microsoft.App/containerApps, Microsoft.App/jobs]
+    source_property_path: properties.configuration.secrets[].keyVaultUrl
+    target_provider_types: [Microsoft.KeyVault/vaults]
+    reference_format: resolved_name
+    link_type: depends_on
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.container-workload-depends-on-arm-resource
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.App/containerApps, Microsoft.App/jobs]
+    source_property_path: properties.template.containers[].env[].value
+    target_provider_types: ["*"]
+    link_type: depends_on
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.container-environment-depends-on-log-workspace
+    provider: azure
+    source_identity: azure-resource-graph-complete-generation
+    source_provider_types: [Microsoft.App/managedEnvironments]
+    source_property_path: properties.appLogsConfiguration.logAnalyticsConfiguration.customerId
+    target_provider_types: [Microsoft.OperationalInsights/workspaces]
+    reference_format: resolved_name
+    link_type: depends_on
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.container-environment-attached-to-infrastructure-subnet
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.App/managedEnvironments]
+    source_property_path: properties.vnetConfiguration.infrastructureSubnetId
+    target_provider_types: [Microsoft.Network/virtualNetworks/subnets]
+    link_type: attached_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.application-insights-depends-on-workspace
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Insights/components]
+    source_property_path: properties.WorkspaceResourceId
+    target_provider_types: [Microsoft.OperationalInsights/workspaces]
+    link_type: depends_on
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.alert-rule-routes-to-action-group
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Insights/scheduledQueryRules]
+    source_property_path: properties.actions.actionGroups[]
+    target_provider_types: [Microsoft.Insights/actionGroups]
+    link_type: routes_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.alert-rule-depends-on-scope
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Insights/scheduledQueryRules]
+    source_property_path: properties.scopes[]
+    target_provider_types:
+      - Microsoft.ContainerService/managedClusters
+      - Microsoft.OperationalInsights/workspaces
+    link_type: depends_on
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.communication-service-depends-on-email-domain
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Communication/communicationServices]
+    source_property_path: properties.linkedDomains[]
+    target_provider_types: [Microsoft.Communication/emailServices/domains]
+    link_type: depends_on
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.function-depends-on-app-service-plan
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Web/sites]
+    source_property_path: properties.serverFarmId
+    target_provider_types: [Microsoft.Web/serverFarms]
+    link_type: depends_on
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.function-attached-to-subnet
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Web/sites]
+    source_property_path: properties.virtualNetworkSubnetId
+    target_provider_types: [Microsoft.Network/virtualNetworks/subnets]
+    link_type: attached_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.function-depends-on-deployment-identity
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Web/sites]
+    source_property_path: properties.functionAppConfig.deployment.storage.authentication.userAssignedIdentityResourceId
+    target_provider_types: [Microsoft.ManagedIdentity/userAssignedIdentities]
+    link_type: depends_on
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.function-depends-on-application-insights
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Web/sites]
+    source_property_path: tags{values}
+    target_provider_types: [Microsoft.Insights/components]
+    link_type: depends_on
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.vm-scale-set-attached-to-subnet
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Compute/virtualMachineScaleSets]
+    source_property_path: properties.virtualMachineProfile.networkProfile.networkInterfaceConfigurations[].properties.ipConfigurations[].properties.subnet.id
+    target_provider_types: [Microsoft.Network/virtualNetworks/subnets]
+    link_type: attached_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.vm-scale-set-attached-to-nsg
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Compute/virtualMachineScaleSets]
+    source_property_path: properties.virtualMachineProfile.networkProfile.networkInterfaceConfigurations[].properties.networkSecurityGroup.id
+    target_provider_types: [Microsoft.Network/networkSecurityGroups]
+    link_type: attached_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.aks-attached-to-agent-subnet
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.ContainerService/managedClusters]
+    source_property_path: properties.agentPoolProfiles[].vnetSubnetID
+    target_provider_types: [Microsoft.Network/virtualNetworks/subnets]
+    link_type: attached_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.aks-attached-to-node-resource-group
+    provider: azure
+    source_identity: azure-resource-graph-complete-generation
+    source_provider_types: [Microsoft.ContainerService/managedClusters]
+    source_property_path: properties.nodeResourceGroup
+    target_provider_types: [Microsoft.Resources/resourceGroups]
+    reference_format: resolved_name
+    link_type: attached_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.aks-attached-to-kubelet-identity
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.ContainerService/managedClusters]
+    source_property_path: properties.identityProfile.kubeletidentity.resourceId
+    target_provider_types: [Microsoft.ManagedIdentity/userAssignedIdentities]
+    link_type: attached_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.aks-attached-to-key-vault-provider-identity
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.ContainerService/managedClusters]
+    source_property_path: properties.addonProfiles.azureKeyvaultSecretsProvider.identity.resourceId
+    target_provider_types: [Microsoft.ManagedIdentity/userAssignedIdentities]
+    link_type: attached_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.aks-attached-to-monitoring-identity
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.ContainerService/managedClusters]
+    source_property_path: properties.addonProfiles.omsagent.identity.resourceId
+    target_provider_types: [Microsoft.ManagedIdentity/userAssignedIdentities]
+    link_type: attached_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.aks-depends-on-log-workspace
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.ContainerService/managedClusters]
+    source_property_path: properties.addonProfiles.omsagent.config.logAnalyticsWorkspaceResourceID
+    target_provider_types: [Microsoft.OperationalInsights/workspaces]
+    link_type: depends_on
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.aks-routes-to-effective-outbound-ip
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.ContainerService/managedClusters]
+    source_property_path: properties.networkProfile.loadBalancerProfile.effectiveOutboundIPs[].id
+    target_provider_types: [Microsoft.Network/publicIPAddresses]
+    link_type: routes_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.data-collection-rule-depends-on-endpoint
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Insights/dataCollectionRules]
+    source_property_path: properties.dataCollectionEndpointId
+    target_provider_types: [Microsoft.Insights/dataCollectionEndpoints]
+    link_type: depends_on
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.data-collection-rule-routes-to-workspace
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Insights/dataCollectionRules]
+    source_property_path: properties.destinations.logAnalytics[].workspaceResourceId
+    target_provider_types: [Microsoft.OperationalInsights/workspaces]
+    link_type: routes_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.data-collection-rule-routes-to-metrics-workspace
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Insights/dataCollectionRules]
+    source_property_path: properties.destinations.monitoringAccounts[].accountResourceId
+    target_provider_types: [Microsoft.Monitor/accounts]
+    link_type: routes_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.metrics-workspace-depends-on-collection-endpoint
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Monitor/accounts]
+    source_property_path: properties.defaultIngestionSettings.dataCollectionEndpointResourceId
+    target_provider_types: [Microsoft.Insights/dataCollectionEndpoints]
+    link_type: depends_on
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.metrics-workspace-depends-on-collection-rule
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Monitor/accounts]
+    source_property_path: properties.defaultIngestionSettings.dataCollectionRuleResourceId
+    target_provider_types: [Microsoft.Insights/dataCollectionRules]
+    link_type: depends_on
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.snapshot-depends-on-source-disk
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Compute/snapshots]
+    source_property_path: properties.creationData.sourceResourceId
+    target_provider_types: [Microsoft.Compute/disks]
+    link_type: depends_on
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.application-gateway-routes-to-configured-backend
+    provider: azure
+    source_identity: azure-resource-graph-complete-generation
+    source_provider_types: [Microsoft.Network/applicationGateways]
+    source_property_path: properties.backendAddressPools[].properties.backendAddresses[].fqdn
+    target_provider_types:
+      - Microsoft.ApiManagement/service
+      - Microsoft.App/containerApps
+      - Microsoft.Web/sites
+      - Microsoft.Web/staticSites
+    reference_format: resolved_name
+    link_type: routes_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.load-balancer-routes-to-configured-backend
+    provider: azure
+    source_identity: azure-resource-graph-complete-generation
+    source_provider_types: [Microsoft.Network/loadBalancers]
+    source_property_path: properties.backendAddressPools[].properties.loadBalancerBackendAddresses[].properties.fqdn
+    target_provider_types:
+      - Microsoft.ApiManagement/service
+      - Microsoft.App/containerApps
+      - Microsoft.Web/sites
+      - Microsoft.Web/staticSites
+    reference_format: resolved_name
+    link_type: routes_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
   - mapping_id: azure.sql-server-contains-database
     provider: azure
     source_identity: azure-resource-graph
@@ -84,6 +584,112 @@ mappings:
     freshness: *freshness
     completeness: *completeness
 
+  - mapping_id: azure.subnet-attached-to-nat-gateway
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Network/virtualNetworks/subnets]
+    source_property_path: properties.natGateway.id
+    target_provider_types: [Microsoft.Network/natGateways]
+    link_type: attached_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.subnet-attached-to-route-table
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Network/virtualNetworks/subnets]
+    source_property_path: properties.routeTable.id
+    target_provider_types: [Microsoft.Network/routeTables]
+    link_type: attached_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.nic-attached-to-public-ip
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Network/networkInterfaces]
+    source_property_path: properties.ipConfigurations[].properties.publicIPAddress.id
+    target_provider_types: [Microsoft.Network/publicIPAddresses]
+    link_type: attached_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.nic-attached-to-nsg
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Network/networkInterfaces]
+    source_property_path: properties.networkSecurityGroup.id
+    target_provider_types: [Microsoft.Network/networkSecurityGroups]
+    link_type: attached_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.private-endpoint-attached-to-network-interface
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Network/privateEndpoints]
+    source_property_path: properties.networkInterfaces[].id
+    target_provider_types: [Microsoft.Network/networkInterfaces]
+    link_type: attached_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.private-endpoint-attached-to-subnet
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Network/privateEndpoints]
+    source_property_path: properties.subnet.id
+    target_provider_types: [Microsoft.Network/virtualNetworks/subnets]
+    link_type: attached_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.private-endpoint-contains-dns-zone-group
+    provider: azure
+    source_identity: azure-resource-manager-network
+    source_provider_types: [Microsoft.Network/privateEndpoints/privateDnsZoneGroups]
+    source_property_path: id.providerParent
+    target_provider_types: [Microsoft.Network/privateEndpoints]
+    link_type: contains
+    endpoint_orientation: referenced_to_owner
+    source_schema: &arm_network_schema
+      version: azure-resource-manager-network@2024-05-01
+      digest: sha256:85f648ec3f355e57c946e3e7fafad89e5b06ac8b8804eaa6ebba779a6aa939fb
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.private-dns-zone-group-attached-to-zone
+    provider: azure
+    source_identity: azure-resource-manager-network
+    source_provider_types: [Microsoft.Network/privateEndpoints/privateDnsZoneGroups]
+    source_property_path: properties.privateDnsZoneConfigs[].properties.privateDnsZoneId
+    target_provider_types: [Microsoft.Network/privateDnsZones]
+    link_type: attached_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arm_network_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
   - mapping_id: azure.load-balancer-attached-to-public-ip
     provider: azure
     source_identity: azure-resource-graph
@@ -97,15 +703,193 @@ mappings:
     freshness: *freshness
     completeness: *completeness
 
+  - mapping_id: azure.application-gateway-attached-to-public-ip
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Network/applicationGateways]
+    source_property_path: properties.frontendIPConfigurations[].properties.publicIPAddress.id
+    target_provider_types: [Microsoft.Network/publicIPAddresses]
+    link_type: attached_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.application-gateway-attached-to-subnet
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Network/applicationGateways]
+    source_property_path: properties.gatewayIPConfigurations[].properties.subnet.id
+    target_provider_types: [Microsoft.Network/virtualNetworks/subnets]
+    link_type: attached_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.dns-resolver-attached-to-vnet
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Network/dnsResolvers]
+    source_property_path: properties.virtualNetwork.id
+    target_provider_types: [Microsoft.Network/virtualNetworks]
+    link_type: attached_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.dns-resolver-inbound-endpoint-attached-to-subnet
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Network/dnsResolvers/inboundEndpoints]
+    source_property_path: properties.ipConfigurations[].subnet.id
+    target_provider_types: [Microsoft.Network/virtualNetworks/subnets]
+    link_type: attached_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.load-balancer-attached-to-subnet
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Network/loadBalancers]
+    source_property_path: properties.frontendIPConfigurations[].properties.subnet.id
+    target_provider_types: [Microsoft.Network/virtualNetworks/subnets]
+    link_type: attached_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.load-balancer-depends-on-backend-subnet
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Network/loadBalancers]
+    source_property_path: properties.backendAddressPools[].properties.loadBalancerBackendAddresses[].properties.subnet.id
+    target_provider_types: [Microsoft.Network/virtualNetworks/subnets]
+    link_type: depends_on
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.load-balancer-depends-on-backend-vnet
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Network/loadBalancers]
+    source_property_path: properties.backendAddressPools[].properties.loadBalancerBackendAddresses[].properties.virtualNetwork.id
+    target_provider_types: [Microsoft.Network/virtualNetworks]
+    link_type: depends_on
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.nat-gateway-attached-to-public-ip
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Network/natGateways]
+    source_property_path: properties.publicIpAddresses[].id
+    target_provider_types: [Microsoft.Network/publicIPAddresses]
+    link_type: attached_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.private-dns-zone-link-attached-to-vnet
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Network/privateDnsZones/virtualNetworkLinks]
+    source_property_path: properties.virtualNetwork.id
+    target_provider_types: [Microsoft.Network/virtualNetworks]
+    link_type: attached_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.private-dns-zone-contains-vnet-link
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Network/privateDnsZones/virtualNetworkLinks]
+    source_property_path: id.providerParent
+    target_provider_types: [Microsoft.Network/privateDnsZones]
+    link_type: contains
+    endpoint_orientation: referenced_to_owner
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.virtual-network-gateway-attached-to-public-ip
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Network/virtualNetworkGateways]
+    source_property_path: properties.ipConfigurations[].properties.publicIPAddress.id
+    target_provider_types: [Microsoft.Network/publicIPAddresses]
+    link_type: attached_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.virtual-network-gateway-attached-to-subnet
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Network/virtualNetworkGateways]
+    source_property_path: properties.ipConfigurations[].properties.subnet.id
+    target_provider_types: [Microsoft.Network/virtualNetworks/subnets]
+    link_type: attached_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.aca-managed-network-resource-attached-to-environment
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types:
+      - Microsoft.Network/loadBalancers
+      - Microsoft.Network/publicIPAddresses
+    source_property_path: tags.aca-managed-env-id
+    target_provider_types: [Microsoft.App/managedEnvironments]
+    link_type: attached_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
   - mapping_id: azure.private-endpoint-attached-to-service
     provider: azure
     source_identity: azure-resource-graph
     source_provider_types: [Microsoft.Network/privateEndpoints]
     source_property_path: properties.privateLinkServiceConnections[].properties.privateLinkServiceId
     target_provider_types:
+      - Microsoft.CognitiveServices/accounts
       - Microsoft.ContainerRegistry/registries
       - Microsoft.DBforMySQL/flexibleServers
       - Microsoft.DBforPostgreSQL/flexibleServers
+      - Microsoft.DocumentDB/databaseAccounts
+      - Microsoft.EventHub/namespaces
+      - Microsoft.KeyVault/vaults
+      - Microsoft.RedisEnterprise/redisEnterprise
+      - Microsoft.ServiceBus/namespaces
+      - Microsoft.Sql/servers
       - Microsoft.Sql/servers/databases
       - Microsoft.Storage/storageAccounts
     link_type: attached_to
@@ -261,4 +1045,4 @@ review:
   reviewer_identity: fdai-provider-relationship-review
   reviewed_at: 2026-08-12T00:00:00Z
   immutable_receipt_ref: catalog-receipt:provider-relationships:azure-arg-v1
-  content_hash: sha256:088b18421a090a0e88d96e8ae1bfaf59754c70dbcb1be423fab04053aaad3192
+  content_hash: sha256:0420aaaa151921a87757fc5e6fa1b4fb5300f572e3564979dc9cad196caf703c

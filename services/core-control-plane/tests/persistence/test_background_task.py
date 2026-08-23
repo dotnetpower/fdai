@@ -206,6 +206,74 @@ async def test_two_postgres_stores_enforce_owner_quota_atomically(
 
 
 @pytest.mark.integration
+async def test_postgres_creation_audit_fences_claim_until_marked(
+    database_url: str,
+) -> None:
+    task = _task(f"background-audit-fence-{uuid.uuid4().hex}")
+    store = PostgresBackgroundTaskStore(
+        config=PostgresBackgroundTaskStoreConfig(dsn=database_url),
+        clock=lambda: _NOW,
+    )
+    await store.create(task, requires_creation_audit=True)
+
+    assert await store.creation_audited(task.task_id) is False
+    assert (
+        await store.claim_next(
+            coordinator="coordinator:audit-fence",
+            lease_token="lease:audit-fence:blocked",
+            now=_NOW,
+            lease_seconds=30,
+        )
+        is None
+    )
+
+    await store.mark_creation_audited(task.task_id, now=_NOW)
+    claimed = await store.claim_next(
+        coordinator="coordinator:audit-fence",
+        lease_token="lease:audit-fence:allowed",
+        now=_NOW,
+        lease_seconds=30,
+    )
+
+    assert claimed is not None
+    assert claimed.task.task_id == task.task_id
+
+
+@pytest.mark.integration
+async def test_postgres_active_quota_crosses_utc_day_boundary(
+    database_url: str,
+) -> None:
+    owner = f"{_OWNER_PREFIX}midnight-{uuid.uuid4().hex}"
+    before_midnight = datetime(2026, 7, 20, 23, 59, 50, tzinfo=UTC)
+    after_midnight = before_midnight + timedelta(seconds=20)
+    first_task = replace(
+        _task(f"background-midnight-a-{uuid.uuid4().hex}", owner=owner),
+        created_at=before_midnight,
+        retention_until=before_midnight + timedelta(days=1),
+    )
+    first = PostgresBackgroundTaskStore(
+        config=PostgresBackgroundTaskStoreConfig(dsn=database_url),
+        clock=lambda: before_midnight,
+    )
+    await first.create(first_task, quota=BackgroundTaskQuotaPolicy(max_active_tasks=1))
+    second_task = replace(
+        _task(f"background-midnight-b-{uuid.uuid4().hex}", owner=owner),
+        created_at=after_midnight,
+        retention_until=after_midnight + timedelta(days=1),
+    )
+    second = PostgresBackgroundTaskStore(
+        config=PostgresBackgroundTaskStoreConfig(dsn=database_url),
+        clock=lambda: after_midnight,
+    )
+
+    with pytest.raises(BackgroundTaskQuotaExceededError, match="concurrency"):
+        await second.create(
+            second_task,
+            quota=BackgroundTaskQuotaPolicy(max_active_tasks=1),
+        )
+
+
+@pytest.mark.integration
 async def test_postgres_store_rejects_client_selected_quota_day(
     database_url: str,
 ) -> None:

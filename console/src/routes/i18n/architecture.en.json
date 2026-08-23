@@ -110,4 +110,43 @@
   "mapAriaLabel": "Resource architecture map with {count} resources",
   "selectArchitectureResource": "Select architecture resource",
   "selectResourceOption": "Select resource"
+  ,"network": {
+    "mode": "Architecture presentation mode",
+    "mapMode": "Map",
+    "networkMode": "Network",
+    "mapAriaLabel": "Observed network topology with {count} resources",
+    "title": "Observed network path",
+    "observedOnly": "Read-only path over reported inventory relationships. Missing coverage remains unknown.",
+    "source": "Source",
+    "destination": "Destination",
+    "selectSource": "Select source",
+    "selectDestination": "Select destination",
+    "observedHops": "Observed path hops",
+    "filters": "Network filters",
+    "filter": {
+      "publicExposure": "Public exposure",
+      "privateResources": "Private resources",
+      "security": "Security boundaries",
+      "gateways": "Gateways",
+      "dns": "DNS",
+      "privateEndpoints": "Private endpoints"
+    },
+    "path": {
+      "idle": "Select a source and destination.",
+      "found": "Observed path - {count} hops",
+      "no_observed_path": "No observed path in complete relationship coverage.",
+      "unknown": "Path unknown because relationship evidence is incomplete, stale, or partial."
+    },
+    "evidence": {
+      "observed": "Observed",
+      "stale": "Stale",
+      "partial": "Partial",
+      "unknown": "Unknown"
+    },
+    "export": "Export sanitized network topology",
+    "exportSvg": "Download sanitized SVG",
+    "exportPng": "Download sanitized PNG",
+    "svg": "SVG",
+    "png": "PNG"
+  }
 }

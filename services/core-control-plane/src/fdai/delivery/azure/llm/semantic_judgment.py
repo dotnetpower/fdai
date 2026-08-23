@@ -82,6 +82,7 @@ class AzureOpenAISemanticJudgmentModel:
         capabilities: tuple[dict[str, Any], ...],
         profile_id: str,
         profile_version: str,
+        schema_repair: tuple[dict[str, str], ...],
     ) -> Mapping[str, Any] | None:
         """Return a raw JSON-object proposal or ``None`` on transport failure."""
 
@@ -99,6 +100,7 @@ class AzureOpenAISemanticJudgmentModel:
             "capabilities": capabilities,
             "profile_id": profile_id,
             "profile_version": profile_version,
+            "schema_repair": schema_repair,
         }
         try:
             encoded = json.dumps(

@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: e89fb7201367d2636f37543e4eab7871eaefa82f
-translation_revised: 2026-08-21
+translation_source_sha: 1cf40b79f66074b569bbe3155d41e03a72dc65ca
+translation_revised: 2026-08-23
 ---
 # 오퍼레이터 콘솔 점진적 대화
 
@@ -23,7 +23,7 @@ translation_revised: 2026-08-21
 | 이중 언어 무작위 릴리스 게이트 | 진행 중 | [`ontology-query-assurance-readiness.ts`](../../../console/tests/live-e2e/ontology-query-assurance-readiness.ts), [`ontology-query-assurance.test.ts`](../../../console/tests/live-e2e/ontology-query-assurance.test.ts) | 집중 보증 테스트 49개가 통과했습니다. 통제되는 모든 실행은 범위가 제한된 실행 식별자를 요구하고 질문 범위의 안정된 backend session id를 파생하므로 checkpoint 재개는 정체성을 보존하지만 새 실행은 다른 실행의 영속 semantic projection을 재사용할 수 없습니다. 전체 집단은 영어와 한국어 모두에서 근거가 완전한 answered 턴이 없으면 `production_ready=true`를 보고할 수 없습니다. 새 100-case 통과 산출물은 여전히 필요합니다. |
 | 의미 명확화 표현 | 구현됨 | [`verification-presentation.ts`](../../../console/src/deck/verification-presentation.ts), [`verification-presentation.test.ts`](../../../console/src/deck/verification-presentation.test.ts) | `semantic_clarification_required`를 `Context required`로 표시하며 Console 집중 테스트 13개가 통과했습니다. 분류는 제어 평면이 실제로 방출하는 이유 코드만 다룹니다. 인증되고 보존된 증적은 열린 항목으로 남아 있습니다. |
 | 검증된 의미 답변 표현 | 검증됨 | [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py), [`semantic_turn_presentation.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_presentation.py), [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), [`semantic-answer-presentation.spec.ts`](../../../console/tests/live-e2e/semantic-answer-presentation.spec.ts), `.fdai/live-validation/semantic-answer-presentation-244d003ef77bd37dc0041f0b6a29634cdbaacb91-post-validation/` | 범위가 제한된 인증 Web/한국어 경로는 명시적 workspace patch digest와 함께 중앙 검증된 source revision `244d003ef`에서 검증됐습니다. 최초 턴과 재생성 턴은 관찰된 5단계, 동일한 인시던트 및 기술 출력 digest, 읽기 전용 근거 수집, primary JSON 미노출, `execution_authority=false`를 유지했습니다. 이 상태는 Teams, Slack, 4단계 온톨로지 실행기 또는 이중 언어 100-case 집단을 주장하지 않습니다. |
-| 결정론적 교차 채널 표현 계획 | 구현됨 | `presentation_rows.py`, `presentation_planner.py`, `presentation_artifact_v2.py`, `semantic_turn_presentation.py`, 집중 Operator 검사 82개 통과 | 검증된 operation, output shape, 항목 수, 필드 역할, 유한한 값, 단위, 분모, 시각 순서, 완전성 및 제한 사항으로 블록을 선택합니다. Legacy와 v2 경로는 읽기 쉬운 기본 표에서 불투명한 identity를 제외하면서 identity만 있는 대체 표시와 기술 세부의 exact 행을 보존하는 범위가 제한된 행 projection 하나를 공유합니다. |
+| 결정론적 교차 채널 표현 계획 | 구현됨 | `semantic_presentation_semantics.py`, `semantic_turn_processor.py`, `presentation_rows.py`, `presentation_planner.py`, `presentation_artifact_v2.py`, `presentation.py`, Console artifact 및 module registry, 집중 semantic presentation 검사 137개, Console deck 검사 693개, chart browser 검사 4개 통과 | Core는 검증된 종단 행에서 renderer-neutral semantics를 파생합니다. Operator는 시각화 10개 중 하나를 선택하기 전에 shape별 역할과 행 불변식을 다시 검증합니다. Web과 channel artifact 경계는 동일한 bounded schema를 적용합니다. Legacy와 v2 경로는 읽기 쉬운 행과 exact 기술 값을 보존합니다. 모델은 차트 컴포넌트를 선택할 수 없습니다. |
 
 ### 구현 이력
 
@@ -61,6 +61,9 @@ translation_revised: 2026-08-21
 | 2026-08-19 | 구현됨 | 순수 근거 형태 분석기, 결정론적 결정 행렬, 검증된 frame 메타데이터 변환 결과 및 추가적인 v2 컴파일러를 구현했습니다. 알 수 없는 타입 맥락, 누락값, 혼합 단위, 불명확한 분모, 낮은 항목 수, 잘림 및 불완전한 검증은 0을 만들지 않고 exact 레코드, 제한 사항 또는 정본 텍스트로 대체됩니다. | `current change`, [이슈 #234](https://github.com/dotnetpower/fdai/issues/234), 집중 planner, compiler 및 producer/Console 계약 검사 33개와 Ruff, formatting, strict mypy 통과 | 순수 Teams, Slack 및 주입형 사용자 지정 기능 렌더러를 구현하고 검증합니다. |
 | 2026-08-20 | 구현됨 | Legacy와 v2 경로가 읽기 쉬운 행 projection 하나를 재사용하고 실제 두 단계 Resource property shape를 처리하도록 확장했습니다. Artifact는 불투명한 identity와 기술 세부의 변경하지 않은 근거 행을 보존하면서 이름, 타입, 위치를 앞세우며 중첩 tag와 provider payload는 표시 열이 되지 않습니다. | `current change`, [이슈 #241](https://github.com/dotnetpower/fdai/issues/241), focused v2 compiler, planner 및 의미 bridge 검사 94개 통과, Ruff, formatting, strict mypy 통과 | Operator 재시작 뒤 인증된 desktop, constrained-desktop, mobile 근거를 보존합니다. |
 | 2026-08-20 | 구현됨 | 인증된 검토에서 뒤에 표시되는 `id`와 `object_type` 열이 유용한 계층을 계속 평평하게 만드는 것을 확인한 뒤 앞선 읽기 쉬운 행 정책을 교정했습니다. 이제 읽기 쉬운 표는 해당 열 없이 운영자용 사실을 표시하고 identity만 있는 결과는 대체 표시를 유지하며 변경하지 않은 exact 행은 기술 세부에서 계속 확인할 수 있습니다. | `current change`, `presentation_rows.py`, focused Operator 표현 검사 82개와 Command Deck 시각 검사 19개, Console typecheck 및 운영 build 통과 | 이 source로 Operator API를 재시작한 뒤 인증된 desktop, constrained-desktop, mobile 근거를 보존합니다. |
+| 2026-08-21 | 구현됨 | 결정론적 표현 계획을 넓은 블록 선택에서 온톨로지에 근거한 시각화 선택 10개로 확장했습니다. 엄격한 v2 artifact는 추가적인 hint 또는 타입이 지정된 scatter와 heatmap 블록을 전달합니다. Console은 공유 차트 primitive를 렌더링하고 Slack과 Teams는 exact 사실로 축약합니다. 종류에 맞지 않는 hint는 fail closed하며 이전 v2 artifact는 새 필드를 합성하지 않고 round-trip합니다. | `current change`, planner 및 compiler 검사 67개, Console artifact 및 registry 검사 28개, 채널 renderer 검사 5개, Console typecheck 통과 | 이 기능을 `검증됨`으로 올리기 전에 인증된 Web 및 통제된 Slack/Teams 런타임 증적을 보존합니다. |
+| 2026-08-22 | 구현됨 | Renderer-neutral semantic metadata를 Core 종단 producer에 연결하고 전체 선택 경계를 강화했습니다. 명시적 비교 역할은 generic temporal 필드보다 우선합니다. Semantic field-role map은 shape별 exact 집합을 따릅니다. Ranking, part-to-whole, cumulative, matrix variant는 행 수준 증명을 요구합니다. 중복 matrix 좌표와 감소하는 cumulative 값은 의미를 만들지 않고 대체 경로로 이동합니다. | `current change`, 집중 Core projector/wiring 및 Operator planner/compiler 검사 90개, Console parser/registry/primitive 검사 45개, 채널 축약 검사 13개, Ruff 및 Console typecheck 통과 | 이 기능을 `검증됨`으로 올리기 전에 인증된 Web 및 통제된 Slack/Teams 런타임 증적을 보존합니다. |
+| 2026-08-22 | 구현됨 | 48개가 넘는 check로 독립적인 적대적 검토 3회를 완료하고 확인된 Medium 이상 잔여가 없을 때까지 집중 hardening을 반복했습니다. 수락한 수정은 상한을 넘는 근거 참조와 exact cell을 fail closed하고, 의미 label과 공유 RFC 3339 순서를 요구하며, chart 값, tone, role, 참조, table, text bound, slot, envelope type, item schema, v1 integer, control character에 대해 Web과 Slack/Teams 계약을 일치시킵니다. 범위가 제한된 읽기 쉬운 6-column table, 유효한 음수 comparison/scatter 도메인, sparse heatmap placeholder는 다시 검토하고 유지했습니다. | `current change`, 집중 semantic presentation 검사 137개, Console deck 검사 693개, desktop/mobile chart Playwright 검사 4개, Ruff, strict mypy, Console typecheck 및 production build 통과 | Low 표시 tradeoff만 남습니다. Sparse heatmap 공백은 명시적인 `-`를 사용하며 일부 안전한 chart fallback은 generic reason을 사용합니다. Exact 기술 행은 계속 확인할 수 있습니다. `검증됨`으로 올리려면 통제된 Web 및 Slack/Teams 런타임 증적이 여전히 필요합니다. |
 
 ### 남은 작업
 
@@ -69,6 +72,9 @@ translation_revised: 2026-08-21
 - [ ] 2026-08-11 기준선을 교체하지 않고, 두 언어 모두에서 근거가 완전한 answered 턴이 있는
   seed `0x0fda1`의 영어/한국어 100-case 무작위 보증 통과 산출물을 보존합니다.
 - [ ] 채널 전체 런타임 검증을 주장하기 전에 통제된 Teams 및 Slack 집약 증적을 기록합니다.
+- [x] 독립적인 시각화 비평을 20개 이상 완료하고 확인된 Medium 이상 잔여가 없을 때까지 집중
+  hardening을 반복합니다. 현재 근거는 check 48개, 집중 Python 검사 137개, Console deck 검사
+  693개, desktop/mobile browser 검사 4개입니다.
 - [x] v1 재생, 차트 대체 경로, 잘못되거나 증적에 결속되지 않은 산출물 거부를 포함하는
   결정론적 근거 형태 분석기와 v2 플래너 결정 행렬을 구현하고 집중 테스트합니다.
 - [x] 정확한 machine payload와 최종 검증 증적은 접힌 기술 상세에 보존하면서 primary semantic
@@ -131,13 +137,45 @@ Markdown을 읽어 차트를 추론하지 않으며 모델은 컴포넌트 이�
 뒤에 둡니다. 단위 불일치, 누락값, 불명확한 분모, 낮은 항목 수, 잘림 또는 불완전한 검증은 차트
 선택을 차단합니다. `unavailable`은 그대로 유지하며 0으로 바꾸지 않습니다.
 
+### 온톨로지 기반 시각화 선택
+
+온톨로지는 차트 라이브러리 이름이 아니라 의미 역할과 관계를 설명합니다. Core 종단 producer는
+검증된 operation, output shape, exact 행에서 닫힌 `semantic_shape` 하나와 범위가 제한된 필드
+역할 바인딩을 파생합니다. 관계가 입증되지 않으면 metadata를 생략합니다. 결정론적 planner가 이
+의미를 시각화 hint로 변환합니다. 모델은 이후 검증할 타입이 지정된 intent를 제안할 수 있지만
+컴포넌트 이름을 방출하거나 필드 역할 또는 대체 경로를 바꿀 수 없습니다.
+
+| 검증된 의미 형태 | 시각화 hint | Artifact 블록 | Exact 대체 경로 |
+|------------------|-------------|---------------|-----------------|
+| 단일 메트릭의 정렬된 관찰값 | `line` | `time_series` | Exact 표 |
+| 정렬된 크기 또는 누적 변화 | `area` | `time_series` | Exact 표, 값은 단조 비감소해야 함 |
+| 비교 가능한 범주형 값 | `bar` | `bar` | Exact 표 |
+| 순위가 있는 범주형 값 | `bar_list` | `bar` | Exact 표, 양수이며 고유하고 정렬된 rank 필요 |
+| 검증된 하나의 전체를 구성하는 부분 | `donut` | `bar` | Exact 표, 양의 total 하나와 일치하는 part 합계 필요 |
+| 검증된 분자와 분모 | `category_bar` | `coverage` | Exact 표와 유효하지 않을 때 제한 안내 |
+| 기준선, 현재, 목표, 이전 또는 이후 역할 | `comparison_bar` | `comparison` | Exact 표 |
+| 정렬된 이벤트 또는 활동 | `tracker` | `timeline` | Exact 표 또는 목록 |
+| 결속된 숫자 축 2개 | `scatter` | `scatter` | Exact 표 |
+| 범주 차원 2개와 숫자 값 1개 | `heatmap` | `heatmap` | Exact 표, 좌표는 고유해야 함 |
+
+검증된 의미가 크기나 누적을 입증하지 않으면 planner는 `area` 대신 `line`을 선택합니다. 레코드가
+하나의 전체를 구성하는 부분임을 입증하지 않으면 `donut` 대신 `bar`를 선택합니다. 상관관계 형태는
+scatter plot을 허용하지만 상관관계를 인과관계로 승격하지 않습니다.
+
+Operator는 `presentation_semantics`를 renderer 권한이 아니라 검증할 주장으로 취급합니다.
+Correlation에는 `label/x/y`만, matrix에는 `row/column/value`만 허용하며 나머지 shape 8개는
+field-role map을 허용하지 않습니다. 잘못된 역할, 중복 binding, 누락된 증명 필드 또는 실패한 행
+불변식은 exact 표를 유지하고 더 안전한 generic 시각화 또는 차트 없음으로 이동합니다.
+
 ### 버전 및 실패 계약
 
 `presentation_artifact` v1은 바이트 단위 재생 호환성을 유지합니다. 버전 2는 타입이 지정된
-`time_series`, `comparison`, `timeline` 블록과 명시적인 차트 설명 및 단위를 추가합니다. v2
-소비자는 정확한 키, 종류별 상한, 정렬된 시각, 유한한 값, 호환 단위, 고유한 슬롯 및 증적에
-결속된 근거 참조를 검증합니다. 알 수 없는 버전, 블록, 필드 또는 참조가 있으면 산출물 전체를
-거부하고 읽을 수 있는 정본 텍스트를 렌더링합니다. 원시 JSON을 기본 답변으로 렌더링하지 않습니다.
+`time_series`, `comparison`, `timeline`, `scatter`, `heatmap` 블록과 명시적인 차트 설명, 단위,
+추가적인 시각화 hint를 제공합니다. v2 소비자는 정확한 키, 종류별 hint 허용 목록, 종류별 상한,
+정렬된 시각, 유한한 값, 호환 단위, 고유한 슬롯 및 증적에 결속된 근거 참조를 검증합니다. 이전
+v2 artifact에 hint가 없으면 기존 wire 형태와 결정론적 renderer 기본값을 유지합니다. 알 수 없는
+버전, 블록, 필드, hint 또는 참조가 있으면 artifact 전체를 거부하고 읽을 수 있는 정본 텍스트를
+렌더링합니다. 원시 JSON을 기본 답변으로 렌더링하지 않습니다.
 
 각 차트 블록은 의미 설명과 인접한 정확한 값 표를 제공합니다. 블록 자체가 접근 가능한 표라면
 표를 추가하지 않아도 됩니다. Web은 전체 모듈을 표시할 수 있습니다. Teams와 Slack은 기능

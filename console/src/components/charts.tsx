@@ -1,5 +1,6 @@
 import type { ComponentChildren } from "preact";
 import { Tooltip } from "./tooltip";
+import { TREMOR_CHART_HEX, tremorChartColor } from "./chart-colors";
 import "./charts.css";
 
 export {
@@ -73,6 +74,11 @@ export interface DistributionBarProps {
   readonly label: string;
   readonly segments: readonly DistributionSegment[];
   readonly formatValue: (value: number) => string;
+  readonly marker?: {
+    readonly value: number;
+    readonly tooltip?: string;
+    readonly showAnimation?: boolean;
+  };
 }
 
 export interface DensityCell {
@@ -192,7 +198,7 @@ export function TrendChart({
 
 /** Renders exact categorical values with an optional baseline marker. */
 export function ComparisonBarChart({ label, items, formatValue, maximum }: ComparisonBarChartProps) {
-  const finite = items.filter((item) => Number.isFinite(item.value));
+  const finite = normalizeComparisonItems(items);
   const domainMaximum = Math.max(
     1,
     maximum ?? 0,
@@ -229,8 +235,19 @@ export function ComparisonBarChart({ label, items, formatValue, maximum }: Compa
   );
 }
 
+export function normalizeComparisonItems(
+  items: readonly ComparisonBarItem[],
+): readonly ComparisonBarItem[] {
+  return items.flatMap((item) => {
+    if (!Number.isFinite(item.value) || item.value < 0) return [];
+    if (item.baseline === undefined || Number.isFinite(item.baseline) && item.baseline >= 0) return [item];
+    const { baseline: _baseline, ...withoutBaseline } = item;
+    return [withoutBaseline];
+  });
+}
+
 /** Renders a proportional distribution with every segment keyboard inspectable. */
-export function DistributionBar({ label, segments, formatValue }: DistributionBarProps) {
+export function DistributionBar({ label, segments, formatValue, marker }: DistributionBarProps) {
   const finite = segments.filter((segment) => Number.isFinite(segment.value) && segment.value >= 0);
   const total = finite.reduce((sum, segment) => sum + segment.value, 0);
   return (
@@ -246,15 +263,16 @@ export function DistributionBar({ label, segments, formatValue }: DistributionBa
                 class="fd-distribution-segment"
                 data-index={index % 6}
                 aria-label={accessible}
-                style={{ "--segment-share": `${share}%` }}
+                style={{ "--segment-share": `${share}%`, "--segment-color": distributionColor(index) }}
               />
             </Tooltip>
           );
         })}
+        {marker && total > 0 && Number.isFinite(marker.value) ? <Tooltip content={marker.tooltip ?? formatValue(marker.value)} placement="top" anchorClassName="fd-category-marker-anchor" anchorStyle={{ "--marker-position": `${Math.max(0, Math.min(100, marker.value / total * 100))}%` }}><button type="button" class="fd-category-marker" aria-label={`${label}: ${marker.tooltip ?? formatValue(marker.value)}`} data-animate={marker.showAnimation ? "true" : undefined} /></Tooltip> : null}
       </div>
       <dl class="fd-distribution-legend">
         {finite.map((segment, index) => (
-          <div key={`${segment.label}-${index}`} data-index={index % 6}>
+          <div key={`${segment.label}-${index}`} data-index={index % 9} style={{ "--segment-color": distributionColor(index) }}>
             <dt><i />{segment.label}</dt>
             <dd>{formatValue(segment.value)}</dd>
           </div>
@@ -266,6 +284,10 @@ export function DistributionBar({ label, segments, formatValue }: DistributionBa
 
 export const BarList = ComparisonBarChart;
 export const CategoryBar = DistributionBar;
+
+export function distributionColor(index: number): string {
+  return TREMOR_CHART_HEX[tremorChartColor(index)];
+}
 
 /** Renders a semantic exact-value table with density encoded as a secondary cue. */
 export function DensityHeatmap({ label, rows, formatValue }: DensityHeatmapProps) {

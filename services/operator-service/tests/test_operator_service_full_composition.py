@@ -59,18 +59,18 @@ def test_aggregate_manifest_and_registered_routes_have_exact_unique_ownership() 
     identities = {(item.method, item.path) for item in manifest}
     owner_counts = Counter(item.owner for item in manifest)
 
-    assert len(manifest) == len(identities) == 154
+    assert len(manifest) == len(identities) == 156
     assert owner_counts == {
         "minimal": 15,
         "conversation": 38,
         "iam": 28,
         "workflow": 39,
-        "operations": 34,
+        "operations": 36,
     }
     assert tuple(manifest[:15]) == MINIMAL_ROUTE_MANIFEST
     app = cast(Starlette, _client().app)
     assert _registered_identities(app) == identities
-    assert len(app.router.routes) == 154
+    assert len(app.router.routes) == 156
 
 
 def test_unavailable_families_enforce_authentication_and_rbac_before_503() -> None:
@@ -173,7 +173,11 @@ def test_configured_postgres_adapters_dispatch_reads_and_typed_proposals(
             "Idempotency-Key": "investigation-1",
             "X-Correlation-ID": "correlation-1",
         },
-        json={"prompt": "Inspect bounded evidence."},
+        json={
+            "prompt": "Inspect bounded evidence.",
+            "intent": "resource_state",
+            "resource_name": "service-one",
+        },
     )
 
     assert projected.status_code == 200
@@ -192,7 +196,12 @@ def test_configured_postgres_adapters_dispatch_reads_and_typed_proposals(
                 "principal_id": "contributor-operator",
                 "idempotency_key": "investigation-1",
                 "correlation_id": "correlation-1",
-                "payload": {"prompt": "Inspect bounded evidence."},
+                "payload": {
+                    "prompt": "Inspect bounded evidence.",
+                    "intent": "resource_state",
+                    "resource_name": "service-one",
+                    "explicit_deep": False,
+                },
             },
         }
     ]

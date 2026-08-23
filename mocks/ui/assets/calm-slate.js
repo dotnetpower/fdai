@@ -271,27 +271,36 @@
     return Array.prototype.slice.call(combobox.querySelectorAll(".cs-combobox-option:not([hidden])"));
   }
 
-  document.addEventListener("input", function (event) {
-    var input = event.target.closest("[data-cs-combobox-input]");
-    if (!input) return;
-    var combobox = input.closest("[data-cs-combobox]");
+  function filterComboboxOptions(combobox) {
+    var input = combobox.querySelector("[data-cs-combobox-input]");
     var query = input.value.trim().toLowerCase();
+    var configuredLimit = Number.parseInt(combobox.getAttribute("data-cs-combobox-limit"), 10);
+    var limit = Number.isFinite(configuredLimit) && configuredLimit > 0 ? configuredLimit : Infinity;
     var visible = 0;
     combobox.querySelectorAll(".cs-combobox-option").forEach(function (option) {
-      option.hidden = query !== "" && !option.getAttribute("data-search").includes(query);
+      var matches = query === "" || option.getAttribute("data-search").includes(query);
+      option.hidden = !matches || visible >= limit;
       option.classList.remove("is-active");
+      option.setAttribute("aria-selected", "false");
       if (!option.hidden) visible += 1;
     });
     combobox.querySelector("[data-cs-combobox-empty]").hidden = visible !== 0;
     combobox.querySelector("[data-cs-combobox-list]").hidden = false;
     input.setAttribute("aria-expanded", "true");
+    input.removeAttribute("aria-activedescendant");
+  }
+
+  document.addEventListener("input", function (event) {
+    var input = event.target.closest("[data-cs-combobox-input]");
+    if (!input) return;
+    var combobox = input.closest("[data-cs-combobox]");
+    filterComboboxOptions(combobox);
   });
 
   document.addEventListener("focusin", function (event) {
     var input = event.target.closest("[data-cs-combobox-input]");
     if (!input) return;
-    input.closest("[data-cs-combobox]").querySelector("[data-cs-combobox-list]").hidden = false;
-    input.setAttribute("aria-expanded", "true");
+    filterComboboxOptions(input.closest("[data-cs-combobox]"));
   });
 
   document.addEventListener("keydown", function (event) {
@@ -303,6 +312,7 @@
     if (event.key === "Escape") {
       combobox.querySelector("[data-cs-combobox-list]").hidden = true;
       input.setAttribute("aria-expanded", "false");
+      input.removeAttribute("aria-activedescendant");
       return;
     }
     if (event.key === "Enter" && activeIndex >= 0) {
@@ -310,14 +320,24 @@
       input.value = options[activeIndex].querySelector("strong").textContent;
       combobox.querySelector("[data-cs-combobox-list]").hidden = true;
       input.setAttribute("aria-expanded", "false");
+      input.removeAttribute("aria-activedescendant");
       return;
     }
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
       var nextIndex = activeIndex + (event.key === "ArrowDown" ? 1 : -1);
       if (activeIndex < 0) nextIndex = event.key === "ArrowDown" ? 0 : options.length - 1;
-      options.forEach(function (option) { option.classList.remove("is-active"); });
-      if (options.length) options[(nextIndex + options.length) % options.length].classList.add("is-active");
+      options.forEach(function (option) {
+        option.classList.remove("is-active");
+        option.setAttribute("aria-selected", "false");
+      });
+      if (options.length) {
+        var active = options[(nextIndex + options.length) % options.length];
+        active.classList.add("is-active");
+        active.setAttribute("aria-selected", "true");
+        if (!active.id) active.id = combobox.querySelector("[data-cs-combobox-list]").id + "-option-" + nextIndex;
+        input.setAttribute("aria-activedescendant", active.id);
+      }
     }
   });
 
@@ -328,6 +348,7 @@
       var input = combobox.querySelector("[data-cs-combobox-input]");
       input.value = option.querySelector("strong").textContent;
       input.setAttribute("aria-expanded", "false");
+      input.removeAttribute("aria-activedescendant");
       combobox.querySelector("[data-cs-combobox-list]").hidden = true;
       input.focus();
       return;
@@ -764,6 +785,39 @@
     mark.removeAttribute("aria-describedby");
   }
 
+  function catalogVisual(entry) {
+    var mark = ' data-chart-mark data-tooltip="' + escapeHtml(entry.name) + ': synthetic exact-value specimen"';
+    if (entry.kind === "area" || entry.kind === "line") {
+      var area = entry.kind === "area" ? '<path class="is-area is-blue" d="M4 78 L38 58 L72 66 L106 30 L140 46 L176 18 L216 38 L216 86 L4 86 Z" />' : "";
+      var second = ["stacked", "percent"].includes(entry.variant) ? '<path class="is-area is-cyan" d="M4 62 L38 44 L72 50 L106 20 L140 31 L176 10 L216 24 L216 38 L176 18 L140 46 L106 30 L72 66 L38 58 L4 78 Z" />' : '<path class="is-line is-cyan" d="M4 72 L38 68 L72 55 L106 60 L140 38 L176 45 L216 28" />';
+      return '<div class="cs-catalog-visual is-' + entry.kind + ' is-' + entry.variant + '"' + mark + '><svg viewBox="0 0 220 92" aria-hidden="true"><path class="is-grid" d="M4 18H216 M4 50H216 M4 86H216" />' + area + '<path class="is-line is-blue" d="M4 78 L38 58 L72 66 L106 30 L140 46 L176 18 L216 38" />' + second + '</svg></div>';
+    }
+    if (entry.kind === "bar") {
+      return '<div class="cs-catalog-visual is-bar is-' + entry.variant + '"' + mark + '><i style="--v:46%"></i><i style="--v:72%"></i><i style="--v:58%"></i><i style="--v:86%"></i><i style="--v:66%"></i></div>';
+    }
+    if (entry.kind === "combo") {
+      return '<div class="cs-catalog-visual is-combo"' + mark + '><i style="--v:46%"></i><i style="--v:72%"></i><i style="--v:58%"></i><i style="--v:86%"></i><svg viewBox="0 0 220 92" aria-hidden="true"><path d="M6 68 L76 38 L146 56 L214 24" /></svg></div>';
+    }
+    if (entry.kind === "donut") return '<div class="cs-catalog-visual is-donut is-' + entry.variant + '"' + mark + '><i></i></div>';
+    if (entry.kind === "progress") return '<div class="cs-catalog-visual is-progress is-' + entry.variant + '"' + mark + '><i></i><i></i><i></i><strong>' + (entry.variant === "metric" ? "75%" : "") + '</strong></div>';
+    if (entry.kind === "spark") return '<div class="cs-catalog-visual is-spark"' + mark + '><svg viewBox="0 0 220 92" aria-hidden="true"><path class="is-area is-blue" d="M4 78 L38 58 L72 66 L106 30 L140 46 L176 18 L216 38 L216 86 L4 86 Z"/><path class="is-line is-blue" d="M4 78 L38 58 L72 66 L106 30 L140 46 L176 18 L216 38"/></svg></div>';
+    if (entry.kind === "category") return '<div class="cs-catalog-visual is-category is-' + entry.variant + '"' + mark + '><i></i><i></i><i></i>' + (entry.variant === "marker" ? "<b></b>" : "") + '</div>';
+    if (entry.kind === "tracker") return '<div class="cs-catalog-visual is-tracker"' + mark + '><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>';
+    return '<div class="cs-catalog-visual is-bar-list"' + mark + '><i style="--v:94%"></i><i style="--v:68%"></i><i style="--v:42%"></i><i style="--v:22%"></i></div>';
+  }
+
+  function renderTremorCatalog() {
+    var source = document.getElementById("tremor-chart-catalog");
+    var target = document.querySelector("[data-cs-tremor-catalog]");
+    if (!source || !target) return;
+    var entries;
+    try { entries = JSON.parse(source.textContent); }
+    catch (error) { console.warn("chart catalog: bad JSON", error); return; }
+    target.innerHTML = entries.map(function (entry, index) {
+      return '<article class="cs-chart-catalog-card" data-catalog-index="' + index + '" data-catalog-name="' + escapeHtml(entry.name) + '"><header><span>' + String(index + 1).padStart(2, "0") + '</span><h4>' + escapeHtml(entry.name) + '</h4></header>' + catalogVisual(entry) + '</article>';
+    }).join("");
+  }
+
   function ensureModal() {
     if (modalEl) return modalEl;
     modalEl = document.createElement("div");
@@ -921,6 +975,7 @@
   });
 
   document.addEventListener("DOMContentLoaded", function () {
+    renderTremorCatalog();
     var chartMarks = "[data-chart-mark], .cs-heatmap-cell[title]";
     document.querySelectorAll(chartMarks).forEach(function (mark) {
       var label = mark.getAttribute("data-tooltip") || mark.getAttribute("title");

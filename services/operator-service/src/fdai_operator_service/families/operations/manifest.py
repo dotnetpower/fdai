@@ -43,6 +43,18 @@ OPERATIONS_ROUTE_MANIFEST: tuple[OperationRoute, ...] = (
     OperationRoute("/inventory/graph", "GET", "handler", "inventory.graph"),
     OperationRoute("/ontology/graph", "GET", "handler", "ontology.graph"),
     OperationRoute(
+        "/ontology/instances",
+        "GET",
+        "ontology_instances",
+        "ontology.instance.list",
+    ),
+    OperationRoute(
+        "/ontology/instances/explore",
+        "GET",
+        "ontology_instance_explore",
+        "ontology.instance.explore",
+    ),
+    OperationRoute(
         "/ontology/declarations/{kind:str}/{name:str}",
         "GET",
         "ontology_declaration_detail",

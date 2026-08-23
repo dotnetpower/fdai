@@ -17,7 +17,12 @@ from starlette.exceptions import HTTPException
 from fdai_operator_service.context_selection_projection import (
     project_context_selection_comparisons,
 )
+from fdai_operator_service.families.conversation.background_tasks import (
+    materialize_background_task,
+    open_background_task_stream,
+)
 from fdai_operator_service.families.conversation.contracts import (
+    ConversationEventStream,
     ConversationProposal,
     ConversationQuery,
     ConversationResponse,
@@ -43,6 +48,10 @@ from fdai_operator_service.families.operations.contracts import (
     ReplayBatch,
     ReplayEvent,
     ReplayQuery,
+)
+from fdai_operator_service.families.operations.instance_explorer import (
+    project_inventory_instance,
+    project_inventory_instances,
 )
 from fdai_operator_service.families.operations.inventory_impact import (
     project_inventory_impact,
@@ -89,6 +98,14 @@ class PostgresConversationAdapters:
     async def read(self, query: ConversationQuery) -> ConversationResponse:
         """Read an explicitly materialized conversation projection."""
         try:
+            background_response = await materialize_background_task(query, store=self.store)
+        except PostgresFamilyStoreUnavailable as exc:
+            raise ConversationUnavailableError(
+                "authoritative background task projection is unavailable"
+            ) from exc
+        if background_response is not None:
+            return background_response
+        try:
             search_response = await materialize_conversation_search(query, store=self.store)
             if search_response is not None:
                 return search_response
@@ -132,8 +149,16 @@ class PostgresConversationAdapters:
             ),
         )
 
-    async def open(self, request: ConversationStreamRequest) -> _ConversationEventIterator:
+    async def open(self, request: ConversationStreamRequest) -> ConversationEventStream:
         """Open a finite replay over durable audit events for the requested operation."""
+        try:
+            background_stream = await open_background_task_stream(request, store=self.store)
+        except PostgresFamilyStoreUnavailable as exc:
+            raise ConversationUnavailableError(
+                "authoritative background task stream is unavailable"
+            ) from exc
+        if background_stream is not None:
+            return background_stream
         try:
             after = int(request.after_event_id) if request.after_event_id is not None else None
         except ValueError as exc:
@@ -362,12 +387,28 @@ class PostgresOperationsAdapters:
 
     async def read(self, query: ProjectionQuery) -> Mapping[str, object]:
         """Read one explicitly materialized operations projection."""
-        if query.operation == "blast_radius.simulate":
+        if query.operation in {
+            "blast_radius.simulate",
+            "ontology.instance.explore",
+            "ontology.instance.list",
+        }:
             try:
                 ontology_projection = await self.store.read_projection(
                     family="operations",
                     operation="ontology.graph",
                 )
+                if query.operation == "ontology.instance.explore":
+                    return await project_inventory_instance(
+                        query=query,
+                        reader=self.store,
+                        ontology_projection=ontology_projection,
+                    )
+                if query.operation == "ontology.instance.list":
+                    return await project_inventory_instances(
+                        query=query,
+                        reader=self.store,
+                        ontology_projection=ontology_projection,
+                    )
                 return await project_inventory_impact(
                     query=query,
                     reader=self.store,

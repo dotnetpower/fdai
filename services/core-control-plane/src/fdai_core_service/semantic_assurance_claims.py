@@ -163,14 +163,20 @@ def _project_incident_evidence(value: object) -> SemanticAssuranceClaims:
             for item in correlated
         ):
             facts.add("activity.recorded_at")
-        facts.add("incident.evidence")
+        facts.update(("incident.activity", "incident.evidence"))
+    impact_evidence = value.get("impact_evidence")
+    if isinstance(impact_evidence, list) and impact_evidence:
+        facts.add("incident.impact")
     if (
         value.get("cause_claim_supported") is True
         and isinstance(value.get("root_cause"), Mapping)
         and citations
     ):
         facts.update(("evidence.support", "incident.cause"))
-    limitations: set[str] = set()
+    limitations = {
+        "missing_historical_evidence_must_be_explicit",
+        "recorded_cause_requires_citations",
+    }
     if gaps:
         limitations.add("missing_evidence_must_be_explicit")
     if value.get("truncated") is True:

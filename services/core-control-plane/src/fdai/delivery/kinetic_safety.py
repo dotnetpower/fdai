@@ -50,6 +50,7 @@ class ExistingProposalKineticSafetyWriter:
             plan=proposal.plan,
             action_type=action_type,
             active_release=self._active_release,
+            correlation_id=correlation_id,
         )
         return receipt.receipt_id
 

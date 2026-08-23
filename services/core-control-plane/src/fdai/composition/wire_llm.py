@@ -42,10 +42,8 @@ from ._helpers import (
     Container,  # re-export for typing
     LlmBindings,
     LlmBindingsUnavailableError,
-    _capability,
-    _default_dim_for_family,
-    _load_resolved_models,
 )
+from .resolved_models import _capability, _default_dim_for_family, _load_resolved_models
 from .wire_semantic_judgment import build_azure_semantic_judgment_factory
 
 

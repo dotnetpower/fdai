@@ -1079,6 +1079,7 @@ async def test_wire_azure_container_binds_candidate_only_semantic_judgment(
         "clarification": None,
         "discourse_mode": "direct",
         "action_posture": "advise_only",
+        "action_subject": "none",
         "authority": "candidate_only",
         "execution_authority": False,
     }

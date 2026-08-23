@@ -144,3 +144,50 @@ test("rejects a diagonal that crosses an unrelated node", () => {
     ),
   );
 });
+
+test("rejects proper crossings between unrelated network edges", () => {
+  const networkSpec: DiagramSpec = {
+    ...spec,
+    kind: "network",
+    posture: "expected",
+    nodes: [
+      { id: "a", kind: "process", label: { en: "A", ko: "A" } },
+      { id: "b", kind: "process", label: { en: "B", ko: "B" } },
+      { id: "c", kind: "process", label: { en: "C", ko: "C" } },
+      { id: "d", kind: "process", label: { en: "D", ko: "D" } },
+    ],
+    edges: [
+      { id: "a-b", from: "a", to: "b", kind: "request", route: "orthogonal" },
+      { id: "c-d", from: "c", to: "d", kind: "request", route: "orthogonal" },
+    ],
+  };
+  const crossing: DiagramLayout = {
+    width: 400,
+    height: 240,
+    groups: new Map(),
+    nodes: new Map([
+      ["a", { id: "a", x: 0, y: 80, width: 40, height: 40, depth: 1 }],
+      ["b", { id: "b", x: 360, y: 80, width: 40, height: 40, depth: 1 }],
+      ["c", { id: "c", x: 180, y: 0, width: 40, height: 40, depth: 1 }],
+      ["d", { id: "d", x: 180, y: 200, width: 40, height: 40, depth: 1 }],
+    ]),
+    edges: [
+      {
+        id: "a-b",
+        sources: ["a"],
+        targets: ["b"],
+        sections: [{ id: "a-b-section", startPoint: { x: 40, y: 100 }, endPoint: { x: 360, y: 100 } }],
+      },
+      {
+        id: "c-d",
+        sources: ["c"],
+        targets: ["d"],
+        sections: [{ id: "c-d-section", startPoint: { x: 200, y: 40 }, endPoint: { x: 200, y: 200 } }],
+      },
+    ],
+  };
+
+  assert.ok(layoutIntegrityErrors(networkSpec, crossing).includes(
+    "Network edges 'a-b' and 'c-d' cross",
+  ));
+});

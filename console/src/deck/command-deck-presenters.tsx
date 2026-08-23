@@ -346,7 +346,7 @@ export function ConversationSidebar({
   );
   return (
     <aside
-      class="deck-conversations"
+      class="deck-conversations cs-deck-conversation-panel"
       aria-label={t("deck.conversations")}
       aria-busy={loading}
     >

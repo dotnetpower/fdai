@@ -32,6 +32,10 @@ durable state-machine owner.
 | Scheduled delivery and adapter command surfaces | in-progress | [`scheduled_continuation.py`](../../../services/core-control-plane/src/fdai/shared/providers/scheduled_continuation.py), [`continuation.py`](../../../services/core-control-plane/src/fdai/core/scheduler/continuation.py), [`conversation_delivery.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py) | Scheduled anchors and delivery/snapshot contracts exist. `ScheduledContinuationDeliveryCoordinator`, adapter command routes, and production startup composition are absent from the current tree. |
 | Read-only delivery operations panel | implemented | [`delivery_panel.py`](../../../services/core-control-plane/src/fdai/core/conversation/delivery_panel.py), [`test_delivery_panel.py`](../../../services/core-control-plane/tests/conversation/test_delivery_panel.py) | `ConversationDeliveryPanel` projects latency count/average/p95, state counts, duplicate risk, retries, abandonment, attempt and acknowledgement counts, breaker mode counts, and optional progressive counters. The payload declares `read_only=true` and `mutations_available=false`, exposes no identifier or answer text, and only the snapshot read capability is reachable. No console route or production store binds this projection yet. |
 
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Read-investigation terminal completion ingress | not-started | [Azure Read Investigations](azure-read-investigations.md#remaining-work); [Durable Background Task Sessions](background-task-sessions.md#remaining-work); [Service Graduation and Data Ownership](../architecture/service-graduation-and-ownership.md#cross-process-contract-matrix) | Core owns the immutable terminal task result, while Operator owns conversation turns and outbound delivery. No versioned completion codec, Operator durable inbox, retry policy, retention rule, or rollback contract currently connects those owners. |
+
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
@@ -46,6 +50,8 @@ durable state-machine owner.
 | 2026-08-20 | implemented | Bound the three Operator stores, semantic bridge, recovery worker, provider adapters, and readiness probes in the standalone fail-closed edge lifespan. | `current change`; focused edge checks passed 74 cases, live channel PostgreSQL checks passed 10 cases with no skips, and Ruff plus strict mypy passed. | Retain governed restart and external-provider evidence before validation. |
 | 2026-08-20 | implemented | Hardened due-delivery authorization and lifecycle recovery: every claimed retry revalidates an active principal, scope, conversation, and channel binding, known Teams JWKS keys refresh after a bounded TTL, and runtime plus credential shutdown is idempotent. | `current change`; focused edge checks passed 81 cases; Ruff and strict mypy passed. | Retain governed restart and external-provider evidence before validation. |
 | 2026-08-20 | implemented | Unified the readable semantic-row projection used before durable channel reduction. Nested provider properties no longer disappear from v2 or leak as raw display JSON; the response exposes allowlisted name, type, status, and location fields while preserving exact evidence for replay. | `current change`; [Issue #241](https://github.com/dotnetpower/fdai/issues/241); focused Operator presentation checks passed 94 cases; Ruff, formatting, and strict mypy passed. | Retain authenticated Web evidence and the existing governed Slack/Teams runtime receipts before raising channel validation claims. |
+
+| 2026-08-23 | not-started | Registered the cross-service terminal read-investigation completion ingress as an explicit ownership prerequisite without inventing a transport schema or granting Core access to Operator conversation tables. | `current change`; the three owner documents linked in the scope row agree on the open boundary. | Define and review the versioned contract, then implement Operator-owned durable acceptance, idempotent projection, delivery retry, retention, and rollback tests. |
 
 ### Remaining work
 
@@ -63,6 +69,9 @@ durable state-machine owner.
 - [x] Implement the GET-only `ConversationDeliveryPanel` projection without mutation controls.
 - [ ] Bind `ConversationDeliveryPanel` to an authenticated console read route and a production
     delivery store, and share the bounded progressive-conversation collector with it.
+- [ ] Define the versioned terminal read-investigation completion contract and Operator-owned
+    durable inbox, including idempotency key, N/N-1 compatibility, poison handling, retry,
+    retention, and rollback; then prove Core never writes Operator conversation tables directly.
 - [ ] Record governed runtime receipts for persistence across restart, process-loss reconciliation,
     external adapter acknowledgement, breaker control, scheduled delivery, and read-only metrics
     before promoting any row to `validated`.

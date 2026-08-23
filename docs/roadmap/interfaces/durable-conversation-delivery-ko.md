@@ -1,7 +1,7 @@
 ---
 translation_of: durable-conversation-delivery.md
-translation_source_sha: b0a1f24072c66884dbed935c26eb829dd5c558c7
-translation_revised: 2026-08-20
+translation_source_sha: 9f1355f469f97e843e2b818e7c0ab133cbefe382
+translation_revised: 2026-08-23
 ---
 # 영구 대화 전송
 
@@ -33,6 +33,10 @@ translation_revised: 2026-08-20
 | 예약 전달 및 어댑터 명령 표면 | 진행 중 | [`scheduled_continuation.py`](../../../services/core-control-plane/src/fdai/shared/providers/scheduled_continuation.py), [`continuation.py`](../../../services/core-control-plane/src/fdai/core/scheduler/continuation.py), [`conversation_delivery.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py) | 예약 앵커와 전달 및 스냅샷 계약은 있습니다. `ScheduledContinuationDeliveryCoordinator`, 어댑터 명령 경로 및 운영 시작 조립은 현재 트리에 없습니다. |
 | 읽기 전용 전달 운영 패널 | 구현됨 | [`delivery_panel.py`](../../../services/core-control-plane/src/fdai/core/conversation/delivery_panel.py), [`test_delivery_panel.py`](../../../services/core-control-plane/tests/conversation/test_delivery_panel.py) | `ConversationDeliveryPanel`은 지연 시간 개수/평균/p95, 상태 개수, 중복 위험, 재시도, 포기, 시도 및 확인 응답 개수, 차단기 상태 개수, 선택적 progressive 계수기를 투영합니다. 페이로드는 `read_only=true` 및 `mutations_available=false`를 선언하고 식별자나 답변 본문을 노출하지 않으며 스냅샷 읽기 능력만 도달합니다. 아직 Console 경로나 운영 저장소가 이 투영을 연결하지 않았습니다. |
 
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 읽기 조사 최종 완료 수신 | 시작 전 | [Azure 읽기 조사](azure-read-investigations-ko.md#남은-작업), [영속 Background 작업 Sessions](background-task-sessions-ko.md#남은-작업), [서비스 승격 및 데이터 소유권](../architecture/service-graduation-and-ownership-ko.md#프로세스-간-계약-매트릭스) | Core는 변경할 수 없는 최종 작업 결과를 소유하고 Operator는 대화 턴과 outbound 전달을 소유합니다. 현재 이 소유자를 연결하는 버전 지정 완료 codec, Operator 영속 inbox, 재시도 정책, 보존 규칙 또는 롤백 계약이 없습니다. |
+
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
@@ -47,6 +51,8 @@ translation_revised: 2026-08-20
 | 2026-08-20 | 구현됨 | 세 Operator store, 의미 bridge, 복구 worker, 프로바이더 adapter 및 readiness probe를 독립 fail-closed edge lifespan에 연결했습니다. | `current change`, 집중 edge 검사 74개, live channel PostgreSQL 검사 10개를 건너뛰기 없이 통과했고 Ruff 및 strict mypy 통과 | 검증 전에 통제된 restart 및 외부 프로바이더 근거를 보존합니다. |
 | 2026-08-20 | 구현됨 | 기한 도래 전달 권한과 lifecycle 복구를 hardening했습니다. Claim된 모든 재시도는 활성 principal, scope, conversation 및 channel binding을 다시 검증하고, known Teams JWKS key는 범위가 제한된 TTL 뒤 갱신하며, runtime과 credential 종료는 멱등적입니다. | `current change`, 집중 edge 검사 81개, Ruff 및 strict mypy 통과 | 검증 전에 통제된 restart 및 외부 프로바이더 근거를 보존합니다. |
 | 2026-08-20 | 구현됨 | 영속 채널 reduction 전에 사용하는 읽기 쉬운 의미 행 projection을 통합했습니다. 중첩 provider property가 v2에서 사라지거나 raw 표시 JSON으로 노출되지 않고, response는 허용된 이름, 타입, 상태, 위치 필드를 보여 주면서 replay를 위한 exact 근거를 보존합니다. | `current change`, [이슈 #241](https://github.com/dotnetpower/fdai/issues/241), focused Operator 표현 검사 94개 통과, Ruff, formatting, strict mypy 통과 | 채널 검증 주장을 높이기 전에 인증된 Web 근거와 기존 통제된 Slack/Teams 런타임 증적을 보존합니다. |
+
+| 2026-08-23 | 시작 전 | 전송 스키마를 만들거나 Core에 Operator 대화 table 접근 권한을 부여하지 않고 교차 서비스 최종 읽기 조사 완료 수신을 명시적 소유권 선행 작업으로 등록했습니다. | `current change`; 구현 범위 행에 연결된 세 owner 문서가 열린 경계에 동의합니다. | 버전이 지정된 계약을 정의하고 검토한 뒤 Operator 소유 영속 수락, 멱등 projection, 전달 재시도, 보존 및 롤백 테스트를 구현합니다. |
 
 ### 남은 작업
 
@@ -64,6 +70,9 @@ translation_revised: 2026-08-20
 - [x] 변경 제어가 없는 GET 전용 `ConversationDeliveryPanel` 투영을 구현합니다.
 - [ ] `ConversationDeliveryPanel`을 인증된 Console 읽기 경로와 운영 전달 저장소에 연결하고
      범위가 제한된 progressive-conversation 수집기를 함께 공유합니다.
+- [ ] 버전이 지정된 최종 읽기 조사 완료 계약과 Operator 소유 영속 inbox를 정의하고 멱등성 키,
+     N/N-1 호환성, poison 처리, 재시도, 보존 및 롤백을 포함한 뒤 Core가 Operator 대화 table에
+     직접 쓰지 않음을 입증합니다.
 - [ ] 어떤 행이든 `검증됨`으로 승격하기 전에 재시작 간 영속성, 프로세스 손실 조정,
      외부 어댑터 확인 응답, 차단기 제어, 예약 전달 및 읽기 전용 메트릭에 대한 통제된
      런타임 증적을 기록합니다.

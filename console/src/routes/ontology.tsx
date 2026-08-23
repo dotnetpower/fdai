@@ -22,6 +22,7 @@ import { TERMS, composeGlossary } from "../deck/glossary";
 import { currentRoute, navigate, replaceRouteState, routeHref } from "../router";
 import { OntologyActionsView, requestedOntologyAction } from "./ontology-actions";
 import { OntologyKnowledgeMap } from "./ontology-knowledge-map";
+import { OntologyInstancesView } from "./ontology-instances";
 import { OntologyLinksView } from "./ontology-links";
 import {
   OntologyObjectTypeDetailRoute,
@@ -207,6 +208,7 @@ export function OntologyRoute({ client }: Props) {
       <AsyncBoundary state={state} resourceLabel={t("ontology.route.loadingLabel")}>
         {(data) => (
           <OntologyBody
+            client={client}
             data={data}
             includeProperties={includeProperties}
             onIncludePropertiesChange={changeIncludeProperties}
@@ -218,10 +220,12 @@ export function OntologyRoute({ client }: Props) {
 }
 
 function OntologyBody({
+  client,
   data,
   includeProperties,
   onIncludePropertiesChange,
 }: {
+  readonly client: OperatorApiClient;
   readonly data: OntologyGraphResponse;
   readonly includeProperties: boolean;
   readonly onIncludePropertiesChange: (value: boolean) => void;
@@ -281,6 +285,7 @@ function OntologyBody({
   };
   usePublishViewContext(
     () => {
+      if (view === "instances") return null;
       // Ground the deck in the rendered graph, not just the two counts:
       // each ObjectType with its property count + description, and every
       // relationship (LinkType edge) with its from/to types and cardinality
@@ -351,7 +356,7 @@ function OntologyBody({
         ...(explanations ? { explanations } : {}),
       };
     },
-    [actionTypes, data, selectedName],
+    [actionTypes, data, selectedName, view],
   );
   return (
     <div class="stack governance-ontology">
@@ -360,6 +365,7 @@ function OntologyBody({
         <OntologyTab view="objects" active={view} count={data.object_type_count} label={t("ontology.common.objects")} />
         <OntologyTab view="links" active={view} count={data.link_type_count} label={t("ontology.common.links")} />
         <OntologyTab view="actions" active={view} count={data.action_type_count ?? actionTypes.length} label={t("ontology.common.actions")} />
+        <OntologyTab view="instances" active={view} label={t("ontology.common.instances")} />
         <OntologyTab view="topology" active={view} label={t("ontology.common.topology")} />
       </nav>
 
@@ -439,6 +445,8 @@ function OntologyBody({
           projectionRevision={data._revision}
         />
       ) : null}
+
+      {view === "instances" ? <OntologyInstancesView client={client} /> : null}
 
       {view === "topology" ? <OntologyKnowledgeMap graph={data.catalog_topology} /> : null}
     </div>

@@ -59,6 +59,7 @@ from fdai_operator_service.postgres_family_store import (
 )
 from fdai_operator_service.postgres_iam import PostgresIamAdapters
 from fdai_operator_service.projections import UnavailableOperatorReadModel
+from fdai_operator_service.read_investigation_runtime import ReadInvestigationBridge
 from fdai_operator_service.reporting import optional_pdf_report_encoder
 from fdai_operator_service.reporting.incident_rca_projection import (
     IncidentRcaReportingProjectionReader,
@@ -131,6 +132,17 @@ class ProductionOperatorComposition:
             result_topic=environment.semantic_projection_topic or SEMANTIC_RESULT_TOPIC,
             result_group=environment.semantic_consumer_group_id,
         )
+        read_investigation_bridge = (
+            ReadInvestigationBridge(
+                store=family_store,
+                publisher=semantic_bus,
+                topic=environment.read_investigation_request_topic,
+            )
+            if family_store is not None
+            and semantic_bus is not None
+            and environment.read_investigation_request_topic is not None
+            else None
+        )
         authenticator = OperatorAuthenticator(
             verifier=self.verifier_factory(environment),
             group_ids=environment.group_ids,
@@ -157,11 +169,18 @@ class ProductionOperatorComposition:
             data_sources=_build_data_sources(configured=configured_read_model is not None),
             route_families=route_families,
             readiness_probe=self.readiness_probe
-            or _readiness_probe(family_store, semantic_bus, semantic_bridge, live_stage_relay),
+            or _readiness_probe(
+                family_store,
+                semantic_bus,
+                semantic_bridge,
+                read_investigation_bridge,
+                live_stage_relay,
+            ),
             live_stream_hub=live_stream_hub,
             agent_stream_hub=agent_stream_hub,
             lifecycle=_application_lifecycle(
                 semantic_bridge,
+                read_investigation_bridge,
                 semantic_bus,
                 live_stage_relay,
                 narrator_scheduler,
@@ -358,6 +377,7 @@ def _build_semantic_bus(environment: OperatorEnvironment) -> OperatorSemanticKaf
             request_topic=environment.semantic_request_topic or "operator.semantic-turn.requests",
             projection_topic=environment.semantic_projection_topic
             or "core.semantic-turn.projections",
+            read_investigation_topic=environment.read_investigation_request_topic,
             physical_topic=environment.semantic_physical_topic,
             client_id=environment.semantic_kafka_client_id,
         ),
@@ -426,13 +446,20 @@ class _CompositeLifecycle:
 
 def _application_lifecycle(
     bridge: SemanticTurnBridge | None,
+    read_investigation_bridge: ReadInvestigationBridge | None,
     bus: OperatorSemanticKafkaBus | None,
     live_stage_relay: LiveStageKafkaRelay | None,
     narrator_scheduler: PeriodicNarratorRefreshScheduler | None,
 ) -> ApplicationLifecycle | None:
     services = tuple(
         service
-        for service in (bus, bridge, live_stage_relay, narrator_scheduler)
+        for service in (
+            bus,
+            bridge,
+            read_investigation_bridge,
+            live_stage_relay,
+            narrator_scheduler,
+        )
         if service is not None
     )
     if not services:
@@ -446,6 +473,7 @@ def _readiness_probe(
     store: PostgresFamilyStore | None,
     bus: OperatorSemanticKafkaBus | None,
     bridge: SemanticTurnBridge | None,
+    read_investigation_bridge: ReadInvestigationBridge | None,
     live_stage_relay: LiveStageKafkaRelay | None,
 ) -> ReadinessProbe:
     if store is None:
@@ -458,6 +486,7 @@ def _readiness_probe(
             await store.probe_readiness()
             and await bus.probe_readiness()
             and (bridge is None or bridge.workers_ready())
+            and (read_investigation_bridge is None or read_investigation_bridge.workers_ready())
             and (live_stage_relay is None or live_stage_relay.readiness())
         )
 

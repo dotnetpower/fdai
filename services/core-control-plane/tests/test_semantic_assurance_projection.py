@@ -201,7 +201,7 @@ def test_project_semantic_assurance_entails_incident_claims_and_gaps() -> None:
                 }
             ],
             "root_cause": {"cause": "recorded"},
-            "impact_evidence": [],
+            "impact_evidence": [{"kind": "recorded_impact"}],
             "grounded_citations": [{"kind": "audit", "ref": "audit:1"}],
             "evidence_gaps": ["impact_evidence_missing", "correlated_audit_truncated"],
             "evidence_refs": ["audit:1"],
@@ -219,15 +219,20 @@ def test_project_semantic_assurance_entails_incident_claims_and_gaps() -> None:
         "activity.recorded_at",
         "evidence.completeness",
         "evidence.support",
+        "incident.activity",
         "incident.cause",
         "incident.evidence",
         "incident.identity",
+        "incident.impact",
         "incident.profile",
     )
     assert observation.limitation_kinds == (
         "missing_evidence_must_be_explicit",
+        "missing_historical_evidence_must_be_explicit",
+        "recorded_cause_requires_citations",
         "retained_history_bounds_must_be_explicit",
     )
+    assert observation.object_types == ("Incident",)
 
 
 def test_project_semantic_assurance_entails_action_declaration_safety_claims() -> None:
@@ -287,6 +292,70 @@ def test_project_semantic_assurance_marks_no_read_terminal_as_unavailable() -> N
     assert observation.evidence_posture == "unavailable"
     assert observation.read_performed is False
     assert observation.authority_posture == "read_only"
+
+
+def test_project_semantic_assurance_content_addresses_free_form_measure_concepts() -> None:
+    result = _runtime_result(nodes=())
+    result.planning.frame.measure_concepts = ("mapped service", "metric.cpu.utilization")
+
+    observation = project_semantic_assurance(result, disposition="answered")
+
+    assert observation.frame is not None
+    assert observation.frame.measure_concepts == (
+        "concept:6c85c5c8525499fd0c600bca6673cd3bcb52d3ed3b71bdc6f95cfe2e92e4b007",
+        "metric.cpu.utilization",
+    )
+
+
+def test_project_semantic_assurance_preserves_named_temporal_scope() -> None:
+    current = _runtime_result(nodes=())
+    current.planning.frame.temporal_scope = {"kind": "current"}
+    historical = _runtime_result(nodes=())
+    historical.planning.frame.temporal_scope = {"kind": "historical"}
+
+    current_observation = project_semantic_assurance(current, disposition="action_draft")
+    historical_observation = project_semantic_assurance(
+        historical,
+        disposition="action_draft",
+    )
+
+    assert current_observation.frame is not None
+    assert current_observation.frame.temporal_scope == "current"
+    assert historical_observation.frame is not None
+    assert historical_observation.frame.temporal_scope == "historical"
+
+
+def test_project_semantic_assurance_prefers_windowed_frame_over_output_fallback() -> None:
+    result = _runtime_result(nodes=())
+    result.planning.frame.temporal_scope = {"kind": "windowed"}
+    result.planning.frame.output_shape = "temporal_comparison"
+
+    observation = project_semantic_assurance(result, disposition="unsupported")
+
+    assert observation.frame is not None
+    assert observation.frame.temporal_scope == "windowed"
+
+
+def test_project_semantic_assurance_uses_output_fallback_without_frame_scope() -> None:
+    result = _runtime_result(nodes=())
+    result.planning.frame.temporal_scope = {}
+    result.planning.frame.output_shape = "temporal_comparison"
+
+    observation = project_semantic_assurance(result, disposition="unsupported")
+
+    assert observation.frame is not None
+    assert observation.frame.temporal_scope == "historical"
+
+
+def test_project_semantic_assurance_marks_current_state_output_current() -> None:
+    result = _runtime_result(nodes=())
+    result.planning.frame.temporal_scope = {}
+    result.planning.frame.output_shape = "target_current_state"
+
+    observation = project_semantic_assurance(result, disposition="answered")
+
+    assert observation.frame is not None
+    assert observation.frame.temporal_scope == "current"
 
 
 def _function_result(*, function_name: str, value: object) -> RuntimeSemanticTurnResult:

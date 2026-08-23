@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Components - Calm Slate</title>
-  <link rel="stylesheet" href="assets/calm-slate.css?v=component-gallery-v11" />
+  <link rel="stylesheet" href="assets/calm-slate.css?v=component-gallery-v14" />
 </head>
 <body class="cs-components-page">
   <main class="cs-container cs-page">
@@ -279,6 +279,26 @@
         <div class="cs-form-grid">
           <div class="cs-field"><label class="cs-label" for="search-events">Search events</label><input class="cs-input" id="search-events" type="search" placeholder="Rule, resource, or correlation id" /></div>
           <div class="cs-field"><label class="cs-label" for="readonly-scope">Locked scope</label><input class="cs-input" id="readonly-scope" type="text" value="subscription-wide" disabled /><div class="cs-help">Disabled values are unavailable in the current context.</div></div>
+          <div class="cs-field is-wide cs-autocomplete-demo">
+            <label class="cs-label" for="resource-autocomplete">Resource autocomplete</label>
+            <div class="cs-combobox" data-cs-combobox data-cs-combobox-limit="10">
+              <div class="cs-combobox-control"><span aria-hidden="true">/</span><input id="resource-autocomplete" type="search" role="combobox" aria-expanded="true" aria-controls="resource-autocomplete-options" aria-autocomplete="list" value="example" placeholder="Search observed Resources" autocomplete="off" data-cs-combobox-input /></div>
+              <div class="cs-combobox-list" id="resource-autocomplete-options" role="listbox" aria-label="Matching Resources" data-cs-combobox-list>
+                <div class="cs-combobox-option" id="resource-autocomplete-option-1" role="option" aria-selected="false" tabindex="-1" data-search="example api gateway app container"><span class="cs-combobox-kind">APP</span><span><strong>example-api-gateway</strong><small>app.container</small></span><span class="cs-combobox-type">resource</span></div>
+                <div class="cs-combobox-option" id="resource-autocomplete-option-2" role="option" aria-selected="false" tabindex="-1" data-search="example database postgresql flexible server"><span class="cs-combobox-kind">DB</span><span><strong>example-database</strong><small>data.postgresql-flexible-server</small></span><span class="cs-combobox-type">resource</span></div>
+                <div class="cs-combobox-option" id="resource-autocomplete-option-3" role="option" aria-selected="false" tabindex="-1" data-search="example key vault security"><span class="cs-combobox-kind">KV</span><span><strong>example-key-vault</strong><small>security.key-vault</small></span><span class="cs-combobox-type">resource</span></div>
+                <div class="cs-combobox-option" id="resource-autocomplete-option-4" role="option" aria-selected="false" tabindex="-1" data-search="example virtual network"><span class="cs-combobox-kind">NET</span><span><strong>example-network</strong><small>network.virtual-network</small></span><span class="cs-combobox-type">resource</span></div>
+                <div class="cs-combobox-option" id="resource-autocomplete-option-5" role="option" aria-selected="false" tabindex="-1" data-search="example application insights observability"><span class="cs-combobox-kind">OBS</span><span><strong>example-observability</strong><small>observability.application-insights</small></span><span class="cs-combobox-type">resource</span></div>
+                <div class="cs-combobox-option" id="resource-autocomplete-option-6" role="option" aria-selected="false" tabindex="-1" data-search="example container registry"><span class="cs-combobox-kind">REG</span><span><strong>example-registry</strong><small>container.registry</small></span><span class="cs-combobox-type">resource</span></div>
+                <div class="cs-combobox-option" id="resource-autocomplete-option-7" role="option" aria-selected="false" tabindex="-1" data-search="example managed identity"><span class="cs-combobox-kind">ID</span><span><strong>example-identity</strong><small>identity.managed</small></span><span class="cs-combobox-type">resource</span></div>
+                <div class="cs-combobox-option" id="resource-autocomplete-option-8" role="option" aria-selected="false" tabindex="-1" data-search="example action group observability"><span class="cs-combobox-kind">ACT</span><span><strong>example-action-group</strong><small>observability.action-group</small></span><span class="cs-combobox-type">resource</span></div>
+                <div class="cs-combobox-option" id="resource-autocomplete-option-9" role="option" aria-selected="false" tabindex="-1" data-search="example service bus queue"><span class="cs-combobox-kind">QUE</span><span><strong>example-queue</strong><small>messaging.service-bus-queue</small></span><span class="cs-combobox-type">resource</span></div>
+                <div class="cs-combobox-option" id="resource-autocomplete-option-10" role="option" aria-selected="false" tabindex="-1" data-search="example redis cache"><span class="cs-combobox-kind">CAC</span><span><strong>example-cache</strong><small>data.redis-cache</small></span><span class="cs-combobox-type">resource</span></div>
+                <div class="cs-combobox-empty" data-cs-combobox-empty hidden>No matching Resource</div>
+              </div>
+            </div>
+            <div class="cs-help">Shows at most ten matches. Arrow keys move, Enter selects, and Escape closes.</div>
+          </div>
           <div class="cs-field is-wide"><label class="cs-label" for="operator-note">Operator note</label><textarea class="cs-textarea" id="operator-note" placeholder="Add context without changing the recorded decision"></textarea></div>
         </div>
       </div>
@@ -533,6 +553,43 @@
           <dl class="cs-composition-summary"><div class="is-blue"><dt><i></i>99% uptime</dt><dd>225</dd></div><div class="is-amber"><dt><i></i>1% downtime</dt><dd>20</dd></div></dl>
         </article>
       </div>
+      <div class="cs-chart-catalog-head"><h3>Official /charts catalog</h3><p>All 33 examples currently published by Tremor, in official page order.</p></div>
+      <script type="application/json" id="tremor-chart-catalog">[
+        {"name":"Area Chart","kind":"area","variant":"default"},
+        {"name":"Area Chart with stacked categories","kind":"area","variant":"stacked"},
+        {"name":"Area Chart with percentages","kind":"area","variant":"percent"},
+        {"name":"Area Chart with axis titles","kind":"area","variant":"axis"},
+        {"name":"Area Chart with only start and end x-axis labels","kind":"area","variant":"bounded"},
+        {"name":"Area Chart with tooltip callback","kind":"area","variant":"callback"},
+        {"name":"Bar Chart","kind":"bar","variant":"default"},
+        {"name":"Bar Chart with stacked categories","kind":"bar","variant":"stacked"},
+        {"name":"Bar Chart with percentages","kind":"bar","variant":"percent"},
+        {"name":"Bar Chart with axis titles","kind":"bar","variant":"axis"},
+        {"name":"Vertical Bar Chart","kind":"bar","variant":"vertical"},
+        {"name":"Bar Chart with only start and end x-axis labels","kind":"bar","variant":"bounded"},
+        {"name":"Grouped Bar Chart","kind":"bar","variant":"grouped"},
+        {"name":"Bar Chart with conditional formatting","kind":"bar","variant":"conditional"},
+        {"name":"Bar Chart with custom styling","kind":"bar","variant":"custom"},
+        {"name":"Bar Chart with rounded-sm top corner bars","kind":"bar","variant":"rounded"},
+        {"name":"Bar Chart with gradient bars","kind":"bar","variant":"gradient"},
+        {"name":"Line Chart","kind":"line","variant":"default"},
+        {"name":"Line Chart with axis titles","kind":"line","variant":"axis"},
+        {"name":"Line Chart with only start and end x-axis labels","kind":"line","variant":"bounded"},
+        {"name":"Line Chart with custom tooltip","kind":"line","variant":"custom-tooltip"},
+        {"name":"ComboChart","kind":"combo","variant":"default"},
+        {"name":"Donut Chart","kind":"donut","variant":"donut"},
+        {"name":"Donut Chart as pie variant","kind":"donut","variant":"pie"},
+        {"name":"Donut Chart with tooltip callback","kind":"donut","variant":"callback"},
+        {"name":"Progress Circle","kind":"progress","variant":"default"},
+        {"name":"Progress Circle with its default variants","kind":"progress","variant":"variants"},
+        {"name":"Progress Circle complemented by a metric","kind":"progress","variant":"metric"},
+        {"name":"Spark Chart","kind":"spark","variant":"default"},
+        {"name":"Category Bar","kind":"category","variant":"default"},
+        {"name":"Category Bar with marker","kind":"category","variant":"marker"},
+        {"name":"Tracker","kind":"tracker","variant":"default"},
+        {"name":"Bar List","kind":"bar-list","variant":"default"}
+      ]</script>
+      <div class="cs-chart-catalog-grid" data-cs-tremor-catalog></div>
       <div class="cs-compare cs-mb-24">
         <div class="cs-compare-col is-asis"><h4>Before</h4><ul><li>Manual triage queue</li><li>Unmeasured response time</li></ul></div>
         <div class="cs-compare-col is-tobe"><h4>After</h4><ul><li>Deterministic first routing</li><li>Evidence-qualified outcomes</li></ul></div>
@@ -893,7 +950,7 @@
   <footer class="cs-footer">
     <div class="cs-container"><span>FDAI UI kit - Calm Slate theme.</span></div>
   </footer>
-  <script src="assets/calm-slate.js?v=shared-primitives-v8"></script>
+  <script src="assets/calm-slate.js?v=shared-primitives-v10"></script>
   <script>
     (function () {
       var index = document.querySelector(".cs-gallery-index");

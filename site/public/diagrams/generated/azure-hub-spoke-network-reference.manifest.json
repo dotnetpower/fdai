@@ -1,0 +1,464 @@
+{
+  "id": "azure-hub-spoke-network-reference",
+  "kind": "network",
+  "version": 1,
+  "posture": "expected",
+  "profile": "network-azure-reference",
+  "networkPreset": "hub-spoke",
+  "updated": "2026-08-22",
+  "locales": {
+    "en": {
+      "title": "Hub-spoke network reference",
+      "description": "Internet, private, and hybrid access through a secured Azure hub and workload spoke.",
+      "alt": "A DMZ virtual network connects through a secured virtual hub to a workload spoke. The hub contains Azure Firewall, Virtual WAN Hub, and a Virtual Network Gateway connected to an ExpressRoute circuit. The workload spoke contains external and internal Application Gateway subnets, workload and data subnets, and a private endpoint subnet. Routing intent states that Internet traffic is inspected and private traffic passes through the hub firewall."
+    },
+    "ko": {
+      "title": "허브-스포크 네트워크 참조",
+      "description": "보안이 적용된 Azure 허브와 워크로드 스포크를 통과하는 Internet, 비공개 및 하이브리드 접근입니다.",
+      "alt": "DMZ Virtual Network가 보안이 적용된 virtual hub를 통해 워크로드 스포크에 연결됩니다. 허브에는 Azure Firewall, Virtual WAN Hub 및 ExpressRoute circuit에 연결된 Virtual Network Gateway가 있습니다. 워크로드 스포크에는 외부 및 내부 Application Gateway 서브넷, 워크로드와 데이터 서브넷 및 Private Endpoint 서브넷이 있습니다. 라우팅 의도는 Internet 트래픽을 검사하고 비공개 트래픽이 hub firewall을 통과한다고 설명합니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "azure-hub-spoke-network-reference.en.svg",
+      "png": "azure-hub-spoke-network-reference.en.png"
+    },
+    "ko": {
+      "svg": "azure-hub-spoke-network-reference.ko.svg",
+      "png": "azure-hub-spoke-network-reference.ko.png"
+    }
+  },
+  "groups": [
+    {
+      "id": "external-access",
+      "kind": "layer",
+      "label": {
+        "en": "External access",
+        "ko": "외부 접근"
+      },
+      "networkRole": "external"
+    },
+    {
+      "id": "dmz-vnet",
+      "kind": "network",
+      "label": {
+        "en": "DMZ virtual network",
+        "ko": "DMZ Virtual Network"
+      },
+      "networkRole": "dmz"
+    },
+    {
+      "id": "bastion-subnet",
+      "kind": "subnet",
+      "label": {
+        "en": "Bastion subnet",
+        "ko": "Bastion 서브넷"
+      },
+      "networkRole": "subnet"
+    },
+    {
+      "id": "secured-hub",
+      "kind": "network",
+      "label": {
+        "en": "Secured virtual hub",
+        "ko": "보안이 적용된 virtual hub"
+      },
+      "networkRole": "hub"
+    },
+    {
+      "id": "workload-spoke",
+      "kind": "network",
+      "label": {
+        "en": "Workload spoke virtual network",
+        "ko": "워크로드 스포크 Virtual Network"
+      },
+      "networkRole": "spoke"
+    },
+    {
+      "id": "ingress-row",
+      "kind": "layer",
+      "label": {
+        "en": "Ingress",
+        "ko": "유입"
+      }
+    },
+    {
+      "id": "external-ingress-subnet",
+      "kind": "subnet",
+      "label": {
+        "en": "External Application Gateway subnet",
+        "ko": "외부 Application Gateway 서브넷"
+      },
+      "networkRole": "subnet"
+    },
+    {
+      "id": "internal-ingress-subnet",
+      "kind": "subnet",
+      "label": {
+        "en": "Internal Application Gateway subnet",
+        "ko": "내부 Application Gateway 서브넷"
+      },
+      "networkRole": "subnet"
+    },
+    {
+      "id": "service-row",
+      "kind": "layer",
+      "label": {
+        "en": "Workloads and data",
+        "ko": "워크로드 및 데이터"
+      }
+    },
+    {
+      "id": "workload-subnet",
+      "kind": "subnet",
+      "label": {
+        "en": "Workload subnet",
+        "ko": "워크로드 서브넷"
+      },
+      "networkRole": "subnet"
+    },
+    {
+      "id": "data-subnet",
+      "kind": "subnet",
+      "label": {
+        "en": "Data subnet",
+        "ko": "데이터 서브넷"
+      },
+      "networkRole": "subnet"
+    },
+    {
+      "id": "private-endpoint-subnet",
+      "kind": "subnet",
+      "label": {
+        "en": "Private endpoint subnet",
+        "ko": "Private Endpoint 서브넷"
+      },
+      "networkRole": "subnet"
+    },
+    {
+      "id": "private-estate",
+      "kind": "network",
+      "label": {
+        "en": "Private estate",
+        "ko": "비공개 환경"
+      },
+      "networkRole": "on-premises"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "bastion",
+      "kind": "azure-service",
+      "resourceType": "Microsoft.Network/bastionHosts",
+      "label": {
+        "en": "Azure Bastion",
+        "ko": "Azure Bastion"
+      },
+      "description": {
+        "en": "Azure Bastion",
+        "ko": "Azure Bastion"
+      }
+    },
+    {
+      "id": "firewall",
+      "kind": "azure-service",
+      "resourceType": "Microsoft.Network/azureFirewalls",
+      "label": {
+        "en": "Azure Firewall",
+        "ko": "Azure Firewall"
+      },
+      "description": {
+        "en": "Azure Firewall",
+        "ko": "Azure Firewall"
+      },
+      "securityFacts": [
+        {
+          "en": "IDPS enabled",
+          "ko": "IDPS 활성화"
+        },
+        {
+          "en": "Explicit bypass list",
+          "ko": "명시적 우회 목록"
+        }
+      ]
+    },
+    {
+      "id": "virtual-hub",
+      "kind": "azure-service",
+      "resourceType": "Microsoft.Network/virtualHubs",
+      "label": {
+        "en": "Virtual WAN Hub",
+        "ko": "Virtual WAN Hub"
+      },
+      "description": {
+        "en": "Virtual WAN Hub",
+        "ko": "Virtual WAN Hub"
+      }
+    },
+    {
+      "id": "hybrid-gateway",
+      "kind": "azure-service",
+      "resourceType": "Microsoft.Network/virtualNetworkGateways",
+      "label": {
+        "en": "ExpressRoute gateway",
+        "ko": "ExpressRoute gateway"
+      },
+      "description": {
+        "en": "ExpressRoute gateway",
+        "ko": "ExpressRoute gateway"
+      }
+    },
+    {
+      "id": "internet",
+      "kind": "external",
+      "label": {
+        "en": "Internet clients",
+        "ko": "Internet 클라이언트"
+      },
+      "description": {
+        "en": "Internet clients",
+        "ko": "Internet 클라이언트"
+      },
+      "networkRole": "external"
+    },
+    {
+      "id": "external-gateway",
+      "kind": "azure-service",
+      "resourceType": "Microsoft.Network/applicationGateways",
+      "label": {
+        "en": "External Application Gateway and WAF",
+        "ko": "외부 Application Gateway 및 WAF"
+      },
+      "description": {
+        "en": "External Application Gateway and WAF",
+        "ko": "외부 Application Gateway 및 WAF"
+      }
+    },
+    {
+      "id": "internal-gateway",
+      "kind": "azure-service",
+      "resourceType": "Microsoft.Network/applicationGateways",
+      "label": {
+        "en": "Internal Application Gateway and WAF",
+        "ko": "내부 Application Gateway 및 WAF"
+      },
+      "description": {
+        "en": "Internal Application Gateway and WAF",
+        "ko": "내부 Application Gateway 및 WAF"
+      }
+    },
+    {
+      "id": "workload-vm",
+      "kind": "azure-service",
+      "resourceType": "Microsoft.Compute/virtualMachines",
+      "label": {
+        "en": "Workload virtual machines",
+        "ko": "워크로드 Virtual Machines"
+      },
+      "description": {
+        "en": "Workload virtual machines",
+        "ko": "워크로드 Virtual Machines"
+      }
+    },
+    {
+      "id": "data-vm",
+      "kind": "azure-service",
+      "resourceType": "Microsoft.Compute/virtualMachines",
+      "label": {
+        "en": "Data virtual machines",
+        "ko": "데이터 Virtual Machines"
+      },
+      "description": {
+        "en": "Data virtual machines",
+        "ko": "데이터 Virtual Machines"
+      }
+    },
+    {
+      "id": "private-endpoint",
+      "kind": "azure-service",
+      "resourceType": "Microsoft.Network/privateEndpoints",
+      "label": {
+        "en": "Private Endpoint",
+        "ko": "Private Endpoint"
+      },
+      "description": {
+        "en": "Private Endpoint",
+        "ko": "Private Endpoint"
+      },
+      "networkRole": "private-endpoint"
+    },
+    {
+      "id": "expressroute-circuit",
+      "kind": "azure-service",
+      "resourceType": "Microsoft.Network/expressRouteCircuits",
+      "label": {
+        "en": "ExpressRoute circuit",
+        "ko": "ExpressRoute circuit"
+      },
+      "description": {
+        "en": "ExpressRoute circuit",
+        "ko": "ExpressRoute circuit"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "dmz-to-hub",
+      "from": "dmz-vnet",
+      "to": "firewall",
+      "kind": "dependency",
+      "label": null,
+      "connectionKind": "vnet-connection",
+      "direction": "bidirectional",
+      "trafficClass": "management",
+      "policy": "inspect",
+      "sourceEvidence": "expected"
+    },
+    {
+      "id": "hub-to-spoke",
+      "from": "firewall",
+      "to": "workload-spoke",
+      "kind": "dependency",
+      "label": null,
+      "connectionKind": "vnet-peering",
+      "direction": "bidirectional",
+      "trafficClass": "private",
+      "policy": "inspect",
+      "sourceEvidence": "expected"
+    },
+    {
+      "id": "firewall-to-virtual-hub",
+      "from": "firewall",
+      "to": "virtual-hub",
+      "kind": "dependency",
+      "label": null,
+      "connectionKind": "routing",
+      "direction": "bidirectional",
+      "trafficClass": "private",
+      "policy": "inspect",
+      "sourceEvidence": "expected"
+    },
+    {
+      "id": "virtual-hub-to-hybrid-gateway",
+      "from": "virtual-hub",
+      "to": "hybrid-gateway",
+      "kind": "dependency",
+      "label": null,
+      "connectionKind": "expressroute",
+      "direction": "bidirectional",
+      "trafficClass": "hybrid",
+      "policy": "allow",
+      "sourceEvidence": "expected"
+    },
+    {
+      "id": "internet-to-external-gateway",
+      "from": "internet",
+      "to": "external-gateway",
+      "kind": "request",
+      "label": null,
+      "connectionKind": "traffic",
+      "direction": "forward",
+      "trafficClass": "internet",
+      "policy": "inspect",
+      "protocol": "HTTPS",
+      "port": "443",
+      "sourceEvidence": "expected"
+    },
+    {
+      "id": "external-gateway-to-workload",
+      "from": "external-gateway",
+      "to": "workload-vm",
+      "kind": "request",
+      "label": null,
+      "connectionKind": "traffic",
+      "direction": "forward",
+      "trafficClass": "internet",
+      "policy": "allow",
+      "protocol": "HTTPS",
+      "port": "443",
+      "sourceEvidence": "expected"
+    },
+    {
+      "id": "internal-gateway-to-workload",
+      "from": "internal-gateway",
+      "to": "workload-vm",
+      "kind": "request",
+      "label": null,
+      "connectionKind": "traffic",
+      "direction": "forward",
+      "trafficClass": "private",
+      "policy": "allow",
+      "protocol": "HTTPS",
+      "port": "443",
+      "sourceEvidence": "expected"
+    },
+    {
+      "id": "workload-to-data",
+      "from": "workload-vm",
+      "to": "data-vm",
+      "kind": "request",
+      "label": null,
+      "connectionKind": "traffic",
+      "direction": "forward",
+      "trafficClass": "private",
+      "policy": "allow",
+      "sourceEvidence": "expected"
+    },
+    {
+      "id": "workload-to-private-endpoint",
+      "from": "workload-vm",
+      "to": "private-endpoint",
+      "kind": "request",
+      "label": {
+        "en": "Private Link",
+        "ko": "Private Link"
+      },
+      "connectionKind": "private-link",
+      "direction": "forward",
+      "trafficClass": "private",
+      "policy": "allow",
+      "sourceEvidence": "expected"
+    },
+    {
+      "id": "expressroute-to-gateway",
+      "from": "expressroute-circuit",
+      "to": "hybrid-gateway",
+      "kind": "dependency",
+      "label": {
+        "en": "ExpressRoute",
+        "ko": "ExpressRoute"
+      },
+      "connectionKind": "expressroute",
+      "direction": "bidirectional",
+      "trafficClass": "hybrid",
+      "policy": "allow",
+      "sourceEvidence": "expected"
+    }
+  ],
+  "annotations": [
+    {
+      "id": "routing-intent",
+      "title": {
+        "en": "Routing intent and policies",
+        "ko": "라우팅 의도 및 정책"
+      },
+      "body": [
+        {
+          "en": "Internet traffic: inspect through the hub firewall",
+          "ko": "Internet 트래픽: hub firewall을 통해 검사"
+        },
+        {
+          "en": "Private traffic: inspect unless explicitly bypassed",
+          "ko": "비공개 트래픽: 명시적으로 우회하지 않으면 검사"
+        },
+        {
+          "en": "Reachability: expected design, not an observed route",
+          "ko": "도달 가능성: 관측된 경로가 아닌 예상 설계"
+        }
+      ],
+      "tone": "policy",
+      "placement": "top-left",
+      "anchor": "firewall"
+    }
+  ]
+}

@@ -8,6 +8,7 @@ after this module returns a bounded deterministic decision.
 from __future__ import annotations
 
 import math
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
@@ -35,6 +36,8 @@ class PresentationIntent(StrEnum):
     COMPARISON = "comparison"
     CHRONOLOGY = "chronology"
     RECORDS = "records"
+    CORRELATION = "correlation"
+    MATRIX = "matrix"
 
 
 class PresentationKind(StrEnum):
@@ -51,6 +54,39 @@ class PresentationKind(StrEnum):
     TIMELINE = "timeline"
     CALLOUT = "callout"
     EVIDENCE = "evidence"
+    SCATTER = "scatter"
+    HEATMAP = "heatmap"
+
+
+class SemanticShape(StrEnum):
+    """Ontology-grounded relationship between verified dimensions and measures."""
+
+    CATEGORICAL_COMPARISON = "categorical_comparison"
+    CATEGORICAL_MATRIX = "categorical_matrix"
+    CHRONOLOGY = "chronology"
+    CORRELATION = "correlation"
+    COVERAGE = "coverage"
+    CUMULATIVE_SERIES = "cumulative_series"
+    PART_TO_WHOLE = "part_to_whole"
+    RANKING = "ranking"
+    ROLE_COMPARISON = "role_comparison"
+    TEMPORAL_SERIES = "temporal_series"
+
+
+class VisualizationKind(StrEnum):
+    """Closed renderer-neutral visualization hints emitted by the planner."""
+
+    NONE = "none"
+    AREA = "area"
+    BAR = "bar"
+    BAR_LIST = "bar_list"
+    CATEGORY_BAR = "category_bar"
+    COMPARISON_BAR = "comparison_bar"
+    DONUT = "donut"
+    HEATMAP = "heatmap"
+    LINE = "line"
+    SCATTER = "scatter"
+    TRACKER = "tracker"
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,6 +115,8 @@ class EvidenceShape:
     heterogeneous: bool
     unavailable: bool
     limitations: tuple[str, ...]
+    semantic_shape: SemanticShape | None
+    semantic_fields: tuple[tuple[str, str], ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -89,6 +127,7 @@ class PresentationDecision:
     fallback_kind: PresentationKind
     reason_code: str
     include_exact_table: bool = False
+    visualization: VisualizationKind = VisualizationKind.NONE
 
 
 _TIMESTAMP_FIELDS = (
@@ -104,19 +143,29 @@ _METRIC_FIELDS = ("metric", "metric_name", "concept_id")
 _UNIT_FIELDS = ("unit", "canonical_unit")
 _CATEGORY_FIELDS = ("category", "label", "name", "type", "status", "location")
 _BASELINE_FIELDS = ("baseline", "baseline_value", "before")
-_CURRENT_FIELDS = ("current", "current_value", "observed", "value", "after")
+_CURRENT_FIELDS = (
+    "current",
+    "current_value",
+    "cumulative_value",
+    "observed",
+    "value",
+    "after",
+)
 _TARGET_FIELDS = ("target", "target_value")
 _THRESHOLD_FIELDS = ("threshold", "threshold_value")
 _STATUS_FIELDS = ("status", "state", "outcome")
 _NUMERATOR_FIELDS = ("numerator", "covered", "observed_count")
 _DENOMINATOR_FIELDS = ("denominator", "total", "total_count")
 _MAX_ANALYZED_ROWS = 40
+_RFC3339 = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$")
 
 
 def analyze_evidence_shape(
     output: Mapping[str, object],
     *,
     verified: bool,
+    semantic_shape: SemanticShape | None = None,
+    semantic_fields: Mapping[str, str] | None = None,
 ) -> EvidenceShape:
     """Analyze bounded row shape without inferring or coercing missing values."""
     raw_rows = output.get("rows")
@@ -184,6 +233,8 @@ def analyze_evidence_shape(
         heterogeneous=len(key_sets) > 1,
         unavailable=unavailable,
         limitations=limitations,
+        semantic_shape=semantic_shape,
+        semantic_fields=tuple(sorted((semantic_fields or {}).items())),
     )
 
 
@@ -209,6 +260,23 @@ def plan_presentation(
     ):
         return _fallback_for_records(shape, "evidence_incomplete")
 
+    if shape.semantic_shape is SemanticShape.CORRELATION and _supports_scatter(shape):
+        return PresentationDecision(
+            kind=PresentationKind.SCATTER,
+            fallback_kind=PresentationKind.TABLE,
+            reason_code="correlation_roles_verified",
+            include_exact_table=True,
+            visualization=VisualizationKind.SCATTER,
+        )
+    if shape.semantic_shape is SemanticShape.CATEGORICAL_MATRIX and _supports_heatmap(shape):
+        return PresentationDecision(
+            kind=PresentationKind.HEATMAP,
+            fallback_kind=PresentationKind.TABLE,
+            reason_code="matrix_roles_verified",
+            include_exact_table=True,
+            visualization=VisualizationKind.HEATMAP,
+        )
+
     if intent is PresentationIntent.THRESHOLD and _supports_threshold(shape):
         return _decision(PresentationKind.THRESHOLD_TABLE, "threshold_roles_verified")
     if intent is PresentationIntent.COMPARISON and _supports_comparison(shape):
@@ -217,6 +285,7 @@ def plan_presentation(
             fallback_kind=PresentationKind.TABLE,
             reason_code="comparison_roles_verified",
             include_exact_table=True,
+            visualization=VisualizationKind.COMPARISON_BAR,
         )
     if intent is PresentationIntent.TREND and _supports_time_series(shape):
         return PresentationDecision(
@@ -224,15 +293,27 @@ def plan_presentation(
             fallback_kind=PresentationKind.TABLE,
             reason_code="ordered_metric_series_verified",
             include_exact_table=True,
+            visualization=(
+                VisualizationKind.AREA
+                if shape.semantic_shape is SemanticShape.CUMULATIVE_SERIES
+                and _supports_cumulative_series(shape)
+                else VisualizationKind.LINE
+            ),
         )
     if intent is PresentationIntent.CHRONOLOGY and _supports_timeline(shape):
-        return _decision(PresentationKind.TIMELINE, "ordered_timeline_verified")
+        return PresentationDecision(
+            kind=PresentationKind.TIMELINE,
+            fallback_kind=PresentationKind.TIMELINE,
+            reason_code="ordered_timeline_verified",
+            visualization=VisualizationKind.TRACKER,
+        )
     if intent is PresentationIntent.COVERAGE and _supports_coverage(shape):
         return PresentationDecision(
             kind=PresentationKind.COVERAGE,
             fallback_kind=PresentationKind.TABLE,
             reason_code="coverage_denominator_verified",
             include_exact_table=True,
+            visualization=VisualizationKind.CATEGORY_BAR,
         )
     if intent is PresentationIntent.DISTRIBUTION and _supports_bar(shape):
         return PresentationDecision(
@@ -240,6 +321,7 @@ def plan_presentation(
             fallback_kind=PresentationKind.TABLE,
             reason_code="categorical_values_verified",
             include_exact_table=True,
+            visualization=_distribution_visualization(shape),
         )
     if intent is PresentationIntent.SUMMARY and _supports_summary(shape):
         return _decision(PresentationKind.SUMMARY, "bounded_scalar_summary")
@@ -283,8 +365,23 @@ def _supports_time_series(shape: EvidenceShape) -> bool:
     )
 
 
+def _supports_cumulative_series(shape: EvidenceShape) -> bool:
+    value_field = shape.current_field
+    if not value_field or value_field not in shape.numeric_fields:
+        return False
+    values = [_numeric_value(record, value_field) for record in shape.records]
+    return values == sorted(values)
+
+
 def _supports_timeline(shape: EvidenceShape) -> bool:
-    return bool(len(shape.records) >= 2 and shape.timestamp_field and shape.timestamps_ordered)
+    label_field = _first_field(list(shape.columns), ("event", "activity", "label", "status"))
+    return bool(
+        len(shape.records) >= 2
+        and shape.timestamp_field
+        and shape.timestamps_ordered
+        and label_field
+        and _all_non_empty_strings(shape.records, label_field)
+    )
 
 
 def _supports_coverage(shape: EvidenceShape) -> bool:
@@ -315,6 +412,88 @@ def _supports_bar(shape: EvidenceShape) -> bool:
 
 def _supports_summary(shape: EvidenceShape) -> bool:
     return len(shape.records) == 1 and 2 <= len(shape.columns) <= 8
+
+
+def _supports_scatter(shape: EvidenceShape) -> bool:
+    fields = _semantic_field_map(shape)
+    label_field = fields.get("label")
+    x_field = fields.get("x")
+    y_field = fields.get("y")
+    return bool(
+        2 <= len(shape.records) <= _MAX_ANALYZED_ROWS
+        and label_field
+        and label_field in shape.columns
+        and x_field
+        and y_field
+        and _fields_are_numeric(shape, x_field, y_field)
+        and _all_non_empty_strings(shape.records, label_field)
+    )
+
+
+def _supports_heatmap(shape: EvidenceShape) -> bool:
+    fields = _semantic_field_map(shape)
+    row_field = fields.get("row")
+    column_field = fields.get("column")
+    value_field = fields.get("value")
+    return bool(
+        2 <= len(shape.records) <= _MAX_ANALYZED_ROWS
+        and row_field in shape.columns
+        and column_field in shape.columns
+        and value_field
+        and value_field in shape.numeric_fields
+        and _all_non_empty_strings(shape.records, row_field, column_field)
+        and len({(record[row_field], record[column_field]) for record in shape.records})
+        == len(shape.records)
+    )
+
+
+def _distribution_visualization(shape: EvidenceShape) -> VisualizationKind:
+    if shape.semantic_shape is SemanticShape.PART_TO_WHOLE and _supports_part_to_whole(shape):
+        return VisualizationKind.DONUT
+    if shape.semantic_shape is SemanticShape.RANKING and _supports_ranking(shape):
+        return VisualizationKind.BAR_LIST
+    return VisualizationKind.BAR
+
+
+def _supports_part_to_whole(shape: EvidenceShape) -> bool:
+    value_field = shape.current_field
+    total_field = shape.denominator_field
+    if (
+        not value_field
+        or not total_field
+        or not _fields_are_numeric(shape, value_field, total_field)
+    ):
+        return False
+    totals = {_numeric_value(record, total_field) for record in shape.records}
+    if len(totals) != 1:
+        return False
+    total = next(iter(totals))
+    values = [_numeric_value(record, value_field) for record in shape.records]
+    return (
+        total > 0
+        and all(value >= 0 for value in values)
+        and math.isclose(
+            sum(values),
+            total,
+            rel_tol=1e-9,
+            abs_tol=1e-9,
+        )
+    )
+
+
+def _supports_ranking(shape: EvidenceShape) -> bool:
+    rank_field = next(
+        (field for field in shape.columns if field.rsplit(".", 1)[-1].casefold() == "rank"),
+        None,
+    )
+    if not rank_field or rank_field not in shape.numeric_fields:
+        return False
+    ranks = [_numeric_value(record, rank_field) for record in shape.records]
+    return all(rank > 0 for rank in ranks) and ranks == sorted(set(ranks))
+
+
+def _semantic_field_map(shape: EvidenceShape) -> dict[str, str]:
+    return dict(shape.semantic_fields)
 
 
 def _fallback_for_records(shape: EvidenceShape, reason_code: str) -> PresentationDecision:
@@ -352,6 +531,17 @@ def _string_values(
     return tuple(sorted(values))
 
 
+def _all_non_empty_strings(
+    records: tuple[Mapping[str, object], ...],
+    *fields: str,
+) -> bool:
+    return all(
+        isinstance(value := record.get(field), str) and bool(value.strip())
+        for record in records
+        for field in fields
+    )
+
+
 def _timestamps_are_ordered(
     records: list[Mapping[str, object]],
     field: str | None,
@@ -361,7 +551,7 @@ def _timestamps_are_ordered(
     timestamps: list[datetime] = []
     for record in records:
         raw = record.get(field)
-        if not isinstance(raw, str):
+        if not isinstance(raw, str) or _RFC3339.fullmatch(raw) is None:
             return False
         try:
             parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
@@ -405,6 +595,8 @@ __all__ = [
     "PresentationDecision",
     "PresentationIntent",
     "PresentationKind",
+    "SemanticShape",
+    "VisualizationKind",
     "analyze_evidence_shape",
     "plan_presentation",
 ]

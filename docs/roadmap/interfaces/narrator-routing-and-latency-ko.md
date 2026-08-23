@@ -1,8 +1,8 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: 1775a8155477380ad6bbb449a447f7b1e8ae1029
-translation_revised: 2026-08-21
+translation_source_sha: a2e3cdfe22aca9970cd615100044c489a67d5fdf
+translation_revised: 2026-08-23
 ---
 # 서술기 라우팅과 지연 시간
 
@@ -25,7 +25,7 @@ translation_revised: 2026-08-21
 
 라우터는 T1 서술 트래픽 전용입니다. 지연 시간 라우팅을 T2 기능으로 넓히려면 별도 설계
 검토가 필요합니다. `t2.reasoner.primary` 자리에 대해 검토를 거친 동일 공급자 예외는
-[LLM 전략](../architecture/llm-strategy-ko.md#t2-primary-latency-pool-invariant-safe-opt-in)이
+[LLM 전략](../architecture/llm-strategy-ko.md#t2-기본-라우팅-및-통제된-복구)이
 소유합니다. 다음 두 제약이 경계를 지킵니다.
 
 - **혼합 모델 불변식**: `t2.reasoner.primary.publisher`와
@@ -123,7 +123,10 @@ Settings > Models는 Owner에게 배포 전체의 웹 검색 활성화와 정확
 ## 런타임 전달 결정 사항
 
 - **모델 해석 결과 전달**: 초기에는 파일 시스템 경로 또는 인라인 JSON 환경 변수/시크릿 참조를
-  지원합니다. Key Vault를 직접 읽는 방식은 조정기 작업과 함께 다음으로 미룹니다.
+  지원합니다. 서비스 소유 비동기 Key Vault 출처 어댑터는 이제 공식 Azure vault origin과
+  audience, 정확한 secret 신원, 크기, JSON 구조, 활성화 및 만료 상태, 전체 마감을 검증하면서
+  값을 노출하지 않습니다. 하나의 변경 불가능한 출처 개정을 기능 바인딩과 수명 주기 보류 평가에
+  함께 발행할 비동기 소유자가 생길 때까지 시작 바인딩은 보류됩니다.
 - **로컬 모델 고정본**: Ollama나 LM Studio 고정본은 현재 포함하지 않습니다. 나중에 추가하더라도
   명시적인 모델 연결일 뿐, 대화형 로컬 프로파일을 다시 정의하지 않습니다.
 - **조정기 전달**: 주간 workflow는 정제된 근거를 보존하고 검토가 필요할 때 멱등적 초안 PR을
@@ -137,6 +140,7 @@ Settings > Models는 Owner에게 배포 전체의 웹 검색 활성화와 정확
 |------|------|------|------|
 | 로컬 정렬 narrator 후보 fallback | implemented | `services/operator-service/src/fdai_operator_service/adapters/local_narrator.py`; `services/operator-service/tests/test_local_narrator.py`; 집중 배포 수명 주기 테스트 | Service 내부 어댑터는 파일 또는 계획에 봉인된 인라인 JSON을 읽고 선택적 배포 SHA를 검증하며, 수명이 짧은 토큰을 얻어 정렬된 후보를 시도하고 Core를 가져오거나 실행 권한을 받지 않은 채 정제된 상태를 노출합니다. |
 | 해석된 narrator 후보 수집 | implemented | `services/core-control-plane/tests/rule_catalog/schema/test_narrator_collection.py`; 모델 해석기 및 레지스트리 | Focused 검사는 검토된 모델 해석 입력에서 `narrator_candidates` 수집을 다룹니다. |
+| 직접 Key Vault 해석 모델 출처 어댑터 | implemented | `adapters/resolved_models_key_vault.py`; 집중 Operator 테스트 | 비동기 어댑터는 주입된 토큰 공급자와 HTTP 클라이언트를 사용하고 신뢰할 수 없는 origin, redirect, 불일치 secret 신원, 비활성 또는 만료 값, 과도한 크기나 중첩, secret을 포함한 표현을 거부합니다. 시작 조립과 통제된 런타임 근거는 열려 있습니다. |
 | 이동 text p50/TTFT, 범위가 제한된 refresh 및 장애 조치 | implemented | `services/operator-service/src/fdai_operator_service/adapters/local_narrator.py`; `narrator_latency.py`; `narrator_payloads.py`; focused Operator 테스트 | 독립 service는 샘플 8개짜리 latency 및 TTFT 창을 유지하고 비어 있지 않은 첫 SSE token을 측정하며 범위가 제한된 probe를 coalescing하고 text 후보를 정렬하며 unanimous 429/503 상태를 보존하고 malformed 또는 oversized 출력을 fail closed로 처리합니다. |
 | 주기적 narrator refresh owner | implemented | `services/operator-service/src/fdai_operator_service/adapters/narrator_periodic_scheduler.py`; `environment.py`; `composition.py`; focused scheduler 및 composition 테스트 | Operator lifecycle은 정확히 하나의 즉시 및 주기적 loop를 소유하고 30-3600초 간격을 검증하며 다음 주기까지 provider 실패를 격리하고 종료 중 in-flight probe를 취소합니다. 로컬 Azure narrator가 있을 때만 binding됩니다. |
 | 비전 후보 probe 및 이미지 턴 라우팅 | in-progress | `services/operator-service/src/fdai_operator_service/adapters/local_narrator.py`; focused vision-probe 및 image-unavailable 테스트 | 비전 후보는 독립된 측정 probe 창을 갖습니다. 서버 소유 image resolver가 검증되고 범위가 제한된 byte를 공급할 때까지 이미지 턴은 사용 불가 상태이며 text binding을 빌리지 않습니다. |
@@ -155,6 +159,7 @@ Settings > Models는 Owner에게 배포 전체의 웹 검색 활성화와 정확
 | 2026-08-14 | implemented | 검증된 interval 구성, 실패 격리, duplicate-start 억제 및 종료 cleanup을 갖춘 하나의 즉시 및 주기적 narrator refresh loop를 Operator lifecycle에 binding했습니다. | `current change`; scheduler, environment, composition, local narrator cleanup 및 focused 테스트 `66 passed`. | 서버 소유 image resolver를 binding하고 관리되는 local 및 deployed timing 근거를 보존합니다. |
 | 2026-08-16 | in-progress | 개정 번호 기반 principal별 narrator 선호 설정 저장소와 정제된 Settings 변환 결과를 추가했습니다. `Auto` 와 허용된 배포만 허용하고, 오래된 개정 번호는 충돌하며, principal은 격리되고, 제거된 배포는 저장된 선택을 유지한 채 `Auto` 로 저하됩니다. T2 연결은 개인화되지 않습니다. | `current change`; `services/operator-service/src/fdai_operator_service/adapters/narrator_preferences.py`; `pytest services/operator-service/tests/test_narrator_preferences.py` (14 passed). | 영속 저장과 인증된 Settings 경로를 binding한 뒤 관리되는 timing 증적을 보존합니다. |
 | 2026-08-19 | implemented | 보호된 해석기의 정확한 인라인 JSON과 SHA를 Operator 시작에 연결하고 제안 전용 주간 조정기를 추가했습니다. 다이제스트가 다르면 서술기 구성을 차단하며, 공급자 실패는 정제된 판단 보류를 만들고 PR을 열지 않습니다. | `current change`; 집중 서술기, 수명 주기, 계획 검증기, Terraform 및 권한 workflow 테스트. | 통제된 로컬/배포 timing 및 조정기 실행 근거를 보존하며 직접 Key Vault 읽기는 계속 연기합니다. |
+| 2026-08-23 | implemented | 해석 모델 JSON을 위한 서비스 소유 비동기 Key Vault 출처 어댑터를 추가했습니다. 어댑터는 토큰 및 HTTP 공급자를 주입 상태로 유지하고, 일치하는 cloud audience를 가진 현재 Azure Key Vault DNS suffix만 허용하며, 응답 신원을 요청한 secret 및 버전에 결합하고, 하나의 전체 마감 안에서 실패 시 차단 처리합니다. | `current change`; 집중 Key Vault 출처 테스트와 15회의 비평 및 하드닝 라운드입니다. | 현재 파일 또는 인라인 출처를 교체하기 전에 비동기 시작 소유자, 변경 불가능한 출처 개정 발행, Core/Operator parity 바인딩 및 통제된 로컬/배포 근거를 추가합니다. |
 
 ### 남은 작업
 
@@ -164,7 +169,8 @@ Settings > Models는 Owner에게 배포 전체의 웹 검색 활성화와 정확
 - [x] 개정 번호 기반 principal별 `Auto` 또는 허용된 narrator 선호 설정 저장소와 정제된 Settings 변환 결과가 `services/operator-service/src/fdai_operator_service/adapters/narrator_preferences.py` 에 있으며 `pytest services/operator-service/tests/test_narrator_preferences.py` (`14 passed`) 가 이를 증명합니다. 변환 결과는 `personalizes_t2_bindings: false` 를 선언하고 endpoint나 credential 자료를 담지 않습니다. 영속 저장과 인증된 Settings 경로는 남아 있습니다.
 - [ ] Narrator 선호 설정 저장소를 principal별 영속 저장과 인증된 Settings 경로에 binding하고, 그 경로를 통해 개정 번호 충돌과 principal 범위를 증명합니다.
 - [ ] Narrator 및 웹 검색 후보 선택, 첫 토큰 시간, 실패, 복구 및 정제된 상태에 대한 관리되는 로컬 및 배포 증적을 보존합니다.
-- [ ] 검토된 service-owned 어댑터를 통해 직접 Key Vault 모델 해석 결과 loader를 구현하고 제안 전용 조정기 실행을 한 번 보존합니다.
+- [x] 신뢰할 수 있는 origin, 신원, 범위, 만료, timeout 및 secret-redaction 검사를 갖춘 service-owned 비동기 직접 Key Vault 모델 해석 결과 출처 어댑터를 구현하고 집중 테스트합니다.
+- [ ] 기능 바인딩과 수명 주기 보류 평가가 공유하는 비동기 시작 소유자를 통해 Key Vault 출처를 연결하고, Core/Operator 출처 개정 parity를 보존하며, 통제된 제안 전용 조정기 실행 하나를 보존합니다.
 
 ## 관련 문서
 

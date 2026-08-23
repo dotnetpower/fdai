@@ -30,10 +30,43 @@ def build_storage_state(
     origin = payload.get("origin")
     if origin != expected_origin:
         raise CaptureContractError("capture origin does not match the expected origin")
-    raw_entries = payload.get("sessionStorage")
-    if not isinstance(raw_entries, list):
-        raise CaptureContractError("sessionStorage must be an array")
+    session_entries = _storage_entries(payload, "sessionStorage")
+    local_entries = _storage_entries(payload, "localStorage", required=False)
+    local_storage = [{"name": name, "value": value} for name, value in local_entries]
+    if session_entries:
+        local_storage.append(
+            {
+                "name": BOOTSTRAP_KEY,
+                "value": json.dumps(
+                    session_entries,
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                ),
+            }
+        )
 
+    return {
+        "cookies": [],
+        "origins": [
+            {
+                "origin": storage_origin or origin,
+                "localStorage": local_storage,
+            }
+        ],
+    }
+
+
+def _storage_entries(
+    payload: dict[str, object],
+    key: str,
+    *,
+    required: bool = True,
+) -> list[list[str]]:
+    raw_entries = payload.get(key)
+    if raw_entries is None and not required:
+        return []
+    if not isinstance(raw_entries, list):
+        raise CaptureContractError(f"{key} must be an array")
     entries: list[list[str]] = []
     for raw_entry in raw_entries:
         if (
@@ -41,23 +74,9 @@ def build_storage_state(
             or len(raw_entry) != 2
             or not all(isinstance(value, str) for value in raw_entry)
         ):
-            raise CaptureContractError("sessionStorage entries must be string pairs")
+            raise CaptureContractError(f"{key} entries must be string pairs")
         entries.append(raw_entry)
-
-    return {
-        "cookies": [],
-        "origins": [
-            {
-                "origin": storage_origin or origin,
-                "localStorage": [
-                    {
-                        "name": BOOTSTRAP_KEY,
-                        "value": json.dumps(entries, ensure_ascii=False, separators=(",", ":")),
-                    }
-                ],
-            }
-        ],
-    }
+    return entries
 
 
 def write_storage_state(destination: Path, state: dict[str, object]) -> None:

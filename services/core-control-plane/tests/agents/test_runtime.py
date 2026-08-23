@@ -116,6 +116,7 @@ def test_route_conversation_projects_structured_judgment() -> None:
             "primary_intent": "cost_breakdown",
             "confidence": 0.95,
             "ambiguous": False,
+            "action_subject": "none",
             "authority": "candidate_only",
             "execution_authority": False,
         }
@@ -499,6 +500,45 @@ async def test_runtime_injects_heimdall_operational_evidence_hook() -> None:
     )
 
     assert calls == ["kubernetes.namespace/example-app"]
+
+
+def test_action_run_topic_reaches_heimdall_observation_hook() -> None:
+    provider = InMemoryEventBus()
+    calls: list[str] = []
+
+    async def observe(payload: dict[str, object]) -> bool:
+        calls.append(str(payload["correlation_id"]))
+        return True
+
+    runtime = PantheonRuntime.build(
+        provider=provider,
+        raw_event_topic=_RAW_TOPIC,
+        heimdall_action_observation_hook=observe,
+    )
+
+    async def _drive() -> None:
+        await provider.publish(
+            "object.action-run",
+            "resource-1",
+            {
+                "producer_principal": "Thor",
+                "correlation_id": "terminal-observation-1",
+                "state": "succeeded",
+            },
+        )
+        run_task = asyncio.create_task(runtime.run())
+        for _ in range(50):
+            await asyncio.sleep(0)
+        await runtime.stop()
+        run_task.cancel()
+        try:
+            await run_task
+        except (asyncio.CancelledError, Exception):  # noqa: S110 - cleanup
+            pass
+
+    asyncio.run(_drive())
+
+    assert calls == ["terminal-observation-1"]
 
 
 async def test_runtime_injects_configured_heimdall_repeat_policy() -> None:

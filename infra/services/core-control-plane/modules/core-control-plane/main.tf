@@ -15,6 +15,7 @@ module "container_app" {
   }]
   environment = [
     { name = "FDAI_STATE_STORE_DSN", secret_name = "database-dsn" },
+    { name = "POSTGRES_HOST", value = var.database.host },
     { name = "FDAI_DATABASE_ROLE", value = var.database.role },
     { name = "PGOPTIONS", value = "-c role=${var.database.role}" },
     { name = "FDAI_EXECUTION_VENUE", value = "deployed" },
@@ -41,6 +42,7 @@ module "container_app" {
     { name = "FDAI_SEMANTIC_TURN_REQUEST_TOPIC", value = var.event_topics.semantic_requests },
     { name = "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC", value = var.event_topics.semantic_projections },
     { name = "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC", value = var.event_topics.semantic_physical },
+    { name = "FDAI_READ_INVESTIGATION_REQUEST_TOPIC", value = var.event_topics.read_investigation_requests },
     { name = "FDAI_START_CONSUMER", value = "1" },
     { name = "FDAI_HEALTH_PORT", value = tostring(var.health.port) },
   ]

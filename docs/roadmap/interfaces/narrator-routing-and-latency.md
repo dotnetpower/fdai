@@ -23,7 +23,7 @@ service rather than a currently composed production capability.
 
 The router is scoped to T1 narrator traffic. Extending latency routing to a T2 capability requires
 separate design review. The reviewed same-publisher exception for the `t2.reasoner.primary` slot is
-owned by [LLM strategy](../architecture/llm-strategy.md#t2-primary-latency-pool-invariant-safe-opt-in).
+owned by [LLM strategy](../architecture/llm-strategy.md#t2-primary-routing-and-governed-recovery).
 Two constraints preserve this boundary:
 
 - **Mixed-model invariant**: `t2.reasoner.primary.publisher` differs from
@@ -124,7 +124,11 @@ evidence.
 ## Runtime delivery decisions
 
 - **Resolved model delivery**: day zero supports a filesystem path or inline JSON environment or
-  secret reference. A direct Key Vault loader remains deferred with the reconciler work.
+  secret reference. The service-owned async Key Vault source adapter now validates official Azure
+  vault origins and audiences, exact secret identity, size, JSON structure, enabled and expiration
+  state, and a total deadline without exposing the value. Startup binding remains deferred until an
+  asynchronous owner can publish one immutable source revision to both capability binding and
+  lifecycle-hold evaluation.
 - **Local model fixture**: an Ollama or LM Studio fixture is not currently included. Any such
   fixture would be an explicit model binding and would not redefine the interactive local profile.
 - **Reconciler delivery**: the weekly workflow retains sanitized evidence and opens an idempotent
@@ -138,6 +142,7 @@ evidence.
 |------|-------|----------|-------|
 | Local ordered narrator candidate fallback | implemented | `services/operator-service/src/fdai_operator_service/adapters/local_narrator.py`; `services/operator-service/tests/test_local_narrator.py`; focused deployment lifecycle tests | The service-local adapter loads a file or plan-sealed inline JSON, verifies the optional deployment SHA, obtains a short-lived token, tries ordered candidates, and exposes sanitized health without Core imports or execution authority. |
 | Resolved narrator candidate collection | implemented | `services/core-control-plane/tests/rule_catalog/schema/test_narrator_collection.py`; model resolver and registry | Focused checks cover collection of `narrator_candidates` from reviewed model-resolution inputs. |
+| Direct Key Vault resolved-model source adapter | implemented | `adapters/resolved_models_key_vault.py`; focused Operator tests | The async adapter uses an injected token provider and HTTP client, rejects untrusted origins, redirects, mismatched secret identity, disabled or expired values, excessive size or nesting, and secret-bearing representations. Startup composition and governed runtime evidence remain open. |
 | Rolling text p50/TTFT, bounded refresh, and failover | implemented | `services/operator-service/src/fdai_operator_service/adapters/local_narrator.py`; `narrator_latency.py`; `narrator_payloads.py`; focused Operator tests | The independent service keeps eight-sample latency and TTFT windows, measures the first non-empty SSE token, coalesces bounded probes, ranks text candidates, preserves unanimous 429/503 status, and fails closed on malformed or oversized output. |
 | Periodic narrator refresh owner | implemented | `services/operator-service/src/fdai_operator_service/adapters/narrator_periodic_scheduler.py`; `environment.py`; `composition.py`; focused scheduler and composition tests | The Operator lifecycle owns exactly one immediate-and-periodic loop, validates a 30-3600 second interval, isolates provider failures until the next cycle, and cancels in-flight probes during shutdown. It is bound only with the local Azure narrator. |
 | Vision candidate probes and image-turn routing | in-progress | `services/operator-service/src/fdai_operator_service/adapters/local_narrator.py`; focused vision-probe and image-unavailable tests | Vision candidates have an independent measured probe window. Image turns remain unavailable until a server-owned image resolver supplies validated bounded bytes; text bindings are never borrowed. |
@@ -156,6 +161,7 @@ evidence.
 | 2026-08-14 | implemented | Bound one immediate-and-periodic narrator refresh loop to the Operator lifecycle with validated interval configuration, failure isolation, duplicate-start suppression, and shutdown cleanup. | `current change`; scheduler, environment, composition, local narrator cleanup, and focused tests `66 passed`. | Bind a server-owned image resolver and retain governed local and deployed timing evidence. |
 | 2026-08-16 | in-progress | Added the revisioned per-principal narrator preference store and its sanitized Settings projection. `Auto` and allowlisted deployments are the only accepted values, a stale revision conflicts, principals stay isolated, and a removed deployment degrades to `Auto` while preserving the stored choice. T2 bindings are not personalized. | `current change`; `services/operator-service/src/fdai_operator_service/adapters/narrator_preferences.py`; `pytest services/operator-service/tests/test_narrator_preferences.py` (14 passed). | Bind durable persistence and the authenticated Settings route, then retain governed timing receipts. |
 | 2026-08-19 | implemented | Bound the protected resolver's exact inline JSON and SHA to Operator startup and added proposal-only weekly reconciliation. Digest mismatch blocks narrator composition; provider failure produces sanitized abstention and no PR. | `current change`; focused narrator, lifecycle, plan verifier, Terraform, and privileged-workflow tests. | Retain governed local/deployed timing and reconciler-run evidence; direct Key Vault loading remains deferred. |
+| 2026-08-23 | implemented | Added the service-owned asynchronous Key Vault source adapter for resolved-model JSON. The adapter keeps token and HTTP providers injected, accepts only current Azure Key Vault DNS suffixes with the matching cloud audience, binds response identity to the requested secret and version, and fails closed within one total deadline. | `current change`; focused Key Vault source tests and 15 critique-and-harden rounds. | Add an asynchronous startup owner, immutable source revision publication, Core/Operator parity binding, and governed local/deployed evidence before replacing the current file or inline source. |
 
 ### Remaining work
 
@@ -165,7 +171,8 @@ evidence.
 - [x] The revisioned per-principal `Auto` or allowlisted narrator preference store and its sanitized Settings projection exist in `services/operator-service/src/fdai_operator_service/adapters/narrator_preferences.py`, proven by `pytest services/operator-service/tests/test_narrator_preferences.py` (`14 passed`). The projection declares `personalizes_t2_bindings: false` and carries no endpoint or credential material. Durable persistence and the authenticated Settings route remain open.
 - [ ] Bind the narrator preference store to durable per-principal persistence and an authenticated Settings route, and prove revision conflicts and principal scope through that route.
 - [ ] Retain governed local and deployed receipts for narrator and web-search candidate selection, first-token timing, failure, recovery, and sanitized health.
-- [ ] Implement the deferred direct Key Vault resolved-model loader through a reviewed service-owned adapter, and retain one governed proposal-only reconciler run.
+- [x] Implement and focused-test the service-owned async direct Key Vault resolved-model source adapter with trusted-origin, identity, bound, expiration, timeout, and secret-redaction checks.
+- [ ] Bind the Key Vault source through an asynchronous startup owner shared by capability binding and lifecycle-hold evaluation, preserve Core/Operator source-revision parity, and retain one governed proposal-only reconciler run.
 
 ## Related docs
 

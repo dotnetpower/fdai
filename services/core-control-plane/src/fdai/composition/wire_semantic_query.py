@@ -12,6 +12,7 @@ import httpx
 import yaml
 from fdai_service_contracts.ontology_query import QueryNodeKind, content_digest
 
+from fdai.core.conversation.semantic_judgment import SemanticJudgmentBoundary
 from fdai.core.conversation.semantic_manifest import CatalogQueryManifestProvider
 from fdai.core.conversation.semantic_planning import SemanticPlanningService
 from fdai.core.conversation.semantic_planning_models import (
@@ -159,7 +160,8 @@ from fdai.shared.providers.ontology_instance import OntologyInstanceStore
 from fdai.shared.providers.read_investigation import ReadInvestigationProvider
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
-from ._helpers import Container, _load_resolved_models
+from ._helpers import Container
+from .resolved_models import _load_resolved_models
 from .semantic_query_model_targets import t1_model_targets, t2_model_targets
 from .semantic_query_value_domains import resource_type_value_domains
 
@@ -189,6 +191,7 @@ def build_semantic_query_runtime(
     *,
     model: SemanticPlanningModel,
     escalation_model: SemanticPlanningModel | None = None,
+    semantic_judgment: SemanticJudgmentBoundary | None = None,
     ontology_release: OntologyRelease,
     ontology_catalog: OntologyCatalog,
     ontology_store: OntologyInstanceStore,
@@ -514,6 +517,7 @@ def build_semantic_query_runtime(
     planner = SemanticPlanningService(
         model=model,
         escalation_model=escalation_model,
+        semantic_judgment=semantic_judgment,
         # The planner stamps ObjectSet as_of and the gateway validates it against the same
         # cutoff within a 5s skew, so both MUST read one clock.
         now=evaluation_cutoff,
@@ -670,6 +674,12 @@ def compose_azure_semantic_query_runtime(
         runtime = build_semantic_query_runtime(
             model=t1_model,
             escalation_model=t2_model,
+            semantic_judgment=(
+                container.llm_bindings.conversation_semantic_judgment_factory(owner_loop)
+                if container.llm_bindings is not None
+                and container.llm_bindings.conversation_semantic_judgment_factory is not None
+                else None
+            ),
             ontology_release=ontology_release,
             ontology_catalog=catalog,
             ontology_store=ontology_store,

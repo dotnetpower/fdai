@@ -31,6 +31,7 @@ from fdai_operator_service.environment import (
     MANAGED_IDENTITY_CLIENT_ID_ENV,
     NARRATOR_PROBE_INTERVAL_ENV,
     PORT_ENV,
+    READ_INVESTIGATION_REQUEST_TOPIC_ENV,
     SEMANTIC_CONSUMER_GROUP_ENV,
     SEMANTIC_KAFKA_CLIENT_ID_ENV,
     SEMANTIC_OUTBOX_NAMESPACE_ENV,
@@ -600,6 +601,7 @@ def test_semantic_kafka_environment_preserves_optional_transport_ids() -> None:
             SEMANTIC_CONSUMER_GROUP_ENV: "operator-group",
             SEMANTIC_KAFKA_CLIENT_ID_ENV: "operator-client",
             SEMANTIC_OUTBOX_NAMESPACE_ENV: "issue63.run-1",
+            READ_INVESTIGATION_REQUEST_TOPIC_ENV: "operator.read-investigation.requests",
             DATABASE_URL_ENV: "postgresql://example.invalid/fdai",
             DATABASE_ROLE_ENV: "fdai_operator",
             MANAGED_IDENTITY_CLIENT_ID_ENV: "command-identity",
@@ -610,7 +612,28 @@ def test_semantic_kafka_environment_preserves_optional_transport_ids() -> None:
     assert environment.semantic_kafka_client_id == "operator-client"
     assert environment.semantic_physical_topic == "fdai.pantheon.objects"
     assert environment.semantic_outbox_namespace == "issue63.run-1"
+    assert environment.read_investigation_request_topic == ("operator.read-investigation.requests")
     assert environment.managed_identity_client_id == "command-identity"
+
+
+def test_read_investigation_topic_requires_kafka_and_distinct_identity() -> None:
+    with pytest.raises(OperatorServiceConfigurationError, match="requires"):
+        OperatorEnvironment.parse(
+            {
+                **BASE_ENV,
+                READ_INVESTIGATION_REQUEST_TOPIC_ENV: "operator.read-investigation.requests",
+            }
+        )
+    with pytest.raises(OperatorServiceConfigurationError, match="MUST be distinct"):
+        OperatorEnvironment.parse(
+            {
+                **BASE_ENV,
+                KAFKA_BOOTSTRAP_SERVERS_ENV: "example.servicebus.windows.net:9093",
+                SEMANTIC_REQUEST_TOPIC_ENV: "operator.semantic-turn.requests",
+                SEMANTIC_PROJECTION_TOPIC_ENV: "core.semantic-turn.projections",
+                READ_INVESTIGATION_REQUEST_TOPIC_ENV: "operator.semantic-turn.requests",
+            }
+        )
 
 
 @pytest.mark.parametrize("namespace", ["Issue63", "issue 63", "-issue63", "x" * 65])

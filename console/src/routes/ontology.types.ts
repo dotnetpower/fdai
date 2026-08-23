@@ -8,7 +8,7 @@ import {
   type OntologySemanticModel,
 } from "../components/ontology-semantic-model";
 
-export type OntologyView = "map" | "objects" | "links" | "actions" | "topology";
+export type OntologyView = "map" | "objects" | "links" | "actions" | "instances" | "topology";
 export type UnknownRecord = Readonly<Record<string, unknown>>;
 
 export interface OntologyPropertyDeclaration {
@@ -711,6 +711,7 @@ export function ontologyView(value: string | null): OntologyView {
   return value === "objects"
     || value === "links"
     || value === "actions"
+    || value === "instances"
     || value === "topology"
     ? value
     : "map";

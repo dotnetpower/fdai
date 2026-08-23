@@ -8,6 +8,7 @@ import argparse
 import json
 import subprocess
 import sys
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -56,6 +57,14 @@ from scripts.automation.developer_workflow_runtime import (
 
 SCHEMA_VERSION = 1
 UTC = timezone.utc  # noqa: UP017 - tracked hooks also support system Python 3.10.
+LOCAL_SERVICE_NAMES = (
+    "core-runtime",
+    "console-frontend",
+    "operator-api",
+    "document-ingestion-api",
+    "document-processing-worker",
+    "isolated-executor",
+)
 __all__ = [
     "_browser_runner_diagnostic",
     "_editor_pressure_diagnostic",
@@ -107,12 +116,46 @@ def preflight_report(root: Path) -> dict[str, Any]:
     }
 
 
-def local_services_report(root: Path, *, wait_seconds: float) -> dict[str, Any]:
+def _select_local_services(
+    report: dict[str, Any],
+    selected_names: tuple[str, ...],
+) -> dict[str, Any]:
+    if not selected_names or "services" not in report:
+        return report
+    selected = [service for service in report["services"] if service.get("name") in selected_names]
+    unavailable = [str(service["name"]) for service in selected if not service.get("ready")]
+    return {
+        **report,
+        "ready_count": len(selected) - len(unavailable),
+        "service_count": len(selected),
+        "services": selected,
+        "status": "warning" if unavailable else "ok",
+        "unavailable_services": unavailable,
+    }
+
+
+def local_services_report(
+    root: Path,
+    *,
+    wait_seconds: float,
+    selected_names: tuple[str, ...] = (),
+) -> dict[str, Any]:
     """Wait for the standard local Console topology without changing process state."""
+    diagnostic: Callable[[Path], dict[str, Any]] = _local_services_diagnostic
+    if selected_names:
+
+        def selected_diagnostic(target: Path) -> dict[str, Any]:
+            return _select_local_services(_local_services_diagnostic(target), selected_names)
+
+        diagnostic = selected_diagnostic
     return {
         "read_only": True,
         "schema_version": SCHEMA_VERSION,
-        **_wait_for_local_services(root, timeout_seconds=wait_seconds),
+        **_wait_for_local_services(
+            root,
+            timeout_seconds=wait_seconds,
+            diagnostic=diagnostic,
+        ),
     }
 
 
@@ -281,6 +324,13 @@ def _parser() -> argparse.ArgumentParser:
     local_services_parser = subparsers.add_parser("local-services")
     local_services_parser.add_argument("--json", action="store_true", dest="as_json")
     local_services_parser.add_argument("--wait-seconds", type=float, default=15.0)
+    local_services_parser.add_argument(
+        "--only",
+        action="append",
+        choices=LOCAL_SERVICE_NAMES,
+        default=[],
+        dest="selected_names",
+    )
     context_parser = subparsers.add_parser("context-plan")
     context_parser.add_argument("targets", nargs="+")
     context_parser.add_argument("--json", action="store_true", dest="as_json")
@@ -299,7 +349,14 @@ def main(argv: list[str] | None = None) -> int:
         report = context_plan_report(Path.cwd(), arguments.targets)
         renderer = _render_context_plan
     elif arguments.command == "local-services":
-        report = local_services_report(Path.cwd(), wait_seconds=arguments.wait_seconds)
+        if arguments.selected_names:
+            report = local_services_report(
+                Path.cwd(),
+                wait_seconds=arguments.wait_seconds,
+                selected_names=tuple(arguments.selected_names),
+            )
+        else:
+            report = local_services_report(Path.cwd(), wait_seconds=arguments.wait_seconds)
         renderer = _render_local_services
     elif arguments.command == "resume":
         report = resume_report(Path.cwd())

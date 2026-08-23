@@ -72,12 +72,21 @@ class DeliverySubmitter(Protocol):
     async def put(self, record: OutboundDeliveryRecord) -> OutboundDeliveryRecord: ...
 
 
+class CompletionAuditWriter(Protocol):
+    """Idempotently persist completion audit markers in handoff order."""
+
+    async def record_completed(self, attempt: BackgroundTaskAttempt) -> None: ...
+
+    async def record_delivery_enqueued(self, attempt: BackgroundTaskAttempt) -> None: ...
+
+
 @dataclass(frozen=True, slots=True)
 class ConversationCompletionSink:
     """Append the deterministic turn and submit the immutable reply once."""
 
     appender: ConversationTurnAppender
     deliveries: DeliverySubmitter
+    audit: CompletionAuditWriter
     scope_ref: str
     binding_id: str | None = None
     freshness: timedelta = DEFAULT_FRESHNESS
@@ -86,7 +95,6 @@ class ConversationCompletionSink:
 
     async def publish(self, attempt: BackgroundTaskAttempt) -> None:
         turn = build_turn(attempt)
-        await self.appender.append(turn)
         now = (self.clock or _utc_now)()
         response = OutboundResponse(
             channel_kind=_channel_kind(attempt.task.origin.channel_kind),
@@ -97,6 +105,8 @@ class ConversationCompletionSink:
             text=turn.text,
             evidence_refs=turn.evidence_refs,
         )
+        await self.audit.record_completed(attempt)
+        await self.appender.append(turn)
         await self.deliveries.put(
             new_delivery_record(
                 origin_ref=completion_origin_ref(attempt),
@@ -110,6 +120,7 @@ class ConversationCompletionSink:
                 retention=self.retention,
             )
         )
+        await self.audit.record_delivery_enqueued(attempt)
 
 
 def completion_origin_ref(attempt: BackgroundTaskAttempt) -> str:
@@ -168,6 +179,7 @@ def _utc_now() -> datetime:
 __all__ = [
     "RESULT_LABEL",
     "BackgroundTaskTurn",
+    "CompletionAuditWriter",
     "CompletionSinkError",
     "ConversationCompletionSink",
     "ConversationTurnAppender",

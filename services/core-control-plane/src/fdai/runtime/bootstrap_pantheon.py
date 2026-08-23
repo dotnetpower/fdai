@@ -54,6 +54,7 @@ from fdai.runtime.case_history import (
 )
 from fdai.runtime.discovery_activation import DiscoveryActivationRuntime
 from fdai.runtime.forecast_learning import build_forecast_learning_runtime
+from fdai.runtime.operational_catalog_review import build_operational_catalog_review_bindings
 from fdai.runtime.post_turn_review import (
     build_azure_post_turn_models,
     build_post_turn_review_runtime,
@@ -282,6 +283,30 @@ async def initialize_pantheon(
             "vidar_recovery_contracts": sorted(thor_safety_readiness.vidar_recovery_contracts),
         },
     )
+    heimdall_action_observation_hook = None
+    observation_collector = config.container.executed_action_observation_collector
+    if observation_collector is not None:
+        observation_verifier = config.container.reconciliation_observation_verifier
+        if observation_verifier is None:  # pragma: no cover - Container invariant
+            raise RuntimeError("Heimdall action observation requires a verifier")
+        from fdai.delivery.executed_action_observation import (
+            HeimdallExecutedActionObservationHandler,
+        )
+        from fdai.delivery.reconciliation_artifacts import (
+            StateStoreExecutedActionArtifactStore,
+        )
+        from fdai.delivery.reconciliation_observations import (
+            StateStoreExecutedActionObservationStore,
+        )
+
+        heimdall_action_observation_hook = HeimdallExecutedActionObservationHandler(
+            artifacts=StateStoreExecutedActionArtifactStore(store=config.incident_audit_store),
+            collector=observation_collector,
+            observations=StateStoreExecutedActionObservationStore(
+                store=config.incident_audit_store,
+                verifier=observation_verifier,
+            ),
+        ).handle
     pantheon_runtime = PantheonRuntime.build(
         provider=config.bus,
         raw_event_topic=config.container.config.kafka.topic_events,
@@ -331,11 +356,19 @@ async def initialize_pantheon(
             "incident.alert_rate_per_hour",
         ),
         read_investigation_hook=config.read_investigation_hook,
+        heimdall_action_observation_hook=heimdall_action_observation_hook,
         discovery_projector=config.build_inventory_delta_projector(),
         scenario_coverage_aggregator=ScenarioCoverageAggregator(index=config.runtime_symptom_index),
         post_turn_review=post_turn_review.coordinator,
         case_history_materializer=(
             case_history_runtime.materializer if case_history_runtime is not None else None
+        ),
+        catalog_review=build_operational_catalog_review_bindings(
+            control_loop=config.control_loop,
+            http_client=config.http_client,
+            environment=config.environment,
+            catalog_root=Path(__file__).resolve().parents[5] / "rule-catalog",
+            policies_root=Path(__file__).resolve().parents[5] / "policies",
         ),
         case_history_analyzer=(
             case_history_runtime.analyzer if case_history_runtime is not None else None

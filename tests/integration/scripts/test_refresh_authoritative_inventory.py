@@ -23,6 +23,8 @@ def test_refresh_binds_projection_to_loaded_ontology_release() -> None:
     assert "ontology_release_digest=ontology.build_release().digest" in source
     assert "resource_type_mappings=resource_type_mapping_digests(resource_types)" in source
     assert "relationship_mapping_catalog=load_provider_relationship_mapping_catalog(" in source
+    assert "scope_coverage=query_factory.build_scope_coverage_fn()" in source
+    assert "unmapped_resources=query_factory.build_unmapped_resource_query_fn()" in source
 
 
 def test_operator_projection_is_bounded_and_filters_unsupported_links() -> None:

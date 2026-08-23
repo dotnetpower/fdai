@@ -3,8 +3,15 @@ import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { parse } from "yaml";
+import {
+  NETWORK_BOUNDARY_ROLES,
+  NETWORK_CONNECTION_KINDS,
+  NETWORK_LAYOUT_PRESETS,
+  networkVocabularyHas,
+} from "@fdai/network-topology-contracts";
 
 import { diagramDefinition } from "./definitions.js";
+import { azureDiagramIconForResourceType } from "./azure-resource-icons.js";
 import type { DiagramSpec } from "./types.js";
 
 const schemaPath = fileURLToPath(
@@ -81,6 +88,41 @@ function validateSpecializedDiagram(spec: DiagramSpec): void {
   }
 }
 
+function validateNetworkDiagram(spec: DiagramSpec): void {
+  const usesNetworkSemantics = spec.kind === "network"
+    || spec.canvas.profile === "network-azure-reference"
+    || spec.canvas.networkPreset !== undefined
+    || spec.groups.some((group) => group.networkRole !== undefined)
+    || spec.nodes.some((node) => node.networkRole !== undefined)
+    || spec.edges.some((edge) => edge.connectionKind !== undefined);
+  if (!usesNetworkSemantics) return;
+  if (spec.posture !== "expected") {
+    throw new Error("Authored network diagrams require posture 'expected'");
+  }
+  if (spec.canvas.networkPreset && spec.kind !== "network") {
+    throw new Error("Network layout presets require diagram kind 'network'");
+  }
+  for (const group of spec.groups) {
+    if (group.networkRole && !networkVocabularyHas(NETWORK_BOUNDARY_ROLES, group.networkRole)) {
+      throw new Error(`Unknown network boundary role '${group.networkRole}' on '${group.id}'`);
+    }
+  }
+  for (const edge of spec.edges) {
+    if (edge.connectionKind && !networkVocabularyHas(NETWORK_CONNECTION_KINDS, edge.connectionKind)) {
+      throw new Error(`Unknown network connection kind '${edge.connectionKind}' on '${edge.id}'`);
+    }
+    if (edge.sourceEvidence && edge.sourceEvidence !== "expected") {
+      throw new Error(`Authored edge '${edge.id}' requires expected evidence posture`);
+    }
+  }
+  if (
+    spec.canvas.networkPreset
+    && !networkVocabularyHas(NETWORK_LAYOUT_PRESETS, spec.canvas.networkPreset)
+  ) {
+    throw new Error(`Unknown network layout preset '${spec.canvas.networkPreset}'`);
+  }
+}
+
 export function validateDiagram(value: unknown): DiagramSpec {
   if (!validateSchema(value)) {
     throw new Error(`Diagram schema validation failed: ${formatSchemaErrors(validateSchema.errors)}`);
@@ -89,6 +131,7 @@ export function validateDiagram(value: unknown): DiagramSpec {
   const spec = value as DiagramSpec;
   if (spec.kind === "gantt") validateGantt(spec);
   validateSpecializedDiagram(spec);
+  validateNetworkDiagram(spec);
   const definition = diagramDefinition(spec.kind);
   if (
     definition.requiredEdgeKind &&
@@ -120,6 +163,7 @@ export function validateDiagram(value: unknown): DiagramSpec {
   }
 
   const groupIds = new Set(spec.groups.map((group) => group.id));
+  const edgeIds = new Set(spec.edges.map((edge) => edge.id));
   for (const element of [...spec.groups, ...spec.nodes]) {
     if (element.parent && !groupIds.has(element.parent)) {
       throw new Error(`Unknown parent group '${element.parent}' on '${element.id}'`);
@@ -130,10 +174,20 @@ export function validateDiagram(value: unknown): DiagramSpec {
       throw new Error(`Unknown alignment group '${group.alignWith}' on '${group.id}'`);
     }
   }
+  for (const annotation of spec.annotations ?? []) {
+    if (annotation.anchor && !elementIds.includes(annotation.anchor) && !edgeIds.has(annotation.anchor)) {
+      throw new Error(`Unknown annotation anchor '${annotation.anchor}' on '${annotation.id}'`);
+    }
+  }
 
   const nodeById = new Map(spec.nodes.map((node) => [node.id, node]));
   for (const node of spec.nodes) {
-    if (node.presentation === "icon" && !node.icon && node.kind !== "agent") {
+    if (
+      node.presentation === "icon"
+      && !node.icon
+      && !azureDiagramIconForResourceType(node.resourceType)
+      && node.kind !== "agent"
+    ) {
       throw new Error(`Icon presentation requires an icon on '${node.id}'`);
     }
   }

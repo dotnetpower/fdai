@@ -24,6 +24,10 @@ from fdai.core.assurance_twin import (
     StateStoreGraphEffectModelRegistry,
     StateStoreTrajectoryEpisodeLedger,
 )
+from fdai.core.measurement import (
+    OperationalPromotionEvaluator,
+    OperationalPromotionMeasurementRunner,
+)
 from fdai.core.measurement.regression import RegressionDetector
 from fdai.core.measurement.runners import (
     AutomatedBaselineRunner,
@@ -32,6 +36,12 @@ from fdai.core.measurement.runners import (
 )
 from fdai.core.operator_memory import InMemoryOperatorMemoryStore
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
+from fdai.delivery.measurement.operational_promotion_evidence import (
+    ImmutableFileOperationalPromotionEvidenceSource,
+    ManifestCausalPromotionReceiptVerifier,
+    ManifestOperationalPromotionUnitVerifier,
+    OperationalPromotionEvidenceManifest,
+)
 from fdai.delivery.measurement.postgres_growth import (
     PostgresResponseOutcomeSource,
     PostgresVerifiedOutcomeSource,
@@ -44,7 +54,10 @@ from fdai.delivery.persistence import (
     PostgresStateStore,
     PostgresStateStoreConfig,
     StateStoreActionPromotionRegistry,
+    StateStoreOperationalPromotionReceiptStore,
 )
+from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
+from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 
 _LOGGER = logging.getLogger("fdai.delivery.measurement_runner_cli")
 
@@ -52,6 +65,7 @@ _LOGGER = logging.getLogger("fdai.delivery.measurement_runner_cli")
 class MeasurementMode(StrEnum):
     BASELINE = "baseline"
     GROWTH = "growth"
+    OPERATIONAL_PROMOTION = "operational-promotion"
 
 
 def _required_env(name: str) -> str:
@@ -66,6 +80,14 @@ def _repo_root() -> Path:
         if (candidate / "rule-catalog").is_dir() and (candidate / "tests" / "scenarios").is_dir():
             return candidate
     raise FileNotFoundError("measurement artifacts are missing from the runtime image")
+
+
+def _catalog_root() -> Path:
+    for candidate in (Path.cwd(), Path("/app"), *Path(__file__).resolve().parents):
+        catalog = candidate / "rule-catalog"
+        if catalog.is_dir():
+            return catalog
+    raise FileNotFoundError("rule catalog is missing from the runtime image")
 
 
 async def _run_baseline() -> int:
@@ -174,6 +196,77 @@ async def _run_growth() -> int:
     return 0
 
 
+async def _run_operational_promotion() -> int:
+    dsn = _required_env("FDAI_STATE_STORE_DSN")
+    revision = _required_env("FDAI_REVISION")
+    scenario_set_version = _required_env("FDAI_SCENARIO_SET_VERSION")
+    evidence_root_raw = os.environ.get("FDAI_OPERATIONAL_PROMOTION_EVIDENCE_ROOT", "").strip()
+    catalog_root = _catalog_root()
+    evidence_root = Path(evidence_root_raw) if evidence_root_raw else catalog_root.parent
+    evidence_root = evidence_root.resolve(strict=True)
+    manifest_path = _bounded_evidence_path(
+        root=evidence_root,
+        value=_required_env("FDAI_OPERATIONAL_PROMOTION_MANIFEST"),
+    )
+    manifest = OperationalPromotionEvidenceManifest.load(manifest_path)
+    action_types = load_ontology_catalog(
+        catalog_root,
+        schema_registry=PackageResourceSchemaRegistry(),
+    ).action_types
+    selected = tuple(
+        action_type
+        for action_type in action_types
+        if action_type.name in manifest.action_type_names
+    )
+    missing = manifest.action_type_names - {action_type.name for action_type in selected}
+    if missing:
+        raise ValueError(
+            "operational promotion manifest references unknown ActionTypes: "
+            + ", ".join(sorted(missing))
+        )
+    state_store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=dsn))
+    evaluator = OperationalPromotionEvaluator(
+        expected_fdai_revision=revision,
+        expected_scenario_set_version=scenario_set_version,
+        causal_receipt_verifier=ManifestCausalPromotionReceiptVerifier(manifest),
+        unit_verifier=ManifestOperationalPromotionUnitVerifier(manifest),
+    )
+    results = await OperationalPromotionMeasurementRunner(
+        source=ImmutableFileOperationalPromotionEvidenceSource(manifest),
+        evaluator=evaluator,
+        audit_store=state_store,
+        receipt_sink=StateStoreOperationalPromotionReceiptStore(state_store),
+        fdai_revision=revision,
+        scenario_set_version=scenario_set_version,
+    ).run(selected)
+    aborted = tuple(item for item in results if item.aborted_reason is not None)
+    _LOGGER.info(
+        "operational_promotion_measurement_complete",
+        extra={
+            "scenario_set_version": scenario_set_version,
+            "action_type_count": len(results),
+            "ready_count": sum(item.receipt is not None and item.receipt.ready for item in results),
+            "held_count": sum(
+                item.receipt is not None and not item.receipt.ready for item in results
+            ),
+            "aborted_count": len(aborted),
+        },
+    )
+    return 3 if aborted else 0
+
+
+def _bounded_evidence_path(*, root: Path, value: str) -> Path:
+    candidate = Path(value)
+    if not candidate.is_absolute():
+        candidate = root / candidate
+    resolved = candidate.resolve(strict=True)
+    try:
+        resolved.relative_to(root)
+    except ValueError as exc:
+        raise ValueError("operational promotion evidence path escapes its configured root") from exc
+    return resolved
+
+
 async def _amain(argv: list[str]) -> int:
     mode_raw = argv[0].lower() if argv else os.environ.get("FDAI_MEASUREMENT_MODE", "").lower()
     try:
@@ -182,7 +275,11 @@ async def _amain(argv: list[str]) -> int:
         _LOGGER.error("invalid_measurement_mode", extra={"mode": mode_raw or "<unset>"})
         return 2
     try:
-        return await (_run_baseline() if mode is MeasurementMode.BASELINE else _run_growth())
+        if mode is MeasurementMode.BASELINE:
+            return await _run_baseline()
+        if mode is MeasurementMode.GROWTH:
+            return await _run_growth()
+        return await _run_operational_promotion()
     except Exception:
         _LOGGER.exception("measurement_runner_failed", extra={"mode": mode.value})
         return 3

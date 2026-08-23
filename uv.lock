@@ -1028,6 +1028,7 @@ source = { editable = "services/operator-service" }
 dependencies = [
     { name = "aiohttp" },
     { name = "aiokafka" },
+    { name = "anyio" },
     { name = "azure-core" },
     { name = "azure-identity" },
     { name = "fdai-service-contracts" },
@@ -1048,6 +1049,7 @@ pdf-report = [
 requires-dist = [
     { name = "aiohttp", specifier = ">=3.14.2,<4" },
     { name = "aiokafka", specifier = ">=0.12,<0.13" },
+    { name = "anyio", specifier = ">=4.11,<5" },
     { name = "azure-core", specifier = ">=1.28,<2" },
     { name = "azure-identity", specifier = ">=1.23,<2" },
     { name = "fdai-service-contracts", editable = "packages/service-contracts" },

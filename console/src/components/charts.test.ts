@@ -1,10 +1,18 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
-import { positionTrendPoints } from "./charts";
-import { availableSeriesIndices, visibleTickIndices } from "./charts-series";
+import { distributionColor, normalizeComparisonItems, positionTrendPoints } from "./charts";
+import {
+  availableSeriesIndices,
+  contiguousSeriesSegments,
+  percentSeriesDataIsValid,
+  projectSeriesValues,
+  seriesBounds,
+  visibleTickIndices,
+} from "./charts-series";
 import {
   TREMOR_CHART_COLORS,
+  TREMOR_CHART_CATALOG,
   TREMOR_CHART_COMPONENTS,
   TREMOR_CHART_COMPOSITIONS,
   TREMOR_CHART_HEX,
@@ -45,6 +53,25 @@ describe("shared chart primitives", () => {
     for (const component of TREMOR_CHART_COMPONENTS) {
       expect(source).toContain(component);
     }
+  });
+
+  test("pins every example currently published on the official charts catalog", () => {
+    expect(TREMOR_CHART_CATALOG).toHaveLength(33);
+    expect(TREMOR_CHART_CATALOG).toEqual([
+      "Area Chart", "Area Chart with stacked categories", "Area Chart with percentages",
+      "Area Chart with axis titles", "Area Chart with only start and end x-axis labels",
+      "Area Chart with tooltip callback", "Bar Chart", "Bar Chart with stacked categories",
+      "Bar Chart with percentages", "Bar Chart with axis titles", "Vertical Bar Chart",
+      "Bar Chart with only start and end x-axis labels", "Grouped Bar Chart",
+      "Bar Chart with conditional formatting", "Bar Chart with custom styling",
+      "Bar Chart with rounded-sm top corner bars", "Bar Chart with gradient bars",
+      "Line Chart", "Line Chart with axis titles",
+      "Line Chart with only start and end x-axis labels", "Line Chart with custom tooltip",
+      "ComboChart", "Donut Chart", "Donut Chart as pie variant",
+      "Donut Chart with tooltip callback", "Progress Circle",
+      "Progress Circle with its default variants", "Progress Circle complemented by a metric",
+      "Spark Chart", "Category Bar", "Category Bar with marker", "Tracker", "Bar List",
+    ]);
   });
 
   test("declares and exports every supported Tremor showcase composition family", () => {
@@ -101,7 +128,8 @@ describe("shared chart primitives", () => {
     expect(seriesSource).toContain("entries.map((entry)");
     for (const option of [
       "showHeader", "showLegend", "showXAxis", "showYAxis", "showGridLines",
-      "startEndOnly", "xAxisTickCount", "yAxisWidth", "minValue", "maxValue", "onActiveDatumChange",
+      "startEndOnly", "xAxisTickCount", "yAxisWidth", "minValue", "maxValue",
+      "onActiveDatumChange", "onValueChange",
     ]) {
       expect(seriesSource).toContain(option);
     }
@@ -109,6 +137,7 @@ describe("shared chart primitives", () => {
     expect(seriesSource).toContain('class="fd-series-x-axis"');
     expect(styles).toContain(".fd-series-slice:focus-visible");
     expect(styles).toContain(".fd-series-slice:hover::before");
+    expect(styles).toContain('.fd-series-slice[data-selected="true"]::before');
     expect(styles).not.toContain("canvas");
   });
 
@@ -123,6 +152,31 @@ describe("shared chart primitives", () => {
     expect(visibleTickIndices(17, 6)).toEqual([0, 3, 6, 10, 13, 16]);
     expect(visibleTickIndices(7, 7)).toEqual([0, 1, 2, 3, 4, 5, 6]);
     expect(visibleTickIndices(1, 2)).toEqual([0]);
+  });
+
+  test("projects percent values and stacked bounds without changing exact source values", () => {
+    const data = [
+      { label: "A", values: [30, 70] },
+      { label: "B", values: [20, 30] },
+    ];
+    expect(projectSeriesValues(data, [0, 1], "percent")).toEqual([[30, 70], [40, 60]]);
+    expect(seriesBounds(projectSeriesValues(data, [0, 1], "percent"), "percent")).toEqual({ minimum: 0, maximum: 100 });
+    expect(seriesBounds([[30, 70], [-20, 30]], "stacked")).toEqual({ minimum: -20, maximum: 100 });
+    expect(data[1]?.values).toEqual([20, 30]);
+  });
+
+  test("preserves series gaps and rejects negative percent rows", () => {
+    expect(contiguousSeriesSegments([
+      { dataIndex: 0, value: 10 },
+      { dataIndex: 2, value: 20 },
+      { dataIndex: 3, value: 30 },
+    ])).toEqual([
+      [{ dataIndex: 0, value: 10 }],
+      [{ dataIndex: 2, value: 20 }, { dataIndex: 3, value: 30 }],
+    ]);
+    expect(percentSeriesDataIsValid([{ label: "A", values: [50, -30, 20] }], [0, 1, 2])).toBe(false);
+    expect(percentSeriesDataIsValid([{ label: "A", values: [50, 30, 20] }], [0, 1, 2])).toBe(true);
+    expect(styles).toContain('.fd-series-chart[data-fill="gradient"] .fd-series-area');
   });
 
   test("exports every compact Tremor chart and tracking visualization", () => {
@@ -140,6 +194,12 @@ describe("shared chart primitives", () => {
     expect(compactSource).toContain('anchorClassName="fd-donut-tooltip"');
     expect(compactSource).toContain('anchorClassName="fd-progress-tooltip"');
     expect(compactSource).toContain('anchorClassName="fd-progress-circle-tooltip"');
+    expect(compactSource).toContain("onActiveSegmentChange");
+    expect(compactSource).toContain('variant = "default"');
+    expect(compactSource).toContain("radius = 44");
+    expect(compactSource).toContain("children ?? exact");
+    expect(compactSource).toContain('<div role="listitem"');
+    expect(compactSource).not.toContain('<button type="button" role="listitem"');
     expect(styles).toContain(".fd-donut-legend button:focus-visible");
     expect(styles).toContain(".fd-donut-visual:focus-visible");
     expect(styles).toContain(".fd-progress-chart:focus-visible");
@@ -162,6 +222,24 @@ describe("shared chart primitives", () => {
     expect(source).toContain('class="fd-distribution-legend"');
     expect(source).toContain("<dd>{formatValue(segment.value)}</dd>");
     expect(source).toContain("total === 0 ? 0");
+    expect(source).toContain('class="fd-category-marker"');
+    expect(styles).toContain(".fd-category-marker:focus-visible");
+    expect(new Set(Array.from({ length: 9 }, (_, index) => distributionColor(index))).size).toBe(9);
+    expect(styles).toContain("@keyframes fd-category-marker-in");
+    expect(source).toContain("marker && total > 0");
+  });
+
+  test("does not misrepresent negative BarList values or baselines at zero width", () => {
+    expect(normalizeComparisonItems([
+      { label: "Valid", value: 20, baseline: 10 },
+      { label: "Negative current", value: -5, baseline: 4 },
+      { label: "Negative baseline", value: 8, baseline: -2 },
+      { label: "Non-finite baseline", value: 6, baseline: Number.NaN },
+    ])).toEqual([
+      { label: "Valid", value: 20, baseline: 10 },
+      { label: "Negative baseline", value: 8 },
+      { label: "Non-finite baseline", value: 6 },
+    ]);
   });
 
   test("uses a native table and focusable exact values for density", () => {

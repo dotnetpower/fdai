@@ -72,11 +72,23 @@
         "services/core-control-plane/src/fdai/shared/providers/inventory*.py",
         "services/core-control-plane/src/fdai/core/ontology_platform/inventory_projection.py",
         "services/core-control-plane/src/fdai/core/ontology_platform/topology_history.py",
+        "services/core-control-plane/src/fdai/core/ontology_platform/graph_evidence_refresh.py",
+        "services/core-control-plane/src/fdai/core/ontology_platform/operational_instance_competency.py",
+        "services/core-control-plane/src/fdai/core/ontology_platform/semantic_rollup*.py",
+        "services/core-control-plane/src/fdai/core/ontology_platform/archive_*.py",
         "services/core-control-plane/src/fdai/delivery/inventory_*.py",
+        "services/core-control-plane/src/fdai/delivery/operational_archive_purge.py",
         "services/core-control-plane/src/fdai/delivery/azure/inventory.py",
         "services/core-control-plane/src/fdai/runtime/inventory_ontology.py",
         "services/core-control-plane/src/fdai/delivery/persistence/postgres_*inventory*.py",
         "services/core-control-plane/src/fdai/delivery/persistence/postgres_*topology*.py",
+        "services/core-control-plane/src/fdai/delivery/persistence/postgres_operational_archive.py",
+        "services/core-control-plane/tests/core/ontology_platform/test_graph_evidence_refresh.py",
+        "services/core-control-plane/tests/core/ontology_platform/test_operational_instance_competency.py",
+        "services/core-control-plane/tests/delivery/test_inventory_live_evidence.py",
+        "console/tests/live-e2e/golden-semantic-campaign*.ts",
+        "service-migrations/branches/core-control-plane/versions/*operational_archive.py",
+        "tests/integration/test_operational_instance_retention.py",
         "infra/modules/compute/container-apps/inventory_job.tf"
       ],
       "must_read": [
@@ -98,6 +110,9 @@
         "uv run pytest -q --no-cov tests/integration/scripts/test_continuous_operational_instance_graph_audit.py",
         "uv run python scripts/quality/architecture/check-continuous-operational-instance-graph-audit.py",
         "uv run pytest -q --no-cov services/core-control-plane/tests/delivery/test_inventory_sync.py services/core-control-plane/tests/runtime/test_inventory_ontology.py services/core-control-plane/tests/core/ontology_platform/test_inventory_projection.py",
+        "uv run pytest -q --no-cov services/core-control-plane/tests/core/ontology_platform/test_semantic_rollup.py services/core-control-plane/tests/core/ontology_platform/test_archive_manifest.py services/core-control-plane/tests/delivery/test_operational_archive_purge.py tests/integration/test_operational_instance_retention.py",
+        "uv run pytest -q --no-cov services/core-control-plane/tests/core/ontology_platform/test_graph_evidence_refresh.py services/core-control-plane/tests/core/ontology_platform/test_operational_instance_competency.py services/core-control-plane/tests/delivery/test_inventory_live_evidence.py",
+        "cd console && npx vitest run tests/live-e2e/golden-semantic-campaign.test.ts",
         "python3 scripts/quality/architecture/check-design-routes.py"
       ]
     },
@@ -1258,6 +1273,35 @@
       ],
       "validate": [
         "uv run python scripts/quality/architecture/check-independent-services.py"
+      ]
+    },
+    {
+      "id": "network-topology-visualization",
+      "paths": [
+        "packages/network-topology-contracts/**",
+        "tools/architecture-diagrams/**",
+        "docs/diagrams/*network*.diagram.yaml",
+        "console/src/components/architecture-*.ts*",
+        "console/src/routes/architecture*.ts*",
+        "console/src/routes/i18n/architecture.*.json",
+        "docs/roadmap/interfaces/network-topology-visualization*.md"
+      ],
+      "must_read": [
+        ".github/instructions/app-shape.instructions.md",
+        "docs/roadmap/interfaces/network-topology-visualization.md",
+        "docs/roadmap/interfaces/console-evidence-and-resilience.md",
+        "docs/roadmap/architecture/azure-inventory-network-paths.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/interfaces/network-topology-visualization.md",
+        "docs/roadmap/interfaces/console-evidence-and-resilience.md",
+        "console/README.md",
+        "tools/architecture-diagrams/README.md"
+      ],
+      "validate": [
+        "npm --prefix packages/network-topology-contracts test",
+        "npm --prefix tools/architecture-diagrams test",
+        "npm --prefix console test -- --run src/components/architecture-map.test.ts src/components/architecture-map.model.test.ts src/components/architecture-network-layout.test.ts src/components/architecture-network-path.test.ts src/components/architecture-network-path-layout.test.ts"
       ]
     },
     {

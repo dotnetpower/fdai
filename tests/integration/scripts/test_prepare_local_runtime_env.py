@@ -144,6 +144,7 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         "FDAI_SEMANTIC_TURN_REQUEST_TOPIC=stale.requests\n"
         "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC=stale.projections\n"
         "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC=stale.physical\n"
+        "FDAI_READ_INVESTIGATION_REQUEST_TOPIC=stale.read.requests\n"
         "KAFKA_TOPIC_EVENTS=stale.topic\n"
         "FDAI_CANARY_TOPIC=stale.canary\n"
         "FDAI_INVENTORY_RAW_TOPIC=stale.inventory\n"
@@ -159,7 +160,9 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
     )
     semantic_outputs = (
         'elif [[ "$*" == *"output -json event_bus_semantic_topics"* ]]; then\n'
-        f'  printf \'["{SEMANTIC_REQUEST_TOPIC}","{SEMANTIC_PROJECTION_TOPIC}"]\'\n'
+        f'  printf \'["{SEMANTIC_REQUEST_TOPIC}",'
+        f'"{SEMANTIC_PROJECTION_TOPIC}",'
+        '"operator.read-investigation.requests"]\'\n'
         'elif [[ "$*" == *"output -raw event_bus_semantic_physical_topic"* ]]; then\n'
         f"  printf '{SEMANTIC_PHYSICAL_TOPIC}'\n"
         if semantic_outputs_present
@@ -248,6 +251,7 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         "FDAI_SEMANTIC_TURN_REQUEST_TOPIC=operator.semantic-turn.requests",
         "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC=core.semantic-turn.projections",
         "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC=fdai.pantheon.objects",
+        "FDAI_READ_INVESTIGATION_REQUEST_TOPIC=operator.read-investigation.requests",
         "KAFKA_TOPIC_EVENTS=fdai.change.events",
         "FDAI_STAGE_TOPIC=fdai.pipeline.stages",
         "FDAI_PANTHEON_OBJECT_TOPIC=fdai.pantheon.objects",

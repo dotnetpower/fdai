@@ -24,8 +24,12 @@ rule and action catalogs for governed reuse instead of creating a benchmark-only
 > Muninn groups the sealed projections by failure fingerprint, and Norns emits balanced inert
 > candidates through its existing consensus and rate limits. Operational T1 reuse requires current
 > evidence, causal and Dynamic grades require authoritative receipts, and promotion requires a
-> verified immutable O7 receipt. Deployments still bind the O3 validator and PR publisher,
-> Forseti-owned causal projection, frozen/live evidence source, and receipt verifiers. Mimir emits
+> verified immutable O7 receipt. O3 now binds a deterministic frozen-scenario validator and an
+> inert draft-PR publisher when its complete deployment configuration is available. O7 has a
+> strict immutable-file evidence source, manifest-bound causal and unit verifiers, durable receipt
+> sink, and one-shot measurement job. Heimdall now has a typed terminal ActionRun observation path
+> and an Azure Container Apps `ops.scale-out` collector, while deployments still supply its signed
+> context issuer, complete Forseti-owned lineage inputs, and action-specific live evidence. Mimir emits
 > review outcomes on its owned rule topic, and Saga seals them on its owned audit topic.
 > Reproduced semantic-retrieval failures enter through Huginn, become Heimdall-owned independent
 > validation evidence audited by Saga, and are materialized by Muninn on the context-index topic.
@@ -342,6 +346,36 @@ the only activation path; Saga seals review outcomes from Mimir-owned `object.ru
 | Azure absorption | Every non-Kubernetes treatment names a canonical resource type, Azure evidence provider, agent owner, governed action provider or explicit no-mutation outcome, and non-production proof. |
 | Coverage honesty | Missing provider coverage remains an explicit unsupported surface and cannot satisfy `operationalized` or `azure_validated`. |
 
+## O7 evidence deployment contract
+
+The O7 job consumes reviewed evidence; it does not collect or manufacture live observations. A
+deployment packages the digest-only JSON files in its pinned runtime image or exposes them through
+a protected read-only mount. The configured evidence root is absolute inside the container, while
+the manifest and every batch path are relative and remain inside that root. Symlinks, non-regular
+files, path escapes, oversized files, digest mismatches, unknown fields, and unverified causal or
+measurement-unit references fail closed.
+
+The manifest uses `schema_version: 1.0.0` and contains exactly these fields:
+
+- `batches`: one entry per ActionType with `action_type_name`, relative `path`, and the expected
+  canonical `content_digest`;
+- `causal_receipt_digests`: the complete allowlist of causal receipt SHA-256 digests; and
+- `unit_evidence_refs`: a mapping from canonical measurement-unit id to its exact evidence digest
+  set.
+
+Each batch binds the full FDAI revision, scenario-set version, ActionType name, version, and digest,
+seal time, and bounded records. A record carries a canonical scenario case, cohort, observation
+time, execution and rollback facts, recurrence-window state, causal receipt, Dynamic review state,
+and unique evidence digests. Corrections can raise `audit_sequence` only for the same measurement
+unit and cannot change cohort, case, observation time, or causal lineage.
+
+Terraform creates the Container Apps Job only when
+`operational_promotion_measurement_enabled=true`. The deployment also supplies a full immutable
+`operational_promotion_measurement_revision`, an absolute
+`operational_promotion_evidence_root`, and a relative `operational_promotion_manifest`. The job
+reuses the existing managed identity and Key Vault-backed StateStore DSN. It measures and stores
+receipts only; it has no catalog, promotion-registry, or executor authority.
+
 ## Implementation status
 
 ### Implementation scope
@@ -350,10 +384,10 @@ the only activation path; Saga seals review outcomes from Mimir-owned `object.ru
 |------|-------|----------|-------|
 | O0-O1 case contracts and projection | implemented | `services/core-control-plane/src/fdai/core/case_history/`; `services/core-control-plane/tests/core/case_history/test_operational_case.py`; `test_service.py` | Immutable inputs, canonical fingerprints, negative outcomes, revisions, and persistence are covered. |
 | O2 cohort learning | implemented | `services/core-control-plane/src/fdai/core/operational_learning/patterns.py`; `services/core-control-plane/tests/agents/test_operating_pattern_learning_e2e.py`; `test_norns_operating_pattern.py` | Muninn seals bounded cohorts and Norns emits only balanced inert candidates through consensus. |
-| O3 catalog compilation | in-progress | `services/core-control-plane/src/fdai/core/operational_learning/catalog.py`; `review.py`; `services/core-control-plane/tests/core/operational_learning/test_catalog_compilation.py` | Core review packages are implemented. The production validator and pull-request publisher remain deployment bindings. |
+| O3 catalog compilation | implemented | `services/core-control-plane/src/fdai/core/operational_learning/catalog.py`; `services/core-control-plane/src/fdai/delivery/gitops_pr/catalog_validator.py`; `catalog_review.py`; `services/core-control-plane/src/fdai/runtime/operational_catalog_review.py`; focused O3 tests | Complete configuration binds existing Rule schema validation, deterministic frozen replay, regression and policy checks, and a content-addressed inert draft PR. Missing or partial configuration stays unavailable or fails startup. |
 | O4 current-evidence T1 reuse | implemented | `services/core-control-plane/tests/core/tiers/t1_lightweight/test_contextual_reuse.py`; `tests/core/test_control_loop_t1_wire.py` | Missing, stale, changed, or unsafe current evidence holds for review without mutation. |
 | O5-O6 Azure evidence bindings | validated | [Delivery plan](#delivery-plan); `services/core-control-plane/src/fdai/delivery/azure/operational_evidence.py`; focused delivery tests | Repository-recorded non-production AKS and read-only Azure drills provide the required operational evidence without a production claim. |
-| O7 promotion measurement | in-progress | `services/core-control-plane/src/fdai/core/measurement/operational_promotion.py`; `operational_promotion_runner.py`; `services/core-control-plane/tests/core/measurement/test_operational_promotion.py` | The gate and durable receipt path are implemented, but required action-specific live days and confidence samples remain incomplete. |
+| O7 promotion measurement | in-progress | `services/core-control-plane/src/fdai/core/measurement/operational_promotion.py`; `operational_promotion_runner.py`; `services/core-control-plane/src/fdai/delivery/measurement/operational_promotion_evidence.py`; `measurement_runner_cli.py`; `infra/modules/measurement-runners/`; focused O7 tests and Terraform validation | The evidence consumer, exact-digest verifiers, durable receipt sink, and opt-in scheduled job are implemented. No runtime producer currently creates the live batches, and required action-specific live days and confidence samples remain incomplete. |
 | Evaluation-adapter case intake | deferred | [Benchmark adapter dormant status](../interfaces/benchmark-adapters.md#dormant-status) | No current EvaluationHost or adapter runtime can emit case inputs. The semantic golden dataset remains outside case history and learning. |
 
 ### Implementation history
@@ -362,11 +396,22 @@ the only activation path; Saga seals review outcomes from Mimir-owned `object.ru
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | `current change`; delivery-plan evidence and focused source/tests listed in the scope table. | Complete deployment bindings and O7 action-specific evidence thresholds. |
 | 2026-08-21 | deferred | Corrected evaluation intake after the host integration was found absent from the current tree. Kept the new semantic golden dataset outside operational-case and promotion authority. | `current change`; benchmark adapter dormant-status decision; `eval/golden-dataset/`; focused dataset contract checks. | Reopen adapter intake only with a restored governed host and canonical case-input receipts. |
+| 2026-08-23 | implemented | Bound O3 to the existing Rule loader, shadow evaluator, regression gate, and draft-only GitOps adapter. The published artifact is content-addressed and cannot activate its draft Rule or ActionType. | `current change`; `delivery/gitops_pr/{catalog_validator,catalog_review}.py`; `runtime/operational_catalog_review.py`; focused O3 tests passed. | Retain a governed draft-PR receipt from a configured deployment. |
+| 2026-08-23 | in-progress | Added an exact-digest O7 evidence consumer, manifest-bound causal and unit verifiers, durable receipt persistence, and an opt-in `operational-promotion` Container Apps Job. | `current change`; `delivery/measurement/operational_promotion_evidence.py`; `delivery/measurement_runner_cli.py`; `infra/modules/measurement-runners/`; focused O7 tests and Terraform validation passed. | Implement the governed live-batch producer, then supply action-specific batches and close their observation and recurrence windows. |
 
 ### Remaining work
 
-- [ ] Bind the O3 production validator and pull-request publisher and prove quarantine, retry, audit, and idempotent publication end to end.
-- [ ] Bind the Forseti-owned causal projection, frozen/live evidence source, and receipt verifiers in the target deployment.
+- [x] Bind the O3 production validator and pull-request publisher. Focused compiler, Mimir,
+  publisher, retry, audit, and idempotency checks prove the local end-to-end path; deployed PR
+  evidence remains operational validation rather than implementation work.
+- [ ] Bind the deployment-owned signed-context issuer and preserve the missing planning properties
+  required by the Forseti-owned causal lineage projection. The exact-plan resolver, Heimdall typed
+  producer, Azure scale-out collector, verified mailbox, O7 source, and receipt verifiers are
+  implemented, but no runtime producer can yet materialize the complete lineage records.
+- [ ] Reconcile the catalog's one-to-many `expects` relationship with the singular
+  `expected_effect_ref` runtime lineage before binding the projector. The exit condition is a
+  migration-backed contract and focused test that preserves every selected option effect without
+  choosing or fabricating one metric.
 - [ ] Accumulate the O7 per-action live days, sample sizes, complete recurrence windows, Wilson bounds, and zero-escape evidence required for promotion review.
 - [ ] If evaluation host integration is reactivated, prove that adapter results enter only through
   canonical operational-case receipts and cannot treat golden-answer success as promotion evidence.

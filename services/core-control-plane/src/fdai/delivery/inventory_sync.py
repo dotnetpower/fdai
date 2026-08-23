@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import socket
+from collections import Counter
 from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -119,6 +120,12 @@ class InventorySyncCoordinator:
                 )
                 metadata = dict(source.manifest.metadata)
                 metadata.pop("provider_scope_coverage", None)
+                relationship_drop_reasons = observed.relationship_drop_reasons()
+                metadata["relationship_complete"] = not relationship_drop_reasons
+                metadata["relationship_drop_reasons"] = list(relationship_drop_reasons)
+                metadata["relationship_drop_classifications"] = list(
+                    observed.relationship_drop_classifications()
+                )
                 if provider_scope_coverage is not None:
                     metadata["provider_scope_coverage"] = provider_scope_coverage.to_metadata()
                 manifest = InventoryCoverageManifest(
@@ -193,8 +200,9 @@ class InventorySyncCoordinator:
                     if batch.final:
                         saw_final = True
                         provider_scope_coverage = batch.provider_scope_coverage
-                    if batch.resources or batch.links:
+                    if batch.resources or batch.links or batch.relationship_drops:
                         observed.add(batch)
+                    if batch.resources or batch.links:
                         await self._store.stage(
                             attempt_id,
                             InventoryBatch(
@@ -232,6 +240,7 @@ class _ObservationAccumulator:
         self._truncated = False
 
     def add(self, batch: InventoryBatch) -> None:
+        self._relationship_drops.extend(batch.relationship_drops)
         if not self._enabled or self._truncated:
             return
         if (
@@ -244,7 +253,63 @@ class _ObservationAccumulator:
             return
         self._resources.extend(batch.resources)
         self._links.extend(batch.links)
-        self._relationship_drops.extend(batch.relationship_drops)
+
+    def relationship_drop_reasons(self) -> tuple[str, ...]:
+        """Return stable relationship coverage gaps for the promoted snapshot manifest."""
+
+        reasons = {drop.reason.value for drop in self._relationship_drops}
+        if self._truncated:
+            reasons.add("partial_generation")
+        return tuple(sorted(reasons))
+
+    def relationship_drop_classifications(self) -> tuple[dict[str, object], ...]:
+        """Return bounded mapping-specific counts without provider identifiers."""
+
+        counts = Counter(
+            (
+                drop.reason.value,
+                drop.mapping_id or "unattributed",
+                drop.source_property_path or "unattributed",
+                drop.source_provider_type or "unattributed",
+                drop.target_provider_type or "unresolved",
+                (
+                    drop.unavailable_reason.value
+                    if drop.unavailable_reason is not None
+                    else "unclassified"
+                ),
+            )
+            for drop in self._relationship_drops
+        )
+        if self._truncated:
+            counts[
+                (
+                    "partial_generation",
+                    "unattributed",
+                    "unattributed",
+                    "unattributed",
+                    "unresolved",
+                    "unclassified",
+                )
+            ] += 1
+        return tuple(
+            {
+                "reason": reason,
+                "mapping_id": mapping_id,
+                "source_property_path": source_property_path,
+                "source_provider_type": source_provider_type,
+                "target_provider_type": target_provider_type,
+                "unavailable_reason": unavailable_reason,
+                "count": count,
+            }
+            for (
+                reason,
+                mapping_id,
+                source_property_path,
+                source_provider_type,
+                target_provider_type,
+                unavailable_reason,
+            ), count in sorted(counts.items())
+        )
 
     def result(self, *, generation: str, recorded_at: datetime) -> PromotedInventoryObservation:
         projected = (

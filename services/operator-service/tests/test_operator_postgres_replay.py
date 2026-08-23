@@ -12,6 +12,9 @@ from fdai_operator_service.families.operations.contracts import (
     InventoryImpactContext,
     InventoryImpactEdge,
     InventoryImpactLinkPage,
+    InventoryInstanceActivityPage,
+    InventoryInstanceNeighborhood,
+    InventoryRelationshipDropClassification,
     ProjectionNotFoundError,
     ProjectionQuery,
     ReplayQuery,
@@ -99,6 +102,74 @@ async def test_postgres_operations_builds_dynamic_impact_instead_of_reading_stat
     assert result["mutation_authority"] is False
 
 
+async def test_postgres_operations_builds_dynamic_instance_projection(
+    monkeypatch: Any,
+) -> None:
+    async def read_projection(
+        self: PostgresFamilyStore,
+        *,
+        family: str,
+        operation: str,
+    ) -> Mapping[str, object]:
+        del self
+        assert (family, operation) == ("operations", "ontology.graph")
+        return {
+            "ontology_release_digest": f"sha256:{'a' * 64}",
+            "link_types": ["contains"],
+        }
+
+    async def read_context(self: PostgresFamilyStore) -> InventoryImpactContext:
+        del self
+        return InventoryImpactContext(
+            snapshot_id="generation-1",
+            observed_at=datetime(2026, 8, 22, tzinfo=UTC),
+        )
+
+    async def read_neighborhood(
+        self: PostgresFamilyStore,
+        **kwargs: object,
+    ) -> InventoryInstanceNeighborhood:
+        del self
+        assert kwargs["root_id"] == "root"
+        return InventoryInstanceNeighborhood(resources=(), edges=(), truncated=False)
+
+    async def read_activity(
+        self: PostgresFamilyStore,
+        **kwargs: object,
+    ) -> InventoryInstanceActivityPage:
+        del self, kwargs
+        return InventoryInstanceActivityPage(activities=(), truncated=False)
+
+    monkeypatch.setattr(PostgresFamilyStore, "read_projection", read_projection)
+    monkeypatch.setattr(PostgresFamilyStore, "read_inventory_impact_context", read_context)
+    monkeypatch.setattr(
+        PostgresFamilyStore,
+        "read_inventory_instance_neighborhood",
+        read_neighborhood,
+    )
+    monkeypatch.setattr(
+        PostgresFamilyStore,
+        "read_inventory_instance_activity",
+        read_activity,
+    )
+    adapter = PostgresOperationsAdapters(
+        PostgresFamilyStore(PostgresFamilyStoreConfig("postgresql://example.invalid/fdai"))
+    )
+
+    with pytest.raises(ProjectionNotFoundError):
+        await adapter.read(
+            ProjectionQuery(
+                operation="ontology.instance.explore",
+                principal_id="reader",
+                path={},
+                params={"root": ("root",)},
+                limit=100,
+                cursor=None,
+                roles=frozenset({OperatorRole.READER}),
+            )
+        )
+
+
 async def test_postgres_inventory_impact_reads_only_active_snapshot_identity_and_links(
     monkeypatch: Any,
 ) -> None:
@@ -112,7 +183,26 @@ async def test_postgres_inventory_impact_reads_only_active_snapshot_identity_and
         del self
         captured.append((statement, parameters))
         if "JOIN inventory_snapshot AS snapshot" in statement:
-            return [{"id": "generation-1", "completed_at": datetime(2026, 8, 19, tzinfo=UTC)}]
+            return [
+                {
+                    "id": "generation-1",
+                    "completed_at": datetime(2026, 8, 19, tzinfo=UTC),
+                    "metadata": {
+                        "relationship_drop_reasons": ["missing_target_endpoint"],
+                        "relationship_drop_classifications": [
+                            {
+                                "reason": "missing_target_endpoint",
+                                "mapping_id": "azure.example-depends-on-target",
+                                "source_property_path": "properties.target.id",
+                                "source_provider_type": "microsoft.example/widgets",
+                                "target_provider_type": "Microsoft.Example/targets",
+                                "unavailable_reason": "target_outside_active_generation",
+                                "count": 2,
+                            }
+                        ],
+                    },
+                }
+            ]
         if "SELECT 1 AS present" in statement:
             return [{"present": 1}]
         return [
@@ -138,6 +228,18 @@ async def test_postgres_inventory_impact_reads_only_active_snapshot_identity_and
     assert context == InventoryImpactContext(
         snapshot_id="generation-1",
         observed_at=datetime(2026, 8, 19, tzinfo=UTC),
+        relationship_drop_reasons=("missing_target_endpoint",),
+        relationship_drop_classifications=(
+            InventoryRelationshipDropClassification(
+                reason="missing_target_endpoint",
+                mapping_id="azure.example-depends-on-target",
+                source_property_path="properties.target.id",
+                source_provider_type="microsoft.example/widgets",
+                target_provider_type="Microsoft.Example/targets",
+                unavailable_reason="target_outside_active_generation",
+                count=2,
+            ),
+        ),
     )
     assert exists is True
     assert [(edge.source, edge.link_type, edge.target) for edge in page.edges] == [
@@ -150,6 +252,221 @@ async def test_postgres_inventory_impact_reads_only_active_snapshot_identity_and
         "link_types": ["contains"],
         "probe": 2,
     }
+
+
+async def test_instance_neighborhood_returns_the_selected_induced_subgraph(
+    monkeypatch: Any,
+) -> None:
+    statements: list[str] = []
+
+    async def fetch_all(
+        self: PostgresFamilyStore,
+        statement: str,
+        parameters: Mapping[str, object],
+    ) -> list[dict[str, object]]:
+        del self, parameters
+        statements.append(statement)
+        if "AND (from_id = %(root_id)s OR to_id = %(root_id)s)" in statement:
+            return [
+                {"from_id": "group", "link_type": "contains", "to_id": "root"},
+                {"from_id": "endpoint", "link_type": "attached_to", "to_id": "root"},
+            ]
+        if "SELECT resource_id, resource_type, props, last_seen" in statement:
+            return [
+                {
+                    "resource_id": "endpoint",
+                    "resource_type": "network.private-endpoint",
+                    "props": {},
+                    "last_seen": None,
+                },
+                {
+                    "resource_id": "group",
+                    "resource_type": "resource-group",
+                    "props": {},
+                    "last_seen": None,
+                },
+                {
+                    "resource_id": "root",
+                    "resource_type": "postgresql-server",
+                    "props": {},
+                    "last_seen": None,
+                },
+            ]
+        return [
+            {
+                "from_id": "group",
+                "link_type": "contains",
+                "to_id": "endpoint",
+                "props": {},
+            },
+            {
+                "from_id": "group",
+                "link_type": "contains",
+                "to_id": "root",
+                "props": {},
+            },
+            {
+                "from_id": "endpoint",
+                "link_type": "attached_to",
+                "to_id": "root",
+                "props": {},
+            },
+        ]
+
+    monkeypatch.setattr(PostgresFamilyStore, "_fetch_all", fetch_all)
+    store = PostgresFamilyStore(PostgresFamilyStoreConfig("postgresql://example.invalid/fdai"))
+
+    neighborhood = await store.read_inventory_instance_neighborhood(
+        snapshot_id="generation-1",
+        root_id="root",
+        link_types=("contains", "attached_to"),
+        depth=2,
+        limit=10,
+    )
+
+    assert [(edge.source, edge.link_type, edge.target) for edge in neighborhood.edges] == [
+        ("group", "contains", "endpoint"),
+        ("group", "contains", "root"),
+        ("endpoint", "attached_to", "root"),
+    ]
+    assert neighborhood.truncated is False
+    assert any("from_id = ANY(%(resource_ids)s)" in statement for statement in statements)
+
+
+async def test_instance_neighborhood_bounds_dense_induced_links(
+    monkeypatch: Any,
+) -> None:
+    captured: list[tuple[str, Mapping[str, object]]] = []
+    neighbors = tuple(f"neighbor-{index}" for index in range(14))
+
+    async def fetch_all(
+        self: PostgresFamilyStore,
+        statement: str,
+        parameters: Mapping[str, object],
+    ) -> list[dict[str, object]]:
+        del self
+        captured.append((statement, parameters))
+        if "NOT (to_id=ANY(%(selected)s))" in statement:
+            if parameters["frontier"] != ["root"]:
+                return []
+            return [
+                {
+                    "from_id": neighbor,
+                    "from_type": "resource-group",
+                    "link_type": "contains",
+                    "to_id": "root",
+                    "to_type": "resource-group",
+                    "props": {},
+                }
+                for neighbor in neighbors
+            ]
+        if "SELECT resource_id, resource_type, props, last_seen" in statement:
+            return [
+                {
+                    "resource_id": resource_id,
+                    "resource_type": "resource-group",
+                    "props": {},
+                    "last_seen": None,
+                }
+                for resource_id in ("root", *neighbors)
+            ]
+        return [
+            {
+                "from_id": neighbors[index % len(neighbors)],
+                "link_type": f"link-{index // len(neighbors)}",
+                "to_id": neighbors[(index + 1) % len(neighbors)],
+                "props": {},
+            }
+            for index in range(1601)
+        ]
+
+    monkeypatch.setattr(PostgresFamilyStore, "_fetch_all", fetch_all)
+    store = PostgresFamilyStore(PostgresFamilyStoreConfig("postgresql://example.invalid/fdai"))
+
+    neighborhood = await store.read_inventory_instance_neighborhood(
+        snapshot_id="generation-1",
+        root_id="root",
+        link_types=tuple(f"link-{index}" for index in range(15)),
+        depth=2,
+        limit=15,
+    )
+
+    assert len(neighborhood.resources) == 15
+    assert len(neighborhood.edges) == 1600
+    assert neighborhood.truncated is True
+    assert neighborhood.truncation_reasons == ("link_limit",)
+    induced_statement, induced_parameters = captured[-1]
+    assert "ORDER BY CASE WHEN from_id = %(root_id)s OR to_id = %(root_id)s" in induced_statement
+    assert induced_parameters["probe"] == 1601
+
+
+async def test_postgres_instance_directory_and_activity_are_bounded_exact_reads(
+    monkeypatch: Any,
+) -> None:
+    captured: list[tuple[str, Mapping[str, object]]] = []
+
+    async def fetch_all(
+        self: PostgresFamilyStore,
+        statement: str,
+        parameters: Mapping[str, object],
+    ) -> list[dict[str, object]]:
+        del self
+        captured.append((statement, parameters))
+        if "FROM inventory_snapshot_resource" in statement:
+            return [
+                {
+                    "resource_id": "root",
+                    "resource_type": "compute.container-app",
+                    "props": {"name": "core"},
+                    "last_seen": datetime(2026, 8, 22, tzinfo=UTC),
+                },
+                {
+                    "resource_id": "extra",
+                    "resource_type": "compute.container-app",
+                    "props": {"name": "extra"},
+                    "last_seen": None,
+                },
+            ]
+        return [
+            {
+                "seq": 2,
+                "correlation_id": None,
+                "actor": "fdai.system",
+                "action_kind": "audit.record",
+                "entry": {"payload": {"resource_id": "root", "reason": "no_rule_match"}},
+                "created_at": datetime(2026, 8, 22, tzinfo=UTC),
+            },
+            {
+                "seq": 1,
+                "correlation_id": None,
+                "actor": "fdai.system",
+                "action_kind": "audit.record",
+                "entry": {"payload": {"resource_id": "root"}},
+                "created_at": datetime(2026, 8, 21, tzinfo=UTC),
+            },
+        ]
+
+    monkeypatch.setattr(PostgresFamilyStore, "_fetch_all", fetch_all)
+    store = PostgresFamilyStore(PostgresFamilyStoreConfig("postgresql://example.invalid/fdai"))
+
+    directory = await store.read_inventory_instances(
+        snapshot_id="generation-1",
+        search="core_%",
+        limit=1,
+    )
+    activity = await store.read_inventory_instance_activity(resource_id="root", limit=1)
+
+    assert len(directory.resources) == 1
+    assert directory.truncated is True
+    assert activity.activities[0].facts == {"reason": "no_rule_match"}
+    assert activity.truncated is True
+    assert captured[0][1] == {
+        "snapshot_id": "generation-1",
+        "pattern": "%core\\_\\%%",
+        "probe": 2,
+    }
+    assert "entry #>> '{payload,resource_id}' = %(resource_id)s" in captured[1][0]
+    assert captured[1][1] == {"resource_id": "root", "probe": 2}
 
 
 async def test_postgres_operations_selects_role_scoped_exact_declaration(

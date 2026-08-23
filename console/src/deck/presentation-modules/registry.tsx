@@ -29,6 +29,8 @@ const REGISTRY: Readonly<Record<PresentationBlock["kind"], PresentationModuleReg
   bar: registration(ChartModule, "stack", "exact-table"),
   time_series: registration(ChartModule, "scroll", "exact-table"),
   comparison: registration(ChartModule, "stack", "exact-table"),
+  scatter: registration(ChartModule, "stack", "exact-table"),
+  heatmap: registration(ChartModule, "stack", "exact-table"),
   timeline: registration(TimelineModule, "stack", "ordered-list"),
   evidence: registration(EvidenceModule, "reflow", "description-list"),
 };

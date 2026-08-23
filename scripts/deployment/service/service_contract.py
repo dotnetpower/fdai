@@ -27,6 +27,7 @@ _EVENT_BUS_TOPIC_MIGRATION = {
             "semantic_physical": "fdai.pantheon.objects",
             "semantic_projections": "core.semantic-turn.projections",
             "semantic_requests": "operator.semantic-turn.requests",
+            "read_investigation_requests": "operator.read-investigation.requests",
         },
         "environment": {
             "FDAI_CANARY_TOPIC": "fdai.control.canary",
@@ -37,6 +38,7 @@ _EVENT_BUS_TOPIC_MIGRATION = {
             "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC": "fdai.pantheon.objects",
             "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC": "core.semantic-turn.projections",
             "FDAI_SEMANTIC_TURN_REQUEST_TOPIC": "operator.semantic-turn.requests",
+            "FDAI_READ_INVESTIGATION_REQUEST_TOPIC": "operator.read-investigation.requests",
         },
     },
     "operator-service": {
@@ -45,6 +47,7 @@ _EVENT_BUS_TOPIC_MIGRATION = {
             "semantic_requests": "operator.semantic-turn.requests",
             "semantic_projections": "core.semantic-turn.projections",
             "semantic_physical": "fdai.pantheon.objects",
+            "read_investigation_requests": "operator.read-investigation.requests",
         },
         "environment": {
             "FDAI_EXECUTION_VENUE": "deployed",
@@ -52,6 +55,7 @@ _EVENT_BUS_TOPIC_MIGRATION = {
             "FDAI_SEMANTIC_TURN_REQUEST_TOPIC": "operator.semantic-turn.requests",
             "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC": "core.semantic-turn.projections",
             "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC": "fdai.pantheon.objects",
+            "FDAI_READ_INVESTIGATION_REQUEST_TOPIC": "operator.read-investigation.requests",
         },
     },
     "document-ingestion-api": {

@@ -89,6 +89,7 @@ class PostgresBackgroundTaskStore:
         task: BackgroundTask,
         *,
         quota: BackgroundTaskQuotaPolicy | None = None,
+        requires_creation_audit: bool = False,
     ) -> tuple[BackgroundTaskAttempt, bool]:
         attempt_id = f"{task.task_id}:1"
         async with await self._connect() as connection, connection.transaction():
@@ -128,19 +129,20 @@ class PostgresBackgroundTaskStore:
                     quota_cursor = await connection.execute(
                         "SELECT "
                         "COUNT(*) FILTER (WHERE status = ANY(%s)) AS active_tasks, "
-                        "COALESCE(SUM(CASE WHEN status = ANY(%s) THEN "
+                        "COALESCE(SUM(CASE WHEN created_at >= %s AND created_at < %s "
+                        "THEN CASE WHEN status = ANY(%s) THEN "
                         "COALESCE((task->'budget'->>'max_cost_microusd')::bigint, 0) "
-                        "ELSE COALESCE((usage->>'cost_microusd')::bigint, 0) END), 0) "
+                        "ELSE COALESCE((usage->>'cost_microusd')::bigint, 0) END "
+                        "ELSE 0 END), 0) "
                         "AS daily_cost_microusd "
                         "FROM background_task_attempt "
-                        "WHERE owner_principal_id = %s AND created_at >= %s "
-                        "AND created_at < %s",
+                        "WHERE owner_principal_id = %s",
                         (
                             active,
-                            active,
-                            task.owner_principal_id,
                             day_start,
                             day_start + timedelta(days=1),
+                            active,
+                            task.owner_principal_id,
                         ),
                     )
                     quota_row = await quota_cursor.fetchone()
@@ -166,7 +168,12 @@ class PostgresBackgroundTaskStore:
                         task.task_id,
                         task.owner_principal_id,
                         task.idempotency_key,
-                        json.dumps(_task_to_dict(task)),
+                        json.dumps(
+                            {
+                                **_task_to_dict(task),
+                                "_creation_audited": not requires_creation_audit,
+                            }
+                        ),
                         1,
                         BackgroundTaskStatus.QUEUED.value,
                         1,
@@ -195,6 +202,39 @@ class PostgresBackgroundTaskStore:
                 "background task idempotency key reused with another task"
             )
         return attempt, created
+
+    async def creation_audited(self, task_id: str) -> bool | None:
+        async with await self._connect() as connection:
+            await self._timeout(connection)
+            cursor = await connection.execute(
+                "SELECT COALESCE((task ->> '_creation_audited')::boolean, true) "
+                "AS creation_audited FROM background_task_attempt WHERE task_id = %s",
+                (task_id,),
+            )
+            row = await cursor.fetchone()
+        return bool(row["creation_audited"]) if row is not None else None
+
+    async def mark_creation_audited(
+        self,
+        task_id: str,
+        *,
+        now: datetime,
+    ) -> BackgroundTaskAttempt:
+        if now.tzinfo is None or now.utcoffset() is None:
+            raise ValueError("creation audit time MUST be timezone-aware")
+        async with await self._connect() as connection, connection.transaction():
+            await self._timeout(connection)
+            cursor = await connection.execute(
+                "UPDATE background_task_attempt SET "
+                "task = jsonb_set(task, '{_creation_audited}', 'true'::jsonb), "
+                "updated_at = GREATEST(updated_at, %s) WHERE task_id = %s "
+                f"RETURNING {_ATTEMPT_COLUMNS}",
+                (now, task_id),
+            )
+            row = await cursor.fetchone()
+        if row is None:
+            raise LookupError("background task not found")
+        return _attempt(row)
 
     async def get(
         self,
@@ -248,7 +288,9 @@ class PostgresBackgroundTaskStore:
             cursor = await connection.execute(
                 "WITH candidate AS ("
                 "SELECT attempt_id FROM background_task_attempt "
-                "WHERE status = %s ORDER BY created_at, attempt_id "
+                "WHERE status = %s "
+                "AND COALESCE((task ->> '_creation_audited')::boolean, true) "
+                "ORDER BY created_at, attempt_id "
                 "FOR UPDATE SKIP LOCKED LIMIT 1"
                 ") UPDATE background_task_attempt AS attempt SET "
                 "status = %s, revision = attempt.revision + 1, updated_at = %s, "

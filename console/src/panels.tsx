@@ -62,6 +62,7 @@ const OnboardingRoute = lazy(async () => ({ default: (await import("./routes/onb
 const DetectionReadinessRoute = lazy(async () => ({ default: (await import("./routes/detection-readiness")).DetectionReadinessRoute }));
 const ConfigurationBaselinesRoute = lazy(async () => ({ default: (await import("./routes/configuration-baselines")).ConfigurationBaselinesRoute }));
 const SchedulerRunsRoute = lazy(async () => ({ default: (await import("./routes/scheduler-runs")).SchedulerRunsRoute }));
+const BackgroundTasksRoute = lazy(async () => ({ default: (await import("./routes/background-tasks")).BackgroundTasksRoute }));
 const AutomationBlueprintsRoute = lazy(async () => ({ default: (await import("./routes/automation-blueprints")).AutomationBlueprintsRoute }));
 const ScheduledContinuationsRoute = lazy(async () => ({ default: (await import("./routes/scheduled-continuations")).ScheduledContinuationsRoute }));
 const ConversationDeliveryRoute = lazy(async () => ({ default: (await import("./routes/conversation-delivery")).ConversationDeliveryRoute }));
@@ -233,6 +234,13 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
     subtitle: t("nav.panelSub.schedulerRuns"),
     group: "operations",
     component: SchedulerRunsRoute,
+  },
+  {
+    id: "background-tasks",
+    label: t("nav.panel.backgroundTasks"),
+    subtitle: t("nav.panelSub.backgroundTasks"),
+    group: "operations",
+    component: BackgroundTasksRoute,
   },
   {
     id: "automation-blueprints",

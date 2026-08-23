@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
 	"aiohttp>=3.14.2,<4",
+	"anyio>=4.11,<5",
 	"fdai-service-contracts==0.1.0",
 	"httpx>=0.27,<1",
 	"pyjwt[crypto]>=2.10,<3",

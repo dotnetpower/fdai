@@ -8,7 +8,7 @@ const brandLogo = readFileSync(
 );
 const contentSurfaceStyles = styles
   .replace(/\.ontology-graph-key i\s*\{[^}]*\}/g, "")
-  .replace(/\.architecture-edge-legend \.is-(?:dependency|attachment)\s*\{[^}]*\}/g, "");
+  .replace(/\.architecture-edge-legend \.is-(?:dependency|attachment|peering)\s*\{[^}]*\}/g, "");
 const approvalRoute = readFileSync(
   fileURLToPath(new URL("../routes/hil-queue.tsx", import.meta.url)),
   "utf8",

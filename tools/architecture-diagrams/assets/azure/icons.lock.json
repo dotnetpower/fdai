@@ -5,6 +5,11 @@
   "published": "2026-07-08",
   "archiveSha256": "921594ccd1bf3d9c0a1bd7b6d924e050551a59342f2b353bb74bdcf761c35141",
   "icons": {
+    "api-management-services": {
+      "file": "api-management-services.svg",
+      "productName": "API Management Services",
+      "sha256": "cf794288575f2f7b080c50aa8319d42b02a2f2ae5351e4712c574353fc801f9a"
+    },
     "ai-foundry": {
       "file": "ai-foundry.svg",
       "productName": "Microsoft Foundry",
@@ -14,6 +19,76 @@
       "file": "application-gateway.svg",
       "productName": "Application Gateway",
       "sha256": "531e668e47cf61872b2811ec67dcc103cee2ecc1d272f07132d6196d68ba6c19"
+    },
+    "app-service-plans": {
+      "file": "app-service-plans.svg",
+      "productName": "App Service Plans",
+      "sha256": "76763e2d29dc7315305c578af6f7ca19310670805749ca3b332a1e8cfe45ddd3"
+    },
+    "alerts": {
+      "file": "alerts.svg",
+      "productName": "Alerts",
+      "sha256": "7aef6aec8edcee33270555d2ed7cbaa65737266beced0649de3f484623512bc9"
+    },
+    "cache-redis": {
+      "file": "cache-redis.svg",
+      "productName": "Azure Cache for Redis",
+      "sha256": "39a62e5d2c573c1a3184eb2a818a3be09b25716e976acbada62c777c41a67ab9"
+    },
+    "cosmos-db": {
+      "file": "cosmos-db.svg",
+      "productName": "Azure Cosmos DB",
+      "sha256": "b6f1f2afac15762d1de44366d34984c5a3e6e58f94d9e81407ac01565212e8e3"
+    },
+    "data-collection-rules": {
+      "file": "data-collection-rules.svg",
+      "productName": "Data Collection Rules",
+      "sha256": "aaa1540f3c07bf54b633303e54c9ce6583d5be2be98d0f89123edf9e4c8e2c85"
+    },
+    "disks": {
+      "file": "disks.svg",
+      "productName": "Disks",
+      "sha256": "7ab5cc684d995ff898448b32424a55bbb5c6669a83a0bb7c547047fec21f292f"
+    },
+    "disk-snapshots": {
+      "file": "disk-snapshots.svg",
+      "productName": "Disk Snapshots",
+      "sha256": "45faaba277e3fc9e3b26c9307759e5b1b78712b58b9b8c2b59c6fd1c47ec4636"
+    },
+    "dns-private-resolver": {
+      "file": "dns-private-resolver.svg",
+      "productName": "DNS Private Resolver",
+      "sha256": "990d109df8bac6312c886afdf0b521145baa88df78701afca51d7c8f8eaba9ce"
+    },
+    "event-grid-topics": {
+      "file": "event-grid-topics.svg",
+      "productName": "Event Grid Topics",
+      "sha256": "106cc8427fde7c558fb90dccb381372954d436ac8122cb7afc442b05f7ef2b82"
+    },
+    "function-apps": {
+      "file": "function-apps.svg",
+      "productName": "Function Apps",
+      "sha256": "1a6c9c108d5f63f7b78bc6fbc464059acd2eaa8c1d111e9bcd28a8b2cdf470b9"
+    },
+    "kubernetes-services": {
+      "file": "kubernetes-services.svg",
+      "productName": "Kubernetes Services",
+      "sha256": "81954a481503057498d543a51863b2eb4673284e109662cdc421051d11dba25c"
+    },
+    "mysql-server": {
+      "file": "mysql-server.svg",
+      "productName": "Azure Database for MySQL Server",
+      "sha256": "c04e7d46a45d722e9fde06976843263cb1ef80fd6a5005dd9ce720aa130688ee"
+    },
+    "service-bus": {
+      "file": "service-bus.svg",
+      "productName": "Azure Service Bus",
+      "sha256": "eaf42cb87aedf608f60d40b601eb86491daaa71b8eab40a935e8e7fa2e62a2cf"
+    },
+    "bastion": {
+      "file": "bastion.svg",
+      "productName": "Azure Bastion",
+      "sha256": "7d3c33e355b9e180bb96491492ff856e379c27b3e7920526e2552c9b1593d3cb"
     },
     "azure-devops": {
       "file": "azure-devops.svg",
@@ -40,15 +115,40 @@
       "productName": "Azure Container Registry",
       "sha256": "c134b0a442f203a7eeeb6f99a1f02ed34e51373d7fca59f96c9f125874c9d7d4"
     },
+    "dns-zones": {
+      "file": "dns-zones.svg",
+      "productName": "DNS Zones",
+      "sha256": "e6aaa1380e974af7d0aba1bb8380ecfab3f95182a595a28692aa3f963bcf9fac"
+    },
     "event-hubs": {
       "file": "event-hubs.svg",
       "productName": "Azure Event Hubs",
       "sha256": "55187fecea1de7b135e53cc100bc765ad06ab419365263456bf548906c3107f8"
     },
+    "expressroute-circuit": {
+      "file": "expressroute-circuit.svg",
+      "productName": "ExpressRoute Circuits",
+      "sha256": "0087cb8e3027b750c18249915b620e67348d12cb6d147f10c6a701976c948696"
+    },
+    "firewall": {
+      "file": "firewall.svg",
+      "productName": "Azure Firewall",
+      "sha256": "154c416cc15b95b7c6c1ab61a5ecb33f14845197b7d163bd9dc6f1968c14be1e"
+    },
     "key-vault": {
       "file": "key-vault.svg",
       "productName": "Azure Key Vault",
       "sha256": "712b426f54f0fc50d0816dc79df709daa7ac5f93ccaf4e9b3527f627f6e9ad97"
+    },
+    "load-balancer": {
+      "file": "load-balancer.svg",
+      "productName": "Load Balancers",
+      "sha256": "169edfa4edbc0cab6fdc1eef9243925588504a16f7729734e0e2161a9ca1d16c"
+    },
+    "logic-apps": {
+      "file": "logic-apps.svg",
+      "productName": "Logic Apps",
+      "sha256": "3390e6337469e29d755a4077b64efcf0b0269ee871113417fd4458269351b438"
     },
     "managed-grafana": {
       "file": "managed-grafana.svg",
@@ -65,6 +165,21 @@
       "productName": "Azure Monitor",
       "sha256": "1396f59a7d8fd7505a423842b987c9b343a092263d1ab5c7b0d94d58d8b17448"
     },
+    "nat": {
+      "file": "nat.svg",
+      "productName": "NAT",
+      "sha256": "0cd798c39a99ca7dee22069851b71cc1ae76a0cd5dc3cdff315e0f34b6ddb941"
+    },
+    "network-interface": {
+      "file": "network-interface.svg",
+      "productName": "Network Interfaces",
+      "sha256": "285737fc53f9df8d8e133f003163ffab77749b2802fa6decba4c8820d60ac496"
+    },
+    "network-security-group": {
+      "file": "network-security-group.svg",
+      "productName": "Network Security Groups",
+      "sha256": "cf4023ddaa11961904e1e4601864ccd20b9f60686cb38ad7f8ff8385d855c4de"
+    },
     "postgresql": {
       "file": "postgresql.svg",
       "productName": "Azure Database for PostgreSQL",
@@ -75,10 +190,25 @@
       "productName": "Private Endpoints",
       "sha256": "96de0bb7f0aeb1220d0fd6d337578d5e93dca017d6ea7d42d887aa329b2fd90d"
     },
+    "public-ip": {
+      "file": "public-ip.svg",
+      "productName": "Public IP Addresses",
+      "sha256": "549fbcf643129dd913c8aa3424a51beb6b718c412ac4c7963214f00ef839c50b"
+    },
     "resource-graph": {
       "file": "resource-graph.svg",
       "productName": "Azure Resource Graph",
       "sha256": "6e9262653086bd4e83184ba6abb2e8b39a29e676107540c1fcfa41b4c8c0db37"
+    },
+    "resource-groups": {
+      "file": "resource-groups.svg",
+      "productName": "Resource Groups",
+      "sha256": "4d2b2eacb37735849d2e556074ac8564f92fada70672b40985c77ea666e82977"
+    },
+    "route-table": {
+      "file": "route-table.svg",
+      "productName": "Route Tables",
+      "sha256": "17ba16b418d7110c555190e7265eb5441b5058132727fb83df57f6384bc0db22"
     },
     "storage-account": {
       "file": "storage-account.svg",
@@ -90,10 +220,60 @@
       "productName": "Azure Static Web Apps",
       "sha256": "c3075406ba25213b52f9fdbee5dfeb3cc31217be17a867ed6dca32020ec03646"
     },
+    "sql-database": {
+      "file": "sql-database.svg",
+      "productName": "SQL Database",
+      "sha256": "a26124a2b188ccf910520c935c726f7364e0f5935d7a4319ebcab9c80a40e475"
+    },
+    "sql-server": {
+      "file": "sql-server.svg",
+      "productName": "SQL Server",
+      "sha256": "72c6104c5f2199f6eaebbc215c5cb78dea9c1d571b95f470341ca7f83eee5be8"
+    },
+    "subnet": {
+      "file": "subnet.svg",
+      "productName": "Subnet",
+      "sha256": "f36f20495639268f84b6ab101949b630fc89923ed7e1b4c6242dbcca933e0e15"
+    },
+    "subscriptions": {
+      "file": "subscriptions.svg",
+      "productName": "Subscriptions",
+      "sha256": "d69843a70bd38eefa5b70a4d0b803502f95cdf061c59aed48b435170a15919b4"
+    },
     "users": {
       "file": "users.svg",
       "productName": "Users",
       "sha256": "7c08aa6365b41e7f0b74833bfd420f174081f6e90ba278e0c01cd988027eb3ca"
+    },
+    "virtual-hub": {
+      "file": "virtual-hub.svg",
+      "productName": "Virtual WAN Hub",
+      "sha256": "537959ec4773a1132c66eb111a7596cf2670297b4f04ca3a7c1b5ef978f3b235"
+    },
+    "virtual-machine": {
+      "file": "virtual-machine.svg",
+      "productName": "Virtual Machines",
+      "sha256": "092d18ffadec9ec0e5af129186dc7bc2a80544011e55f965604ed4b13873e0fc"
+    },
+    "vm-scale-sets": {
+      "file": "vm-scale-sets.svg",
+      "productName": "VM Scale Sets",
+      "sha256": "a53772c07fe89cdbb876ce77e22dba0863c1459173b77a1eec73fbdd2048637f"
+    },
+    "virtual-network": {
+      "file": "virtual-network.svg",
+      "productName": "Virtual Networks",
+      "sha256": "64a5e75ecef2f9f69067faa2eb131266cb8f2858706f8ab74bfea5ad0d98b14d"
+    },
+    "virtual-network-gateway": {
+      "file": "virtual-network-gateway.svg",
+      "productName": "Virtual Network Gateways",
+      "sha256": "5ed14416dafff4e946fae5b68b9c86e8c9a9bbaa37ab94324a5d94c5cfbcb106"
+    },
+    "virtual-wan": {
+      "file": "virtual-wan.svg",
+      "productName": "Virtual WANs",
+      "sha256": "c0d0f5fe0d2c8e26fe4317ed7227ba4bb6a7d577afac631fb8141401346c4694"
     },
     "waf-policy": {
       "file": "waf-policy.svg",

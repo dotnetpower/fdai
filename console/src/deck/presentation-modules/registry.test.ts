@@ -15,6 +15,8 @@ const kinds: PresentationBlock["kind"][] = [
   "bar",
   "time_series",
   "comparison",
+  "scatter",
+  "heatmap",
   "timeline",
   "evidence",
 ];

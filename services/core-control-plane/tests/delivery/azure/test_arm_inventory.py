@@ -73,6 +73,84 @@ async def test_arm_fallback_pages_and_emits_contains_link() -> None:
     assert resources[0].props["parent_id"] == links[0].from_id
 
 
+async def test_arm_fallback_lists_private_dns_zone_group_children() -> None:
+    requested_paths: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requested_paths.append(request.url.path)
+        if request.url.path.endswith("/resources"):
+            return httpx.Response(
+                200,
+                json={
+                    "value": [
+                        {
+                            "id": (
+                                "/subscriptions/sub-1/resourceGroups/rg-1/providers/"
+                                "Microsoft.Network/privateEndpoints/pe-1"
+                            ),
+                            "name": "pe-1",
+                        }
+                    ]
+                },
+            )
+        return httpx.Response(
+            200,
+            json={
+                "value": [
+                    {
+                        "id": (
+                            "/subscriptions/sub-1/resourceGroups/rg-1/providers/"
+                            "Microsoft.Network/privateEndpoints/pe-1/"
+                            "privateDnsZoneGroups/default"
+                        ),
+                        "name": "default",
+                        "properties": {
+                            "privateDnsZoneConfigs": [
+                                {
+                                    "properties": {
+                                        "privateDnsZoneId": (
+                                            "/subscriptions/sub-1/resourceGroups/rg-1/providers/"
+                                            "Microsoft.Network/privateDnsZones/privatelink.example"
+                                        )
+                                    }
+                                }
+                            ]
+                        },
+                    }
+                ]
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        query = AzureArmInventoryFactory(
+            identity=_identity(),
+            resource_types=_vocabulary(),
+            http_client=client,
+            config=AzureArmInventoryFactoryConfig(subscription_scopes=("sub-1",)),
+        ).build_query_fn()
+        resources, links = await query("network.private-dns-zone-group")
+
+    assert requested_paths == [
+        "/subscriptions/sub-1/resources",
+        (
+            "/subscriptions/sub-1/resourceGroups/rg-1/providers/Microsoft.Network/"
+            "privateEndpoints/pe-1/privateDnsZoneGroups"
+        ),
+    ]
+    assert resources[0].type == "network.private-dns-zone-group"
+    by_mapping = {
+        link.mapping_evidence.mapping_id: link
+        for link in links
+        if link.mapping_evidence is not None
+    }
+    contains = by_mapping["azure.private-endpoint-contains-dns-zone-group"]
+    attached = by_mapping["azure.private-dns-zone-group-attached-to-zone"]
+    assert resources[0].props["parent_id"] == contains.from_id
+    assert contains.to_id == resources[0].resource_id
+    assert attached.from_id == resources[0].resource_id
+    assert len(links) == 2
+
+
 async def test_arm_fallback_rejects_cross_host_next_link() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(

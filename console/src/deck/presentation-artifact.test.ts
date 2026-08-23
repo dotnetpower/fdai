@@ -93,6 +93,31 @@ function timeSeriesArtifact(): Record<string, unknown> {
   };
 }
 
+function exactTable(): Record<string, unknown> {
+  return {
+    columns: [{ key: "value", label: "Value" }],
+    rows: [{ value: "1" }],
+    status_key: null,
+  };
+}
+
+function visualArtifact(slot: string, kind: string, data: Record<string, unknown>) {
+  return {
+    schema_version: 2,
+    layout: "stack",
+    evidence_refs: [ref],
+    blocks: [{
+      slot_id: slot,
+      kind,
+      title: "Verified visualization",
+      emphasis: "primary",
+      collapsed: false,
+      evidence_refs: [ref],
+      data,
+    }],
+  };
+}
+
 describe("presentation artifact boundary", () => {
   it("accepts bounded blocks whose refs are verified", () => {
     const parsed = parsePresentationArtifact(artifact(), verification);
@@ -254,6 +279,85 @@ describe("presentation artifact boundary", () => {
     const data = ((raw.blocks as Record<string, unknown>[])[0]!.data) as
       Record<string, unknown>;
     delete data.exact_table;
+
+    expect(parsePresentationArtifact(raw, verification)).toBeUndefined();
+  });
+
+  it.each([
+    ["distribution", "bar", "bar", {
+      description: "Values", unit: "count", visualization: "bar",
+      items: [{ label: "A", value: 1, tone: "neutral" }], exact_table: exactTable(),
+    }],
+    ["distribution", "bar", "bar_list", {
+      description: "Values", unit: "count", visualization: "bar_list",
+      items: [{ label: "A", value: 1, tone: "neutral" }], exact_table: exactTable(),
+    }],
+    ["distribution", "bar", "donut", {
+      description: "Values", unit: "count", visualization: "donut",
+      items: [{ label: "A", value: 1, tone: "neutral" }], exact_table: exactTable(),
+    }],
+    ["coverage", "coverage", "category_bar", {
+      description: "Coverage", unit: "ratio", visualization: "category_bar",
+      items: [{ label: "A", value: 1, total: 2, tone: "neutral" }], exact_table: exactTable(),
+    }],
+    ["trend", "time_series", "line", {
+      description: "Trend", metric: "requests", unit: "count", visualization: "line",
+      points: [
+        { timestamp: "2026-08-19T00:00:00Z", value: 1 },
+        { timestamp: "2026-08-19T00:01:00Z", value: 2 },
+        { timestamp: "2026-08-19T00:02:00Z", value: 3 },
+      ], exact_table: exactTable(),
+    }],
+    ["trend", "time_series", "area", {
+      description: "Trend", metric: "requests", unit: "count", visualization: "area",
+      points: [
+        { timestamp: "2026-08-19T00:00:00Z", value: 1 },
+        { timestamp: "2026-08-19T00:01:00Z", value: 2 },
+        { timestamp: "2026-08-19T00:02:00Z", value: 3 },
+      ], exact_table: exactTable(),
+    }],
+    ["comparison", "comparison", "comparison_bar", {
+      description: "Comparison", metric: "requests", unit: "count",
+      visualization: "comparison_bar", items: [
+        { role: "baseline", label: "Before", value: 1 },
+        { role: "current", label: "Now", value: 2 },
+      ], exact_table: exactTable(),
+    }],
+    ["timeline", "timeline", "tracker", {
+      description: "Events", visualization: "tracker", items: [
+        { timestamp: "2026-08-19T00:00:00Z", label: "Started" },
+        { timestamp: "2026-08-19T00:01:00Z", label: "Completed" },
+      ], exact_table: exactTable(),
+    }],
+    ["correlation", "scatter", undefined, {
+      description: "Correlation", x_label: "latency", y_label: "errors", points: [
+        { label: "A", x: 1, y: 2 }, { label: "B", x: 2, y: 4 },
+      ], exact_table: exactTable(),
+    }],
+    ["matrix", "heatmap", undefined, {
+      description: "Matrix", row_label: "service", column_label: "region", cells: [
+        { row: "API", column: "east", value: 1 },
+        { row: "API", column: "west", value: 2 },
+      ], exact_table: exactTable(),
+    }],
+  ])("accepts %s/%s with the %s visualization", (slot, kind, visualization, data) => {
+    const raw = visualArtifact(slot, kind, data);
+    const parsed = parsePresentationArtifact(raw, verification);
+
+    expect(parsed?.blocks[0]?.kind).toBe(kind);
+    if (visualization) expect(parsed?.blocks[0]?.data).toMatchObject({ visualization });
+    expect(parsed && presentationArtifactToWire(parsed)).toEqual(raw);
+  });
+
+  it("rejects a chart hint outside the kind-specific visualization allowlist", () => {
+    const raw = visualArtifact("trend", "time_series", {
+      description: "Trend", metric: "requests", unit: "count", visualization: "donut",
+      points: [
+        { timestamp: "2026-08-19T00:00:00Z", value: 1 },
+        { timestamp: "2026-08-19T00:01:00Z", value: 2 },
+        { timestamp: "2026-08-19T00:02:00Z", value: 3 },
+      ], exact_table: exactTable(),
+    });
 
     expect(parsePresentationArtifact(raw, verification)).toBeUndefined();
   });

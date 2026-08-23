@@ -121,9 +121,9 @@ def test_duplicate_probe_rows_cannot_satisfy_distinct_smoke_requirements() -> No
 
 
 def test_bootstrap_constructs_injects_and_supervises_discovery_activation() -> None:
-    bootstrap = (_ROOT / "services/core-control-plane/src/fdai/runtime/bootstrap.py").read_text(
-        encoding="utf-8"
-    )
+    bootstrap = (
+        _ROOT / "services/core-control-plane/src/fdai/runtime/bootstrap_core.py"
+    ).read_text(encoding="utf-8")
     pantheon = (
         _ROOT / "services/core-control-plane/src/fdai/runtime/bootstrap_pantheon.py"
     ).read_text(encoding="utf-8")
@@ -132,7 +132,7 @@ def test_bootstrap_constructs_injects_and_supervises_discovery_activation() -> N
     )
 
     assert "build_discovery_activation_runtime(" in bootstrap
-    assert "discovery_activation=discovery_activation_runtime" in bootstrap
+    assert "discovery_activation=discovery_activation" in bootstrap
     assert "bind_candidate_publication_gate(config.discovery_activation.is_enabled)" in pantheon
     assert "bind_shadow_decision_count(" in pantheon
     assert 'name="discovery-activation-refresh"' in tasks

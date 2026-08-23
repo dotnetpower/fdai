@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ontology instances 2D - FDAI Console</title>
+  <link rel="stylesheet" href="assets/calm-slate.css?v=ontology-instances-2d-v2" />
+  <script src="assets/calm-slate.js?v=ontology-instances-2d-v2" defer></script>
+  <style>
+    .oi-head { display:flex; align-items:flex-end; justify-content:space-between; gap:24px; margin-bottom:14px; }
+    .oi-head-copy { max-width:78ch; }
+    .oi-head h1 { margin-bottom:5px; }
+    .oi-source { flex:0 1 330px; padding-left:16px; border-left:1px solid var(--cs-hairline); }
+    .oi-source strong,.oi-source span { display:block; }
+    .oi-source span { margin-top:3px; color:var(--cs-text-soft); font-size:11.5px; }
+    .oi-tabs { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:2px; margin-bottom:12px; padding:3px; border:1px solid var(--cs-hairline); border-radius:8px; background:var(--cs-shade); }
+    .oi-tabs button { min-width:0; min-height:36px; padding:6px 8px; overflow:hidden; border:0; border-radius:6px; background:transparent; color:var(--cs-text-soft); font:700 11.5px var(--cs-font); text-overflow:ellipsis; white-space:nowrap; }
+    .oi-tabs button.is-active { background:var(--cs-card); color:var(--cs-text); outline:1px solid var(--cs-hairline); }
+    .oi-toolbar { display:grid; grid-template-columns:minmax(220px,.7fr) minmax(300px,1fr) auto; align-items:end; gap:12px; padding:11px 12px; border:1px solid var(--cs-hairline); border-bottom:0; border-radius:8px 8px 0 0; background:var(--cs-shade); }
+    .oi-field { display:grid; min-width:0; gap:5px; color:var(--cs-text-soft); font-size:10.5px; font-weight:700; }
+    .oi-field input,.oi-field select { width:100%; min-height:38px; padding:7px 10px; border:1px solid var(--cs-hairline); border-radius:6px; background:var(--cs-card); color:var(--cs-text); font:12px var(--cs-font); }
+    .oi-field input:focus,.oi-field select:focus { border-color:var(--cs-steel); outline:2px solid rgba(68,104,142,.18); }
+    .oi-status { min-width:152px; padding-bottom:7px; color:var(--cs-text-soft); font-size:10.5px; text-align:right; }
+    .oi-status strong { display:block; color:var(--cs-text); font-size:12px; }
+    .oi-workbench { display:grid; grid-template-columns:196px minmax(0,1fr) 280px; min-height:760px; overflow:hidden; border:1px solid var(--cs-hairline); background:var(--cs-card); box-shadow:var(--cs-shadow); }
+    .oi-directory { overflow-y:auto; max-height:820px; padding:10px 8px; border-right:1px solid var(--cs-hairline); }
+    .oi-directory h2 { margin:3px 7px 6px; color:var(--cs-text-soft); font-size:10px; letter-spacing:.04em; text-transform:uppercase; }
+    .oi-list { margin:0; padding:0; list-style:none; }
+    .oi-list button { display:grid; grid-template-columns:20px minmax(0,1fr); align-items:center; gap:8px; width:100%; min-height:42px; padding:6px 7px; border:0; border-radius:5px; background:transparent; color:var(--cs-text); text-align:left; cursor:pointer; }
+    .oi-list button:hover { background:var(--cs-shade); }
+    .oi-list button:focus-visible { outline:2px solid rgba(68,104,142,.35); outline-offset:1px; }
+    .oi-list button.is-active { background:rgba(68,104,142,.10); outline:1px solid rgba(68,104,142,.28); }
+    .oi-list img { display:block; width:18px; height:18px; object-fit:contain; }
+    .oi-list strong,.oi-list span { display:block; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .oi-list strong { font-size:11.5px; }
+    .oi-list span { margin-top:1px; color:var(--cs-text-soft); font-size:9.5px; }
+    .oi-stage { min-width:0; border-right:1px solid var(--cs-hairline); }
+    .oi-stage-head { display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:61px; padding:10px 13px; border-bottom:1px solid var(--cs-hairline); }
+    .oi-stage-head h2 { margin:0 0 2px; font-size:13.5px; }
+    .oi-stage-head p { margin:0; color:var(--cs-text-soft); font-size:10.5px; }
+    .oi-tools { display:flex; align-items:center; gap:6px; }
+    .oi-tool { min-width:34px; min-height:34px; padding:5px 9px; border:1px solid var(--cs-hairline); border-radius:6px; background:var(--cs-card); color:var(--cs-text); font:700 11px var(--cs-font); cursor:pointer; }
+    .oi-tool:hover { border-color:var(--cs-steel); }
+    .oi-tool:focus-visible { outline:2px solid rgba(68,104,142,.35); outline-offset:1px; }
+    .oi-canvas-scroll { width:100%; min-width:0; max-width:100%; overflow:auto; }
+    .oi-canvas { display:block; width:100%; min-width:940px; min-height:500px; background-color:#fbfaf9; background-image:linear-gradient(rgba(68,104,142,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(68,104,142,.04) 1px,transparent 1px); background-size:24px 24px; }
+    .oi-edge { fill:none; stroke-width:1.5; marker-end:url(#oi-arrow); }
+    .oi-edge.is-contains { stroke:#8a949c; }
+    .oi-edge.is-depends { stroke:#637c93; }
+    .oi-edge.is-attached { stroke:#72888c; stroke-dasharray:5 4; }
+    .oi-edge.is-network { stroke:#777583; stroke-dasharray:2 4; }
+    .oi-edge.is-muted { opacity:.17; }
+    .oi-edge.is-related { stroke-width:2.4; opacity:1; }
+    .oi-edge-label { fill:var(--cs-text-soft); font:600 9px "Cascadia Code","Consolas",monospace; paint-order:stroke; stroke:var(--cs-card); stroke-width:5px; text-anchor:middle; }
+    .oi-edge-label.is-muted { opacity:0; }
+    .oi-node { cursor:pointer; outline:none; }
+    .oi-node rect { fill:var(--cs-card); stroke:#c5c8ca; stroke-width:1.25; }
+    .oi-node-icon { pointer-events:none; }
+    .oi-node.is-selected rect:first-child { fill:#f4f8fb; stroke:var(--cs-steel); stroke-width:2.4; }
+    .oi-node.is-related rect:first-child { stroke:#819bb3; }
+    .oi-node.is-muted { opacity:.25; }
+    .oi-node:hover rect:first-child,.oi-node:focus-visible rect:first-child { stroke:var(--cs-steel); stroke-width:2.2; }
+    .oi-node-title { fill:var(--cs-text); font:700 11px var(--cs-font); }
+    .oi-node-type { fill:var(--cs-text-soft); font:9px var(--cs-font); }
+    .oi-node-state { fill:#56616b; font:700 9px var(--cs-font); }
+    .oi-legend { display:flex; flex-wrap:wrap; gap:10px; padding:9px 12px; border-top:1px solid var(--cs-hairline); color:var(--cs-text-soft); font-size:10px; }
+    .oi-legend span { display:inline-flex; align-items:center; gap:5px; }
+    .oi-legend i { width:18px; border-top:1px solid #82909c; }
+    .oi-legend .is-depends i { border-color:#637c93; }
+    .oi-legend .is-attached i { border-color:#72888c; border-top-style:dashed; }
+    .oi-legend .is-network i { border-color:#777583; border-top-style:dotted; }
+    .oi-timeline { border-top:1px solid var(--cs-hairline); background:#faf9f7; }
+    .oi-timeline-head { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:10px 12px 8px; }
+    .oi-timeline-head span { display:block; color:var(--cs-text-soft); font-size:9.5px; font-weight:700; text-transform:uppercase; }
+    .oi-timeline-head h3 { margin:2px 0 0; font-size:12px; }
+    .oi-timeline-meta { display:flex; gap:12px; color:var(--cs-text-soft); font-size:9.5px; }
+    .oi-timeline-scroll { overflow-x:auto; padding:0 12px 12px; }
+    .oi-timeline-chart { min-width:600px; border-top:1px solid var(--cs-hairline); }
+    .oi-time-axis,.oi-time-row { display:grid; grid-template-columns:72px minmax(0,1fr); }
+    .oi-time-axis { min-height:26px; color:var(--cs-text-soft); font-size:9px; }
+    .oi-time-axis-track { position:relative; border-left:1px solid var(--cs-hairline); }
+    .oi-time-axis-track span { position:absolute; top:7px; transform:translateX(-50%); white-space:nowrap; }
+    .oi-time-axis-track span:first-child { transform:none; }
+    .oi-time-axis-track span:last-child { transform:translateX(-100%); }
+    .oi-time-label { padding:14px 8px 0 0; color:var(--cs-text-soft); font-size:9.5px; font-weight:700; text-transform:uppercase; }
+    .oi-time-track { position:relative; min-height:48px; border-left:1px solid var(--cs-hairline); background-image:linear-gradient(90deg,transparent calc(100% - 1px),rgba(122,128,132,.14) 0); background-size:16.6667% 100%; }
+    .oi-state-segment { position:absolute; top:14px; height:20px; min-width:2px; overflow:hidden; border:1px solid #c9d1d7; border-radius:3px; background:#e9eef2; color:#465563; font-size:9px; font-weight:700; line-height:18px; text-align:center; text-overflow:ellipsis; white-space:nowrap; }
+    .oi-state-segment.is-current { border-color:#8ea4b7; background:#dfe9f0; }
+    .oi-state-segment.is-unknown { border-style:dashed; background:transparent; color:var(--cs-text-soft); }
+    .oi-event-marker { position:absolute; width:15px; height:15px; padding:0; transform:translateX(-50%); border:2px solid var(--cs-steel); border-radius:50%; background:var(--cs-card); cursor:pointer; }
+    .oi-event-marker:hover,.oi-event-marker:focus-visible { background:#e7eff5; outline:2px solid rgba(68,104,142,.25); outline-offset:2px; }
+    .oi-timeline-detail { display:grid; grid-template-columns:52px minmax(0,1fr) auto; align-items:center; gap:10px; min-height:38px; padding:7px 0 0 72px; border-top:1px solid var(--cs-hairline); }
+    .oi-timeline-detail time,.oi-timeline-detail span { color:var(--cs-text-soft); font-size:9.5px; }
+    .oi-timeline-detail strong { min-width:0; overflow:hidden; font-size:10.5px; text-overflow:ellipsis; white-space:nowrap; }
+    .oi-inspector { min-width:0; overflow-y:auto; max-height:820px; background:var(--cs-shade); }
+    .oi-inspector-nav { position:sticky; z-index:2; top:0; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:2px; padding:4px; border-bottom:1px solid var(--cs-hairline); background:var(--cs-shade); }
+    .oi-inspector-nav button { min-width:0; min-height:36px; padding:5px 3px; border:0; border-radius:5px; background:transparent; color:var(--cs-text-soft); font:700 9.5px var(--cs-font); cursor:pointer; }
+    .oi-inspector-nav button.is-active { background:var(--cs-card); color:var(--cs-text); outline:1px solid var(--cs-hairline); }
+    .oi-inspector-body { padding:15px; }
+    .oi-inspector-body .cs-tag { margin-bottom:7px; }
+    .oi-inspector-body h2 { margin:0 0 5px; overflow-wrap:anywhere; font-size:16px; }
+    .oi-inspector-body > p { margin:0 0 13px; color:var(--cs-text-soft); font-size:11.5px; }
+    .oi-facts { margin:0; }
+    .oi-facts div { padding:7px 0; border-top:1px solid var(--cs-hairline); }
+    .oi-facts dt { color:var(--cs-text-soft); font-size:9.5px; text-transform:uppercase; }
+    .oi-facts dd { margin:2px 0 0; overflow-wrap:anywhere; font-size:11.5px; }
+    .oi-relations,.oi-events,.oi-sources { margin:0; padding:0; list-style:none; }
+    .oi-relations li,.oi-sources li { padding:9px 0; border-top:1px solid var(--cs-hairline); }
+    .oi-relations span,.oi-sources span { display:block; color:var(--cs-text-soft); font-size:9.5px; }
+    .oi-relations button { max-width:100%; padding:2px 0; overflow:hidden; border:0; background:transparent; color:var(--cs-steel); font:700 11px var(--cs-font); text-overflow:ellipsis; white-space:nowrap; cursor:pointer; }
+    .oi-events { position:relative; padding-left:16px; }
+    .oi-events:before { content:""; position:absolute; top:7px; bottom:7px; left:3px; border-left:1px solid var(--cs-hairline); }
+    .oi-events li { position:relative; display:grid; gap:2px; padding:0 0 14px 8px; }
+    .oi-events li:before { content:""; position:absolute; top:5px; left:-16px; width:7px; height:7px; border:2px solid var(--cs-steel); border-radius:50%; background:var(--cs-shade); }
+    .oi-events time,.oi-events span { color:var(--cs-text-soft); font-size:9.5px; }
+    .oi-events strong { font-size:11px; }
+    .oi-foot { display:flex; justify-content:space-between; gap:16px; padding:9px 12px; border:1px solid var(--cs-hairline); border-top:0; border-radius:0 0 8px 8px; color:var(--cs-text-soft); font-size:10.5px; }
+    @media (max-width:1080px) {
+      .oi-workbench { grid-template-columns:190px minmax(0,1fr); }
+      .oi-inspector { grid-column:1 / -1; max-height:none; border-top:1px solid var(--cs-hairline); }
+    }
+    @media (max-width:760px) {
+      .oi-head { align-items:flex-start; flex-direction:column; }
+      .oi-source { flex-basis:auto; padding:10px 0 0; border-top:1px solid var(--cs-hairline); border-left:0; }
+      .oi-tabs { grid-template-columns:repeat(3,minmax(0,1fr)); }
+      .oi-tabs button { padding-inline:4px; font-size:10.5px; }
+      .oi-tabs button,.oi-toolbar input,.oi-toolbar select,.oi-tool,.oi-inspector-nav button { min-height:44px; }
+      .oi-toolbar { grid-template-columns:1fr; }
+      .oi-status { padding:0; text-align:left; }
+      .oi-workbench { display:block; }
+      .oi-directory { max-height:230px; border-right:0; border-bottom:1px solid var(--cs-hairline); }
+      .oi-stage { border-right:0; }
+      .oi-stage-head,.oi-foot { align-items:flex-start; flex-direction:column; }
+      .oi-canvas { min-width:940px; }
+      .oi-timeline-head { align-items:flex-start; flex-direction:column; gap:5px; }
+      .oi-timeline-detail { grid-template-columns:44px minmax(0,1fr); padding-left:72px; }
+      .oi-timeline-detail span { grid-column:2; }
+      .oi-inspector { max-height:none; border-top:1px solid var(--cs-hairline); }
+    }
+  </style>
+</head>
+<body>
+  <main class="cs-container cs-page">
+    <header class="oi-head">
+      <div class="oi-head-copy">
+        <div class="cs-eyebrow">Governance &middot; operational ontology</div>
+        <h1>Ontology instances</h1>
+        <p class="cs-lead" style="margin:0;">Select one observed Resource to inspect its direct
+          operational relationships and recent evidence. The graph is flat and two-dimensional:
+          every Resource uses the same compact rectangular node, with no architectural floors or 3D framing.</p>
+      </div>
+      <div class="oi-source"><strong>Read-only active generation</strong><span>12 synthetic Resources &middot; 14 relationships &middot; cutoff 2026-08-22T08:00:00Z</span></div>
+    </header>
+
+    <nav class="oi-tabs" aria-label="Ontology views">
+      <button type="button">Semantic model</button><button type="button">Object types</button>
+      <button type="button">Relationships</button><button type="button">Actions</button>
+      <button type="button" class="is-active" aria-current="page">Instances</button><button type="button">Catalog topology</button>
+    </nav>
+
+    <div class="oi-toolbar">
+      <label class="oi-field"><span>Find Resource</span><input id="oi-search" type="search" placeholder="Name or Resource type" /></label>
+      <label class="oi-field"><span>Exploration root</span><select id="oi-select" aria-label="Exploration root"></select></label>
+      <div class="oi-status"><strong id="oi-result-count">12 visible Resources</strong><span>active generation &middot; complete</span></div>
+    </div>
+
+    <section class="oi-workbench" aria-label="Ontology instance graph workbench">
+      <aside class="oi-directory"><h2>Resource directory</h2><ul class="oi-list" id="oi-directory"></ul></aside>
+      <section class="oi-stage" aria-labelledby="oi-stage-title">
+        <header class="oi-stage-head">
+          <div><h2 id="oi-stage-title">Neighborhood of <code>core-runtime</code></h2><p id="oi-stage-copy">Direct incoming and outgoing relationships.</p></div>
+          <div class="oi-tools" role="group" aria-label="Graph controls"><button class="oi-tool" id="oi-show-all" type="button">Show all</button><button class="oi-tool" id="oi-focus" type="button">Focus</button></div>
+        </header>
+        <div class="oi-canvas-scroll"><svg class="oi-canvas" id="oi-canvas" viewBox="0 0 1090 600" role="img" aria-labelledby="oi-svg-title oi-svg-desc"><title id="oi-svg-title">Operational ontology instance graph</title><desc id="oi-svg-desc">Two-dimensional graph of synthetic Azure Resources and direct relationships.</desc></svg></div>
+        <div class="oi-legend"><span><i></i>contains</span><span class="is-depends"><i></i>depends on</span><span class="is-attached"><i></i>attached to</span><span class="is-network"><i></i>network path</span></div>
+        <section class="oi-timeline" aria-labelledby="oi-timeline-title">
+          <header class="oi-timeline-head"><div><span>State and event history</span><h3 id="oi-timeline-title">core-runtime</h3></div><div class="oi-timeline-meta"><span>Last 6 hours</span><span>Observed gaps stay explicit</span></div></header>
+          <div class="oi-timeline-scroll"><div class="oi-timeline-chart" id="oi-timeline"></div><div class="oi-timeline-detail" id="oi-timeline-detail" aria-live="polite"></div></div>
+        </section>
+      </section>
+      <aside class="oi-inspector" aria-label="Selected Resource inspector">
+        <nav class="oi-inspector-nav" aria-label="Resource detail views">
+          <button type="button" class="is-active" data-panel="overview">Overview</button><button type="button" data-panel="relations">Relations</button><button type="button" data-panel="events">Events</button><button type="button" data-panel="sources">Sources</button>
+        </nav>
+        <div class="oi-inspector-body" id="oi-inspector" aria-live="polite"></div>
+      </aside>
+    </section>
+    <footer class="oi-foot"><span>Synthetic design data. Missing provider evidence remains unavailable and never becomes a zero event count.</span><span>depth 1 &middot; bidirectional &middot; no mutation authority</span></footer>
+  </main>
+
+  <script>
+    (function () {
+      "use strict";
+      var azureIconRoot = "../../tools/architecture-diagrams/assets/azure/";
+      var nodeWidth = 176, nodeHeight = 68, cutoff = Date.parse("2026-08-22T08:00:00Z"), windowStart = cutoff - 21600000;
+      var resources = [
+        {id:"core-runtime",type:"compute.container-app",icon:"container-apps.svg",state:"Running",location:"Korea Central",group:"example-runtime",x:390,y:245},
+        {id:"ingestion-api",type:"compute.container-app",icon:"container-apps.svg",state:"Running",location:"Korea Central",group:"example-runtime",x:390,y:55},
+        {id:"worker",type:"compute.container-app",icon:"container-apps.svg",state:"Running",location:"Korea Central",group:"example-runtime",x:390,y:435},
+        {id:"runtime-environment",type:"compute.container-app-environment",icon:"container-apps.svg",state:"Succeeded",location:"Korea Central",group:"example-runtime",x:55,y:245},
+        {id:"event-stream",type:"messaging.event-stream",icon:"event-hubs.svg",state:"Active",location:"Korea Central",group:"example-data",x:700,y:55},
+        {id:"state-db",type:"data.postgresql",icon:"postgresql.svg",state:"Available",location:"Korea Central",group:"example-data",x:700,y:245},
+        {id:"object-store",type:"data.object-storage",icon:"storage-account.svg",state:"Available",location:"Korea Central",group:"example-data",x:700,y:435},
+        {id:"private-network",type:"network.virtual-network",icon:"virtual-network.svg",state:"Connected",location:"Korea Central",group:"example-network",x:55,y:455},
+        {id:"private-endpoint",type:"network.private-endpoint",icon:"private-endpoint.svg",state:"Connected",location:"Korea Central",group:"example-network",x:390,y:520},
+        {id:"secrets",type:"security.secret-store",icon:"key-vault.svg",state:"Available",location:"Korea Central",group:"example-data",x:895,y:205},
+        {id:"registry",type:"delivery.container-registry",icon:"container-registry.svg",state:"Available",location:"Korea Central",group:"example-data",x:895,y:375},
+        {id:"observability",type:"observability.workspace",icon:"monitor.svg",state:"Collecting",location:"Korea Central",group:"example-observe",x:895,y:35}
+      ];
+      var links = [
+        ["runtime-environment","core-runtime","contains"],["runtime-environment","ingestion-api","contains"],["runtime-environment","worker","contains"],
+        ["core-runtime","event-stream","depends_on"],["core-runtime","state-db","depends_on"],["core-runtime","secrets","attached_to"],["core-runtime","registry","depends_on"],["core-runtime","observability","attached_to"],
+        ["ingestion-api","event-stream","depends_on"],["ingestion-api","object-store","depends_on"],["worker","event-stream","depends_on"],["worker","object-store","depends_on"],
+        ["private-network","private-endpoint","network_path"],["private-endpoint","state-db","network_path"]
+      ];
+      var eventHistory = {
+        "core-runtime":[{at:"2026-08-22T02:18:00Z",state:"Provisioning",event:"Revision deployment started",source:"Azure Activity Log"},{at:"2026-08-22T02:34:00Z",state:"Degraded",event:"Startup probe missed",source:"Azure Monitor"},{at:"2026-08-22T02:41:00Z",state:"Running",event:"Revision became ready",source:"Azure Resource Health"},{at:"2026-08-22T07:42:00Z",state:"Running",event:"Inventory state confirmed",source:"FDAI audit"}],
+        "ingestion-api":[{at:"2026-08-22T02:22:00Z",state:"Provisioning",event:"Revision deployment started",source:"Azure Activity Log"},{at:"2026-08-22T02:46:00Z",state:"Running",event:"Ingress endpoint became ready",source:"Azure Resource Health"}],
+        "worker":[{at:"2026-08-22T02:28:00Z",state:"Provisioning",event:"Revision deployment started",source:"Azure Activity Log"},{at:"2026-08-22T02:51:00Z",state:"Running",event:"Worker replica became ready",source:"Azure Resource Health"}],
+        "runtime-environment":[{at:"2026-08-22T02:08:00Z",state:"Provisioning",event:"Environment update accepted",source:"Azure Activity Log"},{at:"2026-08-22T02:31:00Z",state:"Succeeded",event:"Environment update completed",source:"Azure Resource Health"}],
+        "event-stream":[{at:"2026-08-22T03:05:00Z",state:"Active",event:"Ingress status observed",source:"Azure Monitor"},{at:"2026-08-22T07:11:00Z",state:"Active",event:"Consumer check completed",source:"FDAI audit"}],
+        "state-db":[{at:"2026-08-22T02:12:00Z",state:"Updating",event:"Maintenance operation observed",source:"Azure Activity Log"},{at:"2026-08-22T02:39:00Z",state:"Available",event:"Availability restored",source:"Azure Resource Health"}],
+        "object-store":[{at:"2026-08-22T03:14:00Z",state:"Available",event:"Service health confirmed",source:"Azure Resource Health"},{at:"2026-08-22T07:28:00Z",state:"Available",event:"Inventory state confirmed",source:"FDAI audit"}],
+        "private-network":[{at:"2026-08-22T02:05:00Z",state:"Updating",event:"Address space update accepted",source:"Azure Activity Log"},{at:"2026-08-22T02:17:00Z",state:"Connected",event:"Network state converged",source:"Azure Resource Graph"}],
+        "private-endpoint":[{at:"2026-08-22T02:44:00Z",state:"Pending",event:"Connection requested",source:"Azure Activity Log"},{at:"2026-08-22T03:02:00Z",state:"Connected",event:"Connection approved",source:"Azure Resource Graph"}],
+        "secrets":[{at:"2026-08-22T03:21:00Z",state:"Available",event:"Service health confirmed",source:"Azure Resource Health"},{at:"2026-08-22T07:33:00Z",state:"Available",event:"Inventory state confirmed",source:"FDAI audit"}],
+        "registry":[{at:"2026-08-22T03:26:00Z",state:"Available",event:"Service health confirmed",source:"Azure Resource Health"},{at:"2026-08-22T07:36:00Z",state:"Available",event:"Inventory state confirmed",source:"FDAI audit"}],
+        "observability":[{at:"2026-08-22T02:57:00Z",state:"Collecting",event:"Workspace ingestion observed",source:"Azure Monitor"},{at:"2026-08-22T07:39:00Z",state:"Collecting",event:"Collection state confirmed",source:"FDAI audit"}]
+      };
+      var byId = new Map(resources.map(function (item) { return [item.id,item]; }));
+      var state = {selected:"core-runtime",query:"",focused:true,panel:"overview"};
+      var directory = document.getElementById("oi-directory"), select = document.getElementById("oi-select"), search = document.getElementById("oi-search"), canvas = document.getElementById("oi-canvas"), inspector = document.getElementById("oi-inspector"), timeline = document.getElementById("oi-timeline"), timelineDetail = document.getElementById("oi-timeline-detail"), timelineTitle = document.getElementById("oi-timeline-title"), title = document.getElementById("oi-stage-title"), copy = document.getElementById("oi-stage-copy"), count = document.getElementById("oi-result-count");
+      function esc(value) { return String(value).replace(/[&<>"']/g,function(c){return({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c];}); }
+      function svg(name,attrs,text){var element=document.createElementNS("http://www.w3.org/2000/svg",name);Object.keys(attrs||{}).forEach(function(key){element.setAttribute(key,attrs[key]);});if(text!=null)element.textContent=text;return element;}
+      function iconPath(item){return azureIconRoot+item.icon;}
+      function truncate(value,length){return value.length>length?value.slice(0,length-1)+"...":value;}
+      function eventTime(value){return value.slice(11,16);}
+      function eventPosition(value){return Math.max(1.5,Math.min(98.5,((Date.parse(value)-windowStart)/(cutoff-windowStart))*100));}
+      function segmentLabel(value,width){return width>=9?esc(value):"";}
+      function relationClass(type){return type==="depends_on"?"is-depends":type==="attached_to"?"is-attached":type==="network_path"?"is-network":"is-contains";}
+      function visibleResources(){var query=state.query.toLowerCase();return resources.filter(function(item){return !query||item.id.toLowerCase().includes(query)||item.type.toLowerCase().includes(query);});}
+      function relatedIds(){var ids=new Set([state.selected]);links.forEach(function(link){if(link[0]===state.selected)ids.add(link[1]);if(link[1]===state.selected)ids.add(link[0]);});return ids;}
+      function choose(id){state.selected=id;state.focused=true;state.panel="overview";select.value=id;document.querySelectorAll("[data-panel]").forEach(function(button){button.classList.toggle("is-active",button.dataset.panel==="overview");});render();}
+      function renderDirectory(){var visible=visibleResources();count.textContent=visible.length+" visible Resource"+(visible.length===1?"":"s");directory.innerHTML=visible.map(function(item){return '<li><button type="button" data-resource="'+esc(item.id)+'" class="'+(item.id===state.selected?'is-active':'')+'"><img src="'+esc(iconPath(item))+'" alt="" /><span><strong>'+esc(item.id)+'</strong><span>'+esc(item.type)+'</span></span></button></li>';}).join("")||'<li class="cs-muted" style="padding:9px;">No Resource matches this search.</li>';directory.querySelectorAll("[data-resource]").forEach(function(button){button.onclick=function(){choose(button.dataset.resource);};});}
+      function renderSelect(){select.innerHTML=resources.map(function(item){return '<option value="'+esc(item.id)+'">'+esc(item.id)+' - '+esc(item.type)+'</option>';}).join("");select.value=state.selected;}
+      function edgeGeometry(source,target){var x1=source.x+nodeWidth,y1=source.y+nodeHeight/2,x2=target.x,y2=target.y+nodeHeight/2;if(target.x<source.x){x1=source.x;x2=target.x+nodeWidth;}var middle=(x1+x2)/2;if(target.x>=895){var channel=target.id==="observability"?150:target.id==="secrets"?180:370;return {path:"M"+x1+" "+y1+" C"+(x1+70)+" "+channel+","+(x2-70)+" "+channel+","+x2+" "+y2,labelX:middle,labelY:channel-8};}return {path:"M"+x1+" "+y1+" C"+middle+" "+y1+","+middle+" "+y2+","+x2+" "+y2,labelX:middle,labelY:(source.y+target.y+nodeHeight)/2-8};}
+      function renderGraph(){var related=relatedIds();canvas.innerHTML='<defs><marker id="oi-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0L10 5L0 10z" fill="context-stroke"/></marker></defs>';links.forEach(function(link){var source=byId.get(link[0]),target=byId.get(link[1]),geometry=edgeGeometry(source,target),isRelated=link[0]===state.selected||link[1]===state.selected,muted=state.focused&&!isRelated;canvas.appendChild(svg("path",{d:geometry.path,class:"oi-edge "+relationClass(link[2])+(isRelated?" is-related":"")+(muted?" is-muted":"")}));canvas.appendChild(svg("text",{x:geometry.labelX,y:geometry.labelY,class:"oi-edge-label"+(muted?" is-muted":"")},link[2].replaceAll("_"," ")));});resources.forEach(function(item){var nodeState=item.id===state.selected?" is-selected":related.has(item.id)?" is-related":state.focused?" is-muted":"",rows=eventHistory[item.id]||[],last=rows[rows.length-1];var group=svg("g",{class:"oi-node "+nodeState,transform:"translate("+item.x+","+item.y+")",tabindex:"0",role:"button","aria-label":item.id+", "+item.type+", "+item.state});group.appendChild(svg("title",{},item.id+" - "+item.type+" - "+item.state));group.appendChild(svg("rect",{x:0,y:0,width:nodeWidth,height:nodeHeight,rx:5}));group.appendChild(svg("image",{class:"oi-node-icon",href:iconPath(item),x:12,y:14,width:22,height:22}));group.appendChild(svg("text",{class:"oi-node-title",x:43,y:21},truncate(item.id,20)));group.appendChild(svg("text",{class:"oi-node-type",x:43,y:39},truncate(item.type,25)));group.appendChild(svg("text",{class:"oi-node-state",x:43,y:57},item.state+(last?" · "+eventTime(last.at):"")));group.onclick=function(){choose(item.id);};group.onkeydown=function(event){if(event.key==="Enter"||event.key===" "){event.preventDefault();choose(item.id);}};canvas.appendChild(group);});title.innerHTML='Neighborhood of <code>'+esc(state.selected)+'</code>';copy.textContent=links.filter(function(link){return link[0]===state.selected||link[1]===state.selected;}).length+' direct relationships in the active generation.';}
+      function relationItems(item){return links.filter(function(link){return link[0]===item.id||link[1]===item.id;}).map(function(link){var outgoing=link[0]===item.id,neighbor=outgoing?link[1]:link[0];return '<li><span>'+(outgoing?'Outgoing':'Incoming')+' &middot; '+esc(link[2].replaceAll("_"," "))+'</span><button type="button" data-neighbor="'+esc(neighbor)+'">'+esc(neighbor)+'</button></li>';}).join("")||'<li class="cs-muted">No direct relationship.</li>';}
+      function showTimelineEvent(row){timelineDetail.innerHTML='<time>'+esc(eventTime(row.at))+' UTC</time><strong>'+esc(row.event)+'</strong><span>'+esc(row.state)+' &middot; '+esc(row.source)+'</span>';}
+      function renderTimeline(){var rows=eventHistory[state.selected]||[],segments=[];timelineTitle.textContent=state.selected;if(rows.length&&eventPosition(rows[0].at)>1.5){var unknownWidth=eventPosition(rows[0].at);segments.push('<button type="button" class="oi-state-segment is-unknown" style="left:0;width:'+unknownWidth+'%" title="Unknown" data-state-event="unknown">'+segmentLabel("Unknown",unknownWidth)+'</button>');}for(var index=0;index<rows.length;index+=1){var row=rows[index],start=eventPosition(row.at),end=index+1<rows.length?eventPosition(rows[index+1].at):100,width=end-start;segments.push('<button type="button" class="oi-state-segment'+(index===rows.length-1?' is-current':'')+'" style="left:'+start+'%;width:'+width+'%" title="'+esc(row.state)+'" data-state-event="'+index+'">'+segmentLabel(row.state,width)+'</button>');}var ticks=["02:00","03:00","04:00","05:00","06:00","07:00","08:00"];timeline.innerHTML='<div class="oi-time-axis"><span></span><div class="oi-time-axis-track">'+ticks.map(function(value,index){return '<span style="left:'+(index/6*100)+'%">'+value+'</span>';}).join("")+'</div></div><div class="oi-time-row"><span class="oi-time-label">State</span><div class="oi-time-track">'+segments.join("")+'</div></div><div class="oi-time-row"><span class="oi-time-label">Events</span><div class="oi-time-track">'+rows.map(function(row,index){return '<button type="button" class="oi-event-marker" data-event="'+index+'" style="left:'+eventPosition(row.at)+'%;top:'+(index%2?27:7)+'px" aria-label="'+esc(eventTime(row.at)+' UTC, '+row.event+', state '+row.state)+'" title="'+esc(row.event)+'"></button>';}).join("")+'</div></div>';timeline.querySelectorAll("[data-event]").forEach(function(button){var show=function(){showTimelineEvent(rows[Number(button.dataset.event)]);};button.onclick=show;button.onmouseenter=show;button.onfocus=show;});timeline.querySelectorAll("[data-state-event]").forEach(function(button){var show=function(){var index=button.dataset.stateEvent;if(index==="unknown")timelineDetail.innerHTML='<time>02:00 UTC</time><strong>State not observed</strong><span>Awaiting first typed state event</span>';else showTimelineEvent(rows[Number(index)]);};button.onclick=show;button.onmouseenter=show;button.onfocus=show;});if(rows.length)showTimelineEvent(rows[rows.length-1]);else timelineDetail.innerHTML='<span></span><strong>No event observed</strong><span>Complete source coverage is not claimed.</span>';}
+      function renderInspector(){var item=byId.get(state.selected),html="";if(state.panel==="overview")html='<span class="cs-tag is-steel">Resource</span><h2>'+esc(item.id)+'</h2><p>'+esc(item.state)+' in '+esc(item.location)+'.</p><dl class="oi-facts"><div><dt>Resource type</dt><dd><code>'+esc(item.type)+'</code></dd></div><div><dt>Resource group</dt><dd>'+esc(item.group)+'</dd></div><div><dt>Location</dt><dd>'+esc(item.location)+'</dd></div><div><dt>Inventory cutoff</dt><dd>2026-08-22 08:00 UTC</dd></div><div><dt>Direct relationships</dt><dd>'+links.filter(function(link){return link[0]===item.id||link[1]===item.id;}).length+'</dd></div><div><dt>Authority</dt><dd>Read only</dd></div></dl>';else if(state.panel==="relations")html='<h2>Direct relationships</h2><p>Select a neighbor to use it as the new exploration root.</p><ul class="oi-relations">'+relationItems(item)+'</ul>';else if(state.panel==="events"){var rows=(eventHistory[item.id]||[]).slice().reverse();html='<h2>Recent events</h2><p>The graph timeline and this list share the same typed event facts.</p><ol class="oi-events">'+(rows.map(function(row){return '<li><time>'+eventTime(row.at)+' UTC</time><strong>'+esc(row.event)+'</strong><span>'+esc(row.state)+' &middot; '+esc(row.source)+'</span></li>';}).join("")||'<li><strong>No event observed</strong><span>Complete source coverage is not claimed.</span></li>')+'</ol>';}else html='<h2>Evidence sources</h2><p>Each source reports availability independently.</p><ul class="oi-sources"><li><strong>Inventory snapshot</strong><span>Available &middot; 08:00 UTC</span></li><li><strong>FDAI audit</strong><span>Available &middot; 07:42 UTC</span></li><li><strong>Azure Resource Health</strong><span>Available &middot; 07:56 UTC</span></li><li><strong>Azure Activity Log</strong><span>Available &middot; event history bound</span></li></ul>';inspector.innerHTML=html;inspector.querySelectorAll("[data-neighbor]").forEach(function(button){button.onclick=function(){choose(button.dataset.neighbor);};});}
+      function render(){renderDirectory();renderGraph();renderTimeline();renderInspector();}
+      search.oninput=function(){state.query=search.value.trim();renderDirectory();};select.onchange=function(){choose(select.value);};document.getElementById("oi-show-all").onclick=function(){state.focused=false;renderGraph();};document.getElementById("oi-focus").onclick=function(){state.focused=true;renderGraph();};document.querySelectorAll("[data-panel]").forEach(function(button){button.onclick=function(){state.panel=button.dataset.panel;document.querySelectorAll("[data-panel]").forEach(function(item){item.classList.toggle("is-active",item===button);});renderInspector();};});renderSelect();render();
+    })();
+  </script>
+</body>
+</html>

@@ -45,6 +45,7 @@ class OperatorSemanticKafkaConfig:
     security_protocol: Literal["SASL_SSL", "PLAINTEXT"] = "SASL_SSL"
     request_topic: str = "operator.semantic-turn.requests"
     projection_topic: str = "core.semantic-turn.projections"
+    read_investigation_topic: str | None = None
     client_id: str = "fdai-operator-service"
     auto_offset_reset: str = "earliest"
     dlq_suffix: str = ".dlq"
@@ -64,6 +65,11 @@ class OperatorSemanticKafkaConfig:
             or _TOPIC_PATTERN.fullmatch(self.projection_topic) is None
         ):
             raise ValueError("semantic Kafka topics MUST be distinct valid topic names")
+        if self.read_investigation_topic is not None and (
+            _TOPIC_PATTERN.fullmatch(self.read_investigation_topic) is None
+            or self.read_investigation_topic in {self.request_topic, self.projection_topic}
+        ):
+            raise ValueError("read investigation topic MUST be distinct and valid")
         if self.auto_offset_reset not in {"earliest", "latest"}:
             raise ValueError("auto_offset_reset MUST be earliest or latest")
         if not self.dlq_suffix:
@@ -126,6 +132,13 @@ class OperatorSemanticKafkaBus:
             f"{self._config.request_topic}{self._config.dlq_suffix}",
             f"{self._config.projection_topic}{self._config.dlq_suffix}",
         }
+        if self._config.read_investigation_topic is not None:
+            allowed.update(
+                {
+                    self._config.read_investigation_topic,
+                    f"{self._config.read_investigation_topic}{self._config.dlq_suffix}",
+                }
+            )
         if topic not in allowed:
             raise ValueError("semantic Kafka publish topic is not configured")
         producer = await self._get_producer()

@@ -780,6 +780,20 @@ def test_input_digest_changes_with_source_or_environment(tmp_path: Path) -> None
     assert digest() != source_changed
 
 
+def test_input_digest_accepts_paths_only_mode(tmp_path: Path) -> None:
+    source = tmp_path / "source.txt"
+    source.write_text("prepared\n", encoding="utf-8")
+
+    result = subprocess.run(  # noqa: S603 - fixed repository script
+        [sys.executable, str(_INPUT_DIGEST), "--paths-only", str(source)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert re.fullmatch(r"[a-f0-9]{64}", result.stdout.strip())
+
+
 def test_runner_refuses_a_runtime_lock_owned_by_another_checkout(tmp_path: Path) -> None:
     log_file = tmp_path / "logs" / "core-runtime.log"
     runtime_lock = tmp_path / "core-runtime.lock"

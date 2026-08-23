@@ -8,8 +8,8 @@ import hashlib
 from pathlib import Path
 
 _CHUNK_BYTES = 1024 * 1024
+_DIGEST_IMPLEMENTATION = Path(__file__)
 _SUPERVISION_INPUTS = (
-    Path(__file__),
     Path(__file__).with_name("run-local-service.sh"),
     Path(__file__).with_name("run-local-service-child.py"),
 )
@@ -17,6 +17,11 @@ _SUPERVISION_INPUTS = (
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--paths-only",
+        action="store_true",
+        help="hash only the supplied paths without local service supervision inputs",
+    )
     parser.add_argument("inputs", nargs="+", type=Path)
     return parser
 
@@ -62,8 +67,11 @@ def input_digest(inputs: tuple[Path, ...]) -> str:
 
 def main() -> int:
     arguments = _parser().parse_args()
+    inputs = (*arguments.inputs, _DIGEST_IMPLEMENTATION)
+    if not arguments.paths_only:
+        inputs = (*inputs, *_SUPERVISION_INPUTS)
     try:
-        print(input_digest((*arguments.inputs, *_SUPERVISION_INPUTS)))
+        print(input_digest(inputs))
     except (OSError, ValueError) as exc:
         raise SystemExit(str(exc)) from exc
     return 0

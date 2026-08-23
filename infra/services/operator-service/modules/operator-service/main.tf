@@ -15,6 +15,7 @@ module "container_app" {
   }]
   environment = [
     { name = "FDAI_DATABASE_URL", secret_name = "database-dsn" },
+    { name = "POSTGRES_HOST", value = var.database.host },
     { name = "FDAI_DATABASE_ROLE", value = var.database.role },
     { name = "PGOPTIONS", value = "-c role=${var.database.role}" },
     { name = "FDAI_EXECUTION_VENUE", value = "deployed" },
@@ -26,6 +27,7 @@ module "container_app" {
     { name = "FDAI_SEMANTIC_TURN_REQUEST_TOPIC", value = var.event_topics.semantic_requests },
     { name = "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC", value = var.event_topics.semantic_projections },
     { name = "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC", value = var.event_topics.semantic_physical },
+    { name = "FDAI_READ_INVESTIGATION_REQUEST_TOPIC", value = var.event_topics.read_investigation_requests },
     { name = "FDAI_ENTRA_TENANT_ID", value = var.auth.tenant_id },
     { name = "FDAI_API_AUDIENCE", value = var.auth.api_audience },
     { name = "FDAI_RBAC_READERS_GROUP_ID", value = var.rbac.readers_group_id },
@@ -90,6 +92,7 @@ locals {
   channel_edge_environment = concat(
     [
       { name = "FDAI_DATABASE_URL", secret_name = "edge-database-dsn" },
+      { name = "POSTGRES_HOST", value = var.database.host },
       { name = "FDAI_DATABASE_ROLE", value = var.database.role },
       { name = "PGOPTIONS", value = "-c role=${var.database.role}" },
       { name = "FDAI_EXECUTION_VENUE", value = "deployed" },
@@ -101,6 +104,7 @@ locals {
       { name = "FDAI_SEMANTIC_TURN_REQUEST_TOPIC", value = var.event_topics.semantic_requests },
       { name = "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC", value = var.event_topics.semantic_projections },
       { name = "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC", value = var.event_topics.semantic_physical },
+      { name = "FDAI_READ_INVESTIGATION_REQUEST_TOPIC", value = var.event_topics.read_investigation_requests },
       { name = "FDAI_CHANNEL_EDGE_PORT", value = tostring(var.channel_edge.health.port) },
     ],
     var.channel_edge.slack_enabled ? [

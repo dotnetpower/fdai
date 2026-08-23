@@ -1260,6 +1260,9 @@ async def test_bound_incident_context_reaches_runtime_as_last_system_turn() -> N
         "Bound conversation context: kind=incident, "
         "incident_id=incident-42, correlation_id=correlation-7"
     )
+    assert runtime.bound_incidents == [
+        BoundIncident(incident_id="incident-42", correlation_id="correlation-7")
+    ]
 
 
 async def test_absent_bound_context_adds_no_anchor_turn() -> None:

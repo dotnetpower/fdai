@@ -116,10 +116,28 @@ test("component gallery keeps the remediated interaction and accessibility contr
   assert.doesNotMatch(navigation, /querySelectorAll\("\.js-chartable"\)/);
 });
 
+test("component gallery exposes a bounded Resource autocomplete specimen", () => {
+  const start = components.indexOf('id="resource-autocomplete"');
+  const end = components.indexOf('class="cs-combobox-empty"', start);
+  const specimen = components.slice(start, end);
+
+  assert.ok(start >= 0);
+  assert.match(components, /data-cs-combobox-limit="10"/);
+  assert.equal((specimen.match(/class="cs-combobox-option"/g) || []).length, 10);
+  assert.equal((specimen.match(/class="cs-combobox-option"[^>]*hidden/g) || []).length, 0);
+  assert.match(components, /Shows at most ten matches/);
+  assert.match(navigation, /visible >= limit/);
+  assert.match(navigation, /aria-activedescendant/);
+  assert.match(stylesheet, /\.cs-autocomplete-demo \.cs-combobox-list \{ max-height: 360px; \}/);
+});
+
 test("chart specimens retain their precision-first visual contracts", () => {
   const start = components.indexOf('<section class="cs-section" id="data-views"');
   const end = components.indexOf("</section>", start);
   const charts = components.slice(start, end);
+  const catalogMatch = charts.match(/<script type="application\/json" id="tremor-chart-catalog">([\s\S]*?)<\/script>/);
+  assert.ok(catalogMatch);
+  const catalog = JSON.parse(catalogMatch[1]);
 
   assert.equal((charts.match(/class="cs-chart-card js-chartable"/g) || []).length, 4);
   assert.match(charts, /class="cs-chart-reference"/);
@@ -137,6 +155,15 @@ test("chart specimens retain their precision-first visual contracts", () => {
   assert.equal((charts.match(/class="cs-chart-foot"/g) || []).length, 4);
   assert.equal((charts.match(/class="cs-chart-family-card"/g) || []).length, 6);
   assert.equal((charts.match(/class="cs-chart-composition-card/g) || []).length, 7);
+  assert.equal(catalog.length, 33);
+  assert.equal(new Set(catalog.map((entry) => entry.name)).size, 33);
+  assert.equal(catalog[0].name, "Area Chart");
+  assert.equal(catalog.at(-1).name, "Bar List");
+  assert.match(charts, /data-cs-tremor-catalog/);
+  assert.match(navigation, /function renderTremorCatalog\(\)/);
+  assert.match(navigation, /function catalogVisual\(entry\)/);
+  assert.match(stylesheet, /\.cs-chart-catalog-grid/);
+  assert.match(stylesheet, /\.cs-catalog-visual svg \.is-line\.is-blue/);
   [
     "Portfolio value", "Evidence volume", "Today's queries", "Total expenses by category",
     "Training load", "Log monitoring", "Uptime summary",

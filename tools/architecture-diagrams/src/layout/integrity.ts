@@ -13,6 +13,14 @@ interface Box {
   height: number;
 }
 
+interface EdgeSegment {
+  edgeId: string;
+  source: string;
+  target: string;
+  start: ElkPoint;
+  end: ElkPoint;
+}
+
 function intersects(left: Box, right: Box, padding = 0): boolean {
   return (
     left.x < right.x + right.width - padding &&
@@ -66,6 +74,35 @@ function endpointElementId(endpoint: string): string {
   return endpoint.split(":", 1)[0] ?? endpoint;
 }
 
+function segmentsProperlyCross(
+  firstStart: ElkPoint,
+  firstEnd: ElkPoint,
+  secondStart: ElkPoint,
+  secondEnd: ElkPoint,
+): boolean {
+  const firstDelta = {
+    x: firstEnd.x - firstStart.x,
+    y: firstEnd.y - firstStart.y,
+  };
+  const secondDelta = {
+    x: secondEnd.x - secondStart.x,
+    y: secondEnd.y - secondStart.y,
+  };
+  const determinant = firstDelta.x * secondDelta.y - firstDelta.y * secondDelta.x;
+  if (Math.abs(determinant) < 0.0001) return false;
+  const offset = {
+    x: secondStart.x - firstStart.x,
+    y: secondStart.y - firstStart.y,
+  };
+  const firstRatio = (offset.x * secondDelta.y - offset.y * secondDelta.x) / determinant;
+  const secondRatio = (offset.x * firstDelta.y - offset.y * firstDelta.x) / determinant;
+  const epsilon = 0.0001;
+  return firstRatio > epsilon
+    && firstRatio < 1 - epsilon
+    && secondRatio > epsilon
+    && secondRatio < 1 - epsilon;
+}
+
 function labelBox(
   edgeId: string,
   label: ElkLabel,
@@ -96,6 +133,7 @@ export function layoutIntegrityErrors(
   const nodes = [...layout.nodes.values()];
   const edgeLabelBoxes: Box[] = [];
   const stepBadgeBoxes: Box[] = [];
+  const networkSegments: EdgeSegment[] = [];
 
   const intentionalNodeOverlap = spec.kind === "pie" || spec.kind === "venn";
   for (
@@ -125,6 +163,21 @@ export function layoutIntegrityErrors(
       errors.push(`Node '${node.id}' has no positioned parent '${parentId}'`);
     } else if (!contains(parent, node, 1)) {
       errors.push(`Node '${node.id}' escapes parent '${parentId}'`);
+    }
+  }
+
+  if (spec.kind === "network") {
+    const parentByGroup = new Map(spec.groups.map((group) => [group.id, group.parent]));
+    const groups = [...layout.groups.values()];
+    for (let leftIndex = 0; leftIndex < groups.length; leftIndex += 1) {
+      for (let rightIndex = leftIndex + 1; rightIndex < groups.length; rightIndex += 1) {
+        const left = groups[leftIndex]!;
+        const right = groups[rightIndex]!;
+        if (parentByGroup.get(left.id) !== parentByGroup.get(right.id)) continue;
+        if (intersects(left, right, 1)) {
+          errors.push(`Peer groups '${left.id}' and '${right.id}' overlap`);
+        }
+      }
     }
   }
 
@@ -168,17 +221,21 @@ export function layoutIntegrityErrors(
     }
 
     const specEdge = spec.edges.find((candidate) => candidate.id === edge.id);
+    if (!specEdge) continue;
+    const effectiveRoute = specEdge?.route ??
+      (spec.canvas.networkPreset ? "orthogonal-shortest" : undefined);
     if (
-      specEdge?.route !== "diagonal" &&
-      specEdge?.route !== "curve" &&
-      specEdge?.route !== "orthogonal" &&
-      specEdge?.route !== "orthogonal-shortest" &&
-      specEdge?.route !== "orthogonal-horizontal" &&
-      specEdge?.route !== "orthogonal-trunk" &&
-      specEdge?.route !== "orthogonal-top" &&
-      specEdge?.route !== "orthogonal-above" &&
-      specEdge?.route !== "orthogonal-right" &&
-      specEdge?.route !== "orthogonal-approval"
+      effectiveRoute !== "diagonal" &&
+      effectiveRoute !== "curve" &&
+      effectiveRoute !== "orthogonal" &&
+      effectiveRoute !== "orthogonal-shortest" &&
+      effectiveRoute !== "orthogonal-horizontal" &&
+      effectiveRoute !== "orthogonal-trunk" &&
+      effectiveRoute !== "orthogonal-top" &&
+      effectiveRoute !== "orthogonal-above" &&
+      effectiveRoute !== "orthogonal-gap" &&
+      effectiveRoute !== "orthogonal-right" &&
+      effectiveRoute !== "orthogonal-approval"
     ) continue;
     const endpointIds = new Set([
       endpointElementId(specEdge.from),
@@ -191,13 +248,24 @@ export function layoutIntegrityErrors(
         section.endPoint,
       ];
       const sampledPoints =
-        specEdge.route === "curve"
+        effectiveRoute === "curve"
           ? sampleCubic(section.startPoint, section.endPoint)
           : routePoints;
       const points = sampledPoints.map((point) => ({
         x: point.x + (container?.x ?? 0),
         y: point.y + (container?.y ?? 0),
       }));
+      if (spec.kind === "network" && effectiveRoute !== "orthogonal-trunk") {
+        for (let index = 1; index < points.length; index += 1) {
+          networkSegments.push({
+            edgeId: edge.id,
+            source: endpointElementId(specEdge.from),
+            target: endpointElementId(specEdge.to),
+            start: points[index - 1]!,
+            end: points[index]!,
+          });
+        }
+      }
       for (let index = 1; index < points.length; index += 1) {
         const start = points[index - 1]!;
         const end = points[index]!;
@@ -205,10 +273,29 @@ export function layoutIntegrityErrors(
           if (endpointIds.has(node.id)) continue;
           if (segmentIntersectsBox(start, end, node, 3)) {
             errors.push(
-              `${specEdge.route === "curve" ? "Curved" : specEdge.route === "orthogonal" || specEdge.route === "orthogonal-shortest" || specEdge.route === "orthogonal-horizontal" || specEdge.route === "orthogonal-trunk" || specEdge.route === "orthogonal-top" || specEdge.route === "orthogonal-above" || specEdge.route === "orthogonal-right" || specEdge.route === "orthogonal-approval" ? "Orthogonal" : "Diagonal"} edge '${edge.id}' crosses node '${node.id}'`,
+              `${effectiveRoute === "curve" ? "Curved" : effectiveRoute === "orthogonal" || effectiveRoute === "orthogonal-shortest" || effectiveRoute === "orthogonal-horizontal" || effectiveRoute === "orthogonal-trunk" || effectiveRoute === "orthogonal-top" || effectiveRoute === "orthogonal-above" || effectiveRoute === "orthogonal-gap" || effectiveRoute === "orthogonal-right" || effectiveRoute === "orthogonal-approval" ? "Orthogonal" : "Diagonal"} edge '${edge.id}' crosses node '${node.id}'`,
             );
           }
         }
+      }
+    }
+  }
+
+  for (let leftIndex = 0; leftIndex < networkSegments.length; leftIndex += 1) {
+    for (let rightIndex = leftIndex + 1; rightIndex < networkSegments.length; rightIndex += 1) {
+      const left = networkSegments[leftIndex]!;
+      const right = networkSegments[rightIndex]!;
+      if (left.edgeId === right.edgeId) continue;
+      if (
+        left.source === right.source
+        || left.source === right.target
+        || left.target === right.source
+        || left.target === right.target
+      ) continue;
+      if (segmentsProperlyCross(left.start, left.end, right.start, right.end)) {
+        const ids = [left.edgeId, right.edgeId].sort();
+        const message = `Network edges '${ids[0]}' and '${ids[1]}' cross`;
+        if (!errors.includes(message)) errors.push(message);
       }
     }
   }

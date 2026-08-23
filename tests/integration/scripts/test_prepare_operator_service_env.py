@@ -12,6 +12,20 @@ import pytest
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _SCRIPT = _REPO_ROOT / "scripts/deployment/local/prepare-operator-service-env.sh"
 _BASH = shutil.which("bash") or "bash"
+_TRANSPORT_ENV_KEYS = (
+    "FDAI_KAFKA_BOOTSTRAP_SERVERS",
+    "FDAI_SEMANTIC_TURN_REQUEST_TOPIC",
+    "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC",
+    "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC",
+    "FDAI_READ_INVESTIGATION_REQUEST_TOPIC",
+)
+
+
+def _isolated_environment() -> dict[str, str]:
+    environment = dict(os.environ)
+    for key in _TRANSPORT_ENV_KEYS:
+        environment.pop(key, None)
+    return environment
 
 
 def _repo(tmp_path: Path, *, semantic: str) -> Path:
@@ -25,6 +39,7 @@ def _repo(tmp_path: Path, *, semantic: str) -> Path:
             "FDAI_SEMANTIC_TURN_REQUEST_TOPIC=operator.semantic-turn.requests\n"
             "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC=core.semantic-turn.projections\n"
             "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC=fdai.pantheon.objects\n"
+            "FDAI_READ_INVESTIGATION_REQUEST_TOPIC=operator.read-investigation.requests\n"
         ),
         "partial": "FDAI_SEMANTIC_TURN_REQUEST_TOPIC=operator.semantic-turn.requests\n",
         "absent": "",
@@ -51,7 +66,7 @@ def test_prepares_semantic_transport_or_local_narrator(tmp_path: Path, semantic:
     completed = subprocess.run(  # noqa: S603 - test-controlled script and environment
         [_BASH, str(repo / "scripts/deployment/local/prepare-operator-service-env.sh")],
         cwd=repo,
-        env={**os.environ},
+        env=_isolated_environment(),
         check=True,
         capture_output=True,
         text=True,
@@ -64,11 +79,15 @@ def test_prepares_semantic_transport_or_local_narrator(tmp_path: Path, semantic:
         assert "FDAI_SEMANTIC_TURN_REQUEST_TOPIC=operator.semantic-turn.requests" in rendered
         assert "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC=core.semantic-turn.projections" in rendered
         assert "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC=fdai.pantheon.objects" in rendered
+        assert (
+            "FDAI_READ_INVESTIGATION_REQUEST_TOPIC=operator.read-investigation.requests" in rendered
+        )
         assert "FDAI_OPERATOR_SERVICE_LOCAL_AZURE_NARRATOR=" not in rendered
     else:
         assert "FDAI_SEMANTIC_TURN_REQUEST_TOPIC=" not in rendered
         assert "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC=" not in rendered
         assert "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC=" not in rendered
+        assert "FDAI_READ_INVESTIGATION_REQUEST_TOPIC=" not in rendered
         assert "FDAI_OPERATOR_SERVICE_LOCAL_AZURE_NARRATOR=1" in rendered
 
 
@@ -78,7 +97,7 @@ def test_rejects_partial_semantic_transport(tmp_path: Path) -> None:
     completed = subprocess.run(  # noqa: S603 - test-controlled script and environment
         [_BASH, str(repo / "scripts/deployment/local/prepare-operator-service-env.sh")],
         cwd=repo,
-        env={**os.environ},
+        env=_isolated_environment(),
         check=False,
         capture_output=True,
         text=True,

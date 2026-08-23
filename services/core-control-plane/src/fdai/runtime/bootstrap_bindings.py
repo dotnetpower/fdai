@@ -42,6 +42,7 @@ from fdai.delivery.reconciliation_request_publication import (
     EffectReconciliationRequestPublisher,
 )
 from fdai.delivery.reconciliation_runtime import EffectReconciliationWorker
+from fdai.runtime.bootstrap_plan import VERTICAL_IDENTITY_ENV
 from fdai.shared.providers.catalog_search import CatalogSemanticIndex
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.metric import MetricProvider, NoopMetricProvider
@@ -52,11 +53,6 @@ RECONCILIATION_TOPICS = frozenset({RECONCILIATION_REQUEST_TOPIC, RECONCILIATION_
 RULE_GENERATION_TOPICS = frozenset(
     {RULE_GENERATION_ACTIVATION_COMMAND_TOPIC, RULE_GENERATION_ACTIVATION_RESULT_TOPIC}
 )
-VERTICAL_IDENTITY_ENV = {
-    "identity/change": "FDAI_CHANGE_MI_CLIENT_ID",
-    "identity/resilience": "FDAI_RESILIENCE_MI_CLIENT_ID",
-    "identity/finops": "FDAI_FINOPS_MI_CLIENT_ID",
-}
 
 
 @dataclass(frozen=True, slots=True)
@@ -191,16 +187,32 @@ def build_effect_reconciliation_request_binding(
     event_bus: EventBus,
     artifact_source: ExecutedActionReconciliationArtifactSource | None,
     observation_source: ExecutedActionObservationSource | None,
+    observation_verifier: ObservationContextVerifier | None = None,
     environment: Mapping[str, str],
 ) -> EffectReconciliationRequestRuntimeBinding | None:
     """Build producer recovery only for a complete exact-plan observation pair."""
 
+    if observation_source is None and observation_verifier is not None:
+        from fdai.delivery.reconciliation_observations import (
+            StateStoreExecutedActionObservationStore,
+        )
+
+        observation_source = StateStoreExecutedActionObservationStore(
+            store=state_store,
+            verifier=observation_verifier,
+        )
     if artifact_source is None and observation_source is None:
         return None
-    if artifact_source is None or observation_source is None:
+    if observation_source is None:
         raise RuntimeError(
-            "effect reconciliation request production requires artifact and observation sources"
+            "effect reconciliation request production requires an observation source or verifier"
         )
+    if artifact_source is None:
+        from fdai.delivery.reconciliation_artifacts import (
+            StateStoreExecutedActionArtifactStore,
+        )
+
+        artifact_source = StateStoreExecutedActionArtifactStore(store=state_store)
     clock = lambda: datetime.now(tz=UTC)  # noqa: E731 - shared injected clock identity
     outbox = StateStoreReconciliationRequestOutbox(store=state_store)
     publisher = EffectReconciliationRequestPublisher(

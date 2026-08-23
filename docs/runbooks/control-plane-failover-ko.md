@@ -2,8 +2,8 @@
 title: 컨트롤 플레인 Regional Failover 및 Failback
 summary: Split-brain execution이나 검증되지 않은 replay 없이 승인된 FDAI recovery plan 하나를 운영합니다.
 translation_of: control-plane-failover.md
-translation_source_sha: 7b0eec0af22385c79cfe0b88b3c974e685cf86b6
-translation_revised: 2026-08-11
+translation_source_sha: 01503e0cad97e2f9861f4a632a43ddb872cff8df
+translation_revised: 2026-08-23
 ---
 
 # 컨트롤 플레인 Regional 장애 조치 및 Failback
@@ -50,7 +50,7 @@ export FDAI_BUNDLE_DIGEST='<lowercase-sha256>'
 export FDAI_COMMIT_SHA='<40-character-git-sha>'
 export FDAI_RECOVERY_PLAN_ID='<recovery-plan-id>'
 export FDAI_RECOVERY_EPOCH='<positive-integer>'
-export FDAI_READ_API_BASE_URL='https://<read-api-origin>'
+export FDAI_OPERATOR_API_BASE_URL='https://<operator-api-origin>'
 ```
 
 Operator는 승인된 interactive 신원 흐름으로 `FDAI_OPERATOR_BEARER_TOKEN`을 얻고 프로세스
@@ -93,7 +93,7 @@ Operator는 승인된 interactive 신원 흐름으로 `FDAI_OPERATOR_BEARER_TOKE
   -H "권한 확인: Bearer $FDAI_OPERATOR_BEARER_TOKEN" \
   -H 'Content-Type: 애플리케이션/json' \
   -d "{\"engaged\":true,\"사유\":\"Regional 복구 fence for 계획 $FDAI_RECOVERY_PLAN_ID\",\"request_id\":\"$FDAI_RECOVERY_PLAN_ID-fence-$FDAI_RECOVERY_EPOCH\"}" \
-  "$FDAI_READ_API_BASE_URL/system/비상 정지"
+    "$FDAI_OPERATOR_API_BASE_URL/system/비상 정지"
  ```
 
 4. 새 스케줄러 전달과 승인 전달을 중단합니다. 기존 액션 증적은 근거로

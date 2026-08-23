@@ -1,8 +1,8 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: e8566b826b6ea769d0f504262618dc994062a856
-translation_revised: 2026-08-22
+translation_source_sha: 33da45fa57f586a79251416b948cdb6449fe8d0b
+translation_revised: 2026-08-23
 ---
 
 # CSP-중립성 계약
@@ -24,7 +24,7 @@ translation_revised: 2026-08-22
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 이벤트 버스, 런타임, 시크릿 및 워크로드 신원 계약 | implemented | `shared/providers/`; `delivery/azure/`; `infra/modules/event-bus/`; `infra/modules/compute/`; `infra/modules/secret-store/`; 집중 어댑터 및 인프라 테스트 | Azure는 프로바이더 중립 계약 뒤에서 Event Hubs의 Kafka, OCI Container Apps, native 시크릿 참조 및 워크로드 신원을 사용합니다. |
-| 인벤토리 스냅샷, 델타 및 범위가 제한된 그래프 변환 결과 | implemented | `shared/providers/inventory.py`; `delivery/azure/{arg_transport,inventory}.py`; `delivery/inventory_sync_cli.py`; 집중 인벤토리 및 변환 결과 테스트 | 전체 조정, 순서가 보장된 델타, 선제적 공유 요청 속도 제어, 진행 및 절대 마감, 원자적 세대 승격 및 범위가 제한된 읽기 변환 결과를 구현했습니다. 실제 운영 완전성은 코드 경로 주장이 아니라 배포 근거입니다. |
+| 인벤토리 수집, 완전 세대 관계 및 범위가 제한된 그래프 변환 결과 | implemented | `shared/providers/inventory.py`; `delivery/azure/generation_relationships.py`; `delivery/inventory_sync.py`; `delivery/inventory_live_evidence.py`; `core/ontology_platform/graph_evidence_refresh.py`; 집중 인벤토리, 관계, 새로 고침 및 변환 결과 테스트 | 지속 수집, 정확한 관계 근거와 명시적 누락 사유, 원자적 승격, 그래프 우선 새로 고침 결정, 안전한 실제 근거 반영 및 범위가 제한된 읽기 변환 결과를 구현했습니다. 일반 의미 쿼리 조립은 아직 새로 고침 선택과 실제 근거 반영을 종단 간 연결하지 않습니다. 배포 완전성은 별도의 검증 근거입니다. |
 | 메트릭, 로그 및 추적 조회 계약 | implemented | `shared/providers/metric.py`; `log_query.py`; `trace_query.py`; `delivery/azure/metric_logs.py`; `delivery/azure/log_query.py`; `delivery/azure/telemetry_query.py` | Azure Monitor 및 Log Analytics 어댑터가 있으며 구성이 없으면 의도적으로 no-op 바인딩을 유지합니다. |
 | 8개 계약 전체의 통제된 운영 근거 | in-progress | [배포 및 온보딩 구현 상태](../deployment/deploy-and-onboard-ko.md#구현-상태); `delivery/azure/` 아래의 관측 캠페인 어댑터 | 독립 서비스 배포는 검증됐지만 이 소유 문서는 모든 인벤토리와 텔레메트리 계약을 함께 입증하는 최신 통제 캠페인을 하나로 보존하지 않습니다. |
 | 비-Azure 프로바이더 구현 | deferred | [구현 Focus](../../../.github/copilot-instructions.md#implementation-focus-must) | 이식성을 위해 계약 형태를 유지합니다. AWS, GCP 또는 다른 프로바이더 어댑터는 승인된 구현 범위에 없습니다. |
@@ -48,11 +48,13 @@ translation_revised: 2026-08-22
 | 2026-08-19 | implemented | 범위가 제한된 프로바이더 native 범위 coverage를 CSP-중립 `InventoryBatch` 최종 fence에 추가하고 승격할 때만 변경 불가능한 스냅샷 메타데이터로 변환했습니다. 생성 전에 count 합계를 대조하고, 최종이 아닌 배치는 근거를 운반할 수 없으며, 정적 출처 메타데이터는 완료된 수집을 가장할 수 없습니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). focused 프로바이더 계약 및 인벤토리 동기화 테스트 31개와 작업 범위 Ruff 및 strict mypy가 통과했습니다. | Azure 전체 범위 타입 집계 producer를 연결하고 승격된 스냅샷에 측정된 미매핑 count를 보존합니다. |
 | 2026-08-14 | in-progress | 이전 이력을 재구성하지 않고 구현 원장을 도입했으며 Azure 계약 구현을 운영 근거 및 보류된 비-Azure 어댑터와 분리해 기록했습니다. | `current change`; 구현 범위 표의 프로바이더, 전달, 인프라 및 배포 근거입니다. | 하나의 통제된 8개 계약 캠페인을 보존하고 명시적으로 범위가 정해질 때까지 비-Azure 작업을 보류합니다. |
 | 2026-08-20 | implemented | 두 번째 그래프 작성자를 만들지 않고 인벤토리 수집을 지속 실행 형태로 전환했습니다. 1분 틱은 실행 조건 확인 전에 프로바이더 변경을 비우고, 구성 가능한 하한은 변경으로 시작되는 스캔을 합칩니다. 모든 ARG 샤드는 선제적 속도 제어를 공유하고, 반응형 초기화 대기는 제한되며, 각 출처에는 진행 시 다시 설정되는 마감과 절대 마감이 있습니다. | [이슈 #139](https://github.com/dotnetpower/fdai/issues/139); 현재 소스와 집중 ARG, 인벤토리, 예약, 구성, 변환 결과 및 인프라 검사입니다. | 이 범위를 `validated`로 변경하기 전에 exact revision 보호 적용, 측정된 1분 주기와 비용, 실제 프로바이더 변경 조정 증적 하나를 보존합니다. |
+| 2026-08-23 | implemented | 계약 5를 스냅샷과 델타 전송에서 완전 세대 관계 근거와 그래프 우선 읽기 동작으로 확장했습니다. 검토된 프로바이더 매핑은 정확한 출처 및 끝점 근거를 운반하고, 억제된 후보는 타입이 지정된 누락 및 사용 불가 사유를 보존하며, 순수 새로 고침 리듀서는 권한이 없는 다섯 결과 중 하나를 선택합니다. 검증된 범위 제한 실제 읽기는 정본 부분 오버레이를 통해 반영됩니다. 읽기 전용 Console 변환 결과는 두 번째 인벤토리 출처가 되지 않으면서 저장된 관계 타입, 방향, 근거 및 불완전한 범위를 보존합니다. | `current change`; [지속 운영 인스턴스 그래프](continuous-operational-instance-graph-ko.md), [네트워크 토폴로지 시각화](../interfaces/network-topology-visualization-ko.md), `shared/providers/inventory.py`, `core/ontology_platform/graph_evidence_refresh.py`, `delivery/inventory_live_evidence.py` 및 해당 소유 문서에 기록된 집중 검사입니다. | 새로 고침 선택과 실제 근거 반영을 일반 의미 쿼리 조립에 연결하고, 정확한 개정 번호의 통제된 캠페인을 보존하며, 새 범위를 `validated`로 올리기 전에 배포된 최신성, 압력 및 비용 근거를 보존합니다. |
 
 ### 남은 작업
 
 - [ ] 정확한 개정 번호를 고정하고 이벤트, 런타임, 시크릿, 신원, 인벤토리, 메트릭, 로그 및 추적 행동과 실패 및 최신성 사례를 입증하는 통제된 Azure 캠페인 증적을 보존합니다.
-- [ ] 현재의 완전한 세대에서 루트 기반 탐색, 잘림 사유, stale 대체 경로 및 권한 상승 없음까지 포함해 범위가 제한된 인벤토리 그래프 경로를 입증합니다.
+- [ ] 그래프 새로 고침 선택과 실제 근거 반영을 일반 의미 쿼리 조립에 연결한 뒤, 관측, 변경 또는 실행 권한 없이 다섯 결과를 모두 다루는 조립 증적을 보존합니다.
+- [ ] 루트 기반 탐색, 관계 누락 및 사용 불가 사유, 저장된 간선 방향, 잘림, 불완전한 그래프의 `unknown`, stale 대체 경로 및 권한 상승 없음을 다루는 정확한 개정 번호의 통제된 인벤토리 그래프 및 Console 근거를 보존합니다.
 - [ ] 승인된 대상이 순서, 재현, 신원, 인벤토리 및 텔레메트리 행동의 계약 동등성 테스트를 제공할 때까지 비-Azure 어댑터를 구현하지 않습니다.
 
 ## 원칙
@@ -298,14 +300,28 @@ CSP 접촉면을 지배하는 여덟 개의 계약 (다섯 wire-level 기반 +
   권위 있는 출처로 남으며 누락된 신호를 복구한 뒤 base 세대를 원자적으로
   교체합니다.
 
+완전 세대는 검토된 프로바이더 관계도 발행할 수 있습니다. 각 후보는 독립 검증 전에
+매핑 개정 번호, 정확한 출처 속성, 프로바이더 끝점 타입, 관측 증적, 최신성 상한 및 저장된
+방향을 운반합니다. 두 끝점을 모두 확정할 수 없는 후보는 간선으로 변환하지 않습니다.
+대신 범위가 제한된 `RelationshipDrop`이 타입이 지정된 누락 사유와, 확인된 경우
+`target_outside_active_generation`, `target_provider_type_unmodeled` 또는
+`reference_not_observed` 같은 안정적인 사용 불가 사유를 보존합니다.
+
 읽기 전용 콘솔은 승격된 그래프의 별도 프로젝션을 `GET /inventory/graph`를 통해
 사용합니다. 이 경로는 `OperatorApiConfig.inventory_graph_provider`가 주입된 경우에만
-활성화됩니다. CSP-중립 `Resource` 레코드와 `contains` / `attached_to` / `depends_on`
-링크, 스냅샷 신선도, 잘림 메타데이터를 반환합니다. 이 경로는 Azure Resource Graph를
+활성화됩니다. CSP-중립 `Resource` 레코드와 `contains`, `attached_to`, `depends_on`,
+`peered_with`, `routes_to` 같은 타입이 지정된 링크, 스냅샷 신선도, 잘림 메타데이터를
+반환합니다. 이 경로는 Azure Resource Graph를
 직접 호출하지 않으며 실행자 ID를 전달받지 않습니다. 반환되는 각 Resource는 검토된
 operating-scope `service_ref`도 포함합니다. `workload_runs_on`과 `implemented_by`만 범위가
 제한된 역방향으로 조회하고 mapping이 없거나 충돌하면 `unknown_service`를 반환하며, 해당
 coverage가 대응되지 않거나 잘리면 응답을 강등합니다.
+
+Console은 [네트워크 토폴로지 시각화](../interfaces/network-topology-visualization-ko.md)에
+정의된 대로 동일한 권위 있는 응답에서 인스턴스 포커스 및 Network 표현을 파생할 수 있습니다.
+이 읽기 전용 변환 결과는 저장된 관계 타입, 출처, 대상, 매핑 근거, 최신성 및 완전성을
+보존합니다. 레이아웃 순서는 트래픽 또는 도달 가능성 근거가 되지 않으며, 관계 집합이
+불완전하면 관측 경로가 없다고 주장하는 대신 `unknown`을 반환합니다.
 
 리소스 중심 요청은 `root=<resource-id>`, `depth=1..8`, `limit=1..1000`을 지정합니다.
 프로바이더는 활성 스냅샷과 순서가 보장된 실시간 오버레이에서 허용된 들어오는 및
@@ -444,14 +460,21 @@ coverage가 대응되지 않거나 잘리면 응답을 강등합니다.
   delta, 완전한 ARG/ARM reconciliation 세대를 지속적으로 결합합니다. Delta 스트림만으로
   완전성을 증명하지 않습니다. Durable 원본 정책은 목표 최신성, 최소 및 최대 간격, 우선순위,
   요청 및 byte 예산, 동시성, 공급자 `Retry-After`, 범위가 제한된 backoff, circuit 상태를
-  제어합니다. 현재 고정 정기 간격은 적응형 controller가 종료 조건을 통과할 때까지 이전 구성으로
-  유지됩니다. 변경은 이 컨트롤 플레인이 활성 snapshot 시작 뒤에 기록했을 때 미조정으로 봅니다.
+  제어합니다. 구현된 결정적 스케줄러는 이 입력에서 범위가 제한된 다음 작업 하나를 선택합니다.
+  배포된 주기, 압력 및 비용은 운영 검증 근거로 별도 유지합니다. 변경은 이 컨트롤 플레인이 활성
+  snapshot 시작 뒤에 기록했을 때 미조정으로 봅니다.
   시도 하나에는 진행 시 다시 설정되는 무진행 마감과 절대 상한이 있고, 모든 ARG shard는 지속
   요청 예산을 공유합니다. 로컬 새로 고침과 배포 worker는 durable 시도 전이, 활성 pointer 검증,
   범위가 제한된 활동 게시를 공유합니다. 복구 delta는 cursor를 읽거나 전진하기 전에 각 scope를
   직렬화합니다. Worker는 읽기 전용 inventory 신원을 유지하며 Heimdall은 공급자를 직접 조회하거나
   수집을 시작하지 않습니다. 보존, rollup, archive, purge 규칙은
   [지속형 운영 인스턴스 그래프](continuous-operational-instance-graph-ko.md)가 소유합니다.
+- **그래프 우선 새로 고침은 결정적이며 권한을 부여하지 않습니다.** 검증된 쿼리 요구 사항,
+  현재 그래프의 최신성과 완전성, 온톨로지 릴리스, 충돌, 명시적 실제 읽기 정책, 마감 및
+  아카이브 상태는 `use_graph`, `refresh_then_query`, `use_live_evidence`, `query_archive` 또는
+  `hold` 중 정확히 하나로 축약됩니다. 결과는 범위가 제한된 읽기 경로만 선택합니다. 관측,
+  변경 또는 실행 권한을 운반하지 않으며, 검증된 실제 근거는 완전한 속성이나 링크를 교체하지
+  않고 정본 부분 오버레이를 통해 인벤토리에 다시 들어갑니다.
 - **미인식 `ResourceType` 또는 LinkType** 은 이슈를 열고 드롭됩니다. 어댑터는 런타임에 새
   온톨로지 타입을 자동 등록하지 않습니다. 전체 프로바이더 스캔은 미리 선언된
   `unclassified-resource` 타입을 통해서만 알려지지 않은 native 리소스 신원을 보존할 수 있습니다.

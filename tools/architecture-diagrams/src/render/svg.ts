@@ -24,6 +24,7 @@ import {
   Wrench,
   type IconNode,
 } from "lucide";
+import { networkConnectionLabel } from "@fdai/network-topology-contracts";
 
 import type { DiagramLayout, PositionedShape } from "../layout/elk.js";
 import { cubicCurve } from "../layout/curve.js";
@@ -39,6 +40,7 @@ import type {
   EdgeKind,
   Locale,
 } from "../model/types.js";
+import { isReferenceDiagramProfile } from "../model/types.js";
 import {
   EDGE_FONT_SIZE,
   EDGE_LINE_HEIGHT,
@@ -60,6 +62,7 @@ import {
   nodeGeometry,
   wrapText,
 } from "../model/text.js";
+import { azureDiagramIconForResourceType } from "../model/azure-resource-icons.js";
 
 function themeColor(name: keyof typeof CALM_SLATE_LIGHT): string {
   return `var(${name}, ${CALM_SLATE_LIGHT[name]})`;
@@ -273,11 +276,12 @@ async function renderNode(
   const bodyLineHeight = compact
     ? REFERENCE_NODE_BODY_LINE_HEIGHT
     : NODE_BODY_LINE_HEIGHT;
+  const resolvedIcon = node.icon ?? azureDiagramIconForResourceType(node.resourceType);
   const icon = node.kind === "agent"
     ? await pantheonAgentIconDataUri(node)
-    : node.icon === "agent-pantheon"
-      ? await pantheonIconDataUri(pantheonIconManifest.collective, node.icon)
-      : await iconDataUri(node.icon);
+    : resolvedIcon === "agent-pantheon"
+      ? await pantheonIconDataUri(pantheonIconManifest.collective, resolvedIcon)
+      : await iconDataUri(resolvedIcon);
   const barShape = node.shape === "bar";
   const pieSlice = node.shape === "pie-slice";
   const centeredChartNode = ["circle", "pie-slice"].includes(node.shape ?? "");
@@ -492,7 +496,7 @@ function renderEdge(
   layoutLabel?: ElkLabel,
 ): string {
   const style = edgeStyles[edge.kind];
-  const compact = profile === "azure-reference";
+  const compact = isReferenceDiagramProfile(profile);
   const edgeFontSize = compact ? REFERENCE_EDGE_FONT_SIZE : EDGE_FONT_SIZE;
   const edgeLineHeight = compact ? REFERENCE_EDGE_LINE_HEIGHT : EDGE_LINE_HEIGHT;
   const strokeWidth = Math.min(14, style.width * (edge.weight ?? 1));
@@ -518,7 +522,17 @@ function renderEdge(
   const stepMarkup = edge.step
     ? `<g class="edge-step" transform="translate(${stepPosition.x + offsetX} ${stepPosition.y + offsetY})" aria-hidden="true"><circle r="13"/><text y="4">${edge.step}</text></g>`
     : "";
-  const accessibleLabel = `${edge.step ? `Step ${edge.step}. ` : ""}${label ?? edgeKindLabels[edge.kind][locale]}`;
+  const networkDetails = [
+    edge.connectionKind ? networkConnectionLabel(edge.connectionKind) : null,
+    edge.direction,
+    edge.trafficClass,
+    edge.policy,
+    edge.protocol,
+    edge.port ? `port ${edge.port}` : null,
+    edge.nextHop ? `next hop ${edge.nextHop}` : null,
+    edge.sourceEvidence,
+  ].filter((value): value is string => Boolean(value));
+  const accessibleLabel = `${edge.step ? `Step ${edge.step}. ` : ""}${label ?? edgeKindLabels[edge.kind][locale]}${networkDetails.length ? `. ${networkDetails.join(", ")}` : ""}`;
   const sankey = diagramKind === "sankey";
   const path =
     edge.route === "curve" || sankey
@@ -527,10 +541,15 @@ function renderEdge(
           sectionPoints(section),
           offsetX,
           offsetY,
-          profile === "azure-reference" ? 4 : 14,
+          isReferenceDiagramProfile(profile) ? 4 : 14,
         );
-  const marker = sankey ? "" : ` marker-end="url(#arrow-${edge.kind})"`;
-  return `<g class="diagram-edge edge-${edge.kind}" data-edge-id="${edge.id}" data-edge-from="${edge.from.split(":", 1)[0]}" data-edge-to="${edge.to.split(":", 1)[0]}" data-edge-route="${edge.route ?? "auto"}"${edge.weight ? ` data-edge-weight="${edge.weight}"` : ""}${edge.step ? ` data-edge-step="${edge.step}"` : ""}><title>${escapeXml(accessibleLabel)}</title><path class="edge-hit" d="${path}"/><path class="edge-path" d="${path}" fill="none" stroke="${style.color}" stroke-width="${strokeWidth}" stroke-dasharray="${style.dash}" stroke-linecap="butt" stroke-linejoin="round"${marker}/>${labelMarkup}${stepMarkup}</g>`;
+  const markerStart = !sankey && ["reverse", "bidirectional"].includes(edge.direction ?? "")
+    ? ` marker-start="url(#arrow-start-${edge.kind})"`
+    : "";
+  const markerEnd = !sankey && edge.direction !== "reverse"
+    ? ` marker-end="url(#arrow-${edge.kind})"`
+    : "";
+  return `<g class="diagram-edge edge-${edge.kind}" data-edge-id="${edge.id}" data-edge-from="${edge.from.split(":", 1)[0]}" data-edge-to="${edge.to.split(":", 1)[0]}" data-edge-route="${edge.route ?? "auto"}"${edge.connectionKind ? ` data-network-connection="${edge.connectionKind}"` : ""}${edge.direction ? ` data-network-direction="${edge.direction}"` : ""}${edge.trafficClass ? ` data-network-traffic="${edge.trafficClass}"` : ""}${edge.policy ? ` data-network-policy="${edge.policy}"` : ""}${edge.sourceEvidence ? ` data-source-evidence="${edge.sourceEvidence}"` : ""}${edge.weight ? ` data-edge-weight="${edge.weight}"` : ""}${edge.step ? ` data-edge-step="${edge.step}"` : ""}><title>${escapeXml(accessibleLabel)}</title><path class="edge-hit" d="${path}"/><path class="edge-path" d="${path}" fill="none" stroke="${style.color}" stroke-width="${strokeWidth}" stroke-dasharray="${style.dash}" stroke-linecap="butt" stroke-linejoin="round"${markerStart}${markerEnd}/>${labelMarkup}${stepMarkup}</g>`;
 }
 
 function renderLegend(spec: DiagramSpec, locale: Locale, y: number): string {
@@ -547,6 +566,34 @@ function renderLegend(spec: DiagramSpec, locale: Locale, y: number): string {
     return markup;
   });
   return `<g class="diagram-legend" role="group" aria-label="${locale === "ko" ? "범례" : "Legend"}">${items.join("")}</g>`;
+}
+
+function renderAnnotations(
+  spec: DiagramSpec,
+  locale: Locale,
+  width: number,
+  height: number,
+  legendHeight: number,
+  marginX: number,
+): string {
+  const indexes = new Map<string, number>();
+  return (spec.annotations ?? []).map((annotation) => {
+    const index = indexes.get(annotation.placement) ?? 0;
+    indexes.set(annotation.placement, index + 1);
+    const panelWidth = 340;
+    const titleLines = wrapText(annotation.title[locale], 34);
+    const bodyLines = annotation.body.flatMap((line) => wrapText(line[locale], 44));
+    const panelHeight = 54 + titleLines.length * 18 + bodyLines.length * 17;
+    const right = annotation.placement.endsWith("right");
+    const bottom = annotation.placement.startsWith("bottom");
+    const x = right ? width - panelWidth - marginX : marginX;
+    const y = bottom
+      ? height - legendHeight - 28 - (index + 1) * (panelHeight + 12)
+      : 88 + index * (panelHeight + 12);
+    const title = textLines(titleLines, x + 16, y + 26, "annotation-title", 18, "start");
+    const body = textLines(bodyLines, x + 16, y + 48 + (titleLines.length - 1) * 18, "annotation-body", 17, "start");
+    return `<g class="diagram-annotation" data-annotation-id="${annotation.id}" data-annotation-tone="${annotation.tone}"${annotation.anchor ? ` data-annotation-anchor="${annotation.anchor}"` : ""} role="note" aria-label="${escapeXml(annotation.title[locale])}"><rect x="${x}" y="${y}" width="${panelWidth}" height="${panelHeight}" rx="6"/>${title}${body}</g>`;
+  }).join("");
 }
 
 function renderChartBackdrop(
@@ -612,7 +659,7 @@ export async function renderSvg(
   layout: DiagramLayout,
   locale: Locale,
 ): Promise<string> {
-  const defaultOffsetX = 48;
+  const defaultOffsetX = spec.canvas.profile === "network-azure-reference" ? 10 : 48;
   const sequenceBounds = spec.kind === "sequence" && layout.nodes.size
     ? {
         left: Math.min(...[...layout.nodes.values()].map((node) => node.x)),
@@ -628,20 +675,34 @@ export async function renderSvg(
           sequenceBounds.left,
       )
     : defaultOffsetX;
-  const offsetY = 112;
-  const legendHeight = spec.legend?.length ? 58 : 20;
+  const topAnnotationCount = (spec.annotations ?? []).filter(
+    (annotation) => annotation.placement.startsWith("top"),
+  ).length;
+  const bottomAnnotationCount = (spec.annotations ?? []).filter(
+    (annotation) => annotation.placement.startsWith("bottom"),
+  ).length;
+  const topAnnotationReserve = spec.canvas.profile === "network-azure-reference" ? 110 : 132;
+  const offsetY = 112 + topAnnotationCount * topAnnotationReserve;
+  const legendHeight = spec.legend?.length
+    ? spec.canvas.profile === "network-azure-reference" ? 30 : 58
+    : 20;
   const width = Math.max(spec.canvas.width, Math.ceil(layout.width + offsetX * 2));
   const height = Math.max(
     spec.canvas.height,
-    Math.ceil(layout.height + offsetY + legendHeight),
+    Math.ceil(layout.height + offsetY + legendHeight + bottomAnnotationCount * 132),
   );
   const groupById = new Map(spec.groups.map((group) => [group.id, group]));
   const nodeById = new Map(spec.nodes.map((node) => [node.id, node]));
   const edgeById = new Map(spec.edges.map((edge) => [edge.id, edge]));
+  const reverseMarkerKinds = new Set(
+    spec.edges
+      .filter((edge) => edge.direction === "reverse" || edge.direction === "bidirectional")
+      .map((edge) => edge.kind),
+  );
   const markers = Object.entries(edgeStyles)
     .map(
       ([kind, style]) =>
-        `<marker id="arrow-${kind}" viewBox="0 0 10 10" refX="0" refY="5" markerUnits="userSpaceOnUse" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 1L9 5L0 9z" fill="${style.color}"/></marker>`,
+        `<marker id="arrow-${kind}" viewBox="0 0 10 10" refX="0" refY="5" markerUnits="userSpaceOnUse" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 1L9 5L0 9z" fill="${style.color}"/></marker>${reverseMarkerKinds.has(kind as DiagramEdge["kind"]) ? `<marker id="arrow-start-${kind}" viewBox="0 0 10 10" refX="10" refY="5" markerUnits="userSpaceOnUse" markerWidth="7" markerHeight="7" orient="auto"><path d="M10 1L1 5L10 9z" fill="${style.color}"/></marker>` : ""}`,
     )
     .join("");
   const groups = [...layout.groups.values()]
@@ -649,14 +710,14 @@ export async function renderSvg(
     .map((shape) => {
       const group = groupById.get(shape.id);
       if (!group) return "";
-      const compact = spec.canvas.profile === "azure-reference";
+      const compact = isReferenceDiagramProfile(spec.canvas.profile);
       const groupFontSize = compact ? REFERENCE_GROUP_FONT_SIZE : GROUP_FONT_SIZE;
       const groupLines = wrapText(
         group.label[locale],
         (shape.width - 36) / groupFontSize,
       );
       const presentation = group.presentation ?? "default";
-      const radius = spec.canvas.profile === "azure-reference" ? 2 : 8;
+      const radius = isReferenceDiagramProfile(spec.canvas.profile) ? 2 : 8;
       const accent = compact
         ? ""
         : `<line class="group-accent" x1="${shape.x + offsetX + 18}" y1="${shape.y + offsetY + 39}" x2="${shape.x + offsetX + 66}" y2="${shape.y + offsetY + 39}" aria-hidden="true"/>`;
@@ -699,18 +760,30 @@ export async function renderSvg(
           locale,
           offsetX,
           offsetY,
-          spec.canvas.profile === "azure-reference",
+          isReferenceDiagramProfile(spec.canvas.profile),
           spec.kind === "sequence",
         );
       }),
     )
   ).join("");
+  const referenceProfile = isReferenceDiagramProfile(spec.canvas.profile);
+  const networkPresentationCss = spec.kind === "network" ? `
+    .diagram-edge[data-network-policy="deny"] > .edge-path { stroke: #c4314b; }
+    .diagram-edge[data-network-policy="inspect"] > .edge-path { stroke: #9a6500; }
+    .diagram-edge[data-network-policy="bypass"] > .edge-path { stroke-dasharray: 9 5; }
+    .diagram-annotation > rect { fill: #eef6fc; stroke: #6f8ba4; stroke-width: 1.25; }
+    .diagram-annotation[data-annotation-tone="policy"] > rect { fill: #e6f2fb; stroke: #315f82; }
+    .annotation-title { font-size: 14px; font-weight: 700; fill: var(--fdai-diagram-text, #323130); }
+    .annotation-body { font-size: 12px; font-weight: 450; fill: var(--fdai-diagram-muted, #605e5c); }`
+    : "";
   const standaloneDarkThemeSelector =
-    spec.canvas.profile === "azure-reference"
+    spec.canvas.profile === "network-azure-reference"
+      ? 'svg[data-diagram-id]:not([data-embedded]):not([data-profile="network-azure-reference"])'
+      : referenceProfile
       ? 'svg[data-diagram-id]:not([data-embedded]):not([data-profile="azure-reference"])'
       : "svg[data-diagram-id]:not([data-embedded])";
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-labelledby="diagram-title diagram-description" data-diagram-id="${spec.id}" data-kind="${spec.kind}" data-locale="${locale}" data-profile="${spec.canvas.profile ?? "default"}">
+  const source = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-labelledby="diagram-title diagram-description" data-diagram-id="${spec.id}" data-kind="${spec.kind}" data-locale="${locale}" data-profile="${spec.canvas.profile ?? "default"}"${spec.posture ? ` data-posture="${spec.posture}"` : ""}${spec.canvas.networkPreset ? ` data-network-preset="${spec.canvas.networkPreset}"` : ""}>
   <title id="diagram-title">${escapeXml(spec.locales[locale].title)}</title>
   <desc id="diagram-description">${escapeXml(spec.locales[locale].alt)}</desc>
   <metadata>${escapeXml(JSON.stringify({ id: spec.id, version: spec.version, updated: spec.updated }))}</metadata>
@@ -802,7 +875,7 @@ export async function renderSvg(
     svg:not([data-kind="sankey"]) .diagram-edge.is-active > .edge-path,
     svg:not([data-kind="sankey"]) .diagram-edge:hover > .edge-path { stroke-width: 4; opacity: 1; }
     .diagram-edge:hover .edge-label rect { fill: var(--fdai-diagram-control-header, #deecf9); stroke: var(--fdai-diagram-azure-dark, #005a9e); stroke-width: 2; }
-    .diagram-edge:hover .edge-label-text { fill: var(--fdai-diagram-text, #323130); font-weight: 700; }
+    .diagram-edge:hover .edge-label-text { fill: var(--fdai-diagram-text, #323130); font-weight: 700; }${networkPresentationCss}
     .edge-step circle { fill: #107c10; stroke: #ffffff; stroke-width: 2; }
     .edge-step text { fill: #ffffff; font-size: 12px; font-weight: 700; text-anchor: middle; }
     svg[data-profile="conceptual"] .diagram-group .group-surface { stroke-dasharray: none; }
@@ -836,12 +909,15 @@ export async function renderSvg(
     svg[data-profile="azure-reference"] .node-body { font-size: ${REFERENCE_NODE_BODY_FONT_SIZE}px; }
     svg[data-profile="azure-reference"] .edge-label-text,
     svg[data-profile="azure-reference"] .legend-item text { fill: #484644; font-size: ${REFERENCE_EDGE_FONT_SIZE}px; font-weight: 650; }
-    ${standaloneThemeCss(spec.canvas.profile === "azure-reference")}
+    ${standaloneThemeCss(referenceProfile)}
     ${calmSlateFoundationCss()}
   </style>
-  <rect class="diagram-background" width="${width}" height="${height}" fill="${spec.canvas.profile === "azure-reference" ? "#ffffff" : "var(--fdai-diagram-canvas, #faf9f8)"}"/>
-  <text class="diagram-title" x="48" y="45">${escapeXml(spec.locales[locale].title)}</text>
-  <text class="diagram-subtitle" x="48" y="72">${escapeXml(spec.locales[locale].description)}</text>
-  <g data-diagram-viewport="">${renderChartBackdrop(spec, layout, locale, offsetX, offsetY)}${groups}${edges}${nodes}${renderLegend(spec, locale, height - 30)}</g>
+  <rect class="diagram-background" width="${width}" height="${height}" fill="${referenceProfile ? "#ffffff" : "var(--fdai-diagram-canvas, #faf9f8)"}"/>
+  <text class="diagram-title" x="${defaultOffsetX}" y="45">${escapeXml(spec.locales[locale].title)}</text>
+  <text class="diagram-subtitle" x="${defaultOffsetX}" y="72">${escapeXml(spec.locales[locale].description)}</text>
+  <g data-diagram-viewport="">${renderChartBackdrop(spec, layout, locale, offsetX, offsetY)}${groups}${edges}${nodes}${renderAnnotations(spec, locale, width, height, legendHeight, defaultOffsetX)}${renderLegend(spec, locale, height - 30)}</g>
 </svg>`;
+  return spec.canvas.profile === "network-azure-reference"
+    ? source.replaceAll('[data-profile="azure-reference"]', '[data-profile="network-azure-reference"]')
+    : source;
 }

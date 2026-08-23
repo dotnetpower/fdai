@@ -1,7 +1,7 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: c1de43116cf1683bc544f3b4ab1fad4dfb12d74e
+translation_source_sha: 1d544dc53b36a53fa48c1ba17bbe488b9ef217f9
 translation_revised: 2026-08-23
 ---
 # FDAI 로드맵
@@ -126,6 +126,7 @@ canonical 영문 roadmap context를 실제 4,500줄로 제한합니다. Route가
 | 19p | [continuous-question-space-ko.md](interfaces/continuous-question-space-ko.md) | 정확한 릴리스의 유한 질문 사례, 이중 언어 후보 생성, 캠페인 근거 원장, strict v2 보증 및 제한된 예약 실행 |
 | 19j | [console-operations-ko.md](interfaces/console-operations-ko.md) | 기존 Operations 탐색, 출처별 작업 변환 결과와 스키마, 운영 요청, pantheon 소유권, 실행 분리 |
 | 19f | [console-evidence-and-resilience-ko.md](interfaces/console-evidence-and-resilience-ko.md) | 콘솔 근거 출처 이력, localization, 영속 재생, 스트림 복구 및 아키텍처 지도 복원력 |
+| 19q | [network-topology-visualization-ko.md](interfaces/network-topology-visualization-ko.md) | 공유 네트워크 어휘, 작성된 참조 다이어그램, 관측된 Console 포커스, 경로 추적, 내보내기 및 시각 무결성 |
 | 19a | [document-ingestion-ko.md](interfaces/document-ingestion-ko.md) | Drop-zone UX, 대용량 및 보호 문서 처리, format 추출, 비공개 저장소, 공유 가시성, 보존, deletion 계약 |
 | 19g | [conversation-attachments-ko.md](interfaces/conversation-attachments-ko.md) | protected Slack/Teams fetch, 명시적 인계 용도, web 채팅 문서 참조, 이미지 OCR, 운영 연결 및 security 한도 |
 | 19h | [document-ingestion-agent-ownership-ko.md](interfaces/document-ingestion-agent-ownership-ko.md) | 단계별 에이전트 소유권, 타입이 지정된 파이프라인 객체, advisory-first 승격, 감사, 충돌 및 롤백 경계 |

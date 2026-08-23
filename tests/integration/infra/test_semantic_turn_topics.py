@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[3]
@@ -11,17 +12,24 @@ _REQUEST_ENV = "FDAI_SEMANTIC_TURN_REQUEST_TOPIC"
 _PROJECTION_ENV = "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC"
 _PHYSICAL_ENV = "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC"
 _PHYSICAL_TOPIC = "fdai.pantheon.objects"
+_READ_REQUEST_TOPIC = "operator.read-investigation.requests"
+_READ_REQUEST_ENV = "FDAI_READ_INVESTIGATION_REQUEST_TOPIC"
 
 
 def test_root_terraform_multiplexes_semantic_topics_over_provisioned_scope() -> None:
     root = (_ROOT / "infra/main.tf").read_text(encoding="utf-8")
 
-    assert f'semantic_turn_request_topic    = "{_REQUEST_TOPIC}"' in root
-    assert f'semantic_turn_projection_topic = "{_PROJECTION_TOPIC}"' in root
-    assert f'semantic_turn_physical_topic   = "{_PHYSICAL_TOPIC}"' in root
+    for field, value in (
+        ("semantic_turn_request_topic", _REQUEST_TOPIC),
+        ("semantic_turn_projection_topic", _PROJECTION_TOPIC),
+        ("semantic_turn_physical_topic", _PHYSICAL_TOPIC),
+        ("read_investigation_request_topic", _READ_REQUEST_TOPIC),
+    ):
+        assert re.search(rf'{field}\s*=\s*"{re.escape(value)}"', root)
     event_topics = root.split("event_topics = [", 1)[1].split("]", 1)[0]
     assert _REQUEST_TOPIC not in event_topics
     assert _PROJECTION_TOPIC not in event_topics
+    assert _READ_REQUEST_TOPIC not in event_topics
     assert f'"{_PHYSICAL_TOPIC}"' in event_topics
     assert "module.event_bus.topic_ids[local.semantic_turn_physical_topic]" in root
 
@@ -46,9 +54,11 @@ def test_core_and_operator_service_roots_export_exact_semantic_env_vars() -> Non
         assert _REQUEST_ENV in text
         assert _PROJECTION_ENV in text
         assert _PHYSICAL_ENV in text
+        assert _READ_REQUEST_ENV in text
         assert "var.event_topics.semantic_requests" in text
         assert "var.event_topics.semantic_projections" in text
         assert "var.event_topics.semantic_physical" in text
+        assert "var.event_topics.read_investigation_requests" in text
 
 
 def test_core_service_root_exports_operational_transport_topics() -> None:
@@ -78,6 +88,7 @@ def test_core_service_root_exports_operational_transport_topics() -> None:
             ("pipeline_stages", "fdai.pipeline.stages"),
             ("semantic_requests", _REQUEST_TOPIC),
             ("semantic_projections", _PROJECTION_TOPIC),
+            ("read_investigation_requests", _READ_REQUEST_TOPIC),
         ):
             assert f"{topic_field}" in variables
             assert f'optional(string, "{default}")' in variables
@@ -97,9 +108,19 @@ def test_independent_service_child_modules_type_semantic_topic_inputs() -> None:
         ),
     ):
         text = (_ROOT / relative).read_text(encoding="utf-8")
-        assert f'semantic_requests    = optional(string, "{request_default}")' in text
-        assert f'semantic_projections = optional(string, "{projection_default}")' in text
-        assert 'semantic_physical    = optional(string, "fdai.pantheon.objects")' in text
+        for field, value in (
+            ("semantic_requests", request_default),
+            ("semantic_projections", projection_default),
+            ("semantic_physical", "fdai.pantheon.objects"),
+            (
+                "read_investigation_requests",
+                _READ_REQUEST_TOPIC if request_default else "",
+            ),
+        ):
+            assert re.search(
+                rf'{field}\s*=\s*optional\(string,\s*"{re.escape(value)}"\)',
+                text,
+            )
 
 
 def test_legacy_container_modules_export_exact_semantic_env_vars() -> None:
@@ -113,3 +134,4 @@ def test_legacy_container_modules_export_exact_semantic_env_vars() -> None:
         assert _REQUEST_ENV in text
         assert _PROJECTION_ENV in text
         assert _PHYSICAL_ENV in text
+        assert _READ_REQUEST_ENV in text

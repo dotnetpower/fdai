@@ -63,6 +63,7 @@ class ClarificationRequirement(StrEnum):
 class SemanticOutputShape(StrEnum):
     """Bind one frame digest to a deterministic query capability family."""
 
+    ACTION_DRAFT = "action_draft"
     AGGREGATION_TABLE = "aggregation_table"
     CAUSAL_EVIDENCE = "causal_evidence"
     EVIDENCE_VALIDATION = "evidence_validation"
@@ -176,6 +177,7 @@ class SemanticPlanningModel(Protocol):
         metric_concepts: tuple[str, ...],
         principal_role: str,
         purpose: str,
+        semantic_judgment: Mapping[str, Any] | None = None,
     ) -> Mapping[str, Any] | None: ...
 
     def propose_plan(

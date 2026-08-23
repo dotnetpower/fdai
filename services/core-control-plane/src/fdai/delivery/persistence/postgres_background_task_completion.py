@@ -159,10 +159,17 @@ class PostgresBackgroundTaskCompletionDelivery:
             await self._set_timeout(connection)
             candidates = await connection.execute(
                 f"SELECT {COMPLETION_COLUMNS} FROM background_task_completion "
-                "WHERE state = %s AND lease_expires_at <= %s "
-                "ORDER BY lease_expires_at, attempt_id FOR UPDATE SKIP LOCKED LIMIT %s",
+                "WHERE (state = %s AND lease_expires_at <= %s) "
+                "OR (state = ANY(%s) AND retention_until <= %s) "
+                "ORDER BY retention_until, attempt_id FOR UPDATE SKIP LOCKED LIMIT %s",
                 (
                     BackgroundTaskCompletionState.SENDING.value,
+                    now,
+                    [
+                        BackgroundTaskCompletionState.PENDING.value,
+                        BackgroundTaskCompletionState.SENDING.value,
+                        BackgroundTaskCompletionState.FAILED.value,
+                    ],
                     now,
                     limit,
                 ),
@@ -177,7 +184,9 @@ class PostgresBackgroundTaskCompletionDelivery:
                 )
                 updated = await connection.execute(
                     "UPDATE background_task_completion SET "
-                    "state = %s, due_at = %s, lease_owner = NULL, lease_token = NULL, "
+                    "state = %s, due_at = %s, "
+                    "attempt_count = CASE WHEN %s THEN GREATEST(attempt_count, 1) "
+                    "ELSE attempt_count END, lease_owner = NULL, lease_token = NULL, "
                     "lease_expires_at = NULL, last_error_code = %s, terminal_at = %s "
                     "WHERE attempt_id = %s RETURNING "
                     f"{COMPLETION_COLUMNS}",
@@ -188,7 +197,8 @@ class PostgresBackgroundTaskCompletionDelivery:
                             else BackgroundTaskCompletionState.FAILED.value
                         ),
                         min(now, current.retention_until),
-                        "process_lost",
+                        abandon,
+                        ("retention_expired" if now >= current.retention_until else "process_lost"),
                         now if abandon else None,
                         current.attempt_id,
                     ),
