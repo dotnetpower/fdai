@@ -66,6 +66,8 @@ export function decodeIncidentPage(value: unknown): IncidentPage {
       return {
         correlation_id: apiString(item, "correlation_id", "incident item"),
         incident_id: apiNullableString(item, "incident_id", "incident item"),
+        incident_number:
+          apiOptionalNullableString(item, "incident_number", "incident item") ?? null,
         ticket_id: apiNullableString(item, "ticket_id", "incident item"),
         title: apiString(item, "title", "incident item"),
         title_source: apiIncidentTitleSource(item["title_source"]),

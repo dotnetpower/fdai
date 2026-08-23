@@ -1069,7 +1069,14 @@ def test_incident_title_precedence_and_provenance(
     expected_title: str,
     expected_source: str,
 ) -> None:
-    row = _audit_row(1, entry={"incident_id": "INC-1", **entry})
+    row = _audit_row(
+        1,
+        entry={
+            "incident_id": "INC-1",
+            "incident_number": "INC-202608-0000",
+            **entry,
+        },
+    )
     row.update(
         {
             "normalized_correlation_id": "corr-1",
@@ -1082,6 +1089,7 @@ def test_incident_title_precedence_and_provenance(
 
     assert summary["title"] == expected_title
     assert summary["title_source"] == expected_source
+    assert summary["incident_number"] == "INC-202608-0000"
 
 
 @pytest.mark.parametrize(

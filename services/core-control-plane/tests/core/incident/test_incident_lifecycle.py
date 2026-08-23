@@ -16,7 +16,7 @@ from fdai.core.incident import (
     incident_id_for,
 )
 from fdai.shared.contracts.models import Incident, IncidentSeverity, IncidentState
-from fdai.shared.providers.state_store import IncidentWriteConflictError
+from fdai.shared.providers.state_store import IncidentWriteConflictError, incident_number_for
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 
@@ -67,6 +67,75 @@ def test_incident_id_requires_at_least_one_key() -> None:
         incident_id_for([])
     with pytest.raises(ValueError, match="at least one correlation key"):
         incident_id_for(["", ""])  # empty strings filtered out -> empty set
+
+
+@pytest.mark.parametrize(
+    ("prefix", "sequence"),
+    [
+        ("INC-202600", 0),
+        ("INC-202613", 0),
+        ("INC-000001", 0),
+        ("INC-202608", -1),
+        ("INC-202608", 10000),
+    ],
+)
+def test_incident_number_rejects_invalid_month_or_sequence(
+    prefix: str,
+    sequence: int,
+) -> None:
+    with pytest.raises(ValueError, match="incident number"):
+        incident_number_for(prefix, sequence)
+
+
+async def test_incident_number_is_monthly_stable_and_replayable(
+    state_store: InMemoryStateStore,
+) -> None:
+    august = datetime(2026, 8, 24, 0, 0, tzinfo=UTC)
+    september = datetime(2026, 9, 1, 0, 0, tzinfo=UTC)
+    future_opened_at = datetime(2099, 12, 1, 0, 0, tzinfo=UTC)
+    registry = IncidentRegistry(state_store=state_store, number_clock=lambda: august)
+
+    first = await registry.open(
+        correlation_keys=["resource:first"],
+        severity=IncidentSeverity.SEV3,
+        member_event_ids=[UUID("00000000-0000-0000-0000-000000000001")],
+        actor_oid="operator",
+        opened_at=future_opened_at,
+    )
+    duplicate = await registry.open(
+        correlation_keys=["resource:first"],
+        severity=IncidentSeverity.SEV3,
+        member_event_ids=[UUID("00000000-0000-0000-0000-000000000001")],
+        actor_oid="operator",
+        opened_at=future_opened_at,
+    )
+    second = await registry.open(
+        correlation_keys=["resource:second"],
+        severity=IncidentSeverity.SEV3,
+        member_event_ids=[UUID("00000000-0000-0000-0000-000000000002")],
+        actor_oid="operator",
+        opened_at=future_opened_at,
+    )
+    next_month_registry = IncidentRegistry(
+        state_store=state_store,
+        number_clock=lambda: september,
+    )
+    next_month = await next_month_registry.open(
+        correlation_keys=["resource:next-month"],
+        severity=IncidentSeverity.SEV3,
+        member_event_ids=[UUID("00000000-0000-0000-0000-000000000003")],
+        actor_oid="operator",
+        opened_at=future_opened_at,
+    )
+
+    assert first.incident_number == "INC-202608-0000"
+    assert duplicate.incident_number == first.incident_number
+    assert second.incident_number == "INC-202608-0001"
+    assert next_month.incident_number == "INC-202609-0000"
+
+    restored = IncidentRegistry(state_store=state_store)
+    restored.rehydrate(await state_store.read_incident_transitions())
+    assert restored.get(first.incident_id) == first
 
 
 # ---------------------------------------------------------------------------
@@ -296,7 +365,12 @@ async def test_conflicting_cross_registry_transitions_have_one_winner(
 
 async def test_open_audit_failure_does_not_leave_phantom_incident() -> None:
     class FailingStateStore(InMemoryStateStore):
-        async def append_incident_transition(self, entry: Mapping[str, object]) -> None:  # noqa: ARG002
+        async def append_incident_open(  # type: ignore[override]
+            self,
+            entry: Mapping[str, object],  # noqa: ARG002
+            *,
+            number_prefix: str,  # noqa: ARG002
+        ) -> None:
             raise RuntimeError("injected audit failure")
 
     registry = IncidentRegistry(state_store=FailingStateStore())

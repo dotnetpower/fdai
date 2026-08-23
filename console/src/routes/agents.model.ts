@@ -442,7 +442,11 @@ function hydrateIncidents(
     ) continue;
     incidents[summary.correlation_id] = {
       correlationId: summary.correlation_id,
-      ticketId: summary.ticket_id ?? summary.incident_id ?? `INC-${summary.correlation_id}`,
+      ticketId:
+        summary.ticket_id ??
+        summary.incident_number ??
+        summary.incident_id ??
+        `INC-${summary.correlation_id}`,
       title: summary.title,
       severity: summary.severity,
       status: summary.status === "in_progress" ? "investigating" : summary.status,

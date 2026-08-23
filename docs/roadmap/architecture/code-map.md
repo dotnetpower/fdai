@@ -159,6 +159,8 @@ operator contracts, and executor contracts shared across processes. It contains 
 composition, provider implementation, database access, or business workflow.
 `IncidentPageProjection` keeps the generic `PageProjection` wire shape stable while binding an
 Incident roster page to its same-snapshot outcome metrics under one read-only Operator contract.
+Its optional `incident_number` is a display-only reference allocated from the current UTC month;
+canonical Incident and correlation identities remain unchanged.
 
 The shared SDK also owns the no-authority ontology-query records used across the Core and Operator
 boundary: semantic problem frames, bounded query DAGs, intent graphs, task receipts, and structural

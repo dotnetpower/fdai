@@ -15,8 +15,10 @@ from typing import Any
 from fdai.shared.providers.audit_hash import GENESIS_HASH, next_hash
 from fdai.shared.providers.state_store import (
     IncidentAppendStatus,
+    IncidentOpenAppendResult,
     StateStore,
     classify_incident_append,
+    incident_number_for,
 )
 
 _GENESIS_HASH = GENESIS_HASH
@@ -51,6 +53,7 @@ class InMemoryStateStore(StateStore):
         self._state: dict[str, Mapping[str, Any]] = {}
         self._audit: list[dict[str, Any]] = []
         self._incident_transitions: dict[str, dict[str, Any]] = {}
+        self._incident_number_sequences: dict[str, int] = {}
         self._lock = Lock()
 
     # ---- StateStore Protocol -------------------------------------------------
@@ -182,6 +185,8 @@ class InMemoryStateStore(StateStore):
         chain (matches the Postgres adapter's UNIQUE constraint
         contract).
         """
+        if entry.get("kind") == "incident.open":
+            raise ValueError("incident.open MUST use append_incident_open")
         with self._lock:
             history = tuple(self._incident_transitions.values())
             status = classify_incident_append(history, entry)
@@ -191,6 +196,42 @@ class InMemoryStateStore(StateStore):
             self._incident_transitions[key] = deepcopy(dict(entry))
             self._append_audit_locked(entry)
             return status
+
+    async def append_incident_open(
+        self,
+        entry: Mapping[str, Any],
+        *,
+        number_prefix: str,
+    ) -> IncidentOpenAppendResult:
+        """Allocate and persist an incident number under the store lock."""
+        if entry.get("kind") != "incident.open":
+            raise ValueError("append_incident_open requires kind=incident.open")
+        with self._lock:
+            history = tuple(self._incident_transitions.values())
+            status = classify_incident_append(history, entry)
+            if status is IncidentAppendStatus.DUPLICATE:
+                existing = next(
+                    row
+                    for row in history
+                    if row.get("incident_id") == entry.get("incident_id")
+                    and row.get("kind") == "incident.open"
+                )
+                raw_number = existing.get("incident_number")
+                return IncidentOpenAppendResult(
+                    status=status,
+                    incident_number=raw_number if isinstance(raw_number, str) else None,
+                )
+            sequence = self._incident_number_sequences.get(number_prefix, 0)
+            incident_number = incident_number_for(number_prefix, sequence)
+            payload = {**entry, "incident_number": incident_number}
+            key = str(entry["idempotency_key"])
+            self._incident_number_sequences[number_prefix] = sequence + 1
+            self._incident_transitions[key] = deepcopy(dict(payload))
+            self._append_audit_locked(payload)
+            return IncidentOpenAppendResult(
+                status=IncidentAppendStatus.APPLIED,
+                incident_number=incident_number,
+            )
 
     async def read_incident_transitions(self) -> tuple[Mapping[str, Any], ...]:
         """Return lifecycle payloads in append order for registry recovery."""

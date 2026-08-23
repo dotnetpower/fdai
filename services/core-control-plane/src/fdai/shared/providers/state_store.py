@@ -7,7 +7,9 @@ would otherwise block the event loop. Only CPU / startup-only seams
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
+from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, Protocol, runtime_checkable
 
@@ -21,6 +23,30 @@ class IncidentAppendStatus(StrEnum):
 
 class IncidentWriteConflictError(RuntimeError):
     """Raised when a lifecycle write's expected state is no longer current."""
+
+
+@dataclass(frozen=True, slots=True)
+class IncidentOpenAppendResult:
+    """Atomic incident-open result with its durable operator-facing number."""
+
+    status: IncidentAppendStatus
+    incident_number: str | None
+
+
+_INCIDENT_NUMBER_PREFIX = re.compile(r"^INC-\d{6}$")
+
+
+def incident_number_for(prefix: str, sequence: int) -> str:
+    """Format one bounded monthly sequence as an operator-facing incident number."""
+    if _INCIDENT_NUMBER_PREFIX.fullmatch(prefix) is None:
+        raise ValueError("incident number prefix MUST match INC-YYYYMM")
+    year = int(prefix[4:8])
+    month = int(prefix[8:10])
+    if year < 1 or month < 1 or month > 12:
+        raise ValueError("incident number prefix MUST contain a valid UTC year and month")
+    if sequence < 0 or sequence > 9999:
+        raise ValueError("incident number sequence MUST be between 0 and 9999")
+    return f"{prefix}-{sequence:04d}"
 
 
 @runtime_checkable
@@ -143,18 +169,31 @@ class StateStore(Protocol):
     async def append_incident_transition(self, entry: Mapping[str, Any]) -> IncidentAppendStatus:
         """Append one incident lifecycle transition.
 
-        Semantically an ``append_audit_entry`` restricted to incident
-        events (``kind`` is one of ``incident.open``, ``incident.members``,
-        ``incident.severity``, ``incident.assigned``, ``incident.ticket``, or
-        ``incident.transition``); kept as a distinct method so a fork MAY route
-        incident audit to a separate stream / topic without touching the
-        general audit surface.
+        Semantically an ``append_audit_entry`` restricted to incident events after open
+        (``kind`` is one of ``incident.members``, ``incident.severity``,
+        ``incident.assigned``, ``incident.ticket``, or ``incident.transition``). Initial
+        ``incident.open`` writes use :meth:`append_incident_open` so monthly number allocation
+        and audit persistence remain atomic.
 
         Idempotency is on the caller: the ``core/incident`` registry
         derives ``idempotency_key`` from ``(incident_id, target_state,
         actor_oid)`` and re-delivery of the same key MUST NOT create a
         duplicate row. Real backends enforce this with a UNIQUE
         constraint on ``idempotency_key``.
+        """
+        ...
+
+    async def append_incident_open(
+        self,
+        entry: Mapping[str, Any],
+        *,
+        number_prefix: str,
+    ) -> IncidentOpenAppendResult:
+        """Atomically allocate a monthly number and append one incident.open row.
+
+        Duplicate opens return the number already stored on the canonical row. Legacy rows
+        created before incident numbering return ``None``. Implementations MUST serialize
+        allocation within each prefix and fail when its four-digit sequence is exhausted.
         """
         ...
 
@@ -301,7 +340,9 @@ def _required(entry: Mapping[str, Any], key: str) -> str:
 
 __all__ = [
     "IncidentAppendStatus",
+    "IncidentOpenAppendResult",
     "IncidentWriteConflictError",
     "StateStore",
     "classify_incident_append",
+    "incident_number_for",
 ]

@@ -6,6 +6,7 @@ function incident(overrides: Partial<IncidentSummary> = {}): IncidentSummary {
   return {
     correlation_id: "correlation-1",
     incident_id: "incident-1",
+    incident_number: null,
     ticket_id: null,
     title: "Resource inventory change",
     title_source: "recorded_title",

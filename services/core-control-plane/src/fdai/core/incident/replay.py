@@ -203,6 +203,7 @@ def _incident_from_open_entry(
     return Incident(
         schema_version=schema_version,
         incident_id=incident_id,
+        incident_number=_optional_string(entry, "incident_number"),
         state=IncidentState(_required_string(entry, "state")),
         severity=IncidentSeverity(_required_string(entry, "severity")),
         opened_at=_aware_datetime(entry, "opened_at"),
@@ -215,6 +216,7 @@ def _incident_from_open_entry(
 def _merge_replayed_open(existing: Incident, replayed: Incident) -> Incident:
     if (
         existing.correlation_keys != replayed.correlation_keys
+        or existing.incident_number != replayed.incident_number
         or existing.severity is not replayed.severity
         or existing.state is not IncidentState.OPEN
         or replayed.state is not IncidentState.OPEN

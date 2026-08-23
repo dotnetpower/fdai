@@ -76,6 +76,7 @@ export interface IncidentOutcomeMetrics {
 export interface IncidentSummary {
   readonly correlation_id: string;
   readonly incident_id: string | null;
+  readonly incident_number: string | null;
   readonly ticket_id: string | null;
   readonly title: string;
   readonly title_source: IncidentTitleSource;

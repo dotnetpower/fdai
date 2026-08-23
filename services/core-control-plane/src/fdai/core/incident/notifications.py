@@ -46,11 +46,16 @@ class RoutedIncidentLifecycleNotifier:
             return self._roster_message(notice)
         incident_id_value, incident_state, incident_severity = _notice_incident_fields(notice)
         incident_id = str(incident_id_value)
+        incident_display_id = (
+            notice.incident.incident_number
+            if notice.incident is not None and notice.incident.incident_number is not None
+            else incident_id
+        )
         severity = _notification_severity(incident_severity.value)
         if notice.kind is IncidentNoticeKind.OPENED:
             title = f"Incident opened: {incident_severity.value.upper()}"
             body = (
-                f"Incident `{incident_id}` opened in `{incident_state.value}` state. "
+                f"Incident `{incident_display_id}` opened in `{incident_state.value}` state. "
                 "Open the incident roster for its audited history."
             )
         elif notice.kind is IncidentNoticeKind.SEVERITY_CHANGED:
@@ -58,7 +63,7 @@ class RoutedIncidentLifecycleNotifier:
                 raise ValueError("severity_changed incident notice requires previous_severity")
             title = f"Incident severity raised: {incident_severity.value.upper()}"
             body = (
-                f"Incident `{incident_id}` severity changed from "
+                f"Incident `{incident_display_id}` severity changed from "
                 f"`{notice.previous_severity.value}` to `{incident_severity.value}`. "
                 "Open the incident roster for audited evidence."
             )
@@ -67,19 +72,19 @@ class RoutedIncidentLifecycleNotifier:
                 raise ValueError("state_changed incident notice requires previous_state")
             title = f"Incident state changed: {incident_state.value}"
             body = (
-                f"Incident `{incident_id}` changed from `{notice.previous_state.value}` "
+                f"Incident `{incident_display_id}` changed from `{notice.previous_state.value}` "
                 f"to `{incident_state.value}`. Open the incident roster for details."
             )
         elif notice.kind is IncidentNoticeKind.SLA_BREACH:
             title = f"Incident SLA breached: {incident_severity.value.upper()}"
             body = (
-                f"Incident `{incident_id}` exceeded its `{incident_state.value}` "
+                f"Incident `{incident_display_id}` exceeded its `{incident_state.value}` "
                 "response deadline. Open the incident roster for audited context."
             )
         elif notice.kind is IncidentNoticeKind.ASSIGNED:
             title = "Incident assignment changed"
             body = (
-                f"Incident `{incident_id}` has a new assignment. "
+                f"Incident `{incident_display_id}` has a new assignment. "
                 "Open the incident roster for audited details."
             )
         else:  # pragma: no cover - StrEnum exhaustiveness guard
@@ -98,6 +103,11 @@ class RoutedIncidentLifecycleNotifier:
             ),
             metadata={
                 "incident_id": incident_id,
+                **(
+                    {"incident_number": notice.incident.incident_number}
+                    if notice.incident is not None and notice.incident.incident_number is not None
+                    else {}
+                ),
                 "incident_state": incident_state.value,
                 "incident_severity": incident_severity.value,
                 "notice_kind": notice.kind.value,
@@ -110,7 +120,7 @@ class RoutedIncidentLifecycleNotifier:
         if visible:
             lines = [
                 (
-                    f"- `{incident.incident_id}`: "
+                    f"- `{incident.incident_number or incident.incident_id}`: "
                     f"{incident.severity.value.upper()}, {incident.state.value}"
                 )
                 for incident in visible

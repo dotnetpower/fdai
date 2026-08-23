@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 5154b3e618b4f26c9db1324fff4f44080245c3ef
+translation_source_sha: 499574b5f11d303e3f262b4d9271a7614583dc03
 translation_revised: 2026-08-20
 ---
 
@@ -143,7 +143,9 @@ active-incident 배지를 대신 유지합니다. Reconnect는 일시적인 agen
 Incidents 목록은 서버가 소유한 `title_source`를 그대로 렌더링하므로 브라우저가 인시던트 대상을
 보정하지 않습니다. `recorded_subject`는 서버가 기록된 운영 대상과 사유로 구성한 대상을 뜻하며,
 `identifier_fallback`은 식별자를 대상처럼 제시하는 대신 계속 사용 불가로 표시합니다. 이 fallback
-에서는 Audit, Trace, RCA, dossier 링크가 모두 해석하는 식별자인 `correlation_id`를 표시합니다.
+에서는 목록이 현재 UTC 월을 기준으로 할당된 표시 전용 `incident_number`를 우선 사용하고, 이전
+레코드는 `correlation_id`로 대체합니다. Audit, Trace, RCA, dossier 링크는 계속 정규 correlation
+신원을 해석합니다.
 인시던트 타임라인은 기록된 계층 판정을 해당 `<tier>_outcome`, `<tier>_reason`,
 `<tier>_cause` 필드에서 인용하며, 현재 상황 블록은 통제된 대응이 abstain, deny 또는 실패한
 가장 최근 기록 사유를 함께 표시합니다. 콘솔은 그 사유를 인용할 뿐 조치 지시로 바꾸지 않습니다.

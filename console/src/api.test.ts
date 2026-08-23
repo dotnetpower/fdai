@@ -159,6 +159,7 @@ describe("Operator API response decoders", () => {
     const item = {
       correlation_id: "corr-1",
       incident_id: null,
+      incident_number: "INC-202608-0000",
       ticket_id: null,
       title: "Rule example.rule",
       title_source: "rule_id",

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://fdai.dev/schemas/incident/1.0.0",
+  "$id": "https://fdai.dev/schemas/incident/1.1.0",
   "title": "Incident",
   "description": "Correlated group of events + findings + actions that share a root operational condition. Owns a state machine (open -> triaging -> mitigated -> resolved -> closed) so postmortems, on-call handoffs, and after-action reviews have a durable, incident-indexed anchor. Distinct from a single Event: an Incident groups many events but exists exactly once per correlation-key set.",
   "type": "object",
@@ -24,6 +24,11 @@
       "type": "string",
       "format": "uuid",
       "description": "Deterministic UUID5 derived from `correlation_keys`. Re-emitting the same key set yields the same incident_id (idempotent grouping)."
+    },
+    "incident_number": {
+      "type": ["string", "null"],
+      "pattern": "^INC-\\d{6}-\\d{4}$",
+      "description": "Operator-facing monthly sequence assigned once when the Incident opens. Null only for legacy records created before numbering was introduced."
     },
     "state": {
       "type": "string",

@@ -78,6 +78,48 @@ async def test_conflicting_replica_transitions_have_one_postgres_winner() -> Non
     assert restored.get(incident.incident_id) is not None
 
 
+async def test_postgres_incident_numbers_are_duplicate_safe_and_unique() -> None:
+    dsn = _dsn()
+    _upgrade_head()
+    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=dsn))
+    unique = uuid.uuid4().hex
+    opened_at = datetime(2099, 12, 1, tzinfo=UTC)
+    numbered_at = datetime(2026, 8, 24, tzinfo=UTC)
+    first_registry = IncidentRegistry(state_store=store, number_clock=lambda: numbered_at)
+    duplicate_registry = IncidentRegistry(state_store=store, number_clock=lambda: numbered_at)
+
+    first, duplicate = await asyncio.gather(
+        first_registry.open(
+            correlation_keys=(f"resource:integration-{unique}",),
+            severity=IncidentSeverity.SEV2,
+            member_event_ids=(uuid.uuid4(),),
+            actor_oid="Heimdall",
+            opened_at=opened_at,
+        ),
+        duplicate_registry.open(
+            correlation_keys=(f"resource:integration-{unique}",),
+            severity=IncidentSeverity.SEV2,
+            member_event_ids=(uuid.uuid4(),),
+            actor_oid="Heimdall",
+            opened_at=opened_at,
+        ),
+    )
+    second = await first_registry.open(
+        correlation_keys=(f"resource:integration-{unique}-second",),
+        severity=IncidentSeverity.SEV2,
+        member_event_ids=(uuid.uuid4(),),
+        actor_oid="Heimdall",
+        opened_at=opened_at,
+    )
+
+    assert first.incident_number == duplicate.incident_number
+    assert first.incident_number is not None
+    assert first.incident_number.startswith("INC-202608-")
+    assert second.incident_number is not None
+    assert second.incident_number.startswith("INC-202608-")
+    assert second.incident_number != first.incident_number
+
+
 async def test_notification_claim_has_one_postgres_winner() -> None:
     dsn = _dsn()
     _upgrade_head()

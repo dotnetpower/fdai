@@ -58,6 +58,28 @@ async def test_open_notice_uses_operational_alert_without_resource_value() -> No
     assert "untrusted resource" not in message.body_markdown
 
 
+async def test_open_notice_displays_number_but_keeps_canonical_link_identity() -> None:
+    dispatcher = CapturingDispatcher()
+    notifier = RoutedIncidentLifecycleNotifier(dispatcher=dispatcher)
+    incident = _incident(1).model_copy(update={"incident_number": "INC-202607-0000"})
+
+    await notifier.notify(
+        IncidentLifecycleNotice(
+            kind=IncidentNoticeKind.OPENED,
+            actor_oid="Heimdall",
+            occurred_at=datetime(2026, 7, 15, tzinfo=UTC),
+            incident=incident,
+        )
+    )
+
+    message = dispatcher.messages[0]
+    assert "`INC-202607-0000`" in message.body_markdown
+    assert message.audit_id == f"incident:{incident.incident_id}:opened"
+    assert message.links[0].url == f"/incidents?incident={incident.incident_id}"
+    assert message.metadata["incident_id"] == str(incident.incident_id)
+    assert message.metadata["incident_number"] == "INC-202607-0000"
+
+
 async def test_transition_notice_names_previous_and_current_state() -> None:
     dispatcher = CapturingDispatcher()
     notifier = RoutedIncidentLifecycleNotifier(dispatcher=dispatcher)

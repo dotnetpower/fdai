@@ -96,11 +96,11 @@ export function incidentDisplayTitle(
   return incident.title_source === "identifier_fallback" ? unavailable : incident.title;
 }
 
-/** The identifier an operator can carry into Audit, Trace, RCA, and the dossier. */
-export function incidentRosterIdentifier(
-  incident: Pick<IncidentSummary, "correlation_id">,
+/** Prefer the human-readable number without changing correlation-based links. */
+export function incidentDisplayIdentifier(
+  incident: Pick<IncidentSummary, "correlation_id" | "incident_number">,
 ): string {
-  return incident.correlation_id;
+  return incident.incident_number ?? incident.correlation_id;
 }
 
 export function incidentVerticalDisplayLabel(vertical: IncidentVertical): string {
@@ -533,9 +533,9 @@ function IncidentBody({
                   <span class="incident-roster-title">
                     {incidentDisplayTitle(item, t("incidents.titleUnavailable"))}
                   </span>
-                  {item.title_source === "identifier_fallback" ? (
+                  {item.incident_number !== null || item.title_source === "identifier_fallback" ? (
                     <span class="incident-roster-identifier mono">
-                      {incidentRosterIdentifier(item)}
+                      {incidentDisplayIdentifier(item)}
                     </span>
                   ) : null}
                   <span class="incident-roster-meta">
@@ -628,6 +628,7 @@ function IncidentDetail({
           <summary>{t("incidents.additionalEvidence")}</summary>
           <dl>
             <div><dt>{t("incidents.correlation")}</dt><dd class="mono">{incident.correlation_id}</dd></div>
+            <div><dt>{t("incidents.incidentNumber")}</dt><dd class="mono">{incident.incident_number ?? t("incidents.none")}</dd></div>
             <div><dt>{t("incidents.incidentId")}</dt><dd class="mono">{incident.incident_id ?? t("incidents.none")}</dd></div>
             <div><dt>{t("incidents.ticketId")}</dt><dd class="mono">{incident.ticket_id ?? t("incidents.none")}</dd></div>
             <div><dt>{t("incidents.currentDisposition")}</dt><dd>{localized("disposition", incident.disposition)}</dd></div>

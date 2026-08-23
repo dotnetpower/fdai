@@ -17,6 +17,8 @@ from pydantic import Field, field_validator
 from ._base import SemVer, _Base
 from .enums import IncidentSeverity, IncidentState
 
+_INCIDENT_NUMBER_PATTERN = r"^INC-\d{6}-\d{4}$"
+
 
 class Incident(_Base):
     """First-class incident record.
@@ -29,11 +31,13 @@ class Incident(_Base):
     ``incident_id`` is deterministic: UUID5(NAMESPACE_URL, sorted-tuple of
     ``correlation_keys``). Re-emitting the same key set yields the same id,
     which is the mechanism ``core/incident/registry`` uses for idempotent
-    correlation.
+    correlation. ``incident_number`` is an additive operator-facing display
+    reference assigned once at open; it never replaces the UUID identity.
     """
 
     schema_version: SemVer
     incident_id: UUID
+    incident_number: str | None = Field(default=None, pattern=_INCIDENT_NUMBER_PATTERN)
     state: IncidentState
     severity: IncidentSeverity
     opened_at: datetime

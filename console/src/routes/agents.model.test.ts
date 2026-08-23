@@ -305,6 +305,7 @@ describe("agents.model", () => {
         {
           correlation_id: "inc-history",
           incident_id: null,
+          incident_number: "INC-202608-0000",
           ticket_id: null,
           title: "Historical HIL",
           title_source: "recorded_title",
@@ -326,6 +327,7 @@ describe("agents.model", () => {
     });
     expect(s.incidentOrder).toEqual(["inc-history", "inc-live"]);
     expect(s.incidents["inc-history"]?.status).toBe("investigating");
+    expect(s.incidents["inc-history"]?.ticketId).toBe("INC-202608-0000");
     expect(s.incidents["inc-history"]?.involved).toEqual(["Heimdall", "Forseti", "Var"]);
     expect(s.incidents["inc-live"]?.status).toBe("resolved");
     expect(s.agents.Var?.state).toBe("approving");

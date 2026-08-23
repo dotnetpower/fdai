@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: c7a29d35b3bce95f4e097d98f35d91c287e0bb4d
+translation_source_sha: 542f24077840c8896df6be6596fe2c2a741033af
 translation_revised: 2026-08-24
 ---
 # 코드 맵
@@ -160,6 +160,8 @@ failure는 held 또는 pending evidence로 남으며 executor outcome을 다시 
 데이터베이스 접근 또는 business 작업 흐름은 포함하지 않습니다.
 `IncidentPageProjection`은 일반 `PageProjection` wire 형태를 안정적으로 유지하면서 Incident
 roster page와 같은 스냅샷의 결과 metric을 하나의 읽기 전용 Operator 계약으로 연결합니다.
+선택적 `incident_number`는 현재 UTC 월을 기준으로 할당되는 표시 전용 참조이며, 정규 Incident와
+correlation 신원은 변경되지 않습니다.
 
 Shared SDK는 Core/Operator 경계에서 사용하는 no-authority ontology-query 기록도 소유합니다.
 의미 problem 프레임, 범위가 제한된 조회 DAG, 의도 그래프, 작업 증적 및 structural 커버리지 증적입니다.

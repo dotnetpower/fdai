@@ -13,7 +13,7 @@ the same incident id even across process restarts.
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Protocol
@@ -26,6 +26,7 @@ from fdai.shared.contracts.models import (
 )
 from fdai.shared.providers.state_store import (
     IncidentAppendStatus,
+    IncidentOpenAppendResult,
     IncidentWriteConflictError,
     StateStore,
 )
@@ -47,7 +48,7 @@ from .replay import (
 from .state_machine import IncidentStateMachine, IncidentTransition
 from .workflow_support import canonical_incident_correlation_keys
 
-_SCHEMA_VERSION = "1.0.0"
+_SCHEMA_VERSION = "1.1.0"
 _SEVERITY_RANK = {
     IncidentSeverity.SEV1: 1,
     IncidentSeverity.SEV2: 2,
@@ -111,6 +112,9 @@ class IncidentRegistry:
     before traffic after restart. Production composition replays ordered
     ``incident.open`` / ``incident.members`` / ``incident.transition`` rows
     at startup and fails closed on an invalid chain.
+
+    ``number_clock`` supplies the current allocation time for operator-facing
+    Incident numbers and must return a timezone-aware datetime.
     """
 
     def __init__(
@@ -118,9 +122,11 @@ class IncidentRegistry:
         *,
         state_store: StateStore,
         state_machine: IncidentStateMachine | None = None,
+        number_clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._state_store = state_store
         self._state_machine = state_machine or IncidentStateMachine()
+        self._number_clock = number_clock or (lambda: datetime.now(tz=UTC))
         self._incidents: dict[UUID, Incident] = {}
         self._projection: IncidentProjection | None = None
         self._write_lock = asyncio.Lock()
@@ -229,6 +235,9 @@ class IncidentRegistry:
                 )
 
             opened = opened_at or datetime.now(tz=UTC)
+            numbered_at = self._number_clock()
+            if numbered_at.tzinfo is None or numbered_at.utcoffset() is None:
+                raise ValueError("incident number clock MUST return a timezone-aware datetime")
             incident = Incident(
                 schema_version=_SCHEMA_VERSION,
                 incident_id=incident_id,
@@ -239,11 +248,12 @@ class IncidentRegistry:
                 member_event_ids=tuple(dict.fromkeys(members)),
                 assignee_oid=assignee_oid,
             )
-            status = await self._persist(
+            append_result = await self._persist_open(
                 open_audit_entry(incident=incident, actor_oid=actor_oid),
                 incident_id=incident_id,
+                number_prefix=f"INC-{numbered_at.astimezone(UTC):%Y%m}",
             )
-            if status is IncidentAppendStatus.DUPLICATE:
+            if append_result.status is IncidentAppendStatus.DUPLICATE:
                 canonical = await self._reload_canonical(incident_id)
                 added = tuple(
                     member for member in members if member not in canonical.member_event_ids
@@ -267,6 +277,9 @@ class IncidentRegistry:
                     )
                     canonical = await self._reload_canonical(incident_id)
                 return IncidentOpenResult(incident=canonical, created=False)
+            incident = incident.model_copy(
+                update={"incident_number": append_result.incident_number}
+            )
             self._incidents[incident_id] = incident
             await self._project(incident, updated_at=opened)
             return IncidentOpenResult(incident=incident, created=True)
@@ -557,6 +570,22 @@ class IncidentRegistry:
     ) -> IncidentAppendStatus:
         try:
             return await self._state_store.append_incident_transition(entry)
+        except IncidentWriteConflictError:
+            await self._reload_canonical(incident_id)
+            raise
+
+    async def _persist_open(
+        self,
+        entry: Mapping[str, object],
+        *,
+        incident_id: UUID,
+        number_prefix: str,
+    ) -> IncidentOpenAppendResult:
+        try:
+            return await self._state_store.append_incident_open(
+                entry,
+                number_prefix=number_prefix,
+            )
         except IncidentWriteConflictError:
             await self._reload_canonical(incident_id)
             raise

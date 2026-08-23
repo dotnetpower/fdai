@@ -33,8 +33,11 @@ from psycopg.rows import dict_row
 from fdai.shared.providers.audit_hash import GENESIS_HASH, canonical_entry, next_hash
 from fdai.shared.providers.state_store import (
     IncidentAppendStatus,
+    IncidentOpenAppendResult,
+    IncidentWriteConflictError,
     StateStore,
     classify_incident_append,
+    incident_number_for,
 )
 
 _GENESIS_HASH: Final[str] = GENESIS_HASH
@@ -360,6 +363,8 @@ class PostgresStateStore(StateStore):
         the audit hash chain provides tamper evidence.
         """
         payload = dict(entry)
+        if payload.get("kind") == "incident.open":
+            raise ValueError("incident.open MUST use append_incident_open")
         incident_id = str(payload.get("incident_id") or "")
         if not incident_id:
             raise ValueError("incident transition MUST carry a non-empty incident_id")
@@ -393,6 +398,92 @@ class PostgresStateStore(StateStore):
                     return status
                 await self._append_audit_in_transaction(conn, payload)
                 return status
+
+    async def append_incident_open(
+        self,
+        entry: Mapping[str, Any],
+        *,
+        number_prefix: str,
+    ) -> IncidentOpenAppendResult:
+        """Allocate and append one numbered incident.open in one transaction."""
+        payload = dict(entry)
+        if payload.get("kind") != "incident.open":
+            raise ValueError("append_incident_open requires kind=incident.open")
+        incident_id = str(payload.get("incident_id") or "")
+        if not incident_id:
+            raise ValueError("incident open MUST carry a non-empty incident_id")
+        incident_number_for(number_prefix, 0)
+        payload.setdefault("actor", str(payload.get("actor_oid", "fdai")))
+        payload.setdefault("action_kind", "incident.open")
+        payload.setdefault("mode", "shadow")
+        counter_key = f"incident-number-sequence:{number_prefix}"
+        async with await psycopg.AsyncConnection.connect(
+            self._config.dsn,
+            connect_timeout=self._config.connect_timeout_s,
+        ) as conn:
+            async with conn.transaction():
+                await self._set_statement_timeout(conn)
+                await conn.execute(
+                    "SELECT pg_advisory_xact_lock(%s)",
+                    (_incident_lock(incident_id),),
+                )
+                history_cursor = await conn.execute(
+                    """
+                    SELECT entry
+                    FROM audit_log
+                    WHERE entry->>'incident_id' = %s
+                      AND entry->>'kind' LIKE 'incident.%%'
+                    ORDER BY seq ASC
+                    """,
+                    (incident_id,),
+                )
+                rows = await history_cursor.fetchall()
+                history = tuple(_json_object(row[0]) for row in rows)
+                status = classify_incident_append(history, payload)
+                if status is IncidentAppendStatus.DUPLICATE:
+                    existing = next(row for row in history if row.get("kind") == "incident.open")
+                    raw_number = existing.get("incident_number")
+                    return IncidentOpenAppendResult(
+                        status=status,
+                        incident_number=raw_number if isinstance(raw_number, str) else None,
+                    )
+                sequence_cursor = await conn.execute(
+                    """
+                    INSERT INTO state_kv (key, value)
+                    VALUES (
+                        %s,
+                        JSONB_BUILD_OBJECT(
+                            'revision', 1,
+                            'number_prefix', %s::TEXT,
+                            'last_sequence', 0
+                        )
+                    )
+                    ON CONFLICT (key) DO UPDATE
+                       SET value = JSONB_BUILD_OBJECT(
+                               'revision', (state_kv.value->>'revision')::INTEGER + 1,
+                               'number_prefix', %s::TEXT,
+                               'last_sequence',
+                                   (state_kv.value->>'last_sequence')::INTEGER + 1
+                           ),
+                           updated_at = NOW()
+                     WHERE (state_kv.value->>'number_prefix') = %s
+                       AND (state_kv.value->>'last_sequence')::INTEGER < 9999
+                    RETURNING (value->>'last_sequence')::INTEGER
+                    """,
+                    (counter_key, number_prefix, number_prefix, number_prefix),
+                )
+                sequence_row = await sequence_cursor.fetchone()
+                if sequence_row is None:
+                    raise IncidentWriteConflictError(
+                        f"incident number sequence exhausted for {number_prefix}"
+                    )
+                incident_number = incident_number_for(number_prefix, int(sequence_row[0]))
+                payload["incident_number"] = incident_number
+                await self._append_audit_in_transaction(conn, payload)
+                return IncidentOpenAppendResult(
+                    status=IncidentAppendStatus.APPLIED,
+                    incident_number=incident_number,
+                )
 
     async def read_incident_transitions(self) -> tuple[Mapping[str, Any], ...]:
         """Return lifecycle audit payloads in append order for recovery."""

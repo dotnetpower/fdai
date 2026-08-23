@@ -40,6 +40,7 @@ def incident_summary(rows: Sequence[Mapping[str, Any]]) -> JsonObject:
     newest = list(reversed(items))
     correlation_id = str(rows[-1]["normalized_correlation_id"])
     incident_id = _first_entry_string(newest, "incident_id")
+    incident_number = _first_entry_string(newest, "incident_number")
     ticket_id = _first_entry_string(newest, "ticket_id")
     lifecycle = _incident_status(newest)
     vertical = _vertical(_first_entry_string(newest, "vertical", "category"))
@@ -49,6 +50,7 @@ def incident_summary(rows: Sequence[Mapping[str, Any]]) -> JsonObject:
         {
             "correlation_id": correlation_id,
             "incident_id": incident_id,
+            "incident_number": incident_number,
             "ticket_id": ticket_id,
             "title": title,
             "title_source": title_source,

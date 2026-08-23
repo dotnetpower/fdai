@@ -143,8 +143,9 @@ selectors; the server re-resolves that binding before it can support an answer.
 The Incidents roster renders the server-owned `title_source`, so the browser never repairs an
 incident subject. `recorded_subject` names a subject the server composed from the recorded
 operational target and reason; `identifier_fallback` still renders as unavailable rather than
-presenting an identifier as the subject. In that fallback the roster shows the `correlation_id`,
-which is the identifier every Audit, Trace, RCA, and dossier link resolves. The incident timeline
+presenting an identifier as the subject. The roster prefers the display-only `incident_number`,
+allocated from the current UTC month, and falls back to `correlation_id` for legacy records. Every
+Audit, Trace, RCA, and dossier link continues to resolve the canonical correlation identity. The incident timeline
 quotes a recorded tiered verdict from its own `<tier>_outcome`, `<tier>_reason`, and `<tier>_cause`
 fields, and the current-situation block adds the newest recorded reason a governed response
 abstained, denied, or failed. The console quotes that reason and does not convert it into a

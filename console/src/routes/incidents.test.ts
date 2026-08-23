@@ -4,7 +4,7 @@ import type { AuditItem } from "../types";
 import {
   incidentDisplayTitle,
   incidentPageMatchesSnapshot,
-  incidentRosterIdentifier,
+  incidentDisplayIdentifier,
   incidentVerticalDisplayLabel,
   mergeIncidentItems,
   normalizeIncidentSearch,
@@ -107,12 +107,20 @@ describe("incident title presentation", () => {
     )).toBe("Title unavailable");
   });
 
-  it("shows the correlation id that Audit, Trace, RCA, and the dossier resolve", () => {
+  it("falls back to the correlation id for a legacy incident", () => {
     const summary = {
       correlation_id: "live-proof-correlation",
       incident_id: "00000000-0000-0000-0000-000000000000",
+      incident_number: null,
     };
-    expect(incidentRosterIdentifier(summary)).toBe("live-proof-correlation");
+    expect(incidentDisplayIdentifier(summary)).toBe("live-proof-correlation");
+  });
+
+  it("shows the operator-facing incident number when one was assigned", () => {
+    expect(incidentDisplayIdentifier({
+      correlation_id: "live-proof-correlation",
+      incident_number: "INC-202608-0000",
+    })).toBe("INC-202608-0000");
   });
 });
 
