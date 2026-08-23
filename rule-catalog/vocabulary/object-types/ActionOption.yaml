@@ -1,6 +1,6 @@
 schema_version: "1.0.0"
 name: ActionOption
-version: "1.0.0"
+version: "1.1.0"
 key: id
 description: One bounded response option considered by a DecisionCase, including hold and no-op.
 properties:
@@ -9,6 +9,7 @@ properties:
   action_type_ref: {type: string, required: true}
   arguments: {type: object, required: true}
   expected_effect_ref: {type: string, required: false}
+  expected_effect_refs: {type: array, required: false}
   preconditions: {type: array, required: true}
   estimated_cost: {type: number, required: false}
   option_kind: {type: string, required: true}
@@ -22,7 +23,7 @@ lifecycle:
   authority_refs: [docs/roadmap/architecture/operating-ontology.md]
 provenance:
   source_url: https://github.com/dotnetpower/fdai
-  resolved_ref: object-type:ActionOption@1.0.0
-  content_hash: sha256:54df9f4b9852fc63ce22328a95298f84ba17a5641cc827c5f4c1202b943d2491
+  resolved_ref: object-type:ActionOption@1.1.0
+  content_hash: sha256:07af573ea3994c6f7ae0c17bcb5f687df7fdd23c9c6c08fc49ff740366134a77
   license: MIT
   retrieved_at: "2026-07-31T00:00:00Z"

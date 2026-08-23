@@ -1,8 +1,8 @@
 ---
 title: 운영 학습 온톨로지
 translation_of: operational-learning-ontology.md
-translation_source_sha: 2f376c3e666a3046bb52b9625432f8e2f495ed35
-translation_revised: 2026-08-23
+translation_source_sha: 2dbc5cff9ba9fbbeddad8ad051b553f6056ebb05
+translation_revised: 2026-08-24
 ---
 # 운영 학습 온톨로지
 
@@ -399,6 +399,7 @@ Terraform은 `operational_promotion_measurement_enabled=true`일 때만 Containe
 | 2026-08-21 | deferred | 현재 트리에 호스트 통합이 없음을 확인한 뒤 evaluation 입력 설명을 정정했습니다. 새로운 semantic golden dataset은 operational-case 및 promotion authority 밖에 유지했습니다. | `current change`, benchmark adapter 휴면 상태 결정, `eval/golden-dataset/`, 집중 dataset contract 검사 | 통제된 호스트와 canonical case-input 증적을 복원할 때만 adapter 입력을 다시 엽니다. |
 | 2026-08-23 | implemented | O3를 기존 Rule loader, shadow evaluator, regression gate, 초안 전용 GitOps adapter에 연결했습니다. 게시된 artifact는 내용 기반 주소를 가지며 초안 Rule 또는 ActionType을 활성화할 수 없습니다. | `current change`; `delivery/gitops_pr/{catalog_validator,catalog_review}.py`; `runtime/operational_catalog_review.py`; 집중 O3 테스트 통과 | 구성된 배포에서 관리되는 초안 PR 증적을 보존합니다. |
 | 2026-08-23 | in-progress | exact-digest O7 근거 consumer, 매니페스트 바인딩 causal 및 측정 단위 검증기, 영속 증적 저장, opt-in `operational-promotion` Container Apps 작업을 추가했습니다. | `current change`; `delivery/measurement/operational_promotion_evidence.py`; `delivery/measurement_runner_cli.py`; `infra/modules/measurement-runners/`; 집중 O7 테스트 및 Terraform 검증 통과 | 관리되는 live-batch producer를 구현한 뒤 작업별 batch를 공급하고 관측 및 재발 구간을 닫습니다. |
+| 2026-08-24 | implemented | 순서가 고정된 완전한 `expected_effect_refs` 집합을 보존하고 효과마다 하나의 독립 ObservedOutcome을 요구해 일대다 `expects` 관계와 런타임 계보를 조정했습니다. 단일 속성만 있는 저장 레코드는 하나의 효과로 읽고, 단일 및 복수 필드가 동시에 있으면 안전하게 차단하며, 새 쓰기는 복수 필드를 사용합니다. | `current change`; `hypothesis_lineage.py`; `ActionOption.yaml`; 집중 계보 및 운영 가설 competency 검사 15개 통과. | Projector를 연결하기 전에 남은 실제 계보 속성과 런타임 생산자를 제공합니다. |
 
 ### 남은 작업
 
@@ -409,9 +410,11 @@ Terraform은 `operational_promotion_measurement_enabled=true`일 때만 Containe
    누락 planning 속성을 보존합니다. Exact-plan resolver, Heimdall typed producer, Azure scale-out
    collector, 검증된 mailbox, O7 근거 원본과 증적 검증기는 구현됐지만 완전한 lineage record를
    materialize할 runtime producer는 아직 없습니다.
-- [ ] Projector를 연결하기 전에 catalog의 one-to-many `expects` 관계와 runtime lineage의 singular
-   `expected_effect_ref`를 조정합니다. 선택된 option의 모든 effect를 보존하고 하나의 metric을
-   선택하거나 날조하지 않는 migration-backed contract와 focused test가 종료 조건입니다.
+- [x] Catalog의 일대다 `expects` 관계와 런타임 계보를 조정했습니다. 새로운 계보 쓰기는 순서가
+   고정된 완전한 `expected_effect_refs` 집합과 효과마다 하나의 독립 결과를 요구합니다. 단일
+   속성만 있는 저장 레코드는 하나의 효과로 읽고, 단일 및 복수 필드가 동시에 있으면 안전하게
+   차단합니다. 집중 카탈로그 기반 테스트는 metric 하나를 선택하거나 날조하지 않고 선택된
+   option의 모든 effect를 보존합니다.
 - [ ] 승격 검토에 필요한 O7 작업별 live 일수, 표본 크기, 완전한 재발 구간, Wilson 경계, 위반 0건 근거를 누적합니다.
 - [ ] Evaluation 호스트 통합을 다시 활성화하면 adapter 결과가 canonical operational-case 증적만
    통과하고 golden-answer 성공을 promotion evidence로 취급할 수 없음을 입증합니다.

@@ -398,6 +398,7 @@ receipts only; it has no catalog, promotion-registry, or executor authority.
 | 2026-08-21 | deferred | Corrected evaluation intake after the host integration was found absent from the current tree. Kept the new semantic golden dataset outside operational-case and promotion authority. | `current change`; benchmark adapter dormant-status decision; `eval/golden-dataset/`; focused dataset contract checks. | Reopen adapter intake only with a restored governed host and canonical case-input receipts. |
 | 2026-08-23 | implemented | Bound O3 to the existing Rule loader, shadow evaluator, regression gate, and draft-only GitOps adapter. The published artifact is content-addressed and cannot activate its draft Rule or ActionType. | `current change`; `delivery/gitops_pr/{catalog_validator,catalog_review}.py`; `runtime/operational_catalog_review.py`; focused O3 tests passed. | Retain a governed draft-PR receipt from a configured deployment. |
 | 2026-08-23 | in-progress | Added an exact-digest O7 evidence consumer, manifest-bound causal and unit verifiers, durable receipt persistence, and an opt-in `operational-promotion` Container Apps Job. | `current change`; `delivery/measurement/operational_promotion_evidence.py`; `delivery/measurement_runner_cli.py`; `infra/modules/measurement-runners/`; focused O7 tests and Terraform validation passed. | Implement the governed live-batch producer, then supply action-specific batches and close their observation and recurrence windows. |
+| 2026-08-24 | implemented | Reconciled the one-to-many `expects` relationship with runtime lineage by preserving an ordered complete `expected_effect_refs` set and requiring one independent ObservedOutcome per effect. A singular-only stored record reads as one effect, dual-field ambiguity fails closed, and new writes use the plural field. | `current change`; `hypothesis_lineage.py`; `ActionOption.yaml`; focused lineage and operational-hypothesis competency checks passed 15 cases. | Supply the remaining real lineage properties and runtime producer before binding the projector. |
 
 ### Remaining work
 
@@ -408,10 +409,11 @@ receipts only; it has no catalog, promotion-registry, or executor authority.
   required by the Forseti-owned causal lineage projection. The exact-plan resolver, Heimdall typed
   producer, Azure scale-out collector, verified mailbox, O7 source, and receipt verifiers are
   implemented, but no runtime producer can yet materialize the complete lineage records.
-- [ ] Reconcile the catalog's one-to-many `expects` relationship with the singular
-  `expected_effect_ref` runtime lineage before binding the projector. The exit condition is a
-  migration-backed contract and focused test that preserves every selected option effect without
-  choosing or fabricating one metric.
+- [x] Reconcile the catalog's one-to-many `expects` relationship with runtime lineage. New lineage
+  writes require the ordered complete `expected_effect_refs` set and one independent outcome per
+  effect. Singular-only stored records retain one-effect read compatibility, while simultaneous
+  singular and plural fields fail closed. Focused catalog-backed tests preserve every selected
+  option effect without choosing or fabricating one metric.
 - [ ] Accumulate the O7 per-action live days, sample sizes, complete recurrence windows, Wilson bounds, and zero-escape evidence required for promotion review.
 - [ ] If evaluation host integration is reactivated, prove that adapter results enter only through
   canonical operational-case receipts and cannot treat golden-answer success as promotion evidence.

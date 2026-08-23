@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: 22942c4f969bcbf1ec61835a08c4a0033b4688e3
-translation_revised: 2026-08-19
+translation_source_sha: cabd3a2a02c36e4a17931a897b5a0444ce83faee
+translation_revised: 2026-08-24
 ---
 
 # 에이전트 판테온 구현 계획
@@ -27,7 +27,9 @@ translation_revised: 2026-08-19
 | W7 에이전트 간 shadow 작업 흐름 메커니즘 | implemented | [`test_wave7_workflows.py`](../../../services/core-control-plane/tests/agents/test_wave7_workflows.py) | 작업 흐름에 실행 가능한 합성 shadow 추적이 있으며, enforce 작업 흐름을 기본값으로 사용하는 근거는 이 문서에 없습니다. |
 | W8 KPI, 승격 및 성능 저하 메커니즘 | implemented | [`test_wave8_kpi_degradation.py`](../../../services/core-control-plane/tests/agents/test_wave8_kpi_degradation.py) | KPI 보고는 측정값과 사용 불가능한 근거를 구분하고, 근거가 없으면 승격을 차단하며, 주입된 성능 저하 훈련이 고정 판테온을 다룹니다. |
 | W3 추적 연속성 근거 인계 | implemented | `huginn.py`; `heimdall.py`; `test_trace_continuity_chain.py` | sensing 경로는 허용 목록의 범위가 제한된 연속성 근거만 보존하고 역할, topic, 작업 권한을 바꾸지 않은 채 관측된 사유를 인시던트 후보 하나에 전달합니다. |
-| 실제 운영 KPI 검증 및 실제 enforce 승격 | not-started | [목표와 메트릭](../architecture/goals-and-metrics-ko.md) | 이 계획에는 보존된 실제 shadow 표본 집합, 운영 승격 증적, 독립적인 검토 또는 실제 판테온 enforce 승격 근거가 없습니다. |
+| 최종 ActionRun 효과 관찰 경로 | implemented | [`executed_action_observation.py`](../../../services/core-control-plane/src/fdai/delivery/executed_action_observation.py), [`wire_azure_operational_evidence.py`](../../../services/core-control-plane/src/fdai/composition/wire_azure_operational_evidence.py), [`test_executed_action_observation.py`](../../../services/core-control-plane/tests/delivery/test_executed_action_observation.py) | Heimdall은 Thor의 최종 ActionRun을 소비하고 정확한 실행 전 아티팩트를 복원하며 검증기가 승인한 독립 관찰만 저장합니다. 배포가 소유하는 서명된 컨텍스트와 실제 종료 근거는 아직 필요합니다. |
+| O7 운영 승격 근거 측정 | implemented | [`operational_promotion.py`](../../../services/core-control-plane/src/fdai/core/measurement/operational_promotion.py), [`operational_promotion_evidence.py`](../../../services/core-control-plane/src/fdai/delivery/measurement/operational_promotion_evidence.py), [`test_operational_promotion_evidence.py`](../../../services/core-control-plane/tests/delivery/test_operational_promotion_evidence.py) | 실행기는 매니페스트에 결합된 불변 배치를 소비하고 인과관계, 측정 단위, 재발 또는 정책 이탈 근거가 없으면 안전하게 차단합니다. 현재 완전한 실제 배치를 구체화하는 런타임 생산자는 없습니다. |
+| 실제 운영 KPI 검증 및 실제 enforce 승격 | in-progress | [운영 학습 온톨로지](../rules-and-detection/operational-learning-ontology-ko.md), [목표와 메트릭](../architecture/goals-and-metrics-ko.md) | 측정 및 관찰 소비자는 있지만 완전하게 보존된 실제 shadow 코호트, 운영 승격 증적, 독립적인 검토 또는 실제 판테온 enforce 승격 근거는 없습니다. |
 
 ### 구현 이력
 
@@ -36,9 +38,20 @@ translation_revised: 2026-08-19
 | 2026-08-13 | in-progress | W0-W8 전체 완료 주장을 독립적으로 근거를 확인할 수 있는 구현 영역으로 교체했습니다. | 현재 변경 | 검증 완료 또는 enforce 운영을 주장하기 전에 실제 근거를 수집하고 별도 검토를 거친 승격을 완료합니다. |
 | 2026-08-14 | implemented | 선택적 대화 T2 종합을 범위가 제한된 T1 답변 신호의 결정론적 충돌 평가 결과에만 실행하도록 했습니다. | `current change`, 집중 숙의 테스트 36개 및 framework layout 검사 | 에스컬레이션하지 않는 분기와 충돌로 에스컬레이션하는 분기의 통제된 런타임 근거를 보존합니다. |
 | 2026-08-17 | implemented | 범위가 제한된 Huginn-Heimdall 연속성 근거 인계를 추가하고 인시던트 후보에 인식된 관측 사유를 보존했습니다. | `current change`; 작업처럼 보이는 위조 입력을 제외한 집중 추적-인시던트 체인 통과. | 이슈 #142에서 추적하는 통제된 실시간 시나리오 근거를 보존합니다. |
+| 2026-08-23 | implemented | 정확한 아티팩트 복원과 독립적으로 검증된 Azure 효과 수집을 사용하는 Heimdall의 타입 지정 최종 ActionRun 관찰 경로를 추가했습니다. | `current change`; 실행된 작업 관찰, Azure 수집기, 조립, 런타임 topic 및 판테온 일치 검사. | 배포가 소유하는 서명된 컨텍스트 발급자를 바인딩하고 통제된 실제 종료 증적을 보존합니다. |
+| 2026-08-23 | implemented | O7 불변 근거 소비자, 매니페스트 결합 인과관계 및 측정 단위 검증기, 영속 증적 저장소와 선택적 측정 작업을 추가했습니다. | `current change`; 운영 승격 소스, 실행기, 영속성, CLI 및 Terraform 검사. | 통제된 실제 배치 생산자를 구현하고 승격 검토 전에 작업별 근거를 축적합니다. |
+| 2026-08-24 | implemented | 에이전트 역할, topic 또는 권한을 바꾸지 않고 운영 가설 계보에 선택된 모든 예상 효과와 독립 결과를 보존했습니다. 단일 속성만 있는 저장 레코드는 하나의 효과로 읽을 수 있고, 모호한 이중 필드 레코드는 안전하게 차단됩니다. | `current change`; `hypothesis_lineage.py`; `ActionOption.yaml`; 집중 계보 및 competency 검사 15개 통과. | 남은 계보 생산자, 서명된 컨텍스트 및 실제 배치 선행조건을 완료합니다. |
 
 ### 남은 작업
 
+- [x] [운영 학습 온톨로지](../rules-and-detection/operational-learning-ontology-ko.md)에 기록된
+  대로 일대다 `expects` 링크와 런타임 예상 효과 계보를 조정하고 선택된 효과마다 하나의 독립
+  결과를 보존합니다.
+- [ ] 남은 선행조건을 완료합니다. 배포가 소유하는 서명된 컨텍스트 발급자를 바인딩하고,
+  Forseti가 소유하는 남은 인과관계 계보 속성을 보존하며, 실제 런타임 생산자를 구성하고,
+  통제된 실제 배치 생산자를 구현합니다.
+- [ ] 에이전트 역할, topic 소유권, 모델 정책 또는 작업 권한을 넓히지 않고 운영 의존성을
+  대상으로 선언된 성능 저하 동작을 입증합니다.
 - [ ] 하나의 고정된 런타임, 카탈로그, ActionType, 작업 흐름 및 시나리오 집합 리비전에서
   보존된 실제 shadow 코호트를 대상으로 선언된 KPI 수집기를 실행합니다.
 - [ ] 승격 후보마다 표본 수와 신뢰 구간을 포함한 권위 있는 결과, 재발, 롤백 및 정책 이탈
@@ -104,6 +117,7 @@ translation_revised: 2026-08-19
 | `health()` | 브리지 메트릭, 에이전트와 소비자 상태, 사용할 수 없는 에이전트, 연속성 및 유효 enforce 상태를 보고합니다. |
 | Shadow 관찰기 | 권위 있는 구독자의 레코드를 소비하지 않고 실행 예정 결정을 측정합니다. |
 | `ShadowDivergenceLedger` | 승격 근거를 위해 상관관계 ID로 shadow 결정과 권위 있는 결정을 결합합니다. |
+| `heimdall_action_observation_hook` | 정확한 최종 ActionRun 아티팩트를 복원하고 독립적으로 검증된 효과 관찰만 기록합니다. |
 | 하트비트 | 설정된 주기로 범위가 제한된 상태 스냅샷을 발행합니다. |
 
 ### 이벤트 버스 불변식

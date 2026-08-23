@@ -85,7 +85,7 @@ def test_one_replayable_graph_answers_the_five_frozen_questions() -> None:
                     "decision_case_id": "case-1",
                     "action_type_ref": "ops.scale-out",
                     "arguments": {"replicas": 2},
-                    "expected_effect_ref": "effect-1",
+                    "expected_effect_refs": ["effect-1", "effect-2"],
                     "preconditions": ["fresh_context"],
                     "option_kind": "intervention",
                 },
@@ -105,6 +105,21 @@ def test_one_replayable_graph_answers_the_five_frozen_questions() -> None:
                     "created_at": "2026-08-12T00:00:00Z",
                 },
             ),
+            OntologyObjectRecord(
+                "effect-2",
+                "ExpectedEffect",
+                {
+                    "id": "effect-2",
+                    "metric": "replica_count",
+                    "direction": "increase",
+                    "lower_bound": 2.0,
+                    "upper_bound": 2.0,
+                    "window_seconds": 300,
+                    "uncertainty": 0.0,
+                    "predictor_version": "challenger-logic:v2",
+                    "created_at": "2026-08-12T00:00:00Z",
+                },
+            ),
             OntologyObjectRecord("run-1", "ActionRun", {"id": "run-1"}),
             OntologyObjectRecord(
                 "outcome-1",
@@ -116,6 +131,21 @@ def test_one_replayable_graph_answers_the_five_frozen_questions() -> None:
                     "verification": "independent",
                     "recovery_status": "not_required",
                     "observed_values": {"latency_ms": 110.0},
+                    "telemetry_complete": True,
+                    "scorable": True,
+                    "observed_at": "2026-08-12T00:06:00Z",
+                },
+            ),
+            OntologyObjectRecord(
+                "outcome-2",
+                "ObservedOutcome",
+                {
+                    "id": "outcome-2",
+                    "action_run_id": "run-1",
+                    "expected_effect_ref": "effect-2",
+                    "verification": "independent",
+                    "recovery_status": "not_required",
+                    "observed_values": {"replica_count": 2.0},
                     "telemetry_complete": True,
                     "scorable": True,
                     "observed_at": "2026-08-12T00:06:00Z",
@@ -138,8 +168,10 @@ def test_one_replayable_graph_answers_the_five_frozen_questions() -> None:
     links = (
         OntologyLinkRecord("considers", "case-1", "option-1"),
         OntologyLinkRecord("expects", "option-1", "effect-1"),
+        OntologyLinkRecord("expects", "option-1", "effect-2"),
         OntologyLinkRecord("executed_as", "option-1", "run-1"),
         OntologyLinkRecord("resulted_in", "run-1", "outcome-1"),
+        OntologyLinkRecord("resulted_in", "run-1", "outcome-2"),
         OntologyLinkRecord("outcome_tests_hypothesis", "outcome-1", "hypothesis-2"),
         OntologyLinkRecord("evidence_supports_hypothesis", "support-1", "hypothesis-2"),
         OntologyLinkRecord("evidence_refutes_hypothesis", "refute-1", "hypothesis-2"),
@@ -151,12 +183,37 @@ def test_one_replayable_graph_answers_the_five_frozen_questions() -> None:
         ),
     )
 
-    outgoing = {(item.link_type, item.from_id): item.to_id for item in links}
-    option = objects[outgoing[("considers", "case-1")]]
-    effect = objects[outgoing[("expects", option.id)]]
-    run = objects[outgoing[("executed_as", option.id)]]
-    outcome = objects[outgoing[("resulted_in", run.id)]]
-    hypothesis = objects[outgoing[("outcome_tests_hypothesis", outcome.id)]]
+    option = objects[
+        next(
+            item.to_id
+            for item in links
+            if item.link_type == "considers" and item.from_id == "case-1"
+        )
+    ]
+    effects = tuple(
+        objects[item.to_id]
+        for item in links
+        if item.link_type == "expects" and item.from_id == option.id
+    )
+    run = objects[
+        next(
+            item.to_id
+            for item in links
+            if item.link_type == "executed_as" and item.from_id == option.id
+        )
+    ]
+    outcomes = tuple(
+        objects[item.to_id]
+        for item in links
+        if item.link_type == "resulted_in" and item.from_id == run.id
+    )
+    hypothesis = objects[
+        next(
+            item.to_id
+            for item in links
+            if item.link_type == "outcome_tests_hypothesis" and item.from_id == outcomes[0].id
+        )
+    ]
     support = {
         item.from_id
         for item in links
@@ -170,15 +227,25 @@ def test_one_replayable_graph_answers_the_five_frozen_questions() -> None:
     basis = next(
         item.from_id
         for item in links
-        if item.link_type == "hypothesis_informs_expected_effect" and item.to_id == effect.id
+        if item.link_type == "hypothesis_informs_expected_effect" and item.to_id == effects[0].id
     )
 
     assert objects["case-1"].properties["target_ref"] == "workload-1"
     assert option.properties["action_type_ref"] == "ops.scale-out"
     assert objects["case-1"].properties["no_action_baseline"]["expected"] == 240.0
-    assert effect.properties["upper_bound"] == 140.0
-    assert outcome.properties["verification"] == "independent"
+    assert {effect.properties["metric"] for effect in effects} == {
+        "latency_ms",
+        "replica_count",
+    }
+    assert effects[0].properties["upper_bound"] == 140.0
+    assert {outcome.properties["expected_effect_ref"] for outcome in outcomes} == {
+        "effect-1",
+        "effect-2",
+    }
+    assert all(outcome.properties["verification"] == "independent" for outcome in outcomes)
     assert support == {"support-1"}
     assert refutation == {"refute-1"}
     assert objects[basis].id == "hypothesis-2"
-    assert effect.properties["predictor_version"] == "challenger-logic:v2"
+    assert all(
+        effect.properties["predictor_version"] == "challenger-logic:v2" for effect in effects
+    )
