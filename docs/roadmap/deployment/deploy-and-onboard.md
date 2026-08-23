@@ -472,8 +472,7 @@ All values MUST come from env vars or Key Vault refs at runtime. **No environmen
 committed to this repo.** The list below is the **schema of keys** the deployment expects; the
 full expanded catalog and defaults are authored during the inventory PR.
 
-The Console projects a safe subset through Settings > Runtime policies. Readers can compare the
-environment, durable override, and effective value. Owners can change only the documented
+The Console projects a safe subset through Settings > Runtime policies. Readers can compare the environment, durable override, and effective value. Owners can change only the documented
 allowlist through revision and audit checks. IRP, analyzer, inventory freshness, and retention tick
 changes apply dynamically at their next event or Job boundary. Logging level and case retention or
 deletion day changes require a headless runtime restart. Deployment identity, transport, endpoint,

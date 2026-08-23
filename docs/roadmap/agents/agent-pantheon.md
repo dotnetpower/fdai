@@ -13,9 +13,7 @@ FDAI's fixed organization of 15 named agents owns the cloud-operations runtime. 
 Consumers of this document:
 
 - The event-driven core reads the agent and topic ownership tables in §4 and §6 to wire schema-validated pub/sub.
-- The Operator Console ([operator-console.md](../interfaces/operator-console.md)) reads §6.3
-  and §6.5 to route natural-language questions to the correct primary agent
-  with per-user context.
+- The Operator Console ([operator-console.md](../interfaces/operator-console.md)) reads §6.3 and §6.5 to route natural-language questions to the correct primary agent with per-user context.
 - The rule-catalog and executor ([action-ontology.md](../decisioning/action-ontology.md), [execution-model.md](../decisioning/execution-model.md)) read §7 to bind each ActionType to its initiator, judge, approver, executor, and auditor.
 - Forks read §10 to see which seams are open (topic subscriptions, config
   overrides) and which are locked (no new agents, no rename).

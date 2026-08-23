@@ -201,21 +201,9 @@ reused from its exact inputs and required outputs without requiring an already-r
 stack. Database-backed stages also include the local PostgreSQL volume identity, so recreated
 volumes cannot inherit stale file markers. `--force` invalidates every stage.
 
-The supervisor launches each allowlisted `run-console-service.sh` in parallel with its own lock,
-fingerprint, log, and lifecycle. It emits `started` after all launchers are spawned, which releases
-the `console: start full stack` caller, then continues the 60-second gate and forwards shutdown.
-Run `console: wait full stack ready` before browser validation or another operation that requires
-the complete topology. That task requires checkout-owned Core, a recent heartbeat, and healthy
-service probes. The Core-only recovery task also waits for a fresh Pantheon heartbeat instead of
-treating process spawn as readiness. Changed or foreign ownership replaces only the managed task
-or fails.
+The supervisor launches each allowlisted `run-console-service.sh` in parallel with its own lock, fingerprint, log, and lifecycle. It emits `started` after all launchers are spawned, which releases the `console: start full stack` caller, then continues the 60-second gate and forwards shutdown. Run `console: wait full stack ready` before browser validation or another operation that requires the complete topology. That task requires checkout-owned Core, a recent heartbeat, and healthy service probes. The Core-only recovery task also waits for a fresh Pantheon heartbeat instead of treating process spawn as readiness. Changed or foreign ownership replaces only the managed task or fails.
 
-The ordered preparation refreshes read-only Azure Resource Graph inventory and materializes
-sanitized model, runtime Settings, Rule, and Ontology projections only when their stage inputs
-change. These declarations do not create findings, observed inventory, readiness, or execution
-authority. An unavailable or unauthorized provider leaves inventory explicitly unavailable
-instead of substituting fixture data. Full-stack startup requires a trusted workspace and committed
-policy without weakening authority.
+The ordered preparation refreshes read-only Azure Resource Graph inventory and materializes sanitized model, runtime Settings, Rule, and Ontology projections only when their stage inputs change. These declarations do not create findings, observed inventory, readiness, or execution authority. An unavailable or unauthorized provider leaves inventory explicitly unavailable instead of substituting fixture data. Full-stack startup requires a trusted workspace and committed policy without weakening authority.
 Loopback ownership checks use bounded 250 ms IPv4 and IPv6 socket probes and do not retain the
 service lock while connecting. Shutdown allows ten seconds before stopping the child group;
 wrapper loss signals its leader. Run `console: prepare full stack` before an individual service or

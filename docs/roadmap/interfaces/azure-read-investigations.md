@@ -4,30 +4,20 @@ title: Azure Read Investigations
 
 # Azure Read Investigations
 
-This document defines how an operator question becomes a bounded, read-only Azure investigation.
-Bragi owns the conversation, Heimdall owns resource-change and external-actor interpretation, and
-provider adapters gather evidence without using Thor's execution identity.
+This document defines how an operator question becomes a bounded, read-only Azure investigation. Bragi owns the conversation, Heimdall owns resource-change and external-actor interpretation, and provider adapters gather evidence without using Thor's execution identity.
 
-> **Scope:** This design covers resource lookup, Activity Log attribution, Resource Health, guest
-> log fallback, configured NSG rules, VNet peering topology, execution-time prediction, progress
-> delivery, and detached investigation sessions.
+> **Scope:** This design covers resource lookup, Activity Log attribution, Resource Health, guest log fallback, configured NSG rules, VNet peering topology, execution-time prediction, progress delivery, and detached investigation sessions.
 > It does not authorize or execute an Azure change.
 >
 > **Discovery command coverage:** Provider-wide resource discovery, ARG-specialized tables,
 > sanitized reproduction commands, and coverage reconciliation are defined in
 > [Azure Resource Discovery Command Coverage](azure-resource-discovery-commands.md).
 >
-> **Current implementation boundary:** The running Pantheon composes `resource_state` through
-> Heimdall's interactive read hook. The Operator request transport also reaches a detached Core
-> executor for all seven registered intents. Guest logs, NSG rules, and VNet peerings remain
-> explicit unavailable evidence until their typed providers are configured. Direct and streamed
-> execution and terminal conversation delivery remain open.
+> **Current implementation boundary:** The running Pantheon composes `resource_state` through Heimdall's interactive read hook. The Operator request transport also reaches a detached Core executor for all seven registered intents. Guest logs, NSG rules, and VNet peerings remain explicit unavailable evidence until their typed providers are configured. Direct and streamed execution and terminal conversation delivery remain open.
 
 ## Design at a glance
 
-A read investigation stays outside the mutation control loop. Shared semantic judgment proposes
-typed intent and source-grounded targets; deterministic validation and exact resource resolution
-select tools and execution mode. Answers cite normalized evidence or report it unavailable.
+A read investigation stays outside the mutation control loop. Shared semantic judgment proposes typed intent and source-grounded targets; deterministic validation and exact resource resolution select tools and execution mode. Answers cite normalized evidence or report it unavailable.
 
 ![Design at a glance. The main stages are Operator, Bragi conversation, Read investigation planner, Heimdall investigation, Durable background task, Attenuated read-tool gateway, Resource Graph or inventory, Activity Log, Resource Health, Guest or Monitor logs, Normalized evidence.](../../diagrams/generated/fdai-roadmap-interfaces-azure-read-investigations-01.en.svg)
 
@@ -43,19 +33,9 @@ select tools and execution mode. Answers cite normalized evidence or report it u
 | Thor | Report existing `ActionRun` status and execute an approved typed action | Run inventory, Activity Log, Resource Health, or guest-log reads |
 | Task worker | Run one isolated, depth-one, attenuated read investigation | Join the Pantheon, publish a Pantheon object, or inherit execution authority |
 
-An operator question is not published as `object.event`. That topic enters detection, judgment,
-risk, and execution processing. The current Operator API persists a proposal and outbox record
-before it returns `202` or begins SSE replay. The Operator outbox now publishes a versioned request
-or cancellation, and the optional Core consumer creates or cancels the owner-scoped durable task.
-Durable acceptance is still not evidence that provider work completed. PostgreSQL remains the
-source of truth; the coordinator wake signal is only a delivery hint.
+An operator question is not published as `object.event`. That topic enters detection, judgment, risk, and execution processing. The current Operator API persists a proposal and outbox record before it returns `202` or begins SSE replay. The Operator outbox now publishes a versioned request or cancellation, and the optional Core consumer creates or cancels the owner-scoped durable task. Durable acceptance is still not evidence that provider work completed. PostgreSQL remains the source of truth; the coordinator wake signal is only a delivery hint.
 
-The production handoff uses the versioned, no-authority `read-investigation-request` contract.
-Operator owns durable acceptance and CAS-fenced publication; Core consumes the request and is the
-only runtime writer for the run ledger and background-task tables. The transport is at-least-once,
-so Core commits its broker offset only after durable task creation or terminal run-ledger
-persistence. The optional coordinator starts inside the existing Core service. It is not another
-Pantheon member, service distribution, or executor identity.
+The production handoff uses the versioned, no-authority `read-investigation-request` contract. Operator owns durable acceptance and CAS-fenced publication; Core consumes the request and is the only runtime writer for the run ledger and background-task tables. The transport is at-least-once, so Core commits its broker offset only after durable task creation or terminal run-ledger persistence. The optional coordinator starts inside the existing Core service. It is not another Pantheon member, service distribution, or executor identity.
 
 ## Implementation status
 
@@ -101,20 +81,11 @@ Pantheon member, service distribution, or executor identity.
 
 ### Remaining work
 
-- [x] Implement and consume the versioned `read-investigation-request` transport for each durable
-  `read_investigation.start` proposal through a production composition that preserves principal
-  scope, idempotency, cancellation, and bounded SSE replay.
-- [x] Keep unconfigured guest-log, NSG, and VNet-peering tools explicitly unavailable and prove all
-  seven registered intents retain exact-resource-first plans through the production detached composition.
-- [ ] Put direct and streamed execution behind the PostgreSQL run store and shared policy, then pass
-  owner-scoped replay and disconnect cancellation checks before enabling either mode in production.
-- [ ] Define a versioned Core-to-Operator terminal completion contract in
-  [Durable Conversation Delivery](durable-conversation-delivery.md) and
-  [Service Graduation and Data Ownership](../architecture/service-graduation-and-ownership.md),
-  then bind the completion sink and audit writer without giving Core an Operator conversation write.
-- [x] Implement the optional Azure MCP Resource Health adapter, allowlist probe, circuit breaker,
-  periodic recovery, per-plan limits, and REST fallback. Other MCP read tools stay unavailable
-  until their exact-resource schemas and normalizers are reviewed.
+- [x] Implement and consume the versioned `read-investigation-request` transport for each durable `read_investigation.start` proposal through a production composition that preserves principal scope, idempotency, cancellation, and bounded SSE replay.
+- [x] Keep unconfigured guest-log, NSG, and VNet-peering tools explicitly unavailable and prove all seven registered intents retain exact-resource-first plans through the production detached composition.
+- [ ] Put direct and streamed execution behind the PostgreSQL run store and shared policy, then pass owner-scoped replay and disconnect cancellation checks before enabling either mode in production.
+- [ ] Define a versioned Core-to-Operator terminal completion contract in [Durable Conversation Delivery](durable-conversation-delivery.md) and [Service Graduation and Data Ownership](../architecture/service-graduation-and-ownership.md), then bind the completion sink and audit writer without giving Core an Operator conversation write.
+- [x] Implement the optional Azure MCP Resource Health adapter, allowlist probe, circuit breaker, periodic recovery, per-plan limits, and REST fallback. Other MCP read tools stay unavailable until their exact-resource schemas and normalizers are reviewed.
 - [ ] Record live cross-service parity receipts proving snapshot-first hydration and same-invocation durable/live identity.
 - [ ] Validate guest-event matching and an actual provider `429` response in the governed live Azure scenario evidence.
 
@@ -609,10 +580,7 @@ sources unavailable rather than widening scope or substituting fixtures.
 No `FDAI_AZURE_READER_*` runtime binding is implemented. Optional MCP Resource Health reads use
 `FDAI_AZURE_MCP_ENABLED`, `FDAI_AZURE_MCP_STARTUP_TIMEOUT_SECONDS`,
 `FDAI_AZURE_MCP_CALL_TIMEOUT_SECONDS`, and `FDAI_AZURE_MCP_DISCOVERY_INTERVAL_SECONDS`.
-Composition fixes the `resourcehealth` namespace, passes only the allowlisted Azure identity
-environment, and keeps REST authoritative when discovery, authorization, transport, or
-normalization is unavailable.
-Similarly, detached per-principal concurrency, cost, wall-clock, and tool-call quotas become an
+Composition fixes the `resourcehealth` namespace, passes only the allowlisted Azure identity environment, and keeps REST authoritative when discovery, authorization, transport, or normalization is unavailable. Similarly, detached per-principal concurrency, cost, wall-clock, and tool-call quotas become an
 Operator API guarantee only after the proposal consumer creates the durable task atomically.
 
 Audit records include requester, intent, selected tools, scope digest, task or request id, duration,

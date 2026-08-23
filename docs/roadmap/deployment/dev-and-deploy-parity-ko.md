@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 55f5c269fba1ebcdee77316fa454591f62c9a3f8
+translation_source_sha: aacc9fe18dea702196ec8c9c439fea536e697a14
 translation_revised: 2026-08-23
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -206,19 +206,9 @@ executor 권한을 변경하지 않습니다.
 PostgreSQL volume identity도 포함하므로 재생성된 volume이 오래된 파일 marker를 상속할 수 없습니다.
 `--force`는 모든 단계를 무효화합니다.
 
-Supervisor는 허용된 각 `run-console-service.sh`을 자체 잠금, fingerprint, 로그 및 수명주기와 함께
-병렬 시작합니다. 모든 launcher를 시작한 뒤 `started`를 내보내 `console: start full stack` 호출자를
-해제하고, 그 뒤에도 60초 게이트와 종료 신호 전달을 계속 담당합니다. 브라우저 검증이나 전체 구성이
-필요한 작업 전에는 `console: wait full stack ready`를 실행합니다. 이 작업은 체크아웃 소유 Core,
-최신 heartbeat 및 정상 서비스 probe를 요구합니다. Core 전용 복구 작업도 프로세스 시작을 준비
-상태로 취급하지 않고 최신 Pantheon heartbeat를 기다립니다. 변경되거나 다른 소유권은 관리 대상만
-교체하거나 실패합니다.
+Supervisor는 허용된 각 `run-console-service.sh`을 자체 잠금, fingerprint, 로그 및 수명주기와 함께 병렬 시작합니다. 모든 launcher를 시작한 뒤 `started`를 내보내 `console: start full stack` 호출자를 해제하고, 그 뒤에도 60초 게이트와 종료 신호 전달을 계속 담당합니다. 브라우저 검증이나 전체 구성이 필요한 작업 전에는 `console: wait full stack ready`를 실행합니다. 이 작업은 체크아웃 소유 Core, 최신 heartbeat 및 정상 서비스 probe를 요구합니다. Core 전용 복구 작업도 프로세스 시작을 준비 상태로 취급하지 않고 최신 Pantheon heartbeat를 기다립니다. 변경되거나 다른 소유권은 관리 대상만 교체하거나 실패합니다.
 
-순서가 있는 준비 작업은 해당 단계 입력이 바뀐 경우에만 읽기 전용 Azure Resource Graph 인벤토리를
-새로 읽고 정제된 모델, 런타임 Settings, Rule 및 Ontology 변환 결과를 구체화합니다. 이러한 선언은
-발견된 문제, 관측된 인벤토리, 준비 상태 또는 실행 권한을 만들지 않습니다. 프로바이더를 사용할 수
-없거나 권한이 없으면 고정본 데이터로 대체하지 않고 인벤토리를 명시적으로 사용할 수 없는 상태로
-유지합니다. 전체 스택 시작에는 신뢰된 workspace와 커밋된 정책이 필요하며 권한을 약화하지 않습니다.
+순서가 있는 준비 작업은 해당 단계 입력이 바뀐 경우에만 읽기 전용 Azure Resource Graph 인벤토리를 새로 읽고 정제된 모델, 런타임 Settings, Rule 및 Ontology 변환 결과를 구체화합니다. 이러한 선언은 발견된 문제, 관측된 인벤토리, 준비 상태 또는 실행 권한을 만들지 않습니다. 프로바이더를 사용할 수 없거나 권한이 없으면 고정본 데이터로 대체하지 않고 인벤토리를 명시적으로 사용할 수 없는 상태로 유지합니다. 전체 스택 시작에는 신뢰된 workspace와 커밋된 정책이 필요하며 권한을 약화하지 않습니다.
 Loopback 소유권 확인에는 범위가 250ms로 제한된 IPv4 및 IPv6 소켓 검사를 사용하며 연결 중에는
 서비스 잠금을 유지하지 않습니다. 종료는 10초 뒤 자식 process group을 중지하고 wrapper가 사라지면
 그 leader에 signal을 보냅니다. 개별 서비스 또는 debug launch 전에는

@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 4bbce3a5a319908a3f06c4450e52c485f15e389f
+translation_source_sha: 0b4e05ba004cd9d8750bbc867d784c3cf9afed0b
 translation_revised: 2026-08-23
 ---
 # Operator Console 모듈 지도 and Boundaries
@@ -11,14 +11,8 @@ Main 콘솔 계약을 확장하지 않고 출처 소유권을 찾을 수 있게 
 
 ## 실행 가능한 기준선
 
-[`operator-console-module-inventory.json`](operator-console-module-inventory.json)은 현재 Operator API
-패키지 책임, 경로 계열 분류, 후보 대상 및 가져오기 표면 상태를 기록합니다. 이 인벤토리는
-file-count 목표가 아닌 설명 기준이지만, executable 완전성 게이트는 현재 모든 모듈 디렉터리와
-경로 모듈을 분류된 상태로 유지하도록 요구합니다.
-후보 대상은 패키지 힌트입니다. 새 프로세스, 신원, 전송 계층 또는 데이터 소유자의 게이트는 [서비스 승격과 데이터 소유권](../architecture/service-graduation-and-ownership-ko.md)입니다.
-[`test_operator_api_layout.py`](../../../services/operator-service/tests/)는 현재 모든
-패키지와 경로 모듈이 분류된 상태인지 확인하고, exact 기본 메서드, 경로, route-name 집합 및 대표 HTTP
-묶음을 고정합니다. 의도적인 기본 경로 추가는 같은 변경에서 검토된 기준선을 갱신합니다.
+[`operator-console-module-inventory.json`](operator-console-module-inventory.json)은 현재 Operator API 패키지 책임, 경로 계열 분류, 후보 대상 및 가져오기 표면 상태를 기록합니다. 이 인벤토리는 file-count 목표가 아닌 설명 기준이지만, executable 완전성 게이트는 현재 모든 모듈 디렉터리와 경로 모듈을 분류된 상태로 유지하도록 요구합니다. 후보 대상은 패키지 힌트입니다. 새 프로세스, 신원, 전송 계층 또는 데이터 소유자의 게이트는 [서비스 승격과 데이터 소유권](../architecture/service-graduation-and-ownership-ko.md)입니다.
+[`test_operator_api_layout.py`](../../../services/operator-service/tests/)는 현재 모든 패키지와 경로 모듈이 분류된 상태인지 확인하고, exact 기본 메서드, 경로, route-name 집합 및 대표 HTTP 묶음을 고정합니다. 의도적인 기본 경로 추가는 같은 변경에서 검토된 기준선을 갱신합니다.
 
 ## 구현 상태
 

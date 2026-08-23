@@ -3,8 +3,7 @@ title: Project Structure
 ---
 # Project Structure
 
-The system is a **headless control plane + thin console + ChatOps**, not one web app. See [App Shape](../../../.github/instructions/app-shape.instructions.md). The layout below records the physical service-owned tree; completion evidence and retirement criteria are in the [Service Decomposition Execution Plan](service-decomposition-execution-plan.md#final-repository-layout). Fifteen fixed agents own the control loop through typed events. Process splits follow
-[Service Graduation and Data Ownership](service-graduation-and-ownership.md), and module names follow [Architecture](../../../.github/instructions/architecture.instructions.md). The local five-service profile keeps each package independent over loopback PostgreSQL, Redpanda, filesystem document storage, and ClamAV. Deployed composition replaces those adapters with service-owned managed implementations without changing the shared wire contracts.
+The system is a **headless control plane + thin console + ChatOps**, not one web app. See [App Shape](../../../.github/instructions/app-shape.instructions.md). The layout below records the physical service-owned tree; completion evidence and retirement criteria are in the [Service Decomposition Execution Plan](service-decomposition-execution-plan.md#final-repository-layout). Fifteen fixed agents own the control loop through typed events. Process splits follow [Service Graduation and Data Ownership](service-graduation-and-ownership.md), and module names follow [Architecture](../../../.github/instructions/architecture.instructions.md). The local five-service profile keeps each package independent over loopback PostgreSQL, Redpanda, filesystem document storage, and ClamAV. Deployed composition replaces those adapters with service-owned managed implementations without changing the shared wire contracts.
 
 ## Implementation status
 ### Implementation scope
@@ -503,13 +502,7 @@ clean (see the fork model in
   verifier grants no execution authority. An absent binding makes operational reuse abstain while
   legacy patterns continue. Pantheon composition can inject `OperatingPatternCompiler`; Norns
   serializes typed learning and applies bounded proposal backpressure before Mimir review.
-- **Causal and Dynamic runtime evidence**: `TemporalCausalEvidenceProvider` supplies bounded
-  pre-cutoff series and graph facts. `DynamicSimulationRequestProvider` supplies at most 32 current-
-  state branches. `CausalHypothesisProjection` stays Forseti-owned, and model grades require an
-  `EffectModelCausalEvidenceVerifier`. Dynamic models cannot use outcomes later than the simulation
-  snapshot, current snapshots use evaluation-clock freshness, and the pure simulator rejects model
-  cutoff or finite-arithmetic violations even outside the coordinator. These seams are read-only;
-  absent bindings disable shadow paths.
+- **Causal and Dynamic runtime evidence**: `TemporalCausalEvidenceProvider` supplies bounded pre-cutoff series and graph facts. `DynamicSimulationRequestProvider` supplies at most 32 current-state branches. `CausalHypothesisProjection` stays Forseti-owned, and model grades require an `EffectModelCausalEvidenceVerifier`. Dynamic models cannot use outcomes later than the simulation snapshot, current snapshots use evaluation-clock freshness, and the pure simulator rejects model cutoff or finite-arithmetic violations even outside the coordinator. These seams are read-only; absent bindings disable shadow paths.
 - **Operational promotion authority**: `OperationalPromotionReceiptVerifier` and
   `OperationalPromotionUnitVerifier` resolve immutable evidence. The production registry remains
   shadow without them; raw scalar metrics are a test-only legacy fixture mode. A promotion-state
@@ -522,10 +515,7 @@ clean (see the fork model in
 - **Independent effect observation**: the durable kinetic artifact store is the exact-plan source.
   `StateStoreExecutedActionObservationStore` accepts only Heimdall-attributed observations whose
   signed context passes the configured verifier on write and replay. Missing evidence remains held.
-- **Azure operational evidence**: `bind_azure_operational_evidence` composes a strict promoted-
-  inventory snapshot reader, current safety evaluator, configured Azure metrics, bounded branch
-  estimator, and effect-model reader. Temporal adapters reject non-finite metric values before
-  evidence hashing. Partial binding fails at container construction.
+- **Azure operational evidence**: `bind_azure_operational_evidence` composes a strict promoted-inventory snapshot reader, current safety evaluator, configured Azure metrics, bounded branch estimator, and effect-model reader. Temporal adapters reject non-finite metric values before evidence hashing. Partial binding fails at container construction.
 
 ### Capability Bundles
 

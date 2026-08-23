@@ -736,46 +736,13 @@ After that schedule is exhausted, the surface offers access-check retry and sign
 
 ## Architecture-map resilience
 
-The Architecture route keeps only scope selection in the compact panel that floats over the map's
-upper-right corner. It omits inventory counts, explanatory copy, and layer filters. A truncated
-graph uses one short status badge. The resource-color legend is drawn directly on the world floor
-beside the subscription boundary,
-not in a floating or bottom panel. Camera fitting reserves floor space for it. Resource type names
-are written directly on that floor without a fixed legend box, title, or color swatches. The names
-move with pan and scale with map zoom inside bounded readable sizes.
-Resource glyphs use the Microsoft Cloud Adoption Framework
-[Azure resource abbreviations](https://learn.microsoft.com/azure/cloud-adoption-framework/ready/azure-best-practices/resource-abbreviations).
-Every known canonical type has an explicit lowercase abbreviation. Abstract types without a
-one-to-one CAF row use a documented stable extension instead of a generated initialism.
-The relationship legend remains the compact canvas control. The default isometric map starts with
-Reflections and Connections enabled. It shows containment as subtle dashed links,
-shows attachment and dependency links with their directional styles, and renders each resource
-shape; top and front views are optional. Simple projections size every resource-group panel,
-including a single selected scope, from its observed child count and pack those panels into a
-balanced world. Focused service and resource-group views fit that repacked content instead of the
-full subscription frame. A resource node never renders
-smaller than the standard Event Grid topic block. The world and canvas grow with inventory while
-authored nested layouts keep their supplied geometry. The map uses the full workspace width and
-places inspection details below it. Narrow viewports preserve node size and use map panning instead
-of shrinking boxes into unreadable marks. Selection updates the canonical deep link without
-reloading inventory and exposes directional relationships before technical identifiers. Selection
-preserves every common resource coordinate while auxiliary neighbors appear. It does not dim
-unrelated resources; selection uses the chosen outline and inspection details only. Every resource
-selection preserves the current camera scale and position, including virtual machines. Zoom, fit,
-pan, and camera-view controls remain explicit operator actions.
+The Architecture route keeps only scope selection in the compact panel that floats over the map's upper-right corner. It omits inventory counts, explanatory copy, and layer filters. A truncated graph uses one short status badge. The resource-color legend is drawn directly on the world floor beside the subscription boundary, not in a floating or bottom panel. Camera fitting reserves floor space for it. Resource type names are written directly on that floor without a fixed legend box, title, or color swatches. The names move with pan and scale with map zoom inside bounded readable sizes.
+Resource glyphs use the Microsoft Cloud Adoption Framework [Azure resource abbreviations](https://learn.microsoft.com/azure/cloud-adoption-framework/ready/azure-best-practices/resource-abbreviations). Every known canonical type has an explicit lowercase abbreviation. Abstract types without a one-to-one CAF row use a documented stable extension instead of a generated initialism.
+The relationship legend remains the compact canvas control. The default isometric map starts with Reflections and Connections enabled. It shows containment as subtle dashed links, shows attachment and dependency links with their directional styles, and renders each resource shape; top and front views are optional. Simple projections size every resource-group panel, including a single selected scope, from its observed child count and pack those panels into a balanced world. Focused service and resource-group views fit that repacked content instead of the full subscription frame. A resource node never renders smaller than the standard Event Grid topic block. The world and canvas grow with inventory while authored nested layouts keep their supplied geometry. The map uses the full workspace width and places inspection details below it. Narrow viewports preserve node size and use map panning instead of shrinking boxes into unreadable marks. Selection updates the canonical deep link without reloading inventory and exposes directional relationships before technical identifiers. Selection preserves every common resource coordinate while auxiliary neighbors appear. It does not dim unrelated resources; selection uses the chosen outline and inspection details only. Every resource selection preserves the current camera scale and position, including virtual machines. Zoom, fit, pan, and camera-view controls remain explicit operator actions.
 
-The separate `Network` mode keeps the complete inventory response authoritative and replaces the
-isometric presentation with a bounded 2D focus. It chooses the selected VNet, or the observed VNet
-with the most contained subnets when no resource is selected. VNet and subnet rectangles are rebuilt
-from typed `contains` links, and resource placement uses only the bounded unique-subnet attachment
-rule below. Six category filters, selection, and path highlighting change presentation only.
+The separate `Network` mode keeps the complete inventory response authoritative and replaces the isometric presentation with a bounded 2D focus. It chooses the selected VNet, or the observed VNet with the most contained subnets when no resource is selected. VNet and subnet rectangles are rebuilt from typed `contains` links, and resource placement uses only the bounded unique-subnet attachment rule below. Six category filters, selection, and path highlighting change presentation only.
 
-A source-to-destination query walks only reported `attached_to`, stored-direction `depends_on`, and
-symmetric `peered_with` relationships. It returns `no_observed_path` only when the graph is fresh,
-not truncated, and declares complete coverage for all three relationship kinds. Every other negative
-result is `unknown`. The identifier-free export keeps snapshot time, freshness, completeness, and
-resource-type labels while omitting names, raw provider ids, subscription ids, endpoints, and
-credentials. SVG and PNG use the same sanitized SVG source.
+A source-to-destination query walks only reported `attached_to`, stored-direction `depends_on`, and symmetric `peered_with` relationships. It returns `no_observed_path` only when the graph is fresh, not truncated, and declares complete coverage for all three relationship kinds. Every other negative result is `unknown`. The identifier-free export keeps snapshot time, freshness, completeness, and resource-type labels while omitting names, raw provider ids, subscription ids, endpoints, and credentials. SVG and PNG use the same sanitized SVG source.
 
 The factual counts and inspection index continue to use the complete authoritative inventory. The
 isometric overview applies a presentation-only projection that keeps network interfaces and managed

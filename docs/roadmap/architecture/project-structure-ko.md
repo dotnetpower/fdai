@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 2ed475219c6204d66a1ce75d9b585a383193e221
+translation_source_sha: b8d96c073b1f31f14519f01b25c32cf883e5f191
 translation_revised: 2026-08-23
 ---
 # 프로젝트 구조
@@ -497,12 +497,7 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
   부여하지 않습니다. 연결이 없으면 operational reuse는 abstain하고 이전 방식 pattern은 계속됩니다.
   Pantheon 조립은 `OperatingPatternCompiler`를 inject할 수 있으며 Norns는 타입이 지정된 learning을
   serialize하고 Mimir 검토 전에 범위가 제한된 제안 backpressure를 적용합니다.
-- **Causal 및 Dynamic 런타임 근거**: `TemporalCausalEvidenceProvider`는 범위가 제한된 pre-cutoff
-  series와 그래프 사실을 제공하고 `DynamicSimulationRequestProvider`는 최대 32개 current-state
-  가지를 제공합니다. `CausalHypothesisProjection`은 Forseti-owned이며 모델 grade는
-  `EffectModelCausalEvidenceVerifier`를 요구합니다. Dynamic 모델은 시뮬레이션 스냅샷 이후 결과를
-  사용할 수 없고 현재 스냅샷은 evaluation-clock 최신성을 사용합니다. Pure simulator도 조정기
-  밖에서 모델 기준 시점 또는 finite-arithmetic 위반을 거부합니다. 연결이 없으면 shadow 경로가 비활성화됩니다.
+- **Causal 및 Dynamic 런타임 근거**: `TemporalCausalEvidenceProvider`는 범위가 제한된 pre-cutoff series와 그래프 사실을 제공하고 `DynamicSimulationRequestProvider`는 최대 32개 current-state 가지를 제공합니다. `CausalHypothesisProjection`은 Forseti-owned이며 모델 grade는 `EffectModelCausalEvidenceVerifier`를 요구합니다. Dynamic 모델은 시뮬레이션 스냅샷 이후 결과를 사용할 수 없고 현재 스냅샷은 evaluation-clock 최신성을 사용합니다. Pure simulator도 조정기 밖에서 모델 기준 시점 또는 finite-arithmetic 위반을 거부합니다. 연결이 없으면 shadow 경로가 비활성화됩니다.
 - **Operational 승격 권한**: `OperationalPromotionReceiptVerifier`와
   `OperationalPromotionUnitVerifier`가 변경할 수 없는 근거를 해석합니다. 운영 레지스트리는
   이 연결 없이는 shadow를 유지하며 raw scalar 메트릭은 test-only 이전 방식 고정본 모드입니다.
@@ -515,10 +510,7 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
 - **독립 효과 관측**: 영속 kinetic artifact 저장소가 exact-plan source입니다.
   `StateStoreExecutedActionObservationStore`는 서명된 맥락이 쓰기와 replay에서 구성된 검증기를
   통과한 Heimdall 귀속 관측만 받습니다. 근거가 없으면 held 상태를 유지합니다.
-- **Azure operational 근거**: `bind_azure_operational_evidence`는 strict promoted-inventory
-  스냅샷 읽기 담당, 현재 안전성 평가기, 구성된 Azure 메트릭, 범위가 제한된 가지 estimator,
-  effect-model 읽기 담당을 조립합니다. Temporal 어댑터는 근거 hashing 전에 non-finite 메트릭
-  값을 거부합니다. 부분 연결은 컨테이너 construction에서 실패합니다.
+- **Azure operational 근거**: `bind_azure_operational_evidence`는 strict promoted-inventory 스냅샷 읽기 담당, 현재 안전성 평가기, 구성된 Azure 메트릭, 범위가 제한된 가지 estimator, effect-model 읽기 담당을 조립합니다. Temporal 어댑터는 근거 hashing 전에 non-finite 메트릭 값을 거부합니다. 부분 연결은 컨테이너 construction에서 실패합니다.
 
 ### 기능 번들
 

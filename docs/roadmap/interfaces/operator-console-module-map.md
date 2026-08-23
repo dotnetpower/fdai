@@ -7,10 +7,8 @@ This document maps Operator Console modules, routes, channels, providers, and so
 
 ## Executable baseline
 
-[`operator-console-module-inventory.json`](operator-console-module-inventory.json) records current Operator API responsibilities, route families, candidate destinations, and import status. It is descriptive rather than a file-count target, and an executable completeness gate requires every module directory and route module to remain classified.
-Candidate destinations remain package hints. [Service Graduation and Data Ownership](../architecture/service-graduation-and-ownership.md) is the gate for a new process, identity, transport, or data owner.
-[`test_operator_api_layout.py`](../../../services/operator-service/tests/)
-also pins the exact default method, path, and route-name set plus representative HTTP envelopes.
+[`operator-console-module-inventory.json`](operator-console-module-inventory.json) records current Operator API responsibilities, route families, candidate destinations, and import status. It is descriptive rather than a file-count target, and an executable completeness gate requires every module directory and route module to remain classified. Candidate destinations remain package hints. [Service Graduation and Data Ownership](../architecture/service-graduation-and-ownership.md) is the gate for a new process, identity, transport, or data owner.
+[`test_operator_api_layout.py`](../../../services/operator-service/tests/) also pins the exact default method, path, and route-name set plus representative HTTP envelopes.
 An intentional default route addition updates this reviewed baseline in the same change.
 
 ## Implementation status

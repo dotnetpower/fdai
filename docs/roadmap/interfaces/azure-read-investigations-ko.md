@@ -1,34 +1,25 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 79b97c49c718b776472048953680511d0ff740ed
+translation_source_sha: bf2a00229b190799a5d560cbfa32a568ef34ae77
 translation_revised: 2026-08-23
 ---
 
 # Azure 읽기 조사
 
-이 문서는 운영자 질문이 범위가 제한된 읽기 전용 Azure 조사로 전환되는 방식을 정의합니다. Bragi는
-대화를 소유하고, Heimdall은 리소스 변경 및 외부 행위자 해석을 소유하며, 프로바이더 어댑터는
-Thor의 실행 신원을 사용하지 않고 근거를 수집합니다.
+이 문서는 운영자 질문이 범위가 제한된 읽기 전용 Azure 조사로 전환되는 방식을 정의합니다. Bragi는 대화를 소유하고, Heimdall은 리소스 변경 및 외부 행위자 해석을 소유하며, 프로바이더 어댑터는 Thor의 실행 신원을 사용하지 않고 근거를 수집합니다.
 
-> **범위:** 이 설계는 리소스 조회, Activity Log 귀속, Resource Health, 게스트 로그 대체 경로,
-> 구성된 NSG 룰, VNet 피어링 토폴로지, 실행시간 예측, 진행 상황 전달 및 detached 조사
-> 세션을 다룹니다. Azure 변경을 승인하거나 실행하지 않습니다.
+> **범위:** 이 설계는 리소스 조회, Activity Log 귀속, Resource Health, 게스트 로그 대체 경로, 구성된 NSG 룰, VNet 피어링 토폴로지, 실행시간 예측, 진행 상황 전달 및 detached 조사 세션을 다룹니다. Azure 변경을 승인하거나 실행하지 않습니다.
 >
 > **검색 명령 커버리지:** 프로바이더 전체 리소스 검색, ARG 특수 표, 정제된 재현 명령 및
 > 커버리지 조정은
 > [Azure Resource 발견 Command 커버리지](azure-resource-discovery-commands-ko.md)에서 정의합니다.
 >
-> **현재 구현 경계:** 실행 중인 Pantheon은 Heimdall의 대화형 읽기 훅을 통해 `resource_state`를
-> 조합합니다. Operator 요청 전송은 등록된 의도 7개 모두에 대해 분리된 Core 실행기에도
-> 도달합니다. 게스트 로그, NSG 룰 및 VNet 피어링은 타입이 지정된 프로바이더가 구성될 때까지
-> 명시적인 사용 불가 근거를 반환합니다. Direct 및 streamed 실행과 최종 대화 전달은 열린 상태입니다.
+> **현재 구현 경계:** 실행 중인 Pantheon은 Heimdall의 대화형 읽기 훅을 통해 `resource_state`를 조합합니다. Operator 요청 전송은 등록된 의도 7개 모두에 대해 분리된 Core 실행기에도 도달합니다. 게스트 로그, NSG 룰 및 VNet 피어링은 타입이 지정된 프로바이더가 구성될 때까지 명시적인 사용 불가 근거를 반환합니다. Direct 및 streamed 실행과 최종 대화 전달은 열린 상태입니다.
 
 ## 설계 개요
 
-읽기 조사는 변경 컨트롤 루프 밖에 유지됩니다. 공유 의미 판단이 타입이 지정된 의도와 출처에
-근거한 대상을 제안하고, 결정론적 검증과 exact resource 해석이 도구와 실행 모드를 선택합니다.
-답변은 정규화된 근거를 인용하거나 사용할 수 없음을 보고합니다.
+읽기 조사는 변경 컨트롤 루프 밖에 유지됩니다. 공유 의미 판단이 타입이 지정된 의도와 출처에 근거한 대상을 제안하고, 결정론적 검증과 exact resource 해석이 도구와 실행 모드를 선택합니다. 답변은 정규화된 근거를 인용하거나 사용할 수 없음을 보고합니다.
 
 ![설계 개요. 주요 단계는 Operator, Bragi conversation, Read investigation planner, Heimdall investigation, Durable background task, Attenuated read-tool gateway, Resource Graph or inventory, Activity Log, Resource Health, Guest or Monitor logs, Normalized evidence입니다.](../../diagrams/generated/fdai-roadmap-interfaces-azure-read-investigations-01.ko.svg)
 
@@ -44,18 +35,9 @@ Thor의 실행 신원을 사용하지 않고 근거를 수집합니다.
 | Thor | 기존 `ActionRun` 상태를 보고하고 승인된 타입이 지정된 액션을 실행합니다. | 인벤토리, Activity Log, Resource Health 또는 guest-log 읽기를 실행하지 않습니다. |
 | 작업 워커 | 격리된 depth-one attenuated 읽기 조사 하나를 실행합니다. | Pantheon에 합류하거나 Pantheon 객체를 publish하거나 실행 권한을 상속하지 않습니다. |
 
-Operator 질문은 `object.event`로 publish하지 않습니다. 해당 토픽은 detection, judgment, risk 및
-실행 처리로 들어갑니다. 현재 운영자 API는 `202`를 반환하거나 SSE 재생을 시작하기 전에 제안과
-발신함 레코드를 저장합니다. 아직 이 제안을 분리 작업으로 바꾸는 운영 소비자는 없으므로 영속적
-Operator 발신함은 이제 버전이 지정된 요청 또는 취소를 publish하고, 선택적 Core consumer는
-소유자 범위 영속 작업을 생성하거나 취소합니다. 영속 수락은 여전히 프로바이더 작업 완료 근거가
-아닙니다. PostgreSQL이 정본이고 coordinator wake 신호는 전달 힌트일 뿐입니다.
+Operator 질문은 `object.event`로 publish하지 않습니다. 해당 토픽은 detection, judgment, risk 및 실행 처리로 들어갑니다. 현재 운영자 API는 `202`를 반환하거나 SSE 재생을 시작하기 전에 제안과 발신함 레코드를 저장합니다. 아직 이 제안을 분리 작업으로 바꾸는 운영 소비자는 없으므로 영속적 Operator 발신함은 이제 버전이 지정된 요청 또는 취소를 publish하고, 선택적 Core consumer는 소유자 범위 영속 작업을 생성하거나 취소합니다. 영속 수락은 여전히 프로바이더 작업 완료 근거가 아닙니다. PostgreSQL이 정본이고 coordinator wake 신호는 전달 힌트일 뿐입니다.
 
-운영 인계는 버전이 지정된 권한 없는 `read-investigation-request` 계약을 사용합니다. Operator는
-영속 수락과 CAS로 보호되는 발행을 소유하고, Core는 요청을 소비하며 실행 원장 및 background-task
-테이블의 유일한 런타임 쓰기 담당입니다. 전송은 at-least-once이므로 Core는 영속 작업 생성 또는
-최종 실행 원장 저장 뒤에만 브로커 offset을 커밋합니다. 선택적 조정기는 기존 Core 서비스 안에서
-시작하며 다른 Pantheon 구성원, 서비스 distribution 또는 실행기 신원이 아닙니다.
+운영 인계는 버전이 지정된 권한 없는 `read-investigation-request` 계약을 사용합니다. Operator는 영속 수락과 CAS로 보호되는 발행을 소유하고, Core는 요청을 소비하며 실행 원장 및 background-task 테이블의 유일한 런타임 쓰기 담당입니다. 전송은 at-least-once이므로 Core는 영속 작업 생성 또는 최종 실행 원장 저장 뒤에만 브로커 offset을 커밋합니다. 선택적 조정기는 기존 Core 서비스 안에서 시작하며 다른 Pantheon 구성원, 서비스 distribution 또는 실행기 신원이 아닙니다.
 
 ## 구현 상태
 
@@ -101,20 +83,11 @@ Operator 발신함은 이제 버전이 지정된 요청 또는 취소를 publish
 
 ### 남은 작업
 
-- [x] 각 영속 `read_investigation.start` 제안에 대해 버전이 지정된
-  `read-investigation-request` 전송을 구현하고 주체 범위, 멱등성, 취소 및 범위가 제한된 SSE
-  재생을 보존하는 운영 조합에서 소비합니다.
-- [x] 구성되지 않은 게스트 로그, NSG 및 VNet 피어링 도구를 명시적인 사용 불가 상태로 유지하고
-  운영 분리 조합을 통해 등록된 의도 7개가 exact-resource 우선 계획을 유지함을 검증합니다.
-- [ ] Direct 및 streamed 실행을 PostgreSQL 실행 저장소와 공유 정책 뒤에 배치한 뒤 운영 환경에서
-  두 모드를 활성화하기 전에 소유자 범위 재생 및 연결 해제 취소 검사를 통과합니다.
-- [ ] [영속 대화 전달](durable-conversation-delivery-ko.md)과
-  [서비스 승격 및 데이터 소유권](../architecture/service-graduation-and-ownership-ko.md)에 버전이 지정된
-  Core-to-Operator 최종 완료 계약을 정의한 뒤 Core에 Operator 대화 쓰기 권한을 주지 않고 완료 싱크와
-  감사 writer를 연결합니다.
-- [x] 선택적 Azure MCP Resource Health 어댑터, 허용 목록 probe, 회로 차단기, 주기적 복구,
-  계획별 한도 및 REST 대체 경로를 구현합니다. 다른 MCP 읽기 도구는 exact-resource 스키마와
-  정규화기를 검토할 때까지 사용할 수 없는 상태로 유지합니다.
+- [x] 각 영속 `read_investigation.start` 제안에 대해 버전이 지정된 `read-investigation-request` 전송을 구현하고 주체 범위, 멱등성, 취소 및 범위가 제한된 SSE 재생을 보존하는 운영 조합에서 소비합니다.
+- [x] 구성되지 않은 게스트 로그, NSG 및 VNet 피어링 도구를 명시적인 사용 불가 상태로 유지하고 운영 분리 조합을 통해 등록된 의도 7개가 exact-resource 우선 계획을 유지함을 검증합니다.
+- [ ] Direct 및 streamed 실행을 PostgreSQL 실행 저장소와 공유 정책 뒤에 배치한 뒤 운영 환경에서 두 모드를 활성화하기 전에 소유자 범위 재생 및 연결 해제 취소 검사를 통과합니다.
+- [ ] [영속 대화 전달](durable-conversation-delivery-ko.md)과 [서비스 승격 및 데이터 소유권](../architecture/service-graduation-and-ownership-ko.md)에 버전이 지정된 Core-to-Operator 최종 완료 계약을 정의한 뒤 Core에 Operator 대화 쓰기 권한을 주지 않고 완료 싱크와 감사 writer를 연결합니다.
+- [x] 선택적 Azure MCP Resource Health 어댑터, 허용 목록 probe, 회로 차단기, 주기적 복구, 계획별 한도 및 REST 대체 경로를 구현합니다. 다른 MCP 읽기 도구는 exact-resource 스키마와 정규화기를 검토할 때까지 사용할 수 없는 상태로 유지합니다.
 - [ ] Snapshot-first hydration과 동일 호출의 영속/실시간 identity를 증명하는 실제 cross-service 동등성 증적을 기록합니다.
 - [ ] 관리되는 실제 운영 Azure 시나리오 근거에서 guest-event 일치와 실제 프로바이더 `429` 응답을 검증합니다.
 
@@ -608,9 +581,7 @@ Activity Log 및 Resource Health REST 읽기를 추가합니다. 입력이 누�
 `FDAI_AZURE_READER_*` 런타임 연결은 구현되어 있지 않습니다. 선택적 MCP Resource Health 읽기는
 `FDAI_AZURE_MCP_ENABLED`, `FDAI_AZURE_MCP_STARTUP_TIMEOUT_SECONDS`,
 `FDAI_AZURE_MCP_CALL_TIMEOUT_SECONDS`, `FDAI_AZURE_MCP_DISCOVERY_INTERVAL_SECONDS`를 사용합니다.
-조합은 `resourcehealth` namespace를 고정하고 허용 목록에 있는 Azure 신원 환경만 전달하며 탐색,
-권한 확인, 전송 또는 정규화를 사용할 수 없으면 REST를 authoritative 경로로 유지합니다. 마찬가지로
-분리 작업의 주체별 동시성, 비용, wall-clock 및 tool-call 할당량은 제안 소비자가 영속 작업을
+조합은 `resourcehealth` namespace를 고정하고 허용 목록에 있는 Azure 신원 환경만 전달하며 탐색, 권한 확인, 전송 또는 정규화를 사용할 수 없으면 REST를 authoritative 경로로 유지합니다. 마찬가지로 분리 작업의 주체별 동시성, 비용, wall-clock 및 tool-call 할당량은 제안 소비자가 영속 작업을
 원자적으로 생성한 뒤에만 운영자 API 보장이 됩니다.
 
 감사 기록에는 요청자, 의도, 선택된 도구, 범위 다이제스트, 작업 또는 요청 id, 소요 시간, 최종
