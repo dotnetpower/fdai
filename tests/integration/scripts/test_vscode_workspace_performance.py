@@ -71,7 +71,7 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
     tasks = _load_jsonc(REPO_ROOT / ".vscode" / "tasks.json")
     assert isinstance(tasks, dict)
     tasks_by_label = {task["label"]: task for task in tasks["tasks"]}
-    assert len(tasks_by_label) == 13
+    assert len(tasks_by_label) == 14
 
     prepare_stack = tasks_by_label["console: prepare full stack"]
     assert prepare_stack["command"] == (
@@ -154,6 +154,7 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
         "design mocks: serve (5373)",
         "console: prepare full stack",
         "console: start core runtime",
+        "console: restart core runtime",
         "console: start full stack",
         "console: wait full stack ready",
         "channel edge: Operator Slack and Teams (Local)",
@@ -165,10 +166,23 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
     )
     assert core_runtime["isBackground"] is True
     assert core_runtime["runOptions"] == {
-        "instanceLimit": 2,
+        "instanceLimit": 1,
         "instancePolicy": "silent",
     }
     assert core_runtime["problemMatcher"]["background"] == {
+        "activeOnStart": True,
+        "beginsPattern": "service=core-runtime event=starting$",
+        "endsPattern": "service=core-runtime event=ready$",
+    }
+
+    restart_core_runtime = tasks_by_label["console: restart core runtime"]
+    assert restart_core_runtime["command"] == core_runtime["command"]
+    assert restart_core_runtime["isBackground"] is True
+    assert restart_core_runtime["runOptions"] == {
+        "instanceLimit": 1,
+        "instancePolicy": "silent",
+    }
+    assert restart_core_runtime["problemMatcher"]["background"] == {
         "activeOnStart": True,
         "beginsPattern": "service=core-runtime event=starting$",
         "endsPattern": "service=core-runtime event=ready$",

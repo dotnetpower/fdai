@@ -159,6 +159,16 @@
       "label": "console: restart core runtime",
       "type": "shell",
       "command": "bash scripts/deployment/local/run-console-service.sh core-runtime --wait-ready",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "console-core-runtime-restart",
+        "pattern": { "regexp": "^(?!)$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "service=core-runtime event=starting$",
+          "endsPattern": "service=core-runtime event=ready$"
+        }
+      },
       "presentation": {
         "reveal": "silent",
         "panel": "dedicated",

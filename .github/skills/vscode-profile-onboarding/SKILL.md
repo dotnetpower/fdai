@@ -58,6 +58,10 @@ maintainer's local VS Code state.
   the 60-second readiness gate. Run `console: wait full stack ready` before reporting success or
   starting work that requires the complete topology. Close any earlier agent-owned service terminal
   after its process has been replaced by the task-owned process.
+- For a background task with a readiness problem matcher, treat the task tool's ready return as the
+  terminal result. Do not call `get_task_output`, wait for process exit, or retry the task after its
+  ready event; the service is intentionally long-running. If readiness is still in doubt, run one
+  separate 5-second health check for the named component and act on that result immediately.
 - Treat an unqualified request to start the Console, Console web, local server, servers, backend,
   or full stack as a request for the complete `Console Web: Full Stack` topology. Start or verify
   all five independently packaged backend services plus the SPA: Core Control Plane, Operator
