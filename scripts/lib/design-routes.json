@@ -83,11 +83,13 @@
         ".github/instructions/architecture.instructions.md",
         ".github/instructions/app-shape.instructions.md",
         "docs/roadmap/architecture/continuous-operational-instance-graph.md",
+        "docs/roadmap/architecture/ontology-structural-model.md",
         "docs/roadmap/architecture/operating-ontology.md",
         "docs/roadmap/architecture/operating-ontology-platform.md"
       ],
       "docs_update": [
         "docs/roadmap/architecture/continuous-operational-instance-graph.md",
+        "docs/roadmap/architecture/ontology-structural-model.md",
         "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/architecture/project-structure.md",
         "docs/roadmap/rules-and-detection/observability-and-detection.md"
@@ -96,6 +98,42 @@
         "uv run pytest -q --no-cov tests/integration/scripts/test_continuous_operational_instance_graph_audit.py",
         "uv run python scripts/quality/architecture/check-continuous-operational-instance-graph-audit.py",
         "uv run pytest -q --no-cov services/core-control-plane/tests/delivery/test_inventory_sync.py services/core-control-plane/tests/runtime/test_inventory_ontology.py services/core-control-plane/tests/core/ontology_platform/test_inventory_projection.py",
+        "python3 scripts/quality/architecture/check-design-routes.py"
+      ]
+    },
+    {
+      "id": "ontology-structural-model",
+      "paths": [
+        "docs/roadmap/architecture/ontology-structural-model*.md",
+        "rule-catalog/vocabulary/**",
+        "services/core-control-plane/src/fdai/rule_catalog/schema/**",
+        "services/core-control-plane/src/fdai/shared/contracts/models/ontology.py",
+        "services/core-control-plane/src/fdai/core/ontology_platform/interfaces.py",
+        "services/core-control-plane/src/fdai/core/ontology_platform/models.py",
+        "services/core-control-plane/src/fdai/core/ontology_platform/object_sets.py",
+        "services/core-control-plane/src/fdai/core/ontology_platform/query_*.py",
+        "services/core-control-plane/src/fdai/core/ontology_platform/catalog_projection.py",
+        "services/operator-service/src/fdai_operator_service/**",
+        "console/src/routes/ontology*"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/app-shape.instructions.md",
+        "docs/roadmap/architecture/ontology-structural-model.md",
+        "docs/roadmap/architecture/operating-ontology-metamodel.md",
+        "docs/roadmap/architecture/operating-ontology-platform.md",
+        "docs/roadmap/architecture/continuous-operational-instance-graph.md",
+        "docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/architecture/ontology-structural-model.md",
+        "docs/roadmap/architecture/code-map.md",
+        "docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov services/core-control-plane/tests/core/ontology_platform/test_interfaces_and_object_sets.py services/core-control-plane/tests/core/ontology_platform/test_investigation_query_nodes.py services/core-control-plane/tests/rule_catalog/test_ontology_catalog.py services/core-control-plane/tests/rule_catalog/test_resource_type.py",
+        "uv run pytest -q --no-cov services/operator-service/tests/test_ontology_instance_projection.py",
+        "npm --prefix console test -- --run src/routes/ontology-instance-graph.model.test.ts src/routes/ontology-instances.model.test.ts",
         "python3 scripts/quality/architecture/check-design-routes.py"
       ]
     },
@@ -1335,6 +1373,7 @@
         ".github/instructions/architecture.instructions.md",
         "docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md",
         "docs/roadmap/interfaces/continuous-question-space.md",
+        "docs/roadmap/architecture/ontology-structural-model.md",
         "docs/roadmap/architecture/operating-ontology.md",
         "docs/roadmap/architecture/operating-ontology-platform.md",
         "docs/roadmap/architecture/continuous-operational-instance-graph.md"
@@ -1342,6 +1381,7 @@
       "docs_update": [
         "docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md",
         "docs/roadmap/interfaces/continuous-question-space.md",
+        "docs/roadmap/architecture/ontology-structural-model.md",
         "docs/roadmap/architecture/operating-ontology-platform.md",
         "docs/roadmap/architecture/continuous-operational-instance-graph.md",
         "docs/roadmap/architecture/code-map.md"

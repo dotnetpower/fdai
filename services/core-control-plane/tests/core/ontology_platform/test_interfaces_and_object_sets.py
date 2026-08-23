@@ -13,6 +13,7 @@ from fdai.core.ontology_platform import (
     ObjectSetDefinition,
     ObjectSetService,
     OntologyInterfaceType,
+    RelationshipTraversalDefinition,
     compile_interfaces,
 )
 from fdai.shared.contracts.models import (
@@ -257,4 +258,25 @@ def test_object_set_rejects_unbounded_or_naive_traversal() -> None:
             as_of=datetime(2026, 8, 1, tzinfo=UTC),
             purpose="operations-review",
             limit=1001,
+        )
+
+
+def test_relationship_traversal_v1_accepts_exactly_one_link_type() -> None:
+    definition = RelationshipTraversalDefinition(
+        selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Workload"),
+        link_types=("depends_on",),
+        as_of=datetime(2026, 8, 1, tzinfo=UTC),
+        purpose="operations-review",
+    )
+
+    assert definition.link_types == ("depends_on",)
+
+
+def test_relationship_traversal_v1_rejects_an_ordered_link_path() -> None:
+    with pytest.raises(ValueError, match="at most 1 item"):
+        RelationshipTraversalDefinition(
+            selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="BusinessService"),
+            link_types=("workload_runs_on", "implemented_by"),
+            as_of=datetime(2026, 8, 1, tzinfo=UTC),
+            purpose="operations-review",
         )

@@ -19,6 +19,7 @@ from .models import (
     ObjectSelectorKind,
     ObjectSetDefinition,
     RelationshipTraversalDefinition,
+    TypedPathDefinition,
 )
 from .property_values import declared_property_values
 from .query_manifest import QueryManifest
@@ -32,6 +33,7 @@ _EXACT_VALUE_OPERATORS = {
 _TABLE_KINDS = {
     QueryNodeKind.OBJECT_SET,
     QueryNodeKind.RELATIONSHIP_TRAVERSAL,
+    QueryNodeKind.TYPED_PATH,
     QueryNodeKind.UNION,
     QueryNodeKind.INTERSECTION,
     QueryNodeKind.SUBTRACTION,
@@ -129,6 +131,14 @@ class OntologyQueryPlanVerifier:
             return
         if node.kind is QueryNodeKind.RELATIONSHIP_TRAVERSAL:
             self._verify_relationship_traversal(
+                node,
+                arguments=arguments,
+                nodes_by_id=nodes_by_id,
+                descriptors=descriptors,
+            )
+            return
+        if node.kind is QueryNodeKind.TYPED_PATH:
+            self._verify_typed_path(
                 node,
                 arguments=arguments,
                 nodes_by_id=nodes_by_id,
@@ -253,6 +263,7 @@ class OntologyQueryPlanVerifier:
                 not in {
                     QueryNodeKind.OBJECT_SET,
                     QueryNodeKind.RELATIONSHIP_TRAVERSAL,
+                    QueryNodeKind.TYPED_PATH,
                 }
                 or dependency.output_kind != "query.table"
             ):
@@ -355,6 +366,54 @@ class OntologyQueryPlanVerifier:
             current_type = expected_target
         if definition.selector.name != current_type:
             raise ValueError("relationship traversal target endpoint type does not match")
+
+    def _verify_typed_path(
+        self,
+        node: OntologyQueryNode,
+        *,
+        arguments: Mapping[str, Any],
+        nodes_by_id: Mapping[str, OntologyQueryNode],
+        descriptors: Mapping[tuple[str, str], Mapping[str, Any]],
+    ) -> None:
+        if len(node.depends_on) != 1:
+            raise ValueError("typed path requires one entity dependency")
+        source = nodes_by_id[node.depends_on[0]]
+        if source.kind is not QueryNodeKind.OBJECT_SET or source.output_kind != "query.table":
+            raise ValueError("typed path source MUST be an object_set table")
+        source_definition = ObjectSetDefinition.model_validate(source.arguments.get("definition"))
+        if source_definition.selector.kind is not ObjectSelectorKind.OBJECT_TYPE:
+            raise ValueError("typed path source MUST select one ObjectType")
+        definition = TypedPathDefinition.model_validate(arguments)
+        current_type = source_definition.selector.name
+        for step in definition.steps:
+            if step.selector.kind is not ObjectSelectorKind.OBJECT_TYPE:
+                raise ValueError("typed path endpoint MUST select one ObjectType")
+            if ("object", step.selector.name) not in descriptors:
+                raise ValueError("typed path endpoint is absent from the manifest")
+            descriptor = descriptors.get(("link", step.link_type))
+            if descriptor is None:
+                raise ValueError("typed path LinkType is absent from the manifest")
+            expected_source = (
+                descriptor.get("from_type")
+                if step.direction == "outgoing"
+                else descriptor.get("to_type")
+            )
+            expected_target = (
+                descriptor.get("to_type")
+                if step.direction == "outgoing"
+                else descriptor.get("from_type")
+            )
+            if current_type != expected_source:
+                raise ValueError("typed path source endpoint type does not match")
+            if step.selector.name != expected_target:
+                raise ValueError("typed path target endpoint type does not match")
+            if step.max_hops > 1 and (
+                descriptor.get("is_transitive") is not True or expected_source != expected_target
+            ):
+                raise ValueError(
+                    "typed path repetition requires a transitive self-composable LinkType"
+                )
+            current_type = step.selector.name
 
     def _verify_function(
         self,

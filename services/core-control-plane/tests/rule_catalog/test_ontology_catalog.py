@@ -68,7 +68,7 @@ def test_shipped_ontology_catalog_loads_as_one_graph() -> None:
         sorted(item.name for item in catalog.object_types)
     )
     contains = next(item for item in catalog.link_types if item.name == "contains")
-    assert contains.version == "2.0.0"
+    assert contains.version == "2.1.0"
     assert contains.cardinality is LinkCardinality.ONE_TO_MANY
     assert {item.semantic_id for item in catalog.property_semantics.semantics} >= {
         "lifecycle.secret.age",
@@ -179,11 +179,33 @@ def test_shipped_resource_relationship_declarations_match_canonical_roles() -> N
         name: (item.version, item.cardinality, item.is_transitive)
         for name, item in relationships.items()
     } == {
-        "attached_to": ("1.1.0", LinkCardinality.MANY_TO_MANY, False),
-        "contains": ("2.0.0", LinkCardinality.ONE_TO_MANY, True),
-        "depends_on": ("1.0.0", LinkCardinality.MANY_TO_MANY, False),
-        "peered_with": ("1.0.0", LinkCardinality.MANY_TO_MANY, False),
-        "routes_to": ("1.0.0", LinkCardinality.MANY_TO_ONE, False),
+        "attached_to": ("1.2.0", LinkCardinality.MANY_TO_MANY, False),
+        "contains": ("2.1.0", LinkCardinality.ONE_TO_MANY, True),
+        "depends_on": ("1.1.0", LinkCardinality.MANY_TO_MANY, False),
+        "peered_with": ("1.1.0", LinkCardinality.MANY_TO_MANY, False),
+        "routes_to": ("1.1.0", LinkCardinality.MANY_TO_ONE, False),
+    }
+    assert {
+        name: (
+            item.forward_role,
+            item.reverse_role,
+            tuple(trait.value for trait in item.semantic_traits),
+        )
+        for name, item in relationships.items()
+    } == {
+        "attached_to": ("attached_to", "anchors_attachment", ("attachment",)),
+        "contains": ("contains", "contained_by", ("containment",)),
+        "depends_on": ("depends_on", "required_by", ("dependency",)),
+        "peered_with": (
+            "peers_with",
+            "peers_with",
+            ("connectivity", "reciprocal"),
+        ),
+        "routes_to": (
+            "routes_to",
+            "receives_route_from",
+            ("connectivity", "traffic"),
+        ),
     }
 
 

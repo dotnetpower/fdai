@@ -10,6 +10,7 @@ from fdai.rule_catalog.schema.property_semantic import (
     PropertySemanticRegistry,
 )
 from fdai.rule_catalog.schema.rego_semantics import RegoSemantics, property_path
+from fdai.rule_catalog.schema.resource_class import ResourceClassRegistry
 from fdai.rule_catalog.schema.resource_type import ResourceTypeRegistry
 from fdai.rule_catalog.schema.signal_type import SignalTypeRegistry
 from fdai.shared.contracts.models import OntologyActionType, Rule
@@ -25,6 +26,7 @@ _OBJECT_TYPES = (
     "DiagnosticMechanism",
     "PolicyArtifact",
     "Property",
+    "ResourceClass",
     "ResourceType",
     "Rule",
     "SignalType",
@@ -75,6 +77,7 @@ def build_catalog_ontology_projection(
     signal_types: SignalTypeRegistry,
     policy_semantics: Mapping[str, RegoSemantics],
     property_semantics: PropertySemanticRegistry | None = None,
+    resource_classes: ResourceClassRegistry | None = None,
 ) -> CatalogOntologyProjection:
     """Build a deterministic catalog subgraph without writing external state."""
 
@@ -98,6 +101,32 @@ def build_catalog_ontology_projection(
                 },
             ),
         )
+    for resource_class in resource_classes or ():
+        _add_object(
+            objects,
+            OntologyObjectRecord(
+                id=resource_class.id,
+                object_type="ResourceClass",
+                properties={
+                    "id": resource_class.id,
+                    "description": resource_class.description,
+                },
+            ),
+        )
+        for resource_type_id in resource_class.members:
+            _add_link(
+                links,
+                "resource_type_member_of_class",
+                _resource_type_id(resource_type_id),
+                resource_class.id,
+            )
+        for broader_class_id in resource_class.specializes:
+            _add_link(
+                links,
+                "resource_class_specializes",
+                resource_class.id,
+                broader_class_id,
+            )
     for signal_entry in signal_types.types:
         _add_object(
             objects,

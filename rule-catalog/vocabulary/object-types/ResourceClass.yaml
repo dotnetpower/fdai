@@ -1,0 +1,14 @@
+schema_version: "1.0.0"
+name: ResourceClass
+version: "1.0.0"
+key: id
+description: Reviewed taxonomic aggregation over exact ResourceType declarations.
+properties:
+  id: {type: string, required: true}
+  description: {type: string, required: true}
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:ResourceClass@1.0.0
+  content_hash: sha256:61c940700d17db50a8ec87e4fbbf2e1afbb978bcf958e77fc74e4221adcaf51f
+  license: MIT
+  retrieved_at: "2026-08-23T00:00:00Z"

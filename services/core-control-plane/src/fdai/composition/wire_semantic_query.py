@@ -42,6 +42,7 @@ from fdai.core.ontology_platform import (
     QueryManifest,
     SecuredObjectSetNodeHandler,
     SecuredRelationshipTraversalNodeHandler,
+    SecuredTypedPathNodeHandler,
     SetOperationNodeHandler,
     TopologyAtNodeHandler,
     TopologyDiffNodeHandler,
@@ -85,6 +86,10 @@ from fdai.core.ontology_platform.relationship_queries import (
 )
 from fdai.core.ontology_platform.resource_activity_queries import (
     RESOURCE_ACTIVITY_FUNCTION_NAME,
+)
+from fdai.core.ontology_platform.resource_class_closure import (
+    RESOURCE_CLASS_CLOSURE_FUNCTION_NAME,
+    resource_class_closure_function,
 )
 from fdai.core.ontology_platform.resource_current_state_queries import (
     RESOURCE_CURRENT_STATE_FUNCTION_NAME,
@@ -454,6 +459,16 @@ def build_semantic_query_runtime(
         ),
     )
     bound_function_names.add(declaration_query.name)
+    if ontology_catalog.resource_classes is not None:
+        resource_class_declaration = declarations[RESOURCE_CLASS_CLOSURE_FUNCTION_NAME]
+        function_registry.register_contextual(
+            resource_class_declaration,
+            resource_class_closure_function(
+                ontology_release,
+                registry=ontology_catalog.resource_classes,
+            ),
+        )
+        bound_function_names.add(resource_class_declaration.name)
     handlers: dict[QueryNodeKind, QueryNodeHandler] = {
         QueryNodeKind.UNION: SetOperationNodeHandler("union"),
         QueryNodeKind.INTERSECTION: SetOperationNodeHandler("intersection"),
@@ -492,6 +507,7 @@ def build_semantic_query_runtime(
     available_kinds = (
         QueryNodeKind.OBJECT_SET,
         QueryNodeKind.RELATIONSHIP_TRAVERSAL,
+        QueryNodeKind.TYPED_PATH,
         QueryNodeKind.FUNCTION,
         *handlers,
     )
@@ -539,6 +555,12 @@ def build_semantic_query_runtime(
                     receipt_authority=receipt_authority,
                 ),
                 QueryNodeKind.RELATIONSHIP_TRAVERSAL: SecuredRelationshipTraversalNodeHandler(
+                    gateway,
+                    caller_role=role,
+                    purposes=(purpose,),
+                    receipt_authority=receipt_authority,
+                ),
+                QueryNodeKind.TYPED_PATH: SecuredTypedPathNodeHandler(
                     gateway,
                     caller_role=role,
                     purposes=(purpose,),

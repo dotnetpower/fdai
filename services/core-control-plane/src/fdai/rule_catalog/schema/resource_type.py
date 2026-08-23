@@ -40,7 +40,13 @@ class ResourceTypeCategory(StrEnum):
 class ResourceTypeEntry(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, str_strip_whitespace=True)
 
-    id: Annotated[str, Field(pattern=r"^[a-z][a-z0-9\-]*(\.[a-z][a-z0-9\-]*)*$")]
+    id: Annotated[
+        str,
+        Field(
+            pattern=r"^[a-z][a-z0-9\-]*(\.[a-z][a-z0-9\-]*)*$",
+            max_length=128,
+        ),
+    ]
     category: ResourceTypeCategory
     description: Annotated[str, Field(min_length=1, max_length=512)]
     azure_arm_type: str | None = None

@@ -92,6 +92,9 @@ export function OntologyLinksView({
                   <dt>{t("ontology.links.causal")}</dt><dd>{selected.is_causal ? t("ontology.common.yes") : t("ontology.common.no")}</dd>
                   <dt>{t("ontology.links.transitive")}</dt><dd>{selected.is_transitive ? t("ontology.common.yes") : t("ontology.common.no")}</dd>
                   <dt>{t("ontology.links.temporalOrder")}</dt><dd>{selected.temporal_order ? t("ontology.common.yes") : t("ontology.common.no")}</dd>
+                  <dt>{t("ontology.links.forwardRole")}</dt><dd><code>{selected.forward_role ?? t("ontology.common.noneDeclared")}</code></dd>
+                  <dt>{t("ontology.links.reverseRole")}</dt><dd><code>{selected.reverse_role ?? t("ontology.common.noneDeclared")}</code></dd>
+                  <dt>{t("ontology.links.semanticTraits")}</dt><dd>{selected.semantic_traits.length > 0 ? selected.semantic_traits.map((trait) => <code key={trait}>{trait}</code>) : t("ontology.common.noneDeclared")}</dd>
                   <dt>{t("ontology.links.endpointPairs")}</dt><dd>{formatNumber(selectedEdges.length)}</dd>
                 </dl>
                 <h4>{t("ontology.links.usedBy")}</h4>

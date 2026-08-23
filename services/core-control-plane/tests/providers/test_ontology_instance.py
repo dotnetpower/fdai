@@ -312,6 +312,79 @@ async def test_link_cardinality_is_enforced() -> None:
         )
 
 
+async def test_direct_link_rejects_an_undeclared_domain_property() -> None:
+    store = _store()
+    await _upsert(store, "review-1", "ReviewCase", "open")
+    await _upsert(store, "check-1", "ReviewCheck", "ready")
+
+    with pytest.raises(OntologyInstanceValidationError, match="unsupported direct-link"):
+        await store.upsert_link(
+            OntologyLinkRecord(
+                link_type="contains_check",
+                from_id="review-1",
+                to_id="check-1",
+                properties={"priority": "high"},
+            )
+        )
+
+
+async def test_resource_classification_requires_complete_verified_evidence() -> None:
+    resource = OntologyObjectType(
+        schema_version="1.0.0",
+        name="Resource",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    resource_type = OntologyObjectType(
+        schema_version="1.0.0",
+        name="ResourceType",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    classification = OntologyLinkType(
+        schema_version="1.0.0",
+        name="resource_classified_as",
+        version="1.0.0",
+        from_type="Resource",
+        to_type="ResourceType",
+        cardinality=LinkCardinality.MANY_TO_ONE,
+    )
+    store = InMemoryOntologyInstanceStore(
+        object_types=(resource, resource_type),
+        link_types=(classification,),
+    )
+    await store.upsert_object(OntologyObjectRecord("resource:a", "Resource", {"id": "resource:a"}))
+    await store.upsert_object(
+        OntologyObjectRecord("compute.vm", "ResourceType", {"id": "compute.vm"})
+    )
+
+    with pytest.raises(OntologyInstanceValidationError, match="complete classification evidence"):
+        await store.upsert_link(
+            OntologyLinkRecord(
+                "resource_classified_as",
+                "resource:a",
+                "compute.vm",
+                properties={"verified": True},
+            )
+        )
+    with pytest.raises(OntologyInstanceValidationError, match="MUST be verified"):
+        await store.upsert_link(
+            OntologyLinkRecord(
+                "resource_classified_as",
+                "resource:a",
+                "compute.vm",
+                properties={
+                    "inventory_generation": "generation-1",
+                    "mapping_digest": "sha256:" + ("a" * 64),
+                    "mapping_id": "compute.vm",
+                    "verified": False,
+                },
+            )
+        )
+
+
 async def test_replace_subgraph_rejects_batch_cardinality_violation_atomically() -> None:
     store = _store()
     objects = (

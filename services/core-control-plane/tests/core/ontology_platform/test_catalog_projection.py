@@ -4,11 +4,13 @@ from pathlib import Path
 
 import yaml
 from fdai.core.ontology_platform import (
+    CatalogOntologyProjection,
     CatalogOntologyProjector,
     build_catalog_ontology_projection,
 )
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.rule_catalog.schema.rego_semantics import load_rego_semantics
+from fdai.rule_catalog.schema.resource_class import load_resource_class_registry_from_mapping
 from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
 from fdai.rule_catalog.schema.rule import load_rule_catalog
 from fdai.rule_catalog.schema.signal_type import load_signal_type_registry_from_mapping
@@ -30,6 +32,12 @@ def _projection():  # type: ignore[no-untyped-def]
         yaml.safe_load(
             (catalog_root / "vocabulary/resource-types.yaml").read_text(encoding="utf-8")
         )
+    )
+    resource_classes = load_resource_class_registry_from_mapping(
+        yaml.safe_load(
+            (catalog_root / "vocabulary/resource-classes.yaml").read_text(encoding="utf-8")
+        ),
+        resource_types=resource_types,
     )
     signal_types = load_signal_type_registry_from_mapping(
         yaml.safe_load((catalog_root / "vocabulary/signal-types.yaml").read_text(encoding="utf-8"))
@@ -53,6 +61,7 @@ def _projection():  # type: ignore[no-untyped-def]
         signal_types=signal_types,
         policy_semantics=semantics,
         property_semantics=ontology.property_semantics,
+        resource_classes=resource_classes,
     )
     return ontology, rules, projection
 
@@ -73,6 +82,7 @@ async def test_shipped_catalog_projects_as_one_atomic_typed_subgraph() -> None:
             "ActionType",
             "PolicyArtifact",
             "Property",
+            "ResourceClass",
             "ResourceType",
             "Rule",
             "SignalType",
@@ -84,6 +94,9 @@ async def test_shipped_catalog_projects_as_one_atomic_typed_subgraph() -> None:
     assert sum(item.object_type == "PolicyArtifact" for item in graph.objects) == len(rules)
     assert sum(item.link_type == "implemented_by_policy" for item in graph.links) == len(rules)
     assert sum(item.link_type == "remediates" for item in graph.links) == len(rules)
+    assert sum(item.object_type == "ResourceClass" for item in graph.objects) == 3
+    assert sum(item.link_type == "resource_type_member_of_class" for item in graph.links) == 9
+    assert sum(item.link_type == "resource_class_specializes" for item in graph.links) == 1
     assert all(item.revision == 1 for item in graph.objects)
     policies = tuple(item for item in graph.objects if item.object_type == "PolicyArtifact")
     assert all(str(item.properties["decision_path"]).endswith(".deny") for item in policies)
@@ -93,6 +106,34 @@ async def test_shipped_catalog_projects_as_one_atomic_typed_subgraph() -> None:
     )
 
 
+async def test_catalog_projection_removes_a_stale_resource_class_and_memberships() -> None:
+    ontology, _rules, projection = _projection()
+    store = InMemoryOntologyInstanceStore(
+        object_types=ontology.object_types,
+        link_types=ontology.link_types,
+    )
+    projector = CatalogOntologyProjector(store)
+    await projector.replace(projection)
+    removed_id = "class.network-endpoint"
+    reduced = CatalogOntologyProjection(
+        objects=tuple(item for item in projection.objects if item.id != removed_id),
+        links=tuple(
+            item
+            for item in projection.links
+            if item.from_id != removed_id and item.to_id != removed_id
+        ),
+    )
+
+    await projector.replace(reduced)
+
+    graph = await store.query_objects(
+        object_types=("ResourceClass", "ResourceType"),
+        limit=1000,
+    )
+    assert removed_id not in {item.id for item in graph.objects}
+    assert all(removed_id not in {item.from_id, item.to_id} for item in graph.links)
+
+
 def test_property_semantics_project_deterministically_without_upgrading_legacy() -> None:
     ontology, rules, projection = _projection()
     catalog_root = REPO_ROOT / "rule-catalog"
@@ -100,6 +141,12 @@ def test_property_semantics_project_deterministically_without_upgrading_legacy()
         yaml.safe_load(
             (catalog_root / "vocabulary/resource-types.yaml").read_text(encoding="utf-8")
         )
+    )
+    resource_classes = load_resource_class_registry_from_mapping(
+        yaml.safe_load(
+            (catalog_root / "vocabulary/resource-classes.yaml").read_text(encoding="utf-8")
+        ),
+        resource_types=resource_types,
     )
     signal_types = load_signal_type_registry_from_mapping(
         yaml.safe_load((catalog_root / "vocabulary/signal-types.yaml").read_text(encoding="utf-8"))
@@ -116,6 +163,7 @@ def test_property_semantics_project_deterministically_without_upgrading_legacy()
         signal_types=signal_types,
         policy_semantics=semantics,
         property_semantics=ontology.property_semantics,
+        resource_classes=resource_classes,
     )
 
     assert repeated == projection

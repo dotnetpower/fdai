@@ -263,6 +263,9 @@ def _descriptor(
                 "is_transitive": declaration.is_transitive,
                 "is_causal": declaration.is_causal,
                 "temporal_order": declaration.temporal_order,
+                "forward_role": declaration.forward_role,
+                "reverse_role": declaration.reverse_role,
+                "semantic_traits": [trait.value for trait in declaration.semantic_traits],
             },
             None,
         )

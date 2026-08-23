@@ -7,6 +7,8 @@ import json
 
 from pydantic import BaseModel
 
+from fdai.shared.contracts.models import OntologyLinkType
+
 
 def ontology_content_hash(declaration: BaseModel) -> str:
     """Hash the normalized declaration while excluding its provenance envelope."""
@@ -16,6 +18,15 @@ def ontology_content_hash(declaration: BaseModel) -> str:
         exclude={"provenance"},
         exclude_none=True,
     )
+    # Additive LinkType semantics must not reinterpret historical declarations
+    # that were hashed before these optional fields existed.
+    if isinstance(declaration, OntologyLinkType):
+        if payload.get("semantic_traits") == []:
+            payload.pop("semantic_traits")
+        if payload.get("forward_role") is None:
+            payload.pop("forward_role", None)
+        if payload.get("reverse_role") is None:
+            payload.pop("reverse_role", None)
     canonical = json.dumps(
         payload,
         allow_nan=False,

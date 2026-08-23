@@ -42,6 +42,7 @@ class SemanticOperation(StrEnum):
 class QueryNodeKind(StrEnum):
     OBJECT_SET = "object_set"
     RELATIONSHIP_TRAVERSAL = "relationship_traversal"
+    TYPED_PATH = "typed_path"
     UNION = "union"
     INTERSECTION = "intersection"
     SUBTRACTION = "subtraction"

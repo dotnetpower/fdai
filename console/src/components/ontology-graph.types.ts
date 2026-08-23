@@ -29,6 +29,9 @@ export interface OntologyEdge {
   readonly is_transitive: boolean;
   readonly is_causal: boolean;
   readonly temporal_order: boolean;
+  readonly forward_role: string | null;
+  readonly reverse_role: string | null;
+  readonly semantic_traits: readonly string[];
   readonly description: string | null;
 }
 

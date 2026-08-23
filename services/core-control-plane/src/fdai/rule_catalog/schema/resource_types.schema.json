@@ -85,6 +85,7 @@
         "id": {
           "type": "string",
           "pattern": "^[a-z][a-z0-9\\-]*(\\.[a-z][a-z0-9\\-]*)*$",
+          "maxLength": 128,
           "description": "CSP-neutral identifier. Lower kebab; may contain dots as namespace separators (e.g. `compute.vm`)."
         },
         "category": {

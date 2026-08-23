@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+import yaml
+
 from fdai.rule_catalog.schema.action_type import load_action_type_catalog
 from fdai.rule_catalog.schema.function_type import load_function_type_catalog
 from fdai.rule_catalog.schema.interface_type import (
@@ -18,6 +20,11 @@ from fdai.rule_catalog.schema.property_semantic import (
     empty_property_semantic_registry,
     load_property_semantic_registry,
 )
+from fdai.rule_catalog.schema.resource_class import (
+    ResourceClassRegistry,
+    load_resource_class_registry_from_mapping,
+)
+from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
 from fdai.shared.contracts.models import (
     OntologyActionType,
     OntologyFunctionType,
@@ -42,6 +49,7 @@ class OntologyCatalog:
     action_types: tuple[OntologyActionType, ...]
     property_semantics: PropertySemanticRegistry
     function_types: tuple[OntologyFunctionType, ...] = ()
+    resource_classes: ResourceClassRegistry | None = None
 
     def build_release(self) -> OntologyRelease:
         """Build the canonical release over every owned declaration kind."""
@@ -101,6 +109,19 @@ def load_ontology_catalog(
         if property_semantics_path.exists()
         else empty_property_semantic_registry()
     )
+    resource_types_path = vocabulary_root / "resource-types.yaml"
+    resource_classes_path = vocabulary_root / "resource-classes.yaml"
+    if resource_types_path.exists() != resource_classes_path.exists():
+        raise ValueError("ResourceClass taxonomy requires both registry files")
+    resource_classes = None
+    if resource_types_path.exists():
+        resource_types = load_resource_type_registry_from_mapping(
+            yaml.safe_load(resource_types_path.read_text(encoding="utf-8"))
+        )
+        resource_classes = load_resource_class_registry_from_mapping(
+            yaml.safe_load(resource_classes_path.read_text(encoding="utf-8")),
+            resource_types=resource_types,
+        )
     return OntologyCatalog(
         object_types=object_types,
         interface_types=interface_types,
@@ -109,6 +130,7 @@ def load_ontology_catalog(
         action_types=action_types,
         property_semantics=property_semantics,
         function_types=function_types,
+        resource_classes=resource_classes,
     )
 
 

@@ -155,6 +155,13 @@ export interface OntologyGraphResponse {
   readonly _revision: string;
   readonly ontology_release_digest: string;
   readonly mutation_authority: false;
+  readonly complete: boolean;
+  readonly limitations: {
+    readonly source_coverage: readonly string[];
+    readonly query_truncation: readonly string[];
+    readonly access_redaction: readonly string[];
+    readonly presentation_omission: readonly string[];
+  };
   readonly mermaid: string;
   readonly object_type_count: number;
   readonly link_type_count: number;
@@ -195,10 +202,68 @@ function responseCount(record: Record<string, unknown>, key: string): number {
   return value as number;
 }
 
+function responseBoolean(record: Record<string, unknown>, key: string): boolean {
+  const value = record[key];
+  if (typeof value !== "boolean") {
+    throw new Error(`ontology graph response ${key} MUST be a boolean`);
+  }
+  return value;
+}
+
 function responseArray(record: Record<string, unknown>, key: string): unknown[] {
   const value = record[key];
   if (!Array.isArray(value)) throw new Error(`ontology graph response ${key} MUST be an array`);
   return value;
+}
+
+function limitationFamilies(record: Record<string, unknown>): OntologyGraphResponse["limitations"] {
+  const value = responseRecord(record.limitations);
+  const families = {
+    source_coverage: responseArray(value, "source_coverage"),
+    query_truncation: responseArray(value, "query_truncation"),
+    access_redaction: responseArray(value, "access_redaction"),
+    presentation_omission: responseArray(value, "presentation_omission"),
+  };
+  if (Object.values(families).some((items) =>
+    items.some((item) => typeof item !== "string" || item.length === 0))) {
+    throw new Error("ontology graph response limitation codes MUST be non-empty strings");
+  }
+  return families as OntologyGraphResponse["limitations"];
+}
+
+function decodeOntologyEdge(value: unknown): OntologyEdge {
+  const record = responseRecord(value);
+  const optionalRole = (key: "forward_role" | "reverse_role"): string | null => {
+    const role = record[key];
+    if (role === undefined || role === null) return null;
+    if (typeof role !== "string" || role.length === 0) {
+      throw new Error(`ontology graph edge ${key} MUST be null or a non-empty string`);
+    }
+    return role;
+  };
+  const traits = record.semantic_traits === undefined
+    ? []
+    : responseArray(record, "semantic_traits");
+  if (traits.some((trait) => typeof trait !== "string" || trait.length === 0)
+    || new Set(traits).size !== traits.length) {
+    throw new Error("ontology graph edge semantic_traits MUST contain unique strings");
+  }
+  if (record.description !== null && typeof record.description !== "string") {
+    throw new Error("ontology graph edge description MUST be null or a string");
+  }
+  return {
+    name: responseString(record, "name"),
+    from_type: responseString(record, "from_type"),
+    to_type: responseString(record, "to_type"),
+    cardinality: responseString(record, "cardinality"),
+    is_transitive: responseBoolean(record, "is_transitive"),
+    is_causal: responseBoolean(record, "is_causal"),
+    temporal_order: responseBoolean(record, "temporal_order"),
+    forward_role: optionalRole("forward_role"),
+    reverse_role: optionalRole("reverse_role"),
+    semantic_traits: traits as string[],
+    description: record.description,
+  };
 }
 
 export function decodeOntologyGraphResponse(value: unknown): OntologyGraphResponse {
@@ -208,6 +273,23 @@ export function decodeOntologyGraphResponse(value: unknown): OntologyGraphRespon
   }
   if (record.mutation_authority !== false) {
     throw new Error("ontology graph response mutation_authority MUST be false");
+  }
+  const legacyLimitations = record.complete === undefined && record.limitations === undefined;
+  if (!legacyLimitations && typeof record.complete !== "boolean") {
+    throw new Error("ontology graph response complete MUST be a boolean");
+  }
+  const complete = legacyLimitations ? true : record.complete as boolean;
+  const limitations = legacyLimitations
+    ? {
+        source_coverage: [],
+        query_truncation: [],
+        access_redaction: [],
+        presentation_omission: [],
+      }
+    : limitationFamilies(record);
+  const hasLimitations = Object.values(limitations).some((items) => items.length > 0);
+  if (complete === hasLimitations) {
+    throw new Error("ontology graph response complete MUST match limitation families");
   }
   const releaseDigest = responseString(record, "ontology_release_digest");
   if (!/^sha256:[a-f0-9]{64}$/.test(releaseDigest)) {
@@ -240,7 +322,7 @@ export function decodeOntologyGraphResponse(value: unknown): OntologyGraphRespon
     throw new Error("ontology graph response topology release digest MUST match registry release");
   }
   const nodes = responseArray(record, "nodes") as unknown as OntologyNode[];
-  const edges = responseArray(record, "edges") as unknown as OntologyEdge[];
+  const edges = responseArray(record, "edges").map(decodeOntologyEdge);
   if (nodes.length !== counts.objects || edges.length !== counts.links) {
     throw new Error("ontology graph response node and edge counts MUST match declarations");
   }
@@ -249,6 +331,8 @@ export function decodeOntologyGraphResponse(value: unknown): OntologyGraphRespon
     _revision: responseString(record, "_revision"),
     ontology_release_digest: releaseDigest,
     mutation_authority: false,
+    complete,
+    limitations,
     mermaid: responseString(record, "mermaid"),
     object_type_count: counts.objects,
     link_type_count: counts.links,

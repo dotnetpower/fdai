@@ -59,6 +59,9 @@ describe("ontology explicit selections", () => {
       is_transitive: false,
       is_causal: false,
       temporal_order: false,
+      forward_role: "raises",
+      reverse_role: "raised_by",
+      semantic_traits: ["evidence"],
       description: "Agent raises Issue",
     }] satisfies OntologyEdge[];
 

@@ -6,15 +6,18 @@
 # adapter, never by core code.
 schema_version: "1.0.0"
 name: contains
-version: "2.0.0"
+version: "2.1.0"
 from_type: Resource
 to_type: Resource
 cardinality: one_to_many
 is_transitive: true
+forward_role: contains
+reverse_role: contained_by
+semantic_traits: [containment]
 description: Ownership / scope containment from parent to child; recursive traversal walks descendants.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
-  resolved_ref: link-type:contains@2.0.0
-  content_hash: sha256:d856a2842a22a62c2503d2399704cf19bf6abc70978c8d0eec3d26300cd7eb85
+  resolved_ref: link-type:contains@2.1.0
+  content_hash: sha256:fad62a1448c77613a67256e04bd64099102ead155d92ce6d385d2a3d5baf7d06
   license: MIT
   retrieved_at: "2026-07-29T00:00:00Z"

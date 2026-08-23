@@ -20,6 +20,9 @@ const edges: readonly OntologyEdge[] = [
     is_transitive: false,
     is_causal: false,
     temporal_order: false,
+    forward_role: null,
+    reverse_role: null,
+    semantic_traits: [],
     description: null,
   },
   {
@@ -30,6 +33,9 @@ const edges: readonly OntologyEdge[] = [
     is_transitive: false,
     is_causal: false,
     temporal_order: false,
+    forward_role: null,
+    reverse_role: null,
+    semantic_traits: [],
     description: null,
   },
 ];

@@ -91,6 +91,22 @@ class OntologyObjectType(_Base):
     provenance: OntologyProvenance | None = None
 
 
+class LinkSemanticTrait(StrEnum):
+    """Composable domain meaning for LinkType discovery and presentation."""
+
+    ATTACHMENT = "attachment"
+    AUTHORIZATION = "authorization"
+    CLASSIFICATION = "classification"
+    CONNECTIVITY = "connectivity"
+    CONTAINMENT = "containment"
+    DEPENDENCY = "dependency"
+    EVIDENCE = "evidence"
+    OWNERSHIP = "ownership"
+    RECIPROCAL = "reciprocal"
+    TAXONOMY = "taxonomy"
+    TRAFFIC = "traffic"
+
+
 class OntologyLinkType(_Base):
     schema_version: SemVer
     name: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{0,63}$")]
@@ -102,8 +118,19 @@ class OntologyLinkType(_Base):
     is_causal: bool = False
     temporal_order: bool = False
     order_by_property: str | None = None
+    forward_role: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{0,63}$")] | None = None
+    reverse_role: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{0,63}$")] | None = None
+    semantic_traits: tuple[LinkSemanticTrait, ...] = ()
     description: str | None = None
     provenance: OntologyProvenance | None = None
+
+    @model_validator(mode="after")
+    def _semantic_roles(self) -> OntologyLinkType:
+        if (self.forward_role is None) != (self.reverse_role is None):
+            raise ValueError("ontology link roles MUST be declared together")
+        if len(self.semantic_traits) != len(set(self.semantic_traits)):
+            raise ValueError("ontology link semantic_traits MUST be unique")
+        return self
 
 
 class OntologyInterfaceType(_Base):

@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/rule-catalog/resource-classes/1.0.0",
+  "title": "ResourceClassRegistry",
+  "description": "Reviewed taxonomic aggregation over exact CSP-neutral ResourceType ids.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "version", "classes"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "classes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "items": {"$ref": "#/$defs/entry"}
+    }
+  },
+  "$defs": {
+    "classId": {
+      "type": "string",
+      "pattern": "^class\\.[a-z][a-z0-9-]{0,57}$",
+      "maxLength": 64
+    },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "description"],
+      "properties": {
+        "id": {"$ref": "#/$defs/classId"},
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": ".*\\S.*"
+        },
+        "members": {
+          "type": "array",
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": {"type": "string"},
+          "default": []
+        },
+        "specializes": {
+          "type": "array",
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/classId"},
+          "default": []
+        }
+      }
+    }
+  }
+}

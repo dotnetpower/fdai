@@ -63,6 +63,7 @@ cap, narrow its owner set or split a multi-responsibility owner instead of addin
 | 5b | [outcome-assurance.md](architecture/outcome-assurance.md) | scoped operational-readiness, objective-alignment, and control-assurance projection over the three FDAI verticals |
 | 5c | [operating-ontology-platform.md](architecture/operating-ontology-platform.md) | agent-supporting ontology safety infrastructure: exact releases, bounded object sets, mutation plans, typed functions, reconciliation, and SDKs |
 | 5d | [operating-ontology-metamodel.md](architecture/operating-ontology-metamodel.md) | operational lenses, canonical declaration kinds, State and Context boundaries, authority, time, ownership, and additive migration |
+| 5e | [ontology-structural-model.md](architecture/ontology-structural-model.md) | exact resource types, taxonomic aggregation, link roles and traits, ordered typed paths, and bounded graph presentation |
 | 6 | [security-and-identity.md](architecture/security-and-identity.md) | least-privilege identity, secrets, safety invariants |
 | 7 | [deployment.md](deployment/deployment.md) | IaC, CI/CD, environments, release / rollback |
 | 7a | [architecture-review-board.md](architecture/architecture-review-board.md) | canonical ARB packet: decision boundary, evidence contract, owners, dependencies, production exit gate |

@@ -351,6 +351,13 @@ def _ontology_snapshot(
         "schema_version": "2.0.0",
         "ontology_release_digest": release.digest,
         "mutation_authority": False,
+        "complete": True,
+        "limitations": {
+            "source_coverage": [],
+            "query_truncation": [],
+            "access_redaction": [],
+            "presentation_omission": [],
+        },
         "semantic_model": semantic_model_profile(ontology),
         "catalog_topology": topology,
         "mermaid": rendered.mermaid,
@@ -392,6 +399,9 @@ def _ontology_snapshot(
                 "is_transitive": item.is_transitive,
                 "is_causal": item.is_causal,
                 "temporal_order": item.temporal_order,
+                "forward_role": item.forward_role,
+                "reverse_role": item.reverse_role,
+                "semantic_traits": [trait.value for trait in item.semantic_traits],
                 "description": item.description,
             }
             for item in link_types

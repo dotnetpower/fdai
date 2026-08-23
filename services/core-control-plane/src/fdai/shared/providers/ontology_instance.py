@@ -18,9 +18,13 @@ from fdai.shared.contracts.models import (
     OntologyTypeRef,
     PropertyType,
 )
+from fdai.shared.providers.state_evidence import LINK_OBSERVATION_METADATA_PROPERTY
 
 OntologyDirection = Literal["outgoing", "incoming", "both"]
 _MAX_JSON_DEPTH = 32
+_CLASSIFICATION_EVIDENCE_PROPERTIES = frozenset(
+    {"inventory_generation", "mapping_digest", "mapping_id", "verified"}
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -246,6 +250,17 @@ def validate_link_record(
     """Validate link declaration, endpoints, properties, and cardinality."""
 
     canonical_json_mapping(record.properties, path=f"{record.link_type}.properties")
+    allowed_properties = {LINK_OBSERVATION_METADATA_PROPERTY}
+    if record.link_type == "resource_classified_as":
+        allowed_properties.update(_CLASSIFICATION_EVIDENCE_PROPERTIES)
+    unsupported_properties = sorted(set(record.properties) - allowed_properties)
+    if unsupported_properties:
+        raise OntologyInstanceValidationError(
+            f"{record.link_type} has unsupported direct-link properties: "
+            + ", ".join(unsupported_properties)
+        )
+    if record.link_type == "resource_classified_as":
+        _validate_classification_evidence(record.properties)
     declaration = link_types.get(record.link_type)
     if declaration is None:
         raise OntologyInstanceValidationError(f"unknown ontology link type {record.link_type!r}")
@@ -264,6 +279,31 @@ def validate_link_record(
             f"got {source.object_type}->{target.object_type}"
         )
     _validate_cardinality(record, declaration=declaration, existing_links=existing_links)
+
+
+def _validate_classification_evidence(properties: Mapping[str, Any]) -> None:
+    if set(properties) != _CLASSIFICATION_EVIDENCE_PROPERTIES:
+        raise OntologyInstanceValidationError(
+            "resource_classified_as requires complete classification evidence"
+        )
+    for field_name in ("inventory_generation", "mapping_id"):
+        value = properties[field_name]
+        if not isinstance(value, str) or not value.strip():
+            raise OntologyInstanceValidationError(
+                f"resource_classified_as {field_name} MUST be non-empty"
+            )
+    digest = properties["mapping_digest"]
+    if (
+        not isinstance(digest, str)
+        or len(digest) != 71
+        or not digest.startswith("sha256:")
+        or any(character not in "0123456789abcdef" for character in digest[7:])
+    ):
+        raise OntologyInstanceValidationError(
+            "resource_classified_as mapping_digest MUST be canonical SHA-256"
+        )
+    if properties["verified"] is not True:
+        raise OntologyInstanceValidationError("resource_classified_as MUST be verified")
 
 
 def _validate_cardinality(

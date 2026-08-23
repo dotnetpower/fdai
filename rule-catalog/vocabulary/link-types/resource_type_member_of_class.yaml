@@ -1,0 +1,16 @@
+schema_version: "1.0.0"
+name: resource_type_member_of_class
+version: "1.0.0"
+from_type: ResourceType
+to_type: ResourceClass
+cardinality: many_to_many
+forward_role: member_of_class
+reverse_role: has_resource_type_member
+semantic_traits: [classification, taxonomy]
+description: Reviewed membership of one exact ResourceType in a taxonomic ResourceClass.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:resource_type_member_of_class@1.0.0
+  content_hash: sha256:1cd8963d1c87f3b2000151c6f9764ea2ce30aa2958a331daec8139c68f9be23f
+  license: MIT
+  retrieved_at: "2026-08-23T00:00:00Z"

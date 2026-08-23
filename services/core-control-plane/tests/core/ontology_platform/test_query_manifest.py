@@ -77,6 +77,9 @@ def _contains() -> OntologyLinkType:
         to_type="Resource",
         cardinality=LinkCardinality.ONE_TO_MANY,
         is_transitive=True,
+        forward_role="contains",
+        reverse_role="contained_by",
+        semantic_traits=("containment",),
     )
 
 
@@ -136,6 +139,9 @@ def test_manifest_accounts_for_descriptors_and_link_query_sides() -> None:
             "direction": "incoming",
         },
     }
+    assert link_descriptor["forward_role"] == "contains"
+    assert link_descriptor["reverse_role"] == "contained_by"
+    assert link_descriptor["semantic_traits"] == ["containment"]
 
     owner_manifest = build_query_manifest(
         release=release,

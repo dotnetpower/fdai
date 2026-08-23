@@ -64,6 +64,13 @@ def test_catalog_snapshots_are_deterministic_complete_reference_projections() ->
     assert ontology["schema_version"] == "2.0.0"
     assert ontology["ontology_release_digest"].startswith("sha256:")
     assert ontology["mutation_authority"] is False
+    assert ontology["complete"] is True
+    assert ontology["limitations"] == {
+        "source_coverage": [],
+        "query_truncation": [],
+        "access_redaction": [],
+        "presentation_omission": [],
+    }
     assert ontology["object_type_count"] == len(ontology["object_types"])
     assert ontology["link_type_count"] == len(ontology["link_types"])
     assert ontology["action_type_count"] == len(ontology["action_types"])
@@ -74,6 +81,10 @@ def test_catalog_snapshots_are_deterministic_complete_reference_projections() ->
     assert ontology["mermaid"].startswith("classDiagram\n")
     assert all(node["name"] and node["key"] for node in ontology["nodes"])
     assert all(edge["from_type"] and edge["to_type"] for edge in ontology["edges"])
+    links_by_name = {edge["name"]: edge for edge in ontology["edges"]}
+    assert links_by_name["contains"]["forward_role"] == "contains"
+    assert links_by_name["contains"]["reverse_role"] == "contained_by"
+    assert links_by_name["contains"]["semantic_traits"] == ["containment"]
 
     semantic_model = ontology["semantic_model"]
     assert semantic_model["schema_version"] == "1.0.0"

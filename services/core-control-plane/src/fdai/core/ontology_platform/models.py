@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from datetime import datetime
 from enum import StrEnum
-from typing import Annotated, Any, cast
+from typing import Annotated, Any, Literal, cast
 
 from pydantic import (
     Field,
@@ -122,12 +122,12 @@ class ObjectTraversal(ContractBase):
 
 
 class RelationshipTraversalDefinition(ContractBase):
-    """Traversal shape whose exact roots arrive from one verified dependency."""
+    """Single-LinkType traversal whose exact roots arrive from one verified dependency."""
 
     selector: ObjectSelector
     link_types: Annotated[
         tuple[Annotated[str, Field(min_length=1, max_length=64)], ...],
-        Field(min_length=1, max_length=_MAX_LINK_TYPES),
+        Field(min_length=1, max_length=1),
     ]
     direction: OntologyDirection = "outgoing"
     max_depth: int = Field(default=1, ge=1, le=5)
@@ -141,6 +141,30 @@ class RelationshipTraversalDefinition(ContractBase):
             raise ValueError("relationship traversal link types MUST be unique")
         if self.as_of.tzinfo is None:
             raise ValueError("relationship traversal as_of MUST be timezone-aware")
+        return self
+
+
+class TypedPathStep(ContractBase):
+    """One exact directed LinkType step with an expected endpoint type."""
+
+    link_type: Annotated[str, Field(min_length=1, max_length=64)]
+    direction: Literal["outgoing", "incoming"]
+    selector: ObjectSelector
+    max_hops: int = Field(default=1, ge=1, le=5)
+
+
+class TypedPathDefinition(ContractBase):
+    """Ordered bounded path whose roots arrive from one verified dependency."""
+
+    steps: Annotated[tuple[TypedPathStep, ...], Field(min_length=1, max_length=8)]
+    as_of: datetime
+    purpose: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_-]{0,63}$")]
+    limit: int = Field(default=100, ge=1, le=1000)
+
+    @model_validator(mode="after")
+    def _bounded_path(self) -> TypedPathDefinition:
+        if self.as_of.tzinfo is None:
+            raise ValueError("typed path as_of MUST be timezone-aware")
         return self
 
 

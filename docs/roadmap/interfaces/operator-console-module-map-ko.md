@@ -1,8 +1,8 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: a5582fe0f62d8db39328b3b85be047f8ea6c7f67
-translation_revised: 2026-08-22
+translation_source_sha: a5b490074fd59992a2fe8c292fbd517ad1143569
+translation_revised: 2026-08-23
 ---
 # Operator Console 모듈 지도 and Boundaries
 
@@ -28,7 +28,7 @@ file-count 목표가 아닌 설명 기준이지만, executable 완전성 게이�
 |------|------|------|------|
 | 현재 상태 활동 projection 경계 | 구현됨 | `fdai_operator_service/activity_projection.py`, `test_activity_projection.py`, focused 영속성 및 projection 테스트 (`6 passed`) | 영속 행은 hash된 correlation 참조를 요구하고 실제 운영 프레임과 같은 activity id를 사용하며, 중복 중 가장 최신 항목만 유지하고 `execution_authority=false`를 보존합니다. |
 | 통제된 의미 증적 표현 | 구현됨 | `console/src/deck/backend-normalizers.ts`, `backend-stream.ts`, `transcript-store.ts`, `conversation-trajectory-view.tsx`, Deck 출처 계약 검사, `console-routes.spec.ts`, focused Console 테스트 | Console은 최종 의미 증적을 안전하게 실패하도록 파싱하고 exact 타입 필드를 영속화 및 replay하며 경로, 사용 불가 사유, 보증 다이제스트, 근거 참조 및 실행 권한 없음 상태를 렌더링합니다. 출처 계약 검사는 attachment 순서와 검토 도구 의미를 약화하지 않고 공유 스타일 클래스와 검토된 chart 제목 구성 요소를 허용합니다. 인증된 실행기는 최종 증적을 호출자 요청 UUID에 연결하고 복제한 응답 스트림을 읽으므로 애플리케이션의 소비 동작을 변경하지 않습니다. 인증된 브라우저 근거는 아직 확보하지 않았습니다. |
-| 지속형 질문 공간 보증 oracle | 구현됨 | [지속형 질문 공간](continuous-question-space-ko.md), `console/tests/live-e2e/ontology-query-assurance.ts`, 집중 Console 테스트 | Console 하네스는 고정된 이중 언어 100개 분류와 strict v2 22개 셀 oracle을 소유합니다. 런타임 인프라가 되지 않으면서 정확한 계획 기능, 전송 신원, 답변 턴의 완전한 근거, 권한 없는 실행 0을 검증합니다. |
+| 지속형 질문 공간 및 온톨로지 구조 표현 | 구현됨 | [지속형 질문 공간](continuous-question-space-ko.md), `console/tests/live-e2e/ontology-query-assurance.ts`, `console/src/routes/ontology.types.ts`, `console/src/routes/ontology-links.tsx`, 집중 Console 테스트 | Console 하네스는 고정된 이중 언어 100개 분류와 strict v2 22개 셀 oracle을 소유합니다. 온톨로지 워크벤치는 LinkType 역할, 의미 특성, 독립적인 제한 계열을 안전하게 실패하도록 디코딩하고 읽기 전용으로 표시하며 실행 컨트롤을 노출하지 않습니다. 이 두 표면은 런타임 인프라가 되지 않으면서 정확한 계획 기능, 전송 신원, 답변 턴의 완전한 근거, 권한 없는 실행 0을 검증합니다. |
 | 브라우저 근거 메타데이터 패널 경계 | 구현됨 | `console/src/routes/browser-evidence.tsx`, `console/src/panels.tsx`, focused decoder, panel 및 router 검사(`26 passed`) | 기존 Evidence 탐색 경로는 정확한 payload-free Operator 묶음만 사용합니다. 컨트롤과 수집 또는 구조화된 페이로드를 거부하고 변경 명령을 렌더링하지 않으며 인증된 배포 읽기 근거는 별도 런타임 gate로 유지합니다. |
 | 공유 의미 행 projection | 구현됨 | `families/conversation/presentation_rows.py`, v1 및 v2 표현 모듈, focused Operator 표현 검사(`82 passed`) | 범위가 제한된 순수 projection 하나가 직접 scalar를 유지하고 검증된 중첩 property bag에서 최대 두 단계까지 `name`, `type`, `status`, `location`만 끌어올립니다. 읽기 쉬운 사실이 있으면 기본 표에서 불투명한 `id`와 `object_type` 열을 제외하고, identity만 있는 결과에서는 해당 필드를 계속 표시합니다. 변경하지 않은 exact 행은 기술 세부에 유지합니다. |
 

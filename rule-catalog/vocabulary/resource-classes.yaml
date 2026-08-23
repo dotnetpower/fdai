@@ -1,0 +1,21 @@
+schema_version: "1.0.0"
+version: "0.1.0"
+classes:
+  - id: class.workload
+    description: Resource that runs application work.
+  - id: class.compute-workload
+    description: Compute-hosted application workload.
+    members:
+      - compute.vm
+      - compute.vm-scale-set
+      - compute.container-app
+      - compute.function
+      - compute.web-app
+      - kubernetes-cluster
+    specializes: [class.workload]
+  - id: class.network-endpoint
+    description: Network endpoint with an independently observed resource identity.
+    members:
+      - network.interface
+      - network.private-endpoint
+      - network.public-ip

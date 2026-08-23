@@ -1,8 +1,8 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: a294e2c507fd473de922af4e8a63f4e0bbf608e5
-translation_revised: 2026-08-22
+translation_source_sha: c1de43116cf1683bc544f3b4ab1fad4dfb12d74e
+translation_revised: 2026-08-23
 ---
 # FDAI 로드맵
 
@@ -60,6 +60,7 @@ canonical 영문 roadmap context를 실제 4,500줄로 제한합니다. Route가
 | 5b | [outcome-assurance-ko.md](architecture/outcome-assurance-ko.md) | FDAI의 세 버티컬을 대상으로 하는 운영 준비도, 목표 정렬, 통제 보증 변환 결과 |
 | 5c | [operating-ontology-platform-ko.md](architecture/operating-ontology-platform-ko.md) | Agent-supporting 온톨로지 안전성 infrastructure: exact release, 범위가 제한된 객체 집합, 변경 계획, 타입이 지정된 함수, 조정, SDK |
 | 5d | [operating-ontology-metamodel-ko.md](architecture/operating-ontology-metamodel-ko.md) | Operational 관점, 정본 선언 종류, 상태/맥락 경계, 권한, 시간, 소유권 및 가산 이행 |
+| 5e | [ontology-structural-model-ko.md](architecture/ontology-structural-model-ko.md) | 정확한 리소스 형식, 분류 집계, 링크 역할과 특성, 순서가 있는 형식화된 경로, 범위가 제한된 그래프 표현 |
 | 6 | [security-and-identity-ko.md](architecture/security-and-identity-ko.md) | 최소 권한 신원, secrets, 안전 불변식 |
 | 7 | [deployment-ko.md](deployment/deployment-ko.md) | IaC, CI/CD, 환경, 릴리스 / 롤백 |
 | 7a | [architecture-review-board-ko.md](architecture/architecture-review-board-ko.md) | 정본 ARB 패킷: 결정 경계, 근거 계약, 소유자, 의존성, 운영 종료 게이트 |

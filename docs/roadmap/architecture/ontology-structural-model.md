@@ -1,0 +1,267 @@
+---
+title: Ontology Structural Model
+---
+# Ontology Structural Model
+
+This document defines how FDAI represents exact resource types, taxonomic aggregation,
+capabilities, directional relationships, typed paths, and bounded graph presentation. It keeps
+classification useful to operators and agents without turning taxonomy into execution authority
+or a second source of provider truth.
+
+> **Authority boundary:** Taxonomy, interfaces, link roles, and query paths define meaning only.
+> They cannot observe external state, approve an action, select an executor, or raise autonomy.
+>
+> **Compatibility boundary:** Existing `Resource`, `ResourceType`, LinkType identities, stored link
+> directions, and historical ontology releases remain valid. New structural surfaces are additive
+> and start as read-only capabilities.
+
+## Design at a glance
+
+```mermaid
+flowchart LR
+    Resource -->|resource_classified_as| ResourceType
+    ResourceType -->|resource_type_member_of_class| ResourceClass
+    ResourceClass -->|resource_class_specializes| BroaderClass[ResourceClass]
+    Query --> Exploratory[Exploratory traversal]
+    Query --> TypedPath[Ordered typed path]
+    LinkType --> Roles[Forward and reverse roles]
+    LinkType --> Traits[Semantic traits]
+```
+
+The model separates exact identity, aggregation, behavior, language, topology hints, query
+execution, and presentation. Each concern has one canonical representation and one bounded
+consumer contract.
+
+## Structural concepts
+
+| Concept | Responsibility | Does not do |
+|---------|----------------|-------------|
+| `ResourceType` | Exact cloud-provider-neutral resource subtype, such as `compute.vm`. | It does not inherit behavior from its identifier or category. |
+| `ResourceClass` | Reviewed taxonomic aggregation, such as `NetworkEndpoint` or `DataService`. | It does not grant action eligibility or model capabilities. |
+| `InterfaceType` | Shared property, link, and action contract across ObjectTypes. | It does not classify `Resource.type` values in this release. |
+| `ResourceTypeQueryGroup` | Reviewed English and Korean aliases for one exact set of ResourceTypes. | It is not ontology identity or a transitive class. |
+| `typical_parents` | Authoring hint for expected instance containment. | It is never interpreted as subtype inheritance. |
+
+### ResourceType classification
+
+Every observed `Resource` keeps exactly one reviewed `resource_classified_as` relationship to a
+concrete `ResourceType` when the complete inventory generation and mapping digest support it.
+Unmapped or unseeded types remain explicit coverage gaps. A name, identifier prefix, embedding,
+provider category, or query alias never creates classification.
+
+### ResourceClass taxonomy
+
+`ResourceClass` is a small, domain-driven aggregation surface. A class is added only when a named
+competency question needs to select at least two concrete ResourceTypes under one operational
+concept.
+
+The taxonomy uses two directed LinkTypes:
+
+| LinkType | Direction | Meaning |
+|----------|-----------|---------|
+| `resource_type_member_of_class` | concrete `ResourceType` -> `ResourceClass` | The exact type belongs to the reviewed class. |
+| `resource_class_specializes` | narrower `ResourceClass` -> broader `ResourceClass` | The narrower class is a true taxonomic specialization. |
+
+Membership is many-to-many. The specialization graph is acyclic, bounded, and intentionally
+shallow. Multiple membership represents composition. Combination classes created only to join two
+unrelated capabilities are not accepted.
+
+The first release keeps one taxonomic surface. It does not add a generic concept-scheme engine.
+Capabilities such as `Operable` and `Observable` remain InterfaceType concerns. ResourceType-level
+Interface bindings require a separate safety design because InterfaceType can be an ActionType
+target.
+
+## Relationship model
+
+### Direct links
+
+A direct link represents one binary semantic fact whose stable identity is
+`(from_id, link_type, to_id)`. It is appropriate when the relationship has no independent domain
+identity or lifecycle.
+
+Direct link properties are limited to an empty mapping or the standardized evidence envelope.
+Observation time, mapping identity, verification receipts, completeness, conflicts, and evidence
+references describe support for the link. They are not domain attributes of the relationship.
+
+Examples include:
+
+- `contains` for parent-to-child containment;
+- `attached_to` for an attached resource and its anchor;
+- `depends_on` for an existential prerequisite without independent contract data;
+- `routes_to` for one verified directed forwarding reference;
+- `peered_with` as two independently supported directed records;
+- `resource_classified_as` for exact reviewed classification.
+
+### Relationship objects
+
+A relationship is modeled as a domain-specific object only when the relationship is itself a
+real entity. At least one of these conditions should apply:
+
+- it has an authoritative identity independent from both endpoints;
+- it can be created, revised, or closed without replacing either endpoint;
+- multiple concurrent instances can connect the same endpoints;
+- it has domain attributes such as role, allocation, priority, status, or effective interval;
+- policy or an ActionType targets the relationship itself.
+
+Provider verification metadata alone does not justify an object. FDAI reuses existing domain
+objects such as observed role-assignment Resources instead of creating a generic `Relationship`
+ObjectType or adding UUID identity to every direct link.
+
+## LinkType semantics
+
+Stored direction remains `from_type -> to_type`. A compatible LinkType revision can add these
+reviewed semantic fields:
+
+| Field | Purpose |
+|-------|---------|
+| `forward_role` | Human and agent-readable role when traversing stored direction. |
+| `reverse_role` | Human and agent-readable role when traversing against stored direction. |
+| `semantic_traits` | One or more composable meanings such as containment, dependency, attachment, connectivity, traffic, classification, authorization, or evidence. |
+
+Role names are scoped to one LinkType and do not imply another stored edge. Traits express domain
+meaning, not colors, layout lanes, or graph coordinates. Existing causal, temporal, transitive,
+cardinality, and endpoint contracts remain independent.
+
+The first implementation applies the fields to `contains`, `attached_to`, `depends_on`,
+`routes_to`, `peered_with`, `resource_classified_as`, `resource_type_member_of_class`, and
+`resource_class_specializes`. Other LinkTypes remain readable through their exact legacy
+declarations until a competency-driven audit promotes them.
+
+## Query algebra
+
+The query contract separates open graph expansion from an ordered semantic path.
+
+### Exploratory traversal
+
+An exploratory traversal accepts an allowed LinkType set, one direction, maximum depth, object
+limit, and edge limit. Every allowed LinkType may be followed at each depth, subject to its
+transitivity contract. The result reports exact truncation reasons and never claims path order.
+
+### Ordered typed path
+
+An ordered typed path contains one or more steps. Each step declares:
+
+- exact LinkType name;
+- `outgoing` or `incoming` traversal direction;
+- expected endpoint ObjectType;
+- bounded repetition only for a LinkType declared transitive.
+
+The verifier checks the complete endpoint chain before store I/O. Runtime executes one step at a
+time against the current bounded frontier and validates the reached endpoint types. A tuple of
+LinkType names is never interpreted as both an ordered path and an unordered traversal set.
+
+Existing v1 relationship traversal remains compatible and supports one LinkType. Multi-LinkType
+ordered paths use the additive typed-path contract and a new exact function or query-node identity.
+
+### Taxonomy closure
+
+The query compiler resolves one `ResourceClass` to a bounded, deterministic set of concrete
+ResourceType ids. The closure receipt pins:
+
+- ontology release digest;
+- requested ResourceClass id;
+- ordered class and ResourceType ids;
+- closure digest and truncation state.
+
+The resulting Resource query uses exact `Resource.type` values. Runtime never expands a class from
+natural-language terms, identifier prefixes, or provider fields.
+
+## Completeness and presentation
+
+Graph consumers preserve four independent limitation families:
+
+| Family | Example |
+|--------|---------|
+| Source coverage | A referenced endpoint was not observed in the complete provider generation. |
+| Query truncation | A depth, object, edge, or result bound was reached. |
+| Access redaction | The principal cannot read an endpoint, property, or evidence field. |
+| Presentation omission | The Console focus view intentionally hides bounded response items. |
+
+Operator projections preserve source generation, ontology release, query bounds, relationship
+coverage, and exact limitation codes. The Console may build containment, dependency, connectivity,
+authorization, classification, and evidence views from semantic traits. It also provides an
+`All bounded relationships` inspection surface and reports its own omitted node and edge counts by
+reason. Browser layout never changes completeness or authority.
+
+## Migration and rollout
+
+1. Add the structural declarations, loaders, and validators without changing the visible query
+   path.
+2. Add ordered typed-path execution and taxonomy closure behind read-only exact-release functions.
+3. Shadow-compare existing one-hop traversal, impact, network, and classification results.
+4. Add LinkType roles and traits through compatible declaration revisions. Preserve every prior
+   release for replay.
+5. Expose limitation families and semantic views through additive Operator and Console contracts.
+6. Promote only after focused competency, replay, bilingual, and no-authority checks pass.
+
+A direction, endpoint, cardinality, or persisted-identity correction still requires a LinkType
+major version or explicit graph migration. No rollout rewrites historical context snapshots.
+
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Structural design and compatibility | implemented | This paired owner document, `design-routes.json`, roadmap index, code map, and focused documentation gates | The additive model preserves existing Resource, ResourceType, direct-link identity, stored direction, and historical declarations. |
+| ResourceClass catalog and projection | implemented | `resource_class.py`, `resource-classes.yaml`, ResourceClass/ObjectType and membership/specialization declarations, catalog projection, closure receipt, and focused catalog checks | Three reviewed classes project with nine memberships and one acyclic specialization. Closure uses only explicit ids and grants no authority. |
+| Ordered typed-path query | implemented | `TypedPathDefinition`, `QueryNodeKind.TYPED_PATH`, deterministic verifier, secured handler, composition binding, and focused query checks | Existing v1 traversal now accepts one LinkType. Typed paths execute 1-8 exact directed steps and hold on incomplete intermediate evidence. |
+| Link roles and semantic traits | implemented | Shared LinkType contract and schema, query manifest, six revised runtime declarations plus two taxonomy declarations, and catalog tests | Optional empty fields preserve legacy provenance. Reviewed fields do not create inverse edges or presentation layout. |
+| Completeness and presentation separation | implemented | Authoritative ontology graph materializer, integration tests, Console decoder and LinkType inspector, bilingual product catalog, typecheck, and production build | The declaration graph carries four independent limitation families and exposes every bounded LinkType with roles and traits. This claim does not include the separate uncommitted instance explorer in another checkout. |
+| Adversarial hardening | implemented | Fifteen-round hardening record below; 308 focused Python tests, 29 focused Console tests, Ruff over 29 changed Python files, strict mypy over 19 changed source files, Console typecheck, and production build | Every verified High or Medium finding was resolved. Only Low residual observations remain. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-23 | not-started | Adopted the structural model after reviewing Palantir ontology design guidance and the existing FDAI contracts. Earlier implementation provenance was not reconstructed because this is a new bounded design. | `current change`; this paired owner document and focused documentation gates. | Implement the delivery sequence and complete at least ten adversarial hardening rounds. |
+| 2026-08-23 | implemented | Added explicit ResourceClass taxonomy, ordered typed paths, LinkType traversal roles and semantic traits, exact manifest projection, and limitation-preserving declaration presentation without changing action authority or historical link direction. | `current change`; focused catalog, query, contract, materializer, and Console checks; Ruff and strict mypy; Console typecheck and production build. | Complete at least ten adversarial critique and hardening rounds, resolve every verified finding above Low, then run the final focused and diff validation stack. |
+| 2026-08-23 | implemented | Completed fifteen adversarial hardening rounds. Closed typed-path composition, bounded repetition, classification-evidence integrity, taxonomy identity and bounds, exact-release compatibility, Console decoding, rollout compatibility, and production taxonomy-closure integration defects. | `current change`; 308 focused Python tests passed, 29 focused Console tests passed, Ruff passed over 29 changed Python files, strict mypy passed over 19 changed source files, and Console typecheck and production build passed. | Run the paired documentation, roadmap, translation, punctuation, design-route, and final diff gates. |
+| 2026-08-23 | implemented | Completed the bounded implementation and documentation gate stack with no verified finding above Low severity. | `current change`; translation quality and readable-Hangul checks passed for 3 changed Korean docs, punctuation passed for 6 changed docs, and derived-source, roadmap tracking, document-size, design-route, and 664-file link checks passed. | No remaining work for this document's bounded scope. |
+
+### Hardening record
+
+| Round | Review lens | Result | Focused evidence |
+|-------|-------------|--------|------------------|
+| 1 | Typed-path contracts, verifier, handler, and store semantics | No verified finding above Low. Unrelated network-path observations were excluded from this scope. | Focused typed-path review and baseline query checks. |
+| 2 | Taxonomy identity and closure | Resolved a Medium global object-id collision by reserving the `class.` namespace. | 7 ResourceClass checks passed. |
+| 3 | LinkType schema and historical provenance | Resolved a Medium hash-normalization defect by limiting omission of additive fields to LinkType declarations. | 5 LinkType and provenance checks passed without serializer warnings. |
+| 4 | Direct-link evidence boundary | Resolved a Medium bypass that accepted arbitrary domain properties on direct links. | 50 provider and inventory checks passed. |
+| 5 | Planner, verifier, and executor composition | Resolved a High defect where `TYPED_PATH` was executable but absent from the planner verifier capability set. | End-to-end semantic runtime typed-path checks passed. |
+| 6 | Access, completeness, and presentation decoding | Resolved a Medium Console trust-boundary defect by decoding edge roles and traits field by field. | 9 Console decoder tests and typecheck passed. |
+| 7 | Exact-release and persistence compatibility | No verified finding above Low; historical declaration fixtures and persisted rows remained readable. | 47 exact-release, migration, and persistence checks passed. |
+| 8 | Atomic catalog replacement and restart replay | Added a Low regression check proving removal of a stale ResourceClass also removes its membership links. | 3 catalog projection checks passed. |
+| 9 | Taxonomy denial-of-service bounds | Resolved a Medium unbounded total-edge defect with registry-wide membership and specialization budgets. | 6 ResourceClass bound checks passed. |
+| 10 | Documentation and transitive semantics parity | Resolved a Medium overclaim by adding bounded `max_hops` repetition only for transitive self-composable LinkTypes. | 37 query contract, verifier, and runtime checks passed. |
+| 11 | Classification authority and evidence forgery | Resolved a Medium defect by requiring the exact four-field classification envelope, canonical digest, non-empty ids, and `verified is True`. | 62 provider, inventory, and runtime checks passed. |
+| 12 | Additive rollout compatibility | Resolved a Medium Console regression by accepting only complete legacy omission of additive graph and edge fields. | 10 decoder tests and typecheck passed. |
+| 13 | Bounded transitive runtime closure | Resolved a Medium defect where repeated typed steps returned only the first-hop frontier. | 35 query execution and verification checks passed. |
+| 14 | Production taxonomy-closure composition | Resolved a Medium integration gap by adding registry-digested, no-authority `query.resource_class_closure` and binding it into the principal manifest. | 42 composition and catalog checks plus 8 direct and end-to-end closure checks passed. |
+| 15 | Final contract closure | Resolved a Medium ResourceType id-length mismatch at canonical catalog validation. No verified High or Medium finding remained. | 8 ResourceClass and identity-bound checks passed; final aggregate and static checks passed. |
+
+### Remaining work
+
+- [x] Add the bilingual owner document to design routing and architecture indexes, then pass roadmap,
+  translation, punctuation, and link checks.
+- [x] Implement ResourceClass declarations, catalog projection, acyclic specialization, and
+  receipt-bound closure with positive, unknown, cycle, and bound fixtures.
+- [x] Implement additive ordered typed paths and prove verifier/runtime parity for outgoing,
+  incoming, mixed-direction, invalid-endpoint, transitive, cyclic, and truncated cases.
+- [x] Add reviewed roles and semantic traits to the initial LinkTypes without changing stored
+  direction, endpoint identity, or historical release interpretation.
+- [x] Separate source, query, access, and presentation limitations in the authoritative declaration
+  graph and Console LinkType inspector, including the complete bounded LinkType directory.
+- [x] Complete at least ten independent critique and hardening rounds and leave no verified finding
+  above Low severity.
+- [x] Complete this document's bounded scope with the focused implementation, static, Console,
+  translation, roadmap, punctuation, design-route, document-size, link, and diff gates cited above.
+
+## Related docs
+
+| To learn about | Read |
+|----------------|------|
+| Declaration kinds, direction, state, and context | [Operating Ontology Metamodel](operating-ontology-metamodel.md) |
+| Domain objects, relationships, identity, and time | [FDAI Operating Ontology](operating-ontology.md) |
+| Interfaces, ObjectSets, functions, and exact releases | [Ontology Safety Infrastructure](operating-ontology-platform.md) |
+| Continuous graph freshness and completeness | [Continuous Operational Instance Graph](continuous-operational-instance-graph.md) |
+| Verified query coverage and cutover | [Ontology Query Coverage Implementation Plan](../interfaces/ontology-query-coverage-implementation-plan.md) |

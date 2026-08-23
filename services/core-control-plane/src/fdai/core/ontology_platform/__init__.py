@@ -56,6 +56,8 @@ from .models import (
     ObjectTraversal,
     OntologyInterfaceType,
     RelationshipTraversalDefinition,
+    TypedPathDefinition,
+    TypedPathStep,
 )
 from .object_sets import ObjectSetService
 from .planning import build_mutation_plan, validate_plan_revisions
@@ -86,6 +88,7 @@ from .query_source_handlers import (
     FunctionNodeHandler,
     SecuredObjectSetNodeHandler,
     SecuredRelationshipTraversalNodeHandler,
+    SecuredTypedPathNodeHandler,
 )
 from .query_topology_handlers import (
     TOPOLOGY_ARGUMENT_SCHEMAS,
@@ -128,6 +131,14 @@ from .reconciliation_request_outbox import (
     ReconciliationRequestOutboxConflictError,
     ReconciliationRequestOutboxState,
     StateStoreReconciliationRequestOutbox,
+)
+from .resource_class_closure import (
+    RESOURCE_CLASS_CLOSURE_FUNCTION_NAME,
+    RESOURCE_CLASS_CLOSURE_PURPOSE,
+    ResourceClassClosureReceipt,
+    compile_resource_class_closure,
+    resource_class_closure_function,
+    resource_class_closure_function_type,
 )
 from .sdk_codegen import GeneratedOntologySdk, generate_ontology_sdk
 from .semantic_plans import (
@@ -188,6 +199,8 @@ __all__ = [
     "ObjectSetService",
     "ObjectTraversal",
     "RelationshipTraversalDefinition",
+    "TypedPathDefinition",
+    "TypedPathStep",
     "MutationEffect",
     "MutationEffectKind",
     "MutationPlan",
@@ -199,6 +212,9 @@ __all__ = [
     "ReconciliationRequestOutbox",
     "ReconciliationRequestOutboxConflictError",
     "ReconciliationRequestOutboxState",
+    "ResourceClassClosureReceipt",
+    "RESOURCE_CLASS_CLOSURE_FUNCTION_NAME",
+    "RESOURCE_CLASS_CLOSURE_PURPOSE",
     "MetricAggregation",
     "METRIC_ARGUMENT_SCHEMAS",
     "MetricSemanticDefinition",
@@ -244,6 +260,7 @@ __all__ = [
     "SemanticOperationClass",
     "SecuredObjectSetNodeHandler",
     "SecuredRelationshipTraversalNodeHandler",
+    "SecuredTypedPathNodeHandler",
     "SetOperationNodeHandler",
     "StateStoreReconciliationLedger",
     "StateStoreReconciliationRequestOutbox",
@@ -267,6 +284,9 @@ __all__ = [
     "merge_catalog_ontology_projections",
     "compile_interfaces",
     "compare_aligned_windows",
+    "compile_resource_class_closure",
+    "resource_class_closure_function",
+    "resource_class_closure_function_type",
     "generate_ontology_sdk",
     "graph_at",
     "join_causal_evidence",

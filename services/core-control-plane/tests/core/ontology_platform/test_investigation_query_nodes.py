@@ -27,6 +27,7 @@ from fdai.core.ontology_platform import (
     QueryRow,
     QueryTable,
     SecuredRelationshipTraversalNodeHandler,
+    SecuredTypedPathNodeHandler,
     TopologyDiff,
     build_query_manifest,
     compile_interfaces,
@@ -219,6 +220,153 @@ def test_verifier_rejects_relationship_endpoint_direction_drift() -> None:
         ).verify(plan, manifest=manifest)
 
 
+def test_verifier_accepts_an_ordered_typed_path() -> None:
+    service, resource, dependency = _catalog()
+    workload = OntologyObjectType(
+        schema_version="1.0.0",
+        name="Workload",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    implemented_by = OntologyLinkType(
+        schema_version="1.0.0",
+        name="implemented_by",
+        version="1.0.0",
+        from_type="BusinessService",
+        to_type="Workload",
+        cardinality=LinkCardinality.ONE_TO_MANY,
+    )
+    runs_on = OntologyLinkType(
+        schema_version="1.0.0",
+        name="runs_on",
+        version="1.0.0",
+        from_type="Workload",
+        to_type="Resource",
+        cardinality=LinkCardinality.MANY_TO_MANY,
+    )
+    release = build_ontology_release(
+        object_types=(service, workload, resource),
+        link_types=(implemented_by, runs_on),
+    )
+    manifest = build_query_manifest(
+        release=release,
+        principal_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        principal_scope_digest=DIGEST,
+        object_types=(service, workload, resource),
+        link_types=(implemented_by, runs_on),
+    )
+    path = _node(
+        "typed-path",
+        QueryNodeKind.TYPED_PATH,
+        dependencies=("resolve-target",),
+        arguments={
+            "steps": [
+                {
+                    "link_type": "implemented_by",
+                    "direction": "outgoing",
+                    "selector": {"kind": "object_type", "name": "Workload"},
+                },
+                {
+                    "link_type": "runs_on",
+                    "direction": "outgoing",
+                    "selector": {"kind": "object_type", "name": "Resource"},
+                },
+            ],
+            "as_of": NOW.isoformat(),
+            "purpose": "operations-review",
+            "limit": 100,
+        },
+    )
+    plan = _plan((_resolution_node(), path), manifest=manifest)
+
+    verified = OntologyQueryPlanVerifier(
+        available_kinds=(QueryNodeKind.OBJECT_SET, QueryNodeKind.TYPED_PATH)
+    ).verify(plan, manifest=manifest)
+
+    assert verified is plan
+
+
+def test_verifier_rejects_typed_path_endpoint_drift() -> None:
+    service, resource, dependency = _catalog()
+    release = build_ontology_release(
+        object_types=(service, resource),
+        link_types=(dependency,),
+    )
+    manifest = build_query_manifest(
+        release=release,
+        principal_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        principal_scope_digest=DIGEST,
+        object_types=(service, resource),
+        link_types=(dependency,),
+    )
+    path = _node(
+        "typed-path",
+        QueryNodeKind.TYPED_PATH,
+        dependencies=("resolve-target",),
+        arguments={
+            "steps": [
+                {
+                    "link_type": "service_depends_on_resource",
+                    "direction": "incoming",
+                    "selector": {"kind": "object_type", "name": "Resource"},
+                }
+            ],
+            "as_of": NOW.isoformat(),
+            "purpose": "operations-review",
+            "limit": 100,
+        },
+    )
+    plan = _plan((_resolution_node(), path), manifest=manifest)
+
+    with pytest.raises(ValueError, match="source endpoint type does not match"):
+        OntologyQueryPlanVerifier(
+            available_kinds=(QueryNodeKind.OBJECT_SET, QueryNodeKind.TYPED_PATH)
+        ).verify(plan, manifest=manifest)
+
+
+def test_verifier_rejects_repetition_for_a_nontransitive_link() -> None:
+    service, resource, dependency = _catalog()
+    release = build_ontology_release(
+        object_types=(service, resource),
+        link_types=(dependency,),
+    )
+    manifest = build_query_manifest(
+        release=release,
+        principal_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        principal_scope_digest=DIGEST,
+        object_types=(service, resource),
+        link_types=(dependency,),
+    )
+    path = _node(
+        "typed-path",
+        QueryNodeKind.TYPED_PATH,
+        dependencies=("resolve-target",),
+        arguments={
+            "steps": [
+                {
+                    "link_type": "service_depends_on_resource",
+                    "direction": "outgoing",
+                    "selector": {"kind": "object_type", "name": "Resource"},
+                    "max_hops": 2,
+                }
+            ],
+            "as_of": NOW.isoformat(),
+            "purpose": "operations-review",
+            "limit": 100,
+        },
+    )
+    plan = _plan((_resolution_node(), path), manifest=manifest)
+
+    with pytest.raises(ValueError, match="transitive self-composable"):
+        OntologyQueryPlanVerifier(
+            available_kinds=(QueryNodeKind.OBJECT_SET, QueryNodeKind.TYPED_PATH)
+        ).verify(plan, manifest=manifest)
+
+
 async def test_secured_traversal_uses_the_exact_resolved_entity_root() -> None:
     service, resource, dependency = _catalog()
     release = build_ontology_release(
@@ -309,6 +457,415 @@ async def test_secured_traversal_holds_ambiguous_entity_resolution() -> None:
             _traversal_node(),
             {"resolve-target": QueryNodeResult(value=roots)},
         )
+
+
+async def test_secured_typed_path_executes_each_link_in_order() -> None:
+    service, resource, _dependency = _catalog()
+    workload = OntologyObjectType(
+        schema_version="1.0.0",
+        name="Workload",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    implemented_by = OntologyLinkType(
+        schema_version="1.0.0",
+        name="implemented_by",
+        version="1.0.0",
+        from_type="BusinessService",
+        to_type="Workload",
+        cardinality=LinkCardinality.ONE_TO_MANY,
+    )
+    runs_on = OntologyLinkType(
+        schema_version="1.0.0",
+        name="runs_on",
+        version="1.0.0",
+        from_type="Workload",
+        to_type="Resource",
+        cardinality=LinkCardinality.MANY_TO_MANY,
+    )
+    release = build_ontology_release(
+        object_types=(service, workload, resource),
+        link_types=(implemented_by, runs_on),
+    )
+    store = InMemoryOntologyInstanceStore(
+        object_types=(service, workload, resource),
+        link_types=(implemented_by, runs_on),
+    )
+    for record in (
+        OntologyObjectRecord(
+            id="service:a",
+            object_type="BusinessService",
+            properties={"id": "service:a", "name": "A service"},
+        ),
+        OntologyObjectRecord(
+            id="workload:a",
+            object_type="Workload",
+            properties={"id": "workload:a"},
+        ),
+        OntologyObjectRecord(
+            id="resource:vm",
+            object_type="Resource",
+            properties={"id": "resource:vm"},
+        ),
+    ):
+        await store.upsert_object(record)
+    await store.upsert_link(OntologyLinkRecord("implemented_by", "service:a", "workload:a"))
+    await store.upsert_link(OntologyLinkRecord("runs_on", "workload:a", "resource:vm"))
+    gateway = SecuredObjectSetQueryGateway(
+        service=ObjectSetService(
+            store=store,
+            interfaces=compile_interfaces(
+                interfaces=(),
+                implementations=(),
+                object_types=(service, workload, resource),
+                release=release,
+            ),
+            object_type_names=frozenset({"BusinessService", "Workload", "Resource"}),
+        ),
+        object_types={
+            "BusinessService": service,
+            "Workload": workload,
+            "Resource": resource,
+        },
+        ontology_release=release,
+        evaluation_cutoff=lambda: NOW,
+    )
+    handler = SecuredTypedPathNodeHandler(
+        gateway,
+        caller_role=CeilingRole.READER,
+        purposes=("operations-review",),
+    )
+    node = _node(
+        "typed-path",
+        QueryNodeKind.TYPED_PATH,
+        dependencies=("resolve-target",),
+        arguments={
+            "steps": [
+                {
+                    "link_type": "implemented_by",
+                    "direction": "outgoing",
+                    "selector": {"kind": "object_type", "name": "Workload"},
+                },
+                {
+                    "link_type": "runs_on",
+                    "direction": "outgoing",
+                    "selector": {"kind": "object_type", "name": "Resource"},
+                },
+            ],
+            "as_of": NOW.isoformat(),
+            "purpose": "operations-review",
+            "limit": 100,
+        },
+    )
+    roots = QueryTable(
+        rows=(QueryRow.from_values("service:a", {"id": "service:a"}),),
+        complete=True,
+    )
+
+    result = await handler(
+        node,
+        {"resolve-target": QueryNodeResult(value=roots, evidence_refs=("entity:a",))},
+    )
+
+    assert isinstance(result.value, QueryTable)
+    assert tuple(row.row_id for row in result.value.rows) == ("resource:vm",)
+    assert result.evidence_refs[0] == "entity:a"
+    assert len(result.evidence_refs) == 5
+
+
+async def test_secured_typed_path_does_not_return_an_unreached_same_type_root() -> None:
+    resource = OntologyObjectType(
+        schema_version="1.0.0",
+        name="Resource",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    routes_to = OntologyLinkType(
+        schema_version="1.0.0",
+        name="routes_to",
+        version="1.0.0",
+        from_type="Resource",
+        to_type="Resource",
+        cardinality=LinkCardinality.MANY_TO_MANY,
+    )
+    release = build_ontology_release(object_types=(resource,), link_types=(routes_to,))
+    store = InMemoryOntologyInstanceStore(object_types=(resource,), link_types=(routes_to,))
+    await store.upsert_object(
+        OntologyObjectRecord(
+            id="resource:a",
+            object_type="Resource",
+            properties={"id": "resource:a"},
+        )
+    )
+    gateway = SecuredObjectSetQueryGateway(
+        service=ObjectSetService(
+            store=store,
+            interfaces=compile_interfaces(
+                interfaces=(),
+                implementations=(),
+                object_types=(resource,),
+                release=release,
+            ),
+            object_type_names=frozenset({"Resource"}),
+        ),
+        object_types={"Resource": resource},
+        ontology_release=release,
+        evaluation_cutoff=lambda: NOW,
+    )
+    handler = SecuredTypedPathNodeHandler(
+        gateway,
+        caller_role=CeilingRole.READER,
+        purposes=("operations-review",),
+    )
+    node = _node(
+        "typed-path",
+        QueryNodeKind.TYPED_PATH,
+        dependencies=("resolve-target",),
+        arguments={
+            "steps": [
+                {
+                    "link_type": "routes_to",
+                    "direction": "outgoing",
+                    "selector": {"kind": "object_type", "name": "Resource"},
+                }
+            ],
+            "as_of": NOW.isoformat(),
+            "purpose": "operations-review",
+            "limit": 100,
+        },
+    )
+    roots = QueryTable(
+        rows=(
+            QueryRow.from_values(
+                "resource:a",
+                {"id": "resource:a", "object_type": "Resource"},
+            ),
+        ),
+        complete=True,
+    )
+
+    result = await handler(node, {"resolve-target": QueryNodeResult(value=roots)})
+
+    assert isinstance(result.value, QueryTable)
+    assert result.value.rows == ()
+    assert result.value.complete is True
+
+
+async def test_secured_typed_path_returns_bounded_transitive_closure() -> None:
+    resource = OntologyObjectType(
+        schema_version="1.0.0",
+        name="Resource",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    contains = OntologyLinkType(
+        schema_version="1.0.0",
+        name="contains",
+        version="1.0.0",
+        from_type="Resource",
+        to_type="Resource",
+        cardinality=LinkCardinality.ONE_TO_MANY,
+        is_transitive=True,
+    )
+    release = build_ontology_release(object_types=(resource,), link_types=(contains,))
+    store = InMemoryOntologyInstanceStore(object_types=(resource,), link_types=(contains,))
+    for identifier in ("resource:a", "resource:b", "resource:c"):
+        await store.upsert_object(OntologyObjectRecord(identifier, "Resource", {"id": identifier}))
+    await store.upsert_link(OntologyLinkRecord("contains", "resource:a", "resource:b"))
+    await store.upsert_link(OntologyLinkRecord("contains", "resource:b", "resource:c"))
+    gateway = SecuredObjectSetQueryGateway(
+        service=ObjectSetService(
+            store=store,
+            interfaces=compile_interfaces(
+                interfaces=(),
+                implementations=(),
+                object_types=(resource,),
+                release=release,
+            ),
+            object_type_names=frozenset({"Resource"}),
+        ),
+        object_types={"Resource": resource},
+        ontology_release=release,
+        evaluation_cutoff=lambda: NOW,
+    )
+    handler = SecuredTypedPathNodeHandler(
+        gateway,
+        caller_role=CeilingRole.READER,
+        purposes=("operations-review",),
+    )
+    node = _node(
+        "typed-path",
+        QueryNodeKind.TYPED_PATH,
+        dependencies=("resolve-target",),
+        arguments={
+            "steps": [
+                {
+                    "link_type": "contains",
+                    "direction": "outgoing",
+                    "selector": {"kind": "object_type", "name": "Resource"},
+                    "max_hops": 2,
+                }
+            ],
+            "as_of": NOW.isoformat(),
+            "purpose": "operations-review",
+            "limit": 100,
+        },
+    )
+    roots = QueryTable(
+        rows=(QueryRow.from_values("resource:a", {"id": "resource:a"}),),
+        complete=True,
+    )
+
+    result = await handler(node, {"resolve-target": QueryNodeResult(value=roots)})
+
+    assert isinstance(result.value, QueryTable)
+    assert tuple(row.row_id for row in result.value.rows) == ("resource:b", "resource:c")
+    assert result.value.complete is True
+
+
+async def test_secured_typed_path_expands_taxonomy_to_observed_resources() -> None:
+    resource_class = OntologyObjectType(
+        schema_version="1.0.0",
+        name="ResourceClass",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    resource_type = OntologyObjectType(
+        schema_version="1.0.0",
+        name="ResourceType",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    resource = OntologyObjectType(
+        schema_version="1.0.0",
+        name="Resource",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    membership = OntologyLinkType(
+        schema_version="1.0.0",
+        name="resource_type_member_of_class",
+        version="1.0.0",
+        from_type="ResourceType",
+        to_type="ResourceClass",
+        cardinality=LinkCardinality.MANY_TO_MANY,
+    )
+    classification = OntologyLinkType(
+        schema_version="1.0.0",
+        name="resource_classified_as",
+        version="1.0.0",
+        from_type="Resource",
+        to_type="ResourceType",
+        cardinality=LinkCardinality.MANY_TO_ONE,
+    )
+    release = build_ontology_release(
+        object_types=(resource_class, resource_type, resource),
+        link_types=(membership, classification),
+    )
+    store = InMemoryOntologyInstanceStore(
+        object_types=(resource_class, resource_type, resource),
+        link_types=(membership, classification),
+    )
+    for record in (
+        OntologyObjectRecord(
+            id="class.workload",
+            object_type="ResourceClass",
+            properties={"id": "class.workload"},
+        ),
+        OntologyObjectRecord(
+            id="compute.vm",
+            object_type="ResourceType",
+            properties={"id": "compute.vm"},
+        ),
+        OntologyObjectRecord(
+            id="resource:vm",
+            object_type="Resource",
+            properties={"id": "resource:vm"},
+        ),
+    ):
+        await store.upsert_object(record)
+    await store.upsert_link(
+        OntologyLinkRecord(
+            "resource_type_member_of_class",
+            "compute.vm",
+            "class.workload",
+        )
+    )
+    await store.upsert_link(
+        OntologyLinkRecord(
+            "resource_classified_as",
+            "resource:vm",
+            "compute.vm",
+            properties={
+                "inventory_generation": "generation-1",
+                "mapping_digest": DIGEST,
+                "mapping_id": "compute.vm",
+                "verified": True,
+            },
+        )
+    )
+    gateway = SecuredObjectSetQueryGateway(
+        service=ObjectSetService(
+            store=store,
+            interfaces=compile_interfaces(
+                interfaces=(),
+                implementations=(),
+                object_types=(resource_class, resource_type, resource),
+                release=release,
+            ),
+            object_type_names=frozenset({"ResourceClass", "ResourceType", "Resource"}),
+        ),
+        object_types={
+            "ResourceClass": resource_class,
+            "ResourceType": resource_type,
+            "Resource": resource,
+        },
+        ontology_release=release,
+        evaluation_cutoff=lambda: NOW,
+    )
+    handler = SecuredTypedPathNodeHandler(
+        gateway,
+        caller_role=CeilingRole.READER,
+        purposes=("operations-review",),
+    )
+    node = _node(
+        "taxonomy-path",
+        QueryNodeKind.TYPED_PATH,
+        dependencies=("resolve-class",),
+        arguments={
+            "steps": [
+                {
+                    "link_type": "resource_type_member_of_class",
+                    "direction": "incoming",
+                    "selector": {"kind": "object_type", "name": "ResourceType"},
+                },
+                {
+                    "link_type": "resource_classified_as",
+                    "direction": "incoming",
+                    "selector": {"kind": "object_type", "name": "Resource"},
+                },
+            ],
+            "as_of": NOW.isoformat(),
+            "purpose": "operations-review",
+            "limit": 100,
+        },
+    )
+    roots = QueryTable(
+        rows=(QueryRow.from_values("class.workload", {"id": "class.workload"}),),
+        complete=True,
+    )
+
+    result = await handler(node, {"resolve-class": QueryNodeResult(value=roots)})
+
+    assert isinstance(result.value, QueryTable)
+    assert tuple(row.row_id for row in result.value.rows) == ("resource:vm",)
+    assert result.value.complete is True
 
 
 async def test_metric_comparison_uses_reviewed_aggregation_and_equal_windows() -> None:

@@ -63,6 +63,37 @@
       "minLength": 1,
       "description": "Target ObjectType property used to order temporal links. The catalog loader verifies that it exists and has an ordered scalar type."
     },
+    "forward_role": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,63}$",
+      "description": "Role name when traversing from_type to to_type."
+    },
+    "reverse_role": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,63}$",
+      "description": "Role name when traversing from to_type to from_type without creating an inverse edge."
+    },
+    "semantic_traits": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "attachment",
+          "authorization",
+          "classification",
+          "connectivity",
+          "containment",
+          "dependency",
+          "evidence",
+          "ownership",
+          "reciprocal",
+          "taxonomy",
+          "traffic"
+        ]
+      },
+      "default": []
+    },
     "description": {
       "type": "string"
     },
@@ -77,6 +108,14 @@
         "required": ["temporal_order"]
       },
       "then": {"required": ["order_by_property"]}
+    },
+    {
+      "if": {"required": ["forward_role"]},
+      "then": {"required": ["reverse_role"]}
+    },
+    {
+      "if": {"required": ["reverse_role"]},
+      "then": {"required": ["forward_role"]}
     }
   ],
   "$defs": {

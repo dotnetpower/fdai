@@ -32,6 +32,9 @@ from fdai.core.ontology_platform.operational_functions import operational_functi
 from fdai.core.ontology_platform.release_diff_queries import (
     ONTOLOGY_RELEASE_DIFF_FUNCTION_NAME,
 )
+from fdai.core.ontology_platform.resource_class_closure import (
+    RESOURCE_CLASS_CLOSURE_FUNCTION_NAME,
+)
 from fdai.core.ontology_platform.resource_current_state_queries import (
     RESOURCE_CURRENT_STATE_FUNCTION_NAME,
 )
@@ -69,6 +72,7 @@ from fdai.rule_catalog.schema.inventory_query_language import (
 )
 from fdai.rule_catalog.schema.ontology_catalog import OntologyCatalog
 from fdai.rule_catalog.schema.property_semantic import empty_property_semantic_registry
+from fdai.rule_catalog.schema.resource_class import ResourceClassEntry, ResourceClassRegistry
 from fdai.shared.contracts.models import (
     CeilingRole,
     LinkCardinality,
@@ -190,6 +194,60 @@ class _RelationshipTraversalModel(_Model):
                 },
             ],
             "output_node_ids": ["related-resources"],
+        }
+
+
+class _TypedPathModel(_Model):
+    def propose_plan(self, **_kwargs: Any) -> dict[str, object]:
+        return {
+            "nodes": [
+                {
+                    "node_id": "resources",
+                    "kind": "object_set",
+                    "depends_on": [],
+                    "arguments": {"definition": self._definition.model_dump(mode="json")},
+                    "output_kind": "query.table",
+                },
+                {
+                    "node_id": "routed-resources",
+                    "kind": "typed_path",
+                    "depends_on": ["resources"],
+                    "arguments": {
+                        "steps": [
+                            {
+                                "link_type": "routes_to",
+                                "direction": "outgoing",
+                                "selector": {"kind": "object_type", "name": "Resource"},
+                            }
+                        ],
+                        "as_of": NOW.isoformat(),
+                        "purpose": "operations-review",
+                        "limit": 10,
+                    },
+                    "output_kind": "query.table",
+                },
+            ],
+            "output_node_ids": ["routed-resources"],
+        }
+
+
+class _ResourceClassClosureModel(_Model):
+    def propose_plan(self, **_kwargs: Any) -> dict[str, object]:
+        return {
+            "nodes": [
+                {
+                    "node_id": "workload-types",
+                    "kind": "function",
+                    "depends_on": [],
+                    "arguments": {
+                        "function_name": RESOURCE_CLASS_CLOSURE_FUNCTION_NAME,
+                        "arguments": {"resource_class_id": "class.workload"},
+                        "dependency_arguments": {},
+                    },
+                    "output_kind": "resource_class.closure",
+                }
+            ],
+            "output_node_ids": ["workload-types"],
         }
 
 
@@ -336,6 +394,115 @@ async def test_runtime_verifies_and_executes_relationship_traversal() -> None:
     related = result.execution.results["related-resources"].value
     assert isinstance(related, QueryTable)
     assert tuple(row.row_id for row in related.rows) == ("resource-a",)
+
+
+async def test_runtime_verifies_and_executes_typed_path() -> None:
+    object_type = _object_type()
+    link_type = OntologyLinkType(
+        schema_version="1.0.0",
+        name="routes_to",
+        version="1.0.0",
+        from_type="Resource",
+        to_type="Resource",
+        cardinality=LinkCardinality.MANY_TO_MANY,
+    )
+    store = InMemoryOntologyInstanceStore(
+        object_types=(object_type,),
+        link_types=(link_type,),
+    )
+    await store.upsert_object(
+        OntologyObjectRecord(
+            id="resource-a",
+            object_type="Resource",
+            properties={"id": "resource-a", "label": "API"},
+        )
+    )
+    runtime = build_semantic_query_runtime(
+        model=_TypedPathModel(_definition()),
+        ontology_release=build_ontology_release(
+            object_types=(object_type,),
+            link_types=(link_type,),
+            function_types=operational_function_types(()),
+        ),
+        ontology_catalog=OntologyCatalog(
+            object_types=(object_type,),
+            interface_types=(),
+            interface_implementations=(),
+            link_types=(link_type,),
+            action_types=(),
+            property_semantics=empty_property_semantic_registry(),
+        ),
+        ontology_store=store,
+        now=lambda: NOW,
+    )
+
+    result = await runtime.handle(
+        utterance="Show resources and their exact route path.",
+        prior_turns=(),
+        principal=Principal(id="reader", role=Role.READER),
+    )
+
+    assert result.disposition == "answered", result.reason
+    assert result.execution is not None
+    routed = result.execution.results["routed-resources"].value
+    assert isinstance(routed, QueryTable)
+    assert routed.rows == ()
+    assert routed.complete is True
+
+
+async def test_runtime_executes_exact_resource_class_closure_function() -> None:
+    object_type = _object_type()
+    resource_classes = ResourceClassRegistry(
+        schema_version="1.0.0",
+        version="1.0.0",
+        classes=(
+            ResourceClassEntry(
+                id="class.workload",
+                description="Resource that runs application work.",
+            ),
+            ResourceClassEntry(
+                id="class.compute-workload",
+                description="Compute-hosted workload.",
+                members=("compute.vm",),
+                specializes=("class.workload",),
+            ),
+        ),
+    )
+    function_types = operational_function_types(())
+    runtime = build_semantic_query_runtime(
+        model=_ResourceClassClosureModel(_definition()),
+        ontology_release=build_ontology_release(
+            object_types=(object_type,),
+            function_types=function_types,
+        ),
+        ontology_catalog=OntologyCatalog(
+            object_types=(object_type,),
+            interface_types=(),
+            interface_implementations=(),
+            link_types=(),
+            action_types=(),
+            property_semantics=empty_property_semantic_registry(),
+            resource_classes=resource_classes,
+        ),
+        ontology_store=InMemoryOntologyInstanceStore(
+            object_types=(object_type,),
+            link_types=(),
+        ),
+        now=lambda: NOW,
+    )
+
+    result = await runtime.handle(
+        utterance="Which exact resource types are workloads?",
+        prior_turns=(),
+        principal=Principal(id="reader", role=Role.READER),
+    )
+
+    assert result.disposition == "answered", result.reason
+    assert result.execution is not None
+    closure = result.execution.results["workload-types"].value
+    assert closure["resource_type_ids"] == ["compute.vm"]
+    assert closure["registry_digest"] == resource_classes.content_digest
+    assert closure["execution_authority"] is False
 
 
 async def test_runtime_returns_typed_hold_when_model_provider_is_unavailable() -> None:

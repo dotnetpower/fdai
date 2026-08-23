@@ -69,6 +69,13 @@ function graphResponse(): Record<string, unknown> {
     _revision: digest,
     ontology_release_digest: digest,
     mutation_authority: false,
+    complete: true,
+    limitations: {
+      source_coverage: [],
+      query_truncation: [],
+      access_redaction: [],
+      presentation_omission: [],
+    },
     mermaid: "classDiagram\n",
     object_type_count: 1,
     link_type_count: 0,
@@ -140,11 +147,59 @@ describe("ontology view model", () => {
     );
   });
 
+  it("decodes a complete legacy 2.0.0 payload before additive fields materialize", () => {
+    const legacy = graphResponse();
+    delete legacy.complete;
+    delete legacy.limitations;
+    legacy.link_type_count = 1;
+    legacy.link_types = ["routes_to"];
+    legacy.edges = [{
+      name: "routes_to",
+      from_type: "Resource",
+      to_type: "Resource",
+      cardinality: "many_to_one",
+      is_transitive: false,
+      is_causal: false,
+      temporal_order: false,
+      description: null,
+    }];
+
+    const decoded = decodeOntologyGraphResponse(legacy);
+
+    expect(decoded.complete).toBe(true);
+    expect(decoded.limitations.presentation_omission).toEqual([]);
+    expect(decoded.edges?.[0]).toMatchObject({
+      forward_role: null,
+      reverse_role: null,
+      semantic_traits: [],
+    });
+  });
+
   it("rejects authority, release, band, edge identity, and numeric violations", () => {
     expect(() => decodeOntologyGraphResponse({
       ...graphResponse(),
       mutation_authority: true,
     })).toThrow("mutation_authority MUST be false");
+
+    const malformedTraits = graphResponse();
+    malformedTraits.link_type_count = 1;
+    malformedTraits.link_types = ["routes_to"];
+    malformedTraits.edges = [{
+      name: "routes_to",
+      from_type: "Resource",
+      to_type: "Resource",
+      cardinality: "many_to_one",
+      is_transitive: false,
+      is_causal: false,
+      temporal_order: false,
+      forward_role: "routes_to",
+      reverse_role: "receives_route_from",
+      semantic_traits: "traffic",
+      description: null,
+    }];
+    expect(() => decodeOntologyGraphResponse(malformedTraits)).toThrow(
+      "semantic_traits MUST be an array",
+    );
     expect(() => decodeOntologyGraphResponse({
       ...graphResponse(),
       mutation_authority: null,

@@ -22,6 +22,7 @@ from fdai.core.ontology_platform.diagnostic_projection import (
     build_diagnostic_catalog_projection,
 )
 from fdai.rule_catalog.schema.rego_semantics import load_rego_semantics
+from fdai.rule_catalog.schema.resource_class import load_resource_class_registry_from_mapping
 from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
 from fdai.rule_catalog.schema.signal_type import load_signal_type_registry_from_mapping
 from fdai.runtime.configuration import _resolve_catalog_root
@@ -86,6 +87,12 @@ async def project_catalog_ontology(
             (catalog_root / "vocabulary/resource-types.yaml").read_text(encoding="utf-8")
         )
     )
+    resource_classes = load_resource_class_registry_from_mapping(
+        yaml.safe_load(
+            (catalog_root / "vocabulary/resource-classes.yaml").read_text(encoding="utf-8")
+        ),
+        resource_types=resource_types,
+    )
     signal_types = load_signal_type_registry_from_mapping(
         yaml.safe_load((catalog_root / "vocabulary/signal-types.yaml").read_text(encoding="utf-8"))
     )
@@ -100,6 +107,7 @@ async def project_catalog_ontology(
         signal_types=signal_types,
         policy_semantics=semantics,
         property_semantics=control_loop.property_semantics,
+        resource_classes=resource_classes,
     )
     projection = merge_catalog_ontology_projections(
         base_projection,

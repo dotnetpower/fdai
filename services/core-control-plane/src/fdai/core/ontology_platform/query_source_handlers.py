@@ -16,6 +16,7 @@ from .models import (
     ObjectSetDefinition,
     ObjectTraversal,
     RelationshipTraversalDefinition,
+    TypedPathDefinition,
 )
 from .query_execution import QueryNodeHeldError, QueryNodeResult
 from .query_gateway import SecuredObjectSetQueryGateway, SecuredObjectSetQueryResult
@@ -127,6 +128,117 @@ class SecuredRelationshipTraversalNodeHandler:
                 f"ontology-query-table:{table.digest}",
             ),
         )
+
+
+class SecuredTypedPathNodeHandler:
+    """Execute an ordered path as independently secured single-hop reads."""
+
+    def __init__(
+        self,
+        gateway: SecuredObjectSetQueryGateway,
+        *,
+        caller_role: CeilingRole,
+        purposes: Sequence[str],
+        receipt_authority: SecuredQueryReceiptAuthority | None = None,
+    ) -> None:
+        self._gateway = gateway
+        self._request = ProjectionRequest(
+            caller_role=caller_role,
+            declared_purposes=frozenset(purposes),
+        )
+        self._receipt_authority = receipt_authority
+
+    async def __call__(
+        self,
+        node: OntologyQueryNode,
+        dependencies: Mapping[str, QueryNodeResult],
+    ) -> QueryNodeResult:
+        if len(node.depends_on) != 1 or set(dependencies) != set(node.depends_on):
+            raise ValueError("typed path requires one declared dependency")
+        dependency = dependencies[node.depends_on[0]].value
+        if not isinstance(dependency, QueryTable):
+            raise TypeError("typed path dependency MUST be a QueryTable")
+        if not dependency.complete:
+            raise QueryNodeHeldError("entity_resolution_incomplete")
+        if not dependency.rows:
+            raise QueryNodeHeldError("entity_resolution_empty")
+        if len(dependency.rows) != 1:
+            raise QueryNodeHeldError("entity_resolution_ambiguous")
+        path = TypedPathDefinition.model_validate(node.arguments)
+        current = dependency
+        evidence_refs = list(_evidence_refs(dependencies))
+        for index, step in enumerate(path.steps):
+            root_ids = tuple(row.row_id for row in current.rows)
+            definition = ObjectSetDefinition(
+                selector=step.selector,
+                traversal=ObjectTraversal(
+                    link_types=(step.link_type,),
+                    direction=step.direction,
+                    max_depth=step.max_hops,
+                ),
+                root_ids=root_ids,
+                as_of=path.as_of,
+                purpose=path.purpose,
+                limit=path.limit,
+            )
+            secured = await self._gateway.materialize(
+                definition,
+                projection_request=self._request,
+            )
+            if self._receipt_authority is not None:
+                self._receipt_authority.issue(secured)
+            current = _typed_path_step_table(
+                secured,
+                root_ids=root_ids,
+                link_type=step.link_type,
+                direction=step.direction,
+                max_hops=step.max_hops,
+            )
+            evidence_refs.extend(
+                (
+                    f"ontology-object-set:{secured.receipt.projected_result_digest}",
+                    f"ontology-query-table:{current.digest}",
+                )
+            )
+            if not current.complete and index < len(path.steps) - 1:
+                raise QueryNodeHeldError("typed_path_step_incomplete")
+            if not current.rows:
+                break
+        return QueryNodeResult(
+            value=current,
+            evidence_refs=tuple(dict.fromkeys(evidence_refs)),
+        )
+
+
+def _typed_path_step_table(
+    secured: SecuredObjectSetQueryResult,
+    *,
+    root_ids: tuple[str, ...],
+    link_type: str,
+    direction: str,
+    max_hops: int,
+) -> QueryTable:
+    """Return only endpoints reached by one typed step, excluding carried roots."""
+
+    roots = set(root_ids)
+    reached: set[str] = set()
+    for link in secured.materialization.graph.links:
+        if link.link_type != link_type:
+            continue
+        if direction == "outgoing" and link.from_id in roots:
+            reached.add(link.to_id)
+        elif direction == "incoming" and link.to_id in roots:
+            reached.add(link.from_id)
+    raw_table = _secured_query_table(secured)
+    if max_hops > 1:
+        reached = {row.row_id for row in raw_table.rows if row.row_id not in roots}
+    if not reached:
+        reached = {row.row_id for row in raw_table.rows if row.row_id not in roots}
+    return QueryTable(
+        rows=tuple(row for row in raw_table.rows if row.row_id in reached),
+        complete=raw_table.complete,
+        truncation_reason=raw_table.truncation_reason,
+    )
 
 
 class FunctionNodeHandler:
@@ -282,4 +394,5 @@ __all__ = [
     "FunctionNodeHandler",
     "SecuredObjectSetNodeHandler",
     "SecuredRelationshipTraversalNodeHandler",
+    "SecuredTypedPathNodeHandler",
 ]

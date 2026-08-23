@@ -18,6 +18,9 @@ const edge = (name: string, fromType: string, toType: string): OntologyEdge => (
   is_transitive: false,
   is_causal: false,
   temporal_order: false,
+  forward_role: null,
+  reverse_role: null,
+  semantic_traits: [],
   description: null,
 });
 
