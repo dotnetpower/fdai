@@ -248,6 +248,36 @@
       }
     },
     {
+      "label": "console: keep full stack ready (10m)",
+      "type": "shell",
+      "command": "bash scripts/deployment/local/watch-console-services.sh",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "console: require primary worktree"
+      ],
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "console-watchdog",
+        "pattern": { "regexp": "^(?!)$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "service=console-watchdog event=started",
+          "endsPattern": "service=console-watchdog event=started"
+        }
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "group": "console-full-stack",
+        "clear": true,
+        "showReuseMessage": false
+      },
+      "runOptions": {
+        "instanceLimit": 1,
+        "instancePolicy": "silent"
+      }
+    },
+    {
       "label": "channel edge: Operator Slack and Teams (Local)",
       "type": "shell",
       "command": "bash scripts/deployment/local/run-console-service.sh operator-channel-edge",

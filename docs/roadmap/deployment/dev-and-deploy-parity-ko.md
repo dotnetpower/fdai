@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: ada9f958e8f8d5cadf3a51c6a69338aec9fea320
+translation_source_sha: 5b1561ff067a3c52da92b49b26d2aa269c5e68dd
 translation_revised: 2026-08-25
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -28,6 +28,7 @@ translation_revised: 2026-08-25
 | 로컬 및 배포 composition 동등성 | implemented | `.vscode/tasks.json`, `.vscode/launch.json`, `scripts/deployment/local/`, `infra/`, `fdai_operator_service/composition.py`, 서비스 통합 테스트 및 focused Operator 검사(`51 passed`) | Composition root는 근거 권한을 바꾸지 않고 자격 증명과 어댑터를 선택합니다. 로컬 및 배포 Operator composition은 같은 Reader 범위 `GET /browser-evidence` 경로와 권위 있는 데이터 출처 ID를 등록하며 PostgreSQL이 없으면 합성 데이터 대신 사용 불가를 반환합니다. |
 | 독립 A3 channel-edge 동등성 | 구현됨 | `channel_edge/`, `prepare-channel-edge-env.sh`, `.vscode/tasks.json`, `infra/services/operator-service`, 플랫폼 edge identity/RBAC, 집중 edge 및 로컬 실행 검사 | 두 venue는 port 8014에서 동일한 Operator distribution ASGI factory, PostgreSQL store, 의미 EventBus bridge, 프로바이더 경로 및 readiness 논리를 실행합니다. Local은 private 0600 provider input과 Redpanda를 사용하고 deployed는 Key Vault reference, Event Hubs Kafka 및 전용 non-executor Managed Identity를 사용합니다. Provider 구성이 없으면 선택적 기능은 synthetic 대신 unavailable 상태를 유지합니다. |
 | Primary worktree 명시적 전체 스택 시작 | implemented | `.vscode/tasks.json`, `prepare-console-full-stack.sh`, `start-console-services.sh`, `run-console-service.sh`, `developer-workflow.py`, 집중 시작 계약 테스트 | 폴더를 열 때 더 이상 이행, 권위 데이터 새로 고침 또는 애플리케이션 서비스를 실행하지 않습니다. 준비 작업은 로컬 의존성을 복구하고 독립적으로 fingerprint된 7개 단계를 재사용하며, 캐시 재사용에 실행 중인 스택을 요구하지 않습니다. Supervisor는 프로세스를 시작한 뒤 시작 호출자를 해제하고 전체 준비 상태 게이트를 계속 실행하며 명시적 대기 작업을 제공합니다. |
+| 선택적 10분 로컬 복구 감시 | implemented | `.vscode/tasks.json`, `watch-console-services.sh`, `developer-workflow.py`, 집중 workspace 태스크 계약 | 단일 인스턴스 태스크가 600초마다 구성 요소 6개의 준비 상태 계약을 확인합니다. 정상 스택은 건너뛰고 실패한 경우에는 표준 준비 및 supervisor 경로를 사용하여 고정 로컬 포트와 서비스 소유권 규칙을 유지합니다. |
 | 로컬 진단 로그 복원력 | implemented | `capture-local-service-log.py`, `fdai.shared.telemetry.logging`, 집중 telemetry 및 launcher 검사 | 경고 보존은 레코드별 압축 없이 추가하고, 로컬 파일 캡처는 터미널 역압력과 격리하며, 과대 레코드는 범위를 제한하고, 반복 의존성 실패는 최초·주기·서로 다른 실패 근거를 보존합니다. |
 | 폴더 열기 dev-access 경로 안정화 | implemented | `tools/dev-access/scripts/vscode-startup.sh`, `tests/integration/infra/test_dev_access.py`, 집중 dev-access 테스트 | 태스크는 Azure VPN Client를 최대 한 번 열고 범위가 제한된 7초 유예 시간 동안 mirrored WSL 경로를 8번 확인합니다. Direct 경로가 나타나면 DNS를 적용하고 실제 연결 끊김에는 exit `20`을 유지합니다. 로컬 상태가 없는 workstation과 direct-VNet 머신은 계속 조용히 종료합니다. |
 | 리포지토리 범위 roadmap campaign 용량 | implemented | `roadmap_verification_watchdog.py`, `test_roadmap_verification_watchdog.py`, `scripts/README.md`의 무작위 campaign 운영 계약 | FDAI session lease와 최근 Copilot 활동을 모두 이 리포지토리 범위에서만 계산합니다. Linked worktree는 VS Code workspace ID를 도출하기 전에 primary checkout을 해석합니다. 다른 workspace는 FDAI 작업을 보류할 수 없으며, 900초 활동 창과 campaign 세션 2개 상한은 FDAI 동시 편집을 계속 보호합니다. |
@@ -42,6 +43,7 @@ translation_revised: 2026-08-25
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
+| 2026-08-25 | implemented | 선택적 `console: keep full stack ready (10m)` 태스크를 추가했습니다. 기존의 범위가 제한된 6개 구성 요소 준비 상태 검사를 600초마다 실행하고, 정상 구성은 건너뛰며 준비 상태 검사에 실패한 경우에만 표준 준비 및 supervisor 경로로 진입합니다. | `current change`, `.vscode/tasks.json`, `scripts/deployment/local/watch-console-services.sh`, `tests/integration/scripts/test_vscode_workspace_performance.py`, 집중 workspace 계약 테스트 4개 통과, 셸 구문 및 VS Code 진단 통과 | 선택적 로컬 복구 감시에 남은 구현 작업은 없습니다. |
 | 2026-08-24 | implemented | HashiCorp 전용 workspace와 이식 가능한 프로파일에서 Microsoft Terraform 언어 서버 설정을 제거하고, workspace에서 사용하지 않는 Live Server 설정을 제거했습니다. 맥락 사용량 표시기는 설계대로 계속 활성화합니다. | `current change`, `.vscode/settings.json`, `.vscode/fdai.code-profile`, 집중 프로파일 및 workspace 계약 테스트 13개 통과 | 확장이 소유하는 공유 설정에 남은 구현 작업은 없습니다. |
 | 2026-08-23 | implemented | 준비 캐시 유효성을 런타임 상태와 분리하고 준비 작업을 순서가 있는 단계 fingerprint 7개로 나눴으며, Docker volume identity가 데이터베이스 기반 단계를 무효화하도록 했습니다. 전체 스택 시작은 감독 대상 프로세스를 시작한 뒤 반환하고 supervisor는 60초 게이트를 계속 실행합니다. `console: wait full stack ready`가 명시적 차단 검사를 제공하며 Core 전용 복구는 최신 Pantheon heartbeat를 기다립니다. | `current change`, `.vscode/tasks.json`, `scripts/automation/{developer-workflow.py,local-service-input-digest.py}`, `scripts/deployment/local/{prepare-console-full-stack,prepare-console-state,start-console-services,run-console-service}.sh`, 집중 시작 계약 모음 테스트 38개 통과, 셸 구문 및 VS Code 진단 통과 | 범위가 제한된 로컬 시작 응답 경로에 남은 구현 작업은 없습니다. |
 | 2026-08-22 | validated | Core Runtime이 범위가 제한된 프로바이더 초기화를 완료하고 첫 Pantheon heartbeat를 내보낼 수 있도록 clean Console 시작 준비 상태 게이트를 15초에서 60초로 늘렸습니다. 제한 없는 Bash `/dev/tcp` 소유권 확인을 연결 전에 상속된 서비스 잠금을 닫는 250ms IPv4 및 IPv6 소켓 검사로 교체하여, 필터링된 loopback 포트가 준비 상태 기한을 넘겨 소유자 정보만 있는 잠금을 유지하지 않도록 했습니다. | [이슈 #254](https://github.com/dotnetpower/fdai/issues/254), `current change`, `scripts/automation/run-local-service.sh`, `scripts/deployment/local/start-console-services.sh`, 집중 실행기 및 workspace 작업 계약 테스트 28개 통과, clean 표준 시작에서 6/6 준비 상태 도달, port 5273 및 8010-8013의 HTTP 200 응답, 관리 잠금 6개 유지 확인 | #254의 잔여 작업이 없습니다. |
@@ -206,6 +208,13 @@ Docker Redpanda를 사용합니다. Azure에 배포된 프로세스는 `FDAI_EXE
 스택을 요구하지 않고 정확한 입력과 필수 출력으로 재사용됩니다. 데이터베이스 기반 단계에는 로컬
 PostgreSQL volume identity도 포함하므로 재생성된 volume이 오래된 파일 marker를 상속할 수 없습니다.
 `--force`는 모든 단계를 무효화합니다.
+
+대화형 세션에서 중지된 백엔드를 자동으로 복구하려면
+`console: keep full stack ready (10m)` 태스크를 실행합니다. 이 태스크는 600초마다 동일한
+6개 구성 요소 준비 상태 계약을 확인합니다. 정상 결과는 아무것도 다시 시작하지 않고
+건너뜁니다. 사용할 수 없는 결과는 포트 `5273`과 `8010`-`8013`을 유지하는 표준 준비 및
+supervisor 경로를 실행합니다. 태스크를 중지하면 이후 확인과 감시가 시작한 supervisor가
+중지되며, 독립적으로 시작된 정상 스택은 받아들이거나 중지하지 않습니다.
 
 Supervisor는 허용된 각 `run-console-service.sh`을 자체 잠금, fingerprint, 로그 및 수명주기와 함께 병렬 시작합니다. 모든 launcher를 시작한 뒤 `started`를 내보내 `console: start full stack` 호출자를 해제하고, 그 뒤에도 60초 게이트와 종료 신호 전달을 계속 담당합니다. 브라우저 검증이나 전체 구성이 필요한 작업 전에는 `console: wait full stack ready`를 실행합니다. 이 작업은 체크아웃 소유 Core, 최신 heartbeat 및 정상 서비스 probe를 요구합니다. Core 전용 복구 작업도 프로세스 시작을 준비 상태로 취급하지 않고 최신 Pantheon heartbeat를 기다립니다. 변경되거나 다른 소유권은 관리 대상만 교체하거나 실패합니다.
 

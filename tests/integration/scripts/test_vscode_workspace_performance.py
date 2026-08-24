@@ -74,7 +74,7 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
     tasks = _load_jsonc(REPO_ROOT / ".vscode" / "tasks.json")
     assert isinstance(tasks, dict)
     tasks_by_label = {task["label"]: task for task in tasks["tasks"]}
-    assert len(tasks_by_label) == 14
+    assert len(tasks_by_label) == 15
 
     prepare_stack = tasks_by_label["console: prepare full stack"]
     assert prepare_stack["command"] == (
@@ -159,6 +159,7 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
         "console: start core runtime",
         "console: restart core runtime",
         "console: start full stack",
+        "console: keep full stack ready (10m)",
         "console: wait full stack ready",
         "channel edge: Operator Slack and Teams (Local)",
     }
@@ -210,6 +211,21 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
     assert wait_ready["runOptions"] == {
         "instanceLimit": 1,
         "instancePolicy": "silent",
+    }
+
+    watchdog = tasks_by_label["console: keep full stack ready (10m)"]
+    assert watchdog["command"] == ("bash scripts/deployment/local/watch-console-services.sh")
+    assert watchdog["dependsOrder"] == "sequence"
+    assert watchdog["dependsOn"] == ["console: require primary worktree"]
+    assert watchdog["isBackground"] is True
+    assert watchdog["runOptions"] == {
+        "instanceLimit": 1,
+        "instancePolicy": "silent",
+    }
+    assert watchdog["problemMatcher"]["background"] == {
+        "activeOnStart": True,
+        "beginsPattern": "service=console-watchdog event=started",
+        "endsPattern": "service=console-watchdog event=started",
     }
 
     removed_service_tasks = {
