@@ -14,6 +14,10 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from fdai.core.ontology_platform.runtime_call_projection import (
+    RUNTIME_CALL_LINK_TYPE_DECLARATION_DIGEST,
+    RUNTIME_CALL_LINK_TYPE_VERSION,
+)
 from fdai.rule_catalog.schema.link_type import (
     LinkTypeCatalogError,
     link_type_names,
@@ -21,7 +25,9 @@ from fdai.rule_catalog.schema.link_type import (
     load_link_type_from_mapping,
 )
 from fdai.rule_catalog.schema.object_type import load_object_type_catalog
+from fdai.shared.contracts.models import OntologyDeclarationKind
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
+from fdai.shared.ontology.release import build_ontology_release
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 OBJECT_TYPE_ROOT = REPO_ROOT / "rule-catalog" / "vocabulary" / "object-types"
@@ -52,6 +58,7 @@ def test_shipped_link_types_load() -> None:
         "contains",
         "attached_to",
         "depends_on",
+        "runtime_calls",
         "routes_to",
         "peered_with",
         "precedes",
@@ -67,6 +74,23 @@ def test_shipped_link_types_load() -> None:
     assert by_name["triggered_by"].to_type == "SignalType"
     assert by_name["evaluates"].to_type == "Property"
     assert by_name["remediates"].to_type == "ActionType"
+    runtime_calls = by_name["runtime_calls"]
+    assert (runtime_calls.from_type, runtime_calls.to_type) == ("Resource", "Resource")
+    assert (runtime_calls.forward_role, runtime_calls.reverse_role) == ("calls", "called_by")
+    assert tuple(item.value for item in runtime_calls.semantic_traits) == (
+        "connectivity",
+        "traffic",
+    )
+    assert runtime_calls.is_transitive is False
+    assert runtime_calls.is_causal is False
+    release = build_ontology_release(link_types=catalog)
+    declaration = next(
+        item
+        for item in release.declarations
+        if item.kind is OntologyDeclarationKind.LINK and item.name == "runtime_calls"
+    )
+    assert str(declaration.version) == RUNTIME_CALL_LINK_TYPE_VERSION
+    assert declaration.declaration_digest == RUNTIME_CALL_LINK_TYPE_DECLARATION_DIGEST
 
 
 def test_transitive_flag_round_trips() -> None:

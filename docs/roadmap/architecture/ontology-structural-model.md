@@ -89,6 +89,7 @@ Examples include:
 - `attached_to` for an attached resource and its anchor;
 - `depends_on` for an existential prerequisite without independent contract data;
 - `routes_to` for one verified directed forwarding reference;
+- `runtime_calls` for one verified telemetry invocation from caller Resource to target Resource;
 - `peered_with` as two independently supported directed records;
 - `resource_classified_as` for exact reviewed classification.
 
@@ -123,7 +124,7 @@ meaning, not colors, layout lanes, or graph coordinates. Existing causal, tempor
 cardinality, and endpoint contracts remain independent.
 
 The first implementation applies the fields to `contains`, `attached_to`, `depends_on`,
-`routes_to`, `peered_with`, `resource_classified_as`, `resource_type_member_of_class`, and
+`routes_to`, `runtime_calls`, `peered_with`, `resource_classified_as`, `resource_type_member_of_class`, and
 `resource_class_specializes`. Other LinkTypes remain readable through their exact legacy
 declarations until a competency-driven audit promotes them.
 
@@ -206,7 +207,7 @@ major version or explicit graph migration. No rollout rewrites historical contex
 | Structural design and compatibility | implemented | This paired owner document, `design-routes.json`, roadmap index, code map, and focused documentation gates | The additive model preserves existing Resource, ResourceType, direct-link identity, stored direction, and historical declarations. |
 | ResourceClass catalog and projection | implemented | `resource_class.py`, `resource-classes.yaml`, ResourceClass/ObjectType and membership/specialization declarations, catalog projection, closure receipt, and focused catalog checks | Three reviewed classes project with nine memberships and one acyclic specialization. Closure uses only explicit ids and grants no authority. |
 | Ordered typed-path query | implemented | `TypedPathDefinition`, `QueryNodeKind.TYPED_PATH`, deterministic verifier, secured handler, composition binding, and focused query checks | Existing v1 traversal now accepts one LinkType. Typed paths execute 1-8 exact directed steps and hold on incomplete intermediate evidence. |
-| Link roles and semantic traits | implemented | Shared LinkType contract and schema, query manifest, six revised runtime declarations plus two taxonomy declarations, and catalog tests | Optional empty fields preserve legacy provenance. Reviewed fields do not create inverse edges or presentation layout. |
+| Link roles and semantic traits | implemented | Shared LinkType contract and schema, query manifest, seven reviewed runtime declarations plus two taxonomy declarations, and catalog tests | Optional empty fields preserve legacy provenance. Reviewed fields do not create inverse edges or presentation layout. |
 | Completeness and presentation separation | implemented | Authoritative ontology graph materializer, integration tests, Console decoder and LinkType inspector, bilingual product catalog, typecheck, and production build | The declaration graph carries four independent limitation families and exposes every bounded LinkType with roles and traits. This claim does not include the separate uncommitted instance explorer in another checkout. |
 | Governance artifact separation | implemented | `rule_catalog/schema/governance_catalog.py`; `delivery/catalog_exemption.py`; focused governance loader and registry tests | Assignments and exemptions are validated catalog-as-code inputs. They are not projected as ontology facts and grant no query, approval, or execution authority. |
 | Adversarial hardening | implemented | Fifteen-round hardening record below; 308 focused Python tests, 29 focused Console tests, Ruff over 29 changed Python files, strict mypy over 19 changed source files, Console typecheck, and production build | Every verified High or Medium finding was resolved. Only Low residual observations remain. |
@@ -220,6 +221,7 @@ major version or explicit graph migration. No rollout rewrites historical contex
 | 2026-08-23 | implemented | Completed fifteen adversarial hardening rounds. Closed typed-path composition, bounded repetition, classification-evidence integrity, taxonomy identity and bounds, exact-release compatibility, Console decoding, rollout compatibility, and production taxonomy-closure integration defects. | `current change`; 308 focused Python tests passed, 29 focused Console tests passed, Ruff passed over 29 changed Python files, strict mypy passed over 19 changed source files, and Console typecheck and production build passed. | Run the paired documentation, roadmap, translation, punctuation, design-route, and final diff gates. |
 | 2026-08-23 | implemented | Completed the bounded implementation and documentation gate stack with no verified finding above Low severity. | `current change`; translation quality and readable-Hangul checks passed for 3 changed Korean docs, punctuation passed for 6 changed docs, and derived-source, roadmap tracking, document-size, design-route, and 664-file link checks passed. | No remaining work for this document's bounded scope. |
 | 2026-08-23 | implemented | Recorded that immutable governance assignments and exemptions remain catalog-as-code inputs outside the ontology structural graph. | `current change`; governance catalog, exemption registry, and focused startup checks. | No ontology projection or authority work follows from this boundary. |
+| 2026-08-24 | implemented | Added the non-transitive `runtime_calls` Resource-to-Resource declaration with caller-to-target roles and connectivity and traffic traits. The declaration alone creates no edge or authority. | `current change`; `runtime_calls.yaml`; focused LinkType, provenance, catalog, and exact-release checks. | Bind only independently verified endpoint observations through the continuous operational graph owner. |
 
 ### Hardening record
 
@@ -251,6 +253,8 @@ major version or explicit graph migration. No rollout rewrites historical contex
   incoming, mixed-direction, invalid-endpoint, transitive, cyclic, and truncated cases.
 - [x] Add reviewed roles and semantic traits to the initial LinkTypes without changing stored
   direction, endpoint identity, or historical release interpretation.
+- [x] Add the reviewed `runtime_calls` declaration without binding a producer or reinterpreting
+  historical links.
 - [x] Separate source, query, access, and presentation limitations in the authoritative declaration
   graph and Console LinkType inspector, including the complete bounded LinkType directory.
 - [x] Complete at least ten independent critique and hardening rounds and leave no verified finding
