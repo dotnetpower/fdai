@@ -109,20 +109,15 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     assert 'environment_file="$output_dir/enforce.env"' in workflow
     assert 'environment_file="$(bash' not in workflow
     assert 'CONFIRM_DESTROY" != "destroy-sre-demo-lab"' in workflow
-    assert workflow.count("terraform apply -input=false -auto-approve") == 4
+    assert workflow.count("terraform apply -input=false -auto-approve") == 3
     assert workflow.count('"$RUNNER_TEMP/sre-demo-lab.tfplan"') >= 3
     assert "terraform destroy" not in workflow
     assert "Quiesce private DNS links before destroy" in workflow
-    assert (
-        "scenario-lab DNS-link plan contains an action outside the delete-only allowlist"
-        in workflow
-    )
-    assert 'select(.change.actions != ["no-op"])' in workflow
-    assert 'select(.change.actions == ["delete"])' in workflow
     assert 'select(.type? == "azurerm_private_dns_zone_virtual_network_link")' in workflow
-    assert "if terraform state list | grep -Fxq" in workflow
-    assert '"${link_targets[@]}"' in workflow
+    assert "scenario-lab DNS-link state contains an invalid ARM resource id" in workflow
+    assert 'az resource delete --ids "$link_id"' in workflow
     assert 'az resource wait --deleted --ids "$link_id"' in workflow
+    assert 'terraform state rm -lock-timeout=5m "$link_address"' in workflow
     assert "scenario-lab DNS recovery refuses a zone with visible VNet links" in workflow
     assert 'link_name="pe-fdai-sre-lab-${TF_VAR_region_short}-oai-runner-link"' in workflow
     assert "az network private-dns link vnet create" in workflow
