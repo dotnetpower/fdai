@@ -84,6 +84,44 @@ Every stage writes an audit entry; a rule change is itself a change and ships as
 - **New resource types**: detect provider schema changes, identify uncovered resource types, and
   generate **rule stubs that ship shadow-only and HIL-reviewed** - a stub is never auto-enforced.
 
+### Global provider schema accounting
+
+Provider schema discovery uses a separate, content-addressed evidence catalog rather than adding
+every upstream type to the operational `ResourceType` vocabulary. The global catalog accounts for
+every type in one complete immutable source revision, including unused, unobserved, preview-only,
+read-only, and unsupported types. Operational vocabulary and relationship mappings remain a
+reviewed semantic subset.
+
+The Azure source is the generated `Azure/bicep-types-az` type index pinned to an immutable commit.
+An internal mirror or signed offline bundle may supply the same tree and must produce the same
+snapshot digest. The watcher never substitutes the current subscription's registered providers for
+the global corpus because that would hide types the deployment doesn't use.
+
+Each bounded run ends in one explicit state:
+
+| State | Meaning | Promotion effect |
+|-------|---------|------------------|
+| `not_due` | The last complete check is within policy cadence. | Keep the previous complete snapshot. |
+| `unchanged` | The complete source revision produces the current digest. | Record the check; create no proposal. |
+| `compatible` | Types or API versions were added without removing a stable surface. | Append drift evidence; semantic work remains an inert review candidate. |
+| `breaking` | A type or stable API version was removed, or incompatible changes coexist with additions. | Hold the pinned semantic surface and require governed review. |
+| `policy_blocked` | Network policy permits neither primary nor mirror access. | Make no external call, retain the last complete snapshot, and report stale or unavailable evidence. |
+| `unavailable` | Every allowed source failed integrity, completeness, timeout, or I/O checks. | Retain the last complete snapshot and create no semantic proposal. |
+
+Deterministic diffing compares normalized type identities and stable/preview API-version sets.
+Removal is a tombstone in the evidence ledger, never immediate deletion from ontology or rule
+catalogs. Only a material, policy-gated drift package enters the existing agent and architecture
+review flow. A mechanical watcher never edits `ResourceType`, `LinkType`, relationship mappings,
+rules, or policies, and no provider-schema record grants observation, approval, or execution
+authority.
+
+The implemented Azure path pins both evidence planes. `Azure/bicep-types-az` accounts for 3,405
+global resource types, while `Azure/azure-rest-api-specs` contributes 6,896 explicit ARM ID
+references and 5,382 Azure resource-definition markers. Exact and unresolved targets remain
+separate. A daily Container Apps Job restores and persists the append-only ledger through the
+private PostgreSQL StateStore. Material drift is validated by Heimdall and published only as a
+shadow `object.drift` signal. Deployment receipts remain required before operational validation.
+
 ## LLM Quality Gate (T2 - see [llm-strategy.md](../architecture/llm-strategy.md))
 
 T2 inputs are **untrusted** ([security-and-identity.md](../architecture/security-and-identity.md)); the

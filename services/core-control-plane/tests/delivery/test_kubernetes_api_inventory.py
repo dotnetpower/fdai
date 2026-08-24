@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
@@ -10,7 +11,9 @@ from fdai.delivery.kubernetes_api_inventory import (
     KubernetesApiInventoryConfig,
     KubernetesApiInventoryError,
     KubernetesApiInventorySource,
+    WorkloadIdentityKubernetesAuth,
 )
+from fdai.shared.providers.workload_identity import IdentityToken
 
 CLUSTER_REF = "scope-example/resource-group/rg-example/providers/containerservice/cluster-example"
 
@@ -18,6 +21,51 @@ CLUSTER_REF = "scope-example/resource-group/rg-example/providers/containerservic
 class _Auth:
     async def headers(self) -> Mapping[str, str]:
         return {"Authorization": "Bearer test-token"}
+
+
+class _Identity:
+    def __init__(
+        self,
+        *,
+        credential_value: str = "short-lived-value",
+        audience: str = "aks-audience",
+    ) -> None:
+        self.credential_value = credential_value
+        self.audience = audience
+        self.requested: list[str] = []
+
+    async def get_token(self, audience: str) -> IdentityToken:
+        self.requested.append(audience)
+        return IdentityToken(
+            token=self.credential_value,
+            audience=self.audience,
+            expires_at=datetime.now(UTC) + timedelta(minutes=5),
+        )
+
+
+async def test_workload_identity_auth_requests_exact_audience_without_persisting_token() -> None:
+    identity = _Identity()
+
+    headers = await WorkloadIdentityKubernetesAuth(
+        identity=identity,
+        audience="aks-audience",
+    ).headers()
+
+    assert identity.requested == ["aks-audience"]
+    assert headers == {
+        "Authorization": "Bearer short-lived-value",
+        "Accept": "application/json",
+    }
+
+
+async def test_workload_identity_auth_rejects_wrong_audience_token() -> None:
+    identity = _Identity(audience="wrong-audience")
+
+    with pytest.raises(KubernetesApiInventoryError, match="workload token is invalid"):
+        await WorkloadIdentityKubernetesAuth(
+            identity=identity,
+            audience="aks-audience",
+        ).headers()
 
 
 def _item(

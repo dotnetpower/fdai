@@ -57,6 +57,9 @@ class InventoryJobConfig:
     kubernetes_cluster_ref: str | None = None
     kubernetes_token_path: Path | None = None
     kubernetes_ca_path: Path | None = None
+    kubernetes_ca_pem: str | None = None
+    kubernetes_auth_mode: str | None = None
+    kubernetes_audience: str | None = None
     collection_policy: InventoryCollectionPolicy | None = None
 
     def snapshot_policy(self, source_name: str) -> SourceCollectionPolicy:
@@ -126,6 +129,14 @@ class InventoryJobConfig:
         kubernetes_cluster_ref = source.get("FDAI_KUBERNETES_CLUSTER_REF", "").strip() or None
         kubernetes_token_value = source.get("FDAI_KUBERNETES_TOKEN_PATH", "").strip()
         kubernetes_ca_value = source.get("FDAI_KUBERNETES_CA_PATH", "").strip()
+        kubernetes_ca_pem = source.get("FDAI_KUBERNETES_CA_PEM", "").strip() or None
+        kubernetes_auth_mode = source.get("FDAI_KUBERNETES_AUTH_MODE", "").strip() or (
+            "service-account" if kubernetes_token_value else None
+        )
+        kubernetes_audience = source.get(
+            "FDAI_KUBERNETES_AUDIENCE",
+            "",
+        ).strip()
         collection_policy_path = Path(
             source.get(
                 "FDAI_INVENTORY_COLLECTION_POLICY_PATH",
@@ -168,13 +179,23 @@ class InventoryJobConfig:
         kubernetes_values = (
             kubernetes_api_server,
             kubernetes_cluster_ref,
-            kubernetes_token_value or None,
-            kubernetes_ca_value or None,
+            kubernetes_auth_mode,
+            kubernetes_ca_value or kubernetes_ca_pem,
         )
         if any(kubernetes_values) and not all(kubernetes_values):
             raise ValueError(
-                "Kubernetes inventory requires API server, cluster ref, token path, and CA path"
+                "Kubernetes inventory requires API server, cluster ref, auth mode, and CA"
             )
+        if kubernetes_ca_value and kubernetes_ca_pem is not None:
+            raise ValueError("Kubernetes inventory accepts exactly one CA binding")
+        if kubernetes_auth_mode not in {None, "service-account", "workload-identity"}:
+            raise ValueError("FDAI_KUBERNETES_AUTH_MODE is invalid")
+        if kubernetes_auth_mode == "service-account" and not kubernetes_token_value:
+            raise ValueError("service-account Kubernetes auth requires token path")
+        if kubernetes_auth_mode == "workload-identity" and kubernetes_token_value:
+            raise ValueError("workload-identity Kubernetes auth MUST NOT bind a token path")
+        if kubernetes_auth_mode == "workload-identity" and not kubernetes_audience:
+            raise ValueError("workload-identity Kubernetes auth requires an audience")
         if kubernetes_api_server is not None:
             parsed_kubernetes = urlparse(kubernetes_api_server)
             if (
@@ -221,6 +242,11 @@ class InventoryJobConfig:
                 Path(kubernetes_token_value) if kubernetes_token_value else None
             ),
             kubernetes_ca_path=Path(kubernetes_ca_value) if kubernetes_ca_value else None,
+            kubernetes_ca_pem=kubernetes_ca_pem,
+            kubernetes_auth_mode=kubernetes_auth_mode,
+            kubernetes_audience=(
+                kubernetes_audience if kubernetes_auth_mode == "workload-identity" else None
+            ),
             collection_policy=collection_policy,
         )
 

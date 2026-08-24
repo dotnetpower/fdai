@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0.0",
+  "provider": "azure",
+  "source": {
+    "kind": "git",
+    "repository": "https://github.com/Azure/bicep-types-az.git",
+    "revision": "1f896de2db966ad91e8f7d7d981e11d32e4f5d8d",
+    "index_path": "generated/index.md"
+  },
+  "relationship_source": {
+    "kind": "git",
+    "repository": "https://github.com/Azure/azure-rest-api-specs.git",
+    "revision": "8933ceed3ed4dbd4d3835ee6e303348e9be7c068",
+    "root_path": "specification"
+  },
+  "snapshot_digest": "sha256:7a54ebeccbafc0aabc5ec7ed01580d6688f9b745c1aab26c3344497fafe047f2",
+  "coverage_digest": "sha256:4e2ba8fe566b1a5a4109cba3e0614062ff48192c55fd45e17983e3d91dca1632",
+  "relationship_evidence_digest": "sha256:ec37e62f5f15b31ced04b731ab4857f0d8724fcd205bd5a1b3d9972736961a11",
+  "snapshot_artifact_encoding": "gzip",
+  "relationship_artifact_encoding": "gzip",
+  "type_count": 3405,
+  "modeled_count": 62,
+  "relationship_extension_document_count": 3480,
+  "arm_id_reference_count": 6896,
+  "exact_arm_id_reference_count": 4707,
+  "unresolved_arm_id_reference_count": 2189,
+  "azure_resource_definition_count": 5382,
+  "observed_at": "2026-08-24T10:45:00+00:00",
+  "complete": true,
+  "review_required": false,
+  "grants_authority": false
+}

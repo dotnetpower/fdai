@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 5e811eb5b2c1c97960adb2843e2ef695504c1998
-translation_revised: 2026-08-23
+translation_source_sha: e599184df97d2ebf283a768dae88c22fcd1d45ec
+translation_revised: 2026-08-24
 ---
 
 # 에이전트 판테온
@@ -33,6 +33,7 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임
 | 대화 및 인계 메커니즘 | implemented | [`test_conversational_port.py`](../../../services/core-control-plane/tests/agents/test_conversational_port.py), [`test_prompt_deliberation.py`](../../../services/core-control-plane/tests/agents/test_prompt_deliberation.py), [`test_wave7_workflows.py`](../../../services/core-control-plane/tests/agents/test_wave7_workflows.py) | 하나의 공유 구조화 판단이 라우팅과 작업 태세를 담당합니다. 범위가 제한된 읽기 전용 숙의 경로는 작업 요청을 타입이 지정된 파이프라인으로 보내고, 선택적 T2 종합 전에 T1 답변 신호를 평가하며, 어휘 기반 대체 경로를 복원하지 않습니다. |
 | KPI 근거 상태, 승격 검사 및 성능 저하 훈련 | implemented | [`test_wave8_kpi_degradation.py`](../../../services/core-control-plane/tests/agents/test_wave8_kpi_degradation.py) | KPI 근거가 없거나 측정되지 않으면 승격을 차단하고, 주입된 장애로 선언된 성능 저하 동작을 실행합니다. |
 | 추적 연속성 근거 인계 | implemented | `huginn.py`; `heimdall.py`; `test_trace_continuity_chain.py` | Huginn은 허용 목록의 범위가 제한된 연속성 필드만 보존하고 Heimdall은 인식된 관측 사유를 anomaly와 인시던트 후보에 전달합니다. AgentSpec, topic, 판단, 승인, 실행 권한은 바뀌지 않습니다. |
+| Provider-schema drift 인계 | implemented | `provider_schema_review.py`, `heimdall.py`, `test_provider_schema_drift.py` | Heimdall은 digest에 결속되고 권한이 없는 provider-schema review package 하나를 검증한 뒤 범위가 제한된 shadow `object.drift` signal만 발행합니다. Fetch, parsing, baseline 저장, policy, 판단, 승인 및 catalog 변경은 agent 밖에 유지합니다. AgentSpec은 바뀌지 않습니다. |
 | 실제 운영 KPI 검증 및 enforce 승격 | not-started | [목표와 메트릭](../architecture/goals-and-metrics-ko.md) | 보존된 실제 shadow 코호트, 운영 KPI 증적 집합, 독립적인 승격 검토 또는 실제 판테온 enforce 승격 근거가 아직 없습니다. |
 
 ### 구현 이력
@@ -55,6 +56,7 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임
 | 2026-08-17 | implemented | Huginn 정규화에서 Heimdall의 반복 Event anomaly와 인시던트 후보까지 범위가 제한된 분산 추적 연속성 근거를 보존했습니다. 알 수 없는 사유 코드와 위조된 작업 필드는 버리고 sensing 경로에 판단 또는 작업 권한을 추가하지 않습니다. | `current change`; `test_trace_continuity_chain.py`; 집중 추적-인시던트 체인 통과. | 이슈 #142에서 통제된 실시간 추적 불연속, 인시던트, 승인, 복구 근거를 보존합니다. |
 | 2026-08-21 | implemented | 문구 기반 라우팅을 복원하지 않고 의미 판단 이행의 회귀 문제를 마무리했습니다. Bragi는 운영자 라우팅, 읽기 조사 소유권, 작업 태세, 읽기 전용 숙의에 공유 판단 경계를 사용하며, 의미를 사용할 수 없거나 판단이 거부되면 실패 시 차단합니다. AgentSpec, 토픽, 소유권, 모델 정책, 작업 권한은 바뀌지 않았습니다. | `current change`; 집중 에이전트, 숙의, 읽기 조사, 의미 도구 검사 304개 통과; 변경 범위 테스트 3176개 통과 및 환경 제한 skip 7개. | 통제된 운영자 경로 근거와 기존 실제 KPI 및 승격 근거를 보존합니다. 권한이나 승격 상태는 바뀌지 않았습니다. |
 | 2026-08-23 | implemented | Heimdall의 read-only 최종 `object.action-run` 구독을 추가했습니다. Handler는 exact correlation-indexed pre-dispatch artifact를 복원하고 collection을 Thor의 terminal timestamp에 결속하며 주입된 independent collector를 호출하고 verifier가 수락한 post-terminal observation만 기록합니다. Heimdall ownership, publication, deterministic hot path, LLM policy, action authority는 바뀌지 않습니다. | `current change`; Pantheon parity, runtime topic, handler, artifact, Azure collector, composition 검사 | 배포 소유 signed-context issuer를 연결하고 관리되는 live closure 증적을 보존합니다. |
+| 2026-08-24 | implemented | Strict provider-schema review package를 Heimdall의 기존 `Drift` ownership에 binding했습니다. Scheduled composition은 production Pantheon bridge를 사용하고 transport 전에 추가 필드 또는 권한을 부여하는 필드를 거부하며 digest-only shadow signal을 내보냅니다. Catalog는 변경하지 않습니다. | `current change`; 집중 provider-schema review, Heimdall ownership, framework-layout, durable-ledger 및 infrastructure 검사 | 운영 검증을 주장하기 전에 deployed revision의 Saga-audited drift 근거를 보존합니다. |
 
 ### 남은 작업
 - [ ] 하나의 고정된 리비전에서 에이전트별 및 시스템 KPI, 표본 수, 신뢰 구간, 보호 메트릭과 권위 있는 결과 증적을 측정한 실제 shadow 코호트를 보존합니다.

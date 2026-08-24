@@ -159,6 +159,12 @@ variable "rule_watcher_cron_expression" {
   }
 }
 
+variable "provider_schema_cron_expression" {
+  description = "Global provider-schema refresh cadence in UTC cron format. Empty disables the Job."
+  type        = string
+  default     = "0 4 * * *"
+}
+
 variable "log_retention_days" {
   description = "Log Analytics retention in days. UI-configurable post-deploy; 30 is the day-zero default."
   type        = number
@@ -490,6 +496,46 @@ variable "inventory_cron_expression" {
   description = "Cron for inventory change drains, due checks, and failed-attempt retries. Not-due ticks exit after one state query. Empty disables the job."
   type        = string
   default     = "* * * * *"
+}
+
+variable "inventory_kubernetes_api_server" {
+  description = "Credential-free HTTPS AKS API endpoint for optional runtime topology inventory."
+  type        = string
+  default     = ""
+
+  validation {
+    condition = (
+      var.inventory_kubernetes_api_server == "" ||
+      startswith(var.inventory_kubernetes_api_server, "https://")
+    )
+    error_message = "inventory_kubernetes_api_server must be empty or use HTTPS."
+  }
+}
+
+variable "inventory_kubernetes_cluster_ref" {
+  description = "Exact AKS cluster ARM id bound to runtime topology inventory."
+  type        = string
+  default     = ""
+
+  validation {
+    condition = (
+      var.inventory_kubernetes_cluster_ref == "" ||
+      startswith(lower(var.inventory_kubernetes_cluster_ref), "/subscriptions/")
+    )
+    error_message = "inventory_kubernetes_cluster_ref must be empty or an ARM resource id."
+  }
+}
+
+variable "inventory_kubernetes_ca_pem" {
+  description = "Public CA PEM used to verify the configured AKS API endpoint."
+  type        = string
+  default     = ""
+}
+
+variable "inventory_kubernetes_audience" {
+  description = "Deployment-supplied audience for the short-lived AKS workload identity token."
+  type        = string
+  default     = ""
 }
 
 variable "browser_evidence_cleanup_cron_expression" {

@@ -532,6 +532,41 @@
       ]
     },
     {
+      "id": "provider-schema-accounting",
+      "paths": [
+        "provider-schema-catalog/**",
+        "services/core-control-plane/src/fdai/delivery/provider_schema*.py",
+        "services/core-control-plane/src/fdai/delivery/azure/provider_schema.py",
+        "services/core-control-plane/src/fdai/delivery/azure/provider_relationship_schema.py",
+        "services/core-control-plane/tests/delivery/test_provider_schema*.py",
+        "services/core-control-plane/tests/delivery/azure/test_provider_schema.py",
+        "services/core-control-plane/tests/delivery/azure/test_provider_relationship_schema.py",
+        "services/core-control-plane/tests/agents/test_provider_schema_drift.py"
+      ],
+      "optional_paths": [
+        "infra/modules/compute/container-apps/provider_schema_job.tf"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/app-shape.instructions.md",
+        "docs/roadmap/architecture/operating-ontology.md",
+        "docs/roadmap/architecture/operating-ontology-metamodel.md",
+        "docs/roadmap/agents/agent-pantheon.md",
+        "docs/roadmap/phases/phase-2-quality-and-t1.md",
+        "docs/roadmap/operations/operating-and-verification.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/architecture/operating-ontology-metamodel.md",
+        "docs/roadmap/agents/agent-pantheon.md",
+        "docs/roadmap/phases/phase-2-quality-and-t1.md",
+        "docs/roadmap/deployment/dev-and-deploy-parity.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov services/core-control-plane/tests/delivery/test_provider_schema.py services/core-control-plane/tests/delivery/test_provider_schema_ledger.py services/core-control-plane/tests/delivery/test_provider_schema_watcher.py services/core-control-plane/tests/delivery/test_provider_schema_watcher_cli.py services/core-control-plane/tests/delivery/test_provider_schema_review.py services/core-control-plane/tests/delivery/test_provider_schema_catalog.py services/core-control-plane/tests/delivery/azure/test_provider_schema.py services/core-control-plane/tests/delivery/azure/test_provider_relationship_schema.py services/core-control-plane/tests/agents/test_provider_schema_drift.py",
+        "python3 scripts/quality/architecture/check-design-routes.py"
+      ]
+    },
+    {
       "id": "execution-authorization",
       "paths": [
         "docs/roadmap/decisioning/execution-authorization-ontology*.md",

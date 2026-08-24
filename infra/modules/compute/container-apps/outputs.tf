@@ -42,6 +42,11 @@ output "rule_watcher_job_id" {
   value       = azurerm_container_app_job.rule_watcher.id
 }
 
+output "provider_schema_job_id" {
+  description = "Scheduled provider-schema watcher Job resource id, or null when disabled."
+  value       = try(azurerm_container_app_job.provider_schema[0].id, null)
+}
+
 output "inventory_job_id" {
   description = "Scheduled inventory reconciliation job resource id, or null when disabled."
   value       = try(azurerm_container_app_job.inventory[0].id, null)

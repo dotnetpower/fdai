@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: FDAI 최소 Azure 인벤토리를 프로비저닝하는 방법. azd 턴키와 Terraform 직접 실행 두 경로 모두 먼저 미리보고, 계획이 맞을 때만 적용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 85050567dd915e079a622fb7618805cbdb750875
+translation_source_sha: f9909c126a02e3673037ed3fcb139902ff666b3c
 translation_revised: 2026-08-24
 ---
 
@@ -48,6 +48,11 @@ FDAI는 `infra/` 아래의 코드형 인프라(IaC)로 프로비저닝하며, Te
   캠페인 ID 및 사람 개시자의 주체 ID를 제공해야 합니다. 대상은 용량 `1`로 시작합니다. 수동
   proposal Job은 정상 수신 경로를 통해 shadow 제안 하나를 게시하며 provider-effect 권한은
   갖지 않습니다. 보호된 provider staging은 검증된 롤백 전에 용량을 `2`까지만 늘릴 수 있습니다.
+- AKS runtime topology를 포함하려면 `inventory_kubernetes_api_server`,
+  `inventory_kubernetes_cluster_ref`, `inventory_kubernetes_ca_pem`,
+  `inventory_kubernetes_audience`를 함께 제공합니다. Inventory managed identity에는 AKS RBAC
+  Reader만 부여하며 request 시점에 수명이 짧은 token을 취득합니다. Kubernetes bearer token을
+  Terraform 또는 environment 구성에 넣지 마세요.
 
 ## 최소 인벤토리 프로비저닝
 
@@ -109,6 +114,12 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
    - 인벤토리 작업이 매분 깨어나고, PostgreSQL이 정상 전체 스캔을 6시간으로 유지하며,
      관측된 리소스 변경은 앞당겨 조정됩니다. 실패하거나 마감을 넘긴 시도는 범위가 제한된
      백오프 뒤에 재시도됩니다. 이때 코어에는 job-start 역할을 주지 않습니다.
+   - Provider Schema Job이 daily run을 완료하고 PostgreSQL에 durable generation digest를
+     보존하며 material change를 Heimdall의 shadow Drift로 전달합니다. Ontology, rule 또는
+     policy를 자동으로 업데이트하지 않습니다.
+   - AKS topology를 구성한 경우 inventory identity에 AKS RBAC Reader만 있고 API endpoint가
+     CA verification을 통과하며, static token secret 없이 완전 세대에 UID 기반 Kubernetes
+     resource가 포함되는지 확인합니다.
    - 프라이빗 네트워킹을 켰다면 PostgreSQL과 두 Event Hubs 샤드가 런타임 서브넷이나 피어링된
      러너에서 프라이빗 주소로 확인되고, TLS 점검을 통과하며, Event Hubs 공개 접근이 꺼져
      있습니다.

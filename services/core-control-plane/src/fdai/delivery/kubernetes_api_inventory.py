@@ -14,6 +14,7 @@ from urllib.parse import urlencode, urlparse
 import httpx
 
 from fdai.shared.providers.inventory import ResourceRecord
+from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _MAX_OWNER_REFERENCES: Final[int] = 8
 _MAX_LABELS: Final[int] = 128
@@ -62,6 +63,25 @@ class ServiceAccountTokenAuth:
         if not token.strip():
             raise KubernetesApiInventoryError("Kubernetes service-account token is empty")
         return {"Authorization": f"Bearer {token.strip()}", "Accept": "application/json"}
+
+
+@dataclass(frozen=True, slots=True)
+class WorkloadIdentityKubernetesAuth:
+    """Acquire one short-lived Kubernetes audience token for each complete generation."""
+
+    identity: WorkloadIdentity
+    audience: str
+
+    async def headers(self) -> Mapping[str, str]:
+        if not self.audience.strip() or not self.audience.isascii():
+            raise KubernetesApiInventoryError("Kubernetes workload audience is invalid")
+        credential = await self.identity.get_token(self.audience)
+        if credential.audience != self.audience or not credential.token.strip():
+            raise KubernetesApiInventoryError("Kubernetes workload token is invalid")
+        return {
+            "Authorization": f"Bearer {credential.token.strip()}",
+            "Accept": "application/json",
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -318,4 +338,5 @@ __all__ = [
     "KubernetesApiInventorySnapshot",
     "KubernetesApiInventorySource",
     "ServiceAccountTokenAuth",
+    "WorkloadIdentityKubernetesAuth",
 ]

@@ -1,7 +1,7 @@
 ---
 title: "Phase 2 - 지속적 규칙 업데이트, Quality Gate, T1"
 translation_of: phase-2-quality-and-t1.md
-translation_source_sha: 5ed26b4afd44d10824d07797c8ac1eb629f83fca
+translation_source_sha: aa9e3cb0bf36d451d957597d1fb359c18b4a43e1
 translation_revised: 2026-08-24
 ---
 
@@ -85,6 +85,43 @@ auto-edit 절대 아님) 로 shadow 기본으로 나감.
   회귀, shadow-eval escape, 또는 사후 승격 가드 위반이며, 마지막-good 버전된 세트로 되돌림.
 - **새 리소스 타입**: 프로바이더 스키마 변경 감지, 커버되지 않은 리소스 타입 식별, **shadow-only
   및 HIL-리뷰로 출시되는 규칙 stub 생성** - stub은 절대 auto-enforce 아님.
+
+### 전역 프로바이더 스키마 집계
+
+프로바이더 스키마 발견은 모든 upstream 타입을 운영 `ResourceType` vocabulary에 추가하지 않고
+별도의 content-addressed 근거 카탈로그를 사용합니다. 전역 카탈로그는 사용하지 않거나 관찰되지
+않은 타입, preview-only, read-only 및 지원하지 않는 타입을 포함해 하나의 완전하고 변경할 수 없는
+source revision에 있는 모든 타입을 집계합니다. 운영 vocabulary와 관계 mapping은 계속 검토된
+의미 subset으로 유지합니다.
+
+Azure source는 변경할 수 없는 commit에 고정된 `Azure/bicep-types-az` generated type index입니다.
+내부 mirror 또는 서명된 offline bundle이 같은 tree를 제공할 수 있으며 같은 snapshot digest를
+생성해야 합니다. Watcher는 현재 subscription에 등록된 provider를 전역 corpus 대신 사용하지
+않습니다. 그렇게 하면 deployment가 사용하지 않는 타입이 숨겨지기 때문입니다.
+
+범위가 제한된 각 실행은 다음 명시적 상태 중 하나로 종료합니다.
+
+| 상태 | 의미 | 승격 영향 |
+|------|------|-----------|
+| `not_due` | 마지막 완전 검사가 policy cadence 안에 있습니다. | 이전 완전 snapshot을 유지합니다. |
+| `unchanged` | 완전한 source revision이 현재 digest를 생성합니다. | 검사를 기록하고 proposal을 만들지 않습니다. |
+| `compatible` | 안정된 surface를 제거하지 않고 타입 또는 API version이 추가됐습니다. | drift 근거를 append하며 의미 작업은 비활성 review candidate로 유지합니다. |
+| `breaking` | 타입이나 stable API version이 제거됐거나 비호환 변경과 추가가 함께 있습니다. | 고정된 의미 surface를 보류하고 통제된 검토를 요구합니다. |
+| `policy_blocked` | network policy가 primary와 mirror access를 모두 허용하지 않습니다. | 외부 호출 없이 마지막 완전 snapshot을 유지하고 stale 또는 unavailable 근거를 보고합니다. |
+| `unavailable` | 허용된 모든 source가 무결성, 완전성, timeout 또는 I/O 검사에 실패했습니다. | 마지막 완전 snapshot을 유지하고 의미 proposal을 만들지 않습니다. |
+
+결정론적 diff는 정규화한 type identity와 stable/preview API-version 집합을 비교합니다. 제거는
+근거 ledger의 tombstone이며 ontology 또는 rule catalog에서 즉시 삭제되지 않습니다. 중요하고
+policy gate를 통과한 drift package만 기존 agent 및 architecture review 흐름에 들어갑니다.
+Mechanical watcher는 `ResourceType`, `LinkType`, 관계 mapping, rule 또는 policy를 수정하지 않으며
+provider-schema record는 관찰, 승인 또는 실행 권한을 부여하지 않습니다.
+
+구현된 Azure 경로는 두 근거 plane을 모두 고정합니다. `Azure/bicep-types-az`는 전역 resource
+type 3,405개를 집계하고 `Azure/azure-rest-api-specs`는 명시적인 ARM ID reference 6,896개와
+Azure resource-definition marker 5,382개를 제공합니다. Exact target과 unresolved target은
+분리되어 유지됩니다. Daily Container Apps Job은 private PostgreSQL StateStore를 통해
+append-only ledger를 복원하고 보존합니다. Material drift는 Heimdall이 검증하고 shadow
+`object.drift` signal로만 발행합니다. 운영 검증 전에는 deployed receipt가 더 필요합니다.
 
 ## LLM Quality 게이트 (T2 - [llm-strategy-ko.md](../architecture/llm-strategy-ko.md) 참조)
 

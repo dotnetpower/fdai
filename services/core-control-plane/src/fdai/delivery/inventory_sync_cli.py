@@ -45,9 +45,11 @@ from fdai.delivery.inventory_sync import (
 )
 from fdai.delivery.inventory_topology_history import InventoryTopologyHistoryPublisher
 from fdai.delivery.kubernetes_api_inventory import (
+    KubernetesApiAuth,
     KubernetesApiInventoryConfig,
     KubernetesApiInventorySource,
     ServiceAccountTokenAuth,
+    WorkloadIdentityKubernetesAuth,
 )
 from fdai.delivery.kubernetes_inventory import (
     KubernetesInventoryEnricher,
@@ -151,18 +153,34 @@ async def _build_kubernetes_enricher(
     config: InventoryJobConfig,
     relationship_catalog: ProviderRelationshipMappingCatalog,
     stack: AsyncExitStack,
+    identity: WorkloadIdentity | None = None,
 ) -> InventoryPromotionEnricher:
     if (
         config.kubernetes_api_server is None
         or config.kubernetes_cluster_ref is None
-        or config.kubernetes_token_path is None
-        or config.kubernetes_ca_path is None
+        or config.kubernetes_auth_mode is None
+        or (config.kubernetes_ca_path is None and config.kubernetes_ca_pem is None)
     ):
         return UnavailableKubernetesInventoryEnricher()
     try:
-        kubernetes_ssl = ssl.create_default_context(cafile=str(config.kubernetes_ca_path))
+        kubernetes_ssl = ssl.create_default_context(
+            cafile=(str(config.kubernetes_ca_path) if config.kubernetes_ca_path else None),
+            cadata=config.kubernetes_ca_pem,
+        )
     except OSError as exc:
         raise RuntimeError("Kubernetes CA bundle is unavailable") from exc
+    auth: KubernetesApiAuth
+    if config.kubernetes_auth_mode == "workload-identity":
+        if identity is None or config.kubernetes_audience is None:
+            raise RuntimeError("Kubernetes workload identity is unavailable")
+        auth = WorkloadIdentityKubernetesAuth(
+            identity=identity,
+            audience=config.kubernetes_audience,
+        )
+    else:
+        if config.kubernetes_token_path is None:
+            raise RuntimeError("Kubernetes service-account token path is unavailable")
+        auth = ServiceAccountTokenAuth(config.kubernetes_token_path)
     kubernetes_client = await stack.enter_async_context(httpx.AsyncClient(verify=kubernetes_ssl))
     return KubernetesInventoryEnricher(
         source=KubernetesApiInventorySource(
@@ -170,7 +188,7 @@ async def _build_kubernetes_enricher(
                 api_server=config.kubernetes_api_server,
                 cluster_ref=config.kubernetes_cluster_ref,
             ),
-            auth=ServiceAccountTokenAuth(config.kubernetes_token_path),
+            auth=auth,
             http_client=kubernetes_client,
         ),
         relationship_mapping_catalog=relationship_catalog,
@@ -408,16 +426,17 @@ async def run(
     )
     async with AsyncExitStack() as stack:
         client = await stack.enter_async_context(httpx.AsyncClient())
+        identity = _workload_identity(http_client=client)
         kubernetes_enricher = await _build_kubernetes_enricher(
             config=config,
             relationship_catalog=relationship_catalog,
             stack=stack,
+            identity=identity,
         )
         effective_enricher = SequentialInventoryPromotionEnricher(
             promotion_enricher or UnavailableRuntimeCallInventoryEnricher(),
             kubernetes_enricher,
         )
-        identity = _workload_identity(http_client=client)
         event_bus, event_topic = _build_job_event_bus(identity)
         activity_publisher = EventBusOperationalActivityPublisher(event_bus=event_bus)
         observed_store = ObservedInventorySnapshotStore(

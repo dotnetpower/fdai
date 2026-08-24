@@ -160,6 +160,8 @@ def test_job_config_defaults_to_arg_then_arm() -> None:
     assert config.kubernetes_cluster_ref is None
     assert config.kubernetes_token_path is None
     assert config.kubernetes_ca_path is None
+    assert config.kubernetes_ca_pem is None
+    assert config.kubernetes_auth_mode is None
     assert config.snapshot_policy("arg").max_requests_per_window == 180
     assert config.collection_policy is not None
 
@@ -227,6 +229,7 @@ def test_job_config_requires_complete_kubernetes_binding() -> None:
     assert config.kubernetes_cluster_ref == "cluster-ref-example"
     assert config.kubernetes_token_path == Path("/var/run/secrets/kubernetes/token")
     assert config.kubernetes_ca_path == Path("/var/run/secrets/kubernetes/ca.crt")
+    assert config.kubernetes_auth_mode == "service-account"
 
 
 async def test_unconfigured_kubernetes_composition_records_explicit_unavailability() -> None:
@@ -294,7 +297,10 @@ async def test_configured_kubernetes_composition_binds_exact_source(
         )
 
     assert enricher is expected_enricher
-    tls_factory.assert_called_once_with(cafile="/var/run/secrets/kubernetes/ca.crt")
+    tls_factory.assert_called_once_with(
+        cafile="/var/run/secrets/kubernetes/ca.crt",
+        cadata=None,
+    )
     source_kwargs = source_factory.call_args.kwargs
     assert source_kwargs["config"] == KubernetesApiInventoryConfig(
         api_server="https://kubernetes.example",
@@ -306,6 +312,26 @@ async def test_configured_kubernetes_composition_binds_exact_source(
         source=source_factory.return_value,
         relationship_mapping_catalog=catalog,
     )
+
+
+def test_job_config_accepts_workload_identity_kubernetes_binding() -> None:
+    config = InventoryJobConfig.from_env(
+        {
+            "FDAI_INVENTORY_DSN": "postgresql://example",
+            "AZURE_SUBSCRIPTION_ID": "sub-1",
+            "FDAI_KUBERNETES_API_SERVER": "https://kubernetes.example",
+            "FDAI_KUBERNETES_CLUSTER_REF": "cluster-ref-example",
+            "FDAI_KUBERNETES_AUTH_MODE": "workload-identity",
+            "FDAI_KUBERNETES_CA_PEM": "-----BEGIN CERTIFICATE-----\nfixture\n",
+            "FDAI_KUBERNETES_AUDIENCE": "api://aks-reader/.default",
+        }
+    )
+
+    assert config.kubernetes_token_path is None
+    assert config.kubernetes_ca_path is None
+    assert config.kubernetes_ca_pem == "-----BEGIN CERTIFICATE-----\nfixture"
+    assert config.kubernetes_auth_mode == "workload-identity"
+    assert config.kubernetes_audience == "api://aks-reader/.default"
 
 
 def test_job_config_prefers_durable_freshness_setting() -> None:

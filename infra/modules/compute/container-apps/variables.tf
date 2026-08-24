@@ -24,6 +24,11 @@ variable "rule_watcher_job_name" {
   type        = string
 }
 
+variable "provider_schema_job_name" {
+  description = "Container Apps Job name for global provider-schema drift accounting."
+  type        = string
+}
+
 variable "browser_evidence_cleanup_job_name" {
   description = "Container Apps Job name for browser-evidence retention cleanup (CAF: caj-<workload>[-env][-region]-browser-gc)."
   type        = string
@@ -33,6 +38,12 @@ variable "rule_watcher_cron_expression" {
   description = "Cron for the rule watcher job. Daily at 03:00 UTC; the CLI filters by manifest cadence so weekly / monthly sources fire from the same job."
   type        = string
   default     = "0 3 * * *"
+}
+
+variable "provider_schema_cron_expression" {
+  description = "UTC cron for global provider-schema refresh. Empty disables the Job."
+  type        = string
+  default     = ""
 }
 
 variable "location" {
@@ -201,6 +212,30 @@ variable "inventory_dsn_secret_id" {
 
 variable "inventory_cron_expression" {
   description = "Cron for inventory due checks and failed-attempt retries. Empty disables the job."
+  type        = string
+  default     = ""
+}
+
+variable "inventory_kubernetes_api_server" {
+  description = "Credential-free HTTPS AKS API endpoint for optional runtime topology inventory."
+  type        = string
+  default     = ""
+}
+
+variable "inventory_kubernetes_cluster_ref" {
+  description = "Exact AKS cluster ARM id bound to runtime topology inventory."
+  type        = string
+  default     = ""
+}
+
+variable "inventory_kubernetes_ca_pem" {
+  description = "Public CA PEM used to verify the configured AKS API endpoint."
+  type        = string
+  default     = ""
+}
+
+variable "inventory_kubernetes_audience" {
+  description = "Deployment-supplied audience for the short-lived AKS workload identity token."
   type        = string
   default     = ""
 }

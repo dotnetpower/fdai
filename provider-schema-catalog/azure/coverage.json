@@ -1,0 +1,9 @@
+{
+  "coverage_digest": "sha256:4e2ba8fe566b1a5a4109cba3e0614062ff48192c55fd45e17983e3d91dca1632",
+  "grants_authority": false,
+  "modeled_count": 62,
+  "provider": "azure",
+  "schema_digest": "sha256:7a54ebeccbafc0aabc5ec7ed01580d6688f9b745c1aab26c3344497fafe047f2",
+  "schema_version": "1.0.0",
+  "type_count": 3405
+}

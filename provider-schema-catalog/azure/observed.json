@@ -1,0 +1,7 @@
+{
+  "grants_authority": false,
+  "observed_at": "2026-08-24T10:45:00+00:00",
+  "provider": "azure",
+  "schema_digest": "sha256:7a54ebeccbafc0aabc5ec7ed01580d6688f9b745c1aab26c3344497fafe047f2",
+  "schema_version": "1.0.0"
+}

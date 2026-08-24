@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Provision the FDAI minimum-set inventory on Azure - two equivalent paths (azd turnkey or Terraform direct), preview first, apply only when the plan looks right.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: fbe7d5bf6eae627d8d90292b3ff87024e5756357 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: de30bd573cfb5ea9a1c45a64d9737071e2c80fa9 }]
 ---
 
 # Deploy Quickstart
@@ -55,6 +55,11 @@ first, so you can review the plan before you run the separate apply step.
   starts at capacity `1`. Its manual proposal Job publishes one shadow proposal through the normal
   ingress and has no provider-effect authority; protected provider staging may increase capacity
   only to `2` before verified rollback.
+- To include AKS runtime topology, supply `inventory_kubernetes_api_server`,
+  `inventory_kubernetes_cluster_ref`, `inventory_kubernetes_ca_pem`, and
+  `inventory_kubernetes_audience` together. The inventory managed identity receives AKS RBAC
+  Reader and acquires a short-lived token at request time. Don't put a Kubernetes bearer token in
+  Terraform or environment configuration.
 
 ## Provision the minimum inventory
 
@@ -120,6 +125,12 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
      at six hours, an observed resource change reconciles early, and a failed or
      deadline-exceeded attempt retries under bounded backoff without giving the
      core a job-start role.
+   - The Provider Schema Job completes its daily run, retains a durable generation digest in
+     PostgreSQL, and sends material changes through Heimdall as shadow Drift. It doesn't update
+     the ontology, rules, or policies automatically.
+   - When AKS topology is configured, the inventory identity has only AKS RBAC Reader, the API
+     endpoint passes CA verification, and a complete generation includes UID-grounded Kubernetes
+     resources without a static token secret.
    - With private networking on, PostgreSQL and both Event Hubs shards resolve to
      private addresses from the runtime subnet or a peered runner, pass their TLS
      checks, and keep Event Hubs public access disabled.

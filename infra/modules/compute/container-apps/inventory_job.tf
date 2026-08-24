@@ -97,8 +97,62 @@ resource "azurerm_container_app_job" "inventory" {
         name  = "FDAI_MI_CLIENT_ID"
         value = var.inventory_identity_client_id
       }
+      dynamic "env" {
+        for_each = var.inventory_kubernetes_api_server == "" ? toset([]) : toset(["1"])
+        content {
+          name  = "FDAI_KUBERNETES_API_SERVER"
+          value = var.inventory_kubernetes_api_server
+        }
+      }
+      dynamic "env" {
+        for_each = var.inventory_kubernetes_api_server == "" ? toset([]) : toset(["1"])
+        content {
+          name  = "FDAI_KUBERNETES_CLUSTER_REF"
+          value = var.inventory_kubernetes_cluster_ref
+        }
+      }
+      dynamic "env" {
+        for_each = var.inventory_kubernetes_api_server == "" ? toset([]) : toset(["1"])
+        content {
+          name  = "FDAI_KUBERNETES_AUTH_MODE"
+          value = "workload-identity"
+        }
+      }
+      dynamic "env" {
+        for_each = var.inventory_kubernetes_api_server == "" ? toset([]) : toset(["1"])
+        content {
+          name  = "FDAI_KUBERNETES_CA_PEM"
+          value = var.inventory_kubernetes_ca_pem
+        }
+      }
+      dynamic "env" {
+        for_each = var.inventory_kubernetes_api_server == "" ? toset([]) : toset(["1"])
+        content {
+          name  = "FDAI_KUBERNETES_AUDIENCE"
+          value = var.inventory_kubernetes_audience
+        }
+      }
     }
   }
 
   tags = var.tags
+
+  lifecycle {
+    precondition {
+      condition = (
+        alltrue([
+          var.inventory_kubernetes_api_server == "",
+          var.inventory_kubernetes_cluster_ref == "",
+          var.inventory_kubernetes_ca_pem == "",
+        ]) ||
+        alltrue([
+          var.inventory_kubernetes_api_server != "",
+          var.inventory_kubernetes_cluster_ref != "",
+          var.inventory_kubernetes_ca_pem != "",
+          var.inventory_kubernetes_audience != "",
+        ])
+      )
+      error_message = "AKS inventory API server, cluster ref, CA PEM, and audience must be configured together."
+    }
+  }
 }

@@ -53,6 +53,7 @@ from fdai.core.readiness import (
     reduce_detection_readiness,
 )
 from fdai.core.rule_semantic_generation import RuleGenerationValidationHandler
+from fdai.delivery.provider_schema_review import provider_schema_drift_payload
 from fdai.rule_catalog.schema.rule_semantic_generation_events import (
     RULE_GENERATION_BUILD_RESULT_TOPIC,
     RuleGenerationBuildResultEvent,
@@ -197,6 +198,16 @@ class Heimdall(HeimdallForecastMixin, Agent):
             "object.forecast-outcome",
             outcome.model_dump(mode="json"),
         )
+        return True
+
+    async def publish_provider_schema_drift(self, package: Mapping[str, object]) -> bool:
+        """Publish one strict no-authority provider-schema drift for governed review."""
+
+        payload = provider_schema_drift_payload(package)
+        self.record_behavior(f"provider_schema_drift:{payload['decision']}")
+        if self.bus is None:
+            return False
+        await self.bus.publish("Heimdall", "object.drift", payload)
         return True
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:

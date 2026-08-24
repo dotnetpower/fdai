@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gzip
 import os
 import shutil
 import subprocess
@@ -152,6 +153,17 @@ def test_text_gates_ignore_tracked_broken_symlinks(git_repo: Path) -> None:
     assert "1 file(s) scanned" in punctuation.stdout
     assert guids.returncode == 0, guids.stderr
     assert "1 file(s) scanned" in guids.stdout
+
+
+def test_punctuation_gate_ignores_tracked_gzip_artifacts(git_repo: Path) -> None:
+    (git_repo / "clean.txt").write_text("clean\n", encoding="utf-8")
+    (git_repo / "artifact.json.gz").write_bytes(gzip.compress("bad \u2014 text".encode(), mtime=0))
+    assert _run(git_repo, "git", "add", ".").returncode == 0
+
+    punctuation = _run(git_repo, "bash", str(_PUNCTUATION))
+
+    assert punctuation.returncode == 0, punctuation.stderr
+    assert "1 file(s) scanned" in punctuation.stdout
 
 
 def test_punctuation_baseline_only_allows_the_exact_blob(git_repo: Path) -> None:

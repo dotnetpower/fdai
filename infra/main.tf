@@ -743,6 +743,23 @@ resource "azurerm_role_assignment" "inventory_eventhubs_raw_sender" {
   principal_id         = module.inventory_identity.principal_id
 }
 
+resource "azurerm_role_assignment" "inventory_kubernetes_reader" {
+  count                = var.inventory_kubernetes_cluster_ref == "" ? 0 : 1
+  scope                = var.inventory_kubernetes_cluster_ref
+  role_definition_name = "Azure Kubernetes Service RBAC Reader"
+  principal_id         = module.inventory_identity.principal_id
+
+  lifecycle {
+    precondition {
+      condition = (
+        var.inventory_kubernetes_api_server != "" &&
+        var.inventory_kubernetes_ca_pem != ""
+      )
+      error_message = "AKS inventory requires cluster ref, API server, and CA PEM together."
+    }
+  }
+}
+
 data "azurerm_resources" "eventgrid_system_topics" {
   type = "Microsoft.EventGrid/systemTopics"
 }
@@ -1703,12 +1720,14 @@ resource "azurerm_key_vault_secret" "pattern_library_dsn" {
 # Compute - Container Apps env + core app + out-of-band job.
 # -----------------------------------------------------------------------
 module "compute" {
-  source                       = "./modules/compute/container-apps"
-  env_name                     = "cae-${var.workload}${local.full_suffix}"
-  core_app_name                = "ca-${var.workload}${local.full_suffix}-core"
-  oob_job_name                 = "caj-${var.workload}${local.full_suffix}-oob"
-  rule_watcher_job_name        = "caj-${var.workload}${local.full_suffix}-watcher"
-  rule_watcher_cron_expression = var.rule_watcher_cron_expression
+  source                          = "./modules/compute/container-apps"
+  env_name                        = "cae-${var.workload}${local.full_suffix}"
+  core_app_name                   = "ca-${var.workload}${local.full_suffix}-core"
+  oob_job_name                    = "caj-${var.workload}${local.full_suffix}-oob"
+  rule_watcher_job_name           = "caj-${var.workload}${local.full_suffix}-watcher"
+  rule_watcher_cron_expression    = var.rule_watcher_cron_expression
+  provider_schema_job_name        = "caj-${var.workload}${local.full_suffix}-provider-schema"
+  provider_schema_cron_expression = var.provider_schema_cron_expression
   browser_evidence_cleanup_job_name = (
     "caj-${var.workload}${local.full_suffix}-browser-gc"
   )
@@ -1853,6 +1872,10 @@ module "compute" {
   )
   inventory_dsn_secret_id                   = azurerm_key_vault_secret.state_store_dsn.id
   inventory_cron_expression                 = var.inventory_cron_expression
+  inventory_kubernetes_api_server           = var.inventory_kubernetes_api_server
+  inventory_kubernetes_cluster_ref          = var.inventory_kubernetes_cluster_ref
+  inventory_kubernetes_ca_pem               = var.inventory_kubernetes_ca_pem
+  inventory_kubernetes_audience             = var.inventory_kubernetes_audience
   browser_evidence_cleanup_cron_expression  = var.browser_evidence_cleanup_cron_expression
   browser_evidence_cleanup_limit            = var.browser_evidence_cleanup_limit
   observation_campaign_cron_expression      = var.observation_campaign_cron_expression

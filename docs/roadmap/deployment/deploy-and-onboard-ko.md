@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: fbe7d5bf6eae627d8d90292b3ff87024e5756357
+translation_source_sha: de30bd573cfb5ea9a1c45a64d9737071e2c80fa9
 translation_revised: 2026-08-24
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -32,6 +32,7 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 | 인벤토리 기반 analyzer Job 대상 | implemented | `analyzer_tick_cli.py`, `analyzer_targets.py`, `analyzer_tick_job.tf`, focused analyzer 및 infrastructure 테스트 | Job은 구성된 상한 안에서 명시적 대상과 영속 인벤토리 projection의 지원 리소스를 병합합니다. 인벤토리 DSN이 없으면 명시적 대상 전용 경로를 유지하며, 두 출처 모두 대상이 없으면 정상 no-op으로 종료합니다. |
 | Analyzer Job 추적 토폴로지 바인딩 | implemented | `trace_continuity.py`, `analyzer_tick_cli.py`, `analyzer_tick_job.tf`, `test_detection_readiness.py`, 집중 추적 검사 | 선택적 배포 제공 토폴로지 선언은 기존 Job, 읽기 신원, Log Analytics 작업 영역, Event Bus를 재사용합니다. 구성이 비어 있으면 현재 analyzer 전용 경로를 유지하고 Azure 리소스를 추가하지 않습니다. |
 | 지속 인벤토리 Job | implemented | `inventory_job.tf`, `inventory_job_config.py`, 집중 인벤토리 및 인프라 검사 | 1분 cron이 변경 비우기와 실행 조건 확인을 구동합니다. Terraform은 변경 하한, 진행 및 절대 마감, 공유 ARG 요청 예산을 전달합니다. 보호 적용 및 실제 운영 주기 근거는 아직 남아 있습니다. |
+| 전역 provider-schema Job | implemented | `provider_schema_job.tf`, `provider_schema_watcher_cli.py`, `provider_schema_state_ledger.py`, 집중 provider, Pantheon, Terraform 및 infrastructure 검사 | Daily read-only Job은 immutable upstream revision을 해석하고 append-only ledger를 private PostgreSQL로 보존하며 strict material drift를 Heimdall의 기존 shadow topic으로 route합니다. Protected apply 및 scheduled-run receipt는 열린 작업입니다. |
 
 ### 구현 이력
 
@@ -52,6 +53,7 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 | 2026-08-20 | implemented | Protected Core 적용이 migration 내부 대기로 job 전체 예산을 소진한 뒤 service migration 단계별 deadline을 추가했습니다. 모든 service 및 legacy 경로는 10초 연결 deadline과 5분 잠금 deadline을 사용하고 workflow는 전체 migration 단계를 20분 뒤 닫습니다. | `current change`; 집중 service migration 및 protected workflow 검사 204개 통과. | 동일한 protected Core 적용을 다시 실행하고 성공한 migration 및 post-apply 상태 증적을 보존합니다. |
 | 2026-08-20 | implemented | 모든 legacy 및 service migration 연결에 15분 PostgreSQL statement deadline을 추가했습니다. 이 deadline은 20분 workflow deadline보다 먼저 만료되므로 runner process가 사라져도 database가 장기 실행 DDL을 취소하고 transaction과 advisory lock을 해제합니다. | `current change`; 집중 migration deadline 검사; 일회용 PostgreSQL에서 예산을 초과한 statement를 취소하고 연결 해제 뒤 advisory lock 0개를 확인함; 보호된 run `32357855293`과 `32361126642`에서 shell deadline 뒤에도 남은 backend를 확인함. | 동일한 protected Core 적용을 다시 실행하고 성공한 migration 및 post-apply 상태 증적을 보존합니다. |
 | 2026-08-20 | implemented | 지속 인벤토리 계약을 Container Apps Job에 연결했습니다. Cron은 매분 실행되지만 영속 예약 상태는 정상 6시간 스캔을 유지하고 관측된 변경을 120초 하한 위에서 합칩니다. 진행 마감, 절대 시도 마감 및 ARG 속도 예산은 로컬 구성과 같습니다. | [이슈 #139](https://github.com/dotnetpower/fdai/issues/139); 현재 Terraform 및 집중 인프라 계약 검사입니다. | 보호된 실행기에서 exact revision을 적용한 뒤 주기, 비용 및 실제 변경부터 조정까지 걸린 시간을 측정합니다. |
+| 2026-08-24 | implemented | Read-only inventory identity로 전역 provider-schema Container Apps Job을 추가했습니다. Job은 기존 Key Vault reference로 PostgreSQL DSN을 가져오고 immutable ledger blob을 복원하고 보존하며 인증된 production Pantheon bridge로 Heimdall publication을 수행합니다. | `current change`; provider-schema 검사 78개 통과, Terraform validation 및 집중 Job 검사 통과 | Protected runner로 exact revision을 적용하고 scheduled-run 및 Saga audit receipt 하나를 보존합니다. |
 
 ### 남은 작업
 
@@ -59,6 +61,7 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 - [ ] OHL target과 exact-revision Core 및 Executor image의 protected 적용 증적을 기록하고 배포된 revision이 같은 source commit으로 해석되는지 검증합니다.
 - [ ] 통제된 `ops.scale-out` 훈련을 완료하고 독립 rollback, cleanup, graph outcome, sample 100개 및 14일 recurrence evidence를 보존합니다.
 - [ ] Analyzer Job 추적 토폴로지 바인딩의 리포지토리에 안전한 protected 적용 및 예약 실행 증적을 보존합니다. Exact revision, source 신원, 범위가 제한된 Log Analytics 읽기, 발견 사항 게시, 리소스를 추가하지 않는 계획 근거를 포함합니다.
+- [ ] Source revision, durable generation digest, Heimdall publication 및 Saga audit record를 binding하는 protected apply 및 scheduled provider-schema receipt를 보존합니다.
 
 ## 전제조건(Prerequisites)
 
