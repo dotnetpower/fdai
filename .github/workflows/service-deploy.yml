@@ -212,10 +212,8 @@ jobs:
             }
             [[ "$MIGRATE_STATE" != "true" \
               && "$INITIAL_CUTOVER" != "true" \
-              && "$EVENT_BUS_TOPIC_MIGRATION" != "true" \
-              && "$DATABASE_HOST_BINDING" != "true" \
               && "$OPERATOR_CHANNEL_EDGE_TRANSITION" == "none" ]] || {
-              echo "Model binding transition cannot be combined with another transition." >&2
+                echo "Model binding transition can combine only with Event Bus topic migration and database host binding." >&2
               exit 1
             }
           fi
@@ -682,7 +680,8 @@ jobs:
             echo "### Protected service plan"
             echo "- Service: \`${{ inputs.service }}\`"
             echo "- Environment: \`${{ inputs.environment }}\`"
-            echo "- Deployment mode: \`${{ inputs.event_bus_topic_migration && inputs.database_host_binding && 'event-bus-topic-migration+database-host-binding' || inputs.event_bus_topic_migration && 'event-bus-topic-migration' || inputs.database_host_binding && 'database-host-binding' || inputs.initial_cutover && 'initial-cutover' || inputs.operator_channel_edge_transition != 'none' && format('operator-channel-edge-{0}', inputs.operator_channel_edge_transition) || 'standard' }}\`"
+            echo "- Deployment mode: \`${{ inputs.event_bus_topic_migration && inputs.model_binding_transition && 'event-bus-topic-migration+model-binding' || inputs.event_bus_topic_migration && inputs.database_host_binding && 'event-bus-topic-migration+database-host-binding' || inputs.event_bus_topic_migration && 'event-bus-topic-migration' || inputs.model_binding_transition && 'model-binding' || inputs.database_host_binding && 'database-host-binding' || inputs.initial_cutover && 'initial-cutover' || inputs.operator_channel_edge_transition != 'none' && format('operator-channel-edge-{0}', inputs.operator_channel_edge_transition) || 'standard' }}\`"
+              echo "- Deployment mode: \`${{ inputs.event_bus_topic_migration && inputs.database_host_binding && inputs.model_binding_transition && 'event-bus-topic-migration+database-host-binding+model-binding' || inputs.event_bus_topic_migration && inputs.model_binding_transition && 'event-bus-topic-migration+model-binding' || inputs.event_bus_topic_migration && inputs.database_host_binding && 'event-bus-topic-migration+database-host-binding' || inputs.database_host_binding && inputs.model_binding_transition && 'database-host-binding+model-binding' || inputs.event_bus_topic_migration && 'event-bus-topic-migration' || inputs.model_binding_transition && 'model-binding' || inputs.database_host_binding && 'database-host-binding' || inputs.initial_cutover && 'initial-cutover' || inputs.operator_channel_edge_transition != 'none' && format('operator-channel-edge-{0}', inputs.operator_channel_edge_transition) || 'standard' }}\`"
             echo "- Commit: \`${{ inputs.commit_sha }}\`"
             echo "- Plan run id: \`$GITHUB_RUN_ID\`"
             echo "- Plan run attempt: \`$GITHUB_RUN_ATTEMPT\`"

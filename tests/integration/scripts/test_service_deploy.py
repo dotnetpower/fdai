@@ -1206,6 +1206,17 @@ def _core_model_binding_plan(guard: ModuleType, digest: str) -> dict[str, object
     after_environment = plan["resource_changes"][0]["change"]["after"]["template"][0][  # type: ignore[index]
         "container"
     ][0]["env"]
+    model_values = {
+        "FDAI_LLM_ENDPOINT": "https://models.example.com",
+        "FDAI_WEB_SEARCH_ALLOWED_DOMAINS": "",
+        "FDAI_WEB_SEARCH_ENABLED": "false",
+        "FDAI_WEB_SEARCH_MAX_RESULTS": "8",
+        "FDAI_WEB_SEARCH_TIMEOUT_SECONDS": "45",
+    }
+    for side in ("before", "after"):
+        environment = change[side]["template"][0]["container"][0]["env"]
+        for name, value in model_values.items():
+            next(item for item in environment if item["name"] == name)["value"] = value
     after_environment.extend(
         (
             {"name": "LLM_MODE", "value": "azure"},
@@ -1245,6 +1256,106 @@ def test_plan_guard_allows_exact_core_model_binding_transition(guard: ModuleType
         )
 
 
+def test_plan_guard_composes_core_topic_and_full_model_binding_transition(
+    guard: ModuleType,
+) -> None:
+    service = "core-control-plane"
+    digest = "a" * 64
+    plan = _core_model_binding_plan(guard, digest)
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    before_environment = change["before"]["template"][0]["container"][0]["env"]
+    after_environment = change["after"]["template"][0]["container"][0]["env"]
+    model_values = {
+        "FDAI_LLM_ENDPOINT": "https://models.example.com",
+        "FDAI_WEB_SEARCH_ALLOWED_DOMAINS": "learn.example.com",
+        "FDAI_WEB_SEARCH_ENABLED": "true",
+        "FDAI_WEB_SEARCH_MAX_RESULTS": "8",
+        "FDAI_WEB_SEARCH_TIMEOUT_SECONDS": "45",
+    }
+    before_environment[:] = [
+        item for item in before_environment if item["name"] not in model_values
+    ]
+    for name, value in model_values.items():
+        next(item for item in after_environment if item["name"] == name)["value"] = value
+    expected_topics = guard.event_bus_topic_migration(service, surface="environment")
+    for name, value in expected_topics.items():
+        before_binding = next((item for item in before_environment if item["name"] == name), None)
+        after_binding = next((item for item in after_environment if item["name"] == name), None)
+        if before_binding is None:
+            before_environment.append({"name": name, "value": value})
+        else:
+            before_binding["value"] = value
+        if after_binding is None:
+            after_environment.append({"name": name, "value": value})
+        else:
+            after_binding["value"] = value
+    changed_topics = {
+        "FDAI_INCIDENT_INTERVENTION_REQUEST_TOPIC",
+        "FDAI_READ_INVESTIGATION_REQUEST_TOPIC",
+        "KAFKA_TOPIC_EVENTS",
+    }
+    before_environment[:] = [
+        item for item in before_environment if item["name"] not in changed_topics
+    ]
+
+    guard.validate_plan(
+        plan,
+        service=service,
+        environment="dev",
+        image_ref="image",
+        event_bus_topic_migration=True,
+        model_binding_transition=True,
+        resolved_models_digest=digest,
+    )
+
+
+def test_plan_guard_composes_core_topic_host_and_model_transition(
+    guard: ModuleType,
+) -> None:
+    service = "core-control-plane"
+    digest = "a" * 64
+    plan = _core_model_binding_plan(guard, digest)
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    before_environment = change["before"]["template"][0]["container"][0]["env"]
+    after_environment = change["after"]["template"][0]["container"][0]["env"]
+    expected_topics = guard.event_bus_topic_migration(service, surface="environment")
+    for name, value in expected_topics.items():
+        before_environment[:] = [item for item in before_environment if item["name"] != name]
+        after_binding = next((item for item in after_environment if item["name"] == name), None)
+        if after_binding is None:
+            after_environment.append({"name": name, "value": value})
+        else:
+            after_binding["value"] = value
+    before_environment[:] = [item for item in before_environment if item["name"] != "POSTGRES_HOST"]
+    next(item for item in after_environment if item["name"] == "POSTGRES_HOST")["value"] = (
+        "db.example.com"
+    )
+
+    guard.validate_plan(
+        plan,
+        service=service,
+        environment="dev",
+        image_ref="image",
+        event_bus_topic_migration=True,
+        database_host_binding=True,
+        model_binding_transition=True,
+        resolved_models_digest=digest,
+    )
+
+    after_environment.append({"name": "UNREVIEWED", "value": "changed"})
+    with pytest.raises(guard.PlanGuardError, match="unapproved environment"):
+        guard.validate_plan(
+            plan,
+            service=service,
+            environment="dev",
+            image_ref="image",
+            event_bus_topic_migration=True,
+            database_host_binding=True,
+            model_binding_transition=True,
+            resolved_models_digest=digest,
+        )
+
+
 def test_plan_guard_rejects_model_binding_digest_mismatch(guard: ModuleType) -> None:
     service = "core-control-plane"
     plan = _core_model_binding_plan(guard, "b" * 64)
@@ -1261,6 +1372,40 @@ def test_plan_guard_rejects_model_binding_digest_mismatch(guard: ModuleType) -> 
             image_ref="image",
             model_binding_transition=True,
             resolved_models_digest="a" * 64,
+        )
+
+
+@pytest.mark.parametrize(
+    ("name", "value"),
+    [
+        ("FDAI_LLM_ENDPOINT", "http://models.example.com"),
+        ("FDAI_LLM_ENDPOINT", "https://user@models.example.com"),
+        ("FDAI_WEB_SEARCH_ALLOWED_DOMAINS", "learn.example.com/path"),
+        ("FDAI_WEB_SEARCH_ENABLED", "enabled"),
+        ("FDAI_WEB_SEARCH_MAX_RESULTS", "21"),
+        ("FDAI_WEB_SEARCH_TIMEOUT_SECONDS", "91"),
+    ],
+)
+def test_plan_guard_rejects_invalid_model_environment(
+    guard: ModuleType,
+    name: str,
+    value: str,
+) -> None:
+    digest = "a" * 64
+    plan = _core_model_binding_plan(guard, digest)
+    after_environment = plan["resource_changes"][0]["change"]["after"]["template"][0][  # type: ignore[index]
+        "container"
+    ][0]["env"]
+    next(item for item in after_environment if item["name"] == name)["value"] = value
+
+    with pytest.raises(guard.PlanGuardError, match="invalid environment"):
+        guard.validate_plan(
+            plan,
+            service="core-control-plane",
+            environment="dev",
+            image_ref="image",
+            model_binding_transition=True,
+            resolved_models_digest=digest,
         )
 
 
@@ -3423,6 +3568,36 @@ def test_plan_bundle_binds_model_binding_mode(bundle: ModuleType, tmp_path: Path
             now=now + timedelta(minutes=5),
             **coordinates,
         )
+
+
+def test_plan_bundle_composes_topic_and_model_binding_modes(bundle: ModuleType) -> None:
+    assert (
+        bundle._deployment_mode(
+            service="core-control-plane",
+            initial_cutover=False,
+            event_bus_topic_migration=True,
+            database_host_binding=False,
+            model_binding_transition=True,
+            operator_channel_edge_transition="none",
+        )
+        == "event-bus-topic-migration+model-binding"
+    )
+
+
+def test_plan_bundle_composes_core_topic_host_and_model_binding_modes(
+    bundle: ModuleType,
+) -> None:
+    assert (
+        bundle._deployment_mode(
+            service="core-control-plane",
+            initial_cutover=False,
+            event_bus_topic_migration=True,
+            database_host_binding=True,
+            model_binding_transition=True,
+            operator_channel_edge_transition="none",
+        )
+        == "event-bus-topic-migration+database-host-binding+model-binding"
+    )
 
 
 def test_plan_bundle_binds_event_bus_topic_migration_mode(

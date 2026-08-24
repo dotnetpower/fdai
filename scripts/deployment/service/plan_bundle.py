@@ -395,15 +395,18 @@ def _deployment_mode(
         raise PlanBundleError(
             "database host binding is exclusive with initial cutover and channel-edge transition"
         )
-    if model_binding_transition and (
-        initial_cutover
-        or event_bus_topic_migration
-        or database_host_binding
-        or operator_channel_edge_transition != "none"
-    ):
-        raise PlanBundleError("model binding transition is exclusive with other transitions")
+    if model_binding_transition and (initial_cutover or operator_channel_edge_transition != "none"):
+        raise PlanBundleError(
+            "model binding transition is exclusive with initial cutover and channel-edge transition"
+        )
+    if event_bus_topic_migration and database_host_binding and model_binding_transition:
+        return "event-bus-topic-migration+database-host-binding+model-binding"
+    if event_bus_topic_migration and model_binding_transition:
+        return "event-bus-topic-migration+model-binding"
     if event_bus_topic_migration and database_host_binding:
         return "event-bus-topic-migration+database-host-binding"
+    if database_host_binding and model_binding_transition:
+        return "database-host-binding+model-binding"
     if event_bus_topic_migration:
         return "event-bus-topic-migration"
     if database_host_binding:

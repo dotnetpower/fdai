@@ -9,6 +9,7 @@ import json
 import re
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from service_contract import (
     ServiceContract,
@@ -57,7 +58,16 @@ _OPERATOR_CHANNEL_EDGE_FORBIDDEN_ENVIRONMENT = frozenset(
     }
 )
 _MODEL_BINDING_ENVIRONMENT = frozenset(
-    {"LLM_MODE", "LLM_RESOLVED_MODELS_PATH", "LLM_RESOLVED_MODELS_SHA256"}
+    {
+        "FDAI_LLM_ENDPOINT",
+        "FDAI_WEB_SEARCH_ALLOWED_DOMAINS",
+        "FDAI_WEB_SEARCH_ENABLED",
+        "FDAI_WEB_SEARCH_MAX_RESULTS",
+        "FDAI_WEB_SEARCH_TIMEOUT_SECONDS",
+        "LLM_MODE",
+        "LLM_RESOLVED_MODELS_PATH",
+        "LLM_RESOLVED_MODELS_SHA256",
+    }
 )
 
 
@@ -263,6 +273,40 @@ def _environment_binding(item: dict[str, Any] | None) -> tuple[Any, Any] | None:
     )
 
 
+def _valid_https_origin(value: str) -> bool:
+    try:
+        parsed = urlsplit(value.strip().rstrip("/"))
+        port = parsed.port
+    except ValueError:
+        return False
+    return (
+        parsed.scheme == "https"
+        and parsed.hostname is not None
+        and parsed.username is None
+        and parsed.password is None
+        and parsed.path == ""
+        and parsed.query == ""
+        and parsed.fragment == ""
+        and port != 0
+        and "\\" not in value
+        and not any(character.isspace() for character in value)
+    )
+
+
+def _valid_web_search_domains(value: str) -> bool:
+    domains = [] if value == "" else value.split(",")
+    return (
+        len(domains) <= 100
+        and len(domains) == len(set(domains))
+        and all(
+            re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?", domain) is not None
+            and ".." not in domain
+            and all(len(label) <= 63 for label in domain.split("."))
+            for domain in domains
+        )
+    )
+
+
 def _event_bus_environment_names(contract: ServiceContract) -> frozenset[str]:
     return frozenset(event_bus_topic_migration(contract.service, surface="environment"))
 
@@ -363,6 +407,7 @@ def _guard_model_binding_transition(
     address: str,
     contract: ServiceContract,
     resolved_models_digest: str,
+    additional_allowed_names: frozenset[str] = frozenset(),
 ) -> list[str]:
     if contract.service != "core-control-plane":
         return ["model binding transition is valid only for the Core control plane"]
@@ -388,13 +433,59 @@ def _guard_model_binding_transition(
         for name, binding in expected.items()
         if _environment_binding(after_environment.get(name)) != binding
     )
+    endpoint_binding = _environment_binding(after_environment.get("FDAI_LLM_ENDPOINT"))
+    endpoint, endpoint_secret = endpoint_binding or (None, None)
+    web_enabled_binding = _environment_binding(after_environment.get("FDAI_WEB_SEARCH_ENABLED"))
+    web_enabled, web_enabled_secret = web_enabled_binding or (None, None)
+    domains_binding = _environment_binding(after_environment.get("FDAI_WEB_SEARCH_ALLOWED_DOMAINS"))
+    allowed_domains, domains_secret = domains_binding or (None, None)
+    max_results_binding = _environment_binding(after_environment.get("FDAI_WEB_SEARCH_MAX_RESULTS"))
+    max_results, max_results_secret = max_results_binding or (None, None)
+    timeout_binding = _environment_binding(after_environment.get("FDAI_WEB_SEARCH_TIMEOUT_SECONDS"))
+    timeout_seconds, timeout_secret = timeout_binding or (None, None)
+    if (
+        endpoint_secret is not None
+        or endpoint is None
+        or not isinstance(endpoint, str)
+        or not _valid_https_origin(endpoint)
+    ):
+        invalid.append("FDAI_LLM_ENDPOINT")
+    if web_enabled_secret is not None or web_enabled not in {"true", "false"}:
+        invalid.append("FDAI_WEB_SEARCH_ENABLED")
+    if (
+        domains_secret is not None
+        or not isinstance(allowed_domains, str)
+        or not _valid_web_search_domains(allowed_domains)
+    ):
+        invalid.append("FDAI_WEB_SEARCH_ALLOWED_DOMAINS")
+    elif web_enabled == "true" and not allowed_domains:
+        invalid.append("FDAI_WEB_SEARCH_ALLOWED_DOMAINS")
+    try:
+        valid_max_results = (
+            max_results_secret is None and max_results is not None and 1 <= int(max_results) <= 20
+        )
+    except ValueError:
+        valid_max_results = False
+    if not valid_max_results:
+        invalid.append("FDAI_WEB_SEARCH_MAX_RESULTS")
+    try:
+        valid_timeout = (
+            timeout_secret is None
+            and timeout_seconds is not None
+            and 0.1 <= float(timeout_seconds) <= 90
+        )
+    except ValueError:
+        valid_timeout = False
+    if not valid_timeout:
+        invalid.append("FDAI_WEB_SEARCH_TIMEOUT_SECONDS")
     violations: list[str] = []
     if not changed or "LLM_RESOLVED_MODELS_SHA256" not in changed:
         violations.append("model binding transition does not advance the runtime digest")
-    if changed - _MODEL_BINDING_ENVIRONMENT:
+    allowed_names = _MODEL_BINDING_ENVIRONMENT | additional_allowed_names
+    if changed - allowed_names:
         violations.append(
             f"model binding transition changes unapproved environment at {address}: "
-            f"{sorted(changed - _MODEL_BINDING_ENVIRONMENT)!r}"
+            f"{sorted(changed - allowed_names)!r}"
         )
     if invalid:
         violations.append(
@@ -596,6 +687,9 @@ def _guard_update(
     if before_authority != after_authority and not authority_removed_from_core:
         violations.append(f"authority cutover change at {address}")
     if event_bus_topic_migration:
+        topic_additional_names = (
+            _MODEL_BINDING_ENVIRONMENT if model_binding_transition else frozenset()
+        )
         violations.extend(
             _guard_event_bus_topic_migration(
                 before,
@@ -603,24 +697,32 @@ def _guard_update(
                 address=address,
                 contract=contract,
                 additional_allowed_names=(
-                    frozenset({"POSTGRES_HOST"}) if database_host_binding else frozenset()
+                    topic_additional_names
+                    | (frozenset({"POSTGRES_HOST"}) if database_host_binding else frozenset())
                 ),
             )
         )
     if database_host_binding:
-        topic_names = (
+        additional_host_names = (
             _event_bus_environment_names(contract) if event_bus_topic_migration else frozenset()
         )
+        if model_binding_transition:
+            additional_host_names |= _MODEL_BINDING_ENVIRONMENT
         violations.extend(
             _guard_database_host_binding(
                 before,
                 after,
                 address=address,
                 contract=contract,
-                additional_allowed_names=topic_names,
+                additional_allowed_names=additional_host_names,
             )
         )
     if model_binding_transition:
+        model_additional_names = (
+            _event_bus_environment_names(contract) if event_bus_topic_migration else frozenset()
+        )
+        if database_host_binding:
+            model_additional_names |= frozenset({"POSTGRES_HOST"})
         violations.extend(
             _guard_model_binding_transition(
                 before,
@@ -628,6 +730,7 @@ def _guard_update(
                 address=address,
                 contract=contract,
                 resolved_models_digest=resolved_models_digest,
+                additional_allowed_names=model_additional_names,
             )
         )
     elif (
@@ -1070,12 +1173,11 @@ def validate_plan(
     if model_binding_transition and (
         service != "core-control-plane"
         or initial_cutover
-        or event_bus_topic_migration
-        or database_host_binding
         or operator_channel_edge_transition != "none"
     ):
         raise PlanGuardError(
-            "model binding transition is Core-only and exclusive with other transitions"
+            "model binding transition is Core-only and exclusive with "
+            "initial cutover and channel-edge transition"
         )
     contract = resolve_service(service, environment)
     channel_edge_contract = _operator_channel_edge_contract(contract)

@@ -905,7 +905,10 @@ def test_service_workflow_seals_database_host_binding_mode() -> None:
 def test_service_workflow_seals_core_model_binding_transition() -> None:
     assert "model_binding_transition:" in _WORKFLOW
     assert "Model binding transition is valid only for core-control-plane." in _WORKFLOW
-    assert "Model binding transition cannot be combined with another transition." in _WORKFLOW
+    assert (
+        "Model binding transition can combine only with Event Bus topic migration and database "
+        "host binding." in _WORKFLOW
+    )
     assert _WORKFLOW.count("MODEL_BINDING_TRANSITION: ${{ inputs.model_binding_transition }}") == 4
     assert "RESOLVED_MODELS_JSON: ${{ vars.RESOLVED_MODELS_JSON }}" in _WORKFLOW
     assert '[[ "$SERVICE" == "core-control-plane" ]]' in _WORKFLOW
@@ -914,6 +917,8 @@ def test_service_workflow_seals_core_model_binding_transition() -> None:
     assert "--model-binding-transition" in _WORKFLOW
     assert _WORKFLOW.count('--resolved-models-digest "$RESOLVED_MODELS_DIGEST"') >= 4
     assert "service-model-binding-apply-{0}" in _WORKFLOW
+    assert "event-bus-topic-migration+model-binding" in _WORKFLOW
+    assert "event-bus-topic-migration+database-host-binding+model-binding" in _WORKFLOW
     assert 'name = "LLM_RESOLVED_MODELS_PATH"' in _CORE_TERRAFORM
     assert 'name = "LLM_RESOLVED_MODELS_SHA256"' in _CORE_TERRAFORM
     assert "var.llm.resolved_models_digest" in _CORE_TERRAFORM
