@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: eac63b60c755666c1dbf4c0dde1b8bf6a9553fb2
-translation_revised: 2026-08-24
+translation_source_sha: e63446cf87874060e388ec0fa1838803a787f2da
+translation_revised: 2026-08-25
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 시스템이 관측 준비되도록 하는 방법. 이 문서는 **구체적 배포 인벤토리, 부트스트랩 순서, 분포/배포 책임 분리**의 진실 원본입니다; 배포 라이프사이클(CI/CD, progressive 전달, 롤백, DR)은 [deployment-ko.md](deployment-ko.md)에 남습니다.
@@ -17,7 +17,6 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 > [배포 아티팩트](#배포-아티팩트)를 참조하세요.
 ## 구현 상태
 ### 구현 범위
-
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | Protected platform 계획 및 exact 적용 | implemented | `.github/workflows/deploy-dev.yml` 및 집중 배포 workflow 검사 | Private runner 계획, 변경할 수 없는 적용 claim, post-apply 검사, 선택적 non-executor channel-edge identity 및 versionless secret-scope input이 제공되지만, 통제된 platform 적용 증적은 리포지토리에 보존되어 있지 않습니다. |
@@ -35,6 +34,7 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 |------|------|------|------|-----------|
 | 2026-08-21 | implemented | 보호된 runner의 암묵적인 system pip 의존성을 제거했습니다. Workflow는 저장소가 pin한 uv release를 설치하고 frozen Core package 환경에서 model resolution과 production readiness를 실행합니다. | `current change`; 실패한 보호 계획 실행 `32434472993`; 집중 배포 workflow 계약, YAML parsing 및 dependency command 검사. | 정확한 Event Bus 이행 계획을 다시 실행하고 protected plan/apply 근거를 보존합니다. |
 | 2026-08-21 | implemented | 파괴적 계획 게이트를 유지하면서 검토된 임베딩 이행 하나를 승인했습니다. Terraform 계획이 정확한 주소, 계정 연결, 모델 계열, 기존 `GlobalStandard` 용량 1, 목표 `Standard` 용량 200과 일치할 때만 `t1.embedding` 교체를 허용합니다. 삭제 전용 계획과 값이 달라진 교체는 계속 차단됩니다. | `current change`; `.github/workflows/deploy-dev.yml`; 집중 파괴적 계획 검사 2개 통과. | 정확한 보호 계획을 적용하고 새 배포와 런타임 연결을 검증한 뒤 증적을 보존하고 일회성 전환 승인을 제거합니다. |
+| 2026-08-24 | implemented | 모델 바인딩 전용 계획 범위 가드를 실제 workflow 단계로 복원하고 사용 중단 중인 출처 모델 계열에서 이동하는 교체 검토를 강화했습니다. 저장된 계획은 유효한 OpenAI 출처 배포와 계정 연결을 유지해야 하며, 목표는 봉인된 GA 모델 계열, 버전, SKU 및 용량과 정확히 일치해야 합니다. | [이슈 #270](https://github.com/dotnetpower/fdai/issues/270); `deploy-dev.yml`; 실행형 모델 계획 및 파괴적 교체 검사. | 경로를 `validated`로 올리기 전에 정확한 PTU 계획, 적용, readback 및 역방향 계획 롤백 증적을 보존합니다. |
 | 2026-08-13 | implemented | 이전 provenance를 재구성하지 않고 implementation ledger를 도입하고 범위가 제한된 OHL evidence target의 protected provisioning 및 proposal-only Job을 추가했습니다. | current change, 집중 Terraform test 결과 8 passed 및 publisher/workflow test 결과 13 passed | Exact 계획을 적용하고 증명된 런타임 이미지를 배포한 뒤 실제 evidence campaign을 완료합니다. |
 | 2026-08-13 | implemented | 로컬 파괴적 migration 검증을 활성 로컬 런타임 PostgreSQL cluster에서 격리했습니다. | 현재 변경, Compose configuration 통과, focused queue 및 local-environment test 68개 통과, 격리된 migration upgrade/downgrade 검사 2개 통과. | 로컬 검증 데이터베이스 격리에 남은 구현 작업은 없습니다. |
 | 2026-08-13 | implemented | Protected platform 계획 및 exact 적용 상태를 `validated`에서 `implemented`로 정정했습니다. Workflow source는 메커니즘을 입증하지만 리포지토리는 통제된 platform 적용 증적을 보존하지 않습니다. | current change, `.github/workflows/deploy-dev.yml`, roadmap, 번역 및 문서 검사 | `validated`로 복원하기 전에 리포지토리에 안전한 통제된 platform 적용 증적을 보존합니다. |

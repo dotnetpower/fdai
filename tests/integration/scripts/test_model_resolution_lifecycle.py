@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -11,6 +14,29 @@ from scripts.deployment.azure.model_lifecycle_reconciler import reconcile_model_
 
 _ROOT = Path(__file__).resolve().parents[3]
 _DEPLOY = (_ROOT / ".github" / "workflows" / "deploy-dev.yml").read_text(encoding="utf-8")
+
+
+def _workflow_step(name: str) -> dict[str, object]:
+    workflow = yaml.safe_load(_DEPLOY)
+    return next(
+        step
+        for job in workflow["jobs"].values()
+        for step in job.get("steps", [])
+        if step.get("name") == name
+    )
+
+
+def _embedded_python(step_name: str) -> str:
+    step = _workflow_step(step_name)
+    run = step.get("run")
+    assert isinstance(run, str)
+    match = re.search(
+        r"python3 - <<'PY'\n(?P<source>.*?)\n\s*PY(?:\n|$)",
+        run,
+        re.DOTALL,
+    )
+    assert match is not None
+    return match.group("source")
 
 
 def test_protected_deploy_resolves_and_seals_model_manifest_before_plan() -> None:
@@ -104,23 +130,100 @@ def test_exact_apply_restores_the_plan_sealed_model_manifest() -> None:
 
 @pytest.mark.parametrize(
     "step_name",
-    ["Store protected plan artifact", "Record exact plan apply receipt"],
+    [
+        "Enforce model-binding-only Terraform plan",
+        "Store protected plan artifact",
+        "Record exact plan apply receipt",
+    ],
 )
 def test_protected_model_evidence_python_compiles(step_name: str) -> None:
-    workflow = yaml.safe_load(_DEPLOY)
-    step = next(
-        step
-        for job in workflow["jobs"].values()
-        for step in job.get("steps", [])
-        if step.get("name") == step_name
-    )
-    match = re.search(
-        r"python3 - <<'PY'\n(?P<source>.*?)\n\s*PY(?:\n|$)",
-        step["run"],
-        re.DOTALL,
-    )
-    assert match is not None
-    compile(match.group("source"), step_name, "exec")
+    compile(_embedded_python(step_name), step_name, "exec")
+
+
+def test_model_replacement_allows_only_the_exact_sealed_cross_family_target(
+    tmp_path: Path,
+) -> None:
+    capability = "t2.reasoner.primary"
+    address = f'module.llm_azure_openai[0].azurerm_cognitive_deployment.capability["{capability}"]'
+    resolved = {
+        "capabilities": [
+            {
+                "name": capability,
+                "status": "resolved",
+                "family": "gpt-5.4",
+                "version": "2026-03-05",
+                "sku": "GlobalProvisionedManaged",
+                "capacity_unit": "ptu",
+                "capacity_tpm": 0,
+                "capacity_value": 15,
+            }
+        ]
+    }
+    (tmp_path / "resolved-models.json").write_text(json.dumps(resolved), encoding="utf-8")
+
+    def run_guard(target_family: str) -> subprocess.CompletedProcess[str]:
+        plan = {
+            "resource_changes": [
+                {
+                    "address": address,
+                    "change": {
+                        "actions": ["delete", "create"],
+                        "before": {
+                            "name": capability,
+                            "cognitive_account_id": "/example/account",
+                            "model": [
+                                {
+                                    "format": "OpenAI",
+                                    "name": "gpt-4o",
+                                    "version": "2024-11-20",
+                                }
+                            ],
+                            "sku": [{"name": "GlobalStandard", "capacity": 1}],
+                        },
+                        "after": {
+                            "name": capability,
+                            "cognitive_account_id": "/example/account",
+                            "model": [
+                                {
+                                    "format": "OpenAI",
+                                    "name": target_family,
+                                    "version": "2026-03-05",
+                                }
+                            ],
+                            "sku": [
+                                {
+                                    "name": "GlobalProvisionedManaged",
+                                    "capacity": 15,
+                                }
+                            ],
+                        },
+                    },
+                }
+            ]
+        }
+        (tmp_path / "dev.plan.review.json").write_text(json.dumps(plan), encoding="utf-8")
+        return subprocess.run(  # noqa: S603 - fixed interpreter executes local test source
+            [sys.executable, "-c", _embedded_python("Reject destructive protected plan")],
+            cwd=tmp_path,
+            env={
+                **os.environ,
+                "FDAI_RESOLVED_MODELS_PATH": str(tmp_path / "resolved-models.json"),
+                "MODEL_BINDING_ONLY": "true",
+                "MIGRATE_EVENT_BUS_TOPICS": "false",
+                "MIGRATE_EVENT_BUS_JOBS": "false",
+            },
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+    accepted = run_guard("gpt-5.4")
+    assert accepted.returncode == 0, accepted.stderr
+    assert "permits exact Azure OpenAI replacement" in accepted.stdout
+
+    rejected = run_guard("gpt-5.4-mini")
+    assert rejected.returncode == 1
+    assert "reject delete or replacement" in rejected.stdout
 
 
 def _resolved(
