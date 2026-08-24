@@ -19,6 +19,9 @@ def test_pylance_analyzes_owned_roots_without_background_indexing() -> None:
     settings = _load_jsonc(REPO_ROOT / ".vscode" / "settings.json")
     assert isinstance(settings, dict)
 
+    assert "azureTerraform.languageServer" not in settings
+    assert "liveServer.settings.host" not in settings
+    assert "liveServer.settings.port" not in settings
     assert settings["python.analysis.include"] == [
         "alembic",
         "benchmarks/*/src",

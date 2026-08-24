@@ -25,7 +25,7 @@ def test_repository_profile_artifacts_are_consistent() -> None:
     extension_count, setting_count = module.validate_artifacts()
 
     assert extension_count == 18
-    assert setting_count == 6
+    assert setting_count == 5
 
     machine_settings = module._read_json(module.MACHINE_TEMPLATE_PATH)
     assert "python.analysis.nodeArguments" not in machine_settings
@@ -33,6 +33,7 @@ def test_repository_profile_artifacts_are_consistent() -> None:
 
     profile = module._read_json(module.PROFILE_PATH)
     profile_settings = module._profile_settings(profile)
+    assert "azureTerraform.languageServer" not in profile_settings
     assert "python.analysis.nodeArguments" not in profile_settings
     assert "python.analysis.nodeExecutable" not in profile_settings
 
