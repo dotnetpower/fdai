@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: d840e9a6bd9483fcf635bb3927f11d0d7e00f7f3
+translation_source_sha: b57ab563bb80e9832b274d7e1b7b9f099fdeb652
 translation_revised: 2026-08-25
 ---
 
@@ -110,6 +110,14 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
   입력을 구체화할 때 작업 흐름은 플랫폼 상태의 `postgres_fqdn` 출력에서 호스트 이름을
   확인하고 `database.host`만 덮어씁니다. 쓰기 전용 서비스 tfvars 시크릿은 DSN 시크릿
   참조와 역할의 출처로 남습니다.
+- **범위가 제한된 Core 모델 연결**: Core 전용 `model_binding_transition` 모드는 증명된
+  resolved-model 다이제스트, 고정된 런타임 모드와 매니페스트 경로, 확인된 HTTPS
+  엔드포인트 및 검증된 웹 검색 설정만 변경할 수 있습니다. 활성 Core revision이 정본
+  Event Bus topic 연결이나 선언된 데이터베이스 호스트보다 오래된 경우 계획은 이 모드를
+  `event_bus_topic_migration`, `database_host_binding` 또는 둘 모두와 함께 사용할 수
+  있습니다. 각 guard는 자신의 전체 허용 목록을 검증하고 호스트는 권위 있는 플랫폼 상태
+  출력에서 가져오며 봉인된 배포 모드는 정확한 조합을 기록합니다. 신원, 권한, 시크릿,
+  명령 또는 관련 없는 환경 변경은 허용되지 않습니다.
 - **표류 감지**: 환경별로 스케줄된 읽기 전용 `plan`은 이전 방식 platform 루트, 독립 서비스 루트
   5개, 초기화 루트를 모두 검사합니다. 루트 계약은 서로 다른 백엔드 키를 사용하고
   새로 고침 전 상태에서 서비스 이미지를 해석하므로 out-of-band 이미지 변경도 드러납니다. 상태나

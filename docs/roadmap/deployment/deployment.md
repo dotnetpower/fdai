@@ -108,6 +108,14 @@ prod topology so shadow evaluation is representative.
   materialization, the workflow resolves the hostname from the platform state's `postgres_fqdn`
   output and overwrites only `database.host`; the write-only service tfvars secret remains the
   source for the DSN secret reference and role.
+- **Bounded Core model binding**: the Core-only `model_binding_transition` mode may change only the
+  attested resolved-model digest, fixed runtime mode and manifest path, resolved HTTPS endpoint,
+  and validated web-search settings. If the active Core revision also predates canonical Event Bus
+  topic bindings or its declared database host, the plan may compose this mode with
+  `event_bus_topic_migration`, `database_host_binding`, or both. Each guard validates its complete
+  allowlist, the host comes from the authoritative platform-state output, and the sealed deployment
+  mode records the exact combination. No identity, authority, secret, command, or unrelated
+  environment change is accepted.
 - **Drift detection**: a scheduled read-only `plan` covers the legacy platform root, the five
   independent service roots, and the bootstrap root for each environment. The root contract uses
   distinct backend keys and resolves service images from pre-refresh state, so an out-of-band image
