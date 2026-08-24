@@ -646,6 +646,14 @@ def test_resolved_models_rejects_duplicate_json_keys() -> None:
         ResolvedModels.from_json('{"schema_version":"1.0.0","schema_version":"2.0.0"}')
 
 
+def test_resolved_models_rejects_duplicate_capability_names() -> None:
+    raw = json.loads(_resolved_models_fixture().to_json())
+    raw["capabilities"][0]["name"] = raw["capabilities"][1]["name"]
+
+    with pytest.raises(ValueError, match="capability names MUST be unique"):
+        ResolvedModels.from_json(json.dumps(raw))
+
+
 # ---------------------------------------------------------------------------
 # Gate: tool_calling_required family support (G3)
 # ---------------------------------------------------------------------------

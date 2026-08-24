@@ -2,12 +2,10 @@
 title: LLM Strategy
 ---
 # LLM Strategy
-
 The design **uses the LLM less**, not more. A model is the **T2** fallback, reached only after T0 and
 T1 cannot resolve a case, and its output is never trusted for execution until deterministic verification approves it. Execution eligibility is granted by that verification, **never by the model**. This file expands the tier and quality-gate rules in
 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) and
 the threat model in [security-and-identity.md](security-and-identity.md).
-
 > Model names below are recommendations to **confirm at adoption time**. Availability, pricing,
 > and preview status change; pick the concrete model by measured cost/quality on the scenario set,
 > never by assumption. No specific model is fixed by this document.
@@ -36,6 +34,7 @@ the threat model in [security-and-identity.md](security-and-identity.md).
 | 2026-08-23 | implemented | Added the locally executable expiry-review slice. Lifecycle proposal v3 records the canonical source-model digest and affected capabilities. A pure evaluator holds only an expired, unmerged proposal for that exact source and rejects late merge evidence. The Operator-owned async Key Vault source validates official Azure vault origins and audiences, exact secret identity, size, JSON depth, enabled and expiration state, total deadline, and secret-safe errors and representation. | `current change`; focused lifecycle and Key Vault tests; 15 critique-and-harden rounds ended with no verified Medium-or-higher defect. | Bind asynchronous source loading and trusted PR lifecycle observations into startup, persist and verify decisions, then apply holds before capability binding without changing the model mapping. |
 | 2026-08-24 | implemented | Added revisioned environment binding drafts for every T1/T2 capability, complete-candidate TPM/PTU fallback, exact GA version sealing, Owner-only assessment and plan requests, active-artifact digest fencing, and Terraform version pinning. | `current change`; shared policy, resolver, Azure query, Operator IAM, Console Models, protected workflow, and Terraform paths; focused checks recorded in the completion report. | Retain one protected PTU plan/apply/rollback receipt and one post-apply independent binding verification before classifying the path as validated. |
 | 2026-08-24 | implemented | Added a model-binding-only protected deployment mode after live assessment showed that an intentionally unavailable secondary publisher made the general completeness gate stop before Terraform. Bounded `plan-model-*` and `apply-model-*` request ids require an environment policy and protected request, target only the Azure OpenAI module, accept only sealed cognitive deployment changes, and verify replacement version, SKU, and capacity against the resolved artifact. | [Issue #270](https://github.com/dotnetpower/fdai/issues/270); `deploy-dev.yml`; `test_model_resolution_lifecycle.py`; focused protected workflow checks passed 60 cases, YAML parsing passed, and Ruff passed. | Run the exact PTU plan, apply, independent runtime verification, and reverse-plan rollback before classifying the path as validated. |
+| 2026-08-24 | implemented | Bound the protected operation kind and model policy environment, revision, digest, and active-artifact fence into immutable plan metadata. Exact apply rejects a different operation kind or environment, duplicate resolved capabilities fail replay, and an independent management-plane readback compares deployed family, version, SKU, capacity, and provisioning state before writing a sanitized receipt. | [Issue #270](https://github.com/dotnetpower/fdai/issues/270); `verify-deployment-plan.py`; `verify_model_deployments.py`; protected workflow and resolver checks passed 107 cases; Ruff, strict mypy, and YAML parsing passed; ten critique rounds left no verified unresolved finding above Low. | Retain the exact PTU plan/apply and reverse-plan rollback receipts, then verify Core and Operator consume the sealed runtime digest. |
 ### Remaining work
 - [ ] Retain a pinned live-shadow cohort for every enabled T1/T2 capability with model identity, cost, latency, schema-repair attempts and recovery, escalation, planning disposition, disagreement, grounding, verifier, rubric, outcome, and guard evidence after the live KPI prerequisites in [Goals and Metrics](goals-and-metrics.md#remaining-work) and the [Agent Pantheon implementation plan](../agents/agent-pantheon-implementation.md#remaining-work) are satisfied.
 - [ ] Retain a governed T2 recovery campaign proving bounded attempt budgets, durable receipt forwarding after restart, terminal exhaustion to human approval, an audited route switch, correlation-fenced rollback, and recovery without a new approval.
@@ -44,7 +43,6 @@ the threat model in [security-and-identity.md](security-and-identity.md).
 - [ ] Retain one protected environment policy campaign that assesses a provisioned SKU, seals the exact model version and PTU capacity, applies the approved plan, independently verifies the runtime binding, and rehearses rollback without a Console or Operator identity receiving provider mutation authority.
 
 ## Model Tiers
-
 Coverage figures are **targets to validate against a measured baseline**
 ([goals-and-metrics.md](goals-and-metrics.md)), not guarantees. They partition one event
 stream, so T0+T1+T2 sum to ~100%; T0 (~70-80%) is documented in

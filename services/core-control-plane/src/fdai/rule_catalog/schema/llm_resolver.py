@@ -263,6 +263,9 @@ class ResolvedModels:
     def __post_init__(self) -> None:
         if self.schema_version != _RESOLVED_MODELS_SCHEMA_VERSION:
             raise ValueError("resolved models schema_version is unsupported")
+        capability_names = [capability.name for capability in self.capabilities]
+        if len(capability_names) != len(set(capability_names)):
+            raise ValueError("resolved model capability names MUST be unique")
         if self.binding_policy_digest is not None:
             if (
                 not self.binding_policy_environment

@@ -3,9 +3,7 @@ title: Deploy and Onboard
 ---
 # Deploy and Onboard
 How to provision and onboard FDAI in Azure so it is ready to observe. This file owns **the concrete deployment inventory, bootstrap sequence, and distribution/deployment responsibility split**; the deployment lifecycle (CI/CD, progressive delivery, rollback, DR) remains in [deployment.md](deployment.md).
-
 Azure focus: this document targets an Azure subscription. Non-Azure providers are TBD (see [Implementation Focus](../../../.github/copilot-instructions.md#implementation-focus-must)). All identifiers are synthetic per [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md).
-
 > The day-zero service tiers and counts are decided in
 > [minimum Azure resource inventory](#azure-resource-inventory-minimum-set). A deployment owner confirms the
 > region, quota, retention, replica caps, and production tier overrides before deployment.
@@ -14,9 +12,7 @@ Azure focus: this document targets an Azure subscription. Non-Azure providers ar
 > as the source of truth and submits plan and apply work to the approved runner. See
 > [Installable Deployment CLI](installable-deployment-cli.md) and
 > [Deployment Artifacts](#deployment-artifacts).
-
 ## Implementation status
-
 ### Implementation scope
 
 | Area | State | Evidence | Notes |
@@ -52,7 +48,7 @@ Azure focus: this document targets an Azure subscription. Non-Azure providers ar
 | 2026-08-20 | implemented | Wired the continuous inventory contract into the Container Apps Job. The cron runs every minute, while durable scheduling preserves the six-hour routine scan and coalesces observed changes above a 120-second floor. Progress, absolute attempt, and ARG rate budgets match local configuration. | [Issue #139](https://github.com/dotnetpower/fdai/issues/139); current Terraform and focused infrastructure contract checks. | Apply the exact revision through the protected runner, then measure cadence, cost, and one real change-to-reconciliation interval. |
 | 2026-08-24 | implemented | Added the global provider-schema Container Apps Job under the read-only inventory identity. The Job retrieves its PostgreSQL DSN through the existing Key Vault reference, hydrates and persists immutable ledger blobs, and uses the authenticated production Pantheon bridge for Heimdall publication. | `current change`; provider-schema checks passed 78 cases; Terraform validation and focused Job checks passed. | Apply the exact revision through the protected runner and retain one scheduled-run plus Saga audit receipt. |
 | 2026-08-24 | implemented | Added bounded `plan-model-*` and `apply-model-*` request ids for model-binding-only protected deployment. The mode requires a stored environment policy and protected request, permits an intentionally held model quorum during assessment, targets only the Azure OpenAI module, and rejects any plan change outside sealed cognitive deployments. | [Issue #270](https://github.com/dotnetpower/fdai/issues/270); `.github/workflows/deploy-dev.yml`; focused protected workflow checks passed 60 cases and YAML parsing passed. | Retain the exact plan, apply, provider readback, runtime digest, and reverse-plan rollback receipts. |
-
+| 2026-08-24 | implemented | Sealed request kind and model policy provenance through exact apply, rejected duplicate capability bindings, and added independent Azure deployment readback with a tenant-safe digest-bound apply receipt. | [Issue #270](https://github.com/dotnetpower/fdai/issues/270); protected plan verifier, model deployment verifier, workflow, and focused checks passed 107 cases; ten critique rounds left no verified unresolved finding above Low. | Retain the live forward and reverse protected receipts and verify the independently deployed runtimes load the sealed digest. |
 ### Remaining work
 
 - [ ] Retain a repository-safe governed platform apply receipt that binds the exact protected plan, source revision, target identity, and post-apply verification, then advance the platform exact-apply scope to `validated`.

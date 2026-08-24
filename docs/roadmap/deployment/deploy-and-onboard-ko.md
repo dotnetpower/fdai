@@ -1,14 +1,12 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: e496d0e9e9bc11a165ba5c238dbfd2ee6de8fff6
+translation_source_sha: eac63b60c755666c1dbf4c0dde1b8bf6a9553fb2
 translation_revised: 2026-08-24
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 시스템이 관측 준비되도록 하는 방법. 이 문서는 **구체적 배포 인벤토리, 부트스트랩 순서, 분포/배포 책임 분리**의 진실 원본입니다; 배포 라이프사이클(CI/CD, progressive 전달, 롤백, DR)은 [deployment-ko.md](deployment-ko.md)에 남습니다.
-
 Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로바이더는 TBD ([구현 Focus](../../../.github/copilot-instructions.md#implementation-focus-must)). 모든 식별자는 [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)에 따라 합성.
-
 > Day-zero 서비스 계층과 수량은
 > [최소 Azure 리소스 인벤토리](#azure-리소스-인벤토리-최소-세트)에서 결정되어 있습니다.
 > 배포 소유자는 배포 전에 지역, 할당량, 보존, 복제본 상한, 운영 계층 재정의를
@@ -17,9 +15,7 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 > truth로 유지하고 계획 및 적용 작업을 승인된 실행기에 제출합니다.
 > [설치형 배포 CLI](installable-deployment-cli-ko.md)와
 > [배포 아티팩트](#배포-아티팩트)를 참조하세요.
-
 ## 구현 상태
-
 ### 구현 범위
 
 | 영역 | 상태 | 근거 | 참고 |
@@ -33,7 +29,6 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 | Analyzer Job 추적 토폴로지 바인딩 | implemented | `trace_continuity.py`, `analyzer_tick_cli.py`, `analyzer_tick_job.tf`, `test_detection_readiness.py`, 집중 추적 검사 | 선택적 배포 제공 토폴로지 선언은 기존 Job, 읽기 신원, Log Analytics 작업 영역, Event Bus를 재사용합니다. 구성이 비어 있으면 현재 analyzer 전용 경로를 유지하고 Azure 리소스를 추가하지 않습니다. |
 | 지속 인벤토리 Job | implemented | `inventory_job.tf`, `inventory_job_config.py`, 집중 인벤토리 및 인프라 검사 | 1분 cron이 변경 비우기와 실행 조건 확인을 구동합니다. Terraform은 변경 하한, 진행 및 절대 마감, 공유 ARG 요청 예산을 전달합니다. 보호 적용 및 실제 운영 주기 근거는 아직 남아 있습니다. |
 | 전역 provider-schema Job | implemented | `provider_schema_job.tf`, `provider_schema_watcher_cli.py`, `provider_schema_state_ledger.py`, 집중 provider, Pantheon, Terraform 및 infrastructure 검사 | Daily read-only Job은 immutable upstream revision을 해석하고 append-only ledger를 private PostgreSQL로 보존하며 strict material drift를 Heimdall의 기존 shadow topic으로 route합니다. Protected apply 및 scheduled-run receipt는 열린 작업입니다. |
-
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
@@ -55,7 +50,7 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 | 2026-08-20 | implemented | 지속 인벤토리 계약을 Container Apps Job에 연결했습니다. Cron은 매분 실행되지만 영속 예약 상태는 정상 6시간 스캔을 유지하고 관측된 변경을 120초 하한 위에서 합칩니다. 진행 마감, 절대 시도 마감 및 ARG 속도 예산은 로컬 구성과 같습니다. | [이슈 #139](https://github.com/dotnetpower/fdai/issues/139); 현재 Terraform 및 집중 인프라 계약 검사입니다. | 보호된 실행기에서 exact revision을 적용한 뒤 주기, 비용 및 실제 변경부터 조정까지 걸린 시간을 측정합니다. |
 | 2026-08-24 | implemented | Read-only inventory identity로 전역 provider-schema Container Apps Job을 추가했습니다. Job은 기존 Key Vault reference로 PostgreSQL DSN을 가져오고 immutable ledger blob을 복원하고 보존하며 인증된 production Pantheon bridge로 Heimdall publication을 수행합니다. | `current change`; provider-schema 검사 78개 통과, Terraform validation 및 집중 Job 검사 통과 | Protected runner로 exact revision을 적용하고 scheduled-run 및 Saga audit receipt 하나를 보존합니다. |
 | 2026-08-24 | implemented | 모델 바인딩 전용 보호 배포를 위해 범위가 제한된 `plan-model-*` 및 `apply-model-*` 요청 ID를 추가했습니다. 이 모드는 저장된 환경 정책과 보호 요청을 요구하고, 평가 중 의도적으로 보류된 모델 정족수를 허용하며, Azure OpenAI 모듈만 대상으로 삼고 봉인된 Cognitive deployment 이외의 계획 변경을 거부합니다. | [이슈 #270](https://github.com/dotnetpower/fdai/issues/270); `.github/workflows/deploy-dev.yml`; 집중 보호 workflow 검사 60개 및 YAML 구문 분석 통과. | 정확한 계획, 적용, 공급자 readback, 런타임 다이제스트 및 역방향 계획 롤백 증적을 보존합니다. |
-
+| 2026-08-24 | implemented | Exact 적용까지 요청 종류와 모델 정책 출처를 봉인하고, 중복 기능 바인딩을 거부하며, 테넌트 정보가 없는 다이제스트 결속 적용 증적과 독립 Azure deployment readback을 추가했습니다. | [이슈 #270](https://github.com/dotnetpower/fdai/issues/270); 보호 계획 검증기, 모델 deployment 검증기, workflow 및 집중 검사 107개 통과; 비평 10회 뒤 검증된 미해결 결함은 Low 이하만 남았습니다. | 실제 정방향 및 역방향 보호 증적을 보존하고 독립 배포 런타임이 봉인된 다이제스트를 로드하는지 검증합니다. |
 ### 남은 작업
 
 - [ ] Exact protected 계획, source revision, target identity 및 post-apply 검증을 결합하는 리포지토리에 안전한 통제된 platform 적용 증적을 보존한 뒤 platform exact 적용 범위를 `validated`로 전환합니다.

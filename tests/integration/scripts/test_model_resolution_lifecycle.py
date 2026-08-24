@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from pathlib import Path
 
 import pytest
+import yaml
 from scripts.deployment.azure.model_lifecycle_reconciler import reconcile_model_lifecycle
 
 _ROOT = Path(__file__).resolve().parents[3]
@@ -30,6 +32,7 @@ def test_protected_deploy_resolves_and_seals_model_manifest_before_plan() -> Non
     assert "Verify model binding policy active digest" in _DEPLOY
     assert "terraform output -raw resolved_models_sha256" in _DEPLOY
     assert "Model binding policy active digest is stale" in _DEPLOY
+    assert "Current active resolved-models digest" in _DEPLOY
     assert "Model binding policy exceeds the 16000-byte plan input bound" in _DEPLOY
     assert "MODEL_BINDING_POLICY_JSON: ${{ !inputs.apply" in _DEPLOY
     assert "RESOLVED_CAPABILITIES_JSON" not in _DEPLOY
@@ -88,6 +91,36 @@ def test_exact_apply_restores_the_plan_sealed_model_manifest() -> None:
     assert 'echo "$resolved_models_digest  resolved-models.json" | sha256sum --check' in _DEPLOY
     assert 'echo "$deployment_models_digest  deployment-models.json" | sha256sum --check' in _DEPLOY
     assert 'echo "TF_VAR_resolved_capabilities=$capabilities_json"' in _DEPLOY
+    assert '"request_kind"' in _DEPLOY
+    assert '"binding_policy_environment"' in _DEPLOY
+    assert '"binding_policy_revision"' in _DEPLOY
+    assert '--request-kind "$apply_request_kind"' in _DEPLOY
+    assert '--environment "$APPLY_ENVIRONMENT"' in _DEPLOY
+    assert "Verify model deployment readback" in _DEPLOY
+    assert "verify_model_deployments.py" in _DEPLOY
+    assert "model-binding-readback.json" in _DEPLOY
+    assert '"readback_receipt_digest"' in _DEPLOY
+
+
+@pytest.mark.parametrize(
+    "step_name",
+    ["Store protected plan artifact", "Record exact plan apply receipt"],
+)
+def test_protected_model_evidence_python_compiles(step_name: str) -> None:
+    workflow = yaml.safe_load(_DEPLOY)
+    step = next(
+        step
+        for job in workflow["jobs"].values()
+        for step in job.get("steps", [])
+        if step.get("name") == step_name
+    )
+    match = re.search(
+        r"python3 - <<'PY'\n(?P<source>.*?)\n\s*PY(?:\n|$)",
+        step["run"],
+        re.DOTALL,
+    )
+    assert match is not None
+    compile(match.group("source"), step_name, "exec")
 
 
 def _resolved(

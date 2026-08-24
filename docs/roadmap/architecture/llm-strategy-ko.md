@@ -1,17 +1,14 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: 39c23bc91ade100e1a6969f0d7b8cd7b297bc061
+translation_source_sha: b751ea2bfdf4c119808bd665827c40bec8e87bd9
 translation_revised: 2026-08-24
 ---
-
 # LLM 전략(LLM Strategy)
-
 이 설계는 LLM을 **덜 사용**합니다. 모델은 **T2** 대체 경로이며 T0와 T1이 사례를 해결하지 못했을
 때만 사용합니다. 결정론적 검증이 승인하기 전에는 모델 출력을 실행에 사용하지 않습니다. 실행 자격은 검증이 부여하며 **모델은 부여하지 않습니다**. 이 문서는
 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) 의 티어와 quality-gate 규칙과
 [security-and-identity-ko.md](security-and-identity-ko.md) 의 위협 모델을 확장.
-
 > 아래 모델 이름은 **채택 시점에 확인**할 권장 사항입니다. 가용성, 가격, 미리 보기 상태는 바뀔 수 있습니다.
 > 구체적인 모델은 가정이 아니라 시나리오 세트에서 측정한 비용과 품질로 선택합니다. 이 문서는 특정 모델을 고정하지 않습니다.
 ## 구현 상태
@@ -39,6 +36,7 @@ translation_revised: 2026-08-24
 | 2026-08-23 | implemented | 로컬에서 실행 가능한 만료 검토 범위를 추가했습니다. 수명 주기 제안 v3는 정본 출처 모델 다이제스트와 영향 기능을 기록합니다. 순수 평가기는 해당 정확한 출처의 만료된 미병합 제안만 보류하고 늦은 병합 근거를 거부합니다. Operator 소유 비동기 Key Vault 출처는 공식 Azure vault origin과 audience, 정확한 secret 신원, 크기, JSON 깊이, 활성화 및 만료 상태, 전체 마감, secret-safe 오류와 표현을 검증합니다. | `current change`; 집중 수명 주기 및 Key Vault 테스트; 15회의 비평 및 하드닝 라운드는 검증된 Medium 이상 결함 없이 종료됐습니다. | 비동기 출처 로드와 신뢰할 수 있는 PR 수명주기 관측을 시작 과정에 연결하고, 결정을 영속화 및 검증한 뒤 모델 매핑을 바꾸지 않고 기능 바인딩 전에 보류를 적용합니다. |
 | 2026-08-24 | implemented | 모든 T1/T2 기능에 리비전이 있는 환경 바인딩 초안, 완전한 후보 단위의 TPM/PTU 대체 선택, 정확한 GA 버전 봉인, Owner 전용 평가 및 계획 요청, 활성 산출물 다이제스트 차단, Terraform 버전 고정을 추가했습니다. | `current change`; 공통 정책, 해석기, Azure 조회, Operator IAM, Console 모델, 보호된 워크플로 및 Terraform 경로; 완료 보고서에 기록된 집중 검사. | 이 경로를 validated로 분류하기 전에 보호된 PTU 계획, 적용, 롤백 증적과 적용 후 독립 바인딩 검증을 보존합니다. |
 | 2026-08-24 | implemented | 의도적으로 사용할 수 없는 secondary 발행기로 인해 일반 완전성 게이트가 Terraform 전에 중단되는 것을 실제 평가에서 확인한 뒤, 모델 바인딩 전용 보호 배포 모드를 추가했습니다. 범위가 제한된 `plan-model-*` 및 `apply-model-*` 요청 ID는 환경 정책과 보호 요청을 요구하고 Azure OpenAI 모듈만 대상으로 삼으며 봉인된 Cognitive deployment 변경만 허용합니다. 또한 교체 버전, SKU, 용량을 resolved artifact와 대조합니다. | [이슈 #270](https://github.com/dotnetpower/fdai/issues/270); `deploy-dev.yml`; `test_model_resolution_lifecycle.py`; 집중 보호 workflow 검사 60개, YAML 구문 분석 및 Ruff 통과. | 이 경로를 validated로 분류하기 전에 정확한 PTU 계획, 적용, 독립 런타임 검증 및 역방향 계획 롤백을 실행합니다. |
+| 2026-08-24 | implemented | 보호 작업 종류와 모델 정책 환경, 리비전, 다이제스트, 활성 산출물 제한을 변경할 수 없는 계획 메타데이터에 결속했습니다. Exact 적용은 다른 작업 종류 또는 환경을 거부하고, 중복된 resolved 기능은 재생에 실패하며, 독립 management-plane readback은 배포된 모델 계열, 버전, SKU, 용량, 프로비저닝 상태를 비교한 뒤 민감정보가 제거된 증적을 기록합니다. | [이슈 #270](https://github.com/dotnetpower/fdai/issues/270); `verify-deployment-plan.py`; `verify_model_deployments.py`; 보호 workflow 및 resolver 검사 107개 통과; Ruff, strict mypy 및 YAML 구문 분석 통과; 비평 10회 뒤 검증된 미해결 결함은 Low 이하만 남았습니다. | 정확한 PTU 계획 및 적용과 역방향 계획 롤백 증적을 보존한 뒤 Core와 Operator가 봉인된 런타임 다이제스트를 사용하는지 검증합니다. |
 ### 남은 작업
 - [ ] [목표와 메트릭](goals-and-metrics-ko.md#남은-작업)과 [Agent Pantheon 구현 계획](../agents/agent-pantheon-implementation-ko.md#남은-작업)의 실제 운영 KPI 선행 조건을 충족한 뒤, 활성화된 모든 T1/T2 기능에 대해 모델 신원, 비용, 지연 시간, 스키마 복구 시도와 복구 결과, 전환, 계획 처리 결과, 불일치, 근거 확인, 검증기, rubric, 결과 및 가드 근거가 포함된 고정된 실제 운영 shadow 집단을 보존합니다.
 - [ ] 범위가 제한된 시도 예산, 재시작 후 영속 증적 전달, 최종 소진에서 사람 승인으로의 전환, 감사된 경로 변경, 상관관계로 제한된 롤백 및 새 승인 없는 복구를 입증하는 통제된 T2 복구 캠페인을 보존합니다.
@@ -47,7 +45,6 @@ translation_revised: 2026-08-24
 - [ ] 프로비저닝된 SKU를 평가하고 정확한 모델 버전과 PTU 용량을 봉인하며 승인된 계획을 적용하고 런타임 바인딩을 독립 검증한 뒤 롤백을 연습하는 보호된 환경 정책 캠페인 하나를 보존합니다. Console 또는 Operator ID에는 공급자 변경 권한을 부여하지 않습니다.
 
 ## 모델 티어
-
 커버리지 수치는 **측정된 베이스라인에 대해 검증할 목표**
 ([goals-and-metrics-ko.md](goals-and-metrics-ko.md)) 이지 보장이 아님. 이들은 하나의 이벤트
 스트림을 분할하므로 T0+T1+T2는 ~100%; T0 (~70-80%) 는

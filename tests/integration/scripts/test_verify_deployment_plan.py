@@ -40,7 +40,8 @@ def _write_artifacts(
     *,
     expires_at: datetime,
     runtime_image: dict[str, str] | None = None,
-    model_resolution: dict[str, str] | None = None,
+    model_resolution: dict[str, object] | None = None,
+    request_kind: str = "standard",
 ) -> tuple[Path, Path, Path, Path, Path, str]:
     plan = root / "terraform.plan"
     plan.write_bytes(b"deterministic-plan")
@@ -63,6 +64,7 @@ def _write_artifacts(
         "preflight_blocks": False,
         "commit_sha": _COMMIT_SHA,
         "request_id": "plan-request",
+        "request_kind": request_kind,
         "created_at": (_NOW - timedelta(minutes=5)).isoformat(),
         "expires_at": expires_at.isoformat(),
         "status": "ready",
@@ -95,6 +97,8 @@ def _verify(
         expected_plan_digest=digest,
         expected_context_digest=_CONTEXT_DIGEST,
         expected_commit_sha=_COMMIT_SHA,
+        expected_request_kind="standard",
+        expected_environment="dev",
         now=_NOW,
     )
 
@@ -161,6 +165,112 @@ def test_matching_model_resolution_evidence_passes(
     )
 
 
+def test_matching_model_binding_provenance_passes(
+    verify_module: ModuleType,
+    tmp_path: Path,
+) -> None:
+    plan, source_artifact, metadata, preflight, azure_preflight, digest = _write_artifacts(
+        tmp_path,
+        expires_at=_NOW + timedelta(minutes=30),
+        request_kind="model",
+        model_resolution={
+            "resolved_models_digest": "a" * 64,
+            "deployment_models_digest": "b" * 64,
+            "binding_policy_environment": "dev",
+            "binding_policy_revision": 2,
+            "binding_policy_digest": f"sha256:{'c' * 64}",
+            "binding_policy_expected_active_digest": f"sha256:{'d' * 64}",
+        },
+    )
+
+    verify_module.verify_plan(
+        plan,
+        source_artifact,
+        metadata,
+        preflight,
+        azure_preflight,
+        expected_plan_id=_PLAN_ID,
+        expected_plan_digest=digest,
+        expected_context_digest=_CONTEXT_DIGEST,
+        expected_commit_sha=_COMMIT_SHA,
+        expected_request_kind="model",
+        expected_environment="dev",
+        now=_NOW,
+    )
+
+
+def test_model_plan_without_binding_policy_provenance_fails(
+    verify_module: ModuleType,
+    tmp_path: Path,
+) -> None:
+    plan, source_artifact, metadata, preflight, azure_preflight, digest = _write_artifacts(
+        tmp_path,
+        expires_at=_NOW + timedelta(minutes=30),
+        request_kind="model",
+        model_resolution={
+            "resolved_models_digest": "a" * 64,
+            "deployment_models_digest": "b" * 64,
+        },
+    )
+
+    with pytest.raises(verify_module.PlanVerificationError, match="policy provenance"):
+        verify_module.verify_plan(
+            plan,
+            source_artifact,
+            metadata,
+            preflight,
+            azure_preflight,
+            expected_plan_id=_PLAN_ID,
+            expected_plan_digest=digest,
+            expected_context_digest=_CONTEXT_DIGEST,
+            expected_commit_sha=_COMMIT_SHA,
+            expected_request_kind="model",
+            expected_environment="dev",
+            now=_NOW,
+        )
+
+
+@pytest.mark.parametrize(
+    ("environment", "revision"),
+    [("staging", 2), ("dev", True)],
+)
+def test_model_plan_rejects_invalid_policy_provenance(
+    verify_module: ModuleType,
+    tmp_path: Path,
+    environment: str,
+    revision: object,
+) -> None:
+    plan, source_artifact, metadata, preflight, azure_preflight, digest = _write_artifacts(
+        tmp_path,
+        expires_at=_NOW + timedelta(minutes=30),
+        request_kind="model",
+        model_resolution={
+            "resolved_models_digest": "a" * 64,
+            "deployment_models_digest": "b" * 64,
+            "binding_policy_environment": environment,
+            "binding_policy_revision": revision,
+            "binding_policy_digest": f"sha256:{'c' * 64}",
+            "binding_policy_expected_active_digest": f"sha256:{'d' * 64}",
+        },
+    )
+
+    with pytest.raises(verify_module.PlanVerificationError, match="provenance"):
+        verify_module.verify_plan(
+            plan,
+            source_artifact,
+            metadata,
+            preflight,
+            azure_preflight,
+            expected_plan_id=_PLAN_ID,
+            expected_plan_digest=digest,
+            expected_context_digest=_CONTEXT_DIGEST,
+            expected_commit_sha=_COMMIT_SHA,
+            expected_request_kind="model",
+            expected_environment="dev",
+            now=_NOW,
+        )
+
+
 @pytest.mark.parametrize(
     "model_resolution",
     [
@@ -176,7 +286,7 @@ def test_matching_model_resolution_evidence_passes(
 def test_invalid_model_resolution_evidence_fails(
     verify_module: ModuleType,
     tmp_path: Path,
-    model_resolution: dict[str, str],
+    model_resolution: dict[str, object],
 ) -> None:
     plan, source_artifact, metadata, preflight, azure_preflight, digest = _write_artifacts(
         tmp_path,
@@ -281,6 +391,31 @@ def test_context_mismatch_fails(verify_module: ModuleType, tmp_path: Path) -> No
             expected_plan_digest=digest,
             expected_context_digest="e" * 64,
             expected_commit_sha=_COMMIT_SHA,
+            expected_request_kind="standard",
+            expected_environment="dev",
+            now=_NOW,
+        )
+
+
+def test_request_kind_mismatch_fails(verify_module: ModuleType, tmp_path: Path) -> None:
+    plan, source_artifact, metadata, preflight, azure_preflight, digest = _write_artifacts(
+        tmp_path,
+        expires_at=_NOW + timedelta(minutes=30),
+    )
+
+    with pytest.raises(verify_module.PlanVerificationError, match="request kind"):
+        verify_module.verify_plan(
+            plan,
+            source_artifact,
+            metadata,
+            preflight,
+            azure_preflight,
+            expected_plan_id=_PLAN_ID,
+            expected_plan_digest=digest,
+            expected_context_digest=_CONTEXT_DIGEST,
+            expected_commit_sha=_COMMIT_SHA,
+            expected_request_kind="model",
+            expected_environment="dev",
             now=_NOW,
         )
 

@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: d2fa5e62e9828e46d69b1b53afd5bdb6b38cf79a
+translation_source_sha: 4f4116f004391ec10102b3613c16009916cc70f7
 translation_revised: 2026-08-24
 ---
 # 코드 맵
@@ -154,7 +154,7 @@ shadow 테스트가 두 경계를 고정합니다.
 
 | 서비스 | 패키지 responsibility | 패키지 지도 |
 |---------|------------------------|-------------|
-| 환경 모델 바인딩 | 권한이 없는 공유 정책 계약, 정확한 GA 버전과 TPM/PTU 근거를 사용하는 결정론적 기능 해석, Owner 전용 Operator 초안 및 보호된 계획 전용 활성화 | [공유 계약](../../../packages/service-contracts/src/fdai_service_contracts/model_binding.py), [해석기 스키마](../../../services/core-control-plane/src/fdai/rule_catalog/schema/model_binding_policy.py), [Operator IAM 어댑터](../../../services/operator-service/src/fdai_operator_service/postgres_iam.py), [Console 편집기](../../../console/src/routes/settings-model-binding-policy.tsx) |
+| 환경 모델 바인딩 | 권한이 없는 공유 정책 계약, 고유한 기능 신원, 정확한 GA 버전과 TPM/PTU 근거를 사용하는 결정론적 해석, Owner 전용 초안, 요청 종류 및 정책에 결속된 exact 적용, 독립 공급자 readback | [공유 계약](../../../packages/service-contracts/src/fdai_service_contracts/model_binding.py), [해석기 스키마](../../../services/core-control-plane/src/fdai/rule_catalog/schema/model_binding_policy.py), [계획 검증기](../../../scripts/deployment/azure/verify-deployment-plan.py), [공급자 readback](../../../scripts/deployment/azure/verify_model_deployments.py), [Operator IAM 어댑터](../../../services/operator-service/src/fdai_operator_service/postgres_iam.py), [Console 편집기](../../../console/src/routes/settings-model-binding-policy.tsx) |
 | Operator 서비스 | 인증된 경로 계열, 영속 의미 브리지, 프로세스 소유 브리지 상태, 순서가 정해진 Managed Identity Kafka 수명 주기, exact-release 온톨로지 읽기, 범위가 제한된 활성 인벤토리 영향 탐색, 소유자 범위 백그라운드 작업 목록, 상세, 진행 상황 및 유한 SSE 재생 | [operations family](../../../services/operator-service/src/fdai_operator_service/families/operations/), [백그라운드 작업 변환 결과](../../../services/operator-service/src/fdai_operator_service/families/conversation/background_tasks.py), [PostgreSQL family store](../../../services/operator-service/src/fdai_operator_service/postgres_family_store.py), [읽기 migration](../../../service-migrations/branches/operator-service/versions/20260823_operator_background_task_read.py), [어댑터](../../../services/operator-service/src/fdai_operator_service/adapters/), [streaming](../../../services/operator-service/src/fdai_operator_service/streaming/) 및 [composition.py](../../../services/operator-service/src/fdai_operator_service/composition.py) |
 | FDAI Console 백그라운드 작업 점검 | 엄격한 소유자 범위 작업/진행 상황 decoder, 이중 언어 목록 및 선택 상세 표현, 생성, 취소, 재시도 또는 실행 컨트롤이 없는 명시적 새로 고침 | [경로](../../../console/src/routes/background-tasks.tsx), [decoder](../../../console/src/routes/background-tasks.model.ts), [decoder 테스트](../../../console/src/routes/background-tasks.model.test.ts) |
 | FDAI Console 온톨로지 워크벤치 | Exact 선언 경로, 엄격한 변환 결과 decoder, 근거/종속 항목/release 구역, localized 검증 상태 및 실행 control이 없는 스냅샷 결속 영향/map 표현 | [ObjectType 워크벤치](../../../console/src/routes/ontology-object-type-detail.tsx), [영향 경로](../../../console/src/routes/blast-radius.tsx), [영향 decoder](../../../console/src/routes/blast-radius.model.ts), [온톨로지 계약](../../../console/src/routes/ontology.types.ts) |

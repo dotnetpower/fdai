@@ -736,6 +736,10 @@ jobs:
             exit 1
           fi
           if [[ "sha256:${current}" != "$expected" ]]; then
+            if [[ "$current" =~ ^[0-9a-f]{64}$ ]]; then
+              echo "Current active resolved-models digest: \`sha256:${current}\`" \
+                >> "$GITHUB_STEP_SUMMARY"
+            fi
             echo "Model binding policy active digest is stale; refresh Settings and submit a new draft." >&2
             exit 1
           fi
@@ -1690,6 +1694,15 @@ jobs:
               "preflight_blocks": False,
               "commit_sha": os.environ["PLAN_COMMIT_SHA"],
               "request_id": os.environ["PLAN_REQUEST_ID"],
+                "request_kind": (
+                  "model"
+                  if os.environ["PLAN_REQUEST_ID"].startswith("plan-model-")
+                  else "event-bus-jobs"
+                  if os.environ["PLAN_REQUEST_ID"].startswith("plan-evh-jobs-")
+                  else "event-bus"
+                  if os.environ["PLAN_REQUEST_ID"].startswith("plan-evh-")
+                  else "standard"
+                ),
               "created_at": os.environ["CREATED_AT"],
               "expires_at": os.environ["EXPIRES_AT"],
               "status": "ready",
@@ -1714,10 +1727,29 @@ jobs:
                   raise SystemExit("protected plan model-resolution evidence is incomplete")
               if not Path(resolved_models_path).is_file() or not Path(deployment_models_path).is_file():
                   raise SystemExit("protected plan model-resolution evidence is incomplete")
-              metadata["model_resolution"] = {
+              with open(resolved_models_path, encoding="utf-8") as stream:
+                  resolved_payload = json.load(stream)
+              model_resolution = {
                   "resolved_models_digest": resolved_digest,
                   "deployment_models_digest": deployment_digest,
               }
+              binding_policy = resolved_payload.get("binding_policy")
+              if binding_policy is not None:
+                  if not isinstance(binding_policy, dict):
+                      raise SystemExit("protected plan binding-policy evidence is invalid")
+                  model_resolution.update(
+                      {
+                          "binding_policy_environment": binding_policy.get("environment"),
+                          "binding_policy_revision": binding_policy.get("revision"),
+                          "binding_policy_digest": binding_policy.get("digest"),
+                          "binding_policy_expected_active_digest": binding_policy.get(
+                              "expected_active_digest"
+                          ),
+                      }
+                  )
+              if metadata["request_kind"] == "model" and binding_policy is None:
+                  raise SystemExit("model plan has no binding-policy evidence")
+              metadata["model_resolution"] = model_resolution
           with open("plan-metadata.json", "w", encoding="utf-8") as stream:
               json.dump(metadata, stream, sort_keys=True, separators=(",", ":"))
               stream.write("\n")
@@ -1797,6 +1829,8 @@ jobs:
       - name: Restore and verify exact protected plan
         if: ${{ inputs.apply }}
         env:
+          APPLY_REQUEST_ID: ${{ inputs.request_id }}
+          APPLY_ENVIRONMENT: ${{ inputs.environment }}
           APPLY_CONTEXT_DIGEST: ${{ inputs.context_digest }}
           APPLY_COMMIT_SHA: ${{ inputs.commit_sha }}
           APPLY_PLAN_ID: ${{ inputs.plan_id }}
@@ -1804,6 +1838,12 @@ jobs:
           APPLY_RUNTIME_IMAGE_REVISION: ${{ inputs.runtime_image_revision }}
         run: |
           set -euo pipefail
+          case "$APPLY_REQUEST_ID" in
+            apply-model-*) apply_request_kind="model" ;;
+            apply-evh-jobs-*) apply_request_kind="event-bus-jobs" ;;
+            apply-evh-*) apply_request_kind="event-bus" ;;
+            *) apply_request_kind="standard" ;;
+          esac
           blob_prefix="${TF_VAR_env}/${APPLY_PLAN_ID}"
           az storage blob download \
             --account-name "${{ vars.STATE_STORAGE_ACCOUNT }}" \
@@ -1870,7 +1910,8 @@ jobs:
             --preflight-evidence plan-preflight-evidence.json \
             --azure-preflight-evidence plan-azure-preflight-evidence.json \
             --plan-id "$APPLY_PLAN_ID" --plan-digest "$APPLY_PLAN_DIGEST" \
-            --context-digest "$APPLY_CONTEXT_DIGEST" --commit-sha "$APPLY_COMMIT_SHA"
+            --context-digest "$APPLY_CONTEXT_DIGEST" --commit-sha "$APPLY_COMMIT_SHA" \
+            --request-kind "$apply_request_kind" --environment "$APPLY_ENVIRONMENT"
           read -r runtime_revision runtime_digest < <(
             python3 - <<'PY'
           import json
@@ -2032,6 +2073,43 @@ jobs:
             echo "post-apply Terraform state is not converged." >&2
             exit 1
           fi
+
+      - name: Verify model deployment readback
+        if: ${{ inputs.apply && env.MODEL_BINDING_ONLY == 'true' }}
+        run: |
+          set -euo pipefail
+          resource_id="$(terraform output -raw llm_resource_id)"
+          if [[ ! "$resource_id" =~ ^/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft.CognitiveServices/accounts/[^/]+$ ]]; then
+            echo "Azure OpenAI resource id is invalid." >&2
+            exit 1
+          fi
+          az rest --method get \
+            --url "https://management.azure.com${resource_id}/deployments?api-version=2024-10-01" \
+            --output json > "$RUNNER_TEMP/model-deployments.json"
+          uv run --frozen --package fdai-core-control-plane python \
+            ../scripts/deployment/azure/verify_model_deployments.py \
+            --resolved resolved-models.json \
+            --provider "$RUNNER_TEMP/model-deployments.json" \
+            --out model-binding-readback.json
+          readback_digest="$(sha256sum model-binding-readback.json | cut -d' ' -f1)"
+          echo "MODEL_BINDING_READBACK_DIGEST=$readback_digest" >> "$GITHUB_ENV"
+          if [[ "${{ inputs.resume_verification }}" != "true" ]]; then
+            az storage blob upload \
+              --account-name "${{ vars.STATE_STORAGE_ACCOUNT }}" \
+              --container-name deployment-plans \
+              --name "${TF_VAR_env}/${{ inputs.plan_id }}/model-binding-readback.json" \
+              --file model-binding-readback.json --auth-mode login --overwrite false \
+              --only-show-errors --content-type application/json --output none
+          fi
+
+      - name: Publish sanitized model deployment readback
+        if: ${{ inputs.apply && env.MODEL_BINDING_ONLY == 'true' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: model-binding-readback-${{ inputs.plan_id }}
+          path: infra/model-binding-readback.json
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Reconcile Foundry web-search agent
         if: ${{ inputs.apply && !inputs.deploy_design_mocks && env.EVENT_BUS_TOPIC_MIGRATION != 'true' && vars.OPERATOR_API_WEB_SEARCH_ENABLED == 'true' }}
@@ -2661,6 +2739,7 @@ jobs:
         env:
           APPLY_PLAN_ID: ${{ inputs.plan_id }}
           APPLY_PLAN_DIGEST: ${{ inputs.plan_digest }}
+          MODEL_BINDING_READBACK_DIGEST: ${{ env.MODEL_BINDING_READBACK_DIGEST }}
         run: |
           set -euo pipefail
           applied_at="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
@@ -2678,6 +2757,20 @@ jobs:
               "applied_at": os.environ["APPLIED_AT"],
               "status": "applied",
           }
+          readback_digest = os.environ.get("MODEL_BINDING_READBACK_DIGEST", "")
+          if readback_digest:
+              if len(readback_digest) != 64 or any(
+                  character not in "0123456789abcdef" for character in readback_digest
+              ):
+                  raise SystemExit("model binding readback digest is invalid")
+              with open("plan-metadata.json", encoding="utf-8") as stream:
+                  model_resolution = json.load(stream).get("model_resolution")
+              if not isinstance(model_resolution, dict):
+                  raise SystemExit("model binding apply receipt has no model resolution")
+              receipt["model_binding"] = {
+                  "model_resolution": model_resolution,
+                  "readback_receipt_digest": readback_digest,
+              }
           with open("apply-receipt.json", "w", encoding="utf-8") as stream:
               json.dump(receipt, stream, sort_keys=True, separators=(",", ":"))
               stream.write("\n")
