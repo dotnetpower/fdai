@@ -289,6 +289,13 @@
       "issue": 252
     },
     {
+      "path": "services/core-control-plane/src/fdai/core/conversation/semantic_planning.py",
+      "disposition": "retain",
+      "owner": "semantic-conversation",
+      "reason": "Retains bounded schema and capability verification while combining structured semantic frames into plans.",
+      "issue": 252
+    },
+    {
       "path": "services/core-control-plane/src/fdai/core/conversation/semantic_planning_cascade.py",
       "disposition": "retain",
       "owner": "semantic-conversation",
@@ -328,6 +335,13 @@
       "disposition": "retain",
       "owner": "semantic-conversation",
       "reason": "Retains exact runtime resource identifier validation after structured state intent selection.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai/core/conversation/semantic_target_candidate_planning.py",
+      "disposition": "retain",
+      "owner": "semantic-conversation",
+      "reason": "Retains exact candidate identity and stated-value checks after structured target selection.",
       "issue": 252
     },
     {
