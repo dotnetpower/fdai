@@ -41,6 +41,7 @@ from fdai.core.quality_gate.testing import (
     MismatchCrossCheckModel,
     StaticVerifier,
 )
+from fdai.rule_catalog.schema.llm_registry import Invocation
 from fdai.shared.contracts.models import Rule
 
 
@@ -197,7 +198,7 @@ def test_resolver_denies_same_publisher_primary_and_secondary() -> None:
             family="gpt-4o",
             sku=None,
             capacity_tpm=100_000,
-            invocation="chat",
+            invocation=Invocation.ALWAYS.value,
         ),
         ResolvedCapability(
             name="t2.reasoner.secondary",
@@ -206,7 +207,7 @@ def test_resolver_denies_same_publisher_primary_and_secondary() -> None:
             family="gpt-4o-mini",
             sku=None,
             capacity_tpm=100_000,
-            invocation="chat",
+            invocation=Invocation.ALWAYS.value,
         ),
     ]
     with pytest.raises(ResolverError, match="mixed_model_invariant_violated"):
@@ -229,7 +230,7 @@ def test_resolver_accepts_distinct_publisher_pair() -> None:
             family="gpt-4o",
             sku=None,
             capacity_tpm=100_000,
-            invocation="chat",
+            invocation=Invocation.ALWAYS.value,
         ),
         ResolvedCapability(
             name="t2.reasoner.secondary",
@@ -238,7 +239,7 @@ def test_resolver_accepts_distinct_publisher_pair() -> None:
             family="claude-sonnet",
             sku=None,
             capacity_tpm=100_000,
-            invocation="chat",
+            invocation=Invocation.ALWAYS.value,
         ),
     ]
     _enforce_mixed_model_invariant(entries)  # MUST NOT raise.
@@ -265,7 +266,7 @@ def test_resolver_permits_same_publisher_when_one_is_hil_only() -> None:
             family="gpt-4o",
             sku=None,
             capacity_tpm=100_000,
-            invocation="chat",
+            invocation=Invocation.ALWAYS.value,
         ),
         ResolvedCapability(
             name="t2.reasoner.secondary",
@@ -274,7 +275,7 @@ def test_resolver_permits_same_publisher_when_one_is_hil_only() -> None:
             family="gpt-4o-mini",
             sku=None,
             capacity_tpm=0,
-            invocation="chat",
+            invocation=Invocation.ALWAYS.value,
         ),
     ]
     _enforce_mixed_model_invariant(entries)  # MUST NOT raise.
@@ -302,7 +303,7 @@ def test_resolver_rejects_rubric_judge_sharing_primary_publisher() -> None:
             family="gpt-4o",
             sku=None,
             capacity_tpm=100_000,
-            invocation="chat",
+            invocation=Invocation.ALWAYS.value,
         ),
         ResolvedCapability(
             name="t2.reasoner.secondary",
@@ -311,7 +312,7 @@ def test_resolver_rejects_rubric_judge_sharing_primary_publisher() -> None:
             family="claude-opus-4",
             sku=None,
             capacity_tpm=50_000,
-            invocation="chat",
+            invocation=Invocation.ALWAYS.value,
         ),
         ResolvedCapability(
             name="t2.rubric.judge",
@@ -343,7 +344,7 @@ def test_resolver_permits_rubric_judge_hil_only_same_publisher() -> None:
             family="gpt-4o",
             sku=None,
             capacity_tpm=100_000,
-            invocation="chat",
+            invocation=Invocation.ALWAYS.value,
         ),
         ResolvedCapability(
             name="t2.reasoner.secondary",
@@ -352,7 +353,7 @@ def test_resolver_permits_rubric_judge_hil_only_same_publisher() -> None:
             family="claude-opus-4",
             sku=None,
             capacity_tpm=50_000,
-            invocation="chat",
+            invocation=Invocation.ALWAYS.value,
         ),
         ResolvedCapability(
             name="t2.rubric.judge",

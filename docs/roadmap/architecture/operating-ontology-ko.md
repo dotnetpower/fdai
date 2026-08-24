@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 24e06ff4aa8805a042b8e60c8072c7230b5f272f
+translation_source_sha: 660f844e479a597a313ac7cb750d5cf19c096474
 translation_revised: 2026-08-24
 ---
 # FDAI 운영 온톨로지
@@ -76,16 +76,11 @@ translation_revised: 2026-08-24
 > 계속 차단합니다. 이 관계가 실제 변환
 > 결과에 나타나도록 운영 인벤토리 작업이 이미 로드한 레지스트리 다이제스트 맵을 주입하며,
 > 승격된 완전 세대는 실제 변환 결과에 이 관계를 저장합니다.
-> 검토된 Azure containment 후보는 명시적인 ARM 구조만 사용합니다. SQL 데이터베이스,
-> Communication email domain, DNS resolver inbound endpoint 및 AKS AgentPool은 immediate provider
-> parent를 해석합니다. File Share는 검토된 provider-root 경로를 통해 최상위 storage account를
-> 해석합니다. Exact 구조 mapping은 해당 child의 wildcard resource-group containment를 shadow하므로
-> `contains`는 상위 하나를 유지하고 `Resource.parent_id`는 같은 endpoint를 가리킵니다. 완전 세대
-> 검증은 edge를 활성화하기 전에 두 endpoint를 모두 관찰해야 합니다. Kubernetes 런타임
-> 인벤토리도 같은 근거 규칙을 따릅니다. 하나의 정확한 cluster-scoped API source가 변경할 수 없는
-> UID, namespace, node, workload, owner, selector, Endpoints 및 scheduling reference를 제공합니다.
-> Inventory single writer는 추가 리소스와 독립적으로 검증된 링크를 원자적으로 승격합니다. Source
-> binding이 없으면 명시적인 사용 불가 상태를 유지하며 토폴로지를 만들지 않습니다.
+> 프로바이더 토폴로지는 검토된 명시적 ARM 구조와 범위가 제한된 Kubernetes API source를 통해서만
+> 들어옵니다. [온톨로지 구조 모델](ontology-structural-model-ko.md#프로바이더가-관찰한-토폴로지)은
+> SQL, Communication, DNS resolver, AKS AgentPool, File Share 및 UID 기반 Kubernetes
+> containment를 소유합니다. Exact mapping은 동일 child의 리소스 그룹 fallback만 shadow하며,
+> single writer는 검증된 endpoint와 link만 승격합니다. Binding이 없으면 토폴로지를 만들지 않습니다.
 > 한 세대 안에서 같은 리소스 신원을 반복 관측한 경우 이제 변환 전체를 실패시키는 대신
 > 결정적으로 판정합니다. 일치하면 하나의 객체로 합치고 가장 이른 관측 시각을 유지하며,
 > 불일치하면 경합 중인 값을 제외한 채 명시적 상태 사실 충돌로 남겨 기존 소비자를 모두

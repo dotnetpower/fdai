@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 93e3871f981aa2195877f4695d7c7fb4e92a9bf1
+translation_source_sha: aacc9fe18dea702196ec8c9c439fea536e697a14
 translation_revised: 2026-08-24
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -621,21 +621,10 @@ Cognitive deployment를 변경할 수 있는 보호된 전체 계획은 해석�
 | principal이 대상 구독에 `Cognitive Services Contributor` (또는 `Owner`) 보유 | LLM 프로비저닝 스킵, 모든 `t2.*` 및 `t1.judge` 기능을 `hil-only` 로, 경고 발행 | 포크가 역할 부여 후 재실행 |
 | 리전이 각 기능 선호 설정 중 최소 하나 계열 노출 | 해당 기능만 `hil-only` 마킹, 경고 | 포크가 `llm-registry.yaml` 선호 설정 확장 후 재실행 |
 | 배포자 구독이 요청한 `capacity_tpm` 쿼터 보유 | 요청의 ≥ 20% 이상 큰 최대 사용가능 용량으로 축소; 미만이면 거부 | 포크가 쿼터 증가 요청 |
-| 환경 정책이 `pinned`임 | 요청한 발행기, 계열, SKU 및 TPM/PTU 용량만 평가 | 새 리비전을 저장하거나 `auto` 선택; 다른 계열로 대체하지 않음 |
-| `auto` 후보에 사용할 TPM/PTU 용량이 없음 | 거부 근거를 기록하고 다음 완전한 선호 후보 평가 | 모든 후보가 실패하면 선호를 확장하거나 용량 요청 |
-| 정책 `expected_active_digest`가 Terraform 상태와 다름 | 계획 전에 중단 | Settings를 새로 고치고 현재 활성 산출물에 맞는 새 리비전 제출 |
-| 선택한 모델 버전이 없거나 GA 상태가 아님 | 기능을 `hil-only`로 표시 | 지역 카탈로그 검토 후 새 정책 제출 |
 | Mixed-model 불변식 (`t2.reasoner.primary.publisher != t2.reasoner.secondary.publisher`) 해석 후 만족 | **abort** - quality 게이트 통과 못하는 T2 계층 부분 배포 안 함 | 포크가 선호 설정 조정 |
 
 해석기 결과 산출물은 배포자 `object_id`, 구독, 리전, resolved 기능 지도와 사유를 포함합니다. 동일 레지스트리 + 카탈로그 + 권한 + 할당량 입력은 동일 JSON을 산출합니다.
 감사 저장소 덧붙이기는 해석기 호출자가 소유합니다.
-
-선택적 환경 바인딩 정책은 계획 중에만 읽습니다. 워크플로는 환경과 일치하는 비밀정보가 없는
-저장소 변수를 선택하고 환경 및 리비전이 있는 내용을 검증한 뒤 정책 다이제스트와 예상 활성
-산출물 다이제스트를 `resolved-models.json`에 봉인합니다. Terraform 백엔드를 초기화한 후 계획은
-예상 다이제스트를 현재 상태 출력과 비교합니다. 적용은 변수를 다시 읽거나 해석을 다시 실행하지
-않고 보호된 계획 묶음에서 정확한 모델 산출물과 다이제스트를 복원합니다. Azure Model Capacities는
-Terraform이 배포하는 것과 동일한 정확한 GA 모델 버전을 기준으로 PTU를 선택합니다.
 
 ## 작업 계획 (phased, 가산)
 

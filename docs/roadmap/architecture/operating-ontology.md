@@ -76,17 +76,11 @@ dependencies, objectives, evidence, allowed actions, and expected effects. Upstr
 > blocking.
 > The production inventory job injects the already loaded registry digest map, so promoted complete
 > generations persist this relationship in live projections.
-> Reviewed Azure containment candidates use explicit ARM structure only. SQL databases,
-> Communication email domains, DNS resolver inbound endpoints, and AKS AgentPools resolve an
-> immediate provider parent. File Shares resolve the top-level storage account through the reviewed
-> provider-root path. An exact structural mapping shadows wildcard resource-group containment for
-> that child so `contains` keeps one parent and `Resource.parent_id` names the same endpoint.
-> Complete-generation verification must observe both endpoints before activating the edge.
-> Kubernetes runtime inventory follows the same evidence rule. One exact cluster-scoped API source
-> supplies immutable UIDs, namespaces, nodes, workloads, owners, selectors, Endpoints, and
-> scheduling references. The inventory single writer then atomically promotes added resources and
-> independently verified links. Missing source bindings remain explicit unavailability and never
-> create topology.
+> Provider topology enters only through reviewed explicit ARM structure and the bounded Kubernetes
+> API source. [Ontology Structural Model](ontology-structural-model.md#provider-observed-topology)
+> owns SQL, Communication, DNS resolver, AKS AgentPool, File Share, and UID-grounded Kubernetes
+> containment. Exact mappings shadow resource-group fallback only for the same child; the single
+> writer promotes verified endpoints and links. Missing bindings stay unavailable and create no topology.
 > Repeated authoritative observations of one resource identity inside a generation are now
 > adjudicated deterministically instead of failing the whole projection. Agreement collapses to one
 > object and keeps the earliest observation time; disagreement stays an explicit state-fact conflict
