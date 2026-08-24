@@ -29,7 +29,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Migrated legacy status | in-progress | Legacy status detail below | The prior owner did not use the structured ledger shape. |
-| Global provider schema accounting | implemented | [`provider-schema-catalog`](../../provider-schema-catalog/index.json), `provider_schema_relationship_review.py`, `provider_schema_state_ledger.py`, and focused replay checks | The exact OpenAPI evidence is classified into a bounded content-addressed no-authority review. Durable hydration is all-or-nothing, and manifest publication is revision-fenced and audited. Semantic mapping and deployed receipts remain separate. |
+| Global provider schema accounting | implemented | [`provider-schema-catalog`](../../../provider-schema-catalog/index.json), `provider_schema_relationship_review.py`, `provider_schema_state_ledger.py`, and focused replay checks | The exact OpenAPI evidence is classified into a bounded content-addressed no-authority review. Durable hydration is all-or-nothing, and manifest publication is revision-fenced and audited. Semantic mapping and deployed receipts remain separate. |
 
 #### Migrated legacy status detail
 
