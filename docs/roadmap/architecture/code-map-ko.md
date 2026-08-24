@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: aaa078602f7d419984e1c582edf5712090d591cc
+translation_source_sha: d2fa5e62e9828e46d69b1b53afd5bdb6b38cf79a
 translation_revised: 2026-08-24
 ---
 # 코드 맵
@@ -48,6 +48,8 @@ Core 분포는 전체 `fdai` 이름 공간을 유지합니다. 내부 모듈 경
 `semantic_planning_frame.py`를 호환성 facade로 유지합니다. 집중 sibling 모듈은 공개 import,
 결정론적 gate 순서 및 읽기 전용 권한을 보존하면서 frame 검사, plan dispatch, 판단, 검증, frame
 생성, facet, 정규화 및 조회를 소유합니다.
+semantic-routing 기준선은 각 어휘 판단 소유자를 기록하고 competency fixture는 운영 준비 완료를
+주장하지 않으면서 현재 구조 release와 Reader 매니페스트를 고정합니다.
 
 | 영역 | Responsibility | 출처 | 테스트 |
 |------|----------------|--------|------|

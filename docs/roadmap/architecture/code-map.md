@@ -45,6 +45,8 @@ Semantic conversation planning keeps `semantic_planning.py`, `semantic_planning_
 `semantic_planning_frame.py` as compatibility facades. Focused sibling modules own frame checks,
 plan dispatch, judgment, validation, frame construction, facets, normalization, and queries while
 preserving public imports, deterministic gate order, and read-only authority.
+The semantic-routing baseline records each lexical owner, while the competency fixture pins the
+current structural release and Reader manifest without claiming production readiness.
 
 | Area | Responsibility | Source | Tests |
 |------|----------------|--------|-------|

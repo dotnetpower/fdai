@@ -296,17 +296,31 @@
       "issue": 252
     },
     {
-      "path": "services/core-control-plane/src/fdai/core/conversation/semantic_planning_cascade.py",
+      "path": "services/core-control-plane/src/fdai/core/conversation/semantic_planning_cascade_judgment.py",
       "disposition": "retain",
       "owner": "semantic-conversation",
-      "reason": "Retains schema-level runtime-identifier safeguards and frame-to-plan capability verification.",
+      "reason": "Retains exact subject and relationship checks over structured semantic judgment facets.",
       "issue": 252
     },
     {
-      "path": "services/core-control-plane/src/fdai/core/conversation/semantic_planning_frame.py",
+      "path": "services/core-control-plane/src/fdai/core/conversation/semantic_planning_cascade_validation.py",
       "disposition": "retain",
       "owner": "semantic-conversation",
-      "reason": "Retains locale-aware rendering and exact typed-facet checks after structured intent selection.",
+      "reason": "Retains schema and capability validation over structured semantic frame proposals.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai/core/conversation/semantic_planning_frame_builders.py",
+      "disposition": "retain",
+      "owner": "semantic-conversation",
+      "reason": "Retains exact clarification and typed-facet construction from structured semantic judgment.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai/core/conversation/semantic_planning_frame_normalization.py",
+      "disposition": "retain",
+      "owner": "semantic-conversation",
+      "reason": "Retains typed subject and facet normalization after structured semantic selection.",
       "issue": 252
     },
     {
