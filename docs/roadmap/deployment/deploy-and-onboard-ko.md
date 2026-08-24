@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 2f731d16cded5f36382d3d8b5d22cf4e83e45698
-translation_revised: 2026-08-23
+translation_source_sha: fbe7d5bf6eae627d8d90292b3ff87024e5756357
+translation_revised: 2026-08-24
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 시스템이 관측 준비되도록 하는 방법. 이 문서는 **구체적 배포 인벤토리, 부트스트랩 순서, 분포/배포 책임 분리**의 진실 원본입니다; 배포 라이프사이클(CI/CD, progressive 전달, 롤백, DR)은 [deployment-ko.md](deployment-ko.md)에 남습니다.
@@ -107,6 +107,8 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 Azure Policy가 인벤토리 일부를 거부하는 테난트는 계획이 수렴하기 전에 예외 또는 대응하는
 capability-mode 토글이 필요합니다
 ([deployment-preflight-ko.md](deployment-preflight-ko.md)).
+Upstream은 공급자 없이 실행되는 참조 계획으로 토글 계약을 검증합니다. 실제 리소스 모듈에
+출력을 연결하고 기존 리소스 ID를 공급하는 책임은 배포 또는 fork에 있습니다.
 
 #### ops/허브 러너 (private-everything 테난트)
 

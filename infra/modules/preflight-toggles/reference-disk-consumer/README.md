@@ -27,3 +27,16 @@ Illustrative and **validate-only**. The upstream deploy does not instantiate
 this module; a fork copies the branch into whichever compute module already
 owns its VM / disk resources. See the
 [toggle catalog README](../README.md) for the full toggle set.
+
+## Testing
+
+The focused mock-provider fixture compares both renderings without Azure
+credentials or live resource access:
+
+```bash
+terraform test -filter=tests/alternate_rendering.tftest.hcl
+```
+
+The `inline` run plans one `azurerm_managed_disk.inline` instance. The
+`attach_existing` run requires that same resource collection to be empty and
+preserves only the supplied disk ids.
