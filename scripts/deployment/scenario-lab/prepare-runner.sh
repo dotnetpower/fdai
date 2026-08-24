@@ -52,6 +52,7 @@ az aks get-credentials \
   --overwrite-existing \
   --only-show-errors
 export KUBECONFIG="$kubeconfig"
+kubelogin convert-kubeconfig --kubeconfig "$kubeconfig" -l msi
 
 helm repo add chaos-mesh https://charts.chaos-mesh.org --force-update >/dev/null
 helm show chart chaos-mesh/chaos-mesh --version "$chaos_mesh_version" >/dev/null
