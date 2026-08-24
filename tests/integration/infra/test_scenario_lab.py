@@ -104,6 +104,15 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     assert "DEV_ACCESS_VNET_ID" in workflow
     assert "Grant bounded scenario-lab deployment authority" in workflow
     assert "Revoke bounded scenario-lab deployment authority" in workflow
+    assert "Adopt succeeded partial-apply network resources" in workflow
+    assert "scenario-lab partial-resource adoption rejected an invalid resource id" in workflow
+    assert (
+        "scenario-lab partial-resource adoption failed; raw output remains runner-local" in workflow
+    )
+    assert "terraform import -input=false -lock-timeout=5m" in workflow
+    assert "azurerm_virtual_network_peering.lab_to_operator[0]" in workflow
+    assert "azurerm_virtual_network_peering.operator_to_lab[0]" in workflow
+    assert "azurerm_private_dns_zone_virtual_network_link.mysql_operator[0]" in workflow
     assert "raw output remains runner-local" in workflow
     assert "apply refuses delete or replacement actions" in workflow
     assert 'environment_file="$output_dir/enforce.env"' in workflow

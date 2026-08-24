@@ -306,6 +306,62 @@ jobs:
           terraform fmt -check -recursive
           terraform validate
 
+      - name: Adopt succeeded partial-apply network resources
+        if: inputs.action != 'plan' && inputs.enable_vpn_operator_access
+        run: |
+          set -euo pipefail
+          import_log="$RUNNER_TEMP/sre-demo-lab-import.log"
+          suffix="fdai-sre-lab-${TF_VAR_region_short}"
+          operator_vnet_name="$(jq -er '.vnet_name' <<<"$TF_VAR_operator_access")"
+          operator_vnet_rg="$(jq -er '.vnet_resource_group_name' <<<"$TF_VAR_operator_access")"
+          mysql_zone_name="$(terraform show -json | jq -er '
+            .. | objects |
+            select(.address? == "azurerm_private_dns_zone.mysql") |
+            .values.name
+          ' | head -n 1)"
+
+          import_if_missing() {
+            local address="$1"
+            local resource_id="$2"
+            [[ -z "$resource_id" ]] && return 0
+            [[ "$resource_id" == /subscriptions/*/resourceGroups/*/providers/Microsoft.Network/* ]] || {
+              echo "scenario-lab partial-resource adoption rejected an invalid resource id." >&2
+              exit 1
+            }
+            if terraform state list | grep -Fxq "$address"; then
+              return 0
+            fi
+            echo "::add-mask::$resource_id"
+            if ! terraform import -input=false -lock-timeout=5m \
+              "$address" "$resource_id" >>"$import_log" 2>&1; then
+              echo "scenario-lab partial-resource adoption failed; raw output remains runner-local." >&2
+              exit 1
+            fi
+          }
+
+          lab_to_operator_id="$(az network vnet peering show \
+            --resource-group "$SCENARIO_LAB_RESOURCE_GROUP_NAME" \
+            --vnet-name "vnet-${suffix}" \
+            --name "peer-${suffix}-to-operator" \
+            --query id --output tsv --only-show-errors 2>/dev/null || true)"
+          operator_to_lab_id="$(az network vnet peering show \
+            --resource-group "$operator_vnet_rg" \
+            --vnet-name "$operator_vnet_name" \
+            --name "peer-operator-to-${suffix}" \
+            --query id --output tsv --only-show-errors 2>/dev/null || true)"
+          mysql_operator_link_id="$(az network private-dns link vnet show \
+            --resource-group "$SCENARIO_LAB_RESOURCE_GROUP_NAME" \
+            --zone-name "$mysql_zone_name" \
+            --name link-operator-mysql \
+            --query id --output tsv --only-show-errors 2>/dev/null || true)"
+
+          import_if_missing 'azurerm_virtual_network_peering.lab_to_operator[0]' \
+            "$lab_to_operator_id"
+          import_if_missing 'azurerm_virtual_network_peering.operator_to_lab[0]' \
+            "$operator_to_lab_id"
+          import_if_missing 'azurerm_private_dns_zone_virtual_network_link.mysql_operator[0]' \
+            "$mysql_operator_link_id"
+
       - name: Quiesce private DNS links before destroy
         if: inputs.action == 'destroy'
         run: |
@@ -542,6 +598,7 @@ jobs:
           for artifact in \
             "$RUNNER_TEMP/sre-demo-lab-dns-links-state.tsv" \
             "$RUNNER_TEMP/sre-demo-lab-dns-link-ids.txt" \
+            "$RUNNER_TEMP/sre-demo-lab-import.log" \
             "$RUNNER_TEMP/sre-demo-lab.tfplan" \
             "$RUNNER_TEMP/sre-demo-lab-plan.json" \
             "$RUNNER_TEMP/sre-demo-lab-plan.log" \
