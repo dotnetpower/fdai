@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 5a43819e93713aabaeb29640b47646be49ee8231
+translation_source_sha: 6884203942323949a353238bb4d5c6bcab37a40d
 translation_revised: 2026-08-24
 ---
 # 온톨로지 구조 모델
@@ -219,6 +219,7 @@ Operator 변환 결과는 출처 세대, 온톨로지 release, 쿼리 상한, �
 | 2026-08-23 | implemented | 검증된 Low 초과 발견 사항 없이 범위가 제한된 구현 및 문서 gate 묶음을 완료했습니다. | `current change`; 변경된 한국어 문서 3개의 번역 품질 및 readable-Hangul 검사, 변경 문서 6개의 문장 부호 검사, 파생 출처, 로드맵 추적, 문서 크기, 설계 경로, 664개 파일 링크 검사가 통과했습니다. | 이 문서의 범위가 제한된 작업에는 남은 항목이 없습니다. |
 | 2026-08-23 | implemented | 불변 거버넌스 배정과 exemption이 온톨로지 구조 그래프 외부의 catalog-as-code 입력으로 유지됨을 기록했습니다. | `current change`; 거버넌스 카탈로그, exemption registry 및 집중 시작 검사입니다. | 이 경계로 인한 온톨로지 변환 또는 권한 작업은 없습니다. |
 | 2026-08-24 | implemented | caller에서 target으로 향하는 역할과 connectivity 및 traffic 특성을 가진 비전이 `runtime_calls` Resource-to-Resource 선언을 추가했습니다. 선언만으로는 edge나 권한을 만들지 않습니다. | `current change`; `runtime_calls.yaml`, 집중 LinkType, provenance, catalog, exact-release 검사입니다. | 지속형 운영 그래프 owner를 통해 독립적으로 검증된 endpoint observation만 binding합니다. |
+| 2026-08-24 | implemented | 인증된 타입 지정 runtime-call 관찰을 인벤토리 single writer를 통해 연결하고 PostgreSQL 역할 근거는 Resource 관계가 아닌 별도의 principal-safe 변환 결과로 유지했습니다. | `current change`; `runtime_call_telemetry.py`, `runtime_call_inventory.py`, `postgres_role_evidence.py`, 집중 producer, 변환 결과, 인벤토리, principal 가림 검사입니다. | 권위 있는 source가 정확한 endpoint Resource id를 제공한 뒤에만 인증된 런타임 근거를 보존합니다. |
 | 2026-08-24 | implemented | 온톨로지 쿼리 또는 변경 권한을 바꾸지 않고 그래프 우선 인스턴스 작업 영역, 간결한 컨트롤, 선택된 리소스와 범례 오버레이, Inspector 소유 접기 동작을 복원했습니다. | `current change`; 집중 Console 경로 테스트, 타입 검사, 프로덕션 빌드입니다. | 이 표현 범위에는 남은 구조 모델 작업이 없습니다. |
 
 ### 하드닝 기록
