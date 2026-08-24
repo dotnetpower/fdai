@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable } from "../api";
 import type { OperatorApiClient } from "../api";
 import {
@@ -241,6 +241,7 @@ function OntologyBody({
   const [view, setView] = useState<OntologyView>(
     () => initialPathSelection?.view ?? ontologyView(currentRoute().search.get("view")),
   );
+  const tabsRef = useRef<HTMLElement>(null);
   const [selectedLink, setSelectedLink] = useState<string | null>(() => {
     if (initialPathSelection?.view === "links") return initialPathSelection.name;
     const requested = currentRoute().search.get("link");
@@ -280,6 +281,21 @@ function OntologyBody({
       window.removeEventListener("fdai:route-changed", sync);
     };
   }, [actionTypes, data.link_types, data.nodes]);
+  useEffect(() => {
+    const tabs = tabsRef.current;
+    if (!tabs) return;
+    const alignActiveTab = (): void => {
+      const activeTab = tabs.querySelector<HTMLElement>("a.is-active");
+      if (!activeTab) return;
+      tabs.scrollLeft = Math.max(
+        0,
+        activeTab.offsetLeft - (tabs.clientWidth - activeTab.offsetWidth) / 2,
+      );
+    };
+    alignActiveTab();
+    window.addEventListener("resize", alignActiveTab);
+    return () => window.removeEventListener("resize", alignActiveTab);
+  }, [view]);
   const selectType = (name: string | null): void => {
     if (name !== null) navigate(ontologyDeclarationHref("object-types", name));
   };
@@ -359,8 +375,8 @@ function OntologyBody({
     [actionTypes, data, selectedName, view],
   );
   return (
-    <div class="stack governance-ontology">
-      <nav class="ontology-tabs" aria-label={t("ontology.objects.viewsLabel")}>
+    <div class={`stack governance-ontology is-${view}`}>
+      <nav ref={tabsRef} class="ontology-tabs" aria-label={t("ontology.objects.viewsLabel")}>
         <OntologyTab view="map" active={view} label={t("ontology.common.map")} />
         <OntologyTab view="objects" active={view} count={data.object_type_count} label={t("ontology.common.objects")} />
         <OntologyTab view="links" active={view} count={data.link_type_count} label={t("ontology.common.links")} />

@@ -1,4 +1,5 @@
 import { useState } from "preact/hooks";
+import { Tooltip } from "../components/tooltip";
 import { routeHref } from "../router";
 import { formatDateTime, t } from "./i18n/ontology";
 import type {
@@ -19,11 +20,13 @@ export function OntologyInstanceInspector({
   root,
   onSelect,
   hidden,
+  onToggle,
 }: {
   readonly data: OntologyInstanceExploration;
   readonly root: OntologyInstanceResource;
   readonly onSelect: (resourceId: string | null) => void;
   readonly hidden: boolean;
+  readonly onToggle: () => void;
 }) {
   const [view, setView] = useState<InspectorView>("overview");
   return (
@@ -44,6 +47,18 @@ export function OntologyInstanceInspector({
             {t(`ontology.instances.view.${item}`)}
           </button>
         ))}
+        <Tooltip content={t("ontology.instances.hideInspector")}>
+          <button
+            type="button"
+            class="ontology-instance-inspector-toggle"
+            aria-label={t("ontology.instances.hideInspector")}
+            aria-expanded={true}
+            aria-controls="ontology-instance-inspector"
+            onClick={onToggle}
+          >
+            <span class="ontology-instance-panel-icon is-open" aria-hidden="true" />
+          </button>
+        </Tooltip>
       </nav>
       {view === "overview" ? <InstanceOverview data={data} root={root} /> : null}
       {view === "relationships" ? <InstanceRelationships data={data} onSelect={onSelect} /> : null}
