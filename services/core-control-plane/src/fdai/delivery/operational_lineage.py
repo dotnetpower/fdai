@@ -244,16 +244,19 @@ def _observed_outcome(
         (record for record in evidence.records if record.object_id == target_id),
         None,
     )
+    observed_value_present = False
     if observed_record is not None:
         observed_properties = observed_record.to_record().properties
         if metric in observed_properties:
             values["value"] = observed_properties[metric]
+            observed_value_present = True
     scorable = (
         outcome.receipt.status in {ReconciliationStatus.MATCHED, ReconciliationStatus.MISMATCHED}
         and evidence.complete
         and not evidence.synthetic
         and not evidence.conflicts
         and not evidence.censoring_refs
+        and observed_value_present
     )
     record_id = _lineage_id(
         "observed-outcome",

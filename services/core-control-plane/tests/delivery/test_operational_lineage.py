@@ -143,6 +143,7 @@ async def test_terminal_reconciliation_projects_complete_multi_effect_lineage() 
     assert all(
         item.properties["verification"] == "independent" for item in lineage.observed_outcomes
     )
+    assert all(item.properties["scorable"] is False for item in lineage.observed_outcomes)
 
 
 async def test_legacy_plan_without_context_lineage_is_not_projected() -> None:

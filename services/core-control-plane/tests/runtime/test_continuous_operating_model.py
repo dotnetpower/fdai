@@ -75,6 +75,18 @@ class _FailCursorOnceStateStore(InMemoryStateStore):
         await super().write_state(key, value)
 
 
+class _FailRevisionClaimOnceStateStore(InMemoryStateStore):
+    def __init__(self) -> None:
+        super().__init__()
+        self.fail_revision_claim_once = True
+
+    async def write_state_if_absent(self, key: str, value: dict[str, object]) -> bool:
+        if key.startswith("operating-model:continuous-revision:") and self.fail_revision_claim_once:
+            self.fail_revision_claim_once = False
+            raise RuntimeError("injected revision claim failure")
+        return await super().write_state_if_absent(key, value)
+
+
 def _update(*, cursor: str, sequence: int, revision: str, identifier: str) -> OperatingModelUpdate:
     return OperatingModelUpdate(
         cursor=cursor,
@@ -192,6 +204,50 @@ async def test_continuous_worker_closes_cursor_after_claimed_apply_interruption(
     )
 
     with pytest.raises(RuntimeError, match="injected cursor write failure"):
+        await worker.apply_update(update)
+    projected = await store.get_object("current")
+    assert projected is not None
+    assert projected.revision == 1
+
+    assert await worker.apply_update(update) is True
+    recovered = await store.get_object("current")
+    assert recovered is not None
+    assert recovered.revision == 1
+    assert await state_store.read_state(OPERATING_MODEL_CURSOR_KEY) == {
+        "schema_version": "1.0.0",
+        "cursor": "cursor-1",
+        "sequence": 1,
+        "source_revision": "revision-1",
+    }
+
+
+async def test_continuous_worker_recovers_projection_before_revision_claim() -> None:
+    catalog = load_ontology_catalog(
+        REPO_ROOT / "rule-catalog",
+        schema_registry=PackageResourceSchemaRegistry(),
+        probes_root=REPO_ROOT / "rule-catalog" / "probes",
+    )
+    store = InMemoryOntologyInstanceStore(
+        object_types=catalog.object_types,
+        link_types=catalog.link_types,
+    )
+    state_store = _FailRevisionClaimOnceStateStore()
+    worker = ContinuousOperatingModelWorker(
+        provider=None,  # type: ignore[arg-type] - apply_update does not consume the provider
+        store=store,
+        object_types=catalog.object_types,
+        link_types=catalog.link_types,
+        state_store=state_store,
+        resource_lock=ResourceLockManager(),
+    )
+    update = _update(
+        cursor="cursor-1",
+        sequence=1,
+        revision="revision-1",
+        identifier="current",
+    )
+
+    with pytest.raises(RuntimeError, match="injected revision claim failure"):
         await worker.apply_update(update)
     projected = await store.get_object("current")
     assert projected is not None

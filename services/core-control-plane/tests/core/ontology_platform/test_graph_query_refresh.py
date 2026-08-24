@@ -60,7 +60,12 @@ class _LiveProvider:
         return self.result
 
 
-def _secured(*, age_seconds: int, conflicts: tuple[str, ...] = ()) -> SecuredObjectSetQueryResult:
+def _secured(
+    *,
+    age_seconds: int,
+    conflicts: tuple[str, ...] = (),
+    include_resource_without_metadata: bool = False,
+) -> SecuredObjectSetQueryResult:
     definition = ObjectSetDefinition(
         selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Resource"),
         as_of=NOW,
@@ -81,16 +86,25 @@ def _secured(*, age_seconds: int, conflicts: tuple[str, ...] = ()) -> SecuredObj
         conflicts=conflicts,
         evidence_refs=("inventory-generation:generation-1",),
     )
+    objects = [
+        OntologyObjectRecord(
+            id="resource-1",
+            object_type="Resource",
+            properties={"properties": {STATE_FACT_METADATA_PROPERTY: state.to_mapping()}},
+        )
+    ]
+    if include_resource_without_metadata:
+        objects.append(
+            OntologyObjectRecord(
+                id="resource-2",
+                object_type="Resource",
+                properties={"properties": {}},
+            )
+        )
     materialization = ObjectSetMaterialization(
         definition=definition,
         graph=OntologyGraphSnapshot(
-            objects=(
-                OntologyObjectRecord(
-                    id="resource-1",
-                    object_type="Resource",
-                    properties={"properties": {STATE_FACT_METADATA_PROPERTY: state.to_mapping()}},
-                ),
-            ),
+            objects=tuple(objects),
             links=(),
         ),
         concrete_types=("Resource",),
@@ -105,7 +119,7 @@ def _secured(*, age_seconds: int, conflicts: tuple[str, ...] = ()) -> SecuredObj
             caller_role="reader",
             observation_cutoff=NOW,
             as_of_skew_seconds=0,
-            returned_object_count=1,
+            returned_object_count=len(objects),
             returned_link_count=0,
             complete=True,
             truncated=False,
@@ -153,6 +167,18 @@ async def test_stale_graph_without_provider_holds() -> None:
     refresher = SecuredGraphEvidenceQueryRefresher(gateway=_Gateway(secured))
 
     with pytest.raises(QueryNodeHeldError, match="graph_stale"):
+        await refresher.refresh(
+            definition=secured.materialization.definition,
+            projection_request=_request(),
+            secured=secured,
+        )
+
+
+async def test_graph_holds_when_any_resource_lacks_freshness_metadata() -> None:
+    secured = _secured(age_seconds=0, include_resource_without_metadata=True)
+    refresher = SecuredGraphEvidenceQueryRefresher(gateway=_Gateway(secured))
+
+    with pytest.raises(QueryNodeHeldError, match="graph_incomplete"):
         await refresher.refresh(
             definition=secured.materialization.definition,
             projection_request=_request(),

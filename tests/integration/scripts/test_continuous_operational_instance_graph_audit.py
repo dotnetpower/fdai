@@ -56,6 +56,7 @@ def test_audit_rejects_an_open_stage_without_the_exact_gap(tmp_path: Path) -> No
     stages = payload["stages"]
     assert isinstance(stages, list)
     graph_first = next(stage for stage in stages if stage["id"] == "graph-first-query")
+    graph_first["state"] = "in-progress"
     graph_first["missing_binding"] = None
     audit = tmp_path / "audit.json"
     audit.write_text(json.dumps(payload), encoding="utf-8")

@@ -94,8 +94,14 @@ async def project_operating_model_snapshot(
     object_types: Sequence[OntologyObjectType],
     link_types: Sequence[OntologyLinkType],
     status_store: StateStore | None = None,
+    snapshot_digest: str | None = None,
 ) -> OperatingModelProjectionResult:
     """Atomically replace the deployment-owned graph and close its durable manifest."""
+
+    if snapshot_digest is not None and (
+        not snapshot_digest.startswith("sha256:") or len(snapshot_digest) != 71
+    ):
+        raise ValueError("operating model snapshot digest MUST be SHA-256")
 
     previous_object_ids: tuple[str, ...] = ()
     previous_link_keys: tuple[tuple[str, str, str], ...] = ()
@@ -131,6 +137,7 @@ async def project_operating_model_snapshot(
                 "schema_version": "1.0.0",
                 "status": "applying",
                 "source_revision": snapshot.source_revision,
+                "snapshot_digest": snapshot_digest,
                 "object_ids": list(owned_object_ids),
                 "link_keys": [list(key) for key in owned_link_keys],
             },
@@ -151,6 +158,7 @@ async def project_operating_model_snapshot(
                 "schema_version": "1.0.0",
                 "status": "projected",
                 "source_revision": result.source_revision,
+                "snapshot_digest": snapshot_digest,
                 "object_ids": list(current_object_ids),
                 "link_keys": [list(key) for key in current_link_keys],
             },
@@ -166,6 +174,25 @@ async def project_operating_model_snapshot(
             },
         )
     return result
+
+
+async def operating_model_projection_matches(
+    *,
+    status_store: StateStore,
+    source_revision: str,
+    snapshot_digest: str,
+) -> bool:
+    """Return whether the durable manifest closes this exact projected snapshot."""
+
+    manifest = await status_store.read_state(_OPERATING_MODEL_MANIFEST_KEY)
+    if manifest is None:
+        return False
+    _decode_manifest(manifest)
+    return (
+        manifest.get("status") == "projected"
+        and manifest.get("source_revision") == source_revision
+        and manifest.get("snapshot_digest") == snapshot_digest
+    )
 
 
 def _decode_manifest(
@@ -202,6 +229,7 @@ def _decode_manifest(
 
 __all__ = [
     "OPERATING_MODEL_STATUS_KEY",
+    "operating_model_projection_matches",
     "project_operating_model_from_env",
     "project_operating_model_snapshot",
 ]

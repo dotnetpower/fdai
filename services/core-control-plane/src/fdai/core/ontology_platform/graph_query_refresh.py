@@ -113,6 +113,9 @@ def _decision(
     projection_budget_ms: int,
 ) -> GraphEvidenceRefreshDecision:
     metadata = _resource_state_metadata(secured)
+    resource_count = sum(
+        record.object_type == "Resource" for record in secured.materialization.graph.objects
+    )
     freshness = _freshness(
         metadata,
         cutoff=secured.receipt.observation_cutoff,
@@ -126,6 +129,7 @@ def _decision(
             graph_available=True,
             graph_freshness=freshness,
             graph_complete=secured.receipt.complete
+            and len(metadata) == resource_count
             and all(item.completeness == 1.0 for item in metadata),
             graph_truncated=secured.receipt.truncated,
             graph_synthetic=any(item.synthetic for item in metadata),

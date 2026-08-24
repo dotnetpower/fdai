@@ -13,6 +13,7 @@ from fdai.delivery.operating_model.event_bus import (
     EventBusOperatingModelProviderConfig,
 )
 from fdai.runtime.operating_model import (
+    operating_model_projection_matches,
     project_operating_model_from_env,
     project_operating_model_snapshot,
 )
@@ -77,24 +78,31 @@ class ContinuousOperatingModelWorker:
             if prior is not None and update.snapshot.source_revision == prior[2]:
                 await self._record_rejection(update, "source_revision_reused")
                 return False
+            if await operating_model_projection_matches(
+                status_store=self._state_store,
+                source_revision=update.snapshot.source_revision,
+                snapshot_digest=snapshot_digest,
+            ):
+                await self._write_revision_claim(
+                    revision_key=revision_key,
+                    update=update,
+                    snapshot_digest=snapshot_digest,
+                )
+                await self._write_cursor(update)
+                return True
             await project_operating_model_snapshot(
                 snapshot=update.snapshot,
                 store=self._store,
                 object_types=self._object_types,
                 link_types=self._link_types,
                 status_store=self._state_store,
+                snapshot_digest=snapshot_digest,
             )
-            claim_written = await self._state_store.write_state_if_absent(
-                revision_key,
-                {
-                    "schema_version": "1.0.0",
-                    "cursor": update.cursor,
-                    "sequence": update.sequence,
-                    "snapshot_digest": snapshot_digest,
-                },
+            await self._write_revision_claim(
+                revision_key=revision_key,
+                update=update,
+                snapshot_digest=snapshot_digest,
             )
-            if not claim_written:
-                raise RuntimeError("continuous operating model revision claim raced its lock")
             await self._write_cursor(update)
             return True
 
@@ -130,6 +138,25 @@ class ContinuousOperatingModelWorker:
                 "source_revision": update.snapshot.source_revision,
             },
         )
+
+    async def _write_revision_claim(
+        self,
+        *,
+        revision_key: str,
+        update: OperatingModelUpdate,
+        snapshot_digest: str,
+    ) -> None:
+        claim_written = await self._state_store.write_state_if_absent(
+            revision_key,
+            {
+                "schema_version": "1.0.0",
+                "cursor": update.cursor,
+                "sequence": update.sequence,
+                "snapshot_digest": snapshot_digest,
+            },
+        )
+        if not claim_written:
+            raise RuntimeError("continuous operating model revision claim raced its lock")
 
 
 def _decode_cursor(raw: Mapping[str, object] | None) -> tuple[str, int, str] | None:
