@@ -30,6 +30,13 @@ are synthetic.
 - A detection signal is a **finding**, not an action. It is routed and risk-gated like any
   event; a prediction or anomaly **never auto-remediates on its own** - it raises a
   shadow-mode finding or a remediation PR that the risk gate and HIL govern.
+- The canonical object type and one detected record are named `Finding`; a collection, page, or
+  navigation label is named `Findings`. A Finding remains independent from an Incident unless the
+  incident correlation and lifecycle gates promote it. Agent Activity can show that an agent
+  created or updated a Finding, with time and correlation evidence, but it does not own Finding
+  status, deduplication, severity, or Incident promotion. A cross-domain `Findings` projection owns
+  those operator concerns; until that projection is implemented, the owning domain projection and
+  audit record remain authoritative rather than the activity timeline.
 - Routine monitoring is not an Incident. A healthy heartbeat, successful probe, or
   within-threshold sample records observation evidence only. An Incident can open only after
   a detector emits a bounded, grounded finding and `IncidentLifecycleWorkflow` rechecks the

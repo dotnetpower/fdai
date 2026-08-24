@@ -10,6 +10,24 @@ ownership, investigation, response, recovery, and postmortem evidence. FDAI
 uses an explicit lifecycle instead of treating an incident as a label attached
 to an alert.
 
+## Before an incident: Findings
+
+FDAI keeps detected issues separate from incidents so routine observations and isolated anomalies
+do not create operational emergencies. The canonical sequence is:
+
+```text
+Observation -> Signal -> Finding -> Incident candidate or proposal -> Incident
+```
+
+A `Finding` is one normalized, evidence-backed detected issue. `Findings` is the collection or
+Console page label. The 15 agents can create Findings within their accountable domains, but a
+Finding has no Incident lifecycle by itself. Correlation can submit an Incident candidate, and a
+manual workflow can submit an Incident proposal. Only the incident lifecycle module can accept
+either request and create the durable Incident record.
+
+Agent Activity can record who created or updated a Finding and when. It is supporting provenance,
+not the Finding roster: it does not own Finding severity, deduplication, correlation, or promotion.
+
 ## Incident lifecycle
 
 ```text

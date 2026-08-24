@@ -40,6 +40,18 @@ lives with the executor identity, which no browser ever holds.
 | Agent oversight | See ownership, human dependencies, and submit an ownership handover proposal | Yes, a proposal |
 | Settings | View runtime, model, memory, integration, and identity configuration | Yes, on identity and access |
 
+## Findings and agent activity
+
+Agent activity answers who did what and when. It can show that an agent created or updated a
+`Finding`, along with its timestamp and correlation evidence, but the timeline is not a Findings
+queue. It does not own severity, deduplication, grouping, or promotion into an Incident.
+
+The current console has no cross-domain `Findings` area. Until that projection is implemented, use
+the owning domain view plus Audit and Trace to inspect the recorded evidence. A cross-domain
+`Findings` area should live under Operations beside Incidents and own filtering, open-item review,
+deduplication, and Incident-promotion state. Agent activity remains supporting provenance and links
+to the exact Finding when that identifier is available.
+
 Approvals is the one place where your click carries a real decision, and even there the decision is
 re-authenticated and re-checked on the server before anything runs. See
 [Approve a change](approve-change.md) for that flow.

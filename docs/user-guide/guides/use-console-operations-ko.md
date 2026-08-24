@@ -2,8 +2,8 @@
 title: 운영자 콘솔 사용하기(Work in the operator console)
 description: FDAI 콘솔의 각 영역이 무엇을 보여 주는지, 무엇을 제출할 수 있는지, 읽기 전용 콘솔이 왜 제약이 아니라 보안 기능인지 설명합니다.
 translation_of: use-console-operations.md
-translation_source_sha: 79398eb755f26723bff5e10caec32e1e488ff7d7
-translation_revised: 2026-08-11
+translation_source_sha: 433b8c3800acc5367ae8dabc7c9fd8dafacf824b
+translation_revised: 2026-08-24
 ---
 
 # 운영자 콘솔 사용하기(작업 in the 운영자 콘솔)
@@ -42,6 +42,18 @@ translation_revised: 2026-08-11
 | 규칙, 온톨로지, 승격 게이트 | FDAI가 아는 것과 실행이 허용된 것을 확인 | 아니요 |
 | 에이전트 오버사이트 | 담당 체계와 사람 의존 관계 확인, 담당자 인수인계 제안 제출 | 예, 제안을 제출합니다 |
 | 설정 | 런타임, 모델, 메모리, 연동, 신원 구성 확인 | 신원과 접근 영역에서 예 |
+
+## Findings와 에이전트 활동
+
+에이전트 활동은 누가 언제 무엇을 했는지 보여 줍니다. 에이전트가 `Finding`을 생성하거나 갱신한
+사실과 시각 및 상관관계 근거를 보여 줄 수 있지만, 이 타임라인은 Findings 작업 목록이 아닙니다.
+심각도, 중복 제거, 그룹화 또는 Incident 승격을 소유하지 않습니다.
+
+현재 Console에는 여러 영역을 아우르는 `Findings` 화면이 없습니다. 해당 변환 결과를 구현하기
+전에는 각 Finding을 소유한 영역의 화면과 감사 및 추적에서 기록된 근거를 확인합니다. 여러 영역을
+아우르는 `Findings` 화면은 Operations 아래에서 Incidents와 나란히 배치하고 필터링, 열린 항목 검토,
+중복 제거 및 Incident 승격 상태를 소유하는 것이 좋습니다. 에이전트 활동은 보조 출처 이력으로
+유지하고 식별자가 있을 때 정확한 Finding으로 연결합니다.
 
 승인은 클릭이 실제 결정을 담는 유일한 곳입니다. 그마저도 서버에서 신원을 다시 확인하고 조건을
 다시 검사한 뒤에야 무언가가 실행됩니다. 그 흐름은 [변경 승인](approve-change-ko.md)에서

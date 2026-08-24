@@ -1,8 +1,8 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: c2438adf521c2ec9fa0ef30ed853ea41d69a7dd4
-translation_revised: 2026-08-22
+translation_source_sha: e87e4d356c1d726907cf476291222a7c05af4a76
+translation_revised: 2026-08-24
 ---
 
 # 관측성과 감지(Observability and Detection)
@@ -33,6 +33,13 @@ FDAI가 원시 원격측정을 컨트롤 루프가 액션할 수 있는 **발견
 - 감지 신호는 액션이 아니라 **발견 사항**. 다른 이벤트처럼 라우팅되고 risk-gate 됨; 예측이나
   이상은 절대 자체로 auto-remediate 하지 않음 - 리스크 게이트와 HIL이 관장하는 shadow-mode
   발견 사항 또는 교정 PR을 발동.
+- 정본 객체 타입과 개별 탐지 기록의 이름은 `Finding`이고, 컬렉션, 페이지, 탐색 레이블의 이름은
+  `Findings`입니다. Finding은 인시던트 상관관계와 생애주기 게이트가 승격하기 전까지 Incident와
+  독립된 기록으로 유지됩니다. 에이전트 활동은 에이전트가 Finding을 생성하거나 갱신한 사실과
+  시각 및 상관관계 근거를 보여 줄 수 있지만 Finding 상태, 중복 제거, 심각도 또는 Incident 승격을
+  소유하지 않습니다. 여러 영역을 아우르는 `Findings` 변환 결과가 이런 운영자 작업을 소유합니다.
+  이 변환 결과가 구현되기 전에는 활동 타임라인이 아니라 각 영역의 변환 결과와 감사 기록을
+  정본으로 사용합니다.
 - Routine 모니터링은 인시던트가 아닙니다. Healthy 하트비트, 성공한 탐색,
   within-threshold 샘플은 관측 근거만 기록합니다. Detector가 범위를 제한하고
   근거에 기반한된 발견 사항을 발행하고 `IncidentLifecycleWorkflow`가 allowed 에이전트 principal,
