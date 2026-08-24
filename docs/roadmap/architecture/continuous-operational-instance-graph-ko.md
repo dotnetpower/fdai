@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: ae6582fa6484245103f6bf54426c798185f683c3
+translation_source_sha: d7d68d4435a927bc2ba0d4893a97eb7e21da3eca
 translation_revised: 2026-08-24
 ---
 # 지속형 운영 인스턴스 그래프
@@ -209,6 +209,7 @@ binding을
 | 2026-08-24 | in-progress | Corpus 전체 semantic assurance를 OI-11에서 분리했습니다. 이전 direct 70-case 시도는 과거 근거로 보존하고, 현재 560-case corpus, 생성된 질문 우주, 변경 중심 cohort 및 이후 corpus 증가는 지속형 의미 보증이 관리합니다. | `current change`, [지속형 의미 보증](../interfaces/continuous-semantic-assurance-ko.md), 구조화된 corpus count, 기존 집중 competency 및 typed oracle 계약 | 집중 이중 언어 positive 및 negative action-draft 분류 검사와 typed no-authority 증적으로 OI-11을 완료합니다. 전체 corpus 및 예약 assurance는 소유 문서에 따라 독립적으로 실행합니다. |
 | 2026-08-24 | implemented | 타입이 지정된 영어 및 한국어 draft 요청과 같은 표현을 포함한 read 요청으로 OI-11을 완료했습니다. Keyword routing이 아니라 구조화된 `draft_only`와 `advise_only` posture가 terminal path를 선택하며 모든 proposal, receipt, frame, plan, outcome은 권한이 없습니다. | `current change`, `test_semantic_judgment.py::test_bilingual_action_posture_receipts_are_typed_and_authority_free` 및 `test_semantic_planning_tier_routing.py::test_bilingual_typed_action_posture_routes_without_keyword_rules`(`8 passed`) | 로컬 OI-12 표현 회귀를 실행한 뒤 별도로 통제되는 배포 Azure 인증 측정값을 보존합니다. |
 | 2026-08-24 | in-progress | 영어와 한국어의 장애 draft 표현 방식 8개 전체에 대해 로컬 OI-12 표현 회귀를 통과했습니다. 이 검사는 production phrase rule이 아니라 생성된 corpus와 타입 지정 judgment를 사용하며 모든 case가 권한 없이 plan 실행 전에 중단됨을 입증합니다. | `current change`, `test_semantic_planning_tier_routing.py::test_incident_action_draft_all_bilingual_wording_styles_remain_authority_free`(`1 passed`, corpus case 16개) | 최신성, API 압력, 지연, 저장소 증가, rollup 범위, archive 복원, 공급자 실패 측정을 위한 배포 Azure 인증은 열려 있습니다. |
+| 2026-08-24 | in-progress | 지원되지 않는 edge를 추가하지 않고 남은 authorization 및 runtime-call 근거 경로를 감사했습니다. Azure relationship drop은 이미 모델링되지 않았거나 관측되지 않은 endpoint를 보존하지만 PostgreSQL role에는 별도의 타입 지정 observation 계약이 없습니다. Trace continuity는 hop label만 전달하며 활성 ontology release에는 검토된 runtime-call LinkType이 없습니다. | `current change`, `inventory.py`, `trace_continuity.py`, `delivery/azure/trace_continuity.py`, `instance_explorer.py`, [Issue #260](https://github.com/dotnetpower/fdai/issues/260) | Producer를 binding하기 전에 누락된 계약을 정의하고 다시 검증합니다. 이름, Resource Group, 환경 변수 이름, credential, RBAC grant에서 Resource identity를 추론하지 않습니다. |
 | 2026-08-22 | validated | Resource 인스턴스에 사용하던 Console architecture renderer를 평면 사각형 graph로 교체했습니다. Operator projection은 선택한 1단계 Resource 사이의 범위가 제한된 모든 link를 반환하고 Resource 및 관계 잘림을 구분하며, Console은 권한을 부여하지 않고 검토된 Azure 아이콘과 focus 가능한 상태 및 FDAI 감사 timeline을 표시합니다. | `current change`, 집중 Operator 및 Console 검사, production build, 비평 및 hardening 20회, Resource 3개와 관계 3개를 사용한 인증된 표준 port 활성 세대 근거 | 권위 있는 Azure Activity Log 및 Resource Health projection을 별도로 연결합니다. Allowlist에 정확한 아이콘이 없는 Resource 유형은 일반 Azure fallback을 유지합니다. |
 | 2026-08-22 | validated | Server에서 `fdai`로 필터링한 결과 200개 중 Resource 20개를 무작위로 선택해 인증된 browser campaign을 실행했습니다. 출처가 잠긴 Azure asset으로 표본 icon 공백을 수정하고, 밀집 감사 marker를 cluster로 합치고, path를 누락하지 않는 밀집 관계 유형 요약을 추가했으며, viewport 변경 후 선택 Resource를 다시 중앙에 배치했습니다. | `current change`, root 유형 12개에 대한 정확한 Resource 선택 20회, 최대 Resource 80개와 관계 79개. 최종 재실행에서 HTTP, 개수, 선택, 일반 icon, node, label, marker, page overflow, workbench overflow, preview overflow 결함이 모두 0건이었습니다. | 이후 관측된 Resource 유형에 정확하고 검토된 asset이 없으면 출처가 잠긴 icon allowlist를 확장합니다. Azure Activity Log와 Resource Health는 별도의 사용 불가 원본으로 유지합니다. |
 | 2026-08-22 | validated | Container App 하나를 권위 있는 Azure 구성 및 활성 온톨로지 그래프와 대조한 뒤 가장 작은 공통 관계 producer를 추가했습니다. 검토된 ARG mapping은 정확한 managed environment ARM 참조를 `Container App -> depends_on -> Container Apps Environment`로 변환하며, snapshot 저장소와 Operator는 관계별 구성 출처, 기준 시점, 완전성, 사용 불가 상태를 보존합니다. | `current change`, 익명 대조에서 environment 1개, Managed Identity 3개, registry 1개, infrastructure subnet 1개, Log Analytics workspace 1개를 확인했지만 이전 그래프는 Resource Group edge 1개만 노출했습니다. 집중 Core, Operator, Console 검사가 통과했습니다. 새로 고친 인증된 `8010` 응답은 새 typed dependency를 포함해 Resource 3개와 관계 3개를 반환했고, 사용 가능한 configuration evidence 3개와 unavailable 관계 evidence 0개를 보존했습니다. Desktop, constrained desktop, mobile overflow 검사가 통과했습니다. | 별도로 검증된 Managed Identity, registry, observability, network, data service, service call producer만 추가합니다. 같은 Resource Group 구성원 관계나 해석되지 않은 environment variable 이름에서 dependency를 유도하지 않습니다. |
@@ -280,13 +281,13 @@ binding을
   구성이 있는 App 9개와 Job 11개가 모두 dependency로 변환되고, 가장 큰 registry는 incoming
   workload 16개를 표시하며 zoom, fit, 고정-node pan으로 전체 fan-in을 검사할 수 있습니다.
 - [ ] Role assignment 225개, scope attachment 185개, Managed Identity attachment 106개로
-  검증된 Azure 범위를 넘어 authorization을 완료합니다. 관측되지 않은 Azure child scope에
-  검토된 unavailable 상태를 부여하고 별도의 PostgreSQL database-role 근거를 보존해야 합니다.
-  RBAC grant와 database credential은 일반 Resource `depends_on` edge가 되지 않습니다.
-- [ ] 하나의 telemetry observation이 caller와 target Resource ID를 모두 입증할 때만 runtime
-  call edge를 변환합니다. Positive, missing-caller, missing-target, ambiguous-target, stale,
-  wrong-scope 테스트와 인증된 `8010` 및 `5273` source evidence가 필요합니다. Resource Group과
-  해석되지 않은 이름을 사용한 추론은 계속 거부합니다.
+  검증된 Azure 범위를 넘어 authorization을 완료합니다. [Issue #260](https://github.com/dotnetpower/fdai/issues/260)은
+  검토된 unavailable child scope와 별도의 타입 지정 및 principal-safe PostgreSQL role 근거를
+  요구하며, RBAC grant와 database credential은 일반 Resource `depends_on` edge가 되지 않습니다.
+- [ ] 검토된 runtime-call LinkType과 exact-release 재검증을 먼저 추가한 뒤, scope, cutoff,
+  freshness, provenance와 함께 두 Resource ID를 입증하는 하나의 observation만 edge로
+  변환합니다. [Issue #260](https://github.com/dotnetpower/fdai/issues/260)은 endpoint 테스트 6개와
+  인증된 `8010`/`5273` 근거를 요구하며 이름, group, 환경 변수, credential 기반 추론을 거부합니다.
 
 ## 관련 문서
 
