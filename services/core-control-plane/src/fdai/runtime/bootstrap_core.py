@@ -9,6 +9,10 @@ from dataclasses import dataclass
 from typing import Any
 
 from fdai.composition import Container
+from fdai.composition.readiness import (
+    OperationalReadinessEventHandler,
+    build_operational_readiness_event_handler,
+)
 from fdai.core.chaos.symptom_index import build_from_promoted
 from fdai.core.control_loop import ControlLoop
 from fdai.delivery.runtime_settings import RuntimeSettingsService
@@ -94,6 +98,7 @@ class CoreRuntime:
     assignment_reconciliation_worker: AssignmentReconciliationWorker | None
     effect_reconciliation_worker: Any
     effect_reconciliation_request_binding: EffectReconciliationRequestRuntimeBinding | None
+    operational_readiness_handler: OperationalReadinessEventHandler | None
     environment: Mapping[str, str]
 
     def task_configuration(self, stop: asyncio.Event) -> RuntimeTaskConfiguration:
@@ -123,6 +128,7 @@ class CoreRuntime:
             case_history_retention_publisher=(self.pantheon.case_history_retention_publisher),
             environment=self.environment,
             read_investigation_binding=self.semantic.read_investigation_binding,
+            operational_readiness_handler=self.operational_readiness_handler,
         )
 
 
@@ -151,6 +157,20 @@ async def build_core_runtime(
         )
 
     state_store: StateStore = _build_audit_store()
+    operational_readiness_handler = build_operational_readiness_event_handler(
+        posture=container.operational_readiness_posture,
+        publisher=container.operational_readiness_report_publisher,
+        feasibility_probes=container.feasibility_probes,
+        event_validator=container.event_validator,
+        state_store=state_store,
+    )
+    if operational_readiness_handler is None:
+        _LOGGER.info(
+            "operational_readiness_unavailable",
+            extra={"reason": "posture_and_report_publisher_absent"},
+        )
+    else:
+        _LOGGER.info("operational_readiness_ready")
     if plan.isolated_executor_authority_cutover:
         if messaging.auxiliary_bus is None:
             raise RuntimeError(
@@ -378,6 +398,7 @@ async def build_core_runtime(
         assignment_reconciliation_worker=assignment_worker,
         effect_reconciliation_worker=effect_worker,
         effect_reconciliation_request_binding=effect_request_binding,
+        operational_readiness_handler=operational_readiness_handler,
         environment=environment,
     )
 

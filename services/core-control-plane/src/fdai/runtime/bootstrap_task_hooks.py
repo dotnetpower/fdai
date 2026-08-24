@@ -28,6 +28,7 @@ from fdai.runtime.consumers import (
     _consume,
     _consume_canaries,
     _consume_hil_decisions,
+    _consume_operational_readiness,
     _consume_resource_changes,
     _log_pantheon_exit,
 )
@@ -42,6 +43,7 @@ def default_runtime_task_hooks() -> RuntimeTaskHooks:
         consume_resource_changes=_consume_resource_changes,
         consume_canaries=_consume_canaries,
         consume_hil_decisions=_consume_hil_decisions,
+        consume_operational_readiness=_consume_operational_readiness,
         build_irp_event_handler=_build_irp_event_handler,
         load_resource_types=_load_resource_types,
         schedule_semantic_turn_consumer=_schedule_semantic_turn_consumer,
