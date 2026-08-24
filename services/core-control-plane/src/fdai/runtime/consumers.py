@@ -7,6 +7,7 @@ import logging
 from typing import Any
 
 from fdai.agents import ShadowDivergenceLedger
+from fdai.composition.readiness import OperationalReadinessEventHandler
 from fdai.core.control_loop import ControlLoop, ControlLoopOutcome, ControlLoopResult
 from fdai.core.hil_resume import HilResumeCoordinator
 from fdai.rule_catalog.schema.resource_type import ResourceTypeRegistry
@@ -14,6 +15,47 @@ from fdai.shared.providers.event_bus import EventBus, subscription
 
 _LOGGER = logging.getLogger("fdai.startup")
 _LOOP_LOGGER = logging.getLogger("fdai.control_loop")
+
+
+async def _consume_operational_readiness(
+    *,
+    bus: EventBus,
+    topic: str,
+    group_id: str,
+    handler: OperationalReadinessEventHandler,
+    stop: asyncio.Event,
+) -> None:
+    """Consume typed ownership transfers through the Forseti-owned review workflow."""
+
+    async with subscription(bus, topic, group_id) as stream:
+        async for envelope in stream:
+            if stop.is_set():
+                return
+            try:
+                report = await handler.handle(envelope.payload)
+            except Exception as exc:  # noqa: BLE001 - broker boundary isolation
+                reason = f"operational_readiness_consume_error:{type(exc).__name__}"
+                _LOOP_LOGGER.exception(
+                    "operational_readiness_consume_error",
+                    extra={"key": envelope.key, "offset": envelope.offset},
+                )
+                await bus.dead_letter(
+                    envelope.topic,
+                    envelope.key,
+                    envelope.payload,
+                    reason,
+                )
+                continue
+            if report is not None:
+                _LOOP_LOGGER.info(
+                    "operational_readiness_reviewed",
+                    extra={
+                        "key": envelope.key,
+                        "offset": envelope.offset,
+                        "verdict": report.verdict.value,
+                        "blocks_handoff": report.blocks_handoff,
+                    },
+                )
 
 
 async def _consume_resource_changes(

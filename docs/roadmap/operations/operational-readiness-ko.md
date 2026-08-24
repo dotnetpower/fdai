@@ -1,8 +1,8 @@
 ---
 title: 운영 준비성 리뷰 (dev-to-ops 핸드오프 게이트)
 translation_of: operational-readiness.md
-translation_source_sha: b129e28cb3eea6cb127f31fa49a659c055b52611
-translation_revised: 2026-08-20
+translation_source_sha: bade615eb28bb71ee550a0ecf82ec1e9d22bba1c
+translation_revised: 2026-08-24
 ---
 # 운영 준비성 리뷰 (dev-to-ops 핸드오프 게이트)
 
@@ -23,8 +23,10 @@ reliability 규칙에 대해 평가하고, 각 발견 사항 을 그것을 만�
 어떤 단일 변경도 그 공백 전체를 도입하지 않았기 때문입니다. ORR 은 하나의 차이 가
 아니라 **핸드오프 시점의 범위 의 누적된 자세** 를 리뷰합니다.
 
-> **구현 상태**: 결정론적 검토와 주입형 오케스트레이션은 구현되어 있지만, 업스트림
-> 런타임은 아직 이를 자동으로 호출하지 않습니다. 근거와 남은 통합 작업은
+> **구현 상태**: 결정론적 검토, 주입형 오케스트레이션, 재생해도 안전한 소유권 이전
+> 소비자가 구현되어 있습니다. 런타임은 자세 제공자와 보고서 발행기가 모두 주입된
+> 경우에만 작업 흐름을 시작합니다. 구체적인 운영 제공자와 거버넌스가 적용된 런타임
+> 증적은 아직 필요합니다. 근거와 남은 통합 작업은
 > [구현 상태](#구현-상태)를 참조하세요.
 
 > **고객 무관(Customer-agnostic)**: 트리거 라벨, 필수 규칙 집합, 핸드오프를
@@ -204,6 +206,7 @@ ORR 은 새로운 특권 표면을 도입하지 않고 최소한의 새 코드�
 | `composition/readiness.py` | 자세, preflight 및 선택적 checklist 근거를 동시에 실행하고 성공/실패를 감사한 뒤 serialized 보고 publish |
 | `composition/readiness_evidence.py` | ARB 산출물, 근거 만료 및 소유자 연결을 타입이 지정된 결과로 변환 결과 |
 | `core/readiness/remediation` | 결정론적이고 근거가 있는 shadow 전용 교정 제안을 파생하고 self-approval 을 거부 |
+| `runtime/consumers.py` 및 부트스트랩 | 표준 `ownership_transfer` 이벤트를 검증하고 중복을 제거한 뒤 시작 준비 상태 이후 Forseti가 최종 책임을 지는 검토를 호출하며, 잘못된 페이로드는 배달 못 한 메시지 큐로 보냅니다. |
 | 전달 의도 | 포크가 `ReadinessReportPublisher`를 Checks API annotation / 콘솔 `ReadPanel`에, `RemediationProposalPublisher`를 `risk-gate -> executor` 진입점에 연결 |
 
 조정기 는 다른 모든 코어 서브시스템처럼 `shared/` 계약과 프로바이더 만
@@ -212,9 +215,10 @@ ORR 은 새로운 특권 표면을 도입하지 않고 최소한의 새 코드�
 
 ## 구현 상태
 
-이 저장소에는 결정론적 검토와 주입형 애플리케이션 서비스가 구현되어 있습니다. 그러나
-실행 중인 컨트롤 플레인에는 아직 이 구성 요소가 조합되어 있지 않으므로, 현재 근거로는
-운영 `validated` 상태가 아니라 `implemented` 상태까지만 입증할 수 있습니다.
+이 저장소에는 결정론적 검토, 주입형 애플리케이션 서비스, 선택적 런타임 소비자가
+구현되어 있습니다. 자세 제공자와 보고서 발행기가 모두 연결되면 shadow 작업 흐름이
+활성화됩니다. 구체적인 운영 제공자와 거버넌스가 적용된 런타임 증적이 없으므로 현재
+근거로는 운영 `validated` 상태가 아니라 `implemented` 상태까지만 입증할 수 있습니다.
 
 ### 구현 범위
 
@@ -223,7 +227,8 @@ ORR 은 새로운 특권 표면을 도입하지 않고 최소한의 새 코드�
 | 소유권 이전 신호, 보고서 모델, 발견 사항 축약, 환경 게이트 및 Best Practice 체크리스트 평가 | implemented | [`core/readiness/`](../../../services/core-control-plane/src/fdai/core/readiness), [`test_coordinator.py`](../../../services/core-control-plane/tests/core/readiness/test_coordinator.py), [`test_checklist.py`](../../../services/core-control-plane/tests/core/readiness/test_checklist.py) | 순수 조정기는 근거가 있는 발견 사항을 보존하고 알 수 없는 심각도에서 안전하게 실패하며, 실제 판정과 `blocks_handoff`를 분리합니다. |
 | 추가 전용 감사와 보고서 전달을 포함하는 자세, preflight 및 체크리스트의 동시 오케스트레이션 | implemented | [`composition/readiness.py`](../../../services/core-control-plane/src/fdai/composition/readiness.py), [`test_readiness_service.py`](../../../services/core-control-plane/tests/composition/test_readiness_service.py), [`test_readiness_checklist_service.py`](../../../services/core-control-plane/tests/composition/test_readiness_checklist_service.py) | 서비스는 주입된 프로바이더를 사용합니다. 평가와 전달 실패를 감사한 뒤 오류를 전파합니다. |
 | Architecture Review Board (ARB) 산출물, 담당자, 최신성 및 만료 정보를 체크리스트 결과로 변환 | implemented | [`composition/readiness_evidence.py`](../../../services/core-control-plane/src/fdai/composition/readiness_evidence.py), [`test_readiness_evidence.py`](../../../services/core-control-plane/tests/composition/test_readiness_evidence.py) | 누락된 연결은 `unknown`으로 유지되고 만료된 근거는 `failed`가 됩니다. 어느 상태도 통과로 처리하지 않습니다. |
-| 자동 `ownership_transfer` 수집과 운영 자세, 체크리스트 및 보고서 발행기 연결 | not-started | [`shared/providers/readiness.py`](../../../services/core-control-plane/src/fdai/shared/providers/readiness.py)의 프로바이더 연결부와 위의 주입형 서비스 | 현재 런타임과 부트스트랩은 `OperationalReadinessService`를 생성하거나 등록하지 않습니다. 호출자는 자체 구성에서만 서비스를 실행할 수 있습니다. |
+| 자동 `ownership_transfer` 수집 및 책임 있는 검토 런타임 | implemented | [`composition/readiness.py`](../../../services/core-control-plane/src/fdai/composition/readiness.py), [`runtime/consumers.py`](../../../services/core-control-plane/src/fdai/runtime/consumers.py), `runtime/bootstrap_*` 모듈, [`test_operational_readiness_ingest.py`](../../../services/core-control-plane/tests/runtime/test_operational_readiness_ingest.py) | 표준 이벤트를 스키마로 검증하고 `OwnershipTransfer`로 정규화하며 멱등성 키로 중복을 제거한 뒤 Forseti가 최종 책임을 지는 작업 흐름에서 한 번만 검토합니다. 잘못된 페이로드는 배달 못 한 메시지 큐로 보냅니다. |
+| 거버넌스가 적용된 런타임 근거를 포함하는 운영 자세, 체크리스트 및 보고서 발행기 연결 | not-started | [`shared/providers/readiness.py`](../../../services/core-control-plane/src/fdai/shared/providers/readiness.py)의 제공자 연결부와 구성의 실패 시 차단되는 선택적 제공자 쌍 | 업스트림 런타임에는 구체적인 운영 제공자나 거버넌스가 적용된 shadow 검토 증적이 없습니다. 제공자 쌍이 없으면 소비자를 비활성화하고, 한쪽만 있으면 시작을 차단합니다. |
 | 근거가 있는 shadow 교정 제안, 구별된 승인자 경계 및 2단계 전달 감사 | implemented | [`core/readiness/remediation.py`](../../../services/core-control-plane/src/fdai/core/readiness/remediation.py), [`composition/readiness.py`](../../../services/core-control-plane/src/fdai/composition/readiness.py), [`test_remediation.py`](../../../services/core-control-plane/tests/core/readiness/test_remediation.py), [`test_readiness_remediation_service.py`](../../../services/core-control-plane/tests/composition/test_readiness_remediation_service.py) | 제안은 shadow 로 유지되고, 연결된 lever 를 인용하거나 abstain 하며, 승인자 신원을 기록하고, self-approval 을 차단하며, 실행기에 도달하지 않습니다. |
 | risk gate 및 실행기 진입점에 대한 `RemediationProposalPublisher` 연결 | not-started | [`shared/providers/readiness.py`](../../../services/core-control-plane/src/fdai/shared/providers/readiness.py)의 프로바이더 연결부 | 어떤 composition root 도 이 연결부를 바인딩하지 않으므로 아직 제안이 실제 risk gate 에 도달하지 않습니다. |
 
@@ -234,11 +239,14 @@ ORR 은 새로운 특권 표면을 도입하지 않고 최소한의 새 코드�
 | 2026-08-13 | in-progress | 구현 원장을 도입했으며 이전 근거 이력은 재구성하지 않았습니다. 구현된 결정론적 기능 및 오케스트레이션 표면과 연결되지 않은 런타임 작업 흐름을 분리해 기록했습니다. | 현재 변경, 위에 인용한 core 및 composition 테스트 파일 5개의 `48 passed` 결과 | 이벤트, 프로바이더, 발행기, 승인 및 교정 경로를 연결한 뒤 거버넌스가 적용된 런타임 근거를 수집합니다. |
 | 2026-08-16 | in-progress | 결정론적 교정 제안 빌더, `RemediationProposalPublisher` 연결부, 그리고 승인자 신원을 기록하고 self-approval 을 차단하며 제안을 shadow 로 유지하고 전달을 2단계로 감사하는 `propose_remediations` 브리지를 추가했습니다. | 현재 변경, `uv run pytest -q --no-cov services/core-control-plane/tests/core/readiness/ services/core-control-plane/tests/composition/test_readiness_remediation_service.py services/core-control-plane/tests/composition/test_readiness_service.py services/core-control-plane/tests/composition/test_readiness_checklist_service.py` 의 `86 passed` 결과 | 제안 발행기를 risk gate 진입점에 연결하고, event ingest 에 `ownership_transfer` 를 등록하며, 거버넌스가 적용된 런타임 증적을 수집합니다. |
 | 2026-08-16 | in-progress | 교정 식별자와 구별된 승인자 검사를 강화했습니다. 멱등성 키 재료에 길이 접두사를 붙여 필드 안의 구분자가 서로 다른 발견 사항 두 개를 충돌시킬 수 없게 했고, 주체는 Unicode NFKC 정규화 후 비교합니다. | 현재 변경, `uv run pytest -q --no-cov services/core-control-plane/tests/core/readiness/ services/core-control-plane/tests/composition/test_readiness_remediation_service.py services/core-control-plane/tests/composition/test_readiness_service.py services/core-control-plane/tests/composition/test_readiness_checklist_service.py` 의 `88 passed` 결과 | 위 행과 동일합니다. |
+| 2026-08-24 | in-progress | 실행 중인 Core 부트스트랩에 타입이 지정된 `ownership_transfer` 수집을 등록하고 Forseti가 최종 책임을 지며 재생해도 안전한 소비자를 통해 `OperationalReadinessService`를 호출했습니다. 선택적 구성 연결은 제공자 쌍이 일부만 있으면 시작을 차단하며 교정 전달을 연결하지 않습니다. | 현재 변경, 준비 상태, 구성, 런타임 수집 focused 테스트의 `114 passed`, 부트스트랩 구성, 메시징, 종료 테스트의 `58 passed`, focused Ruff 통과 | 구체적인 운영 자세, 체크리스트, 보고서 발행기를 연결하고 shadow 검토 증적 하나를 수집합니다. 교정 제안과 risk gate 연결은 별도 변경으로 진행합니다. |
 
 ### 남은 작업
 
-- [ ] event ingest에서 `ownership_transfer`를 등록하고 정규화한 뒤 책임 에이전트의
-  이벤트 기반 작업 흐름을 통해 검토를 호출하고, 재생해도 안전한 전달을 통합 테스트로 입증합니다.
+- [x] event ingest에서 `ownership_transfer`를 등록하고 정규화한 뒤 책임 에이전트의
+  이벤트 기반 작업 흐름을 통해 검토를 호출하고, 교정 전달 없이 보고서를 재생해도
+  안전하게 전달함을 통합 테스트로 입증했습니다
+  ([`test_operational_readiness_ingest.py`](../../../services/core-control-plane/tests/runtime/test_operational_readiness_ingest.py)).
 - [ ] 운영 자세, 체크리스트 근거 및 보고서 발행기 구현을 composition root에 연결한 뒤
   하나의 완전한 shadow 검토에 대한 거버넌스 적용 런타임 증적을 기록합니다.
 - [x] 근거가 있는 shadow 전용 교정 제안을 구별된 승인자 경계와 함께 발행하고, 승인자 신원이
@@ -266,7 +274,8 @@ ORR 은 새로운 특권 표면을 도입하지 않고 최소한의 새 코드�
   상태로 certify 하기보다 핸드오프 certify 를 거부합니다; ungroundable 발견 사항 은
   abstain 하고; 검증되지 않은 리뷰는 shadow 로 유지됩니다.
 - **감사됨**: 현재 서비스는 ORR 판정, `blocks_handoff`, submitter, 대상 범위,
-  환경 및 전달/평가 실패를 추가 전용 state-store 감사 항목으로 기록합니다.
+  환경, 작업 흐름 식별자, 최종 책임자 Forseti 귀속 및 전달/평가 실패를 추가 전용
+  state-store 감사 항목으로 기록합니다.
   교정 항목은 승인자 신원, shadow 모드, 제안 개수, 실패 시 전달된 개수를 추가로
   기록합니다. Saga 에이전트 귀속은 향후 이벤트 기반 승인 작업 흐름 연결에서 추가해야 합니다.
 

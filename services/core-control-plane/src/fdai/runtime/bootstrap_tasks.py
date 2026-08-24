@@ -10,6 +10,7 @@ from typing import Any
 
 from fdai.agents import PantheonRuntime, ShadowDivergenceLedger
 from fdai.composition import Container
+from fdai.composition.readiness import OperationalReadinessEventHandler
 from fdai.core.control_loop import ControlLoop
 from fdai.delivery.agent_activity import AgentRuntimeStatePublisher
 from fdai.delivery.runtime_settings import RuntimeSettingsService
@@ -51,6 +52,7 @@ class RuntimeTaskConfiguration:
     case_history_retention_publisher: CaseHistoryRetentionTickPublisher | None
     environment: Mapping[str, str]
     read_investigation_binding: Any = None
+    operational_readiness_handler: OperationalReadinessEventHandler | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,6 +63,7 @@ class RuntimeTaskHooks:
     consume_resource_changes: Any
     consume_canaries: Any
     consume_hil_decisions: Any
+    consume_operational_readiness: Any
     build_irp_event_handler: Any
     load_resource_types: Any
     schedule_semantic_turn_consumer: Any
@@ -175,6 +178,24 @@ async def run_runtime_tasks(
                 ),
             ),
             name="read-investigation-runtime",
+        )
+    operational_readiness_task: asyncio.Task[None] | None = None
+    if config.operational_readiness_handler is not None:
+        operational_readiness_task = asyncio.create_task(
+            config.readiness.run_when_ready(
+                config.stop,
+                lambda: hooks.consume_operational_readiness(
+                    bus=config.bus,
+                    topic=config.container.config.kafka.topic_events,
+                    group_id=config.environment.get(
+                        "FDAI_OPERATIONAL_READINESS_CONSUMER_GROUP_ID",
+                        "fdai-operational-readiness",
+                    ).strip(),
+                    handler=config.operational_readiness_handler,
+                    stop=config.stop,
+                ),
+            ),
+            name="operational-readiness-consumer",
         )
     if config.control_loop._hil_resume_coordinator is not None:
         from fdai.delivery.chatops.hil_decision import DEFAULT_HIL_DECISION_TOPIC
@@ -348,6 +369,7 @@ async def run_runtime_tasks(
             case_history_retention_task,
             semantic_turn_task,
             read_investigation_task,
+            operational_readiness_task,
             effect_reconciliation_request_task,
             discovery_activation_task,
         ),

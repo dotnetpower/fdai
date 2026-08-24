@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 from fdai.core.deploy_preflight import PreflightAnalyzer
+from fdai.core.event_ingest import EventIngest
 from fdai.core.readiness import (
     HandoffApproval,
     OwnershipTransfer,
@@ -21,12 +22,18 @@ from fdai.core.readiness import (
 )
 from fdai.shared.contracts.models import (
     BestPractice,
+    Event,
     Mode,
     RequirementKind,
     RequirementOutcome,
     RequirementStatus,
 )
-from fdai.shared.providers.feasibility_probe import PreflightTarget, ProbeFinding
+from fdai.shared.contracts.validation import EventValidator
+from fdai.shared.providers.feasibility_probe import (
+    FeasibilityProbe,
+    PreflightTarget,
+    ProbeFinding,
+)
 from fdai.shared.providers.projection import Finding, Severity
 from fdai.shared.providers.readiness import (
     ChecklistEvidenceProvider,
@@ -35,6 +42,10 @@ from fdai.shared.providers.readiness import (
     RemediationProposalPublisher,
 )
 from fdai.shared.providers.state_store import StateStore
+
+OWNERSHIP_TRANSFER_EVENT_TYPE = "ownership_transfer"
+OPERATIONAL_READINESS_WORKFLOW_ID = "operational-readiness-handoff"
+OPERATIONAL_READINESS_ACCOUNTABLE_AGENT = "Forseti"
 
 
 def _utc_now_iso() -> str:
@@ -323,6 +334,8 @@ class OperationalReadinessService:
     ) -> dict[str, object]:
         return {
             "kind": "operational_readiness.review",
+            "workflow_id": OPERATIONAL_READINESS_WORKFLOW_ID,
+            "accountable_agent": OPERATIONAL_READINESS_ACCOUNTABLE_AGENT,
             "event_id": event_id,
             "correlation_id": signal.correlation_id,
             "tier": "t0",
@@ -337,6 +350,67 @@ class OperationalReadinessService:
             "target_environment": signal.target_environment,
             **detail,
         }
+
+
+@dataclass(frozen=True, slots=True)
+class OperationalReadinessEventHandler:
+    """Normalize one ownership-transfer event and invoke its accountable review."""
+
+    event_ingest: EventIngest
+    service: OperationalReadinessService
+
+    async def handle(self, raw: Event | Mapping[str, object]) -> ReadinessReport | None:
+        """Return one report, or ``None`` for another event type or a redelivery."""
+
+        event_type = raw.event_type if isinstance(raw, Event) else raw.get("event_type")
+        if event_type != OWNERSHIP_TRANSFER_EVENT_TYPE:
+            return None
+        event = self.event_ingest.ingest(raw)
+        if event is None:
+            return None
+        signal = OwnershipTransfer(
+            scope=_required_payload_text(event.payload, "scope"),
+            submitter=_required_payload_text(event.payload, "submitter"),
+            target_environment=_required_payload_text(event.payload, "target_environment"),
+            correlation_id=event.correlation_id or str(event.event_id),
+        )
+        return await self.service.review(signal)
+
+
+def build_operational_readiness_event_handler(
+    *,
+    posture: PostureAssessmentProvider | None,
+    publisher: ReadinessReportPublisher | None,
+    feasibility_probes: Sequence[FeasibilityProbe],
+    event_validator: EventValidator,
+    state_store: StateStore,
+) -> OperationalReadinessEventHandler | None:
+    """Build the shadow handoff workflow only for a complete provider pair."""
+
+    if posture is None and publisher is None:
+        return None
+    if posture is None or publisher is None:
+        raise RuntimeError(
+            "operational readiness requires both posture and report-publisher bindings"
+        )
+    mode = Mode.SHADOW
+    return OperationalReadinessEventHandler(
+        event_ingest=EventIngest(validator=event_validator),
+        service=OperationalReadinessService(
+            posture=posture,
+            preflight=PreflightAnalyzer(feasibility_probes, mode=mode),
+            publisher=publisher,
+            state_store=state_store,
+            mode=mode,
+        ),
+    )
+
+
+def _required_payload_text(payload: Mapping[str, object], field_name: str) -> str:
+    value = payload.get(field_name)
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"ownership_transfer payload.{field_name} MUST be a non-empty string")
+    return value.strip()
 
 
 def _merge_failure_outcomes(
@@ -387,4 +461,11 @@ def _merge_failure_outcomes(
     return tuple(merged.values())
 
 
-__all__ = ["OperationalReadinessService"]
+__all__ = [
+    "OPERATIONAL_READINESS_ACCOUNTABLE_AGENT",
+    "OPERATIONAL_READINESS_WORKFLOW_ID",
+    "OWNERSHIP_TRANSFER_EVENT_TYPE",
+    "OperationalReadinessEventHandler",
+    "OperationalReadinessService",
+    "build_operational_readiness_event_handler",
+]

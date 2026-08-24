@@ -93,6 +93,10 @@ from ..shared.providers.manual_classifier import (
 )
 from ..shared.providers.manual_source import EmptyManualSource, ManualSource
 from ..shared.providers.metric import MetricProvider, NoopMetricProvider
+from ..shared.providers.readiness import (
+    PostureAssessmentProvider,
+    ReadinessReportPublisher,
+)
 from ..shared.providers.startup_probe import StartupProbe
 from ..shared.providers.trace_query import NoopTraceQueryProvider, TraceQueryProvider
 from ..shared.providers.trajectory import TrajectoryDatasetStore
@@ -233,6 +237,8 @@ class Container:
     inventory: Inventory = field(default_factory=EmptyInventory)
     knowledge_source: KnowledgeSource = field(default_factory=EmptyKnowledgeSource)
     change_feed: ChangeFeed = field(default_factory=EmptyChangeFeed)
+    operational_readiness_posture: PostureAssessmentProvider | None = None
+    operational_readiness_report_publisher: ReadinessReportPublisher | None = None
     distiller: Distiller = field(default_factory=AbstainingDistiller)
     manual_source: ManualSource = field(default_factory=EmptyManualSource)
     manual_classifier: ManualClassifier = field(default_factory=AbstainingManualClassifier)
@@ -274,6 +280,13 @@ class Container:
     persisted_promotion_authority_verifier: PersistedPromotionAuthorityVerifier | None = None
 
     def __post_init__(self) -> None:
+        if (self.operational_readiness_posture is None) != (
+            self.operational_readiness_report_publisher is None
+        ):
+            raise ValueError(
+                "Container operational-readiness posture and report publisher "
+                "MUST be bound together"
+            )
         if self.execution_authorization_required and self.execution_authorization_evaluator is None:
             raise ValueError(
                 "Container execution authorization is required but no evaluator is bound"
