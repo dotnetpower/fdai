@@ -41,6 +41,11 @@ retired top-level application tree.
 The Core distribution retains the complete `fdai` namespace. Internal module boundaries remain
 unchanged by the physical move.
 
+Semantic conversation planning keeps `semantic_planning.py`, `semantic_planning_cascade.py`, and
+`semantic_planning_frame.py` as compatibility facades. Focused sibling modules own frame checks,
+plan dispatch, judgment, validation, frame construction, facets, normalization, and queries while
+preserving public imports, deterministic gate order, and read-only authority.
+
 | Area | Responsibility | Source | Tests |
 |------|----------------|--------|-------|
 | Control loop and decisioning | Event normalization, tier routing, exact Rego allow/deny evaluation receipts, quality, risk, approval, execution coordination, recovery, and audit | [core](../../../services/core-control-plane/src/fdai/core/) | [core tests](../../../services/core-control-plane/tests/core/) |
