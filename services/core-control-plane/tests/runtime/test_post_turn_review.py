@@ -123,7 +123,7 @@ async def test_runtime_records_unavailable_reviewer_without_routing() -> None:
 
 def _resolved_models(*, secondary_family: str) -> ResolvedModels:
     return ResolvedModels(
-        schema_version="1",
+        schema_version="1.0.0",
         region="example-region",
         subscription_id="example-subscription",
         deployer_object_id="example-principal",
