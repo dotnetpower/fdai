@@ -120,7 +120,9 @@ prod topology so shadow evaluation is representative.
   `SELECT, INSERT`; Operator consumes the same table with `SELECT` only. The service migration
   graph treats Operator as the read-only consumer and blocks provider rollback until the Operator
   metering grant is removed. Both provider and consumer migrations revoke `PUBLIC` access; neither
-  runtime receives update or delete privileges.
+  runtime receives update or delete privileges. During startup incident replay, Core retries only
+  transient PostgreSQL connection failures three times with 0.5 and 1.0 second backoff, then fails
+  readiness rather than continuing without a durable notification checkpoint.
 - **Drift detection**: a scheduled read-only `plan` covers the legacy platform root, the five
   independent service roots, and the bootstrap root for each environment. The root contract uses
   distinct backend keys and resolves service images from pre-refresh state, so an out-of-band image

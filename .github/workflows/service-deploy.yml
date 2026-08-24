@@ -1189,8 +1189,33 @@ jobs:
             --ids "$(jq -er '.service_resource_id' "$rollback_dir/snapshot.json")" \
             --only-show-errors \
             --output json >"$rollback_dir/app-before-secret-restore.json"
-          failed_revision="$(jq -er '.properties.latestRevisionName' \
-            "$rollback_dir/app-before-secret-restore.json")"
+          timeout 60s az containerapp revision list \
+            --resource-group "$(jq -er '.resource_group' "$rollback_dir/snapshot.json")" \
+            --name "$(jq -er '.service_name' "$rollback_dir/snapshot.json")" \
+            --only-show-errors \
+            --output json >"$rollback_dir/failed-revisions-before.json"
+          jq -e '
+              type == "array"
+              and all(.[]; (.properties.template.containers | type) == "array")
+              and all(.[]; (.properties.template.containers | length) >= 1)
+            ' "$rollback_dir/failed-revisions-before.json" >/dev/null || {
+            echo "rollback revision inventory has invalid primary container layout." >&2
+            exit 1
+          }
+          mapfile -t failed_revisions < <(
+            jq -er \
+              --arg image "${{ inputs.image_ref }}" \
+              '.[]
+               | select(.properties.active == true)
+               | select(.properties.template.containers[0].image == $image)
+               | .name' \
+              "$rollback_dir/failed-revisions-before.json"
+          )
+          [[ ${#failed_revisions[@]} -eq 1 ]] || {
+            echo "rollback requires exactly one active revision for the failed protected image." >&2
+            exit 1
+          }
+          failed_revision="${failed_revisions[0]}"
           mapfile -t extra_secret_names < <(
             jq -r --argjson expected "$(printf '%s\n' "${previous_secret_names[@]}" | jq -Rsc 'split("\n")[:-1]')" \
               '.properties.configuration.secrets[].name | select(. as $name | $expected | index($name) | not)' \

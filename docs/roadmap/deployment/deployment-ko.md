@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: d8a78694149b18271b80febb606d36ee4346b948
+translation_source_sha: 8f109ba41e735c65174b2f9923b11623e2ebf6dd
 translation_revised: 2026-08-25
 ---
 
@@ -123,6 +123,9 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
   migration graph는 Operator를 읽기 전용 consumer로 취급하고 Operator 측정 grant가
   제거될 때까지 provider rollback을 차단합니다. Provider와 consumer migration은 모두
   `PUBLIC` 접근을 revoke하며 두 runtime 모두 update 또는 delete 권한을 받지 않습니다.
+  Startup incident replay 중 Core는 transient PostgreSQL 연결 실패만 0.5초와 1.0초 backoff로
+  최대 3회 시도한 뒤 durable notification checkpoint 없이 계속하지 않고 readiness를
+  실패시킵니다.
 - **표류 감지**: 환경별로 스케줄된 읽기 전용 `plan`은 이전 방식 platform 루트, 독립 서비스 루트
   5개, 초기화 루트를 모두 검사합니다. 루트 계약은 서로 다른 백엔드 키를 사용하고
   새로 고침 전 상태에서 서비스 이미지를 해석하므로 out-of-band 이미지 변경도 드러납니다. 상태나

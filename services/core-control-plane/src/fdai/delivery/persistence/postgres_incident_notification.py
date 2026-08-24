@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 from datetime import datetime, timedelta
+from typing import Any
 from uuid import uuid4
 
 import psycopg
@@ -27,6 +29,23 @@ class PostgresIncidentNotificationDeliveryStore:
             raise ValueError("PostgresStateStoreConfig.dsn MUST NOT be empty")
         self._config = config
 
+    async def _connect(self) -> psycopg.AsyncConnection[dict[str, Any]]:
+        """Retry transient connects twice with 0.5/1.0s backoff and per-attempt timeout."""
+        for delay in (0.5, 1.0):
+            try:
+                return await psycopg.AsyncConnection.connect(
+                    self._config.dsn,
+                    row_factory=dict_row,
+                    connect_timeout=self._config.connect_timeout_s,
+                )
+            except psycopg.OperationalError:
+                await asyncio.sleep(delay)
+        return await psycopg.AsyncConnection.connect(
+            self._config.dsn,
+            row_factory=dict_row,
+            connect_timeout=self._config.connect_timeout_s,
+        )
+
     async def claim(
         self,
         *,
@@ -38,11 +57,7 @@ class PostgresIncidentNotificationDeliveryStore:
         key = _key(audit_id)
         token = str(uuid4())
         candidate = _sending_record(token, now, lease_seconds)
-        async with await psycopg.AsyncConnection.connect(
-            self._config.dsn,
-            row_factory=dict_row,
-            connect_timeout=self._config.connect_timeout_s,
-        ) as connection:
+        async with await self._connect() as connection:
             async with connection.transaction():
                 await _timeout(connection, self._config.statement_timeout_ms)
                 inserted = await connection.execute(
@@ -80,10 +95,7 @@ class PostgresIncidentNotificationDeliveryStore:
             raise ValueError("incident notification claim token MUST be non-empty")
         if at.tzinfo is None:
             raise ValueError("incident notification completion time MUST be timezone-aware")
-        async with await psycopg.AsyncConnection.connect(
-            self._config.dsn,
-            connect_timeout=self._config.connect_timeout_s,
-        ) as connection:
+        async with await self._connect() as connection:
             async with connection.transaction():
                 await _timeout(connection, self._config.statement_timeout_ms)
                 cursor = await connection.execute(
@@ -104,10 +116,7 @@ class PostgresIncidentNotificationDeliveryStore:
                     raise RuntimeError("incident notification claim token mismatch")
 
     async def release(self, *, audit_id: str, token: str) -> None:
-        async with await psycopg.AsyncConnection.connect(
-            self._config.dsn,
-            connect_timeout=self._config.connect_timeout_s,
-        ) as connection:
+        async with await self._connect() as connection:
             async with connection.transaction():
                 await _timeout(connection, self._config.statement_timeout_ms)
                 await connection.execute(

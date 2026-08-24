@@ -938,7 +938,12 @@ def test_apply_has_post_apply_health_and_no_destroy_command() -> None:
     assert "authority was unchanged" in _WORKFLOW
     assert "protected platform rollback is required" in _WORKFLOW
     assert '--revision-suffix "r${GITHUB_RUN_ID}"' in _WORKFLOW
-    assert "failed_revision=\"$(jq -er '.properties.latestRevisionName'" in _WORKFLOW
+    assert "failed-revisions-before.json" in _WORKFLOW
+    assert "rollback revision inventory has invalid primary container layout" in _WORKFLOW
+    assert '--arg image "${{ inputs.image_ref }}"' in _WORKFLOW
+    assert (
+        "rollback requires exactly one active revision for the failed protected image" in _WORKFLOW
+    )
     assert "az containerapp revision deactivate" in _WORKFLOW
     assert (
         "[[ \"$(jq -r '.properties.active' "
