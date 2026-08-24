@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 from fdai.rule_catalog.schema.llm_resolver import CapabilityStatus
 from fdai.rule_catalog.schema.llm_resolver_cli import main
 
@@ -17,6 +18,8 @@ def _base_argv(tmp_path: Path, permission: str) -> list[str]:
     return [
         "--registry",
         str(REGISTRY),
+        "--environment",
+        "dev",
         "--region",
         "koreacentral",
         "--subscription-id",
@@ -48,6 +51,23 @@ def test_cli_writes_resolved_models_for_granted_permission(tmp_path: Path) -> No
     assert caps["t2.reasoner.secondary"]["status"] == CapabilityStatus.RESOLVED.value
 
 
+def test_cli_defaults_deployment_environment_to_dev(tmp_path: Path) -> None:
+    argv = _base_argv(tmp_path, "permission.granted.json")
+    environment_index = argv.index("--environment")
+    del argv[environment_index : environment_index + 2]
+
+    assert main(argv) == 0
+    assert (tmp_path / "resolved-models.json").exists()
+
+
+def test_cli_rejects_unknown_deployment_environment(tmp_path: Path) -> None:
+    argv = _base_argv(tmp_path, "permission.granted.json")
+    argv[argv.index("--environment") + 1] = "preview"
+
+    with pytest.raises(SystemExit, match="2"):
+        main(argv)
+
+
 def test_cli_marks_hil_only_when_permission_denied(tmp_path: Path) -> None:
     exit_code = main(_base_argv(tmp_path, "permission.denied.json"))
     assert exit_code == 0
@@ -69,6 +89,7 @@ capabilities:
         encoding="utf-8",
     )
     argv = [*_base_argv(tmp_path, "permission.granted.json"), "--binding-policy", str(policy)]
+    argv[argv.index("--environment") + 1] = "staging"
 
     assert main(argv) == 0
 
@@ -80,6 +101,27 @@ capabilities:
         item for item in payload["capabilities"] if item["name"] == "t2.reasoner.secondary"
     )
     assert secondary["selection_mode"] == "hil-only"
+
+
+def test_cli_rejects_binding_policy_for_another_environment(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    policy = tmp_path / "binding-policy.yaml"
+    policy.write_text(
+        """schema_version: "1.0.0"
+environment: staging
+revision: 4
+capabilities:
+  t2.reasoner.secondary:
+    selection_mode: hil-only
+""",
+        encoding="utf-8",
+    )
+    argv = [*_base_argv(tmp_path, "permission.granted.json"), "--binding-policy", str(policy)]
+
+    assert main(argv) == 2
+    assert not (tmp_path / "resolved-models.json").exists()
+    assert "'staging' does not match deployment environment 'dev'" in capsys.readouterr().err
 
 
 def test_cli_output_is_stable_across_reruns(tmp_path: Path) -> None:
@@ -238,6 +280,8 @@ def test_cli_rejects_missing_fixture_when_not_using_azure_cli(tmp_path: Path) ->
     argv = [
         "--registry",
         str(REGISTRY),
+        "--environment",
+        "dev",
         "--region",
         "koreacentral",
         "--subscription-id",

@@ -13,6 +13,7 @@ Usage
     SCENARIOS=services/core-control-plane/tests/scenarios/llm
     python -m fdai.rule_catalog.schema.llm_resolver_cli \\
         --registry rule-catalog/llm-registry.yaml \\
+        --environment dev \
         --region koreacentral \\
         --subscription-id 00000000-0000-0000-0000-000000000000 \\
         --deployer-object-id 00000000-0000-0000-0000-000000000001 \\
@@ -125,9 +126,16 @@ def _build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=None,
         help=(
-            "Optional reviewed environment model-binding policy. The policy narrows resolver "
-            "selection and is sealed into output provenance; it grants no apply authority."
+            "Optional reviewed environment model-binding policy. Its environment must match "
+            "--environment. The policy narrows resolver selection and is sealed into output "
+            "provenance; it grants no apply authority."
         ),
+    )
+    parser.add_argument(
+        "--environment",
+        choices=["dev", "staging", "prod"],
+        default="dev",
+        help="Deployment environment used for policy binding (default: %(default)s).",
     )
     parser.add_argument("--region", required=True)
     parser.add_argument("--subscription-id", required=True)
@@ -356,6 +364,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
     except (OSError, ValueError) as exc:
         print(f"error: failed to load binding policy: {exc}", file=sys.stderr)
+        return 2
+    if binding_policy is not None and binding_policy.environment != args.environment:
+        print(
+            "error: binding policy environment "
+            f"'{binding_policy.environment}' does not match deployment environment "
+            f"'{args.environment}'",
+            file=sys.stderr,
+        )
         return 2
 
     try:
