@@ -353,17 +353,6 @@ function OntologyInstanceWorkspace({
     <div class={`ontology-instance-workbench${inspectorOpen ? "" : " is-inspector-collapsed"}`}>
       <div class="ontology-instance-map-pane">
         <div class="ontology-instance-map-shell">
-          <div class="ontology-instance-map-summary">
-            <div>
-              <span>{t("ontology.instances.selectedResource")}</span>
-              <strong>{root.name ?? root.resource_type}</strong>
-            </div>
-            <dl>
-              <div><dt>{t("ontology.instances.resources")}</dt><dd>{formatNumber(data.resources.length)}</dd></div>
-              <div><dt>{t("ontology.instances.relationships")}</dt><dd>{formatNumber(data.links.length)}</dd></div>
-              <div><dt>{t("ontology.instances.events")}</dt><dd>{formatNumber(data.timeline.items.length)}</dd></div>
-            </dl>
-          </div>
           {!inspectorOpen ? (
             <Tooltip content={t("ontology.instances.showInspector")}>
               <button

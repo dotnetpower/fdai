@@ -200,11 +200,29 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
   return (
     <div class="ontology-instance-graph" ref={graphRef}>
       <div class="ontology-instance-graph-viewport">
-        <div class="ontology-instance-graph-key" aria-label={t("ontology.instances.graphLegend") }>
-          <span><i class="is-direction" aria-hidden="true" />{t("ontology.instances.storedDirection")}</span>
-          <span><i class="is-traffic" aria-hidden="true" />{t("ontology.instances.verifiedTrafficPath")}</span>
-          <span><i class="is-access" aria-hidden="true" />{t("ontology.instances.accessContext")}</span>
-          <span><i class="is-containment" aria-hidden="true" />{t("ontology.instances.containmentContext")}</span>
+        <div class="ontology-instance-legend-dock" tabIndex={0}>
+          <div class="ontology-instance-graph-key" aria-label={t("ontology.instances.graphLegend") }>
+            <span><i class="is-direction" aria-hidden="true" />{t("ontology.instances.storedDirection")}</span>
+            <span><i class="is-traffic" aria-hidden="true" />{t("ontology.instances.verifiedTrafficPath")}</span>
+            <span><i class="is-access" aria-hidden="true" />{t("ontology.instances.accessContext")}</span>
+            <span><i class="is-containment" aria-hidden="true" />{t("ontology.instances.containmentContext")}</span>
+          </div>
+          {!showEdgeLabels ? (
+            <div class="ontology-instance-dense-legend" aria-label={t("ontology.instances.relationshipTypes") }>
+              <span>
+                {t("ontology.instances.relationshipTypes")} · {layout.edges.length}/{data.links.length}
+              </span>
+              <ul>
+                {linkTypeCounts.map((item) => (
+                  <li key={item.linkType}>
+                    <i class={`is-${item.linkType}`} aria-hidden="true" />
+                    <strong>{t(`ontology.instances.link.${item.linkType}`)}</strong>
+                    <span>{item.displayed}/{item.count}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </div>
         <div class="ontology-instance-graph-tools" aria-label={t("ontology.instances.graphControls") }>
           <Tooltip content={t(fullscreen
@@ -222,22 +240,6 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
             </button>
           </Tooltip>
         </div>
-        {!showEdgeLabels ? (
-          <div class="ontology-instance-dense-legend" aria-label={t("ontology.instances.relationshipTypes") }>
-            <span>
-              {t("ontology.instances.relationshipTypes")} · {layout.edges.length}/{data.links.length}
-            </span>
-            <ul>
-              {linkTypeCounts.map((item) => (
-                <li key={item.linkType}>
-                  <i class={`is-${item.linkType}`} aria-hidden="true" />
-                  <strong>{t(`ontology.instances.link.${item.linkType}`)}</strong>
-                  <span>{item.displayed}/{item.count}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
         <div
           class={`ontology-instance-graph-scroll${isPanning ? " is-panning" : ""}`}
           ref={graphScrollRef}

@@ -32,12 +32,14 @@ describe("Ontology Instances view controls", () => {
     expect(styles).toMatch(/\.ontology-instance-explorer\s*\{[^}]*gap:\s*10px/s);
     expect(styles).toMatch(/\.ontology-instance-toolbar\s*\{[^}]*min-height:\s*56px[^}]*padding:\s*8px\s*10px/s);
     expect(styles).toMatch(/\.ontology-instance-empty\s*\{[^}]*min-height:\s*min\(360px,\s*44vh\)/s);
-    expect(styles).toMatch(/\.ontology-instance-map-summary\s*\{[^}]*position:\s*absolute[^}]*top:\s*12px[^}]*left:\s*12px/s);
-    expect(styles).toMatch(/\.ontology-instance-graph-key\s*\{[^}]*position:\s*absolute[^}]*bottom:\s*12px[^}]*left:\s*12px/s);
+    expect(instancesSource).not.toContain('class="ontology-instance-map-summary"');
+    expect(styles).not.toContain(".ontology-instance-map-summary");
+    expect(styles).toMatch(/\.ontology-instance-legend-dock\s*\{[^}]*position:\s*absolute[^}]*right:\s*12px[^}]*bottom:\s*12px[^}]*left:\s*12px/s);
     expect(styles).toMatch(/\.ontology-instance-graph-key i\.is-direction::after\s*\{[^}]*right:\s*-1px[^}]*border-left:\s*6px solid #637c93[^}]*content:\s*""/s);
     expect(styles).not.toContain('content: ">"');
     expect(styles).toMatch(/\.ontology-instance-graph-tools\s*\{[^}]*position:\s*absolute[^}]*top:\s*12px[^}]*right:\s*12px/s);
     expect(graphSource).toContain('class="ontology-instance-graph-viewport"');
+    expect(graphSource).toContain('class="ontology-instance-legend-dock" tabIndex={0}');
     expect(ontologySource).toContain('class={`stack governance-ontology is-${view}`}');
     expect(globalStyles).toMatch(/\.ontology-route:has\(\.governance-ontology\.is-instances\)\s*>\s*\.page-header \.page-header-subtitle\s*\{[^}]*display:\s*none/s);
     expect(instancesSource).toContain('class="ontology-instance-toolbar-status"');
@@ -52,7 +54,6 @@ describe("Ontology Instances view controls", () => {
     expect(ontologySource).toContain("activeTab.offsetLeft");
     expect(ontologySource).toContain('window.addEventListener("resize", alignActiveTab)');
     expect(globalStyles).toMatch(/\.ontology-route:has\(\.governance-ontology\.is-instances\)[\s\S]*\.page-header-domain,[\s\S]*\.page-header-separator\s*\{\s*display:\s*none/s);
-    expect(styles).toMatch(/@media\s*\(max-width:\s*640px\)[\s\S]*\.ontology-instance-map-summary\s*\{[^}]*grid-template-columns:\s*1fr[^}]*width:\s*calc\(100%\s*-\s*80px\)/s);
   });
 
   it("connects Resource autocomplete to the existing instance selection path", () => {
@@ -103,5 +104,7 @@ describe("Ontology Instances view controls", () => {
     expect(inspectorSource).toContain("onClick={onToggle}");
     expect(styles).toMatch(/\.ontology-instance-inspector\s*>\s*nav\s*\{[^}]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\)\s*auto/s);
     expect(styles).toMatch(/\.ontology-instance-workbench\.is-inspector-collapsed\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s);
+    expect(styles).toMatch(/\.ontology-instance-workbench\.is-inspector-collapsed \.ontology-instance-graph-tools\s*\{[^}]*right:\s*64px/s);
+    expect(styles).toMatch(/\.ontology-instance-map-shell\s*>\s*\.tooltip-anchor:has\(\.ontology-instance-inspector-toggle\.is-restore\)\s*\{[^}]*position:\s*absolute[^}]*inset:\s*0[^}]*pointer-events:\s*none/s);
   });
 });
