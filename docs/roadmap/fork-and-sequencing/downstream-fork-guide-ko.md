@@ -1,7 +1,7 @@
 ---
 title: Downstream Fork 가이드
 translation_of: downstream-fork-guide.md
-translation_source_sha: 258774f019e0bc2c15ab86022daaede4eeb813c2
+translation_source_sha: 437254d6721d5905f7883ccceae6558d5bb078a6
 translation_revised: 2026-08-24
 ---
 
@@ -211,6 +211,11 @@ focused owner 문서를 사용하세요.
 | [5.15](downstream-fork-seam-recipes-ko.md#515-fork-진입점-entrypy) | 포크 진입점 (`entry.py`) |
 | [5.16](downstream-fork-seam-recipes-ko.md#516-매뉴얼-증류-manualsource--manualclassifier--distiller) | 매뉴얼 증류 (`ManualSource` / `ManualClassifier` / `Distiller`) |
 | [5.17](downstream-fork-seam-recipes-ko.md#517-capability-bundle-등록) | `CapabilityBundle` 등록과 시작 시 cross-validation |
+
+**독립 업스트림 vertical 패키지**는 포크 overlay나 새 seam recipe가 아닙니다. 계획된 비용
+거버넌스 패키지 같은 검토된 배포판은 테넌트 값, 배포 상태 또는 자율성을 선택하지 않고 하나의
+exact 온톨로지 프로필과 기존 고정 pantheon을 연결합니다. 해당 업스트림 수명 주기는 [FinOps
+패키지 전달 계획](finops-package-delivery-plan-ko.md)을 참조하세요.
 
 **새 비즈니스-오브젝트 버티컬 구축**: non-Resource ObjectType
 수명 주기 (아키텍처-리뷰 제안, compliance-attestation 레코드,

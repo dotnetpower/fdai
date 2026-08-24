@@ -211,6 +211,11 @@ focused owner documents linked by each recipe.
 | [5.16](downstream-fork-seam-recipes.md#516-manual-distillation-manualsource--manualclassifier--distiller) | Manual distillation (`ManualSource` / `ManualClassifier` / `Distiller`) |
 | [5.17](downstream-fork-seam-recipes.md#517-capability-bundle-registration) | `CapabilityBundle` registration and startup cross-validation |
 
+**Independent upstream vertical packages** are not fork overlays or new seam recipes. A reviewed
+distribution such as the planned Cost Governance package binds one exact ontology profile and the
+existing fixed pantheon without selecting tenant values, deployment state, or autonomy. See the
+[FinOps Package Delivery Plan](finops-package-delivery-plan.md) for that upstream lifecycle.
+
 **Building a new business-object vertical**: a fork that adds a
 non-Resource ObjectType lifecycle (architecture-review proposal,
 compliance-attestation record, incident-postmortem workflow) has a
