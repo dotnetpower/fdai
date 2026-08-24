@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 5b1561ff067a3c52da92b49b26d2aa269c5e68dd
+translation_source_sha: 4bba1296fb7d6e9760001c2a32a8284ab14e1fcb
 translation_revised: 2026-08-25
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -43,6 +43,7 @@ translation_revised: 2026-08-25
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
+| 2026-08-25 | implemented | Core service root에서 필수 `llm` object를 child module로 전달하는 연결을 복원했습니다. 이제 protected root는 plan 전에 검증되고 배포 환경은 exact attested model 구성에 계속 연결됩니다. | `current change`; Core Terraform validation 및 focused service-deploy contract 검사. | Apply 전에 exact protected Core plan을 다시 생성합니다. |
 | 2026-08-25 | implemented | 선택적 `console: keep full stack ready (10m)` 태스크를 추가했습니다. 기존의 범위가 제한된 6개 구성 요소 준비 상태 검사를 600초마다 실행하고, 정상 구성은 건너뛰며 준비 상태 검사에 실패한 경우에만 표준 준비 및 supervisor 경로로 진입합니다. | `current change`, `.vscode/tasks.json`, `scripts/deployment/local/watch-console-services.sh`, `tests/integration/scripts/test_vscode_workspace_performance.py`, 집중 workspace 계약 테스트 4개 통과, 셸 구문 및 VS Code 진단 통과 | 선택적 로컬 복구 감시에 남은 구현 작업은 없습니다. |
 | 2026-08-24 | implemented | HashiCorp 전용 workspace와 이식 가능한 프로파일에서 Microsoft Terraform 언어 서버 설정을 제거하고, workspace에서 사용하지 않는 Live Server 설정을 제거했습니다. 맥락 사용량 표시기는 설계대로 계속 활성화합니다. | `current change`, `.vscode/settings.json`, `.vscode/fdai.code-profile`, 집중 프로파일 및 workspace 계약 테스트 13개 통과 | 확장이 소유하는 공유 설정에 남은 구현 작업은 없습니다. |
 | 2026-08-23 | implemented | 준비 캐시 유효성을 런타임 상태와 분리하고 준비 작업을 순서가 있는 단계 fingerprint 7개로 나눴으며, Docker volume identity가 데이터베이스 기반 단계를 무효화하도록 했습니다. 전체 스택 시작은 감독 대상 프로세스를 시작한 뒤 반환하고 supervisor는 60초 게이트를 계속 실행합니다. `console: wait full stack ready`가 명시적 차단 검사를 제공하며 Core 전용 복구는 최신 Pantheon heartbeat를 기다립니다. | `current change`, `.vscode/tasks.json`, `scripts/automation/{developer-workflow.py,local-service-input-digest.py}`, `scripts/deployment/local/{prepare-console-full-stack,prepare-console-state,start-console-services,run-console-service}.sh`, 집중 시작 계약 모음 테스트 38개 통과, 셸 구문 및 VS Code 진단 통과 | 범위가 제한된 로컬 시작 응답 경로에 남은 구현 작업은 없습니다. |

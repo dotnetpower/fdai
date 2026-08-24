@@ -14,6 +14,7 @@ module "core_control_plane" {
   rollback          = var.rollback
   runtime_env       = var.runtime_env
   startup_readiness = var.startup_readiness
+  llm               = var.llm
   scaling           = var.scaling
   tags              = var.tags
 }
