@@ -28,6 +28,7 @@ _EVENT_BUS_TOPIC_MIGRATION = {
             "semantic_projections": "core.semantic-turn.projections",
             "semantic_requests": "operator.semantic-turn.requests",
             "read_investigation_requests": "operator.read-investigation.requests",
+            "incident_intervention_requests": "operator.incident-intervention.requests",
         },
         "environment": {
             "FDAI_CANARY_TOPIC": "fdai.control.canary",
@@ -39,6 +40,7 @@ _EVENT_BUS_TOPIC_MIGRATION = {
             "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC": "core.semantic-turn.projections",
             "FDAI_SEMANTIC_TURN_REQUEST_TOPIC": "operator.semantic-turn.requests",
             "FDAI_READ_INVESTIGATION_REQUEST_TOPIC": "operator.read-investigation.requests",
+            "FDAI_INCIDENT_INTERVENTION_REQUEST_TOPIC": ("operator.incident-intervention.requests"),
         },
     },
     "operator-service": {
@@ -48,6 +50,7 @@ _EVENT_BUS_TOPIC_MIGRATION = {
             "semantic_projections": "core.semantic-turn.projections",
             "semantic_physical": "fdai.pantheon.objects",
             "read_investigation_requests": "operator.read-investigation.requests",
+            "incident_intervention_requests": "operator.incident-intervention.requests",
         },
         "environment": {
             "FDAI_EXECUTION_VENUE": "deployed",
@@ -56,6 +59,11 @@ _EVENT_BUS_TOPIC_MIGRATION = {
             "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC": "core.semantic-turn.projections",
             "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC": "fdai.pantheon.objects",
             "FDAI_READ_INVESTIGATION_REQUEST_TOPIC": "operator.read-investigation.requests",
+            "FDAI_READ_INVESTIGATION_COMPLETION_TOPIC": "core.read-investigation.completions",
+            "FDAI_READ_INVESTIGATION_COMPLETION_CONSUMER_GROUP_ID": (
+                "operator-read-investigation-completion-v1"
+            ),
+            "FDAI_INCIDENT_INTERVENTION_REQUEST_TOPIC": ("operator.incident-intervention.requests"),
         },
     },
     "document-ingestion-api": {
