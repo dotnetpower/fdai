@@ -119,7 +119,9 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     assert 'az resource wait --deleted --ids "$link_id"' in workflow
     assert 'terraform state rm -lock-timeout=5m "$link_address"' in workflow
     assert "scenario-lab DNS recovery refuses a zone with visible VNet links" in workflow
+    assert "scenario-lab DNS recovery requires the Terraform-owned lab VNet" in workflow
     assert 'link_name="pe-fdai-sre-lab-${TF_VAR_region_short}-oai-runner-link"' in workflow
+    assert '--virtual-network "$lab_vnet_id"' in workflow
     assert "az network private-dns link vnet create" in workflow
     assert "az network private-dns link vnet delete" in workflow
     assert "scenario-lab Terraform destroy completed after bounded DNS reconciliation" in workflow

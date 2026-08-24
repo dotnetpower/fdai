@@ -463,8 +463,6 @@ jobs:
 
       - name: Destroy exact lab state
         if: inputs.action == 'destroy'
-        env:
-          RUNNER_VNET_ID: ${{ vars.OPS_VNET_ID }}
         run: |
           set -euo pipefail
           plan_file="$RUNNER_TEMP/sre-demo-lab.tfplan"
@@ -490,12 +488,21 @@ jobs:
             echo "scenario-lab DNS recovery refuses a zone with visible VNet links." >&2
             exit 1
           }
+          lab_vnet_id="$(terraform show -json | jq -er '
+            .. | objects |
+            select(.address? == "azurerm_virtual_network.scenario_lab") |
+            .values.id
+          ' | head -n 1)" || {
+            echo "scenario-lab DNS recovery requires the Terraform-owned lab VNet." >&2
+            exit 1
+          }
+          echo "::add-mask::$lab_vnet_id"
           link_name="pe-fdai-sre-lab-${TF_VAR_region_short}-oai-runner-link"
           az network private-dns link vnet create \
             --resource-group "$SCENARIO_LAB_RESOURCE_GROUP_NAME" \
             --zone-name "$zone_name" \
             --name "$link_name" \
-            --virtual-network "$RUNNER_VNET_ID" \
+            --virtual-network "$lab_vnet_id" \
             --registration-enabled false \
             --output none --only-show-errors
           link_id="$(az network private-dns link vnet show \
