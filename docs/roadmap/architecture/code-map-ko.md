@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 2cce23cdb6f9b22019b651183498646688acb0a1
+translation_source_sha: c6148f551a655c205cbdd1e30c1342dcf8fb0338
 translation_revised: 2026-08-24
 ---
 # 코드 맵
@@ -47,6 +47,7 @@ Core 분포는 전체 `fdai` 이름 공간을 유지합니다. 내부 모듈 경
 | 영역 | Responsibility | 출처 | 테스트 |
 |------|----------------|--------|------|
 | 컨트롤 루프와 decisioning | Event 정규화, 계층 라우팅, 정확한 Rego allow/deny 평가 증적, quality, risk, 승인, 실행 coordination, 복구 및 감사 | [코어](../../../services/core-control-plane/src/fdai/core/) | [코어 테스트](../../../services/core-control-plane/tests/core/) |
+| 컨트롤 플레인 지역 복구 shadow 경로 | 실제 공급자를 변경하지 않고 예상 epoch 차단, 검증된 단일 writer 상태, 범위가 제한된 근거 증적, 다음 작업 전 중단 동작을 적용하는 공급자 중립적인 순서 기반 failover 및 failback 예행 연습 | [shadow 복구](../../../services/core-control-plane/src/fdai/core/verticals/resilience/shadow_recovery.py), [복구 공급자 계약](../../../services/core-control-plane/src/fdai/shared/providers/control_plane_recovery.py) | [shadow 복구 테스트](../../../services/core-control-plane/tests/core/verticals/test_recovery_plan_shadow.py), [복구 계획 테스트](../../../services/core-control-plane/tests/core/verticals/test_recovery_plan.py), [복구 조정기 테스트](../../../services/core-control-plane/tests/core/verticals/test_recovery_coordinator.py) |
 | 환각 루브릭 승격 | 짝지은 불변 기준선/처리군 근거, 신뢰도를 고려한 준비 판정, 독립 검토 결속, 엄격한 매니페스트 검증 및 승격 권한이 없는 ActionType별 실패 시 차단 루브릭 모드 해석 | [루브릭 승격 core](../../../services/core-control-plane/src/fdai/core/quality_gate/promotion.py) 및 [매니페스트 어댑터](../../../services/core-control-plane/src/fdai/delivery/measurement/rubric_promotion_evidence.py) | [루브릭 승격 테스트](../../../services/core-control-plane/tests/core/quality_gate/test_rubric_promotion.py), [어댑터 테스트](../../../services/core-control-plane/tests/delivery/test_rubric_promotion_evidence.py) 및 [조립 테스트](../../../services/core-control-plane/tests/composition/test_rubric_promotion_binding.py) |
 | 실행 권한 부여 | 프로바이더 중립적인 요구 사항 결과, 비어 있지 않은 결정 집합의 최소 권한 축소, 정규 요청 및 인벤토리 연결, 모호한 ID 또는 연결되지 않은 권한 부여 제안 거부 | [execution_authorization](../../../services/core-control-plane/src/fdai/core/execution_authorization/) | [실행 권한 부여 테스트](../../../services/core-control-plane/tests/core/execution_authorization/) |
 | 온톨로지 안전성 platform | 카탈로그에서 로드한 Interface 및 FunctionType 선언을 포함하는 exact 의미 release, release-aware 조회 profile 및 함수 등록, principal 범위로 한정된 매니페스트, 검증된 Resource와 ResourceType 분류, 범용/temporal 조회 algebra, bitemporal 토폴로지/차이, 범위가 제한된 blast-radius 차이와 authoritative inventory rebuild pointer를 포함하는 immutable direction-generation shadow comparison, 검토된 메트릭 개념, topology-aware causal 결합, 별도의 planner-function 및 operational-plan lineage와 안전하게 닫히도록 문서화된 인자, 근거, 대상 및 효과 검증 계약이 있는 변경 계획, compact typed effect-reconciliation event, 인증된 독립 observer binding 및 lease-fenced 영속 terminal outbox 전달 | [ontology_platform](../../../services/core-control-plane/src/fdai/core/ontology_platform/) | [온톨로지 platform 테스트](../../../services/core-control-plane/tests/core/ontology_platform/) |
