@@ -241,6 +241,29 @@ def test_git_fetcher_clones_pinned_revision(tmp_path: Path) -> None:
 
 
 @pytest.mark.skipif(not _has_git(), reason="git binary not on PATH")
+def test_git_fetcher_ignores_user_init_template(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bare, sha = _init_local_git_source(tmp_path)
+    template = tmp_path / "git-template"
+    template.mkdir()
+    (template / "config").write_text(
+        '[remote "origin"]\n\turl = template-origin\n', encoding="utf-8"
+    )
+    global_config = tmp_path / "global.gitconfig"
+    global_config.write_text(f"[init]\n\ttemplateDir = {template}\n", encoding="utf-8")
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(global_config))
+    monkeypatch.setenv("GIT_CONFIG_SYSTEM", "/dev/null")
+
+    result = GitCloneFetcher(timeout_seconds=30.0).fetch(
+        config=FetchConfig(kind=FetchKind.GIT, repo=str(bare), revision=sha),
+        dest_root=tmp_path / "snap",
+    )
+
+    assert (result.tree_root / "policy.rego").is_file()
+
+
+@pytest.mark.skipif(not _has_git(), reason="git binary not on PATH")
 def test_git_fetcher_honors_subpath(tmp_path: Path) -> None:
     bare, sha = _init_local_git_source(tmp_path)
     fetcher = GitCloneFetcher(timeout_seconds=30.0)

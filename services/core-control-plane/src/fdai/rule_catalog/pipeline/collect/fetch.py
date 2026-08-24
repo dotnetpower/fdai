@@ -122,6 +122,8 @@ class GitCloneFetcher(Fetcher):
 
     Uses ``git clone --depth 1 --branch <sha>`` when possible; falls back
     to ``fetch --depth 1 <sha>`` for hosts that reject a branch=sha shape.
+    Scratch repositories ignore user Git init templates so their remote
+    configuration is deterministic.
     A malformed revision (mutable ref) is rejected earlier by
     ``SourceManifest`` - this class only executes what the manifest
     validated.
@@ -149,7 +151,11 @@ class GitCloneFetcher(Fetcher):
                 shutil.rmtree(owned_path)
 
         try:
-            self._run([self._git, "init", "--quiet"], cwd=checkout_dir, mkdir=True)
+            self._run(
+                [self._git, "-c", "init.templateDir=", "init", "--quiet"],
+                cwd=checkout_dir,
+                mkdir=True,
+            )
             self._run([self._git, "remote", "add", "origin", config.repo], cwd=checkout_dir)
             self._run(
                 [
