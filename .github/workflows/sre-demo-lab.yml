@@ -474,15 +474,59 @@ jobs:
 
       - name: Destroy exact lab state
         if: inputs.action == 'destroy'
+        env:
+          RUNNER_VNET_ID: ${{ vars.OPS_VNET_ID }}
         run: |
           set -euo pipefail
-          if ! terraform apply -input=false -auto-approve \
-            "$RUNNER_TEMP/sre-demo-lab.tfplan" \
-            >"$RUNNER_TEMP/sre-demo-lab-destroy.log" 2>&1; then
+          plan_file="$RUNNER_TEMP/sre-demo-lab.tfplan"
+          destroy_log="$RUNNER_TEMP/sre-demo-lab-destroy.log"
+          retry_log="$RUNNER_TEMP/sre-demo-lab-destroy-retry.log"
+          if terraform apply -input=false -auto-approve "$plan_file" >"$destroy_log" 2>&1; then
+            echo "scenario-lab Terraform destroy completed."
+            exit 0
+          fi
+          zone_name="$(terraform show -json | jq -er '
+            .. | objects |
+            select(.address? == "module.azure_openai_private_endpoint.azurerm_private_dns_zone.this") |
+            .values.name
+          ' | head -n 1)" || {
             echo "scenario-lab Terraform destroy failed; raw output remains runner-local." >&2
             exit 1
+          }
+          link_count="$(az network private-dns link vnet list \
+            --resource-group "$SCENARIO_LAB_RESOURCE_GROUP_NAME" \
+            --zone-name "$zone_name" \
+            --query 'length(@)' --output tsv --only-show-errors)"
+          [[ "$link_count" == "0" ]] || {
+            echo "scenario-lab DNS recovery refuses a zone with visible VNet links." >&2
+            exit 1
+          }
+          link_name="pe-fdai-sre-lab-${TF_VAR_region_short}-oai-runner-link"
+          az network private-dns link vnet create \
+            --resource-group "$SCENARIO_LAB_RESOURCE_GROUP_NAME" \
+            --zone-name "$zone_name" \
+            --name "$link_name" \
+            --virtual-network "$RUNNER_VNET_ID" \
+            --registration-enabled false \
+            --output none --only-show-errors
+          link_id="$(az network private-dns link vnet show \
+            --resource-group "$SCENARIO_LAB_RESOURCE_GROUP_NAME" \
+            --zone-name "$zone_name" \
+            --name "$link_name" \
+            --query id --output tsv --only-show-errors)"
+          echo "::add-mask::$link_id"
+          az network private-dns link vnet delete \
+            --resource-group "$SCENARIO_LAB_RESOURCE_GROUP_NAME" \
+            --zone-name "$zone_name" \
+            --name "$link_name" \
+            --yes --only-show-errors
+          az resource wait --deleted --ids "$link_id" \
+            --interval 10 --timeout 180 --only-show-errors
+          if ! terraform apply -input=false -auto-approve "$plan_file" >"$retry_log" 2>&1; then
+            echo "scenario-lab Terraform destroy retry failed; raw output remains runner-local." >&2
+            exit 1
           fi
-          echo "scenario-lab Terraform destroy completed."
+          echo "scenario-lab Terraform destroy completed after bounded DNS reconciliation."
 
       - name: Clean runner artifacts
         if: always()
@@ -509,7 +553,8 @@ jobs:
             "$RUNNER_TEMP/sre-demo-lab-plan.json" \
             "$RUNNER_TEMP/sre-demo-lab-plan.log" \
             "$RUNNER_TEMP/sre-demo-lab-apply.log" \
-            "$RUNNER_TEMP/sre-demo-lab-destroy.log"; do
+            "$RUNNER_TEMP/sre-demo-lab-destroy.log" \
+            "$RUNNER_TEMP/sre-demo-lab-destroy-retry.log"; do
             if [[ -f "$artifact" ]]; then
               shred --force --remove "$artifact"
             fi
