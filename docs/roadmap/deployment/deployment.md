@@ -243,9 +243,10 @@ blast-radius limit, dry-run, resource lock, idempotency, audit entry) from
 deployment rollback complements, not replaces, per-action rollback.
 
 - **Application rollback**: an independent-service deploy restores the exact captured revision and
-  digest-pinned image after immediate health failure, then verifies the recovery revision before
-  closing the deployment as failed. The isolated Executor also returns its cutover setting to the
-  declared `core-in-process` authority fallback.
+  digest-pinned image after immediate health failure, verifies the recovery revision, then
+  deactivates the failed revision and confirms it is inactive before closing the deployment as
+  failed. The isolated Executor also returns its cutover setting to the declared `core-in-process`
+  authority fallback.
 - **Ingestion topology rollback**: restore the exact prior Document Ingestion API and Document
   Processing Worker revisions and digest-pinned images without changing consumer groups or
   offsets. The retired `ingestion_cohost_worker` input is rejected before planning.

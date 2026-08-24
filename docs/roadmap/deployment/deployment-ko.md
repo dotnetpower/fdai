@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 198052f9b57f7c56678be4df138464e6f9e5a511
+translation_source_sha: d8a78694149b18271b80febb606d36ee4346b948
 translation_revised: 2026-08-25
 ---
 
@@ -243,8 +243,9 @@ Traffic-split canary 전략은 아직 자동 배선되지 않았습니다. Platf
 운반합니다; 배포 롤백은 액션당 롤백을 대체하지 않고 보완합니다.
 
 - **애플리케이션 롤백**: 독립 서비스 배포는 immediate 상태 실패 뒤 exact captured 개정 번호와
-  digest-pinned 이미지를 복원하고 복구 개정 번호를 검증한 다음 배포를 실패로 닫습니다.
-  Isolated 실행기는 전환 설정도 선언된 `core-in-process` 권한 대체 경로로 되돌립니다.
+  digest-pinned 이미지를 복원하고 복구 개정 번호를 검증한 다음 실패한 개정 번호를 비활성화하고
+  비활성 상태를 확인한 뒤 배포를 실패로 닫습니다. Isolated 실행기는 전환 설정도 선언된
+  `core-in-process` 권한 대체 경로로 되돌립니다.
 - **인제스트 토폴로지 롤백**: 소비자 그룹이나 오프셋을 변경하지 않고 Document Ingestion
   API와 Document Processing Worker의 정확한 이전 개정 번호 및 digest-pinned 이미지를
   복원합니다. 제거된 `ingestion_cohost_worker` 입력은 계획 전에 거부됩니다.

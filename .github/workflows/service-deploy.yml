@@ -1189,6 +1189,8 @@ jobs:
             --ids "$(jq -er '.service_resource_id' "$rollback_dir/snapshot.json")" \
             --only-show-errors \
             --output json >"$rollback_dir/app-before-secret-restore.json"
+          failed_revision="$(jq -er '.properties.latestRevisionName' \
+            "$rollback_dir/app-before-secret-restore.json")"
           mapfile -t extra_secret_names < <(
             jq -r --argjson expected "$(printf '%s\n' "${previous_secret_names[@]}" | jq -Rsc 'split("\n")[:-1]')" \
               '.properties.configuration.secrets[].name | select(. as $name | $expected | index($name) | not)' \
@@ -1266,6 +1268,24 @@ jobs:
             --account "$rollback_dir/account-after.json" \
             --app "$rollback_dir/app-after.json" \
             --revision "$rollback_dir/revision-after.json"
+          if [[ "$failed_revision" != "$recovery_revision" ]]; then
+            timeout 60s az containerapp revision deactivate \
+              --resource-group "$resource_group" \
+              --name "$service_name" \
+              --revision "$failed_revision" \
+              --only-show-errors \
+              --output none
+            timeout 60s az containerapp revision show \
+              --resource-group "$resource_group" \
+              --name "$service_name" \
+              --revision "$failed_revision" \
+              --only-show-errors \
+              --output json >"$rollback_dir/failed-revision-after.json"
+            [[ "$(jq -r '.properties.active' "$rollback_dir/failed-revision-after.json")" == "false" ]] || {
+              echo "failed service revision remains active after automatic rollback." >&2
+              exit 1
+            }
+          fi
 
       - name: Fail deployment after automatic rollback
         if: ${{ always() && inputs.apply && (steps.apply.outcome == 'failure' || steps.health.outcome == 'failure') }}
