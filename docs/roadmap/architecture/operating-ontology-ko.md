@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 09185124501b9d750206cc28b6bae158ca1f21f1
+translation_source_sha: af3ded5551fa4d66877400b9c31f9c56889b0994
 translation_revised: 2026-08-24
 ---
 # FDAI 운영 온톨로지
@@ -93,7 +93,7 @@ translation_revised: 2026-08-24
 | O1 의미 체계와 카탈로그 무결성 | implemented | [`test_ontology_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_ontology_catalog.py), [`test_ontology_provenance.py`](../../../services/core-control-plane/tests/rule_catalog/test_ontology_provenance.py) | 통합 카탈로그가 운영 의미 체계, 출처 이력, 참조 및 cardinality를 검증합니다. |
 | O2 범위 제한 맥락과 현재 상태 변환 결과 | in-progress | [`ontology_instance.py`](../../../services/core-control-plane/src/fdai/shared/providers/ontology_instance.py), [`console_projection.py`](../../../services/core-control-plane/src/fdai/core/operational_context/console_projection.py), focused 인스턴스 및 컨텍스트 변환 결과 테스트 | 타입이 지정된 현재 상태 객체와 링크가 있습니다. 이제 보안 receipt의 목적, 릴리스, 기준 시각 및 그래프 범위가 모두 일치할 때만 범위가 제한되고 권한이 없는 컨텍스트 메타데이터를 만들 수 있습니다. Principal 범위 전송과 인증된 런타임 근거는 남아 있습니다. |
 | O3-O5 결정, 결과 및 통제된 learning 루프 | in-progress | [제공 계획](#제공-계획), [`test_ontology_alignment.py`](../../../services/core-control-plane/tests/agents/test_ontology_alignment.py) | 핵심 구획은 있지만 모든 운영 경로에서 효과 종결과 통제된 learning이 완료되지는 않았습니다. |
-| 결정과 학습 writer | not-started | [`hypothesis_lineage.py`](../../../services/core-control-plane/src/fdai/core/operational_planning/hypothesis_lineage.py), [`test_hypothesis_lineage.py`](../../../services/core-control-plane/tests/core/operational_planning/test_hypothesis_lineage.py) | 네 구간은 카탈로그 기준으로 유효하고 traverse됩니다. 집중 테스트가 제공되는 ObjectType과 LinkType 선언을 통해 계보 하나를 적재하고 `DecisionCase`에서 `ObservedOutcome`까지 traverse합니다. 빠진 것은 생산자입니다. `OperationalHypothesisLineageProjector`가 유일한 writer이고 어느 조립 루트도 이를 구성하지 않으며, 런타임 모델이 선언된 속성을 담고 있지 않습니다. `DecisionCase`는 `context_snapshot_id`만 유지하므로 `target_ref`와 `evidence_cutoff`는 `OperationalContextSnapshot`에는 있지만 케이스에는 없고, `uncertainty`, `ActionOption.arguments`, `preconditions`, `option_kind`, `ExpectedEffect.direction`, `predictor_version`, `ActionRun.action_type_version`, `started_at`, `receipt_ref`는 projector가 읽을 모델에 없습니다. 각각은 기계적 매핑이 아니라 생산자를 지정하는 결정이 필요하며, projector를 먼저 연결하면 운영 근거를 날조하게 됩니다. 이는 타입별 누락이 아니라 구조적입니다. 카탈로그 stewardship과 와이어 single-writer 권한은 별개 레지스트리이며, 제공되는 ObjectType 다수가 같은 이름의 와이어 객체를 소유하지 않는 `lifecycle.owner`를 지정하며, 이를 `test_catalog_stewardship_is_separate_from_wire_single_writer`가 고정합니다. Norns 역시 `Pattern`을 소유하고 `object.pattern`도 등록되어 있지만 어느 곳도 발행하거나 구독하지 않습니다. |
+| 결정과 학습 writer | in-progress | [`hypothesis_lineage.py`](../../../services/core-control-plane/src/fdai/core/operational_planning/hypothesis_lineage.py), [`_execution.py`](../../../services/core-control-plane/src/fdai/core/control_loop/_execution.py), 집중 계보 및 독립 결과 검사 | `OperationalOutcomeLineageProducer`는 Forseti가 소유한 prospective record가 이미 존재할 때만 단일 효과 에피소드 하나를 종결합니다. 실제 ControlLoop 호출 지점은 런타임 `Action`, 정확한 ActionType 버전, 실행기 시작·종료 시각, terminal 상태와 receipt, `IndependentEffectObserver` 뒤에서 생성된 scorable `ResponseOutcome`을 제공합니다. Prospective record가 없으면 아무것도 쓰지 않으며, 응답 계약에 완전성 receipt가 없으므로 producer는 `telemetry_complete=false`를 기록합니다. 어느 조립 루트도 source, sink 또는 projector를 연결하지 않습니다. 남은 prospective 필드, 다중 효과 독립 결과 및 명시적 telemetry completeness에는 composition 전에 이름이 지정된 권위 있는 생산자가 필요합니다. |
 | 다중 효과 운영 계보 계약 | implemented | [`hypothesis_lineage.py`](../../../services/core-control-plane/src/fdai/core/operational_planning/hypothesis_lineage.py), [`ActionOption.yaml`](../../../rule-catalog/vocabulary/object-types/ActionOption.yaml), 집중 계보 및 competency 검사 | 새로운 계보 쓰기는 순서가 고정된 완전한 예상 효과 집합을 보존하고 효과마다 하나의 독립 결과를 요구합니다. 단일 속성만 있는 저장 레코드는 하나의 효과로 읽고, 두 필드가 동시에 있으면 안전하게 차단합니다. |
 | Wave 2 근거, 변경, Property 및 토폴로지 기반 | in-progress | [구현 상태 설명](#fdai-운영-온톨로지), [운영 온톨로지 플랫폼](operating-ontology-platform-ko.md), [`check-property-semantic-coverage.py`](../../../scripts/quality/architecture/check-property-semantic-coverage.py) | 검토된 기반은 있지만 근거 번들이 런타임에 조립되지 않았고 계획 변경은 그래프 최신성 게이트를 자동 통과할 수 없으며 검토된 Property 커버리지는 측정되지만 일부이고 더 넓은 플랫폼 제공 작업도 남아 있습니다. |
 | Console 의미 band 선언 완전성 | implemented | [`Forecast.yaml`](../../../rule-catalog/vocabulary/object-types/Forecast.yaml), [`Pattern.yaml`](../../../rule-catalog/vocabulary/object-types/Pattern.yaml), [`test_ontology_console_projection.py`](../../../services/core-control-plane/tests/delivery/test_ontology_console_projection.py) | Console band가 지정하는 모든 객체 타입을 제공 릴리스가 선언하므로 band 구성원이 조용히 제외되지 않습니다. 두 선언은 의미 선언일 뿐이며 인스턴스 경로를 추가하지 않습니다. |
@@ -119,6 +119,7 @@ translation_revised: 2026-08-24
 | 2026-08-16 | implemented | 구현 이력은 append-only이므로 2026-08-15 `Pattern` 및 `PatternObservation` 행을 기록 당시 문구로 되돌리고, 이후 병합이 그 앞에 끼워 넣은 행들보다 앞으로 위치를 되돌렸으며, 그 행을 덮어쓰던 작업을 여기에 별도로 기록합니다. 해당 작업은 제공되는 `Forecast`와 `Pattern` 선언을 채택하고, 소유 학습 객체 이름을 `Pattern`으로 통일해 스펙, 토픽, 모든 표가 한 이름을 쓰게 했으며, `unknown_service` 범위 커버리지 표시자를 추가하고, 보류된 관계 두 개가 어느 엔드포인트 쌍도 생산할 수 없어 막혀 있음을 기록했습니다. | `current change`, `rule-catalog/vocabulary/object-types/{Forecast,Pattern}.yaml`, `operating_scope.py`, `test_ontology_catalog.py` 문서 일관성 테스트, `test_shipped_catalog_accepts_and_traverses_one_lineage` 및 `test_shipped_catalog_rejects_a_lineage_missing_a_required_property`. 이전 fake-store 테스트가 잡지 못하던 `resulted_in` 방향 역전이 이제 실패합니다. 집중 카탈로그, 맥락, 변환 결과, 정합성, 인스턴스, explorer, release 집중 테스트가 통과했습니다. | 누락된 `DecisionCase`, `ActionOption`, `ExpectedEffect`, `ActionRun` 속성을 실제 생산자에서 공급한 뒤 조립 루트에서 `OperationalHypothesisLineageProjector`를 구성하고, 보류된 관계를 복원하기 전에 생산자를 마련하며, Norns가 살아 있는 소비자와 함께 `Pattern`을 발행하거나 해당 토픽을 폐기하고, 범위 커버리지를 소비자 하나에 연결하며 운영 의도 인스턴스를 고정해야 합니다. |
 | 2026-08-18 | implemented | 레인과 권한 분리를 전수 검증 가능하게 만들었습니다. 모든 레인·권한 쌍을 단언하고, `execution_ledger` 사실은 `observed`, `derived`, `desired` 레인에서 거부되며, 행이 없는 레인은 잠재적 `KeyError` 대신 문서화된 거부로 fail closed 합니다. | `current change`, `test_state_evidence.py` focused 테스트 39개 통과 | 모든 변환 쓰기 지점에서 같은 분리를 강제해 향후 작성자가 `StateFactMetadata` 생성 없이 상태 사실을 저장하지 못하게 해야 합니다. |
 | 2026-08-24 | implemented | ActionOption 효과 속성을 일대다 `expects` 및 `resulted_in` 링크와 조정했습니다. 새로운 계보 쓰기는 결정적 순서의 모든 예상 효과 ID와 효과마다 하나의 독립 결과를 요구합니다. 단일 속성만 있는 저장 레코드는 하나의 효과로 읽고, 두 필드가 동시에 있으면 안전하게 차단하며, 타입 간 객체 ID 충돌은 저장 전에 거부합니다. | `current change`; `hypothesis_lineage.py`; `ActionOption.yaml`; 집중 계보 및 competency 검사 15개 통과. | 완전한 에피소드를 사용할 수 있을 때만 남은 실제 생산자 속성을 제공하고 projector를 구성합니다. |
+| 2026-08-24 | in-progress | 첫 실제 decision-lineage producer 구획을 추가했습니다. 단일 효과 종결은 정확한 런타임 Action 및 독립적으로 관찰된 scorable ResponseOutcome만 기존 prospective record에 결합하고, 완전한 에피소드를 추가한 뒤 idempotent하게 재생합니다. ControlLoop는 실행기 경계에서 실행 시각을 포착하고 결과 감사가 성공한 뒤에만 선택적 sink를 호출합니다. | `current change`; `hypothesis_lineage.py`; `core/control_loop/{orchestrator,_execution}.py`; 집중 계보 검사 14개와 MSCP shadow 호출 지점 검사 15개 통과. | Forseti prospective record, 다중 효과 결과 집합 및 telemetry completeness 근거를 생산한 뒤 완전한 런타임 에피소드 하나가 존재할 때만 composition을 연결합니다. |
 
 ### 남은 작업
 
@@ -126,10 +127,9 @@ translation_revised: 2026-08-24
   경로에 조립하고 admission, contradiction, citation 및 최종 예산 증적을 보존합니다.
 - [ ] 계획 변경을 자동 통과시키기 전에 그래프 최신성 권한을 제공하고 검증하며 stale,
   불완전한 및 conflicting 부정 사례를 포함합니다.
-- [ ] 하나의 고정된 온톨로지 release에서 남은 맥락, 결과 종결 및 통제된 learning 경로의
-  운영 바인딩과 재생 근거를 완료합니다.
-- [ ] Receipt로 검증된 컨텍스트 메타데이터를 기존 principal 범위 근거 응답에 연결하고 잘못된
-  principal, 목적, 릴리스, stale 및 truncated 사례가 사용 불가로 유지됨을 입증합니다.
+- [ ] 하나의 고정된 온톨로지 release에서 남은 맥락, 결과 종결 및 통제된 learning 경로의 운영 바인딩과 재생 근거를 완료합니다.
+- [ ] Forseti 소유 uncertainty, 옵션, precondition, 효과 방향 및 predictor 버전 값에서 `OperationalProspectiveLineage`를 생산하고, 권위 있는 telemetry-completeness receipt가 있는 완전한 다중 효과 집합까지 독립 종결을 확장한 뒤, 완전한 런타임 에피소드 하나가 존재할 때만 source와 projector를 연결합니다.
+- [ ] Receipt로 검증된 컨텍스트 메타데이터를 기존 principal 범위 근거 응답에 연결하고 잘못된 principal, 목적, 릴리스, stale 및 truncated 사례가 사용 불가로 유지됨을 입증합니다.
 - [ ] 토폴로지, 시간, reconciliation 및 graph-wide Dynamic 제공이 집중 종료 조건에 도달할
   때 운영 온톨로지와 플랫폼 원장을 동기화합니다.
 - [x] `project_operating_scope`를 인증된 읽기 전용 인벤토리 그래프 응답에 연결해

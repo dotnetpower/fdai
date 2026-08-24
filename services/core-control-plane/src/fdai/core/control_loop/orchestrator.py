@@ -36,7 +36,10 @@ from fdai.core.ontology_platform.metric_semantics import MetricSemanticRegistry
 from fdai.core.ontology_platform.reconciliation_producer import (
     EffectReconciliationRequestSink,
 )
-from fdai.core.operational_planning import PreDispatchKineticSafetyWriter
+from fdai.core.operational_planning import (
+    OperationalOutcomeLineageSink,
+    PreDispatchKineticSafetyWriter,
+)
 from fdai.core.rca import CausalRuntimeCoordinator, IncidentMemberSource, RcaCoordinator
 from fdai.core.risk_gate.gate import RiskGate
 from fdai.core.risk_gate.preconditions import (
@@ -130,6 +133,7 @@ class ControlLoop(
         mscp_expected_effect_provider: ExpectedEffectProvider | None = None,
         mscp_effect_observer: IndependentEffectObserver | None = None,
         response_outcome_sink: Callable[[ResponseOutcome], Awaitable[None]] | None = None,
+        operational_outcome_lineage_sink: OperationalOutcomeLineageSink | None = None,
         workflow_outcome_recorder: WorkflowOutcomeRecorder | None = None,
         effect_reconciliation_request_sink: EffectReconciliationRequestSink | None = None,
         pre_dispatch_kinetic_safety_writer: PreDispatchKineticSafetyWriter | None = None,
@@ -194,6 +198,7 @@ class ControlLoop(
         self._mscp_expected_effect_provider = mscp_expected_effect_provider
         self._mscp_effect_observer = mscp_effect_observer
         self._response_outcome_sink = response_outcome_sink
+        self._operational_outcome_lineage_sink = operational_outcome_lineage_sink
         self._workflow_outcome_recorder = workflow_outcome_recorder
         self._effect_reconciliation_request_sink = effect_reconciliation_request_sink
         self._pre_dispatch_kinetic_safety_writer = pre_dispatch_kinetic_safety_writer

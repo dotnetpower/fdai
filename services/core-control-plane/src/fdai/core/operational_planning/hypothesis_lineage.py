@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import datetime
+from typing import Protocol
 
+from fdai.shared.contracts.models import Action, ResponseOutcome, ResponseOutcomeLabel
 from fdai.shared.providers.ontology_instance import (
     OntologyInstanceStore,
     OntologyLinkRecord,
@@ -15,6 +19,62 @@ from fdai.shared.providers.ontology_instance import (
 
 class OperationalHypothesisLineageConflictError(RuntimeError):
     """A replay attempted to change an immutable lineage object."""
+
+
+@dataclass(frozen=True, slots=True)
+class OperationalProspectiveLineage:
+    """Forseti-owned records produced before one selected option executes."""
+
+    decision_case: OntologyObjectRecord
+    action_option: OntologyObjectRecord
+    expected_effects: tuple[OntologyObjectRecord, ...]
+
+    def __post_init__(self) -> None:
+        _require_type(self.decision_case, "DecisionCase")
+        _require_type(self.action_option, "ActionOption")
+        if not self.expected_effects:
+            raise ValueError("prospective lineage requires at least one expected effect")
+        for expected_effect in self.expected_effects:
+            _require_type(expected_effect, "ExpectedEffect")
+        if not self.decision_case.properties.get("no_action_baseline"):
+            raise ValueError("prospective lineage requires a no-action baseline")
+        if self.action_option.properties.get("decision_case_id") != self.decision_case.id:
+            raise ValueError("action option does not belong to the decision case")
+        expected_effect_by_id = {item.id: item for item in self.expected_effects}
+        if len(expected_effect_by_id) != len(self.expected_effects):
+            raise ValueError("prospective lineage expected effects MUST be unique")
+        expected_effect_ids = _expected_effect_refs(self.action_option.properties)
+        if len(expected_effect_ids) != len(expected_effect_by_id) or set(
+            expected_effect_ids
+        ) != set(expected_effect_by_id):
+            raise ValueError("action option does not cite every expected effect")
+        object.__setattr__(
+            self,
+            "expected_effects",
+            tuple(expected_effect_by_id[effect_id] for effect_id in expected_effect_ids),
+        )
+
+
+class OperationalProspectiveLineageSource(Protocol):
+    """Resolve already-produced Forseti records for one execution correlation."""
+
+    async def resolve(self, correlation_id: str) -> OperationalProspectiveLineage | None: ...
+
+
+class OperationalOutcomeLineageSink(Protocol):
+    """Receive one actual execution and its independently observed outcome."""
+
+    async def __call__(
+        self,
+        *,
+        correlation_id: str,
+        action: Action,
+        execution_status: str,
+        execution_started_at: datetime,
+        execution_ended_at: datetime,
+        response_outcome: ResponseOutcome,
+        execution_receipt_ref: str | None = None,
+    ) -> bool: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -142,6 +202,165 @@ class OperationalHypothesisLineageProjector:
         )
 
 
+class OperationalOutcomeLineageProducer:
+    """Append a complete episode only when its prospective records already exist."""
+
+    def __init__(
+        self,
+        *,
+        prospective_source: OperationalProspectiveLineageSource,
+        projector: OperationalHypothesisLineageProjector,
+    ) -> None:
+        self._prospective_source = prospective_source
+        self._projector = projector
+
+    async def __call__(
+        self,
+        *,
+        correlation_id: str,
+        action: Action,
+        execution_status: str,
+        execution_started_at: datetime,
+        execution_ended_at: datetime,
+        response_outcome: ResponseOutcome,
+        execution_receipt_ref: str | None = None,
+    ) -> bool:
+        """Project one exact closure, or return false when no prospective episode exists."""
+
+        if not correlation_id:
+            raise ValueError("operational lineage correlation id MUST be non-empty")
+        prospective = await self._prospective_source.resolve(correlation_id)
+        if prospective is None:
+            return False
+        lineage = build_executed_operational_lineage(
+            prospective=prospective,
+            action=action,
+            execution_status=execution_status,
+            execution_started_at=execution_started_at,
+            execution_ended_at=execution_ended_at,
+            response_outcome=response_outcome,
+            execution_receipt_ref=execution_receipt_ref,
+        )
+        await self._projector.project(lineage)
+        return True
+
+
+def build_executed_operational_lineage(
+    *,
+    prospective: OperationalProspectiveLineage,
+    action: Action,
+    execution_status: str,
+    execution_started_at: datetime,
+    execution_ended_at: datetime,
+    response_outcome: ResponseOutcome,
+    execution_receipt_ref: str | None = None,
+) -> OperationalHypothesisLineage:
+    """Close one single-effect episode from owned execution and observation values.
+
+    The producer refuses ambiguous or incomplete joins. In particular, it does
+    not infer a missing effect, ActionType version, execution timestamp, or
+    independent observation from the prospective records.
+    """
+
+    if action.action_type_ref is None:
+        raise ValueError("executed lineage requires an exact ActionType reference")
+    if not execution_status:
+        raise ValueError("executed lineage requires an execution status")
+    if (
+        execution_started_at.tzinfo is None
+        or execution_ended_at.tzinfo is None
+        or execution_ended_at < execution_started_at
+        or execution_started_at < action.created_at
+    ):
+        raise ValueError("executed lineage requires ordered timezone-aware execution timestamps")
+    if prospective.decision_case.properties.get("target_ref") != action.target_resource_ref:
+        raise ValueError("executed lineage target does not match the decision case")
+    if prospective.action_option.properties.get("action_type_ref") != action.action_type:
+        raise ValueError("executed lineage action does not match the selected option")
+    if prospective.action_option.properties.get("arguments") != action.params:
+        raise ValueError("executed lineage arguments do not match the selected option")
+    if (
+        response_outcome.action_id != action.action_id
+        or response_outcome.action_type_id != action.action_type
+        or response_outcome.execution_mode is not action.mode
+        or response_outcome.target_digest
+        != hashlib.sha256(action.target_resource_ref.encode()).hexdigest()
+    ):
+        raise ValueError("response outcome does not match the executed Action")
+    if (
+        response_outcome.label is ResponseOutcomeLabel.UNSCORABLE
+        or response_outcome.metric is None
+        or response_outcome.expected_min is None
+        or response_outcome.expected_max is None
+        or response_outcome.predicted_at is None
+        or response_outcome.observation_deadline is None
+        or response_outcome.observed_value is None
+        or response_outcome.observed_at is None
+    ):
+        raise ValueError("executed lineage requires one scorable independent outcome")
+    if len(prospective.expected_effects) != 1:
+        raise ValueError("executed lineage currently requires exactly one expected effect")
+
+    expected_effect = prospective.expected_effects[0]
+    expected_window = response_outcome.observation_deadline - response_outcome.predicted_at
+    if expected_window.total_seconds() != int(expected_window.total_seconds()) or (
+        expected_effect.properties.get("metric") != response_outcome.metric
+        or expected_effect.properties.get("lower_bound") != response_outcome.expected_min
+        or expected_effect.properties.get("upper_bound") != response_outcome.expected_max
+        or expected_effect.properties.get("window_seconds") != int(expected_window.total_seconds())
+        or expected_effect.properties.get("created_at") != response_outcome.predicted_at
+    ):
+        raise ValueError("response outcome does not match the expected effect")
+
+    action_run_properties: dict[str, object] = {
+        "id": str(action.action_id),
+        "action_type_ref": action.action_type,
+        "action_type_version": action.action_type_ref.version,
+        "target_ref": action.target_resource_ref,
+        "status": execution_status,
+        "mode": action.mode.value,
+        "idempotency_key": action.idempotency_key,
+        "started_at": execution_started_at,
+        "ended_at": execution_ended_at,
+    }
+    if execution_receipt_ref is not None:
+        action_run_properties["receipt_ref"] = execution_receipt_ref
+    action_run = OntologyObjectRecord(
+        str(action.action_id),
+        "ActionRun",
+        action_run_properties,
+    )
+    recovery_status = (
+        "succeeded"
+        if response_outcome.rollback_succeeded is True
+        else "failed"
+        if response_outcome.rollback_succeeded is False
+        else "not_observed"
+    )
+    observed_outcome = OntologyObjectRecord(
+        str(response_outcome.outcome_id),
+        "ObservedOutcome",
+        {
+            "id": str(response_outcome.outcome_id),
+            "action_run_id": action_run.id,
+            "expected_effect_ref": expected_effect.id,
+            "verification": "independent",
+            "recovery_status": recovery_status,
+            "observed_values": {response_outcome.metric: response_outcome.observed_value},
+            "telemetry_complete": False,
+            "scorable": response_outcome.scorable,
+            "observed_at": response_outcome.observed_at,
+        },
+    )
+    return OperationalHypothesisLineage(
+        decision_case=prospective.decision_case,
+        action_option=prospective.action_option,
+        expected_effects=prospective.expected_effects,
+        action_run=action_run,
+        observed_outcomes=(observed_outcome,),
+    )
+
+
 def _require_type(record: OntologyObjectRecord, expected: str) -> None:
     if record.object_type != expected:
         raise ValueError(f"operational lineage requires {expected}, got {record.object_type}")
@@ -186,4 +405,9 @@ __all__ = [
     "OperationalHypothesisLineage",
     "OperationalHypothesisLineageConflictError",
     "OperationalHypothesisLineageProjector",
+    "OperationalOutcomeLineageSink",
+    "OperationalOutcomeLineageProducer",
+    "OperationalProspectiveLineage",
+    "OperationalProspectiveLineageSource",
+    "build_executed_operational_lineage",
 ]

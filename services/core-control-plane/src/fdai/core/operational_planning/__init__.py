@@ -9,6 +9,10 @@ from .coordinator import (
     SpecialistPlanningProjection,
 )
 from .execution import close_operational_plan, compile_selected_mutation_plan
+from .hypothesis_lineage import (
+    OperationalOutcomeLineageProducer,
+    OperationalOutcomeLineageSink,
+)
 from .journal import PlanningPhaseOrderError, append_planning_phase
 from .kinetic_proposal import KineticActionProposal, KineticActionProposalSource
 from .kinetic_safety import PreDispatchKineticSafetyWriter
@@ -65,6 +69,8 @@ __all__ = [
     "MAX_PLAN_SPECIALIST_DOMAINS",
     "MAX_PLAN_TEXT_LENGTH",
     "OperationalPlan",
+    "OperationalOutcomeLineageProducer",
+    "OperationalOutcomeLineageSink",
     "OperationalPlanningCapabilityStatus",
     "PlanCandidate",
     "PlanningPhase",

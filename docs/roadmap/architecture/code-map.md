@@ -132,6 +132,12 @@ matching exact V2 plan and commits it to a durable outbox before broker publicat
 observation or publication failure remains held or pending evidence and never rewrites the executor
 outcome. Model pointer changes remain inside the existing governance ActionType, risk, Owner
 approval, Thor execution, rollback, and Saga audit path.
+The [lineage producer](../../../services/core-control-plane/src/fdai/core/operational_planning/hypothesis_lineage.py)
+and [control-loop sink](../../../services/core-control-plane/src/fdai/core/control_loop/_execution.py)
+submit one single-effect episode only when authoritative planning records, a completed executor
+result, and one matching independent scorable observation are all present. Projection failure leaves
+the executor result unchanged, and this producer rejects plural effects instead of fabricating
+missing outcomes. Focused lineage and control-loop shadow tests pin both boundaries.
 
 ## Independent service map
 

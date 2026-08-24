@@ -37,7 +37,10 @@ from fdai.core.ontology_platform.reconciliation_producer import (
     ReconciliationRequestProduction,
     ReconciliationRequestProductionStatus,
 )
-from fdai.core.operational_planning import PreDispatchKineticSafetyWriter
+from fdai.core.operational_planning import (
+    OperationalOutcomeLineageSink,
+    PreDispatchKineticSafetyWriter,
+)
 from fdai.core.risk_gate.evaluator import UnifiedRiskDecision
 from fdai.core.risk_gate.gate import RiskGate
 from fdai.core.risk_gate.preconditions import (
@@ -96,6 +99,7 @@ class ControlLoopExecutionMixin:
     _kill_switch_refresher: Callable[[], Awaitable[None]] | None
     _mscp_effect_observer: IndependentEffectObserver | None
     _mscp_expected_effect_provider: ExpectedEffectProvider | None
+    _operational_outcome_lineage_sink: OperationalOutcomeLineageSink | None
     _response_outcome_sink: Callable[[ResponseOutcome], Awaitable[None]] | None
     _workflow_outcome_recorder: WorkflowOutcomeRecorder | None
     _effect_reconciliation_request_sink: EffectReconciliationRequestSink | None
@@ -308,6 +312,7 @@ class ControlLoopExecutionMixin:
         action_type = self._action_types_by_name.get(action.action_type)
         path = action_type.execution_path if action_type is not None else None
         result: ExecutionResult | DirectApiExecutionResult | ToolCallExecutionResult
+        execution_started_at = datetime.now(tz=UTC)
 
         if path is ExecutionPath.DIRECT_API and self._direct_api_executor is not None:
             result = await self._direct_api_executor.execute(action=action)
@@ -337,6 +342,7 @@ class ControlLoopExecutionMixin:
                     path if path is ExecutionPath.PR_MANUAL else ExecutionPath.PR_NATIVE
                 ),
             )
+        execution_ended_at = datetime.now(tz=UTC)
         request_production = await self._produce_effect_reconciliation_request(
             action=action,
             result=result,
@@ -346,6 +352,9 @@ class ControlLoopExecutionMixin:
             result=result,
             expected=expected,
             prediction_failure=prediction_failure,
+            correlation_id=correlation_id,
+            execution_started_at=execution_started_at,
+            execution_ended_at=execution_ended_at,
         )
         if verification is None and request_production is None:
             return result
@@ -430,6 +439,9 @@ class ControlLoopExecutionMixin:
         result: ExecutionResult | DirectApiExecutionResult | ToolCallExecutionResult,
         expected: ExpectedEffect | None,
         prediction_failure: EffectVerificationReason | None,
+        correlation_id: str,
+        execution_started_at: datetime,
+        execution_ended_at: datetime,
     ) -> EffectVerificationResult | None:
         """Audit independent effect evidence and return only durable verification."""
         observer = self._mscp_effect_observer
@@ -503,6 +515,31 @@ class ControlLoopExecutionMixin:
                 exc_info=True,
             )
             return None
+        execution_receipt_ref = getattr(result, "receipt_ref", None) or getattr(
+            result, "pr_ref", None
+        )
+        if self._operational_outcome_lineage_sink is not None and response_outcome.scorable:
+            try:
+                projected = await self._operational_outcome_lineage_sink(
+                    correlation_id=correlation_id,
+                    action=action,
+                    execution_status=result.outcome.value,
+                    execution_started_at=execution_started_at,
+                    execution_ended_at=execution_ended_at,
+                    execution_receipt_ref=execution_receipt_ref,
+                    response_outcome=response_outcome,
+                )
+                if not projected:
+                    _LOGGER.info(
+                        "operational_lineage_prospective_episode_unavailable",
+                        extra={"action_type": action.action_type},
+                    )
+            except Exception:  # noqa: BLE001 - projection never changes executor result
+                _LOGGER.warning(
+                    "operational_lineage_projection_failed",
+                    extra={"action_type": action.action_type},
+                    exc_info=True,
+                )
         if self._response_outcome_sink is not None:
             try:
                 await self._response_outcome_sink(response_outcome)
@@ -517,9 +554,7 @@ class ControlLoopExecutionMixin:
                 await self._workflow_outcome_recorder.record(
                     action=action,
                     execution_outcome=result.outcome.value,
-                    execution_receipt_ref=(
-                        getattr(result, "receipt_ref", None) or getattr(result, "pr_ref", None)
-                    ),
+                    execution_receipt_ref=execution_receipt_ref,
                     response_outcome=response_outcome,
                 )
             except Exception:  # noqa: BLE001 - missing receipt holds the Process

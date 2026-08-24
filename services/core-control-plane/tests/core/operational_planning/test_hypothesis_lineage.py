@@ -1,18 +1,28 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import cast
 
 import pytest
+from fdai.core.mscp_profile import (
+    ExpectedEffect,
+    ObservedEffect,
+    build_response_outcome,
+    verify_effect,
+)
 from fdai.core.operational_planning.hypothesis_lineage import (
     OperationalHypothesisLineage,
     OperationalHypothesisLineageConflictError,
     OperationalHypothesisLineageProjector,
+    OperationalOutcomeLineageProducer,
+    OperationalProspectiveLineage,
 )
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
+from fdai.shared.contracts.models import Action, Mode
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.providers.ontology_instance import (
     OntologyInstanceStore,
@@ -48,6 +58,16 @@ class _Store:
     ) -> None:
         self.calls.append((objects, links))
         self.objects.update((item.id, item) for item in objects)
+
+
+class _ProspectiveSource:
+    def __init__(self, prospective: OperationalProspectiveLineage) -> None:
+        self.prospective = prospective
+        self.correlations: list[str] = []
+
+    async def resolve(self, correlation_id: str) -> OperationalProspectiveLineage | None:
+        self.correlations.append(correlation_id)
+        return self.prospective
 
 
 def _lineage(*, verification: str = "independent") -> OperationalHypothesisLineage:
@@ -406,6 +426,131 @@ async def test_shipped_catalog_accepts_and_traverses_one_lineage() -> None:
     assert {(item.link_type, item.from_id, item.to_id) for item in snapshot.links} == {
         (item.link_type, item.from_id, item.to_id) for item in lineage.links
     }
+
+
+async def test_actual_action_and_independent_outcome_append_and_replay_one_episode() -> None:
+    fixture = _lineage()
+    expected_record = fixture.expected_effects[0]
+    option = replace(
+        fixture.action_option,
+        properties={
+            **fixture.action_option.properties,
+            "expected_effect_refs": [expected_record.id],
+        },
+    )
+    prospective = OperationalProspectiveLineage(
+        decision_case=fixture.decision_case,
+        action_option=option,
+        expected_effects=(expected_record,),
+    )
+    action = Action.model_validate(
+        {
+            "schema_version": "1.0.0",
+            "action_id": "00000000-0000-0000-0000-000000000010",
+            "idempotency_key": "run-1",
+            "event_id": "00000000-0000-0000-0000-000000000001",
+            "action_type": "ops.scale-out",
+            "target_resource_ref": "workload-1",
+            "operation": "scale",
+            "params": {"replicas": 2},
+            "stop_condition": "provider_api_error_streak",
+            "stop_conditions": [{"kind": "provider_api_error_streak", "count": 3}],
+            "rollback_ref": {"kind": "state_forward_only"},
+            "blast_radius": {"scope": "resource", "count": 1},
+            "mode": Mode.SHADOW.value,
+            "citing_rules": ["example.capacity"],
+            "created_at": _NOW,
+            "action_type_ref": {
+                "kind": "action",
+                "name": "ops.scale-out",
+                "version": "1.0.0",
+                "catalog_digest": "sha256:" + "a" * 64,
+            },
+        }
+    )
+    expected = ExpectedEffect(
+        prediction_id="mutation-plan:" + "b" * 64,
+        target_ref=action.target_resource_ref,
+        metric="latency_ms",
+        acceptable_min=80.0,
+        acceptable_max=140.0,
+        predicted_at=_NOW,
+        observation_deadline=_NOW + timedelta(seconds=300),
+    )
+    observed = ObservedEffect(
+        prediction_id=expected.prediction_id,
+        target_ref=expected.target_ref,
+        metric=expected.metric,
+        value=110.0,
+        observed_at=_NOW + timedelta(seconds=240),
+    )
+    response_outcome = build_response_outcome(
+        action=action,
+        execution_outcome="succeeded",
+        verification=verify_effect(expected, observed),
+        recorded_at=_NOW + timedelta(seconds=300),
+        expected=expected,
+        observed=observed,
+        decision="hil",
+    )
+    store = _shipped_lineage_store()
+    projector = OperationalHypothesisLineageProjector(store=store)
+    source = _ProspectiveSource(prospective)
+    producer = OperationalOutcomeLineageProducer(
+        prospective_source=source,
+        projector=projector,
+    )
+
+    async with asyncio.timeout(10.0):
+        first_projected = await producer(
+            correlation_id="correlation-1",
+            action=action,
+            execution_status="succeeded",
+            execution_started_at=_NOW + timedelta(seconds=1),
+            execution_ended_at=_NOW + timedelta(seconds=30),
+            execution_receipt_ref="execution-receipt:1",
+            response_outcome=response_outcome,
+        )
+        first_outcome = await store.get_object(str(response_outcome.outcome_id))
+        replay_projected = await producer(
+            correlation_id="correlation-1",
+            action=action,
+            execution_status="succeeded",
+            execution_started_at=_NOW + timedelta(seconds=1),
+            execution_ended_at=_NOW + timedelta(seconds=30),
+            execution_receipt_ref="execution-receipt:1",
+            response_outcome=response_outcome,
+        )
+        replayed_outcome = await store.get_object(str(response_outcome.outcome_id))
+        snapshot = await store.traverse(
+            root_ids=(prospective.decision_case.id,),
+            link_types=tuple(sorted(_LINEAGE_LINK_TYPES)),
+            max_depth=3,
+        )
+
+    assert first_projected is True
+    assert replay_projected is True
+    assert source.correlations == ["correlation-1", "correlation-1"]
+    assert first_outcome == replayed_outcome
+    assert first_outcome is not None
+    assert first_outcome.properties["verification"] == "independent"
+    assert first_outcome.properties["telemetry_complete"] is False
+    action_run = await store.get_object(str(action.action_id))
+    assert action_run is not None
+    assert action_run.properties["action_type_version"] == "1.0.0"
+    assert action_run.properties["receipt_ref"] == "execution-receipt:1"
+    assert (
+        response_outcome.target_digest
+        == hashlib.sha256(action.target_resource_ref.encode()).hexdigest()
+    )
+    assert {item.id for item in snapshot.objects} == {
+        prospective.decision_case.id,
+        prospective.action_option.id,
+        prospective.expected_effects[0].id,
+        str(action.action_id),
+        str(response_outcome.outcome_id),
+    }
+    assert {item.link_type for item in snapshot.links} == _LINEAGE_LINK_TYPES
 
 
 async def test_shipped_catalog_rejects_a_lineage_missing_a_required_property() -> None:
