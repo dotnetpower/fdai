@@ -29,6 +29,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Migrated legacy status | in-progress | Legacy status detail below | The prior owner did not use the structured ledger shape. |
+| Global provider schema accounting | implemented | [`provider-schema-catalog`](../../provider-schema-catalog/index.json), `provider_schema_relationship_review.py`, and focused replay checks | The exact OpenAPI evidence is classified into a content-addressed no-authority review. Semantic mapping and deployed receipts remain separate. |
 
 #### Migrated legacy status detail
 
@@ -38,7 +39,10 @@ and resumable work while the roadmap owner remains focused on normative design.
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-24 | in-progress | Migrated the legacy status into the delegated ledger without reconstructing earlier provenance. | current change; preserved owner status from `docs/roadmap/phases/phase-2-quality-and-t1.md`. | Replace the legacy summary with bounded evidence-backed scope rows and observable exits. |
+| 2026-08-24 | implemented | Classified 4,707 exact OpenAPI ARM ID references into 908 endpoint pairs, including modeled coverage and seven existing reviewed-mapping overlaps, without inferring LinkType or orientation. | `current change`; relationship review `sha256:f8e8029888b45137902ee4900b644704b60a673fc4c623cfdb968cdcfa70c802`; focused review and shipped-artifact replay checks. | Independently review selected pair semantics and retain protected scheduled-run evidence before any promotion or operational-validation claim. |
 
 ### Remaining work
 
 - [ ] Replace the migrated legacy summary with bounded evidence-backed scope rows and observable remaining-work exits.
+- [ ] Independently review any selected exact endpoint pair before adding or changing an ontology or Rule catalog mapping.
+- [ ] Retain a protected scheduled provider-schema run with durable generation, Heimdall publication, and Saga audit evidence.

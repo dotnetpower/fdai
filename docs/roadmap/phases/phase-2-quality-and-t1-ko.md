@@ -1,7 +1,7 @@
 ---
 title: "Phase 2 - 지속적 규칙 업데이트, Quality Gate, T1"
 translation_of: phase-2-quality-and-t1.md
-translation_source_sha: aa9e3cb0bf36d451d957597d1fb359c18b4a43e1
+translation_source_sha: bdf762c726e3883769e43a7f1e038e632b886b19
 translation_revised: 2026-08-24
 ---
 
@@ -119,9 +119,12 @@ provider-schema record는 관찰, 승인 또는 실행 권한을 부여하지 �
 구현된 Azure 경로는 두 근거 plane을 모두 고정합니다. `Azure/bicep-types-az`는 전역 resource
 type 3,405개를 집계하고 `Azure/azure-rest-api-specs`는 명시적인 ARM ID reference 6,896개와
 Azure resource-definition marker 5,382개를 제공합니다. Exact target과 unresolved target은
-분리되어 유지됩니다. Daily Container Apps Job은 private PostgreSQL StateStore를 통해
-append-only ledger를 복원하고 보존합니다. Material drift는 Heimdall이 검증하고 shadow
-`object.drift` signal로만 발행합니다. 운영 검증 전에는 deployed receipt가 더 필요합니다.
+분리되어 유지됩니다. Content-addressed review는 LinkType이나 orientation을 추론하지 않고 exact
+reference 4,707개를 endpoint pair 908개로 분류합니다. 기존에 검토된 mapping ID와 겹치는 항목
+7개를 기록하고 의미 검토 필요 상태를 유지하며 automatic promotion을 false로 고정합니다. Daily
+Container Apps Job은 private PostgreSQL StateStore를 통해 append-only ledger를 복원하고
+보존합니다. Material drift는 Heimdall이 검증하고 shadow `object.drift` signal로만 발행합니다.
+운영 검증 전에는 deployed receipt가 더 필요합니다.
 
 ## LLM Quality 게이트 (T2 - [llm-strategy-ko.md](../architecture/llm-strategy-ko.md) 참조)
 

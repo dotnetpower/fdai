@@ -118,9 +118,12 @@ authority.
 The implemented Azure path pins both evidence planes. `Azure/bicep-types-az` accounts for 3,405
 global resource types, while `Azure/azure-rest-api-specs` contributes 6,896 explicit ARM ID
 references and 5,382 Azure resource-definition markers. Exact and unresolved targets remain
-separate. A daily Container Apps Job restores and persists the append-only ledger through the
-private PostgreSQL StateStore. Material drift is validated by Heimdall and published only as a
-shadow `object.drift` signal. Deployment receipts remain required before operational validation.
+separate. A content-addressed review classifies the 4,707 exact references into 908 endpoint pairs
+without inferring LinkType or orientation. It records seven overlaps with existing reviewed mapping
+IDs, keeps semantic review required, and fixes automatic promotion to false. A daily Container Apps
+Job restores and persists the append-only ledger through the private PostgreSQL StateStore.
+Material drift is validated by Heimdall and published only as a shadow `object.drift` signal.
+Deployment receipts remain required before operational validation.
 
 ## LLM Quality Gate (T2 - see [llm-strategy.md](../architecture/llm-strategy.md))
 
