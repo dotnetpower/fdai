@@ -1,8 +1,8 @@
 ---
 title: Phase 4 - 스케일 (Azure); 멀티 클라우드 (TBD)
 translation_of: phase-4-scale.md
-translation_source_sha: 7f3a9b5359f1503dc899a04e407b3f3abb8e8a6a
-translation_revised: 2026-08-11
+translation_source_sha: 9246e1fc2e32f1158554522a8dc6c78f0ad641aa
+translation_revised: 2026-08-24
 ---
 
 # 단계 4 - 스케일 (Azure); 멀티 클라우드 (TBD)
@@ -14,13 +14,6 @@ translation_revised: 2026-08-11
 전방-지향 설계로 보존되며 비-Azure 대상이 명시적으로 스코프될 때까지 이 로드맵에서 구축되지 않음
 ([Always-On 룰](../../../.github/copilot-instructions.md#always-on-rules-must)
 참조).
-
-> **구현 상태**: 회귀, pattern-growth, model-tracking, latency-budget library와 두
-> 측정 실행기, 실행기 CLI 및 Terraform 작업 모듈은 구현되어 있습니다. 운영
-> 예약의 지속 실행 결과, statistical 단계 4 exit 근거 및 dedicated vector-store/AKS
-> 런타임은 완료되지 않았습니다. 참조 Container Apps는 현재 `min_replicas = 1`이고 KEDA
-> 규모 룰이 없습니다. Scale-to-zero는 포크가 lag-based 룰을 추가한 뒤에만 사용할 수 있는
-> 목표 토폴로지입니다.
 
 이 단계는 단계 0-3 코어 위에 구축되고 변경하지 않음.
 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) 와
@@ -248,3 +241,9 @@ CSP-중립 원칙을 **설계 불변식**(어댑터 표면, 정규화 스키마)
 
 - 세 버티컬 모두에 걸쳐 안전 불변식이 강제되는 P3 통합 자율 MVP
   ([phase-3-integrated-loop-ko.md](phase-3-integrated-loop-ko.md)).
+
+## 관련 문서
+
+| 알아볼 내용 | 읽을 문서 |
+|-------------|-----------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/phases/phase-4-scale.md) |

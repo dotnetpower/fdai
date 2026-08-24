@@ -180,12 +180,11 @@ Recommended mapping:
   subscription resource-write/delete signals into a raw Event Hub. It is not a core contract,
   broker, or decision surface. Huginn normalizes those records after Kafka ingress, so the core
   still sees Kafka only. Event Hubs local authentication remains disabled.
-- Core and Executor consumers: **Azure Container Apps** (Consumption). The current Terraform
-  baseline starts with one modular Core app. The active decomposition program ends with a
-  non-privileged Core app and an internal Isolated Executor app as the fifth runtime service.
-  Effect authority moves only after the versioned transport, durability, identity, observability,
-  exact-topology smoke, and rollback gates pass. Until then, the prior in-process path remains the
-  rollback artifact. The Core baseline keeps `minReplicas = 1`; scale-to-zero remains blocked until
+- Runtime services: **Azure Container Apps** (Consumption). The current topology contains five
+  independently packaged services: Core Control Plane, Operator Service, Document Ingestion API,
+  Document Processing Worker, and Isolated Executor. Core is non-privileged, and effect authority
+  stays in the internal Executor behind versioned transport, durability, identity, observability,
+  exact-topology smoke, and rollback gates. The Core baseline keeps `minReplicas = 1`; scale-to-zero remains blocked until
   an Event Hubs Kafka-lag scaler authenticates without a long-lived secret. AKS is reserved for a
   measured heavier profile. Both apps ship as an **OCI image + a Knative-compatible manifest
   subset**, rendered into `containerapp` resources by IaC. **Dapr sidecars and Envoy-specific

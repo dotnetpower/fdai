@@ -1,8 +1,8 @@
 ---
 title: Capability 라이선싱
 translation_of: capability-licensing.md
-translation_source_sha: 7816b2b77659285b5b66dce4ee1f3556cd63c2f8
-translation_revised: 2026-08-11
+translation_source_sha: c7c46a30bac02d15b0eedc54ebaf3bae7aad84fa
+translation_revised: 2026-08-24
 ---
 # 기능 라이선싱
 
@@ -166,6 +166,7 @@ tamper-proof가 아닙니다**. 이미지를 받은 고객은 그 런타임을 �
 
 | 알아보려는 것 | 읽을 문서 |
 |---------------|-----------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/fork-and-sequencing/capability-licensing.md) |
 | 포크가 편집할 수 있는 것과 주입해야 하는 것 | [downstream-fork-guide-ko.md](downstream-fork-guide-ko.md) |
 | 기능 번들, 확장, 신뢰 검사 | [project-structure-ko.md](../architecture/project-structure-ko.md#capability-bundles) |
 | 시크릿 처리와 네트워크 경계 | [security-and-identity-ko.md](../architecture/security-and-identity-ko.md) |

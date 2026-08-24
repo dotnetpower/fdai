@@ -13,9 +13,9 @@ scope: repository
 
 # Roadmap Implementation Tracking
 
-This workflow keeps each roadmap owner document useful after design approval.
-It turns delivery state into an evidence-backed ledger that another maintainer
-can resume without reading the entire repository history.
+This workflow keeps each roadmap design owner focused after design approval while its linked
+delivery ledger remains resumable. It turns delivery state into evidence-backed records without
+forcing long append-only history into the normative design.
 
 The normative contract is
 [../../instructions/roadmap-implementation-tracking.instructions.md](../../instructions/roadmap-implementation-tracking.instructions.md).
@@ -39,10 +39,11 @@ current state.
 
 ### 1. Identify the owner document
 
-Confirm that the canonical English file owns the behavior rather than merely
-indexing or linking to it. Exempt README/index files, Korean translations, the
-FDAI Constitution, and immutable architecture decision records from the
-canonical ledger check.
+Confirm that the canonical English file owns the behavior rather than merely indexing or linking
+to it. Resolve its one authoritative status source: a mirrored
+`docs/roadmap-implementation/<area>/<name>.md` ledger is preferred, while a legacy inline section
+remains valid until migrated. Exempt README/index files, Korean translations, the FDAI
+Constitution, and immutable architecture decision records from the canonical ledger check.
 
 If implementation spans several owner documents, update only the documents
 whose declared scope changed. Do not copy the same ledger into neighboring
@@ -65,9 +66,9 @@ presence, a passing unit test, or an enabled-looking configuration value.
 
 ### 3. Update implementation scope
 
-Create or revise the `Area`, `State`, `Evidence`, and `Notes` table. Use one row
-per independently deliverable area. Preserve design boundaries and avoid broad
-rows such as "all functionality".
+Create or revise the authoritative ledger's `Area`, `State`, `Evidence`, and `Notes` table. Use
+one row per independently deliverable area. Preserve design boundaries and avoid broad rows such
+as "all functionality".
 
 ### 4. Append the transition
 
@@ -106,7 +107,8 @@ evidence rather than leaving the section empty.
 
 ### 6. Synchronize and validate
 
-Update the Korean sibling with equivalent content and refresh its source SHA:
+Keep the English and Korean owner links equivalent and refresh the Korean owner's source SHA. The
+engineering ledger remains English canonical and has no Korean duplicate:
 
 ```bash
 python3 scripts/quality/localization/refresh-translation-sha.py

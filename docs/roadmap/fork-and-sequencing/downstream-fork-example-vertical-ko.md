@@ -1,8 +1,8 @@
 ---
 title: Fork Example Vertical - 새 비즈니스 오브젝트 end-to-end
 translation_of: downstream-fork-example-vertical.md
-translation_source_sha: dfdb3c93558d3a5f0f9de3e93de58aaef5d515b2
-translation_revised: 2026-08-11
+translation_source_sha: ff9ba5702b71447452d88d36fb02deab38efab50
+translation_revised: 2026-08-24
 ---
 
 # 포크 예시 버티컬: 새 비즈니스 오브젝트 종단 간
@@ -460,3 +460,9 @@ shadow 증거에 대해 리뷰됨.
 - **측정된 증거 없이 ActionType 자동-승격**. 모든 승격 PR은
   shadow-window 리포트를 참조; 증거 없는 승격 PR은 리뷰어가 반드시
   거부 해야 하는 정책 bypass.
+
+## 관련 문서
+
+| 알아볼 내용 | 읽을 문서 |
+|-------------|-----------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/fork-and-sequencing/downstream-fork-example-vertical.md) |

@@ -1,8 +1,8 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: 1d544dc53b36a53fa48c1ba17bbe488b9ef217f9
-translation_revised: 2026-08-23
+translation_source_sha: 0d047e284321fc86a94cf3f94cd675d2e8e6f2a6
+translation_revised: 2026-08-24
 ---
 # FDAI 로드맵
 
@@ -241,7 +241,7 @@ P3에서 복원력과 비용 거버넌스를 제공합니다. 멀티 클라우�
 |-----------|--------------|
 | 컨트롤 루프 (이벤트 -> 계층 -> 게이트 -> 액션 -> 감사) | [architecture.instructions.md § 컨트롤 루프](../../.github/instructions/architecture.instructions.md#control-loop) |
 | 에이전트 판테온 (15명 조직도) | [agents/agent-pantheon-ko.md](agents/agent-pantheon-ko.md) |
-| 모노레포 레이아웃 | [architecture/project-structure-ko.md § 모노레포 레이아웃](architecture/project-structure-ko.md#모노레포-레이아웃) |
+| 다중 서비스 저장소 레이아웃 | [architecture/multi-service-repository-layout-ko.md](architecture/multi-service-repository-layout-ko.md) |
 | 서브시스템 인덱스 (소스 -> 테스트 -> 문서) | [architecture/code-map-ko.md](architecture/code-map-ko.md) |
 
 같은 개념의 다른 시각이 필요한 문서는 캐노니컬 형태를 바꿔 그리지 말고

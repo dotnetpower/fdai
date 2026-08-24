@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 import sys
@@ -10,6 +11,8 @@ from collections import Counter
 from pathlib import Path, PurePosixPath
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+ROADMAP_ROOT = PurePosixPath("docs/roadmap")
+LEDGER_ROOT = PurePosixPath("docs/roadmap-implementation")
 SECTION_HEADING = "## Implementation status"
 SUBSECTION_HEADINGS = (
     "### Implementation scope",
@@ -63,6 +66,20 @@ def is_exempt(relative: str) -> bool:
     )
 
 
+def _ledger_relative(owner_relative: str) -> str:
+    owner = PurePosixPath(owner_relative)
+    return str(LEDGER_ROOT / owner.relative_to(ROADMAP_ROOT))
+
+
+def _owner_relative(ledger_relative: str) -> str:
+    ledger = PurePosixPath(ledger_relative)
+    return str(ROADMAP_ROOT / ledger.relative_to(LEDGER_ROOT))
+
+
+def _relative_link(from_relative: str, to_relative: str) -> str:
+    return os.path.relpath(to_relative, start=str(PurePosixPath(from_relative).parent))
+
+
 def _changed_docs(diff_range: str | None, *, cached: bool) -> tuple[str, ...]:
     if cached:
         args = ("diff", "--cached", "--name-only", "--diff-filter=ACMRT", "HEAD")
@@ -71,15 +88,17 @@ def _changed_docs(diff_range: str | None, *, cached: bool) -> tuple[str, ...]:
     paths = _run_git(*args).stdout.splitlines()
     if diff_range is None and not cached:
         paths.extend(_run_git("ls-files", "--others", "--exclude-standard").stdout.splitlines())
-    return tuple(
-        sorted(
-            relative
-            for relative in paths
-            if relative.startswith("docs/roadmap/")
-            and relative.endswith(".md")
-            and not is_exempt(relative)
-        )
-    )
+    owners: set[str] = set()
+    for relative in paths:
+        if relative.startswith(f"{ROADMAP_ROOT}/") and relative.endswith(".md"):
+            if not is_exempt(relative):
+                owners.add(relative)
+            continue
+        if relative.startswith(f"{LEDGER_ROOT}/") and relative.endswith(".md"):
+            owner = _owner_relative(relative)
+            if not is_exempt(owner):
+                owners.add(owner)
+    return tuple(sorted(owners))
 
 
 def _all_docs() -> tuple[str, ...]:
@@ -269,6 +288,39 @@ def ledger_violations(content: str, previous: str | None = None) -> list[str]:
     return errors
 
 
+def tracking_violations(
+    owner_content: str,
+    ledger_content: str | None,
+    *,
+    owner_relative: str,
+    previous_owner: str | None = None,
+    previous_ledger: str | None = None,
+) -> list[str]:
+    """Validate the one authoritative ledger for a roadmap owner."""
+    owner_section_count = len(_heading_indexes(owner_content.splitlines(), SECTION_HEADING))
+    if owner_section_count == 1:
+        return ledger_violations(owner_content, previous_owner)
+    if owner_section_count > 1:
+        return [f"expected at most one '{SECTION_HEADING}' section; found {owner_section_count}"]
+
+    ledger_relative = _ledger_relative(owner_relative)
+    expected_link = _relative_link(owner_relative, ledger_relative)
+    errors: list[str] = []
+    if f"]({expected_link})" not in owner_content:
+        errors.append(f"delegated owner must link to {expected_link}")
+    if ledger_content is None:
+        errors.append(f"delegated owner is missing ledger {ledger_relative}")
+        return errors
+
+    previous_source = previous_ledger
+    if previous_owner is not None:
+        previous_owner_count = len(_heading_indexes(previous_owner.splitlines(), SECTION_HEADING))
+        if previous_owner_count == 1:
+            previous_source = previous_owner
+    errors.extend(ledger_violations(ledger_content, previous_source))
+    return errors
+
+
 def main(argv: list[str]) -> int:
     if len(argv) > 2 or (len(argv) == 2 and argv[1] == ""):
         print(
@@ -284,11 +336,20 @@ def main(argv: list[str]) -> int:
     failures = 0
     documents = _all_docs() if all_docs else _changed_docs(diff_range, cached=cached)
     for relative in documents:
-        current = _current_text(relative, cached=cached)
-        if current is None:
+        current_owner = _current_text(relative, cached=cached)
+        if current_owner is None:
             continue
-        previous = _git_text(base_ref, relative)
-        for error in ledger_violations(current, previous):
+        ledger_relative = _ledger_relative(relative)
+        current_ledger = _current_text(ledger_relative, cached=cached)
+        previous_owner = _git_text(base_ref, relative)
+        previous_ledger = _git_text(base_ref, ledger_relative)
+        for error in tracking_violations(
+            current_owner,
+            current_ledger,
+            owner_relative=relative,
+            previous_owner=previous_owner,
+            previous_ledger=previous_ledger,
+        ):
             print(f"roadmap-implementation-tracking: ERROR: {relative}: {error}", file=sys.stderr)
             failures += 1
     if failures:

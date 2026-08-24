@@ -1,8 +1,8 @@
 ---
 title: 제품화 및 확장성 계획
 translation_of: productization-and-extensibility.md
-translation_source_sha: 642f8365a9884de3b990aff1c73f65d8b2be0fd0
-translation_revised: 2026-08-11
+translation_source_sha: 32051765185fdf15bfd444e822cdecb56c296edf
+translation_revised: 2026-08-24
 ---
 # 제품화 및 확장성 계획
 
@@ -202,6 +202,7 @@ install로 `fdaictl version --output json`을 실행합니다. Full 저장소 �
 
 | 알아볼 내용 | 읽을 문서 |
 |-------------|-----------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/fork-and-sequencing/productization-and-extensibility.md) |
 | Cross-subsystem 구현 wave | [implementation-plan-ko.md](implementation-plan-ko.md) |
 | Install 및 배포 administration | [../deployment/installable-deployment-cli-ko.md](../deployment/installable-deployment-cli-ko.md) |
 | Conversational 채널 및 도구 | [../interfaces/operator-console-ko.md](../interfaces/operator-console-ko.md) |

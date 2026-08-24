@@ -1,8 +1,8 @@
 ---
 title: Downstream Fork 가이드
 translation_of: downstream-fork-guide.md
-translation_source_sha: aeddb4d0db3aa797c483ca4919ccedccfa1f07c2
-translation_revised: 2026-08-19
+translation_source_sha: 258774f019e0bc2c15ab86022daaede4eeb813c2
+translation_revised: 2026-08-24
 ---
 
 # 다운스트림 포크 가이드
@@ -55,28 +55,6 @@ customization 프로파일을 패키지하며 배포, 테넌트, 환경, 운영 
 포크가 추가한 모든 ActionType과 상태 변경 작업 흐름 단계는 헌법의 7개 안전조건을 모두
 상속합니다. 프로바이더 연결, 카탈로그 항목, 환경 또는 포크 표시는 권한을 승격하거나
 안전조건을 면제하거나 새 조합을 바로 강제 적용 모드로 바꾸지 않습니다.
-
-## 구현 상태
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| Framework-surface 및 무결성 보호 | implemented | [`framework-surface.txt`](../../../scripts/lib/framework-surface.txt), [`check-protected-paths.sh`](../../../scripts/integrity/check-protected-paths.sh), [`check-integrity.sh`](../../../scripts/integrity/check-integrity.sh) | 기계가 읽는 잠금 집합이 포크 가드와 오프라인 무결성 검사를 구동합니다. |
-| 지원되는 경계 recipe와 예제 vertical | implemented | [포크 경계 Recipe](downstream-fork-seam-recipes-ko.md), [예제 Vertical](downstream-fork-example-vertical-ko.md), [`test_change_summary_example.py`](../../../services/core-control-plane/tests/verticals/test_change_summary_example.py) | 가이드는 기존 경계와 테스트되는 범용 예제를 통해 구체적인 다운스트림 작업을 라우팅합니다. |
-| 배포별 어댑터와 승격 근거 | not-applicable | [고객 무관 범위](../../../.github/instructions/generic-scope.instructions.md) | 이 내용은 업스트림 절차 가이드가 아니라 각 다운스트림 배포와 distribution이 소유합니다. |
-
-### 구현 이력
-
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-08-19 | implemented | 이전 provenance를 재구성하지 않고 구현 원장을 도입했으며 기계가 읽는 framework surface, 현재 seam cookbook 및 과거 standard-set 호환성 경계에 맞게 가이드를 조정했습니다. | `current change`; 구현 범위 표에 나열한 소스와 focused 검사입니다. | 이 가이드가 소유하는 구현 작업은 없습니다. 다운스트림 distribution이 자체 어댑터와 근거를 제공합니다. |
-
-### 남은 작업
-
-- [x] 이 절차 가이드에 남은 구현은 없습니다. 기계가 읽는 framework surface, focused
-  무결성 검사, seam cookbook 및 테스트되는 예제가 실행 가능한 근거를 제공합니다.
-
 ## 1. 포크 모델 한눈에
 
 - **업스트림** = 이 저장소. 범용한 컨트롤 플레인 (코어 엔진, DI
@@ -380,3 +358,9 @@ git push origin main
   배포에 연결하십시오. 연결 없는 토큰은 그것을 읽을 수 있는 누구에게나 동작합니다.
 - [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md) -
   모든 포크가 준수하는 customer-agnostic 스코프 계약.
+
+## 관련 문서
+
+| 알아볼 내용 | 읽을 문서 |
+|-------------|-----------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/fork-and-sequencing/downstream-fork-guide.md) |

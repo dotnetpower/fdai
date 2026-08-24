@@ -12,13 +12,6 @@ retained as forward-looking design and are not built in this roadmap until a non
 is explicitly scoped (see
 [Always-On Rules](../../../.github/copilot-instructions.md#always-on-rules-must)).
 
-> **Implementation status**: The regression, pattern-growth, model-tracking, and latency-budget
-> libraries; two measurement runners; runner CLI; and Terraform job module are implemented.
-> Continuous production-schedule results, statistical Phase 4 exit evidence, and dedicated
-> vector-store or AKS runtimes are incomplete. The reference Container Apps deployment currently
-> uses `min_replicas = 1` without a KEDA scaling rule. Scale-to-zero is a target topology available
-> only after a fork adds a lag-based rule.
-
 This phase builds on the Phase 0-3 core and does not change it. It realizes the CSP-neutral
 principles in
 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) and
@@ -260,3 +253,9 @@ Rigor requirements (apply when a non-Azure adapter is eventually scoped):
 
 - P3 integrated autonomous MVP with safety invariants enforced across all three verticals
   ([phase-3-integrated-loop.md](phase-3-integrated-loop.md)).
+
+## Related docs
+
+| To learn about | Read |
+|----------------|------|
+| Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/phases/phase-4-scale.md) |

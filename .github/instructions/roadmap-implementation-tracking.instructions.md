@@ -5,15 +5,17 @@ applyTo: "docs/roadmap/**/*.md"
 
 # Roadmap Implementation Tracking
 
-Roadmap owner documents keep design intent and delivery state together. A reader
-should be able to tell what is implemented, what evidence supports that claim,
-and what observable work remains without reconstructing the answer from git
-history or unrelated plans.
+Roadmap design owners and their linked delivery ledgers keep design intent and implementation
+state reviewable without forcing one document to carry both responsibilities. A reader should be
+able to tell what is implemented, what evidence supports that claim, and what observable work
+remains without reconstructing the answer from git history or unrelated plans.
 
 ## Required Ledger
 
-Every canonical English roadmap owner document MUST contain one
-`## Implementation status` section with these H3 subsections:
+Every canonical English roadmap owner MUST have exactly one authoritative implementation ledger.
+New and split owners use a mirrored English ledger at
+`docs/roadmap-implementation/<area>/<name>.md` and link it from `Related docs`. The mirrored ledger
+contains one `## Implementation status` section with these H3 subsections:
 
 1. `### Implementation scope`
 2. `### Implementation history`
@@ -23,10 +25,13 @@ The ledger MAY sit near the opening orientation or after the design body. Keep
 normative design in its owning sections; the ledger summarizes delivery and
 links to evidence instead of duplicating the design.
 
-Index documents, Korean translations, the FDAI Constitution, and immutable
-architecture decision records are exempt. Korean translations of a tracked
-owner document MUST still carry the same translated ledger content under the
-normal pair and SHA rules.
+Legacy owners MAY retain one inline section during incremental migration. An owner with no inline
+section MUST link to its mirrored ledger; the gate validates that ledger and carries append-only
+history across the handoff. Avoid maintaining both copies as authoritative.
+
+Index documents, Korean translations, the FDAI Constitution, and immutable architecture decision
+records are exempt. A Korean owner links to the same English engineering ledger and does not
+duplicate implementation history.
 
 ## Implementation Scope
 
@@ -92,9 +97,11 @@ section, `TBD`, or an unsupported completion claim.
 
 ## Update Rules
 
-- Update the ledger in the same change as an implementation transition.
-- Keep English and Korean document pairs semantically aligned and refresh the
-  translation source SHA.
+- Update the authoritative inline or mirrored ledger in the same change as an implementation
+  transition.
+- Keep English and Korean owner links semantically aligned and refresh the translation source SHA.
+- Use `migrate-roadmap-implementation-ledgers.py` for transactional owner-to-ledger migration;
+  don't copy, delete, or rebase append-only history by hand.
 - Record regressions and rollbacks as new history rows and reopen affected work.
 - Do not use branch names, local paths, customer identifiers, or uncommitted
   external state as durable evidence.

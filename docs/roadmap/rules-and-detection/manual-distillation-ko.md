@@ -1,8 +1,8 @@
 ---
 title: 매뉴얼 증류(Manual Distillation)
 translation_of: manual-distillation.md
-translation_source_sha: 230d4a93154e52e537e0226338092b73fdb66a95
-translation_revised: 2026-08-11
+translation_source_sha: d5f0c96443449c5f74fd3f5773678977d804fc51
+translation_revised: 2026-08-24
 ---
 
 # 매뉴얼 증류(수동 정제)
@@ -250,7 +250,7 @@ mixed-model 비교)에 한정되고 이벤트마다가 아니라 **매뉴얼 리
 못하면 계층은 HIL로 abstain한다. 관계 순회가 중요할 때는 평면 벡터 RAG보다 (새 서비스 없이
 기존 PostgreSQL 상태 저장소 위의) 구조적 knowledge-graph 검색이 선호된다.
 
-## 구현 현황
+## 구현 표면
 
 인제스션 및 검증 메커니즘은 업스트림에 배포된다; LLM 기반 부분과 고객 커넥터 부분은
 abstaining 기본값을 갖는 포크 경계이다.
@@ -306,3 +306,9 @@ abstaining 기본값을 갖는 포크 경계이다.
 | 근거 기반 온톨로지 변경 제안 | [document-ontology-distillation-ko.md](document-ontology-distillation-ko.md) |
 | 지속 품질 + T1 파이프라인 | [phase-2-quality-and-t1-ko.md](../phases/phase-2-quality-and-t1-ko.md) |
 | 고객 매뉴얼과 규칙이 사는 곳 | [downstream-fork-guide-ko.md](../fork-and-sequencing/downstream-fork-guide-ko.md) |
+
+## 관련 문서
+
+| 알아볼 내용 | 읽을 문서 |
+|-------------|-----------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/rules-and-detection/manual-distillation.md) |

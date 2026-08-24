@@ -23,7 +23,8 @@
       "paths": [
         ".github/instructions/roadmap-implementation-tracking.instructions.md",
         ".github/skills/roadmap-implementation-tracking/**",
-        "docs/roadmap/**"
+        "docs/roadmap/**",
+        "docs/roadmap-implementation/**"
       ],
       "must_read": [
         ".github/instructions/roadmap-implementation-tracking.instructions.md",
@@ -275,10 +276,35 @@
       ]
     },
     {
+      "id": "multi-service-repository-layout",
+      "paths": [
+        "pyproject.toml",
+        "services/*/pyproject.toml",
+        "packages/service-contracts/pyproject.toml",
+        "config/independent-services.json",
+        "docs/roadmap/architecture/multi-service-repository-layout*.md",
+        "docs/roadmap-implementation/architecture/multi-service-repository-layout.md"
+      ],
+      "must_read": [
+        ".github/instructions/app-shape.instructions.md",
+        "docs/roadmap/architecture/multi-service-repository-layout.md",
+        "docs/roadmap/architecture/service-graduation-and-ownership.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/architecture/multi-service-repository-layout.md",
+        "docs/roadmap/architecture/project-structure.md"
+      ],
+      "validate": [
+        "uv run python scripts/quality/architecture/check-independent-services.py",
+        "python3 scripts/quality/architecture/check-design-routes.py"
+      ]
+    },
+    {
       "id": "service-graduation",
       "paths": [
         "docs/roadmap/architecture/service-graduation-and-ownership*.md",
         "docs/roadmap/architecture/service-decomposition-execution-plan*.md",
+        "docs/roadmap/architecture/multi-service-repository-layout*.md",
         "scripts/quality/architecture/check-boundary-docstrings.py",
         "scripts/quality/architecture/.boundary-docstring-*",
         "tests/integration/scripts/test_boundary_docstrings.py"
@@ -288,6 +314,7 @@
         ".github/instructions/coding-conventions.instructions.md",
         "docs/roadmap/architecture/service-graduation-and-ownership.md",
         "docs/roadmap/architecture/service-decomposition-execution-plan.md",
+        "docs/roadmap/architecture/multi-service-repository-layout.md",
         "docs/roadmap/architecture/project-structure.md",
         "docs/roadmap/deployment/deploy-and-onboard.md",
         "docs/roadmap/interfaces/operator-console-module-map.md"
@@ -295,6 +322,7 @@
       "docs_update": [
         "docs/roadmap/architecture/service-graduation-and-ownership.md",
         "docs/roadmap/architecture/service-decomposition-execution-plan.md",
+        "docs/roadmap/architecture/multi-service-repository-layout.md",
         "docs/roadmap/architecture/project-structure.md",
         "docs/roadmap/deployment/deploy-and-onboard.md",
         "docs/roadmap/interfaces/operator-console-module-map.md"
@@ -316,6 +344,7 @@
         ".github/instructions/app-shape.instructions.md",
         ".github/instructions/coding-conventions.instructions.md",
         "docs/roadmap/architecture/service-graduation-and-ownership.md",
+        "docs/roadmap/architecture/multi-service-repository-layout.md",
         "docs/roadmap/architecture/project-structure.md"
       ],
       "validate": [

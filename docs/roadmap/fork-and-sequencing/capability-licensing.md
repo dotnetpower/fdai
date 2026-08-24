@@ -169,6 +169,7 @@ The enforceable part is therefore the distribution channel, not the binary:
 
 | To learn about | Read |
 |----------------|------|
+| Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/fork-and-sequencing/capability-licensing.md) |
 | What a fork may edit and what it must inject | [downstream-fork-guide.md](downstream-fork-guide.md) |
 | Capability bundles, extensions, and their trust checks | [project-structure.md](../architecture/project-structure.md#capability-bundles) |
 | Secret handling and network boundaries | [security-and-identity.md](../architecture/security-and-identity.md) |

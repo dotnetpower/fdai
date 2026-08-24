@@ -1,8 +1,8 @@
 ---
 title: Phase 3 - 통합 컨트롤 루프 (Resilience · Change Safety · Cost Governance)
 translation_of: phase-3-integrated-loop.md
-translation_source_sha: 280a4ee5ce0ce1530bc04c8e4a12738e4d1a64fb
-translation_revised: 2026-08-11
+translation_source_sha: fef275cc76e929809441b14ef68e4ecbce1997b8
+translation_revised: 2026-08-24
 ---
 
 # 단계 3 - 통합 컨트롤 루프 (복원력 · 변경 안전성 · 비용 거버넌스)
@@ -18,13 +18,6 @@ P2에서 딜리버리된 T0/T1/T2 라우터, quality 게이트, 리스크 게이
 여기의 모든 RPO/RTO, 절감, lead-time 수치는 **명시된 목표에 대해 고정 시나리오 세트와 측정
 윈도우에서 보고된 측정값** - 절대 추정치나 unbaselined 배수 아님
 ([goals-and-metrics-ko.md](../architecture/goals-and-metrics-ko.md) 참조).
-
-> **구현 상태**: Shared control-loop/risk/실행기 plumbing, cross-vertical precedence,
-> 복원력/변경 안전성/FinOps guardrail modules, 스케줄러/DR 어댑터, DB 복원 primitives 및
-> Terraform per-vertical UAMI는 구현되어 있습니다. 운영에서 세 버티컬을 모두 연결한
-> measured RPO/RTO, 절감, lead-time exit 근거, 실제 운영 auto-action 조립 및 Assurance Twin
-> 주변 검토/패널은 완료되지 않았습니다. 아래 자동 동작과 Exit 기준은 목표이며 현재 달성
-> 주장으로 읽으면 안 됩니다.
 
 ## 산출물
 
@@ -200,3 +193,9 @@ Stateful 서비스는 stateless처럼 "kill and revive" 될 수 없으므로, DB
   TBD**
   ([Always-On 룰](../../../.github/copilot-instructions.md#always-on-rules-must)
   참조).
+
+## 관련 문서
+
+| 알아볼 내용 | 읽을 문서 |
+|-------------|-----------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/phases/phase-3-integrated-loop.md) |

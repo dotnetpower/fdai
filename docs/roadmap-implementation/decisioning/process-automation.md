@@ -1,0 +1,37 @@
+# Process Automation implementation ledger
+
+This delivery ledger preserves reviewable implementation scope, append-only transitions,
+and resumable work while the roadmap owner remains focused on normative design.
+
+## Implementation status
+
+### Implementation scope
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Workflow catalog, schema, and ontology contract | implemented | [`test_workflow_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_workflow_catalog.py), [`Process.yaml`](../../../rule-catalog/vocabulary/object-types/Process.yaml) | Loader, cross-reference, shadow-default, and Process vocabulary checks are implemented. |
+| Runtime journal, projection, approval, and commands | implemented | [`test_orchestrator.py`](../../../services/core-control-plane/tests/core/workflow/test_orchestrator.py), [`test_projection.py`](../../../services/core-control-plane/tests/core/workflow/test_projection.py), [`test_workflow_approval.py`](../../../services/core-control-plane/tests/delivery/persistence/test_workflow_approval.py) | Durable snapshots, append-only events, approval, retry, resume, and cancellation mechanics have focused coverage. |
+| Compensation and durable automation hold | implemented | [`test_automation_hold.py`](../../../services/core-control-plane/tests/core/workflow/test_automation_hold.py), [`test_orchestrator.py`](../../../services/core-control-plane/tests/core/workflow/test_orchestrator.py), [`test_control_loop_authority.py`](../../../services/core-control-plane/tests/core/test_control_loop_authority.py), [`test_gate.py`](../../../services/core-control-plane/tests/core/risk_gate/test_gate.py) | Every incomplete compensation path issues a durable target hold. Restart and duplicate delivery preserve it, ordinary forward dispatch is denied, and only matching verified recovery can release it. |
+| Authoring and read-only Process surfaces | implemented | [`workflow-builder.chat.ts`](../../../console/src/routes/workflow-builder.chat.ts), [Authoring surface](../../roadmap/decisioning/process-automation.md#8-authoring-surface-console-workflow-builder) | The console can create and validate private drafts and inspect Process projections without execution authority. |
+| Failure-only `on_failure` branching | implemented | [`runner.py`](../../../services/core-control-plane/src/fdai/core/runbook/runner.py), [`models.py`](../../../services/core-control-plane/src/fdai/core/runbook/models.py), [`test_runbook_runner.py`](../../../services/core-control-plane/tests/core/runbook/test_runbook_runner.py) | A declared fallback step is skipped on the success path as `fallback_not_triggered`, runs only when its own triggering step fails, is not triggered by an unrelated step's failure, and stays reachable through an explicit resume. `Runbook` now rejects a self-referential or backward fallback for the same reason the `Workflow` contract does. |
+| Typed `SignalType` trigger reference | not-started | [Known limitations](../../roadmap/decisioning/process-automation.md#21-known-limitations-p1), [`signal_type.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/signal_type.py), [`signal-types.yaml`](../../../rule-catalog/vocabulary/signal-types.yaml) | The registry declares observation semantics only, while shipped workflow triggers name request and command events. A strict load-time cross-check requires an ontology promotion first, because widening the registry also changes T0 rule dispatch resolution. |
+### Implementation history
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-21 | implemented | Aligned legacy Console chat and stream tests with server-owned semantic workflow judgment. Text-only turns now retain context but require explicit ActionType and trigger choices, while mismatched or incomplete v1 frames render the shared unavailable state without exposing rejected payloads. | `current change`; `workflow-builder.chat.test.ts`, `backend-stream-v1-contract.test.ts`; 31 focused Console tests passed. | None for this contract-test correction. |
+| 2026-08-17 | implemented | Removed operator-facing guidance that told the operator to enable the workflow authoring routes through a configuration symbol that does not exist in this repository. | `current change`; `workflow-builder.chat.ts`, `workflow/validate.ts`, `workflow.{en,ko}.json`; focused console checks passed 71 tests across 9 files and catalog key parity held. | None for this message set. Wiring the workflow authoring routes themselves remains separate work. |
+| 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and exposed the remaining constitutional compensation gap. | `current change`; current source, focused tests, and traceability listed in the scope table. | Close the compensation-hold and promotion exits below. |
+| 2026-08-14 | implemented | Verified durable automation holds across compensation failure, ledger restart, duplicate delivery, forward-dispatch denial, and matching recovery release; recorded FDAI-CONST-009 as implemented. | `current change`; `test_automation_hold.py`, `test_orchestrator.py`, `test_control_loop_authority.py`, and `test_gate.py`; focused checks passed 10 tests. | Retain the independent workflow promotion evidence and the unrelated trigger and branching work below. |
+| 2026-08-14 | implemented | Made `on_failure` branching failure-only so a declared fallback no longer executes as an ordinary forward step on the success path. | `current change`; [`runner.py`](../../../services/core-control-plane/src/fdai/core/runbook/runner.py), [`test_runbook_runner.py`](../../../services/core-control-plane/tests/core/runbook/test_runbook_runner.py); focused runbook and workflow checks passed 114 cases. | Promote a `SignalType` vocabulary that covers request and command triggers before adding the load-time cross-check, and retain the independent workflow promotion evidence. |
+### Remaining work
+- [x] Durable target holds now cover missing, failed, and unscorable compensation, survive restart
+  and duplicate delivery, deny later forward dispatch, and release only through matching verified
+  recovery, as proven by the focused hold, orchestrator, control-loop, and risk-gate tests.
+- [ ] Add a typed `SignalType` trigger reference and cross-check it at load. This is blocked on
+  promoting a `SignalType` vocabulary that covers request and command triggers; the shipped
+  registry declares observation semantics only, and widening it also changes T0 rule dispatch
+  resolution.
+- [x] Failure-only `on_failure` branching is implemented, with runtime tests proving the success
+  path skips an untriggered fallback, an unrelated failure does not trigger it, and an explicit
+  resume can still re-enter at it.
+- [ ] Retain a promoted workflow scenario with independent effect and recovery closure on one
+  pinned Workflow and ActionType catalog revision.

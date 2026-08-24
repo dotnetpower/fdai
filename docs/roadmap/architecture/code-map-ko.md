@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 542f24077840c8896df6be6596fe2c2a741033af
+translation_source_sha: 2cce23cdb6f9b22019b651183498646688acb0a1
 translation_revised: 2026-08-24
 ---
 # 코드 맵
@@ -25,7 +25,7 @@ translation_revised: 2026-08-24
 
 > **인덱스 계약:** 이 페이지는 탐색 전용입니다. 현재 구현 상태와 이력은 연결된 소유
 > 문서에서 관리합니다. 기존 혼합 목적 원장은
-> [보관된 코드 맵 구현 원장](code-map-implementation-ledger-ko.md)에 보존합니다.
+> [보관된 코드 맵 구현 원장](../../roadmap-implementation/architecture/code-map.md)에 보존합니다.
 
 ## 물리 서비스 소유권
 
@@ -47,6 +47,7 @@ Core 분포는 전체 `fdai` 이름 공간을 유지합니다. 내부 모듈 경
 | 영역 | Responsibility | 출처 | 테스트 |
 |------|----------------|--------|------|
 | 컨트롤 루프와 decisioning | Event 정규화, 계층 라우팅, 정확한 Rego allow/deny 평가 증적, quality, risk, 승인, 실행 coordination, 복구 및 감사 | [코어](../../../services/core-control-plane/src/fdai/core/) | [코어 테스트](../../../services/core-control-plane/tests/core/) |
+| 환각 루브릭 승격 | 짝지은 불변 기준선/처리군 근거, 신뢰도를 고려한 준비 판정, 독립 검토 결속, 엄격한 매니페스트 검증 및 승격 권한이 없는 ActionType별 실패 시 차단 루브릭 모드 해석 | [루브릭 승격 core](../../../services/core-control-plane/src/fdai/core/quality_gate/promotion.py) 및 [매니페스트 어댑터](../../../services/core-control-plane/src/fdai/delivery/measurement/rubric_promotion_evidence.py) | [루브릭 승격 테스트](../../../services/core-control-plane/tests/core/quality_gate/test_rubric_promotion.py), [어댑터 테스트](../../../services/core-control-plane/tests/delivery/test_rubric_promotion_evidence.py) 및 [조립 테스트](../../../services/core-control-plane/tests/composition/test_rubric_promotion_binding.py) |
 | 실행 권한 부여 | 프로바이더 중립적인 요구 사항 결과, 비어 있지 않은 결정 집합의 최소 권한 축소, 정규 요청 및 인벤토리 연결, 모호한 ID 또는 연결되지 않은 권한 부여 제안 거부 | [execution_authorization](../../../services/core-control-plane/src/fdai/core/execution_authorization/) | [실행 권한 부여 테스트](../../../services/core-control-plane/tests/core/execution_authorization/) |
 | 온톨로지 안전성 platform | 카탈로그에서 로드한 Interface 및 FunctionType 선언을 포함하는 exact 의미 release, release-aware 조회 profile 및 함수 등록, principal 범위로 한정된 매니페스트, 검증된 Resource와 ResourceType 분류, 범용/temporal 조회 algebra, bitemporal 토폴로지/차이, 범위가 제한된 blast-radius 차이와 authoritative inventory rebuild pointer를 포함하는 immutable direction-generation shadow comparison, 검토된 메트릭 개념, topology-aware causal 결합, 별도의 planner-function 및 operational-plan lineage와 안전하게 닫히도록 문서화된 인자, 근거, 대상 및 효과 검증 계약이 있는 변경 계획, compact typed effect-reconciliation event, 인증된 독립 observer binding 및 lease-fenced 영속 terminal outbox 전달 | [ontology_platform](../../../services/core-control-plane/src/fdai/core/ontology_platform/) | [온톨로지 platform 테스트](../../../services/core-control-plane/tests/core/ontology_platform/) |
 | 온톨로지 구조 모델 | 정확한 ResourceType 아이덴티티, 검토된 ResourceClass 집계, 직접 링크 역할과 의미 특성, 탐색형 관계 탐색, 순서가 있는 형식화된 경로, 제한을 보존하는 그래프 표현 | [소유 설계](ontology-structural-model-ko.md), [온톨로지 계약](../../../services/core-control-plane/src/fdai/shared/contracts/models/ontology.py), [카탈로그 변환 결과](../../../services/core-control-plane/src/fdai/core/ontology_platform/catalog_projection.py), [쿼리 platform](../../../services/core-control-plane/src/fdai/core/ontology_platform/) | [온톨로지 platform 테스트](../../../services/core-control-plane/tests/core/ontology_platform/), [카탈로그 테스트](../../../services/core-control-plane/tests/rule_catalog/), [Console 그래프 테스트](../../../console/src/components/ontology-graph.model.test.ts) |
@@ -214,7 +215,8 @@ core 컨트롤 플레인을 import할 수 없으므로 특정 서비스가 아�
 
 | 알아볼 내용 | 문서 |
 |-------------|------|
-| 전체 패키지 경계와 의존성 주입 | [프로젝트 구조](project-structure-ko.md) |
+| 물리 서비스 및 패키지 소유권 | [다중 서비스 저장소 레이아웃](multi-service-repository-layout-ko.md) |
+| 모듈 경계와 의존성 주입 | [프로젝트 구조](project-structure-ko.md) |
 | 대화 및 온톨로지 조회 구현 순서 | [온톨로지 조회 커버리지 구현 계획](../interfaces/ontology-query-coverage-implementation-plan-ko.md) |
 | IS 작업 패키지와 local-first 순서 | [서비스 분해 실행 계획](service-decomposition-execution-plan-ko.md) |
 | 서비스 승격, 데이터 소유권 및 롤백 게이트 | [서비스 승격과 데이터 소유권](service-graduation-and-ownership-ko.md) |

@@ -1,8 +1,8 @@
 ---
 title: 기술 스택
 translation_of: tech-stack.md
-translation_source_sha: 544e97467904fdc1bae88a880557c2a8ef466023
-translation_revised: 2026-08-15
+translation_source_sha: 166c4da1eb3f17d309f8e378d0b8ac22d0dc36f6
+translation_revised: 2026-08-24
 ---
 
 # 기술 스택
@@ -18,33 +18,6 @@ translation_revised: 2026-08-15
 [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md)
 의 안전·코드 규칙과 [security-and-identity-ko.md](security-and-identity-ko.md) 의 위협 모델을
 만족해야 합니다.
-
-## 구현 상태
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| Python 서비스 분포와 5개 서비스 런타임 | validated | `services/`; `packages/service-contracts/`; `config/independent-service-live-evidence-manifest.json`; `config/independent-service-remote-evidence.attestation.jsonl` | 5개 서비스 분포, 이미지, 상태 경계 및 보호된 N/N-1/N 전이에 원격 근거가 보존돼 있습니다. |
-| Terraform Azure 플랫폼, Event Hubs Kafka, PostgreSQL 및 pgvector | implemented | `infra/`; `alembic/`; `service-migrations/branches/`; 집중 인프라 및 migration 테스트 | 스택과 보호된 배포 mechanics가 있습니다. 일반 플랫폼 소유자는 검증을 주장하기 전에 통제된 적용 증적을 보존해야 합니다. |
-| OPA/Rego 정책과 카탈로그 실행 | implemented | `policies/`; `rule-catalog/`; `scripts/catalog/sync-rule-semantics.py`; `scripts/verify.sh`와 `.github/workflows/ci.yml`의 `rule-semantics` 게이트; `tests/integration/scripts/test_sync_rule_semantics.py`; 집중 정책 및 카탈로그 테스트 | 출하된 Rego, 정규화된 카탈로그 메타데이터, OPA 컴파일 및 결정론적 평가를 실행할 수 있습니다. 룰과 정책 사이의 의미 표류도 강제됩니다. 범위가 제한된 게이트는 룰이 정책과 어긋나면 변경을 실패시키고, OPA를 쓸 수 없으면 건너뛰지 않고 실패합니다. |
-| OpenTelemetry와 Azure 관측 어댑터 | in-progress | `shared/telemetry/`; `delivery/azure/metric_logs.py`; `delivery/azure/log_query.py`; `delivery/azure/telemetry_query.py`; 관측 캠페인 테스트 | 계측과 범위가 제한된 Azure 어댑터를 구현했습니다. 5개 서비스 전체의 보존된 종단 운영 텔레메트리 캠페인은 아직 필요합니다. |
-| 비-Azure 관리형 대안 | deferred | [OD-3](#od-3-멀티클라우드-이벤트-버스-phase-4---tbd); [구현 Focus](../../../.github/copilot-instructions.md#implementation-focus-must) | 대안은 설계 선택지이며 구현되거나 동등성을 검증한 대상이 아닙니다. |
-
-### 구현 이력
-
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-08-14 | in-progress | 이전 이력을 재구성하지 않고 구현 원장을 도입했으며 스택을 현재의 5개 서비스, Rego, 텔레메트리 및 Azure 전용 구현에 맞췄습니다. | `current change`; 위에 인용한 서비스 근거, 인프라, 정책, 텔레메트리 및 집중 테스트 경로입니다. | 플랫폼 적용 및 텔레메트리 캠페인 근거를 보존하고 비-Azure 대상을 보류합니다. |
-| 2026-08-15 | implemented | 룰과 정책 사이의 의미 표류 검사를 필요할 때만 실행하는 명령에서 `verify.sh`와 CI가 강제하는 게이트로 승격했고, 실행 가능성을 강제와 동일시하던 근거 문구를 바로잡았습니다. | `current change`; `scripts/verify.sh`; `.github/workflows/ci.yml`; `tests/integration/scripts/test_sync_rule_semantics.py`; 출하된 카탈로그에서 `uv run python scripts/catalog/sync-rule-semantics.py --check`가 0으로 종료했고 집중 동기화 도구 테스트가 통과했습니다. | 플랫폼 적용 및 텔레메트리 캠페인 근거는 계속 남아 있습니다. |
-
-### 남은 작업
-
-- [ ] 정확한 Terraform 계획, 소스 개정 번호, 서비스 이미지, migration, 신원 및 적용 후 상태를 연결하는 통제된 플랫폼 적용 증적을 보존합니다.
-- [ ] 상관관계, 보존, 실패 및 사용 불가 상태 근거를 포함해 5개 서비스 전체에서 하나의 종단 OpenTelemetry 및 Azure 조회 캠페인을 보존합니다.
-- [ ] 모델 교체를 운영 상태로 설명하기 전에 검토된 주간 모델 조정기를 구현하고 모든 교체를 초안 PR 및 shadow 재현으로 게이트합니다.
-- [ ] 동등성과 롤백 근거를 갖춘 대상 하나가 명시적으로 승인될 때까지 비-Azure 대안을 구현하지 않습니다.
-
 ## 이 문서 읽는 법
 
 - **굵은 글씨** 항목은 권장으로 제시된 지명 관리 서비스이며, 각각 Alternatives 컬럼에서 CSP-중립
@@ -175,22 +148,23 @@ translation_revised: 2026-08-15
 - **컨텍스트**: 어댑터, LLM SDK, 규칙 도구가 선택을 주도.
 - **옵션**: TypeScript (노드) · Python · Go.
 - **기준**: 어댑터/SDK 성숙도, 팀 친숙도, 타이핑/성능 헤드룸.
-- **상태**: **결정됨 - Python (3.12+), `services/core-control-plane/src/fdai/` 아래 단일 언어 monorepo.**
+- **상태**: **결정됨 - 독립적으로 패키징된 백엔드 서비스 5개와 공유 서비스 계약 SDK에 Python (3.12+)을 사용합니다.**
   근거: (i) OPA 바인딩, LLM 프로바이더, IaC 스캐너 툴체인 (Checkov / tfsec / KICS / Trivy) 이
   가장 풍부한 언어가 Python; (ii) mypy로 safety-core 에 필요한 타이핑 강도 확보; (iii) 모든
   서브시스템이 한 언어라 `core/tiers/t0_deterministic` 과 `core/risk_gate` 의 ≥ 90% 커버리지
   게이트가 단순해짐. 향후 성능 기반 분리 (예: `event_ingest` 를 Go 로) 는 서브시스템이 이미
   `shared/` 의 인터페이스 뒤에 있어 추가적으로 가능.
-- **패키지 레이아웃**: Python "src 배치" - 모든 런타임 모듈은 `services/core-control-plane/src/fdai/<subsystem>/`
-  아래. [project-structure-ko.md](project-structure-ko.md) 의 `core/`, `shared/`, `delivery/`,
-  `rule_catalog/` 서브시스템 폴더는 각각 `services/core-control-plane/src/fdai/core/`, `services/core-control-plane/src/fdai/shared/`,
+- **패키지 레이아웃**: Python "src 배치" - Core 서브시스템은 `services/core-control-plane/src/fdai/<subsystem>/`
+  아래에 있고 나머지 백엔드 프로세스 4개는 `services/*/src/` 아래 자체 서비스 소스 루트를
+  소유합니다. [project-structure-ko.md](project-structure-ko.md)의 `core/`, `shared/`, `delivery/`,
+  `rule_catalog/` Core 서브시스템 폴더는 각각 `services/core-control-plane/src/fdai/core/`, `services/core-control-plane/src/fdai/shared/`,
   `services/core-control-plane/src/fdai/delivery/`, `services/core-control-plane/src/fdai/rule_catalog/` 로 매핑됩니다. 디렉토리 이름은
   `snake_case` (Python 식별자 규칙); 논리적 `kebab-case` 이름은
   [language.instructions.md](../../../.github/instructions/language.instructions.md) 에 따라
   문서와 룰 id 에서 어휘로 유지됩니다.
-- **Lockfile**: 리포 루트에 하나의 `uv.lock` (또는 동등물); 서브시스템별 lockfile 지침은
-  다언어 레이아웃 초안에 해당했던 것으로 Python monorepo 에서는 폐지. 서브시스템 경계 강제는
-  별도 패키지 경계가 아니라 CI 의 import-lint (W1.7) 로 수행됩니다.
+- **Workspace 해석**: 루트 `uv.lock` 하나가 개발과 통합을 조정합니다. 각 백엔드 서비스와
+  `packages/service-contracts/`는 별도 `pyproject.toml`, 배포판, 테스트 및 이미지 또는 SDK
+  산출물을 소유합니다. CI는 서비스 패키지 격리와 Core 서브시스템 가져오기 방향을 함께 강제합니다.
 
 ### OD-2: 주 상태 저장소
 
@@ -213,3 +187,9 @@ translation_revised: 2026-08-15
 - **기준**: 순서 + DLQ 보장, 리플레이 필요, 운영 비용, CSP 중립성.
 - **상태**: Deferred (TBD) - Azure만이 유일한 구현 대상이며 Event Hubs의 Kafka 엔드포인트를
   사용합니다. Azure 버스 결정은 완료되었고 이 항목은 향후 비-Azure 구현만 다룹니다.
+
+## 관련 문서
+
+| 알아볼 내용 | 읽을 문서 |
+|-------------|-----------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/architecture/tech-stack.md) |

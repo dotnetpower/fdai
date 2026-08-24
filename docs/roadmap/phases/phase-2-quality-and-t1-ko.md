@@ -1,8 +1,8 @@
 ---
 title: "Phase 2 - 지속적 규칙 업데이트, Quality Gate, T1"
 translation_of: phase-2-quality-and-t1.md
-translation_source_sha: 0c0a341432af30d261a0b05e5c6be84ee8d7f03b
-translation_revised: 2026-08-11
+translation_source_sha: 5ed26b4afd44d10824d07797c8ac1eb629f83fca
+translation_revised: 2026-08-24
 ---
 
 # 단계 2 - 지속적 규칙 업데이트, Quality 게이트, T1
@@ -14,21 +14,6 @@ translation_revised: 2026-08-11
 티어/게이트 규칙과 [llm-strategy-ko.md](../architecture/llm-strategy-ko.md) 의 모델-티어 설계 확장.
 커버리지 수치(T1 ~15-20%) 는 보장이 아니라 **검증할 목표**
 ([goals-and-metrics-ko.md](../architecture/goals-and-metrics-ko.md)).
-
-> **구현 상태**: Continuous 룰 파이프라인 코어, T2 quality 게이트, T1 계층, 승격 레지스트리,
-> risk 게이트 및 해당 결정론적 tests는 구현되어 있습니다. 운영 출처 watcher에서
-> GitHub PR 전달까지의 조립, P0 기준선 대비 측정된 T1/auto-resolution exit 근거,
-> Assurance Twin의 model-backed NL 컴파일러와 discovery-loop 연결은 아직 완료되지 않았습니다.
-> 현재 사례, 토폴로지, 소유자, 정책, 예행 실행, 멱등성 및 롤백 근거가 있는 T1 reuse는
-> 이제 타입이 지정된 액션이 되어 실행 권한 확인과 unified risk 게이트를 통과하며, 이 증적이
-> 없는 이전 방식 reuse는 inert shadow 로그로 남습니다. Quality 게이트를 통과한 T2 후보도 같은
-> authorization-before-risk 순서를 따르므로 금지되었거나 해결되지 않은 상태인 실행 프로파일은
-> risk evaluation에 도달하지 않습니다. Risk 권한 또는 cited 룰이 없으면 범용 shadow
-> 결과 대신 명시적인 audited HIL 보류를 생성합니다.
-> 준비된 operational-promotion 증적은 상태와 감사를 atomic하게 기록하는 변경할 수 없는 exact-key
-> StateStore 어댑터를 사용합니다. 측정은 계속 승격을 수행하지 않으며, 승인된
-> Thor 소유 거버넌스 액션이 승격 경로에서 저장된 exact 증적을 사용해야 합니다.
-> 아래 비율과 Exit 기준은 목표이며 현재 달성 주장으로 읽으면 안 됩니다.
 
 ## 산출물
 
@@ -166,3 +151,9 @@ T2 입력은 **신뢰할 수 없는** ([security-and-identity-ko.md](../architec
 - Shadow에서 실행 중인 P1 규칙 카탈로그와 T0 엔진
   ([phase-1-rule-catalog-t0-ko.md](phase-1-rule-catalog-t0-ko.md)).
 - 통합 컨트롤 루프로 공급 ([phase-3-integrated-loop-ko.md](phase-3-integrated-loop-ko.md)).
+
+## 관련 문서
+
+| 알아볼 내용 | 읽을 문서 |
+|-------------|-----------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/phases/phase-2-quality-and-t1.md) |

@@ -49,10 +49,61 @@ def _ledger(
 """
 
 
+def _delegated_owner() -> str:
+    return """# Owner
+
+## Related docs
+
+- [Implementation ledger](../../roadmap-implementation/architecture/owner.md)
+"""
+
+
 def test_complete_ledger_is_accepted() -> None:
     module = _load_module()
 
     assert module.ledger_violations(_ledger()) == []
+
+
+def test_linked_delegated_ledger_is_accepted() -> None:
+    module = _load_module()
+
+    assert (
+        module.tracking_violations(
+            _delegated_owner(),
+            _ledger(),
+            owner_relative="docs/roadmap/architecture/owner.md",
+        )
+        == []
+    )
+
+
+def test_delegated_owner_requires_the_mirrored_link_and_ledger() -> None:
+    module = _load_module()
+
+    errors = module.tracking_violations(
+        "# Owner\n",
+        None,
+        owner_relative="docs/roadmap/architecture/owner.md",
+    )
+
+    assert errors == [
+        "delegated owner must link to ../../roadmap-implementation/architecture/owner.md",
+        "delegated owner is missing ledger docs/roadmap-implementation/architecture/owner.md",
+    ]
+
+
+def test_migration_preserves_inline_history_in_the_delegated_ledger() -> None:
+    module = _load_module()
+    changed_history = _ledger().replace("Added the loader.", "Reworded the old transition.")
+
+    errors = module.tracking_violations(
+        _delegated_owner(),
+        changed_history,
+        owner_relative="docs/roadmap/architecture/owner.md",
+        previous_owner=_ledger(),
+    )
+
+    assert any("history is append-only" in error for error in errors)
 
 
 def test_missing_required_subsection_is_rejected() -> None:
@@ -164,4 +215,23 @@ def test_all_docs_returns_only_tracked_canonical_owners(monkeypatch) -> None:
     assert module._all_docs() == (
         "docs/roadmap/architecture/owner.md",
         "docs/roadmap/interfaces/contract.md",
+    )
+
+
+def test_changed_delegated_ledger_maps_back_to_owner(monkeypatch) -> None:
+    module = _load_module()
+    changed = "\n".join(
+        (
+            "docs/roadmap-implementation/architecture/owner.md",
+            "docs/roadmap-implementation/README.md",
+        )
+    )
+    monkeypatch.setattr(
+        module,
+        "_run_git",
+        lambda *args, **kwargs: type("Result", (), {"stdout": changed})(),
+    )
+
+    assert module._changed_docs("HEAD^..HEAD", cached=False) == (
+        "docs/roadmap/architecture/owner.md",
     )

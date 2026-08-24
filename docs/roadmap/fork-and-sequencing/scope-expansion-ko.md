@@ -1,8 +1,8 @@
 ---
 title: 스코프 개선 및 구조적 갭
 translation_of: scope-expansion.md
-translation_source_sha: 3334d0ed5a74ed5131c2a6768a10009a3e43f6cd
-translation_revised: 2026-08-11
+translation_source_sha: 100a3446a3be59740bf16ba2fa2db844d001d98c
+translation_revised: 2026-08-24
 ---
 # 스코프 개선 및 구조적 갭
 
@@ -22,11 +22,6 @@ CSP-neutral wire 계약 는
 [csp-neutrality.md](../architecture/csp-neutrality-ko.md); trust-router / risk-gate /
 컨트롤 루프 은
 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md).
-
-> **구현 상태 (2026-07-21).** §3에서 제안한 인시던트, 8개 텔레메트리 wire 계약, 워크로드
-> SLO, 런북, on-call, 사후 분석, 버티컬 레지스트리는 배포됐습니다. §3의 `Problem` 문단은
-> 채택 당시 historical 공백을 보존합니다. T2 후보의 액션 빌드와 unified risk/HIL 라우팅도
-> 배포됐고, risk-eligible T2 액션을 실행기로 넘기는 최종 단계만 남았습니다.
 
 ## 1. In-scope axes (유지 + 확장)
 
@@ -446,3 +441,9 @@ SRE 에이전트 가 커버하리라 기대되는 기준선 의무를, 그것을
 설정되지 않은 어댑터는 사용 불가를 보고하거나 문서화된 역할 대체 경로를 사용하며 고정본을
 대체하거나 자율성을 승격하지 않습니다. Direct 쓰기 CLI와 global auto-approval은 FDAI의 타입이 지정된
 액션, 정책, risk, 승인, 롤백, 잠금, 멱등성, 감사 경로로 의도적으로 대체합니다.
+
+## 관련 문서
+
+| 알아볼 내용 | 읽을 문서 |
+|-------------|-----------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/fork-and-sequencing/scope-expansion.md) |

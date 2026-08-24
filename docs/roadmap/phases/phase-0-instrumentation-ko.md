@@ -1,8 +1,8 @@
 ---
 title: Phase 0 - 계측과 언블록
 translation_of: phase-0-instrumentation.md
-translation_source_sha: 2b58c73ecb069bb5f75e454bca1eedae361b5c92
-translation_revised: 2026-08-20
+translation_source_sha: 8349c44d0c18e1ca05a1e0be848e24e1c3fb7ed9
+translation_revised: 2026-08-24
 ---
 
 # 단계 0 - 계측과 언블록
@@ -15,13 +15,6 @@ translation_revised: 2026-08-20
 [security-and-identity-ko.md](../architecture/security-and-identity-ko.md) 에 추적된 P0 아이덴티티/정책
 블로커를 해결. 출력은 [phase-1-rule-catalog-t0-ko.md](phase-1-rule-catalog-t0-ko.md) 의 직접
 전제조건.
-
-> **구현 상태**: 텔레메트리/구성/이벤트 contracts, PostgreSQL migrations, 고정된 `v2026.07`
-> scenarios, `tools/reference_agent/`, `tools/baseline_run.py`, 기준선 reports, 프로바이더 fakes,
-> pgvector/Redpanda 로컬 preset 및 exemption 스키마/템플릿은 구현되어 있습니다. Entra 앱/그룹
-> 프로비저닝, PR trailer no-self-approval CI, exemption auto-expiry/다이제스트 작업 및 모든 P0 exit
-> 근거의 운영 검증은 완료되지 않았습니다. 아래 작업 표는 원래 계획과 수용 기준을
-> 보존하며, 이 callout이 현재 저장소 상태를 설명합니다.
 
 ## 재사용 용어
 
@@ -94,7 +87,7 @@ P0에는 enforce-mode 능력이 범위에 없음.
 
 | 작업 | 제목 | Deps | 산출물 | 수용 | 크기 |
 |------|------|------|--------|------|------|
-| **W1.1** | Monorepo 스켈레톤 | - | [project-structure-ko.md](../architecture/project-structure-ko.md) 의 디렉토리: `core/`, `shared/`, `rule-catalog/`, `delivery/`, `infra/`, `policies/`, `services/core-control-plane/tests/`, `.github/` + 자리 표시자 README + 서브시스템별 lockfile | 디렉토리 의존 방향을 CI가 강제 (lint 작업이 금지된 가져오기 플래그) | S |
+| **W1.1** | 다중 서비스 workspace skeleton | - | [다중 서비스 저장소 레이아웃](../architecture/multi-service-repository-layout-ko.md)의 서비스 소유 Python 배포판 5개, 공유 서비스 계약 SDK, 루트 workspace lockfile, `infra/`, `policies/`, `.github/` | CI가 서비스 및 모듈 의존성 방향을 강제 | S |
 | **W1.2** | 온톨로지 + 이벤트 계약 | W1.1 | `services/core-control-plane/src/fdai/shared/contracts/ontology/{object-type,link-type,action-type}.json`, `services/core-control-plane/src/fdai/shared/contracts/event/schema.json`; 언어별 생성 타입 | 스키마가 CI에서 검증 (`ajv`); breaking 변경은 semver bump | M |
 | **W1.3** | 구성 스키마 + fail-fast 로더 | W1.1 | `services/core-control-plane/src/fdai/shared/config/schema.json` + Python 로더; env + 파일 프로바이더 | 잘못되거나 누락된 필수 필드가 구조화된 에러로 시작 중단 | S |
 | **W1.4** | OpenTelemetry 배선 | W1.1 | `services/core-control-plane/src/fdai/shared/telemetry/` traces, metrics, logs; `correlation_id` 있는 JSON-구조화 로그; `infra/` 의 수집기 구성 | 합성 이벤트가 하나의 상관관계 id로 종단 추적 (ingest → 계층 → 게이트 → 감사) | M |
@@ -187,26 +180,6 @@ P0에는 enforce-mode 능력이 범위에 없음.
 4. **Shadow-mode 기본** - 태스크가 실행할 *가능한* 능력을 도입하면 출시 기본은
    `enforcement: do-not-enforce`.
 5. **감사 로그 엔트리 발행** - 런타임에 상태-변경 태스크(Terraform 적용 포함) 에 대해.
-
-## 구현 상태
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| Phase 0 작업 W1-W6 | in-progress | 이 문서의 작업별 산출물 및 수용 검사, 각 작업에서 이름을 명시한 현재 소스 및 테스트 경로 | 이 ledger 도입은 리포지토리 형태만으로 완료를 추론하지 않습니다. 각 작업은 자체 수용 검사와 아래 종료 기준을 계속 적용합니다. |
-| 순차 작업 타임라인 | implemented | `docs/diagrams/fdai-roadmap-phases-phase-0-instrumentation-01.diagram.yaml`, `npm --prefix tools/architecture-diagrams run check` | 유지 관리되는 이중 언어 FDAI 다이어그램이 작업 의존성이나 구현 권한을 바꾸지 않고 기존 Mermaid 렌더링을 대체합니다. |
-
-### 구현 이력
-
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-08-20 | in-progress | 구현 ledger를 도입했으며 이전 작업 이력은 재구성하지 않았습니다. 작업 타임라인을 리포지토리 소유 이중 언어 다이어그램으로 교체했습니다. | `current change`, Phase 0 로드맵 문서 쌍, 다이어그램 명세, 집중 다이어그램 검사 | Scope row를 implemented 또는 validated로 높이기 전에 W1-W6의 각 수용 검사를 현재 구현 및 CI 근거와 비교해 검토합니다. |
-
-### 남은 작업
-
-- [ ] 모든 W1-W6 작업을 선언된 수용 검사와 비교해 분류하고 현재 소스 및 CI 근거를 인용한 뒤, 독립적으로 증명할 수 있는 상태가 다르면 집계 scope row를 분리합니다.
-
 ## 데이터와 범위 제약
 
 - 이 리포에 커밋된 모든 원격측정, 시나리오, 감사, KPI 데이터는 **시크릿 없음, 고객-비종속**이며
@@ -266,3 +239,9 @@ P0에는 enforce-mode 능력이 범위에 없음.
 - **하류**: P0 원격측정, 고정 시나리오 세트, 측정된 베이스라인, 해결된 아이덴티티/정책 블로커는
   [phase-1-rule-catalog-t0-ko.md](phase-1-rule-catalog-t0-ko.md) 와 모든 이후 단계의 전제조건
   ([README-ko.md](../README-ko.md)).
+
+## 관련 문서
+
+| 알아볼 내용 | 읽을 문서 |
+|-------------|-----------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/phases/phase-0-instrumentation.md) |

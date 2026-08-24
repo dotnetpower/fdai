@@ -198,6 +198,7 @@ repository gate or a live disposable-database migration run.
 
 | To learn about | Read |
 |----------------|------|
+| Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/fork-and-sequencing/productization-and-extensibility.md) |
 | Cross-subsystem implementation waves | [implementation-plan.md](implementation-plan.md) |
 | Install and deployment administration | [../deployment/installable-deployment-cli.md](../deployment/installable-deployment-cli.md) |
 | Conversational channels and tools | [../interfaces/operator-console.md](../interfaces/operator-console.md) |

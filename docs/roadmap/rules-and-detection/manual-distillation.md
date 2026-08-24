@@ -282,7 +282,7 @@ when it cannot cite support the tier abstains to HIL. A structured
 knowledge-graph retrieval (over the existing PostgreSQL state store, no new service)
 is preferred over flat vector RAG when relationship traversal matters.
 
-## Implementation status
+## Implementation surfaces
 
 The ingestion and verification mechanism ships upstream; the LLM-backed and
 customer-connector parts are fork seams with abstaining defaults.
@@ -340,3 +340,9 @@ LLM-backed implementations and any siloed-source connector via the seam recipe i
 | Evidence-backed ontology change proposals | [document-ontology-distillation.md](document-ontology-distillation.md) |
 | The continuous quality + T1 pipeline | [phase-2-quality-and-t1.md](../phases/phase-2-quality-and-t1.md) |
 | Where customer manuals and rules live | [downstream-fork-guide.md](../fork-and-sequencing/downstream-fork-guide.md) |
+
+## Related docs
+
+| To learn about | Read |
+|----------------|------|
+| Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/rules-and-detection/manual-distillation.md) |

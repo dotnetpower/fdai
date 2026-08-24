@@ -1,0 +1,50 @@
+# Browser Evidence Collection implementation ledger
+
+This delivery ledger preserves reviewable implementation scope, append-only transitions,
+and resumable work while the roadmap owner remains focused on normative design.
+
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Contracts, policy, redaction, storage rules, and shadow comparison | implemented | `services/core-control-plane/src/fdai/core/browser_evidence/`; `services/core-control-plane/src/fdai/shared/providers/browser_evidence.py`; `services/core-control-plane/tests/core/browser_evidence/` | Focused core tests cover bounded policy, evidence-only authority, redaction, in-memory custody, replay, and shadow abstention. |
+| Playwright delivery policy and byte bounds | implemented | `services/core-control-plane/src/fdai/delivery/browser/`; `services/core-control-plane/tests/delivery/browser/`; focused delivery and integrated checks (`46 passed`) | The adapter propagates policy-owned response and screenshot bounds to the driver, rejects oversized or malformed declared responses before capture, rejects oversized screenshots and aggregate response material before return, and normalizes URL or DNS policy failures as unavailable. |
+| Restricted-egress browser image evidence | not-started | [Verification](../../roadmap/interfaces/browser-evidence.md#verification) | Focused fakes prove delivery enforcement without a browser binary. No governed real-browser image receipt is retained. |
+| Durable persistence and purge primitive | implemented | `alembic/versions/20260721_0050_browser_evidence.py`; `alembic/versions/20260814_0083_browser_evidence_legal_hold.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_browser_evidence.py`; focused codec and live PostgreSQL tests (`9 passed`, no skips) | Exact payload replay, conflict rejection, strict durable JSONB decoding, monotonic legal hold, restart reads, and winner-only concurrent cleanup are implemented. |
+| One-shot retention job entrypoint | implemented | `services/core-control-plane/src/fdai/delivery/browser_evidence_cleanup_cli.py`; `services/core-control-plane/tests/delivery/test_browser_evidence_cleanup_cli.py`; focused checks (`7 passed`) | The packaged CLI performs one bounded purge attempt with an aware UTC cutoff and emits only status plus purged count. |
+| Azure retention schedule | implemented | `infra/modules/compute/container-apps/browser_evidence_cleanup_job.tf`; `tests/integration/infra/test_browser_evidence_cleanup_job.py`; focused Terraform contract checks (`4 passed`) and `terraform validate` | `browser_evidence_cleanup_cron_expression` opts into a Container Apps Job that binds `FDAI_DATABASE_URL` from the Key Vault state-store DSN and `FDAI_BROWSER_EVIDENCE_CLEANUP_LIMIT` from a validated 1..500 input. It uses the non-executor inventory identity, parallelism one, and no platform retry. Protected apply and run receipts plus portable CronJob rendering remain open. |
+| Operator API metadata inspection | implemented | `services/operator-service/src/fdai_operator_service/browser_evidence_projection.py`; `service-migrations/branches/operator-service/versions/20260815_operator_browser_evidence_read.py`; focused Operator checks (`51 passed`) | `GET /browser-evidence` is Reader-scoped and GET-only. The Operator role has no base-table privilege and can select only a security-barrier metadata view with derived counts and verified-isolation state. The projection never reads or returns screenshot, visible text, ARIA snapshot, selector, redaction, finding, or isolation payloads. |
+| Console metadata inspection | implemented | `console/src/routes/browser-evidence.tsx`; `console/src/routes/browser-evidence.test.ts`; focused decoder, panel, and router checks (`26 passed`) | The registered panel accepts only the exact payload-free metadata envelope, rejects captured or structured payloads and controls, and renders localized loading, unavailable, empty, and ready states without mutation controls. |
+| Promotion evidence | not-started | [Shadow measurement and promotion](../../roadmap/interfaces/browser-evidence.md#shadow-measurement-and-promotion) | The comparator always reports `promotion_eligible=false`; no governed live fidelity or security-drill window is retained. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-14 | in-progress | Adopted the implementation ledger and corrected stale claims for PostgreSQL persistence and the inspection surface; earlier provenance was not reconstructed. | `current change`; current source and focused core checks listed in the scope table. | Implement durable custody and read surfaces, then retain isolated live evidence before promotion review. |
+| 2026-08-14 | implemented | Added PostgreSQL browser-evidence custody and monotonic legal hold on the existing artifact schema, with bounded winner-only expiry cleanup and read-time hash verification. | `current change`; migrations `0050` and `0083`; PostgreSQL adapter; codec and supported local PostgreSQL tests `2 passed`, no skips. | Bind the cleanup job, implement read-only Operator and Console inspection, and retain isolated live evidence. |
+| 2026-08-14 | implemented | Hardened durable row decoding to reject malformed JSONB arrays, objects, redaction surfaces, string members, and coerced booleans before artifact materialization. | `current change`; PostgreSQL adapter and focused codec plus supported local PostgreSQL tests `9 passed`, no skips. | Cleanup-job binding, read-only inspection, and isolated live evidence remain open. |
+| 2026-08-15 | implemented | Propagated policy-owned response and screenshot byte limits into the Playwright driver and added focused delivery enforcement for read-only methods, redirect and DNS denial, auth-state forwarding, browser side-effect events, and oversized or malformed material. | `current change`; `services/core-control-plane/src/fdai/delivery/browser/`; `services/core-control-plane/tests/delivery/browser/`; Ruff, strict mypy, and focused plus integrated browser checks `46 passed`. | Build and exercise the restricted-egress browser image, then retain governed real-browser receipts. |
+| 2026-08-15 | implemented | Added a packaged one-shot retention entrypoint around the existing winner-only PostgreSQL purge, with bounded configuration, one attempt, count-only output, and redacted process failures. | `current change`; `services/core-control-plane/src/fdai/delivery/browser_evidence_cleanup_cli.py`; focused checks `7 passed`; Ruff and strict mypy passed. | Schedule the entrypoint as a Container Apps Job or portable CronJob and retain governed run receipts. |
+| 2026-08-15 | implemented | Added an opt-in Azure Container Apps Job schedule for the bounded retention entrypoint without executor identity or immediate platform retry. | `current change`; `infra/modules/compute/container-apps/browser_evidence_cleanup_job.tf`; focused Terraform contract checks `4 passed`; `terraform validate`. | Retain protected apply and successful and failed run receipts; add portable CronJob rendering. |
+| 2026-08-15 | implemented | Added a Reader-scoped GET-only Operator metadata route backed by a security-barrier PostgreSQL view, revoked base-table privileges, and strict payload-free decoding. | `current change`; `services/operator-service/src/fdai_operator_service/browser_evidence_projection.py`; Operator migration; focused route and projection checks `51 passed`; strict mypy passed. | Add the Console metadata decoder and panel, then retain authenticated deployed read evidence. |
+| 2026-08-15 | implemented | Aligned the registered Console browser-evidence panel with the exact payload-free Operator envelope and added strict control, payload, bound, trust, isolation, retention, hash, and timestamp validation. | `current change`; `console/src/routes/browser-evidence.tsx`; focused decoder, panel, and router checks `26 passed`; Console typecheck and catalog parity passed. | Retain authenticated deployed read evidence against the migrated Operator role. |
+
+### Remaining work
+
+- [x] Implement a PostgreSQL `BrowserEvidenceArtifactStore` and migration with hash-conflict, replay, bounded expiry, legal-hold, and concurrent cleanup tests.
+- [x] Add a packaged one-shot retention entrypoint that performs one bounded purge and emits no artifact or database identifiers (`7 passed`).
+- [x] Schedule the retention entrypoint as an opt-in Azure Container Apps Job with non-executor identity, parallelism one, and no immediate platform retry (`4 passed`; `terraform validate`).
+- [ ] Retain governed Azure apply and successful and failed run receipts, and add the portable CronJob rendering.
+- [x] Register a Reader-scoped GET-only Operator API metadata route whose database role can select only a security-barrier metadata view and no captured or structured payload columns (`51 passed`).
+- [x] Align the Console metadata decoder and inspection panel with the payload-free API without capture, promotion, approval, or execution controls (`26 passed`).
+- [ ] Retain authenticated deployed read evidence against the migrated Operator role and exact Console panel.
+- [x] Add focused Playwright delivery tests for read-only method gating, redirect and DNS denial, auth-state forwarding, browser side-effect events, and policy-owned response and screenshot bounds (`46 passed` with integrated browser checks).
+- [ ] Retain restricted-egress image receipts covering SSRF, redirect, DNS rebinding, mutation, credential, redaction, timeout, crash, and custody-replay drills.
+- [ ] Retain a frozen live fidelity window with zero policy escapes before requesting any promotion review.
+
+Real-browser release evidence should additionally run the optional Playwright adapter inside the
+target restricted-egress image against a synthetic allowlisted HTTPS fixture. Unit tests use a fake
+driver to prove adapter enforcement without requiring a browser binary.

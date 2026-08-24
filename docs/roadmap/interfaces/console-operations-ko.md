@@ -1,8 +1,8 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 499574b5f11d303e3f262b4d9271a7614583dc03
-translation_revised: 2026-08-20
+translation_source_sha: ae5285f9bb18211e04d5f3b2661b0eca192c9e06
+translation_revised: 2026-08-24
 ---
 
 # 콘솔 운영
@@ -15,58 +15,6 @@ translation_revised: 2026-08-20
 > 존재하는 탐색 그룹입니다. 콘솔은 Thor의 실행기 신원을 받거나 관리 리소스를 직접
 > 변경하지 않습니다.
 >
-> **구현 상태:** Operations 탐색, 인시던트, 승인, 프로세스, 스케줄러 실행, 프로비저닝,
-> onboarding, 범위가 제한된 조사는 별도 도메인 화면으로 제공됩니다. Console 액션 전달은
-> 브로커 publish 전에 페이로드를 포함한 증적을 저장하고 재시작 뒤 pending 전달을 복구합니다.
-> 작업 흐름 승인은 콜백과 대화 도구 경계 모두에서 영속 역할과 서로 다른 정족수를
-> 검사합니다. 두 경계 모두 no-self-approval 검사 전에 principal 신원을 normalize합니다. Pending
-> access-grant 검토는 권한을 적용하지 않은 채 App 역할, 자기 승인 방지, 만료,
-> 정족수 및 exact 개정 번호를 검사합니다. Federated 작업 화면, cross-domain 변환 결과 메타데이터 및 나머지 경로 강화는 제안 상태입니다.
-
-## 구현 상태
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| 승인 변환 결과 사용 불가 상태 | implemented | `console/src/routes/hil-queue.tsx`; `console/src/routes/hil-queue.test.ts`; `console/tests/live-e2e/console-routes.spec.ts`; 범위를 한정한 Vitest 검사(`5 passed`)와 라이브 Playwright 검사(`1 passed`) | Approvals 경로는 선택적 변환 결과가 없을 때 중립적인 사용 불가 상태를 표시합니다. 예상하지 못한 실패는 오류로 유지하며 브라우저에 승인 또는 실행 권한을 부여하지 않습니다. |
-| Onboarding 준비 상태 사용 불가 상태 | implemented | `console/src/routes/onboarding.tsx`; `console/src/routes/onboarding.test.ts`; `console/tests/live-e2e/console-routes.spec.ts`; 범위를 한정한 Vitest 검사(`6 passed`)와 라이브 Playwright 검사(`1 passed`) | Onboarding 경로는 선택적 검사 엔드포인트가 없을 때 사용 불가 상태를 표시하며 예상하지 못한 실패는 오류로 유지합니다. |
-| Command Deck 라이브 보증 timeout budget | implemented | `console/tests/live-e2e/console-routes.spec.ts`; 범위를 한정한 Playwright 테스트 검색(`2 tests`) | 테스트별 budget이 기존 서버 응답 assertion budget보다 길어서 전역 기본값이 의도한 라이브 검사를 먼저 중단할 수 없습니다. 답변, grounding 또는 검증 assertion은 완화하지 않습니다. |
-| 아키텍처 관계 및 밀집 지도 렌더링 | implemented | `console/src/components/architecture-map.model.ts`; `console/src/components/architecture-map-renderer.ts`; 아키텍처 검사기, 관계 인덱스 및 지도 테스트; 범위를 한정한 Vitest 검사(`54 passed`)와 라이브 `/architecture` Playwright 검사(`1 passed`) | 화면은 권위 있는 `peered_with` 관계를 인식합니다. 밀집 지도는 선택되거나 강조된 리소스를 우선하는 최대 48개 노드의 제한된 처리로 반사를 유지하며 경로의 대기 화면이 운영자 보기를 차단하지 않도록 합니다. 통제된 runtime 또는 운영 증적이 보존되지 않았으므로 근거는 `validated`가 아니라 `implemented`를 뒷받침합니다. |
-| 인증된 의미 증적 근거 실행기 | validated | `console/tests/live-e2e/browser-entra-state.ts`; `console/tests/live-e2e/console-routes.spec.ts`; `console/tests/live-e2e/ontology-query-assurance*.ts`; `.fdai/live-validation/ontology-query-assurance-cohort-c16eb06755c44fc155773f1a5a85a0c23eb930a8/` | 실행기는 첫 탐색 전에 기존 Browser Entra MSAL 세션을 `sessionStorage`에 복원하고 bootstrap을 한 번만 소비하며 성공 전용 세부 정보를 열기 전에 의미 증적을 판정하고 seed 기반 집단을 요청 간 15초 간격으로 직렬 실행합니다. 허용 목록에 있는 증적 없는 전송 중단은 60초 뒤 한 번만 재시도하고 모든 시도를 통제 아티팩트에 보존합니다. `FDAI_E2E_ASSURANCE_QUESTION_IDS`는 범위가 제한된 진단 probe를 위해 생성된 정확한 질문 id를 선택하며 subset은 통과하더라도 `production_ready`를 설정할 수 없습니다. 증적이 있거나 의미 결과가 잘못되었거나 전송 문제가 아닌 결과는 안전하게 실패 처리하며 재시도하지 않습니다. Principal과 App Role 검증은 Operator API에 맡깁니다. 보존한 전체 집단은 완전한 locale 및 operation coverage, 소진된 재시도 없이 인증된 질문 100개를 모두 통과했고 `production_ready=true`를 기록했습니다. |
-| 인시던트 목록 필터 표시 | implemented | 이슈 #149; `console/src/routes/incident-clarity.css`; 인증된 표준 포트 데스크톱 및 390 px 브라우저 검사; `npm --prefix console run build` | 담당 버티컬과 심각도는 간결한 Calm Slate 폼 스타일을 사용하고 검색 컨트롤과 정렬되며 키보드 초점 표시를 유지하고 좁은 화면에서 겹치지 않게 줄 바꿈됩니다. |
-| Console 사용자 권한 판별 | implemented | `handover-editor.tsx`, `handover-editor.test.ts`, 집중 Console 테스트(`26 passed`) 및 타입 검사 | FDAI App Role은 API 애플리케이션에 정의되므로 Console SPA id token에는 `roles` 클레임이 없습니다. 권한이 필요한 화면 요소는 서버가 소유한 `/iam` 기능 변환 결과에서 권한을 판별하고, id token 클레임은 대체 수단으로만 사용하며, 확인 중 상태를 별도로 표시하고, 변환 결과를 사용할 수 없으면 차단 상태로 유지합니다. 실제 통제 지점은 여전히 서버뿐입니다. |
-
-### 구현 이력
-
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-08-18 | implemented | 통제 공백 출처 중 하나라도 사용할 수 없을 때 공백 개수를 보고하던 동작을 중단했습니다. Overview의 통제 보증 카드는 네 가지 출처를 더하면서 없는 출처마다 `0`을 더했기 때문에, `승격 준비 상태: 근거 없음`과 `정책 이탈: 근거 없음` 옆에 `공백 0건`을 표시했습니다. 집계된 공백은 참인 하한이므로 계속 보고하며, 0은 모든 출처가 측정된 경우에만 주장합니다. | `current change`, `dashboard.model.test.ts` 15개 통과(신규 4개 포함)이며 measured 플래그를 되돌려 변이 검증했습니다. Console 전체 스위트 222개 파일 `1878 passed`, Console typecheck 통과. 로컬 콘솔 실측: 네 출처 중 세 개가 근거 없음인 상태에서 카드가 `Incomplete / 0 gaps`를 표시했습니다. | 승격 게이트와 정책 이탈 출처를 측정 가능하게 배선하는 일은 별도 작업으로 남습니다. |
-| 2026-08-18 | implemented | 완료된 준수 판정을 차단된 문제로 읽던 동작을 중단했습니다. T0는 모든 후보 규칙이 실행되고 어느 것도 거부하지 않았을 때만 `no_rule_denied`를 기록하지만, `control_loop.compliant` 행위 종류가 생기기 전에 기록된 항목은 그 사유를 abstain 종류 아래에 담고 있습니다. 감사 로그는 해시 체인으로 연결되어 재작성할 수 없으므로, 이제 인시던트 이정표와 차단 사유 판독기가 기록된 사유로 분류합니다. | `current change`, `incidents.milestones.test.ts`와 `incidents.overview.test.ts`의 집중 검사 14개 통과(신규 2개 포함), Console 전체 스위트 222개 파일 `1872 passed`, Console typecheck 통과. 측정된 범위: 로컬 감사 저장소에 해당 기록이 819개 있으며 모두 2026-08-18T04:05Z 이전에 기록되었고, 그 이후 준수 판정은 모두 `control_loop.compliant`를 씁니다. | 이 판독 수정에 남은 작업은 없습니다. 실제로 규칙이 없는 리소스 유형의 rule-catalog 커버리지는 #166에서 계속 열려 있습니다. |
-| 2026-08-18 | implemented | 에이전트 감독의 지식 인수인계 권한을 Console SPA id token의 `roles` 클레임 대신 서버가 소유한 `/iam` 기능 변환 결과에서 판별하도록 바꿨습니다. API 범위 App Role 모델에서는 해당 클레임이 채워지지 않습니다. 이 판별은 id token 클레임을 대체 수단으로 유지하고, 변환 결과를 불러오는 동안 확인 중 상태를 표시하며, 사용할 수 없으면 차단 상태로 유지합니다. | `current change`, `handover-editor.test.ts`와 `handover.test.ts`의 집중 검사 20개 통과, `index.test.ts` 카탈로그 일치 검사 6개 통과, Console typecheck 통과 | 권한이 있는 운영자가 담당자 등록 양식에 도달하는 통제된 Browser Entra 산출물을 보존합니다. |
-| 2026-08-18 | validated | 등록된 Console route 전체를 로컬 Operator API 기준으로 점검하고, 커밋 `bb56775e8` 이후 남아 있던 deck transcript padding 단언을 정정했습니다. | 현재 변경; 콘솔 `src/deck/investigation-timeline.test.ts` 11개 통과; 등록된 route 44개 인증 통과에서 `404`, 페이지 예외, 처리되지 않은 전송 코드가 없었고 `/agent-activity`, `/llm-cost`, `/architecture`, `/rules`가 측정된 내용을 렌더했습니다. | 런타임에 생성되는 근거 화면은 여전히 선언된 unavailable 사유를 렌더하며, `promotion-gate.list`에는 여전히 reader만 있고 writer가 없습니다. |
-| 2026-08-17 | implemented | 결론이 난 결정론적 통과를 판단 보류와 분리했습니다. 모든 후보 규칙이 평가되고 아무것도 거부하지 않으면 T0가 `control_loop.compliant`를 기록하고, 컨트롤 루프는 해당 이벤트에 RCA나 상위 티어 승격을 수행하지 않으며, incident 화면은 이를 차단 문제가 아닌 성공 마일스톤으로 표시합니다. | 현재 변경; `test_control_loop_e2e.py` 47개와 `t0_deterministic` 스위트 통과(총 109개), 둘 다 변이 검증; `incidents.milestones.test.ts` 5개 통과; 변경 전 실측으로 abstain 1641건 중 795건이 `no_rule_denied`였고 incident correlation 441건에 걸쳐 있었습니다. | 감사 로그는 추가 전용이므로 과거 행은 이전 `control_loop.abstain` 종류를 유지합니다. 보존 기간이 지나기 전까지는 혼재가 정상입니다. |
-| 2026-08-13 | implemented | 이전 구현 이력을 재구성하지 않고 구현 원장을 채택했으며 Approvals 경로를 타입이 지정된 출처 사용 불가 경계에 맞췄습니다. | `current change`; 구현 범위 표의 작업 소유 소스와 테스트; `vitest run src/routes/hil-queue.test.ts`에서 5개 테스트가 통과했고 범위를 한정한 라이브 `/approvals` Playwright 검사가 통과했습니다. | 아래의 변환 결과, 요청, 상호 작용 및 측정 완료 근거를 기록합니다. |
-| 2026-08-13 | implemented | Onboarding 경로를 타입이 지정된 출처 사용 불가 경계에 맞추고 Core에 의존하는 Command Deck 라이브 검사 2개의 명시적 outer budget을 복원했습니다. | `current change`; 구현 범위 표의 작업 소유 소스와 테스트; `vitest run src/routes/onboarding.test.ts`에서 6개 테스트가 통과했고 범위를 한정한 라이브 `/onboarding` Playwright 검사가 통과했으며 Playwright가 Command Deck 검사 2개를 검색했습니다. | Core semantic consumer를 복구하고 Command Deck 검사 2개를 실행하며 아래의 남은 완료 근거를 기록합니다. |
-| 2026-08-13 | validated | 대칭 피어링 표시를 추가하고 선택되거나 강조된 리소스를 유지하면서 밀집 아키텍처 지도의 선택적 반사 처리를 제한했습니다. | `current change`; 구현 범위 표의 작업 소유 소스, 카탈로그 및 테스트; 범위를 한정한 아키텍처 Vitest에서 54개 테스트가 통과했고 라이브 `/architecture` Playwright 검사가 4.9초에 통과했습니다. | 전체 경로 보증 캠페인을 계속하고 아래의 남은 완료 근거를 기록합니다. |
-| 2026-08-13 | in-progress | 인증된 통제 증적 및 seed 기반 이중 언어 보증 실행기에 일회성 Browser Entra `sessionStorage` 복원을 추가했습니다. | `current change`; 범위를 한정한 Console typecheck가 통과했고 설계 경로 gate가 이 담당 문서를 승인했습니다. | 준비 상태를 주장하기 전에 인증된 두 브라우저 경로를 실행하고 통과한 두 보존 근거 기록을 연결합니다. |
-| 2026-08-13 | implemented | 범위를 한정한 브라우저 실행이 통제된 runtime 또는 운영 근거로 보존되지 않았으므로 아키텍처 지도 분류를 정정했습니다. | `current change`; 구현 범위 표의 아키텍처 소스와 범위를 한정한 검사; 저장소 근거 기록에 이 실행의 보존된 증적이 없습니다. | `validated`로 복원하기 전에 통제된 runtime 또는 운영 증적을 보존합니다. |
-| 2026-08-13 | implemented | 성공 전용 세부 정보를 열기 전에 인증된 증적 실패를 표시하고, 테스트가 공급자 동시 요청을 만들지 않도록 seed 기반 이중 언어 보증 집단을 고정 15초 간격으로 직렬 실행하게 했습니다. | `current change`; `console/tests/live-e2e/console-routes.spec.ts`; `console/tests/live-e2e/ontology-query-assurance.spec.ts`; 범위를 한정한 Console typecheck와 diff 검사가 통과했습니다. | 준비 상태를 주장하기 전에 인증된 두 브라우저 경로를 실행하고 통과한 근거 기록을 보존합니다. |
-| 2026-08-13 | implemented | 전송 출처 메타데이터를 보존하고 허용 목록에 있는 증적 없는 중단에 한 번의 제한된 재시도를 추가했으며 안전하게 실패하는 의미 증적 판정기는 변경하지 않았습니다. 통제 아티팩트는 재시도 정책, 각 시도, 실제 보호 요청 수 및 소진된 재시도 수를 기록합니다. | `current change`; `console/tests/live-e2e/ontology-query-assurance*.ts`; 범위를 한정한 온톨로지 보증 Vitest에서 31개 테스트가 통과했고 Playwright가 외부 요청을 실행하지 않은 채 설정된 두 라이브 프로젝트를 검색했습니다. | 정확한 중앙 검증 증적을 얻은 뒤 소진된 전송 재시도가 없는 인증된 이중 언어 100개 질문 아티팩트 하나를 보존합니다. |
-| 2026-08-13 | implemented | 범위가 제한된 인증 진단 probe를 위해 결정적인 exact-id 선택을 추가했으며 `production_ready`에는 전체 집단 coverage가 계속 필수입니다. 알 수 없거나 중복되거나 비어 있는 질문 id는 라이브 요청 전에 실패합니다. | `current change`; `console/tests/live-e2e/ontology-query-assurance*.ts`; 범위를 한정한 온톨로지 보증 Vitest에서 37개 테스트가 통과했고 Playwright가 외부 요청을 실행하지 않은 채 설정된 라이브 테스트를 검색했습니다. | 정확한 중앙 검증 증적을 얻고 증적이 없었던 6건을 준비 상태 근거가 아닌 probe로 다시 실행한 뒤 새로운 전체 100개 질문 아티팩트를 보존합니다. |
-| 2026-08-13 | validated | 이전에 증적이 없었던 질문 6개가 범위가 제한된 진단 probe를 통과한 뒤 인증된 새로운 이중 언어 전체 집단 아티팩트를 보존했습니다. | `.fdai/live-validation/ontology-query-assurance-cohort-c16eb06755c44fc155773f1a5a85a0c23eb930a8/` 아래의 통제된 schema `1.1.0` 아티팩트는 정확히 중앙 검증된 source revision `c16eb06755c44fc155773f1a5a85a0c23eb930a8` 및 clean workspace patch digest `sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`에 연결됩니다. Playwright가 1.3시간에 통과했습니다. 보호 요청 100건은 locale별 질문 50개와 operation별 질문 10개의 100개 authoritative outcome을 만들었으며 실패, 재시도, 소진된 재시도, 중복 request 또는 projection id, 지원되지 않은 운영 claim 및 권한 없는 실행 claim은 모두 0건이었습니다. | 실행되는 동작이 변경되면 이후 준비 상태 주장을 새 exact validated revision과 통제된 전체 집단 아티팩트에 연결합니다. |
-| 2026-08-17 | implemented | 브라우저 기본값으로 렌더링되던 인시던트 버티컬과 심각도 선택 컨트롤을 간결한 Console 폼 스타일로 교체했습니다. | 이슈 #149; `current change`; `console/src/routes/incident-clarity.css`; 인증된 데스크톱 계산 스타일 및 화면 캡처 검사, 390 px 겹침 방지 검사, `npm --prefix console run build`가 통과했습니다. | 인시던트 필터 표시에 남은 작업은 없습니다. |
-
-### 남은 작업
-
-- [ ] 권한이 부여된 Contributor, Approver 또는 Owner가 지식 인수인계 담당자 등록 양식에 도달하고 Reader에게는 잠금 화면이 계속 표시됨을 보여 주는 통제된 Browser Entra 산출물을 보존합니다.
-- [ ] 단계 1 완료 조건에서 정의한 결정론적 재구축, 다이제스트 변경 및 캐시 손실 훈련 근거를 기록합니다.
-- [ ] 제공되는 모든 요청 경로에서 단계 2 완료 조건의 실패 주입 및 권한 경계 매트릭스를 통과합니다.
-- [ ] 단계 3 완료 조건에서 정의한 키보드, 충돌, 재시도, 보상 및 롤백 훈련 근거를 기록합니다.
-- [ ] 검토된 기준선 구간을 고정하고 단계 4 완료 조건에서 정의한 shadow 측정 비교를 통과합니다.
-- [x] 모든 전송 시도를 기록하고 소진된 전송 재시도가 0이라고 보고하는 인증된 이중 언어 100개 질문 온톨로지 보증 아티팩트 하나를 보존합니다.
-- [x] 데스크톱과 좁은 화면에서 인시던트 버티컬 및 심각도 필터를 간결한 Console 폼 스타일에 맞춥니다.
-
 ## 설계 요약
 
 Operations 영역은 기존 도메인 변환 결과를 읽고, 각 스키마와 수명 주기를 이미 소유한 도메인
@@ -507,6 +455,7 @@ unavailable-source 비율이 악화되지 않을 때만 진행합니다.
 
 | 알아볼 내용 | 문서 |
 |-------------|------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/interfaces/console-operations.md) |
 | 대화형 번역과 채널 도구 | [오퍼레이터 콘솔](operator-console-ko.md) |
 | 사람 역할과 연산 기능 | [사용자 RBAC와 Entra 아이덴티티](user-rbac-and-identity-ko.md) |
 | Exact 온톨로지 release와 객체 집합 | [운영 온톨로지 플랫폼](../architecture/operating-ontology-platform-ko.md) |

@@ -1234,4 +1234,4 @@ normal risk-gate and executor path rather than calling the resolved target.
 - Registering the same provider through both a bundle and
   `AzureWireOverrides.tool_providers`. Duplicate ids are a startup error.
 - Using a bundle as a generic function dispatcher for mutations. Mutations
-  remain `ActionType` invocations governed by the control loop.
+  remain `ActionType` invocations governed by the control loop. Track delivery status and remaining work in the [implementation ledger](../../roadmap-implementation/fork-and-sequencing/downstream-fork-seam-recipes.md).

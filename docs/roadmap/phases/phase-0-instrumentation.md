@@ -13,14 +13,6 @@ P0 identity/policy blockers tracked in
 [security-and-identity.md](../architecture/security-and-identity.md). Its outputs are the direct
 prerequisite for [phase-1-rule-catalog-t0.md](phase-1-rule-catalog-t0.md).
 
-> **Implementation status**: Telemetry, configuration, and event contracts; PostgreSQL
-> migrations; the frozen `v2026.07` scenarios; `tools/reference_agent/`;
-> `tools/baseline_run.py`; baseline reports; provider fakes; the pgvector/Redpanda local preset;
-> and the exemption schema and template are implemented. Entra app/group provisioning, PR-trailer
-> no-self-approval CI, the exemption auto-expiry/digest job, and production validation of all P0
-> exit evidence are incomplete. The task tables preserve the original plan and acceptance criteria;
-> this callout describes the current repository state.
-
 ## Terms Reused
 
 Do not redefine domain terms here. `Event`, `Scenario set`, `Reference agent`,
@@ -95,7 +87,7 @@ enforce-mode capability is in scope for P0.
 
 | Task | Title | Deps | Deliverable | Acceptance | Size |
 |------|-------|------|-------------|------------|------|
-| **W1.1** | Monorepo skeleton | - | Directories from [project-structure.md](../architecture/project-structure.md): `core/`, `shared/`, `rule-catalog/`, `delivery/`, `infra/`, `policies/`, `services/core-control-plane/tests/`, `.github/` with placeholder READMEs and lockfile per subsystem | Directory dependency direction enforced by CI (a lint job flags forbidden imports) | S |
+| **W1.1** | Multi-service workspace skeleton | - | Five service-owned Python distributions, the shared service-contract SDK, root workspace lockfile, `infra/`, `policies/`, and `.github/` from [Multi-Service Repository Layout](../architecture/multi-service-repository-layout.md) | Service and module dependency direction enforced by CI | S |
 | **W1.2** | Ontology + event contracts | W1.1 | `services/core-control-plane/src/fdai/shared/contracts/ontology/{object-type,link-type,action-type}.json`, `services/core-control-plane/src/fdai/shared/contracts/event/schema.json`; generated types per language | Schema validates in CI (`ajv`); breaking changes bump semver | M |
 | **W1.3** | Config schema + fail-fast loader | W1.1 | `services/core-control-plane/src/fdai/shared/config/schema.json` + Python loader; env + file provider | Invalid or missing required field aborts startup with a structured error | S |
 | **W1.4** | OpenTelemetry wiring | W1.1 | `services/core-control-plane/src/fdai/shared/telemetry/` traces, metrics, logs; JSON-structured logs with `correlation_id`; collector config in `infra/` | A synthetic event traces end-to-end (ingest → tier → gate → audit) with one correlation id | M |
@@ -193,26 +185,6 @@ Each task is done only when:
    its shipping default is `enforcement: do-not-enforce`.
 5. **Audit-log entry emitted** for any state-changing task at runtime (Terraform apply
    included).
-
-## Implementation status
-
-### Implementation scope
-
-| Area | State | Evidence | Notes |
-|------|-------|----------|-------|
-| Phase 0 work items W1-W6 | in-progress | Work-item deliverables and acceptance checks in this document; current source and test paths named by each work item | This ledger adoption does not infer completion from repository shape. Each work item remains bounded by its own acceptance check and the exit criteria below. |
-| Sequenced task timeline | implemented | `docs/diagrams/fdai-roadmap-phases-phase-0-instrumentation-01.diagram.yaml`; `npm --prefix tools/architecture-diagrams run check` | The maintained bilingual FDAI diagram replaces the former Mermaid rendering without changing task dependencies or implementation authority. |
-
-### Implementation history
-
-| Date | State | Change | Evidence | Remaining |
-|------|-------|--------|----------|-----------|
-| 2026-08-20 | in-progress | Adopted the implementation ledger; earlier work-item provenance was not reconstructed. Replaced the task timeline with a repository-owned bilingual diagram. | `current change`; Phase 0 roadmap pair, diagram specification, and focused diagram checks. | Review each W1-W6 acceptance check against current implementation and CI evidence before raising any scope row to implemented or validated. |
-
-### Remaining work
-
-- [ ] Classify every W1-W6 work item against its declared acceptance check, cite the current source and CI evidence, and split the aggregate scope row when independently provable states differ.
-
 ## Data and Scope Constraints
 
 - All telemetry, scenario, audit, and KPI data committed to this repo is **secret-free and
@@ -277,3 +249,9 @@ All criteria are independently verifiable; a phase gate passes only when every b
   identity/policy blockers are prerequisites for
   [phase-1-rule-catalog-t0.md](phase-1-rule-catalog-t0.md) and every later phase
   ([README.md](../README.md)).
+
+## Related docs
+
+| To learn about | Read |
+|----------------|------|
+| Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/phases/phase-0-instrumentation.md) |

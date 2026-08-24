@@ -14,33 +14,6 @@ realizes the topology in
 satisfy the safety and code rules in
 [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md)
 and the threat model in [security-and-identity.md](security-and-identity.md).
-
-## Implementation status
-
-### Implementation scope
-
-| Area | State | Evidence | Notes |
-|------|-------|----------|-------|
-| Python service distributions and five-service runtime | validated | `services/`; `packages/service-contracts/`; `config/independent-service-live-evidence-manifest.json`; `config/independent-service-remote-evidence.attestation.jsonl` | The five service distributions, images, health boundaries, and protected N/N-1/N transitions have retained remote evidence. |
-| Terraform Azure platform, Event Hubs Kafka, and PostgreSQL plus pgvector | implemented | `infra/`; `alembic/`; `service-migrations/branches/`; focused infrastructure and migration tests | The stack and protected deployment mechanics exist. The general platform owner still requires a retained governed apply receipt before it can claim validation. |
-| OPA/Rego policy and catalog execution | implemented | `policies/`; `rule-catalog/`; `scripts/catalog/sync-rule-semantics.py`; the `rule-semantics` gate in `scripts/verify.sh` and `.github/workflows/ci.yml`; `tests/integration/scripts/test_sync_rule_semantics.py`; focused policy and catalog tests | Shipped Rego, normalized catalog metadata, OPA compilation, and deterministic evaluation are executable. Rule-to-policy semantic drift is also enforced: the scoped gate fails the change when a rule diverges from its policy, and it fails rather than skips when OPA is unavailable. |
-| OpenTelemetry and Azure observation adapters | in-progress | `shared/telemetry/`; `delivery/azure/metric_logs.py`; `delivery/azure/log_query.py`; `delivery/azure/telemetry_query.py`; observation campaign tests | Instrumentation and bounded Azure adapters are implemented. One retained end-to-end operational telemetry campaign across all five services remains open. |
-| Non-Azure managed alternatives | deferred | [OD-3](#od-3-multi-cloud-event-bus-phase-4--tbd); [Implementation Focus](../../../.github/copilot-instructions.md#implementation-focus-must) | Alternatives remain design options, not implemented or parity-validated targets. |
-
-### Implementation history
-
-| Date | State | Change | Evidence | Remaining |
-|------|-------|--------|----------|-----------|
-| 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and aligned the stack with the current five-service, Rego, telemetry, and Azure-only implementation. | `current change`; service evidence, infrastructure, policy, telemetry, and focused test paths cited above. | Retain platform apply and telemetry campaign evidence; keep non-Azure targets deferred. |
-| 2026-08-15 | implemented | Promoted the rule-to-policy semantic drift check from an on-demand command to an enforced gate in `verify.sh` and CI, and corrected the evidence wording that treated executability as enforcement. | `current change`; `scripts/verify.sh`; `.github/workflows/ci.yml`; `tests/integration/scripts/test_sync_rule_semantics.py`; `uv run python scripts/catalog/sync-rule-semantics.py --check` exits 0 on the shipped catalog; the focused synchronizer suite passes. | Platform apply and telemetry campaign evidence remain open. |
-
-### Remaining work
-
-- [ ] Retain a governed platform apply receipt binding the exact Terraform plan, source revision, service images, migrations, identities, and post-apply health.
-- [ ] Retain one end-to-end OpenTelemetry and Azure query campaign across all five services with correlation, retention, failure, and unavailable-state evidence.
-- [ ] Implement the reviewed weekly model reconciler before describing model replacement as operational, and keep all swaps draft-PR plus shadow-replay gated.
-- [ ] Keep non-Azure alternatives unimplemented until one target is explicitly approved with parity and rollback evidence.
-
 ## How to Read This Document
 
 - **Bold** entries are named managed services offered as recommendations; each is paired with a
@@ -173,24 +146,25 @@ land under the project structure defined in
 - **Context**: adapters, LLM SDKs, and rule tooling drive the choice.
 - **Options**: TypeScript (Node) · Python · Go.
 - **Criteria**: adapter/SDK maturity, team familiarity, typing/perf headroom.
-- **Status**: **Decided - Python (3.12+), single-language monorepo under `services/core-control-plane/src/fdai/`.**
+- **Status**: **Decided - Python (3.12+) for the five independently packaged backend services and shared service-contract SDK.**
   Rationale: (i) the richest ecosystem for OPA bindings, LLM providers, and IaC-scanner
   toolchains (Checkov / tfsec / KICS / Trivy) is in Python; (ii) mypy provides sufficient
   typing rigor for the safety core; (iii) one language across every subsystem simplifies the
   ≥ 90% coverage gate on `core/tiers/t0_deterministic` and `core/risk_gate`. A future perf-
   driven split (e.g. Go for `event_ingest`) is additive because subsystems already sit behind
   the interfaces in `shared/`.
-- **Package layout**: Python "src layout" - every runtime module lives at
-  `services/core-control-plane/src/fdai/<subsystem>/`. The `core/`, `shared/`, `delivery/`, and `rule_catalog/`
-  subsystem folders in [project-structure.md](project-structure.md) map to
+- **Package layout**: Python "src layout" - Core subsystems live at
+  `services/core-control-plane/src/fdai/<subsystem>/`; the other four backend processes own their
+  service-local source roots under `services/*/src/`. The `core/`, `shared/`, `delivery/`, and `rule_catalog/`
+  Core subsystem folders in [project-structure.md](project-structure.md) map to
   `services/core-control-plane/src/fdai/core/`, `services/core-control-plane/src/fdai/shared/`, `services/core-control-plane/src/fdai/delivery/`, and
   `services/core-control-plane/src/fdai/rule_catalog/` respectively. Directory names use `snake_case` (Python
   identifier rules); the logical `kebab-case` names remain the vocabulary in docs and rule
   ids per [language.instructions.md](../../../.github/instructions/language.instructions.md).
-- **Lockfile**: one `uv.lock` (or equivalent) at the repo root; the subsystem-per-lockfile
-  guidance in earlier drafts applied to a multi-language layout and is retired for the
-  Python monorepo. Cross-subsystem boundary enforcement is done by import-lint in CI
-  (W1.7), not by separate package boundaries.
+- **Workspace resolution**: one root `uv.lock` coordinates development and integration. Every
+  backend service and `packages/service-contracts/` owns a separate `pyproject.toml`, distribution,
+  tests, and image or SDK artifact. CI enforces both service package isolation and Core subsystem
+  import direction.
 
 ### OD-2: Primary state store
 
@@ -214,3 +188,9 @@ land under the project structure defined in
 - **Status**: Deferred (TBD) - Azure remains the only implemented target, using Event Hubs
   through its Kafka endpoint. The Azure bus decision is complete; this item covers only a
   future non-Azure implementation.
+
+## Related docs
+
+| To learn about | Read |
+|----------------|------|
+| Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/architecture/tech-stack.md) |

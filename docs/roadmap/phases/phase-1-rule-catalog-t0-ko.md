@@ -1,8 +1,8 @@
 ---
 title: Phase 1 - 규칙 카탈로그와 T0 결정론적 엔진
 translation_of: phase-1-rule-catalog-t0.md
-translation_source_sha: 83bff1d74f0983c3ad0e236da21c0ffdcfac5d1d
-translation_revised: 2026-08-12
+translation_source_sha: 913e64f39463258c277ded6dbf8efdba2e05dc2b
+translation_revised: 2026-08-24
 ---
 
 # 단계 1 - 규칙 카탈로그와 T0 결정론적 엔진
@@ -20,16 +20,6 @@ translation_revised: 2026-08-12
 의 고객-비종속 범위 하에 구현. [phase-0-instrumentation-ko.md](phase-0-instrumentation-ko.md)
 가 딜리버리하는 원격측정, 베이스라인, 아이덴티티/정책 언블록을 소비하고
 [phase-2-quality-and-t1-ko.md](phase-2-quality-and-t1-ko.md) 로 공급.
-
-> **구현 상태**: Authored 룰/Rego/교정 seeds, ActionType 카탈로그, T0 엔진, OPA
-> 평가기, control-loop orchestration, GitOps draft-PR 어댑터, Azure 인벤토리 스냅샷/delta
-> primitives 및 frozen-scenario 재생이 구현되어 있습니다. 이 문서의 "shadow only"는 P1이
-> 처음 landing할 때의 단계 경계입니다. 현재 저장소에는 이후 단계의 승격,
-> risk/HIL 및 enforce-capable 어댑터도 존재하므로 전체 런타임의 현재 모드를 뜻하지 않습니다.
-> 운영 인벤토리와 GitOps 전달은 배포별 프로바이더/자격 증명 연결이 필요합니다.
-> Rego 평가는 이제 정확한 `data.<package>.deny` 판정 경로, OPA 버전, 소스 및 정규화된 AST 의미
-> 다이제스트, 정본 입력 다이제스트, 결과 다이제스트를 고정합니다. T0는 allow와 deny 결과의
-> 증적을 모두 감사 힌트에 보존하고 deny 발견 결과는 같은 증적을 포함합니다.
 
 ## 범위
 
@@ -296,3 +286,9 @@ PR은 `shadow` 라벨되고 초안으로(또는 shadow 브랜치에 대해) 오�
   (이벤트 스키마, 감사/상태/KPI 저장소), 고정 시나리오 세트와 참조 베이스라인, 해결된
   아이덴티티/인가 및 정책-예외 블로커 ([security-and-identity-ko.md](../architecture/security-and-identity-ko.md)).
   T0 shadow 결정은 단계 0 감사 저장소를 통해 로그; 그것 없이 exit 기준은 측정 불가.
+
+## 관련 문서
+
+| 알아볼 내용 | 읽을 문서 |
+|-------------|-----------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/phases/phase-1-rule-catalog-t0.md) |

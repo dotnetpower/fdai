@@ -1,8 +1,8 @@
 ---
 title: Fork Seam Recipe 조리서
 translation_of: downstream-fork-seam-recipes.md
-translation_source_sha: a1bf6836eeebe129b02fc043bbb0696f154205a3
-translation_revised: 2026-08-11
+translation_source_sha: e9d08684a328a0748c77e3a2b0775a2b1d4aead2
+translation_revised: 2026-08-24
 ---
 
 # 포크 경계 Recipes
@@ -1190,4 +1190,4 @@ Installer는 알 수 없는 대상, 누락 또는 중복 프로바이더, 도구
 - 동일 프로바이더를 번들과 `AzureWireOverrides.tool_providers` 양쪽에 등록합니다.
   중복 id는 시작 오류입니다.
 - 번들을 변경 작업용 범용 함수 디스패처로 사용합니다. 변경은 컨트롤 루프가
-  관리하는 `ActionType` 호출로 유지합니다.
+  관리하는 `ActionType` 호출로 유지합니다. 구현 상태와 남은 작업은 [구현 원장](../../roadmap-implementation/fork-and-sequencing/downstream-fork-seam-recipes.md)에서 추적합니다.

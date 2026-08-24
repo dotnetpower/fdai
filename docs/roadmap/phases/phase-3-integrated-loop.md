@@ -16,13 +16,6 @@ All RPO/RTO, savings, and lead-time figures here are **measured values reported 
 objectives on a fixed scenario set and measurement window** - never estimates or unbaselined
 multipliers (see [goals-and-metrics.md](../architecture/goals-and-metrics.md)).
 
-> **Implementation status**: Shared control-loop/risk/executor plumbing, cross-vertical
-> precedence, Resilience/Change Safety/FinOps guardrail modules, scheduler/DR adapters, DB restore
-> primitives, and Terraform per-vertical UAMIs are implemented. Production exit evidence for
-> measured RPO/RTO, savings, and lead time across all three verticals, live auto-action
-> composition, and the Assurance Twin ambient review/panel are incomplete. The automated behavior
-> and Exit Criteria below are targets, not claims of current attainment.
-
 ## Deliverables
 
 Each deliverable maps to a section below. The module reference lists the primary Python
@@ -217,3 +210,9 @@ Each criterion is measurable on the fixed scenario set and measurement window
   starting point for continuous measurement, pattern-library growth, and model tracking on
   the Azure baseline. **Multi-cloud expansion is TBD** (see
   [Always-On Rules](../../../.github/copilot-instructions.md#always-on-rules-must)).
+
+## Related docs
+
+| To learn about | Read |
+|----------------|------|
+| Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/phases/phase-3-integrated-loop.md) |

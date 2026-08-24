@@ -22,7 +22,7 @@ retired top-level application tree.
 
 > **Index contract:** This page is navigation-only. Linked owner documents contain current
 > implementation status and history. The retired mixed-purpose ledger is preserved in the
-> [archived Code Map implementation ledger](code-map-implementation-ledger.md).
+> [archived Code Map implementation ledger](../../roadmap-implementation/architecture/code-map.md).
 
 ## Physical service ownership
 
@@ -44,6 +44,7 @@ unchanged by the physical move.
 | Area | Responsibility | Source | Tests |
 |------|----------------|--------|-------|
 | Control loop and decisioning | Event normalization, tier routing, exact Rego allow/deny evaluation receipts, quality, risk, approval, execution coordination, recovery, and audit | [core](../../../services/core-control-plane/src/fdai/core/) | [core tests](../../../services/core-control-plane/tests/core/) |
+| Hallucination rubric promotion | Paired immutable baseline/treatment evidence, confidence-aware readiness, independent review binding, strict manifest verification, and per-ActionType fail-closed rubric mode resolution without promotion authority | [rubric promotion core](../../../services/core-control-plane/src/fdai/core/quality_gate/promotion.py) and [manifest adapter](../../../services/core-control-plane/src/fdai/delivery/measurement/rubric_promotion_evidence.py) | [rubric promotion tests](../../../services/core-control-plane/tests/core/quality_gate/test_rubric_promotion.py), [adapter tests](../../../services/core-control-plane/tests/delivery/test_rubric_promotion_evidence.py), and [composition tests](../../../services/core-control-plane/tests/composition/test_rubric_promotion_binding.py) |
 | Execution authorization | Provider-neutral requirement outcomes, least-permissive reduction of non-empty decision sets, canonical request and inventory binding, and rejection of ambiguous identity or unbound grant proposals | [execution_authorization](../../../services/core-control-plane/src/fdai/core/execution_authorization/) | [execution authorization tests](../../../services/core-control-plane/tests/core/execution_authorization/) |
 | Ontology safety platform | Exact semantic releases with catalog-loaded Interface and FunctionType declarations, release-aware query profiles and function registration, principal-scoped manifests, verified Resource-to-ResourceType classification, generic and temporal query algebra, bitemporal topology and diffs, immutable direction-generation shadow comparisons with bounded blast-radius deltas and authoritative-inventory rebuild pointers, reviewed metric concepts, topology-aware causal joins, mutation plans with separate planner-function and operational-plan lineage plus documented fail-closed argument, evidence, target, and effect validation contracts, compact typed effect-reconciliation events, authenticated independent-observer binding, and lease-fenced durable terminal outbox delivery | [ontology_platform](../../../services/core-control-plane/src/fdai/core/ontology_platform/) | [ontology platform tests](../../../services/core-control-plane/tests/core/ontology_platform/) |
 | Ontology structural model | Exact ResourceType identity, reviewed ResourceClass aggregation, direct-link roles and semantic traits, exploratory traversal, ordered typed paths, and limitation-preserving graph presentation | [owner design](ontology-structural-model.md), [ontology contracts](../../../services/core-control-plane/src/fdai/shared/contracts/models/ontology.py), [catalog projection](../../../services/core-control-plane/src/fdai/core/ontology_platform/catalog_projection.py), and [query platform](../../../services/core-control-plane/src/fdai/core/ontology_platform/) | [ontology platform tests](../../../services/core-control-plane/tests/core/ontology_platform/), [catalog tests](../../../services/core-control-plane/tests/rule_catalog/), and [Console graph tests](../../../console/src/components/ontology-graph.model.test.ts) |
@@ -215,7 +216,8 @@ The package test tree validates SDK behavior. Cross-service N/N-1 and topology c
 
 | To learn about | Read |
 |----------------|------|
-| Complete package boundaries and dependency injection | [Project Structure](project-structure.md) |
+| Physical service and package ownership | [Multi-Service Repository Layout](multi-service-repository-layout.md) |
+| Module boundaries and dependency injection | [Project Structure](project-structure.md) |
 | Conversation and ontology query implementation sequencing | [Ontology Query Coverage Implementation Plan](../interfaces/ontology-query-coverage-implementation-plan.md) |
 | IS work packages and local-first sequencing | [Service Decomposition Execution Plan](service-decomposition-execution-plan.md) |
 | Graduation, data ownership, and rollback gates | [Service Graduation and Data Ownership](service-graduation-and-ownership.md) |

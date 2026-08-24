@@ -5,7 +5,7 @@ terminal app, built on
 [Ink](https://github.com/vadimdemedes/ink) (React for the terminal). It is the
 runnable successor to the design mock at [../mocks/ui-cli](../mocks/ui-cli).
 
-> Node/TypeScript island in a Python-first monorepo, like
+> Node/TypeScript operator package in a Python-first multi-service workspace, like
 > [../console](../console). No build step is required to run it (`tsx` executes
 > the TypeScript directly). The surface is bilingual and customer-agnostic.
 

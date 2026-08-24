@@ -2,7 +2,7 @@
 #
 # check-doc-links.sh - guard against broken markdown link targets.
 #
-# Every tracked ``*.md`` link that points at a relative filesystem path
+# Every tracked or untracked, non-ignored ``*.md`` link that points at a relative filesystem path
 # is resolved (following symlinks - mirrors the site build's
 # remarkRewriteLinks plugin which resolves against the canonical
 # source location, not the symlink location). A missing target is a
@@ -41,8 +41,9 @@ import sys
 from pathlib import Path
 
 repo = Path(".").resolve()
-tracked = subprocess.check_output(
-    ["git", "ls-files", "*.md"], text=True
+documents = subprocess.check_output(
+    ["git", "ls-files", "--cached", "--others", "--exclude-standard", "--", "*.md"],
+    text=True,
 ).splitlines()
 
 link_re = re.compile(r"\[([^\]]*)\]\(([^)]+)\)")
@@ -68,7 +69,7 @@ def is_git_ignored(path: Path) -> bool:
     return result.returncode == 0
 
 
-for md in tracked:
+for md in documents:
     path = repo / md
     if not path.is_file():
         continue
@@ -103,5 +104,5 @@ if broken:
         print(f"  {md} -> {rel}", file=sys.stderr)
     sys.exit(1)
 
-print(f"check-doc-links: OK ({scanned} tracked *.md file(s) scanned, 0 broken)")
+print(f"check-doc-links: OK ({scanned} tracked/untracked *.md file(s) scanned, 0 broken)")
 PY

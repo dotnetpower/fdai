@@ -49,28 +49,6 @@ execution) and is promoted to `enforce` only after its declared
 Every fork-added ActionType and state-changing workflow step inherits all seven constitutional
 safeguards. A provider binding, catalog entry, environment, or fork marker never promotes
 authority, waives a safeguard, or turns a new composition directly into enforce mode.
-
-## Implementation status
-
-### Implementation scope
-
-| Area | State | Evidence | Notes |
-|------|-------|----------|-------|
-| Framework-surface and integrity protection | implemented | [`framework-surface.txt`](../../../scripts/lib/framework-surface.txt), [`check-protected-paths.sh`](../../../scripts/integrity/check-protected-paths.sh), [`check-integrity.sh`](../../../scripts/integrity/check-integrity.sh) | The machine-readable locked set drives the fork guard and offline integrity check. |
-| Supported seam recipes and example vertical | implemented | [Fork Seam Recipes](downstream-fork-seam-recipes.md), [Example Vertical](downstream-fork-example-vertical.md), [`test_change_summary_example.py`](../../../services/core-control-plane/tests/verticals/test_change_summary_example.py) | The guide routes concrete downstream work through existing seams and a tested generic example. |
-| Deployment-specific adapters and promotion evidence | not-applicable | [Customer-Agnostic Scope](../../../.github/instructions/generic-scope.instructions.md) | These belong to each downstream distribution and deployment, not this upstream procedural guide. |
-
-### Implementation history
-
-| Date | State | Change | Evidence | Remaining |
-|------|-------|--------|----------|-----------|
-| 2026-08-19 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and aligned the guide with the machine-readable framework surface, current seam cookbook, and historical standard-set compatibility boundary. | `current change`; the sources and focused checks listed in the scope table. | No implementation work is owned by this guide; downstream distributions supply their own adapters and evidence. |
-
-### Remaining work
-
-- [x] No implementation remains in this procedural guide. The machine-readable framework surface,
-  focused integrity checks, seam cookbook, and tested example provide its executable evidence.
-
 ## 1. Fork model at a glance
 
 - **Upstream** = this repository. Ships the generic control plane
@@ -390,3 +368,9 @@ Hard don'ts. Any of these is a merge-blocker:
   or a deployment; an unbound one works for whoever can read it.
 - [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md) -
   the customer-agnostic scope contract every fork honors.
+
+## Related docs
+
+| To learn about | Read |
+|----------------|------|
+| Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/fork-and-sequencing/downstream-fork-guide.md) |

@@ -13,9 +13,9 @@
 #
 # Scope:
 #   Included: root README.md, everything under docs/**/*.md
-#   Excluded: .github/**, docs/internals/** (English-only internal engineering
-#             notes, like .github/**), mocks/**, examples/**, node_modules/**,
-#             site/**
+#   Excluded: .github/**, docs/internals/** and docs/roadmap-implementation/**
+#             (English-only engineering records), mocks/**, examples/**,
+#             node_modules/**, site/**
 #
 # Exit codes: 0 on success, 1 on any violation.
 
@@ -44,6 +44,7 @@ mapfile -t english_docs < <(
     | grep -E '\.md$' \
     | grep -Ev '(^|/)[^/]+-ko\.md$' \
     | grep -Ev '^docs/internals/' \
+    | grep -Ev '^docs/roadmap-implementation/' \
     | sort -u
 )
 

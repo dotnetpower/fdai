@@ -476,3 +476,9 @@ regression alert and files the PR.
 - **Auto-promoting an ActionType without measured evidence**. Every
   promotion PR references the shadow-window report; a promotion PR
   without evidence is a policy bypass that the reviewer MUST reject.
+
+## Related docs
+
+| To learn about | Read |
+|----------------|------|
+| Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/fork-and-sequencing/downstream-fork-example-vertical.md) |

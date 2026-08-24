@@ -20,12 +20,6 @@ CSP-neutral wire contracts live in
 control loop live in
 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md).
 
-> **Implementation status (2026-07-21).** Incident, all eight telemetry wire contracts,
-> workload SLO, runbook, on-call, postmortem, and vertical registry from section 3 are shipped.
-> Its `Problem` paragraphs preserve the historical gaps at adoption time. T2 candidate Action
-> construction and unified risk/HIL routing are also shipped; only handing a risk-eligible T2
-> Action to the executor remains.
-
 ## 1. In-scope axes (kept + expanded)
 
 | Axis | Position | Rationale |
@@ -459,3 +453,9 @@ Deployment credentials and endpoints remain external configuration, not reposito
 unconfigured adapter reports unavailable or uses the documented role fallback; it never substitutes
 fixtures or promotes autonomy. Direct write CLI and global auto-approval are intentionally replaced
 by FDAI's typed action, policy, risk, approval, rollback, lock, idempotency, and audit path.
+
+## Related docs
+
+| To learn about | Read |
+|----------------|------|
+| Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/fork-and-sequencing/scope-expansion.md) |

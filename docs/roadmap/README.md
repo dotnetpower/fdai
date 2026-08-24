@@ -245,7 +245,7 @@ same shape.
 |---------|--------------------|
 | Control loop (event -> tier -> gate -> action -> audit) | [architecture.instructions.md § Control Loop](../../.github/instructions/architecture.instructions.md#control-loop) |
 | Agent pantheon (15-agent org chart) | [agents/agent-pantheon.md](agents/agent-pantheon.md) |
-| Monorepo layout | [architecture/project-structure.md § Monorepo Layout](architecture/project-structure.md#monorepo-layout) |
+| Multi-service repository layout | [architecture/multi-service-repository-layout.md](architecture/multi-service-repository-layout.md) |
 | Subsystem index (source -> tests -> docs) | [architecture/code-map.md](architecture/code-map.md) |
 
 A doc that needs a different view of these concepts SHOULD use a
