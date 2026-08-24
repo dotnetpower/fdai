@@ -13,7 +13,7 @@ module "container_app" {
     identity            = var.identity.resource_id
     key_vault_secret_id = var.database.dsn_secret_id
   }]
-  environment = [
+  environment = concat([
     { name = "FDAI_STATE_STORE_DSN", secret_name = "database-dsn" },
     { name = "POSTGRES_HOST", value = var.database.host },
     { name = "FDAI_DATABASE_ROLE", value = var.database.role },
@@ -49,9 +49,12 @@ module "container_app" {
     { name = "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC", value = var.event_topics.semantic_projections },
     { name = "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC", value = var.event_topics.semantic_physical },
     { name = "FDAI_READ_INVESTIGATION_REQUEST_TOPIC", value = var.event_topics.read_investigation_requests },
+    { name = "FDAI_INCIDENT_INTERVENTION_REQUEST_TOPIC", value = var.event_topics.incident_intervention_requests },
     { name = "FDAI_START_CONSUMER", value = "1" },
     { name = "FDAI_HEALTH_PORT", value = tostring(var.health.port) },
-  ]
+    ], var.llm.resolved_models_digest == "" ? [] : [
+    { name = "LLM_RESOLVED_MODELS_SHA256", value = var.llm.resolved_models_digest },
+  ])
   health            = var.health
   scaling           = var.scaling
   component         = "core-control-plane"

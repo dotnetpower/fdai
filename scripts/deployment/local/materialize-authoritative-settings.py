@@ -289,6 +289,11 @@ def _enabled(value: str | None, *, default: bool) -> bool:
     return value.strip().lower() not in {"0", "false", "no", "off"}
 
 
+def _canonical_json_digest(value: Mapping[str, object]) -> str:
+    canonical = json.dumps(value, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    return "sha256:" + hashlib.sha256(canonical).hexdigest()
+
+
 async def materialize() -> None:
     """Write sanitized projections to the durable local Operator projection namespace."""
     dsn = os.environ.get("FDAI_STATE_STORE_DSN", "").strip()
@@ -302,7 +307,7 @@ async def materialize() -> None:
     if not isinstance(raw, Mapping):
         raise RuntimeError("resolved model artifact MUST be a JSON object")
     observed_at = datetime.fromtimestamp(artifact.stat().st_mtime, tz=UTC)
-    active_digest = "sha256:" + hashlib.sha256(artifact.read_bytes()).hexdigest()
+    active_digest = _canonical_json_digest(raw)
     domains = tuple(
         value.strip()
         for value in os.environ.get("FDAI_WEB_SEARCH_ALLOWED_DOMAINS", "").split(",")

@@ -771,7 +771,7 @@ def test_workflow_binds_image_attestation_to_source_and_signer() -> None:
     assert "container-supply-chain.yml" in _WORKFLOW
     assert "attestations/resolved-models/v1" in _WORKFLOW
     assert "Core image must have one canonical resolved-models digest." in _WORKFLOW
-    assert _WORKFLOW.count('--resolved-models-digest "$RESOLVED_MODELS_DIGEST"') == 2
+    assert _WORKFLOW.count('--resolved-models-digest "$RESOLVED_MODELS_DIGEST"') == 4
 
 
 def test_legacy_platform_imports_the_service_specific_core_image() -> None:
@@ -896,6 +896,22 @@ def test_service_workflow_seals_database_host_binding_mode() -> None:
     assert _WORKFLOW.count('"${database_args[@]}"') == 4
     assert "event-bus-topic-migration+database-host-binding" in _WORKFLOW
     assert "database-host-binding" in _WORKFLOW
+
+
+def test_service_workflow_seals_core_model_binding_transition() -> None:
+    assert "model_binding_transition:" in _WORKFLOW
+    assert "Model binding transition is valid only for core-control-plane." in _WORKFLOW
+    assert "Model binding transition cannot be combined with another transition." in _WORKFLOW
+    assert _WORKFLOW.count("MODEL_BINDING_TRANSITION: ${{ inputs.model_binding_transition }}") == 5
+    assert "RESOLVED_MODELS_JSON: ${{ vars.RESOLVED_MODELS_JSON }}" in _WORKFLOW
+    assert "transition_args+=(--model-binding-transition)" in _WORKFLOW
+    assert '"${transition_args[@]}"' in _WORKFLOW
+    assert "--model-binding-transition" in _WORKFLOW
+    assert _WORKFLOW.count('--resolved-models-digest "$RESOLVED_MODELS_DIGEST"') >= 4
+    assert "service-model-binding-apply-{0}" in _WORKFLOW
+    assert 'name = "LLM_RESOLVED_MODELS_PATH"' in _CORE_TERRAFORM
+    assert 'name = "LLM_RESOLVED_MODELS_SHA256"' in _CORE_TERRAFORM
+    assert "var.llm.resolved_models_digest" in _CORE_TERRAFORM
 
 
 def test_apply_has_post_apply_health_and_no_destroy_command() -> None:

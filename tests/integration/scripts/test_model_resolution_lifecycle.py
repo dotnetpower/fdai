@@ -57,6 +57,11 @@ def test_protected_deploy_resolves_and_seals_model_manifest_before_plan() -> Non
     assert "MODEL_BINDING_POLICY_STAGING_JSON" in _DEPLOY
     assert "MODEL_BINDING_POLICY_PROD_JSON" in _DEPLOY
     assert "Verify model binding policy active digest" in _DEPLOY
+    assert "verify_active_core_revision.py" in _DEPLOY
+    assert "verify_active_model_attestation.py" in _DEPLOY
+    assert "--require-model-binding" in _DEPLOY
+    assert '"oci://${active_image}"' in _DEPLOY
+    assert "Terraform model digest differs from active Core runtime evidence" in _DEPLOY
     assert "terraform output -raw resolved_models_sha256" in _DEPLOY
     assert "Model binding policy active digest is stale" in _DEPLOY
     assert "Current active resolved-models digest" in _DEPLOY
@@ -90,7 +95,9 @@ def test_model_binding_plan_is_exactly_scoped_and_allows_held_quorum() -> None:
 
     assert "deploy_model_binding:" not in _DEPLOY
     assert "startsWith(inputs.request_id, 'plan-model-')" in _DEPLOY
-    assert "model-[0-9a-f]{18}" in _DEPLOY
+    assert "model-[0-9a-f]{64}" in _DEPLOY
+    assert "model-binding plan request does not match the policy digest" in _DEPLOY
+    assert "model-binding apply request does not match the sealed policy digest" in _DEPLOY
     assert "Validate model-binding-only request" in _DEPLOY
     assert "model-binding plan requires an environment policy" in _DEPLOY
     assert "Bind model-binding Terraform target" in _DEPLOY
@@ -121,12 +128,17 @@ def test_exact_apply_restores_the_plan_sealed_model_manifest() -> None:
     assert '"request_kind"' in _DEPLOY
     assert '"binding_policy_environment"' in _DEPLOY
     assert '"binding_policy_revision"' in _DEPLOY
+    assert '"active_core_revision"' in _DEPLOY
+    assert '"active_core_image_digest"' in _DEPLOY
+    assert '"active_core_model_digest"' in _DEPLOY
     assert '--request-kind "$apply_request_kind"' in _DEPLOY
     assert '--environment "$APPLY_ENVIRONMENT"' in _DEPLOY
     assert "Verify model deployment readback" in _DEPLOY
     assert "verify_model_deployments.py" in _DEPLOY
     assert "model-binding-readback.json" in _DEPLOY
     assert '"readback_receipt_digest"' in _DEPLOY
+    assert "Reverify active Core model fence" in _DEPLOY
+    assert "active Core revision changed after protected model planning" in _DEPLOY
 
 
 @pytest.mark.parametrize(
@@ -134,6 +146,7 @@ def test_exact_apply_restores_the_plan_sealed_model_manifest() -> None:
     [
         "Enforce model-binding-only Terraform plan",
         "Store protected plan artifact",
+        "Reverify active Core model fence",
         "Record exact plan apply receipt",
     ],
 )

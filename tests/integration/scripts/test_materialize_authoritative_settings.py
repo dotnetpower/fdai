@@ -117,6 +117,15 @@ def test_model_projection_is_sanitized_and_uses_only_resolved_facts() -> None:
     assert projection["t2_model_policy"]["active_secondary"]["capacity_unit"] == "ptu"
 
 
+def test_active_digest_is_independent_of_json_whitespace() -> None:
+    module = _module()
+    payload = {"schema_version": "1.0.0", "capabilities": [{"name": "t1.example"}]}
+    pretty = json.loads(json.dumps(payload, indent=2))
+    compact = json.loads(json.dumps(payload, separators=(",", ":")))
+
+    assert module._canonical_json_digest(pretty) == module._canonical_json_digest(compact)
+
+
 def test_runtime_projection_reports_configuration_without_inventing_readiness() -> None:
     module = _module()
 

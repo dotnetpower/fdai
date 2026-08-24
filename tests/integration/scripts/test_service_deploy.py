@@ -1183,6 +1183,87 @@ def test_plan_guard_allows_exact_database_host_binding(guard: ModuleType) -> Non
         )
 
 
+def _core_model_binding_plan(guard: ModuleType, digest: str) -> dict[str, object]:
+    service = "core-control-plane"
+    address = "module.core_control_plane.module.container_app.azurerm_container_app.service"
+    plan = _plan(address, ["update"])
+    contract = guard.resolve_service(service, "dev")
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    for side in ("before", "after"):
+        resource = change[side]
+        resource["tags"] = {"fdai:component": service}
+        container = resource["template"][0]["container"][0]
+        container["command"] = [contract.entrypoint]
+        container["env"] = [
+            {"name": name, "value": "value"} for name in contract.required_environment
+        ]
+    for name in (
+        "LLM_MODE",
+        "LLM_RESOLVED_MODELS_PATH",
+        "LLM_RESOLVED_MODELS_SHA256",
+    ):
+        _remove_environment_binding(plan, name)
+    after_environment = plan["resource_changes"][0]["change"]["after"]["template"][0][  # type: ignore[index]
+        "container"
+    ][0]["env"]
+    after_environment.extend(
+        (
+            {"name": "LLM_MODE", "value": "azure"},
+            {"name": "LLM_RESOLVED_MODELS_PATH", "value": "/app/resolved-models.json"},
+            {"name": "LLM_RESOLVED_MODELS_SHA256", "value": digest},
+        )
+    )
+    return plan
+
+
+def test_plan_guard_allows_exact_core_model_binding_transition(guard: ModuleType) -> None:
+    service = "core-control-plane"
+    digest = "a" * 64
+    plan = _core_model_binding_plan(guard, digest)
+
+    guard.validate_plan(
+        plan,
+        service=service,
+        environment="dev",
+        image_ref="image",
+        model_binding_transition=True,
+        resolved_models_digest=digest,
+    )
+
+    after_environment = plan["resource_changes"][0]["change"]["after"]["template"][0][  # type: ignore[index]
+        "container"
+    ][0]["env"]
+    after_environment.append({"name": "UNREVIEWED", "value": "changed"})
+    with pytest.raises(guard.PlanGuardError, match="unapproved environment"):
+        guard.validate_plan(
+            plan,
+            service=service,
+            environment="dev",
+            image_ref="image",
+            model_binding_transition=True,
+            resolved_models_digest=digest,
+        )
+
+
+def test_plan_guard_rejects_model_binding_digest_mismatch(guard: ModuleType) -> None:
+    service = "core-control-plane"
+    plan = _core_model_binding_plan(guard, "b" * 64)
+    after_environment = plan["resource_changes"][0]["change"]["after"]["template"][0][  # type: ignore[index]
+        "container"
+    ][0]["env"]
+    assert any(item["name"] == "LLM_RESOLVED_MODELS_SHA256" for item in after_environment)
+
+    with pytest.raises(guard.PlanGuardError, match="invalid environment"):
+        guard.validate_plan(
+            plan,
+            service=service,
+            environment="dev",
+            image_ref="image",
+            model_binding_transition=True,
+            resolved_models_digest="a" * 64,
+        )
+
+
 @pytest.mark.parametrize(
     "host_binding",
     [
@@ -3288,6 +3369,62 @@ def test_plan_bundle_binds_initial_cutover_mode(bundle: ModuleType, tmp_path: Pa
         )
 
 
+def test_plan_bundle_binds_model_binding_mode(bundle: ModuleType, tmp_path: Path) -> None:
+    plan = tmp_path / "service.plan"
+    plan.write_bytes(b"binary plan")
+    plan_json = tmp_path / "service-plan.json"
+    context = tmp_path / "context.json"
+    metadata = tmp_path / "metadata.json"
+    now = datetime(2026, 8, 25, 1, 0, tzinfo=UTC)
+    image = _image("fdai-core-control-plane")
+    address = "module.core_control_plane.module.container_app.azurerm_container_app.service"
+    payload = _plan(address, ["update"], image=image)
+    payload["resource_changes"][0]["change"]["after"]["tags"][  # type: ignore[index]
+        "fdai:component"
+    ] = "core-control-plane"
+    plan_json.write_text(json.dumps(payload), encoding="utf-8")
+    coordinates = _bundle_coordinates()
+    digest = "a" * 64
+    created = bundle.create_bundle(
+        plan=plan,
+        plan_json=plan_json,
+        context_path=context,
+        metadata_path=metadata,
+        service="core-control-plane",
+        environment="dev",
+        repository="example/fdai",
+        commit_sha="b" * 40,
+        image_ref=image,
+        workflow_run_id="123",
+        resolved_models_digest=digest,
+        model_binding_transition=True,
+        now=now,
+        **coordinates,
+    )
+    assert created["deployment_mode"] == "model-binding"
+    assert json.loads(context.read_text(encoding="utf-8"))["materials"] == {
+        "resolved_models": {"canonical_json_sha256": digest}
+    }
+    with pytest.raises(bundle.PlanBundleError, match="deployment_mode"):
+        bundle.verify_bundle(
+            plan=plan,
+            plan_json=plan_json,
+            context_path=context,
+            metadata_path=metadata,
+            service="core-control-plane",
+            environment="dev",
+            repository="example/fdai",
+            commit_sha="b" * 40,
+            image_ref=image,
+            plan_digest=created["plan_digest"],
+            context_digest=created["context_digest"],
+            plan_run_id="123",
+            resolved_models_digest=digest,
+            now=now + timedelta(minutes=5),
+            **coordinates,
+        )
+
+
 def test_plan_bundle_binds_event_bus_topic_migration_mode(
     bundle: ModuleType,
     tmp_path: Path,
@@ -3394,6 +3531,7 @@ def test_plan_bundle_composes_topic_and_database_host_modes(bundle: ModuleType) 
             initial_cutover=False,
             event_bus_topic_migration=True,
             database_host_binding=True,
+            model_binding_transition=False,
             operator_channel_edge_transition="none",
         )
         == "event-bus-topic-migration+database-host-binding"

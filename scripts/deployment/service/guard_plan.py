@@ -56,6 +56,9 @@ _OPERATOR_CHANNEL_EDGE_FORBIDDEN_ENVIRONMENT = frozenset(
         "FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER",
     }
 )
+_MODEL_BINDING_ENVIRONMENT = frozenset(
+    {"LLM_MODE", "LLM_RESOLVED_MODELS_PATH", "LLM_RESOLVED_MODELS_SHA256"}
+)
 
 
 def _operator_channel_edge_contract(base: ServiceContract) -> ServiceContract:
@@ -353,6 +356,53 @@ def _guard_database_host_binding(
     return violations
 
 
+def _guard_model_binding_transition(
+    before: dict[str, Any],
+    after: dict[str, Any],
+    *,
+    address: str,
+    contract: ServiceContract,
+    resolved_models_digest: str,
+) -> list[str]:
+    if contract.service != "core-control-plane":
+        return ["model binding transition is valid only for the Core control plane"]
+    if re.fullmatch(r"[0-9a-f]{64}", resolved_models_digest) is None:
+        return ["model binding transition requires one attested resolved-models digest"]
+    before_primary = _primary_container(before, address=address, contract=contract)
+    after_primary = _primary_container(after, address=address, contract=contract)
+    before_environment = _environment_by_name(before_primary, address=address)
+    after_environment = _environment_by_name(after_primary, address=address)
+    changed = {
+        name
+        for name in set(before_environment) | set(after_environment)
+        if _environment_binding(before_environment.get(name))
+        != _environment_binding(after_environment.get(name))
+    }
+    expected = {
+        "LLM_MODE": ("azure", None),
+        "LLM_RESOLVED_MODELS_PATH": ("/app/resolved-models.json", None),
+        "LLM_RESOLVED_MODELS_SHA256": (resolved_models_digest, None),
+    }
+    invalid = sorted(
+        name
+        for name, binding in expected.items()
+        if _environment_binding(after_environment.get(name)) != binding
+    )
+    violations: list[str] = []
+    if not changed or "LLM_RESOLVED_MODELS_SHA256" not in changed:
+        violations.append("model binding transition does not advance the runtime digest")
+    if changed - _MODEL_BINDING_ENVIRONMENT:
+        violations.append(
+            f"model binding transition changes unapproved environment at {address}: "
+            f"{sorted(changed - _MODEL_BINDING_ENVIRONMENT)!r}"
+        )
+    if invalid:
+        violations.append(
+            f"model binding transition has invalid environment at {address}: {invalid!r}"
+        )
+    return violations
+
+
 def _authority_cutover(
     resource: dict[str, Any],
     *,
@@ -518,6 +568,8 @@ def _guard_update(
     initial_cutover: bool,
     event_bus_topic_migration: bool = False,
     database_host_binding: bool = False,
+    model_binding_transition: bool = False,
+    resolved_models_digest: str = "",
 ) -> list[str]:
     violations: list[str] = []
     for field in ("name", "resource_group_name"):
@@ -568,9 +620,20 @@ def _guard_update(
                 additional_allowed_names=topic_names,
             )
         )
+    if model_binding_transition:
+        violations.extend(
+            _guard_model_binding_transition(
+                before,
+                after,
+                address=address,
+                contract=contract,
+                resolved_models_digest=resolved_models_digest,
+            )
+        )
     elif (
         not initial_cutover
         and not event_bus_topic_migration
+        and not database_host_binding
         and _runtime_contract(before, address=address, contract=contract)
         != _runtime_contract(after, address=address, contract=contract)
     ):
@@ -607,7 +670,7 @@ def _guard_update(
     expected_primary = _primary_container(expected_before, address=address, contract=contract)
     after_primary = _primary_container(after, address=address, contract=contract)
     expected_primary["image"] = _planned_image({"after": after}, address=address, contract=contract)
-    if event_bus_topic_migration or database_host_binding:
+    if event_bus_topic_migration or database_host_binding or model_binding_transition:
         expected_primary["env"] = copy.deepcopy(after_primary.get("env"))
     expected_templates = expected_before.get("template")
     after_templates = after.get("template")
@@ -984,6 +1047,8 @@ def validate_plan(
     initial_cutover: bool = False,
     event_bus_topic_migration: bool = False,
     database_host_binding: bool = False,
+    model_binding_transition: bool = False,
+    resolved_models_digest: str = "",
     operator_channel_edge_transition: str = "none",
 ) -> None:
     """Allow only bounded actions that deploy the exact attested service image."""
@@ -1001,6 +1066,16 @@ def validate_plan(
     if database_host_binding and (initial_cutover or operator_channel_edge_transition != "none"):
         raise PlanGuardError(
             "database host binding is exclusive with initial cutover and channel-edge transition"
+        )
+    if model_binding_transition and (
+        service != "core-control-plane"
+        or initial_cutover
+        or event_bus_topic_migration
+        or database_host_binding
+        or operator_channel_edge_transition != "none"
+    ):
+        raise PlanGuardError(
+            "model binding transition is Core-only and exclusive with other transitions"
         )
     contract = resolve_service(service, environment)
     channel_edge_contract = _operator_channel_edge_contract(contract)
@@ -1111,6 +1186,8 @@ def validate_plan(
                 initial_cutover=initial_cutover,
                 event_bus_topic_migration=event_bus_topic_migration,
                 database_host_binding=database_host_binding,
+                model_binding_transition=model_binding_transition,
+                resolved_models_digest=resolved_models_digest,
             )
         )
     if operator_channel_edge_transition in {"enable", "disable"}:
@@ -1134,7 +1211,12 @@ def validate_plan(
         )
     )
     allowed_aligned_drift = (
-        (initial_cutover or event_bus_topic_migration or database_host_binding)
+        (
+            initial_cutover
+            or event_bus_topic_migration
+            or database_host_binding
+            or model_binding_transition
+        )
         and selected_before is not None
         and _guard_aligned_transition_drift(
             resource_drift,
@@ -1186,6 +1268,8 @@ def main() -> int:
     parser.add_argument("--initial-cutover", action="store_true")
     parser.add_argument("--event-bus-topic-migration", action="store_true")
     parser.add_argument("--database-host-binding", action="store_true")
+    parser.add_argument("--model-binding-transition", action="store_true")
+    parser.add_argument("--resolved-models-digest", default="")
     parser.add_argument(
         "--operator-channel-edge-transition",
         choices=("none", "enable", "disable"),
@@ -1204,6 +1288,8 @@ def main() -> int:
             initial_cutover=args.initial_cutover,
             event_bus_topic_migration=args.event_bus_topic_migration,
             database_host_binding=args.database_host_binding,
+            model_binding_transition=args.model_binding_transition,
+            resolved_models_digest=args.resolved_models_digest,
             operator_channel_edge_transition=args.operator_channel_edge_transition,
         )
     except (OSError, json.JSONDecodeError, ServiceContractError, PlanGuardError) as exc:

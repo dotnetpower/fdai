@@ -1,7 +1,7 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: 828e8e5080bd7f129a162bb3dbfb9ecec1a6d7c2
+translation_source_sha: 4998e2226144f6462d5734aaa0150b10382aae70
 translation_revised: 2026-08-25
 ---
 # LLM 전략(LLM Strategy)
@@ -39,6 +39,7 @@ translation_revised: 2026-08-25
 | 2026-08-24 | implemented | 보호 작업 종류와 모델 정책 환경, 리비전, 다이제스트, 활성 산출물 제한을 변경할 수 없는 계획 메타데이터에 결속했습니다. Exact 적용은 다른 작업 종류 또는 환경을 거부하고, 중복된 resolved 기능은 재생에 실패하며, 독립 management-plane readback은 배포된 모델 계열, 버전, SKU, 용량, 프로비저닝 상태를 비교한 뒤 민감정보가 제거된 증적을 기록합니다. | [이슈 #270](https://github.com/dotnetpower/fdai/issues/270); `verify-deployment-plan.py`; `verify_model_deployments.py`; 보호 workflow 및 resolver 검사 107개 통과; Ruff, strict mypy 및 YAML 구문 분석 통과; 비평 10회 뒤 검증된 미해결 결함은 Low 이하만 남았습니다. | 정확한 PTU 계획 및 적용과 역방향 계획 롤백 증적을 보존한 뒤 Core와 Operator가 봉인된 런타임 다이제스트를 사용하는지 검증합니다. |
 | 2026-08-24 | implemented | YAML 들여쓰기로 모델 전용 범위 검사가 monitoring script 안에 포함된 문제를 수정해 실행 가능한 workflow 단계로 복원하고, 사용 중단 중인 출처 모델 계열은 정확히 봉인된 GA 모델 계열, 버전, SKU 및 PTU 용량으로만 이동하도록 허용했습니다. 출처 모델, SKU, 용량, 배포 이름 및 계정 연결 검증은 유지합니다. | [이슈 #270](https://github.com/dotnetpower/fdai/issues/270); 실행형 workflow 단계 및 합성 교체 검사; 집중 모델 검사 45개와 embedded Python block 17개 통과. | 정확한 보호 PTU 계획, 적용, 독립 readback, 런타임 바인딩 및 역방향 계획 롤백 증적을 실행하고 보존합니다. |
 | 2026-08-24 | implemented | 첫 보호 PTU 계획의 Model Capacities 요청이 adapter의 고정 30초 제한을 초과해 Terraform 전에 중단된 뒤 범위가 제한된 Azure CLI resolver deadline을 추가했습니다. CLI는 5-300초를 허용하고 catalog, permission, quota 및 PTU 질의에 같은 제한을 사용하며 보호 workflow는 90초를 선택합니다. | [이슈 #270](https://github.com/dotnetpower/fdai/issues/270); 실패한 계획 `32749593774`; 집중 resolver 및 workflow 검사 62개, strict mypy 및 embedded Python 검사 17개 통과. | 새 deadline으로 보호 계획을 다시 실행하며 공급자가 다시 초과하면 새 근거 없이 재시도하지 않습니다. |
+| 2026-08-25 | implemented | 변경 가능한 Terraform 입력 CAS를 정확한 healthy active Core revision, digest-pinned image, 검증된 resolved-model attestation 및 runtime model digest로 대체했습니다. 별도 Core 전용 service transition이 모델 계획 전에 attested artifact를 결속하며 exact 적용은 같은 revision, image 및 model digest를 다시 관측합니다. | [이슈 #270](https://github.com/dotnetpower/fdai/issues/270); active-runtime 및 attestation 검증기, 보호된 service guard 및 plan bundle, 통합 모델/service 검사 249개 통과. | Core binding transition을 적용한 뒤 PTU 계획, 적용, readback 및 역방향 계획 롤백 증적을 보존합니다. |
 ### 남은 작업
 - [ ] [목표와 메트릭](goals-and-metrics-ko.md#남은-작업)과 [Agent Pantheon 구현 계획](../agents/agent-pantheon-implementation-ko.md#남은-작업)의 실제 운영 KPI 선행 조건을 충족한 뒤, 활성화된 모든 T1/T2 기능에 대해 모델 신원, 비용, 지연 시간, 스키마 복구 시도와 복구 결과, 전환, 계획 처리 결과, 불일치, 근거 확인, 검증기, rubric, 결과 및 가드 근거가 포함된 고정된 실제 운영 shadow 집단을 보존합니다.
 - [ ] 범위가 제한된 시도 예산, 재시작 후 영속 증적 전달, 최종 소진에서 사람 승인으로의 전환, 감사된 경로 변경, 상관관계로 제한된 롤백 및 새 승인 없는 복구를 입증하는 통제된 T2 복구 캠페인을 보존합니다.
@@ -73,7 +74,6 @@ translation_revised: 2026-08-25
 - **검증된 계획 입력**: 수락된 판단은 신뢰할 수 없는 입력 묶음 안에서 의미 계획으로 전달됩니다. 결정론적 코드는 `advise_only`를 `action_subject: none`으로 정규화하고, `draft_only`에는 타입이 지정된
   주체를 요구하며, 결과 프레임과 계획을 검증합니다. 어느 모델도 권한이나 실행 자격을 부여하지 않습니다.
 - 목표: 프론티어 왕복 없이 이벤트의 ~15-20% 흡수.
-
 ## T2 - 추론 티어 (Quality 게이트 필수)
 
 T2는 신규 또는 모호 케이스만 처리(~5-10%). 그 출력은 실행 전 quality 게이트 통과해야 함.

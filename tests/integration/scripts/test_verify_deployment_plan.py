@@ -180,6 +180,9 @@ def test_matching_model_binding_provenance_passes(
             "binding_policy_revision": 2,
             "binding_policy_digest": f"sha256:{'c' * 64}",
             "binding_policy_expected_active_digest": f"sha256:{'d' * 64}",
+            "active_core_revision": "core--revision",
+            "active_core_image_digest": "e" * 64,
+            "active_core_model_digest": "d" * 64,
         },
     )
 
@@ -251,6 +254,9 @@ def test_model_plan_rejects_invalid_policy_provenance(
             "binding_policy_revision": revision,
             "binding_policy_digest": f"sha256:{'c' * 64}",
             "binding_policy_expected_active_digest": f"sha256:{'d' * 64}",
+            "active_core_revision": "core--revision",
+            "active_core_image_digest": "e" * 64,
+            "active_core_model_digest": "d" * 64,
         },
     )
 

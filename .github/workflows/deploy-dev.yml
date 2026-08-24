@@ -423,6 +423,13 @@ jobs:
             echo "model-binding plan requires an environment policy." >&2
             exit 1
           fi
+          if [[ "$APPLY" != "true" ]]; then
+            policy_digest="$(python3 -c 'import hashlib,json,os; payload=json.loads(os.environ["MODEL_BINDING_POLICY"]); canonical=json.dumps(payload,separators=(",",":"),sort_keys=True).encode(); print(hashlib.sha256(canonical).hexdigest())')"
+            if [[ "$PLAN_REQUEST_ID" != "plan-model-${policy_digest}" ]]; then
+              echo "model-binding plan request does not match the policy digest." >&2
+              exit 1
+            fi
+          fi
           if [[ "$DEPLOY_CONSOLE" == "true" \
             || "$DEPLOY_DESIGN_MOCKS" == "true" \
             || "$DEPLOY_DOCUMENT_INGESTION" == "true" \
@@ -508,7 +515,7 @@ jobs:
           PLAN_COMMIT_SHA: ${{ inputs.commit_sha }}
         run: |
           set -euo pipefail
-          if [[ ! "$PLAN_REQUEST_ID" =~ ^plan-([0-9a-f]{24}|model-[0-9a-f]{18}|evh-[0-9a-f]{20}|evh-jobs-[0-9a-f]{16})$ ]]; then
+          if [[ ! "$PLAN_REQUEST_ID" =~ ^plan-([0-9a-f]{24}|model-[0-9a-f]{64}|evh-[0-9a-f]{20}|evh-jobs-[0-9a-f]{16})$ ]]; then
             echo "request_id must be a bounded fdaictl plan id." >&2
             exit 1
           fi
@@ -539,7 +546,7 @@ jobs:
           APPLY_PLAN_DIGEST: ${{ inputs.plan_digest }}
         run: |
           set -euo pipefail
-          if [[ ! "$APPLY_REQUEST_ID" =~ ^apply-([0-9a-f]{24}|model-[0-9a-f]{18}|evh-[0-9a-f]{20}|evh-jobs-[0-9a-f]{16})$ ]]; then
+          if [[ ! "$APPLY_REQUEST_ID" =~ ^apply-([0-9a-f]{24}|model-[0-9a-f]{64}|evh-[0-9a-f]{20}|evh-jobs-[0-9a-f]{16})$ ]]; then
             echo "apply request_id must be a bounded fdaictl id." >&2
             exit 1
           fi
@@ -726,24 +733,79 @@ jobs:
             -backend-config="container_name=tfstate" \
             -backend-config="key=fdai-${{ inputs.environment }}.tfstate"
 
+      - name: Install pinned GitHub CLI for model verification
+        if: ${{ env.MODEL_BINDING_ONLY == 'true' }}
+        env:
+          GH_VERSION: "2.97.0"
+          GH_LINUX_AMD64_SHA256: "a2c9b8497e1f85b1ad0dfcb78b5a622e098801b8e461e459e88e1ee12f018112"
+        run: |
+          set -euo pipefail
+          archive="gh_${GH_VERSION}_linux_amd64.tar.gz"
+          curl --fail --location --silent --show-error --retry 3 --retry-delay 2 \
+            --retry-all-errors --retry-max-time 180 --connect-timeout 5 --max-time 120 \
+            "https://github.com/cli/cli/releases/download/v${GH_VERSION}/${archive}" \
+            --output "$RUNNER_TEMP/$archive"
+          printf '%s  %s\n' "$GH_LINUX_AMD64_SHA256" "$RUNNER_TEMP/$archive" \
+            | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/gh_${GH_VERSION}_linux_amd64/bin" >> "$GITHUB_PATH"
+
       - name: Verify model binding policy active digest
         if: ${{ !inputs.apply && env.MODEL_BINDING_POLICY_JSON != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MODEL_PREDICATE_TYPE: https://github.com/${{ github.repository }}/attestations/resolved-models/v1
+          ATTESTATION_SIGNER_WORKFLOW: ${{ github.repository }}/.github/workflows/container-supply-chain.yml
         run: |
           set -euo pipefail
           expected="$(python3 -c 'import json,os; print(json.loads(os.environ["MODEL_BINDING_POLICY_JSON"]).get("expected_active_digest", ""))')"
-          current="$(terraform output -raw resolved_models_sha256 2>/dev/null || true)"
           if [[ ! "$expected" =~ ^sha256:[0-9a-f]{64}$ ]]; then
             echo "Model binding policy must bind an expected active resolved-models digest." >&2
             exit 1
           fi
+          resource_group="$(terraform output -raw resource_group_name)"
+          core_app="$(terraform output -raw core_app_name)"
+          active_revision="$(az containerapp show --resource-group "$resource_group" \
+            --name "$core_app" --query properties.latestRevisionName --output tsv)"
+          az containerapp revision show --resource-group "$resource_group" \
+            --name "$core_app" --revision "$active_revision" --output json \
+            > "$RUNNER_TEMP/active-core-revision.json"
+          binding="$(python3 ../scripts/deployment/azure/verify_active_core_revision.py \
+            --revision "$RUNNER_TEMP/active-core-revision.json" --require-model-binding)"
+          active_image="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["image"])' \
+            <<< "$binding")"
+          runtime_digest="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["runtime_model_digest"])' \
+            <<< "$binding")"
+          if ! timeout 60s gh attestation verify "oci://${active_image}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --predicate-type "$MODEL_PREDICATE_TYPE" \
+            --signer-workflow "$ATTESTATION_SIGNER_WORKFLOW" \
+            --format json > "$RUNNER_TEMP/active-model-attestations.json" 2>/dev/null; then
+            echo "Active Core model attestation verification failed." >&2
+            exit 1
+          fi
+          current="$(python3 ../scripts/deployment/azure/verify_active_model_attestation.py \
+            --attestations "$RUNNER_TEMP/active-model-attestations.json")"
+          [[ "$runtime_digest" == "$current" ]] || {
+            echo "Active Core runtime and image attestation model digests disagree." >&2
+            exit 1
+          }
+          state_digest="$(terraform output -raw resolved_models_sha256 2>/dev/null || true)"
+          if [[ "$state_digest" =~ ^[0-9a-f]{64}$ && "$state_digest" != "$current" ]]; then
+            echo "Terraform model digest differs from active Core runtime evidence." \
+              >> "$GITHUB_STEP_SUMMARY"
+          fi
           if [[ "sha256:${current}" != "$expected" ]]; then
-            if [[ "$current" =~ ^[0-9a-f]{64}$ ]]; then
-              echo "Current active resolved-models digest: \`sha256:${current}\`" \
-                >> "$GITHUB_STEP_SUMMARY"
-            fi
+            echo "Current active resolved-models digest: \`sha256:${current}\`" \
+              >> "$GITHUB_STEP_SUMMARY"
             echo "Model binding policy active digest is stale; refresh Settings and submit a new draft." >&2
             exit 1
           fi
+          {
+            echo "ACTIVE_CORE_REVISION=$(python3 -c 'import json,sys; print(json.load(sys.stdin)["revision"])' <<< "$binding")"
+            echo "ACTIVE_CORE_IMAGE_DIGEST=$(python3 -c 'import json,sys; print(json.load(sys.stdin)["image_digest"])' <<< "$binding")"
+            echo "ACTIVE_CORE_MODEL_DIGEST=$current"
+          } >> "$GITHUB_ENV"
 
       - name: Preserve Event Bus migration console topology
         if: ${{ env.EVENT_BUS_TOPIC_MIGRATION == 'true' }}
@@ -1754,6 +1816,13 @@ jobs:
                           "binding_policy_expected_active_digest": binding_policy.get(
                               "expected_active_digest"
                           ),
+                            "active_core_revision": os.environ.get("ACTIVE_CORE_REVISION"),
+                            "active_core_image_digest": os.environ.get(
+                              "ACTIVE_CORE_IMAGE_DIGEST"
+                            ),
+                            "active_core_model_digest": os.environ.get(
+                              "ACTIVE_CORE_MODEL_DIGEST"
+                            ),
                       }
                   )
               if metadata["request_kind"] == "model" and binding_policy is None:
@@ -1921,6 +1990,13 @@ jobs:
             --plan-id "$APPLY_PLAN_ID" --plan-digest "$APPLY_PLAN_DIGEST" \
             --context-digest "$APPLY_CONTEXT_DIGEST" --commit-sha "$APPLY_COMMIT_SHA" \
             --request-kind "$apply_request_kind" --environment "$APPLY_ENVIRONMENT"
+          if [[ "$apply_request_kind" == "model" ]]; then
+            policy_digest="$(python3 -c 'import json; evidence=json.load(open("plan-metadata.json", encoding="utf-8"))["model_resolution"]; print(evidence["binding_policy_digest"].removeprefix("sha256:"))')"
+            [[ "$APPLY_REQUEST_ID" == "apply-model-${policy_digest}" ]] || {
+              echo "model-binding apply request does not match the sealed policy digest." >&2
+              exit 1
+            }
+          fi
           read -r runtime_revision runtime_digest < <(
             python3 - <<'PY'
           import json
@@ -1954,6 +2030,56 @@ jobs:
               echo "FDAI_RUNTIME_IMAGE_DIGEST=${runtime_digest}"
             } >> "$GITHUB_ENV"
           fi
+
+      - name: Reverify active Core model fence
+        if: ${{ inputs.apply && env.MODEL_BINDING_ONLY == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MODEL_PREDICATE_TYPE: https://github.com/${{ github.repository }}/attestations/resolved-models/v1
+          ATTESTATION_SIGNER_WORKFLOW: ${{ github.repository }}/.github/workflows/container-supply-chain.yml
+        run: |
+          set -euo pipefail
+          resource_group="$(terraform output -raw resource_group_name)"
+          core_app="$(terraform output -raw core_app_name)"
+          active_revision="$(az containerapp show --resource-group "$resource_group" \
+            --name "$core_app" --query properties.latestRevisionName --output tsv)"
+          az containerapp revision show --resource-group "$resource_group" \
+            --name "$core_app" --revision "$active_revision" --output json \
+            > "$RUNNER_TEMP/apply-active-core-revision.json"
+          binding="$(python3 ../scripts/deployment/azure/verify_active_core_revision.py \
+            --revision "$RUNNER_TEMP/apply-active-core-revision.json" --require-model-binding)"
+          active_image="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["image"])' \
+            <<< "$binding")"
+          if ! timeout 60s gh attestation verify "oci://${active_image}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --predicate-type "$MODEL_PREDICATE_TYPE" \
+            --signer-workflow "$ATTESTATION_SIGNER_WORKFLOW" \
+            --format json > "$RUNNER_TEMP/apply-active-model-attestations.json" 2>/dev/null; then
+            echo "Active Core model attestation verification failed at apply." >&2
+            exit 1
+          fi
+          observed_model="$(python3 ../scripts/deployment/azure/verify_active_model_attestation.py \
+            --attestations "$RUNNER_TEMP/apply-active-model-attestations.json")"
+          export OBSERVED_CORE_BINDING="$binding" OBSERVED_CORE_MODEL="$observed_model"
+          python3 - <<'PY'
+          import json
+          import os
+
+          with open("plan-metadata.json", encoding="utf-8") as stream:
+              evidence = json.load(stream).get("model_resolution")
+          if not isinstance(evidence, dict):
+              raise SystemExit("model apply has no sealed active Core evidence")
+          observed = json.loads(os.environ["OBSERVED_CORE_BINDING"])
+          expected = {
+              "revision": evidence.get("active_core_revision"),
+              "image_digest": evidence.get("active_core_image_digest"),
+              "runtime_model_digest": evidence.get("active_core_model_digest"),
+          }
+          if observed != {**expected, "image": observed.get("image")}:
+              raise SystemExit("active Core revision changed after protected model planning")
+          if os.environ["OBSERVED_CORE_MODEL"] != expected["runtime_model_digest"]:
+              raise SystemExit("active Core model attestation changed after protected planning")
+          PY
 
       - name: Claim exact plan apply
         if: ${{ inputs.apply && !inputs.resume_verification }}

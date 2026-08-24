@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: ff157942f698e41f8ffb4a9ffbe12da6b0e12501
+translation_source_sha: 891aba1112b8bb3d64e7d191cf1fd3bc110e95f3
 translation_revised: 2026-08-25
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -14,7 +14,6 @@ translation_revised: 2026-08-25
 
 모든 프로파일은 **하나의 컨트롤 경로**를 공유하며 composition-root 어댑터와 자격 증명만 다릅니다.
 ([project-structure.md § Customization via 의존성 주입](../architecture/project-structure-ko.md#customization-via-dependency-injection)). 검토된 docstring은 기존 경계를 기록하며 별도 런타임을 만들거나 상태 소유권을 변경하거나 고정본을 허용하지 않습니다. 실제 Azure 클라이언트 추가는 fork-side 주입이며 `core/`를 편집하지 않습니다.
-
 ## 구현 상태
 ### 구현 범위
 | 영역 | 상태 | 근거 | 참고 |
@@ -33,6 +32,7 @@ translation_revised: 2026-08-25
 | 폴더 열기 dev-access 경로 안정화 | implemented | `tools/dev-access/scripts/vscode-startup.sh`, `tests/integration/infra/test_dev_access.py`, 집중 dev-access 테스트 | 태스크는 Azure VPN Client를 최대 한 번 열고 범위가 제한된 7초 유예 시간 동안 mirrored WSL 경로를 8번 확인합니다. Direct 경로가 나타나면 DNS를 적용하고 실제 연결 끊김에는 exit `20`을 유지합니다. 로컬 상태가 없는 workstation과 direct-VNet 머신은 계속 조용히 종료합니다. |
 | 리포지토리 범위 roadmap campaign 용량 | implemented | `roadmap_verification_watchdog.py`, `test_roadmap_verification_watchdog.py`, `scripts/README.md`의 무작위 campaign 운영 계약 | FDAI session lease와 최근 Copilot 활동을 모두 이 리포지토리 범위에서만 계산합니다. Linked worktree는 VS Code workspace ID를 도출하기 전에 primary checkout을 해석합니다. 다른 workspace는 FDAI 작업을 보류할 수 없으며, 900초 활동 창과 campaign 세션 2개 상한은 FDAI 동시 편집을 계속 보호합니다. |
 | 의미 계획 tier 동등성 | implemented | `composition/semantic_query_model_targets.py`, `composition/wire_semantic_query.py`, 해석된 모델 산출물, 집중 tier 라우팅 및 조립 테스트 | 로컬 및 배포 Core는 같은 기능 산출물을 로드하고 해석된 narrator 또는 `t1.judge` pool을 T1으로 연결하며 T2는 선택 사항으로 유지합니다. T1 제안을 사용할 수 없거나 결정론적 검증을 통과하지 못한 경우에만 해당 단계를 T2로 다시 시도할 수 있습니다. |
+| 배포 모델 산출물 바인딩 | implemented | Core service Terraform root, 보호 service workflow, active Core revision 및 image-attestation 검증기, 집중 service 및 model 검사 | 배포 Core는 Core 전용 보호 transition을 통해서만 `LLM_MODE=azure`, 고정 이미지 산출물 경로 및 정확한 attested digest를 받습니다. 모델 정책 CAS는 해당 healthy active runtime 근거를 요구하며 로컬은 같은 조립 계약으로 준비된 산출물을 계속 로드합니다. |
 | 권한 인식 관측 캠페인 동등성 | implemented | `config/observation-sources.yaml`, `fdai.delivery.observation_campaign*`, `.vscode/tasks.json`, `infra/modules/compute/container-apps/observation_campaign_job.tf`, 집중 Core, Operator, Console, workspace 및 인프라 검사 | 로컬과 배포 프로필은 같은 출처 카탈로그, 실행 조건 상태, 실행기, 정규화 활동 계약 및 1분 기동을 사용합니다. 검증 전에는 런타임 산출물이 더 필요합니다. |
 | 로컬 검증 데이터베이스 격리 | implemented | `infra/local/docker-compose.yml`, `scripts/automation/validation_queue_context.py`, 로컬 준비 스크립트 및 focused 검증과 migration 통합 테스트 | 런타임 상태는 로컬 PostgreSQL port `5432`에 유지하고 파괴적인 migration 검증은 port `5433`의 별도 로컬 PostgreSQL cluster를 사용합니다. |
 | FDAI workspace 및 프로파일 부하 제어 | implemented | `.vscode/settings.json`, `.vscode/fdai.code-profile`, `scripts/automation/configure-vscode-profile.py`, `tests/integration/scripts/test_vscode_workspace_performance.py`, 집중 프로파일 및 workspace 검사 | 리소스 범위 분석 제어는 workspace에 두고, 공유 구성에는 선택한 확장이 소유한 설정만 유지합니다. Copilot은 선택한 모델의 맥락 창 80%에서 에이전트 이력을 압축하고, 이식 가능한 프로파일은 격리할 수 없는 Remote WSL Pylance 머신 설정을 거부하며, 0이 아닌 터미널 종료는 중복 VS Code 알림 없이 계속 확인할 수 있습니다. |
@@ -44,6 +44,7 @@ translation_revised: 2026-08-25
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
 | 2026-08-25 | implemented | 선택적 `console: keep full stack ready (10m)` 태스크를 추가했습니다. 기존의 범위가 제한된 6개 구성 요소 준비 상태 검사를 600초마다 실행하고, 정상 구성은 건너뛰며 준비 상태 검사에 실패한 경우에만 표준 준비 및 supervisor 경로로 진입합니다. | `current change`, `.vscode/tasks.json`, `scripts/deployment/local/watch-console-services.sh`, `tests/integration/scripts/test_vscode_workspace_performance.py`, 집중 workspace 계약 테스트 4개 통과, 셸 구문 및 VS Code 진단 통과 | 선택적 로컬 복구 감시에 남은 구현 작업은 없습니다. |
+| 2026-08-25 | implemented | 배포 Core 모델 조립을 exact image가 증명한 resolved artifact에 결속하고 모델 정책 CAS가 변경 가능한 Terraform 입력 대신 healthy active revision을 관측하도록 했습니다. Apply는 같은 revision, image 및 model digest를 다시 검증합니다. | [이슈 #270](https://github.com/dotnetpower/fdai/issues/270); 보호 service/model workflow, guard, plan bundle, active-runtime 검증기 및 통합 집중 검사. | 검증 전에 live Core transition 및 정방향/역방향 PTU 증적을 보존합니다. |
 | 2026-08-24 | implemented | HashiCorp 전용 workspace와 이식 가능한 프로파일에서 Microsoft Terraform 언어 서버 설정을 제거하고, workspace에서 사용하지 않는 Live Server 설정을 제거했습니다. 맥락 사용량 표시기는 설계대로 계속 활성화합니다. | `current change`, `.vscode/settings.json`, `.vscode/fdai.code-profile`, 집중 프로파일 및 workspace 계약 테스트 13개 통과 | 확장이 소유하는 공유 설정에 남은 구현 작업은 없습니다. |
 | 2026-08-23 | implemented | 준비 캐시 유효성을 런타임 상태와 분리하고 준비 작업을 순서가 있는 단계 fingerprint 7개로 나눴으며, Docker volume identity가 데이터베이스 기반 단계를 무효화하도록 했습니다. 전체 스택 시작은 감독 대상 프로세스를 시작한 뒤 반환하고 supervisor는 60초 게이트를 계속 실행합니다. `console: wait full stack ready`가 명시적 차단 검사를 제공하며 Core 전용 복구는 최신 Pantheon heartbeat를 기다립니다. | `current change`, `.vscode/tasks.json`, `scripts/automation/{developer-workflow.py,local-service-input-digest.py}`, `scripts/deployment/local/{prepare-console-full-stack,prepare-console-state,start-console-services,run-console-service}.sh`, 집중 시작 계약 모음 테스트 38개 통과, 셸 구문 및 VS Code 진단 통과 | 범위가 제한된 로컬 시작 응답 경로에 남은 구현 작업은 없습니다. |
 | 2026-08-22 | validated | Core Runtime이 범위가 제한된 프로바이더 초기화를 완료하고 첫 Pantheon heartbeat를 내보낼 수 있도록 clean Console 시작 준비 상태 게이트를 15초에서 60초로 늘렸습니다. 제한 없는 Bash `/dev/tcp` 소유권 확인을 연결 전에 상속된 서비스 잠금을 닫는 250ms IPv4 및 IPv6 소켓 검사로 교체하여, 필터링된 loopback 포트가 준비 상태 기한을 넘겨 소유자 정보만 있는 잠금을 유지하지 않도록 했습니다. | [이슈 #254](https://github.com/dotnetpower/fdai/issues/254), `current change`, `scripts/automation/run-local-service.sh`, `scripts/deployment/local/start-console-services.sh`, 집중 실행기 및 workspace 작업 계약 테스트 28개 통과, clean 표준 시작에서 6/6 준비 상태 도달, port 5273 및 8010-8013의 HTTP 200 응답, 관리 잠금 6개 유지 확인 | #254의 잔여 작업이 없습니다. |
@@ -116,7 +117,6 @@ translation_revised: 2026-08-25
 - [ ] venue 게이트의 텍스트 기반 탐지를 import 그래프 또는 AST 검사로 바꿔서 계산된 키나
   우회 별칭으로 도달한 장소 읽기도 리터럴과 동일하게 실패하도록 합니다
   ([#152](https://github.com/dotnetpower/fdai/issues/152)).
-
 ## 전수조사 - 로컬 동작 vs Azure 필요
 2026-07-21 기준. "자동화 테스트"는 테스트 실행기가 실행하는 pytest 또는 committed mock을
 뜻합니다. "Full-stack 로컬"은 운영자에 브라우저 Entra를 사용하고 서버 측 Azure 어댑터에

@@ -48,6 +48,9 @@ _MODEL_BINDING_FIELDS = frozenset(
         "binding_policy_revision",
         "binding_policy_digest",
         "binding_policy_expected_active_digest",
+        "active_core_revision",
+        "active_core_image_digest",
+        "active_core_model_digest",
     }
 )
 
@@ -154,6 +157,9 @@ def verify_plan(
             policy_revision = model_resolution["binding_policy_revision"]
             policy_digest = model_resolution["binding_policy_digest"]
             expected_active_digest = model_resolution["binding_policy_expected_active_digest"]
+            active_revision = model_resolution["active_core_revision"]
+            active_image_digest = model_resolution["active_core_image_digest"]
+            active_model_digest = model_resolution["active_core_model_digest"]
             if (
                 not isinstance(policy_environment, str)
                 or _ENVIRONMENT.fullmatch(policy_environment) is None
@@ -165,6 +171,14 @@ def verify_plan(
                 or _SHA256_REF.fullmatch(policy_digest) is None
                 or not isinstance(expected_active_digest, str)
                 or _SHA256_REF.fullmatch(expected_active_digest) is None
+                or not isinstance(active_revision, str)
+                or not active_revision.strip()
+                or len(active_revision) > 128
+                or not isinstance(active_image_digest, str)
+                or _DIGEST.fullmatch(active_image_digest) is None
+                or not isinstance(active_model_digest, str)
+                or _DIGEST.fullmatch(active_model_digest) is None
+                or expected_active_digest != f"sha256:{active_model_digest}"
             ):
                 raise PlanVerificationError("plan metadata model binding provenance is invalid")
         elif request_kind == "model":

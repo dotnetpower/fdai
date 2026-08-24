@@ -42,18 +42,19 @@ variable "identity" {
 variable "event_topics" {
   description = "Event Hub entity names owned by the shared event-bus state."
   type = object({
-    canary                      = optional(string, "fdai.control.canary")
-    events                      = string
-    executor_command            = string
-    executor_receipt            = string
-    hil_decisions               = optional(string, "fdai.hil.decisions")
-    inventory_raw               = optional(string, "fdai.inventory.raw")
-    pipeline_stages             = optional(string, "fdai.pipeline.stages")
-    startup_probe               = optional(string, "runtime.startup.probe")
-    semantic_requests           = optional(string, "operator.semantic-turn.requests")
-    semantic_projections        = optional(string, "core.semantic-turn.projections")
-    semantic_physical           = optional(string, "fdai.pantheon.objects")
-    read_investigation_requests = optional(string, "operator.read-investigation.requests")
+    canary                         = optional(string, "fdai.control.canary")
+    events                         = string
+    executor_command               = string
+    executor_receipt               = string
+    hil_decisions                  = optional(string, "fdai.hil.decisions")
+    inventory_raw                  = optional(string, "fdai.inventory.raw")
+    pipeline_stages                = optional(string, "fdai.pipeline.stages")
+    startup_probe                  = optional(string, "runtime.startup.probe")
+    semantic_requests              = optional(string, "operator.semantic-turn.requests")
+    semantic_projections           = optional(string, "core.semantic-turn.projections")
+    semantic_physical              = optional(string, "fdai.pantheon.objects")
+    read_investigation_requests    = optional(string, "operator.read-investigation.requests")
+    incident_intervention_requests = optional(string, "operator.incident-intervention.requests")
   })
 }
 
@@ -149,6 +150,7 @@ variable "llm" {
     web_search_allowed_domains = optional(list(string), [])
     web_search_max_results     = optional(number, 8)
     web_search_timeout_seconds = optional(number, 45)
+    resolved_models_digest     = optional(string, "")
   })
 
   validation {
@@ -173,6 +175,14 @@ variable "llm" {
       var.llm.web_search_timeout_seconds <= 90
     )
     error_message = "Enabled web search requires 1-100 valid hosts, max_results in [1, 20], and timeout_seconds in [0.1, 90]."
+  }
+
+  validation {
+    condition = (
+      var.llm.resolved_models_digest == "" ||
+      can(regex("^[0-9a-f]{64}$", var.llm.resolved_models_digest))
+    )
+    error_message = "llm.resolved_models_digest must be empty or a lowercase SHA-256 digest."
   }
 }
 
