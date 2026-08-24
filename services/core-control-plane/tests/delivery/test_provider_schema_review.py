@@ -149,3 +149,34 @@ def test_classifies_exact_pairs_without_inventing_semantics_or_authority() -> No
     serialized = json.dumps(payload, sort_keys=True)
     assert "link_type" not in serialized
     assert "endpoint_orientation" not in serialized
+
+
+def test_rejects_pathological_endpoint_pair_expansion() -> None:
+    snapshot = AzureProviderRelationshipSchemaSnapshot.build(
+        source_revision="a" * 40,
+        provider_schema_digest="sha256:" + "b" * 64,
+        extension_document_count=1,
+        arm_id_references=(
+            AzureArmIdReference(
+                source_document="specification/example/resource-manager/example.json",
+                json_pointer="/definitions/Reference",
+                allowed_resource_types=tuple(
+                    f"microsoft.target/type{index}" for index in range(65)
+                ),
+                unresolved_allowed_resources=(),
+                operation_paths=("/providers/Microsoft.Source/resources/{name}",),
+                source_resource_types=tuple(f"microsoft.source/type{index}" for index in range(65)),
+            ),
+        ),
+        resource_definitions=(),
+    )
+    catalog = load_provider_relationship_mapping_catalog(
+        REPO_ROOT / "rule-catalog/vocabulary/provider-relationship-mappings"
+    )
+
+    with pytest.raises(ProviderSchemaError, match="endpoint-pair bound"):
+        ProviderSchemaRelationshipReview.build(
+            relationship_snapshot=snapshot,
+            modeled_provider_types=frozenset(),
+            mapping_catalog=catalog,
+        )

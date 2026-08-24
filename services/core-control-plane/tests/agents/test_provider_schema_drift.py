@@ -8,7 +8,9 @@ from pathlib import Path
 import pytest
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.registry import load_pantheon
+from fdai.agents.forseti import Forseti
 from fdai.agents.heimdall import Heimdall
+from fdai.agents.saga import Saga
 from fdai.delivery.provider_schema import (
     ProviderSchemaError,
     ProviderSchemaSnapshot,
@@ -77,6 +79,30 @@ async def test_heimdall_validates_before_transport_and_holds_without_bus() -> No
     invalid["grants_authority"] = True
     with pytest.raises(ProviderSchemaError, match="authority boundary"):
         await heimdall.publish_provider_schema_drift(invalid)
+
+
+async def test_provider_schema_drift_reaches_hil_verdict_and_saga_audit() -> None:
+    bus = InMemoryBus(registry=load_pantheon(), isolate_handlers=False)
+    heimdall = Heimdall(bus=bus)
+    forseti = Forseti(bus=bus)
+    saga = Saga()
+    saga.bind_bus(bus)
+    bus.subscribe("object.drift", "Forseti", forseti.on_typed_message)
+    bus.subscribe("object.verdict", "Saga", saga.on_typed_message)
+
+    assert await heimdall.publish_provider_schema_drift(_package()) is True
+
+    drift = bus.messages_on("object.drift")[-1].payload
+    verdict = bus.messages_on("object.verdict")[-1].payload
+    assert verdict["risk_verdict"] == "hil"
+    assert verdict["reason"] == "no_rule_match"
+    assert verdict["action_type"] == ""
+    assert verdict["correlation_id"] == drift["correlation_id"]
+    assert verdict["idempotency_key"] == drift["idempotency_key"]
+    entries = saga.audit_chain.entries_for_correlation(str(drift["correlation_id"]))
+    assert len(entries) == 1
+    assert entries[0].principal == "Forseti"
+    assert entries[0].topic == "object.verdict"
 
 
 async def test_breaking_watcher_package_reaches_heimdall_owned_drift_topic(

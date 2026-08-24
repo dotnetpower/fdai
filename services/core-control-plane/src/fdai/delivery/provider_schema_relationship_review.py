@@ -11,10 +11,14 @@ from enum import StrEnum
 from fdai.delivery.azure.provider_relationship_schema import (
     AzureProviderRelationshipSchemaSnapshot,
 )
+from fdai.delivery.provider_schema import ProviderSchemaError
 from fdai.rule_catalog.schema.provider_relationship_mapping import (
     ProviderReferenceFormat,
     ProviderRelationshipMappingCatalog,
 )
+
+_MAX_PAIRS_PER_REFERENCE = 4_096
+_MAX_UNIQUE_ENDPOINT_PAIRS = 100_000
 
 
 class ProviderSchemaEndpointCoverage(StrEnum):
@@ -85,7 +89,15 @@ class ProviderSchemaRelationshipReview:
                 missing_source_count += 1
                 target_only_types.update(targets)
                 continue
+            if len(sources) * len(targets) > _MAX_PAIRS_PER_REFERENCE:
+                raise ProviderSchemaError(
+                    "provider schema relationship reference exceeds endpoint-pair bound"
+                )
             pair_counts.update((source, target) for source in sources for target in targets)
+            if len(pair_counts) > _MAX_UNIQUE_ENDPOINT_PAIRS:
+                raise ProviderSchemaError(
+                    "provider schema relationship review exceeds unique endpoint-pair bound"
+                )
 
         mapping_ids_by_pair: defaultdict[tuple[str, str], set[str]] = defaultdict(set)
         for mapping in mapping_catalog.mappings:
