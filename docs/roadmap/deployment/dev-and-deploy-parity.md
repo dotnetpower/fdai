@@ -183,19 +183,13 @@ path. The local Isolated Executor is a durable shadow consumer with no managed-r
 an authority-cutover setting in this venue fails startup. The compound doesn't start static design
 mocks or fixture applications.
 
-The process launcher sets `FDAI_EXECUTION_VENUE=local` independently from `RUNTIME_ENV`. Local
-service state uses the Docker PostgreSQL instance on `127.0.0.1:5432` with the owning role for Core,
-Operator, Document Ingestion API, Document Processing Worker, and Isolated Executor. Local event
-transport uses Docker Redpanda on `127.0.0.1:19092`. A deployed Azure process sets
-`FDAI_EXECUTION_VENUE=deployed` and uses its service-owned Azure Database for PostgreSQL DSN and
-Event Hubs Kafka endpoint. Venue selection never changes evidence authority, promotion state,
-human identity, or executor authority.
+The process launcher sets `FDAI_EXECUTION_VENUE=local` independently from `RUNTIME_ENV`. Local service
+state uses Docker PostgreSQL on `127.0.0.1:5432` with the owning role for Core, Operator, Document
+Ingestion API, Document Processing Worker, and Isolated Executor, and local event transport uses Docker
+Redpanda on `127.0.0.1:19092`. A deployed Azure process sets `FDAI_EXECUTION_VENUE=deployed` and uses its
+service-owned Azure Database for PostgreSQL DSN and Event Hubs Kafka endpoint. Venue selection never changes evidence authority, promotion state, human identity, or executor authority.
 
-The `database_host_binding` deployment mode changes only the deployed service's non-secret
-`POSTGRES_HOST` binding. Every service root requires a non-empty host, the sealed guard rejects
-other command or environment drift, and exact apply must repeat the plan's mode and digests. Local
-composition continues to use its loopback host, so the transition does not change execution venue
-or reuse a deployed DSN locally.
+The `database_host_binding` deployment mode changes only the deployed service's non-secret `POSTGRES_HOST` binding. Every service root requires a non-empty host, the sealed guard rejects other command or environment drift, and exact apply must repeat the plan's mode and digests. Local composition continues to use its loopback host, so the transition does not change execution venue or reuse a deployed DSN locally.
 
 Opening a workspace doesn't start the Console topology; run `console: start full stack` explicitly
 from the trusted primary checkout so setup never competes with editor initialization. The task

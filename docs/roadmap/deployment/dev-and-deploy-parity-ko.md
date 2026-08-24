@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 1572a74274f6bce5e64a9b4577c9a2c5d4ed9469
+translation_source_sha: ada9f958e8f8d5cadf3a51c6a69338aec9fea320
 translation_revised: 2026-08-25
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -188,19 +188,13 @@ managed-resource identity가 없는 영속 shadow consumer입니다. 이 venue�
 설정하면 시작이 실패합니다. Compound는 정적 design mock이나 fixture 애플리케이션을 시작하지
 않습니다.
 
-프로세스 launcher는 `RUNTIME_ENV`와 독립적으로 `FDAI_EXECUTION_VENUE=local`을 설정합니다.
-로컬 서비스 상태는 `127.0.0.1:5432`의 Docker PostgreSQL을 사용하며 Core, Operator, 문서
-인제스트 API, 문서 처리 워커 및 격리 실행기는 각각 담당 역할로 연결합니다. 로컬 이벤트 전송은
-`127.0.0.1:19092`의 Docker Redpanda를 사용합니다. Azure에 배포된 프로세스는
-`FDAI_EXECUTION_VENUE=deployed`를 설정하고 서비스 소유 Azure Database for PostgreSQL DSN과
-Event Hubs Kafka endpoint를 사용합니다. Venue 선택은 근거 권한, 승격 상태, 사람 신원 또는
-executor 권한을 변경하지 않습니다.
+프로세스 launcher는 `RUNTIME_ENV`와 독립적으로 `FDAI_EXECUTION_VENUE=local`을 설정합니다. 로컬
+서비스 상태는 `127.0.0.1:5432`의 Docker PostgreSQL을 사용하며 Core, Operator, 문서 인제스트 API,
+문서 처리 워커 및 격리 실행기는 각각 담당 역할로 연결하고, 로컬 이벤트 전송은 `127.0.0.1:19092`의
+Docker Redpanda를 사용합니다. Azure에 배포된 프로세스는 `FDAI_EXECUTION_VENUE=deployed`를 설정하고
+서비스 소유 Azure Database for PostgreSQL DSN과 Event Hubs Kafka endpoint를 사용합니다. Venue 선택은 근거 권한, 승격 상태, 사람 신원 또는 executor 권한을 변경하지 않습니다.
 
-`database_host_binding` 배포 mode는 배포 service의 비밀이 아닌 `POSTGRES_HOST` 연결만
-변경합니다. 모든 service root는 비어 있지 않은 host를 요구하고, 봉인된 guard는 다른 명령이나
-환경 표류를 차단하며, exact apply는 plan의 mode와 digest를 그대로 반복해야 합니다. Local
-composition은 loopback host를 계속 사용하므로 이 전환은 실행 venue를 바꾸거나 배포 DSN을
-local에서 재사용하지 않습니다.
+`database_host_binding` 배포 mode는 배포 service의 비밀이 아닌 `POSTGRES_HOST` 연결만 변경합니다. 모든 service root는 비어 있지 않은 host를 요구하고, 봉인된 guard는 다른 명령이나 환경 표류를 차단하며, exact apply는 plan의 mode와 digest를 그대로 반복해야 합니다. Local composition은 loopback host를 계속 사용하므로 이 전환은 실행 venue를 바꾸거나 배포 DSN을 local에서 재사용하지 않습니다.
 
 작업 영역을 열어도 Console 구성을 시작하지 않습니다. 신뢰된 primary checkout에서
 `console: start full stack`을 명시적으로 실행하면 준비 작업이 편집기 초기화와 경쟁하지 않습니다.
