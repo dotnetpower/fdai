@@ -114,6 +114,18 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     assert '--scope "$OPERATOR_VNET_ID"' in workflow
     assert "Revoke bounded operator network authority" in workflow
     assert "steps.operator-network-authority.outputs.remove_after_run == 'true'" in workflow
+    assert "Install checksum-pinned kubelogin" in workflow
+    assert "KUBELOGIN_VERSION: v0.2.19" in workflow
+    assert (
+        "KUBELOGIN_LINUX_AMD64_SHA256: "
+        "ebaeff02aa899c5cae6a2b954b64fc02738185319df2570f7dc053451efa4b2f" in workflow
+    )
+    assert "sha256sum --check --status" in workflow
+    assert "--connect-timeout 10 --max-time 120" in workflow
+    assert "--retry 2 --retry-delay 2 --retry-all-errors --retry-max-time 120" in workflow
+    assert "required kubelogin installer command is unavailable" in workflow
+    assert 'trap \'rm -rf -- "$archive" "$extract_dir"\' EXIT' in workflow
+    assert "for command_name in az helm jq kubectl kubelogin terraform" in workflow
     assert "Adopt succeeded partial-apply network resources" in workflow
     assert "scenario-lab partial-resource adoption rejected an invalid resource id" in workflow
     assert (
@@ -242,6 +254,7 @@ def test_live_runner_records_current_approval_reference() -> None:
     assert "must be an absolute non-root path" in runner
     prepare = PREPARE_SCRIPT.read_text(encoding="utf-8")
     assert "helm show chart chaos-mesh/chaos-mesh" in prepare
+    assert "az helm jq kubectl kubelogin terraform" in prepare
     assert "cloud-init status --wait --long" in prepare
     assert "private stress VM cloud-init did not complete" in prepare
 

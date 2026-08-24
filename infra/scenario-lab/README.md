@@ -27,7 +27,9 @@ paths, while S14 uses the existing alert ingress and investigation path.
 ## Prerequisites
 
 Use the existing self-hosted runner labeled `fdai-deploy`. The runner must have `az`, `terraform`,
-`kubectl`, `helm`, and `jq`, and must reach the private state account and the peered lab VNet.
+`kubectl`, `helm`, and `jq`, and must reach the private state account and the peered lab VNet. The
+protected workflow installs a checksum-pinned `kubelogin` in runner-temporary storage so Azure RBAC
+kubeconfigs can authenticate without changing the runner image.
 Its managed identity needs Network Contributor on the operations resource group for the reverse
 VNet peering, Storage Blob Data Contributor on the private state account, and RBAC Administrator
 for the bounded role assignments. Protected apply and destroy grant Contributor only on the

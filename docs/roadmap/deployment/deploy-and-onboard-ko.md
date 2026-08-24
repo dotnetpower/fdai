@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 5d88e77a50c2bb75bc38ec4daab88b774ca78337
+translation_source_sha: 0988c24ce5f7a235ea2429dfd4b80ff3a99f72e7
 translation_revised: 2026-08-25
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -33,6 +33,7 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-21 | implemented | 보호된 runner의 암묵적인 system pip 의존성을 제거했습니다. Workflow는 저장소가 pin한 uv release를 설치하고 frozen Core package 환경에서 model resolution과 production readiness를 실행합니다. | `current change`; 실패한 보호 계획 실행 `32434472993`; 집중 배포 workflow 계약, YAML parsing 및 dependency command 검사. | 정확한 Event Bus 이행 계획을 다시 실행하고 protected plan/apply 근거를 보존합니다. |
+| 2026-08-24 | implemented | Azure RBAC kubeconfig가 변경 가능한 VM 이미지 상태에 의존하지 않도록 보호된 시나리오 workflow에 runner 임시 저장소용 checksum-pinned `kubelogin` 설치를 추가했습니다. | 실패한 시나리오 실행 `32780056314`; `current change`; 집중 workflow, 스크립트, checksum 및 시나리오 계약 검사. | 비공개 AKS 기반 준비를 완료하고 보호된 적용 증적을 보존합니다. |
 | 2026-08-21 | implemented | 파괴적 계획 게이트를 유지하면서 검토된 임베딩 이행 하나를 승인했습니다. Terraform 계획이 정확한 주소, 계정 연결, 모델 계열, 기존 `GlobalStandard` 용량 1, 목표 `Standard` 용량 200과 일치할 때만 `t1.embedding` 교체를 허용합니다. 삭제 전용 계획과 값이 달라진 교체는 계속 차단됩니다. | `current change`; `.github/workflows/deploy-dev.yml`; 집중 파괴적 계획 검사 2개 통과. | 정확한 보호 계획을 적용하고 새 배포와 런타임 연결을 검증한 뒤 증적을 보존하고 일회성 전환 승인을 제거합니다. |
 | 2026-08-24 | implemented | 모델 바인딩 전용 계획 범위 가드를 실제 workflow 단계로 복원하고 사용 중단 중인 출처 모델 계열에서 이동하는 교체 검토를 강화했습니다. 저장된 계획은 유효한 OpenAI 출처 배포와 계정 연결을 유지해야 하며, 목표는 봉인된 GA 모델 계열, 버전, SKU 및 용량과 정확히 일치해야 합니다. | [이슈 #270](https://github.com/dotnetpower/fdai/issues/270); `deploy-dev.yml`; 실행형 모델 계획 및 파괴적 교체 검사. | 경로를 `validated`로 올리기 전에 정확한 PTU 계획, 적용, readback 및 역방향 계획 롤백 증적을 보존합니다. |
 | 2026-08-24 | implemented | 보호 계획 `32749593774`가 읽기 전용 Model Capacities 질의의 30초 제한에서 중단된 뒤 live resolver의 Azure CLI timeout을 매개변수화했습니다. 보호 workflow는 범위가 제한된 90초 deadline을 사용하고 모든 공급자 읽기는 실패 시 차단을 유지합니다. | [이슈 #270](https://github.com/dotnetpower/fdai/issues/270); resolver CLI 및 보호 workflow 검사 62개와 strict mypy 통과. | 정확한 계획을 한 번 다시 실행하고 적용 전에 결과를 보존합니다. |
@@ -146,9 +147,8 @@ residue가 exact-commit clean을 막지 않게 합니다. 해당 단계는 Azure
 저장소 작업 흐름은 검토된 원격 액션만 허용하고 exact 노드 24-compatible release 참조로
 pin하며 컨테이너 supply-chain 액션은 변경할 수 없는 커밋 SHA를 사용합니다. CI 계약은 알 수 없음
 액션과 mismatched 참조를 차단합니다. Terraform 고정본 테스트는 선언된 `>= 1.9` 하한에서 허용되는
-구문만 사용합니다. Exact CI 버전이 파싱과 계획 assertion을 검증합니다. 업그레이드는 액션 런타임 메타데이터를 검증하고 실행기는 버전 2.327.1 이상을 유지합니다. 비공개 networking이 활성화된이면 PostgreSQL 공개 접근과 broad Azure-services firewall을
-비활성화합니다. Dev는 approved 비공개 엔드포인트를 사용하고 운영은 delegated-subnet 모드를
-계속 선택할 수 있습니다.
+구문만 사용합니다. 추가 배포 도구가 필요한 workflow는 runner 임시 저장소에만 설치하고 exact release와 SHA-256 digest를 pin한 뒤 사용 전에 검증합니다. Exact CI 버전이 파싱과 계획 assertion을 검증합니다. 업그레이드는 액션 런타임 메타데이터를 검증하고 실행기는 버전 2.327.1 이상을 유지합니다. 비공개 networking이 활성화된이면 PostgreSQL 공개 접근과 broad Azure-services firewall을
+비활성화합니다. Dev는 approved 비공개 엔드포인트를 사용하고 운영은 delegated-subnet 모드를 계속 선택할 수 있습니다.
 Protected 요청은 `commit_sha`를 명시적으로 체크아웃하고 `git rev-parse HEAD`와 비교합니다.
 따라서 전달과 실행 사이에 release 커밋이 `main`을 이동해도 계획 또는 적용 코드가
 바뀌지 않습니다.

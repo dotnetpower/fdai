@@ -19,7 +19,7 @@ if [[ ! "$chaos_mesh_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo "prepare-runner: SCENARIO_LAB_CHAOS_MESH_CHART_VERSION must be an exact semantic version." >&2
   exit 2
 fi
-for command_name in az helm jq kubectl terraform; do
+for command_name in az helm jq kubectl kubelogin terraform; do
   command -v "$command_name" >/dev/null 2>&1 || {
     echo "prepare-runner: required command is unavailable: $command_name" >&2
     exit 1
