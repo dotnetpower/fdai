@@ -73,21 +73,21 @@ agent is broken and needs attention soon. It doesn't mean FDAI stopped working.
 Handover starts with a document someone already has: an on-call roster, a RACI chart, an org chart,
 a runbook, or a memo written on the way out. FDAI reads it, proposes a map change, and stops.
 
-![A handover document passes inspected ingestion, cited deterministic extraction, optional grounded interpretation, exact directory resolution, confidence and coverage warnings, fixed-pantheon contract validation, an idempotent review-only draft pull request, independent human review, post-merge loader validation, and audit. Unresolved, abstained, rejected, or invalid proposals leave the active map unchanged, and ownership never grants access or execution authority.](../../diagrams/generated/fdai-ownership-and-handover-01.en.svg)
+![A handover document passes inspected ingestion, cited deterministic extraction, optional grounded interpretation, exact directory resolution, confidence and coverage warnings, fixed-pantheon contract validation, an idempotent review-only draft pull request, independent human review, post-merge loader validation, and audit. Unresolved, held for review, rejected, or invalid proposals leave the active map unchanged, and ownership never grants access or execution authority.](../../diagrams/generated/fdai-ownership-and-handover-01.en.svg)
 
 1. **Upload.** You submit the document through the console's knowledge-handover form, or through the
    ingestion path directly. It passes the same safety inspection as any other upload.
 2. **Extract.** A deterministic extractor scans line by line for agent domain terms, responsibility
   markers, and people. A deployment can also bind an optional grounded interpreter; the upstream
-  default abstains. Every accepted claim cites its source, and an ungrounded proposal is discarded.
+  default holds for review. Every accepted claim cites its source, and an ungrounded proposal is discarded.
 3. **Resolve.** Named people are looked up in your directory. FDAI never guesses an identity. A name
    it can't resolve is flagged as unresolved and left for a person to settle.
 4. **Draft.** Candidates below the confidence floor are set aside for human review. The result is an
-  inert draft ownership map with warnings for unresolved people, abstained candidates, and agents
+  inert draft ownership map with warnings for unresolved people, held for review candidates, and agents
   without a confident accountable owner.
 5. **Validate and propose.** The draft must name only the fixed 15 agents, contain no access-role
   fields, and satisfy the ownership schema. When the governance path is enabled, a nonempty draft
-  is published as one content-addressed, review-only pull request. An abstained or empty draft
+  is published as one content-addressed, review-only pull request. A draft held for review or an empty draft
   opens no pull request, and retrying the same document doesn't open a duplicate.
 6. **Merge and activate.** A person reviews that pull request and may merge it. The loader validates
   the complete map after merge before it becomes active. Rejection or invalid configuration leaves

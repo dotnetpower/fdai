@@ -52,7 +52,7 @@ Staff: Mimir - Rules, Muninn - Memory, Saga - Audit,
 | Agent | Plain-language role | Does not own |
 |-------|---------------------|--------------|
 | Huginn | Collects, normalizes, and correlates events. | Judgment or execution. |
-| Heimdall | Detects anomaly, drift, and forecast outcomes. | Remediation execution. |
+| Heimdall | Detects anomaly, drift, and forecast outcomes. | Recovery execution. |
 | Forseti | Issues the decision and grounded analysis. | Approval or execution. |
 | Thor | Dispatches typed, approved action runs. | Judgment or human identity. |
 | Var | Carries human approval or rejection. | Executor credentials. |
@@ -244,7 +244,7 @@ Agent -> Typed event -> Schema and ownership check -> Subscribers
 | Decision and policy result | Why the path was automatic, approved, or blocked. |
 | Human and workload identities | Who approved and which identity executed. |
 | Outcome and recovery state | Whether verification passed or rollback ran. |
-| Accountable owner | Who handles escalation and knowledge handover. |
+| Final owner | Who handles escalation and knowledge transfer. |
 
 **Visual:** A read-only evidence timeline beside a compact ownership panel. Avoid an action button in the console mockup.
 

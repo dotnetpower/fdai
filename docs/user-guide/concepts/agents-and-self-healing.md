@@ -24,7 +24,7 @@ The set of agents is defined once upstream and a fork never changes it. Odin
 plans, Forseti judges, Thor executes, and the staff agents govern the catalog and
 the memory.
 
-![External signals enter the shared typed event bus and reach Huginn. Huginn publishes normalized events that fan out to Heimdall and Forseti. Heimdall, Njord, Freyr, Loki, Mimir, and Muninn contribute findings, domain evidence, rules, and context without calling one another directly. Forseti owns decisions and asks Odin to arbitrate cross-domain conflicts. Eligible decisions reach Thor, while Var owns human approval and Vidar owns rollback. Forseti, Thor, Var, and Vidar publish audit evidence to Saga. Saga outcomes reach Norns, which proposes inert rule candidates to Mimir. Bragi reads context from Muninn and returns typed action proposals to Huginn so conversations use the same governed path.](../../diagrams/generated/fdai-agent-driven-runtime.en.svg)
+![External signals enter the shared typed event bus and reach Huginn. Huginn publishes normalized events that fan out to Heimdall and Forseti. Heimdall, Njord, Freyr, Loki, Mimir, and Muninn contribute detected issues, domain evidence, rules, and context without calling one another directly. Forseti owns decisions and asks Odin to arbitrate cross-domain conflicts. Eligible decisions reach Thor, while Var owns human approval and Vidar owns rollback. Forseti, Thor, Var, and Vidar publish audit evidence to Saga. Saga outcomes reach Norns, which proposes inert rule candidates to Mimir. Bragi reads context from Muninn and returns typed action proposals to Huginn so conversations use the same governed path.](../../diagrams/generated/fdai-agent-driven-runtime.en.svg)
 
 | Agent | Role | In one line |
 |-------|------|-------------|
@@ -77,7 +77,7 @@ Full walkthrough: [../guides/approve-change.md](../guides/approve-change.md).
 When a resource degrades, the agents collaborate through the same pipeline that
 handles every event. Here is one failover, end to end:
 
-![How a failure self-heals. The main stages are Huginn / discovers changes, Heimdall / checks coverage, Forseti / judges verdict, Njord, Freyr, Thor / executes, Var / your approval, Vidar / rollback / failover, Saga / audits, Norns / learns.](../../diagrams/generated/fdai-agents-and-self-healing-02.en.svg)
+![How a failure self-heals. The main stages are Huginn / discovers changes, Heimdall / checks coverage, Forseti / judges decision, Njord, Freyr, Thor / executes, Var / your approval, Vidar / rollback / failover, Saga / audits, Norns / learns.](../../diagrams/generated/fdai-agents-and-self-healing-02.en.svg)
 
 1. **Sense.** Huginn takes in resource changes and failure signals in real time.
   The periodic Inventory job catches anything missed, and Heimdall checks

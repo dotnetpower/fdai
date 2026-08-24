@@ -45,7 +45,7 @@ safety check.
 Every proposed change passes rule-catalog policy checks. FDAI dry-runs the
 candidate against policy-as-code (policies expressed as machine-readable rules),
 limits its impact scope, and then either dispatches an eligible registered action
-or sends it for human approval. A generated remediation pull request is never
+or sends it for human approval. A generated recovery pull request is never
 auto-merged.
 
 Example: an IaC pull request proposes a public-egress NSG rule -> the safety

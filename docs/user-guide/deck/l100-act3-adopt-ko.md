@@ -2,8 +2,8 @@
 title: "FDAI 제안서 3막: 범위, 효과, 데모, 도입"
 description: 자동화 범위, 측정된 효과, 데모 및 도입 방안을 설명하는 제안서 19-26번 장표입니다.
 translation_of: l100-act3-adopt.md
-translation_source_sha: d76ed5d8228e5341c2fb16fa44e5708620e7939f
-translation_revised: 2026-08-20
+translation_source_sha: 9af6c8824bee9c6344b1b983184d818589260eb8
+translation_revised: 2026-08-24
 ---
 
 # FDAI 제안서 3막: 범위, 효과, 데모, 도입
@@ -203,5 +203,5 @@ translation_revised: 2026-08-20
 | 실행할 내용 | 문서 |
 |-------------|------|
 | 기준값 워크숍 계획 | [배포와 온보딩](../../roadmap/deployment/deploy-and-onboard-ko.md) |
-| 운영 담당 체계 준비 | [에이전트 담당 체계와 인수인계](../../roadmap/interfaces/agent-stewardship-and-handover-ko.md) |
+| 운영 담당 체계 준비 | [에이전트 담당 체계와 전환](../../roadmap/interfaces/agent-stewardship-and-handover-ko.md) |
 | 전체 제안서 원고 검토 | [덱 키트](README-ko.md) |

@@ -200,5 +200,5 @@ Act 3 turns the architecture into an adoption decision. It defines where automat
 | To act | Read |
 |--------|------|
 | Plan the baseline workshop | [Deploy and onboard](../../roadmap/deployment/deploy-and-onboard.md) |
-| Prepare operational ownership | [Agent stewardship and handover](../../roadmap/interfaces/agent-stewardship-and-handover.md) |
+| Prepare operational ownership | [Agent ownership and transition](../../roadmap/interfaces/agent-stewardship-and-handover.md) |
 | Review the complete proposal source | [Deck kit](README.md) |

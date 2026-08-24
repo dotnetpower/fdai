@@ -2,8 +2,8 @@
 title: FDAI 시작하기
 description: FDAI 5분 오리엔테이션 - 무엇인지, 언제 적합한지, 다음으로 어디를 볼지.
 translation_of: get-started.md
-translation_source_sha: 635913d3abcae015024b3d0352e592dfd03ac3ac
-translation_revised: 2026-08-20
+translation_source_sha: 7b9657db184fc861d520cb329453a284d870fc33
+translation_revised: 2026-08-24
 ---
 
 # FDAI 시작하기
@@ -40,7 +40,7 @@ FDAI는 하나의 이벤트 기반 코어 위에 세 개의 버티컬을 얹습�
 
 제안된 모든 변경은 룰 카탈로그 정책 검사를 거칩니다. FDAI는 후보를 policy-as-code(기계가
 읽을 수 있는 정책)에 대해 예행 실행하고, 영향 범위를 제한한 뒤, 조건을 충족한 등록 액션을
-전송하거나 사람 승인으로 보냅니다. 생성된 수정 pull request는 자동으로 병합하지 않습니다.
+전송하거나 사람 승인으로 보냅니다. 생성된 복구 pull request는 자동으로 병합하지 않습니다.
 
 예시: IaC pull 요청이 public-egress NSG 룰을 도입 -> 안전성 검토가 고위험으로 판정 ->
 Teams에 승인 카드가 도착 -> 승인자가 승인을 선택 -> 통제된 전달 경로가 검토된 액션을

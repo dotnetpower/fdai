@@ -117,6 +117,7 @@ class AzureCachedOperationalSnapshotSource:
         resource_type = value.get("resource_type")
         if not isinstance(resource_id, str) or not isinstance(resource_type, str):
             raise ValueError("Azure inventory context identity is invalid")
+        resource_revision = value.get("revision")
         return AzureOperationalSnapshot(
             resource_ref=resource_id,
             resource_type=resource_type,
@@ -126,9 +127,7 @@ class AzureCachedOperationalSnapshotSource:
             owner_digest=_required_string(context, "owner_digest"),
             observed_at=_timestamp(context, "observed_at"),
             evidence_refs=_string_tuple(context, "evidence_refs"),
-            resource_revision=(
-                value.get("revision") if isinstance(value.get("revision"), int) else None
-            ),
+            resource_revision=resource_revision if isinstance(resource_revision, int) else None,
             metric_values=_metric_values(context) if "metric_values" in context else {},
         )
 

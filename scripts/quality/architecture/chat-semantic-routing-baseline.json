@@ -135,6 +135,13 @@
       "issue": 252
     },
     {
+      "path": "console/src/routes/ontology-instances.model.ts",
+      "disposition": "retain",
+      "owner": "console-ontology",
+      "reason": "Retains case-insensitive filtering of fixed ontology view options for presentation only.",
+      "issue": 252
+    },
+    {
       "path": "console/src/routes/settings-models.model.ts",
       "disposition": "retain",
       "owner": "console-settings",
@@ -275,10 +282,24 @@
       "issue": 252
     },
     {
+      "path": "services/core-control-plane/src/fdai/core/conversation/semantic_judgment.py",
+      "disposition": "retain",
+      "owner": "semantic-conversation",
+      "reason": "Retains machine-token normalization and schema validation after model-backed semantic judgment.",
+      "issue": 252
+    },
+    {
       "path": "services/core-control-plane/src/fdai/core/conversation/semantic_planning_cascade.py",
       "disposition": "retain",
       "owner": "semantic-conversation",
       "reason": "Retains schema-level runtime-identifier safeguards and frame-to-plan capability verification.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai/core/conversation/semantic_planning_frame.py",
+      "disposition": "retain",
+      "owner": "semantic-conversation",
+      "reason": "Retains locale-aware rendering and exact typed-facet checks after structured intent selection.",
       "issue": 252
     },
     {

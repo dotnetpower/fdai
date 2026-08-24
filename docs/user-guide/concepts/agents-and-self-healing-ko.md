@@ -2,8 +2,8 @@
 title: 에이전트와 자가 치유(Agents and self-healing)
 description: FDAI의 고정된 에이전트 조직이 클라우드를 감시하고, 장애 해결을 위해 협력하며, 여러분을 승인-거절 수준에 두는 방식.
 translation_of: agents-and-self-healing.md
-translation_source_sha: 04c4ca53912e798d51b38988afd5450ea0225fc0
-translation_revised: 2026-08-20
+translation_source_sha: 18c0f09c80995635ce5193fd5b6586a845909a37
+translation_revised: 2026-08-24
 sidebar:
   order: 5
 ---
@@ -26,7 +26,7 @@ FDAI는 **이름 있는 15개 에이전트의 고정된 조직**으로 동작합
 계획하고, Forseti가 판단하고, Thor가 실행하며, 스태프 에이전트가 카탈로그와 메모리를
 관리합니다.
 
-![외부 신호가 shared typed event bus로 들어와 Huginn에 도달합니다. Huginn이 발행한 normalized event는 Heimdall과 Forseti로 fan-out됩니다. Heimdall, Njord, Freyr, Loki, Mimir, Muninn은 서로 직접 호출하지 않고 finding, domain evidence, rule, context를 제공합니다. Forseti는 결정을 소유하고 cross-domain conflict의 arbitration을 Odin에 요청합니다. 실행 가능한 결정은 Thor에 도달하며 Var는 사람 승인을, Vidar는 rollback을 소유합니다. Forseti, Thor, Var, Vidar는 Saga에 audit evidence를 발행합니다. Saga outcome은 Norns로 전달되고 Norns는 inert rule candidate를 Mimir에 제안합니다. Bragi는 Muninn에서 context를 읽고 typed action proposal을 Huginn에 보내 conversation도 동일한 governed path를 사용하게 합니다.](../../diagrams/generated/fdai-agent-driven-runtime.ko.svg)
+![외부 신호가 shared typed event bus로 들어와 Huginn에 도달합니다. Huginn이 발행한 normalized event는 Heimdall과 Forseti로 fan-out됩니다. Heimdall, Njord, Freyr, Loki, Mimir, Muninn은 서로 직접 호출하지 않고 발견된 문제, domain evidence, rule, context를 제공합니다. Forseti는 결정을 소유하고 cross-domain conflict의 arbitration을 Odin에 요청합니다. 실행 가능한 결정은 Thor에 도달하며 Var는 사람 승인을, Vidar는 rollback을 소유합니다. Forseti, Thor, Var, Vidar는 Saga에 audit evidence를 발행합니다. Saga outcome은 Norns로 전달되고 Norns는 inert rule candidate를 Mimir에 제안합니다. Bragi는 Muninn에서 context를 읽고 typed action proposal을 Huginn에 보내 conversation도 동일한 governed path를 사용하게 합니다.](../../diagrams/generated/fdai-agent-driven-runtime.ko.svg)
 
 | 에이전트 | 역할 | 한 줄 |
 |----------|------|-------|
