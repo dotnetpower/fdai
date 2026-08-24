@@ -5,7 +5,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import ssl
 import sys
+from contextlib import AsyncExitStack
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -42,6 +44,16 @@ from fdai.delivery.inventory_sync import (
     PromotedInventoryObservation,
 )
 from fdai.delivery.inventory_topology_history import InventoryTopologyHistoryPublisher
+from fdai.delivery.kubernetes_api_inventory import (
+    KubernetesApiInventoryConfig,
+    KubernetesApiInventorySource,
+    ServiceAccountTokenAuth,
+)
+from fdai.delivery.kubernetes_inventory import (
+    KubernetesInventoryEnricher,
+    SequentialInventoryPromotionEnricher,
+    UnavailableKubernetesInventoryEnricher,
+)
 from fdai.delivery.operational_activity import (
     EventBusOperationalActivityPublisher,
     ObservedInventorySnapshotStore,
@@ -131,6 +143,37 @@ def _load_resource_type_registry() -> ResourceTypeRegistry:
 def _load_relationship_mapping_catalog() -> ProviderRelationshipMappingCatalog:
     return load_provider_relationship_mapping_catalog(
         _REPO_ROOT / "rule-catalog" / "vocabulary" / "provider-relationship-mappings"
+    )
+
+
+async def _build_kubernetes_enricher(
+    *,
+    config: InventoryJobConfig,
+    relationship_catalog: ProviderRelationshipMappingCatalog,
+    stack: AsyncExitStack,
+) -> InventoryPromotionEnricher:
+    if (
+        config.kubernetes_api_server is None
+        or config.kubernetes_cluster_ref is None
+        or config.kubernetes_token_path is None
+        or config.kubernetes_ca_path is None
+    ):
+        return UnavailableKubernetesInventoryEnricher()
+    try:
+        kubernetes_ssl = ssl.create_default_context(cafile=str(config.kubernetes_ca_path))
+    except OSError as exc:
+        raise RuntimeError("Kubernetes CA bundle is unavailable") from exc
+    kubernetes_client = await stack.enter_async_context(httpx.AsyncClient(verify=kubernetes_ssl))
+    return KubernetesInventoryEnricher(
+        source=KubernetesApiInventorySource(
+            config=KubernetesApiInventoryConfig(
+                api_server=config.kubernetes_api_server,
+                cluster_ref=config.kubernetes_cluster_ref,
+            ),
+            auth=ServiceAccountTokenAuth(config.kubernetes_token_path),
+            http_client=kubernetes_client,
+        ),
+        relationship_mapping_catalog=relationship_catalog,
     )
 
 
@@ -354,8 +397,8 @@ async def run(
     promotion_enricher: InventoryPromotionEnricher | None = None,
 ) -> InventoryJobResult:
     """Run ordered source fallback and optional verified pre-promotion enrichment."""
-    effective_enricher = promotion_enricher or UnavailableRuntimeCallInventoryEnricher()
     vocabulary = _load_resource_type_registry()
+    relationship_catalog = _load_relationship_mapping_catalog()
     resource_types = _resolve_resource_types(config, vocabulary)
     durable_store = PostgresInventorySnapshotStore(
         config=PostgresInventorySnapshotStoreConfig(
@@ -363,7 +406,17 @@ async def run(
             freshness_budget_seconds=config.freshness_budget_seconds,
         )
     )
-    async with httpx.AsyncClient() as client:
+    async with AsyncExitStack() as stack:
+        client = await stack.enter_async_context(httpx.AsyncClient())
+        kubernetes_enricher = await _build_kubernetes_enricher(
+            config=config,
+            relationship_catalog=relationship_catalog,
+            stack=stack,
+        )
+        effective_enricher = SequentialInventoryPromotionEnricher(
+            promotion_enricher or UnavailableRuntimeCallInventoryEnricher(),
+            kubernetes_enricher,
+        )
         identity = _workload_identity(http_client=client)
         event_bus, event_topic = _build_job_event_bus(identity)
         activity_publisher = EventBusOperationalActivityPublisher(event_bus=event_bus)
@@ -382,7 +435,7 @@ async def run(
                     publisher=activity_publisher,
                     evidence_counts=evidence_counts,
                 ),
-                relationship_mapping_catalog=_load_relationship_mapping_catalog(),
+                relationship_mapping_catalog=relationship_catalog,
                 progress_deadline_seconds=float(config.progress_deadline_seconds),
                 attempt_deadline_seconds=float(config.attempt_deadline_seconds),
             ).run(

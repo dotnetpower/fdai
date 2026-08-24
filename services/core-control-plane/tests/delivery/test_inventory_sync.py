@@ -535,6 +535,22 @@ async def test_promotion_observer_receives_verified_kubernetes_relationships() -
     cluster_ref = "kubernetes.cluster:example"
     resources = (
         ResourceRecord(
+            resource_id=cluster_ref,
+            type="kubernetes-cluster",
+            props={"cluster_ref": cluster_ref, "name": "example"},
+            last_seen="2026-08-13T10:00:00Z",
+        ),
+        ResourceRecord(
+            resource_id=f"{cluster_ref}/namespace/default",
+            type="kubernetes.namespace",
+            props={
+                "cluster_ref": cluster_ref,
+                "namespace": "default",
+                "name": "default",
+            },
+            last_seen="2026-08-13T10:00:00Z",
+        ),
+        ResourceRecord(
             resource_id=f"{cluster_ref}/service/api",
             type="kubernetes.service",
             props={
@@ -579,6 +595,10 @@ async def test_promotion_observer_receives_verified_kubernetes_relationships() -
 
     assert len(observed) == 1
     assert [link.link_type for link in observed[0].links] == [
+        "contains",
+        "contains",
+        "contains",
+        "contains",
         "kubernetes_exposes_endpoints",
         "kubernetes_selects",
     ]

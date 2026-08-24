@@ -175,11 +175,17 @@ class InventorySyncCoordinator:
                 )
                 if self._enricher is not None:
                     enriched = await self._enricher.enrich(promoted_observation)
-                    added_links = _validate_enrichment(promoted_observation, enriched)
-                    if added_links:
+                    added_resources, added_links = _validate_enrichment(
+                        promoted_observation,
+                        enriched,
+                    )
+                    if added_resources or added_links:
                         await self._store.stage(
                             attempt_id,
-                            InventoryBatch(links=added_links),
+                            InventoryBatch(
+                                resources=added_resources,
+                                links=added_links,
+                            ),
                         )
                     promoted_observation = enriched
                 metadata = dict(source.manifest.metadata)
@@ -438,17 +444,25 @@ def classify_inventory_failure(exc: Exception) -> InventoryAttemptFailure:
 def _validate_enrichment(
     original: PromotedInventoryObservation,
     enriched: PromotedInventoryObservation,
-) -> tuple[LinkRecord, ...]:
+) -> tuple[tuple[ResourceRecord, ...], tuple[LinkRecord, ...]]:
     """Require enrichment to preserve the promoted provider observation exactly."""
 
     if (
         enriched.generation != original.generation
-        or enriched.resources != original.resources
         or enriched.complete != original.complete
         or enriched.relationship_drops != original.relationship_drops
         or enriched.recorded_at != original.recorded_at
     ):
         raise ValueError("inventory enrichment MUST preserve the provider observation")
+    original_resources = {resource.resource_id: resource for resource in original.resources}
+    enriched_resources = {resource.resource_id: resource for resource in enriched.resources}
+    if len(enriched_resources) != len(enriched.resources):
+        raise ValueError("inventory enrichment resources MUST have unique identities")
+    if any(enriched_resources.get(key) != resource for key, resource in original_resources.items()):
+        raise ValueError("inventory enrichment MUST NOT replace provider resources")
+    added_resources = tuple(
+        resource for key, resource in enriched_resources.items() if key not in original_resources
+    )
     original_by_key = {(link.from_id, link.link_type, link.to_id): link for link in original.links}
     enriched_by_key = {(link.from_id, link.link_type, link.to_id): link for link in enriched.links}
     if len(enriched_by_key) != len(enriched.links):
@@ -456,7 +470,7 @@ def _validate_enrichment(
     if any(enriched_by_key.get(key) != link for key, link in original_by_key.items()):
         raise ValueError("inventory enrichment MUST NOT replace provider links")
     added = tuple(link for key, link in enriched_by_key.items() if key not in original_by_key)
-    resource_types = {resource.resource_id: resource.type for resource in original.resources}
+    resource_types = {resource.resource_id: resource.type for resource in enriched.resources}
     if any(
         resource_types.get(link.from_id) != link.from_type
         or resource_types.get(link.to_id) != link.to_type
@@ -470,7 +484,10 @@ def _validate_enrichment(
         raise ValueError("inventory enrichment MUST add only verified links")
     if len({state.source for state in enriched.source_states}) != len(enriched.source_states):
         raise ValueError("inventory enrichment source states MUST be unique")
-    return tuple(sorted(added, key=lambda link: (link.from_id, link.link_type, link.to_id)))
+    return (
+        tuple(sorted(added_resources, key=lambda resource: resource.resource_id)),
+        tuple(sorted(added, key=lambda link: (link.from_id, link.link_type, link.to_id))),
+    )
 
 
 __all__ = [

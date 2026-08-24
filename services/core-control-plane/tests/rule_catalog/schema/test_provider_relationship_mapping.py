@@ -80,6 +80,8 @@ def test_shipped_provider_catalog_is_reviewed_and_complete() -> None:
         "contains",
         "depends_on",
         "kubernetes_exposes_endpoints",
+        "kubernetes_owned_by",
+        "kubernetes_scheduled_on",
         "kubernetes_selects",
         "peered_with",
         "routes_to",
@@ -104,11 +106,13 @@ def test_shipped_catalog_declares_kubernetes_telemetry_relationship_direction() 
 
 def test_shipped_relationship_mappings_match_canonical_endpoint_roles() -> None:
     loaded = load_provider_relationship_mapping_catalog(CATALOG_ROOT)
-    assert len(loaded.mappings) == 75
+    assert len(loaded.mappings) == 84
 
     special_link_types = {
         "azure.vnet-peered-with-vnet": "peered_with",
         "kubernetes.service-exposes-endpoints": "kubernetes_exposes_endpoints",
+        "kubernetes.pod-scheduled-on-node": "kubernetes_scheduled_on",
+        "kubernetes.resource-owned-by-controller": "kubernetes_owned_by",
         "kubernetes.service-selects-pod": "kubernetes_selects",
     }
     for mapping in loaded.mappings:
@@ -131,13 +135,20 @@ def test_shipped_relationship_mappings_match_canonical_endpoint_roles() -> None:
         if mapping.endpoint_orientation is EndpointOrientation.REFERENCED_TO_OWNER
     }
     assert referenced_to_owner == {
+        "azure.aks-contains-agent-pool",
+        "azure.communication-email-service-contains-domain",
+        "azure.dns-resolver-contains-inbound-endpoint",
         "azure.private-endpoint-contains-dns-zone-group",
         "azure.private-dns-zone-contains-vnet-link",
         "azure.resource-group-contains-resource",
         "azure.sql-server-contains-database",
+        "azure.storage-account-contains-file-share",
         "azure.vm-data-disk-attached-to-vm",
         "azure.vm-nic-attached-to-vm",
         "azure.vm-os-disk-attached-to-vm",
+        "kubernetes.agent-pool-contains-node",
+        "kubernetes.cluster-contains-namespace",
+        "kubernetes.namespace-contains-resource",
     }
 
     resolved_names = {
@@ -155,6 +166,9 @@ def test_shipped_relationship_mappings_match_canonical_endpoint_roles() -> None:
         "azure.role-assignment-attached-to-managed-identity",
         "azure.load-balancer-routes-to-configured-backend",
         "azure.web-app-depends-on-container-registry",
+        "kubernetes.agent-pool-contains-node",
+        "kubernetes.namespace-contains-resource",
+        "kubernetes.pod-scheduled-on-node",
         "kubernetes.service-exposes-endpoints",
     }
     label_selectors = {
@@ -163,6 +177,25 @@ def test_shipped_relationship_mappings_match_canonical_endpoint_roles() -> None:
         if mapping.reference_format is ProviderReferenceFormat.LABEL_SELECTOR
     }
     assert label_selectors == {"kubernetes.service-selects-pod"}
+
+    exact_identities = {
+        mapping.mapping_id
+        for mapping in loaded.mappings
+        if mapping.reference_format is ProviderReferenceFormat.EXACT_IDENTITY
+    }
+    assert exact_identities == {"kubernetes.cluster-contains-namespace"}
+    resolved_uids = {
+        mapping.mapping_id
+        for mapping in loaded.mappings
+        if mapping.reference_format is ProviderReferenceFormat.RESOLVED_UID
+    }
+    assert resolved_uids == {"kubernetes.resource-owned-by-controller"}
+
+    mappings = {mapping.mapping_id: mapping for mapping in loaded.mappings}
+    agent_pool = mappings["azure.aks-contains-agent-pool"]
+    assert agent_pool.source_identity == "azure-resource-manager-containerservice"
+    assert agent_pool.source_property_path == "id.providerParent"
+    assert agent_pool.source_schema.version == "azure-resource-manager-containerservice@2026-05-01"
 
 
 def test_rejects_stale_mapping_content_hash(tmp_path: Path) -> None:

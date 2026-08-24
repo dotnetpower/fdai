@@ -31,12 +31,20 @@ from fdai.shared.providers.workload_identity import WorkloadIdentity
 _DEFAULT_ENDPOINT: Final[str] = "https://management.azure.com"
 _DEFAULT_API_VERSION: Final[str] = "2021-04-01"
 _DEFAULT_NETWORK_API_VERSION: Final[str] = "2024-05-01"
+_DEFAULT_CONTAINER_SERVICE_API_VERSION: Final[str] = "2026-05-01"
 _DEFAULT_AUDIENCE: Final[str] = "https://management.azure.com/.default"
 _PRIVATE_DNS_ZONE_GROUP_RESOURCE_TYPE: Final[str] = "network.private-dns-zone-group"
 _PRIVATE_ENDPOINT_ARM_TYPE: Final[str] = "Microsoft.Network/privateEndpoints"
+_AKS_AGENT_POOL_RESOURCE_TYPE: Final[str] = "kubernetes-node-pool"
+_AKS_CLUSTER_RESOURCE_TYPE: Final[str] = "kubernetes-cluster"
+_AKS_CLUSTER_ARM_TYPE: Final[str] = "Microsoft.ContainerService/managedClusters"
 _ARM_NETWORK_SOURCE_IDENTITY: Final[str] = "azure-resource-manager-network"
 _ARM_NETWORK_SOURCE_SCHEMA_DIGEST: Final[str] = (
     "sha256:85f648ec3f355e57c946e3e7fafad89e5b06ac8b8804eaa6ebba779a6aa939fb"
+)
+_ARM_CONTAINER_SERVICE_SOURCE_IDENTITY: Final[str] = "azure-resource-manager-containerservice"
+_ARM_CONTAINER_SERVICE_SOURCE_SCHEMA_DIGEST: Final[str] = (
+    "sha256:7b74cb3dcbf1ca43b3c7f33edbddb5520e16f3ee9a6de9a9078345d93873b125"
 )
 _DEFAULT_RELATIONSHIP_MAPPING_ROOT: Final[Path] = Path(
     "rule-catalog/vocabulary/provider-relationship-mappings"
@@ -55,6 +63,7 @@ class AzureArmInventoryFactoryConfig:
     arm_endpoint: str = _DEFAULT_ENDPOINT
     api_version: str = _DEFAULT_API_VERSION
     network_api_version: str = _DEFAULT_NETWORK_API_VERSION
+    container_service_api_version: str = _DEFAULT_CONTAINER_SERVICE_API_VERSION
     audience: str = _DEFAULT_AUDIENCE
     max_pages: int = 64
     max_child_collections: int = 2_048
@@ -72,6 +81,8 @@ class AzureArmInventoryFactoryConfig:
             raise ValueError("ARM page and timeout limits MUST be positive")
         if self.max_props_bytes < 1024:
             raise ValueError("max_props_bytes MUST be >= 1024")
+        if not self.container_service_api_version.strip():
+            raise ValueError("container_service_api_version MUST be non-empty")
 
 
 class AzureArmInventoryFactory:
@@ -116,6 +127,11 @@ class AzureArmInventoryFactory:
                         subscription=subscription,
                         headers=headers,
                     )
+                elif resource_type == _AKS_AGENT_POOL_RESOURCE_TYPE:
+                    rows = await self._fetch_aks_agent_pools(
+                        subscription=subscription,
+                        headers=headers,
+                    )
                 else:
                     rows = await self._fetch_pages(
                         self._initial_url(
@@ -135,6 +151,7 @@ class AzureArmInventoryFactory:
                     for row in rows
                 )
                 resources.extend(mapped_resources)
+                source_identity, observed_schema_digest = _relationship_source(resource_type)
                 for row, resource in zip(rows, mapped_resources, strict=True):
                     projected = project_provider_relationships(
                         row,
@@ -143,8 +160,8 @@ class AzureArmInventoryFactory:
                         catalog=self._relationship_mappings,
                         arm_id_to_type=arm_id_to_type,
                         to_neutral_id=to_neutral_id,
-                        source_identity=_ARM_NETWORK_SOURCE_IDENTITY,
-                        observed_schema_digest=_ARM_NETWORK_SOURCE_SCHEMA_DIGEST,
+                        source_identity=source_identity,
+                        observed_schema_digest=observed_schema_digest,
                     )
                     links.extend(projected.links)
                     relationship_drops.extend(projected.dropped)
@@ -171,7 +188,10 @@ class AzureArmInventoryFactory:
         async def _fetch(
             resource_type: str,
         ) -> ResourceQueryResult | tuple[Sequence[ResourceRecord], Sequence[LinkRecord]]:
-            if resource_type == _PRIVATE_DNS_ZONE_GROUP_RESOURCE_TYPE:
+            if resource_type in {
+                _AKS_AGENT_POOL_RESOURCE_TYPE,
+                _PRIVATE_DNS_ZONE_GROUP_RESOURCE_TYPE,
+            }:
                 return await arm_query(resource_type)
             return await primary_query(resource_type)
 
@@ -228,6 +248,46 @@ class AzureArmInventoryFactory:
                     url,
                     headers=headers,
                     resource_type=_PRIVATE_DNS_ZONE_GROUP_RESOURCE_TYPE,
+                )
+            )
+        return tuple(rows)
+
+    async def _fetch_aks_agent_pools(
+        self,
+        *,
+        subscription: str,
+        headers: Mapping[str, str],
+    ) -> tuple[Mapping[str, Any], ...]:
+        """List AgentPools through each bounded AKS cluster child collection."""
+
+        clusters = await self._fetch_pages(
+            self._initial_url(
+                subscription=subscription,
+                resource_type=_AKS_CLUSTER_RESOURCE_TYPE,
+                arm_type=_AKS_CLUSTER_ARM_TYPE,
+            ),
+            headers=headers,
+            resource_type=_AKS_CLUSTER_RESOURCE_TYPE,
+        )
+        if len(clusters) > self._config.max_child_collections:
+            raise ArmInventoryError(
+                f"ARM AKS child collection cap ({self._config.max_child_collections}) exceeded"
+            )
+
+        rows: list[Mapping[str, Any]] = []
+        for cluster in clusters:
+            parent_id = str(cluster["id"])
+            encoded_parent_id = quote(parent_id, safe="/")
+            url = (
+                f"{self._config.arm_endpoint.rstrip('/')}{encoded_parent_id}"
+                "/agentPools"
+                f"?api-version={self._config.container_service_api_version}"
+            )
+            rows.extend(
+                await self._fetch_pages(
+                    url,
+                    headers=headers,
+                    resource_type=_AKS_AGENT_POOL_RESOURCE_TYPE,
                 )
             )
         return tuple(rows)
@@ -317,7 +377,10 @@ def _map_arm_row(
     # Lifted after truncation so the containment anchor survives a large
     # vendor payload; `Resource.parent_id` is what scoped questions read.
     parent_id: str | None
-    if resource_type == _PRIVATE_DNS_ZONE_GROUP_RESOURCE_TYPE:
+    if resource_type in {
+        _AKS_AGENT_POOL_RESOURCE_TYPE,
+        _PRIVATE_DNS_ZONE_GROUP_RESOURCE_TYPE,
+    }:
         parent_id = to_neutral_id(arm_id.rsplit("/", 2)[0])
     else:
         parent_id = parent_neutral_id(arm_id)
@@ -330,6 +393,15 @@ def _map_arm_row(
         provider_ref=arm_id,
         last_seen=datetime.now(tz=UTC).isoformat(),
     )
+
+
+def _relationship_source(resource_type: str) -> tuple[str, str]:
+    if resource_type == _AKS_AGENT_POOL_RESOURCE_TYPE:
+        return (
+            _ARM_CONTAINER_SERVICE_SOURCE_IDENTITY,
+            _ARM_CONTAINER_SERVICE_SOURCE_SCHEMA_DIGEST,
+        )
+    return _ARM_NETWORK_SOURCE_IDENTITY, _ARM_NETWORK_SOURCE_SCHEMA_DIGEST
 
 
 __all__ = [

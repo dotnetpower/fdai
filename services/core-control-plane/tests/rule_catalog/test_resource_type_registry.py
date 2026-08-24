@@ -6,6 +6,10 @@ from pathlib import Path
 
 import pytest
 import yaml
+from fdai.rule_catalog.schema.provider_relationship_mapping import (
+    EndpointOrientation,
+    load_provider_relationship_mapping_catalog,
+)
 from fdai.rule_catalog.schema.resource_type import (
     ResourceTypeCategory,
     ResourceTypeRegistry,
@@ -335,6 +339,54 @@ def test_typical_parents_reference_only_registered_ids() -> None:
             )
 
 
+def test_non_scope_typical_parents_have_producers_or_reviewed_unavailability() -> None:
+    registry = _shipped()
+    by_arm_type = {
+        entry.azure_arm_type.casefold(): entry.id
+        for entry in registry.types
+        if entry.azure_arm_type is not None
+    }
+    type_ids = registry.ids()
+    catalog = load_provider_relationship_mapping_catalog(
+        REPO_ROOT / "rule-catalog" / "vocabulary" / "provider-relationship-mappings"
+    )
+    produced_pairs: set[tuple[str, str]] = set()
+    for mapping in catalog.mappings:
+        if mapping.link_type != "contains" or "*" in mapping.source_provider_types:
+            continue
+        source_types = {
+            by_arm_type.get(item, item)
+            for item in mapping.source_provider_types
+            if item in by_arm_type or item in type_ids
+        }
+        target_types = {
+            by_arm_type.get(item, item)
+            for item in mapping.target_provider_types
+            if item in by_arm_type or item in type_ids
+        }
+        for source_type in source_types:
+            for target_type in target_types:
+                produced_pairs.add(
+                    (source_type, target_type)
+                    if mapping.endpoint_orientation is EndpointOrientation.OWNER_TO_REFERENCED
+                    else (target_type, source_type)
+                )
+
+    reviewed_unavailability = {
+        ("secret-store", "certificate"): "data_plane_source_unavailable",
+    }
+    expected_pairs = {
+        (parent, entry.id)
+        for entry in registry.types
+        for parent in entry.typical_parents
+        if parent not in {"resource-group", "subscription"}
+    }
+    missing = expected_pairs - produced_pairs - set(reviewed_unavailability)
+
+    assert missing == set()
+    assert set(reviewed_unavailability) <= expected_pairs
+
+
 def test_loader_rejects_unknown_typical_parent() -> None:
     payload = {
         "schema_version": "1.0.0",
@@ -393,8 +445,21 @@ def test_azure_arm_type_present_or_explicitly_null() -> None:
         entry for entry in registry.types if entry.azure_arm_type is None
     )
 
-    assert tuple(entry.id for entry in without_provider_mapping) == (UNCLASSIFIED_RESOURCE_TYPE,)
-    assert without_provider_mapping[0].query_terms == ()
+    assert {entry.id for entry in without_provider_mapping} == {
+        UNCLASSIFIED_RESOURCE_TYPE,
+        "kubernetes.cron-job",
+        "kubernetes.daemon-set",
+        "kubernetes.deployment",
+        "kubernetes.endpoints",
+        "kubernetes.job",
+        "kubernetes.namespace",
+        "kubernetes.node",
+        "kubernetes.pod",
+        "kubernetes.replica-set",
+        "kubernetes.service",
+        "kubernetes.stateful-set",
+    }
+    assert registry.get(UNCLASSIFIED_RESOURCE_TYPE).query_terms == ()
 
 
 def test_duplicate_id_is_rejected() -> None:

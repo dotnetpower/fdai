@@ -76,11 +76,17 @@ dependencies, objectives, evidence, allowed actions, and expected effects. Upstr
 > blocking.
 > The production inventory job injects the already loaded registry digest map, so promoted complete
 > generations persist this relationship in live projections.
-> Azure SQL databases also carry a reviewed `contains` candidate from the logical SQL server
-> encoded as their immediate ARM provider parent. For that same database child, this exact mapping
-> shadows the wildcard resource-group candidate so `contains` keeps one parent and
-> `Resource.parent_id` names the same logical server. Complete-generation verification must observe
-> both the server and database before activating the logical-parent edge.
+> Reviewed Azure containment candidates use explicit ARM structure only. SQL databases,
+> Communication email domains, DNS resolver inbound endpoints, and AKS AgentPools resolve an
+> immediate provider parent. File Shares resolve the top-level storage account through the reviewed
+> provider-root path. An exact structural mapping shadows wildcard resource-group containment for
+> that child so `contains` keeps one parent and `Resource.parent_id` names the same endpoint.
+> Complete-generation verification must observe both endpoints before activating the edge.
+> Kubernetes runtime inventory follows the same evidence rule. One exact cluster-scoped API source
+> supplies immutable UIDs, namespaces, nodes, workloads, owners, selectors, Endpoints, and
+> scheduling references. The inventory single writer then atomically promotes added resources and
+> independently verified links. Missing source bindings remain explicit unavailability and never
+> create topology.
 > Repeated authoritative observations of one resource identity inside a generation are now
 > adjudicated deterministically instead of failing the whole projection. Agreement collapses to one
 > object and keeps the earliest observation time; disagreement stays an explicit state-fact conflict

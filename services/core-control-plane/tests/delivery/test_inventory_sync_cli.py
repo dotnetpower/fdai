@@ -6,7 +6,7 @@ import hashlib
 import inspect
 import json
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -27,6 +27,7 @@ from fdai.delivery.inventory_scheduler import (
 )
 from fdai.delivery.inventory_sync import PromotedInventoryObservation
 from fdai.delivery.inventory_sync_cli import (
+    _build_kubernetes_enricher,
     _build_ontology_observer,
     _build_sources,
     _drain_change_stream,
@@ -38,6 +39,8 @@ from fdai.delivery.inventory_sync_cli import (
     _workload_identity,
     run,
 )
+from fdai.delivery.kubernetes_api_inventory import KubernetesApiInventoryConfig
+from fdai.delivery.kubernetes_inventory import UnavailableKubernetesInventoryEnricher
 from fdai.delivery.operational_activity import EventBusOperationalActivityPublisher
 from fdai.delivery.persistence.postgres_inventory_reconciliation import (
     InventoryReconciliationHealthState,
@@ -153,6 +156,10 @@ def test_job_config_defaults_to_arg_then_arm() -> None:
     assert config.attempt_deadline_seconds == 1500
     assert config.arg_requests_per_second == 3.0
     assert config.recovery_delta_enabled is True
+    assert config.kubernetes_api_server is None
+    assert config.kubernetes_cluster_ref is None
+    assert config.kubernetes_token_path is None
+    assert config.kubernetes_ca_path is None
     assert config.snapshot_policy("arg").max_requests_per_window == 180
     assert config.collection_policy is not None
 
@@ -185,9 +192,120 @@ def test_job_loads_reviewed_kubernetes_relationship_mappings() -> None:
     assert {
         mapping.mapping_id for mapping in catalog.mappings if mapping.provider == "kubernetes"
     } == {
+        "kubernetes.agent-pool-contains-node",
+        "kubernetes.cluster-contains-namespace",
+        "kubernetes.namespace-contains-resource",
+        "kubernetes.pod-scheduled-on-node",
+        "kubernetes.resource-owned-by-controller",
         "kubernetes.service-exposes-endpoints",
         "kubernetes.service-selects-pod",
     }
+
+
+def test_job_config_requires_complete_kubernetes_binding() -> None:
+    with pytest.raises(ValueError, match="requires API server"):
+        InventoryJobConfig.from_env(
+            {
+                "FDAI_INVENTORY_DSN": "postgresql://example",
+                "AZURE_SUBSCRIPTION_ID": "sub-1",
+                "FDAI_KUBERNETES_API_SERVER": "https://kubernetes.example",
+            }
+        )
+
+    config = InventoryJobConfig.from_env(
+        {
+            "FDAI_INVENTORY_DSN": "postgresql://example",
+            "AZURE_SUBSCRIPTION_ID": "sub-1",
+            "FDAI_KUBERNETES_API_SERVER": "https://kubernetes.example",
+            "FDAI_KUBERNETES_CLUSTER_REF": "cluster-ref-example",
+            "FDAI_KUBERNETES_TOKEN_PATH": "/var/run/secrets/kubernetes/token",
+            "FDAI_KUBERNETES_CA_PATH": "/var/run/secrets/kubernetes/ca.crt",
+        }
+    )
+
+    assert config.kubernetes_api_server == "https://kubernetes.example"
+    assert config.kubernetes_cluster_ref == "cluster-ref-example"
+    assert config.kubernetes_token_path == Path("/var/run/secrets/kubernetes/token")
+    assert config.kubernetes_ca_path == Path("/var/run/secrets/kubernetes/ca.crt")
+
+
+async def test_unconfigured_kubernetes_composition_records_explicit_unavailability() -> None:
+    config = InventoryJobConfig.from_env(
+        {
+            "FDAI_INVENTORY_DSN": "postgresql://example",
+            "AZURE_SUBSCRIPTION_ID": "sub-1",
+        }
+    )
+
+    async with AsyncExitStack() as stack:
+        enricher = await _build_kubernetes_enricher(
+            config=config,
+            relationship_catalog=_load_relationship_mapping_catalog(),
+            stack=stack,
+        )
+        enriched = await enricher.enrich(_promoted_observation("generation-unconfigured"))
+
+    assert isinstance(enricher, UnavailableKubernetesInventoryEnricher)
+    assert enriched.source_states[-1].source == "kubernetes_runtime_inventory"
+    assert enriched.source_states[-1].reason == "kubernetes_source_unconfigured"
+
+
+async def test_configured_kubernetes_composition_binds_exact_source(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = InventoryJobConfig.from_env(
+        {
+            "FDAI_INVENTORY_DSN": "postgresql://example",
+            "AZURE_SUBSCRIPTION_ID": "sub-1",
+            "FDAI_KUBERNETES_API_SERVER": "https://kubernetes.example",
+            "FDAI_KUBERNETES_CLUSTER_REF": "cluster-ref-example",
+            "FDAI_KUBERNETES_TOKEN_PATH": "/var/run/secrets/kubernetes/token",
+            "FDAI_KUBERNETES_CA_PATH": "/var/run/secrets/kubernetes/ca.crt",
+        }
+    )
+    fake_http_client = object()
+
+    @asynccontextmanager
+    async def _client_context() -> AsyncIterator[object]:
+        yield fake_http_client
+
+    source_factory = Mock(return_value=object())
+    expected_enricher = UnavailableKubernetesInventoryEnricher()
+    enricher_factory = Mock(return_value=expected_enricher)
+    tls_factory = Mock(return_value=object())
+    http_factory = Mock(return_value=_client_context())
+    monkeypatch.setattr("fdai.delivery.inventory_sync_cli.ssl.create_default_context", tls_factory)
+    monkeypatch.setattr("fdai.delivery.inventory_sync_cli.httpx.AsyncClient", http_factory)
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_sync_cli.KubernetesApiInventorySource",
+        source_factory,
+    )
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_sync_cli.KubernetesInventoryEnricher",
+        enricher_factory,
+    )
+
+    catalog = _load_relationship_mapping_catalog()
+    async with AsyncExitStack() as stack:
+        enricher = await _build_kubernetes_enricher(
+            config=config,
+            relationship_catalog=catalog,
+            stack=stack,
+        )
+
+    assert enricher is expected_enricher
+    tls_factory.assert_called_once_with(cafile="/var/run/secrets/kubernetes/ca.crt")
+    source_kwargs = source_factory.call_args.kwargs
+    assert source_kwargs["config"] == KubernetesApiInventoryConfig(
+        api_server="https://kubernetes.example",
+        cluster_ref="cluster-ref-example",
+    )
+    assert source_kwargs["auth"].token_path == Path("/var/run/secrets/kubernetes/token")
+    assert source_kwargs["http_client"] is fake_http_client
+    enricher_factory.assert_called_once_with(
+        source=source_factory.return_value,
+        relationship_mapping_catalog=catalog,
+    )
 
 
 def test_job_config_prefers_durable_freshness_setting() -> None:

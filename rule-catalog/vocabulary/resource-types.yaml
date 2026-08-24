@@ -27,7 +27,7 @@
 #
 # All values are English, secret-free, and customer-agnostic.
 schema_version: "1.0.0"
-version: "0.3.8"
+version: "0.4.0"
 category_query_terms:
   database: [database, databases, db, dbs, 데이터베이스, 디비]
 query_groups:
@@ -66,7 +66,7 @@ types:
     category: compute
     description: Bounded serverless container job triggered on demand or by schedule.
     azure_arm_type: Microsoft.App/jobs
-    typical_parents: [compute.container-app-environment]
+    typical_parents: [resource-group]
   - id: compute.container-app-environment
     category: compute
     description: Shared runtime and network boundary for serverless container apps and jobs.
@@ -107,6 +107,65 @@ types:
     description: A pool of worker nodes attached to a kubernetes-cluster.
     azure_arm_type: Microsoft.ContainerService/managedClusters/agentPools
     typical_parents: [kubernetes-cluster]
+  - id: kubernetes.namespace
+    category: compute
+    description: Kubernetes namespace observed through one exact cluster API identity.
+    azure_arm_type: null
+    query_terms: [kubernetes namespace, kubernetes namespaces, 쿠버네티스 네임스페이스]
+    typical_parents: [kubernetes-cluster]
+  - id: kubernetes.node
+    category: compute
+    description: Kubernetes worker node observed through one exact cluster API identity.
+    azure_arm_type: null
+    query_terms: [kubernetes node, kubernetes nodes, 쿠버네티스 노드]
+    typical_parents: [kubernetes-node-pool]
+  - id: kubernetes.pod
+    category: compute
+    description: Kubernetes Pod observed with immutable UID and scheduling evidence.
+    azure_arm_type: null
+    query_terms: [kubernetes pod, kubernetes pods, pod, pods, 쿠버네티스 파드, 파드]
+    typical_parents: [kubernetes.namespace]
+  - id: kubernetes.service
+    category: compute
+    description: Kubernetes Service observed with immutable UID and selector evidence.
+    azure_arm_type: null
+    typical_parents: [kubernetes.namespace]
+  - id: kubernetes.endpoints
+    category: compute
+    description: Kubernetes Endpoints observed with immutable UID and service identity.
+    azure_arm_type: null
+    typical_parents: [kubernetes.namespace]
+  - id: kubernetes.job
+    category: compute
+    description: Kubernetes Job observed with immutable UID and owner evidence.
+    azure_arm_type: null
+    query_terms: [kubernetes job, kubernetes jobs, 쿠버네티스 잡]
+    typical_parents: [kubernetes.namespace]
+  - id: kubernetes.cron-job
+    category: compute
+    description: Kubernetes CronJob observed with immutable UID.
+    azure_arm_type: null
+    typical_parents: [kubernetes.namespace]
+  - id: kubernetes.deployment
+    category: compute
+    description: Kubernetes Deployment observed with immutable UID.
+    azure_arm_type: null
+    typical_parents: [kubernetes.namespace]
+  - id: kubernetes.replica-set
+    category: compute
+    description: Kubernetes ReplicaSet observed with immutable UID and owner evidence.
+    azure_arm_type: null
+    typical_parents: [kubernetes.namespace]
+  - id: kubernetes.daemon-set
+    category: compute
+    description: Kubernetes DaemonSet observed with immutable UID.
+    azure_arm_type: null
+    typical_parents: [kubernetes.namespace]
+  - id: kubernetes.stateful-set
+    category: compute
+    description: Kubernetes StatefulSet observed with immutable UID.
+    azure_arm_type: null
+    typical_parents: [kubernetes.namespace]
   - id: workflow.logic-app
     category: compute
     description: Managed workflow application executed by the Azure Logic Apps service.

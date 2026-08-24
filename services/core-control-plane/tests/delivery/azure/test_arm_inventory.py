@@ -151,6 +151,77 @@ async def test_arm_fallback_lists_private_dns_zone_group_children() -> None:
     assert len(links) == 2
 
 
+async def test_arm_fallback_lists_aks_agent_pool_children() -> None:
+    requested_paths: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requested_paths.append(request.url.path)
+        if request.url.path.endswith("/resources"):
+            return httpx.Response(
+                200,
+                json={
+                    "value": [
+                        {
+                            "id": (
+                                "/subscriptions/sub-1/resourceGroups/rg-1/providers/"
+                                "Microsoft.ContainerService/managedClusters/aks-1"
+                            ),
+                            "name": "aks-1",
+                        }
+                    ]
+                },
+            )
+        return httpx.Response(
+            200,
+            json={
+                "value": [
+                    {
+                        "id": (
+                            "/subscriptions/sub-1/resourceGroups/rg-1/providers/"
+                            "Microsoft.ContainerService/managedClusters/aks-1/"
+                            "agentPools/system"
+                        ),
+                        "name": "system",
+                        "properties": {"count": 3},
+                    }
+                ]
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        query = AzureArmInventoryFactory(
+            identity=_identity(),
+            resource_types=_vocabulary(),
+            http_client=client,
+            config=AzureArmInventoryFactoryConfig(subscription_scopes=("sub-1",)),
+        ).build_query_fn()
+        resources, links = await query("kubernetes-node-pool")
+
+    assert requested_paths == [
+        "/subscriptions/sub-1/resources",
+        (
+            "/subscriptions/sub-1/resourceGroups/rg-1/providers/"
+            "Microsoft.ContainerService/managedClusters/aks-1/agentPools"
+        ),
+    ]
+    assert resources[0].type == "kubernetes-node-pool"
+    assert (
+        resources[0]
+        .props["parent_id"]
+        .endswith("/providers/microsoft.containerservice/managedclusters/aks-1")
+    )
+    contains = next(
+        link
+        for link in links
+        if link.mapping_evidence is not None
+        and link.mapping_evidence.mapping_id == "azure.aks-contains-agent-pool"
+    )
+    assert contains.from_id == resources[0].props["parent_id"]
+    assert contains.to_id == resources[0].resource_id
+    assert contains.mapping_evidence is not None
+    assert contains.mapping_evidence.source_identity == "azure-resource-manager-containerservice"
+
+
 async def test_arm_fallback_rejects_cross_host_next_link() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(

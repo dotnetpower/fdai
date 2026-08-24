@@ -21,9 +21,9 @@ from fdai.shared.providers.inventory import (
     ResourceRecord,
 )
 
-KUBERNETES_RELATIONSHIP_SOURCE_SCHEMA_VERSION = "kubernetes-core-v1"
+KUBERNETES_RELATIONSHIP_SOURCE_SCHEMA_VERSION = "kubernetes-api-inventory-v1"
 KUBERNETES_RELATIONSHIP_SOURCE_SCHEMA_DIGEST = (
-    "sha256:7c1cf19f03f34c9ce451cf1918039839439f8430b33a9cb621bdadeca4cf7106"
+    "sha256:b91602bff07e35196ffb31da5aea279b6e30f31e1aa41d6f526b1904aca5b3a5"
 )
 
 
@@ -71,6 +71,8 @@ def project_kubernetes_relationships(
                 continue
             if mapping.source_schema.digest != observed_schema_digest:
                 dropped.append(_drop(RelationshipDropReason.STALE_SOURCE_SCHEMA_DIGEST, mapping))
+                continue
+            if not _has_reference(owner, mapping):
                 continue
             targets = _mapping_targets(owner, resources=resources, mapping=mapping)
             if not targets:
@@ -134,7 +136,7 @@ def _mapping_targets(
     scoped = tuple(
         resource
         for resource in resources
-        if resource.type.casefold() in allowed_types and _same_scope(owner, resource)
+        if resource.type.casefold() in allowed_types and _same_cluster(owner, resource)
     )
     if mapping.reference_format is ProviderReferenceFormat.LABEL_SELECTOR:
         selector = _string_mapping(owner.props.get(mapping.source_property_path))
@@ -153,16 +155,69 @@ def _mapping_targets(
         if not isinstance(reference, str) or not reference.strip():
             return ()
         return tuple(
-            resource for resource in scoped if resource.props.get("name") == reference.strip()
+            resource
+            for resource in scoped
+            if resource.props.get("name") == reference.strip()
+            and _namespace_compatible(owner, resource, mapping=mapping)
+        )
+    if mapping.reference_format is ProviderReferenceFormat.EXACT_IDENTITY:
+        reference = owner.props.get(mapping.source_property_path)
+        if not isinstance(reference, str) or not reference.strip():
+            return ()
+        return tuple(resource for resource in scoped if resource.resource_id == reference.strip())
+    if mapping.reference_format is ProviderReferenceFormat.RESOLVED_UID:
+        references = owner.props.get(mapping.source_property_path)
+        if not isinstance(references, Sequence) or isinstance(references, (str, bytes)):
+            return ()
+        uids = {item.strip() for item in references if isinstance(item, str) and item.strip()}
+        return tuple(
+            resource
+            for resource in scoped
+            if isinstance(resource.props.get("uid"), str)
+            and resource.props["uid"] in uids
+            and _owner_scope_compatible(owner, resource)
         )
     return ()
 
 
-def _same_scope(left: ResourceRecord, right: ResourceRecord) -> bool:
-    return all(
-        isinstance(left.props.get(key), str) and left.props.get(key) == right.props.get(key)
-        for key in ("cluster_ref", "namespace")
-    )
+def _has_reference(
+    owner: ResourceRecord,
+    mapping: ProviderRelationshipMapping,
+) -> bool:
+    value = owner.props.get(mapping.source_property_path)
+    if mapping.reference_format is ProviderReferenceFormat.LABEL_SELECTOR:
+        return bool(_string_mapping(value))
+    if mapping.reference_format is ProviderReferenceFormat.RESOLVED_UID:
+        return (
+            isinstance(value, Sequence)
+            and not isinstance(value, (str, bytes))
+            and any(isinstance(item, str) and item.strip() for item in value)
+        )
+    return isinstance(value, str) and bool(value.strip())
+
+
+def _same_cluster(left: ResourceRecord, right: ResourceRecord) -> bool:
+    left_cluster = left.props.get("cluster_ref")
+    right_cluster = right.props.get("cluster_ref")
+    return isinstance(left_cluster, str) and bool(left_cluster) and left_cluster == right_cluster
+
+
+def _namespace_compatible(
+    owner: ResourceRecord,
+    target: ResourceRecord,
+    *,
+    mapping: ProviderRelationshipMapping,
+) -> bool:
+    if mapping.mapping_id == "kubernetes.agent-pool-contains-node":
+        return True
+    if mapping.mapping_id == "kubernetes.pod-scheduled-on-node":
+        return target.type == "kubernetes.node"
+    return owner.props.get("namespace") == target.props.get("namespace")
+
+
+def _owner_scope_compatible(owner: ResourceRecord, target: ResourceRecord) -> bool:
+    target_namespace = target.props.get("namespace")
+    return target_namespace is None or owner.props.get("namespace") == target_namespace
 
 
 def _string_mapping(value: object) -> dict[str, str]:

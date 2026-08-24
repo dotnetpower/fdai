@@ -15,6 +15,7 @@ from fdai.shared.providers.inventory import RelationshipDropReason, ResourceReco
 CATALOG_ROOT = Path("rule-catalog/vocabulary/provider-relationship-mappings")
 OBSERVED_AT = "2026-08-13T10:00:00Z"
 CLUSTER_REF = "kubernetes.cluster:example"
+NAMESPACE_ID = f"{CLUSTER_REF}/namespace/default"
 SERVICE_ID = f"{CLUSTER_REF}/resource/service-api"
 POD_ID = f"{CLUSTER_REF}/resource/pod-api-0"
 ENDPOINTS_ID = f"{CLUSTER_REF}/resource/endpoints-api"
@@ -27,6 +28,7 @@ def _resource(
     name: str,
     labels: dict[str, str] | None = None,
     selector: dict[str, str] | None = None,
+    extra: dict[str, object] | None = None,
 ) -> ResourceRecord:
     props: dict[str, object] = {
         "cluster_ref": CLUSTER_REF,
@@ -37,6 +39,8 @@ def _resource(
         props["labels"] = labels
     if selector is not None:
         props["selector"] = selector
+    if extra is not None:
+        props.update(extra)
     return ResourceRecord(
         resource_id=resource_id,
         type=type_id,
@@ -47,6 +51,13 @@ def _resource(
 
 def _resources() -> tuple[ResourceRecord, ...]:
     return (
+        ResourceRecord(
+            resource_id=CLUSTER_REF,
+            type="kubernetes-cluster",
+            props={"cluster_ref": CLUSTER_REF, "name": "example"},
+            last_seen=OBSERVED_AT,
+        ),
+        _resource(NAMESPACE_ID, "kubernetes.namespace", name="default"),
         _resource(
             SERVICE_ID,
             "kubernetes.service",
@@ -72,6 +83,10 @@ def test_complete_snapshot_projects_canonical_kubernetes_relationships() -> None
 
     assert result.dropped == ()
     assert [(link.from_id, link.link_type, link.to_id) for link in result.links] == [
+        (CLUSTER_REF, "contains", NAMESPACE_ID),
+        (NAMESPACE_ID, "contains", ENDPOINTS_ID),
+        (NAMESPACE_ID, "contains", POD_ID),
+        (NAMESPACE_ID, "contains", SERVICE_ID),
         (SERVICE_ID, "kubernetes_exposes_endpoints", ENDPOINTS_ID),
         (SERVICE_ID, "kubernetes_selects", POD_ID),
     ]
@@ -99,7 +114,10 @@ def test_missing_endpoints_is_absent_and_reported() -> None:
     )
 
     assert [(link.link_type, link.to_id) for link in result.links] == [
-        ("kubernetes_selects", POD_ID)
+        ("contains", NAMESPACE_ID),
+        ("contains", POD_ID),
+        ("contains", SERVICE_ID),
+        ("kubernetes_selects", POD_ID),
     ]
     assert [(drop.mapping_id, drop.reason) for drop in result.dropped] == [
         (
@@ -110,18 +128,22 @@ def test_missing_endpoints_is_absent_and_reported() -> None:
 
 
 def test_duplicate_selected_pod_edge_fails_closed() -> None:
-    service, pod, endpoints = _resources()
+    cluster, namespace, service, pod, endpoints = _resources()
     result = project_kubernetes_relationships(
-        (service, pod, pod, endpoints),
+        (cluster, namespace, service, pod, pod, endpoints),
         catalog=load_provider_relationship_mapping_catalog(CATALOG_ROOT),
         complete=True,
     )
 
     assert [(link.link_type, link.to_id) for link in result.links] == [
-        ("kubernetes_exposes_endpoints", ENDPOINTS_ID)
+        ("contains", NAMESPACE_ID),
+        ("contains", ENDPOINTS_ID),
+        ("contains", SERVICE_ID),
+        ("kubernetes_exposes_endpoints", ENDPOINTS_ID),
     ]
     assert [(drop.mapping_id, drop.reason) for drop in result.dropped] == [
-        ("kubernetes.service-selects-pod", RelationshipDropReason.DUPLICATE_EDGE)
+        ("kubernetes.namespace-contains-resource", RelationshipDropReason.DUPLICATE_EDGE),
+        ("kubernetes.service-selects-pod", RelationshipDropReason.DUPLICATE_EDGE),
     ]
 
 
@@ -134,6 +156,124 @@ def test_partial_snapshot_claims_no_kubernetes_relationships() -> None:
 
     assert result.links == ()
     assert [drop.reason for drop in result.dropped] == [RelationshipDropReason.PARTIAL_GENERATION]
+
+
+def test_complete_snapshot_projects_runtime_scheduling_and_owner_lineage() -> None:
+    node_pool_id = f"{CLUSTER_REF}/agent-pool/system"
+    node_id = f"{CLUSTER_REF}/node/node-1"
+    cron_job_id = f"{CLUSTER_REF}/resource/cron-job-nightly"
+    job_id = f"{CLUSTER_REF}/resource/job-nightly-1"
+    deployment_id = f"{CLUSTER_REF}/resource/deployment-api"
+    replica_set_id = f"{CLUSTER_REF}/resource/replica-set-api"
+    pod_id = f"{CLUSTER_REF}/resource/pod-api"
+    resources = (
+        ResourceRecord(
+            resource_id=CLUSTER_REF,
+            type="kubernetes-cluster",
+            props={"cluster_ref": CLUSTER_REF, "name": "example"},
+            last_seen=OBSERVED_AT,
+        ),
+        _resource(NAMESPACE_ID, "kubernetes.namespace", name="default"),
+        ResourceRecord(
+            resource_id=node_pool_id,
+            type="kubernetes-node-pool",
+            props={"cluster_ref": CLUSTER_REF, "name": "system"},
+            last_seen=OBSERVED_AT,
+        ),
+        ResourceRecord(
+            resource_id=node_id,
+            type="kubernetes.node",
+            props={
+                "cluster_ref": CLUSTER_REF,
+                "name": "node-1",
+                "node_pool": "system",
+                "uid": "uid-node-1",
+            },
+            last_seen=OBSERVED_AT,
+        ),
+        _resource(
+            cron_job_id,
+            "kubernetes.cron-job",
+            name="nightly",
+            extra={"uid": "uid-cron-job"},
+        ),
+        _resource(
+            job_id,
+            "kubernetes.job",
+            name="nightly-1",
+            extra={"uid": "uid-job", "owner_uids": ("uid-cron-job",)},
+        ),
+        _resource(
+            deployment_id,
+            "kubernetes.deployment",
+            name="api",
+            extra={"uid": "uid-deployment"},
+        ),
+        _resource(
+            replica_set_id,
+            "kubernetes.replica-set",
+            name="api-123",
+            extra={"uid": "uid-replica-set", "owner_uids": ("uid-deployment",)},
+        ),
+        _resource(
+            pod_id,
+            "kubernetes.pod",
+            name="api-123-abc",
+            extra={
+                "uid": "uid-pod",
+                "node_name": "node-1",
+                "owner_uids": ("uid-replica-set",),
+            },
+        ),
+    )
+
+    result = project_kubernetes_relationships(
+        resources,
+        catalog=load_provider_relationship_mapping_catalog(CATALOG_ROOT),
+        complete=True,
+    )
+
+    assert result.dropped == ()
+    edges = {(link.from_id, link.link_type, link.to_id) for link in result.links}
+    assert (node_pool_id, "contains", node_id) in edges
+    assert (pod_id, "kubernetes_scheduled_on", node_id) in edges
+    assert (job_id, "kubernetes_owned_by", cron_job_id) in edges
+    assert (replica_set_id, "kubernetes_owned_by", deployment_id) in edges
+    assert (pod_id, "kubernetes_owned_by", replica_set_id) in edges
+
+
+def test_runtime_owner_uid_does_not_cross_cluster() -> None:
+    owner = _resource(
+        f"{CLUSTER_REF}/resource/job-example",
+        "kubernetes.job",
+        name="example",
+        extra={"uid": "shared-owner-uid"},
+    )
+    foreign_cluster = "kubernetes.cluster:foreign"
+    child = ResourceRecord(
+        resource_id=f"{foreign_cluster}/resource/pod-example",
+        type="kubernetes.pod",
+        props={
+            "cluster_ref": foreign_cluster,
+            "namespace": "default",
+            "name": "example",
+            "uid": "uid-pod",
+            "owner_uids": ("shared-owner-uid",),
+        },
+        last_seen=OBSERVED_AT,
+    )
+
+    result = project_kubernetes_relationships(
+        (owner, child),
+        catalog=load_provider_relationship_mapping_catalog(CATALOG_ROOT),
+        complete=True,
+    )
+
+    assert result.links == ()
+    assert (
+        "kubernetes.resource-owned-by-controller",
+        RelationshipDropReason.MISSING_TARGET_ENDPOINT,
+    ) in {(drop.mapping_id, drop.reason) for drop in result.dropped}
 
 
 def test_complete_candidates_require_independent_generation_verification() -> None:
@@ -154,7 +294,7 @@ def test_complete_candidates_require_independent_generation_verification() -> No
     )
 
     assert verified.dropped == ()
-    assert len(verified.links) == 2
+    assert len(verified.links) == 6
     assert all(
         link.observation_metadata is not None and link.observation_metadata.verified
         for link in verified.links

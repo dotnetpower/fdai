@@ -30,8 +30,10 @@ class ProviderReferenceFormat(StrEnum):
     """Provider reference representation read from the reviewed source path."""
 
     ARM_ID = "arm_id"
+    EXACT_IDENTITY = "exact_identity"
     LABEL_SELECTOR = "label_selector"
     RESOLVED_NAME = "resolved_name"
+    RESOLVED_UID = "resolved_uid"
 
 
 class SourceSchemaIdentity(BaseModel):

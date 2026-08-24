@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: ae6ba1de143add660304aff3f5f40a1aaa8e2fe7
+translation_source_sha: 150a3a0477e27723e1e6be7382474888775e8d08
 translation_revised: 2026-08-24
 ---
 # 온톨로지 구조 모델
@@ -106,6 +106,21 @@ Interface 바인딩은 InterfaceType이 ActionType 대상이 될 수 있으므�
 `Relationship` ObjectType을 만들거나 모든 직접 링크에 UUID 아이덴티티를 추가하는 대신,
 관찰된 역할 할당 Resource 같은 기존 도메인 객체를 재사용합니다.
 
+### 프로바이더에서 관찰한 토폴로지
+
+프로바이더 토폴로지는 검토된 mapping과 하나의 완전한 인벤토리 세대를 통해서만 그래프에
+들어갑니다. Azure 중첩 리소스는 명시적으로 선언된 immediate provider parent 또는 최상위
+provider root를 사용합니다. 범위가 제한된 ARM source는 Azure Resource Graph가 일반 리소스로
+노출하지 않는 AKS AgentPool 자식을 수집합니다. Kubernetes API 인벤토리는 같은 single writer가
+리소스와 독립적으로 검증된 링크를 원자적으로 승격하기 전에 UID에 근거한 클러스터,
+네임스페이스, 노드, 워크로드, 소유권, selector, endpoint 및 scheduling 근거를 추가합니다.
+
+이 생산자들은 이름만으로 토폴로지를 추론하지 않습니다. Kubernetes source는 하나의 정확한
+클러스터 Resource 아이덴티티에 결속하고 네임스페이스와 클러스터 범위 검사를 유지합니다.
+API endpoint, CA 묶음 또는 마운트된 service-account token이 구성되지 않으면 명시적인 사용
+불가 상태를 기록합니다. 카탈로그 선언은 계속 의미만 정의하며 관찰 또는 실행 권한을 부여하지
+않습니다.
+
 ## LinkType 의미
 
 저장 방향은 계속 `from_type -> to_type`입니다. 호환 가능한 LinkType 수정에서 다음과 같은
@@ -207,6 +222,7 @@ Operator 변환 결과는 출처 세대, 온톨로지 release, 쿼리 상한, �
 | 링크 역할과 의미 특성 | implemented | 공유 LinkType 계약 및 스키마, 쿼리 매니페스트, 검토된 런타임 선언 7개와 분류 선언 2개, 카탈로그 테스트 | 선택적인 빈 필드는 기존 provenance를 보존합니다. 검토된 필드는 역방향 edge나 표현 레이아웃을 만들지 않습니다. |
 | 완전성과 표현 분리 | implemented | 권위 있는 온톨로지 그래프 materializer, 통합 테스트, Console 디코더, LinkType 검사기, 그래프 우선 인스턴스 작업 영역, 이중 언어 제품 카탈로그, 타입 검사, 프로덕션 빌드 | 선언 그래프는 독립적인 제한 계열 4개를 전달하고 범위 내 모든 LinkType의 역할과 특성을 노출합니다. 인스턴스 작업 영역은 그래프 권한을 바꾸지 않고 선택, 범례, Inspector 상태를 표현 계층에 유지합니다. |
 | 거버넌스 아티팩트 분리 | implemented | `rule_catalog/schema/governance_catalog.py`; `delivery/catalog_exemption.py`; 집중 거버넌스 로더 및 registry 테스트 | 배정과 exemption은 검증된 catalog-as-code 입력입니다. 온톨로지 사실로 변환되지 않으며 쿼리, 승인 또는 실행 권한을 부여하지 않습니다. |
+| 프로바이더 관찰 토폴로지 생산 | implemented | `azure-arg-v1.yaml`, `arm_inventory.py`, `kubernetes_api_inventory.py`, `kubernetes_inventory.py`, 집중 Azure, Kubernetes, 인벤토리 승격, 카탈로그, Ruff 및 strict mypy 검사 | 검토된 Azure parent 및 root containment와 UID에 근거한 Kubernetes 런타임 토폴로지가 하나의 완전한 세대를 보강합니다. 실제 운영 Kubernetes 및 배포 binding 근거는 별도 검증 작업으로 남습니다. |
 | 적대적 하드닝 | implemented | 아래의 15회 하드닝 기록, 집중 Python 테스트 308개, 집중 Console 테스트 29개, 변경된 Python 파일 29개의 Ruff, 변경된 source 파일 19개의 strict mypy, Console 타입 검사 및 프로덕션 빌드 | 검증된 모든 High 또는 Medium 발견 사항을 해결했습니다. Low 관찰만 남았습니다. |
 
 ### 구현 이력
@@ -222,6 +238,7 @@ Operator 변환 결과는 출처 세대, 온톨로지 release, 쿼리 상한, �
 | 2026-08-24 | implemented | 인증된 타입 지정 runtime-call 관찰을 인벤토리 single writer를 통해 연결하고 PostgreSQL 역할 근거는 Resource 관계가 아닌 별도의 principal-safe 변환 결과로 유지했습니다. | `current change`; `runtime_call_telemetry.py`, `runtime_call_inventory.py`, `postgres_role_evidence.py`, 집중 producer, 변환 결과, 인벤토리, principal 가림 검사입니다. | 권위 있는 source가 정확한 endpoint Resource id를 제공한 뒤에만 인증된 런타임 근거를 보존합니다. |
 | 2026-08-24 | implemented | 온톨로지 쿼리 또는 변경 권한을 바꾸지 않고 그래프 우선 인스턴스 작업 영역, 간결한 컨트롤, 선택된 리소스와 범례 오버레이, Inspector 소유 접기 동작을 복원했습니다. | `current change`; 집중 Console 경로 테스트, 타입 검사, 프로덕션 빌드입니다. | 이 표현 범위에는 남은 구조 모델 작업이 없습니다. |
 | 2026-08-24 | implemented | 정확한 스키마 관계와 현재 인스턴스 관계의 경계를 복원했습니다. 하나 또는 두 개의 표준 ObjectType 이름은 시간 범위가 없는 스키마 읽기로 유지하고, 현재 운영 객체 관계에는 계속 엔드포인트 ObjectSet이 필요합니다. 링크 가림 증적은 변환된 링크에서 실제로 제거된 속성만 집계하고 타입이 지정된 관찰 메타데이터를 보존합니다. | `current change`; 의미 계획, 쿼리 게이트웨이, 집중 관계 검사가 통과했고 통합 수정 테스트 629개와 Ruff 및 strict mypy가 통과했습니다. | 실제 운영 근거는 별도로 보존합니다. 이 수정은 변경 또는 실행 권한을 부여하지 않습니다. |
+| 2026-08-24 | implemented | 검토된 Azure 중첩 리소스 containment와 범위가 제한된 UID 기반 Kubernetes API enrichment source를 추가했습니다. 런타임 리소스와 독립적으로 검증된 링크는 기존 single writer를 통해 하나의 완전한 세대에 들어가며, Kubernetes binding이 없으면 명시적으로 사용 불가 상태를 유지합니다. | `current change`; 프로바이더 카탈로그, Azure ARG와 ARM, Kubernetes source와 변환 결과, 인벤토리 승격 및 조립 검사 260개 통과, Ruff 통과, source 파일 10개의 strict mypy 통과 | 이 영역을 `validated`로 변경하기 전에 실제 운영 exact-cluster Kubernetes 증적과 배포된 CA 및 token mount 근거를 보존합니다. |
 
 ### 하드닝 기록
 
@@ -255,6 +272,8 @@ Operator 변환 결과는 출처 세대, 온톨로지 release, 쿼리 상한, �
   검토된 역할과 의미 특성을 추가합니다.
 - [x] Producer를 binding하거나 과거 link를 재해석하지 않고 검토된 `runtime_calls` 선언을
   추가합니다.
+- [x] 또 다른 snapshot writer를 만들거나 endpoint 아이덴티티를 추론하지 않고 검토된 Azure
+  parent 및 root containment와 UID 기반 Kubernetes 런타임 enrichment를 추가합니다.
 - [x] 권위 있는 선언 그래프와 Console LinkType 검사기에서 출처, 쿼리, 접근 제어, 표현 제한을
   분리하고 범위 내 전체 LinkType 디렉터리를 포함합니다.
 - [x] 독립적인 비평 및 하드닝을 최소 10회 완료하고 검증된 Low 초과 발견 사항을 남기지

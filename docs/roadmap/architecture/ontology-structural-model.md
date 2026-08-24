@@ -108,6 +108,20 @@ Provider verification metadata alone does not justify an object. FDAI reuses exi
 objects such as observed role-assignment Resources instead of creating a generic `Relationship`
 ObjectType or adding UUID identity to every direct link.
 
+### Provider-observed topology
+
+Provider topology enters the graph only through reviewed mappings and one complete inventory
+generation. Azure nested resources use an explicitly declared immediate provider parent or
+top-level provider root. The bounded ARM source collects AKS AgentPool children that Azure Resource
+Graph does not expose as ordinary resources. Kubernetes API inventory adds UID-grounded cluster,
+namespace, node, workload, ownership, selector, endpoint, and scheduling evidence before the same
+single writer promotes resources and independently verified links atomically.
+
+These producers do not infer topology from names alone. The Kubernetes source binds one exact
+cluster Resource identity, keeps namespace and cluster scope checks, and records explicit
+unavailability when the API endpoint, CA bundle, or mounted service-account token is not configured.
+Catalog declarations remain meaning only and never grant observation or execution authority.
+
 ## LinkType semantics
 
 Stored direction remains `from_type -> to_type`. A compatible LinkType revision can add these
@@ -210,6 +224,7 @@ major version or explicit graph migration. No rollout rewrites historical contex
 | Link roles and semantic traits | implemented | Shared LinkType contract and schema, query manifest, seven reviewed runtime declarations plus two taxonomy declarations, and catalog tests | Optional empty fields preserve legacy provenance. Reviewed fields do not create inverse edges or presentation layout. |
 | Completeness and presentation separation | implemented | Authoritative ontology graph materializer, integration tests, Console decoder, LinkType inspector, graph-first instance workspace, bilingual product catalog, typecheck, and production build | The declaration graph carries four independent limitation families and exposes every bounded LinkType with roles and traits. The instance workspace keeps selection, legend, and Inspector state in the presentation layer without changing graph authority. |
 | Governance artifact separation | implemented | `rule_catalog/schema/governance_catalog.py`; `delivery/catalog_exemption.py`; focused governance loader and registry tests | Assignments and exemptions are validated catalog-as-code inputs. They are not projected as ontology facts and grant no query, approval, or execution authority. |
+| Provider-observed topology production | implemented | `azure-arg-v1.yaml`; `arm_inventory.py`; `kubernetes_api_inventory.py`; `kubernetes_inventory.py`; focused Azure, Kubernetes, inventory promotion, catalog, Ruff, and strict mypy checks | Reviewed Azure parent and root containment plus UID-grounded Kubernetes runtime topology enrich one complete generation. Live Kubernetes and deployed binding evidence remain separate validation work. |
 | Adversarial hardening | implemented | Fifteen-round hardening record below; 308 focused Python tests, 29 focused Console tests, Ruff over 29 changed Python files, strict mypy over 19 changed source files, Console typecheck, and production build | Every verified High or Medium finding was resolved. Only Low residual observations remain. |
 
 ### Implementation history
@@ -225,6 +240,7 @@ major version or explicit graph migration. No rollout rewrites historical contex
 | 2026-08-24 | implemented | Bound authenticated typed runtime-call observations through the inventory single writer and kept PostgreSQL role evidence as a separate principal-safe projection rather than a Resource relationship. | `current change`; `runtime_call_telemetry.py`, `runtime_call_inventory.py`, `postgres_role_evidence.py`; focused producer, projection, inventory, and principal-redaction checks. | Retain authenticated runtime evidence only after an authoritative source supplies exact endpoint Resource ids. |
 | 2026-08-24 | implemented | Restored the graph-first instance workspace, compact controls, selected-resource and legend overlays, and Inspector-owned collapse behavior without changing ontology query or mutation authority. | `current change`; focused Console route tests, typecheck, and production build. | No remaining structural-model work for this presentation slice. |
 | 2026-08-24 | implemented | Restored the exact schema and current-instance relationship boundary. One or two canonical ObjectType names remain an atemporal schema read, while current operating-object relationships still require endpoint ObjectSets. Link redaction receipts now count only properties actually removed from the projected link and preserve typed observation metadata. | `current change`; semantic planning, query gateway, and focused relationship checks passed; the combined repair suite passed 629 cases; Ruff and strict mypy passed. | Retain live operational evidence separately. This correction grants no mutation or execution authority. |
+| 2026-08-24 | implemented | Added reviewed Azure nested-resource containment and a bounded UID-grounded Kubernetes API enrichment source. Runtime resources and independently verified links enter one complete generation through the existing single writer, while missing Kubernetes bindings remain explicitly unavailable. | `current change`; provider catalog, Azure ARG and ARM, Kubernetes source and projection, inventory promotion, and composition checks passed 260 cases; Ruff passed; strict mypy passed for 10 source files. | Retain a live exact-cluster Kubernetes receipt and deployed CA and token mount evidence before changing this area to `validated`. |
 
 ### Hardening record
 
@@ -258,6 +274,8 @@ major version or explicit graph migration. No rollout rewrites historical contex
   direction, endpoint identity, or historical release interpretation.
 - [x] Add the reviewed `runtime_calls` declaration without binding a producer or reinterpreting
   historical links.
+- [x] Add reviewed Azure parent and root containment plus UID-grounded Kubernetes runtime
+  enrichment without creating another snapshot writer or inferring endpoint identities.
 - [x] Separate source, query, access, and presentation limitations in the authoritative declaration
   graph and Console LinkType inspector, including the complete bounded LinkType directory.
 - [x] Complete at least ten independent critique and hardening rounds and leave no verified finding

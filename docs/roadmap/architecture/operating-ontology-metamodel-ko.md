@@ -1,8 +1,8 @@
 ---
 title: FDAI 운영 온톨로지 메타모델
 translation_of: operating-ontology-metamodel.md
-translation_source_sha: 7d5601a13de7f3658ae5ac0e8cf09ac7c3879efb
-translation_revised: 2026-08-20
+translation_source_sha: 2183fec5a555c5c85be016c66ea837f968b4e01e
+translation_revised: 2026-08-24
 ---
 # FDAI 운영 온톨로지 메타모델
 
@@ -89,17 +89,21 @@ LinkType은 구조적으로 directed 관계입니다. `from_type -> to_type`은 
 또는 불완전한 커버리지가 있으면 링크를 만들지 않고 완전성을 낮춥니다.
 
 검토된 `id.providerParent` 경로는 일반 ARM 계층 추론보다 범위가 좁습니다. 명시적 mapping을
-가진 선언된 중첩 프로바이더 타입에만 적용합니다. 현재 mapping은 Azure SQL 데이터베이스를
-대상으로 하며 immediate 논리 서버를 `contains(sql-server, sql-database)` direction으로 둡니다.
-최상위 리소스와 잘못된 프로바이더 경로는 프로바이더 상위 후보를 만들지 않습니다.
+가진 선언된 중첩 프로바이더 타입에만 적용합니다. 현재 mapping은 SQL 데이터베이스,
+Communication email domain, DNS resolver inbound endpoint 및 AKS AgentPool을 포함합니다. 검토된
+`id.providerRoot` 경로는 File Share를 최상위 storage account로 별도로 해석합니다. 최상위
+리소스와 잘못된 프로바이더 경로는 provider parent 또는 provider root 후보를 만들지 않습니다.
 이 exact mapping과 wildcard 포함 관계 mapping이 같은 하위를 점유하면 exact mapping이 wildcard
 후보를 shadow합니다. 이 규칙은 `contains` one-to-many cardinality를 보존하고 저장된 간선을
 `Resource.parent_id`와 정렬합니다. 서로 다른 하위 id를 가진 포함 관계 mapping은 계속 함께 적용됩니다.
 
-검토된 참조 형식은 이제 프로바이더 id, 해석된 이름, Kubernetes 레이블 선택기를 구분합니다.
-Kubernetes 후보 변환기는 같은 클러스터와 네임스페이스 안에서 Service를 일치하는 Pod 및
-같은 이름의 Endpoints에 대응시킵니다. 범위가 제한된 `ResourceRecord` 스냅샷을 입력으로
-사용하며, 두 링크가 활성 그래프에 들어가기 전에 독립적인 완전 세대 검증을 거쳐야 합니다.
+검토된 참조 형식은 이제 프로바이더 id, exact identity, 해석된 이름, 해석된 UID, Kubernetes
+레이블 selector를 구분합니다. Kubernetes 변환기는 한 클러스터와 네임스페이스 안에서 정확한
+클러스터 및 네임스페이스 containment, AgentPool에서 Node로의 containment, Pod scheduling,
+controller ownership, Service selector 및 같은 이름의 Endpoints를 대응시킵니다. 범위가 제한된
+Kubernetes API 인벤토리 source는 변경할 수 없는 UID를 제공하고 원자적 승격 전에 하나의 완전한
+프로바이더 세대를 보강합니다. 모든 링크는 활성 그래프에 들어가기 전에 계속 독립적인 완전 세대
+검증을 거쳐야 합니다.
 
 Inverse 탐색은 일반적으로 조회 관심사입니다. FDAI는 inverse가 서로 다른 도메인 meaning,
 출처 이력 또는 cardinality를 가질 때만 별도 이름의 inverse LinkType을 추가합니다. 피어링과 같은
@@ -248,8 +252,8 @@ declaration-kind 제안이 됩니다.
 | Principal 매니페스트 대화 조회 | implemented | [`manifest_queries.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/manifest_queries.py), [`wire_semantic_query.py`](../../../services/core-control-plane/src/fdai/composition/wire_semantic_query.py), focused 매니페스트 및 조립 검사(`42 passed`) | `query.manifest`는 exact 읽기 가능 선언 identity를 범위 제한 table과 호출 증적으로 projection합니다. 선언 kind, 프로바이더 읽기, 변경, 승인 또는 실행 권한을 추가하지 않습니다. |
 | 프로바이더 상태 및 관계 근거 계약 | implemented | [`state_evidence.py`](../../../services/core-control-plane/src/fdai/shared/providers/state_evidence.py), [`test_state_evidence.py`](../../../services/core-control-plane/tests/providers/test_state_evidence.py) | 타입이 지정된 메타데이터는 관측된 상태와 링크 근거를 파생 해석과 구분합니다. |
 | Kinetic 실행 상태 산출물 | implemented | [`reconciliation_artifacts.py`](../../../services/core-control-plane/src/fdai/delivery/reconciliation_artifacts.py), 집중 adversarial 테스트(`15 passed`) | 범위가 제한된 immutable delivery 증적이 raw Action argument를 저장하거나 권한을 부여하지 않고 기존 exact V2 plan 하나를 연결합니다. Pre-dispatch writer와 independent observation source는 열린 작업입니다. |
-| 관계 direction 및 분류 보강 | in-progress | 이 문서의 direction 계약 및 `resource_classified_as` 설계, [`kubernetes_relationships.py`](../../../services/core-control-plane/src/fdai/delivery/kubernetes_relationships.py), [`direction_shadow`](../../../services/core-control-plane/src/fdai/core/ontology_platform/direction_shadow), [`inventory_ontology.py`](../../../services/core-control-plane/src/fdai/runtime/inventory_ontology.py), focused 테스트, 보존된 증적 `sha256:ad64c267b6f0c6ac5a1a037067f926aa5613f1fe5a84702877eb607e368736f6` | D1과 D3을 다룹니다. 실제 D4 비교는 재생 가능하며 `review_required`로 보존되었습니다. 과거 release가 결속되지 않았고 정렬 후 세대가 불완전하며 링크가 검증되지 않았으므로 이행 근거가 아닙니다. |
-| 네트워크 및 Pod 텔레메트리 competency | in-progress | [`operational_functions.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/operational_functions.py), [`inventory_sync.py`](../../../services/core-control-plane/src/fdai/delivery/inventory_sync.py), [`test_inventory_sync.py`](../../../services/core-control-plane/tests/delivery/test_inventory_sync.py), [`test_wire_pod_telemetry.py`](../../../services/core-control-plane/tests/composition/test_wire_pod_telemetry.py) | 이제 운영 인벤토리 조립은 권한 있는 출처가 Service, Pod, Endpoints 기록을 공급할 때 Kubernetes 관계를 변환하고 독립적으로 검증합니다. 운영 Kubernetes 인벤토리 출처와 보존된 live 증적은 아직 없습니다. |
+| 관계 direction 및 분류 보강 | in-progress | 이 문서의 direction 계약 및 `resource_classified_as` 설계, [`kubernetes_relationships.py`](../../../services/core-control-plane/src/fdai/delivery/kubernetes_relationships.py), [`kubernetes_api_inventory.py`](../../../services/core-control-plane/src/fdai/delivery/kubernetes_api_inventory.py), [`direction_shadow`](../../../services/core-control-plane/src/fdai/core/ontology_platform/direction_shadow), focused 테스트, 보존된 증적 `sha256:ad64c267b6f0c6ac5a1a037067f926aa5613f1fe5a84702877eb607e368736f6` | D1과 D3은 검토된 Azure 및 Kubernetes producer로 구현되었습니다. 실제 D4 비교는 재생 가능하며 `review_required`로 보존되었습니다. 과거 release가 결속되지 않았고 정렬 후 세대가 불완전하며 링크가 검증되지 않았으므로 이행 근거가 아닙니다. |
+| 네트워크 및 Pod 텔레메트리 competency | in-progress | [`operational_functions.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/operational_functions.py), [`kubernetes_api_inventory.py`](../../../services/core-control-plane/src/fdai/delivery/kubernetes_api_inventory.py), [`kubernetes_inventory.py`](../../../services/core-control-plane/src/fdai/delivery/kubernetes_inventory.py), 집중 인벤토리 및 Pod 텔레메트리 검사 | 이제 운영 인벤토리 조립은 정확한 endpoint, CA, token 및 cluster binding이 구성되면 UID에 근거한 Kubernetes 런타임 기록을 수집하고 독립적으로 검증된 토폴로지를 변환합니다. 보존된 실제 운영 Kubernetes 증적은 아직 없습니다. |
 | 운영 메타모델 보증 | in-progress | 위의 focused 소스 및 테스트 근거 | 이 문서가 운영 검증을 주장하려면 인증된 cross-service 및 운영 증적이 더 필요합니다. |
 
 ### 구현 이력
@@ -265,6 +269,7 @@ declaration-kind 제안이 됩니다.
 | 2026-08-14 | implemented | 새로 생성되는 모든 인벤토리 온톨로지 변환 결과, 영속 매니페스트, 상태를 인벤토리 작업이 사용한 exact 카탈로그 release에 결속했습니다. 잘못되거나 누락된 release 다이제스트는 변환 전에 차단됩니다. 과거 매니페스트에는 재구성한 release를 할당하지 않습니다. | `current change`; focused `test_inventory_ontology.py`에서 9개 테스트를 통과했습니다. | 중앙 검증 뒤 인벤토리를 새로 고친 다음 새 세대에서 release에 결속된 D4/M5 근거를 보존해야 합니다. 과거 비교는 검토 필요 상태로 유지합니다. |
 | 2026-08-14 | in-progress | 보존된 그래프 세대가 결속되지 않은 release를 명시적으로 유지하도록 하고 deployment-local StateStore에 재생 결과가 동일한 D4 비교를 보존했습니다. 증적은 추가 링크 607개, 제거 링크 0개, 역방향 링크 0개를 보고하며 이행 또는 그래프 권한을 부여하지 않습니다. | `current change`; focused direction-shadow 모음에서 8개 테스트를 통과했습니다. StateStore 증적 `sha256:ad64c267b6f0c6ac5a1a037067f926aa5613f1fe5a84702877eb607e368736f6`은 `legacy_release_unbound`, `aligned_generation_incomplete`, `aligned_link_evidence_unverified` 사유와 함께 `review_required`입니다. | 측정된 차이를 검토하고 이행 전에 검증된 링크 메타데이터가 있는 완전한 정렬 후 세대를 보존해야 합니다. |
 | 2026-08-14 | implemented | 검토된 Kubernetes 관계 변환기를 공통 promoted-inventory 관찰 경로에 연결하고 scheduled/local 인벤토리 조립에서 shipped mapping 카탈로그를 주입했습니다. | `current change`; focused 인벤토리 observer 테스트 1개와 caller wiring 테스트 2개를 통과했습니다. | 권한 있는 Kubernetes 인벤토리 출처를 추가하고 exact-release Pod 텔레메트리 근거를 보존해야 합니다. 현재 Azure 인벤토리는 Kubernetes workload 객체를 공급하지 않습니다. |
+| 2026-08-24 | implemented | 범위가 제한된 Kubernetes API 인벤토리 source를 추가하고 Azure 세대의 pre-promotion enrichment로 조립했습니다. 정확한 cluster, namespace, UID ownership, scheduling, selector 및 Endpoints 근거가 이제 리소스와 독립적으로 검증된 링크를 원자적으로 stage하며, 구성되지 않은 binding은 명시적인 사용 불가 상태로 남습니다. | `current change`; 집중 Azure, Kubernetes, 인벤토리, 카탈로그 및 조립 검사 260개 통과, Ruff 통과, source 파일 10개의 strict mypy 통과 | 런타임 보증을 `validated`로 변경하기 전에 실제 운영 exact-release Kubernetes 및 Pod 텔레메트리 증적을 보존합니다. |
 | 2026-08-14 | implemented | Legacy Action schema를 바꾸지 않고 exact pre-dispatch V2 plan을 위한 범위가 제한된 delivery-owned kinetic 실행 상태 증적과 immutable artifact adapter를 추가했습니다. | `current change`, 집중 adversarial 테스트 15개 통과, strict mypy 및 작업 범위 Ruff 통과 | 일반 production reconciliation을 활성화하기 전에 dispatch 전 writer와 verified independent observation source를 연결합니다. |
 | 2026-08-14 | implemented | ObjectType 관계 질문을 위해 exact-release `query.ontology_relationships` FunctionType, production 의미 연결, schema-constrained planner 지침, 결정론적 localized 답변 변환을 추가했습니다. | `current change`, focused 영어/한국어 조립, prompt, localized processor, stale-release 검사 6개 통과 | 런타임 검증을 주장하기 전에 로컬 스택을 재시작하고 원래 관계 질문의 인증된 Browser 증적 하나를 보존합니다. |
 | 2026-08-14 | validated | 인증된 표준 Browser Entra Console에서 원래의 한국어 `PythonTask` 및 `VmTaskRun` 관계 질문을 실행했습니다. 검증된 조회는 `VmTaskRun -> PythonTask`, `executes_task`, `many_to_one`, 변경할 수 없는 산출물 설명, exact-release 근거, `execution_authority=false`를 반환했습니다. | 커밋 `5202a10ba`; Browser 호출 `ontology-function:logic-invocation:e584c59db128d045eeea01aa68f878984dfce93da7f6189fb6f624dc26dded4c`; 온톨로지 release `sha256:9e95d5618570d7a69fbdf5bea33b24f2c242ddaa0a4bae123b41608858ec788c`; 실행 증적 `sha256:f0af7b596fd10bf172c405cfd790e013678398e038aeb6acb60117264fd9b031` | 스키마 관계 대화 조회의 남은 작업은 없습니다. 더 넓은 운영 메타모델 보증은 아래의 열린 작업으로 유지합니다. |
@@ -275,7 +280,8 @@ declaration-kind 제안이 됩니다.
 - [x] 실제 인벤토리 세대의 재생 가능한 D4 비교와 재구축 포인터를 `review_required`로 보존했습니다. 증적 `sha256:ad64c267b6f0c6ac5a1a037067f926aa5613f1fe5a84702877eb607e368736f6`은 결속되지 않은 과거 release를 유지하며 이행 권한을 부여하지 않습니다.
 - [ ] 보존된 D4 차이를 검토하고 이행 결정을 내리기 전에 검증된 링크 메타데이터가 있는 완전하고 release에 결속된 정렬 후 세대에서 새 증적을 보존합니다.
 - [x] 검토된 Kubernetes 관계 변환기를 production/local 인벤토리 조립에 연결하고 공급된 Service, Pod, Endpoints 기록이 독립적으로 검증된 링크를 생성하는지 확인했습니다.
-- [ ] 권한 있는 Kubernetes 인벤토리 출처를 추가한 다음 VM 연결 및 Pod 텔레메트리 competency 검사를 exact release의 보존된 인벤토리 근거에 실행합니다.
+- [x] 권한 있는 범위 제한 Kubernetes API 인벤토리 source를 추가하고 기존 single-writer 승격 경로를 통해 binding합니다.
+- [ ] VM 연결 및 Pod 텔레메트리 competency 검사를 exact release의 보존된 실제 운영 인벤토리 근거에 실행합니다.
 - [ ] 운영 메타모델 보증을 `validated`로 변경하기 전에 exact 온톨로지 release를 바인딩하는 인증된 cross-service 및 live-assurance 증적을 보존합니다.
 - [x] 원래 ObjectType 관계 질문이 exact LinkType direction, cardinality, description, release-bound 근거, `execution_authority=false`를 반환함을 보여 주는 인증된 Browser 호출 `ontology-function:logic-invocation:e584c59db128d045eeea01aa68f878984dfce93da7f6189fb6f624dc26dded4c`를 보존했습니다.
 - [ ] Provider dispatch 전에 kinetic receipt writer를 연결하고 legacy Action의 plan을 reconstruct하지

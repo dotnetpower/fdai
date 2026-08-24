@@ -53,6 +53,10 @@ class InventoryJobConfig:
     recovery_delta_enabled: bool = True
     declarative_path: Path | None = None
     declarative_sha256: str | None = None
+    kubernetes_api_server: str | None = None
+    kubernetes_cluster_ref: str | None = None
+    kubernetes_token_path: Path | None = None
+    kubernetes_ca_path: Path | None = None
     collection_policy: InventoryCollectionPolicy | None = None
 
     def snapshot_policy(self, source_name: str) -> SourceCollectionPolicy:
@@ -118,6 +122,10 @@ class InventoryJobConfig:
         )
         declarative_value = source.get("FDAI_INVENTORY_DECLARATIVE_PATH", "").strip()
         declarative_sha256 = source.get("FDAI_INVENTORY_DECLARATIVE_SHA256", "").strip() or None
+        kubernetes_api_server = source.get("FDAI_KUBERNETES_API_SERVER", "").strip() or None
+        kubernetes_cluster_ref = source.get("FDAI_KUBERNETES_CLUSTER_REF", "").strip() or None
+        kubernetes_token_value = source.get("FDAI_KUBERNETES_TOKEN_PATH", "").strip()
+        kubernetes_ca_value = source.get("FDAI_KUBERNETES_CA_PATH", "").strip()
         collection_policy_path = Path(
             source.get(
                 "FDAI_INVENTORY_COLLECTION_POLICY_PATH",
@@ -157,6 +165,27 @@ class InventoryJobConfig:
             raise ValueError(
                 "declarative fallback requires FDAI_INVENTORY_DECLARATIVE_PATH and SHA256"
             )
+        kubernetes_values = (
+            kubernetes_api_server,
+            kubernetes_cluster_ref,
+            kubernetes_token_value or None,
+            kubernetes_ca_value or None,
+        )
+        if any(kubernetes_values) and not all(kubernetes_values):
+            raise ValueError(
+                "Kubernetes inventory requires API server, cluster ref, token path, and CA path"
+            )
+        if kubernetes_api_server is not None:
+            parsed_kubernetes = urlparse(kubernetes_api_server)
+            if (
+                parsed_kubernetes.scheme != "https"
+                or not parsed_kubernetes.netloc
+                or parsed_kubernetes.username is not None
+                or parsed_kubernetes.password is not None
+                or parsed_kubernetes.query
+                or parsed_kubernetes.fragment
+            ):
+                raise ValueError("FDAI_KUBERNETES_API_SERVER MUST be credential-free HTTPS")
         collection_policy = load_inventory_collection_policy(collection_policy_path)
         _validate_collection_policy_bindings(
             collection_policy,
@@ -186,6 +215,12 @@ class InventoryJobConfig:
             recovery_delta_enabled=recovery_delta_enabled,
             declarative_path=Path(declarative_value) if declarative_value else None,
             declarative_sha256=declarative_sha256,
+            kubernetes_api_server=kubernetes_api_server,
+            kubernetes_cluster_ref=kubernetes_cluster_ref,
+            kubernetes_token_path=(
+                Path(kubernetes_token_value) if kubernetes_token_value else None
+            ),
+            kubernetes_ca_path=Path(kubernetes_ca_value) if kubernetes_ca_value else None,
             collection_policy=collection_policy,
         )
 

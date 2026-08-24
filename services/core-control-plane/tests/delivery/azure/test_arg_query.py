@@ -215,6 +215,118 @@ async def test_sql_database_projects_logical_server_containment() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("resource_type", "parent_arm_type", "child_segment", "mapping_id"),
+    [
+        (
+            "email-domain",
+            "Microsoft.Communication/emailServices",
+            "domains/example.com",
+            "azure.communication-email-service-contains-domain",
+        ),
+        (
+            "network.dns-resolver-inbound-endpoint",
+            "Microsoft.Network/dnsResolvers",
+            "inboundEndpoints/inbound-example",
+            "azure.dns-resolver-contains-inbound-endpoint",
+        ),
+    ],
+)
+async def test_nested_resources_project_exact_parent_containment(
+    resource_type: str,
+    parent_arm_type: str,
+    child_segment: str,
+    mapping_id: str,
+) -> None:
+    parent_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        f"resourceGroups/rg-example/providers/{parent_arm_type}/parent-example"
+    )
+    child_id = f"{parent_id}/{child_segment}"
+    child_arm_type = f"{parent_arm_type}/{child_segment.rsplit('/', 1)[0]}"
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "data": [
+                    _arm_row(
+                        arm_id=child_id,
+                        arm_type=child_arm_type,
+                    )
+                ]
+            },
+        )
+
+    async with _make_client(httpx.MockTransport(handler)) as client:
+        result = await AzureArgQueryFactory(
+            identity=_identity(),
+            resource_types=_vocab(),
+            http_client=client,
+            config=_config(),
+        ).build_query_fn()(resource_type)
+
+    assert result.resources[0].props["parent_id"] == to_neutral_id(parent_id)
+    by_mapping = {
+        link.mapping_evidence.mapping_id: link
+        for link in result.links
+        if link.mapping_evidence is not None
+    }
+    assert "azure.resource-group-contains-resource" not in by_mapping
+    link = by_mapping[mapping_id]
+    assert (link.from_id, link.link_type, link.to_id) == (
+        to_neutral_id(parent_id),
+        "contains",
+        to_neutral_id(child_id),
+    )
+
+
+@pytest.mark.asyncio
+async def test_file_share_projects_storage_account_root_containment() -> None:
+    account_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-example/providers/Microsoft.Storage/"
+        "storageAccounts/storage-example"
+    )
+    share_id = f"{account_id}/fileServices/default/shares/share-example"
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "data": [
+                    _arm_row(
+                        arm_id=share_id,
+                        arm_type="Microsoft.Storage/storageAccounts/fileServices/shares",
+                    )
+                ]
+            },
+        )
+
+    async with _make_client(httpx.MockTransport(handler)) as client:
+        result = await AzureArgQueryFactory(
+            identity=_identity(),
+            resource_types=_vocab(),
+            http_client=client,
+            config=_config(),
+        ).build_query_fn()("file-share")
+
+    assert result.resources[0].props["parent_id"] == to_neutral_id(account_id)
+    by_mapping = {
+        link.mapping_evidence.mapping_id: link
+        for link in result.links
+        if link.mapping_evidence is not None
+    }
+    assert "azure.resource-group-contains-resource" not in by_mapping
+    link = by_mapping["azure.storage-account-contains-file-share"]
+    assert (link.from_id, link.link_type, link.to_id) == (
+        to_neutral_id(account_id),
+        "contains",
+        to_neutral_id(share_id),
+    )
+
+
+@pytest.mark.asyncio
 async def test_vnet_keeps_resource_group_parent_and_subnet_child_containment() -> None:
     vnet_id = (
         "/subscriptions/00000000-0000-0000-0000-000000000001/"

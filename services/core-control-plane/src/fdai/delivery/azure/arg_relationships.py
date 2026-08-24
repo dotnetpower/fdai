@@ -490,6 +490,10 @@ def _path_matches(row: Mapping[str, Any], path: str) -> tuple[_PathMatch, ...]:
         raw_id = row.get("id")
         parent = provider_parent_id(raw_id) if isinstance(raw_id, str) else None
         return (_PathMatch(parent, ()),) if parent is not None else ()
+    if path == "id.providerRoot":
+        raw_id = row.get("id")
+        parent = provider_root_id(raw_id) if isinstance(raw_id, str) else None
+        return (_PathMatch(parent, ()),) if parent is not None else ()
     matches = [_PathMatch(row, ())]
     for segment in path.split("."):
         mapping_keys = segment.endswith("{keys}")
@@ -550,10 +554,24 @@ def provider_parent_id(arm_id: str) -> str | None:
     return arm_id.rsplit("/", maxsplit=2)[0]
 
 
+def provider_root_id(arm_id: str) -> str | None:
+    """Return the top-level provider resource for a structurally valid ARM id."""
+
+    marker = "/providers/"
+    marker_index = arm_id.casefold().find(marker)
+    if marker_index == -1:
+        return None
+    provider_path = arm_id[marker_index + len(marker) :].split("/")
+    if len(provider_path) < 3 or len(provider_path) % 2 == 0:
+        return None
+    return arm_id[: marker_index + len(marker)] + "/".join(provider_path[:3])
+
+
 __all__ = [
     "ARG_RELATIONSHIP_SOURCE_SCHEMA_DIGEST",
     "ARG_RELATIONSHIP_SOURCE_SCHEMA_VERSION",
     "RelationshipProjectionResult",
     "provider_parent_id",
+    "provider_root_id",
     "project_provider_relationships",
 ]

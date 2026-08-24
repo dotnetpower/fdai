@@ -235,6 +235,19 @@ mappings:
     freshness: *freshness
     completeness: *completeness
 
+  - mapping_id: azure.communication-email-service-contains-domain
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Communication/emailServices/domains]
+    source_property_path: id.providerParent
+    target_provider_types: [Microsoft.Communication/emailServices]
+    link_type: contains
+    endpoint_orientation: referenced_to_owner
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
   - mapping_id: azure.function-depends-on-app-service-plan
     provider: azure
     source_identity: azure-resource-graph
@@ -322,6 +335,21 @@ mappings:
     link_type: attached_to
     endpoint_orientation: owner_to_referenced
     source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.aks-contains-agent-pool
+    provider: azure
+    source_identity: azure-resource-manager-containerservice
+    source_provider_types: [Microsoft.ContainerService/managedClusters/agentPools]
+    source_property_path: id.providerParent
+    target_provider_types: [Microsoft.ContainerService/managedClusters]
+    link_type: contains
+    endpoint_orientation: referenced_to_owner
+    source_schema: &arm_container_service_schema
+      version: azure-resource-manager-containerservice@2026-05-01
+      digest: sha256:7b74cb3dcbf1ca43b3c7f33edbddb5520e16f3ee9a6de9a9078345d93873b125
     evidence_method: deterministic-cross-check
     freshness: *freshness
     completeness: *completeness
@@ -525,6 +553,19 @@ mappings:
     source_provider_types: [Microsoft.Sql/servers/databases]
     source_property_path: id.providerParent
     target_provider_types: [Microsoft.Sql/servers]
+    link_type: contains
+    endpoint_orientation: referenced_to_owner
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.storage-account-contains-file-share
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Storage/storageAccounts/fileServices/shares]
+    source_property_path: id.providerRoot
+    target_provider_types: [Microsoft.Storage/storageAccounts]
     link_type: contains
     endpoint_orientation: referenced_to_owner
     source_schema: *arg_schema
@@ -737,6 +778,19 @@ mappings:
     target_provider_types: [Microsoft.Network/virtualNetworks]
     link_type: attached_to
     endpoint_orientation: owner_to_referenced
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.dns-resolver-contains-inbound-endpoint
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Network/dnsResolvers/inboundEndpoints]
+    source_property_path: id.providerParent
+    target_provider_types: [Microsoft.Network/dnsResolvers]
+    link_type: contains
+    endpoint_orientation: referenced_to_owner
     source_schema: *arg_schema
     evidence_method: deterministic-cross-check
     freshness: *freshness
@@ -1010,33 +1064,118 @@ mappings:
     freshness: *freshness
     completeness: *completeness
 
+  - mapping_id: kubernetes.cluster-contains-namespace
+    provider: kubernetes
+    source_identity: kubernetes-api-inventory
+    source_provider_types: [kubernetes.namespace]
+    source_property_path: cluster_ref
+    target_provider_types: [kubernetes-cluster]
+    reference_format: exact_identity
+    link_type: contains
+    endpoint_orientation: referenced_to_owner
+    source_schema: &kubernetes_inventory_schema
+      version: kubernetes-api-inventory-v1
+      digest: sha256:b91602bff07e35196ffb31da5aea279b6e30f31e1aa41d6f526b1904aca5b3a5
+    evidence_method: deterministic-cross-check
+    freshness: &kubernetes_freshness
+      max_age_seconds: 300
+    completeness: *completeness
+
+  - mapping_id: kubernetes.namespace-contains-resource
+    provider: kubernetes
+    source_identity: kubernetes-api-inventory
+    source_provider_types:
+      - kubernetes.cron-job
+      - kubernetes.daemon-set
+      - kubernetes.deployment
+      - kubernetes.endpoints
+      - kubernetes.job
+      - kubernetes.pod
+      - kubernetes.replica-set
+      - kubernetes.service
+      - kubernetes.stateful-set
+    source_property_path: namespace
+    target_provider_types: [kubernetes.namespace]
+    reference_format: resolved_name
+    link_type: contains
+    endpoint_orientation: referenced_to_owner
+    source_schema: *kubernetes_inventory_schema
+    evidence_method: deterministic-cross-check
+    freshness: *kubernetes_freshness
+    completeness: *completeness
+
+  - mapping_id: kubernetes.agent-pool-contains-node
+    provider: kubernetes
+    source_identity: kubernetes-api-inventory
+    source_provider_types: [kubernetes.node]
+    source_property_path: node_pool
+    target_provider_types: [kubernetes-node-pool]
+    reference_format: resolved_name
+    link_type: contains
+    endpoint_orientation: referenced_to_owner
+    source_schema: *kubernetes_inventory_schema
+    evidence_method: deterministic-cross-check
+    freshness: *kubernetes_freshness
+    completeness: *completeness
+
+  - mapping_id: kubernetes.pod-scheduled-on-node
+    provider: kubernetes
+    source_identity: kubernetes-api-inventory
+    source_provider_types: [kubernetes.pod]
+    source_property_path: node_name
+    target_provider_types: [kubernetes.node]
+    reference_format: resolved_name
+    link_type: kubernetes_scheduled_on
+    endpoint_orientation: owner_to_referenced
+    source_schema: *kubernetes_inventory_schema
+    evidence_method: deterministic-cross-check
+    freshness: *kubernetes_freshness
+    completeness: *completeness
+
+  - mapping_id: kubernetes.resource-owned-by-controller
+    provider: kubernetes
+    source_identity: kubernetes-api-inventory
+    source_provider_types: [kubernetes.job, kubernetes.pod, kubernetes.replica-set]
+    source_property_path: owner_uids
+    target_provider_types:
+      - kubernetes.cron-job
+      - kubernetes.daemon-set
+      - kubernetes.deployment
+      - kubernetes.job
+      - kubernetes.replica-set
+      - kubernetes.stateful-set
+    reference_format: resolved_uid
+    link_type: kubernetes_owned_by
+    endpoint_orientation: owner_to_referenced
+    source_schema: *kubernetes_inventory_schema
+    evidence_method: deterministic-cross-check
+    freshness: *kubernetes_freshness
+    completeness: *completeness
+
   - mapping_id: kubernetes.service-selects-pod
     provider: kubernetes
-    source_identity: kubernetes-api-list
+    source_identity: kubernetes-api-inventory
     source_provider_types: [kubernetes.service]
     source_property_path: selector
     target_provider_types: [kubernetes.pod]
     reference_format: label_selector
     link_type: kubernetes_selects
     endpoint_orientation: owner_to_referenced
-    source_schema: &kubernetes_schema
-      version: kubernetes-core-v1
-      digest: sha256:7c1cf19f03f34c9ce451cf1918039839439f8430b33a9cb621bdadeca4cf7106
+    source_schema: *kubernetes_inventory_schema
     evidence_method: deterministic-cross-check
-    freshness: &kubernetes_freshness
-      max_age_seconds: 300
+    freshness: *kubernetes_freshness
     completeness: *completeness
 
   - mapping_id: kubernetes.service-exposes-endpoints
     provider: kubernetes
-    source_identity: kubernetes-api-list
+    source_identity: kubernetes-api-inventory
     source_provider_types: [kubernetes.service]
     source_property_path: name
     target_provider_types: [kubernetes.endpoints]
     reference_format: resolved_name
     link_type: kubernetes_exposes_endpoints
     endpoint_orientation: owner_to_referenced
-    source_schema: *kubernetes_schema
+    source_schema: *kubernetes_inventory_schema
     evidence_method: deterministic-cross-check
     freshness: *kubernetes_freshness
     completeness: *completeness
@@ -1045,4 +1184,4 @@ review:
   reviewer_identity: fdai-provider-relationship-review
   reviewed_at: 2026-08-12T00:00:00Z
   immutable_receipt_ref: catalog-receipt:provider-relationships:azure-arg-v1
-  content_hash: sha256:0420aaaa151921a87757fc5e6fa1b4fb5300f572e3564979dc9cad196caf703c
+  content_hash: sha256:5f9906e671fe5932117ee3845146e9a0b7efdbcbe6597d4dfe1f89754b3684f8
