@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -122,6 +124,10 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     assert "azurerm_virtual_network_peering.operator_to_lab[0]" in workflow
     assert "azurerm_private_dns_zone_virtual_network_link.mysql_operator[0]" in workflow
     assert "raw output remains runner-local" in workflow
+    assert "Terraform apply diagnostic addresses:" in workflow
+    assert "Terraform apply diagnostic Azure codes:" in workflow
+    assert 'print_apply_diagnostic "$RUNNER_TEMP/sre-demo-lab-apply.log"' in workflow
+    assert 'cat "$RUNNER_TEMP/sre-demo-lab-apply.log"' not in workflow
     assert "apply refuses delete or replacement actions" in workflow
     assert 'environment_file="$output_dir/enforce.env"' in workflow
     assert 'environment_file="$(bash' not in workflow
@@ -152,6 +158,43 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     assert "active runner managed identity does not match the configured principal" in workflow
     assert "infra/scenario-lab" in infra_lint
     assert "infra/scenario-lab/backend.tf" in (REPO_ROOT / ".gitignore").read_text(encoding="utf-8")
+
+
+def test_scenario_lab_apply_diagnostic_projects_only_allowlisted_tokens(tmp_path: Path) -> None:
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+    script_match = re.search(
+        r'python3 - "\$1" <<\'PY\'\n(?P<script>.*?)\n          PY',
+        workflow,
+        re.DOTALL,
+    )
+    assert script_match is not None
+    script = "\n".join(
+        line.removeprefix("          ") for line in script_match.group("script").splitlines()
+    )
+    raw_log = tmp_path / "apply.log"
+    raw_log.write_text(
+        "Error: request failed\n"
+        "  with azurerm_virtual_network_peering.lab_to_operator[0],\n"
+        'Code="RemoteGatewayNotReady" Message="private deployment value"\n'
+        'resource_id="/subscriptions/private/resourceGroups/private"\n',
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(  # noqa: S603 - fixed interpreter and extracted repository script.
+        [sys.executable, "-", str(raw_log)],
+        input=script,
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    assert "azurerm_virtual_network_peering.lab_to_operator[0]" in result.stdout
+    assert "RemoteGatewayNotReady" in result.stdout
+    assert "private deployment value" not in result.stdout
+    assert "/subscriptions/" not in result.stdout
+    assert "resourceGroups" not in result.stdout
 
 
 def test_runner_scripts_fail_before_external_commands_without_authority() -> None:

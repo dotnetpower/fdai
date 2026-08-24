@@ -474,9 +474,31 @@ jobs:
         if: inputs.action == 'apply'
         run: |
           set -euo pipefail
+          print_apply_diagnostic() {
+            python3 - "$1" <<'PY'
+          import re
+          import sys
+          from pathlib import Path
+
+          text = Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace")
+          address_pattern = re.compile(
+              r"(?m)^\s*with\s+((?:module\.[A-Za-z0-9_]+\.)*"
+              r"azurerm_[A-Za-z0-9_]+\.[A-Za-z0-9_]+(?:\[[0-9]+\])?),\s*$"
+          )
+          code_patterns = (
+              re.compile(r'\bCode[=:]\s*"?([A-Za-z][A-Za-z0-9_.-]{1,127})"?'),
+              re.compile(r'"code"\s*:\s*"([A-Za-z][A-Za-z0-9_.-]{1,127})"'),
+          )
+          addresses = sorted(set(address_pattern.findall(text)))
+          codes = sorted({match for pattern in code_patterns for match in pattern.findall(text)})
+          print("Terraform apply diagnostic addresses: " + (", ".join(addresses) or "unavailable"))
+          print("Terraform apply diagnostic Azure codes: " + (", ".join(codes) or "unavailable"))
+          PY
+          }
           if ! terraform apply -input=false -auto-approve \
             "$RUNNER_TEMP/sre-demo-lab.tfplan" \
             >"$RUNNER_TEMP/sre-demo-lab-apply.log" 2>&1; then
+            print_apply_diagnostic "$RUNNER_TEMP/sre-demo-lab-apply.log"
             echo "scenario-lab Terraform apply failed; raw output remains runner-local." >&2
             exit 1
           fi
