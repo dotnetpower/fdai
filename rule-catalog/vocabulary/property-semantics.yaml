@@ -1,9 +1,9 @@
 schema_version: "1.0.0"
-version: "2.0.0"
+version: "3.0.0"
 provenance:
   source_url: repo://rule-catalog/vocabulary/property-semantics.yaml
-  resolved_ref: property-semantics@2.0.0
-  content_hash: sha256:c80f048754b632e695bf79e8d5e542a4ef8064793c9e65c25e292784e6a0df96
+  resolved_ref: property-semantics@3.0.0
+  content_hash: sha256:a3792bbf4f95dff78721d269ca68c893e6410992e8a847f41d95ba1261fdba78
   license: Apache-2.0
   retrieved_at: "2026-08-15T00:00:00Z"
 # Reviewed coverage is deliberately partial. Every Property reference without an entry here
@@ -209,3 +209,271 @@ semantics:
       - provider: azure
         resource_type: compute.vm
         path: memory_p95_percent
+  - semantic_id: observability.diagnostic.settings
+    value_type: array
+    normalization_rule: json.canonical
+    authority: &provider_authority
+      class: provider_observed
+      source_identity_required: true
+    freshness: &inventory_freshness
+      max_age_seconds: 86400
+      stale_behavior: unknown
+    equivalent_provider_paths:
+      - {provider: azure, resource_type: kubernetes-cluster, path: diagnostic_settings}
+      - {provider: azure, resource_type: object-storage, path: diagnostic_settings}
+      - {provider: azure, resource_type: postgresql-server, path: diagnostic_settings}
+      - {provider: azure, resource_type: secret-store, path: diagnostic_settings}
+      - {provider: azure, resource_type: sql-database, path: diagnostic_settings}
+  - semantic_id: governance.resource.tags
+    value_type: object
+    normalization_rule: json.canonical
+    authority: *provider_authority
+    freshness: *inventory_freshness
+    equivalent_provider_paths:
+      - {provider: azure, resource_type: compute.vm, path: tags.required_tag}
+      - {provider: azure, resource_type: object-storage, path: tags.required_tag}
+      - {provider: azure, resource_type: resource-group, path: tags.required_tag}
+  - semantic_id: governance.rbac.role_assignments
+    value_type: array
+    normalization_rule: json.canonical
+    authority: *provider_authority
+    freshness: *inventory_freshness
+    equivalent_provider_paths:
+      - {provider: azure, resource_type: managed-identity, path: role_assignments}
+      - {provider: azure, resource_type: resource-group, path: role_assignments}
+      - {provider: azure, resource_type: subscription, path: role_assignments}
+  - semantic_id: resilience.availability.zones
+    value_type: array
+    normalization_rule: json.canonical
+    authority: *provider_authority
+    freshness: *inventory_freshness
+    equivalent_provider_paths:
+      - {provider: azure, resource_type: cache, path: zones}
+      - {provider: azure, resource_type: compute.vm-scale-set, path: zones}
+      - {provider: azure, resource_type: kubernetes-node-pool, path: availability_zones}
+  - semantic_id: security.network.rules
+    value_type: array
+    normalization_rule: json.canonical
+    authority: *provider_authority
+    freshness: *inventory_freshness
+    equivalent_provider_paths:
+      - {provider: azure, resource_type: network.nsg, path: security_rules}
+  - semantic_id: security.network.private_endpoints
+    value_type: array
+    normalization_rule: json.canonical
+    authority: *provider_authority
+    freshness: *inventory_freshness
+    equivalent_provider_paths:
+      - {provider: azure, resource_type: object-storage, path: private_endpoints}
+  - semantic_id: topology.resource.association.id
+    value_type: string
+    normalization_rule: string.trim
+    authority: *provider_authority
+    freshness: *inventory_freshness
+    equivalent_provider_paths:
+      - {provider: azure, resource_type: disk, path: managed_by}
+      - {provider: azure, resource_type: network.public-ip, path: associated_resource_id}
+  - semantic_id: security.network.ddos.plan.id
+    value_type: string
+    normalization_rule: string.trim
+    authority: *provider_authority
+    freshness: *inventory_freshness
+    equivalent_provider_paths:
+      - {provider: azure, resource_type: network.vnet, path: ddos_protection_plan_id}
+  - semantic_id: capacity.instance.count
+    value_type: integer
+    canonical_unit: count
+    range: {minimum: 0}
+    normalization_rule: integer.strict
+    authority: *provider_authority
+    freshness: *inventory_freshness
+    equivalent_provider_paths:
+      - {provider: azure, resource_type: compute.vm-scale-set, path: instance_count}
+      - {provider: azure, resource_type: kubernetes-node-pool, path: node_count}
+      - {provider: azure, resource_type: network.load-balancer, path: backend_count}
+  - semantic_id: utilization.network.p95
+    value_type: number
+    canonical_unit: byte
+    range: {minimum: 0}
+    normalization_rule: number.decimal
+    authority: *provider_authority
+    freshness: {max_age_seconds: 900, stale_behavior: lower_autonomy}
+    equivalent_provider_paths:
+      - {provider: azure, resource_type: compute.vm, path: network_p95_bytes}
+  - semantic_id: utilization.database.dtu.p95
+    value_type: number
+    canonical_unit: percent
+    range: {minimum: 0, maximum: 100}
+    normalization_rule: number.decimal
+    authority: *provider_authority
+    freshness: {max_age_seconds: 900, stale_behavior: lower_autonomy}
+    equivalent_provider_paths:
+      - {provider: azure, resource_type: sql-database, path: dtu_p95_percent}
+  - semantic_id: resilience.snapshot.policy.present
+    value_type: boolean
+    normalization_rule: boolean.strict
+    authority: *provider_authority
+    freshness: *inventory_freshness
+    equivalent_provider_paths:
+      - {provider: azure, resource_type: disk, path: snapshot_policy_present}
+  - semantic_id: security.kubernetes.azure_rbac.enabled
+    value_type: boolean
+    normalization_rule: boolean.strict
+    authority: *provider_authority
+    freshness: *inventory_freshness
+    equivalent_provider_paths:
+      - {provider: azure, resource_type: kubernetes-cluster, path: azure_rbac_enabled}
+  - semantic_id: security.kubernetes.private_cluster.enabled
+    value_type: boolean
+    normalization_rule: boolean.strict
+    authority: *provider_authority
+    freshness: *inventory_freshness
+    equivalent_provider_paths:
+      - {provider: azure, resource_type: kubernetes-cluster, path: private_cluster_enabled}
+  - semantic_id: security.kubernetes.network_policy.enabled
+    value_type: boolean
+    normalization_rule: boolean.strict
+    authority: *provider_authority
+    freshness: *inventory_freshness
+    equivalent_provider_paths:
+      - {provider: azure, resource_type: kubernetes-cluster, path: network_policy}
+  - semantic_id: security.storage.https_only.enabled
+    value_type: boolean
+    normalization_rule: boolean.strict
+    authority: *provider_authority
+    freshness: *inventory_freshness
+    equivalent_provider_paths:
+      - {provider: azure, resource_type: object-storage, path: enable_https_traffic_only}
+  - semantic_id: security.storage.shared_key.enabled
+    value_type: boolean
+    normalization_rule: boolean.strict
+    authority: *provider_authority
+    freshness: *inventory_freshness
+    equivalent_provider_paths:
+      - {provider: azure, resource_type: object-storage, path: allow_shared_key_access}
+  - semantic_id: resilience.storage.soft_delete.enabled
+    value_type: boolean
+    normalization_rule: boolean.strict
+    authority: *provider_authority
+    freshness: *inventory_freshness
+    equivalent_provider_paths:
+      - {provider: azure, resource_type: object-storage, path: blob_soft_delete_enabled}
+  - semantic_id: resilience.storage.versioning.enabled
+    value_type: boolean
+    normalization_rule: boolean.strict
+    authority: *provider_authority
+    freshness: *inventory_freshness
+    equivalent_provider_paths:
+      - {provider: azure, resource_type: object-storage, path: blob_versioning_enabled}
+  - semantic_id: security.storage.infrastructure_encryption.enabled
+    value_type: boolean
+    normalization_rule: boolean.strict
+    authority: *provider_authority
+    freshness: *inventory_freshness
+    equivalent_provider_paths:
+      - {provider: azure, resource_type: object-storage, path: infrastructure_encryption_enabled}
+  - semantic_id: security.database.encryption_at_rest.enabled
+    value_type: boolean
+    normalization_rule: boolean.strict
+    authority: *provider_authority
+    freshness: *inventory_freshness
+    equivalent_provider_paths:
+      - {provider: azure, resource_type: postgresql-server, path: encryption_at_rest_enabled}
+      - {provider: azure, resource_type: sql-database, path: tde_enabled}
+  - semantic_id: resilience.secret_store.purge_protection.enabled
+    value_type: boolean
+    normalization_rule: boolean.strict
+    authority: *provider_authority
+    freshness: *inventory_freshness
+    equivalent_provider_paths:
+      - {provider: azure, resource_type: secret-store, path: purge_protection_enabled}
+  - semantic_id: security.secret_store.rbac.enabled
+    value_type: boolean
+    normalization_rule: boolean.strict
+    authority: *provider_authority
+    freshness: *inventory_freshness
+    equivalent_provider_paths:
+      - {provider: azure, resource_type: secret-store, path: rbac_authorization_enabled}
+  - semantic_id: resilience.secret_store.soft_delete.enabled
+    value_type: boolean
+    normalization_rule: boolean.strict
+    authority: *provider_authority
+    freshness: *inventory_freshness
+    equivalent_provider_paths:
+      - {provider: azure, resource_type: secret-store, path: soft_delete_enabled}
+  - semantic_id: security.database.audit.enabled
+    value_type: boolean
+    normalization_rule: boolean.strict
+    authority: *provider_authority
+    freshness: *inventory_freshness
+    equivalent_provider_paths:
+      - {provider: azure, resource_type: sql-database, path: audit_enabled}
+  - semantic_id: resilience.database.geo_backup.enabled
+    value_type: boolean
+    normalization_rule: boolean.strict
+    authority: *provider_authority
+    freshness: *inventory_freshness
+    equivalent_provider_paths:
+      - {provider: azure, resource_type: sql-database, path: geo_redundant_backup_enabled}
+  - semantic_id: resilience.database.zone_redundant.enabled
+    value_type: boolean
+    normalization_rule: boolean.strict
+    authority: *provider_authority
+    freshness: *inventory_freshness
+    equivalent_provider_paths:
+      - {provider: azure, resource_type: sql-database, path: zone_redundant}
+  - semantic_id: control_plane.event.terminal
+    value_type: boolean
+    normalization_rule: boolean.strict
+    authority: &derived_authority {class: derived, source_identity_required: true}
+    freshness: &event_freshness {max_age_seconds: 900, stale_behavior: unknown}
+    equivalent_provider_paths:
+      - {provider: fdai, resource_type: llm-endpoint, path: terminal}
+  - semantic_id: identity.managed.type
+    value_type: string
+    enum_values: [none, systemassigned, userassigned, "systemassigned,userassigned"]
+    normalization_rule: string.trim_casefold
+    authority: *provider_authority
+    freshness: *inventory_freshness
+    equivalent_provider_paths:
+      - {provider: azure, resource_type: compute.vm, path: identity_type}
+  - semantic_id: security.network.public_ip.sku_tier
+    value_type: string
+    enum_values: [basic, standard]
+    normalization_rule: string.trim_casefold
+    authority: *provider_authority
+    freshness: *inventory_freshness
+    equivalent_provider_paths:
+      - {provider: azure, resource_type: network.public-ip, path: sku_tier}
+  - semantic_id: resilience.database.ha.mode
+    value_type: string
+    enum_values: [disabled, samezone, zoneredundant]
+    normalization_rule: string.trim_casefold
+    authority: *provider_authority
+    freshness: *inventory_freshness
+    equivalent_provider_paths:
+      - {provider: azure, resource_type: postgresql-server, path: ha_mode}
+  - semantic_id: security.database.ssl.enforcement
+    value_type: string
+    enum_values: [disabled, enabled]
+    normalization_rule: string.trim_casefold
+    authority: *provider_authority
+    freshness: *inventory_freshness
+    equivalent_provider_paths:
+      - {provider: azure, resource_type: postgresql-server, path: ssl_enforcement}
+  - semantic_id: control_plane.event.type
+    value_type: string
+    enum_values: [control_plane.t2_proposer_failure]
+    normalization_rule: string.trim
+    authority: *derived_authority
+    freshness: *event_freshness
+    equivalent_provider_paths:
+      - {provider: fdai, resource_type: llm-endpoint, path: event_type}
+  - semantic_id: control_plane.request.kind
+    value_type: string
+    enum_values: [change-summary]
+    normalization_rule: string.trim_casefold
+    authority: {class: fdai_owned, source_identity_required: true}
+    freshness: *event_freshness
+    equivalent_provider_paths:
+      - {provider: fdai, resource_type: resource-group, path: request_kind}

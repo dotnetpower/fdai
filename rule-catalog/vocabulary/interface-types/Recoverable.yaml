@@ -1,0 +1,18 @@
+schema_version: "1.0.0"
+name: Recoverable
+version: "1.0.0"
+description: A declared recovery objective with exact RTO, RPO, source, and freshness bounds.
+properties:
+  rto_seconds: {type: integer, required: true}
+  rpo_seconds: {type: integer, required: true}
+  measurement_source_ref: {type: string, required: true}
+  freshness_seconds: {type: integer, required: true}
+required_links: [service_has_recovery_objective]
+supported_actions: []
+extends: [Identifiable]
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: interface-type:Recoverable@1.0.0
+  content_hash: sha256:6b8b9e7ee87d7cc927410041d916e80ec152be7d993cedf1fc87b19b4b91d7f7
+  license: MIT
+  retrieved_at: "2026-08-24T00:00:00Z"

@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 6e95f0aa868b91f4f2ae5454b76350926b71e445
-translation_revised: 2026-08-22
+translation_source_sha: 843111abef34260c29b2fbe25e01d1565e12fa79
+translation_revised: 2026-08-24
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -34,10 +34,10 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 > 상태를 유지합니다. 다음 successful 쓰기는 완전히 다시 검증한 current-state 개정 번호를 새로
 > 만들고 그 새 개정 번호를 해당 시점의 활성 release로 pin합니다.
 > 의미 Interface 선언은 이제 shared 계약을 사용하며 정본 런타임 release에
-> 포함됩니다. 운영 카탈로그 로딩은 검토된 `Identifiable` 선언, 출처 이력 및 모든
-> 현재 ObjectType의 명시적 연결을 검증합니다. 조립은 polymorphic 카탈로그를 compile합니다.
-> 운영 ObjectSet 핸들러는 범위가 제한된 secured 증적을 발급하고 exact 함수 핸들러는 발급된
-> dependency 다이제스트만 해석합니다. 추가 기능 Interface는 전달 작업으로 남아 있습니다.
+> 포함됩니다. 운영 카탈로그 로딩은 `Identifiable`, `Ownable`, `Operable`, `Observable`,
+> `Recoverable`, `ObjectiveBound`, `CostBearing`의 출처 이력, 상속, LinkType 및 ActionType
+> 참조와 보수적인 explicit ObjectType 연결을 검증합니다. 조립은 polymorphic 카탈로그를
+> exact release로 compile합니다.
 > Bitemporal 토폴로지 기반은 provider-generation 신원, 이벤트/기록 시간, 완전한 스냅샷,
 > delta 및 tombstone을 보존합니다. Pure `graph_at`/`topology_diff` 함수는 late 근거가 도착해도
 > pinned `known_at` 재생을 보존하며 불완전한 이력은 absence를 입증할 수 없습니다. 타입이 지정된 조회
@@ -74,8 +74,8 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 > 전달, 충돌 detection, unscorable 시도에서 최종로의 전이를 검증합니다.
 > 각 조정은 최대 8개 시도를 저장하며 마지막 자리는 최종 종결을 위해
 > 예약합니다. 16 MiB 정본 집계 상한은 상태 또는 감사 쓰기 전에 oversized 영속
-> 상태를 차단합니다. 운영 조립은 아직 조정기를 연결하거나 이벤트 버스를 통해
-> 발신함 권고를 publish하지 않습니다.
+> 상태를 차단합니다. 운영 조립은 worker를 연결하고 독립적인 최종 reconciliation 뒤에만
+> 변경 불가능한 다중 효과 계보를 구체화합니다.
 > K6-K8은 변경할 수 없는 operational 상태 trajectory, 의존성 범위 효과 propagation,
 > time-bounded 불변식, 독립 관측 trajectory 결과를 포함하는 graph-wide Dynamic 근거를
 > 목표로 합니다. 기존 액션/메트릭 Dynamic 시뮬레이션은 구현되어 있으며 graph-wide propagation과
@@ -129,6 +129,8 @@ Console은 redaction, 호환성, 완전성 또는 권한을 계산하지 않습�
 | 지속형 질문 공간 기능 연결 | implemented | [지속형 질문 공간](../interfaces/continuous-question-space-ko.md), `declaration_queries.py`, `release_diff_queries.py`, `evidence_health_queries.py`, `inventory_impact_queries.py`, 집중 기능 및 조립 검사 | 소스에서 파생한 FunctionType 네 개가 정확한 release에 들어갑니다. 정확히 보존된 공급자 또는 서버 소유 대상이 있는 처리기만 플래너에 보이며, 사용할 수 없는 함수는 타입이 지정된 집계로 남고 어떤 권한도 부여하지 않습니다. |
 | 카탈로그 변환 결과와 exact-generation Rule 검색 | implemented | [`catalog_queries.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/catalog_queries.py), [`test_catalog_queries.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_catalog_queries.py), 커밋 `e4d9483a5` | `catalog.search_rules`는 exact 세대 증적과 함께 범위가 제한된 순위 후보를 반환하며 판단 또는 액션 권한을 부여하지 않습니다. 시작 변환 결과는 아직 control-objective 인스턴스를 구체화하지 않습니다. |
 | 과거 토폴로지, 메트릭 의미 규칙 및 조정 | in-progress | [`topology_history.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/topology_history.py), [`metric_semantics.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/metric_semantics.py), [`reconciliation_state_store.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_state_store.py) | 계약과 순수 또는 영속 기반은 존재하지만 운영 조립과 발행자는 아직 완성되지 않았습니다. |
+| 기능 Interface와 scoped SDK 산출물 | implemented | `interface-types/`, `interface-implementations/`, `sdk_codegen.py`, `ontology_sdk_artifact.py`, 집중 catalog, ObjectSet, SDK 및 artifact 검사 | 기능 Interface 6개는 exact 보수적 연결을 사용합니다. SDK 산출물은 내용 기반 주소를 가지며 scope metadata를 명시하고 proposal-only 쓰기를 유지하며 breaking 제거에는 migration reference가 필요합니다. |
+| Evidence-bound scenario branch | implemented | `scenario_branch.py`, `evidence_read.py`, 집중 evidence 및 scenario 검사 | Copy-on-write overlay는 exact base와 evidence-bundle digest 하나에 대해 memory에서 검증됩니다. 결과는 production write, mutation, execution authority를 false로 고정하고 이 API 밖의 통제된 promotion을 요구합니다. |
 | K6-K8 그래프 전체 Dynamic 근거 | in-progress | [Dynamic 모델 성숙도](#dynamic-모델-성숙도) | 액션 및 메트릭 시뮬레이션은 존재하지만 그래프 전파, trajectory 종결 및 실패 귀속은 남아 있습니다. |
 
 ### 구현 이력
@@ -148,6 +150,7 @@ Console은 redaction, 호환성, 완전성 또는 권한을 계산하지 않습�
 | 2026-08-13 | in-progress | 이전 provenance를 재구성하지 않고 구현 원장을 도입했습니다. | 범위 표에 나열된 현재 소스와 테스트입니다. | 아래의 관찰 가능한 종료 조건을 완료합니다. |
 | 2026-08-13 | implemented | 범위가 제한된 순위와 내용 기반 주소를 가진 증적을 제공하는 exact-generation 읽기 전용 `catalog.search_rules` 후보 검색을 추가했습니다. | 커밋 `e4d9483a5`; 집중 `test_catalog_queries.py`에서 2개 테스트를 통과했습니다. | 평가 또는 실행 권한을 부여하지 않으면서 objective-aware 검색을 조립하고 검증합니다. |
 | 2026-08-13 | implemented | 중앙 graph 검증에서 누락을 발견한 뒤 세 objective vocabulary 타입을 `Identifiable` 구현으로 등록했습니다. | 집중 `test_shipped_ontology_catalog_loads_as_one_graph`에서 1개 테스트를 통과했습니다. | 새 object type을 추가할 때마다 interface 구현 범위를 동기화합니다. |
+| 2026-08-24 | implemented | Competency 기반 기능 Interface 6개, 결정론적 scoped SDK publication, evidence-bound copy-on-write scenario 및 최종 reconciliation 계보를 추가했습니다. | `current change`, 집중 interface, SDK, evidence, scenario, reconciliation 및 runtime 검사, 10개 이상 adversarial hardening lens 결과 Medium 이상 미해결 발견 없음 | 배포 근거는 별도로 보존하며 이 batch는 direct graph merge 또는 executor 표면을 추가하지 않습니다. |
 | 2026-08-13 | implemented | 영속 exact-release 매니페스트 registry를 추가하고 PostgreSQL 행 디코딩 전에 등록된 release를 로드하도록 했습니다. | 현재 변경; 집중 `test_postgres_ontology_catalog.py`에서 2개 테스트, `test_ontology_release_registry_migration.py`에서 1개 테스트를 통과했습니다. | 이행과 Core 재시작 뒤 인증된 Live 근거를 기록합니다. |
 | 2026-08-13 | in-progress | 검토된 Kubernetes Service 관계 매핑과 독립 세대 검증을 위한 후보 링크를 만드는 범위 제한 변환기를 추가했습니다. | `current change`; focused `test_kubernetes_relationships.py`에서 6개 테스트, 프로바이더 매핑 계약에서 6개 테스트를 통과했습니다. | 변환기를 production 인벤토리 출처에 연결하고 exact-release 조립 근거를 보존해야 합니다. |
 | 2026-08-13 | in-progress | Resource와 Observation 근거를 포함하는 release 고정 Interface를 사용하여 production 의미 조회 조립을 통해 발급된 Pod 텔레메트리 함수를 입증했습니다. | `current change`; focused `test_wire_pod_telemetry.py`에서 verified 및 synthetic-unverified 경로 2개 테스트를 통과했습니다. | 보존된 production 인벤토리에서 같은 조립을 실행하고 인증된 보증 증적을 보존해야 합니다. |
@@ -540,7 +543,9 @@ Security는 객체, 속성, 링크, 객체 집합, 액션 발견, 액션 제출,
 
 온톨로지 release는 scoped Python/TypeScript SDK와 OpenAPI 메타데이터를 생성할 수 있습니다. Generator는
 승인된 타입과 기능만 포함합니다. 쓰기 메서드는 타입이 지정된 액션 제안을 제출하며 실행기를
-호출하지 않습니다.
+호출하지 않습니다. Publication adapter는 명시적인 scope, purpose, role ceiling, release 및 artifact
+digest를 가진 변경 불가능한 내용 기반 주소 산출물을 기록합니다. 기존 byte는 정확히 replay되어야
+하며 선언 제거에는 explicit migration reference가 필요합니다.
 
 ## 제공 순서
 

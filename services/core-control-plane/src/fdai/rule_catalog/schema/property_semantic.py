@@ -30,6 +30,10 @@ from yaml.constructor import ConstructorError
 from yaml.nodes import ScalarNode
 
 from fdai.shared.contracts.models import OntologyProvenance, PropertyType
+from fdai.shared.providers.ontology_instance import (
+    OntologyInstanceValidationError,
+    normalize_json_value,
+)
 
 _SCHEMA_PACKAGE = "fdai.rule_catalog.schema"
 _SCHEMA_FILE = "property_semantics.schema.json"
@@ -41,6 +45,7 @@ _MAX_DECIMAL_COEFFICIENT_DIGITS = 256
 _MAX_DECIMAL_EXPONENT = 1000
 _MAX_CANONICAL_DECIMAL_CHARS = 1024
 _MAX_FRESHNESS_SECONDS = 31_536_000
+_MAX_CANONICAL_JSON_BYTES = 65_536
 _UNIT_PATTERN = r"^[a-z][a-z0-9._/%-]{0,63}$"
 _RFC3339_PATTERN = re.compile(
     r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}"
@@ -90,6 +95,7 @@ class PropertyNormalizationRule(StrEnum):
     NUMBER_DECIMAL = "number.decimal"
     BOOLEAN_STRICT = "boolean.strict"
     DATETIME_RFC3339_UTC = "datetime.rfc3339_utc"
+    JSON_CANONICAL = "json.canonical"
     IDENTITY = "identity"
 
 
@@ -228,9 +234,9 @@ class PropertySemantic(BaseModel):
             PropertyType.NUMBER: {PropertyNormalizationRule.NUMBER_DECIMAL},
             PropertyType.BOOLEAN: {PropertyNormalizationRule.BOOLEAN_STRICT},
             PropertyType.DATETIME: {PropertyNormalizationRule.DATETIME_RFC3339_UTC},
+            PropertyType.OBJECT: {PropertyNormalizationRule.JSON_CANONICAL},
+            PropertyType.ARRAY: {PropertyNormalizationRule.JSON_CANONICAL},
         }
-        if self.value_type in {PropertyType.OBJECT, PropertyType.ARRAY}:
-            raise ValueError("object and array Property semantics are not supported")
         if self.normalization_rule not in expected_rules[self.value_type]:
             raise ValueError("normalization rule is incompatible with value_type")
         if self.canonical_unit is not None and self.value_type not in {
@@ -245,6 +251,8 @@ class PropertySemantic(BaseModel):
             raise ValueError("range requires an integer or number value_type")
         if self.range is not None and self.enum_values:
             raise ValueError("range and enum_values are mutually exclusive")
+        if self.value_type in {PropertyType.OBJECT, PropertyType.ARRAY} and self.enum_values:
+            raise ValueError("object and array semantics do not support enum_values")
         if self.value_type is PropertyType.INTEGER and self.range is not None:
             if any(
                 value is not None and value != value.to_integral_value()
@@ -418,7 +426,25 @@ def _normalize_unchecked(
         if utc_value.microsecond:
             result = f"{result}.{utc_value.microsecond:06d}".rstrip("0")
         return f"{result}Z"
-    raise ValueError("object and array properties cannot claim scalar normalization")
+    if value_type in {PropertyType.OBJECT, PropertyType.ARRAY}:
+        try:
+            normalized_json = normalize_json_value(value, path="property value")
+        except OntologyInstanceValidationError as exc:
+            raise ValueError(str(exc)) from exc
+        expected_type = dict if value_type is PropertyType.OBJECT else list
+        if not isinstance(normalized_json, expected_type):
+            raise ValueError(f"{value_type.value} property value has the wrong JSON root type")
+        encoded = json.dumps(
+            normalized_json,
+            allow_nan=False,
+            ensure_ascii=True,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        if len(encoded.encode("utf-8")) > _MAX_CANONICAL_JSON_BYTES:
+            raise ValueError("canonical JSON property value exceeds its output limit")
+        return encoded
+    raise ValueError("unsupported Property normalization")
 
 
 def _normalize_text(value: str, *, casefold: bool) -> str:

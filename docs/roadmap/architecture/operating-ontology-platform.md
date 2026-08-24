@@ -30,11 +30,10 @@ runtime transition; these primitives constrain their inputs, plans, and effect v
 > reconstructed honestly. The next successful write creates a new, fully revalidated current-state
 > revision and pins that new revision to the then-active release.
 > Semantic Interface declarations now use the shared contract and contribute to the canonical
-> runtime release. Production catalog loading validates the reviewed `Identifiable` declaration,
-> its provenance, and explicit bindings for every current ObjectType. Composition compiles the
-> polymorphic catalog. Production ObjectSet handlers issue bounded secured receipts, and exact
-> Function handlers resolve only those issued dependency digests. Additional capability Interfaces
-> remain delivery work.
+> runtime release. Production catalog loading validates `Identifiable`, `Ownable`, `Operable`,
+> `Observable`, `Recoverable`, `ObjectiveBound`, and `CostBearing`, including provenance,
+> inheritance, LinkType and ActionType references, and conservative explicit ObjectType bindings.
+> Composition compiles the polymorphic catalog into the exact release.
 > Bitemporal topology foundations retain provider-generation identity, event and record time,
 > complete snapshots, deltas, and tombstones. Pure `graph_at` and `topology_diff` functions preserve
 > pinned `known_at` replay when late evidence arrives, and incomplete history cannot prove absence.
@@ -70,8 +69,8 @@ runtime transition; these primitives constrain their inputs, plans, and effect v
 > state, and focused tests cover restart replay, concurrent delivery, conflict detection, and an
 > unscorable-attempt-to-terminal transition. Each reconciliation stores at most eight attempts and
 > reserves the final slot for terminal closure. A 16 MiB canonical aggregate ceiling rejects
-> oversized durable state before a state or audit write. Production composition does not yet wire
-> the coordinator or publish its outbox recommendation through the event bus.
+> oversized durable state before a state or audit write. Production composition wires the worker
+> and materializes immutable multi-effect lineage only after terminal independent reconciliation.
 > K6-K8 target graph-wide Dynamic evidence: immutable operational state trajectories,
 > dependency-scoped effect propagation, time-bounded invariants, and independently observed
 > trajectory outcomes. Existing action/metric Dynamic simulation remains implemented; graph-wide
@@ -125,6 +124,8 @@ The workbench is complete only when it answers these bounded operational questio
 | Continuous question-space capability bridge | implemented | [Continuous Question Space](../interfaces/continuous-question-space.md); `declaration_queries.py`; `release_diff_queries.py`; `evidence_health_queries.py`; `inventory_impact_queries.py`; focused capability and composition checks | Four source-derived FunctionTypes enter the exact release. Only handlers with exact retained providers or a server-owned target are planner-visible; unavailable functions remain typed accounting and grant no authority. |
 | Catalog projection and exact-generation Rule retrieval | implemented | [`catalog_queries.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/catalog_queries.py), [`test_catalog_queries.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_catalog_queries.py), commit `e4d9483a5` | `catalog.search_rules` returns bounded ranked candidates with an exact-generation receipt and grants no judgment or action authority. Control-objective instances are not yet materialized by startup projection. |
 | Historical topology, metric semantics, and reconciliation | in-progress | [`topology_history.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/topology_history.py), [`metric_semantics.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/metric_semantics.py), [`reconciliation_state_store.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_state_store.py) | Contracts and pure or durable foundations exist; production composition and publishers remain incomplete. |
+| Capability Interfaces and scoped SDK artifacts | implemented | `interface-types/`; `interface-implementations/`; `sdk_codegen.py`; `ontology_sdk_artifact.py`; focused catalog, ObjectSet, SDK, and artifact checks | Six capability Interfaces use exact conservative bindings. SDK artifacts are content-addressed, scope metadata is explicit, writes remain proposal-only, and breaking removals require a migration reference. |
+| Evidence-bound scenario branch | implemented | `scenario_branch.py`; `evidence_read.py`; focused evidence and scenario checks | Copy-on-write overlays validate against one exact base and evidence-bundle digest in memory. Results fix production write, mutation, and execution authority to false and require governed promotion outside this API. |
 | K6-K8 graph-wide Dynamic evidence | in-progress | [Dynamic model maturity](#dynamic-model-maturity) | Action and metric simulation exists; graph propagation, trajectory closure, and failure attribution remain open. |
 
 ### Implementation history
@@ -144,6 +145,7 @@ The workbench is complete only when it answers these bounded operational questio
 | 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | Current source and tests listed in the scope table. | Complete the observable exit conditions below. |
 | 2026-08-13 | implemented | Added exact-generation, read-only `catalog.search_rules` candidate retrieval with bounded ranking and content-addressed receipts. | Commit `e4d9483a5`; focused `test_catalog_queries.py` reports 2 passed. | Compose objective-aware retrieval and validate it without granting evaluation or execution authority. |
 | 2026-08-13 | implemented | Registered the three objective vocabulary types as `Identifiable` implementations after centralized graph validation exposed the omission. | Focused `test_shipped_ontology_catalog_loads_as_one_graph` reports 1 passed. | Keep interface implementation coverage synchronized with every new object type. |
+| 2026-08-24 | implemented | Added six competency-driven capability Interfaces, deterministic scoped SDK publication, evidence-bound copy-on-write scenarios, and terminal reconciliation lineage. | `current change`; focused interface, SDK, evidence, scenario, reconciliation, and runtime checks; at least ten adversarial hardening lenses left no verified unresolved finding above Low. | Retain deployment evidence separately; this batch adds no direct graph merge or executor surface. |
 | 2026-08-13 | implemented | Added a durable exact-release manifest registry and loaded registered releases before PostgreSQL row decoding. | Current change; focused `test_postgres_ontology_catalog.py` reports 2 passed and `test_ontology_release_registry_migration.py` reports 1 passed. | Record authenticated Live evidence after migration and Core restart. |
 | 2026-08-13 | in-progress | Added reviewed Kubernetes Service relationship mappings and a bounded projector that emits candidate links for independent generation verification. | `current change`; focused `test_kubernetes_relationships.py` reports 6 passed and the provider mapping contract reports 6 passed. | Bind the projector to a production inventory source and retain exact-release composition evidence. |
 | 2026-08-13 | in-progress | Proved the issued Pod telemetry function through production semantic-query composition with a release-pinned Interface spanning Resource and Observation evidence. | `current change`; focused `test_wire_pod_telemetry.py` reports 2 passed for verified and synthetic-unverified paths. | Execute the same composition over retained production inventory and preserve authenticated assurance receipts. |
@@ -542,7 +544,9 @@ function invocation boundaries. A visible link cannot reveal an otherwise hidden
 
 An ontology release can generate scoped Python and TypeScript SDKs plus OpenAPI metadata. The
 generator includes only approved types and capabilities. Write methods submit typed action
-proposals; they never call an executor.
+proposals; they never call an executor. The publication adapter writes immutable content-addressed
+artifacts with explicit scope, purpose, role ceiling, release, and artifact digests. Existing bytes
+must replay exactly, and declaration removals require an explicit migration reference.
 
 ## Delivery sequence
 

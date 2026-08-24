@@ -25,6 +25,9 @@ from fdai.core.ontology_platform.reconciliation_binding import (
     ObservationContextVerifier,
     ReconciliationArtifactResolver,
 )
+from fdai.core.operational_planning.hypothesis_lineage import (
+    OperationalHypothesisLineageProjector,
+)
 from fdai.core.rule_semantic_generation import (
     RULE_GENERATION_ACTIVATION_COMMAND_TOPIC,
     RULE_GENERATION_ACTIVATION_RESULT_TOPIC,
@@ -32,10 +35,16 @@ from fdai.core.rule_semantic_generation import (
     RuleGenerationOutboxPublisher,
     StateStoreRuleGenerationOutboxLedger,
 )
+from fdai.delivery.kinetic_proposal import StateStoreKineticActionProposalStore
 from fdai.delivery.metric_window import ProviderMetricWindowReader
+from fdai.delivery.operational_lineage import EffectReconciliationLineageMaterializer
 from fdai.delivery.persistence.postgres_topology_history import (
     PostgresTopologyHistoryStore,
     PostgresTopologyHistoryStoreConfig,
+)
+from fdai.delivery.reconciliation_artifacts import StateStoreExecutedActionArtifactStore
+from fdai.delivery.reconciliation_observations import (
+    StateStoreExecutedActionObservationStore,
 )
 from fdai.delivery.reconciliation_request import EffectReconciliationRequestProducer
 from fdai.delivery.reconciliation_request_publication import (
@@ -46,6 +55,7 @@ from fdai.runtime.bootstrap_plan import VERTICAL_IDENTITY_ENV
 from fdai.shared.providers.catalog_search import CatalogSemanticIndex
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.metric import MetricProvider, NoopMetricProvider
+from fdai.shared.providers.ontology_instance import OntologyInstanceStore
 from fdai.shared.providers.state_store import StateStore
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
@@ -158,6 +168,7 @@ def build_effect_reconciliation_worker(
     event_bus: EventBus,
     artifact_resolver: ReconciliationArtifactResolver | None,
     observation_verifier: ObservationContextVerifier | None,
+    ontology_instance_store: OntologyInstanceStore | None = None,
     environment: Mapping[str, str],
 ) -> EffectReconciliationWorker | None:
     """Build effect reconciliation only when its complete evidence binding is available."""
@@ -166,6 +177,17 @@ def build_effect_reconciliation_worker(
     if observation_verifier is None:
         raise RuntimeError("effect reconciliation requires an observation verifier")
     ledger = StateStoreReconciliationLedger(store=state_store)
+    lineage_materializer = None
+    if ontology_instance_store is not None:
+        lineage_materializer = EffectReconciliationLineageMaterializer(
+            artifacts=StateStoreExecutedActionArtifactStore(store=state_store),
+            proposals=StateStoreKineticActionProposalStore(store=state_store),
+            observations=StateStoreExecutedActionObservationStore(
+                store=state_store,
+                verifier=observation_verifier,
+            ),
+            projector=OperationalHypothesisLineageProjector(store=ontology_instance_store),
+        )
     return EffectReconciliationWorker(
         coordinator=EffectReconciliationCoordinator(ledger=ledger),
         ledger=ledger,
@@ -178,6 +200,7 @@ def build_effect_reconciliation_worker(
             "fdai-effect-reconciliation",
         ).strip(),
         clock=lambda: datetime.now(tz=UTC),
+        lineage_materializer=lineage_materializer,
     )
 
 

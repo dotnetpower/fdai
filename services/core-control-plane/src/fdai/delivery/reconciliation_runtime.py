@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import AsyncIterator, Callable, Mapping
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, Protocol
 
 from fdai.core.ontology_platform.reconciliation import (
     EffectReconciliationCoordinator,
@@ -31,6 +31,10 @@ _DEFAULT_EVENT_HANDLING_TIMEOUT_SECONDS = 5.0
 _DEFAULT_PUBLISH_TIMEOUT_SECONDS = 2.0
 _DEFAULT_OUTBOX_LEASE = timedelta(seconds=10)
 _DEFAULT_RETRY_DELAY = timedelta(seconds=5)
+
+
+class ReconciliationLineageMaterializer(Protocol):
+    async def project(self, outcome: ReconciliationOutcome) -> bool: ...
 
 
 class PublishTimeoutEventBus:
@@ -100,6 +104,7 @@ class EffectReconciliationWorker:
         publish_timeout_seconds: float = _DEFAULT_PUBLISH_TIMEOUT_SECONDS,
         outbox_lease: timedelta = _DEFAULT_OUTBOX_LEASE,
         retry_delay: timedelta = _DEFAULT_RETRY_DELAY,
+        lineage_materializer: ReconciliationLineageMaterializer | None = None,
     ) -> None:
         if not group_id:
             raise ValueError("reconciliation subscriber group id MUST be non-empty")
@@ -116,6 +121,7 @@ class EffectReconciliationWorker:
         self._request_topic = request_topic
         self._clock = clock
         self._event_handling_timeout_seconds = event_handling_timeout_seconds
+        self._lineage_materializer = lineage_materializer
         self._binder = EffectReconciliationBinder(
             coordinator=coordinator,
             ledger=ledger,
@@ -132,7 +138,10 @@ class EffectReconciliationWorker:
         """Handle one untrusted request within the overall five-second default budget."""
 
         async with asyncio.timeout(self._event_handling_timeout_seconds):
-            return await self._binder.handle_event(payload)
+            outcome = await self._binder.handle_event(payload)
+            if self._lineage_materializer is not None:
+                await self._lineage_materializer.project(outcome)
+            return outcome
 
     async def run_subscriber(self) -> None:
         """Consume requests until the EventBus iterator ends or cancellation propagates."""

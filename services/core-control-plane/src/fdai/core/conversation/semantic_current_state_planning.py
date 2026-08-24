@@ -109,6 +109,7 @@ def compile_target_current_state_plan(
     verifier: OntologyQueryPlanVerifier,
     evaluation_time: datetime,
     purpose: str,
+    freshness_seconds: int | None = None,
 ) -> OntologyQueryPlan | None:
     """Build one exact Resource current-state projection when fully grounded."""
 
@@ -138,6 +139,7 @@ def compile_target_current_state_plan(
         as_of=as_of,
         purpose=purpose,
         limit=2,
+        freshness_seconds=freshness_seconds,
     )
     nodes = (
         OntologyQueryNode(

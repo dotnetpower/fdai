@@ -278,6 +278,7 @@ class SemanticPlanningService:
         metric_concepts: Sequence[str] = (),
         inventory_query_language: InventoryQueryLanguageRegistry | None = None,
         investigation_window_seconds: int = 900,
+        resource_freshness_seconds: int | None = None,
         escalation_policy: SemanticPlanningEscalationPolicy = BOUNDED_T2_ESCALATION_POLICY,
         now: Callable[[], datetime] | None = None,
     ) -> None:
@@ -290,6 +291,9 @@ class SemanticPlanningService:
         if not 60 <= investigation_window_seconds <= 86_400:
             raise ValueError("investigation_window_seconds MUST be in [60, 86400]")
         self._investigation_window = timedelta(seconds=investigation_window_seconds)
+        if resource_freshness_seconds is not None and not 1 <= resource_freshness_seconds <= 86_400:
+            raise ValueError("resource_freshness_seconds MUST be in [1, 86400]")
+        self._resource_freshness_seconds = resource_freshness_seconds
         self._now = now or (lambda: datetime.now(UTC))
         self._cascade = SemanticPlanningCascade(
             model=model,
@@ -827,6 +831,7 @@ class SemanticPlanningService:
                     verifier=self._verifier,
                     evaluation_time=evaluation_time,
                     purpose=purpose,
+                    freshness_seconds=self._resource_freshness_seconds,
                 )
                 if plan is not None:
                     plan_source = "server_target_current_state"

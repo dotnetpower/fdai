@@ -283,10 +283,20 @@ class OperationalPlan:
     assessments: tuple[CandidateAssessment, ...]
     complete: bool
     reason: str
+    context_cutoff: datetime | None = None
+    context_digest: str | None = None
 
     def __post_init__(self) -> None:
         if not self.plan_id or not self.process_id or not self.target_resource_id:
             raise ValueError("operational plan identities MUST be non-empty")
+        if self.context_cutoff is not None and (
+            self.context_cutoff.tzinfo is None or self.context_cutoff.utcoffset() is None
+        ):
+            raise ValueError("operational plan context cutoff MUST be timezone-aware")
+        if (self.context_cutoff is None) != (self.context_digest is None):
+            raise ValueError("operational plan context cutoff and digest MUST be present together")
+        if self.context_digest is not None and not self.context_digest.strip():
+            raise ValueError("operational plan context digest MUST be non-empty")
 
 
 def _validate_strings(values: tuple[str, ...], *, field: str, limit: int) -> None:

@@ -77,6 +77,8 @@ class HeimdallExecutedActionObservationHandler:
             execution_receipt_ref=receipt_ref,
             correlation_id=correlation_id,
             observation=observation,
+            execution_mode=str(payload.get("mode") or "unknown"),
+            execution_completed_at=terminal_at,
         )
         return True
 

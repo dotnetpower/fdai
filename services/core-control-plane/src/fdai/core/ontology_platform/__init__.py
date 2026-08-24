@@ -141,6 +141,11 @@ from .resource_class_closure import (
     resource_class_closure_function,
     resource_class_closure_function_type,
 )
+from .scenario_branch import (
+    OntologyScenarioBranch,
+    OntologyScenarioChangeSet,
+    OntologyScenarioResult,
+)
 from .sdk_codegen import GeneratedOntologySdk, generate_ontology_sdk
 from .semantic_plans import (
     ActiveSemanticCatalog,
@@ -178,6 +183,9 @@ __all__ = [
     "CausalJoinStatus",
     "ContextualOntologyFunction",
     "GeneratedOntologySdk",
+    "OntologyScenarioBranch",
+    "OntologyScenarioChangeSet",
+    "OntologyScenarioResult",
     "FunctionInvocationContext",
     "FunctionInvocationReceipt",
     "FunctionNodeHandler",

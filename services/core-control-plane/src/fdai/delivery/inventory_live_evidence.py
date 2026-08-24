@@ -7,6 +7,8 @@ import json
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+from fdai.core.ontology_platform.models import ObjectSetDefinition
+from fdai.core.ontology_platform.query_gateway import SecuredObjectSetQueryResult
 from fdai.delivery.persistence.postgres_inventory_delta import (
     InventoryDeltaApplyOutcome,
     InventoryDeltaApplyResult,
@@ -15,6 +17,8 @@ from fdai.shared.providers.read_investigation import (
     EvidenceFreshness,
     EvidenceStatus,
     ReadEvidenceEnvelope,
+    ReadInvestigationProvider,
+    ReadToolLimits,
     ResolvedResource,
 )
 
@@ -87,6 +91,7 @@ class InventoryLiveEvidenceWriter:
             "authority": evidence.authority,
             "evidence_refs": evidence.evidence_refs,
             "ontology_release_digest": ontology_release_digest,
+            "live_values": live_values,
         }
         digest = _sha256(identity)
         event_id = f"inventory-live:{digest[7:]}"
@@ -118,6 +123,63 @@ class InventoryLiveEvidenceWriter:
             published=True,
             projector_outcome=result.outcome,
         )
+
+
+class InventoryGraphLiveRefreshProvider:
+    """Refresh one exact secured Resource through the canonical observation ingress."""
+
+    def __init__(
+        self,
+        *,
+        provider: ReadInvestigationProvider,
+        writer: InventoryLiveEvidenceWriter,
+        scope_ref: str,
+    ) -> None:
+        if not scope_ref.strip():
+            raise ValueError("inventory graph refresh scope_ref MUST be non-empty")
+        self._provider = provider
+        self._writer = writer
+        self._scope_ref = scope_ref
+        self._limits = ReadToolLimits(
+            timeout_seconds=3.0,
+            max_results=10,
+            max_output_bytes=65_536,
+        )
+
+    async def refresh(
+        self,
+        *,
+        definition: ObjectSetDefinition,
+        secured: SecuredObjectSetQueryResult,
+    ) -> bool:
+        """Publish one verified exact-resource observation; decline every wider query."""
+
+        del definition
+        resources = tuple(
+            item for item in secured.materialization.graph.objects if item.object_type == "Resource"
+        )
+        if len(resources) != 1:
+            return False
+        record = resources[0]
+        name = record.properties.get("name")
+        resource_type = record.properties.get("type")
+        if not isinstance(name, str) or not name.strip():
+            return False
+        if not isinstance(resource_type, str) or not resource_type.strip():
+            return False
+        resource = ResolvedResource(
+            resource_ref=record.id,
+            scope_ref=self._scope_ref,
+            name=name,
+            resource_type=resource_type,
+        )
+        attempt = await self._provider.get_resource_state(resource, limits=self._limits)
+        receipt = await self._writer.publish(
+            resource=resource,
+            evidence=attempt.evidence,
+            ontology_release_digest=secured.receipt.ontology_release.digest,
+        )
+        return receipt.published
 
 
 def _receipt(
@@ -172,6 +234,7 @@ def _digest(value: str, name: str) -> None:
 
 
 __all__ = [
+    "InventoryGraphLiveRefreshProvider",
     "InventoryLiveEvidenceWriter",
     "InventoryObservationIngress",
     "LiveEvidenceWriteThroughReceipt",

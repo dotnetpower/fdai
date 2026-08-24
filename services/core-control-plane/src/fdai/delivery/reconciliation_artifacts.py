@@ -290,6 +290,38 @@ class StateStoreExecutedActionArtifactStore:
             raise RuntimeError("kinetic safety correlation index lost its exact artifact")
         return action, artifacts
 
+    async def resolve_by_action_id(
+        self,
+        action_id: str,
+    ) -> tuple[KineticSafetyReceipt, ResolvedReconciliationArtifacts] | None:
+        """Resolve sealed artifacts without restoring raw Action arguments."""
+
+        try:
+            canonical_action_id = str(UUID(action_id))
+        except ValueError as exc:
+            raise ValueError("kinetic safety Action id MUST be a canonical UUID") from exc
+        if canonical_action_id != action_id:
+            raise ValueError("kinetic safety Action id MUST be a canonical UUID")
+        raw = await self._store.read_state(f"{self._KEY_PREFIX}{canonical_action_id}")
+        if raw is None:
+            return None
+        receipt, plan, action_type, active_release = _parse(raw)
+        if (
+            str(receipt.action_id) != canonical_action_id
+            or receipt.plan_digest != plan.digest
+            or receipt.plan_id != plan.plan_id
+            or receipt.action_type_ref != plan.action_type_ref
+            or receipt.ontology_release_ref != active_release.ref()
+            or receipt.action_type_ref.name != action_type.name
+            or receipt.action_type_ref.version != action_type.version
+        ):
+            raise RuntimeError("durable kinetic safety artifact lost exact identity")
+        return receipt, ResolvedReconciliationArtifacts(
+            plan=plan,
+            action_type=action_type,
+            active_release=active_release,
+        )
+
     async def _claim_correlation_index(
         self,
         *,

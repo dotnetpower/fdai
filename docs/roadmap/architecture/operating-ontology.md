@@ -21,7 +21,11 @@ dependencies, objectives, evidence, allowed actions, and expected effects. Upstr
 > recovery, a smaller safe plan, no-op, or review. It never supplies permission to execute.
 >
 > **Implementation status (2026-08-08):** O1-O4 implement semantic declarations, immutable context, Forseti ceiling wiring, decision-case selection, response closure, and Muninn/Norns learning
-> intake. `OperatingModelProvider` projects bounded deployment instances; context snapshots retain typed evidence paths, revisions, effective time, provenance, and complete freshness receipts.
+> intake. `OperatingModelProvider` projects bounded deployment instances, while the optional
+> EventBus provider continuously applies complete monotonic snapshots from a durable cursor. Both
+> paths share a distributed lock, and bootstrap cannot project after that cursor has advanced;
+> context snapshots retain typed evidence paths, revisions, effective time, provenance, and
+> complete freshness receipts.
 > M3 adds immutable `StateFactMetadata` for observed, derived, desired, and execution lanes.
 > Optional inventory link observation metadata survives ontology projection and operational-context
 > materialization, contributes to snapshot identity, and lowers the snapshot ceiling when evidence
@@ -29,14 +33,15 @@ dependencies, objectives, evidence, allowed actions, and expected effects. Upstr
 > Verified links require an independent verifier, a trusted verification method, and an immutable
 > verification receipt. Required source freshness, trusted UTC clock identity, recorded time, and
 > skew-bounded future checks also contribute to context safety and replay identity.
-> Wave 2 provides an unwired, content-addressed `OperationalEvidenceBundle` foundation that keeps
+> Wave 2 provides a content-addressed `OperationalEvidenceBundle` runtime read path that keeps
 > secured ontology paths, authoritative state facts, catalog references, and governed document
 > excerpts in separate authority lanes. Admission requires content-addressed source receipts that
 > pin the ontology release, catalog and document revisions, authenticated source, purpose, scope,
 > redaction summary, and typed temporal scope. Deterministic claim and citation validation, exact
 > typed-claim contradiction detection, and final-body byte and item budgets emit hold evidence and
-> can only preserve or lower the bundle's autonomy ceiling. No runtime or composition path consumes
-> this bundle yet, so it is not part of the production autonomy path and has no action authority.
+> can only preserve or lower the bundle's autonomy ceiling. The optional source is dependency
+> injected into the semantic runtime, and every returned bundle is fixed to `SHADOW_ONLY` with no
+> mutation or execution authority.
 > Change management adds planned-change evidence to `Change`, a reviewed `ChangeWindow`, and typed
 > links from target and decision through impact, process, outcome, and recovery. These declarations
 > are semantic evidence only and grant no approval or execution authority. Huginn now carries the
@@ -91,9 +96,9 @@ dependencies, objectives, evidence, allowed actions, and expected effects. Upstr
 | O1 semantic spine and catalog integrity | implemented | [`test_ontology_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_ontology_catalog.py), [`test_ontology_provenance.py`](../../../services/core-control-plane/tests/rule_catalog/test_ontology_provenance.py) | The integrated catalog validates the operating semantic spine, provenance, references, and cardinality. |
 | O2 bounded context and current-state projection | in-progress | [`ontology_instance.py`](../../../services/core-control-plane/src/fdai/shared/providers/ontology_instance.py), [`console_projection.py`](../../../services/core-control-plane/src/fdai/core/operational_context/console_projection.py), focused instance and Context projection tests | Typed current-state objects and links exist. A secured receipt can now produce bounded no-authority Context metadata only when purpose, release, cutoff, and graph coverage match. Principal-scoped transport and authenticated runtime evidence remain open. |
 | O3-O5 decision, outcome, and governed-learning loops | in-progress | [Delivery plan](#delivery-plan), [`test_ontology_alignment.py`](../../../services/core-control-plane/tests/agents/test_ontology_alignment.py) | Core slices exist, but effect closure and governed learning are not complete across every production path. |
-| Decision-and-learning writers | not-started | [`hypothesis_lineage.py`](../../../services/core-control-plane/src/fdai/core/operational_planning/hypothesis_lineage.py); [`test_hypothesis_lineage.py`](../../../services/core-control-plane/tests/core/operational_planning/test_hypothesis_lineage.py) | The four segments are catalog-valid and traversable: a focused test now appends one lineage through the shipped ObjectType and LinkType declarations and traverses `DecisionCase` to `ObservedOutcome`. What is missing is a producer. `OperationalHypothesisLineageProjector` is their only writer, no composition root constructs it, and the runtime models do not carry the declared properties: `DecisionCase` retains only `context_snapshot_id`, so `target_ref` and `evidence_cutoff` live on `OperationalContextSnapshot` but not on the case, while `uncertainty`, `ActionOption.arguments`, `preconditions`, `option_kind`, `ExpectedEffect.direction`, `predictor_version`, `ActionRun.action_type_version`, `started_at`, and `receipt_ref` are absent from the models the projector would read. Each needs a named producer decision rather than a mechanical mapping, and wiring the projector first would fabricate operational evidence. This is structural rather than a per-type oversight: catalog stewardship and wire single-writer authority are separate registries, and many shipped ObjectTypes name a `lifecycle.owner` that owns no same-named wire object, which `test_catalog_stewardship_is_separate_from_wire_single_writer` pins. Norns likewise owns `Pattern` and `object.pattern` is registered, yet nothing publishes or subscribes it. |
+| Terminal decision lineage writer | implemented | [`operational_lineage.py`](../../../services/core-control-plane/src/fdai/delivery/operational_lineage.py), [`hypothesis_lineage.py`](../../../services/core-control-plane/src/fdai/core/operational_planning/hypothesis_lineage.py), focused lineage and reconciliation tests | Terminal independently observed reconciliation resolves exact durable plan, proposal, safety receipt, observation, and context identities before appending `DecisionCase -> ActionOption -> ExpectedEffect -> ActionRun -> ObservedOutcome`. Raw action arguments are not projected. Pattern learning remains separate. |
 | Multi-effect operational lineage contract | implemented | [`hypothesis_lineage.py`](../../../services/core-control-plane/src/fdai/core/operational_planning/hypothesis_lineage.py), [`ActionOption.yaml`](../../../rule-catalog/vocabulary/object-types/ActionOption.yaml), focused lineage and competency checks | New lineage writes preserve the ordered complete expected-effect set and require one independent outcome per effect. Singular-only stored records read as one effect, while dual-field ambiguity fails closed. |
-| Wave 2 evidence, change, Property, and topology foundations | in-progress | [Implementation status narrative](#fdai-operating-ontology), [Operating Ontology Platform](operating-ontology-platform.md), [`check-property-semantic-coverage.py`](../../../scripts/quality/architecture/check-property-semantic-coverage.py) | Reviewed foundations exist; the evidence bundle is not composed into runtime, planned changes cannot auto-clear graph freshness, reviewed Property coverage is measured but partial, and broader platform delivery remains open. |
+| Wave 2 evidence, change, Property, and topology foundations | in-progress | [Implementation status narrative](#fdai-operating-ontology), [Operating Ontology Platform](operating-ontology-platform.md), [`check-property-semantic-coverage.py`](../../../scripts/quality/architecture/check-property-semantic-coverage.py) | Every rule-evaluated Property has reviewed semantics, exact-target current-state reads can perform one bounded graph refresh, and evidence bundles have an optional runtime read composition. Planned-change assessment and broader platform delivery remain open. |
 | Console semantic-band declaration completeness | implemented | [`Forecast.yaml`](../../../rule-catalog/vocabulary/object-types/Forecast.yaml), [`Pattern.yaml`](../../../rule-catalog/vocabulary/object-types/Pattern.yaml), [`test_ontology_console_projection.py`](../../../services/core-control-plane/tests/delivery/test_ontology_console_projection.py) | Every object type named by a Console band is declared by the shipped release, so no band member is dropped silently. Both declarations are semantics only and add no instance path. |
 | Operating-scope `unknown_service` coverage | validated | [`operating_scope.py`](../../../services/core-control-plane/src/fdai/core/operational_context/operating_scope.py), [`postgres_inventory_snapshot.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_inventory_snapshot.py), and focused consumer checks (`4 passed`) | The authenticated inventory graph projection annotates every bounded response Resource with one reviewed service or `unknown_service`, returns aggregate completeness, and degrades on unmapped or truncated scope. |
 | Provider-native unclassified identities | validated | [`inventory.py`](../../../services/core-control-plane/src/fdai/shared/providers/inventory.py), [`arg_query.py`](../../../services/core-control-plane/src/fdai/delivery/azure/arg_query.py), focused checks (`259 passed`), and [Issue #217](https://github.com/dotnetpower/fdai/issues/217) | A reviewed reserved ResourceType keeps unsupported provider identities visible without inventing type-specific semantics. The promoted local snapshot and ontology retain exact provider identity coverage with no realtime overlay residual. |
@@ -117,11 +122,12 @@ dependencies, objectives, evidence, allowed actions, and expected effects. Upstr
 | 2026-08-16 | implemented | Restored the 2026-08-15 `Pattern` and `PatternObservation` row to the text it was recorded with, moved it back ahead of the rows a later merge interleaved before it, and records the work that had overwritten it here instead, because the implementation history is append-only. That work adopted the shipped `Forecast` and `Pattern` declarations, unified the owned learning object on `Pattern` across spec, topic, and tables, added the `unknown_service` scope-coverage marker, and recorded that both deferred relationships are blocked because neither endpoint pair is producible. | `current change`; `rule-catalog/vocabulary/object-types/{Forecast,Pattern}.yaml`, `operating_scope.py`, `test_ontology_catalog.py` document-consistency cases, `test_shipped_catalog_accepts_and_traverses_one_lineage`, and `test_shipped_catalog_rejects_a_lineage_missing_a_required_property`; a reversed `resulted_in` direction now fails, which the previous fake-store test could not detect; the focused catalog, context, projection, alignment, instance, explorer, and release suites passed. | Supply the missing `DecisionCase`, `ActionOption`, `ExpectedEffect`, and `ActionRun` properties from real producers, then construct `OperationalHypothesisLineageProjector` from a composition root; supply a producer for either deferred relationship before restoring it; publish `Pattern` from Norns with a live consumer or retire its topic; bind scope coverage to one consumer and pin operating-intent instances. |
 | 2026-08-18 | implemented | Made the lane and authority separation exhaustively executable. Every lane and authority pair is now asserted, an `execution_ledger` fact is rejected in the `observed`, `derived`, and `desired` lanes, and a lane with no matrix row fails closed with the documented rejection instead of a latent `KeyError`. | `current change`; `test_state_evidence.py` 39 focused cases passed. | Bind the same separation at every projection write site so a future writer cannot persist a state fact without constructing `StateFactMetadata`. |
 | 2026-08-24 | implemented | Reconciled the ActionOption effect property with the one-to-many `expects` and `resulted_in` links. New lineage writes require all expected-effect ids in deterministic order and one independent outcome per effect. Singular-only stored records read as one effect, dual-field ambiguity fails closed, and cross-type object-id collisions are rejected before storage. | `current change`; `hypothesis_lineage.py`; `ActionOption.yaml`; focused lineage and competency checks passed 15 cases. | Supply the remaining real producer properties and construct the projector only after the complete episode is available. |
+| 2026-08-24 | implemented | Connected independently observed terminal reconciliation to immutable multi-effect lineage, added the bounded evidence-bundle read service, one-shot graph-first refresh, continuous ordered operating-model snapshots, full rule-evaluated Property semantics, scoped SDK artifacts, and evidence-bound copy-on-write scenarios. | `current change`; focused lineage, graph refresh, Property, interface, runtime, SDK, evidence, and scenario checks; hardening rounds left no verified unresolved finding above Low. | Retain deployed evidence separately and keep planned-change assessment and governed scenario promotion in their existing authority paths. |
+| 2026-08-24 | implemented | Fenced continuous operating-model projection across replicas with the deployment resource lock and reused that fence during startup. A replica now skips its static bootstrap snapshot after the durable continuous cursor has advanced. | `current change`; overlapping-worker and stale-replica bootstrap regression checks (`5 passed`), runtime operating-model checks, and Ruff. | Retain broker lag and lock-pressure measurements as deployment evidence. |
+| 2026-08-24 | implemented | Bound every continuous source revision to a durable canonical snapshot digest. Nonconsecutive revision reuse with different content is rejected, while exact replay after an interrupted post-projection cursor write closes the cursor without projecting the graph again. | `current change`; continuous operating-model replay and failure-injection checks (`7 passed`) and Ruff. | Bound revision-claim retention only after a deployment-specific replay horizon is defined. |
 
 ### Remaining work
 
-- [ ] Compose `OperationalEvidenceBundle` into a bounded runtime read path and retain admission,
-  contradiction, citation, and final-budget receipts without granting action authority.
 - [ ] Supply and verify graph-freshness authority for planned-change assessment before allowing any
   automated clearance, including stale, incomplete, and conflicting negative cases.
 - [ ] Complete production bindings and replay evidence for the remaining context, outcome-closure,
@@ -146,7 +152,6 @@ dependencies, objectives, evidence, allowed actions, and expected effects. Upstr
 - [ ] Decide whether an adjudicated cross-source conflict should also reach an autonomy ceiling
   outside the read path, and which writer may carry it without breaking single-writer ownership of
   the projected subgraph.
-- [ ] Support bounded canonical JSON Property semantics; the coverage gate ranks the blocked reads.
 
 ## Catalog semantic projection
 
@@ -163,16 +168,17 @@ deterministic T0 coverage without retaining wildcard ontology links. These catal
 describe meaning only. They don't assert current provider state or grant execution authority.
 
 The catalog-owned `Property` ObjectType remains the meta object for rule property references.
-`rule-catalog/vocabulary/property-semantics.yaml` adds reviewed semantics to a small, explicitly
-reviewed minority of Property instances: canonical `semantic_id`, value type, optional unit, enum
+`rule-catalog/vocabulary/property-semantics.yaml` adds reviewed semantics to every Property instance
+evaluated by a shipped rule: canonical `semantic_id`, value type, optional unit, enum
 or range, normalization rule, authority and freshness policy, equivalent provider paths, and the
 shipped evidence behind them. Provider paths never branch core code, and
 `scripts/quality/architecture/check-property-semantic-coverage.py` measures the coverage below.
 
 <!-- property-semantic-coverage:begin -->
-Measured reviewed coverage: **14 of 62** rule-evaluated Property references (22.6%) across 10
-reviewed semantics, computed by the gate rather than by hand. The other 48 keep their legacy
-projection, so most Property instances cannot claim `normalized_equivalence`.
+Measured reviewed coverage: **62 of 62** rule-evaluated Property references (100.0%) across 44
+reviewed semantics, computed by the gate rather than by hand. Every rule-evaluated Property
+reference has reviewed meaning and bounded canonical normalization; a new reference cannot pass
+the gate without updating the registry and floor.
 <!-- property-semantic-coverage:end -->
 
 The loader normalizes units and provider identity paths before rejecting collisions, normalizes,
@@ -183,8 +189,9 @@ are parsed from their authored lexemes into `Decimal` before Pydantic validation
 canonical decimal strings for digests, and never pass through binary floating point; a finite JSON
 number with an integral value is a valid integer bound. Datetimes require RFC 3339 `T` separation,
 an explicit timezone, in-range UTC conversion, at most six fractional digits, and no surrounding
-whitespace. Booleans are never integers or numbers, and object or array semantics are rejected
-until bounded canonical JSON support exists, which is why the highest-ranked gaps are collections.
+whitespace. Booleans are never integers or numbers. Object and array values use bounded canonical
+JSON: object keys are sorted, array order is preserved, and invalid roots, non-finite numbers,
+excessive nesting, unsupported values, and canonical output over 64 KiB fail closed.
 
 Every registry requires a version and provenance envelope whose SHA-256 covers canonical content
 excluding the envelope itself, every semantic requires authenticated source identity, and freshness

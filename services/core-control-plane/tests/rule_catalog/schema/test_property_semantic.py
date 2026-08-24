@@ -195,6 +195,100 @@ def test_decimal_normalization_and_range_checks_ignore_ambient_context() -> None
             )
 
 
+def test_structured_normalization_produces_canonical_json() -> None:
+    raw = _registry_mapping()
+    semantics = raw["semantics"]
+    assert isinstance(semantics, list)
+    for value_type, semantic_id, path in (
+        ("object", "runtime.configuration", "configuration"),
+        ("array", "runtime.dependencies", "dependencies"),
+    ):
+        semantics.append(
+            {
+                "semantic_id": semantic_id,
+                "value_type": value_type,
+                "normalization_rule": "json.canonical",
+                "authority": {
+                    "class": "provider_observed",
+                    "source_identity_required": True,
+                },
+                "freshness": {
+                    "max_age_seconds": 300,
+                    "stale_behavior": "unknown",
+                },
+                "equivalent_provider_paths": [
+                    {
+                        "provider": "azure",
+                        "resource_type": "compute.vm",
+                        "path": path,
+                    }
+                ],
+            }
+        )
+    _refresh_provenance(raw)
+    registry = load_property_semantic_registry_from_mapping(raw)
+    encoded_name = "한글".encode("unicode_escape").decode("ascii")
+
+    assert (
+        registry.normalize(
+            "property.compute.vm.configuration",
+            {"z": [2, {"name": "한글"}], "a": True},
+        )
+        == f'{{"a":true,"z":[2,{{"name":"{encoded_name}"}}]}}'
+    )
+    assert (
+        registry.normalize(
+            "property.compute.vm.dependencies",
+            [{"z": 2, "a": 1}, None],
+        )
+        == '[{"a":1,"z":2},null]'
+    )
+
+
+@pytest.mark.parametrize(
+    ("value", "message"),
+    [
+        ({"invalid": float("nan")}, "finite"),
+        ({"invalid": {"set"}}, "canonical JSON"),
+        (["wrong-root"], "wrong JSON root type"),
+    ],
+)
+def test_structured_normalization_rejects_noncanonical_values(
+    value: object,
+    message: str,
+) -> None:
+    raw = _registry_mapping()
+    semantics = raw["semantics"]
+    assert isinstance(semantics, list)
+    semantics.append(
+        {
+            "semantic_id": "runtime.configuration",
+            "value_type": "object",
+            "normalization_rule": "json.canonical",
+            "authority": {
+                "class": "provider_observed",
+                "source_identity_required": True,
+            },
+            "freshness": {
+                "max_age_seconds": 300,
+                "stale_behavior": "unknown",
+            },
+            "equivalent_provider_paths": [
+                {
+                    "provider": "azure",
+                    "resource_type": "compute.vm",
+                    "path": "configuration",
+                }
+            ],
+        }
+    )
+    _refresh_provenance(raw)
+    registry = load_property_semantic_registry_from_mapping(raw)
+
+    with pytest.raises(ValueError, match=message):
+        registry.normalize("property.compute.vm.configuration", value)
+
+
 def test_yaml_range_preserves_high_precision_and_digest(tmp_path: Path) -> None:
     minimum = "0.123456789012345678901234567890123456789"
     path, expected_digest = _write_registry_with_exact_minimum(tmp_path, minimum)

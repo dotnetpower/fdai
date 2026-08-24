@@ -46,6 +46,7 @@ class RuntimeTaskConfiguration:
     assignment_reconciliation_worker: Any
     effect_reconciliation_worker: Any
     effect_reconciliation_request_binding: EffectReconciliationRequestRuntimeBinding | None
+    continuous_operating_model_worker: Any
     rule_generation_binding: RuleGenerationRuntimeBinding | None
     rule_generation_reconciliation: RuleGenerationReconciliation | None
     case_history_retention_publisher: CaseHistoryRetentionTickPublisher | None
@@ -226,6 +227,7 @@ async def run_runtime_tasks(
     rule_generation_reconciliation_task: asyncio.Task[None] | None = None
     case_history_retention_task: asyncio.Task[None] | None = None
     discovery_activation_task: asyncio.Task[None] | None = None
+    continuous_operating_model_task: asyncio.Task[None] | None = None
     pantheon_runtime = config.pantheon_runtime
     if pantheon_runtime is not None:
         pantheon_task = asyncio.create_task(
@@ -334,6 +336,14 @@ async def run_runtime_tasks(
             config.discovery_activation.refresh_until_stopped(config.stop),
             name="discovery-activation-refresh",
         )
+    if config.continuous_operating_model_worker is not None:
+        continuous_operating_model_task = asyncio.create_task(
+            config.readiness.run_when_ready(
+                config.stop,
+                lambda: config.continuous_operating_model_worker.run(config.stop),
+            ),
+            name="continuous-operating-model",
+        )
 
     await hooks.supervise_runtime_tasks(
         required=(
@@ -350,6 +360,7 @@ async def run_runtime_tasks(
             read_investigation_task,
             effect_reconciliation_request_task,
             discovery_activation_task,
+            continuous_operating_model_task,
         ),
         background=(
             pantheon_task,

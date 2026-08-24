@@ -37,13 +37,9 @@ async def project_operating_model_from_env(
     raw_path = values.get("FDAI_OPERATING_MODEL_PATH", "").strip()
     previous_object_ids: tuple[str, ...] = ()
     previous_link_keys: tuple[tuple[str, str, str], ...] = ()
-    recovering_interrupted_apply = False
     if status_store is not None:
         prior_manifest = await status_store.read_state(_OPERATING_MODEL_MANIFEST_KEY)
         previous_object_ids, previous_link_keys = _decode_manifest(prior_manifest)
-        recovering_interrupted_apply = (
-            prior_manifest is not None and prior_manifest.get("status") == "applying"
-        )
     if not raw_path:
         if store is not None and (previous_object_ids or previous_link_keys):
             await OperatingModelProjector(
@@ -73,6 +69,43 @@ async def project_operating_model_from_env(
         return None
     if store is None:
         raise RuntimeError("FDAI_OPERATING_MODEL_PATH requires an ontology instance store")
+    raw_max_bytes = values.get("FDAI_OPERATING_MODEL_MAX_BYTES", "").strip()
+    try:
+        max_bytes = int(raw_max_bytes) if raw_max_bytes else 16 * 1024 * 1024
+    except ValueError as exc:
+        raise RuntimeError("FDAI_OPERATING_MODEL_MAX_BYTES MUST be an integer") from exc
+    provider = JsonOperatingModelProvider(
+        config=JsonOperatingModelProviderConfig(path=Path(raw_path), max_bytes=max_bytes)
+    )
+    snapshot = await provider.load()
+    return await project_operating_model_snapshot(
+        snapshot=snapshot,
+        store=store,
+        object_types=object_types,
+        link_types=link_types,
+        status_store=status_store,
+    )
+
+
+async def project_operating_model_snapshot(
+    *,
+    snapshot: OperatingModelSnapshot,
+    store: OntologyInstanceStore,
+    object_types: Sequence[OntologyObjectType],
+    link_types: Sequence[OntologyLinkType],
+    status_store: StateStore | None = None,
+) -> OperatingModelProjectionResult:
+    """Atomically replace the deployment-owned graph and close its durable manifest."""
+
+    previous_object_ids: tuple[str, ...] = ()
+    previous_link_keys: tuple[tuple[str, str, str], ...] = ()
+    recovering_interrupted_apply = False
+    if status_store is not None:
+        prior_manifest = await status_store.read_state(_OPERATING_MODEL_MANIFEST_KEY)
+        previous_object_ids, previous_link_keys = _decode_manifest(prior_manifest)
+        recovering_interrupted_apply = (
+            prior_manifest is not None and prior_manifest.get("status") == "applying"
+        )
     if recovering_interrupted_apply:
         await OperatingModelProjector(
             store=store,
@@ -85,15 +118,6 @@ async def project_operating_model_from_env(
         )
         previous_object_ids = ()
         previous_link_keys = ()
-    raw_max_bytes = values.get("FDAI_OPERATING_MODEL_MAX_BYTES", "").strip()
-    try:
-        max_bytes = int(raw_max_bytes) if raw_max_bytes else 16 * 1024 * 1024
-    except ValueError as exc:
-        raise RuntimeError("FDAI_OPERATING_MODEL_MAX_BYTES MUST be an integer") from exc
-    provider = JsonOperatingModelProvider(
-        config=JsonOperatingModelProviderConfig(path=Path(raw_path), max_bytes=max_bytes)
-    )
-    snapshot = await provider.load()
     current_object_ids = tuple(item.id for item in snapshot.objects)
     current_link_keys = tuple((item.from_id, item.link_type, item.to_id) for item in snapshot.links)
     owned_object_ids = tuple(sorted(set(previous_object_ids) | set(current_object_ids)))
@@ -176,4 +200,8 @@ def _decode_manifest(
     return tuple(raw_ids), tuple(links)
 
 
-__all__ = ["OPERATING_MODEL_STATUS_KEY", "project_operating_model_from_env"]
+__all__ = [
+    "OPERATING_MODEL_STATUS_KEY",
+    "project_operating_model_from_env",
+    "project_operating_model_snapshot",
+]

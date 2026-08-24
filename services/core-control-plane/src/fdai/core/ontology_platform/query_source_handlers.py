@@ -12,6 +12,7 @@ from fdai.shared.contracts.models import CeilingRole, OntologyFunctionKind
 from fdai.shared.ontology.acl import ProjectionRequest
 
 from .functions import FunctionInvocationContext, OntologyFunctionRegistry
+from .graph_query_refresh import SecuredGraphEvidenceQueryRefresher
 from .models import (
     ObjectSetDefinition,
     ObjectTraversal,
@@ -34,6 +35,7 @@ class SecuredObjectSetNodeHandler:
         caller_role: CeilingRole,
         purposes: Sequence[str],
         receipt_authority: SecuredQueryReceiptAuthority | None = None,
+        graph_refresher: SecuredGraphEvidenceQueryRefresher | None = None,
     ) -> None:
         self._gateway = gateway
         self._request = ProjectionRequest(
@@ -41,6 +43,7 @@ class SecuredObjectSetNodeHandler:
             declared_purposes=frozenset(purposes),
         )
         self._receipt_authority = receipt_authority
+        self._graph_refresher = graph_refresher
 
     async def __call__(
         self,
@@ -54,6 +57,12 @@ class SecuredObjectSetNodeHandler:
             definition,
             projection_request=self._request,
         )
+        if self._graph_refresher is not None:
+            secured = await self._graph_refresher.refresh(
+                definition=definition,
+                projection_request=self._request,
+                secured=secured,
+            )
         if self._receipt_authority is not None:
             self._receipt_authority.issue(secured)
         table = _secured_query_table(secured)

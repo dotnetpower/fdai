@@ -1,0 +1,17 @@
+schema_version: "1.0.0"
+name: Observable
+version: "1.0.0"
+description: An immutable measured observation bound to a target and evidence.
+properties:
+  target_ref: {type: string, required: true}
+  observed_at: {type: datetime, required: true}
+  evidence_ref: {type: string, required: true}
+required_links: [observation_targets_resource]
+supported_actions: []
+extends: [Identifiable]
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: interface-type:Observable@1.0.0
+  content_hash: sha256:158ab0b0117d89c4e2deb58fce7d831d265f007eebcd9ea1886844c8b47365a5
+  license: MIT
+  retrieved_at: "2026-08-24T00:00:00Z"
