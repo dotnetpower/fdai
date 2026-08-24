@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: c6148f551a655c205cbdd1e30c1342dcf8fb0338
+translation_source_sha: 33a788d316ddb881a6d8ed22e77e1675a230d81a
 translation_revised: 2026-08-24
 ---
 # 코드 맵
@@ -134,6 +134,12 @@ request를 생성하고 broker 발행 전에 영속 outbox에 commit합니다. �
 failure는 held 또는 pending evidence로 남으며 executor outcome을 다시 쓰지 않습니다. Model pointer
 변경은 기존 governance ActionType, risk, Owner 승인, Thor execution, rollback 및 Saga audit 경로
 안에 유지됩니다.
+[계보 producer](../../../services/core-control-plane/src/fdai/core/operational_planning/hypothesis_lineage.py)와
+[컨트롤 루프 sink](../../../services/core-control-plane/src/fdai/core/control_loop/_execution.py)는
+권위 있는 계획 기록, 완료된 실행기 결과, 일치하는 독립적이고 채점 가능한 관측이 모두 있을
+때만 단일 효과 episode 하나를 제출합니다. 변환 결과 기록 실패는 실행기 결과를 변경하지 않으며,
+이 producer는 누락된 결과를 날조하는 대신 복수 효과를 거부합니다. focused 계보 및 컨트롤 루프
+shadow 테스트가 두 경계를 고정합니다.
 
 ## 독립 서비스 지도
 
