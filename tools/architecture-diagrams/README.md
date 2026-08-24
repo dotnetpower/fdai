@@ -44,6 +44,11 @@ npm --prefix tools/architecture-diagrams run check
 `render` writes both generated output trees. `check` compiles in memory and
 fails when a committed artifact is missing or stale.
 
+`migrate-repository` replaces paired roadmap Mermaid blocks with localized static diagram
+references and writes their canonical specifications. The repository migration inventory currently
+contains 80 specifications; update the inventory test in the same change when an additional reviewed
+block is migrated, then run `render` and `check-repository-migration`.
+
 ## Diagram kinds
 
 Use `kind` to select a validated layout strategy rather than treating it as a

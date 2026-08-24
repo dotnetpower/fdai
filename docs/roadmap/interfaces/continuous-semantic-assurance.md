@@ -18,18 +18,7 @@ keeps release, scheduled, and change-focused evidence separate from roadmap pack
 
 ## Design at a glance
 
-```mermaid
-flowchart LR
-    Source[Exact source revision] --> Corpus[Derived corpus manifest]
-    Corpus --> Strict[Strict bilingual gate]
-    Corpus --> Delta[Changed and risk-weighted cases]
-    Corpus --> Full[Full current corpus]
-    Strict --> Typed[Typed receipt oracle]
-    Delta --> Typed
-    Full --> Typed
-    Typed --> Evidence[Append-only assurance evidence]
-    Evidence --> Triage[Owning subsystem triage]
-```
+![Design at a glance. The main stages are Exact source revision, Derived corpus manifest, Strict bilingual gate, Changed and risk-weighted cases, Full current corpus, Typed receipt oracle, Append-only assurance evidence, Owning subsystem triage.](../../diagrams/generated/fdai-roadmap-interfaces-continuous-semantic-assurance-01.en.svg)
 
 The corpus size is an observed property of a source revision. Adding a logical expectation,
 language, wording style, evidence posture, capability, or metamorphic case changes the denominator

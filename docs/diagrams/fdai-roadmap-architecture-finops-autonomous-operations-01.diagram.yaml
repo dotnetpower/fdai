@@ -1,0 +1,146 @@
+id: fdai-roadmap-architecture-finops-autonomous-operations-01
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: Design at a glance
+    description: FDAI flow for Design at a glance.
+    alt: Design at a glance. The main stages are Observed cost and resource evidence, Release-bound ontology context, Domain
+      advice and safe options, Forseti judgment, Odin arbitration when objectives conflict, Thor execution or typed
+      no-op, Var approval only when required, Heimdall independent observation, Vidar recovery when needed, Saga
+      terminal audit, Muninn, Norns, and Mimir learning loop.
+  ko:
+    title: 설계 개요
+    description: 설계 개요에 대한 FDAI 흐름입니다.
+    alt: 설계 개요. 주요 단계는 Observed cost and resource evidence, Release-bound ontology context, Domain advice and safe options,
+      Forseti judgment, Odin arbitration when objectives conflict, Thor execution or typed no-op, Var approval only when
+      required, Heimdall independent observation, Vidar recovery when needed, Saga terminal audit, Muninn, Norns, and
+      Mimir learning loop입니다.
+canvas:
+  width: 1600
+  height: 990
+  direction: RIGHT
+groups: []
+nodes:
+  - id: evidence
+    kind: process
+    shape: card
+    label:
+      en: Observed cost and resource evidence
+      ko: Observed cost and resource evidence
+  - id: context
+    kind: process
+    shape: card
+    label:
+      en: Release-bound ontology context
+      ko: Release-bound ontology context
+  - id: advice
+    kind: process
+    shape: card
+    label:
+      en: Domain advice and safe options
+      ko: Domain advice and safe options
+  - id: judge
+    kind: process
+    shape: card
+    label:
+      en: Forseti judgment
+      ko: Forseti judgment
+  - id: arbitrate
+    kind: process
+    shape: card
+    label:
+      en: Odin arbitration when objectives conflict
+      ko: Odin arbitration when objectives conflict
+  - id: execute
+    kind: process
+    shape: card
+    label:
+      en: Thor execution or typed no-op
+      ko: Thor execution or typed no-op
+  - id: approval
+    kind: process
+    shape: card
+    label:
+      en: Var approval only when required
+      ko: Var approval only when required
+  - id: observe
+    kind: process
+    shape: card
+    label:
+      en: Heimdall independent observation
+      ko: Heimdall independent observation
+  - id: recover
+    kind: process
+    shape: card
+    label:
+      en: Vidar recovery when needed
+      ko: Vidar recovery when needed
+  - id: audit
+    kind: process
+    shape: card
+    label:
+      en: Saga terminal audit
+      ko: Saga terminal audit
+  - id: learn
+    kind: process
+    shape: card
+    label:
+      en: Muninn, Norns, and Mimir learning loop
+      ko: Muninn, Norns, and Mimir learning loop
+edges:
+  - id: flow-01
+    from: evidence
+    to: context
+    kind: request
+  - id: flow-02
+    from: context
+    to: advice
+    kind: request
+  - id: flow-03
+    from: advice
+    to: judge
+    kind: request
+  - id: flow-04
+    from: judge
+    to: arbitrate
+    kind: request
+  - id: flow-05
+    from: arbitrate
+    to: execute
+    kind: request
+  - id: flow-06
+    from: judge
+    to: execute
+    kind: request
+  - id: flow-07
+    from: judge
+    to: approval
+    kind: request
+  - id: flow-08
+    from: approval
+    to: execute
+    kind: request
+  - id: flow-09
+    from: execute
+    to: observe
+    kind: request
+  - id: flow-10
+    from: observe
+    to: recover
+    kind: request
+  - id: flow-11
+    from: observe
+    to: audit
+    kind: request
+  - id: flow-12
+    from: recover
+    to: audit
+    kind: request
+  - id: flow-13
+    from: audit
+    to: learn
+    kind: request

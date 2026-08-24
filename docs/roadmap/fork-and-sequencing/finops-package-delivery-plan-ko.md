@@ -1,7 +1,7 @@
 ---
 title: FinOps 패키지 전달 계획
 translation_of: finops-package-delivery-plan.md
-translation_source_sha: 3e695e1269490cc9c6e80c38793e5005ce331050
+translation_source_sha: 56e525bf31fbb563641fc6eb66d6df3479a53fd4
 translation_revised: 2026-08-24
 ---
 
@@ -24,17 +24,7 @@ translation_revised: 2026-08-24
 
 핵심 경로는 파일 시스템보다 의미와 운영을 우선합니다.
 
-```mermaid
-flowchart LR
-    W0[W0 Inventory and freeze] --> W1[W1 Ontology profile]
-    W0 --> W2[W2 Package foundation]
-    W1 --> W3[W3 Agent choreography]
-    W2 --> W3
-    W3 --> W4[W4 Autonomous recovery]
-    W4 --> W5[W5 Effect settlement and learning]
-    W5 --> W6[W6 Shadow parity and cutover]
-    W6 --> W7[W7 Operational validation]
-```
+![설계 개요. 주요 단계는 W0 Inventory and freeze, W1 Ontology profile, W2 Package foundation, W3 Agent choreography, W4 Autonomous recovery, W5 Effect settlement and learning, W6 Shadow parity and cutover, W7 Operational validation입니다.](../../diagrams/generated/fdai-roadmap-fork-and-sequencing-finops-package-delivery-plan-01.ko.svg)
 
 W1과 W2는 W0 이후 독립적으로 진행할 수 있습니다. 두 wave가 하나의 매니페스트, 온톨로지
 release, 자산 inventory 및 안정적인 식별자 집합으로 수렴한 뒤에만 런타임 활성화를 시작합니다.

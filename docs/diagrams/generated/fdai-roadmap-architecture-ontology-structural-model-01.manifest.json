@@ -1,0 +1,204 @@
+{
+  "id": "fdai-roadmap-architecture-ontology-structural-model-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Design at a glance",
+      "description": "FDAI flow for Design at a glance.",
+      "alt": "Design at a glance. The main stages are Resource, ResourceType, ResourceClass, Query, Exploratory traversal, Ordered typed path, LinkType, Forward and reverse roles, Semantic traits."
+    },
+    "ko": {
+      "title": "설계 요약",
+      "description": "설계 요약에 대한 FDAI 흐름입니다.",
+      "alt": "설계 요약. 주요 단계는 Resource, ResourceType, ResourceClass, Query, 탐색형 관계 탐색, 순서가 있는 형식화된 경로, LinkType, 정방향 및 역방향 역할, 의미 특성입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-roadmap-architecture-ontology-structural-model-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-roadmap-architecture-ontology-structural-model-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "resource",
+      "kind": "process",
+      "label": {
+        "en": "Resource",
+        "ko": "Resource"
+      },
+      "description": {
+        "en": "Resource",
+        "ko": "Resource"
+      }
+    },
+    {
+      "id": "resourcetype",
+      "kind": "process",
+      "label": {
+        "en": "ResourceType",
+        "ko": "ResourceType"
+      },
+      "description": {
+        "en": "When: resource_classified_as",
+        "ko": "조건: resource_classified_as"
+      }
+    },
+    {
+      "id": "resourceclass",
+      "kind": "process",
+      "label": {
+        "en": "ResourceClass",
+        "ko": "ResourceClass"
+      },
+      "description": {
+        "en": "When: resource_type_member_of_class",
+        "ko": "조건: resource_type_member_of_class"
+      }
+    },
+    {
+      "id": "broaderclass",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "ResourceClass",
+        "ko": "ResourceClass"
+      },
+      "description": {
+        "en": "When: resource_class_specializes",
+        "ko": "조건: resource_class_specializes"
+      }
+    },
+    {
+      "id": "query",
+      "kind": "process",
+      "label": {
+        "en": "Query",
+        "ko": "Query"
+      },
+      "description": {
+        "en": "Query",
+        "ko": "Query"
+      }
+    },
+    {
+      "id": "exploratory",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Exploratory traversal",
+        "ko": "탐색형 관계 탐색"
+      },
+      "description": {
+        "en": "Exploratory traversal",
+        "ko": "탐색형 관계 탐색"
+      }
+    },
+    {
+      "id": "typedpath",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Ordered typed path",
+        "ko": "순서가 있는 형식화된 경로"
+      },
+      "description": {
+        "en": "Ordered typed path",
+        "ko": "순서가 있는 형식화된 경로"
+      }
+    },
+    {
+      "id": "linktype",
+      "kind": "process",
+      "label": {
+        "en": "LinkType",
+        "ko": "LinkType"
+      },
+      "description": {
+        "en": "LinkType",
+        "ko": "LinkType"
+      }
+    },
+    {
+      "id": "roles",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Forward and reverse roles",
+        "ko": "정방향 및 역방향 역할"
+      },
+      "description": {
+        "en": "Forward and reverse roles",
+        "ko": "정방향 및 역방향 역할"
+      }
+    },
+    {
+      "id": "traits",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Semantic traits",
+        "ko": "의미 특성"
+      },
+      "description": {
+        "en": "Semantic traits",
+        "ko": "의미 특성"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "resource",
+      "to": "resourcetype",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "resourcetype",
+      "to": "resourceclass",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "resourceclass",
+      "to": "broaderclass",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "query",
+      "to": "exploratory",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "query",
+      "to": "typedpath",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "linktype",
+      "to": "roles",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "linktype",
+      "to": "traits",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

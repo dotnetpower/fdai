@@ -792,7 +792,9 @@
     "audience": "operator-and-contributor",
     "publication_state": "navigated",
     "derived_sources": [],
-    "diagram_ids": []
+    "diagram_ids": [
+      "fdai-roadmap-architecture-architecture-review-ontology-agent-loop-01"
+    ]
   },
   {
     "route": "/ko/reference/roadmap/architecture/decisions/",
@@ -1315,7 +1317,9 @@
     "audience": "operator-and-contributor",
     "publication_state": "navigated",
     "derived_sources": [],
-    "diagram_ids": []
+    "diagram_ids": [
+      "fdai-roadmap-architecture-architecture-review-ontology-agent-loop-01"
+    ]
   },
   {
     "route": "/reference/roadmap/architecture/decisions/",

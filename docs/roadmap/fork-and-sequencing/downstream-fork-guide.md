@@ -215,6 +215,8 @@ focused owner documents linked by each recipe.
 distribution such as the planned Cost Governance package binds one exact ontology profile and the
 existing fixed pantheon without selecting tenant values, deployment state, or autonomy. See the
 [FinOps Package Delivery Plan](finops-package-delivery-plan.md) for that upstream lifecycle.
+Its static diagram specification and generated assets are upstream documentation artifacts. A fork
+syncs them unchanged; they do not add an editable seam or widen the fork boundary.
 
 **Building a new business-object vertical**: a fork that adds a
 non-Resource ObjectType lifecycle (architecture-review proposal,

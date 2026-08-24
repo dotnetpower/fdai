@@ -1,0 +1,91 @@
+id: fdai-roadmap-architecture-finops-package-architecture-01
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: Dependency direction
+    description: FDAI flow for Dependency direction.
+    alt: Dependency direction. The main stages are Deployment composition, fdai-cost-governance, fdai-core-control-plane,
+      fdai-service-contracts, Event bus, Isolated Executor.
+  ko:
+    title: 의존성 방향
+    description: 의존성 방향에 대한 FDAI 흐름입니다.
+    alt: 의존성 방향. 주요 단계는 Deployment composition, fdai-cost-governance, fdai-core-control-plane, fdai-service-contracts, Event
+      bus, Isolated Executor입니다.
+canvas:
+  width: 900
+  height: 540
+  direction: RIGHT
+groups: []
+nodes:
+  - id: deployment
+    kind: process
+    shape: card
+    label:
+      en: Deployment composition
+      ko: Deployment composition
+  - id: package
+    kind: process
+    shape: card
+    label:
+      en: fdai-cost-governance
+      ko: fdai-cost-governance
+  - id: core
+    kind: process
+    shape: card
+    label:
+      en: fdai-core-control-plane
+      ko: fdai-core-control-plane
+  - id: contracts
+    kind: process
+    shape: card
+    label:
+      en: fdai-service-contracts
+      ko: fdai-service-contracts
+  - id: bus
+    kind: process
+    shape: card
+    label:
+      en: Event bus
+      ko: Event bus
+  - id: executor
+    kind: process
+    shape: card
+    label:
+      en: Isolated Executor
+      ko: Isolated Executor
+edges:
+  - id: flow-01
+    from: deployment
+    to: package
+    kind: request
+  - id: flow-02
+    from: package
+    to: core
+    kind: request
+  - id: flow-03
+    from: core
+    to: contracts
+    kind: request
+  - id: flow-04
+    from: package
+    to: contracts
+    kind: request
+  - id: flow-05
+    from: package
+    to: bus
+    kind: dependency
+    label:
+      en: typed evidence
+      ko: typed evidence
+  - id: flow-06
+    from: bus
+    to: core
+    kind: request
+  - id: flow-07
+    from: core
+    to: executor
+    kind: request

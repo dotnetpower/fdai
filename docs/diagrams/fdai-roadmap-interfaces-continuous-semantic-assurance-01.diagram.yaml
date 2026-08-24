@@ -1,0 +1,109 @@
+id: fdai-roadmap-interfaces-continuous-semantic-assurance-01
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: Design at a glance
+    description: FDAI flow for Design at a glance.
+    alt: Design at a glance. The main stages are Exact source revision, Derived corpus manifest, Strict bilingual gate,
+      Changed and risk-weighted cases, Full current corpus, Typed receipt oracle, Append-only assurance evidence, Owning
+      subsystem triage.
+  ko:
+    title: 설계 개요
+    description: 설계 개요에 대한 FDAI 흐름입니다.
+    alt: 설계 개요. 주요 단계는 Exact source revision, Derived corpus manifest, Strict bilingual gate, Changed and risk-weighted
+      cases, Full current corpus, Typed receipt oracle, Append-only assurance evidence, Owning subsystem triage입니다.
+canvas:
+  width: 1200
+  height: 720
+  direction: RIGHT
+groups: []
+nodes:
+  - id: source
+    kind: process
+    shape: card
+    label:
+      en: Exact source revision
+      ko: Exact source revision
+  - id: corpus
+    kind: process
+    shape: card
+    label:
+      en: Derived corpus manifest
+      ko: Derived corpus manifest
+  - id: strict
+    kind: process
+    shape: card
+    label:
+      en: Strict bilingual gate
+      ko: Strict bilingual gate
+  - id: delta
+    kind: process
+    shape: card
+    label:
+      en: Changed and risk-weighted cases
+      ko: Changed and risk-weighted cases
+  - id: full
+    kind: process
+    shape: card
+    label:
+      en: Full current corpus
+      ko: Full current corpus
+  - id: typed
+    kind: process
+    shape: card
+    label:
+      en: Typed receipt oracle
+      ko: Typed receipt oracle
+  - id: evidence
+    kind: process
+    shape: card
+    label:
+      en: Append-only assurance evidence
+      ko: Append-only assurance evidence
+  - id: triage
+    kind: process
+    shape: card
+    label:
+      en: Owning subsystem triage
+      ko: Owning subsystem triage
+edges:
+  - id: flow-01
+    from: source
+    to: corpus
+    kind: request
+  - id: flow-02
+    from: corpus
+    to: strict
+    kind: request
+  - id: flow-03
+    from: corpus
+    to: delta
+    kind: request
+  - id: flow-04
+    from: corpus
+    to: full
+    kind: request
+  - id: flow-05
+    from: strict
+    to: typed
+    kind: request
+  - id: flow-06
+    from: delta
+    to: typed
+    kind: request
+  - id: flow-07
+    from: full
+    to: typed
+    kind: request
+  - id: flow-08
+    from: typed
+    to: evidence
+    kind: request
+  - id: flow-09
+    from: evidence
+    to: triage
+    kind: request

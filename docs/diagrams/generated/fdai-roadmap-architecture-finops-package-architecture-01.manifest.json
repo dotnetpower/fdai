@@ -1,0 +1,160 @@
+{
+  "id": "fdai-roadmap-architecture-finops-package-architecture-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Dependency direction",
+      "description": "FDAI flow for Dependency direction.",
+      "alt": "Dependency direction. The main stages are Deployment composition, fdai-cost-governance, fdai-core-control-plane, fdai-service-contracts, Event bus, Isolated Executor."
+    },
+    "ko": {
+      "title": "의존성 방향",
+      "description": "의존성 방향에 대한 FDAI 흐름입니다.",
+      "alt": "의존성 방향. 주요 단계는 Deployment composition, fdai-cost-governance, fdai-core-control-plane, fdai-service-contracts, Event bus, Isolated Executor입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-roadmap-architecture-finops-package-architecture-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-roadmap-architecture-finops-package-architecture-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "deployment",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Deployment composition",
+        "ko": "Deployment composition"
+      },
+      "description": {
+        "en": "Deployment composition",
+        "ko": "Deployment composition"
+      }
+    },
+    {
+      "id": "package",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "fdai-cost-governance",
+        "ko": "fdai-cost-governance"
+      },
+      "description": {
+        "en": "fdai-cost-governance",
+        "ko": "fdai-cost-governance"
+      }
+    },
+    {
+      "id": "core",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "fdai-core-control-plane",
+        "ko": "fdai-core-control-plane"
+      },
+      "description": {
+        "en": "fdai-core-control-plane",
+        "ko": "fdai-core-control-plane"
+      }
+    },
+    {
+      "id": "contracts",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "fdai-service-contracts",
+        "ko": "fdai-service-contracts"
+      },
+      "description": {
+        "en": "fdai-service-contracts",
+        "ko": "fdai-service-contracts"
+      }
+    },
+    {
+      "id": "bus",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Event bus",
+        "ko": "Event bus"
+      },
+      "description": {
+        "en": "Event bus",
+        "ko": "Event bus"
+      }
+    },
+    {
+      "id": "executor",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Isolated Executor",
+        "ko": "Isolated Executor"
+      },
+      "description": {
+        "en": "Isolated Executor",
+        "ko": "Isolated Executor"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "deployment",
+      "to": "package",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "package",
+      "to": "core",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "core",
+      "to": "contracts",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "package",
+      "to": "contracts",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "package",
+      "to": "bus",
+      "kind": "dependency",
+      "label": {
+        "en": "typed evidence",
+        "ko": "typed evidence"
+      }
+    },
+    {
+      "id": "flow-06",
+      "from": "bus",
+      "to": "core",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "core",
+      "to": "executor",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

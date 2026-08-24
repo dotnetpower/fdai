@@ -21,17 +21,7 @@ only then cuts over package ownership.
 
 The critical path is semantic and operational, not filesystem-first:
 
-```mermaid
-flowchart LR
-    W0[W0 Inventory and freeze] --> W1[W1 Ontology profile]
-    W0 --> W2[W2 Package foundation]
-    W1 --> W3[W3 Agent choreography]
-    W2 --> W3
-    W3 --> W4[W4 Autonomous recovery]
-    W4 --> W5[W5 Effect settlement and learning]
-    W5 --> W6[W6 Shadow parity and cutover]
-    W6 --> W7[W7 Operational validation]
-```
+![Design at a glance. The main stages are W0 Inventory and freeze, W1 Ontology profile, W2 Package foundation, W3 Agent choreography, W4 Autonomous recovery, W5 Effect settlement and learning, W6 Shadow parity and cutover, W7 Operational validation.](../../diagrams/generated/fdai-roadmap-fork-and-sequencing-finops-package-delivery-plan-01.en.svg)
 
 W1 and W2 can proceed independently after W0. Runtime activation begins only when both converge on
 one manifest, ontology release, asset inventory, and stable identifier set.

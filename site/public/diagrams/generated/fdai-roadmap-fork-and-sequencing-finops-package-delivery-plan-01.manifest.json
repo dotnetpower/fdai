@@ -1,0 +1,190 @@
+{
+  "id": "fdai-roadmap-fork-and-sequencing-finops-package-delivery-plan-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Design at a glance",
+      "description": "FDAI flow for Design at a glance.",
+      "alt": "Design at a glance. The main stages are W0 Inventory and freeze, W1 Ontology profile, W2 Package foundation, W3 Agent choreography, W4 Autonomous recovery, W5 Effect settlement and learning, W6 Shadow parity and cutover, W7 Operational validation."
+    },
+    "ko": {
+      "title": "설계 개요",
+      "description": "설계 개요에 대한 FDAI 흐름입니다.",
+      "alt": "설계 개요. 주요 단계는 W0 Inventory and freeze, W1 Ontology profile, W2 Package foundation, W3 Agent choreography, W4 Autonomous recovery, W5 Effect settlement and learning, W6 Shadow parity and cutover, W7 Operational validation입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-roadmap-fork-and-sequencing-finops-package-delivery-plan-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-roadmap-fork-and-sequencing-finops-package-delivery-plan-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "w0",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "W0 Inventory and freeze",
+        "ko": "W0 Inventory and freeze"
+      },
+      "description": {
+        "en": "W0 Inventory and freeze",
+        "ko": "W0 Inventory and freeze"
+      }
+    },
+    {
+      "id": "w1",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "W1 Ontology profile",
+        "ko": "W1 Ontology profile"
+      },
+      "description": {
+        "en": "W1 Ontology profile",
+        "ko": "W1 Ontology profile"
+      }
+    },
+    {
+      "id": "w2",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "W2 Package foundation",
+        "ko": "W2 Package foundation"
+      },
+      "description": {
+        "en": "W2 Package foundation",
+        "ko": "W2 Package foundation"
+      }
+    },
+    {
+      "id": "w3",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "W3 Agent choreography",
+        "ko": "W3 Agent choreography"
+      },
+      "description": {
+        "en": "W3 Agent choreography",
+        "ko": "W3 Agent choreography"
+      }
+    },
+    {
+      "id": "w4",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "W4 Autonomous recovery",
+        "ko": "W4 Autonomous recovery"
+      },
+      "description": {
+        "en": "W4 Autonomous recovery",
+        "ko": "W4 Autonomous recovery"
+      }
+    },
+    {
+      "id": "w5",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "W5 Effect settlement and learning",
+        "ko": "W5 Effect settlement and learning"
+      },
+      "description": {
+        "en": "W5 Effect settlement and learning",
+        "ko": "W5 Effect settlement and learning"
+      }
+    },
+    {
+      "id": "w6",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "W6 Shadow parity and cutover",
+        "ko": "W6 Shadow parity and cutover"
+      },
+      "description": {
+        "en": "W6 Shadow parity and cutover",
+        "ko": "W6 Shadow parity and cutover"
+      }
+    },
+    {
+      "id": "w7",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "W7 Operational validation",
+        "ko": "W7 Operational validation"
+      },
+      "description": {
+        "en": "W7 Operational validation",
+        "ko": "W7 Operational validation"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "w0",
+      "to": "w1",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "w0",
+      "to": "w2",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "w1",
+      "to": "w3",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "w2",
+      "to": "w3",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "w3",
+      "to": "w4",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "w4",
+      "to": "w5",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "w5",
+      "to": "w6",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "w6",
+      "to": "w7",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

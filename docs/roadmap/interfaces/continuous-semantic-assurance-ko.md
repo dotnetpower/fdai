@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-semantic-assurance.md
-translation_source_sha: decdff3507edccf7987650eb0a97748306aee5d7
+translation_source_sha: c29577c24c3126b001cf003c7547ef9b3909ee5d
 translation_revised: 2026-08-24
 ---
 # 지속형 의미 보증
@@ -19,18 +19,7 @@ translation_revised: 2026-08-24
 
 ## 설계 개요
 
-```mermaid
-flowchart LR
-    Source[Exact source revision] --> Corpus[Derived corpus manifest]
-    Corpus --> Strict[Strict bilingual gate]
-    Corpus --> Delta[Changed and risk-weighted cases]
-    Corpus --> Full[Full current corpus]
-    Strict --> Typed[Typed receipt oracle]
-    Delta --> Typed
-    Full --> Typed
-    Typed --> Evidence[Append-only assurance evidence]
-    Evidence --> Triage[Owning subsystem triage]
-```
+![설계 개요. 주요 단계는 Exact source revision, Derived corpus manifest, Strict bilingual gate, Changed and risk-weighted cases, Full current corpus, Typed receipt oracle, Append-only assurance evidence, Owning subsystem triage입니다.](../../diagrams/generated/fdai-roadmap-interfaces-continuous-semantic-assurance-01.ko.svg)
 
 Corpus 크기는 소스 리비전의 관측 속성입니다. 논리 기대치, 언어, 표현 방식, 근거 상태, 기능
 또는 metamorphic case를 추가하면 분모가 자동으로 바뀝니다. 개수가 늘었다는 이유만으로 문서나

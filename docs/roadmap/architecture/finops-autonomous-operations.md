@@ -26,22 +26,7 @@ agent-owned terminal outcome. Agents resolve the target through the active ontol
 materialize a decision context, compare safe options, apply deterministic policy, execute only
 through Thor, independently observe the effect, and feed the result into governed learning.
 
-```mermaid
-flowchart LR
-    Evidence[Observed cost and resource evidence] --> Context[Release-bound ontology context]
-    Context --> Advice[Domain advice and safe options]
-    Advice --> Judge[Forseti judgment]
-    Judge --> Arbitrate[Odin arbitration when objectives conflict]
-    Arbitrate --> Execute[Thor execution or typed no-op]
-    Judge --> Execute
-    Judge --> Approval[Var approval only when required]
-    Approval --> Execute
-    Execute --> Observe[Heimdall independent observation]
-    Observe --> Recover[Vidar recovery when needed]
-    Observe --> Audit[Saga terminal audit]
-    Recover --> Audit
-    Audit --> Learn[Muninn, Norns, and Mimir learning loop]
-```
+![Design at a glance. The main stages are Observed cost and resource evidence, Release-bound ontology context, Domain advice and safe options, Forseti judgment, Odin arbitration when objectives conflict, Thor execution or typed no-op, Var approval only when required, Heimdall independent observation, Vidar recovery when needed, Saga terminal audit, Muninn, Norns, and Mimir learning loop.](../../diagrams/generated/fdai-roadmap-architecture-finops-autonomous-operations-01.en.svg)
 
 ## Operating principles
 

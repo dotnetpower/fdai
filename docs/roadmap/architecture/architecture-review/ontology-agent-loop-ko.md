@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 ARB 에이전트 루프
 translation_of: ontology-agent-loop.md
-translation_source_sha: 370b9033a178696bb9bfe781831cbe41259faec0
+translation_source_sha: 1d2cf46740c2c4e0fe25d482f66ee29a258625f4
 translation_revised: 2026-08-24
 ---
 # 온톨로지 기반 ARB 에이전트 루프
@@ -24,27 +24,7 @@ translation_revised: 2026-08-24
 목표 간 충돌만 해결합니다. Var는 정책이나 잔여 위험 때문에 필요한 경우에만 사람 승인을
 요청합니다.
 
-```mermaid
-flowchart LR
-    H[Huginn: Change] --> M[Muninn: context snapshot]
-    H --> S[Relevant specialists]
-    M --> B[OperationalEvidenceBundle]
-    B --> T[Ontology scenario branch]
-    S --> F[Forseti: DecisionCase]
-    T --> F
-    C[Mimir: constraints and policies] --> F
-    F -->|objective conflict| O[Odin: arbitration]
-    O --> F
-    F -->|approval required| V[Var: approval]
-    F -->|bounded authority| D[Decision receipt]
-    V --> D
-    D --> G[Saga: audit and Process projection]
-    D -->|separate ActionType| TH[Thor: execution]
-    TH --> HE[Heimdall: observed outcome]
-    HE --> VI[Vidar: recovery]
-    HE --> N[Norns: learning candidate]
-    N --> C
-```
+![한눈에 보는 설계. 주요 단계는 Huginn: Change, Muninn: context snapshot, Relevant specialists, OperationalEvidenceBundle, Ontology scenario branch, Forseti: DecisionCase, Mimir: constraints and policies, Odin: arbitration, Var: approval, Decision receipt, Saga: audit and Process projection, Thor: execution입니다.](../../../diagrams/generated/fdai-roadmap-architecture-architecture-review-ontology-agent-loop-01.ko.svg)
 
 ## 권위 있는 상태 모델
 

@@ -165,16 +165,7 @@ explicit inventory and one owner for every existing cost asset; duplicate owners
 
 ## Dependency direction
 
-```mermaid
-flowchart LR
-    Deployment[Deployment composition] --> Package[fdai-cost-governance]
-    Package --> Core[fdai-core-control-plane]
-    Core --> Contracts[fdai-service-contracts]
-    Package --> Contracts
-    Package -. typed evidence .-> Bus[Event bus]
-    Bus --> Core
-    Core --> Executor[Isolated Executor]
-```
+![Dependency direction. The main stages are Deployment composition, fdai-cost-governance, fdai-core-control-plane, fdai-service-contracts, Event bus, Isolated Executor.](../../diagrams/generated/fdai-roadmap-architecture-finops-package-architecture-01.en.svg)
 
 Core never imports `fdai_cost_governance`. The reviewed composition root imports the package and
 passes its immutable bundle and typed provider implementations into Core. This direction keeps the

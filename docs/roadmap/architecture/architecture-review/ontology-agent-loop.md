@@ -21,27 +21,7 @@ relevant specialists publish their owned evidence, and Forseti joins the require
 immutable `DecisionCase` and `ImpactEnvelope`. Odin resolves only eligible cross-objective
 conflicts. Var requests human approval only when policy or residual risk requires it.
 
-```mermaid
-flowchart LR
-    H[Huginn: Change] --> M[Muninn: context snapshot]
-    H --> S[Relevant specialists]
-    M --> B[OperationalEvidenceBundle]
-    B --> T[Ontology scenario branch]
-    S --> F[Forseti: DecisionCase]
-    T --> F
-    C[Mimir: constraints and policies] --> F
-    F -->|objective conflict| O[Odin: arbitration]
-    O --> F
-    F -->|approval required| V[Var: approval]
-    F -->|bounded authority| D[Decision receipt]
-    V --> D
-    D --> G[Saga: audit and Process projection]
-    D -->|separate ActionType| TH[Thor: execution]
-    TH --> HE[Heimdall: observed outcome]
-    HE --> VI[Vidar: recovery]
-    HE --> N[Norns: learning candidate]
-    N --> C
-```
+![Design at a glance. The main stages are Huginn: Change, Muninn: context snapshot, Relevant specialists, OperationalEvidenceBundle, Ontology scenario branch, Forseti: DecisionCase, Mimir: constraints and policies, Odin: arbitration, Var: approval, Decision receipt, Saga: audit and Process projection, Thor: execution.](../../../diagrams/generated/fdai-roadmap-architecture-architecture-review-ontology-agent-loop-01.en.svg)
 
 ## Authoritative state model
 

@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: ced9ca2c283cf0dc50481b0fe81248777a7442b5
+translation_source_sha: 158641381772456ce141e3bc1e657de092e0de86
 translation_revised: 2026-08-24
 ---
 
@@ -164,16 +164,7 @@ shadow-first 모드입니다. 실패하면 기존의 변경할 수 없는 런타
 
 ## 의존성 방향
 
-```mermaid
-flowchart LR
-    Deployment[Deployment composition] --> Package[fdai-cost-governance]
-    Package --> Core[fdai-core-control-plane]
-    Core --> Contracts[fdai-service-contracts]
-    Package --> Contracts
-    Package -. typed evidence .-> Bus[Event bus]
-    Bus --> Core
-    Core --> Executor[Isolated Executor]
-```
+![의존성 방향. 주요 단계는 Deployment composition, fdai-cost-governance, fdai-core-control-plane, fdai-service-contracts, Event bus, Isolated Executor입니다.](../../diagrams/generated/fdai-roadmap-architecture-finops-package-architecture-01.ko.svg)
 
 Core는 `fdai_cost_governance`를 가져오지 않습니다. 검토된 조립 루트가 패키지를 가져와 변경할 수
 없는 번들과 타입이 지정된 프로바이더 구현을 Core에 전달합니다. 이 방향은 선택적 패키지가 없어도

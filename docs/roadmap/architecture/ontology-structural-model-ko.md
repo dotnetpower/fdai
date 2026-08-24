@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 150a3a0477e27723e1e6be7382474888775e8d08
+translation_source_sha: de2db34e5dc0358c383638e041a8b0df0a838c7f
 translation_revised: 2026-08-24
 ---
 # 온톨로지 구조 모델
@@ -19,16 +19,7 @@ translation_revised: 2026-08-24
 
 ## 설계 요약
 
-```mermaid
-flowchart LR
-    Resource -->|resource_classified_as| ResourceType
-    ResourceType -->|resource_type_member_of_class| ResourceClass
-    ResourceClass -->|resource_class_specializes| BroaderClass[ResourceClass]
-    Query --> Exploratory[탐색형 관계 탐색]
-    Query --> TypedPath[순서가 있는 형식화된 경로]
-    LinkType --> Roles[정방향 및 역방향 역할]
-    LinkType --> Traits[의미 특성]
-```
+![설계 요약. 주요 단계는 Resource, ResourceType, ResourceClass, Query, 탐색형 관계 탐색, 순서가 있는 형식화된 경로, LinkType, 정방향 및 역방향 역할, 의미 특성입니다.](../../diagrams/generated/fdai-roadmap-architecture-ontology-structural-model-01.ko.svg)
 
 이 모델은 정확한 아이덴티티, 집계, 동작, 언어, 토폴로지 힌트, 쿼리 실행, 표현을 분리합니다.
 각 관심사는 하나의 표준 표현과 범위가 제한된 소비자 계약을 가집니다.

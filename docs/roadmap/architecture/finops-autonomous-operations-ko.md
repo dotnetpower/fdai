@@ -1,7 +1,7 @@
 ---
 title: FinOps 자율 운영
 translation_of: finops-autonomous-operations.md
-translation_source_sha: 968e8125263d659be7a69cc864f51efe5601903d
+translation_source_sha: 7238a28ec43a9b753af30ac437b8db00ab0bd59b
 translation_revised: 2026-08-24
 ---
 
@@ -29,22 +29,7 @@ translation_revised: 2026-08-24
 컨텍스트를 구체화하고, 안전한 대안을 비교하고, 결정론적 정책을 적용하고, Thor를 통해서만
 실행하고, 효과를 독립적으로 관측한 뒤, 통제된 학습에 결과를 제공합니다.
 
-```mermaid
-flowchart LR
-    Evidence[Observed cost and resource evidence] --> Context[Release-bound ontology context]
-    Context --> Advice[Domain advice and safe options]
-    Advice --> Judge[Forseti judgment]
-    Judge --> Arbitrate[Odin arbitration when objectives conflict]
-    Arbitrate --> Execute[Thor execution or typed no-op]
-    Judge --> Execute
-    Judge --> Approval[Var approval only when required]
-    Approval --> Execute
-    Execute --> Observe[Heimdall independent observation]
-    Observe --> Recover[Vidar recovery when needed]
-    Observe --> Audit[Saga terminal audit]
-    Recover --> Audit
-    Audit --> Learn[Muninn, Norns, and Mimir learning loop]
-```
+![설계 개요. 주요 단계는 Observed cost and resource evidence, Release-bound ontology context, Domain advice and safe options, Forseti judgment, Odin arbitration when objectives conflict, Thor execution or typed no-op, Var approval only when required, Heimdall independent observation, Vidar recovery when needed, Saga terminal audit, Muninn, Norns, and Mimir learning loop입니다.](../../diagrams/generated/fdai-roadmap-architecture-finops-autonomous-operations-01.ko.svg)
 
 ## 운영 원칙
 

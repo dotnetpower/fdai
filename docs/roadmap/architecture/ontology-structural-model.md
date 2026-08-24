@@ -17,16 +17,7 @@ or a second source of provider truth.
 
 ## Design at a glance
 
-```mermaid
-flowchart LR
-    Resource -->|resource_classified_as| ResourceType
-    ResourceType -->|resource_type_member_of_class| ResourceClass
-    ResourceClass -->|resource_class_specializes| BroaderClass[ResourceClass]
-    Query --> Exploratory[Exploratory traversal]
-    Query --> TypedPath[Ordered typed path]
-    LinkType --> Roles[Forward and reverse roles]
-    LinkType --> Traits[Semantic traits]
-```
+![Design at a glance. The main stages are Resource, ResourceType, ResourceClass, Query, Exploratory traversal, Ordered typed path, LinkType, Forward and reverse roles, Semantic traits.](../../diagrams/generated/fdai-roadmap-architecture-ontology-structural-model-01.en.svg)
 
 The model separates exact identity, aggregation, behavior, language, topology hints, query
 execution, and presentation. Each concern has one canonical representation and one bounded
