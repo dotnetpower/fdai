@@ -1,7 +1,7 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: ef3ed2a8caebbbd1122acda0b7e1e5d95e29150d
+translation_source_sha: 1fbb3a15aeb50ab6294774fade8225eb161a5559
 translation_revised: 2026-08-24
 ---
 # 운영 배포 강화
@@ -29,7 +29,9 @@ translation_revised: 2026-08-24
 |------|------|------|------|-----------|
 | 2026-08-21 | in-progress | 인프라 동작을 변경하지 않고 기존 운영 강화 제어를 집중 소유 문서로 옮겼습니다. | `current change`; 문서 크기, 번역, 경로 및 링크 검사입니다. | 모든 필수 제어를 다루는 exact-revision 보호 운영 계획 및 적용 증적 하나를 보존합니다. |
 | 2026-08-24 | implemented | 모든 표준 환경에서 제어 가능한 해체 및 동일 이름 재생성 제약을 제거했습니다. Terraform은 삭제된 Key Vault와 Cognitive Services 계정을 purge하고, Log Analytics 작업 영역을 영구 삭제하며, 리소스가 남은 리소스 그룹 삭제를 허용하고, 애플리케이션 및 상태 계정 관리 잠금을 비활성화합니다. | `current change`; `infra/` 아래 프로바이더 기능과 환경 값; `tests/integration/infra/test_key_vault_lifecycle.py` (`2 passed`); 공유, scenario-lab, bootstrap 및 dev-access 루트의 Terraform 형식과 유효성 검사. | 보호된 비운영 destroy 및 동일 이름 재생성 증적을 보존합니다. Azure 소유 서비스 지연은 Terraform 제어 밖에 남습니다. |
+| 2026-08-24 | implemented | 비공개 runner에 구독 전체 생성 권한을 부여하는 대신 일회용 scenario lab을 기존의 보호된 holding 리소스 그룹에 연결했습니다. Apply와 destroy는 보호된 실행 동안 해당 그룹에만 Contributor를 부여한 뒤 회수하며, Terraform은 태그가 지정된 하위 리소스만 소유하고 제거합니다. 겹치지 않는 `10.73.0.0/20` VNet과 runner 전용 민감한 암호 구체화는 영속 secret store 없이 lab을 비공개 상태로 완전히 폐기할 수 있게 합니다. | `current change`; scenario-lab Terraform 유효성 검사와 finding 0건의 Trivy 및 Checkov 검사; 집중 scenario 및 workflow 계약. | 정확한 보호 plan, apply, VPN, 승인된 sweep 및 하위 리소스 destroy 증적을 보존합니다. |
 | 2026-08-24 | implemented | 비공개 runner에 구독 전체 생성 권한을 부여하는 대신 일회용 scenario lab을 기존의 보호된 holding 리소스 그룹에 연결했습니다. Apply와 destroy는 보호된 실행 동안 해당 그룹에만 Contributor를 부여한 뒤 회수하며, Terraform은 태그가 지정된 하위 리소스만 소유하고 제거합니다. Workflow는 명시적인 runner principal을 요구하며 권한을 부여하기 전에 활성 Azure Resource Manager token의 `oid`와 일치하는지 확인합니다. 겹치지 않는 `10.73.0.0/20` VNet과 runner 전용 민감한 암호 구체화는 영속 secret store 없이 lab을 비공개 상태로 완전히 폐기할 수 있게 합니다. | `current change`; scenario-lab Terraform 유효성 검사와 finding 0건의 Trivy 및 Checkov 검사; 집중 scenario 및 workflow 계약. | 정확한 보호 plan, apply, VPN, 승인된 sweep 및 하위 리소스 destroy 증적을 보존합니다. |
+| 2026-08-24 | implemented | 앞선 이력의 인플레이스 확장을 교정하기 위해 원래 scenario-lab 전환을 복원하고 runner 신원 결합을 별도로 기록했습니다. Workflow는 모호한 Azure CLI 계정 메타데이터를 명시적인 scenario runner principal로 교체하고, 임시 Contributor 권한을 부여하기 전에 활성 Azure Resource Manager token의 `oid`와 일치하도록 요구합니다. | `current change`; `.github/workflows/sre-demo-lab.yml`; `tests/integration/infra/test_scenario_lab.py` (`6 passed`); CI 계약과 일치 및 불일치 합성 token 검사. | 정확한 보호 plan, apply, VPN, 승인된 sweep 및 하위 리소스 destroy 증적을 보존합니다. |
 
 ### 남은 작업
 
