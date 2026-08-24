@@ -51,6 +51,7 @@ _EVENT_BUS_TOPIC_MIGRATION = {
             "semantic_physical": "fdai.pantheon.objects",
             "read_investigation_requests": "operator.read-investigation.requests",
             "incident_intervention_requests": "operator.incident-intervention.requests",
+            "read_investigation_completions": "core.read-investigation.completions",
         },
         "environment": {
             "FDAI_EXECUTION_VENUE": "deployed",

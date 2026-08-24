@@ -2331,6 +2331,7 @@ def test_tfvars_derives_disabled_operator_channel_edge_without_mutating_source(
                 "semantic_projections": "core.semantic-turn.projections",
                 "semantic_requests": "operator.semantic-turn.requests",
                 "read_investigation_requests": "operator.read-investigation.requests",
+                "incident_intervention_requests": "operator.incident-intervention.requests",
             },
         ),
         (
@@ -2347,6 +2348,8 @@ def test_tfvars_derives_disabled_operator_channel_edge_without_mutating_source(
                 "semantic_projections": "core.semantic-turn.projections",
                 "semantic_physical": "fdai.pantheon.objects",
                 "read_investigation_requests": "operator.read-investigation.requests",
+                "incident_intervention_requests": "operator.incident-intervention.requests",
+                "read_investigation_completions": "core.read-investigation.completions",
             },
         ),
         (
