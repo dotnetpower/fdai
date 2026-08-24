@@ -302,6 +302,10 @@ The **Knowledge > Architecture** panel renders the deployed inventory instance g
 subnet boundaries, resource status, and `attached_to` / `depends_on` links in one read-only
 canvas. Pan, zoom, filtering, selection, and deep links are local view operations only.
 The console cannot add, move, resize, or delete resources.
+Before a resource is selected, the map canvas shows only a centered selection prompt, resource
+selector, scope selector, and presentation-mode control. Resources, relationships, map controls,
+and the relationship index remain hidden. Selecting a resource reveals the bounded map and shows
+its status, boundary, and direct relationships in the Inspector.
 
 Production responses merge the immutable reconciliation snapshot with the
 ordered real-time resource/link overlay. The toolbar shows pending real-time

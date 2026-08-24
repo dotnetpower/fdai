@@ -80,6 +80,7 @@
 .architecture-canvas-shell.is-network-mode { height: var(--architecture-canvas-height, 480px); min-height: 0; }
 .architecture-map-frame { position: relative; z-index: 0; width: 100%; height: 100%; min-width: 0; min-height: 0; }
 .architecture-map { width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
+.architecture-map[hidden] { display: none; }
 .architecture-map:active { cursor: grabbing; }
 .architecture-network-map-frame { height: 100%; overflow: auto; overscroll-behavior: contain; }
 .architecture-network-map-svg { display: block; width: 100%; height: 100%; background: var(--architecture-map-background); }
@@ -117,6 +118,14 @@
 .architecture-network-region:focus-visible > rect { stroke: var(--accent); stroke-width: 3px; }
 .architecture-resource-picker { position: absolute; top: 12px; left: 12px; z-index: 4; width: min(300px, calc(100% - 76px)); }
 .architecture-resource-picker select { width: 100%; min-height: 32px; border: 1px solid var(--border); border-radius: 5px; background: color-mix(in oklab, var(--bg-elevated) 96%, transparent); color: var(--fg); padding: 0 30px 0 9px; font-size: 11px; box-shadow: 0 3px 10px rgba(29,42,56,.08); }
+.architecture-selection-prompt {
+  position: absolute; top: 50%; left: 50%; z-index: 3; width: min(360px, calc(100% - 32px));
+  transform: translate(-50%, -50%); padding: 16px; border: 1px solid var(--border); border-radius: 7px;
+  background: color-mix(in oklab, var(--bg-elevated) 96%, transparent); text-align: center;
+  box-shadow: 0 8px 24px rgba(29,42,56,.13); backdrop-filter: blur(8px); pointer-events: none;
+}
+.architecture-selection-prompt strong { display: block; font-size: var(--cs-type-panel-title-size); line-height: var(--cs-type-panel-title-line-height); }
+.architecture-selection-prompt p { margin: 5px 0 0; color: var(--fg-muted); font-size: var(--cs-type-compact-size); line-height: var(--cs-type-compact-line-height); }
 .architecture-mode-switch { position: absolute; top: 12px; left: 324px; z-index: 5; box-shadow: 0 3px 10px rgba(29,42,56,.08); }
 .architecture-inspector {
   display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(320px, .6fr); gap: 32px;

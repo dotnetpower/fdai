@@ -114,6 +114,17 @@ export function architectureCachePollDelay(attempt: number): number {
   return Math.min(30_000, 2_000 * 2 ** Math.min(Math.max(0, attempt), 4));
 }
 
+export function shouldShowArchitectureSelectionPrompt(
+  selectedId: string | null,
+  mapMode: "map" | "network",
+): boolean {
+  return selectedId === null && mapMode === "map";
+}
+
+export function shouldShowArchitectureMapResources(selectedId: string | null): boolean {
+  return selectedId !== null;
+}
+
 export function ArchitectureRoute({ client }: Props) {
   const [state, setState] = useState<AsyncState<InventoryGraphResponse>>({ status: "loading" });
   const [selectedId, setSelectedId] = useState<string | null>(() => selectedResourceIdFromHash(window.location.search));
@@ -319,6 +330,7 @@ function ArchitectureBody({
   const selected = presentedGraph.resources.find((resource) => resource.id === visibleSelectedId) ?? null;
   const requestedViewExists = architectureViewExists(graph, requestedView);
   const requestedResourceExists = architectureResourceExists(graph.resources, selectedId);
+  const showMapResources = shouldShowArchitectureMapResources(selectedId);
   usePublishViewContext(
     () => ({
       routeId: "architecture",
@@ -400,12 +412,19 @@ function ArchitectureBody({
               ref={mapRef}
               graph={presentedGraph}
               selectedId={visibleSelectedId}
+              showResources={showMapResources}
               onSelect={onSelect}
               options={effectiveDisplayOptions}
               onZoomChange={onZoomChange}
               descriptionId="architecture-map-description"
             />
           )}
+          {shouldShowArchitectureSelectionPrompt(selectedId, mapMode) ? (
+            <div class="architecture-selection-prompt">
+              <strong>{t("selectResource")}</strong>
+              <p>{t("selectionHint")}</p>
+            </div>
+          ) : null}
           <div class="architecture-mode-switch segmented-control" role="group" aria-label={t("network.mode") }>
             <button type="button" class={mapMode === "map" ? "active" : ""} aria-pressed={mapMode === "map"} onClick={() => onMapModeChange("map")}>{t("network.mapMode")}</button>
             <button type="button" class={mapMode === "network" ? "active" : ""} aria-pressed={mapMode === "network"} onClick={() => onMapModeChange("network")}>{t("network.networkMode")}</button>
@@ -414,18 +433,18 @@ function ArchitectureBody({
             graph={graph}
             onViewScopeChange={onViewScopeChange}
           /> : null}
-          {mapMode === "map" ? <div class="architecture-zoom-controls" role="group" aria-label={t("zoomControls")}>
+          {mapMode === "map" && showMapResources ? <div class="architecture-zoom-controls" role="group" aria-label={t("zoomControls")}>
             <button type="button" onClick={() => mapRef.current?.zoomIn()} aria-label={t("zoomIn")}>+</button>
             <output aria-label={t("zoomLevel")} aria-live="polite">{zoomPercent}%</output>
             <button type="button" onClick={() => mapRef.current?.zoomOut()} aria-label={t("zoomOut")}>-</button>
             <button type="button" onClick={() => mapRef.current?.fit()} aria-label={t("fitMap")}>{t("fit")}</button>
           </div> : null}
-          <div class="architecture-edge-legend" aria-label={t("relationshipLegend")}>
+          {mapMode === "network" || showMapResources ? <div class="architecture-edge-legend" aria-label={t("relationshipLegend")}>
             <span><i class="is-dependency" aria-hidden="true" />{t("relationship.dependsOn")}</span>
             <span><i class="is-attachment" aria-hidden="true" />{t("relationship.attachedTo")}</span>
             <span><i class="is-peering" aria-hidden="true" />{t("relationship.peersWith")}</span>
             <span><i class="is-boundary" aria-hidden="true" />{t("relationship.boundary")}</span>
-          </div>
+          </div> : null}
         </div>
         {mapMode === "network" ? (
           <ArchitectureNetworkTools
@@ -463,7 +482,9 @@ function ArchitectureBody({
           cameraLocked={mapMode === "network"}
         />
       </div>
-      <ArchitectureRelationIndex graph={mapMode === "network" ? graph : presentedGraph} onSelect={onSelect} />
+      {mapMode === "network" || showMapResources ? (
+        <ArchitectureRelationIndex graph={mapMode === "network" ? graph : presentedGraph} onSelect={onSelect} />
+      ) : null}
     </div>
   );
 }

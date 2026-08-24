@@ -20,6 +20,7 @@ export { architectureResourceFromValue } from "./architecture-map.geometry";
 interface Props {
   readonly graph: InventoryGraphResponse;
   readonly selectedId?: string | null;
+  readonly showResources?: boolean;
   readonly highlightedIds?: ReadonlySet<string>;
   readonly onSelect?: (resource: InventoryResource | null) => void;
   readonly className?: string;
@@ -64,6 +65,7 @@ export function architectureMapSelectOptionLabel(): string {
 export const ArchitectureMap = forwardRef<ArchitectureMapHandle, Props>(function ArchitectureMap({
   graph,
   selectedId = null,
+  showResources = true,
   highlightedIds,
   onSelect,
   className = "",
@@ -86,6 +88,7 @@ export const ArchitectureMap = forwardRef<ArchitectureMapHandle, Props>(function
       <canvas
         ref={canvasRef}
         class="architecture-map"
+        hidden={!showResources}
         role="img"
         aria-label={architectureMapAriaLabel(graph.resources.length)}
         aria-describedby={descriptionId}

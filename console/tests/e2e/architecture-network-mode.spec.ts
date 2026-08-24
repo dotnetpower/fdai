@@ -96,7 +96,7 @@ async function assertNoHorizontalOverflow(page: Page): Promise<void> {
 async function captureNetworkViewport(
   page: Page,
   testInfo: TestInfo,
-  name: "network-desktop" | "network-constrained" | "network-mobile",
+  name: "map-unselected" | "network-desktop" | "network-constrained" | "network-mobile",
 ): Promise<void> {
   const screenshot = await page.screenshot({ fullPage: true });
   await testInfo.attach(name, { body: screenshot, contentType: "image/png" });
@@ -105,6 +105,32 @@ async function captureNetworkViewport(
   await mkdir(captureRoot, { recursive: true });
   await writeFile(`${captureRoot}/${name}.png`, screenshot);
 }
+
+test("keeps architecture resources hidden until one is selected", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium", "Desktop presentation gate runs once.");
+  await installArchitectureFixture(page);
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/architecture");
+
+  const resourcePicker = page.getByRole("combobox", { name: "Select architecture resource" });
+  await expect(resourcePicker).toHaveValue("");
+  await expect(page.locator(".architecture-selection-prompt")).toBeVisible();
+  await expect(page.locator(".architecture-map")).toBeHidden();
+  await expect(page.locator(".architecture-zoom-controls")).toHaveCount(0);
+  await expect(page.locator(".architecture-edge-legend")).toHaveCount(0);
+  await expect(page.locator(".architecture-relation-index")).toHaveCount(0);
+  await captureNetworkViewport(page, testInfo, "map-unselected");
+
+  await resourcePicker.selectOption("vm");
+
+  await expect(page.locator(".architecture-selection-prompt")).toHaveCount(0);
+  await expect(page.locator(".architecture-map")).toBeVisible();
+  await expect(page.locator(".architecture-zoom-controls")).toBeVisible();
+  await expect(page.locator(".architecture-edge-legend")).toBeVisible();
+  await expect(page.locator(".architecture-relation-index")).toBeVisible();
+  await assertNoHorizontalOverflow(page);
+});
 
 test("keeps observed Network mode readable and exportable across viewports", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chromium", "Sequential viewport gate runs once.");
