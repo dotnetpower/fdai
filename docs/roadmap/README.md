@@ -66,7 +66,7 @@ cap, narrow its owner set or split a multi-responsibility owner instead of addin
 | 5e | [ontology-structural-model.md](architecture/ontology-structural-model.md) | exact resource types, taxonomic aggregation, link roles and traits, ordered typed paths, and bounded graph presentation |
 | 6 | [security-and-identity.md](architecture/security-and-identity.md) | least-privilege identity, secrets, safety invariants |
 | 7 | [deployment.md](deployment/deployment.md) | IaC, CI/CD, environments, release / rollback |
-| 7a | [architecture-review-board.md](architecture/architecture-review-board.md) | canonical ARB packet: decision boundary, evidence contract, owners, dependencies, production exit gate |
+| 7a | [architecture-review-board.md](architecture/architecture-review-board.md) | canonical ARB index: decision boundary plus focused ontology-agent, evidence-authority, and delivery-plan documents |
 | 7b | [data-governance.md](architecture/data-governance.md) | data inventory, classification, lifecycle, privacy assessment, model-provider and compliance evidence |
 | 7c | [Architecture Decision Records](architecture/decisions/README.md) | ADR register and accepted Azure day-zero platform baseline |
 | 7d | [mscp-operational-profile.md](architecture/mscp-operational-profile.md) | selective MSCP-derived effect, cycle, and runtime-integrity policies without a full conformance claim |

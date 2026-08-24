@@ -1,7 +1,7 @@
 ---
 translation_of: service-graduation-and-ownership.md
-translation_source_sha: 727c723cecf820fec5b9d8d0906430f8ab5d175c
-translation_revised: 2026-08-23
+translation_source_sha: e28bade86ac20bf6d39251d6af3a1e50017a2417
+translation_revised: 2026-08-24
 ---
 # 서비스 승격과 데이터 소유권
 
@@ -76,7 +76,9 @@ translation_revised: 2026-08-23
 모든 측정 행에 동일한 관측 구간과 후보 개정 번호를 사용합니다. Binary 권한
 요구사항으로 기다리는 것이 안전하지 않은 경우를 제외하고 최소 구간은 연속 30일입니다. Raw
 근거 링크, 조회 버전, 출처 최신성, 구간 시작/end, 측정 기준 시점, 후보
-개정 번호, 검토자, 다이제스트, 승인 시간, 만료를 [아키텍처 검토 Board Packet](architecture-review-board-ko.md#ownership과-support)의 evidence-binding format에 기록합니다.
+개정 번호, 검토자, 다이제스트, 승인 시간, 만료를
+[ARB 근거 및 권한](architecture-review/evidence-and-authority-ko.md#근거-연결)의 연결 형식에
+기록합니다.
 
 | 게이트 | 승인 임계값 | 근거 출처 |
 |------|----------------|-----------------|

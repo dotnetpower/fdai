@@ -75,7 +75,9 @@ Core only after the exact live evidence closes.
 Use the same observation window and candidate revision for every measured row. The minimum window is
 30 consecutive days unless a binary privilege requirement makes waiting unsafe. Record raw evidence
 links, query versions, source freshness, window start/end, measurement cutoff, candidate revision,
-reviewer, digest, approval time, and expiry in the [Architecture Review Board Packet](architecture-review-board.md#ownership-and-support) evidence-binding format.
+reviewer, digest, approval time, and expiry in the
+[ARB Evidence and Authority](architecture-review/evidence-and-authority.md#evidence-bindings)
+binding format.
 
 | Gate | Approval threshold | Evidence source |
 |------|--------------------|-----------------|

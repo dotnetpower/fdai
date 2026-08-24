@@ -32,6 +32,17 @@ ontology-grounded T0/T1 paths by default and reserving direct source retrieval, 
 verification, and human approval for residual ambiguity or risk. Accuracy and safety remain hard
 constraints.
 
+## Document set
+
+This entry point stays compact while focused owners carry the complete design.
+
+| Document | Owns |
+|----------|------|
+| [Ontology-Grounded Agent Loop](architecture-review/ontology-agent-loop.md) | Authoritative ontology state, 15-agent responsibilities, evidence fan-out, deterministic join, and autonomous review levels |
+| [Evidence and Authority](architecture-review/evidence-and-authority.md) | Evidence lanes, owner bindings, risks, exceptions, approval integrity, decision receipts, and production exit |
+| [Delivery Plan](architecture-review/delivery-plan.md) | Five dependency-ordered work packages, first vertical slice, and validation matrix |
+| [Implementation ledger](../../roadmap-implementation/architecture/architecture-review-board.md) | Current implementation scope, append-only history, and remaining work for this entry point |
+
 ## Decision boundary
 
 | Decision | Current request | Approval effect |
@@ -94,128 +105,23 @@ python3 scripts/governance/check-arb-readiness.py --require-production-ready
 | Production target | Signed image, private or explicitly allow-listed data flows, bound owners, approved objectives, blocking release controls, operational-readiness report | Blocked until the manifest production gate passes |
 | Scale target | Multiple cells, policy-driven fan-in, CQRS audit indexing, and deployment profiles | Deferred until a measured trigger is crossed |
 
-## Requirements traceability
+## Review and evidence model
 
-| Requirement | Design response | Verification source |
-|-------------|-----------------|---------------------|
-| Agent-owned closed loop | one accountable agent owns each observe, decide, plan, execute, verify, recover, and learn transition | pantheon parity, topic ownership, and lifecycle tests |
-| Deterministic-first decisions | T0 exact rules, then T1 reuse, then quality-gated T2 | tier tests and frozen scenario set |
-| Contract-conformant accuracy | wrong-target, unauthorized, policy-escape, and unverified-success outcomes remain zero | guard metrics and outcome receipts |
-| Minimum human intervention | evidence recovery, reevaluation, smaller safe plan, no-op, and rollback precede human review | touchpoint metrics and escalation traces |
-| No ungated autonomous mutation | unified risk gate and role-bound executor | risk-gate property tests and audit evidence |
-| Separation of duties | requester, approver, judge, and executor are distinct principals | RBAC configuration and HIL tests |
-| Retry safety | stable idempotency key and per-resource serialization | idempotency and replay tests |
-| Reversibility | rollback contract plus stop condition on each ActionType | rollback rehearsal evidence |
-| Customer isolation | fork-supplied values and dependency injection | generic-scope gates and config validation |
-| Operability | health signals, canary, smoke, alert routing, and runbooks | operational-readiness report |
-| Cost control | scale-to-zero, token budgets, resource budgets, and measured graduation triggers | cost confirmation and capacity evidence |
+The [ontology-agent loop](architecture-review/ontology-agent-loop.md) assigns every transition to
+an accountable member of the fixed pantheon and derives review state from `Change`, context,
+evidence, `DecisionCase`, approval, and outcome records. The
+[evidence and authority contract](architecture-review/evidence-and-authority.md) defines the
+production evidence profile, owner slots, risk and exception records, immutable decision receipt,
+failure behavior, and production exit procedure.
 
-## Nonfunctional evidence contract
-
-Targets that depend on a deployment are not universal upstream constants. A production deployment records
-the approved value, measurement method, result, timestamp, and approver in its evidence binding.
-
-| Area | Required production evidence | Pass condition |
-|------|------------------------------|----------------|
-| Availability | control-plane SLO and error budget | approved objective plus measured staging result |
-| Latency | p50/p95/p99 by tier and end-to-end canary | within the fork-approved budget |
-| Capacity | sustained and burst event rate, partition lag, DB saturation, quota headroom | no loss; bounded lag; documented saturation point |
-| Reliability | service-specific RPO/RTO and business-impact analysis | approved numeric objectives |
-| Recovery | isolated restore plus regional failover and failback drill | objectives met with integrity and smoke passing; primary fencing, event recovery, and failback verified |
-| Security | threat review, private/allow-listed data-flow validation, least-privilege probe | no unresolved critical/high finding |
-| Privacy | privacy impact assessment and data inventory | approved by the privacy owner |
-| Operations | signed operational-readiness report, canary, smoke, alert, and runbook evidence | all production checks pass |
-| Supply chain | SBOM, signature, provenance, vulnerability and IaC scans | release artifact verified; blocking scans clean |
-| Cost | current calculator export, monthly cap, quota, and 12/36-month assumptions | cost owner approval |
-
-## Data, privacy, and compliance
-
-[Data Governance](data-governance.md) defines the classification, minimization, residency,
-retention, legal-hold, deletion, model-provider, and privacy-assessment contract. The upstream
-design does not claim a customer compliance certification. A deployment owner selects its control
-profile, maps controls to evidence, records exceptions, and binds a privacy and data owner.
-
-## Ownership and support
-
-The production gate requires these accountable slots. A group may fill a slot, but every binding
-must identify an escalation route and a distinct approval authority where separation of duties
-applies.
-
-| Owner slot | Accountable for |
-|------------|-----------------|
-| `architecture-owner` | architecture baseline, ADRs, and accepted technical debt |
-| `security-owner` | threat model, identity, network posture, and security exceptions |
-| `privacy-owner` | privacy impact assessment and data-processing decisions |
-| `data-owner` | classification, retention, legal hold, deletion, and data quality |
-| `operations-owner` | on-call, alerts, runbooks, and operational-readiness acceptance |
-| `reliability-owner` | SLO, RPO/RTO, recovery design, and drill acceptance |
-| `release-owner` | artifact provenance, deployment, rollback, and promotion gates |
-| `cost-owner` | budget, quota, price confirmation, and capacity graduation |
-
-Agent stewardship remains a separate accountability overlay. It does not grant authorization or
-replace these production owner slots.
-
-Each `owner_bindings` entry uses this shape:
-
-```yaml
-architecture-owner:
-   subject: group:<fork-owned-subject>
-   escalation: <fork-owned-escalation-route>
-```
-
-Each `evidence_bindings` entry is immutable evidence metadata, not the evidence body:
-
-```yaml
-production-terraform-plan:
-   uri: evidence://<governed-store-reference>
-   sha256: <64-lowercase-hex-digest>
-   approved_by: group:<fork-owned-approver>
-   approved_at: 2026-07-13T00:00:00Z
-   expires_at: 2027-01-13T00:00:00Z
-```
-
-The checker rejects unknown binding keys, missing fields, malformed digests, and invalid timestamps.
-`expires_at` must be later than `approved_at`; an expired binding blocks production readiness.
-Customer names, resource ids, and evidence bodies remain in the fork's governed store.
-
-The upstream required-evidence keys cover all Azure Well-Architected Reliability `RE:01-10` and
-Operational Excellence `OE:01-11` Best Practice requirements. The checklist evaluator applies each
-control's shorter freshness window when one is declared. Binding expiry is the outer validity
-ceiling and never extends a control-specific freshness window.
-
-## Dependencies and failure behavior
-
-| Dependency | Contract | Failure behavior | Production evidence |
-|------------|----------|------------------|---------------------|
-| Event Hubs Kafka | ordered, at-least-once event log with DLQ topics | backpressure or hold for review; never drop silently | round-trip, lag, replay, and DLQ test |
-| PostgreSQL + pgvector | transactional state, audit projection, and T1 vectors | fail closed; no in-memory fallback in production | connection, backup, restore, and saturation test |
-| Key Vault reference | environment-secret injection | startup fails if a required secret cannot resolve | rotation and unavailable-vault test |
-| Entra and managed identity | short-lived, audience-scoped identity | deny access; no credential fallback | least-privilege and recertification evidence |
-| Git host | reviewed remediation and governance changes | queue proposal; do not execute out of band | protected-branch and rollback test |
-| HIL channel | authenticated, action-bound approval | queue and use configured fallback; timeout is no-op | primary/fallback and replay-resistance test |
-| Model providers | budgeted, grounded T2 and narrator access | hold for review when unavailable or unverified | provider, residency, retention, and budget evidence |
-| Observability backend | correlated logs, metrics, traces, and alerts | raise monitor-of-monitor signal | canary and alert delivery result |
+`ReviewCase` and `ReviewCheck` are read models. They summarize authoritative lineage for the
+Process and Console, but they do not grant judgment, approval, or execution authority.
 
 ## Decisions
 
 The ADR index is [Architecture Decision Records](decisions/README.md). ADR-0001 records the
 accepted Azure day-zero platform baseline. Open environment decisions such as numeric RPO/RTO,
 retention, cost caps, and production owners are fork bindings, not hidden architecture defaults.
-
-## Risk, assumptions, issues, and exceptions
-
-The active critical and high risks are machine-readable under `blockers` in
-`config/architecture-review.yaml`.
-
-| Type | Rule |
-|------|------|
-| Risk | carries severity, accountable owner slot, mitigation, residual risk, and review date |
-| Assumption | identifies the validating evidence and expires when contradicted or measured |
-| Issue | links to the artifact or implementation that closes it |
-| Exception | is scoped, time-bound where required, independently approved, and audited |
-
-An accepted risk is not a resolved blocker. The production gate accepts a critical or high item
-only after its status and evidence are updated through review.
 
 ## Runtime status and manual review
 
@@ -225,58 +131,22 @@ valid manifest with missing production evidence remains structurally healthy whi
 gate stays blocked. The Process projection keeps workflow state, review checks, owner and evidence
 bindings, approvals, and decisions in typed ontology objects.
 
-Contributor can start or resume shadow review through `POST /workflows/run`. Owner can request
-`mode=enforce` only when `architecture-review` is in
-`FDAI_WORKFLOW_ENFORCE_ALLOWLIST`. ARB is control-only, so enforce persists real approval and
-decision transitions but never deploys resources or promotes an ActionType.
-
-## Implementation status
-
-The reusable ARB contract, fail-closed production gate, workflow, ontology projection, and
-read-only workflow app are implemented. Production readiness remains blocked because the upstream
-manifest intentionally has no customer owner or evidence bindings and all critical or high
-blockers remain open.
-
-### Implementation scope
-
-| Area | State | Evidence | Notes |
-|------|-------|----------|-------|
-| Machine-readable review contract and readiness checker | implemented | `config/architecture-review.yaml`; `core/architecture_review/readiness.py`; `scripts/governance/check-arb-readiness.py`; focused readiness tests | Structural health and production readiness are evaluated separately, and malformed, incomplete, unknown, or expired evidence fails closed. |
-| Review workflow, production gate, and ontology projection | implemented | `rule-catalog/workflows/architecture-review.yaml`; `core/architecture_review/projection.py`; `runtime/control_loop.py`; focused projection tests | The control-only workflow records checks, approvals, and decisions without deploying resources or enabling an ActionType. |
-| Declarative operator review surface | implemented | `rule-catalog/operator-console/architecture-review.yaml`, `views/architecture-review.yaml`, and `reports/architecture-review-process.yaml`; focused view and report tests | The published read-only workflow app and Process view expose projected review state through catalog-validated routes. |
-| Production owner bindings, evidence, and approval | in-progress | `config/architecture-review.yaml` reports `production_approval_status: blocked`, empty binding maps, and open critical or high blockers | Repository tests prove the gate behavior, not a customer production approval or governed runtime result. |
-
-### Implementation history
-
-| Date | State | Change | Evidence | Remaining |
-|------|-------|--------|----------|-----------|
-| 2026-08-13 | in-progress | Adopted the implementation ledger, corrected the runtime exposure to the declarative workflow app, and separated reusable ARB implementation from production approval. | Current change: this document pair and the scope evidence above; the focused ARB readiness, projection, view, and report test command passed 19 tests. Earlier provenance was not reconstructed. | Bind production owners and governed evidence, resolve blockers, and record an approved runtime decision. |
-
-### Remaining work
-
-- [ ] Populate every required owner and evidence binding in a customer fork, resolve or formally accept every critical or high blocker, and record a passing `python3 scripts/governance/check-arb-readiness.py --require-production-ready` result against unexpired governed evidence.
-- [ ] Record a staging `architecture-review` Process that passes the production gate, receives the required independent owner approvals, and persists the signed decision and audit receipt without deploying resources or promoting an ActionType.
-
-## Production exit procedure
-
-1. Bind every required owner slot in the customer fork.
-2. Attach each required evidence artifact and verify that it contains no secret or customer data
-   in the upstream repository.
-3. Resolve or formally accept each blocker through the appropriate governance path.
-4. Mark production artifacts `ready`, approve the design review, and set production approval to
-   `ready`.
-5. Run `python3 scripts/governance/check-arb-readiness.py --require-production-ready` in the promotion job.
-6. Record the ARB decision, approvers, conditions, and expiry of any exception in the audit store.
-
-Passing this gate permits a production deployment review. It does not enable any ActionType; each
-capability still follows its own shadow-to-enforce promotion gate.
+Contributor can submit a revision-bound observation-mode review through `POST /workflows/run`. The
+Operator API currently rejects `mode=enforce`; the authority-bearing workflow path and its
+local/deployed operational evidence remain open. ARB stays control-only: a future governed decision
+may persist approval and decision transitions, but any resource change still re-enters the normal
+ActionType, policy, risk, approval, execution, verification, and recovery path.
 
 ## Next steps
 
 | To learn about | Read |
 |----------------|------|
 | Accepted platform decisions | [Architecture Decision Records](decisions/README.md) |
+| Ontology and 15-agent review loop | [Ontology-Grounded Agent Loop](architecture-review/ontology-agent-loop.md) |
+| Evidence, ownership, approval, and production exit | [Evidence and Authority](architecture-review/evidence-and-authority.md) |
+| Dependency-ordered implementation | [Delivery Plan](architecture-review/delivery-plan.md) |
 | Data and privacy evidence | [Data Governance](data-governance.md) |
 | Deployment inventory | [Deploy and Onboard](../deployment/deploy-and-onboard.md) |
 | Operational handoff | [Operational Readiness](../operations/operational-readiness.md) |
 | Machine-readable readiness state | [`config/architecture-review.yaml`](../../../config/architecture-review.yaml) |
+| Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/architecture/architecture-review-board.md) |

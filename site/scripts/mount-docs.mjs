@@ -78,6 +78,9 @@ const ROADMAP_SITE_ALLOWLIST = new Set([
   "agent-workflows",
   "operational-readiness",
   "architecture-review-board",
+  "ontology-agent-loop",
+  "evidence-and-authority",
+  "delivery-plan",
 ]);
 
 const RUNBOOK_SITE_ALLOWLIST = new Set([

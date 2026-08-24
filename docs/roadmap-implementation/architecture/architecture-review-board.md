@@ -17,6 +17,8 @@ blockers remain open.
 | Machine-readable review contract and readiness checker | implemented | `config/architecture-review.yaml`; `core/architecture_review/readiness.py`; `scripts/governance/check-arb-readiness.py`; focused readiness tests | Structural health and production readiness are evaluated separately, and malformed, incomplete, unknown, or expired evidence fails closed. |
 | Review workflow, production gate, and ontology projection | implemented | `rule-catalog/workflows/architecture-review.yaml`; `core/architecture_review/projection.py`; `runtime/control_loop.py`; focused projection tests | The control-only workflow records checks, approvals, and decisions without deploying resources or enabling an ActionType. |
 | Declarative operator review surface | implemented | `rule-catalog/operator-console/architecture-review.yaml`, `views/architecture-review.yaml`, and `reports/architecture-review-process.yaml`; focused view and report tests | The published read-only workflow app and Process view expose projected review state through catalog-validated routes. |
+| Ontology-grounded 15-agent review loop | in-progress | [Focused owner](../../roadmap/architecture/architecture-review/ontology-agent-loop.md); [delivery ledger](architecture-review/ontology-agent-loop.md) | Shared change, context, planning, impact, agent, and outcome foundations exist, but no complete ARB-specific loop is composed. |
+| Evidence attestation and decision authority | not-started | [Focused owner](../../roadmap/architecture/architecture-review/evidence-and-authority.md); [delivery ledger](architecture-review/evidence-and-authority.md) | The current checker validates metadata shape; provider-backed evidence attestation and immutable decision binding remain open. |
 | Production owner bindings, evidence, and approval | in-progress | `config/architecture-review.yaml` reports `production_approval_status: blocked`, empty binding maps, and open critical or high blockers | Repository tests prove the gate behavior, not a customer production approval or governed runtime result. |
 
 ### Implementation history
@@ -24,8 +26,10 @@ blockers remain open.
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | in-progress | Adopted the implementation ledger, corrected the runtime exposure to the declarative workflow app, and separated reusable ARB implementation from production approval. | Current change: this document pair and the scope evidence above; the focused ARB readiness, projection, view, and report test command passed 19 tests. Earlier provenance was not reconstructed. | Bind production owners and governed evidence, resolve blockers, and record an approved runtime decision. |
+| 2026-08-24 | in-progress | Split the canonical packet into a compact index and focused ontology-agent, evidence-authority, and delivery-plan owners without changing runtime authority. | `current change`; owner document set, paired translations, focused ledgers, code map, design route, and documentation checks. | Deliver the observation-mode vertical slice, provider-backed evidence attestation, and receipt-derived readiness tracked by the focused ledgers. |
 
 ### Remaining work
 
 - [ ] Populate every required owner and evidence binding in a customer fork, resolve or formally accept every critical or high blocker, and record a passing `python3 scripts/governance/check-arb-readiness.py --require-production-ready` result against unexpired governed evidence.
 - [ ] Record a staging `architecture-review` Process that passes the production gate, receives the required independent owner approvals, and persists the signed decision and audit receipt without deploying resources or promoting an ActionType.
+- [ ] Complete the first observation-mode vertical slice in the [delivery plan](../../roadmap/architecture/architecture-review/delivery-plan.md#first-vertical-slice) and retain one replayable 15-agent ARB trace.

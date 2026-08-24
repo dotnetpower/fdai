@@ -1,7 +1,7 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: 0d047e284321fc86a94cf3f94cd675d2e8e6f2a6
+translation_source_sha: bd1998068e3eba233dd1221453a59cd40a5a78bb
 translation_revised: 2026-08-24
 ---
 # FDAI 로드맵
@@ -63,7 +63,7 @@ canonical 영문 roadmap context를 실제 4,500줄로 제한합니다. Route가
 | 5e | [ontology-structural-model-ko.md](architecture/ontology-structural-model-ko.md) | 정확한 리소스 형식, 분류 집계, 링크 역할과 특성, 순서가 있는 형식화된 경로, 범위가 제한된 그래프 표현 |
 | 6 | [security-and-identity-ko.md](architecture/security-and-identity-ko.md) | 최소 권한 신원, secrets, 안전 불변식 |
 | 7 | [deployment-ko.md](deployment/deployment-ko.md) | IaC, CI/CD, 환경, 릴리스 / 롤백 |
-| 7a | [architecture-review-board-ko.md](architecture/architecture-review-board-ko.md) | 정본 ARB 패킷: 결정 경계, 근거 계약, 소유자, 의존성, 운영 종료 게이트 |
+| 7a | [architecture-review-board-ko.md](architecture/architecture-review-board-ko.md) | 정본 ARB 색인: 결정 경계와 온톨로지 에이전트, 근거 권한, 전달 계획 문서 |
 | 7b | [data-governance-ko.md](architecture/data-governance-ko.md) | 데이터 인벤토리, 분류, 수명 주기, privacy 평가, model-provider/compliance 근거 |
 | 7c | [아키텍처 결정 기록](architecture/decisions/README-ko.md) | ADR register와 승인된 Azure day-zero platform 기준선 |
 | 7d | [mscp-operational-profile-ko.md](architecture/mscp-operational-profile-ko.md) | 전체 conformance 주장 없이 선택적으로 차용한 MSCP 효과, cycle 및 runtime-integrity 정책 |

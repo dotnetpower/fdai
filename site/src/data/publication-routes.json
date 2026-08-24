@@ -762,6 +762,39 @@
     "diagram_ids": []
   },
   {
+    "route": "/ko/reference/roadmap/architecture/architecture-review/delivery-plan/",
+    "locale": "ko",
+    "source_path": "docs/roadmap/architecture/architecture-review/delivery-plan-ko.md",
+    "source_kind": "roadmap",
+    "navigation_section": "Reference",
+    "audience": "operator-and-contributor",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/reference/roadmap/architecture/architecture-review/evidence-and-authority/",
+    "locale": "ko",
+    "source_path": "docs/roadmap/architecture/architecture-review/evidence-and-authority-ko.md",
+    "source_kind": "roadmap",
+    "navigation_section": "Reference",
+    "audience": "operator-and-contributor",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/reference/roadmap/architecture/architecture-review/ontology-agent-loop/",
+    "locale": "ko",
+    "source_path": "docs/roadmap/architecture/architecture-review/ontology-agent-loop-ko.md",
+    "source_kind": "roadmap",
+    "navigation_section": "Reference",
+    "audience": "operator-and-contributor",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
     "route": "/ko/reference/roadmap/architecture/decisions/",
     "locale": "ko",
     "source_path": "docs/roadmap/architecture/decisions/README-ko.md",
@@ -1244,6 +1277,39 @@
     "route": "/reference/roadmap/architecture/architecture-review-board/",
     "locale": "en",
     "source_path": "docs/roadmap/architecture/architecture-review-board.md",
+    "source_kind": "roadmap",
+    "navigation_section": "Reference",
+    "audience": "operator-and-contributor",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/reference/roadmap/architecture/architecture-review/delivery-plan/",
+    "locale": "en",
+    "source_path": "docs/roadmap/architecture/architecture-review/delivery-plan.md",
+    "source_kind": "roadmap",
+    "navigation_section": "Reference",
+    "audience": "operator-and-contributor",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/reference/roadmap/architecture/architecture-review/evidence-and-authority/",
+    "locale": "en",
+    "source_path": "docs/roadmap/architecture/architecture-review/evidence-and-authority.md",
+    "source_kind": "roadmap",
+    "navigation_section": "Reference",
+    "audience": "operator-and-contributor",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/reference/roadmap/architecture/architecture-review/ontology-agent-loop/",
+    "locale": "en",
+    "source_path": "docs/roadmap/architecture/architecture-review/ontology-agent-loop.md",
     "source_kind": "roadmap",
     "navigation_section": "Reference",
     "audience": "operator-and-contributor",
