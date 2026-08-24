@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[3]
@@ -18,7 +19,10 @@ def test_rule_collector_job_is_scheduled_and_records_verified_evidence() -> None
     assert "cron_expression          = var.rule_watcher_cron_expression" in job
     assert 'command = ["python", "-m", "fdai.delivery.rule_collector_job_cli"]' in job
     assert 'name        = "FDAI_STATE_STORE_DSN"' in job
-    assert "rule_watcher_cron_expression = var.rule_watcher_cron_expression" in main
+    assert re.search(
+        r"(?m)^\s*rule_watcher_cron_expression\s*=\s*var\.rule_watcher_cron_expression\s*$",
+        main,
+    )
     assert 'variable "rule_watcher_cron_expression"' in variables
     assert 'default     = "0 3 * * *"' in variables
 
