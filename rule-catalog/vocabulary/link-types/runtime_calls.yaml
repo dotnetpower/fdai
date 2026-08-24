@@ -1,0 +1,21 @@
+# LinkType: runtime_calls (Resource -> Resource, M:M)
+#
+# One telemetry observation must prove both endpoint Resource identities.
+# The edge records observed invocation direction only; it is not transitive,
+# causal, or authoritative for approval, mutation, or execution.
+schema_version: "1.0.0"
+name: runtime_calls
+version: "1.0.0"
+from_type: Resource
+to_type: Resource
+cardinality: many_to_many
+forward_role: calls
+reverse_role: called_by
+semantic_traits: [connectivity, traffic]
+description: Observed runtime invocation from one resource to another, supported by one telemetry observation that proves both endpoint identities.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:runtime_calls@1.0.0
+  content_hash: sha256:4c4b83fb2729aa0664cb107e884366c74ae35726952183f69cfb728eaaa942e7
+  license: MIT
+  retrieved_at: "2026-08-24T00:00:00Z"
