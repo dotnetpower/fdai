@@ -35,7 +35,7 @@ from fdai.core.control_loop import ControlLoopOutcome, ControlLoopResult
 from fdai.core.executor import MutationDependencyReadiness
 from fdai.core.notifications.matrix import load_matrix_from_yaml
 from fdai.core.notifications.router import ChannelRegistry
-from fdai.runtime.bootstrap import _operational_event_bus
+from fdai.runtime.bootstrap_bindings import operational_event_bus
 from fdai.runtime.delivery import _incident_roster_url, _validate_incident_notification_route
 from fdai.shared.config import AppConfig
 from fdai.shared.contracts.models import Mode
@@ -344,17 +344,17 @@ def test_operational_event_bus_prefers_isolated_auxiliary_bus() -> None:
     primary = InMemoryEventBus()
     auxiliary = InMemoryEventBus()
 
-    assert _operational_event_bus(primary, auxiliary) is auxiliary
-    assert _operational_event_bus(primary, None) is primary
+    assert operational_event_bus(primary, auxiliary) is auxiliary
+    assert operational_event_bus(primary, None) is primary
 
 
 def test_startup_readiness_uses_operational_event_bus() -> None:
     bootstrap = (
         Path(__file__).resolve().parents[2]
-        / "services/core-control-plane/src/fdai/runtime/bootstrap.py"
+        / "services/core-control-plane/src/fdai/runtime/bootstrap_core.py"
     ).read_text(encoding="utf-8")
 
-    assert "event_bus=operational_bus" in bootstrap
+    assert "event_bus=messaging.operational_bus" in bootstrap
 
 
 def test_consume_audits_and_dead_letters_before_committing() -> None:
@@ -1221,7 +1221,10 @@ def test_build_control_loop_wires_rca_and_correlator(
     assert loop._risk_table is not None
     assert loop._risk_table.version == "1.0.0"
     assert loop._risk_gate is not None
-    assert loop._risk_gate._exemptions is container.exemption_registry
+    from fdai.delivery.catalog_exemption import CatalogExemptionRegistry
+
+    assert isinstance(loop._risk_gate._exemptions, CatalogExemptionRegistry)
+    assert loop._risk_gate._exemptions._fallback is container.exemption_registry
     assert loop._t1_engine is not None
     assert loop._t2_engine is not None
     assert loop._inventory_age_provider is None
@@ -1379,9 +1382,9 @@ def test_build_control_loop_wires_hil_coordinator_when_webhook_set(
 def test_semantic_router_config_reads_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("FDAI_AGENT_SEMANTIC_COSINE_THRESHOLD", "0.72")
     monkeypatch.setenv("FDAI_AGENT_SEMANTIC_MARGIN_THRESHOLD", "0.11")
-    from fdai.runtime.bootstrap import _semantic_router_config_from_env
+    from fdai.runtime.bootstrap_lifecycle import semantic_router_config_from_env
 
-    config = _semantic_router_config_from_env()
+    config = semantic_router_config_from_env()
 
     assert config.cosine_threshold == 0.72
     assert config.margin_threshold == 0.11
@@ -1391,7 +1394,7 @@ def test_semantic_router_config_rejects_invalid_environment(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("FDAI_AGENT_SEMANTIC_COSINE_THRESHOLD", "not-a-number")
-    from fdai.runtime.bootstrap import _semantic_router_config_from_env
+    from fdai.runtime.bootstrap_lifecycle import semantic_router_config_from_env
 
     with pytest.raises(RuntimeError, match="MUST be a float"):
-        _semantic_router_config_from_env()
+        semantic_router_config_from_env()
