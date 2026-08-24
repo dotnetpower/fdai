@@ -19,22 +19,20 @@ locals {
   }, var.additional_tags)
 }
 
-resource "azurerm_resource_group" "scenario_lab" {
-  name     = "rg-${local.suffix}"
-  location = var.region
-  tags     = local.tags
+data "azurerm_resource_group" "scenario_lab" {
+  name = var.resource_group_name
 }
 
 resource "azurerm_user_assigned_identity" "aks" {
   name                = "id-${local.suffix}-aks"
-  location            = azurerm_resource_group.scenario_lab.location
-  resource_group_name = azurerm_resource_group.scenario_lab.name
+  location            = data.azurerm_resource_group.scenario_lab.location
+  resource_group_name = data.azurerm_resource_group.scenario_lab.name
   tags                = local.tags
 }
 
 resource "azurerm_virtual_network_peering" "lab_to_runner" {
   name                         = "peer-${local.suffix}-to-runner"
-  resource_group_name          = azurerm_resource_group.scenario_lab.name
+  resource_group_name          = data.azurerm_resource_group.scenario_lab.name
   virtual_network_name         = azurerm_virtual_network.scenario_lab.name
   remote_virtual_network_id    = var.runner_vnet.id
   allow_virtual_network_access = true
@@ -54,7 +52,7 @@ resource "azurerm_virtual_network_peering" "lab_to_operator" {
   count = local.operator_enabled ? 1 : 0
 
   name                         = "peer-${local.suffix}-to-operator"
-  resource_group_name          = azurerm_resource_group.scenario_lab.name
+  resource_group_name          = data.azurerm_resource_group.scenario_lab.name
   virtual_network_name         = azurerm_virtual_network.scenario_lab.name
   remote_virtual_network_id    = var.operator_access.vnet_id
   allow_virtual_network_access = true
@@ -77,7 +75,7 @@ resource "azurerm_virtual_network_peering" "operator_to_lab" {
 resource "azurerm_role_assignment" "operator_monitoring_reader" {
   count = local.operator_enabled ? 1 : 0
 
-  scope                = azurerm_resource_group.scenario_lab.id
+  scope                = data.azurerm_resource_group.scenario_lab.id
   role_definition_name = "Monitoring Reader"
   principal_id         = var.operator_access.principal_id
 }

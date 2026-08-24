@@ -60,8 +60,10 @@ jobs:
       ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
       STATE_RESOURCE_GROUP: ${{ vars.STATE_RESOURCE_GROUP }}
       STATE_STORAGE_ACCOUNT: ${{ vars.STATE_STORAGE_ACCOUNT }}
+      SCENARIO_LAB_RESOURCE_GROUP_NAME: ${{ vars.SCENARIO_LAB_RESOURCE_GROUP_NAME }}
       TF_VAR_region: ${{ vars.AZURE_REGION }}
       TF_VAR_region_short: ${{ vars.AZURE_REGION_SHORT }}
+      TF_VAR_resource_group_name: ${{ vars.SCENARIO_LAB_RESOURCE_GROUP_NAME }}
       TF_VAR_expires_at_utc: ${{ inputs.expires_at_utc }}
       TF_VAR_runner_vnet: >-
         {"id":"${{ vars.OPS_VNET_ID }}","name":"${{ vars.OPS_VNET_NAME }}","resource_group_name":"${{ vars.OPS_RESOURCE_GROUP_NAME }}"}
@@ -131,7 +133,8 @@ jobs:
           set -euo pipefail
           for required_name in \
             ARM_SUBSCRIPTION_ID ARM_TENANT_ID STATE_RESOURCE_GROUP \
-            STATE_STORAGE_ACCOUNT TF_VAR_region TF_VAR_region_short \
+            STATE_STORAGE_ACCOUNT SCENARIO_LAB_RESOURCE_GROUP_NAME \
+            TF_VAR_region TF_VAR_region_short \
             TF_VAR_admin_ssh_public_key TF_VAR_vm_image_version \
             SCENARIO_LAB_BACKEND_IMAGE SCENARIO_LAB_CHAOS_MESH_CHART_VERSION; do
             [[ -n "${!required_name:-}" ]] || {
@@ -195,6 +198,56 @@ jobs:
           bash scripts/deployment/azure/verify-azure-context.sh
           "$ARM_SUBSCRIPTION_ID" "$ARM_TENANT_ID"
 
+      - name: Resolve scenario-lab holding scope
+        id: holding-scope
+        working-directory: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          resource_group_id="$(az group show \
+            --name "$SCENARIO_LAB_RESOURCE_GROUP_NAME" \
+            --query id --output tsv --only-show-errors)"
+          runner_principal_id="$(az account show --query user.name --output tsv --only-show-errors)"
+          [[ "$resource_group_id" == /subscriptions/*/resourceGroups/* ]] || {
+            echo "scenario-lab holding resource group is unavailable." >&2
+            exit 1
+          }
+          [[ "$runner_principal_id" =~ ^[0-9a-fA-F-]{36}$ ]] || {
+            echo "runner managed identity principal is unavailable." >&2
+            exit 1
+          }
+          echo "::add-mask::$resource_group_id"
+          echo "::add-mask::$runner_principal_id"
+          printf 'resource_group_id=%s\n' "$resource_group_id" >>"$GITHUB_OUTPUT"
+          printf 'runner_principal_id=%s\n' "$runner_principal_id" >>"$GITHUB_OUTPUT"
+
+      - name: Grant bounded scenario-lab deployment authority
+        if: inputs.action != 'plan'
+        id: deployment-authority
+        working-directory: ${{ runner.temp }}
+        env:
+          RESOURCE_GROUP_ID: ${{ steps.holding-scope.outputs.resource_group_id }}
+          RUNNER_PRINCIPAL_ID: ${{ steps.holding-scope.outputs.runner_principal_id }}
+        run: |
+          set -euo pipefail
+          assignment_id="$(az role assignment list \
+            --scope "$RESOURCE_GROUP_ID" \
+            --query "[?principalId=='$RUNNER_PRINCIPAL_ID' && roleDefinitionName=='Contributor'].id | [0]" \
+            --output tsv --only-show-errors)"
+          if [[ -z "$assignment_id" ]]; then
+            assignment_id="$(az role assignment create \
+              --assignee-object-id "$RUNNER_PRINCIPAL_ID" \
+              --assignee-principal-type ServicePrincipal \
+              --role Contributor \
+              --scope "$RESOURCE_GROUP_ID" \
+              --query id --output tsv --only-show-errors)"
+            echo "::add-mask::$assignment_id"
+            printf 'role_assignment_id=%s\n' "$assignment_id" >>"$GITHUB_OUTPUT"
+            printf 'remove_after_run=true\n' >>"$GITHUB_OUTPUT"
+          else
+            printf 'role_assignment_id=\n' >>"$GITHUB_OUTPUT"
+            printf 'remove_after_run=false\n' >>"$GITHUB_OUTPUT"
+          fi
+
       - name: Initialize private remote state
         run: |
           set -euo pipefail
@@ -218,10 +271,16 @@ jobs:
         run: |
           set -euo pipefail
           plan_file="$RUNNER_TEMP/sre-demo-lab.tfplan"
+          plan_log="$RUNNER_TEMP/sre-demo-lab-plan.log"
           if [[ "$REQUESTED_ACTION" == "destroy" ]]; then
-            terraform plan -destroy -input=false -lock-timeout=5m -out="$plan_file"
+            plan_args=(-destroy)
           else
-            terraform plan -input=false -lock-timeout=5m -out="$plan_file"
+            plan_args=()
+          fi
+          if ! terraform plan "${plan_args[@]}" -input=false -lock-timeout=5m \
+            -out="$plan_file" >"$plan_log" 2>&1; then
+            echo "scenario-lab Terraform plan failed; raw output remains runner-local." >&2
+            exit 1
           fi
           terraform show -json "$plan_file" >"$RUNNER_TEMP/sre-demo-lab-plan.json"
           create_count="$(jq '[.resource_changes[]? | select(.change.actions == ["create"])] | length' "$RUNNER_TEMP/sre-demo-lab-plan.json")"
@@ -229,6 +288,8 @@ jobs:
           delete_count="$(jq '[.resource_changes[]? | select(.change.actions | index("delete"))] | length' "$RUNNER_TEMP/sre-demo-lab-plan.json")"
           printf 'Scenario lab plan: %s create, %s update, %s delete or replace.\n' \
             "$create_count" "$update_count" "$delete_count"
+          jq -r '.resource_changes[]? | "\(.change.actions | join("+"))\t\(.address)"' \
+            "$RUNNER_TEMP/sre-demo-lab-plan.json"
           if [[ "$REQUESTED_ACTION" == "apply" && "$delete_count" -ne 0 ]]; then
             echo "apply refuses delete or replacement actions; use plan for review, then explicit destroy." >&2
             exit 1
@@ -236,7 +297,15 @@ jobs:
 
       - name: Apply exact plan
         if: inputs.action == 'apply'
-        run: terraform apply -input=false -auto-approve "$RUNNER_TEMP/sre-demo-lab.tfplan"
+        run: |
+          set -euo pipefail
+          if ! terraform apply -input=false -auto-approve \
+            "$RUNNER_TEMP/sre-demo-lab.tfplan" \
+            >"$RUNNER_TEMP/sre-demo-lab-apply.log" 2>&1; then
+            echo "scenario-lab Terraform apply failed; raw output remains runner-local." >&2
+            exit 1
+          fi
+          echo "scenario-lab Terraform apply completed."
 
       - name: Configure private AKS test substrate
         if: inputs.action == 'apply'
@@ -256,27 +325,116 @@ jobs:
       - name: Run approved reference sweep
         if: inputs.action == 'apply' && inputs.run_reference_sweep
         working-directory: ${{ github.workspace }}
+        env:
+          FDAI_ENFORCE_REPORT_ROOT: ${{ runner.temp }}/sre-demo-lab-report
         run: >-
           bash scripts/deployment/scenario-lab/run-reference-sweep.sh
           "${{ steps.prepare.outputs.environment_file }}"
 
+      - name: Project repository-safe sweep evidence
+        if: always() && inputs.action == 'apply' && inputs.run_reference_sweep
+        working-directory: ${{ github.workspace }}
+        env:
+          FDAI_ENFORCE_REPORT_ROOT: ${{ runner.temp }}/sre-demo-lab-report
+          TARGET_COMMIT_SHA: ${{ inputs.commit_sha }}
+        run: |
+          set -euo pipefail
+          report="$FDAI_ENFORCE_REPORT_ROOT/report.json"
+          summary="$RUNNER_TEMP/sre-demo-lab-summary.json"
+          [[ -f "$report" ]] || exit 0
+          approval_ref_digest="$(printf '%s' "$SCENARIO_LAB_APPROVAL_REF" | sha256sum | cut -d' ' -f1)"
+          jq \
+            --arg source_commit "$TARGET_COMMIT_SHA" \
+            --arg workflow_run_id "$GITHUB_RUN_ID" \
+            --arg workflow_run_attempt "$GITHUB_RUN_ATTEMPT" \
+            --arg approval_ref_digest "$approval_ref_digest" \
+            --arg expires_at_utc "$TF_VAR_expires_at_utc" \
+            '{
+              schema_version: 1,
+              source_commit: $source_commit,
+              workflow_run_id: $workflow_run_id,
+              workflow_run_attempt: $workflow_run_attempt,
+              approval_ref_digest: $approval_ref_digest,
+              expires_at_utc: $expires_at_utc,
+              runs: [.runs[] | {
+                scenario_id,
+                outcome,
+                detected,
+                reverted,
+                elapsed_seconds,
+                error_type: ((.error // "") | split(":")[0] | if length > 0 then . else null end)
+              }]
+            }' "$report" >"$summary"
+          jq -r '.runs[] | "\(.scenario_id): \(.outcome), detected=\(.detected), reverted=\(.reverted)"' \
+            "$summary" >>"$GITHUB_STEP_SUMMARY"
+
+      - name: Verify reference sweep outcomes
+        if: inputs.action == 'apply' && inputs.run_reference_sweep
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          summary="$RUNNER_TEMP/sre-demo-lab-summary.json"
+          jq -e '
+            (.runs | length) == 10 and
+            all(.runs[]; .outcome == "validated" and .detected == true and .reverted == true)
+          ' "$summary" >/dev/null || {
+            echo "reference sweep did not validate and revert all ten scenarios." >&2
+            exit 1
+          }
+
+      - name: Upload repository-safe sweep evidence
+        if: always() && inputs.action == 'apply' && inputs.run_reference_sweep
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sre-demo-lab-summary-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/sre-demo-lab-summary.json
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Destroy exact lab state
         if: inputs.action == 'destroy'
-        run: terraform apply -input=false -auto-approve "$RUNNER_TEMP/sre-demo-lab.tfplan"
+        run: |
+          set -euo pipefail
+          if ! terraform apply -input=false -auto-approve \
+            "$RUNNER_TEMP/sre-demo-lab.tfplan" \
+            >"$RUNNER_TEMP/sre-demo-lab-destroy.log" 2>&1; then
+            echo "scenario-lab Terraform destroy failed; raw output remains runner-local." >&2
+            exit 1
+          fi
+          echo "scenario-lab Terraform destroy completed."
 
       - name: Clean runner artifacts
         if: always()
         working-directory: ${{ github.workspace }}
+        env:
+          FDAI_ENFORCE_REPORT_ROOT: ${{ runner.temp }}/sre-demo-lab-report
         run: |
           set -euo pipefail
           runtime_dir="$RUNNER_TEMP/sre-demo-lab-runtime"
           if [[ -d "$runtime_dir" ]]; then
             bash scripts/deployment/scenario-lab/cleanup-runner.sh "$runtime_dir"
           fi
+          if [[ -d "$FDAI_ENFORCE_REPORT_ROOT" ]]; then
+            find "$FDAI_ENFORCE_REPORT_ROOT" -type f -exec shred --force --remove {} +
+            rm -rf -- "$FDAI_ENFORCE_REPORT_ROOT"
+          fi
           for artifact in \
             "$RUNNER_TEMP/sre-demo-lab.tfplan" \
-            "$RUNNER_TEMP/sre-demo-lab-plan.json"; do
+            "$RUNNER_TEMP/sre-demo-lab-plan.json" \
+            "$RUNNER_TEMP/sre-demo-lab-plan.log" \
+            "$RUNNER_TEMP/sre-demo-lab-apply.log" \
+            "$RUNNER_TEMP/sre-demo-lab-destroy.log"; do
             if [[ -f "$artifact" ]]; then
               shred --force --remove "$artifact"
             fi
           done
+
+      - name: Revoke bounded scenario-lab deployment authority
+        if: always() && inputs.action != 'plan' && steps.deployment-authority.outputs.remove_after_run == 'true'
+        working-directory: ${{ runner.temp }}
+        env:
+          ROLE_ASSIGNMENT_ID: ${{ steps.deployment-authority.outputs.role_assignment_id }}
+        run: >-
+          az role assignment delete
+          --ids "$ROLE_ASSIGNMENT_ID"
+          --only-show-errors

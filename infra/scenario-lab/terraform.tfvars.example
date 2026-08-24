@@ -1,6 +1,7 @@
 region         = "<azure-region>"
 region_short   = "<region-token>"
 expires_at_utc = "<yyyy-mm-ddThh:mm:ssZ>"
+resource_group_name = "<scenario-lab-holding-resource-group>"
 
 runner_vnet = {
   id                  = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/<ops-rg>/providers/Microsoft.Network/virtualNetworks/<ops-vnet>"

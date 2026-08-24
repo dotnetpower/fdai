@@ -1,35 +1,35 @@
 resource "azurerm_virtual_network" "scenario_lab" {
   name                = "vnet-${local.suffix}"
-  location            = azurerm_resource_group.scenario_lab.location
-  resource_group_name = azurerm_resource_group.scenario_lab.name
+  location            = data.azurerm_resource_group.scenario_lab.location
+  resource_group_name = data.azurerm_resource_group.scenario_lab.name
   address_space       = var.lab_address_space
   tags                = local.tags
 }
 
 resource "azurerm_network_security_group" "scenario_lab" {
   name                = "nsg-${local.suffix}"
-  location            = azurerm_resource_group.scenario_lab.location
-  resource_group_name = azurerm_resource_group.scenario_lab.name
+  location            = data.azurerm_resource_group.scenario_lab.location
+  resource_group_name = data.azurerm_resource_group.scenario_lab.name
   tags                = local.tags
 }
 
 resource "azurerm_subnet" "aks" {
   name                 = "snet-aks"
-  resource_group_name  = azurerm_resource_group.scenario_lab.name
+  resource_group_name  = data.azurerm_resource_group.scenario_lab.name
   virtual_network_name = azurerm_virtual_network.scenario_lab.name
   address_prefixes     = [var.aks_subnet_prefix]
 }
 
 resource "azurerm_subnet" "stress_vm" {
   name                 = "snet-stress-vm"
-  resource_group_name  = azurerm_resource_group.scenario_lab.name
+  resource_group_name  = data.azurerm_resource_group.scenario_lab.name
   virtual_network_name = azurerm_virtual_network.scenario_lab.name
   address_prefixes     = [var.vm_subnet_prefix]
 }
 
 resource "azurerm_subnet" "mysql" {
   name                 = "snet-mysql"
-  resource_group_name  = azurerm_resource_group.scenario_lab.name
+  resource_group_name  = data.azurerm_resource_group.scenario_lab.name
   virtual_network_name = azurerm_virtual_network.scenario_lab.name
   address_prefixes     = [var.mysql_subnet_prefix]
 
@@ -45,7 +45,7 @@ resource "azurerm_subnet" "mysql" {
 
 resource "azurerm_subnet" "private_endpoints" {
   name                              = "snet-private-endpoints"
-  resource_group_name               = azurerm_resource_group.scenario_lab.name
+  resource_group_name               = data.azurerm_resource_group.scenario_lab.name
   virtual_network_name              = azurerm_virtual_network.scenario_lab.name
   address_prefixes                  = [var.private_endpoint_subnet_prefix]
   private_endpoint_network_policies = "Disabled"
@@ -65,8 +65,8 @@ resource "azurerm_subnet_network_security_group_association" "scenario_lab" {
 
 resource "azurerm_public_ip" "egress" {
   name                = "pip-${local.suffix}-egress"
-  location            = azurerm_resource_group.scenario_lab.location
-  resource_group_name = azurerm_resource_group.scenario_lab.name
+  location            = data.azurerm_resource_group.scenario_lab.location
+  resource_group_name = data.azurerm_resource_group.scenario_lab.name
   allocation_method   = "Static"
   sku                 = "Standard"
   tags                = local.tags
@@ -78,8 +78,8 @@ resource "azurerm_public_ip" "egress" {
 
 resource "azurerm_nat_gateway" "egress" {
   name                    = "nat-${local.suffix}"
-  location                = azurerm_resource_group.scenario_lab.location
-  resource_group_name     = azurerm_resource_group.scenario_lab.name
+  location                = data.azurerm_resource_group.scenario_lab.location
+  resource_group_name     = data.azurerm_resource_group.scenario_lab.name
   sku_name                = "Standard"
   idle_timeout_in_minutes = 10
   tags                    = local.tags

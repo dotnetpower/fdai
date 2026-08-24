@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 61e93859e903df8bd2dfc7d056f84b3803d0785b
+translation_source_sha: 38da0e918de0a838438baefee973d3368584bca9
 translation_revised: 2026-08-23
 ---
 # 콘솔 근거 및 복원력
@@ -547,9 +547,8 @@ Bragi global 안전성 프롬프트 뒤에서 서버가 소유한 charter를 받
 에이전트 서술 자체는 근거 출처가 아닙니다. Atomic 점유는 별도로 귀속된 기여자
 사실을 포함한 에이전트 사실 leaf를 런타임 제공 참조에 rooted된 고유 JSON 포인터에 연결합니다.
 
-인시던트 title도 서버 소유 근거입니다. 읽기 변환 결과는 기록된 title, 요약 또는 룰
-필드를 우선 사용한 뒤 길이가 제한된 신호 및 리소스 상관관계 키를 사용합니다. 빈 값,
-`None`, `null` 상관관계 표시는 결측으로 처리하며 브라우저는 인시던트 대상을 만들지 않습니다.
+인시던트 제목은 서버 소유 근거입니다. 읽기 변환 결과는 기록된 제목, 요약 또는 룰과 범위가 제한된 신호 및 리소스 상관관계 키를 우선 사용하며 빈 값, `None`, `null` 표시는 결측으로 처리합니다.
+브라우저는 대상을 만들지 않습니다. 인시던트 상세 화면은 운영자용 `incident_number`를 인시던트 번호로, 정규 `incident_id`를 인시던트 ID로 표시하며 현지화 과정에서 두 값을 혼동하지 않습니다.
 
 선택한 인시던트 상세 화면은 수명 주기 요약과 불러온 감사 이력에서만 파생한 운영자용 현재
 상황을 가장 먼저 표시합니다. Raw `pending`, `unknown`, `shadow` 값을 하나의 상태처럼 보여주지 않고

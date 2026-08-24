@@ -15,8 +15,8 @@ resource "azurerm_kubernetes_cluster" "scenario_lab" {
   # checkov:skip=CKV_AZURE_172:The lab mounts no Key Vault secrets through the CSI driver.
   # checkov:skip=CKV_AZURE_171:AzureRM 4.x uses automatic_upgrade_channel; this check still reads the retired attribute name.
   name                                = "aks-${local.suffix}"
-  location                            = azurerm_resource_group.scenario_lab.location
-  resource_group_name                 = azurerm_resource_group.scenario_lab.name
+  location                            = data.azurerm_resource_group.scenario_lab.location
+  resource_group_name                 = data.azurerm_resource_group.scenario_lab.name
   dns_prefix                          = "aks-${local.suffix}"
   private_cluster_enabled             = true
   private_cluster_public_fqdn_enabled = true

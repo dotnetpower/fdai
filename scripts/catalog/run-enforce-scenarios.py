@@ -128,7 +128,14 @@ AOAI_ENDPOINT = _env("FDAI_ENFORCE_AOAI_ENDPOINT")
 AOAI_DEPLOYMENT = _env("FDAI_ENFORCE_AOAI_DEPLOYMENT")
 APPROVAL_REF = _env("FDAI_ENFORCE_APPROVAL_REF")
 
-REPORT_ROOT = Path("logs/enforce-runs") / datetime.now(tz=UTC).strftime("%Y%m%dT%H%M%SZ")
+report_root_override = os.environ.get("FDAI_ENFORCE_REPORT_ROOT")
+REPORT_ROOT = (
+    Path(report_root_override)
+    if report_root_override
+    else Path("logs/enforce-runs") / datetime.now(tz=UTC).strftime("%Y%m%dT%H%M%SZ")
+)
+if report_root_override and (not REPORT_ROOT.is_absolute() or REPORT_ROOT == Path("/")):
+    raise SystemExit("FDAI_ENFORCE_REPORT_ROOT must be an absolute non-root path")
 REPORT_ROOT.mkdir(parents=True, exist_ok=True)
 
 

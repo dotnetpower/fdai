@@ -37,8 +37,7 @@ terraform_output="$(terraform -chdir="$terraform_root" output -json enforce_envi
 subscription_id="$(jq -er '.subscription_id' <<<"$terraform_output")"
 resource_group="$(jq -er '.resource_group' <<<"$terraform_output")"
 aks_cluster_name="$(jq -er '.aks_cluster_name' <<<"$terraform_output")"
-key_vault_name="$(jq -er '.key_vault_name' <<<"$terraform_output")"
-mysql_password_secret="$(jq -er '.mysql_password_secret' <<<"$terraform_output")"
+vm_name="$(jq -er '.vm_name' <<<"$terraform_output")"
 
 active_subscription="$(az account show --query id --output tsv --only-show-errors)"
 if [[ "$active_subscription" != "$subscription_id" ]]; then
@@ -92,12 +91,20 @@ kubectl --namespace fdai-sre-demo expose deployment api-backend \
   | kubectl apply --filename=-
 kubectl --namespace fdai-sre-demo rollout status deployment/api-backend --timeout=10m
 
-az keyvault secret show \
-  --vault-name "$key_vault_name" \
-  --name "$mysql_password_secret" \
-  --query value \
+cloud_init_status="$(az vm run-command invoke \
+  --resource-group "$resource_group" \
+  --name "$vm_name" \
+  --command-id RunShellScript \
+  --scripts 'cloud-init status --wait --long' \
+  --query 'value[0].message' \
   --output tsv \
-  --only-show-errors >"$password_file"
+  --only-show-errors)"
+grep -Fq 'status: done' <<<"$cloud_init_status" || {
+  echo "prepare-runner: private stress VM cloud-init did not complete." >&2
+  exit 1
+}
+
+jq -er '.mysql_password' <<<"$terraform_output" >"$password_file"
 chmod 600 "$password_file"
 
 write_export() {
@@ -116,7 +123,7 @@ write_export FDAI_ENFORCE_CHAOS_NS "$(jq -er '.chaos_namespace' <<<"$terraform_o
 write_export FDAI_ENFORCE_BACKEND_DEPLOY "$(jq -er '.backend_deployment' <<<"$terraform_output")"
 write_export FDAI_ENFORCE_BACKEND_SVC "$(jq -er '.backend_service' <<<"$terraform_output")"
 write_export FDAI_ENFORCE_BACKEND_LABEL "$(jq -er '.backend_label' <<<"$terraform_output")"
-write_export FDAI_ENFORCE_VM "$(jq -er '.vm_name' <<<"$terraform_output")"
+write_export FDAI_ENFORCE_VM "$vm_name"
 write_export FDAI_ENFORCE_MYSQL_HOST "$(jq -er '.mysql_host' <<<"$terraform_output")"
 write_export FDAI_ENFORCE_MYSQL_USER "$(jq -er '.mysql_user' <<<"$terraform_output")"
 write_export FDAI_ENFORCE_MYSQL_SERVER "$(jq -er '.mysql_server' <<<"$terraform_output")"

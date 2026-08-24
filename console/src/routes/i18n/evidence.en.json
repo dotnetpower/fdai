@@ -158,6 +158,7 @@
   },
   "incidents": {
     "verticalFilter": "Vertical",
+    "incidentNumber": "Incident number",
     "notLoaded": "Incident {id} is not in the loaded results.",
     "continueSearch": "Load more to continue the search.",
     "filteredUnavailable": "It is unavailable in this filtered incident result.",

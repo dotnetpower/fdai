@@ -1,18 +1,22 @@
 # SRE Demo Scenario Lab
 
 This Terraform root creates a disposable, non-production Azure target for the ten reference fault
-scenarios that cover S1-S12. It is separate from the FDAI application deployment and does not
-promote a scenario, grant standing execution authority, or prove a live outcome by itself.
+scenarios that cover S1-S12. Its child resources use an existing protected holding resource group,
+but remain isolated in one Terraform state and tagged resource set. It is separate from the FDAI
+application deployment and does not promote a scenario, grant standing execution authority, or
+prove a live outcome by itself.
 
 ## Scope
 
-The root creates these resources in one isolated resource group and one remote state key:
+The root creates these resources under one protected holding resource group and one remote state
+key. Destroy removes only the child resources in this state; it never deletes the holding group or
+unrelated resources in that group.
 
 | Area | Resources |
 |------|-----------|
 | Compute | One-node private AKS cluster, Chaos Mesh installed after apply, three-replica NGINX backend, private Linux stress VM |
 | Data and AI | Private MySQL Flexible Server, private Azure OpenAI account and one deployment |
-| Security | Private Key Vault, generated MySQL password, managed-identity role assignments, no VM public IP |
+| Security | Generated MySQL password in encrypted private state and a mode-0600 runner file, managed-identity role assignments, no VM public IP |
 | Network | Isolated VNet, delegated and private-endpoint subnets, egress-only NAT gateway, bidirectional peering to the VNet-integrated deploy runner |
 | Evidence | Log Analytics, Application Insights, AKS monitoring, MySQL and Azure OpenAI metrics |
 
@@ -25,7 +29,10 @@ paths, while S14 uses the existing alert ingress and investigation path.
 Use the existing self-hosted runner labeled `fdai-deploy`. The runner must have `az`, `terraform`,
 `kubectl`, `helm`, and `jq`, and must reach the private state account and the peered lab VNet.
 Its managed identity needs Network Contributor on the operations resource group for the reverse
-VNet peering, plus Contributor and User Access Administrator on the scenario-lab resource group.
+VNet peering, Storage Blob Data Contributor on the private state account, and RBAC Administrator
+for the bounded role assignments. Protected apply and destroy grant Contributor only on the
+configured holding resource group for the run, then remove that assignment when the workflow
+created it.
 
 Configure these repository variables before running the workflow:
 
@@ -34,6 +41,7 @@ Configure these repository variables before running the workflow:
 | `ARM_SUBSCRIPTION_ID`, `AZURE_TENANT_ID` | Exact Azure deployment context |
 | `STATE_RESOURCE_GROUP`, `STATE_STORAGE_ACCOUNT` | Private Terraform state backend |
 | `AZURE_REGION`, `AZURE_REGION_SHORT` | Target region and CAF naming token |
+| `SCENARIO_LAB_RESOURCE_GROUP_NAME` | Existing protected holding resource group for disposable child resources |
 | `OPS_VNET_ID`, `OPS_VNET_NAME`, `OPS_RESOURCE_GROUP_NAME` | Existing runner VNet peering target |
 | `SCENARIO_LAB_SSH_PUBLIC_KEY` | Public key for the private stress VM |
 | `SCENARIO_LAB_VM_IMAGE_VERSION` | Exact region-available Ubuntu image version |
@@ -63,8 +71,8 @@ commit already present on protected `main`:
 ## Test from the operator PC
 
 Set `enable_vpn_operator_access=true` on the plan and apply runs to add direct peering, gateway
-transit, private DNS links, and minimum operator roles. Public access for AKS, Key Vault, MySQL,
-and Azure OpenAI remains disabled.
+transit, private DNS links, and minimum operator roles. Public access for AKS, MySQL, and Azure
+OpenAI remains disabled.
 
 After apply, regenerate the P2S profile so the client receives the lab route and private service
 suffixes. First initialize the workstation root against the same private state key used by the
@@ -118,9 +126,9 @@ bash scripts/deployment/scenario-lab/cleanup-runner.sh "$runtime_dir"
 Run `cleanup-runner.sh` in a shell trap when iterating manually so the temporary kubeconfig and
 MySQL password are removed after failures too.
 
-The state key is `scenario-lab/fdai-sre-lab.tfstate`. Terraform plans, kubeconfig, and temporary
-secret files are shredded from the runner. Raw run reports remain under `logs/enforce-runs/` and
-follow the repository's private evidence retention boundary.
+The state key is `scenario-lab/fdai-sre-lab.tfstate`. Terraform plans, kubeconfig, temporary secret
+files, and raw reports are shredded from the runner. The workflow retains only a repository-safe
+summary artifact with no environment identifiers or secret values.
 
 ## Safety boundary
 
@@ -128,9 +136,15 @@ follow the repository's private evidence retention boundary.
   `scenario-lab` environment.
 - A live sweep requires both `SCENARIO_LAB_CONFIRM_ENFORCE=true` and a bounded human approval
   reference. The approval reference is recorded in every run result.
-- Terraform generates the MySQL password and stores it in private state and Key Vault. It is never
-  a Terraform output, workflow input, command-line argument, or committed value.
+- Terraform generates the MySQL password inside encrypted private state. The sensitive composite
+  output is read only on the private runner and writes the value directly to a mode-0600 temporary
+  file; it is never a workflow input, command-line argument, repository-safe artifact, or committed
+  value. No persistent secret store is created solely for the fault sweep.
+- The default lab VNet uses `10.73.0.0/20`; change it only after checking every peered and local
+  address space for overlap.
 - The expiry tag supports cost review but does not delete resources automatically. Explicit
   destroy remains required so cleanup is reviewable and state-consistent.
+- Raw plan, apply, destroy, and enforce reports remain runner-local and are shredded. The workflow
+  retains only a repository-safe summary of scenario outcomes and rollback status.
 - No live Azure plan, apply, fault injection, or destroy is evidence for this source change until
   it runs against an exact committed revision and its receipts are retained.

@@ -24,6 +24,16 @@ variable "region_short" {
   }
 }
 
+variable "resource_group_name" {
+  description = "Existing protected holding resource group for disposable scenario resources."
+  type        = string
+
+  validation {
+    condition     = trimspace(var.resource_group_name) != ""
+    error_message = "resource_group_name must be non-empty."
+  }
+}
+
 variable "expires_at_utc" {
   description = "RFC 3339 expiry recorded on every lab resource for cost and cleanup review."
   type        = string
@@ -154,31 +164,31 @@ variable "azure_openai_capacity_tpm" {
 variable "lab_address_space" {
   description = "Address space for the isolated scenario-lab VNet."
   type        = list(string)
-  default     = ["10.42.0.0/20"]
+  default     = ["10.73.0.0/20"]
 }
 
 variable "aks_subnet_prefix" {
   description = "AKS node subnet prefix."
   type        = string
-  default     = "10.42.0.0/22"
+  default     = "10.73.0.0/22"
 }
 
 variable "vm_subnet_prefix" {
   description = "Private stress-host subnet prefix."
   type        = string
-  default     = "10.42.4.0/24"
+  default     = "10.73.4.0/24"
 }
 
 variable "mysql_subnet_prefix" {
   description = "Delegated MySQL subnet prefix."
   type        = string
-  default     = "10.42.5.0/24"
+  default     = "10.73.5.0/24"
 }
 
 variable "private_endpoint_subnet_prefix" {
   description = "Private endpoint subnet prefix."
   type        = string
-  default     = "10.42.6.0/24"
+  default     = "10.73.6.0/24"
 }
 
 variable "additional_tags" {

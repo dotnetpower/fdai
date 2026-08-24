@@ -1,7 +1,7 @@
 resource "azurerm_network_interface" "stress_vm" {
   name                = "nic-${local.suffix}-stress"
-  location            = azurerm_resource_group.scenario_lab.location
-  resource_group_name = azurerm_resource_group.scenario_lab.name
+  location            = data.azurerm_resource_group.scenario_lab.location
+  resource_group_name = data.azurerm_resource_group.scenario_lab.name
   tags                = local.tags
 
   ip_configuration {
@@ -20,8 +20,8 @@ resource "azurerm_linux_virtual_machine" "stress" {
   # checkov:skip=CKV_AZURE_50:Azure Managed Run Command is the bounded injector transport and requires VM agent operations.
   name                            = "vm-${local.suffix}-stress"
   computer_name                   = "fdai-sre-stress"
-  location                        = azurerm_resource_group.scenario_lab.location
-  resource_group_name             = azurerm_resource_group.scenario_lab.name
+  location                        = data.azurerm_resource_group.scenario_lab.location
+  resource_group_name             = data.azurerm_resource_group.scenario_lab.name
   size                            = var.stress_vm_size
   admin_username                  = "fdailab"
   disable_password_authentication = true

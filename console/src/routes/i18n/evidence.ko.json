@@ -158,6 +158,7 @@
   },
   "incidents": {
     "verticalFilter": "영역",
+    "incidentNumber": "인시던트 번호",
     "notLoaded": "인시던트 {id}이 로드된 결과에 없습니다.",
     "continueSearch": "검색을 계속하려면 더 불러오세요.",
     "filteredUnavailable": "이 필터 결과에서는 사용할 수 없습니다.",
