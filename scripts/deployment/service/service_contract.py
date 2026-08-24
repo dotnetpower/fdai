@@ -85,6 +85,19 @@ _EVENT_BUS_TOPIC_MIGRATION = {
             "FDAI_PANTHEON_OBJECT_TOPIC": "fdai.pantheon.objects",
         },
     },
+    "isolated-executor": {
+        "tfvars": {
+            "command": "object.executor-command",
+            "receipt": "object.executor-receipt",
+            "dlq_suffix": ".dlq",
+        },
+        "environment": {
+            "FDAI_EXECUTION_VENUE": "deployed",
+            "FDAI_EXECUTOR_COMMAND_TOPIC": "object.executor-command",
+            "FDAI_EXECUTOR_RECEIPT_TOPIC": "object.executor-receipt",
+            "KAFKA_TOPIC_DLQ_SUFFIX": ".dlq",
+        },
+    },
 }
 
 

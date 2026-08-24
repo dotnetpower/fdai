@@ -1467,6 +1467,58 @@ def test_plan_guard_rejects_invalid_database_host_binding(
         )
 
 
+def test_plan_guard_composes_executor_venue_and_database_host_binding(
+    guard: ModuleType,
+) -> None:
+    service = "isolated-executor"
+    address = "module.isolated_executor.module.container_app.azurerm_container_app.service"
+    plan = _plan(address, ["update"])
+    contract = guard.resolve_service(service, "dev")
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    for side in ("before", "after"):
+        resource = change[side]
+        resource["tags"] = {"fdai:component": service}
+        container = resource["template"][0]["container"][0]
+        container["name"] = service
+        container["command"] = [contract.entrypoint]
+        container["env"] = [
+            {"name": name, "value": "value"} for name in contract.required_environment
+        ]
+    before_environment = change["before"]["template"][0]["container"][0]["env"]
+    after_environment = change["after"]["template"][0]["container"][0]["env"]
+    expected = guard.event_bus_topic_migration(service, surface="environment")
+    for environment in (before_environment, after_environment):
+        environment[:] = [
+            item for item in environment if item["name"] not in ({"POSTGRES_HOST"} | set(expected))
+        ]
+    before_environment.append({"name": "POSTGRES_HOST", "value": "legacy.example.com"})
+    before_environment.extend(
+        {"name": name, "value": f"legacy.{index}"} for index, name in enumerate(expected, start=1)
+    )
+    after_environment.append({"name": "POSTGRES_HOST", "value": "db.example.com"})
+    after_environment.extend({"name": name, "value": value} for name, value in expected.items())
+
+    guard.validate_plan(
+        plan,
+        service=service,
+        environment="dev",
+        image_ref="image",
+        event_bus_topic_migration=True,
+        database_host_binding=True,
+    )
+
+    after_environment.append({"name": "UNREVIEWED", "value": "changed"})
+    with pytest.raises(guard.PlanGuardError, match="unapproved environment"):
+        guard.validate_plan(
+            plan,
+            service=service,
+            environment="dev",
+            image_ref="image",
+            event_bus_topic_migration=True,
+            database_host_binding=True,
+        )
+
+
 def test_plan_guard_rejects_unrelated_database_host_environment_drift(
     guard: ModuleType,
 ) -> None:
@@ -2423,6 +2475,39 @@ def test_tfvars_materializes_exact_event_bus_topic_migration(
     assert selected["event_topics"] == tfvars.event_bus_topic_migration(service, surface="tfvars")
     assert expected_topics.items() <= selected["event_topics"].items()
     assert payload["environments"]["dev"][service]["event_topics"] == legacy_topics
+
+
+def test_tfvars_materializes_executor_transport_and_venue_migration(
+    tfvars: ModuleType,
+) -> None:
+    legacy_topics = {
+        "command": "legacy.executor-command",
+        "receipt": "legacy.executor-receipt",
+        "dlq_suffix": ".legacy-dlq",
+    }
+    payload = {
+        "environments": {
+            "dev": {
+                "isolated-executor": {
+                    "name": "example",
+                    "database": {"host": "db.example.com"},
+                    "event_topics": copy.deepcopy(legacy_topics),
+                }
+            }
+        }
+    }
+
+    selected = tfvars.select_tfvars(
+        payload,
+        service="isolated-executor",
+        environment="dev",
+        migrate_event_bus_topics=True,
+    )
+
+    assert selected["event_topics"] == tfvars.event_bus_topic_migration(
+        "isolated-executor", surface="tfvars"
+    )
+    assert payload["environments"]["dev"]["isolated-executor"]["event_topics"] == legacy_topics
 
 
 def test_state_migration_resolves_exact_source_and_destination(
