@@ -164,6 +164,7 @@
       "attached_to": "연결됨",
       "depends_on": "의존",
       "routes_to": "라우팅",
+      "runtime_calls": "호출",
       "peered_with": "피어링"
     },
     "source": {
@@ -171,6 +172,7 @@
       "inventory_relationships": "인벤토리 관계",
       "fdai_audit": "FDAI 감사",
       "runtime_call_graph": "런타임 호출 그래프",
+      "postgres_role_evidence": "PostgreSQL 역할 근거",
       "azure_resource_health": "Azure Resource Health",
       "azure_activity_log": "Azure Activity Log"
     }

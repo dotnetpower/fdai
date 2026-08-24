@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from datetime import datetime
 
 from fdai_operator_service.families.operations.contracts import (
+    InventoryImpactContext,
     InventoryInstanceActivity,
     InventoryInstanceReader,
     InventoryInstanceResource,
@@ -19,7 +20,14 @@ MAX_INSTANCE_LINK_TYPES = 16
 MAX_INSTANCE_RESOURCES = 200
 MAX_INSTANCE_ACTIVITIES = 100
 MAX_INSTANCE_SEARCH_CHARS = 256
-_DEFAULT_LINK_TYPES = ("contains", "attached_to", "depends_on", "routes_to", "peered_with")
+_DEFAULT_LINK_TYPES = (
+    "contains",
+    "attached_to",
+    "depends_on",
+    "routes_to",
+    "runtime_calls",
+    "peered_with",
+)
 _ACTIVITY_FACTS = (
     "action_type",
     "decision",
@@ -182,12 +190,16 @@ async def project_inventory_instance(
                 "observed_at": _latest_activity_time(activity.activities),
                 "reason": None,
             },
-            {
-                "source": "runtime_call_graph",
-                "status": "unavailable",
-                "observed_at": None,
-                "reason": "endpoint_identity_projection_unavailable",
-            },
+            _projection_source(
+                context,
+                source="runtime_call_graph",
+                unavailable_reason="endpoint_identity_projection_unavailable",
+            ),
+            _projection_source(
+                context,
+                source="postgres_role_evidence",
+                unavailable_reason="projection_not_bound",
+            ),
             {
                 "source": "azure_resource_health",
                 "status": "unavailable",
@@ -218,6 +230,31 @@ async def project_inventory_instance(
         "truncation_reasons": truncation_reasons,
         "execution_authority": False,
         "mutation_authority": False,
+    }
+
+
+def _projection_source(
+    context: InventoryImpactContext,
+    *,
+    source: str,
+    unavailable_reason: str,
+) -> dict[str, str | None]:
+    state = next(
+        (item for item in context.projection_source_states if item.source == source),
+        None,
+    )
+    if state is None:
+        return {
+            "source": source,
+            "status": "unavailable",
+            "observed_at": None,
+            "reason": unavailable_reason,
+        }
+    return {
+        "source": state.source,
+        "status": state.status,
+        "observed_at": state.observed_at.isoformat() if state.observed_at is not None else None,
+        "reason": state.reason,
     }
 
 
@@ -373,12 +410,12 @@ def _relationship_evidence_projection(
         }
     return {
         "status": "available",
-        "evidence_kind": "configuration",
+        "evidence_kind": evidence.evidence_kind,
         "source": evidence.source_identity,
         "source_property_path": evidence.source_property_path,
         "mapping_id": evidence.mapping_id,
         "evidence_method": evidence.evidence_method,
-        "cutoff": cutoff.isoformat(),
+        "cutoff": (evidence.evidence_cutoff or cutoff).isoformat(),
         "freshness_ceiling_seconds": evidence.freshness_ceiling_seconds,
         "complete": True,
         "reason": None,

@@ -28,6 +28,7 @@ from fdai.shared.providers.inventory_snapshot import (
     InventoryCoverageManifest,
     InventoryObservationKind,
 )
+from fdai.shared.providers.state_evidence import LINK_OBSERVATION_METADATA_PROPERTY
 
 _PROMOTION_LOCK: Final[int] = 732_410_991
 _MAX_GRAPH_ROWS: Final[int] = 5000
@@ -315,7 +316,7 @@ def _canonical_json_mapping(value: object, field: str) -> str:
 
 
 def _snapshot_relationship_props(link: LinkRecord) -> Mapping[str, object]:
-    """Retain reviewed mapping evidence without exposing provider payloads."""
+    """Retain reviewed mapping or observation evidence without provider payloads."""
 
     properties: dict[str, object] = dict(link.link_props)
     evidence = link.mapping_evidence
@@ -332,6 +333,8 @@ def _snapshot_relationship_props(link: LinkRecord) -> Mapping[str, object]:
             "freshness_ceiling_seconds": evidence.freshness_ceiling_seconds,
             "observation_receipt_ref": evidence.observation_receipt_ref,
         }
+    if link.observation_metadata is not None:
+        properties[LINK_OBSERVATION_METADATA_PROPERTY] = link.observation_metadata.to_mapping()
     return properties
 
 

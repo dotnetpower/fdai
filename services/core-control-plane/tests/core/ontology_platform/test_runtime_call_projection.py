@@ -45,6 +45,7 @@ def _observation(**changes: object) -> RuntimeCallObservation:
         "source_identity": "telemetry.runtime-calls",
         "source_revision": "1.0.0",
         "evidence_ref": "telemetry:runtime-call:one",
+        "authentication_ref": "sha256:" + "1" * 64,
         "execution_authority": False,
         "mutation_authority": False,
     }
@@ -121,7 +122,10 @@ def test_exact_fresh_endpoints_project_one_verified_authority_free_edge() -> Non
     assert metadata.verification_method == "deterministic-cross-check"
     assert metadata.state_fact.lane is StateFactLane.OBSERVED
     assert metadata.state_fact.authority is StateFactAuthority.TELEMETRY
-    assert metadata.state_fact.evidence_refs == ("telemetry:runtime-call:one",)
+    assert metadata.state_fact.evidence_refs == (
+        "sha256:" + "1" * 64,
+        "telemetry:runtime-call:one",
+    )
     assert metadata.inventory_generation == "inventory:generation-one"
     assert metadata.verification_receipt_ref is not None
 
@@ -253,6 +257,14 @@ def test_unbounded_freshness_is_rejected() -> None:
         _observation(freshness_ceiling_seconds=31_536_001)
 
 
-def test_source_cannot_verify_its_own_observation() -> None:
+@pytest.mark.parametrize(
+    "verifier_identity",
+    (
+        "telemetry.runtime-calls",
+        "TELEMETRY.RUNTIME-CALLS",
+        " telemetry.runtime-calls ",
+    ),
+)
+def test_source_cannot_verify_its_own_observation(verifier_identity: str) -> None:
     with pytest.raises(ValueError, match="independent verifier"):
-        _project(_observation(), verifier_identity="telemetry.runtime-calls")
+        _project(_observation(), verifier_identity=verifier_identity)

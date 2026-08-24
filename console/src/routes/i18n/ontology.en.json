@@ -164,6 +164,7 @@
       "attached_to": "Attached to",
       "depends_on": "Depends on",
       "routes_to": "Routes to",
+      "runtime_calls": "Calls",
       "peered_with": "Peered with"
     },
     "source": {
@@ -171,6 +172,7 @@
       "inventory_relationships": "Inventory relationships",
       "fdai_audit": "FDAI audit",
       "runtime_call_graph": "Runtime call graph",
+      "postgres_role_evidence": "PostgreSQL role evidence",
       "azure_resource_health": "Azure Resource Health",
       "azure_activity_log": "Azure Activity Log"
     }

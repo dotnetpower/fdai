@@ -58,6 +58,16 @@ class InventoryRelationshipDropClassification:
 
 
 @dataclass(frozen=True, slots=True)
+class InventoryProjectionSourceState:
+    """One sanitized independently collected inventory projection source state."""
+
+    source: str
+    status: str
+    observed_at: datetime | None
+    reason: str | None
+
+
+@dataclass(frozen=True, slots=True)
 class InventoryImpactContext:
     """Exact active inventory generation and its authoritative observation cutoff."""
 
@@ -65,6 +75,7 @@ class InventoryImpactContext:
     observed_at: datetime
     relationship_drop_reasons: tuple[str, ...] = ()
     relationship_drop_classifications: tuple[InventoryRelationshipDropClassification, ...] = ()
+    projection_source_states: tuple[InventoryProjectionSourceState, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -126,6 +137,8 @@ class InventoryRelationshipEvidence:
     mapping_id: str
     evidence_method: str
     freshness_ceiling_seconds: int
+    evidence_kind: str = "configuration"
+    evidence_cutoff: datetime | None = None
 
 
 @dataclass(frozen=True, slots=True)

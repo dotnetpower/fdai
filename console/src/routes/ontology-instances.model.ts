@@ -90,7 +90,7 @@ export function ontologyInstanceAutocompleteSuggestions(
 export interface OntologyInstanceLink {
   readonly source: string;
   readonly target: string;
-  readonly link_type: "contains" | "attached_to" | "depends_on" | "routes_to" | "peered_with";
+  readonly link_type: "contains" | "attached_to" | "depends_on" | "routes_to" | "runtime_calls" | "peered_with";
   readonly evidence: OntologyInstanceRelationshipEvidence;
 }
 
@@ -135,6 +135,7 @@ export interface OntologyRelationshipDropClassification {
     | "source_outside_active_generation"
     | "target_outside_active_generation"
     | "target_provider_type_unmodeled"
+    | "authorization_child_scope_unmodeled"
     | "unclassified";
   readonly count: number;
 }
@@ -284,6 +285,7 @@ const INSTANCE_LINK_TYPES = new Set([
   "attached_to",
   "depends_on",
   "routes_to",
+  "runtime_calls",
   "peered_with",
 ]);
 
@@ -466,6 +468,7 @@ function decodeRelationshipDropClassification(
     "source_outside_active_generation",
     "target_outside_active_generation",
     "target_provider_type_unmodeled",
+    "authorization_child_scope_unmodeled",
     "unclassified",
   ].includes(unavailableReason)) {
     throw new Error("relationship unavailable reason is invalid");

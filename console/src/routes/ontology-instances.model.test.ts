@@ -71,6 +71,7 @@ function payload(): Record<string, unknown> {
       { source: "inventory_relationships", status: "available", observed_at: "2026-08-22T00:00:00+00:00", reason: null },
       { source: "fdai_audit", status: "available", observed_at: "2026-08-22T00:00:00+00:00", reason: null },
       { source: "runtime_call_graph", status: "unavailable", observed_at: null, reason: "endpoint_identity_projection_unavailable" },
+      { source: "postgres_role_evidence", status: "unavailable", observed_at: null, reason: "projection_not_bound" },
       { source: "azure_resource_health", status: "unavailable", observed_at: null, reason: "projection_not_bound" },
     ],
     complete: true,
@@ -109,6 +110,27 @@ describe("decodeOntologyInstanceExploration", () => {
 
     expect(decoded.relationship_drop_classifications).toEqual(
       value.relationship_drop_classifications,
+    );
+  });
+
+  it("accepts unavailable authorization child-scope evidence", () => {
+    const value = payload();
+    value.complete = false;
+    value.relationship_drop_reasons = ["target_type_mismatch"];
+    value.relationship_drop_classifications = [{
+      reason: "target_type_mismatch",
+      mapping_id: "azure.role-assignment-attached-to-scope",
+      source_property_path: "properties.scope",
+      source_provider_type: "microsoft.authorization/roleassignments",
+      target_provider_type: "microsoft.management/managementgroups",
+      unavailable_reason: "authorization_child_scope_unmodeled",
+      count: 1,
+    }];
+
+    const decoded = decodeOntologyInstanceExploration(value);
+
+    expect(decoded.relationship_drop_classifications[0]?.unavailable_reason).toBe(
+      "authorization_child_scope_unmodeled",
     );
   });
 

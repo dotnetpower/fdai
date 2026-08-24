@@ -2686,6 +2686,73 @@ def test_reviewed_mapping_projects_providerless_role_assignment_scope(
     ] == [(to_neutral_id(scope_id), expected_type)]
 
 
+@pytest.mark.parametrize(
+    "child_scope_id",
+    (
+        (
+            "/subscriptions/00000000-0000-0000-0000-000000000001/"
+            "resourceGroups/rg-example/providers/Microsoft.Storage/"
+            "storageAccounts/storage-example/blobServices/default/containers/container-example"
+        ),
+        "/providers/Microsoft.Management/managementGroups/example-group",
+    ),
+)
+def test_reviewed_mapping_classifies_unmodeled_authorization_child_scope(
+    child_scope_id: str,
+) -> None:
+    from pathlib import Path
+
+    from fdai.delivery.azure.arg_projection import (
+        arm_id_to_type,
+        build_arm_to_neutral_map,
+        to_neutral_id,
+    )
+    from fdai.delivery.azure.arg_relationships import project_provider_relationships
+    from fdai.rule_catalog.schema.provider_relationship_mapping import (
+        load_provider_relationship_mapping_catalog,
+    )
+    from fdai.shared.providers.inventory import (
+        RelationshipDropReason,
+        RelationshipUnavailableReason,
+    )
+
+    catalog = load_provider_relationship_mapping_catalog(
+        Path("rule-catalog/vocabulary/provider-relationship-mappings")
+    )
+    assignment_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/providers/"
+        "Microsoft.Authorization/roleAssignments/"
+        "00000000-0000-0000-0000-000000000002"
+    )
+    owner = ResourceRecord(
+        resource_id=to_neutral_id(assignment_id),
+        type="authorization.role-assignment",
+        provider_ref=assignment_id,
+    )
+
+    result = project_provider_relationships(
+        {
+            "id": assignment_id,
+            "type": "Microsoft.Authorization/roleAssignments",
+            "properties": {"scope": child_scope_id},
+        },
+        owner=owner,
+        arm_to_neutral=build_arm_to_neutral_map(_vocab()),
+        catalog=catalog,
+        arm_id_to_type=arm_id_to_type,
+        to_neutral_id=to_neutral_id,
+    )
+
+    assert result.links == ()
+    assert len(result.dropped) == 1
+    assert result.dropped[0].reason is RelationshipDropReason.TARGET_TYPE_MISMATCH
+    assert result.dropped[0].mapping_id == "azure.role-assignment-attached-to-scope"
+    assert (
+        result.dropped[0].unavailable_reason
+        is RelationshipUnavailableReason.AUTHORIZATION_CHILD_SCOPE_UNMODELED
+    )
+
+
 def test_reviewed_mapping_projects_private_dns_zone_group_closure() -> None:
     from pathlib import Path
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import inspect
 import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -35,6 +36,7 @@ from fdai.delivery.inventory_sync_cli import (
     _resolve_resource_types,
     _run_due_once,
     _workload_identity,
+    run,
 )
 from fdai.delivery.operational_activity import EventBusOperationalActivityPublisher
 from fdai.delivery.persistence.postgres_inventory_reconciliation import (
@@ -153,6 +155,13 @@ def test_job_config_defaults_to_arg_then_arm() -> None:
     assert config.recovery_delta_enabled is True
     assert config.snapshot_policy("arg").max_requests_per_window == 180
     assert config.collection_policy is not None
+
+
+def test_inventory_run_exposes_pre_promotion_single_writer_enrichment() -> None:
+    parameter = inspect.signature(run).parameters["promotion_enricher"]
+
+    assert parameter.kind is inspect.Parameter.KEYWORD_ONLY
+    assert parameter.default is None
 
 
 async def test_inventory_job_selects_only_the_venue_specific_identity(

@@ -69,6 +69,7 @@ class RelationshipDropReason(StrEnum):
 class RelationshipUnavailableReason(StrEnum):
     """Stable reason that a suppressed relationship cannot become an active edge."""
 
+    AUTHORIZATION_CHILD_SCOPE_UNMODELED = "authorization_child_scope_unmodeled"
     REFERENCE_NOT_OBSERVED = "reference_not_observed"
     SOURCE_OUTSIDE_ACTIVE_GENERATION = "source_outside_active_generation"
     TARGET_OUTSIDE_ACTIVE_GENERATION = "target_outside_active_generation"

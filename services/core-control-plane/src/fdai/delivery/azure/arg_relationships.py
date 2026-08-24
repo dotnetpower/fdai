@@ -36,6 +36,7 @@ ToNeutralId = Callable[[str], str]
 ExternalReferenceResolver = Callable[[str], str | None]
 _OPEN_ENV_VALUE_PATH = "properties.template.containers[].env[].value"
 _ROLE_ASSIGNMENT_PRINCIPAL_MAPPING_ID = "azure.role-assignment-attached-to-managed-identity"
+_ROLE_ASSIGNMENT_SCOPE_MAPPING_ID = "azure.role-assignment-attached-to-scope"
 
 
 @dataclass(frozen=True, slots=True)
@@ -151,9 +152,7 @@ def project_provider_relationships(
                         mapping,
                         source_provider_type=source_provider_type,
                         target_provider_type=target_provider_type,
-                        unavailable_reason=(
-                            RelationshipUnavailableReason.TARGET_PROVIDER_TYPE_UNMODELED
-                        ),
+                        unavailable_reason=_unmodeled_target_reason(mapping.mapping_id),
                     )
                 )
                 continue
@@ -173,9 +172,7 @@ def project_provider_relationships(
                         mapping,
                         source_provider_type=source_provider_type,
                         target_provider_type=target_provider_type,
-                        unavailable_reason=(
-                            RelationshipUnavailableReason.TARGET_PROVIDER_TYPE_UNMODELED
-                        ),
+                        unavailable_reason=_unmodeled_target_reason(mapping.mapping_id),
                     )
                 )
                 continue
@@ -246,6 +243,12 @@ def project_provider_relationships(
             )
         ),
     )
+
+
+def _unmodeled_target_reason(mapping_id: str) -> RelationshipUnavailableReason:
+    if mapping_id == _ROLE_ASSIGNMENT_SCOPE_MAPPING_ID:
+        return RelationshipUnavailableReason.AUTHORIZATION_CHILD_SCOPE_UNMODELED
+    return RelationshipUnavailableReason.TARGET_PROVIDER_TYPE_UNMODELED
 
 
 def _source_provider_type(

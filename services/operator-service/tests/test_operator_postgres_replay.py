@@ -14,6 +14,7 @@ from fdai_operator_service.families.operations.contracts import (
     InventoryImpactLinkPage,
     InventoryInstanceActivityPage,
     InventoryInstanceNeighborhood,
+    InventoryProjectionSourceState,
     InventoryRelationshipDropClassification,
     ProjectionNotFoundError,
     ProjectionQuery,
@@ -23,6 +24,8 @@ from fdai_operator_service.family_adapters import PostgresOperationsAdapters
 from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStore,
     PostgresFamilyStoreConfig,
+    PostgresFamilyStoreUnavailable,
+    _instance_relationship_evidence,
 )
 from fdai_service_contracts import OperatorRole
 
@@ -198,7 +201,32 @@ async def test_postgres_inventory_impact_reads_only_active_snapshot_identity_and
                                 "target_provider_type": "Microsoft.Example/targets",
                                 "unavailable_reason": "target_outside_active_generation",
                                 "count": 2,
-                            }
+                            },
+                            {
+                                "reason": "target_type_mismatch",
+                                "mapping_id": "azure.role-assignment-attached-to-scope",
+                                "source_property_path": "properties.scope",
+                                "source_provider_type": "microsoft.authorization/roleassignments",
+                                "target_provider_type": (
+                                    "microsoft.storage/storageaccounts/blobservices/containers"
+                                ),
+                                "unavailable_reason": "authorization_child_scope_unmodeled",
+                                "count": 1,
+                            },
+                        ],
+                        "derived_source_states": [
+                            {
+                                "source": "runtime_call_graph",
+                                "status": "available",
+                                "observed_at": "2026-08-19T00:00:00+00:00",
+                                "reason": None,
+                            },
+                            {
+                                "source": "postgres_role_evidence",
+                                "status": "unavailable",
+                                "observed_at": None,
+                                "reason": "database_role_observation_unavailable",
+                            },
                         ],
                     },
                 }
@@ -239,6 +267,29 @@ async def test_postgres_inventory_impact_reads_only_active_snapshot_identity_and
                 unavailable_reason="target_outside_active_generation",
                 count=2,
             ),
+            InventoryRelationshipDropClassification(
+                reason="target_type_mismatch",
+                mapping_id="azure.role-assignment-attached-to-scope",
+                source_property_path="properties.scope",
+                source_provider_type="microsoft.authorization/roleassignments",
+                target_provider_type=("microsoft.storage/storageaccounts/blobservices/containers"),
+                unavailable_reason="authorization_child_scope_unmodeled",
+                count=1,
+            ),
+        ),
+        projection_source_states=(
+            InventoryProjectionSourceState(
+                source="postgres_role_evidence",
+                status="unavailable",
+                observed_at=None,
+                reason="database_role_observation_unavailable",
+            ),
+            InventoryProjectionSourceState(
+                source="runtime_call_graph",
+                status="available",
+                observed_at=datetime(2026, 8, 19, tzinfo=UTC),
+                reason=None,
+            ),
         ),
     )
     assert exists is True
@@ -251,6 +302,54 @@ async def test_postgres_inventory_impact_reads_only_active_snapshot_identity_and
         "source_ids": ["root"],
         "link_types": ["contains"],
         "probe": 2,
+    }
+
+
+def test_runtime_call_relationship_evidence_decodes_as_observation() -> None:
+    metadata = _runtime_call_observation_metadata()
+    evidence = _instance_relationship_evidence({"link_observation_metadata": metadata})
+
+    assert evidence is not None
+    assert evidence.evidence_kind == "observation"
+    assert evidence.source_identity == "telemetry.runtime-calls"
+    assert evidence.mapping_id == "runtime-call-endpoint-identity"
+    assert evidence.evidence_cutoff == datetime(2026, 8, 24, 4, 59, tzinfo=UTC)
+
+
+def test_runtime_call_relationship_evidence_rejects_forged_authority() -> None:
+    metadata = _runtime_call_observation_metadata()
+    metadata["state_fact"]["authority"] = "execution_ledger"  # type: ignore[index]
+
+    with pytest.raises(PostgresFamilyStoreUnavailable, match="not verified"):
+        _instance_relationship_evidence({"link_observation_metadata": metadata})
+
+
+def _runtime_call_observation_metadata() -> dict[str, object]:
+    return {
+        "state_fact": {
+            "authority": "telemetry",
+            "completeness": 1.0,
+            "conflicts": [],
+            "effective_at": "2026-08-24T04:58:00Z",
+            "evidence_cutoff": "2026-08-24T04:59:00Z",
+            "evidence_refs": ["sha256:" + "1" * 64, "telemetry:runtime-call:one"],
+            "freshness_ceiling_seconds": 300,
+            "lane": "observed",
+            "recorded_at": "2026-08-24T05:00:00Z",
+            "source_identity": "telemetry.runtime-calls",
+            "source_revision": "1.0.0",
+            "synthetic": False,
+        },
+        "verification_method": "deterministic-cross-check",
+        "verified": True,
+        "verifier_identity": "inventory.endpoint-verifier",
+        "verifier_revision": "1.0.0",
+        "verification_receipt_ref": "sha256:" + "2" * 64,
+        "inventory_generation": "inventory:generation-one",
+        "mapping_id": "runtime-call-endpoint-identity",
+        "mapping_revision": "1.1.0",
+        "source_schema_version": "fdai.runtime-call-observation@1.1.0",
+        "source_schema_digest": "sha256:" + "3" * 64,
     }
 
 

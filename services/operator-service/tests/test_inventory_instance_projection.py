@@ -12,6 +12,7 @@ from fdai_operator_service.families.operations.contracts import (
     InventoryInstanceNeighborhood,
     InventoryInstanceResource,
     InventoryInstanceResourcePage,
+    InventoryProjectionSourceState,
     InventoryRelationshipDropClassification,
     InventoryRelationshipEvidence,
     ProjectionQuery,
@@ -38,6 +39,20 @@ class _Reader:
                     target_provider_type="Microsoft.Example/targets",
                     unavailable_reason="target_outside_active_generation",
                     count=2,
+                ),
+            ),
+            projection_source_states=(
+                InventoryProjectionSourceState(
+                    source="runtime_call_graph",
+                    status="available",
+                    observed_at=datetime(2026, 8, 22, 0, 57, tzinfo=UTC),
+                    reason=None,
+                ),
+                InventoryProjectionSourceState(
+                    source="postgres_role_evidence",
+                    status="unavailable",
+                    observed_at=None,
+                    reason="database_role_observation_unavailable",
                 ),
             ),
         )
@@ -299,13 +314,19 @@ async def test_instance_projection_combines_snapshot_neighborhood_and_activity()
     }
     sources = result["sources"]
     assert isinstance(sources, list)
-    assert sources[-3] == {
+    assert sources[-4] == {
         "source": "runtime_call_graph",
-        "status": "unavailable",
-        "observed_at": None,
-        "reason": "endpoint_identity_projection_unavailable",
+        "status": "available",
+        "observed_at": "2026-08-22T00:57:00+00:00",
+        "reason": None,
     }
-    assert sources[-2:] == [
+    assert sources[-3:] == [
+        {
+            "source": "postgres_role_evidence",
+            "status": "unavailable",
+            "observed_at": None,
+            "reason": "database_role_observation_unavailable",
+        },
         {
             "source": "azure_resource_health",
             "status": "unavailable",

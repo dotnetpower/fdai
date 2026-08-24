@@ -38,6 +38,13 @@ from fdai.shared.providers.inventory_snapshot import (
     InventoryCoverageManifest,
     InventoryFailureCode,
 )
+from fdai.shared.providers.state_evidence import (
+    LINK_OBSERVATION_METADATA_PROPERTY,
+    LinkObservationMetadata,
+    StateFactAuthority,
+    StateFactLane,
+    StateFactMetadata,
+)
 
 pytestmark = pytest.mark.integration
 _REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -86,6 +93,48 @@ def test_snapshot_relationship_props_retain_reviewed_configuration_evidence() ->
             "observation_receipt_ref": f"sha256:{'3' * 64}",
         }
     }
+
+
+def test_snapshot_relationship_props_retain_verified_runtime_observation() -> None:
+    recorded_at = datetime(2026, 8, 24, 5, tzinfo=UTC)
+    metadata = LinkObservationMetadata(
+        state_fact=StateFactMetadata(
+            lane=StateFactLane.OBSERVED,
+            authority=StateFactAuthority.TELEMETRY,
+            source_identity="telemetry.runtime-calls",
+            source_revision="1.0.0",
+            effective_at=recorded_at - timedelta(minutes=2),
+            recorded_at=recorded_at,
+            evidence_cutoff=recorded_at - timedelta(minutes=1),
+            freshness_ceiling_seconds=300,
+            completeness=1.0,
+            synthetic=False,
+            evidence_refs=("sha256:" + "1" * 64, "telemetry:runtime-call:one"),
+        ),
+        verification_method="deterministic-cross-check",
+        verified=True,
+        verifier_identity="inventory.endpoint-verifier",
+        verifier_revision="1.0.0",
+        verification_receipt_ref="sha256:" + "2" * 64,
+        inventory_generation="inventory:generation-one",
+        mapping_id="runtime-call-endpoint-identity",
+        mapping_revision="1.1.0",
+        source_schema_version="fdai.runtime-call-observation@1.1.0",
+        source_schema_digest="sha256:" + "3" * 64,
+    )
+
+    properties = _snapshot_relationship_props(
+        LinkRecord(
+            from_id="resource:caller",
+            from_type="container-app",
+            link_type="runtime_calls",
+            to_id="resource:target",
+            to_type="postgres-flexible",
+            observation_metadata=metadata,
+        )
+    )
+
+    assert properties == {LINK_OBSERVATION_METADATA_PROPERTY: metadata.to_mapping()}
 
 
 def _dsn() -> str:

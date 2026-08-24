@@ -36,6 +36,7 @@ from fdai.delivery.inventory_job_config import (
 )
 from fdai.delivery.inventory_scheduler import CollectionScheduleDecision
 from fdai.delivery.inventory_sync import (
+    InventoryPromotionEnricher,
     InventoryPromotionObserver,
     InventorySyncCoordinator,
     PromotedInventoryObservation,
@@ -69,6 +70,7 @@ from fdai.delivery.persistence.postgres_topology_history import (
     PostgresTopologyHistoryStoreConfig,
 )
 from fdai.delivery.repo_assets import repo_asset_root
+from fdai.delivery.runtime_call_inventory import UnavailableRuntimeCallInventoryEnricher
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.rule_catalog.schema.provider_relationship_mapping import (
     ProviderRelationshipMappingCatalog,
@@ -346,8 +348,13 @@ def _build_ontology_observer(
     return _observe
 
 
-async def run(config: InventoryJobConfig) -> InventoryJobResult:
-    """Run ordered source fallback and verify the promoted durable pointer."""
+async def run(
+    config: InventoryJobConfig,
+    *,
+    promotion_enricher: InventoryPromotionEnricher | None = None,
+) -> InventoryJobResult:
+    """Run ordered source fallback and optional verified pre-promotion enrichment."""
+    effective_enricher = promotion_enricher or UnavailableRuntimeCallInventoryEnricher()
     vocabulary = _load_resource_type_registry()
     resource_types = _resolve_resource_types(config, vocabulary)
     durable_store = PostgresInventorySnapshotStore(
@@ -368,6 +375,7 @@ async def run(config: InventoryJobConfig) -> InventoryJobResult:
         try:
             result = await InventorySyncCoordinator(
                 store=observed_store,
+                promotion_enricher=effective_enricher,
                 promotion_observer=_build_ontology_observer(
                     config,
                     vocabulary=vocabulary,

@@ -9,7 +9,8 @@ from collections import Counter
 from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import cast
+from enum import StrEnum
+from typing import Protocol, cast
 
 import httpx
 
@@ -63,11 +64,59 @@ class PromotedInventoryObservation:
     complete: bool
     relationship_drops: tuple[RelationshipDrop, ...] = ()
     recorded_at: datetime | None = None
+    source_states: tuple[InventoryProjectionSourceState, ...] = ()
+
+
+class InventoryProjectionSourceStatus(StrEnum):
+    """Availability of one independently collected projection source."""
+
+    AVAILABLE = "available"
+    UNAVAILABLE = "unavailable"
+
+
+@dataclass(frozen=True, slots=True)
+class InventoryProjectionSourceState:
+    """Principal-safe source state retained with one promoted generation."""
+
+    source: str
+    status: InventoryProjectionSourceStatus
+    observed_at: datetime | None
+    reason: str | None
+
+    def __post_init__(self) -> None:
+        if not self.source.strip() or len(self.source) > 128:
+            raise ValueError("inventory projection source MUST be bounded non-empty text")
+        if self.observed_at is not None and self.observed_at.tzinfo is None:
+            raise ValueError("inventory projection source observed_at MUST be timezone-aware")
+        if self.status is InventoryProjectionSourceStatus.AVAILABLE:
+            if self.observed_at is None or self.reason is not None:
+                raise ValueError("available inventory projection source MUST have only observed_at")
+        elif self.observed_at is not None or not self.reason or len(self.reason) > 128:
+            raise ValueError("unavailable inventory projection source MUST have only a reason")
+
+    def to_metadata(self) -> dict[str, str | None]:
+        """Return a sanitized generation metadata record."""
+
+        return {
+            "source": self.source,
+            "status": self.status.value,
+            "observed_at": self.observed_at.isoformat() if self.observed_at is not None else None,
+            "reason": self.reason,
+        }
 
 
 #: Receives one promoted observation after the active pointer moves. The sink
 #: owns a derived read model only; it never gains promotion authority.
 InventoryPromotionObserver = Callable[[PromotedInventoryObservation], Awaitable[None]]
+
+
+class InventoryPromotionEnricher(Protocol):
+    """Add verified read-plane links before the inventory single writer promotes them."""
+
+    async def enrich(
+        self,
+        observation: PromotedInventoryObservation,
+    ) -> PromotedInventoryObservation: ...
 
 
 class InventoryStreamError(RuntimeError):
@@ -82,6 +131,7 @@ class InventorySyncCoordinator:
         *,
         store: InventorySnapshotStore,
         promotion_observer: InventoryPromotionObserver | None = None,
+        promotion_enricher: InventoryPromotionEnricher | None = None,
         relationship_mapping_catalog: ProviderRelationshipMappingCatalog | None = None,
         progress_deadline_seconds: float = DEFAULT_PROGRESS_DEADLINE_SECONDS,
         attempt_deadline_seconds: float = DEFAULT_ATTEMPT_DEADLINE_SECONDS,
@@ -98,6 +148,7 @@ class InventorySyncCoordinator:
             )
         self._store = store
         self._observer = promotion_observer
+        self._enricher = promotion_enricher
         self._relationship_mapping_catalog = relationship_mapping_catalog
         self._progress_deadline_seconds = progress_deadline_seconds
         self._attempt_deadline_seconds = attempt_deadline_seconds
@@ -109,7 +160,7 @@ class InventorySyncCoordinator:
         for source in sources:
             attempt_id = await self._store.begin(source.manifest)
             observed = _ObservationAccumulator(
-                enabled=self._observer is not None,
+                enabled=self._observer is not None or self._enricher is not None,
                 relationship_mapping_catalog=self._relationship_mapping_catalog,
             )
             try:
@@ -118,6 +169,19 @@ class InventorySyncCoordinator:
                     cast(Inventory, source.inventory).full_snapshot(),
                     observed,
                 )
+                promoted_observation = observed.result(
+                    generation=attempt_id,
+                    recorded_at=datetime.now(tz=UTC),
+                )
+                if self._enricher is not None:
+                    enriched = await self._enricher.enrich(promoted_observation)
+                    added_links = _validate_enrichment(promoted_observation, enriched)
+                    if added_links:
+                        await self._store.stage(
+                            attempt_id,
+                            InventoryBatch(links=added_links),
+                        )
+                    promoted_observation = enriched
                 metadata = dict(source.manifest.metadata)
                 metadata.pop("provider_scope_coverage", None)
                 relationship_drop_reasons = observed.relationship_drop_reasons()
@@ -126,6 +190,9 @@ class InventorySyncCoordinator:
                 metadata["relationship_drop_classifications"] = list(
                     observed.relationship_drop_classifications()
                 )
+                metadata["derived_source_states"] = [
+                    state.to_metadata() for state in promoted_observation.source_states
+                ]
                 if provider_scope_coverage is not None:
                     metadata["provider_scope_coverage"] = provider_scope_coverage.to_metadata()
                 manifest = InventoryCoverageManifest(
@@ -143,7 +210,7 @@ class InventorySyncCoordinator:
                 await self._store.fail(attempt_id, failure)
                 failures.append(failure)
                 continue
-            await self._notify_promotion(attempt_id, observed)
+            await self._notify_promotion(promoted_observation)
             return InventorySyncResult(
                 attempt_id=attempt_id,
                 source=source.name,
@@ -151,7 +218,7 @@ class InventorySyncCoordinator:
             )
         raise InventorySourcesExhaustedError(failures)
 
-    async def _notify_promotion(self, attempt_id: str, observed: _ObservationAccumulator) -> None:
+    async def _notify_promotion(self, observation: PromotedInventoryObservation) -> None:
         """Hand the promoted observation to the derived read model.
 
         The promoted snapshot is already authoritative, so a failing derived
@@ -160,16 +227,11 @@ class InventorySyncCoordinator:
         if self._observer is None:
             return
         try:
-            await self._observer(
-                observed.result(
-                    generation=attempt_id,
-                    recorded_at=datetime.now(tz=UTC),
-                )
-            )
+            await self._observer(observation)
         except Exception:
             _LOG.exception(
                 "inventory_promotion_observer_failed",
-                extra={"generation": attempt_id},
+                extra={"generation": observation.generation},
             )
 
     async def _stage_stream(
@@ -373,8 +435,49 @@ def classify_inventory_failure(exc: Exception) -> InventoryAttemptFailure:
     return InventoryAttemptFailure(code=code, message=message[:200])
 
 
+def _validate_enrichment(
+    original: PromotedInventoryObservation,
+    enriched: PromotedInventoryObservation,
+) -> tuple[LinkRecord, ...]:
+    """Require enrichment to preserve the promoted provider observation exactly."""
+
+    if (
+        enriched.generation != original.generation
+        or enriched.resources != original.resources
+        or enriched.complete != original.complete
+        or enriched.relationship_drops != original.relationship_drops
+        or enriched.recorded_at != original.recorded_at
+    ):
+        raise ValueError("inventory enrichment MUST preserve the provider observation")
+    original_by_key = {(link.from_id, link.link_type, link.to_id): link for link in original.links}
+    enriched_by_key = {(link.from_id, link.link_type, link.to_id): link for link in enriched.links}
+    if len(enriched_by_key) != len(enriched.links):
+        raise ValueError("inventory enrichment links MUST have unique identities")
+    if any(enriched_by_key.get(key) != link for key, link in original_by_key.items()):
+        raise ValueError("inventory enrichment MUST NOT replace provider links")
+    added = tuple(link for key, link in enriched_by_key.items() if key not in original_by_key)
+    resource_types = {resource.resource_id: resource.type for resource in original.resources}
+    if any(
+        resource_types.get(link.from_id) != link.from_type
+        or resource_types.get(link.to_id) != link.to_type
+        for link in added
+    ):
+        raise ValueError("inventory enrichment links MUST match promoted resource endpoints")
+    if any(
+        link.observation_metadata is None or not link.observation_metadata.verified
+        for link in added
+    ):
+        raise ValueError("inventory enrichment MUST add only verified links")
+    if len({state.source for state in enriched.source_states}) != len(enriched.source_states):
+        raise ValueError("inventory enrichment source states MUST be unique")
+    return tuple(sorted(added, key=lambda link: (link.from_id, link.link_type, link.to_id)))
+
+
 __all__ = [
+    "InventoryProjectionSourceState",
+    "InventoryProjectionSourceStatus",
     "InventoryStreamError",
+    "InventoryPromotionEnricher",
     "InventorySyncCoordinator",
     "classify_inventory_failure",
 ]

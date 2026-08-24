@@ -25,14 +25,14 @@ RUNTIME_CALL_LINK_TYPE_DECLARATION_DIGEST = (
     "sha256:5d27e75ecb92cdcdfc8e9a5fb9f0e60c0d17ff028299387376b7563f08f51c08"
 )
 RUNTIME_CALL_MAPPING_ID = "runtime-call-endpoint-identity"
-RUNTIME_CALL_MAPPING_REVISION = "1.0.0"
-RUNTIME_CALL_SOURCE_SCHEMA_VERSION = "fdai.runtime-call-observation@1.0.0"
+RUNTIME_CALL_MAPPING_REVISION = "1.1.0"
+RUNTIME_CALL_SOURCE_SCHEMA_VERSION = "fdai.runtime-call-observation@1.1.0"
 _RUNTIME_CALL_SOURCE_SCHEMA = (
     "observation_id:string;caller_resource_ids:ordered_unique_string_tuple;"
     "target_resource_ids:ordered_unique_string_tuple;scope_ref:string;"
     "observed_at:aware_datetime;evidence_cutoff:aware_datetime;"
     "recorded_at:aware_datetime;freshness_ceiling_seconds:bounded_positive_integer;"
-    "source_identity:string;source_revision:string;evidence_ref:string;"
+    "source_identity:string;source_revision:string;evidence_ref:string;authentication_ref:string;"
     "execution_authority:false;mutation_authority:false"
 )
 RUNTIME_CALL_SOURCE_SCHEMA_DIGEST = (
@@ -92,6 +92,7 @@ class RuntimeCallObservation:
     source_identity: str
     source_revision: str
     evidence_ref: str
+    authentication_ref: str
     execution_authority: Literal[False] = False
     mutation_authority: Literal[False] = False
 
@@ -102,11 +103,14 @@ class RuntimeCallObservation:
             ("source_identity", self.source_identity),
             ("source_revision", self.source_revision),
             ("evidence_ref", self.evidence_ref),
+            ("authentication_ref", self.authentication_ref),
         ):
             if not text_value.strip() or len(text_value) > 512:
                 raise ValueError(
                     f"RuntimeCallObservation.{text_field_name} MUST be bounded non-empty text"
                 )
+        if not _is_digest(self.authentication_ref):
+            raise ValueError("RuntimeCallObservation.authentication_ref MUST be canonical SHA-256")
         for field_name, values in (
             ("caller_resource_ids", self.caller_resource_ids),
             ("target_resource_ids", self.target_resource_ids),
@@ -192,6 +196,8 @@ def project_runtime_call(
         raise ValueError("runtime call evaluation_time MUST be timezone-aware")
     if evaluation_time < observation.recorded_at:
         raise ValueError("runtime call evaluation_time MUST NOT precede recorded_at")
+    if observation.source_identity.strip().casefold() == verifier_identity.strip().casefold():
+        raise ValueError("runtime call projection requires an independent verifier")
 
     readable = frozenset(readable_resource_ids)
     decision_context = {
@@ -303,7 +309,7 @@ def project_runtime_call(
             freshness_ceiling_seconds=observation.freshness_ceiling_seconds,
             completeness=1.0,
             synthetic=False,
-            evidence_refs=(observation.evidence_ref,),
+            evidence_refs=(observation.evidence_ref, observation.authentication_ref),
         ),
         verification_method="deterministic-cross-check",
         verified=True,
@@ -405,6 +411,7 @@ def _observation_body(observation: RuntimeCallObservation) -> dict[str, object]:
         "caller_resource_ids": observation.caller_resource_ids,
         "evidence_cutoff": _timestamp(observation.evidence_cutoff),
         "evidence_ref": observation.evidence_ref,
+        "authentication_ref": observation.authentication_ref,
         "freshness_ceiling_seconds": observation.freshness_ceiling_seconds,
         "observation_id": observation.observation_id,
         "observed_at": _timestamp(observation.observed_at),
@@ -418,6 +425,14 @@ def _observation_body(observation: RuntimeCallObservation) -> dict[str, object]:
 
 def _timestamp(value: datetime) -> str:
     return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
+
+
+def _is_digest(value: str) -> bool:
+    return (
+        len(value) == 71
+        and value.startswith("sha256:")
+        and all(character in "0123456789abcdef" for character in value[7:])
+    )
 
 
 __all__ = [

@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
 import httpx
 import pytest
 from fdai.delivery.inventory_sync import (
+    InventoryProjectionSourceState,
+    InventoryProjectionSourceStatus,
     InventoryStreamError,
     InventorySyncCoordinator,
     PromotedInventoryObservation,
@@ -19,6 +21,7 @@ from fdai.rule_catalog.schema.provider_relationship_mapping import (
 )
 from fdai.shared.providers.inventory import (
     InventoryBatch,
+    LinkRecord,
     ProviderScopeCoverage,
     ProviderTypeCount,
     RelationshipDrop,
@@ -32,6 +35,12 @@ from fdai.shared.providers.inventory_snapshot import (
     InventoryFailureCode,
     InventorySource,
     InventorySourcesExhaustedError,
+)
+from fdai.shared.providers.state_evidence import (
+    LinkObservationMetadata,
+    StateFactAuthority,
+    StateFactLane,
+    StateFactMetadata,
 )
 
 
@@ -331,6 +340,189 @@ async def test_promotion_observer_receives_the_promoted_generation() -> None:
     assert observed[0].complete is True
     assert observed[0].recorded_at is not None
     assert observed[0].recorded_at.tzinfo is not None
+
+
+async def test_promotion_enrichment_stages_verified_links_before_single_writer_observation() -> (
+    None
+):
+    store = _Store()
+    observed: list[PromotedInventoryObservation] = []
+
+    class _Enricher:
+        async def enrich(
+            self,
+            observation: PromotedInventoryObservation,
+        ) -> PromotedInventoryObservation:
+            assert observation.recorded_at is not None
+            metadata = LinkObservationMetadata(
+                state_fact=StateFactMetadata(
+                    lane=StateFactLane.OBSERVED,
+                    authority=StateFactAuthority.TELEMETRY,
+                    source_identity="telemetry.runtime-calls",
+                    source_revision="1.0.0",
+                    effective_at=observation.recorded_at,
+                    recorded_at=observation.recorded_at,
+                    evidence_cutoff=observation.recorded_at,
+                    freshness_ceiling_seconds=300,
+                    completeness=1.0,
+                    synthetic=False,
+                    evidence_refs=("telemetry:runtime-call:one",),
+                ),
+                verification_method="deterministic-cross-check",
+                verified=True,
+                verifier_identity="inventory.endpoint-verifier",
+                verifier_revision="1.0.0",
+                verification_receipt_ref="sha256:" + "1" * 64,
+                inventory_generation=observation.generation,
+                mapping_id="runtime-call-endpoint-identity",
+                mapping_revision="1.0.0",
+                source_schema_version="fdai.runtime-call-observation@1.1.0",
+                source_schema_digest="sha256:" + "2" * 64,
+            )
+            return replace(
+                observation,
+                links=(
+                    *observation.links,
+                    LinkRecord(
+                        from_id="caller",
+                        from_type="compute.vm",
+                        link_type="runtime_calls",
+                        to_id="target",
+                        to_type="compute.vm",
+                        observation_metadata=metadata,
+                    ),
+                ),
+                source_states=(
+                    InventoryProjectionSourceState(
+                        source="runtime_call_graph",
+                        status=InventoryProjectionSourceStatus.AVAILABLE,
+                        observed_at=observation.recorded_at,
+                        reason=None,
+                    ),
+                ),
+            )
+
+    async def _record(observation: PromotedInventoryObservation) -> None:
+        observed.append(observation)
+
+    resources = (
+        ResourceRecord(resource_id="caller", type="compute.vm"),
+        ResourceRecord(resource_id="target", type="compute.vm"),
+    )
+    await InventorySyncCoordinator(
+        store=store,
+        promotion_enricher=_Enricher(),
+        promotion_observer=_record,
+    ).run([_source("arg", _Inventory([InventoryBatch(resources=resources, final=True)]))])
+
+    assert store.promoted == ["attempt-1"]
+    assert [link.link_type for batch in store.batches["attempt-1"] for link in batch.links] == [
+        "runtime_calls"
+    ]
+    assert [link.link_type for link in observed[0].links] == ["runtime_calls"]
+    assert store.promoted_manifests[0].metadata["derived_source_states"] == [
+        {
+            "source": "runtime_call_graph",
+            "status": "available",
+            "observed_at": observed[0].recorded_at.isoformat(),
+            "reason": None,
+        }
+    ]
+
+
+async def test_promotion_enrichment_cannot_replace_provider_records() -> None:
+    store = _Store()
+
+    class _Enricher:
+        async def enrich(
+            self,
+            observation: PromotedInventoryObservation,
+        ) -> PromotedInventoryObservation:
+            return replace(observation, resources=())
+
+    with pytest.raises(InventorySourcesExhaustedError):
+        await InventorySyncCoordinator(
+            store=store,
+            promotion_enricher=_Enricher(),
+        ).run(
+            [
+                _source(
+                    "arg",
+                    _Inventory(
+                        [
+                            InventoryBatch(
+                                resources=(ResourceRecord("resource:one", "compute.vm"),),
+                                final=True,
+                            )
+                        ]
+                    ),
+                )
+            ]
+        )
+
+    assert store.promoted == []
+
+
+async def test_promotion_enrichment_cannot_add_a_dangling_endpoint() -> None:
+    store = _Store()
+
+    class _Enricher:
+        async def enrich(
+            self,
+            observation: PromotedInventoryObservation,
+        ) -> PromotedInventoryObservation:
+            assert observation.recorded_at is not None
+            metadata = LinkObservationMetadata(
+                state_fact=StateFactMetadata(
+                    lane=StateFactLane.OBSERVED,
+                    authority=StateFactAuthority.TELEMETRY,
+                    source_identity="telemetry.runtime-calls",
+                    source_revision="1.0.0",
+                    effective_at=observation.recorded_at,
+                    recorded_at=observation.recorded_at,
+                    evidence_cutoff=observation.recorded_at,
+                    freshness_ceiling_seconds=300,
+                    completeness=1.0,
+                    synthetic=False,
+                    evidence_refs=("telemetry:runtime-call:one",),
+                ),
+                verification_method="deterministic-cross-check",
+                verified=True,
+                verifier_identity="inventory.endpoint-verifier",
+                verifier_revision="1.0.0",
+                verification_receipt_ref="sha256:" + "1" * 64,
+                inventory_generation=observation.generation,
+                mapping_id="runtime-call-endpoint-identity",
+                mapping_revision="1.0.0",
+                source_schema_version="fdai.runtime-call-observation@1.1.0",
+                source_schema_digest="sha256:" + "2" * 64,
+            )
+            return replace(
+                observation,
+                links=(
+                    LinkRecord(
+                        from_id="caller",
+                        from_type="compute.vm",
+                        link_type="runtime_calls",
+                        to_id="missing-target",
+                        to_type="compute.vm",
+                        observation_metadata=metadata,
+                    ),
+                ),
+            )
+
+    resources = (
+        ResourceRecord(resource_id="caller", type="compute.vm"),
+        ResourceRecord(resource_id="target", type="compute.vm"),
+    )
+    with pytest.raises(InventorySourcesExhaustedError):
+        await InventorySyncCoordinator(
+            store=store,
+            promotion_enricher=_Enricher(),
+        ).run([_source("arg", _Inventory([InventoryBatch(resources=resources, final=True)]))])
+
+    assert store.promoted == []
+    assert store.failed[0][1].code is InventoryFailureCode.INVALID_DATA
 
 
 async def test_promotion_observer_receives_verified_kubernetes_relationships() -> None:

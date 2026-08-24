@@ -34,6 +34,7 @@ from fdai_operator_service.families.operations.contracts import (
     InventoryInstanceNeighborhood,
     InventoryInstanceResource,
     InventoryInstanceResourcePage,
+    InventoryProjectionSourceState,
     InventoryRelationshipDropClassification,
     InventoryRelationshipEvidence,
 )
@@ -555,6 +556,9 @@ class PostgresFamilyStore:
         relationship_drop_classifications = _relationship_drop_classifications(
             metadata.get("relationship_drop_classifications", [])
         )
+        projection_source_states = _projection_source_states(
+            metadata.get("derived_source_states", [])
+        )
         return InventoryImpactContext(
             snapshot_id=snapshot_id,
             observed_at=_stored_timestamp(
@@ -563,6 +567,7 @@ class PostgresFamilyStore:
             ),
             relationship_drop_reasons=relationship_drop_reasons,
             relationship_drop_classifications=relationship_drop_classifications,
+            projection_source_states=projection_source_states,
         )
 
     async def inventory_resource_exists(self, *, snapshot_id: str, resource_id: str) -> bool:
@@ -2180,7 +2185,7 @@ def _instance_relationship_evidence(value: object) -> InventoryRelationshipEvide
     properties = _json_object(value, label="inventory instance relationship properties")
     raw_evidence = properties.get("provider_relationship_evidence")
     if raw_evidence is None:
-        return None
+        return _instance_observation_evidence(properties.get("link_observation_metadata"))
     evidence = _json_object(
         raw_evidence,
         label="inventory instance provider relationship evidence",
@@ -2205,6 +2210,122 @@ def _instance_relationship_evidence(value: object) -> InventoryRelationshipEvide
         mapping_id=required_text("mapping_id"),
         evidence_method=required_text("evidence_method"),
         freshness_ceiling_seconds=freshness,
+    )
+
+
+def _instance_observation_evidence(value: object) -> InventoryRelationshipEvidence | None:
+    if value is None:
+        return None
+    metadata = _json_object(value, label="inventory instance observation metadata")
+    state_fact = _json_object(
+        metadata.get("state_fact"),
+        label="inventory instance observation state fact",
+    )
+
+    def required_text(source: Mapping[str, object], key: str) -> str:
+        raw = source.get(key)
+        if not isinstance(raw, str) or not raw.strip() or len(raw) > 512:
+            raise PostgresFamilyStoreUnavailable(
+                f"inventory instance observation evidence {key} is malformed"
+            )
+        return raw.strip()
+
+    expected_metadata_keys = {
+        "state_fact",
+        "verification_method",
+        "verified",
+        "verifier_identity",
+        "verifier_revision",
+        "verification_receipt_ref",
+        "inventory_generation",
+        "mapping_id",
+        "mapping_revision",
+        "source_schema_version",
+        "source_schema_digest",
+    }
+    expected_state_keys = {
+        "authority",
+        "completeness",
+        "conflicts",
+        "effective_at",
+        "evidence_cutoff",
+        "evidence_refs",
+        "freshness_ceiling_seconds",
+        "lane",
+        "recorded_at",
+        "source_identity",
+        "source_revision",
+        "synthetic",
+    }
+    if set(metadata) != expected_metadata_keys or set(state_fact) != expected_state_keys:
+        raise PostgresFamilyStoreUnavailable(
+            "inventory instance observation evidence shape is malformed"
+        )
+    if (
+        metadata.get("verified") is not True
+        or metadata.get("mapping_id") != "runtime-call-endpoint-identity"
+        or metadata.get("mapping_revision") != "1.1.0"
+        or metadata.get("source_schema_version") != "fdai.runtime-call-observation@1.1.0"
+        or state_fact.get("lane") != "observed"
+        or state_fact.get("authority") != "telemetry"
+        or state_fact.get("synthetic") is not False
+        or state_fact.get("conflicts") != []
+    ):
+        raise PostgresFamilyStoreUnavailable(
+            "inventory instance observation evidence is not verified"
+        )
+    freshness = state_fact.get("freshness_ceiling_seconds")
+    completeness = state_fact.get("completeness")
+    if (
+        isinstance(freshness, bool)
+        or not isinstance(freshness, int)
+        or freshness < 1
+        or completeness != 1.0
+    ):
+        raise PostgresFamilyStoreUnavailable(
+            "inventory instance observation evidence freshness is malformed"
+        )
+    evidence_refs = state_fact.get("evidence_refs")
+    if (
+        not isinstance(evidence_refs, list)
+        or len(evidence_refs) != 2
+        or any(not isinstance(item, str) or not item.strip() for item in evidence_refs)
+        or len(set(evidence_refs)) != 2
+    ):
+        raise PostgresFamilyStoreUnavailable(
+            "inventory instance observation evidence references are malformed"
+        )
+    verifier_identity = required_text(metadata, "verifier_identity")
+    source_identity = required_text(state_fact, "source_identity")
+    if verifier_identity.casefold() == source_identity.casefold():
+        raise PostgresFamilyStoreUnavailable(
+            "inventory instance observation evidence verifier is not independent"
+        )
+    for key in ("verification_receipt_ref", "source_schema_digest"):
+        digest = required_text(metadata, key)
+        if not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
+            raise PostgresFamilyStoreUnavailable(
+                "inventory instance observation evidence digest is malformed"
+            )
+    cutoff_raw = required_text(state_fact, "evidence_cutoff")
+    try:
+        cutoff = datetime.fromisoformat(cutoff_raw.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise PostgresFamilyStoreUnavailable(
+            "inventory instance observation evidence cutoff is malformed"
+        ) from exc
+    if cutoff.tzinfo is None:
+        raise PostgresFamilyStoreUnavailable(
+            "inventory instance observation evidence cutoff is malformed"
+        )
+    return InventoryRelationshipEvidence(
+        source_identity=source_identity,
+        source_property_path="caller_resource_ids,target_resource_ids",
+        mapping_id=required_text(metadata, "mapping_id"),
+        evidence_method=required_text(metadata, "verification_method"),
+        freshness_ceiling_seconds=freshness,
+        evidence_kind="observation",
+        evidence_cutoff=cutoff,
     )
 
 
@@ -2251,6 +2372,7 @@ def _relationship_drop_classifications(
             "active inventory relationship classifications are malformed"
         )
     allowed_unavailable_reasons = {
+        "authorization_child_scope_unmodeled",
         "reference_not_observed",
         "source_outside_active_generation",
         "target_outside_active_generation",
@@ -2324,6 +2446,62 @@ def _relationship_drop_classifications(
             ),
         )
     )
+
+
+def _projection_source_states(value: object) -> tuple[InventoryProjectionSourceState, ...]:
+    """Decode only reviewed no-authority source availability records."""
+
+    if not isinstance(value, list) or len(value) > 8:
+        raise PostgresFamilyStoreUnavailable("active inventory source states are malformed")
+    allowed_sources = {"runtime_call_graph", "postgres_role_evidence"}
+    states: list[InventoryProjectionSourceState] = []
+    for raw_item in value:
+        item = _json_object(raw_item, label="active inventory source state")
+        source = item.get("source")
+        status = item.get("status")
+        observed_at = item.get("observed_at")
+        reason = item.get("reason")
+        if (
+            not isinstance(source, str)
+            or source not in allowed_sources
+            or status not in {"available", "unavailable"}
+        ):
+            raise PostgresFamilyStoreUnavailable("active inventory source state is malformed")
+        if status == "available":
+            if reason is not None or observed_at is None:
+                raise PostgresFamilyStoreUnavailable("active inventory source state is malformed")
+            if not isinstance(observed_at, str):
+                raise PostgresFamilyStoreUnavailable("active inventory source state is malformed")
+            try:
+                parsed_at = datetime.fromisoformat(observed_at.replace("Z", "+00:00"))
+            except ValueError as exc:
+                raise PostgresFamilyStoreUnavailable(
+                    "active inventory source state is malformed"
+                ) from exc
+            if parsed_at.tzinfo is None:
+                raise PostgresFamilyStoreUnavailable("active inventory source state is malformed")
+            parsed_reason = None
+        else:
+            if (
+                observed_at is not None
+                or not isinstance(reason, str)
+                or not reason.strip()
+                or len(reason) > 128
+            ):
+                raise PostgresFamilyStoreUnavailable("active inventory source state is malformed")
+            parsed_at = None
+            parsed_reason = reason
+        states.append(
+            InventoryProjectionSourceState(
+                source=source,
+                status=status,
+                observed_at=parsed_at,
+                reason=parsed_reason,
+            )
+        )
+    if len({state.source for state in states}) != len(states):
+        raise PostgresFamilyStoreUnavailable("active inventory source states are duplicated")
+    return tuple(sorted(states, key=lambda state: state.source))
 
 
 def _psycopg_dsn(value: str) -> str:
