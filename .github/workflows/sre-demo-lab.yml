@@ -294,6 +294,58 @@ jobs:
           terraform fmt -check -recursive
           terraform validate
 
+      - name: Quiesce private DNS links before destroy
+        if: inputs.action == 'destroy'
+        run: |
+          set -euo pipefail
+          link_plan="$RUNNER_TEMP/sre-demo-lab-dns-links.tfplan"
+          link_plan_json="$RUNNER_TEMP/sre-demo-lab-dns-links-plan.json"
+          link_plan_log="$RUNNER_TEMP/sre-demo-lab-dns-links-plan.log"
+          link_apply_log="$RUNNER_TEMP/sre-demo-lab-dns-links-apply.log"
+          link_ids="$RUNNER_TEMP/sre-demo-lab-dns-link-ids.txt"
+          terraform show -json | jq -r '
+            .. | objects |
+            select(.type? == "azurerm_private_dns_zone_virtual_network_link") |
+            .values.id // empty
+          ' >"$link_ids"
+          while IFS= read -r link_id; do
+            [[ -n "$link_id" ]] && echo "::add-mask::$link_id"
+          done <"$link_ids"
+          if ! terraform plan -destroy -input=false -lock-timeout=5m \
+            -target=azurerm_private_dns_zone_virtual_network_link.mysql_lab \
+            -target=azurerm_private_dns_zone_virtual_network_link.mysql_runner \
+            -target=azurerm_private_dns_zone_virtual_network_link.mysql_operator \
+            -target=module.azure_openai_private_endpoint.azurerm_private_dns_zone_virtual_network_link.this \
+            -target=module.azure_openai_private_endpoint.azurerm_private_dns_zone_virtual_network_link.extra \
+            -out="$link_plan" >"$link_plan_log" 2>&1; then
+            echo "scenario-lab DNS-link destroy plan failed; raw output remains runner-local." >&2
+            exit 1
+          fi
+          terraform show -json "$link_plan" >"$link_plan_json"
+          jq -e '
+            all(.resource_changes[]?;
+              (.change.actions == ["delete"]) and
+              (.type == "azurerm_private_dns_zone_virtual_network_link")
+            )
+          ' "$link_plan_json" >/dev/null || {
+            echo "scenario-lab DNS-link plan contains an action outside the delete-only allowlist." >&2
+            exit 1
+          }
+          link_delete_count="$(jq '[.resource_changes[]?] | length' "$link_plan_json")"
+          printf 'Scenario lab DNS-link plan: %s delete.\n' "$link_delete_count"
+          if [[ "$link_delete_count" -gt 0 ]]; then
+            if ! terraform apply -input=false -auto-approve "$link_plan" \
+              >"$link_apply_log" 2>&1; then
+              echo "scenario-lab DNS-link destroy failed; raw output remains runner-local." >&2
+              exit 1
+            fi
+          fi
+          while IFS= read -r link_id; do
+            [[ -z "$link_id" ]] && continue
+            az resource wait --deleted --ids "$link_id" \
+              --interval 10 --timeout 180 --only-show-errors
+          done <"$link_ids"
+
       - name: Build bounded plan
         env:
           REQUESTED_ACTION: ${{ inputs.action }}
@@ -448,6 +500,11 @@ jobs:
             rm -rf -- "$FDAI_ENFORCE_REPORT_ROOT"
           fi
           for artifact in \
+            "$RUNNER_TEMP/sre-demo-lab-dns-links.tfplan" \
+            "$RUNNER_TEMP/sre-demo-lab-dns-links-plan.json" \
+            "$RUNNER_TEMP/sre-demo-lab-dns-links-plan.log" \
+            "$RUNNER_TEMP/sre-demo-lab-dns-links-apply.log" \
+            "$RUNNER_TEMP/sre-demo-lab-dns-link-ids.txt" \
             "$RUNNER_TEMP/sre-demo-lab.tfplan" \
             "$RUNNER_TEMP/sre-demo-lab-plan.json" \
             "$RUNNER_TEMP/sre-demo-lab-plan.log" \
