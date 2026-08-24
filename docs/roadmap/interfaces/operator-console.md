@@ -10,6 +10,7 @@ For optional Console projections, typed `404`, `501`, and source-gate `503` resp
 Catalog topology preserves its deterministic exact-release coordinates while using one bounded 900 ms spring-settle on initial entry. Interaction ends the effect, reduced-motion preference skips it, and no persistent simulation runs.
 Agent Activity links a correlation to Trace only when the row is backed by durable audit evidence.
 Inventory scan, ontology projection, and current-state read correlations remain visible identifiers without an audit-trace link. A manual lookup with no matching audit steps renders a neutral unavailable state instead of an operational failure.
+The Console shell keeps a compact FDAI brand lockup in its header and uses a square browser icon whose transparent exterior and white interior preserve the mark on light and dark browser chrome.
 The authenticated active-incident stream can open an idle Command Deck with an incident selector. That selector is a presentation hint only; the server re-resolves the durable incident and its evidence before answering.
 When the tab and Deck are idle, the first browser observation of an incident submits one localized read-only investigation turn. A browser-local incident ledger suppresses replay after reload; the incident badge remains an explicit way to investigate again. When an incident question matches several records equally, the terminal answer includes bounded candidate buttons rather than relying on a plain-text instruction. A button opens the candidate's exact incident conversation and immediately submits the localized read-only investigation turn. The click is the operator's explicit request; an automatic active-incident stream open never submits a managed-resource action.
 This doc covers the **pull direction** - the operator asks, simulates, approves - across every channel the notification doc already ships adapters for. Push and pull share the same channel credentials and the same audit contract, but they are distinct integration surfaces.
@@ -161,7 +162,9 @@ selector continues to require server-owned action lifecycle evidence.
   the final accountable-agent answer. Renderers distinguish producer-side partial evidence with
   `[UPSTREAM OUTPUT TRUNCATED]` from vendor-limit clipping with `[CHANNEL OUTPUT TRUNCATED]`.
   Full-workspace web chat opens transcript-first. Conversation history and the current-screen
-  digest are toolbar panels rather than permanent columns. The Deck header shows the active route;
+  digest are toolbar panels rather than permanent columns. A general Deck open starts a fresh
+  user-scoped conversation; past conversations restore only after explicit selection, while agent
+  and incident entry points retain their bound session. The Deck header shows the active route;
   the Digest toggle and header own record count, snapshot age, and stale refresh. The composer keeps
   only attachments, question entry, and send or stop. Sent images render inside the operator turn, and validated image attachments bypass prompt-only semantic tool planning and omitted-subject
   LLM-usage refinement so the current image reaches vision narration. Terminal verification preserves the interpretation as unverified with a current `conversation-image` ref instead of treating it as screen-verified. Explicit measured LLM usage remains a deterministic tool request. Browser transcript caches retain only image descriptors, while authenticated history reads load

@@ -1,8 +1,8 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: fc0843e611660c6e1aa4a10316f7de9b27fd3796
-translation_revised: 2026-08-23
+translation_source_sha: 1aa9edee4d8b680b8f4829ef3974af3059d647ff
+translation_revised: 2026-08-24
 ---
 # FDAI Console 대화
 사람 오퍼레이터가 CLI, Teams, Slack, 웹 챗을 통해 FDAI에 **역으로 말할 수 있는** 방식입니다. 별도 제품이 아닌 FDAI Console의 **대화형 표면**로서 계층 아키텍처, 도구 카탈로그, LLM tier, 세션 지속성, 도구별 RBAC, 안전 invariant, 롤아웃 상태를 정의합니다.
@@ -13,6 +13,7 @@ Settings > Integrations에서는 합성 자리 표시자로 운영 incident-open
 카탈로그 토폴로지는 결정적인 exact-release 좌표를 보존하면서 처음 진입할 때 범위가 제한된 900 ms spring-settle 효과를 한 번 사용합니다. 조작하면 효과가 끝나고 동작 감소 설정에서는 효과를 건너뛰며, 지속적인 simulation은 실행하지 않습니다.
 에이전트 활동은 행이 영속 감사 근거를 기반으로 할 때만 상관관계를 추적 화면에 연결합니다.
 인벤토리 스캔, 온톨로지 변환 결과 및 현재 상태 읽기 상관관계는 감사 추적 링크 없이 식별자로 표시합니다. 일치하는 감사 단계가 없는 수동 조회는 운영 실패가 아니라 중립적인 사용 불가 상태로 표시합니다.
+Console shell은 헤더에 간결한 FDAI 브랜드 락업을 유지하고, 외부는 투명하고 내부는 흰색인 정사각형 브라우저 아이콘을 사용하여 밝고 어두운 브라우저 UI에서 마크를 선명하게 유지합니다.
 인증된 active-incident 스트림은 idle Command Deck을 인시던트 선택자와 함께 열 수 있습니다. 이 선택자는 표현 힌트일 뿐이며 서버는 답변 전에 영속 인시던트와 근거를 다시 해석합니다.
 Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관찰할 때 localized 읽기 전용 조사 턴을 한 번 제출합니다. Browser-local 인시던트 원장은 reload 뒤 재생을 억제하며, 인시던트 배지를 누르면 명시적으로 다시 조사할 수 있습니다. 인시던트 질문이 여러 기록과 같은 정도로 일치하면 최종 답변은 plain-text 안내 대신 범위가 제한된 후보 버튼을 포함합니다. 버튼은 해당 후보의 exact 인시던트 대화를 열고 localized 읽기 전용 조사 턴을 즉시 제출합니다. 버튼 click은 운영자의 명시적인 요청입니다. 자동 active-incident 스트림 열림은 managed-resource 액션을 제출하지 않습니다.
 
@@ -161,7 +162,9 @@ intent-graph 도구보다 정본 glossary를 먼저 사용합니다. 이 우선�
   `[UPSTREAM OUTPUT TRUNCATED]`로, vendor-limit clipping을 `[CHANNEL OUTPUT TRUNCATED]`로
   구분합니다.
   Full-workspace 웹 채팅은 대화 기록 중심으로 열립니다. 대화 이력과 현재 화면 다이제스트는 항상
-  표시되는 열이 아니라 toolbar 패널입니다. Deck 헤더는 활성 경로를 표시하고, 다이제스트 토글과
+  표시되는 열이 아니라 toolbar 패널입니다. 일반 Deck 열기는 새로운 principal 범위 대화를
+  시작합니다. 이전 대화는 명시적으로 선택할 때만 복원하고, 에이전트와 인시던트 진입점은 연결된
+  세션을 유지합니다. Deck 헤더는 활성 경로를 표시하고, 다이제스트 토글과
   헤더는 근거 기록 수, 스냅샷 age 및 오래된 맥락 새로고침을 담당합니다. 작성기에는
   첨부, 질문 입력 및 보내기 또는 중지만 유지합니다. 전송된 이미지는 운영자 턴 안에 표시되며 검증된 이미지 첨부는 prompt-only semantic 도구 계획 수립과
   주어가 생략된 LLM 사용량 구체화를 우회하여 현재 이미지를 vision 서술에 전달합니다. 최종 검증은 해당 해석을 screen-verified로 취급하지 않고 현재 `conversation-image` 참조가 있는 검증되지 않은 답변으로 보존합니다. 측정된 LLM 사용량을 명시한 요청은 결정론적 도구 요청으로 유지합니다. 브라우저 대화 기록 캐시에는 이미지 서술자만 유지하고 인증된 이력 읽기가
