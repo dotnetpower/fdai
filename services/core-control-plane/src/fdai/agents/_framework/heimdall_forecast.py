@@ -28,6 +28,21 @@ class HeimdallForecastMixin:
 
         def record_behavior(self, key: str, count: int = 1) -> None: ...
 
+    async def publish_forecast_outcome(self, outcome: ForecastOutcome) -> bool:
+        """Publish one schema-validated terminal forecast result."""
+
+        if not isinstance(outcome, ForecastOutcome):
+            raise TypeError("Heimdall forecast outcome MUST be a ForecastOutcome")
+        self.record_behavior(f"forecast_outcome:{outcome.label.value}")
+        if self.bus is None:
+            return False
+        await self.bus.publish(
+            "Heimdall",
+            "object.forecast-outcome",
+            outcome.model_dump(mode="json"),
+        )
+        return True
+
     async def _run_forecast_tick(self, payload: dict[str, object]) -> None:
         identity_fields = (
             payload.get("event_id"),

@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 888503bf633cbd827094e4033a337e0aa65c3f3e
+translation_source_sha: 7e5f203d680426025e55110a816b830d9d1c243f
 translation_revised: 2026-08-24
 ---
 # 프로젝트 구조
@@ -23,6 +23,9 @@ translation_revised: 2026-08-24
   계약, 프로바이더, 텔레메트리, 구성만 가져옵니다. `delivery/`는 어댑터 경계 뒤에서
   `core/`와 `shared/`를 조립하고 `composition/`이 모든 계층을 연결합니다. `core/`와 `agents/`는
   `delivery/`를 가져오기하지 않으며 provider 동작은 shared Protocol과 composition으로 진입합니다.
+  Pantheon member는 `agents/` 바로 아래의 flat layout을 유지합니다. Private behavior-extraction
+  mixin은 `agents/_framework/`에 두며 member의 AgentSpec, topic, ownership, model policy 또는
+  authority를 바꿀 수 없습니다.
 - **정책과 규칙은 코드 경로가 아닌 데이터**: T0가 런타임에 `rule-catalog/` 엔트리와 `policies/`
   를 로드하므로 규칙/정책 추가에 엔진 변경이 필요 없습니다. 규칙은 의도와 교정을
   기술하고, 정책은 검증기가 재검사하는 실행 가능한 OPA/Rego입니다. 소스가 이 YAML로 수집·

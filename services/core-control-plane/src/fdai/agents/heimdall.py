@@ -30,6 +30,7 @@ from fdai.agents._framework.heimdall_helpers import evict_oldest as _evict_oldes
 from fdai.agents._framework.heimdall_helpers import (
     trace_continuity_evidence as _trace_continuity_evidence,
 )
+from fdai.agents._framework.heimdall_provider_schema import HeimdallProviderSchemaMixin
 from fdai.agents._framework.heimdall_retrieval_validation import (
     retrieval_validation_from_event,
 )
@@ -57,7 +58,6 @@ from fdai.rule_catalog.schema.rule_semantic_generation_events import (
     RULE_GENERATION_BUILD_RESULT_TOPIC,
     RuleGenerationBuildResultEvent,
 )
-from fdai.shared.contracts.models import ForecastOutcome
 from fdai.shared.providers.provider_schema import ProviderSchemaDriftProjector
 
 AlerterHook = Callable[[dict[str, Any]], Awaitable[None]]
@@ -98,7 +98,7 @@ _SEVERITY_RANK = {
 _DETECTION_READINESS_EVENT = "detection.readiness.observed"
 
 
-class Heimdall(HeimdallForecastMixin, Agent):
+class Heimdall(HeimdallProviderSchemaMixin, HeimdallForecastMixin, Agent):
     """Wave-3 anomaly detection + Wave 6 security correlator."""
 
     def __init__(
@@ -187,33 +187,6 @@ class Heimdall(HeimdallForecastMixin, Agent):
         if self._rule_generation_validation_handler is not None:
             raise RuntimeError("Heimdall Rule generation validator is already bound")
         self._rule_generation_validation_handler = handler
-
-    async def publish_forecast_outcome(self, outcome: ForecastOutcome) -> bool:
-        """Publish one schema-validated terminal forecast result."""
-        if not isinstance(outcome, ForecastOutcome):
-            raise TypeError("Heimdall forecast outcome MUST be a ForecastOutcome")
-        self.record_behavior(f"forecast_outcome:{outcome.label.value}")
-        if self.bus is None:
-            return False
-        await self.bus.publish(
-            "Heimdall",
-            "object.forecast-outcome",
-            outcome.model_dump(mode="json"),
-        )
-        return True
-
-    async def publish_provider_schema_drift(self, package: Mapping[str, object]) -> bool:
-        """Publish one strict no-authority provider-schema drift for governed review."""
-
-        if self._provider_schema_drift_projector is None:
-            self.record_behavior("provider_schema_drift:projector_unavailable")
-            return False
-        payload = self._provider_schema_drift_projector(package)
-        self.record_behavior(f"provider_schema_drift:{payload['decision']}")
-        if self.bus is None:
-            return False
-        await self.bus.publish("Heimdall", "object.drift", payload)
-        return True
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         if topic == "object.action-run":
