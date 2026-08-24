@@ -192,6 +192,7 @@ jobs:
       TF_VAR_enable_llm: ${{ inputs.deploy_document_ingestion || vars.ENABLE_LLM == 'true' || vars.OPERATOR_API_WEB_SEARCH_ENABLED == 'true' }}
       MODEL_RESOLVER_DEPLOYER_OBJECT_ID: ${{ vars.MODEL_RESOLVER_DEPLOYER_OBJECT_ID }}
       MODEL_BINDING_POLICY_JSON: ${{ !inputs.apply && (inputs.environment == 'dev' && vars.MODEL_BINDING_POLICY_DEV_JSON || inputs.environment == 'staging' && vars.MODEL_BINDING_POLICY_STAGING_JSON || vars.MODEL_BINDING_POLICY_PROD_JSON) || '' }}
+      MODEL_BINDING_ONLY: ${{ startsWith(inputs.request_id, 'plan-model-') || startsWith(inputs.request_id, 'apply-model-') }}
       TF_VAR_core_image: ${{ vars.CORE_IMAGE || vars.OPERATOR_API_IMAGE }}
       # Operator API image + Entra/RBAC ids (tenant-specific; via repo Variables,
       # never committed). Empty when deploy_operator_api is false.
@@ -395,6 +396,48 @@ jobs:
             exit 1
           fi
 
+      - name: Validate model-binding-only request
+        if: ${{ env.MODEL_BINDING_ONLY == 'true' }}
+        env:
+          APPLY: ${{ inputs.apply }}
+          CUTOVER_ISOLATED_EXECUTOR_AUTHORITY: ${{ inputs.cutover_isolated_executor_authority }}
+          DEPLOY_CONSOLE: ${{ inputs.deploy_console }}
+          DEPLOY_DESIGN_MOCKS: ${{ inputs.deploy_design_mocks }}
+          DEPLOY_DOCUMENT_INGESTION: ${{ inputs.deploy_document_ingestion }}
+          DEPLOY_DEV_OPERATIONS_GATEWAY: ${{ inputs.deploy_dev_operations_gateway }}
+          DEPLOY_ISOLATED_EXECUTOR: ${{ inputs.deploy_isolated_executor }}
+          DEPLOY_MONITORING: ${{ inputs.deploy_monitoring }}
+          DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET: ${{ inputs.deploy_ohl_scale_out_evidence_target }}
+          DEPLOY_OPERATOR_API: ${{ inputs.deploy_operator_api }}
+          MODEL_BINDING_POLICY: ${{ env.MODEL_BINDING_POLICY_JSON }}
+          PLAN_REQUEST_ID: ${{ inputs.request_id }}
+          PROMOTE_RUNTIME_IMAGE: ${{ inputs.promote_runtime_image }}
+          VERIFY_EXECUTOR_EFFECT: ${{ inputs.verify_executor_effect }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$PLAN_REQUEST_ID" ]]; then
+            echo "model-binding deployment requires a protected request." >&2
+            exit 1
+          fi
+          if [[ "$APPLY" != "true" && -z "$MODEL_BINDING_POLICY" ]]; then
+            echo "model-binding plan requires an environment policy." >&2
+            exit 1
+          fi
+          if [[ "$DEPLOY_CONSOLE" == "true" \
+            || "$DEPLOY_DESIGN_MOCKS" == "true" \
+            || "$DEPLOY_DOCUMENT_INGESTION" == "true" \
+            || "$DEPLOY_DEV_OPERATIONS_GATEWAY" == "true" \
+            || "$DEPLOY_ISOLATED_EXECUTOR" == "true" \
+            || "$DEPLOY_MONITORING" == "true" \
+            || "$DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET" == "true" \
+            || "$DEPLOY_OPERATOR_API" == "true" \
+            || "$CUTOVER_ISOLATED_EXECUTOR_AUTHORITY" == "true" \
+            || "$PROMOTE_RUNTIME_IMAGE" == "true" \
+            || "$VERIFY_EXECUTOR_EFFECT" == "true" ]]; then
+            echo "model-binding deployment cannot be combined with another bounded operation." >&2
+            exit 1
+          fi
+
       - name: Validate Event Bus migration request
         if: ${{ env.EVENT_BUS_TOPIC_MIGRATION == 'true' }}
         env:
@@ -420,6 +463,10 @@ jobs:
             echo "Event Bus topic migration cannot be combined with another bounded operation." >&2
             exit 1
           fi
+
+      - name: Bind model-binding Terraform target
+        if: ${{ env.MODEL_BINDING_ONLY == 'true' }}
+        run: echo 'TF_CLI_ARGS_plan=-target=module.llm_azure_openai[0]' >> "$GITHUB_ENV"
 
       - name: Bind Event Bus migration Terraform targets
         if: ${{ env.EVENT_BUS_TOPIC_MIGRATION == 'true' }}
@@ -461,7 +508,7 @@ jobs:
           PLAN_COMMIT_SHA: ${{ inputs.commit_sha }}
         run: |
           set -euo pipefail
-          if [[ ! "$PLAN_REQUEST_ID" =~ ^plan-([0-9a-f]{24}|evh-[0-9a-f]{20}|evh-jobs-[0-9a-f]{16})$ ]]; then
+          if [[ ! "$PLAN_REQUEST_ID" =~ ^plan-([0-9a-f]{24}|model-[0-9a-f]{18}|evh-[0-9a-f]{20}|evh-jobs-[0-9a-f]{16})$ ]]; then
             echo "request_id must be a bounded fdaictl plan id." >&2
             exit 1
           fi
@@ -492,7 +539,7 @@ jobs:
           APPLY_PLAN_DIGEST: ${{ inputs.plan_digest }}
         run: |
           set -euo pipefail
-          if [[ ! "$APPLY_REQUEST_ID" =~ ^apply-([0-9a-f]{24}|evh-[0-9a-f]{20}|evh-jobs-[0-9a-f]{16})$ ]]; then
+          if [[ ! "$APPLY_REQUEST_ID" =~ ^apply-([0-9a-f]{24}|model-[0-9a-f]{18}|evh-[0-9a-f]{20}|evh-jobs-[0-9a-f]{16})$ ]]; then
             echo "apply request_id must be a bounded fdaictl id." >&2
             exit 1
           fi
@@ -577,7 +624,7 @@ jobs:
         if: ${{ !inputs.apply && !inputs.deploy_monitoring && env.TF_VAR_enable_llm == 'true' }}
         working-directory: ${{ github.workspace }}
         env:
-          MODEL_COMPLETENESS_FAIL_ON: ${{ inputs.deploy_dev_operations_gateway && 'none' || 'critical' }}
+          MODEL_COMPLETENESS_FAIL_ON: ${{ (inputs.deploy_dev_operations_gateway || env.MODEL_BINDING_ONLY == 'true') && 'none' || 'critical' }}
         run: |
           set -euo pipefail
           if [[ ! "$MODEL_RESOLVER_DEPLOYER_OBJECT_ID" =~ ^[0-9a-fA-F-]{36}$ ]]; then
@@ -1105,11 +1152,48 @@ jobs:
           print("Monitoring-only plan accepted")
           PY
 
+          - name: Enforce model-binding-only Terraform plan
+            if: ${{ !inputs.apply && env.MODEL_BINDING_ONLY == 'true' }}
+          run: |
+            set -euo pipefail
+            terraform show -json dev.plan > model-binding-plan.json
+            trap 'rm -f model-binding-plan.json' EXIT
+            python3 - <<'PY'
+            import json
+            import os
+
+            with open("model-binding-plan.json", encoding="utf-8") as stream:
+              plan = json.load(stream)
+            with open(os.environ["FDAI_RESOLVED_MODELS_PATH"], encoding="utf-8") as stream:
+              resolved = json.load(stream)
+            allowed = {
+              "module.llm_azure_openai[0].azurerm_cognitive_deployment."
+              f'capability["{item["name"]}"]'
+              for item in resolved.get("capabilities", [])
+              if item.get("status") != "hil-only"
+            }
+            changed = {
+              str(change.get("address", "unknown"))
+              for change in plan.get("resource_changes", [])
+              if change.get("change", {}).get("actions", []) not in (["no-op"], ["read"])
+            }
+            unexpected = sorted(changed.difference(allowed))
+            if not changed:
+              raise SystemExit("model-binding plan contains no deployment change")
+            if unexpected:
+              print("Model-binding-only plan contains changes outside sealed deployments:")
+              for address in unexpected:
+                print(f"- {address}")
+              raise SystemExit(1)
+            print(f"Model-binding-only plan accepted: {sorted(changed)}")
+            PY
+
       - name: Reject destructive protected plan
         if: ${{ !inputs.apply && inputs.request_id != '' }}
         env:
           MIGRATE_EVENT_BUS_TOPICS: ${{ env.EVENT_BUS_TOPIC_MIGRATION }}
           MIGRATE_EVENT_BUS_JOBS: ${{ env.EVENT_BUS_TOPIC_MIGRATION_JOBS }}
+          MODEL_BINDING_ONLY: ${{ env.MODEL_BINDING_ONLY }}
         run: |
           set -euo pipefail
           terraform show -json dev.plan > dev.plan.review.json
@@ -1230,6 +1314,37 @@ jobs:
               "after_capacity": 200,
             },
           }
+          if os.environ.get("MODEL_BINDING_ONLY") == "true":
+            resolved_path = os.environ.get("FDAI_RESOLVED_MODELS_PATH")
+            if not resolved_path:
+              raise SystemExit("model-binding plan has no sealed resolved-model artifact")
+            with open(resolved_path, encoding="utf-8") as stream:
+              resolved_models = json.load(stream)
+            for capability in resolved_models.get("capabilities", []):
+              if capability.get("status") == "hil-only":
+                continue
+              name = capability.get("name")
+              family = capability.get("family")
+              version = capability.get("version")
+              sku = capability.get("sku")
+              unit = capability.get("capacity_unit")
+              capacity = (
+                capability.get("capacity_value")
+                if unit == "ptu"
+                else capability.get("capacity_tpm", 0) // 1000
+              )
+              if not all((name, family, version, sku)) or not isinstance(capacity, int):
+                raise SystemExit("sealed model-binding capability is incomplete")
+              approved_model_replacements[
+                "module.llm_azure_openai[0].azurerm_cognitive_deployment."
+                f'capability["{name}"]'
+              ] = {
+                "name": name,
+                "family": family,
+                "version": version,
+                "after_sku": sku,
+                "after_capacity": capacity,
+              }
           resource_changes = {
             str(change.get("address", "unknown")): change
             for change in plan.get("resource_changes", [])
@@ -1268,10 +1383,20 @@ jobs:
               and before_model.get("name")
               == after_model.get("name")
               == expected["family"]
+              and (
+                "version" not in expected
+                or after_model.get("version") == expected["version"]
+              )
               and before_sku is not None
               and after_sku is not None
-              and before_sku.get("name") == expected["before_sku"]
-              and before_sku.get("capacity") == expected["before_capacity"]
+              and (
+                "before_sku" not in expected
+                or before_sku.get("name") == expected["before_sku"]
+              )
+              and (
+                "before_capacity" not in expected
+                or before_sku.get("capacity") == expected["before_capacity"]
+              )
               and after_sku.get("name") == expected["after_sku"]
               and after_sku.get("capacity") == expected["after_capacity"]
             )

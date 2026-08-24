@@ -1,7 +1,7 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: 64d78171337007dc740e9ce490ea65b151d8e048
+translation_source_sha: 39c23bc91ade100e1a6969f0d7b8cd7b297bc061
 translation_revised: 2026-08-24
 ---
 
@@ -38,6 +38,7 @@ translation_revised: 2026-08-24
 | 2026-08-23 | in-progress | 소스와 workflow 검토에서 제안 만료가 영향받는 기능을 사람 검토로 낮추지 않는다는 점을 확인해 수명 주기 범위를 바로잡았습니다. 예약 workflow는 제안 전용으로 유지되며 보존된 실행이 없습니다. | `current change`; `.github/workflows/model-lifecycle-reconcile.yml`; `scripts/deployment/azure/model_lifecycle_reconciler.py`; 집중 수명 주기 계약 테스트. | 권위 있는 런타임 모델 소스에 만료-보류 경로를 구현한 뒤 보호된 예약 실행을 한 번 보존하고 모든 교체 초안을 별도로 검토합니다. |
 | 2026-08-23 | implemented | 로컬에서 실행 가능한 만료 검토 범위를 추가했습니다. 수명 주기 제안 v3는 정본 출처 모델 다이제스트와 영향 기능을 기록합니다. 순수 평가기는 해당 정확한 출처의 만료된 미병합 제안만 보류하고 늦은 병합 근거를 거부합니다. Operator 소유 비동기 Key Vault 출처는 공식 Azure vault origin과 audience, 정확한 secret 신원, 크기, JSON 깊이, 활성화 및 만료 상태, 전체 마감, secret-safe 오류와 표현을 검증합니다. | `current change`; 집중 수명 주기 및 Key Vault 테스트; 15회의 비평 및 하드닝 라운드는 검증된 Medium 이상 결함 없이 종료됐습니다. | 비동기 출처 로드와 신뢰할 수 있는 PR 수명주기 관측을 시작 과정에 연결하고, 결정을 영속화 및 검증한 뒤 모델 매핑을 바꾸지 않고 기능 바인딩 전에 보류를 적용합니다. |
 | 2026-08-24 | implemented | 모든 T1/T2 기능에 리비전이 있는 환경 바인딩 초안, 완전한 후보 단위의 TPM/PTU 대체 선택, 정확한 GA 버전 봉인, Owner 전용 평가 및 계획 요청, 활성 산출물 다이제스트 차단, Terraform 버전 고정을 추가했습니다. | `current change`; 공통 정책, 해석기, Azure 조회, Operator IAM, Console 모델, 보호된 워크플로 및 Terraform 경로; 완료 보고서에 기록된 집중 검사. | 이 경로를 validated로 분류하기 전에 보호된 PTU 계획, 적용, 롤백 증적과 적용 후 독립 바인딩 검증을 보존합니다. |
+| 2026-08-24 | implemented | 의도적으로 사용할 수 없는 secondary 발행기로 인해 일반 완전성 게이트가 Terraform 전에 중단되는 것을 실제 평가에서 확인한 뒤, 모델 바인딩 전용 보호 배포 모드를 추가했습니다. 범위가 제한된 `plan-model-*` 및 `apply-model-*` 요청 ID는 환경 정책과 보호 요청을 요구하고 Azure OpenAI 모듈만 대상으로 삼으며 봉인된 Cognitive deployment 변경만 허용합니다. 또한 교체 버전, SKU, 용량을 resolved artifact와 대조합니다. | [이슈 #270](https://github.com/dotnetpower/fdai/issues/270); `deploy-dev.yml`; `test_model_resolution_lifecycle.py`; 집중 보호 workflow 검사 60개, YAML 구문 분석 및 Ruff 통과. | 이 경로를 validated로 분류하기 전에 정확한 PTU 계획, 적용, 독립 런타임 검증 및 역방향 계획 롤백을 실행합니다. |
 ### 남은 작업
 - [ ] [목표와 메트릭](goals-and-metrics-ko.md#남은-작업)과 [Agent Pantheon 구현 계획](../agents/agent-pantheon-implementation-ko.md#남은-작업)의 실제 운영 KPI 선행 조건을 충족한 뒤, 활성화된 모든 T1/T2 기능에 대해 모델 신원, 비용, 지연 시간, 스키마 복구 시도와 복구 결과, 전환, 계획 처리 결과, 불일치, 근거 확인, 검증기, rubric, 결과 및 가드 근거가 포함된 고정된 실제 운영 shadow 집단을 보존합니다.
 - [ ] 범위가 제한된 시도 예산, 재시작 후 영속 증적 전달, 최종 소진에서 사람 승인으로의 전환, 감사된 경로 변경, 상관관계로 제한된 롤백 및 새 승인 없는 복구를 입증하는 통제된 T2 복구 캠페인을 보존합니다.

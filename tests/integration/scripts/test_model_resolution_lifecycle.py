@@ -43,13 +43,37 @@ def test_gateway_targeted_plan_resolves_models_without_blocking_on_completeness(
     assert "!inputs.deploy_dev_operations_gateway" not in resolver_step
     assert (
         "MODEL_COMPLETENESS_FAIL_ON: "
-        "${{ inputs.deploy_dev_operations_gateway && 'none' || 'critical' }}"
+        "${{ (inputs.deploy_dev_operations_gateway || env.MODEL_BINDING_ONLY == 'true') "
+        "&& 'none' || 'critical' }}"
     ) in resolver_step
     assert '--assess-fail-on "$MODEL_COMPLETENESS_FAIL_ON"' in resolver_step
     assert 'if item.get("status") != "hil-only"' in resolver_step
     target_expression = _DEPLOY.split("TF_CLI_ARGS_plan:", maxsplit=1)[1].splitlines()[0]
     assert "module.llm_azure_openai[0].azurerm_cognitive_account.primary" in target_expression
     assert "azurerm_cognitive_deployment.capability" not in target_expression
+
+
+def test_model_binding_plan_is_exactly_scoped_and_allows_held_quorum() -> None:
+    resolver_step = _DEPLOY.split("- name: Resolve and seal model capabilities", maxsplit=1)[
+        1
+    ].split("- name: Ensure protected storage containers", maxsplit=1)[0]
+
+    assert "deploy_model_binding:" not in _DEPLOY
+    assert "startsWith(inputs.request_id, 'plan-model-')" in _DEPLOY
+    assert "model-[0-9a-f]{18}" in _DEPLOY
+    assert "Validate model-binding-only request" in _DEPLOY
+    assert "model-binding plan requires an environment policy" in _DEPLOY
+    assert "Bind model-binding Terraform target" in _DEPLOY
+    assert "-target=module.llm_azure_openai[0]" in _DEPLOY
+    assert "Enforce model-binding-only Terraform plan" in _DEPLOY
+    assert "changes outside sealed deployments" in _DEPLOY
+    assert "MODEL_BINDING_ONLY: ${{ env.MODEL_BINDING_ONLY }}" in _DEPLOY
+    assert 'after_model.get("version") == expected["version"]' in _DEPLOY
+    assert (
+        "MODEL_COMPLETENESS_FAIL_ON: "
+        "${{ (inputs.deploy_dev_operations_gateway || env.MODEL_BINDING_ONLY == 'true') "
+        "&& 'none' || 'critical' }}"
+    ) in resolver_step
 
 
 def test_exact_apply_restores_the_plan_sealed_model_manifest() -> None:
