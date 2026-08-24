@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Incident conversation - FDAI Console</title>
+  <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
+  <link rel="stylesheet" href="../../console/src/styles.css?v=incident-parity-v1" />
+  <link rel="stylesheet" href="../../console/src/deck/structured-reply.css?v=incident-parity-v1" />
+  <script src="assets/calm-slate.js?v=page-context-v3" defer></script>
+  <style>
+    html, body { width: 100%; height: 100%; overflow: hidden; }
+    body { padding: 0; --bg: var(--cs-bg); --bg-elevated: var(--cs-card); --fg: var(--cs-text); --fg-muted: var(--cs-text-soft); --accent: var(--cs-steel); --accent-strong: var(--cs-navy); --success: var(--cs-sage); --warning: var(--cs-terracotta); --danger: var(--cs-dusty-red); --border: var(--cs-hairline); }
+    main.ic-page { display: grid; grid-template-rows: minmax(0, 1fr); width: 100%; height: 100%; min-width: 0; margin: 0; padding: 0 !important; }
+    .ic-page-head { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 0 2px 14px; }
+    .ic-page > .ic-page-head { display: none; }
+    .ic-page-head h1 { min-width: 0; margin: 0; font-size: var(--cs-type-section-title-size); }
+    .ic-title-meta { display: flex; align-items: center; gap: 7px; min-width: 0; }
+    .ic-title-meta code { overflow: hidden; max-width: 190px; text-overflow: ellipsis; white-space: nowrap; }
+    .ic-head-actions { display: flex; align-items: center; gap: 7px; margin-left: auto; }
+    .ic-icon-button { display: inline-grid; width: 34px; height: 34px; place-items: center; padding: 0; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-card); color: var(--cs-text-soft); font: inherit; font-size: 16px; cursor: pointer; }
+    .ic-icon-button:hover { background: var(--cs-shade); color: var(--cs-text); }
+    .ic-icon-button:focus-visible, .ic-text-button:focus-visible, .ic-session:focus-visible, .ic-composer textarea:focus-visible { outline: 2px solid var(--cs-steel); outline-offset: -2px; }
+
+    .ic-workspace { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; min-height: 0; overflow: hidden; border: 0; border-radius: 0; background: var(--cs-card); box-shadow: none; }
+    .ic-workspace.deck-overlay-mode-workspace { inset: auto; }
+    .ic-sessions, .ic-context { min-width: 0; min-height: 0; overflow-y: auto; background: var(--cs-card); }
+    .ic-sessions, .ic-context { display: none; }
+    .ic-sessions { border-right: 1px solid var(--cs-hairline); }
+    .ic-context { border-left: 1px solid var(--cs-hairline); }
+    .ic-panel-head { position: sticky; top: 0; z-index: 2; display: flex; min-height: 50px; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--cs-hairline); background: var(--cs-card); }
+    .ic-panel-head h2 { margin: 0; font-size: var(--cs-type-panel-title-size); }
+    .ic-panel-close { display: none; margin-left: auto; }
+
+    .ic-session-tools { display: grid; grid-template-columns: minmax(0, 1fr) 34px; gap: 6px; padding: 10px 10px 7px; }
+    .ic-search { min-width: 0; height: 34px; padding: 6px 9px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-card); color: var(--cs-text); font: inherit; font-size: var(--cs-type-label-size); }
+    .ic-session-tabs { display: grid; grid-template-columns: repeat(2, 1fr); margin: 0 10px 7px; border-bottom: 1px solid var(--cs-hairline); }
+    .ic-session-tabs button { min-height: 32px; border: 0; background: transparent; color: var(--cs-text-soft); font: inherit; font-size: var(--cs-type-caption-size); cursor: pointer; }
+    .ic-session-tabs button[aria-pressed="true"] { color: var(--cs-text); box-shadow: inset 0 -2px var(--cs-steel); font-weight: 600; }
+    .ic-session-group { padding: 5px 8px 12px; }
+    .ic-session-group h3 { margin: 4px 5px 5px; color: var(--cs-text-soft); font-size: var(--cs-type-caption-size); text-transform: uppercase; }
+    .ic-session { display: grid; width: 100%; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 9px 8px; border: 1px solid transparent; border-radius: var(--cs-radius-sm); background: transparent; color: inherit; text-align: left; font: inherit; cursor: pointer; }
+    .ic-session:hover { background: var(--cs-shade); }
+    .ic-session.is-active { border-color: rgba(68,104,142,.22); background: rgba(68,104,142,.08); }
+    .ic-session-mark { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 50%; background: var(--cs-shade); color: var(--cs-steel); font-size: 10px; font-weight: 700; }
+    .ic-session-copy { min-width: 0; }
+    .ic-session-copy strong, .ic-session-copy span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ic-session-copy strong { font-size: var(--cs-type-label-size); }
+    .ic-session-copy span, .ic-session time { color: var(--cs-text-soft); font-size: var(--cs-type-caption-size); }
+    .ic-session.is-unread .ic-session-copy strong::after { display: inline-block; width: 6px; height: 6px; margin-left: 5px; border-radius: 50%; background: var(--cs-steel); content: ""; vertical-align: 1px; }
+
+    .ic-conversation { display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; min-width: 0; min-height: 0; background: #fff; }
+    .ic-conversation-head { display: flex; min-height: 50px; align-items: center; gap: 9px; min-width: 0; padding: 8px 14px; border-bottom: 1px solid var(--cs-hairline); }
+    .ic-agent-mark { display: grid; width: 26px; height: 26px; flex: 0 0 auto; place-items: center; border-radius: 50%; background: rgba(123,108,156,.12); color: var(--cs-plum); font-size: 10px; font-weight: 700; }
+    .ic-conversation-title { min-width: 0; }
+    .ic-conversation-title strong, .ic-conversation-title span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ic-conversation-title strong { font-size: var(--cs-type-compact-size); }
+    .ic-conversation-title span { color: var(--cs-text-soft); font-size: var(--cs-type-caption-size); }
+    .ic-source-state { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; color: var(--cs-sage); font-size: var(--cs-type-caption-size); font-weight: 600; white-space: nowrap; }
+    .ic-source-state::before { width: 7px; height: 7px; border-radius: 50%; background: currentColor; content: ""; }
+    .ic-compact-controls { display: none; gap: 5px; }
+    .ic-deck-search { display: flex; width: 144px; height: 34px; align-items: center; margin-left: 4px; padding: 0 9px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-card); }
+    .ic-deck-search input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--cs-text); font: inherit; font-size: var(--cs-type-caption-size); }
+    .ic-workspace-tools { display: flex; width: min(100%, 900px); min-height: 36px; align-items: center; gap: 3px; margin: 0 auto; padding: 2px 0; overflow-x: auto; border-bottom: 1px solid var(--cs-hairline); white-space: nowrap; scrollbar-width: none; }
+    .ic-workspace-tools::-webkit-scrollbar { display: none; }
+    .ic-workspace-tools button { min-height: 30px; padding: 4px 8px; border: 1px solid transparent; border-radius: var(--cs-radius-sm); background: transparent; color: var(--cs-text-soft); font: inherit; font-size: var(--cs-type-caption-size); cursor: pointer; }
+    .ic-workspace-tools button:hover { border-color: var(--cs-hairline); background: var(--cs-shade); color: var(--cs-text); }
+    .ic-workspace-tools button:last-child { margin-left: auto; }
+
+    .ic-stream { min-width: 0; min-height: 0; overflow-x: hidden; overflow-y: auto; scroll-behavior: smooth; }
+    .ic-stream-inner { width: min(100%, 1120px); margin: 0 auto; padding: 22px 24px 36px; }
+    .ic-turn { display: flex; margin-bottom: 24px; }
+    .ic-turn.is-operator { justify-content: flex-end; }
+    .ic-operator-body { max-width: 72%; }
+    .ic-operator-bubble { padding: 12px 15px; border-radius: 12px 12px 3px 12px; background: var(--cs-shade); color: var(--cs-text); font-size: var(--cs-type-body-size); }
+    .ic-turn-time { display: block; margin-top: 5px; color: var(--cs-text-soft); font-family: var(--cs-font-mono); font-size: var(--cs-type-caption-size); text-align: right; }
+    .ic-agent-turn { display: flex; flex-direction: column; width: 100%; }
+    .ic-agent-turn > .ic-agent-mark { display: none; }
+    .ic-workspace.deck-overlay-mode-workspace .deck-turn-deck:has(.deck-presentation-table[data-layout="wide"]) { width: min(100%, 1080px); max-width: 1080px; }
+    .ic-agent-line { display: flex; align-items: center; gap: 7px; margin: 2px 0 10px; font-size: var(--cs-type-label-size); }
+    .ic-agent-line span, .ic-agent-line time { color: var(--cs-text-soft); }
+    .ic-work-state { display: flex; align-items: center; gap: 7px; margin-bottom: 20px; padding: 9px 0; border-top: 1px solid var(--cs-hairline); border-bottom: 1px solid var(--cs-hairline); font-size: var(--cs-type-label-size); }
+    .ic-work-check { display: grid; width: 18px; height: 18px; place-items: center; border: 1px solid rgba(94,130,89,.35); border-radius: 50%; color: var(--cs-sage); font-size: 11px; }
+    .ic-work-state strong { font-weight: 600; }
+    .ic-work-state span { color: var(--cs-text-soft); }
+    .ic-readonly { margin-left: auto; padding: 2px 7px; border-radius: var(--cs-radius-pill); background: rgba(94,130,89,.10); color: var(--cs-sage) !important; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+
+    .ic-preparing { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 10px; margin: -5px 0 24px; }
+    .ic-preparing-panel { overflow: hidden; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-card); }
+    .ic-preparing-head { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto auto; gap: 8px; align-items: center; min-height: 42px; padding: 7px 10px; border-bottom: 1px solid var(--cs-hairline); }
+    .ic-preparing-mark { display: grid; width: 18px; height: 18px; place-items: center; border: 1px solid rgba(94,130,89,.35); border-radius: 50%; color: var(--cs-sage); font-size: 10px; }
+    .ic-preparing-title strong, .ic-preparing-title span { display: block; }
+    .ic-preparing-title strong { font-size: var(--cs-type-label-size); }
+    .ic-preparing-title span, .ic-preparing-elapsed { color: var(--cs-text-soft); font-size: var(--cs-type-caption-size); }
+    .ic-preparing-mode { padding: 2px 6px; border-radius: 4px; background: var(--cs-shade); color: var(--cs-text-soft); font-size: 10px; text-transform: uppercase; }
+    .ic-preparing-stages { margin: 0; padding: 7px 10px; list-style: none; }
+    .ic-preparing-stages li { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 8px; align-items: start; padding: 6px 0; color: var(--cs-text-soft); font-size: var(--cs-type-caption-size); }
+    .ic-stage-mark { display: grid; width: 16px; height: 16px; place-items: center; border-radius: 50%; background: rgba(94,130,89,.10); color: var(--cs-sage); font-size: 9px; }
+    .ic-preparing-stages strong { display: block; color: var(--cs-text); font-size: var(--cs-type-caption-size); }
+    .ic-preparing-stages small { color: var(--cs-text-soft); }
+    .ic-stage-side { padding: 1px 5px; border: 1px solid var(--cs-hairline); border-radius: 4px; font-size: 9px; text-transform: uppercase; }
+    .ic-preparing-sources { display: flex; gap: 5px; padding: 8px 10px 10px; overflow-x: auto; border-top: 1px solid var(--cs-hairline); scrollbar-width: none; }
+    .ic-preparing-sources::-webkit-scrollbar { display: none; }
+    .ic-source-chip { flex: 0 0 auto; padding: 3px 7px; border-radius: 4px; background: var(--cs-shade); color: var(--cs-text-soft); font-size: 10px; }
+    .ic-stream .ic-preparing { display: none; }
+    .deck-trajectory:not([open]) .deck-trajectory-question { display: none; }
+    .deck-model-trace > header > h4 { margin: 1.33em 0; }
+
+    .ic-answer-section { margin-top: 26px; }
+    .ic-answer-section:first-of-type { margin-top: 0; }
+    .ic-section-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--cs-hairline); }
+    .ic-section-head h2 { margin: 0; font-size: var(--cs-type-panel-title-size); }
+    .ic-section-head span { margin-left: auto; color: var(--cs-text-soft); font-size: var(--cs-type-caption-size); }
+    .ic-fact-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0; border-top: 1px solid var(--cs-hairline); border-left: 1px solid var(--cs-hairline); }
+    .ic-fact { min-width: 0; padding: 10px 11px; border-right: 1px solid var(--cs-hairline); border-bottom: 1px solid var(--cs-hairline); }
+    .ic-fact dt { color: var(--cs-text-soft); font-size: var(--cs-type-caption-size); }
+    .ic-fact dd { margin: 3px 0 0; color: var(--cs-text); font-size: var(--cs-type-compact-size); font-weight: 600; overflow-wrap: anywhere; }
+    .ic-fact dd small { display: block; margin-top: 1px; font-family: var(--cs-font-mono); font-size: 10px; font-weight: 400; }
+    .ic-fact .is-severity { color: #925737; }
+    .ic-fact .is-open { color: var(--cs-dusty-red); }
+
+    .ic-chart { margin: 0; padding: 12px 13px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); }
+    .ic-chart figcaption { margin-bottom: 11px; }
+    .ic-chart figcaption strong, .ic-chart figcaption span { display: block; }
+    .ic-chart figcaption strong { font-size: var(--cs-type-label-size); }
+    .ic-chart figcaption span { color: var(--cs-text-soft); font-size: var(--cs-type-caption-size); }
+    .ic-chart-row { display: grid; grid-template-columns: 100px minmax(0, 1fr) 24px; gap: 8px; align-items: center; margin-top: 8px; font-size: var(--cs-type-caption-size); }
+    .ic-chart-track { height: 12px; overflow: hidden; border-radius: 3px; background: var(--cs-shade); }
+    .ic-chart-fill { display: block; height: 100%; border-radius: 3px; background: var(--cs-steel); }
+    .ic-chart-fill.is-zero { width: 2px !important; background: var(--cs-dusty-red); }
+    .ic-chart-row strong { text-align: right; }
+    .ic-chart-note { margin: 10px 0 0; color: var(--cs-text-soft); font-size: var(--cs-type-caption-size); }
+    .ic-table-wrap { width: 100%; margin-top: 12px; overflow-x: auto; }
+    .ic-table { width: 100%; border-collapse: collapse; font-size: var(--cs-type-caption-size); }
+    .ic-table caption { padding: 0 0 7px; color: var(--cs-text-soft); text-align: left; }
+    .ic-table th, .ic-table td { padding: 7px 8px; border-bottom: 1px solid var(--cs-hairline); text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+    .ic-table th { border-top: 1px solid var(--cs-hairline); color: var(--cs-text-soft); font-weight: 600; }
+    .ic-table td:first-child { font-weight: 600; }
+    .ic-evidence-state { white-space: nowrap; }
+    .ic-evidence-state::before { display: inline-block; width: 6px; height: 6px; margin-right: 5px; border-radius: 50%; background: var(--cs-sage); content: ""; }
+    .ic-evidence-state.is-gap::before { background: var(--cs-terracotta); }
+
+    .ic-activity { margin: 0; padding: 0; list-style: none; }
+    .ic-activity li { display: grid; grid-template-columns: 108px minmax(0, 1fr) auto; gap: 12px; align-items: start; padding: 11px 0; border-bottom: 1px solid var(--cs-hairline); }
+    .ic-activity li:last-child { border-bottom: 0; }
+    .ic-activity time { color: var(--cs-text-soft); font-family: var(--cs-font-mono); font-size: 10.5px; }
+    .ic-activity-main strong { display: block; font-size: var(--cs-type-label-size); }
+    .ic-activity-main span { color: var(--cs-text-soft); font-size: var(--cs-type-caption-size); }
+    .ic-mode { padding: 2px 6px; border-radius: 4px; background: var(--cs-shade); color: var(--cs-text-soft); font-size: 10px; text-transform: uppercase; }
+
+    .ic-cause { display: grid; grid-template-columns: minmax(220px, 1.35fr) repeat(2, minmax(110px, .65fr)); border: 1px solid var(--cs-hairline); }
+    .ic-cause > div { min-width: 0; padding: 11px 12px; border-right: 1px solid var(--cs-hairline); }
+    .ic-cause > div:last-child { border-right: 0; }
+    .ic-cause span { display: block; color: var(--cs-text-soft); font-size: var(--cs-type-caption-size); }
+    .ic-cause strong { display: block; margin-top: 3px; font-size: var(--cs-type-compact-size); overflow-wrap: anywhere; }
+    .ic-impact { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 7px 16px; margin: 0; padding: 2px 0; }
+    .ic-impact dt { color: var(--cs-text-soft); font-size: var(--cs-type-label-size); font-weight: 600; }
+    .ic-impact dd { margin: 0; font-size: var(--cs-type-label-size); overflow-wrap: anywhere; }
+    .ic-gap-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+    .ic-gap-list li { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 8px; color: var(--cs-text-soft); font-size: var(--cs-type-label-size); }
+    .ic-gap-list li::before { display: grid; width: 16px; height: 16px; place-items: center; border: 1px solid var(--cs-hairline); border-radius: 50%; color: var(--cs-terracotta); content: "!"; font-size: 10px; font-weight: 700; }
+    .ic-next-step { margin-top: 26px; padding: 14px 16px; border: 1px solid rgba(68,104,142,.22); border-radius: var(--cs-radius-sm); background: rgba(68,104,142,.05); }
+    .ic-next-step span { display: block; margin-bottom: 4px; color: var(--cs-steel); font-size: var(--cs-type-caption-size); font-weight: 700; text-transform: uppercase; }
+    .ic-next-step strong { display: block; font-size: var(--cs-type-compact-size); }
+    .ic-next-step p { margin: 4px 0 11px; color: var(--cs-text-soft); font-size: var(--cs-type-label-size); }
+    .ic-next-links { display: flex; flex-wrap: wrap; gap: 6px; }
+    .ic-next-links a { padding: 5px 9px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-card); font-size: var(--cs-type-label-size); font-weight: 600; }
+
+    .ic-composer { padding: 12px 20px 16px; border-top: 1px solid var(--cs-hairline); background: var(--cs-card); }
+    .ic-composer-row { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; gap: 8px; align-items: end; }
+    .ic-composer .ic-icon-button { width: 38px; height: 38px; }
+    .ic-composer textarea { min-width: 0; min-height: 38px; max-height: 100px; resize: none; padding: 9px 11px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-card); color: var(--cs-text); font: inherit; font-size: var(--cs-type-label-size); }
+    .ic-text-button { min-height: 38px; padding: 7px 14px; border: 1px solid var(--cs-steel); border-radius: var(--cs-radius-sm); background: var(--cs-steel); color: #fff; font: inherit; font-size: var(--cs-type-label-size); font-weight: 600; cursor: pointer; }
+    .ic-composer-meta { display: flex; gap: 10px; margin: 6px 46px 0; color: var(--cs-text-soft); font-size: 10px; }
+
+    .ic-context-body { padding: 13px; }
+    .ic-context-section { padding: 14px 0; border-bottom: 1px solid var(--cs-hairline); }
+    .ic-context-section:first-child { padding-top: 0; }
+    .ic-context-section:last-child { border-bottom: 0; }
+    .ic-context-section h3 { margin: 0 0 9px; font-size: var(--cs-type-compact-size); }
+    .ic-context-title { margin: 0 0 9px; font-size: var(--cs-type-compact-size); font-weight: 600; line-height: 1.45; }
+    .ic-context-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+    .ic-context dl { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 7px; margin: 0; }
+    .ic-context dt { color: var(--cs-text-soft); font-size: var(--cs-type-caption-size); }
+    .ic-context dd { margin: 0; font-size: var(--cs-type-caption-size); font-weight: 600; overflow-wrap: anywhere; }
+    .ic-source-list { display: grid; gap: 8px; }
+    .ic-source { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto; gap: 7px; align-items: center; font-size: var(--cs-type-caption-size); }
+    .ic-source::before { width: 7px; height: 7px; border-radius: 50%; background: var(--cs-sage); content: ""; }
+    .ic-source.is-missing::before { background: var(--cs-terracotta); }
+    .ic-source span { color: var(--cs-text-soft); }
+    .ic-source strong { font-weight: 600; }
+    .ic-context-note { margin: 9px 0 0; color: var(--cs-text-soft); font-size: var(--cs-type-caption-size); }
+    .ic-scrim { display: none; }
+
+    @media (max-width: 1180px) {
+      .ic-workspace { grid-template-columns: minmax(0, 1fr); }
+      .ic-compact-controls { display: flex; }
+      .ic-workspace.is-context-open .ic-context { position: absolute; z-index: 5; inset: 0 0 0 auto; display: block; width: 280px; max-width: 86%; box-shadow: -8px 0 22px rgba(46,54,64,.12); }
+      .ic-workspace.is-context-open .ic-panel-close { display: grid; }
+      .ic-workspace.is-context-open .ic-scrim { position: absolute; z-index: 4; inset: 0; display: block; border: 0; background: rgba(46,54,64,.12); cursor: pointer; }
+      .ic-deck-search { display: none; }
+    }
+    @media (min-width: 821px) {
+      .ic-workspace.is-sessions-open { grid-template-columns: 240px minmax(0, 1fr); }
+      .ic-workspace.is-sessions-open .ic-sessions { display: block; }
+    }
+    @media (min-width: 1181px) {
+      .ic-workspace.is-context-open { grid-template-columns: minmax(0, 1fr) 280px; }
+      .ic-workspace.is-context-open .ic-context { display: block; }
+      .ic-workspace.is-sessions-open.is-context-open { grid-template-columns: 240px minmax(0, 1fr) 280px; }
+    }
+    @media (max-width: 820px) {
+      main.ic-page { padding: 0 !important; }
+      .ic-title-meta .cs-risk, .ic-title-meta .cs-status, .ic-source-state { display: none; }
+      .ic-workspace { grid-template-columns: minmax(0, 1fr); }
+      .ic-sessions { display: none; }
+      .ic-workspace.is-sessions-open .ic-sessions { position: absolute; z-index: 5; inset: 0 auto 0 0; display: block; width: 280px; max-width: 86%; box-shadow: 8px 0 22px rgba(46,54,64,.12); }
+      .ic-workspace.is-sessions-open .ic-panel-close { display: grid; }
+      .ic-workspace.is-sessions-open .ic-scrim { position: absolute; z-index: 4; inset: 0; display: block; border: 0; background: rgba(46,54,64,.12); cursor: pointer; }
+      .ic-stream-inner { padding-right: 18px; padding-left: 18px; }
+    }
+    @media (max-width: 560px) {
+      .ic-page { padding: 0; }
+      .ic-page-head { min-height: 52px; padding: 8px 12px; border-bottom: 1px solid var(--cs-hairline); }
+      .ic-page-head h1 { font-size: var(--cs-type-panel-title-size); }
+      .ic-title-meta code, .ic-head-actions { display: none; }
+      .ic-icon-button { width: 44px; height: 44px; }
+      .ic-workspace-tools button { min-height: 44px; }
+      .ic-workspace { border: 0; border-radius: 0; box-shadow: none; }
+      .ic-conversation-head { padding: 7px 10px; }
+      .ic-stream-inner { padding: 18px 14px 28px; }
+      .ic-operator-body { max-width: 88%; }
+      .ic-work-state { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; }
+      .ic-work-state > span:nth-child(3) { grid-column: 2 / -1; grid-row: 2; white-space: nowrap; }
+      .ic-work-state .ic-readonly { grid-column: 3; grid-row: 1; margin-left: 0; white-space: nowrap; }
+      .ic-preparing-head { grid-template-columns: 18px minmax(0, 1fr) auto; }
+      .ic-preparing-mode { display: none; }
+      .ic-fact-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .ic-chart-row { grid-template-columns: 86px minmax(0, 1fr) 20px; }
+      .ic-table, .ic-table tbody, .ic-table tr, .ic-table td { display: block; width: 100%; }
+      .ic-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+      .ic-table tr { padding: 6px 0; border-bottom: 1px solid var(--cs-hairline); }
+      .ic-table td { display: grid; grid-template-columns: 86px minmax(0, 1fr); gap: 8px; padding: 4px 0; border: 0; }
+      .ic-table td::before { color: var(--cs-text-soft); content: attr(data-label); font-weight: 400; }
+      .ic-activity li { grid-template-columns: 82px minmax(0, 1fr); }
+      .ic-activity .ic-mode { display: none; }
+      .ic-cause { grid-template-columns: 1fr; }
+      .ic-cause > div { border-right: 0; border-bottom: 1px solid var(--cs-hairline); }
+      .ic-cause > div:last-child { border-bottom: 0; }
+      .ic-impact { grid-template-columns: 1fr; gap: 2px; }
+      .ic-impact dd { margin-bottom: 7px; }
+      .ic-composer-row { grid-template-columns: 44px minmax(0, 1fr) 44px; }
+      .ic-composer { padding: 10px 12px 12px; }
+      .ic-composer .ic-icon-button { width: 44px; }
+      .ic-composer .ic-icon-button, .ic-composer textarea, .ic-text-button { min-height: 44px; }
+      .ic-text-button { width: 44px; padding: 0; font-size: 0; }
+      .ic-text-button::before { content: "\2191"; font-size: 18px; }
+      .ic-composer-meta { display: none; }
+    }
+    @media (prefers-reduced-motion: reduce) { .ic-stream { scroll-behavior: auto; } }
+  </style>
+</head>
+<body>
+  <main class="ic-page">
+    <header class="ic-page-head">
+      <h1>Command deck</h1>
+      <div class="ic-title-meta">
+        <span class="cs-tag is-steel">Incident</span>
+        <code>INC-240824-08</code>
+        <span class="cs-risk high">SEV 2</span>
+        <span class="cs-status err">Open</span>
+      </div>
+      <div class="ic-head-actions">
+        <a class="ic-icon-button" href="incidents.html" title="Open incident" aria-label="Open incident">&#8599;</a>
+        <button class="ic-icon-button" type="button" title="More options" aria-label="More options">&#8943;</button>
+      </div>
+    </header>
+
+    <div class="ic-workspace cs-deck-surface cs-deck-workspace-shell deck-overlay-mode-workspace" id="incident-workspace">
+      <button class="ic-scrim" type="button" data-close-panels aria-label="Close panel"></button>
+
+      <aside class="ic-sessions" aria-label="Conversation sessions">
+        <header class="ic-panel-head">
+          <h2>Conversations</h2>
+          <button class="ic-icon-button ic-panel-close" type="button" data-close-panels aria-label="Close conversations">&times;</button>
+        </header>
+        <div class="ic-session-tools">
+          <input class="ic-search" type="search" aria-label="Search conversations" placeholder="Search conversations" />
+          <button class="ic-icon-button" type="button" title="New conversation" aria-label="New conversation">+</button>
+        </div>
+        <div class="ic-session-tabs" role="group" aria-label="Conversation scope">
+          <button type="button" aria-pressed="true">Incident</button>
+          <button type="button" aria-pressed="false">All</button>
+        </div>
+        <section class="ic-session-group">
+          <h3>Today</h3>
+          <button class="ic-session is-active" type="button" aria-pressed="true">
+            <span class="ic-session-mark">Br</span>
+            <span class="ic-session-copy"><strong>Notification route failure</strong><span>Bragi &middot; investigation</span></span>
+            <time>now</time>
+          </button>
+          <button class="ic-session is-unread" type="button" aria-pressed="false">
+            <span class="ic-session-mark">He</span>
+            <span class="ic-session-copy"><strong>Evidence completeness</strong><span>Heimdall &middot; observation</span></span>
+            <time>8m</time>
+          </button>
+          <button class="ic-session" type="button" aria-pressed="false">
+            <span class="ic-session-mark">Fo</span>
+            <span class="ic-session-copy"><strong>Why was action held?</strong><span>Forseti &middot; verdict</span></span>
+            <time>14m</time>
+          </button>
+        </section>
+        <section class="ic-session-group">
+          <h3>Previous incidents</h3>
+          <button class="ic-session" type="button" aria-pressed="false">
+            <span class="ic-session-mark">Br</span>
+            <span class="ic-session-copy"><strong>API latency after rollout</strong><span>Resolved &middot; 6 records</span></span>
+            <time>Fri</time>
+          </button>
+          <button class="ic-session" type="button" aria-pressed="false">
+            <span class="ic-session-mark">Sa</span>
+            <span class="ic-session-copy"><strong>Recovery audit review</strong><span>Resolved &middot; 9 records</span></span>
+            <time>Thu</time>
+          </button>
+        </section>
+      </aside>
+
+      <section class="ic-conversation deck-transcript-column cs-deck-transcript-column" aria-label="Incident conversation transcript">
+        <header class="deck-header cs-deck-workspace-header">
+          <div class="deck-header-title">
+            <span class="deck-header-glyph" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14"><path d="M3 2.75h10a1.5 1.5 0 0 1 1.5 1.5v6a1.5 1.5 0 0 1-1.5 1.5H7L3.5 14v-2.25H3a1.5 1.5 0 0 1-1.5-1.5v-6A1.5 1.5 0 0 1 3 2.75Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+            <span>Command deck</span><span class="deck-header-sep muted">&middot;</span><span class="deck-header-route">Architecture</span>
+            <span class="deck-session-chip" tabindex="0">Bragi</span>
+            <button type="button" class="deck-session-exit">General</button>
+            <span class="deck-backend deck-backend-header deck-backend-ready"><span class="deck-backend-dot"></span><span class="deck-backend-label">Chat connected</span></span>
+          </div>
+          <div class="deck-header-center"><div role="search" class="deck-search"><span class="deck-search-icon" aria-hidden="true">&#8981;</span><input type="search" placeholder="Search turns..." aria-label="Search this conversation" /><span class="deck-search-count" aria-live="polite"></span><button type="button" disabled aria-label="Previous match">&uarr;</button><button type="button" disabled aria-label="Next match">&darr;</button><kbd>Ctrl K</kbd></div></div>
+          <span class="deck-header-new-slot"><button type="button" aria-label="New conversation" class="deck-header-new"><span class="deck-header-new-glyph" aria-hidden="true">+</span><span class="deck-header-new-label">New conversation</span></button></span>
+          <div aria-label="Command deck layout" class="deck-layout-controls">
+            <button type="button" aria-label="Floating panel" aria-pressed="false" class="deck-layout-button"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="4" width="10" height="8" rx="1.5"></rect><path d="M3.5 6.5h9"></path></svg></button>
+            <button type="button" aria-label="Dock right" aria-pressed="false" class="deck-layout-button"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2.5" width="12" height="11" rx="1.5"></rect><path d="M10 3v10"></path></svg></button>
+            <button type="button" aria-label="Full workspace" aria-pressed="true" class="deck-layout-button"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 2.5h-3v3M10.5 2.5h3v3M5.5 13.5h-3v-3M10.5 13.5h3v-3"></path></svg></button>
+          </div>
+          <button type="button" aria-label="Close command deck" class="deck-close">&times;</button>
+        </header>
+
+        <div class="ic-workspace-tools cs-deck-workspace-toolbar" role="toolbar" aria-label="Workspace tools">
+          <button type="button">+ New conversation</button>
+          <button type="button" data-open-panel="sessions">Conversations <span>20+</span></button>
+          <button type="button" data-open-panel="context">What I see <span>1000</span></button>
+          <button type="button">&darr; Jump to latest</button>
+        </div>
+
+        <div class="ic-stream deck-transcript" id="incident-stream">
+          <div class="ic-stream-inner deck-transcript-inner">
+            <div class="ic-turn is-operator deck-turn cs-deck-turn cs-deck-user-turn">
+              <div class="ic-operator-body">
+                <div class="ic-operator-bubble cs-deck-user-bubble">Report what the evidence for this incident establishes, which evidence is missing, and the next safe read-only step.</div>
+                <time class="ic-turn-time">11:14:35 KST</time>
+              </div>
+            </div>
+
+            <article class="ic-agent-turn deck-turn cs-deck-turn cs-deck-agent-turn deck-turn-deck is-investigation-flow is-flow-end">
+              <span class="ic-agent-mark" aria-hidden="true">Br</span>
+              <div>
+                <div class="ic-agent-line deck-turn-head cs-deck-turn-head"><strong>Bragi</strong><span>Investigation</span><time>11:14:35 KST</time></div>
+                <details class="deck-investigation is-settled is-completed is-answer-settled" aria-label="Investigation activity">
+                  <summary class="deck-investigation-head cs-work-summary">
+                    <span class="deck-investigation-state cs-work-summary-mark" aria-hidden="true"><span class="deck-marker-glyph">&#10003;</span></span>
+                    <span class="deck-investigation-session-copy cs-work-summary-copy"><strong class="cs-work-summary-title">Observed work completed</strong><small class="cs-work-summary-meta">6 observed events</small></span>
+                    <span class="deck-investigation-readonly cs-work-summary-safety">Read-only</span>
+                    <span class="deck-investigation-badge cs-work-summary-badge is-completed">Completed</span>
+                  </summary>
+                </details>
+
+                <div class="deck-presentation" data-layout="stack" data-schema="2">
+                  <section class="deck-presentation-block" data-kind="summary" data-emphasis="primary" aria-labelledby="verified-evidence-title">
+                    <h4 id="verified-evidence-title">Verified incident evidence</h4>
+                    <div class="deck-presentation-module" data-responsive-policy="reflow" data-accessibility-fallback="description-list">
+                      <dl class="deck-presentation-summary">
+                        <div data-tone="neutral"><dt>Audit records</dt><dd>3</dd></div>
+                        <div data-tone="attention"><dt>Severity</dt><dd>SEV 2</dd></div>
+                        <div data-tone="neutral"><dt>Status</dt><dd><span class="deck-presentation-status">Open</span></dd></div>
+                        <div data-tone="neutral" data-value-kind="timestamp"><dt>First recorded</dt><dd><time class="deck-presentation-timestamp" datetime="2026-08-24T07:17:02+09:00"><span>Aug 24, 2026</span><span>07:17:02 KST</span></time></dd></div>
+                        <div data-tone="neutral" data-value-kind="timestamp"><dt>Last recorded</dt><dd><time class="deck-presentation-timestamp" datetime="2026-08-24T07:20:47+09:00"><span>Aug 24, 2026</span><span>07:20:47 KST</span></time></dd></div>
+                        <div data-tone="neutral" data-value-kind="actors"><dt>Actors</dt><dd><span class="deck-presentation-actors"><span>Heimdall</span><span>Notifications Router</span><span class="deck-presentation-more">+1</span></span></dd></div>
+                        <div class="deck-presentation-derived" data-value-kind="duration"><dt>Observed span</dt><dd>3m 44s</dd></div>
+                      </dl>
+                    </div>
+                  </section>
+
+                  <section class="deck-presentation-block" data-kind="table" data-emphasis="secondary" aria-labelledby="recorded-activity-title">
+                    <h4 id="recorded-activity-title">Recorded activity</h4>
+                    <div class="deck-presentation-module" data-responsive-policy="stack" data-accessibility-fallback="exact-table">
+                      <div class="deck-presentation-table-wrap" data-layout="wide">
+                        <table class="deck-presentation-table" data-layout="wide">
+                          <thead><tr><th scope="col" data-column="recorded">Recorded</th><th scope="col">Actor</th><th scope="col">Activity</th><th scope="col" data-column="mode">Mode</th><th scope="col" data-column="audit_ref">Audit ref</th></tr></thead>
+                          <tbody>
+                            <tr><td data-column="recorded"><span class="deck-presentation-cell-label">Recorded</span><time class="deck-presentation-timestamp" datetime="2026-08-24T07:17:02+09:00"><span>Aug 24, 2026</span><span>07:17:02 KST</span></time></td><td><span class="deck-presentation-cell-label">Actor</span><span class="deck-presentation-actors"><span>Heimdall</span></span></td><td><span class="deck-presentation-cell-label">Activity</span><span class="deck-presentation-token">Incident open</span></td><td data-column="mode"><span class="deck-presentation-cell-label">Mode</span><span class="deck-presentation-token">Shadow</span></td><td data-column="audit_ref"><span class="deck-presentation-cell-label">Audit ref</span><code class="deck-presentation-ref">audit:68858</code></td></tr>
+                            <tr><td data-column="recorded"><span class="deck-presentation-cell-label">Recorded</span><time class="deck-presentation-timestamp" datetime="2026-08-24T07:20:46+09:00"><span>Aug 24, 2026</span><span>07:20:46 KST</span></time></td><td><span class="deck-presentation-cell-label">Actor</span><span class="deck-presentation-actors"><span>Approval Sink</span></span></td><td><span class="deck-presentation-cell-label">Activity</span><span class="deck-presentation-token">Notification escalation</span></td><td data-column="mode"><span class="deck-presentation-cell-label">Mode</span><span class="deck-presentation-token">Shadow</span></td><td data-column="audit_ref"><span class="deck-presentation-cell-label">Audit ref</span><code class="deck-presentation-ref">audit:68881</code></td></tr>
+                            <tr><td data-column="recorded"><span class="deck-presentation-cell-label">Recorded</span><time class="deck-presentation-timestamp" datetime="2026-08-24T07:20:47+09:00"><span>Aug 24, 2026</span><span>07:20:47 KST</span></time></td><td><span class="deck-presentation-cell-label">Actor</span><span class="deck-presentation-actors"><span>Notifications Router</span></span></td><td><span class="deck-presentation-cell-label">Activity</span><span class="deck-presentation-token">Notification route</span></td><td data-column="mode"><span class="deck-presentation-cell-label">Mode</span><span class="deck-presentation-token">Shadow</span></td><td data-column="audit_ref"><span class="deck-presentation-cell-label">Audit ref</span><code class="deck-presentation-ref">audit:68882</code></td></tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section class="deck-presentation-block" data-kind="summary" data-emphasis="primary" aria-labelledby="root-cause-title">
+                    <h4 id="root-cause-title">Root cause</h4>
+                    <div class="deck-presentation-module" data-responsive-policy="reflow" data-accessibility-fallback="description-list">
+                      <dl class="deck-presentation-summary">
+                        <div data-tone="neutral"><dt>Cause</dt><dd>Notification delivery failed because the configured route has no resolvable channels.</dd></div>
+                        <div data-tone="neutral"><dt>Tier</dt><dd><span class="deck-presentation-token">T0</span></dd></div>
+                        <div data-tone="neutral"><dt>Confidence</dt><dd>1.0</dd></div>
+                        <div data-tone="neutral"><dt>Reason</dt><dd>Recorded notification route outcome: route_unresolved.</dd></div>
+                        <div data-tone="neutral" data-value-kind="timestamp"><dt>Recorded</dt><dd><time class="deck-presentation-timestamp" datetime="2026-08-24T07:20:47+09:00"><span>Aug 24, 2026</span><span>07:20:47 KST</span></time></dd></div>
+                      </dl>
+                    </div>
+                  </section>
+
+                  <section class="deck-presentation-block" data-kind="table" data-emphasis="secondary" aria-labelledby="impact-evidence-title">
+                    <h4 id="impact-evidence-title">Impact evidence</h4>
+                    <div class="deck-presentation-module" data-responsive-policy="stack" data-accessibility-fallback="exact-table">
+                      <div class="deck-presentation-table-wrap" data-layout="wide"><table class="deck-presentation-table" data-layout="wide"><thead><tr><th scope="col">Metric</th><th scope="col">Baseline</th><th scope="col">Observed</th><th scope="col">Threshold</th><th scope="col">Impact</th><th scope="col">Evidence</th></tr></thead><tbody><tr><td><span class="deck-presentation-cell-label">Metric</span><code>notification_delivery_outcome</code></td><td><span class="deck-presentation-cell-label">Baseline</span>delivered route_outcome</td><td><span class="deck-presentation-cell-label">Observed</span>route_unresolved route_outcome</td><td><span class="deck-presentation-cell-label">Threshold</span>delivered route_outcome</td><td><span class="deck-presentation-cell-label">Impact</span>Operational notification delivery did not complete and was escalated for human attention.</td><td><span class="deck-presentation-cell-label">Evidence</span><code class="deck-presentation-ref">audit:68882</code></td></tr></tbody></table></div>
+                    </div>
+                  </section>
+
+                  <section class="deck-presentation-block" data-kind="table" data-emphasis="supporting" aria-labelledby="grounded-citations-title">
+                    <h4 id="grounded-citations-title">Grounded citations</h4>
+                    <div class="deck-presentation-module" data-responsive-policy="stack" data-accessibility-fallback="exact-table">
+                      <div class="deck-presentation-table-wrap" data-layout="wide"><table class="deck-presentation-table" data-layout="wide"><thead><tr><th scope="col">Tier</th><th scope="col">Kind</th><th scope="col">Reference</th><th scope="col">Summary</th><th scope="col">Recorded</th></tr></thead><tbody><tr><td><span class="deck-presentation-cell-label">Tier</span><span class="deck-presentation-token">T0</span></td><td><span class="deck-presentation-cell-label">Kind</span><span class="deck-presentation-token">Event</span></td><td><span class="deck-presentation-cell-label">Reference</span><code class="deck-presentation-ref">audit:68882</code></td><td><span class="deck-presentation-cell-label">Summary</span>Recorded notification route outcome: route_unresolved.</td><td><span class="deck-presentation-cell-label">Recorded</span><time class="deck-presentation-timestamp" datetime="2026-08-24T07:20:47+09:00"><span>Aug 24, 2026</span><span>07:20:47 KST</span></time></td></tr></tbody></table></div>
+                    </div>
+                  </section>
+
+                  <section class="deck-presentation-block" data-kind="callout" data-emphasis="supporting" aria-labelledby="limitations-title">
+                    <h4 id="limitations-title">Limitations</h4>
+                    <div class="deck-presentation-module" data-responsive-policy="reflow" data-accessibility-fallback="ordered-list">
+                      <ul class="deck-presentation-callout" data-tone="warning"><li>No recorded evidence gaps.</li></ul>
+                    </div>
+                  </section>
+
+                  <section class="deck-presentation-block" data-kind="list" data-emphasis="secondary" aria-labelledby="next-step-title">
+                    <h4 id="next-step-title">Next safe step</h4>
+                    <div class="deck-presentation-module" data-responsive-policy="stack" data-accessibility-fallback="description-list">
+                      <div class="deck-presentation-list"><dl><div><dt>Action</dt><dd>Configure at least one operational-alert channel in the notification registry, then retry delivery.</dd></div><div><dt>Authority</dt><dd>Read-only</dd></div></dl></div>
+                    </div>
+                  </section>
+                </div>
+
+                <details class="deck-trajectory cs-run-record">
+                  <summary class="deck-trajectory-summary cs-run-record-summary">
+                    <span class="cs-run-record-title">
+                      <span class="cs-run-record-glyph" aria-hidden="true"><i></i><i></i><i></i></span>
+                      <span class="cs-run-record-title-copy"><small class="cs-run-record-kicker">Run record</small><strong class="cs-run-record-heading">Observed process</strong></span>
+                    </span>
+                    <span class="cs-run-record-stats">Model trace off / evidence 7/7 / <strong>verification Completed</strong></span>
+                    <span class="cs-run-record-duration">End-to-end 10.8 s</span>
+                    <span class="cs-run-record-chevron" aria-hidden="true"></span>
+                    <span class="deck-trajectory-question">
+                      <small>Input</small>
+                      <strong>Report what the evidence for this incident establishes, which evidence is missing, and the next safe read-only step.</strong>
+                    </span>
+                  </summary>
+                  <div class="deck-trajectory-body cs-run-record-body">
+                    <ol class="deck-trajectory-phase-strip cs-run-phase-strip" aria-label="Question-to-answer trajectory phases">
+                      <li class="cs-run-phase" data-state="completed"><span class="cs-run-phase-mark">&#10003;</span><strong>Input</strong><small>Completed</small></li>
+                      <li class="cs-run-phase" data-state="completed"><span class="cs-run-phase-mark">&#10003;</span><strong>Plan</strong><small>Completed</small></li>
+                      <li class="cs-run-phase" data-state="not_observed"><span class="cs-run-phase-mark">03</span><strong>Collaboration</strong><small>Not observed</small></li>
+                      <li class="cs-run-phase" data-state="completed"><span class="cs-run-phase-mark">&#10003;</span><strong>Evidence and tools</strong><small>Completed</small></li>
+                      <li class="cs-run-phase" data-state="completed"><span class="cs-run-phase-mark">&#10003;</span><strong>Verification</strong><small>Completed</small></li>
+                      <li class="cs-run-phase" data-state="completed"><span class="cs-run-phase-mark">&#10003;</span><strong>Answer</strong><small>Completed</small></li>
+                    </ol>
+                    <ol class="deck-trajectory-phase-details" aria-label="Question-to-answer trajectory phases">
+                      <li data-state="completed"><span class="deck-trajectory-phase-detail-mark">&#10003;</span><span class="deck-trajectory-phase-detail-copy"><strong>Input</strong><small>Report what the evidence for this incident establishes, which evidence is missing, and the next safe read-only step.</small></span><span class="deck-trajectory-phase-detail-state">Completed</span></li>
+                      <li data-state="completed"><span class="deck-trajectory-phase-detail-mark">&#10003;</span><span class="deck-trajectory-phase-detail-copy"><strong>Plan</strong><small>1 goals / operationally grounded</small></span><span class="deck-trajectory-phase-detail-state">Completed</span></li>
+                      <li data-state="not_observed"><span class="deck-trajectory-phase-detail-mark">03</span><span class="deck-trajectory-phase-detail-copy"><strong>Collaboration</strong><small>No observable detail was recorded for this phase. This does not prove that no work occurred.</small></span><span class="deck-trajectory-phase-detail-state">Not observed</span></li>
+                      <li data-state="completed"><span class="deck-trajectory-phase-detail-mark">&#10003;</span><span class="deck-trajectory-phase-detail-copy"><strong>Evidence and tools</strong><small>Evidence 7/7 completed / 1 refs</small></span><span class="deck-trajectory-phase-detail-state">Completed</span></li>
+                      <li data-state="completed"><span class="deck-trajectory-phase-detail-mark">&#10003;</span><span class="deck-trajectory-phase-detail-copy"><strong>Verification</strong><small>Verified / Checks: 1/1 / Authority: ontology-query</small></span><span class="deck-trajectory-phase-detail-state">Completed</span></li>
+                      <li data-state="completed"><span class="deck-trajectory-phase-detail-mark">&#10003;</span><span class="deck-trajectory-phase-detail-copy"><strong>Answer</strong><small>Source: ontology-query / Agent: Bragi</small></span><span class="deck-trajectory-phase-detail-state">Completed</span></li>
+                    </ol>
+                    <section class="deck-execution-timeline" aria-labelledby="incident-execution-timeline">
+                      <header><h4 id="incident-execution-timeline">Observed execution timeline</h4><span>3 observed events</span></header>
+                      <div class="deck-execution-axis" aria-hidden="true"><div class="deck-execution-axis-range"><time>11:14:35</time><span>10.81 s</span><time>11:14:46</time></div></div>
+                      <ol>
+                        <li data-kind="turn" data-state="completed"><details><summary><span class="deck-execution-kind">Turn</span><span class="deck-execution-label-wrap"><span class="deck-execution-flow-mark" aria-hidden="true"></span><strong class="deck-execution-label">Input</strong></span><span class="deck-execution-track is-point" aria-hidden="true"><span class="deck-execution-bar" style="left:0%;width:2px"></span></span><span class="deck-execution-duration">0 ms</span><span class="deck-execution-outcome">Completed</span><span class="deck-execution-chevron" aria-hidden="true"></span></summary></details></li>
+                        <li data-kind="evidence" data-state="completed"><details><summary><span class="deck-execution-kind">Evidence</span><span class="deck-execution-label-wrap"><span class="deck-execution-flow-mark" aria-hidden="true"></span><strong class="deck-execution-label">Run verified semantic query: function</strong></span><span class="deck-execution-track" aria-hidden="true"><span class="deck-execution-bar" style="left:0%;width:1%"></span></span><span class="deck-execution-duration">11 ms</span><span class="deck-execution-outcome">Completed</span><span class="deck-execution-chevron" aria-hidden="true"></span></summary></details></li>
+                        <li data-kind="turn" data-state="completed"><details><summary><span class="deck-execution-kind">Turn</span><span class="deck-execution-label-wrap"><span class="deck-execution-flow-mark" aria-hidden="true"></span><strong class="deck-execution-label">Answer</strong></span><span class="deck-execution-track is-point" aria-hidden="true"><span class="deck-execution-bar" style="left:100%;width:2px"></span></span><span class="deck-execution-duration">0 ms</span><span class="deck-execution-outcome">Completed</span><span class="deck-execution-chevron" aria-hidden="true"></span></summary></details></li>
+                      </ol>
+                    </section>
+                    <section class="deck-model-trace is-empty" aria-label="Model provider waterfall"><header><h4>Model provider waterfall</h4></header><div class="deck-model-trace-empty-state" role="note"><strong>Provider trace capture is off</strong><p>Enable model request and response trace in Settings. The change applies to new turns and doesn't reveal previously hidden provider data.</p></div></section>
+                    <dl class="deck-trajectory-signals">
+                      <div data-state="completed"><dt>Evidence and tools</dt><dd>Evidence 7/7 completed / 1 refs</dd></div>
+                      <div data-state="completed"><dt>Authority</dt><dd>ontology-query</dd></div>
+                      <div data-state="completed"><dt>Source</dt><dd>ontology-query</dd></div>
+                    </dl>
+                    <details class="deck-trajectory-records">
+                      <summary><strong>Execution details</strong><span>5</span></summary>
+                      <div class="deck-trajectory-window"><time>11:14:35</time><span aria-hidden="true"></span><time>11:14:46</time></div>
+                      <ol class="deck-trajectory-events">
+                        <li class="deck-trajectory-event" data-phase="input" data-state="completed"><details><summary><span class="deck-trajectory-event-index">01</span><strong>Input</strong><span>Completed</span></summary></details></li>
+                        <li class="deck-trajectory-event" data-phase="plan" data-state="completed"><details><summary><span class="deck-trajectory-event-index">02</span><strong>Plan</strong><span>Completed</span></summary></details></li>
+                        <li class="deck-trajectory-event" data-phase="evidence" data-state="completed"><details><summary><span class="deck-trajectory-event-index">03</span><strong>Evidence and tools</strong><span>Completed</span></summary></details></li>
+                        <li class="deck-trajectory-event" data-phase="verification" data-state="completed"><details><summary><span class="deck-trajectory-event-index">04</span><strong>Verification</strong><span>Completed</span></summary></details></li>
+                        <li class="deck-trajectory-event" data-phase="answer" data-state="completed"><details><summary><span class="deck-trajectory-event-index">05</span><strong>Answer</strong><span>Completed</span></summary></details></li>
+                      </ol>
+                    </details>
+                  </div>
+                </details>
+              </div>
+            </article>
+          </div>
+        </div>
+
+        <footer class="ic-composer cs-deck-composer-shell">
+          <div class="ic-composer-row cs-deck-composer-grid">
+            <button class="ic-icon-button cs-deck-tool cs-deck-tool-icon" type="button" title="Attach evidence" aria-label="Attach evidence">+</button>
+            <textarea class="cs-deck-composer-input" rows="1" aria-label="Ask anything about Architecture" placeholder="Ask anything..." ></textarea>
+            <button class="ic-text-button cs-deck-composer-send" type="button">Send</button>
+          </div>
+        </footer>
+      </section>
+
+      <aside class="ic-context" aria-label="Incident context">
+        <header class="ic-panel-head">
+          <h2>Incident context</h2>
+          <button class="ic-icon-button ic-panel-close" type="button" data-close-panels aria-label="Close incident context">&times;</button>
+        </header>
+        <div class="ic-context-body">
+          <section class="ic-context-section">
+            <p class="ic-context-title">Notification route has no resolvable channels</p>
+            <div class="ic-context-tags"><span class="cs-risk high">SEV 2</span><span class="cs-status err">Open</span></div>
+          </section>
+          <section class="ic-context-section">
+            <h3>Scope</h3>
+            <dl>
+              <dt>Incident</dt><dd>INC-240824-08</dd>
+              <dt>Correlation</dt><dd><code>corr-notify-08</code></dd>
+              <dt>Vertical</dt><dd>Resilience</dd>
+              <dt>Mode</dt><dd>Shadow</dd>
+              <dt>Recorded</dt><dd>07:17-07:20 KST</dd>
+            </dl>
+          </section>
+          <section class="ic-context-section">
+            <h3>Evidence sources</h3>
+            <div class="ic-source-list">
+              <div class="ic-source"><strong>Incident projection</strong><span>ready</span></div>
+              <div class="ic-source"><strong>Audit log</strong><span>3 records</span></div>
+              <div class="ic-source"><strong>Routing trace</strong><span>ready</span></div>
+              <div class="ic-source is-missing"><strong>Delivery receipt</strong><span>missing</span></div>
+            </div>
+            <p class="ic-context-note">Answers may state only what these bounded records establish.</p>
+          </section>
+          <section class="ic-context-section">
+            <h3>Participants</h3>
+            <dl>
+              <dt>Observer</dt><dd>Heimdall</dd>
+              <dt>Narrator</dt><dd>Bragi</dd>
+              <dt>Router</dt><dd>Notifications Router</dd>
+            </dl>
+          </section>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <script>
+    (function () {
+      const workspace = document.getElementById('incident-workspace');
+      if (!workspace) return;
+
+      function closePanels() {
+        workspace.classList.remove('is-sessions-open', 'is-context-open');
+      }
+
+      document.querySelectorAll('[data-open-panel]').forEach(function (button) {
+        button.addEventListener('click', function () {
+          const panel = button.getAttribute('data-open-panel');
+          closePanels();
+          workspace.classList.add(panel === 'sessions' ? 'is-sessions-open' : 'is-context-open');
+        });
+      });
+      document.querySelectorAll('[data-close-panels]').forEach(function (button) {
+        button.addEventListener('click', closePanels);
+      });
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') closePanels();
+      });
+    })();
+  </script>
+</body>
+</html>
