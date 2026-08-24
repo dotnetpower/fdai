@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: f5778a93f53b2441e7ae4b1a193a5cffe010b612
+translation_source_sha: 6e56561f7c7ebc5d0b3d074a87954b3cbeac58c9
 translation_revised: 2026-08-25
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -36,6 +36,7 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 | 2026-08-21 | implemented | 파괴적 계획 게이트를 유지하면서 검토된 임베딩 이행 하나를 승인했습니다. Terraform 계획이 정확한 주소, 계정 연결, 모델 계열, 기존 `GlobalStandard` 용량 1, 목표 `Standard` 용량 200과 일치할 때만 `t1.embedding` 교체를 허용합니다. 삭제 전용 계획과 값이 달라진 교체는 계속 차단됩니다. | `current change`; `.github/workflows/deploy-dev.yml`; 집중 파괴적 계획 검사 2개 통과. | 정확한 보호 계획을 적용하고 새 배포와 런타임 연결을 검증한 뒤 증적을 보존하고 일회성 전환 승인을 제거합니다. |
 | 2026-08-24 | implemented | 모델 바인딩 전용 계획 범위 가드를 실제 workflow 단계로 복원하고 사용 중단 중인 출처 모델 계열에서 이동하는 교체 검토를 강화했습니다. 저장된 계획은 유효한 OpenAI 출처 배포와 계정 연결을 유지해야 하며, 목표는 봉인된 GA 모델 계열, 버전, SKU 및 용량과 정확히 일치해야 합니다. | [이슈 #270](https://github.com/dotnetpower/fdai/issues/270); `deploy-dev.yml`; 실행형 모델 계획 및 파괴적 교체 검사. | 경로를 `validated`로 올리기 전에 정확한 PTU 계획, 적용, readback 및 역방향 계획 롤백 증적을 보존합니다. |
 | 2026-08-24 | implemented | 보호 계획 `32749593774`가 읽기 전용 Model Capacities 질의의 30초 제한에서 중단된 뒤 live resolver의 Azure CLI timeout을 매개변수화했습니다. 보호 workflow는 범위가 제한된 90초 deadline을 사용하고 모든 공급자 읽기는 실패 시 차단을 유지합니다. | [이슈 #270](https://github.com/dotnetpower/fdai/issues/270); resolver CLI 및 보호 workflow 검사 62개와 strict mypy 통과. | 정확한 계획을 한 번 다시 실행하고 적용 전에 결과를 보존합니다. |
+| 2026-08-24 | implemented | 일회용 scenario endpoint에 기존 중앙 OpenAI Private DNS zone을 재사용했습니다. Scenario state는 lab VNet link, private endpoint 및 zone group만 소유하며 기존 runner와 P2S link는 중앙 소유로 유지합니다. | 실패한 protected apply `32752288798`; `infra/scenario-lab/` 및 `.github/workflows/sre-demo-lab.yml`의 `current change`; 집중 Terraform 및 workflow 검사입니다. | Protected scenario apply, 승인된 sweep 및 최종 destroy 증적을 완료합니다. |
 | 2026-08-13 | implemented | 이전 provenance를 재구성하지 않고 implementation ledger를 도입하고 범위가 제한된 OHL evidence target의 protected provisioning 및 proposal-only Job을 추가했습니다. | current change, 집중 Terraform test 결과 8 passed 및 publisher/workflow test 결과 13 passed | Exact 계획을 적용하고 증명된 런타임 이미지를 배포한 뒤 실제 evidence campaign을 완료합니다. |
 | 2026-08-13 | implemented | 로컬 파괴적 migration 검증을 활성 로컬 런타임 PostgreSQL cluster에서 격리했습니다. | 현재 변경, Compose configuration 통과, focused queue 및 local-environment test 68개 통과, 격리된 migration upgrade/downgrade 검사 2개 통과. | 로컬 검증 데이터베이스 격리에 남은 구현 작업은 없습니다. |
 | 2026-08-13 | implemented | Protected platform 계획 및 exact 적용 상태를 `validated`에서 `implemented`로 정정했습니다. Workflow source는 메커니즘을 입증하지만 리포지토리는 통제된 platform 적용 증적을 보존하지 않습니다. | current change, `.github/workflows/deploy-dev.yml`, roadmap, 번역 및 문서 검사 | `validated`로 복원하기 전에 리포지토리에 안전한 통제된 platform 적용 증적을 보존합니다. |

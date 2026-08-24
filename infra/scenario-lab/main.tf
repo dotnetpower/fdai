@@ -4,10 +4,6 @@ locals {
   suffix           = "fdai-sre-${var.environment}-${var.region_short}"
   unique_suffix    = substr(sha1("${data.azurerm_client_config.current.subscription_id}:${var.environment}:${var.region}"), 0, 6)
   operator_enabled = var.operator_access != null
-  private_dns_extra_vnet_links = merge(
-    { runner = var.runner_vnet.id },
-    local.operator_enabled ? { operator = var.operator_access.vnet_id } : {},
-  )
   tags = merge({
     "fdai:managed"    = "true"
     "fdai:workload"   = "fdai"

@@ -121,19 +121,39 @@ module "azure_openai" {
   tags = local.tags
 }
 
-module "azure_openai_private_endpoint" {
-  source = "../modules/private-endpoint"
-
-  name                  = "pe-${local.suffix}-oai"
-  location              = data.azurerm_resource_group.scenario_lab.location
-  resource_group_name   = data.azurerm_resource_group.scenario_lab.name
-  subnet_id             = azurerm_subnet.private_endpoints.id
-  vnet_id               = azurerm_virtual_network.scenario_lab.id
-  target_resource_id    = module.azure_openai.resource_id
-  subresource_name      = "account"
-  private_dns_zone_name = "privatelink.openai.azure.com"
-  extra_vnet_links      = local.private_dns_extra_vnet_links
+resource "azurerm_private_dns_zone_virtual_network_link" "openai_lab" {
+  name                  = "link-${local.suffix}-openai"
+  resource_group_name   = var.azure_openai_private_dns_zone.resource_group_name
+  private_dns_zone_name = var.azure_openai_private_dns_zone.name
+  virtual_network_id    = azurerm_virtual_network.scenario_lab.id
+  registration_enabled  = false
   tags                  = local.tags
+
+  lifecycle {
+    ignore_changes = [tags]
+  }
+}
+
+resource "azurerm_private_endpoint" "azure_openai" {
+  name                = "pe-${local.suffix}-oai"
+  location            = data.azurerm_resource_group.scenario_lab.location
+  resource_group_name = data.azurerm_resource_group.scenario_lab.name
+  subnet_id           = azurerm_subnet.private_endpoints.id
+  tags                = local.tags
+
+  private_service_connection {
+    name                           = "pe-${local.suffix}-oai-psc"
+    private_connection_resource_id = module.azure_openai.resource_id
+    subresource_names              = ["account"]
+    is_manual_connection           = false
+  }
+
+  private_dns_zone_group {
+    name                 = "default"
+    private_dns_zone_ids = [var.azure_openai_private_dns_zone.id]
+  }
+
+  depends_on = [azurerm_private_dns_zone_virtual_network_link.openai_lab]
 }
 
 resource "azurerm_monitor_diagnostic_setting" "mysql" {

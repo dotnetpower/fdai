@@ -150,6 +150,24 @@ variable "azure_openai_deployment_sku" {
   default     = "GlobalStandard"
 }
 
+variable "azure_openai_private_dns_zone" {
+  description = "Existing central OpenAI Private DNS zone shared by the runner, operator, and disposable lab."
+  type = object({
+    id                  = string
+    name                = string
+    resource_group_name = string
+  })
+
+  validation {
+    condition = (
+      startswith(var.azure_openai_private_dns_zone.id, "/subscriptions/") &&
+      var.azure_openai_private_dns_zone.name == "privatelink.openai.azure.com" &&
+      trimspace(var.azure_openai_private_dns_zone.resource_group_name) != ""
+    )
+    error_message = "azure_openai_private_dns_zone must identify the existing central privatelink.openai.azure.com zone."
+  }
+}
+
 variable "azure_openai_capacity_tpm" {
   description = "Azure OpenAI deployment throughput in tokens per minute."
   type        = number

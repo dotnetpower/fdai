@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: f41f0aee49d70cfdf06d7f926a17561635471138
+translation_source_sha: 287cd9840f0b31491fe7cd543e31ad191d67f481
 translation_revised: 2026-08-25
 ---
 
@@ -43,6 +43,7 @@ translation_revised: 2026-08-25
 | 2026-08-15 | implemented | 실행기 신원이나 즉시 플랫폼 재시도 없이 범위가 제한된 브라우저 근거 보존을 수행하는 명시적 선택 예약 Container Apps Job을 추가했습니다. | `current change`; focused Terraform 계약 검사 `4 passed`; `terraform validate`. | Protected 적용 및 성공과 실패 Job 실행 증적을 수집합니다. |
 | 2026-08-20 | implemented | 정지한 migration이 service job의 2시간 전체 예산을 소진한 뒤 모든 service migration 연결, service 간 잠금 및 protected workflow 단계에 경계를 추가했습니다. Cleanup은 이제 원래 migration 오류를 보존합니다. | `current change`; service migration 및 protected workflow 계약 검사 204개 통과; Ruff 및 strict mypy 통과. | Protected exact 적용 하나를 완료하고 migration, service 상태 및 rollback 경계 근거를 보존합니다. |
 | 2026-08-24 | implemented | 봉인된 database host binding mode를 추가하고 Core의 중복 host 선언을 제거했으며 in-place 갱신을 위한 명시적 legacy Operator 이름 호환 경계를 유지했습니다. | `current change`; focused guard, bundle, workflow, naming 및 Terraform validation 검사. | Zero-destroy plan 5개와 exact apply를 완료한 뒤 이슈 #262에 독립 runtime 및 inventory 근거를 보존합니다. |
+| 2026-08-24 | implemented | 같은 namespace의 두 번째 zone을 만들지 않고 일회용 scenario OpenAI private endpoint를 기존 중앙 Private DNS zone에 연결했습니다. Scenario state는 lab VNet link와 endpoint zone group을 소유하며, 중앙에서 소유하는 runner 및 P2S link는 바꾸지 않습니다. | 실패한 protected apply `32752288798`; `infra/scenario-lab/` 및 `.github/workflows/sre-demo-lab.yml`의 `current change`; 집중 Terraform 및 workflow 검사입니다. | Protected scenario apply, 승인된 sweep 및 최종 destroy 증적을 완료합니다. |
 
 ### 남은 작업
 

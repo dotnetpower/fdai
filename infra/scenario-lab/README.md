@@ -49,6 +49,7 @@ Configure these repository variables before running the workflow:
 | `SCENARIO_LAB_BACKEND_IMAGE` | Demo backend image pinned by `sha256` digest |
 | `SCENARIO_LAB_CHAOS_MESH_CHART_VERSION` | Exact Chaos Mesh chart version |
 | `SCENARIO_LAB_AOAI_MODEL_FAMILY`, `SCENARIO_LAB_AOAI_DEPLOYMENT_SKU` | Optional region and quota overrides |
+| `SCENARIO_LAB_OPENAI_PRIVATE_DNS_ZONE_ID`, `SCENARIO_LAB_OPENAI_PRIVATE_DNS_RESOURCE_GROUP_NAME` | Existing central `privatelink.openai.azure.com` zone already linked to the runner and P2S VNets |
 | `SCENARIO_LAB_OPERATOR_PRINCIPAL_ID` | Operator Entra object id used only when VPN operator access is enabled |
 | `DEV_ACCESS_VNET_ID`, `DEV_ACCESS_VNET_NAME`, `DEV_ACCESS_RESOURCE_GROUP_NAME` | Existing P2S VPN VNet identity used only for direct workstation testing |
 

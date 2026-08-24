@@ -74,6 +74,8 @@ jobs:
       TF_VAR_vm_image_version: ${{ vars.SCENARIO_LAB_VM_IMAGE_VERSION }}
       TF_VAR_azure_openai_model_family: ${{ vars.SCENARIO_LAB_AOAI_MODEL_FAMILY || 'gpt-4.1-nano' }}
       TF_VAR_azure_openai_deployment_sku: ${{ vars.SCENARIO_LAB_AOAI_DEPLOYMENT_SKU || 'GlobalStandard' }}
+      TF_VAR_azure_openai_private_dns_zone: >-
+        {"id":"${{ vars.SCENARIO_LAB_OPENAI_PRIVATE_DNS_ZONE_ID }}","name":"privatelink.openai.azure.com","resource_group_name":"${{ vars.SCENARIO_LAB_OPENAI_PRIVATE_DNS_RESOURCE_GROUP_NAME }}"}
       SCENARIO_LAB_BACKEND_IMAGE: ${{ vars.SCENARIO_LAB_BACKEND_IMAGE }}
       SCENARIO_LAB_CHAOS_MESH_CHART_VERSION: ${{ vars.SCENARIO_LAB_CHAOS_MESH_CHART_VERSION }}
       SCENARIO_LAB_APPROVAL_REF: ${{ inputs.approval_ref }}
@@ -137,6 +139,7 @@ jobs:
             STATE_STORAGE_ACCOUNT SCENARIO_LAB_RESOURCE_GROUP_NAME \
             SCENARIO_LAB_RUNNER_PRINCIPAL_ID \
             TF_VAR_region TF_VAR_region_short \
+            TF_VAR_azure_openai_private_dns_zone \
             TF_VAR_admin_ssh_public_key TF_VAR_vm_image_version \
             SCENARIO_LAB_BACKEND_IMAGE SCENARIO_LAB_CHAOS_MESH_CHART_VERSION; do
             [[ -n "${!required_name:-}" ]] || {
@@ -150,6 +153,15 @@ jobs:
           }
           [[ "$SCENARIO_LAB_CHAOS_MESH_CHART_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
             echo "SCENARIO_LAB_CHAOS_MESH_CHART_VERSION must be exact." >&2
+            exit 1
+          }
+          jq -e '
+            type == "object" and
+            (.id | type == "string" and startswith("/subscriptions/")) and
+            .name == "privatelink.openai.azure.com" and
+            (.resource_group_name | type == "string" and length > 0)
+          ' <<<"$TF_VAR_azure_openai_private_dns_zone" >/dev/null || {
+            echo "scenario-lab requires the existing central OpenAI Private DNS zone." >&2
             exit 1
           }
           if [[ "$RUN_REFERENCE_SWEEP" == "true" ]]; then
@@ -311,19 +323,29 @@ jobs:
           while IFS= read -r link_id; do
             [[ -n "$link_id" ]] && echo "::add-mask::$link_id"
           done <"$link_ids"
+          link_targets=(
+            -target=azurerm_private_dns_zone_virtual_network_link.mysql_lab
+            -target=azurerm_private_dns_zone_virtual_network_link.mysql_runner
+            -target=azurerm_private_dns_zone_virtual_network_link.mysql_operator
+            -target=azurerm_private_dns_zone_virtual_network_link.openai_lab
+          )
+          if terraform state list | grep -Fxq \
+            'module.azure_openai_private_endpoint.azurerm_private_dns_zone_virtual_network_link.this'; then
+            link_targets+=(
+              -target=module.azure_openai_private_endpoint.azurerm_private_dns_zone_virtual_network_link.this
+              -target=module.azure_openai_private_endpoint.azurerm_private_dns_zone_virtual_network_link.extra
+            )
+          fi
           if ! terraform plan -destroy -input=false -lock-timeout=5m \
-            -target=azurerm_private_dns_zone_virtual_network_link.mysql_lab \
-            -target=azurerm_private_dns_zone_virtual_network_link.mysql_runner \
-            -target=azurerm_private_dns_zone_virtual_network_link.mysql_operator \
-            -target=module.azure_openai_private_endpoint.azurerm_private_dns_zone_virtual_network_link.this \
-            -target=module.azure_openai_private_endpoint.azurerm_private_dns_zone_virtual_network_link.extra \
+            "${link_targets[@]}" \
             -out="$link_plan" >"$link_plan_log" 2>&1; then
             echo "scenario-lab DNS-link destroy plan failed; raw output remains runner-local." >&2
             exit 1
           fi
           terraform show -json "$link_plan" >"$link_plan_json"
           jq -e '
-            all(.resource_changes[]?;
+            [.resource_changes[]? | select(.change.actions != ["no-op"])] as $mutations |
+            all($mutations[];
               (.change.actions == ["delete"]) and
               (.type == "azurerm_private_dns_zone_virtual_network_link")
             )
@@ -331,7 +353,7 @@ jobs:
             echo "scenario-lab DNS-link plan contains an action outside the delete-only allowlist." >&2
             exit 1
           }
-          link_delete_count="$(jq '[.resource_changes[]?] | length' "$link_plan_json")"
+          link_delete_count="$(jq '[.resource_changes[]? | select(.change.actions == ["delete"])] | length' "$link_plan_json")"
           printf 'Scenario lab DNS-link plan: %s delete.\n' "$link_delete_count"
           if [[ "$link_delete_count" -gt 0 ]]; then
             if ! terraform apply -input=false -auto-approve "$link_plan" \

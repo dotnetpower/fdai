@@ -39,7 +39,11 @@ def test_scenario_lab_is_an_independent_private_terraform_root() -> None:
     assert "azure_rbac_enabled = true" in aks
     assert 'outbound_type       = "userAssignedNATGateway"' in aks
     assert "node_count                   = 1" in aks
-    assert 'private_dns_zone_name = "privatelink.openai.azure.com"' in data_services
+    assert 'resource "azurerm_private_dns_zone_virtual_network_link" "openai_lab"' in data_services
+    assert "private_dns_zone_name = var.azure_openai_private_dns_zone.name" in data_services
+    assert 'resource "azurerm_private_endpoint" "azure_openai"' in data_services
+    assert "private_dns_zone_ids = [var.azure_openai_private_dns_zone.id]" in data_services
+    assert 'module "azure_openai_private_endpoint"' not in data_services
     assert (
         'name                = "${local.unique_suffix}.mysql.database.azure.com"' in data_services
     )
@@ -90,6 +94,9 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     assert "enable_vpn_operator_access" in workflow
     assert "SCENARIO_LAB_OPERATOR_PRINCIPAL_ID" in workflow
     assert "SCENARIO_LAB_RESOURCE_GROUP_NAME" in workflow
+    assert "SCENARIO_LAB_OPENAI_PRIVATE_DNS_ZONE_ID" in workflow
+    assert "SCENARIO_LAB_OPENAI_PRIVATE_DNS_RESOURCE_GROUP_NAME" in workflow
+    assert "scenario-lab requires the existing central OpenAI Private DNS zone" in workflow
     assert (
         "SCENARIO_LAB_RUNNER_PRINCIPAL_ID: ${{ vars.SCENARIO_LAB_RUNNER_PRINCIPAL_ID }}" in workflow
     )
@@ -110,7 +117,11 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
         "scenario-lab DNS-link plan contains an action outside the delete-only allowlist"
         in workflow
     )
+    assert 'select(.change.actions != ["no-op"])' in workflow
+    assert 'select(.change.actions == ["delete"])' in workflow
     assert 'select(.type? == "azurerm_private_dns_zone_virtual_network_link")' in workflow
+    assert "if terraform state list | grep -Fxq" in workflow
+    assert '"${link_targets[@]}"' in workflow
     assert 'az resource wait --deleted --ids "$link_id"' in workflow
     assert "scenario-lab DNS recovery refuses a zone with visible VNet links" in workflow
     assert 'link_name="pe-fdai-sre-lab-${TF_VAR_region_short}-oai-runner-link"' in workflow
@@ -195,4 +206,4 @@ def test_operator_access_is_opt_in_private_and_minimum_role_scoped() -> None:
     assert 'role_definition_name = "Azure Kubernetes Service RBAC Cluster Admin"' in aks
     assert "additional_user_principal_ids = local.operator_enabled" in data_services
     assert 'output "operator_dns_routing_domains"' in outputs
-    assert 'private_dns_zone_name = "privatelink.openai.azure.com"' in data_services
+    assert "private_dns_zone_name = var.azure_openai_private_dns_zone.name" in data_services
