@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: de2db34e5dc0358c383638e041a8b0df0a838c7f
+translation_source_sha: d3aeef5ee80fa5dc1cb80860e752aa3560ee9c0a
 translation_revised: 2026-08-24
 ---
 # 온톨로지 구조 모델
@@ -43,8 +43,11 @@ translation_revised: 2026-08-24
 
 ### ResourceClass 분류 체계
 
-`ResourceClass`는 작고 도메인 중심적인 집계 표면입니다. 명시된 역량 질문이 하나의 운영 개념
-아래에서 두 개 이상의 구체적인 ResourceType을 선택해야 할 때만 클래스를 추가합니다.
+`ResourceClass`에는 검토된 커버리지 축 하나와 작고 도메인 중심적인 집계 표면이 있습니다.
+커버리지 축은 `class.resource`에서 시작하고 7개의 넓은 클래스를 통해 제공되는 모든 중립
+ResourceType에 도달합니다. Azure 프로바이더 원시 형식 3,405개를 의미 온톨로지에 복사하지
+않습니다. 추가 클래스는 명시된 역량 질문이 하나의 운영 개념 아래에서 두 개 이상의 구체적인
+ResourceType을 선택해야 할 때만 추가합니다.
 
 분류 체계는 방향이 있는 두 LinkType을 사용합니다.
 
@@ -53,9 +56,11 @@ translation_revised: 2026-08-24
 | `resource_type_member_of_class` | 구체적인 `ResourceType` -> `ResourceClass` | 정확한 형식이 검토된 클래스에 속합니다. |
 | `resource_class_specializes` | 더 좁은 `ResourceClass` -> 더 넓은 `ResourceClass` | 더 좁은 클래스가 실제 분류 특수화입니다. |
 
-멤버 자격은 다대다입니다. 특수화 그래프는 순환이 없고, 범위가 제한되며, 의도적으로 얕게
-유지합니다. 다중 멤버 자격으로 조합을 표현합니다. 관련 없는 두 기능을 결합하기 위해서만 만든
-조합 클래스는 수락하지 않습니다.
+멤버 자격은 다대다입니다. 한 클래스 안의 중복 멤버 자격은 거부하지만 여러 클래스에 속하는
+멤버 자격은 조합을 표현합니다. 특수화 그래프는 순환이 없고 최대 깊이가 8이며 의도적으로 얕게
+유지합니다. 관련 없는 두 기능을 결합하기 위해서만 만든 조합 클래스는 수락하지 않습니다.
+제공되는 루트 클로저를 전체 중립 ResourceType 레지스트리와 대조하므로 새 의미 형식이 커버리지
+축 밖에 남을 수 없습니다.
 
 첫 release는 하나의 분류 표면을 유지합니다. 범용 개념 체계 엔진은 추가하지 않습니다.
 `Operable`, `Observable` 같은 기능은 계속 InterfaceType 관심사입니다. ResourceType 수준의
@@ -208,13 +213,13 @@ Operator 변환 결과는 출처 세대, 온톨로지 release, 쿼리 상한, �
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 구조 설계와 호환성 | implemented | 이 문서 쌍, `design-routes.json`, 로드맵 인덱스, 코드 맵, 집중 문서 검사 | 추가 모델은 기존 Resource, ResourceType, 직접 링크 아이덴티티, 저장 방향, 과거 선언을 보존합니다. |
-| ResourceClass 카탈로그와 변환 결과 | implemented | `resource_class.py`, `resource-classes.yaml`, ResourceClass/ObjectType 및 멤버 자격/특수화 선언, 카탈로그 변환 결과, 클로저 증적, 집중 카탈로그 검사 | 검토된 클래스 3개가 멤버 자격 9개와 순환 없는 특수화 1개로 변환됩니다. 클로저는 명시적 id만 사용하고 권한을 부여하지 않습니다. |
+| ResourceClass 카탈로그와 변환 결과 | implemented | `resource_class.py`, `resource-classes.yaml`, ResourceClass/ObjectType 및 멤버 자격/특수화 선언, 카탈로그 변환 결과, 클로저 증적, 집중 카탈로그 검사 | 검토된 클래스 11개가 직접 멤버 자격 77개와 범위가 제한된 특수화 링크 11개를 통해 중립 ResourceType 77개를 모두 변환합니다. 클로저는 명시적 id만 사용하고 권한을 부여하지 않습니다. |
 | 순서가 있는 형식화된 경로 쿼리 | implemented | `TypedPathDefinition`, `QueryNodeKind.TYPED_PATH`, 결정적 검증기, 보안 적용 handler, composition binding, 집중 쿼리 검사 | 기존 v1 탐색은 LinkType 하나만 받습니다. 형식화된 경로는 방향이 고정된 단계 1-8개를 실행하고 불완전한 중간 근거에서 보류합니다. |
 | 링크 역할과 의미 특성 | implemented | 공유 LinkType 계약 및 스키마, 쿼리 매니페스트, 검토된 런타임 선언 7개와 분류 선언 2개, 카탈로그 테스트 | 선택적인 빈 필드는 기존 provenance를 보존합니다. 검토된 필드는 역방향 edge나 표현 레이아웃을 만들지 않습니다. |
 | 완전성과 표현 분리 | implemented | 권위 있는 온톨로지 그래프 materializer, 통합 테스트, Console 디코더, LinkType 검사기, 그래프 우선 인스턴스 작업 영역, 이중 언어 제품 카탈로그, 타입 검사, 프로덕션 빌드 | 선언 그래프는 독립적인 제한 계열 4개를 전달하고 범위 내 모든 LinkType의 역할과 특성을 노출합니다. 인스턴스 작업 영역은 그래프 권한을 바꾸지 않고 선택, 범례, Inspector 상태를 표현 계층에 유지합니다. |
 | 거버넌스 아티팩트 분리 | implemented | `rule_catalog/schema/governance_catalog.py`; `delivery/catalog_exemption.py`; 집중 거버넌스 로더 및 registry 테스트 | 배정과 exemption은 검증된 catalog-as-code 입력입니다. 온톨로지 사실로 변환되지 않으며 쿼리, 승인 또는 실행 권한을 부여하지 않습니다. |
 | 프로바이더 관찰 토폴로지 생산 | implemented | `azure-arg-v1.yaml`, `arm_inventory.py`, `kubernetes_api_inventory.py`, `kubernetes_inventory.py`, 집중 Azure, Kubernetes, 인벤토리 승격, 카탈로그, Ruff 및 strict mypy 검사 | 검토된 Azure parent 및 root containment와 UID에 근거한 Kubernetes 런타임 토폴로지가 하나의 완전한 세대를 보강합니다. 실제 운영 Kubernetes 및 배포 binding 근거는 별도 검증 작업으로 남습니다. |
-| 적대적 하드닝 | implemented | 아래의 15회 하드닝 기록, 집중 Python 테스트 308개, 집중 Console 테스트 29개, 변경된 Python 파일 29개의 Ruff, 변경된 source 파일 19개의 strict mypy, Console 타입 검사 및 프로덕션 빌드 | 검증된 모든 High 또는 Medium 발견 사항을 해결했습니다. Low 관찰만 남았습니다. |
+| 적대적 하드닝 | implemented | 아래의 누적 28회 기록에는 이번 분류 체계, 방향, 인스턴스 변환, 프로바이더 경계, 완전성 관점 13개가 포함됩니다. | 검증된 모든 High 또는 Medium 발견 사항을 해결했습니다. 역량별 분류 체계 확장이라는 Low 관찰만 남았습니다. |
 
 ### 구현 이력
 
@@ -230,6 +235,7 @@ Operator 변환 결과는 출처 세대, 온톨로지 release, 쿼리 상한, �
 | 2026-08-24 | implemented | 온톨로지 쿼리 또는 변경 권한을 바꾸지 않고 그래프 우선 인스턴스 작업 영역, 간결한 컨트롤, 선택된 리소스와 범례 오버레이, Inspector 소유 접기 동작을 복원했습니다. | `current change`; 집중 Console 경로 테스트, 타입 검사, 프로덕션 빌드입니다. | 이 표현 범위에는 남은 구조 모델 작업이 없습니다. |
 | 2026-08-24 | implemented | 정확한 스키마 관계와 현재 인스턴스 관계의 경계를 복원했습니다. 하나 또는 두 개의 표준 ObjectType 이름은 시간 범위가 없는 스키마 읽기로 유지하고, 현재 운영 객체 관계에는 계속 엔드포인트 ObjectSet이 필요합니다. 링크 가림 증적은 변환된 링크에서 실제로 제거된 속성만 집계하고 타입이 지정된 관찰 메타데이터를 보존합니다. | `current change`; 의미 계획, 쿼리 게이트웨이, 집중 관계 검사가 통과했고 통합 수정 테스트 629개와 Ruff 및 strict mypy가 통과했습니다. | 실제 운영 근거는 별도로 보존합니다. 이 수정은 변경 또는 실행 권한을 부여하지 않습니다. |
 | 2026-08-24 | implemented | 검토된 Azure 중첩 리소스 containment와 범위가 제한된 UID 기반 Kubernetes API enrichment source를 추가했습니다. 런타임 리소스와 독립적으로 검증된 링크는 기존 single writer를 통해 하나의 완전한 세대에 들어가며, Kubernetes binding이 없으면 명시적으로 사용 불가 상태를 유지합니다. | `current change`; 프로바이더 카탈로그, Azure ARG와 ARM, Kubernetes source와 변환 결과, 인벤토리 승격 및 조립 검사 260개 통과, Ruff 통과, source 파일 10개의 strict mypy 통과 | 이 영역을 `validated`로 변경하기 전에 실제 운영 exact-cluster Kubernetes 증적과 배포된 CA 및 token mount 근거를 보존합니다. |
+| 2026-08-24 | implemented | 원시 프로바이더 형식을 가져오지 않고 완전한 중립 ResourceClass 커버리지 축 하나를 추가했습니다. 루트는 제공되는 ResourceType 77개 전체를 닫고, 카탈로그 소유 인스턴스는 모든 멤버 자격과 특수화를 보존하며, 같은 클래스의 중복 멤버 자격은 닫힌 방식으로 실패하고 특수화 깊이는 8로 제한됩니다. | `current change`; 제공된 ResourceClass 클로저, 로더 하드닝, 카탈로그 인스턴스 변환 검사입니다. | 역량에 기반한 조합 멤버 자격만 추가합니다. 실제 프로바이더 및 Kubernetes 근거는 별도 검증 관심사로 유지합니다. |
 
 ### 하드닝 기록
 
@@ -250,6 +256,19 @@ Operator 변환 결과는 출처 세대, 온톨로지 release, 쿼리 상한, �
 | 13 | 범위가 제한된 전이 런타임 클로저 | 반복 형식화된 단계가 첫 hop 프런티어만 반환하던 Medium 결함을 해결했습니다. | 쿼리 실행 및 검증 검사 35개가 통과했습니다. |
 | 14 | production 분류 체계 클로저 composition | registry digest가 있고 권한을 부여하지 않는 `query.resource_class_closure`를 principal 매니페스트에 바인딩해 Medium 통합 공백을 해결했습니다. | composition 및 카탈로그 검사 42개와 직접 및 end-to-end 클로저 검사 8개가 통과했습니다. |
 | 15 | 최종 계약 종료 | 표준 카탈로그 검증에서 Medium ResourceType id 길이 불일치를 해결했습니다. 검증된 High 또는 Medium 발견 사항이 남지 않았습니다. | ResourceClass 및 아이덴티티 상한 검사 8개와 최종 종합 및 정적 검사가 통과했습니다. |
+| 16 | 중립 분류 체계 완전성 | 제공된 ResourceType 77개 중 68개가 모든 ResourceClass 밖에 있던 Medium 공백을 해결했습니다. | 제공된 루트 클로저 회귀 검사가 정확한 레지스트리를 포함합니다. |
+| 17 | 카탈로그 소유 인스턴스 동등성 | 오래된 고정 개수를 registry에서 계산한 ResourceClass, 멤버 자격, 특수화 단언으로 교체했습니다. | 원자적 카탈로그 변환 검사가 확장된 인스턴스 그래프를 포함합니다. |
+| 18 | 같은 클래스 중복 무결성 | 한 클래스 안에서 반복된 ResourceType을 거부해 Medium 다이제스트와 그래프 사이의 모호성을 해결했습니다. | 중복 멤버 로더 회귀 검사가 통과합니다. |
+| 19 | 클래스 간 조합 | LinkType이 의도적으로 다대다이므로 제안된 유일성 제한을 오탐으로 기각했습니다. | 긍정 조합 멤버 자격 회귀 검사가 두 클로저를 보존합니다. |
+| 20 | 특수화 DAG | 검증된 Low 초과 발견 사항이 없었습니다. 기존 순환 및 알 수 없는 parent 거부가 올바르게 유지됐습니다. | 집중 ResourceClass 구조 검사입니다. |
+| 21 | 특수화 깊이 | 문서화된 최대 깊이 8을 적용해 Medium 설계 차이를 해결했습니다. | 깊이 9 음성 테스트 자료가 닫힌 방식으로 실패합니다. |
+| 22 | 분류 링크 방향과 카디널리티 | 검증된 Low 초과 발견 사항이 없었습니다. 멤버 자격은 ResourceType -> ResourceClass, 특수화는 더 좁은 클래스 -> 더 넓은 클래스를 유지합니다. | 선언 및 변환 방향 검토입니다. |
+| 23 | 원자적 교체와 오래된 상태 정리 | 검증된 Low 초과 발견 사항이 없었습니다. 클래스를 제거하면 소유한 멤버 자격 링크도 제거됩니다. | 기존 교체 회귀 검사입니다. |
+| 24 | release 및 digest 아이덴티티 | 검증된 Low 초과 발견 사항이 없었습니다. 클로저 증적이 registry, 클로저, 온톨로지 release digest를 보존합니다. | 기존 exact-release 클로저 검사입니다. |
+| 25 | 인벤토리 인스턴스 분류 | 오탐을 기각했습니다. 매핑되지 않은 형식은 커버리지를 낮추며 `unseeded_resource_type`만 나머지 완전 세대의 진행을 허용합니다. | 인벤토리 변환 계약 검토입니다. |
+| 26 | 원시 프로바이더와 의미 경계 | 검증된 Low 초과 발견 사항이 없었습니다. 3,405개 형식의 프로바이더 원장은 77개 형식의 중립 분류 체계와 분리됩니다. | 프로바이더 카탈로그 및 구조 모델 검토입니다. |
+| 27 | OpenAPI 후보 방향 | 재사용된 작업 스키마가 속성 소유권이나 의미 방향을 증명하지 않으므로 모델링된 엔드포인트 쌍의 자동 mapping을 기각했습니다. | 검토 증적은 자동 승격을 끈 `review_required` 상태를 유지합니다. |
+| 28 | 상한과 결정적 정렬 | 중복, 전체 링크, 깊이, 순환, 정렬된 클로저 검사 뒤 검증된 Low 초과 발견 사항이 없었습니다. | 집중 ResourceClass 및 카탈로그 변환 검사입니다. |
 
 ### 남은 작업
 

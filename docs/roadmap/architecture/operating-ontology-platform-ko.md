@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 8f1878f273097ffd4951bd472bc67d3cfdae691a
+translation_source_sha: 2c7681df20c777b9156726913d1f15738e5df0a3
 translation_revised: 2026-08-24
 ---
 # FDAI 온톨로지 안전 인프라
@@ -214,10 +214,10 @@ Console은 redaction, 호환성, 완전성 또는 권한을 계산하지 않습�
 
 ## Catalog-owned 인스턴스 변환 결과
 
-Core 런타임 시작은 이제 Rule, PolicyArtifact, ResourceType, SignalType, Property 및
-ActionType 인스턴스를 하나의 catalog-owned subgraph에 변환 결과합니다. Pure 빌더는 누락된
-정책 의미 규칙과 ID 충돌을 차단합니다. Projector는 이전의 범위가 제한된 subgraph를 읽고
-원자적으로 교체하며, 동일한 재생은 no-op이므로 시작이 거짓 그래프 개정 번호를 만들지 않습니다.
+Core 런타임 시작은 이제 Rule, PolicyArtifact, ResourceClass, ResourceType, SignalType,
+Property 및 ActionType 인스턴스를 catalog-owned 하위 그래프 하나에 변환합니다. 분류 체계는
+중립 ResourceType 77개 전체에 대해 클래스 11개, 멤버 자격 77개, 범위가 제한된 특수화 링크
+11개를 보존합니다. 순수 빌더는 의미 또는 아이덴티티 결함을 차단하며 동일 재생은 no-op입니다.
 
 정본 release는 `ControlObjective`, `RuleObjectiveBinding`,
 `EquivalenceValidationReceipt`와 `objective_bound_by`, `binding_targets_rule`,

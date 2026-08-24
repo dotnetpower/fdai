@@ -1,8 +1,107 @@
 schema_version: "1.0.0"
-version: "0.1.0"
+version: "0.2.0"
 classes:
+  - id: class.resource
+    description: Reviewed cloud or runtime resource identity.
+  - id: class.compute-resource
+    description: Resource that supplies compute, hosting, integration, or runtime capacity.
+    members:
+      - app-service-plan
+      - communication-service
+      - compute.container-app-environment
+      - compute.container-app-job
+      - compute.vm-shutdown-schedule
+      - email-domain
+      - email-service
+      - event-grid-topic
+      - event-hub
+      - kubernetes-node-pool
+      - kubernetes.cron-job
+      - kubernetes.daemon-set
+      - kubernetes.deployment
+      - kubernetes.endpoints
+      - kubernetes.job
+      - kubernetes.namespace
+      - kubernetes.node
+      - kubernetes.pod
+      - kubernetes.replica-set
+      - kubernetes.service
+      - kubernetes.stateful-set
+      - llm-endpoint
+      - static-web-app
+      - workflow.logic-app
+    specializes: [class.resource]
+  - id: class.database-resource
+    description: Resource that stores or serves structured operational data.
+    members:
+      - cache
+      - mysql-server
+      - nosql-database
+      - postgresql-server
+      - redis-enterprise
+      - sql-database
+      - sql-server
+    specializes: [class.resource]
+  - id: class.governance-resource
+    description: Resource that defines provider scope or preserves an unsupported provider identity.
+    members:
+      - resource-group
+      - subscription
+      - unclassified-resource
+    specializes: [class.resource]
+  - id: class.network-resource
+    description: Resource that provides network topology, policy, routing, or connectivity.
+    members:
+      - api-gateway
+      - network.application-gateway
+      - network.dns-resolver
+      - network.dns-resolver-inbound-endpoint
+      - network.dns-zone
+      - network.firewall
+      - network.load-balancer
+      - network.nat-gateway
+      - network.nsg
+      - network.private-dns-zone
+      - network.private-dns-zone-group
+      - network.private-dns-zone-link
+      - network.route-table
+      - network.subnet
+      - network.virtual-network-gateway
+      - network.vnet
+    specializes: [class.resource]
+  - id: class.observability-resource
+    description: Resource that collects, evaluates, or routes operational evidence.
+    members:
+      - action-group
+      - alert-rule
+      - application-insights
+      - data-collection-endpoint
+      - data-collection-rule
+      - diagnostic-settings
+      - log-workspace
+      - metrics-workspace
+      - service-bus-namespace
+    specializes: [class.resource]
+  - id: class.security-resource
+    description: Resource that provides identity, authorization, certificate, or secret controls.
+    members:
+      - authorization.role-assignment
+      - certificate
+      - managed-identity
+      - secret-store
+    specializes: [class.resource]
+  - id: class.storage-resource
+    description: Resource that retains images, objects, files, disks, or snapshots.
+    members:
+      - container-registry
+      - disk
+      - disk-snapshot
+      - file-share
+      - object-storage
+    specializes: [class.resource]
   - id: class.workload
     description: Resource that runs application work.
+    specializes: [class.resource]
   - id: class.compute-workload
     description: Compute-hosted application workload.
     members:
@@ -12,10 +111,11 @@ classes:
       - compute.function
       - compute.web-app
       - kubernetes-cluster
-    specializes: [class.workload]
+    specializes: [class.compute-resource, class.workload]
   - id: class.network-endpoint
     description: Network endpoint with an independently observed resource identity.
     members:
       - network.interface
       - network.private-endpoint
       - network.public-ip
+    specializes: [class.network-resource]

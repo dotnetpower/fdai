@@ -209,10 +209,10 @@ The workbench is complete only when it answers these bounded operational questio
 
 ## Catalog-owned instance projection
 
-Core runtime startup now projects Rule, PolicyArtifact, ResourceType, SignalType, Property, and
-ActionType instances into one catalog-owned subgraph. The pure builder rejects missing policy
-semantics and identity collisions. The projector reads the prior bounded subgraph and replaces it
-atomically; an identical replay is a no-op so startup doesn't manufacture graph revisions.
+Core runtime startup now projects Rule, PolicyArtifact, ResourceClass, ResourceType, SignalType,
+Property, and ActionType instances into one catalog-owned subgraph. Its taxonomy slice retains 11
+classes, 77 memberships, and 11 bounded specialization links over all 77 neutral ResourceTypes.
+The pure builder rejects semantic or identity defects; atomic identical replay remains a no-op.
 
 The canonical release also declares `ControlObjective`, `RuleObjectiveBinding`, and
 `EquivalenceValidationReceipt`, with `objective_bound_by`, `binding_targets_rule`, and

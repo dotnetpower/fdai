@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
+import yaml
 from fdai.core.ontology_platform.functions import (
     FunctionInvocationContext,
     OntologyFunctionRegistry,
@@ -21,9 +24,12 @@ from fdai.rule_catalog.schema.resource_type import (
     ResourceTypeCategory,
     ResourceTypeEntry,
     ResourceTypeRegistry,
+    load_resource_type_registry_from_mapping,
 )
 from fdai.shared.contracts.models import CeilingRole
 from fdai.shared.ontology.release import build_ontology_release
+
+REPO_ROOT = Path(__file__).resolve().parents[4]
 
 
 def _resource_types() -> ResourceTypeRegistry:
@@ -82,6 +88,24 @@ def test_resource_class_closure_uses_only_explicit_membership() -> None:
 
     assert registry.closure("class.workload") == ("compute.container-app", "compute.vm")
     assert registry.closure("class.network-endpoint") == ("network.private-endpoint",)
+
+
+def test_shipped_resource_taxonomy_covers_every_resource_type_from_one_root() -> None:
+    resource_types = load_resource_type_registry_from_mapping(
+        yaml.safe_load(
+            (REPO_ROOT / "rule-catalog/vocabulary/resource-types.yaml").read_text(encoding="utf-8")
+        )
+    )
+    registry = load_resource_class_registry_from_mapping(
+        yaml.safe_load(
+            (REPO_ROOT / "rule-catalog/vocabulary/resource-classes.yaml").read_text(
+                encoding="utf-8"
+            )
+        ),
+        resource_types=resource_types,
+    )
+
+    assert registry.closure("class.resource") == tuple(sorted(resource_types.ids()))
 
 
 def test_resource_class_closure_receipt_pins_release_and_exact_members() -> None:
@@ -144,6 +168,33 @@ def test_resource_class_rejects_unknown_member() -> None:
         load_resource_class_registry_from_mapping(raw, resource_types=_resource_types())
 
 
+def test_resource_class_rejects_a_duplicate_member_within_one_class() -> None:
+    raw = _registry()
+    raw["classes"][1]["members"].append("compute.vm")  # type: ignore[index,union-attr]
+
+    with pytest.raises(ResourceClassRegistryError, match="duplicate ResourceType member"):
+        load_resource_class_registry_from_mapping(raw, resource_types=_resource_types())
+
+
+def test_resource_class_allows_compositional_membership_across_classes() -> None:
+    raw = _registry()
+    raw["classes"].append(  # type: ignore[union-attr]
+        {
+            "id": "class.virtualized",
+            "description": "Resource backed by virtualization.",
+            "members": ["compute.vm"],
+        }
+    )
+
+    registry = load_resource_class_registry_from_mapping(raw, resource_types=_resource_types())
+
+    assert registry.closure("class.compute-workload") == (
+        "compute.container-app",
+        "compute.vm",
+    )
+    assert registry.closure("class.virtualized") == ("compute.vm",)
+
+
 def test_resource_type_rejects_an_id_too_long_for_closure_receipts() -> None:
     with pytest.raises(ValueError, match="at most 128 characters"):
         ResourceTypeEntry(
@@ -166,6 +217,25 @@ def test_resource_class_rejects_specialization_cycle() -> None:
     raw["classes"][0]["specializes"] = ["class.compute-workload"]  # type: ignore[index]
 
     with pytest.raises(ResourceClassRegistryError, match="specialization cycle"):
+        load_resource_class_registry_from_mapping(raw, resource_types=_resource_types())
+
+
+def test_resource_class_rejects_an_excessive_specialization_depth() -> None:
+    raw = {
+        "schema_version": "1.0.0",
+        "version": "1.0.0",
+        "classes": [
+            {
+                "id": f"class.level-{index:02d}",
+                "description": "Bounded synthetic taxonomy class.",
+                **({"members": ["compute.vm"]} if index == 9 else {}),
+                **({"specializes": [f"class.level-{index - 1:02d}"]} if index > 0 else {}),
+            }
+            for index in range(10)
+        ],
+    }
+
+    with pytest.raises(ResourceClassRegistryError, match="specialization depth exceeds 8"):
         load_resource_class_registry_from_mapping(raw, resource_types=_resource_types())
 
 

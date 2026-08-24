@@ -18,6 +18,7 @@ _SCHEMA_PACKAGE = "fdai.rule_catalog.schema"
 _SCHEMA_FILE = "resource_classes.schema.json"
 _MAX_MEMBERSHIPS = 256
 _MAX_SPECIALIZATIONS = 256
+_MAX_SPECIALIZATION_DEPTH = 8
 
 
 class ResourceClassEntry(BaseModel):
@@ -154,6 +155,13 @@ def load_resource_class_registry_from_mapping(
             members = tuple(value for value in item.get("members", ()) if isinstance(value, str))
             graph[class_id] = parents
             direct_members[class_id] = members
+            for member in sorted({value for value in members if members.count(value) > 1}):
+                issues.append(
+                    ResourceClassIssue(
+                        f"classes[id={class_id}].members",
+                        f"duplicate ResourceType member {member!r}",
+                    )
+                )
             for parent in parents:
                 if parent == class_id:
                     issues.append(
@@ -193,11 +201,19 @@ def load_resource_class_registry_from_mapping(
                     f"total specializations exceed {_MAX_SPECIALIZATIONS}",
                 )
             )
-        if cycle := _find_cycle(graph):
+        cycle = _find_cycle(graph)
+        if cycle:
             issues.append(
                 ResourceClassIssue(
                     "classes.specializes",
                     f"specialization cycle detected: {' -> '.join(cycle)}",
+                )
+            )
+        elif _specialization_depth(graph) > _MAX_SPECIALIZATION_DEPTH:
+            issues.append(
+                ResourceClassIssue(
+                    "classes.specializes",
+                    f"specialization depth exceeds {_MAX_SPECIALIZATION_DEPTH}",
                 )
             )
         children = {parent for parents in graph.values() for parent in parents}
@@ -240,6 +256,18 @@ def _find_cycle(graph: Mapping[str, tuple[str, ...]]) -> tuple[str, ...]:
         if cycle := visit(node):
             return cycle
     return ()
+
+
+def _specialization_depth(graph: Mapping[str, tuple[str, ...]]) -> int:
+    depths: dict[str, int] = {}
+
+    def depth(node: str) -> int:
+        if node not in depths:
+            parents = graph.get(node, ())
+            depths[node] = 0 if not parents else 1 + max(depth(parent) for parent in parents)
+        return depths[node]
+
+    return max((depth(node) for node in graph), default=0)
 
 
 def _specializes(

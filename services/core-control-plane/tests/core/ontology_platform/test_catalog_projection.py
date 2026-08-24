@@ -63,11 +63,11 @@ def _projection():  # type: ignore[no-untyped-def]
         property_semantics=ontology.property_semantics,
         resource_classes=resource_classes,
     )
-    return ontology, rules, projection
+    return ontology, rules, resource_classes, projection
 
 
 async def test_shipped_catalog_projects_as_one_atomic_typed_subgraph() -> None:
-    ontology, rules, projection = _projection()
+    ontology, rules, resource_classes, projection = _projection()
     store = InMemoryOntologyInstanceStore(
         object_types=ontology.object_types,
         link_types=ontology.link_types,
@@ -94,9 +94,15 @@ async def test_shipped_catalog_projects_as_one_atomic_typed_subgraph() -> None:
     assert sum(item.object_type == "PolicyArtifact" for item in graph.objects) == len(rules)
     assert sum(item.link_type == "implemented_by_policy" for item in graph.links) == len(rules)
     assert sum(item.link_type == "remediates" for item in graph.links) == len(rules)
-    assert sum(item.object_type == "ResourceClass" for item in graph.objects) == 3
-    assert sum(item.link_type == "resource_type_member_of_class" for item in graph.links) == 9
-    assert sum(item.link_type == "resource_class_specializes" for item in graph.links) == 1
+    assert sum(item.object_type == "ResourceClass" for item in graph.objects) == len(
+        resource_classes.classes
+    )
+    assert sum(item.link_type == "resource_type_member_of_class" for item in graph.links) == sum(
+        len(item.members) for item in resource_classes.classes
+    )
+    assert sum(item.link_type == "resource_class_specializes" for item in graph.links) == sum(
+        len(item.specializes) for item in resource_classes.classes
+    )
     assert all(item.revision == 1 for item in graph.objects)
     policies = tuple(item for item in graph.objects if item.object_type == "PolicyArtifact")
     assert all(str(item.properties["decision_path"]).endswith(".deny") for item in policies)
@@ -107,7 +113,7 @@ async def test_shipped_catalog_projects_as_one_atomic_typed_subgraph() -> None:
 
 
 async def test_catalog_projection_removes_a_stale_resource_class_and_memberships() -> None:
-    ontology, _rules, projection = _projection()
+    ontology, _rules, _resource_classes, projection = _projection()
     store = InMemoryOntologyInstanceStore(
         object_types=ontology.object_types,
         link_types=ontology.link_types,
@@ -135,7 +141,7 @@ async def test_catalog_projection_removes_a_stale_resource_class_and_memberships
 
 
 def test_property_semantics_project_deterministically_for_reviewed_properties() -> None:
-    ontology, rules, projection = _projection()
+    ontology, rules, _resource_classes, projection = _projection()
     catalog_root = REPO_ROOT / "rule-catalog"
     resource_types = load_resource_type_registry_from_mapping(
         yaml.safe_load(

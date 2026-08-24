@@ -42,9 +42,11 @@ provider category, or query alias never creates classification.
 
 ### ResourceClass taxonomy
 
-`ResourceClass` is a small, domain-driven aggregation surface. A class is added only when a named
-competency question needs to select at least two concrete ResourceTypes under one operational
-concept.
+`ResourceClass` has one reviewed coverage spine plus small, domain-driven aggregation surfaces.
+The coverage spine starts at `class.resource` and reaches every shipped neutral ResourceType
+through seven broad classes. It does not copy the 3,405 raw Azure provider types into the semantic
+ontology. Additional classes are added only when a named competency question needs to select at
+least two concrete ResourceTypes under one operational concept.
 
 The taxonomy uses two directed LinkTypes:
 
@@ -53,9 +55,11 @@ The taxonomy uses two directed LinkTypes:
 | `resource_type_member_of_class` | concrete `ResourceType` -> `ResourceClass` | The exact type belongs to the reviewed class. |
 | `resource_class_specializes` | narrower `ResourceClass` -> broader `ResourceClass` | The narrower class is a true taxonomic specialization. |
 
-Membership is many-to-many. The specialization graph is acyclic, bounded, and intentionally
-shallow. Multiple membership represents composition. Combination classes created only to join two
-unrelated capabilities are not accepted.
+Membership is many-to-many. Duplicate membership inside one class is rejected, while membership
+across classes represents composition. The specialization graph is acyclic, has a maximum depth of
+eight, and remains intentionally shallow. Combination classes created only to join two unrelated
+capabilities are not accepted. The shipped root closure is checked against the complete neutral
+ResourceType registry so a new semantic type cannot remain outside the coverage spine.
 
 The first release keeps one taxonomic surface. It does not add a generic concept-scheme engine.
 Capabilities such as `Operable` and `Observable` remain InterfaceType concerns. ResourceType-level
@@ -210,13 +214,13 @@ major version or explicit graph migration. No rollout rewrites historical contex
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Structural design and compatibility | implemented | This paired owner document, `design-routes.json`, roadmap index, code map, and focused documentation gates | The additive model preserves existing Resource, ResourceType, direct-link identity, stored direction, and historical declarations. |
-| ResourceClass catalog and projection | implemented | `resource_class.py`, `resource-classes.yaml`, ResourceClass/ObjectType and membership/specialization declarations, catalog projection, closure receipt, and focused catalog checks | Three reviewed classes project with nine memberships and one acyclic specialization. Closure uses only explicit ids and grants no authority. |
+| ResourceClass catalog and projection | implemented | `resource_class.py`, `resource-classes.yaml`, ResourceClass/ObjectType and membership/specialization declarations, catalog projection, closure receipt, and focused catalog checks | Eleven reviewed classes project all 77 neutral ResourceTypes through 77 direct memberships and 11 bounded specialization links. Closure uses only explicit ids and grants no authority. |
 | Ordered typed-path query | implemented | `TypedPathDefinition`, `QueryNodeKind.TYPED_PATH`, deterministic verifier, secured handler, composition binding, and focused query checks | Existing v1 traversal now accepts one LinkType. Typed paths execute 1-8 exact directed steps and hold on incomplete intermediate evidence. |
 | Link roles and semantic traits | implemented | Shared LinkType contract and schema, query manifest, seven reviewed runtime declarations plus two taxonomy declarations, and catalog tests | Optional empty fields preserve legacy provenance. Reviewed fields do not create inverse edges or presentation layout. |
 | Completeness and presentation separation | implemented | Authoritative ontology graph materializer, integration tests, Console decoder, LinkType inspector, graph-first instance workspace, bilingual product catalog, typecheck, and production build | The declaration graph carries four independent limitation families and exposes every bounded LinkType with roles and traits. The instance workspace keeps selection, legend, and Inspector state in the presentation layer without changing graph authority. |
 | Governance artifact separation | implemented | `rule_catalog/schema/governance_catalog.py`; `delivery/catalog_exemption.py`; focused governance loader and registry tests | Assignments and exemptions are validated catalog-as-code inputs. They are not projected as ontology facts and grant no query, approval, or execution authority. |
 | Provider-observed topology production | implemented | `azure-arg-v1.yaml`; `arm_inventory.py`; `kubernetes_api_inventory.py`; `kubernetes_inventory.py`; focused Azure, Kubernetes, inventory promotion, catalog, Ruff, and strict mypy checks | Reviewed Azure parent and root containment plus UID-grounded Kubernetes runtime topology enrich one complete generation. Live Kubernetes and deployed binding evidence remain separate validation work. |
-| Adversarial hardening | implemented | Fifteen-round hardening record below; 308 focused Python tests, 29 focused Console tests, Ruff over 29 changed Python files, strict mypy over 19 changed source files, Console typecheck, and production build | Every verified High or Medium finding was resolved. Only Low residual observations remain. |
+| Adversarial hardening | implemented | Twenty-eight cumulative rounds below, including 13 current taxonomy, direction, instance-projection, provider-boundary, and completeness lenses; focused Python and static checks | Every verified High or Medium finding was resolved. Only Low competency-specific taxonomy expansion remains. |
 
 ### Implementation history
 
@@ -232,6 +236,7 @@ major version or explicit graph migration. No rollout rewrites historical contex
 | 2026-08-24 | implemented | Restored the graph-first instance workspace, compact controls, selected-resource and legend overlays, and Inspector-owned collapse behavior without changing ontology query or mutation authority. | `current change`; focused Console route tests, typecheck, and production build. | No remaining structural-model work for this presentation slice. |
 | 2026-08-24 | implemented | Restored the exact schema and current-instance relationship boundary. One or two canonical ObjectType names remain an atemporal schema read, while current operating-object relationships still require endpoint ObjectSets. Link redaction receipts now count only properties actually removed from the projected link and preserve typed observation metadata. | `current change`; semantic planning, query gateway, and focused relationship checks passed; the combined repair suite passed 629 cases; Ruff and strict mypy passed. | Retain live operational evidence separately. This correction grants no mutation or execution authority. |
 | 2026-08-24 | implemented | Added reviewed Azure nested-resource containment and a bounded UID-grounded Kubernetes API enrichment source. Runtime resources and independently verified links enter one complete generation through the existing single writer, while missing Kubernetes bindings remain explicitly unavailable. | `current change`; provider catalog, Azure ARG and ARM, Kubernetes source and projection, inventory promotion, and composition checks passed 260 cases; Ruff passed; strict mypy passed for 10 source files. | Retain a live exact-cluster Kubernetes receipt and deployed CA and token mount evidence before changing this area to `validated`. |
+| 2026-08-24 | implemented | Added one complete neutral ResourceClass coverage spine without importing raw provider types. The root closes over all 77 shipped ResourceTypes, catalog-owned instances preserve every membership and specialization, duplicate same-class membership fails closed, and specialization depth is limited to eight. | `current change`; shipped ResourceClass closure, loader-hardening, and catalog instance-projection checks. | Add only competency-driven compositional memberships. Live provider and Kubernetes evidence remains a separate validation concern. |
 
 ### Hardening record
 
@@ -252,6 +257,19 @@ major version or explicit graph migration. No rollout rewrites historical contex
 | 13 | Bounded transitive runtime closure | Resolved a Medium defect where repeated typed steps returned only the first-hop frontier. | 35 query execution and verification checks passed. |
 | 14 | Production taxonomy-closure composition | Resolved a Medium integration gap by adding registry-digested, no-authority `query.resource_class_closure` and binding it into the principal manifest. | 42 composition and catalog checks plus 8 direct and end-to-end closure checks passed. |
 | 15 | Final contract closure | Resolved a Medium ResourceType id-length mismatch at canonical catalog validation. No verified High or Medium finding remained. | 8 ResourceClass and identity-bound checks passed; final aggregate and static checks passed. |
+| 16 | Neutral taxonomy completeness | Resolved a Medium gap where 68 of 77 shipped ResourceTypes were outside every ResourceClass. | The shipped root-closure regression covers the exact registry. |
+| 17 | Catalog-owned instance parity | Replaced stale fixed counts with registry-derived ResourceClass, membership, and specialization assertions. | The atomic catalog projection check covers the expanded instance graph. |
+| 18 | Same-class duplicate integrity | Resolved a Medium digest-to-graph ambiguity by rejecting a repeated ResourceType inside one class. | The duplicate-member loader regression passes. |
+| 19 | Cross-class composition | Rejected the proposed uniqueness restriction as a false positive because the LinkType is intentionally many-to-many. | A positive compositional-membership regression preserves both closures. |
+| 20 | Specialization DAG | No verified finding above Low. Existing cycle and unknown-parent rejection remained correct. | Focused ResourceClass structural checks. |
+| 21 | Specialization depth | Resolved a Medium design drift by enforcing the documented maximum depth of eight. | The depth-nine negative fixture fails closed. |
+| 22 | Taxonomy link direction and cardinality | No verified finding above Low. Membership stays ResourceType -> ResourceClass and specialization stays narrower -> broader. | Declaration and projection direction review. |
+| 23 | Atomic replacement and stale cleanup | No verified finding above Low. Removing a class also removes its owned membership links. | Existing replacement regression. |
+| 24 | Release and digest identity | No verified finding above Low. Closure receipts retain registry, closure, and ontology release digests. | Existing exact-release closure checks. |
+| 25 | Inventory instance classification | Rejected a false positive. Unmapped types lower coverage, and only `unseeded_resource_type` permits the rest of a complete generation to proceed. | Inventory projection contract review. |
+| 26 | Raw provider and semantic boundary | No verified finding above Low. The 3,405-type provider ledger stays separate from the 77-type neutral taxonomy. | Provider catalog and structural-model review. |
+| 27 | OpenAPI candidate direction | Rejected automatic mapping of modeled endpoint pairs because reused operation schemas don't prove property ownership or semantic direction. | The review receipt remains `review_required` with automatic promotion disabled. |
+| 28 | Bounds and deterministic ordering | No verified finding above Low after duplicate, total-edge, depth, cycle, and sorted-closure checks. | Focused ResourceClass and catalog projection checks. |
 
 ### Remaining work
 
