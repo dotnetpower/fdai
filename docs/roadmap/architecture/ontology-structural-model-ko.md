@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: d3aeef5ee80fa5dc1cb80860e752aa3560ee9c0a
-translation_revised: 2026-08-24
+translation_source_sha: f49eb7e852a614dc40eddb98a2e8d56c4f7de577
+translation_revised: 2026-08-25
 ---
 # 온톨로지 구조 모델
 
@@ -233,6 +233,7 @@ Operator 변환 결과는 출처 세대, 온톨로지 release, 쿼리 상한, �
 | 2026-08-24 | implemented | caller에서 target으로 향하는 역할과 connectivity 및 traffic 특성을 가진 비전이 `runtime_calls` Resource-to-Resource 선언을 추가했습니다. 선언만으로는 edge나 권한을 만들지 않습니다. | `current change`; `runtime_calls.yaml`, 집중 LinkType, provenance, catalog, exact-release 검사입니다. | 지속형 운영 그래프 owner를 통해 독립적으로 검증된 endpoint observation만 binding합니다. |
 | 2026-08-24 | implemented | 인증된 타입 지정 runtime-call 관찰을 인벤토리 single writer를 통해 연결하고 PostgreSQL 역할 근거는 Resource 관계가 아닌 별도의 principal-safe 변환 결과로 유지했습니다. | `current change`; `runtime_call_telemetry.py`, `runtime_call_inventory.py`, `postgres_role_evidence.py`, 집중 producer, 변환 결과, 인벤토리, principal 가림 검사입니다. | 권위 있는 source가 정확한 endpoint Resource id를 제공한 뒤에만 인증된 런타임 근거를 보존합니다. |
 | 2026-08-24 | implemented | 온톨로지 쿼리 또는 변경 권한을 바꾸지 않고 그래프 우선 인스턴스 작업 영역, 간결한 컨트롤, 선택된 리소스와 범례 오버레이, Inspector 소유 접기 동작을 복원했습니다. | `current change`; 집중 Console 경로 테스트, 타입 검사, 프로덕션 빌드입니다. | 이 표현 범위에는 남은 구조 모델 작업이 없습니다. |
+| 2026-08-24 | implemented | 중복된 선택 리소스 요약을 제거하고, 관계 범례를 포커스를 받을 수 있는 가로 표면으로 고정하며, 접힌 Inspector 복원 영역을 유지하고, Inspector가 닫혔을 때 전체 화면 도구 위치를 조정해 그래프 우선 인스턴스 컨트롤을 정렬했습니다. | `c5cd7919ab32518d91c71075642f93d554c6fe2c`; 집중 인스턴스 보기 회귀 검사입니다. | 쿼리, 그래프 권한 또는 변경 동작은 바뀌지 않았습니다. |
 | 2026-08-24 | implemented | 정확한 스키마 관계와 현재 인스턴스 관계의 경계를 복원했습니다. 하나 또는 두 개의 표준 ObjectType 이름은 시간 범위가 없는 스키마 읽기로 유지하고, 현재 운영 객체 관계에는 계속 엔드포인트 ObjectSet이 필요합니다. 링크 가림 증적은 변환된 링크에서 실제로 제거된 속성만 집계하고 타입이 지정된 관찰 메타데이터를 보존합니다. | `current change`; 의미 계획, 쿼리 게이트웨이, 집중 관계 검사가 통과했고 통합 수정 테스트 629개와 Ruff 및 strict mypy가 통과했습니다. | 실제 운영 근거는 별도로 보존합니다. 이 수정은 변경 또는 실행 권한을 부여하지 않습니다. |
 | 2026-08-24 | implemented | 검토된 Azure 중첩 리소스 containment와 범위가 제한된 UID 기반 Kubernetes API enrichment source를 추가했습니다. 런타임 리소스와 독립적으로 검증된 링크는 기존 single writer를 통해 하나의 완전한 세대에 들어가며, Kubernetes binding이 없으면 명시적으로 사용 불가 상태를 유지합니다. | `current change`; 프로바이더 카탈로그, Azure ARG와 ARM, Kubernetes source와 변환 결과, 인벤토리 승격 및 조립 검사 260개 통과, Ruff 통과, source 파일 10개의 strict mypy 통과 | 이 영역을 `validated`로 변경하기 전에 실제 운영 exact-cluster Kubernetes 증적과 배포된 CA 및 token mount 근거를 보존합니다. |
 | 2026-08-24 | implemented | 원시 프로바이더 형식을 가져오지 않고 완전한 중립 ResourceClass 커버리지 축 하나를 추가했습니다. 루트는 제공되는 ResourceType 77개 전체를 닫고, 카탈로그 소유 인스턴스는 모든 멤버 자격과 특수화를 보존하며, 같은 클래스의 중복 멤버 자격은 닫힌 방식으로 실패하고 특수화 깊이는 8로 제한됩니다. | `current change`; 제공된 ResourceClass 클로저, 로더 하드닝, 카탈로그 인스턴스 변환 검사입니다. | 역량에 기반한 조합 멤버 자격만 추가합니다. 실제 프로바이더 및 Kubernetes 근거는 별도 검증 관심사로 유지합니다. |
