@@ -28,6 +28,9 @@ module "container_app" {
     { name = "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC", value = var.event_topics.semantic_projections },
     { name = "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC", value = var.event_topics.semantic_physical },
     { name = "FDAI_READ_INVESTIGATION_REQUEST_TOPIC", value = var.event_topics.read_investigation_requests },
+    { name = "FDAI_INCIDENT_INTERVENTION_REQUEST_TOPIC", value = var.event_topics.incident_intervention_requests },
+    { name = "FDAI_READ_INVESTIGATION_COMPLETION_TOPIC", value = var.event_topics.read_investigation_completions },
+    { name = "FDAI_READ_INVESTIGATION_COMPLETION_CONSUMER_GROUP_ID", value = "operator-read-investigation-completion-v1" },
     { name = "FDAI_ENTRA_TENANT_ID", value = var.auth.tenant_id },
     { name = "FDAI_API_AUDIENCE", value = var.auth.api_audience },
     { name = "FDAI_RBAC_READERS_GROUP_ID", value = var.rbac.readers_group_id },
@@ -105,6 +108,8 @@ locals {
       { name = "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC", value = var.event_topics.semantic_projections },
       { name = "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC", value = var.event_topics.semantic_physical },
       { name = "FDAI_READ_INVESTIGATION_REQUEST_TOPIC", value = var.event_topics.read_investigation_requests },
+      { name = "FDAI_READ_INVESTIGATION_COMPLETION_TOPIC", value = var.event_topics.read_investigation_completions },
+      { name = "FDAI_READ_INVESTIGATION_COMPLETION_CONSUMER_GROUP_ID", value = "operator-read-investigation-completion-v1" },
       { name = "FDAI_CHANNEL_EDGE_PORT", value = tostring(var.channel_edge.health.port) },
     ],
     var.channel_edge.slack_enabled ? [

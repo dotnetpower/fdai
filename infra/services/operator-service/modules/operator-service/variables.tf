@@ -4,11 +4,13 @@ variable "image" { type = string }
 variable "identity" { type = object({ runtime_resource_id = string, runtime_client_id = string, command_resource_id = string, command_client_id = string, edge_resource_id = optional(string, ""), edge_client_id = optional(string, "") }) }
 variable "event_topics" {
   type = object({
-    events                      = string
-    semantic_requests           = optional(string, "")
-    semantic_projections        = optional(string, "")
-    semantic_physical           = optional(string, "fdai.pantheon.objects")
-    read_investigation_requests = optional(string, "")
+    events                         = string
+    semantic_requests              = optional(string, "")
+    semantic_projections           = optional(string, "")
+    semantic_physical              = optional(string, "fdai.pantheon.objects")
+    read_investigation_requests    = optional(string, "")
+    incident_intervention_requests = optional(string, "operator.incident-intervention.requests")
+    read_investigation_completions = optional(string, "core.read-investigation.completions")
   })
 }
 variable "database" {

@@ -122,6 +122,7 @@ variable "event_topics" {
     semantic_projections           = optional(string, "")
     semantic_physical              = optional(string, "fdai.pantheon.objects")
     read_investigation_requests    = optional(string, "")
+    incident_intervention_requests = optional(string, "operator.incident-intervention.requests")
     read_investigation_completions = optional(string, "core.read-investigation.completions")
   })
 }
