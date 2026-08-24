@@ -25,8 +25,9 @@ Finding has no Incident lifecycle by itself. Correlation can submit an Incident 
 manual workflow can submit an Incident proposal. Only the incident lifecycle module can accept
 either request and create the durable Incident record.
 
-Agent Activity can record who created or updated a Finding and when. It is supporting provenance,
-not the Finding roster: it does not own Finding severity, deduplication, correlation, or promotion.
+Agent Activity can record who created or updated a `Finding` and when. It is supporting provenance,
+not the detected-issue roster: it does not own detected-issue severity, deduplication, correlation,
+or promotion.
 
 ## Incident lifecycle
 

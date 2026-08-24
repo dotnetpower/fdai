@@ -2,7 +2,7 @@
 title: 인시던트 관리
 description: FDAI가 인시던트를 하나의 정식 기록으로 만들고, 소유자를 정하고, 상태를 옮기고, 측정하고, 종료하는 방법입니다.
 translation_of: incident-management.md
-translation_source_sha: 52110089f9da7a4361b992841a7643655c60b6fc
+translation_source_sha: 27fe94cfe35512922858cfa7efbcc79ad5398282
 translation_revised: 2026-08-24
 ---
 
@@ -27,9 +27,9 @@ Observation -> Signal -> Finding -> Incident candidate or proposal -> Incident
 수동 흐름은 Incident proposal을 제출할 수 있습니다. 인시던트 생애주기 모듈만 두 요청을
 수락하고 영속 Incident 기록을 생성할 수 있습니다.
 
-에이전트 활동은 누가 언제 Finding을 생성하거나 갱신했는지 기록할 수 있습니다. 이는 보조 출처
-이력이며 Finding 명단이 아닙니다. Finding 심각도, 중복 제거, 상관관계 또는 승격을 소유하지
-않습니다.
+에이전트 활동은 누가 언제 `Finding`을 생성하거나 갱신했는지 기록할 수 있습니다. 이는 보조
+출처 이력이며 탐지된 문제 명단이 아닙니다. 탐지된 문제의 심각도, 중복 제거, 상관관계 또는
+승격을 소유하지 않습니다.
 
 ## 인시던트 생애주기
 
