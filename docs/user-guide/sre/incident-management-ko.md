@@ -2,8 +2,8 @@
 title: 인시던트 관리
 description: FDAI가 인시던트를 하나의 정식 기록으로 만들고, 소유자를 정하고, 상태를 옮기고, 측정하고, 종료하는 방법입니다.
 translation_of: incident-management.md
-translation_source_sha: 27fe94cfe35512922858cfa7efbcc79ad5398282
-translation_revised: 2026-08-24
+translation_source_sha: d914c4c95f1f92570218d315e71b40f108e8ed5d
+translation_revised: 2026-08-25
 ---
 
 # 인시던트 관리
@@ -12,7 +12,7 @@ translation_revised: 2026-08-24
 운영 기록입니다. FDAI는 인시던트를 알림에 붙는 꼬리표로 다루지 않고, 명확한 생애주기를
 가진 대상으로 관리합니다.
 
-## 인시던트 전 단계: Findings
+## 인시던트 전 단계: 탐지된 문제
 
 FDAI는 일상적인 관측과 개별 이상 징후가 운영 비상 상황을 만들지 않도록 탐지된 문제와
 인시던트를 분리합니다. 정본 순서는 다음과 같습니다.
@@ -22,10 +22,10 @@ Observation -> Signal -> Finding -> Incident candidate or proposal -> Incident
 ```
 
 `Finding`은 근거를 갖춘 정규화된 탐지 문제 하나입니다. `Findings`는 컬렉션이나 Console 페이지
-레이블입니다. 15개 에이전트는 각자 책임지는 영역에서 Findings를 생성할 수 있지만, Finding
-자체에는 Incident 생애주기가 없습니다. 상관관계 처리는 Incident candidate를 제출할 수 있고,
-수동 흐름은 Incident proposal을 제출할 수 있습니다. 인시던트 생애주기 모듈만 두 요청을
-수락하고 영속 Incident 기록을 생성할 수 있습니다.
+레이블입니다. 15개 에이전트는 각자 책임지는 영역에서 탐지된 문제를 생성할 수 있지만,
+`Finding` 자체에는 Incident 생애주기가 없습니다. 상관관계 처리는 Incident candidate를 제출할
+수 있고, 수동 흐름은 Incident proposal을 제출할 수 있습니다. 인시던트 생애주기 모듈만 두
+요청을 수락하고 영속 Incident 기록을 생성할 수 있습니다.
 
 에이전트 활동은 누가 언제 `Finding`을 생성하거나 갱신했는지 기록할 수 있습니다. 이는 보조
 출처 이력이며 탐지된 문제 명단이 아닙니다. 탐지된 문제의 심각도, 중복 제거, 상관관계 또는
