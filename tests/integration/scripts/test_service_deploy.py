@@ -158,6 +158,34 @@ def _resource(*, image: str = "old-image") -> dict[str, object]:
                             {"name": "FDAI_COMMAND_MI_CLIENT_ID", "value": "command"},
                             {"name": "FDAI_KAFKA_BOOTSTRAP_SERVERS", "value": "example"},
                             {"name": "KAFKA_TOPIC_EVENTS", "value": "events"},
+                            {
+                                "name": "FDAI_SEMANTIC_TURN_REQUEST_TOPIC",
+                                "value": "operator.semantic-turn.requests",
+                            },
+                            {
+                                "name": "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC",
+                                "value": "core.semantic-turn.projections",
+                            },
+                            {
+                                "name": "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC",
+                                "value": "fdai.pantheon.objects",
+                            },
+                            {
+                                "name": "FDAI_READ_INVESTIGATION_REQUEST_TOPIC",
+                                "value": "operator.read-investigation.requests",
+                            },
+                            {
+                                "name": "FDAI_READ_INVESTIGATION_COMPLETION_TOPIC",
+                                "value": "core.read-investigation.completions",
+                            },
+                            {
+                                "name": "FDAI_READ_INVESTIGATION_COMPLETION_CONSUMER_GROUP_ID",
+                                "value": "operator-read-investigation-completion-v1",
+                            },
+                            {
+                                "name": "FDAI_INCIDENT_INTERVENTION_REQUEST_TOPIC",
+                                "value": "operator.incident-intervention.requests",
+                            },
                             {"name": "FDAI_ENTRA_TENANT_ID", "value": "tenant"},
                             {"name": "FDAI_API_AUDIENCE", "value": "audience"},
                             {"name": "FDAI_RBAC_READERS_GROUP_ID", "value": "reader"},
@@ -1682,16 +1710,14 @@ def test_plan_guard_allows_only_aligned_topic_rollback_drift(guard: ModuleType) 
 def test_plan_guard_rejects_broad_event_bus_topic_migration(guard: ModuleType) -> None:
     address = "module.operator_service.module.container_app.azurerm_container_app.service"
     plan = _plan(address, ["update"])
-    before_environment = plan["resource_changes"][0]["change"]["before"]["template"][0][  # type: ignore[index]
-        "container"
-    ][0]["env"]
     after_environment = plan["resource_changes"][0]["change"]["after"]["template"][0][  # type: ignore[index]
         "container"
     ][0]["env"]
-    before_environment.append({"name": "FDAI_SEMANTIC_TURN_REQUEST_TOPIC", "value": "old"})
-    after_environment.append(
-        {"name": "FDAI_SEMANTIC_TURN_REQUEST_TOPIC", "value": "operator.semantic-turn.requests"}
-    )
+    expected = guard.event_bus_topic_migration("operator-service", surface="environment")
+    for item in after_environment:
+        if item["name"] in expected:
+            item["value"] = expected[item["name"]]
+    after_environment.append({"name": "UNREVIEWED", "value": "changed"})
 
     with pytest.raises(guard.PlanGuardError, match="unapproved environment"):
         guard.validate_plan(
