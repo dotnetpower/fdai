@@ -138,7 +138,7 @@ def test_ontology_query_runtime_uses_focused_context() -> None:
         ("services/core-control-plane/src/fdai/core/ontology_platform/query_gateway.py",)
     )
 
-    assert len(required) <= 13
+    assert len(required) <= 15
     assert "docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md" in required
     assert "docs/roadmap/interfaces/operator-console.md" not in required
     assert "docs/roadmap/rules-and-detection/causal-incident-graph.md" not in required

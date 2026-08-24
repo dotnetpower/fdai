@@ -1,8 +1,8 @@
 ---
 title: 규칙 거버넌스(Rule Governance)
 translation_of: rule-governance.md
-translation_source_sha: 66e1599698707a606ab28f4c351e1b896673dbfb
-translation_revised: 2026-08-23
+translation_source_sha: 11c925036a0bda47183d9facf5bb4c3ecbb08203
+translation_revised: 2026-08-24
 ---
 
 # 규칙 거버넌스(Rule 거버넌스)
@@ -480,7 +480,6 @@ provenance:
 | 2026-08-17 | in-progress | 순수 거버넌스 pull request 검토 권한 결정을 추가했습니다: 운영자 객체 신원, 변경 클래스별 필수 역량, 서로 다른 승인자 정족수, 고위험 phishing-resistant 승인, 리비전에 바인딩된 신선도, 작성자·공동 작성자·커미터 자기 승인 방지. | `current change`; `services/core-control-plane/src/fdai/rule_catalog/schema/governance_review_authority.py`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/python -m pytest -q --no-cov services/core-control-plane/tests/rule_catalog/schema/test_governance_review_authority.py` 가 16개 테스트를 통과했습니다. | 이 결정을 거버넌스 CI 게이트의 실제 pull request 리뷰 메타데이터에 연결하고 차단 후 해소된 근거 기록 하나를 보존합니다. |
 | 2026-08-17 | in-progress | 절대 시각이 아닌 head 커밋 시각이 실패 시 닫히도록 검토 권한 결정을 강화했습니다: 모호한 시점과 신선도를 비교하지 않으며 어떤 승인도 정족수에 포함되지 않습니다. | `current change`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/python -m pytest -q --no-cov services/core-control-plane/tests/rule_catalog/schema/test_governance_review_authority.py` 가 17개 테스트를 통과했습니다. | 이 결정을 거버넌스 CI 게이트의 실제 pull request 리뷰 메타데이터에 연결하고 차단 후 해소된 근거 기록 하나를 보존합니다. |
 | 2026-08-18 | in-progress | `shared/ontology/threshold_bounds.py`를 추가해 제공되는 `ontology/action-type` 계약에서 promotion gate의 수치 범위를 읽고 단일 검사기를 제공합니다. `ShadowDwellThresholds`는 하한과 정확도 상한을 직접 명시하지 않고 그 선언에서 도출하며, focused sweep 하나가 등록된 모든 적응형 임계값이 선언된 범위 안에 머문다는 점과 pydantic `PromotionGate` 모델과 JSON 계약이 서로 어긋나질 수 없음을 증명합니다. 온톨로지 선언이 없는 `GraphModelPromotionPolicy` 비율 임계값 2개는 숨기지 않고 명시적 공백으로 기록했습니다. | `current change`, `tests/core/operational_learning` focused 테스트 88건 통과, `tests/core/risk_gate`·`tests/core/measurement`·`tests/core/assurance_twin`·`tests/rule_catalog` 1716건 통과, 작업 범위 Ruff·format·strict mypy 통과 | `min_fidelity`와 `max_recurrence_rate`의 온톨로지 범위를 선언해 unbound 집합에서 제외하고, 등록부를 promotion gate 밖의 탐지·라우팅 임계값까지 확장해야 합니다. |
-
 | 2026-08-23 | in-progress | GitHub 리뷰 상태, exact commit, 시각을 배포에서 검증한 Entra OID, FDAI 역할, phishing-resistant assurance와 결합하는 엄격한 전달 경계를 추가했습니다. 최신 decisive review 상태를 사용하고 오래된 revision은 순수 권한 결정에 그대로 전달하며 누락되거나 이른 attestation은 실패 시 닫힙니다. | `current change`; `delivery/gitops_pr/governance_review.py`; 집중 메타데이터 및 권한 테스트 23개 통과 | 배포 소유 identity/assurance provider와 실제 pull request 메타데이터 collector를 CI에 연결한 뒤 차단 후 해소된 근거 record를 보존합니다. |
 | 2026-08-23 | implemented | 권한 결정을 GitHub의 exact-head PR, commit, review, Check Run 메타데이터에 연결했습니다. 구성된 verifier App이 성공한 exact-head Check Run에 범위가 제한된 Entra principal bundle을 게시해야 합니다. App id 부재, 누락되거나 실패한 check, 오래된 revision, 검증되지 않은 역할, 약한 assurance, 자기 승인, 정족수 부족은 CI를 차단합니다. Assignment 변경은 transition intent가 독립적으로 입증될 때까지 더 엄격한 enforce-promotion 등급을 사용합니다. | `current change`; `scripts/governance/check-governance-review-authority.py`; `.github/workflows/ci.yml`; 집중 governance CLI, bridge, 권한 및 workflow 테스트 69개 통과 | Trusted Entra verifier GitHub App을 배포하고 차단 후 해소된 관리 PR 근거 record 하나를 보존합니다. |
 | 2026-08-23 | in-progress | 불변 T0 배정 소비를 완료하고 strict exemption 아티팩트를 시작 거버넌스 카탈로그와 안전성 검토에 통합했습니다. JSON 중복 키 탐지, UTC 및 terminal 상태 검증, 알 수 없는 룰과 중복 활성 범위 차단, exact 리소스 identity, 정규 ARM 범위 parsing, 구독 격리, 결정론적 fallback 및 두 registry의 terminal revocation을 하드닝했습니다. | `current change`; 집중 거버넌스 로더, exemption 모델/CLI, catalog/fallback registry, 런타임 조립, 안전성 검토 및 T0 파이프라인 검사가 통과했습니다. 12개 적대적 하드닝 라운드 후 이 구현 범위에 Medium 이상 finding이 남지 않았습니다. | 최대 exemption 기간과 알림 lead time을 구성한 뒤 예약 만료, 알림 및 라이프사이클 감사 전달을 연결합니다. 재정의 전달과 trusted-verifier 배포는 별도입니다. |

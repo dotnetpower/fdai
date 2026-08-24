@@ -1,7 +1,7 @@
 ---
 translation_of: durable-conversation-delivery.md
-translation_source_sha: 9f1355f469f97e843e2b818e7c0ab133cbefe382
-translation_revised: 2026-08-23
+translation_source_sha: 27aeff87833c82c6c71b95f95612a7f89d59599b
+translation_revised: 2026-08-24
 ---
 # 영구 대화 전송
 
@@ -51,7 +51,6 @@ translation_revised: 2026-08-23
 | 2026-08-20 | 구현됨 | 세 Operator store, 의미 bridge, 복구 worker, 프로바이더 adapter 및 readiness probe를 독립 fail-closed edge lifespan에 연결했습니다. | `current change`, 집중 edge 검사 74개, live channel PostgreSQL 검사 10개를 건너뛰기 없이 통과했고 Ruff 및 strict mypy 통과 | 검증 전에 통제된 restart 및 외부 프로바이더 근거를 보존합니다. |
 | 2026-08-20 | 구현됨 | 기한 도래 전달 권한과 lifecycle 복구를 hardening했습니다. Claim된 모든 재시도는 활성 principal, scope, conversation 및 channel binding을 다시 검증하고, known Teams JWKS key는 범위가 제한된 TTL 뒤 갱신하며, runtime과 credential 종료는 멱등적입니다. | `current change`, 집중 edge 검사 81개, Ruff 및 strict mypy 통과 | 검증 전에 통제된 restart 및 외부 프로바이더 근거를 보존합니다. |
 | 2026-08-20 | 구현됨 | 영속 채널 reduction 전에 사용하는 읽기 쉬운 의미 행 projection을 통합했습니다. 중첩 provider property가 v2에서 사라지거나 raw 표시 JSON으로 노출되지 않고, response는 허용된 이름, 타입, 상태, 위치 필드를 보여 주면서 replay를 위한 exact 근거를 보존합니다. | `current change`, [이슈 #241](https://github.com/dotnetpower/fdai/issues/241), focused Operator 표현 검사 94개 통과, Ruff, formatting, strict mypy 통과 | 채널 검증 주장을 높이기 전에 인증된 Web 근거와 기존 통제된 Slack/Teams 런타임 증적을 보존합니다. |
-
 | 2026-08-23 | 시작 전 | 전송 스키마를 만들거나 Core에 Operator 대화 table 접근 권한을 부여하지 않고 교차 서비스 최종 읽기 조사 완료 수신을 명시적 소유권 선행 작업으로 등록했습니다. | `current change`; 구현 범위 행에 연결된 세 owner 문서가 열린 경계에 동의합니다. | 버전이 지정된 계약을 정의하고 검토한 뒤 Operator 소유 영속 수락, 멱등 projection, 전달 재시도, 보존 및 롤백 테스트를 구현합니다. |
 
 ### 남은 작업

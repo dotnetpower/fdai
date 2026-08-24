@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 7e6c976dd095bd1c2f5230f178160183333be13b
+translation_source_sha: b81b5cb4a96500dd7ad450b293a0869f3ec96ebf
 translation_revised: 2026-08-24
 ---
 # FDAI 온톨로지 안전 인프라
@@ -153,6 +153,7 @@ Console은 redaction, 호환성, 완전성 또는 권한을 계산하지 않습�
 | 2026-08-24 | implemented | Competency 기반 기능 Interface 6개, 결정론적 scoped SDK publication, evidence-bound copy-on-write scenario 및 최종 reconciliation 계보를 추가했습니다. | `current change`, 집중 interface, SDK, evidence, scenario, reconciliation 및 runtime 검사, 10개 이상 adversarial hardening lens 결과 Medium 이상 미해결 발견 없음 | 배포 근거는 별도로 보존하며 이 batch는 direct graph merge 또는 executor 표면을 추가하지 않습니다. |
 | 2026-08-24 | implemented | 현재 runtime에 동일한 adversarial lens 12개를 반복 적용하고 Medium 무결성 공백 3개를 수정했습니다. 효과별 metric이 없으면 lineage를 score하지 않고, projection-before-claim 중단은 그래프를 다시 쓰지 않고 replay하며, fresh Resource 하나가 다른 반환 Resource의 누락된 최신성 metadata를 숨길 수 없습니다. | `current change`; 집중 lineage(`2 passed`), continuous worker(`8 passed`), graph refresh(`5 passed`) 검사. | 최종 Python 3.12, Ruff, strict typecheck, SDK compile, 문서, 번역, audit, diff, diagnostics gate를 실행합니다. |
 | 2026-08-24 | implemented | 최종 로컬 온톨로지 gate stack을 완료하고 13개 adversarial lens를 반복 적용해 미해결 Critical, High 또는 Medium 발견이 없음을 확인했습니다. | `current change`; Python 3.12 집중 온톨로지 검사(`260 passed`, `FDAI_DATABASE_URL` 미설정으로만 `23 skipped`), Operator 검사(`87 passed`), Console model 검사(`17 passed`), TypeScript SDK compile, Ruff(`29 files`), strict mypy(`15 source files`), 번역, design-impact, machine audit, 범위가 지정된 roadmap, diff, editor diagnostics 0건. | 외부 telemetry, 인증된 Browser, PostgreSQL 통합, 배포, Azure 인증은 별도 근거로 보존합니다. 저장소 전체 roadmap checker는 관련 없는 추적되지 않은 FinOps owner ledger 때문에만 차단됩니다. |
+| 2026-08-24 | implemented | 보존한 타입 지정 관찰 메타데이터가 제거된 것으로 보고되지 않도록 ObjectSet 링크 가림 집계를 수정했습니다. 이제 증적은 정확한 원본 속성과 변환 결과 속성의 차이로 링크 집계값을 계산합니다. | `current change`; `query_gateway.py`, 집중 쿼리 게이트웨이 검사, 온톨로지, 카탈로그, facade, 서비스 계약 검사 111개와 Ruff 및 strict mypy가 통과했습니다. | 인증된 런타임 및 프로바이더 근거는 별도 검증 작업으로 유지합니다. 수정된 증적은 계속 읽기 전용 근거입니다. |
 | 2026-08-13 | implemented | 영속 exact-release 매니페스트 registry를 추가하고 PostgreSQL 행 디코딩 전에 등록된 release를 로드하도록 했습니다. | 현재 변경; 집중 `test_postgres_ontology_catalog.py`에서 2개 테스트, `test_ontology_release_registry_migration.py`에서 1개 테스트를 통과했습니다. | 이행과 Core 재시작 뒤 인증된 Live 근거를 기록합니다. |
 | 2026-08-13 | in-progress | 검토된 Kubernetes Service 관계 매핑과 독립 세대 검증을 위한 후보 링크를 만드는 범위 제한 변환기를 추가했습니다. | `current change`; focused `test_kubernetes_relationships.py`에서 6개 테스트, 프로바이더 매핑 계약에서 6개 테스트를 통과했습니다. | 변환기를 production 인벤토리 출처에 연결하고 exact-release 조립 근거를 보존해야 합니다. |
 | 2026-08-13 | in-progress | Resource와 Observation 근거를 포함하는 release 고정 Interface를 사용하여 production 의미 조회 조립을 통해 발급된 Pod 텔레메트리 함수를 입증했습니다. | `current change`; focused `test_wire_pod_telemetry.py`에서 verified 및 synthetic-unverified 경로 2개 테스트를 통과했습니다. | 보존된 production 인벤토리에서 같은 조립을 실행하고 인증된 보증 증적을 보존해야 합니다. |

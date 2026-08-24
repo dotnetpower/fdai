@@ -37,6 +37,13 @@ from fdai.shared.providers.ontology_instance import (
     OntologyLinkRecord,
     OntologyObjectRecord,
 )
+from fdai.shared.providers.state_evidence import (
+    LINK_OBSERVATION_METADATA_PROPERTY,
+    LinkObservationMetadata,
+    StateFactAuthority,
+    StateFactLane,
+    StateFactMetadata,
+)
 from fdai.shared.providers.testing import InMemoryOntologyInstanceStore
 from pydantic import ValidationError
 
@@ -235,7 +242,7 @@ async def test_gateway_hides_redacted_endpoint_identity_and_drops_dangling_link(
     assert result.receipt.redactions.removed_link_count == 1
 
 
-async def test_gateway_strips_all_link_properties_and_records_redaction() -> None:
+async def test_gateway_preserves_typed_link_metadata_without_false_redaction() -> None:
     object_type = _object_type()
     gateway = await _gateway_with_records(
         object_type,
@@ -255,8 +262,23 @@ async def test_gateway_strips_all_link_properties_and_records_redaction() -> Non
                 from_id="resource-a",
                 to_id="resource-b",
                 properties={
-                    "provider_resource_id": "/subscriptions/raw-secret/resource-a",
-                    "evidence": {"target_id": "raw-secret-resource-b"},
+                    LINK_OBSERVATION_METADATA_PROPERTY: LinkObservationMetadata(
+                        state_fact=StateFactMetadata(
+                            lane=StateFactLane.OBSERVED,
+                            authority=StateFactAuthority.PROVIDER,
+                            source_identity="inventory-provider",
+                            source_revision="revision-1",
+                            effective_at=datetime(2026, 8, 8, tzinfo=UTC),
+                            recorded_at=datetime(2026, 8, 8, tzinfo=UTC),
+                            evidence_cutoff=datetime(2026, 8, 8, tzinfo=UTC),
+                            freshness_ceiling_seconds=300,
+                            completeness=1.0,
+                            synthetic=False,
+                            evidence_refs=("evidence-link-1",),
+                        ),
+                        verification_method="provider-observation",
+                        verified=False,
+                    ).to_mapping(),
                 },
             ),
         ),
@@ -264,10 +286,12 @@ async def test_gateway_strips_all_link_properties_and_records_redaction() -> Non
 
     result = await gateway.materialize(_definition(), projection_request=_request())
 
-    assert result.materialization.graph.links[0].properties == {}
-    assert result.receipt.redactions.links_with_redactions == 1
-    assert result.receipt.redactions.redacted_link_property_count == 2
-    assert "raw-secret" not in str(result)
+    properties = result.materialization.graph.links[0].properties
+    assert set(properties) == {LINK_OBSERVATION_METADATA_PROPERTY}
+    metadata = properties[LINK_OBSERVATION_METADATA_PROPERTY]
+    assert metadata["state_fact"]["source_identity"] == "inventory-provider"
+    assert result.receipt.redactions.links_with_redactions == 0
+    assert result.receipt.redactions.redacted_link_property_count == 0
 
 
 async def test_gateway_allocates_collision_safe_aliases_and_preserves_link_closure() -> None:

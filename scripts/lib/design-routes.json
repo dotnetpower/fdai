@@ -129,7 +129,12 @@
         "services/core-control-plane/src/fdai/core/ontology_platform/object_sets.py",
         "services/core-control-plane/src/fdai/core/ontology_platform/query_*.py",
         "services/core-control-plane/src/fdai/core/ontology_platform/catalog_projection.py",
-        "services/operator-service/src/fdai_operator_service/**",
+        "services/operator-service/src/fdai_operator_service/families/operations/contracts.py",
+        "services/operator-service/src/fdai_operator_service/families/operations/factory.py",
+        "services/operator-service/src/fdai_operator_service/families/operations/instance_explorer.py",
+        "services/operator-service/src/fdai_operator_service/families/operations/inventory_impact.py",
+        "services/operator-service/src/fdai_operator_service/families/operations/manifest.py",
+        "services/operator-service/src/fdai_operator_service/family_adapters.py",
         "console/src/routes/ontology*"
       ],
       "must_read": [
@@ -252,6 +257,46 @@
         "PYTHONPATH=evaluation-sdk/src:benchmarks/sregym/src uv run pytest -q --no-cov benchmarks/sregym/tests",
         "PYTHONPATH=evaluation-sdk/src:benchmarks/cybergym/src uv run pytest -q --no-cov benchmarks/cybergym/tests",
         "python3 scripts/quality/architecture/check-evaluation-boundaries.py"
+      ]
+    },
+    {
+      "id": "architecture-review",
+      "paths": [
+        "config/architecture-review.yaml",
+        "services/core-control-plane/src/fdai/core/architecture_review/**",
+        "services/core-control-plane/tests/core/architecture_review/**",
+        "tests/integration/scripts/test_check_arb_readiness.py",
+        "rule-catalog/workflows/architecture-review.yaml",
+        "rule-catalog/operator-console/architecture-review.yaml",
+        "rule-catalog/views/architecture-review.yaml",
+        "rule-catalog/reports/architecture-review-process.yaml",
+        "docs/roadmap/architecture/architecture-review-board*.md",
+        "docs/roadmap/architecture/architecture-review/**",
+        "docs/roadmap-implementation/architecture/architecture-review-board.md",
+        "docs/roadmap-implementation/architecture/architecture-review/**"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        "docs/roadmap/architecture/architecture-review-board.md",
+        "docs/roadmap/architecture/architecture-review/ontology-agent-loop.md",
+        "docs/roadmap/architecture/architecture-review/evidence-and-authority.md",
+        "docs/roadmap/architecture/architecture-review/delivery-plan.md",
+        "docs/roadmap/architecture/operating-ontology.md",
+        "docs/roadmap/agents/agent-pantheon.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/architecture/architecture-review-board.md",
+        "docs/roadmap/architecture/architecture-review/ontology-agent-loop.md",
+        "docs/roadmap/architecture/architecture-review/evidence-and-authority.md",
+        "docs/roadmap/architecture/architecture-review/delivery-plan.md",
+        "docs/roadmap/architecture/code-map.md"
+      ],
+      "validate": [
+        "python3 scripts/governance/check-arb-readiness.py",
+        "uv run pytest -q --no-cov services/core-control-plane/tests/core/architecture_review tests/integration/scripts/test_check_arb_readiness.py",
+        "python3 scripts/quality/architecture/check-design-routes.py",
+        "python3 scripts/quality/architecture/check-roadmap-implementation-tracking.py",
+        "python3 scripts/quality/architecture/check-document-size.py"
       ]
     },
     {

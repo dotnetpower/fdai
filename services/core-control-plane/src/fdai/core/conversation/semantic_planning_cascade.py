@@ -56,6 +56,7 @@ from .semantic_resource_state_planning import normalize_resource_state_proposal
 from .semantic_target_candidate_planning import (
     build_non_resource_target_clarification,
     build_resource_target_candidates_fallback,
+    is_exact_schema_relationship,
     resource_target_candidates_apply_to_proposal,
 )
 from .session import Principal
@@ -701,6 +702,12 @@ def _judgment_non_resource_target_clarification(
     descriptors: tuple[dict[str, Any], ...],
     inventory_query_language: InventoryQueryLanguageRegistry | None,
 ) -> tuple[SemanticFrameProposal, SemanticProblemFrame] | None:
+    if proposal is not None and is_exact_schema_relationship(
+        proposal,
+        utterance=utterance,
+        descriptors=descriptors,
+    ):
+        return None
     if (
         proposal is not None
         and exact_target_from_constraints(

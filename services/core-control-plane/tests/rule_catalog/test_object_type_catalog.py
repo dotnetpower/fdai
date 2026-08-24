@@ -126,6 +126,7 @@ def test_shipped_object_types_load() -> None:
         "Pattern",
         "RecoveryObjective",
         "RecoveryPlan",
+        "ResourceClass",
         "ServiceObjective",
         "Workload",
     }

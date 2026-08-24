@@ -238,6 +238,7 @@ def test_shipped_privileged_workflow_inventory_is_explicitly_audited() -> None:
         "pages.yml",
         "remote-evidence-attest.yml",
         "service-deploy.yml",
+        "sre-demo-lab.yml",
     }
 
 

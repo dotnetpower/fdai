@@ -26,6 +26,7 @@
           "services/core-control-plane/tests/providers",
           "services/core-control-plane/tests/quality_gate",
           "services/core-control-plane/tests/rbac",
+          "services/core-control-plane/tests/test_semantic_presentation_semantics.py",
           "services/core-control-plane/tests/telemetry",
           "services/core-control-plane/tests/tools"
         ],
@@ -47,7 +48,9 @@
           "services/core-control-plane/tests/pipeline",
           "services/core-control-plane/tests/runtime",
           "services/core-control-plane/tests/scenarios",
+          "services/core-control-plane/tests/test_read_investigation_consumer.py",
           "services/core-control-plane/tests/test_semantic_assurance_projection.py",
+          "services/core-control-plane/tests/test_semantic_presentation_wiring.py",
           "services/core-control-plane/tests/test_semantic_turn_processor.py",
           "services/core-control-plane/tests/verticals"
         ],
@@ -62,7 +65,9 @@
       "test_groups": {
         "unit": [
           "services/operator-service/tests/test_azure_cli_token.py",
+          "services/operator-service/tests/test_background_task_projection.py",
           "services/operator-service/tests/test_browser_evidence_projection.py",
+          "services/operator-service/tests/test_inventory_instance_projection.py",
           "services/operator-service/tests/test_inventory_impact_projection.py",
           "services/operator-service/tests/test_investigation_presentation.py",
           "services/operator-service/tests/test_local_narrator.py",
@@ -72,6 +77,7 @@
           "services/operator-service/tests/test_pdf_report_encoder.py",
           "services/operator-service/tests/test_presentation_artifact_v2.py",
           "services/operator-service/tests/test_presentation_planner.py",
+          "services/operator-service/tests/test_resolved_models_key_vault.py",
           "services/operator-service/tests/test_stream_shutdown.py"
         ],
         "contract": [
@@ -111,6 +117,9 @@
           "services/operator-service/tests/test_operator_service_composition.py",
           "services/operator-service/tests/test_operator_service_full_composition.py",
           "services/operator-service/tests/test_operator_service_postgres.py",
+          "services/operator-service/tests/test_postgres_background_task_projection.py",
+          "services/operator-service/tests/test_postgres_family_store_cancellation.py",
+          "services/operator-service/tests/test_read_investigation_runtime.py",
           "services/operator-service/tests/test_semantic_kafka_adapter.py",
           "services/operator-service/tests/test_semantic_turn_bridge.py"
         ],

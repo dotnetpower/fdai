@@ -1,7 +1,7 @@
 {
   "schema_version": "1.1.0",
-  "surface_digest": "sha256:7b452efc1b3f124a4a52bd941175e3c0fe95c391152c7c13207b2f739cce2bd3",
-  "generation_digest": "sha256:345e337bad1043fd6f339f7c6265e956404bbde63872fa5db6942007466ccca9",
+  "surface_digest": "sha256:840c0733fba97fd56b4fe251d5dc4eab843a2a1f774e6d5e9d2696e26166dc75",
+  "generation_digest": "sha256:3ec5a8f659afae691fa16565fb910886d1df73ae0de513aa1bccb1f163774b26",
   "catalog_digest": "sha256:05ef7c7b44c3c6387d625b620684df4ce90d6c69023fdf933bcd49fc8cf45817",
   "dataset_digest": "sha256:1307e83d264c8c0b6fdc4342f840b51cebe18f930ca4bd9242387052da54d6de",
   "evaluator_ref": "heimdall:shipped-catalog-ko@1",

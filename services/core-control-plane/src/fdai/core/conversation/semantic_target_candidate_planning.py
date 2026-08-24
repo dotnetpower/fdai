@@ -372,11 +372,36 @@ def normalize_operating_relationship_temporal_scope(
         or frame.output_shape != SemanticOutputShape.ONTOLOGY_RELATIONSHIPS
         or not subject_types
         or proposal.temporal_scope
+        or is_exact_schema_relationship(
+            proposal,
+            utterance=utterance,
+            descriptors=descriptors,
+        )
         or schema_trace
     ):
         return proposal, frame
     resolved = proposal.model_copy(update={"temporal_scope": {"kind": "current"}})
     return resolved, build_semantic_frame(resolved, utterance=utterance, context=context)
+
+
+def is_exact_schema_relationship(
+    proposal: SemanticFrameProposal,
+    *,
+    utterance: str,
+    descriptors: tuple[dict[str, Any], ...],
+) -> bool:
+    """Return whether an atemporal frame names exact ObjectType declarations."""
+
+    subject_types = _non_resource_object_subjects(proposal.subject_constraints, descriptors)
+    utterance_tokens = set(re.findall(r"[a-z0-9]+", utterance.casefold()))
+    return (
+        proposal.operation is SemanticOperation.SELECT
+        and proposal.output_shape is SemanticOutputShape.ONTOLOGY_RELATIONSHIPS
+        and proposal.temporal_scope == {}
+        and 1 <= len(subject_types) <= 2
+        and len(subject_types) == len(proposal.subject_constraints)
+        and all(subject.casefold() in utterance_tokens for subject in subject_types)
+    )
 
 
 def normalize_decision_outcome_relationship(
@@ -517,6 +542,7 @@ __all__ = [
     "build_non_resource_target_clarification",
     "build_resource_target_candidates_fallback",
     "compile_resource_target_candidates_plan",
+    "is_exact_schema_relationship",
     "normalize_decision_outcome_relationship",
     "normalize_operating_relationship_temporal_scope",
     "resource_target_candidates_apply_to_proposal",

@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 6884203942323949a353238bb4d5c6bcab37a40d
+translation_source_sha: ae6ba1de143add660304aff3f5f40a1aaa8e2fe7
 translation_revised: 2026-08-24
 ---
 # 온톨로지 구조 모델
@@ -221,6 +221,7 @@ Operator 변환 결과는 출처 세대, 온톨로지 release, 쿼리 상한, �
 | 2026-08-24 | implemented | caller에서 target으로 향하는 역할과 connectivity 및 traffic 특성을 가진 비전이 `runtime_calls` Resource-to-Resource 선언을 추가했습니다. 선언만으로는 edge나 권한을 만들지 않습니다. | `current change`; `runtime_calls.yaml`, 집중 LinkType, provenance, catalog, exact-release 검사입니다. | 지속형 운영 그래프 owner를 통해 독립적으로 검증된 endpoint observation만 binding합니다. |
 | 2026-08-24 | implemented | 인증된 타입 지정 runtime-call 관찰을 인벤토리 single writer를 통해 연결하고 PostgreSQL 역할 근거는 Resource 관계가 아닌 별도의 principal-safe 변환 결과로 유지했습니다. | `current change`; `runtime_call_telemetry.py`, `runtime_call_inventory.py`, `postgres_role_evidence.py`, 집중 producer, 변환 결과, 인벤토리, principal 가림 검사입니다. | 권위 있는 source가 정확한 endpoint Resource id를 제공한 뒤에만 인증된 런타임 근거를 보존합니다. |
 | 2026-08-24 | implemented | 온톨로지 쿼리 또는 변경 권한을 바꾸지 않고 그래프 우선 인스턴스 작업 영역, 간결한 컨트롤, 선택된 리소스와 범례 오버레이, Inspector 소유 접기 동작을 복원했습니다. | `current change`; 집중 Console 경로 테스트, 타입 검사, 프로덕션 빌드입니다. | 이 표현 범위에는 남은 구조 모델 작업이 없습니다. |
+| 2026-08-24 | implemented | 정확한 스키마 관계와 현재 인스턴스 관계의 경계를 복원했습니다. 하나 또는 두 개의 표준 ObjectType 이름은 시간 범위가 없는 스키마 읽기로 유지하고, 현재 운영 객체 관계에는 계속 엔드포인트 ObjectSet이 필요합니다. 링크 가림 증적은 변환된 링크에서 실제로 제거된 속성만 집계하고 타입이 지정된 관찰 메타데이터를 보존합니다. | `current change`; 의미 계획, 쿼리 게이트웨이, 집중 관계 검사가 통과했고 통합 수정 테스트 629개와 Ruff 및 strict mypy가 통과했습니다. | 실제 운영 근거는 별도로 보존합니다. 이 수정은 변경 또는 실행 권한을 부여하지 않습니다. |
 
 ### 하드닝 기록
 

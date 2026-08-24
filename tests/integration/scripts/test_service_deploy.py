@@ -1114,6 +1114,7 @@ def test_plan_guard_allows_exact_event_bus_topic_migration(guard: ModuleType) ->
         "FDAI_SEMANTIC_TURN_REQUEST_TOPIC": "operator.semantic-turn.requests",
         "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC": "core.semantic-turn.projections",
         "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC": "fdai.pantheon.objects",
+        "FDAI_READ_INVESTIGATION_REQUEST_TOPIC": "operator.read-investigation.requests",
     }
     for environment in (before_environment, after_environment):
         environment[:] = [item for item in environment if item["name"] not in expected]
@@ -1153,7 +1154,8 @@ def test_plan_guard_requires_complete_core_transport_migration(guard: ModuleType
         container = resource["template"][0]["container"][0]
         container["command"] = ["fdai-core-control-plane"]
         container["env"] = [
-            {"name": name, "value": "configured"} for name in contract.required_environment
+            {"name": name, "value": "configured"}
+            for name in set(contract.required_environment) | set(expected)
         ]
         resource["tags"] = {"fdai:component": service}
         environment = container["env"]
@@ -1205,7 +1207,8 @@ def test_plan_guard_allows_core_semantic_topic_follow_up(guard: ModuleType) -> N
         container = resource["template"][0]["container"][0]
         container["command"] = ["fdai-core-control-plane"]
         container["env"] = [
-            {"name": name, "value": "configured"} for name in contract.required_environment
+            {"name": name, "value": "configured"}
+            for name in set(contract.required_environment) | set(expected)
         ]
         resource["tags"] = {"fdai:component": service}
         state_store = next(
@@ -1968,6 +1971,7 @@ def test_tfvars_derives_disabled_operator_channel_edge_without_mutating_source(
                 "semantic_physical": "fdai.pantheon.objects",
                 "semantic_projections": "core.semantic-turn.projections",
                 "semantic_requests": "operator.semantic-turn.requests",
+                "read_investigation_requests": "operator.read-investigation.requests",
             },
         ),
         (
@@ -1983,6 +1987,7 @@ def test_tfvars_derives_disabled_operator_channel_edge_without_mutating_source(
                 "semantic_requests": "operator.semantic-turn.requests",
                 "semantic_projections": "core.semantic-turn.projections",
                 "semantic_physical": "fdai.pantheon.objects",
+                "read_investigation_requests": "operator.read-investigation.requests",
             },
         ),
         (

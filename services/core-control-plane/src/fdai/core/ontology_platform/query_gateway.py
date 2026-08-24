@@ -410,14 +410,21 @@ def _summarize_redactions(
                 purpose_binding_count += 1
             elif reason == RedactionReason.UNDECLARED_PROPERTY.value:
                 undeclared_property_count += 1
+    projected_links = {(link.link_type, link.from_id, link.to_id): link for link in graph.links}
+    redacted_link_counts = tuple(
+        len(set(link.properties) - set(projected.properties))
+        for link in source_graph.links
+        if (projected := projected_links.get((link.link_type, link.from_id, link.to_id)))
+        is not None
+    )
     return ObjectSetRedactionSummary(
         objects_with_redactions=objects_with_redactions,
         redacted_identity_count=redacted_identity_count,
         access_scope_count=access_scope_count,
         purpose_binding_count=purpose_binding_count,
         undeclared_property_count=undeclared_property_count,
-        links_with_redactions=sum(bool(link.properties) for link in source_graph.links),
-        redacted_link_property_count=sum(len(link.properties) for link in source_graph.links),
+        links_with_redactions=sum(count > 0 for count in redacted_link_counts),
+        redacted_link_property_count=sum(redacted_link_counts),
         removed_link_count=removed_link_count,
     )
 

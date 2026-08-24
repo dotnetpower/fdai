@@ -1,8 +1,8 @@
 ---
 title: ADR-0002 Independent Runtime and Customization Axes
 translation_of: 0002-independent-runtime-axes.md
-translation_source_sha: 8a2a803d4dba121524243f3aef166f92f76a4840
-translation_revised: 2026-08-14
+translation_source_sha: 536ea6f6e782883502b93d57c93345d4e0624a2e
+translation_revised: 2026-08-24
 ---
 # ADR-0002: 독립적인 런타임 및 Customization 축
 
@@ -65,6 +65,8 @@ FDAI는 다음 축을 독립 구성으로 취급합니다.
   deploy할 수 있습니다.
 - 포크 detection은 업스트림 framework 표면을 보호합니다. 런타임 행동, 자율성, 신원,
   환경을 변경하지 않습니다.
+- 공개 패키지 export는 검색 가능성만 바꿉니다. 런타임 가용성, 액션 수명 주기, 신원,
+  권한 확인 또는 실행 권한을 선택하지 않습니다.
 - 권한 확인 정책과 effective-access 근거는 배포 입력입니다. 환경과 포크
   상태는 권한 부여 자세를 선택하거나 신원의 접근 권한을 암시하지 않습니다.
 - Operational 안전성 프로파일은 실행 위치, 환경, 근거, 수명 주기, 신원 및

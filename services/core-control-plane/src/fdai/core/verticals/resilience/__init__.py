@@ -57,6 +57,12 @@ from fdai.core.verticals.resilience.recovery_plan import (
     RecoveryState,
     RecoveryTransition,
 )
+from fdai.core.verticals.resilience.shadow_recovery import (
+    ShadowRecoveryError,
+    ShadowRecoveryOrchestrator,
+    ShadowRecoveryOutcome,
+    ShadowRecoveryResult,
+)
 
 __all__ = [
     "DbDrOutcome",
@@ -90,5 +96,9 @@ __all__ = [
     "RunOutcome",
     "SchedulerDecision",
     "SchedulerOutcome",
+    "ShadowRecoveryError",
+    "ShadowRecoveryOrchestrator",
+    "ShadowRecoveryOutcome",
+    "ShadowRecoveryResult",
     "summarize_runs",
 ]

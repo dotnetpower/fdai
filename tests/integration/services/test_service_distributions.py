@@ -61,6 +61,7 @@ EXPECTED_DEPENDENCIES = {
     "operator-service": {
         "aiohttp",
         "aiokafka",
+        "anyio",
         "azure-core",
         "azure-identity",
         "fdai-service-contracts",
@@ -120,6 +121,7 @@ INDIRECT_RUNTIME_DEPENDENCIES = {
 
 IMPORT_DISTRIBUTIONS = {
     "aiokafka": "aiokafka",
+    "anyio": "anyio",
     "azure.core": "azure-core",
     "azure.identity": "azure-identity",
     "azure.storage.filedatalake": "azure-storage-file-datalake",

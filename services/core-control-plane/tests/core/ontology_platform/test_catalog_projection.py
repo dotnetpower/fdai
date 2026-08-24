@@ -134,7 +134,7 @@ async def test_catalog_projection_removes_a_stale_resource_class_and_memberships
     assert all(removed_id not in {item.from_id, item.to_id} for item in graph.links)
 
 
-def test_property_semantics_project_deterministically_without_upgrading_legacy() -> None:
+def test_property_semantics_project_deterministically_for_reviewed_properties() -> None:
     ontology, rules, projection = _projection()
     catalog_root = REPO_ROOT / "rule-catalog"
     resource_types = load_resource_type_registry_from_mapping(
@@ -199,6 +199,6 @@ def test_property_semantics_project_deterministically_without_upgrading_legacy()
         },
     ]
 
-    legacy = projected["property.compute.vm.network_p95_bytes"]
-    assert "semantic_id" not in legacy.properties
-    assert "normalized_equivalence" not in legacy.properties
+    network = projected["property.compute.vm.network_p95_bytes"]
+    assert network.properties["semantic_id"] == "utilization.network.p95"
+    assert network.properties["normalized_equivalence"] is True

@@ -61,6 +61,8 @@ No value on one axis selects a value on another axis. In particular:
   directly.
 - Fork detection protects the upstream framework surface. It never changes runtime behavior,
   autonomy, identity, or environment.
+- A public package export changes discoverability only. It does not select runtime availability,
+  action lifecycle, identity, authorization, or execution authority.
 - Authorization policy and effective-access evidence are deployment inputs. Environment and fork
   status never select a grant posture or imply that an identity has access.
 - The operational safety profile is venue-, environment-, evidence-, lifecycle-, identity-, and
