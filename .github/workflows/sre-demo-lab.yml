@@ -389,6 +389,7 @@ jobs:
         run: |
           set -euo pipefail
           import_log="$RUNNER_TEMP/sre-demo-lab-import.log"
+          state_list="$RUNNER_TEMP/sre-demo-lab-state-list.txt"
           suffix="fdai-sre-lab-${TF_VAR_region_short}"
           operator_vnet_name="$(jq -er '.vnet_name' <<<"$TF_VAR_operator_access")"
           operator_vnet_rg="$(jq -er '.vnet_resource_group_name' <<<"$TF_VAR_operator_access")"
@@ -397,6 +398,7 @@ jobs:
             select(.address? == "azurerm_private_dns_zone.mysql") |
             .values.name
           ' | head -n 1)"
+          terraform state list >"$state_list"
 
           import_if_missing() {
             local address="$1"
@@ -406,7 +408,7 @@ jobs:
               echo "scenario-lab partial-resource adoption rejected an invalid resource id." >&2
               exit 1
             }
-            if terraform state list | grep -Fxq "$address"; then
+            if grep -Fxq "$address" "$state_list"; then
               return 0
             fi
             echo "::add-mask::$resource_id"
@@ -415,6 +417,7 @@ jobs:
               echo "scenario-lab partial-resource adoption failed; raw output remains runner-local." >&2
               exit 1
             fi
+            printf '%s\n' "$address" >>"$state_list"
           }
 
           lab_to_operator_id="$(az network vnet peering show \
@@ -720,6 +723,7 @@ jobs:
             "$RUNNER_TEMP/sre-demo-lab-dns-links-state.tsv" \
             "$RUNNER_TEMP/sre-demo-lab-dns-link-ids.txt" \
             "$RUNNER_TEMP/sre-demo-lab-import.log" \
+            "$RUNNER_TEMP/sre-demo-lab-state-list.txt" \
             "$RUNNER_TEMP/sre-demo-lab.tfplan" \
             "$RUNNER_TEMP/sre-demo-lab-plan.json" \
             "$RUNNER_TEMP/sre-demo-lab-plan.log" \

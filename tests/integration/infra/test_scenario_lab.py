@@ -132,6 +132,10 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
         "scenario-lab partial-resource adoption failed; raw output remains runner-local" in workflow
     )
     assert "terraform import -input=false -lock-timeout=5m" in workflow
+    assert 'terraform state list >"$state_list"' in workflow
+    assert 'grep -Fxq "$address" "$state_list"' in workflow
+    assert 'terraform state list | grep -Fxq "$address"' not in workflow
+    assert 'printf \'%s\\n\' "$address" >>"$state_list"' in workflow
     assert "azurerm_virtual_network_peering.lab_to_operator[0]" in workflow
     assert "azurerm_virtual_network_peering.operator_to_lab[0]" in workflow
     assert "azurerm_private_dns_zone_virtual_network_link.mysql_operator[0]" in workflow
