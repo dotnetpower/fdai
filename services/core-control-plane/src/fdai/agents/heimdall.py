@@ -53,12 +53,12 @@ from fdai.core.readiness import (
     reduce_detection_readiness,
 )
 from fdai.core.rule_semantic_generation import RuleGenerationValidationHandler
-from fdai.delivery.provider_schema_review import provider_schema_drift_payload
 from fdai.rule_catalog.schema.rule_semantic_generation_events import (
     RULE_GENERATION_BUILD_RESULT_TOPIC,
     RuleGenerationBuildResultEvent,
 )
 from fdai.shared.contracts.models import ForecastOutcome
+from fdai.shared.providers.provider_schema import ProviderSchemaDriftProjector
 
 AlerterHook = Callable[[dict[str, Any]], Awaitable[None]]
 """Var-provided hook that delivers the admin notification card."""
@@ -121,6 +121,7 @@ class Heimdall(HeimdallForecastMixin, Agent):
         forecast_closer: ForecastClosureCoordinator | None = None,
         forecast_store: ForecastEpisodeStore | None = None,
         action_semantics: ActionSemanticsCatalog | None = None,
+        provider_schema_drift_projector: ProviderSchemaDriftProjector | None = None,
     ) -> None:
         if rate_threshold < 1:
             raise ValueError("rate_threshold MUST be >= 1")
@@ -128,6 +129,7 @@ class Heimdall(HeimdallForecastMixin, Agent):
             raise ValueError("rate_window MUST be >= 1")
         super().__init__(spec=_HEIMDALL)
         self.bus = bus
+        self._provider_schema_drift_projector = provider_schema_drift_projector
         self._rate_threshold = rate_threshold
         self._rate_window = rate_window
         self._recent_events: dict[tuple[str, str, str, str], deque[tuple[float, str, str]]] = {}
@@ -203,7 +205,10 @@ class Heimdall(HeimdallForecastMixin, Agent):
     async def publish_provider_schema_drift(self, package: Mapping[str, object]) -> bool:
         """Publish one strict no-authority provider-schema drift for governed review."""
 
-        payload = provider_schema_drift_payload(package)
+        if self._provider_schema_drift_projector is None:
+            self.record_behavior("provider_schema_drift:projector_unavailable")
+            return False
+        payload = self._provider_schema_drift_projector(package)
         self.record_behavior(f"provider_schema_drift:{payload['decision']}")
         if self.bus is None:
             return False

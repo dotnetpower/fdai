@@ -17,6 +17,7 @@ from fdai.delivery.provider_schema import (
     ProviderSchemaType,
 )
 from fdai.delivery.provider_schema_ledger import ProviderSchemaLedger
+from fdai.delivery.provider_schema_review import provider_schema_drift_payload
 from fdai.delivery.provider_schema_watcher import (
     ProviderSchemaSourceBinding,
     ProviderSchemaSourceKind,
@@ -58,7 +59,10 @@ def _package() -> dict[str, object]:
 
 async def test_heimdall_publishes_schema_review_through_owned_drift_topic() -> None:
     bus = InMemoryBus(registry=load_pantheon(), isolate_handlers=False)
-    heimdall = Heimdall(bus=bus)
+    heimdall = Heimdall(
+        bus=bus,
+        provider_schema_drift_projector=provider_schema_drift_payload,
+    )
 
     published = await heimdall.publish_provider_schema_drift(_package())
 
@@ -72,7 +76,8 @@ async def test_heimdall_publishes_schema_review_through_owned_drift_topic() -> N
 
 
 async def test_heimdall_validates_before_transport_and_holds_without_bus() -> None:
-    heimdall = Heimdall()
+    assert await Heimdall().publish_provider_schema_drift(_package()) is False
+    heimdall = Heimdall(provider_schema_drift_projector=provider_schema_drift_payload)
 
     assert await heimdall.publish_provider_schema_drift(_package()) is False
     invalid = _package()
@@ -83,7 +88,10 @@ async def test_heimdall_validates_before_transport_and_holds_without_bus() -> No
 
 async def test_provider_schema_drift_reaches_hil_verdict_and_saga_audit() -> None:
     bus = InMemoryBus(registry=load_pantheon(), isolate_handlers=False)
-    heimdall = Heimdall(bus=bus)
+    heimdall = Heimdall(
+        bus=bus,
+        provider_schema_drift_projector=provider_schema_drift_payload,
+    )
     forseti = Forseti(bus=bus)
     saga = Saga()
     saga.bind_bus(bus)
@@ -136,7 +144,10 @@ async def test_breaking_watcher_package_reaches_heimdall_owned_drift_topic(
     ledger = ProviderSchemaLedger(tmp_path)
     ledger.record_snapshot(baseline, observed_at=now, accept_baseline=True)
     bus = InMemoryBus(registry=load_pantheon(), isolate_handlers=False)
-    heimdall = Heimdall(bus=bus)
+    heimdall = Heimdall(
+        bus=bus,
+        provider_schema_drift_projector=provider_schema_drift_payload,
+    )
     watcher = ProviderSchemaWatcher(
         provider="azure",
         sources=(

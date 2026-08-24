@@ -28,6 +28,7 @@ from fdai.delivery.azure.provider_schema import (
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
 from fdai.delivery.persistence.postgres import PostgresStateStore, PostgresStateStoreConfig
 from fdai.delivery.provider_schema_ledger import ProviderSchemaLedger
+from fdai.delivery.provider_schema_review import provider_schema_drift_payload
 from fdai.delivery.provider_schema_state_ledger import StateStoreProviderSchemaLedger
 from fdai.delivery.provider_schema_watcher import (
     ProviderSchemaSourceBinding,
@@ -242,7 +243,10 @@ async def _run_local(
                     stale_after_seconds=config.stale_after_seconds,
                     review_compatible_drift=config.review_compatible_drift,
                 ),
-                review_publisher=Heimdall(bus=bridge),
+                review_publisher=Heimdall(
+                    bus=bridge,
+                    provider_schema_drift_projector=provider_schema_drift_payload,
+                ),
             )
             return (await watcher.run(now=now, force=force)).to_mapping()
         finally:
