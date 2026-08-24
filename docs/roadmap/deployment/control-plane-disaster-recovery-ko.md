@@ -1,8 +1,8 @@
 ---
 title: 컨트롤 플레인 재해 복구
 translation_of: control-plane-disaster-recovery.md
-translation_source_sha: be14e7852eb2b35305a5b222c241b7aa6ec844f5
-translation_revised: 2026-08-16
+translation_source_sha: 51cc50f13809aadc6edaee3206a7554fe9bbfb0b
+translation_revised: 2026-08-24
 ---
 
 # 컨트롤 플레인 재해 복구
@@ -24,7 +24,8 @@ translation_revised: 2026-08-16
 | 변경할 수 없는 복구 계획과 적법한 전환 집약기 | implemented | `services/core-control-plane/src/fdai/core/verticals/resilience/recovery_plan.py` 및 `services/core-control-plane/tests/core/verticals/test_recovery_plan.py` | 버전, 승인 분리, 복구 epoch, 적법한 전환 및 중단 동작에 집중 테스트가 있습니다. |
 | 영속 compare-and-set 조정 및 감사 저장 | implemented | `services/core-control-plane/src/fdai/core/verticals/resilience/recovery_coordinator.py` 및 `services/core-control-plane/tests/core/verticals/test_recovery_coordinator.py` | 동일 요청 재전달, 쓰기 충돌, 개정 검사 및 상태와 감사의 원자적 쓰기가 구현되어 있습니다. |
 | 선택형 데이터베이스 복원 훈련 및 검증기 | implemented | `services/core-control-plane/src/fdai/core/verticals/resilience/db_dr_drill_cli.py`, `infra/modules/compute/container-apps/dr_drill_job.tf` 및 DR 훈련 집중 테스트 | 작업은 기본적으로 dry-run이며 배포 입력이 필요합니다. 소스와 테스트만으로 실제 기반 환경 훈련 완료를 입증하지는 않습니다. |
-| 지역 프로바이더 작업 및 이벤트 데이터 연속성 | in-progress | 프로바이더 경계와 이 문서의 활성화 순서 | 대체 지역 프로비저닝, fencing, 범위가 제한된 이벤트 재생, 트래픽 전환 및 failback이 하나의 실제 경로로 조립되지 않았습니다. |
+| 프로바이더 중립 지역 shadow 순서 | implemented | `services/core-control-plane/src/fdai/shared/providers/control_plane_recovery.py`, `services/core-control-plane/src/fdai/core/verticals/resilience/shadow_recovery.py` 및 `services/core-control-plane/tests/core/verticals/test_recovery_plan_shadow.py` | fake 프로바이더가 효과 적용 없이 순서, 이전 epoch 거부, 실패 중단, 단일 쓰기 담당 동작, 범위가 제한된 재생 입력 및 failback 전제조건을 입증합니다. |
+| 지역 프로바이더 어댑터 및 이벤트 데이터 연속성 | not-started | `docs/runbooks/control-plane-failover.md` | 프로비저닝, fencing, 이벤트 재생, 트래픽 전환 또는 failback을 연결하는 배포 프로바이더가 없고 실제 기반 환경의 이벤트 연속성 근거도 없습니다. |
 | 단일 프로세스 예약 실행 | implemented | `infra/modules/compute/container-apps/*_job.tf`; `tests/integration/infra/test_scheduled_job_concurrency.py` | 예약된 모든 Container Apps Job이 `replica_completion_count`와 `parallelism`을 `1`로 고정하고, 모든 Job이 정확히 한 종류의 트리거만 선언하므로 한 번의 tick은 정확히 한 프로세스에서 실행됩니다. 스케줄 블록이 파싱되지 않거나 값이 완화되거나 두 번째 트리거가 선언되면 집중 검사가 실패합니다. |
 | 측정된 지역 장애 조치 및 failback | not-started | `docs/runbooks/control-plane-failover.md` | 승인된 RPO/RTO, 이전 epoch fencing, 이벤트 완전성, 트래픽 전환 및 failback을 입증하는 통제된 훈련 증적이 저장소에 없습니다. |
 
@@ -34,10 +35,12 @@ translation_revised: 2026-08-16
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 구현 원장을 도입했으며 이전 출처 이력은 재구성하지 않았습니다. 테스트된 복구 동작과 지역 배포 및 운영 근거를 분리했습니다. | 현재 변경과 구현 범위 표에 기재한 복구 계획 및 조정기 집중 테스트 | 지역 프로바이더 경로를 조립하고 실행한 뒤 통제된 장애 조치 및 failback 근거를 보존해야 합니다. |
 | 2026-08-15 | implemented | 검토 가능한 Terraform 구성으로 예약 실행을 단일 프로세스로 제한하고 예약된 모든 Job에 대한 집중 동시성 검사를 추가했습니다. | `current change`; `tests/integration/infra/test_scheduled_job_concurrency.py`; `pytest tests/integration/infra/test_scheduled_job_concurrency.py` (24 passed). | 프로세스 간 실험 예약, 조립된 지역 경로, 통제된 훈련 증적은 남아 있습니다. |
+| 2026-08-24 | implemented | 프로바이더 중립 지역 작업 계약과 순수 shadow 조정기를 추가했습니다. 이전 epoch, 실패한 증적, 안전하지 않은 쓰기 담당 상태 또는 누락된 failback 전제조건이 있으면 중단합니다. | `current change`; `control_plane_recovery.py`; `shadow_recovery.py`; `test_recovery_plan_shadow.py`; `python -m pytest -q --no-cov services/core-control-plane/tests/core/verticals/test_recovery_plan_shadow.py` (10 passed). | 배포 프로바이더를 연결하고 실제 기반 환경의 이벤트 연속성을 입증하며 통제된 장애 조치 및 failback 증적을 보존해야 합니다. |
 
 ### 남은 작업
 
-- [ ] 대체 지역 프로비저닝, 기본 지역 fencing, 이벤트 복구, 트래픽 전환 및 failback을 프로바이더 어댑터로 연결하고, 두 번째 작성자를 활성화하지 않는 집중 종단 간 shadow 테스트를 통과합니다.
+- [x] 프로바이더 중립 지역 작업을 정의하고 순서, 범위가 제한된 재생, 이전 epoch, 실패 중단, 단일 쓰기 담당 동작 및 failback 전제조건을 검증하는 집중 fake 프로바이더 shadow 순서 테스트를 통과합니다.
+- [ ] 프로비저닝, 기본 지역 fencing, 이벤트 복구, 트래픽 전환 및 failback을 배포 프로바이더로 연결한 뒤 두 번째 쓰기 담당이 활성화되지 않았음을 입증하는 실제 기반 환경 shadow 증적을 보존합니다.
 - [x] 검토 가능한 Terraform 구성으로 배포된 스케줄러를 한 번의 실행당 단일 프로세스로 제한했으며, 예약된 Job이 `replica_completion_count`나 `parallelism`을 완화하거나 두 번째 트리거를 추가하면 `tests/integration/infra/test_scheduled_job_concurrency.py`가 실패합니다.
 - [ ] 예약된 tick을 둘 이상의 프로세스에서 실행하기 전에 프로세스 간 실험 예약을 입증합니다.
 - [ ] 승인된 RPO/RTO와 달성값, 이벤트 누락, 이전 epoch 거부, 트래픽 전환, 롤백 또는 failback 및 정리를 기록한 저장소 보관 가능 통제 훈련 증적 하나를 남깁니다.
@@ -58,6 +61,31 @@ fencing합니다. Event 복구 전에 상태를 복원하고 검증하며, 감�
 
 Active-active 실행은 지원되지 않습니다. 읽기 전용 서비스는 multi-region일 수 있지만 Thor의
 privileged 실행기와 event-consumption 권한은 single-writer로 유지합니다.
+
+## 프로바이더 중립 shadow 복구
+
+지역 작업 프로바이더는 복구 지역 프로비저닝, 기본 지역 fencing, 범위가 제한된 이벤트 재생,
+트래픽 전환 및 failback을 위한 shadow 전용 작업을 제공합니다. 모든 요청은 계획 ID와 개정
+번호, 제안된 복구 epoch, 두 논리 지역, 제한된 범위 및 이벤트 재생 구간을 연결합니다. 모든
+증적은 작업, 통과 또는 실패 결과, 관측된 epoch, 두 지역의 쓰기 활성 상태 및 정제된 근거
+참조를 보고합니다.
+
+순수 shadow 조정기는 다음 순서로 장애 조치를 평가합니다.
+
+1. 쓰기 담당을 시작하지 않고 복구 지역을 프로비저닝하거나 검증합니다.
+2. 기본 지역 쓰기 담당을 fencing하고 비활성 상태를 독립적으로 관측합니다.
+3. 두 지역 쓰기 담당이 비활성인 동안 선언된 이벤트 구간만 재생합니다.
+4. 복구 지역 쓰기 담당이 유일한 활성 쓰기 담당일 때만 모의 권한을 전환합니다.
+
+이전 epoch 또는 증가하지 않은 epoch는 프로바이더를 호출하기 전에 거부됩니다. 실패하거나
+형식이 잘못된 증적은 순서를 중단하며 후속 작업을 평가하지 않습니다. 조정기는 계획 전환을
+저장하거나, 승인 진위를 검증하거나, 실행 신원을 획득하거나, 트래픽을 변경하지 않습니다.
+이러한 책임은 영속 조정기와 향후 통제된 프로바이더 연결에 남습니다.
+
+Failback은 별도의 shadow 평가입니다. 별도의 failback 승인 상태, 단조 증가하는 새 epoch,
+검증되고 조정된 기본 대상, 비활성 기본 쓰기 담당 및 현재 유일한 쓰기 담당인 복구 지역 쓰기
+담당이 필요합니다. 해당 증적은 기본 지역이 유일한 쓰기 담당임을 보여야 합니다. 근거가
+누락되거나 두 번째 쓰기 담당이 활성 상태이면 평가를 중단합니다.
 
 ## 필수 계획 입력
 
@@ -209,8 +237,12 @@ Reliability 소유자가 numeric 목표를 승인하고 완전한 isolated 복�
  및 compare-and-set 소유권을 검증한 후 `StateStore`를 통해 계획 변환 결과와 감사 행을
  원자적으로 저장합니다. Exact 재전달은 커밋된 기록을 반환하고 변경된 근거는
  충돌입니다. 멱등성 다이제스트가 근거, 승인 및 epoch를 커밋하기 때문입니다.
-- 프로바이더 프로토콜은 fencing, 상태 복원, 이벤트 복구, 트래픽 shift 및 탐색을 소유합니다.
-- Azure 어댑터는 managed 신원과 범위가 제한된 연산으로 해당 프로토콜을 구현합니다.
+- 지역 작업 프로토콜은 프로비저닝, fencing, 범위가 제한된 이벤트 재생, 트래픽 전환 및
+  failback을 위한 정제된 shadow 요청과 증적을 소유합니다.
+- 순수 shadow 조정기는 작업 순서와 중단 결정을 소유합니다. 상태를 저장하거나 승인을
+  검증하거나 실행 신원을 획득하거나 프로바이더 효과를 적용하지 않습니다.
+- 향후 Azure 어댑터는 Managed Identity, 논리 대상 잠금, 감사 수명 주기, 롤백 및 독립적인
+  효과 검증을 통해 통제된 효과 경로를 구현합니다.
 - Terraform은 선택된 프로파일을 렌더링하며 배포 값은 업스트림 출처 밖에 둡니다.
 - 프로세스 저널과 추가 전용 감사 체인이 영속 전이 권한입니다.
 - Console은 읽기 전용이며 액션을 활성화하지 않고 사용 불가 또는 recovering 상태를 보고합니다.

@@ -22,7 +22,8 @@ evidence required before a deployment can claim control-plane disaster recovery.
 | Immutable recovery plan and legal transition reducer | implemented | `services/core-control-plane/src/fdai/core/verticals/resilience/recovery_plan.py` and `services/core-control-plane/tests/core/verticals/test_recovery_plan.py` | Version, approval separation, recovery epochs, legal edges, and halt behavior have focused tests. |
 | Durable compare-and-set coordination and audit persistence | implemented | `services/core-control-plane/src/fdai/core/verticals/resilience/recovery_coordinator.py` and `services/core-control-plane/tests/core/verticals/test_recovery_coordinator.py` | Exact redelivery, write conflicts, revision checks, and atomic state-plus-audit writes are implemented. |
 | Opt-in database restore drill and verifier | implemented | `services/core-control-plane/src/fdai/core/verticals/resilience/db_dr_drill_cli.py`, `infra/modules/compute/container-apps/dr_drill_job.tf`, and focused DR drill tests | The Job defaults to dry-run and requires deployment-supplied inputs; source and tests do not prove a completed substrate-backed drill. |
-| Regional provider actions and event-data continuity | in-progress | Provider seams and the activation sequence in this document | Alternate-region provisioning, fencing, bounded event replay, traffic shift, and failback are not composed into one live path. |
+| Provider-neutral regional shadow sequence | implemented | `services/core-control-plane/src/fdai/shared/providers/control_plane_recovery.py`, `services/core-control-plane/src/fdai/core/verticals/resilience/shadow_recovery.py`, and `services/core-control-plane/tests/core/verticals/test_recovery_plan_shadow.py` | The fake provider proves order, stale-epoch rejection, failure halt, single-writer behavior, bounded replay input, and failback prerequisites without applying effects. |
+| Regional provider adapters and event-data continuity | not-started | `docs/runbooks/control-plane-failover.md` | No deployment provider binds provisioning, fencing, event replay, traffic shift, or failback, and no substrate event-continuity evidence exists. |
 | Single-process scheduled execution | implemented | `infra/modules/compute/container-apps/*_job.tf`; `tests/integration/infra/test_scheduled_job_concurrency.py` | Every scheduled Container Apps Job pins `replica_completion_count` and `parallelism` to `1`, and every job declares exactly one trigger kind, so one tick runs in exactly one process. The focused check fails when a schedule block does not parse, when a value is relaxed, or when a job declares a second trigger. |
 | Measured regional failover and failback | not-started | `docs/runbooks/control-plane-failover.md` | The repository contains no governed drill receipt proving approved RPO/RTO, stale-epoch fencing, event completeness, traffic shift, and failback. |
 
@@ -32,10 +33,12 @@ evidence required before a deployment can claim control-plane disaster recovery.
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. Separated tested recovery mechanics from regional deployment and operational evidence. | current change; focused recovery plan and coordinator tests listed in the scope table | Compose and exercise the regional provider path, then retain governed failover and failback evidence. |
 | 2026-08-15 | implemented | Constrained scheduled execution to one process through reviewable Terraform configuration and added a focused concurrency check over every scheduled Job. | `current change`; `tests/integration/infra/test_scheduled_job_concurrency.py`; `pytest tests/integration/infra/test_scheduled_job_concurrency.py` (24 passed). | Cross-process experiment reservation, the composed regional path, and the governed drill receipt remain open. |
+| 2026-08-24 | implemented | Added the provider-neutral regional action contract and a pure shadow orchestrator that halts on stale epochs, failed receipts, unsafe writer state, or missing failback prerequisites. | `current change`; `control_plane_recovery.py`; `shadow_recovery.py`; `test_recovery_plan_shadow.py`; `python -m pytest -q --no-cov services/core-control-plane/tests/core/verticals/test_recovery_plan_shadow.py` (10 passed). | Bind a deployment provider, prove substrate event continuity, and retain a governed failover and failback receipt. |
 
 ### Remaining work
 
-- [ ] Bind alternate-region provisioning, primary fencing, event recovery, traffic shift, and failback through provider adapters, and pass a focused end-to-end shadow test without enabling a second writer.
+- [x] Define provider-neutral regional actions and pass a focused fake-provider shadow sequence test for ordering, bounded replay, stale epochs, failure halt, single-writer behavior, and failback prerequisites.
+- [ ] Bind provisioning, primary fencing, event recovery, traffic shift, and failback through a deployment provider, then retain a substrate-backed shadow receipt proving no second writer was enabled.
 - [x] The deployed scheduler is constrained to one process per fire through reviewable Terraform configuration, and `tests/integration/infra/test_scheduled_job_concurrency.py` fails if any scheduled Job relaxes `replica_completion_count`, `parallelism`, or adds a second trigger.
 - [ ] Prove cross-process experiment reservation before any scheduled tick runs in more than one process.
 - [ ] Retain one repository-safe governed drill receipt that records approved and achieved RPO/RTO, event gaps, stale-epoch rejection, traffic shift, rollback or failback, and cleanup.
@@ -56,6 +59,32 @@ The deployment selects one profile by measured objective:
 
 Active-active execution is not supported. Read-only services may be multi-region, but Thor's
 privileged executor and the event-consumption authority remain single-writer.
+
+## Provider-neutral shadow recovery
+
+The regional action provider exposes shadow-only operations for recovery-region provisioning,
+primary fencing, bounded event replay, traffic shift, and failback. Every request binds the plan
+id and revision, the proposed recovery epoch, both logical regions, the bounded scope, and the
+event replay window. Every receipt reports the action, pass or fail outcome, observed epoch,
+writer activity for both regions, and sanitized evidence references.
+
+The pure shadow orchestrator evaluates failover in this order:
+
+1. Provision or validate the recovery region without starting a writer.
+2. Fence the primary writer and independently observe that it is inactive.
+3. Replay only the declared event window while both regional writers remain inactive.
+4. Shift simulated authority only when the recovery writer becomes the sole active writer.
+
+A stale or non-increasing epoch is rejected before the provider is called. A failed or malformed
+receipt halts the sequence and no later action is evaluated. The orchestrator does not persist a
+plan transition, verify approval authenticity, acquire execution identity, or change traffic.
+Those responsibilities remain with the durable coordinator and a future governed provider
+binding.
+
+Failback is a separate shadow evaluation. It requires a distinct failback approval state, a new
+monotonically increasing epoch, a verified and reconciled primary target, an inactive primary
+writer, and the recovery writer as the sole current writer. Its receipt must show the primary as
+the sole writer. Missing evidence or a second active writer halts the evaluation.
 
 ## Required plan inputs
 
@@ -204,8 +233,12 @@ not substitute for one substrate-backed exercise.
    transition time, and compare-and-set ownership before it atomically persists the plan projection
    and audit row through `StateStore`. Exact redelivery returns the committed record; changed
    evidence is a conflict because the idempotency digest commits to evidence, approval, and epoch.
-- Provider Protocols own fencing, state restore, event recovery, traffic shift, and probes.
-- Azure adapters implement those Protocols through managed identity and bounded operations.
+- The regional action Protocol owns sanitized shadow requests and receipts for provisioning,
+   fencing, bounded event replay, traffic shift, and failback.
+- The pure shadow orchestrator owns action ordering and halt decisions. It does not persist state,
+   verify approvals, acquire execution identity, or apply provider effects.
+- A future Azure adapter implements the governed effect path through managed identity, logical
+   target locking, audit lifecycle, rollback, and independent effect verification.
 - Terraform renders the selected profile; deployment values remain outside upstream source.
 - The Process journal and append-only audit chain are the durable transition authority.
 - The console is read-only and reports unavailable or recovering state without enabling actions.
