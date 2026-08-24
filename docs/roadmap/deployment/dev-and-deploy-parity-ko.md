@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 983f3025c7b58564c35fda947aa9288acc0e4788
+translation_source_sha: ff157942f698e41f8ffb4a9ffbe12da6b0e12501
 translation_revised: 2026-08-25
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -43,7 +43,6 @@ translation_revised: 2026-08-25
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
-| 2026-08-25 | implemented | Core service root에서 필수 `llm` object를 child module로 전달하는 연결을 복원했습니다. 이제 protected root는 plan 전에 검증되고 배포 환경은 exact attested model 구성에 계속 연결됩니다. | `current change`; Core Terraform validation 및 focused service-deploy contract 검사. | Apply 전에 exact protected Core plan을 다시 생성합니다. |
 | 2026-08-25 | implemented | 선택적 `console: keep full stack ready (10m)` 태스크를 추가했습니다. 기존의 범위가 제한된 6개 구성 요소 준비 상태 검사를 600초마다 실행하고, 정상 구성은 건너뛰며 준비 상태 검사에 실패한 경우에만 표준 준비 및 supervisor 경로로 진입합니다. | `current change`, `.vscode/tasks.json`, `scripts/deployment/local/watch-console-services.sh`, `tests/integration/scripts/test_vscode_workspace_performance.py`, 집중 workspace 계약 테스트 4개 통과, 셸 구문 및 VS Code 진단 통과 | 선택적 로컬 복구 감시에 남은 구현 작업은 없습니다. |
 | 2026-08-24 | implemented | HashiCorp 전용 workspace와 이식 가능한 프로파일에서 Microsoft Terraform 언어 서버 설정을 제거하고, workspace에서 사용하지 않는 Live Server 설정을 제거했습니다. 맥락 사용량 표시기는 설계대로 계속 활성화합니다. | `current change`, `.vscode/settings.json`, `.vscode/fdai.code-profile`, 집중 프로파일 및 workspace 계약 테스트 13개 통과 | 확장이 소유하는 공유 설정에 남은 구현 작업은 없습니다. |
 | 2026-08-23 | implemented | 준비 캐시 유효성을 런타임 상태와 분리하고 준비 작업을 순서가 있는 단계 fingerprint 7개로 나눴으며, Docker volume identity가 데이터베이스 기반 단계를 무효화하도록 했습니다. 전체 스택 시작은 감독 대상 프로세스를 시작한 뒤 반환하고 supervisor는 60초 게이트를 계속 실행합니다. `console: wait full stack ready`가 명시적 차단 검사를 제공하며 Core 전용 복구는 최신 Pantheon heartbeat를 기다립니다. | `current change`, `.vscode/tasks.json`, `scripts/automation/{developer-workflow.py,local-service-input-digest.py}`, `scripts/deployment/local/{prepare-console-full-stack,prepare-console-state,start-console-services,run-console-service}.sh`, 집중 시작 계약 모음 테스트 38개 통과, 셸 구문 및 VS Code 진단 통과 | 범위가 제한된 로컬 시작 응답 경로에 남은 구현 작업은 없습니다. |
@@ -197,7 +196,7 @@ managed-resource identity가 없는 영속 shadow consumer입니다. 이 venue�
 Docker Redpanda를 사용합니다. Azure에 배포된 프로세스는 `FDAI_EXECUTION_VENUE=deployed`를 설정하고
 서비스 소유 Azure Database for PostgreSQL DSN과 Event Hubs Kafka endpoint를 사용합니다. Venue 선택은 근거 권한, 승격 상태, 사람 신원 또는 executor 권한을 변경하지 않습니다.
 
-`database_host_binding` 배포 mode는 배포 service의 비밀이 아닌 `POSTGRES_HOST` 연결만 변경합니다. 모든 service root는 비어 있지 않은 host를 요구하고, 봉인된 guard는 다른 명령이나 환경 표류를 차단하며, exact apply는 plan의 mode와 digest를 그대로 반복해야 합니다. Local composition은 loopback host를 계속 사용하므로 이 전환은 실행 venue를 바꾸거나 배포 DSN을 local에서 재사용하지 않습니다.
+`database_host_binding` 배포 mode는 배포 service의 비밀이 아닌 `POSTGRES_HOST` 연결만 변경합니다. 모든 service root는 비어 있지 않은 host를 요구하고, Core는 검증된 `llm` object를 child module로 전달하며, 봉인된 guard는 다른 명령이나 환경 표류를 차단하고 exact apply는 plan의 mode와 digest를 그대로 반복해야 합니다. Local composition은 loopback host를 계속 사용하므로 이 전환은 실행 venue를 바꾸거나 배포 DSN을 local에서 재사용하지 않습니다.
 
 작업 영역을 열어도 Console 구성을 시작하지 않습니다. 신뢰된 primary checkout에서 `console: start full stack`을 명시적으로 실행하면 준비 작업이 편집기 초기화와 경쟁하지 않습니다. 이 작업은 공유 Git 디렉터리 소유를 확인하고 `prepare-console-full-stack.sh`을 실행한 뒤 `start-console-services.sh`을 실행합니다. 준비 작업은 단계 fingerprint를 평가하기 전에 port `5432`의
 런타임 PostgreSQL, port `5433`의 격리된 검증 PostgreSQL cluster, Redpanda 및 ClamAV를 항상
