@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 4bba1296fb7d6e9760001c2a32a8284ab14e1fcb
+translation_source_sha: 983f3025c7b58564c35fda947aa9288acc0e4788
 translation_revised: 2026-08-25
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -199,23 +199,13 @@ Docker Redpanda를 사용합니다. Azure에 배포된 프로세스는 `FDAI_EXE
 
 `database_host_binding` 배포 mode는 배포 service의 비밀이 아닌 `POSTGRES_HOST` 연결만 변경합니다. 모든 service root는 비어 있지 않은 host를 요구하고, 봉인된 guard는 다른 명령이나 환경 표류를 차단하며, exact apply는 plan의 mode와 digest를 그대로 반복해야 합니다. Local composition은 loopback host를 계속 사용하므로 이 전환은 실행 venue를 바꾸거나 배포 DSN을 local에서 재사용하지 않습니다.
 
-작업 영역을 열어도 Console 구성을 시작하지 않습니다. 신뢰된 primary checkout에서
-`console: start full stack`을 명시적으로 실행하면 준비 작업이 편집기 초기화와 경쟁하지 않습니다.
-이 작업은 공유 Git 디렉터리 소유를 확인하고 `prepare-console-full-stack.sh`을 실행한 뒤
-`start-console-services.sh`을 실행합니다. 준비 작업은 단계 fingerprint를 평가하기 전에 port `5432`의
+작업 영역을 열어도 Console 구성을 시작하지 않습니다. 신뢰된 primary checkout에서 `console: start full stack`을 명시적으로 실행하면 준비 작업이 편집기 초기화와 경쟁하지 않습니다. 이 작업은 공유 Git 디렉터리 소유를 확인하고 `prepare-console-full-stack.sh`을 실행한 뒤 `start-console-services.sh`을 실행합니다. 준비 작업은 단계 fingerprint를 평가하기 전에 port `5432`의
 런타임 PostgreSQL, port `5433`의 격리된 검증 PostgreSQL cluster, Redpanda 및 ClamAV를 항상
 복구합니다. 순서가 있는 7개 단계는 로컬 이행, 런타임 환경, 권위 있는 인벤토리, Settings 변환 결과,
 카탈로그 변환 결과, 서비스 환경 및 Entra redirect입니다. 각 단계는 이미 실행 중인 애플리케이션
 스택을 요구하지 않고 정확한 입력과 필수 출력으로 재사용됩니다. 데이터베이스 기반 단계에는 로컬
 PostgreSQL volume identity도 포함하므로 재생성된 volume이 오래된 파일 marker를 상속할 수 없습니다.
 `--force`는 모든 단계를 무효화합니다.
-
-대화형 세션에서 중지된 백엔드를 자동으로 복구하려면
-`console: keep full stack ready (10m)` 태스크를 실행합니다. 이 태스크는 600초마다 동일한
-6개 구성 요소 준비 상태 계약을 확인합니다. 정상 결과는 아무것도 다시 시작하지 않고
-건너뜁니다. 사용할 수 없는 결과는 포트 `5273`과 `8010`-`8013`을 유지하는 표준 준비 및
-supervisor 경로를 실행합니다. 태스크를 중지하면 이후 확인과 감시가 시작한 supervisor가
-중지되며, 독립적으로 시작된 정상 스택은 받아들이거나 중지하지 않습니다.
 
 Supervisor는 허용된 각 `run-console-service.sh`을 자체 잠금, fingerprint, 로그 및 수명주기와 함께 병렬 시작합니다. 모든 launcher를 시작한 뒤 `started`를 내보내 `console: start full stack` 호출자를 해제하고, 그 뒤에도 60초 게이트와 종료 신호 전달을 계속 담당합니다. 브라우저 검증이나 전체 구성이 필요한 작업 전에는 `console: wait full stack ready`를 실행합니다. 이 작업은 체크아웃 소유 Core, 최신 heartbeat 및 정상 서비스 probe를 요구합니다. Core 전용 복구 작업도 프로세스 시작을 준비 상태로 취급하지 않고 최신 Pantheon heartbeat를 기다립니다. 변경되거나 다른 소유권은 관리 대상만 교체하거나 실패합니다.
 

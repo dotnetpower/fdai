@@ -194,23 +194,13 @@ service-owned Azure Database for PostgreSQL DSN and Event Hubs Kafka endpoint. V
 
 The `database_host_binding` deployment mode changes only the deployed service's non-secret `POSTGRES_HOST` binding. Every service root requires a non-empty host, the sealed guard rejects other command or environment drift, and exact apply must repeat the plan's mode and digests. Local composition continues to use its loopback host, so the transition does not change execution venue or reuse a deployed DSN locally.
 
-Opening a workspace doesn't start the Console topology; run `console: start full stack` explicitly
-from the trusted primary checkout so setup never competes with editor initialization. The task
-verifies shared-Git ownership, runs `prepare-console-full-stack.sh`, then runs
-`start-console-services.sh`. Preparation always restores runtime PostgreSQL on port `5432`, the
+Opening a workspace doesn't start the Console topology; run `console: start full stack` explicitly from the trusted primary checkout so setup never competes with editor initialization. The task verifies shared-Git ownership, runs `prepare-console-full-stack.sh`, then runs `start-console-services.sh`. Preparation always restores runtime PostgreSQL on port `5432`, the
 isolated validation PostgreSQL cluster on port `5433`, Redpanda, and ClamAV before it evaluates
 seven ordered stage fingerprints: local migrations, runtime environment, authoritative inventory,
 Settings projections, catalog projections, service environments, and Entra redirects. A stage is
 reused from its exact inputs and required outputs without requiring an already-running application
 stack. Database-backed stages also include the local PostgreSQL volume identity, so recreated
 volumes cannot inherit stale file markers. `--force` invalidates every stage.
-
-For an interactive session that should recover a stopped backend automatically, run
-`console: keep full stack ready (10m)`. The task checks the same six-component readiness contract
-every 600 seconds. A healthy result is skipped without restarting anything. An unavailable result
-runs the standard preparation and supervisor paths, which retain ports `5273` and `8010`-`8013`.
-Stopping the task stops future checks and any supervisor that the watchdog started; it doesn't
-adopt or stop an independently started healthy stack.
 
 The supervisor launches each allowlisted `run-console-service.sh` in parallel with its own lock, fingerprint, log, and lifecycle. It emits `started` after all launchers are spawned, which releases the `console: start full stack` caller, then continues the 60-second gate and forwards shutdown. Run `console: wait full stack ready` before browser validation or another operation that requires the complete topology. That task requires checkout-owned Core, a recent heartbeat, and healthy service probes. The Core-only recovery task also waits for a fresh Pantheon heartbeat instead of treating process spawn as readiness. Changed or foreign ownership replaces only the managed task or fails.
 
