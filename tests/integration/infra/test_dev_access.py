@@ -146,6 +146,8 @@ def test_dev_access_ships_repeatable_client_checks() -> None:
     assert "az network vnet-gateway vpn-client generate" in profile
     assert "terraform output -raw dns_resolver_inbound_ip" in profile
     assert "terraform output -json fdai_private_dns_routing_domains" in profile
+    assert "FDAI_DEV_ACCESS_EXTRA_DNS_DOMAINS_JSON" in profile
+    assert "set(json.loads(sys.argv[2])) | set(json.loads(sys.argv[3]))" in profile
     assert "<dnssuffixes>" in profile
     assert "from zipfile import ZipFile" in profile
     assert "networkingMode=mirrored" in doctor
@@ -153,6 +155,8 @@ def test_dev_access_ships_repeatable_client_checks() -> None:
     assert "getent ahostsv4" in doctor
     assert "END { print answer }" in doctor
     assert 'ACTION="${1:-apply}"' in wsl_dns
+    assert "FDAI_DEV_ACCESS_EXTRA_DNS_DOMAINS_JSON" in wsl_dns
+    assert "set(json.loads(sys.argv[1])) | set(json.loads(sys.argv[2]))" in wsl_dns
     assert "resolvectl dnsovertls" in wsl_dns
     assert 'resolvectl default-route "${vpn_interface}" no' in wsl_dns
     assert "wsl.exe" in wsl_dns

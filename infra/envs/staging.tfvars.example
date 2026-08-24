@@ -19,8 +19,8 @@ enable_private_networking = true
 # runner_vnet_name        = "vnet-fdai-ops-krc"
 # ops_resource_group_name = "rg-fdai-ops-krc"
 
-# Hardening: staging turns on delete-protection + longer retention.
-enable_resource_locks          = true
+# Hardening: staging keeps longer retention without blocking teardown.
+enable_resource_locks          = false
 postgres_backup_retention_days = 14
 
 # Monitoring on for staging (wire a real destination).

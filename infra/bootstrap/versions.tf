@@ -28,5 +28,9 @@ provider "azurerm" {
   # Tenant policy forbids shared-key auth on storage; use AAD for every
   # data-plane call so the provider never falls back to account keys.
   storage_use_azuread = true
-  features {}
+  features {
+    resource_group {
+      prevent_deletion_if_contains_resources = false
+    }
+  }
 }

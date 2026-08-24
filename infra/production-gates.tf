@@ -141,15 +141,15 @@ check "production_control_plane_hardening" {
     condition = var.env != "prod" || (
       var.enable_private_networking &&
       var.enable_private_postgres &&
-      var.enable_resource_locks &&
-      var.kv_purge_protection_enabled &&
-      var.kv_soft_delete_retention_days == 90 &&
+      !var.enable_resource_locks &&
+      !var.kv_purge_protection_enabled &&
+      var.kv_soft_delete_retention_days == 7 &&
       var.postgres_backup_retention_days == 35 &&
       var.postgres_geo_redundant_backup &&
       var.postgres_high_availability_mode == "ZoneRedundant" &&
       var.acr_sku == "Premium"
     )
-    error_message = "prod requires private networking/Postgres, delete and purge protection, 90-day KV retention, 35-day geo-redundant backup, zone-redundant Postgres HA, and ACR Premium."
+    error_message = "prod requires private networking/Postgres, resource locks disabled, purgeable 7-day KV soft delete, 35-day geo-redundant backup, zone-redundant Postgres HA, and ACR Premium."
   }
 }
 

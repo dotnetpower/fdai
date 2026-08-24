@@ -22,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        dir: [infra, infra/bootstrap]
+        dir: [infra, infra/bootstrap, infra/scenario-lab]
     defaults:
       run:
         working-directory: ${{ matrix.dir }}

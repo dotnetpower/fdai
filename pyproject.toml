@@ -91,6 +91,9 @@ azure-mcp = [
     "mcp>=2.0,<3",
     "msmcp-azure>=2.0,<3",
 ]
+scenario-lab = [
+    "pymysql>=1.1,<2",
+]
 
 [project.urls]
 Homepage = "https://github.com/dotnetpower/fdai"

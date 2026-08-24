@@ -249,8 +249,8 @@ resource "azurerm_role_assignment" "runner_eventgrid_contributor" {
   principal_id         = azurerm_linux_virtual_machine.runner[0].identity[0].principal_id
 }
 
-# Opt-in delete-protection on the state account - losing it loses all remote
-# state, so a shared/prod ops layer should set enable_state_lock = true.
+# Optional delete protection on the state account. Standard FDAI profiles keep
+# it disabled so the complete environment can be torn down and recreated.
 resource "azurerm_management_lock" "state" {
   count      = var.enable_state_lock ? 1 : 0
   name       = "lock-tfstate-${local.suffix}"

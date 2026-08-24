@@ -1,5 +1,5 @@
 # Copy to prod.tfvars (gitignored) and fill. See dev.tfvars.example for the full
-# field reference. Prod turns on every durability + delete-protection knob.
+# field reference. Prod keeps durability controls without blocking teardown.
 
 env          = "prod"
 region       = "koreacentral"
@@ -20,10 +20,10 @@ enable_private_postgres   = true
 # runner_vnet_name        = "vnet-fdai-ops-krc"
 # ops_resource_group_name = "rg-fdai-ops-krc"
 
-# Hardening: prod locks everything down.
-enable_resource_locks          = true
-kv_purge_protection_enabled    = true
-kv_soft_delete_retention_days  = 90
+# Hardening: production remains durable but supports complete teardown.
+enable_resource_locks          = false
+kv_purge_protection_enabled    = false
+kv_soft_delete_retention_days  = 7
 postgres_backup_retention_days = 35
 postgres_geo_redundant_backup  = true
 postgres_high_availability_mode = "ZoneRedundant"

@@ -167,6 +167,9 @@ Repository automation is grouped by responsibility under `scripts/`; only the la
 governance checks, catalog utilities, deployment helpers, and general automation each have their
 own directory. See [scripts/README.md](../../../scripts/README.md) for the ownership map and
 placement rules.
+`infra/scenario-lab/` is an opt-in deployment-validation root, not a sixth runtime service. Its
+runner scripts live under `scripts/deployment/scenario-lab/`, and the root `scenario-lab` Python
+extra contains only driver dependencies needed by those bounded validation runs.
 
 ## Structural CI Gates
 
