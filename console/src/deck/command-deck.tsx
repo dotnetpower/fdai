@@ -236,7 +236,6 @@ export function CommandDeck({ client }: { readonly client: OperatorApiClient }) 
     inFlightRef,
     sessionKeyRef,
     turnsRef,
-    openingBriefingLoadedRef,
     conversationRouteNavigationRef,
     historyRef,
     setDraft,
@@ -247,8 +246,8 @@ export function CommandDeck({ client }: { readonly client: OperatorApiClient }) 
     cancelActiveRequest,
     closeDeck,
     focusInput,
-    hydrateDurableTurns,
     openDeck,
+    startNewConversation,
     streamContextTurn,
     switchSession,
   });

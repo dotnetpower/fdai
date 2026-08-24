@@ -34,6 +34,7 @@ class SemanticTurnResult:
 
     disposition: Literal[
         "answered",
+        "direct_response",
         "clarification",
         "held",
         "unsupported",
@@ -100,6 +101,8 @@ class SemanticConversationRuntime:
             bound_incident=bound_incident,
             escalation_policy=escalation_policy,
         )
+        if planning.disposition is SemanticPlanningDisposition.DIRECT_RESPONSE:
+            return _terminal("direct_response", planning.reason, planning)
         if planning.disposition is SemanticPlanningDisposition.CLARIFICATION:
             return _terminal("clarification", planning.reason, planning)
         if planning.disposition is SemanticPlanningDisposition.ACTION_DRAFT:
@@ -177,7 +180,13 @@ def _current_relationship_mapping_unavailable(
 
 
 def _terminal(
-    disposition: Literal["clarification", "held", "unsupported", "action_draft"],
+    disposition: Literal[
+        "direct_response",
+        "clarification",
+        "held",
+        "unsupported",
+        "action_draft",
+    ],
     reason: str,
     planning: SemanticPlanningOutcome,
 ) -> SemanticTurnResult:

@@ -85,6 +85,11 @@ bounded progress contract for progressive Operator Console conversations.
 
 ## Semantic terminal presentation plan
 
+A typed `direct_response` is separate from a verified query answer. It carries one closed answer
+intent, localized canonical text, and `execution_authority=false`, but no query plan, evidence
+reference, verification badge, presentation artifact, or execution trajectory. Web, Teams, and
+Slack preserve that same claim-free terminal response.
+
 The current semantic path proves query execution and verification but stops before operator-facing
 presentation. Core serializes the verified output into fenced JSON, Operator replays one `done`
 event, and the Console correctly falls back to that canonical text because the terminal payload has

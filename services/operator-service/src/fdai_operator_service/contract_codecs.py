@@ -14,12 +14,16 @@ CORE_PROJECTION_CONSUMER_V12 = ConsumerCodec(
 CORE_PROJECTION_CONSUMER_V13 = ConsumerCodec(
     "core-operator-projection", "N", ("1.0.0", "1.1.0", "1.2.0", "1.3.0")
 )
+CORE_PROJECTION_CONSUMER_V14 = ConsumerCodec(
+    "core-operator-projection", "N", ("1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.4.0")
+)
 
 __all__ = [
     "CORE_PROJECTION_CONSUMER_V1",
     "CORE_PROJECTION_CONSUMER_V11",
     "CORE_PROJECTION_CONSUMER_V12",
     "CORE_PROJECTION_CONSUMER_V13",
+    "CORE_PROJECTION_CONSUMER_V14",
     "CORE_REQUEST_PRODUCER_V1",
     "CORE_REQUEST_PRODUCER_V11",
     "CORE_REQUEST_PRODUCER_V12",

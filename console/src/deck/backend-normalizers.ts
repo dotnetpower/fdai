@@ -57,6 +57,7 @@ const SEMANTIC_EVIDENCE_POSTURES = new Set<SemanticAssuranceObservation["evidenc
 ]);
 const SEMANTIC_DISPOSITIONS = new Set<SemanticProjectionReceipt["disposition"]>([
   "answered",
+  "direct_response",
   "held",
   "clarification",
   "unsupported",
@@ -65,6 +66,7 @@ const SEMANTIC_DISPOSITIONS = new Set<SemanticProjectionReceipt["disposition"]>(
 ]);
 const SEMANTIC_ROUTES = new Set<NonNullable<SemanticProjectionReceipt["semantic_route"]>>([
   "verified_query_plan",
+  "semantic_direct_response",
   "semantic_clarification",
   "semantic_unsupported",
   "semantic_action_draft",
@@ -77,6 +79,7 @@ const SEMANTIC_UNAVAILABLE_REASONS = new Set<NonNullable<SemanticProjectionRecei
 ]);
 const SEMANTIC_ROUTE_BY_DISPOSITION: Partial<Record<SemanticProjectionReceipt["disposition"], NonNullable<SemanticProjectionReceipt["semantic_route"]>>> = {
   answered: "verified_query_plan",
+  direct_response: "semantic_direct_response",
   clarification: "semantic_clarification",
   unsupported: "semantic_unsupported",
   action_draft: "semantic_action_draft",
@@ -91,6 +94,7 @@ export function parseSemanticProjectionReceipt(
   const disposition = record.disposition;
   const semanticRoute = record.semantic_route;
   const unavailableReason = record.unavailable_reason;
+  const directResponseIntent = record.direct_response_intent;
   const schemaVersion = record.schema_version;
   if (
     (schemaVersion !== "1.0.0" && schemaVersion !== "2.0.0") ||
@@ -140,6 +144,11 @@ export function parseSemanticProjectionReceipt(
   if (disposition === "answered" && Object.keys(digests).length !== digestKeys.length) {
     return undefined;
   }
+  if (
+    (disposition === "direct_response" && directResponseIntent !== "greeting") ||
+    (disposition !== "direct_response" && directResponseIntent !== undefined) ||
+    (disposition === "direct_response" && Object.keys(digests).length > 0)
+  ) return undefined;
   const assuranceObservation = schemaVersion === "2.0.0"
     ? parseSemanticAssuranceObservation(record.assurance_observation)
     : undefined;
@@ -158,6 +167,9 @@ export function parseSemanticProjectionReceipt(
     } : {}),
     ...(unavailableReason !== undefined ? {
       unavailable_reason: unavailableReason as NonNullable<SemanticProjectionReceipt["unavailable_reason"]>,
+    } : {}),
+    ...(directResponseIntent !== undefined ? {
+      direct_response_intent: directResponseIntent as "greeting",
     } : {}),
     ...digests,
     ...(assuranceObservation !== undefined ? {

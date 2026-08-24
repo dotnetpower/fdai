@@ -14,7 +14,15 @@ from fdai_service_contracts.ontology_query import StructuralCoverageReceipt
 from .epistemic_coverage import EpistemicCoverageReceipt
 
 _TERMINAL_DISPOSITIONS = frozenset(
-    {"answered", "clarification", "held", "unsupported", "action_draft", "cancelled"}
+    {
+        "answered",
+        "direct_response",
+        "clarification",
+        "held",
+        "unsupported",
+        "action_draft",
+        "cancelled",
+    }
 )
 _DIGEST_PATTERN = re.compile(r"sha256:[a-f0-9]{64}")
 _REASON_CODE_PATTERN = re.compile(r"[a-z][a-z0-9_]{0,127}")
@@ -24,6 +32,7 @@ _MAX_CHECKS = 64
 ReceiptSource = Literal["deterministic_fixture", "cross_service_e2e", "live_assurance"]
 SemanticRoute = Literal[
     "verified_query_plan",
+    "semantic_direct_response",
     "semantic_clarification",
     "semantic_unsupported",
     "semantic_action_draft",
@@ -40,6 +49,7 @@ _PRODUCTION_RECEIPT_SOURCES = frozenset({"cross_service_e2e", "live_assurance"})
 _SEMANTIC_ROUTES = frozenset(
     {
         "verified_query_plan",
+        "semantic_direct_response",
         "semantic_clarification",
         "semantic_unsupported",
         "semantic_action_draft",
@@ -55,6 +65,7 @@ _UNAVAILABLE_REASONS = frozenset(
 )
 _ROUTE_BY_DISPOSITION = {
     "answered": "verified_query_plan",
+    "direct_response": "semantic_direct_response",
     "clarification": "semantic_clarification",
     "unsupported": "semantic_unsupported",
     "action_draft": "semantic_action_draft",
@@ -161,6 +172,13 @@ class QuestionDispositionRecord:
             or self.checks_completed != self.checks_total
         ):
             raise ValueError("answered question MUST carry complete verified receipts")
+        if self.disposition == "direct_response" and (
+            any(value is not None for value in digests)
+            or self.evidence_refs
+            or self.checks_completed != 0
+            or self.checks_total != 0
+        ):
+            raise ValueError("direct response question MUST NOT carry query evidence")
         if self.unsupported_claim_count < 0 or self.unauthorized_execution_count < 0:
             raise ValueError("question disposition violation counts MUST be non-negative")
 

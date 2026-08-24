@@ -1140,6 +1140,29 @@ describe("askBackendStream fallback typewriter", () => {
     expect(after.partialTerminals).toBe(before.partialTerminals + 1);
   });
 
+  test("keeps a direct greeting free of snapshot citations and query metadata", async () => {
+    const body = [
+      'event: done\ndata: {"seq":1,"answer":"Hello.",' +
+        '"source":"semantic-direct-response",' +
+        '"answer_plan":{"intent":"greeting","detail_level":"brief",' +
+        '"format":"prose","sections":["greeting","next_step"],' +
+        '"evidence_requirement":"none","max_words":80,"discuss":"skip",' +
+        '"explicit_overrides":[],"preference_applied":false}}\n\n',
+    ].join("");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+    const mod = await import("./backend");
+
+    const reply = await mod.askBackendStream("hello", snap(), [], {
+      onToken: () => undefined,
+    });
+
+    expect(reply.source).toBe("semantic-direct-response");
+    expect(reply.citations).toEqual([]);
+    expect(reply.answerPlan?.intent).toBe("greeting");
+    expect(reply.verification).toBeUndefined();
+    expect(reply.trajectoryDetail).toBeUndefined();
+  });
+
 });
 
   test("bounds progress text before rendering it", async () => {

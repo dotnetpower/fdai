@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: 1cf40b79f66074b569bbe3155d41e03a72dc65ca
-translation_revised: 2026-08-23
+translation_source_sha: fca423e5a5c13c3f8213978104c43807363f2a7c
+translation_revised: 2026-08-24
 ---
 # 오퍼레이터 콘솔 점진적 대화
 
@@ -85,6 +85,11 @@ translation_revised: 2026-08-23
   실행을 수행하고 보존합니다.
 
 ## 의미 최종 표현 계획
+
+타입이 지정된 `direct_response`는 검증된 조회 답변과 구분합니다. 하나의 닫힌 답변 의도,
+지역화된 정본 텍스트, `execution_authority=false`를 전달하지만 조회 계획, 근거 참조, 검증 배지,
+표현 산출물 또는 실행 궤적은 포함하지 않습니다. Web, Teams 및 Slack은 운영 주장이 없는 동일한
+최종 응답을 보존합니다.
 
 현재 의미 경로는 조회 실행과 검증을 입증하지만 운영자 대상 표현 전에 멈춥니다. Core는 검증된
 출력을 fenced JSON으로 직렬화하고, Operator는 `done` 이벤트 하나를 재생하며, 최종 payload에

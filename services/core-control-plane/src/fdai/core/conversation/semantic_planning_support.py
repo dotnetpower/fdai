@@ -26,6 +26,7 @@ from .semantic_investigation_planning import InvestigationTimeWindows
 from .semantic_planning_models import (
     QueryNodeProposal,
     QueryPlanProposal,
+    SemanticDirectResponseIntent,
     SemanticPlanningDisposition,
     SemanticPlanningOutcome,
 )
@@ -328,6 +329,7 @@ def _outcome(
     intent_graph: IntentGraph | None = None,
     investigation_intent: VerifiedInvestigationIntent | None = None,
     clarification: str | None = None,
+    direct_response_intent: SemanticDirectResponseIntent | None = None,
 ) -> SemanticPlanningOutcome:
     return SemanticPlanningOutcome(
         disposition=disposition,
@@ -338,6 +340,7 @@ def _outcome(
         intent_graph=intent_graph,
         investigation_intent=investigation_intent,
         clarification=clarification,
+        direct_response_intent=direct_response_intent,
     )
 
 

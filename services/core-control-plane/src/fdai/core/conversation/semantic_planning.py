@@ -142,6 +142,7 @@ from .semantic_planning_models import (
     QueryNodeProposal,
     QueryPlanProposal,
     SemanticDescriptorSelector,
+    SemanticDirectResponseIntent,
     SemanticFrameProposal,
     SemanticOutputShape,
     SemanticPlanningDisposition,
@@ -218,6 +219,22 @@ _SAFE_VALIDATION_REASONS = frozenset(
 
 _INCIDENT_EVIDENCE_FUNCTION = INCIDENT_EVIDENCE_FUNCTION_NAME
 _INCIDENT_EVIDENCE_NODE_ID = "bound_incident_evidence"
+
+
+def _direct_response_intent(
+    primary_intent: str | None,
+) -> SemanticDirectResponseIntent | None:
+    """Resolve a closed direct-answer intent without parsing operator text."""
+
+    if primary_intent is None:
+        return None
+    candidate = primary_intent.removeprefix("advise.").removeprefix("conversation_")
+    if "." in candidate:
+        return None
+    try:
+        return SemanticDirectResponseIntent(candidate)
+    except ValueError:
+        return None
 
 
 def _safe_validation_reason(exc: ValidationError | TypeError | ValueError) -> str:
@@ -398,6 +415,20 @@ class SemanticPlanningService:
                 if judgment_result.accepted and judgment_result.proposal is not None:
                     semantic_judgment = judgment_result.proposal.model_dump(mode="json")
             _LOGGER.info("semantic_planning_stage_completed", extra={"stage": stage})
+            direct_response_intent = _direct_response_intent(
+                judgment_result.proposal.primary_intent
+                if self._semantic_judgment is not None
+                and judgment_result.accepted
+                and judgment_result.proposal is not None
+                else None
+            )
+            if direct_response_intent is not None:
+                return _outcome(
+                    SemanticPlanningDisposition.DIRECT_RESPONSE,
+                    "semantic_direct_response",
+                    manifest_digest=manifest.manifest_digest,
+                    direct_response_intent=direct_response_intent,
+                )
             incident_metric_comparison = _build_bound_incident_metric_comparison_frame(
                 judgment_result.proposal if self._semantic_judgment is not None else None,
                 bound_incident=bound_incident is not None,

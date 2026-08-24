@@ -13,7 +13,7 @@ from datetime import UTC, datetime
 from typing import Any, Protocol, cast
 from uuid import UUID, uuid5
 
-from fdai_operator_service.contract_codecs import CORE_PROJECTION_CONSUMER_V13
+from fdai_operator_service.contract_codecs import CORE_PROJECTION_CONSUMER_V14
 from fdai_operator_service.families.conversation.contracts import (
     ConversationBoundaryError,
     ConversationEventStream,
@@ -390,7 +390,7 @@ class SemanticTurnProjectionConsumer:
 
     async def consume(self, payload: Mapping[str, object]) -> StoredSemanticResult:
         """Reject malformed or evidence-incomplete results before durable projection."""
-        decoded = CORE_PROJECTION_CONSUMER_V13.decode_mapping(payload)
+        decoded = CORE_PROJECTION_CONSUMER_V14.decode_mapping(payload)
         semantic_payload = decoded.get("semantic_result")
         if not isinstance(semantic_payload, dict):
             raise ValueError("semantic projection MUST contain semantic_result")

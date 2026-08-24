@@ -45,7 +45,8 @@ function isTerminalAnswer(turn: Turn): boolean {
     turn.terminal === true &&
     turn.kind !== "activity" &&
     turn.source !== "investigation" &&
-    turn.source !== "context";
+    turn.source !== "context" &&
+    turn.source !== "semantic-direct-response";
 }
 
 function buildTrajectory(

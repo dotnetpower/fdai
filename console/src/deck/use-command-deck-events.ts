@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef } from "preact/hooks";
 import { t } from "../i18n";
-import { fetchOpeningBriefing } from "../user-context-client";
 import type { Turn } from "./command-deck-presenters";
 import { DEFAULT_NARRATOR } from "./command-deck-presenters";
 import { record as recordHistory, type DraftHistory } from "./draft-history";
@@ -37,7 +36,6 @@ interface EventsOptions {
   readonly inFlightRef: { current: boolean };
   readonly sessionKeyRef: { current: string };
   readonly turnsRef: { current: readonly Turn[] };
-  readonly openingBriefingLoadedRef: { current: Set<string> };
   readonly conversationRouteNavigationRef: { current: boolean };
   readonly historyRef: { current: DraftHistory };
   readonly setDraft: (value: string) => void;
@@ -48,8 +46,8 @@ interface EventsOptions {
   readonly cancelActiveRequest: () => "stream" | "action" | null;
   readonly closeDeck: () => void;
   readonly focusInput: () => void;
-  readonly hydrateDurableTurns: (key: string) => Promise<void>;
   readonly openDeck: () => void;
+  readonly startNewConversation: () => void;
   readonly streamContextTurn: (
     agent: string | null,
     text: string,
@@ -128,7 +126,6 @@ export function useCommandDeckEvents(options: EventsOptions) {
     inFlightRef,
     sessionKeyRef,
     turnsRef,
-    openingBriefingLoadedRef,
     conversationRouteNavigationRef,
     historyRef,
     setDraft,
@@ -139,8 +136,8 @@ export function useCommandDeckEvents(options: EventsOptions) {
     cancelActiveRequest,
     closeDeck,
     focusInput,
-    hydrateDurableTurns,
     openDeck,
+    startNewConversation,
     streamContextTurn,
     switchSession,
   } = options;
@@ -171,42 +168,9 @@ export function useCommandDeckEvents(options: EventsOptions) {
   }, [inFlight, inFlightRef]);
 
   const openGeneralDeck = useCallback(() => {
-    const key = screenConversationKey(userScope, currentPathname());
-    if (sessionKeyRef.current !== key) {
-      switchSession(key, null, undefined, routeLabel ?? currentPathname(), "screen-default");
-    }
+    startNewConversation();
     openDeck();
-    if (
-      !openingBriefingLoadedRef.current.has(key) &&
-      !turnsRef.current.some((turn) => turn.source === "briefing")
-    ) {
-      openingBriefingLoadedRef.current.add(key);
-      void hydrateDurableTurns(key)
-        .then(() => fetchOpeningBriefing(key))
-        .then((briefing) => {
-          if (briefing && sessionKeyRef.current === key) {
-            streamContextTurn(
-              "Bragi",
-              `**${briefing.title}**\n\n${briefing.body_markdown}`,
-              "briefing",
-            );
-          }
-        })
-        .catch(() => {
-          openingBriefingLoadedRef.current.delete(key);
-        });
-    }
-  }, [
-    hydrateDurableTurns,
-    openDeck,
-    openingBriefingLoadedRef,
-    routeLabel,
-    sessionKeyRef,
-    streamContextTurn,
-    switchSession,
-    turnsRef,
-    userScope,
-  ]);
+  }, [openDeck, startNewConversation]);
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {

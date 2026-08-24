@@ -22,6 +22,21 @@ describe("Command Deck composer sizing", () => {
   });
 });
 
+describe("general Command Deck opening", () => {
+  it("starts a fresh conversation instead of restoring the route default", () => {
+    const start = source.indexOf("const openGeneralDeck = useCallback");
+    const end = source.indexOf("  useEffect(() => {\n    const handler", start);
+    const openGeneralDeck = source.slice(start, end);
+
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    expect(openGeneralDeck).toContain("startNewConversation();");
+    expect(openGeneralDeck).toContain("openDeck();");
+    expect(openGeneralDeck).not.toContain("screenConversationKey(");
+    expect(openGeneralDeck).not.toContain("hydrateDurableTurns(");
+  });
+});
+
 describe("resolveDeckOpenSession", () => {
   it("creates a fresh agent-bound session for every agent-card Ask", () => {
     const detail = {
@@ -148,5 +163,10 @@ describe("shouldDeferDeckOpen", () => {
     expect(submitSource).toContain("const historyTurns = options.historyTurns ?? currentTurns");
     expect(submitSource).toContain("backendHistoryForTurns(historyTurns)");
     expect(submitSource).not.toContain("backendHistoryForTurns(turnsRef.current)");
+  });
+
+  it("removes transient investigation activity from a direct response", () => {
+    expect(submitSource).toContain('reply.source === "semantic-direct-response"');
+    expect(submitSource).toContain("current.filter((turn) => !activityTurnIds.has(turn.id))");
   });
 });

@@ -64,6 +64,20 @@ describe("conversation sidebar controls", () => {
   });
 });
 
+describe("direct response presentation", () => {
+  it("keeps the internal route marker out of the visible source badge", () => {
+    const component = readFileSync(
+      fileURLToPath(new URL("./command-deck-presenters.tsx", import.meta.url)),
+      "utf8",
+    );
+
+    expect(component).toContain(
+      'const showReplySource = turn.source && turn.source !== "semantic-direct-response";',
+    );
+    expect(component).toContain(") : showReplySource ? (");
+  });
+});
+
 describe("conversation title tooltip", () => {
   it("covers the complete selectable row without layout measurement", () => {
     const component = readFileSync(

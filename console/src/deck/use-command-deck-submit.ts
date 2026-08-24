@@ -533,6 +533,7 @@ export function useCommandDeckSubmit({
       }
       paintQueue.length = 0;
       ensureTurn();
+      const directResponse = reply.source === "semantic-direct-response";
       if (!receivedToken && reply.text.length > 0 && isCurrent()) {
         const terminalQueue = terminalRevealChunks(reply.text);
         if (shouldFlushStreamPaintSynchronously(
@@ -571,7 +572,10 @@ export function useCommandDeckSubmit({
           });
         }
         setTurns((current) => {
-          const next = current.map((turn) => {
+          const retained = directResponse
+            ? current.filter((turn) => !activityTurnIds.has(turn.id))
+            : current;
+          const next = retained.map((turn) => {
             if (activityTurnIds.has(turn.id)) {
               return { ...turn, streaming: false, terminal: true };
             }
@@ -622,7 +626,9 @@ export function useCommandDeckSubmit({
           turnsRef.current = next;
           return next;
         });
-        const firstActivityTurnId = activityTurnIds.values().next().value;
+        const firstActivityTurnId = directResponse
+          ? undefined
+          : activityTurnIds.values().next().value;
         const revealTarget = completedWorkRevealTarget(
           deckId,
           firstActivityTurnId,

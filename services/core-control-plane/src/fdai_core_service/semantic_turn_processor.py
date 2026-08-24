@@ -36,6 +36,7 @@ from fdai_service_contracts import (
     RuleSearchProjection,
     RuleSearchRequest,
     SemanticAssuranceObservation,
+    SemanticDirectResponseIntent,
     SemanticPlanningProfile,
     SemanticRoute,
     SemanticTurnDisposition,
@@ -54,6 +55,7 @@ from fdai_service_contracts.ontology_query import (
 
 from .contract_codecs import (
     OPERATOR_PROJECTION_PRODUCER_V13,
+    OPERATOR_PROJECTION_PRODUCER_V14,
     OPERATOR_REQUEST_CONSUMER_V13,
 )
 from .semantic_assurance_projection import project_semantic_assurance
@@ -79,6 +81,7 @@ _ROLE_MAP = {
     OperatorRole.OWNER: Role.OWNER,
 }
 _ROUTE_BY_DISPOSITION: dict[str, SemanticRoute] = {
+    "direct_response": "semantic_direct_response",
     "clarification": "semantic_clarification",
     "unsupported": "semantic_unsupported",
     "action_draft": "semantic_action_draft",
@@ -489,7 +492,7 @@ class SemanticTurnProcessor:
             if extensions.technical_details is not None:
                 payload["technical_details"] = extensions.technical_details
         projection = {
-            "schema_version": "1.3.0",
+            "schema_version": "1.4.0",
             "projection_id": projection_id,
             "request_id": envelope["request_id"],
             "correlation_id": envelope["correlation_id"],
@@ -500,7 +503,7 @@ class SemanticTurnProcessor:
             "evidence_digest": evidence_digest,
             "semantic_result": semantic_result,
         }
-        return OPERATOR_PROJECTION_PRODUCER_V13.encode(projection)
+        return OPERATOR_PROJECTION_PRODUCER_V14.encode(projection)
 
     def _held_projection(
         self,
@@ -624,6 +627,24 @@ def _project_runtime_result(
     request: SemanticTurnRequest,
     result: RuntimeSemanticTurnResult,
 ) -> tuple[ContractSemanticTurnResult, _SemanticProjectionExtensions | None]:
+    if result.disposition == "direct_response":
+        intent = result.planning.direct_response_intent
+        if not isinstance(intent, SemanticDirectResponseIntent):
+            return _terminal_result(
+                request,
+                "held",
+                "semantic_runtime_failed",
+            ), None
+        return ContractSemanticTurnResult(
+            disposition=SemanticTurnDisposition.DIRECT_RESPONSE,
+            reason_code="semantic_direct_response",
+            semantic_route="semantic_direct_response",
+            session_id=request.session_id,
+            turn_id=request.turn_id,
+            turn_sequence=request.turn_sequence,
+            answer=_direct_response_answer(request.locale, intent),
+            direct_response_intent=intent,
+        ), None
     if result.disposition != "answered":
         execution_hold = _project_execution_hold(request, result)
         if execution_hold is not None:
@@ -2960,6 +2981,18 @@ def _answer_json(outputs: list[dict[str, object]]) -> str:
     )
 
 
+def _direct_response_answer(locale: str, intent: SemanticDirectResponseIntent) -> str:
+    """Render a bounded localized response without evidence or execution claims."""
+
+    if intent is SemanticDirectResponseIntent.GREETING:
+        return (
+            "안녕하세요. 현재 화면이나 운영 상태에 대해 무엇을 확인할까요?"
+            if locale.casefold().startswith("ko")
+            else "Hello. What would you like to inspect on this screen or in current operations?"
+        )
+    raise ValueError("semantic direct response intent is unsupported")
+
+
 def _terminal_answer(locale: str, disposition: str, reason_code: str) -> str:
     if reason_code == "semantic_exact_source_unavailable":
         return (
@@ -2975,6 +3008,7 @@ def _terminal_answer(locale: str, disposition: str, reason_code: str) -> str:
         )
     messages = {
         "answered": "The verified result is ready.",
+        "direct_response": "The direct response is ready.",
         "held": "The request was held because verified evidence is unavailable.",
         "clarification": "The request needs clarification before it can run.",
         "unsupported": "The request is not supported by a verified capability.",
@@ -2983,6 +3017,7 @@ def _terminal_answer(locale: str, disposition: str, reason_code: str) -> str:
     }
     korean = {
         "answered": "검증된 결과를 준비했습니다.",
+        "direct_response": "직접 답변을 준비했습니다.",
         "held": "검증된 근거를 사용할 수 없어 요청을 보류했습니다.",
         "clarification": "요청을 수행하려면 추가 확인이 필요합니다.",
         "unsupported": "검증된 기능으로 답할 수 없는 요청입니다.",
@@ -3030,7 +3065,9 @@ def _canonical_projection(encoded: bytes, *, request_digest: str) -> bytes:
         raise ValueError("stored semantic projection payload MUST be an object")
     if projection_payload.get("request_digest") != request_digest:
         raise SemanticTurnRejectedError("semantic_idempotency_conflict")
-    return OPERATOR_PROJECTION_PRODUCER_V13.encode(loaded)
+    if loaded.get("schema_version") == "1.3.0":
+        return OPERATOR_PROJECTION_PRODUCER_V13.encode(loaded)
+    return OPERATOR_PROJECTION_PRODUCER_V14.encode(loaded)
 
 
 def _aware_utc(value: datetime, *, field: str) -> datetime:

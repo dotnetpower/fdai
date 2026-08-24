@@ -136,6 +136,54 @@ def test_semantic_result_accepts_typed_unavailability() -> None:
     assert result.unavailable_reason == "semantic_planner_unavailable"
 
 
+def test_semantic_result_accepts_evidence_free_direct_greeting() -> None:
+    payload = {
+        "disposition": "direct_response",
+        "reason_code": "semantic_direct_response",
+        "semantic_route": "semantic_direct_response",
+        "session_id": "session-1",
+        "turn_id": "turn-1",
+        "turn_sequence": 1,
+        "answer": "Hello. What would you like to inspect?",
+        "direct_response_intent": "greeting",
+        "execution_authority": False,
+    }
+
+    result = SemanticTurnResult.model_validate(payload)
+
+    assert result.direct_response_intent == "greeting"
+    assert result.evidence_refs == ()
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    (
+        lambda payload: payload.pop("direct_response_intent"),
+        lambda payload: payload.update({"evidence_refs": ["ontology:unexpected"]}),
+        lambda payload: payload.update({"plan_digest": f"sha256:{'a' * 64}"}),
+    ),
+    ids=("missing-intent", "evidence", "query-digest"),
+)
+def test_semantic_result_rejects_invalid_direct_response(
+    mutation: Callable[[dict[str, Any]], object],
+) -> None:
+    payload = {
+        "disposition": "direct_response",
+        "reason_code": "semantic_direct_response",
+        "semantic_route": "semantic_direct_response",
+        "session_id": "session-1",
+        "turn_id": "turn-1",
+        "turn_sequence": 1,
+        "answer": "Hello. What would you like to inspect?",
+        "direct_response_intent": "greeting",
+        "execution_authority": False,
+    }
+    mutation(payload)
+
+    with pytest.raises(ValidationError, match="direct response semantic results"):
+        SemanticTurnResult.model_validate(payload)
+
+
 def _assurance_observation_payload() -> dict[str, Any]:
     payload: dict[str, Any] = {
         "schema_version": "1.0.0",

@@ -15,6 +15,7 @@ from fdai_service_contracts.ontology_query import (
     SemanticOperation,
     SemanticProblemFrame,
 )
+from fdai_service_contracts.semantic_turn import SemanticDirectResponseIntent
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from fdai.core.ontology_platform import QueryManifest
@@ -28,6 +29,7 @@ from .session import Principal
 
 class SemanticPlanningDisposition(StrEnum):
     PLANNED = "planned"
+    DIRECT_RESPONSE = "direct_response"
     CLARIFICATION = "clarification"
     ACTION_DRAFT = "action_draft"
     UNSUPPORTED = "unsupported"
@@ -238,6 +240,7 @@ class SemanticPlanningOutcome:
     intent_graph: IntentGraph | None = None
     investigation_intent: VerifiedInvestigationIntent | None = None
     clarification: str | None = None
+    direct_response_intent: SemanticDirectResponseIntent | None = None
     execution_authority: Literal[False] = False
 
     def __post_init__(self) -> None:
@@ -254,6 +257,9 @@ class SemanticPlanningOutcome:
         clarification = self.disposition is SemanticPlanningDisposition.CLARIFICATION
         if clarification != (self.clarification is not None):
             raise ValueError("clarification disposition requires exactly one question")
+        direct_response = self.disposition is SemanticPlanningDisposition.DIRECT_RESPONSE
+        if direct_response != (self.direct_response_intent is not None):
+            raise ValueError("direct response disposition requires exactly one answer intent")
 
 
 __all__ = [
@@ -263,6 +269,7 @@ __all__ = [
     "QueryNodeProposal",
     "QueryPlanProposal",
     "SemanticDescriptorSelector",
+    "SemanticDirectResponseIntent",
     "SemanticFrameProposal",
     "SemanticOutputShape",
     "SemanticPlanningDisposition",

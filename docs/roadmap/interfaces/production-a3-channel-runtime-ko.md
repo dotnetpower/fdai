@@ -1,8 +1,8 @@
 ---
 title: 운영 A3 채널 런타임
 translation_of: production-a3-channel-runtime.md
-translation_source_sha: 7638eae714164eed6af1bf49d9bebfe26ef743e1
-translation_revised: 2026-08-20
+translation_source_sha: e40e28def90102526857e0fa277102963fafa45d
+translation_revised: 2026-08-24
 ---
 # 운영 A3 채널 런타임
 
@@ -27,6 +27,8 @@ Operator가 소유한 inbound ledger에서 프로바이더 메시지를 claim합
 presentation artifact를 compile합니다. Operator가 소유한 영속 전달은 순수 프로바이더 publisher가
 전송하기 전에 이 artifact를 저장합니다. 시작 과정은 모든 필수 의존성을 해석하고 불확실한 전송을
 조정한 뒤에만 Starlette가 트래픽을 받게 합니다.
+`direct_response` projection은 근거, 검증 또는 artifact 주장 없이 정본 텍스트를 compile하므로
+Slack과 Teams는 Console과 동일하게 권한 없는 인사 응답을 보존합니다.
 
 ![설계 개요. 주요 단계는 Slack signed event, Slack ingress, Teams service token, Teams ingress, Bounded Operator edge queue, SemanticTurnBridge append, Core semantic EventBus runtime, SemanticTurnBridge open, Operator delivery ledger, Pure capability renderer, Slack publisher, Teams publisher입니다.](../../diagrams/generated/fdai-roadmap-interfaces-production-a3-channel-runtime-01.ko.svg)
 

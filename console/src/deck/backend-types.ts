@@ -112,9 +112,10 @@ export interface SemanticProjectionReceipt {
   readonly schema_version: "1.0.0" | "2.0.0";
   readonly projection_id: string;
   readonly request_id: string;
-  readonly disposition: "answered" | "held" | "clarification" | "unsupported" | "action_draft" | "cancelled";
+  readonly disposition: "answered" | "direct_response" | "held" | "clarification" | "unsupported" | "action_draft" | "cancelled";
   readonly reason_code: string;
-  readonly semantic_route?: "verified_query_plan" | "semantic_clarification" | "semantic_unsupported" | "semantic_action_draft" | "semantic_cancellation";
+  readonly semantic_route?: "verified_query_plan" | "semantic_direct_response" | "semantic_clarification" | "semantic_unsupported" | "semantic_action_draft" | "semantic_cancellation";
+  readonly direct_response_intent?: "greeting";
   readonly unavailable_reason?: "authoritative_evidence_unavailable" | "historical_evidence_unavailable" | "semantic_planner_unavailable";
   readonly ontology_release_digest?: string;
   readonly principal_manifest_digest?: string;

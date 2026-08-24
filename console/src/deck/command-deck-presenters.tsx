@@ -603,6 +603,7 @@ export function TurnBubble({
   const isInvestigationFlow = isActivity || isProgressMessage || investigationFlowContinuation;
   const isInvestigationFinalAnswer = isDeck && investigationFlowEnd &&
     !isActivity && !isProgressMessage;
+  const showReplySource = turn.source && turn.source !== "semantic-direct-response";
   return (
     <article
       id={`deck-turn-${turn.id}`}
@@ -623,7 +624,7 @@ export function TurnBubble({
           </span>
           {isInvestigationFlow && !isInvestigationFinalAnswer ? (
             <span class="deck-turn-source cs-deck-agent-source">{t("deck.investigation.title")}</span>
-          ) : turn.source ? (
+          ) : showReplySource ? (
             <Tooltip content={routerTooltip(turn.router) ?? t("deck.tooltip.replySource")}>
               <span class="deck-turn-source cs-deck-agent-source">{turn.source}</span>
             </Tooltip>

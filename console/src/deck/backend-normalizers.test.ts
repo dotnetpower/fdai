@@ -77,6 +77,24 @@ describe("parseSemanticProjectionReceipt", () => {
       .toBeUndefined();
   });
 
+  it("preserves an evidence-free direct greeting receipt", () => {
+    const direct = semanticReceipt({
+      disposition: "direct_response",
+      reason_code: "semantic_direct_response",
+      semantic_route: "semantic_direct_response",
+      direct_response_intent: "greeting",
+      ontology_release_digest: undefined,
+      principal_manifest_digest: undefined,
+      plan_digest: undefined,
+      execution_receipt_digest: undefined,
+    });
+
+    expect(parseSemanticProjectionReceipt(direct)).toEqual(direct);
+    expect(parseSemanticProjectionReceipt({ ...direct, direct_response_intent: undefined }))
+      .toBeUndefined();
+    expect(parseSemanticProjectionReceipt({ ...direct, plan_digest: DIGEST })).toBeUndefined();
+  });
+
   it("preserves a strict version 2 semantic assurance observation", () => {
     const observation = {
       schema_version: "1.0.0",

@@ -52,6 +52,7 @@ from fdai.core.conversation.semantic_planning_frame import (
 from fdai.core.conversation.semantic_planning_models import (
     BoundIncident,
     ClarificationRequirement,
+    SemanticDirectResponseIntent,
     SemanticFrameProposal,
     SemanticPlanningDisposition,
 )
@@ -192,6 +193,22 @@ class _DraftJudgmentModel:
             "ambiguous": False,
             "action_posture": "draft_only",
             "action_subject": "Change",
+            "execution_authority": False,
+        }
+
+
+class _GreetingJudgmentModel:
+    def __init__(self, primary_intent: str = "greeting") -> None:
+        self._primary_intent = primary_intent
+
+    def judge(self, **_kwargs: Any) -> dict[str, object]:
+        return {
+            "primary_intent": self._primary_intent,
+            "targets": [],
+            "confidence": 0.95,
+            "ambiguous": False,
+            "action_posture": "advise_only",
+            "action_subject": "none",
             "execution_authority": False,
         }
 
@@ -606,6 +623,75 @@ def test_valid_t1_plan_never_invokes_t2() -> None:
     outcome = _run(_service(t1, t2, manifest))
 
     assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+@pytest.mark.parametrize(
+    "primary_intent",
+    ["greeting", "advise.greeting", "conversation_greeting"],
+)
+def test_greeting_judgment_never_builds_or_executes_a_query_plan(
+    primary_intent: str,
+) -> None:
+    manifest, definition = _fixture()
+    t1 = _Model(frame=_frame(), plan=_plan(definition))
+    t2 = _Model(frame=_frame(), plan=_plan(definition))
+    judgment = SemanticJudgmentBoundary(
+        profile_id="semantic-planning.test",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=_GreetingJudgmentModel(primary_intent),
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+    )
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        semantic_judgment=judgment,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service, utterance="안녕")
+
+    assert outcome.disposition is SemanticPlanningDisposition.DIRECT_RESPONSE
+    assert outcome.direct_response_intent is SemanticDirectResponseIntent.GREETING
+    assert outcome.plan is None
+    assert (t1.frame_calls, t1.plan_calls) == (0, 0)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+def test_greeting_prefixed_operational_judgment_keeps_query_planning() -> None:
+    manifest, definition = _fixture()
+    t1 = _Model(frame=_frame(), plan=_plan(definition))
+    t2 = _Model(frame=_frame(), plan=_plan(definition))
+    judgment = SemanticJudgmentBoundary(
+        profile_id="semantic-planning.test",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=_GreetingJudgmentModel("status"),
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+    )
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        semantic_judgment=judgment,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service, utterance="안녕, 현재 상태 알려줘")
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.direct_response_intent is None
     assert (t1.frame_calls, t1.plan_calls) == (1, 1)
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 

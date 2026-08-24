@@ -103,6 +103,19 @@ def test_slack_and_teams_preserve_exact_facts_and_mandatory_context() -> None:
     assert serialized_size(teams.body) <= TEAMS_CAPABILITIES.max_serialized_bytes
 
 
+def test_direct_response_is_available_without_invented_evidence_authority() -> None:
+    envelope = normalize_terminal_presentation(
+        {
+            "status": "direct_response",
+            "answer": "Hello. What would you like to inspect?",
+        }
+    )
+
+    assert envelope.unavailable is False
+    assert envelope.evidence_refs == ()
+    assert envelope.authority == "no_execution_authority"
+
+
 def test_malformed_artifact_degrades_to_canonical_text_without_leaking_shape() -> None:
     malformed = copy.deepcopy(_artifact())
     blocks = malformed["blocks"]

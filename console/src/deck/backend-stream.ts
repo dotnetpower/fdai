@@ -481,9 +481,10 @@ export async function askBackendStream(
     (latencyMs !== null && latencyMs >= 0 ? `llm:${chosen} · ${latencyMs}ms` : `llm:${chosen}`) +
     tokenSuffix(done.usage)
   );
+  const directResponse = source === "semantic-direct-response";
   const base: Answer & { readonly source: string } = {
     text: finalText,
-    citations: citationsForVerification(snapshot, verification),
+    citations: directResponse ? [] : citationsForVerification(snapshot, verification),
     followUps: [],
     source,
     ...(verification ? { verification } : {}),

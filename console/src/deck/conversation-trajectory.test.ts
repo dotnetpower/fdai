@@ -8,6 +8,19 @@ function turn(input: Partial<Turn> & Pick<Turn, "id" | "role" | "text">): Turn {
 }
 
 describe("conversationTrajectoriesByAnswer", () => {
+  it("does not create a Run record for a direct conversational response", () => {
+    const question = turn({ id: "question-1", role: "operator", text: "Hello" });
+    const answer = turn({
+      id: "answer-1",
+      role: "deck",
+      text: "Hello. What would you like to inspect?",
+      terminal: true,
+      source: "semantic-direct-response",
+    });
+
+    expect(conversationTrajectoriesByAnswer([question, answer]).size).toBe(0);
+  });
+
   it("retains the exact semantic receipt on the terminal answer", () => {
     const question = turn({ id: "question-1", role: "operator", text: "Query ontology" });
     const semanticReceipt = {

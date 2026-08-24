@@ -366,6 +366,8 @@ per-resource locking serializes competing applies before any delivery adapter ca
   field ships as a new additive version that older consumers keep ignoring. `operator-core-request`
   is at `1.3.0`, whose only addition over `1.2.0` is the server-owned `semantic_turn.bound_context`
   that carries a resolved conversation binding without granting execution authority.
+  `core-operator-projection` 1.4 adds the typed `direct_response` terminal disposition for a closed
+  greeting intent without query digests, evidence references, verification claims, or authority.
   The bound incident read path passes canonical `incident_id` and audit `correlation_id` as
   separate `query.incident_evidence` arguments and preserves both in its no-authority result.
   Resource discovery similarly separates immutable `DiscoveryIntent`, `DiscoveryQueryPlan`,

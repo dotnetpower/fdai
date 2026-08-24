@@ -22,6 +22,7 @@ from pydantic import ValidationError
 
 _SEMANTIC_ROUTE_BY_DISPOSITION = {
     "answered": "verified_query_plan",
+    "direct_response": "semantic_direct_response",
     "clarification": "semantic_clarification",
     "unsupported": "semantic_unsupported",
     "action_draft": "semantic_action_draft",
@@ -58,6 +59,7 @@ def semantic_done_event_data(
     disposition = semantic.get("disposition")
     if not isinstance(disposition, str):
         raise ValueError("stored semantic projection is missing terminal disposition")
+    direct_response = disposition == "direct_response"
     missing_answer = not isinstance(answer, str) or not answer
     if missing_answer:
         answer = (
@@ -89,7 +91,11 @@ def semantic_done_event_data(
         checks_total=checks_total,
         locale=locale,
     )
-    answer_plan = semantic_answer_plan(technical_details)
+    answer_plan = (
+        _direct_response_answer_plan(semantic)
+        if direct_response
+        else semantic_answer_plan(technical_details)
+    )
     conversation_context = semantic_conversation_context(technical_details)
     verification_claims = _semantic_verification_claims(
         semantic_receipt,
@@ -102,19 +108,27 @@ def semantic_done_event_data(
             "revision": 0,
             "status": disposition,
             "answer": answer,
-            "source": "ontology-query",
-            "verification": {
-                "status": "verified" if verified else "unverified",
-                "authority": "ontology-query",
-                "checks_completed": checks_completed,
-                "checks_total": checks_total,
-                "evidence_refs": evidence_refs,
-                "reason_code": (
-                    "semantic_answer_missing" if missing_answer else semantic.get("reason_code")
-                ),
-                "claims": verification_claims,
-                "failed_claim_ids": [],
-            },
+            "source": "semantic-direct-response" if direct_response else "ontology-query",
+            **(
+                {}
+                if direct_response
+                else {
+                    "verification": {
+                        "status": "verified" if verified else "unverified",
+                        "authority": "ontology-query",
+                        "checks_completed": checks_completed,
+                        "checks_total": checks_total,
+                        "evidence_refs": evidence_refs,
+                        "reason_code": (
+                            "semantic_answer_missing"
+                            if missing_answer
+                            else semantic.get("reason_code")
+                        ),
+                        "claims": verification_claims,
+                        "failed_claim_ids": [],
+                    }
+                }
+            ),
             "intent_graph": semantic.get("intent_graph"),
             "intent_graph_evidence": semantic.get("intent_graph_evidence"),
             "semantic_result": dict(semantic),
@@ -1346,6 +1360,27 @@ def semantic_answer_plan(technical_details: object) -> JsonObject | None:
     )
 
 
+def _direct_response_answer_plan(semantic: Mapping[str, object]) -> JsonObject:
+    """Describe an evidence-free greeting without query presentation metadata."""
+
+    if semantic.get("direct_response_intent") != "greeting":
+        raise ValueError("stored direct response intent is unsupported")
+    return cast(
+        JsonObject,
+        {
+            "intent": "greeting",
+            "detail_level": "brief",
+            "format": "prose",
+            "sections": ["greeting", "next_step"],
+            "evidence_requirement": "none",
+            "max_words": 80,
+            "discuss": "skip",
+            "explicit_overrides": [],
+            "preference_applied": False,
+        },
+    )
+
+
 def semantic_conversation_context(technical_details: object) -> JsonObject | None:
     """Return only a verified incident identity for subsequent read-only turns."""
     if not isinstance(technical_details, Mapping):
@@ -1396,6 +1431,7 @@ def _semantic_receipt(
     reason_code = _mapping_text(semantic, "reason_code")
     semantic_route = semantic.get("semantic_route")
     unavailable_reason = semantic.get("unavailable_reason")
+    direct_response_intent = semantic.get("direct_response_intent")
     expected_route = _SEMANTIC_ROUTE_BY_DISPOSITION.get(disposition)
     if disposition == "held":
         if semantic_route is not None or unavailable_reason not in _SEMANTIC_UNAVAILABLE_REASONS:
@@ -1419,6 +1455,11 @@ def _semantic_receipt(
         raise ValueError("stored answered semantic projection is missing exact evidence digests")
     if semantic.get("execution_authority") is not False:
         raise ValueError("stored semantic projection MUST deny execution authority")
+    if disposition == "direct_response":
+        if direct_response_intent != "greeting" or digests:
+            raise ValueError("stored direct response semantic projection is malformed")
+    elif direct_response_intent is not None:
+        raise ValueError("stored non-direct semantic projection carries a direct answer intent")
     raw_assurance = semantic.get("assurance_observation")
     assurance: dict[str, object] | None = None
     if raw_assurance is not None:
@@ -1437,6 +1478,11 @@ def _semantic_receipt(
         "reason_code": reason_code,
         **({"semantic_route": semantic_route} if semantic_route is not None else {}),
         **({"unavailable_reason": unavailable_reason} if unavailable_reason is not None else {}),
+        **(
+            {"direct_response_intent": direct_response_intent}
+            if direct_response_intent is not None
+            else {}
+        ),
         **digests,
         **({"assurance_observation": assurance} if assurance is not None else {}),
         "execution_authority": False,

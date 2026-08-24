@@ -261,6 +261,19 @@ def test_production_readiness_requires_matching_epistemic_closure() -> None:
     assert receipt.production_ready is True
 
 
+def test_direct_response_is_terminal_without_query_evidence() -> None:
+    direct = _nonanswered(
+        "greeting",
+        "conversation-ko",
+        "direct_response",
+        semantic_route="semantic_direct_response",
+    )
+
+    assert direct.disposition == "direct_response"
+    with pytest.raises(ValueError, match="MUST NOT carry query evidence"):
+        replace(direct, plan_digest=DIGEST)
+
+
 def test_question_disposition_rejects_malformed_routes_receipts_and_bounds() -> None:
     clarification = _nonanswered(
         "clarify",

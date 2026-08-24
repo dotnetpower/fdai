@@ -235,11 +235,12 @@ export async function askBackend(
         : undefined,
     )
   );
+  const directResponse = source === "semantic-direct-response";
   const base = {
     text: answerText,
     // LLM replies do not carry structured citations; the deck grounds the
     // reply on the snapshot the model was given (see snapshotCitations).
-    citations: citationsForVerification(snapshot, verification),
+    citations: directResponse ? [] : citationsForVerification(snapshot, verification),
     followUps: [],
     source,
     ...(verification ? { verification } : {}),

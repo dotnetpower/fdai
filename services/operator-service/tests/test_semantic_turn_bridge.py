@@ -330,10 +330,18 @@ def _projection(
     semantic = cast(dict[str, object], envelope["semantic_turn"])
     result: dict[str, object] = {
         "disposition": disposition,
-        "reason_code": "verified_answer" if disposition == "answered" else "runtime_held",
+        "reason_code": (
+            "verified_answer"
+            if disposition == "answered"
+            else "semantic_direct_response"
+            if disposition == "direct_response"
+            else "runtime_held"
+        ),
         **(
             {"semantic_route": "verified_query_plan"}
             if disposition == "answered"
+            else {"semantic_route": "semantic_direct_response"}
+            if disposition == "direct_response"
             else {"unavailable_reason": "semantic_planner_unavailable"}
         ),
         "session_id": semantic["session_id"],
@@ -343,6 +351,7 @@ def _projection(
         "checks_completed": 1 if answered_evidence else 0,
         "checks_total": 1 if answered_evidence else 0,
         "answer": f"Semantic result: {disposition}",
+        **({"direct_response_intent": "greeting"} if disposition == "direct_response" else {}),
         "execution_authority": False,
     }
     if answered_evidence:
@@ -357,7 +366,7 @@ def _projection(
         )
     request_id = cast(str, envelope["request_id"])
     return {
-        "schema_version": "1.2.0",
+        "schema_version": "1.4.0" if disposition == "direct_response" else "1.2.0",
         "projection_id": str(uuid5(_TEST_NAMESPACE, f"{disposition}:{request_id}")),
         "request_id": request_id,
         "correlation_id": envelope["correlation_id"],
@@ -1266,6 +1275,36 @@ def test_answered_done_exposes_exact_no_authority_semantic_receipt() -> None:
         "execution_receipt_digest": semantic["execution_receipt_digest"],
         "execution_authority": False,
     }
+
+
+def test_direct_greeting_done_omits_query_verification_and_artifacts() -> None:
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+    projection = _projection(envelope, disposition="direct_response")
+
+    done = semantic_turn_runtime_module._done_event_data(projection)
+
+    assert done["status"] == "direct_response"
+    assert done["source"] == "semantic-direct-response"
+    assert done["answer"] == "Semantic result: direct_response"
+    assert done["answer_plan"] == {
+        "intent": "greeting",
+        "detail_level": "brief",
+        "format": "prose",
+        "sections": ["greeting", "next_step"],
+        "evidence_requirement": "none",
+        "max_words": 80,
+        "discuss": "skip",
+        "explicit_overrides": [],
+        "preference_applied": False,
+    }
+    assert "verification" not in done
+    assert "presentation_artifact" not in done
+    assert "trajectory_detail" not in done
+    receipt = cast(dict[str, object], done["semantic_receipt"])
+    assert receipt["semantic_route"] == "semantic_direct_response"
+    assert receipt["direct_response_intent"] == "greeting"
 
 
 def test_answered_done_preserves_typed_semantic_assurance_observation() -> None:

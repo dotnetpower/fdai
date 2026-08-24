@@ -162,8 +162,18 @@ def normalize_terminal_presentation(
         allow_line_breaks=True,
     )
     status = _text(terminal.get("status"), 64)
-    verification = _mapping(terminal.get("verification"))
-    evidence_refs = _text_tuple(verification.get("evidence_refs"), maximum=16, allow_empty=True)
+    raw_verification = terminal.get("verification")
+    verification = (
+        {}
+        if status == "direct_response" and raw_verification is None
+        else _mapping(raw_verification)
+    )
+    raw_evidence_refs = verification.get("evidence_refs")
+    evidence_refs = (
+        ()
+        if status == "direct_response" and raw_evidence_refs is None
+        else _text_tuple(raw_evidence_refs, maximum=16, allow_empty=True)
+    )
     authority_raw = verification.get("authority")
     authority = (
         _text(authority_raw, 256)
@@ -195,7 +205,7 @@ def normalize_terminal_presentation(
         limitations=limitations,
         evidence_refs=evidence_refs,
         authority=authority,
-        unavailable=status != "answered",
+        unavailable=status not in {"answered", "direct_response"},
         web_url=web_url,
         artifact_degraded=degraded,
     )

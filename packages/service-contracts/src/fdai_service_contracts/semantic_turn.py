@@ -152,11 +152,18 @@ class SemanticTurnDisposition(StrEnum):
     """Terminal outcomes accepted by the semantic conversation boundary."""
 
     ANSWERED = "answered"
+    DIRECT_RESPONSE = "direct_response"
     HELD = "held"
     CLARIFICATION = "clarification"
     UNSUPPORTED = "unsupported"
     ACTION_DRAFT = "action_draft"
     CANCELLED = "cancelled"
+
+
+class SemanticDirectResponseIntent(StrEnum):
+    """Closed no-evidence answer intents carried across the service boundary."""
+
+    GREETING = "greeting"
 
 
 class SemanticPlanningProfile(StrEnum):
@@ -168,6 +175,7 @@ class SemanticPlanningProfile(StrEnum):
 
 SemanticRoute = Literal[
     "verified_query_plan",
+    "semantic_direct_response",
     "semantic_clarification",
     "semantic_unsupported",
     "semantic_action_draft",
@@ -181,6 +189,7 @@ SemanticUnavailableReason = Literal[
 
 _SEMANTIC_ROUTE_BY_DISPOSITION: dict[SemanticTurnDisposition, SemanticRoute] = {
     SemanticTurnDisposition.ANSWERED: "verified_query_plan",
+    SemanticTurnDisposition.DIRECT_RESPONSE: "semantic_direct_response",
     SemanticTurnDisposition.CLARIFICATION: "semantic_clarification",
     SemanticTurnDisposition.UNSUPPORTED: "semantic_unsupported",
     SemanticTurnDisposition.ACTION_DRAFT: "semantic_action_draft",
@@ -262,6 +271,7 @@ class SemanticTurnResult(QueryContract):
     checks_completed: Annotated[int, Field(ge=0, le=64)] = 0
     checks_total: Annotated[int, Field(ge=0, le=64)] = 0
     answer: Annotated[str, Field(min_length=1, max_length=64_000)] | None = None
+    direct_response_intent: SemanticDirectResponseIntent | None = None
     assurance_observation: SemanticAssuranceObservation | None = None
     execution_authority: Literal[False] = False
 
@@ -294,6 +304,24 @@ class SemanticTurnResult(QueryContract):
             or self.answer is None
         ):
             raise ValueError("answered semantic results MUST carry complete verified evidence")
+        direct_response = self.disposition is SemanticTurnDisposition.DIRECT_RESPONSE
+        if direct_response != (self.direct_response_intent is not None):
+            raise ValueError(
+                "direct response semantic results MUST carry exactly one direct answer intent"
+            )
+        if direct_response and (
+            self.answer is None
+            or any(item is not None for item in exact)
+            or self.intent_graph is not None
+            or self.intent_graph_evidence is not None
+            or self.evidence_refs
+            or self.checks_completed != 0
+            or self.checks_total != 0
+            or self.assurance_observation is not None
+        ):
+            raise ValueError(
+                "direct response semantic results MUST NOT carry query or evidence claims"
+            )
         return self
 
 
@@ -476,6 +504,7 @@ __all__ = [
     "SemanticPlanningProfile",
     "SemanticPriorTurn",
     "SemanticTurnDisposition",
+    "SemanticDirectResponseIntent",
     "SemanticTurnPrincipal",
     "SemanticTurnRequest",
     "SemanticTurnResult",

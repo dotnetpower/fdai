@@ -61,6 +61,7 @@ from fdai_core_service.semantic_turn_processor import (
 )
 from fdai_service_contracts import (
     RuleSearchReceipt,
+    SemanticDirectResponseIntent,
     SemanticTurnRequest,
     rule_search_query_digest,
 )
@@ -682,6 +683,9 @@ def _runtime_result(
             output_shape="resource_list",
         ),
         manifest_digest=MANIFEST_DIGEST,
+        direct_response_intent=(
+            SemanticDirectResponseIntent.GREETING if disposition == "direct_response" else None
+        ),
     )
     if disposition != "answered":
         return RuntimeSemanticTurnResult(
@@ -1299,6 +1303,43 @@ async def test_clarification_projection_preserves_specific_question() -> None:
     assert projection["status"] == "clarification"
     assert projection["semantic_result"]["answer"] == "Which incident should I investigate?"
     assert projection["semantic_result"]["reason_code"] == ("semantic_clarification_required")
+
+
+@pytest.mark.parametrize(
+    ("locale", "expected"),
+    [
+        ("en", "Hello. What would you like to inspect on this screen or in current operations?"),
+        ("ko", "안녕하세요. 현재 화면이나 운영 상태에 대해 무엇을 확인할까요?"),
+    ],
+)
+async def test_direct_greeting_projection_has_no_query_or_evidence_claims(
+    locale: str,
+    expected: str,
+) -> None:
+    projection = _projection(
+        await _processor(_Runtime(_runtime_result("direct_response"))).process(
+            _request(locale=locale)
+        )
+    )
+
+    semantic = projection["semantic_result"]
+    assert projection["schema_version"] == "1.4.0"
+    assert projection["status"] == "direct_response"
+    assert semantic == {
+        "disposition": "direct_response",
+        "reason_code": "semantic_direct_response",
+        "semantic_route": "semantic_direct_response",
+        "session_id": "session-1",
+        "turn_id": "turn-1",
+        "turn_sequence": 3,
+        "evidence_refs": [],
+        "checks_completed": 0,
+        "checks_total": 0,
+        "answer": expected,
+        "direct_response_intent": "greeting",
+        "execution_authority": False,
+    }
+    assert projection["payload"].get("technical_details") is None
 
 
 async def test_expired_deadline_and_pre_cancel_never_call_runtime() -> None:
