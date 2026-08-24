@@ -104,6 +104,14 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     assert "DEV_ACCESS_VNET_ID" in workflow
     assert "Grant bounded scenario-lab deployment authority" in workflow
     assert "Revoke bounded scenario-lab deployment authority" in workflow
+    assert "Resolve bounded operator network scope" in workflow
+    assert "configured operator VNet id is outside the active subscription" in workflow
+    assert "configured operator VNet does not resolve to the exact requested scope" in workflow
+    assert "Grant bounded operator network authority" in workflow
+    assert '--role "Network Contributor"' in workflow
+    assert '--scope "$OPERATOR_VNET_ID"' in workflow
+    assert "Revoke bounded operator network authority" in workflow
+    assert "steps.operator-network-authority.outputs.remove_after_run == 'true'" in workflow
     assert "Adopt succeeded partial-apply network resources" in workflow
     assert "scenario-lab partial-resource adoption rejected an invalid resource id" in workflow
     assert (

@@ -261,6 +261,27 @@ jobs:
           printf 'resource_group_id=%s\n' "$resource_group_id" >>"$GITHUB_OUTPUT"
           printf 'runner_principal_id=%s\n' "$runner_principal_id" >>"$GITHUB_OUTPUT"
 
+      - name: Resolve bounded operator network scope
+        if: inputs.action != 'plan' && inputs.enable_vpn_operator_access
+        id: operator-network-scope
+        working-directory: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          operator_vnet_id="$(jq -er '.vnet_id' <<<"$TF_VAR_operator_access")"
+          [[ "${operator_vnet_id,,}" == "/subscriptions/${ARM_SUBSCRIPTION_ID,,}/resourcegroups/"*"/providers/microsoft.network/virtualnetworks/"* ]] || {
+            echo "configured operator VNet id is outside the active subscription." >&2
+            exit 1
+          }
+          resolved_vnet_id="$(az network vnet show \
+            --ids "$operator_vnet_id" \
+            --query id --output tsv --only-show-errors)"
+          [[ "${resolved_vnet_id,,}" == "${operator_vnet_id,,}" ]] || {
+            echo "configured operator VNet does not resolve to the exact requested scope." >&2
+            exit 1
+          }
+          echo "::add-mask::$operator_vnet_id"
+          printf 'operator_vnet_id=%s\n' "$operator_vnet_id" >>"$GITHUB_OUTPUT"
+
       - name: Grant bounded scenario-lab deployment authority
         if: inputs.action != 'plan'
         id: deployment-authority
@@ -280,6 +301,34 @@ jobs:
               --assignee-principal-type ServicePrincipal \
               --role Contributor \
               --scope "$RESOURCE_GROUP_ID" \
+              --query id --output tsv --only-show-errors)"
+            echo "::add-mask::$assignment_id"
+            printf 'role_assignment_id=%s\n' "$assignment_id" >>"$GITHUB_OUTPUT"
+            printf 'remove_after_run=true\n' >>"$GITHUB_OUTPUT"
+          else
+            printf 'role_assignment_id=\n' >>"$GITHUB_OUTPUT"
+            printf 'remove_after_run=false\n' >>"$GITHUB_OUTPUT"
+          fi
+
+      - name: Grant bounded operator network authority
+        if: inputs.action != 'plan' && inputs.enable_vpn_operator_access
+        id: operator-network-authority
+        working-directory: ${{ runner.temp }}
+        env:
+          OPERATOR_VNET_ID: ${{ steps.operator-network-scope.outputs.operator_vnet_id }}
+          RUNNER_PRINCIPAL_ID: ${{ steps.holding-scope.outputs.runner_principal_id }}
+        run: |
+          set -euo pipefail
+          assignment_id="$(az role assignment list \
+            --scope "$OPERATOR_VNET_ID" \
+            --query "[?principalId=='$RUNNER_PRINCIPAL_ID' && roleDefinitionName=='Network Contributor'].id | [0]" \
+            --output tsv --only-show-errors)"
+          if [[ -z "$assignment_id" ]]; then
+            assignment_id="$(az role assignment create \
+              --assignee-object-id "$RUNNER_PRINCIPAL_ID" \
+              --assignee-principal-type ServicePrincipal \
+              --role "Network Contributor" \
+              --scope "$OPERATOR_VNET_ID" \
               --query id --output tsv --only-show-errors)"
             echo "::add-mask::$assignment_id"
             printf 'role_assignment_id=%s\n' "$assignment_id" >>"$GITHUB_OUTPUT"
@@ -615,6 +664,16 @@ jobs:
         working-directory: ${{ runner.temp }}
         env:
           ROLE_ASSIGNMENT_ID: ${{ steps.deployment-authority.outputs.role_assignment_id }}
+        run: >-
+          az role assignment delete
+          --ids "$ROLE_ASSIGNMENT_ID"
+          --only-show-errors
+
+      - name: Revoke bounded operator network authority
+        if: always() && inputs.action != 'plan' && steps.operator-network-authority.outputs.remove_after_run == 'true'
+        working-directory: ${{ runner.temp }}
+        env:
+          ROLE_ASSIGNMENT_ID: ${{ steps.operator-network-authority.outputs.role_assignment_id }}
         run: >-
           az role assignment delete
           --ids "$ROLE_ASSIGNMENT_ID"
