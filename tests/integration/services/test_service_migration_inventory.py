@@ -647,6 +647,36 @@ def test_core_metering_writer_has_append_only_cross_service_grant() -> None:
     assert "llm_invocation" not in ownership["table_migrations"]["operator-service"]
 
 
+def test_core_incident_recovery_uses_indexed_action_kind() -> None:
+    migration_path = (
+        MIGRATION_ROOT
+        / "branches/core-control-plane/versions/20260825_core_incident_recovery_index.py"
+    )
+    migration = migration_path.read_text(encoding="utf-8")
+    store = (
+        REPO_ROOT / "services/core-control-plane/src/fdai/delivery/persistence/postgres.py"
+    ).read_text(encoding="utf-8")
+    recovery_query = store.split("async def read_incident_transitions", maxsplit=1)[1].split(
+        "async def list_incident_evidence", maxsplit=1
+    )[0]
+
+    assert "CREATE INDEX CONCURRENTLY IF NOT EXISTS audit_log_incident_recovery_idx" in migration
+    assert "ON audit_log (action_kind, seq)" in migration
+    assert "WHERE action_kind IN (" in migration
+    for kind in (
+        "incident.open",
+        "incident.members",
+        "incident.severity",
+        "incident.assigned",
+        "incident.ticket",
+        "incident.transition",
+    ):
+        assert kind in migration
+        assert kind in recovery_query
+    assert "WHERE action_kind IN (" in recovery_query
+    assert "entry->>'kind'" not in recovery_query
+
+
 def test_operator_active_inventory_pointer_has_exact_read_only_grant() -> None:
     revision_path = (
         MIGRATION_ROOT

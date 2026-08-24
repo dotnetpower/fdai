@@ -498,7 +498,7 @@ class PostgresStateStore(StateStore):
                     """
                     SELECT entry
                     FROM audit_log
-                    WHERE entry->>'kind' IN (
+                    WHERE action_kind IN (
                         'incident.open',
                         'incident.members',
                         'incident.severity',

@@ -122,7 +122,9 @@ prod topology so shadow evaluation is representative.
   metering grant is removed. Both provider and consumer migrations revoke `PUBLIC` access; neither
   runtime receives update or delete privileges. During startup incident replay, Core retries only
   transient PostgreSQL connection failures three times with 0.5 and 1.0 second backoff, then fails
-  readiness rather than continuing without a durable notification checkpoint.
+  readiness rather than continuing without a durable notification checkpoint. Incident lifecycle
+  recovery reads the indexed `audit_log.action_kind` path; its partial index is built concurrently
+  so active audit writers remain available.
 - **Drift detection**: a scheduled read-only `plan` covers the legacy platform root, the five
   independent service roots, and the bootstrap root for each environment. The root contract uses
   distinct backend keys and resolves service images from pre-refresh state, so an out-of-band image
