@@ -104,6 +104,8 @@ missing one fails mid-run rather than at plan time:
 A tenant whose Azure Policy denies part of the inventory also needs either an exemption or the
 matching capability-mode toggle before the plan can converge
 ([deployment-preflight.md](deployment-preflight.md)).
+Upstream verifies the toggle contract with provider-free reference plans. The deployment or fork
+binds those outputs to its concrete resource modules and supplies any existing resource ids.
 
 #### Ops/hub runner (private-everything tenants)
 

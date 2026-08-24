@@ -25,8 +25,9 @@ Keeping the toggles data-only means:
 
 - `terraform validate` passes with no provider setup, so CI can
   exercise every toggle without an Azure subscription.
-- A fork can wire the outputs into whichever compute / network
-  module they already have, without editing this repo.
+- The generic upstream root does not instantiate a concrete resource
+  consumer. A fork wires the outputs into whichever compute / network
+  module already owns its resources, without editing the data-only toggles.
 - The Deployment Preflight analyzer (see
   `docs/roadmap/deployment/deployment-preflight.md`) can quote the module name +
   the `mode` value verbatim in a `terraform_toggle` detected issue, and a
@@ -82,7 +83,9 @@ output block and picks the resource shape.
   is where the actual disk resource lives, and that stays under the
   fork's control. See
   [`reference-disk-consumer/`](reference-disk-consumer/README.md) for the
-  copy-paste consumer pattern (validate-only reference).
+  reusable consumer pattern and its mock-provider plan fixture. The fixture
+  proves that `attach_existing` omits the policy-denied managed-disk shape
+  without adding that resource to the generic root app graph.
 - Cross-toggle policy composition. A fork MAY combine multiple
   toggles behind a single "environment profile" variable; upstream
   keeps each toggle isolated so a Preflight detected issue maps 1:1 to a

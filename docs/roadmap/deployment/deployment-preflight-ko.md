@@ -1,8 +1,8 @@
 ---
 title: 배포 프리플라이트 (배포 가능성 및 blocker 수집)
 translation_of: deployment-preflight.md
-translation_source_sha: 0c90d15b2a4d001d2bbb506f688a1cdae501ef66
-translation_revised: 2026-08-14
+translation_source_sha: 738efc547e9fae45508fc5276505d0f61d8b1c60
+translation_revised: 2026-08-24
 ---
 # 배포 프리플라이트 (배포 가능성 및 차단 요인 수집)
 
@@ -32,7 +32,7 @@ translation_revised: 2026-08-14
 |------|------|------|------|
 | 프로브 계약, 결정론적 프로브, 분석기 및 리포트 | implemented | `services/core-control-plane/src/fdai/core/deploy_preflight/`, `services/core-control-plane/src/fdai/shared/providers/feasibility_probe.py` 및 배포 프리플라이트 집중 테스트 | 안정적인 발견 사항, 실패 시 차단되는 프로브 실행, 판정 및 shadow와 enforce 동작이 테스트되어 있습니다. |
 | 읽기 전용 Azure 프로브 및 보호된 계획 근거 | implemented | `scripts/deployment/azure/run_live_preflight.py`, `.github/workflows/deploy-dev.yml` 및 `tests/integration/scripts/test_run_live_preflight.py` | 보호된 실행기는 독립 실행형 스크립트를 호출하고 실제 검사 범주 네 개를 모두 요구하며, 근거를 정제하고 그 다이제스트를 계획에 연결합니다. |
-| Terraform 토글 및 환경 프로파일 기본 요소 | implemented | `infra/modules/preflight-toggles/`와 집중 `test_environment_profile.py` 및 `test_reassembly_proposals.py` 검사 | 루트 앱 그래프 소비자와 영속 프로파일 새로 고침 작업은 조립되지 않았습니다. |
+| Terraform 토글, 대체 렌더링 fixture 및 환경 프로파일 기본 요소 | implemented | `infra/modules/preflight-toggles/`, 집중 `terraform test -filter=tests/alternate_rendering.tftest.hcl`, `test_environment_profile.py` 및 `test_reassembly_proposals.py` 검사 | 제네릭 상류 루트는 포크 소유 리소스 소비자를 의도적으로 인스턴스화하지 않습니다. 영속 프로파일 새로 고침 작업은 조립되지 않았습니다. |
 | 검사 발행 기본 요소 | implemented | `services/core-control-plane/src/fdai/core/deploy_preflight/check_publish.py` 및 `test_check_publish.py` | 순수 리포트 발행기와 메모리 내 어댑터가 테스트되어 있습니다. GitHub Checks 어댑터는 없습니다. |
 | 컨트롤 루프의 PR 전 게이트 및 GitHub 전달 | not-started | 이 문서의 계획된 경계 | 교정 PR 전에 분석기를 호출하거나 결과를 GitHub Checks에 발행하는 실제 경로가 없습니다. |
 
@@ -41,10 +41,13 @@ translation_revised: 2026-08-14
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 구현 원장을 도입했으며 이전 출처 이력은 재구성하지 않았습니다. 보호된 실행기 경로를 현재 독립 실행형 프리플라이트 진입점으로 바로잡았습니다. | 현재 변경과 구현 범위 표에 기재한 코어 프리플라이트 및 실제 스크립트 집중 검사 | 루트 토글 소비자, 영속 프로파일 새로 고침, GitHub 발행기 및 컨트롤 루프 게이트를 조립해야 합니다. |
+| 2026-08-24 | implemented | 구체적인 리소스 렌더링을 포크 소유로 유지하고 상류 디스크 토글 계약에 재사용 가능한 mock provider 계획 fixture를 추가하여 루트 소비자 소유권 충돌을 해소했습니다. | `current change`, `infra/modules/preflight-toggles/reference-disk-consumer/tests/alternate_rendering.tftest.hcl`, 집중 Terraform 테스트 2개 통과 | 각 포크는 검증된 패턴을 자신이 소유한 컴퓨팅 모듈에 연결합니다. 영속 프로파일 새로 고침, GitHub 발행기 및 컨트롤 루프 게이트는 남아 있습니다. |
 
 ### 남은 작업
 
-- [ ] 루트 앱 그래프를 지원되는 프리플라이트 토글에 연결하고, 재렌더된 계획에서 거부된 형태가 사라졌음을 입증하는 집중 Terraform 테스트를 통과합니다.
+- [x] 제네릭 상류 루트에서 포크 소유 리소스 소비자를 제외하고, `attach_existing`이
+  대체 계획에서 정책에 의해 거부된 managed disk 형태를 제거함을 입증하는 재사용 가능한
+  Terraform fixture를 제공합니다. 집중 fixture에서 두 렌더링이 모두 통과했습니다.
 - [ ] Inventory 변경에 따른 무효화를 포함하는 영속 환경 프로파일 새로 고침 작업을 추가하고 재시작 및 만료 테스트를 통과합니다.
 - [ ] 교정 PR 발행 전에 분석기를 호출하고 차단 발견 사항을 사람 검토로 낮추며, 차단된 리포트에서는 PR이 열리지 않음을 통합 테스트로 입증합니다.
 - [ ] 정제된 리포트를 GitHub Checks 어댑터로 발행하고 정보 제거와 전달 실패에 대한 집중 계약 테스트를 남깁니다.
@@ -188,8 +191,9 @@ translation_revised: 2026-08-14
   근거와 결합합니다. 정제된 보고만 비공개 Blob 저장소에 저장하고 두 근거 다이제스트를
   exact-plan 검증에 연결합니다. Firewall / NSG 토폴로지 어댑터는 별도 future
   enhancement이며 direct 실행기 도달 가능성 근거에는 필요하지 않습니다.
-  2. **Capability-mode 토글 scaffold(배포됨)**: `infra/modules/preflight-toggles/`와 disk
-    참조 소비자가 계약을 검증합니다. 루트 앱 그래프의 실제 소비자 배선은 계획됨.
+  2. **기능 모드 토글 scaffold(배포됨)**: `infra/modules/preflight-toggles/`와 disk
+    참조 소비자가 두 렌더링을 검증합니다. 리소스 소유권과 통합은 포크 소유이므로 제네릭
+    상류 루트는 구체적인 소비자를 인스턴스화하지 않습니다.
   3. **검사 발행 기본 요소(배포됨)**: 코어 함수, 프로바이더 프로토콜, in-memory
     발행기가 있습니다. GitHub 검사 어댑터와 infra PR 작업 흐름 배선은 계획됨.
   4. **배포 환경 프로파일 기본 요소(배포됨)**: 범위가 제한된 in-memory 캐시, TTL,
