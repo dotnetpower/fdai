@@ -40,6 +40,10 @@ def test_scenario_lab_is_an_independent_private_terraform_root() -> None:
     assert 'outbound_type       = "userAssignedNATGateway"' in aks
     assert "node_count                   = 1" in aks
     assert 'private_dns_zone_name = "privatelink.openai.azure.com"' in data_services
+    assert (
+        'name                = "${local.unique_suffix}.mysql.database.azure.com"' in data_services
+    )
+    assert "maintenance_window" not in data_services
     assert "delegated_subnet_id" in data_services
     assert 'name    = "Microsoft.DBforMySQL/flexibleServers"' in network
     assert 'resource "azurerm_network_interface_security_group_association" "stress_vm"' in (

@@ -5,7 +5,7 @@ resource "random_password" "mysql_admin" {
 }
 
 resource "azurerm_private_dns_zone" "mysql" {
-  name                = "privatelink.mysql.database.azure.com"
+  name                = "${local.unique_suffix}.mysql.database.azure.com"
   resource_group_name = data.azurerm_resource_group.scenario_lab.name
   tags                = local.tags
 
@@ -77,12 +77,6 @@ resource "azurerm_mysql_flexible_server" "scenario_lab" {
   storage {
     auto_grow_enabled = true
     size_gb           = 32
-  }
-
-  maintenance_window {
-    day_of_week  = 0
-    start_hour   = 2
-    start_minute = 0
   }
 
   depends_on = [azurerm_private_dns_zone_virtual_network_link.mysql_lab]
