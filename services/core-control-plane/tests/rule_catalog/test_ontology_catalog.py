@@ -9,13 +9,20 @@ import pytest
 import yaml
 from fdai.core.ontology_platform import compile_interfaces
 from fdai.rule_catalog.schema.action_type import ActionTypeCatalogError
-from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
+from fdai.rule_catalog.schema.ontology_catalog import (
+    _validate_interface_references,
+    load_ontology_catalog,
+)
 from fdai.rule_catalog.schema.ontology_provenance import ontology_content_hash
 from fdai.rule_catalog.schema.property_semantic import property_semantic_registry_content_hash
 from fdai.rule_catalog.schema.rego_semantics import load_rego_semantics
 from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
 from fdai.rule_catalog.schema.rule import load_rule_catalog
-from fdai.shared.contracts.models import LinkCardinality, OntologyActionType
+from fdai.shared.contracts.models import (
+    LinkCardinality,
+    OntologyActionType,
+    OntologyInterfaceType,
+)
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -58,14 +65,34 @@ def test_shipped_ontology_catalog_loads_as_one_graph() -> None:
     )
     assert {item.name for item in catalog.link_types} >= {"depends_on", "emits_to"}
     assert {item.name for item in catalog.action_types} >= {"remediate.enable-diagnostic-settings"}
-    assert {item.name for item in catalog.interface_types} == {"Identifiable"}
+    assert {item.name for item in catalog.interface_types} == {
+        "CostBearing",
+        "Identifiable",
+        "ObjectiveBound",
+        "Observable",
+        "Operable",
+        "Ownable",
+        "Recoverable",
+    }
     compiled_interfaces = compile_interfaces(
         interfaces=catalog.interface_types,
         implementations=catalog.interface_implementations,
         object_types=catalog.object_types,
+        release=catalog.build_release(),
     )
+    assert compiled_interfaces.release_digest == catalog.build_release().digest
     assert compiled_interfaces.resolve("Identifiable") == tuple(
         sorted(item.name for item in catalog.object_types)
+    )
+    assert compiled_interfaces.resolve("Ownable") == ("Workload",)
+    assert compiled_interfaces.resolve("Operable") == ("Workload",)
+    assert compiled_interfaces.resolve("Observable") == ("Observation",)
+    assert compiled_interfaces.resolve("Recoverable") == ("RecoveryObjective",)
+    assert compiled_interfaces.resolve("ObjectiveBound") == ("RecoveryPlan",)
+    assert compiled_interfaces.resolve("CostBearing") == ("CostObjective",)
+    assert compiled_interfaces.interfaces["Operable"].required_links == (
+        "workload_owned_by",
+        "workload_runs_on",
     )
     contains = next(item for item in catalog.link_types if item.name == "contains")
     assert contains.version == "2.1.0"
@@ -75,6 +102,26 @@ def test_shipped_ontology_catalog_loads_as_one_graph() -> None:
         "security.transport.minimum_tls",
         "utilization.cpu.p95",
     }
+
+
+def test_interface_catalog_rejects_dangling_semantic_references() -> None:
+    interface = OntologyInterfaceType(
+        name="Broken",
+        version="1.0.0",
+        extends=("Missing",),
+        required_links=("missing_link",),
+        supported_actions=("missing.action",),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="unknown ActionType|unknown InterfaceType|unknown LinkType",
+    ):
+        _validate_interface_references(
+            interface_types=(interface,),
+            link_types=(),
+            action_types=(),
+        )
 
 
 def test_documented_relationship_contract_is_backed_by_declarations() -> None:

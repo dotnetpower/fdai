@@ -53,7 +53,7 @@ WRAP_WIDTH = 98
 BACKLOG_PREVIEW = 12
 
 # Reviewed references may only grow. Raise this floor in the same change that raises coverage.
-REVIEWED_REFERENCE_FLOOR = 14
+REVIEWED_REFERENCE_FLOOR = 62
 
 # Leaf-path markers that make a value easy to misread without reviewed semantics: a magnitude
 # convention (percent versus ratio), a time or size unit, or a boolean versus enumeration shape.
@@ -211,22 +211,41 @@ def measure(root: Path) -> tuple[Coverage, tuple[str, ...]]:
 
 def _render_block(coverage: Coverage, document: Path) -> str:
     if document.name.endswith("-ko.md"):
-        paragraph = (
+        summary = (
             f"측정된 검토 커버리지: 룰이 평가하는 Property 참조 {coverage.evaluated_count}개 중 "
             f"**{coverage.reviewed_count}개**({coverage.percent}%)이며 검토된 의미는 "
             f"{coverage.semantic_count}개입니다. 이 수치는 손으로 관리하지 않고 커버리지 게이트가 "
-            f"계산합니다. 나머지 {coverage.uncovered_count}개 참조는 이전 방식 변환 결과를 "
-            "유지하므로 대부분의 Property는 `normalized_equivalence`를 주장할 수 없고 "
-            "이 레지스트리로 값을 normalize할 수 없습니다."
+            "계산합니다."
+        )
+        consequence = (
+            "룰이 평가하는 모든 Property 참조가 검토된 의미와 범위가 제한된 정본 "
+            "정규화를 가지며, 새 참조는 레지스트리나 floor를 갱신하지 않으면 gate를 "
+            "통과하지 못합니다."
+            if coverage.uncovered_count == 0
+            else (
+                f"나머지 {coverage.uncovered_count}개 참조는 이전 방식 변환 결과를 유지하므로 "
+                "대부분의 Property는 `normalized_equivalence`를 주장할 수 없고 이 레지스트리로 "
+                "값을 normalize할 수 없습니다."
+            )
         )
     else:
-        paragraph = (
+        summary = (
             f"Measured reviewed coverage: **{coverage.reviewed_count} of "
             f"{coverage.evaluated_count}** rule-evaluated Property references "
             f"({coverage.percent}%) across {coverage.semantic_count} reviewed semantics, computed "
-            f"by the gate rather than by hand. The other {coverage.uncovered_count} keep their "
-            "legacy projection, so most Property instances cannot claim `normalized_equivalence`."
+            "by the gate rather than by hand."
         )
+        consequence = (
+            "Every rule-evaluated Property reference has reviewed meaning and bounded canonical "
+            "normalization; a new reference cannot pass the gate without updating the registry "
+            "and floor."
+            if coverage.uncovered_count == 0
+            else (
+                f"The other {coverage.uncovered_count} keep their legacy projection, so most "
+                "Property instances cannot claim `normalized_equivalence`."
+            )
+        )
+    paragraph = f"{summary} {consequence}"
     body = textwrap.fill(paragraph, width=WRAP_WIDTH, break_long_words=False)
     return f"{BEGIN_MARKER}\n{body}\n{END_MARKER}"
 

@@ -275,6 +275,7 @@ override.tf.json
 # committed (local dev stays on the default local backend).
 infra/backend.tf
 infra/bootstrap/backend.tf
+infra/scenario-lab/backend.tf
 *_override.tf.json
 
 # --------------------------------------------------------------------------

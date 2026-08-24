@@ -19,6 +19,7 @@ resource_group_name="$(terraform output -raw resource_group_name)"
 vpn_gateway_name="$(terraform output -raw vpn_gateway_name)"
 dns_resolver_ip="$(terraform output -raw dns_resolver_inbound_ip)"
 routing_domains_json="$(terraform output -json fdai_private_dns_routing_domains)"
+extra_routing_domains_json="${FDAI_DEV_ACCESS_EXTRA_DNS_DOMAINS_JSON:-[]}"
 popd >/dev/null
 
 active_subscription_id="$(az account show --query id --output tsv)"
@@ -77,13 +78,13 @@ fi
 # that also captures public sign-in domains such as login.microsoftonline.com and
 # breaks browser authentication. See the Azure VPN Client optional configuration
 # guide (DNS suffixes / NRPT).
-python3 - "${profile_path}" "${routing_domains_json}" <<'PY'
+python3 - "${profile_path}" "${routing_domains_json}" "${extra_routing_domains_json}" <<'PY'
 import json
 import re
 import sys
 
 profile_path = sys.argv[1]
-routing_domains = json.loads(sys.argv[2])
+routing_domains = sorted(set(json.loads(sys.argv[2])) | set(json.loads(sys.argv[3])))
 if not routing_domains:
     raise SystemExit("error: no private DNS routing domains to constrain the profile")
 

@@ -4,7 +4,7 @@ title: Production deployment hardening
 # Production deployment hardening
 
 This document defines the production-only deployment controls that tighten FDAI's development
-posture without changing its runtime contracts. It covers resource locks, durability, private
+posture without changing its runtime contracts. It covers teardown behavior, durability, private
 networking, trusted images, notification destinations, monitoring, and cost ceilings.
 
 > **Scope:** These values are generic environment parameters. A deployment supplies its own
@@ -16,7 +16,7 @@ networking, trusted images, notification destinations, monitoring, and cost ceil
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| Production plan gates and environment knobs | implemented | `infra/production-gates.tf`; `infra/envs/{staging,prod}.tfvars.example`; Terraform configuration tests | Missing signed image, private network, durability, monitoring, or cost inputs block a production plan. |
+| Production plan gates and environment knobs | implemented | `infra/production-gates.tf`; `infra/envs/{staging,prod}.tfvars.example`; Terraform configuration tests | Missing signed image, private network, durability, monitoring, or cost inputs block a production plan. Standard profiles permanently delete globally named resources and leave management locks disabled. |
 | Credential-free infrastructure and drift guards | implemented | `.github/workflows/infra-lint.yml`; `.github/workflows/infra-drift.yml`; CI contract tests | The checks cover all declared state roots and fail closed on a missing, unreadable, or changed root. |
 | Exact-revision protected production apply evidence | in-progress | [Deploy and Onboard](deploy-and-onboard.md#implementation-status) | Code and plan guards exist, but this owner document does not retain one current production apply proving every control together. |
 
@@ -25,12 +25,15 @@ networking, trusted images, notification destinations, monitoring, and cost ceil
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-21 | in-progress | Moved the existing production hardening controls into a focused owner document without changing infrastructure behavior. | `current change`; document-size, translation, route, and link checks. | Retain one exact-revision protected production plan and apply receipt covering every required control. |
+| 2026-08-24 | implemented | Removed controllable teardown and exact-name recreation constraints from all standard environments. Terraform now purges deleted Key Vault and Cognitive accounts, permanently deletes Log Analytics workspaces, allows resource-group deletion with remaining resources, and keeps application and state-account management locks disabled. | `current change`; provider features and environment values under `infra/`; `tests/integration/infra/test_key_vault_lifecycle.py` (`2 passed`); Terraform formatting and validation for the shared, scenario-lab, bootstrap, and dev-access roots. | Retain a protected non-production destroy and exact-name recreation receipt. Azure-owned service delays remain outside Terraform control. |
 
 ### Remaining work
 
-- [ ] Retain an exact-revision protected production plan and apply receipt proving resource locks,
-  private networking, PostgreSQL durability, trusted image digest, notifications, monitoring, and
-  the cost budget together, including one blocked negative plan.
+- [ ] Retain an exact-revision protected production plan and apply receipt proving the unlocked
+    teardown profile, private networking, PostgreSQL durability, trusted image digest, notifications,
+    monitoring, and the cost budget together, including one blocked negative plan.
+- [ ] Retain a protected non-production destroy and exact-name recreation receipt for Key Vault,
+    Cognitive Services, Log Analytics, and the resource group.
 
 ## Deployer identity
 
@@ -49,8 +52,8 @@ them through environment-specific tfvars. See
 
 | Concern | Knob | Prod value |
 |---------|------|------------|
-| Delete protection | `enable_resource_locks`, bootstrap `enable_state_lock` | `true` |
-| Key Vault | `kv_purge_protection_enabled`, `kv_soft_delete_retention_days` | `true`, `90` |
+| Management locks | `enable_resource_locks`, bootstrap `enable_state_lock` | `false` |
+| Key Vault | `kv_purge_protection_enabled`, `kv_soft_delete_retention_days` | `false`, `7` |
 | Postgres network | `enable_private_postgres` | `true` |
 | Postgres durability | `postgres_backup_retention_days`, `postgres_geo_redundant_backup` | `35`, `true` |
 | Postgres availability | `postgres_high_availability_mode` | `ZoneRedundant` |
@@ -59,6 +62,19 @@ them through environment-specific tfvars. See
 | Registry | `acr_sku` | `Premium` |
 | Monitoring | `enable_monitoring`, `alert_email`, `alert_webhook_url` | on + destination |
 | Cost | `monthly_budget_amount`, `budget_alert_emails`, bootstrap `runner_auto_shutdown_time` | set |
+
+Every Terraform root that owns a resource group disables the provider's populated-group deletion
+check. Roots that own Log Analytics permanently delete the workspace, and the shared root purges
+Cognitive accounts and Key Vaults on destroy. Standard production, staging, bootstrap, and
+development profiles keep `CanNotDelete` management locks off. These settings make a successful
+Terraform destroy irreversible and favor immediate recreation over service-side recovery.
+
+Azure-owned constraints still apply. A Key Vault that already has purge protection enabled cannot
+be changed in place and remains protected until its retention period expires. Reusing an Event Hubs
+namespace name in another subscription can require a four-hour wait. PostgreSQL retains a dropped
+server backup for five days, although that backup does not reserve a fresh server name. Existing
+soft-deleted resources created before this profile may require an explicit service purge or
+permanent-delete operation before their names are released.
 
 ## Trusted image source
 

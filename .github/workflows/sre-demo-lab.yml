@@ -1,0 +1,282 @@
+---
+name: "SRE demo lab"
+
+# Provisions a disposable non-production target for the S1-S12 reference fault sweep.
+# Plan is the default. Apply, enforce testing, and destroy require the scenario-lab
+# GitHub environment and run only on an exact commit already present on protected main.
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Plan, apply, or destroy the disposable scenario lab."
+        type: choice
+        options: [plan, apply, destroy]
+        default: plan
+      commit_sha:
+        description: "Exact protected main commit to deploy."
+        type: string
+        required: true
+      expires_at_utc:
+        description: "UTC RFC 3339 cleanup deadline recorded on every lab resource."
+        type: string
+        required: true
+      run_reference_sweep:
+        description: "Run the ten live reference faults after apply."
+        type: boolean
+        default: false
+      enable_vpn_operator_access:
+        description: "Allow the configured operator principal to test directly through the P2S VPN."
+        type: boolean
+        default: false
+      approval_ref:
+        description: "Current human approval reference required for the live sweep."
+        type: string
+        required: false
+      confirm_destroy:
+        description: "Enter destroy-sre-demo-lab when action is destroy."
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sre-demo-lab
+  cancel-in-progress: false
+
+jobs:
+  scenario-lab:
+    if: github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, fdai-deploy]
+    timeout-minutes: 240
+    environment: ${{ inputs.action == 'plan' && 'plan-only' || 'scenario-lab' }}
+    defaults:
+      run:
+        working-directory: infra/scenario-lab
+    env:
+      ARM_USE_AZUREAD: "true"
+      ARM_SUBSCRIPTION_ID: ${{ vars.ARM_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      STATE_RESOURCE_GROUP: ${{ vars.STATE_RESOURCE_GROUP }}
+      STATE_STORAGE_ACCOUNT: ${{ vars.STATE_STORAGE_ACCOUNT }}
+      TF_VAR_region: ${{ vars.AZURE_REGION }}
+      TF_VAR_region_short: ${{ vars.AZURE_REGION_SHORT }}
+      TF_VAR_expires_at_utc: ${{ inputs.expires_at_utc }}
+      TF_VAR_runner_vnet: >-
+        {"id":"${{ vars.OPS_VNET_ID }}","name":"${{ vars.OPS_VNET_NAME }}","resource_group_name":"${{ vars.OPS_RESOURCE_GROUP_NAME }}"}
+      TF_VAR_operator_access: >-
+        ${{ inputs.enable_vpn_operator_access && format('{{"principal_id":"{0}","vnet_id":"{1}","vnet_name":"{2}","vnet_resource_group_name":"{3}"}}', vars.SCENARIO_LAB_OPERATOR_PRINCIPAL_ID, vars.DEV_ACCESS_VNET_ID, vars.DEV_ACCESS_VNET_NAME, vars.DEV_ACCESS_RESOURCE_GROUP_NAME) || 'null' }}
+      TF_VAR_admin_ssh_public_key: ${{ vars.SCENARIO_LAB_SSH_PUBLIC_KEY }}
+      TF_VAR_vm_image_version: ${{ vars.SCENARIO_LAB_VM_IMAGE_VERSION }}
+      TF_VAR_azure_openai_model_family: ${{ vars.SCENARIO_LAB_AOAI_MODEL_FAMILY || 'gpt-4.1-nano' }}
+      TF_VAR_azure_openai_deployment_sku: ${{ vars.SCENARIO_LAB_AOAI_DEPLOYMENT_SKU || 'GlobalStandard' }}
+      SCENARIO_LAB_BACKEND_IMAGE: ${{ vars.SCENARIO_LAB_BACKEND_IMAGE }}
+      SCENARIO_LAB_CHAOS_MESH_CHART_VERSION: ${{ vars.SCENARIO_LAB_CHAOS_MESH_CHART_VERSION }}
+      SCENARIO_LAB_APPROVAL_REF: ${{ inputs.approval_ref }}
+      SCENARIO_LAB_CONFIRM_ENFORCE: ${{ inputs.run_reference_sweep && 'true' || 'false' }}
+
+    steps:
+      - name: Verify protected workflow source
+        working-directory: ${{ runner.temp }}
+        env:
+          TARGET_COMMIT_SHA: ${{ inputs.commit_sha }}
+          GITHUB_TOKEN: ${{ github.token }}
+          PROTECTED_ORIGIN_URL: ${{ github.server_url }}/${{ github.repository }}.git
+          PROTECTED_WORKFLOW_PATH: .github/workflows/sre-demo-lab.yml
+        run: |
+          set -euo pipefail
+          [[ "$TARGET_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "commit_sha must be a lowercase 40-character git SHA." >&2
+            exit 1
+          }
+          guard_repo="$RUNNER_TEMP/fdai-sre-lab-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.git"
+          rm -rf -- "$guard_repo"
+          git init --bare "$guard_repo" >/dev/null
+          trap 'rm -rf -- "$guard_repo"' EXIT
+          auth_header="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
+          GIT_CONFIG_COUNT=1 \
+            GIT_CONFIG_KEY_0=http.extraheader \
+            GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth_header" \
+            git -C "$guard_repo" fetch --force --no-tags \
+              "$PROTECTED_ORIGIN_URL" \
+              "+refs/heads/main:refs/remotes/origin/main" "$TARGET_COMMIT_SHA"
+          unset auth_header
+          git -C "$guard_repo" merge-base --is-ancestor "$TARGET_COMMIT_SHA" \
+            refs/remotes/origin/main || {
+            echo "commit_sha must be an ancestor of protected origin/main." >&2
+            exit 1
+          }
+          git -C "$guard_repo" diff --quiet \
+            "$TARGET_COMMIT_SHA:$PROTECTED_WORKFLOW_PATH" \
+            "refs/remotes/origin/main:$PROTECTED_WORKFLOW_PATH" || {
+            echo "scenario-lab workflow controls differ from protected origin/main." >&2
+            exit 1
+          }
+
+      - name: Checkout exact protected source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+
+      - name: Validate request and runner prerequisites
+        working-directory: ${{ github.workspace }}
+        env:
+          REQUESTED_ACTION: ${{ inputs.action }}
+          RUN_REFERENCE_SWEEP: ${{ inputs.run_reference_sweep }}
+          ENABLE_VPN_OPERATOR_ACCESS: ${{ inputs.enable_vpn_operator_access }}
+          CONFIRM_DESTROY: ${{ inputs.confirm_destroy }}
+        run: |
+          set -euo pipefail
+          for required_name in \
+            ARM_SUBSCRIPTION_ID ARM_TENANT_ID STATE_RESOURCE_GROUP \
+            STATE_STORAGE_ACCOUNT TF_VAR_region TF_VAR_region_short \
+            TF_VAR_admin_ssh_public_key TF_VAR_vm_image_version \
+            SCENARIO_LAB_BACKEND_IMAGE SCENARIO_LAB_CHAOS_MESH_CHART_VERSION; do
+            [[ -n "${!required_name:-}" ]] || {
+              echo "required scenario-lab setting is empty: $required_name" >&2
+              exit 1
+            }
+          done
+          [[ "$SCENARIO_LAB_BACKEND_IMAGE" =~ @sha256:[0-9a-f]{64}$ ]] || {
+            echo "SCENARIO_LAB_BACKEND_IMAGE must be pinned by sha256 digest." >&2
+            exit 1
+          }
+          [[ "$SCENARIO_LAB_CHAOS_MESH_CHART_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo "SCENARIO_LAB_CHAOS_MESH_CHART_VERSION must be exact." >&2
+            exit 1
+          }
+          if [[ "$RUN_REFERENCE_SWEEP" == "true" ]]; then
+            [[ "$REQUESTED_ACTION" == "apply" ]] || {
+              echo "run_reference_sweep is supported only with action=apply." >&2
+              exit 1
+            }
+            [[ -n "$SCENARIO_LAB_APPROVAL_REF" ]] || {
+              echo "approval_ref is required for a live sweep." >&2
+              exit 1
+            }
+          fi
+          if [[ "$ENABLE_VPN_OPERATOR_ACCESS" == "true" ]]; then
+            jq -e '
+              type == "object" and
+              all(.principal_id, .vnet_id, .vnet_name, .vnet_resource_group_name; type == "string" and length > 0)
+            ' <<<"$TF_VAR_operator_access" >/dev/null || {
+              echo "VPN operator access requires the operator principal and complete dev-access VNet variables." >&2
+              exit 1
+            }
+          fi
+          if [[ "$REQUESTED_ACTION" == "destroy" && "$CONFIRM_DESTROY" != "destroy-sre-demo-lab" ]]; then
+            echo "destroy requires the exact confirm_destroy value." >&2
+            exit 1
+          fi
+          for command_name in az helm jq kubectl terraform; do
+            command -v "$command_name" >/dev/null 2>&1 || {
+              echo "required runner command is unavailable: $command_name" >&2
+              exit 1
+            }
+          done
+
+      - name: Install locked Python environment
+        if: inputs.action == 'apply' && inputs.run_reference_sweep
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+
+      - name: Sync scenario runner dependencies
+        if: inputs.action == 'apply' && inputs.run_reference_sweep
+        working-directory: ${{ github.workspace }}
+        run: uv sync --all-packages --extra scenario-lab --frozen
+
+      - name: Azure login with runner managed identity
+        run: az login --identity --allow-no-subscriptions --only-show-errors
+
+      - name: Verify exact Azure context
+        working-directory: ${{ github.workspace }}
+        run: >-
+          bash scripts/deployment/azure/verify-azure-context.sh
+          "$ARM_SUBSCRIPTION_ID" "$ARM_TENANT_ID"
+
+      - name: Initialize private remote state
+        run: |
+          set -euo pipefail
+          cp backend.azurerm.tf.example backend.tf
+          terraform init -input=false -lockfile=readonly \
+            -backend-config="resource_group_name=$STATE_RESOURCE_GROUP" \
+            -backend-config="storage_account_name=$STATE_STORAGE_ACCOUNT" \
+            -backend-config="container_name=tfstate" \
+            -backend-config="key=scenario-lab/fdai-sre-lab.tfstate" \
+            -backend-config="use_azuread_auth=true"
+
+      - name: Validate Terraform
+        run: |
+          set -euo pipefail
+          terraform fmt -check -recursive
+          terraform validate
+
+      - name: Build bounded plan
+        env:
+          REQUESTED_ACTION: ${{ inputs.action }}
+        run: |
+          set -euo pipefail
+          plan_file="$RUNNER_TEMP/sre-demo-lab.tfplan"
+          if [[ "$REQUESTED_ACTION" == "destroy" ]]; then
+            terraform plan -destroy -input=false -lock-timeout=5m -out="$plan_file"
+          else
+            terraform plan -input=false -lock-timeout=5m -out="$plan_file"
+          fi
+          terraform show -json "$plan_file" >"$RUNNER_TEMP/sre-demo-lab-plan.json"
+          create_count="$(jq '[.resource_changes[]? | select(.change.actions == ["create"])] | length' "$RUNNER_TEMP/sre-demo-lab-plan.json")"
+          update_count="$(jq '[.resource_changes[]? | select(.change.actions == ["update"])] | length' "$RUNNER_TEMP/sre-demo-lab-plan.json")"
+          delete_count="$(jq '[.resource_changes[]? | select(.change.actions | index("delete"))] | length' "$RUNNER_TEMP/sre-demo-lab-plan.json")"
+          printf 'Scenario lab plan: %s create, %s update, %s delete or replace.\n' \
+            "$create_count" "$update_count" "$delete_count"
+          if [[ "$REQUESTED_ACTION" == "apply" && "$delete_count" -ne 0 ]]; then
+            echo "apply refuses delete or replacement actions; use plan for review, then explicit destroy." >&2
+            exit 1
+          fi
+
+      - name: Apply exact plan
+        if: inputs.action == 'apply'
+        run: terraform apply -input=false -auto-approve "$RUNNER_TEMP/sre-demo-lab.tfplan"
+
+      - name: Configure private AKS test substrate
+        if: inputs.action == 'apply'
+        id: prepare
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          output_dir="$RUNNER_TEMP/sre-demo-lab-runtime"
+          bash scripts/deployment/scenario-lab/prepare-runner.sh "$output_dir"
+          environment_file="$output_dir/enforce.env"
+          [[ -f "$environment_file" ]] || {
+            echo "scenario-lab environment preparation did not produce its output file." >&2
+            exit 1
+          }
+          printf 'environment_file=%s\n' "$environment_file" >>"$GITHUB_OUTPUT"
+
+      - name: Run approved reference sweep
+        if: inputs.action == 'apply' && inputs.run_reference_sweep
+        working-directory: ${{ github.workspace }}
+        run: >-
+          bash scripts/deployment/scenario-lab/run-reference-sweep.sh
+          "${{ steps.prepare.outputs.environment_file }}"
+
+      - name: Destroy exact lab state
+        if: inputs.action == 'destroy'
+        run: terraform apply -input=false -auto-approve "$RUNNER_TEMP/sre-demo-lab.tfplan"
+
+      - name: Clean runner artifacts
+        if: always()
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          runtime_dir="$RUNNER_TEMP/sre-demo-lab-runtime"
+          if [[ -d "$runtime_dir" ]]; then
+            bash scripts/deployment/scenario-lab/cleanup-runner.sh "$runtime_dir"
+          fi
+          for artifact in \
+            "$RUNNER_TEMP/sre-demo-lab.tfplan" \
+            "$RUNNER_TEMP/sre-demo-lab-plan.json"; do
+            if [[ -f "$artifact" ]]; then
+              shred --force --remove "$artifact"
+            fi
+          done

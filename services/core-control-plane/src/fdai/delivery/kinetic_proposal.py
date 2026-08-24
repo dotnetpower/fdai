@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 from collections.abc import Mapping
 from datetime import datetime
 from typing import Any
@@ -18,6 +19,7 @@ from fdai.core.operational_planning import (
 from fdai.shared.providers.state_store import StateStore
 
 _OPERATIONAL_PLAN_ADAPTER = TypeAdapter(OperationalPlan)
+_OPERATIONAL_PLAN_ID = re.compile(r"^operational-plan:[a-f0-9]{64}$")
 
 
 class KineticActionProposalConflictError(RuntimeError):
@@ -143,6 +145,21 @@ class StateStoreKineticActionProposalStore:
         if proposal.correlation_id != correlation_id:
             raise RuntimeError("stored kinetic proposal correlation does not match its index")
         return proposal
+
+    async def resolve_plan(
+        self,
+        operational_plan_id: str,
+    ) -> tuple[OperationalPlan, KineticActionProposal] | None:
+        """Resolve the exact durable plan and proposal by canonical plan identity."""
+
+        if _OPERATIONAL_PLAN_ID.fullmatch(operational_plan_id) is None:
+            raise ValueError("operational plan id MUST be canonical")
+        raw = await self._store.read_state(self._key(operational_plan_id))
+        if raw is None:
+            return None
+        operational_plan = _OPERATIONAL_PLAN_ADAPTER.validate_python(raw.get("operational_plan"))
+        proposal = self._parse(raw, operational_plan)
+        return operational_plan, proposal
 
     async def _claim_correlation_index(
         self,

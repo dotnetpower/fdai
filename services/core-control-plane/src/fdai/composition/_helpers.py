@@ -41,10 +41,15 @@ from ..core.ontology_platform import (
     ObservationContextVerifier,
     ReconciliationArtifactResolver,
 )
+from ..core.operational_context import OperationalEvidenceSource
 from ..core.quality_gate.critic import CriticModel
 from ..core.quality_gate.debate import DebateOrchestrator
 from ..core.quality_gate.gate import CrossCheckModel
 from ..core.quality_gate.judge import JudgeModel
+from ..core.quality_gate.promotion import (
+    RubricPromotionReceiptSource,
+    RubricPromotionReceiptVerifier,
+)
 from ..core.quality_gate.rubric import RubricEvaluator
 from ..core.rca import (
     CausalHypothesisProjection,
@@ -253,6 +258,7 @@ class Container:
     browser_evidence_capture_service: BrowserEvidenceCaptureService | None = None
     browser_evidence_console_tool: BrowserEvidenceConsoleTool | None = None
     browser_evidence_workflow_dispatcher: BrowserEvidenceWorkflowStepDispatcher | None = None
+    operational_evidence_source: OperationalEvidenceSource | None = None
     execution_authorization_evaluator: ExecutionAuthorizationEvaluator | None = None
     execution_access_grant_sink: ExecutionAccessGrantSink | None = None
     execution_authorization_required: bool = False
@@ -276,6 +282,8 @@ class Container:
     ) = None
     executed_action_observation_source: ExecutedActionObservationSource | None = None
     executed_action_observation_collector: ExecutedActionObservationCollector | None = None
+    rubric_promotion_receipt_source: RubricPromotionReceiptSource | None = None
+    rubric_promotion_receipt_verifier: RubricPromotionReceiptVerifier | None = None
     operational_promotion_receipt_verifier: OperationalPromotionReceiptVerifier | None = None
     persisted_promotion_authority_verifier: PersistedPromotionAuthorityVerifier | None = None
 
@@ -341,6 +349,12 @@ class Container:
             and self.reconciliation_observation_verifier is None
         ):
             raise ValueError("Container executed-Action observation collector requires a verifier")
+        if (self.rubric_promotion_receipt_source is None) != (
+            self.rubric_promotion_receipt_verifier is None
+        ):
+            raise ValueError(
+                "Container rubric promotion receipt source and verifier MUST be bound together"
+            )
         if self.context_selection_policy_authority is None:
             object.__setattr__(
                 self,

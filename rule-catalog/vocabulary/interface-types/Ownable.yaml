@@ -1,0 +1,14 @@
+schema_version: "1.0.0"
+name: Ownable
+version: "1.0.0"
+description: A workload with an explicit accountable ownership relationship.
+properties: {}
+required_links: [workload_owned_by]
+supported_actions: []
+extends: [Identifiable]
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: interface-type:Ownable@1.0.0
+  content_hash: sha256:b6bf6fa96a380d4bb80bd23808ad2fb00f50a288ffd07d50db783b607afe5a33
+  license: MIT
+  retrieved_at: "2026-08-24T00:00:00Z"

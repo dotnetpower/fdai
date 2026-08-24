@@ -1,0 +1,19 @@
+schema_version: "1.0.0"
+name: CostBearing
+version: "1.0.0"
+description: A cost objective with an exact currency, target, period, source, and freshness bound.
+properties:
+  currency: {type: string, required: true}
+  target: {type: number, required: true}
+  period_seconds: {type: integer, required: true}
+  measurement_source_ref: {type: string, required: true}
+  freshness_seconds: {type: integer, required: true}
+required_links: [service_has_cost_objective]
+supported_actions: []
+extends: [Identifiable]
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: interface-type:CostBearing@1.0.0
+  content_hash: sha256:53f86234ed5e160345cc33ce7c945191dfe55c7362eb1532032bed103526be59
+  license: MIT
+  retrieved_at: "2026-08-24T00:00:00Z"

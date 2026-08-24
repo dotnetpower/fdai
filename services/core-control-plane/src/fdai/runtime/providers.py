@@ -22,8 +22,14 @@ _LOGGER = logging.getLogger("fdai.startup")
 _DURABLE_RUNTIME_ENVS = frozenset({"staging", "prod"})
 
 
-def _require_durable_backend(*, env_var: str, backend: str) -> None:
-    runtime_env = os.environ.get("RUNTIME_ENV", "").strip().lower()
+def _require_durable_backend(
+    *,
+    env_var: str,
+    backend: str,
+    environment: Mapping[str, str] | None = None,
+) -> None:
+    values = environment if environment is not None else os.environ
+    runtime_env = values.get("RUNTIME_ENV", "").strip().lower()
     if runtime_env in _DURABLE_RUNTIME_ENVS:
         raise RuntimeError(
             f"RUNTIME_ENV={runtime_env!r} requires {env_var} for the durable {backend} backend"
@@ -92,7 +98,7 @@ def _build_ontology_instance_store(
     )
 
 
-def _build_resource_lock() -> ResourceLock:
+def _build_resource_lock(environment: Mapping[str, str] | None = None) -> ResourceLock:
     """Select the per-resource lock backend for this process.
 
     ``FDAI_RESOURCE_LOCK_DSN`` (falling back to ``FDAI_STATE_STORE_DSN``)
@@ -102,14 +108,16 @@ def _build_resource_lock() -> ResourceLock:
     single replica). The ``ResourceLock`` Protocol is the contract, so
     the executor neither knows nor cares which backend is active.
     """
+    values = environment if environment is not None else os.environ
     dsn = (
-        os.environ.get("FDAI_RESOURCE_LOCK_DSN", "").strip()
-        or os.environ.get("FDAI_STATE_STORE_DSN", "").strip()
+        values.get("FDAI_RESOURCE_LOCK_DSN", "").strip()
+        or values.get("FDAI_STATE_STORE_DSN", "").strip()
     )
     if not dsn:
         _require_durable_backend(
             env_var="FDAI_RESOURCE_LOCK_DSN or FDAI_STATE_STORE_DSN",
             backend="resource lock",
+            environment=values,
         )
         _LOGGER.info("resource_lock_backend", extra={"backend": "in-memory"})
         return ResourceLockManager()
@@ -119,7 +127,7 @@ def _build_resource_lock() -> ResourceLock:
         PostgresAdvisoryResourceLockConfig,
     )
 
-    timeout_raw = os.environ.get("FDAI_RESOURCE_LOCK_TIMEOUT_MS", "").strip()
+    timeout_raw = values.get("FDAI_RESOURCE_LOCK_TIMEOUT_MS", "").strip()
     try:
         timeout_ms = int(timeout_raw) if timeout_raw else 30_000
     except ValueError as exc:

@@ -1,0 +1,23 @@
+region         = "<azure-region>"
+region_short   = "<region-token>"
+expires_at_utc = "<yyyy-mm-ddThh:mm:ssZ>"
+
+runner_vnet = {
+  id                  = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/<ops-rg>/providers/Microsoft.Network/virtualNetworks/<ops-vnet>"
+  name                = "<ops-vnet>"
+  resource_group_name = "<ops-rg>"
+}
+
+# Optional. Leave null for runner-only testing.
+operator_access = {
+  principal_id             = "00000000-0000-0000-0000-000000000000"
+  vnet_id                  = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/<dev-access-rg>/providers/Microsoft.Network/virtualNetworks/<dev-access-vnet>"
+  vnet_name                = "<dev-access-vnet>"
+  vnet_resource_group_name = "<dev-access-rg>"
+}
+
+admin_ssh_public_key = "ssh-ed25519 <public-key>"
+vm_image_version     = "<exact-region-available-version>"
+
+azure_openai_model_family   = "<region-available-model-family>"
+azure_openai_deployment_sku = "<supported-deployment-sku>"

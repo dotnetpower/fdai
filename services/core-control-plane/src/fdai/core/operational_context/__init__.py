@@ -20,6 +20,13 @@ from .evidence_bundle_models import (
 )
 from .evidence_bundle_prompt import render_untrusted_document_evidence
 from .evidence_bundle_sources import EvidenceTemporalScope, VerifiedEvidenceSourceReceipt
+from .evidence_read import (
+    OperationalEvidenceMaterial,
+    OperationalEvidenceReadRequest,
+    OperationalEvidenceReadResult,
+    OperationalEvidenceReadService,
+    OperationalEvidenceSource,
+)
 from .materializer import OperationalContextMaterializer
 from .models import (
     OperationalContextEvidenceLink,
@@ -53,6 +60,11 @@ __all__ = [
     "OperationalContextEvidencePath",
     "OperationalContextSnapshot",
     "OperationalEvidenceBundle",
+    "OperationalEvidenceMaterial",
+    "OperationalEvidenceReadRequest",
+    "OperationalEvidenceReadResult",
+    "OperationalEvidenceReadService",
+    "OperationalEvidenceSource",
     "OperatingModelProjectionResult",
     "OperatingModelProjector",
     "OperatingScopeCoverage",

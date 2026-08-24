@@ -1,0 +1,16 @@
+schema_version: "1.0.0"
+name: Operable
+version: "1.0.0"
+description: An owned workload with a declared runtime kind and governed service operations.
+properties:
+  workload_kind: {type: string, required: true}
+  source_ref: {type: string, required: true}
+required_links: [workload_runs_on]
+supported_actions: [ops.restart-service, ops.scale-in, ops.scale-out]
+extends: [Ownable]
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: interface-type:Operable@1.0.0
+  content_hash: sha256:eefc7dcc6da458ddce1d2357401800baa64b4501afe880e9f7fca3761b84cb54
+  license: MIT
+  retrieved_at: "2026-08-24T00:00:00Z"

@@ -71,6 +71,10 @@ Operations reuses existing objects and links:
 Do not add a generic `WorkItem`, `OperationRequest`, duplicate `Approval`, universal mutable status
 table, or new approval topic. Each source keeps its own schema, revision, lifecycle, and owner.
 
+The Ontology instance workspace is a read-only operational view. Its graph-first layout, selected
+resource and legend overlays, and Inspector-owned collapse state are presentation controls only;
+they do not create links, change query scope, or grant mutation authority.
+
 For a browser-visible pending access request, an authenticated GET-only stream filters the durable
 records by the principal's App Roles. When the tab and Command Deck are idle, the console opens a
 request-scoped conversation with the capability, scope, and expiry. Active work, an unsent draft,

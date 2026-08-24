@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: d808717010dd76023e9b65bf0ca04aee708f6953
+translation_source_sha: 967cbd960887b4d3bd3466b7898e43de9daa1069
 translation_revised: 2026-08-24
 ---
 # 프로젝트 구조
@@ -162,6 +162,10 @@ translation_revised: 2026-08-24
 README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이트, 무결성 도구, 거버넌스 검사,
 카탈로그 유틸리티, 배포 도우미, 일반 자동화는 각각 전용 디렉터리를 사용합니다.
 소유권 맵과 배치 규칙은 [scripts/README.md](../../../scripts/README.md)를 참조하세요.
+
+`infra/scenario-lab/`은 선택형 배포 검증 루트이며 여섯 번째 런타임 서비스가 아닙니다. 실행기
+스크립트는 `scripts/deployment/scenario-lab/` 아래에 있고, 루트 `scenario-lab` Python extra에는
+범위가 제한된 검증 실행에 필요한 드라이버 의존성만 포함됩니다.
 
 ## 구조 CI 게이트
 

@@ -53,7 +53,7 @@
         },
         "value_type": {
           "type": "string",
-          "enum": ["string", "integer", "number", "boolean", "datetime"]
+          "enum": ["string", "integer", "number", "boolean", "datetime", "object", "array"]
         },
         "canonical_unit": {
           "type": "string",
@@ -85,7 +85,8 @@
             "integer.strict",
             "number.decimal",
             "boolean.strict",
-            "datetime.rfc3339_utc"
+            "datetime.rfc3339_utc",
+            "json.canonical"
           ]
         },
         "authority": {
@@ -204,6 +205,19 @@
             "properties": {
               "normalization_rule": {"const": "datetime.rfc3339_utc"},
               "enum_values": {"items": {"type": "string"}}
+            },
+            "not": {"anyOf": [{"required": ["canonical_unit"]}, {"required": ["range"]}]}
+          }
+        },
+        {
+          "if": {
+            "properties": {"value_type": {"enum": ["object", "array"]}},
+            "required": ["value_type"]
+          },
+          "then": {
+            "properties": {
+              "normalization_rule": {"const": "json.canonical"},
+              "enum_values": {"maxItems": 0}
             },
             "not": {"anyOf": [{"required": ["canonical_unit"]}, {"required": ["range"]}]}
           }

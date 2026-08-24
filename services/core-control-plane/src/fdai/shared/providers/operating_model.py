@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
@@ -29,6 +31,21 @@ class OperatingModelSnapshot:
             raise ValueError("operating model snapshot link identities MUST be unique")
 
 
+@dataclass(frozen=True, slots=True)
+class OperatingModelUpdate:
+    """One ordered complete snapshot delivered by a resumable provider."""
+
+    cursor: str
+    sequence: int
+    snapshot: OperatingModelSnapshot
+
+    def __post_init__(self) -> None:
+        if not self.cursor.strip() or len(self.cursor) > 256:
+            raise ValueError("OperatingModelUpdate.cursor MUST be 1..256 characters")
+        if isinstance(self.sequence, bool) or self.sequence < 0:
+            raise ValueError("OperatingModelUpdate.sequence MUST be a non-negative integer")
+
+
 @runtime_checkable
 class OperatingModelProvider(Protocol):
     async def load(self) -> OperatingModelSnapshot:
@@ -36,4 +53,19 @@ class OperatingModelProvider(Protocol):
         ...
 
 
-__all__ = ["OperatingModelProvider", "OperatingModelSnapshot"]
+@runtime_checkable
+class ContinuousOperatingModelProvider(Protocol):
+    def updates(
+        self,
+        *,
+        after_cursor: str | None,
+        stop: asyncio.Event,
+    ) -> AsyncIterator[OperatingModelUpdate]: ...
+
+
+__all__ = [
+    "ContinuousOperatingModelProvider",
+    "OperatingModelProvider",
+    "OperatingModelSnapshot",
+    "OperatingModelUpdate",
+]

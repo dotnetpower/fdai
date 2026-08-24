@@ -59,6 +59,10 @@ from fdai.core.ontology_platform.declaration_queries import (
     ONTOLOGY_DECLARATION_FUNCTION_NAME,
     ontology_declaration_function,
 )
+from fdai.core.ontology_platform.graph_query_refresh import (
+    BoundedGraphLiveRefreshProvider,
+    SecuredGraphEvidenceQueryRefresher,
+)
 from fdai.core.ontology_platform.incident_queries import (
     INCIDENT_EVIDENCE_FUNCTION_NAME,
     IncidentEvidenceReader,
@@ -209,6 +213,8 @@ def build_semantic_query_runtime(
     inventory_query_language: InventoryQueryLanguageRegistry | None = None,
     purpose: str = "operations-review",
     now: Callable[[], datetime] | None = None,
+    graph_live_refresh_provider: BoundedGraphLiveRefreshProvider | None = None,
+    resource_freshness_seconds: int | None = None,
 ) -> SemanticConversationRuntime:
     """Build a read-only runtime over one exact catalog release and instance store."""
 
@@ -249,6 +255,10 @@ def build_semantic_query_runtime(
         max_as_of_skew=timedelta(seconds=5),
     )
     receipt_authority = SecuredQueryReceiptAuthority()
+    graph_refresher = SecuredGraphEvidenceQueryRefresher(
+        gateway=gateway,
+        live_provider=graph_live_refresh_provider,
+    )
     function_registry = OntologyFunctionRegistry(release=ontology_release)
     declarations = {item.name: item for item in function_types}
     bound_function_names: set[str] = set()
@@ -543,6 +553,7 @@ def build_semantic_query_runtime(
             tuple(sorted(metric_registry.definitions)) if metric_registry is not None else ()
         ),
         inventory_query_language=inventory_query_language,
+        resource_freshness_seconds=resource_freshness_seconds,
     )
 
     def executor_for(principal: Principal) -> OntologyQueryPlanExecutor:
@@ -557,6 +568,7 @@ def build_semantic_query_runtime(
                     caller_role=role,
                     purposes=(purpose,),
                     receipt_authority=receipt_authority,
+                    graph_refresher=graph_refresher,
                 ),
                 QueryNodeKind.RELATIONSHIP_TRAVERSAL: SecuredRelationshipTraversalNodeHandler(
                     gateway,
@@ -612,6 +624,8 @@ def compose_azure_semantic_query_runtime(
     resource_health_reader: ResourceHealthCollectionReader | None = None,
     resource_event_reader: ResourceEventCollectionReader | None = None,
     service_health_reader: ServiceHealthReader | None = None,
+    graph_live_refresh_provider: BoundedGraphLiveRefreshProvider | None = None,
+    resource_freshness_seconds: int | None = None,
 ) -> SemanticQueryRuntimeComposition:
     """Compose Azure semantic querying over optional exact Rule retrieval."""
 
@@ -693,6 +707,8 @@ def compose_azure_semantic_query_runtime(
             resource_health_reader=resource_health_reader,
             resource_event_reader=resource_event_reader,
             service_health_reader=service_health_reader,
+            graph_live_refresh_provider=graph_live_refresh_provider,
+            resource_freshness_seconds=resource_freshness_seconds,
             property_values=_resource_type_property_values(catalog_root),
             inventory_query_language=_inventory_query_language(catalog_root),
             purpose=purpose,

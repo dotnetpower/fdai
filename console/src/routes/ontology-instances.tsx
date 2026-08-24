@@ -161,17 +161,7 @@ export function OntologyInstancesView({ client }: Props) {
   const autocompleteVisible = autocompleteOpen && autocompleteSuggestions.length > 0;
 
   return (
-    <section class="ontology-instance-explorer" aria-labelledby="ontology-instances-title">
-      <header class="ontology-instance-header">
-        <div>
-          <h3 id="ontology-instances-title">{t("ontology.instances.title")}</h3>
-          <p>{t("ontology.instances.description")}</p>
-        </div>
-        <div class="ontology-instance-authority">
-          <strong>{t("ontology.instances.readOnly")}</strong>
-          <span>{t("ontology.instances.authorityHint")}</span>
-        </div>
-      </header>
+    <section class="ontology-instance-explorer" aria-label={t("ontology.instances.title")}>
       <AsyncBoundary state={directory} resourceLabel={t("ontology.instances.inventoryLoading")}>
         {() => (
           <>
@@ -266,9 +256,12 @@ export function OntologyInstancesView({ client }: Props) {
                   ))}
                 </select>
               </label>
-              <p>{directory.status === "ready" && !directory.data.complete
-                ? t("ontology.instances.resultBoundTruncated", { count: formatNumber(options.length) })
-                : t("ontology.instances.resultBound", { count: formatNumber(options.length) })}</p>
+              <div class="ontology-instance-toolbar-status">
+                <strong>{t("ontology.instances.readOnly")}</strong>
+                <span>{directory.status === "ready" && !directory.data.complete
+                  ? t("ontology.instances.resultBoundTruncated", { count: formatNumber(options.length) })
+                  : t("ontology.instances.resultBound", { count: formatNumber(options.length) })}</span>
+              </div>
             </form>
             {directory.status === "ready" && options.length === 0 ? (
               <UnavailableState message={t("ontology.instances.noSearchResults")} />
@@ -359,37 +352,32 @@ function OntologyInstanceWorkspace({
   return (
     <div class={`ontology-instance-workbench${inspectorOpen ? "" : " is-inspector-collapsed"}`}>
       <div class="ontology-instance-map-pane">
-        <div class="ontology-instance-map-summary">
-          <div>
-            <span>{t("ontology.instances.selectedResource")}</span>
-            <strong>{root.name ?? root.resource_type}</strong>
-          </div>
-          <dl>
-            <div><dt>{t("ontology.instances.resources")}</dt><dd>{formatNumber(data.resources.length)}</dd></div>
-            <div><dt>{t("ontology.instances.relationships")}</dt><dd>{formatNumber(data.links.length)}</dd></div>
-            <div><dt>{t("ontology.instances.events")}</dt><dd>{formatNumber(data.timeline.items.length)}</dd></div>
-          </dl>
-          <Tooltip content={t(inspectorOpen
-            ? "ontology.instances.hideInspector"
-            : "ontology.instances.showInspector")}>
-            <button
-              type="button"
-              class="ontology-instance-inspector-toggle"
-              aria-label={t(inspectorOpen
-                ? "ontology.instances.hideInspector"
-                : "ontology.instances.showInspector")}
-              aria-expanded={inspectorOpen}
-              aria-controls="ontology-instance-inspector"
-              onClick={() => setInspectorOpen((current) => !current)}
-            >
-              <span
-                class={`ontology-instance-panel-icon${inspectorOpen ? " is-open" : ""}`}
-                aria-hidden="true"
-              />
-            </button>
-          </Tooltip>
-        </div>
         <div class="ontology-instance-map-shell">
+          <div class="ontology-instance-map-summary">
+            <div>
+              <span>{t("ontology.instances.selectedResource")}</span>
+              <strong>{root.name ?? root.resource_type}</strong>
+            </div>
+            <dl>
+              <div><dt>{t("ontology.instances.resources")}</dt><dd>{formatNumber(data.resources.length)}</dd></div>
+              <div><dt>{t("ontology.instances.relationships")}</dt><dd>{formatNumber(data.links.length)}</dd></div>
+              <div><dt>{t("ontology.instances.events")}</dt><dd>{formatNumber(data.timeline.items.length)}</dd></div>
+            </dl>
+          </div>
+          {!inspectorOpen ? (
+            <Tooltip content={t("ontology.instances.showInspector")}>
+              <button
+                type="button"
+                class="ontology-instance-inspector-toggle is-restore"
+                aria-label={t("ontology.instances.showInspector")}
+                aria-expanded={false}
+                aria-controls="ontology-instance-inspector"
+                onClick={() => setInspectorOpen(true)}
+              >
+                <span class="ontology-instance-panel-icon" aria-hidden="true" />
+              </button>
+            </Tooltip>
+          ) : null}
           <p id="ontology-instance-map-description" class="sr-only">
             {t("ontology.instances.mapDescription", {
               resources: formatNumber(data.resources.length),
@@ -409,6 +397,7 @@ function OntologyInstanceWorkspace({
         root={root}
         onSelect={onSelect}
         hidden={!inspectorOpen}
+        onToggle={() => setInspectorOpen(false)}
       />
     </div>
   );

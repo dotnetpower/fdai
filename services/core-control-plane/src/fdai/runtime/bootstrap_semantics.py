@@ -19,7 +19,19 @@ from fdai.composition import (
 )
 from fdai.core.control_loop import ControlLoop
 from fdai.core.ontology_platform.incident_queries import IncidentEvidenceReader
+from fdai.core.ontology_platform.inventory_projection import (
+    DEFAULT_OBSERVED_STATE_FRESHNESS_CEILING_SECONDS,
+)
+from fdai.core.operational_context import OperationalEvidenceReadService
+from fdai.delivery.inventory_live_evidence import (
+    InventoryGraphLiveRefreshProvider,
+    InventoryLiveEvidenceWriter,
+)
 from fdai.delivery.operational_activity import EventBusOperationalActivityPublisher
+from fdai.delivery.persistence.postgres_inventory_delta import PostgresInventoryDeltaProjector
+from fdai.delivery.persistence.postgres_inventory_snapshot import (
+    PostgresInventorySnapshotStoreConfig,
+)
 from fdai.runtime.bootstrap_bindings import (
     RuleGenerationRuntimeBinding,
     build_rule_generation_runtime_binding,
@@ -57,6 +69,44 @@ from fdai.shared.providers.workload_identity import WorkloadIdentity
 _LOGGER = logging.getLogger("fdai.startup")
 
 
+def _semantic_resource_freshness_seconds(environment: Mapping[str, str]) -> int:
+    raw = environment.get("FDAI_SEMANTIC_RESOURCE_FRESHNESS_SECONDS", "").strip()
+    if not raw:
+        return DEFAULT_OBSERVED_STATE_FRESHNESS_CEILING_SECONDS
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise RuntimeError("FDAI_SEMANTIC_RESOURCE_FRESHNESS_SECONDS MUST be an integer") from exc
+    if not 1 <= value <= 86_400:
+        raise RuntimeError("FDAI_SEMANTIC_RESOURCE_FRESHNESS_SECONDS MUST be in [1, 86400]")
+    return value
+
+
+def _graph_live_refresh_provider(
+    *,
+    environment: Mapping[str, str],
+    read_provider: Any,
+) -> InventoryGraphLiveRefreshProvider | None:
+    dsn = (
+        environment.get("FDAI_INVENTORY_DSN", "").strip()
+        or environment.get("FDAI_STATE_STORE_DSN", "").strip()
+    )
+    scope_ref = environment.get("AZURE_SUBSCRIPTION_ID", "").strip()
+    if read_provider is None or not dsn or not scope_ref:
+        return None
+    config = PostgresInventorySnapshotStoreConfig(dsn=dsn)
+    return InventoryGraphLiveRefreshProvider(
+        provider=read_provider,
+        writer=InventoryLiveEvidenceWriter(
+            ingress=PostgresInventoryDeltaProjector(
+                config=config,
+                clock=lambda: datetime.now(tz=UTC),
+            )
+        ),
+        scope_ref=scope_ref,
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class SemanticRuntime:
     """Semantic bindings retained by readiness, tasks, and Pantheon assembly."""
@@ -64,6 +114,7 @@ class SemanticRuntime:
     semantic_turn_binding: Any
     read_investigation_hook: Any
     read_investigation_binding: ReadInvestigationRuntimeBinding | None
+    operational_evidence_read_service: OperationalEvidenceReadService | None
     rule_generation_binding: RuleGenerationRuntimeBinding
     rule_generation_reconciliation: RuleGenerationReconciliation | None
     readiness_specs: tuple[Any, ...]
@@ -141,6 +192,14 @@ async def build_semantic_runtime(
         state_store=state_store,
         saga_audit_chain=runtime_saga.audit_chain,
     )
+    operational_evidence_read_service = (
+        OperationalEvidenceReadService(
+            source=container.operational_evidence_source,
+            clock=lambda: datetime.now(tz=UTC),
+        )
+        if container.operational_evidence_source is not None
+        else None
+    )
     resource_health_reader = _build_resource_health_collection_reader(
         identity=identity,
         http_client=http_client,
@@ -177,6 +236,11 @@ async def build_semantic_runtime(
         resource_health_reader=resource_health_reader,
         resource_event_reader=resource_event_reader,
         service_health_reader=service_health_reader,
+        graph_live_refresh_provider=_graph_live_refresh_provider(
+            environment=environment,
+            read_provider=read_investigation_provider,
+        ),
+        resource_freshness_seconds=_semantic_resource_freshness_seconds(environment),
     )
     semantic_turn_binding = build_semantic_turn_binding(
         state_store=state_store,
@@ -208,6 +272,7 @@ async def build_semantic_runtime(
         semantic_turn_binding=semantic_turn_binding,
         read_investigation_hook=read_investigation_hook,
         read_investigation_binding=read_investigation_binding,
+        operational_evidence_read_service=operational_evidence_read_service,
         rule_generation_binding=rule_generation_binding,
         rule_generation_reconciliation=reconciliation,
         readiness_specs=(*semantic_specs, *catalog_specs),

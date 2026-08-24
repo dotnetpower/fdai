@@ -115,9 +115,9 @@ module "resource_group" {
   tags     = local.tags
 }
 
-# Opt-in delete-protection: a CanNotDelete lock blocks an accidental RG (and
-# thus whole-env) deletion. Default off so a dev tear-down stays a one-liner;
-# set enable_resource_locks = true for staging/prod.
+# Optional delete protection: a CanNotDelete lock blocks resource-group and
+# whole-environment deletion. Standard FDAI profiles keep this disabled so
+# teardown and recreation remain available.
 resource "azurerm_management_lock" "resource_group" {
   count      = var.enable_resource_locks ? 1 : 0
   name       = "lock-${var.workload}${local.full_suffix}"

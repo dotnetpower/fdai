@@ -103,6 +103,11 @@ def load_ontology_catalog(
         probes_root=probes_root,
         link_types=link_types,
     )
+    _validate_interface_references(
+        interface_types=interface_types,
+        link_types=link_types,
+        action_types=action_types,
+    )
     property_semantics_path = vocabulary_root / "property-semantics.yaml"
     property_semantics = (
         load_property_semantic_registry(property_semantics_path)
@@ -132,6 +137,30 @@ def load_ontology_catalog(
         function_types=function_types,
         resource_classes=resource_classes,
     )
+
+
+def _validate_interface_references(
+    *,
+    interface_types: tuple[OntologyInterfaceType, ...],
+    link_types: tuple[OntologyLinkType, ...],
+    action_types: tuple[OntologyActionType, ...],
+) -> None:
+    interface_names = {item.name for item in interface_types}
+    link_names = {item.name for item in link_types}
+    action_names = {item.name for item in action_types}
+    failures: list[str] = []
+    for interface in interface_types:
+        for parent in interface.extends:
+            if parent not in interface_names:
+                failures.append(f"{interface.name} extends unknown InterfaceType {parent!r}")
+        for link in interface.required_links:
+            if link not in link_names:
+                failures.append(f"{interface.name} requires unknown LinkType {link!r}")
+        for action in interface.supported_actions:
+            if action not in action_names:
+                failures.append(f"{interface.name} supports unknown ActionType {action!r}")
+    if failures:
+        raise ValueError("invalid InterfaceType references: " + "; ".join(sorted(failures)))
 
 
 __all__ = ["OntologyCatalog", "load_ontology_catalog"]

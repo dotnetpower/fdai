@@ -76,13 +76,13 @@ variable "network_acls_subnet_ids" {
 }
 
 variable "purge_protection_enabled" {
-  description = "Prod default should be true. Kept optional so a dev tear-down can remove KV without waiting for the 90-day purge window."
+  description = "Keep false when Terraform must purge a destroyed vault and immediately reuse its name."
   type        = bool
   default     = false
 }
 
 variable "soft_delete_retention_days" {
-  description = "Days a deleted secret remains recoverable. Azure minimum 7 (dev), maximum 90 (prod)."
+  description = "Days a deleted vault or object remains recoverable before purge. FDAI uses the Azure minimum of 7."
   type        = number
   default     = 7
 
@@ -91,4 +91,3 @@ variable "soft_delete_retention_days" {
     error_message = "soft_delete_retention_days must be between 7 and 90."
   }
 }
-

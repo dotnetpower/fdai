@@ -20,6 +20,7 @@ pushd "${INFRA_DIR}" >/dev/null
 dns_resolver_ip="$(terraform output -raw dns_resolver_inbound_ip)"
 routing_domains_json="$(terraform output -json fdai_private_dns_routing_domains)"
 popd >/dev/null
+extra_routing_domains_json="${FDAI_DEV_ACCESS_EXTRA_DNS_DOMAINS_JSON:-[]}"
 
 route_line="$(ip route get "${dns_resolver_ip}" 2>/dev/null || true)"
 if [[ -z "${route_line}" || "${route_line}" == *" via "* ]]; then
@@ -48,8 +49,13 @@ case "${ACTION}" in
     # sign-in domains (login.microsoftonline.com and the rest) stay on the
     # workstation default resolver, so a catch-all cannot poison them.
     mapfile -t routing_domains < <(
-      printf '%s' "${routing_domains_json}" \
-        | python3 -c 'import json, sys; print("\n".join("~" + name for name in json.load(sys.stdin)))'
+      python3 - "${routing_domains_json}" "${extra_routing_domains_json}" <<'PY'
+import json
+import sys
+
+names = sorted(set(json.loads(sys.argv[1])) | set(json.loads(sys.argv[2])))
+print("\n".join("~" + name for name in names))
+PY
     )
     if [[ ${#routing_domains[@]} -eq 0 ]]; then
       printf 'error: terraform output fdai_private_dns_routing_domains is empty\n' >&2

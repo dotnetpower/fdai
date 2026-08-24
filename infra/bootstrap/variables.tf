@@ -111,7 +111,7 @@ variable "additional_tags" {
 }
 
 variable "enable_state_lock" {
-  description = "Place a CanNotDelete lock on the terraform state storage account so it cannot be accidentally deleted (losing all remote state). Default false for dev tear-down ease; set true for shared/prod ops layers."
+  description = "Optionally place a CanNotDelete lock on the Terraform state storage account. Standard FDAI profiles keep this false so full teardown remains available."
   type        = bool
   default     = false
 }

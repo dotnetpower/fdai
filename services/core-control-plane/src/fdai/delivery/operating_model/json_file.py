@@ -39,13 +39,7 @@ class JsonOperatingModelProvider:
             raise ValueError("operating model file MUST contain bounded canonical JSON") from exc
         if not isinstance(raw, Mapping):
             raise ValueError("operating model document MUST be an object")
-        objects = _array(raw, "objects")
-        links = _array(raw, "links")
-        return OperatingModelSnapshot(
-            source_revision=_required_string(raw, "source_revision"),
-            objects=tuple(_object_record(item) for item in objects),
-            links=tuple(_link_record(item) for item in links),
-        )
+        return operating_model_snapshot_from_mapping(raw)
 
     def _read(self) -> str:
         path = self._config.path
@@ -59,6 +53,20 @@ def _array(value: Mapping[str, object], key: str) -> Sequence[object]:
     if not isinstance(raw, Sequence) or isinstance(raw, str | bytes):
         raise ValueError(f"operating model {key} MUST be an array")
     return raw
+
+
+def operating_model_snapshot_from_mapping(
+    raw: Mapping[str, object],
+) -> OperatingModelSnapshot:
+    """Parse one already bounded JSON mapping into a complete snapshot."""
+
+    objects = _array(raw, "objects")
+    links = _array(raw, "links")
+    return OperatingModelSnapshot(
+        source_revision=_required_string(raw, "source_revision"),
+        objects=tuple(_object_record(item) for item in objects),
+        links=tuple(_link_record(item) for item in links),
+    )
 
 
 def _required_string(value: Mapping[str, object], key: str) -> str:
@@ -95,4 +103,8 @@ def _link_record(raw: object) -> OntologyLinkRecord:
     )
 
 
-__all__ = ["JsonOperatingModelProvider", "JsonOperatingModelProviderConfig"]
+__all__ = [
+    "JsonOperatingModelProvider",
+    "JsonOperatingModelProviderConfig",
+    "operating_model_snapshot_from_mapping",
+]

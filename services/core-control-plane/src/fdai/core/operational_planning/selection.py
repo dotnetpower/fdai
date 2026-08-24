@@ -106,6 +106,8 @@ def build_operational_plan(request: PlanningRequest) -> OperationalPlan:
         assessments=ordered_assessments,
         complete=complete,
         reason=reason,
+        context_cutoff=request.context.cutoff,
+        context_digest=request.context.snapshot_id,
     )
     return replace(plan, plan_id=_operational_plan_id(plan))
 
@@ -133,6 +135,9 @@ def _operational_plan_id(plan: OperationalPlan) -> str:
             for item in plan.assessments
         ],
     }
+    if plan.context_cutoff is not None and plan.context_digest is not None:
+        material["context_cutoff"] = plan.context_cutoff.isoformat()
+        material["context_digest"] = plan.context_digest
     digest = hashlib.sha256(
         json.dumps(material, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()

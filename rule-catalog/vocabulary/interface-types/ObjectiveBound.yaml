@@ -1,0 +1,15 @@
+schema_version: "1.0.0"
+name: ObjectiveBound
+version: "1.0.0"
+description: A recovery plan pinned to one declared recovery objective.
+properties:
+  recovery_objective_ref: {type: string, required: true}
+required_links: []
+supported_actions: []
+extends: [Identifiable]
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: interface-type:ObjectiveBound@1.0.0
+  content_hash: sha256:af686f27abd4d96a72a1f93d936bab65f5c3e0b2c76e1112ffe4c73524716e29
+  license: MIT
+  retrieved_at: "2026-08-24T00:00:00Z"

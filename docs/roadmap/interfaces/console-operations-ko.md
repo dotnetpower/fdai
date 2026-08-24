@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: ae5285f9bb18211e04d5f3b2661b0eca192c9e06
+translation_source_sha: a6cabfc4616ca68cf00e9381b435c66ca561039d
 translation_revised: 2026-08-24
 ---
 
@@ -72,6 +72,10 @@ Operations는 기존 객체와 링크를 재사용합니다.
 
 범용 `WorkItem`, `OperationRequest`, 중복 `Approval`, 범용 변경 가능한 상태 표 또는 새 승인
 토픽을 추가하지 않습니다. 각 출처가 자체 스키마, 개정 번호, 수명 주기, 소유자를 유지합니다.
+
+온톨로지 인스턴스 작업 영역은 읽기 전용 운영 화면입니다. 그래프 우선 레이아웃, 선택된 리소스와
+범례 오버레이, Inspector 소유 접기 상태는 표현 컨트롤일 뿐이며 링크를 만들거나 쿼리 범위를
+바꾸거나 변경 권한을 부여하지 않습니다.
 
 브라우저에 표시할 pending 접근 요청이 있으면 인증된 GET-only 스트림이 principal의 App 역할로
 영속 기록을 필터링합니다. 탭과 Command Deck이 idle 상태이면 콘솔은 기능, 범위 및

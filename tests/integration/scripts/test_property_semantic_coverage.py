@@ -26,7 +26,8 @@ def test_shipped_catalog_coverage_is_measured_and_documented() -> None:
 
     assert violations == ()
     assert coverage.reviewed_count >= module.REVIEWED_REFERENCE_FLOOR
-    assert coverage.reviewed_count < coverage.evaluated_count
+    assert coverage.reviewed_count == coverage.evaluated_count
+    assert coverage.gaps == ()
     assert module._check_documents(REPO_ROOT, coverage, update=False) == ()
 
 

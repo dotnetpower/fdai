@@ -1365,7 +1365,7 @@ variable "acr_sku" {
 }
 
 variable "enable_resource_locks" {
-  description = "Place a CanNotDelete management lock on the resource group so an accidental delete is blocked. Default false (dev tear-down stays easy); set true for staging/prod."
+  description = "Optionally place a CanNotDelete management lock on the resource group. Standard FDAI profiles keep this false so teardown and recreation remain available."
   type        = bool
   default     = false
 }

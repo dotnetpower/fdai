@@ -24,6 +24,7 @@ Required env vars:
     FDAI_ENFORCE_MYSQL_PW_FILE   path to a file with the MySQL password (S8)
     FDAI_ENFORCE_AOAI_ENDPOINT   AOAI account endpoint URL (S9)
     FDAI_ENFORCE_AOAI_DEPLOYMENT AOAI chat deployment name (S9)
+    FDAI_ENFORCE_APPROVAL_REF    Current human approval reference for this sweep
 
 The runner uses `max_hold_seconds=180` at the harness level (probe-oriented
 validation, not a full 5-minute production alert window). It writes
@@ -35,8 +36,8 @@ Prerequisites (verified manually before running):
   - `kubectl --context $FDAI_ENFORCE_AKS_CONTEXT get nodes` -> Ready.
   - Demo backend Deployment + Service exist in `$FDAI_ENFORCE_NS`.
   - Chaos Mesh is installed in `$FDAI_ENFORCE_CHAOS_NS`.
-  - `FDAI_ENFORCE_MYSQL_PW_FILE` contains the current MySQL admin password
-    and the caller's public IP is allowed by the server firewall.
+    - `FDAI_ENFORCE_MYSQL_PW_FILE` contains the current MySQL admin password
+        and the runner can reach the server's private endpoint.
   - The signed-in identity has "Cognitive Services OpenAI User" on the
     AOAI account.
 """
@@ -53,7 +54,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from azure.identity import DefaultAzureCredential
-
 from fdai.core.chaos.contract import ExperimentResult, FaultScenario
 from fdai.core.chaos.harness import FaultInjectionHarness
 from fdai.core.chaos.scenarios import (
@@ -126,6 +126,7 @@ MYSQL_ID = (
 MYSQL_PW_FILE = _env("FDAI_ENFORCE_MYSQL_PW_FILE")
 AOAI_ENDPOINT = _env("FDAI_ENFORCE_AOAI_ENDPOINT")
 AOAI_DEPLOYMENT = _env("FDAI_ENFORCE_AOAI_DEPLOYMENT")
+APPROVAL_REF = _env("FDAI_ENFORCE_APPROVAL_REF")
 
 REPORT_ROOT = Path("logs/enforce-runs") / datetime.now(tz=UTC).strftime("%Y%m%dT%H%M%SZ")
 REPORT_ROOT.mkdir(parents=True, exist_ok=True)
@@ -364,6 +365,7 @@ def _serialize(result: ExperimentResult) -> dict:
     d["ended_at"] = result.ended_at.isoformat()
     d["targets"] = list(result.targets)
     d["reverted"] = result.reverted
+    d["approval_ref"] = APPROVAL_REF
     return d
 
 
@@ -387,6 +389,7 @@ async def _run_one(scenario: FaultScenario, injector, probe, targets: list[str])
             "outcome": "driver_error",
             "error": f"{type(exc).__name__}:{exc}",
             "elapsed_seconds": round(time.monotonic() - t0, 2),
+            "approval_ref": APPROVAL_REF,
         }
     out = REPORT_ROOT / f"{scenario.scenario_id}.json"
     out.write_text(json.dumps(payload, indent=2, sort_keys=True))
