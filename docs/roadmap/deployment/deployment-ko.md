@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 287cd9840f0b31491fe7cd543e31ad191d67f481
+translation_source_sha: d840e9a6bd9483fcf635bb3927f11d0d7e00f7f3
 translation_revised: 2026-08-25
 ---
 
@@ -107,6 +107,9 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
   사용할 수 있지만 각 guard는 검토된 key만 수락하며 exact apply는 봉인된 두 mode 입력을
   그대로 반복해야 합니다. 역사적 `-readapi` suffix를 사용하는 기존 Operator workload는
   in-place 갱신 대상으로 유지하고 새 Operator 리소스는 계속 `-operator-api`를 사용합니다.
+  입력을 구체화할 때 작업 흐름은 플랫폼 상태의 `postgres_fqdn` 출력에서 호스트 이름을
+  확인하고 `database.host`만 덮어씁니다. 쓰기 전용 서비스 tfvars 시크릿은 DSN 시크릿
+  참조와 역할의 출처로 남습니다.
 - **표류 감지**: 환경별로 스케줄된 읽기 전용 `plan`은 이전 방식 platform 루트, 독립 서비스 루트
   5개, 초기화 루트를 모두 검사합니다. 루트 계약은 서로 다른 백엔드 키를 사용하고
   새로 고침 전 상태에서 서비스 이미지를 해석하므로 out-of-band 이미지 변경도 드러납니다. 상태나

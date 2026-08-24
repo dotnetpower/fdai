@@ -896,6 +896,10 @@ def test_service_workflow_seals_database_host_binding_mode() -> None:
     assert _WORKFLOW.count('"${database_args[@]}"') == 4
     assert "event-bus-topic-migration+database-host-binding" in _WORKFLOW
     assert "database-host-binding" in _WORKFLOW
+    assert 'terraform -chdir="$TRUSTED_CONTROLS/infra" output -raw postgres_fqdn' in _WORKFLOW
+    assert "scripts/deployment/service/hydrate_database_host.py" in _WORKFLOW
+    assert '--database-host "$database_host"' in _WORKFLOW
+    assert "Platform state returned an invalid database hostname." in _WORKFLOW
 
 
 def test_service_workflow_seals_core_model_binding_transition() -> None:

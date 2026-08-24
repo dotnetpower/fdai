@@ -531,7 +531,20 @@ jobs:
           resolved_model_args=()
           [[ "$SERVICE" == "core-control-plane" ]] \
             && resolved_model_args+=(--model-binding-transition)
+          database_host="$(
+            terraform -chdir="$TRUSTED_CONTROLS/infra" output -raw postgres_fqdn
+          )"
+          [[ "$database_host" =~ ^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$ \
+            && ${#database_host} -le 253 \
+            && "$database_host" != *..* ]] || {
+            echo "Platform state returned an invalid database hostname." >&2
+            exit 1
+          }
           printf '%s' "$SERVICE_TFVARS_JSON" \
+            | python3 "$TRUSTED_CONTROLS/scripts/deployment/service/hydrate_database_host.py" \
+                --service "${{ inputs.service }}" \
+                --environment "${{ inputs.environment }}" \
+                --database-host "$database_host" \
             | python3 "$TRUSTED_CONTROLS/scripts/deployment/service/materialize_tfvars.py" \
                 --service "${{ inputs.service }}" \
                 --environment "${{ inputs.environment }}" \

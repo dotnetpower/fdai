@@ -104,7 +104,10 @@ prod topology so shadow evaluation is representative.
   secrets, and rollback fields. It may compose with `event_bus_topic_migration`; each guard still
   accepts only its reviewed keys, and exact apply must repeat both sealed mode inputs. Existing
   Operator workloads with the historical `-readapi` suffix remain eligible for an in-place update,
-  while newly declared Operator resources continue to use `-operator-api`.
+  while newly declared Operator resources continue to use `-operator-api`. During input
+  materialization, the workflow resolves the hostname from the platform state's `postgres_fqdn`
+  output and overwrites only `database.host`; the write-only service tfvars secret remains the
+  source for the DSN secret reference and role.
 - **Drift detection**: a scheduled read-only `plan` covers the legacy platform root, the five
   independent service roots, and the bootstrap root for each environment. The root contract uses
   distinct backend keys and resolves service images from pre-refresh state, so an out-of-band image

@@ -33,6 +33,18 @@ def tfvars() -> ModuleType:
     return module
 
 
+@pytest.fixture(scope="module")
+def host_hydrator() -> ModuleType:
+    spec = importlib.util.spec_from_file_location(
+        "focused_hydrate_database_host", _SCRIPTS / "hydrate_database_host.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
 def _digest(payload: dict[str, Any]) -> str:
     canonical = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()
     return hashlib.sha256(canonical).hexdigest()
@@ -73,6 +85,72 @@ def test_derives_core_llm_from_attested_resolved_models(tfvars: ModuleType) -> N
         "resolved_models_digest": digest,
     }
     assert payload["environments"]["dev"]["core-control-plane"]["llm"] == {"endpoint": "stale"}
+
+
+def test_hydrates_database_host_from_authoritative_platform_output(
+    host_hydrator: ModuleType,
+) -> None:
+    payload = {
+        "environments": {
+            "dev": {
+                "core-control-plane": {
+                    "name": "example",
+                    "database": {
+                        "dsn_secret_id": "https://vault.example.com/secrets/core-dsn",
+                        "role": "core_runtime",
+                    },
+                }
+            }
+        }
+    }
+
+    hydrated = host_hydrator.hydrate_database_host(
+        payload,
+        service="core-control-plane",
+        environment="dev",
+        database_host="postgres.example.com.",
+    )
+
+    assert hydrated["environments"]["dev"]["core-control-plane"]["database"] == {
+        "dsn_secret_id": "https://vault.example.com/secrets/core-dsn",
+        "host": "postgres.example.com",
+        "role": "core_runtime",
+    }
+    assert "host" not in payload["environments"]["dev"]["core-control-plane"]["database"]
+
+
+@pytest.mark.parametrize(
+    "database_host",
+    [
+        "",
+        "-postgres.example.com",
+        "postgres..example.com",
+        "postgres.example.com:5432",
+        "호스트.example.com",
+    ],
+)
+def test_rejects_invalid_authoritative_database_host(
+    host_hydrator: ModuleType,
+    database_host: str,
+) -> None:
+    payload = {
+        "environments": {
+            "dev": {
+                "core-control-plane": {
+                    "name": "example",
+                    "database": {"dsn_secret_id": "secret", "role": "core_runtime"},
+                }
+            }
+        }
+    }
+
+    with pytest.raises(host_hydrator.DatabaseHostError, match="valid DNS hostname"):
+        host_hydrator.hydrate_database_host(
+            payload,
+            service="core-control-plane",
+            environment="dev",
+            database_host=database_host,
+        )
 
 
 def test_enables_web_search_only_with_attested_candidate_and_policy(tfvars: ModuleType) -> None:
