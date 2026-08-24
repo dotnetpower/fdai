@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: b57ab563bb80e9832b274d7e1b7b9f099fdeb652
+translation_source_sha: 198052f9b57f7c56678be4df138464e6f9e5a511
 translation_revised: 2026-08-25
 ---
 
@@ -118,6 +118,11 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
   있습니다. 각 guard는 자신의 전체 허용 목록을 검증하고 호스트는 권위 있는 플랫폼 상태
   출력에서 가져오며 봉인된 배포 모드는 정확한 조합을 기록합니다. 신원, 권한, 시크릿,
   명령 또는 관련 없는 환경 변경은 허용되지 않습니다.
+- **측정 원장 소유권**: Core는 `SELECT, INSERT` 권한만 사용해 `llm_invocation` 레코드를
+  소유하고 추가합니다. Operator는 같은 테이블을 `SELECT` 권한으로만 사용합니다. 서비스
+  migration graph는 Operator를 읽기 전용 consumer로 취급하고 Operator 측정 grant가
+  제거될 때까지 provider rollback을 차단합니다. Provider와 consumer migration은 모두
+  `PUBLIC` 접근을 revoke하며 두 runtime 모두 update 또는 delete 권한을 받지 않습니다.
 - **표류 감지**: 환경별로 스케줄된 읽기 전용 `plan`은 이전 방식 platform 루트, 독립 서비스 루트
   5개, 초기화 루트를 모두 검사합니다. 루트 계약은 서로 다른 백엔드 키를 사용하고
   새로 고침 전 상태에서 서비스 이미지를 해석하므로 out-of-band 이미지 변경도 드러납니다. 상태나

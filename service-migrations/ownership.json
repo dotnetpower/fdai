@@ -38,6 +38,16 @@
       "provider_rollback": "blocked-until-operator-read-grant-rollback"
     },
     {
+      "consumer_service": "operator-service",
+      "consumer_revision": "operator_metering_read_20260810",
+      "provider_service": "core-control-plane",
+      "provider_revision": "core_metering_writer_20260825",
+      "schema_prerequisites": [
+        "llm_invocation"
+      ],
+      "provider_rollback": "blocked-until-operator-metering-read-rollback"
+    },
+    {
       "consumer_service": "isolated-executor",
       "consumer_revision": "executor_runtime_role_20260808",
       "provider_service": "core-control-plane",
@@ -85,6 +95,7 @@
       "inventory_snapshot_link",
       "inventory_snapshot_resource",
       "learned_action",
+      "llm_invocation",
       "ontology_embedding",
       "ontology_finding",
       "ontology_link",
@@ -152,7 +163,6 @@
       "conversation_turn",
       "execution_submission",
       "execution_submission_attempt",
-      "llm_invocation",
       "mcp_admin_audit",
       "mcp_catalog_state",
       "mcp_server",
@@ -222,6 +232,7 @@
       "inventory_snapshot_link",
       "inventory_snapshot_resource",
       "learned_action",
+      "llm_invocation",
       "ontology_embedding",
       "ontology_finding",
       "ontology_link",
@@ -287,7 +298,6 @@
       "conversation_turn",
       "execution_submission",
       "execution_submission_attempt",
-      "llm_invocation",
       "mcp_admin_audit",
       "mcp_catalog_state",
       "mcp_server",

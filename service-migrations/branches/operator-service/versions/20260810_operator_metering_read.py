@@ -12,7 +12,8 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 migration_owner = "operator-service"
-owned_tables = ("llm_invocation",)
+owned_tables: tuple[str, ...] = ()
+consumed_tables = ("llm_invocation",)
 rollback = {
     "strategy": "revoke-operator-metering-read",
     "restores": "operator_runtime_role_20260808",

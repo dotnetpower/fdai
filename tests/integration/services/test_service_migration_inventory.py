@@ -625,6 +625,28 @@ def test_operator_activity_projection_has_exact_read_only_inventory_grants() -> 
     assert "GRANT DELETE" not in source
 
 
+def test_core_metering_writer_has_append_only_cross_service_grant() -> None:
+    path = MIGRATION_ROOT / "branches/core-control-plane/versions/20260825_core_metering_writer.py"
+    source = path.read_text(encoding="utf-8")
+    ownership = json.loads((MIGRATION_ROOT / "ownership.json").read_text(encoding="utf-8"))
+
+    assert "GRANT SELECT, INSERT ON TABLE llm_invocation TO fdai_core" in source
+    assert "GRANT UPDATE" not in source
+    assert "GRANT DELETE" not in source
+    assert "REVOKE ALL PRIVILEGES ON TABLE llm_invocation FROM PUBLIC, fdai_core" in source
+    assert "ALTER DEFAULT PRIVILEGES" not in source
+    assert {
+        "consumer_service": "operator-service",
+        "consumer_revision": "operator_metering_read_20260810",
+        "provider_service": "core-control-plane",
+        "provider_revision": "core_metering_writer_20260825",
+        "schema_prerequisites": ["llm_invocation"],
+        "provider_rollback": "blocked-until-operator-metering-read-rollback",
+    } in ownership["migration_dependencies"]
+    assert "llm_invocation" in ownership["table_migrations"]["core-control-plane"]
+    assert "llm_invocation" not in ownership["table_migrations"]["operator-service"]
+
+
 def test_operator_active_inventory_pointer_has_exact_read_only_grant() -> None:
     revision_path = (
         MIGRATION_ROOT
@@ -1263,6 +1285,10 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
     operational_archive_migration = inventory_module.load_revision_metadata(
         operational_archive_path
     )
+    metering_writer_path = (
+        MIGRATION_ROOT / "branches/core-control-plane/versions/20260825_core_metering_writer.py"
+    )
+    metering_writer_migration = inventory_module.load_revision_metadata(metering_writer_path)
 
     expected_tables = {
         table for table, owner in ownership.table_migrators.items() if owner == "core-control-plane"
@@ -1275,6 +1301,7 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
         | set(question_campaign_migration.owned_tables)
         | set(question_assurance_migration.owned_tables)
         | set(operational_archive_migration.owned_tables)
+        | set(metering_writer_migration.owned_tables)
     )
     assert granted_tables == expected_tables
     source = role_path.read_text(encoding="utf-8")
