@@ -902,10 +902,11 @@ def test_service_workflow_seals_core_model_binding_transition() -> None:
     assert "model_binding_transition:" in _WORKFLOW
     assert "Model binding transition is valid only for core-control-plane." in _WORKFLOW
     assert "Model binding transition cannot be combined with another transition." in _WORKFLOW
-    assert _WORKFLOW.count("MODEL_BINDING_TRANSITION: ${{ inputs.model_binding_transition }}") == 5
+    assert _WORKFLOW.count("MODEL_BINDING_TRANSITION: ${{ inputs.model_binding_transition }}") == 4
     assert "RESOLVED_MODELS_JSON: ${{ vars.RESOLVED_MODELS_JSON }}" in _WORKFLOW
-    assert "transition_args+=(--model-binding-transition)" in _WORKFLOW
-    assert '"${transition_args[@]}"' in _WORKFLOW
+    assert '[[ "$SERVICE" == "core-control-plane" ]]' in _WORKFLOW
+    assert "resolved_model_args+=(--model-binding-transition)" in _WORKFLOW
+    assert '"${resolved_model_args[@]}"' in _WORKFLOW
     assert "--model-binding-transition" in _WORKFLOW
     assert _WORKFLOW.count('--resolved-models-digest "$RESOLVED_MODELS_DIGEST"') >= 4
     assert "service-model-binding-apply-{0}" in _WORKFLOW

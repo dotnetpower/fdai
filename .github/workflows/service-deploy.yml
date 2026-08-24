@@ -513,9 +513,9 @@ jobs:
       - name: Materialize selected service inputs
         if: ${{ !inputs.apply && !inputs.migrate_state }}
         env:
+          SERVICE: ${{ inputs.service }}
           SERVICE_TFVARS_JSON: ${{ secrets.SERVICE_DEPLOY_TFVARS_JSON }}
           EVENT_BUS_TOPIC_MIGRATION: ${{ inputs.event_bus_topic_migration }}
-          MODEL_BINDING_TRANSITION: ${{ inputs.model_binding_transition }}
           RESOLVED_MODELS_JSON: ${{ vars.RESOLVED_MODELS_JSON }}
           WEB_SEARCH_ENABLED: ${{ vars.OPERATOR_API_WEB_SEARCH_ENABLED == 'true' }}
           WEB_SEARCH_ALLOWED_DOMAINS_JSON: ${{ vars.OPERATOR_API_WEB_SEARCH_ALLOWED_DOMAINS_JSON || '[]' }}
@@ -528,15 +528,15 @@ jobs:
           migration_args=()
           [[ "$EVENT_BUS_TOPIC_MIGRATION" == "true" ]] \
             && migration_args+=(--event-bus-topic-migration)
-          transition_args=()
-          [[ "$MODEL_BINDING_TRANSITION" == "true" ]] \
-            && transition_args+=(--model-binding-transition)
+          resolved_model_args=()
+          [[ "$SERVICE" == "core-control-plane" ]] \
+            && resolved_model_args+=(--model-binding-transition)
           printf '%s' "$SERVICE_TFVARS_JSON" \
             | python3 "$TRUSTED_CONTROLS/scripts/deployment/service/materialize_tfvars.py" \
                 --service "${{ inputs.service }}" \
                 --environment "${{ inputs.environment }}" \
                 "${migration_args[@]}" \
-                "${transition_args[@]}" \
+                "${resolved_model_args[@]}" \
                 --output "$RUNNER_TEMP/service.tfvars.json"
 
       - name: Create and guard service plan

@@ -241,6 +241,7 @@ def test_workflow_delegates_core_model_binding_materialization() -> None:
     assert "RESOLVED_MODELS_JSON: ${{ vars.RESOLVED_MODELS_JSON }}" in _WORKFLOW
     assert "WEB_SEARCH_ENABLED: ${{ vars.OPERATOR_API_WEB_SEARCH_ENABLED == 'true' }}" in _WORKFLOW
     assert "WEB_SEARCH_ALLOWED_DOMAINS_JSON:" in _WORKFLOW
-    assert "transition_args+=(--model-binding-transition)" in _WORKFLOW
-    assert '"${transition_args[@]}"' in _WORKFLOW
+    assert '[[ "$SERVICE" == "core-control-plane" ]]' in _WORKFLOW
+    assert "resolved_model_args+=(--model-binding-transition)" in _WORKFLOW
+    assert '"${resolved_model_args[@]}"' in _WORKFLOW
     assert "Core service tfvars has no LLM configuration" not in _WORKFLOW
