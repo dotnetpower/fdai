@@ -213,6 +213,7 @@ def test_operator_access_is_opt_in_private_and_minimum_role_scoped() -> None:
     assert 'variable "operator_access"' in variables
     assert "default  = null" in variables
     assert 'resource "azurerm_virtual_network_peering" "lab_to_operator"' in main
+    assert "depends_on = [azurerm_virtual_network_peering.operator_to_lab]" in main
     assert "use_remote_gateways          = true" in main
     assert 'resource "azurerm_virtual_network_peering" "operator_to_lab"' in main
     assert "allow_gateway_transit        = true" in main

@@ -47,6 +47,8 @@ resource "azurerm_virtual_network_peering" "runner_to_lab" {
 resource "azurerm_virtual_network_peering" "lab_to_operator" {
   count = local.operator_enabled ? 1 : 0
 
+  depends_on = [azurerm_virtual_network_peering.operator_to_lab]
+
   name                         = "peer-${local.suffix}-to-operator"
   resource_group_name          = data.azurerm_resource_group.scenario_lab.name
   virtual_network_name         = azurerm_virtual_network.scenario_lab.name

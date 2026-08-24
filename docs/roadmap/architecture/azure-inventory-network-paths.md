@@ -27,12 +27,15 @@ unavailable" and retains the last complete snapshot.
 |------|-------|----------|-------|
 | Restricted-network discovery and ordered source fallback | in-progress | Azure inventory adapters under `delivery/azure/`; deployment preflight and connectivity contracts | The bounded adapters and failure classes exist. This document does not retain one exact-revision protected deployment proving every fallback rung. |
 | Snapshot authority and stale-state handling | implemented | Inventory sync, projection, and reconciliation tests cited by [CSP-Neutrality Contracts](csp-neutrality.md#implementation-status) | Partial collection cannot replace the last complete promoted generation or authorize an absence claim. |
+| Subnet-specific network controls | implemented | `infra/modules/network/main.tf`; `infra/bootstrap/main.tf`; focused network hardening tests | VM-bearing subnets deny Internet inbound through explicit NSGs. Azure-managed delegated and private-endpoint subnets retain their service-owned network-policy contracts. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-21 | in-progress | Moved the existing restricted-network inventory design into a focused owner document without changing runtime behavior or authority. | `current change`; document-size, translation, route, and link checks. | Retain exact-revision protected evidence for the effective network path and at least one failover and recovery transition. |
+| 2026-08-25 | implemented | Added explicit NSG protection to the OHL evidence VM subnet and verified the existing deploy-runner subnet association, while preserving Azure-managed delegated subnet constraints. | `current change`; `tests/integration/infra/test_network_hardening.py`; `tests/integration/infra/test_bootstrap_network_hardening.py`; Checkov and Trivy reported no active finding above Low. | Retain deployed evidence that the effective NSG and route policy still permits the required bounded management path. |
+| 2026-08-24 | implemented | Serialized the two directional gateway-transit peerings used by the disposable scenario path. | Failed protected applies `32773217323` and `32774040807`; asymmetric peering readback; `infra/scenario-lab/main.tf`; focused scenario-lab contracts. | Retain a protected receipt showing both peerings Connected before workstation route verification. |
 
 ### Remaining work
 
@@ -52,6 +55,16 @@ account for these paths:
 | Workload token | Runtime-provided managed identity or workload identity endpoint | Allow the runtime platform identity path, including `AzurePlatformIMDS` where IMDS is used; use federated workload identity from an approved runner when the app subnet cannot mint a token | Do not add broad Internet egress or a client secret merely to make discovery work. |
 | DNS | Azure-provided DNS or an approved custom resolver | Permit the runtime's platform DNS path, including `AzurePlatformDNS` where applicable; forward the required public or Private Link zones through the hub resolver | Resolve and TLS-probe the endpoint before starting a scan. DNS success alone is not reachability. |
 | Snapshot publication | Private PostgreSQL and Event Hubs paths | Private endpoints, VNet peering, or hub routing from the discovery runner | The collector never sends inventory through a public console endpoint. |
+
+Gateway transit uses two directional peerings. Create the gateway-VNet direction with
+`allow_gateway_transit` before the workload-VNet direction enables `use_remote_gateways`, express
+that order in the Terraform dependency graph, and verify that both directions report Connected.
+
+Terraform applies NSGs according to subnet ownership. Subnets that host the deploy runner or OHL
+evidence VM deny Internet inbound explicitly. `GatewaySubnet`, Private DNS Resolver, private
+endpoint, Container Apps, and PostgreSQL delegated subnets remain governed by their Azure-managed
+service contracts; adding a generic NSG there is not treated as a substitute for service-specific
+route and network-policy validation.
 
 Service tags and Resource Management Private Link capabilities can differ by Azure cloud and can
 change over time. Confirm the effective routes, DNS answers, and supported operations during
