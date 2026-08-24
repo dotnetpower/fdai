@@ -862,7 +862,10 @@ def test_plan_and_apply_both_verify_image_and_guard_exact_binary_plan() -> None:
 
 def test_service_workflow_seals_event_bus_topic_migration_mode() -> None:
     assert "event_bus_topic_migration:" in _WORKFLOW
-    assert "Event Bus topic migration cannot be combined with another transition." in _WORKFLOW
+    assert (
+        "Event Bus topic migration cannot be combined with state migration, initial cutover, "
+        "or channel-edge transition." in _WORKFLOW
+    )
     assert (
         _WORKFLOW.count("EVENT_BUS_TOPIC_MIGRATION: ${{ inputs.event_bus_topic_migration }}") == 6
     )
@@ -880,6 +883,19 @@ def test_service_workflow_seals_event_bus_topic_migration_mode() -> None:
         "same-image Event Bus topic migration skips service database migrations" in migration_step
     )
     assert 'run_migration "$migration_command" upgrade head' in migration_step
+
+
+def test_service_workflow_seals_database_host_binding_mode() -> None:
+    assert "database_host_binding:" in _WORKFLOW
+    assert (
+        "Database host binding cannot be combined with state migration, initial cutover, "
+        "or channel-edge transition." in _WORKFLOW
+    )
+    assert _WORKFLOW.count("DATABASE_HOST_BINDING: ${{ inputs.database_host_binding }}") == 4
+    assert _WORKFLOW.count("database_args+=(--database-host-binding)") == 3
+    assert _WORKFLOW.count('"${database_args[@]}"') == 4
+    assert "event-bus-topic-migration+database-host-binding" in _WORKFLOW
+    assert "database-host-binding" in _WORKFLOW
 
 
 def test_apply_has_post_apply_health_and_no_destroy_command() -> None:

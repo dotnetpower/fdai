@@ -1,8 +1,8 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: d616bd2c9a4f910ace997a5d98904c1da05059f3
-translation_revised: 2026-08-21
+translation_source_sha: f41f0aee49d70cfdf06d7f926a17561635471138
+translation_revised: 2026-08-25
 ---
 
 # 배포(배포)
@@ -29,6 +29,7 @@ translation_revised: 2026-08-21
 |------|------|------|------|
 | Terraform 계획/적용 및 공급망 게이트 | implemented | `.github/workflows/deploy-dev.yml`, `.github/workflows/container-supply-chain.yml` 및 집중 workflow 테스트 | 운영 입력, 이미지 증명, 표류 계획 및 post-apply smoke 검사가 제공됩니다. |
 | 독립 서비스 protected 배포 | validated | `config/independent-service-live-evidence-manifest.json` 및 `config/independent-service-remote-evidence.json` | Protected 계획은 출처, 백엔드, 대상, 신원 및 이미지를 결합하고 peer 격리와 롤백 증적을 보존합니다. |
+| 범위가 제한된 데이터베이스 호스트 연결 | implemented | 현재 변경의 `.github/workflows/service-deploy.yml`, `guard_plan.py`, `plan_bundle.py` 및 집중 service-deploy 테스트 | 봉인된 mode는 비밀이 아닌 host 연결만 허용하며 검토된 exact topic migration과 함께 사용할 수 있습니다. 통제된 apply 근거는 아직 열려 있습니다. |
 | Operator schema 및 catalog 초기화 | implemented | 현재 변경의 `infra/modules/operator-api/container-app/`, `.github/workflows/deploy-dev.yml` 및 `tests/integration/scripts/test_service_deploy_workflow.py` | Alembic Job 성공 후 별도의 Core-image Job이 변경 불가능한 Rule 및 Ontology 참조 projection을 기록합니다. |
 | 브라우저 근거 보존 Job | implemented | `infra/modules/compute/container-apps/browser_evidence_cleanup_job.tf`; focused Terraform 계약 검사(`4 passed`) 및 `terraform validate` | 명시적으로 선택하는 예약 Job은 실행기 신원이 아닌 신원과 범위가 제한된 1회 정리를 사용합니다. 관리되는 적용 및 실행 증적은 보존되지 않았습니다. |
 | 자동 승격 및 점진적 배포 | not-started | 이 문서의 목표 설계 | 자동 dev -> staging -> prod 승격, traffic-split canary, SLO 롤백 및 콘솔 blue/green은 구현되지 않았습니다. |
@@ -41,12 +42,15 @@ translation_revised: 2026-08-21
 | 2026-08-14 | implemented | Co-host 호환 경로가 제거된 뒤 인제스트 롤백 지침을 수정했습니다. 이제 롤백은 독립 API 및 워커의 정확한 이전 개정 번호를 복원합니다. | `current change`, 집중 Terraform 검증 및 mock 인제스트 테스트 5개 통과 | 배포 가이드와 mock 테스트를 독립 서비스 루트에 맞게 유지합니다. |
 | 2026-08-15 | implemented | 실행기 신원이나 즉시 플랫폼 재시도 없이 범위가 제한된 브라우저 근거 보존을 수행하는 명시적 선택 예약 Container Apps Job을 추가했습니다. | `current change`; focused Terraform 계약 검사 `4 passed`; `terraform validate`. | Protected 적용 및 성공과 실패 Job 실행 증적을 수집합니다. |
 | 2026-08-20 | implemented | 정지한 migration이 service job의 2시간 전체 예산을 소진한 뒤 모든 service migration 연결, service 간 잠금 및 protected workflow 단계에 경계를 추가했습니다. Cleanup은 이제 원래 migration 오류를 보존합니다. | `current change`; service migration 및 protected workflow 계약 검사 204개 통과; Ruff 및 strict mypy 통과. | Protected exact 적용 하나를 완료하고 migration, service 상태 및 rollback 경계 근거를 보존합니다. |
+| 2026-08-24 | implemented | 봉인된 database host binding mode를 추가하고 Core의 중복 host 선언을 제거했으며 in-place 갱신을 위한 명시적 legacy Operator 이름 호환 경계를 유지했습니다. | `current change`; focused guard, bundle, workflow, naming 및 Terraform validation 검사. | Zero-destroy plan 5개와 exact apply를 완료한 뒤 이슈 #262에 독립 runtime 및 inventory 근거를 보존합니다. |
 
 ### 남은 작업
 
 - [ ] Operator migration Job이 catalog Job보다 먼저 성공하고 이후 두 immutable projection
   key를 읽을 수 있음을 보여 주는 리포지토리에 안전한 통제된 적용 증적을 보존합니다.
 - [ ] 브라우저 근거 보존 Job의 리포지토리에 안전한 protected 적용 및 성공과 실패 실행 증적을 보존합니다.
+- [ ] 이슈 #262의 zero-destroy database host plan 5개와 exact apply를 완료한 뒤 workload
+  환경 존재 여부, authoritative inventory 및 독립 endpoint 근거를 보존합니다.
 - [ ] 문서화된 자동 artifact 승격, traffic-split canary, SLO 롤백 및 콘솔 blue/green
   흐름을 집중 테스트와 통제된 런타임 증적으로 구현합니다.
 
@@ -95,6 +99,13 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
   한 image-only 갱신으로 돌아갑니다. 서비스 계약에는 운영 항목 지점이 소비하는
   모든 환경 값이 포함됩니다. 예를 들어 Core는 protected 계획이 시작 검증을
   통과하기 전에 Azure 테넌트, 구독, 지역, PostgreSQL 호스트 및 데이터베이스를 연결합니다.
+- **범위가 제한된 데이터베이스 호스트 연결**: 최초 전환 뒤 명시적
+  `database_host_binding` 모드는 리소스 신원, 명령, 다른 환경 값, 워크로드 신원,
+  플랫폼, sidecar, 시크릿 및 롤백 필드를 유지하면서 비밀이 아닌 `POSTGRES_HOST` 환경
+  연결만 추가하거나 바꿀 수 있습니다. 이 모드는 `event_bus_topic_migration`과 함께
+  사용할 수 있지만 각 guard는 검토된 key만 수락하며 exact apply는 봉인된 두 mode 입력을
+  그대로 반복해야 합니다. 역사적 `-readapi` suffix를 사용하는 기존 Operator workload는
+  in-place 갱신 대상으로 유지하고 새 Operator 리소스는 계속 `-operator-api`를 사용합니다.
 - **표류 감지**: 환경별로 스케줄된 읽기 전용 `plan`은 이전 방식 platform 루트, 독립 서비스 루트
   5개, 초기화 루트를 모두 검사합니다. 루트 계약은 서로 다른 백엔드 키를 사용하고
   새로 고침 전 상태에서 서비스 이미지를 해석하므로 out-of-band 이미지 변경도 드러납니다. 상태나

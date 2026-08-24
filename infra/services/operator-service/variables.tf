@@ -3,8 +3,8 @@ variable "name" {
   type        = string
 
   validation {
-    condition     = can(regex("-operator-api$", var.name))
-    error_message = "Operator service Container App name must end with -operator-api."
+    condition     = can(regex("-(operator-api|readapi)$", var.name))
+    error_message = "Operator service Container App name must end with -operator-api or the legacy -readapi compatibility suffix."
   }
 }
 variable "platform" {
@@ -117,17 +117,22 @@ variable "channel_edge" {
 variable "event_topics" {
   description = "Event Hub entities used for typed operator requests."
   type = object({
-    events                      = string
-    semantic_requests           = optional(string, "")
-    semantic_projections        = optional(string, "")
-    semantic_physical           = optional(string, "fdai.pantheon.objects")
-    read_investigation_requests = optional(string, "")
+    events                         = string
+    semantic_requests              = optional(string, "")
+    semantic_projections           = optional(string, "")
+    semantic_physical              = optional(string, "fdai.pantheon.objects")
+    read_investigation_requests    = optional(string, "")
+    read_investigation_completions = optional(string, "core.read-investigation.completions")
   })
 }
 variable "database" {
   description = "Role-scoped Operator database secret reference."
-  type        = object({ dsn_secret_id = string, host = optional(string, ""), role = string })
+  type        = object({ dsn_secret_id = string, host = string, role = string })
   sensitive   = true
+  validation {
+    condition     = trimspace(var.database.host) != ""
+    error_message = "database.host must contain the non-secret PostgreSQL endpoint identity."
+  }
 }
 variable "health" {
   description = "Operator HTTP health contract."

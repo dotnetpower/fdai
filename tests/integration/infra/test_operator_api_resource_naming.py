@@ -22,11 +22,11 @@ def test_operator_api_physical_names_use_current_component() -> None:
     ) not in root
 
 
-def test_independent_operator_service_rejects_legacy_physical_name() -> None:
+def test_independent_operator_service_bounds_legacy_physical_name_compatibility() -> None:
     variables = SERVICE_VARIABLES.read_text(encoding="utf-8")
 
-    assert 'condition     = can(regex("-operator-api$", var.name))' in variables
+    assert 'condition     = can(regex("-(operator-api|readapi)$", var.name))' in variables
     assert (
-        'error_message = "Operator service Container App name must end with -operator-api."'
-        in variables
+        'error_message = "Operator service Container App name must end with -operator-api or '
+        'the legacy -readapi compatibility suffix."' in variables
     )

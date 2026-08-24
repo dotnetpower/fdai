@@ -49,7 +49,7 @@ _LIVE_DEPLOY_ENV_LOCAL_FAKE: Mapping[str, str] = {
     "KAFKA_SECURITY_PROTOCOL": "SASL_SSL",
     "KAFKA_SASL_MECHANISM": "OAUTHBEARER",
     "KAFKA_TOPIC_EVENTS": "fdai.change.events",
-    "POSTGRES_HOST": "psql-fdai-dev-krc.postgres.database.azure.com",
+    "POSTGRES_HOST": "example.postgres.database.azure.com",
     "POSTGRES_DATABASE": "fdai",
     "RUNTIME_ENV": "dev",
     "LLM_MODE": "local-fake",

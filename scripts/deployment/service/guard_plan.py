@@ -260,12 +260,17 @@ def _environment_binding(item: dict[str, Any] | None) -> tuple[Any, Any] | None:
     )
 
 
+def _event_bus_environment_names(contract: ServiceContract) -> frozenset[str]:
+    return frozenset(event_bus_topic_migration(contract.service, surface="environment"))
+
+
 def _guard_event_bus_topic_migration(
     before: dict[str, Any],
     after: dict[str, Any],
     *,
     address: str,
     contract: ServiceContract,
+    additional_allowed_names: frozenset[str] = frozenset(),
 ) -> list[str]:
     try:
         expected_values = event_bus_topic_migration(contract.service, surface="environment")
@@ -291,7 +296,7 @@ def _guard_event_bus_topic_migration(
         if _environment_binding(after_environment.get(name)) != (expected_value, None)
     )
     violations: list[str] = []
-    unexpected = sorted(changed_names.difference(expected_values))
+    unexpected = sorted(changed_names.difference(set(expected_values) | additional_allowed_names))
     if unexpected or invalid_names:
         violations.append(
             "Event Bus topic migration changes unapproved environment at "
@@ -305,6 +310,46 @@ def _guard_event_bus_topic_migration(
             or item.get("secret_name") not in (None, "")
         ):
             violations.append(f"Event Bus topic migration has an invalid {name} value at {address}")
+    return violations
+
+
+def _guard_database_host_binding(
+    before: dict[str, Any],
+    after: dict[str, Any],
+    *,
+    address: str,
+    contract: ServiceContract,
+    additional_allowed_names: frozenset[str] = frozenset(),
+) -> list[str]:
+    before_primary = _primary_container(before, address=address, contract=contract)
+    after_primary = _primary_container(after, address=address, contract=contract)
+    if any(
+        before_primary.get(key) != after_primary.get(key) for key in ("name", "command", "args")
+    ):
+        return [f"database host binding changes the service command at {address}"]
+    before_environment = _environment_by_name(before_primary, address=address)
+    after_environment = _environment_by_name(after_primary, address=address)
+    changed_names = {
+        name
+        for name in set(before_environment) | set(after_environment)
+        if _environment_binding(before_environment.get(name))
+        != _environment_binding(after_environment.get(name))
+    }
+    unexpected = sorted(changed_names.difference({"POSTGRES_HOST"} | additional_allowed_names))
+    host_binding = _environment_binding(after_environment.get("POSTGRES_HOST"))
+    violations: list[str] = []
+    if unexpected:
+        violations.append(
+            f"database host binding changes unapproved environment at {address}: "
+            f"unexpected={unexpected}"
+        )
+    if (
+        host_binding is None
+        or not isinstance(host_binding[0], str)
+        or not host_binding[0].strip()
+        or host_binding[1] is not None
+    ):
+        violations.append(f"database host binding is invalid at {address}")
     return violations
 
 
@@ -472,6 +517,7 @@ def _guard_update(
     contract: ServiceContract,
     initial_cutover: bool,
     event_bus_topic_migration: bool = False,
+    database_host_binding: bool = False,
 ) -> list[str]:
     violations: list[str] = []
     for field in ("name", "resource_group_name"):
@@ -497,18 +543,37 @@ def _guard_update(
     )
     if before_authority != after_authority and not authority_removed_from_core:
         violations.append(f"authority cutover change at {address}")
-    elif event_bus_topic_migration:
+    if event_bus_topic_migration:
         violations.extend(
             _guard_event_bus_topic_migration(
                 before,
                 after,
                 address=address,
                 contract=contract,
+                additional_allowed_names=(
+                    frozenset({"POSTGRES_HOST"}) if database_host_binding else frozenset()
+                ),
             )
         )
-    elif not initial_cutover and _runtime_contract(
-        before, address=address, contract=contract
-    ) != _runtime_contract(after, address=address, contract=contract):
+    if database_host_binding:
+        topic_names = (
+            _event_bus_environment_names(contract) if event_bus_topic_migration else frozenset()
+        )
+        violations.extend(
+            _guard_database_host_binding(
+                before,
+                after,
+                address=address,
+                contract=contract,
+                additional_allowed_names=topic_names,
+            )
+        )
+    elif (
+        not initial_cutover
+        and not event_bus_topic_migration
+        and _runtime_contract(before, address=address, contract=contract)
+        != _runtime_contract(after, address=address, contract=contract)
+    ):
         violations.append(f"command or environment drift at {address}")
 
     before_resource_ids = _resource_ids(before)
@@ -542,7 +607,7 @@ def _guard_update(
     expected_primary = _primary_container(expected_before, address=address, contract=contract)
     after_primary = _primary_container(after, address=address, contract=contract)
     expected_primary["image"] = _planned_image({"after": after}, address=address, contract=contract)
-    if event_bus_topic_migration:
+    if event_bus_topic_migration or database_host_binding:
         expected_primary["env"] = copy.deepcopy(after_primary.get("env"))
     expected_templates = expected_before.get("template")
     after_templates = after.get("template")
@@ -918,6 +983,7 @@ def validate_plan(
     image_ref: str,
     initial_cutover: bool = False,
     event_bus_topic_migration: bool = False,
+    database_host_binding: bool = False,
     operator_channel_edge_transition: str = "none",
 ) -> None:
     """Allow only bounded actions that deploy the exact attested service image."""
@@ -931,6 +997,10 @@ def validate_plan(
         raise PlanGuardError(
             "Event Bus topic migration is exclusive with initial cutover "
             "and channel-edge transition"
+        )
+    if database_host_binding and (initial_cutover or operator_channel_edge_transition != "none"):
+        raise PlanGuardError(
+            "database host binding is exclusive with initial cutover and channel-edge transition"
         )
     contract = resolve_service(service, environment)
     channel_edge_contract = _operator_channel_edge_contract(contract)
@@ -1004,6 +1074,7 @@ def validate_plan(
                         contract=channel_edge_contract,
                         initial_cutover=False,
                         event_bus_topic_migration=False,
+                        database_host_binding=False,
                     )
                 )
             continue
@@ -1039,6 +1110,7 @@ def validate_plan(
                 contract=contract,
                 initial_cutover=initial_cutover,
                 event_bus_topic_migration=event_bus_topic_migration,
+                database_host_binding=database_host_binding,
             )
         )
     if operator_channel_edge_transition in {"enable", "disable"}:
@@ -1062,7 +1134,7 @@ def validate_plan(
         )
     )
     allowed_aligned_drift = (
-        (initial_cutover or event_bus_topic_migration)
+        (initial_cutover or event_bus_topic_migration or database_host_binding)
         and selected_before is not None
         and _guard_aligned_transition_drift(
             resource_drift,
@@ -1113,6 +1185,7 @@ def main() -> int:
     parser.add_argument("--image-ref", required=True)
     parser.add_argument("--initial-cutover", action="store_true")
     parser.add_argument("--event-bus-topic-migration", action="store_true")
+    parser.add_argument("--database-host-binding", action="store_true")
     parser.add_argument(
         "--operator-channel-edge-transition",
         choices=("none", "enable", "disable"),
@@ -1130,6 +1203,7 @@ def main() -> int:
             image_ref=args.image_ref,
             initial_cutover=args.initial_cutover,
             event_bus_topic_migration=args.event_bus_topic_migration,
+            database_host_binding=args.database_host_binding,
             operator_channel_edge_transition=args.operator_channel_edge_transition,
         )
     except (OSError, json.JSONDecodeError, ServiceContractError, PlanGuardError) as exc:

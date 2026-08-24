@@ -191,6 +191,12 @@ transport uses Docker Redpanda on `127.0.0.1:19092`. A deployed Azure process se
 Event Hubs Kafka endpoint. Venue selection never changes evidence authority, promotion state,
 human identity, or executor authority.
 
+The `database_host_binding` deployment mode changes only the deployed service's non-secret
+`POSTGRES_HOST` binding. Every service root requires a non-empty host, the sealed guard rejects
+other command or environment drift, and exact apply must repeat the plan's mode and digests. Local
+composition continues to use its loopback host, so the transition does not change execution venue
+or reuse a deployed DSN locally.
+
 Opening a workspace doesn't start the Console topology; run `console: start full stack` explicitly
 from the trusted primary checkout so setup never competes with editor initialization. The task
 verifies shared-Git ownership, runs `prepare-console-full-stack.sh`, then runs

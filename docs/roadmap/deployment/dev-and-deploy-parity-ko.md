@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 96d9061ec2024e2bc2a87d34a2accd9c62ee0de4
+translation_source_sha: 1572a74274f6bce5e64a9b4577c9a2c5d4ed9469
 translation_revised: 2026-08-25
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -195,6 +195,12 @@ managed-resource identity가 없는 영속 shadow consumer입니다. 이 venue�
 `FDAI_EXECUTION_VENUE=deployed`를 설정하고 서비스 소유 Azure Database for PostgreSQL DSN과
 Event Hubs Kafka endpoint를 사용합니다. Venue 선택은 근거 권한, 승격 상태, 사람 신원 또는
 executor 권한을 변경하지 않습니다.
+
+`database_host_binding` 배포 mode는 배포 service의 비밀이 아닌 `POSTGRES_HOST` 연결만
+변경합니다. 모든 service root는 비어 있지 않은 host를 요구하고, 봉인된 guard는 다른 명령이나
+환경 표류를 차단하며, exact apply는 plan의 mode와 digest를 그대로 반복해야 합니다. Local
+composition은 loopback host를 계속 사용하므로 이 전환은 실행 venue를 바꾸거나 배포 DSN을
+local에서 재사용하지 않습니다.
 
 작업 영역을 열어도 Console 구성을 시작하지 않습니다. 신뢰된 primary checkout에서
 `console: start full stack`을 명시적으로 실행하면 준비 작업이 편집기 초기화와 경쟁하지 않습니다.

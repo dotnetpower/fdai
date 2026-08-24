@@ -61,10 +61,14 @@ variable "database" {
   description = "Role-scoped database secret reference supplied by the state-store state owner."
   type = object({
     dsn_secret_id = string
-    host          = optional(string, "")
+    host          = string
     role          = string
   })
   sensitive = true
+  validation {
+    condition     = trimspace(var.database.host) != ""
+    error_message = "database.host must contain the non-secret PostgreSQL endpoint identity."
+  }
 }
 
 variable "health" {
@@ -134,6 +138,41 @@ variable "startup_readiness" {
       var.startup_readiness.phase_timeout_seconds > var.startup_readiness.probe_timeout_seconds * 2
     )
     error_message = "startup_readiness requires non-negative settle time, a larger probe timeout, and phase headroom beyond both default retry attempts."
+  }
+}
+
+variable "llm" {
+  description = "Attested Core model endpoint and controlled external-information egress settings."
+  type = object({
+    endpoint                   = string
+    web_search_enabled         = optional(bool, false)
+    web_search_allowed_domains = optional(list(string), [])
+    web_search_max_results     = optional(number, 8)
+    web_search_timeout_seconds = optional(number, 45)
+  })
+
+  validation {
+    condition = can(regex(
+      "^https://[^/?#]+/?$",
+      trimspace(var.llm.endpoint)
+    ))
+    error_message = "llm.endpoint must be an HTTPS origin without a path, query, or fragment."
+  }
+
+  validation {
+    condition = (
+      length(var.llm.web_search_allowed_domains) <= 100 &&
+      alltrue([
+        for domain in var.llm.web_search_allowed_domains :
+        can(regex("^[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$", domain))
+      ]) &&
+      (!var.llm.web_search_enabled || length(var.llm.web_search_allowed_domains) > 0) &&
+      var.llm.web_search_max_results >= 1 &&
+      var.llm.web_search_max_results <= 20 &&
+      var.llm.web_search_timeout_seconds >= 0.1 &&
+      var.llm.web_search_timeout_seconds <= 90
+    )
+    error_message = "Enabled web search requires 1-100 valid hosts, max_results in [1, 20], and timeout_seconds in [0.1, 90]."
   }
 }
 

@@ -282,6 +282,7 @@ def _deployment_context(
     attestation_signer_workflow: str,
     initial_cutover: bool,
     event_bus_topic_migration: bool,
+    database_host_binding: bool,
     operator_channel_edge_transition: str,
 ) -> dict[str, Any]:
     contract = resolve_service(service, environment)
@@ -289,6 +290,7 @@ def _deployment_context(
         service=service,
         initial_cutover=initial_cutover,
         event_bus_topic_migration=event_bus_topic_migration,
+        database_host_binding=database_host_binding,
         operator_channel_edge_transition=operator_channel_edge_transition,
     )
     context = {
@@ -370,6 +372,7 @@ def _deployment_mode(
     service: str,
     initial_cutover: bool,
     event_bus_topic_migration: bool,
+    database_host_binding: bool,
     operator_channel_edge_transition: str,
 ) -> str:
     if operator_channel_edge_transition not in {"none", "enable", "disable"}:
@@ -385,8 +388,16 @@ def _deployment_mode(
             "Event Bus topic migration is exclusive with initial cutover "
             "and channel-edge transition"
         )
+    if database_host_binding and (initial_cutover or operator_channel_edge_transition != "none"):
+        raise PlanBundleError(
+            "database host binding is exclusive with initial cutover and channel-edge transition"
+        )
+    if event_bus_topic_migration and database_host_binding:
+        return "event-bus-topic-migration+database-host-binding"
     if event_bus_topic_migration:
         return "event-bus-topic-migration"
+    if database_host_binding:
+        return "database-host-binding"
     if initial_cutover:
         return "initial-cutover"
     if operator_channel_edge_transition != "none":
@@ -418,6 +429,7 @@ def create_bundle(
     resolved_models_digest: str = "",
     initial_cutover: bool = False,
     event_bus_topic_migration: bool = False,
+    database_host_binding: bool = False,
     operator_channel_edge_transition: str = "none",
 ) -> dict[str, Any]:
     """Seal a guarded binary plan and its deployment context for exact later apply."""
@@ -449,6 +461,7 @@ def create_bundle(
         attestation_signer_workflow=attestation_signer_workflow,
         initial_cutover=initial_cutover,
         event_bus_topic_migration=event_bus_topic_migration,
+        database_host_binding=database_host_binding,
         operator_channel_edge_transition=operator_channel_edge_transition,
     )
     context_path.write_bytes(_canonical(context))
@@ -482,6 +495,7 @@ def create_bundle(
             service=service,
             initial_cutover=initial_cutover,
             event_bus_topic_migration=event_bus_topic_migration,
+            database_host_binding=database_host_binding,
             operator_channel_edge_transition=operator_channel_edge_transition,
         ),
         "created_at": now.astimezone(UTC).isoformat(),
@@ -517,6 +531,7 @@ def verify_bundle(
     resolved_models_digest: str = "",
     initial_cutover: bool = False,
     event_bus_topic_migration: bool = False,
+    database_host_binding: bool = False,
     operator_channel_edge_transition: str = "none",
 ) -> dict[str, Any]:
     """Verify exact apply inputs against every sealed plan artifact and mapping."""
@@ -559,6 +574,7 @@ def verify_bundle(
             service=service,
             initial_cutover=initial_cutover,
             event_bus_topic_migration=event_bus_topic_migration,
+            database_host_binding=database_host_binding,
             operator_channel_edge_transition=operator_channel_edge_transition,
         ),
     }
@@ -590,6 +606,7 @@ def verify_bundle(
         attestation_signer_workflow=attestation_signer_workflow,
         initial_cutover=initial_cutover,
         event_bus_topic_migration=event_bus_topic_migration,
+        database_host_binding=database_host_binding,
         operator_channel_edge_transition=operator_channel_edge_transition,
     )
     if context != expected_context:
@@ -624,6 +641,7 @@ def _common(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--attestation-signer-workflow", required=True)
     parser.add_argument("--initial-cutover", action="store_true")
     parser.add_argument("--event-bus-topic-migration", action="store_true")
+    parser.add_argument("--database-host-binding", action="store_true")
     parser.add_argument(
         "--operator-channel-edge-transition",
         choices=("none", "enable", "disable"),
@@ -665,6 +683,7 @@ def main() -> int:
         "attestation_signer_workflow": args.attestation_signer_workflow,
         "initial_cutover": args.initial_cutover,
         "event_bus_topic_migration": args.event_bus_topic_migration,
+        "database_host_binding": args.database_host_binding,
         "operator_channel_edge_transition": args.operator_channel_edge_transition,
     }
     try:

@@ -150,6 +150,7 @@ def _resource(*, image: str = "old-image") -> dict[str, object]:
                         "args": [],
                         "env": [
                             {"name": "FDAI_DATABASE_URL", "secret_name": "database-dsn"},
+                            {"name": "POSTGRES_HOST", "value": "db.example.com"},
                             {"name": "FDAI_DATABASE_ROLE", "value": "fdai_operator"},
                             {"name": "FDAI_EXECUTION_VENUE", "value": "deployed"},
                             {"name": "RUNTIME_ENV", "value": "dev"},
@@ -200,6 +201,13 @@ def _plan(address: str, actions: list[str], *, image: str = "image") -> dict[str
             }
         ]
     }
+
+
+def _remove_environment_binding(plan: dict[str, object], name: str) -> None:
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    for side in ("before", "after"):
+        environment = change[side]["template"][0]["container"][0]["env"]
+        environment[:] = [item for item in environment if item["name"] != name]
 
 
 def _channel_edge_enable_plan() -> dict[str, object]:
@@ -343,6 +351,7 @@ def _worker_plan() -> dict[str, object]:
             {"name": name, "value": "example"}
             for name in (
                 "FDAI_DATABASE_URL",
+                "POSTGRES_HOST",
                 "FDAI_DATABASE_ROLE",
                 "FDAI_INGESTION_DEPLOYMENT_ROLE",
                 "FDAI_EXECUTION_VENUE",
@@ -740,7 +749,8 @@ def test_matrix_resolves_exact_five_services_and_state_keys(contract: ModuleType
     assert {service["migration_dsn_secret_name"] for service in matrix["services"].values()} == {
         "fdai-state-store-dsn"
     }
-    for service in matrix["services"]:
+    for service, metadata in matrix["services"].items():
+        assert "POSTGRES_HOST" in metadata["required_environment"]
         resolved = contract.resolve_service(service, "staging")
         assert resolved.backend_key == f"services/{service}/staging.tfstate"
         assert resolved.terraform_root == f"infra/services/{service}"
@@ -777,6 +787,20 @@ def test_core_contract_requires_complete_bootstrap_environment(contract: ModuleT
     assert (
         "phase_timeout_seconds > var.startup_readiness.probe_timeout_seconds * 2" in core_variables
     )
+
+
+def test_all_service_roots_require_non_empty_database_host(contract: ModuleType) -> None:
+    for service in contract.load_matrix()["services"]:
+        variables = (_ROOT / "infra" / "services" / service / "variables.tf").read_text(
+            encoding="utf-8"
+        )
+        assert "host = optional(string" not in variables
+        assert "host          = optional(string" not in variables
+        assert 'condition     = trimspace(var.database.host) != ""' in variables
+        assert (
+            'error_message = "database.host must contain the non-secret PostgreSQL endpoint '
+            'identity."' in variables
+        )
 
 
 def test_unknown_service_and_environment_fail_closed(contract: ModuleType) -> None:
@@ -1108,14 +1132,7 @@ def test_plan_guard_allows_exact_event_bus_topic_migration(guard: ModuleType) ->
     after_environment = plan["resource_changes"][0]["change"]["after"]["template"][0][  # type: ignore[index]
         "container"
     ][0]["env"]
-    expected = {
-        "FDAI_EXECUTION_VENUE": "deployed",
-        "KAFKA_TOPIC_EVENTS": "fdai.change.events",
-        "FDAI_SEMANTIC_TURN_REQUEST_TOPIC": "operator.semantic-turn.requests",
-        "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC": "core.semantic-turn.projections",
-        "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC": "fdai.pantheon.objects",
-        "FDAI_READ_INVESTIGATION_REQUEST_TOPIC": "operator.read-investigation.requests",
-    }
+    expected = guard.event_bus_topic_migration("operator-service", surface="environment")
     for environment in (before_environment, after_environment):
         environment[:] = [item for item in environment if item["name"] not in expected]
     before_environment.extend(
@@ -1133,6 +1150,118 @@ def test_plan_guard_allows_exact_event_bus_topic_migration(guard: ModuleType) ->
         environment="dev",
         image_ref="image",
         event_bus_topic_migration=True,
+    )
+
+
+def test_plan_guard_allows_exact_database_host_binding(guard: ModuleType) -> None:
+    address = "module.operator_service.module.container_app.azurerm_container_app.service"
+    plan = _plan(address, ["update"])
+    _remove_environment_binding(plan, "POSTGRES_HOST")
+    after_environment = plan["resource_changes"][0]["change"]["after"]["template"][0][  # type: ignore[index]
+        "container"
+    ][0]["env"]
+    after_environment.append({"name": "POSTGRES_HOST", "value": "db.example.com"})
+
+    guard.validate_plan(
+        plan,
+        service="operator-service",
+        environment="dev",
+        image_ref="image",
+        database_host_binding=True,
+    )
+
+    with pytest.raises(guard.PlanGuardError, match="command or environment drift"):
+        guard.validate_plan(
+            plan,
+            service="operator-service",
+            environment="dev",
+            image_ref="image",
+        )
+
+
+@pytest.mark.parametrize(
+    "host_binding",
+    [
+        {"name": "POSTGRES_HOST", "value": ""},
+        {"name": "POSTGRES_HOST", "value": "   "},
+        {"name": "POSTGRES_HOST", "secret_name": "database-host"},
+    ],
+)
+def test_plan_guard_rejects_invalid_database_host_binding(
+    guard: ModuleType,
+    host_binding: dict[str, str],
+) -> None:
+    address = "module.operator_service.module.container_app.azurerm_container_app.service"
+    plan = _plan(address, ["update"])
+    _remove_environment_binding(plan, "POSTGRES_HOST")
+    after_environment = plan["resource_changes"][0]["change"]["after"]["template"][0][  # type: ignore[index]
+        "container"
+    ][0]["env"]
+    after_environment.append(host_binding)
+
+    with pytest.raises(guard.PlanGuardError, match="database host binding is invalid"):
+        guard.validate_plan(
+            plan,
+            service="operator-service",
+            environment="dev",
+            image_ref="image",
+            database_host_binding=True,
+        )
+
+
+def test_plan_guard_rejects_unrelated_database_host_environment_drift(
+    guard: ModuleType,
+) -> None:
+    address = "module.operator_service.module.container_app.azurerm_container_app.service"
+    plan = _plan(address, ["update"])
+    _remove_environment_binding(plan, "POSTGRES_HOST")
+    after_environment = plan["resource_changes"][0]["change"]["after"]["template"][0][  # type: ignore[index]
+        "container"
+    ][0]["env"]
+    after_environment.extend(
+        (
+            {"name": "POSTGRES_HOST", "value": "db.example.com"},
+            {"name": "UNREVIEWED", "value": "changed"},
+        )
+    )
+
+    with pytest.raises(guard.PlanGuardError, match="unapproved environment"):
+        guard.validate_plan(
+            plan,
+            service="operator-service",
+            environment="dev",
+            image_ref="image",
+            database_host_binding=True,
+        )
+
+
+def test_plan_guard_combines_database_host_and_topic_migration(guard: ModuleType) -> None:
+    service = "operator-service"
+    address = "module.operator_service.module.container_app.azurerm_container_app.service"
+    plan = _plan(address, ["update"])
+    _remove_environment_binding(plan, "POSTGRES_HOST")
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    expected = guard.event_bus_topic_migration(service, surface="environment")
+    for side in ("before", "after"):
+        environment = change[side]["template"][0]["container"][0]["env"]
+        environment[:] = [item for item in environment if item["name"] not in expected]
+    change["before"]["template"][0]["container"][0]["env"].extend(
+        {"name": name, "value": f"legacy.{index}"} for index, name in enumerate(expected, start=1)
+    )
+    change["after"]["template"][0]["container"][0]["env"].extend(
+        {"name": name, "value": value} for name, value in expected.items()
+    )
+    change["after"]["template"][0]["container"][0]["env"].append(
+        {"name": "POSTGRES_HOST", "value": "db.example.com"}
+    )
+
+    guard.validate_plan(
+        plan,
+        service=service,
+        environment="dev",
+        image_ref="image",
+        event_bus_topic_migration=True,
+        database_host_binding=True,
     )
 
 
@@ -2032,7 +2161,8 @@ def test_tfvars_materializes_exact_event_bus_topic_migration(
         migrate_event_bus_topics=True,
     )
 
-    assert selected["event_topics"] == expected_topics
+    assert selected["event_topics"] == tfvars.event_bus_topic_migration(service, surface="tfvars")
+    assert expected_topics.items() <= selected["event_topics"].items()
     assert payload["environments"]["dev"][service]["event_topics"] == legacy_topics
 
 
@@ -3203,6 +3333,67 @@ def test_plan_bundle_binds_event_bus_topic_migration_mode(
             now=now + timedelta(minutes=5),
             **coordinates,
         )
+
+
+def test_plan_bundle_binds_database_host_mode(bundle: ModuleType, tmp_path: Path) -> None:
+    plan = tmp_path / "service.plan"
+    plan.write_bytes(b"binary plan")
+    plan_json = tmp_path / "service-plan.json"
+    context = tmp_path / "context.json"
+    metadata = tmp_path / "metadata.json"
+    now = datetime(2026, 8, 8, 10, 0, tzinfo=UTC)
+    image = _image("fdai-operator-service")
+    _write_plan_json(plan_json, image=image)
+    coordinates = _bundle_coordinates()
+    created = bundle.create_bundle(
+        plan=plan,
+        plan_json=plan_json,
+        context_path=context,
+        metadata_path=metadata,
+        service="operator-service",
+        environment="dev",
+        repository="example/fdai",
+        commit_sha="b" * 40,
+        image_ref=image,
+        workflow_run_id="123",
+        database_host_binding=True,
+        now=now,
+        **coordinates,
+    )
+    assert created["deployment_mode"] == "database-host-binding"
+    assert json.loads(context.read_text(encoding="utf-8"))["deployment_mode"] == (
+        "database-host-binding"
+    )
+    with pytest.raises(bundle.PlanBundleError, match="deployment_mode"):
+        bundle.verify_bundle(
+            plan=plan,
+            plan_json=plan_json,
+            context_path=context,
+            metadata_path=metadata,
+            service="operator-service",
+            environment="dev",
+            repository="example/fdai",
+            commit_sha="b" * 40,
+            image_ref=image,
+            plan_digest=created["plan_digest"],
+            context_digest=created["context_digest"],
+            plan_run_id="123",
+            now=now + timedelta(minutes=5),
+            **coordinates,
+        )
+
+
+def test_plan_bundle_composes_topic_and_database_host_modes(bundle: ModuleType) -> None:
+    assert (
+        bundle._deployment_mode(
+            service="operator-service",
+            initial_cutover=False,
+            event_bus_topic_migration=True,
+            database_host_binding=True,
+            operator_channel_edge_transition="none",
+        )
+        == "event-bus-topic-migration+database-host-binding"
+    )
 
 
 def test_plan_bundle_binds_operator_channel_edge_transition(

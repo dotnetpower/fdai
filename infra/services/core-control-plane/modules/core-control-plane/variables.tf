@@ -14,7 +14,6 @@ variable "bootstrap" {
     azure_tenant_id       = string
     azure_subscription_id = string
     azure_region          = string
-    postgres_host         = string
     postgres_database     = string
   })
 }
@@ -74,6 +73,15 @@ variable "startup_readiness" {
     kafka_settle_seconds  = number
     probe_timeout_seconds = number
     phase_timeout_seconds = number
+  })
+}
+variable "llm" {
+  type = object({
+    endpoint                   = string
+    web_search_enabled         = optional(bool, false)
+    web_search_allowed_domains = optional(list(string), [])
+    web_search_max_results     = optional(number, 8)
+    web_search_timeout_seconds = optional(number, 45)
   })
 }
 variable "scaling" {

@@ -25,8 +25,12 @@ variable "event_topics" {
 }
 variable "database" {
   description = "Role-scoped ingestion API database secret reference."
-  type        = object({ dsn_secret_id = string, host = optional(string, ""), role = string })
+  type        = object({ dsn_secret_id = string, host = string, role = string })
   sensitive   = true
+  validation {
+    condition     = trimspace(var.database.host) != ""
+    error_message = "database.host must contain the non-secret PostgreSQL endpoint identity."
+  }
 }
 variable "document_store" {
   description = "Shared document storage outputs supplied by the platform state owner."
