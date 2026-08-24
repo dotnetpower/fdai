@@ -42,6 +42,7 @@ Configure these repository variables before running the workflow:
 | `STATE_RESOURCE_GROUP`, `STATE_STORAGE_ACCOUNT` | Private Terraform state backend |
 | `AZURE_REGION`, `AZURE_REGION_SHORT` | Target region and CAF naming token |
 | `SCENARIO_LAB_RESOURCE_GROUP_NAME` | Existing protected holding resource group for disposable child resources |
+| `SCENARIO_LAB_RUNNER_PRINCIPAL_ID` | Entra object id of the self-hosted runner Managed Identity |
 | `OPS_VNET_ID`, `OPS_VNET_NAME`, `OPS_RESOURCE_GROUP_NAME` | Existing runner VNet peering target |
 | `SCENARIO_LAB_SSH_PUBLIC_KEY` | Public key for the private stress VM |
 | `SCENARIO_LAB_VM_IMAGE_VERSION` | Exact region-available Ubuntu image version |
@@ -52,7 +53,9 @@ Configure these repository variables before running the workflow:
 | `DEV_ACCESS_VNET_ID`, `DEV_ACCESS_VNET_NAME`, `DEV_ACCESS_RESOURCE_GROUP_NAME` | Existing P2S VPN VNet identity used only for direct workstation testing |
 
 Configure a protected GitHub environment named `scenario-lab` with a required reviewer. Keep the
-existing `plan-only` environment for non-mutating plans.
+existing `plan-only` environment for non-mutating plans. Before any temporary role grant, the
+workflow requires the configured runner principal to match the `oid` claim in its active Azure
+Resource Manager access token.
 
 ## Deployment flow
 

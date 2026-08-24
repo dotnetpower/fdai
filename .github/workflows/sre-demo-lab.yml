@@ -61,6 +61,7 @@ jobs:
       STATE_RESOURCE_GROUP: ${{ vars.STATE_RESOURCE_GROUP }}
       STATE_STORAGE_ACCOUNT: ${{ vars.STATE_STORAGE_ACCOUNT }}
       SCENARIO_LAB_RESOURCE_GROUP_NAME: ${{ vars.SCENARIO_LAB_RESOURCE_GROUP_NAME }}
+      SCENARIO_LAB_RUNNER_PRINCIPAL_ID: ${{ vars.SCENARIO_LAB_RUNNER_PRINCIPAL_ID }}
       TF_VAR_region: ${{ vars.AZURE_REGION }}
       TF_VAR_region_short: ${{ vars.AZURE_REGION_SHORT }}
       TF_VAR_resource_group_name: ${{ vars.SCENARIO_LAB_RESOURCE_GROUP_NAME }}
@@ -134,6 +135,7 @@ jobs:
           for required_name in \
             ARM_SUBSCRIPTION_ID ARM_TENANT_ID STATE_RESOURCE_GROUP \
             STATE_STORAGE_ACCOUNT SCENARIO_LAB_RESOURCE_GROUP_NAME \
+            SCENARIO_LAB_RUNNER_PRINCIPAL_ID \
             TF_VAR_region TF_VAR_region_short \
             TF_VAR_admin_ssh_public_key TF_VAR_vm_image_version \
             SCENARIO_LAB_BACKEND_IMAGE SCENARIO_LAB_CHAOS_MESH_CHART_VERSION; do
@@ -206,13 +208,40 @@ jobs:
           resource_group_id="$(az group show \
             --name "$SCENARIO_LAB_RESOURCE_GROUP_NAME" \
             --query id --output tsv --only-show-errors)"
-          runner_principal_id="$(az account show --query user.name --output tsv --only-show-errors)"
+          runner_principal_id="$SCENARIO_LAB_RUNNER_PRINCIPAL_ID"
           [[ "$resource_group_id" == /subscriptions/*/resourceGroups/* ]] || {
             echo "scenario-lab holding resource group is unavailable." >&2
             exit 1
           }
-          [[ "$runner_principal_id" =~ ^[0-9a-fA-F-]{36}$ ]] || {
-            echo "runner managed identity principal is unavailable." >&2
+          [[ "$runner_principal_id" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]] || {
+            echo "configured runner managed identity principal is invalid." >&2
+            exit 1
+          }
+          access_token="$(az account get-access-token \
+            --resource-type arm --query accessToken --output tsv --only-show-errors)"
+          token_payload="${access_token#*.}"
+          token_payload="${token_payload%%.*}"
+          case "$((${#token_payload} % 4))" in
+            0) ;;
+            2) token_payload="${token_payload}==" ;;
+            3) token_payload="${token_payload}=" ;;
+            *)
+              echo "runner managed identity token payload is invalid." >&2
+              exit 1
+              ;;
+          esac
+          active_runner_principal_id="$(
+            printf '%s' "$token_payload" |
+              tr '_-' '/+' |
+              base64 --decode 2>/dev/null |
+              jq -er '.oid | select(type == "string")'
+          )" || {
+            echo "runner managed identity token has no valid oid claim." >&2
+            exit 1
+          }
+          unset access_token token_payload
+          [[ "${active_runner_principal_id,,}" == "${runner_principal_id,,}" ]] || {
+            echo "active runner managed identity does not match the configured principal." >&2
             exit 1
           }
           echo "::add-mask::$resource_group_id"
