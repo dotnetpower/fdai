@@ -169,6 +169,15 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--azure-cli-timeout-seconds",
+        type=float,
+        default=30.0,
+        help=(
+            "Per-command Azure CLI deadline used only with --use-azure-cli "
+            "(5-300 seconds, default: %(default)s)."
+        ),
+    )
+    parser.add_argument(
         "--out",
         type=Path,
         help="Write resolved-models.json here; omit for stdout.",
@@ -268,6 +277,8 @@ def _build_queries(
             "and --quota-fixture (or pass --use-azure-cli)"
         )
     if args.use_azure_cli:
+        if not 5.0 <= args.azure_cli_timeout_seconds <= 300.0:
+            raise _ArgValidationError("--azure-cli-timeout-seconds MUST be between 5 and 300")
         from fdai.delivery.azure.llm.resolver_queries import (
             AzureCliCatalogQuery,
             AzureCliPermissionQuery,
@@ -275,14 +286,16 @@ def _build_queries(
             AzureCliQuotaQuery,
         )
 
-        catalog = AzureCliCatalogQuery()
+        timeout = args.azure_cli_timeout_seconds
+        catalog = AzureCliCatalogQuery(timeout=timeout)
         return (
             catalog,
-            AzureCliPermissionQuery(),
-            AzureCliQuotaQuery(),
+            AzureCliPermissionQuery(timeout=timeout),
+            AzureCliQuotaQuery(timeout=timeout),
             AzureCliProvisionedCapacityQuery(
                 subscription_id=args.subscription_id,
                 model_versions=catalog,
+                timeout=timeout,
             ),
         )
 

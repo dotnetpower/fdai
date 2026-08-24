@@ -46,6 +46,7 @@ def test_protected_deploy_resolves_and_seals_model_manifest_before_plan() -> Non
     assert resolver < plan
     assert "fdai.rule_catalog.schema.llm_resolver_cli" in _DEPLOY
     assert "--use-azure-cli" in _DEPLOY
+    assert "--azure-cli-timeout-seconds 90" in _DEPLOY
     assert '--assess-fail-on "$MODEL_COMPLETENESS_FAIL_ON"' in _DEPLOY
     assert "MODEL_RESOLVER_DEPLOYER_OBJECT_ID" in _DEPLOY
     assert "resolved-models.sha256" in _DEPLOY

@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 from fdai.rule_catalog.schema.llm_resolver import CapabilityStatus
-from fdai.rule_catalog.schema.llm_resolver_cli import main
+from fdai.rule_catalog.schema.llm_resolver_cli import _build_parser, _build_queries, main
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
 REGISTRY = REPO_ROOT / "rule-catalog" / "llm-registry.yaml"
@@ -66,6 +66,30 @@ def test_cli_rejects_unknown_deployment_environment(tmp_path: Path) -> None:
 
     with pytest.raises(SystemExit, match="2"):
         main(argv)
+
+
+def test_azure_cli_timeout_is_bounded_and_shared_by_every_query() -> None:
+    parser = _build_parser()
+    argv = [
+        "--registry",
+        str(REGISTRY),
+        "--region",
+        "koreacentral",
+        "--subscription-id",
+        "00000000-0000-0000-0000-000000000000",
+        "--deployer-object-id",
+        "00000000-0000-0000-0000-000000000001",
+        "--use-azure-cli",
+        "--azure-cli-timeout-seconds",
+        "90",
+    ]
+    queries = _build_queries(parser.parse_args(argv))
+
+    assert [query._timeout for query in queries] == [90.0, 90.0, 90.0, 90.0]  # type: ignore[attr-defined]
+
+    invalid = parser.parse_args([*argv[:-1], "301"])
+    with pytest.raises(ValueError, match="between 5 and 300"):
+        _build_queries(invalid)
 
 
 def test_cli_marks_hil_only_when_permission_denied(tmp_path: Path) -> None:

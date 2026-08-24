@@ -655,6 +655,7 @@ jobs:
               --deployer-object-id "$MODEL_RESOLVER_DEPLOYER_OBJECT_ID" \
               "${policy_args[@]}" \
               --use-azure-cli \
+              --azure-cli-timeout-seconds 90 \
               --assess-fail-on "$MODEL_COMPLETENESS_FAIL_ON" \
               --out "$resolved"
           python3 - "$resolved" "$manifest" <<'PY'

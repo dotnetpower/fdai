@@ -1,7 +1,7 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: 4ed8845e9a87a20f87267425a2f3f36c122b3975
+translation_source_sha: 828e8e5080bd7f129a162bb3dbfb9ecec1a6d7c2
 translation_revised: 2026-08-25
 ---
 # LLM 전략(LLM Strategy)
@@ -38,6 +38,7 @@ translation_revised: 2026-08-25
 | 2026-08-24 | implemented | 의도적으로 사용할 수 없는 secondary 발행기로 인해 일반 완전성 게이트가 Terraform 전에 중단되는 것을 실제 평가에서 확인한 뒤, 모델 바인딩 전용 보호 배포 모드를 추가했습니다. 범위가 제한된 `plan-model-*` 및 `apply-model-*` 요청 ID는 환경 정책과 보호 요청을 요구하고 Azure OpenAI 모듈만 대상으로 삼으며 봉인된 Cognitive deployment 변경만 허용합니다. 또한 교체 버전, SKU, 용량을 resolved artifact와 대조합니다. | [이슈 #270](https://github.com/dotnetpower/fdai/issues/270); `deploy-dev.yml`; `test_model_resolution_lifecycle.py`; 집중 보호 workflow 검사 60개, YAML 구문 분석 및 Ruff 통과. | 이 경로를 validated로 분류하기 전에 정확한 PTU 계획, 적용, 독립 런타임 검증 및 역방향 계획 롤백을 실행합니다. |
 | 2026-08-24 | implemented | 보호 작업 종류와 모델 정책 환경, 리비전, 다이제스트, 활성 산출물 제한을 변경할 수 없는 계획 메타데이터에 결속했습니다. Exact 적용은 다른 작업 종류 또는 환경을 거부하고, 중복된 resolved 기능은 재생에 실패하며, 독립 management-plane readback은 배포된 모델 계열, 버전, SKU, 용량, 프로비저닝 상태를 비교한 뒤 민감정보가 제거된 증적을 기록합니다. | [이슈 #270](https://github.com/dotnetpower/fdai/issues/270); `verify-deployment-plan.py`; `verify_model_deployments.py`; 보호 workflow 및 resolver 검사 107개 통과; Ruff, strict mypy 및 YAML 구문 분석 통과; 비평 10회 뒤 검증된 미해결 결함은 Low 이하만 남았습니다. | 정확한 PTU 계획 및 적용과 역방향 계획 롤백 증적을 보존한 뒤 Core와 Operator가 봉인된 런타임 다이제스트를 사용하는지 검증합니다. |
 | 2026-08-24 | implemented | YAML 들여쓰기로 모델 전용 범위 검사가 monitoring script 안에 포함된 문제를 수정해 실행 가능한 workflow 단계로 복원하고, 사용 중단 중인 출처 모델 계열은 정확히 봉인된 GA 모델 계열, 버전, SKU 및 PTU 용량으로만 이동하도록 허용했습니다. 출처 모델, SKU, 용량, 배포 이름 및 계정 연결 검증은 유지합니다. | [이슈 #270](https://github.com/dotnetpower/fdai/issues/270); 실행형 workflow 단계 및 합성 교체 검사; 집중 모델 검사 45개와 embedded Python block 17개 통과. | 정확한 보호 PTU 계획, 적용, 독립 readback, 런타임 바인딩 및 역방향 계획 롤백 증적을 실행하고 보존합니다. |
+| 2026-08-24 | implemented | 첫 보호 PTU 계획의 Model Capacities 요청이 adapter의 고정 30초 제한을 초과해 Terraform 전에 중단된 뒤 범위가 제한된 Azure CLI resolver deadline을 추가했습니다. CLI는 5-300초를 허용하고 catalog, permission, quota 및 PTU 질의에 같은 제한을 사용하며 보호 workflow는 90초를 선택합니다. | [이슈 #270](https://github.com/dotnetpower/fdai/issues/270); 실패한 계획 `32749593774`; 집중 resolver 및 workflow 검사 62개, strict mypy 및 embedded Python 검사 17개 통과. | 새 deadline으로 보호 계획을 다시 실행하며 공급자가 다시 초과하면 새 근거 없이 재시도하지 않습니다. |
 ### 남은 작업
 - [ ] [목표와 메트릭](goals-and-metrics-ko.md#남은-작업)과 [Agent Pantheon 구현 계획](../agents/agent-pantheon-implementation-ko.md#남은-작업)의 실제 운영 KPI 선행 조건을 충족한 뒤, 활성화된 모든 T1/T2 기능에 대해 모델 신원, 비용, 지연 시간, 스키마 복구 시도와 복구 결과, 전환, 계획 처리 결과, 불일치, 근거 확인, 검증기, rubric, 결과 및 가드 근거가 포함된 고정된 실제 운영 shadow 집단을 보존합니다.
 - [ ] 범위가 제한된 시도 예산, 재시작 후 영속 증적 전달, 최종 소진에서 사람 승인으로의 전환, 감사된 경로 변경, 상관관계로 제한된 롤백 및 새 승인 없는 복구를 입증하는 통제된 T2 복구 캠페인을 보존합니다.
@@ -63,7 +64,6 @@ translation_revised: 2026-08-25
 - T1이 **abstain** 할 때만 **T1 → T2**: 정확한 규칙 매칭 없음, 이전 해결된 인시던트에 대한
   임베딩 유사도가 설정 스코어 임계 아래, 적용 가능한 학습된 액션 없음.
 - 유사도 임계와 abstain 조건은 **설정** , 하드코딩 아님.
-
 ## T1 - 경량 티어
 
 - **임베딩**: 작은 임베딩 모델이 인시던트를 벡터화하고 과거 패턴과 대응시킵니다. 비용 효율이 높은 호스팅 모델을 우선 사용하고, 데이터 잔류지나 비용이 요구하면 로컬 sentence-transformer를
