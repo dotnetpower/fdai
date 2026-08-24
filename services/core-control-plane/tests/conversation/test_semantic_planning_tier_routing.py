@@ -114,6 +114,7 @@ from fdai.core.ontology_platform.resource_metric_queries import (
     resource_metric_function_type,
     resource_metric_series_function_type,
 )
+from fdai.delivery.golden_question_dataset import load_golden_question_dataset
 from fdai.rule_catalog.schema.inventory_query_language import (
     InventoryQueryLanguageRegistry,
     QueryTerms,
@@ -223,6 +224,53 @@ class _LowConfidenceDraftJudgmentModel(_DraftJudgmentModel):
         proposal = super().judge(utterance=utterance, **kwargs)
         proposal["confidence"] = 0.5
         return proposal
+
+
+class _LocalizedActionPostureJudgmentModel:
+    def __init__(
+        self,
+        *,
+        source_value: str,
+        action_posture: str,
+        action_subject: str,
+    ) -> None:
+        self._source_value = source_value
+        self._action_posture = action_posture
+        self._action_subject = action_subject
+
+    def judge(self, *, utterance: str, **_kwargs: Any) -> dict[str, object]:
+        source_start = utterance.index(self._source_value)
+        return {
+            "primary_intent": (
+                "action_request" if self._action_posture == "draft_only" else "incident_evidence"
+            ),
+            "targets": [
+                {
+                    "kind": "request_concept",
+                    "value": self._source_value,
+                    "source_start": source_start,
+                    "source_end": source_start + len(self._source_value),
+                }
+            ],
+            "confidence": 0.95,
+            "ambiguous": False,
+            "action_posture": self._action_posture,
+            "action_subject": self._action_subject,
+            "execution_authority": False,
+        }
+
+
+class _IncidentDraftJudgmentModel:
+    def judge(self, **_kwargs: Any) -> dict[str, object]:
+        return {
+            "primary_intent": "action_request",
+            "targets": [],
+            "confidence": 0.95,
+            "ambiguous": False,
+            "action_posture": "draft_only",
+            "action_subject": "Incident",
+            "execution_authority": False,
+        }
 
 
 class _OperatingSubjectJudgmentModel:
@@ -3559,6 +3607,159 @@ def test_action_draft_frame_terminates_before_plan_without_t2() -> None:
     assert outcome.frame.output_shape == "action_draft"
     assert (t1.frame_calls, t1.plan_calls) == (1, 0)
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+@pytest.mark.parametrize(
+    (
+        "utterance",
+        "source_value",
+        "action_posture",
+        "action_subject",
+        "expected_disposition",
+    ),
+    [
+        (
+            "Draft a review-only incident mitigation proposal.",
+            "Draft",
+            "draft_only",
+            "Incident",
+            SemanticPlanningDisposition.ACTION_DRAFT,
+        ),
+        (
+            "검토 전용 장애 완화 제안을 작성해 주세요.",
+            "작성",
+            "draft_only",
+            "Incident",
+            SemanticPlanningDisposition.ACTION_DRAFT,
+        ),
+        (
+            "Show the review-only incident mitigation proposal.",
+            "mitigation proposal",
+            "advise_only",
+            "none",
+            SemanticPlanningDisposition.PLANNED,
+        ),
+        (
+            "검토 전용 장애 완화 제안을 보여 주세요.",
+            "완화 제안",
+            "advise_only",
+            "none",
+            SemanticPlanningDisposition.PLANNED,
+        ),
+    ],
+    ids=("draft-en", "draft-ko", "read-en", "read-ko"),
+)
+def test_bilingual_typed_action_posture_routes_without_keyword_rules(
+    utterance: str,
+    source_value: str,
+    action_posture: str,
+    action_subject: str,
+    expected_disposition: SemanticPlanningDisposition,
+) -> None:
+    manifest, definition = _fixture()
+    t1 = _Model(frame=_frame(), plan=_plan(definition))
+    judgment = SemanticJudgmentBoundary(
+        profile_id="semantic-planning.test",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=_LocalizedActionPostureJudgmentModel(
+                source_value=source_value,
+                action_posture=action_posture,
+                action_subject=action_subject,
+            ),
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+    )
+    service = SemanticPlanningService(
+        model=t1,
+        semantic_judgment=judgment,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = service.plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        bound_incident=BoundIncident(
+            incident_id="incident-a",
+            correlation_id="correlation-a",
+        ),
+    )
+
+    assert outcome.disposition is expected_disposition
+    assert outcome.frame is not None
+    assert outcome.execution_authority is False
+    assert outcome.frame.execution_authority is False
+    if action_posture == "draft_only":
+        assert outcome.frame.operation is SemanticOperation.ACTION_DRAFT
+        assert outcome.frame.subject_constraints == ("Incident",)
+        assert outcome.plan is None
+        assert t1.plan_calls == 0
+    else:
+        assert outcome.frame.operation is SemanticOperation.SELECT
+        assert outcome.frame.subject_constraints == ("Resource",)
+        assert outcome.plan is not None
+        assert outcome.plan.execution_authority is False
+        assert t1.plan_calls == 1
+
+
+def test_incident_action_draft_all_bilingual_wording_styles_remain_authority_free() -> None:
+    corpus = load_golden_question_dataset(ROOT / "eval" / "golden-dataset")
+    cases = tuple(
+        case
+        for case in corpus.cases
+        if case.semantic_pair_id.rpartition(".")[0] == "action-incident-mitigation-draft"
+    )
+
+    assert len(cases) == 16
+    assert {case.locale for case in cases} == {"en", "ko"}
+    assert len({case.variation_kind for case in cases}) == 8
+
+    manifest, definition = _fixture()
+    for case in cases:
+        assert case.runtime_context == "incident_binding"
+        assert case.expected_frame.operation == "action_draft"
+        t1 = _Model(frame=_frame(), plan=_plan(definition))
+        judgment = SemanticJudgmentBoundary(
+            profile_id="semantic-planning.test",
+            profile_version="1.0.0",
+            primary=SemanticJudgmentBinding(
+                tier=SemanticJudgmentTier.T1,
+                model=_IncidentDraftJudgmentModel(),
+                model_config_digest=DIGEST,
+                prompt_digest=DIGEST,
+            ),
+        )
+        outcome = SemanticPlanningService(
+            model=t1,
+            semantic_judgment=judgment,
+            manifests=_ManifestProvider(manifest),
+            verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+            now=lambda: NOW,
+        ).plan(
+            utterance=case.question,
+            prior_turns=(),
+            principal=Principal(id="operator", role=Role.READER),
+            purpose="operations-review",
+            bound_incident=BoundIncident(
+                incident_id="incident-a",
+                correlation_id="correlation-a",
+            ),
+        )
+
+        assert outcome.disposition is SemanticPlanningDisposition.ACTION_DRAFT, case.case_id
+        assert outcome.frame is not None
+        assert outcome.frame.operation is SemanticOperation.ACTION_DRAFT
+        assert outcome.frame.subject_constraints == ("Incident",)
+        assert outcome.frame.execution_authority is False
+        assert outcome.execution_authority is False
+        assert outcome.plan is None
+        assert t1.plan_calls == 0
 
 
 def test_bound_incident_supplies_missing_action_draft_subject() -> None:

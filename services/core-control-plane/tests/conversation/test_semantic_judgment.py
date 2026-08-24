@@ -109,6 +109,77 @@ def test_accepts_grounded_t1_proposal_with_content_free_receipt() -> None:
     assert result.receipt.execution_authority is False
 
 
+@pytest.mark.parametrize(
+    ("utterance", "source_value", "action_posture", "action_subject"),
+    [
+        (
+            "Draft a review-only incident mitigation proposal.",
+            "Draft",
+            "draft_only",
+            "Incident",
+        ),
+        (
+            "검토 전용 장애 완화 제안을 작성해 주세요.",
+            "작성",
+            "draft_only",
+            "Incident",
+        ),
+        (
+            "Show the review-only incident mitigation proposal.",
+            "mitigation proposal",
+            "advise_only",
+            "none",
+        ),
+        (
+            "검토 전용 장애 완화 제안을 보여 주세요.",
+            "완화 제안",
+            "advise_only",
+            "none",
+        ),
+    ],
+    ids=("draft-en", "draft-ko", "read-en", "read-ko"),
+)
+def test_bilingual_action_posture_receipts_are_typed_and_authority_free(
+    utterance: str,
+    source_value: str,
+    action_posture: str,
+    action_subject: str,
+) -> None:
+    source_start = utterance.index(source_value)
+    result = _boundary(
+        _Model(
+            _proposal(
+                primary_intent=(
+                    "action_request" if action_posture == "draft_only" else "incident_evidence"
+                ),
+                targets=[
+                    {
+                        "kind": "request_concept",
+                        "value": source_value,
+                        "source_start": source_start,
+                        "source_end": source_start + len(source_value),
+                    }
+                ],
+                action_posture=action_posture,
+                action_subject=action_subject,
+            )
+        )
+    ).judge(
+        utterance=utterance,
+        context=(),
+        capabilities=({"kind": "object_type", "name": "Incident"},),
+        allow_escalation=False,
+        bound_subject_types=("Incident",),
+    )
+
+    assert result.accepted is True
+    assert result.proposal is not None
+    assert result.proposal.action_posture == action_posture
+    assert result.proposal.action_subject == action_subject
+    assert result.proposal.execution_authority is False
+    assert result.receipt.execution_authority is False
+
+
 def test_malformed_t1_escalates_once_to_valid_t2() -> None:
     t1 = _Model({"primary_intent": "broken"})
     t2 = _Model(_proposal())
