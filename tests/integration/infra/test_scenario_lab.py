@@ -144,7 +144,8 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     assert 'environment_file="$output_dir/enforce.env"' in workflow
     assert 'environment_file="$(bash' not in workflow
     assert 'CONFIRM_DESTROY" != "destroy-sre-demo-lab"' in workflow
-    assert workflow.count("terraform apply -input=false -auto-approve") == 3
+    assert workflow.count("terraform apply -input=false -auto-approve") == 2
+    assert "terraform apply -json -input=false -auto-approve" in workflow
     assert workflow.count('"$RUNNER_TEMP/sre-demo-lab.tfplan"') >= 3
     assert "terraform destroy" not in workflow
     assert "Quiesce private DNS links before destroy" in workflow
@@ -185,10 +186,13 @@ def test_scenario_lab_apply_diagnostic_projects_only_allowlisted_tokens(tmp_path
     )
     raw_log = tmp_path / "apply.log"
     raw_log.write_text(
-        "Error: request failed\n"
-        "  with azurerm_virtual_network_peering.lab_to_operator[0],\n"
-        'Code="RemoteGatewayNotReady" Message="private deployment value"\n'
-        'resource_id="/subscriptions/private/resourceGroups/private"\n',
+        '{"type":"apply_errored","@message":"private deployment value",'
+        '"hook":{"resource":{"addr":"azurerm_virtual_network_peering.lab_to_operator[0]"}}}\n'
+        '{"type":"diagnostic","diagnostic":{"severity":"error",'
+        '"address":"azurerm_virtual_network_peering.lab_to_operator[0]",'
+        '"detail":"Code=RemoteGatewayNotReady Message=private deployment value '
+        '/subscriptions/private/resourceGroups/private"}}\n'
+        '{"type":"outputs","outputs":{"secret":{"sensitive":true,"value":"private"}}}\n',
         encoding="utf-8",
     )
 
