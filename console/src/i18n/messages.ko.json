@@ -1592,10 +1592,10 @@
       }
     },
     "models": {
-      "subtitle": "확정된 T1 및 T2 모델, 라이프사이클 상태, 지연 시간 근거, narrator 선호 및 검토용 T2 정책 초안을 보여줍니다.",
+      "subtitle": "확정된 T1 및 T2 모델, PTU 용량, 환경 바인딩 초안, 보호된 계획 및 narrator 선호를 보여줍니다.",
       "loading": "모델 설정을 불러오는 중...",
       "automation": "모델 라이프사이클",
-      "automationHint": "탐색 및 프로비저닝은 부트스트랩에서 확정됩니다. 이 페이지는 상태만 관찰하며 리소스를 프로비저닝하지 않습니다.",
+      "automationHint": "탐색과 프로비저닝은 보호된 계획에서 확정됩니다. 이 페이지는 정책 의도를 기록하며 리소스를 직접 프로비저닝하지 않습니다.",
       "resolvedMetadata": "확정된 모델 스냅샷 출처",
       "source": "소스",
       "kind": "종류",
@@ -1669,7 +1669,7 @@
       "totalLatency": "전체 지연 시간",
       "status": "상태",
       "capabilities": "Capability 할당",
-      "capabilitiesHint": "확정된 할당은 시스템이 관리합니다. 위의 T2 정책 초안에서 검토할 카탈로그 변경을 제안하세요.",
+      "capabilitiesHint": "활성 할당은 봉인된 resolved-model 산출물에서 가져옵니다. 환경 초안은 실행 중인 배포를 변경하지 않고 각 기능을 좁힐 수 있습니다.",
       "t2Governed": "확정된 할당",
       "capability": "Capability",
       "tier": "Tier",

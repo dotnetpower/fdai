@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -22,6 +23,7 @@ from fdai.rule_catalog.schema.llm_resolver import (
     ResolverError,
     resolve,
 )
+from fdai.rule_catalog.schema.model_binding_policy import load_model_binding_policy_from_mapping
 
 _SUB = "00000000-0000-0000-0000-000000000000"
 _OID = "00000000-0000-0000-0000-000000000001"
@@ -103,6 +105,22 @@ class _PtuCapacity(ProvisionedCapacityQuery):
     ) -> int:
         del region, publisher, family, sku
         return self._available
+
+
+class _PtuCapacityByFamily(ProvisionedCapacityQuery):
+    def __init__(self, available: Mapping[str, int]) -> None:
+        self._available = dict(available)
+
+    def available_capacity_ptu(
+        self,
+        *,
+        region: str,
+        publisher: str,
+        family: str,
+        sku: str,
+    ) -> int:
+        del region, publisher, sku
+        return self._available.get(family, 0)
 
 
 def _default_full_quota() -> _DictQuota:
@@ -354,6 +372,94 @@ def test_provisioned_capacity_uses_ptu_without_tpm_conversion() -> None:
     assert '"value": 20' in result.to_json()
 
 
+def test_provisioned_capacity_falls_through_to_deployable_preference() -> None:
+    raw = _minimal_registry_with_provisioned_primary()
+    raw["models"]["t2.reasoner.primary"]["preferences"] = [
+        {"publisher": "OpenAI", "family": "gpt-4o"},
+        {"publisher": "OpenAI", "family": "gpt-4.1"},
+    ]
+    result = resolve(
+        registry=load_llm_registry_from_mapping(raw),
+        region=_REGION,
+        subscription_id=_SUB,
+        deployer_object_id=_OID,
+        catalog=_StaticCatalog(_families_full() | {"gpt-4.1"}),
+        permission=_AlwaysPermissionQuery(True),
+        quota=_default_full_quota(),
+        provisioned_capacity=_PtuCapacityByFamily({"gpt-4o": 0, "gpt-4.1": 30}),
+    )
+
+    primary = _cap(result, "t2.reasoner.primary")
+    assert primary.status is CapabilityStatus.RESOLVED
+    assert primary.family == "gpt-4.1"
+    assert primary.capacity_unit == "ptu"
+    assert primary.capacity_value == 30
+
+
+def test_pinned_policy_uses_only_requested_ptu_family() -> None:
+    policy = load_model_binding_policy_from_mapping(
+        {
+            "schema_version": "1.0.0",
+            "environment": "production",
+            "revision": 2,
+            "capabilities": {
+                "t2.reasoner.primary": {
+                    "selection_mode": "pinned",
+                    "publisher": "OpenAI",
+                    "family": "gpt-4.1",
+                    "version_policy": "latest-compatible",
+                    "sku": "GlobalProvisionedManaged",
+                    "capacity": {"unit": "ptu", "value": 30},
+                }
+            },
+        }
+    )
+    result = resolve(
+        registry=_registry(),
+        region=_REGION,
+        subscription_id=_SUB,
+        deployer_object_id=_OID,
+        catalog=_StaticCatalog(_families_full() | {"gpt-4.1"}),
+        permission=_AlwaysPermissionQuery(True),
+        quota=_default_full_quota(),
+        provisioned_capacity=_PtuCapacityByFamily({"gpt-4o": 30, "gpt-4.1": 30}),
+        binding_policy=policy,
+    )
+
+    primary = _cap(result, "t2.reasoner.primary")
+    assert primary.family == "gpt-4.1"
+    assert primary.sku == "GlobalProvisionedManaged"
+    assert primary.selection_mode == "pinned"
+    assert result.binding_policy_revision == 2
+    assert result.binding_policy_digest == policy.digest()
+
+
+def test_hil_only_policy_skips_provider_capacity() -> None:
+    policy = load_model_binding_policy_from_mapping(
+        {
+            "schema_version": "1.0.0",
+            "environment": "production",
+            "revision": 1,
+            "capabilities": {"t2.reasoner.secondary": {"selection_mode": "hil-only"}},
+        }
+    )
+    result = resolve(
+        registry=_registry(),
+        region=_REGION,
+        subscription_id=_SUB,
+        deployer_object_id=_OID,
+        catalog=_StaticCatalog(_families_full()),
+        permission=_AlwaysPermissionQuery(True),
+        quota=_default_full_quota(),
+        binding_policy=policy,
+    )
+
+    secondary = _cap(result, "t2.reasoner.secondary")
+    assert secondary.status is CapabilityStatus.HIL_ONLY
+    assert secondary.selection_mode == "hil-only"
+    assert secondary.reasons == ("binding_policy_hil_only",)
+
+
 def test_provisioned_capacity_without_capacity_query_fails_closed() -> None:
     result = resolve(
         registry=load_llm_registry_from_mapping(_minimal_registry_with_provisioned_primary()),
@@ -483,6 +589,61 @@ def test_resolved_models_round_trips_json() -> None:
     for a, b in zip(original.capabilities, restored.capabilities, strict=True):
         assert isinstance(a, ResolvedCapability)
         assert a == b
+
+
+def test_resolved_capability_rejects_negative_tpm() -> None:
+    with pytest.raises(ValueError, match="capacity_tpm"):
+        ResolvedCapability(
+            name="t1.embedding",
+            status=CapabilityStatus.RESOLVED,
+            publisher="OpenAI",
+            family="text-embedding-3-small",
+            sku="Standard",
+            capacity_tpm=-1,
+            invocation="always",
+        )
+
+
+def _resolved_models_fixture() -> ResolvedModels:
+    return resolve(
+        registry=_registry(),
+        region=_REGION,
+        subscription_id=_SUB,
+        deployer_object_id=_OID,
+        catalog=_StaticCatalog(_families_full()),
+        permission=_AlwaysPermissionQuery(True),
+        quota=_default_full_quota(),
+    )
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        (lambda raw: raw.update(schema_version="2.0.0"), "schema_version"),
+        (
+            lambda raw: raw["capabilities"][0].update(capacity_tpm=1000.5),
+            "capacity_tpm",
+        ),
+        (
+            lambda raw: raw.update(narrator_candidates=[{"endpoint": "https://example.invalid"}]),
+            "narrator_candidates",
+        ),
+    ],
+)
+def test_resolved_models_rejects_malformed_replay_fields(
+    mutation: Any,
+    message: str,
+) -> None:
+    raw = json.loads(_resolved_models_fixture().to_json())
+    mutation(raw)
+
+    with pytest.raises(ValueError, match=message):
+        ResolvedModels.from_json(json.dumps(raw))
+
+
+def test_resolved_models_rejects_duplicate_json_keys() -> None:
+    with pytest.raises(ValueError, match="duplicate JSON key"):
+        ResolvedModels.from_json('{"schema_version":"1.0.0","schema_version":"2.0.0"}')
 
 
 # ---------------------------------------------------------------------------

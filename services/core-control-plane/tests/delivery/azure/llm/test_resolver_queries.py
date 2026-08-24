@@ -85,6 +85,44 @@ class TestCatalogQuery:
         catalog = AzureCliCatalogQuery()
         assert catalog.families_in_region("koreacentral") == set()
 
+    def test_selects_latest_ga_version_from_catalog_snapshot(
+        self, fake_subprocess: _FakeSubprocess
+    ) -> None:
+        fake_subprocess._responses = [
+            _CompletedProc(
+                returncode=0,
+                stdout=json.dumps(
+                    [
+                        {
+                            "name": "gpt-4o",
+                            "version": "2024-05-13",
+                            "lifecycleStatus": "GenerallyAvailable",
+                        },
+                        {
+                            "name": "gpt-4o",
+                            "version": "2024-08-06",
+                            "lifecycleStatus": "GenerallyAvailable",
+                        },
+                        {
+                            "name": "gpt-4o",
+                            "version": "2024-11-20-preview",
+                            "lifecycleStatus": "Preview",
+                        },
+                    ]
+                ),
+            )
+        ]
+        catalog = AzureCliCatalogQuery()
+
+        assert catalog.families_in_region("koreacentral") == {"gpt-4o"}
+        assert (
+            catalog.latest_stable_version(
+                region="koreacentral", publisher="OpenAI", family="gpt-4o"
+            )
+            == "2024-08-06"
+        )
+        assert len(fake_subprocess.calls) == 1
+
     def test_raises_on_nonzero_exit(self, fake_subprocess: _FakeSubprocess) -> None:
         fake_subprocess._responses = [
             _CompletedProc(returncode=1, stdout="", stderr="not logged in")

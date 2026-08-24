@@ -1,8 +1,8 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: a2e3cdfe22aca9970cd615100044c489a67d5fdf
-translation_revised: 2026-08-23
+translation_source_sha: 0a80d0fc778300e0cc88720d590dce59db92fd05
+translation_revised: 2026-08-24
 ---
 # 서술기 라우팅과 지연 시간
 
@@ -145,6 +145,7 @@ Settings > Models는 Owner에게 배포 전체의 웹 검색 활성화와 정확
 | 주기적 narrator refresh owner | implemented | `services/operator-service/src/fdai_operator_service/adapters/narrator_periodic_scheduler.py`; `environment.py`; `composition.py`; focused scheduler 및 composition 테스트 | Operator lifecycle은 정확히 하나의 즉시 및 주기적 loop를 소유하고 30-3600초 간격을 검증하며 다음 주기까지 provider 실패를 격리하고 종료 중 in-flight probe를 취소합니다. 로컬 Azure narrator가 있을 때만 binding됩니다. |
 | 비전 후보 probe 및 이미지 턴 라우팅 | in-progress | `services/operator-service/src/fdai_operator_service/adapters/local_narrator.py`; focused vision-probe 및 image-unavailable 테스트 | 비전 후보는 독립된 측정 probe 창을 갖습니다. 서버 소유 image resolver가 검증되고 범위가 제한된 byte를 공급할 때까지 이미지 턴은 사용 불가 상태이며 text binding을 빌리지 않습니다. |
 | 사용자별 라우팅 선호 설정 및 런타임 지연 시간 변환 결과 | in-progress | `services/operator-service/src/fdai_operator_service/adapters/narrator_preferences.py`; `services/operator-service/tests/test_narrator_preferences.py` | Service-local 개정 번호 기반 저장소는 principal마다 `Auto` 또는 허용된 배포 하나를 유지하고, 임의 모델 id를 거부하며, 오래된 개정 번호에는 충돌을 반환하고, principal을 격리하고, 제거된 배포는 저장된 선택을 버리지 않고 `Auto` 로 저하시킵니다. 정제된 변환 결과는 모드, 개정 번호, 허용 목록, 이동 timing 근거를 endpoint나 credential 없이 노출하며 T2 연결을 개인화하지 않는다고 선언합니다. 영속 저장, 인증된 Settings 경로, 배포 pinning 계약은 남아 있습니다. |
+| 환경 T1/T2 바인딩 초안 및 보호된 계획 | implemented | 공통 `ModelBindingPolicy`; Operator IAM 경로 및 PostgreSQL 어댑터; Console 모델 편집기; 보호된 해석기 및 배포 워크플로; 집중 테스트 | Owner 전용 초안은 리비전 및 멱등성 제한과 함께 영속화됩니다. 평가 및 계획 요청에는 권한이 없고 활성 산출물 다이제스트를 결합하며 보호된 배포 워크플로를 통해서만 활성화에 도달합니다. 공급자 및 롤백 증적은 남아 있습니다. |
 | 공개 웹 후보 라우팅 | in-progress | `services/operator-service/src/fdai_operator_service/application/conversation/capabilities/web_search/`; `services/operator-service/src/fdai_operator_service/adapters/conversation/web_search/`; focused Operator 테스트 | 프로바이더 중립 및 Azure 구성 경로가 있습니다. 로컬 및 배포 프로파일의 관리되는 이동 지연 시간 및 장애 조치 근거가 남아 있습니다. |
 | 선택적 report-format parity | implemented | `fdai_operator_service.reporting.optional_pdf_report_encoder`; `IncidentRcaReportingProjectionReader`; Operator composition 및 경로 테스트 | 로컬 및 배포 Operator composition은 같은 service-local loader와 authoritative audit-backed Incident report reader를 사용합니다. Venue, 환경 및 identity는 report 권한을 바꾸지 않습니다. |
 
@@ -160,6 +161,7 @@ Settings > Models는 Owner에게 배포 전체의 웹 검색 활성화와 정확
 | 2026-08-16 | in-progress | 개정 번호 기반 principal별 narrator 선호 설정 저장소와 정제된 Settings 변환 결과를 추가했습니다. `Auto` 와 허용된 배포만 허용하고, 오래된 개정 번호는 충돌하며, principal은 격리되고, 제거된 배포는 저장된 선택을 유지한 채 `Auto` 로 저하됩니다. T2 연결은 개인화되지 않습니다. | `current change`; `services/operator-service/src/fdai_operator_service/adapters/narrator_preferences.py`; `pytest services/operator-service/tests/test_narrator_preferences.py` (14 passed). | 영속 저장과 인증된 Settings 경로를 binding한 뒤 관리되는 timing 증적을 보존합니다. |
 | 2026-08-19 | implemented | 보호된 해석기의 정확한 인라인 JSON과 SHA를 Operator 시작에 연결하고 제안 전용 주간 조정기를 추가했습니다. 다이제스트가 다르면 서술기 구성을 차단하며, 공급자 실패는 정제된 판단 보류를 만들고 PR을 열지 않습니다. | `current change`; 집중 서술기, 수명 주기, 계획 검증기, Terraform 및 권한 workflow 테스트. | 통제된 로컬/배포 timing 및 조정기 실행 근거를 보존하며 직접 Key Vault 읽기는 계속 연기합니다. |
 | 2026-08-23 | implemented | 해석 모델 JSON을 위한 서비스 소유 비동기 Key Vault 출처 어댑터를 추가했습니다. 어댑터는 토큰 및 HTTP 공급자를 주입 상태로 유지하고, 일치하는 cloud audience를 가진 현재 Azure Key Vault DNS suffix만 허용하며, 응답 신원을 요청한 secret 및 버전에 결합하고, 하나의 전체 마감 안에서 실패 시 차단 처리합니다. | `current change`; 집중 Key Vault 출처 테스트와 15회의 비평 및 하드닝 라운드입니다. | 현재 파일 또는 인라인 출처를 교체하기 전에 비동기 시작 소유자, 변경 불가능한 출처 개정 발행, Core/Operator parity 바인딩 및 통제된 로컬/배포 근거를 추가합니다. |
+| 2026-08-24 | implemented | 프로비저닝된 SKU와 PTU 용량, 정확한 활성 다이제스트 제한, 분리된 초안, 평가 및 보호된 계획 요청을 포함해 T1/T2 `auto`, `pinned`, `hil-only` 모드를 위한 환경 전체 정책 편집기를 추가했습니다. | `current change`; 공통 계약, Operator 경로 및 저장소, Console 정책 편집기, 해석기, 워크플로 및 Terraform 검사. | 보호된 공급자 평가, 적용, 독립 검증 및 롤백 증적을 보존합니다. |
 
 ### 남은 작업
 
@@ -171,6 +173,7 @@ Settings > Models는 Owner에게 배포 전체의 웹 검색 활성화와 정확
 - [ ] Narrator 및 웹 검색 후보 선택, 첫 토큰 시간, 실패, 복구 및 정제된 상태에 대한 관리되는 로컬 및 배포 증적을 보존합니다.
 - [x] 신뢰할 수 있는 origin, 신원, 범위, 만료, timeout 및 secret-redaction 검사를 갖춘 service-owned 비동기 직접 Key Vault 모델 해석 결과 출처 어댑터를 구현하고 집중 테스트합니다.
 - [ ] 기능 바인딩과 수명 주기 보류 평가가 공유하는 비동기 시작 소유자를 통해 Key Vault 출처를 연결하고, Core/Operator 출처 개정 parity를 보존하며, 통제된 제안 전용 조정기 실행 하나를 보존합니다.
+- [ ] 런타임이 봉인된 정책과 모델 버전을 로드했음을 독립 검증하는 근거를 포함해 정확한 환경 정책 평가 및 보호된 PTU 계획, 적용, 롤백 캠페인 하나를 보존합니다.
 
 ## 관련 문서
 

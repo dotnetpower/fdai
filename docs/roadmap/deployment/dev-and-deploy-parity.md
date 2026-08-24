@@ -620,10 +620,22 @@ to preserve its existing model-account, caller-RBAC, and ingestion dependencies.
 | Principal has `Cognitive Services Contributor` (or `Owner`) on the target subscription | skip LLM provisioning, mark all `t2.*` and `t1.judge` capabilities as `hil-only`, emit warning | fork can grant the role and re-run |
 | Region exposes at least one family from each capability's preferences | mark just the affected capability `hil-only`, warn | fork can expand preferences in `llm-registry.yaml` and re-run |
 | Deployer's subscription has quota for the requested `capacity_tpm` | reduce to the largest available capacity ≥ 20% of requested; refuse below that | fork requests quota increase |
+| Environment policy is `pinned` | evaluate only the requested publisher, family, SKU, and TPM/PTU capacity | save a new revision or select `auto`; never substitute another family |
+| An `auto` candidate has no usable TPM/PTU capacity | record the rejection and evaluate the next complete preference | expand preferences or request capacity when every candidate fails |
+| Policy `expected_active_digest` differs from Terraform state | stop before plan | refresh Settings and submit a new revision against the current active artifact |
+| Selected model version is missing or not generally available | mark the capability `hil-only` | review the regional catalog and submit a new policy |
 | Mixed-model invariant (`t2.reasoner.primary.publisher != t2.reasoner.secondary.publisher`) after resolution | **abort** - do NOT partially deploy a T2 tier that would fail the quality gate | fork adjusts preferences |
 
 The resolver artifact contains the deployer's `object_id`, subscription, region, resolved capability map, and reasons. Identical registry + catalog + permission + quota inputs produce
 identical JSON. The resolver caller owns appending that evidence to the audit store.
+
+An optional environment binding policy is read only during plan. The workflow selects the matching
+non-secret repository variable, validates its environment and revisioned content, and seals its
+digest and expected active artifact digest into `resolved-models.json`. After Terraform backend
+initialization, the plan compares that expected digest with the current state output. Apply never
+re-reads the variable or reruns resolution; it restores the exact model artifacts and digests from
+the protected plan bundle. Azure Model Capacities selects PTU against the same exact generally
+available model version that Terraform deploys.
 
 ## Work Plan (phased, additive)
 

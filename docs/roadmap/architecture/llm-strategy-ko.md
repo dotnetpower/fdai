@@ -1,8 +1,8 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: b9ea6eaefbef59a4d12641951723d7f7efc8ce25
-translation_revised: 2026-08-23
+translation_source_sha: 64d78171337007dc740e9ce490ea65b151d8e048
+translation_revised: 2026-08-24
 ---
 
 # LLM 전략(LLM Strategy)
@@ -19,6 +19,7 @@ translation_revised: 2026-08-23
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 기능 레지스트리, 해석 및 프로비저닝 평가 | implemented | `rule-catalog/llm-registry.yaml`; `rule_catalog/schema/llm_resolver.py`; `provisioning_assessment.py`; 집중 resolver 테스트 | 기능과 모델 대응, 명시적 용량 단위, 혼합 발행기 불변식 및 실패 시 차단 준비 상태를 실행할 수 있습니다. |
+| 환경 모델 바인딩 정책 및 PTU 계획 | implemented | `fdai_service_contracts/model_binding.py`; `model_binding_policy.py`; Operator IAM 바인딩 경로 및 PostgreSQL 어댑터; Console 모델 편집기; 보호된 배포 워크플로; 집중 계약, 해석기, Operator, Console 및 Terraform 검사 | Owner는 모든 T1/T2 기능에 리비전이 있는 `auto`, `pinned` 또는 `hil-only` 의도를 저장할 수 있습니다. PTU와 정확한 모델 버전은 보호된 계획에서 평가하고 봉인합니다. Console과 Operator에는 공급자 변경 또는 실행 권한이 없습니다. |
 | 후보 전용 의미 판단 및 계획 | implemented | `core/conversation/semantic_judgment.py`; `core/conversation/semantic_planning.py`; `composition/wire_semantic_query.py`; Azure 의미 어댑터; 집중 판단 및 계획 테스트 | 범위가 제한된 T1 판단은 같은 바인딩에서 잘못된 스키마 출력을 다시 시도한 후 선택적으로 T2로 전환합니다. 수락된 의미는 계획에 사용될 수 있지만 실행 권한을 부여하지 않습니다. |
 | T2 교차 검사, 검증기, 근거 확인, 신뢰도 및 rubric | implemented | `core/quality_gate/`; `delivery/azure/llm/rubric.py`; 집중 quality 게이트 및 Azure 어댑터 테스트 | 필수 4개 경로와 선택적 감산 rubric이 있습니다. 근거가 없거나 잘못되면 거부, 판단 보류 또는 사람 검토로 결과를 낮춥니다. |
 | 에스컬레이션 정책과 같은 발행기 primary 지연 시간 라우팅 | implemented | `core/quality_gate/escalation_ladder.py`; `delivery/azure/llm/latency_routed_cross_check.py`; `composition/wire_llm.py`; 집중 라우팅 테스트 | 에스컬레이션 단계는 권한을 갖지 않으며 지연 시간 선택은 secondary 발행기로 넘어갈 수 없습니다. 별도의 범위 제한 제안자 대체 경로는 등록된 secondary 제안자를 호출할 수 있지만, 해당 후보도 같은 quality 게이트로 다시 들어갑니다. |
@@ -36,11 +37,13 @@ translation_revised: 2026-08-23
 | 2026-08-23 | implemented | 제공된 T2 제안자 복구 계약을 이 소유 문서에 기록했습니다. 범위가 제한된 시도는 Huginn 유입 전에 민감정보가 제거된 증적을 영속화합니다. 최종 소진은 Heimdall이 축약하고 Forseti가 판정하며, 승인된 경로 변경은 Thor, 추가 전용 감사 및 상관관계로 제한된 Vidar 롤백을 사용합니다. 복구된 시도는 관측으로 남고 새 승인을 열지 않습니다. | 커밋 `68f0d4014`와 `e96416ce1`; `recovery.py`; `t2_recovery.py`; `t2_route_registry.py`; `test_{t2_recovery,t2_route_registry}.py`; `test_t2_recovery_chain.py`. | 재시작 복구, 소진에서 승인으로의 전환, 경로 변경, 실패한 검증의 롤백, 오래된 롤백 거부 및 새 승인 없는 복구를 입증하는 정확한 개정 번호의 통제된 캠페인을 보존합니다. |
 | 2026-08-23 | in-progress | 소스와 workflow 검토에서 제안 만료가 영향받는 기능을 사람 검토로 낮추지 않는다는 점을 확인해 수명 주기 범위를 바로잡았습니다. 예약 workflow는 제안 전용으로 유지되며 보존된 실행이 없습니다. | `current change`; `.github/workflows/model-lifecycle-reconcile.yml`; `scripts/deployment/azure/model_lifecycle_reconciler.py`; 집중 수명 주기 계약 테스트. | 권위 있는 런타임 모델 소스에 만료-보류 경로를 구현한 뒤 보호된 예약 실행을 한 번 보존하고 모든 교체 초안을 별도로 검토합니다. |
 | 2026-08-23 | implemented | 로컬에서 실행 가능한 만료 검토 범위를 추가했습니다. 수명 주기 제안 v3는 정본 출처 모델 다이제스트와 영향 기능을 기록합니다. 순수 평가기는 해당 정확한 출처의 만료된 미병합 제안만 보류하고 늦은 병합 근거를 거부합니다. Operator 소유 비동기 Key Vault 출처는 공식 Azure vault origin과 audience, 정확한 secret 신원, 크기, JSON 깊이, 활성화 및 만료 상태, 전체 마감, secret-safe 오류와 표현을 검증합니다. | `current change`; 집중 수명 주기 및 Key Vault 테스트; 15회의 비평 및 하드닝 라운드는 검증된 Medium 이상 결함 없이 종료됐습니다. | 비동기 출처 로드와 신뢰할 수 있는 PR 수명주기 관측을 시작 과정에 연결하고, 결정을 영속화 및 검증한 뒤 모델 매핑을 바꾸지 않고 기능 바인딩 전에 보류를 적용합니다. |
+| 2026-08-24 | implemented | 모든 T1/T2 기능에 리비전이 있는 환경 바인딩 초안, 완전한 후보 단위의 TPM/PTU 대체 선택, 정확한 GA 버전 봉인, Owner 전용 평가 및 계획 요청, 활성 산출물 다이제스트 차단, Terraform 버전 고정을 추가했습니다. | `current change`; 공통 정책, 해석기, Azure 조회, Operator IAM, Console 모델, 보호된 워크플로 및 Terraform 경로; 완료 보고서에 기록된 집중 검사. | 이 경로를 validated로 분류하기 전에 보호된 PTU 계획, 적용, 롤백 증적과 적용 후 독립 바인딩 검증을 보존합니다. |
 ### 남은 작업
 - [ ] [목표와 메트릭](goals-and-metrics-ko.md#남은-작업)과 [Agent Pantheon 구현 계획](../agents/agent-pantheon-implementation-ko.md#남은-작업)의 실제 운영 KPI 선행 조건을 충족한 뒤, 활성화된 모든 T1/T2 기능에 대해 모델 신원, 비용, 지연 시간, 스키마 복구 시도와 복구 결과, 전환, 계획 처리 결과, 불일치, 근거 확인, 검증기, rubric, 결과 및 가드 근거가 포함된 고정된 실제 운영 shadow 집단을 보존합니다.
 - [ ] 범위가 제한된 시도 예산, 재시작 후 영속 증적 전달, 최종 소진에서 사람 승인으로의 전환, 감사된 경로 변경, 상관관계로 제한된 롤백 및 새 승인 없는 복구를 입증하는 통제된 T2 복구 캠페인을 보존합니다.
 - [ ] 구현된 만료 미병합 평가기와 직접 Key Vault 출처 어댑터를 비동기 시작 소유자를 통해 연결합니다. 신뢰할 수 있는 PR 수명주기 관측, 제안 및 결정 다이제스트 검증, 영속화, 바인딩 전 기능 보류를 추가합니다. 영향받는 기능이 모델 매핑을 바꾸지 않고 사람 검토로 이동함을 입증한 뒤, 사용 중단 또는 모델 계열 표류가 정제된 초안 PR만 만드는 통제된 예약 실행 증적을 보존합니다. 시작 및 출처 계약은 [Narrator 라우팅 및 지연 시간](../interfaces/narrator-routing-and-latency-ko.md#남은-작업)이 소유합니다.
 - [ ] 선택적 rubric, 에스컬레이션 호출 또는 primary pool 행동은 고정된 재현과 독립 검토 후 [권위 있는 ActionType 레지스트리](../decisioning/action-ontology-ko.md#33-governance)를 통해서만 승격하며 누락된 바인딩은 실패 시 차단을 유지합니다.
+- [ ] 프로비저닝된 SKU를 평가하고 정확한 모델 버전과 PTU 용량을 봉인하며 승인된 계획을 적용하고 런타임 바인딩을 독립 검증한 뒤 롤백을 연습하는 보호된 환경 정책 캠페인 하나를 보존합니다. Console 또는 Operator ID에는 공급자 변경 권한을 부여하지 않습니다.
 
 ## 모델 티어
 
@@ -231,68 +234,42 @@ Signed 자체 호스팅 등록은 injected `Ed25519SignedRegistrationSource`를 
 기능→구체-모델 매핑을 **부트스트랩에서 자동, 업데이트 시 리뷰** 로 유지, 다른 어떤 변경
 처럼 모델 변경이 shadow-before-enforce 원칙을 통해 흐르도록.
 
-### 기능 선호 레지스트리
+### 기능 바인딩 정책
 
-상류가 *기능* 와 **기능당 선호 리스트** 정의; 포크가 자체 리전, 컴플라이언스 자세,
-비용 목표에 매칭되도록 선호 오버라이드. 레지스트리는 다른 거버넌스 아티팩트처럼 리뷰되는
-catalog-as-code(경로 `rule-catalog/llm-registry.yaml`).
+`rule-catalog/llm-registry.yaml`은 상류 기본값을 정의합니다. 리전 또는 프로비저닝된 처리량
+(PTU) 제약으로 더 좁은 바인딩이 필요하면 Owner가 T1 또는 T2 기능별 리비전 환경 정책을
+제출할 수 있습니다. 정책은 런타임 스위치가 아니라 거버넌스 초안입니다. Operator API는
+의도를 저장하고 검토된 보호 계획만 활성 산출물을 교체할 수 있습니다.
+
+| 선택 모드 | 해석기 동작 | 실패 동작 |
+|-----------|------------|----------|
+| `auto` | 완전한 레지스트리 후보를 순서대로 평가합니다. | 다음 후보를 평가하고 없으면 `hil-only`로 유지합니다. |
+| `pinned` | 요청한 발행기, 계열, SKU 및 용량만 평가합니다. | 사람 검토로 유지하며 다른 계열로 대체하지 않습니다. |
+| `hil-only` | 기능에 모델을 바인딩하지 않습니다. | 종속 결정을 사람 검토로 유지합니다. |
 
 ```yaml
-# rule-catalog/llm-registry.yaml (상류 기본; 포크는 오버라이드 가능)
-models:
-  t1.embedding:
-    preferences:
-      - { publisher: OpenAI, family: text-embedding-3-small }
-      - { publisher: OpenAI, family: text-embedding-3-large }
-    sku: Standard
-    capacity_tpm: 100_000
-  t1.judge:                       # 소형/저렴 기본 (mini 티어)
-    preferences:
-      - { publisher: OpenAI, family: gpt-4o-mini }
-    capacity_tpm: 40_000
-  t2.reasoner.primary:            # 첫 프론티어 reasoner
-    preferences:
-      - { publisher: OpenAI, family: gpt-4o }
-      - { publisher: OpenAI, family: gpt-4.1 }
-      - { publisher: OpenAI, family: gpt-4-turbo }
-    capacity_tpm: 20_000
-  t2.reasoner.secondary:          # mixed-model peer - 별개 publisher여야 함
-    preferences:
-      - { publisher: Anthropic, family: claude-opus-4 }
-      - { publisher: MistralAI, family: mistral-large-2 }
-    capacity_tpm: 10_000
-  t2.reasoner.escalated:          # Opus-급 천장, on-demand 전용
-    preferences:
-      - { publisher: OpenAI, family: o1 }
-      - { publisher: Anthropic, family: claude-opus-4 }
-    invocation: on_disagreement                # 모든 T2 호출에 아님
-    capacity_tpm: 5_000
+capability: t2.reasoner.primary
+selection_mode: pinned
+publisher: OpenAI
+family: gpt-4o
+sku: GlobalProvisionedManaged
+capacity: { unit: ptu, value: 30 }
 ```
 
-레지스트리가 강제하는 규칙(MUST, 구성 로드에서):
-
-- **버전이 아니라 계열.** 선호는 모델 *계열* 를 pin(예: `gpt-4o-mini`); 부트스트랩 해석기
-  가 프로비저닝 시점에 최신 안정 버전 선택하고 resolved 매핑에 기록. 레지스트리에 절대 dated
-  버전 pin 안 함 - 폐기를 숨김.
-- **용량 단위는 명시적입니다.** Standard 및 Global Standard는 `capacity_tpm`을 요청 천장으로
-  사용합니다. Azure 사용량 `Count`는 1K TPM 단위에서 변환하며 배치 및 fine-tune 할당량은 제외합니다.
-  `ProvisionedManaged`, `GlobalProvisionedManaged`, `DataZoneProvisionedManaged`는 `capacity_ptu`를 사용합니다.
-  프로비저닝된 SKU에 TPM을 공급하거나 standard SKU에 PTU를 공급하면 잘못된이며 초과분은 HIL로 강등됩니다.
-- **Escalated 기능은 호출별 명시적 선택** (`invocation: on_disagreement`); 모든 T2
-  요청에 호출되지 않고 절대 quality 게이트를 우회하지 않음.
-- **RCA reasoner는 호출별 명시적 선택** (`invocation: on_novel_case`, 기능
-  `t2.rca`); 결정론적 계층이 해결하지 못한 novel 인시던트에만 발화하며, 제공된 근거에
-  근거에 기반한 되지 않으면 그 출력은 거부됨 (observability-and-detection.md 섹션 4 참조).
-- **도구 기능은 독립적으로 해석합니다.** `tool_calling_required`는 일반 함수
-  도구를 게이트합니다. 공개 수집은 전용 `t1.web_search` 선호 설정을 사용하며 해당
-  배포만 `web_search_candidates`로 serialize합니다. Protected 적용은 정확한 도메인
-  허용 목록으로 Foundry 프롬프트 에이전트를 조정하고 Operator API는 시작에 실제 managed-tool
-  요청을 전송합니다. 모델, project, 에이전트, 권한 또는 도구 준비 상태가 없으면 서술기
-  풀을 빌리지 않고 검색만 사용 불가로 전환합니다. 대화 권한은 바뀌지 않습니다.
+- **환경 범위:** 정책은 사용자나 대화가 아니라 하나의 배포 환경에 적용됩니다.
+- **정확한 계획:** 평가는 호환 GA 버전을 선택하고 보호 계획은 해당 버전, SKU, 용량,
+  정책 다이제스트 및 활성 산출물 다이제스트를 적용까지 고정합니다.
+- **후보 완결성:** `auto`는 발행기-계열-버전-SKU-용량 후보를 완전하게 평가합니다.
+- **용량 단위:** Standard SKU는 TPM, 프로비저닝된 SKU는 변환 없는 PTU를 사용합니다.
+- **T2 쌍 원자성:** 보류 상태가 아니면 primary와 secondary는 서로 다른 발행기여야 합니다.
+- **Console 권한 없음:** 초안, 평가 및 계획 요청은 공급자를 변경하지 않습니다.
+- **독립 도구:** 검색, RCA, rubric, escalation 및 tool calling은 별도 게이트를 유지합니다.
 
 ### 부트스트랩 Provisioner
 
-`azd up` (또는 등가) 에서 해석기가 레지스트리를 읽고 대상 리전의 Azure OpenAI / Foundry 카탈로그를 쿼리하여 **구체 기능당 하나의 배포** 를 프로비저닝합니다. 가상 `t1.vision`은
+`azd up`(또는 동등한 절차)에서 해석기는 레지스트리와 승인된 환경 정책을 결합하고 대상
+리전의 Azure OpenAI / Foundry 카탈로그 및 용량 표면을 조회하여 **구체 기능당 하나의 배포**를
+프로비저닝합니다. 가상 `t1.vision`은
 별도 배포를 만들지 않고 일치하는 서술기 배포를 재사용합니다. Resolved `{기능 →
 배포}` 매핑이 Key Vault에 기록되고 감사됨.
 

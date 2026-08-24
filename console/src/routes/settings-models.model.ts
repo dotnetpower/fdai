@@ -3,6 +3,9 @@ export interface ModelCapabilityView {
   readonly tier: "T1" | "T2";
   readonly publisher: string | null;
   readonly family: string | null;
+  readonly version: string | null;
+  readonly sku: string | null;
+  readonly selectionMode: "auto" | "pinned" | "hil-only";
   readonly status: string;
   readonly capacityTpm: number;
   readonly capacityUnit: "tpm" | "ptu";
@@ -89,6 +92,8 @@ export interface T2ModelChoiceView {
   readonly catalogStatus: "registry-only" | "deployed" | "provisionable" | "quota-unavailable";
   readonly deployments: readonly string[];
   readonly availableTpm: number;
+  readonly capacityUnit: "tpm" | "ptu";
+  readonly capacityValue: number;
 }
 
 export interface GptModelSkuView {
@@ -125,6 +130,28 @@ export interface T2ModelPolicyView {
   readonly activePrimary: T2ModelChoiceView | null;
   readonly activeSecondary: T2ModelChoiceView | null;
   readonly quorumReady: boolean;
+}
+
+export interface ModelBindingCapabilityPolicyView {
+  readonly selectionMode: "auto" | "pinned" | "hil-only";
+  readonly publisher: string | null;
+  readonly family: string | null;
+  readonly versionPolicy: "latest-compatible" | null;
+  readonly sku: string | null;
+  readonly capacity: {
+    readonly unit: "tpm" | "ptu";
+    readonly value: number;
+  } | null;
+}
+
+export interface ModelBindingPolicyProjectionView {
+  readonly environment: string;
+  readonly revision: number;
+  readonly state: "not-configured" | "draft";
+  readonly policyDigest: string | null;
+  readonly canManage: boolean;
+  readonly executionAuthority: false;
+  readonly capabilities: Readonly<Record<string, ModelBindingCapabilityPolicyView>>;
 }
 
 export const DEFAULT_WEB_SEARCH_DOMAINS = [
@@ -197,6 +224,7 @@ export interface ModelSettingsView {
     readonly kind: string;
     readonly source: string;
     readonly asOf: string;
+    readonly digest: string | null;
   };
   readonly discovery: {
     readonly automatic: boolean;
@@ -224,6 +252,7 @@ export interface ModelSettingsView {
   readonly t2SelectionScope: "system-governed";
   readonly t2ModelPolicy: T2ModelPolicyView;
   readonly modelCatalog: GptModelCatalogView;
+  readonly bindingPolicy: ModelBindingPolicyProjectionView;
 }
 
 export function decodeModelSettings(value: unknown): ModelSettingsView {
@@ -233,6 +262,18 @@ export function decodeModelSettings(value: unknown): ModelSettingsView {
   const resolvedMetadata = object(root["resolved_metadata"], "model settings.resolved_metadata");
   const narrator = object(root["narrator"], "model settings.narrator");
   const webSearch = object(root["web_search"], "model settings.web_search");
+  const bindingPolicy = object(
+    root["binding_policy"] ?? {
+      environment: root["environment"] ?? "unspecified",
+      revision: 0,
+      state: "not-configured",
+      policy: null,
+      policy_digest: null,
+      can_manage: false,
+      execution_authority: false,
+    },
+    "model settings.binding_policy",
+  );
   const t2ModelPolicy = object(
     root["t2_model_policy"] ?? {
       selection_scope: "governance-draft",
@@ -293,6 +334,7 @@ export function decodeModelSettings(value: unknown): ModelSettingsView {
       kind: string(resolvedMetadata["kind"], "resolved_metadata.kind"),
       source: string(resolvedMetadata["source"], "resolved_metadata.source"),
       asOf: string(resolvedMetadata["as_of"], "resolved_metadata.as_of"),
+      digest: nullableString(resolvedMetadata["digest"] ?? null, "resolved_metadata.digest"),
     },
     discovery: {
       automatic: boolean(discovery["automatic"], "discovery.automatic"),
@@ -388,6 +430,7 @@ export function decodeModelSettings(value: unknown): ModelSettingsView {
       region: nullableString(modelCatalog["region"], "model_catalog.region"),
       models: array(modelCatalog["models"], "model_catalog.models").map(decodeCatalogModel),
     },
+    bindingPolicy: decodeBindingPolicy(bindingPolicy),
   };
 }
 
@@ -445,6 +488,78 @@ function decodeT2ModelChoice(value: unknown, label: string): T2ModelChoiceView {
       string(deployment, `${label}.deployments[]`)
     ),
     availableTpm: nonNegativeNumber(item["available_tpm"] ?? 0, `${label}.available_tpm`),
+    capacityUnit: knownString(
+      item["capacity_unit"] ?? "tpm",
+      `${label}.capacity_unit`,
+      ["tpm", "ptu"],
+    ) as T2ModelChoiceView["capacityUnit"],
+    capacityValue: nonNegativeNumber(
+      item["capacity_value"] ?? item["available_tpm"] ?? 0,
+      `${label}.capacity_value`,
+    ),
+  };
+}
+
+function decodeBindingPolicy(value: Record<string, unknown>): ModelBindingPolicyProjectionView {
+  const rawPolicy = value["policy"];
+  const policy = rawPolicy === null || rawPolicy === undefined
+    ? null
+    : object(rawPolicy, "binding_policy.policy");
+  const capabilities = policy === null
+    ? {}
+    : object(policy["capabilities"], "binding_policy.policy.capabilities");
+  const decodedCapabilities = Object.fromEntries(
+    Object.entries(capabilities).map(([name, raw]) => [
+      name,
+      decodeBindingCapability(raw, `binding_policy.policy.capabilities.${name}`),
+    ]),
+  );
+  const state = knownString(value["state"], "binding_policy.state", ["not-configured", "draft"]);
+  if (value["execution_authority"] !== false) {
+    throw new Error("binding_policy.execution_authority MUST be false");
+  }
+  return {
+    environment: string(value["environment"], "binding_policy.environment"),
+    revision: nonNegativeInteger(value["revision"], "binding_policy.revision"),
+    state: state as ModelBindingPolicyProjectionView["state"],
+    policyDigest: nullableString(value["policy_digest"] ?? null, "binding_policy.policy_digest"),
+    canManage: boolean(value["can_manage"], "binding_policy.can_manage"),
+    executionAuthority: false,
+    capabilities: decodedCapabilities,
+  };
+}
+
+function decodeBindingCapability(value: unknown, label: string): ModelBindingCapabilityPolicyView {
+  const item = object(value, label);
+  const rawCapacity = item["capacity"];
+  const capacity = rawCapacity === null || rawCapacity === undefined
+    ? null
+    : object(rawCapacity, `${label}.capacity`);
+  const versionPolicy: "latest-compatible" | null = item["version_policy"] === null || item["version_policy"] === undefined
+    ? null
+    : "latest-compatible";
+  if (versionPolicy !== null) {
+    knownString(item["version_policy"], `${label}.version_policy`, ["latest-compatible"]);
+  }
+  const capacityValue: { readonly unit: "tpm" | "ptu"; readonly value: number } | null = capacity === null
+    ? null
+    : {
+        unit: knownString(capacity["unit"], `${label}.capacity.unit`, ["tpm", "ptu"]) === "ptu"
+          ? "ptu"
+          : "tpm",
+        value: nonNegativeNumber(capacity["value"], `${label}.capacity.value`),
+      };
+  return {
+    selectionMode: knownString(item["selection_mode"], `${label}.selection_mode`, [
+      "auto",
+      "pinned",
+      "hil-only",
+    ]) as ModelBindingCapabilityPolicyView["selectionMode"],
+    publisher: nullableString(item["publisher"] ?? null, `${label}.publisher`),
+    family: nullableString(item["family"] ?? null, `${label}.family`),
+    versionPolicy,
+    sku: nullableString(item["sku"] ?? null, `${label}.sku`),
+    capacity: capacityValue,
   };
 }
 
@@ -577,6 +692,13 @@ function decodeCapability(value: unknown): ModelCapabilityView {
     tier,
     publisher: nullableString(item["publisher"], "model capability.publisher"),
     family: nullableString(item["family"], "model capability.family"),
+    version: nullableString(item["version"] ?? null, "model capability.version"),
+    sku: nullableString(item["sku"] ?? null, "model capability.sku"),
+    selectionMode: knownString(
+      item["selection_mode"] ?? "auto",
+      "model capability.selection_mode",
+      ["auto", "pinned", "hil-only"],
+    ) as ModelCapabilityView["selectionMode"],
     status: knownString(item["status"], "model capability.status", [
       "resolved", "capacity-reduced", "hil-only",
     ]),

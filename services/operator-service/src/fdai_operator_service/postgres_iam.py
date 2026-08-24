@@ -10,6 +10,9 @@ from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime
 from typing import Any, cast
 
+from fdai_service_contracts import ModelBindingPolicy
+from pydantic import ValidationError
+
 from fdai_operator_service.families.iam.contracts import (
     AccessGrantDecisionCommand,
     AccessGrantDecisionResult,
@@ -32,6 +35,8 @@ from fdai_operator_service.families.iam.contracts import (
     HilPendingItem,
     JsonMapping,
     KillSwitchCommand,
+    ModelBindingDraftCommand,
+    ModelBindingRequestCommand,
     ModelPreferenceCommand,
     RuntimeSettingsCommand,
     WebSearchSettingsCommand,
@@ -57,6 +62,7 @@ _ACCESS_GRANT_PREFIX = "execution-authorization:grant-request:"
 _ACCESS_GRANT_SCAN_LIMIT = 1_000
 _CANONICAL_GRANT_ID = re.compile(r"^[A-Za-z0-9._:-]{1,256}$")
 _SCOPE_REF = re.compile(r"^scope://[\x20-\x7E]{1,504}$")
+_MODEL_BINDING_POLICY_KEY = "operator-model-binding-policy:current"
 
 
 @dataclass(frozen=True, slots=True)
@@ -267,6 +273,7 @@ class PostgresIamAdapters:
         principal_id: str | None = None,
         *,
         can_manage_web_search: bool = False,
+        can_manage_model_bindings: bool = False,
         refresh_model_catalog: bool = False,
         can_manage: bool = False,
     ) -> JsonMapping:
@@ -278,9 +285,31 @@ class PostgresIamAdapters:
             web_search = payload.get("web_search")
             if not isinstance(web_search, Mapping):
                 raise IamUnavailableError("model settings projection has no web_search object")
+            binding_policy = await self._state(_MODEL_BINDING_POLICY_KEY)
+            environment = str(payload.get("environment") or "unspecified")
+            if binding_policy is not None and binding_policy.get("environment") != environment:
+                raise IamUnavailableError(
+                    "model binding policy environment does not match the Settings projection"
+                )
             return {
                 **payload,
                 "web_search": {**web_search, "can_manage": can_manage_web_search},
+                "binding_policy": (
+                    _binding_policy_projection(
+                        binding_policy,
+                        can_manage=can_manage_model_bindings,
+                    )
+                    if binding_policy is not None
+                    else {
+                        "environment": environment,
+                        "revision": 0,
+                        "state": "not-configured",
+                        "policy": None,
+                        "policy_digest": None,
+                        "can_manage": can_manage_model_bindings,
+                        "execution_authority": False,
+                    }
+                ),
             }
         return {
             **payload,
@@ -294,6 +323,103 @@ class PostgresIamAdapters:
     async def set_web_search_settings(self, command: WebSearchSettingsCommand) -> None:
         """Queue a revisioned web-search policy proposal."""
         await self._proposal("model-settings.web-search", command, _idempotency_key(command))
+
+    async def save_binding_policy(self, command: ModelBindingDraftCommand) -> JsonMapping:
+        """Atomically store one revisioned draft and its authority-free proposal receipt."""
+        try:
+            policy = ModelBindingPolicy.model_validate(command.policy)
+        except ValidationError as exc:
+            raise IamConflictError("model binding policy is invalid") from exc
+        if policy.digest() != command.policy_digest:
+            raise IamConflictError("model binding policy digest does not match its content")
+        if policy.revision != command.expected_revision + 1:
+            raise IamConflictError("model binding policy revision conflict")
+        projection = await self._projection("model-settings")
+        deployment_environment = projection.get("environment")
+        if not isinstance(deployment_environment, str) or not deployment_environment:
+            raise IamUnavailableError("model Settings projection has no deployment environment")
+        if policy.environment != deployment_environment:
+            raise IamConflictError(
+                "model binding policy environment does not match this deployment"
+            )
+        state: dict[str, object] = {
+            "environment": policy.environment,
+            "revision": policy.revision,
+            "state": "draft",
+            "policy": policy.model_dump(mode="json", exclude_none=True),
+            "policy_digest": policy.digest(),
+            "execution_authority": False,
+            "activation_boundary": "protected-plan-only",
+        }
+        try:
+            stored = await self.store.append_revisioned_proposal(
+                family="iam",
+                operation="model-settings.binding-policy.draft",
+                principal_id=command.actor_id,
+                idempotency_key=command.idempotency_key,
+                payload=_command_payload(command),
+                state_key=_MODEL_BINDING_POLICY_KEY,
+                state_value=state,
+                expected_revision=command.expected_revision,
+            )
+        except PostgresProposalConflict as exc:
+            raise IamConflictError(str(exc)) from exc
+        except PostgresFamilyStoreUnavailable as exc:
+            raise IamUnavailableError(str(exc)) from exc
+        return _binding_receipt(stored, state="draft", command=command)
+
+    async def request_binding_assessment(self, command: ModelBindingRequestCommand) -> JsonMapping:
+        """Queue a protected provider assessment for one exact stored policy."""
+        return await self._request_binding_operation(command, operation="assessment")
+
+    async def request_binding_plan(self, command: ModelBindingRequestCommand) -> JsonMapping:
+        """Queue a protected plan only when the draft binds the active artifact digest."""
+        return await self._request_binding_operation(command, operation="plan")
+
+    async def _request_binding_operation(
+        self,
+        command: ModelBindingRequestCommand,
+        *,
+        operation: str,
+    ) -> JsonMapping:
+        state = await self._state(_MODEL_BINDING_POLICY_KEY)
+        if state is None:
+            raise IamNotFoundError("model binding policy draft does not exist")
+        if (
+            state.get("environment") != command.environment
+            or state.get("revision") != command.policy_revision
+            or state.get("policy_digest") != command.policy_digest
+        ):
+            raise IamConflictError("model binding policy request does not match the current draft")
+        policy = _stored_binding_policy(state)
+        if operation == "plan" and policy.expected_active_digest is None:
+            raise IamConflictError(
+                "model binding plan requires an expected active resolved-models digest"
+            )
+        if operation == "plan":
+            projection = await self._projection("model-settings")
+            resolved_metadata = projection.get("resolved_metadata")
+            active_digest = (
+                resolved_metadata.get("digest") if isinstance(resolved_metadata, Mapping) else None
+            )
+            if not isinstance(active_digest, str):
+                raise IamUnavailableError(
+                    "model Settings projection has no active resolved-models digest"
+                )
+            if policy.expected_active_digest != active_digest:
+                raise IamConflictError(
+                    "model binding plan does not match the active resolved-models digest"
+                )
+        stored = await self._proposal(
+            f"model-settings.binding-policy.{operation}",
+            command,
+            command.idempotency_key,
+        )
+        return _binding_receipt(
+            stored,
+            state=f"{operation}-requested",
+            command=command,
+        )
 
     async def update(self, command: RuntimeSettingsCommand) -> None:
         """Queue a revisioned runtime-settings proposal."""
@@ -494,6 +620,68 @@ def _json_default(value: object) -> object:
     if isinstance(value, datetime):
         return value.astimezone(UTC).isoformat()
     return str(value)
+
+
+def _binding_receipt(
+    stored: StoredProposal,
+    *,
+    state: str,
+    command: ModelBindingDraftCommand | ModelBindingRequestCommand,
+) -> JsonMapping:
+    policy_digest = command.policy_digest
+    policy_revision = (
+        command.expected_revision + 1
+        if isinstance(command, ModelBindingDraftCommand)
+        else command.policy_revision
+    )
+    return {
+        "proposal_id": stored.proposal_id,
+        "accepted_at": stored.accepted_at,
+        "duplicate": stored.duplicate,
+        "state": state,
+        "policy_digest": policy_digest,
+        "policy_revision": policy_revision,
+        "execution_authority": False,
+        "activation_boundary": "protected-plan-only",
+    }
+
+
+def _stored_binding_policy(state: Mapping[str, object]) -> ModelBindingPolicy:
+    policy_raw = state.get("policy")
+    if not isinstance(policy_raw, Mapping):
+        raise IamUnavailableError("stored model binding policy is malformed")
+    try:
+        policy = ModelBindingPolicy.model_validate(policy_raw)
+    except ValidationError as exc:
+        raise IamUnavailableError("stored model binding policy is malformed") from exc
+    if (
+        state.get("environment") != policy.environment
+        or state.get("revision") != policy.revision
+        or state.get("policy_digest") != policy.digest()
+        or state.get("state") != "draft"
+        or state.get("execution_authority") is not False
+        or state.get("activation_boundary") != "protected-plan-only"
+    ):
+        raise IamUnavailableError("stored model binding policy metadata is inconsistent")
+    return policy
+
+
+def _binding_policy_projection(
+    state: Mapping[str, object],
+    *,
+    can_manage: bool,
+) -> JsonMapping:
+    policy = _stored_binding_policy(state)
+    return {
+        "environment": policy.environment,
+        "revision": policy.revision,
+        "state": "draft",
+        "policy": policy.model_dump(mode="json", exclude_none=True),
+        "policy_digest": policy.digest(),
+        "can_manage": can_manage,
+        "execution_authority": False,
+        "activation_boundary": "protected-plan-only",
+    }
 
 
 def _mapping_items(payload: Mapping[str, object]) -> tuple[JsonMapping, ...]:

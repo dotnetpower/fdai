@@ -18,6 +18,7 @@ class IamCapability(StrEnum):
     TRIGGER_KILL_SWITCH = "trigger-kill-switch"
     ACTIVATE_BREAK_GLASS = "activate-break-glass"
     MANAGE_RUNTIME_SETTINGS = "manage-runtime-settings"
+    MANAGE_MODEL_BINDINGS = "manage-model-bindings"
     MANAGE_GROUP_MEMBERSHIP = "manage-group-membership"
 
 
@@ -40,6 +41,7 @@ ROLE_CAPABILITIES: Final[dict[OperatorRole, frozenset[IamCapability]]] = {
             IamCapability.APPROVE_RUNTIME_HIL,
             IamCapability.TRIGGER_KILL_SWITCH,
             IamCapability.MANAGE_RUNTIME_SETTINGS,
+            IamCapability.MANAGE_MODEL_BINDINGS,
             IamCapability.MANAGE_GROUP_MEMBERSHIP,
         }
     ),

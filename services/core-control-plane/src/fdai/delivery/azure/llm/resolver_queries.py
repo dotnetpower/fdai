@@ -29,6 +29,7 @@ from urllib.parse import quote, urlencode, urlparse
 
 from fdai.rule_catalog.schema.llm_resolver import (
     CatalogQuery,
+    ModelVersionQuery,
     PermissionQuery,
     ProvisionedCapacityQuery,
     QuotaQuery,
@@ -77,7 +78,7 @@ def _run_az(argv: Sequence[str], *, timeout: float) -> str:
 # ---------------------------------------------------------------------------
 
 
-class AzureCliCatalogQuery(CatalogQuery):
+class AzureCliCatalogQuery(CatalogQuery, ModelVersionQuery):
     """Fetch the OpenAI model catalog for a region via ``az cognitiveservices model list``.
 
     The result is memoised per region so a single resolver run does not
@@ -94,6 +95,7 @@ class AzureCliCatalogQuery(CatalogQuery):
         self._executable = executable
         self._timeout = timeout
         self._cache: dict[str, set[str]] = {}
+        self._versions: dict[str, dict[str, tuple[str, ...]]] = {}
 
     def families_in_region(self, region: str) -> set[str]:
         if region in self._cache:
@@ -106,7 +108,7 @@ class AzureCliCatalogQuery(CatalogQuery):
             "-l",
             region,
             "--query",
-            "[?kind=='OpenAI'].model.name",
+            "[?kind=='OpenAI'].model",
             "-o",
             "json",
         ]
@@ -117,9 +119,35 @@ class AzureCliCatalogQuery(CatalogQuery):
             raise AzureCliResolverError("az CLI returned non-JSON for catalog list") from exc
         if not isinstance(names, list):
             raise AzureCliResolverError("catalog query MUST return a JSON array")
-        families = {str(n) for n in names if isinstance(n, str)}
+        families: set[str] = set()
+        versions: dict[str, set[str]] = {}
+        for item in names:
+            if isinstance(item, str):
+                families.add(item)
+                continue
+            if not isinstance(item, dict):
+                continue
+            family = item.get("name")
+            if not isinstance(family, str) or not family:
+                continue
+            families.add(family)
+            version = item.get("version")
+            lifecycle = item.get("lifecycleStatus")
+            if isinstance(version, str) and version and lifecycle == "GenerallyAvailable":
+                versions.setdefault(family, set()).add(version)
         self._cache[region] = families
+        self._versions[region] = {
+            family: tuple(sorted(family_versions)) for family, family_versions in versions.items()
+        }
         return set(families)
+
+    def latest_stable_version(self, *, region: str, publisher: str, family: str) -> str | None:
+        """Return the latest GA version from the same cached catalog snapshot."""
+        if publisher.casefold() != "openai":
+            return None
+        self.families_in_region(region)
+        versions = self._versions.get(region, {}).get(family, ())
+        return versions[-1] if versions else None
 
 
 # ---------------------------------------------------------------------------
@@ -291,6 +319,7 @@ class AzureCliProvisionedCapacityQuery(ProvisionedCapacityQuery):
         executable: str = "az",
         timeout: float = _DEFAULT_TIMEOUT_SECONDS,
         max_pages: int = 5,
+        model_versions: ModelVersionQuery | None = None,
     ) -> None:
         if not subscription_id.strip() or max_pages < 1:
             raise ValueError("PTU capacity query subscription and page cap MUST be valid")
@@ -298,6 +327,7 @@ class AzureCliProvisionedCapacityQuery(ProvisionedCapacityQuery):
         self._executable = executable
         self._timeout = timeout
         self._max_pages = max_pages
+        self._model_versions = model_versions
         self._versions: dict[tuple[str, str], str] = {}
         self._capacity: dict[tuple[str, str, str], int] = {}
 
@@ -327,6 +357,18 @@ class AzureCliProvisionedCapacityQuery(ProvisionedCapacityQuery):
         cached = self._versions.get(key)
         if cached is not None:
             return cached
+        if self._model_versions is not None:
+            selected = self._model_versions.latest_stable_version(
+                region=region,
+                publisher="OpenAI",
+                family=family,
+            )
+            if selected is None:
+                raise AzureCliResolverError(
+                    f"no generally available model version for PTU family {family!r}"
+                )
+            self._versions[key] = selected
+            return selected
         query = (
             "[?kind=='OpenAI' && model.name=='"
             + _jmes_literal(family)

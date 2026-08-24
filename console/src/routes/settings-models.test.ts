@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AuthContext } from "../auth";
 import {
+  decodeModelBindingProposalReceipt,
+  requestModelBindingOperation,
   saveNarratorPreference,
+  saveModelBindingPolicy,
   saveWebSearchSettings,
 } from "./settings-models.command";
 import {
@@ -41,8 +44,13 @@ const payload = {
     tier: "T1",
     publisher: "OpenAI",
     family: "gpt-mini",
+    version: "2026-03-05",
+    sku: "Standard",
+    selection_mode: "auto",
     status: "resolved",
     capacity_tpm: 1000,
+    capacity_unit: "tpm",
+    capacity_value: 1000,
     invocation: "always",
     reasons: [],
     user_selectable: false,
@@ -132,16 +140,43 @@ const payload = {
         catalog_status: "deployed",
         deployments: ["gpt-4o"],
         available_tpm: 100000,
+        capacity_unit: "ptu",
+        capacity_value: 30,
       },
-      { publisher: "OpenAI", family: "gpt-4.1" },
+      {
+        publisher: "OpenAI",
+        family: "gpt-4.1",
+        capacity_unit: "tpm",
+        capacity_value: 0,
+      },
     ],
     secondary_candidates: [
-      { publisher: "Anthropic", family: "claude-opus-4" },
-      { publisher: "MistralAI", family: "mistral-large-2" },
+      { publisher: "Anthropic", family: "claude-opus-4", capacity_unit: "tpm", capacity_value: 0 },
+      { publisher: "MistralAI", family: "mistral-large-2", capacity_unit: "tpm", capacity_value: 0 },
     ],
-    active_primary: { publisher: "OpenAI", family: "gpt-4o" },
+    active_primary: { publisher: "OpenAI", family: "gpt-4o", capacity_unit: "ptu", capacity_value: 30 },
     active_secondary: null,
     quorum_ready: false,
+  },
+  binding_policy: {
+    environment: "staging",
+    revision: 1,
+    state: "draft",
+    policy_digest: "sha256:" + "a".repeat(64),
+    can_manage: true,
+    execution_authority: false,
+    policy: {
+      capabilities: {
+        "t1.judge": {
+          selection_mode: "pinned",
+          publisher: "OpenAI",
+          family: "gpt-mini",
+          version_policy: "latest-compatible",
+          sku: "Standard",
+          capacity: { unit: "tpm", value: 1000 },
+        },
+      },
+    },
   },
   model_catalog: {
     available: true,
@@ -214,6 +249,26 @@ describe("Settings Models contracts", () => {
       capacityUnit: "ptu",
       capacityValue: 30,
       userSelectable: false,
+    });
+    expect(decoded.resolvedMetadata.digest).toBeNull();
+    expect(decoded.capabilities[0]).toMatchObject({
+      version: "2026-03-05",
+      sku: "Standard",
+      selectionMode: "auto",
+      capacityUnit: "tpm",
+      capacityValue: 1000,
+    });
+    expect(decoded.t2ModelPolicy.primaryCandidates[0]).toMatchObject({
+      capacityUnit: "ptu",
+      capacityValue: 30,
+    });
+    expect(decoded.bindingPolicy).toMatchObject({
+      environment: "staging",
+      revision: 1,
+      state: "draft",
+      canManage: true,
+      executionAuthority: false,
+      policyDigest: "sha256:" + "a".repeat(64),
     });
   });
 
@@ -336,6 +391,161 @@ describe("Settings Models contracts", () => {
     expect(fetchMock).toHaveBeenCalledOnce();
   });
 
+  it("submits model binding draft, assessment, and plan without activation authority", async () => {
+    const calls: Array<{ readonly url: string; readonly method: string; readonly body: unknown }> = [];
+    const states = ["draft", "assessment-requested", "plan-requested"] as const;
+    let index = 0;
+    vi.stubGlobal("fetch", vi.fn(async (url: string | URL, init?: RequestInit) => {
+      calls.push({
+        url: String(url),
+        method: String(init?.method),
+        body: JSON.parse(String(init?.body)),
+      });
+      const state = states[index++];
+      return new Response(JSON.stringify({
+        proposal_id: `proposal-${index}`,
+        accepted_at: "2026-08-24T00:00:00Z",
+        duplicate: false,
+        state,
+        policy_digest: "sha256:" + "a".repeat(64),
+        policy_revision: 1,
+        execution_authority: false,
+        activation_boundary: "protected-plan-only",
+      }), { status: state === "draft" ? 200 : 202 });
+    }));
+    const auth: AuthContext = {
+      devMode: false,
+      account: null,
+      getAuthorizationHeader: async () => "Bearer token",
+      signIn: async () => undefined,
+      signOut: async () => undefined,
+    };
+    const policy = {
+      schema_version: "1.0.0",
+      environment: "staging",
+      revision: 1,
+      capabilities: {
+        "t1.judge": { selection_mode: "auto" },
+      },
+    };
+
+    const draft = await saveModelBindingPolicy(auth, "http://127.0.0.1:8030", {
+      policy,
+      expectedRevision: 0,
+      idempotencyKey: "draft-1",
+    });
+    const assessment = await requestModelBindingOperation(
+      auth,
+      "http://127.0.0.1:8030",
+      "assess",
+      {
+        environment: "staging",
+        policyRevision: 1,
+        policyDigest: "sha256:" + "a".repeat(64),
+        idempotencyKey: "assess-1",
+      },
+    );
+    const plan = await requestModelBindingOperation(
+      auth,
+      "http://127.0.0.1:8030",
+      "plan",
+      {
+        environment: "staging",
+        policyRevision: 1,
+        policyDigest: "sha256:" + "a".repeat(64),
+        idempotencyKey: "plan-1",
+      },
+    );
+
+    expect(draft.state).toBe("draft");
+    expect(assessment.state).toBe("assessment-requested");
+    expect(plan.state).toBe("plan-requested");
+    expect(plan.executionAuthority).toBe(false);
+    expect(calls).toEqual([
+      {
+        url: "http://127.0.0.1:8030/models/binding-policy",
+        method: "PUT",
+        body: {
+          policy,
+          expected_revision: 0,
+          idempotency_key: "draft-1",
+        },
+      },
+      {
+        url: "http://127.0.0.1:8030/models/binding-policy/assess",
+        method: "PUT",
+        body: {
+          environment: "staging",
+          policy_revision: 1,
+          policy_digest: "sha256:" + "a".repeat(64),
+          idempotency_key: "assess-1",
+        },
+      },
+      {
+        url: "http://127.0.0.1:8030/models/binding-policy/plan",
+        method: "PUT",
+        body: {
+          environment: "staging",
+          policy_revision: 1,
+          policy_digest: "sha256:" + "a".repeat(64),
+          idempotency_key: "plan-1",
+        },
+      },
+    ]);
+  });
+
+  it("rejects a model binding receipt that claims execution authority", () => {
+    expect(() => decodeModelBindingProposalReceipt({
+      proposal_id: "proposal-1",
+      accepted_at: "2026-08-24T00:00:00Z",
+      duplicate: false,
+      state: "draft",
+      policy_digest: "sha256:" + "a".repeat(64),
+      policy_revision: 1,
+      execution_authority: true,
+      activation_boundary: "protected-plan-only",
+    })).toThrow("execution_authority MUST be false");
+  });
+
+  it("rejects a model binding receipt with a malformed accepted timestamp", () => {
+    expect(() => decodeModelBindingProposalReceipt({
+      proposal_id: "proposal-1",
+      accepted_at: "not-a-timestamp",
+      duplicate: false,
+      state: "draft",
+      policy_digest: "sha256:" + "a".repeat(64),
+      policy_revision: 1,
+      execution_authority: false,
+      activation_boundary: "protected-plan-only",
+    })).toThrow("accepted_at is invalid");
+  });
+
+  it("rejects an unknown model binding version policy", () => {
+    expect(() => decodeModelSettings({
+      ...payload,
+      binding_policy: {
+        environment: "staging",
+        revision: 1,
+        state: "draft",
+        policy_digest: "sha256:" + "a".repeat(64),
+        can_manage: true,
+        execution_authority: false,
+        policy: {
+          capabilities: {
+            "t1.judge": {
+              selection_mode: "pinned",
+              publisher: "OpenAI",
+              family: "gpt-mini",
+              version_policy: "floating",
+              sku: "Standard",
+              capacity: { unit: "tpm", value: 1000 },
+            },
+          },
+        },
+      },
+    })).toThrow("version_policy is invalid");
+  });
+
   it("normalizes domains and removes duplicates and blank lines", () => {
     const result = normalizeAndValidateDomains(
       " Learn.Microsoft.com \n\nlearn.microsoft.com\n NVD.NIST.GOV ",
@@ -422,5 +632,7 @@ function modelChoice(publisher: string, family: string) {
     catalogStatus: "registry-only" as const,
     deployments: [],
     availableTpm: 0,
+    capacityUnit: "tpm" as const,
+    capacityValue: 0,
   };
 }

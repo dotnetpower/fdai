@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import re
 from typing import Final
 
 from fdai_operator_service.families.iam.capabilities import IamCapability, has_capability
 from fdai_operator_service.families.iam.contracts import (
     AuthorizePrincipal,
+    ModelBindingDraftCommand,
+    ModelBindingRequestCommand,
     ModelPreferenceCommand,
     ModelSettingsOutbox,
     RuntimeSettingsCommand,
@@ -20,11 +23,17 @@ from fdai_operator_service.families.iam.http import (
     read_json_object,
     require_revision,
 )
+from fdai_service_contracts import ModelBindingPolicy
+from pydantic import ValidationError
+from starlette.exceptions import HTTPException
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
 _MAX_BODY_BYTES: Final = 16_000
+_POLICY_DIGEST: Final = re.compile(r"^sha256:[0-9a-f]{64}$")
+_ENVIRONMENT: Final = re.compile(r"^[a-z][a-z0-9-]{0,31}$")
+_IDEMPOTENCY_KEY: Final = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$")
 
 
 def make_model_settings_routes(
@@ -42,11 +51,66 @@ def make_model_settings_routes(
                 can_manage_web_search=has_capability(
                     principal.roles, IamCapability.MANAGE_GROUP_MEMBERSHIP
                 ),
+                can_manage_model_bindings=has_capability(
+                    principal.roles, IamCapability.MANAGE_MODEL_BINDINGS
+                ),
                 refresh_model_catalog=request.query_params.get("refresh_catalog") == "1",
             )
         except IamFamilyError as exc:
             return family_error(exc)
         return JSONResponse(dict(projection))
+
+    async def put_binding_policy(request: Request) -> Response:
+        principal = await authorize(request)
+        if not has_capability(principal.roles, IamCapability.MANAGE_MODEL_BINDINGS):
+            return error_response(403, "Owner role is required")
+        if outbox is None:
+            return error_response(503, "model settings outbox is not configured")
+        body = await read_json_object(request, maximum=_MAX_BODY_BYTES)
+        _require_exact_fields(
+            body,
+            {"policy", "expected_revision", "idempotency_key"},
+        )
+        policy_raw = body.get("policy")
+        if not isinstance(policy_raw, dict):
+            return error_response(400, "policy MUST be an object")
+        try:
+            policy = ModelBindingPolicy.model_validate(policy_raw)
+        except ValidationError as exc:
+            return error_response(400, _validation_message(exc))
+        expected_revision = require_revision(body)
+        if policy.revision != expected_revision + 1:
+            return error_response(400, "policy revision MUST advance expected_revision by one")
+        idempotency_key = _idempotency_key(body)
+        try:
+            receipt = await outbox.save_binding_policy(
+                ModelBindingDraftCommand(
+                    actor_id=principal.oid,
+                    policy=policy.model_dump(mode="json", exclude_none=True),
+                    policy_digest=policy.digest(),
+                    expected_revision=expected_revision,
+                    idempotency_key=idempotency_key,
+                )
+            )
+        except IamFamilyError as exc:
+            return family_error(exc)
+        return JSONResponse(dict(receipt))
+
+    async def post_binding_assessment(request: Request) -> Response:
+        return await _request_binding_operation(
+            request,
+            authorize=authorize,
+            outbox=outbox,
+            operation="assessment",
+        )
+
+    async def post_binding_plan(request: Request) -> Response:
+        return await _request_binding_operation(
+            request,
+            authorize=authorize,
+            outbox=outbox,
+            operation="plan",
+        )
 
     async def put_preference(request: Request) -> Response:
         principal = await authorize(request)
@@ -108,9 +172,98 @@ def make_model_settings_routes(
 
     return (
         Route("/models/settings", get_settings, methods=["GET"]),
+        Route("/models/binding-policy", put_binding_policy, methods=["PUT"]),
+        Route(
+            "/models/binding-policy/assess",
+            post_binding_assessment,
+            methods=["POST"],
+        ),
+        Route("/models/binding-policy/plan", post_binding_plan, methods=["POST"]),
         Route("/models/web-search-settings", put_web_search, methods=["PUT"]),
         Route("/me/model-preferences", put_preference, methods=["PUT"]),
     )
+
+
+async def _request_binding_operation(
+    request: Request,
+    *,
+    authorize: AuthorizePrincipal,
+    outbox: ModelSettingsOutbox | None,
+    operation: str,
+) -> Response:
+    principal = await authorize(request)
+    if not has_capability(principal.roles, IamCapability.MANAGE_MODEL_BINDINGS):
+        return error_response(403, "Owner role is required")
+    if outbox is None:
+        return error_response(503, "model settings outbox is not configured")
+    body = await read_json_object(request, maximum=_MAX_BODY_BYTES)
+    _require_exact_fields(
+        body,
+        {"environment", "policy_revision", "policy_digest", "idempotency_key"},
+    )
+    environment = _bounded_string(body, "environment", maximum=32)
+    if _ENVIRONMENT.fullmatch(environment) is None:
+        return error_response(400, "environment MUST be dev, staging, or prod style")
+    policy_digest = _bounded_string(body, "policy_digest", maximum=71)
+    if _POLICY_DIGEST.fullmatch(policy_digest) is None:
+        return error_response(400, "policy_digest MUST be a lowercase SHA-256 digest")
+    idempotency_key = _idempotency_key(body)
+    policy_revision = body.get("policy_revision")
+    if (
+        not isinstance(policy_revision, int)
+        or isinstance(policy_revision, bool)
+        or policy_revision < 1
+    ):
+        return error_response(400, "policy_revision MUST be a positive integer")
+    command = ModelBindingRequestCommand(
+        actor_id=principal.oid,
+        environment=environment,
+        policy_revision=policy_revision,
+        policy_digest=policy_digest,
+        idempotency_key=idempotency_key,
+    )
+    try:
+        receipt = (
+            await outbox.request_binding_assessment(command)
+            if operation == "assessment"
+            else await outbox.request_binding_plan(command)
+        )
+    except IamFamilyError as exc:
+        return family_error(exc)
+    return JSONResponse(dict(receipt), status_code=202)
+
+
+def _bounded_string(body: dict[str, object], key: str, *, maximum: int) -> str:
+    value = body.get(key)
+    if not isinstance(value, str) or not value.strip() or len(value.strip()) > maximum:
+        raise HTTPException(status_code=400, detail=f"{key} MUST be a bounded non-empty string")
+    return value.strip()
+
+
+def _idempotency_key(body: dict[str, object]) -> str:
+    value = _bounded_string(body, "idempotency_key", maximum=256)
+    if _IDEMPOTENCY_KEY.fullmatch(value) is None:
+        raise HTTPException(
+            status_code=400,
+            detail="idempotency_key MUST use bounded ASCII identifier characters",
+        )
+    return value
+
+
+def _require_exact_fields(body: dict[str, object], expected: set[str]) -> None:
+    unknown = sorted(set(body) - expected)
+    missing = sorted(expected - set(body))
+    if unknown or missing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"request fields do not match contract: missing={missing}, unknown={unknown}",
+        )
+
+
+def _validation_message(exc: ValidationError) -> str:
+    first = exc.errors()[0]
+    location = ".".join(str(part) for part in first.get("loc", ())) or "policy"
+    return f"{location}: {first.get('msg', 'invalid model binding policy')}"
 
 
 def make_runtime_settings_routes(

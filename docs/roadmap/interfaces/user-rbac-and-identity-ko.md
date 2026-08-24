@@ -1,8 +1,8 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: 9b860cd799683b9b7da7f782c54d7175e2cf728c
-translation_revised: 2026-08-23
+translation_source_sha: d6c35067e5cfa62878cc8ac81674e17a10f19c5a
+translation_revised: 2026-08-24
 ---
 
 # 사용자 RBAC와 Entra 아이덴티티
@@ -75,7 +75,7 @@ CODEOWNERS 경로, 앱 레벨 정당화에서 옴.
 | 1 | **읽기 담당** | `aw-readers` | Azure 읽기 담당 | 콘솔 조회: KPI 대시보드, 감사 로그, shadow 결과, HIL 큐 |
 | 2 | **기여자** | `aw-contributors` | Azure 기여자 | 읽기 담당 + 초안 PR 작성 및 범위가 제한된 읽기 조사 시작 |
 | 3 | **Approver** | `aw-approvers` | (검토자) | 읽기 담당 + 거버넌스 PR 리뷰/승인 + 런타임 HIL 요청 승인 + enforce 승격 / exemption / 재정의 승인 (고위험은 quorum - §5 참조) |
-| 4 | **Owner** | `aw-owners` | Azure Owner | Approver + 비상 정지 트리거 + Entra 그룹 멤버십 관리 + 인프라 IaC 적용 |
+| 4 | **Owner** | `aw-owners` | Azure Owner | Approver + 비상 정지 트리거 + 런타임 설정, 환경 모델 바인딩 초안 및 Entra 그룹 멤버십 관리 + 인프라 IaC 적용 |
 | - | **Break-Glass** | `aw-break-glass` | (별도 비상 계정) | Console 조회, 비상 정지, 비상 접근 권한 부여 기능만 가집니다. 런타임 HIL 승인 기능은 없으며 Owner의 superset이 아닙니다. |
 
 **티어 추가 없이 모델을 안전하게 유지하는 규칙**
@@ -115,6 +115,8 @@ CODEOWNERS 경로, 앱 레벨 정당화에서 옴.
 | 글로벌 비상 정지 트리거 | | | | ✓ | ✓ |
 | 비상 스코프 접근 부여 | | | | | ✓ |
 | 제한된 런타임 설정 관리 | | | | ✓ | |
+| 환경 T1/T2 바인딩 초안 저장 또는 평가 | | | | ✓ | |
+| 보호된 모델 바인딩 계획 요청 | | | | ✓ | |
 | `aw-*` 그룹 멤버십 관리 | | | | ✓ | |
 | 인프라 IaC 적용 (deployer) | | | | ✓ | |
 | 실행기 Managed Identity 보유 | (절대) - MI는 비-사람 |||||
@@ -125,6 +127,10 @@ CODEOWNERS 경로, 앱 레벨 정당화에서 옴.
 도달 가능한 emergency 호출자는 Owner입니다. 읽기 담당, 기여자, Approver는 호출할 수 없습니다.
 이 엔드포인트는 콘솔 버튼이 아니며 실행기 신원을 사용하지 않고 개정 번호 상태 변경과
 감사 항목을 원자적으로 기록합니다.
+
+`manage-model-bindings` 기능도 Owner 전용입니다. 리비전이 있는 정책 초안과 권한 없는 평가 또는
+보호된 계획 요청을 허용합니다. Terraform 적용, 공급자 변경, 모델 호출, 승인 또는 실행기 권한을
+부여하지 않습니다. BreakGlass는 Owner 상위 집합이 아니며 이 기능을 상속하지 않습니다.
 
 ## 4. Entra ID 아티팩트
 

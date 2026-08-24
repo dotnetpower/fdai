@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import os
 from collections.abc import Mapping, Sequence
@@ -23,6 +24,7 @@ def model_settings_projection(
     observed_at: datetime,
     web_search_enabled: bool,
     allowed_domains: Sequence[str],
+    active_digest: str | None = None,
 ) -> dict[str, object]:
     """Build a sanitized model projection without identifiers, endpoints, or credentials."""
     raw_capabilities = _mapping_sequence(raw.get("capabilities"))
@@ -53,6 +55,8 @@ def model_settings_projection(
     resolved_count = sum(item["status"] == "resolved" for item in capabilities)
     hil_only_count = sum(item["status"] == "hil-only" for item in capabilities)
     t2_choices = _t2_choices(capabilities)
+    active_primary = _active_t2_choice(capabilities, "t2.reasoner.primary")
+    active_secondary = _active_t2_choice(capabilities, "t2.reasoner.secondary")
     publishers = {
         str(item["publisher"]) for item in t2_choices if item["catalog_status"] == "deployed"
     }
@@ -63,6 +67,7 @@ def model_settings_projection(
             "kind": "resolved-models",
             "source": "prepared-resolved-model-artifact",
             "as_of": observed_at.astimezone(UTC).isoformat(),
+            "digest": active_digest,
         },
         "discovery": {
             "automatic": True,
@@ -109,8 +114,8 @@ def model_settings_projection(
             "invariant": "distinct-publisher",
             "primary_candidates": t2_choices,
             "secondary_candidates": t2_choices,
-            "active_primary": None,
-            "active_secondary": None,
+            "active_primary": active_primary,
+            "active_secondary": active_secondary,
             "quorum_ready": len(publishers) >= 2,
         },
         "model_catalog": {
@@ -164,15 +169,24 @@ def runtime_settings_projection(environ: Mapping[str, str]) -> dict[str, object]
 
 def _capability(item: Mapping[str, Any]) -> dict[str, object]:
     name = str(item.get("name") or "")
-    capacity = _non_negative_number(item.get("capacity_tpm"))
+    capacity_record = _mapping(item.get("capacity"))
+    capacity_unit = str(capacity_record.get("unit") or "tpm")
+    if capacity_unit not in {"tpm", "ptu"}:
+        capacity_unit = "tpm"
+    capacity = _non_negative_number(
+        capacity_record.get("value") if capacity_unit == "ptu" else item.get("capacity_tpm")
+    )
     return {
         "name": name,
         "tier": "T1" if name.startswith("t1.") else "T2",
         "publisher": _optional_string(item.get("publisher")),
         "family": _optional_string(item.get("family")),
         "status": str(item.get("status") or "hil-only"),
-        "capacity_tpm": capacity,
-        "capacity_unit": "tpm",
+        "version": _optional_string(item.get("version")),
+        "sku": _optional_string(item.get("sku")),
+        "selection_mode": str(item.get("selection_mode") or "auto"),
+        "capacity_tpm": capacity if capacity_unit == "tpm" else 0,
+        "capacity_unit": capacity_unit,
         "capacity_value": capacity,
         "invocation": str(item.get("invocation") or "unknown"),
         "reasons": [str(value) for value in item.get("reasons", ()) if isinstance(value, str)],
@@ -207,12 +221,24 @@ def _t2_choices(capabilities: Sequence[Mapping[str, object]]) -> list[dict[str, 
         choices[key] = {
             "publisher": key[0],
             "family": key[1],
-            "version": None,
+            "version": item.get("version"),
             "catalog_status": status,
             "deployments": [],
             "available_tpm": item["capacity_tpm"],
+            "capacity_unit": item["capacity_unit"],
+            "capacity_value": item["capacity_value"],
         }
     return [choices[key] for key in sorted(choices)]
+
+
+def _active_t2_choice(
+    capabilities: Sequence[Mapping[str, object]], capability_name: str
+) -> dict[str, object] | None:
+    item = next((entry for entry in capabilities if entry["name"] == capability_name), None)
+    if item is None or item["status"] not in {"resolved", "capacity-reduced"}:
+        return None
+    choices = _t2_choices((item,))
+    return choices[0] if choices else None
 
 
 def _integration(key: str, configured: bool, *, ready: bool) -> dict[str, object]:
@@ -276,6 +302,7 @@ async def materialize() -> None:
     if not isinstance(raw, Mapping):
         raise RuntimeError("resolved model artifact MUST be a JSON object")
     observed_at = datetime.fromtimestamp(artifact.stat().st_mtime, tz=UTC)
+    active_digest = "sha256:" + hashlib.sha256(artifact.read_bytes()).hexdigest()
     domains = tuple(
         value.strip()
         for value in os.environ.get("FDAI_WEB_SEARCH_ALLOWED_DOMAINS", "").split(",")
@@ -289,6 +316,7 @@ async def materialize() -> None:
             observed_at=observed_at,
             web_search_enabled=_enabled(os.environ.get("FDAI_WEB_SEARCH_ENABLED"), default=False),
             allowed_domains=domains,
+            active_digest=active_digest,
         ),
     )
     await store.write_state(RUNTIME_SETTINGS_KEY, runtime_settings_projection(os.environ))

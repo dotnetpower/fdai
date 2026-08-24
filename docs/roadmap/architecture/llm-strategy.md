@@ -16,6 +16,7 @@ the threat model in [security-and-identity.md](security-and-identity.md).
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Capability registry, resolution, and provisioning assessment | implemented | `rule-catalog/llm-registry.yaml`; `rule_catalog/schema/llm_resolver.py`; `provisioning_assessment.py`; focused resolver tests | Capability-to-model mappings, explicit capacity units, mixed-publisher invariants, and fail-closed readiness are executable. |
+| Environment model binding policy and PTU planning | implemented | `fdai_service_contracts/model_binding.py`; `model_binding_policy.py`; Operator IAM binding routes and PostgreSQL adapter; Console Models editor; protected deploy workflow; focused contract, resolver, Operator, Console, and Terraform checks | Owners can save revisioned `auto`, `pinned`, or `hil-only` intent for every T1/T2 capability. PTU and exact model versions are evaluated and sealed in protected planning. Console and Operator retain no provider mutation or execution authority. |
 | Candidate-only semantic judgment and planning | implemented | `core/conversation/semantic_judgment.py`; `core/conversation/semantic_planning.py`; `composition/wire_semantic_query.py`; Azure semantic adapters; focused judgment and planning tests | Bounded T1 judgment retries malformed schema output on the same binding before optional T2 escalation. Accepted meaning can guide planning but grants no execution authority. |
 | T2 cross-check, verifier, grounding, confidence, and rubric | implemented | `core/quality_gate/`; `delivery/azure/llm/rubric.py`; focused quality-gate and Azure adapter tests | The four required legs and optional subtractive rubric exist. Missing or invalid evidence lowers the result to denial, abstention, or human review. |
 | Escalation policy and same-publisher primary latency routing | implemented | `core/quality_gate/escalation_ladder.py`; `delivery/azure/llm/latency_routed_cross_check.py`; `composition/wire_llm.py`; focused routing tests | The ladder remains never-authoritative, and latency selection cannot cross into the secondary publisher. A separate bounded proposer fallback can invoke the registered secondary proposer, but its candidate still enters the same quality gate. |
@@ -33,11 +34,13 @@ the threat model in [security-and-identity.md](security-and-identity.md).
 | 2026-08-23 | implemented | Recorded the shipped T2 proposer recovery contract in this owner document. Bounded attempts persist sanitized receipts before Huginn ingress; terminal exhaustion is reduced by Heimdall and judged by Forseti; approved route changes use Thor, append-only audit, and correlation-fenced Vidar rollback. A recovered attempt remains an observation and does not open another approval. | Commits `68f0d4014` and `e96416ce1`; `recovery.py`; `t2_recovery.py`; `t2_route_registry.py`; `test_{t2_recovery,t2_route_registry}.py`; `test_t2_recovery_chain.py`. | Retain one exact-revision governed campaign proving restart recovery, exhaustion-to-approval, route switch, failed verification rollback, stale rollback rejection, and recovery without a new approval. |
 | 2026-08-23 | in-progress | Corrected the lifecycle scope after source and workflow review found that proposal expiry does not lower an affected capability to human review. The scheduled workflow remains proposal-only and has no retained run. | `current change`; `.github/workflows/model-lifecycle-reconcile.yml`; `scripts/deployment/azure/model_lifecycle_reconciler.py`; focused lifecycle contract tests. | Implement the expiry-to-hold path against the authoritative runtime model source, then retain one protected scheduled run and separately review any draft replacement. |
 | 2026-08-23 | implemented | Added the locally executable expiry-review slice. Lifecycle proposal v3 records the canonical source-model digest and affected capabilities. A pure evaluator holds only an expired, unmerged proposal for that exact source and rejects late merge evidence. The Operator-owned async Key Vault source validates official Azure vault origins and audiences, exact secret identity, size, JSON depth, enabled and expiration state, total deadline, and secret-safe errors and representation. | `current change`; focused lifecycle and Key Vault tests; 15 critique-and-harden rounds ended with no verified Medium-or-higher defect. | Bind asynchronous source loading and trusted PR lifecycle observations into startup, persist and verify decisions, then apply holds before capability binding without changing the model mapping. |
+| 2026-08-24 | implemented | Added revisioned environment binding drafts for every T1/T2 capability, complete-candidate TPM/PTU fallback, exact GA version sealing, Owner-only assessment and plan requests, active-artifact digest fencing, and Terraform version pinning. | `current change`; shared policy, resolver, Azure query, Operator IAM, Console Models, protected workflow, and Terraform paths; focused checks recorded in the completion report. | Retain one protected PTU plan/apply/rollback receipt and one post-apply independent binding verification before classifying the path as validated. |
 ### Remaining work
 - [ ] Retain a pinned live-shadow cohort for every enabled T1/T2 capability with model identity, cost, latency, schema-repair attempts and recovery, escalation, planning disposition, disagreement, grounding, verifier, rubric, outcome, and guard evidence after the live KPI prerequisites in [Goals and Metrics](goals-and-metrics.md#remaining-work) and the [Agent Pantheon implementation plan](../agents/agent-pantheon-implementation.md#remaining-work) are satisfied.
 - [ ] Retain a governed T2 recovery campaign proving bounded attempt budgets, durable receipt forwarding after restart, terminal exhaustion to human approval, an audited route switch, correlation-fenced rollback, and recovery without a new approval.
 - [ ] Bind the implemented expired-unmerged evaluator and direct Key Vault source adapter through an asynchronous startup owner. Add trusted PR lifecycle observation, proposal and decision digest verification, persistence, and pre-binding capability holds. Prove the affected capability moves to human review without changing its model mapping, then retain a governed scheduled-run receipt showing deprecation or family drift creates only a sanitized draft PR. The startup/source contract is owned by [Narrator Routing and Latency](../interfaces/narrator-routing-and-latency.md#remaining-work).
 - [ ] Promote optional rubric, escalation invocation, or primary-pool behavior only through the [authoritative ActionType registry](../decisioning/action-ontology.md#33-governance) after frozen replay and independent review; keep missing bindings fail-closed.
+- [ ] Retain one protected environment policy campaign that assesses a provisioned SKU, seals the exact model version and PTU capacity, applies the approved plan, independently verifies the runtime binding, and rehearses rollback without a Console or Operator identity receiving provider mutation authority.
 
 ## Model Tiers
 
@@ -235,70 +238,43 @@ guarantees rot. The provisioning model below keeps the capability→concrete-mod
 **automatic at bootstrap and reviewed at update time**, with model changes flowing through
 the same shadow-before-enforce discipline as any other change.
 
-### Capability Preferences Registry
+### Capability Binding Policy
 
-Upstream defines the *capabilities* and a **preference list per capability**; a fork
-overrides preferences to match its region, compliance posture, or cost target. The registry
-is catalog-as-code (path `rule-catalog/llm-registry.yaml`) reviewed like any other
-governance artifact.
+`rule-catalog/llm-registry.yaml` defines upstream defaults. An Owner can submit one revisioned
+environment policy for each T1 or T2 capability when regional or provisioned-throughput (PTU)
+constraints require a narrower binding. The policy is a governance draft, not a runtime switch:
+the Operator API stores intent while only a reviewed protected plan can replace the active artifact.
+
+| Selection mode | Resolver behavior | Failure behavior |
+|----------------|-------------------|------------------|
+| `auto` | Evaluate complete registry candidates in order. | Continue to the next candidate; use `hil-only` if none qualify. |
+| `pinned` | Evaluate only the requested publisher, family, SKU, and capacity. | Hold for human review; never substitute another family. |
+| `hil-only` | Bind no model for the capability. | Keep dependent decisions at human review. |
 
 ```yaml
-# rule-catalog/llm-registry.yaml (upstream defaults; fork MAY override)
-models:
-  t1.embedding:
-    preferences:
-      - { publisher: OpenAI, family: text-embedding-3-small }
-      - { publisher: OpenAI, family: text-embedding-3-large }
-    sku: Standard
-    capacity_tpm: 100_000
-  t1.judge:                       # small/cheap default (mini tier)
-    preferences:
-      - { publisher: OpenAI, family: gpt-4o-mini }
-    capacity_tpm: 40_000
-  t2.reasoner.primary:            # first frontier reasoner
-    preferences:
-      - { publisher: OpenAI, family: gpt-4o }
-      - { publisher: OpenAI, family: gpt-4.1 }
-      - { publisher: OpenAI, family: gpt-4-turbo }
-    capacity_tpm: 20_000
-  t2.reasoner.secondary:          # mixed-model peer - MUST be a distinct publisher
-    preferences:
-      - { publisher: Anthropic, family: claude-opus-4 }
-      - { publisher: MistralAI, family: mistral-large-2 }
-    capacity_tpm: 10_000
-  t2.reasoner.escalated:          # Opus-class ceiling, on-demand only
-    preferences:
-      - { publisher: OpenAI, family: o1 }
-      - { publisher: Anthropic, family: claude-opus-4 }
-    invocation: on_disagreement                # not on every T2 call
-    capacity_tpm: 5_000
+capability: t2.reasoner.primary
+selection_mode: pinned
+publisher: OpenAI
+family: gpt-4o
+sku: GlobalProvisionedManaged
+capacity: { unit: ptu, value: 30 }
 ```
 
-Rules the registry enforces (MUST, at config load):
-
-- **Family, not version.** Preferences pin the model *family* (e.g. `gpt-4o-mini`); the
-  bootstrap resolver picks the latest stable version at provisioning time and records it in
-  the resolved mapping. Never pin a dated version in the registry - it hides deprecation.
-- **Capacity units are explicit.** Standard and Global Standard use `capacity_tpm` as a request ceiling.
-  Azure usage `Count` values are converted from 1K TPM units; batch and fine-tune quota is excluded.
-  `ProvisionedManaged`, `GlobalProvisionedManaged`, and `DataZoneProvisionedManaged` use `capacity_ptu`.
-  Supplying TPM for a provisioned SKU or PTU for a standard SKU is invalid; overflow degrades to HIL.
-- **Escalated capability is opt-in per invocation** (`invocation: on_disagreement`); it is
-  not called on every T2 request and never bypasses the quality gate.
-- **RCA reasoner is opt-in per invocation** (`invocation: on_novel_case`, capability
-  `t2.rca`); it fires only on a novel incident the deterministic tiers could not resolve,
-  and its output is refused unless grounded on the supplied evidence (see
-  [observability-and-detection.md](../rules-and-detection/observability-and-detection.md) section 4).
-- **Tool capabilities resolve independently.** `tool_calling_required` gates ordinary function
-  tools. Public retrieval uses the dedicated `t1.web_search` preference and serializes only its
-  deployment into `web_search_candidates`. Protected apply reconciles its Foundry prompt agent
-  with the exact domain allowlist, and the Operator API sends an actual managed-tool request at startup.
-  Missing model, project, agent, entitlement, or tool readiness makes search unavailable without
-  borrowing the narrator pool or changing conversation and execution authority.
+- **Environment scope:** Policies affect one deployment environment, not one user or conversation.
+- **Exact plan:** Assessment selects a compatible GA version; protected planning pins that exact
+  version, SKU, capacity, policy digest, and active artifact digest for apply.
+- **Candidate completeness:** `auto` evaluates complete publisher-family-version-SKU-capacity
+  candidates. Missing TPM or PTU capacity advances to the next preference.
+- **Capacity units:** Standard SKUs use TPM. Provisioned SKUs use PTU without conversion.
+- **T2 pair atomicity:** Primary and secondary must resolve to distinct publishers unless held.
+- **No Console authority:** Draft, assessment, and plan requests perform no provider mutation.
+- **Independent tools:** Search, RCA, rubric, escalation, and tool calling retain separate gates.
 
 ### Bootstrap Provisioner
 
-At `azd up` (or equivalent) the resolver reads the registry, queries the target region's Azure OpenAI / Foundry catalog, and provisions **one deployment per concrete capability**;
+At `azd up` (or equivalent) the resolver combines the registry with the approved environment
+policy, queries the target region's Azure OpenAI / Foundry catalog and capacity surfaces, and
+provisions **one deployment per concrete capability**;
 virtual `t1.vision` reuses matching narrator deployments. The resolved `{capability → deployment}`
 mapping is written to Key Vault and audited.
 

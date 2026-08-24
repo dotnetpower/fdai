@@ -15950,6 +15950,74 @@ body.aa-log-fullscreen-fallback { overflow: hidden; }
   font-size: 0.76rem;
 }
 .settings-t2-boundary span { color: var(--fg-muted); line-height: 1.45; }
+.settings-binding-editor {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.settings-binding-editor > label,
+.settings-binding-fields label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.settings-binding-editor > label > span,
+.settings-binding-fields label > span {
+  color: var(--fg-muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+.settings-binding-editor select,
+.settings-binding-fields input,
+.settings-binding-fields select {
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  color: var(--fg);
+  font: inherit;
+}
+.settings-binding-editor select:focus-visible,
+.settings-binding-fields input:focus-visible,
+.settings-binding-fields select:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.settings-binding-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.settings-binding-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 14px;
+  padding: 14px 16px 16px;
+}
+.settings-binding-actions > span {
+  color: var(--fg-muted);
+  font-size: 0.74rem;
+}
+.settings-binding-actions > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.settings-binding-actions button { min-height: 36px; }
+.settings-binding-receipt {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 0 16px 16px;
+  color: var(--fg-muted);
+  font-size: 0.76rem;
+}
 .settings-t2-current {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -16123,20 +16191,25 @@ body.aa-log-fullscreen-fallback { overflow: hidden; }
 @media (max-width: 760px) {
   .settings-model-summary,
   .settings-t2-current,
-  .settings-t2-picker { grid-template-columns: 1fr; }
+  .settings-t2-picker,
+  .settings-binding-fields { grid-template-columns: 1fr; }
   .settings-model-summary > div,
   .settings-t2-current > div { border-right: 0; border-bottom: 1px solid var(--border); }
   .settings-model-summary > div:last-child,
   .settings-t2-current > div:last-child { border-bottom: 0; }
   .settings-models-route .settings-iam-panel-head,
   .settings-t2-boundary,
-  .settings-t2-invariant { align-items: flex-start; flex-direction: column; gap: 6px; }
+  .settings-t2-invariant,
+  .settings-binding-actions,
+  .settings-binding-receipt { align-items: flex-start; flex-direction: column; gap: 6px; }
   .settings-model-catalog-head-actions { width: 100%; justify-content: space-between; }
   .settings-model-catalog-controls { grid-template-columns: 1fr; }
   .settings-model-catalog-controls > span { justify-self: start; }
   .settings-model-catalog-grid { grid-template-columns: 1fr; }
   .settings-model-preference-control { grid-template-columns: 1fr; }
   .settings-model-preference-control label { grid-column: 1; }
+  .settings-binding-actions > div { width: 100%; }
+  .settings-binding-actions button { flex: 1 1 180px; }
   .settings-models-route .data-table td { grid-template-columns: minmax(86px, 0.4fr) minmax(0, 1fr); }
 }
 .settings-web-search-body { min-width: 0; }

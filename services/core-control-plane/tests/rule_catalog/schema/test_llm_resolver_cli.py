@@ -56,6 +56,32 @@ def test_cli_marks_hil_only_when_permission_denied(tmp_path: Path) -> None:
         assert cap["status"] == CapabilityStatus.HIL_ONLY.value
 
 
+def test_cli_applies_and_seals_binding_policy(tmp_path: Path) -> None:
+    policy = tmp_path / "binding-policy.yaml"
+    policy.write_text(
+        """schema_version: "1.0.0"
+environment: staging
+revision: 4
+capabilities:
+  t2.reasoner.secondary:
+    selection_mode: hil-only
+""",
+        encoding="utf-8",
+    )
+    argv = [*_base_argv(tmp_path, "permission.granted.json"), "--binding-policy", str(policy)]
+
+    assert main(argv) == 0
+
+    payload = json.loads((tmp_path / "resolved-models.json").read_text(encoding="utf-8"))
+    assert payload["binding_policy"]["environment"] == "staging"
+    assert payload["binding_policy"]["revision"] == 4
+    assert payload["binding_policy"]["digest"].startswith("sha256:")
+    secondary = next(
+        item for item in payload["capabilities"] if item["name"] == "t2.reasoner.secondary"
+    )
+    assert secondary["selection_mode"] == "hil-only"
+
+
 def test_cli_output_is_stable_across_reruns(tmp_path: Path) -> None:
     first = tmp_path / "first.json"
     second = tmp_path / "second.json"

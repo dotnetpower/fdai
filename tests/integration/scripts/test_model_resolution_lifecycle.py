@@ -22,6 +22,16 @@ def test_protected_deploy_resolves_and_seals_model_manifest_before_plan() -> Non
     assert "MODEL_RESOLVER_DEPLOYER_OBJECT_ID" in _DEPLOY
     assert "resolved-models.sha256" in _DEPLOY
     assert 'echo "TF_VAR_resolved_capabilities=' in _DEPLOY
+    assert 'policy_args=(--binding-policy "$policy")' in _DEPLOY
+    assert '--environment "${{ inputs.environment }}"' in _DEPLOY
+    assert "MODEL_BINDING_POLICY_DEV_JSON" in _DEPLOY
+    assert "MODEL_BINDING_POLICY_STAGING_JSON" in _DEPLOY
+    assert "MODEL_BINDING_POLICY_PROD_JSON" in _DEPLOY
+    assert "Verify model binding policy active digest" in _DEPLOY
+    assert "terraform output -raw resolved_models_sha256" in _DEPLOY
+    assert "Model binding policy active digest is stale" in _DEPLOY
+    assert "Model binding policy exceeds the 16000-byte plan input bound" in _DEPLOY
+    assert "MODEL_BINDING_POLICY_JSON: ${{ !inputs.apply" in _DEPLOY
     assert "RESOLVED_CAPABILITIES_JSON" not in _DEPLOY
 
 

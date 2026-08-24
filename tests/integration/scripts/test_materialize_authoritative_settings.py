@@ -45,6 +45,19 @@ def test_model_projection_is_sanitized_and_uses_only_resolved_facts() -> None:
                 "reasons": ["quota-unavailable"],
             },
             {
+                "name": "t2.reasoner.secondary",
+                "publisher": "Anthropic",
+                "family": "reasoner-secondary-example",
+                "version": "2026-01-01",
+                "sku": "GlobalProvisionedManaged",
+                "status": "resolved",
+                "capacity_tpm": 0,
+                "capacity": {"unit": "ptu", "value": 30},
+                "selection_mode": "pinned",
+                "invocation": "always",
+                "reasons": [],
+            },
+            {
                 "name": "narrator-example",
                 "publisher": "OpenAI",
                 "family": "narrator-family",
@@ -73,6 +86,7 @@ def test_model_projection_is_sanitized_and_uses_only_resolved_facts() -> None:
         observed_at=datetime(2026, 8, 10, tzinfo=UTC),
         web_search_enabled=True,
         allowed_domains=("learn.microsoft.com",),
+        active_digest="sha256:" + "a" * 64,
     )
 
     serialized = json.dumps(projection, sort_keys=True)
@@ -81,16 +95,26 @@ def test_model_projection_is_sanitized_and_uses_only_resolved_facts() -> None:
     assert projection["provisioning"] == {
         "automatic": False,
         "status": "ready",
-        "resolved_count": 1,
+        "resolved_count": 2,
         "hil_only_count": 1,
     }
     assert [item["name"] for item in projection["capabilities"]] == [
         "t1.embedding",
         "t2.reasoner.primary",
+        "t2.reasoner.secondary",
     ]
+    secondary = projection["capabilities"][2]
+    assert secondary["capacity_unit"] == "ptu"
+    assert secondary["capacity_value"] == 30
+    assert secondary["capacity_tpm"] == 0
+    assert secondary["version"] == "2026-01-01"
+    assert secondary["selection_mode"] == "pinned"
     assert projection["narrator"]["effective"] == "narrator-example"
     assert projection["web_search"]["enabled"] is False
     assert projection["model_catalog"]["available"] is False
+    assert projection["resolved_metadata"]["digest"] == "sha256:" + "a" * 64
+    assert projection["t2_model_policy"]["active_primary"] is None
+    assert projection["t2_model_policy"]["active_secondary"]["capacity_unit"] == "ptu"
 
 
 def test_runtime_projection_reports_configuration_without_inventing_readiness() -> None:

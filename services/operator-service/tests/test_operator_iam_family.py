@@ -38,6 +38,8 @@ from fdai_operator_service.families.iam.contracts import (
     HilPendingItem,
     IamPrincipal,
     KillSwitchCommand,
+    ModelBindingDraftCommand,
+    ModelBindingRequestCommand,
     ModelPreferenceCommand,
     RuntimeSettingsCommand,
     WebSearchSettingsCommand,
@@ -200,18 +202,23 @@ class RecordingModelSettings:
     def __init__(self) -> None:
         self.preference: ModelPreferenceCommand | None = None
         self.web: WebSearchSettingsCommand | None = None
+        self.binding_draft: ModelBindingDraftCommand | None = None
+        self.binding_assessment: ModelBindingRequestCommand | None = None
+        self.binding_plan: ModelBindingRequestCommand | None = None
 
     async def projection(
         self,
         principal_id: str,
         *,
         can_manage_web_search: bool = False,
+        can_manage_model_bindings: bool = False,
         refresh_model_catalog: bool = False,
     ) -> Mapping[str, Any]:
         del refresh_model_catalog
         return {
             "principal_id": principal_id,
             "can_manage": can_manage_web_search,
+            "can_manage_model_bindings": can_manage_model_bindings,
             "provider": {
                 "clientSecret": "must-not-leak",
                 "nested": [
@@ -228,6 +235,32 @@ class RecordingModelSettings:
 
     async def set_web_search_settings(self, command: WebSearchSettingsCommand) -> None:
         self.web = command
+
+    async def save_binding_policy(self, command: ModelBindingDraftCommand) -> Mapping[str, Any]:
+        self.binding_draft = command
+        return {
+            "proposal_id": "binding-draft-1",
+            "state": "draft",
+            "execution_authority": False,
+        }
+
+    async def request_binding_assessment(
+        self, command: ModelBindingRequestCommand
+    ) -> Mapping[str, Any]:
+        self.binding_assessment = command
+        return {
+            "proposal_id": "binding-assessment-1",
+            "state": "assessment-requested",
+            "execution_authority": False,
+        }
+
+    async def request_binding_plan(self, command: ModelBindingRequestCommand) -> Mapping[str, Any]:
+        self.binding_plan = command
+        return {
+            "proposal_id": "binding-plan-1",
+            "state": "plan-requested",
+            "execution_authority": False,
+        }
 
 
 class RecordingRuntimeSettings:
@@ -320,14 +353,14 @@ def _client(**overrides: object) -> TestClient:
     return TestClient(Starlette(routes=make_iam_family_routes(_bindings(**overrides))))
 
 
-def test_family_owns_exact_28_route_manifest_without_fdai_implementation_imports() -> None:
+def test_family_owns_exact_31_route_manifest_without_fdai_implementation_imports() -> None:
     routes = make_iam_family_routes(_bindings())
     snapshot = tuple(
         (next(iter((route.methods or set()) - {"HEAD"})), route.path, route.name)
         for route in routes
     )
     assert snapshot == tuple((item.method, item.path, item.name) for item in IAM_FAMILY_MANIFEST)
-    assert len(snapshot) == 28
+    assert len(snapshot) == 31
 
     for path in FAMILY_SOURCE.rglob("*.py"):
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -528,6 +561,107 @@ def test_settings_kill_switch_and_review_preserve_revision_and_idempotency() -> 
     assert runtime.command is not None and runtime.command.expected_revision == 2
     assert kill.command is not None and kill.command.request_id == "stop-1"
     assert review.command is not None and review.command.run_id == "review-1"
+
+
+def test_owner_can_submit_binding_draft_assessment_and_plan_without_authority() -> None:
+    models = RecordingModelSettings()
+    client = _client(model_settings=models)
+    owner = {"x-test-role": "Owner", "x-test-oid": "owner-1"}
+    policy = {
+        "schema_version": "1.0.0",
+        "environment": "staging",
+        "revision": 1,
+        "expected_active_digest": "sha256:" + "a" * 64,
+        "capabilities": {
+            "t2.reasoner.primary": {
+                "selection_mode": "pinned",
+                "publisher": "OpenAI",
+                "family": "gpt-4o",
+                "version_policy": "latest-compatible",
+                "sku": "GlobalProvisionedManaged",
+                "capacity": {"unit": "ptu", "value": 30},
+            }
+        },
+    }
+    draft = client.put(
+        "/models/binding-policy",
+        headers=owner,
+        json={
+            "policy": policy,
+            "expected_revision": 0,
+            "idempotency_key": "binding-draft-1",
+        },
+    )
+    request = {
+        "environment": "staging",
+        "policy_revision": 1,
+        "policy_digest": models.binding_draft.policy_digest,
+        "idempotency_key": "binding-operation-1",
+    }
+    assessment = client.post(
+        "/models/binding-policy/assess",
+        headers=owner,
+        json=request,
+    )
+    plan = client.post(
+        "/models/binding-policy/plan",
+        headers=owner,
+        json={**request, "idempotency_key": "binding-operation-2"},
+    )
+
+    assert draft.status_code == 200
+    assert assessment.status_code == plan.status_code == 202
+    assert draft.json()["execution_authority"] is False
+    assert assessment.json()["execution_authority"] is False
+    assert plan.json()["execution_authority"] is False
+    assert models.binding_assessment is not None
+    assert models.binding_plan is not None
+
+
+def test_non_owner_cannot_submit_model_binding_policy() -> None:
+    response = _client(model_settings=RecordingModelSettings()).put(
+        "/models/binding-policy",
+        headers={"x-test-role": "Approver", "x-test-oid": "approver-1"},
+        json={},
+    )
+
+    assert response.status_code == 403
+
+
+def test_model_binding_routes_reject_unknown_and_malformed_identity_fields() -> None:
+    client = _client(model_settings=RecordingModelSettings())
+    owner = {"x-test-role": "Owner", "x-test-oid": "owner-1"}
+    invalid_draft = client.put(
+        "/models/binding-policy",
+        headers=owner,
+        json={
+            "policy": {
+                "schema_version": "1.0.0",
+                "environment": "staging",
+                "revision": 1,
+                "capabilities": {"t1.embedding": {"selection_mode": "auto"}},
+            },
+            "expected_revision": 0,
+            "idempotency_key": "draft-1",
+            "execution_authority": True,
+        },
+    )
+    invalid_request = {
+        "environment": "STAGING",
+        "policy_revision": 1,
+        "policy_digest": "not-a-digest",
+        "idempotency_key": "key\nforged",
+    }
+
+    assert invalid_draft.status_code == 400
+    assert "unknown=['execution_authority']" in invalid_draft.text
+    for path in ("assess", "plan"):
+        response = client.post(
+            f"/models/binding-policy/{path}",
+            headers=owner,
+            json=invalid_request,
+        )
+        assert response.status_code == 400
 
 
 def test_iam_settings_redact_nested_sensitive_alias_fields() -> None:

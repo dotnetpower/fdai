@@ -37,10 +37,9 @@ resource "azurerm_cognitive_deployment" "capability" {
   cognitive_account_id = azurerm_cognitive_account.primary.id
 
   model {
-    format = "OpenAI"
-    name   = each.value.family
-    # Version is auto-picked by Azure when not pinned; the resolver records
-    # the resolved family + capacity in resolved-models.json.
+    format  = "OpenAI"
+    name    = each.value.family
+    version = each.value.version
   }
 
   sku {
@@ -48,11 +47,6 @@ resource "azurerm_cognitive_deployment" "capability" {
     capacity = each.value.capacity_units
   }
 
-  # Azure resolves the current compatible model version when configuration
-  # intentionally leaves it unpinned. Do not plan a null reset on every run.
-  lifecycle {
-    ignore_changes = [model[0].version]
-  }
 }
 
 # Runtime role: executor MI invokes deployments as an AOAI User (data-plane).

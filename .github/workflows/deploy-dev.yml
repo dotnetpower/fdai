@@ -191,6 +191,7 @@ jobs:
       TF_VAR_enable_document_ingestion: ${{ inputs.deploy_document_ingestion }}
       TF_VAR_enable_llm: ${{ inputs.deploy_document_ingestion || vars.ENABLE_LLM == 'true' || vars.OPERATOR_API_WEB_SEARCH_ENABLED == 'true' }}
       MODEL_RESOLVER_DEPLOYER_OBJECT_ID: ${{ vars.MODEL_RESOLVER_DEPLOYER_OBJECT_ID }}
+      MODEL_BINDING_POLICY_JSON: ${{ !inputs.apply && (inputs.environment == 'dev' && vars.MODEL_BINDING_POLICY_DEV_JSON || inputs.environment == 'staging' && vars.MODEL_BINDING_POLICY_STAGING_JSON || vars.MODEL_BINDING_POLICY_PROD_JSON) || '' }}
       TF_VAR_core_image: ${{ vars.CORE_IMAGE || vars.OPERATOR_API_IMAGE }}
       # Operator API image + Entra/RBAC ids (tenant-specific; via repo Variables,
       # never committed). Empty when deploy_operator_api is false.
@@ -585,13 +586,27 @@ jobs:
           fi
           resolved="$RUNNER_TEMP/resolved-models.json"
           manifest="$RUNNER_TEMP/deployment-models.json"
+          policy_args=()
+          if [[ -n "$MODEL_BINDING_POLICY_JSON" ]]; then
+            policy_bytes="$(printf '%s' "$MODEL_BINDING_POLICY_JSON" | wc -c)"
+            if (( policy_bytes > 16000 )); then
+              echo "Model binding policy exceeds the 16000-byte plan input bound." >&2
+              exit 1
+            fi
+            policy="$RUNNER_TEMP/model-binding-policy.json"
+            printf '%s\n' "$MODEL_BINDING_POLICY_JSON" > "$policy"
+            chmod 0600 "$policy"
+            policy_args=(--binding-policy "$policy")
+          fi
           PYTHONPATH="$GITHUB_WORKSPACE/services/core-control-plane/src:$GITHUB_WORKSPACE/packages/service-contracts/src" \
             uv run --frozen --package fdai-core-control-plane python \
               -m fdai.rule_catalog.schema.llm_resolver_cli \
               --registry rule-catalog/llm-registry.yaml \
+              --environment "${{ inputs.environment }}" \
               --region "$TF_VAR_region" \
               --subscription-id "$ARM_SUBSCRIPTION_ID" \
               --deployer-object-id "$MODEL_RESOLVER_DEPLOYER_OBJECT_ID" \
+              "${policy_args[@]}" \
               --use-azure-cli \
               --assess-fail-on "$MODEL_COMPLETENESS_FAIL_ON" \
               --out "$resolved"
@@ -662,6 +677,21 @@ jobs:
             -backend-config="storage_account_name=${{ vars.STATE_STORAGE_ACCOUNT }}" \
             -backend-config="container_name=tfstate" \
             -backend-config="key=fdai-${{ inputs.environment }}.tfstate"
+
+      - name: Verify model binding policy active digest
+        if: ${{ !inputs.apply && env.MODEL_BINDING_POLICY_JSON != '' }}
+        run: |
+          set -euo pipefail
+          expected="$(python3 -c 'import json,os; print(json.loads(os.environ["MODEL_BINDING_POLICY_JSON"]).get("expected_active_digest", ""))')"
+          current="$(terraform output -raw resolved_models_sha256 2>/dev/null || true)"
+          if [[ ! "$expected" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "Model binding policy must bind an expected active resolved-models digest." >&2
+            exit 1
+          fi
+          if [[ "sha256:${current}" != "$expected" ]]; then
+            echo "Model binding policy active digest is stale; refresh Settings and submit a new draft." >&2
+            exit 1
+          fi
 
       - name: Preserve Event Bus migration console topology
         if: ${{ env.EVENT_BUS_TOPIC_MIGRATION == 'true' }}

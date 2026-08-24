@@ -162,6 +162,7 @@ variables {
   resolved_capabilities = [{
     name         = "t1.embedding"
     family       = "text-embedding-3-small"
+    version      = "1"
     sku          = "Standard"
     capacity_tpm = 10000
   }]

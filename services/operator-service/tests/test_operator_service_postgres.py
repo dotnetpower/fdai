@@ -12,6 +12,8 @@ import pytest
 from fdai_operator_service.families.iam.contracts import (
     AccessGrantDecisionCommand,
     AccessGrantSnapshotQuery,
+    ModelBindingDraftCommand,
+    ModelBindingRequestCommand,
 )
 from fdai_operator_service.families.iam.errors import (
     IamConflictError,
@@ -31,6 +33,7 @@ from fdai_operator_service.postgres import (
 from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStore,
     PostgresFamilyStoreConfig,
+    PostgresProposalConflict,
     StoredProposal,
     StoredStatePage,
     StoredStateRecord,
@@ -61,10 +64,32 @@ from fdai_service_contracts import (
     HilQueueQuery,
     IncidentAttentionQuery,
     IncidentQuery,
+    ModelBindingPolicy,
 )
 
 _NOW = datetime(2026, 8, 8, tzinfo=UTC)
 _GRANT_EXPIRY = datetime(2099, 1, 1, tzinfo=UTC)
+
+
+def _binding_policy(*, revision: int, active_digest: bool = True) -> dict[str, object]:
+    policy: dict[str, object] = {
+        "schema_version": "1.0.0",
+        "environment": "staging",
+        "revision": revision,
+        "capabilities": {
+            "t2.reasoner.primary": {
+                "selection_mode": "pinned",
+                "publisher": "OpenAI",
+                "family": "gpt-4o",
+                "version_policy": "latest-compatible",
+                "sku": "GlobalProvisionedManaged",
+                "capacity": {"unit": "ptu", "value": 30},
+            }
+        },
+    }
+    if active_digest:
+        policy["expected_active_digest"] = "sha256:" + "a" * 64
+    return policy
 
 
 def _hil_row() -> dict[str, Any]:
@@ -123,6 +148,72 @@ class ProjectionPostgresFamilyStore(PostgresFamilyStore):
     async def read_projection(self, *, family: str, operation: str) -> dict[str, object]:
         assert (family, operation) == ("iam", "model-settings")
         return self.payload
+
+    async def read_state(self, key: str) -> dict[str, object] | None:
+        assert key == "operator-model-binding-policy:current"
+        return None
+
+
+class ModelBindingPostgresFamilyStore(ProjectionPostgresFamilyStore):
+    """Keep one model-binding state and proposal ledger without PostgreSQL I/O."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            {
+                "environment": "staging",
+                "resolved_metadata": {"digest": "sha256:" + "a" * 64},
+                "web_search": {},
+            }
+        )
+        self.state: dict[str, object] | None = None
+        self.proposals: list[tuple[str, Mapping[str, object]]] = []
+
+    async def read_state(self, key: str) -> dict[str, object] | None:
+        assert key == "operator-model-binding-policy:current"
+        return self.state
+
+    async def append_revisioned_proposal(
+        self,
+        *,
+        family: str,
+        operation: str,
+        principal_id: str | None,
+        idempotency_key: str,
+        payload: Mapping[str, object],
+        state_key: str,
+        state_value: Mapping[str, object],
+        expected_revision: int,
+    ) -> StoredProposal:
+        del family, principal_id, state_key
+        current_revision = int(self.state.get("revision", 0)) if self.state else 0
+        if current_revision != expected_revision:
+            raise PostgresProposalConflict("state revision conflict")
+        self.state = dict(state_value)
+        self.proposals.append((operation, payload))
+        return StoredProposal(
+            proposal_id=f"proposal-{idempotency_key}",
+            accepted_at=_NOW.isoformat(),
+            duplicate=False,
+            record={},
+        )
+
+    async def append_proposal(
+        self,
+        *,
+        family: str,
+        operation: str,
+        principal_id: str | None,
+        idempotency_key: str,
+        payload: Mapping[str, object],
+    ) -> StoredProposal:
+        del family, principal_id
+        self.proposals.append((operation, payload))
+        return StoredProposal(
+            proposal_id=f"proposal-{idempotency_key}",
+            accepted_at=_NOW.isoformat(),
+            duplicate=False,
+            record={},
+        )
 
 
 class AccessGrantStatePostgresFamilyStore(PostgresFamilyStore):
@@ -638,6 +729,184 @@ async def test_model_projection_injects_principal_capability_at_nested_contract(
 
     assert projection["web_search"] == {"available": True, "can_manage": True}
     assert "can_manage_web_search" not in projection
+    assert projection["binding_policy"] == {
+        "environment": "unspecified",
+        "revision": 0,
+        "state": "not-configured",
+        "policy": None,
+        "policy_digest": None,
+        "can_manage": False,
+        "execution_authority": False,
+    }
+
+
+@pytest.mark.asyncio
+async def test_model_binding_draft_persists_and_queues_exact_assessment_and_plan() -> None:
+    store = ModelBindingPostgresFamilyStore()
+    adapters = PostgresIamAdapters(store)
+    policy = ModelBindingPolicy.model_validate(_binding_policy(revision=1))
+    draft = ModelBindingDraftCommand(
+        actor_id="owner-1",
+        policy=policy.model_dump(mode="json", exclude_none=True),
+        policy_digest=policy.digest(),
+        expected_revision=0,
+        idempotency_key="draft-1",
+    )
+
+    saved = await adapters.save_binding_policy(draft)
+    projection = await adapters.projection(
+        "owner-1",
+        can_manage_model_bindings=True,
+    )
+    request = ModelBindingRequestCommand(
+        actor_id="owner-1",
+        environment="staging",
+        policy_revision=1,
+        policy_digest=policy.digest(),
+        idempotency_key="assess-1",
+    )
+    assessed = await adapters.request_binding_assessment(request)
+    planned = await adapters.request_binding_plan(
+        ModelBindingRequestCommand(
+            actor_id="owner-1",
+            environment="staging",
+            policy_revision=1,
+            policy_digest=policy.digest(),
+            idempotency_key="plan-1",
+        )
+    )
+
+    assert saved["state"] == "draft"
+    assert projection["binding_policy"]["can_manage"] is True  # type: ignore[index]
+    assert assessed["state"] == "assessment-requested"
+    assert planned["state"] == "plan-requested"
+    assert all(receipt["execution_authority"] is False for receipt in (saved, assessed, planned))
+    assert [operation for operation, _payload in store.proposals] == [
+        "model-settings.binding-policy.draft",
+        "model-settings.binding-policy.assessment",
+        "model-settings.binding-policy.plan",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_model_binding_projection_does_not_expose_unknown_stored_fields() -> None:
+    store = ModelBindingPostgresFamilyStore()
+    adapters = PostgresIamAdapters(store)
+    policy = ModelBindingPolicy.model_validate(_binding_policy(revision=1))
+    await adapters.save_binding_policy(
+        ModelBindingDraftCommand(
+            actor_id="owner-1",
+            policy=policy.model_dump(mode="json", exclude_none=True),
+            policy_digest=policy.digest(),
+            expected_revision=0,
+            idempotency_key="draft-1",
+        )
+    )
+    assert store.state is not None
+    store.state["unexpected_secret"] = "must-not-cross-the-projection-boundary"
+
+    projection = await adapters.projection("owner-1", can_manage_model_bindings=True)
+
+    binding_policy = projection["binding_policy"]
+    assert isinstance(binding_policy, dict)
+    assert "unexpected_secret" not in binding_policy
+
+
+@pytest.mark.asyncio
+async def test_model_binding_rejects_stale_revision_and_unbound_plan() -> None:
+    store = ModelBindingPostgresFamilyStore()
+    adapters = PostgresIamAdapters(store)
+    initial = ModelBindingPolicy.model_validate(_binding_policy(revision=1))
+    await adapters.save_binding_policy(
+        ModelBindingDraftCommand(
+            actor_id="owner-1",
+            policy=initial.model_dump(mode="json", exclude_none=True),
+            policy_digest=initial.digest(),
+            expected_revision=0,
+            idempotency_key="draft-1",
+        )
+    )
+    stale = ModelBindingPolicy.model_validate(_binding_policy(revision=1))
+    with pytest.raises(IamConflictError, match="revision"):
+        await adapters.save_binding_policy(
+            ModelBindingDraftCommand(
+                actor_id="owner-1",
+                policy=stale.model_dump(mode="json", exclude_none=True),
+                policy_digest=stale.digest(),
+                expected_revision=0,
+                idempotency_key="draft-stale",
+            )
+        )
+
+    no_active_digest = ModelBindingPolicy.model_validate(
+        _binding_policy(revision=2, active_digest=False)
+    )
+    await adapters.save_binding_policy(
+        ModelBindingDraftCommand(
+            actor_id="owner-1",
+            policy=no_active_digest.model_dump(mode="json", exclude_none=True),
+            policy_digest=no_active_digest.digest(),
+            expected_revision=1,
+            idempotency_key="draft-2",
+        )
+    )
+    with pytest.raises(IamConflictError, match="expected active"):
+        await adapters.request_binding_plan(
+            ModelBindingRequestCommand(
+                actor_id="owner-1",
+                environment="staging",
+                policy_revision=2,
+                policy_digest=no_active_digest.digest(),
+                idempotency_key="plan-2",
+            )
+        )
+
+
+@pytest.mark.asyncio
+async def test_model_binding_rejects_draft_for_another_environment() -> None:
+    adapters = PostgresIamAdapters(ModelBindingPostgresFamilyStore())
+    policy = ModelBindingPolicy.model_validate(
+        {**_binding_policy(revision=1), "environment": "prod"}
+    )
+
+    with pytest.raises(IamConflictError, match="does not match this deployment"):
+        await adapters.save_binding_policy(
+            ModelBindingDraftCommand(
+                actor_id="owner-1",
+                policy=policy.model_dump(mode="json", exclude_none=True),
+                policy_digest=policy.digest(),
+                expected_revision=0,
+                idempotency_key="wrong-environment",
+            )
+        )
+
+
+@pytest.mark.asyncio
+async def test_model_binding_plan_rejects_stale_active_artifact_digest() -> None:
+    store = ModelBindingPostgresFamilyStore()
+    adapters = PostgresIamAdapters(store)
+    policy = ModelBindingPolicy.model_validate(_binding_policy(revision=1))
+    await adapters.save_binding_policy(
+        ModelBindingDraftCommand(
+            actor_id="owner-1",
+            policy=policy.model_dump(mode="json", exclude_none=True),
+            policy_digest=policy.digest(),
+            expected_revision=0,
+            idempotency_key="draft-1",
+        )
+    )
+    store.payload["resolved_metadata"] = {"digest": "sha256:" + "b" * 64}
+
+    with pytest.raises(IamConflictError, match="active resolved-models digest"):
+        await adapters.request_binding_plan(
+            ModelBindingRequestCommand(
+                actor_id="owner-1",
+                environment="staging",
+                policy_revision=1,
+                policy_digest=policy.digest(),
+                idempotency_key="plan-stale-active",
+            )
+        )
 
 
 def _audit_row(

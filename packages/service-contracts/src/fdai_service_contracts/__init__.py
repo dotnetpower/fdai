@@ -182,6 +182,13 @@ from fdai_service_contracts.manifest import (
     load_manifest_codec,
     validate_manifest,
 )
+from fdai_service_contracts.model_binding import (
+    CapabilityBindingPolicy,
+    ModelBindingCapacity,
+    ModelBindingPolicy,
+    ModelSelectionMode,
+    ModelSku,
+)
 from fdai_service_contracts.ontology_query import (
     MAX_INTENT_GRAPH_GOALS,
     AnswerEvidenceMode,
@@ -332,6 +339,7 @@ __all__ = [
     "CompatibilitySummary",
     "CommitFailedError",
     "CommandExplanation",
+    "CapabilityBindingPolicy",
     "DirectUploadStore",
     "DeliveryResult",
     "DeliveryReceipt",
@@ -420,6 +428,10 @@ __all__ = [
     "MalwareScanner",
     "MalwareVerdict",
     "Mode",
+    "ModelBindingCapacity",
+    "ModelBindingPolicy",
+    "ModelSelectionMode",
+    "ModelSku",
     "Operation",
     "ObservationDomain",
     "OperationalActivityKind",

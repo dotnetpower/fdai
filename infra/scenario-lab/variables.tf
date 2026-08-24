@@ -122,6 +122,12 @@ variable "azure_openai_model_family" {
   default     = "gpt-4.1-nano"
 }
 
+variable "azure_openai_model_version" {
+  description = "Exact Azure OpenAI model version used by the rate-limit scenario."
+  type        = string
+  default     = "2025-04-14"
+}
+
 variable "azure_openai_deployment_name" {
   description = "Azure OpenAI deployment name exposed to the scenario runner."
   type        = string

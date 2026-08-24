@@ -62,6 +62,7 @@ variable "resolved_capabilities" {
   type = list(object({
     name           = string
     family         = string
+    version        = string
     sku            = string
     capacity_tpm   = optional(number, 0)
     capacity_unit  = optional(string, "tpm")
@@ -86,5 +87,13 @@ variable "resolved_capabilities" {
       )
     ])
     error_message = "resolved capabilities MUST declare exactly one TPM or PTU capacity value."
+  }
+
+  validation {
+    condition = alltrue([
+      for capability in var.resolved_capabilities :
+      length(trimspace(capability.version)) > 0
+    ])
+    error_message = "resolved capabilities MUST pin a non-empty model version."
   }
 }

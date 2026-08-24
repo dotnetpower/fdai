@@ -20,4 +20,5 @@ admin_ssh_public_key = "ssh-ed25519 <public-key>"
 vm_image_version     = "<exact-region-available-version>"
 
 azure_openai_model_family   = "<region-available-model-family>"
+azure_openai_model_version  = "<exact-model-version>"
 azure_openai_deployment_sku = "<supported-deployment-sku>"

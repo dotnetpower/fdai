@@ -73,7 +73,7 @@ more roles.
 | 1 | **Reader** | `aw-readers` | Azure Reader | View console: KPI dashboard, audit log, shadow results, HIL queue |
 | 2 | **Contributor** | `aw-contributors` | Azure Contributor | All of Reader + author draft PRs and start bounded read investigations |
 | 3 | **Approver** | `aw-approvers` | (Reviewer) | All of Reader + review/approve governance PRs + approve runtime HIL requests + approve enforce promotions / exemptions / overrides (quorum applies to high-risk - see §5) |
-| 4 | **Owner** | `aw-owners` | Azure Owner | All of Approver + trigger kill-switch + manage runtime settings and Entra group membership + apply infra IaC |
+| 4 | **Owner** | `aw-owners` | Azure Owner | All of Approver + trigger kill-switch + manage runtime settings, environment model-binding drafts, and Entra group membership + apply infra IaC |
 | - | **Break-Glass** | `aw-break-glass` | (separate emergency account) | Console view, kill-switch, and emergency access-grant capabilities only. It has no runtime HIL approval capability and isn't an Owner superset. |
 
 **Rules that keep the model safe without adding tiers**
@@ -115,6 +115,8 @@ more roles.
 | Trigger global kill-switch | | | | ✓ | ✓ |
 | Grant emergency scoped access | | | | | ✓ |
 | Manage bounded runtime settings | | | | ✓ | |
+| Save or assess an environment T1/T2 binding draft | | | | ✓ | |
+| Request a protected model-binding plan | | | | ✓ | |
 | Manage `aw-*` group membership | | | | ✓ | |
 | Apply infra IaC (deployer) | | | | ✓ | |
 | Hold the executor Managed Identity | (never) - the MI is non-human |||||
@@ -125,6 +127,11 @@ production auth composition has no BreakGlass activation path, so Owner is the e
 reachable through normal token resolution. Reader, Contributor, and Approver cannot call it. The
 endpoint is not a console button, uses no executor identity, and atomically records the revisioned
 state change with its audit entry.
+
+The `manage-model-bindings` capability is also Owner-only. It permits revisioned policy drafts and
+authority-free assessment or protected-plan requests. It does not grant Terraform apply, provider
+mutation, model invocation, approval, or executor authority. BreakGlass is not an Owner superset
+and does not inherit this capability.
 
 ## 4. Entra ID Artifacts
 

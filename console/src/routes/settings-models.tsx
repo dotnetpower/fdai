@@ -10,6 +10,7 @@ import {
   saveNarratorPreference,
   saveWebSearchSettings,
 } from "./settings-models.command";
+import { ModelBindingPolicyEditor } from "./settings-model-binding-policy";
 import { modelText } from "./settings-models.i18n";
 import {
   DEFAULT_WEB_SEARCH_DOMAINS,
@@ -335,6 +336,13 @@ export function SettingsModelsRoute({ client, auth }: Props) {
               />
             </div>
           </section>
+
+          <ModelBindingPolicyEditor
+            auth={auth}
+            operatorApiBaseUrl={client.operatorApiBaseUrl}
+            view={view}
+            reload={() => load(true)}
+          />
 
           <section class="settings-iam-panel" aria-labelledby="model-catalog-heading">
             <header class="settings-iam-panel-head">

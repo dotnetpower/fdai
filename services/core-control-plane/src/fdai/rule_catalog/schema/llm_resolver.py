@@ -34,6 +34,7 @@ the CI idempotency gate meaningful.
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -41,8 +42,8 @@ from typing import Any, Protocol, runtime_checkable
 
 from fdai.rule_catalog.schema.llm_endpoint_projection import (
     _capability_to_dict,
-    _narrator_from_dict,
     _narrator_to_dict,
+    _resolved_models_from_json,
 )
 from fdai.rule_catalog.schema.llm_endpoint_selection import (
     collect_narrator,
@@ -57,13 +58,24 @@ from fdai.rule_catalog.schema.llm_endpoint_selection import (
     web_search_deployment_name,
 )
 from fdai.rule_catalog.schema.llm_registry import (
+    Invocation,
     LlmRegistry,
     MixedModelMode,
+)
+from fdai.rule_catalog.schema.model_binding_policy import (
+    ModelBindingPolicy,
+    ModelSelectionMode,
+    capability_policy,
+    validate_policy_against_registry,
 )
 from fdai.rule_catalog.schema.model_endpoint import ModelApiStyle, ModelEndpointBinding
 
 _MIN_QUOTA_RATIO = 0.2
 """Floor: challenger capacity must be at least this share of requested."""
+
+_RESOLVED_MODELS_SCHEMA_VERSION = "1.0.0"
+_MAX_RESOLVED_MODELS_BYTES = 1_000_000
+_SHA256_DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 
 
 class ResolverError(RuntimeError):
@@ -91,6 +103,13 @@ class CatalogQuery(Protocol):
     """Which model families are available in the target region."""
 
     def families_in_region(self, region: str) -> set[str]: ...
+
+
+@runtime_checkable
+class ModelVersionQuery(Protocol):
+    """Latest stable model version selected for one regional family."""
+
+    def latest_stable_version(self, *, region: str, publisher: str, family: str) -> str | None: ...
 
 
 @runtime_checkable
@@ -144,14 +163,32 @@ class ResolvedCapability:
 
     capacity_unit: str = "tpm"
     capacity_value: int | None = None
+    selection_mode: str = ModelSelectionMode.AUTO.value
+    version: str | None = None
 
     def __post_init__(self) -> None:
+        if (
+            not isinstance(self.capacity_tpm, int)
+            or isinstance(self.capacity_tpm, bool)
+            or self.capacity_tpm < 0
+        ):
+            raise ValueError("resolved capability capacity_tpm MUST be a non-negative integer")
+        if self.invocation not in {invocation.value for invocation in Invocation}:
+            raise ValueError("resolved capability invocation is invalid")
         if self.capacity_unit not in {"tpm", "ptu"}:
             raise ValueError("resolved capability capacity_unit MUST be tpm or ptu")
         if self.capacity_unit == "ptu" and self.capacity_tpm != 0:
             raise ValueError("PTU capability MUST NOT populate capacity_tpm")
-        if self.capacity_value is not None and self.capacity_value < 0:
-            raise ValueError("resolved capability capacity_value MUST be non-negative")
+        if self.capacity_value is not None and (
+            not isinstance(self.capacity_value, int)
+            or isinstance(self.capacity_value, bool)
+            or self.capacity_value < 0
+        ):
+            raise ValueError("resolved capability capacity_value MUST be a non-negative integer")
+        if self.selection_mode not in {mode.value for mode in ModelSelectionMode}:
+            raise ValueError("resolved capability selection_mode MUST be auto, pinned, or hil-only")
+        if self.version is not None and (not self.version.strip() or len(self.version) > 128):
+            raise ValueError("resolved capability version MUST be bounded when present")
 
 
 @dataclass(frozen=True, slots=True)
@@ -218,8 +255,28 @@ class ResolvedModels:
     Optional for schema-v1 compatibility. When absent, existing Azure
     composition continues to use the legacy endpoint plus deployment fields.
     """
+    binding_policy_environment: str | None = None
+    binding_policy_revision: int | None = None
+    binding_policy_digest: str | None = None
+    binding_policy_expected_active_digest: str | None = None
 
     def __post_init__(self) -> None:
+        if self.schema_version != _RESOLVED_MODELS_SCHEMA_VERSION:
+            raise ValueError("resolved models schema_version is unsupported")
+        if self.binding_policy_digest is not None:
+            if (
+                not self.binding_policy_environment
+                or not isinstance(self.binding_policy_revision, int)
+                or isinstance(self.binding_policy_revision, bool)
+                or self.binding_policy_revision < 1
+                or _SHA256_DIGEST.fullmatch(self.binding_policy_digest) is None
+            ):
+                raise ValueError("resolved models binding policy metadata is invalid")
+        if (
+            self.binding_policy_expected_active_digest is not None
+            and _SHA256_DIGEST.fullmatch(self.binding_policy_expected_active_digest) is None
+        ):
+            raise ValueError("resolved models expected active digest is invalid")
         binding_ids = [binding.binding_id for binding in self.endpoint_bindings]
         if len(binding_ids) != len(set(binding_ids)):
             raise ValueError("resolved model endpoint binding ids MUST be unique")
@@ -289,60 +346,22 @@ class ResolvedModels:
                 binding.to_dict()
                 for binding in sorted(self.endpoint_bindings, key=lambda item: item.capability)
             ]
+        if self.binding_policy_digest is not None:
+            payload["binding_policy"] = {
+                "environment": self.binding_policy_environment,
+                "revision": self.binding_policy_revision,
+                "digest": self.binding_policy_digest,
+                "expected_active_digest": self.binding_policy_expected_active_digest,
+            }
         return json.dumps(payload, sort_keys=True, indent=2) + "\n"
 
     @classmethod
     def from_json(cls, text: str) -> ResolvedModels:
-        raw = json.loads(text)
-        return cls(
-            schema_version=str(raw["schema_version"]),
-            region=str(raw["region"]),
-            subscription_id=str(raw["subscription_id"]),
-            deployer_object_id=str(raw["deployer_object_id"]),
-            mixed_model_mode=str(raw["mixed_model_mode"]),
-            capabilities=tuple(
-                ResolvedCapability(
-                    name=str(c["name"]),
-                    status=CapabilityStatus(c["status"]),
-                    publisher=c.get("publisher"),
-                    family=c.get("family"),
-                    sku=c.get("sku"),
-                    capacity_tpm=int(c["capacity_tpm"]),
-                    invocation=str(c["invocation"]),
-                    reasons=tuple(str(r) for r in c.get("reasons", ())),
-                    capacity_unit=str(c.get("capacity", {}).get("unit", "tpm")),
-                    capacity_value=(
-                        int(c["capacity"]["value"]) if isinstance(c.get("capacity"), dict) else None
-                    ),
-                )
-                for c in raw["capabilities"]
-            ),
-            narrator=_narrator_from_dict(raw.get("narrator")),
-            narrator_candidates=tuple(
-                _narrator_from_dict(n)
-                for n in raw.get("narrator_candidates", ())
-                if isinstance(n, dict)
-            ),
-            vision_candidates=tuple(
-                _narrator_from_dict(candidate)
-                for candidate in raw.get("vision_candidates", ())
-                if isinstance(candidate, dict)
-            ),
-            web_search_candidates=tuple(
-                _narrator_from_dict(candidate)
-                for candidate in raw.get("web_search_candidates", ())
-                if isinstance(candidate, dict)
-            ),
-            reasoner_primary_candidates=tuple(
-                _narrator_from_dict(n)
-                for n in raw.get("reasoner_primary_candidates", ())
-                if isinstance(n, dict)
-            ),
-            endpoint_bindings=tuple(
-                ModelEndpointBinding.from_dict(binding)
-                for binding in raw.get("endpoint_bindings", ())
-                if isinstance(binding, dict)
-            ),
+        return _resolved_models_from_json(
+            text,
+            model_type=cls,
+            schema_version=_RESOLVED_MODELS_SCHEMA_VERSION,
+            max_bytes=_MAX_RESOLVED_MODELS_BYTES,
         )
 
 
@@ -365,6 +384,8 @@ def resolve(
     quota: QuotaQuery,
     provisioned_capacity: ProvisionedCapacityQuery | None = None,
     tool_calling_families: frozenset[str] | None = None,
+    binding_policy: ModelBindingPolicy | None = None,
+    model_versions: ModelVersionQuery | None = None,
 ) -> ResolvedModels:
     """Produce a :class:`ResolvedModels` for the target deployment.
 
@@ -381,6 +402,8 @@ def resolve(
     entirely, so existing callers that do not probe tool-calling support
     keep their behavior.
     """
+    if binding_policy is not None:
+        validate_policy_against_registry(registry=registry, policy=binding_policy)
     has_perm = permission.principal_has_cognitive_services_contributor(
         subscription_id=subscription_id,
         principal_object_id=deployer_object_id,
@@ -393,7 +416,26 @@ def resolve(
     for name in sorted(registry.models):
         if name in _VIRTUAL_CAPABILITIES:
             continue
-        spec = registry.models[name]
+        selection_mode, spec = capability_policy(
+            registry=registry,
+            policy=binding_policy,
+            capability=name,
+        )
+        if selection_mode is ModelSelectionMode.HIL_ONLY:
+            entries.append(
+                ResolvedCapability(
+                    name=name,
+                    status=CapabilityStatus.HIL_ONLY,
+                    publisher=None,
+                    family=None,
+                    sku=None,
+                    capacity_tpm=0,
+                    invocation=spec.invocation.value,
+                    reasons=("binding_policy_hil_only",),
+                    selection_mode=selection_mode.value,
+                )
+            )
+            continue
         if not has_perm:
             entries.append(
                 ResolvedCapability(
@@ -407,18 +449,15 @@ def resolve(
                     reasons=(
                         f"deployer_lacks_cognitive_services_contributor:sub={subscription_id}",
                     ),
+                    selection_mode=selection_mode.value,
                 )
             )
             continue
 
-        chosen_pub: str | None = None
-        chosen_family: str | None = None
-        for pref in spec.preferences:
-            if pref.family in catalog_families:
-                chosen_pub = pref.publisher
-                chosen_family = pref.family
-                break
-        if chosen_family is None:
+        available_preferences = tuple(
+            preference for preference in spec.preferences if preference.family in catalog_families
+        )
+        if not available_preferences:
             entries.append(
                 ResolvedCapability(
                     name=name,
@@ -432,102 +471,87 @@ def resolve(
                         f"no_preferred_family_in_region:region={region}:"
                         f"preferences={[p.family for p in spec.preferences]}",
                     ),
-                )
-            )
-            continue
-
-        if (
-            spec.tool_calling_required
-            and tool_calling_families is not None
-            and chosen_family not in tool_calling_families
-        ):
-            entries.append(
-                ResolvedCapability(
-                    name=name,
-                    status=CapabilityStatus.HIL_ONLY,
-                    publisher=chosen_pub,
-                    family=chosen_family,
-                    sku=None,
-                    capacity_tpm=0,
-                    invocation=spec.invocation.value,
-                    reasons=(f"family_lacks_tool_calling:family={chosen_family}:region={region}",),
+                    selection_mode=selection_mode.value,
                 )
             )
             continue
 
         requested = spec.requested_capacity
         capacity_unit = spec.capacity_unit
-        if capacity_unit == "ptu":
-            if provisioned_capacity is None:
-                entries.append(
-                    ResolvedCapability(
-                        name=name,
-                        status=CapabilityStatus.HIL_ONLY,
-                        publisher=chosen_pub,
-                        family=chosen_family,
-                        sku=spec.sku.value,
-                        capacity_tpm=0,
-                        invocation=spec.invocation.value,
-                        reasons=("provisioned_capacity_query_unavailable",),
-                        capacity_unit="ptu",
-                        capacity_value=0,
-                    )
+        floor = max(1, int(requested * _MIN_QUOTA_RATIO))
+        selected: tuple[str, str, int] | None = None
+        rejection_reasons: list[str] = []
+        for preference in available_preferences:
+            if (
+                spec.tool_calling_required
+                and tool_calling_families is not None
+                and preference.family not in tool_calling_families
+            ):
+                rejection_reasons.append(
+                    f"family_lacks_tool_calling:family={preference.family}:region={region}"
                 )
                 continue
-            available = provisioned_capacity.available_capacity_ptu(
+            if capacity_unit == "ptu":
+                if provisioned_capacity is None:
+                    rejection_reasons.append("provisioned_capacity_query_unavailable")
+                    break
+                available = provisioned_capacity.available_capacity_ptu(
+                    region=region,
+                    publisher=preference.publisher,
+                    family=preference.family,
+                    sku=spec.sku.value,
+                )
+            else:
+                available = quota.available_capacity_tpm(
+                    region=region,
+                    publisher=preference.publisher,
+                    family=preference.family,
+                )
+            if available <= 0:
+                rejection_reasons.append(
+                    f"zero_quota:family={preference.family}:region={region}"
+                    if capacity_unit == "tpm"
+                    else f"zero_ptu_capacity:family={preference.family}:region={region}"
+                )
+                continue
+            if available < floor:
+                rejection_reasons.append(
+                    f"quota_below_min_ratio:family={preference.family}:available={available}<"
+                    f"floor={floor}:requested={requested}:unit={capacity_unit}"
+                )
+                continue
+            selected = (preference.publisher, preference.family, available)
+            break
+
+        if selected is None:
+            first_preference = available_preferences[0]
+            entries.append(
+                ResolvedCapability(
+                    name=name,
+                    status=CapabilityStatus.HIL_ONLY,
+                    publisher=first_preference.publisher,
+                    family=first_preference.family,
+                    sku=spec.sku.value if capacity_unit == "ptu" else None,
+                    capacity_tpm=0,
+                    invocation=spec.invocation.value,
+                    reasons=tuple(dict.fromkeys(rejection_reasons)),
+                    capacity_unit=capacity_unit,
+                    capacity_value=0 if capacity_unit == "ptu" else None,
+                    selection_mode=selection_mode.value,
+                )
+            )
+            continue
+
+        chosen_pub, chosen_family, available = selected
+        version = (
+            model_versions.latest_stable_version(
                 region=region,
-                publisher=chosen_pub or "",
+                publisher=chosen_pub,
                 family=chosen_family,
-                sku=spec.sku.value,
             )
-        else:
-            available = quota.available_capacity_tpm(
-                region=region, publisher=chosen_pub or "", family=chosen_family
-            )
-        floor = max(1, int(requested * _MIN_QUOTA_RATIO))
-        if available <= 0:
-            entries.append(
-                ResolvedCapability(
-                    name=name,
-                    status=CapabilityStatus.HIL_ONLY,
-                    publisher=chosen_pub,
-                    family=chosen_family,
-                    sku=None,
-                    capacity_tpm=0,
-                    invocation=spec.invocation.value,
-                    reasons=(
-                        (
-                            f"zero_quota:family={chosen_family}:region={region}"
-                            if capacity_unit == "tpm"
-                            else f"zero_ptu_capacity:family={chosen_family}:region={region}"
-                        ),
-                    ),
-                    capacity_unit=capacity_unit,
-                    capacity_value=0 if capacity_unit == "ptu" else None,
-                )
-            )
-            continue
-
-        if available < floor:
-            entries.append(
-                ResolvedCapability(
-                    name=name,
-                    status=CapabilityStatus.HIL_ONLY,
-                    publisher=chosen_pub,
-                    family=chosen_family,
-                    sku=None,
-                    capacity_tpm=0,
-                    invocation=spec.invocation.value,
-                    reasons=(
-                        f"quota_below_min_ratio:available={available}<"
-                        f"floor={floor}:requested={requested}:unit={capacity_unit}",
-                    ),
-                    capacity_unit=capacity_unit,
-                    capacity_value=0 if capacity_unit == "ptu" else None,
-                )
-            )
-            continue
-
+            if model_versions is not None
+            else None
+        )
         effective = min(requested, available)
         status = (
             CapabilityStatus.RESOLVED
@@ -552,6 +576,8 @@ def resolve(
                 reasons=reasons,
                 capacity_unit=capacity_unit,
                 capacity_value=effective if capacity_unit == "ptu" else None,
+                selection_mode=selection_mode.value,
+                version=version,
             )
         )
 
@@ -566,6 +592,12 @@ def resolve(
         deployer_object_id=deployer_object_id,
         mixed_model_mode=registry.mixed_model_mode.value,
         capabilities=tuple(entries),
+        binding_policy_environment=(binding_policy.environment if binding_policy else None),
+        binding_policy_revision=(binding_policy.revision if binding_policy else None),
+        binding_policy_digest=(binding_policy.digest() if binding_policy else None),
+        binding_policy_expected_active_digest=(
+            binding_policy.expected_active_digest if binding_policy else None
+        ),
     )
 
 
@@ -633,6 +665,7 @@ def _enforce_distinct_publisher(
 __all__ = [
     "CapabilityStatus",
     "CatalogQuery",
+    "ModelVersionQuery",
     "NarratorCandidate",
     "PermissionQuery",
     "QuotaQuery",

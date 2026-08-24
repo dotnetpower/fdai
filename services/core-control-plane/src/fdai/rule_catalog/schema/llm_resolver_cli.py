@@ -42,6 +42,7 @@ from typing import Any
 from fdai.rule_catalog.schema.llm_registry import load_llm_registry_from_yaml
 from fdai.rule_catalog.schema.llm_resolver import (
     CatalogQuery,
+    ModelVersionQuery,
     PermissionQuery,
     ProvisionedCapacityQuery,
     QuotaQuery,
@@ -56,6 +57,7 @@ from fdai.rule_catalog.schema.llm_resolver import (
     collect_web_search_deployments,
     resolve,
 )
+from fdai.rule_catalog.schema.model_binding_policy import load_model_binding_policy_from_yaml
 from fdai.rule_catalog.schema.provisioning_assessment import (
     ProvisioningReport,
     ProvisioningSeverity,
@@ -118,6 +120,15 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument("--registry", type=Path, required=True, help="Path to llm-registry.yaml")
+    parser.add_argument(
+        "--binding-policy",
+        type=Path,
+        default=None,
+        help=(
+            "Optional reviewed environment model-binding policy. The policy narrows resolver "
+            "selection and is sealed into output provenance; it grants no apply authority."
+        ),
+    )
     parser.add_argument("--region", required=True)
     parser.add_argument("--subscription-id", required=True)
     parser.add_argument("--deployer-object-id", required=True)
@@ -256,11 +267,15 @@ def _build_queries(
             AzureCliQuotaQuery,
         )
 
+        catalog = AzureCliCatalogQuery()
         return (
-            AzureCliCatalogQuery(),
+            catalog,
             AzureCliPermissionQuery(),
             AzureCliQuotaQuery(),
-            AzureCliProvisionedCapacityQuery(subscription_id=args.subscription_id),
+            AzureCliProvisionedCapacityQuery(
+                subscription_id=args.subscription_id,
+                model_versions=catalog,
+            ),
         )
 
     catalog_data = _load_json_file(args.catalog_fixture)
@@ -334,6 +349,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
 
     try:
+        binding_policy = (
+            load_model_binding_policy_from_yaml(args.binding_policy)
+            if args.binding_policy is not None
+            else None
+        )
+    except (OSError, ValueError) as exc:
+        print(f"error: failed to load binding policy: {exc}", file=sys.stderr)
+        return 2
+
+    try:
         catalog_query, permission_query, quota_query, provisioned_capacity_query = _build_queries(
             args
         )
@@ -351,8 +376,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             permission=permission_query,
             quota=quota_query,
             provisioned_capacity=provisioned_capacity_query,
+            binding_policy=binding_policy,
+            model_versions=(
+                catalog_query if isinstance(catalog_query, ModelVersionQuery) else None
+            ),
         )
-    except ResolverError as exc:
+    except (ResolverError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 

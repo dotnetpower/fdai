@@ -1332,6 +1332,118 @@ class PostgresFamilyStore:
             record=stored,
         )
 
+    async def append_revisioned_proposal(
+        self,
+        *,
+        family: str,
+        operation: str,
+        principal_id: str | None,
+        idempotency_key: str,
+        payload: Mapping[str, object],
+        state_key: str,
+        state_value: Mapping[str, object],
+        expected_revision: int,
+    ) -> StoredProposal:
+        """Atomically append one inert proposal and revision-fenced state snapshot."""
+        if expected_revision < 0:
+            raise ValueError("expected revision MUST be non-negative")
+        next_revision = state_value.get("revision")
+        if next_revision != expected_revision + 1:
+            raise ValueError("state revision MUST advance expected revision by one")
+        request = {
+            "family": family,
+            "operation": operation,
+            "principal_id": principal_id,
+            "idempotency_key": idempotency_key,
+            "payload": dict(payload),
+        }
+        request_digest = _digest(request)
+        proposal_id = f"operator-{request_digest[:32]}"
+        accepted_at = datetime.now(UTC).isoformat()
+        record: dict[str, object] = {
+            "kind": "operator.proposal",
+            "proposal_id": proposal_id,
+            "request_digest": request_digest,
+            "dispatch_status": "pending",
+            "mode": "shadow",
+            "accepted_at": accepted_at,
+            **request,
+        }
+        proposal_key = _proposal_key(family, idempotency_key)
+        try:
+            async with await psycopg.AsyncConnection.connect(
+                _psycopg_dsn(self._config.dsn),
+                connect_timeout=self._config.connect_timeout_s,
+            ) as connection:
+                async with connection.transaction():
+                    await _set_statement_timeout(connection, self._config.statement_timeout_ms)
+                    inserted = await connection.execute(
+                        """
+                        INSERT INTO state_kv (key, value)
+                        VALUES (%s, %s::jsonb)
+                        ON CONFLICT (key) DO NOTHING
+                        RETURNING key
+                        """,
+                        (
+                            proposal_key,
+                            json.dumps(record, separators=(",", ":"), sort_keys=True),
+                        ),
+                    )
+                    inserted_row = await inserted.fetchone()
+                    if inserted_row is None:
+                        existing_cursor = await connection.execute(
+                            "SELECT value FROM state_kv WHERE key = %s FOR UPDATE",
+                            (proposal_key,),
+                        )
+                        existing_row = await existing_cursor.fetchone()
+                        if existing_row is None:
+                            raise PostgresFamilyStoreUnavailable(
+                                "stored Operator proposal disappeared"
+                            )
+                        existing = _json_object(existing_row[0], label=proposal_key)
+                        if existing.get("request_digest") != request_digest:
+                            raise PostgresProposalConflict(
+                                "idempotency key conflicts with a different durable "
+                                "Operator proposal"
+                            )
+                        return StoredProposal(
+                            proposal_id=str(existing.get("proposal_id")),
+                            accepted_at=str(existing.get("accepted_at")),
+                            duplicate=True,
+                            record=existing,
+                        )
+                    updated = await connection.execute(
+                        """
+                        INSERT INTO state_kv (key, value)
+                        SELECT %s, %s::jsonb
+                         WHERE %s = 0
+                        ON CONFLICT (key)
+                        DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+                              WHERE (state_kv.value ->> 'revision')::integer = %s
+                        RETURNING key
+                        """,
+                        (
+                            state_key,
+                            json.dumps(dict(state_value), separators=(",", ":"), sort_keys=True),
+                            expected_revision,
+                            expected_revision,
+                        ),
+                    )
+                    if await updated.fetchone() is None:
+                        raise PostgresProposalConflict("state revision conflict")
+        except (PostgresProposalConflict, PostgresFamilyStoreUnavailable):
+            raise
+        except psycopg.Error as exc:
+            raise PostgresFamilyStoreUnavailable(
+                "authoritative PostgreSQL proposal store is unavailable"
+            ) from exc
+        return StoredProposal(
+            proposal_id=proposal_id,
+            accepted_at=accepted_at,
+            duplicate=False,
+            record=record,
+        )
+
     async def append_semantic_turn(
         self,
         *,
@@ -1954,6 +2066,30 @@ class UnavailablePostgresFamilyStore(PostgresFamilyStore):
         payload: Mapping[str, object],
     ) -> StoredProposal:
         del family, operation, principal_id, idempotency_key, payload
+        raise PostgresFamilyStoreUnavailable("proposal outbox is unavailable")
+
+    async def append_revisioned_proposal(
+        self,
+        *,
+        family: str,
+        operation: str,
+        principal_id: str | None,
+        idempotency_key: str,
+        payload: Mapping[str, object],
+        state_key: str,
+        state_value: Mapping[str, object],
+        expected_revision: int,
+    ) -> StoredProposal:
+        del (
+            family,
+            operation,
+            principal_id,
+            idempotency_key,
+            payload,
+            state_key,
+            state_value,
+            expected_revision,
+        )
         raise PostgresFamilyStoreUnavailable("proposal outbox is unavailable")
 
     async def append_semantic_turn(

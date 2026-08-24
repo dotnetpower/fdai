@@ -178,6 +178,7 @@ module "azure_openai" {
   resolved_capabilities = [{
     name           = var.azure_openai_deployment_name
     family         = var.azure_openai_model_family
+    version        = var.azure_openai_model_version
     sku            = var.azure_openai_deployment_sku
     capacity_tpm   = var.azure_openai_capacity_tpm
     capacity_unit  = "tpm"

@@ -296,6 +296,28 @@ class WebSearchSettingsCommand:
     expected_revision: int
 
 
+@dataclass(frozen=True, slots=True)
+class ModelBindingDraftCommand:
+    """Owner-scoped environment binding draft with revision and idempotency fences."""
+
+    actor_id: str
+    policy: JsonMapping
+    policy_digest: str
+    expected_revision: int
+    idempotency_key: str
+
+
+@dataclass(frozen=True, slots=True)
+class ModelBindingRequestCommand:
+    """Request protected assessment or planning for one exact stored policy."""
+
+    actor_id: str
+    environment: str
+    policy_revision: int
+    policy_digest: str
+    idempotency_key: str
+
+
 class ModelSettingsOutbox(Protocol):
     """Project model settings and persist policy requests without provisioning models."""
 
@@ -304,12 +326,21 @@ class ModelSettingsOutbox(Protocol):
         principal_id: str,
         *,
         can_manage_web_search: bool = False,
+        can_manage_model_bindings: bool = False,
         refresh_model_catalog: bool = False,
     ) -> JsonMapping: ...
 
     async def set_preference(self, command: ModelPreferenceCommand) -> None: ...
 
     async def set_web_search_settings(self, command: WebSearchSettingsCommand) -> None: ...
+
+    async def save_binding_policy(self, command: ModelBindingDraftCommand) -> JsonMapping: ...
+
+    async def request_binding_assessment(
+        self, command: ModelBindingRequestCommand
+    ) -> JsonMapping: ...
+
+    async def request_binding_plan(self, command: ModelBindingRequestCommand) -> JsonMapping: ...
 
 
 @dataclass(frozen=True, slots=True)

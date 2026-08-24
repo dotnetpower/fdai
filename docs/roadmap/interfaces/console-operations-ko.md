@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: a6cabfc4616ca68cf00e9381b435c66ca561039d
+translation_source_sha: 4b7933d0a80ab1d12e06fe4fb80501b9c47ac27e
 translation_revised: 2026-08-24
 ---
 
@@ -174,6 +174,7 @@ freshness_exceeded`, nullable `last_successful_watermark`, nullable bounded `ret
 | Approval 결정 | Approval 결정 스키마와 Var 소유 승인 수명 주기 |
 | 조사 시작 | 기존 조사 요청 스키마와 타입이 지정된 유입 경로 |
 | 카탈로그 또는 작업 흐름 초안 생성 | 기존 초안 스키마와 GitHub App 전달 경로 |
+| 환경 모델 바인딩 저장 또는 평가 | `ModelBindingPolicy`와 IAM 제안 outbox; 보호된 배포는 별도의 검토 작업으로 유지 |
 | 접근 요청 | `AccessGrantRequest` 스키마와 권한 확인 작업 흐름 |
 | 프로세스 진행 | 참조된 `WorkflowDefinition`과 현재 `Process` 개정 번호가 정의한 전이 |
 | ActionType 요청 | `trigger_kind: operator_request` 또는 `both`인 기존 액션 인자 스키마 |

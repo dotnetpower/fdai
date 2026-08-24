@@ -52,6 +52,11 @@ output "key_vault_uri" {
   value       = module.key_vault.uri
 }
 
+output "resolved_models_sha256" {
+  description = "Resolved-model artifact digest applied to the current runtime revision."
+  value       = var.resolved_models_sha256
+}
+
 output "event_bus_kafka_bootstrap" {
   description = "Kafka bootstrap host:port for the Event Hubs endpoint on :9093."
   value       = module.event_bus.kafka_bootstrap

@@ -179,6 +179,7 @@ There is no universal request schema. Each operation uses the schema and route o
 | Decide an approval | Approval decision schema and Var-owned approval lifecycle |
 | Start an investigation | Existing investigation request schema and typed ingress path |
 | Create a catalog or workflow draft | Existing draft schema and GitHub App delivery path |
+| Save or assess an environment model binding | `ModelBindingPolicy` plus the IAM proposal outbox; protected deployment remains a separate reviewed operation |
 | Request access | `AccessGrantRequest` schema and authorization workflow |
 | Advance a process | Transition defined by the referenced `WorkflowDefinition` and current `Process` revision |
 | Request an ActionType | Existing action argument schema with `trigger_kind: operator_request` or `both` |

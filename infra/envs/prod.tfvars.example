@@ -56,6 +56,7 @@ ingestion_embedding_capability = "t1.embedding"
 resolved_capabilities = [{
   name         = "t1.embedding"
   family       = "text-embedding-3-small"
+  version      = "<resolved-model-version>"
   sku          = "Standard"
   capacity_tpm = 10000
 }]
