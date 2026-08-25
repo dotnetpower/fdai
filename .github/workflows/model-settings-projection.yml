@@ -1,0 +1,236 @@
+name: model-settings-projection
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target deployment environment."
+        type: choice
+        options: [dev, staging, prod]
+        default: dev
+        required: true
+      commit_sha:
+        description: "Exact protected origin/main commit to run."
+        type: string
+        required: true
+
+permissions:
+  attestations: read
+  contents: read
+  packages: read
+
+concurrency:
+  group: model-settings-projection-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  project:
+    if: github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, fdai-deploy]
+    timeout-minutes: 30
+    env:
+      ARM_SUBSCRIPTION_ID: ${{ vars.ARM_SUBSCRIPTION_ID }}
+      AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      OPS_RESOURCE_GROUP_NAME: ${{ vars.OPS_RESOURCE_GROUP_NAME }}
+      RESOLVED_MODELS_JSON: ${{ vars.RESOLVED_MODELS_JSON }}
+      STATE_STORAGE_ACCOUNT: ${{ vars.STATE_STORAGE_ACCOUNT }}
+    steps:
+      - name: Verify protected workflow source
+        working-directory: ${{ runner.temp }}
+        env:
+          TARGET_COMMIT_SHA: ${{ inputs.commit_sha }}
+          GITHUB_TOKEN: ${{ github.token }}
+          PROTECTED_ORIGIN_URL: ${{ github.server_url }}/${{ github.repository }}.git
+          PROTECTED_WORKFLOW_PATH: .github/workflows/model-settings-projection.yml
+        run: |
+          set -euo pipefail
+          [[ "$TARGET_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "commit_sha must be a lowercase 40-character git SHA" >&2
+            exit 1
+          }
+          guard_repo="$RUNNER_TEMP/fdai-model-settings-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.git"
+          rm -rf -- "$guard_repo"
+          git init --bare "$guard_repo" >/dev/null
+          trap 'rm -rf -- "$guard_repo"' EXIT
+          auth_header="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
+          GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.extraheader \
+            GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth_header" \
+            git -C "$guard_repo" fetch --force --no-tags \
+              "$PROTECTED_ORIGIN_URL" \
+              "+refs/heads/main:refs/remotes/origin/main" "$TARGET_COMMIT_SHA"
+          unset auth_header
+          git -C "$guard_repo" merge-base --is-ancestor \
+            "$TARGET_COMMIT_SHA" refs/remotes/origin/main
+          git -C "$guard_repo" diff --quiet \
+            "$TARGET_COMMIT_SHA:$PROTECTED_WORKFLOW_PATH" \
+            "refs/remotes/origin/main:$PROTECTED_WORKFLOW_PATH"
+
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+
+      - name: Install pinned uv
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          version: "0.11.32"
+          enable-cache: false
+
+      - name: Install pinned GitHub CLI
+        run: bash scripts/deployment/azure/install-pinned-github-cli.sh
+
+      - name: Authenticate runner managed identity
+        run: |
+          set -euo pipefail
+          azure_config="$RUNNER_TEMP/model-settings-azure"
+          rm -rf "$azure_config"
+          mkdir -m 700 "$azure_config"
+          echo "AZURE_CONFIG_DIR=$azure_config" >> "$GITHUB_ENV"
+          export AZURE_CONFIG_DIR="$azure_config"
+          az account clear >/dev/null 2>&1 || true
+          az login --identity --allow-no-subscriptions --output none
+          bash scripts/deployment/azure/verify-azure-context.sh \
+            "$ARM_SUBSCRIPTION_ID" "$AZURE_TENANT_ID"
+
+      - name: Bind authoritative platform state
+        run: |
+          set -euo pipefail
+          az storage container create \
+            --account-name "$STATE_STORAGE_ACCOUNT" \
+            --name tfstate --auth-mode login --public-access off --only-show-errors \
+            --output none
+          cp infra/backend.azurerm.tf.example infra/backend.tf
+          terraform -chdir=infra init -input=false \
+            -backend-config="resource_group_name=$OPS_RESOURCE_GROUP_NAME" \
+            -backend-config="storage_account_name=$STATE_STORAGE_ACCOUNT" \
+            -backend-config="container_name=tfstate" \
+            -backend-config="key=fdai-${{ inputs.environment }}.tfstate"
+
+      - name: Verify active model artifact and project Settings
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MODEL_PREDICATE_TYPE: https://github.com/${{ github.repository }}/attestations/resolved-models/v1
+          ATTESTATION_SIGNER_WORKFLOW: ${{ github.repository }}/.github/workflows/container-supply-chain.yml
+          WEB_SEARCH_ALLOWED_DOMAINS: ${{ vars.OPERATOR_API_WEB_SEARCH_ALLOWED_DOMAINS_JSON || '[]' }}
+          WEB_SEARCH_ENABLED: ${{ vars.OPERATOR_API_WEB_SEARCH_ENABLED == 'true' }}
+        run: |
+          set -euo pipefail
+          [[ -n "$RESOLVED_MODELS_JSON" ]] || {
+            echo "RESOLVED_MODELS_JSON repository variable is required" >&2
+            exit 1
+          }
+          resolved="$RUNNER_TEMP/resolved-models.json"
+          printf '%s\n' "$RESOLVED_MODELS_JSON" > "$resolved"
+          chmod 0600 "$resolved"
+          [[ "$(wc -c < "$resolved")" -le 1048576 ]] || {
+            echo "resolved-model artifact exceeds the size limit" >&2
+            exit 1
+          }
+          artifact_digest="$(python3 - "$resolved" <<'PY'
+          import hashlib
+          import json
+          import sys
+
+          with open(sys.argv[1], encoding="utf-8") as stream:
+              value = json.load(stream)
+          if not isinstance(value, dict):
+              raise SystemExit("resolved-model artifact must be an object")
+          canonical = json.dumps(value, separators=(",", ":"), sort_keys=True).encode()
+          print(hashlib.sha256(canonical).hexdigest())
+          PY
+          )"
+          resource_group="$(terraform -chdir=infra output -raw resource_group_name)"
+          core_app="$(terraform -chdir=infra output -raw core_app_name)"
+          active_revision="$(az containerapp show --resource-group "$resource_group" \
+            --name "$core_app" --query properties.latestRevisionName --output tsv)"
+          az containerapp revision show --resource-group "$resource_group" \
+            --name "$core_app" --revision "$active_revision" --output json \
+            > "$RUNNER_TEMP/active-core-revision.json"
+          binding="$(python3 scripts/deployment/azure/verify_active_core_revision.py \
+            --revision "$RUNNER_TEMP/active-core-revision.json" --require-model-binding)"
+          active_image="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["image"])' \
+            <<< "$binding")"
+          runtime_digest="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["runtime_model_digest"])' \
+            <<< "$binding")"
+          timeout 60s gh attestation verify "oci://${active_image}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --predicate-type "$MODEL_PREDICATE_TYPE" \
+            --signer-workflow "$ATTESTATION_SIGNER_WORKFLOW" \
+            --format json > "$RUNNER_TEMP/active-model-attestations.json"
+          attested_digest="$(python3 scripts/deployment/azure/verify_active_model_attestation.py \
+            --attestations "$RUNNER_TEMP/active-model-attestations.json")"
+          [[ "$artifact_digest" == "$runtime_digest" \
+            && "$artifact_digest" == "$attested_digest" ]] || {
+            echo "active runtime, image attestation, and repository model digests disagree" >&2
+            exit 1
+          }
+          vault_uri="$(terraform -chdir=infra output -raw key_vault_uri)"
+            vault_name="$(VAULT_URI="$vault_uri" python3 - <<'PY'
+            import os
+            import re
+            from urllib.parse import urlparse
+
+            parsed = urlparse(os.environ["VAULT_URI"])
+            match = re.fullmatch(r"([a-z0-9-]{3,24})[.]vault[.]azure[.]net", parsed.hostname or "")
+            if parsed.scheme != "https" or match is None:
+                raise SystemExit("Terraform key_vault_uri is not an Azure Key Vault HTTPS URI")
+            print(match.group(1))
+            PY
+            )"
+          migration_secret_name="$(
+            jq -er '.services["core-control-plane"].migration_dsn_secret_name' \
+              scripts/deployment/service/service-matrix.json
+          )"
+          migration_dsn="$(timeout 60s az keyvault secret show \
+            --vault-name "$vault_name" --name "$migration_secret_name" \
+            --query value --only-show-errors --output tsv)"
+          [[ -n "$migration_dsn" ]] || {
+            echo "model Settings projection database is unavailable" >&2
+            exit 1
+          }
+          echo "::add-mask::$migration_dsn"
+          domains="$(python3 - <<'PY'
+          import json
+          import os
+
+          value = json.loads(os.environ["WEB_SEARCH_ALLOWED_DOMAINS"])
+          if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+              raise SystemExit("web-search domains must be a string array")
+          print(",".join(value))
+          PY
+          )"
+          export FDAI_STATE_STORE_DSN="$migration_dsn"
+          export LLM_RESOLVED_MODELS_PATH="$resolved"
+          export RUNTIME_ENV="${{ inputs.environment }}"
+          export FDAI_WEB_SEARCH_ENABLED="$WEB_SEARCH_ENABLED"
+          export FDAI_WEB_SEARCH_ALLOWED_DOMAINS="$domains"
+          uv run --frozen --package fdai-core-control-plane python \
+            scripts/deployment/local/materialize-authoritative-settings.py --model-only
+          EXPECTED_DIGEST="sha256:$artifact_digest" \
+            EXPECTED_ENVIRONMENT="${{ inputs.environment }}" \
+            uv run --frozen --package fdai-core-control-plane python - <<'PY'
+          import json
+          import os
+          import psycopg
+
+          dsn = os.environ["FDAI_STATE_STORE_DSN"].replace(
+              "postgresql+psycopg://", "postgresql://", 1
+          )
+          with psycopg.connect(dsn, connect_timeout=10) as connection:
+              connection.execute("SET TRANSACTION READ ONLY")
+              row = connection.execute(
+                  "SELECT value FROM state_kv WHERE key = %s",
+                  ("operator-projection:iam:model-settings",),
+              ).fetchone()
+          if row is None or not isinstance(row[0], dict):
+              raise SystemExit("model Settings projection readback is unavailable")
+          projection = row[0]
+          if projection.get("environment") != os.environ["EXPECTED_ENVIRONMENT"]:
+              raise SystemExit("model Settings projection environment is incorrect")
+          metadata = projection.get("resolved_metadata")
+          if not isinstance(metadata, dict) or metadata.get("digest") != os.environ["EXPECTED_DIGEST"]:
+              raise SystemExit("model Settings projection digest is incorrect")
+          print(json.dumps({"status": "verified", "digest": metadata["digest"]}, sort_keys=True))
+          PY
+          unset FDAI_STATE_STORE_DSN migration_dsn

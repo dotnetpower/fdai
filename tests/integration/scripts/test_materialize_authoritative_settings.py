@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import asyncio
 import importlib.util
 import json
 from datetime import UTC, datetime
 from pathlib import Path
 from types import ModuleType
+
+import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = REPO_ROOT / "scripts/deployment/local/materialize-authoritative-settings.py"
@@ -87,6 +90,7 @@ def test_model_projection_is_sanitized_and_uses_only_resolved_facts() -> None:
         web_search_enabled=True,
         allowed_domains=("learn.microsoft.com",),
         active_digest="sha256:" + "a" * 64,
+        environment="dev",
     )
 
     serialized = json.dumps(projection, sort_keys=True)
@@ -113,6 +117,7 @@ def test_model_projection_is_sanitized_and_uses_only_resolved_facts() -> None:
     assert projection["web_search"]["enabled"] is False
     assert projection["model_catalog"]["available"] is False
     assert projection["resolved_metadata"]["digest"] == "sha256:" + "a" * 64
+    assert projection["environment"] == "dev"
     assert projection["t2_model_policy"]["active_primary"] is None
     assert projection["t2_model_policy"]["active_secondary"]["capacity_unit"] == "ptu"
 
@@ -148,3 +153,54 @@ def test_runtime_projection_reports_configuration_without_inventing_readiness() 
     assert integrations["chatops"]["configured"] is True
     assert integrations["chatops"]["ready"] is False
     assert integrations["email"]["configured"] is False
+
+
+@pytest.mark.parametrize(
+    ("model_only", "expected_keys"),
+    [
+        (True, ("operator-projection:iam:model-settings",)),
+        (
+            False,
+            (
+                "operator-projection:iam:model-settings",
+                "operator-projection:iam:runtime-settings",
+            ),
+        ),
+    ],
+)
+def test_materialize_can_preserve_runtime_projection(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    model_only: bool,
+    expected_keys: tuple[str, ...],
+) -> None:
+    module = _module()
+    artifact = tmp_path / "resolved-models.json"
+    artifact.write_text(
+        json.dumps(
+            {
+                "capabilities": [],
+                "narrator_candidates": [],
+                "web_search_candidates": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    writes: list[str] = []
+
+    class Store:
+        def __init__(self, *, config: object) -> None:
+            del config
+
+        async def write_state(self, key: str, value: object) -> None:
+            del value
+            writes.append(key)
+
+    monkeypatch.setattr(module, "PostgresStateStore", Store)
+    monkeypatch.setenv("FDAI_STATE_STORE_DSN", "postgresql://example.invalid/fdai")
+    monkeypatch.setenv("LLM_RESOLVED_MODELS_PATH", str(artifact))
+    monkeypatch.setenv("RUNTIME_ENV", "dev")
+
+    asyncio.run(module.materialize(model_only=model_only))
+
+    assert tuple(writes) == expected_keys

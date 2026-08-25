@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: dfd3d21930c1b25c448ed4b0d1141cb3be973ec0
+translation_source_sha: e3ce90132ba1d5c8c81a3aebb1e6d3718722c372
 translation_revised: 2026-08-25
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -11,13 +11,12 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 > 배포 소유자는 배포 전에 지역, 할당량, 보존, 복제본 상한, 운영 계층 재정의를
 > 확인합니다. **실행 엔진**은 `infra/`의 `terraform apply`로 결정되어 있습니다. 계획된 운영자 진입점은 설치형 `fdaictl` 파사드입니다. 이 파사드는 Terraform을 출처 of
 > truth로 유지하고 계획 및 적용 작업을 승인된 실행기에 제출합니다.
-> [설치형 배포 CLI](installable-deployment-cli-ko.md)와
-> [배포 아티팩트](#배포-아티팩트)를 참조하세요.
+> [설치형 배포 CLI](installable-deployment-cli-ko.md)와 [배포 아티팩트](#배포-아티팩트)를 참조하세요.
 ## 구현 상태
 ### 구현 범위
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| Protected platform 계획 및 exact 적용 | implemented | `.github/workflows/deploy-dev.yml`, `materialize-model-binding-proposal.sh`, `model_binding_proposal.py` 및 집중 배포 workflow 검사 | Private runner 계획에는 정확한 읽기 전용 Operator 제안 handoff, 변경 불가 적용 claim, 적용 후 검사, 선택적 non-executor channel-edge identity 및 versionless secret-scope input이 포함됩니다. 통제된 platform 적용 증적은 리포지토리에 보존되어 있지 않습니다. |
+| Protected platform 계획 및 exact 적용 | implemented | `.github/workflows/deploy-dev.yml`, `.github/workflows/model-settings-projection.yml`, `materialize-model-binding-proposal.sh`, `model_binding_proposal.py` 및 집중 배포 workflow 검사 | Private runner 계획에는 정확한 읽기 전용 Operator 제안 handoff와 3-way-CAS 모델 projection 부트스트랩, 변경 불가 적용 claim, 적용 후 검사, 선택적 non-executor channel-edge identity 및 versionless secret-scope input이 포함됩니다. 통제된 platform 적용 증적은 리포지토리에 보존되어 있지 않습니다. |
 | 독립 소유 런타임 service | validated | `.github/workflows/service-deploy.yml` 및 `config/independent-service-live-evidence-manifest.json` | 각 service에 별도 root, protected 계획, 상태 검사 및 rollback evidence가 있습니다. |
 | OHL scale-out evidence target 및 proposal Job | implemented | `infra/` 및 `services/core-control-plane/src/fdai/delivery/`의 current change, 집중 Terraform 및 publisher test 결과 8 passed와 13 passed | 둘 다 기본적으로 비활성화되며 protected 적용이 남아 있습니다. |
 | OHL production evidence campaign | in-progress | `config/ohl-scale-out-evidence.json` 및 `docs/runbooks/ohl-scale-out-evidence-ko.md` | Runtime rollout, 통제된 실행, sample 100개 및 14일 recurrence window가 남아 있습니다. |
@@ -38,6 +37,7 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 | 2026-08-25 | implemented | 이미지가 증명한 model digest와 정확한 Azure/path binding을 관련 없는 environment drift 없이 주입하는 Core 전용 보호 service transition을 추가했습니다. 모델 계획과 적용은 active healthy Core revision 및 검증된 image attestation을 CAS 권위로 사용하며 Terraform output은 진단에만 사용합니다. | [이슈 #270](https://github.com/dotnetpower/fdai/issues/270); service guard, plan bundle, workflow, Terraform validation 및 active-revision 검증기 검사. | PTU 계획을 다시 실행하기 전에 Core transition을 적용합니다. |
 | 2026-08-25 | implemented | 변경 가능한 repository 정책 입력을 정확한 Operator 모델 계획 제안 하나와 현재 revision 정책을 결합하는 보호된 runner의 읽기 전용 경로로 대체했습니다. 요청 ID는 제안 token과 정책 다이제스트를 결속하고 exact 적용은 계속 봉인된 산출물만 복원합니다. | `current change`; `model_binding_proposal.py`; `deploy-dev.yml`; 집중 제안, 요청, 수명 주기 및 workflow 검사. | 통제된 제안-계획 증적 하나를 보존한 뒤 exact 모델 적용, readback 및 rollback 근거를 완료합니다. |
 | 2026-08-25 | implemented | 보호된 workflow가 reviewability 예산을 초과한 뒤 모델 제안 조회와 state 초기화를 범위가 제한된 helper 하나로 추출했습니다. Workflow는 line 및 step 상한 안에 유지되고 helper 구문과 제안 guard는 실행 가능한 계약으로 남습니다. | `current change`; `materialize-model-binding-proposal.sh`; `test_deploy_workflow_diet.py`; 집중 수명 주기 및 workflow 검사. | 앞서 기록한 통제된 제안-계획과 exact 적용 근거를 보존합니다. |
+| 2026-08-25 | implemented | Repository 산출물, 활성 Core runtime 및 image attestation 다이제스트가 일치한 뒤 누락된 deployed 모델 Settings projection만 복원하는 exact-revision 보호 workflow를 추가했습니다. 완료 전에 환경과 다이제스트를 다시 읽어 검증합니다. | `current change`; `model-settings-projection.yml`; `materialize-authoritative-settings.py`; 집중 projection 및 workflow 검사. | 통제된 모델 계획 제안을 제출하기 전에 projection 증적 하나를 실행하고 보존합니다. |
 | 2026-08-24 | implemented | 일회용 scenario endpoint에 기존 중앙 OpenAI Private DNS zone을 재사용했습니다. Scenario state는 lab VNet link, private endpoint 및 zone group만 소유하며 기존 runner와 P2S link는 중앙 소유로 유지합니다. | 실패한 protected apply `32752288798`; `infra/scenario-lab/` 및 `.github/workflows/sre-demo-lab.yml`의 `current change`; 집중 Terraform 및 workflow 검사입니다. | Protected scenario apply, 승인된 sweep 및 최종 destroy 증적을 완료합니다. |
 | 2026-08-13 | implemented | 이전 provenance를 재구성하지 않고 implementation ledger를 도입하고 범위가 제한된 OHL evidence target의 protected provisioning 및 proposal-only Job을 추가했습니다. | current change, 집중 Terraform test 결과 8 passed 및 publisher/workflow test 결과 13 passed | Exact 계획을 적용하고 증명된 런타임 이미지를 배포한 뒤 실제 evidence campaign을 완료합니다. |
 | 2026-08-13 | implemented | 로컬 파괴적 migration 검증을 활성 로컬 런타임 PostgreSQL cluster에서 격리했습니다. | 현재 변경, Compose configuration 통과, focused queue 및 local-environment test 68개 통과, 격리된 migration upgrade/downgrade 검사 2개 통과. | 로컬 검증 데이터베이스 격리에 남은 구현 작업은 없습니다. |

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 import hashlib
 import json
@@ -25,8 +26,11 @@ def model_settings_projection(
     web_search_enabled: bool,
     allowed_domains: Sequence[str],
     active_digest: str | None = None,
+    environment: str = "unspecified",
 ) -> dict[str, object]:
     """Build a sanitized model projection without identifiers, endpoints, or credentials."""
+    if environment not in {"dev", "staging", "prod"}:
+        environment = "unspecified"
     raw_capabilities = _mapping_sequence(raw.get("capabilities"))
     capabilities = [
         _capability(item)
@@ -61,6 +65,7 @@ def model_settings_projection(
         str(item["publisher"]) for item in t2_choices if item["catalog_status"] == "deployed"
     }
     return {
+        "environment": environment,
         "region": _optional_string(raw.get("region")),
         "mixed_model_mode": _optional_string(raw.get("mixed_model_mode")),
         "resolved_metadata": {
@@ -294,8 +299,8 @@ def _canonical_json_digest(value: Mapping[str, object]) -> str:
     return "sha256:" + hashlib.sha256(canonical).hexdigest()
 
 
-async def materialize() -> None:
-    """Write sanitized projections to the durable local Operator projection namespace."""
+async def materialize(*, model_only: bool = False) -> None:
+    """Write sanitized Settings projections without exposing deployment values."""
     dsn = os.environ.get("FDAI_STATE_STORE_DSN", "").strip()
     artifact_value = os.environ.get("LLM_RESOLVED_MODELS_PATH", "").strip()
     if not dsn:
@@ -322,15 +327,21 @@ async def materialize() -> None:
             web_search_enabled=_enabled(os.environ.get("FDAI_WEB_SEARCH_ENABLED"), default=False),
             allowed_domains=domains,
             active_digest=active_digest,
+            environment=os.environ.get("RUNTIME_ENV", "").strip().lower(),
         ),
     )
-    await store.write_state(RUNTIME_SETTINGS_KEY, runtime_settings_projection(os.environ))
+    if not model_only:
+        await store.write_state(RUNTIME_SETTINGS_KEY, runtime_settings_projection(os.environ))
 
 
-def main() -> int:
-    """Materialize both Settings projections without printing deployment values."""
-    asyncio.run(materialize())
-    print("authoritative local model and runtime settings projections refreshed")
+def main(argv: Sequence[str] | None = None) -> int:
+    """Materialize selected Settings projections without printing deployment values."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--model-only", action="store_true")
+    args = parser.parse_args(argv)
+    asyncio.run(materialize(model_only=args.model_only))
+    scope = "model" if args.model_only else "model and runtime"
+    print(f"authoritative local {scope} settings projections refreshed")
     return 0
 
 

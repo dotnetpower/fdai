@@ -1733,6 +1733,30 @@
       ]
     },
     {
+      "id": "model-settings-projection",
+      "paths": [
+        ".github/workflows/model-settings-projection.yml",
+        "scripts/deployment/local/materialize-authoritative-settings.py",
+        "tests/integration/scripts/test_materialize_authoritative_settings.py",
+        "tests/integration/scripts/test_model_settings_projection_workflow.py"
+      ],
+      "must_read": [
+        ".github/instructions/app-shape.instructions.md",
+        ".github/instructions/coding-conventions.instructions.md",
+        "docs/roadmap/architecture/llm-strategy.md",
+        "docs/roadmap/deployment/deploy-and-onboard.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/architecture/llm-strategy.md",
+        "docs/roadmap/deployment/deploy-and-onboard.md",
+        "docs/roadmap/architecture/code-map.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov tests/integration/scripts/test_materialize_authoritative_settings.py tests/integration/scripts/test_model_settings_projection_workflow.py",
+        "python3 scripts/quality/architecture/check-design-routes.py"
+      ]
+    },
+    {
       "id": "deployment",
       "paths": [
         "infra/**",
