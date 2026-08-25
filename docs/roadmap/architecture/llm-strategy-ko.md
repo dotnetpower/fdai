@@ -1,12 +1,11 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: 4998e2226144f6462d5734aaa0150b10382aae70
+translation_source_sha: ac3eabc223c9ca4d2a4b64aab4192d1ba973d1f4
 translation_revised: 2026-08-25
 ---
 # LLM 전략(LLM Strategy)
-이 설계는 LLM을 **덜 사용**합니다. 모델은 **T2** 대체 경로이며 T0와 T1이 사례를 해결하지 못했을
-때만 사용합니다. 결정론적 검증이 승인하기 전에는 모델 출력을 실행에 사용하지 않습니다. 실행 자격은 검증이 부여하며 **모델은 부여하지 않습니다**. 이 문서는
+이 설계는 LLM을 **덜 사용**합니다. 모델은 **T2** 대체 경로이며 T0와 T1이 사례를 해결하지 못했을 때만 사용합니다. 결정론적 검증이 승인하기 전에는 모델 출력을 실행에 사용하지 않습니다. 실행 자격은 검증이 부여하며 **모델은 부여하지 않습니다**. 이 문서는
 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) 의 티어와 quality-gate 규칙과
 [security-and-identity-ko.md](security-and-identity-ko.md) 의 위협 모델을 확장.
 > 아래 모델 이름은 **채택 시점에 확인**할 권장 사항입니다. 가용성, 가격, 미리 보기 상태는 바뀔 수 있습니다.
@@ -16,7 +15,7 @@ translation_revised: 2026-08-25
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 기능 레지스트리, 해석 및 프로비저닝 평가 | implemented | `rule-catalog/llm-registry.yaml`; `rule_catalog/schema/llm_resolver.py`; `provisioning_assessment.py`; 집중 resolver 테스트 | 기능과 모델 대응, 명시적 용량 단위, 혼합 발행기 불변식 및 실패 시 차단 준비 상태를 실행할 수 있습니다. |
-| 환경 모델 바인딩 정책 및 PTU 계획 | implemented | `fdai_service_contracts/model_binding.py`; `model_binding_policy.py`; Operator IAM 바인딩 경로 및 PostgreSQL 어댑터; Console 모델 편집기; 보호된 배포 워크플로; 집중 계약, 해석기, Operator, Console 및 Terraform 검사 | Owner는 모든 T1/T2 기능에 리비전이 있는 `auto`, `pinned` 또는 `hil-only` 의도를 저장할 수 있습니다. PTU와 정확한 모델 버전은 보호된 계획에서 평가하고 봉인합니다. Console과 Operator에는 공급자 변경 또는 실행 권한이 없습니다. |
+| 환경 모델 바인딩 정책 및 PTU 계획 | implemented | `fdai_service_contracts/model_binding.py`; `model_binding_policy.py`; Operator IAM 바인딩 경로 및 PostgreSQL 어댑터; `model_binding_proposal.py`; Console 모델 편집기; 보호된 배포 워크플로; 집중 계약, 해석기, Operator, Console 및 Terraform 검사 | Owner는 모든 T1/T2 기능에 리비전이 있는 `auto`, `pinned` 또는 `hil-only` 의도를 저장할 수 있습니다. 보호된 runner는 권한이 없는 정확한 계획 제안 하나를 현재 정책과 결합한 후 PTU와 정확한 모델 버전을 평가합니다. Console과 Operator에는 공급자 변경 또는 실행 권한이 없습니다. |
 | 후보 전용 의미 판단 및 계획 | implemented | `core/conversation/semantic_judgment.py`; `core/conversation/semantic_planning.py`; `composition/wire_semantic_query.py`; Azure 의미 어댑터; 집중 판단 및 계획 테스트 | 범위가 제한된 T1 판단은 같은 바인딩에서 잘못된 스키마 출력을 다시 시도한 후 선택적으로 T2로 전환합니다. 수락된 의미는 계획에 사용될 수 있지만 실행 권한을 부여하지 않습니다. |
 | T2 교차 검사, 검증기, 근거 확인, 신뢰도 및 rubric | implemented | `core/quality_gate/`; `delivery/azure/llm/rubric.py`; 집중 quality 게이트 및 Azure 어댑터 테스트 | 필수 4개 경로와 선택적 감산 rubric이 있습니다. 근거가 없거나 잘못되면 거부, 판단 보류 또는 사람 검토로 결과를 낮춥니다. |
 | 에스컬레이션 정책과 같은 발행기 primary 지연 시간 라우팅 | implemented | `core/quality_gate/escalation_ladder.py`; `delivery/azure/llm/latency_routed_cross_check.py`; `composition/wire_llm.py`; 집중 라우팅 테스트 | 에스컬레이션 단계는 권한을 갖지 않으며 지연 시간 선택은 secondary 발행기로 넘어갈 수 없습니다. 별도의 범위 제한 제안자 대체 경로는 등록된 secondary 제안자를 호출할 수 있지만, 해당 후보도 같은 quality 게이트로 다시 들어갑니다. |
@@ -40,6 +39,7 @@ translation_revised: 2026-08-25
 | 2026-08-24 | implemented | YAML 들여쓰기로 모델 전용 범위 검사가 monitoring script 안에 포함된 문제를 수정해 실행 가능한 workflow 단계로 복원하고, 사용 중단 중인 출처 모델 계열은 정확히 봉인된 GA 모델 계열, 버전, SKU 및 PTU 용량으로만 이동하도록 허용했습니다. 출처 모델, SKU, 용량, 배포 이름 및 계정 연결 검증은 유지합니다. | [이슈 #270](https://github.com/dotnetpower/fdai/issues/270); 실행형 workflow 단계 및 합성 교체 검사; 집중 모델 검사 45개와 embedded Python block 17개 통과. | 정확한 보호 PTU 계획, 적용, 독립 readback, 런타임 바인딩 및 역방향 계획 롤백 증적을 실행하고 보존합니다. |
 | 2026-08-24 | implemented | 첫 보호 PTU 계획의 Model Capacities 요청이 adapter의 고정 30초 제한을 초과해 Terraform 전에 중단된 뒤 범위가 제한된 Azure CLI resolver deadline을 추가했습니다. CLI는 5-300초를 허용하고 catalog, permission, quota 및 PTU 질의에 같은 제한을 사용하며 보호 workflow는 90초를 선택합니다. | [이슈 #270](https://github.com/dotnetpower/fdai/issues/270); 실패한 계획 `32749593774`; 집중 resolver 및 workflow 검사 62개, strict mypy 및 embedded Python 검사 17개 통과. | 새 deadline으로 보호 계획을 다시 실행하며 공급자가 다시 초과하면 새 근거 없이 재시도하지 않습니다. |
 | 2026-08-25 | implemented | 변경 가능한 Terraform 입력 CAS를 정확한 healthy active Core revision, digest-pinned image, 검증된 resolved-model attestation 및 runtime model digest로 대체했습니다. 별도 Core 전용 service transition이 모델 계획 전에 attested artifact를 결속하며 exact 적용은 같은 revision, image 및 model digest를 다시 관측합니다. | [이슈 #270](https://github.com/dotnetpower/fdai/issues/270); active-runtime 및 attestation 검증기, 보호된 service guard 및 plan bundle, 통합 모델/service 검사 249개 통과. | Core binding transition을 적용한 뒤 PTU 계획, 적용, readback 및 역방향 계획 롤백 증적을 보존합니다. |
+| 2026-08-25 | implemented | 변경 가능한 repository 모델 정책 입력을 정확한 Operator 계획 제안 하나를 가져오는 보호된 runner 경로로 대체했습니다. 읽기 전용 결합은 모델 해석 전에 제안, 요청, 정책, 환경, 리비전, 활성 산출물 및 권한 제한을 검증합니다. | `current change`; `model_binding_proposal.py`; `deploy-dev.yml`; 집중 제안, 요청, 수명 주기 및 workflow 검사. | 통제된 제안-계획 증적 하나를 보존한 뒤 exact 적용, 독립 readback 및 롤백 근거를 완료합니다. |
 ### 남은 작업
 - [ ] [목표와 메트릭](goals-and-metrics-ko.md#남은-작업)과 [Agent Pantheon 구현 계획](../agents/agent-pantheon-implementation-ko.md#남은-작업)의 실제 운영 KPI 선행 조건을 충족한 뒤, 활성화된 모든 T1/T2 기능에 대해 모델 신원, 비용, 지연 시간, 스키마 복구 시도와 복구 결과, 전환, 계획 처리 결과, 불일치, 근거 확인, 검증기, rubric, 결과 및 가드 근거가 포함된 고정된 실제 운영 shadow 집단을 보존합니다.
 - [ ] 범위가 제한된 시도 예산, 재시작 후 영속 증적 전달, 최종 소진에서 사람 승인으로의 전환, 감사된 경로 변경, 상관관계로 제한된 롤백 및 새 승인 없는 복구를 입증하는 통제된 T2 복구 캠페인을 보존합니다.
@@ -260,7 +260,7 @@ capacity: { unit: ptu, value: 30 }
 - **후보 완결성:** `auto`는 발행기-계열-버전-SKU-용량 후보를 완전하게 평가합니다.
 - **용량 단위:** Standard SKU는 TPM, 프로비저닝된 SKU는 변환 없는 PTU를 사용합니다.
 - **T2 쌍 원자성:** 보류 상태가 아니면 primary와 secondary는 서로 다른 발행기여야 합니다.
-- **Console 권한 없음:** 초안, 평가 및 계획 요청은 공급자를 변경하지 않습니다.
+- **Console 권한 없음:** 초안, 평가 및 계획 요청은 공급자를 변경하지 않습니다. 보호된 모델 계획은 하나의 요청 ID로 정확한 Operator 제안과 정책 다이제스트를 식별합니다. Runner는 PostgreSQL을 변경하지 않고 읽으며 오래되었거나 권한을 포함한 상태를 차단합니다.
 - **독립 도구:** 검색, RCA, rubric, escalation 및 tool calling은 별도 게이트를 유지합니다.
 
 ### 부트스트랩 Provisioner

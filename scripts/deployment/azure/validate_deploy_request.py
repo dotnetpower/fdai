@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import re
@@ -12,7 +11,7 @@ from collections.abc import Mapping
 
 _SHA40 = re.compile(r"^[0-9a-f]{40}$")
 _SHA64 = re.compile(r"^[0-9a-f]{64}$")
-_PLAN_REQUEST = re.compile(r"^plan-([0-9a-f]{24}|model-[0-9a-f]{64})$")
+_PLAN_REQUEST = re.compile(r"^plan-([0-9a-f]{24}|model-[0-9a-f]{32}-[0-9a-f]{64})$")
 _APPLY_REQUEST = re.compile(r"^apply-([0-9a-f]{24}|model-[0-9a-f]{64})$")
 _PLAN_ID = re.compile(r"^plan-[1-9][0-9]*-[1-9][0-9]*$")
 _TRUE = "true"
@@ -28,12 +27,6 @@ def _enabled(values: Mapping[str, str], key: str) -> bool:
 def _require_match(value: str, pattern: re.Pattern[str], message: str) -> None:
     if pattern.fullmatch(value) is None:
         raise ValueError(message)
-
-
-def _policy_digest(raw: str) -> str:
-    payload = json.loads(raw)
-    canonical = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()
-    return hashlib.sha256(canonical).hexdigest()
 
 
 def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
@@ -119,11 +112,6 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
     if model_only:
         if not request_id:
             raise ValueError("model-binding deployment requires a protected request")
-        policy = values.get("MODEL_BINDING_POLICY", "")
-        if not apply and not policy:
-            raise ValueError("model-binding plan requires an environment policy")
-        if not apply and request_id != f"plan-model-{_policy_digest(policy)}":
-            raise ValueError("model-binding plan request does not match the policy digest")
         mixed = (
             *targets,
             "DEPLOY_DESIGN_MOCKS",

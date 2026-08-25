@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import hashlib
 import importlib.util
-import json
 from pathlib import Path
 
 import pytest
@@ -89,15 +87,12 @@ def test_retired_event_bus_request_is_rejected() -> None:
         )
 
 
-def test_model_plan_requires_exact_policy_digest_and_no_other_target() -> None:
-    policy = json.dumps({"environment": "dev", "revision": 1})
-    canonical = json.dumps(json.loads(policy), separators=(",", ":"), sort_keys=True).encode()
-    request_id = "plan-model-" + hashlib.sha256(canonical).hexdigest()
+def test_model_plan_requires_exact_proposal_and_no_other_target() -> None:
+    request_id = "plan-model-" + "e" * 32 + "-" + "d" * 64
 
     validate(
         _request(
             MODEL_BINDING_ONLY="true",
-            MODEL_BINDING_POLICY=policy,
             REQUEST_ID=request_id,
             CONTEXT_DIGEST=_DIGEST,
             COMMIT_SHA=_COMMIT,
@@ -109,9 +104,19 @@ def test_model_plan_requires_exact_policy_digest_and_no_other_target() -> None:
         validate(
             _request(
                 MODEL_BINDING_ONLY="true",
-                MODEL_BINDING_POLICY=policy,
                 REQUEST_ID=request_id,
                 DEPLOY_CONSOLE="true",
+            ),
+            checkout_commit=_COMMIT,
+        )
+    with pytest.raises(ValueError, match="bounded fdaictl plan id"):
+        validate(
+            _request(
+                MODEL_BINDING_ONLY="true",
+                REQUEST_ID="plan-model-" + "d" * 64,
+                CONTEXT_DIGEST=_DIGEST,
+                COMMIT_SHA=_COMMIT,
+                DEPLOY_PREFLIGHT_INPUT_JSON="{}",
             ),
             checkout_commit=_COMMIT,
         )

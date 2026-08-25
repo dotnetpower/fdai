@@ -145,6 +145,28 @@ def test_platform_protected_source_guard_is_valid_bash() -> None:
     assert completed.returncode == 0, completed.stderr
 
 
+def test_platform_model_proposal_materializer_is_valid_bash() -> None:
+    step = _LEGACY_WORKFLOW.split("- name: Materialize exact model binding proposal", maxsplit=1)[
+        1
+    ].split("- name: Resolve and seal model capabilities", maxsplit=1)[0]
+    script = textwrap.dedent(step.split("run: |", maxsplit=1)[1]).replace(
+        "${{ inputs.environment }}", "dev"
+    )
+    bash = shutil.which("bash")
+
+    assert bash is not None
+
+    completed = subprocess.run(  # noqa: S603 - resolved Bash with test-controlled input.
+        [bash, "-n"],
+        input=script,
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+
+
 def test_platform_workflow_isolates_monitoring_plan_changes() -> None:
     target_expression = _LEGACY_WORKFLOW[_LEGACY_WORKFLOW.index("TF_CLI_ARGS_plan:") :]
     target_expression = target_expression[: target_expression.index("\n")]
