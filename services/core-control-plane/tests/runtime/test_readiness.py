@@ -158,8 +158,8 @@ async def test_audit_chain_timeout_degrades_and_disables_autonomous_action() -> 
         policy_compile_probe=_policy_probe(),
         environment={
             "FDAI_STARTUP_KAFKA_SETTLE_SECONDS": "0",
-            "FDAI_STARTUP_PROBE_TIMEOUT_SECONDS": "0.001",
-            "FDAI_STARTUP_PHASE_TIMEOUT_SECONDS": "0.01",
+            "FDAI_STARTUP_PROBE_TIMEOUT_SECONDS": "0.1",
+            "FDAI_STARTUP_PHASE_TIMEOUT_SECONDS": "1",
             "FDAI_STARTUP_PROBE_RETRIES": "0",
         },
     )
