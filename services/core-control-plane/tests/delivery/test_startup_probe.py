@@ -11,7 +11,9 @@ from unittest.mock import AsyncMock, patch
 from uuid import UUID
 
 import pytest
+from fdai.core.readiness import ProbeStatus
 from fdai.delivery.startup_probe import (
+    AuditChainStartupProbe,
     AuditStartupProbe,
     CapabilityProofStartupProbe,
     CrossCheckModelStartupProbe,
@@ -84,17 +86,20 @@ async def test_state_store_probe_performs_read_only_operation() -> None:
 
     result = await probe.run(_request())
 
-    assert result.evidence == {"read": True, "audit_chain_verified": True}
+    assert result.evidence == {"read": True}
 
 
-async def test_state_store_probe_rejects_corrupt_audit_chain() -> None:
+async def test_audit_chain_probe_rejects_corrupt_chain() -> None:
     store = InMemoryStateStore()
     await store.append_audit_entry({"event_id": "event-1"})
     store._audit[0]["entry_hash"] = "sha256:tampered"  # noqa: SLF001
-    probe = StateStoreStartupProbe(probe_id="postgres.read", state_store=store)
+    probe = AuditChainStartupProbe(probe_id="audit.chain", state_store=store)
 
-    with pytest.raises(RuntimeError, match="audit chain integrity verification failed"):
-        await probe.run(_request())
+    result = await probe.run(_request())
+
+    assert result.status is ProbeStatus.FAILED
+    assert result.failure_class == "audit_chain_integrity_failed"
+    assert result.evidence == {"audit_chain_verified": False}
 
 
 async def test_event_bus_probe_round_trips_synthetic_record() -> None:

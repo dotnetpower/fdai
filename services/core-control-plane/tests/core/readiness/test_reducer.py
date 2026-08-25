@@ -106,6 +106,25 @@ def test_optional_failure_degrades_with_configured_fallback() -> None:
     assert report.authority_ceilings == {"web-search": AuthorityCeiling.DETERMINISTIC_FALLBACK}
 
 
+def test_confirmed_audit_chain_mismatch_blocks_authority_critical_probe() -> None:
+    spec = _spec(
+        ProbeCriticality.AUTHORITY_CRITICAL,
+        capability="autonomous-action",
+        ceiling=AuthorityCeiling.SHADOW,
+    )
+    result = _result(ProbeStatus.FAILED).model_copy(
+        update={
+            "probe_id": spec.probe_id,
+            "failure_class": "audit_chain_integrity_failed",
+        }
+    )
+
+    report = reduce_startup_readiness([spec], [result], generated_at=_NOW)
+
+    assert report.decision is ReadinessDecision.BLOCKED
+    assert report.authority_ceilings == {"autonomous-action": AuthorityCeiling.SHADOW}
+
+
 def test_recovery_never_raises_deployment_ceiling() -> None:
     spec = _spec(
         ProbeCriticality.AUTHORITY_CRITICAL,

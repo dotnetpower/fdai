@@ -49,6 +49,25 @@ def _result(
     )
 
 
+def _failed_result(
+    probe_id: str,
+    started_at: float,
+    failure_class: str,
+    *,
+    evidence: Mapping[str, bool | float | int | str] | None = None,
+) -> StartupProbeResult:
+    observed_at = _utc_now()
+    return StartupProbeResult(
+        probe_id=probe_id,
+        status=ProbeStatus.FAILED,
+        observed_at=observed_at,
+        expires_at=observed_at + timedelta(minutes=5),
+        latency_ms=(perf_counter() - started_at) * 1000,
+        failure_class=failure_class,
+        evidence=dict(evidence or {}),
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class DestinationTarget:
     """One exact enabled runtime destination, never serialized into evidence."""
@@ -113,7 +132,7 @@ class DestinationChainProbe:
 
 
 class StateStoreStartupProbe:
-    """Prove PostgreSQL-backed state access and audit-chain integrity."""
+    """Prove PostgreSQL-backed state access."""
 
     def __init__(self, *, probe_id: str, state_store: StateStore) -> None:
         self.probe_id = probe_id
@@ -122,12 +141,29 @@ class StateStoreStartupProbe:
     async def run(self, request: StartupProbeRequest) -> StartupProbeResult:
         started_at = perf_counter()
         await self._state_store.read_state("runtime:startup-readiness:probe")
+        return _result(self.probe_id, started_at, evidence={"read": True})
+
+
+class AuditChainStartupProbe:
+    """Verify the complete durable audit chain without gating process liveness."""
+
+    def __init__(self, *, probe_id: str, state_store: StateStore) -> None:
+        self.probe_id = probe_id
+        self._state_store = state_store
+
+    async def run(self, request: StartupProbeRequest) -> StartupProbeResult:
+        started_at = perf_counter()
         if not await self._state_store.verify_chain():
-            raise RuntimeError("audit chain integrity verification failed")
+            return _failed_result(
+                self.probe_id,
+                started_at,
+                "audit_chain_integrity_failed",
+                evidence={"audit_chain_verified": False},
+            )
         return _result(
             self.probe_id,
             started_at,
-            evidence={"read": True, "audit_chain_verified": True},
+            evidence={"audit_chain_verified": True},
         )
 
 

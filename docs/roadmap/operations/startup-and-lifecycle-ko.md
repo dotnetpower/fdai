@@ -1,8 +1,8 @@
 ---
 title: 시작과 라이프사이클(Startup and Lifecycle)
 translation_of: startup-and-lifecycle.md
-translation_source_sha: b2a2babd66f7946f19907d837a971ef0ee09e220
-translation_revised: 2026-08-21
+translation_source_sha: d39fa7bcedc798334d620503cba6145befe3ada7
+translation_revised: 2026-08-25
 ---
 
 # 시작과 라이프사이클(시작 and 수명 주기)
@@ -31,7 +31,7 @@ Azure 초점: 비-Azure 프로바이더는 TBD
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| 시작 준비 상태 조정 | `implemented` | [`runtime/readiness.py`](../../../services/core-control-plane/src/fdai/runtime/readiness.py), [`core/readiness/coordinator.py`](../../../services/core-control-plane/src/fdai/core/readiness/coordinator.py) 및 준비 상태 집중 테스트 | 런타임은 순서가 지정된 단계를 평가하고 정제된 보고서를 저장하며, 결과 결정에 따라 처리를 게이팅합니다. |
+| 시작 준비 상태 조정 | `implemented` | [`runtime/readiness.py`](../../../services/core-control-plane/src/fdai/runtime/readiness.py), [`core/readiness/coordinator.py`](../../../services/core-control-plane/src/fdai/core/readiness/coordinator.py) 및 준비 상태 집중 테스트 | 런타임은 순서가 지정된 단계를 평가하고 정제된 보고서를 저장하며, 결과 결정에 따라 처리를 게이팅합니다. PostgreSQL 상태 접근과 감사 추가는 process-critical로 유지하고, 완료되지 않은 전체 체인 검증은 degraded shadow 작업만 열며 확인된 불일치는 준비 상태를 차단합니다. |
 | T2 교차 검사 시작 증명 재사용 | `implemented` | [`delivery/startup_model_probe.py`](../../../services/core-control-plane/src/fdai/delivery/startup_model_probe.py) 및 [`tests/delivery/test_startup_probe.py`](../../../services/core-control-plane/tests/delivery/test_startup_probe.py) | 프로세스에서 처음 성공한 증명은 구성된 샘플을 사용합니다. 이후 새로 고침은 추가 T2 요청 없이 이를 재사용하며 실패는 계속 재시도할 수 있습니다. |
 | 수집기 일정 및 통제된 발견 활성화 | `implemented` | [`rule_watcher_job.tf`](../../../infra/modules/compute/container-apps/rule_watcher_job.tf), [`rule_collector_job_cli.py`](../../../services/core-control-plane/src/fdai/delivery/rule_collector_job_cli.py), [`core/readiness/discovery_activation.py`](../../../services/core-control-plane/src/fdai/core/readiness/discovery_activation.py), [`runtime/discovery_activation.py`](../../../services/core-control-plane/src/fdai/runtime/discovery_activation.py) 및 집중 수집기/활성화/Norns/런타임/인프라 검사 | 구성 가능한 작업은 실행 권한이 없는 인벤토리 신원을 사용하고, 검증된 출처 증적만 기록합니다. 런타임 조립은 정책과 최신 선행 조건이 모두 통과할 때까지 Norns 게시를 차단합니다. |
 | 부트스트랩 및 수명 주기 자동화 | `in-progress` | [`llm_resolver_cli.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/llm_resolver_cli.py), `.github/workflows/deploy-dev.yml`, `.github/workflows/model-lifecycle-reconcile.yml` 및 집중 수명 주기 테스트 | 보호된 모델 해석과 제안 전용 조정은 구현됐습니다. 수집기 일정과 통제된 발견 활성화는 현재 변경에서 구현되며, 종단 간 사람 승인 초기화는 아직 완료되지 않았습니다. |
@@ -43,6 +43,7 @@ Azure 초점: 비-Azure 프로바이더는 TBD
 | 2026-08-13 | `implemented` | 성공한 각 T2 교차 검사 시작 증명을 프로세스의 후속 준비 상태 새로 고침에서 재사용하여 5분마다 다시 샘플링하지 않도록 했습니다. 실패 및 동시 시도는 안전하게 재시도됩니다. | 현재 변경의 `startup_model_probe.py` 및 `test_startup_probe.py`, 시작 탐색 집중 테스트: `18 passed` | 관리되는 배포 런타임 계측 근거를 수집하고 아래의 더 넓은 수명 주기 작업 흐름을 완료합니다. |
 | 2026-08-19 | `implemented` | 보호된 Terraform 계획 전에 결정론적 실제 모델 해석을 실행하고, 정확한 매니페스트와 다이제스트를 적용까지 봉인했으며, 공급자 실패 시 판단을 보류하는 주간 초안 PR 조정기를 추가했습니다. | `current change`; 집중 수명 주기, 보호된 계획 검증기, Operator 서술기, Terraform 및 CI 보안 계약. | 통제된 조정기 실행을 보존하고 독립적인 수집기 및 사람 승인 workflow를 완료합니다. |
 | 2026-08-19 | `implemented` | 검증된 수집기를 구성 가능한 Container Apps Job으로 예약하고, 기본적으로 닫힌 발견 활성화 집약기를 Norns의 비활성 후보 게시 경계에 연결했습니다. 근거가 누락되거나 오래되거나 실패하거나 중복되거나 사용할 수 없으면 정제된 사유 코드와 함께 게이트를 닫으며, 정책 비활성화는 카탈로그를 바꾸지 않습니다. | `current change`; 집중 준비 상태 활성화, 수집기 Job/CLI, 런타임 설정, 수집/감시, Norns, 시작 연결 및 인프라 검사. | 통제된 수집기 및 활성화 전이 증적을 보존하고 독립적인 사람 승인 작업 흐름을 완료합니다. |
+| 2026-08-25 | `implemented` | 증가한 배포 감사 체인이 범위가 제한된 시작 탐색을 초과한 뒤 PostgreSQL 상태 도달 가능성과 전체 감사 체인 검증을 분리했습니다. 상태 접근과 감사 추가는 계속 프로세스 준비 상태를 차단하며, 완료되지 않은 체인 증명은 `autonomous-action`을 `shadow`로 강제하고 확인된 불일치는 준비 상태를 차단합니다. | `current change`; 시작 탐색, 집약기, 런타임 조립 및 집중 준비 상태 테스트: `43 passed`; Ruff와 영문/한글 문서 검사를 통과했습니다. | 모델 용량 변경 전에 대규모 감사 체인을 사용하는 정상 배포 Core 증적을 보존하고 영속 계측 쓰기 한 건을 증명합니다. |
 
 ### 남은 작업
 
@@ -50,6 +51,9 @@ Azure 초점: 비-Azure 프로바이더는 TBD
    통제된 수집기와 모델 조정기 실행은 별도로 보존합니다.
 - [ ] 후보별로 성공한 T2 시작 샘플 세트가 한 번만 실행되고, 해당 프로세스의 이후 5분 준비
    상태 새로 고침에서는 T2 호출이 추가되지 않음을 보여 주는 관리되는 배포 런타임 계측을 기록합니다.
+- [ ] 기존 대규모 감사 체인이 강제 적용 권한을 부여하지 않고 healthy 또는 degraded-shadow
+   개정 번호를 만드는 배포 Core 준비 상태 보고를 보존한 다음, 프로비저닝된 모델 용량을
+   변경하기 전에 영속 계측 쓰기 한 건을 독립적으로 검증합니다.
 
 ## 콜드 스타트 (scale-to-zero 세부사항)
 
@@ -119,7 +123,7 @@ Kafka 왕복은 operational Event Hubs 이름 공간의 전용 `runtime.startup.
 | release와 구성 | 이미지 다이제스트, release 버전, 구성 해시, 카탈로그 버전, `resolved-models.json` 스키마와 최신성 |
 | 호스트 trust | 설정된 토큰/TLS 허용 범위 이내의 시계 skew, certificate 체인과 만료, proxy와 custom CA 구성 |
 | 신원과 시크릿 | audience-scoped 토큰 획득, 필수 역할 관찰, native 시크릿/참조 주입 |
-| 상태와 정책 | PostgreSQL 연결, 이행 헤드, 전체 감사 hash-chain 검증, 비상 정지 읽기, 카탈로그 부하, OPA compile |
+| 상태와 정책 | PostgreSQL 연결 및 상태 읽기, 감사 추가, 전체 감사 hash-chain 검증, 비상 정지 읽기, 카탈로그 부하, OPA compile |
 | Event 경로 | Kafka DNS/TCP/TLS/auth, 필수 토픽, 소비자 그룹, DLQ 및 Diagnostic Settings forwarder 상태 |
 | 모델 기능 | 배포 준비 상태, auth, 할당량 headroom, feature 플래그, mixed-publisher 불변식, 검증기와 grounding 가용성 |
 | 선택적 어댑터 | 웹 검색, 알림, 사람 승인 채널, OTLP 내보내기 및 포크가 등록한 프로바이더 |
@@ -152,8 +156,8 @@ T2 교차 검사와 감사 내구성 탐색은 성공한 프로세스 로컬 증
 
 ### 실패와 권한 규칙
 
-- **Process-critical**: 잘못된 구성, 토큰/시크릿 실패, PostgreSQL/감사 실패, 감사 hash-chain 불일치, 정책 compile 실패 또는 필수 Kafka 실패는 `/ready`를 닫습니다.
-- **Authority-critical**: 읽을 수 없는 비상 정지, 누락된 T2 검증 또는 사용 불가 승인은 shadow나 사람 승인을 강제합니다. 검증되지 않은 자동 액션을 활성화하지 않습니다.
+- **Process-critical**: 잘못된 구성, 토큰/시크릿 실패, PostgreSQL 상태 접근 실패, 감사 추가 실패, 확인된 감사 hash-chain 불일치, 정책 compile 실패 또는 필수 Kafka 실패는 `/ready`를 닫습니다.
+- **Authority-critical**: 완료되지 않은 전체 감사 hash-chain 검증, 읽을 수 없는 비상 정지, 누락된 T2 검증 또는 사용 불가 승인은 shadow나 사람 승인을 강제합니다. Core는 관찰과 복구를 위해 계속 사용할 수 있지만 검증되지 않은 자동 액션을 활성화하지 않습니다.
 - **선택적 기능**: 서술기, 검색, 알림 또는 텔레메트리 실패는 결정론적 대체 경로 또는 비활성화된 상태와 함께 `degraded`로 보고하며 healthy로 가장하지 않습니다.
 - **탐색 안전성**: 검사는 범위가 제한된, safe to 재시도, 정제된이며 전용 synthetic 리소스 외에는 읽기 전용입니다. 부분 필수 탐색은 `ready`가 아니라 `blocked`가 됩니다.
 
@@ -175,9 +179,10 @@ T2 교차 검사와 감사 내구성 탐색은 성공한 프로세스 로컬 증
 
 `/live`는 프로세스 생존을 별도로 보고합니다. `blocked`이면 `/ready`는 `503`을 반환하며 코어
 소비자, 발견, canary, 사람 승인, 보존, runtime-state 및 Pantheon 작업은 중지 상태를
-유지합니다. 주기적 새로 고침은 process-critical 의존성이 차단된이 되면 실행 중인 작업을
-취소하고 복구 후 다시 시작합니다. 복구는 조립에서 받은 배포 상한을
-재사용하며 권한을 승격할 수 없습니다.
+유지합니다. `degraded` 보고는 `/ready`를 열 수 있지만, 감사 체인 증명을 사용할 수 없으면
+`autonomous-action`을 `shadow`로 낮춰 Pantheon 강제 적용을 비활성화합니다. 주기적 새로 고침은
+process-critical 의존성이 차단되면 실행 중인 작업을 취소하고 복구 후 다시 시작합니다.
+복구는 조립에서 받은 배포 상한을 재사용하며 권한을 승격할 수 없습니다.
 
 범위가 제한된 실행기는 `FDAI_STARTUP_MAX_CONCURRENCY`, `FDAI_STARTUP_KAFKA_SETTLE_SECONDS`,
 `FDAI_STARTUP_PROBE_TIMEOUT_SECONDS`, `FDAI_STARTUP_PHASE_TIMEOUT_SECONDS`, `FDAI_STARTUP_PROBE_RETRIES`,

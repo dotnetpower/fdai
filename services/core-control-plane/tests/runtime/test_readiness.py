@@ -89,7 +89,7 @@ async def test_standard_runtime_inventory_reaches_ready_and_persists_report() ->
     report = await runtime.evaluate()
 
     assert report.decision is ReadinessDecision.READY
-    assert len(report.results) == 10
+    assert len(report.results) == 11
     assert runtime.state.is_ready()
     persisted = await store.read_state("runtime:startup-readiness:latest")
     assert persisted is not None
@@ -139,7 +139,38 @@ async def test_runtime_probes_every_candidate_inside_cross_check_pool() -> None:
 
     assert report.decision is ReadinessDecision.READY
     assert [candidate.calls for candidate in candidates] == [2, 2]
-    assert len(report.results) == 12
+    assert len(report.results) == 13
+
+
+async def test_audit_chain_timeout_degrades_and_disables_autonomous_action() -> None:
+    class _SlowAuditStore(InMemoryStateStore):
+        async def verify_chain(self) -> bool:
+            await asyncio.Event().wait()
+            return True
+
+    runtime = build_startup_readiness_runtime(
+        state_store=_SlowAuditStore(),
+        event_bus=LocalEventBus(),
+        transition_event_bus=LocalEventBus(),
+        event_validator=_Validator(),  # type: ignore[arg-type]
+        identity=LocalWorkloadIdentity(),
+        embedding_model=_Embedding(),
+        policy_compile_probe=_policy_probe(),
+        environment={
+            "FDAI_STARTUP_KAFKA_SETTLE_SECONDS": "0",
+            "FDAI_STARTUP_PROBE_TIMEOUT_SECONDS": "0.001",
+            "FDAI_STARTUP_PHASE_TIMEOUT_SECONDS": "0.01",
+            "FDAI_STARTUP_PROBE_RETRIES": "0",
+        },
+    )
+
+    report = await runtime.evaluate()
+
+    assert report.decision is ReadinessDecision.DEGRADED
+    assert runtime.state.is_ready()
+    assert report.authority_ceilings["autonomous-action"] is AuthorityCeiling.SHADOW
+    audit_result = next(result for result in report.results if result.probe_id == "audit.chain")
+    assert audit_result.failure_class == "probe_deadline_exceeded"
 
 
 def test_expired_evidence_closes_runtime_readiness() -> None:

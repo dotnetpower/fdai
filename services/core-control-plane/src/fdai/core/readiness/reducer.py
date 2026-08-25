@@ -16,6 +16,8 @@ from fdai.core.readiness.models import (
     more_restrictive,
 )
 
+_PROCESS_BLOCKING_FAILURE_CLASSES = frozenset({"audit_chain_integrity_failed"})
+
 
 def reduce_startup_readiness(
     specs: Sequence[StartupProbeSpec],
@@ -60,7 +62,9 @@ def reduce_startup_readiness(
             deployment_ceiling,
             spec.failure_ceiling,
         )
-        if spec.criticality is ProbeCriticality.PROCESS_CRITICAL:
+        if spec.criticality is ProbeCriticality.PROCESS_CRITICAL or (
+            result is not None and result.failure_class in _PROCESS_BLOCKING_FAILURE_CLASSES
+        ):
             blocked = True
         else:
             degraded = True

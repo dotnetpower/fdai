@@ -23,6 +23,7 @@ from fdai.core.readiness import (
 )
 from fdai.core.readiness.coordinator import StartupProbeBudget, StartupReadinessCoordinator
 from fdai.delivery.startup_probe import (
+    AuditChainStartupProbe,
     AuditStartupProbe,
     CrossCheckModelStartupProbe,
     EmbeddingModel,
@@ -220,6 +221,13 @@ def build_startup_readiness_runtime(
         _spec("secret.injection", "secrets", StartupPhase.STATIC_LOAD),
         _spec("identity.token", "identity", StartupPhase.REQUIRED_REACHABILITY),
         _spec("postgres.state", "state", StartupPhase.REQUIRED_REACHABILITY),
+        StartupProbeSpec(
+            probe_id="audit.chain",
+            capability="autonomous-action",
+            phase=StartupPhase.REQUIRED_REACHABILITY,
+            criticality=ProbeCriticality.AUTHORITY_CRITICAL,
+            failure_ceiling=AuthorityCeiling.SHADOW,
+        ),
         _spec("audit.append", "audit", StartupPhase.ACTIVE_SMOKE, synthetic_scope=True),
         StartupProbeSpec(
             probe_id="kill-switch.read",
@@ -263,6 +271,7 @@ def build_startup_readiness_runtime(
             audience=_IDENTITY_AUDIENCE,
         ),
         StateStoreStartupProbe(probe_id="postgres.state", state_store=state_store),
+        AuditChainStartupProbe(probe_id="audit.chain", state_store=state_store),
         AuditStartupProbe(probe_id="audit.append", state_store=state_store),
         KillSwitchStartupProbe(
             probe_id="kill-switch.read",
