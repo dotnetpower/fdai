@@ -27,6 +27,8 @@ from fdai.shared.providers.startup_probe import StartupProbeRequest
 from fdai.shared.providers.state_store import StateStore
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
+_AUDIT_CHAIN_RETRY_INTERVAL_SECONDS = 300.0
+
 
 def _utc_now() -> datetime:
     return datetime.now(UTC)
@@ -145,12 +147,29 @@ class StateStoreStartupProbe:
 
 
 class AuditChainStartupProbe:
-    """Verify the complete durable audit chain without gating process liveness."""
+    """Verify the durable audit chain with bounded process-local proof reuse.
 
-    def __init__(self, *, probe_id: str, state_store: StateStore) -> None:
+    Successful and confirmed-corrupt proofs remain stable for the process. An incomplete
+    timeout or cancellation waits for the retry interval before starting another full scan.
+    """
+
+    def __init__(
+        self,
+        *,
+        probe_id: str,
+        state_store: StateStore,
+        retry_interval_seconds: float = _AUDIT_CHAIN_RETRY_INTERVAL_SECONDS,
+        monotonic: Callable[[], float] = perf_counter,
+    ) -> None:
+        if retry_interval_seconds <= 0:
+            raise ValueError("audit-chain retry interval MUST be > 0")
         self.probe_id = probe_id
         self._state_store = state_store
+        self._retry_interval_seconds = retry_interval_seconds
+        self._monotonic = monotonic
         self._verified = False
+        self._integrity_failed = False
+        self._retry_not_before = 0.0
         self._lock = asyncio.Lock()
 
     async def run(self, request: StartupProbeRequest) -> StartupProbeResult:
@@ -162,7 +181,30 @@ class AuditChainStartupProbe:
                     started_at,
                     evidence={"audit_chain_verified": True, "previously_proven": True},
                 )
-            if not await self._state_store.verify_chain():
+            if self._integrity_failed:
+                return _failed_result(
+                    self.probe_id,
+                    started_at,
+                    "audit_chain_integrity_failed",
+                    evidence={"audit_chain_verified": False, "previously_proven": True},
+                )
+            if self._monotonic() < self._retry_not_before:
+                return _failed_result(
+                    self.probe_id,
+                    started_at,
+                    "audit_chain_verification_deferred",
+                    evidence={"audit_chain_verified": False, "previously_proven": False},
+                )
+            self._retry_not_before = self._monotonic() + self._retry_interval_seconds
+            try:
+                verified = await self._state_store.verify_chain()
+            except (TimeoutError, asyncio.CancelledError):
+                raise
+            except Exception:
+                self._retry_not_before = 0.0
+                raise
+            if not verified:
+                self._integrity_failed = True
                 return _failed_result(
                     self.probe_id,
                     started_at,

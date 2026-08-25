@@ -96,10 +96,14 @@ async def test_audit_chain_probe_rejects_corrupt_chain() -> None:
     probe = AuditChainStartupProbe(probe_id="audit.chain", state_store=store)
 
     result = await probe.run(_request())
+    repeated = await probe.run(_request())
 
     assert result.status is ProbeStatus.FAILED
     assert result.failure_class == "audit_chain_integrity_failed"
     assert result.evidence == {"audit_chain_verified": False, "previously_proven": False}
+    assert repeated.status is ProbeStatus.FAILED
+    assert repeated.failure_class == "audit_chain_integrity_failed"
+    assert repeated.evidence == {"audit_chain_verified": False, "previously_proven": True}
 
 
 async def test_audit_chain_probe_reuses_successful_process_proof() -> None:
@@ -149,6 +153,71 @@ async def test_audit_chain_probe_coalesces_concurrent_verification() -> None:
     assert store.verify_calls == 1
     assert first.evidence["previously_proven"] is False
     assert second.evidence["previously_proven"] is True
+
+
+async def test_audit_chain_probe_backs_off_after_cancelled_verification() -> None:
+    class _BlockingStore(InMemoryStateStore):
+        def __init__(self) -> None:
+            super().__init__()
+            self.verify_calls = 0
+            self.started = asyncio.Event()
+            self.release = asyncio.Event()
+
+        async def verify_chain(self) -> bool:
+            self.verify_calls += 1
+            self.started.set()
+            await self.release.wait()
+            return True
+
+    current_time = [100.0]
+    store = _BlockingStore()
+    probe = AuditChainStartupProbe(
+        probe_id="audit.chain",
+        state_store=store,
+        retry_interval_seconds=300,
+        monotonic=lambda: current_time[0],
+    )
+    cancelled = asyncio.create_task(probe.run(_request()))
+    await store.started.wait()
+
+    cancelled.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await cancelled
+    deferred = await probe.run(_request())
+
+    assert store.verify_calls == 1
+    assert deferred.status is ProbeStatus.FAILED
+    assert deferred.failure_class == "audit_chain_verification_deferred"
+
+    current_time[0] += 300
+    store.release.set()
+    recovered = await probe.run(_request())
+
+    assert store.verify_calls == 2
+    assert recovered.status is ProbeStatus.PASSED
+
+
+async def test_audit_chain_probe_retries_immediate_transient_failure() -> None:
+    class _TransientStore(InMemoryStateStore):
+        def __init__(self) -> None:
+            super().__init__()
+            self.verify_calls = 0
+
+        async def verify_chain(self) -> bool:
+            self.verify_calls += 1
+            if self.verify_calls == 1:
+                raise ConnectionError("transient")
+            return True
+
+    store = _TransientStore()
+    probe = AuditChainStartupProbe(probe_id="audit.chain", state_store=store)
+
+    with pytest.raises(ConnectionError, match="transient"):
+        await probe.run(_request())
+    recovered = await probe.run(_request())
+
+    assert store.verify_calls == 2
+    assert recovered.status is ProbeStatus.PASSED
 
 
 async def test_event_bus_probe_round_trips_synthetic_record() -> None:

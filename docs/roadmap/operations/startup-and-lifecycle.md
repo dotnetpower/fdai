@@ -43,6 +43,7 @@ Timeline suggestions below are directional, not hard rules; **the gates are hard
 | 2026-08-19 | implemented | Scheduled the verified collector through a configurable Container Apps Job and bound a default-off discovery activation reducer to Norns' inert candidate publication boundary. Missing, stale, failed, duplicate, or unavailable evidence closes the gate with sanitized reason codes; policy disablement never changes the catalog. | `current change`; focused readiness activation, collector Job/CLI, runtime settings, collection/watcher, Norns, bootstrap, and infrastructure checks. | Retain governed collector and activation-transition receipts; complete the independent Human approval workflow. |
 | 2026-08-25 | implemented | Split PostgreSQL state reachability from full audit-chain verification after a growing deployed chain exceeded the bounded startup probe. State access and audit append still block process readiness; an incomplete chain proof forces `autonomous-action` to `shadow`, while a confirmed mismatch blocks readiness. | `current change`; startup probe, reducer, runtime composition, and focused readiness tests: `43 passed`; Ruff and bilingual documentation checks passed. | Retain a healthy deployed Core receipt with the large audit chain and prove one durable metering write before model capacity changes. |
 | 2026-08-25 | implemented | Moved durable A2 incident notification replay out of the readiness-critical bootstrap sequence after two protected revisions stalled behind an unavailable notification route. Incident state still rehydrates before readiness; the isolated worker preserves sent checkpoints, retries transient delivery failures, and cannot grant authority. | Failed protected apply `32833058288`; `current change`; focused bootstrap tests passed 59 cases and strict mypy passed. | Build and deploy the exact repaired Core image, then retain healthy startup, replay, and peer-isolation evidence. |
+| 2026-08-25 | implemented | Added a five-minute process-local cooldown after an incomplete full audit-chain proof. A timeout or cancellation now lowers autonomous authority without immediately starting another historical scan; a confirmed mismatch remains blocking and a later bounded retry can still recover. | Failed protected apply `32846624686`; PostgreSQL CPU stayed between 98.5 and 100 percent during the readiness window; `current change`; focused startup probe tests. | Deploy the bounded retry behavior and retain a healthy or degraded-shadow Core receipt before metering validation. |
 
 ### Remaining work
 
@@ -151,8 +152,10 @@ miss lowers the case to Human approval.
 Evidence expires after the configured interval. Periodic probes refresh the report and append only
 transitions. T2 cross-check, audit durability, and full audit-chain probes reuse their successful
 process-local proofs; the readiness result receives a fresh evidence time and expiry without
-repeating the model request, audit append, or full-chain scan. A failed proof remains retryable.
-Recovery can restore `ready`, never authority above the deployment's promotion state.
+repeating the model request, audit append, or full-chain scan. An incomplete full-chain proof waits
+five minutes before another process-local scan, which prevents timeout-driven refreshes from
+saturating PostgreSQL. A confirmed mismatch remains blocking, and other failed proofs remain
+retryable. Recovery can restore `ready`, never authority above the deployment's promotion state.
 
 ### Failure and authority rules
 
