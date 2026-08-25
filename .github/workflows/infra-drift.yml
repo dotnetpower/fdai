@@ -138,6 +138,11 @@ jobs:
           trap 'rm -rf -- "$temp_root"' EXIT
           printf '%s' "$SERVICE_DEPLOY_TFVARS_JSON" >"$temp_root/all-services.json"
           chmod 600 "$temp_root/all-services.json"
+          database_host="$(terraform output -raw postgres_fqdn)"
+          event_topic="$(
+            terraform output -json event_bus_topics \
+              | jq -er '[.[] | select(. == "fdai.change.events")] | if length == 1 then .[0] else error("platform state must contain exactly one canonical change-events topic") end'
+          )"
           roots_json="$(python3 scripts/deployment/service/drift_contract.py roots \
             --environment "$ENVIRONMENT")"
           service_count="$(jq '[.[] | select(.kind == "service")] | length' \
@@ -161,11 +166,19 @@ jobs:
               --environment "$ENVIRONMENT" \
               --repository "$GITHUB_REPOSITORY" \
               --state-json "$temp_root/$service-state.json")"
-            python3 scripts/deployment/service/materialize_tfvars.py \
-              --service "$service" \
-              --environment "$ENVIRONMENT" \
-              --output "$temp_root/$service.tfvars.json" \
-              <"$temp_root/all-services.json"
+            python3 scripts/deployment/service/hydrate_database_host.py \
+                --service "$service" \
+                --environment "$ENVIRONMENT" \
+                --database-host "$database_host" \
+                <"$temp_root/all-services.json" \
+              | python3 scripts/deployment/service/hydrate_event_topic.py \
+                  --service "$service" \
+                  --environment "$ENVIRONMENT" \
+                  --event-topic "$event_topic" \
+              | python3 scripts/deployment/service/materialize_tfvars.py \
+                  --service "$service" \
+                  --environment "$ENVIRONMENT" \
+                  --output "$temp_root/$service.tfvars.json"
             set +e
             terraform -chdir="$terraform_root" plan \
               -input=false \
@@ -209,10 +222,10 @@ jobs:
           terraform show -json >"$state_json"
           stored_inputs="$(python3 ../../scripts/deployment/service/drift_contract.py \
             bootstrap-inputs --state-json "$state_json")"
-          export TF_VAR_app_resource_group_name="$(jq -er '.app_resource_group_name' \
-            <<<"$stored_inputs")"
-          export TF_VAR_runner_ssh_public_key="$(jq -er '.runner_ssh_public_key' \
-            <<<"$stored_inputs")"
+          app_resource_group_name="$(jq -er '.app_resource_group_name' <<<"$stored_inputs")"
+          runner_ssh_public_key="$(jq -er '.runner_ssh_public_key' <<<"$stored_inputs")"
+          export TF_VAR_app_resource_group_name="$app_resource_group_name"
+          export TF_VAR_runner_ssh_public_key="$runner_ssh_public_key"
           terraform plan -input=false -lock-timeout=300s -detailed-exitcode
 
       - name: Enforce complete drift evidence

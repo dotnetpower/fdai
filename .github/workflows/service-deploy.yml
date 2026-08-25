@@ -504,11 +504,19 @@ jobs:
             echo "Platform state returned an invalid database hostname." >&2
             exit 1
           }
+          event_topic="$(
+            terraform -chdir="$TRUSTED_CONTROLS/infra" output -json event_bus_topics \
+              | jq -er '[.[] | select(. == "fdai.change.events")] | if length == 1 then .[0] else error("platform state must contain exactly one canonical change-events topic") end'
+          )"
           printf '%s' "$SERVICE_TFVARS_JSON" \
             | python3 "$TRUSTED_CONTROLS/scripts/deployment/service/hydrate_database_host.py" \
                 --service "${{ inputs.service }}" \
                 --environment "${{ inputs.environment }}" \
                 --database-host "$database_host" \
+            | python3 "$TRUSTED_CONTROLS/scripts/deployment/service/hydrate_event_topic.py" \
+                --service "${{ inputs.service }}" \
+                --environment "${{ inputs.environment }}" \
+                --event-topic "$event_topic" \
             | python3 "$TRUSTED_CONTROLS/scripts/deployment/service/materialize_tfvars.py" \
                 --service "${{ inputs.service }}" \
                 --environment "${{ inputs.environment }}" \

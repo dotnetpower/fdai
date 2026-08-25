@@ -84,6 +84,9 @@ def test_workflow_plans_every_production_root() -> None:
     assert "drift_contract.py stored-image" in workflow
     assert '[[ "$service_count" -eq 5 ]]' in workflow
     assert 'terraform -chdir="$terraform_root" init' in workflow
+    assert "scripts/deployment/service/hydrate_database_host.py" in workflow
+    assert "scripts/deployment/service/hydrate_event_topic.py" in workflow
+    assert 'select(. == "fdai.change.events")' in workflow
     assert "ops/bootstrap/${{ inputs.environment || 'dev' }}.tfstate" in workflow
     assert "Enforce complete drift evidence" in workflow
 

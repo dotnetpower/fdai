@@ -43,7 +43,7 @@ bindings through configuration (see
 | 2026-08-24 | implemented | Bound the disposable scenario OpenAI private endpoint to the existing central Private DNS zone instead of creating a second zone with the same namespace. The scenario state owns its lab-VNet link and endpoint zone group, while the centrally owned runner and P2S links remain unchanged. | Failed protected apply `32752288798`; `current change` in `infra/scenario-lab/` and `.github/workflows/sre-demo-lab.yml`; focused Terraform and workflow checks. | Complete the protected scenario apply, approved sweep, and final destroy receipts. |
 | 2026-08-25 | implemented | Kept the startup readiness refresh supervisor alive across recoverable provider failures, closed guarded processing at the earliest evidence expiry, and continued to propagate programming errors after closing readiness. The last successful report remains available for diagnosis, and only a complete refresh clears a recoverable failure fence. | `current change`; focused transient-failure, evidence-expiry, programming-error, and integration checks. | Retain exact-revision deployed recovery evidence separately before making a runtime validation claim. |
 | 2026-08-25 | implemented | Removed the completed Event Bus migration mode from platform and service workflows and deleted its helper API. Current deployments accept canonical `fdai.*` topic bindings without exposing a rerunnable one-time transition. | `current change`; focused deployment workflow, service helper, Terraform, and documentation checks | No remaining implementation work for the completed topic migration mode. |
-
+| 2026-08-25 | implemented | Made protected plans and scheduled drift checks hydrate the primary ingress topic from authoritative platform state before selecting service inputs. A stale write-only tfvars secret can no longer restore a retired topic binding. | `current change`; `hydrate_event_topic.py`; protected service and drift workflows; focused hydration and workflow contract checks. | Complete the five zero-destroy plans and exact applies tracked by Issue #262. |
 ### Remaining work
 
 - [ ] Retain a repository-safe governed apply receipt showing that the Operator migration Job
@@ -108,8 +108,9 @@ prod topology so shadow evaluation is representative.
   Operator workloads with the historical `-readapi` suffix remain eligible for an in-place update,
   while newly declared Operator resources continue to use `-operator-api`. During input
   materialization, the workflow resolves the hostname from the platform state's `postgres_fqdn`
-  output and overwrites only `database.host`; the write-only service tfvars secret remains the
-  source for the DSN secret reference and role.
+  output and overwrites only `database.host`. It also resolves the canonical primary ingress topic
+  from `event_bus_topics` and overwrites only `event_topics.events` for Core and Operator. The
+  write-only service tfvars secret remains the source for DSN references, roles, and other inputs.
 - **Bounded Core model binding**: the Core-only `model_binding_transition` mode may change only the
   attested resolved-model digest, fixed runtime mode and manifest path, resolved HTTPS endpoint,
   and validated web-search settings. The active Core revision must already use canonical Event Bus

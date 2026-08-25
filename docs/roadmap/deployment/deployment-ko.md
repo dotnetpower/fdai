@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: fb0cdc8afc16eed1748394a2d28654c728dd084b
+translation_source_sha: b09654c931330afb821e1ee5d73e615be4913a48
 translation_revised: 2026-08-25
 ---
 
@@ -47,7 +47,7 @@ translation_revised: 2026-08-25
 | 2026-08-24 | implemented | 같은 namespace의 두 번째 zone을 만들지 않고 일회용 scenario OpenAI private endpoint를 기존 중앙 Private DNS zone에 연결했습니다. Scenario state는 lab VNet link와 endpoint zone group을 소유하며, 중앙에서 소유하는 runner 및 P2S link는 바꾸지 않습니다. | 실패한 protected apply `32752288798`; `infra/scenario-lab/` 및 `.github/workflows/sre-demo-lab.yml`의 `current change`; 집중 Terraform 및 workflow 검사입니다. | Protected scenario apply, 승인된 sweep 및 최종 destroy 증적을 완료합니다. |
 | 2026-08-25 | implemented | 복구 가능한 provider 실패가 발생해도 시작 준비 상태 새로 고침 supervisor를 유지하고, 가장 이른 근거 만료 시점에 보호된 처리를 닫으며, programming error는 준비 상태를 닫은 뒤 계속 전파하도록 했습니다. 마지막 성공 보고서는 진단을 위해 유지하고 완전한 새로 고침이 성공해야만 복구 가능한 실패 fence를 해제합니다. | `current change`, 집중 transient-failure, evidence-expiry, programming-error 및 통합 검사 | 런타임 validated 상태를 주장하기 전에 exact-revision 배포 복구 근거를 별도로 보존합니다. |
 | 2026-08-25 | implemented | 완료된 Event Bus 이행 모드를 platform 및 service workflow에서 제거하고 helper API도 삭제했습니다. 현재 배포는 다시 실행할 수 있는 일회성 전환을 노출하지 않고 정본 `fdai.*` 토픽 연결만 수락합니다. | `current change`, 집중 배포 workflow, service helper, Terraform 및 문서 검사 | 완료된 토픽 이행 모드에 남은 구현 작업은 없습니다. |
-
+| 2026-08-25 | implemented | Protected 계획과 예약 표류 검사가 서비스 입력을 선택하기 전에 권위 있는 플랫폼 상태에서 기본 유입 토픽을 채우도록 했습니다. 오래된 쓰기 전용 tfvars 시크릿이 폐기된 토픽 연결을 복원할 수 없습니다. | `current change`, `hydrate_event_topic.py`, protected 서비스 및 표류 workflow, 집중 hydration 및 workflow 계약 검사 | 이슈 #262에서 추적하는 zero-destroy 계획 5개와 exact apply를 완료합니다. |
 ### 남은 작업
 
 - [ ] Operator migration Job이 catalog Job보다 먼저 성공하고 이후 두 immutable projection
@@ -109,8 +109,9 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
   연결만 추가하거나 바꿀 수 있습니다. 역사적 `-readapi` suffix를 사용하는 기존 Operator workload는
   in-place 갱신 대상으로 유지하고 새 Operator 리소스는 계속 `-operator-api`를 사용합니다.
   입력을 구체화할 때 작업 흐름은 플랫폼 상태의 `postgres_fqdn` 출력에서 호스트 이름을
-  확인하고 `database.host`만 덮어씁니다. 쓰기 전용 서비스 tfvars 시크릿은 DSN 시크릿
-  참조와 역할의 출처로 남습니다.
+  확인하고 `database.host`만 덮어씁니다. 또한 `event_bus_topics`에서 정본 기본 유입 토픽을
+  확인하고 Core와 Operator의 `event_topics.events`만 덮어씁니다. 쓰기 전용 서비스 tfvars
+  시크릿은 DSN 참조, 역할 및 기타 입력의 출처로 남습니다.
 - **범위가 제한된 Core 모델 연결**: Core 전용 `model_binding_transition` 모드는 증명된
   resolved-model 다이제스트, 고정된 런타임 모드와 매니페스트 경로, 확인된 HTTPS
   엔드포인트 및 검증된 웹 검색 설정만 변경할 수 있습니다. 활성 Core revision은 이미 정본

@@ -45,6 +45,18 @@ def host_hydrator() -> ModuleType:
     return module
 
 
+@pytest.fixture(scope="module")
+def topic_hydrator() -> ModuleType:
+    spec = importlib.util.spec_from_file_location(
+        "focused_hydrate_event_topic", _SCRIPTS / "hydrate_event_topic.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
 def _digest(payload: dict[str, Any]) -> str:
     canonical = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()
     return hashlib.sha256(canonical).hexdigest()
@@ -150,6 +162,80 @@ def test_rejects_invalid_authoritative_database_host(
             service="core-control-plane",
             environment="dev",
             database_host=database_host,
+        )
+
+
+@pytest.mark.parametrize("service", ["core-control-plane", "operator-service"])
+def test_hydrates_primary_event_topic_from_authoritative_platform_output(
+    topic_hydrator: ModuleType,
+    service: str,
+) -> None:
+    payload = {
+        "environments": {
+            "dev": {
+                service: {
+                    "name": "example",
+                    "event_topics": {"events": "aw.change.events", "other": "preserved"},
+                }
+            }
+        }
+    }
+
+    hydrated = topic_hydrator.hydrate_event_topic(
+        payload,
+        service=service,
+        environment="dev",
+        event_topic="fdai.change.events",
+    )
+
+    assert hydrated["environments"]["dev"][service]["event_topics"] == {
+        "events": "fdai.change.events",
+        "other": "preserved",
+    }
+    assert payload["environments"]["dev"][service]["event_topics"]["events"] == ("aw.change.events")
+
+
+def test_preserves_service_without_primary_event_topic(topic_hydrator: ModuleType) -> None:
+    payload = {
+        "environments": {"dev": {"isolated-executor": {"name": "example", "event_topics": {}}}}
+    }
+
+    hydrated = topic_hydrator.hydrate_event_topic(
+        payload,
+        service="isolated-executor",
+        environment="dev",
+        event_topic="fdai.change.events",
+    )
+
+    assert hydrated == payload
+    assert hydrated is not payload
+
+
+@pytest.mark.parametrize(
+    "event_topic",
+    ["", "aw.change.events", "fdai.change.events.dlq", "fdai.Change.events"],
+)
+def test_rejects_noncanonical_authoritative_event_topic(
+    topic_hydrator: ModuleType,
+    event_topic: str,
+) -> None:
+    payload = {
+        "environments": {
+            "dev": {
+                "core-control-plane": {
+                    "name": "example",
+                    "event_topics": {"events": "fdai.change.events"},
+                }
+            }
+        }
+    }
+
+    with pytest.raises(topic_hydrator.EventTopicError, match="canonical"):
+        topic_hydrator.hydrate_event_topic(
+            payload,
+            service="core-control-plane",
+            environment="dev",
+            event_topic=event_topic,
         )
 
 
