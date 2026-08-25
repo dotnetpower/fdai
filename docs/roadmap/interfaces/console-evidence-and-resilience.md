@@ -778,19 +778,7 @@ smaller desktop legend reserve and canvas height than the complete inventory vie
 viewports keep the same node size, cap the canvas at 520 px, and expose the wider floor through
 panning.
 
-Within a subnet, visible path participants are grouped by their observed `attached_to` connected
-component, then arranged from network edge to storage: public IP and network security resources,
-network interfaces, compute and service resources, then disks and data resources. Multiple
-workload paths stay contiguous instead of interleaving by type or name. This is a layout order, not
-an inferred traffic direction. Every component gets its own depth-oriented lane: public IP starts
-nearest the camera, and security, interface, workload, and storage stages recede in order. The
-renderer replaces overlapping intra-subnet edges with one shared floor spine and short stage
-branches; only cross-plane attachments retain a direct route. Workloads render larger than
-supporting network resources. Path resources use glyphs by default, workloads retain their primary
-label, and selecting any resource restores its full name and type. At dense overview scales below
-the readable-label threshold, unselected node names and subnet names yield to glyphs, VNet names,
-region names, and the floor legend; focused views restore the ordinary workload and subnet label
-policy.
+Within a subnet, visible path participants form observed `attached_to` components and stay contiguous from network edge to storage: public IP and security, interface, workload, then disk and data. This is layout order, not inferred traffic direction. Each component uses a depth lane; overlapping intra-subnet edges share a floor spine, and only cross-plane attachments keep a direct route. Workloads render larger than supporting resources. Glyphs replace secondary labels at dense overview scales; selection and focused views restore full resource names, types, and the ordinary subnet label policy.
 Perspective scales projected points within bounded depth limits so near resources read larger than
 far resources while picking and containment use the same projection. Zoom supports deep inspection
 up to 512x scale, zooms around the pointer, and lets content-driven worlds grow without a fixed

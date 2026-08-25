@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 35ccc99e61c84d5f5daffe13a52aad30bc3fc8cf
+translation_source_sha: 5fa9872642d3f4f85857ce2a521953856b9ad53b
 translation_revised: 2026-08-26
 ---
 # 콘솔 근거 및 복원력
@@ -766,18 +766,7 @@ plane이 포인터 대상으로 유지됩니다. Focused 서비스 또는 resour
 작은 desktop legend reserve와 캔버스 높이를 사용합니다. 좁은 뷰포트에서는 동일한 노드 크기를
 유지하고 캔버스를 520 px로 제한하며 더 넓어진 하한을 panning으로 탐색합니다.
 
-Subnet 안의 visible 경로 participant는 관찰된 `attached_to` connected 컴포넌트별로 묶은 다음 네트워크
-간선에서 저장소 순서로 배치합니다. 공개 IP 및 네트워크 security 리소스, 네트워크 인터페이스,
-compute 및 서비스 리소스, disk 및 데이터 리소스 순서입니다. 여러 워크로드 경로는 타입 또는 이름으로
-서로 섞이지 않고 연속으로 유지됩니다. 이는 배치 순서이며 추론한 트래픽 direction이 아닙니다.
-각 컴포넌트는 독립적인 depth-oriented 레인을 사용합니다. 공개 IP는 camera에 가장 가깝고 security,
-인터페이스, 워크로드 및 저장소 단계가 순서대로 뒤로 물러납니다. 렌더러는 겹치는 intra-subnet 간선을
-하나의 shared 하한 spine과 짧은 단계 가지로 대체하며 cross-plane 첨부만 direct 경로를
-유지합니다. 워크로드는 supporting 네트워크 리소스보다 크게 렌더링됩니다. 경로 리소스는 기본적으로
-glyph를 사용하고 워크로드는 기본 라벨을 유지하며 어떤 리소스든 선택하면 full 이름과 타입을
-복원합니다. 읽을 수 있는 라벨 임계값보다 낮은 dense 개요 규모에서는 선택하지 않은 노드 이름과
-subnet 이름이 glyph, VNet 이름, 지역 이름 및 하한 legend에 자리를 양보하며 focused 화면은 일반
-워크로드 및 subnet 라벨 정책을 복원합니다. Perspective는 범위가 제한된 깊이
+서브넷 안에서 표시되는 경로 참여자는 관찰된 `attached_to` 구성 요소로 묶여 네트워크 경계부터 공용 IP 및 보안 리소스, 네트워크 인터페이스, 워크로드, 디스크와 데이터 리소스 순서로 연속 배치되며 이는 추론한 트래픽 방향이 아닙니다. 각 구성 요소는 깊이 방향 레인을 사용하고 겹치는 서브넷 내부 간선은 하나의 바닥 중심선을 공유하며 평면을 가로지르는 연결만 직접 경로를 유지합니다. 워크로드는 보조 리소스보다 크게 표시됩니다. 밀집된 개요에서는 글리프가 보조 라벨을 대체하고 선택 및 집중 화면은 이름, 유형 및 서브넷 라벨을 복원합니다. 원근법은 범위가 제한된 깊이
 범위에서 projected 지점을 조정해 가까운 리소스를 먼 리소스보다 크게 표시하고 picking과
 containment도 동일한 변환 결과를 사용합니다. Zoom은 512x 규모까지 상세 탐색을 지원하고 포인터를
 중심으로 확대하며, content-driven 세계는 고정 canvas-height 상한 없이 확장됩니다. Fit은 완전한
