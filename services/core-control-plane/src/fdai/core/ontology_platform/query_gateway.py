@@ -8,7 +8,7 @@ submits actions, calls providers, or grants execution authority.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from types import MappingProxyType
 from typing import Annotated, Any, Literal, cast
@@ -61,7 +61,7 @@ class ObjectSetRedactionSummary(ContractBase):
 class SecuredObjectSetQueryReceipt(ContractBase):
     """Immutable completeness and redaction receipt with no action authority."""
 
-    schema_version: Literal["1.1.0"] = "1.1.0"
+    schema_version: Literal["1.1.0", "1.2.0"] = "1.2.0"
     ontology_release: OntologyReleaseRef
     projected_result_digest: Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")]
     purpose: str = Field(pattern=r"^[a-z][a-z0-9_-]{0,63}$")
@@ -71,6 +71,8 @@ class SecuredObjectSetQueryReceipt(ContractBase):
     as_of_skew_seconds: float = Field(ge=0, le=5)
     returned_object_count: int = Field(ge=0)
     returned_link_count: int = Field(ge=0)
+    source_complete: bool = True
+    source_generation: str | None = None
     complete: bool
     truncated: bool
     truncation_reason: ObjectSetTruncationReason | None = None
@@ -81,10 +83,12 @@ class SecuredObjectSetQueryReceipt(ContractBase):
     def _truncation_reason_matches_state(self) -> SecuredObjectSetQueryReceipt:
         if self.truncated != (self.truncation_reason is not None):
             raise ValueError("object-set query receipt truncation state is inconsistent")
-        if self.complete == self.truncated:
+        if self.complete and self.truncated:
             raise ValueError("object-set query receipt completeness is inconsistent")
         if self.observation_cutoff.tzinfo is None:
             raise ValueError("object-set query observation_cutoff MUST be timezone-aware")
+        if self.source_generation is not None and not self.source_generation.strip():
+            raise ValueError("object-set query source generation MUST be non-empty")
         return self
 
 
@@ -111,7 +115,11 @@ class SecuredObjectSetQueryResult(ContractBase):
             raise ValueError("object-set query receipt truncation does not match result")
         if self.receipt.truncation_reason != self.materialization.truncation_reason:
             raise ValueError("object-set query receipt truncation reason does not match result")
-        if self.receipt.complete == self.materialization.truncated:
+        if self.receipt.source_complete != graph.source_complete:
+            raise ValueError("object-set query receipt source completeness does not match result")
+        if self.receipt.source_generation != graph.source_generation:
+            raise ValueError("object-set query receipt source generation does not match result")
+        if self.receipt.complete and self.materialization.truncated:
             raise ValueError("object-set query receipt completeness does not match result")
         as_of = self.materialization.definition.as_of.astimezone(UTC)
         cutoff = self.receipt.observation_cutoff.astimezone(UTC)
@@ -142,6 +150,7 @@ class SecuredObjectSetQueryGateway:
         object_types: Mapping[str, OntologyObjectType],
         ontology_release: OntologyRelease,
         evaluation_cutoff: Callable[[], datetime],
+        graph_completeness: Callable[[], Awaitable[bool]] | None = None,
         max_as_of_skew: timedelta = timedelta(0),
     ) -> None:
         copied_types: dict[str, OntologyObjectType] = {}
@@ -168,6 +177,7 @@ class SecuredObjectSetQueryGateway:
         self._object_types = MappingProxyType(copied_types)
         self._ontology_release = ontology_release.ref()
         self._evaluation_cutoff = evaluation_cutoff
+        self._graph_completeness = graph_completeness
         self._max_as_of_skew_seconds = skew_seconds
 
     async def materialize(
@@ -214,6 +224,25 @@ class SecuredObjectSetQueryGateway:
             source_graph=materialization.graph,
             removed_link_count=len(materialization.graph.links) - len(secured_graph.links),
         )
+        source_complete = secured_graph.source_complete
+        if self._graph_completeness is not None and any(
+            record.object_type == "Resource" for record in secured_graph.objects
+        ):
+            source_complete = source_complete and await self._graph_completeness()
+        secured_graph = OntologyGraphSnapshot(
+            objects=secured_graph.objects,
+            links=secured_graph.links,
+            truncated=secured_graph.truncated,
+            source_complete=source_complete,
+            source_generation=secured_graph.source_generation,
+        )
+        secured_materialization = ObjectSetMaterialization(
+            definition=secured_materialization.definition,
+            graph=secured_graph,
+            concrete_types=secured_materialization.concrete_types,
+            truncated=secured_materialization.truncated,
+            truncation_reason=secured_materialization.truncation_reason,
+        )
         receipt = SecuredObjectSetQueryReceipt(
             ontology_release=self._ontology_release,
             projected_result_digest=_projected_result_digest(secured_materialization),
@@ -223,7 +252,9 @@ class SecuredObjectSetQueryGateway:
             as_of_skew_seconds=self._max_as_of_skew_seconds,
             returned_object_count=len(secured_graph.objects),
             returned_link_count=len(secured_graph.links),
-            complete=not secured_materialization.truncated,
+            source_complete=source_complete,
+            source_generation=secured_graph.source_generation,
+            complete=source_complete and not secured_materialization.truncated,
             truncated=secured_materialization.truncated,
             truncation_reason=secured_materialization.truncation_reason,
             redactions=summary,
@@ -247,6 +278,8 @@ def _close_links(graph: OntologyGraphSnapshot) -> OntologyGraphSnapshot:
             if link.from_id in visible_ids and link.to_id in visible_ids
         ),
         truncated=graph.truncated,
+        source_complete=graph.source_complete,
+        source_generation=graph.source_generation,
     )
 
 
@@ -289,6 +322,8 @@ def _freeze_graph(graph: OntologyGraphSnapshot) -> OntologyGraphSnapshot:
             for link in graph.links
         ),
         truncated=graph.truncated,
+        source_complete=graph.source_complete,
+        source_generation=graph.source_generation,
     )
 
 
@@ -331,45 +366,45 @@ class _ImmutableDict(dict[str, Any]):
 
 def _projected_result_digest(materialization: ObjectSetMaterialization) -> str:
     graph = materialization.graph
-    return ontology_function_digest(
-        {
-            "definition": materialization.definition.model_dump(mode="json"),
-            "objects": [
-                {
-                    "id": record.id,
-                    "object_type": record.object_type,
-                    "properties": _mutable_json(record.properties),
-                    "revision": record.revision,
-                    "type_ref": (
-                        record.type_ref.model_dump(mode="json")
-                        if record.type_ref is not None
-                        else None
-                    ),
-                }
-                for record in graph.objects
-            ],
-            "links": [
-                {
-                    "link_type": link.link_type,
-                    "from_id": link.from_id,
-                    "to_id": link.to_id,
-                    "properties": _mutable_json(link.properties),
-                    "type_ref": (
-                        link.type_ref.model_dump(mode="json") if link.type_ref is not None else None
-                    ),
-                }
-                for link in graph.links
-            ],
-            "graph_truncated": graph.truncated,
-            "concrete_types": list(materialization.concrete_types),
-            "truncated": materialization.truncated,
-            "truncation_reason": (
-                materialization.truncation_reason.value
-                if materialization.truncation_reason is not None
-                else None
-            ),
-        }
-    )
+    payload = {
+        "definition": materialization.definition.model_dump(mode="json"),
+        "objects": [
+            {
+                "id": record.id,
+                "object_type": record.object_type,
+                "properties": _mutable_json(record.properties),
+                "revision": record.revision,
+                "type_ref": (
+                    record.type_ref.model_dump(mode="json") if record.type_ref is not None else None
+                ),
+            }
+            for record in graph.objects
+        ],
+        "links": [
+            {
+                "link_type": link.link_type,
+                "from_id": link.from_id,
+                "to_id": link.to_id,
+                "properties": _mutable_json(link.properties),
+                "type_ref": (
+                    link.type_ref.model_dump(mode="json") if link.type_ref is not None else None
+                ),
+            }
+            for link in graph.links
+        ],
+        "graph_truncated": graph.truncated,
+        "concrete_types": list(materialization.concrete_types),
+        "truncated": materialization.truncated,
+        "truncation_reason": (
+            materialization.truncation_reason.value
+            if materialization.truncation_reason is not None
+            else None
+        ),
+    }
+    if not graph.source_complete or graph.source_generation is not None:
+        payload["source_complete"] = graph.source_complete
+        payload["source_generation"] = graph.source_generation
+    return ontology_function_digest(payload)
 
 
 def _mutable_json(value: Any) -> Any:

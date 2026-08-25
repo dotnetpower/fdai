@@ -225,6 +225,14 @@ class PostgresInventorySnapshotStore:
                 )
                 if await dangling.fetchone() is not None:
                     raise ValueError("inventory candidate contains a link with a missing endpoint")
+                ambiguous_parent = await connection.execute(
+                    "SELECT 1 FROM inventory_snapshot_link "
+                    "WHERE snapshot_id=%s AND link_type='contains' "
+                    "GROUP BY to_id HAVING COUNT(DISTINCT from_id) > 1 LIMIT 1",
+                    (attempt_id,),
+                )
+                if await ambiguous_parent.fetchone() is not None:
+                    raise ValueError("inventory candidate violates contains parent cardinality")
                 await connection.execute(
                     "UPDATE inventory_snapshot SET status='superseded' "
                     "WHERE status='active' AND id<>%s",

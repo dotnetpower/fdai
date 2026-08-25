@@ -95,8 +95,9 @@ export interface OntologyInstanceLink {
 }
 
 export interface OntologyInstanceRelationshipEvidence {
-  readonly status: "available" | "unavailable";
+  readonly status: "available" | "stale" | "unavailable";
   readonly evidence_kind: "configuration" | "observation" | null;
+  readonly verification_status: "configuration_observed" | "independently_verified" | "unavailable";
   readonly source: string | null;
   readonly source_property_path: string | null;
   readonly mapping_id: string | null;
@@ -538,12 +539,28 @@ function decodeLink(
 function decodeRelationshipEvidence(value: unknown): OntologyInstanceRelationshipEvidence {
   const record = objectRecord(value, "relationship evidence");
   const status = record.status;
-  if (status !== "available" && status !== "unavailable") {
+  if (status !== "available" && status !== "stale" && status !== "unavailable") {
     throw new Error("relationship evidence status is invalid");
   }
   const evidenceKind = record.evidence_kind;
   if (evidenceKind !== null && evidenceKind !== "configuration" && evidenceKind !== "observation") {
     throw new Error("relationship evidence kind is invalid");
+  }
+  const inferredVerification = evidenceKind === "configuration"
+    ? "configuration_observed"
+    : evidenceKind === "observation"
+      ? "independently_verified"
+      : "unavailable";
+  const verificationStatus = record.verification_status ?? inferredVerification;
+  if (
+    verificationStatus !== "configuration_observed"
+    && verificationStatus !== "independently_verified"
+    && verificationStatus !== "unavailable"
+  ) {
+    throw new Error("relationship evidence verification status is invalid");
+  }
+  if (verificationStatus !== inferredVerification) {
+    throw new Error("relationship evidence verification status contradicts its kind");
   }
   const source = nullableString(record.source, "relationship evidence source", 128);
   const sourcePropertyPath = nullableString(
@@ -575,8 +592,22 @@ function decodeRelationshipEvidence(value: unknown): OntologyInstanceRelationshi
     freshnessCeiling,
   ];
   if (status === "available") {
-    if (availableFields.some((field) => field === null) || !complete || reason !== null) {
+    if (
+      availableFields.some((field) => field === null)
+      || verificationStatus === "unavailable"
+      || !complete
+      || reason !== null
+    ) {
       throw new Error("available relationship evidence is incomplete");
+    }
+  } else if (status === "stale") {
+    if (
+      availableFields.some((field) => field === null)
+      || verificationStatus === "unavailable"
+      || complete
+      || reason === null
+    ) {
+      throw new Error("stale relationship evidence is inconsistent");
     }
   } else if (availableFields.some((field) => field !== null) || complete || reason === null) {
     throw new Error("unavailable relationship evidence contradicts its fields");
@@ -584,6 +615,7 @@ function decodeRelationshipEvidence(value: unknown): OntologyInstanceRelationshi
   return {
     status,
     evidence_kind: evidenceKind,
+    verification_status: verificationStatus,
     source,
     source_property_path: sourcePropertyPath,
     mapping_id: mappingId,

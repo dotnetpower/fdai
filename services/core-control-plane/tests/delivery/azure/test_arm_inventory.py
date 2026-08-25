@@ -220,6 +220,7 @@ async def test_arm_fallback_lists_aks_agent_pool_children() -> None:
     assert contains.to_id == resources[0].resource_id
     assert contains.mapping_evidence is not None
     assert contains.mapping_evidence.source_identity == "azure-resource-manager-containerservice"
+    assert [link for link in links if link.link_type == "contains"] == [contains]
 
 
 async def test_arm_fallback_rejects_cross_host_next_link() -> None:

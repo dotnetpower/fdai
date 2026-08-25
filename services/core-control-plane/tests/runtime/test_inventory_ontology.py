@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -15,7 +18,13 @@ from fdai.runtime.inventory_ontology import (
     InventoryOntologyProjector,
 )
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
-from fdai.shared.providers.inventory import LinkRecord, ResourceRecord
+from fdai.shared.providers.inventory import (
+    LinkRecord,
+    RelationshipDrop,
+    RelationshipDropReason,
+    RelationshipUnavailableReason,
+    ResourceRecord,
+)
 from fdai.shared.providers.ontology_instance import (
     OntologyInstanceValidationError,
     OntologyObjectRecord,
@@ -30,6 +39,37 @@ from fdai.shared.providers.testing import InMemoryOntologyInstanceStore, InMemor
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 ONTOLOGY_RELEASE_DIGEST = "sha256:" + "a" * 64
+
+
+class _RecordingProjectionLock:
+    def __init__(self) -> None:
+        self.active = 0
+        self.max_active = 0
+        self.entries = 0
+
+    @asynccontextmanager
+    async def acquire(self, resource_id: str) -> AsyncIterator[None]:
+        assert resource_id == "inventory-ontology-projection"
+        self.entries += 1
+        self.active += 1
+        self.max_active = max(self.max_active, self.active)
+        try:
+            await asyncio.sleep(0)
+            yield
+        finally:
+            self.active -= 1
+
+
+class _FailStatusOnceStore(InMemoryStateStore):
+    def __init__(self) -> None:
+        super().__init__()
+        self.fail_status_once = True
+
+    async def write_state(self, key: str, value: dict[str, object]) -> None:
+        if key == INVENTORY_ONTOLOGY_STATUS_KEY and self.fail_status_once:
+            self.fail_status_once = False
+            raise RuntimeError("injected status commit failure")
+        await super().write_state(key, value)
 
 
 def _store() -> InMemoryOntologyInstanceStore:
@@ -63,6 +103,7 @@ def _observation(
     generation: str,
     resource_ids: tuple[str, ...],
     links: tuple[LinkRecord, ...] = (),
+    relationship_drops: tuple[RelationshipDrop, ...] = (),
     complete: bool = True,
     attach_metadata: bool = True,
 ) -> PromotedInventoryObservation:
@@ -79,6 +120,7 @@ def _observation(
         if attach_metadata
         else links,
         complete=complete,
+        relationship_drops=relationship_drops,
     )
 
 
@@ -137,6 +179,7 @@ async def test_first_generation_writes_owned_objects_and_manifest() -> None:
     assert result.object_count == 2
     assert result.link_count == 1
     assert result.complete is True
+    assert result.relationship_complete is True
 
     manifest = await status.read_state(INVENTORY_ONTOLOGY_MANIFEST_KEY)
     assert manifest is not None
@@ -144,12 +187,54 @@ async def test_first_generation_writes_owned_objects_and_manifest() -> None:
     assert manifest["generation"] == "snapshot-1"
     assert manifest["ontology_release_digest"] == ONTOLOGY_RELEASE_DIGEST
     assert await status.read_state(INVENTORY_ONTOLOGY_STATUS_KEY) == {
-        "schema_version": "1.1.0",
+        "schema_version": "1.2.0",
         "generation": "snapshot-1",
         "ontology_release_digest": ONTOLOGY_RELEASE_DIGEST,
         "status": "available",
+        "relationship_complete": True,
         "dropped_reasons": [],
     }
+
+
+async def test_projector_serializes_the_complete_commit_under_injected_lock() -> None:
+    store = _store()
+    status = InMemoryStateStore()
+    projection_lock = _RecordingProjectionLock()
+    projector = InventoryOntologyProjector(
+        store=store,
+        status_store=status,
+        ontology_release_digest=ONTOLOGY_RELEASE_DIGEST,
+        projection_lock=projection_lock,
+    )
+
+    await asyncio.gather(
+        projector.apply(_observation(generation="snapshot-1", resource_ids=("vm-1",))),
+        projector.apply(_observation(generation="snapshot-2", resource_ids=("vm-2",))),
+    )
+
+    assert projection_lock.entries == 2
+    assert projection_lock.max_active == 1
+    manifest = await status.read_state(INVENTORY_ONTOLOGY_MANIFEST_KEY)
+    assert manifest is not None
+    assert manifest["generation"] == "snapshot-2"
+
+
+async def test_projector_retry_recovers_after_manifest_write_before_status_commit() -> None:
+    store = _store()
+    status = _FailStatusOnceStore()
+    projector = _projector(store, status)
+    observation = _observation(generation="snapshot-1", resource_ids=("vm-1",))
+
+    with pytest.raises(RuntimeError, match="injected status commit failure"):
+        await projector.apply(observation)
+
+    assert await status.read_state(INVENTORY_ONTOLOGY_MANIFEST_KEY) is not None
+    assert await status.read_state(INVENTORY_ONTOLOGY_STATUS_KEY) is None
+    result = await projector.apply(observation)
+    assert result.status == "available"
+    committed = await status.read_state(INVENTORY_ONTOLOGY_STATUS_KEY)
+    assert committed is not None
+    assert committed["generation"] == "snapshot-1"
 
 
 def test_projector_rejects_unpinned_ontology_release() -> None:
@@ -212,7 +297,43 @@ async def test_projector_drops_unseeded_resource_type_without_blocking_generatio
     status_record = await status.read_state(INVENTORY_ONTOLOGY_STATUS_KEY)
     assert status_record is not None
     assert status_record["status"] == "available"
+    assert status_record["relationship_complete"] is False
     assert status_record["dropped_reasons"] == ["unseeded_resource_type"]
+
+
+async def test_classified_non_edge_advances_manifest_with_incomplete_coverage() -> None:
+    store = _store()
+    status = InMemoryStateStore()
+    projector = _projector(store, status)
+    await projector.apply(_observation(generation="snapshot-1", resource_ids=("vm-1",)))
+
+    result = await projector.apply(
+        _observation(
+            generation="snapshot-2",
+            resource_ids=("vm-2",),
+            relationship_drops=(
+                RelationshipDrop(
+                    reason=RelationshipDropReason.MISSING_TARGET_ENDPOINT,
+                    mapping_id="azure.example-depends-on-target",
+                    unavailable_reason=(
+                        RelationshipUnavailableReason.TARGET_OUTSIDE_ACTIVE_GENERATION
+                    ),
+                ),
+            ),
+        )
+    )
+
+    assert result.status == "available"
+    assert result.complete is True
+    assert result.relationship_complete is False
+    assert await store.get_object("vm-1") is None
+    assert await store.get_object("vm-2") is not None
+    manifest = await status.read_state(INVENTORY_ONTOLOGY_MANIFEST_KEY)
+    assert manifest is not None
+    assert manifest["generation"] == "snapshot-2"
+    assert manifest["complete"] is True
+    assert manifest["relationship_complete"] is False
+    assert manifest["dropped_reasons"] == ["missing_target_endpoint"]
 
 
 async def test_projector_rejects_malformed_mapping_for_unseeded_resource_type() -> None:
@@ -317,10 +438,11 @@ async def test_incomplete_observation_preserves_prior_projection_and_records_una
     assert await store.get_object("vm-2") is None
     assert await status.read_state(INVENTORY_ONTOLOGY_MANIFEST_KEY) == prior_manifest
     assert await status.read_state("inventory-ontology:status") == {
-        "schema_version": "1.1.0",
+        "schema_version": "1.2.0",
         "generation": "snapshot-2",
         "ontology_release_digest": ONTOLOGY_RELEASE_DIGEST,
         "status": "unavailable",
+        "relationship_complete": False,
         "dropped_reasons": ["observation_incomplete"],
     }
 

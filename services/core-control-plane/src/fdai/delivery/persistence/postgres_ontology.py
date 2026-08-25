@@ -474,12 +474,24 @@ class PostgresOntologyInstanceStore:
                     ),
                 )
             )
-        return OntologyGraphSnapshot(objects=objects, links=links, truncated=truncated)
+            source_complete, source_generation = await _resource_graph_source_coverage(
+                connection,
+                objects,
+                requires_resource_coverage="Resource" in object_types,
+            )
+        return OntologyGraphSnapshot(
+            objects=objects,
+            links=links,
+            truncated=truncated,
+            source_complete=source_complete,
+            source_generation=source_generation,
+        )
 
     async def traverse(
         self,
         *,
         root_ids: Sequence[str],
+        root_object_types: Sequence[str] = (),
         link_types: Sequence[str] = (),
         direction: OntologyDirection = "outgoing",
         max_depth: int = 1,
@@ -543,6 +555,11 @@ class PostgresOntologyInstanceStore:
                     truncated = True
                     break
             objects_by_id = await self._load_objects(connection, identifiers=tuple(sorted(visited)))
+            source_complete, source_generation = await _resource_graph_source_coverage(
+                connection,
+                tuple(objects_by_id.values()),
+                requires_resource_coverage="Resource" in root_object_types,
+            )
         links = tuple(
             sorted(
                 (
@@ -561,6 +578,8 @@ class PostgresOntologyInstanceStore:
             objects=tuple(objects_by_id[key] for key in sorted(objects_by_id)),
             links=links,
             truncated=truncated,
+            source_complete=source_complete,
+            source_generation=source_generation,
         )
 
     async def _connect(self) -> psycopg.AsyncConnection[dict[str, Any]]:
@@ -659,6 +678,70 @@ class PostgresOntologyInstanceStore:
         return tuple(
             _link_from_row(row, releases=self._releases) for row in await cursor.fetchall()
         )
+
+
+async def _resource_graph_source_coverage(
+    connection: psycopg.AsyncConnection[Any],
+    objects: Sequence[OntologyObjectRecord],
+    *,
+    requires_resource_coverage: bool = False,
+) -> tuple[bool, str | None]:
+    """Read exact inventory projection coverage for snapshots containing Resources."""
+
+    if not requires_resource_coverage and not any(
+        record.object_type == "Resource" for record in objects
+    ):
+        return True, None
+    cursor = await connection.execute(
+        "SELECT active.snapshot_id, status.value AS status_value, "
+        "manifest.value AS manifest_value "
+        "FROM inventory_active AS active "
+        "LEFT JOIN state_kv AS status ON status.key='inventory-ontology:status' "
+        "LEFT JOIN state_kv AS manifest ON manifest.key='inventory-ontology:manifest' "
+        "WHERE active.singleton=TRUE"
+    )
+    row = await cursor.fetchone()
+    if row is None:
+        return False, None
+    status = _json_mapping(row.get("status_value"))
+    manifest = _json_mapping(row.get("manifest_value"))
+    return _resolve_inventory_graph_source_coverage(
+        active_generation=row.get("snapshot_id"),
+        status=status,
+        manifest=manifest,
+    )
+
+
+def _resolve_inventory_graph_source_coverage(
+    *,
+    active_generation: object,
+    status: Mapping[str, Any],
+    manifest: Mapping[str, Any],
+) -> tuple[bool, str | None]:
+    """Reduce inventory projection state to exact graph generation and completeness."""
+
+    manifest_generation = manifest.get("generation")
+    source_generation = manifest_generation if isinstance(manifest_generation, str) else None
+    if (
+        not isinstance(active_generation, str)
+        or source_generation is None
+        or status.get("status") != "available"
+        or status.get("generation") != active_generation
+        or source_generation != active_generation
+        or manifest.get("complete") is not True
+    ):
+        return False, source_generation
+    relationship_complete = manifest.get("relationship_complete")
+    if relationship_complete is None:
+        dropped = manifest.get("dropped_reasons")
+        return isinstance(dropped, list) and not dropped, source_generation
+    return relationship_complete is True, source_generation
+
+
+def _json_mapping(value: object) -> Mapping[str, Any]:
+    if isinstance(value, str):
+        value = json.loads(value)
+    return value if isinstance(value, Mapping) else {}
 
 
 def _next_endpoint(

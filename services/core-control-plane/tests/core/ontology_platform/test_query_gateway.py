@@ -16,6 +16,7 @@ from fdai.core.ontology_platform.models import (
 from fdai.core.ontology_platform.object_sets import ObjectSetService
 from fdai.core.ontology_platform.query_gateway import (
     SecuredObjectSetQueryGateway,
+    SecuredObjectSetQueryReceipt,
     SecuredObjectSetQueryResult,
 )
 from fdai.shared.contracts.models import (
@@ -96,6 +97,7 @@ async def _gateway_with_records(
     object_type: OntologyObjectType,
     *records: OntologyObjectRecord,
     links: tuple[OntologyLinkRecord, ...] = (),
+    source_complete: bool = True,
 ) -> SecuredObjectSetQueryGateway:
     link_type = OntologyLinkType(
         schema_version="1.0.0",
@@ -128,8 +130,13 @@ async def _gateway_with_records(
             link_types=((link_type,) if links else ()),
         ),
         evaluation_cutoff=lambda: datetime(2026, 8, 8, tzinfo=UTC),
+        graph_completeness=lambda: _async_bool(source_complete),
         max_as_of_skew=timedelta(seconds=1),
     )
+
+
+async def _async_bool(value: bool) -> bool:
+    return value
 
 
 async def test_gateway_applies_role_redaction_to_every_returned_object() -> None:
@@ -167,6 +174,36 @@ async def test_gateway_applies_role_redaction_to_every_returned_object() -> None
     ]
     assert result.receipt.redactions.access_scope_count == 2
     assert result.receipt.redactions.objects_with_redactions == 2
+
+
+async def test_resource_receipt_preserves_incomplete_source_without_query_truncation() -> None:
+    object_type = _object_type()
+    gateway = await _gateway_with_records(
+        object_type,
+        OntologyObjectRecord(
+            id="resource-a",
+            object_type="Resource",
+            properties={"id": "resource-a", "label": "API"},
+        ),
+        source_complete=False,
+    )
+
+    result = await gateway.materialize(_definition(), projection_request=_request())
+
+    assert result.materialization.truncated is False
+    assert result.receipt.truncated is False
+    assert result.receipt.source_complete is False
+    assert result.receipt.schema_version == "1.2.0"
+    assert result.receipt.complete is False
+
+    legacy_payload = result.receipt.model_dump(mode="json")
+    legacy_payload["schema_version"] = "1.1.0"
+    legacy_payload.pop("source_complete")
+    legacy_payload.pop("source_generation")
+    legacy = SecuredObjectSetQueryReceipt.model_validate(legacy_payload)
+    assert legacy.schema_version == "1.1.0"
+    assert legacy.source_complete is True
+    assert legacy.source_generation is None
 
 
 async def test_gateway_applies_only_the_definition_purpose() -> None:

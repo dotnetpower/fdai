@@ -14,6 +14,58 @@ from fdai.shared.ontology.release import build_ontology_release
 from fdai.shared.providers.ontology_instance import OntologyInstanceValidationError
 
 
+def test_inventory_graph_source_coverage_requires_exact_complete_generation() -> None:
+    complete, generation = postgres_ontology._resolve_inventory_graph_source_coverage(
+        active_generation="generation-2",
+        status={"status": "available", "generation": "generation-2"},
+        manifest={
+            "generation": "generation-2",
+            "complete": True,
+            "relationship_complete": True,
+            "dropped_reasons": [],
+        },
+    )
+
+    assert complete is True
+    assert generation == "generation-2"
+
+
+@pytest.mark.parametrize(
+    ("status", "manifest"),
+    [
+        (
+            {"status": "unavailable", "generation": "generation-2"},
+            {
+                "generation": "generation-1",
+                "complete": True,
+                "relationship_complete": True,
+                "dropped_reasons": [],
+            },
+        ),
+        (
+            {"status": "available", "generation": "generation-2"},
+            {
+                "generation": "generation-2",
+                "complete": True,
+                "relationship_complete": False,
+                "dropped_reasons": ["missing_target_endpoint"],
+            },
+        ),
+    ],
+)
+def test_inventory_graph_source_coverage_rejects_stale_or_incomplete_projection(
+    status: dict[str, object],
+    manifest: dict[str, object],
+) -> None:
+    complete, _generation = postgres_ontology._resolve_inventory_graph_source_coverage(
+        active_generation="generation-2",
+        status=status,
+        manifest=manifest,
+    )
+
+    assert complete is False
+
+
 def test_projection_revision_fence_rejects_unpinned_overwrite() -> None:
     with pytest.raises(OntologyInstanceValidationError, match="revision fence"):
         postgres_ontology._require_projection_revision(  # noqa: SLF001 - persistence boundary

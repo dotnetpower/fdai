@@ -139,10 +139,20 @@
     "noRelationships": "No direct relationship is recorded in this bounded projection.",
     "relationshipEvidence": "Relationship evidence",
     "relationshipSource": "Source",
+    "evidenceStatus": "Evidence status",
+    "evidenceStatusValue": {
+      "available": "Current",
+      "stale": "Stale"
+    },
     "evidenceKind": "Evidence kind",
     "evidenceKindValue": {
       "configuration": "Configuration",
       "observation": "Observation"
+    },
+    "verificationStatus": "Verification level",
+    "verificationStatusValue": {
+      "configuration_observed": "Provider configuration observed",
+      "independently_verified": "Independently verified"
     },
     "completeness": "Completeness",
     "complete": "Complete",

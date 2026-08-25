@@ -166,6 +166,27 @@ describe("decodeOntologyInstanceExploration", () => {
     mutate(value);
     expect(() => decodeOntologyInstanceExploration(value)).toThrow();
   });
+
+  it("preserves stale configuration evidence without marking it complete", () => {
+    const value = payload();
+    const links = value.links as Record<string, unknown>[];
+    links[0]!.evidence = {
+      ...relationshipEvidence(),
+      status: "stale",
+      verification_status: "configuration_observed",
+      complete: false,
+      reason: "relationship_evidence_stale",
+    };
+
+    const decoded = decodeOntologyInstanceExploration(value);
+
+    expect(decoded.links[0]?.evidence).toMatchObject({
+      status: "stale",
+      verification_status: "configuration_observed",
+      complete: false,
+      reason: "relationship_evidence_stale",
+    });
+  });
 });
 
 describe("partitionOntologyInstanceLinks", () => {
@@ -239,6 +260,7 @@ function relationshipEvidence(): Record<string, unknown> {
   return {
     status: "available",
     evidence_kind: "configuration",
+    verification_status: "configuration_observed",
     source: "azure-resource-graph",
     source_property_path: "properties.managedEnvironmentId",
     mapping_id: "azure.container-app-depends-on-managed-environment",
@@ -263,6 +285,7 @@ function relationship(
     evidence: {
       status: "available" as const,
       evidence_kind: "configuration" as const,
+      verification_status: "configuration_observed" as const,
       source: "azure-resource-graph",
       source_property_path: "properties.referenceId",
       mapping_id: mappingId,

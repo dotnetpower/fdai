@@ -139,10 +139,20 @@
     "noRelationships": "범위가 제한된 이 프로젝션에 기록된 직접 관계가 없습니다.",
     "relationshipEvidence": "관계 근거",
     "relationshipSource": "출처",
+    "evidenceStatus": "근거 상태",
+    "evidenceStatusValue": {
+      "available": "현재 상태",
+      "stale": "기한 경과"
+    },
     "evidenceKind": "근거 종류",
     "evidenceKindValue": {
       "configuration": "구성",
       "observation": "관측"
+    },
+    "verificationStatus": "검증 수준",
+    "verificationStatusValue": {
+      "configuration_observed": "공급자 구성 관측",
+      "independently_verified": "독립 검증됨"
     },
     "completeness": "완전성",
     "complete": "완전함",

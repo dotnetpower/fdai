@@ -13,7 +13,13 @@ from fdai.core.ontology_platform.pod_telemetry_evidence import (
     TelemetrySegmentStatus,
     evaluate_state_fact_metadata,
 )
-from fdai.shared.providers.inventory import LinkRecord, ResourceRecord
+from fdai.shared.providers.inventory import (
+    LinkRecord,
+    RelationshipDrop,
+    RelationshipDropReason,
+    RelationshipUnavailableReason,
+    ResourceRecord,
+)
 from fdai.shared.providers.state_evidence import (
     LINK_OBSERVATION_METADATA_PROPERTY,
     STATE_FACT_METADATA_PROPERTY,
@@ -101,6 +107,7 @@ def test_complete_observation_projects_typed_objects_and_links() -> None:
         ("contains", "rg-1", "vm-1")
     ]
     assert projection.complete is True
+    assert projection.relationship_complete is True
     assert projection.dropped_reasons == ()
 
     vm = next(item for item in projection.objects if item.id == "vm-1")
@@ -143,6 +150,24 @@ def test_unmapped_resource_type_blocks_complete_classification_projection() -> N
     assert projection.links == ()
     assert projection.complete is False
     assert projection.dropped_reasons == ("unmapped_resource_type",)
+
+
+def test_classified_non_edge_preserves_promotable_generation_and_lowers_coverage() -> None:
+    projection = build_inventory_ontology_projection(
+        generation="snapshot-1",
+        resources=(_resource("vm-1"),),
+        relationship_drops=(
+            RelationshipDrop(
+                reason=RelationshipDropReason.MISSING_TARGET_ENDPOINT,
+                mapping_id="azure.example-depends-on-target",
+                unavailable_reason=(RelationshipUnavailableReason.TARGET_OUTSIDE_ACTIVE_GENERATION),
+            ),
+        ),
+    )
+
+    assert projection.complete is True
+    assert projection.relationship_complete is False
+    assert projection.dropped_reasons == ("missing_target_endpoint",)
 
 
 def test_link_observation_metadata_is_projected_canonically() -> None:

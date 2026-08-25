@@ -166,10 +166,16 @@ class AzureArmInventoryFactory:
                     links.extend(projected.links)
                     relationship_drops.extend(projected.dropped)
             mapped_keys = {(link.from_id, link.link_type, link.to_id) for link in links}
+            mapped_containment_targets = {
+                link.to_id
+                for link in links
+                if link.link_type == "contains" and link.mapping_evidence is not None
+            }
             links.extend(
                 link
                 for link in extract_rg_contains_links(resources)
                 if resource_type != _PRIVATE_DNS_ZONE_GROUP_RESOURCE_TYPE
+                if link.to_id not in mapped_containment_targets
                 if (link.from_id, link.link_type, link.to_id) not in mapped_keys
             )
             return ResourceQueryResult(

@@ -621,6 +621,41 @@ async def test_promotion_rejects_dangling_link() -> None:
         await store.promote(attempt, _manifest("arg"))
 
 
+async def test_promotion_rejects_multiple_contains_parents() -> None:
+    _upgrade()
+    store = PostgresInventorySnapshotStore(config=PostgresInventorySnapshotStoreConfig(dsn=_dsn()))
+    attempt = await store.begin(_manifest("arg"))
+    await store.stage(
+        attempt,
+        InventoryBatch(
+            resources=(
+                ResourceRecord("parent-one", "resource-group"),
+                ResourceRecord("parent-two", "kubernetes-cluster"),
+                ResourceRecord("child-one", "kubernetes-node-pool"),
+            ),
+            links=(
+                LinkRecord(
+                    from_id="parent-one",
+                    from_type="resource-group",
+                    link_type="contains",
+                    to_id="child-one",
+                    to_type="kubernetes-node-pool",
+                ),
+                LinkRecord(
+                    from_id="parent-two",
+                    from_type="kubernetes-cluster",
+                    link_type="contains",
+                    to_id="child-one",
+                    to_type="kubernetes-node-pool",
+                ),
+            ),
+        ),
+    )
+
+    with pytest.raises(ValueError, match="contains parent cardinality"):
+        await store.promote(attempt, _manifest("arg"))
+
+
 async def test_realtime_overlay_upsert_and_delete_override_active_snapshot() -> None:
     _upgrade()
     config = PostgresInventorySnapshotStoreConfig(dsn=_dsn())

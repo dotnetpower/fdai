@@ -96,6 +96,22 @@ Resource and relationship updates are ordered per logical resource. Duplicate de
 and a stale cursor or older event cannot move an instance backward. Tombstones retain their source,
 effective time, generation, and archive lineage.
 
+A complete provider generation may contain reviewed candidates that cannot become edges because an
+endpoint is outside the active generation, its provider type is not modeled, or its exact reference
+was not observed. These typed non-edges do not freeze newer Resource objects and independently
+verified links. The ontology projection advances the same generation with
+`relationship_complete=false`, preserves every classified reason, and prevents a query from using
+the graph as complete evidence. An unclassified drop, invalid verification metadata, partial source
+generation, conflict, or cardinality violation remains blocking and preserves the previous graph.
+
+An exact reviewed provider parent shadows generic Resource Group containment for the same child.
+Snapshot promotion independently rejects more than one `contains` parent for any child before the
+active pointer changes, and the ontology store revalidates LinkType cardinality before commit. The
+ontology projector holds a process-local lock and a PostgreSQL session advisory lock across graph
+replacement and its manifest/status commit marker. Readers require the active snapshot, status, and
+manifest generations to match. A crash or stale replica therefore yields incomplete evidence until
+an idempotent retry closes the commit; it never exposes a mixed generation as complete.
+
 ## Retention, rollup, and archive
 
 ### Storage tiers
@@ -150,6 +166,12 @@ Natural-language and model output can propose meaning only. Core verifies the pr
 scope, ontology release, ObjectType, LinkType direction, FunctionType, bounds, and refresh outcome
 before graph, archive, or provider I/O.
 
+Resource ObjectSet receipts carry source generation and source completeness independently from
+query truncation. This applies even when the result has zero Resources, so incomplete coverage
+cannot become a false proof of absence. Operator relationship projections also distinguish current,
+stale, and future-cutoff evidence, and distinguish provider configuration observation from an
+independently verified observation receipt.
+
 ## Source-to-store implementation audit
 
 OI-01 records the exact code owner, runtime or storage binding, focused tests, state, and missing
@@ -184,6 +206,8 @@ work, or an open stage that does not name its exact gap.
 |------|-------|----------|-------|
 | Push events and durable delta overlay | implemented | `delivery/azure/activity_log.py`; realtime inventory projector and focused tests | Resource changes can update a bounded overlay. Deployment evidence remains separate. |
 | Complete inventory promotion and ontology projection | implemented | `delivery/inventory_sync.py`; `runtime/inventory_ontology.py`; focused inventory and projection tests | Complete generations replace the owned subgraph atomically. The existing routine cadence is not the target continuous policy. |
+| Relationship generation convergence | implemented | `arm_inventory.py`, `postgres_inventory_snapshot.py`, `inventory_projection.py`, `inventory_ontology.py`, PostgreSQL source coverage, Operator/Console evidence projection, and focused regression checks | Reviewed parents shadow generic fallback, snapshot and ontology cardinality gates agree, classified non-edges advance the exact generation without claiming complete coverage, and graph receipts preserve generation, freshness, verification level, and zero-result limitations. |
+| Kubernetes rollout observations | implemented | `kubernetes_api_inventory.py`; `test_kubernetes_api_inventory.py` (`7 passed`) | The complete UID-grounded generation preserves an allowlisted Deployment replica and Progressing condition projection plus Pod phase, readiness, restart count, and waiting reasons. Raw image names, image digests, messages, and status payloads remain excluded. Live exact-release evidence remains open. |
 | Bitemporal topology history | implemented | `core/ontology_platform/topology_history.py`; PostgreSQL topology history adapter and focused tests | Current production retention, rollup, archive, and restore evidence remains open. |
 | Adaptive continuous scheduling | implemented | `inventory_source_policy.py`, `inventory_scheduler.py`, PostgreSQL reconciliation state, collection health, and focused collection checks | Source policy and deterministic scheduling are implemented. Deployed operational measurement remains separate validation evidence. |
 | Typed rollup and archive lifecycle | implemented | `semantic_rollup*.py`, `archive_*.py`, `inventory_rollup.py`, PostgreSQL archive adapter, Core service migration, and focused integration checks | Rollup and archive contracts are implemented and locally verified. No Azure archive store or deployed purge was invoked. |
@@ -199,6 +223,8 @@ work, or an open stage that does not name its exact gap.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-25 | implemented | Hardened Azure relationship convergence after a live local generation exposed eight AKS AgentPools with both reviewed AKS parents and evidence-free Resource Group parents. Exact-parent shadowing and a durable cardinality gate remove the duplicate parent path. Classified non-edges can now advance current verified Resources and links while preserving incomplete coverage; distributed projection locking, source-bound query receipts, stale evidence projection, and additive N-1 receipt decode close the generation and evidence gaps. | `current change`; focused ARM, provider contract, projection, runtime, PostgreSQL, ObjectSet, Operator, and Console checks; twelve adversarial rounds below. | Refresh and retain an authoritative local generation after focused validation. Deployed Azure certification remains separate under Issue #262. |
+| 2026-08-25 | implemented | Added bounded Kubernetes Deployment and Pod rollout status to the complete inventory generation. The adapter retains only replica counts, the single Progressing condition, Pod readiness, restart counts, and waiting reasons, and rejects malformed status instead of retaining raw provider payloads. | `current change`; `kubernetes_api_inventory.py`; focused Kubernetes API inventory checks passed 7 cases. | Retain a complete live exact-release generation and bind the typed rollout assessment through the graph-first query path. |
 | 2026-08-25 | implemented | Corrected complete-generation relationship verification so an observed endpoint with the wrong type is classified as `target_type_mismatch` instead of an unrelated duplicate conflict. The candidate remains absent from the active graph and retains its mapping-specific unavailable reason. | `current change`; focused relationship projection and verification checks passed 65 cases. | Retain deployed complete-generation evidence separately; this correction adds no relationship or authority. |
 | 2026-08-22 | in-progress | Adopted the continuous operational instance graph contract. It replaces fixed six-hour freshness as the target with event-driven and adaptive bounded collection, and adds typed rollup, verified archive, restore, and purge requirements. | `current change`; paired design document and focused documentation gates. | Complete OI-01 through OI-12 with focused implementation and operational evidence. |
 | 2026-08-22 | implemented | Completed OI-01 with a machine-readable 15-stage source-to-store audit and a deterministic checker for owner, binding, test, state, and missing-gap evidence. | `current change`; audit record, checker, and focused audit tests (`3 passed`). | Start OI-02 with validated source-policy declarations; leave adaptive control, rollup, archive, and live write-through to their owning later packages. |
@@ -242,6 +268,27 @@ work, or an open stage that does not name its exact gap.
 | 2026-08-23 | validated | Replaced the browser-native Resource datalist with a Console-owned accessible autocomplete. Case-insensitive containment matching renders no more than five suggestions, keyboard navigation preserves exact Resource selection, and the owned listbox uses Console surface, text, border, focus, height, and overflow tokens. Short desktop and mobile layouts open the list above the input, while mobile keeps five complete 44 px rows. | `current change`; the focused autocomplete model and view checks passed 19 cases, Console typecheck and production build passed, and authenticated standard-port Browser checks passed at `1440x900`, `993x641`, and `390x844`. Every viewport rendered exactly five suggestions inside the list and viewport with zero document or explorer overflow. The desktop list used a 220 px maximum height and the mobile list used 230 px for five complete touch rows. Arrow-key selection synchronized the input, selector, and read-only URL. | Graph evidence, completeness, relationship direction, and authority are unchanged. Activity Log, Resource Health, and runtime call evidence remain separately tracked. |
 | 2026-08-23 | validated | Excluded observed `authorization.role-assignment` Resources from the operator-selectable instance directory, selector, autocomplete, and direct URL root. The underlying observed objects and access relationships remain available as graph evidence; this presentation filter does not delete provider evidence or change graph, mutation, or execution authority. | `current change`; the focused instance model and view checks passed 20 cases, Console typecheck and production build passed, and the authenticated standard-port Browser cleared an existing role-assignment URL to the unselected Instances view. The selector and autocomplete exposed zero role-assignment entries, while 49 ordinary Resources and four matching Container Registry suggestions remained available with zero page overflow. | Access evidence and provider-observed role assignments remain in the bounded graph response for relationship inspection. Activity Log, Resource Health, and runtime call evidence remain separately tracked. |
 | 2026-08-23 | validated | Expanded the Resource autocomplete from five to ten bounded matches and aligned the Console with the component specimen's rich option hierarchy. Each row now presents a compact type badge, Resource name, exact resource type, and desktop Resource label. The list uses a 480 px desktop width and a 420 px scroll ceiling; mobile keeps the input width, hides the redundant type label, and preserves touch-sized rows. | `current change`; the focused Console checks passed 20 cases, the component specimen contract passed, Console typecheck and production build passed, and authenticated Browser checks covered both the standard Console and design server. Desktop rendered ten rich rows in a 480 px list with no secondary-type truncation or page overflow. Mobile rendered ten scrollable rows at least 52 px high with zero page overflow. The design specimen exposed ten matches under a 360 px scroll ceiling. Both surfaces retained zero role-assignment suggestions. | Exact selection, keyboard behavior, graph evidence, completeness, relationship direction, and authority are unchanged. Activity Log, Resource Health, and runtime call evidence remain separately tracked. |
+
+### Relationship hardening record
+
+| Round | Review lens | Highest verified severity | Evidence and disposition |
+|-------|-------------|---------------------------|--------------------------|
+| 1 | Direction and parent ownership | Critical, resolved | Reproduced eight AKS AgentPool dual parents. Reviewed provider-parent containment now shadows generic Resource Group fallback for the same child. |
+| 2 | LinkType cardinality and durable promotion | High, resolved | Snapshot promotion rejects multiple `contains` parents, while ontology `replace_subgraph` independently runs declaration cardinality validation. |
+| 3 | Classified non-edge reason forgery | Low | Exact drop-reason and unavailable-reason combinations validate at the provider contract boundary; unclassified failures remain blocking. |
+| 4 | Provider completeness versus relationship coverage | Medium, resolved | `complete` now controls safe generation replacement and `relationship_complete` independently preserves classified missing edges without claiming absence. |
+| 5 | Active snapshot, status, and manifest skew | Medium, resolved | PostgreSQL graph reads require exact generation agreement; status remains the final commit marker and mismatch is incomplete evidence. |
+| 6 | Empty Resource result false absence | High, resolved | Requested root ObjectTypes reach the store and source coverage remains attached even when zero Resource rows are returned. |
+| 7 | Freshness, future cutoff, and clock boundaries | Medium, resolved | Operator evidence uses an injected aware clock, marks expired or future-cutoff evidence non-complete, and keeps the exact cutoff and ceiling. |
+| 8 | Configuration evidence versus independent verification | Medium, resolved | API and Console expose `configuration_observed` separately from `independently_verified`; configuration evidence no longer reads as verification. |
+| 9 | ACL, source metadata, and digest binding | Medium, resolved | ACL projection, filtering, link closure, immutable freezing, and result digests preserve source generation and completeness. |
+| 10 | Rolling N/N-1 compatibility | Medium, resolved | New receipts emit 1.2 while 1.1 payloads without additive source fields still decode with conservative legacy defaults. |
+| 11 | Operator, Console, and localization parity | Medium, resolved | Strict decoding accepts current, stale, and unavailable states, validates evidence-kind/verification consistency, and English/Korean catalogs expose the same labels. |
+| 12 | Concurrency, crash recovery, and single writer | High, resolved | A process-local lock plus PostgreSQL session advisory lock covers graph and commit-marker writes; failure injection proves manifest-before-status retry recovery. |
+
+No verified Critical, High, or Medium finding remains after these fixes. Residual Low work is
+additional provider-type coverage and deployed evidence retention; it does not widen authority or
+permit an incomplete graph to prove absence.
 
 ### Remaining work
 

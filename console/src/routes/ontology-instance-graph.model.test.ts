@@ -758,6 +758,7 @@ function link(
     evidence: {
       status: "available",
       evidence_kind: "configuration",
+      verification_status: "configuration_observed",
       source: "azure-resource-graph",
       source_property_path: "properties.referenceId",
       mapping_id: `test.${linkType}`,

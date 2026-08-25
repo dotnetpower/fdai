@@ -246,6 +246,8 @@ def project_graph_snapshot(
             if link.from_id in projected_ids and link.to_id in projected_ids
         ),
         truncated=snapshot.truncated,
+        source_complete=snapshot.source_complete,
+        source_generation=snapshot.source_generation,
     )
     _validate_projected_snapshot(projected_snapshot)
     return projected_snapshot

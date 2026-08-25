@@ -345,6 +345,12 @@ def _build_ontology_observer(
             ontology_release_digest=ontology_release_digest,
             resource_type_mappings=resource_type_mapping_digests(vocabulary),
             freshness_ceiling_seconds=config.reconciliation_interval_seconds,
+            projection_lock=PostgresAdvisoryResourceLock(
+                config=PostgresAdvisoryResourceLockConfig(
+                    dsn=config.dsn,
+                    lock_timeout_ms=30_000,
+                )
+            ),
         )
         topology_publisher = InventoryTopologyHistoryPublisher(
             writer=PostgresTopologyHistoryStore(

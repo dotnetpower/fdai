@@ -18,6 +18,7 @@ from fdai_operator_service.families.operations.contracts import (
     ProjectionQuery,
 )
 from fdai_operator_service.families.operations.instance_explorer import (
+    _relationship_evidence_projection,
     project_inventory_instance,
     project_inventory_instances,
 )
@@ -218,6 +219,7 @@ async def test_instance_projection_combines_snapshot_neighborhood_and_activity()
                 "governed_by",
             ],
         },
+        now=lambda: datetime(2026, 8, 22, 2, 0, tzinfo=UTC),
     )
 
     assert result["source_generation"] == "generation-1"
@@ -269,6 +271,7 @@ async def test_instance_projection_combines_snapshot_neighborhood_and_activity()
             "evidence": {
                 "status": "available",
                 "evidence_kind": "configuration",
+                "verification_status": "configuration_observed",
                 "source": "azure-resource-graph",
                 "source_property_path": "properties.managedEnvironmentId",
                 "mapping_id": "azure.container-app-depends-on-managed-environment",
@@ -286,6 +289,7 @@ async def test_instance_projection_combines_snapshot_neighborhood_and_activity()
             "evidence": {
                 "status": "unavailable",
                 "evidence_kind": None,
+                "verification_status": "unavailable",
                 "source": None,
                 "source_property_path": None,
                 "mapping_id": None,
@@ -340,3 +344,62 @@ async def test_instance_projection_combines_snapshot_neighborhood_and_activity()
             "reason": "projection_not_bound",
         },
     ]
+
+
+async def test_instance_projection_marks_expired_relationship_evidence_stale() -> None:
+    result = await project_inventory_instance(
+        query=ProjectionQuery(
+            operation="ontology.instance.explore",
+            principal_id="reader",
+            path={},
+            params={"root": ("container-app-1",), "activity_limit": ("10",)},
+            limit=25,
+            cursor=None,
+            roles=frozenset({OperatorRole.READER}),
+        ),
+        reader=_Reader(),
+        ontology_projection={
+            "ontology_release_digest": f"sha256:{'a' * 64}",
+            "link_types": ["contains", "attached_to", "depends_on"],
+        },
+        now=lambda: datetime(2026, 8, 22, 8, 0, 1, tzinfo=UTC),
+    )
+
+    links = result["links"]
+    assert isinstance(links, list)
+    evidence = links[0]["evidence"]
+    assert evidence["status"] == "stale"
+    assert evidence["verification_status"] == "configuration_observed"
+    assert evidence["complete"] is False
+    assert evidence["reason"] == "relationship_evidence_stale"
+
+
+def test_relationship_evidence_freshness_boundaries_and_verification_level() -> None:
+    cutoff = datetime(2026, 8, 22, 1, 0, tzinfo=UTC)
+    evidence = InventoryRelationshipEvidence(
+        source_identity="runtime-telemetry",
+        source_property_path="caller_resource_ids,target_resource_ids",
+        mapping_id="runtime-call-endpoint-identity",
+        evidence_method="deterministic-cross-check",
+        freshness_ceiling_seconds=300,
+        evidence_kind="observation",
+        evidence_cutoff=cutoff,
+    )
+
+    current = _relationship_evidence_projection(
+        evidence,
+        cutoff=cutoff,
+        evaluated_at=datetime(2026, 8, 22, 1, 5, tzinfo=UTC),
+    )
+    assert current["status"] == "available"
+    assert current["verification_status"] == "independently_verified"
+    assert current["complete"] is True
+
+    future = _relationship_evidence_projection(
+        evidence,
+        cutoff=cutoff,
+        evaluated_at=datetime(2026, 8, 22, 0, 59, 59, tzinfo=UTC),
+    )
+    assert future["status"] == "stale"
+    assert future["complete"] is False
+    assert future["reason"] == "relationship_evidence_future_cutoff"

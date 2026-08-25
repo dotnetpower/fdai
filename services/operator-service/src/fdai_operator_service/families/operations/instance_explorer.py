@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from datetime import datetime
+from collections.abc import Callable, Mapping
+from datetime import UTC, datetime
 
 from fdai_operator_service.families.operations.contracts import (
     InventoryImpactContext,
@@ -78,6 +78,7 @@ async def project_inventory_instance(
     query: ProjectionQuery,
     reader: InventoryInstanceReader,
     ontology_projection: Mapping[str, object],
+    now: Callable[[], datetime] | None = None,
 ) -> dict[str, object]:
     """Project one Resource, its bounded connected graph, and exact durable FDAI activity."""
 
@@ -96,6 +97,9 @@ async def project_inventory_instance(
     context = await reader.read_inventory_impact_context()
     if context is None:
         raise ProjectionUnavailableError("active inventory snapshot is unavailable")
+    evaluated_at = (now or (lambda: datetime.now(UTC)))()
+    if evaluated_at.tzinfo is None:
+        raise ValueError("inventory instance evaluation time MUST be timezone-aware")
     neighborhood = await reader.read_inventory_instance_neighborhood(
         snapshot_id=context.snapshot_id,
         root_id=root_id,
@@ -140,6 +144,7 @@ async def project_inventory_instance(
                 "evidence": _relationship_evidence_projection(
                     edge.evidence,
                     cutoff=context.observed_at,
+                    evaluated_at=evaluated_at,
                 ),
             }
             for edge in sorted(
@@ -394,11 +399,13 @@ def _relationship_evidence_projection(
     evidence: InventoryRelationshipEvidence | None,
     *,
     cutoff: datetime,
+    evaluated_at: datetime,
 ) -> dict[str, object]:
     if evidence is None:
         return {
             "status": "unavailable",
             "evidence_kind": None,
+            "verification_status": "unavailable",
             "source": None,
             "source_property_path": None,
             "mapping_id": None,
@@ -408,17 +415,33 @@ def _relationship_evidence_projection(
             "complete": False,
             "reason": "provider_relationship_evidence_unavailable",
         }
+    evidence_cutoff = evidence.evidence_cutoff or cutoff
+    age_seconds = (evaluated_at - evidence_cutoff).total_seconds()
+    if age_seconds < 0:
+        status = "stale"
+        reason = "relationship_evidence_future_cutoff"
+    elif age_seconds > evidence.freshness_ceiling_seconds:
+        status = "stale"
+        reason = "relationship_evidence_stale"
+    else:
+        status = "available"
+        reason = None
     return {
-        "status": "available",
+        "status": status,
         "evidence_kind": evidence.evidence_kind,
+        "verification_status": (
+            "independently_verified"
+            if evidence.evidence_kind == "observation"
+            else "configuration_observed"
+        ),
         "source": evidence.source_identity,
         "source_property_path": evidence.source_property_path,
         "mapping_id": evidence.mapping_id,
         "evidence_method": evidence.evidence_method,
-        "cutoff": (evidence.evidence_cutoff or cutoff).isoformat(),
+        "cutoff": evidence_cutoff.isoformat(),
         "freshness_ceiling_seconds": evidence.freshness_ceiling_seconds,
-        "complete": True,
-        "reason": None,
+        "complete": status == "available",
+        "reason": reason,
     }
 
 

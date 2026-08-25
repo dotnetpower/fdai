@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 88197ab19b3903dcddf9ac898396d29ef96f31a3
+translation_source_sha: a4358c8861c4fee6cd18ca3aacbf6bbe53bd621e
 translation_revised: 2026-08-25
 ---
 # 지속형 운영 인스턴스 그래프
@@ -96,6 +96,23 @@ probe를 예약합니다.
 이전 이벤트는 인스턴스를 뒤로 이동시킬 수 없습니다. Tombstone은 원본, 유효 시간, 세대,
 archive 계보를 유지합니다.
 
+완전한 공급자 세대에는 endpoint가 활성 세대 밖에 있거나 공급자 타입이 모델링되지 않았거나
+정확한 참조가 관측되지 않아 edge가 될 수 없는 검토된 candidate가 포함될 수 있습니다. 이
+타입 지정 non-edge는 최신 Resource 객체와 독립적으로 검증된 link의 전진을 막지 않습니다.
+Ontology projection은 같은 세대를 `relationship_complete=false`로 전진시키고 분류된 모든
+사유를 보존하며 쿼리가 그래프를 완전한 근거로 사용하지 못하게 합니다. 분류되지 않은 drop,
+잘못된 검증 metadata, 부분 source 세대, conflict 또는 cardinality 위반은 계속 차단되며 이전
+그래프를 보존합니다.
+
+정확히 검토된 공급자 parent는 같은 child에 대한 일반 Resource Group containment를
+shadow합니다. Snapshot promotion은 활성 pointer를 변경하기 전에 child별 `contains` parent가
+하나를 초과하는지 독립적으로 거부하고, ontology store는 commit 전에 LinkType cardinality를
+다시 검증합니다. Ontology projector는 graph 교체와 manifest/status commit marker 전체에서
+process-local lock과 PostgreSQL session advisory lock을 유지합니다. Reader는 active snapshot,
+status, manifest generation이 일치해야 한다고 요구합니다. 따라서 crash 또는 stale replica는
+idempotent retry가 commit을 닫을 때까지 incomplete evidence를 반환하며 혼합 세대를 complete로
+노출하지 않습니다.
+
 ## 보존, rollup, archive
 
 ### 저장 계층
@@ -149,6 +166,12 @@ Hot 그래프는 archive index와 범위 요약을 유지하여 쿼리가 archiv
 principal, 목적, 범위, ontology release, ObjectType, LinkType 방향, FunctionType, 제한,
 refresh 결과를 검증합니다.
 
+Resource ObjectSet receipt는 source generation 및 source completeness를 query truncation과
+독립적으로 전달합니다. 결과 Resource가 0개여도 적용되므로 불완전한 coverage가 잘못된 부재
+증명이 될 수 없습니다. Operator relationship projection은 current, stale, future-cutoff
+evidence를 구분하고 공급자 configuration observation과 independently verified observation
+receipt도 구분합니다.
+
 ## 원본부터 저장소까지 구현 감사
 
 OI-01은 각 단계의 정확한 코드 소유자, 런타임 또는 저장소 binding, 집중 테스트, 상태, 누락
@@ -183,6 +206,8 @@ binding을
 |------|------|------|------|
 | Push 이벤트와 durable delta overlay | implemented | `delivery/azure/activity_log.py`, 실시간 inventory projector와 집중 테스트 | 리소스 변경은 범위가 제한된 overlay를 업데이트할 수 있습니다. 배포 근거는 별도입니다. |
 | 완전한 inventory promotion과 ontology 변환 결과 | implemented | `delivery/inventory_sync.py`, `runtime/inventory_ontology.py`, 집중 inventory 및 변환 결과 테스트 | 완전 세대가 소유된 하위 그래프를 원자적으로 대체합니다. 기존 정기 cadence는 목표 지속형 정책이 아닙니다. |
+| 관계 세대 수렴 | implemented | `arm_inventory.py`, `postgres_inventory_snapshot.py`, `inventory_projection.py`, `inventory_ontology.py`, PostgreSQL source coverage, Operator/Console evidence projection, 집중 회귀 검사 | 검토된 parent가 일반 fallback을 shadow하고 snapshot과 ontology cardinality gate가 일치합니다. 분류된 non-edge는 complete coverage를 주장하지 않고 exact generation을 전진시키며 graph receipt는 generation, freshness, verification level, zero-result limitation을 보존합니다. |
+| Kubernetes rollout 관측 | implemented | `kubernetes_api_inventory.py`, `test_kubernetes_api_inventory.py`(`7 passed`) | UID에 근거한 완전 세대는 허용 목록에 있는 Deployment replica 및 Progressing 조건 변환과 Pod phase, 준비 상태, 재시작 횟수, 대기 사유를 보존합니다. 원시 image 이름, image digest, message, status payload는 제외합니다. 실제 운영 exact-release 근거는 열린 상태입니다. |
 | Bitemporal topology 이력 | implemented | `core/ontology_platform/topology_history.py`, PostgreSQL topology 이력 adapter와 집중 테스트 | 현재 production 보존, rollup, archive, 복원 근거는 열려 있습니다. |
 | 적응형 지속 일정 관리 | implemented | `inventory_source_policy.py`, `inventory_scheduler.py`, PostgreSQL reconciliation 상태, collection health, focused collection 검사 | Source policy와 결정론적 scheduling이 구현됐습니다. 배포 운영 측정은 별도의 validation evidence로 남습니다. |
 | 타입 지정 rollup과 archive lifecycle | implemented | `semantic_rollup*.py`, `archive_*.py`, `inventory_rollup.py`, PostgreSQL archive adapter, Core service migration, focused integration 검사 | Rollup과 archive 계약은 구현되고 로컬에서 검증됐습니다. Azure archive store 또는 배포 purge는 호출하지 않았습니다. |
@@ -198,6 +223,8 @@ binding을
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-25 | implemented | 실제 로컬 세대에서 AKS AgentPool 8개가 검토된 AKS parent와 evidence가 없는 Resource Group parent를 동시에 가진 상태를 확인한 뒤 Azure 관계 수렴을 강화했습니다. Exact-parent shadowing과 durable cardinality gate가 중복 parent 경로를 제거합니다. 분류된 non-edge는 incomplete coverage를 보존하면서 현재의 검증된 Resource와 link를 전진시킬 수 있습니다. Distributed projection lock, source-bound query receipt, stale evidence projection, additive N-1 receipt decode로 generation 및 evidence 공백을 닫았습니다. | `current change`, 집중 ARM, provider contract, projection, runtime, PostgreSQL, ObjectSet, Operator, Console 검사, 아래 adversarial round 12회 | 집중 검증 후 권위 있는 로컬 세대를 refresh하고 보존합니다. 배포 Azure certification은 Issue #262에서 별도로 유지합니다. |
+| 2026-08-25 | implemented | 범위가 제한된 Kubernetes Deployment 및 Pod rollout 상태를 완전 인벤토리 세대에 추가했습니다. 어댑터는 replica 수, 단일 Progressing 조건, Pod 준비 상태, 재시작 횟수, 대기 사유만 유지하며 원시 프로바이더 payload를 보존하지 않고 잘못된 status를 거부합니다. | `current change`, `kubernetes_api_inventory.py`, 집중 Kubernetes API 인벤토리 검사 7개 통과 | 완전한 실제 운영 exact-release 세대를 보존하고 타입이 지정된 rollout 평가를 그래프 우선 조회 경로에 결속합니다. |
 | 2026-08-25 | implemented | 완전 세대 관계 검증에서 관측된 endpoint의 타입이 잘못된 경우 무관한 duplicate conflict 대신 `target_type_mismatch`로 분류하도록 수정했습니다. Candidate는 활성 그래프에서 계속 제외되며 mapping별 unavailable reason을 보존합니다. | `current change`; 집중 관계 변환 및 검증 검사 65개 통과. | 배포된 완전 세대 근거는 별도로 보존합니다. 이 수정은 관계나 권한을 추가하지 않습니다. |
 | 2026-08-22 | in-progress | 지속형 운영 인스턴스 그래프 계약을 도입했습니다. 고정 6시간 최신성 목표를 이벤트 기반 및 적응형 범위 제한 수집으로 바꾸고, 타입 지정 rollup, 검증된 archive, 복원, purge 요구 사항을 추가했습니다. | `current change`, 쌍을 이루는 설계 문서와 집중 문서 gate | 집중 구현 및 운영 근거로 OI-01부터 OI-12까지 완료합니다. |
 | 2026-08-22 | implemented | Machine-readable 15단계 source-to-store 감사와 owner, binding, test, state, missing-gap 근거를 확인하는 결정론적 checker로 OI-01을 완료했습니다. | `current change`, 감사 record, checker, 집중 감사 테스트(`3 passed`) | 검증된 source-policy 선언으로 OI-02를 시작합니다. 적응형 control, rollup, archive, live write-through는 각각을 소유한 이후 패키지에 남깁니다. |
@@ -241,6 +268,27 @@ binding을
 | 2026-08-23 | validated | 브라우저 기본 Resource datalist를 Console이 소유하는 접근 가능한 자동 완성으로 교체했습니다. 대소문자를 구분하지 않는 포함 일치로 제안을 최대 5개만 렌더링하고, 키보드 탐색에서도 정확한 Resource 선택을 유지합니다. Console이 소유하는 listbox는 Console의 surface, text, border, focus, height, overflow token을 사용합니다. 높이가 작은 desktop과 mobile layout에서는 목록을 입력 위로 열고, mobile에서는 완전한 44px 행 5개를 유지합니다. | `current change`; 집중 자동 완성 model 및 view 검사 19개, Console typecheck, production build가 통과했습니다. 인증된 표준 port Browser 검사는 `1440x900`, `993x641`, `390x844`에서 통과했습니다. 모든 viewport에서 정확히 제안 5개를 목록과 viewport 안에 렌더링했고 document 또는 explorer overflow는 0개였습니다. Desktop 목록은 최대 높이 220px를 사용했고 mobile 목록은 완전한 touch 행 5개를 위해 230px를 사용했습니다. 방향키 선택은 입력, 선택기, 읽기 전용 URL을 동기화했습니다. | 그래프 근거, 완전성, 관계 방향, 권한은 변경되지 않았습니다. Activity Log, Resource Health, runtime call 근거는 계속 별도로 추적합니다. |
 | 2026-08-23 | validated | 관측된 `authorization.role-assignment` Resource를 운영자가 선택하는 인스턴스 디렉터리, 선택기, 자동 완성 및 직접 URL root에서 제외했습니다. 기반 관측 object와 접근 관계는 그래프 근거로 계속 사용할 수 있습니다. 이 표시 필터는 공급자 근거를 삭제하거나 그래프, 변경 또는 실행 권한을 바꾸지 않습니다. | `current change`; 집중 인스턴스 model 및 view 검사 20개, Console typecheck, production build가 통과했습니다. 인증된 표준 port Browser에서 기존 role-assignment URL을 선택되지 않은 Instances view로 정리했습니다. 선택기와 자동 완성에는 role-assignment 항목이 0개였고, 일반 Resource 49개와 일치하는 Container Registry 제안 4개는 page overflow 없이 계속 사용할 수 있었습니다. | 접근 근거와 공급자가 관측한 role assignment는 관계 검사를 위한 범위가 제한된 그래프 응답에 계속 남습니다. Activity Log, Resource Health, runtime call 근거는 계속 별도로 추적합니다. |
 | 2026-08-23 | validated | Resource 자동 완성 범위를 5개에서 최대 10개의 제한된 일치 결과로 확장하고 Console을 컴포넌트 시안의 풍부한 선택 항목 계층에 맞췄습니다. 각 행은 간결한 유형 배지, Resource 이름, 정확한 resource type, desktop Resource label을 표시합니다. 목록은 desktop에서 480px 폭과 420px scroll 상한을 사용합니다. Mobile에서는 입력 폭을 유지하고 중복된 type label을 숨기며 touch 크기 행을 보존합니다. | `current change`; 집중 Console 검사 20개와 컴포넌트 시안 계약 검사가 통과했고 Console typecheck 및 production build도 통과했습니다. 인증된 Browser 검사는 표준 Console과 design server를 모두 확인했습니다. Desktop은 480px 목록에 풍부한 행 10개를 렌더링했고 secondary type 잘림과 page overflow가 0개였습니다. Mobile은 높이가 52px 이상인 scroll 가능 행 10개를 page overflow 없이 렌더링했습니다. 시안은 360px scroll 상한 아래에서 일치 결과 10개를 표시했습니다. 두 화면 모두 role-assignment 제안은 0개를 유지했습니다. | 정확한 선택, 키보드 동작, 그래프 근거, 완전성, 관계 방향, 권한은 변경되지 않았습니다. Activity Log, Resource Health, runtime call 근거는 계속 별도로 추적합니다. |
+
+### 관계 하드닝 기록
+
+| 라운드 | 검토 관점 | 확인된 최고 심각도 | 근거 및 처리 결과 |
+|--------|-----------|--------------------|-------------------|
+| 1 | 방향과 parent ownership | Critical, 해결됨 | AKS AgentPool의 이중 parent 8건을 재현했습니다. 이제 검토된 provider-parent containment가 같은 child의 일반 Resource Group fallback을 shadow합니다. |
+| 2 | LinkType cardinality와 durable promotion | High, 해결됨 | Snapshot promotion이 여러 `contains` parent를 거부하고 ontology `replace_subgraph`가 declaration cardinality validation을 독립적으로 실행합니다. |
+| 3 | 분류된 non-edge 사유 위조 | Low | Provider contract 경계에서 drop reason과 unavailable reason의 정확한 조합을 검증하며 분류되지 않은 실패는 계속 차단됩니다. |
+| 4 | Provider completeness와 relationship coverage | Medium, 해결됨 | `complete`는 안전한 generation 교체를 제어하고 `relationship_complete`는 부재를 주장하지 않으면서 분류된 누락 edge를 독립적으로 보존합니다. |
+| 5 | Active snapshot, status, manifest 불일치 | Medium, 해결됨 | PostgreSQL graph read는 정확한 generation 일치를 요구합니다. Status는 최종 commit marker로 유지되고 불일치는 incomplete evidence가 됩니다. |
+| 6 | Resource 결과 0건의 잘못된 부재 | High, 해결됨 | 요청한 root ObjectType이 store에 전달되고 Resource 행이 0개여도 source coverage가 유지됩니다. |
+| 7 | Freshness, future cutoff, clock 경계 | Medium, 해결됨 | Operator evidence가 주입된 aware clock을 사용하고 만료되거나 future-cutoff인 evidence를 incomplete로 표시하면서 정확한 cutoff와 ceiling을 유지합니다. |
+| 8 | Configuration evidence와 independent verification | Medium, 해결됨 | API와 Console이 `configuration_observed`와 `independently_verified`를 분리해 configuration evidence가 verification으로 보이지 않습니다. |
+| 9 | ACL, source metadata, digest binding | Medium, 해결됨 | ACL projection, filtering, link closure, immutable freezing, result digest가 source generation과 completeness를 보존합니다. |
+| 10 | Rolling N/N-1 compatibility | Medium, 해결됨 | 새 receipt는 1.2를 emit하고 additive source field가 없는 1.1 payload도 보수적인 legacy default로 decode합니다. |
+| 11 | Operator, Console, localization parity | Medium, 해결됨 | Strict decoder가 current, stale, unavailable 상태를 수용하고 evidence-kind와 verification의 일관성을 검증하며 영어/한국어 catalog가 같은 label을 제공합니다. |
+| 12 | Concurrency, crash recovery, single writer | High, 해결됨 | Process-local lock과 PostgreSQL session advisory lock이 graph와 commit-marker write를 감싸며 failure injection으로 manifest-before-status retry recovery를 증명했습니다. |
+
+수정 후 확인된 Critical, High, Medium finding은 남아 있지 않습니다. 남은 Low 작업은 추가
+provider-type coverage와 deployed evidence 보존이며 authority를 넓히거나 incomplete graph가
+부재를 증명하도록 허용하지 않습니다.
 
 ### 남은 작업
 

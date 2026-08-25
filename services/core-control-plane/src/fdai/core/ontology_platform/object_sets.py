@@ -42,6 +42,7 @@ class ObjectSetService:
         if definition.traversal is not None:
             graph = await self._store.traverse(
                 root_ids=definition.root_ids,
+                root_object_types=concrete_types,
                 link_types=definition.traversal.link_types,
                 direction=definition.traversal.direction,
                 max_depth=definition.traversal.max_depth,
@@ -113,7 +114,16 @@ def _filter_graph(
     links = tuple(
         link for link in graph.links if link.from_id in selected_ids and link.to_id in selected_ids
     )
-    return OntologyGraphSnapshot(objects=selected, links=links, truncated=truncated), result_limited
+    return (
+        OntologyGraphSnapshot(
+            objects=selected,
+            links=links,
+            truncated=truncated,
+            source_complete=graph.source_complete,
+            source_generation=graph.source_generation,
+        ),
+        result_limited,
+    )
 
 
 def _matches_all(

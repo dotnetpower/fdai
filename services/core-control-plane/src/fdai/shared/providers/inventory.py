@@ -76,6 +76,25 @@ class RelationshipUnavailableReason(StrEnum):
     TARGET_PROVIDER_TYPE_UNMODELED = "target_provider_type_unmodeled"
 
 
+_ALLOWED_RELATIONSHIP_UNAVAILABLE_REASONS = {
+    RelationshipDropReason.MISSING_SOURCE_ENDPOINT: frozenset(
+        {RelationshipUnavailableReason.SOURCE_OUTSIDE_ACTIVE_GENERATION}
+    ),
+    RelationshipDropReason.MISSING_TARGET_ENDPOINT: frozenset(
+        {RelationshipUnavailableReason.TARGET_OUTSIDE_ACTIVE_GENERATION}
+    ),
+    RelationshipDropReason.TARGET_TYPE_MISMATCH: frozenset(
+        {
+            RelationshipUnavailableReason.AUTHORIZATION_CHILD_SCOPE_UNMODELED,
+            RelationshipUnavailableReason.TARGET_PROVIDER_TYPE_UNMODELED,
+        }
+    ),
+    RelationshipDropReason.UNRESOLVED_REFERENCE: frozenset(
+        {RelationshipUnavailableReason.REFERENCE_NOT_OBSERVED}
+    ),
+}
+
+
 @dataclass(frozen=True, slots=True)
 class RelationshipDrop:
     """One bounded explanation for suppressing a provider relationship candidate."""
@@ -100,6 +119,18 @@ class RelationshipDrop:
             self.unavailable_reason, RelationshipUnavailableReason
         ):
             raise ValueError("RelationshipDrop.unavailable_reason MUST be typed")
+        if self.unavailable_reason is not None and self.unavailable_reason not in (
+            _ALLOWED_RELATIONSHIP_UNAVAILABLE_REASONS.get(self.reason, frozenset())
+        ):
+            raise ValueError(
+                "RelationshipDrop.unavailable_reason is incompatible with its drop reason"
+            )
+
+    @property
+    def classified_unavailable(self) -> bool:
+        """Return whether this non-edge has one validated unavailable disposition."""
+
+        return self.unavailable_reason is not None
 
 
 @dataclass(frozen=True, slots=True)

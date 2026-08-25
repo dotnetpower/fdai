@@ -23,6 +23,11 @@ from fdai.shared.providers import (
     ProviderTypeCount,
     ResourceRecord,
 )
+from fdai.shared.providers.inventory import (
+    RelationshipDrop,
+    RelationshipDropReason,
+    RelationshipUnavailableReason,
+)
 from fdai.shared.providers.state_evidence import LINK_OBSERVATION_METADATA_PROPERTY
 
 
@@ -141,6 +146,26 @@ def test_inventory_batch_carries_relationship_reconciliation_marker() -> None:
     batch = InventoryBatch(relationship_reconciliation_after="2026-08-08T01:02:03+00:00")
 
     assert batch.relationship_reconciliation_after == "2026-08-08T01:02:03+00:00"
+
+
+def test_relationship_drop_accepts_only_matching_unavailable_disposition() -> None:
+    drop = RelationshipDrop(
+        reason=RelationshipDropReason.MISSING_TARGET_ENDPOINT,
+        unavailable_reason=RelationshipUnavailableReason.TARGET_OUTSIDE_ACTIVE_GENERATION,
+    )
+
+    assert drop.classified_unavailable is True
+    with pytest.raises(ValueError, match="incompatible"):
+        RelationshipDrop(
+            reason=RelationshipDropReason.MISSING_TARGET_ENDPOINT,
+            unavailable_reason=RelationshipUnavailableReason.REFERENCE_NOT_OBSERVED,
+        )
+
+
+def test_relationship_drop_without_disposition_remains_blocking() -> None:
+    drop = RelationshipDrop(reason=RelationshipDropReason.UNVERIFIED_METADATA)
+
+    assert drop.classified_unavailable is False
 
 
 def test_provider_scope_coverage_requires_reconciled_counts() -> None:

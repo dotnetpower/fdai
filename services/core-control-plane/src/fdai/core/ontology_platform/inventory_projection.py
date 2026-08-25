@@ -96,6 +96,7 @@ class InventoryOntologyProjection:
     objects: tuple[OntologyObjectRecord, ...]
     links: tuple[OntologyLinkRecord, ...]
     complete: bool
+    relationship_complete: bool
     dropped_reasons: tuple[str, ...] = ()
 
 
@@ -144,13 +145,17 @@ def build_inventory_ontology_projection(
     observed_types = {
         resource_id: str(record.properties["type"]) for resource_id, record in objects.items()
     }
-    dropped = {item.reason.value for item in relationship_drops}
+    upstream_dropped = {item.reason.value for item in relationship_drops}
+    blocking_dropped = {
+        item.reason.value for item in relationship_drops if not item.classified_unavailable
+    }
+    projection_dropped: set[str] = set()
     if observation_complete:
         projected_links = _build_links(
             links,
             generation=generation,
             observed_types=observed_types,
-            dropped=dropped,
+            dropped=projection_dropped,
         )
         if resource_type_mappings is not None:
             projected_links += _build_classification_links(
@@ -158,7 +163,7 @@ def build_inventory_ontology_projection(
                 objects=objects,
                 resource_type_mappings=resource_type_mappings,
                 seeded_resource_types=seeded_resource_types,
-                dropped=dropped,
+                dropped=projection_dropped,
             )
             projected_links = tuple(
                 sorted(
@@ -168,13 +173,17 @@ def build_inventory_ontology_projection(
             )
     else:
         projected_links = ()
-        dropped.add(_DROP_OBSERVATION_INCOMPLETE)
+        projection_dropped.add(_DROP_OBSERVATION_INCOMPLETE)
+
+    dropped = upstream_dropped | projection_dropped
+    blocking_dropped.update(projection_dropped)
 
     return InventoryOntologyProjection(
         generation=generation,
         objects=tuple(objects[key] for key in sorted(objects)),
         links=projected_links,
-        complete=observation_complete and not (dropped - _NON_BLOCKING_DROPS),
+        complete=observation_complete and not (blocking_dropped - _NON_BLOCKING_DROPS),
+        relationship_complete=observation_complete and not dropped,
         dropped_reasons=tuple(sorted(dropped)),
     )
 

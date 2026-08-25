@@ -83,6 +83,12 @@ class OntologyGraphSnapshot:
     objects: tuple[OntologyObjectRecord, ...] = ()
     links: tuple[OntologyLinkRecord, ...] = ()
     truncated: bool = False
+    source_complete: bool = True
+    source_generation: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.source_generation is not None and not self.source_generation.strip():
+            raise ValueError("OntologyGraphSnapshot.source_generation MUST be non-empty")
 
 
 class OntologyInstanceValidationError(ValueError):
@@ -439,12 +445,13 @@ class OntologyInstanceStore(Protocol):
         self,
         *,
         root_ids: Sequence[str],
+        root_object_types: Sequence[str] = (),
         link_types: Sequence[str] = (),
         direction: OntologyDirection = "outgoing",
         max_depth: int = 1,
         limit: int = 500,
     ) -> OntologyGraphSnapshot:
-        """Traverse a bounded subgraph from one or more roots."""
+        """Traverse a bounded subgraph from roots with optional verified root types."""
         ...
 
 

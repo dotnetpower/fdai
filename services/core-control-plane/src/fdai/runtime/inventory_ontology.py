@@ -13,6 +13,7 @@ silently adopted.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 from collections.abc import Mapping, Sequence
@@ -30,12 +31,14 @@ from fdai.shared.providers.ontology_instance import (
     OntologyInstanceValidationError,
     OntologyObjectRecord,
 )
+from fdai.shared.providers.resource_lock import ResourceLock
 from fdai.shared.providers.state_store import StateStore
 
 INVENTORY_ONTOLOGY_MANIFEST_KEY = "inventory-ontology:manifest"
 INVENTORY_ONTOLOGY_STATUS_KEY = "inventory-ontology:status"
-_MANIFEST_SCHEMA_VERSION = "1.1.0"
+_MANIFEST_SCHEMA_VERSION = "1.2.0"
 _DIGEST_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$")
+_PROJECTION_LOCK_ID = "inventory-ontology-projection"
 
 _LOG = logging.getLogger(__name__)
 
@@ -57,6 +60,7 @@ class InventoryOntologyProjectionResult:
     object_count: int
     link_count: int
     complete: bool
+    relationship_complete: bool
     dropped_reasons: tuple[str, ...]
 
 
@@ -79,6 +83,7 @@ class InventoryOntologyProjector:
         ontology_release_digest: str,
         resource_type_mappings: Mapping[str, str] | None = None,
         freshness_ceiling_seconds: int = DEFAULT_OBSERVED_STATE_FRESHNESS_CEILING_SECONDS,
+        projection_lock: ResourceLock | None = None,
     ) -> None:
         if _DIGEST_PATTERN.fullmatch(ontology_release_digest) is None:
             raise ValueError("inventory ontology release digest MUST be sha256:<64 lowercase hex>")
@@ -89,12 +94,26 @@ class InventoryOntologyProjector:
         self._ontology_release_digest = ontology_release_digest
         self._resource_type_mappings = resource_type_mappings
         self._freshness_ceiling_seconds = freshness_ceiling_seconds
+        self._projection_lock = projection_lock
+        self._local_lock = asyncio.Lock()
 
     async def apply(
         self,
         observation: PromotedInventoryObservation,
     ) -> InventoryOntologyProjectionResult:
-        """Build and atomically replace the owned subgraph for one generation.
+        """Serialize and atomically replace the owned subgraph for one generation."""
+
+        async with self._local_lock:
+            if self._projection_lock is None:
+                return await self._apply_locked(observation)
+            async with self._projection_lock.acquire(_PROJECTION_LOCK_ID):
+                return await self._apply_locked(observation)
+
+    async def _apply_locked(
+        self,
+        observation: PromotedInventoryObservation,
+    ) -> InventoryOntologyProjectionResult:
+        """Build and commit one generation while the projection lock is held.
 
         Raises:
             OntologyInstanceValidationError: a projected object is already owned
@@ -122,6 +141,7 @@ class InventoryOntologyProjector:
                 object_count=0,
                 link_count=0,
                 complete=False,
+                relationship_complete=projection.relationship_complete,
                 dropped_reasons=projection.dropped_reasons,
             )
         previous = await self._read_manifest()
@@ -133,6 +153,8 @@ class InventoryOntologyProjector:
             previous_link_keys=previous.link_keys,
         )
         await self._write_manifest(projection)
+        # Status is the commit marker. A crash after the manifest write leaves
+        # generation mismatch visible and a retry safely replays the graph.
         await self._write_status(
             projection,
             status=InventoryOntologyProjectionStatus.AVAILABLE,
@@ -153,6 +175,7 @@ class InventoryOntologyProjector:
             object_count=len(projection.objects),
             link_count=len(projection.links),
             complete=projection.complete,
+            relationship_complete=projection.relationship_complete,
             dropped_reasons=projection.dropped_reasons,
         )
 
@@ -219,6 +242,7 @@ class InventoryOntologyProjector:
                 "generation": projection.generation,
                 "ontology_release_digest": self._ontology_release_digest,
                 "complete": projection.complete,
+                "relationship_complete": projection.relationship_complete,
                 "dropped_reasons": list(projection.dropped_reasons),
                 "object_ids": [record.id for record in projection.objects],
                 "link_keys": [
@@ -240,6 +264,7 @@ class InventoryOntologyProjector:
                 "generation": projection.generation,
                 "ontology_release_digest": self._ontology_release_digest,
                 "status": status.value,
+                "relationship_complete": projection.relationship_complete,
                 "dropped_reasons": list(projection.dropped_reasons),
             },
         )

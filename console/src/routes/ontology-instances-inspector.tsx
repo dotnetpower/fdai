@@ -230,16 +230,19 @@ function RelationshipEvidence({
     );
   }
   return (
-    <dl class="ontology-instance-relationship-evidence">
+    <dl class={`ontology-instance-relationship-evidence${evidence.status === "stale" ? " is-unavailable" : ""}`}>
       <div><dt>{t("ontology.instances.directionMeaning")}</dt><dd>{trafficDirection === null
         ? t("ontology.instances.graphDirectionOnly")
         : t(`ontology.instances.verified.${trafficDirection}`)}</dd></div>
+      <div><dt>{t("ontology.instances.evidenceStatus")}</dt><dd>{t(`ontology.instances.evidenceStatusValue.${evidence.status}`)}</dd></div>
+      <div><dt>{t("ontology.instances.verificationStatus")}</dt><dd>{t(`ontology.instances.verificationStatusValue.${evidence.verification_status}`)}</dd></div>
       <div><dt>{t("ontology.instances.relationshipSource")}</dt><dd>{evidence.source}</dd></div>
       <div><dt>{t("ontology.instances.evidenceKind")}</dt><dd>{t(`ontology.instances.evidenceKindValue.${evidence.evidence_kind}`)}</dd></div>
       <div><dt>{t("ontology.instances.cutoff")}</dt><dd>{formatDateTime(evidence.cutoff!)}</dd></div>
       <div><dt>{t("ontology.instances.completeness")}</dt><dd>{evidence.complete ? t("ontology.instances.complete") : t("ontology.instances.unavailable")}</dd></div>
       <div><dt>{t("ontology.instances.sourceProperty")}</dt><dd><code>{evidence.source_property_path}</code></dd></div>
       <div><dt>{t("ontology.instances.relationshipMapping")}</dt><dd><code>{evidence.mapping_id}</code></dd></div>
+      {evidence.reason === null ? null : <div><dt>{t("ontology.instances.reason")}</dt><dd><code>{evidence.reason}</code></dd></div>}
     </dl>
   );
 }

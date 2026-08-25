@@ -184,11 +184,13 @@ class InMemoryOntologyInstanceStore:
         self,
         *,
         root_ids: Sequence[str],
+        root_object_types: Sequence[str] = (),
         link_types: Sequence[str] = (),
         direction: OntologyDirection = "outgoing",
         max_depth: int = 1,
         limit: int = 500,
     ) -> OntologyGraphSnapshot:
+        del root_object_types
         _validate_limit(limit)
         if not 1 <= max_depth <= 5:
             raise ValueError("max_depth MUST be in [1, 5]")
