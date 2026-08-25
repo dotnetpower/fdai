@@ -205,6 +205,7 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
         "beginsPattern": "service=console-stack event=starting$",
         "endsPattern": "service=console-stack event=started$",
     }
+    assert local_services["presentation"]["close"] is True
 
     wait_ready = tasks_by_label["console: wait full stack ready"]
     assert wait_ready["command"].endswith("developer-workflow.py local-services --wait-seconds 60")

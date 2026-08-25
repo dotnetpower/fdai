@@ -201,6 +201,7 @@
         "panel": "dedicated",
         "group": "console-full-stack",
         "clear": true,
+        "close": true,
         "showReuseMessage": false
       },
       "runOptions": {

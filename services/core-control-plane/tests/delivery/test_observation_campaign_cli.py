@@ -6,12 +6,14 @@ import httpx
 import pytest
 from fdai.delivery.azure.metric_logs import AzureMonitorLogsMetricProvider
 from fdai.delivery.observation_campaign_cli import (
+    _build_event_bus,
     _build_probes,
     _campaign_id,
     _csv,
     _required_consistent,
     _required_first,
 )
+from fdai.runtime.venue import ExecutionVenue
 from fdai.shared.providers.testing.workload_identity import StaticWorkloadIdentity
 
 
@@ -41,6 +43,22 @@ def test_required_consistent_rejects_conflicting_aliases(monkeypatch) -> None:
 
     with pytest.raises(ValueError, match="MUST agree"):
         _required_consistent("FIRST", "SECOND")
+
+
+def test_event_bus_composition_ignores_unrelated_core_configuration(monkeypatch) -> None:
+    monkeypatch.setenv("KAFKA_BOOTSTRAP_SERVERS", "127.0.0.1:19092")
+    monkeypatch.setenv("KAFKA_TOPIC_DLQ_SUFFIX", ".dead-letter")
+    monkeypatch.setenv("FDAI_WEB_SEARCH_ENABLED", "1")
+    monkeypatch.setenv("FDAI_WEB_SEARCH_ALLOWED_DOMAINS", "learn.example.com")
+
+    bus = _build_event_bus(
+        identity=StaticWorkloadIdentity(audience="unused", token="unused"),
+        venue=ExecutionVenue.LOCAL,
+    )
+
+    assert bus._config.bootstrap_servers == "127.0.0.1:19092"
+    assert bus._config.dlq_suffix == ".dead-letter"
+    assert bus._config.security_protocol == "PLAINTEXT"
 
 
 async def test_workspace_metric_coverage_uses_target_free_log_analytics(

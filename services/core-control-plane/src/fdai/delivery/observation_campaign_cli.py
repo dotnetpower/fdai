@@ -51,7 +51,6 @@ from fdai.runtime.venue import (
     uses_developer_identity,
     uses_workload_identity,
 )
-from fdai.shared.config.loader import load_config_from_env
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _REPO_ROOT = repo_asset_root()
@@ -231,12 +230,11 @@ def _build_probes(
 
 
 def _build_event_bus(*, identity: WorkloadIdentity, venue: ExecutionVenue) -> EventHubsKafkaBus:
-    config = load_config_from_env().kafka
     return EventHubsKafkaBus(
         identity=identity if uses_workload_identity(venue) else None,
         config=EventHubsKafkaBusConfig(
-            bootstrap_servers=config.bootstrap_servers,
-            dlq_suffix=config.topic_dlq_suffix,
+            bootstrap_servers=_required_first("KAFKA_BOOTSTRAP_SERVERS"),
+            dlq_suffix=os.environ.get("KAFKA_TOPIC_DLQ_SUFFIX", ".dlq").strip(),
             security_protocol=bus_security_protocol(venue),
             client_id="fdai-observation-campaign",
         ),

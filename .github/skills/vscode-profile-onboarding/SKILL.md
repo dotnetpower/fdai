@@ -55,9 +55,11 @@ maintainer's local VS Code state.
   a healthy service continuously emits logs. Use `console: start core runtime` when only the Core
   Runtime needs recovery; that task waits for a fresh Pantheon heartbeat. The `console: start full
   stack` task returns after the supervisor spawns every managed launcher while the supervisor keeps
-  the 60-second readiness gate. Run `console: wait full stack ready` before reporting success or
-  starting work that requires the complete topology. Close any earlier agent-owned service terminal
-  after its process has been replaced by the task-owned process.
+  the 60-second readiness gate. The hidden supervisor terminal closes after its process exits;
+  failure remains visible in the task status and service logs instead of leaving an idle terminal
+  selected. Run `console: wait full stack ready` before reporting success or starting work that
+  requires the complete topology. Close any earlier agent-owned service terminal after its process
+  has been replaced by the task-owned process.
 - For a background task with a readiness problem matcher, treat the task tool's ready return as the
   terminal result. Do not call `get_task_output`, wait for process exit, or retry the task after its
   ready event; the service is intentionally long-running. If readiness is still in doubt, run one
