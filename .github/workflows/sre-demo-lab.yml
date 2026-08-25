@@ -497,6 +497,17 @@ jobs:
             "$create_count" "$update_count" "$delete_count"
           jq -r '.resource_changes[]? | "\(.change.actions | join("+"))\t\(.address)"' \
             "$RUNNER_TEMP/sre-demo-lab-plan.json"
+          jq -r '
+            def scalar_paths: [paths(scalars)];
+            .resource_changes[]? |
+            select(.change.actions == ["update"]) |
+            .address as $address |
+            (.change.before | scalar_paths) as $before_paths |
+            (.change.after | scalar_paths) as $after_paths |
+            (($before_paths + $after_paths) | unique[]) as $path |
+            select((.change.before | getpath($path)) != (.change.after | getpath($path))) |
+            "field\t\($address)\t\($path | map(tostring) | join("."))"
+          ' "$RUNNER_TEMP/sre-demo-lab-plan.json"
           if [[ "$REQUESTED_ACTION" == "apply" && "$delete_count" -ne 0 ]]; then
             echo "apply refuses delete or replacement actions; use plan for review, then explicit destroy." >&2
             exit 1

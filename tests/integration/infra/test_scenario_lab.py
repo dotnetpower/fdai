@@ -145,6 +145,9 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     assert 'print_apply_diagnostic "$RUNNER_TEMP/sre-demo-lab-apply.log"' in workflow
     assert 'cat "$RUNNER_TEMP/sre-demo-lab-apply.log"' not in workflow
     assert "apply refuses delete or replacement actions" in workflow
+    assert '"field\\t\\($address)\\t\\($path | map(tostring) | join("."))"' in workflow
+    assert '"before_value"' not in workflow
+    assert '"after_value"' not in workflow
     assert 'environment_file="$output_dir/enforce.env"' in workflow
     assert 'environment_file="$(bash' not in workflow
     assert 'CONFIRM_DESTROY" != "destroy-sre-demo-lab"' in workflow
