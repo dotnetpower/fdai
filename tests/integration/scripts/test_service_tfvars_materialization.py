@@ -186,6 +186,8 @@ def test_hydrates_primary_event_topic_from_authoritative_platform_output(
         service=service,
         environment="dev",
         event_topic="fdai.change.events",
+        pipeline_stage_topic="fdai.pipeline.stages",
+        pantheon_object_topic="fdai.pantheon.objects",
     )
 
     assert hydrated["environments"]["dev"][service]["event_topics"] == {
@@ -205,6 +207,8 @@ def test_preserves_service_without_primary_event_topic(topic_hydrator: ModuleTyp
         service="isolated-executor",
         environment="dev",
         event_topic="fdai.change.events",
+        pipeline_stage_topic="fdai.pipeline.stages",
+        pantheon_object_topic="fdai.pantheon.objects",
     )
 
     assert hydrated == payload
@@ -236,7 +240,53 @@ def test_rejects_noncanonical_authoritative_event_topic(
             service="core-control-plane",
             environment="dev",
             event_topic=event_topic,
+            pipeline_stage_topic="fdai.pipeline.stages",
+            pantheon_object_topic="fdai.pantheon.objects",
         )
+
+
+@pytest.mark.parametrize(
+    ("service", "event_topics", "expected"),
+    [
+        (
+            "document-ingestion-api",
+            {"pipeline_stages": "aw.pipeline.stages"},
+            {"pipeline_stages": "fdai.pipeline.stages"},
+        ),
+        (
+            "document-processing-worker",
+            {
+                "pipeline_stages": "aw.pipeline.stages",
+                "pantheon_objects": "aw.pantheon.objects",
+            },
+            {
+                "pipeline_stages": "fdai.pipeline.stages",
+                "pantheon_objects": "fdai.pantheon.objects",
+            },
+        ),
+    ],
+)
+def test_hydrates_document_topics_from_authoritative_platform_output(
+    topic_hydrator: ModuleType,
+    service: str,
+    event_topics: dict[str, str],
+    expected: dict[str, str],
+) -> None:
+    payload = {
+        "environments": {"dev": {service: {"name": "example", "event_topics": event_topics}}}
+    }
+
+    hydrated = topic_hydrator.hydrate_event_topic(
+        payload,
+        service=service,
+        environment="dev",
+        event_topic="fdai.change.events",
+        pipeline_stage_topic="fdai.pipeline.stages",
+        pantheon_object_topic="fdai.pantheon.objects",
+    )
+
+    assert hydrated["environments"]["dev"][service]["event_topics"] == expected
+    assert payload["environments"]["dev"][service]["event_topics"] == event_topics
 
 
 def test_enables_web_search_only_with_attested_candidate_and_policy(tfvars: ModuleType) -> None:

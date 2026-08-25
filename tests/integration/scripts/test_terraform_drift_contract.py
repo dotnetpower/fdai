@@ -87,6 +87,8 @@ def test_workflow_plans_every_production_root() -> None:
     assert "scripts/deployment/service/hydrate_database_host.py" in workflow
     assert "scripts/deployment/service/hydrate_event_topic.py" in workflow
     assert 'select(. == "fdai.change.events")' in workflow
+    assert 'select(. == "fdai.pipeline.stages")' in workflow
+    assert 'select(. == "fdai.pantheon.objects")' in workflow
     assert "ops/bootstrap/${{ inputs.environment || 'dev' }}.tfstate" in workflow
     assert "Enforce complete drift evidence" in workflow
 

@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: b09654c931330afb821e1ee5d73e615be4913a48
+translation_source_sha: 8eb804d7425fc00ac3fdd1c140ad8f7b89bbc7f3
 translation_revised: 2026-08-25
 ---
 
@@ -109,9 +109,10 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
   연결만 추가하거나 바꿀 수 있습니다. 역사적 `-readapi` suffix를 사용하는 기존 Operator workload는
   in-place 갱신 대상으로 유지하고 새 Operator 리소스는 계속 `-operator-api`를 사용합니다.
   입력을 구체화할 때 작업 흐름은 플랫폼 상태의 `postgres_fqdn` 출력에서 호스트 이름을
-  확인하고 `database.host`만 덮어씁니다. 또한 `event_bus_topics`에서 정본 기본 유입 토픽을
-  확인하고 Core와 Operator의 `event_topics.events`만 덮어씁니다. 쓰기 전용 서비스 tfvars
-  시크릿은 DSN 참조, 역할 및 기타 입력의 출처로 남습니다.
+  확인하고 `database.host`만 덮어씁니다. 또한 플랫폼 상태에서 정본 기본 유입, pipeline-stage
+  및 Pantheon-object 토픽을 확인하고 Core, Operator 및 document service의 소유 `event_topics`
+  필드만 덮어씁니다. 쓰기 전용 service tfvars 시크릿은 DSN 참조, 역할 및 기타 입력의 출처로
+  남습니다.
 - **범위가 제한된 Core 모델 연결**: Core 전용 `model_binding_transition` 모드는 증명된
   resolved-model 다이제스트, 고정된 런타임 모드와 매니페스트 경로, 확인된 HTTPS
   엔드포인트 및 검증된 웹 검색 설정만 변경할 수 있습니다. 활성 Core revision은 이미 정본

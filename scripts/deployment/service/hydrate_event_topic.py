@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Hydrate service tfvars with the authoritative primary Event Bus topic."""
+"""Hydrate service tfvars with authoritative platform Event Bus topics."""
 
 from __future__ import annotations
 
@@ -12,7 +12,6 @@ from typing import Any
 
 from service_contract import ServiceContractError, resolve_service
 
-_EVENT_TOPIC_SERVICES = frozenset({"core-control-plane", "operator-service"})
 _TOPIC_PATTERN = re.compile(r"fdai\.[a-z0-9-]+\.events")
 
 
@@ -28,14 +27,23 @@ def normalize_event_topic(value: str) -> str:
     return topic
 
 
+def _fixed_topic(value: str, *, expected: str, label: str) -> str:
+    topic = value.strip()
+    if topic != expected:
+        raise EventTopicError(f"{label} must be {expected}")
+    return topic
+
+
 def hydrate_event_topic(
     payload: dict[str, Any],
     *,
     service: str,
     environment: str,
     event_topic: str,
+    pipeline_stage_topic: str,
+    pantheon_object_topic: str,
 ) -> dict[str, Any]:
-    """Copy tfvars and replace the selected service's platform-owned ingress topic."""
+    """Copy tfvars and replace only the selected service's platform-owned topics."""
     resolve_service(service, environment)
     environments = payload.get("environments")
     if not isinstance(environments, dict):
@@ -47,14 +55,39 @@ def hydrate_event_topic(
     if not isinstance(selected, dict) or not selected:
         raise EventTopicError(f"tfvars payload has no non-empty entry for {service}")
 
-    topic = normalize_event_topic(event_topic)
+    topics_by_service = {
+        "core-control-plane": {"events": normalize_event_topic(event_topic)},
+        "operator-service": {"events": normalize_event_topic(event_topic)},
+        "document-ingestion-api": {
+            "pipeline_stages": _fixed_topic(
+                pipeline_stage_topic,
+                expected="fdai.pipeline.stages",
+                label="pipeline stage topic",
+            )
+        },
+        "document-processing-worker": {
+            "pipeline_stages": _fixed_topic(
+                pipeline_stage_topic,
+                expected="fdai.pipeline.stages",
+                label="pipeline stage topic",
+            ),
+            "pantheon_objects": _fixed_topic(
+                pantheon_object_topic,
+                expected="fdai.pantheon.objects",
+                label="Pantheon object topic",
+            ),
+        },
+    }
     hydrated = copy.deepcopy(payload)
-    if service not in _EVENT_TOPIC_SERVICES:
+    replacements = topics_by_service.get(service)
+    if replacements is None:
         return hydrated
     event_topics = selected.get("event_topics")
-    if not isinstance(event_topics, dict) or not isinstance(event_topics.get("events"), str):
-        raise EventTopicError("selected service tfvars must contain event_topics.events")
-    hydrated["environments"][environment][service]["event_topics"]["events"] = topic
+    if not isinstance(event_topics, dict) or any(
+        not isinstance(event_topics.get(name), str) for name in replacements
+    ):
+        raise EventTopicError("selected service tfvars must contain its platform-owned topics")
+    hydrated["environments"][environment][service]["event_topics"].update(replacements)
     return hydrated
 
 
@@ -64,6 +97,8 @@ def main() -> int:
     parser.add_argument("--service", required=True)
     parser.add_argument("--environment", required=True)
     parser.add_argument("--event-topic", required=True)
+    parser.add_argument("--pipeline-stage-topic", required=True)
+    parser.add_argument("--pantheon-object-topic", required=True)
     args = parser.parse_args()
     try:
         raw = json.load(sys.stdin)
@@ -74,6 +109,8 @@ def main() -> int:
             service=args.service,
             environment=args.environment,
             event_topic=args.event_topic,
+            pipeline_stage_topic=args.pipeline_stage_topic,
+            pantheon_object_topic=args.pantheon_object_topic,
         )
         json.dump(hydrated, sys.stdout, separators=(",", ":"), sort_keys=True)
         sys.stdout.write("\n")

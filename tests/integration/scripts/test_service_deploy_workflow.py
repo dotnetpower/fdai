@@ -604,6 +604,11 @@ def test_service_workflow_seals_database_host_binding_mode() -> None:
     assert 'select(. == "fdai.change.events")' in _WORKFLOW
     assert "scripts/deployment/service/hydrate_event_topic.py" in _WORKFLOW
     assert '--event-topic "$event_topic"' in _WORKFLOW
+    assert "output -json event_bus_auxiliary_topics" in _WORKFLOW
+    assert 'select(. == "fdai.pipeline.stages")' in _WORKFLOW
+    assert 'select(. == "fdai.pantheon.objects")' in _WORKFLOW
+    assert '--pipeline-stage-topic "$pipeline_stage_topic"' in _WORKFLOW
+    assert '--pantheon-object-topic "$pantheon_object_topic"' in _WORKFLOW
 
 
 def test_service_workflow_seals_core_model_binding_transition() -> None:

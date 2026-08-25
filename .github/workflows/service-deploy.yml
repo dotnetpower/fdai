@@ -508,6 +508,14 @@ jobs:
             terraform -chdir="$TRUSTED_CONTROLS/infra" output -json event_bus_topics \
               | jq -er '[.[] | select(. == "fdai.change.events")] | if length == 1 then .[0] else error("platform state must contain exactly one canonical change-events topic") end'
           )"
+          pipeline_stage_topic="$(
+            terraform -chdir="$TRUSTED_CONTROLS/infra" output -json event_bus_auxiliary_topics \
+              | jq -er '[.[] | select(. == "fdai.pipeline.stages")] | if length == 1 then .[0] else error("platform state must contain exactly one canonical pipeline-stage topic") end'
+          )"
+          pantheon_object_topic="$(
+            terraform -chdir="$TRUSTED_CONTROLS/infra" output -json event_bus_topics \
+              | jq -er '[.[] | select(. == "fdai.pantheon.objects")] | if length == 1 then .[0] else error("platform state must contain exactly one canonical Pantheon-object topic") end'
+          )"
           printf '%s' "$SERVICE_TFVARS_JSON" \
             | python3 "$TRUSTED_CONTROLS/scripts/deployment/service/hydrate_database_host.py" \
                 --service "${{ inputs.service }}" \
@@ -517,6 +525,8 @@ jobs:
                 --service "${{ inputs.service }}" \
                 --environment "${{ inputs.environment }}" \
                 --event-topic "$event_topic" \
+                --pipeline-stage-topic "$pipeline_stage_topic" \
+                --pantheon-object-topic "$pantheon_object_topic" \
             | python3 "$TRUSTED_CONTROLS/scripts/deployment/service/materialize_tfvars.py" \
                 --service "${{ inputs.service }}" \
                 --environment "${{ inputs.environment }}" \

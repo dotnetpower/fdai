@@ -108,9 +108,10 @@ prod topology so shadow evaluation is representative.
   Operator workloads with the historical `-readapi` suffix remain eligible for an in-place update,
   while newly declared Operator resources continue to use `-operator-api`. During input
   materialization, the workflow resolves the hostname from the platform state's `postgres_fqdn`
-  output and overwrites only `database.host`. It also resolves the canonical primary ingress topic
-  from `event_bus_topics` and overwrites only `event_topics.events` for Core and Operator. The
-  write-only service tfvars secret remains the source for DSN references, roles, and other inputs.
+  output and overwrites only `database.host`. It also resolves the canonical primary ingress,
+  pipeline-stage, and Pantheon-object topics from platform state and overwrites only their owned
+  `event_topics` fields for Core, Operator, and the document services. The write-only service
+  tfvars secret remains the source for DSN references, roles, and other inputs.
 - **Bounded Core model binding**: the Core-only `model_binding_transition` mode may change only the
   attested resolved-model digest, fixed runtime mode and manifest path, resolved HTTPS endpoint,
   and validated web-search settings. The active Core revision must already use canonical Event Bus
