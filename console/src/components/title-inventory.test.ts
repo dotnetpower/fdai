@@ -13,6 +13,7 @@ const VISIBLE_TITLE_COMPONENTS = new Set([
   "EmptyState",
   "EvidenceSection",
   "KnowledgeRelationshipList",
+  "NetworkPathDirection",
   "OverviewSection",
   "PageHeader",
   "PanelLoading",
