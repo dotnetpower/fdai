@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 76676b213b335c95976c02842537e1cecfd83719
+translation_source_sha: ba488c563a532964663affb544bdcf462b298549
 translation_revised: 2026-08-25
 ---
 # 배포 리소스 규약
@@ -38,6 +38,7 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-24 | implemented | 보호된 model resolver의 deployment-environment 입력을 복원하고 기존 proposal-only lifecycle caller를 위한 development 기본값을 유지했으며 provider query 전에 다른 environment 범위의 policy를 거부하도록 했습니다. | 실패한 보호 계획 `32735269365`는 Terraform 및 Azure mutation 전에 중단됨; `current change`; 집중 resolver 및 deployment workflow 검사 | 보호된 exact-revision 계획을 다시 실행하고 봉인된 model 및 Terraform receipt를 보존합니다. |
+| 2026-08-25 | implemented | 임시 Terraform state bootstrap 예외를 정확한 정상 활성 Core 리비전, 다이제스트로 고정된 이미지, 검증된 resolved-model attestation 및 런타임 다이제스트를 기준으로 하는 fail-closed 모델 정책 CAS로 교체했습니다. Terraform 출력은 진단에만 사용하며 exact apply는 같은 활성 런타임 경계를 다시 검증합니다. | 실패한 보호 계획 `32753619537`, `32754737930`, `32798548057`, `32798561510`은 모두 Terraform plan 및 Azure mutation 전에 중단됨; commit `5e1e8214ef0f80a1e9b57d00bd2a35723bca6b7b`; 집중 모델 CAS 및 수명 주기 검사 26개 통과. | 현재 활성 다이제스트에 결합된 통제된 Owner 초안을 영속화한 뒤 삭제 0건인 보호 계획, exact apply, provider-schema 및 Saga 증적을 보존합니다. |
 | 2026-08-25 | implemented | 모든 재사용 모듈에 명시적인 Terraform 및 AzureRM 호환성 계약을 추가하고 더 이상 리소스를 소유하지 않는 이전 root 입력을 제거했습니다. | `current change`; platform, bootstrap, scenario-lab, dev-access 및 service root 5개의 유효성 검사 통과, TFLint 0건. | Provider major version 변경을 명시적으로 유지하고 지원 범위를 높이기 전에 각 재사용 모듈을 독립적으로 검증합니다. |
 | 2026-08-23 | implemented | 이전 `readapi` 물리 이름 선언을 현재 `operator-api` 구성 요소로 교체하고 독립 Operator 서비스 입력도 같은 접미사를 사용하도록 요구했습니다. 기존 Terraform 상태를 계속 해석할 수 있도록 과거 `moved` 주소는 유지합니다. | `current change`; `infra/main.tf`; `infra/services/operator-service/variables.tf`; 집중 명명 테스트 및 Terraform 검증 | 보호된 개발 교체를 실행하고 봉인된 Operator 서비스 입력을 새 앱과 워크로드 신원으로 갱신한 뒤 상태 및 신원 근거를 보존합니다. |
 | 2026-08-22 | validated | 보호된 Event Bus namespace migration 및 post-apply transport 감사를 완료했습니다. 최종 inventory에는 `aw.*` entity 또는 runtime binding이 없고, runtime Event Hubs role은 entity 범위이며, service 5개가 모두 healthy합니다. Canary 및 inventory Job이 성공했고, HIL은 효과가 없는 unknown-park decision을 소비했으며, Core는 stage 토픽을 binding했고, Operator semantic bridge는 request와 typed projection을 상관시켰고, 활성 Core consumer lag는 0이었습니다. 승인된 개발 backlog는 drain하지 않고 폐기했습니다. | Platform plan/apply `32475286429`/`32475924808`, worker 적용 `32491597630`, Operator plan/apply `32513787359`/`32514233525`, canary `ca-fdai-dev-krc-core-canary-7hdxtnq`, inventory `ca-fdai-dev-krc-core-inventory-xxv64n0`, semantic request `00000000-0000-0000-0000-000000000000` 및 projection `00000000-0000-0000-0000-000000000000`. Core 적용 `32505670219`은 exact plan 적용 및 health를 통과한 뒤 동시 Operator state serial 변경 때문에 peer receipt만 실패했으며 최종 5-service audit가 결과 live state를 다시 검증했습니다. | 이슈 #253에 남은 작업이 없습니다. |
