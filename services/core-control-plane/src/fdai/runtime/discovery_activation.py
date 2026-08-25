@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+
+from psycopg import OperationalError
 
 from fdai.core.readiness import (
     CollectorRunEvidence,
@@ -28,6 +31,7 @@ _COLLECTOR_SUCCESS_PREFIX = "runtime:collector-success:"
 _CROSS_CHECK_PREFIX = "model.cross-check."
 _VERIFIER_PROBE_IDS = ("policy.compile",)
 _POST_DEPLOY_SMOKE_PROBE_IDS = ("audit.append", "kafka.round-trip")
+_LOGGER = logging.getLogger("fdai.startup")
 
 
 def _utc_now() -> datetime:
@@ -117,7 +121,14 @@ class DiscoveryActivationRuntime:
             try:
                 await asyncio.wait_for(stop.wait(), timeout=self.refresh_interval_seconds)
             except TimeoutError:
-                await self.evaluate()
+                try:
+                    await self.evaluate()
+                except (ConnectionError, OSError, OperationalError, TimeoutError) as exc:
+                    self.state.report = None
+                    _LOGGER.warning(
+                        "discovery_activation_refresh_failed",
+                        extra={"error_type": type(exc).__name__},
+                    )
 
     def _shadow_evidence(self, now: datetime) -> ShadowDecisionEvidence | None:
         if self._shadow_decision_count is None:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -108,6 +109,47 @@ async def test_runtime_closes_an_enabled_gate_before_a_refresh_failure() -> None
         await runtime.evaluate()
 
     assert not runtime.is_enabled()
+
+
+async def test_refresh_retries_transient_failure_without_terminating_runtime() -> None:
+    runtime = await _enabled_runtime()
+    runtime.refresh_interval_seconds = 0.001
+    original_settings = runtime.runtime_settings
+    attempts = 0
+
+    class _TransientSettings:
+        async def effective_values(self) -> dict[str, object]:
+            nonlocal attempts
+            attempts += 1
+            if attempts == 1:
+                raise ConnectionError("state store unavailable")
+            return await original_settings.effective_values()
+
+    runtime.runtime_settings = _TransientSettings()  # type: ignore[assignment]
+    stop = asyncio.Event()
+    refresh = asyncio.create_task(runtime.refresh_until_stopped(stop))
+    for _ in range(100):
+        if attempts >= 2:
+            break
+        await asyncio.sleep(0.001)
+    stop.set()
+    await refresh
+
+    assert attempts >= 2
+
+
+async def test_refresh_propagates_programming_error() -> None:
+    runtime = await _enabled_runtime()
+    runtime.refresh_interval_seconds = 0.001
+
+    class _InvalidSettings:
+        async def effective_values(self) -> dict[str, object]:
+            raise ValueError("invalid activation state")
+
+    runtime.runtime_settings = _InvalidSettings()  # type: ignore[assignment]
+
+    with pytest.raises(ValueError, match="invalid activation state"):
+        await runtime.refresh_until_stopped(asyncio.Event())
 
 
 def test_duplicate_probe_rows_cannot_satisfy_distinct_smoke_requirements() -> None:
