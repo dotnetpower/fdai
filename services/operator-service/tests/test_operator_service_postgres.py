@@ -168,6 +168,7 @@ class ModelBindingPostgresFamilyStore(ProjectionPostgresFamilyStore):
         )
         self.state: dict[str, object] | None = None
         self.proposals: list[tuple[str, Mapping[str, object]]] = []
+        self.accepted: dict[str, StoredProposal] = {}
 
     async def read_state(self, key: str) -> dict[str, object] | None:
         assert key == "operator-model-binding-policy:current"
@@ -208,13 +209,23 @@ class ModelBindingPostgresFamilyStore(ProjectionPostgresFamilyStore):
         payload: Mapping[str, object],
     ) -> StoredProposal:
         del family, principal_id
+        existing = self.accepted.get(idempotency_key)
+        if existing is not None:
+            return StoredProposal(
+                proposal_id=existing.proposal_id,
+                accepted_at=existing.accepted_at,
+                duplicate=True,
+                record=existing.record,
+            )
         self.proposals.append((operation, payload))
-        return StoredProposal(
+        stored = StoredProposal(
             proposal_id=f"proposal-{idempotency_key}",
             accepted_at=_NOW.isoformat(),
             duplicate=False,
             record={},
         )
+        self.accepted[idempotency_key] = stored
+        return stored
 
 
 class AccessGrantStatePostgresFamilyStore(PostgresFamilyStore):
@@ -910,6 +921,66 @@ async def test_model_binding_plan_rejects_stale_active_artifact_digest() -> None
         )
 
 
+@pytest.mark.asyncio
+async def test_model_binding_assessment_rejects_stale_policy_digest() -> None:
+    store = ModelBindingPostgresFamilyStore()
+    adapters = PostgresIamAdapters(store)
+    policy = ModelBindingPolicy.model_validate(_binding_policy(revision=1))
+    await adapters.save_binding_policy(
+        ModelBindingDraftCommand(
+            actor_id="owner-1",
+            policy=policy.model_dump(mode="json", exclude_none=True),
+            policy_digest=policy.digest(),
+            expected_revision=0,
+            idempotency_key="draft-1",
+        )
+    )
+
+    with pytest.raises(IamConflictError, match="does not match the current draft"):
+        await adapters.request_binding_assessment(
+            ModelBindingRequestCommand(
+                actor_id="owner-1",
+                environment="staging",
+                policy_revision=1,
+                policy_digest="sha256:" + "b" * 64,
+                idempotency_key="assess-stale-policy",
+            )
+        )
+
+
+@pytest.mark.asyncio
+async def test_model_binding_assessment_retry_returns_duplicate_receipt() -> None:
+    store = ModelBindingPostgresFamilyStore()
+    adapters = PostgresIamAdapters(store)
+    policy = ModelBindingPolicy.model_validate(_binding_policy(revision=1))
+    await adapters.save_binding_policy(
+        ModelBindingDraftCommand(
+            actor_id="owner-1",
+            policy=policy.model_dump(mode="json", exclude_none=True),
+            policy_digest=policy.digest(),
+            expected_revision=0,
+            idempotency_key="draft-1",
+        )
+    )
+    request = ModelBindingRequestCommand(
+        actor_id="owner-1",
+        environment="staging",
+        policy_revision=1,
+        policy_digest=policy.digest(),
+        idempotency_key="assess-retry",
+    )
+
+    first = await adapters.request_binding_assessment(request)
+    retried = await adapters.request_binding_assessment(request)
+
+    assert first["duplicate"] is False
+    assert retried["duplicate"] is True
+    assert retried["proposal_id"] == first["proposal_id"]
+    assert [operation for operation, _payload in store.proposals].count(
+        "model-settings.binding-policy.assessment"
+    ) == 1
+
+
 def _audit_row(
     seq: int,
     *,
@@ -1396,6 +1467,31 @@ def test_incident_lifecycle_state_maps_onto_the_roster_contract(
 
     assert summary["status"] == expected_status
     assert summary["status_source"] == "incident_lifecycle"
+    assert summary["lifecycle_state"] == recorded_state
+
+
+def test_incident_projection_does_not_expose_unknown_lifecycle_state() -> None:
+    row = _audit_row(
+        1,
+        entry={
+            "incident_id": "INC-1",
+            "kind": "incident.transition",
+            "to_state": "unknown-state",
+        },
+    )
+    row.update(
+        {
+            "normalized_correlation_id": "corr-1",
+            "group_last_seq": 1,
+            "group_history_count": 1,
+        }
+    )
+
+    summary = incident_summary([row])
+
+    assert summary["status"] == "in_progress"
+    assert summary["status_source"] == "incident_lifecycle"
+    assert summary["lifecycle_state"] is None
 
 
 def test_incident_title_bound_and_partial_response_plan() -> None:

@@ -85,6 +85,7 @@ export async function requestModelBindingOperation(
       policy_digest: input.policyDigest,
       idempotency_key: input.idempotencyKey,
     },
+    "POST",
   ));
 }
 

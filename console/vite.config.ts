@@ -8,6 +8,8 @@ export function resolveViteCacheDir(env: Readonly<Record<string, string>>): stri
   return env.VITE_CACHE_DIR || "node_modules/.vite";
 }
 
+export const PREACT_PLUGIN_OPTIONS = { prefreshEnabled: false } as const;
+
 // Console SPA build config.
 //
 // - `outDir: "dist"` produces static artifacts under `console/dist/`
@@ -24,7 +26,7 @@ export default defineConfig(({ mode }) => {
   return {
     base: env.VITE_CONSOLE_BASE_PATH ?? "/",
     cacheDir: resolveViteCacheDir(env),
-    plugins: [cssHotUpdateGuard(), preact()],
+    plugins: [cssHotUpdateGuard(), preact(PREACT_PLUGIN_OPTIONS)],
     build: {
       outDir: "dist",
       emptyOutDir: true,

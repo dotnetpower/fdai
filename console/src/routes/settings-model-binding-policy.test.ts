@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildModelBindingPolicy,
+  createModelBindingRequestKeyStore,
   modelBindingT2Conflict,
 } from "./settings-model-binding-policy";
 import type { ModelCapabilityView, ModelSettingsView } from "./settings-models.model";
@@ -99,6 +100,19 @@ describe("model binding policy editor", () => {
         capacityValue,
       },
     }, 4)).toThrow("capacity");
+  });
+
+  it("reuses an idempotency key until the operation reaches a terminal response", () => {
+    let sequence = 0;
+    const keys = createModelBindingRequestKeyStore(() => `uuid-${++sequence}`);
+
+    expect(keys.get("plan")).toBe("model-binding-plan-uuid-1");
+    expect(keys.get("plan")).toBe("model-binding-plan-uuid-1");
+    expect(keys.get("assess")).toBe("model-binding-assess-uuid-2");
+
+    keys.clear("plan");
+
+    expect(keys.get("plan")).toBe("model-binding-plan-uuid-3");
   });
 });
 

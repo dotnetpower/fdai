@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 7f583eaa707540769a7aabb3768d88a717f04081
+translation_source_sha: 71acc12c0064bc8f928c76853cd646d5d3f156b1
 translation_revised: 2026-08-25
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -194,7 +194,7 @@ managed-resource identity가 없는 영속 shadow consumer입니다. 이 venue�
 서비스 상태는 `127.0.0.1:5432`의 Docker PostgreSQL을 사용하며 Core, Operator, 문서 인제스트 API,
 문서 처리 워커 및 격리 실행기는 각각 담당 역할로 연결하고, 로컬 이벤트 전송은 `127.0.0.1:19092`의
 Docker Redpanda를 사용합니다. Azure에 배포된 프로세스는 `FDAI_EXECUTION_VENUE=deployed`를 설정하고
-서비스 소유 Azure Database for PostgreSQL DSN과 Event Hubs Kafka endpoint를 사용합니다. Venue 선택은 근거 권한, 승격 상태, 사람 신원 또는 executor 권한을 변경하지 않습니다.
+서비스 소유 Azure Database for PostgreSQL DSN과 Event Hubs Kafka endpoint를 사용합니다. Venue 선택은 근거 권한, 승격 상태, 사람 신원 또는 executor 권한을 변경하지 않습니다. Schema parity는 legacy 및 서비스 소유 migration 5개로 이동한 뒤 대상 Settings, catalog, ontology 및 inventory projection을 권위 있는 입력에서 다시 생성합니다. 로컬 `audit_log`, `state_kv`, 승인, idempotency record, lease 또는 executor receipt를 배포 환경에 복제하지 않습니다. 이러한 record는 출처 venue의 인과 관계와 권한을 유지합니다.
 
 `database_host_binding` 배포 mode는 배포 service의 비밀이 아닌 `POSTGRES_HOST` 연결만 변경합니다. 모든 service root는 비어 있지 않은 host를 요구하고, Core는 검증된 `llm` object를 child module로 전달하며, 봉인된 guard는 다른 명령이나 환경 표류를 차단하고 exact apply는 plan의 mode와 digest를 그대로 반복해야 합니다. Core 모델 전환은 비밀 service tfvars 대신 저장소의 resolved-model 매니페스트와 웹 검색 정책에서 해당 `llm` object를 도출합니다. 구체화 도구는 매니페스트의 정규 digest가 이미지 attestation과 일치하도록 요구하고 HTTPS endpoint 출처를 정확히 하나만 허용하며, 산출물에 일치하는 후보가 있고 저장소 정책이 허용 목록을 제공할 때만 웹 검색을 활성화합니다. Legacy Core revision에 검토된 Event Bus topic, database host 및 model binding이 모두 없으면 Core 전용 전환 하나가 세 mode를 함께 봉인하고 모든 전용 guard를 같은 plan에 적용합니다. 네 번째 환경 변경은 계속 차단됩니다. 독립 배포된 Operator는 typed incident request와 read-investigation completion topic 및 consumer group을 렌더링하고 필수로 요구하므로 topic guard가 정확한 값을 검증합니다. 격리 Executor migration도 command, receipt 및 DLQ transport 값을 `FDAI_EXECUTION_VENUE=deployed`와 함께 고정하며 관련 없는 환경 변경은 계속 차단됩니다. Local composition은 loopback host를 계속 사용하므로 이 전환은 실행 venue를 바꾸거나 배포 DSN을 local에서 재사용하지 않습니다. Database venue도 측정 권한을 변경하지 않습니다. Core는 table `SELECT, INSERT`와 `llm_invocation_invocation_id_seq`의 `USAGE, SELECT` 권한으로 `llm_invocation`에 행을 추가하고 Operator는 table을 `SELECT`로 읽습니다. 권한 migration은 `PUBLIC` 접근을 revoke하고 어느 role에도 table update 또는 delete 권한을 주지 않으며 Core에는 sequence `UPDATE` 권한을 주지 않습니다. 두 venue 모두 JSON payload를 scan하지 않고 concurrently 생성한 동일한 partial `audit_log.action_kind` index를 통해 incident lifecycle history를 복구합니다.
 

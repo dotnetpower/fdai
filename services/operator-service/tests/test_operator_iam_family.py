@@ -240,8 +240,13 @@ class RecordingModelSettings:
         self.binding_draft = command
         return {
             "proposal_id": "binding-draft-1",
+            "accepted_at": "2026-08-25T00:00:00Z",
+            "duplicate": False,
             "state": "draft",
+            "policy_digest": command.policy_digest,
+            "policy_revision": command.expected_revision + 1,
             "execution_authority": False,
+            "activation_boundary": "protected-plan-only",
         }
 
     async def request_binding_assessment(
@@ -250,16 +255,26 @@ class RecordingModelSettings:
         self.binding_assessment = command
         return {
             "proposal_id": "binding-assessment-1",
+            "accepted_at": "2026-08-25T00:00:00Z",
+            "duplicate": False,
             "state": "assessment-requested",
+            "policy_digest": command.policy_digest,
+            "policy_revision": command.policy_revision,
             "execution_authority": False,
+            "activation_boundary": "protected-plan-only",
         }
 
     async def request_binding_plan(self, command: ModelBindingRequestCommand) -> Mapping[str, Any]:
         self.binding_plan = command
         return {
             "proposal_id": "binding-plan-1",
+            "accepted_at": "2026-08-25T00:00:00Z",
+            "duplicate": False,
             "state": "plan-requested",
+            "policy_digest": command.policy_digest,
+            "policy_revision": command.policy_revision,
             "execution_authority": False,
+            "activation_boundary": "protected-plan-only",
         }
 
 
@@ -611,9 +626,16 @@ def test_owner_can_submit_binding_draft_assessment_and_plan_without_authority() 
 
     assert draft.status_code == 200
     assert assessment.status_code == plan.status_code == 202
+    assert draft.headers["cache-control"] == "no-store"
+    assert assessment.headers["cache-control"] == "no-store"
+    assert plan.headers["cache-control"] == "no-store"
     assert draft.json()["execution_authority"] is False
     assert assessment.json()["execution_authority"] is False
     assert plan.json()["execution_authority"] is False
+    assert assessment.json()["state"] == "assessment-requested"
+    assert plan.json()["state"] == "plan-requested"
+    assert assessment.json()["activation_boundary"] == "protected-plan-only"
+    assert plan.json()["activation_boundary"] == "protected-plan-only"
     assert models.binding_assessment is not None
     assert models.binding_plan is not None
 

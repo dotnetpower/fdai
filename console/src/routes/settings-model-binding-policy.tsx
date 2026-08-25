@@ -47,6 +47,8 @@ const SKUS = [
 
 export function ModelBindingPolicyEditor({ auth, operatorApiBaseUrl, view, reload }: Props) {
   const capabilities = view.capabilities;
+  // Retain each key until a definitive response prevents duplicate proposals after timeouts.
+  const [requestKeys] = useState(() => createModelBindingRequestKeyStore());
   const [selectedName, setSelectedName] = useState(capabilities[0]?.name ?? "");
   const [drafts, setDrafts] = useState(() => policyDrafts(view));
   const [busy, setBusy] = useState<"save" | "assess" | "plan" | null>(null);
@@ -55,10 +57,12 @@ export function ModelBindingPolicyEditor({ auth, operatorApiBaseUrl, view, reloa
 
   useEffect(() => {
     setDrafts(policyDrafts(view));
+    requestKeys.clear("assess");
+    requestKeys.clear("plan");
     setSelectedName((current) => capabilities.some((item) => item.name === current)
       ? current
       : capabilities[0]?.name ?? "");
-  }, [view]);
+  }, [requestKeys, view]);
 
   const selected = capabilities.find((item) => item.name === selectedName) ?? null;
   const selectedDraft = selected === null ? null : drafts[selected.name] ?? defaultDraft(selected);
@@ -73,6 +77,7 @@ export function ModelBindingPolicyEditor({ auth, operatorApiBaseUrl, view, reloa
       ...current,
       [selected.name]: { ...selectedDraft, ...change },
     }));
+    requestKeys.clear("draft");
     setReceipt(null);
     setError(null);
   };
@@ -86,8 +91,9 @@ export function ModelBindingPolicyEditor({ auth, operatorApiBaseUrl, view, reloa
       const next = await saveModelBindingPolicy(auth, operatorApiBaseUrl, {
         policy: buildModelBindingPolicy(view, drafts, nextRevision),
         expectedRevision: view.bindingPolicy.revision,
-        idempotencyKey: requestKey("draft"),
+        idempotencyKey: requestKeys.get("draft"),
       });
+      requestKeys.clear("draft");
       setReceipt(next);
       await reload();
     } catch (reason) {
@@ -107,8 +113,9 @@ export function ModelBindingPolicyEditor({ auth, operatorApiBaseUrl, view, reloa
         environment: view.bindingPolicy.environment,
         policyRevision: persistedRevision,
         policyDigest: persistedDigest,
-        idempotencyKey: requestKey(operation),
+        idempotencyKey: requestKeys.get(operation),
       });
+      requestKeys.clear(operation);
       setReceipt(next);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
@@ -241,7 +248,7 @@ export function ModelBindingPolicyEditor({ auth, operatorApiBaseUrl, view, reloa
         </div>
       </div>
       {receipt === null ? null : (
-        <div class="settings-binding-receipt" role="status">
+        <div class="settings-binding-receipt" role="status" aria-live="polite">
           <strong>{modelText("bindingRequestAccepted")}</strong>
           <span>{receipt.state} | revision {receipt.policyRevision}</span>
         </div>
@@ -336,6 +343,23 @@ function isProvisionedSku(sku: string): boolean {
   return sku.endsWith("ProvisionedManaged");
 }
 
-function requestKey(operation: string): string {
-  return `model-binding-${operation}-${globalThis.crypto.randomUUID()}`;
+type ModelBindingRequestOperation = "draft" | "assess" | "plan";
+
+export interface ModelBindingRequestKeyStore {
+  readonly get: (operation: ModelBindingRequestOperation) => string;
+  readonly clear: (operation: ModelBindingRequestOperation) => void;
+}
+
+export function createModelBindingRequestKeyStore(
+  randomUUID: () => string = () => globalThis.crypto.randomUUID(),
+): ModelBindingRequestKeyStore {
+  const keys: Partial<Record<ModelBindingRequestOperation, string>> = {};
+  return {
+    get(operation) {
+      return keys[operation] ??= `model-binding-${operation}-${randomUUID()}`;
+    },
+    clear(operation) {
+      delete keys[operation];
+    },
+  };
 }

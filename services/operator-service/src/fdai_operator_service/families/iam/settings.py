@@ -34,6 +34,7 @@ _MAX_BODY_BYTES: Final = 16_000
 _POLICY_DIGEST: Final = re.compile(r"^sha256:[0-9a-f]{64}$")
 _ENVIRONMENT: Final = re.compile(r"^[a-z][a-z0-9-]{0,31}$")
 _IDEMPOTENCY_KEY: Final = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$")
+_NO_STORE_HEADERS: Final = {"cache-control": "no-store"}
 
 
 def make_model_settings_routes(
@@ -94,7 +95,7 @@ def make_model_settings_routes(
             )
         except IamFamilyError as exc:
             return family_error(exc)
-        return JSONResponse(dict(receipt))
+        return JSONResponse(dict(receipt), headers=_NO_STORE_HEADERS)
 
     async def post_binding_assessment(request: Request) -> Response:
         return await _request_binding_operation(
@@ -230,7 +231,7 @@ async def _request_binding_operation(
         )
     except IamFamilyError as exc:
         return family_error(exc)
-    return JSONResponse(dict(receipt), status_code=202)
+    return JSONResponse(dict(receipt), status_code=202, headers=_NO_STORE_HEADERS)
 
 
 def _bounded_string(body: dict[str, object], key: str, *, maximum: int) -> str:

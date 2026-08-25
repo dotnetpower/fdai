@@ -473,7 +473,7 @@ describe("Settings Models contracts", () => {
       },
       {
         url: "http://127.0.0.1:8030/models/binding-policy/assess",
-        method: "PUT",
+        method: "POST",
         body: {
           environment: "staging",
           policy_revision: 1,
@@ -483,7 +483,7 @@ describe("Settings Models contracts", () => {
       },
       {
         url: "http://127.0.0.1:8030/models/binding-policy/plan",
-        method: "PUT",
+        method: "POST",
         body: {
           environment: "staging",
           policy_revision: 1,
@@ -505,6 +505,19 @@ describe("Settings Models contracts", () => {
       execution_authority: true,
       activation_boundary: "protected-plan-only",
     })).toThrow("execution_authority MUST be false");
+  });
+
+  it("rejects a model binding receipt with an unknown activation boundary", () => {
+    expect(() => decodeModelBindingProposalReceipt({
+      proposal_id: "proposal-1",
+      accepted_at: "2026-08-24T00:00:00Z",
+      duplicate: false,
+      state: "draft",
+      policy_digest: "sha256:" + "a".repeat(64),
+      policy_revision: 1,
+      execution_authority: false,
+      activation_boundary: "direct-apply",
+    })).toThrow("activation_boundary");
   });
 
   it("rejects a model binding receipt with a malformed accepted timestamp", () => {
