@@ -1,7 +1,7 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: ea38a29eb0f655936261333aa8693652e0c29afa
+translation_source_sha: 92ef8908d656f65816f98bd04da3c5b81060e28f
 translation_revised: 2026-08-25
 ---
 # LLM 전략(LLM Strategy)
@@ -686,8 +686,7 @@ catch-all이지 추론된 신호가 아님. TrustRouter와 T0는 같은 `applies
 #### Interface
 
 ActionType 의 `interfaces` 집합은 실행기 가 지켜야 하는 런타임 계약을 명명. 인터페이스 누락은
-"뭐든 허용" 이 아님 - risk-gate 는 인터페이스 집합이 그 `operation` 의 안전 불변식 요건을
-커버하지 못하는 ActionType 을 자동 실행하지 않음.
+"뭐든 허용" 이 아님 - risk-gate 는 인터페이스 집합이 그 `operation` 의 안전 불변식 요건을 커버하지 못하는 ActionType 을 자동 실행하지 않음.
 
 | Interface | 의미 |
 |-----------|-----|
