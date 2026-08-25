@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 7f583eaa707540769a7aabb3768d88a717f04081
+translation_source_sha: ad3f604c99e002f683963a8ffe790864f3d3adc1
 translation_revised: 2026-08-25
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -43,6 +43,7 @@ translation_revised: 2026-08-25
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
+| 2026-08-25 | implemented | 로컬/배포 조립, 서비스 소유권, 신원 또는 전송을 바꾸지 않고 공유 독립 서비스 롤백 계약을 강화했습니다. 이제 protected 적용은 비정상 롤백 기준을 차단하고, 각 배포 서비스는 비활성 Container Apps 개정 번호 1개를 보존하며, 계획 가드는 일회성 `0 -> 1` 보존 전환만 허용합니다. | 실패한 Core 적용 `32839129965` 및 `32842018230`, `current change`, 집중 롤백 기준, 계획 가드, Terraform 루트 5개 및 독립 서비스 검사 | 배포 검증을 주장하기 전에 정상 Core 기준을 복원하고 성공한 exact 적용 및 검증된 자동 롤백 증적을 보존합니다. |
 | 2026-08-25 | implemented | 보호 배포 workflow를 검토된 helper로 통합하고 명시적 Terraform remote-state 초기화와 active-model compare-and-swap 근거를 복원했으며 fresh 및 existing 서비스 migration이 manifest 순서의 bootstrap 하나를 사용하도록 했습니다. | `current change`, 보호 workflow, Azure 배포 helper, 서비스 migration branch, Operator PostgreSQL query/index 변경, 집중 테스트 568개 통과, Ruff, mypy, ShellCheck, YAML parsing 및 대상 `actionlint 1.7.12` 통과 | 이 상태를 `validated`로 올리기 전에 보호 Azure plan, apply, migration 및 effect-verification receipt를 보존합니다. |
 | 2026-08-25 | implemented | 서비스 소유권이나 프로바이더 선택을 바꾸지 않고 모든 재사용 가능한 서비스 모듈에 Terraform `>= 1.9` 호환성을 선언했습니다. | `current change`, `infra/services/**/modules/**/versions.tf`, Terraform 검증 및 TFLint | 프로바이더 주 버전 변경을 명시적으로 유지하고 지원 범위를 넓히기 전에 각 서비스 루트를 검증합니다. |
 | 2026-08-25 | implemented | LLM 측정 행을 추가하는 데 필요한 정확한 identity sequence 권한을 부여하되 sequence 변경 권한은 주지 않는 정방향 Core service migration을 추가했습니다. | `current change`, `core_metering_sequence_20260825`, service migration inventory 55건 통과, Core branch 검증에서 table 126개, transition 12개 및 새 head 확인 | 성공한 exact Core apply, 측정 기록 쓰기 및 post-apply 상태 증적을 보존합니다. |

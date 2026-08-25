@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: e370e26270f44483199ba43d5d53626d313eb89f
+translation_source_sha: 854edf53138a83e921a5bf6c512030c7d5bf55e9
 translation_revised: 2026-08-25
 ---
 
@@ -31,6 +31,7 @@ translation_revised: 2026-08-25
 | 독립 서비스 protected 배포 | validated | `config/independent-service-live-evidence-manifest.json` 및 `config/independent-service-remote-evidence.json` | Protected 계획은 출처, 백엔드, 대상, 신원 및 이미지를 결합하고 peer 격리와 롤백 증적을 보존합니다. |
 | 범위가 제한된 데이터베이스 호스트 연결 | implemented | 현재 변경의 `.github/workflows/service-deploy.yml`, `guard_plan.py`, `plan_bundle.py` 및 집중 service-deploy 테스트 | 봉인된 mode는 비밀이 아닌 host 연결만 허용합니다. 통제된 apply 근거는 아직 열려 있습니다. |
 | 시작 준비 상태 새로 고침 복구 | implemented | `runtime/readiness.py` 및 `tests/runtime/test_readiness.py`, 현재 변경의 집중 transient-failure, expiry 및 programming-error 회귀 검사 | Supervisor는 가장 이른 근거 만료 시점에 보호된 처리를 닫습니다. 복구 가능한 연결 실패는 Core를 유지하지만 programming error는 준비 상태를 닫은 뒤 전파합니다. |
+| 독립 서비스 롤백 기준 | implemented | 현재 변경의 `deployment_recovery.py`, 공유 서비스 Container App 모듈 및 집중 service-deploy 롤백 검사 | 적용 전 수집은 비정상 또는 비활성 개정 번호를 차단하고, 각 서비스는 복구를 위해 비활성 개정 번호 1개를 보존합니다. 성공한 protected 롤백 증적은 아직 필요합니다. |
 | Operator schema 및 catalog 초기화 | implemented | 현재 변경의 `infra/modules/operator-api/container-app/`, `.github/workflows/deploy-dev.yml` 및 `tests/integration/scripts/test_service_deploy_workflow.py` | Alembic Job 성공 후 별도의 Core-image Job이 변경 불가능한 Rule 및 Ontology 참조 projection을 기록합니다. |
 | 브라우저 근거 보존 Job | implemented | `infra/modules/compute/container-apps/browser_evidence_cleanup_job.tf`; focused Terraform 계약 검사(`4 passed`) 및 `terraform validate` | 명시적으로 선택하는 예약 Job은 실행기 신원이 아닌 신원과 범위가 제한된 1회 정리를 사용합니다. 관리되는 적용 및 실행 증적은 보존되지 않았습니다. |
 | 자동 승격 및 점진적 배포 | not-started | 이 문서의 목표 설계 | 자동 dev -> staging -> prod 승격, traffic-split canary, SLO 롤백 및 콘솔 blue/green은 구현되지 않았습니다. |
@@ -49,6 +50,7 @@ translation_revised: 2026-08-25
 | 2026-08-25 | implemented | 완료된 Event Bus 이행 모드를 platform 및 service workflow에서 제거하고 helper API도 삭제했습니다. 현재 배포는 다시 실행할 수 있는 일회성 전환을 노출하지 않고 정본 `fdai.*` 토픽 연결만 수락합니다. | `current change`, 집중 배포 workflow, service helper, Terraform 및 문서 검사 | 완료된 토픽 이행 모드에 남은 구현 작업은 없습니다. |
 | 2026-08-25 | implemented | Protected 계획과 예약 표류 검사가 서비스 입력을 선택하기 전에 권위 있는 플랫폼 상태에서 기본 유입 토픽을 채우도록 했습니다. 오래된 쓰기 전용 tfvars 시크릿이 폐기된 토픽 연결을 복원할 수 없습니다. | `current change`, `hydrate_event_topic.py`, protected 서비스 및 표류 workflow, 집중 hydration 및 workflow 계약 검사 | 이슈 #262에서 추적하는 zero-destroy 계획 5개와 exact apply를 완료합니다. |
 | 2026-08-25 | implemented | Protected Core apply가 Terraform 전에 statement deadline에 도달한 뒤 canonical Incident migration의 projection별 audit scan을 index 기반 lifecycle interval로 교체했습니다. Historical as-of identity와 runtime trigger 계약은 바뀌지 않습니다. | 실패한 apply `32825805596`, `current change`, 집중 migration 계약 및 일회용 PostgreSQL 테스트 4개 통과, 5초 statement budget 안에서 무관한 audit row 20,000개와 projection version 2,002개 검증 | Exact protected Core 계획을 다시 만들고 적용한 뒤 migration, 상태 및 peer 격리 증적을 보존합니다. |
+| 2026-08-25 | implemented | 실패한 Core 개정 번호가 다음 적용의 복구 출처가 되고 비활성 개정 번호 보존 수가 0이라 즉시 제거되면서 드러난 롤백 기준 결함을 닫았습니다. 이제 스냅샷 수집은 정상인 활성 개정 번호를 요구하고, 공유 서비스 모듈은 비활성 개정 번호 1개를 보존하며, 계획 가드는 일회성 `0 -> 1` 보존 강화만 허용합니다. | 실패한 Core 적용 `32839129965` 및 `32842018230`, `current change`, 집중 롤백 기준 및 보존 가드 검사 | 독립 서비스 배포 상태를 다시 `validated`로 올리기 전에 정상 Core 기준 하나를 복원하고 zero-destroy protected 계획, 성공한 exact 적용 및 검증된 자동 롤백 증적을 보존합니다. |
 ### 남은 작업
 
 - [ ] Operator migration Job이 catalog Job보다 먼저 성공하고 이후 두 immutable projection
@@ -56,6 +58,8 @@ translation_revised: 2026-08-25
 - [ ] 브라우저 근거 보존 Job의 리포지토리에 안전한 protected 적용 및 성공과 실패 실행 증적을 보존합니다.
 - [ ] 이슈 #262의 zero-destroy database host plan 5개와 exact apply를 완료한 뒤 workload
   환경 존재 여부, authoritative inventory 및 독립 endpoint 근거를 보존합니다.
+- [ ] 정상 Core 기준 하나를 복원하고 수집한 개정 번호가 계속 사용 가능하며 실패한 개정 번호가
+  비활성임을 증명하는 protected 서비스 적용 및 자동 롤백 증적을 보존합니다.
 - [ ] 문서화된 자동 artifact 승격, traffic-split canary, SLO 롤백 및 콘솔 blue/green
   흐름을 집중 테스트와 통제된 런타임 증적으로 구현합니다.
 
@@ -227,9 +231,10 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
 
 Traffic-split canary 전략은 아직 자동 배선되지 않았습니다. Platform deploy 작업 흐름은 단일
 개정 번호를 적용한 뒤 canary 발행기 smoke를 실행합니다. 반면 독립 서비스 작업 흐름은 exact
-적용 전에 현재 개정 번호와 이미지를 수집하고 새 리소스 id, 구독, 컴포넌트 tag, 이미지
-다이제스트, 개정 번호를 검증합니다. Immediate 상태 검사가 실패하면 복구 개정 번호를 자동 생성하고
-검증합니다. SLO 구간 트래픽 롤백은 계속 목표 설계입니다.
+적용 전에 정상인 활성 개정 번호와 이미지를 수집하고 비활성 개정 번호 1개를 보존하며, 새 리소스
+id, 구독, 컴포넌트 tag, 이미지 다이제스트 및 개정 번호를 검증합니다. Immediate 상태 검사가
+실패하면 복구 개정 번호를 자동 생성하고 검증합니다. 비정상 기준은 적용을 차단합니다. SLO 구간
+트래픽 롤백은 계속 목표 설계입니다.
 
 - **Core (Container Apps revisions)**: 트래픽 스플릿에 의한 **canary**. 단계로 승격(예: 5% →
   25% → 100%) 하며 헬스 신호로 게이팅. SLO burn, 에러율 급증, 가드 메트릭 상승 시 **자동
@@ -255,8 +260,9 @@ Traffic-split canary 전략은 아직 자동 배선되지 않았습니다. Platf
 멱등성, 감사 항목)을
 운반합니다; 배포 롤백은 액션당 롤백을 대체하지 않고 보완합니다.
 
-- **애플리케이션 롤백**: 독립 서비스 배포는 immediate 상태 실패 뒤 exact captured 개정 번호와
-  digest-pinned 이미지를 복원하고 복구 개정 번호를 검증한 다음 실패한 개정 번호를 비활성화하고
+- **애플리케이션 롤백**: 독립 서비스 배포는 정상인 활성 롤백 기준만 수락하고 비활성 개정 번호
+  1개를 보존합니다. Immediate 상태 실패 뒤 정확히 수집한 개정 번호와 digest-pinned 이미지를
+  복원하고 복구 개정 번호를 검증한 다음 실패한 개정 번호를 비활성화하고
   비활성 상태를 확인한 뒤 배포를 실패로 닫습니다. Isolated 실행기는 전환 설정도 선언된
   `core-in-process` 권한 대체 경로로 되돌립니다.
 - **인제스트 토폴로지 롤백**: 소비자 그룹이나 오프셋을 변경하지 않고 Document Ingestion

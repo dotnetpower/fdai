@@ -27,6 +27,7 @@ bindings through configuration (see
 | Independent-service protected deployment | validated | `config/independent-service-live-evidence-manifest.json` and `config/independent-service-remote-evidence.json` | Protected plans bind source, backend, target, identities, and images; peer isolation and rollback evidence are retained. |
 | Bounded database host binding | implemented | `.github/workflows/service-deploy.yml`, `guard_plan.py`, `plan_bundle.py`, and focused service-deploy tests in the current change | The sealed mode permits only the non-secret host binding. Governed apply evidence remains open. |
 | Startup readiness refresh recovery | implemented | `runtime/readiness.py` and `tests/runtime/test_readiness.py`; focused transient-failure, expiry, and programming-error regressions in the current change | The supervisor closes guarded processing at the earliest evidence expiry. Recoverable connection failures keep Core alive, while programming errors propagate after readiness closes. |
+| Independent-service rollback baseline | implemented | `deployment_recovery.py`, the shared service Container App module, and focused service-deploy rollback checks in the current change | Pre-apply capture rejects an unhealthy or inactive revision, and each service retains one inactive revision for recovery. A successful protected rollback receipt remains open. |
 | Operator schema and catalog bootstrap | implemented | `infra/modules/operator-api/container-app/`, `.github/workflows/deploy-dev.yml`, and `tests/integration/scripts/test_service_deploy_workflow.py` in the current change | A successful Alembic Job gates a separate Core-image Job that writes immutable Rule and Ontology reference projections. |
 | Browser-evidence retention Job | implemented | `infra/modules/compute/container-apps/browser_evidence_cleanup_job.tf`; focused Terraform contract checks (`4 passed`) and `terraform validate` | The opt-in scheduled Job uses a non-executor identity and bounded one-shot cleanup. Governed apply and run receipts are not retained. |
 | Automated promotion and progressive delivery | not-started | Target design in this document | Automated dev -> staging -> prod promotion, traffic-split canaries, SLO rollback, and console blue/green are not implemented. |
@@ -45,6 +46,7 @@ bindings through configuration (see
 | 2026-08-25 | implemented | Removed the completed Event Bus migration mode from platform and service workflows and deleted its helper API. Current deployments accept canonical `fdai.*` topic bindings without exposing a rerunnable one-time transition. | `current change`; focused deployment workflow, service helper, Terraform, and documentation checks | No remaining implementation work for the completed topic migration mode. |
 | 2026-08-25 | implemented | Made protected plans and scheduled drift checks hydrate the primary ingress topic from authoritative platform state before selecting service inputs. A stale write-only tfvars secret can no longer restore a retired topic binding. | `current change`; `hydrate_event_topic.py`; protected service and drift workflows; focused hydration and workflow contract checks. | Complete the five zero-destroy plans and exact applies tracked by Issue #262. |
 | 2026-08-25 | implemented | Replaced the canonical Incident migration's projection-by-projection audit scans with indexed lifecycle intervals after a protected Core apply reached the statement deadline before Terraform. Historical as-of identity and the runtime trigger contract are unchanged. | Failed apply `32825805596`; `current change`; focused migration contracts and disposable PostgreSQL tests passed 4 cases, including 20,000 unrelated audit rows and 2,002 projection versions under a 5-second statement budget. | Recreate and apply an exact protected Core plan, then retain migration, health, and peer-isolation receipts. |
+| 2026-08-25 | implemented | Closed a rollback-baseline gap exposed when one failed Core revision became the next apply's recovery source and was immediately purged under zero inactive-revision retention. Snapshot capture now requires a healthy active revision, the shared service module retains one inactive revision, and the plan guard permits only the one-time `0 -> 1` retention hardening. | Failed Core applies `32839129965` and `32842018230`; `current change`; focused rollback-baseline and retention guard checks. | Restore one healthy Core baseline, then retain a zero-destroy protected plan, successful exact apply, and verified automatic rollback receipt before restoring the independent-service deployment claim to `validated`. |
 ### Remaining work
 
 - [ ] Retain a repository-safe governed apply receipt showing that the Operator migration Job
@@ -52,6 +54,8 @@ bindings through configuration (see
 - [ ] Retain a repository-safe protected apply and successful and failed execution receipts for the browser-evidence retention Job.
 - [ ] Complete the five zero-destroy database host plans and exact applies in Issue #262, then
   retain workload environment presence, authoritative inventory, and independent endpoint evidence.
+- [ ] Restore one healthy Core baseline and retain a protected service apply plus an automatic
+  rollback receipt that proves the captured revision remains available and the failed revision is inactive.
 - [ ] Implement the documented automated artifact promotion, traffic-split canary, SLO rollback,
   and console blue/green flows with focused tests and governed runtime evidence.
 
@@ -226,10 +230,10 @@ prod topology so shadow evaluation is representative.
 
 Traffic-split canary strategies are not automated yet. The platform deploy workflow applies a
 single revision and runs the canary publisher smoke. In contrast, the independent-service workflow
-captures the current revision and image before exact apply, verifies the new resource id,
-subscription, component tag, image digest, and revision, and automatically creates and verifies a
-recovery revision when that immediate health check fails. SLO-window traffic rollback remains a
-target design.
+captures a healthy active revision and image before exact apply, retains one inactive revision,
+verifies the new resource id, subscription, component tag, image digest, and revision, and
+automatically creates and verifies a recovery revision when that immediate health check fails. An
+unhealthy baseline blocks apply. SLO-window traffic rollback remains a target design.
 
 - **Core (Container Apps revisions)**: **canary** by traffic split. Promote in steps
   (e.g. 5% → 25% → 100%) gated on health signals; **automated rollback** triggers on SLO burn,
@@ -256,7 +260,8 @@ blast-radius limit, dry-run, resource lock, idempotency, audit entry) from
 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md);
 deployment rollback complements, not replaces, per-action rollback.
 
-- **Application rollback**: an independent-service deploy restores the exact captured revision and
+- **Application rollback**: an independent-service deploy accepts only a healthy active rollback
+  baseline and retains one inactive revision. It restores the exact captured revision and
   digest-pinned image after immediate health failure, verifies the recovery revision, then
   deactivates the failed revision and confirms it is inactive before closing the deployment as
   failed. The isolated Executor also returns its cutover setting to the declared `core-in-process`

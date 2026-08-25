@@ -21,6 +21,9 @@ _HEALTH_SCRIPT = (_ROOT / "scripts" / "deployment" / "service" / "verify_health.
 _CORE_TERRAFORM = (
     _ROOT / "infra/services/core-control-plane/modules/core-control-plane/main.tf"
 ).read_text(encoding="utf-8")
+_SERVICE_CONTAINER_APP = (_ROOT / "infra/services/_modules/container-app/main.tf").read_text(
+    encoding="utf-8"
+)
 _LEGACY_WORKFLOW = (_ROOT / ".github" / "workflows" / "deploy-dev.yml").read_text(encoding="utf-8")
 _PLAN_SCOPE = (_ROOT / "scripts/deployment/azure/enforce_plan_scope.py").read_text(encoding="utf-8")
 _IMAGE_BINDER = (_ROOT / "scripts/deployment/azure/bind_isolated_executor_image.sh").read_text(
@@ -676,6 +679,7 @@ def test_apply_has_post_apply_health_and_no_destroy_command() -> None:
     )
     assert "rollback-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" not in _WORKFLOW
     assert "terraform destroy" not in _WORKFLOW
+    assert "max_inactive_revisions       = 1" in _SERVICE_CONTAINER_APP
 
 
 def test_core_startup_probe_uses_the_operational_event_bus() -> None:

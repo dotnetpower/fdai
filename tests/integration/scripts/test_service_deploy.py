@@ -117,6 +117,7 @@ def _resource(*, image: str = "old-image") -> dict[str, object]:
         ),
         "name": "example",
         "resource_group_name": "example",
+        "max_inactive_revisions": 0,
         "container_app_environment_id": (
             "/subscriptions/example-subscription/resourceGroups/example/providers/Microsoft.App/"
             "managedEnvironments/example"
@@ -1404,6 +1405,37 @@ def test_plan_guard_rejects_fields_rollback_cannot_prove(
         )
 
 
+def test_plan_guard_allows_only_minimum_rollback_revision_retention(
+    guard: ModuleType,
+) -> None:
+    plan = _plan(
+        "module.operator_service.module.container_app.azurerm_container_app.service",
+        ["update"],
+    )
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    change["after"]["max_inactive_revisions"] = 1
+
+    guard.validate_plan(
+        plan,
+        service="operator-service",
+        environment="dev",
+        image_ref="image",
+    )
+
+    for unsupported in (0, 2, 50):
+        changed = copy.deepcopy(plan)
+        changed_change = changed["resource_changes"][0]["change"]  # type: ignore[index]
+        changed_change["before"]["max_inactive_revisions"] = 1
+        changed_change["after"]["max_inactive_revisions"] = unsupported
+        with pytest.raises(guard.PlanGuardError, match="rollback revision retention drift"):
+            guard.validate_plan(
+                changed,
+                service="operator-service",
+                environment="dev",
+                image_ref="image",
+            )
+
+
 def test_plan_guard_rejects_authority_cutover_change(guard: ModuleType) -> None:
     address = "module.isolated_executor.module.container_app.azurerm_container_app.service"
     plan = _plan(address, ["update"])
@@ -2589,6 +2621,34 @@ def test_recovery_snapshots_only_restorable_key_vault_references(
             context=context,
             account=account,
             app=opaque,
+            revision=revision,
+            rollback_contract={"authority_fallback": ""},
+        )
+
+
+@pytest.mark.parametrize(
+    ("revision_updates", "app_updates"),
+    [
+        ({"healthState": "Unhealthy", "runningState": "ActivationFailed"}, {}),
+        ({"active": False}, {}),
+        ({"provisioningState": "Failed"}, {}),
+        ({"healthState": None, "runningState": "Running", "replicas": 1}, {}),
+    ],
+)
+def test_recovery_rejects_unhealthy_or_inactive_rollback_baseline(
+    recovery: ModuleType,
+    revision_updates: dict[str, object],
+    app_updates: dict[str, object],
+) -> None:
+    context, _, account, app, revision = _health_evidence()
+    revision["properties"].update(revision_updates)  # type: ignore[union-attr]
+    app["properties"].update(app_updates)  # type: ignore[union-attr]
+
+    with pytest.raises(recovery.DeploymentRecoveryError, match="healthy and active"):
+        recovery.capture_snapshot(
+            context=context,
+            account=account,
+            app=app,
             revision=revision,
             rollback_contract={"authority_fallback": ""},
         )

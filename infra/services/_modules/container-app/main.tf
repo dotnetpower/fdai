@@ -3,6 +3,7 @@ resource "azurerm_container_app" "service" {
   container_app_environment_id = var.platform.container_app_environment_id
   resource_group_name          = var.platform.resource_group_name
   revision_mode                = "Single"
+  max_inactive_revisions       = 1
   workload_profile_name        = "Consumption"
 
   identity {

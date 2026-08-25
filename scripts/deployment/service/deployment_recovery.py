@@ -398,6 +398,14 @@ def capture_snapshot(
     )
     if not isinstance(previous_revision, str) or revision.get("name") != previous_revision:
         raise DeploymentRecoveryError("rollback snapshot revision is not the current revision")
+    revision_properties = revision.get("properties")
+    if (
+        not isinstance(revision_properties, dict)
+        or revision_properties.get("provisioningState") != "Provisioned"
+        or revision_properties.get("active") is not True
+        or not _health_state_is_accepted(app, revision_properties)
+    ):
+        raise DeploymentRecoveryError("rollback snapshot revision is not healthy and active")
     service = _required(context, "service", label="service")
     allow_legacy_sidecar_probes = context.get("deployment_mode") == "initial-cutover"
     containers = _revision_container_contracts(

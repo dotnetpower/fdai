@@ -699,6 +699,13 @@ def _guard_update(
     expected_primary["image"] = _planned_image({"after": after}, address=address, contract=contract)
     if database_host_binding or model_binding_transition:
         expected_primary["env"] = copy.deepcopy(after_primary.get("env"))
+    before_retention = expected_before.get("max_inactive_revisions")
+    after_retention = after.get("max_inactive_revisions")
+    if before_retention != after_retention:
+        if before_retention in (None, 0) and after_retention == 1:
+            expected_before["max_inactive_revisions"] = 1
+        else:
+            violations.append(f"rollback revision retention drift at {address}")
     expected_templates = expected_before.get("template")
     after_templates = after.get("template")
     if (
