@@ -121,13 +121,6 @@
       "issue": 252
     },
     {
-      "path": "console/src/routes/incidents.overview.ts",
-      "disposition": "retain",
-      "owner": "console-incidents",
-      "reason": "Retains deterministic incident phase and status projection from machine records.",
-      "issue": 252
-    },
-    {
       "path": "console/src/routes/live.model.ts",
       "disposition": "retain",
       "owner": "console-live",
