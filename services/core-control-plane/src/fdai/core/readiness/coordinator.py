@@ -66,6 +66,21 @@ class StartupProbeBudget:
         if self.model_sample_count < 2:
             raise ValueError("startup model probes require at least two samples")
 
+    @property
+    def maximum_evaluation_seconds(self) -> float:
+        """Return the bounded wall-clock budget for one complete phase pass."""
+        return self.phase_timeout_seconds * len(StartupPhase)
+
+    @property
+    def failure_evidence_ttl_seconds(self) -> float:
+        """Keep failed evidence valid through the current and next bounded pass."""
+        return (2 * self.maximum_evaluation_seconds) + self.per_probe_timeout_seconds
+
+    @property
+    def refresh_lead_seconds(self) -> float:
+        """Start refresh early enough for one phase plus one probe attempt."""
+        return self.phase_timeout_seconds + self.per_probe_timeout_seconds
+
 
 class StartupReadinessCoordinator:
     """Run configured probes before event processing and persist the result."""
@@ -211,7 +226,7 @@ class StartupReadinessCoordinator:
             probe_id=spec.probe_id,
             status=status,
             observed_at=observed_at,
-            expires_at=observed_at + timedelta(seconds=self._budget.per_probe_timeout_seconds),
+            expires_at=observed_at + timedelta(seconds=self._budget.failure_evidence_ttl_seconds),
             latency_ms=0,
             failure_class=failure_class,
         )

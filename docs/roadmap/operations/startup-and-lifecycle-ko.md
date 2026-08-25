@@ -1,7 +1,7 @@
 ---
 title: 시작과 라이프사이클(Startup and Lifecycle)
 translation_of: startup-and-lifecycle.md
-translation_source_sha: b91dcd5ce2ffb3b0d8a7064b89b8c3a9db5aa573
+translation_source_sha: 82dd5b2f60f34b016fe2719f43e6319dab160e2a
 translation_revised: 2026-08-25
 ---
 
@@ -31,7 +31,7 @@ Azure 초점: 비-Azure 프로바이더는 TBD
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| 시작 준비 상태 조정 | `implemented` | [`runtime/readiness.py`](../../../services/core-control-plane/src/fdai/runtime/readiness.py), [`runtime/bootstrap_incidents.py`](../../../services/core-control-plane/src/fdai/runtime/bootstrap_incidents.py), [`core/readiness/coordinator.py`](../../../services/core-control-plane/src/fdai/core/readiness/coordinator.py) 및 준비 상태 집중 테스트 | 런타임은 순서가 지정된 단계를 평가하고 정제된 보고서를 저장하며, 결과 결정에 따라 처리를 게이팅합니다. PostgreSQL 상태 재구성은 process-critical로 유지하고, 영속 A2 알림 replay는 느린 subscriber가 관련 없는 시작을 차단하지 않도록 격리된 readiness-gated worker에서 실행합니다. |
+| 시작 준비 상태 조정 | `implemented` | [`runtime/readiness.py`](../../../services/core-control-plane/src/fdai/runtime/readiness.py), [`runtime/bootstrap_incidents.py`](../../../services/core-control-plane/src/fdai/runtime/bootstrap_incidents.py), [`core/readiness/coordinator.py`](../../../services/core-control-plane/src/fdai/core/readiness/coordinator.py) 및 준비 상태 집중 테스트 | 런타임은 순서가 지정된 단계를 평가하고 정제된 보고서를 저장하며 결과 결정에 따라 처리를 제어합니다. 새로 고침은 가장 이른 근거 만료 전에 시작하지만 예산을 넘기면 정확한 만료 시점에 처리를 닫습니다. PostgreSQL 상태 재구성은 process-critical로 유지하고 영속 A2 알림 replay는 격리합니다. |
 | T2 교차 검사 시작 증명 재사용 | `implemented` | [`delivery/startup_model_probe.py`](../../../services/core-control-plane/src/fdai/delivery/startup_model_probe.py) 및 [`tests/delivery/test_startup_probe.py`](../../../services/core-control-plane/tests/delivery/test_startup_probe.py) | 프로세스에서 처음 성공한 증명은 구성된 샘플을 사용합니다. 이후 새로 고침은 추가 T2 요청 없이 이를 재사용하며 실패는 계속 재시도할 수 있습니다. |
 | 수집기 일정 및 통제된 발견 활성화 | `implemented` | [`rule_watcher_job.tf`](../../../infra/modules/compute/container-apps/rule_watcher_job.tf), [`rule_collector_job_cli.py`](../../../services/core-control-plane/src/fdai/delivery/rule_collector_job_cli.py), [`core/readiness/discovery_activation.py`](../../../services/core-control-plane/src/fdai/core/readiness/discovery_activation.py), [`runtime/discovery_activation.py`](../../../services/core-control-plane/src/fdai/runtime/discovery_activation.py) 및 집중 수집기/활성화/Norns/런타임/인프라 검사 | 구성 가능한 작업은 실행 권한이 없는 인벤토리 신원을 사용하고, 검증된 출처 증적만 기록합니다. 런타임 조립은 정책과 최신 선행 조건이 모두 통과할 때까지 Norns 게시를 차단합니다. |
 | 부트스트랩 및 수명 주기 자동화 | `in-progress` | [`llm_resolver_cli.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/llm_resolver_cli.py), `.github/workflows/deploy-dev.yml`, `.github/workflows/model-lifecycle-reconcile.yml` 및 집중 수명 주기 테스트 | 보호된 모델 해석과 제안 전용 조정은 구현됐습니다. 수집기 일정과 통제된 발견 활성화는 현재 변경에서 구현되며, 종단 간 사람 승인 초기화는 아직 완료되지 않았습니다. |
@@ -46,6 +46,7 @@ Azure 초점: 비-Azure 프로바이더는 TBD
 | 2026-08-25 | `implemented` | 증가한 배포 감사 체인이 범위가 제한된 시작 탐색을 초과한 뒤 PostgreSQL 상태 도달 가능성과 전체 감사 체인 검증을 분리했습니다. 상태 접근과 감사 추가는 계속 프로세스 준비 상태를 차단하며, 완료되지 않은 체인 증명은 `autonomous-action`을 `shadow`로 강제하고 확인된 불일치는 준비 상태를 차단합니다. | `current change`; 시작 탐색, 집약기, 런타임 조립 및 집중 준비 상태 테스트: `43 passed`; Ruff와 영문/한글 문서 검사를 통과했습니다. | 모델 용량 변경 전에 대규모 감사 체인을 사용하는 정상 배포 Core 증적을 보존하고 영속 계측 쓰기 한 건을 증명합니다. |
 | 2026-08-25 | `implemented` | 사용할 수 없는 알림 route 뒤에서 보호된 revision 두 개가 멈춘 뒤 영속 A2 incident 알림 replay를 readiness-critical bootstrap 순서에서 분리했습니다. Incident 상태는 계속 준비 상태 전에 재구성합니다. 격리된 worker는 전송 checkpoint를 유지하고 transient 전달 실패를 재시도하며 권한을 부여할 수 없습니다. | 실패한 보호 적용 `32833058288`; `current change`; 집중 bootstrap 테스트 59개와 strict mypy 통과. | 정확한 수정 Core 이미지를 빌드하고 배포한 뒤 정상 시작, replay 및 peer-isolation 근거를 보존합니다. |
 | 2026-08-25 | `implemented` | 완료되지 않은 전체 감사 체인 증명 뒤에 5분의 프로세스 로컬 대기 시간을 추가했습니다. 시간 초과나 취소가 발생하면 즉시 과거 체인 스캔을 다시 시작하지 않고 자율 권한을 낮춥니다. 확인된 불일치는 계속 준비 상태를 차단하며, 이후의 제한된 재시도로 복구할 수 있습니다. | 실패한 보호 적용 `32846624686`; 준비 상태 확인 구간에서 PostgreSQL CPU 98.5~100%; `current change`; 집중 시작 탐색 테스트. | 제한된 재시도 동작을 배포하고 계량 검증 전에 정상 또는 저하된 관찰 모드 Core 근거를 보존합니다. |
+| 2026-08-25 | `implemented` | 가장 이른 근거 만료 전에 주기적 준비 상태 새로 고침을 시작하고 조정기가 만든 실패 근거를 현재 및 다음 범위가 제한된 실행까지 유지했습니다. 새로 고침이 기존 만료 시점에 도달하면 보호된 처리를 계속 닫으므로 오래된 근거를 수락하거나 권한을 높이지 않고 가용성을 개선합니다. | 실패한 보호 적용 `32846624686`, 배포 보고서의 `degraded`, `postgres.state=passed` 및 살아 있는 replica에서 만료된 감사 시간 초과, `current change`, 집중 조정기 및 런타임 타이밍 테스트 | 정확히 수정된 Core 이미지를 배포하고 정상 또는 degraded-shadow revision과 peer 격리 근거를 보존합니다. |
 
 ### 남은 작업
 
@@ -150,7 +151,9 @@ Narrator 대상은 TTFT p95 2.5초 이내로 유지합니다
 기한 전 valid first 토큰 부재는 사용 불가입니다. T2는 계속 mixed-model과 검증기 게이트를
 요구하며 기한 miss는 사례를 사람 승인으로 낮춥니다.
 
-근거는 설정된 간격 이후 만료됩니다. 주기적 탐색은 보고서를 새로 고치고 전이만 덧붙입니다.
+근거는 설정된 간격 이후 만료됩니다. 주기적 탐색은 단계 하나와 탐색 하나의 예산에서 계산한
+선행 시간만큼 가장 이른 만료 전에 보고서 새로 고침을 시작하고 전이만 덧붙입니다. 범위가 제한된
+새로 고침이 기존 만료 시점에 도달하면 완전한 보고서가 근거를 교체할 때까지 처리를 닫습니다.
 T2 교차 검사, 감사 내구성 및 전체 감사 체인 탐색은 성공한 프로세스 로컬 증명을 재사용합니다.
 준비 상태 결과는 모델 요청, 감사 추가 또는 전체 체인 검사를 반복하지 않고 새로운 근거 시각과
 만료 시각을 받습니다. 완료되지 않은 전체 체인 증명은 다음 프로세스 로컬 스캔 전에 5분 동안

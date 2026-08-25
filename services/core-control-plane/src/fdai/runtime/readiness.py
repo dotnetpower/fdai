@@ -134,6 +134,11 @@ class StartupReadinessRuntime:
     coordinator: StartupReadinessCoordinator
     state: RuntimeReadinessState
     refresh_interval_seconds: float
+    refresh_lead_seconds: float = 0.0
+
+    def __post_init__(self) -> None:
+        if self.refresh_interval_seconds <= 0 or self.refresh_lead_seconds < 0:
+            raise ValueError("startup readiness refresh timing is invalid")
 
     async def evaluate(self) -> StartupReadinessReport:
         report = await self.coordinator.evaluate()
@@ -145,11 +150,25 @@ class StartupReadinessRuntime:
             delay = self.refresh_interval_seconds
             next_expiry = self.state.next_expiry()
             if next_expiry is not None and not self.state.refresh_failed:
-                delay = min(delay, max(0.0, (next_expiry - _utc_now()).total_seconds()))
+                delay = min(
+                    delay,
+                    max(
+                        0.0,
+                        (next_expiry - _utc_now()).total_seconds() - self.refresh_lead_seconds,
+                    ),
+                )
             try:
                 await asyncio.wait_for(stop.wait(), timeout=delay)
             except TimeoutError:
                 self.state.close_if_unready()
+                expiry_handle: asyncio.TimerHandle | None = None
+                if next_expiry is not None:
+                    until_expiry = (next_expiry - _utc_now()).total_seconds()
+                    if until_expiry > 0:
+                        expiry_handle = asyncio.get_running_loop().call_later(
+                            until_expiry,
+                            self.state.close_if_unready,
+                        )
                 try:
                     await self.evaluate()
                 except (ConnectionError, OSError, OperationalError, TimeoutError) as exc:
@@ -161,6 +180,9 @@ class StartupReadinessRuntime:
                 except Exception:
                     self.state.mark_refresh_failed()
                     raise
+                finally:
+                    if expiry_handle is not None:
+                        expiry_handle.cancel()
 
     async def run_when_ready(
         self,
@@ -296,6 +318,30 @@ def build_startup_readiness_runtime(
     # The round-trip probe uses the operational bus (a real ops-namespace topic),
     # but readiness transitions are a multiplexed logical topic, so the coordinator
     # publishes them on transition_event_bus to reach the physical object topic.
+    budget = StartupProbeBudget(
+        max_concurrency=_int_value(environment, "FDAI_STARTUP_MAX_CONCURRENCY", 4),
+        per_probe_timeout_seconds=_float_value(
+            environment,
+            "FDAI_STARTUP_PROBE_TIMEOUT_SECONDS",
+            10.0,
+        ),
+        phase_timeout_seconds=_float_value(
+            environment,
+            "FDAI_STARTUP_PHASE_TIMEOUT_SECONDS",
+            30.0,
+        ),
+        retries=_int_value(environment, "FDAI_STARTUP_PROBE_RETRIES", 1),
+        total_cost_limit_usd=_float_value(
+            environment,
+            "FDAI_STARTUP_COST_LIMIT_USD",
+            0.05,
+        ),
+        model_sample_count=_int_value(
+            environment,
+            "FDAI_STARTUP_MODEL_SAMPLE_COUNT",
+            2,
+        ),
+    )
     coordinator = StartupReadinessCoordinator(
         specs=specs,
         probes=probes,
@@ -303,30 +349,7 @@ def build_startup_readiness_runtime(
         event_bus=transition_event_bus,
         event_validator=event_validator,
         deployment_ceilings=deployment_ceilings,
-        budget=StartupProbeBudget(
-            max_concurrency=_int_value(environment, "FDAI_STARTUP_MAX_CONCURRENCY", 4),
-            per_probe_timeout_seconds=_float_value(
-                environment,
-                "FDAI_STARTUP_PROBE_TIMEOUT_SECONDS",
-                10.0,
-            ),
-            phase_timeout_seconds=_float_value(
-                environment,
-                "FDAI_STARTUP_PHASE_TIMEOUT_SECONDS",
-                30.0,
-            ),
-            retries=_int_value(environment, "FDAI_STARTUP_PROBE_RETRIES", 1),
-            total_cost_limit_usd=_float_value(
-                environment,
-                "FDAI_STARTUP_COST_LIMIT_USD",
-                0.05,
-            ),
-            model_sample_count=_int_value(
-                environment,
-                "FDAI_STARTUP_MODEL_SAMPLE_COUNT",
-                2,
-            ),
-        ),
+        budget=budget,
     )
     return StartupReadinessRuntime(
         coordinator=coordinator,
@@ -336,6 +359,7 @@ def build_startup_readiness_runtime(
             "FDAI_STARTUP_REFRESH_SECONDS",
             300.0,
         ),
+        refresh_lead_seconds=budget.refresh_lead_seconds,
     )
 
 

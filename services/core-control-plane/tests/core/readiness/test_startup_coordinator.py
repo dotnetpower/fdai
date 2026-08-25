@@ -208,10 +208,11 @@ async def test_timeout_and_crash_are_sanitized_and_block_readiness() -> None:
         _Probe("timeout", result=_passed("timeout"), delay=0.02),
         _Probe("crash", failure=RuntimeError("secret endpoint text")),
     ]
+    budget = StartupProbeBudget(per_probe_timeout_seconds=0.001, retries=0)
     coordinator, _, _, _ = _coordinator(
         specs,
         probes,
-        budget=StartupProbeBudget(per_probe_timeout_seconds=0.001, retries=0),
+        budget=budget,
     )
 
     report = await coordinator.evaluate()
@@ -222,6 +223,12 @@ async def test_timeout_and_crash_are_sanitized_and_block_readiness() -> None:
         "crash": "probe_crashed",
         "timeout": "probe_deadline_exceeded",
     }
+    assert {result.expires_at - result.observed_at for result in report.results} == {
+        timedelta(seconds=budget.failure_evidence_ttl_seconds)
+    }
+    assert budget.refresh_lead_seconds == (
+        budget.phase_timeout_seconds + budget.per_probe_timeout_seconds
+    )
     assert "secret" not in report.to_json()
 
 

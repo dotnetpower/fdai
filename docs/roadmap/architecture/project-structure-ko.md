@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 3de946fd81e2b0efadb92a21d533a1f173560144
+translation_source_sha: 3123769e42dc13fe59dde7dc97abcd2fef5a3b08
 translation_revised: 2026-08-25
 ---
 # 프로젝트 구조
@@ -321,6 +321,10 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
 `ConfigProvider` - 은 **sync 유지**: 시작 시 한 번 실행되거나, I/O 없는 순수 CPU 경계
 검증이므로 비동기 래퍼는 노이즈만 추가합니다. 테스트는 `pytest-asyncio` + `asyncio_mode =
 "auto"` 로 실행되어 평범한 `비동기 def test_...` 가 per-test 마커 없이 동작합니다.
+
+시작 준비 상태의 프로바이더 중립 단계 예산과 근거 수명은 `core/readiness`가 소유합니다. 런타임
+계층은 만료 전에 새로 고침을 예약하고 대체 보고서가 완료되지 않으면 기존 만료 시점에 처리를
+닫습니다. 어느 계층도 배포 권한 상한을 높일 수 없습니다.
 
 `StateStore`는 제거 원시 연산을 `delete_states_beyond(prefix, retain_newest)` 하나만 노출합니다.
 `read_states`와 같은 순서로 한계를 넘는 가장 오래된 행을 버려, 추가 전용 근거 투영의 증가를

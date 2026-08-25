@@ -91,6 +91,7 @@ async def test_standard_runtime_inventory_reaches_ready_and_persists_report() ->
     assert report.decision is ReadinessDecision.READY
     assert len(report.results) == 11
     assert runtime.state.is_ready()
+    assert runtime.refresh_lead_seconds == 40.0
     persisted = await store.read_state("runtime:startup-readiness:latest")
     assert persisted is not None
     assert persisted["decision"] == "ready"
@@ -343,6 +344,7 @@ async def test_refresh_closes_running_operation_at_evidence_expiry() -> None:
             )
         ),
         refresh_interval_seconds=60,
+        refresh_lead_seconds=0.01,
     )
 
     async def operation() -> None:
@@ -361,6 +363,61 @@ async def test_refresh_closes_running_operation_at_evidence_expiry() -> None:
 
     stop.set()
     await asyncio.gather(guarded, refresh)
+
+
+async def test_refresh_completes_before_expiry_without_closing_readiness() -> None:
+    now = datetime.now(UTC)
+    evaluation_started = asyncio.Event()
+    stop = asyncio.Event()
+
+    class _Coordinator:
+        async def evaluate(self) -> StartupReadinessReport:
+            evaluation_started.set()
+            await asyncio.sleep(0.005)
+            refreshed_at = datetime.now(UTC)
+            stop.set()
+            return StartupReadinessReport(
+                generated_at=refreshed_at,
+                decision=ReadinessDecision.DEGRADED,
+                results=(
+                    StartupProbeResult(
+                        probe_id="audit.chain",
+                        status=ProbeStatus.TIMED_OUT,
+                        observed_at=refreshed_at,
+                        expires_at=refreshed_at + timedelta(minutes=4),
+                        latency_ms=0,
+                        failure_class="probe_deadline_exceeded",
+                    ),
+                ),
+            )
+
+    runtime = StartupReadinessRuntime(
+        coordinator=_Coordinator(),  # type: ignore[arg-type]
+        state=RuntimeReadinessState(
+            report=StartupReadinessReport(
+                generated_at=now,
+                decision=ReadinessDecision.DEGRADED,
+                results=(
+                    StartupProbeResult(
+                        probe_id="audit.chain",
+                        status=ProbeStatus.TIMED_OUT,
+                        observed_at=now,
+                        expires_at=now + timedelta(milliseconds=30),
+                        latency_ms=0,
+                        failure_class="probe_deadline_exceeded",
+                    ),
+                ),
+            )
+        ),
+        refresh_interval_seconds=60,
+        refresh_lead_seconds=0.02,
+    )
+
+    await asyncio.wait_for(runtime.refresh_until_stopped(stop), timeout=0.5)
+
+    assert evaluation_started.is_set()
+    assert runtime.state.is_ready()
+    assert not runtime.state._blocked_event.is_set()
 
 
 async def test_guarded_operation_is_not_created_before_readiness() -> None:
