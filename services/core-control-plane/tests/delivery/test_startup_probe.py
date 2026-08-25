@@ -8,6 +8,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, patch
+from uuid import UUID
 
 import pytest
 from fdai.delivery.startup_probe import (
@@ -107,6 +108,50 @@ async def test_event_bus_probe_round_trips_synthetic_record() -> None:
     result = await probe.run(_request(synthetic_scope=True))
 
     assert result.evidence == {"round_trip": True}
+
+
+async def test_event_bus_probe_skips_records_from_concurrent_revisions() -> None:
+    bus = LocalEventBus()
+    probe = EventBusRoundTripStartupProbe(
+        probe_id="kafka.round-trip",
+        event_bus=bus,
+        topic="runtime.startup.probe",
+        consumer_settle_seconds=0.01,
+    )
+
+    async def publish_unrelated() -> None:
+        await asyncio.sleep(0)
+        await bus.publish(
+            "runtime.startup.probe",
+            "startup-other-revision",
+            {"kind": "startup_probe", "probe_id": "kafka.round-trip"},
+        )
+
+    unrelated = asyncio.create_task(publish_unrelated())
+    result = await probe.run(_request(synthetic_scope=True))
+    await unrelated
+
+    assert result.evidence == {"round_trip": True}
+
+
+async def test_event_bus_probe_rejects_forged_current_record() -> None:
+    bus = LocalEventBus()
+    key = "startup-00000000000000000000000000000000"
+    await bus.publish(
+        "runtime.startup.probe",
+        key,
+        {"kind": "startup_probe", "probe_id": "forged"},
+    )
+    probe = EventBusRoundTripStartupProbe(
+        probe_id="kafka.round-trip",
+        event_bus=bus,
+        topic="runtime.startup.probe",
+        consumer_settle_seconds=0,
+    )
+
+    with patch("fdai.delivery.startup_probe.uuid4", return_value=UUID(int=0)):
+        with pytest.raises(RuntimeError, match="payload mismatch"):
+            await probe.run(_request(synthetic_scope=True))
 
 
 async def test_embedding_probe_collects_two_shape_samples() -> None:

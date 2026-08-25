@@ -318,7 +318,13 @@ class EventBusRoundTripStartupProbe:
         iterator = self._event_bus.subscribe(self._topic, group_id)
 
         async def receive() -> EventEnvelope:
-            return await anext(iterator)
+            async for envelope in iterator:
+                if envelope.key != key:
+                    continue
+                if envelope.payload.get("probe_id") != self.probe_id:
+                    raise RuntimeError("event-bus startup round-trip payload mismatch")
+                return envelope
+            raise RuntimeError("event-bus startup round-trip subscription ended")
 
         receive_task: asyncio.Task[EventEnvelope] = asyncio.create_task(receive())
         try:
@@ -329,7 +335,7 @@ class EventBusRoundTripStartupProbe:
                 key,
                 {"kind": "startup_probe", "probe_id": self.probe_id},
             )
-            envelope = await receive_task
+            await receive_task
         finally:
             if not receive_task.done():
                 receive_task.cancel()
@@ -337,8 +343,6 @@ class EventBusRoundTripStartupProbe:
             close = getattr(iterator, "aclose", None)
             if callable(close):
                 await close()
-        if envelope.key != key or envelope.payload.get("probe_id") != self.probe_id:
-            raise RuntimeError("event-bus startup round-trip payload mismatch")
         return _result(self.probe_id, started_at, evidence={"round_trip": True})
 
 
