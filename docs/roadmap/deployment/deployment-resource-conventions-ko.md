@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: ba488c563a532964663affb544bdcf462b298549
+translation_source_sha: ee68ac64e5db9764975e6a4ef3e645406a081863
 translation_revised: 2026-08-25
 ---
 # 배포 리소스 규약
@@ -22,7 +22,7 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 | Core control plane startup probe | not-applicable | `current change`; 서비스 root에서 `terraform fmt`와 `terraform validate` 통과 | Health 포트를 늦게 여는 부팅을 덮으려고 startup probe 예산을 세 번 조정했습니다. 이제 런타임이 startup readiness보다 먼저 포트를 열어 liveness가 즉시 응답하므로 이 probe는 필요 없습니다. 보호된 갱신 계약도 image와 revision suffix 변경만 rollback을 증명하므로 이 probe를 거부했습니다. |
 | CAF 명명 및 `fdai:` 소유권 tag | implemented | `infra/main.tf`, `infra/bootstrap/main.tf` 및 집중 Terraform test | Terraform이 이름과 tag를 계산하고 런타임 코드는 출력을 사용합니다. |
 | Operator API 물리 리소스 이름 | implemented | `infra/main.tf`, `infra/services/operator-service/variables.tf` 및 `tests/integration/infra/test_operator_api_resource_naming.py` | 새 계획은 워크로드 신원과 Container App에 `operator-api` 구성 요소를 사용합니다. 기존 개발 리소스에는 검토된 교체 적용이 아직 필요합니다. |
-| Event Bus 제품 토픽 namespace | validated | 보호된 platform 적용 `32475924808`, Operator 적용 `32514233525`, 최종 실제 entity, RBAC, 환경, 서비스 상태, canary, HIL, stage, inventory, semantic 및 lag 관측 | 두 namespace에는 현재 `fdai.*` 제품 토픽만 있으며 runtime principal은 entity 범위 Event Hubs role을 사용하고 service 5개가 모두 healthy합니다. 승인된 개발 backlog는 삭제된 legacy entity와 함께 폐기했습니다. |
+| Event Bus 제품 토픽 namespace | validated | 보호된 platform 적용 `32475924808`, Operator 적용 `32514233525`, 최종 실제 entity, RBAC, 환경, 서비스 상태, canary, HIL, stage, inventory, semantic 및 lag 관측 | 두 namespace에는 현재 `fdai.*` 제품 토픽만 있으며 runtime principal은 entity 범위 Event Hubs role을 사용하고 service 5개가 모두 healthy합니다. 완료된 일회성 이행 모드는 더 이상 노출하지 않습니다. 과거 Terraform `moved` 블록은 state 호환성을 위해 유지합니다. |
 | 독립 service Terraform state root | validated | `config/independent-service-live-evidence-manifest.json` 및 `config/independent-service-remote-evidence.json` | Service root 5개 모두에 통제된 계획, 적용, 상태, peer 격리 및 rollback 근거가 있습니다. |
 | 이전 방식 platform 및 ops-bootstrap Terraform state root | implemented | `infra/main.tf`, `infra/bootstrap/main.tf`, `.github/workflows/deploy-dev.yml` 및 집중 Terraform과 workflow 검사 | 안정적인 backend key와 배포 메커니즘은 제공되지만, 이 두 root의 통제된 적용 증적은 리포지토리에 보존되어 있지 않습니다. |
 | 재사용 Terraform 모듈 호환성 | implemented | `infra/modules/**/versions.tf`, `infra/services/**/modules/**/versions.tf`, TFLint | 모든 재사용 모듈은 Terraform `>= 1.9`를 선언하고 Azure 리소스를 소유한 모듈은 지원되는 AzureRM 4.x 범위를 제한합니다. |
@@ -37,6 +37,7 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-25 | implemented | 완료된 Event Bus 토픽 이행 request 모드, service 입력, 대상 지정 계획 예외 및 현재 운영자 지침을 제거했습니다. 표준 계획은 이제 정본 `fdai.*` 연결만 수락합니다. 과거 Terraform `moved` 블록과 활성 접두사 거부 guard는 유지하므로 이전 state를 리소스 재생성 없이 해석하고 legacy 선언은 계속 차단합니다. | `current change`, `.github/workflows/deploy-dev.yml`, `.github/workflows/service-deploy.yml`, 집중 배포 workflow 검사 | 일회성 이행 제어에 남은 구현 작업은 없습니다. |
 | 2026-08-24 | implemented | 보호된 model resolver의 deployment-environment 입력을 복원하고 기존 proposal-only lifecycle caller를 위한 development 기본값을 유지했으며 provider query 전에 다른 environment 범위의 policy를 거부하도록 했습니다. | 실패한 보호 계획 `32735269365`는 Terraform 및 Azure mutation 전에 중단됨; `current change`; 집중 resolver 및 deployment workflow 검사 | 보호된 exact-revision 계획을 다시 실행하고 봉인된 model 및 Terraform receipt를 보존합니다. |
 | 2026-08-25 | implemented | 임시 Terraform state bootstrap 예외를 정확한 정상 활성 Core 리비전, 다이제스트로 고정된 이미지, 검증된 resolved-model attestation 및 런타임 다이제스트를 기준으로 하는 fail-closed 모델 정책 CAS로 교체했습니다. Terraform 출력은 진단에만 사용하며 exact apply는 같은 활성 런타임 경계를 다시 검증합니다. | 실패한 보호 계획 `32753619537`, `32754737930`, `32798548057`, `32798561510`은 모두 Terraform plan 및 Azure mutation 전에 중단됨; commit `5e1e8214ef0f80a1e9b57d00bd2a35723bca6b7b`; 집중 모델 CAS 및 수명 주기 검사 26개 통과. | 현재 활성 다이제스트에 결합된 통제된 Owner 초안을 영속화한 뒤 삭제 0건인 보호 계획, exact apply, provider-schema 및 Saga 증적을 보존합니다. |
 | 2026-08-25 | implemented | 모든 재사용 모듈에 명시적인 Terraform 및 AzureRM 호환성 계약을 추가하고 더 이상 리소스를 소유하지 않는 이전 root 입력을 제거했습니다. | `current change`; platform, bootstrap, scenario-lab, dev-access 및 service root 5개의 유효성 검사 통과, TFLint 0건. | Provider major version 변경을 명시적으로 유지하고 지원 범위를 높이기 전에 각 재사용 모듈을 독립적으로 검증합니다. |
@@ -158,20 +159,10 @@ Provision된 Event Hub entity 이름 변경은 제자리 이름 변경이 아니
 transport 근거를 기록합니다.
 명시적으로 폐기 승인된 비권위 개발 backlog는 exact apply에서 legacy entity를 삭제할 때 대신
 제거할 수 있습니다.
-이 전환에서는 `plan-evh-<20-hex>` request id를 사용하고 exact apply에서는
-`apply-evh-<20-hex>` request id를 사용합니다. 이 모드는 보호된 계획의 대상을 두 Event Bus module,
-토픽 범위 역할 할당, analyzer, canary 및 inventory Job으로만 제한합니다. Guard는 선언된 모든
-이전/후속 작업, 역할 교체, primary namespace 갱신 및 해당 Job 3개의 갱신을 요구합니다. 계획을
-봉인하기 전에 그 밖의 모든 변경 주소를 차단합니다.
-Entity 전환 뒤 실제 감사에서 토픽 환경이 오래된 것으로 확인되면 `plan-evh-jobs-<16-hex>`와
-`apply-evh-jobs-<16-hex>`를 사용해 OOB, scheduler, baseline 및 growth Job만 갱신합니다. 독립 소유
-Container App은 `service-deploy.yml`을 사용하며, 이전 방식 platform 계획이 해당 리소스의 소유권을
-다시 가져오지 않습니다.
-이러한 App은 service 계획과 exact apply 모두에서 `event_bus_topic_migration=true`를 설정합니다.
-봉인된 모드는 service별로 검토된 토픽 환경 값, 누락된 필수
-`FDAI_EXECUTION_VENUE=deployed` 결합, immutable image 및 새 revision suffix만 허용합니다. 이 설정
-전용 전환에서는 schema migration을 건너뛰지만 rollback 수집, 상태 검증, peer state 격리 및 실제
-관측은 계속 유지합니다.
+검증된 전환이 완료되어 일회성 이행 제어는 제거했습니다. 현재 platform 및 service 계획은 정본
+`fdai.*` 연결만 수락합니다. 과거 Terraform `moved` 블록 3개는 이전 state 주소만 해석합니다.
+State가 정본 key에 도달한 뒤 legacy 토픽을 프로비저닝하거나 반복 replacement 작업을 계획하지
+않습니다.
 
 ### Day-zero 인벤토리용 CAF 접두사
 

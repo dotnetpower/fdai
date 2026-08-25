@@ -236,8 +236,6 @@ jobs:
       TF_VAR_enable_chatops_hil: ${{ secrets.CHATOPS_WEBHOOK_URL != '' && secrets.CHATOPS_WEBHOOK_SECRET != '' }}
       TF_VAR_chatops_webhook_url: ${{ secrets.CHATOPS_WEBHOOK_URL }}
       TF_VAR_chatops_webhook_secret: ${{ secrets.CHATOPS_WEBHOOK_SECRET }}
-      EVENT_BUS_TOPIC_MIGRATION: ${{ startsWith(inputs.request_id, 'plan-evh-') || startsWith(inputs.request_id, 'apply-evh-') }}
-      EVENT_BUS_TOPIC_MIGRATION_JOBS: ${{ startsWith(inputs.request_id, 'plan-evh-jobs-') || startsWith(inputs.request_id, 'apply-evh-jobs-') }}
     steps:
       - name: Verify protected workflow source
         working-directory: ${{ runner.temp }}
@@ -445,67 +443,9 @@ jobs:
             exit 1
           fi
 
-      - name: Validate Event Bus migration request
-        if: ${{ env.EVENT_BUS_TOPIC_MIGRATION == 'true' }}
-        env:
-          CUTOVER_ISOLATED_EXECUTOR_AUTHORITY: ${{ inputs.cutover_isolated_executor_authority }}
-          DEPLOY_DESIGN_MOCKS: ${{ inputs.deploy_design_mocks }}
-          DEPLOY_MONITORING: ${{ inputs.deploy_monitoring }}
-          DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET: ${{ inputs.deploy_ohl_scale_out_evidence_target }}
-          PLAN_REQUEST_ID: ${{ inputs.request_id }}
-          PROMOTE_RUNTIME_IMAGE: ${{ inputs.promote_runtime_image }}
-          VERIFY_EXECUTOR_EFFECT: ${{ inputs.verify_executor_effect }}
-        run: |
-          set -euo pipefail
-          if [[ -z "$PLAN_REQUEST_ID" ]]; then
-            echo "Event Bus topic migration requires a protected request." >&2
-            exit 1
-          fi
-          if [[ "$DEPLOY_DESIGN_MOCKS" == "true" \
-            || "$DEPLOY_MONITORING" == "true" \
-            || "$DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET" == "true" \
-            || "$PROMOTE_RUNTIME_IMAGE" == "true" \
-            || "$CUTOVER_ISOLATED_EXECUTOR_AUTHORITY" == "true" \
-            || "$VERIFY_EXECUTOR_EFFECT" == "true" ]]; then
-            echo "Event Bus topic migration cannot be combined with another bounded operation." >&2
-            exit 1
-          fi
-
       - name: Bind model-binding Terraform target
         if: ${{ env.MODEL_BINDING_ONLY == 'true' }}
         run: echo 'TF_CLI_ARGS_plan=-target=module.llm_azure_openai[0]' >> "$GITHUB_ENV"
-
-      - name: Bind Event Bus migration Terraform targets
-        if: ${{ env.EVENT_BUS_TOPIC_MIGRATION == 'true' }}
-        run: |
-          set -euo pipefail
-          if [[ "$EVENT_BUS_TOPIC_MIGRATION_JOBS" == "true" ]]; then
-            targets=(
-              '-target=module.compute.azurerm_container_app_job.oob'
-              '-target=module.compute.azurerm_container_app_job.scheduler_tick'
-              '-target=module.measurement_runners.azurerm_container_app_job.baseline_regression'
-              '-target=module.measurement_runners.azurerm_container_app_job.pattern_growth'
-            )
-          else
-            targets=(
-              '-target=module.event_bus'
-              '-target=module.event_bus_auxiliary'
-              '-target=azurerm_role_assignment.canary_eventhubs_sender'
-              '-target=azurerm_role_assignment.command_api_eventhubs_receiver'
-              '-target=azurerm_role_assignment.command_api_eventhubs_sender'
-              '-target=azurerm_role_assignment.executor_eventhubs_data_owner'
-              '-target=azurerm_role_assignment.ingestion_eventhubs_sender'
-              '-target=azurerm_role_assignment.ingestion_worker_eventhubs_sender'
-              '-target=azurerm_role_assignment.ingestion_worker_pantheon_receiver'
-              '-target=azurerm_role_assignment.inventory_eventhubs_raw_sender'
-              '-target=azurerm_role_assignment.inventory_eventhubs_sender'
-              '-target=azurerm_role_assignment.inventory_stage_sender'
-              '-target=module.compute.azurerm_container_app_job.analyzer_tick'
-              '-target=module.compute.azurerm_container_app_job.canary'
-              '-target=module.compute.azurerm_container_app_job.inventory'
-            )
-          fi
-          printf 'TF_CLI_ARGS_plan=%s\n' "${targets[*]}" >> "$GITHUB_ENV"
 
       - name: Validate remote plan request
         if: ${{ !inputs.apply && inputs.request_id != '' }}
@@ -806,17 +746,6 @@ jobs:
             echo "ACTIVE_CORE_IMAGE_DIGEST=$(python3 -c 'import json,sys; print(json.load(sys.stdin)["image_digest"])' <<< "$binding")"
             echo "ACTIVE_CORE_MODEL_DIGEST=$current"
           } >> "$GITHUB_ENV"
-
-      - name: Preserve Event Bus migration console topology
-        if: ${{ env.EVENT_BUS_TOPIC_MIGRATION == 'true' }}
-        run: |
-          set -euo pipefail
-          state_list="$RUNNER_TEMP/event-bus-migration-state.txt"
-          trap 'rm -f "$state_list"' EXIT
-          terraform state list > "$state_list"
-          if grep -Fxq 'module.console[0].azurerm_static_web_app.console' "$state_list"; then
-            echo "TF_VAR_enable_console=true" >> "$GITHUB_ENV"
-          fi
 
       - name: Install pinned GitHub CLI for image verification
         if: ${{ !inputs.apply && inputs.deploy_isolated_executor }}
@@ -1258,8 +1187,6 @@ jobs:
       - name: Reject destructive protected plan
         if: ${{ !inputs.apply && inputs.request_id != '' }}
         env:
-          MIGRATE_EVENT_BUS_TOPICS: ${{ env.EVENT_BUS_TOPIC_MIGRATION }}
-          MIGRATE_EVENT_BUS_JOBS: ${{ env.EVENT_BUS_TOPIC_MIGRATION_JOBS }}
           MODEL_BINDING_ONLY: ${{ env.MODEL_BINDING_ONLY }}
         run: |
           set -euo pipefail
@@ -1299,76 +1226,6 @@ jobs:
               "module.llm_azure_openai[0].azurerm_role_assignment."
               "additional_openai_user[\"ingestion_worker\"]",
             ),
-          }
-          migration_successors = {
-            "module.event_bus.azurerm_eventhub.topic[\"aw.change.events\"]":
-              "module.event_bus.azurerm_eventhub.topic[\"fdai.change.events\"]",
-            "module.event_bus.azurerm_eventhub.topic[\"aw.dr.events\"]":
-              "module.event_bus.azurerm_eventhub.topic[\"fdai.dr.events\"]",
-            "module.event_bus.azurerm_eventhub.topic[\"aw.finops.events\"]":
-              "module.event_bus.azurerm_eventhub.topic[\"fdai.finops.events\"]",
-            "module.event_bus.azurerm_eventhub.topic[\"aw.pantheon.objects\"]":
-              "module.event_bus.azurerm_eventhub.topic[\"fdai.pantheon.objects\"]",
-            "module.event_bus.azurerm_eventhub.dlq[\"aw.change.events\"]":
-              "module.event_bus.azurerm_eventhub.dlq[\"fdai.change.events\"]",
-            "module.event_bus.azurerm_eventhub.dlq[\"aw.dr.events\"]":
-              "module.event_bus.azurerm_eventhub.dlq[\"fdai.dr.events\"]",
-            "module.event_bus.azurerm_eventhub.dlq[\"aw.finops.events\"]":
-              "module.event_bus.azurerm_eventhub.dlq[\"fdai.finops.events\"]",
-            "module.event_bus.azurerm_eventhub.dlq[\"aw.pantheon.objects\"]":
-              "module.event_bus.azurerm_eventhub.dlq[\"fdai.pantheon.objects\"]",
-            "module.event_bus.azurerm_eventhub.auxiliary[\"aw.hil.decisions\"]":
-              "module.event_bus.azurerm_eventhub.auxiliary[\"fdai.hil.decisions\"]",
-            "module.event_bus.azurerm_eventhub.auxiliary[\"aw.pipeline.stages\"]":
-              "module.event_bus.azurerm_eventhub.auxiliary[\"fdai.pipeline.stages\"]",
-            "module.event_bus_auxiliary.azurerm_eventhub.topic[\"aw.control.canary\"]":
-              "module.event_bus_auxiliary.azurerm_eventhub.topic[\"fdai.control.canary\"]",
-            "module.event_bus_auxiliary.azurerm_eventhub.dlq[\"aw.control.canary\"]":
-              "module.event_bus_auxiliary.azurerm_eventhub.dlq[\"fdai.control.canary\"]",
-            "module.event_bus_auxiliary.azurerm_eventhub.auxiliary[\"aw.inventory.raw\"]":
-              "module.event_bus_auxiliary.azurerm_eventhub.auxiliary[\"fdai.inventory.raw\"]",
-            "azurerm_role_assignment.command_api_eventhubs_receiver[\"aw.pantheon.objects\"]":
-              "azurerm_role_assignment.command_api_eventhubs_receiver[\"fdai.pantheon.objects\"]",
-            "azurerm_role_assignment.command_api_eventhubs_sender[\"aw.hil.decisions\"]":
-              "azurerm_role_assignment.command_api_eventhubs_sender[\"fdai.hil.decisions\"]",
-            "azurerm_role_assignment.command_api_eventhubs_sender[\"aw.pantheon.objects\"]":
-              "azurerm_role_assignment.command_api_eventhubs_sender[\"fdai.pantheon.objects\"]",
-            "azurerm_role_assignment.executor_eventhubs_data_owner[\"aw.change.events.dlq\"]":
-              "azurerm_role_assignment.executor_eventhubs_data_owner[\"fdai.change.events.dlq\"]",
-            "azurerm_role_assignment.executor_eventhubs_data_owner[\"aw.control.canary\"]":
-              "azurerm_role_assignment.executor_eventhubs_data_owner[\"fdai.control.canary\"]",
-            "azurerm_role_assignment.executor_eventhubs_data_owner[\"aw.control.canary.dlq\"]":
-              "azurerm_role_assignment.executor_eventhubs_data_owner[\"fdai.control.canary.dlq\"]",
-            "azurerm_role_assignment.executor_eventhubs_data_owner[\"aw.dr.events\"]":
-              "azurerm_role_assignment.executor_eventhubs_data_owner[\"fdai.dr.events\"]",
-            "azurerm_role_assignment.executor_eventhubs_data_owner[\"aw.dr.events.dlq\"]":
-              "azurerm_role_assignment.executor_eventhubs_data_owner[\"fdai.dr.events.dlq\"]",
-            "azurerm_role_assignment.executor_eventhubs_data_owner[\"aw.finops.events\"]":
-              "azurerm_role_assignment.executor_eventhubs_data_owner[\"fdai.finops.events\"]",
-            "azurerm_role_assignment.executor_eventhubs_data_owner[\"aw.finops.events.dlq\"]":
-              "azurerm_role_assignment.executor_eventhubs_data_owner[\"fdai.finops.events.dlq\"]",
-            "azurerm_role_assignment.executor_eventhubs_data_owner[\"aw.hil.decisions\"]":
-              "azurerm_role_assignment.executor_eventhubs_data_owner[\"fdai.hil.decisions\"]",
-            "azurerm_role_assignment.executor_eventhubs_data_owner[\"aw.inventory.raw\"]":
-              "azurerm_role_assignment.executor_eventhubs_data_owner[\"fdai.inventory.raw\"]",
-            "azurerm_role_assignment.executor_eventhubs_data_owner[\"aw.pantheon.objects\"]":
-              "azurerm_role_assignment.executor_eventhubs_data_owner[\"fdai.pantheon.objects\"]",
-            "azurerm_role_assignment.executor_eventhubs_data_owner[\"aw.pantheon.objects.dlq\"]":
-              "azurerm_role_assignment.executor_eventhubs_data_owner[\"fdai.pantheon.objects.dlq\"]",
-            "azurerm_role_assignment.executor_eventhubs_data_owner[\"aw.pipeline.stages\"]":
-              "azurerm_role_assignment.executor_eventhubs_data_owner[\"fdai.pipeline.stages\"]",
-          }
-          migration_replacements = {
-            "azurerm_role_assignment.canary_eventhubs_sender",
-            "azurerm_role_assignment.command_api_eventhubs_receiver[\"fdai.pipeline.stages\"]",
-            "azurerm_role_assignment.command_api_eventhubs_sender[\"fdai.change.events\"]",
-            "azurerm_role_assignment.executor_eventhubs_data_owner[\"fdai.change.events\"]",
-            "azurerm_role_assignment.ingestion_eventhubs_sender[0]",
-            "azurerm_role_assignment.ingestion_worker_eventhubs_sender[0]",
-            "azurerm_role_assignment.ingestion_worker_pantheon_receiver[0]",
-            "azurerm_role_assignment.inventory_eventhubs_raw_sender",
-            "azurerm_role_assignment.inventory_eventhubs_sender",
-            "azurerm_role_assignment.inventory_stage_sender",
           }
           approved_model_replacements = {
             "module.llm_azure_openai[0].azurerm_cognitive_deployment."
@@ -1486,10 +1343,7 @@ jobs:
           )
           unexpected = []
           for address, actions in destructive:
-            if address in migration_replacements:
-              if actions != ("delete", "create"):
-                unexpected.append(address)
-            elif address in approved_model_replacements:
+            if address in approved_model_replacements:
               if not exact_model_replacement(
                 resource_changes[address], approved_model_replacements[address]
               ):
@@ -1500,12 +1354,6 @@ jobs:
                 for successor in permitted_retirements[address]
               ):
                 unexpected.append(address)
-            elif address in migration_successors:
-              if (
-                actions != ("delete",)
-                or actions_by_address.get(migration_successors[address]) != ("create",)
-              ):
-                unexpected.append(address)
             else:
               unexpected.append(address)
           if unexpected:
@@ -1513,63 +1361,8 @@ jobs:
             for address in unexpected:
               print(f"- {address}")
             raise SystemExit(1)
-          if os.environ.get("MIGRATE_EVENT_BUS_TOPICS") == "true":
-            job_followup_actions = {
-              "module.compute.azurerm_container_app_job.oob": ("update",),
-              "module.compute.azurerm_container_app_job.scheduler_tick[0]": ("update",),
-              "module.measurement_runners.azurerm_container_app_job.baseline_regression":
-                ("update",),
-              "module.measurement_runners.azurerm_container_app_job.pattern_growth":
-                ("update",),
-            }
-            if os.environ.get("MIGRATE_EVENT_BUS_JOBS") == "true":
-              required_actions = job_followup_actions
-            else:
-              required_actions = {
-                **{address: ("delete",) for address in migration_successors},
-                **{address: ("create",) for address in migration_successors.values()},
-                **{address: ("delete", "create") for address in migration_replacements},
-              }
-              required_updates = {
-                "module.compute.azurerm_container_app_job.analyzer_tick[0]",
-                "module.compute.azurerm_container_app_job.canary[0]",
-                "module.compute.azurerm_container_app_job.inventory[0]",
-                "module.event_bus.azurerm_eventhub_namespace.primary",
-              }
-              required_actions.update(
-                {address: ("update",) for address in required_updates}
-              )
-            invalid_actions = sorted(
-              address
-              for address, actions in required_actions.items()
-              if actions_by_address.get(address) != actions
-            )
-            changed_addresses = {
-              address
-              for address, actions in actions_by_address.items()
-              if actions not in (("no-op",), ("read",))
-            }
-            unexpected_changes = sorted(changed_addresses.difference(required_actions))
-            if invalid_actions or unexpected_changes:
-              if invalid_actions:
-                print("Event Bus migration plan is missing an exact required action:")
-                for address in invalid_actions:
-                  print(f"- {address}: {actions_by_address.get(address)}")
-              if unexpected_changes:
-                print("Event Bus migration plan contains unrelated changes:")
-                for address in unexpected_changes:
-                  print(f"- {address}: {actions_by_address[address]}")
-              raise SystemExit(1)
-            print("Event Bus migration plan contains only reviewed migration changes.")
           for address, _actions in destructive:
-            if address in migration_successors:
-              print(
-                "Protected plan permits exact Event Hub migration: "
-                f"{address} -> {migration_successors[address]}"
-              )
-            elif address in migration_replacements:
-              print(f"Protected plan permits exact Event Hubs RBAC replacement: {address}")
-            elif address in approved_model_replacements:
+            if address in approved_model_replacements:
               print(f"Protected plan permits exact Azure OpenAI replacement: {address}")
             else:
               successors = permitted_retirements[address]
@@ -1768,10 +1561,6 @@ jobs:
                 "request_kind": (
                   "model"
                   if os.environ["PLAN_REQUEST_ID"].startswith("plan-model-")
-                  else "event-bus-jobs"
-                  if os.environ["PLAN_REQUEST_ID"].startswith("plan-evh-jobs-")
-                  else "event-bus"
-                  if os.environ["PLAN_REQUEST_ID"].startswith("plan-evh-")
                   else "standard"
                 ),
               "created_at": os.environ["CREATED_AT"],
@@ -1918,8 +1707,6 @@ jobs:
           set -euo pipefail
           case "$APPLY_REQUEST_ID" in
             apply-model-*) apply_request_kind="model" ;;
-            apply-evh-jobs-*) apply_request_kind="event-bus-jobs" ;;
-            apply-evh-*) apply_request_kind="event-bus" ;;
             *) apply_request_kind="standard" ;;
           esac
           blob_prefix="${TF_VAR_env}/${APPLY_PLAN_ID}"
@@ -2247,7 +2034,7 @@ jobs:
           retention-days: 30
 
       - name: Reconcile Foundry web-search agent
-        if: ${{ inputs.apply && !inputs.deploy_design_mocks && env.EVENT_BUS_TOPIC_MIGRATION != 'true' && vars.OPERATOR_API_WEB_SEARCH_ENABLED == 'true' }}
+        if: ${{ inputs.apply && !inputs.deploy_design_mocks && vars.OPERATOR_API_WEB_SEARCH_ENABLED == 'true' }}
         env:
           WEB_SEARCH_ALLOWED_DOMAINS_JSON: "${{ vars.OPERATOR_API_WEB_SEARCH_ALLOWED_DOMAINS_JSON || '[]' }}"
         run: |
@@ -2266,7 +2053,7 @@ jobs:
           PYTHONPATH=../src python3 -m fdai.delivery.azure.foundry_agent_reconciler "${args[@]}"
 
       - name: Prepare exact development operations gateway source
-        if: ${{ inputs.apply && inputs.deploy_dev_operations_gateway && env.EVENT_BUS_TOPIC_MIGRATION != 'true' }}
+        if: ${{ inputs.apply && inputs.deploy_dev_operations_gateway }}
         env:
           APPLY_CONTEXT_DIGEST: ${{ inputs.context_digest }}
           APPLY_COMMIT_SHA: ${{ inputs.commit_sha }}
@@ -2300,7 +2087,7 @@ jobs:
           echo "GATEWAY_DEPLOYMENT_STARTED_EPOCH=$(date -u +%s)" >> "$GITHUB_ENV"
 
       - name: Publish exact development operations gateway source
-        if: ${{ inputs.apply && inputs.deploy_dev_operations_gateway && env.EVENT_BUS_TOPIC_MIGRATION != 'true' }}
+        if: ${{ inputs.apply && inputs.deploy_dev_operations_gateway }}
         uses: Azure/functions-action@bc63708cc6539760eea18d8a7de4ce8ef5fdf593 # v1.5.6
         with:
           app-name: ${{ env.GATEWAY_FUNCTION_APP }}
@@ -2308,7 +2095,7 @@ jobs:
           remote-build: true
 
       - name: Verify exact development operations gateway source
-        if: ${{ inputs.apply && inputs.deploy_dev_operations_gateway && env.EVENT_BUS_TOPIC_MIGRATION != 'true' }}
+        if: ${{ inputs.apply && inputs.deploy_dev_operations_gateway }}
         run: |
           set -euo pipefail
           resource_id="$GATEWAY_FUNCTION_RESOURCE_ID"
@@ -2450,7 +2237,7 @@ jobs:
           echo "Design mocks: https://$hostname" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Run schema migration
-        if: ${{ inputs.apply && env.EVENT_BUS_TOPIC_MIGRATION != 'true' && (inputs.deploy_operator_api || inputs.deploy_document_ingestion) }}
+        if: ${{ inputs.apply && (inputs.deploy_operator_api || inputs.deploy_document_ingestion) }}
         run: |
           set -euo pipefail
           rg="$(terraform output -raw resource_group_name)"

@@ -41,10 +41,6 @@ on:
         description: "Explicit one-time transition from the legacy runtime contract."
         type: boolean
         default: false
-      event_bus_topic_migration:
-        description: "Allow only the reviewed aw.* to fdai.* service environment transition."
-        type: boolean
-        default: false
       database_host_binding:
         description: "Allow only the reviewed non-secret PostgreSQL host environment binding."
         type: boolean
@@ -145,7 +141,6 @@ jobs:
           APPLY: ${{ inputs.apply }}
           MIGRATE_STATE: ${{ inputs.migrate_state }}
           INITIAL_CUTOVER: ${{ inputs.initial_cutover }}
-          EVENT_BUS_TOPIC_MIGRATION: ${{ inputs.event_bus_topic_migration }}
           DATABASE_HOST_BINDING: ${{ inputs.database_host_binding }}
           MODEL_BINDING_TRANSITION: ${{ inputs.model_binding_transition }}
           OPERATOR_CHANNEL_EDGE_TRANSITION: ${{ inputs.operator_channel_edge_transition }}
@@ -191,13 +186,6 @@ jobs:
             echo "migrate_state and initial_cutover are mutually exclusive." >&2
             exit 1
           fi
-          if [[ "$EVENT_BUS_TOPIC_MIGRATION" == "true" \
-            && ( "$MIGRATE_STATE" == "true" \
-              || "$INITIAL_CUTOVER" == "true" \
-              || "$OPERATOR_CHANNEL_EDGE_TRANSITION" != "none" ) ]]; then
-            echo "Event Bus topic migration cannot be combined with state migration, initial cutover, or channel-edge transition." >&2
-            exit 1
-          fi
           if [[ "$DATABASE_HOST_BINDING" == "true" \
             && ( "$MIGRATE_STATE" == "true" \
               || "$INITIAL_CUTOVER" == "true" \
@@ -213,7 +201,7 @@ jobs:
             [[ "$MIGRATE_STATE" != "true" \
               && "$INITIAL_CUTOVER" != "true" \
               && "$OPERATOR_CHANNEL_EDGE_TRANSITION" == "none" ]] || {
-                echo "Model binding transition can combine only with Event Bus topic migration and database host binding." >&2
+              echo "Model binding transition can combine only with database host binding." >&2
               exit 1
             }
           fi
@@ -513,7 +501,6 @@ jobs:
         env:
           SERVICE: ${{ inputs.service }}
           SERVICE_TFVARS_JSON: ${{ secrets.SERVICE_DEPLOY_TFVARS_JSON }}
-          EVENT_BUS_TOPIC_MIGRATION: ${{ inputs.event_bus_topic_migration }}
           RESOLVED_MODELS_JSON: ${{ vars.RESOLVED_MODELS_JSON }}
           WEB_SEARCH_ENABLED: ${{ vars.OPERATOR_API_WEB_SEARCH_ENABLED == 'true' }}
           WEB_SEARCH_ALLOWED_DOMAINS_JSON: ${{ vars.OPERATOR_API_WEB_SEARCH_ALLOWED_DOMAINS_JSON || '[]' }}
@@ -523,9 +510,6 @@ jobs:
             echo "SERVICE_DEPLOY_TFVARS_JSON is required for planning." >&2
             exit 1
           }
-          migration_args=()
-          [[ "$EVENT_BUS_TOPIC_MIGRATION" == "true" ]] \
-            && migration_args+=(--event-bus-topic-migration)
           resolved_model_args=()
           [[ "$SERVICE" == "core-control-plane" ]] \
             && resolved_model_args+=(--model-binding-transition)
@@ -546,7 +530,6 @@ jobs:
             | python3 "$TRUSTED_CONTROLS/scripts/deployment/service/materialize_tfvars.py" \
                 --service "${{ inputs.service }}" \
                 --environment "${{ inputs.environment }}" \
-                "${migration_args[@]}" \
                 "${resolved_model_args[@]}" \
                 --output "$RUNNER_TEMP/service.tfvars.json"
 
@@ -555,7 +538,6 @@ jobs:
         env:
           IMAGE_REF: ${{ inputs.image_ref }}
           INITIAL_CUTOVER: ${{ inputs.initial_cutover }}
-          EVENT_BUS_TOPIC_MIGRATION: ${{ inputs.event_bus_topic_migration }}
           DATABASE_HOST_BINDING: ${{ inputs.database_host_binding }}
           MODEL_BINDING_TRANSITION: ${{ inputs.model_binding_transition }}
           OPERATOR_CHANNEL_EDGE_TRANSITION: ${{ inputs.operator_channel_edge_transition }}
@@ -571,9 +553,6 @@ jobs:
             -json "$RUNNER_TEMP/service.plan" > "$RUNNER_TEMP/service-plan.json"
           cutover_args=()
           [[ "$INITIAL_CUTOVER" == "true" ]] && cutover_args+=(--initial-cutover)
-          migration_args=()
-          [[ "$EVENT_BUS_TOPIC_MIGRATION" == "true" ]] \
-            && migration_args+=(--event-bus-topic-migration)
           database_args=()
           [[ "$DATABASE_HOST_BINDING" == "true" ]] \
             && database_args+=(--database-host-binding)
@@ -587,7 +566,6 @@ jobs:
             --image-ref "$IMAGE_REF" \
             --operator-channel-edge-transition "$OPERATOR_CHANNEL_EDGE_TRANSITION" \
             "${cutover_args[@]}" \
-            "${migration_args[@]}" \
             "${database_args[@]}" \
             "${model_args[@]}"
 
@@ -608,7 +586,6 @@ jobs:
         env:
           IMAGE_REF: ${{ inputs.image_ref }}
           INITIAL_CUTOVER: ${{ inputs.initial_cutover }}
-          EVENT_BUS_TOPIC_MIGRATION: ${{ inputs.event_bus_topic_migration }}
           DATABASE_HOST_BINDING: ${{ inputs.database_host_binding }}
           MODEL_BINDING_TRANSITION: ${{ inputs.model_binding_transition }}
           OPERATOR_CHANNEL_EDGE_TRANSITION: ${{ inputs.operator_channel_edge_transition }}
@@ -616,9 +593,6 @@ jobs:
           set -euo pipefail
           cutover_args=()
           [[ "$INITIAL_CUTOVER" == "true" ]] && cutover_args+=(--initial-cutover)
-          migration_args=()
-          [[ "$EVENT_BUS_TOPIC_MIGRATION" == "true" ]] \
-            && migration_args+=(--event-bus-topic-migration)
           database_args=()
           [[ "$DATABASE_HOST_BINDING" == "true" ]] \
             && database_args+=(--database-host-binding)
@@ -647,7 +621,6 @@ jobs:
             --attestation-signer-workflow "$GITHUB_REPOSITORY/.github/workflows/container-supply-chain.yml" \
             --operator-channel-edge-transition "$OPERATOR_CHANNEL_EDGE_TRANSITION" \
             "${cutover_args[@]}" \
-            "${migration_args[@]}" \
             "${database_args[@]}" \
             "${model_args[@]}" >/dev/null
           python3 - "$RUNNER_TEMP/service-plan-metadata.json" "$GITHUB_OUTPUT" <<'PY'
@@ -680,7 +653,7 @@ jobs:
             echo "### Protected service plan"
             echo "- Service: \`${{ inputs.service }}\`"
             echo "- Environment: \`${{ inputs.environment }}\`"
-            echo "- Deployment mode: \`${{ inputs.event_bus_topic_migration && inputs.database_host_binding && inputs.model_binding_transition && 'event-bus-topic-migration+database-host-binding+model-binding' || inputs.event_bus_topic_migration && inputs.model_binding_transition && 'event-bus-topic-migration+model-binding' || inputs.event_bus_topic_migration && inputs.database_host_binding && 'event-bus-topic-migration+database-host-binding' || inputs.database_host_binding && inputs.model_binding_transition && 'database-host-binding+model-binding' || inputs.event_bus_topic_migration && 'event-bus-topic-migration' || inputs.model_binding_transition && 'model-binding' || inputs.database_host_binding && 'database-host-binding' || inputs.initial_cutover && 'initial-cutover' || inputs.operator_channel_edge_transition != 'none' && format('operator-channel-edge-{0}', inputs.operator_channel_edge_transition) || 'standard' }}\`"
+            echo "- Deployment mode: \`${{ inputs.database_host_binding && inputs.model_binding_transition && 'database-host-binding+model-binding' || inputs.model_binding_transition && 'model-binding' || inputs.database_host_binding && 'database-host-binding' || inputs.initial_cutover && 'initial-cutover' || inputs.operator_channel_edge_transition != 'none' && format('operator-channel-edge-{0}', inputs.operator_channel_edge_transition) || 'standard' }}\`"
             echo "- Commit: \`${{ inputs.commit_sha }}\`"
             echo "- Plan run id: \`$GITHUB_RUN_ID\`"
             echo "- Plan run attempt: \`$GITHUB_RUN_ATTEMPT\`"
@@ -766,7 +739,6 @@ jobs:
         env:
           IMAGE_REF: ${{ inputs.image_ref }}
           INITIAL_CUTOVER: ${{ inputs.initial_cutover }}
-          EVENT_BUS_TOPIC_MIGRATION: ${{ inputs.event_bus_topic_migration }}
           DATABASE_HOST_BINDING: ${{ inputs.database_host_binding }}
           MODEL_BINDING_TRANSITION: ${{ inputs.model_binding_transition }}
           OPERATOR_CHANNEL_EDGE_TRANSITION: ${{ inputs.operator_channel_edge_transition }}
@@ -775,9 +747,6 @@ jobs:
           bundle="$RUNNER_TEMP/service-plan-bundle"
           cutover_args=()
           [[ "$INITIAL_CUTOVER" == "true" ]] && cutover_args+=(--initial-cutover)
-          migration_args=()
-          [[ "$EVENT_BUS_TOPIC_MIGRATION" == "true" ]] \
-            && migration_args+=(--event-bus-topic-migration)
           database_args=()
           [[ "$DATABASE_HOST_BINDING" == "true" ]] \
             && database_args+=(--database-host-binding)
@@ -808,7 +777,6 @@ jobs:
             --attestation-signer-workflow "$GITHUB_REPOSITORY/.github/workflows/container-supply-chain.yml" \
             --operator-channel-edge-transition "$OPERATOR_CHANNEL_EDGE_TRANSITION" \
             "${cutover_args[@]}" \
-            "${migration_args[@]}" \
             "${database_args[@]}" \
             "${model_args[@]}" >/dev/null
           terraform -chdir="$TERRAFORM_ROOT" show \
@@ -824,7 +792,6 @@ jobs:
             --image-ref "$IMAGE_REF" \
             --operator-channel-edge-transition "$OPERATOR_CHANNEL_EDGE_TRANSITION" \
             "${cutover_args[@]}" \
-            "${migration_args[@]}" \
             "${database_args[@]}" \
             "${model_args[@]}" \
             --resolved-models-digest "$RESOLVED_MODELS_DIGEST"
@@ -833,36 +800,9 @@ jobs:
         if: ${{ inputs.apply }}
         env:
           INITIAL_CUTOVER: ${{ inputs.initial_cutover }}
-          EVENT_BUS_TOPIC_MIGRATION: ${{ inputs.event_bus_topic_migration }}
           SERVICE: ${{ inputs.service }}
         run: |
           set -euo pipefail
-          if [[ "$EVENT_BUS_TOPIC_MIGRATION" == "true" ]]; then
-            primary_name="$(
-              jq -er '.target.primary_container.name' \
-                "$RUNNER_TEMP/service-plan-bundle/service-context.json"
-            )"
-            image_changed="$(
-              jq -er --arg primary_name "$primary_name" '
-                [
-                  .resource_changes[]
-                  | select(.change.actions == ["update"])
-                  | .change
-                  | {
-                      before: (.before.template[0].container[] | select(.name == $primary_name) | .image),
-                      after: (.after.template[0].container[] | select(.name == $primary_name) | .image)
-                    }
-                ]
-                | if length == 1 then .[0].before != .[0].after
-                  else error("topic migration plan must contain one service image comparison")
-                  end
-              ' "$RUNNER_TEMP/service-plan-bundle/service-plan.json"
-            )"
-            if [[ "$image_changed" != "true" ]]; then
-              echo "same-image Event Bus topic migration skips service database migrations"
-              exit 0
-            fi
-          fi
           migration_secret_name="$(
             jq -er --arg service "$SERVICE" \
               '.services[$service].migration_dsn_secret_name' \

@@ -223,8 +223,6 @@ def test_model_replacement_allows_only_the_exact_sealed_cross_family_target(
                 **os.environ,
                 "FDAI_RESOLVED_MODELS_PATH": str(tmp_path / "resolved-models.json"),
                 "MODEL_BINDING_ONLY": "true",
-                "MIGRATE_EVENT_BUS_TOPICS": "false",
-                "MIGRATE_EVENT_BUS_JOBS": "false",
             },
             check=False,
             capture_output=True,

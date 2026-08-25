@@ -25,7 +25,7 @@ bindings through configuration (see
 |------|-------|----------|-------|
 | Terraform plan/apply and supply-chain gates | implemented | `.github/workflows/deploy-dev.yml`, `.github/workflows/container-supply-chain.yml`, and focused workflow tests | Production inputs, image attestations, drift plans, and post-apply smoke checks are shipped. |
 | Independent-service protected deployment | validated | `config/independent-service-live-evidence-manifest.json` and `config/independent-service-remote-evidence.json` | Protected plans bind source, backend, target, identities, and images; peer isolation and rollback evidence are retained. |
-| Bounded database host binding | implemented | `.github/workflows/service-deploy.yml`, `guard_plan.py`, `plan_bundle.py`, and focused service-deploy tests in the current change | The sealed mode permits only the non-secret host binding and may compose with the exact reviewed topic migration. Governed apply evidence remains open. |
+| Bounded database host binding | implemented | `.github/workflows/service-deploy.yml`, `guard_plan.py`, `plan_bundle.py`, and focused service-deploy tests in the current change | The sealed mode permits only the non-secret host binding. Governed apply evidence remains open. |
 | Startup readiness refresh recovery | implemented | `runtime/readiness.py` and `tests/runtime/test_readiness.py`; focused transient-failure, expiry, and programming-error regressions in the current change | The supervisor closes guarded processing at the earliest evidence expiry. Recoverable connection failures keep Core alive, while programming errors propagate after readiness closes. |
 | Operator schema and catalog bootstrap | implemented | `infra/modules/operator-api/container-app/`, `.github/workflows/deploy-dev.yml`, and `tests/integration/scripts/test_service_deploy_workflow.py` in the current change | A successful Alembic Job gates a separate Core-image Job that writes immutable Rule and Ontology reference projections. |
 | Browser-evidence retention Job | implemented | `infra/modules/compute/container-apps/browser_evidence_cleanup_job.tf`; focused Terraform contract checks (`4 passed`) and `terraform validate` | The opt-in scheduled Job uses a non-executor identity and bounded one-shot cleanup. Governed apply and run receipts are not retained. |
@@ -42,6 +42,7 @@ bindings through configuration (see
 | 2026-08-24 | implemented | Added a sealed database host binding mode, removed Core's duplicate host declaration, and retained an explicit legacy Operator name compatibility boundary for an in-place update. | `current change`; focused guard, bundle, workflow, naming, and Terraform validation checks. | Complete five zero-destroy plans and exact applies, then retain independent runtime and inventory evidence in Issue #262. |
 | 2026-08-24 | implemented | Bound the disposable scenario OpenAI private endpoint to the existing central Private DNS zone instead of creating a second zone with the same namespace. The scenario state owns its lab-VNet link and endpoint zone group, while the centrally owned runner and P2S links remain unchanged. | Failed protected apply `32752288798`; `current change` in `infra/scenario-lab/` and `.github/workflows/sre-demo-lab.yml`; focused Terraform and workflow checks. | Complete the protected scenario apply, approved sweep, and final destroy receipts. |
 | 2026-08-25 | implemented | Kept the startup readiness refresh supervisor alive across recoverable provider failures, closed guarded processing at the earliest evidence expiry, and continued to propagate programming errors after closing readiness. The last successful report remains available for diagnosis, and only a complete refresh clears a recoverable failure fence. | `current change`; focused transient-failure, evidence-expiry, programming-error, and integration checks. | Retain exact-revision deployed recovery evidence separately before making a runtime validation claim. |
+| 2026-08-25 | implemented | Removed the completed Event Bus migration mode from platform and service workflows and deleted its helper API. Current deployments accept canonical `fdai.*` topic bindings without exposing a rerunnable one-time transition. | `current change`; focused deployment workflow, service helper, Terraform, and documentation checks | No remaining implementation work for the completed topic migration mode. |
 
 ### Remaining work
 
@@ -103,8 +104,7 @@ prod topology so shadow evaluation is representative.
 - **Bounded database host binding**: after initial cutover, the explicit `database_host_binding`
   mode may add or replace only the non-secret `POSTGRES_HOST` environment binding while preserving
   resource identity, command, other environment values, workload identity, platform, sidecars,
-  secrets, and rollback fields. It may compose with `event_bus_topic_migration`; each guard still
-  accepts only its reviewed keys, and exact apply must repeat both sealed mode inputs. Existing
+  secrets, and rollback fields. Existing
   Operator workloads with the historical `-readapi` suffix remain eligible for an in-place update,
   while newly declared Operator resources continue to use `-operator-api`. During input
   materialization, the workflow resolves the hostname from the platform state's `postgres_fqdn`
@@ -112,12 +112,11 @@ prod topology so shadow evaluation is representative.
   source for the DSN secret reference and role.
 - **Bounded Core model binding**: the Core-only `model_binding_transition` mode may change only the
   attested resolved-model digest, fixed runtime mode and manifest path, resolved HTTPS endpoint,
-  and validated web-search settings. If the active Core revision also predates canonical Event Bus
-  topic bindings or its declared database host, the plan may compose this mode with
-  `event_bus_topic_migration`, `database_host_binding`, or both. Each guard validates its complete
-  allowlist, the host comes from the authoritative platform-state output, and the sealed deployment
-  mode records the exact combination. No identity, authority, secret, command, or unrelated
-  environment change is accepted.
+  and validated web-search settings. The active Core revision must already use canonical Event Bus
+  topic bindings. The plan may compose this mode only with `database_host_binding`; each guard
+  validates its complete allowlist, the host comes from the authoritative platform-state output,
+  and the sealed deployment mode records the exact combination. No identity, authority, secret,
+  command, or unrelated environment change is accepted.
 - **Metering ledger ownership**: Core owns and appends `llm_invocation` records with only
   `SELECT, INSERT`; Operator consumes the same table with `SELECT` only. The service migration
   graph treats Operator as the read-only consumer and blocks provider rollback until the Operator

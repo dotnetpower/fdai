@@ -19,7 +19,7 @@ deployment-specific values outside the upstream distribution.
 | Core control plane startup probe | not-applicable | `current change`; `terraform fmt` and `terraform validate` pass on the service root | Three attempts sized a startup probe to cover a boot that opened the health port late. The runtime now opens that port before startup readiness runs, so liveness answers immediately and the probe is unnecessary. The protected update contract also rejected it, because it proves rollback only for an image and revision-suffix change. |
 | CAF naming and `fdai:` ownership tags | implemented | `infra/main.tf`, `infra/bootstrap/main.tf`, and focused Terraform tests | Terraform computes names and tags; runtime code consumes outputs. |
 | Operator API physical resource names | implemented | `infra/main.tf`, `infra/services/operator-service/variables.tf`, and `tests/integration/infra/test_operator_api_resource_naming.py` | New plans use the `operator-api` component for the workload identity and Container App. Existing development resources still require a reviewed replacement apply. |
-| Event Bus product topic namespace | validated | Protected platform apply `32475924808`; Operator apply `32514233525`; final live entity, RBAC, environment, service-health, canary, HIL, stage, inventory, semantic, and lag observations | Both namespaces contain only current `fdai.*` product topics, runtime principals use entity-scoped Event Hubs roles, all five services are healthy, and the approved development backlog was discarded with the deleted legacy entities. |
+| Event Bus product topic namespace | validated | Protected platform apply `32475924808`; Operator apply `32514233525`; final live entity, RBAC, environment, service-health, canary, HIL, stage, inventory, semantic, and lag observations | Both namespaces contain only current `fdai.*` product topics, runtime principals use entity-scoped Event Hubs roles, all five services are healthy, and completed one-time migration modes are no longer exposed. Historical Terraform `moved` blocks remain for state compatibility. |
 | Independent-service Terraform state roots | validated | `config/independent-service-live-evidence-manifest.json` and `config/independent-service-remote-evidence.json` | All five service roots have governed plan, apply, health, peer-isolation, and rollback evidence. |
 | Legacy platform and ops-bootstrap Terraform state roots | implemented | `infra/main.tf`, `infra/bootstrap/main.tf`, `.github/workflows/deploy-dev.yml`, and focused Terraform and workflow checks | Stable backend keys and deployment mechanisms are shipped; governed apply receipts for these two roots are not retained in the repository. |
 | Reusable Terraform module compatibility | implemented | `infra/modules/**/versions.tf`; `infra/services/**/modules/**/versions.tf`; TFLint | Every reusable module declares Terraform `>= 1.9`; modules that own Azure resources constrain AzureRM to the supported 4.x line. |
@@ -34,6 +34,7 @@ deployment-specific values outside the upstream distribution.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-25 | implemented | Retired the completed Event Bus topic migration request modes, service input, targeted plan exceptions, and current operator instructions. Standard plans now accept only canonical `fdai.*` bindings. Historical Terraform `moved` blocks and the active-prefix rejection guard remain so older state is interpreted without recreating resources and legacy declarations still fail closed. | `current change`; `.github/workflows/deploy-dev.yml`; `.github/workflows/service-deploy.yml`; focused deployment workflow checks | No remaining implementation work for the one-time migration controls. |
 | 2026-08-24 | implemented | Restored the protected model resolver's deployment-environment input, retained a development default for existing proposal-only lifecycle callers, and made a policy for another environment fail before provider queries. | Failed protected plan `32735269365` stopped before Terraform and Azure mutation; `current change`; focused resolver and deployment workflow checks. | Rerun the protected exact-revision plan and retain its sealed model and Terraform receipts. |
 | 2026-08-25 | implemented | Replaced the temporary Terraform-state bootstrap exception with a fail-closed model policy CAS against the exact healthy active Core revision, digest-pinned image, verified resolved-model attestation, and runtime digest. Terraform output is diagnostic only, and exact apply reverifies the same active-runtime fence. | Failed protected plans `32753619537`, `32754737930`, `32798548057`, and `32798561510` stopped before Terraform plan and Azure mutation; commit `5e1e8214ef0f80a1e9b57d00bd2a35723bca6b7b`; focused model CAS and lifecycle checks passed 26 cases. | Persist a governed Owner draft bound to the current active digest, then retain a zero-destroy protected plan, exact apply, and provider-schema and Saga receipts. |
 | 2026-08-25 | implemented | Added explicit Terraform and AzureRM compatibility contracts to every reusable module and removed retired legacy-root inputs that no longer owned a resource. | `current change`; validation passed for the platform, bootstrap, scenario-lab, dev-access, and five service roots; TFLint reported no issue. | Keep provider major-version changes explicit and validate each reusable module independently before raising the supported range. |
@@ -158,20 +159,10 @@ producer/consumer binding, drains or expires retained records on the old entity,
 post-apply transport evidence before deleting the old path.
 An explicitly approved, non-authoritative development backlog may instead be discarded when the
 exact apply deletes the legacy entities.
-Use a `plan-evh-<20-hex>` request id for this cutover and an `apply-evh-<20-hex>` request id for
-its exact apply. This mode targets only both Event Bus modules, topic-scoped role assignments, and
-the analyzer, canary, and inventory Jobs. The guard requires every declared old/successor action,
-role replacement, primary namespace update, and update to those three Jobs. It rejects every other
-changed address before the plan is sealed.
-After the entity cutover, use `plan-evh-jobs-<16-hex>` and `apply-evh-jobs-<16-hex>` to update
-only the OOB, scheduler, baseline, and growth Jobs when a live audit finds their topic environment
-stale. Independently owned Container Apps use `service-deploy.yml`; the legacy platform plan does
-not regain ownership of those resources.
-For those Apps, set `event_bus_topic_migration=true` on both the service plan and exact apply. The
-sealed mode accepts only the service-specific reviewed topic environment values, a missing required
-`FDAI_EXECUTION_VENUE=deployed` binding, immutable image, and fresh revision suffix. It skips schema
-migration for this configuration-only transition while preserving rollback capture, health
-verification, peer-state isolation, and live observations.
+The one-time migration controls are retired after the validated cutover. Current platform and
+service plans accept only canonical `fdai.*` bindings. The three historical Terraform `moved`
+blocks only resolve older state addresses; they neither provision legacy topics nor plan recurring
+replacement work after state reaches the canonical keys.
 
 ### CAF prefixes for the day-zero inventory
 

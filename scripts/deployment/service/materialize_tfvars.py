@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
-from service_contract import ServiceContractError, event_bus_topic_migration, resolve_service
+from service_contract import ServiceContractError, resolve_service
 
 
 class TfvarsError(ValueError):
@@ -147,7 +147,6 @@ def select_tfvars(
     service: str,
     environment: str,
     operator_channel_edge_enabled: bool | None = None,
-    migrate_event_bus_topics: bool = False,
     resolved_models: dict[str, Any] | None = None,
     resolved_models_digest: str = "",
     web_search_requested: bool = False,
@@ -174,11 +173,6 @@ def select_tfvars(
         if not isinstance(channel_edge, dict):
             raise TfvarsError("operator tfvars must contain a channel_edge object")
         channel_edge["enabled"] = operator_channel_edge_enabled
-    if migrate_event_bus_topics:
-        event_topics = materialized.get("event_topics")
-        if not isinstance(event_topics, dict):
-            raise TfvarsError("service tfvars must contain an event_topics object")
-        event_topics.update(event_bus_topic_migration(service, surface="tfvars"))
     if resolved_models is not None:
         if service != "core-control-plane":
             raise TfvarsError("resolved model binding is valid only for core-control-plane")
@@ -210,7 +204,6 @@ def main() -> int:
         "--operator-channel-edge-enabled",
         choices=("true", "false"),
     )
-    parser.add_argument("--event-bus-topic-migration", action="store_true")
     parser.add_argument("--model-binding-transition", action="store_true")
     args = parser.parse_args()
     try:
@@ -243,7 +236,6 @@ def main() -> int:
             service=args.service,
             environment=args.environment,
             operator_channel_edge_enabled=edge_enabled,
-            migrate_event_bus_topics=args.event_bus_topic_migration,
             resolved_models=resolved_models,
             resolved_models_digest=os.environ.get("RESOLVED_MODELS_DIGEST", ""),
             web_search_requested=web_search_requested,

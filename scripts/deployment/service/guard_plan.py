@@ -14,7 +14,6 @@ from urllib.parse import urlsplit
 from service_contract import (
     ServiceContract,
     ServiceContractError,
-    event_bus_topic_migration,
     resolve_service,
 )
 
@@ -305,59 +304,6 @@ def _valid_web_search_domains(value: str) -> bool:
             for domain in domains
         )
     )
-
-
-def _event_bus_environment_names(contract: ServiceContract) -> frozenset[str]:
-    return frozenset(event_bus_topic_migration(contract.service, surface="environment"))
-
-
-def _guard_event_bus_topic_migration(
-    before: dict[str, Any],
-    after: dict[str, Any],
-    *,
-    address: str,
-    contract: ServiceContract,
-    additional_allowed_names: frozenset[str] = frozenset(),
-) -> list[str]:
-    try:
-        expected_values = event_bus_topic_migration(contract.service, surface="environment")
-    except ServiceContractError as exc:
-        return [str(exc)]
-    before_primary = _primary_container(before, address=address, contract=contract)
-    after_primary = _primary_container(after, address=address, contract=contract)
-    if any(
-        before_primary.get(key) != after_primary.get(key) for key in ("name", "command", "args")
-    ):
-        return [f"Event Bus topic migration changes the service command at {address}"]
-    before_environment = _environment_by_name(before_primary, address=address)
-    after_environment = _environment_by_name(after_primary, address=address)
-    changed_names = {
-        name
-        for name in set(before_environment) | set(after_environment)
-        if _environment_binding(before_environment.get(name))
-        != _environment_binding(after_environment.get(name))
-    }
-    invalid_names = sorted(
-        name
-        for name, expected_value in expected_values.items()
-        if _environment_binding(after_environment.get(name)) != (expected_value, None)
-    )
-    violations: list[str] = []
-    unexpected = sorted(changed_names.difference(set(expected_values) | additional_allowed_names))
-    if unexpected or invalid_names:
-        violations.append(
-            "Event Bus topic migration changes unapproved environment at "
-            f"{address}: unexpected={unexpected}, missing={invalid_names}"
-        )
-    for name, expected_value in expected_values.items():
-        item = after_environment.get(name)
-        if (
-            not isinstance(item, dict)
-            or item.get("value") != expected_value
-            or item.get("secret_name") not in (None, "")
-        ):
-            violations.append(f"Event Bus topic migration has an invalid {name} value at {address}")
-    return violations
 
 
 def _guard_database_host_binding(
@@ -657,7 +603,6 @@ def _guard_update(
     address: str,
     contract: ServiceContract,
     initial_cutover: bool,
-    event_bus_topic_migration: bool = False,
     database_host_binding: bool = False,
     model_binding_transition: bool = False,
     resolved_models_digest: str = "",
@@ -686,26 +631,8 @@ def _guard_update(
     )
     if before_authority != after_authority and not authority_removed_from_core:
         violations.append(f"authority cutover change at {address}")
-    if event_bus_topic_migration:
-        topic_additional_names = (
-            _MODEL_BINDING_ENVIRONMENT if model_binding_transition else frozenset()
-        )
-        violations.extend(
-            _guard_event_bus_topic_migration(
-                before,
-                after,
-                address=address,
-                contract=contract,
-                additional_allowed_names=(
-                    topic_additional_names
-                    | (frozenset({"POSTGRES_HOST"}) if database_host_binding else frozenset())
-                ),
-            )
-        )
     if database_host_binding:
-        additional_host_names = (
-            _event_bus_environment_names(contract) if event_bus_topic_migration else frozenset()
-        )
+        additional_host_names: frozenset[str] = frozenset()
         if model_binding_transition:
             additional_host_names |= _MODEL_BINDING_ENVIRONMENT
         violations.extend(
@@ -718,9 +645,7 @@ def _guard_update(
             )
         )
     if model_binding_transition:
-        model_additional_names = (
-            _event_bus_environment_names(contract) if event_bus_topic_migration else frozenset()
-        )
+        model_additional_names: frozenset[str] = frozenset()
         if database_host_binding:
             model_additional_names |= frozenset({"POSTGRES_HOST"})
         violations.extend(
@@ -735,7 +660,6 @@ def _guard_update(
         )
     elif (
         not initial_cutover
-        and not event_bus_topic_migration
         and not database_host_binding
         and _runtime_contract(before, address=address, contract=contract)
         != _runtime_contract(after, address=address, contract=contract)
@@ -773,7 +697,7 @@ def _guard_update(
     expected_primary = _primary_container(expected_before, address=address, contract=contract)
     after_primary = _primary_container(after, address=address, contract=contract)
     expected_primary["image"] = _planned_image({"after": after}, address=address, contract=contract)
-    if event_bus_topic_migration or database_host_binding or model_binding_transition:
+    if database_host_binding or model_binding_transition:
         expected_primary["env"] = copy.deepcopy(after_primary.get("env"))
     expected_templates = expected_before.get("template")
     after_templates = after.get("template")
@@ -1148,7 +1072,6 @@ def validate_plan(
     environment: str,
     image_ref: str,
     initial_cutover: bool = False,
-    event_bus_topic_migration: bool = False,
     database_host_binding: bool = False,
     model_binding_transition: bool = False,
     resolved_models_digest: str = "",
@@ -1159,13 +1082,6 @@ def validate_plan(
         raise PlanGuardError("operator channel edge transition must be none, enable, or disable")
     if operator_channel_edge_transition != "none" and service != "operator-service":
         raise PlanGuardError("operator channel edge transition is valid only for operator-service")
-    if event_bus_topic_migration and (
-        initial_cutover or operator_channel_edge_transition != "none"
-    ):
-        raise PlanGuardError(
-            "Event Bus topic migration is exclusive with initial cutover "
-            "and channel-edge transition"
-        )
     if database_host_binding and (initial_cutover or operator_channel_edge_transition != "none"):
         raise PlanGuardError(
             "database host binding is exclusive with initial cutover and channel-edge transition"
@@ -1250,7 +1166,6 @@ def validate_plan(
                         address=address,
                         contract=channel_edge_contract,
                         initial_cutover=False,
-                        event_bus_topic_migration=False,
                         database_host_binding=False,
                     )
                 )
@@ -1286,7 +1201,6 @@ def validate_plan(
                 address=address,
                 contract=contract,
                 initial_cutover=initial_cutover,
-                event_bus_topic_migration=event_bus_topic_migration,
                 database_host_binding=database_host_binding,
                 model_binding_transition=model_binding_transition,
                 resolved_models_digest=resolved_models_digest,
@@ -1313,12 +1227,7 @@ def validate_plan(
         )
     )
     allowed_aligned_drift = (
-        (
-            initial_cutover
-            or event_bus_topic_migration
-            or database_host_binding
-            or model_binding_transition
-        )
+        (initial_cutover or database_host_binding or model_binding_transition)
         and selected_before is not None
         and _guard_aligned_transition_drift(
             resource_drift,
@@ -1368,7 +1277,6 @@ def main() -> int:
     parser.add_argument("--environment", required=True)
     parser.add_argument("--image-ref", required=True)
     parser.add_argument("--initial-cutover", action="store_true")
-    parser.add_argument("--event-bus-topic-migration", action="store_true")
     parser.add_argument("--database-host-binding", action="store_true")
     parser.add_argument("--model-binding-transition", action="store_true")
     parser.add_argument("--resolved-models-digest", default="")
@@ -1388,7 +1296,6 @@ def main() -> int:
             environment=args.environment,
             image_ref=args.image_ref,
             initial_cutover=args.initial_cutover,
-            event_bus_topic_migration=args.event_bus_topic_migration,
             database_host_binding=args.database_host_binding,
             model_binding_transition=args.model_binding_transition,
             resolved_models_digest=args.resolved_models_digest,

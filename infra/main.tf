@@ -1,6 +1,9 @@
 # -----------------------------------------------------------------------
 # Deterministic name suffixes.
 # -----------------------------------------------------------------------
+# Historical state-address compatibility only. These moves do not provision
+# legacy topics or create work after state has reached the destination keys.
+# Keep each source address unchanged so older state remains upgradeable.
 moved {
   from = azurerm_role_assignment.executor_eventhubs_data_owner["aw.change.events"]
   to   = azurerm_role_assignment.executor_eventhubs_data_owner["fdai.change.events"]

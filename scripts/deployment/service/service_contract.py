@@ -16,89 +16,6 @@ _MATRIX_PATH = _SCRIPT_ROOT / "service-matrix.json"
 _MIGRATION_PATH = _REPO_ROOT / "infra" / "services" / "state-migration.json"
 _ENVIRONMENTS = frozenset({"dev", "staging", "prod"})
 _DIGEST_PATTERN = re.compile(r"sha256:[0-9a-f]{64}")
-_EVENT_BUS_TOPIC_MIGRATION = {
-    "core-control-plane": {
-        "tfvars": {
-            "canary": "fdai.control.canary",
-            "events": "fdai.change.events",
-            "hil_decisions": "fdai.hil.decisions",
-            "inventory_raw": "fdai.inventory.raw",
-            "pipeline_stages": "fdai.pipeline.stages",
-            "semantic_physical": "fdai.pantheon.objects",
-            "semantic_projections": "core.semantic-turn.projections",
-            "semantic_requests": "operator.semantic-turn.requests",
-            "read_investigation_requests": "operator.read-investigation.requests",
-            "incident_intervention_requests": "operator.incident-intervention.requests",
-        },
-        "environment": {
-            "FDAI_CANARY_TOPIC": "fdai.control.canary",
-            "FDAI_HIL_DECISION_TOPIC": "fdai.hil.decisions",
-            "FDAI_INVENTORY_RAW_TOPIC": "fdai.inventory.raw",
-            "KAFKA_TOPIC_EVENTS": "fdai.change.events",
-            "FDAI_STAGE_TOPIC": "fdai.pipeline.stages",
-            "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC": "fdai.pantheon.objects",
-            "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC": "core.semantic-turn.projections",
-            "FDAI_SEMANTIC_TURN_REQUEST_TOPIC": "operator.semantic-turn.requests",
-            "FDAI_READ_INVESTIGATION_REQUEST_TOPIC": "operator.read-investigation.requests",
-            "FDAI_INCIDENT_INTERVENTION_REQUEST_TOPIC": ("operator.incident-intervention.requests"),
-        },
-    },
-    "operator-service": {
-        "tfvars": {
-            "events": "fdai.change.events",
-            "semantic_requests": "operator.semantic-turn.requests",
-            "semantic_projections": "core.semantic-turn.projections",
-            "semantic_physical": "fdai.pantheon.objects",
-            "read_investigation_requests": "operator.read-investigation.requests",
-            "incident_intervention_requests": "operator.incident-intervention.requests",
-            "read_investigation_completions": "core.read-investigation.completions",
-        },
-        "environment": {
-            "FDAI_EXECUTION_VENUE": "deployed",
-            "KAFKA_TOPIC_EVENTS": "fdai.change.events",
-            "FDAI_SEMANTIC_TURN_REQUEST_TOPIC": "operator.semantic-turn.requests",
-            "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC": "core.semantic-turn.projections",
-            "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC": "fdai.pantheon.objects",
-            "FDAI_READ_INVESTIGATION_REQUEST_TOPIC": "operator.read-investigation.requests",
-            "FDAI_READ_INVESTIGATION_COMPLETION_TOPIC": "core.read-investigation.completions",
-            "FDAI_READ_INVESTIGATION_COMPLETION_CONSUMER_GROUP_ID": (
-                "operator-read-investigation-completion-v1"
-            ),
-            "FDAI_INCIDENT_INTERVENTION_REQUEST_TOPIC": ("operator.incident-intervention.requests"),
-        },
-    },
-    "document-ingestion-api": {
-        "tfvars": {"pipeline_stages": "fdai.pipeline.stages"},
-        "environment": {
-            "FDAI_DOCUMENT_EVENT_TOPIC": "fdai.pipeline.stages",
-            "FDAI_EXECUTION_VENUE": "deployed",
-        },
-    },
-    "document-processing-worker": {
-        "tfvars": {
-            "pipeline_stages": "fdai.pipeline.stages",
-            "pantheon_objects": "fdai.pantheon.objects",
-        },
-        "environment": {
-            "FDAI_DOCUMENT_EVENT_TOPIC": "fdai.pipeline.stages",
-            "FDAI_EXECUTION_VENUE": "deployed",
-            "FDAI_PANTHEON_OBJECT_TOPIC": "fdai.pantheon.objects",
-        },
-    },
-    "isolated-executor": {
-        "tfvars": {
-            "command": "object.executor-command",
-            "receipt": "object.executor-receipt",
-            "dlq_suffix": ".dlq",
-        },
-        "environment": {
-            "FDAI_EXECUTION_VENUE": "deployed",
-            "FDAI_EXECUTOR_COMMAND_TOPIC": "object.executor-command",
-            "FDAI_EXECUTOR_RECEIPT_TOPIC": "object.executor-receipt",
-            "KAFKA_TOPIC_DLQ_SUFFIX": ".dlq",
-        },
-    },
-}
 
 
 class ServiceContractError(ValueError):
@@ -212,17 +129,6 @@ def resolve_service(service: str, environment: str) -> ServiceContract:
         entrypoint=raw["entrypoint"],
         required_environment=tuple(required_environment),
     )
-
-
-def event_bus_topic_migration(service: str, *, surface: str) -> dict[str, str]:
-    """Return the exact reviewed topic values for one deployment surface."""
-    if surface not in {"tfvars", "environment"}:
-        raise ServiceContractError("Event Bus migration surface must be tfvars or environment")
-    migration = _EVENT_BUS_TOPIC_MIGRATION.get(service)
-    if migration is None:
-        raise ServiceContractError(f"Event Bus topic migration is not supported for {service}")
-    values = migration[surface]
-    return dict(values)
 
 
 def validate_image_reference(contract: ServiceContract, repository: str, reference: str) -> str:

@@ -281,7 +281,6 @@ def _deployment_context(
     resolved_models_digest: str,
     attestation_signer_workflow: str,
     initial_cutover: bool,
-    event_bus_topic_migration: bool,
     database_host_binding: bool,
     model_binding_transition: bool = False,
     operator_channel_edge_transition: str = "none",
@@ -290,7 +289,6 @@ def _deployment_context(
     deployment_mode = _deployment_mode(
         service=service,
         initial_cutover=initial_cutover,
-        event_bus_topic_migration=event_bus_topic_migration,
         database_host_binding=database_host_binding,
         model_binding_transition=model_binding_transition,
         operator_channel_edge_transition=operator_channel_edge_transition,
@@ -373,7 +371,6 @@ def _deployment_mode(
     *,
     service: str,
     initial_cutover: bool,
-    event_bus_topic_migration: bool,
     database_host_binding: bool,
     model_binding_transition: bool,
     operator_channel_edge_transition: str,
@@ -384,13 +381,6 @@ def _deployment_mode(
         raise PlanBundleError("operator channel edge transition is valid only for operator-service")
     if initial_cutover and operator_channel_edge_transition != "none":
         raise PlanBundleError("initial cutover and operator channel edge transition are exclusive")
-    if event_bus_topic_migration and (
-        initial_cutover or operator_channel_edge_transition != "none"
-    ):
-        raise PlanBundleError(
-            "Event Bus topic migration is exclusive with initial cutover "
-            "and channel-edge transition"
-        )
     if database_host_binding and (initial_cutover or operator_channel_edge_transition != "none"):
         raise PlanBundleError(
             "database host binding is exclusive with initial cutover and channel-edge transition"
@@ -399,16 +389,8 @@ def _deployment_mode(
         raise PlanBundleError(
             "model binding transition is exclusive with initial cutover and channel-edge transition"
         )
-    if event_bus_topic_migration and database_host_binding and model_binding_transition:
-        return "event-bus-topic-migration+database-host-binding+model-binding"
-    if event_bus_topic_migration and model_binding_transition:
-        return "event-bus-topic-migration+model-binding"
-    if event_bus_topic_migration and database_host_binding:
-        return "event-bus-topic-migration+database-host-binding"
     if database_host_binding and model_binding_transition:
         return "database-host-binding+model-binding"
-    if event_bus_topic_migration:
-        return "event-bus-topic-migration"
     if database_host_binding:
         return "database-host-binding"
     if model_binding_transition:
@@ -443,7 +425,6 @@ def create_bundle(
     now: datetime,
     resolved_models_digest: str = "",
     initial_cutover: bool = False,
-    event_bus_topic_migration: bool = False,
     database_host_binding: bool = False,
     model_binding_transition: bool = False,
     operator_channel_edge_transition: str = "none",
@@ -476,7 +457,6 @@ def create_bundle(
         resolved_models_digest=resolved_models_digest,
         attestation_signer_workflow=attestation_signer_workflow,
         initial_cutover=initial_cutover,
-        event_bus_topic_migration=event_bus_topic_migration,
         database_host_binding=database_host_binding,
         model_binding_transition=model_binding_transition,
         operator_channel_edge_transition=operator_channel_edge_transition,
@@ -511,7 +491,6 @@ def create_bundle(
         "deployment_mode": _deployment_mode(
             service=service,
             initial_cutover=initial_cutover,
-            event_bus_topic_migration=event_bus_topic_migration,
             database_host_binding=database_host_binding,
             model_binding_transition=model_binding_transition,
             operator_channel_edge_transition=operator_channel_edge_transition,
@@ -548,7 +527,6 @@ def verify_bundle(
     now: datetime,
     resolved_models_digest: str = "",
     initial_cutover: bool = False,
-    event_bus_topic_migration: bool = False,
     database_host_binding: bool = False,
     model_binding_transition: bool = False,
     operator_channel_edge_transition: str = "none",
@@ -592,7 +570,6 @@ def verify_bundle(
         "deployment_mode": _deployment_mode(
             service=service,
             initial_cutover=initial_cutover,
-            event_bus_topic_migration=event_bus_topic_migration,
             database_host_binding=database_host_binding,
             model_binding_transition=model_binding_transition,
             operator_channel_edge_transition=operator_channel_edge_transition,
@@ -625,7 +602,6 @@ def verify_bundle(
         resolved_models_digest=resolved_models_digest,
         attestation_signer_workflow=attestation_signer_workflow,
         initial_cutover=initial_cutover,
-        event_bus_topic_migration=event_bus_topic_migration,
         database_host_binding=database_host_binding,
         model_binding_transition=model_binding_transition,
         operator_channel_edge_transition=operator_channel_edge_transition,
@@ -661,7 +637,6 @@ def _common(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--resolved-models-digest", default="")
     parser.add_argument("--attestation-signer-workflow", required=True)
     parser.add_argument("--initial-cutover", action="store_true")
-    parser.add_argument("--event-bus-topic-migration", action="store_true")
     parser.add_argument("--database-host-binding", action="store_true")
     parser.add_argument("--model-binding-transition", action="store_true")
     parser.add_argument(
@@ -704,7 +679,6 @@ def main() -> int:
         "resolved_models_digest": args.resolved_models_digest,
         "attestation_signer_workflow": args.attestation_signer_workflow,
         "initial_cutover": args.initial_cutover,
-        "event_bus_topic_migration": args.event_bus_topic_migration,
         "database_host_binding": args.database_host_binding,
         "model_binding_transition": args.model_binding_transition,
         "operator_channel_edge_transition": args.operator_channel_edge_transition,
