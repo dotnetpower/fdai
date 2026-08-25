@@ -99,7 +99,56 @@ async def test_audit_chain_probe_rejects_corrupt_chain() -> None:
 
     assert result.status is ProbeStatus.FAILED
     assert result.failure_class == "audit_chain_integrity_failed"
-    assert result.evidence == {"audit_chain_verified": False}
+    assert result.evidence == {"audit_chain_verified": False, "previously_proven": False}
+
+
+async def test_audit_chain_probe_reuses_successful_process_proof() -> None:
+    class _CountingStore(InMemoryStateStore):
+        def __init__(self) -> None:
+            super().__init__()
+            self.verify_calls = 0
+
+        async def verify_chain(self) -> bool:
+            self.verify_calls += 1
+            return await super().verify_chain()
+
+    store = _CountingStore()
+    probe = AuditChainStartupProbe(probe_id="audit.chain", state_store=store)
+
+    first = await probe.run(_request())
+    second = await probe.run(_request())
+
+    assert store.verify_calls == 1
+    assert first.evidence == {"audit_chain_verified": True, "previously_proven": False}
+    assert second.evidence == {"audit_chain_verified": True, "previously_proven": True}
+
+
+async def test_audit_chain_probe_coalesces_concurrent_verification() -> None:
+    class _BlockingStore(InMemoryStateStore):
+        def __init__(self) -> None:
+            super().__init__()
+            self.verify_calls = 0
+            self.started = asyncio.Event()
+            self.release = asyncio.Event()
+
+        async def verify_chain(self) -> bool:
+            self.verify_calls += 1
+            self.started.set()
+            await self.release.wait()
+            return True
+
+    store = _BlockingStore()
+    probe = AuditChainStartupProbe(probe_id="audit.chain", state_store=store)
+    first_task = asyncio.create_task(probe.run(_request()))
+    second_task = asyncio.create_task(probe.run(_request()))
+    await store.started.wait()
+
+    store.release.set()
+    first, second = await asyncio.gather(first_task, second_task)
+
+    assert store.verify_calls == 1
+    assert first.evidence["previously_proven"] is False
+    assert second.evidence["previously_proven"] is True
 
 
 async def test_event_bus_probe_round_trips_synthetic_record() -> None:

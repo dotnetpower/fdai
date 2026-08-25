@@ -150,20 +150,30 @@ class AuditChainStartupProbe:
     def __init__(self, *, probe_id: str, state_store: StateStore) -> None:
         self.probe_id = probe_id
         self._state_store = state_store
+        self._verified = False
+        self._lock = asyncio.Lock()
 
     async def run(self, request: StartupProbeRequest) -> StartupProbeResult:
         started_at = perf_counter()
-        if not await self._state_store.verify_chain():
-            return _failed_result(
-                self.probe_id,
-                started_at,
-                "audit_chain_integrity_failed",
-                evidence={"audit_chain_verified": False},
-            )
+        async with self._lock:
+            if self._verified:
+                return _result(
+                    self.probe_id,
+                    started_at,
+                    evidence={"audit_chain_verified": True, "previously_proven": True},
+                )
+            if not await self._state_store.verify_chain():
+                return _failed_result(
+                    self.probe_id,
+                    started_at,
+                    "audit_chain_integrity_failed",
+                    evidence={"audit_chain_verified": False, "previously_proven": False},
+                )
+            self._verified = True
         return _result(
             self.probe_id,
             started_at,
-            evidence={"audit_chain_verified": True},
+            evidence={"audit_chain_verified": True, "previously_proven": False},
         )
 
 

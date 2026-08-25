@@ -115,6 +115,16 @@ class PantheonInitializationResult:
     discovery_activation: DiscoveryActivationRuntime | None = None
 
 
+def _pantheon_enforce_enabled(
+    environment: Mapping[str, str],
+    startup_report: StartupReadinessReport,
+) -> bool:
+    requested = environment.get("FDAI_PANTHEON_ENFORCE", "").lower() in ("1", "true")
+    return requested and (
+        startup_report.authority_ceilings.get("autonomous-action") is AuthorityCeiling.DEPLOYMENT
+    )
+
+
 async def initialize_pantheon(
     config: PantheonInitialization,
 ) -> PantheonInitializationResult:
@@ -123,15 +133,7 @@ async def initialize_pantheon(
     if not pantheon_start_enabled(config.environment):
         return PantheonInitializationResult()
 
-    pantheon_enforce = config.environment.get("FDAI_PANTHEON_ENFORCE", "").lower() in (
-        "1",
-        "true",
-    )
-    if (
-        config.startup_report.authority_ceilings.get("autonomous-action")
-        is not AuthorityCeiling.DEPLOYMENT
-    ):
-        pantheon_enforce = False
+    pantheon_enforce = _pantheon_enforce_enabled(config.environment, config.startup_report)
     disabled_raw = config.environment.get("FDAI_PANTHEON_DISABLED_AGENTS", "").strip()
     disabled_agents = (
         frozenset(name.strip() for name in disabled_raw.split(",") if name.strip())

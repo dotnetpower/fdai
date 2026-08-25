@@ -16,6 +16,7 @@ from fdai.core.ontology_platform.reconciliation_binding import (
 from fdai.core.readiness import (
     AuthorityCeiling,
     ReadinessDecision,
+    StartupReadinessReport,
     reduce_startup_readiness,
 )
 from fdai.core.rule_semantic_generation import (
@@ -65,6 +66,7 @@ from fdai.runtime.bootstrap_lifecycle import run_main as _run_main
 from fdai.runtime.bootstrap_lifecycle import (
     semantic_turn_readiness_registration as _semantic_turn_readiness_registration,
 )
+from fdai.runtime.bootstrap_pantheon import _pantheon_enforce_enabled
 from fdai.runtime.readiness import RuntimeReadinessState
 from fdai.shared.config.runtime_flags import pantheon_start_enabled
 from fdai.shared.providers.local.event_bus import LocalEventBus
@@ -79,6 +81,17 @@ from fdai_service_contracts.semantic_turn import (
 
 def test_pantheon_starts_by_default() -> None:
     assert pantheon_start_enabled({}) is True
+
+
+def test_pantheon_enforce_requires_deployment_authority_ceiling() -> None:
+    report = StartupReadinessReport(
+        generated_at=datetime.now(UTC),
+        decision=ReadinessDecision.DEGRADED,
+        results=(),
+        authority_ceilings={"autonomous-action": AuthorityCeiling.SHADOW},
+    )
+
+    assert not _pantheon_enforce_enabled({"FDAI_PANTHEON_ENFORCE": "true"}, report)
 
 
 def test_runtime_multiplexes_startup_readiness_transitions() -> None:

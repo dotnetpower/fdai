@@ -148,10 +148,10 @@ token before the deadline is unavailable. T2 still requires mixed-model and veri
 miss lowers the case to Human approval.
 
 Evidence expires after the configured interval. Periodic probes refresh the report and append only
-transitions. T2 cross-check and audit durability probes reuse their successful process-local proofs;
-the readiness result receives a fresh evidence time and expiry without repeating the model request
-or audit append. A failed proof remains retryable. Recovery can restore `ready`, never authority
-above the deployment's promotion state.
+transitions. T2 cross-check, audit durability, and full audit-chain probes reuse their successful
+process-local proofs; the readiness result receives a fresh evidence time and expiry without
+repeating the model request, audit append, or full-chain scan. A failed proof remains retryable.
+Recovery can restore `ready`, never authority above the deployment's promotion state.
 
 ### Failure and authority rules
 
