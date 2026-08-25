@@ -19,7 +19,7 @@ if [[ ! "$chaos_mesh_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo "prepare-runner: SCENARIO_LAB_CHAOS_MESH_CHART_VERSION must be an exact semantic version." >&2
   exit 2
 fi
-for command_name in az helm jq kubectl kubelogin terraform; do
+for command_name in az helm jq kubectl kubelogin terraform timeout; do
   command -v "$command_name" >/dev/null 2>&1 || {
     echo "prepare-runner: required command is unavailable: $command_name" >&2
     exit 1
@@ -93,14 +93,57 @@ kubectl --namespace fdai-sre-demo expose deployment api-backend \
   | kubectl apply --filename=-
 kubectl --namespace fdai-sre-demo rollout status deployment/api-backend --timeout=10m
 
-cloud_init_status="$(az vm run-command invoke \
-  --resource-group "$resource_group" \
-  --name "$vm_name" \
-  --command-id RunShellScript \
-  --scripts 'cloud-init status --wait --long' \
-  --query 'value[0].message' \
-  --output tsv \
-  --only-show-errors)"
+readonly vm_run_command_max_attempts=20
+readonly vm_run_command_retry_seconds=15
+readonly vm_run_command_deadline_seconds=300
+
+run_vm_cloud_init_check() {
+  local attempt=1
+  local command_output=""
+  local deadline=$((SECONDS + vm_run_command_deadline_seconds))
+
+  while ((attempt <= vm_run_command_max_attempts)); do
+    local remaining_seconds=$((deadline - SECONDS))
+    local command_status=0
+    if ((remaining_seconds <= 0)); then
+      echo "prepare-runner: private stress VM readiness authorization did not propagate within five minutes." >&2
+      return 1
+    fi
+    if command_output="$(timeout --foreground "${remaining_seconds}s" az vm run-command invoke \
+      --resource-group "$resource_group" \
+      --name "$vm_name" \
+      --command-id RunShellScript \
+      --scripts 'cloud-init status --wait --long' \
+      --query 'value[0].message' \
+      --output tsv \
+      --only-show-errors 2>&1)"; then
+      printf '%s' "$command_output"
+      return 0
+    else
+      command_status=$?
+    fi
+    if ((command_status == 124)); then
+      echo "prepare-runner: private stress VM readiness command exceeded its five-minute deadline." >&2
+      return 1
+    fi
+    if ! grep -Eq '\(AuthorizationFailed\)|Code:[[:space:]]*AuthorizationFailed' \
+      <<<"$command_output"; then
+      echo "prepare-runner: private stress VM readiness command failed." >&2
+      return 1
+    fi
+    if ((attempt == vm_run_command_max_attempts || SECONDS + vm_run_command_retry_seconds >= deadline)); then
+      echo "prepare-runner: private stress VM readiness authorization did not propagate within five minutes." >&2
+      return 1
+    fi
+    printf 'prepare-runner: waiting for private stress VM readiness authorization (%s/%s).\n' \
+      "$attempt" "$vm_run_command_max_attempts" >&2
+    command_output=""
+    sleep "$vm_run_command_retry_seconds"
+    ((attempt += 1))
+  done
+}
+
+cloud_init_status="$(run_vm_cloud_init_check)"
 grep -Fq 'status: done' <<<"$cloud_init_status" || {
   echo "prepare-runner: private stress VM cloud-init did not complete." >&2
   exit 1

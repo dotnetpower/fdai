@@ -271,6 +271,13 @@ def test_live_runner_records_current_approval_reference() -> None:
     assert "--admin" not in prepare
     assert 'kubelogin convert-kubeconfig --kubeconfig "$kubeconfig" -l msi' in prepare
     assert "-l devicecode" not in prepare
+    assert "readonly vm_run_command_max_attempts=20" in prepare
+    assert "readonly vm_run_command_retry_seconds=15" in prepare
+    assert "readonly vm_run_command_deadline_seconds=300" in prepare
+    assert 'timeout --foreground "${remaining_seconds}s" az vm run-command invoke' in prepare
+    assert "(AuthorizationFailed" in prepare
+    assert "readiness authorization did not propagate within five minutes" in prepare
+    assert 'echo "$command_output"' not in prepare
     assert "cloud-init status --wait --long" in prepare
     assert "private stress VM cloud-init did not complete" in prepare
 
