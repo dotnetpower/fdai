@@ -267,6 +267,8 @@ def test_live_runner_records_current_approval_reference() -> None:
     prepare = PREPARE_SCRIPT.read_text(encoding="utf-8")
     assert "helm show chart chaos-mesh/chaos-mesh" in prepare
     assert "az helm jq kubectl kubelogin terraform" in prepare
+    assert "--public-fqdn" in prepare
+    assert "--admin" not in prepare
     assert 'kubelogin convert-kubeconfig --kubeconfig "$kubeconfig" -l msi' in prepare
     assert "-l devicecode" not in prepare
     assert "cloud-init status --wait --long" in prepare

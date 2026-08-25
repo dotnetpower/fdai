@@ -50,6 +50,7 @@ az aks get-credentials \
   --name "$aks_cluster_name" \
   --file "$kubeconfig" \
   --overwrite-existing \
+  --public-fqdn \
   --only-show-errors
 export KUBECONFIG="$kubeconfig"
 kubelogin convert-kubeconfig --kubeconfig "$kubeconfig" -l msi
