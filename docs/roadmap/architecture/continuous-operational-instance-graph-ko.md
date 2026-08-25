@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 817909d7d09a2e9b5dfe77a68c75fc0f2f5c941a
-translation_revised: 2026-08-24
+translation_source_sha: 88197ab19b3903dcddf9ac898396d29ef96f31a3
+translation_revised: 2026-08-25
 ---
 # 지속형 운영 인스턴스 그래프
 
@@ -198,6 +198,7 @@ binding을
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-25 | implemented | 완전 세대 관계 검증에서 관측된 endpoint의 타입이 잘못된 경우 무관한 duplicate conflict 대신 `target_type_mismatch`로 분류하도록 수정했습니다. Candidate는 활성 그래프에서 계속 제외되며 mapping별 unavailable reason을 보존합니다. | `current change`; 집중 관계 변환 및 검증 검사 65개 통과. | 배포된 완전 세대 근거는 별도로 보존합니다. 이 수정은 관계나 권한을 추가하지 않습니다. |
 | 2026-08-22 | in-progress | 지속형 운영 인스턴스 그래프 계약을 도입했습니다. 고정 6시간 최신성 목표를 이벤트 기반 및 적응형 범위 제한 수집으로 바꾸고, 타입 지정 rollup, 검증된 archive, 복원, purge 요구 사항을 추가했습니다. | `current change`, 쌍을 이루는 설계 문서와 집중 문서 gate | 집중 구현 및 운영 근거로 OI-01부터 OI-12까지 완료합니다. |
 | 2026-08-22 | implemented | Machine-readable 15단계 source-to-store 감사와 owner, binding, test, state, missing-gap 근거를 확인하는 결정론적 checker로 OI-01을 완료했습니다. | `current change`, 감사 record, checker, 집중 감사 테스트(`3 passed`) | 검증된 source-policy 선언으로 OI-02를 시작합니다. 적응형 control, rollup, archive, live write-through는 각각을 소유한 이후 패키지에 남깁니다. |
 | 2026-08-22 | implemented | 검증된 source policy, adaptive scheduling, event/delta/snapshot convergence, principal-safe collection health로 OI-02부터 OI-05까지 완료했습니다. | `current change`, collection source, scheduler, convergence, health, reconciliation, sync, topology-history, loopback PostgreSQL focused 검사(`157 passed`) | Preservation을 닫기 전에 collection observation provenance를 typed rollup input과 통합합니다. |

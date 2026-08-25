@@ -120,6 +120,21 @@ def test_missing_target_endpoint_is_absent_and_reported() -> None:
     )
 
 
+def test_target_type_mismatch_is_absent_and_reported() -> None:
+    result = _verify(
+        resources=(
+            _resource("nic-1", "network.interface"),
+            _resource("vm-1", "compute.container-app"),
+        )
+    )
+
+    assert result.links == ()
+    assert [drop.reason for drop in result.dropped] == [RelationshipDropReason.TARGET_TYPE_MISMATCH]
+    assert result.dropped[0].unavailable_reason is (
+        RelationshipUnavailableReason.TARGET_PROVIDER_TYPE_UNMODELED
+    )
+
+
 def test_distinct_missing_target_candidates_keep_their_counts() -> None:
     result = _verify(
         resources=(

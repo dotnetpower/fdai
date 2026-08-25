@@ -101,7 +101,7 @@ def verify_inventory_relationships(
             dropped.append(_drop(RelationshipDropReason.MISSING_TARGET_ENDPOINT, link))
             continue
         if (source.type, target.type) != (link.from_type, link.to_type):
-            dropped.append(_drop(RelationshipDropReason.CONFLICTING_DUPLICATE, link))
+            dropped.append(_drop(RelationshipDropReason.TARGET_TYPE_MISMATCH, link))
             continue
         if contested_ids & {link.from_id, link.to_id, evidence.provider_owner_id}:
             dropped.append(_drop(RelationshipDropReason.UNVERIFIED_METADATA, link))
