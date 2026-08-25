@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 737fe70071e26fff94ac0962454ce55fa20de179
+translation_source_sha: c2c99142da430c41619b03f38f82affd3a56651d
 translation_revised: 2026-08-26
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -43,6 +43,7 @@ translation_revised: 2026-08-26
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
+| 2026-08-26 | implemented | 검토된 AKS topology mapping 변경 뒤 content-addressed provider 관계 검토를 다시 생성했습니다. 후보 개수, `automatic_promotion=false`, `grants_authority=false`는 유지되며 산출물은 런타임 연결이나 권한을 바꾸지 않습니다. | `current change`, provider review `sha256:f6df73948d31bc1cce212918e776f515d6dad1713b61e10a9fa18eeb60a6c976`, 집중 provider-schema 검사 65개 통과 | semantic mapping을 바꾸기 전에 선택한 후보를 독립적으로 검토합니다. |
 | 2026-08-26 | validated | 프로세스 시작 시점의 잘못된 준비 완료를 terminal `ready` 또는 `failed`로 교체하고, 중복 시작 요청을 조용히 무시하던 동작을 제거했으며, 전체 및 무진행 process-group 기한을 추가했습니다. Console 의존성은 lockfile에서 자동 복구하고 서비스 migration 소유권 검증은 Docker 및 권위 데이터 새로 고침보다 먼저 실행합니다. | `current change`, `.vscode/tasks.json`, `scripts/automation/run-bounded-command.py`, `scripts/deployment/local/{prepare-console-full-stack,start-console-services,run-console-service}.sh`, 집중 시작 계약 테스트 19개 통과, 셸 구문 및 편집기 진단 통과, 표준 태스크에서 서비스 branch 5개와 table 127개를 검증하고 Console 의존성을 복구한 뒤 첫 번째 bounded 진단 시도에서 준비 상태 6/6 도달 | 범위가 제한되고 실패 시 닫히는 로컬 시작에 남은 구현 작업은 없습니다. |
 | 2026-08-25 | implemented | 보호 배포 workflow를 검토된 helper로 통합하고 명시적 Terraform remote-state 초기화와 active-model compare-and-swap 근거를 복원했으며 fresh 및 existing 서비스 migration이 manifest 순서의 bootstrap 하나를 사용하도록 했습니다. | `current change`, 보호 workflow, Azure 배포 helper, 서비스 migration branch, Operator PostgreSQL query/index 변경, 집중 테스트 568개 통과, Ruff, mypy, ShellCheck, YAML parsing 및 대상 `actionlint 1.7.12` 통과 | 이 상태를 `validated`로 올리기 전에 보호 Azure plan, apply, migration 및 effect-verification receipt를 보존합니다. |
 | 2026-08-25 | implemented | 서비스 소유권이나 프로바이더 선택을 바꾸지 않고 모든 재사용 가능한 서비스 모듈에 Terraform `>= 1.9` 호환성을 선언했습니다. | `current change`, `infra/services/**/modules/**/versions.tf`, Terraform 검증 및 TFLint | 프로바이더 주 버전 변경을 명시적으로 유지하고 지원 범위를 넓히기 전에 각 서비스 루트를 검증합니다. |
