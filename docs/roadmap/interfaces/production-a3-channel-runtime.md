@@ -183,8 +183,10 @@ Azure uses a separate Container App from the existing Operator Service image wit
 
 Protected deployment follows the existing VNet runner path. Rollback restores the prior disabled
 or prior-image edge revision without changing Core, Operator API, offsets, migration heads, or
-channel bindings. A rollback rehearsal proves route closure, no duplicate terminal send, exact identity
-roles, and five existing service revisions unchanged.
+channel bindings. The primary Operator and edge workloads accept only a healthy active rollback
+baseline and retain one inactive revision so the captured source remains restorable after apply. A
+rollback rehearsal proves route closure, no duplicate terminal send, exact identity roles, and five
+existing service revisions unchanged.
 
 The protected rollout uses two state owners. The platform plan first creates only the dedicated
 edge identity and its ACR, Event Hubs, and versionless Key Vault secret roles. The Operator service

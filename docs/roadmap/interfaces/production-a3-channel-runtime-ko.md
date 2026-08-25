@@ -1,8 +1,8 @@
 ---
 title: 운영 A3 채널 런타임
 translation_of: production-a3-channel-runtime.md
-translation_source_sha: e40e28def90102526857e0fa277102963fafa45d
-translation_revised: 2026-08-24
+translation_source_sha: 3efc7d6fff94ccb48f8b9dcdb8151c606f0656c0
+translation_revised: 2026-08-25
 ---
 # 운영 A3 채널 런타임
 
@@ -183,8 +183,9 @@ Azure는 기존 Operator Service image의 별도 Container App을 다음과 같�
 
 보호된 배포는 기존 VNet runner 경로를 따릅니다. Rollback은 Core, Operator API, offset, migration head
 또는 channel binding을 바꾸지 않고 이전 disabled 또는 이전 image edge revision을 복원합니다.
-Rollback rehearsal은 route 닫힘, 중복 최종 전송 없음, 정확한 identity role 및 기존 다섯 service
-revision 불변을 입증합니다.
+Primary Operator와 edge workload는 정상인 활성 rollback 기준만 수락하고, 수집한 출처를 적용 후에도
+복원할 수 있도록 비활성 revision 1개를 보존합니다. Rollback rehearsal은 route 닫힘, 중복 최종 전송
+없음, 정확한 identity role 및 기존 다섯 service revision 불변을 입증합니다.
 
 보호된 rollout은 state owner 두 개를 사용합니다. Platform plan은 전용 edge identity와 해당 ACR,
 Event Hubs 및 versionless Key Vault secret role만 먼저 만듭니다. Operator service plan은 기존

@@ -55,6 +55,10 @@ them through environment-specific tfvars. See
 [`staging.tfvars.example`](../../../infra/envs/staging.tfvars.example) and
 [`prod.tfvars.example`](../../../infra/envs/prod.tfvars.example).
 
+An exact service apply starts only from a healthy active Container Apps revision and retains one
+inactive revision for recovery. A plan may harden legacy retention from `0` to `1`, but it cannot
+reduce or widen that rollback boundary without a separately reviewed design change.
+
 | Concern | Knob | Prod value |
 |---------|------|------------|
 | Management locks | `enable_resource_locks`, bootstrap `enable_state_lock` | `false` |

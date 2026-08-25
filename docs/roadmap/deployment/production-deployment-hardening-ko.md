@@ -1,7 +1,7 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: 28cb356d90432b06136dea5e2db5112cb3df1b49
+translation_source_sha: ab85935c51073f7fafd20984ca3fd3b136fd4a1e
 translation_revised: 2026-08-25
 ---
 # 운영 배포 강화
@@ -56,6 +56,10 @@ translation_revised: 2026-08-25
 모든 제어는 개발 자세를 기본값으로 사용하므로 실제 환경은 바뀌지 않습니다. 환경별 tfvars로
 강화합니다. [`staging.tfvars.example`](../../../infra/envs/staging.tfvars.example)과
 [`prod.tfvars.example`](../../../infra/envs/prod.tfvars.example)을 참조하세요.
+
+정확한 서비스 적용은 정상인 활성 Container Apps revision에서만 시작하고 복구를 위해 비활성
+revision 1개를 보존합니다. 계획은 이전 보존값을 `0`에서 `1`로 강화할 수 있지만 별도로 검토된 설계
+변경 없이는 해당 rollback 경계를 줄이거나 넓힐 수 없습니다.
 
 | 관심사 | Knob | Prod 값 |
 |--------|------|---------|
