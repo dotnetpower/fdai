@@ -17,7 +17,31 @@ services=(
 child_pids=()
 active_pids=()
 readiness_pid=""
+terminal_event=""
+readiness_seconds="${FDAI_CONSOLE_START_READINESS_SECONDS:-60}"
+if [[ ! "$readiness_seconds" =~ ^[1-9][0-9]*$ ]]; then
+  echo "FDAI_CONSOLE_START_READINESS_SECONDS must be a positive integer" >&2
+  exit 2
+fi
+readiness_budget_seconds=$((readiness_seconds + 5))
 
+emit_failed() {
+  local stage="$1"
+  shift
+  if [[ -n "$terminal_event" ]]; then
+    return
+  fi
+  terminal_event="failed"
+  printf '%s service=console-stack event=failed stage=%s' \
+    "$(date '+%Y-%m-%dT%H:%M:%S.%6N%:z')" \
+    "$stage" >&2
+  if (( $# > 0 )); then
+    printf ' %s' "$@" >&2
+  fi
+  printf '\n' >&2
+}
+
+# shellcheck disable=SC2329
 stop_children() {
   local pid
   trap - EXIT INT TERM
@@ -37,7 +61,9 @@ stop_children() {
   fi
 }
 
+# shellcheck disable=SC2329
 handle_signal() {
+  emit_failed signal "exit_code=130"
   exit 130
 }
 
@@ -71,9 +97,15 @@ done
 printf '%s service=console-stack event=started\n' "$(date '+%Y-%m-%dT%H:%M:%S.%6N%:z')"
 
 "$repo_root/.venv/bin/python" \
+  "$repo_root/scripts/automation/run-bounded-command.py" \
+  --label console-readiness \
+  --timeout-seconds "$readiness_budget_seconds" \
+  --no-progress-seconds "$readiness_budget_seconds" \
+  -- \
+  "$repo_root/.venv/bin/python" \
   "$repo_root/scripts/automation/developer-workflow.py" \
   local-services \
-  --wait-seconds 60 &
+  --wait-seconds "$readiness_seconds" &
 readiness_pid="$!"
 
 pending_pids=("${child_pids[@]}")
@@ -87,6 +119,7 @@ while [[ -n "$readiness_pid" ]]; do
   if [[ "$completed_pid" == "$readiness_pid" ]]; then
     readiness_pid=""
     if (( exit_code != 0 )); then
+      emit_failed readiness "exit_code=$exit_code"
       exit "$exit_code"
     fi
     break
@@ -100,13 +133,24 @@ while [[ -n "$readiness_pid" ]]; do
         "${services[$index]}" \
         "$exit_code" \
         "${services[$index]}" >&2
+      emit_failed \
+        service-startup \
+        "service=${services[$index]}" \
+        "exit_code=$exit_code"
       exit "$exit_code"
     fi
     unset 'pending_pids[index]'
     break
   done
 done
-require_managed_locks
+if require_managed_locks; then
+  :
+else
+  exit_code=$?
+  emit_failed ownership "exit_code=$exit_code"
+  exit "$exit_code"
+fi
+terminal_event="ready"
 printf '%s service=console-stack event=ready\n' "$(date '+%Y-%m-%dT%H:%M:%S.%6N%:z')"
 
 for pid in "${child_pids[@]}"; do

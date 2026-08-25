@@ -20,6 +20,12 @@ if [[ $# -eq 2 ]]; then
 fi
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 cd "$repo_root"
+readiness_seconds="${FDAI_CONSOLE_START_READINESS_SECONDS:-60}"
+if [[ ! "$readiness_seconds" =~ ^[1-9][0-9]*$ ]]; then
+  echo "FDAI_CONSOLE_START_READINESS_SECONDS must be a positive integer" >&2
+  exit 2
+fi
+readiness_budget_seconds=$((readiness_seconds + 5))
 
 case "$service" in
   core-runtime|inventory-reconciliation|observation-campaign)
@@ -87,6 +93,9 @@ else
     uv.lock
     scripts/deployment/local/run-console-service.sh
   )
+  if [[ "$service" == "core-runtime" ]]; then
+    digest_inputs+=(rule-catalog/prompts)
+  fi
 fi
 input_digest="$(
   "$repo_root/.venv/bin/python" \
@@ -203,9 +212,15 @@ fi
 "${runner[@]}" &
 runner_pid="$!"
 "$repo_root/.venv/bin/python" \
+  "$repo_root/scripts/automation/run-bounded-command.py" \
+  --label core-runtime-readiness \
+  --timeout-seconds "$readiness_budget_seconds" \
+  --no-progress-seconds "$readiness_budget_seconds" \
+  -- \
+  "$repo_root/.venv/bin/python" \
   "$repo_root/scripts/automation/developer-workflow.py" \
   local-services \
-  --wait-seconds 60 \
+  --wait-seconds "$readiness_seconds" \
   --only core-runtime >/dev/null &
 readiness_pid="$!"
 

@@ -29,15 +29,17 @@ if ! command -v npm >/dev/null 2>&1; then
   echo "missing npm: install Node.js and npm before starting the Console" >&2
   exit 1
 fi
-if [[ ! -x "$repo_root/console/node_modules/.bin/vite" ]]; then
-  echo "missing Console dependencies: run npm --prefix console install" >&2
-  exit 1
-fi
 
 legacy_preparation_marker="$repo_root/.fdai/console-full-stack-preparation.sha256"
 stage_marker_dir="$repo_root/.fdai/console-preparation"
+bounded_runner="$repo_root/scripts/automation/run-bounded-command.py"
+stage_timeout_seconds="${FDAI_CONSOLE_PREPARATION_STAGE_TIMEOUT_SECONDS:-300}"
+stage_no_progress_seconds="${FDAI_CONSOLE_PREPARATION_NO_PROGRESS_SECONDS:-120}"
+dependency_timeout_seconds="${FDAI_CONSOLE_DEPENDENCY_TIMEOUT_SECONDS:-600}"
 legacy_preparation_inputs=(
   console/.env.local
+  console/package.json
+  console/package-lock.json
   pyproject.toml
   uv.lock
   alembic
@@ -49,6 +51,7 @@ legacy_preparation_inputs=(
   scripts/deployment/azure
 )
 required_outputs=(
+  console/node_modules/.bin/vite
   .fdai/local-runtime.env
   .fdai/local-operator-service.env
   .fdai/local-document-ingestion-api.env
@@ -64,15 +67,39 @@ for optional_input in \
   fi
 done
 
-path_digest() {
+run_bounded() {
+  local label="$1"
+  shift
   "$repo_root/.venv/bin/python" \
+    "$bounded_runner" \
+    --label "$label" \
+    --timeout-seconds "$stage_timeout_seconds" \
+    --no-progress-seconds "$stage_no_progress_seconds" \
+    -- \
+    "$@"
+}
+
+run_dependency_install() {
+  "$repo_root/.venv/bin/python" \
+    "$bounded_runner" \
+    --label console-dependencies \
+    --timeout-seconds "$dependency_timeout_seconds" \
+    --no-progress-seconds "$stage_no_progress_seconds" \
+    -- \
+    npm --prefix "$repo_root/console" ci --no-audit --no-fund
+}
+
+path_digest() {
+  run_bounded input-digest \
+    "$repo_root/.venv/bin/python" \
     "$repo_root/scripts/automation/local-service-input-digest.py" \
     --paths-only \
     "$@"
 }
 
 legacy_digest() {
-  "$repo_root/.venv/bin/python" \
+  run_bounded input-digest \
+    "$repo_root/.venv/bin/python" \
     "$repo_root/scripts/automation/local-service-input-digest.py" \
     "$@"
 }
@@ -129,6 +156,12 @@ run_stage() {
   fi
   rm -f "$marker"
   "$callback"
+  for output in "$@"; do
+    if [[ ! -s "$output" ]]; then
+      echo "Console preparation stage did not produce required output: $name ($output)" >&2
+      return 1
+    fi
+  done
   write_marker "$marker" "$digest"
   printf '%s service=console-preparation stage=%s event=completed\n' \
     "$(date '+%Y-%m-%dT%H:%M:%S.%6N%:z')" "$name"
@@ -137,14 +170,20 @@ run_stage() {
 write_database_identity() {
   local target="$stage_marker_dir/database-volumes.sha256"
   local temporary
+  local volume_inventory
   mkdir -p "$stage_marker_dir"
   umask 077
   temporary="$(mktemp "${target}.XXXXXX")"
-  docker volume inspect \
+  volume_inventory="$(mktemp "${target}.inventory.XXXXXX")"
+  if ! run_bounded database-volume-identity docker volume inspect \
     --format '{{.Name}} {{.CreatedAt}}' \
-    fdai-pgdata fdai-validation-pgdata \
-    | sha256sum \
-    | cut -d' ' -f1 > "$temporary"
+    fdai-pgdata fdai-validation-pgdata > "$volume_inventory"; then
+    cat "$volume_inventory" >&2
+    rm -f "$temporary" "$volume_inventory"
+    return 1
+  fi
+  sha256sum "$volume_inventory" | cut -d' ' -f1 > "$temporary"
+  rm -f "$volume_inventory"
   mv "$temporary" "$target"
 }
 
@@ -168,19 +207,26 @@ require_cloud_tools() {
 }
 
 run_runtime_projection() (
+  label="$1"
+  script="$2"
   set -a
+  # shellcheck source=/dev/null
   source "$repo_root/.fdai/local-runtime.env"
   set +a
-  PYTHONPATH="$repo_root/services/core-control-plane/src:$repo_root/packages/service-contracts/src" \
-    "$repo_root/.venv/bin/python" "$1"
+  run_bounded "$label" \
+    env \
+    PYTHONPATH="$repo_root/services/core-control-plane/src:$repo_root/packages/service-contracts/src" \
+    "$repo_root/.venv/bin/python" "$script"
 )
 
 sync_entra_redirects() (
   set -a
+  # shellcheck source=/dev/null
   source "$repo_root/console/.env.local"
   set +a
   for origin in http://localhost:5273 http://127.0.0.1:5273; do
-    env -u AZURE_CONFIG_DIR \
+    run_bounded entra-redirects \
+      env -u AZURE_CONFIG_DIR \
       "$repo_root/.venv/bin/python" \
       "$repo_root/scripts/deployment/azure/sync-entra-spa-redirect.py" \
       --tenant-id "$VITE_MSAL_TENANT_ID" \
@@ -191,31 +237,41 @@ sync_entra_redirects() (
 )
 
 prepare_local_state() {
-  bash "$repo_root/scripts/deployment/local/prepare-console-state.sh" --dependencies-ready
+  run_bounded local-state \
+    bash "$repo_root/scripts/deployment/local/prepare-console-state.sh" --dependencies-ready
 }
 
 prepare_runtime_environment() {
   require_cloud_tools
-  env -u AZURE_CONFIG_DIR \
+  run_bounded runtime-environment \
+    env -u AZURE_CONFIG_DIR \
     bash "$repo_root/scripts/deployment/azure/prepare-local-runtime-env.sh"
 }
 
 refresh_inventory() {
   require_cloud_tools
-  run_runtime_projection "$repo_root/scripts/deployment/local/refresh-authoritative-inventory.py"
+  run_runtime_projection \
+    authoritative-inventory \
+    "$repo_root/scripts/deployment/local/refresh-authoritative-inventory.py"
 }
 
 materialize_settings() {
-  run_runtime_projection "$repo_root/scripts/deployment/local/materialize-authoritative-settings.py"
+  run_runtime_projection \
+    authoritative-settings \
+    "$repo_root/scripts/deployment/local/materialize-authoritative-settings.py"
 }
 
 materialize_catalogs() {
-  run_runtime_projection "$repo_root/scripts/deployment/local/materialize-authoritative-catalogs.py"
+  run_runtime_projection \
+    authoritative-catalogs \
+    "$repo_root/scripts/deployment/local/materialize-authoritative-catalogs.py"
 }
 
 prepare_service_environments() {
-  bash "$repo_root/scripts/deployment/local/prepare-operator-service-env.sh"
-  bash "$repo_root/scripts/deployment/local/prepare-independent-service-envs.sh"
+  run_bounded operator-service-environment \
+    bash "$repo_root/scripts/deployment/local/prepare-operator-service-env.sh"
+  run_bounded independent-service-environments \
+    bash "$repo_root/scripts/deployment/local/prepare-independent-service-envs.sh"
 }
 
 prepare_entra_redirects() {
@@ -223,7 +279,14 @@ prepare_entra_redirects() {
   sync_entra_redirects
 }
 
-bash "$repo_root/scripts/deployment/local/dev-up.sh"
+run_bounded service-migration-preflight \
+  env PYTHONPATH="$repo_root/service-migrations" \
+  "$repo_root/.venv/bin/python" \
+  "$repo_root/service-migrations/migrate.py" \
+  all validate
+
+run_bounded local-dependencies \
+  bash "$repo_root/scripts/deployment/local/dev-up.sh"
 
 if [[ "$force_preparation" == "0" && -f "$legacy_preparation_marker" ]]; then
   current_legacy_digest="$(legacy_digest "${legacy_preparation_inputs[@]}")"
@@ -234,6 +297,16 @@ if [[ "$force_preparation" == "0" && -f "$legacy_preparation_marker" ]]; then
   fi
 fi
 rm -f "$legacy_preparation_marker"
+
+console_dependency_inputs=(
+  console/package.json
+  console/package-lock.json
+)
+run_stage \
+  console-dependencies \
+  "$(path_digest "${console_dependency_inputs[@]}")" \
+  run_dependency_install \
+  "$repo_root/console/node_modules/.bin/vite"
 
 write_database_identity
 database_identity="$stage_marker_dir/database-volumes.sha256"

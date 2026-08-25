@@ -124,8 +124,8 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
         "console: start local services",
     ]
     assert full_stack["runOptions"] == {
-        "instanceLimit": 1,
-        "instancePolicy": "silent",
+        "instanceLimit": 2,
+        "instancePolicy": "concurrency",
     }
 
     start_guard = tasks_by_label["console: require primary worktree"]
@@ -197,18 +197,20 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
     assert local_services["isBackground"] is True
     assert "dependsOn" not in local_services
     assert local_services["runOptions"] == {
-        "instanceLimit": 1,
-        "instancePolicy": "silent",
+        "instanceLimit": 2,
+        "instancePolicy": "concurrency",
     }
     assert local_services["problemMatcher"]["background"] == {
         "activeOnStart": True,
         "beginsPattern": "service=console-stack event=starting$",
-        "endsPattern": "service=console-stack event=started$",
+        "endsPattern": "service=console-stack event=(ready|failed)(?: |$)",
     }
     assert local_services["presentation"]["close"] is True
 
     wait_ready = tasks_by_label["console: wait full stack ready"]
-    assert wait_ready["command"].endswith("developer-workflow.py local-services --wait-seconds 60")
+    assert "run-bounded-command.py" in wait_ready["command"]
+    assert "--timeout-seconds 15" in wait_ready["command"]
+    assert wait_ready["command"].endswith("developer-workflow.py local-services --wait-seconds 10")
     assert wait_ready["runOptions"] == {
         "instanceLimit": 1,
         "instancePolicy": "silent",
@@ -260,8 +262,12 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
     assert "run-console-service.sh" in supervisor_script
     assert "developer-workflow.py" in supervisor_script
     assert "local-services" in supervisor_script
-    assert supervisor_script.index("event=started") < supervisor_script.index("--wait-seconds 60")
-    assert "--wait-seconds 60" in supervisor_script
+    assert supervisor_script.index("event=started") < supervisor_script.index(
+        '--wait-seconds "$readiness_seconds"'
+    )
+    assert 'readiness_seconds="${FDAI_CONSOLE_START_READINESS_SECONDS:-60}"' in (supervisor_script)
+    assert "run-bounded-command.py" in supervisor_script
+    assert "readiness_budget_seconds=$((readiness_seconds + 5))" in supervisor_script
     assert "require_managed_locks" in supervisor_script
     assert 'flock -n -E 75 "$lock_file" true' in supervisor_script
     assert "service=console-stack event=ready" in supervisor_script

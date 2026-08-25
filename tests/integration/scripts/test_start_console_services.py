@@ -3,6 +3,7 @@ from __future__ import annotations
 import shutil
 import stat
 import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -11,6 +12,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 _DEV_UP_SCRIPT = _REPO_ROOT / "scripts/deployment/local/dev-up.sh"
 _PREPARE_SCRIPT = _REPO_ROOT / "scripts/deployment/local/prepare-console-full-stack.sh"
 _START_SCRIPT = _REPO_ROOT / "scripts/deployment/local/start-console-services.sh"
+_BOUNDED_RUNNER = _REPO_ROOT / "scripts/automation/run-bounded-command.py"
 
 
 def _write_executable(path: Path, content: str) -> None:
@@ -64,6 +66,8 @@ set -euo pipefail
     assert time.monotonic() - started < 2
     assert result.returncode == 9
     assert "service exited before readiness: document-ingestion-api" in result.stderr
+    assert "service=console-stack event=failed" in result.stderr
+    assert "stage=service-startup service=document-ingestion-api exit_code=9" in result.stderr
 
 
 def test_supervisor_propagates_an_immediate_readiness_failure(tmp_path: Path) -> None:
@@ -90,6 +94,8 @@ def test_supervisor_propagates_an_immediate_readiness_failure(tmp_path: Path) ->
     assert result.returncode == 7
     assert "service=console-stack event=started" in result.stdout
     assert "service=console-stack event=ready" not in result.stdout
+    assert "service=console-stack event=failed" in result.stderr
+    assert "stage=readiness exit_code=7" in result.stderr
 
 
 def test_preparation_reuses_an_unchanged_healthy_stack(tmp_path: Path) -> None:
@@ -111,6 +117,8 @@ def test_preparation_reuses_an_unchanged_healthy_stack(tmp_path: Path) -> None:
         output.write_text("prepared\n", encoding="utf-8")
     (repo / "console").mkdir()
     (repo / "console/.env.local").write_text("prepared\n", encoding="utf-8")
+    (repo / "console/package.json").write_text("{}\n", encoding="utf-8")
+    (repo / "console/package-lock.json").write_text("{}\n", encoding="utf-8")
     _write_executable(repo / "console/node_modules/.bin/vite", "#!/usr/bin/env bash\nexit 0\n")
     _write_ready_dependency_script(repo)
     (repo / ".fdai/console-full-stack-preparation.sha256").write_text(
@@ -122,8 +130,10 @@ def test_preparation_reuses_an_unchanged_healthy_stack(tmp_path: Path) -> None:
         f"""#!/usr/bin/env bash
 set -euo pipefail
 case "$1" in
+    */run-bounded-command.py) shift; exec {str(sys.executable)!r} {str(_BOUNDED_RUNNER)!r} "$@" ;;
   */local-service-input-digest.py) printf '%s\\n' {digest!r} ;;
   */developer-workflow.py) exit 0 ;;
+    */service-migrations/migrate.py) exit 0 ;;
   *) printf 'unexpected python call: %s\\n' "$1" >&2; exit 99 ;;
 esac
 """,
@@ -158,6 +168,8 @@ def _staged_preparation_repo(
         "VITE_MSAL_TENANT_ID=tenant\nVITE_MSAL_CLIENT_ID=client\n",
         encoding="utf-8",
     )
+    (repo / "console/package.json").write_text("{}\n", encoding="utf-8")
+    (repo / "console/package-lock.json").write_text("{}\n", encoding="utf-8")
     _write_executable(repo / "console/node_modules/.bin/vite", "#!/usr/bin/env bash\nexit 0\n")
     for relative in (
         ".fdai/local-runtime.env",
@@ -173,6 +185,7 @@ def _staged_preparation_repo(
     marker_dir = repo / ".fdai/console-preparation"
     marker_dir.mkdir(parents=True)
     stages = (
+        "console-dependencies",
         "local-state",
         "runtime-environment",
         "authoritative-inventory",
@@ -189,8 +202,10 @@ def _staged_preparation_repo(
         f"""#!/usr/bin/env bash
 set -euo pipefail
 case "$1" in
+    */run-bounded-command.py) shift; exec {str(sys.executable)!r} {str(_BOUNDED_RUNNER)!r} "$@" ;;
   */local-service-input-digest.py) printf '%s\\n' {digest!r} ;;
   */sync-entra-spa-redirect.py) exit 0 ;;
+    */service-migrations/migrate.py) exit 0 ;;
   *) printf 'unexpected python call: %s\\n' "$1" >&2; exit 99 ;;
 esac
 """,
@@ -228,7 +243,7 @@ def test_preparation_reuses_each_unchanged_stage_when_stack_is_stopped(tmp_path:
     )
 
     assert result.returncode == 0
-    assert result.stdout.count("event=reused") == 7
+    assert result.stdout.count("event=reused") == 8
     assert "stage=entra-redirects event=completed" not in result.stdout
 
 
@@ -246,7 +261,7 @@ def test_preparation_reruns_only_the_invalidated_stage(tmp_path: Path) -> None:
     )
 
     assert result.returncode == 0
-    assert result.stdout.count("event=reused") == 6
+    assert result.stdout.count("event=reused") == 7
     assert result.stdout.count("stage=entra-redirects event=completed") == 1
 
 
@@ -270,26 +285,37 @@ def test_preparation_reports_a_missing_console_environment(tmp_path: Path) -> No
     assert result.stderr == "missing local Console environment: console/.env.local\n"
 
 
-def test_preparation_reports_missing_console_dependencies(tmp_path: Path) -> None:
-    repo = tmp_path / "repo"
-    prepare_script = repo / "scripts/deployment/local/prepare-console-full-stack.sh"
-    prepare_script.parent.mkdir(parents=True)
-    shutil.copy2(_PREPARE_SCRIPT, prepare_script)
-    _write_executable(repo / ".venv/bin/python", "#!/usr/bin/env bash\nexit 99\n")
-    (repo / "console").mkdir()
-    (repo / "console/.env.local").write_text("prepared\n", encoding="utf-8")
+def test_preparation_repairs_missing_console_dependencies(tmp_path: Path) -> None:
+    repo, environment = _staged_preparation_repo(
+        tmp_path,
+        stale_stage="console-dependencies",
+    )
+    (repo / "console/node_modules/.bin/vite").unlink()
+    bin_dir = Path(environment["PATH"].split(":", 1)[0])
+    _write_executable(
+        bin_dir / "npm",
+        """#!/usr/bin/env bash
+set -euo pipefail
+mkdir -p console/node_modules/.bin
+printf '#!/usr/bin/env bash\nexit 0\n' > console/node_modules/.bin/vite
+chmod +x console/node_modules/.bin/vite
+""",
+    )
 
     result = subprocess.run(  # noqa: S603 - fixed test script and executable.
-        [_BASH, str(prepare_script)],
+        [_BASH, str(repo / "scripts/deployment/local/prepare-console-full-stack.sh")],
         cwd=repo,
+        env=environment,
         capture_output=True,
         text=True,
         check=False,
         timeout=3,
     )
 
-    assert result.returncode == 1
-    assert result.stderr == ("missing Console dependencies: run npm --prefix console install\n")
+    assert result.returncode == 0
+    assert result.stdout.count("stage=console-dependencies event=completed") == 1
+    assert result.stdout.count("event=reused") == 7
+    assert (repo / "console/node_modules/.bin/vite").is_file()
 
 
 def test_force_preparation_bypasses_a_healthy_cache(tmp_path: Path) -> None:

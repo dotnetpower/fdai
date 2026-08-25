@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 71acc12c0064bc8f928c76853cd646d5d3f156b1
-translation_revised: 2026-08-25
+translation_source_sha: 7a65d3758608bd0bd034e61f6ae24d0cdc51e29f
+translation_revised: 2026-08-26
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
 
@@ -26,7 +26,7 @@ translation_revised: 2026-08-25
 | 로컬 및 배포 composition 동등성 | implemented | `.vscode/tasks.json`, `.vscode/launch.json`, `scripts/deployment/local/`, `infra/`, `fdai_operator_service/composition.py`, 서비스 통합 테스트 및 focused Operator 검사(`51 passed`) | Composition root는 근거 권한을 바꾸지 않고 자격 증명과 어댑터를 선택합니다. 로컬 및 배포 Operator composition은 같은 Reader 범위 `GET /browser-evidence` 경로와 권위 있는 데이터 출처 ID를 등록하며 PostgreSQL이 없으면 합성 데이터 대신 사용 불가를 반환합니다. |
 | 독립 A3 channel-edge 동등성 | 구현됨 | `channel_edge/`, `prepare-channel-edge-env.sh`, `.vscode/tasks.json`, `infra/services/operator-service`, 플랫폼 edge identity/RBAC, 집중 edge 및 로컬 실행 검사 | 두 venue는 port 8014에서 동일한 Operator distribution ASGI factory, PostgreSQL store, 의미 EventBus bridge, 프로바이더 경로 및 readiness 논리를 실행합니다. Local은 private 0600 provider input과 Redpanda를 사용하고 deployed는 Key Vault reference, Event Hubs Kafka 및 전용 non-executor Managed Identity를 사용합니다. Provider 구성이 없으면 선택적 기능은 synthetic 대신 unavailable 상태를 유지합니다. |
 | 재사용 가능한 서비스 Terraform 모듈 호환성 | implemented | `infra/services/**/modules/**/versions.tf`, Terraform 검증 및 TFLint | 모든 재사용 가능한 서비스 모듈이 Terraform `>= 1.9`를 선언하며 프로바이더 소유권은 서비스 루트에 유지됩니다. |
-| Primary worktree 명시적 전체 스택 시작 | implemented | `.vscode/tasks.json`, `prepare-console-full-stack.sh`, `start-console-services.sh`, `run-console-service.sh`, `developer-workflow.py`, 집중 시작 계약 테스트 | 폴더를 열 때 더 이상 이행, 권위 데이터 새로 고침 또는 애플리케이션 서비스를 실행하지 않습니다. 준비 작업은 로컬 의존성을 복구하고 독립적으로 fingerprint된 7개 단계를 재사용하며, 캐시 재사용에 실행 중인 스택을 요구하지 않습니다. Supervisor는 프로세스를 시작한 뒤 시작 호출자를 해제하고 전체 준비 상태 게이트를 계속 실행하며 명시적 대기 작업을 제공합니다. |
+| Primary worktree 명시적 전체 스택 시작 | validated | `.vscode/tasks.json`, `run-bounded-command.py`, `prepare-console-full-stack.sh`, `start-console-services.sh`, `run-console-service.sh`, `developer-workflow.py`, 집중 시작 계약 테스트 및 표준 로컬 준비 상태 6/6 결과 | 폴더를 열 때 더 이상 이행, 권위 데이터 새로 고침 또는 애플리케이션 서비스를 실행하지 않습니다. 준비 작업은 migration 소유권을 검증하고 lockfile 기반 Console 의존성을 복구하며 독립적으로 fingerprint된 8개 단계를 재사용합니다. 시작 태스크는 terminal `ready` 또는 `failed`에서만 닫히며 모든 외부 준비 및 readiness 명령에는 전체 및 무진행 기한이 있습니다. |
 | 선택적 10분 로컬 복구 감시 | implemented | `.vscode/tasks.json`, `watch-console-services.sh`, `developer-workflow.py`, 집중 workspace 태스크 계약 | 단일 인스턴스 태스크가 600초마다 구성 요소 6개의 준비 상태 계약을 확인합니다. 정상 스택은 건너뛰고 실패한 경우에는 표준 준비 및 supervisor 경로를 사용하여 고정 로컬 포트와 서비스 소유권 규칙을 유지합니다. |
 | 로컬 진단 로그 복원력 | implemented | `capture-local-service-log.py`, `fdai.shared.telemetry.logging`, 집중 telemetry 및 launcher 검사 | 경고 보존은 레코드별 압축 없이 추가하고, 로컬 파일 캡처는 터미널 역압력과 격리하며, 과대 레코드는 범위를 제한하고, 반복 의존성 실패는 최초·주기·서로 다른 실패 근거를 보존합니다. |
 | 폴더 열기 dev-access 경로 안정화 | implemented | `tools/dev-access/scripts/vscode-startup.sh`, `tests/integration/infra/test_dev_access.py`, 집중 dev-access 테스트 | 태스크는 Azure VPN Client를 최대 한 번 열고 범위가 제한된 7초 유예 시간 동안 mirrored WSL 경로를 8번 확인합니다. Direct 경로가 나타나면 DNS를 적용하고 실제 연결 끊김에는 exit `20`을 유지합니다. 로컬 상태가 없는 workstation과 direct-VNet 머신은 계속 조용히 종료합니다. |
@@ -43,6 +43,7 @@ translation_revised: 2026-08-25
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
+| 2026-08-26 | validated | 프로세스 시작 시점의 잘못된 준비 완료를 terminal `ready` 또는 `failed`로 교체하고, 중복 시작 요청을 조용히 무시하던 동작을 제거했으며, 전체 및 무진행 process-group 기한을 추가했습니다. Console 의존성은 lockfile에서 자동 복구하고 서비스 migration 소유권 검증은 Docker 및 권위 데이터 새로 고침보다 먼저 실행합니다. | `current change`, `.vscode/tasks.json`, `scripts/automation/run-bounded-command.py`, `scripts/deployment/local/{prepare-console-full-stack,start-console-services,run-console-service}.sh`, 집중 시작 계약 테스트 19개 통과, 셸 구문 및 편집기 진단 통과, 표준 태스크에서 서비스 branch 5개와 table 127개를 검증하고 Console 의존성을 복구한 뒤 첫 번째 bounded 진단 시도에서 준비 상태 6/6 도달 | 범위가 제한되고 실패 시 닫히는 로컬 시작에 남은 구현 작업은 없습니다. |
 | 2026-08-25 | implemented | 보호 배포 workflow를 검토된 helper로 통합하고 명시적 Terraform remote-state 초기화와 active-model compare-and-swap 근거를 복원했으며 fresh 및 existing 서비스 migration이 manifest 순서의 bootstrap 하나를 사용하도록 했습니다. | `current change`, 보호 workflow, Azure 배포 helper, 서비스 migration branch, Operator PostgreSQL query/index 변경, 집중 테스트 568개 통과, Ruff, mypy, ShellCheck, YAML parsing 및 대상 `actionlint 1.7.12` 통과 | 이 상태를 `validated`로 올리기 전에 보호 Azure plan, apply, migration 및 effect-verification receipt를 보존합니다. |
 | 2026-08-25 | implemented | 서비스 소유권이나 프로바이더 선택을 바꾸지 않고 모든 재사용 가능한 서비스 모듈에 Terraform `>= 1.9` 호환성을 선언했습니다. | `current change`, `infra/services/**/modules/**/versions.tf`, Terraform 검증 및 TFLint | 프로바이더 주 버전 변경을 명시적으로 유지하고 지원 범위를 넓히기 전에 각 서비스 루트를 검증합니다. |
 | 2026-08-25 | implemented | LLM 측정 행을 추가하는 데 필요한 정확한 identity sequence 권한을 부여하되 sequence 변경 권한은 주지 않는 정방향 Core service migration을 추가했습니다. | `current change`, `core_metering_sequence_20260825`, service migration inventory 55건 통과, Core branch 검증에서 table 126개, transition 12개 및 새 head 확인 | 성공한 exact Core apply, 측정 기록 쓰기 및 post-apply 상태 증적을 보존합니다. |
@@ -198,15 +199,15 @@ Docker Redpanda를 사용합니다. Azure에 배포된 프로세스는 `FDAI_EXE
 
 `database_host_binding` 배포 mode는 배포 service의 비밀이 아닌 `POSTGRES_HOST` 연결만 변경합니다. 모든 service root는 비어 있지 않은 host를 요구하고, Core는 검증된 `llm` object를 child module로 전달하며, 봉인된 guard는 다른 명령이나 환경 표류를 차단하고 exact apply는 plan의 mode와 digest를 그대로 반복해야 합니다. Core 모델 전환은 비밀 service tfvars 대신 저장소의 resolved-model 매니페스트와 웹 검색 정책에서 해당 `llm` object를 도출합니다. 구체화 도구는 매니페스트의 정규 digest가 이미지 attestation과 일치하도록 요구하고 HTTPS endpoint 출처를 정확히 하나만 허용하며, 산출물에 일치하는 후보가 있고 저장소 정책이 허용 목록을 제공할 때만 웹 검색을 활성화합니다. Legacy Core revision에 검토된 Event Bus topic, database host 및 model binding이 모두 없으면 Core 전용 전환 하나가 세 mode를 함께 봉인하고 모든 전용 guard를 같은 plan에 적용합니다. 네 번째 환경 변경은 계속 차단됩니다. 독립 배포된 Operator는 typed incident request와 read-investigation completion topic 및 consumer group을 렌더링하고 필수로 요구하므로 topic guard가 정확한 값을 검증합니다. 격리 Executor migration도 command, receipt 및 DLQ transport 값을 `FDAI_EXECUTION_VENUE=deployed`와 함께 고정하며 관련 없는 환경 변경은 계속 차단됩니다. Local composition은 loopback host를 계속 사용하므로 이 전환은 실행 venue를 바꾸거나 배포 DSN을 local에서 재사용하지 않습니다. Database venue도 측정 권한을 변경하지 않습니다. Core는 table `SELECT, INSERT`와 `llm_invocation_invocation_id_seq`의 `USAGE, SELECT` 권한으로 `llm_invocation`에 행을 추가하고 Operator는 table을 `SELECT`로 읽습니다. 권한 migration은 `PUBLIC` 접근을 revoke하고 어느 role에도 table update 또는 delete 권한을 주지 않으며 Core에는 sequence `UPDATE` 권한을 주지 않습니다. 두 venue 모두 JSON payload를 scan하지 않고 concurrently 생성한 동일한 partial `audit_log.action_kind` index를 통해 incident lifecycle history를 복구합니다.
 
-작업 영역을 열어도 Console 구성을 시작하지 않습니다. 신뢰된 primary checkout에서 `console: start full stack`을 명시적으로 실행하면 준비 작업이 편집기 초기화와 경쟁하지 않습니다. 이 작업은 공유 Git 디렉터리 소유를 확인하고 `prepare-console-full-stack.sh`을 실행한 뒤 `start-console-services.sh`을 실행합니다. 준비 작업은 단계 fingerprint를 평가하기 전에 port `5432`의
-런타임 PostgreSQL, port `5433`의 격리된 검증 PostgreSQL cluster, Redpanda 및 ClamAV를 항상
-복구합니다. 순서가 있는 7개 단계는 로컬 이행, 런타임 환경, 권위 있는 인벤토리, Settings 변환 결과,
-카탈로그 변환 결과, 서비스 환경 및 Entra redirect입니다. 각 단계는 이미 실행 중인 애플리케이션
+작업 영역을 열어도 Console 구성을 시작하지 않습니다. 신뢰된 primary checkout에서 `console: start full stack`을 명시적으로 실행하면 준비 작업이 편집기 초기화와 경쟁하지 않습니다. 이 작업은 공유 Git 디렉터리 소유를 확인하고 `prepare-console-full-stack.sh`을 실행한 뒤 `start-console-services.sh`을 실행합니다. 준비 작업은 먼저 모든 서비스 migration branch와 쓰기 소유권을 검증합니다. 그다음 port `5432`의 런타임 PostgreSQL, port `5433`의 격리된 검증 PostgreSQL cluster, Redpanda 및 ClamAV를 복구한 뒤 순서가 있는 8개 단계 fingerprint를 평가합니다. 8개 단계는 Console 의존성, 로컬 migration, 런타임 환경, 권위 있는 인벤토리, Settings 변환 결과, 카탈로그 변환 결과, 서비스 환경 및 Entra redirect입니다. 각 단계는 이미 실행 중인 애플리케이션
 스택을 요구하지 않고 정확한 입력과 필수 출력으로 재사용됩니다. 데이터베이스 기반 단계에는 로컬
 PostgreSQL volume identity도 포함하므로 재생성된 volume이 오래된 파일 marker를 상속할 수 없습니다.
+Console 의존성 단계가 없거나 변경되면 운영자에게 `node_modules`를 수동 복구하도록 요청하지 않고
+lockfile 기반 `npm ci`를 실행합니다. 각 외부 명령은 출력을 전달하는 `run-bounded-command.py`를
+통해 실행하며, 전체 deadline 또는 무진행 deadline을 넘으면 전체 자식 process group을 종료합니다.
 `--force`는 모든 단계를 무효화합니다.
 
-Supervisor는 허용된 각 `run-console-service.sh`을 자체 잠금, fingerprint, 로그 및 수명주기와 함께 병렬 시작합니다. 모든 launcher를 시작한 뒤 `started`를 내보내 `console: start full stack` 호출자를 해제하고, 그 뒤에도 60초 게이트와 종료 신호 전달을 계속 담당합니다. 브라우저 검증이나 전체 구성이 필요한 작업 전에는 `console: wait full stack ready`를 실행합니다. 이 작업은 체크아웃 소유 Core, 최신 heartbeat 및 정상 서비스 probe를 요구합니다. Core 전용 복구 작업도 프로세스 시작을 준비 상태로 취급하지 않고 최신 Pantheon heartbeat를 기다립니다. 변경되거나 다른 소유권은 관리 대상만 교체하거나 실패합니다.
+Supervisor는 허용된 각 `run-console-service.sh`을 자체 잠금, fingerprint, 로그 및 수명주기와 함께 병렬 시작합니다. 모든 launcher를 시작한 뒤 `started`를 내보내지만 VS Code 태스크는 supervisor가 terminal `ready` 또는 `failed` 중 하나를 정확히 한 번 내보낼 때까지 활성 상태를 유지합니다. 전체 readiness gate의 기본값은 60초이며 외부 process-group deadline은 65초입니다. Readiness 전의 모든 child exit, readiness 실패, signal 또는 managed-lock 실패는 `failed`를 내보내고 0이 아닌 값으로 종료합니다. 중복된 명시적 시작은 조용히 무시되지 않고 managed lock과 fingerprint 재사용 경로를 통해 동시에 실행됩니다. `console: wait full stack ready`는 성공한 시작 뒤 사용하는 별도 10초 진단이며 두 번째 시작 단계가 아닙니다. Core 전용 복구 작업도 프로세스 시작을 준비 상태로 취급하지 않고 최신 Pantheon heartbeat를 기다립니다. 변경되거나 다른 소유권은 관리 대상만 교체하거나 실패합니다.
 
 순서가 있는 준비 작업은 해당 단계 입력이 바뀐 경우에만 읽기 전용 Azure Resource Graph 인벤토리를 새로 읽고 정제된 모델, 런타임 Settings, Rule 및 Ontology 변환 결과를 구체화합니다. 이러한 선언은 발견된 문제, 관측된 인벤토리, 준비 상태 또는 실행 권한을 만들지 않습니다. 프로바이더를 사용할 수 없거나 권한이 없으면 고정본 데이터로 대체하지 않고 인벤토리를 명시적으로 사용할 수 없는 상태로 유지합니다. 전체 스택 시작에는 신뢰된 workspace와 커밋된 정책이 필요하며 권한을 약화하지 않습니다.
 Loopback 소유권 확인에는 범위가 250ms로 제한된 IPv4 및 IPv6 소켓 검사를 사용하며 연결 중에는

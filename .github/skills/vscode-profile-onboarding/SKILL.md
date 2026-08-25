@@ -54,12 +54,13 @@ maintainer's local VS Code state.
   terminals for input and can inject a noisy input-needed notification into later chat turns when
   a healthy service continuously emits logs. Use `console: start core runtime` when only the Core
   Runtime needs recovery; that task waits for a fresh Pantheon heartbeat. The `console: start full
-  stack` task returns after the supervisor spawns every managed launcher while the supervisor keeps
-  the 60-second readiness gate. The hidden supervisor terminal closes after its process exits;
-  failure remains visible in the task status and service logs instead of leaving an idle terminal
-  selected. Run `console: wait full stack ready` before reporting success or starting work that
-  requires the complete topology. Close any earlier agent-owned service terminal after its process
-  has been replaced by the task-owned process.
+  stack` task remains active until the supervisor emits exactly one terminal `ready` or `failed`
+  event. Preparation and readiness commands have total and no-progress deadlines, and a failed
+  start returns nonzero instead of leaving a hidden task waiting. A duplicate explicit start runs
+  concurrently through the managed lock and fingerprint reuse path instead of being ignored. Use
+  `console: wait full stack ready` only as a bounded ten-second diagnostic after a successful start.
+  Close any earlier agent-owned service terminal after its process has been replaced by the
+  task-owned process.
 - For a background task with a readiness problem matcher, treat the task tool's ready return as the
   terminal result. Do not call `get_task_output`, wait for process exit, or retry the task after its
   ready event; the service is intentionally long-running. If readiness is still in doubt, run one
@@ -70,10 +71,11 @@ maintainer's local VS Code state.
   Service, Document Ingestion API, Document Processing Worker, isolated Executor, and Console
   Frontend. A listening frontend or partial backend set is not a complete start.
 - Use the existing VS Code tasks or launch configurations. Run `console: prepare full stack` before
-  starting any missing backend process. Preparation MUST start Docker PostgreSQL, Redpanda, and
-  ClamAV, upgrade all five service migration branches, and generate role-scoped private service
-  environments. Do not replace the standard browser Entra profile with a test, fixture,
-  ingestion-gateway, or CLI-principal profile.
+  starting any missing backend process. Preparation MUST reconcile Console dependencies from the
+  lockfile, validate service-migration ownership before Docker startup, start Docker PostgreSQL,
+  Redpanda, and ClamAV, upgrade all five service migration branches, and generate role-scoped
+  private service environments. Do not replace the standard browser Entra profile with a test,
+  fixture, ingestion-gateway, or CLI-principal profile.
 - If the standard local stack is already healthy and its configuration inputs have not changed,
   reuse its processes, generated `.fdai/local-*.env` files, logs, and database records. Do not
   restart the stack, rerun full preparation, or regenerate state merely to begin an investigation.

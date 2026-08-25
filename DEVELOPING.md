@@ -115,9 +115,10 @@ Worker (`8012` health), and isolated Executor (`8013` health).
 - VS Code (recommended): trust the workspace, then run the `console: start full stack` task for
   managed service reuse or the `Console Web: Full Stack` compound when you need debugger-owned
   processes. Both paths restore Docker PostgreSQL, Redpanda, and ClamAV, run only invalidated
-  migration, environment, projection, inventory, and Entra preparation stages, and start every
-  service plus the SPA. The start task returns after supervised process spawn. Run
-  `console: wait full stack ready` before opening or validating the complete topology. Use
+  dependency, migration, environment, projection, inventory, and Entra preparation stages, and
+  start every service plus the SPA. The start task returns only after the supervisor reports
+  `ready` or `failed`; every preparation command and readiness check has a bounded deadline. Use
+  `console: wait full stack ready` only for a ten-second diagnostic after a successful start. Use
   `bash scripts/deployment/local/prepare-console-full-stack.sh --force` to refresh every stage.
 - Optional dev data stack (Postgres + Redpanda) for persistence tests:
 
