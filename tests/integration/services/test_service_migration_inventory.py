@@ -647,6 +647,30 @@ def test_core_metering_writer_has_append_only_cross_service_grant() -> None:
     assert "llm_invocation" not in ownership["table_migrations"]["operator-service"]
 
 
+def test_core_metering_sequence_has_minimum_append_privileges() -> None:
+    path = (
+        MIGRATION_ROOT / "branches/core-control-plane/versions/20260825_core_metering_sequence.py"
+    )
+    source = path.read_text(encoding="utf-8")
+    migration = runpy.run_path(str(path))
+
+    assert (
+        'down_revision: str | Sequence[str] | None = "core_incident_recovery_index_20260825"'
+        in source
+    )
+    assert migration["owned_tables"] == ()
+    assert (
+        "REVOKE ALL PRIVILEGES ON SEQUENCE llm_invocation_invocation_id_seq\n"
+        "            FROM PUBLIC, fdai_core" in source
+    )
+    assert "GRANT USAGE, SELECT ON SEQUENCE llm_invocation_invocation_id_seq TO fdai_core" in source
+    assert "GRANT UPDATE" not in source
+    assert (
+        "REVOKE ALL PRIVILEGES ON SEQUENCE llm_invocation_invocation_id_seq FROM fdai_core"
+        in source
+    )
+
+
 def test_core_incident_recovery_uses_indexed_action_kind() -> None:
     migration_path = (
         MIGRATION_ROOT
