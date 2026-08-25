@@ -41,6 +41,7 @@ def test_scenario_lab_is_an_independent_private_terraform_root() -> None:
     assert "azure_rbac_enabled = true" in aks
     assert 'outbound_type       = "userAssignedNATGateway"' in aks
     assert "node_count                   = 1" in aks
+    assert 'upgrade_settings {\n      max_surge = "10%"\n    }' in aks
     assert 'resource "azurerm_private_dns_zone_virtual_network_link" "openai_lab"' in data_services
     assert "private_dns_zone_name = var.azure_openai_private_dns_zone.name" in data_services
     assert 'resource "azurerm_private_endpoint" "azure_openai"' in data_services

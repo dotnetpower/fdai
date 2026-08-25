@@ -1,7 +1,7 @@
 ---
 title: 제한된 네트워크의 Azure 인벤토리
 translation_of: azure-inventory-network-paths.md
-translation_source_sha: e445a2e7ae87241e12223fa4f7e0ac6894400387
+translation_source_sha: fb2de9b9e99629f902bbffaf6bd705e5ec9f57b9
 translation_revised: 2026-08-25
 ---
 # 제한된 네트워크의 Azure 인벤토리
@@ -39,6 +39,7 @@ FDAI는 네트워크 도달성, 아이덴티티, 수집, 프로젝션을 별도 
 | 2026-08-21 | in-progress | 런타임 동작이나 권한을 변경하지 않고 기존 제한 네트워크 인벤토리 설계를 집중 소유 문서로 옮겼습니다. | `current change`; 문서 크기, 번역, 경로 및 링크 검사입니다. | 실제 네트워크 경로와 하나 이상의 대체 및 복구 전환에 대한 exact-revision 보호 근거를 보존합니다. |
 | 2026-08-25 | implemented | OHL 근거 VM 서브넷에 명시적인 NSG 보호를 추가하고 기존 배포 runner 서브넷 연결을 검증하면서 Azure 관리형 delegated 서브넷 제약을 유지했습니다. | `current change`; `tests/integration/infra/test_network_hardening.py`, `tests/integration/infra/test_bootstrap_network_hardening.py`, Checkov와 Trivy의 Low 초과 활성 점검 결과 0건. | 실제 NSG와 route 정책이 필수 관리 경로를 계속 허용한다는 배포 근거를 보존합니다. |
 | 2026-08-24 | implemented | 일회용 시나리오 경로가 사용하는 양방향 게이트웨이 전송 피어링의 생성 순서를 직렬화했습니다. | 실패한 보호 apply `32773217323`, `32774040807`, 비대칭 피어링 조회 결과, `infra/scenario-lab/main.tf`, 집중 시나리오 랩 계약. | 워크스테이션 경로 검증 전에 두 피어링이 모두 Connected 상태임을 보여 주는 보호 증적을 보존합니다. |
+| 2026-08-25 | implemented | 프로바이더가 펼친 업그레이드 기본값이 반복 update를 만들지 않도록 일회용 AKS 노드 풀의 관측된 surge 정책을 pin했습니다. | 값이 없는 계획 `32793483505`, `infra/scenario-lab/aks.tf`, 집중 시나리오 랩 및 Terraform 검사. | 실제 sweep 전에 변경 0건인 보호 계획을 보존합니다. |
 
 ### 남은 작업
 

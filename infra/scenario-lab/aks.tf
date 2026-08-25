@@ -42,6 +42,10 @@ resource "azurerm_kubernetes_cluster" "scenario_lab" {
     temporary_name_for_rotation  = "systemtmp"
     max_pods                     = 30
     tags                         = local.tags
+
+    upgrade_settings {
+      max_surge = "10%"
+    }
   }
 
   identity {
