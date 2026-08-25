@@ -108,7 +108,9 @@ ObjectType or adding UUID identity to every direct link.
 Provider topology enters the graph only through reviewed mappings and one complete inventory
 generation. Azure nested resources use an explicitly declared immediate provider parent or
 top-level provider root. The bounded ARM source collects AKS AgentPool children that Azure Resource
-Graph does not expose as ordinary resources. Kubernetes API inventory adds UID-grounded cluster,
+Graph does not expose as ordinary resources. The same source collects VM Scale Set VM and network
+interface children, projects them through the existing `compute.vm` and `network.interface` types,
+and retains exact VMSS-to-VM and NIC-to-VM/subnet mappings. Kubernetes API inventory adds UID-grounded cluster,
 namespace, node, workload, ownership, selector, endpoint, and scheduling evidence before the same
 single writer promotes resources and independently verified links atomically.
 
@@ -197,6 +199,13 @@ present in the response. A missing path remains unknown when relationship covera
 or the required backend association is not modeled. Browser layout never changes completeness or
 authority.
 
+The default instance presentation omits `authorization.role-assignment` Resources from selection,
+the graph, relationship inspection, and conversational screen context. IAM projections retain the
+underlying evidence. A Resource Group remains selectable as a bounded scope overview. For any
+non-scope root, the graph shows only that root's immediate owning Resource Group and does not add
+Resource Groups that belong only to indirect peers or branch nodes. Scope membership never proves
+traffic or dependency.
+
 ## Migration and rollout
 
 1. Add the structural declarations, loaders, and validators without changing the visible query
@@ -230,6 +239,7 @@ major version or explicit graph migration. No rollout rewrites historical contex
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-25 | implemented | Added bounded ARM collection for VMSS VM and NIC children plus default presentation rules that hide role assignments and retain only the selected root's immediate Resource Group context. | Focused Python checks passed 43 cases and Console checks passed 59 cases; Ruff, strict mypy, typecheck, and build passed. A local refresh promoted 901 Resources and 2,550 ontology links with exact generation agreement and zero structural invariant violations. Authenticated VNet and AKS views retained one immediate VNet owner group and displayed VMSS, VM, and NIC hierarchy nodes. | No bounded implementation work remains. Deployed evidence remains separate. |
 | 2026-08-25 | implemented | Required bounded multi-hop instance presentation to preserve stored edge direction, summarize only evidence-backed VM network paths, and keep absent ingress or egress unknown under incomplete or unmodeled coverage. | `current change`; active-generation PostgreSQL audit; focused Console checks passed 56 cases; typecheck, production build, and entry bundle check passed; authenticated 1440 x 900, 993 x 641, and 390 x 844 Browser checks retained zero overflow and 44 px mobile path controls. | No bounded implementation work remains. Governed runtime retention remains separate. |
 | 2026-08-23 | not-started | Adopted the structural model after reviewing Palantir ontology design guidance and the existing FDAI contracts. Earlier implementation provenance was not reconstructed because this is a new bounded design. | `current change`; this paired owner document and focused documentation gates. | Implement the delivery sequence and complete at least ten adversarial hardening rounds. |
 | 2026-08-23 | implemented | Added explicit ResourceClass taxonomy, ordered typed paths, LinkType traversal roles and semantic traits, exact manifest projection, and limitation-preserving declaration presentation without changing action authority or historical link direction. | `current change`; focused catalog, query, contract, materializer, and Console checks; Ruff and strict mypy; Console typecheck and production build. | Complete at least ten adversarial critique and hardening rounds, resolve every verified finding above Low, then run the final focused and diff validation stack. |

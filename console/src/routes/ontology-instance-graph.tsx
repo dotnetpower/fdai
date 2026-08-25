@@ -51,9 +51,14 @@ interface InstanceGraphPanState {
   readonly scrollTop: number;
 }
 
+const AKS_INITIAL_GRAPH_SCALE = 0.68;
+const AKS_INITIAL_HORIZONTAL_ANCHOR = 0.02;
+
 /** Renders one bounded Resource neighborhood and its authority-preserving audit history. */
 export function OntologyInstanceGraph({ data, onSelect }: Props) {
   const layout = useMemo(() => buildInstanceGraphLayout(data), [data]);
+  const isAksRoot = data.resources.find((resource) => resource.id === data.root_id)
+    ?.resource_type === "kubernetes-cluster";
   const timeline = useMemo(
     () => buildInstanceTimeline(data.timeline.items, data.source_cutoff),
     [data.source_cutoff, data.timeline.items],
@@ -155,8 +160,9 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
   useEffect(() => {
     const scroll = graphScrollRef.current;
     if (!scroll) return;
-    graphScaleRef.current = 1;
-    setGraphScale(1);
+    const initialScale = isAksRoot ? AKS_INITIAL_GRAPH_SCALE : 1;
+    graphScaleRef.current = initialScale;
+    setGraphScale(initialScale);
     const centerSelected = (): void => {
       const target = instanceGraphScrollTarget(
         layout,
@@ -164,6 +170,7 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
         scroll.clientWidth,
         scroll.clientHeight,
         graphScaleRef.current,
+        isAksRoot ? AKS_INITIAL_HORIZONTAL_ANCHOR : 0.5,
       );
       scroll.scrollLeft = target.left;
       scroll.scrollTop = target.top;
@@ -172,7 +179,7 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
     const observer = new ResizeObserver(centerSelected);
     observer.observe(scroll);
     return () => observer.disconnect();
-  }, [data.root_id, layout]);
+  }, [data.root_id, isAksRoot, layout]);
 
   useEffect(() => {
     const scroll = graphScrollRef.current;

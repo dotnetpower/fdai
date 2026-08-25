@@ -12,6 +12,7 @@ import type {
 import {
   groupOntologyInstanceRelationships,
   ontologyInstanceNetworkPaths,
+  ontologyInstancePresentationLinks,
   ontologyInstanceTrafficDirection,
 } from "./ontology-instances.model";
 
@@ -111,7 +112,7 @@ function InstanceRelationships({
 }) {
   const byId = new Map(data.resources.map((resource) => [resource.id, resource]));
   const groups = groupOntologyInstanceRelationships(
-    data.links,
+    ontologyInstancePresentationLinks(data),
     data.root_id,
   );
   const networkPaths = ontologyInstanceNetworkPaths(data);

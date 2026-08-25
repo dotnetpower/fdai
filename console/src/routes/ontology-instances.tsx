@@ -11,9 +11,11 @@ import {
   decodeOntologyInstanceExploration,
   groupOntologyInstanceRelationships,
   isOntologyInstanceDirectoryResource,
+  isOntologyInstancePresentationRoot,
   ontologyInstanceAutocompleteSuggestions,
   ontologyInstanceResourceAutocompleteOptions,
   ontologyInstanceResourceOptionLabel,
+  ontologyInstancePresentationLinks,
   ontologyInstanceTrafficDirection,
   partitionOntologyInstanceLinks,
   resolveOntologyInstanceAutocomplete,
@@ -91,10 +93,15 @@ export function OntologyInstancesView({ client }: Props) {
       activity_limit: "30",
     }).then(
       (payload) => {
-        if (!cancelled) setDetail({
-          status: "ready",
-          data: decodeOntologyInstanceExploration(payload),
-        });
+        if (cancelled) return;
+        const data = decodeOntologyInstanceExploration(payload);
+        if (!isOntologyInstancePresentationRoot(data)) {
+          setSelectedId(null);
+          setDetail({ status: "idle" });
+          replaceRouteState(routeHref("ontology", { params: { view: "instances" } }));
+          return;
+        }
+        setDetail({ status: "ready", data });
       },
       (error: unknown) => {
         if (cancelled) return;
@@ -294,8 +301,9 @@ function OntologyInstanceWorkspace({
 }) {
   const [inspectorOpen, setInspectorOpen] = useState(true);
   const root = data.resources.find((resource) => resource.id === data.root_id)!;
-  const relationships = partitionOntologyInstanceLinks(data.links, data.root_id);
-  const relationshipGroups = groupOntologyInstanceRelationships(data.links, data.root_id);
+  const presentationLinks = ontologyInstancePresentationLinks(data);
+  const relationships = partitionOntologyInstanceLinks(presentationLinks, data.root_id);
+  const relationshipGroups = groupOntologyInstanceRelationships(presentationLinks, data.root_id);
   const incompleteReasons = [
     ...data.truncation_reasons.map(truncationReasonLabel),
     ...(data.relationship_drop_reasons.length > 0

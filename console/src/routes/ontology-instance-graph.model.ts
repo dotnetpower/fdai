@@ -1,8 +1,9 @@
-import type {
-  OntologyInstanceActivity,
-  OntologyInstanceExploration,
-  OntologyInstanceLink,
-  OntologyInstanceResource,
+import {
+  ontologyInstancePresentationLinks,
+  type OntologyInstanceActivity,
+  type OntologyInstanceExploration,
+  type OntologyInstanceLink,
+  type OntologyInstanceResource,
 } from "./ontology-instances.model";
 
 export interface InstanceGraphNode {
@@ -108,6 +109,8 @@ const INSTANCE_INDIRECT_BRANCH_LIMIT = 3;
 const INSTANCE_CONTAINMENT_ANCESTOR_LIMIT = 3;
 const INSTANCE_SCOPE_DIRECT_LIMIT = INSTANCE_MAX_ROWS;
 const INSTANCE_SCOPE_INTERNAL_LINK_LIMIT = 12;
+const INSTANCE_AKS_VM_LIMIT_PER_SCALE_SET = 12;
+const INSTANCE_AKS_NIC_LIMIT_PER_VM = 2;
 const INSTANCE_OUTER_EDGE_CLEARANCE = 150;
 const INSTANCE_NETWORK_CONTEXT_TYPES = new Set([
   "network.interface",
@@ -141,15 +144,17 @@ export function instanceGraphScrollTarget(
   viewportWidth: number,
   viewportHeight: number,
   scale = 1,
+  horizontalAnchor = 0.5,
 ): InstanceGraphScrollTarget {
   const node = layout.nodes.find((item) => item.resource.id === resourceId);
   if (!node) return { left: 0, top: 0 };
   const scaledWidth = layout.width * scale;
   const scaledHeight = layout.height * scale;
+  const boundedHorizontalAnchor = Math.max(0, Math.min(1, horizontalAnchor));
   return {
     left: Math.max(0, Math.min(
       scaledWidth - viewportWidth,
-      (node.x + INSTANCE_NODE_WIDTH / 2) * scale - viewportWidth / 2,
+      (node.x + INSTANCE_NODE_WIDTH / 2) * scale - viewportWidth * boundedHorizontalAnchor,
     )),
     top: Math.max(0, Math.min(
       scaledHeight - viewportHeight,
@@ -462,9 +467,13 @@ function instanceGraphOccurrences(
     let sourceCandidates = byResource.get(link.source) ?? [];
     let targetCandidates = byResource.get(link.target) ?? [];
     const reverseForNetworkHierarchy = isReverseNetworkPresentationLink(link, resources);
+    const coLocatedVmssNic = link.evidence.mapping_id
+      === "azure.vm-scale-set-nic-attached-to-vm";
     const selectPair = link.link_type === "peered_with"
       ? closestSeparatedPair
-      : reverseForNetworkHierarchy ? closestRightToLeftPair : closestLeftToRightPair;
+      : coLocatedVmssNic
+        ? closestSameLevelPair
+        : reverseForNetworkHierarchy ? closestRightToLeftPair : closestLeftToRightPair;
     let pair = selectPair(sourceCandidates, targetCandidates);
     if (!pair) {
       const anchorCandidates = reverseForNetworkHierarchy ? targetCandidates : sourceCandidates;
@@ -516,6 +525,18 @@ function closestRightToLeftPair(
       - Math.abs(second[0].rank.level) - Math.abs(second[1].rank.level)
     || first[1].rank.level - second[1].rank.level
     || first[0].rank.level - second[0].rank.level
+    || first[0].key.localeCompare(second[0].key)
+    || first[1].key.localeCompare(second[1].key))[0] ?? null;
+}
+
+function closestSameLevelPair(
+  sources: readonly InstanceGraphOccurrence[],
+  targets: readonly InstanceGraphOccurrence[],
+): readonly [InstanceGraphOccurrence, InstanceGraphOccurrence] | null {
+  const pairs = sources.flatMap((source) => targets.flatMap((target) =>
+    source.rank.level === target.rank.level ? [[source, target] as const] : []));
+  return pairs.sort((first, second) =>
+    Math.abs(first[0].rank.level) - Math.abs(second[0].rank.level)
     || first[0].key.localeCompare(second[0].key)
     || first[1].key.localeCompare(second[1].key))[0] ?? null;
 }
@@ -779,8 +800,7 @@ function applyAksPresentationRanks(
   const nodeGroupId = nodeGroupLink.target;
   const childLinks = data.links.filter((link) =>
     link.source === nodeGroupId
-    && link.link_type === "contains"
-    && ranks.has(link.target));
+    && link.link_type === "contains");
   const childIds = new Set(childLinks.map((link) => link.target));
   const childLevels = new Map([...childIds].map((id) => [id, 2]));
   const childParents = new Map([...childIds].map((id) => [id, nodeGroupId]));
@@ -819,20 +839,67 @@ function applyAksPresentationRanks(
     ranks.set(nodeGroupId, {
       ...nodeGroupRank,
       level: 1,
+      distance: 1,
       lane: "access",
       parentId: data.root_id,
     });
   }
   childLevels.forEach((level, childId) => {
-    const rank = ranks.get(childId);
-    if (!rank) return;
+    const rank = ranks.get(childId) ?? {
+      level,
+      distance: level,
+      lane: "containment" as const,
+      parentId: nodeGroupId,
+    };
     ranks.set(childId, {
       ...rank,
       level,
+      distance: 1,
       lane: childLanes.get(childId) ?? "containment",
       parentId: childParents.get(childId) ?? nodeGroupId,
     });
   });
+  data.links.filter((link) =>
+    childIds.has(link.source)
+    && link.link_type === "contains"
+    && link.evidence.mapping_id === "azure.vm-scale-set-contains-vm")
+    .sort(compareInstanceGraphLinks)
+    .forEach((vmLink) => {
+      const vmLevel = (childLevels.get(vmLink.source) ?? 2) + 1;
+      const vmRank = ranks.get(vmLink.target) ?? {
+        level: vmLevel,
+        distance: vmLevel,
+        lane: "containment" as const,
+        parentId: vmLink.source,
+      };
+      ranks.set(vmLink.target, {
+        ...vmRank,
+        level: vmLevel,
+        distance: 1,
+        lane: "containment",
+        parentId: vmLink.source,
+      });
+      data.links.filter((link) =>
+        link.target === vmLink.target
+        && link.link_type === "attached_to"
+        && link.evidence.mapping_id === "azure.vm-scale-set-nic-attached-to-vm")
+        .sort(compareInstanceGraphLinks)
+        .forEach((nicLink) => {
+          const nicRank = ranks.get(nicLink.source) ?? {
+            level: vmLevel,
+            distance: vmLevel + 1,
+            lane: "access" as const,
+            parentId: vmLink.target,
+          };
+          ranks.set(nicLink.source, {
+            ...nicRank,
+            level: vmLevel,
+            distance: 1,
+            lane: "access",
+            parentId: vmLink.target,
+          });
+        });
+    });
 }
 
 function aksOutboundEdgeRouting(
@@ -1017,7 +1084,7 @@ function instanceGraphFocus(data: OntologyInstanceExploration): {
   readonly resources: readonly OntologyInstanceResource[];
   readonly links: readonly OntologyInstanceLink[];
 } {
-  const ordered = [...data.links].sort(compareInstanceGraphLinks);
+  const ordered = [...ontologyInstancePresentationLinks(data)].sort(compareInstanceGraphLinks);
   const resourcesById = new Map(data.resources.map((resource) => [resource.id, resource]));
   const scopeRoot = isScopeResourceType(resourcesById.get(data.root_id)?.resource_type);
   const direct = scopeRoot
@@ -1053,12 +1120,17 @@ function instanceGraphFocus(data: OntologyInstanceExploration): {
     selectedResourceIds.add(link.target);
   });
   expandNetworkContext({
-    data,
+    data: { ...data, links: ordered },
+    selected,
+    selectedResourceIds,
+  });
+  expandAksInfrastructureContext({
+    data: { ...data, links: ordered },
     selected,
     selectedResourceIds,
   });
   if (!scopeRoot) {
-    const ancestorQueue = [...selectedResourceIds].map((id) => ({ id, depth: 0 }));
+    const ancestorQueue = [{ id: data.root_id, depth: 0 }];
     while (ancestorQueue.length > 0) {
       const current = ancestorQueue.shift()!;
       if (current.depth >= INSTANCE_CONTAINMENT_ANCESTOR_LIMIT) continue;
@@ -1159,6 +1231,61 @@ function expandNetworkContext({
     selectedResourceIds.add(link.source);
     selectedResourceIds.add(link.target);
   });
+}
+
+function expandAksInfrastructureContext({
+  data,
+  selected,
+  selectedResourceIds,
+}: {
+  readonly data: OntologyInstanceExploration;
+  readonly selected: Map<string, OntologyInstanceLink>;
+  readonly selectedResourceIds: Set<string>;
+}): void {
+  const resourcesById = new Map(data.resources.map((resource) => [resource.id, resource]));
+  if (resourcesById.get(data.root_id)?.resource_type !== "kubernetes-cluster") return;
+  const nodeGroupLink = data.links.find((link) =>
+    link.source === data.root_id
+    && link.link_type === "attached_to"
+    && link.evidence.mapping_id === "azure.aks-attached-to-node-resource-group"
+    && resourcesById.get(link.target)?.resource_type === "resource-group");
+  if (!nodeGroupLink) return;
+
+  const scaleSetLinks = data.links
+    .filter((link) =>
+      link.source === nodeGroupLink.target
+      && link.link_type === "contains"
+      && resourcesById.get(link.target)?.resource_type === "compute.vm-scale-set")
+    .sort(compareInstanceGraphLinks);
+  for (const scaleSetLink of scaleSetLinks) {
+    selected.set(instanceGraphLinkKey(scaleSetLink), scaleSetLink);
+    selectedResourceIds.add(scaleSetLink.source);
+    selectedResourceIds.add(scaleSetLink.target);
+    const vmLinks = data.links
+      .filter((link) =>
+        link.source === scaleSetLink.target
+        && link.link_type === "contains"
+        && link.evidence.mapping_id === "azure.vm-scale-set-contains-vm"
+        && resourcesById.get(link.target)?.resource_type === "compute.vm")
+      .sort(compareInstanceGraphLinks)
+      .slice(0, INSTANCE_AKS_VM_LIMIT_PER_SCALE_SET);
+    for (const vmLink of vmLinks) {
+      selected.set(instanceGraphLinkKey(vmLink), vmLink);
+      selectedResourceIds.add(vmLink.target);
+      data.links
+        .filter((link) =>
+          link.target === vmLink.target
+          && link.link_type === "attached_to"
+          && link.evidence.mapping_id === "azure.vm-scale-set-nic-attached-to-vm"
+          && resourcesById.get(link.source)?.resource_type === "network.interface")
+        .sort(compareInstanceGraphLinks)
+        .slice(0, INSTANCE_AKS_NIC_LIMIT_PER_VM)
+        .forEach((nicLink) => {
+          selected.set(instanceGraphLinkKey(nicLink), nicLink);
+          selectedResourceIds.add(nicLink.source);
+        });
+    }
+  }
 }
 
 function selectedNetworkBranch(data: OntologyInstanceExploration): {
@@ -1267,6 +1394,11 @@ function isReverseNetworkPresentationLink(
   if (link.link_type !== "attached_to") return false;
   const sourceType = resourcesById.get(link.source)?.resource_type;
   const targetType = resourcesById.get(link.target)?.resource_type;
+  if (
+    link.evidence.mapping_id === "azure.vm-scale-set-nic-attached-to-vm"
+    && sourceType === "network.interface"
+    && targetType === "compute.vm"
+  ) return true;
   return targetType === "network.subnet" && (
     sourceType === "network.private-endpoint" || sourceType === "network.interface"
   );

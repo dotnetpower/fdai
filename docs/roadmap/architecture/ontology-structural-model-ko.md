@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 30c711ac21ead0a438085991afbf556de9010fc2
-translation_revised: 2026-08-25
+translation_source_sha: 406d1e5e623a63193b1de6309c608084ef59e8e1
+translation_revised: 2026-08-26
 ---
 # 온톨로지 구조 모델
 
@@ -107,7 +107,9 @@ Interface 바인딩은 InterfaceType이 ActionType 대상이 될 수 있으므�
 프로바이더 토폴로지는 검토된 mapping과 하나의 완전한 인벤토리 세대를 통해서만 그래프에
 들어갑니다. Azure 중첩 리소스는 명시적으로 선언된 immediate provider parent 또는 최상위
 provider root를 사용합니다. 범위가 제한된 ARM source는 Azure Resource Graph가 일반 리소스로
-노출하지 않는 AKS AgentPool 자식을 수집합니다. Kubernetes API 인벤토리는 같은 single writer가
+노출하지 않는 AKS AgentPool 자식을 수집합니다. 같은 source는 VM Scale Set VM과 network
+interface child를 수집하고 기존 `compute.vm` 및 `network.interface` type으로 변환하며 정확한
+VMSS-to-VM 및 NIC-to-VM/subnet mapping을 보존합니다. Kubernetes API 인벤토리는 같은 single writer가
 리소스와 독립적으로 검증된 링크를 원자적으로 승격하기 전에 UID에 근거한 클러스터,
 네임스페이스, 노드, 워크로드, 소유권, selector, endpoint 및 scheduling 근거를 추가합니다.
 
@@ -196,6 +198,13 @@ network path를 요약할 수 있습니다. 관계 커버리지가 불완전하�
 모델링되지 않았으면 누락된 path를 unknown으로 유지합니다. 브라우저 레이아웃은 완전성이나
 권한을 바꾸지 않습니다.
 
+기본 instance presentation은 선택, graph, relationship inspection 및 conversational screen
+context에서 `authorization.role-assignment` Resource를 생략합니다. IAM projection은 underlying
+evidence를 유지합니다. Resource Group은 범위가 제한된 scope overview로 선택할 수 있습니다.
+Non-scope root에서 graph는 해당 root를 직접 소유한 Resource Group 하나만 표시하고 indirect peer
+또는 branch node에만 속한 Resource Group을 추가하지 않습니다. Scope membership은 traffic 또는
+dependency를 입증하지 않습니다.
+
 ## 이행 및 출시
 
 1. 보이는 쿼리 경로를 바꾸지 않고 구조 선언, 로더, 검증기를 추가합니다.
@@ -229,6 +238,7 @@ network path를 요약할 수 있습니다. 관계 커버리지가 불완전하�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-25 | implemented | VMSS VM 및 NIC child의 bounded ARM collection과 role assignment를 숨기고 선택한 root의 immediate Resource Group context만 유지하는 기본 presentation 규칙을 추가했습니다. | 집중 Python 검사 43개와 Console 검사 59개, Ruff, strict mypy, typecheck 및 build가 통과했습니다. Local refresh는 Resource 901개와 ontology link 2,550개를 정확한 generation agreement 및 structural invariant violation 0으로 승격했습니다. 인증된 VNet 및 AKS view는 VNet direct owner group 하나를 유지하고 VMSS, VM, NIC hierarchy node를 표시했습니다. | 범위가 제한된 구현 작업은 남아 있지 않습니다. 배포 근거는 별도입니다. |
 | 2026-08-25 | implemented | 범위가 제한된 multi-hop 인스턴스 표현이 저장된 edge 방향을 보존하고 evidence-backed VM network path만 요약하며, 불완전하거나 모델링되지 않은 커버리지에서는 누락된 ingress 또는 egress를 unknown으로 유지하도록 요구했습니다. | `current change`, 활성 세대 PostgreSQL 감사, 집중 Console 검사 56개, typecheck, production build, entry bundle 검사 통과, overflow 0과 44 px 모바일 path control을 유지한 인증된 1440 x 900, 993 x 641, 390 x 844 Browser 검사 | 범위가 제한된 구현 작업은 남아 있지 않습니다. 통제된 runtime 보존은 별도입니다. |
 | 2026-08-23 | not-started | Palantir 온톨로지 설계 지침과 기존 FDAI 계약을 검토한 뒤 구조 모델을 채택했습니다. 이 설계는 경계가 새로 정해진 설계이므로 이전 구현 이력을 재구성하지 않았습니다. | `current change`; 이 문서 쌍과 집중 문서 검사입니다. | 제공 순서를 구현하고 최소 10회의 적대적 하드닝을 완료합니다. |
 | 2026-08-23 | implemented | 작업 권한이나 과거 링크 방향을 바꾸지 않고 명시적 ResourceClass 분류 체계, 순서가 있는 형식화된 경로, LinkType 탐색 역할 및 의미 특성, exact 매니페스트 변환 결과, 제한을 보존하는 선언 표현을 추가했습니다. | `current change`; 집중 카탈로그, 쿼리, 계약, materializer, Console 검사, Ruff, strict mypy, Console 타입 검사 및 프로덕션 빌드입니다. | 최소 10회의 적대적 비평 및 하드닝을 완료하고 검증된 Low 초과 발견 사항을 모두 해결한 뒤 최종 집중 및 diff 검증 묶음을 실행합니다. |

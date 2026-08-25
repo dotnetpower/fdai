@@ -326,6 +326,73 @@ mappings:
     freshness: *freshness
     completeness: *completeness
 
+  - mapping_id: azure.vm-scale-set-contains-vm
+    provider: azure
+    source_identity: azure-resource-manager-compute
+    source_provider_types: [Microsoft.Compute/virtualMachineScaleSets/virtualMachines]
+    source_property_path: id.providerParent
+    target_provider_types: [Microsoft.Compute/virtualMachineScaleSets]
+    link_type: contains
+    endpoint_orientation: referenced_to_owner
+    source_schema: &arm_compute_schema
+      version: azure-resource-manager-compute@2024-11-01
+      digest: sha256:44ea8b46d77361961316a4ce86a558768481461d8a022293cd2f4a691f16527f
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.vm-scale-set-nic-attached-to-vm
+    provider: azure
+    source_identity: azure-resource-manager-compute
+    source_provider_types: [Microsoft.Compute/virtualMachineScaleSets/virtualMachines/networkInterfaces]
+    source_property_path: id.providerParent
+    target_provider_types: [Microsoft.Compute/virtualMachineScaleSets/virtualMachines]
+    link_type: attached_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arm_compute_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.vm-scale-set-nic-attached-to-subnet
+    provider: azure
+    source_identity: azure-resource-manager-compute
+    source_provider_types: [Microsoft.Compute/virtualMachineScaleSets/virtualMachines/networkInterfaces]
+    source_property_path: properties.ipConfigurations[].properties.subnet.id
+    target_provider_types: [Microsoft.Network/virtualNetworks/subnets]
+    link_type: attached_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arm_compute_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.vm-scale-set-nic-attached-to-nsg
+    provider: azure
+    source_identity: azure-resource-manager-compute
+    source_provider_types: [Microsoft.Compute/virtualMachineScaleSets/virtualMachines/networkInterfaces]
+    source_property_path: properties.networkSecurityGroup.id
+    target_provider_types: [Microsoft.Network/networkSecurityGroups]
+    link_type: attached_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arm_compute_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.vm-scale-set-nic-attached-to-public-ip
+    provider: azure
+    source_identity: azure-resource-manager-compute
+    source_provider_types: [Microsoft.Compute/virtualMachineScaleSets/virtualMachines/networkInterfaces]
+    source_property_path: properties.ipConfigurations[].properties.publicIPAddress.id
+    target_provider_types: [Microsoft.Network/publicIPAddresses]
+    link_type: attached_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arm_compute_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
   - mapping_id: azure.aks-attached-to-agent-subnet
     provider: azure
     source_identity: azure-resource-graph
@@ -1184,4 +1251,4 @@ review:
   reviewer_identity: fdai-provider-relationship-review
   reviewed_at: 2026-08-12T00:00:00Z
   immutable_receipt_ref: catalog-receipt:provider-relationships:azure-arg-v1
-  content_hash: sha256:5f9906e671fe5932117ee3845146e9a0b7efdbcbe6597d4dfe1f89754b3684f8
+  content_hash: sha256:8c16333f261f6afe2a22478308639b844b92af56aaa82f80cb0057c5baaab324

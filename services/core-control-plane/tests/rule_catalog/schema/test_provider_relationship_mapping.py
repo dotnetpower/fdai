@@ -106,7 +106,7 @@ def test_shipped_catalog_declares_kubernetes_telemetry_relationship_direction() 
 
 def test_shipped_relationship_mappings_match_canonical_endpoint_roles() -> None:
     loaded = load_provider_relationship_mapping_catalog(CATALOG_ROOT)
-    assert len(loaded.mappings) == 84
+    assert len(loaded.mappings) == 89
 
     special_link_types = {
         "azure.vnet-peered-with-vnet": "peered_with",
@@ -146,6 +146,7 @@ def test_shipped_relationship_mappings_match_canonical_endpoint_roles() -> None:
         "azure.vm-data-disk-attached-to-vm",
         "azure.vm-nic-attached-to-vm",
         "azure.vm-os-disk-attached-to-vm",
+        "azure.vm-scale-set-contains-vm",
         "kubernetes.agent-pool-contains-node",
         "kubernetes.cluster-contains-namespace",
         "kubernetes.namespace-contains-resource",
@@ -196,6 +197,12 @@ def test_shipped_relationship_mappings_match_canonical_endpoint_roles() -> None:
     assert agent_pool.source_identity == "azure-resource-manager-containerservice"
     assert agent_pool.source_property_path == "id.providerParent"
     assert agent_pool.source_schema.version == "azure-resource-manager-containerservice@2026-05-01"
+    vm_scale_set_instance = mappings["azure.vm-scale-set-contains-vm"]
+    assert vm_scale_set_instance.source_identity == "azure-resource-manager-compute"
+    assert vm_scale_set_instance.source_property_path == "id.providerParent"
+    assert (
+        vm_scale_set_instance.source_schema.version == "azure-resource-manager-compute@2024-11-01"
+    )
 
 
 def test_rejects_stale_mapping_content_hash(tmp_path: Path) -> None:

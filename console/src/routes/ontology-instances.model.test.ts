@@ -4,8 +4,10 @@ import {
   decodeOntologyInstanceExploration,
   groupOntologyInstanceRelationships,
   isOntologyInstanceDirectoryResource,
+  isOntologyInstancePresentationRoot,
   ontologyInstanceAutocompleteSuggestions,
   ontologyInstanceNetworkPaths,
+  ontologyInstancePresentationLinks,
   ontologyInstanceResourceAutocompleteOptions,
   ontologyInstanceResourceOptionLabel,
   ontologyInstanceTrafficDirection,
@@ -430,6 +432,33 @@ describe("Resource instance autocomplete", () => {
       ...resources[0]!,
       id: "role-assignment",
       resource_type: "authorization.role-assignment",
+    })).toBe(false);
+  });
+
+  it("excludes role-assignment endpoints from default presentation links", () => {
+    const data = decodeOntologyInstanceExploration(payload());
+    const role = {
+      ...data.resources[1]!,
+      id: "role-assignment",
+      resource_type: "authorization.role-assignment",
+    };
+    const roleLink = relationship("role-assignment", "root", "attached_to", "azure.role");
+
+    expect(ontologyInstancePresentationLinks({
+      ...data,
+      resources: [...data.resources, role],
+      links: [...data.links, roleLink],
+    })).toEqual(data.links);
+  });
+
+  it("rejects a role assignment as the exact default presentation root", () => {
+    const data = decodeOntologyInstanceExploration(payload());
+    const root = data.resources[0]!;
+
+    expect(isOntologyInstancePresentationRoot(data)).toBe(true);
+    expect(isOntologyInstancePresentationRoot({
+      ...data,
+      resources: [{ ...root, resource_type: "authorization.role-assignment" }],
     })).toBe(false);
   });
 

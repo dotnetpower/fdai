@@ -18,7 +18,32 @@ const HIDDEN_ONTOLOGY_INSTANCE_DIRECTORY_TYPES = new Set([
 export function isOntologyInstanceDirectoryResource(
   resource: OntologyInstanceResource,
 ): boolean {
+  return isOntologyInstancePresentationResource(resource);
+}
+
+/** Returns whether a Resource belongs on the default operational instance surface. */
+export function isOntologyInstancePresentationResource(
+  resource: OntologyInstanceResource,
+): boolean {
   return !HIDDEN_ONTOLOGY_INSTANCE_DIRECTORY_TYPES.has(resource.resource_type);
+}
+
+/** Omits hidden Resource endpoints without changing the authoritative response. */
+export function ontologyInstancePresentationLinks(
+  data: OntologyInstanceExploration,
+): readonly OntologyInstanceLink[] {
+  const visibleIds = new Set(
+    data.resources.filter(isOntologyInstancePresentationResource).map((resource) => resource.id),
+  );
+  return data.links.filter((link) => visibleIds.has(link.source) && visibleIds.has(link.target));
+}
+
+/** Returns whether the exact exploration root belongs on the default instance surface. */
+export function isOntologyInstancePresentationRoot(
+  data: OntologyInstanceExploration,
+): boolean {
+  const root = data.resources.find((resource) => resource.id === data.root_id);
+  return root !== undefined && isOntologyInstancePresentationResource(root);
 }
 
 /** Formats the stable operator-facing value used by the Resource autocomplete. */

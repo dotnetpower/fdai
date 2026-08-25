@@ -31,6 +31,7 @@ from fdai.shared.providers.workload_identity import WorkloadIdentity
 _DEFAULT_ENDPOINT: Final[str] = "https://management.azure.com"
 _DEFAULT_API_VERSION: Final[str] = "2021-04-01"
 _DEFAULT_NETWORK_API_VERSION: Final[str] = "2024-05-01"
+_DEFAULT_COMPUTE_API_VERSION: Final[str] = "2024-11-01"
 _DEFAULT_CONTAINER_SERVICE_API_VERSION: Final[str] = "2026-05-01"
 _DEFAULT_AUDIENCE: Final[str] = "https://management.azure.com/.default"
 _PRIVATE_DNS_ZONE_GROUP_RESOURCE_TYPE: Final[str] = "network.private-dns-zone-group"
@@ -38,6 +39,10 @@ _PRIVATE_ENDPOINT_ARM_TYPE: Final[str] = "Microsoft.Network/privateEndpoints"
 _AKS_AGENT_POOL_RESOURCE_TYPE: Final[str] = "kubernetes-node-pool"
 _AKS_CLUSTER_RESOURCE_TYPE: Final[str] = "kubernetes-cluster"
 _AKS_CLUSTER_ARM_TYPE: Final[str] = "Microsoft.ContainerService/managedClusters"
+_VM_SCALE_SET_RESOURCE_TYPE: Final[str] = "compute.vm-scale-set"
+_VM_SCALE_SET_ARM_TYPE: Final[str] = "Microsoft.Compute/virtualMachineScaleSets"
+_VM_SCALE_SET_VM_RESOURCE_TYPE: Final[str] = "compute.vm"
+_VM_SCALE_SET_NIC_RESOURCE_TYPE: Final[str] = "network.interface"
 _ARM_NETWORK_SOURCE_IDENTITY: Final[str] = "azure-resource-manager-network"
 _ARM_NETWORK_SOURCE_SCHEMA_DIGEST: Final[str] = (
     "sha256:85f648ec3f355e57c946e3e7fafad89e5b06ac8b8804eaa6ebba779a6aa939fb"
@@ -45,6 +50,10 @@ _ARM_NETWORK_SOURCE_SCHEMA_DIGEST: Final[str] = (
 _ARM_CONTAINER_SERVICE_SOURCE_IDENTITY: Final[str] = "azure-resource-manager-containerservice"
 _ARM_CONTAINER_SERVICE_SOURCE_SCHEMA_DIGEST: Final[str] = (
     "sha256:7b74cb3dcbf1ca43b3c7f33edbddb5520e16f3ee9a6de9a9078345d93873b125"
+)
+_ARM_COMPUTE_SOURCE_IDENTITY: Final[str] = "azure-resource-manager-compute"
+_ARM_COMPUTE_SOURCE_SCHEMA_DIGEST: Final[str] = (
+    "sha256:44ea8b46d77361961316a4ce86a558768481461d8a022293cd2f4a691f16527f"
 )
 _DEFAULT_RELATIONSHIP_MAPPING_ROOT: Final[Path] = Path(
     "rule-catalog/vocabulary/provider-relationship-mappings"
@@ -63,6 +72,7 @@ class AzureArmInventoryFactoryConfig:
     arm_endpoint: str = _DEFAULT_ENDPOINT
     api_version: str = _DEFAULT_API_VERSION
     network_api_version: str = _DEFAULT_NETWORK_API_VERSION
+    compute_api_version: str = _DEFAULT_COMPUTE_API_VERSION
     container_service_api_version: str = _DEFAULT_CONTAINER_SERVICE_API_VERSION
     audience: str = _DEFAULT_AUDIENCE
     max_pages: int = 64
@@ -81,8 +91,8 @@ class AzureArmInventoryFactoryConfig:
             raise ValueError("ARM page and timeout limits MUST be positive")
         if self.max_props_bytes < 1024:
             raise ValueError("max_props_bytes MUST be >= 1024")
-        if not self.container_service_api_version.strip():
-            raise ValueError("container_service_api_version MUST be non-empty")
+        if not self.compute_api_version.strip() or not self.container_service_api_version.strip():
+            raise ValueError("ARM child API versions MUST be non-empty")
 
 
 class AzureArmInventoryFactory:
@@ -194,6 +204,17 @@ class AzureArmInventoryFactory:
         async def _fetch(
             resource_type: str,
         ) -> ResourceQueryResult | tuple[Sequence[ResourceRecord], Sequence[LinkRecord]]:
+            if resource_type == _VM_SCALE_SET_RESOURCE_TYPE:
+                primary = _as_query_result(await primary_query(resource_type))
+                children = await self._fetch_vm_scale_set_children()
+                return ResourceQueryResult(
+                    resources=(*primary.resources, *children.resources),
+                    links=(*primary.links, *children.links),
+                    relationship_drops=(
+                        *primary.relationship_drops,
+                        *children.relationship_drops,
+                    ),
+                )
             if resource_type in {
                 _AKS_AGENT_POOL_RESOURCE_TYPE,
                 _PRIVATE_DNS_ZONE_GROUP_RESOURCE_TYPE,
@@ -202,6 +223,101 @@ class AzureArmInventoryFactory:
             return await primary_query(resource_type)
 
         return _fetch
+
+    async def _fetch_vm_scale_set_children(self) -> ResourceQueryResult:
+        """Collect VMSS VM and NIC children under one bounded ARM compute observation."""
+
+        token = await self._identity.get_token(self._config.audience)
+        headers = {"Authorization": f"Bearer {token.token}", "Accept": "application/json"}
+        typed_rows: list[tuple[Mapping[str, Any], str, str]] = []
+        collection_count = 0
+        for subscription in self._config.subscription_scopes:
+            scale_sets = await self._fetch_pages(
+                self._initial_url(
+                    subscription=subscription,
+                    resource_type=_VM_SCALE_SET_RESOURCE_TYPE,
+                    arm_type=_VM_SCALE_SET_ARM_TYPE,
+                ),
+                headers=headers,
+                resource_type=_VM_SCALE_SET_RESOURCE_TYPE,
+            )
+            for scale_set in scale_sets:
+                collection_count += 1
+                self._validate_child_collection_count(collection_count)
+                scale_set_id = str(scale_set["id"])
+                virtual_machines = await self._fetch_pages(
+                    self._child_url(scale_set_id, "virtualMachines"),
+                    headers=headers,
+                    resource_type=_VM_SCALE_SET_VM_RESOURCE_TYPE,
+                )
+                for virtual_machine in virtual_machines:
+                    virtual_machine_id = str(virtual_machine["id"])
+                    typed_rows.append(
+                        (virtual_machine, _VM_SCALE_SET_VM_RESOURCE_TYPE, scale_set_id)
+                    )
+                    collection_count += 1
+                    self._validate_child_collection_count(collection_count)
+                    network_interfaces = await self._fetch_pages(
+                        self._child_url(virtual_machine_id, "networkInterfaces"),
+                        headers=headers,
+                        resource_type=_VM_SCALE_SET_NIC_RESOURCE_TYPE,
+                    )
+                    typed_rows.extend(
+                        (network_interface, _VM_SCALE_SET_NIC_RESOURCE_TYPE, virtual_machine_id)
+                        for network_interface in network_interfaces
+                    )
+
+        mapped = tuple(
+            (
+                row,
+                _map_arm_row(
+                    row,
+                    resource_type=resource_type,
+                    max_props_bytes=self._config.max_props_bytes,
+                    parent_provider_id=parent_provider_id,
+                ),
+            )
+            for row, resource_type, parent_provider_id in typed_rows
+        )
+        resolved_neutral_types = {
+            record.provider_ref.casefold(): record.type
+            for _row, record in mapped
+            if record.provider_ref is not None
+        }
+        links: list[LinkRecord] = []
+        drops: list[RelationshipDrop] = []
+        for row, resource in mapped:
+            projected = project_provider_relationships(
+                row,
+                owner=resource,
+                arm_to_neutral=self._arm_to_neutral,
+                catalog=self._relationship_mappings,
+                arm_id_to_type=arm_id_to_type,
+                to_neutral_id=to_neutral_id,
+                resolved_neutral_types=resolved_neutral_types,
+                source_identity=_ARM_COMPUTE_SOURCE_IDENTITY,
+                observed_schema_digest=_ARM_COMPUTE_SOURCE_SCHEMA_DIGEST,
+            )
+            links.extend(projected.links)
+            drops.extend(projected.dropped)
+        return ResourceQueryResult(
+            resources=tuple(record for _row, record in mapped),
+            links=tuple(links),
+            relationship_drops=tuple(drops),
+        )
+
+    def _child_url(self, parent_id: str, collection: str) -> str:
+        encoded_parent_id = quote(parent_id, safe="/")
+        return (
+            f"{self._config.arm_endpoint.rstrip('/')}{encoded_parent_id}/{collection}"
+            f"?api-version={self._config.compute_api_version}"
+        )
+
+    def _validate_child_collection_count(self, count: int) -> None:
+        if count > self._config.max_child_collections:
+            raise ArmInventoryError(
+                f"ARM child collection cap ({self._config.max_child_collections}) exceeded"
+            )
 
     def _initial_url(self, *, subscription: str, resource_type: str, arm_type: str) -> str:
         root = self._config.arm_endpoint.rstrip("/")
@@ -370,6 +486,7 @@ def _map_arm_row(
     *,
     resource_type: str,
     max_props_bytes: int,
+    parent_provider_id: str | None = None,
 ) -> ResourceRecord:
     arm_id = str(row["id"])
     props = truncate_props(
@@ -383,7 +500,9 @@ def _map_arm_row(
     # Lifted after truncation so the containment anchor survives a large
     # vendor payload; `Resource.parent_id` is what scoped questions read.
     parent_id: str | None
-    if resource_type in {
+    if parent_provider_id is not None:
+        parent_id = to_neutral_id(parent_provider_id)
+    elif resource_type in {
         _AKS_AGENT_POOL_RESOURCE_TYPE,
         _PRIVATE_DNS_ZONE_GROUP_RESOURCE_TYPE,
     }:
@@ -399,6 +518,15 @@ def _map_arm_row(
         provider_ref=arm_id,
         last_seen=datetime.now(tz=UTC).isoformat(),
     )
+
+
+def _as_query_result(
+    value: ResourceQueryResult | tuple[Sequence[ResourceRecord], Sequence[LinkRecord]],
+) -> ResourceQueryResult:
+    if isinstance(value, ResourceQueryResult):
+        return value
+    resources, links = value
+    return ResourceQueryResult(resources=tuple(resources), links=tuple(links))
 
 
 def _relationship_source(resource_type: str) -> tuple[str, str]:

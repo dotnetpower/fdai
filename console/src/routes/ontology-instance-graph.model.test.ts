@@ -244,6 +244,33 @@ describe("buildInstanceGraphLayout", () => {
     expect(layout.hiddenEdgeCount).toBe(0);
   });
 
+  it("hides role assignments and indirect branch Resource Groups for a non-scope root", () => {
+    const root = resource("root", true, "network.vnet");
+    const ownerGroup = resource("owner-group", false, "resource-group");
+    const peer = resource("peer", false, "network.vnet");
+    const peerGroup = resource("peer-group", false, "resource-group");
+    const role = resource("role", false, "authorization.role-assignment");
+    const connected: OntologyInstanceExploration = {
+      ...exploration(),
+      root_id: root.id,
+      resources: [root, ownerGroup, peer, peerGroup, role],
+      links: [
+        link(ownerGroup.id, root.id, "contains"),
+        link(root.id, peer.id, "peered_with"),
+        link(peerGroup.id, peer.id, "contains"),
+        link(role.id, root.id, "attached_to"),
+      ],
+    };
+
+    const layout = buildInstanceGraphLayout(connected);
+    const visibleIds = new Set(layout.nodes.map((node) => node.resource.id));
+
+    expect(visibleIds).toContain(ownerGroup.id);
+    expect(visibleIds).not.toContain(peerGroup.id);
+    expect(visibleIds).not.toContain(role.id);
+    expect(layout.edges.some((edge) => edge.link.source === role.id)).toBe(false);
+  });
+
   it("orders Resource Group and VNet containment around Private Endpoint access context", () => {
     const root = resource("root", true, "postgresql-server");
     const group = resource("group", false, "resource-group");
@@ -335,6 +362,8 @@ describe("buildInstanceGraphLayout", () => {
     const ownerGroup = resource("owner-group", false, "resource-group");
     const nodeGroup = resource("node-group", false, "resource-group");
     const scaleSet = resource("aks-nodepool-vmss", false, "compute.vm-scale-set");
+    const virtualMachine = resource("aks-nodepool-vm-0", false, "compute.vm");
+    const networkInterface = resource("aks-nodepool-nic-0", false, "network.interface");
     const loadBalancer = resource("kubernetes", false, "network.load-balancer");
     const identity = resource("aks-agentpool-identity", false, "managed-identity");
     const publicIp = resource("outbound-public-ip", false, "network.public-ip");
@@ -346,6 +375,8 @@ describe("buildInstanceGraphLayout", () => {
         ownerGroup,
         nodeGroup,
         scaleSet,
+        virtualMachine,
+        networkInterface,
         loadBalancer,
         identity,
         publicIp,
@@ -366,6 +397,18 @@ describe("buildInstanceGraphLayout", () => {
           "azure.aks-routes-to-effective-outbound-ip",
         ),
         link(nodeGroup.id, scaleSet.id, "contains"),
+        linkWithMapping(
+          scaleSet.id,
+          virtualMachine.id,
+          "contains",
+          "azure.vm-scale-set-contains-vm",
+        ),
+        linkWithMapping(
+          networkInterface.id,
+          virtualMachine.id,
+          "attached_to",
+          "azure.vm-scale-set-nic-attached-to-vm",
+        ),
         link(nodeGroup.id, loadBalancer.id, "contains"),
         link(nodeGroup.id, identity.id, "contains"),
         link(nodeGroup.id, publicIp.id, "contains"),
@@ -386,11 +429,18 @@ describe("buildInstanceGraphLayout", () => {
     expect(byId.get(cluster.id)?.level).toBe(0);
     expect(byId.get(nodeGroup.id)?.level).toBe(1);
     expect(byId.get(scaleSet.id)?.level).toBe(2);
+    expect(byId.get(virtualMachine.id)?.level).toBe(3);
+    expect(byId.get(virtualMachine.id)?.parentId).toBe(scaleSet.id);
+    expect(byId.get(virtualMachine.id)?.emphasis).toBe("direct");
+    expect(byId.get(networkInterface.id)?.level).toBe(3);
+    expect(byId.get(networkInterface.id)?.parentId).toBe(virtualMachine.id);
+    expect(byId.get(networkInterface.id)?.emphasis).toBe("direct");
     expect(byId.get(loadBalancer.id)?.level).toBe(2);
     expect(byId.get(identity.id)?.level).toBe(3);
     expect(byId.get(publicIp.id)?.level).toBe(3);
     expect(byId.get(publicIp.id)?.parentId).toBe(loadBalancer.id);
-    expect(byId.get(publicIp.id)?.y).toBe(byId.get(loadBalancer.id)?.y);
+    expect(Math.abs(byId.get(publicIp.id)!.y - byId.get(loadBalancer.id)!.y))
+      .toBeLessThanOrEqual(80);
     expect(byId.get(loadBalancer.id)!.y).toBeGreaterThan(byId.get(scaleSet.id)!.y);
     expect(byId.get(publicIp.id)!.y).toBeGreaterThan(byId.get(identity.id)!.y);
     const publicIpFanIn = layout.edges.filter((edge) => edge.link.target === publicIp.id);
@@ -411,9 +461,11 @@ describe("buildInstanceGraphLayout", () => {
     expect(publicIpPaths).toEqual(publicIpFanIn.map((edge) => expect.stringMatching(
       new RegExp(`${edge.target.x} ${edge.target.y + 34 + edge.targetPortOffset}$`),
     )));
-    expect(layout.nodes).toHaveLength(7);
-    expect(layout.edges).toHaveLength(10);
-    expect(layout.edges.every((edge) => edge.source.x < edge.target.x)).toBe(true);
+    expect(layout.nodes).toHaveLength(9);
+    expect(layout.edges).toHaveLength(12);
+    expect(layout.edges.filter((edge) =>
+      edge.link.evidence.mapping_id !== "azure.vm-scale-set-nic-attached-to-vm")
+      .every((edge) => edge.source.x < edge.target.x)).toBe(true);
   });
 
   it("does not expand a peered VNet branch into the selected VNet context", () => {
