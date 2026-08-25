@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Incident Roster and Fix History
 translation_of: operator-console-incident-roster.md
-translation_source_sha: 9ea6ef48c3ec657e1afeabc7b629fa72af86379b
+translation_source_sha: d1c755739b4687324218eb2a80b0e468dffff8c0
 translation_revised: 2026-08-25
 ---
 
@@ -151,6 +151,14 @@ channel-as-audience 계약을 따릅니다. 설정된 A2 operations 채널 구�
 Console은 per-user direct-message 구독을 만들지 않습니다. 배정과 외부
 티켓 연결은 인증된 write-direction 채팅/도구 연산으로 유지되고 감사
 이력에 표시됩니다. 읽기 전용 명단은 연결된 `ticket_id`를 표시합니다.
+
+인시던트 현재 상황 변환은 A2 운영 알림 전달과 A1 사람 승인 전달을 분리합니다. 가장 최근의 실패한
+`notification.route` 또는 `notification.escalation` 기록은 알림 전달 실패의 근거가 될 수 있습니다.
+기록된 `hil.request.dispatch_unavailable` 또는 `hil.request.dispatch_failed`는 보류된 승인 요청이 승인
+채널로 전달되지 않았다는 사실만 나타내며 A2 operations 채널을 사용할 수 없다는 뜻이 아닙니다.
+Console은 사람 입력 필요 상태를 유지하고 승인 화면 및 설정 > 통합으로 연결하며, 감사 이벤트를 현재
+어댑터 상태가 아닌 과거 전달 근거로 취급합니다. 위생 처리된 현재 통합 준비 상태는 런타임 설정 변환이
+계속 소유합니다.
 
 목록은 선택적이고 범위가 제한된 `q`, 정본 `vertical` 및 `severity` 필터를 허용하며 감사 경로는 `mode`,
 `tier`, `action`, `outcome`, `vertical`, 범위가 제한된 `window=<n>d` 필터를 커서
@@ -389,7 +397,7 @@ RCA 가설은 "왜"를 답할 뿐 "실행"하지 않습니다: 실행 자격은 
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| Incident 수명 주기, roster 변환 결과 및 Console 보기 | implemented | `services/core-control-plane/src/fdai/core/incident/`; `services/core-control-plane/tests/core/incident/`; `console/src/routes/incidents.tsx`; focused Console incident 테스트 | Incident 상태, 상관관계, 수명 주기, roster, attention 및 범위가 제한된 presentation에 focused 검사가 있습니다. |
+| Incident 수명 주기, roster 변환 결과 및 Console 보기 | implemented | `services/core-control-plane/src/fdai/core/incident/`; `services/core-control-plane/tests/core/incident/`; `console/src/routes/incidents.tsx`; focused Console incident 테스트 | Incident 상태, 상관관계, 수명 주기, roster, attention, 범위가 제한된 presentation 및 분리된 A1 승인 전달과 A2 알림 전달 상태에 focused 검사가 있습니다. |
 | 서버 기반 roster 검색 | implemented | `fdai_service_contracts.operator.IncidentQuery`; `fdai_operator_service.postgres_sql.INCIDENT_PAGE_SQL`; `console/src/api-operations-client.ts`; `console/src/routes/incidents.tsx`; focused Operator 및 Console 테스트 | 페이지 나누기 전에 범위가 제한된 기록 대상 근거를 검색하고, 측정은 같은 snapshot과 필터를 사용하며, 커서는 정규화된 검색어를 상태, 버티컬, 심각도와 함께 묶습니다. |
 | Projection-first PostgreSQL roster 읽기 | implemented | `operator_incident_projection`, `INCIDENT_PAGE_SQL`, Core 및 Operator service migration, 집중 Operator 및 migration 검사 | 감사 trigger가 최근 행 최대 100개와 영속 정본 Incident identity를 포함하는 temporal correlation version을 유지합니다. 읽기는 `incident.open`이 있는 version만 포함하고 정확한 as-of version을 고른 뒤 필터와 `LIMIT`을 적용해 선택한 history만 펼칩니다. |
 | 운영자가 읽을 수 있는 identity 및 단계별 조사 | implemented | `incident_projection.py`; `projection_logic.py`; `postgres.py`; `incidents.tsx`; `incidents.detail-sections.tsx`; `incidents.milestones.ts`; focused Operator 테스트(`31 passed`), Console 테스트(`66 passed`), typecheck, strict mypy, Ruff, Pylance 및 catalog parity | 제목 출처, 신뢰된 원본 context, 계획 미리 보기, 범위가 제한된 근거 milestone, 독립적으로 검증된 결과 cohort를 실행 권한 없이 구현했습니다. |
@@ -419,6 +427,7 @@ RCA 가설은 "왜"를 답할 뿐 "실행"하지 않습니다: 실행 자격은 
 | 2026-08-20 | implemented | 모든 과거 감사 행을 재생하는 대신 고유 상관관계마다 migration snapshot version 하나를 만들어 초기 변환 결과 설정 비용을 제한했습니다. 이후 감사 insert는 계속 trigger를 통해 temporal version을 닫고 추가합니다. | `current change`; `20260819_core_incident_projection.py`; focused service-migration 회귀 검사; 보호된 run `32353562581`이 Terraform apply 전에 제한되지 않은 과거 이력 재생을 드러냈습니다. | 수정된 Core migration을 보호된 workflow로 적용하고 deployed `GET /incidents` latency 검사를 보존합니다. |
 | 2026-08-20 | implemented | 남아 있던 상관관계별 초기화 과정을 하나의 set-based snapshot 집계로 교체했습니다. Event 및 incident anchor, 정규화된 상관관계, 수명 주기 상태, 검색 근거, 플랫폼 제외 및 최신 이력 100개를 이제 하나의 group 문장에서 도출하며 이후 insert는 같은 temporal trigger 경로를 유지합니다. | `current change`; `20260819_core_incident_projection.py`; focused migration 계약; 일회용 PostgreSQL에서 상관관계 10,000개에 속한 감사 행 50,000개를 1.207초에 적용하고 이후 temporal transition을 보존함; 보호된 run `32357855293`이 전체 감사 반복 scan이 여전히 20분 migration deadline을 초과함을 입증했습니다. | Set-based Core migration을 보호된 workflow로 적용하고 deployed `GET /incidents` latency 검사를 보존합니다. |
 | 2026-08-25 | implemented | 정본 `incident.open` 근거가 있는 상관관계만 Incident 명단, 주의 스트림, 결과 분모에 포함하고 audit-only 운영 상관관계는 Audit, Trace, RCA에 유지했습니다. 영속 identity와 수명 주기 필드는 더 이상 표시용 이력 100건 범위에 의존하지 않습니다. | `current change`; 정본 Core projection migration, Operator query와 summary 변환 결과, 집중 단위 테스트 및 일회용 PostgreSQL 통합 테스트. | Operator reader를 rollout하기 전에 Core migration을 적용한 다음 인증된 로컬 명단 관찰을 보존합니다. |
+| 2026-08-25 | implemented | 인시던트 현재 상황 변환에서 기록된 A1 승인 요청 전달 실패를 A2 운영 알림 라우팅과 분리했습니다. Console은 필요한 사람 입력을 유지하고 승인 전달 불가 상태를 정확히 명명하며 보류된 승인 대기열과 위생 처리된 통합 준비 상태로 연결합니다. | `current change`; [이슈 #274](https://github.com/dotnetpower/fdai/issues/274); `incidents.overview.ts`, `incidents.tsx`, 두 Console 카탈로그 및 집중 인시던트 테스트. | 외부 승인 카드 전달이 필요하면 배포 소유 A1 채널 비밀을 구성합니다. 비밀이 없으면 A2 알림 실패가 아니라 명시적인 통합 사용 불가 상태로 유지합니다. |
 ### 남은 작업
 
 - [x] 기록된 제목, 요약, 룰, signal, 정리된 resource 대상을 우선하고 식별자 fallback을 사용 불가로 표시하는 범위가 제한된 `title_source` 계약과 focused projection, decoder, render 테스트를 추가합니다.

@@ -157,6 +157,16 @@ per-user direct-message subscriptions. Assignment and external ticket linkage
 remain authenticated write-direction chat/tool operations and appear as audit
 history; the read-only roster surfaces the linked `ticket_id`.
 
+The Incident current-situation projection keeps A2 operational notification delivery separate
+from A1 human-approval delivery. A latest failed `notification.route` or
+`notification.escalation` record can establish alert-delivery failure. A recorded
+`hil.request.dispatch_unavailable` or `hil.request.dispatch_failed` establishes only that the
+parked approval request was not delivered through an approval channel; it does not imply that the
+A2 operations channel is unavailable. The Console keeps human input required, links to Approvals
+and Settings > Integrations, and treats the audit event as historical delivery evidence rather
+than current adapter health. Current sanitized integration readiness remains owned by the runtime
+Settings projection.
+
 The roster accepts optional bounded `q`, canonical `vertical`, and `severity` filters, and the audit
 route applies `mode`, `tier`, `action`, `outcome`, `vertical`, and bounded
 `window=<n>d` filters on the server before cursor pagination. An analytical
@@ -415,7 +425,7 @@ approve / rollback button. The projection is a pure function
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| Incident lifecycle, roster projection, and Console views | implemented | `services/core-control-plane/src/fdai/core/incident/`; `services/core-control-plane/tests/core/incident/`; `console/src/routes/incidents.tsx`; focused Console incident tests | Incident state, correlation, lifecycle, roster, attention, and bounded presentation have focused coverage. |
+| Incident lifecycle, roster projection, and Console views | implemented | `services/core-control-plane/src/fdai/core/incident/`; `services/core-control-plane/tests/core/incident/`; `console/src/routes/incidents.tsx`; focused Console incident tests | Incident state, correlation, lifecycle, roster, attention, bounded presentation, and separate A1 approval-delivery and A2 alert-delivery states have focused coverage. |
 | Server-backed roster discovery | implemented | `fdai_service_contracts.operator.IncidentQuery`; `fdai_operator_service.postgres_sql.INCIDENT_PAGE_SQL`; `console/src/api-operations-client.ts`; `console/src/routes/incidents.tsx`; focused Operator and Console tests | Search matches bounded recorded subject evidence before pagination, metrics use the same snapshot and filters, and cursors bind the normalized search with status, vertical, and severity. |
 | Projection-first PostgreSQL roster reads | implemented | `operator_incident_projection`; `INCIDENT_PAGE_SQL`; Core and Operator service migrations; focused Operator and migration checks | The audit trigger retains temporal correlation versions with at most 100 recent rows plus durable canonical Incident identity. Reads admit only versions with `incident.open`, select the exact as-of versions, apply filters and `LIMIT`, then expand only selected histories. |
 | Operator-readable identity and phased investigation | implemented | `incident_projection.py`; `projection_logic.py`; `postgres.py`; `incidents.tsx`; `incidents.detail-sections.tsx`; `incidents.milestones.ts`; focused Operator tests (`31 passed`), Console tests (`66 passed`), typecheck, strict mypy, Ruff, Pylance, and catalog parity | Title provenance, trusted source context, plan preview, bounded evidence milestones, and independently verified outcome cohorts are implemented without execution authority. |
@@ -445,6 +455,7 @@ approve / rollback button. The projection is a pure function
 | 2026-08-20 | implemented | Bounded initial projection setup to one migration-snapshot version per distinct correlation instead of replaying every historical audit row. Subsequent audit inserts still close and append temporal versions through the trigger. | `current change`; `20260819_core_incident_projection.py`; focused service-migration regression check; protected run `32353562581` exposed the unbounded historical replay before Terraform apply. | Apply the corrected Core migration through the protected workflow and retain a deployed `GET /incidents` latency check. |
 | 2026-08-20 | implemented | Replaced the remaining per-correlation initializer with one set-based snapshot aggregation. Event and incident anchors, normalized correlation, lifecycle state, search evidence, platform exclusion, and the newest 100 history rows are now derived in one grouped statement, while subsequent inserts retain the same temporal trigger path. | `current change`; `20260819_core_incident_projection.py`; focused migration contract; disposable PostgreSQL applied 50,000 audit rows across 10,000 correlations in 1.207 seconds and preserved the subsequent temporal transition; protected run `32357855293` proved that repeated whole-audit scans still exceeded the 20-minute migration deadline. | Apply the set-based Core migration through the protected workflow and retain a deployed `GET /incidents` latency check. |
 | 2026-08-25 | implemented | Restricted the Incident roster, attention stream, and outcome denominator to correlations with canonical `incident.open` evidence while keeping audit-only operational correlations in Audit, Trace, and RCA. Durable identity and lifecycle fields no longer depend on the bounded 100-row presentation history. | `current change`; canonical Core projection migration, Operator query and summary projection, focused unit and disposable-PostgreSQL integration tests. | Apply the Core migration before rolling out the Operator reader, then retain an authenticated local roster observation. |
+| 2026-08-25 | implemented | Separated recorded A1 approval-request delivery failures from A2 operational-alert routing in the Incident current-situation projection. The Console now preserves required human input, names unavailable approval delivery accurately, and links to the parked approval queue and sanitized integration readiness. | `current change`; [Issue #274](https://github.com/dotnetpower/fdai/issues/274); `incidents.overview.ts`, `incidents.tsx`, both Console catalogs, and focused Incident tests. | Configure a deployment-owned A1 channel secret when external approval-card delivery is required; an absent secret remains an explicit unavailable integration rather than an A2 alert failure. |
 ### Remaining work
 
 - [x] Add a bounded `title_source` contract and focused projection, decoder, and render tests that prefer recorded title, summary, rule, signal, and sanitized resource subjects, while labeling identifier fallback as unavailable.

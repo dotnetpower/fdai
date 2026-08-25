@@ -116,6 +116,7 @@ describe("incident command presentation", () => {
     const summary = incidentCommandSummary([
       { disposition: "awaiting_hil", verdict: "hil" },
       { disposition: "action_delivered", verdict: "auto" },
+      { disposition: "unknown", verdict: "hil" },
     ] as never, {
       cohorts: {
         agent_mitigated: 3,
@@ -127,7 +128,7 @@ describe("incident command presentation", () => {
     });
 
     expect(summary).toEqual({
-      loaded: 2,
+      loaded: 3,
       needsApproval: 1,
       verifiedOutcomes: 6,
       pendingOutcomes: 8,
@@ -135,13 +136,15 @@ describe("incident command presentation", () => {
   });
 
   it("maps roster state onto the four visible response stages", () => {
-    expect(incidentRosterStage({ status: "open", disposition: "pending", verdict: "unknown" }))
+    expect(incidentRosterStage({ status: "open", disposition: "pending" }))
       .toEqual({ key: "investigate", step: 1 });
-    expect(incidentRosterStage({ status: "open", disposition: "awaiting_hil", verdict: "hil" }))
+    expect(incidentRosterStage({ status: "open", disposition: "awaiting_hil" }))
       .toEqual({ key: "approval", step: 2 });
-    expect(incidentRosterStage({ status: "in_progress", disposition: "action_delivered", verdict: "auto" }))
+    expect(incidentRosterStage({ status: "open", disposition: "unknown" }))
+      .toEqual({ key: "investigate", step: 1 });
+    expect(incidentRosterStage({ status: "in_progress", disposition: "action_delivered" }))
       .toEqual({ key: "respond", step: 3 });
-    expect(incidentRosterStage({ status: "resolved", disposition: "resolved", verdict: "auto" }))
+    expect(incidentRosterStage({ status: "resolved", disposition: "resolved" }))
       .toEqual({ key: "verify", step: 4 });
   });
 

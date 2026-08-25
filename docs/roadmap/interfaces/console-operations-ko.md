@@ -1,8 +1,8 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 4b7933d0a80ab1d12e06fe4fb80501b9c47ac27e
-translation_revised: 2026-08-24
+translation_source_sha: de6c25d7cd32340c8b6c7294897f8efc9eedb6e8
+translation_revised: 2026-08-25
 ---
 
 # 콘솔 운영
@@ -107,6 +107,11 @@ Incidents 목록은 서버가 소유한 `title_source`를 그대로 렌더링하
 서버에서 필터하고 결과 분석에 같은 snapshot을 사용합니다. 두 선택 컨트롤은 간결한 Calm Slate
 폼 스타일을 사용하고 키보드 초점을 명확하게 표시하며 좁은 화면에서 겹치지 않게 줄 바꿈됩니다.
 변환 계약은 [operator-console-incident-roster.md](operator-console-incident-roster.md)를 참고하세요.
+
+현재 상황 블록은 채널 신뢰 계층도 구분합니다. 기록된 A1 승인 요청 전달 실패는 보류된 대응에 여전히
+사람 입력이 필요하지만 승인 카드가 전달되지 않았다는 뜻입니다. A2 운영 알림을 사용할 수 없다는
+근거가 되지는 않습니다. 가장 최근에 기록된 A2 라우팅 결과만 알림 전달 단계를 결정하며, 설정 > 통합은
+승인 전달의 위생 처리된 현재 준비 상태를 소유합니다.
 
 ### Operations 작업 화면
 

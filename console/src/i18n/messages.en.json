@@ -1336,16 +1336,18 @@
     "report": "Open incident RCA dossier",
     "overview": {
       "label": "Current situation",
-      "headline": {"resolved": "Resolved", "notification_failed": "Open - alert delivery failed", "approval_required": "Waiting for human approval", "response_failed": "Open - response failed", "response_in_progress": "Response in progress", "monitoring": "Open - monitoring related signals"},
-      "badge": {"resolved": "Resolved", "notification_failed": "Attention required", "approval_required": "Approval required", "response_failed": "Response failed", "response_in_progress": "In progress", "monitoring": "Monitoring"},
+      "headline": {"resolved": "Resolved", "notification_failed": "Open - alert delivery failed", "approval_delivery_unavailable": "Open - approval delivery unavailable", "approval_required": "Waiting for human approval", "response_failed": "Open - response failed", "response_in_progress": "Response in progress", "monitoring": "Open - monitoring related signals"},
+      "badge": {"resolved": "Resolved", "notification_failed": "Attention required", "approval_delivery_unavailable": "Approval delivery unavailable", "approval_required": "Approval required", "response_failed": "Response failed", "response_in_progress": "In progress", "monitoring": "Monitoring"},
       "body": {
         "resolved": "The incident lifecycle is resolved. Review the activity history for the recorded outcome and recovery evidence.",
         "notification_failed": "FDAI is still collecting related signals, but no configured operational-alert channel accepted the notification. No remediation decision or action has been recorded.",
+        "approval_delivery_unavailable": "The proposed response is parked for human approval, but FDAI could not deliver the approval request through an approval channel. Operational alerts may still be available, and no change will be applied without approval.",
         "approval_required": "A proposed response is waiting for an authorized person. FDAI will not apply the change until the required approval is recorded.",
         "response_failed": "A response attempt failed. Review the latest activity and failure evidence before choosing another action.",
         "response_in_progress": "A governed response has started and has not reached a terminal outcome yet.",
         "monitoring": "The incident is open while FDAI correlates related signals. No remediation decision or action has been recorded yet."
       },
+      "concurrentApprovalDelivery": "The approval request also could not be delivered through an approval channel. Human approval is still required.",
       "lifecycle": "Lifecycle",
       "alertStatus": "Alert status",
       "agentStatus": "Agent status",
@@ -1358,6 +1360,9 @@
       "accountableAgents": "Accountable agents",
       "humanOwnership": "Human ownership",
       "openOwnership": "Open ownership mapping",
+      "openApprovals": "Open Approvals",
+      "openIntegrations": "View integration status",
+      "recoveryActions": "Approval delivery recovery actions",
       "autonomy": "Autonomy",
       "decision": "Response decision",
       "authority": "Change authority",
@@ -1367,6 +1372,7 @@
       "next": {
         "resolved": "Confirm the recorded recovery evidence and close any remaining operational follow-up.",
         "notification_failed": "Restore or configure an operational alert channel, then review the technical activity. Root-cause analysis has not started.",
+        "approval_delivery_unavailable": "Open Approvals to review the parked request, then check Settings > Integrations and ask the deployment owner to configure approval delivery if it is unavailable.",
         "approval_required": "Open Approvals and review the proposed response, evidence, impact scope, and rollback contract.",
         "response_failed": "Inspect the failure record and rollback evidence before retrying or choosing a different response.",
         "response_in_progress": "Monitor the latest activity until verification completes or the response is held for review.",

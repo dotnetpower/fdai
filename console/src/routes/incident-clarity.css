@@ -263,6 +263,10 @@
   font-size: 12px;
   line-height: 1.55;
 }
+.incident-current-state > .incident-current-attention {
+  color: var(--danger);
+  font-weight: 650;
+}
 .incident-current-facts {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -322,6 +326,19 @@
   border-top: 1px solid var(--border);
   font-size: 12px;
   line-height: 1.5;
+}
+.incident-next-step p { margin: 0; }
+.incident-next-step-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-top: 6px;
+}
+.incident-next-step-actions a { color: var(--cs-steel); }
+.incident-next-step-actions a:focus-visible {
+  border-radius: 2px;
+  outline: 2px solid var(--cs-steel);
+  outline-offset: 2px;
 }
 .incident-next-step-blocker {
   display: block;
@@ -467,4 +484,9 @@
   .incident-intervention-shell > footer { padding: 12px 15px; }
   .incident-intervention-shell > footer button { min-height: 44px; }
   .incident-history-foot button { width: 100%; min-height: 44px; }
+  .incident-next-step-actions a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
 }

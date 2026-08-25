@@ -131,14 +131,12 @@ export interface IncidentCommandSummary {
 }
 
 export function incidentCommandSummary(
-  items: readonly Pick<IncidentSummary, "disposition" | "verdict">[],
+  items: readonly Pick<IncidentSummary, "disposition">[],
   metrics: Pick<IncidentOutcomeMetrics, "cohorts">,
 ): IncidentCommandSummary {
   return {
     loaded: items.length,
-    needsApproval: items.filter((item) => (
-      item.disposition === "awaiting_hil" || item.verdict === "hil"
-    )).length,
+    needsApproval: items.filter((item) => item.disposition === "awaiting_hil").length,
     verifiedOutcomes: metrics.cohorts.agent_mitigated
       + metrics.cohorts.agent_assisted
       + metrics.cohorts.human_mitigated,
@@ -152,10 +150,10 @@ export interface IncidentRosterStage {
 }
 
 export function incidentRosterStage(
-  incident: Pick<IncidentSummary, "status" | "disposition" | "verdict">,
+  incident: Pick<IncidentSummary, "status" | "disposition">,
 ): IncidentRosterStage {
   if (incident.status === "resolved") return { key: "verify", step: 4 };
-  if (incident.disposition === "awaiting_hil" || incident.verdict === "hil") {
+  if (incident.disposition === "awaiting_hil") {
     return { key: "approval", step: 2 };
   }
   if (incident.status === "in_progress" || incident.disposition === "action_delivered") {
@@ -963,10 +961,13 @@ function IncidentCurrentState({
         <StatusPill kind={phasePill(overview.phase)} label={t(`incidents.overview.badge.${overview.phase}`)} />
       </header>
       <p>{t(`incidents.overview.body.${overview.phase}`)}</p>
+      {overview.approvalDeliveryUnavailable && overview.phase !== "approval_delivery_unavailable" ? (
+        <p class="incident-current-attention">{t("incidents.overview.concurrentApprovalDelivery")}</p>
+      ) : null}
       <dl class="incident-current-facts">
         <div><dt>{t("incidents.overview.alertStatus")}</dt><dd>{localized("status", incident.status)}</dd></div>
         <div><dt>{t("incidents.overview.agentStatus")}</dt><dd>{t(`incidents.overview.agentState.${agentStatus}`)}</dd></div>
-        <div><dt>{t("incidents.overview.userInput")}</dt><dd>{t(agentStatus === "pending_user_input" ? "incidents.overview.required" : "incidents.overview.notRequired")}</dd></div>
+        <div><dt>{t("incidents.overview.userInput")}</dt><dd>{t(overview.userInputRequired ? "incidents.overview.required" : "incidents.overview.notRequired")}</dd></div>
         <div><dt>{t("incidents.overview.decision")}</dt><dd>{overview.decisionRecorded ? localized("verdict", incident.verdict) : t("incidents.overview.noDecision")}</dd></div>
         <div><dt>{t("incidents.overview.authority")}</dt><dd>{localized("modeMeaning", incident.latest_mode)}</dd></div>
       </dl>
@@ -979,15 +980,21 @@ function IncidentCurrentState({
           <div><dt>{t("incidents.overview.autonomy")}</dt><dd>{localized("modeMeaning", incident.latest_mode)}</dd></div>
         </dl>
       </section>
-      <div class="incident-next-step">
-        <strong>{t("incidents.overview.nextStep")}</strong>
-        <span>{t(`incidents.overview.next.${overview.phase}`)}</span>
+      <section class="incident-next-step" aria-labelledby="incident-next-step-title">
+        <strong id="incident-next-step-title">{t("incidents.overview.nextStep")}</strong>
+        <p>{t(`incidents.overview.next.${overview.phase}`)}</p>
+        {overview.approvalDeliveryUnavailable ? (
+          <nav class="incident-next-step-actions" aria-label={t("incidents.overview.recoveryActions")}>
+            <a href={routeHref("hil-queue")}>{t("incidents.overview.openApprovals")}</a>
+            <a href={routeHref("settings-integrations")}>{t("incidents.overview.openIntegrations")}</a>
+          </nav>
+        ) : null}
         {overview.blockingReason !== null ? (
           <span class="incident-next-step-blocker">
             {t("incidents.overview.recordedBlocker", { reason: overview.blockingReason })}
           </span>
         ) : null}
-      </div>
+      </section>
     </section>
   );
 }
@@ -1139,7 +1146,11 @@ function verdictPill(verdict: string): PillKind {
 
 function phasePill(phase: IncidentOperationalOverview["phase"]): PillKind {
   if (phase === "resolved") return "success";
-  if (phase === "notification_failed" || phase === "response_failed") return "danger";
+  if (
+    phase === "notification_failed"
+    || phase === "approval_delivery_unavailable"
+    || phase === "response_failed"
+  ) return "danger";
   if (phase === "approval_required") return "hil";
   return "info";
 }

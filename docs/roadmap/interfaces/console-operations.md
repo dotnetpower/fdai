@@ -110,6 +110,12 @@ wrap without overlap on narrow screens. See
 [operator-console-incident-roster.md](operator-console-incident-roster.md) for the projection
 contract.
 
+The current-situation block also keeps channel trust tiers distinct. A recorded A1 approval-request
+dispatch failure means the parked response still needs human input but its approval card was not
+delivered. It does not establish that A2 operational alerts are unavailable. Only the latest
+recorded A2 routing outcome controls the alert-delivery phase, while Settings > Integrations owns
+the sanitized current readiness state for approval delivery.
+
 ### Operations task view
 
 The Tasks view is a presentation-level federation, not an ontology object or system of record. It

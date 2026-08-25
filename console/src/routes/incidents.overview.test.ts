@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { AuditItem, IncidentSummary } from "../types";
-import { incidentAgentStatus, incidentOperationalOverview } from "./incidents.overview";
+import {
+  incidentAgentStatus,
+  incidentOperationalOverview,
+} from "./incidents.overview";
 
 function incident(overrides: Partial<IncidentSummary> = {}): IncidentSummary {
   return {
@@ -52,10 +55,22 @@ describe("incident operational overview", () => {
   it("keeps alert lifecycle separate from agent work state", () => {
     expect(incidentAgentStatus("resolved")).toBe("completed");
     expect(incidentAgentStatus("notification_failed")).toBe("blocked");
+    expect(incidentAgentStatus("approval_delivery_unavailable")).toBe("blocked");
     expect(incidentAgentStatus("response_failed")).toBe("blocked");
     expect(incidentAgentStatus("approval_required")).toBe("pending_user_input");
     expect(incidentAgentStatus("response_in_progress")).toBe("in_progress");
     expect(incidentAgentStatus("monitoring")).toBe("monitoring");
+  });
+
+  it("keeps human approval required when external approval delivery is unavailable", () => {
+    const unavailable = incidentOperationalOverview(
+      incident({ verdict: "hil", disposition: "awaiting_hil" }),
+      [audit("hil.requested", 1), audit("hil.request.dispatch_unavailable", 2)],
+    );
+    const monitoring = incidentOperationalOverview(incident(), [audit("incident.open")]);
+
+    expect(unavailable.userInputRequired).toBe(true);
+    expect(monitoring.userInputRequired).toBe(false);
   });
 
   it("surfaces notification failure and hides unrecorded RCA views", () => {
@@ -68,6 +83,9 @@ describe("incident operational overview", () => {
 
     expect(overview).toEqual({
       phase: "notification_failed",
+      notificationDeliveryFailed: true,
+      approvalDeliveryUnavailable: false,
+      userInputRequired: false,
       decisionRecorded: false,
       rcaAvailable: false,
       reportAvailable: false,
@@ -106,6 +124,123 @@ describe("incident operational overview", () => {
     ]);
 
     expect(overview.phase).toBe("monitoring");
+  });
+
+  it("keeps approval delivery failure separate from operational notifications", () => {
+    const overview = incidentOperationalOverview(
+      incident({ verdict: "hil", disposition: "awaiting_hil" }),
+      [
+        audit("notification.route", 1, { outcome: "delivered" }),
+        audit("hil.requested", 2),
+        audit("hil.request.dispatch_unavailable", 3),
+      ],
+    );
+
+    expect(overview.phase).toBe("approval_delivery_unavailable");
+  });
+
+  it("does not hide a failed response behind an earlier approval requirement", () => {
+    const overview = incidentOperationalOverview(
+      incident({ verdict: "hil", disposition: "failed" }),
+      [
+        audit("hil.requested", 1),
+        audit("hil.request.dispatch_unavailable", 2),
+        audit("executor.failed", 3, { outcome: "failed" }),
+      ],
+    );
+
+    expect(overview.phase).toBe("response_failed");
+  });
+
+  it("clears approval delivery attention after a later successful dispatch", () => {
+    const overview = incidentOperationalOverview(
+      incident({ verdict: "hil", disposition: "awaiting_hil" }),
+      [
+        audit("hil.requested", 1),
+        audit("hil.request.dispatch_unavailable", 2),
+        audit("hil.load.initial_sent", 3),
+      ],
+    );
+
+    expect(overview.phase).toBe("approval_required");
+  });
+
+  it("clears approval delivery attention after a terminal human decision", () => {
+    const overview = incidentOperationalOverview(
+      incident({ status: "in_progress", verdict: "hil", disposition: "action_delivered" }),
+      [
+        audit("hil.requested", 1),
+        audit("hil.request.dispatch_failed", 2),
+        audit("hil.approved.executed", 3),
+      ],
+    );
+
+    expect(overview.phase).toBe("response_in_progress");
+    expect(overview.userInputRequired).toBe(false);
+  });
+
+  it("reports response progress as soon as approved execution is claimed", () => {
+    const overview = incidentOperationalOverview(
+      incident({ status: "open", verdict: "hil", disposition: "unknown" }),
+      [audit("hil.requested", 1), audit("hil.approved.claimed", 2)],
+    );
+
+    expect(overview.phase).toBe("response_in_progress");
+    expect(overview.userInputRequired).toBe(false);
+  });
+
+  it.each([
+    "hil.rejected",
+    "hil.timeout",
+    "hil.resolve.integrity_failed",
+    "hil.escalation.exhausted",
+  ])(
+    "does not request more human input after %s",
+    (terminalKind) => {
+      const overview = incidentOperationalOverview(
+        incident({ verdict: "hil", disposition: "pending" }),
+        [audit("hil.requested", 1), audit(terminalKind, 2)],
+      );
+
+      expect(overview.phase).toBe("monitoring");
+      expect(overview.userInputRequired).toBe(false);
+    },
+  );
+
+  it("surfaces execution failure after approval as response failure", () => {
+    const overview = incidentOperationalOverview(
+      incident({ status: "in_progress", verdict: "hil", disposition: "action_delivered" }),
+      [audit("hil.requested", 1), audit("hil.approved.execute_failed", 2)],
+    );
+
+    expect(overview.phase).toBe("response_failed");
+    expect(overview.userInputRequired).toBe(false);
+  });
+
+  it("does not revive approval from a historical verdict without current lifecycle evidence", () => {
+    const overview = incidentOperationalOverview(
+      incident({ verdict: "hil", disposition: "unknown" }),
+      [audit("incident.activity", 101)],
+    );
+
+    expect(overview.phase).toBe("monitoring");
+    expect(overview.userInputRequired).toBe(false);
+  });
+
+  it("preserves approval recovery when A1 and A2 delivery fail together", () => {
+    const overview = incidentOperationalOverview(
+      incident({ verdict: "hil", disposition: "awaiting_hil" }),
+      [
+        audit("hil.requested", 1),
+        audit("hil.request.dispatch_unavailable", 2),
+        audit("notification.route", 3, { outcome: "failed" }),
+      ],
+    );
+
+    expect(overview.phase).toBe("notification_failed");
+    expect(overview.notificationDeliveryFailed).toBe(true);
+    expect(overview.approvalDeliveryUnavailable).toBe(true);
+    expect(overview.userInputRequired).toBe(true);
   });
 
   it("reports the newest recorded reason a governed response stopped", () => {
