@@ -150,6 +150,20 @@ def test_measurement_rejects_invalid_available_or_unavailable_shapes() -> None:
         )
 
 
+def test_storage_growth_preserves_contraction_without_widening_other_axes() -> None:
+    contraction = replace(
+        _measurement(OperationalCertificationAxis.STORAGE_GROWTH),
+        value=Decimal("-128"),
+    )
+
+    assert contraction.value == Decimal("-128")
+    with pytest.raises(ValueError, match="MUST NOT be negative"):
+        replace(
+            _measurement(OperationalCertificationAxis.FRESHNESS),
+            value=Decimal("-0.1"),
+        )
+
+
 @pytest.mark.parametrize(
     "authority_field",
     ["observation_authority", "mutation_authority", "execution_authority"],

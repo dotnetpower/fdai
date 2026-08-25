@@ -68,8 +68,10 @@ class OperationalCertificationMeasurement:
         _ordered_reasons(self.reason_codes)
         _ordered_digests(self.evidence_digests)
         if self.status is OperationalCertificationStatus.AVAILABLE:
-            if self.value is None or not self.value.is_finite() or self.value < 0:
+            if self.value is None or not self.value.is_finite():
                 raise ValueError("available certification measurement requires a finite value")
+            if self.value < 0 and self.axis is not OperationalCertificationAxis.STORAGE_GROWTH:
+                raise ValueError("certification measurement value MUST NOT be negative")
             if len(_decimal(self.value)) > _MAX_VALUE_CHARACTERS:
                 raise ValueError("certification measurement value MUST be bounded")
             if self.unit != _AXIS_UNITS[self.axis]:
