@@ -544,7 +544,7 @@ async def _commit_consumer_progress(
     highwater_for = getattr(consumer, "highwater", None)
     for partition, offset in sorted(partition_offsets.items()):
         topic_partition = TopicPartition(topic, partition)
-        highwater = highwater_for(topic_partition) if callable(highwater_for) else None
+        highwater = _assigned_highwater(consumer, topic_partition, highwater_for)
         committed_offset = offset + 1
         lag = max(0, highwater - committed_offset) if isinstance(highwater, int) else None
         _log_consumer_progress(
@@ -556,6 +556,24 @@ async def _commit_consumer_progress(
             lag=lag,
             progress_kind="commit",
         )
+
+
+def _assigned_highwater(
+    consumer: AIOKafkaConsumer,
+    topic_partition: TopicPartition,
+    highwater_for: object,
+) -> int | None:
+    """Read highwater only while the consumer still owns the partition."""
+    if not callable(highwater_for):
+        return None
+    assignment_for = getattr(consumer, "assignment", None)
+    if callable(assignment_for) and topic_partition not in assignment_for():
+        return None
+    try:
+        highwater = highwater_for(topic_partition)
+    except AssertionError:
+        return None
+    return highwater if isinstance(highwater, int) else None
 
 
 def _log_consumer_progress(

@@ -2,8 +2,8 @@
 title: 영구 Background Task Session
 translation_of: background-task-sessions.md
 translation_source: docs/roadmap/interfaces/background-task-sessions.md
-translation_source_sha: ec98c5738aa381f0115f887eea29ff24f1a1d60d
-translation_revised: 2026-08-23
+translation_source_sha: 0f414c87ff0c3caee6fcf5d43f3216e6a7e36694
+translation_revised: 2026-08-26
 ---
 
 # 영구 Background 작업 세션
@@ -184,7 +184,7 @@ deployed 전달 근거는 아래 프로덕션 검증 작업에 남아 있습니�
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 핵심 레코드, 할당량, 저장소 및 조정기 로직 | implemented | `services/core-control-plane/src/fdai/core/background_task/`; `services/core-control-plane/tests/core/background_task/` | 범위가 제한된 레코드, 상태 전이, 할당량 결정, 메모리 내 저장소, 임차 기간 조정기, 재시도 예약, 취소 및 종료 동작에 focused 단위 테스트가 있습니다. 새 작업은 Heimdall 책임 귀속을 영속화하며 기존 레코드는 null 귀속을 유지할 수 있습니다. |
-| PostgreSQL 작업 및 완료 영속성 | implemented | `alembic/versions/20260720_0040_background_task.py`; `alembic/versions/20260722_0051_background_task_completion.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_background_task.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_background_task_completion.py`; focused live PostgreSQL 테스트(`12 passed`, skip 없음) | 격리된 지원 로컬 database에서 atomic claim, lease, quota, progress, completion outbox, reconciliation, retry, restart read 및 retention purge 동작을 입증했습니다. Governed runtime 근거는 별도입니다. |
+| PostgreSQL 작업 및 완료 영속성 | implemented | `alembic/versions/20260720_0040_background_task.py`; `alembic/versions/20260722_0051_background_task_completion.py`; `service-migrations/branches/core-control-plane/versions/20260826_core_background_task_runtime_grants.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_background_task.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_background_task_completion.py`; 집중 live PostgreSQL 테스트(`12 passed`, skip 없음) | 격리된 지원 로컬 데이터베이스에서 원자적 점유, 임차 기간, 할당량, 진행 상황, 완료 발신함, 조정, 재시도, 재시작 읽기 및 보존 정리 동작을 입증했습니다. Core migration은 runtime 역할에 조정기 소유 테이블별로 필요한 작업만 부여합니다. 관리되는 runtime 근거는 별도입니다. |
 | 프로덕션 실행기 및 조정기 구성 | implemented | `services/core-control-plane/src/fdai/core/background_task/read_investigation_executor.py`; `services/core-control-plane/src/fdai/runtime/read_investigation_runtime.py`; 집중 실행기, consumer, runtime, coordinator 및 PostgreSQL 테스트 | 선택적 Core binding은 타입이 지정된 실행기, 영속 저장소, 감독되는 coordinator, 요청 consumer, 조정 loop, 할당량, 취소 및 범위가 제한된 종료를 생성하며 다른 서비스를 만들거나 실행 권한을 부여하지 않습니다. |
 | 완료 싱크 및 영속 대화 인계 | in-progress | `services/core-control-plane/src/fdai/core/background_task/completion_sink.py`; `services/core-control-plane/src/fdai/delivery/persistence/background_task_completion_audit.py`; 집중 싱크 및 감사 테스트 | `ConversationCompletionSink`는 결정론적인 신뢰되지 않는 턴을 추가하고 변경할 수 없는 회신 하나를 제출하며, 원자적 단일 기록 완료 표시로 인계 앞뒤를 기록합니다. 재생은 같은 턴, 전달 레코드, 표시 및 감사 항목을 재사용합니다. 프로덕션 조립은 아직 이러한 컴포넌트를 생성하지 않습니다. |
 | Operator API 경로, 변환 결과 및 진행 상황 스트림 | implemented | `services/operator-service/src/fdai_operator_service/families/conversation/background_tasks.py`; `services/operator-service/src/fdai_operator_service/postgres_family_store.py`; `service-migrations/branches/operator-service/versions/20260823_operator_background_task_read.py`; 집중 변환 결과, PostgreSQL 및 제품군 테스트 | 소유자 조건을 적용한 SQL이 범위가 제한된 목록, 상세, 진행 상황 및 유한 SSE 재생을 구체화하고 다른 소유자에 대해 같은 404를 반환합니다. 최대 500자의 요청 요약, 최대 2,000자의 결과 요약, 최대 16개의 근거 참조, 잘림 표시 및 null이 가능한 Heimdall 책임 귀속을 채웁니다. Operator 역할에는 `SELECT`만 부여됩니다. |
@@ -205,6 +205,8 @@ deployed 전달 근거는 아래 프로덕션 검증 작업에 남아 있습니�
 | 2026-08-23 | implemented | 버전이 지정된 시작 및 취소 consumer를 타입이 지정된 읽기 전용 실행기와 감독되는 Core coordinator에 연결했습니다. 하드닝으로 동시 tick을 직렬화하고 후속 작업을 잃지 않으면서 wake burst를 coalesce했으며 반복 취소 권한을 보존하고 wire 제어문자 drift를 차단하고 UTC 자정을 넘는 PostgreSQL active 할당량을 유지했습니다. | `current change`; 집중 교차 프로세스, background-task, PostgreSQL, Operator projection, 토픽 및 로컬 환경 게이트 152개가 skip 또는 warning 없이 통과했고 할당량 검사가 로컬 PostgreSQL에서 통과했습니다. | 버전이 지정된 최종 완료 인계를 정의하고 Operator 소유 대화 전달 경로를 연결하며 관리되는 재시작 및 전달 근거를 보존합니다. |
 | 2026-08-23 | implemented | 운영 완료 싱크가 없을 때도 보존을 제한했습니다. In-memory 및 PostgreSQL 조정은 보존 기한에 최종 상태가 아닌 완료를 abandoned로 바꾸고, 최종 정리는 변경할 수 없는 결과를 다시 작성하거나 조사를 다시 실행하지 않고 작업, 진행 상황 및 발신함 행을 제거합니다. | `current change`; 집중 in-memory 보존 검사 1개와 pending-to-abandoned-to-purge 회귀를 포함한 격리 PostgreSQL 영속성 검사 15개가 skip 없이 통과했습니다. | 사용자 전달을 주장하기 전에 버전이 지정된 완료 전송을 정의하고 연결합니다. |
 | 2026-08-23 | implemented | 멱등적인 StateStore lifecycle 감사 writer와 생성 감사 claim fence를 추가했습니다. 감사 또는 표식 실패는 영속 요청을 claim 불가 상태로 유지하고, 재전달은 감사 표식 하나를 재사용하며 표식이 영속된 뒤에만 fence를 해제합니다. Detached 전용 binding에서 사용하지 않는 direct/streamed 정책 및 실행 저장소 생성을 제거했습니다. | `current change`; 집중 메모리 및 runtime 검사 42개, lifecycle 및 전체 PostgreSQL 영속성 검사 20개가 skip 없이 통과했고 Ruff와 strict mypy가 통과했습니다. | 최종 완료 전달을 정의하고 연결한 뒤 관리되는 재시작 및 전달 근거를 보존합니다. |
+
+| 2026-08-26 | implemented | 보호된 복구 중 detached 조정기가 `background_task_attempt`를 조정할 때 `permission denied`가 발생해 명시적 Core migration grant를 추가했습니다. 이제 runtime 역할은 attempt에 CRUD, progress에 읽기와 추가, completion에 읽기, 추가 및 갱신 권한만 받으며 `PUBLIC` 권한은 계속 해제됩니다. | `current change`; `20260826_core_background_task_runtime_grants.py`; 집중 migration grant 회귀 검사 통과. | 정확히 증명된 Core 이미지를 build 및 배포하고 보호된 서비스 workflow로 migration을 적용한 뒤, 배포된 검증을 주장하기 전에 crash-free 재시작 증적을 보존합니다. |
 
 ### 남은 작업
 

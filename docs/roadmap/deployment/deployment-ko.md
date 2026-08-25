@@ -1,8 +1,8 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 854edf53138a83e921a5bf6c512030c7d5bf55e9
-translation_revised: 2026-08-25
+translation_source_sha: a046b195553d5a7d83bb73eb6951d18845a563f3
+translation_revised: 2026-08-26
 ---
 
 # 배포(배포)
@@ -51,6 +51,7 @@ translation_revised: 2026-08-25
 | 2026-08-25 | implemented | Protected 계획과 예약 표류 검사가 서비스 입력을 선택하기 전에 권위 있는 플랫폼 상태에서 기본 유입 토픽을 채우도록 했습니다. 오래된 쓰기 전용 tfvars 시크릿이 폐기된 토픽 연결을 복원할 수 없습니다. | `current change`, `hydrate_event_topic.py`, protected 서비스 및 표류 workflow, 집중 hydration 및 workflow 계약 검사 | 이슈 #262에서 추적하는 zero-destroy 계획 5개와 exact apply를 완료합니다. |
 | 2026-08-25 | implemented | Protected Core apply가 Terraform 전에 statement deadline에 도달한 뒤 canonical Incident migration의 projection별 audit scan을 index 기반 lifecycle interval로 교체했습니다. Historical as-of identity와 runtime trigger 계약은 바뀌지 않습니다. | 실패한 apply `32825805596`, `current change`, 집중 migration 계약 및 일회용 PostgreSQL 테스트 4개 통과, 5초 statement budget 안에서 무관한 audit row 20,000개와 projection version 2,002개 검증 | Exact protected Core 계획을 다시 만들고 적용한 뒤 migration, 상태 및 peer 격리 증적을 보존합니다. |
 | 2026-08-25 | implemented | 실패한 Core 개정 번호가 다음 적용의 복구 출처가 되고 비활성 개정 번호 보존 수가 0이라 즉시 제거되면서 드러난 롤백 기준 결함을 닫았습니다. 이제 스냅샷 수집은 정상인 활성 개정 번호를 요구하고, 공유 서비스 모듈은 비활성 개정 번호 1개를 보존하며, 계획 가드는 일회성 `0 -> 1` 보존 강화만 허용합니다. | 실패한 Core 적용 `32839129965` 및 `32842018230`, `current change`, 집중 롤백 기준 및 보존 가드 검사 | 독립 서비스 배포 상태를 다시 `validated`로 올리기 전에 정상 Core 기준 하나를 복원하고 zero-destroy protected 계획, 성공한 exact 적용 및 검증된 자동 롤백 증적을 보존합니다. |
+| 2026-08-26 | implemented | 중지된 개발 PostgreSQL server를 복구한 뒤 준비 상태가 다시 열리면서 서로 독립적인 Core crash 경로 두 개가 드러났습니다. 이제 consumer progress는 commit과 highwater 관측 사이의 partition 회수를 허용하고, 새 Core migration은 detached background-task 조정기에 소유 테이블 3개의 정확한 접근 권한을 부여합니다. | Live revision `ca-fdai-dev-krc-core--p20260825121110`, `current change`, 집중 Event Bus race 및 migration grant 회귀 검사 3개 통과 | 정확히 증명된 이미지를 게시하고 보호된 workflow를 통해 정상 Core 기준 하나를 복원한 뒤, provider-schema 적용 전에 crash-free 상태 및 rollback 보존 근거를 보존합니다. |
 ### 남은 작업
 
 - [ ] Operator migration Job이 catalog Job보다 먼저 성공하고 이후 두 immutable projection

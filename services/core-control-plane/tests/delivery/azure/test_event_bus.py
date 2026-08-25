@@ -699,6 +699,71 @@ async def test_consumer_exports_partition_progress_and_lag_after_commit(
 
 
 @pytest.mark.asyncio
+async def test_commit_progress_skips_partition_revoked_during_commit(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    topic_partition = TopicPartition("fdai.change.events", 1)
+    assignments = {topic_partition}
+
+    class _RevokedConsumer:
+        async def commit(self) -> None:
+            assignments.clear()
+
+        def assignment(self) -> set[TopicPartition]:
+            return assignments
+
+        def highwater(self, _partition: TopicPartition) -> int:
+            raise AssertionError("Partition is not assigned")
+
+    caplog.set_level(logging.INFO, logger=event_bus_module.__name__)
+    await event_bus_module._commit_consumer_progress(
+        _RevokedConsumer(),
+        topic="fdai.change.events",
+        group_id="fdai-pantheon.Huginn",
+        partition_offsets={1: 7},
+    )
+
+    progress = next(
+        record for record in caplog.records if record.message == "event_bus_consumer_progress"
+    )
+    assert progress.committed_offset == 8
+    assert progress.highwater_offset is None
+    assert progress.consumer_lag is None
+
+
+@pytest.mark.asyncio
+async def test_commit_progress_tolerates_revocation_during_highwater_read(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    topic_partition = TopicPartition("fdai.change.events", 1)
+
+    class _RacingConsumer:
+        async def commit(self) -> None:
+            return None
+
+        def assignment(self) -> set[TopicPartition]:
+            return {topic_partition}
+
+        def highwater(self, _partition: TopicPartition) -> int:
+            raise AssertionError("Partition is not assigned")
+
+    caplog.set_level(logging.INFO, logger=event_bus_module.__name__)
+    await event_bus_module._commit_consumer_progress(
+        _RacingConsumer(),
+        topic="fdai.change.events",
+        group_id="fdai-pantheon.Huginn",
+        partition_offsets={1: 7},
+    )
+
+    progress = next(
+        record for record in caplog.records if record.message == "event_bus_consumer_progress"
+    )
+    assert progress.committed_offset == 8
+    assert progress.highwater_offset is None
+    assert progress.consumer_lag is None
+
+
+@pytest.mark.asyncio
 async def test_consumer_exports_lag_heartbeat_without_commit_progress(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
