@@ -119,7 +119,6 @@ Snapshot as of 2026-07-21. "Automated test" means pytest or a committed mock inv
 test runner. "Full-stack local" means the VS Code compound launch using browser Entra for the
 operator and the current Azure CLI context for server-side Azure adapters. Test fixtures are never
 enabled by that launch profile.
-
 ### Fully working in automated tests (no Azure needed)
 | Subsystem | Local backend | Notes |
 |-----------|---------------|-------|
@@ -132,7 +131,6 @@ enabled by that launch profile.
 | Verticals (Resilience / FinOps / Change Safety) | pure decision modules | no cloud |
 | Quality gate | `StaticVerifier` + `MatchTypeCrossCheckModel` + `InMemoryGroundingSource` | see [llm-strategy.md § T2](../architecture/llm-strategy.md#t2--reasoning-tier-quality-gate-required) |
 | T1 similarity | `DeterministicEmbeddingModel` + `InMemoryPatternLibrary` | hash-based, no real embeddings |
-
 Operator browser E2E tests use Playwright against the real Vite SPA with an explicit dev-test
 profile. Route interception supplies a declared synthetic read-source manifest, incidents, agent
 frames, and chat SSE response. These fixtures exist only inside the test runner and never activate

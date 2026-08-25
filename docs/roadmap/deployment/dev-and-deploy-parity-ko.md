@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 4f8f9cb10b158884f07ee7fdec34c78d92b1d072
+translation_source_sha: 7f583eaa707540769a7aabb3768d88a717f04081
 translation_revised: 2026-08-25
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -124,7 +124,6 @@ translation_revised: 2026-08-25
 뜻합니다. "Full-stack 로컬"은 운영자에 브라우저 Entra를 사용하고 서버 측 Azure 어댑터에
 현재 Azure CLI 맥락을 사용하는 VS 코드 compound launch입니다. 테스트 고정본은 이 launch
 프로파일에서 활성화되지 않습니다.
-
 ### 자동화 테스트에서 완전 동작 (Azure 불필요)
 | 서브시스템 | 로컬 백엔드 | 비고 |
 |-----------|-------------|------|
@@ -137,7 +136,6 @@ translation_revised: 2026-08-25
 | Verticals (복원력 / FinOps / 변경 안전성) | 순수 결정 모듈 | 클라우드 없음 |
 | Quality 게이트 | `StaticVerifier` + `MatchTypeCrossCheckModel` + `InMemoryGroundingSource` | [llm-strategy-ko.md § T2](../architecture/llm-strategy-ko.md#t2--reasoning-tier-quality-gate-required) 참조 |
 | T1 유사도 | `DeterministicEmbeddingModel` + `InMemoryPatternLibrary` | 해시 기반, 실제 임베딩 없음 |
-
 Operator 브라우저 E2E 테스트는 명시적인 dev-test 프로파일에서 실제 Vite SPA를 Playwright로
 실행합니다. 경로 interception은 선언된 synthetic read-source 매니페스트, 인시던트, 에이전트 프레임 및
 채팅 SSE 응답을 제공합니다. 이 고정본은 테스트 실행기 안에서만 존재하며 `Console Web: Full
