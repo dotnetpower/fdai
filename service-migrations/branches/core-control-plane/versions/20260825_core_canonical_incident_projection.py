@@ -33,6 +33,27 @@ def upgrade() -> None:
             ADD CONSTRAINT operator_incident_projection_canonical_identity_ck
                 CHECK (has_canonical_incident = (canonical_incident_id IS NOT NULL));
 
+        CREATE INDEX audit_log_canonical_incident_open_idx
+            ON audit_log (
+                (COALESCE(
+                    NULLIF(BTRIM(correlation_id), ''),
+                    NULLIF(BTRIM(entry->>'correlation_id'), '')
+                )),
+                seq DESC
+            )
+            WHERE entry->>'kind' = 'incident.open'
+              AND NULLIF(BTRIM(entry->>'incident_id'), '') IS NOT NULL;
+        CREATE INDEX audit_log_canonical_incident_ticket_idx
+            ON audit_log (
+                (COALESCE(
+                    NULLIF(BTRIM(correlation_id), ''),
+                    NULLIF(BTRIM(entry->>'correlation_id'), '')
+                )),
+                seq DESC
+            )
+            WHERE entry->>'kind' = 'incident.ticket'
+              AND NULLIF(BTRIM(entry->>'ticket_id'), '') IS NOT NULL;
+
         CREATE FUNCTION fdai_canonical_incident_identity(
             target_correlation TEXT,
             through_seq BIGINT
@@ -75,18 +96,58 @@ def upgrade() -> None:
              LIMIT 1;
         $function$;
 
-        WITH canonical AS (
+        WITH lifecycle AS MATERIALIZED (
+            SELECT audit.seq,
+                   COALESCE(
+                       NULLIF(BTRIM(audit.correlation_id), ''),
+                       NULLIF(BTRIM(audit.entry->>'correlation_id'), '')
+                   ) AS correlation_id,
+                   audit.entry->>'kind' AS kind,
+                   NULLIF(BTRIM(audit.entry->>'incident_id'), '') AS incident_id,
+                   NULLIF(BTRIM(audit.entry->>'incident_number'), '') AS incident_number,
+                   NULLIF(BTRIM(audit.entry->>'ticket_id'), '') AS ticket_id,
+                   NULLIF(BTRIM(audit.entry->>'opened_at'), '') AS opened_at
+              FROM audit_log AS audit
+             WHERE audit.entry->>'kind' IN ('incident.open', 'incident.ticket')
+               AND COALESCE(
+                   NULLIF(BTRIM(audit.correlation_id), ''),
+                   NULLIF(BTRIM(audit.entry->>'correlation_id'), '')
+               ) IS NOT NULL
+        ),
+        opened AS (
+            SELECT lifecycle.*,
+                   LEAD(seq) OVER (
+                       PARTITION BY correlation_id ORDER BY seq
+                   ) AS next_seq
+              FROM lifecycle
+             WHERE kind = 'incident.open'
+               AND incident_id IS NOT NULL
+        ),
+        ticketed AS (
+            SELECT lifecycle.*,
+                   LEAD(seq) OVER (
+                       PARTITION BY correlation_id ORDER BY seq
+                   ) AS next_seq
+              FROM lifecycle
+             WHERE kind = 'incident.ticket'
+               AND ticket_id IS NOT NULL
+        ),
+        canonical AS (
             SELECT projection.correlation_id,
                    projection.valid_from_seq,
-                   identity.incident_id,
-                   identity.incident_number,
-                   identity.ticket_id,
-                   identity.opened_at
+                   opened.incident_id,
+                   opened.incident_number,
+                   ticketed.ticket_id,
+                   opened.opened_at
               FROM operator_incident_projection AS projection
-              LEFT JOIN LATERAL fdai_canonical_incident_identity(
-                  projection.correlation_id,
-                  projection.valid_from_seq
-              ) AS identity ON TRUE
+              JOIN opened
+                ON opened.correlation_id = projection.correlation_id
+               AND opened.seq <= projection.valid_from_seq
+               AND (opened.next_seq IS NULL OR projection.valid_from_seq < opened.next_seq)
+              LEFT JOIN ticketed
+                ON ticketed.correlation_id = projection.correlation_id
+               AND ticketed.seq <= projection.valid_from_seq
+               AND (ticketed.next_seq IS NULL OR projection.valid_from_seq < ticketed.next_seq)
         )
         UPDATE operator_incident_projection AS projection
            SET has_canonical_incident = canonical.incident_id IS NOT NULL,
@@ -178,6 +239,8 @@ def downgrade() -> None:
         DROP FUNCTION fdai_mark_operator_incident_projection_canonical_trigger();
         DROP FUNCTION fdai_mark_operator_incident_projection_canonical(audit_log);
         DROP FUNCTION fdai_canonical_incident_identity(TEXT, BIGINT);
+        DROP INDEX audit_log_canonical_incident_ticket_idx;
+        DROP INDEX audit_log_canonical_incident_open_idx;
         DROP INDEX operator_incident_projection_canonical_snapshot_page_idx;
         DROP INDEX operator_incident_projection_canonical_current_page_idx;
         ALTER TABLE operator_incident_projection

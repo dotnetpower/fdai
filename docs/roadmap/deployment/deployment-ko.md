@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 8eb804d7425fc00ac3fdd1c140ad8f7b89bbc7f3
+translation_source_sha: 303bd725800c0cf0c531e5aaa56892072aa53eba
 translation_revised: 2026-08-25
 ---
 
@@ -48,6 +48,7 @@ translation_revised: 2026-08-25
 | 2026-08-25 | implemented | 복구 가능한 provider 실패가 발생해도 시작 준비 상태 새로 고침 supervisor를 유지하고, 가장 이른 근거 만료 시점에 보호된 처리를 닫으며, programming error는 준비 상태를 닫은 뒤 계속 전파하도록 했습니다. 마지막 성공 보고서는 진단을 위해 유지하고 완전한 새로 고침이 성공해야만 복구 가능한 실패 fence를 해제합니다. | `current change`, 집중 transient-failure, evidence-expiry, programming-error 및 통합 검사 | 런타임 validated 상태를 주장하기 전에 exact-revision 배포 복구 근거를 별도로 보존합니다. |
 | 2026-08-25 | implemented | 완료된 Event Bus 이행 모드를 platform 및 service workflow에서 제거하고 helper API도 삭제했습니다. 현재 배포는 다시 실행할 수 있는 일회성 전환을 노출하지 않고 정본 `fdai.*` 토픽 연결만 수락합니다. | `current change`, 집중 배포 workflow, service helper, Terraform 및 문서 검사 | 완료된 토픽 이행 모드에 남은 구현 작업은 없습니다. |
 | 2026-08-25 | implemented | Protected 계획과 예약 표류 검사가 서비스 입력을 선택하기 전에 권위 있는 플랫폼 상태에서 기본 유입 토픽을 채우도록 했습니다. 오래된 쓰기 전용 tfvars 시크릿이 폐기된 토픽 연결을 복원할 수 없습니다. | `current change`, `hydrate_event_topic.py`, protected 서비스 및 표류 workflow, 집중 hydration 및 workflow 계약 검사 | 이슈 #262에서 추적하는 zero-destroy 계획 5개와 exact apply를 완료합니다. |
+| 2026-08-25 | implemented | Protected Core apply가 Terraform 전에 statement deadline에 도달한 뒤 canonical Incident migration의 projection별 audit scan을 index 기반 lifecycle interval로 교체했습니다. Historical as-of identity와 runtime trigger 계약은 바뀌지 않습니다. | 실패한 apply `32825805596`, `current change`, 집중 migration 계약 및 일회용 PostgreSQL 테스트 4개 통과, 5초 statement budget 안에서 무관한 audit row 20,000개와 projection version 2,002개 검증 | Exact protected Core 계획을 다시 만들고 적용한 뒤 migration, 상태 및 peer 격리 증적을 보존합니다. |
 ### 남은 작업
 
 - [ ] Operator migration Job이 catalog Job보다 먼저 성공하고 이후 두 immutable projection

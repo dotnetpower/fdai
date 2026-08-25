@@ -253,3 +253,148 @@ def test_canonical_projection_excludes_audit_only_correlations_and_pins_identity
     assert summary["status"] == "in_progress"
     assert summary["status_source"] == "incident_lifecycle"
     assert summary["lifecycle_state"] == "triaging"
+
+
+def test_canonical_projection_backfill_is_set_based_and_historical(
+    disposable_database_url: str,
+) -> None:
+    with psycopg.connect(disposable_database_url, row_factory=dict_row) as connection:
+        connection.execute(
+            """
+            CREATE TABLE audit_log (
+                seq BIGSERIAL PRIMARY KEY,
+                event_id TEXT NOT NULL,
+                correlation_id TEXT,
+                actor TEXT NOT NULL,
+                action_kind TEXT NOT NULL,
+                mode TEXT NOT NULL,
+                entry JSONB NOT NULL,
+                previous_hash TEXT NOT NULL DEFAULT '',
+                entry_hash TEXT NOT NULL DEFAULT '',
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            CREATE TABLE operator_incident_projection (
+                correlation_id TEXT NOT NULL,
+                valid_from_seq BIGINT NOT NULL,
+                valid_to_seq BIGINT,
+                last_seq BIGINT NOT NULL,
+                has_incident_activity BOOLEAN NOT NULL,
+                PRIMARY KEY (correlation_id, valid_from_seq)
+            );
+            INSERT INTO audit_log (
+                event_id, correlation_id, actor, action_kind, mode, entry
+            ) VALUES
+                (
+                    'open-1', 'incident-correlation', 'Huginn', 'incident.open', 'shadow',
+                    '{
+                        "kind":"incident.open",
+                        "incident_id":"incident-1",
+                        "incident_number":"INC-202608-0001",
+                        "opened_at":"2026-08-25T00:00:00+00:00"
+                    }'::jsonb
+                ),
+                (
+                    'ticket-1', 'incident-correlation', 'Var', 'incident.ticket', 'shadow',
+                    '{"kind":"incident.ticket","ticket_id":"ticket-1"}'::jsonb
+                );
+            INSERT INTO audit_log (
+                event_id, correlation_id, actor, action_kind, mode, entry
+            )
+            SELECT 'noise-' || sequence,
+                   'noise-' || sequence,
+                   'fdai.core.control_loop',
+                   'risk_gate.unified',
+                   'shadow',
+                   '{"decision":"hil"}'::jsonb
+              FROM GENERATE_SERIES(1, 20000) AS sequence;
+            INSERT INTO audit_log (
+                event_id, correlation_id, actor, action_kind, mode, entry
+            ) VALUES
+                (
+                    'open-2', 'incident-correlation', 'Huginn', 'incident.open', 'shadow',
+                    '{
+                        "kind":"incident.open",
+                        "incident_id":"incident-2",
+                        "incident_number":"INC-202608-0002",
+                        "opened_at":"2026-08-25T01:00:00+00:00"
+                    }'::jsonb
+                ),
+                (
+                    'ticket-2', 'incident-correlation', 'Var', 'incident.ticket', 'shadow',
+                    '{"kind":"incident.ticket","ticket_id":"ticket-2"}'::jsonb
+                );
+            INSERT INTO operator_incident_projection (
+                correlation_id,
+                valid_from_seq,
+                valid_to_seq,
+                last_seq,
+                has_incident_activity
+            )
+            SELECT 'incident-correlation',
+                   sequence,
+                   sequence + 1,
+                   sequence,
+                   TRUE
+              FROM GENERATE_SERIES(1, 2000) AS sequence;
+            INSERT INTO operator_incident_projection (
+                correlation_id,
+                valid_from_seq,
+                valid_to_seq,
+                last_seq,
+                has_incident_activity
+            ) VALUES
+                ('incident-correlation', 20003, 20004, 20003, TRUE),
+                ('incident-correlation', 20004, NULL, 20004, TRUE),
+                ('audit-only', 1, NULL, 1, TRUE);
+            SET LOCAL statement_timeout = '5s';
+            """
+        )
+
+        connection.execute(_migration_sql(CANONICAL_MIGRATION, "upgrade"))
+        rows = connection.execute(
+            """
+            SELECT valid_from_seq,
+                   has_canonical_incident,
+                   canonical_incident_id,
+                   canonical_ticket_id
+              FROM operator_incident_projection
+             WHERE correlation_id = 'incident-correlation'
+               AND valid_from_seq IN (1, 2, 20003, 20004)
+             ORDER BY valid_from_seq
+            """
+        ).fetchall()
+        audit_only = connection.execute(
+            """
+            SELECT has_canonical_incident
+              FROM operator_incident_projection
+             WHERE correlation_id = 'audit-only'
+            """
+        ).fetchone()
+
+    assert rows == [
+        {
+            "valid_from_seq": 1,
+            "has_canonical_incident": True,
+            "canonical_incident_id": "incident-1",
+            "canonical_ticket_id": None,
+        },
+        {
+            "valid_from_seq": 2,
+            "has_canonical_incident": True,
+            "canonical_incident_id": "incident-1",
+            "canonical_ticket_id": "ticket-1",
+        },
+        {
+            "valid_from_seq": 20003,
+            "has_canonical_incident": True,
+            "canonical_incident_id": "incident-2",
+            "canonical_ticket_id": "ticket-1",
+        },
+        {
+            "valid_from_seq": 20004,
+            "has_canonical_incident": True,
+            "canonical_incident_id": "incident-2",
+            "canonical_ticket_id": "ticket-2",
+        },
+    ]
+    assert audit_only == {"has_canonical_incident": False}

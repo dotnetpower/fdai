@@ -44,6 +44,13 @@ def test_canonical_incident_projection_uses_unbounded_lifecycle_evidence() -> No
     assert "ticket.entry->>'kind' = 'incident.ticket'" in migration_source
     assert "projection.valid_from_seq" in migration_source
     assert "audit_row.seq" in migration_source
+    backfill = migration_source.split("WITH lifecycle AS MATERIALIZED", maxsplit=1)[1].split(
+        "CREATE INDEX operator_incident_projection_canonical_current_page_idx", maxsplit=1
+    )[0]
+    assert "LEAD(seq) OVER" in backfill
+    assert "LEFT JOIN LATERAL fdai_canonical_incident_identity" not in backfill
+    assert "audit_log_canonical_incident_open_idx" in migration_source
+    assert "audit_log_canonical_incident_ticket_idx" in migration_source
     assert "JSONB_ARRAY_ELEMENTS" not in migration_source
     assert "audit_log_zz_operator_incident_canonical" in migration_source
     assert "audit_log_operator_incident_projection" in base_source
