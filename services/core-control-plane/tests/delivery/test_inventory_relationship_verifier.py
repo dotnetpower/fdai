@@ -4,8 +4,20 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import UTC, datetime
+from pathlib import Path
 
+import yaml
+from fdai.delivery.azure.arg_projection import (
+    arm_id_to_type,
+    build_arm_to_neutral_map,
+    to_neutral_id,
+)
+from fdai.delivery.azure.arg_relationships import project_provider_relationships
 from fdai.delivery.inventory_relationship_verifier import verify_inventory_relationships
+from fdai.rule_catalog.schema.provider_relationship_mapping import (
+    load_provider_relationship_mapping_catalog,
+)
+from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
 from fdai.shared.providers.inventory import (
     LinkRecord,
     ProviderRelationshipEvidence,
@@ -16,6 +28,7 @@ from fdai.shared.providers.inventory import (
 
 NOW = datetime(2026, 8, 12, 12, tzinfo=UTC)
 OBSERVED_AT = "2026-08-12T11:59:00Z"
+REPO_ROOT = Path(__file__).resolve().parents[4]
 
 
 def _resource(resource_id: str, type_id: str) -> ResourceRecord:
@@ -97,6 +110,170 @@ def test_complete_generation_verifies_link_with_mapping_metadata() -> None:
     assert metadata.mapping_id == "azure.vm-nic-attached-to-vm"
     assert metadata.verifier_identity != metadata.state_fact.source_identity
     assert metadata.verification_receipt_ref.startswith("sha256:")
+
+
+def test_complete_generation_verifies_infrastructure_relationship_matrix() -> None:
+    catalog = load_provider_relationship_mapping_catalog(
+        REPO_ROOT / "rule-catalog" / "vocabulary" / "provider-relationship-mappings"
+    )
+    registry = load_resource_type_registry_from_mapping(
+        yaml.safe_load(
+            (REPO_ROOT / "rule-catalog" / "vocabulary" / "resource-types.yaml").read_text(
+                encoding="utf-8"
+            )
+        )
+    )
+    arm_to_neutral = build_arm_to_neutral_map(registry)
+    base = "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-example/providers"
+    ids = {
+        "app": f"{base}/Microsoft.App/containerApps/app-example",
+        "data_disk": f"{base}/Microsoft.Compute/disks/data-example",
+        "identity": (f"{base}/Microsoft.ManagedIdentity/userAssignedIdentities/identity-example"),
+        "nic": f"{base}/Microsoft.Network/networkInterfaces/nic-example",
+        "nsg": f"{base}/Microsoft.Network/networkSecurityGroups/nsg-example",
+        "os_disk": f"{base}/Microsoft.Compute/disks/os-example",
+        "private_endpoint": f"{base}/Microsoft.Network/privateEndpoints/endpoint-example",
+        "public_ip": f"{base}/Microsoft.Network/publicIPAddresses/ip-example",
+        "storage": f"{base}/Microsoft.Storage/storageAccounts/storage-example",
+        "subnet": (f"{base}/Microsoft.Network/virtualNetworks/vnet-example/subnets/subnet-example"),
+        "vm": f"{base}/Microsoft.Compute/virtualMachines/vm-example",
+    }
+
+    def resource(key: str, resource_type: str, provider_type: str) -> ResourceRecord:
+        return ResourceRecord(
+            resource_id=to_neutral_id(ids[key]),
+            type=resource_type,
+            provider_ref=ids[key],
+            props={"providerType": provider_type},
+            last_seen=OBSERVED_AT,
+        )
+
+    resources = {
+        "app": resource("app", "compute.container-app", "Microsoft.App/containerApps"),
+        "data_disk": resource("data_disk", "disk", "Microsoft.Compute/disks"),
+        "identity": resource(
+            "identity", "managed-identity", "Microsoft.ManagedIdentity/userAssignedIdentities"
+        ),
+        "nic": resource("nic", "network.interface", "Microsoft.Network/networkInterfaces"),
+        "nsg": resource("nsg", "network.nsg", "Microsoft.Network/networkSecurityGroups"),
+        "os_disk": resource("os_disk", "disk", "Microsoft.Compute/disks"),
+        "private_endpoint": resource(
+            "private_endpoint",
+            "network.private-endpoint",
+            "Microsoft.Network/privateEndpoints",
+        ),
+        "public_ip": resource(
+            "public_ip", "network.public-ip", "Microsoft.Network/publicIPAddresses"
+        ),
+        "storage": resource("storage", "object-storage", "Microsoft.Storage/storageAccounts"),
+        "subnet": resource("subnet", "network.subnet", "Microsoft.Network/virtualNetworks/subnets"),
+        "vm": resource("vm", "compute.vm", "Microsoft.Compute/virtualMachines"),
+    }
+    rows = (
+        (
+            "vm",
+            "Microsoft.Compute/virtualMachines",
+            {
+                "networkProfile": {"networkInterfaces": [{"id": ids["nic"]}]},
+                "storageProfile": {
+                    "osDisk": {"managedDisk": {"id": ids["os_disk"]}},
+                    "dataDisks": [{"managedDisk": {"id": ids["data_disk"]}}],
+                },
+            },
+            None,
+        ),
+        (
+            "nic",
+            "Microsoft.Network/networkInterfaces",
+            {
+                "ipConfigurations": [
+                    {
+                        "properties": {
+                            "subnet": {"id": ids["subnet"]},
+                            "publicIPAddress": {"id": ids["public_ip"]},
+                        }
+                    }
+                ],
+                "networkSecurityGroup": {"id": ids["nsg"]},
+            },
+            None,
+        ),
+        (
+            "app",
+            "Microsoft.App/containerApps",
+            {},
+            {"userAssignedIdentities": {ids["identity"]: {}}},
+        ),
+        (
+            "private_endpoint",
+            "Microsoft.Network/privateEndpoints",
+            {
+                "privateLinkServiceConnections": [
+                    {"properties": {"privateLinkServiceId": ids["storage"]}}
+                ],
+                "subnet": {"id": ids["subnet"]},
+            },
+            None,
+        ),
+    )
+    expected = {
+        "azure.nic-attached-to-nsg": ("nic", "nsg", "attached_to"),
+        "azure.nic-attached-to-public-ip": ("nic", "public_ip", "attached_to"),
+        "azure.nic-attached-to-subnet": ("nic", "subnet", "attached_to"),
+        "azure.private-endpoint-attached-to-service": (
+            "private_endpoint",
+            "storage",
+            "attached_to",
+        ),
+        "azure.private-endpoint-attached-to-subnet": (
+            "private_endpoint",
+            "subnet",
+            "attached_to",
+        ),
+        "azure.resource-attached-to-managed-identity": (
+            "app",
+            "identity",
+            "attached_to",
+        ),
+        "azure.vm-data-disk-attached-to-vm": ("data_disk", "vm", "attached_to"),
+        "azure.vm-nic-attached-to-vm": ("nic", "vm", "attached_to"),
+        "azure.vm-os-disk-attached-to-vm": ("os_disk", "vm", "attached_to"),
+    }
+    candidates: list[LinkRecord] = []
+    for owner_key, provider_type, properties, identity in rows:
+        row: dict[str, object] = {
+            "id": ids[owner_key],
+            "type": provider_type,
+            "properties": properties,
+        }
+        if identity is not None:
+            row["identity"] = identity
+        projected = project_provider_relationships(
+            row,
+            owner=resources[owner_key],
+            arm_to_neutral=arm_to_neutral,
+            catalog=catalog,
+            arm_id_to_type=arm_id_to_type,
+            to_neutral_id=to_neutral_id,
+        )
+        candidates.extend(
+            link
+            for link in projected.links
+            if link.mapping_evidence is not None and link.mapping_evidence.mapping_id in expected
+        )
+
+    result = _verify(resources=tuple(resources.values()), links=tuple(candidates))
+
+    assert result.dropped == ()
+    assert {
+        link.mapping_evidence.mapping_id: (
+            next(key for key, item in resources.items() if item.resource_id == link.from_id),
+            next(key for key, item in resources.items() if item.resource_id == link.to_id),
+            link.link_type,
+        )
+        for link in result.links
+        if link.mapping_evidence is not None
+    } == expected
 
 
 def test_missing_source_endpoint_is_absent_and_reported() -> None:
