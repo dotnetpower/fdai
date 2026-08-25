@@ -166,18 +166,11 @@ jobs:
             exit 1
           }
           vault_uri="$(terraform -chdir=infra output -raw key_vault_uri)"
-            vault_name="$(VAULT_URI="$vault_uri" python3 - <<'PY'
-            import os
-            import re
-            from urllib.parse import urlparse
-
-            parsed = urlparse(os.environ["VAULT_URI"])
-            match = re.fullmatch(r"([a-z0-9-]{3,24})[.]vault[.]azure[.]net", parsed.hostname or "")
-            if parsed.scheme != "https" or match is None:
-                raise SystemExit("Terraform key_vault_uri is not an Azure Key Vault HTTPS URI")
-            print(match.group(1))
-            PY
-            )"
+          [[ "$vault_uri" =~ ^https://([a-z0-9-]{3,24})[.]vault[.]azure[.]net/?$ ]] || {
+            echo "Terraform key_vault_uri is not an Azure Key Vault HTTPS URI" >&2
+            exit 1
+          }
+          vault_name="${BASH_REMATCH[1]}"
           migration_secret_name="$(
             jq -er '.services["core-control-plane"].migration_dsn_secret_name' \
               scripts/deployment/service/service-matrix.json

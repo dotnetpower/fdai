@@ -1,7 +1,7 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: 1b69e25c157efd0b0789962d67ca7c6af4b9416e
+translation_source_sha: ea38a29eb0f655936261333aa8693652e0c29afa
 translation_revised: 2026-08-25
 ---
 # LLM 전략(LLM Strategy)
@@ -41,6 +41,7 @@ translation_revised: 2026-08-25
 | 2026-08-25 | implemented | 변경 가능한 Terraform 입력 CAS를 정확한 healthy active Core revision, digest-pinned image, 검증된 resolved-model attestation 및 runtime model digest로 대체했습니다. 별도 Core 전용 service transition이 모델 계획 전에 attested artifact를 결속하며 exact 적용은 같은 revision, image 및 model digest를 다시 관측합니다. | [이슈 #270](https://github.com/dotnetpower/fdai/issues/270); active-runtime 및 attestation 검증기, 보호된 service guard 및 plan bundle, 통합 모델/service 검사 249개 통과. | Core binding transition을 적용한 뒤 PTU 계획, 적용, readback 및 역방향 계획 롤백 증적을 보존합니다. |
 | 2026-08-25 | implemented | 변경 가능한 repository 모델 정책 입력을 정확한 Operator 계획 제안 하나를 가져오는 보호된 runner 경로로 대체했습니다. 읽기 전용 결합은 모델 해석 전에 제안, 요청, 정책, 환경, 리비전, 활성 산출물 및 권한 제한을 검증합니다. | `current change`; `model_binding_proposal.py`; `deploy-dev.yml`; 집중 제안, 요청, 수명 주기 및 workflow 검사. | 통제된 제안-계획 증적 하나를 보존한 뒤 exact 적용, 독립 readback 및 롤백 근거를 완료합니다. |
 | 2026-08-25 | implemented | 누락된 deployed 모델 Settings projection을 위한 보호된 producer를 추가했습니다. Repository 산출물, 활성 Core runtime 및 서명된 image attestation 다이제스트가 일치할 때 model projection만 기록한 뒤 환경과 다이제스트를 다시 읽습니다. | `current change`; `model-settings-projection.yml`; `materialize-authoritative-settings.py`; 집중 projection 및 workflow 검사. | Owner 초안과 계획 제안을 제출하기 전에 통제된 projection 증적 하나를 보존합니다. |
+| 2026-08-25 | implemented | Key Vault URI heredoc에 YAML 들여쓰기가 남아 실행할 수 없던 protected 모델 Settings producer shell을 복구했습니다. Workflow는 migration secret을 읽기 전에 anchored Bash 표현식으로 같은 공식 vault origin을 검증합니다. | `current change`; `model-settings-projection.yml`; 집중 workflow 및 privileged CI 계약 45개 통과; `actionlint` 통과 | Owner 초안과 계획 제안을 제출하기 전에 통제된 projection 증적 하나를 보존합니다. |
 ### 남은 작업
 - [ ] [목표와 메트릭](goals-and-metrics-ko.md#남은-작업)과 [Agent Pantheon 구현 계획](../agents/agent-pantheon-implementation-ko.md#남은-작업)의 실제 운영 KPI 선행 조건을 충족한 뒤, 활성화된 모든 T1/T2 기능에 대해 모델 신원, 비용, 지연 시간, 스키마 복구 시도와 복구 결과, 전환, 계획 처리 결과, 불일치, 근거 확인, 검증기, rubric, 결과 및 가드 근거가 포함된 고정된 실제 운영 shadow 집단을 보존합니다.
 - [ ] 범위가 제한된 시도 예산, 재시작 후 영속 증적 전달, 최종 소진에서 사람 승인으로의 전환, 감사된 경로 변경, 상관관계로 제한된 롤백 및 새 승인 없는 복구를 입증하는 통제된 T2 복구 캠페인을 보존합니다.
