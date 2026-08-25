@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 3123769e42dc13fe59dde7dc97abcd2fef5a3b08
+translation_source_sha: f574328ae372f3dd16d46e6fc5a12093792aba97
 translation_revised: 2026-08-25
 ---
 # 프로젝트 구조
@@ -322,9 +322,9 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
 검증이므로 비동기 래퍼는 노이즈만 추가합니다. 테스트는 `pytest-asyncio` + `asyncio_mode =
 "auto"` 로 실행되어 평범한 `비동기 def test_...` 가 per-test 마커 없이 동작합니다.
 
-시작 준비 상태의 프로바이더 중립 단계 예산과 근거 수명은 `core/readiness`가 소유합니다. 런타임
-계층은 만료 전에 새로 고침을 예약하고 대체 보고서가 완료되지 않으면 기존 만료 시점에 처리를
-닫습니다. 어느 계층도 배포 권한 상한을 높일 수 없습니다.
+시작 준비 상태의 프로바이더 중립 실행 예산, 탐색 시간 제한 및 파생 근거 수명은 `core/readiness`가
+소유합니다. 런타임은 범위가 제한된 새로 고침을 예약하고 기존 만료 시점에 처리를 닫으며, Thor가
+privileged I/O 전에 확인하는 실제 상한을 제공합니다. 어느 계층도 배포 권한을 높일 수 없습니다.
 
 `StateStore`는 제거 원시 연산을 `delete_states_beyond(prefix, retain_newest)` 하나만 노출합니다.
 `read_states`와 같은 순서로 한계를 넘는 가장 오래된 행을 버려, 추가 전용 근거 투영의 증가를

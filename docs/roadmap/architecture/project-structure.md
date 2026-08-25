@@ -328,9 +328,9 @@ startup, or are pure CPU boundary validation with no I/O, so an async wrapper wo
 noise. Tests use `pytest-asyncio` with `asyncio_mode = "auto"` so a plain `async def
 test_...` runs without a per-test marker.
 
-Startup readiness keeps provider-neutral phase budgets and evidence lifetimes in `core/readiness`.
-The runtime layer schedules refresh before expiry and closes processing at the original expiry if
-the replacement report has not completed; neither layer can raise the deployment authority ceiling.
+Startup readiness keeps provider-neutral pass budgets, probe timeouts, and derived evidence lifetimes
+in `core/readiness`. Runtime schedules bounded refresh, closes at original expiry, and exposes the
+live ceiling that Thor checks before privileged I/O; no layer can raise deployment authority.
 
 `StateStore` exposes exactly one removal primitive, `delete_states_beyond(prefix, retain_newest)`.
 It bounds the growth of an append-only evidence projection by dropping the oldest rows past the

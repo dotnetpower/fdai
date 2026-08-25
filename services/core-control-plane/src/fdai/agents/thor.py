@@ -161,6 +161,7 @@ class Thor(Agent):
         *,
         bus: PantheonBus | None = None,
         executor: ActionExecutor | None = None,
+        shadow_required: Callable[[], bool] | None = None,
         shadow_by_default: bool = False,
         saga_available: bool = True,
         vidar_available: bool = True,
@@ -169,6 +170,7 @@ class Thor(Agent):
         super().__init__(spec=_THOR)
         self.bus = bus
         self._executor = executor or _default_executor
+        self._shadow_required = shadow_required or (lambda: False)
         self._shadow_by_default = shadow_by_default
         self._saga_available = saga_available
         self._vidar_available = vidar_available
@@ -217,6 +219,19 @@ class Thor(Agent):
         explicit, separately reviewed promotion - never the default.
         """
         self._shadow_by_default = enabled
+
+    def set_shadow_required(self, predicate: Callable[[], bool]) -> None:
+        """Bind a live fail-closed authority predicate for future execution."""
+        self._shadow_required = predicate
+
+    def _must_shadow(self) -> bool:
+        if self._shadow_by_default:
+            return True
+        try:
+            return self._shadow_required()
+        except Exception:  # noqa: BLE001 - authority-provider failure must fail closed
+            self.record_behavior("authority:unavailable")
+            return True
 
     def health(self) -> dict[str, Any]:
         """Expose dispatcher state for Heimdall's probe / runtime health."""
@@ -314,9 +329,7 @@ class Thor(Agent):
                 return existing
 
         # Degrade to shadow when hard dependencies are missing.
-        shadow_mode = self._shadow_by_default or not (
-            self._saga_available and self._vidar_available
-        )
+        shadow_mode = self._must_shadow() or not (self._saga_available and self._vidar_available)
 
         # Propagate the approval quorum the judge set (2 for irreversible
         # actions, agent-pantheon.md 4.6). Floor at 1 so a forged / malformed
@@ -394,6 +407,7 @@ class Thor(Agent):
         # deadlock every future action on it (permanent dispatch:lock_contention).
         release_lock = True
         try:
+            run.shadow_mode = run.shadow_mode or self._must_shadow()
             run.transition(ActionRunState.EXECUTING)
             await self._emit_action_run(run)
             if run.shadow_mode:

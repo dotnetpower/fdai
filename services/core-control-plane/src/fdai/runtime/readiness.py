@@ -44,6 +44,8 @@ from fdai.shared.resilience.kill_switch import StateStoreKillSwitch
 
 _IDENTITY_AUDIENCE = "https://management.azure.com/.default"
 _PROBE_TOPIC_DEFAULT = "runtime.startup.probe"
+_MINIMUM_REFRESH_DELAY_SECONDS = 1.0
+_TRANSIENT_REFRESH_RETRY_SECONDS = 15.0
 _LOGGER = logging.getLogger("fdai.startup")
 
 
@@ -87,6 +89,15 @@ class RuntimeReadinessState:
         """Return whether the latest refresh attempt failed before producing a report."""
         return self._refresh_failed
 
+    def authority_ceiling(self, capability: str) -> AuthorityCeiling:
+        """Return the live capability ceiling, failing closed when readiness is unusable."""
+        if not self.is_ready():
+            return AuthorityCeiling.DISABLED
+        current = self.report
+        if current is None:  # pragma: no cover - is_ready already proves a report
+            return AuthorityCeiling.DISABLED
+        return current.authority_ceilings.get(capability, AuthorityCeiling.DISABLED)
+
     def next_expiry(self) -> datetime | None:
         """Return the earliest evidence expiry in the current report."""
         if self.report is None or not self.report.results:
@@ -94,12 +105,13 @@ class RuntimeReadinessState:
         return min(result.expires_at for result in self.report.results)
 
     def close_if_unready(self, *, now: datetime | None = None) -> bool:
-        """Close processing when current evidence no longer satisfies readiness."""
+        """Close processing and report only a new ready-to-blocked transition."""
         if self.is_ready(now=now):
             return False
+        transitioned = self._ready_event.is_set()
         self._ready_event.clear()
         self._blocked_event.set()
-        return True
+        return transitioned
 
     def is_ready(self, *, now: datetime | None = None) -> bool:
         current = self.report
@@ -147,27 +159,19 @@ class StartupReadinessRuntime:
 
     async def refresh_until_stopped(self, stop: asyncio.Event) -> None:
         while not stop.is_set():
-            delay = self.refresh_interval_seconds
             next_expiry = self.state.next_expiry()
-            if next_expiry is not None and not self.state.refresh_failed:
-                delay = min(
-                    delay,
-                    max(
-                        0.0,
-                        (next_expiry - _utc_now()).total_seconds() - self.refresh_lead_seconds,
-                    ),
-                )
+            delay = self._next_refresh_delay(now=_utc_now())
             try:
                 await asyncio.wait_for(stop.wait(), timeout=delay)
             except TimeoutError:
-                self.state.close_if_unready()
+                self._close_expired_readiness()
                 expiry_handle: asyncio.TimerHandle | None = None
                 if next_expiry is not None:
                     until_expiry = (next_expiry - _utc_now()).total_seconds()
                     if until_expiry > 0:
                         expiry_handle = asyncio.get_running_loop().call_later(
                             until_expiry,
-                            self.state.close_if_unready,
+                            self._close_expired_readiness,
                         )
                 try:
                     await self.evaluate()
@@ -183,6 +187,34 @@ class StartupReadinessRuntime:
                 finally:
                     if expiry_handle is not None:
                         expiry_handle.cancel()
+
+    def _close_expired_readiness(self) -> None:
+        if not self.state.close_if_unready():
+            return
+        current = self.state.report
+        now = _utc_now()
+        expired = (
+            sorted(result.probe_id for result in current.results if result.expires_at <= now)
+            if current is not None
+            else []
+        )
+        _LOGGER.warning(
+            "startup_readiness_evidence_expired",
+            extra={"expired_probe_ids": expired},
+        )
+
+    def _next_refresh_delay(self, *, now: datetime) -> float:
+        delay = self.refresh_interval_seconds
+        if self.state.refresh_failed:
+            return min(delay, _TRANSIENT_REFRESH_RETRY_SECONDS)
+        next_expiry = self.state.next_expiry()
+        if next_expiry is None:
+            return delay
+        until_refresh = (next_expiry - now).total_seconds() - self.refresh_lead_seconds
+        return min(
+            delay,
+            until_refresh if until_refresh > 0 else _MINIMUM_REFRESH_DELAY_SECONDS,
+        )
 
     async def run_when_ready(
         self,

@@ -91,7 +91,9 @@ def test_pantheon_enforce_requires_deployment_authority_ceiling() -> None:
         authority_ceilings={"autonomous-action": AuthorityCeiling.SHADOW},
     )
 
-    assert not _pantheon_enforce_enabled({"FDAI_PANTHEON_ENFORCE": "true"}, report)
+    state = RuntimeReadinessState(report=report)
+
+    assert not _pantheon_enforce_enabled({"FDAI_PANTHEON_ENFORCE": "true"}, state)
 
 
 def test_runtime_multiplexes_startup_readiness_transitions() -> None:

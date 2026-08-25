@@ -123,6 +123,56 @@ def test_thor_preserves_valid_kinetic_proposal_without_raising_authority() -> No
     assert thor.behavior_snapshot()["kinetic_proposal:validated"] == 1
 
 
+def test_thor_rechecks_live_authority_before_auto_execution() -> None:
+    executor = AsyncMock(return_value=True)
+    shadow_required = False
+    thor = Thor(executor=executor, shadow_required=lambda: shadow_required)
+    shadow_required = True
+
+    run = asyncio.run(thor.dispatch_verdict(_verdict()))
+
+    assert run.shadow_mode is True
+    assert run.outcome == "shadow_success"
+    executor.assert_not_awaited()
+
+
+def test_thor_rechecks_live_authority_after_hil_approval() -> None:
+    executor = AsyncMock(return_value=True)
+    shadow_required = False
+    thor = Thor(executor=executor, shadow_required=lambda: shadow_required)
+    verdict = _verdict()
+    verdict["risk_verdict"] = "hil"
+    run = asyncio.run(thor.dispatch_verdict(verdict))
+    shadow_required = True
+
+    asyncio.run(
+        thor.on_typed_message(
+            "object.approval",
+            {"correlation_id": run.correlation_id, "state": "approved"},
+        )
+    )
+
+    assert run.shadow_mode is True
+    assert run.outcome == "shadow_success"
+    executor.assert_not_awaited()
+
+
+def test_thor_fails_closed_when_live_authority_provider_raises() -> None:
+    executor = AsyncMock(return_value=True)
+
+    def unavailable() -> bool:
+        raise RuntimeError("authority unavailable")
+
+    thor = Thor(executor=executor, shadow_required=unavailable)
+
+    run = asyncio.run(thor.dispatch_verdict(_verdict()))
+
+    assert run.shadow_mode is True
+    assert run.outcome == "shadow_success"
+    executor.assert_not_awaited()
+    assert thor.behavior_snapshot()["authority:unavailable"] >= 1
+
+
 def test_thor_persists_valid_hil_kinetic_proposal() -> None:
     store = _FakeActionRunStore()
     thor = Thor(state_store=store)

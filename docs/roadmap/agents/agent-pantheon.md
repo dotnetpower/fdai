@@ -94,9 +94,9 @@ it makes the roles legible and auditable.
   read-only conversational presentation port for operators and bounded peer deliberation (§6).
 - **Single-writer, multi-reader topics.** Each object type has exactly one
   owner agent that publishes; anyone may subscribe (§6.1).
-- **Judge is not the executor.** Forseti issues a verdict; Thor dispatches
-  the verdict; Var carries the human approval. No agent both judges and
-  executes.
+- **Judge is not the executor.** Forseti issues a verdict; Thor dispatches the verdict; Var carries
+  the human approval. Thor rechecks the live startup-readiness authority ceiling at dispatch and
+  after approval, so stale or incomplete safety evidence forces shadow before executor I/O.
 - **Pantheon fixed upstream.** The 15-agent set, the org chart, and the
   role assignments are locked. Forks customize behaviour through configured
   seams (§10) - not by adding, removing, or renaming agents.

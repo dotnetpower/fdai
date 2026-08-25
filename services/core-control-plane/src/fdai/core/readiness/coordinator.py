@@ -73,13 +73,21 @@ class StartupProbeBudget:
 
     @property
     def failure_evidence_ttl_seconds(self) -> float:
-        """Keep failed evidence valid through the current and next bounded pass."""
-        return (2 * self.maximum_evaluation_seconds) + self.per_probe_timeout_seconds
+        """Keep failed evidence on the same budget-owned lifetime as other results."""
+        return self.evidence_ttl_seconds
+
+    @property
+    def evidence_ttl_seconds(self) -> float:
+        """Keep every result valid through one current and one replacement pass."""
+        return max(
+            300.0,
+            2 * (self.maximum_evaluation_seconds + self.per_probe_timeout_seconds),
+        )
 
     @property
     def refresh_lead_seconds(self) -> float:
-        """Start refresh early enough for one phase plus one probe attempt."""
-        return self.phase_timeout_seconds + self.per_probe_timeout_seconds
+        """Start refresh early enough for one complete pass plus one probe attempt."""
+        return self.maximum_evaluation_seconds + self.per_probe_timeout_seconds
 
 
 class StartupReadinessCoordinator:
@@ -177,6 +185,7 @@ class StartupReadinessCoordinator:
                 cost_limit_usd=spec.estimated_cost_usd,
                 model_sample_count=self._budget.model_sample_count,
                 synthetic_scope=spec.synthetic_scope,
+                evidence_ttl_seconds=self._budget.evidence_ttl_seconds,
             )
             try:
                 correlation_id = f"startup-readiness:{spec.probe_id}:{request.deadline.isoformat()}"

@@ -29,7 +29,7 @@ Timeline suggestions below are directional, not hard rules; **the gates are hard
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| Startup readiness orchestration | implemented | [`runtime/readiness.py`](../../../services/core-control-plane/src/fdai/runtime/readiness.py), [`runtime/bootstrap_incidents.py`](../../../services/core-control-plane/src/fdai/runtime/bootstrap_incidents.py), [`core/readiness/coordinator.py`](../../../services/core-control-plane/src/fdai/core/readiness/coordinator.py), and focused readiness tests | The runtime evaluates ordered phases, persists sanitized reports, and gates processing on the resulting decision. Refresh begins before the earliest evidence expiry, while an over-budget refresh still closes processing at the exact expiry. PostgreSQL state rehydration remains process-critical, while durable A2 notification replay remains isolated. |
+| Startup readiness orchestration | implemented | [`runtime/readiness.py`](../../../services/core-control-plane/src/fdai/runtime/readiness.py), [`runtime/bootstrap_incidents.py`](../../../services/core-control-plane/src/fdai/runtime/bootstrap_incidents.py), [`core/readiness/coordinator.py`](../../../services/core-control-plane/src/fdai/core/readiness/coordinator.py), and focused readiness tests | The coordinator derives one evidence lifetime and refresh lead from the full-pass and per-probe budgets. Runtime refresh is bounded, closes processing at exact expiry, and supplies Thor's live fail-closed authority ceiling. PostgreSQL state rehydration remains process-critical, while durable A2 notification replay remains isolated. |
 | T2 cross-check startup proof reuse | implemented | [`delivery/startup_model_probe.py`](../../../services/core-control-plane/src/fdai/delivery/startup_model_probe.py) and [`tests/delivery/test_startup_probe.py`](../../../services/core-control-plane/tests/delivery/test_startup_probe.py) | The first successful process-local proof uses the configured samples. Refreshes reuse it without another T2 request, while failures remain retryable. |
 | Collector scheduling and governed discovery activation | implemented | [`rule_watcher_job.tf`](../../../infra/modules/compute/container-apps/rule_watcher_job.tf), [`rule_collector_job_cli.py`](../../../services/core-control-plane/src/fdai/delivery/rule_collector_job_cli.py), [`core/readiness/discovery_activation.py`](../../../services/core-control-plane/src/fdai/core/readiness/discovery_activation.py), [`runtime/discovery_activation.py`](../../../services/core-control-plane/src/fdai/runtime/discovery_activation.py), and focused collector, activation, Norns, runtime, and infrastructure tests | The configurable Job uses the non-effect inventory identity and records only validated provenance receipts. Runtime composition closes Norns publication until policy and every current prerequisite pass. |
 | Bootstrap and lifecycle automation | in-progress | [`llm_resolver_cli.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/llm_resolver_cli.py), `.github/workflows/deploy-dev.yml`, `.github/workflows/model-lifecycle-reconcile.yml`, and focused lifecycle tests | Protected model resolution and proposal-only reconciliation are implemented. Collector scheduling and governed discovery activation are implemented in the current change; end-to-end Human approval bootstrap remains incomplete. |
@@ -45,6 +45,7 @@ Timeline suggestions below are directional, not hard rules; **the gates are hard
 | 2026-08-25 | implemented | Moved durable A2 incident notification replay out of the readiness-critical bootstrap sequence after two protected revisions stalled behind an unavailable notification route. Incident state still rehydrates before readiness; the isolated worker preserves sent checkpoints, retries transient delivery failures, and cannot grant authority. | Failed protected apply `32833058288`; `current change`; focused bootstrap tests passed 59 cases and strict mypy passed. | Build and deploy the exact repaired Core image, then retain healthy startup, replay, and peer-isolation evidence. |
 | 2026-08-25 | implemented | Added a five-minute process-local cooldown after an incomplete full audit-chain proof. A timeout or cancellation now lowers autonomous authority without immediately starting another historical scan; a confirmed mismatch remains blocking and a later bounded retry can still recover. | Failed protected apply `32846624686`; PostgreSQL CPU stayed between 98.5 and 100 percent during the readiness window; `current change`; focused startup probe tests. | Deploy the bounded retry behavior and retain a healthy or degraded-shadow Core receipt before metering validation. |
 | 2026-08-25 | implemented | Started periodic readiness refresh before the earliest evidence expiry and extended coordinator-generated failure evidence through the current and next bounded pass. A refresh that reaches the original expiry still closes guarded processing, so availability improves without accepting stale evidence or raising authority. | Failed protected apply `32846624686`; deployed report showed `degraded`, `postgres.state=passed`, and an expired audit timeout while the replica remained live; `current change`; focused coordinator and runtime timing tests. | Deploy the exact repaired Core image and retain a healthy or degraded-shadow revision plus peer-isolation evidence. |
+| 2026-08-25 | implemented | Unified built-in probe and coordinator-failure lifetimes under the startup budget, added a minimum refresh delay and bounded transient retry, and made expiry transitions visible through sanitized probe ids. Thor now reads the live ceiling before a new automatic dispatch and again after Human approval, so a degraded or stale report cannot retain enforcement from startup. | `current change`; focused readiness, probe, Thor durable, and bootstrap checks passed 94 cases; strict mypy, Ruff, Pantheon layout, and agent import gates passed. | Deploy the exact repaired Core image and retain degraded-shadow dispatch, expiry recovery, and peer-isolation evidence. |
 
 ### Remaining work
 
@@ -150,15 +151,15 @@ samples do not claim a percentile before the minimum sample count. A target miss
 token before the deadline is unavailable. T2 still requires mixed-model and verifier gates, and a deadline
 miss lowers the case to Human approval.
 
-Evidence expires after the configured interval. Periodic probes start before the earliest expiry
-using a lead derived from one phase plus one probe budget, then append only transitions. If that
-bounded refresh reaches the original expiry, processing closes until a complete report replaces
-the evidence. T2 cross-check, audit durability, and full audit-chain probes reuse their successful
-process-local proofs; the readiness result receives a fresh evidence time and expiry without
-repeating the model request, audit append, or full-chain scan. An incomplete full-chain proof waits
-five minutes before another process-local scan, which prevents timeout-driven refreshes from
-saturating PostgreSQL. A confirmed mismatch remains blocking, and other failed proofs remain
-retryable. Recovery can restore `ready`, never authority above the deployment's promotion state.
+Evidence expires after a budget-owned lifetime: at least five minutes, otherwise twice the maximum
+full-pass duration plus one probe timeout. Refresh starts one full-pass-plus-probe budget before the
+earliest expiry, leaving one probe timeout of freshness after a maximum-duration pass. Already-due
+work waits at least one second to avoid a hot loop; transient failure retries within 15 seconds. At
+the original expiry, processing closes and emits one sanitized warning containing only expired
+probe ids until a complete report replaces the evidence. Successful T2 cross-check, audit
+durability, and full-chain proofs receive fresh evidence times without repeating their operation.
+An incomplete full-chain proof waits five minutes before another scan to avoid saturating
+PostgreSQL. A confirmed mismatch remains blocking; recovery never raises deployment authority.
 
 ### Failure and authority rules
 
@@ -183,12 +184,12 @@ change appends an audit record and publishes a JSON-Schema-validated
 `readiness_transition` event. Provider error text, credentials, endpoint values, deployment names,
 and customer identifiers are not part of the report or transition payload.
 
-`/live` reports process liveness independently. `/ready` returns `503` for `blocked`; the core
-consumer, discovery, canary, Human approval, retention, runtime-state, and Pantheon tasks remain
-stopped. A `degraded` report may open `/ready`, but an unavailable audit-chain proof lowers
-`autonomous-action` to `shadow`, which disables Pantheon enforcement. Periodic refresh cancels
-running tasks when a process-critical dependency becomes blocked and restarts them after recovery.
-Recovery reuses the deployment ceilings supplied at composition and cannot promote authority.
+`/live` reports process liveness independently. `/ready` returns `503` for `blocked`; guarded tasks
+remain stopped. A `degraded` report may open `/ready`, but unavailable audit-chain proof lowers
+`autonomous-action` to `shadow`. Thor reads that live ceiling before automatic dispatch and after
+Human approval, before executor I/O. Missing, stale, blocked, or failed refresh therefore forces
+shadow instead of retaining startup enforcement. Periodic refresh stops guarded tasks when a
+process-critical dependency blocks and restarts them after recovery without promoting authority.
 
 You can tune the bounded runner with `FDAI_STARTUP_MAX_CONCURRENCY`,
 `FDAI_STARTUP_KAFKA_SETTLE_SECONDS`, `FDAI_STARTUP_PROBE_TIMEOUT_SECONDS`,

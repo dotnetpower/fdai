@@ -35,7 +35,7 @@ from fdai.core.operational_planning import (
     SpecialistPlanningCoordinator,
     operational_planning_capability_status,
 )
-from fdai.core.readiness import AuthorityCeiling, StartupReadinessReport
+from fdai.core.readiness import AuthorityCeiling
 from fdai.delivery.agent_activity import (
     AgentRuntimeStatePublisher,
     EventBusPantheonActivityObserver,
@@ -60,6 +60,7 @@ from fdai.runtime.post_turn_review import (
     build_post_turn_review_runtime,
     post_turn_review_dsn,
 )
+from fdai.runtime.readiness import RuntimeReadinessState
 from fdai.runtime.rule_generation_documents import RuleGenerationReconciliation
 from fdai.runtime.t2_route_registry import T2RouteRegistry, bind_t2_route_selector
 from fdai.shared.config.models import LlmMode
@@ -80,7 +81,7 @@ class PantheonInitialization:
     identity: WorkloadIdentity | None
     bus: EventBus
     incident_audit_store: StateStore
-    startup_report: StartupReadinessReport
+    startup_readiness: RuntimeReadinessState
     runtime_saga: Saga
     runtime_values: dict[str, object]
     runtime_settings: RuntimeSettingsService
@@ -117,11 +118,11 @@ class PantheonInitializationResult:
 
 def _pantheon_enforce_enabled(
     environment: Mapping[str, str],
-    startup_report: StartupReadinessReport,
+    startup_readiness: RuntimeReadinessState,
 ) -> bool:
     requested = environment.get("FDAI_PANTHEON_ENFORCE", "").lower() in ("1", "true")
     return requested and (
-        startup_report.authority_ceilings.get("autonomous-action") is AuthorityCeiling.DEPLOYMENT
+        startup_readiness.authority_ceiling("autonomous-action") is AuthorityCeiling.DEPLOYMENT
     )
 
 
@@ -133,7 +134,10 @@ async def initialize_pantheon(
     if not pantheon_start_enabled(config.environment):
         return PantheonInitializationResult()
 
-    pantheon_enforce = _pantheon_enforce_enabled(config.environment, config.startup_report)
+    pantheon_enforce = _pantheon_enforce_enabled(
+        config.environment,
+        config.startup_readiness,
+    )
     disabled_raw = config.environment.get("FDAI_PANTHEON_DISABLED_AGENTS", "").strip()
     disabled_agents = (
         frozenset(name.strip() for name in disabled_raw.split(",") if name.strip())
@@ -437,6 +441,17 @@ async def initialize_pantheon(
             else ""
         ),
         semantic_router_config=config.semantic_router_config_from_env(),
+    )
+    thor_agent = pantheon_runtime.agents.get("Thor")
+    if thor_agent is None:  # pragma: no cover - fixed Pantheon invariant
+        raise RuntimeError("Pantheon runtime is missing Thor")
+    cast(Any, thor_agent).set_shadow_required(
+        lambda: (
+            not _pantheon_enforce_enabled(
+                config.environment,
+                config.startup_readiness,
+            )
+        )
     )
     from fdai.runtime.t2_recovery import T2RecoveryMaintenance, bind_t2_recovery_observer
 

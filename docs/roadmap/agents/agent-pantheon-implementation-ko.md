@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: cabd3a2a02c36e4a17931a897b5a0444ce83faee
-translation_revised: 2026-08-24
+translation_source_sha: 3c10d5bfdb1b06a8b09295ce8ef4a2aa2dd98731
+translation_revised: 2026-08-25
 ---
 
 # 에이전트 판테온 구현 계획
@@ -41,6 +41,7 @@ translation_revised: 2026-08-24
 | 2026-08-23 | implemented | 정확한 아티팩트 복원과 독립적으로 검증된 Azure 효과 수집을 사용하는 Heimdall의 타입 지정 최종 ActionRun 관찰 경로를 추가했습니다. | `current change`; 실행된 작업 관찰, Azure 수집기, 조립, 런타임 topic 및 판테온 일치 검사. | 배포가 소유하는 서명된 컨텍스트 발급자를 바인딩하고 통제된 실제 종료 증적을 보존합니다. |
 | 2026-08-23 | implemented | O7 불변 근거 소비자, 매니페스트 결합 인과관계 및 측정 단위 검증기, 영속 증적 저장소와 선택적 측정 작업을 추가했습니다. | `current change`; 운영 승격 소스, 실행기, 영속성, CLI 및 Terraform 검사. | 통제된 실제 배치 생산자를 구현하고 승격 검토 전에 작업별 근거를 축적합니다. |
 | 2026-08-24 | implemented | 에이전트 역할, topic 또는 권한을 바꾸지 않고 운영 가설 계보에 선택된 모든 예상 효과와 독립 결과를 보존했습니다. 단일 속성만 있는 저장 레코드는 하나의 효과로 읽을 수 있고, 모호한 이중 필드 레코드는 안전하게 차단됩니다. | `current change`; `hypothesis_lineage.py`; `ActionOption.yaml`; 집중 계보 및 competency 검사 15개 통과. | 남은 계보 생산자, 서명된 컨텍스트 및 실제 배치 선행조건을 완료합니다. |
+| 2026-08-25 | implemented | Thor가 Verdict를 전달할 때와 사람 승인 직후에 실제 시작 준비 상태 권한 상한을 다시 확인하도록 했습니다. 저하되거나 만료되거나 실패한 새로 고침은 AgentSpec, topic, 판단, 승인, 감사 또는 롤백 소유권을 바꾸지 않고 새 실행과 대기 중 실행을 실행기 I/O 전에 shadow로 강제합니다. | `current change`; Thor 내구 auto, 승인 및 권한 프로바이더 실패 회귀 검사, Pantheon 레이아웃 및 import gate. | 배포된 degraded-shadow ActionRun 하나를 보존하고 privileged 실행기가 호출되지 않았음을 증명합니다. |
 
 ### 남은 작업
 

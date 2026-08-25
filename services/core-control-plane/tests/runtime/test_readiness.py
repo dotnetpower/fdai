@@ -91,7 +91,7 @@ async def test_standard_runtime_inventory_reaches_ready_and_persists_report() ->
     assert report.decision is ReadinessDecision.READY
     assert len(report.results) == 11
     assert runtime.state.is_ready()
-    assert runtime.refresh_lead_seconds == 40.0
+    assert runtime.refresh_lead_seconds == 130.0
     persisted = await store.read_state("runtime:startup-readiness:latest")
     assert persisted is not None
     assert persisted["decision"] == "ready"
@@ -277,6 +277,7 @@ async def test_refresh_survives_transient_evaluation_failure_and_recovers(
     assert runtime.state.refresh_failed is True
     assert runtime.state._blocked_event.is_set()
     assert not runtime.state.is_ready(now=now)
+    assert "startup_readiness_evidence_expired" not in caplog.messages
 
     allow_recovery.set()
     await asyncio.wait_for(refresh, timeout=0.5)
@@ -310,7 +311,9 @@ async def test_refresh_propagates_programming_error_after_closing_readiness() ->
     assert runtime.state._blocked_event.is_set()
 
 
-async def test_refresh_closes_running_operation_at_evidence_expiry() -> None:
+async def test_refresh_closes_running_operation_at_evidence_expiry(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     now = datetime.now(UTC)
     cancelled = asyncio.Event()
     evaluation_started = asyncio.Event()
@@ -337,14 +340,14 @@ async def test_refresh_closes_running_operation_at_evidence_expiry() -> None:
                         probe_id="postgres",
                         status=ProbeStatus.PASSED,
                         observed_at=now,
-                        expires_at=now + timedelta(milliseconds=20),
+                        expires_at=now + timedelta(milliseconds=200),
                         latency_ms=1,
                     ),
                 ),
             )
         ),
         refresh_interval_seconds=60,
-        refresh_lead_seconds=0.01,
+        refresh_lead_seconds=0.1,
     )
 
     async def operation() -> None:
@@ -354,12 +357,16 @@ async def test_refresh_closes_running_operation_at_evidence_expiry() -> None:
             cancelled.set()
 
     guarded = asyncio.create_task(runtime.run_when_ready(stop, operation))
+    caplog.set_level("WARNING", logger="fdai.startup")
     refresh = asyncio.create_task(runtime.refresh_until_stopped(stop))
 
-    await asyncio.wait_for(evaluation_started.wait(), timeout=0.5)
-    await asyncio.wait_for(cancelled.wait(), timeout=0.5)
+    await asyncio.wait_for(evaluation_started.wait(), timeout=1.0)
+    await asyncio.wait_for(cancelled.wait(), timeout=1.0)
     assert runtime.state._blocked_event.is_set()
     assert not runtime.state.is_ready()
+    assert caplog.messages.count("startup_readiness_evidence_expired") == 1
+    runtime._close_expired_readiness()
+    assert caplog.messages.count("startup_readiness_evidence_expired") == 1
 
     stop.set()
     await asyncio.gather(guarded, refresh)
@@ -402,7 +409,7 @@ async def test_refresh_completes_before_expiry_without_closing_readiness() -> No
                         probe_id="audit.chain",
                         status=ProbeStatus.TIMED_OUT,
                         observed_at=now,
-                        expires_at=now + timedelta(milliseconds=30),
+                        expires_at=now + timedelta(milliseconds=300),
                         latency_ms=0,
                         failure_class="probe_deadline_exceeded",
                     ),
@@ -410,14 +417,84 @@ async def test_refresh_completes_before_expiry_without_closing_readiness() -> No
             )
         ),
         refresh_interval_seconds=60,
-        refresh_lead_seconds=0.02,
+        refresh_lead_seconds=0.2,
     )
 
-    await asyncio.wait_for(runtime.refresh_until_stopped(stop), timeout=0.5)
+    await asyncio.wait_for(runtime.refresh_until_stopped(stop), timeout=1.0)
 
     assert evaluation_started.is_set()
     assert runtime.state.is_ready()
     assert not runtime.state._blocked_event.is_set()
+
+
+def test_refresh_delay_is_bounded_for_expired_and_transient_states() -> None:
+    now = datetime.now(UTC)
+    runtime = StartupReadinessRuntime(
+        coordinator=object(),  # type: ignore[arg-type]
+        state=RuntimeReadinessState(
+            report=StartupReadinessReport(
+                generated_at=now,
+                decision=ReadinessDecision.DEGRADED,
+                results=(
+                    StartupProbeResult(
+                        probe_id="audit.chain",
+                        status=ProbeStatus.TIMED_OUT,
+                        observed_at=now - timedelta(minutes=1),
+                        expires_at=now,
+                        latency_ms=0,
+                        failure_class="probe_deadline_exceeded",
+                    ),
+                ),
+            )
+        ),
+        refresh_interval_seconds=300,
+        refresh_lead_seconds=130,
+    )
+
+    assert runtime._next_refresh_delay(now=now) == 1.0
+    runtime.state.mark_refresh_failed()
+    assert runtime._next_refresh_delay(now=now) == 15.0
+
+
+def test_live_authority_ceiling_fails_closed_after_refresh() -> None:
+    now = datetime.now(UTC)
+    state = RuntimeReadinessState(
+        report=StartupReadinessReport(
+            generated_at=now,
+            decision=ReadinessDecision.READY,
+            results=(
+                StartupProbeResult(
+                    probe_id="audit.chain",
+                    status=ProbeStatus.PASSED,
+                    observed_at=now,
+                    expires_at=now + timedelta(minutes=5),
+                    latency_ms=1,
+                ),
+            ),
+            authority_ceilings={"autonomous-action": AuthorityCeiling.DEPLOYMENT},
+        )
+    )
+    assert state.authority_ceiling("autonomous-action") is AuthorityCeiling.DEPLOYMENT
+
+    state.update(
+        StartupReadinessReport(
+            generated_at=now,
+            decision=ReadinessDecision.DEGRADED,
+            results=(
+                StartupProbeResult(
+                    probe_id="audit.chain",
+                    status=ProbeStatus.TIMED_OUT,
+                    observed_at=now,
+                    expires_at=now + timedelta(minutes=5),
+                    latency_ms=0,
+                    failure_class="probe_deadline_exceeded",
+                ),
+            ),
+            authority_ceilings={"autonomous-action": AuthorityCeiling.SHADOW},
+        )
+    )
+
+    assert state.authority_ceiling("autonomous-action") is AuthorityCeiling.SHADOW
 
 
 async def test_guarded_operation_is_not_created_before_readiness() -> None:

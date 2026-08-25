@@ -226,10 +226,24 @@ async def test_timeout_and_crash_are_sanitized_and_block_readiness() -> None:
     assert {result.expires_at - result.observed_at for result in report.results} == {
         timedelta(seconds=budget.failure_evidence_ttl_seconds)
     }
-    assert budget.refresh_lead_seconds == (
-        budget.phase_timeout_seconds + budget.per_probe_timeout_seconds
-    )
+    assert budget.evidence_ttl_seconds == 300.0
+    assert budget.refresh_lead_seconds == 120.001
     assert "secret" not in report.to_json()
+
+
+def test_deployed_budget_keeps_one_probe_margin_after_a_maximum_pass() -> None:
+    budget = StartupProbeBudget(
+        per_probe_timeout_seconds=30.0,
+        phase_timeout_seconds=75.0,
+    )
+
+    assert budget.evidence_ttl_seconds == 660.0
+    assert budget.refresh_lead_seconds == 330.0
+    assert (
+        budget.evidence_ttl_seconds
+        - budget.maximum_evaluation_seconds
+        - budget.refresh_lead_seconds
+    ) == 30.0
 
 
 async def test_total_cost_budget_is_reserved_across_concurrent_probes() -> None:

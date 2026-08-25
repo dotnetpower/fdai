@@ -38,6 +38,7 @@ def _result(
     probe_id: str,
     started_at: float,
     *,
+    request: StartupProbeRequest,
     evidence: Mapping[str, bool | float | int | str] | None = None,
 ) -> StartupProbeResult:
     observed_at = _utc_now()
@@ -45,7 +46,7 @@ def _result(
         probe_id=probe_id,
         status=ProbeStatus.PASSED,
         observed_at=observed_at,
-        expires_at=observed_at + timedelta(minutes=5),
+        expires_at=observed_at + timedelta(seconds=request.evidence_ttl_seconds),
         latency_ms=(perf_counter() - started_at) * 1000,
         evidence=dict(evidence or {}),
     )
@@ -56,6 +57,7 @@ def _failed_result(
     started_at: float,
     failure_class: str,
     *,
+    request: StartupProbeRequest,
     evidence: Mapping[str, bool | float | int | str] | None = None,
 ) -> StartupProbeResult:
     observed_at = _utc_now()
@@ -63,7 +65,7 @@ def _failed_result(
         probe_id=probe_id,
         status=ProbeStatus.FAILED,
         observed_at=observed_at,
-        expires_at=observed_at + timedelta(minutes=5),
+        expires_at=observed_at + timedelta(seconds=request.evidence_ttl_seconds),
         latency_ms=(perf_counter() - started_at) * 1000,
         failure_class=failure_class,
         evidence=dict(evidence or {}),
@@ -129,6 +131,7 @@ class DestinationChainProbe:
         return _result(
             self.probe_id,
             started_at,
+            request=request,
             evidence={"dns": True, "tcp": True, "tls": True, "auth": True, "protocol": True},
         )
 
@@ -143,7 +146,7 @@ class StateStoreStartupProbe:
     async def run(self, request: StartupProbeRequest) -> StartupProbeResult:
         started_at = perf_counter()
         await self._state_store.read_state("runtime:startup-readiness:probe")
-        return _result(self.probe_id, started_at, evidence={"read": True})
+        return _result(self.probe_id, started_at, request=request, evidence={"read": True})
 
 
 class AuditChainStartupProbe:
@@ -179,6 +182,7 @@ class AuditChainStartupProbe:
                 return _result(
                     self.probe_id,
                     started_at,
+                    request=request,
                     evidence={"audit_chain_verified": True, "previously_proven": True},
                 )
             if self._integrity_failed:
@@ -186,6 +190,7 @@ class AuditChainStartupProbe:
                     self.probe_id,
                     started_at,
                     "audit_chain_integrity_failed",
+                    request=request,
                     evidence={"audit_chain_verified": False, "previously_proven": True},
                 )
             if self._monotonic() < self._retry_not_before:
@@ -193,6 +198,7 @@ class AuditChainStartupProbe:
                     self.probe_id,
                     started_at,
                     "audit_chain_verification_deferred",
+                    request=request,
                     evidence={"audit_chain_verified": False, "previously_proven": False},
                 )
             self._retry_not_before = self._monotonic() + self._retry_interval_seconds
@@ -209,12 +215,14 @@ class AuditChainStartupProbe:
                     self.probe_id,
                     started_at,
                     "audit_chain_integrity_failed",
+                    request=request,
                     evidence={"audit_chain_verified": False, "previously_proven": False},
                 )
             self._verified = True
         return _result(
             self.probe_id,
             started_at,
+            request=request,
             evidence={"audit_chain_verified": True, "previously_proven": False},
         )
 
@@ -227,7 +235,12 @@ class StaticStartupProbe:
         self._evidence_key = evidence_key
 
     async def run(self, request: StartupProbeRequest) -> StartupProbeResult:
-        return _result(self.probe_id, perf_counter(), evidence={self._evidence_key: True})
+        return _result(
+            self.probe_id,
+            perf_counter(),
+            request=request,
+            evidence={self._evidence_key: True},
+        )
 
 
 class EnvironmentInjectionStartupProbe:
@@ -254,6 +267,7 @@ class EnvironmentInjectionStartupProbe:
         return _result(
             self.probe_id,
             started_at,
+            request=request,
             evidence={"required_reference_count": len(self._required_names)},
         )
 
@@ -279,7 +293,12 @@ class WorkloadIdentityStartupProbe:
         token = await self._identity.get_token(self._audience)
         if token.audience != self._audience or token.expires_at <= _utc_now():
             raise RuntimeError("startup identity token is invalid")
-        return _result(self.probe_id, started_at, evidence={"audience_scoped": True})
+        return _result(
+            self.probe_id,
+            started_at,
+            request=request,
+            evidence={"audience_scoped": True},
+        )
 
 
 class OpaCompileStartupProbe:
@@ -313,7 +332,7 @@ class OpaCompileStartupProbe:
         )
         if await process.wait() != 0:
             raise RuntimeError("OPA policy compile failed")
-        return _result(self.probe_id, started_at, evidence={"compiled": True})
+        return _result(self.probe_id, started_at, request=request, evidence={"compiled": True})
 
 
 class KillSwitchStartupProbe:
@@ -331,7 +350,7 @@ class KillSwitchStartupProbe:
     async def run(self, request: StartupProbeRequest) -> StartupProbeResult:
         started_at = perf_counter()
         await self._refresh()
-        return _result(self.probe_id, started_at, evidence={"read": True})
+        return _result(self.probe_id, started_at, request=request, evidence={"read": True})
 
 
 class AuditStartupProbe:
@@ -352,6 +371,7 @@ class AuditStartupProbe:
                 return _result(
                     self.probe_id,
                     started_at,
+                    request=request,
                     evidence={"append": False, "previously_proven": True},
                 )
             probe_run = uuid4().hex
@@ -373,6 +393,7 @@ class AuditStartupProbe:
         return _result(
             self.probe_id,
             started_at,
+            request=request,
             evidence={"append": True, "previously_proven": False},
         )
 
@@ -431,7 +452,12 @@ class EventBusRoundTripStartupProbe:
             close = getattr(iterator, "aclose", None)
             if callable(close):
                 await close()
-        return _result(self.probe_id, started_at, evidence={"round_trip": True})
+        return _result(
+            self.probe_id,
+            started_at,
+            request=request,
+            evidence={"round_trip": True},
+        )
 
 
 __all__ = [

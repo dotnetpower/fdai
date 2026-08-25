@@ -399,7 +399,7 @@ async def build_core_runtime(
             identity=identity,
             bus=messaging.bus,
             incident_audit_store=state_store,
-            startup_report=startup_report,
+            startup_readiness=readiness.state,
             runtime_saga=runtime_saga,
             runtime_values=runtime_values,
             runtime_settings=runtime_settings,

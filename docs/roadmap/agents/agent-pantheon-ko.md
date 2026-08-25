@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: e599184df97d2ebf283a768dae88c22fcd1d45ec
-translation_revised: 2026-08-24
+translation_source_sha: e8b9bd5f40a1c682ab64faee43ba132e7611a8c8
+translation_revised: 2026-08-25
 ---
 
 # 에이전트 판테온
@@ -92,9 +92,9 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임
   운영자 및 제한된 peer 숙의용 읽기 전용 conversational 표현 포트를 제공합니다 (§6).
 - **Single-writer, multi-reader topics.** 각 객체 타입 은 정확히 하나의
   소유자 에이전트 만 publish 하고, 누구나 구독 할 수 있다 (§6.1).
-- **판사는 실행기 가 아니다.** Forseti 는 판정 를 발행하고, Thor 는
-  판정 를 전달 하며, Var 는 사람 승인을 담당한다. 어떤 에이전트도
-  판단과 실행을 함께 하지 않는다.
+- **판사는 실행기가 아닙니다.** Forseti는 판정을 발행하고 Thor는 이를 전달하며 Var는 사람
+  승인을 담당합니다. Thor는 전달 시점과 승인 뒤에 실제 시작 준비 상태 권한 상한을 다시 확인하므로
+  오래되거나 불완전한 안전 근거는 실행기 I/O 전에 shadow를 강제합니다.
 - **판테온은 업스트림 에서 고정.** 15개 에이전트 세트, 조직도, 역할 배정은
   잠겨 있다. 포크는 구성 경계 (§10) 을 통해 동작을 커스터마이즈한다 -
   에이전트를 추가 / 제거 / 이름 변경 하지 않는다.

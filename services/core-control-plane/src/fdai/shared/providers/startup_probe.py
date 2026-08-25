@@ -17,6 +17,11 @@ class StartupProbeRequest:
     cost_limit_usd: float
     model_sample_count: int
     synthetic_scope: bool
+    evidence_ttl_seconds: float = 300.0
+
+    def __post_init__(self) -> None:
+        if self.evidence_ttl_seconds <= 0:
+            raise ValueError("startup evidence TTL MUST be positive")
 
 
 @runtime_checkable

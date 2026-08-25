@@ -22,6 +22,7 @@ def _result(
     probe_id: str,
     started_at: float,
     *,
+    request: StartupProbeRequest,
     model_evidence: ModelStartupEvidence,
     evidence: Mapping[str, bool | float | int | str] | None = None,
 ) -> StartupProbeResult:
@@ -30,7 +31,7 @@ def _result(
         probe_id=probe_id,
         status=ProbeStatus.PASSED,
         observed_at=observed_at,
-        expires_at=observed_at + timedelta(minutes=5),
+        expires_at=observed_at + timedelta(seconds=request.evidence_ttl_seconds),
         latency_ms=(perf_counter() - started_at) * 1000,
         evidence=dict(evidence or {}),
         model_evidence=model_evidence,
@@ -68,6 +69,7 @@ class EmbeddingStartupProbe:
         return _result(
             self.probe_id,
             started_at,
+            request=request,
             model_evidence=ModelStartupEvidence(
                 sample_count=request.model_sample_count,
                 total_latency_ms=tuple(latencies),
@@ -92,6 +94,7 @@ class CrossCheckModelStartupProbe:
                 return _result(
                     self.probe_id,
                     started_at,
+                    request=request,
                     model_evidence=self._proof,
                     evidence={"sampled": False, "previously_proven": True},
                 )
@@ -121,6 +124,7 @@ class CrossCheckModelStartupProbe:
             return _result(
                 self.probe_id,
                 started_at,
+                request=request,
                 model_evidence=self._proof,
                 evidence={"sampled": True, "previously_proven": False},
             )
@@ -163,6 +167,7 @@ class StreamingModelStartupProbe:
         return _result(
             self.probe_id,
             started_at,
+            request=request,
             model_evidence=ModelStartupEvidence(
                 sample_count=request.model_sample_count,
                 total_latency_ms=tuple(totals),
@@ -199,6 +204,7 @@ class CapabilityProofStartupProbe:
         return _result(
             self.probe_id,
             started_at,
+            request=request,
             model_evidence=ModelStartupEvidence(
                 sample_count=request.model_sample_count,
                 total_latency_ms=tuple(0.0 for _ in proofs),
