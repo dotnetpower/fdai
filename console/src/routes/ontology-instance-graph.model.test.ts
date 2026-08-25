@@ -149,6 +149,35 @@ describe("buildInstanceGraphLayout", () => {
     expect(layout.hiddenEdgeCount).toBe(0);
   });
 
+  it("separates stored Kubernetes runtime and traffic relationships", () => {
+    const data = exploration();
+    const runtime = resource("runtime", false, "kubernetes.node");
+    const traffic = resource("traffic", false, "kubernetes.service");
+    const connected: OntologyInstanceExploration = {
+      ...data,
+      resources: [data.resources[0]!, runtime, traffic],
+      links: [
+        linkWithMapping(
+          data.root_id,
+          runtime.id,
+          "kubernetes_backed_by",
+          "kubernetes.node-backed-by-vmss-vm",
+        ),
+        linkWithMapping(
+          data.root_id,
+          traffic.id,
+          "routes_to",
+          "kubernetes.ingress-routes-to-service",
+        ),
+      ],
+    };
+
+    const layout = buildInstanceGraphLayout(connected);
+
+    expect(layout.edges.find((edge) => edge.link.target === runtime.id)?.lane).toBe("runtime");
+    expect(layout.edges.find((edge) => edge.link.target === traffic.id)?.lane).toBe("traffic");
+  });
+
   it("bounds high-cardinality scope roots without expanding each child branch", () => {
     const root = resource("root", true, "resource-group");
     const roleAssignments = Array.from(

@@ -22,8 +22,19 @@ from fdai.shared.providers.inventory import (
 )
 
 KUBERNETES_RELATIONSHIP_SOURCE_SCHEMA_VERSION = "kubernetes-api-inventory-v1"
+_KUBERNETES_RELATIONSHIP_SOURCE_SCHEMA = (
+    "resource_types=kubernetes.cron-job,kubernetes.daemon-set,kubernetes.deployment,"
+    "kubernetes.endpoint-slice,kubernetes.endpoints,kubernetes.ingress,"
+    "kubernetes.ingress-class,kubernetes.job,kubernetes.namespace,kubernetes.node,"
+    "kubernetes.pod,kubernetes.replica-set,kubernetes.service,kubernetes.stateful-set;"
+    "relationship_properties=backend_service_names,cluster_ref,ingress_class_name,name,"
+    "namespace,node_name,node_pool,owner_uids,provider_resource_ref,selector,service_name;"
+    "provider_ref=kubernetes-uid:{uid};"
+    "resource_id={cluster_ref}/kubernetes/{resource_type}/{namespace_or_cluster}/"
+    "{sha256_uid_24}"
+)
 KUBERNETES_RELATIONSHIP_SOURCE_SCHEMA_DIGEST = (
-    "sha256:b91602bff07e35196ffb31da5aea279b6e30f31e1aa41d6f526b1904aca5b3a5"
+    "sha256:" + hashlib.sha256(_KUBERNETES_RELATIONSHIP_SOURCE_SCHEMA.encode("ascii")).hexdigest()
 )
 
 
@@ -76,7 +87,13 @@ def project_kubernetes_relationships(
                 continue
             targets = _mapping_targets(owner, resources=resources, mapping=mapping)
             if not targets:
-                dropped.append(_drop(RelationshipDropReason.MISSING_TARGET_ENDPOINT, mapping))
+                reason = (
+                    RelationshipDropReason.CONFLICTING_DUPLICATE
+                    if mapping.reference_format is ProviderReferenceFormat.PROVIDER_IDENTITY
+                    and _provider_identity_match_count(owner, resources, mapping=mapping) > 1
+                    else RelationshipDropReason.MISSING_TARGET_ENDPOINT
+                )
+                dropped.append(_drop(reason, mapping))
                 continue
             for target in targets:
                 candidates.append(
@@ -133,6 +150,13 @@ def _mapping_targets(
     mapping: ProviderRelationshipMapping,
 ) -> tuple[ResourceRecord, ...]:
     allowed_types = set(mapping.target_provider_types)
+    if mapping.reference_format is ProviderReferenceFormat.PROVIDER_IDENTITY:
+        reference = owner.props.get(mapping.source_property_path)
+        if not isinstance(reference, str) or not reference.strip():
+            return ()
+        normalized = reference.strip().casefold()
+        matches = _provider_identity_matches(resources, allowed_types, normalized)
+        return matches if len(matches) == 1 else ()
     scoped = tuple(
         resource
         for resource in resources
@@ -149,6 +173,7 @@ def _mapping_targets(
                 _string_mapping(resource.props.get("labels")).get(key) == value
                 for key, value in selector.items()
             )
+            and _namespace_compatible(owner, resource, mapping=mapping)
         )
     if mapping.reference_format is ProviderReferenceFormat.RESOLVED_NAME:
         reference = owner.props.get(mapping.source_property_path)
@@ -160,6 +185,23 @@ def _mapping_targets(
             if resource.props.get("name") == reference.strip()
             and _namespace_compatible(owner, resource, mapping=mapping)
         )
+    if mapping.reference_format is ProviderReferenceFormat.RESOLVED_NAMES:
+        references = owner.props.get(mapping.source_property_path)
+        if not isinstance(references, Sequence) or isinstance(references, (str, bytes)):
+            return ()
+        names = {item.strip() for item in references if isinstance(item, str) and item.strip()}
+        matches = tuple(
+            resource
+            for resource in scoped
+            if resource.props.get("name") in names
+            and _namespace_compatible(owner, resource, mapping=mapping)
+        )
+        matched_names = {
+            str(resource.props["name"])
+            for resource in matches
+            if isinstance(resource.props.get("name"), str)
+        }
+        return matches if matched_names == names else ()
     if mapping.reference_format is ProviderReferenceFormat.EXACT_IDENTITY:
         reference = owner.props.get(mapping.source_property_path)
         if not isinstance(reference, str) or not reference.strip():
@@ -193,6 +235,12 @@ def _has_reference(
             and not isinstance(value, (str, bytes))
             and any(isinstance(item, str) and item.strip() for item in value)
         )
+    if mapping.reference_format is ProviderReferenceFormat.RESOLVED_NAMES:
+        return (
+            isinstance(value, Sequence)
+            and not isinstance(value, (str, bytes))
+            and any(isinstance(item, str) and item.strip() for item in value)
+        )
     return isinstance(value, str) and bool(value.strip())
 
 
@@ -200,6 +248,38 @@ def _same_cluster(left: ResourceRecord, right: ResourceRecord) -> bool:
     left_cluster = left.props.get("cluster_ref")
     right_cluster = right.props.get("cluster_ref")
     return isinstance(left_cluster, str) and bool(left_cluster) and left_cluster == right_cluster
+
+
+def _provider_identity_matches(
+    resources: Sequence[ResourceRecord],
+    allowed_types: set[str],
+    normalized_reference: str,
+) -> tuple[ResourceRecord, ...]:
+    return tuple(
+        resource
+        for resource in resources
+        if resource.type.casefold() in allowed_types
+        and resource.provider_ref is not None
+        and resource.provider_ref.casefold() == normalized_reference
+    )
+
+
+def _provider_identity_match_count(
+    owner: ResourceRecord,
+    resources: Sequence[ResourceRecord],
+    *,
+    mapping: ProviderRelationshipMapping,
+) -> int:
+    reference = owner.props.get(mapping.source_property_path)
+    if not isinstance(reference, str) or not reference.strip():
+        return 0
+    return len(
+        _provider_identity_matches(
+            resources,
+            set(mapping.target_provider_types),
+            reference.strip().casefold(),
+        )
+    )
 
 
 def _namespace_compatible(
@@ -212,6 +292,8 @@ def _namespace_compatible(
         return True
     if mapping.mapping_id == "kubernetes.pod-scheduled-on-node":
         return target.type == "kubernetes.node"
+    if mapping.mapping_id == "kubernetes.ingress-attached-to-class":
+        return target.type == "kubernetes.ingress-class"
     return owner.props.get("namespace") == target.props.get("namespace")
 
 

@@ -1,8 +1,8 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 660f844e479a597a313ac7cb750d5cf19c096474
-translation_revised: 2026-08-24
+translation_source_sha: a1d7087bfe1b35d009faba6002827b61d4b2f2d8
+translation_revised: 2026-08-26
 ---
 # FDAI 운영 온톨로지
 
@@ -105,9 +105,9 @@ translation_revised: 2026-08-24
 | 운영 의도 런타임 인스턴스 | in-progress | 의도 6종의 카탈로그 선언, [`ontology_console_projection.py`](../../../services/core-control-plane/src/fdai/delivery/ontology_console_projection.py) | `ServiceObjective`, `RecoveryObjective`, `CostObjective`, `ArchitectureConstraint`, `Ownership`, `ChangeWindow`는 선언되고 band에 포함되며 `OperatingModelProjector`가 배포 제공 인스턴스를 보존할 수 있습니다. 이를 도출하는 변환 결과와 end-to-end로 고정하는 집중 테스트는 없습니다. |
 
 ### 구현 이력
-
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-26 | implemented | UID에 근거한 Ingress, IngressClass, EndpointSlice Resource와 정확한 Node `providerID` -> VMSS VM 아이덴티티 연결로 프로바이더에서 관찰한 Kubernetes 의미를 확장했습니다. Service 선택자는 네임스페이스 범위를 유지하고, 불완전한 Ingress 백엔드 집합은 일부 경로를 내보내지 않으며, 이름이나 식별자 접두사는 연결을 만들지 않습니다. | `current change`, 집중 Kubernetes, 프로바이더 매핑, ResourceType, ResourceClass, 인벤토리 승격 및 카탈로그 검사 111개가 통과했습니다. | 런타임 검증을 주장하기 전에 하나의 완전하고 정확한 클러스터 Kubernetes 세대를 보존합니다. |
 | 2026-08-19 | validated | Service-owned 인벤토리 entry point의 composition parity를 맞춘 뒤 identity-complete provider graph를 승격하고 측정했습니다. Provider fence는 native 객체 533개를 보고합니다. 검토된 mapping 476개와 예약 미분류 신원 57개가 provider type 68종에 걸쳐 있고 `provider_identity_complete=true`입니다. 스냅샷과 온톨로지는 각각 Resource 573개를 유지하며 두 identity 집합의 차이는 0이고 realtime overlay에는 Resource와 link가 모두 0개입니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217), coverage schema `1.1.0`, 최종 로컬 observation은 aggregate graph record 1,215개의 fresh inventory를 보고합니다. | 배포가 검토한 service mapping으로 `unknown_service`를 줄일 수 있습니다. Provider identity, projection parity 또는 realtime overlay 잔여는 없습니다. |
 | 2026-08-19 | validated | `project_operating_scope`를 PostgreSQL 기반 인증 인벤토리 그래프 응답에 연결했습니다. 범위가 제한된 역방향 링크 조회 두 개가 응답 Resource에서 끝나는 서비스 경로만 해석합니다. 모든 Resource는 `service_ref`를 포함하고, 불완전한 입력 또는 대응되지 않은 범위는 정상적인 부재 주장이 아니라 명시적 coverage gap이 됩니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). Focused consumer 검사 4개와 strict mypy가 통과했습니다. 읽기 전용 loopback 측정에서 응답 Resource 213/213개가 표시됐고 `input_complete=true`, `complete=false`, `operating_scope_unmapped`를 반환했습니다. | 검토된 BusinessService와 Workload mapping을 제공해 측정된 `unknown_service` 집합을 줄입니다. Consumer 연결 작업은 남지 않았습니다. |
 | 2026-08-19 | implemented | 검토된 `unclassified-resource` ResourceType과 exact 프로바이더 신원 조정을 추가했습니다. 선언되지 않은 native 타입은 더 이상 완전한 세대에서 사라지지 않지만 query terms, 타입별 Rule 또는 작업 eligibility를 얻지 않습니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). 인벤토리, 온톨로지, 카탈로그 및 의미 값 도메인 focused 검사가 259개 묶음 안에서 통과했고 Ruff와 strict mypy도 통과했습니다. | 새 세대를 승격한 뒤 운영 범위 coverage를 읽기 전용 운영자 consumer 하나에 연결합니다. |

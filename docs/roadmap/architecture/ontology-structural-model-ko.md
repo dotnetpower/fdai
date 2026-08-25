@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 406d1e5e623a63193b1de6309c608084ef59e8e1
+translation_source_sha: ce8dbd49b92174c902ef5228c7961228cbf5ed82
 translation_revised: 2026-08-26
 ---
 # 온톨로지 구조 모델
@@ -109,9 +109,13 @@ Interface 바인딩은 InterfaceType이 ActionType 대상이 될 수 있으므�
 provider root를 사용합니다. 범위가 제한된 ARM source는 Azure Resource Graph가 일반 리소스로
 노출하지 않는 AKS AgentPool 자식을 수집합니다. 같은 source는 VM Scale Set VM과 network
 interface child를 수집하고 기존 `compute.vm` 및 `network.interface` type으로 변환하며 정확한
-VMSS-to-VM 및 NIC-to-VM/subnet mapping을 보존합니다. Kubernetes API 인벤토리는 같은 single writer가
-리소스와 독립적으로 검증된 링크를 원자적으로 승격하기 전에 UID에 근거한 클러스터,
-네임스페이스, 노드, 워크로드, 소유권, selector, endpoint 및 scheduling 근거를 추가합니다.
+VMSS-to-VM 및 NIC-to-VM/subnet mapping을 보존합니다. Kubernetes API 인벤토리는 같은 single
+writer가 리소스와 독립적으로 검증된 링크를 원자적으로 승격하기 전에 UID에 근거한 클러스터,
+네임스페이스, 노드, 워크로드, Ingress, IngressClass, Endpoints, EndpointSlice, 소유권, selector,
+백엔드 및 scheduling 근거를 추가합니다. Kubernetes Node는 `spec.providerID`가 관찰된 VM
+인스턴스의 정확한 프로바이더 참조로 해석될 때만 하나의 VMSS VM을 향하는
+`kubernetes_backed_by` 링크를 얻습니다. 이름과 식별자 접두사는 이 아이덴티티 연결을
+대체하지 않습니다.
 
 이 생산자들은 이름만으로 토폴로지를 추론하지 않습니다. Kubernetes source는 하나의 정확한
 클러스터 Resource 아이덴티티에 결속하고 네임스페이스와 클러스터 범위 검사를 유지합니다.
@@ -226,18 +230,19 @@ dependency를 입증하지 않습니다.
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 구조 설계와 호환성 | implemented | 이 문서 쌍, `design-routes.json`, 로드맵 인덱스, 코드 맵, 집중 문서 검사 | 추가 모델은 기존 Resource, ResourceType, 직접 링크 아이덴티티, 저장 방향, 과거 선언을 보존합니다. |
-| ResourceClass 카탈로그와 변환 결과 | implemented | `resource_class.py`, `resource-classes.yaml`, ResourceClass/ObjectType 및 멤버 자격/특수화 선언, 카탈로그 변환 결과, 클로저 증적, 집중 카탈로그 검사 | 검토된 클래스 11개가 직접 멤버 자격 77개와 범위가 제한된 특수화 링크 11개를 통해 중립 ResourceType 77개를 모두 변환합니다. 클로저는 명시적 id만 사용하고 권한을 부여하지 않습니다. |
+| ResourceClass 카탈로그와 변환 결과 | implemented | `resource_class.py`, `resource-classes.yaml`, ResourceClass/ObjectType 및 멤버 자격/특수화 선언, 카탈로그 변환 결과, 클로저 증적, 집중 카탈로그 검사 | 검토된 클래스 11개가 직접 멤버 자격 80개와 범위가 제한된 특수화 링크 11개를 통해 중립 ResourceType 80개를 모두 변환합니다. 클로저는 명시적 id만 사용하고 권한을 부여하지 않습니다. |
 | 순서가 있는 형식화된 경로 쿼리 | implemented | `TypedPathDefinition`, `QueryNodeKind.TYPED_PATH`, 결정적 검증기, 보안 적용 handler, composition binding, 집중 쿼리 검사 | 기존 v1 탐색은 LinkType 하나만 받습니다. 형식화된 경로는 방향이 고정된 단계 1-8개를 실행하고 불완전한 중간 근거에서 보류합니다. |
 | 링크 역할과 의미 특성 | implemented | 공유 LinkType 계약 및 스키마, 쿼리 매니페스트, 검토된 런타임 선언 7개와 분류 선언 2개, 카탈로그 테스트 | 선택적인 빈 필드는 기존 provenance를 보존합니다. 검토된 필드는 역방향 edge나 표현 레이아웃을 만들지 않습니다. |
 | 완전성과 표현 분리 | implemented | 권위 있는 온톨로지 그래프 materializer, 통합 테스트, Console 디코더, LinkType 검사기, 그래프 우선 인스턴스 작업 영역, 이중 언어 제품 카탈로그, 타입 검사, 프로덕션 빌드 | 선언 그래프는 독립적인 제한 계열 4개를 전달하고 범위 내 모든 LinkType의 역할과 특성을 노출합니다. 인스턴스 작업 영역은 그래프 권한을 바꾸지 않고 선택, 범례, Inspector 상태를 표현 계층에 유지합니다. |
 | 거버넌스 아티팩트 분리 | implemented | `rule_catalog/schema/governance_catalog.py`; `delivery/catalog_exemption.py`; 집중 거버넌스 로더 및 registry 테스트 | 배정과 exemption은 검증된 catalog-as-code 입력입니다. 온톨로지 사실로 변환되지 않으며 쿼리, 승인 또는 실행 권한을 부여하지 않습니다. |
-| 프로바이더 관찰 토폴로지 생산 | implemented | `azure-arg-v1.yaml`, `arm_inventory.py`, `kubernetes_api_inventory.py`, `kubernetes_inventory.py`, 집중 Azure, Kubernetes, 인벤토리 승격, 카탈로그, Ruff 및 strict mypy 검사 | 검토된 Azure parent 및 root containment와 UID에 근거한 Kubernetes 런타임 토폴로지가 하나의 완전한 세대를 보강합니다. 실제 운영 Kubernetes 및 배포 binding 근거는 별도 검증 작업으로 남습니다. |
-| 적대적 하드닝 | implemented | 아래의 누적 28회 기록에는 이번 분류 체계, 방향, 인스턴스 변환, 프로바이더 경계, 완전성 관점 13개가 포함됩니다. | 검증된 모든 High 또는 Medium 발견 사항을 해결했습니다. 역량별 분류 체계 확장이라는 Low 관찰만 남았습니다. |
+| 프로바이더 관찰 토폴로지 생산 | implemented | `azure-arg-v1.yaml`, `arm_inventory.py`, `kubernetes_api_inventory.py`, `kubernetes_inventory.py`, 집중 Azure, Kubernetes, 인벤토리 승격, 카탈로그, Ruff 및 strict mypy 검사 | 검토된 매핑 94개가 Azure 포함 및 트래픽 구성, UID 기반 Kubernetes 런타임 토폴로지, 정확한 Node 프로바이더 아이덴티티, Ingress 백엔드 Service 및 EndpointSlice 노출을 포함합니다. 구성되지 않은 Kubernetes 출처는 명시적인 `unavailable` 세대 근거로 보존됩니다. 실제 운영 Kubernetes 근거는 별도 검증 작업으로 남습니다. |
+| 적대적 하드닝 | implemented | 아래의 누적 42회 기록에는 이번 출처, 아이덴티티 연결, 분류 체계, 프로젝션, 호환성 및 표현 관점 14개가 포함됩니다. | 검증된 모든 Critical, High 및 Medium 발견 사항을 해결했습니다. 운영 출처 사용 불가와 검증되지 않은 외부 인바운드는 코드 주장이 아닌 명시적인 근거 공백으로 남습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-26 | implemented | 정확한 Node `providerID`와 VMSS VM 아이덴티티 연결, Ingress 및 EndpointSlice 런타임 분류 체계, 명시적인 Kubernetes 출처 가용성, 런타임을 구분하는 Operator 및 Console LinkType 프로젝션, 근거만 사용하는 AKS 첫 화면 커버리지 대역을 추가했습니다. | `current change`, 집중 카탈로그 및 인벤토리 통합 검사 111개, 집중 Operator 검사 30개, 집중 Console 검사 60개가 통과했습니다. 권위 있는 로컬 새로 고침은 Resource 897개와 인벤토리 링크 1,640개를 보존했습니다. Snapshot과 ontology 아이덴티티 집합이 정확히 일치했고 dangling, duplicate, multiple-parent, endpoint-type 및 generation 불일치는 모두 0이었습니다. 선택한 중지된 AKS 분기는 managed Resource Group 1개, 직접 AgentPool 1개, VMSS Resource 4개를 보존했습니다. 정확한 VMSS VM 또는 VMSS NIC child edge는 0개였습니다. Kubernetes 런타임은 명시적으로 `unavailable`이었으므로 Node, Pod, Service, Endpoint 및 연결 개수도 0으로 유지됐습니다. | 런타임 검증을 주장하기 전에 하나의 완전하고 정확한 클러스터 Kubernetes API 세대를 보존합니다. 외부 gateway 또는 load balancer와 Kubernetes 아이덴티티 사이의 관계는 권위 있는 출처가 두 엔드포인트를 입증할 때까지 알 수 없음으로 유지합니다. |
 | 2026-08-25 | implemented | VMSS VM 및 NIC child의 bounded ARM collection과 role assignment를 숨기고 선택한 root의 immediate Resource Group context만 유지하는 기본 presentation 규칙을 추가했습니다. | 집중 Python 검사 43개와 Console 검사 59개, Ruff, strict mypy, typecheck 및 build가 통과했습니다. Local refresh는 Resource 901개와 ontology link 2,550개를 정확한 generation agreement 및 structural invariant violation 0으로 승격했습니다. 인증된 VNet 및 AKS view는 VNet direct owner group 하나를 유지하고 VMSS, VM, NIC hierarchy node를 표시했습니다. | 범위가 제한된 구현 작업은 남아 있지 않습니다. 배포 근거는 별도입니다. |
 | 2026-08-25 | implemented | 범위가 제한된 multi-hop 인스턴스 표현이 저장된 edge 방향을 보존하고 evidence-backed VM network path만 요약하며, 불완전하거나 모델링되지 않은 커버리지에서는 누락된 ingress 또는 egress를 unknown으로 유지하도록 요구했습니다. | `current change`, 활성 세대 PostgreSQL 감사, 집중 Console 검사 56개, typecheck, production build, entry bundle 검사 통과, overflow 0과 44 px 모바일 path control을 유지한 인증된 1440 x 900, 993 x 641, 390 x 844 Browser 검사 | 범위가 제한된 구현 작업은 남아 있지 않습니다. 통제된 runtime 보존은 별도입니다. |
 | 2026-08-23 | not-started | Palantir 온톨로지 설계 지침과 기존 FDAI 계약을 검토한 뒤 구조 모델을 채택했습니다. 이 설계는 경계가 새로 정해진 설계이므로 이전 구현 이력을 재구성하지 않았습니다. | `current change`; 이 문서 쌍과 집중 문서 검사입니다. | 제공 순서를 구현하고 최소 10회의 적대적 하드닝을 완료합니다. |
@@ -285,6 +290,20 @@ dependency를 입증하지 않습니다.
 | 26 | 원시 프로바이더와 의미 경계 | 검증된 Low 초과 발견 사항이 없었습니다. 3,405개 형식의 프로바이더 원장은 77개 형식의 중립 분류 체계와 분리됩니다. | 프로바이더 카탈로그 및 구조 모델 검토입니다. |
 | 27 | OpenAPI 후보 방향 | 재사용된 작업 스키마가 속성 소유권이나 의미 방향을 증명하지 않으므로 모델링된 엔드포인트 쌍의 자동 mapping을 기각했습니다. | 검토 증적은 자동 승격을 끈 `review_required` 상태를 유지합니다. |
 | 28 | 상한과 결정적 정렬 | 중복, 전체 링크, 깊이, 순환, 정렬된 클로저 검사 뒤 검증된 Low 초과 발견 사항이 없었습니다. | 집중 ResourceClass 및 카탈로그 변환 검사입니다. |
+| 29 | 활성 출처 상태 집계 | 로컬 권위 있는 새로 고침이 Kubernetes 출처 상태를 저장하지 않던 High 누락을 해결했습니다. | 새 세대는 `derived_source_states`에 `kubernetes_source_unconfigured`를 기록합니다. |
+| 30 | Azure/Kubernetes 불변 아이덴티티 연결 | 정확한 Node `spec.providerID`와 관찰된 VMSS VM `provider_ref`가 일치해야 하도록 요구해 Critical 모델링 공백을 해결했습니다. | 집중 수집 및 관계 테스트가 통과합니다. |
+| 31 | 이름 및 식별자 접두사 대체 | 비슷한 Node와 VM 이름이 연결 링크를 만들지 않음을 입증해 High 위험을 해결했습니다. | 음성 프로바이더 아이덴티티 테스트 자료는 missing-target drop만 반환합니다. |
+| 32 | 권위가 다른 엔드포인트 범위 | Kubernetes `cluster_ref`가 없는 Azure VM 대상을 같은 클러스터 필터가 잘못 제외하던 High 공백을 해결했습니다. | 프로바이더 아이덴티티 일치는 정확한 프로바이더 참조를 통해서만 출처 경계를 넘습니다. |
+| 33 | EndpointSlice 커버리지 | UID 기반 EndpointSlice Resource와 표준 Service label 매핑으로 Medium 분류 체계 및 수집기 공백을 해결했습니다. | 집중 API, 관계, ResourceType 및 카탈로그 검사가 통과합니다. |
+| 34 | Ingress 백엔드 커버리지 | 범위가 제한된 Ingress 및 IngressClass 수집과 정확한 같은 네임스페이스 백엔드 Service 매핑으로 Medium 출처 공백을 해결했습니다. | 다중 백엔드 및 class attachment 테스트 자료가 Azure 이름 추론 없이 통과합니다. |
+| 35 | Operator 탐색 vocabulary | 기본 instance traversal이 저장된 Kubernetes 관계를 제외하던 High 누락을 해결했습니다. | 확장된 선언 LinkType 집합으로 operations family 집중 검사 30개가 통과합니다. |
+| 36 | Console 관계 신뢰 경계 | 유효한 Kubernetes link를 알 수 없는 vocabulary로 거부하던 High decoder 공백을 해결했습니다. | 집중 Console model 검사가 정확한 검증 bridge 근거를 허용합니다. |
+| 37 | 런타임과 트래픽 표현 | `routes_to`를 의존성으로, 런타임 관계를 일반 접근으로 표시하던 Medium 의미 결함을 해결했습니다. | 그래프 모델 테스트가 저장 방향을 다시 쓰지 않고 트래픽 및 런타임 레인을 분리함을 입증합니다. |
+| 38 | 첫 화면의 잘못된 부재 표현 | 저장된 링크와 출처 상태에서만 관측됨, 알 수 없음, 사용 불가 단계를 계산해 Medium 표현 공백을 해결했습니다. | 집중 모델 및 보기 검사가 통과하며 브라우저가 링크 또는 Resource를 만들지 않습니다. |
+| 39 | Service selector 네임스페이스 격리 | Label selector 대상에 네임스페이스 호환성을 적용해 High cross-namespace 선택 결함을 해결했습니다. | Cross-namespace Pod 테스트 자료는 같은 네임스페이스에서 선택된 Pod만 보존합니다. |
+| 40 | 모호하거나 일부만 있는 엔드포인트 닫힘 | 중복된 정확한 프로바이더 아이덴티티를 거부하고 구성된 Service 중 하나라도 누락되면 모든 Ingress 백엔드 route를 보류해 High 모호성과 Medium 부분 경로 결함을 해결했습니다. | 집중 conflicting-identity 및 partial-backend 테스트 자료가 형식화된 drop reason과 함께 통과합니다. |
+| 41 | 순차 출처 상태 호환성 | Kubernetes 출처 레코드를 필수가 아닌 추가 필드로 취급해 High N-1 디코더 회귀를 해결했습니다. | 현재 응답은 명시적인 `unavailable` 상태를 노출하고 이전 응답도 디코딩되며 런타임 단계는 알 수 없음으로 유지합니다. |
+| 42 | EndpointSlice 레이블 경계 | 너무 긴 표준 Service 레이블을 관계 프로젝션 전에 거부해 Medium 출처 검증 공백을 해결했습니다. | 잘못된 EndpointSlice 테스트 자료는 수집 단계에서 닫힌 방식으로 실패합니다. |
 
 ### 남은 작업
 
@@ -306,6 +325,10 @@ dependency를 입증하지 않습니다.
   않습니다.
 - [x] 위에 인용한 집중 구현, 정적, Console, 번역, 로드맵, 문장 부호, 설계 경로, 문서 크기,
   링크 및 diff 검사로 이 문서의 범위가 제한된 작업을 완료합니다.
+- [ ] [Issue #278](https://github.com/dotnetpower/fdai/issues/278)을 위해 독립적으로 검증된
+  Node-to-VMSS-VM bridge와 Service, Pod, Endpoints, EndpointSlice 경로를 포함하는 완전한
+  정확한 클러스터 Kubernetes 세대 하나를 보존합니다. 구성되지 않았거나 도달할 수 없는
+  출처는 `unavailable`로 유지하며 런타임 부재를 입증하지 않습니다.
 
 ## 관련 문서
 

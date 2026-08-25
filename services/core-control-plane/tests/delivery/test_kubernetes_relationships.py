@@ -93,6 +93,56 @@ def test_complete_snapshot_projects_canonical_kubernetes_relationships() -> None
     assert all(link.mapping_evidence is not None for link in result.links)
 
 
+def test_complete_snapshot_projects_ingress_and_endpoint_slice_relationships() -> None:
+    ingress_class_id = f"{CLUSTER_REF}/resource/ingress-class-web"
+    ingress_id = f"{CLUSTER_REF}/resource/ingress-api"
+    endpoint_slice_id = f"{CLUSTER_REF}/resource/endpoint-slice-api"
+    resources = (
+        *_resources(),
+        ResourceRecord(
+            resource_id=ingress_class_id,
+            type="kubernetes.ingress-class",
+            props={
+                "cluster_ref": CLUSTER_REF,
+                "name": "web",
+                "uid": "uid-ingress-class",
+            },
+            last_seen=OBSERVED_AT,
+        ),
+        _resource(
+            ingress_id,
+            "kubernetes.ingress",
+            name="api",
+            extra={
+                "uid": "uid-ingress",
+                "backend_service_names": ("api",),
+                "ingress_class_name": "web",
+            },
+        ),
+        _resource(
+            endpoint_slice_id,
+            "kubernetes.endpoint-slice",
+            name="api-abcd",
+            extra={"uid": "uid-endpoint-slice", "service_name": "api"},
+        ),
+    )
+
+    result = project_kubernetes_relationships(
+        resources,
+        catalog=load_provider_relationship_mapping_catalog(CATALOG_ROOT),
+        complete=True,
+    )
+
+    assert result.dropped == ()
+    edges = {(link.from_id, link.link_type, link.to_id) for link in result.links}
+    assert (CLUSTER_REF, "contains", ingress_class_id) in edges
+    assert (NAMESPACE_ID, "contains", ingress_id) in edges
+    assert (NAMESPACE_ID, "contains", endpoint_slice_id) in edges
+    assert (ingress_id, "routes_to", SERVICE_ID) in edges
+    assert (ingress_id, "attached_to", ingress_class_id) in edges
+    assert (SERVICE_ID, "kubernetes_exposes_endpoint_slice", endpoint_slice_id) in edges
+
+
 def test_reversed_snapshot_input_preserves_canonical_direction() -> None:
     catalog = load_provider_relationship_mapping_catalog(CATALOG_ROOT)
 
@@ -147,6 +197,30 @@ def test_duplicate_selected_pod_edge_fails_closed() -> None:
     ]
 
 
+def test_service_selector_never_crosses_namespace() -> None:
+    cluster, namespace, service, pod, endpoints = _resources()
+    cross_namespace_pod = ResourceRecord(
+        resource_id=f"{CLUSTER_REF}/resource/pod-api-other",
+        type="kubernetes.pod",
+        props={
+            "cluster_ref": CLUSTER_REF,
+            "namespace": "other",
+            "name": "api-other",
+            "labels": {"app": "api"},
+        },
+        last_seen=OBSERVED_AT,
+    )
+
+    result = project_kubernetes_relationships(
+        (cluster, namespace, service, pod, cross_namespace_pod, endpoints),
+        catalog=load_provider_relationship_mapping_catalog(CATALOG_ROOT),
+        complete=True,
+    )
+
+    selected = [link.to_id for link in result.links if link.link_type == "kubernetes_selects"]
+    assert selected == [POD_ID]
+
+
 def test_partial_snapshot_claims_no_kubernetes_relationships() -> None:
     result = project_kubernetes_relationships(
         _resources(),
@@ -161,6 +235,11 @@ def test_partial_snapshot_claims_no_kubernetes_relationships() -> None:
 def test_complete_snapshot_projects_runtime_scheduling_and_owner_lineage() -> None:
     node_pool_id = f"{CLUSTER_REF}/agent-pool/system"
     node_id = f"{CLUSTER_REF}/node/node-1"
+    vm_id = f"{CLUSTER_REF}/vmss/system/virtual-machine/0"
+    vm_provider_ref = (
+        "/subscriptions/subscription-example/resourceGroups/rg-example/providers/"
+        "Microsoft.Compute/virtualMachineScaleSets/vmss-example/virtualMachines/0"
+    )
     cron_job_id = f"{CLUSTER_REF}/resource/cron-job-nightly"
     job_id = f"{CLUSTER_REF}/resource/job-nightly-1"
     deployment_id = f"{CLUSTER_REF}/resource/deployment-api"
@@ -187,8 +266,16 @@ def test_complete_snapshot_projects_runtime_scheduling_and_owner_lineage() -> No
                 "cluster_ref": CLUSTER_REF,
                 "name": "node-1",
                 "node_pool": "system",
+                "provider_resource_ref": vm_provider_ref,
                 "uid": "uid-node-1",
             },
+            last_seen=OBSERVED_AT,
+        ),
+        ResourceRecord(
+            resource_id=vm_id,
+            type="compute.vm",
+            props={"name": "unrelated-display-name"},
+            provider_ref=vm_provider_ref,
             last_seen=OBSERVED_AT,
         ),
         _resource(
@@ -236,6 +323,7 @@ def test_complete_snapshot_projects_runtime_scheduling_and_owner_lineage() -> No
     assert result.dropped == ()
     edges = {(link.from_id, link.link_type, link.to_id) for link in result.links}
     assert (node_pool_id, "contains", node_id) in edges
+    assert (node_id, "kubernetes_backed_by", vm_id) in edges
     assert (pod_id, "kubernetes_scheduled_on", node_id) in edges
     assert (job_id, "kubernetes_owned_by", cron_job_id) in edges
     assert (replica_set_id, "kubernetes_owned_by", deployment_id) in edges
@@ -274,6 +362,107 @@ def test_runtime_owner_uid_does_not_cross_cluster() -> None:
         "kubernetes.resource-owned-by-controller",
         RelationshipDropReason.MISSING_TARGET_ENDPOINT,
     ) in {(drop.mapping_id, drop.reason) for drop in result.dropped}
+
+
+def test_node_provider_bridge_never_falls_back_to_similar_names() -> None:
+    node = ResourceRecord(
+        resource_id=f"{CLUSTER_REF}/node/system-0",
+        type="kubernetes.node",
+        props={
+            "cluster_ref": CLUSTER_REF,
+            "name": "system-0",
+            "provider_resource_ref": "/subscriptions/example/vmss/system/virtualMachines/0",
+        },
+        last_seen=OBSERVED_AT,
+    )
+    virtual_machine = ResourceRecord(
+        resource_id=f"{CLUSTER_REF}/vm/system-0",
+        type="compute.vm",
+        props={"name": "system-0"},
+        provider_ref="/subscriptions/example/vmss/other/virtualMachines/0",
+        last_seen=OBSERVED_AT,
+    )
+
+    result = project_kubernetes_relationships(
+        (node, virtual_machine),
+        catalog=load_provider_relationship_mapping_catalog(CATALOG_ROOT),
+        complete=True,
+    )
+
+    assert result.links == ()
+    assert [(drop.mapping_id, drop.reason) for drop in result.dropped] == [
+        (
+            "kubernetes.node-backed-by-vmss-vm",
+            RelationshipDropReason.MISSING_TARGET_ENDPOINT,
+        )
+    ]
+
+
+def test_ingress_with_missing_backend_emits_no_partial_route() -> None:
+    cluster, namespace, service, pod, endpoints = _resources()
+    ingress = _resource(
+        f"{CLUSTER_REF}/resource/ingress-api",
+        "kubernetes.ingress",
+        name="api",
+        extra={
+            "uid": "uid-ingress",
+            "backend_service_names": ("api", "missing"),
+        },
+    )
+
+    result = project_kubernetes_relationships(
+        (cluster, namespace, service, pod, endpoints, ingress),
+        catalog=load_provider_relationship_mapping_catalog(CATALOG_ROOT),
+        complete=True,
+    )
+
+    assert all(
+        link.mapping_evidence is None
+        or link.mapping_evidence.mapping_id != "kubernetes.ingress-routes-to-service"
+        for link in result.links
+    )
+    assert (
+        "kubernetes.ingress-routes-to-service",
+        RelationshipDropReason.MISSING_TARGET_ENDPOINT,
+    ) in {(drop.mapping_id, drop.reason) for drop in result.dropped}
+
+
+def test_node_provider_bridge_rejects_ambiguous_provider_identity() -> None:
+    provider_ref = "/subscriptions/example/vmss/system/virtualMachines/0"
+    node = ResourceRecord(
+        resource_id=f"{CLUSTER_REF}/node/system-0",
+        type="kubernetes.node",
+        props={
+            "cluster_ref": CLUSTER_REF,
+            "name": "system-0",
+            "provider_resource_ref": provider_ref,
+        },
+        last_seen=OBSERVED_AT,
+    )
+    virtual_machines = tuple(
+        ResourceRecord(
+            resource_id=f"{CLUSTER_REF}/vm/system-{index}",
+            type="compute.vm",
+            props={"name": f"system-{index}"},
+            provider_ref=provider_ref,
+            last_seen=OBSERVED_AT,
+        )
+        for index in range(2)
+    )
+
+    result = project_kubernetes_relationships(
+        (node, *virtual_machines),
+        catalog=load_provider_relationship_mapping_catalog(CATALOG_ROOT),
+        complete=True,
+    )
+
+    assert result.links == ()
+    assert [(drop.mapping_id, drop.reason) for drop in result.dropped] == [
+        (
+            "kubernetes.node-backed-by-vmss-vm",
+            RelationshipDropReason.CONFLICTING_DUPLICATE,
+        )
+    ]
 
 
 def test_complete_candidates_require_independent_generation_verification() -> None:

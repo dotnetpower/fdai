@@ -12,6 +12,7 @@ import {
   groupOntologyInstanceRelationships,
   isOntologyInstanceDirectoryResource,
   isOntologyInstancePresentationRoot,
+  ontologyInstanceAksLanes,
   ontologyInstanceAutocompleteSuggestions,
   ontologyInstanceResourceAutocompleteOptions,
   ontologyInstanceResourceOptionLabel,
@@ -304,6 +305,7 @@ function OntologyInstanceWorkspace({
   const presentationLinks = ontologyInstancePresentationLinks(data);
   const relationships = partitionOntologyInstanceLinks(presentationLinks, data.root_id);
   const relationshipGroups = groupOntologyInstanceRelationships(presentationLinks, data.root_id);
+  const aksLanes = ontologyInstanceAksLanes(data);
   const incompleteReasons = [
     ...data.truncation_reasons.map(truncationReasonLabel),
     ...(data.relationship_drop_reasons.length > 0
@@ -360,6 +362,32 @@ function OntologyInstanceWorkspace({
   return (
     <div class={`ontology-instance-workbench${inspectorOpen ? "" : " is-inspector-collapsed"}`}>
       <div class="ontology-instance-map-pane">
+        {aksLanes ? (
+          <section
+            class="ontology-instance-aks-lanes"
+            aria-label={t("ontology.instances.aksCoverageTitle")}
+          >
+            <header>
+              <strong>{t("ontology.instances.aksCoverageTitle")}</strong>
+              <span>{t("ontology.instances.aksCoverageHint")}</span>
+            </header>
+            <div>
+              {aksLanes.map((lane) => (
+                <ol key={lane.id} aria-label={t(`ontology.instances.aksLane.${lane.id}`)}>
+                  <li class="ontology-instance-aks-lane-title">
+                    {t(`ontology.instances.aksLane.${lane.id}`)}
+                  </li>
+                  {lane.steps.map((step) => (
+                    <li key={`${lane.id}-${step.id}`} class={`is-${step.status}`}>
+                      <span>{t(`ontology.instances.aksStep.${step.id}`)}</span>
+                      <small>{t(`ontology.instances.pathStatus.${step.status}`)}</small>
+                    </li>
+                  ))}
+                </ol>
+              ))}
+            </div>
+          </section>
+        ) : null}
         <div class="ontology-instance-map-shell">
           {!inspectorOpen ? (
             <Tooltip content={t("ontology.instances.showInspector")}>

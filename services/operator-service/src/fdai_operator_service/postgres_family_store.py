@@ -2589,7 +2589,11 @@ def _projection_source_states(value: object) -> tuple[InventoryProjectionSourceS
 
     if not isinstance(value, list) or len(value) > 8:
         raise PostgresFamilyStoreUnavailable("active inventory source states are malformed")
-    allowed_sources = {"runtime_call_graph", "postgres_role_evidence"}
+    allowed_sources = {
+        "kubernetes_runtime_inventory",
+        "runtime_call_graph",
+        "postgres_role_evidence",
+    }
     states: list[InventoryProjectionSourceState] = []
     for raw_item in value:
         item = _json_object(raw_item, label="active inventory source state")

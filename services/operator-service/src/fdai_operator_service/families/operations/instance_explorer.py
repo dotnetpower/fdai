@@ -27,6 +27,12 @@ _DEFAULT_LINK_TYPES = (
     "routes_to",
     "runtime_calls",
     "peered_with",
+    "kubernetes_backed_by",
+    "kubernetes_exposes_endpoint_slice",
+    "kubernetes_exposes_endpoints",
+    "kubernetes_owned_by",
+    "kubernetes_scheduled_on",
+    "kubernetes_selects",
 )
 _ACTIVITY_FACTS = (
     "action_type",
@@ -199,6 +205,11 @@ async def project_inventory_instance(
                 context,
                 source="runtime_call_graph",
                 unavailable_reason="endpoint_identity_projection_unavailable",
+            ),
+            _projection_source(
+                context,
+                source="kubernetes_runtime_inventory",
+                unavailable_reason="kubernetes_source_unconfigured",
             ),
             _projection_source(
                 context,

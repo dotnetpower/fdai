@@ -106,6 +106,13 @@ async def test_collects_uid_grounded_runtime_inventory() -> None:
                     "node-1",
                     "uid-node",
                     labels={"kubernetes.azure.com/agentpool": "system"},
+                    spec={
+                        "providerID": (
+                            "azure:///subscriptions/subscription-example/resourceGroups/rg-example/"
+                            "providers/Microsoft.Compute/virtualMachineScaleSets/vmss-example/"
+                            "virtualMachines/0"
+                        )
+                    },
                 )
             ]
         elif request.url.path == "/api/v1/pods":
@@ -127,6 +134,15 @@ async def test_collects_uid_grounded_runtime_inventory() -> None:
                     spec={"selector": {"app": "api"}},
                 )
             ]
+        elif request.url.path == "/apis/discovery.k8s.io/v1/endpointslices":
+            items = [
+                _item(
+                    "api-abcd",
+                    "uid-endpoint-slice",
+                    namespace="default",
+                    labels={"kubernetes.io/service-name": "api"},
+                )
+            ]
         elif request.url.path == "/apis/apps/v1/replicasets":
             items = [
                 _item(
@@ -138,6 +154,29 @@ async def test_collects_uid_grounded_runtime_inventory() -> None:
             ]
         elif request.url.path == "/apis/apps/v1/deployments":
             items = [_item("api", "uid-deployment", namespace="default")]
+        elif request.url.path == "/apis/networking.k8s.io/v1/ingresses":
+            items = [
+                _item(
+                    "api",
+                    "uid-ingress",
+                    namespace="default",
+                    spec={
+                        "ingressClassName": "web",
+                        "rules": [
+                            {
+                                "http": {
+                                    "paths": [
+                                        {"backend": {"service": {"name": "api"}}},
+                                        {"backend": {"service": {"name": "health"}}},
+                                    ]
+                                }
+                            }
+                        ],
+                    },
+                )
+            ]
+        elif request.url.path == "/apis/networking.k8s.io/v1/ingressclasses":
+            items = [_item("web", "uid-ingress-class")]
         return httpx.Response(200, json={"items": items, "metadata": {"continue": ""}})
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
@@ -151,14 +190,24 @@ async def test_collects_uid_grounded_runtime_inventory() -> None:
         )
         snapshot = await source.collect()
 
-    assert len(requested_paths) == 11
+    assert len(requested_paths) == 14
     assert set(authorization_headers) == {"Bearer test-token"}
     by_type = {resource.type: resource for resource in snapshot.resources}
     assert by_type["kubernetes.namespace"].props["namespace"] == "default"
     assert by_type["kubernetes.node"].props["node_pool"] == "system"
+    assert by_type["kubernetes.node"].props["provider_resource_ref"] == (
+        "/subscriptions/subscription-example/resourceGroups/rg-example/providers/"
+        "Microsoft.Compute/virtualMachineScaleSets/vmss-example/virtualMachines/0"
+    )
     assert by_type["kubernetes.pod"].props["node_name"] == "node-1"
     assert by_type["kubernetes.pod"].props["owner_uids"] == ("uid-replica-set",)
     assert by_type["kubernetes.service"].props["selector"] == {"app": "api"}
+    assert by_type["kubernetes.endpoint-slice"].props["service_name"] == "api"
+    assert by_type["kubernetes.ingress"].props["backend_service_names"] == (
+        "api",
+        "health",
+    )
+    assert by_type["kubernetes.ingress"].props["ingress_class_name"] == "web"
     assert all(resource.resource_id.startswith(CLUSTER_REF) for resource in snapshot.resources)
     assert all(
         resource.provider_ref.startswith("kubernetes-uid:")
@@ -183,6 +232,33 @@ async def test_rejects_partial_resource_family_without_returning_snapshot() -> N
             http_client=client,
         )
         with pytest.raises(KubernetesApiInventoryError, match="HTTP 403"):
+            await source.collect()
+
+
+async def test_rejects_malformed_endpoint_slice_service_label() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        items: list[dict[str, object]] = []
+        if request.url.path == "/apis/discovery.k8s.io/v1/endpointslices":
+            items = [
+                _item(
+                    "api-abcd",
+                    "uid-endpoint-slice",
+                    namespace="default",
+                    labels={"kubernetes.io/service-name": "a" * 254},
+                )
+            ]
+        return httpx.Response(200, json={"items": items, "metadata": {"continue": ""}})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        source = KubernetesApiInventorySource(
+            config=KubernetesApiInventoryConfig(
+                api_server="https://kubernetes.example",
+                cluster_ref=CLUSTER_REF,
+            ),
+            auth=_Auth(),
+            http_client=client,
+        )
+        with pytest.raises(KubernetesApiInventoryError, match="Service label is malformed"):
             await source.collect()
 
 

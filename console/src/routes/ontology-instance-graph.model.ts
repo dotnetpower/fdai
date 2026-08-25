@@ -31,7 +31,7 @@ export interface InstanceGraphEdge {
   readonly longChannel: "above" | "outer-above" | "below";
 }
 
-export type InstanceGraphLane = "dependency" | "access" | "containment";
+export type InstanceGraphLane = "traffic" | "dependency" | "runtime" | "access" | "containment";
 export type InstanceGraphSide = "incoming" | "selected" | "outgoing";
 
 export interface InstanceGraphLayout {
@@ -1407,14 +1407,19 @@ function isReverseNetworkPresentationLink(
 function instanceGraphLinkLane(
   link: OntologyInstanceLink,
 ): InstanceGraphLane {
+  if (link.link_type === "routes_to" || link.link_type === "runtime_calls") return "traffic";
+  if (link.evidence.mapping_id?.startsWith("kubernetes.")) return "runtime";
   if (link.link_type === "contains") return "containment";
-  return link.link_type === "depends_on" || link.link_type === "routes_to"
+  return link.link_type === "depends_on"
     ? "dependency"
     : "access";
 }
 
 function graphLaneOrder(lane: InstanceGraphLane): number {
-  return lane === "dependency" ? 0 : lane === "access" ? 1 : 2;
+  return lane === "traffic" ? 0
+    : lane === "dependency" ? 1
+      : lane === "runtime" ? 2
+        : lane === "access" ? 3 : 4;
 }
 
 function graphSide(level: number): InstanceGraphSide {

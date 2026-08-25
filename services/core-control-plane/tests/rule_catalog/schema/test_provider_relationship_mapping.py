@@ -80,6 +80,8 @@ def test_shipped_provider_catalog_is_reviewed_and_complete() -> None:
         "contains",
         "depends_on",
         "kubernetes_exposes_endpoints",
+        "kubernetes_backed_by",
+        "kubernetes_exposes_endpoint_slice",
         "kubernetes_owned_by",
         "kubernetes_scheduled_on",
         "kubernetes_selects",
@@ -106,11 +108,13 @@ def test_shipped_catalog_declares_kubernetes_telemetry_relationship_direction() 
 
 def test_shipped_relationship_mappings_match_canonical_endpoint_roles() -> None:
     loaded = load_provider_relationship_mapping_catalog(CATALOG_ROOT)
-    assert len(loaded.mappings) == 89
+    assert len(loaded.mappings) == 94
 
     special_link_types = {
         "azure.vnet-peered-with-vnet": "peered_with",
         "kubernetes.service-exposes-endpoints": "kubernetes_exposes_endpoints",
+        "kubernetes.node-backed-by-vmss-vm": "kubernetes_backed_by",
+        "kubernetes.endpoint-slice-exposed-by-service": "kubernetes_exposes_endpoint_slice",
         "kubernetes.pod-scheduled-on-node": "kubernetes_scheduled_on",
         "kubernetes.resource-owned-by-controller": "kubernetes_owned_by",
         "kubernetes.service-selects-pod": "kubernetes_selects",
@@ -148,7 +152,9 @@ def test_shipped_relationship_mappings_match_canonical_endpoint_roles() -> None:
         "azure.vm-os-disk-attached-to-vm",
         "azure.vm-scale-set-contains-vm",
         "kubernetes.agent-pool-contains-node",
+        "kubernetes.cluster-contains-ingress-class",
         "kubernetes.cluster-contains-namespace",
+        "kubernetes.endpoint-slice-exposed-by-service",
         "kubernetes.namespace-contains-resource",
     }
 
@@ -168,6 +174,8 @@ def test_shipped_relationship_mappings_match_canonical_endpoint_roles() -> None:
         "azure.load-balancer-routes-to-configured-backend",
         "azure.web-app-depends-on-container-registry",
         "kubernetes.agent-pool-contains-node",
+        "kubernetes.endpoint-slice-exposed-by-service",
+        "kubernetes.ingress-attached-to-class",
         "kubernetes.namespace-contains-resource",
         "kubernetes.pod-scheduled-on-node",
         "kubernetes.service-exposes-endpoints",
@@ -184,7 +192,22 @@ def test_shipped_relationship_mappings_match_canonical_endpoint_roles() -> None:
         for mapping in loaded.mappings
         if mapping.reference_format is ProviderReferenceFormat.EXACT_IDENTITY
     }
-    assert exact_identities == {"kubernetes.cluster-contains-namespace"}
+    assert exact_identities == {
+        "kubernetes.cluster-contains-ingress-class",
+        "kubernetes.cluster-contains-namespace",
+    }
+    provider_identities = {
+        mapping.mapping_id
+        for mapping in loaded.mappings
+        if mapping.reference_format is ProviderReferenceFormat.PROVIDER_IDENTITY
+    }
+    assert provider_identities == {"kubernetes.node-backed-by-vmss-vm"}
+    resolved_name_sets = {
+        mapping.mapping_id
+        for mapping in loaded.mappings
+        if mapping.reference_format is ProviderReferenceFormat.RESOLVED_NAMES
+    }
+    assert resolved_name_sets == {"kubernetes.ingress-routes-to-service"}
     resolved_uids = {
         mapping.mapping_id
         for mapping in loaded.mappings

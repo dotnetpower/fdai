@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 66c1da84916ffb078b89e681eae37bcfb212a933
-translation_revised: 2026-08-22
+translation_source_sha: 6fa3d6a1a0657e09d21135608391ad92e1551057
+translation_revised: 2026-08-26
 ---
 # 지속형 질문 공간
 
@@ -56,6 +56,7 @@ translation_revised: 2026-08-22
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-26 | implemented | 구문 라우팅이나 추론을 추가하지 않고 쿼리에 표시되는 Kubernetes Ingress, IngressClass, EndpointSlice 및 정확한 프로바이더 아이덴티티 연결 어휘를 추가했습니다. 현재 인스턴스 탐색은 저장된 런타임, 스케줄링, 소유권, 선택, 엔드포인트 및 연결 LinkType을 반환할 수 있으며 `unavailable` 출처 근거는 후보 부재를 미해결로 유지합니다. | `current change`, 집중 카탈로그, 인벤토리, Operator 및 Console 검사입니다. | 런타임 역량 주장을 승격하기 전에 완전한 실제 운영 Kubernetes 근거를 보존합니다. |
 | 2026-08-22 | implemented | 인증된 표준 port golden 실행 port를 추가하고 no-T2 정책을 interactive Console 대체 경로와 분리했습니다. Port는 oracle ID를 제출하지 않고 재시도하지 않으며 답변 문구를 읽지 않고 첫 준비 상태 압력 신호에서 전체 집합 전에 중단합니다. | `current change`, 집중 서비스 간 검사 302개, tier-routing 검사 114개, Console 요청 및 runner 검사 20개, Console typecheck 통과 | 1-3 turn 준비 상태 probe를 실행하고 통과한 경우에만 560 turn을 실행합니다. |
 | 2026-08-22 | validated | 남은 비인과 T1 frame 변형을 닫은 뒤 인증된 정확한 대상 Container Apps 메모리 시각화를 보존했습니다. | `current change`, 집계/시계열 격리 집중 검사 4개와 Ruff 및 strict mypy 통과, Core가 `server_target_resource_metric_series` 사용, Browser가 desktop, constrained desktop, mobile에서 비어 있지 않은 막대 20개, exact-values disclosure, 키보드 focus, 문서 및 Deck overflow 0을 확인 | 이 차트 cell은 닫힌 상태로 유지하면서 타입 기반 활동과 남은 정확한 대상 후속 행렬 근거를 완료합니다. |
 | 2026-08-22 | implemented | 정확한 대상 Container Apps 메모리 시각화 사례의 결정론적 구현 공백을 닫았습니다. Candidate prompt v37은 집계와 추세 output family를 구분하고 Core는 exact series 함수를 컴파일하며 Operator는 검증된 series shape만 렌더링합니다. | `current change`, 집중 메트릭, 계획, 조립, prompt, 표현 검사 43개 통과 | 더 넓은 정확한 대상 후속 행렬의 한 cell로 인증된 series 답변을 보존합니다. 타입이 지정된 activity와 나머지 행렬 근거는 열린 상태입니다. |

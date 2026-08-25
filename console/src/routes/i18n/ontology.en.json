@@ -84,8 +84,35 @@
     "directOutgoing": "Direct outgoing",
     "verifiedIngress": "Verified ingress",
     "verifiedEgress": "Verified egress",
+    "runtimeContext": "Runtime context",
     "accessContext": "Access context",
     "containmentContext": "Containment context",
+    "aksCoverageTitle": "AKS end-to-end evidence",
+    "aksCoverageHint": "Observed uses stored links only. Unknown and unavailable never imply absence.",
+    "aksLane": {
+      "ingress": "Ingress",
+      "infrastructure": "Infrastructure",
+      "runtime": "Runtime",
+      "service": "Service path"
+    },
+    "aksStep": {
+      "frontend": "Frontend",
+      "aksOrService": "AKS / Service",
+      "managedGroup": "Managed group",
+      "vmss": "VMSS",
+      "vm": "VM",
+      "nic": "NIC",
+      "agentPool": "AgentPool",
+      "node": "Node",
+      "pod": "Pod",
+      "service": "Service",
+      "endpoint": "Endpoint"
+    },
+    "pathStatus": {
+      "observed": "Observed",
+      "unknown": "Unknown",
+      "unavailable": "Unavailable"
+    },
     "networkPathsTitle": "Modeled VM network paths",
     "networkPathsHint": "Only stored edges with reviewed mapping evidence are summarized. Path direction does not rewrite stored edge orientation or prove packet delivery.",
     "networkPathIngress": "Ingress",
@@ -195,13 +222,20 @@
       "depends_on": "Depends on",
       "routes_to": "Routes to",
       "runtime_calls": "Calls",
-      "peered_with": "Peered with"
+      "peered_with": "Peered with",
+      "kubernetes_backed_by": "Backed by",
+      "kubernetes_exposes_endpoint_slice": "Exposes endpoint slice",
+      "kubernetes_exposes_endpoints": "Exposes endpoints",
+      "kubernetes_owned_by": "Owned by",
+      "kubernetes_scheduled_on": "Scheduled on",
+      "kubernetes_selects": "Selects"
     },
     "source": {
       "inventory_snapshot": "Inventory snapshot",
       "inventory_relationships": "Inventory relationships",
       "fdai_audit": "FDAI audit",
       "runtime_call_graph": "Runtime call graph",
+      "kubernetes_runtime_inventory": "Kubernetes runtime inventory",
       "postgres_role_evidence": "PostgreSQL role evidence",
       "azure_resource_health": "Azure Resource Health",
       "azure_activity_log": "Azure Activity Log"

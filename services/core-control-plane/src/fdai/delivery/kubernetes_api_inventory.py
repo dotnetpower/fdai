@@ -18,9 +18,18 @@ from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _MAX_OWNER_REFERENCES: Final[int] = 8
 _MAX_LABELS: Final[int] = 128
+_MAX_INGRESS_BACKENDS: Final[int] = 128
 _NODE_POOL_LABELS: Final[tuple[str, ...]] = (
     "kubernetes.azure.com/agentpool",
     "agentpool",
+)
+_AZURE_VMSS_VM_PROVIDER_PATH: Final[tuple[str, ...]] = (
+    "subscriptions",
+    "resourcegroups",
+    "providers",
+    "microsoft.compute",
+    "virtualmachinescalesets",
+    "virtualmachines",
 )
 _RESOURCE_PATHS: Final[tuple[tuple[str, str, bool], ...]] = (
     ("/api/v1/namespaces", "kubernetes.namespace", False),
@@ -28,12 +37,15 @@ _RESOURCE_PATHS: Final[tuple[tuple[str, str, bool], ...]] = (
     ("/api/v1/pods", "kubernetes.pod", True),
     ("/api/v1/services", "kubernetes.service", True),
     ("/api/v1/endpoints", "kubernetes.endpoints", True),
+    ("/apis/discovery.k8s.io/v1/endpointslices", "kubernetes.endpoint-slice", True),
     ("/apis/batch/v1/jobs", "kubernetes.job", True),
     ("/apis/batch/v1/cronjobs", "kubernetes.cron-job", True),
     ("/apis/apps/v1/deployments", "kubernetes.deployment", True),
     ("/apis/apps/v1/replicasets", "kubernetes.replica-set", True),
     ("/apis/apps/v1/daemonsets", "kubernetes.daemon-set", True),
     ("/apis/apps/v1/statefulsets", "kubernetes.stateful-set", True),
+    ("/apis/networking.k8s.io/v1/ingresses", "kubernetes.ingress", True),
+    ("/apis/networking.k8s.io/v1/ingressclasses", "kubernetes.ingress-class", False),
 )
 
 
@@ -257,6 +269,14 @@ def _resource_record(
         props["namespace"] = name
     if labels:
         props["labels"] = labels
+    if resource_type == "kubernetes.endpoint-slice":
+        service_name = labels.get("kubernetes.io/service-name")
+        if service_name:
+            if len(service_name) > 253:
+                raise KubernetesApiInventoryError(
+                    "Kubernetes EndpointSlice Service label is malformed"
+                )
+            props["service_name"] = service_name
     if owner_uids:
         props["owner_uids"] = owner_uids
     spec = item.get("spec")
@@ -267,6 +287,17 @@ def _resource_record(
         node_name = spec.get("nodeName")
         if resource_type == "kubernetes.pod" and isinstance(node_name, str) and node_name.strip():
             props["node_name"] = node_name.strip()
+        if resource_type == "kubernetes.node":
+            provider_ref = _azure_vmss_vm_provider_ref(spec.get("providerID"))
+            if provider_ref is not None:
+                props["provider_resource_ref"] = provider_ref
+        if resource_type == "kubernetes.ingress":
+            backend_service_names = _ingress_backend_service_names(spec)
+            if backend_service_names:
+                props["backend_service_names"] = backend_service_names
+            ingress_class_name = spec.get("ingressClassName")
+            if isinstance(ingress_class_name, str) and ingress_class_name.strip():
+                props["ingress_class_name"] = ingress_class_name.strip()
     if resource_type == "kubernetes.node":
         for label in _NODE_POOL_LABELS:
             node_pool = labels.get(label)
@@ -329,6 +360,81 @@ def _owner_uids(value: object) -> tuple[str, ...]:
     if len(uids) != len(set(uids)):
         raise KubernetesApiInventoryError("Kubernetes owner reference UIDs MUST be unique")
     return tuple(uids)
+
+
+def _azure_vmss_vm_provider_ref(value: object) -> str | None:
+    if not isinstance(value, str) or not value.strip() or len(value) > 2_048:
+        return None
+    parsed = urlparse(value.strip())
+    if (
+        parsed.scheme.casefold() != "azure"
+        or parsed.netloc
+        or parsed.params
+        or parsed.query
+        or parsed.fragment
+    ):
+        return None
+    path = "/" + parsed.path.strip("/")
+    parts = tuple(part for part in path.split("/") if part)
+    if len(parts) != 10:
+        return None
+    markers = tuple(parts[index].casefold() for index in (0, 2, 4, 5, 6, 8))
+    if markers != _AZURE_VMSS_VM_PROVIDER_PATH:
+        return None
+    return path
+
+
+def _ingress_backend_service_names(spec: Mapping[str, Any]) -> tuple[str, ...]:
+    backends: list[object] = [spec.get("defaultBackend")]
+    rules = _bounded_ingress_sequence(
+        spec.get("rules"),
+        field="Ingress rules",
+    )
+    for rule in rules:
+        http = rule.get("http")
+        if http is None:
+            continue
+        if not isinstance(http, Mapping):
+            raise KubernetesApiInventoryError("Kubernetes Ingress HTTP rule is malformed")
+        paths = _bounded_ingress_sequence(
+            http.get("paths"),
+            field="Ingress paths",
+        )
+        backends.extend(path.get("backend") for path in paths)
+        if len(backends) > _MAX_INGRESS_BACKENDS:
+            raise KubernetesApiInventoryError("Kubernetes Ingress backend cap exceeded")
+    names: set[str] = set()
+    for backend in backends:
+        if backend is None:
+            continue
+        if not isinstance(backend, Mapping):
+            raise KubernetesApiInventoryError("Kubernetes Ingress backend is malformed")
+        service = backend.get("service")
+        if not isinstance(service, Mapping):
+            continue
+        name = service.get("name")
+        if not isinstance(name, str) or not name.strip() or len(name) > 253:
+            raise KubernetesApiInventoryError("Kubernetes Ingress Service name is malformed")
+        names.add(name.strip())
+    return tuple(sorted(names))
+
+
+def _bounded_ingress_sequence(
+    value: object,
+    *,
+    field: str,
+) -> tuple[Mapping[str, Any], ...]:
+    if value is None:
+        return ()
+    if (
+        not isinstance(value, Sequence)
+        or isinstance(value, (str, bytes))
+        or len(value) > _MAX_INGRESS_BACKENDS
+    ):
+        raise KubernetesApiInventoryError(f"Kubernetes {field} exceeds its contract")
+    if any(not isinstance(item, Mapping) for item in value):
+        raise KubernetesApiInventoryError(f"Kubernetes {field} contains a malformed item")
+    return tuple(item for item in value if isinstance(item, Mapping))
 
 
 __all__ = [

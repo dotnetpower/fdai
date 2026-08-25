@@ -211,6 +211,7 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
           <div class="ontology-instance-graph-key" aria-label={t("ontology.instances.graphLegend") }>
             <span><i class="is-direction" aria-hidden="true" />{t("ontology.instances.storedDirection")}</span>
             <span><i class="is-traffic" aria-hidden="true" />{t("ontology.instances.verifiedTrafficPath")}</span>
+            <span><i class="is-runtime" aria-hidden="true" />{t("ontology.instances.runtimeContext")}</span>
             <span><i class="is-access" aria-hidden="true" />{t("ontology.instances.accessContext")}</span>
             <span><i class="is-containment" aria-hidden="true" />{t("ontology.instances.containmentContext")}</span>
           </div>

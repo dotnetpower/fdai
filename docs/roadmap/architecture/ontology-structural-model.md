@@ -110,9 +110,13 @@ generation. Azure nested resources use an explicitly declared immediate provider
 top-level provider root. The bounded ARM source collects AKS AgentPool children that Azure Resource
 Graph does not expose as ordinary resources. The same source collects VM Scale Set VM and network
 interface children, projects them through the existing `compute.vm` and `network.interface` types,
-and retains exact VMSS-to-VM and NIC-to-VM/subnet mappings. Kubernetes API inventory adds UID-grounded cluster,
-namespace, node, workload, ownership, selector, endpoint, and scheduling evidence before the same
-single writer promotes resources and independently verified links atomically.
+and retains exact VMSS-to-VM and NIC-to-VM/subnet mappings. Kubernetes API inventory adds
+UID-grounded cluster, namespace, node, workload, Ingress, IngressClass, Endpoints, EndpointSlice,
+ownership, selector, backend, and scheduling evidence before the same single writer promotes
+resources and independently verified links atomically. A Kubernetes Node gains a
+`kubernetes_backed_by` link to one VMSS VM only when `spec.providerID` resolves to the exact
+provider reference of an observed VM instance. Names and identifier prefixes never substitute for
+that identity bridge.
 
 These producers do not infer topology from names alone. The Kubernetes source binds one exact
 cluster Resource identity, keeps namespace and cluster scope checks, and records explicit
@@ -227,18 +231,19 @@ major version or explicit graph migration. No rollout rewrites historical contex
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Structural design and compatibility | implemented | This paired owner document, `design-routes.json`, roadmap index, code map, and focused documentation gates | The additive model preserves existing Resource, ResourceType, direct-link identity, stored direction, and historical declarations. |
-| ResourceClass catalog and projection | implemented | `resource_class.py`, `resource-classes.yaml`, ResourceClass/ObjectType and membership/specialization declarations, catalog projection, closure receipt, and focused catalog checks | Eleven reviewed classes project all 77 neutral ResourceTypes through 77 direct memberships and 11 bounded specialization links. Closure uses only explicit ids and grants no authority. |
+| ResourceClass catalog and projection | implemented | `resource_class.py`, `resource-classes.yaml`, ResourceClass/ObjectType and membership/specialization declarations, catalog projection, closure receipt, and focused catalog checks | Eleven reviewed classes project all 80 neutral ResourceTypes through 80 direct memberships and 11 bounded specialization links. Closure uses only explicit ids and grants no authority. |
 | Ordered typed-path query | implemented | `TypedPathDefinition`, `QueryNodeKind.TYPED_PATH`, deterministic verifier, secured handler, composition binding, and focused query checks | Existing v1 traversal now accepts one LinkType. Typed paths execute 1-8 exact directed steps and hold on incomplete intermediate evidence. |
 | Link roles and semantic traits | implemented | Shared LinkType contract and schema, query manifest, seven reviewed runtime declarations plus two taxonomy declarations, and catalog tests | Optional empty fields preserve legacy provenance. Reviewed fields do not create inverse edges or presentation layout. |
 | Completeness and presentation separation | implemented | Authoritative ontology graph materializer, integration tests, Console decoder, LinkType inspector, graph-first instance workspace, bilingual product catalog, typecheck, and production build | The declaration graph carries four independent limitation families and exposes every bounded LinkType with roles and traits. The instance workspace keeps selection, legend, and Inspector state in the presentation layer without changing graph authority. |
 | Governance artifact separation | implemented | `rule_catalog/schema/governance_catalog.py`; `delivery/catalog_exemption.py`; focused governance loader and registry tests | Assignments and exemptions are validated catalog-as-code inputs. They are not projected as ontology facts and grant no query, approval, or execution authority. |
-| Provider-observed topology production | implemented | `azure-arg-v1.yaml`; `arm_inventory.py`; `kubernetes_api_inventory.py`; `kubernetes_inventory.py`; focused Azure, Kubernetes, inventory promotion, catalog, Ruff, and strict mypy checks | Reviewed Azure parent and root containment plus UID-grounded Kubernetes runtime topology enrich one complete generation. Live Kubernetes and deployed binding evidence remain separate validation work. |
-| Adversarial hardening | implemented | Twenty-eight cumulative rounds below, including 13 current taxonomy, direction, instance-projection, provider-boundary, and completeness lenses; focused Python and static checks | Every verified High or Medium finding was resolved. Only Low competency-specific taxonomy expansion remains. |
+| Provider-observed topology production | implemented | `azure-arg-v1.yaml`; `arm_inventory.py`; `kubernetes_api_inventory.py`; `kubernetes_inventory.py`; focused Azure, Kubernetes, inventory promotion, catalog, Ruff, and strict mypy checks | Ninety-four reviewed mappings cover Azure containment and traffic configuration plus UID-grounded Kubernetes runtime topology, exact Node provider identity, Ingress backend Services, and EndpointSlice exposure. An unconfigured Kubernetes source is retained as explicit unavailable generation evidence. Live Kubernetes evidence remains separate validation work. |
+| Adversarial hardening | implemented | Forty-two cumulative rounds below, including 14 current source, identity-bridge, taxonomy, projection, compatibility, and presentation lenses; focused Python, Operator, Console, and PostgreSQL checks | Every verified Critical, High, and Medium finding was resolved. Operational source unavailability and unverified external ingress remain explicit evidence gaps rather than code claims. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-26 | implemented | Added exact Node `providerID` to VMSS VM identity bridging, Ingress and EndpointSlice runtime taxonomy, explicit Kubernetes source availability, runtime-aware Operator and Console LinkType projection, and an evidence-only AKS first-viewport coverage band. | `current change`; focused catalog and inventory integration passed 111 cases, focused Operator checks passed 30 cases, focused Console checks passed 60 cases, and an authoritative local refresh retained 897 Resources plus 1,640 inventory links. Snapshot and ontology identity sets agreed exactly; dangling, duplicate, multiple-parent, endpoint-type, and generation mismatches were all zero. The selected stopped AKS branch retained one managed Resource Group, one direct AgentPool, and four VMSS Resources. It retained zero exact VMSS VM or VMSS NIC child edges. Kubernetes runtime remained explicitly unavailable, so Node, Pod, Service, Endpoint, and bridge counts also remained zero. | Retain one complete exact-cluster Kubernetes API generation before claiming runtime validation. External gateway or load-balancer to Kubernetes identity remains unknown until an authoritative source proves both endpoints. |
 | 2026-08-25 | implemented | Added bounded ARM collection for VMSS VM and NIC children plus default presentation rules that hide role assignments and retain only the selected root's immediate Resource Group context. | Focused Python checks passed 43 cases and Console checks passed 59 cases; Ruff, strict mypy, typecheck, and build passed. A local refresh promoted 901 Resources and 2,550 ontology links with exact generation agreement and zero structural invariant violations. Authenticated VNet and AKS views retained one immediate VNet owner group and displayed VMSS, VM, and NIC hierarchy nodes. | No bounded implementation work remains. Deployed evidence remains separate. |
 | 2026-08-25 | implemented | Required bounded multi-hop instance presentation to preserve stored edge direction, summarize only evidence-backed VM network paths, and keep absent ingress or egress unknown under incomplete or unmodeled coverage. | `current change`; active-generation PostgreSQL audit; focused Console checks passed 56 cases; typecheck, production build, and entry bundle check passed; authenticated 1440 x 900, 993 x 641, and 390 x 844 Browser checks retained zero overflow and 44 px mobile path controls. | No bounded implementation work remains. Governed runtime retention remains separate. |
 | 2026-08-23 | not-started | Adopted the structural model after reviewing Palantir ontology design guidance and the existing FDAI contracts. Earlier implementation provenance was not reconstructed because this is a new bounded design. | `current change`; this paired owner document and focused documentation gates. | Implement the delivery sequence and complete at least ten adversarial hardening rounds. |
@@ -286,6 +291,20 @@ major version or explicit graph migration. No rollout rewrites historical contex
 | 26 | Raw provider and semantic boundary | No verified finding above Low. The 3,405-type provider ledger stays separate from the 77-type neutral taxonomy. | Provider catalog and structural-model review. |
 | 27 | OpenAPI candidate direction | Rejected automatic mapping of modeled endpoint pairs because reused operation schemas don't prove property ownership or semantic direction. | The review receipt remains `review_required` with automatic promotion disabled. |
 | 28 | Bounds and deterministic ordering | No verified finding above Low after duplicate, total-edge, depth, cycle, and sorted-closure checks. | Focused ResourceClass and catalog projection checks. |
+| 29 | Active source-state accounting | Resolved a High omission where local authoritative refresh stored no Kubernetes source state. | The refreshed generation records `kubernetes_source_unconfigured` in `derived_source_states`. |
+| 30 | Azure/Kubernetes immutable identity bridge | Resolved a Critical modeling gap by requiring exact Node `spec.providerID` to observed VMSS VM `provider_ref` equality. | Focused collection and relationship tests pass. |
+| 31 | Name and identifier-prefix substitution | Resolved a High risk by proving similar Node and VM names never create a bridge edge. | The negative provider-identity fixture returns only a missing-target drop. |
+| 32 | Cross-authority endpoint scope | Resolved a High gap where same-cluster filtering incorrectly excluded Azure VM targets that do not carry Kubernetes `cluster_ref`. | Provider-identity matching crosses the source boundary only through exact provider references. |
+| 33 | EndpointSlice coverage | Resolved a Medium taxonomy and collector gap with UID-grounded EndpointSlice Resources and standard Service-label mapping. | Focused API, relationship, ResourceType, and catalog checks pass. |
+| 34 | Ingress backend coverage | Resolved a Medium source gap with bounded Ingress and IngressClass collection plus exact same-namespace backend Service mappings. | Multi-backend and class attachment fixtures pass without Azure name inference. |
+| 35 | Operator traversal vocabulary | Resolved a High omission where default instance traversal excluded stored Kubernetes relationships. | The operations family passes 30 focused checks with the expanded declared LinkType set. |
+| 36 | Console relationship trust boundary | Resolved a High decoder gap where valid Kubernetes links would be rejected as unknown vocabulary. | Focused Console model checks accept exact verified bridge evidence. |
+| 37 | Runtime versus traffic presentation | Resolved a Medium semantic defect where `routes_to` rendered as dependency and runtime relations rendered as generic access. | Graph model tests prove separate traffic and runtime lanes without rewriting stored direction. |
+| 38 | First-viewport false absence | Resolved a Medium presentation gap by deriving Observed, Unknown, and Unavailable steps only from stored links and source states. | Focused model and view checks pass; no browser-created edge or Resource is introduced. |
+| 39 | Service selector namespace isolation | Resolved a High cross-namespace selection defect by applying namespace compatibility to label-selector targets. | The cross-namespace Pod fixture retains only the same-namespace selected Pod. |
+| 40 | Ambiguous and partial endpoint closure | Resolved High ambiguity and Medium partial-path defects by rejecting duplicate exact provider identities and withholding all Ingress backend routes when any configured Service is missing. | Focused conflicting-identity and partial-backend fixtures pass with typed drop reasons. |
+| 41 | Rolling source-state compatibility | Resolved a High N-1 decoder regression by treating the Kubernetes source record as additive rather than mandatory. | Current payloads expose explicit unavailable state, while legacy payloads decode and keep runtime steps Unknown. |
+| 42 | EndpointSlice label boundary | Resolved a Medium source-validation gap by rejecting an overlong standard Service label before relationship projection. | The malformed EndpointSlice fixture fails closed at collection. |
 
 ### Remaining work
 
@@ -307,6 +326,10 @@ major version or explicit graph migration. No rollout rewrites historical contex
   above Low severity.
 - [x] Complete this document's bounded scope with the focused implementation, static, Console,
   translation, roadmap, punctuation, design-route, document-size, link, and diff gates cited above.
+- [ ] Retain one complete exact-cluster Kubernetes generation for
+  [Issue #278](https://github.com/dotnetpower/fdai/issues/278), including an independently verified
+  Node-to-VMSS-VM bridge and Service, Pod, Endpoints, and EndpointSlice paths. An unconfigured or
+  unreachable source remains unavailable and never proves runtime absence.
 
 ## Related docs
 

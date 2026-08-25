@@ -44,6 +44,12 @@ class _Reader:
             ),
             projection_source_states=(
                 InventoryProjectionSourceState(
+                    source="kubernetes_runtime_inventory",
+                    status="unavailable",
+                    observed_at=None,
+                    reason="kubernetes_source_unconfigured",
+                ),
+                InventoryProjectionSourceState(
                     source="runtime_call_graph",
                     status="available",
                     observed_at=datetime(2026, 8, 22, 0, 57, tzinfo=UTC),
@@ -318,13 +324,19 @@ async def test_instance_projection_combines_snapshot_neighborhood_and_activity()
     }
     sources = result["sources"]
     assert isinstance(sources, list)
-    assert sources[-4] == {
+    assert sources[-5] == {
         "source": "runtime_call_graph",
         "status": "available",
         "observed_at": "2026-08-22T00:57:00+00:00",
         "reason": None,
     }
-    assert sources[-3:] == [
+    assert sources[-4:] == [
+        {
+            "source": "kubernetes_runtime_inventory",
+            "status": "unavailable",
+            "observed_at": None,
+            "reason": "kubernetes_source_unconfigured",
+        },
         {
             "source": "postgres_role_evidence",
             "status": "unavailable",

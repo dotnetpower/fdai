@@ -1,0 +1,16 @@
+schema_version: "1.0.0"
+name: kubernetes_exposes_endpoint_slice
+version: "1.0.0"
+from_type: Resource
+to_type: Resource
+cardinality: one_to_many
+forward_role: exposes_endpoint_slice
+reverse_role: exposed_by_service
+semantic_traits: [connectivity]
+description: Exact same-namespace Kubernetes Service to EndpointSlice relationship from the standard Service label.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:kubernetes_exposes_endpoint_slice@1.0.0
+  content_hash: sha256:91937b90a4154c58303f2492a51a7a3875ea6f25d586b34d3331d2d9dbdfee64
+  license: MIT
+  retrieved_at: "2026-08-26T00:00:00Z"

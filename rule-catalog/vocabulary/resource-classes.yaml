@@ -68,6 +68,9 @@ classes:
       - network.subnet
       - network.virtual-network-gateway
       - network.vnet
+      - kubernetes.endpoint-slice
+      - kubernetes.ingress
+      - kubernetes.ingress-class
     specializes: [class.resource]
   - id: class.observability-resource
     description: Resource that collects, evaluates, or routes operational evidence.

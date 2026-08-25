@@ -6,6 +6,7 @@ import {
   isOntologyInstanceDirectoryResource,
   isOntologyInstancePresentationRoot,
   ontologyInstanceAutocompleteSuggestions,
+  ontologyInstanceAksLanes,
   ontologyInstanceNetworkPaths,
   ontologyInstancePresentationLinks,
   ontologyInstanceResourceAutocompleteOptions,
@@ -74,6 +75,7 @@ function payload(): Record<string, unknown> {
       { source: "inventory_relationships", status: "available", observed_at: "2026-08-22T00:00:00+00:00", reason: null },
       { source: "fdai_audit", status: "available", observed_at: "2026-08-22T00:00:00+00:00", reason: null },
       { source: "runtime_call_graph", status: "unavailable", observed_at: null, reason: "endpoint_identity_projection_unavailable" },
+      { source: "kubernetes_runtime_inventory", status: "unavailable", observed_at: null, reason: "kubernetes_source_unconfigured" },
       { source: "postgres_role_evidence", status: "unavailable", observed_at: null, reason: "projection_not_bound" },
       { source: "azure_resource_health", status: "unavailable", observed_at: null, reason: "projection_not_bound" },
     ],
@@ -93,6 +95,58 @@ describe("decodeOntologyInstanceExploration", () => {
     expect(decoded.root_id).toBe("root");
     expect(decoded.links).toHaveLength(1);
     expect(decoded.timeline.items[0]?.evidence_ref).toBe("audit:42");
+  });
+
+  it("accepts a legacy response before Kubernetes source state was additive", () => {
+    const value = payload();
+    value.sources = (value.sources as Record<string, unknown>[]).filter(
+      (source) => source.source !== "kubernetes_runtime_inventory",
+    );
+
+    const decoded = decodeOntologyInstanceExploration(value);
+
+    expect(decoded.sources.some((source) =>
+      source.source === "kubernetes_runtime_inventory")).toBe(false);
+  });
+
+  it("accepts an independently verified Kubernetes provider identity bridge", () => {
+    const value = payload();
+    value.link_types = ["kubernetes_backed_by"];
+    const links = value.links as Record<string, unknown>[];
+    links[0] = {
+      ...links[0],
+      link_type: "kubernetes_backed_by",
+      evidence: {
+        ...relationshipEvidence(),
+        evidence_kind: "observation",
+        verification_status: "independently_verified",
+        source: "kubernetes-api-inventory",
+        source_property_path: "provider_resource_ref",
+        mapping_id: "kubernetes.node-backed-by-vmss-vm",
+      },
+    };
+
+    const decoded = decodeOntologyInstanceExploration(value);
+
+    expect(decoded.links[0]?.link_type).toBe("kubernetes_backed_by");
+    expect(decoded.links[0]?.evidence.verification_status).toBe("independently_verified");
+  });
+
+  it("keeps absent AKS runtime hops unavailable instead of inferring nodes or pods", () => {
+    const value = payload();
+    const resources = value.resources as Record<string, unknown>[];
+    resources[0] = { ...resources[0], resource_type: "kubernetes-cluster" };
+
+    const lanes = ontologyInstanceAksLanes(decodeOntologyInstanceExploration(value));
+
+    expect(lanes?.find((lane) => lane.id === "runtime")?.steps).toEqual([
+      { id: "agentPool", status: "unknown" },
+      { id: "node", status: "unavailable" },
+      { id: "pod", status: "unavailable" },
+    ]);
+    expect(lanes?.find((lane) => lane.id === "service")?.steps.every(
+      (step) => step.status === "unavailable",
+    )).toBe(true);
   });
 
   it("accepts bounded mapping-specific relationship coverage", () => {

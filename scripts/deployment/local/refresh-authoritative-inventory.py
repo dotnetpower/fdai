@@ -24,6 +24,7 @@ from fdai.delivery.azure.dev_workload_identity import AzureCliWorkloadIdentity
 from fdai.delivery.azure.event_bus import EventHubsKafkaBus, EventHubsKafkaBusConfig
 from fdai.delivery.azure.inventory import AzureInventoryConfig, AzureResourceGraphInventory
 from fdai.delivery.inventory_sync import InventorySyncCoordinator, PromotedInventoryObservation
+from fdai.delivery.kubernetes_inventory import UnavailableKubernetesInventoryEnricher
 from fdai.delivery.operational_activity import (
     EventBusOperationalActivityPublisher,
     ObservedInventorySnapshotStore,
@@ -208,6 +209,7 @@ async def refresh() -> InventoryOntologyProjectionResult:
             result = await InventorySyncCoordinator(
                 store=observed_store,
                 promotion_observer=project,
+                promotion_enricher=UnavailableKubernetesInventoryEnricher(),
                 relationship_mapping_catalog=load_provider_relationship_mapping_catalog(
                     catalog_root / "vocabulary/provider-relationship-mappings"
                 ),

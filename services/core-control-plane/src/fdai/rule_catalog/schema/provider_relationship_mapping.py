@@ -32,7 +32,9 @@ class ProviderReferenceFormat(StrEnum):
     ARM_ID = "arm_id"
     EXACT_IDENTITY = "exact_identity"
     LABEL_SELECTOR = "label_selector"
+    PROVIDER_IDENTITY = "provider_identity"
     RESOLVED_NAME = "resolved_name"
+    RESOLVED_NAMES = "resolved_names"
     RESOLVED_UID = "resolved_uid"
 
 

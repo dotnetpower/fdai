@@ -216,6 +216,12 @@ async def test_postgres_inventory_impact_reads_only_active_snapshot_identity_and
                         ],
                         "derived_source_states": [
                             {
+                                "source": "kubernetes_runtime_inventory",
+                                "status": "unavailable",
+                                "observed_at": None,
+                                "reason": "kubernetes_source_unconfigured",
+                            },
+                            {
                                 "source": "runtime_call_graph",
                                 "status": "available",
                                 "observed_at": "2026-08-19T00:00:00+00:00",
@@ -278,6 +284,12 @@ async def test_postgres_inventory_impact_reads_only_active_snapshot_identity_and
             ),
         ),
         projection_source_states=(
+            InventoryProjectionSourceState(
+                source="kubernetes_runtime_inventory",
+                status="unavailable",
+                observed_at=None,
+                reason="kubernetes_source_unconfigured",
+            ),
             InventoryProjectionSourceState(
                 source="postgres_role_evidence",
                 status="unavailable",

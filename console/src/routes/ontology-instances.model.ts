@@ -115,7 +115,19 @@ export function ontologyInstanceAutocompleteSuggestions(
 export interface OntologyInstanceLink {
   readonly source: string;
   readonly target: string;
-  readonly link_type: "contains" | "attached_to" | "depends_on" | "routes_to" | "runtime_calls" | "peered_with";
+  readonly link_type:
+    | "contains"
+    | "attached_to"
+    | "depends_on"
+    | "routes_to"
+    | "runtime_calls"
+    | "peered_with"
+    | "kubernetes_backed_by"
+    | "kubernetes_exposes_endpoint_slice"
+    | "kubernetes_exposes_endpoints"
+    | "kubernetes_owned_by"
+    | "kubernetes_scheduled_on"
+    | "kubernetes_selects";
   readonly evidence: OntologyInstanceRelationshipEvidence;
 }
 
@@ -229,6 +241,110 @@ export interface OntologyInstanceNetworkPath {
 export interface OntologyInstanceNetworkPaths {
   readonly ingress: OntologyInstanceNetworkPath;
   readonly egress: OntologyInstanceNetworkPath;
+}
+
+export type OntologyInstancePathStepStatus = "observed" | "unknown" | "unavailable";
+
+export interface OntologyInstancePathStep {
+  readonly id: string;
+  readonly status: OntologyInstancePathStepStatus;
+}
+
+export interface OntologyInstanceAksLane {
+  readonly id: "ingress" | "infrastructure" | "runtime" | "service";
+  readonly steps: readonly OntologyInstancePathStep[];
+}
+
+/** Summarizes only stored AKS path evidence and explicit source unavailability. */
+export function ontologyInstanceAksLanes(
+  data: OntologyInstanceExploration,
+): readonly OntologyInstanceAksLane[] | null {
+  const resources = new Map(data.resources.map((resource) => [resource.id, resource]));
+  if (resources.get(data.root_id)?.resource_type !== "kubernetes-cluster") return null;
+  const mapped = (mappingId: string): readonly OntologyInstanceLink[] => data.links.filter(
+    (link) => link.evidence.mapping_id === mappingId,
+  );
+  const kubernetesUnavailable = data.sources.some((source) =>
+    source.source === "kubernetes_runtime_inventory" && source.status === "unavailable");
+  const infrastructureStatus = (observed: boolean): OntologyInstancePathStepStatus =>
+    observed ? "observed" : "unknown";
+  const runtimeStatus = (observed: boolean): OntologyInstancePathStepStatus =>
+    observed ? "observed" : kubernetesUnavailable ? "unavailable" : "unknown";
+
+  const managedGroupIds = new Set(mapped("azure.aks-attached-to-node-resource-group")
+    .filter((link) => link.source === data.root_id)
+    .map((link) => link.target));
+  const vmssIds = new Set(data.links
+    .filter((link) => link.link_type === "contains" && managedGroupIds.has(link.source)
+      && resources.get(link.target)?.resource_type === "compute.vm-scale-set")
+    .map((link) => link.target));
+  const vmIds = new Set(mapped("azure.vm-scale-set-contains-vm")
+    .filter((link) => vmssIds.has(link.source))
+    .map((link) => link.target));
+  const nicIds = new Set(mapped("azure.vm-scale-set-nic-attached-to-vm")
+    .filter((link) => vmIds.has(link.target))
+    .map((link) => link.source));
+  const agentPoolIds = new Set(mapped("azure.aks-contains-agent-pool")
+    .filter((link) => link.source === data.root_id)
+    .map((link) => link.target));
+  const nodeIds = new Set(mapped("kubernetes.agent-pool-contains-node")
+    .filter((link) => agentPoolIds.has(link.source))
+    .map((link) => link.target));
+  const scheduledPodIds = new Set(mapped("kubernetes.pod-scheduled-on-node")
+    .filter((link) => nodeIds.has(link.target))
+    .map((link) => link.source));
+  const serviceLinks = data.links.filter((link) =>
+    link.link_type === "kubernetes_selects"
+    || link.link_type === "kubernetes_exposes_endpoints"
+    || link.link_type === "kubernetes_exposes_endpoint_slice");
+  const serviceIds = new Set(serviceLinks.map((link) => link.source));
+  const selectedPodIds = new Set(serviceLinks
+    .filter((link) => link.link_type === "kubernetes_selects")
+    .map((link) => link.target));
+  const endpointIds = new Set(serviceLinks
+    .filter((link) => link.link_type !== "kubernetes_selects")
+    .map((link) => link.target));
+  const ingressObserved = data.links.some((link) =>
+    link.link_type === "routes_to"
+    && (resources.get(link.source)?.resource_type === "kubernetes.ingress"
+      || link.evidence.mapping_id === "azure.application-gateway-routes-to-configured-backend"
+      || link.evidence.mapping_id === "azure.load-balancer-routes-to-configured-backend")
+    && (link.target === data.root_id || serviceIds.has(link.target)));
+
+  return [
+    {
+      id: "ingress",
+      steps: [
+        { id: "frontend", status: infrastructureStatus(ingressObserved) },
+        { id: "aksOrService", status: "observed" },
+      ],
+    },
+    {
+      id: "infrastructure",
+      steps: [
+        { id: "managedGroup", status: infrastructureStatus(managedGroupIds.size > 0) },
+        { id: "vmss", status: infrastructureStatus(vmssIds.size > 0) },
+        { id: "vm", status: infrastructureStatus(vmIds.size > 0) },
+        { id: "nic", status: infrastructureStatus(nicIds.size > 0) },
+      ],
+    },
+    {
+      id: "runtime",
+      steps: [
+        { id: "agentPool", status: infrastructureStatus(agentPoolIds.size > 0) },
+        { id: "node", status: runtimeStatus(nodeIds.size > 0) },
+        { id: "pod", status: runtimeStatus(scheduledPodIds.size > 0) },
+      ],
+    },
+    {
+      id: "service",
+      steps: [
+        { id: "service", status: runtimeStatus(serviceIds.size > 0) },
+        { id: "pod", status: runtimeStatus(selectedPodIds.size > 0) },
+        { id: "endpoint", status: runtimeStatus(endpointIds.size > 0) },
+      ],
+    },
+  ];
 }
 
 const VERIFIED_BACKEND_TRAFFIC_MAPPINGS = new Set([
@@ -427,6 +543,12 @@ const INSTANCE_LINK_TYPES = new Set([
   "routes_to",
   "runtime_calls",
   "peered_with",
+  "kubernetes_backed_by",
+  "kubernetes_exposes_endpoint_slice",
+  "kubernetes_exposes_endpoints",
+  "kubernetes_owned_by",
+  "kubernetes_scheduled_on",
+  "kubernetes_selects",
 ]);
 
 export function decodeOntologyInstanceDirectory(value: unknown): OntologyInstanceDirectory {

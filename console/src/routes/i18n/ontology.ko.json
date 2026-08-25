@@ -84,8 +84,35 @@
     "directOutgoing": "직접 나가는 관계",
     "verifiedIngress": "검증된 인바운드",
     "verifiedEgress": "검증된 아웃바운드",
+    "runtimeContext": "런타임 맥락",
     "accessContext": "접근 맥락",
     "containmentContext": "포함 맥락",
+    "aksCoverageTitle": "AKS 종단 간 근거",
+    "aksCoverageHint": "관측됨은 저장된 관계만 사용합니다. 알 수 없음과 사용 불가는 부재를 뜻하지 않습니다.",
+    "aksLane": {
+      "ingress": "인바운드",
+      "infrastructure": "인프라",
+      "runtime": "런타임",
+      "service": "Service 경로"
+    },
+    "aksStep": {
+      "frontend": "프런트엔드",
+      "aksOrService": "AKS / Service",
+      "managedGroup": "관리형 그룹",
+      "vmss": "VMSS",
+      "vm": "VM",
+      "nic": "NIC",
+      "agentPool": "AgentPool",
+      "node": "Node",
+      "pod": "Pod",
+      "service": "Service",
+      "endpoint": "Endpoint"
+    },
+    "pathStatus": {
+      "observed": "관측됨",
+      "unknown": "알 수 없음",
+      "unavailable": "사용 불가"
+    },
     "networkPathsTitle": "모델링된 VM 네트워크 경로",
     "networkPathsHint": "검토된 mapping evidence가 있는 stored edge만 요약합니다. 경로 방향은 저장된 edge 방향을 다시 쓰거나 packet delivery를 입증하지 않습니다.",
     "networkPathIngress": "Ingress",
@@ -195,13 +222,20 @@
       "depends_on": "의존",
       "routes_to": "라우팅",
       "runtime_calls": "호출",
-      "peered_with": "피어링"
+      "peered_with": "피어링",
+      "kubernetes_backed_by": "인프라 기반",
+      "kubernetes_exposes_endpoint_slice": "EndpointSlice 노출",
+      "kubernetes_exposes_endpoints": "Endpoints 노출",
+      "kubernetes_owned_by": "컨트롤러 소유",
+      "kubernetes_scheduled_on": "Node에 스케줄됨",
+      "kubernetes_selects": "Pod 선택"
     },
     "source": {
       "inventory_snapshot": "인벤토리 스냅샷",
       "inventory_relationships": "인벤토리 관계",
       "fdai_audit": "FDAI 감사",
       "runtime_call_graph": "런타임 호출 그래프",
+      "kubernetes_runtime_inventory": "Kubernetes 런타임 인벤토리",
       "postgres_role_evidence": "PostgreSQL 역할 근거",
       "azure_resource_health": "Azure Resource Health",
       "azure_activity_log": "Azure Activity Log"

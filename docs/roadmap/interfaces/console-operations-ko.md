@@ -1,8 +1,8 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: de6c25d7cd32340c8b6c7294897f8efc9eedb6e8
-translation_revised: 2026-08-25
+translation_source_sha: 1b4565015bcacfcb333d87ed79c7c63bccb4fec8
+translation_revised: 2026-08-26
 ---
 
 # 콘솔 운영
@@ -76,6 +76,11 @@ Operations는 기존 객체와 링크를 재사용합니다.
 온톨로지 인스턴스 작업 영역은 읽기 전용 운영 화면입니다. 그래프 우선 레이아웃, 선택된 리소스와
 범례 오버레이, Inspector 소유 접기 상태는 표현 컨트롤일 뿐이며 링크를 만들거나 쿼리 범위를
 바꾸거나 변경 권한을 부여하지 않습니다.
+
+AKS 루트의 첫 화면은 저장된 응답 링크와 명시적인 출처 가용성만 사용해 인바운드, 인프라,
+런타임 및 Service 경로를 요약할 수 있습니다. Resource 또는 링크를 만들지 않고 각 구간을
+관측됨, 알 수 없음 또는 사용 불가로 표시합니다. Resource Group 포함 관계는 트래픽 또는
+의존성이 되지 않으며, 구성되지 않은 Kubernetes 출처는 런타임 부재를 입증하지 않습니다.
 
 브라우저에 표시할 pending 접근 요청이 있으면 인증된 GET-only 스트림이 principal의 App 역할로
 영속 기록을 필터링합니다. 탭과 Command Deck이 idle 상태이면 콘솔은 기능, 범위 및

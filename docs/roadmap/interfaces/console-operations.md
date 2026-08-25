@@ -75,6 +75,11 @@ The Ontology instance workspace is a read-only operational view. Its graph-first
 resource and legend overlays, and Inspector-owned collapse state are presentation controls only;
 they do not create links, change query scope, or grant mutation authority.
 
+For an AKS root, the first viewport may summarize ingress, infrastructure, runtime, and Service
+paths only from stored response links and explicit source availability. It labels a hop Observed,
+Unknown, or Unavailable without creating a Resource or edge. Resource Group containment never
+becomes traffic or dependency, and an unconfigured Kubernetes source never proves runtime absence.
+
 For a browser-visible pending access request, an authenticated GET-only stream filters the durable
 records by the principal's App Roles. When the tab and Command Deck are idle, the console opens a
 request-scoped conversation with the capability, scope, and expiry. Active work, an unsent draft,
