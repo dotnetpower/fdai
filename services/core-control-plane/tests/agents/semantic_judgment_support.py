@@ -61,9 +61,6 @@ class FrozenSemanticJudgmentModel:
         else:
             primary_intent = _intent_for(folded)
         return {
-            "conversation_act": (
-                "action_draft_request" if action is not None else "information_request"
-            ),
             "primary_intent": primary_intent,
             "secondary_intents": [],
             "targets": targets,

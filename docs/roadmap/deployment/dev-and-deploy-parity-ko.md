@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 977b6e1a548b3e069c1fc0de3a8106c15d4e2255
+translation_source_sha: 2b2915b804a18aba052c174b40b78752a69547b8
 translation_revised: 2026-08-25
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -110,8 +110,7 @@ translation_revised: 2026-08-25
 - [ ] 등록된 Console 경로 50개 전체의 통과 근거를 기록한 뒤 최소 10회 보증 라운드와 10회 비평/하드닝 라운드를 완료하여 해결되지 않은 finding의 심각도가 모두 Low 이하임을 입증합니다.
 - [ ] 복제본별 `FDAI_LIVE_STAGE_CONSUMER_GROUP_ID`를 통해 인증된 Live DOM에 도달하는 배포 개정 이벤트를 기록합니다. 브라우저 Notifications API 및 브라우저 종료 상태의 push 전달이 범위에 들어오면 별도로 추적합니다.
 - [ ] Operator schema migration이 성공한 뒤 catalog Job이 검토된 Rule 및 Ontology 참조 변환 결과를 기록함을 보여 주는 보호된 배포 증적을 기록합니다.
-- [ ] 같은 카탈로그 digest를 사용하는 통제된 로컬 및 배포 관측 캠페인 쌍을 보존합니다.
-  권한 있음, 사용 불가, 부분, 건너뜀 및 완료 출처 결과와 snapshot-first/실제 Agent Activity
+- [ ] 같은 카탈로그 digest를 사용하는 통제된 로컬 및 배포 관측 캠페인 쌍을 보존합니다. 권한 있음, 사용 불가, 부분, 건너뜀 및 완료 출처 결과와 snapshot-first/실제 Agent Activity
   중복 제거를 포함합니다.
 - [ ] 동일한 webhook 경로, 의미 terminal digest, 프로바이더 확인 응답 분류 및 rollback 결과를
   증명하는 통제된 local 및 보호된 deployed A3 channel-edge 증적을 보존합니다.

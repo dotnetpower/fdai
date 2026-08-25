@@ -105,8 +105,7 @@ All profiles share **one control path**: only composition-root adapters and cred
 - [ ] Record passing evidence for all 50 registered Console routes, then complete at least 10 assurance rounds and 10 critique/hardening rounds with no unresolved finding above Low severity.
 - [ ] Record a deployed-revision event that reaches an authenticated Live DOM through a replica-specific `FDAI_LIVE_STAGE_CONSUMER_GROUP_ID`; track browser Notifications API and closed-browser push delivery separately if those capabilities enter scope.
 - [ ] Record a protected deployment receipt showing the Operator schema migration succeeds before the catalog Job writes the reviewed Rule and Ontology reference projections.
-- [ ] Retain a governed local and deployed observation campaign pair with the same catalog digest,
-  including authorized, unavailable, partial, skipped, and completed source outcomes plus
+- [ ] Retain a governed local and deployed observation campaign pair with the same catalog digest, including authorized, unavailable, partial, skipped, and completed source outcomes plus
   snapshot-first/live Agent Activity deduplication.
 - [ ] Retain governed local and protected deployed A3 channel-edge receipts that prove the same
   webhook route, semantic terminal digest, provider acknowledgement class, and rollback outcome.
