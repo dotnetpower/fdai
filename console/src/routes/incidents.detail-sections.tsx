@@ -38,45 +38,47 @@ export function outcomeBoundLabel(
 }
 
 export function IncidentOutcomeAnalytics({ metrics }: { readonly metrics: IncidentOutcomeMetrics }) {  return (
-    <section class="incident-outcome-analytics" aria-labelledby="incident-outcome-title">
-      <header>
+    <details class="incident-outcome-analytics">
+      <summary>
         <div>
           <span class="incident-section-label">{t("incidents.analytics.label")}</span>
           <h2 id="incident-outcome-title">{t("incidents.analytics.title")}</h2>
         </div>
         <span>{outcomeBoundLabel(metrics)}</span>
-      </header>
-      <dl class="incident-analytics-provenance">
-        <div><dt>{t("incidents.analytics.source")}</dt><dd class="mono">{metrics.source}</dd></div>
-        <div><dt>{t("incidents.analytics.snapshot")}</dt><dd>{metrics.snapshot_seq}</dd></div>
-        <div><dt>{t("incidents.analytics.denominator")}</dt><dd>{outcomeDenominatorLabel(metrics)}</dd></div>
-        <div><dt>{t("incidents.analytics.window")}</dt><dd>{metrics.window_from && metrics.window_to ? `${formatConsoleTimestamp(metrics.window_from)} - ${formatConsoleTimestamp(metrics.window_to)}` : t("incidents.none")}</dd></div>
-        <div><dt>{t("incidents.analytics.medianTtm")}</dt><dd>{metrics.median_time_to_mitigate_seconds === null ? t("incidents.analytics.ttmUnavailable") : t("incidents.analytics.seconds", { count: metrics.median_time_to_mitigate_seconds })}</dd></div>
-        <div><dt>{t("incidents.analytics.ttmSample")}</dt><dd>{metrics.time_to_mitigate_sample_size}</dd></div>
-        <div><dt>{t("incidents.analytics.terminalRule")}</dt><dd class="mono">{metrics.terminal_rule}</dd></div>
-      </dl>
-      <div class="incident-cohort-grid">
-        {OUTCOME_COHORTS.map((cohort) => (
-          <details key={cohort} class="incident-cohort">
-            <summary>
-              <span>{t(`incidents.analytics.cohort.${cohort}`)}</span>
-              <strong>{metrics.cohorts[cohort]}</strong>
-            </summary>
-            {metrics.drilldown[cohort].length > 0 ? (
-              <ul>{metrics.drilldown[cohort].map((correlation) => (
-                <li key={correlation}><a href={routeHref("incidents", { params: { correlation } })}>{correlation}</a></li>
-              ))}</ul>
-            ) : <p>{t("incidents.analytics.noDrilldown")}</p>}
-            {metrics.drilldown_truncated[cohort] ? (
-              <p>{t("incidents.analytics.drilldownTruncated", {
-                shown: metrics.drilldown[cohort].length,
-                total: metrics.cohorts[cohort],
-              })}</p>
-            ) : null}
-          </details>
-        ))}
+      </summary>
+      <div class="incident-outcome-body">
+        <dl class="incident-analytics-provenance">
+          <div><dt>{t("incidents.analytics.source")}</dt><dd class="mono">{metrics.source}</dd></div>
+          <div><dt>{t("incidents.analytics.snapshot")}</dt><dd>{metrics.snapshot_seq}</dd></div>
+          <div><dt>{t("incidents.analytics.denominator")}</dt><dd>{outcomeDenominatorLabel(metrics)}</dd></div>
+          <div><dt>{t("incidents.analytics.window")}</dt><dd>{metrics.window_from && metrics.window_to ? `${formatConsoleTimestamp(metrics.window_from)} - ${formatConsoleTimestamp(metrics.window_to)}` : t("incidents.none")}</dd></div>
+          <div><dt>{t("incidents.analytics.medianTtm")}</dt><dd>{metrics.median_time_to_mitigate_seconds === null ? t("incidents.analytics.ttmUnavailable") : t("incidents.analytics.seconds", { count: metrics.median_time_to_mitigate_seconds })}</dd></div>
+          <div><dt>{t("incidents.analytics.ttmSample")}</dt><dd>{metrics.time_to_mitigate_sample_size}</dd></div>
+          <div><dt>{t("incidents.analytics.terminalRule")}</dt><dd class="mono">{metrics.terminal_rule}</dd></div>
+        </dl>
+        <div class="incident-cohort-grid">
+          {OUTCOME_COHORTS.map((cohort) => (
+            <details key={cohort} class="incident-cohort">
+              <summary>
+                <span>{t(`incidents.analytics.cohort.${cohort}`)}</span>
+                <strong>{metrics.cohorts[cohort]}</strong>
+              </summary>
+              {metrics.drilldown[cohort].length > 0 ? (
+                <ul>{metrics.drilldown[cohort].map((correlation) => (
+                  <li key={correlation}><a href={routeHref("incidents", { params: { correlation } })}>{correlation}</a></li>
+                ))}</ul>
+              ) : <p>{t("incidents.analytics.noDrilldown")}</p>}
+              {metrics.drilldown_truncated[cohort] ? (
+                <p>{t("incidents.analytics.drilldownTruncated", {
+                  shown: metrics.drilldown[cohort].length,
+                  total: metrics.cohorts[cohort],
+                })}</p>
+              ) : null}
+            </details>
+          ))}
+        </div>
       </div>
-    </section>
+    </details>
   );
 }
 

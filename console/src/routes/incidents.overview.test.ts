@@ -15,6 +15,8 @@ function incident(overrides: Partial<IncidentSummary> = {}): IncidentSummary {
     severity: "medium",
     status: "open",
     status_source: "incident_lifecycle",
+    lifecycle_state: "open",
+    target_ref: "sha256:target",
     disposition: "pending",
     verdict: "unknown",
     vertical: "unknown",

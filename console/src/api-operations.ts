@@ -76,6 +76,8 @@ export function decodeIncidentPage(value: unknown): IncidentPage {
         severity: apiString(item, "severity", "incident item"),
         status: apiIncidentStatus(item["status"]),
         status_source: apiStatusSource(item["status_source"]),
+        lifecycle_state: apiIncidentLifecycleState(item["lifecycle_state"]),
+        target_ref: apiOptionalNullableString(item, "target_ref", "incident item") ?? null,
         disposition: apiString(item, "disposition", "incident item"),
         verdict: apiString(item, "verdict", "incident item"),
         vertical: apiString(item, "vertical", "incident item"),
@@ -350,6 +352,17 @@ function apiIncidentStatus(value: unknown): "open" | "in_progress" | "resolved" 
 function apiStatusSource(value: unknown): "incident_lifecycle" | "audit_projection" {
   if (value === "incident_lifecycle" || value === "audit_projection") return value;
   throw contractError("incident item.status_source MUST name a supported projection source");
+}
+
+function apiIncidentLifecycleState(
+  value: unknown,
+): "open" | "triaging" | "mitigated" | "resolved" | "closed" | null {
+  if (value === null) return null;
+  if (
+    value === "open" || value === "triaging" || value === "mitigated" ||
+    value === "resolved" || value === "closed"
+  ) return value;
+  throw contractError("incident item.lifecycle_state MUST name a canonical state or null");
 }
 
 function apiIncidentTitleSource(value: unknown): import("./types").IncidentTitleSource {

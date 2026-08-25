@@ -25,6 +25,7 @@ const ACTION_TITLE_KEYS: Readonly<Record<string, string>> = {
   "incident.open": "incidents.event.title.opened",
   "incident.members": "incidents.event.title.correlated",
   "incident.transition": "incidents.event.title.transitioned",
+  "incident.intervention-applied": "incidents.event.title.interventionApplied",
   "notification.escalation": "incidents.event.title.notificationEscalation",
   "notification.route": "incidents.event.title.notificationRoute",
   "hil.requested": "incidents.event.title.approvalRequested",
@@ -79,6 +80,14 @@ function inferredDescription(item: AuditItem, title: string): string {
     const state = firstString(item, "to_state", "state") ?? "unknown";
     return t("incidents.event.description.transitioned", {
       state: localizedIncidentValue("status", state),
+    });
+  }
+  if (item.action_kind === "incident.intervention-applied") {
+    const action = firstString(item, "action") ?? "unknown";
+    const comment = firstString(item, "comment") ?? t("incidents.none");
+    return t("incidents.event.description.interventionApplied", {
+      action: t(`incidents.intervention.action.${action}`),
+      comment,
     });
   }
   if (item.action_kind === "notification.escalation") {
@@ -169,6 +178,8 @@ function timelineFacts(item: AuditItem): readonly IncidentTimelineFact[] {
   addFact(facts, t("incidents.fact.tier"), firstString(item, "tier", "trust_tier"), true);
   addFact(facts, t("incidents.fact.rule"), firstString(item, "rule_id"), false);
   addFact(facts, t("incidents.fact.approval"), firstString(item, "approval_id"), false);
+  addFact(facts, t("incidents.fact.intervention"), firstString(item, "action"), true);
+  addFact(facts, t("incidents.fact.resultRef"), firstString(item, "result_ref"), false);
   addFact(
     facts,
     t("incidents.rollback"),

@@ -88,6 +88,61 @@ export class OperatorApiTransport {
     }
   }
 
+  async postJson<T>(
+    path: string,
+    body: Record<string, unknown>,
+    idempotencyKey: string,
+  ): Promise<T> {
+    if (!idempotencyKey.trim()) {
+      throw new OperatorApiError(400, "Idempotency key is required.");
+    }
+    const url = new URL(path, this.#config.operatorApiBaseUrl);
+    const headers: Record<string, string> = {
+      accept: "application/json",
+      "content-type": "application/json",
+      "idempotency-key": idempotencyKey,
+    };
+    const authHeader = await this.#authorizationHeader();
+    if (authHeader !== null) headers["authorization"] = authHeader;
+    const controller = new AbortController();
+    const timeout = globalThis.setTimeout(
+      () => controller.abort(),
+      this.#config.operatorApiRequestTimeoutMs,
+    );
+    let response: Response;
+    try {
+      response = await fetch(url.toString(), {
+        method: "POST",
+        headers,
+        body: JSON.stringify(body),
+        credentials: "omit",
+        signal: controller.signal,
+      });
+    } catch (error) {
+      if (controller.signal.aborted) {
+        throw new OperatorApiError(504, "Operator API request timed out. Retry the request.");
+      }
+      throw error;
+    } finally {
+      globalThis.clearTimeout(timeout);
+    }
+    if (!response.ok) {
+      let message = `HTTP ${response.status}`;
+      try {
+        const payload = (await response.json()) as ApiError;
+        message = payload.error?.message ?? message;
+      } catch {
+        /* body was not JSON */
+      }
+      throw new OperatorApiError(response.status, message);
+    }
+    try {
+      return (await response.json()) as T;
+    } catch {
+      throw new OperatorApiError(response.status, "response body was not JSON");
+    }
+  }
+
   async getResponse(
     path: string,
     params: URLSearchParams | undefined,

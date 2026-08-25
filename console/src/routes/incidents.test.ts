@@ -2,10 +2,14 @@ import { afterEach, describe, expect, it } from "vitest";
 import { setLocale } from "../i18n";
 import type { AuditItem } from "../types";
 import {
+  incidentCommandSummary,
   incidentDisplayTitle,
+  incidentHandoffSteps,
   incidentPageMatchesSnapshot,
   incidentDisplayIdentifier,
+  incidentRosterStage,
   incidentVerticalDisplayLabel,
+  mergeOlderAuditItems,
   mergeIncidentItems,
   normalizeIncidentSearch,
   parseIncidentSeverity,
@@ -89,6 +93,69 @@ describe("incident pagination", () => {
   it("rejects a page from a different analytical snapshot", () => {
     expect(incidentPageMatchesSnapshot({ snapshot_seq: 42 }, { snapshot_seq: 42 })).toBe(true);
     expect(incidentPageMatchesSnapshot({ snapshot_seq: 42 }, { snapshot_seq: 43 })).toBe(false);
+  });
+
+  it("prepends older audit pages in chronological order without duplicate rows", () => {
+    const current = [
+      { ...auditItem("incident.transition", "Saga", {}), seq: 3 },
+      { ...auditItem("incident.transition", "Saga", {}), seq: 4 },
+    ];
+    const incomingNewestFirst = [
+      { ...auditItem("incident.transition", "Saga", {}), seq: 3 },
+      { ...auditItem("incident.open", "Huginn", {}), seq: 2 },
+      { ...auditItem("incident.open", "Huginn", {}), seq: 1 },
+    ];
+
+    expect(mergeOlderAuditItems(current, incomingNewestFirst).map((item) => item.seq))
+      .toEqual([1, 2, 3, 4]);
+  });
+});
+
+describe("incident command presentation", () => {
+  it("summarizes only loaded and bounded server-owned evidence", () => {
+    const summary = incidentCommandSummary([
+      { disposition: "awaiting_hil", verdict: "hil" },
+      { disposition: "action_delivered", verdict: "auto" },
+    ] as never, {
+      cohorts: {
+        agent_mitigated: 3,
+        agent_assisted: 2,
+        human_mitigated: 1,
+        pending: 8,
+        integrity_excluded: 4,
+      },
+    });
+
+    expect(summary).toEqual({
+      loaded: 2,
+      needsApproval: 1,
+      verifiedOutcomes: 6,
+      pendingOutcomes: 8,
+    });
+  });
+
+  it("maps roster state onto the four visible response stages", () => {
+    expect(incidentRosterStage({ status: "open", disposition: "pending", verdict: "unknown" }))
+      .toEqual({ key: "investigate", step: 1 });
+    expect(incidentRosterStage({ status: "open", disposition: "awaiting_hil", verdict: "hil" }))
+      .toEqual({ key: "approval", step: 2 });
+    expect(incidentRosterStage({ status: "in_progress", disposition: "action_delivered", verdict: "auto" }))
+      .toEqual({ key: "respond", step: 3 });
+    expect(incidentRosterStage({ status: "resolved", disposition: "resolved", verdict: "auto" }))
+      .toEqual({ key: "verify", step: 4 });
+  });
+
+  it("keeps the latest contribution per owner in chronological order", () => {
+    const items = [
+      { ...auditItem("incident.open", "Huginn", {}), seq: 1 },
+      { ...auditItem("rca.hypothesis", "Forseti", { rca_outcome: "recorded" }), seq: 2 },
+      { ...auditItem("incident.members", "Huginn", { member_event_ids: ["event-2"] }), seq: 3 },
+    ];
+
+    expect(incidentHandoffSteps(items)).toMatchObject([
+      { seq: 2, owner: "Forseti" },
+      { seq: 3, owner: "Huginn" },
+    ]);
   });
 });
 

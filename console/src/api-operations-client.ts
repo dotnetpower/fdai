@@ -41,6 +41,30 @@ export interface IncidentQuery {
   readonly correlationId?: string;
 }
 
+export type IncidentInterventionAction =
+  | "operator_guidance"
+  | "close_as_development"
+  | "create_development_exception"
+  | "revoke_development_exception";
+
+export interface IncidentInterventionBody {
+  readonly action: IncidentInterventionAction;
+  readonly incident_id: string;
+  readonly correlation_id: string;
+  readonly expected_state: "open" | "triaging" | "mitigated" | "resolved" | "closed";
+  readonly comment: string;
+  readonly duration?: "one_day" | "one_week" | "one_month" | "until_revoked";
+  readonly exception_id?: string;
+}
+
+export interface IncidentInterventionReceipt {
+  readonly request_id: string;
+  readonly correlation_id: string | null;
+  readonly dispatch_status: string;
+  readonly accepted_at: string;
+  readonly durably_queued: boolean;
+}
+
 export class OperationsApiClient {
   readonly #transport: OperatorApiTransport;
 
@@ -81,6 +105,28 @@ export class OperationsApiClient {
     if (options.severity !== undefined) params.set("severity", options.severity);
     if (options.correlationId !== undefined) params.set("correlation_id", options.correlationId);
     return decodeIncidentPage(await this.#transport.getJson<unknown>("/incidents", params));
+  }
+
+  async intervene(
+    body: IncidentInterventionBody,
+    idempotencyKey: string,
+  ): Promise<IncidentInterventionReceipt> {
+    const raw = await this.#transport.postJson<unknown>(
+      `/incidents/${encodeURIComponent(body.correlation_id)}/interventions`,
+      { ...body },
+      idempotencyKey,
+    );
+    const receipt = raw as Partial<IncidentInterventionReceipt>;
+    if (
+      typeof receipt.request_id !== "string"
+      || (receipt.correlation_id !== null && typeof receipt.correlation_id !== "string")
+      || typeof receipt.dispatch_status !== "string"
+      || typeof receipt.accepted_at !== "string"
+      || receipt.durably_queued !== true
+    ) {
+      throw new Error("incident intervention receipt is malformed");
+    }
+    return receipt as IncidentInterventionReceipt;
   }
 
   async rca(correlationId: string): Promise<RcaView> {

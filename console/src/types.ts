@@ -85,6 +85,8 @@ export interface IncidentSummary {
   readonly severity: string;
   readonly status: IncidentStatus;
   readonly status_source: "incident_lifecycle" | "audit_projection";
+  readonly lifecycle_state: "open" | "triaging" | "mitigated" | "resolved" | "closed" | null;
+  readonly target_ref: string | null;
   readonly disposition: string;
   readonly verdict: string;
   readonly vertical: string;

@@ -2,8 +2,7 @@
  * Operator API client. The console makes exactly three kinds of GET call
  * against the API defined in `services/core-control-plane/src/fdai/delivery/operator_api/main.py`.
  * All routes are read-only; there are NO helpers here for POST / PUT /
- * DELETE / PATCH - the read-only invariant is enforced by not writing
- * such helpers in the first place (see app-shape.instructions.md).
+ * DELETE / PATCH except the typed, no-authority Incident intervention proposal.
  */
 
 import type { AuthContext } from "./auth";
@@ -107,6 +106,13 @@ export class OperatorApiClient {
   async listIncidents(options: IncidentQuery = {}): Promise<IncidentPage> {
     await this.#requireAuthoritativeSource("/incidents");
     return this.#operations.listIncidents(options);
+  }
+
+  async interveneIncident(
+    body: import("./api-operations-client").IncidentInterventionBody,
+    idempotencyKey: string,
+  ): Promise<import("./api-operations-client").IncidentInterventionReceipt> {
+    return this.#operations.intervene(body, idempotencyKey);
   }
 
   /**

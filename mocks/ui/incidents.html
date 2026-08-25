@@ -4,45 +4,92 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Incidents - FDAI Console</title>
-  <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
-  <script src="assets/calm-slate.js?v=page-context-v3" defer></script>
+  <link rel="stylesheet" href="assets/calm-slate.css?v=incident-layout-v5" />
+  <script src="assets/calm-slate.js?v=incident-layout-v5" defer></script>
   <style>
-    .in-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
-    .in-summary .cs-card { padding: 16px 18px; }
-    .in-summary .cs-kpi-value { font-size: 24px; }
+    .in-page-header { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 340px); align-items: end; gap: 16px 32px; margin-bottom: 16px; }
+    .in-page-header .cs-lead { margin: 0; }
+    .in-scope-note { margin: 0; padding: 10px 12px; border-left: 1px solid var(--cs-hairline); color: var(--cs-text-soft); font-size: 12px; line-height: 1.45; }
+    .in-scope-note strong { color: var(--cs-text); }
 
-    .in-toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+    .in-command { margin-bottom: 16px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); box-shadow: var(--cs-shadow); overflow: hidden; }
+    .in-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .in-summary-item { min-width: 0; padding: 12px 15px; border-right: 1px solid var(--cs-hairline); }
+    .in-summary-item:last-child { border-right: 0; }
+    .in-summary-top { display: flex; align-items: baseline; gap: 7px; }
+    .in-summary-value { color: var(--cs-text); font-size: 22px; font-weight: 650; line-height: 1; font-variant-numeric: tabular-nums; }
+    .in-summary-label { color: var(--cs-text-soft); font-size: 12px; font-weight: 600; }
+    .in-summary-foot { display: block; margin-top: 5px; overflow: hidden; color: var(--cs-text-soft); font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
+
+    .in-toolbar { display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 6px 10px; border-top: 1px solid var(--cs-hairline); background: color-mix(in srgb, var(--cs-shade) 58%, var(--cs-card)); flex-wrap: wrap; }
     .in-filter { display: inline-flex; gap: 3px; padding: 3px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-card); }
-    .in-filter button { border: 0; border-radius: 6px; padding: 6px 12px; background: transparent; color: var(--cs-text-soft); font: inherit; font-size: 12.5px; cursor: pointer; }
+    .in-filter button { border: 0; border-radius: 5px; padding: 5px 11px; background: transparent; color: var(--cs-text-soft); font: inherit; font-size: 12px; cursor: pointer; }
     .in-filter button:hover { background: var(--cs-shade); color: var(--cs-text); }
     .in-filter button.is-active { background: var(--cs-navy); color: #fff; }
-    .in-filter-note { margin-left: auto; color: var(--cs-text-soft); font-size: 12.5px; }
+    .in-filter-note { margin-left: auto; color: var(--cs-text-soft); font-size: 11.5px; }
 
-    .in-workspace { display: grid; grid-template-columns: 350px minmax(0, 1fr); gap: 18px; align-items: start; }
+    .in-workspace { display: grid; grid-template-columns: 330px minmax(0, 1fr); gap: 16px; align-items: start; }
     .in-roster { border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); box-shadow: var(--cs-shadow); overflow: hidden; }
-    .in-roster-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 15px; border-bottom: 1px solid var(--cs-hairline); }
+    .in-roster-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 11px 13px; border-bottom: 1px solid var(--cs-hairline); }
     .in-roster-head h2 { margin: 0; font-size: 14px; }
     .in-roster-list { display: flex; flex-direction: column; }
-    .in-incident { display: block; width: 100%; padding: 13px 14px; border: 0; border-bottom: 1px solid var(--cs-hairline); background: transparent; color: inherit; text-align: left; font: inherit; cursor: pointer; }
+    .in-incident { display: grid; align-content: start; gap: 6px; width: 100%; min-height: 124px; padding: 11px 12px; border: 0; border-bottom: 1px solid var(--cs-hairline); background: transparent; color: inherit; text-align: left; font: inherit; cursor: pointer; }
     .in-incident:last-child { border-bottom: 0; }
     .in-incident:hover { background: var(--cs-shade); }
     .in-incident.is-selected { background: rgba(68,104,142,.08); outline: 1px solid rgba(68,104,142,.28); outline-offset: -1px; }
     .in-incident[hidden] { display: none; }
-    .in-incident-title { display: block; margin-bottom: 4px; color: var(--cs-text); font-size: 13.5px; font-weight: 600; line-height: 1.35; }
-    .in-incident-meta { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; color: var(--cs-text-soft); font-size: 11.5px; }
-    .in-status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cs-steel); }
-    .in-status-dot.is-open { background: var(--cs-dusty-red); }
-    .in-status-dot.is-progress { background: var(--cs-terracotta); }
-    .in-status-dot.is-resolved { background: var(--cs-sage); }
-    .in-roster-foot { padding: 11px 14px; border-top: 1px solid var(--cs-hairline); color: var(--cs-text-soft); font-size: 11.5px; }
-    .in-roster-foot button { width: 100%; padding: 7px 10px; border: 1px solid var(--cs-hairline); border-radius: 7px; background: var(--cs-navy); color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+    .in-incident-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .in-incident-top .cs-sev { padding: 1px 7px; font-size: 10.5px; }
+    .in-incident-top .cs-sev::before { width: 6px; height: 6px; }
+    .in-incident-age { color: var(--cs-text-soft); font-size: 11px; font-variant-numeric: tabular-nums; }
+    .in-incident-title { display: block; color: var(--cs-text); font-size: 13px; font-weight: 650; line-height: 1.35; }
+    .in-incident-context { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--cs-text-soft); font-size: 10.5px; }
+    .in-incident-domain { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .in-stage-row { display: grid; grid-template-columns: minmax(72px, 1fr) auto; align-items: center; gap: 10px; margin-top: 2px; }
+    .in-stage-track { --stage-progress: 0%; position: relative; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: center; min-width: 0; height: 14px; }
+    .in-stage-track::before { position: absolute; right: 8px; left: 8px; height: 2px; background: linear-gradient(90deg, var(--cs-steel) 0 var(--stage-progress), var(--cs-hairline) var(--stage-progress) 100%); content: ""; }
+    .in-stage-track.is-stage-2 { --stage-progress: 33.333%; }
+    .in-stage-track.is-stage-3 { --stage-progress: 66.666%; }
+    .in-stage-track.is-stage-4 { --stage-progress: 100%; }
+    .in-stage-node { position: relative; z-index: 1; width: 7px; height: 7px; justify-self: center; border: 1px solid #c3c0bb; border-radius: 50%; background: var(--cs-card); }
+    .in-stage-node.is-done { border-color: var(--cs-steel); background: var(--cs-steel); }
+    .in-stage-node.is-current { width: 9px; height: 9px; border: 2px solid var(--cs-steel); background: var(--cs-card); box-shadow: 0 0 0 2px rgba(68,104,142,.12); }
+    .in-stage-track.is-attention::before { background: linear-gradient(90deg, var(--cs-terracotta) 0 var(--stage-progress), var(--cs-hairline) var(--stage-progress) 100%); }
+    .in-stage-track.is-attention .in-stage-node.is-done { border-color: var(--cs-terracotta); background: var(--cs-terracotta); }
+    .in-stage-track.is-attention .in-stage-node.is-current { border-color: var(--cs-terracotta); box-shadow: 0 0 0 2px rgba(188,116,73,.12); }
+    .in-stage-track.is-complete::before { background: var(--cs-sage); }
+    .in-stage-track.is-complete .in-stage-node { border-color: var(--cs-sage); background: var(--cs-sage); }
+    .in-stage-name { color: var(--cs-steel); font-size: 10px; font-weight: 650; white-space: nowrap; }
+    .in-stage-name.is-attention { color: var(--cs-terracotta); }
+    .in-stage-name.is-complete { color: var(--cs-sage); }
+    .in-stage-name b { color: var(--cs-text-soft); font-size: 9px; font-weight: 500; }
+    .in-roster-foot { padding: 7px 10px; border-top: 1px solid var(--cs-hairline); background: var(--cs-shade); color: var(--cs-text-soft); font-size: 10.5px; text-align: center; }
+    .in-roster-foot button { padding: 4px 8px; border: 0; background: transparent; color: var(--cs-steel); font: inherit; font-weight: 600; cursor: pointer; }
 
-    .in-detail { border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); box-shadow: var(--cs-shadow); overflow: hidden; }
+    .in-detail { display: flex; flex-direction: column; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); box-shadow: var(--cs-shadow); overflow: hidden; }
     .in-detail[hidden] { display: none; }
-    .in-detail-head { padding: 20px 22px 17px; border-bottom: 1px solid var(--cs-hairline); }
+    .in-detail-head { padding: 17px 19px 14px; border-bottom: 1px solid var(--cs-hairline); }
     .in-detail-title-row { display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
     .in-detail-title-row h2 { flex: 1 1 360px; margin: 0; font-size: 19px; }
-    .in-detail-lead { margin: 8px 0 0; color: var(--cs-text-soft); font-size: 13px; }
+    .in-detail-actions { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+    .in-intervene-button { min-height: 34px; padding: 6px 11px; border: 1px solid var(--cs-navy); border-radius: 6px; background: var(--cs-navy); color: #fff; font: 650 11.5px var(--cs-font); cursor: pointer; }
+    .in-intervene-button:hover { background: #263746; }
+    .in-intervene-button:focus-visible { outline: 2px solid rgba(68,104,142,.42); outline-offset: 2px; }
+    .in-detail-lead { max-width: 76ch; margin: 7px 0 0; color: var(--cs-text-soft); font-size: 12.5px; }
+    .in-intervention-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 11px; padding: 8px 10px; border: 1px solid rgba(68,104,142,.22); border-radius: var(--cs-radius-sm); background: rgba(68,104,142,.06); color: var(--cs-text); font-size: 11.5px; }
+    .in-intervention-summary[hidden] { display: none; }
+    .in-intervention-summary.is-exception { border-color: rgba(188,116,73,.26); background: rgba(188,116,73,.07); }
+    .in-intervention-summary button { flex: 0 0 auto; min-height: 30px; padding: 4px 8px; border: 1px solid var(--cs-hairline); border-radius: 5px; background: var(--cs-card); color: var(--cs-text); font: 650 10.5px var(--cs-font); cursor: pointer; }
+    .in-agent-handoff { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 15px 0 0; padding: 0; border-top: 1px solid var(--cs-hairline); border-bottom: 1px solid var(--cs-hairline); list-style: none; }
+    .in-agent-handoff.is-two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .in-handoff-step { position: relative; min-width: 0; padding: 10px 12px; border-right: 1px solid var(--cs-hairline); }
+    .in-handoff-step:last-child { border-right: 0; }
+    .in-handoff-step.is-current { background: rgba(68,104,142,.07); }
+    .in-handoff-agent { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
+    .in-handoff-agent strong { color: var(--cs-text); font-size: 12.5px; }
+    .in-handoff-agent span { color: var(--cs-text-soft); font-size: 9.5px; font-weight: 600; text-transform: uppercase; }
+    .in-handoff-step p { margin: 5px 0 0; color: var(--cs-text-soft); font-size: 10.5px; line-height: 1.4; }
+    .in-handoff-step.is-current p { color: var(--cs-text); }
     .in-detail-meta { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
     .in-meta { padding: 10px 12px; border-radius: var(--cs-radius-sm); background: var(--cs-shade); }
     .in-meta span { display: block; color: var(--cs-text-soft); font-size: 10.5px; text-transform: uppercase; }
@@ -52,6 +99,8 @@
     .in-links a:hover { background: var(--cs-shade); text-decoration: none; }
 
     .in-current-state, .in-evidence-views { padding: 19px 22px; border-bottom: 1px solid var(--cs-hairline); }
+    .in-current-state { order: 1; }
+    .in-evidence-views { order: 3; border-bottom: 0; }
     .in-section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
     .in-section-label { display: block; margin-bottom: 4px; color: var(--cs-text-soft); font-size: 10.5px; font-weight: 700; text-transform: uppercase; }
     .in-section-head h3, .in-evidence-views h3 { margin: 0; font-size: 15px; }
@@ -62,6 +111,55 @@
     .in-current-facts dd { margin: 3px 0 0; color: var(--cs-text); font-size: 12px; font-weight: 600; }
     .in-next-step { display: flex; gap: 8px; margin-top: 11px; padding: 10px 12px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); font-size: 12px; }
     .in-next-step span { color: var(--cs-text-soft); }
+
+    .in-intervention-modal { width: min(760px, calc(100vw - 32px)); max-height: min(760px, calc(100vh - 32px)); margin: auto; padding: 0; overflow: auto; border: 1px solid var(--cs-hairline); border-radius: 8px; background: var(--cs-card); color: var(--cs-text); box-shadow: 0 18px 54px rgba(23,31,39,.24); }
+    .in-intervention-modal::backdrop { background: rgba(30,39,47,.44); backdrop-filter: blur(2px); }
+    .in-intervention { padding: 20px 22px 22px; }
+    .in-intervention-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+    .in-intervention-head h3 { margin: 0; font-size: 15px; }
+    .in-intervention-head p { max-width: 62ch; margin: 4px 0 0; color: var(--cs-text-soft); font-size: 11.5px; }
+    .in-modal-head-actions { display: flex; align-items: center; gap: 8px; }
+    .in-permission { flex: 0 0 auto; padding: 4px 8px; border: 1px solid rgba(68,104,142,.22); border-radius: 6px; background: rgba(68,104,142,.07); color: var(--cs-steel); font-size: 10.5px; font-weight: 700; }
+    .in-modal-close { display: inline-flex; width: 32px; height: 32px; align-items: center; justify-content: center; padding: 0; border: 1px solid var(--cs-hairline); border-radius: 6px; background: var(--cs-card); color: var(--cs-text-soft); font: 20px/1 var(--cs-font); cursor: pointer; }
+    .in-modal-close:hover { background: var(--cs-shade); color: var(--cs-text); }
+    .in-modal-close:focus-visible { outline: 2px solid rgba(68,104,142,.42); outline-offset: 2px; }
+    .in-intervention-target { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; color: var(--cs-text-soft); font-size: 11px; }
+    .in-intervention-target strong { color: var(--cs-text); }
+    .in-exception-banner { margin-bottom: 14px; padding: 11px 12px; border: 1px solid rgba(188,116,73,.24); border-radius: var(--cs-radius-sm); background: rgba(188,116,73,.07); }
+    .in-exception-banner[hidden] { display: none; }
+    .in-exception-banner-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .in-exception-banner h4 { margin: 0; font-size: 12.5px; }
+    .in-exception-banner p { margin: 4px 0 0; color: var(--cs-text-soft); font-size: 11px; }
+    .in-exception-banner button { min-height: 32px; padding: 4px 8px; border: 1px solid var(--cs-hairline); border-radius: 6px; background: var(--cs-card); color: var(--cs-text); font: 600 11px var(--cs-font); cursor: pointer; }
+    .in-action-choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; border: 0; }
+    .in-action-choices legend { margin-bottom: 7px; padding: 0; color: var(--cs-text); font-size: 11.5px; font-weight: 700; }
+    .in-action-choice { position: relative; display: grid; align-content: start; gap: 3px; min-height: 82px; padding: 10px 11px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-card); cursor: pointer; }
+    .in-action-choice:has(input:checked) { border-color: rgba(68,104,142,.42); background: rgba(68,104,142,.07); outline: 1px solid rgba(68,104,142,.18); }
+    .in-action-choice input { width: 16px; height: 16px; margin: 0 0 3px; accent-color: var(--cs-steel); }
+    .in-action-choice strong { color: var(--cs-text); font-size: 11.5px; }
+    .in-action-choice span { color: var(--cs-text-soft); font-size: 10.5px; line-height: 1.35; }
+    .in-intervention-fields { display: grid; grid-template-columns: minmax(0, 1fr) 170px; align-items: end; gap: 10px; margin-top: 12px; }
+    .in-intervention-field { display: grid; gap: 5px; min-width: 0; color: var(--cs-text); font-size: 11.5px; font-weight: 650; }
+    .in-intervention-field textarea, .in-intervention-field select { width: 100%; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-card); color: var(--cs-text); font: 12px var(--cs-font); }
+    .in-intervention-field textarea { min-height: 72px; padding: 9px 10px; resize: vertical; }
+    .in-intervention-field select { min-height: 40px; padding: 8px 9px; }
+    .in-intervention-field textarea:focus, .in-intervention-field select:focus { outline: 2px solid rgba(68,104,142,.38); outline-offset: 1px; }
+    .in-duration-field[hidden] { display: none; }
+    .in-intervention-guard { margin: 9px 0 0; color: var(--cs-text-soft); font-size: 10.5px; }
+    .in-intervention-error { margin: 8px 0 0; color: var(--cs-dusty-red); font-size: 11px; font-weight: 600; }
+    .in-intervention-error[hidden] { display: none; }
+    .in-intervention-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+    .in-intervention-actions button { min-height: 38px; padding: 7px 12px; border: 1px solid var(--cs-hairline); border-radius: 6px; background: var(--cs-card); color: var(--cs-text); font: 600 11.5px var(--cs-font); cursor: pointer; }
+    .in-intervention-actions .is-primary { border-color: var(--cs-navy); background: var(--cs-navy); color: #fff; }
+    .in-review-panel { padding: 12px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-card); }
+    .in-review-panel[hidden] { display: none; }
+    .in-review-panel h4 { margin: 0 0 8px; font-size: 13px; }
+    .in-review-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px 12px; margin: 0; }
+    .in-review-list div { min-width: 0; }
+    .in-review-list dt { color: var(--cs-text-soft); font-size: 9.5px; font-weight: 700; text-transform: uppercase; }
+    .in-review-list dd { margin: 2px 0 0; color: var(--cs-text); font-size: 11.5px; overflow-wrap: anywhere; }
+    .in-intervention-status { margin: 10px 0 0; color: var(--cs-sage); font-size: 11.5px; font-weight: 600; }
+    .in-intervention-status:empty { display: none; }
 
     .in-additional { margin-top: 12px; border-top: 1px solid var(--cs-hairline); }
     .in-additional summary { padding: 11px 0 0; color: var(--cs-steel); font-size: 12px; font-weight: 700; cursor: pointer; }
@@ -80,9 +178,10 @@
     .in-view-row.is-unavailable em { color: var(--cs-text-soft); }
     .in-evidence-scope { display: block; margin-top: 9px; color: var(--cs-text-soft); font-size: 10.5px; overflow-wrap: anywhere; }
 
-    .in-history { padding: 19px 22px 23px; }
-    .in-history-title { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+    .in-history { order: 2; padding: 19px 22px 23px; border-bottom: 1px solid var(--cs-hairline); }
+    .in-history-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
     .in-history-title h3 { margin: 0; font-size: 15px; }
+    .in-history-title p { max-width: 54ch; margin: 4px 0 0; color: var(--cs-text-soft); font-size: 11.5px; }
     .in-history-title span { color: var(--cs-text-soft); font-size: 11.5px; }
     .in-timeline { position: relative; padding-left: 28px; }
     .in-timeline::before { content: ""; position: absolute; left: 7px; top: 10px; bottom: 12px; width: 2px; background: var(--cs-hairline); }
@@ -93,22 +192,55 @@
     .in-event.is-hil::before { background: var(--cs-terracotta); }
     .in-event.is-audit::before { background: var(--cs-navy); }
     .in-event-row { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
-    .in-event-title { color: var(--cs-text); font-size: 13.5px; font-weight: 600; }
+    .in-event-agent { color: var(--cs-text); font-size: 13.5px; font-weight: 700; }
+    .in-event-role { color: var(--cs-steel); font-size: 10.5px; font-weight: 600; }
+    .in-event-title { margin-top: 4px; color: var(--cs-text); font-size: 13px; font-weight: 600; }
     .in-event-time { margin-left: auto; color: var(--cs-text-soft); font-size: 11px; font-variant-numeric: tabular-nums; }
-    .in-event-note { margin: 3px 0 7px; color: var(--cs-text-soft); font-size: 12.5px; }
+    .in-event-note, .in-event-outcome { margin: 3px 0 0; color: var(--cs-text-soft); font-size: 12px; }
+    .in-event-note strong, .in-event-outcome strong { color: var(--cs-text); font-weight: 600; }
+    .in-event-outcome { margin-bottom: 7px; }
     .in-event-facts { display: flex; gap: 6px; flex-wrap: wrap; }
     .in-event-facts span { padding: 2px 7px; border-radius: 5px; background: var(--cs-shade); color: var(--cs-text-soft); font-size: 10.5px; }
 
     @media (max-width: 980px) {
-      .in-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .in-page-header { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+      .in-scope-note { padding: 0; border-left: 0; }
       .in-workspace { grid-template-columns: 1fr; }
-      .in-roster-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .in-incident:nth-child(odd) { border-right: 1px solid var(--cs-hairline); }
+      .in-roster-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .in-incident { border-right: 1px solid var(--cs-hairline); }
+      .in-incident:nth-child(3n) { border-right: 0; }
+      .in-detail-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .in-agent-handoff, .in-agent-handoff.is-two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .in-handoff-step:nth-child(2n) { border-right: 0; }
+      .in-handoff-step:nth-child(-n+2) { border-bottom: 1px solid var(--cs-hairline); }
     }
     @media (max-width: 620px) {
-      .in-summary, .in-roster-list, .in-detail-meta, .in-current-facts, .in-additional dl { grid-template-columns: 1fr; }
+      .in-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .in-summary-item:nth-child(2) { border-right: 0; }
+      .in-summary-item:nth-child(-n+2) { border-bottom: 1px solid var(--cs-hairline); }
+      .in-filter button, .in-roster-foot button { min-height: 44px; }
+      .in-roster-list, .in-detail-meta, .in-current-facts, .in-additional dl { grid-template-columns: 1fr; }
       .in-filter-note { width: 100%; margin-left: 0; }
-      .in-incident:nth-child(odd) { border-right: 0; }
+      .in-incident { min-height: 0; border-right: 0; }
+      .in-detail-title-row h2 { flex-basis: 100%; }
+      .in-detail-actions { width: 100%; justify-content: space-between; }
+      .in-intervene-button { min-height: 44px; }
+      .in-intervention-summary { align-items: flex-start; flex-direction: column; }
+      .in-intervention-summary button { min-height: 44px; }
+      .in-agent-handoff, .in-agent-handoff.is-two { grid-template-columns: 1fr; }
+      .in-handoff-step { border-right: 0; border-bottom: 1px solid var(--cs-hairline); }
+      .in-handoff-step:last-child { border-bottom: 0; }
+      .in-intervention-modal { width: calc(100vw - 16px); max-height: calc(100vh - 16px); }
+      .in-intervention { padding: 16px; }
+      .in-intervention-head { gap: 8px; }
+      .in-modal-head-actions { align-items: flex-end; flex-direction: column-reverse; }
+      .in-modal-close { width: 44px; height: 44px; }
+      .in-action-choices { grid-template-columns: 1fr; }
+      .in-action-choice { min-height: 0; }
+      .in-intervention-fields, .in-review-list { grid-template-columns: 1fr; }
+      .in-intervention-actions { justify-content: stretch; }
+      .in-intervention-actions button { flex: 1; min-height: 44px; }
+      .in-exception-banner button { min-height: 44px; }
       .in-detail-head, .in-current-state, .in-evidence-views, .in-history { padding-left: 16px; padding-right: 16px; }
       .in-links { padding-left: 16px; padding-right: 16px; }
       .in-view-row { grid-template-columns: 1fr; gap: 3px; }
@@ -117,52 +249,45 @@
 </head>
 <body>
   <main class="cs-container cs-page">
-    <div class="cs-page-header cs-mb-16">
-      <div class="cs-eyebrow">Now + history &middot; incident-centric read model</div>
-      <h1>Incidents</h1>
-      <p class="cs-lead">See every correlated incident, its current disposition, and the complete
-        remediation trail in one read-only workspace. The correlation id joins detection, verdict,
-        delivery, rollback, and audit evidence without introducing a second source of truth.</p>
-    </div>
+    <header class="cs-page-header in-page-header">
+      <div>
+        <div class="cs-eyebrow">Current operations &middot; 30-day window</div>
+        <h1>Incidents</h1>
+        <p class="cs-lead">Triage active incidents, inspect the current response, and follow recorded evidence through verification.</p>
+      </div>
+      <p class="in-scope-note"><strong>Governed workspace.</strong> Evidence remains read-only. Authorized intervention submits typed, confirmed requests and never executes a managed-resource change.</p>
+    </header>
 
-    <div class="cs-readonly-banner">
-      <strong>Read-only.</strong> This panel composes GET-only incident and audit projections.
-      Approvals and changes remain in ChatOps or remediation pull requests.
-    </div>
+    <section class="in-command" aria-label="Incident overview and filters">
+      <div class="in-summary" aria-label="Incident summary">
+        <div class="in-summary-item">
+          <span class="in-summary-top"><strong class="in-summary-value">3</strong><span class="in-summary-label">Active</span></span>
+          <span class="in-summary-foot">1 critical &middot; 1 high &middot; 1 medium</span>
+        </div>
+        <div class="in-summary-item">
+          <span class="in-summary-top"><strong class="in-summary-value">1</strong><span class="in-summary-label">Needs approval</span></span>
+          <span class="in-summary-foot">oldest waiting 8m</span>
+        </div>
+        <div class="in-summary-item">
+          <span class="in-summary-top"><strong class="in-summary-value">12</strong><span class="in-summary-label">Resolved in 24h</span></span>
+          <span class="in-summary-foot">median response 6m 42s</span>
+        </div>
+        <div class="in-summary-item">
+          <span class="in-summary-top"><strong class="in-summary-value">67%</strong><span class="in-summary-label">Auto-contained</span></span>
+          <span class="in-summary-foot">8 of 12 resolved incidents</span>
+        </div>
+      </div>
 
-    <section class="in-summary" aria-label="Incident summary">
-      <div class="cs-card cs-kpi">
-        <span class="cs-kpi-label">Active incidents</span>
-        <span class="cs-kpi-value">3</span>
-        <span class="cs-kpi-foot">1 critical &middot; 1 high &middot; 1 medium</span>
-      </div>
-      <div class="cs-card cs-kpi">
-        <span class="cs-kpi-label">Resolved in 24h</span>
-        <span class="cs-kpi-value">12</span>
-        <span class="cs-kpi-foot">median 6m 42s</span>
-      </div>
-      <div class="cs-card cs-kpi">
-        <span class="cs-kpi-label">Auto-contained</span>
-        <span class="cs-kpi-value">8</span>
-        <span class="cs-kpi-foot">66.7% of resolved incidents</span>
-      </div>
-      <div class="cs-card cs-kpi">
-        <span class="cs-kpi-label">Awaiting approval</span>
-        <span class="cs-kpi-value">1</span>
-        <span class="cs-kpi-foot">oldest 8m</span>
+      <div class="in-toolbar">
+        <div class="in-filter" role="group" aria-label="Filter incidents by status">
+          <button type="button" class="is-active" data-incident-filter="active" aria-pressed="true">Active</button>
+          <button type="button" data-incident-filter="resolved" aria-pressed="false">Resolved</button>
+          <button type="button" data-incident-filter="all" aria-pressed="false">All</button>
+        </div>
+        <span class="cs-tag">vertical <strong>all</strong></span>
+        <span class="in-filter-note" id="incident-count">3 active incidents &middot; severity first</span>
       </div>
     </section>
-
-    <div class="in-toolbar">
-      <div class="in-filter" role="group" aria-label="Filter incidents by status">
-        <button type="button" class="is-active" data-incident-filter="active" aria-pressed="true">Active</button>
-        <button type="button" data-incident-filter="resolved" aria-pressed="false">Resolved</button>
-        <button type="button" data-incident-filter="all" aria-pressed="false">All</button>
-      </div>
-      <span class="cs-tag">vertical <strong>all</strong></span>
-      <span class="cs-tag">window <strong>30d</strong></span>
-      <span class="in-filter-note" id="incident-count">Showing 3 active incidents</span>
-    </div>
 
     <div class="in-workspace">
       <section class="in-roster" aria-labelledby="incident-roster-title">
@@ -172,27 +297,47 @@
         </div>
         <div class="in-roster-list">
           <button class="in-incident is-selected" type="button" data-incident="inc-api-latency" data-status="active" aria-pressed="true">
-            <span>
-              <span class="in-incident-title">API latency after configuration rollout</span>
-              <span class="in-incident-meta"><span class="cs-sev critical">critical</span><span class="in-status-dot is-progress"></span>in progress <span>&middot;</span> change safety <span>&middot;</span> 4m</span>
+            <span class="in-incident-top"><span class="cs-sev critical">critical</span><span class="in-incident-age">4m</span></span>
+            <span class="in-incident-title">API latency after configuration rollout</span>
+            <span class="in-incident-context"><span class="in-incident-domain">change safety</span><span>automatic response</span></span>
+            <span class="in-stage-row">
+              <span class="in-stage-track is-stage-4" role="img" aria-label="Response lifecycle: detection, decision, and response complete; verification in progress">
+                <span class="in-stage-node is-done" aria-hidden="true"></span><span class="in-stage-node is-done" aria-hidden="true"></span><span class="in-stage-node is-done" aria-hidden="true"></span><span class="in-stage-node is-current" aria-hidden="true"></span>
+              </span>
+              <span class="in-stage-name">Verify <b>4/4</b></span>
             </span>
           </button>
           <button class="in-incident" type="button" data-incident="inc-pitr-disabled" data-status="active" aria-pressed="false">
-            <span>
-              <span class="in-incident-title">Point-in-time recovery disabled</span>
-              <span class="in-incident-meta"><span class="cs-sev high">high</span><span class="in-status-dot is-open"></span>open <span>&middot;</span> resilience <span>&middot;</span> 8m</span>
+            <span class="in-incident-top"><span class="cs-sev high">high</span><span class="in-incident-age">8m</span></span>
+            <span class="in-incident-title">Point-in-time recovery disabled</span>
+            <span class="in-incident-context"><span class="in-incident-domain">resilience</span><span>human decision</span></span>
+            <span class="in-stage-row">
+              <span class="in-stage-track is-stage-2 is-attention" role="img" aria-label="Response lifecycle: detection complete; approval decision required before response">
+                <span class="in-stage-node is-done" aria-hidden="true"></span><span class="in-stage-node is-current" aria-hidden="true"></span><span class="in-stage-node" aria-hidden="true"></span><span class="in-stage-node" aria-hidden="true"></span>
+              </span>
+              <span class="in-stage-name is-attention">Approval <b>2/4</b></span>
             </span>
           </button>
           <button class="in-incident" type="button" data-incident="inc-cost-spike" data-status="active" aria-pressed="false">
-            <span>
-              <span class="in-incident-title">Unexpected compute cost increase</span>
-              <span class="in-incident-meta"><span class="cs-sev medium">medium</span><span class="in-status-dot is-progress"></span>in progress <span>&middot;</span> cost governance <span>&middot;</span> 17m</span>
+            <span class="in-incident-top"><span class="cs-sev medium">medium</span><span class="in-incident-age">17m</span></span>
+            <span class="in-incident-title">Unexpected compute cost increase</span>
+            <span class="in-incident-context"><span class="in-incident-domain">cost governance</span><span>shadow analysis</span></span>
+            <span class="in-stage-row">
+              <span class="in-stage-track" role="img" aria-label="Response lifecycle: detection and investigation in progress; no decision recorded">
+                <span class="in-stage-node is-current" aria-hidden="true"></span><span class="in-stage-node" aria-hidden="true"></span><span class="in-stage-node" aria-hidden="true"></span><span class="in-stage-node" aria-hidden="true"></span>
+              </span>
+              <span class="in-stage-name">Investigate <b>1/4</b></span>
             </span>
           </button>
           <button class="in-incident" type="button" data-incident="inc-secret-expiry" data-status="resolved" aria-pressed="false" hidden>
-            <span>
-              <span class="in-incident-title">Workload secret nearing expiry</span>
-              <span class="in-incident-meta"><span class="cs-sev high">high</span><span class="in-status-dot is-resolved"></span>resolved <span>&middot;</span> change safety <span>&middot;</span> 42m ago</span>
+            <span class="in-incident-top"><span class="cs-sev high">high</span><span class="in-incident-age">42m ago</span></span>
+            <span class="in-incident-title">Workload secret nearing expiry</span>
+            <span class="in-incident-context"><span class="in-incident-domain">change safety</span><span>automatic response</span></span>
+            <span class="in-stage-row">
+              <span class="in-stage-track is-stage-4 is-complete" role="img" aria-label="Response lifecycle complete and independently verified">
+                <span class="in-stage-node" aria-hidden="true"></span><span class="in-stage-node" aria-hidden="true"></span><span class="in-stage-node" aria-hidden="true"></span><span class="in-stage-node" aria-hidden="true"></span>
+              </span>
+              <span class="in-stage-name is-complete">Resolved <b>4/4</b></span>
             </span>
           </button>
         </div>
@@ -204,20 +349,24 @@
           <header class="in-detail-head">
             <div class="in-detail-title-row">
               <h2>API latency after configuration rollout</h2>
-              <span class="cs-risk critical">critical</span>
-              <span class="cs-status wait">in progress</span>
+              <div class="in-detail-actions"><span class="cs-risk critical">critical</span><span class="cs-status wait">in progress</span><button class="in-intervene-button" type="button" data-open-intervention aria-haspopup="dialog" aria-controls="operator-intervention-dialog">Intervene</button></div>
             </div>
             <p class="in-detail-lead">Latency breached the service threshold within two minutes of a
               configuration revision. The action is contained; rollback verification is running.</p>
-            <div class="in-detail-meta">
-              <div class="in-meta"><span>Opened</span><strong>2026-07-15 09:48:12Z</strong></div>
-              <div class="in-meta"><span>Last updated</span><strong>2026-07-15 09:52:31Z</strong></div>
-              <div class="in-meta"><span>History</span><strong>6 records</strong></div>
-              <div class="in-meta"><span>Latest mode</span><strong>Enforce mode - changes permitted</strong></div>
-            </div>
+            <div class="in-intervention-summary" data-intervention-summary hidden><strong data-intervention-summary-text></strong><button type="button" data-manage-intervention aria-haspopup="dialog" aria-controls="operator-intervention-dialog">Manage</button></div>
+            <ol class="in-agent-handoff" aria-label="Agent handoff for this incident">
+              <li class="in-handoff-step"><div class="in-handoff-agent"><strong>Huginn</strong><span>Detected</span></div><p>Grouped seven latency alerts and one rollout into a single incident.</p></li>
+              <li class="in-handoff-step"><div class="in-handoff-agent"><strong>Forseti</strong><span>Decided</span></div><p>Confirmed the blast radius was one revision and allowed automatic rollback.</p></li>
+              <li class="in-handoff-step"><div class="in-handoff-agent"><strong>Thor</strong><span>Responded</span></div><p>Reverted the configuration through the approved GitOps delivery path.</p></li>
+              <li class="in-handoff-step is-current"><div class="in-handoff-agent"><strong>Vidar</strong><span>Verifying</span></div><p>Is comparing health probes with the frozen pre-change baseline.</p></li>
+            </ol>
             <details class="in-additional">
               <summary>Additional evidence</summary>
               <dl>
+                <div><dt>Opened</dt><dd>2026-07-15 09:48:12Z</dd></div>
+                <div><dt>Last updated</dt><dd>2026-07-15 09:52:31Z</dd></div>
+                <div><dt>History</dt><dd>6 records</dd></div>
+                <div><dt>Latest mode</dt><dd>Enforce mode - changes permitted</dd></div>
                 <div><dt>Correlation id</dt><dd class="cs-mono">inc-01J2-API-LATENCY</dd></div>
                 <div><dt>Incident id</dt><dd class="cs-mono">INC-240715-01</dd></div>
                 <div><dt>Ticket id</dt><dd class="cs-mono">OPS-1842</dd></div>
@@ -229,19 +378,53 @@
               </dl>
             </details>
           </header>
-          <section class="in-current-state" aria-labelledby="current-state-title">
+          <section class="in-current-state" aria-labelledby="current-state-title" data-current-state>
             <div class="in-section-head">
-              <div><span class="in-section-label">Current situation</span><h3 id="current-state-title">Response in progress</h3></div>
-              <span class="cs-status wait">in progress</span>
+              <div><span class="in-section-label">Current situation</span><h3 id="current-state-title" data-current-title>Response in progress</h3></div>
+              <span class="cs-status wait" data-current-status>in progress</span>
             </div>
-            <p>A governed response has started and has not reached a terminal outcome yet.</p>
+            <p data-current-description>A governed response has started and has not reached a terminal outcome yet.</p>
             <dl class="in-current-facts">
-              <div><dt>Lifecycle</dt><dd>In progress</dd></div>
+              <div><dt>Lifecycle</dt><dd data-lifecycle-value>In progress</dd></div>
               <div><dt>Response decision</dt><dd>Automatic</dd></div>
               <div><dt>Change authority</dt><dd>Enforce mode - changes permitted</dd></div>
             </dl>
-            <div class="in-next-step"><strong>Recommended next step</strong><span>Monitor the latest activity until verification completes or the response is held for review.</span></div>
+            <div class="in-next-step"><strong>Recommended next step</strong><span data-next-step>Monitor the latest activity until verification completes or the response is held for review.</span></div>
           </section>
+          <dialog class="in-intervention-modal" id="operator-intervention-dialog" aria-labelledby="operator-intervention-title" data-intervention-dialog>
+          <section class="in-intervention" data-intervention data-target="service:checkout-api">
+            <div class="in-intervention-head">
+              <div><h3 id="operator-intervention-title">Operator intervention</h3><p>Record guidance, close this incident as expected development activity, or create a target-scoped Incident intake exception.</p></div>
+              <div class="in-modal-head-actions"><span class="in-permission">Authorized as Owner</span><button class="in-modal-close" type="button" data-close-intervention aria-label="Close operator intervention">&times;</button></div>
+            </div>
+            <div class="in-intervention-target"><span>Logical target</span><strong class="cs-mono">service:checkout-api</strong></div>
+            <div class="in-exception-banner" data-exception-banner hidden>
+              <div class="in-exception-banner-head"><div><h4>Development exception active</h4><p>Findings and audit records continue. New matching findings do not create Incidents <strong data-exception-until></strong>.</p><p>Reason: <span data-exception-reason></span></p></div><button type="button" data-revoke-exception>Revoke exception</button></div>
+            </div>
+            <form data-intervention-form novalidate>
+              <fieldset class="in-action-choices">
+                <legend>Choose the requested outcome</legend>
+                <label class="in-action-choice"><input type="radio" name="intervention-action" value="guidance" checked /><strong>Guide response</strong><span>Add an operator comment and request re-evaluation at the next decision boundary.</span></label>
+                <label class="in-action-choice"><input type="radio" name="intervention-action" value="close" /><strong>Close this incident</strong><span>Record this occurrence as expected development activity. Future Incidents remain enabled.</span></label>
+                <label class="in-action-choice"><input type="radio" name="intervention-action" value="exception" /><strong>Close and add exception</strong><span>Close this incident and suppress new Incident creation for this exact target.</span></label>
+              </fieldset>
+              <div class="in-intervention-fields">
+                <label class="in-intervention-field">Operator comment<textarea name="intervention-comment" maxlength="500" required placeholder="Explain the development context and the direction agents should take."></textarea></label>
+                <label class="in-intervention-field in-duration-field" data-duration-field hidden>Exception duration<select name="intervention-duration"><option value="one-day">1 day</option><option value="one-week">1 week</option><option value="one-month">1 month</option><option value="until-revoked">Until revoked</option></select></label>
+              </div>
+              <p class="in-intervention-guard">Comments never grant execution authority. Closing does not cancel an action already delivered. An exception keeps detection and findings active and only affects future Incident creation for this target.</p>
+              <p class="in-intervention-error" data-intervention-error role="alert" hidden></p>
+              <div class="in-intervention-actions"><button class="is-primary" type="submit">Review request</button></div>
+            </form>
+            <div class="in-review-panel" data-review-panel hidden>
+              <h4>Confirm operator intervention</h4>
+              <dl class="in-review-list"><div><dt>Request</dt><dd data-review-action></dd></div><div><dt>Logical target</dt><dd class="cs-mono">service:checkout-api</dd></div><div><dt>Duration</dt><dd data-review-duration></dd></div><div><dt>Comment</dt><dd data-review-comment></dd></div></dl>
+              <p class="in-intervention-guard">Confirmation appends an operator event to this incident. It does not directly mutate the managed service.</p>
+              <div class="in-intervention-actions"><button type="button" data-review-back>Back</button><button class="is-primary" type="button" data-confirm-intervention>Confirm intervention</button></div>
+            </div>
+            <p class="in-intervention-status" data-intervention-status role="status" aria-live="polite"></p>
+          </section>
+          </dialog>
           <section class="in-evidence-views" aria-labelledby="evidence-views-title">
             <h3 id="evidence-views-title">Available evidence</h3>
             <p>Only views backed by recorded evidence are enabled. Unavailable analysis is not inferred from generic activity.</p>
@@ -254,26 +437,34 @@
             <span class="in-evidence-scope">Evidence scope: inc-01J2-API-LATENCY</span>
           </section>
           <div class="in-history">
-            <div class="in-history-title"><h3>Incident activity</h3><span>4 of 6 records &middot; newest first &middot; open audit to continue</span></div>
+            <div class="in-history-title"><div><h3>Agent activity</h3><p>What each agent did, why it acted, and what changed as a result.</p></div><span>4 of 6 records &middot; newest first</span></div>
             <div class="in-timeline">
               <div class="in-event is-audit">
-                <div class="in-event-row"><span class="in-event-title">Rollback verification started</span><span class="cs-tag">Vidar</span><time class="in-event-time">09:52:31</time></div>
-                <p class="in-event-note">Health probes are compared with the frozen pre-change baseline for five minutes.</p>
+                <div class="in-event-row"><strong class="in-event-agent">Vidar</strong><span class="in-event-role">Effect verification</span><time class="in-event-time">09:52:31</time></div>
+                <div class="in-event-title">Started independent rollback verification.</div>
+                <p class="in-event-note"><strong>Why:</strong> A successful revert is not enough; service health must recover against the frozen pre-change baseline.</p>
+                <p class="in-event-outcome"><strong>Result:</strong> Five-minute probe comparison is running. The incident remains open until it passes.</p>
                 <div class="in-event-facts"><span>mode enforce</span><span>rollback rbk-01J2-773</span><span>audit aud-01J2-941</span></div>
               </div>
               <div class="in-event is-auto">
-                <div class="in-event-row"><span class="in-event-title">Configuration revision reverted</span><span class="cs-tag">Thor</span><time class="in-event-time">09:51:44</time></div>
-                <p class="in-event-note">The approved GitOps revert restored the prior revision. No direct console mutation occurred.</p>
+                <div class="in-event-row"><strong class="in-event-agent">Thor</strong><span class="in-event-role">Remediation delivery</span><time class="in-event-time">09:51:44</time></div>
+                <div class="in-event-title">Restored the previous configuration revision.</div>
+                <p class="in-event-note"><strong>Why:</strong> The latency breach began immediately after the rollout and the approved rollback contract was available.</p>
+                <p class="in-event-outcome"><strong>Result:</strong> The GitOps revert was applied. No direct console mutation occurred.</p>
                 <div class="in-event-facts"><span>action config.rollback</span><span>delivery pr_native</span><span>result applied</span></div>
               </div>
               <div class="in-event is-hil">
-                <div class="in-event-row"><span class="in-event-title">Risk gate issued auto verdict</span><span class="cs-tag">Forseti</span><time class="in-event-time">09:50:57</time></div>
-                <p class="in-event-note">Blast radius remained one revision and the tested rollback contract was available.</p>
+                <div class="in-event-row"><strong class="in-event-agent">Forseti</strong><span class="in-event-role">Risk decision</span><time class="in-event-time">09:50:57</time></div>
+                <div class="in-event-title">Allowed an automatic rollback.</div>
+                <p class="in-event-note"><strong>Why:</strong> The blast radius was limited to one revision and a tested rollback path existed.</p>
+                <p class="in-event-outcome"><strong>Result:</strong> The response stayed in T0 and did not require human approval.</p>
                 <div class="in-event-facts"><span>verdict auto</span><span>tier T0</span><span>confidence 1.00</span></div>
               </div>
               <div class="in-event">
-                <div class="in-event-row"><span class="in-event-title">Incident opened and correlated</span><span class="cs-tag">Huginn</span><time class="in-event-time">09:48:12</time></div>
-                <p class="in-event-note">Seven latency alerts and one deployment event were deduplicated into this correlation id.</p>
+                <div class="in-event-row"><strong class="in-event-agent">Huginn</strong><span class="in-event-role">Signal correlation</span><time class="in-event-time">09:48:12</time></div>
+                <div class="in-event-title">Opened one incident from eight related events.</div>
+                <p class="in-event-note"><strong>Why:</strong> Seven latency alerts shared the same service and time window as one configuration rollout.</p>
+                <p class="in-event-outcome"><strong>Result:</strong> Duplicate alerts were grouped under one correlation id for a single governed response.</p>
                 <div class="in-event-facts"><span>events 8 -&gt; 1</span><span>vertical change safety</span><span>mode enforce</span></div>
               </div>
             </div>
@@ -284,13 +475,13 @@
           <header class="in-detail-head">
             <div class="in-detail-title-row"><h2>Point-in-time recovery disabled</h2><span class="cs-risk high">high</span><span class="cs-status wait">approval required</span></div>
             <p class="in-detail-lead">A resilience rule detected missing recovery protection. The proposed remediation is grounded and waiting for two distinct approvers.</p>
-            <div class="in-detail-meta">
-              <div class="in-meta"><span>Opened</span><strong>2026-07-15 09:44:55Z</strong></div>
-              <div class="in-meta"><span>Last updated</span><strong>2026-07-15 09:51:08Z</strong></div>
-              <div class="in-meta"><span>History</span><strong>4 records</strong></div>
-              <div class="in-meta"><span>Latest mode</span><strong>Enforce mode - approval required</strong></div>
-            </div>
+            <ol class="in-agent-handoff is-two" aria-label="Agent handoff for this incident">
+              <li class="in-handoff-step"><div class="in-handoff-agent"><strong>Huginn</strong><span>Detected</span></div><p>Linked the missing recovery protection to the resilience policy finding.</p></li>
+              <li class="in-handoff-step is-current"><div class="in-handoff-agent"><strong>Var</strong><span>Holding</span></div><p>Requested two independent approvers and prevented delivery from proceeding.</p></li>
+            </ol>
             <details class="in-additional"><summary>Additional evidence</summary><dl>
+              <div><dt>Opened</dt><dd>2026-07-15 09:44:55Z</dd></div><div><dt>Last updated</dt><dd>2026-07-15 09:51:08Z</dd></div>
+              <div><dt>History</dt><dd>4 records</dd></div><div><dt>Latest mode</dt><dd>Enforce mode - approval required</dd></div>
               <div><dt>Correlation id</dt><dd class="cs-mono">inc-01J2-PITR-OFF</dd></div><div><dt>Incident id</dt><dd class="cs-mono">INC-240715-02</dd></div>
               <div><dt>Ticket id</dt><dd class="cs-mono">OPS-1843</dd></div><div><dt>Current disposition</dt><dd>human approval pending</dd></div>
               <div><dt>Current decision</dt><dd>Human approval</dd></div><div><dt>Vertical</dt><dd>Resilience</dd></div>
@@ -302,28 +493,30 @@
             <a class="in-view-row" href="audit.html"><strong>All audit records</strong><span>Browse all 4 recorded events and their raw evidence fields.</span><em>Open</em></a><a class="in-view-row" href="rule-trace.html"><strong>Technical activity</strong><span>Inspect 4 ordered events and the approval route.</span><em>Open</em></a>
             <div class="in-view-row is-unavailable" aria-disabled="true"><strong>Root-cause analysis</strong><span>No evidence-backed cause analysis has been recorded.</span><em>Unavailable</em></div><div class="in-view-row is-unavailable" aria-disabled="true"><strong>RCA dossier</strong><span>A report becomes available after recorded RCA evidence exists.</span><em>Unavailable</em></div>
           </div><span class="in-evidence-scope">Evidence scope: inc-01J2-PITR-OFF</span></section>
-          <div class="in-history"><div class="in-history-title"><h3>Incident activity</h3><span>2 of 4 records &middot; newest first &middot; open audit to continue</span></div><div class="in-timeline">
-            <div class="in-event is-hil"><div class="in-event-row"><span class="in-event-title">Approval requested</span><span class="cs-tag">Var</span><time class="in-event-time">09:51:08</time></div><p class="in-event-note">Two-person approval is required before the remediation pull request can merge.</p><div class="in-event-facts"><span>verdict hil</span><span>mode enforce</span><span>rollback pr_revert</span></div></div>
-            <div class="in-event"><div class="in-event-row"><span class="in-event-title">Incident opened</span><span class="cs-tag">Huginn</span><time class="in-event-time">09:44:55</time></div><p class="in-event-note">The finding was correlated with the recovery policy evaluation.</p></div>
+          <div class="in-history"><div class="in-history-title"><div><h3>Agent activity</h3><p>What each agent did, why it acted, and what changed as a result.</p></div><span>2 of 4 records &middot; newest first</span></div><div class="in-timeline">
+            <div class="in-event is-hil"><div class="in-event-row"><strong class="in-event-agent">Var</strong><span class="in-event-role">Approval coordination</span><time class="in-event-time">09:51:08</time></div><div class="in-event-title">Held the remediation for two-person approval.</div><p class="in-event-note"><strong>Why:</strong> Changing recovery protection requires independent human authorization before delivery.</p><p class="in-event-outcome"><strong>Result:</strong> Two distinct approvers were requested; no infrastructure change has been released.</p><div class="in-event-facts"><span>verdict hil</span><span>mode enforce</span><span>rollback pr_revert</span></div></div>
+            <div class="in-event"><div class="in-event-row"><strong class="in-event-agent">Huginn</strong><span class="in-event-role">Signal correlation</span><time class="in-event-time">09:44:55</time></div><div class="in-event-title">Opened a resilience incident for missing recovery protection.</div><p class="in-event-note"><strong>Why:</strong> The observed state did not satisfy the point-in-time recovery policy evaluation.</p><p class="in-event-outcome"><strong>Result:</strong> The finding and its policy evidence now share one governed incident history.</p></div>
           </div></div>
         </article>
 
         <article class="in-detail" data-incident-detail="inc-cost-spike" hidden>
-          <header class="in-detail-head"><div class="in-detail-title-row"><h2>Unexpected compute cost increase</h2><span class="cs-risk medium">medium</span><span class="cs-status idle">investigating</span></div><p class="in-detail-lead">Spend increased above the seven-day baseline. Njord is correlating usage and pricing changes in shadow mode.</p><div class="in-detail-meta"><div class="in-meta"><span>Opened</span><strong>2026-07-15 09:35:02Z</strong></div><div class="in-meta"><span>Last updated</span><strong>2026-07-15 09:50:26Z</strong></div><div class="in-meta"><span>History</span><strong>3 records</strong></div><div class="in-meta"><span>Latest mode</span><strong>Shadow mode - no changes applied</strong></div></div><details class="in-additional"><summary>Additional evidence</summary><dl>
+          <header class="in-detail-head"><div class="in-detail-title-row"><h2>Unexpected compute cost increase</h2><span class="cs-risk medium">medium</span><span class="cs-status idle">investigating</span></div><p class="in-detail-lead">Spend increased above the seven-day baseline. Njord is correlating usage and pricing changes in shadow mode.</p><ol class="in-agent-handoff is-two" aria-label="Agent handoff for this incident"><li class="in-handoff-step"><div class="in-handoff-agent"><strong>Huginn</strong><span>Detected</span></div><p>Grouped the spend signal into one cost-governance incident.</p></li><li class="in-handoff-step is-current"><div class="in-handoff-agent"><strong>Njord</strong><span>Investigating</span></div><p>Is comparing usage attribution with pricing evidence in shadow mode.</p></li></ol><details class="in-additional"><summary>Additional evidence</summary><dl>
+            <div><dt>Opened</dt><dd>2026-07-15 09:35:02Z</dd></div><div><dt>Last updated</dt><dd>2026-07-15 09:50:26Z</dd></div><div><dt>History</dt><dd>3 records</dd></div><div><dt>Latest mode</dt><dd>Shadow mode - no changes applied</dd></div>
             <div><dt>Correlation id</dt><dd class="cs-mono">inc-01J2-COST-SPIKE</dd></div><div><dt>Incident id</dt><dd class="cs-mono">INC-240715-03</dd></div><div><dt>Ticket id</dt><dd>None</dd></div><div><dt>Current disposition</dt><dd>analysis running</dd></div><div><dt>Current decision</dt><dd>Not recorded</dd></div><div><dt>Vertical</dt><dd>Cost Governance</dd></div><div><dt>Status source</dt><dd class="cs-mono">incident.open</dd></div><div><dt>Involved agents</dt><dd>Huginn, Njord</dd></div>
           </dl></details></header>
           <section class="in-current-state"><div class="in-section-head"><div><span class="in-section-label">Current situation</span><h3>Correlated activity only</h3></div><span class="cs-status idle">investigating</span></div><p>Technical activity is recorded, but no response decision or root-cause conclusion exists yet.</p><dl class="in-current-facts"><div><dt>Lifecycle</dt><dd>In progress</dd></div><div><dt>Response decision</dt><dd>Not recorded</dd></div><div><dt>Change authority</dt><dd>Shadow mode - no changes applied</dd></div></dl><div class="in-next-step"><strong>Recommended next step</strong><span>Wait for usage attribution and pricing evidence to agree before proposing an action.</span></div></section>
           <section class="in-evidence-views"><h3>Available evidence</h3><p>Only views backed by recorded evidence are enabled. Unavailable analysis is not inferred from generic activity.</p><div class="in-view-list"><a class="in-view-row" href="audit.html"><strong>All audit records</strong><span>Browse all 3 recorded events and their raw evidence fields.</span><em>Open</em></a><a class="in-view-row" href="rule-trace.html"><strong>Technical activity</strong><span>Inspect 3 ordered cost-attribution events.</span><em>Open</em></a><div class="in-view-row is-unavailable" aria-disabled="true"><strong>Root-cause analysis</strong><span>No evidence-backed cause analysis has been recorded.</span><em>Unavailable</em></div><div class="in-view-row is-unavailable" aria-disabled="true"><strong>RCA dossier</strong><span>A report becomes available after recorded RCA evidence exists.</span><em>Unavailable</em></div></div><span class="in-evidence-scope">Evidence scope: inc-01J2-COST-SPIKE</span></section>
-          <div class="in-history"><div class="in-history-title"><h3>Incident activity</h3><span>1 of 3 records &middot; newest first &middot; open audit to continue</span></div><div class="in-timeline"><div class="in-event"><div class="in-event-row"><span class="in-event-title">Cost hypothesis entered shadow evaluation</span><span class="cs-tag">Njord</span><time class="in-event-time">09:50:26</time></div><p class="in-event-note">No action is eligible until usage attribution and pricing evidence agree.</p><div class="in-event-facts"><span>mode shadow</span><span>verdict pending</span></div></div></div></div>
+          <div class="in-history"><div class="in-history-title"><div><h3>Agent activity</h3><p>What each agent did, why it acted, and what changed as a result.</p></div><span>2 of 3 records &middot; newest first</span></div><div class="in-timeline"><div class="in-event"><div class="in-event-row"><strong class="in-event-agent">Njord</strong><span class="in-event-role">Cost investigation</span><time class="in-event-time">09:50:26</time></div><div class="in-event-title">Started a shadow evaluation of the cost hypothesis.</div><p class="in-event-note"><strong>Why:</strong> Spend is above baseline, but usage attribution and pricing evidence do not yet agree.</p><p class="in-event-outcome"><strong>Result:</strong> Investigation continues without proposing or applying a cost action.</p><div class="in-event-facts"><span>mode shadow</span><span>verdict pending</span></div></div><div class="in-event"><div class="in-event-row"><strong class="in-event-agent">Huginn</strong><span class="in-event-role">Signal correlation</span><time class="in-event-time">09:35:02</time></div><div class="in-event-title">Opened one incident from the abnormal spend signal.</div><p class="in-event-note"><strong>Why:</strong> Compute spend crossed the recorded seven-day baseline.</p><p class="in-event-outcome"><strong>Result:</strong> The signal entered cost-governance analysis with no execution authority.</p></div></div></div>
         </article>
 
         <article class="in-detail" data-incident-detail="inc-secret-expiry" hidden>
-          <header class="in-detail-head"><div class="in-detail-title-row"><h2>Workload secret nearing expiry</h2><span class="cs-risk high">high</span><span class="cs-status ok">resolved</span></div><p class="in-detail-lead">The secret reference was rotated through a remediation pull request and post-change health checks passed.</p><div class="in-detail-meta"><div class="in-meta"><span>Opened</span><strong>2026-07-15 08:41:16Z</strong></div><div class="in-meta"><span>Last updated</span><strong>2026-07-15 09:10:43Z</strong></div><div class="in-meta"><span>History</span><strong>7 records</strong></div><div class="in-meta"><span>Latest mode</span><strong>Enforce mode - changes permitted</strong></div></div><details class="in-additional"><summary>Additional evidence</summary><dl>
+          <header class="in-detail-head"><div class="in-detail-title-row"><h2>Workload secret nearing expiry</h2><span class="cs-risk high">high</span><span class="cs-status ok">resolved</span></div><p class="in-detail-lead">The secret reference was rotated through a remediation pull request and post-change health checks passed.</p><ol class="in-agent-handoff" aria-label="Agent handoff for this incident"><li class="in-handoff-step"><div class="in-handoff-agent"><strong>Huginn</strong><span>Detected</span></div><p>Opened one incident from the recorded expiry signal.</p></li><li class="in-handoff-step"><div class="in-handoff-agent"><strong>Forseti</strong><span>Decided</span></div><p>Allowed the bounded rotation to use its tested rollback path.</p></li><li class="in-handoff-step"><div class="in-handoff-agent"><strong>Thor</strong><span>Responded</span></div><p>Delivered the secret-reference rotation through a remediation pull request.</p></li><li class="in-handoff-step is-current"><div class="in-handoff-agent"><strong>Saga</strong><span>Closed</span></div><p>Confirmed rollout health and recorded the terminal outcome.</p></li></ol><details class="in-additional"><summary>Additional evidence</summary><dl>
+            <div><dt>Opened</dt><dd>2026-07-15 08:41:16Z</dd></div><div><dt>Last updated</dt><dd>2026-07-15 09:10:43Z</dd></div><div><dt>History</dt><dd>7 records</dd></div><div><dt>Latest mode</dt><dd>Enforce mode - changes permitted</dd></div>
             <div><dt>Correlation id</dt><dd class="cs-mono">inc-01J2-SECRET-EXP</dd></div><div><dt>Incident id</dt><dd class="cs-mono">INC-240715-04</dd></div><div><dt>Ticket id</dt><dd class="cs-mono">OPS-1838</dd></div><div><dt>Current disposition</dt><dd>remediated</dd></div><div><dt>Current decision</dt><dd>Automatic</dd></div><div><dt>Vertical</dt><dd>Change Safety</dd></div><div><dt>Status source</dt><dd class="cs-mono">incident.transition</dd></div><div><dt>Involved agents</dt><dd>Huginn, Forseti, Thor, Saga</dd></div>
           </dl></details></header>
           <section class="in-current-state"><div class="in-section-head"><div><span class="in-section-label">Current situation</span><h3>Incident resolved</h3></div><span class="cs-status ok">resolved</span></div><p>The recorded response reached a terminal outcome and independent health verification passed.</p><dl class="in-current-facts"><div><dt>Lifecycle</dt><dd>Resolved</dd></div><div><dt>Response decision</dt><dd>Automatic</dd></div><div><dt>Change authority</dt><dd>Enforce mode - changes permitted</dd></div></dl><div class="in-next-step"><strong>Recommended next step</strong><span>Review the final evidence package and monitor for recurrence.</span></div></section>
           <section class="in-evidence-views"><h3>Available evidence</h3><p>Only views backed by recorded evidence are enabled. Unavailable analysis is not inferred from generic activity.</p><div class="in-view-list"><a class="in-view-row" href="audit.html"><strong>All audit records</strong><span>Browse all 7 recorded events and their raw evidence fields.</span><em>Open</em></a><a class="in-view-row" href="rule-trace.html"><strong>Technical activity</strong><span>Inspect 7 ordered events through verification.</span><em>Open</em></a><a class="in-view-row" href="rca.html?correlation=inc-01J2-SECRET-EXP"><strong>Root-cause analysis</strong><span>Review recorded, evidence-backed cause hypotheses and citations.</span><em>Open</em></a><a class="in-view-row" href="rca-report.html?correlation=inc-01J2-SECRET-EXP"><strong>RCA dossier</strong><span>Open the full incident and root-cause evidence package.</span><em>Open</em></a></div><span class="in-evidence-scope">Evidence scope: inc-01J2-SECRET-EXP</span></section>
-          <div class="in-history"><div class="in-history-title"><h3>Incident activity</h3><span>1 of 7 records &middot; newest first &middot; open audit to continue</span></div><div class="in-timeline"><div class="in-event is-auto"><div class="in-event-row"><span class="in-event-title">Incident resolved</span><span class="cs-tag">Saga</span><time class="in-event-time">09:10:43</time></div><p class="in-event-note">Rotation, rollout, and health verification completed with no rollback.</p><div class="in-event-facts"><span>verdict auto</span><span>mode enforce</span><span>audit sealed</span></div></div></div></div>
+          <div class="in-history"><div class="in-history-title"><div><h3>Agent activity</h3><p>What each agent did, why it acted, and what changed as a result.</p></div><span>4 of 7 records &middot; newest first</span></div><div class="in-timeline"><div class="in-event is-auto"><div class="in-event-row"><strong class="in-event-agent">Saga</strong><span class="in-event-role">Outcome closure</span><time class="in-event-time">09:10:43</time></div><div class="in-event-title">Closed the incident after post-change health checks passed.</div><p class="in-event-note"><strong>Why:</strong> Rotation and rollout completed, and the independent health observation found no regression.</p><p class="in-event-outcome"><strong>Result:</strong> The incident reached a verified terminal outcome with no rollback.</p><div class="in-event-facts"><span>verdict auto</span><span>mode enforce</span><span>audit sealed</span></div></div><div class="in-event is-auto"><div class="in-event-row"><strong class="in-event-agent">Thor</strong><span class="in-event-role">Remediation delivery</span></div><div class="in-event-title">Delivered the secret-reference rotation through a remediation pull request.</div><p class="in-event-note"><strong>Why:</strong> The existing reference was approaching its recorded expiry boundary.</p><p class="in-event-outcome"><strong>Result:</strong> The replacement reference entered the governed rollout path.</p></div><div class="in-event is-hil"><div class="in-event-row"><strong class="in-event-agent">Forseti</strong><span class="in-event-role">Risk decision</span></div><div class="in-event-title">Allowed the bounded rotation to proceed automatically.</div><p class="in-event-note"><strong>Why:</strong> The target scope was bounded and a tested rollback contract was available.</p><p class="in-event-outcome"><strong>Result:</strong> Delivery could proceed without human approval while effect verification remained mandatory.</p></div><div class="in-event"><div class="in-event-row"><strong class="in-event-agent">Huginn</strong><span class="in-event-role">Signal correlation</span><time class="in-event-time">08:41:16</time></div><div class="in-event-title">Opened one incident from the workload expiry signal.</div><p class="in-event-note"><strong>Why:</strong> The recorded expiry window crossed the protection threshold.</p><p class="in-event-outcome"><strong>Result:</strong> The finding entered one correlated change-safety response.</p></div></div></div>
         </article>
       </section>
     </div>
@@ -337,6 +530,13 @@
       var count = document.getElementById("incident-count");
       var loadMore = document.getElementById("incident-load-more");
       var rosterFoot = document.getElementById("incident-roster-foot");
+      var intervention = document.querySelector("[data-intervention]");
+      var interventionDialog = document.querySelector("[data-intervention-dialog]");
+      var openIntervention = document.querySelector("[data-open-intervention]");
+      var closeIntervention = document.querySelector("[data-close-intervention]");
+      var interventionSummary = document.querySelector("[data-intervention-summary]");
+      var interventionSummaryText = document.querySelector("[data-intervention-summary-text]");
+      var manageIntervention = document.querySelector("[data-manage-intervention]");
 
       function selectIncident(id) {
         incidentButtons.forEach(function (button) {
@@ -375,6 +575,241 @@
         loadMore.textContent = "Loading...";
         window.setTimeout(function () { rosterFoot.textContent = "End of incident list."; }, 350);
       });
+
+      if (intervention) {
+        var interventionForm = intervention.querySelector("[data-intervention-form]");
+        var interventionError = intervention.querySelector("[data-intervention-error]");
+        var interventionStatus = intervention.querySelector("[data-intervention-status]");
+        var durationField = intervention.querySelector("[data-duration-field]");
+        var durationSelect = interventionForm.elements["intervention-duration"];
+        var commentInput = interventionForm.elements["intervention-comment"];
+        var actionInputs = Array.from(interventionForm.elements["intervention-action"]);
+        var reviewPanel = intervention.querySelector("[data-review-panel]");
+        var reviewAction = intervention.querySelector("[data-review-action]");
+        var reviewDuration = intervention.querySelector("[data-review-duration]");
+        var reviewComment = intervention.querySelector("[data-review-comment]");
+        var reviewBack = intervention.querySelector("[data-review-back]");
+        var confirmIntervention = intervention.querySelector("[data-confirm-intervention]");
+        var exceptionBanner = intervention.querySelector("[data-exception-banner]");
+        var exceptionUntil = intervention.querySelector("[data-exception-until]");
+        var exceptionReason = intervention.querySelector("[data-exception-reason]");
+        var revokeException = intervention.querySelector("[data-revoke-exception]");
+        var pendingRequest = null;
+        var actionLabels = {
+          guidance: "Guide response",
+          close: "Close this incident",
+          exception: "Close and add development exception"
+        };
+        var durationLabels = {
+          "one-day": "1 day",
+          "one-week": "1 week",
+          "one-month": "1 month",
+          "until-revoked": "Until revoked"
+        };
+
+        function openInterventionDialog() {
+          if (!interventionDialog.open) interventionDialog.showModal();
+        }
+
+        function closeInterventionDialog() {
+          if (interventionDialog.open) interventionDialog.close();
+        }
+
+        function showInterventionSummary(text, isException) {
+          interventionSummaryText.textContent = text;
+          interventionSummary.classList.toggle("is-exception", isException);
+          interventionSummary.hidden = false;
+        }
+
+        openIntervention.addEventListener("click", openInterventionDialog);
+        manageIntervention.addEventListener("click", openInterventionDialog);
+        closeIntervention.addEventListener("click", closeInterventionDialog);
+        interventionDialog.addEventListener("cancel", function (event) {
+          event.preventDefault();
+          closeInterventionDialog();
+          openIntervention.focus();
+        });
+        interventionDialog.addEventListener("keydown", function (event) {
+          if (event.key !== "Escape") return;
+          event.preventDefault();
+          closeInterventionDialog();
+          openIntervention.focus();
+        });
+        interventionDialog.addEventListener("click", function (event) {
+          if (event.target === interventionDialog) closeInterventionDialog();
+        });
+
+        function selectedAction() {
+          return actionInputs.find(function (input) { return input.checked; }).value;
+        }
+
+        function exceptionEnd(duration) {
+          if (duration === "until-revoked") return "until revoked";
+          var days = duration === "one-day" ? 1 : duration === "one-week" ? 7 : 30;
+          var end = new Date();
+          end.setUTCDate(end.getUTCDate() + days);
+          return "until " + end.toISOString().slice(0, 10) + " UTC";
+        }
+
+        function addElement(parent, tag, className, text) {
+          var element = document.createElement(tag);
+          if (className) element.className = className;
+          if (text !== undefined) element.textContent = text;
+          parent.appendChild(element);
+          return element;
+        }
+
+        function appendOperatorEvent(title, reason, result, actionKind) {
+          var timeline = document.querySelector('[data-incident-detail="inc-api-latency"] .in-timeline');
+          var event = document.createElement("div");
+          event.className = "in-event is-operator";
+          var row = addElement(event, "div", "in-event-row");
+          addElement(row, "strong", "in-event-agent", "Owner operator");
+          addElement(row, "span", "in-event-role", "Authorized intervention");
+          var time = addElement(row, "time", "in-event-time", new Date().toISOString().slice(11, 19));
+          time.setAttribute("datetime", new Date().toISOString());
+          addElement(event, "div", "in-event-title", title);
+          var reasonLine = addElement(event, "p", "in-event-note");
+          addElement(reasonLine, "strong", "", "Comment: ");
+          reasonLine.appendChild(document.createTextNode(reason));
+          var resultLine = addElement(event, "p", "in-event-outcome");
+          addElement(resultLine, "strong", "", "Result: ");
+          resultLine.appendChild(document.createTextNode(result));
+          var facts = addElement(event, "div", "in-event-facts");
+          ["role owner", "action " + actionKind, "target service:checkout-api"].forEach(function (fact) {
+            addElement(facts, "span", "", fact);
+          });
+          timeline.prepend(event);
+        }
+
+        function closeIncident(description, nextStep) {
+          var detail = document.querySelector('[data-incident-detail="inc-api-latency"]');
+          var detailStatus = detail.querySelector(".in-detail-title-row .cs-status");
+          var currentStatus = detail.querySelector("[data-current-status]");
+          detailStatus.className = "cs-status ok";
+          detailStatus.textContent = "closed by operator";
+          currentStatus.className = "cs-status ok";
+          currentStatus.textContent = "closed by operator";
+          detail.querySelector("[data-current-title]").textContent = "Closed as development activity";
+          detail.querySelector("[data-current-description]").textContent = description;
+          detail.querySelector("[data-lifecycle-value]").textContent = "Closed";
+          detail.querySelector("[data-next-step]").textContent = nextStep;
+
+          var rosterItem = document.querySelector('[data-incident="inc-api-latency"]');
+          rosterItem.dataset.status = "resolved";
+          rosterItem.querySelector(".in-stage-track").className = "in-stage-track is-stage-4 is-complete";
+          rosterItem.querySelectorAll(".in-stage-node").forEach(function (node) { node.className = "in-stage-node"; });
+          var stageName = rosterItem.querySelector(".in-stage-name");
+          stageName.className = "in-stage-name is-complete";
+          stageName.textContent = "Closed by operator";
+          document.querySelector(".in-summary-value").textContent = "2";
+          count.textContent = "2 active incidents - 1 closed by operator";
+        }
+
+        actionInputs.forEach(function (input) {
+          input.addEventListener("change", function () {
+            durationField.hidden = selectedAction() !== "exception";
+            interventionError.hidden = true;
+          });
+        });
+
+        interventionForm.addEventListener("submit", function (event) {
+          event.preventDefault();
+          var comment = commentInput.value.trim();
+          if (!comment) {
+            interventionError.textContent = "Add an operator comment before reviewing the request.";
+            interventionError.hidden = false;
+            commentInput.focus();
+            return;
+          }
+          var action = selectedAction();
+          var duration = action === "exception" ? durationSelect.value : null;
+          pendingRequest = { action: action, comment: comment, duration: duration };
+          reviewAction.textContent = actionLabels[action];
+          reviewDuration.textContent = duration ? durationLabels[duration] : "Not applicable";
+          reviewComment.textContent = comment;
+          interventionError.hidden = true;
+          interventionForm.hidden = true;
+          reviewPanel.hidden = false;
+          confirmIntervention.focus();
+        });
+
+        reviewBack.addEventListener("click", function () {
+          reviewPanel.hidden = true;
+          interventionForm.hidden = false;
+          pendingRequest = null;
+          commentInput.focus();
+        });
+
+        confirmIntervention.addEventListener("click", function () {
+          if (!pendingRequest) return;
+          var request = pendingRequest;
+          if (request.action === "guidance") {
+            appendOperatorEvent(
+              "Requested response re-evaluation with development context.",
+              request.comment,
+              "The guidance was added to the event stream. Agents must reconsider it at the next decision boundary; execution authority did not change.",
+              "operator.guidance"
+            );
+            document.querySelector("[data-current-title]").textContent = "Operator guidance recorded";
+            document.querySelector("[data-current-description]").textContent = "An authorized operator supplied development context for the next governed decision.";
+            document.querySelector("[data-next-step]").textContent = "Wait for the next agent decision to acknowledge or reject the guidance with recorded evidence.";
+            interventionStatus.textContent = "Guidance recorded. Agent re-evaluation is required at the next decision boundary.";
+            showInterventionSummary("Owner guidance recorded. Agent re-evaluation is pending.", false);
+          } else if (request.action === "close") {
+            appendOperatorEvent(
+              "Closed the incident as expected development activity.",
+              request.comment,
+              "The Incident lifecycle was closed. No future Incident intake exception was created and no managed-resource action was cancelled.",
+              "incident.operator-closed"
+            );
+            closeIncident(
+              "An authorized operator identified the observed behavior as expected development activity and closed this incident.",
+              "Continue recording findings normally. A future matching finding can open a new incident."
+            );
+            interventionStatus.textContent = "Incident closed. Future matching findings can still create Incidents.";
+            showInterventionSummary("Closed by Owner as expected development activity. Future Incident intake remains enabled.", false);
+          } else {
+            var until = exceptionEnd(request.duration);
+            appendOperatorEvent(
+              "Closed the incident and created a development exception.",
+              request.comment,
+              "The Incident lifecycle was closed. New matching findings remain audited but do not create Incidents " + until + ".",
+              "incident.intake-exception-created"
+            );
+            closeIncident(
+              "An authorized operator closed this incident and created a target-scoped development exception.",
+              "Review or revoke the active development exception before normal Incident intake resumes."
+            );
+            exceptionUntil.textContent = until;
+            exceptionReason.textContent = request.comment;
+            exceptionBanner.hidden = false;
+            interventionStatus.textContent = "Development exception active " + until + ".";
+            showInterventionSummary("Development exception active " + until + " for service:checkout-api.", true);
+          }
+
+          reviewPanel.hidden = true;
+          interventionForm.hidden = false;
+          interventionForm.reset();
+          durationField.hidden = true;
+          pendingRequest = null;
+          closeInterventionDialog();
+          openIntervention.focus();
+        });
+
+        revokeException.addEventListener("click", function () {
+          if (exceptionBanner.hidden) return;
+          appendOperatorEvent(
+            "Revoked the development exception.",
+            "The target is ready for normal Incident intake.",
+            "New matching findings can create Incidents again. The previously closed incident remains closed.",
+            "incident.intake-exception-revoked"
+          );
+          exceptionBanner.hidden = true;
+          interventionStatus.textContent = "Development exception revoked. Normal Incident intake has resumed for this target.";
+          showInterventionSummary("Development exception revoked. Normal Incident intake has resumed.", false);
+        });
+      }
     })();
   </script>
 </body>

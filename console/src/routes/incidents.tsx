@@ -32,6 +32,7 @@ import {
   type IncidentOperationalOverview,
 } from "./incidents.overview";
 import { incidentTimelinePresentation } from "./incidents.timeline";
+import { IncidentIntervention } from "./incidents.intervention";
 
 const INCIDENT_DETAIL_ID = "incident-detail";
 
@@ -43,6 +44,11 @@ interface IncidentData {
   readonly items: readonly IncidentSummary[];
   readonly nextCursor: string | null;
   readonly metrics: IncidentOutcomeMetrics;
+}
+
+interface IncidentHistoryData {
+  readonly items: readonly AuditItem[];
+  readonly nextCursor: string | null;
 }
 
 const PAGE_SIZE = 25;
@@ -82,6 +88,20 @@ export function mergeIncidentItems(
   return [...current, ...incoming.filter((item) => !seen.has(item.correlation_id))];
 }
 
+export function mergeOlderAuditItems(
+  currentOldestFirst: readonly AuditItem[],
+  incomingNewestFirst: readonly AuditItem[],
+): readonly AuditItem[] {
+  const seen = new Set(currentOldestFirst.map((item) => item.seq));
+  const older: AuditItem[] = [];
+  for (const item of [...incomingNewestFirst].reverse()) {
+    if (seen.has(item.seq)) continue;
+    seen.add(item.seq);
+    older.push(item);
+  }
+  return [...older, ...currentOldestFirst];
+}
+
 export function resolveIncidentSelection(
   items: readonly Pick<IncidentSummary, "correlation_id">[],
   requested: string | null,
@@ -101,6 +121,75 @@ export function incidentDisplayIdentifier(
   incident: Pick<IncidentSummary, "correlation_id" | "incident_number">,
 ): string {
   return incident.incident_number ?? incident.correlation_id;
+}
+
+export interface IncidentCommandSummary {
+  readonly loaded: number;
+  readonly needsApproval: number;
+  readonly verifiedOutcomes: number;
+  readonly pendingOutcomes: number;
+}
+
+export function incidentCommandSummary(
+  items: readonly Pick<IncidentSummary, "disposition" | "verdict">[],
+  metrics: Pick<IncidentOutcomeMetrics, "cohorts">,
+): IncidentCommandSummary {
+  return {
+    loaded: items.length,
+    needsApproval: items.filter((item) => (
+      item.disposition === "awaiting_hil" || item.verdict === "hil"
+    )).length,
+    verifiedOutcomes: metrics.cohorts.agent_mitigated
+      + metrics.cohorts.agent_assisted
+      + metrics.cohorts.human_mitigated,
+    pendingOutcomes: metrics.cohorts.pending,
+  };
+}
+
+export interface IncidentRosterStage {
+  readonly key: "investigate" | "approval" | "respond" | "verify";
+  readonly step: 1 | 2 | 3 | 4;
+}
+
+export function incidentRosterStage(
+  incident: Pick<IncidentSummary, "status" | "disposition" | "verdict">,
+): IncidentRosterStage {
+  if (incident.status === "resolved") return { key: "verify", step: 4 };
+  if (incident.disposition === "awaiting_hil" || incident.verdict === "hil") {
+    return { key: "approval", step: 2 };
+  }
+  if (incident.status === "in_progress" || incident.disposition === "action_delivered") {
+    return { key: "respond", step: 3 };
+  }
+  return { key: "investigate", step: 1 };
+}
+
+export interface IncidentHandoffStep {
+  readonly seq: number;
+  readonly owner: string;
+  readonly ownerKind: "agent" | "service";
+  readonly title: string;
+  readonly description: string;
+}
+
+export function incidentHandoffSteps(
+  items: readonly AuditItem[],
+  limit = 4,
+): readonly IncidentHandoffStep[] {
+  const latestByOwner = new Map<string, IncidentHandoffStep>();
+  for (const item of items) {
+    const presentation = incidentTimelinePresentation(item);
+    latestByOwner.set(`${presentation.ownerKind}:${presentation.owner}`, {
+      seq: item.seq,
+      owner: presentation.owner,
+      ownerKind: presentation.ownerKind,
+      title: presentation.title,
+      description: presentation.description,
+    });
+  }
+  return [...latestByOwner.values()]
+    .sort((left, right) => left.seq - right.seq)
+    .slice(-limit);
 }
 
 export function incidentVerticalDisplayLabel(vertical: IncidentVertical): string {
@@ -133,7 +222,9 @@ export function IncidentsRoute({ client }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(
     initialRoute.search.get("correlation"),
   );
-  const [history, setHistory] = useState<AsyncState<readonly AuditItem[]>>({ status: "idle" });
+  const [history, setHistory] = useState<AsyncState<IncidentHistoryData>>({ status: "idle" });
+  const [loadingOlderHistory, setLoadingOlderHistory] = useState(false);
+  const [historyPageError, setHistoryPageError] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
   const rosterGeneration = useRef(0);
@@ -277,13 +368,20 @@ export function IncidentsRoute({ client }: Props) {
     historyGeneration.current = generation;
     if (selectedId === null) {
       setHistory({ status: "idle" });
+      setLoadingOlderHistory(false);
+      setHistoryPageError(null);
       return;
     }
     setHistory({ status: "loading" });
+    setLoadingOlderHistory(false);
+    setHistoryPageError(null);
     void client.listAudit({ limit: 100, correlationId: selectedId }).then(
       (page) => {
         if (historyGeneration.current === generation) {
-          setHistory({ status: "ready", data: [...page.items].reverse() });
+          setHistory({
+            status: "ready",
+            data: { items: [...page.items].reverse(), nextCursor: page.next_cursor },
+          });
         }
       },
       (error: unknown) => {
@@ -299,6 +397,49 @@ export function IncidentsRoute({ client }: Props) {
       if (historyGeneration.current === generation) historyGeneration.current += 1;
     };
   }, [client, selectedId]);
+
+  async function loadOlderHistory(cursor: string): Promise<void> {
+    if (
+      selectedId === null
+      || history.status !== "ready"
+      || loadingOlderHistory
+      || history.data.nextCursor !== cursor
+    ) return;
+    const generation = historyGeneration.current;
+    const requestedIncident = selectedId;
+    setLoadingOlderHistory(true);
+    setHistoryPageError(null);
+    try {
+      const page = await client.listAudit({
+        limit: 100,
+        cursor,
+        correlationId: requestedIncident,
+      });
+      if (
+        historyGeneration.current !== generation
+        || selectedId !== requestedIncident
+      ) return;
+      setHistory((current) => current.status === "ready"
+        ? {
+            status: "ready",
+            data: {
+              items: mergeOlderAuditItems(current.data.items, page.items),
+              nextCursor: page.next_cursor,
+            },
+          }
+        : current);
+    } catch (error) {
+      if (
+        historyGeneration.current === generation
+        && selectedId === requestedIncident
+      ) setHistoryPageError(error instanceof Error ? error.message : String(error));
+    } finally {
+      if (
+        historyGeneration.current === generation
+        && selectedId === requestedIncident
+      ) setLoadingOlderHistory(false);
+    }
+  }
 
   async function loadMore(cursor: string): Promise<void> {
     if (state.status !== "ready" || loadingMore || state.data.nextCursor !== cursor) return;
@@ -444,13 +585,17 @@ export function IncidentsRoute({ client }: Props) {
       <AsyncBoundary state={state} resourceLabel={t("route.incidents")}>
         {(data) => (
           <IncidentBody
+            client={client}
             data={data}
             selectedId={selectedId}
             history={history}
+            loadingOlderHistory={loadingOlderHistory}
+            historyPageError={historyPageError}
             loadingMore={loadingMore}
             pageError={pageError}
             onSelect={(correlationId) => openRoute(filter, correlationId)}
             onLoadMore={loadMore}
+            onLoadOlderHistory={loadOlderHistory}
           />
         )}
       </AsyncBoundary>
@@ -459,26 +604,34 @@ export function IncidentsRoute({ client }: Props) {
 }
 
 interface BodyProps {
+  readonly client: OperatorApiClient;
   readonly data: IncidentData;
   readonly selectedId: string | null;
-  readonly history: AsyncState<readonly AuditItem[]>;
+  readonly history: AsyncState<IncidentHistoryData>;
+  readonly loadingOlderHistory: boolean;
+  readonly historyPageError: string | null;
   readonly loadingMore: boolean;
   readonly pageError: string | null;
   readonly onSelect: (correlationId: string) => void;
   readonly onLoadMore: (cursor: string) => Promise<void>;
+  readonly onLoadOlderHistory: (cursor: string) => Promise<void>;
 }
 
 function IncidentBody({
+  client,
   data,
   selectedId,
   history,
+  loadingOlderHistory,
+  historyPageError,
   loadingMore,
   pageError,
   onSelect,
   onLoadMore,
+  onLoadOlderHistory,
 }: BodyProps) {
   const selected = data.items.find((item) => item.correlation_id === selectedId) ?? null;
-  const selectedHistory = history.status === "ready" ? history.data : [];
+  const selectedHistory = history.status === "ready" ? history.data.items : [];
 
   usePublishViewContext(
     () => ({
@@ -512,6 +665,7 @@ function IncidentBody({
 
   return (
     <>
+      <IncidentCommandStrip data={data} />
       <IncidentOutcomeAnalytics metrics={data.metrics} />
       <div class="incidents-workspace">
       <section class="incidents-roster" aria-labelledby="incident-roster-title">
@@ -521,8 +675,9 @@ function IncidentBody({
         </header>
         {data.items.length > 0 ? (
           <ul class="incidents-roster-list">
-            {data.items.map((item) => (
-              <li key={item.correlation_id}>
+            {data.items.map((item) => {
+              const stage = incidentRosterStage(item);
+              return <li key={item.correlation_id}>
                 <button
                   type="button"
                   class={`incident-roster-item${item.correlation_id === selectedId ? " is-selected" : ""}`}
@@ -548,9 +703,26 @@ function IncidentBody({
                   <span class="incident-roster-updated mono">
                     {formatConsoleTimestamp(item.last_updated_at)}
                   </span>
+                  <span
+                    class={`incident-roster-stage stage-${stage.step}`}
+                    aria-label={t("incidents.stage.aria", {
+                      label: t(`incidents.stage.${stage.key}`),
+                      step: stage.step,
+                    })}
+                  >
+                    <span class="incident-stage-track" aria-hidden="true">
+                      {[1, 2, 3, 4].map((step) => (
+                        <span
+                          key={step}
+                          class={step === stage.step ? "is-current" : step < stage.step ? "is-done" : undefined}
+                        />
+                      ))}
+                    </span>
+                    <span>{t(`incidents.stage.${stage.key}`)} <strong>{stage.step}/4</strong></span>
+                  </span>
                 </button>
-              </li>
-            ))}
+              </li>;
+            })}
           </ul>
         ) : (
           <p class="incidents-roster-empty">{t("incidents.empty")}</p>
@@ -576,7 +748,16 @@ function IncidentBody({
         </footer>
       </section>
       <div class="incident-selection">
-        {selected ? <IncidentDetail incident={selected} history={history} /> : (
+        {selected ? (
+          <IncidentDetail
+            client={client}
+            incident={selected}
+            history={history}
+            loadingOlderHistory={loadingOlderHistory}
+            historyPageError={historyPageError}
+            onLoadOlderHistory={onLoadOlderHistory}
+          />
+        ) : (
           selectedId ? (
             <div class="state-block state-unavailable" role={data.nextCursor ? "status" : "alert"}>
               <span class="state-icon" aria-hidden="true">?</span>
@@ -595,12 +776,57 @@ function IncidentBody({
   );
 }
 
+function IncidentCommandStrip({ data }: { readonly data: IncidentData }) {
+  const summary = incidentCommandSummary(data.items, data.metrics);
+  const matched = data.metrics.matched_total ?? data.metrics.denominator;
+  const cells = [
+    {
+      key: "loaded",
+      value: summary.loaded,
+      detail: t("incidents.summary.loadedDetail", { matched }),
+    },
+    {
+      key: "needsApproval",
+      value: summary.needsApproval,
+      detail: t("incidents.summary.loadedScope"),
+    },
+    {
+      key: "verifiedOutcomes",
+      value: summary.verifiedOutcomes,
+      detail: t("incidents.summary.boundedScope"),
+    },
+    {
+      key: "pendingOutcomes",
+      value: summary.pendingOutcomes,
+      detail: t("incidents.summary.boundedScope"),
+    },
+  ] as const;
+  return (
+    <section class="incident-command-strip" aria-label={t("incidents.summary.title")}>
+      {cells.map((cell) => (
+        <div key={cell.key}>
+          <span><strong>{cell.value}</strong>{t(`incidents.summary.${cell.key}`)}</span>
+          <small>{cell.detail}</small>
+        </div>
+      ))}
+    </section>
+  );
+}
+
 function IncidentDetail({
+  client,
   incident,
   history,
+  loadingOlderHistory,
+  historyPageError,
+  onLoadOlderHistory,
 }: {
+  readonly client: OperatorApiClient;
   readonly incident: IncidentSummary;
-  readonly history: AsyncState<readonly AuditItem[]>;
+  readonly history: AsyncState<IncidentHistoryData>;
+  readonly loadingOlderHistory: boolean;
+  readonly historyPageError: string | null;
+  readonly onLoadOlderHistory: (cursor: string) => Promise<void>;
 }) {
   const auditHref = routeHref("audit", { params: { correlation: incident.correlation_id } });
   const traceHref = routeHref("trace", { params: { correlation: incident.correlation_id } });
@@ -617,6 +843,7 @@ function IncidentDetail({
           </h2>
           <StatusPill kind={severityPill(incident.severity)} label={localized("severity", incident.severity)} />
           <StatusPill kind={statusPill(incident.status)} label={localized("status", incident.status)} />
+          <IncidentIntervention client={client} incident={incident} />
         </div>
         <dl class="incident-detail-meta">
           <div><dt>{t("incidents.opened")}</dt><dd>{formatConsoleTimestamp(incident.opened_at)}</dd></div>
@@ -640,10 +867,13 @@ function IncidentDetail({
           </dl>
         </details>
       </header>
-      <IncidentSourceContext incident={incident} />
       <AsyncBoundary state={history} resourceLabel={t("incidents.timeline")}>
-        {(items) => (
+        {(historyData) => {
+          const items = historyData.items;
+          return (
           <>
+            <IncidentAgentHandoff items={items} />
+            <IncidentSourceContext incident={incident} />
             <IncidentCurrentState incident={incident} items={items} />
             <IncidentMilestones items={items} />
             <IncidentEvidenceViews
@@ -663,10 +893,53 @@ function IncidentDetail({
                 })}</span>
               </header>
               <IncidentTimeline items={items} />
+              <footer class="incident-history-foot">
+                {historyPageError !== null ? (
+                  <p class="state-error-text" role="alert">
+                    {t("incidents.historyLoadError", { message: historyPageError })}
+                  </p>
+                ) : null}
+                {historyData.nextCursor !== null ? (
+                  <button
+                    type="button"
+                    disabled={loadingOlderHistory}
+                    onClick={() => void onLoadOlderHistory(historyData.nextCursor!)}
+                  >
+                    {loadingOlderHistory
+                      ? t("incidents.loadingOlderActivity")
+                      : t("incidents.loadOlderActivity")}
+                  </button>
+                ) : null}
+              </footer>
             </div>
           </>
-        )}
+          );
+        }}
       </AsyncBoundary>
+    </section>
+  );
+}
+
+function IncidentAgentHandoff({ items }: { readonly items: readonly AuditItem[] }) {
+  const steps = incidentHandoffSteps(items);
+  if (steps.length === 0) return null;
+  return (
+    <section class="incident-agent-handoff" aria-labelledby="incident-agent-handoff-title">
+      <header>
+        <h3 id="incident-agent-handoff-title">{t("incidents.handoff.title")}</h3>
+        <span>{t("incidents.handoff.count", { count: steps.length })}</span>
+      </header>
+      <ol>
+        {steps.map((step, index) => (
+          <li key={`${step.ownerKind}:${step.owner}`} class={index === steps.length - 1 ? "is-current" : undefined}>
+            <div>
+              <strong>{step.owner}</strong>
+              <span>{step.title}</span>
+            </div>
+            <p>{step.description}</p>
+          </li>
+        ))}
+      </ol>
     </section>
   );
 }
