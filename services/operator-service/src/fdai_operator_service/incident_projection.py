@@ -12,6 +12,9 @@ from fdai_service_contracts import JsonObject, JsonValue
 from fdai_operator_service.projection_logic import audit_item
 
 INCIDENT_TITLE_LIMIT: Final = 160
+_CANONICAL_INCIDENT_STATES: Final = frozenset(
+    {"open", "triaging", "mitigated", "resolved", "closed"}
+)
 _TERMINAL_INCIDENT_STATES: Final = frozenset({"resolved", "closed"})
 PANTHEON_AGENTS: Final = frozenset(
     {
@@ -39,10 +42,16 @@ def incident_summary(rows: Sequence[Mapping[str, Any]]) -> JsonObject:
     items = [audit_item(row) for row in rows]
     newest = list(reversed(items))
     correlation_id = str(rows[-1]["normalized_correlation_id"])
-    incident_id = _first_entry_string(newest, "incident_id")
-    incident_number = _first_entry_string(newest, "incident_number")
-    ticket_id = _first_entry_string(newest, "ticket_id")
-    lifecycle = _incident_status(newest)
+    incident_id = _first_row_string(rows, "canonical_incident_id") or _first_entry_string(
+        newest, "incident_id"
+    )
+    incident_number = _first_row_string(rows, "canonical_incident_number") or _first_entry_string(
+        newest, "incident_number"
+    )
+    ticket_id = _first_row_string(rows, "canonical_ticket_id") or _first_entry_string(
+        newest, "ticket_id"
+    )
+    lifecycle = _incident_status(newest, _first_row_string(rows, "canonical_lifecycle_state"))
     vertical = _vertical(_first_entry_string(newest, "vertical", "category"))
     title, title_source = _incident_title(newest, items, incident_id or correlation_id)
     return cast(
@@ -64,10 +73,13 @@ def incident_summary(rows: Sequence[Mapping[str, Any]]) -> JsonObject:
             "severity": _first_entry_string(newest, "severity") or "unknown",
             "status": lifecycle[0],
             "status_source": lifecycle[1],
+            "lifecycle_state": lifecycle[2],
             "disposition": _first_entry_string(newest, "outcome") or "unknown",
             "verdict": _verdict(newest),
             "vertical": vertical,
-            "opened_at": _first_entry_string(items, "opened_at") or str(items[0]["recorded_at"]),
+            "opened_at": _first_row_string(rows, "canonical_opened_at")
+            or _first_entry_string(items, "opened_at")
+            or str(items[0]["recorded_at"]),
             "last_updated_at": str(newest[0]["recorded_at"]),
             "latest_mode": str(newest[0]["mode"]),
             "history_count": int(rows[-1].get("group_history_count", len(rows))),
@@ -178,7 +190,16 @@ def _roster_status(state: str) -> str:
     return "open" if normalized == "open" else "in_progress"
 
 
-def _incident_status(items: Sequence[JsonObject]) -> tuple[str, str]:
+def _incident_status(
+    items: Sequence[JsonObject], canonical_state: str | None = None
+) -> tuple[str, str, str | None]:
+    normalized_canonical = (canonical_state or "").casefold()
+    if normalized_canonical in _CANONICAL_INCIDENT_STATES:
+        return (
+            _roster_status(normalized_canonical),
+            "incident_lifecycle",
+            normalized_canonical,
+        )
     for item in items:
         entry = _mapping(item.get("entry"))
         kind = _nonempty(entry.get("kind"))
@@ -190,7 +211,9 @@ def _incident_status(items: Sequence[JsonObject]) -> tuple[str, str]:
             else None
         )
         if state:
-            return (_roster_status(state), "incident_lifecycle")
+            normalized = state.casefold()
+            lifecycle_state = normalized if normalized in _CANONICAL_INCIDENT_STATES else None
+            return (_roster_status(state), "incident_lifecycle", lifecycle_state)
     if _first_entry_string(items, "outcome") in {
         "resolved",
         "remediated",
@@ -198,10 +221,10 @@ def _incident_status(items: Sequence[JsonObject]) -> tuple[str, str]:
         "rollback_succeeded",
         "rollback_completed",
     }:
-        return ("resolved", "audit_projection")
+        return ("resolved", "audit_projection", None)
     if len(items) > 1 or _verdict(items) == "hil":
-        return ("in_progress", "audit_projection")
-    return ("open", "audit_projection")
+        return ("in_progress", "audit_projection", None)
+    return ("open", "audit_projection", None)
 
 
 def _verdict(items: Sequence[JsonObject]) -> str:
@@ -371,6 +394,13 @@ def _first_entry_string(items: Sequence[JsonObject], *keys: str) -> str | None:
         for key in keys:
             if value := _nonempty(entry.get(key)):
                 return value
+    return None
+
+
+def _first_row_string(rows: Sequence[Mapping[str, Any]], key: str) -> str | None:
+    for row in reversed(rows):
+        if value := _nonempty(row.get(key)):
+            return value
     return None
 
 

@@ -61,16 +61,20 @@ cross-replica conflicts return `incident_lifecycle_rejected` without changing
 the canonical incident.
 
 `correlation_id` is the investigation key used to join evidence; it does not by
-itself prove that an Incident lifecycle record exists. The projection can attach a row without
-a top-level correlation only when its `event_id` equals an already-known
-correlation, or when an explicit incident lifecycle link resolves to exactly
-one correlation. Ambiguous rows stay unattached; the read model never invents
-an association from a resource name. For a pending HIL item, the projection
-may read its server-owned park record to recover rule severity and category;
-it does not rewrite the append-only audit row. Lifecycle state is authoritative
-when present. Otherwise the projection derives `open`, `in_progress`, or
-`resolved` from audit stages. A denied, abstained, or failed remediation does
-not by itself claim that the underlying incident is resolved.
+itself prove that an Incident lifecycle record exists. The Incident roster, attention stream, and
+outcome cohorts admit a correlation only after a canonical `incident.open` audit entry exists.
+Audit, Trace, and RCA continue to expose operational correlations that have not entered the Incident
+lifecycle. The temporal projection retains a durable canonical Incident id, display number, opening
+time, latest lifecycle state, and optional ticket id independently from its 100-row presentation
+history, so an old opening row cannot make a real Incident lose its identity.
+
+The projection can attach a row without a top-level correlation only when its `event_id` equals an
+already-known correlation, or when an explicit incident lifecycle link resolves to exactly one
+correlation. Ambiguous rows stay unattached; the read model never invents an association from a
+resource name. For a pending HIL item, the projection may read its server-owned park record to
+recover rule severity and category; it does not rewrite the append-only audit row. Canonical
+lifecycle state is authoritative. A denied, abstained, or failed remediation does not by itself
+claim that the underlying Incident is resolved.
 Local Operator API audit fixtures carry explicit sample provenance and stay visible
 in Audit, Trace, and Agent activity. They are excluded from the operational
 Incident roster, so a normal or within-threshold monitoring sample cannot look
@@ -113,11 +117,11 @@ FDAI adopts the operator-facing strengths documented for Azure SRE Agent without
 
 Missing correlations remain missing. The projection treats empty values and historical `None` or
 `null` string sentinels as absent, so unrelated audit-only rows cannot form a synthetic Incident.
-A correlation group whose every row is platform housekeeping is also not an Incident. The projection
-excludes a group when no row belongs to operational work, using the first `action_kind` segment
-(`background-task`, `iam`, `startup_readiness`, `semantic_turn`, `observation-campaign`, and
-`read-investigation`). One operational row keeps the whole group, so a new operational action kind is
-never hidden by the exclusion. Those groups stay visible in Audit, Trace, and Agent activity.
+A correlation group whose every row is platform housekeeping is excluded from the broader temporal
+projection using the first `action_kind` segment (`background-task`, `iam`, `startup_readiness`,
+`semantic_turn`, `observation-campaign`, and `read-investigation`). A new operational action kind
+remains available to Audit, Trace, RCA, and Agent activity, but it does not enter the Incident roster
+or its outcome denominator until the canonical lifecycle records `incident.open`.
 
 The cohort panel discloses its own bound. The projection reports `matched_total`, the number of
 incidents the snapshot matched before the 500-incident measurement bound, so the panel can state
@@ -413,7 +417,7 @@ approve / rollback button. The projection is a pure function
 |------|-------|----------|-------|
 | Incident lifecycle, roster projection, and Console views | implemented | `services/core-control-plane/src/fdai/core/incident/`; `services/core-control-plane/tests/core/incident/`; `console/src/routes/incidents.tsx`; focused Console incident tests | Incident state, correlation, lifecycle, roster, attention, and bounded presentation have focused coverage. |
 | Server-backed roster discovery | implemented | `fdai_service_contracts.operator.IncidentQuery`; `fdai_operator_service.postgres_sql.INCIDENT_PAGE_SQL`; `console/src/api-operations-client.ts`; `console/src/routes/incidents.tsx`; focused Operator and Console tests | Search matches bounded recorded subject evidence before pagination, metrics use the same snapshot and filters, and cursors bind the normalized search with status, vertical, and severity. |
-| Projection-first PostgreSQL roster reads | implemented | `operator_incident_projection`; `INCIDENT_PAGE_SQL`; Core and Operator service migrations; focused Operator and migration checks | The audit trigger retains temporal correlation versions with at most 100 recent rows. Reads select the exact as-of versions, apply filters and `LIMIT`, then expand only selected histories, so query cost no longer groups total audit history. |
+| Projection-first PostgreSQL roster reads | implemented | `operator_incident_projection`; `INCIDENT_PAGE_SQL`; Core and Operator service migrations; focused Operator and migration checks | The audit trigger retains temporal correlation versions with at most 100 recent rows plus durable canonical Incident identity. Reads admit only versions with `incident.open`, select the exact as-of versions, apply filters and `LIMIT`, then expand only selected histories. |
 | Operator-readable identity and phased investigation | implemented | `incident_projection.py`; `projection_logic.py`; `postgres.py`; `incidents.tsx`; `incidents.detail-sections.tsx`; `incidents.milestones.ts`; focused Operator tests (`31 passed`), Console tests (`66 passed`), typecheck, strict mypy, Ruff, Pylance, and catalog parity | Title provenance, trusted source context, plan preview, bounded evidence milestones, and independently verified outcome cohorts are implemented without execution authority. |
 | RCA contracts, projection, and read-only route | implemented | `services/core-control-plane/src/fdai/core/rca/`; `services/core-control-plane/tests/core/rca/`; `services/operator-service/src/fdai_operator_service/rca_projection.py`; `services/operator-service/tests/test_operator_service_composition.py`; `console/src/routes/rca.test.ts` | The route distinguishes unknown correlations, projects recorded hypotheses and response evidence, and exposes no action authority. |
 | RCA report catalog and datasource | implemented | `rule-catalog/reports/incident-rca-dossier.yaml`; `services/core-control-plane/src/fdai/core/reporting/datasources/audit_rca.py`; reporting tests | The declarative dossier and bounded audit projection exist. |
@@ -440,6 +444,7 @@ approve / rollback button. The projection is a pure function
 | 2026-08-19 | implemented | Replaced the full-history Incident grouping query with an audit-triggered temporal projection. The page query fixes the audit snapshot, selects one version per correlation, applies status/search/vertical/severity filters and the requested page bound, and only then expands each selected version's bounded history. | `current change`; [Issue #169](https://github.com/dotnetpower/fdai/issues/169); local PostgreSQL proof preserved an `open` second page through a concurrent `resolved` update while the current page reported `resolved`; Operator PostgreSQL and service-migration suites passed 117 cases. | Apply the two service migrations through the protected workflow and retain a deployed `GET /incidents` latency check. |
 | 2026-08-20 | implemented | Bounded initial projection setup to one migration-snapshot version per distinct correlation instead of replaying every historical audit row. Subsequent audit inserts still close and append temporal versions through the trigger. | `current change`; `20260819_core_incident_projection.py`; focused service-migration regression check; protected run `32353562581` exposed the unbounded historical replay before Terraform apply. | Apply the corrected Core migration through the protected workflow and retain a deployed `GET /incidents` latency check. |
 | 2026-08-20 | implemented | Replaced the remaining per-correlation initializer with one set-based snapshot aggregation. Event and incident anchors, normalized correlation, lifecycle state, search evidence, platform exclusion, and the newest 100 history rows are now derived in one grouped statement, while subsequent inserts retain the same temporal trigger path. | `current change`; `20260819_core_incident_projection.py`; focused migration contract; disposable PostgreSQL applied 50,000 audit rows across 10,000 correlations in 1.207 seconds and preserved the subsequent temporal transition; protected run `32357855293` proved that repeated whole-audit scans still exceeded the 20-minute migration deadline. | Apply the set-based Core migration through the protected workflow and retain a deployed `GET /incidents` latency check. |
+| 2026-08-25 | implemented | Restricted the Incident roster, attention stream, and outcome denominator to correlations with canonical `incident.open` evidence while keeping audit-only operational correlations in Audit, Trace, and RCA. Durable identity and lifecycle fields no longer depend on the bounded 100-row presentation history. | `current change`; canonical Core projection migration, Operator query and summary projection, focused unit and disposable-PostgreSQL integration tests. | Apply the Core migration before rolling out the Operator reader, then retain an authenticated local roster observation. |
 ### Remaining work
 
 - [x] Add a bounded `title_source` contract and focused projection, decoder, and render tests that prefer recorded title, summary, rule, signal, and sanitized resource subjects, while labeling identifier fallback as unavailable.
@@ -457,3 +462,4 @@ approve / rollback button. The projection is a pure function
 - [x] Add server-backed roster search plus severity and vertical filter controls, including clearing a set filter from the UI. Search evaluates only the bounded recorded fields that can compose the displayed subject and runs before pagination with the same snapshot and cursor identity.
 - [x] Preserve acronyms through subject humanization and prevent a dynamic i18n key with no catalog entry from rendering a raw key string.
 - [x] Confirm the repaired Incident roster renders on the authenticated local Console.
+- [x] Admit only canonical `incident.open` lifecycles to the Incident roster and outcome denominator while retaining non-Incident correlations in Audit, Trace, and RCA.

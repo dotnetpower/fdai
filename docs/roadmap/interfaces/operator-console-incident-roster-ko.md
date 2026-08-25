@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Incident Roster and Fix History
 translation_of: operator-console-incident-roster.md
-translation_source_sha: 14888b9268d0e07ff2ebed320da2e9c00aae12b9
-translation_revised: 2026-08-20
+translation_source_sha: 9ea6ef48c3ec657e1afeabc7b629fa72af86379b
+translation_revised: 2026-08-25
 ---
 
 # Operator Console - 인시던트 명단 and Fix 이력
@@ -62,15 +62,20 @@ expected-state 검사가 필요합니다. Illegal 간선, 알 수 없음 id, cro
 정본 인시던트를 변경하지 않고 `incident_lifecycle_rejected`를 반환합니다.
 
 `correlation_id`는 근거를 연결하는 조사 키이며 그 자체로 인시던트 수명 주기
-기록이 존재한다는 증거가 아닙니다. 변환 결과는 최상위 상관관계가 없는
-행의 `event_id`가 이미 알려진 상관관계와 같거나 명시적인 인시던트 수명 주기
-링크가 정확히 하나의 상관관계로 확인될 때만 해당 행을 연결할 수 있습니다.
-모호한 행은 연결하지 않으며 읽기 모델은 리소스 이름으로 연관 관계를 만들지
-않습니다. Pending HIL 항목은 서버가 소유한 보류 기록에서 룰 심각도와 category를
-복원할 수 있지만 추가 전용 감사 행은 다시 쓰지 않습니다. 수명 주기 상태가
-있으면 이를 권위 있는하게 사용합니다. 그렇지 않으면 감사 단계에서 `open`,
-`in_progress`, `resolved`를 도출합니다. 교정이 거부, abstain 또는 실패했다는
-사실만으로 기반 인시던트가 해결되었다고 표시하지 않습니다.
+기록이 존재한다는 증거가 아닙니다. Incident 명단, 주의 스트림, 결과 cohort에는 정본
+`incident.open` 감사 항목이 존재하는 상관관계만 포함합니다. Incident 수명 주기에 들어오지
+않은 운영 상관관계는 Audit, Trace, RCA에서 계속 볼 수 있습니다. Temporal 변환 결과는 정본
+Incident ID, 표시 번호, 열린 시각, 최신 수명 주기 상태, 선택적 ticket ID를 표시용 이력
+100건과 별도로 영속하므로 오래된 열기 항목이 이력 범위 밖으로 밀려나도 실제 Incident의
+identity가 사라지지 않습니다.
+
+변환 결과는 최상위 상관관계가 없는 행의 `event_id`가 이미 알려진 상관관계와 같거나
+명시적인 Incident 수명 주기 링크가 정확히 하나의 상관관계로 확인될 때만 해당 행을 연결할
+수 있습니다. 모호한 행은 연결하지 않으며 읽기 모델은 리소스 이름으로 연관 관계를 만들지
+않습니다. 보류 중인 HIL 항목은 서버가 소유한 보류 기록에서 룰 심각도와 범주를 복원할 수
+있지만 추가 전용 감사 행은 다시 쓰지 않습니다. 정본 수명 주기 상태를 권위 있게 사용하며,
+교정이 거부, abstain 또는 실패했다는 사실만으로 기반 Incident가 해결되었다고 표시하지
+않습니다.
 로컬 Operator API 감사 고정본은 명시적인 샘플 출처 이력을 가지며 감사, 추적,
 에이전트 활동에서 계속 볼 수 있습니다. Operational 인시던트 명단에서는 제외되므로
 정상 또는 within-threshold 모니터링 샘플이 열린 인시던트처럼 보이지 않습니다.
@@ -111,11 +116,11 @@ FDAI는 Azure SRE Agent 문서에 나타난 운영자 중심 강점을 차용하
 
 누락된 상관관계는 누락 상태로 유지합니다. 변환 결과는 빈 값과 과거의 `None` 또는
 `null` 문자열 sentinel을 결측으로 처리하므로 관련 없는 audit-only 행이 synthetic 인시던트를
-구성하지 않습니다. 모든 행이 플랫폼 유지 관리인 상관관계 그룹 역시 인시던트가 아닙니다. 변환
-결과는 `action_kind`의 첫 세그먼트(`background-task`, `iam`, `startup_readiness`,
-`semantic_turn`, `observation-campaign`, `read-investigation`)를 사용해 운영 작업에 속한 행이
-하나도 없는 그룹을 제외합니다. 운영 행이 하나라도 있으면 그룹 전체를 유지하므로 새 운영 action
-kind가 제외로 숨겨지지 않습니다. 해당 그룹은 Audit, Trace, Agent 활동에는 계속 보입니다.
+구성하지 않습니다. 모든 행이 플랫폼 유지 관리인 상관관계 그룹은 `action_kind`의 첫 세그먼트
+(`background-task`, `iam`, `startup_readiness`, `semantic_turn`, `observation-campaign`,
+`read-investigation`)를 사용해 더 넓은 temporal 변환 결과에서도 제외합니다. 새로운 운영 action
+kind는 Audit, Trace, RCA, Agent 활동에서 계속 볼 수 있지만, 정본 수명 주기에 `incident.open`이
+기록되기 전에는 Incident 명단이나 결과 분모에 포함되지 않습니다.
 
 cohort 패널은 자신의 상한을 공개합니다. 변환 결과는 500건 측정 상한 이전에 스냅샷이 일치시킨
 인시던트 수인 `matched_total`을 보고하므로 패널은 `일치 1557건 중 500건`과 측정하지 않은 일치
@@ -386,7 +391,7 @@ RCA 가설은 "왜"를 답할 뿐 "실행"하지 않습니다: 실행 자격은 
 |------|------|------|------|
 | Incident 수명 주기, roster 변환 결과 및 Console 보기 | implemented | `services/core-control-plane/src/fdai/core/incident/`; `services/core-control-plane/tests/core/incident/`; `console/src/routes/incidents.tsx`; focused Console incident 테스트 | Incident 상태, 상관관계, 수명 주기, roster, attention 및 범위가 제한된 presentation에 focused 검사가 있습니다. |
 | 서버 기반 roster 검색 | implemented | `fdai_service_contracts.operator.IncidentQuery`; `fdai_operator_service.postgres_sql.INCIDENT_PAGE_SQL`; `console/src/api-operations-client.ts`; `console/src/routes/incidents.tsx`; focused Operator 및 Console 테스트 | 페이지 나누기 전에 범위가 제한된 기록 대상 근거를 검색하고, 측정은 같은 snapshot과 필터를 사용하며, 커서는 정규화된 검색어를 상태, 버티컬, 심각도와 함께 묶습니다. |
-| Projection-first PostgreSQL roster 읽기 | implemented | `operator_incident_projection`, `INCIDENT_PAGE_SQL`, Core 및 Operator service migration, 집중 Operator 및 migration 검사 | 감사 trigger가 최근 행 최대 100개를 포함하는 temporal correlation version을 유지합니다. 읽기는 정확한 as-of version을 고르고 필터와 `LIMIT`을 적용한 뒤 선택한 history만 펼치므로 조회 비용이 전체 감사 이력을 group하지 않습니다. |
+| Projection-first PostgreSQL roster 읽기 | implemented | `operator_incident_projection`, `INCIDENT_PAGE_SQL`, Core 및 Operator service migration, 집중 Operator 및 migration 검사 | 감사 trigger가 최근 행 최대 100개와 영속 정본 Incident identity를 포함하는 temporal correlation version을 유지합니다. 읽기는 `incident.open`이 있는 version만 포함하고 정확한 as-of version을 고른 뒤 필터와 `LIMIT`을 적용해 선택한 history만 펼칩니다. |
 | 운영자가 읽을 수 있는 identity 및 단계별 조사 | implemented | `incident_projection.py`; `projection_logic.py`; `postgres.py`; `incidents.tsx`; `incidents.detail-sections.tsx`; `incidents.milestones.ts`; focused Operator 테스트(`31 passed`), Console 테스트(`66 passed`), typecheck, strict mypy, Ruff, Pylance 및 catalog parity | 제목 출처, 신뢰된 원본 context, 계획 미리 보기, 범위가 제한된 근거 milestone, 독립적으로 검증된 결과 cohort를 실행 권한 없이 구현했습니다. |
 | RCA 계약, 변환 결과 및 읽기 전용 경로 | implemented | `services/core-control-plane/src/fdai/core/rca/`; `services/core-control-plane/tests/core/rca/`; `services/operator-service/src/fdai_operator_service/rca_projection.py`; `services/operator-service/tests/test_operator_service_composition.py`; `console/src/routes/rca.test.ts` | 경로는 알 수 없는 상관관계를 구분하고 기록된 가설과 대응 근거를 변환하며 액션 권한을 노출하지 않습니다. |
 | RCA 보고 카탈로그 및 데이터 원본 | implemented | `rule-catalog/reports/incident-rca-dossier.yaml`; `services/core-control-plane/src/fdai/core/reporting/datasources/audit_rca.py`; reporting 테스트 | 선언형 dossier와 범위가 제한된 감사 변환 결과가 있습니다. |
@@ -413,6 +418,7 @@ RCA 가설은 "왜"를 답할 뿐 "실행"하지 않습니다: 실행 자격은 
 | 2026-08-19 | implemented | 전체 이력을 group하던 Incident 조회를 audit-triggered temporal projection으로 교체했습니다. Page 조회는 audit snapshot을 고정하고 correlation별 version 하나를 선택해 상태, 검색, 버티컬, 심각도 필터와 요청 page bound를 적용한 다음 선택한 version의 범위가 제한된 history만 펼칩니다. | `current change`, [이슈 #169](https://github.com/dotnetpower/fdai/issues/169), local PostgreSQL proof에서 concurrent `resolved` update 뒤에도 두 번째 page는 snapshot 당시 `open`을 유지하고 current page는 `resolved`를 보고함, Operator PostgreSQL 및 service-migration suite 117개 통과 | 보호된 workflow로 두 service migration을 적용하고 deployed `GET /incidents` latency 검사를 보존합니다. |
 | 2026-08-20 | implemented | 모든 과거 감사 행을 재생하는 대신 고유 상관관계마다 migration snapshot version 하나를 만들어 초기 변환 결과 설정 비용을 제한했습니다. 이후 감사 insert는 계속 trigger를 통해 temporal version을 닫고 추가합니다. | `current change`; `20260819_core_incident_projection.py`; focused service-migration 회귀 검사; 보호된 run `32353562581`이 Terraform apply 전에 제한되지 않은 과거 이력 재생을 드러냈습니다. | 수정된 Core migration을 보호된 workflow로 적용하고 deployed `GET /incidents` latency 검사를 보존합니다. |
 | 2026-08-20 | implemented | 남아 있던 상관관계별 초기화 과정을 하나의 set-based snapshot 집계로 교체했습니다. Event 및 incident anchor, 정규화된 상관관계, 수명 주기 상태, 검색 근거, 플랫폼 제외 및 최신 이력 100개를 이제 하나의 group 문장에서 도출하며 이후 insert는 같은 temporal trigger 경로를 유지합니다. | `current change`; `20260819_core_incident_projection.py`; focused migration 계약; 일회용 PostgreSQL에서 상관관계 10,000개에 속한 감사 행 50,000개를 1.207초에 적용하고 이후 temporal transition을 보존함; 보호된 run `32357855293`이 전체 감사 반복 scan이 여전히 20분 migration deadline을 초과함을 입증했습니다. | Set-based Core migration을 보호된 workflow로 적용하고 deployed `GET /incidents` latency 검사를 보존합니다. |
+| 2026-08-25 | implemented | 정본 `incident.open` 근거가 있는 상관관계만 Incident 명단, 주의 스트림, 결과 분모에 포함하고 audit-only 운영 상관관계는 Audit, Trace, RCA에 유지했습니다. 영속 identity와 수명 주기 필드는 더 이상 표시용 이력 100건 범위에 의존하지 않습니다. | `current change`; 정본 Core projection migration, Operator query와 summary 변환 결과, 집중 단위 테스트 및 일회용 PostgreSQL 통합 테스트. | Operator reader를 rollout하기 전에 Core migration을 적용한 다음 인증된 로컬 명단 관찰을 보존합니다. |
 ### 남은 작업
 
 - [x] 기록된 제목, 요약, 룰, signal, 정리된 resource 대상을 우선하고 식별자 fallback을 사용 불가로 표시하는 범위가 제한된 `title_source` 계약과 focused projection, decoder, render 테스트를 추가합니다.
@@ -430,3 +436,4 @@ RCA 가설은 "왜"를 답할 뿐 "실행"하지 않습니다: 실행 자격은 
 - [x] 기존 보고 묶음만 렌더링하고 extra를 사용할 수 없을 때 등록되지 않는 선택적 PDF `FormatEncoder`와 GET-only 다운로드 경로를 구현하고 focused 테스트를 추가합니다.
 - [x] 고정 참조 페이지 수를 문서화하지 않고 PDF 페이지 나누기, escape, source 다이제스트, 사용 불가 섹션, 새 분석 부재 및 no-network 회귀 검사를 추가합니다.
 - [x] 인증된 로컬 Console에서 복구된 Incident roster 렌더링을 확인합니다.
+- [x] 정본 `incident.open` 수명 주기만 Incident 명단과 결과 분모에 포함하고 Incident가 아닌 상관관계는 Audit, Trace, RCA에 유지합니다.
