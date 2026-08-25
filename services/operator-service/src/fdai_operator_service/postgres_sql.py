@@ -231,6 +231,7 @@ selected AS (
      AND (projection.valid_to_seq IS NULL
       OR projection.valid_to_seq > (SELECT snapshot_seq FROM snapshot))
      AND projection.has_incident_activity
+    AND projection.has_canonical_incident
      AND (%(before_seq)s::bigint IS NULL
       OR projection.last_seq < %(before_seq)s::bigint)
        AND (%(correlation_id)s::text IS NULL
@@ -264,6 +265,11 @@ SELECT (history_row->>'seq')::bigint AS seq,
      history_row->>'entry_hash' AS entry_hash,
      (history_row->>'created_at')::timestamptz AS created_at,
      selected.correlation_id AS normalized_correlation_id,
+    selected.canonical_incident_id,
+    selected.canonical_incident_number,
+    selected.canonical_ticket_id,
+    selected.canonical_opened_at,
+    selected.projected_state AS canonical_lifecycle_state,
      selected.last_seq AS group_last_seq,
      selected.group_history_count,
        selected.matched_groups,
@@ -272,6 +278,13 @@ SELECT (history_row->>'seq')::bigint AS seq,
  CROSS JOIN LATERAL JSONB_ARRAY_ELEMENTS(selected.history) AS expanded(history_row)
  ORDER BY selected.last_seq DESC, (history_row->>'seq')::bigint ASC
 """
+
+INCIDENT_CURRENT_PAGE_SQL: Final = INCIDENT_PAGE_SQL.replace(
+    "projection.valid_from_seq <= (SELECT snapshot_seq FROM snapshot)\n"
+    "     AND (projection.valid_to_seq IS NULL\n"
+    "      OR projection.valid_to_seq > (SELECT snapshot_seq FROM snapshot))",
+    "projection.valid_to_seq IS NULL",
+)
 
 INCIDENT_SNAPSHOT_SQL: Final = "SELECT COALESCE(MAX(seq), 0) AS snapshot_seq FROM audit_log"
 
@@ -292,6 +305,7 @@ __all__ = [
     "AUDIT_PAGE_SQL",
     "HIL_COUNT_SQL",
     "HIL_PAGE_SQL",
+    "INCIDENT_CURRENT_PAGE_SQL",
     "INCIDENT_PAGE_SQL",
     "INCIDENT_SNAPSHOT_SQL",
     "KPI_SAMPLE_SQL",

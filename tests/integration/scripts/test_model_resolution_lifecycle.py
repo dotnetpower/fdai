@@ -14,6 +14,10 @@ from scripts.deployment.azure.model_lifecycle_reconciler import reconcile_model_
 
 _ROOT = Path(__file__).resolve().parents[3]
 _DEPLOY = (_ROOT / ".github" / "workflows" / "deploy-dev.yml").read_text(encoding="utf-8")
+_REQUEST_VALIDATOR = (_ROOT / "scripts/deployment/azure/validate_deploy_request.py").read_text(
+    encoding="utf-8"
+)
+_PLAN_SCOPE = (_ROOT / "scripts/deployment/azure/enforce_plan_scope.py").read_text(encoding="utf-8")
 
 
 def _workflow_step(name: str) -> dict[str, object]:
@@ -95,16 +99,17 @@ def test_model_binding_plan_is_exactly_scoped_and_allows_held_quorum() -> None:
 
     assert "deploy_model_binding:" not in _DEPLOY
     assert "startsWith(inputs.request_id, 'plan-model-')" in _DEPLOY
-    assert "model-[0-9a-f]{64}" in _DEPLOY
-    assert "model-binding plan request does not match the policy digest" in _DEPLOY
+    assert "model-[0-9a-f]{64}" in _REQUEST_VALIDATOR
+    assert "model-binding plan request does not match the policy digest" in _REQUEST_VALIDATOR
     assert "model-binding apply request does not match the sealed policy digest" in _DEPLOY
-    assert "Validate model-binding-only request" in _DEPLOY
-    assert "model-binding plan requires an environment policy" in _DEPLOY
+    assert "validate_deploy_request.py" in _DEPLOY
+    assert "model-binding plan requires an environment policy" in _REQUEST_VALIDATOR
     assert "Bind model-binding Terraform target" in _DEPLOY
     assert "-target=module.llm_azure_openai[0]" in _DEPLOY
-    assert "Enforce model-binding-only Terraform plan" in _DEPLOY
-    assert "changes outside sealed deployments" in _DEPLOY
-    assert "MODEL_BINDING_ONLY: ${{ env.MODEL_BINDING_ONLY }}" in _DEPLOY
+    assert "enforce_plan_scope.py" in _DEPLOY
+    assert "Model-binding-only" in _PLAN_SCOPE
+    assert "plan contains changes outside its bounded scope" in _PLAN_SCOPE
+    assert "MODEL_BINDING_ONLY: ${{ startsWith(inputs.request_id" in _DEPLOY
     assert 'after_model.get("version") == expected["version"]' in _DEPLOY
     assert (
         "MODEL_COMPLETENESS_FAIL_ON: "
@@ -144,7 +149,6 @@ def test_exact_apply_restores_the_plan_sealed_model_manifest() -> None:
 @pytest.mark.parametrize(
     "step_name",
     [
-        "Enforce model-binding-only Terraform plan",
         "Store protected plan artifact",
         "Reverify active Core model fence",
         "Record exact plan apply receipt",

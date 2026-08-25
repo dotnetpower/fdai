@@ -2660,12 +2660,10 @@ def test_apply_runs_service_migrations_from_masked_key_vault_dsn() -> None:
     assert "service migration exceeded its 20-minute stage deadline" in workflow
     assert 'cd "$TRUSTED_CONTROLS"' in workflow
     assert "alembic upgrade head" in workflow
-    assert workflow.index("alembic upgrade head") < workflow.index(
-        '"$migration_command" prepare-adoption'
-    )
-    assert '"$migration_command" prepare-adoption' in workflow
-    assert '"$migration_command" stamp-baseline' in workflow
-    assert '"$migration_command" upgrade head' in workflow
+    assert workflow.index("alembic upgrade head") < workflow.index('"$migration_command" bootstrap')
+    assert '"$migration_command" bootstrap' in workflow
+    assert '"$migration_command" prepare-adoption' not in workflow
+    assert '"$migration_command" stamp-baseline' not in workflow
     assert "database-dsn must be an Azure Key Vault HTTPS secret reference" in workflow
     assert "migration_dsn_secret_name" in workflow
 

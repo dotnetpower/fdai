@@ -256,6 +256,7 @@ jobs:
           trap 'rm -rf -- "$guard_repo"' EXIT
           if [[ -n "$GITHUB_TOKEN" ]]; then
             auth_header="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
+            echo "::add-mask::$auth_header"
             GIT_CONFIG_COUNT=1 \
               GIT_CONFIG_KEY_0=http.extraheader \
               GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth_header" \
@@ -308,96 +309,22 @@ jobs:
           version: "0.11.32"
           enable-cache: false
 
-      - name: Validate runtime image request
-        env:
-          APPLY: ${{ inputs.apply }}
-          CUTOVER_ISOLATED_EXECUTOR_AUTHORITY: ${{ inputs.cutover_isolated_executor_authority }}
-          DEPLOY_DEV_OPERATIONS_GATEWAY: ${{ inputs.deploy_dev_operations_gateway }}
-          DEPLOY_ISOLATED_EXECUTOR: ${{ inputs.deploy_isolated_executor }}
-          DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET: ${{ inputs.deploy_ohl_scale_out_evidence_target }}
-          OHL_SCALE_OUT_EVIDENCE_CAMPAIGN_ID: ${{ vars.OHL_SCALE_OUT_EVIDENCE_CAMPAIGN_ID }}
-          OHL_SCALE_OUT_EVIDENCE_IMAGE_VERSION: ${{ vars.OHL_SCALE_OUT_EVIDENCE_IMAGE_VERSION }}
-          OHL_SCALE_OUT_EVIDENCE_INITIATOR_PRINCIPAL_ID: ${{ vars.OHL_SCALE_OUT_EVIDENCE_INITIATOR_PRINCIPAL_ID }}
-          OHL_SCALE_OUT_EVIDENCE_SSH_PUBLIC_KEY: ${{ vars.OHL_SCALE_OUT_EVIDENCE_SSH_PUBLIC_KEY }}
-          VERIFY_EXECUTOR_EFFECT: ${{ inputs.verify_executor_effect }}
-          PLAN_REQUEST_ID: ${{ inputs.request_id }}
-          PROMOTE_RUNTIME_IMAGE: ${{ inputs.promote_runtime_image }}
-          RUNTIME_IMAGE_REVISION: ${{ inputs.runtime_image_revision }}
-        run: |
-          set -euo pipefail
-          if [[ "$PROMOTE_RUNTIME_IMAGE" == "true" && "$DEPLOY_ISOLATED_EXECUTOR" != "true" ]]; then
-            echo "promote_runtime_image requires deploy_isolated_executor." >&2
-            exit 1
-          fi
-          if [[ "$CUTOVER_ISOLATED_EXECUTOR_AUTHORITY" == "true" \
-            && ( "$DEPLOY_ISOLATED_EXECUTOR" != "true" \
-              || "$DEPLOY_DEV_OPERATIONS_GATEWAY" != "true" ) ]]; then
-            echo "authority cutover requires deploy_isolated_executor and deploy_dev_operations_gateway." >&2
-            exit 1
-          fi
-          if [[ "$VERIFY_EXECUTOR_EFFECT" == "true" \
-            && ( "$APPLY" != "true" || "$DEPLOY_DEV_OPERATIONS_GATEWAY" != "true" ) ]]; then
-            echo "executor effect verification requires apply and deploy_dev_operations_gateway." >&2
-            exit 1
-          fi
-          if [[ "$DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET" == "true" \
-            && ( "$TF_VAR_env" != "dev" || "$DEPLOY_DEV_OPERATIONS_GATEWAY" != "true" ) ]]; then
-            echo "the OHL scale-out evidence target requires dev and deploy_dev_operations_gateway." >&2
-            exit 1
-          fi
-          if [[ "$DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET" == "true" \
-            && ( -z "$OHL_SCALE_OUT_EVIDENCE_CAMPAIGN_ID" \
-              || -z "$OHL_SCALE_OUT_EVIDENCE_IMAGE_VERSION" \
-              || -z "$OHL_SCALE_OUT_EVIDENCE_INITIATOR_PRINCIPAL_ID" \
-              || -z "$OHL_SCALE_OUT_EVIDENCE_SSH_PUBLIC_KEY" ) ]]; then
-            echo "the OHL scale-out evidence target requires campaign, initiator, exact image-version, and SSH-key repository variables." >&2
-            exit 1
-          fi
-          if [[ -n "$RUNTIME_IMAGE_REVISION" && "$DEPLOY_ISOLATED_EXECUTOR" != "true" ]]; then
-            echo "runtime_image_revision requires deploy_isolated_executor." >&2
-            exit 1
-          fi
-          if [[ "$APPLY" == "true" && "$PROMOTE_RUNTIME_IMAGE" == "true" ]]; then
-            echo "runtime image promotion is not allowed during exact apply." >&2
-            exit 1
-          fi
-          if [[ "$PROMOTE_RUNTIME_IMAGE" == "true" && -z "$PLAN_REQUEST_ID" ]]; then
-            echo "runtime image promotion requires a protected plan request." >&2
-            exit 1
-          fi
-
-      - name: Validate design-mocks-only request
-        if: ${{ inputs.deploy_design_mocks }}
-        env:
-          TARGET_ENVIRONMENT: ${{ inputs.environment }}
-          DEPLOY_CONSOLE: ${{ inputs.deploy_console }}
-          DEPLOY_OPERATOR_API: ${{ inputs.deploy_operator_api }}
-          DEPLOY_ISOLATED_EXECUTOR: ${{ inputs.deploy_isolated_executor }}
-          DEPLOY_DEV_OPERATIONS_GATEWAY: ${{ inputs.deploy_dev_operations_gateway }}
-          DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET: ${{ inputs.deploy_ohl_scale_out_evidence_target }}
-          DEPLOY_DOCUMENT_INGESTION: ${{ inputs.deploy_document_ingestion }}
-          DEPLOY_MONITORING: ${{ inputs.deploy_monitoring }}
-        run: |
-          set -euo pipefail
-          if [[ "$TARGET_ENVIRONMENT" != "dev" ]]; then
-            echo "design-mocks deployment is restricted to the dev environment." >&2
-            exit 1
-          fi
-          if [[ "$DEPLOY_CONSOLE" == "true" \
-            || "$DEPLOY_OPERATOR_API" == "true" \
-            || "$DEPLOY_ISOLATED_EXECUTOR" == "true" \
-            || "$DEPLOY_DEV_OPERATIONS_GATEWAY" == "true" \
-            || "$DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET" == "true" \
-            || "$DEPLOY_DOCUMENT_INGESTION" == "true" \
-            || "$DEPLOY_MONITORING" == "true" ]]; then
-            echo "deploy_design_mocks cannot be combined with another deployment target." >&2
-            exit 1
-          fi
-
-      - name: Validate model-binding-only request
+      - name: Install pinned GitHub CLI
         if: ${{ env.MODEL_BINDING_ONLY == 'true' }}
+        working-directory: ${{ github.workspace }}
+        run: bash scripts/deployment/azure/install-pinned-github-cli.sh
+
+      - name: Validate deployment request
+        working-directory: ${{ github.workspace }}
         env:
           APPLY: ${{ inputs.apply }}
+          RESUME_VERIFICATION: ${{ inputs.resume_verification }}
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
+          REQUEST_ID: ${{ inputs.request_id }}
+          CONTEXT_DIGEST: ${{ inputs.context_digest }}
+          COMMIT_SHA: ${{ inputs.commit_sha }}
+          PLAN_ID: ${{ inputs.plan_id }}
+          PLAN_DIGEST: ${{ inputs.plan_digest }}
           CUTOVER_ISOLATED_EXECUTOR_AUTHORITY: ${{ inputs.cutover_isolated_executor_authority }}
           DEPLOY_CONSOLE: ${{ inputs.deploy_console }}
           DEPLOY_DESIGN_MOCKS: ${{ inputs.deploy_design_mocks }}
@@ -407,109 +334,20 @@ jobs:
           DEPLOY_MONITORING: ${{ inputs.deploy_monitoring }}
           DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET: ${{ inputs.deploy_ohl_scale_out_evidence_target }}
           DEPLOY_OPERATOR_API: ${{ inputs.deploy_operator_api }}
+          MODEL_BINDING_ONLY: ${{ env.MODEL_BINDING_ONLY }}
           MODEL_BINDING_POLICY: ${{ env.MODEL_BINDING_POLICY_JSON }}
-          PLAN_REQUEST_ID: ${{ inputs.request_id }}
-          PROMOTE_RUNTIME_IMAGE: ${{ inputs.promote_runtime_image }}
+          OHL_SCALE_OUT_EVIDENCE_CAMPAIGN_ID: ${{ vars.OHL_SCALE_OUT_EVIDENCE_CAMPAIGN_ID }}
+          OHL_SCALE_OUT_EVIDENCE_IMAGE_VERSION: ${{ vars.OHL_SCALE_OUT_EVIDENCE_IMAGE_VERSION }}
+          OHL_SCALE_OUT_EVIDENCE_INITIATOR_PRINCIPAL_ID: ${{ vars.OHL_SCALE_OUT_EVIDENCE_INITIATOR_PRINCIPAL_ID }}
+          OHL_SCALE_OUT_EVIDENCE_SSH_PUBLIC_KEY: ${{ vars.OHL_SCALE_OUT_EVIDENCE_SSH_PUBLIC_KEY }}
           VERIFY_EXECUTOR_EFFECT: ${{ inputs.verify_executor_effect }}
-        run: |
-          set -euo pipefail
-          if [[ -z "$PLAN_REQUEST_ID" ]]; then
-            echo "model-binding deployment requires a protected request." >&2
-            exit 1
-          fi
-          if [[ "$APPLY" != "true" && -z "$MODEL_BINDING_POLICY" ]]; then
-            echo "model-binding plan requires an environment policy." >&2
-            exit 1
-          fi
-          if [[ "$APPLY" != "true" ]]; then
-            policy_digest="$(python3 -c 'import hashlib,json,os; payload=json.loads(os.environ["MODEL_BINDING_POLICY"]); canonical=json.dumps(payload,separators=(",",":"),sort_keys=True).encode(); print(hashlib.sha256(canonical).hexdigest())')"
-            if [[ "$PLAN_REQUEST_ID" != "plan-model-${policy_digest}" ]]; then
-              echo "model-binding plan request does not match the policy digest." >&2
-              exit 1
-            fi
-          fi
-          if [[ "$DEPLOY_CONSOLE" == "true" \
-            || "$DEPLOY_DESIGN_MOCKS" == "true" \
-            || "$DEPLOY_DOCUMENT_INGESTION" == "true" \
-            || "$DEPLOY_DEV_OPERATIONS_GATEWAY" == "true" \
-            || "$DEPLOY_ISOLATED_EXECUTOR" == "true" \
-            || "$DEPLOY_MONITORING" == "true" \
-            || "$DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET" == "true" \
-            || "$DEPLOY_OPERATOR_API" == "true" \
-            || "$CUTOVER_ISOLATED_EXECUTOR_AUTHORITY" == "true" \
-            || "$PROMOTE_RUNTIME_IMAGE" == "true" \
-            || "$VERIFY_EXECUTOR_EFFECT" == "true" ]]; then
-            echo "model-binding deployment cannot be combined with another bounded operation." >&2
-            exit 1
-          fi
+          PROMOTE_RUNTIME_IMAGE: ${{ inputs.promote_runtime_image }}
+          RUNTIME_IMAGE_REVISION: ${{ inputs.runtime_image_revision }}
+        run: python3 scripts/deployment/azure/validate_deploy_request.py
 
       - name: Bind model-binding Terraform target
         if: ${{ env.MODEL_BINDING_ONLY == 'true' }}
         run: echo 'TF_CLI_ARGS_plan=-target=module.llm_azure_openai[0]' >> "$GITHUB_ENV"
-
-      - name: Validate remote plan request
-        if: ${{ !inputs.apply && inputs.request_id != '' }}
-        env:
-          PLAN_REQUEST_ID: ${{ inputs.request_id }}
-          PLAN_CONTEXT_DIGEST: ${{ inputs.context_digest }}
-          PLAN_COMMIT_SHA: ${{ inputs.commit_sha }}
-        run: |
-          set -euo pipefail
-          if [[ ! "$PLAN_REQUEST_ID" =~ ^plan-([0-9a-f]{24}|model-[0-9a-f]{64}|evh-[0-9a-f]{20}|evh-jobs-[0-9a-f]{16})$ ]]; then
-            echo "request_id must be a bounded fdaictl plan id." >&2
-            exit 1
-          fi
-          if [[ ! "$PLAN_CONTEXT_DIGEST" =~ ^[0-9a-f]{64}$ ]]; then
-            echo "context_digest must be a lowercase SHA-256 digest." >&2
-            exit 1
-          fi
-          if [[ ! "$PLAN_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "commit_sha must be a lowercase git SHA." >&2
-            exit 1
-          fi
-          if [[ "$PLAN_COMMIT_SHA" != "$(git rev-parse HEAD)" ]]; then
-            echo "requested commit does not match the workflow checkout." >&2
-            exit 1
-          fi
-          if [[ -z "$DEPLOY_PREFLIGHT_INPUT_JSON" ]]; then
-            echo "DEPLOY_PREFLIGHT_INPUT_JSON is required for protected plans." >&2
-            exit 1
-          fi
-
-      - name: Validate exact apply request
-        if: ${{ inputs.apply }}
-        env:
-          APPLY_REQUEST_ID: ${{ inputs.request_id }}
-          APPLY_CONTEXT_DIGEST: ${{ inputs.context_digest }}
-          APPLY_COMMIT_SHA: ${{ inputs.commit_sha }}
-          APPLY_PLAN_ID: ${{ inputs.plan_id }}
-          APPLY_PLAN_DIGEST: ${{ inputs.plan_digest }}
-        run: |
-          set -euo pipefail
-          if [[ ! "$APPLY_REQUEST_ID" =~ ^apply-([0-9a-f]{24}|model-[0-9a-f]{64}|evh-[0-9a-f]{20}|evh-jobs-[0-9a-f]{16})$ ]]; then
-            echo "apply request_id must be a bounded fdaictl id." >&2
-            exit 1
-          fi
-          if [[ ! "$APPLY_CONTEXT_DIGEST" =~ ^[0-9a-f]{64}$ ]]; then
-            echo "apply context_digest must be a lowercase SHA-256 digest." >&2
-            exit 1
-          fi
-          if [[ ! "$APPLY_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "apply commit_sha must be a lowercase git SHA." >&2
-            exit 1
-          fi
-          if [[ "$APPLY_COMMIT_SHA" != "$(git rev-parse HEAD)" ]]; then
-            echo "requested apply commit does not match the workflow checkout." >&2
-            exit 1
-          fi
-          if [[ ! "$APPLY_PLAN_ID" =~ ^plan-[1-9][0-9]*-[1-9][0-9]*$ ]]; then
-            echo "plan_id is invalid." >&2
-            exit 1
-          fi
-          if [[ ! "$APPLY_PLAN_DIGEST" =~ ^[0-9a-f]{64}$ ]]; then
-            echo "plan_digest must be a lowercase SHA-256 digest." >&2
-            exit 1
-          fi
 
       - name: Verify production architecture-review evidence
         if: inputs.environment == 'prod'
@@ -649,6 +487,7 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Ensure protected storage containers
+        if: ${{ !inputs.apply }}
         # Created data-plane from the runner (inside the VNet, over the blob
         # private endpoint) since the account is private + key-auth is
         # policy-forbidden. Idempotent.
@@ -662,33 +501,14 @@ jobs:
             --name deployment-plans --auth-mode login --public-access off --only-show-errors \
             --output none
 
-      - name: Activate remote state backend
-        run: cp backend.azurerm.tf.example backend.tf
-
-      - name: Terraform init
+      - name: Initialize Terraform remote state
         run: |
+          cp backend.azurerm.tf.example backend.tf
           terraform init -input=false \
             -backend-config="resource_group_name=${{ vars.OPS_RESOURCE_GROUP_NAME }}" \
             -backend-config="storage_account_name=${{ vars.STATE_STORAGE_ACCOUNT }}" \
             -backend-config="container_name=tfstate" \
             -backend-config="key=fdai-${{ inputs.environment }}.tfstate"
-
-      - name: Install pinned GitHub CLI for model verification
-        if: ${{ env.MODEL_BINDING_ONLY == 'true' }}
-        env:
-          GH_VERSION: "2.97.0"
-          GH_LINUX_AMD64_SHA256: "a2c9b8497e1f85b1ad0dfcb78b5a622e098801b8e461e459e88e1ee12f018112"
-        run: |
-          set -euo pipefail
-          archive="gh_${GH_VERSION}_linux_amd64.tar.gz"
-          curl --fail --location --silent --show-error --retry 3 --retry-delay 2 \
-            --retry-all-errors --retry-max-time 180 --connect-timeout 5 --max-time 120 \
-            "https://github.com/cli/cli/releases/download/v${GH_VERSION}/${archive}" \
-            --output "$RUNNER_TEMP/$archive"
-          printf '%s  %s\n' "$GH_LINUX_AMD64_SHA256" "$RUNNER_TEMP/$archive" \
-            | sha256sum --check --strict
-          tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP"
-          echo "$RUNNER_TEMP/gh_${GH_VERSION}_linux_amd64/bin" >> "$GITHUB_PATH"
 
       - name: Verify model binding policy active digest
         if: ${{ !inputs.apply && env.MODEL_BINDING_POLICY_JSON != '' }}
@@ -747,113 +567,18 @@ jobs:
             echo "ACTIVE_CORE_MODEL_DIGEST=$current"
           } >> "$GITHUB_ENV"
 
-      - name: Install pinned GitHub CLI for image verification
-        if: ${{ !inputs.apply && inputs.deploy_isolated_executor }}
-        env:
-          GH_VERSION: "2.97.0"
-          GH_LINUX_AMD64_SHA256: "a2c9b8497e1f85b1ad0dfcb78b5a622e098801b8e461e459e88e1ee12f018112"
-        run: |
-          set -euo pipefail
-          archive="gh_${GH_VERSION}_linux_amd64.tar.gz"
-          curl --fail --location --silent --show-error --retry 3 --retry-delay 2 \
-            --retry-all-errors --retry-max-time 180 --connect-timeout 5 --max-time 120 \
-            "https://github.com/cli/cli/releases/download/v${GH_VERSION}/${archive}" \
-            --output "$RUNNER_TEMP/$archive"
-          printf '%s  %s\n' "$GH_LINUX_AMD64_SHA256" "$RUNNER_TEMP/$archive" \
-            | sha256sum --check --strict
-          tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP"
-          echo "$RUNNER_TEMP/gh_${GH_VERSION}_linux_amd64/bin" >> "$GITHUB_PATH"
-
       - name: Bind exact isolated Executor runtime image
         if: ${{ !inputs.apply && inputs.deploy_isolated_executor }}
+        working-directory: ${{ github.workspace }}
         env:
           GH_TOKEN: ${{ github.token }}
           GHCR_TOKEN: ${{ github.token }}
           PROMOTE_RUNTIME_IMAGE: ${{ inputs.promote_runtime_image }}
           RUNTIME_IMAGE_REVISION: ${{ inputs.runtime_image_revision }}
-        run: |
-          set -euo pipefail
-          checkout_revision="$(git rev-parse HEAD)"
-          revision="${RUNTIME_IMAGE_REVISION:-$checkout_revision}"
-          if [[ ! "$revision" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "runtime_image_revision must be a lowercase git SHA." >&2
-            exit 1
-          fi
-          if ! git merge-base --is-ancestor "$revision" "$checkout_revision"; then
-            echo "runtime image revision must be an ancestor of the workflow checkout." >&2
-            exit 1
-          fi
-
-          source_repository="${GITHUB_REPOSITORY,,}/fdai-core-control-plane"
-          registry_token="$(
-            curl --fail --silent --show-error --retry 3 --retry-delay 2 \
-              --retry-all-errors --retry-max-time 60 --connect-timeout 5 --max-time 30 \
-              --user "$GITHUB_ACTOR:$GHCR_TOKEN" \
-              "https://ghcr.io/token?scope=repository:${source_repository}:pull" \
-              | python3 -c 'import json, sys; print(json.load(sys.stdin)["token"])'
-          )"
-          source_digest="$(
-            curl --fail --silent --show-error --head --retry 3 --retry-delay 2 \
-              --retry-all-errors --retry-max-time 60 --connect-timeout 5 --max-time 30 \
-              -H "Authorization: Bearer $registry_token" \
-              -H 'Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json' \
-              "https://ghcr.io/v2/${source_repository}/manifests/sha-${revision}" \
-              | tr -d '\r' \
-              | awk -F': ' 'tolower($1) == "docker-content-digest" {print $2}'
-          )"
-          if [[ ! "$source_digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
-            echo "verified runtime image tag did not resolve to one manifest digest." >&2
-            exit 1
-          fi
-          timeout 60s gh attestation verify \
-            "oci://ghcr.io/${source_repository}@${source_digest}" \
-            --repo "$GITHUB_REPOSITORY" >/dev/null
-
-          login_server="$(terraform output -raw container_registry_login_server)"
-          registry_name="${login_server%%.*}"
-          if [[ ! "$registry_name" =~ ^[a-z0-9]+$ ]]; then
-            echo "Terraform returned an invalid ACR login server." >&2
-            exit 1
-          fi
-          if [[ "$PROMOTE_RUNTIME_IMAGE" == "true" ]]; then
-            timeout 600s az acr import \
-              --name "$registry_name" \
-              --source "ghcr.io/${source_repository}@${source_digest}" \
-              --image "fdai:sha-${revision}" \
-              --username "$GITHUB_ACTOR" \
-              --password "$GHCR_TOKEN" \
-              --force --only-show-errors --output none
-          fi
-          target_digest=""
-          for attempt in 1 2 3 4 5; do
-            target_digest="$(
-              timeout 30s az acr manifest list-metadata \
-                --registry "$registry_name" \
-                --name fdai \
-                --query "[?tags != null && contains(tags, 'sha-${revision}')].digest | [0]" \
-                --output tsv --only-show-errors || true
-            )"
-            if [[ "$target_digest" == "$source_digest" ]]; then
-              break
-            fi
-            sleep "$((attempt * 2))"
-          done
-          if [[ -z "$target_digest" ]]; then
-            echo "Verified runtime image is not present in ACR; submit an authorized plan with promote_runtime_image=true." >&2
-            exit 1
-          fi
-          if [[ "$target_digest" != "$source_digest" ]]; then
-            echo "ACR runtime image digest does not match the verified GHCR subject." >&2
-            exit 1
-          fi
-          {
-            echo "TF_VAR_core_image=${login_server}/fdai@${target_digest}"
-            echo "FDAI_RUNTIME_IMAGE_REVISION=${revision}"
-            echo "FDAI_RUNTIME_IMAGE_DIGEST=${target_digest}"
-          } >> "$GITHUB_ENV"
+        run: bash scripts/deployment/azure/bind_isolated_executor_image.sh infra
 
       - name: Adopt existing Azure resources
-        if: ${{ !inputs.deploy_design_mocks }}
+        if: ${{ !inputs.apply && !inputs.deploy_design_mocks }}
         run: |
           set -euo pipefail
           rg="rg-fdai-${TF_VAR_env}-${TF_VAR_region_short}"
@@ -933,144 +658,40 @@ jobs:
           done
 
       - name: Terraform format check
+        if: ${{ !inputs.apply }}
         run: terraform fmt -check -recursive
 
       - name: Terraform validate
+        if: ${{ !inputs.apply }}
         run: terraform validate
 
       - name: Build development operations gateway source artifact
         if: ${{ !inputs.apply && inputs.deploy_dev_operations_gateway }}
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-          from zipfile import ZIP_DEFLATED, ZipFile
-
-          source = Path("../delivery/dev_operations_gateway")
-          target = Path("fdai-dev-operations-gateway.zip")
-          excluded_names = {".funcignore", "README.md"}
-          with ZipFile(target, "w", compression=ZIP_DEFLATED) as archive:
-            for path in sorted(source.rglob("*")):
-              if (
-                not path.is_file()
-                or path.name in excluded_names
-                or path.suffix == ".pyc"
-                or "__pycache__" in path.parts
-              ):
-                continue
-              archive.write(path, path.relative_to(source).as_posix())
-          required = {"function_app.py", "gateway.py", "host.json", "requirements.txt"}
-          with ZipFile(target) as archive:
-            missing = required.difference(archive.namelist())
-          if missing:
-            raise SystemExit(f"gateway source artifact is missing: {sorted(missing)}")
-          PY
+        run: >-
+          python3 ../scripts/deployment/azure/build_dev_gateway_artifact.py
+          ../delivery/dev_operations_gateway fdai-dev-operations-gateway.zip
 
       - name: Run runner egress preflight
+        if: ${{ !inputs.apply && !inputs.deploy_design_mocks }}
+        working-directory: ${{ github.workspace }}
         run: |
           set -euo pipefail
-          trap 'rm -f runner-network-connectivity-manifest.json runner-network-connectivity.json' EXIT
-          printf '%s\n' "$PREFLIGHT_EGRESS_HOSTS_JSON" > runner-egress-hosts.json
-          python3 ../scripts/deployment/azure/check-runner-egress.py runner-egress-hosts.json \
-            --output runner-egress-evidence.json --timeout-seconds 5
-          export PREFLIGHT_EVENT_BUS_PRIMARY="$(terraform output -raw "event_bus_kafka_bootstrap" 2>/dev/null || true)"
-          export PREFLIGHT_EVENT_BUS_OPERATIONAL="$(terraform output -raw "event_bus_operational_kafka_bootstrap" 2>/dev/null || true)"
-          export PREFLIGHT_POSTGRES="$(terraform output -raw "postgres_fqdn" 2>/dev/null || true)"
-          export PREFLIGHT_KEY_VAULT="$(terraform output -raw "key_vault_uri" 2>/dev/null || true)"
-          export PREFLIGHT_ACR="$(terraform output -raw "container_registry_login_server" 2>/dev/null || true)"
-          export PREFLIGHT_LLM="$(terraform output -raw "llm_endpoint" 2>/dev/null || true)"
-          python3 - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-          from urllib.parse import urlsplit
-
-          with open("runner-egress-hosts.json", encoding="utf-8") as stream:
-            hosts = json.load(stream)
-          if not isinstance(hosts, list):
-            raise SystemExit("PREFLIGHT_EGRESS_HOSTS_JSON must be an array")
-          checks = [
-            {
-              "id": f"egress-{index:02d}",
-              "host": host,
-              "port": 443,
-              "required": True,
-              "expected_ip": "any",
-            }
-            for index, host in enumerate(hosts, start=1)
-          ]
-          private_networking = os.environ.get(
-            "TF_VAR_enable_private_networking", "false"
-          ).lower() == "true"
-          private_policy = "private" if private_networking else "public"
-          acr_is_private = (
-            private_networking
-            and os.environ.get("TF_VAR_acr_sku", "Basic").lower() == "premium"
+          args=(
+            --terraform-dir infra
+            --egress-hosts-json "$PREFLIGHT_EGRESS_HOSTS_JSON"
+            --extra-checks-json "$PREFLIGHT_NETWORK_CHECKS_JSON"
+            --output infra/runner-egress-evidence.json
           )
-          state_targets = (
-            ("event-bus-primary", "PREFLIGHT_EVENT_BUS_PRIMARY", 9093, private_policy),
-            ("event-bus-operational", "PREFLIGHT_EVENT_BUS_OPERATIONAL", 9093, private_policy),
-            ("postgres", "PREFLIGHT_POSTGRES", 5432, private_policy),
-            ("key-vault", "PREFLIGHT_KEY_VAULT", 443, private_policy),
-            ("container-registry", "PREFLIGHT_ACR", 443, "private" if acr_is_private else "public"),
-            ("azure-openai", "PREFLIGHT_LLM", 443, private_policy),
-          )
-          for check_id, env_key, port, expected_ip in state_targets:
-            value = os.environ.get(env_key, "").strip()
-            if not value:
-              continue
-            parsed = urlsplit(value if "://" in value else f"//{value}")
-            if not parsed.hostname:
-              raise SystemExit(f"Terraform output for {check_id} has no hostname")
-            checks.append(
-              {
-                "id": check_id,
-                "host": parsed.hostname,
-                "port": port,
-                "required": True,
-                "expected_ip": expected_ip,
-              }
-            )
-          extra_raw = os.environ.get("PREFLIGHT_NETWORK_CHECKS_JSON", "").strip()
-          if extra_raw:
-            extra = json.loads(extra_raw)
-            if (
-              not isinstance(extra, dict)
-              or extra.get("schema_version") != "fdai.network-connectivity-manifest.v1"
-              or not isinstance(extra.get("checks"), list)
-            ):
-              raise SystemExit("PREFLIGHT_NETWORK_CHECKS_JSON is not a valid manifest")
-            checks.extend(extra["checks"])
-          manifest = {
-            "schema_version": "fdai.network-connectivity-manifest.v1",
-            "checks": checks,
-          }
-          with open("runner-network-connectivity-manifest.json", "w", encoding="utf-8") as stream:
-            json.dump(manifest, stream, sort_keys=True, separators=(",", ":"))
-            stream.write("\n")
-          PY
-          python3 ../scripts/deployment/azure/check-network-connectivity.py \
-            --profile custom --manifest runner-network-connectivity-manifest.json \
-            --redact --output runner-network-connectivity.json --timeout-seconds 5
-          python3 - <<'PY'
-          import json
-
-          with open("runner-egress-evidence.json", encoding="utf-8") as stream:
-            egress = json.load(stream)
-          with open("runner-network-connectivity.json", encoding="utf-8") as stream:
-            network = json.load(stream)
-          egress["network_connectivity"] = network
-          with open("runner-egress-evidence.json", "w", encoding="utf-8") as stream:
-            json.dump(egress, stream, sort_keys=True, separators=(",", ":"))
-            stream.write("\n")
-          PY
+          [[ "$TF_VAR_enable_private_networking" == "true" ]] && args+=(--private-networking)
+          [[ "${TF_VAR_acr_sku:-Basic}" == "Premium" ]] && args+=(--premium-acr)
+          python3 scripts/deployment/azure/run_runner_preflight.py "${args[@]}"
 
       - name: Terraform plan
         if: ${{ !inputs.apply }}
         run: terraform plan -input=false -lock-timeout=300s -out=dev.plan
 
       - name: Guard migrated runtimes from legacy recreation
-        if: ${{ !inputs.apply }}
+        if: ${{ !inputs.apply && !inputs.deploy_design_mocks && !inputs.deploy_monitoring && env.MODEL_BINDING_ONLY != 'true' }}
         run: |
           set -euo pipefail
           git -C "$GITHUB_WORKSPACE" fetch --no-tags origin \
@@ -1095,94 +716,23 @@ jobs:
           python3 ../scripts/deployment/service/state_migration.py guard-legacy-plan \
             --plan-json "$RUNNER_TEMP/legacy-runtime-plan.json"
 
-      - name: Enforce design-mocks-only Terraform plan
-        if: ${{ !inputs.apply && inputs.deploy_design_mocks }}
+      - name: Enforce bounded Terraform plan scope
+        if: ${{ !inputs.apply && (inputs.deploy_design_mocks || inputs.deploy_monitoring || env.MODEL_BINDING_ONLY == 'true') }}
+        working-directory: ${{ github.workspace }}
         run: |
           set -euo pipefail
-          terraform show -json dev.plan > design-mocks-plan.json
-          trap 'rm -f design-mocks-plan.json' EXIT
-          python3 - <<'PY'
-          import json
-
-          with open("design-mocks-plan.json", encoding="utf-8") as stream:
-            plan = json.load(stream)
-          allowed = {
-              "module.design_mocks[0].azurerm_static_web_app.design_mocks",
-          }
-          changed = {
-              str(change.get("address", "unknown"))
-              for change in plan.get("resource_changes", [])
-              if change.get("change", {}).get("actions", []) not in (["no-op"], ["read"])
-          }
-          unexpected = sorted(changed.difference(allowed))
-          if unexpected:
-            print("Design-mocks-only plan contains changes outside the Static Web App:")
-            for address in unexpected:
-              print(f"- {address}")
-            raise SystemExit(1)
-          print(f"Design-mocks-only plan accepted: {sorted(changed)}")
-          PY
-
-      - name: Enforce monitoring-only Terraform plan
-        if: ${{ !inputs.apply && inputs.deploy_monitoring && !inputs.deploy_design_mocks }}
-        run: |
-          set -euo pipefail
-          terraform show -json dev.plan > monitoring-plan.json
-          trap 'rm -f monitoring-plan.json' EXIT
-          python3 - <<'PY'
-          import json
-
-          with open("monitoring-plan.json", encoding="utf-8") as stream:
-            plan = json.load(stream)
-          unexpected = sorted(
-              str(change.get("address", "unknown"))
-              for change in plan.get("resource_changes", [])
-              if change.get("change", {}).get("actions", []) not in (["no-op"], ["read"])
-              and not str(change.get("address", "unknown")).startswith("module.monitoring[")
-          )
-          if unexpected:
-            print("Monitoring-only plan contains changes outside module.monitoring:")
-            for address in unexpected:
-              print(f"- {address}")
-            raise SystemExit(1)
-          print("Monitoring-only plan accepted")
-          PY
-
-      - name: Enforce model-binding-only Terraform plan
-        if: ${{ !inputs.apply && env.MODEL_BINDING_ONLY == 'true' }}
-        run: |
-          set -euo pipefail
-          terraform show -json dev.plan > model-binding-plan.json
-          trap 'rm -f model-binding-plan.json' EXIT
-          python3 - <<'PY'
-          import json
-          import os
-
-          with open("model-binding-plan.json", encoding="utf-8") as stream:
-            plan = json.load(stream)
-          with open(os.environ["FDAI_RESOLVED_MODELS_PATH"], encoding="utf-8") as stream:
-            resolved = json.load(stream)
-          allowed = {
-            "module.llm_azure_openai[0].azurerm_cognitive_deployment."
-            f'capability["{item["name"]}"]'
-            for item in resolved.get("capabilities", [])
-            if item.get("status") != "hil-only"
-          }
-          changed = {
-            str(change.get("address", "unknown"))
-            for change in plan.get("resource_changes", [])
-            if change.get("change", {}).get("actions", []) not in (["no-op"], ["read"])
-          }
-          unexpected = sorted(changed.difference(allowed))
-          if not changed:
-            raise SystemExit("model-binding plan contains no deployment change")
-          if unexpected:
-            print("Model-binding-only plan contains changes outside sealed deployments:")
-            for address in unexpected:
-              print(f"- {address}")
-            raise SystemExit(1)
-          print(f"Model-binding-only plan accepted: {sorted(changed)}")
-          PY
+          if [[ "$MODEL_BINDING_ONLY" == "true" ]]; then
+            mode=model-binding
+            extra=(--resolved-models "$FDAI_RESOLVED_MODELS_PATH")
+          elif [[ "${{ inputs.deploy_design_mocks }}" == "true" ]]; then
+            mode=design-mocks
+            extra=()
+          else
+            mode=monitoring
+            extra=()
+          fi
+          python3 scripts/deployment/azure/enforce_plan_scope.py \
+            --plan infra/dev.plan --mode "$mode" "${extra[@]}"
 
       - name: Reject destructive protected plan
         if: ${{ !inputs.apply && inputs.request_id != '' }}
@@ -2034,7 +1584,7 @@ jobs:
           retention-days: 30
 
       - name: Reconcile Foundry web-search agent
-        if: ${{ inputs.apply && !inputs.deploy_design_mocks && vars.OPERATOR_API_WEB_SEARCH_ENABLED == 'true' }}
+        if: ${{ inputs.apply && !inputs.resume_verification && inputs.deploy_operator_api && vars.OPERATOR_API_WEB_SEARCH_ENABLED == 'true' }}
         env:
           WEB_SEARCH_ALLOWED_DOMAINS_JSON: "${{ vars.OPERATOR_API_WEB_SEARCH_ALLOWED_DOMAINS_JSON || '[]' }}"
         run: |
@@ -2054,22 +1604,8 @@ jobs:
 
       - name: Prepare exact development operations gateway source
         if: ${{ inputs.apply && inputs.deploy_dev_operations_gateway }}
-        env:
-          APPLY_CONTEXT_DIGEST: ${{ inputs.context_digest }}
-          APPLY_COMMIT_SHA: ${{ inputs.commit_sha }}
-          APPLY_PLAN_ID: ${{ inputs.plan_id }}
-          APPLY_PLAN_DIGEST: ${{ inputs.plan_digest }}
         run: |
           set -euo pipefail
-          source_artifact="fdai-dev-operations-gateway.zip"
-          python3 ../scripts/deployment/azure/verify-deployment-plan.py \
-            --plan dev.plan --source-artifact "$source_artifact" \
-            --metadata plan-metadata.json \
-            --preflight-evidence plan-preflight-evidence.json \
-            --azure-preflight-evidence plan-azure-preflight-evidence.json \
-            --plan-id "$APPLY_PLAN_ID" --plan-digest "$APPLY_PLAN_DIGEST" \
-            --context-digest "$APPLY_CONTEXT_DIGEST" --commit-sha "$APPLY_COMMIT_SHA"
-
           rg="$(terraform output -raw resource_group_name)"
           app="$(terraform output -raw dev_operations_gateway_app_name)"
           if [ -z "$rg" ] || [ -z "$app" ]; then
@@ -2082,9 +1618,11 @@ jobs:
             --setting-names AzureWebJobsStorage DEPLOYMENT_STORAGE_CONNECTION_STRING \
             --only-show-errors --output none
           az functionapp restart --resource-group "$rg" --name "$app" --only-show-errors
-          echo "GATEWAY_FUNCTION_APP=$app" >> "$GITHUB_ENV"
-          echo "GATEWAY_FUNCTION_RESOURCE_ID=$resource_id" >> "$GITHUB_ENV"
-          echo "GATEWAY_DEPLOYMENT_STARTED_EPOCH=$(date -u +%s)" >> "$GITHUB_ENV"
+          {
+            echo "GATEWAY_FUNCTION_APP=$app"
+            echo "GATEWAY_FUNCTION_RESOURCE_ID=$resource_id"
+            echo "GATEWAY_DEPLOYMENT_STARTED_EPOCH=$(date -u +%s)"
+          } >> "$GITHUB_ENV"
 
       - name: Publish exact development operations gateway source
         if: ${{ inputs.apply && inputs.deploy_dev_operations_gateway }}
@@ -2236,11 +1774,17 @@ jobs:
           fi
           echo "Design mocks: https://$hostname" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Run schema migration
-        if: ${{ inputs.apply && (inputs.deploy_operator_api || inputs.deploy_document_ingestion) }}
+      - name: Run schema migrations
+        if: ${{ inputs.apply && !inputs.resume_verification && !inputs.deploy_design_mocks && !inputs.deploy_monitoring && env.MODEL_BINDING_ONLY != 'true' }}
+        working-directory: ${{ github.workspace }}
         run: |
           set -euo pipefail
-          rg="$(terraform output -raw resource_group_name)"
+          bash scripts/deployment/azure/bootstrap-service-migrations.sh \
+            "$GITHUB_WORKSPACE/infra" \
+            "$RUNNER_TEMP/integrated-service-migration-adoption" \
+            "$(git rev-parse HEAD)"
+
+          rg="$(terraform -chdir=infra output -raw resource_group_name)"
 
           run_job() {
             local job="$1"
@@ -2276,21 +1820,19 @@ jobs:
           migration_start_margin=45
           migration_deadline=$((SECONDS + migration_budget))
 
-          jobs=()
           if [ "${{ inputs.deploy_operator_api }}" = "true" ]; then
-            jobs+=("$(terraform output -raw operator_api_migrate_job_name)")
-          fi
-          if [ "${{ inputs.deploy_document_ingestion }}" = "true" ]; then
-            jobs+=("$(terraform output -raw ingestion_migrate_job_name)")
-          fi
-          for job in "${jobs[@]}"; do
-            [ -z "$job" ] && continue
-            run_job "$job" "migration"
-          done
-          if [ "${{ inputs.deploy_operator_api }}" = "true" ]; then
-            catalog_job="$(terraform output -raw operator_api_catalog_job_name)"
+            catalog_job="$(terraform -chdir=infra output -raw operator_api_catalog_job_name)"
             run_job "$catalog_job" "catalog materialization"
           fi
+
+      - name: Publish integrated migration adoption evidence
+        if: ${{ always() && inputs.apply && !inputs.resume_verification && !inputs.deploy_design_mocks && !inputs.deploy_monitoring && env.MODEL_BINDING_ONLY != 'true' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: integrated-service-migration-adoption-${{ inputs.environment }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/integrated-service-migration-adoption
+          if-no-files-found: ignore
+          retention-days: 90
 
       - name: Verify deployed health endpoints
         if: ${{ inputs.apply && !inputs.deploy_design_mocks }}
@@ -2330,7 +1872,7 @@ jobs:
             while [ "$SECONDS" -lt "$health_deadline" ]; do
               state="$(az containerapp revision show --name "$app" --resource-group "$rg" \
                 --revision "$revision" \
-                --query '[properties.provisioningState, properties.healthState] | join(`:`, @)' \
+                --query "join(':', [properties.provisioningState, properties.healthState])" \
                 -o tsv 2>/dev/null || true)"
               echo "$app latest revision $revision state: $state"
               if [ "$state" = "Provisioned:Healthy" ]; then ready=true; break; fi
@@ -2345,11 +1887,11 @@ jobs:
             payload="$(curl --fail --silent --show-error --retry 12 --retry-delay 5 \
               --retry-all-errors --retry-max-time 60 --connect-timeout 5 --max-time 10 "$target")"
             printf '%s' "$payload" | python3 -c \
-              'import json, sys; value=json.load(sys.stdin); assert value == {"status": "ok"}'
+              "import json, sys; value=json.load(sys.stdin); assert value == {'status': 'ok'}"
           done
 
       - name: Verify independent Executor effect and rollback
-        if: ${{ inputs.apply && inputs.verify_executor_effect }}
+        if: ${{ inputs.apply && !inputs.resume_verification && inputs.verify_executor_effect }}
         env:
           AUTHORITY_CUTOVER: ${{ inputs.cutover_isolated_executor_authority }}
         run: |
@@ -2624,7 +2166,7 @@ jobs:
           echo "Executor authority effect verified in ${elapsed}s via ${transport}." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publish Executor authority effect receipt
-        if: ${{ inputs.apply && inputs.verify_executor_effect && success() }}
+        if: ${{ inputs.apply && !inputs.resume_verification && inputs.verify_executor_effect && success() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: executor-authority-effect-receipt-${{ inputs.plan_id }}

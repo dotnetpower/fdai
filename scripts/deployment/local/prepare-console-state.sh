@@ -36,16 +36,10 @@ for service_id in \
 
   FDAI_DATABASE_URL="$database_url" \
     PYTHONPATH="$repo_root/service-migrations" \
-    "${migration_command[@]}" prepare-adoption \
+    "${migration_command[@]}" bootstrap \
       --evidence-output "$evidence" \
       --schema-output "$schema_evidence" \
       --rollback-reference "$rollback_reference"
-  FDAI_DATABASE_URL="$database_url" \
-    PYTHONPATH="$repo_root/service-migrations" \
-    "${migration_command[@]}" stamp-baseline --evidence "$evidence"
-  FDAI_DATABASE_URL="$database_url" \
-    PYTHONPATH="$repo_root/service-migrations" \
-    "${migration_command[@]}" upgrade head
 done
 
 echo "local PostgreSQL legacy schema and all five service migrations are current"

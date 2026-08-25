@@ -31,6 +31,9 @@ def test_model_cas_requires_bound_active_core_revision() -> None:
     assert "--require-model-binding" in script
     assert "verify_active_model_attestation.py" in script
     assert "runtime_digest" in script
+    assert "ACTIVE_CORE_REVISION=" in script
+    assert "ACTIVE_CORE_IMAGE_DIGEST=" in script
+    assert "ACTIVE_CORE_MODEL_DIGEST=" in script
     assert "bootstrap requires" not in script
     assert "terraform state show" not in script
 

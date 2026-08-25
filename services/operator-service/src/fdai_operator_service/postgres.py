@@ -40,6 +40,7 @@ from fdai_operator_service.postgres_sql import (
     BROWSER_EVIDENCE_PAGE_SQL,
     HIL_COUNT_SQL,
     HIL_PAGE_SQL,
+    INCIDENT_CURRENT_PAGE_SQL,
     INCIDENT_PAGE_SQL,
     INCIDENT_SNAPSHOT_SQL,
     KPI_SAMPLE_SQL,
@@ -293,8 +294,9 @@ class PostgresOperatorReadModel:
             vertical=query.vertical,
             severity=query.severity,
         )
+        statement = INCIDENT_PAGE_SQL if cursor else INCIDENT_CURRENT_PAGE_SQL
         rows = await self._fetch_all(
-            INCIDENT_PAGE_SQL,
+            statement,
             {
                 "snapshot_seq": cursor[0] if cursor else None,
                 "before_seq": cursor[1] if cursor else None,

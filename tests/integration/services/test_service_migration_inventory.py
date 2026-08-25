@@ -1203,6 +1203,22 @@ def test_dispatcher_all_upgrade_uses_manifest_dependency_order(
     )
 
 
+def test_dispatcher_reports_manifest_dependency_order(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    inventory = inventory_module.load_legacy_inventory(REPO_ROOT / "alembic" / "versions")
+    manifest = ownership_module.load_ownership_manifest(
+        MIGRATION_ROOT / "ownership.json",
+        inventory,
+    )
+
+    assert cli_module.main(["all", "order"]) == 0
+    assert tuple(capsys.readouterr().out.splitlines()) == ownership_module.migration_order(
+        manifest,
+        SERVICE_IDS,
+    )
+
+
 def test_service_command_wrappers_exist_and_are_executable() -> None:
     for service_id in SERVICE_IDS:
         wrapper = MIGRATION_ROOT / "bin" / service_id
@@ -1282,7 +1298,7 @@ def test_schema_contract_covers_exactly_five_services() -> None:
     assert all(value.table_count > 0 for value in contract.values())
     assert all(value.column_count >= value.table_count for value in contract.values())
     assert all(value.extensions for value in contract.values())
-    assert contract["core-control-plane"].constraint_count == 183
+    assert contract["core-control-plane"].constraint_count == 190
 
 
 def test_schema_contract_rejects_stale_legacy_revision(tmp_path: Path) -> None:
@@ -1604,6 +1620,70 @@ def test_stamp_baseline_skips_missing_temporary_evidence_at_descendant(
         legacy_owned_tables=("operator_projection",),
         evidence=tmp_path / "missing-adoption.json",
     )
+
+
+def test_bootstrap_orders_adoption_stamp_and_upgrade(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    adoption = cli_module.AdoptionManifest(
+        service_id="operator-service",
+        baseline_revision="operator-base",
+        service_version_table="alembic_version_operator",
+        legacy_version_table="alembic_version",
+        required_legacy_head="legacy-head",
+        legacy_revision_count=81,
+        rollback_strategy="delete-service-version-row",
+    )
+    calls: list[str] = []
+    monkeypatch.setattr(
+        cli_module,
+        "_prepare_adoption_evidence",
+        lambda *_args, **_kwargs: calls.append("prepare"),
+    )
+    monkeypatch.setattr(
+        cli_module,
+        "_stamp_service_baseline",
+        lambda *_args, **_kwargs: calls.append("stamp"),
+    )
+    monkeypatch.setattr(
+        cli_module,
+        "_upgrade_service",
+        lambda *_args, **_kwargs: calls.append("upgrade"),
+    )
+
+    cli_module._bootstrap_service(
+        "operator-service",
+        adoption=adoption,
+        expected_schema_fingerprint="sha256:" + "a" * 64,
+        legacy_owned_tables=("operator_projection",),
+        evidence_output=tmp_path / "adoption.json",
+        schema_output=tmp_path / "schema.json",
+        rollback_reference="git:commit:adoption.json#rollback",
+        ownership=object(),  # type: ignore[arg-type]
+        adoptions={"operator-service": adoption},
+    )
+
+    assert calls == ["prepare", "stamp", "upgrade"]
+
+
+def test_azure_bootstrap_script_is_bounded_and_covers_all_services() -> None:
+    source = (REPO_ROOT / "scripts/deployment/azure/bootstrap-service-migrations.sh").read_text(
+        encoding="utf-8"
+    )
+
+    assert "migration_deadline=$((SECONDS + migration_budget))" in source
+    assert 'timeout --kill-after=30s "${remaining}s"' in source
+    assert 'echo "::add-mask::$migration_dsn"' in source
+    assert 'export FDAI_DATABASE_URL="$migration_dsn"' in source
+    assert "uv run --frozen --extra dev alembic upgrade head" in source
+    assert "service-migrations/migrate.py all order" in source
+    assert 'mapfile -t migration_services <<< "$migration_order_output"' in source
+    assert 'for service in "${migration_services[@]}"' in source
+    assert source.count("service-migrations/bin/$service") == 1
+    assert " bootstrap " in source
+    assert "prepare-adoption" not in source
+    assert "stamp-baseline" not in source
 
 
 def test_prepare_adoption_rejects_existing_foreign_lineage(

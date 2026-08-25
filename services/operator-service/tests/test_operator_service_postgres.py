@@ -47,6 +47,7 @@ from fdai_operator_service.postgres_sql import (
     AUDIT_PAGE_SQL,
     HIL_COUNT_SQL,
     HIL_PAGE_SQL,
+    INCIDENT_CURRENT_PAGE_SQL,
     INCIDENT_PAGE_SQL,
     INCIDENT_SNAPSHOT_SQL,
     KPI_SAMPLE_SQL,
@@ -964,7 +965,7 @@ class StubPostgresReadModel(PostgresOperatorReadModel):
             return [{"total_count": len(self.hil_rows), "unprojectable_count": unprojectable}]
         if statement == HIL_PAGE_SQL:
             return self.hil_rows
-        if statement == INCIDENT_PAGE_SQL:
+        if statement in (INCIDENT_CURRENT_PAGE_SQL, INCIDENT_PAGE_SQL):
             return self.incident_rows
         if statement == INCIDENT_SNAPSHOT_SQL:
             return [{"snapshot_seq": self.incident_snapshot_seq}]
@@ -1447,6 +1448,12 @@ def test_incident_projection_reader_rejects_null_string_correlation_sentinels() 
 def test_incident_page_excludes_platform_housekeeping_groups() -> None:
     """A group of only platform activity is not an incident and not a cohort denominator."""
     assert "projection.has_incident_activity" in INCIDENT_PAGE_SQL
+    assert "projection.has_incident_activity" in INCIDENT_CURRENT_PAGE_SQL
+
+
+def test_current_incident_page_uses_current_projection_predicate() -> None:
+    assert "projection.valid_to_seq IS NULL" in INCIDENT_CURRENT_PAGE_SQL
+    assert "projection.valid_from_seq <=" not in INCIDENT_CURRENT_PAGE_SQL
 
 
 def test_incident_page_limits_temporal_projection_before_expanding_history() -> None:
@@ -1559,8 +1566,10 @@ async def test_empty_incident_page_pins_metrics_to_current_snapshot() -> None:
 
     assert page.items == ()
     assert page.metrics["snapshot_seq"] == 42
+    current_calls = [call for call in model.calls if call[0] == INCIDENT_CURRENT_PAGE_SQL]
     incident_calls = [call for call in model.calls if call[0] == INCIDENT_PAGE_SQL]
-    assert incident_calls[1][1]["snapshot_seq"] == 42
+    assert len(current_calls) == 1
+    assert incident_calls[0][1]["snapshot_seq"] == 42
 
 
 @pytest.mark.asyncio
@@ -1569,8 +1578,12 @@ async def test_incident_search_uses_one_page_and_metrics_filter() -> None:
 
     await model.list_incidents(IncidentQuery(status="active", limit=25, search="compute vm"))
 
+    current_calls = [call for call in model.calls if call[0] == INCIDENT_CURRENT_PAGE_SQL]
     incident_calls = [call for call in model.calls if call[0] == INCIDENT_PAGE_SQL]
-    assert [call[1]["search"] for call in incident_calls] == ["compute vm", "compute vm"]
+    assert [call[1]["search"] for call in current_calls + incident_calls] == [
+        "compute vm",
+        "compute vm",
+    ]
     assert "REGEXP_SPLIT_TO_TABLE" in INCIDENT_PAGE_SQL
     assert "STRPOS(projection.search_document" in INCIDENT_PAGE_SQL
 

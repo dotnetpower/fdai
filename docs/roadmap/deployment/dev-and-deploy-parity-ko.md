@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 3ec18ba58c63ae374d4f6997a64d44336cdde7ff
+translation_source_sha: 4f8f9cb10b158884f07ee7fdec34c78d92b1d072
 translation_revised: 2026-08-25
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -35,6 +35,7 @@ translation_revised: 2026-08-25
 | 배포 모델 산출물 바인딩 | implemented | Core service Terraform root, 보호 service workflow, active Core revision 및 image-attestation 검증기, 집중 service 및 model 검사 | 배포 Core는 Core 전용 보호 transition을 통해서만 `LLM_MODE=azure`, 고정 이미지 산출물 경로 및 정확한 attested digest를 받습니다. 모델 정책 CAS는 해당 healthy active runtime 근거를 요구하며 로컬은 같은 조립 계약으로 준비된 산출물을 계속 로드합니다. |
 | 권한 인식 관측 캠페인 동등성 | implemented | `config/observation-sources.yaml`, `fdai.delivery.observation_campaign*`, `.vscode/tasks.json`, `infra/modules/compute/container-apps/observation_campaign_job.tf`, 집중 Core, Operator, Console, workspace 및 인프라 검사 | 로컬과 배포 프로필은 같은 출처 카탈로그, 실행 조건 상태, 실행기, 정규화 활동 계약 및 1분 기동을 사용합니다. 검증 전에는 런타임 산출물이 더 필요합니다. |
 | 로컬 검증 데이터베이스 격리 | implemented | `infra/local/docker-compose.yml`, `scripts/automation/validation_queue_context.py`, 로컬 준비 스크립트 및 focused 검증과 migration 통합 테스트 | 런타임 상태는 로컬 PostgreSQL port `5432`에 유지하고 파괴적인 migration 검증은 port `5433`의 별도 로컬 PostgreSQL cluster를 사용합니다. |
+| 보호 배포 workflow 및 서비스 migration bootstrap | implemented | `.github/workflows/deploy-dev.yml`, `.github/workflows/service-deploy.yml`, `scripts/deployment/azure/`, `service-migrations/`, 집중 테스트 568개, 대상 workflow의 `actionlint 1.7.12` 통과 | Plan 및 apply는 sealed evidence, authority, resume 조건을 유지하며 공유 검사는 검토된 helper를 통해 실행합니다. Fresh 및 existing 데이터베이스는 같은 manifest 순서의 재시도 안전 서비스 bootstrap을 사용합니다. |
 | FDAI workspace 및 프로파일 부하 제어 | implemented | `.vscode/settings.json`, `.vscode/fdai.code-profile`, `scripts/automation/configure-vscode-profile.py`, `tests/integration/scripts/test_vscode_workspace_performance.py`, 집중 프로파일 및 workspace 검사 | 리소스 범위 분석 제어는 workspace에 두고, 공유 구성에는 선택한 확장이 소유한 설정만 유지합니다. Copilot은 선택한 모델의 맥락 창 80%에서 에이전트 이력을 압축하고, 이식 가능한 프로파일은 격리할 수 없는 Remote WSL Pylance 머신 설정을 거부하며, 0이 아닌 터미널 종료는 중복 VS Code 알림 없이 계속 확인할 수 있습니다. |
 | 격리된 Console E2E 개발 루프 | implemented | `console/playwright.config.ts`, `console/playwright.live.config.ts`, `console/scripts/playwright-port-pool.ts`, focused 테스트 및 `.github/skills/vscode-profile-onboarding/SKILL.md`의 Playwright 지침, Console 타입 검사와 동시 focused desktop E2E 통과 | 각 세션은 frontend/API 포트 쌍 10개 중 하나를 원자적으로 임대하고 worker와 공유합니다. slot별로 산출물을 격리하고 종료된 PID의 잠금을 회수하며 전체 desktop 및 mobile 행렬은 바꾸지 않습니다. |
 | 같은 체크아웃의 백엔드 시작 재사용 | implemented | `local-service-input-digest.py`, `run-local-service.sh`, `run-local-service-child.py`, `developer-workflow.py`, `.vscode/tasks.json`, 집중 런처 및 workspace 태스크 테스트 | 재사용하려면 서비스 소스, private 환경, 의존성, 감독 코드 및 실행 명령 fingerprint가 정확히 일치해야 합니다. 오래된 managed 태스크는 자동으로 교체합니다. 시작 후에는 최신 Core heartbeat를 포함한 표준 로컬 구성 요소 6개가 범위가 제한된 준비 상태 검사를 모두 통과해야 합니다. 종료는 범위가 제한된 유예 시간 뒤 강제로 전환합니다. 체크아웃 외부에서 소유한 포트 또는 런타임 잠금은 계속 시작 실패로 처리합니다. |
@@ -42,6 +43,7 @@ translation_revised: 2026-08-25
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
+| 2026-08-25 | implemented | 보호 배포 workflow를 검토된 helper로 통합하고 명시적 Terraform remote-state 초기화와 active-model compare-and-swap 근거를 복원했으며 fresh 및 existing 서비스 migration이 manifest 순서의 bootstrap 하나를 사용하도록 했습니다. | `current change`, 보호 workflow, Azure 배포 helper, 서비스 migration branch, Operator PostgreSQL query/index 변경, 집중 테스트 568개 통과, Ruff, mypy, ShellCheck, YAML parsing 및 대상 `actionlint 1.7.12` 통과 | 이 상태를 `validated`로 올리기 전에 보호 Azure plan, apply, migration 및 effect-verification receipt를 보존합니다. |
 | 2026-08-25 | implemented | 서비스 소유권이나 프로바이더 선택을 바꾸지 않고 모든 재사용 가능한 서비스 모듈에 Terraform `>= 1.9` 호환성을 선언했습니다. | `current change`, `infra/services/**/modules/**/versions.tf`, Terraform 검증 및 TFLint | 프로바이더 주 버전 변경을 명시적으로 유지하고 지원 범위를 넓히기 전에 각 서비스 루트를 검증합니다. |
 | 2026-08-25 | implemented | LLM 측정 행을 추가하는 데 필요한 정확한 identity sequence 권한을 부여하되 sequence 변경 권한은 주지 않는 정방향 Core service migration을 추가했습니다. | `current change`, `core_metering_sequence_20260825`, service migration inventory 55건 통과, Core branch 검증에서 table 126개, transition 12개 및 새 head 확인 | 성공한 exact Core apply, 측정 기록 쓰기 및 post-apply 상태 증적을 보존합니다. |
 | 2026-08-25 | implemented | 선택적 `console: keep full stack ready (10m)` 태스크를 추가했습니다. 기존의 범위가 제한된 6개 구성 요소 준비 상태 검사를 600초마다 실행하고, 정상 구성은 건너뛰며 준비 상태 검사에 실패한 경우에만 표준 준비 및 supervisor 경로로 진입합니다. | `current change`, `.vscode/tasks.json`, `scripts/deployment/local/watch-console-services.sh`, `tests/integration/scripts/test_vscode_workspace_performance.py`, 집중 workspace 계약 테스트 4개 통과, 셸 구문 및 VS Code 진단 통과 | 선택적 로컬 복구 감시에 남은 구현 작업은 없습니다. |

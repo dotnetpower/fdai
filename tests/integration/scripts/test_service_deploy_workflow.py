@@ -22,6 +22,13 @@ _CORE_TERRAFORM = (
     _ROOT / "infra/services/core-control-plane/modules/core-control-plane/main.tf"
 ).read_text(encoding="utf-8")
 _LEGACY_WORKFLOW = (_ROOT / ".github" / "workflows" / "deploy-dev.yml").read_text(encoding="utf-8")
+_PLAN_SCOPE = (_ROOT / "scripts/deployment/azure/enforce_plan_scope.py").read_text(encoding="utf-8")
+_IMAGE_BINDER = (_ROOT / "scripts/deployment/azure/bind_isolated_executor_image.sh").read_text(
+    encoding="utf-8"
+)
+_GH_INSTALLER = (_ROOT / "scripts/deployment/azure/install-pinned-github-cli.sh").read_text(
+    encoding="utf-8"
+)
 _LEGACY_COMPUTE = (_ROOT / "infra/modules/compute/container-apps/main.tf").read_text(
     encoding="utf-8"
 )
@@ -51,8 +58,8 @@ _ACTION_PINS = {
     "actions/upload-artifact": "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
     "actions/download-artifact": "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
 }
-_GH_CLI_VERSION = "2.94.0"
-_GH_CLI_ARCHIVE_SHA256 = "a757f1ba6db18f4de8cbadb244843a5f89bc75b5e7c6fc127d2bd77fbd12ed62"
+_GH_CLI_VERSION = "2.97.0"
+_GH_CLI_ARCHIVE_SHA256 = "a2c9b8497e1f85b1ad0dfcb78b5a622e098801b8e461e459e88e1ee12f018112"
 
 
 def test_workflow_has_closed_five_service_input_and_runner() -> None:
@@ -146,13 +153,13 @@ def test_platform_workflow_isolates_monitoring_plan_changes() -> None:
     assert target_expression.index("inputs.deploy_monitoring") < target_expression.index(
         "inputs.deploy_dev_operations_gateway"
     )
-    assert "Monitoring-only plan contains changes outside module.monitoring:" in _LEGACY_WORKFLOW
-    assert '.startswith("module.monitoring[")' in _LEGACY_WORKFLOW
+    assert "Monitoring-only plan contains changes outside module.monitoring:" in _PLAN_SCOPE
+    assert '.startswith("module.monitoring[")' in _PLAN_SCOPE
     design_mocks_guard = _LEGACY_WORKFLOW[
-        _LEGACY_WORKFLOW.index("- name: Validate design-mocks-only request") :
+        _LEGACY_WORKFLOW.index("- name: Validate deployment request") :
     ]
     design_mocks_guard = design_mocks_guard[
-        : design_mocks_guard.index("- name: Validate remote plan request")
+        : design_mocks_guard.index("- name: Bind model-binding Terraform target")
     ]
     assert "DEPLOY_MONITORING" in design_mocks_guard
     model_step = _LEGACY_WORKFLOW.split("- name: Resolve and seal model capabilities", maxsplit=1)[
@@ -323,7 +330,7 @@ def test_operator_catalog_materialization_runs_after_schema_migration() -> None:
     assert 'name        = "FDAI_STATE_STORE_DSN"' in _LEGACY_OPERATOR_MODULE
     assert "operator_api_catalog_job_name" in outputs
     assert "materialize-authoritative-catalogs.py" in _CORE_DOCKERFILE
-    assert _LEGACY_WORKFLOW.index("operator_api_migrate_job_name") < _LEGACY_WORKFLOW.index(
+    assert _LEGACY_WORKFLOW.index("bootstrap-service-migrations.sh") < _LEGACY_WORKFLOW.index(
         "operator_api_catalog_job_name"
     )
 
@@ -472,10 +479,11 @@ def test_workflow_uses_protected_controls_and_protected_commit_ancestry() -> Non
 
 
 def test_workflow_binds_image_attestation_to_source_and_signer() -> None:
-    assert f'GH_CLI_VERSION: "{_GH_CLI_VERSION}"' in _WORKFLOW
-    assert f'GH_CLI_ARCHIVE_SHA256: "{_GH_CLI_ARCHIVE_SHA256}"' in _WORKFLOW
-    assert "sha256sum --check --strict" in _WORKFLOW
-    assert 'echo "$install_root/bin" >> "$GITHUB_PATH"' in _WORKFLOW
+    assert "install-pinned-github-cli.sh" in _WORKFLOW
+    assert f'version="{_GH_CLI_VERSION}"' in _GH_INSTALLER
+    assert f'archive_sha256="{_GH_CLI_ARCHIVE_SHA256}"' in _GH_INSTALLER
+    assert "sha256sum --check --strict" in _GH_INSTALLER
+    assert '>> "$GITHUB_PATH"' in _GH_INSTALLER
     assert _WORKFLOW.count('--source-digest "$COMMIT_SHA"') == 3
     assert _WORKFLOW.count('--signer-workflow "$ATTESTATION_SIGNER_WORKFLOW"') == 3
     assert '--predicate-type "https://slsa.dev/provenance/v1"' in _WORKFLOW
@@ -487,13 +495,9 @@ def test_workflow_binds_image_attestation_to_source_and_signer() -> None:
 
 
 def test_legacy_platform_imports_the_service_specific_core_image() -> None:
-    assert 'source_repository="${GITHUB_REPOSITORY,,}/fdai-core-control-plane"' in (
-        _LEGACY_WORKFLOW
-    )
-    assert 'source_repository="${GITHUB_REPOSITORY,,}"' not in _LEGACY_WORKFLOW
-    assert '"https://ghcr.io/v2/${source_repository}/manifests/sha-${revision}"' in (
-        _LEGACY_WORKFLOW
-    )
+    assert 'source_repository="${GITHUB_REPOSITORY,,}/fdai-core-control-plane"' in _IMAGE_BINDER
+    assert 'source_repository="${GITHUB_REPOSITORY,,}"' not in _IMAGE_BINDER
+    assert '"https://ghcr.io/v2/${source_repository}/manifests/sha-${revision}"' in (_IMAGE_BINDER)
 
 
 def test_workflow_validates_source_run_and_actual_plan_controls_checkout() -> None:
@@ -656,7 +660,7 @@ def test_core_startup_probe_uses_the_operational_event_bus() -> None:
     )
 
 
-def test_initial_cutover_prepares_stamps_and_upgrades_service_migrations() -> None:
+def test_service_deploy_bootstraps_service_migrations() -> None:
     migration_index = _WORKFLOW.index("Apply service-owned database migrations")
     snapshot_index = _WORKFLOW.index("Capture pre-apply rollback snapshot")
     apply_index = _WORKFLOW.index("Apply exact protected service plan")
@@ -673,12 +677,10 @@ def test_initial_cutover_prepares_stamps_and_upgrades_service_migrations() -> No
     legacy_upgrade = "alembic upgrade head"
     assert legacy_upgrade in _WORKFLOW
     assert 'cd "$TRUSTED_CONTROLS"' in _WORKFLOW
-    assert "prepare-adoption" in _WORKFLOW
-    assert "stamp-baseline" in _WORKFLOW
-    service_upgrade = '"$migration_command" upgrade head'
-    assert _WORKFLOW.index(legacy_upgrade) < _WORKFLOW.index("prepare-adoption")
-    assert _WORKFLOW.index("prepare-adoption") < _WORKFLOW.index("stamp-baseline")
-    assert _WORKFLOW.index("stamp-baseline") < _WORKFLOW.index(service_upgrade)
+    service_bootstrap = '"$migration_command" bootstrap'
+    assert _WORKFLOW.index(legacy_upgrade) < _WORKFLOW.index(service_bootstrap)
+    assert "prepare-adoption" not in _WORKFLOW
+    assert "stamp-baseline" not in _WORKFLOW
     assert "Upload service migration adoption evidence" in _WORKFLOW
     assert "service-migration-adoption-${{ inputs.service }}" in _WORKFLOW
     assert "if-no-files-found: ignore" in _WORKFLOW

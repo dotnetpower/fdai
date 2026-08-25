@@ -1,0 +1,196 @@
+#!/usr/bin/env python3
+"""Validate one deploy-dev request before Azure or Terraform operations."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import re
+import subprocess
+from collections.abc import Mapping
+
+_SHA40 = re.compile(r"^[0-9a-f]{40}$")
+_SHA64 = re.compile(r"^[0-9a-f]{64}$")
+_PLAN_REQUEST = re.compile(r"^plan-([0-9a-f]{24}|model-[0-9a-f]{64})$")
+_APPLY_REQUEST = re.compile(r"^apply-([0-9a-f]{24}|model-[0-9a-f]{64})$")
+_PLAN_ID = re.compile(r"^plan-[1-9][0-9]*-[1-9][0-9]*$")
+_TRUE = "true"
+
+
+def _enabled(values: Mapping[str, str], key: str) -> bool:
+    value = values.get(key, "false")
+    if value not in {_TRUE, "false"}:
+        raise ValueError(f"{key} must be true or false")
+    return value == _TRUE
+
+
+def _require_match(value: str, pattern: re.Pattern[str], message: str) -> None:
+    if pattern.fullmatch(value) is None:
+        raise ValueError(message)
+
+
+def _policy_digest(raw: str) -> str:
+    payload = json.loads(raw)
+    canonical = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
+    """Reject mixed, stale, or unbound deployment requests."""
+    apply = _enabled(values, "APPLY")
+    deploy_gateway = _enabled(values, "DEPLOY_DEV_OPERATIONS_GATEWAY")
+    deploy_executor = _enabled(values, "DEPLOY_ISOLATED_EXECUTOR")
+    deploy_ohl = _enabled(values, "DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET")
+    promote_image = _enabled(values, "PROMOTE_RUNTIME_IMAGE")
+    verify_effect = _enabled(values, "VERIFY_EXECUTOR_EFFECT")
+    cutover = _enabled(values, "CUTOVER_ISOLATED_EXECUTOR_AUTHORITY")
+    model_only = _enabled(values, "MODEL_BINDING_ONLY")
+    design_mocks = _enabled(values, "DEPLOY_DESIGN_MOCKS")
+    monitoring = _enabled(values, "DEPLOY_MONITORING")
+    resume = _enabled(values, "RESUME_VERIFICATION")
+    request_id = values.get("REQUEST_ID", "")
+
+    if promote_image and not deploy_executor:
+        raise ValueError("promote_runtime_image requires deploy_isolated_executor")
+    if cutover and (not deploy_executor or not deploy_gateway):
+        raise ValueError(
+            "authority cutover requires deploy_isolated_executor and deploy_dev_operations_gateway"
+        )
+    if verify_effect and (not apply or not deploy_gateway):
+        raise ValueError(
+            "executor effect verification requires apply and deploy_dev_operations_gateway"
+        )
+    if resume and verify_effect:
+        raise ValueError("executor effect verification cannot run during resume verification")
+    if deploy_ohl and (values.get("TARGET_ENVIRONMENT") != "dev" or not deploy_gateway):
+        raise ValueError(
+            "the OHL scale-out evidence target requires dev and deploy_dev_operations_gateway"
+        )
+    if deploy_ohl and any(
+        not values.get(key, "")
+        for key in (
+            "OHL_SCALE_OUT_EVIDENCE_CAMPAIGN_ID",
+            "OHL_SCALE_OUT_EVIDENCE_IMAGE_VERSION",
+            "OHL_SCALE_OUT_EVIDENCE_INITIATOR_PRINCIPAL_ID",
+            "OHL_SCALE_OUT_EVIDENCE_SSH_PUBLIC_KEY",
+        )
+    ):
+        raise ValueError(
+            "the OHL scale-out evidence target requires campaign, initiator, "
+            "exact image-version, and SSH-key repository variables"
+        )
+    if values.get("RUNTIME_IMAGE_REVISION", "") and not deploy_executor:
+        raise ValueError("runtime_image_revision requires deploy_isolated_executor")
+    if apply and promote_image:
+        raise ValueError("runtime image promotion is not allowed during exact apply")
+    if promote_image and not request_id:
+        raise ValueError("runtime image promotion requires a protected plan request")
+
+    targets = (
+        "DEPLOY_CONSOLE",
+        "DEPLOY_OPERATOR_API",
+        "DEPLOY_ISOLATED_EXECUTOR",
+        "DEPLOY_DEV_OPERATIONS_GATEWAY",
+        "DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET",
+        "DEPLOY_DOCUMENT_INGESTION",
+        "DEPLOY_MONITORING",
+    )
+    if design_mocks:
+        if values.get("TARGET_ENVIRONMENT") != "dev":
+            raise ValueError("design-mocks deployment is restricted to the dev environment")
+        if any(_enabled(values, key) for key in targets):
+            raise ValueError(
+                "deploy_design_mocks cannot be combined with another deployment target"
+            )
+    if monitoring and any(
+        _enabled(values, key)
+        for key in (
+            "DEPLOY_CONSOLE",
+            "DEPLOY_OPERATOR_API",
+            "DEPLOY_ISOLATED_EXECUTOR",
+            "DEPLOY_DEV_OPERATIONS_GATEWAY",
+            "DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET",
+            "DEPLOY_DOCUMENT_INGESTION",
+        )
+    ):
+        raise ValueError("deploy_monitoring cannot be combined with another deployment target")
+
+    if model_only:
+        if not request_id:
+            raise ValueError("model-binding deployment requires a protected request")
+        policy = values.get("MODEL_BINDING_POLICY", "")
+        if not apply and not policy:
+            raise ValueError("model-binding plan requires an environment policy")
+        if not apply and request_id != f"plan-model-{_policy_digest(policy)}":
+            raise ValueError("model-binding plan request does not match the policy digest")
+        mixed = (
+            *targets,
+            "DEPLOY_DESIGN_MOCKS",
+            "CUTOVER_ISOLATED_EXECUTOR_AUTHORITY",
+            "PROMOTE_RUNTIME_IMAGE",
+            "VERIFY_EXECUTOR_EFFECT",
+        )
+        if any(_enabled(values, key) for key in mixed):
+            raise ValueError(
+                "model-binding deployment cannot be combined with another bounded operation"
+            )
+
+    if apply:
+        _require_match(
+            request_id,
+            _APPLY_REQUEST,
+            "apply request_id must be a bounded fdaictl id",
+        )
+        _require_match(
+            values.get("CONTEXT_DIGEST", ""),
+            _SHA64,
+            "apply context_digest must be a lowercase SHA-256 digest",
+        )
+        _require_match(
+            values.get("COMMIT_SHA", ""),
+            _SHA40,
+            "apply commit_sha must be a lowercase git SHA",
+        )
+        if values["COMMIT_SHA"] != checkout_commit:
+            raise ValueError("requested apply commit does not match the workflow checkout")
+        _require_match(values.get("PLAN_ID", ""), _PLAN_ID, "plan_id is invalid")
+        _require_match(
+            values.get("PLAN_DIGEST", ""),
+            _SHA64,
+            "plan_digest must be a lowercase SHA-256 digest",
+        )
+    elif request_id:
+        _require_match(request_id, _PLAN_REQUEST, "request_id must be a bounded fdaictl plan id")
+        _require_match(
+            values.get("CONTEXT_DIGEST", ""),
+            _SHA64,
+            "context_digest must be a lowercase SHA-256 digest",
+        )
+        _require_match(
+            values.get("COMMIT_SHA", ""),
+            _SHA40,
+            "commit_sha must be a lowercase git SHA",
+        )
+        if values["COMMIT_SHA"] != checkout_commit:
+            raise ValueError("requested commit does not match the workflow checkout")
+        if not values.get("DEPLOY_PREFLIGHT_INPUT_JSON", ""):
+            raise ValueError("DEPLOY_PREFLIGHT_INPUT_JSON is required for protected plans")
+
+
+def main() -> int:
+    checkout = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    try:
+        validate(os.environ, checkout_commit=checkout)
+    except (KeyError, ValueError, json.JSONDecodeError) as exc:
+        raise SystemExit(str(exc)) from exc
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

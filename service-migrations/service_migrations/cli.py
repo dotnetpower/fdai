@@ -54,9 +54,10 @@ _SERVICE_VERSION_LENGTH = 128
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("service", help="service id or 'all' for validate")
+    parser.add_argument("service", help="service id or 'all' for aggregate commands")
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("validate")
+    subparsers.add_parser("order")
     subparsers.add_parser("heads")
     subparsers.add_parser("history")
     subparsers.add_parser("current")
@@ -66,6 +67,10 @@ def _parser() -> argparse.ArgumentParser:
     prepare.add_argument("--rollback-reference", required=True)
     stamp = subparsers.add_parser("stamp-baseline")
     stamp.add_argument("--evidence", type=Path, required=True)
+    bootstrap = subparsers.add_parser("bootstrap")
+    bootstrap.add_argument("--evidence-output", type=Path, required=True)
+    bootstrap.add_argument("--schema-output", type=Path, required=True)
+    bootstrap.add_argument("--rollback-reference", required=True)
     upgrade = subparsers.add_parser("upgrade")
     upgrade.add_argument("revision", nargs="?", default="head")
     upgrade.add_argument("--sql", action="store_true")
@@ -437,6 +442,44 @@ def _upgrade_service(
         command.upgrade(config, revision, sql=False)
 
 
+def _bootstrap_service(
+    service_id: str,
+    *,
+    adoption: AdoptionManifest,
+    expected_schema_fingerprint: str,
+    legacy_owned_tables: tuple[str, ...],
+    evidence_output: Path,
+    schema_output: Path,
+    rollback_reference: str,
+    ownership: OwnershipManifest,
+    adoptions: dict[str, AdoptionManifest],
+) -> None:
+    """Adopt a fresh legacy schema or advance an existing service lineage."""
+    _prepare_adoption_evidence(
+        service_id,
+        adoption=adoption,
+        expected_schema_fingerprint=expected_schema_fingerprint,
+        legacy_owned_tables=legacy_owned_tables,
+        evidence_output=evidence_output,
+        schema_output=schema_output,
+        rollback_reference=rollback_reference,
+    )
+    _stamp_service_baseline(
+        service_id,
+        adoption=adoption,
+        expected_schema_fingerprint=expected_schema_fingerprint,
+        legacy_owned_tables=legacy_owned_tables,
+        evidence=evidence_output,
+    )
+    _upgrade_service(
+        service_id,
+        revision="head",
+        sql=False,
+        ownership=ownership,
+        adoptions=adoptions,
+    )
+
+
 def _downgrade_service(
     service_id: str,
     *,
@@ -517,8 +560,10 @@ def main(argv: list[str] | None = None) -> int:
     """Validate ownership, then dispatch one bounded Alembic command."""
     parser = _parser()
     args = parser.parse_args(argv)
-    if args.service == "all" and args.command not in {"validate", "upgrade"}:
-        parser.error("service 'all' is valid only with validate or upgrade")
+    if args.service == "all" and args.command not in {"order", "validate", "upgrade"}:
+        parser.error("service 'all' is valid only with order, validate, or upgrade")
+    if args.service != "all" and args.command == "order":
+        parser.error("order requires service 'all'")
     if args.service != "all" and args.service not in SERVICE_IDS:
         parser.error(f"unknown service {args.service!r}; expected one of {', '.join(SERVICE_IDS)}")
 
@@ -532,6 +577,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     if set(schema_contract) != set(SERVICE_IDS):
         raise RuntimeError("legacy schema contract must contain exactly five services")
+    if args.command == "order":
+        for ordered_service in migration_order(ownership, SERVICE_IDS):
+            print(ordered_service)
+        return 0
     if args.command == "validate":
         selected = len(SERVICE_IDS) if args.service == "all" else 1
         print(
@@ -583,6 +632,18 @@ def main(argv: list[str] | None = None) -> int:
             expected_schema_fingerprint=schema_contract[service_id].digest,
             legacy_owned_tables=legacy_owned_tables,
             evidence=args.evidence,
+        )
+    elif args.command == "bootstrap":
+        _bootstrap_service(
+            service_id,
+            adoption=adoption,
+            expected_schema_fingerprint=schema_contract[service_id].digest,
+            legacy_owned_tables=legacy_owned_tables,
+            evidence_output=args.evidence_output,
+            schema_output=args.schema_output,
+            rollback_reference=args.rollback_reference,
+            ownership=ownership,
+            adoptions=adoptions,
         )
     elif args.command == "upgrade":
         _upgrade_service(

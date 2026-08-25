@@ -2,6 +2,12 @@ from pathlib import Path
 
 _REPO_ROOT = Path(__file__).parents[3]
 _WORKFLOW = (_REPO_ROOT / ".github/workflows/deploy-dev.yml").read_text(encoding="utf-8")
+_REQUEST_VALIDATOR = (_REPO_ROOT / "scripts/deployment/azure/validate_deploy_request.py").read_text(
+    encoding="utf-8"
+)
+_PLAN_SCOPE = (_REPO_ROOT / "scripts/deployment/azure/enforce_plan_scope.py").read_text(
+    encoding="utf-8"
+)
 
 
 def test_design_mocks_uses_the_protected_terraform_apply_path() -> None:
@@ -12,11 +18,16 @@ def test_design_mocks_uses_the_protected_terraform_apply_path() -> None:
 
 
 def test_design_mocks_rejects_every_other_deployment_target() -> None:
-    assert "deploy_design_mocks cannot be combined with another deployment target" in _WORKFLOW
+    assert (
+        "deploy_design_mocks cannot be combined with another deployment target"
+        in _REQUEST_VALIDATOR
+    )
     assert "DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET" in _WORKFLOW
-    assert "Design-mocks-only plan contains changes outside the Static Web App" in _WORKFLOW
-    assert '"module.design_mocks[0].azurerm_static_web_app.design_mocks"' in _WORKFLOW
-    assert "if: ${{ !inputs.deploy_design_mocks }}" in _WORKFLOW
+    assert "Design-mocks-only" in _PLAN_SCOPE
+    assert "plan contains changes outside its bounded scope" in _PLAN_SCOPE
+    assert '"module.design_mocks[0].azurerm_static_web_app.design_mocks"' in _PLAN_SCOPE
+    assert "scripts/deployment/azure/enforce_plan_scope.py" in _WORKFLOW
+    assert "if: ${{ !inputs.apply && !inputs.deploy_design_mocks }}" in _WORKFLOW
     assert "if: ${{ inputs.apply && !inputs.deploy_design_mocks }}" in _WORKFLOW
     health_step = _WORKFLOW[_WORKFLOW.index("- name: Verify deployed health endpoints") :]
     health_step = health_step[: health_step.index("- name: Run canary publisher smoke")]
@@ -33,8 +44,8 @@ def test_ohl_evidence_target_uses_the_protected_gateway_plan() -> None:
     assert "-target=azurerm_linux_virtual_machine_scale_set.ohl_evidence" in _WORKFLOW
     assert "-target=module.network[0].azurerm_subnet.evidence_target" in _WORKFLOW
     assert (
-        "the OHL scale-out evidence target requires dev and "
-        "deploy_dev_operations_gateway." in _WORKFLOW
+        "the OHL scale-out evidence target requires dev and deploy_dev_operations_gateway"
+        in _REQUEST_VALIDATOR
     )
     assert "-target=module.ohl_evidence_identity" in _WORKFLOW
     assert "-target=azurerm_role_assignment.ohl_evidence_eventhubs_sender" in _WORKFLOW
