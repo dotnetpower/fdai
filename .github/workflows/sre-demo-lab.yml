@@ -216,7 +216,7 @@ jobs:
             echo "destroy requires the exact confirm_destroy value." >&2
             exit 1
           fi
-          for command_name in az helm jq kubectl kubelogin terraform; do
+          for command_name in az helm jq kubectl kubelogin terraform timeout; do
             command -v "$command_name" >/dev/null 2>&1 || {
               echo "required runner command is unavailable: $command_name" >&2
               exit 1
@@ -365,6 +365,66 @@ jobs:
           else
             printf 'role_assignment_id=\n' >>"$GITHUB_OUTPUT"
             printf 'remove_after_run=false\n' >>"$GITHUB_OUTPUT"
+          fi
+
+      - name: Wait for bounded authority propagation
+        if: inputs.action != 'plan'
+        working-directory: ${{ runner.temp }}
+        env:
+          RESOURCE_GROUP_ID: ${{ steps.holding-scope.outputs.resource_group_id }}
+          OPERATOR_VNET_ID: ${{ steps.operator-network-scope.outputs.operator_vnet_id }}
+          ENABLE_VPN_OPERATOR_ACCESS: ${{ inputs.enable_vpn_operator_access }}
+        run: |
+          set -euo pipefail
+          readonly authority_deadline_seconds=300
+          readonly authority_retry_seconds=15
+          readonly authority_deadline=$((SECONDS + authority_deadline_seconds))
+
+          wait_for_effective_action() {
+            local scope="$1"
+            local required_action="$2"
+            local label="$3"
+            local attempt=1
+            local permissions=""
+
+            while ((SECONDS < authority_deadline)); do
+              local remaining_seconds=$((authority_deadline - SECONDS))
+              local command_timeout_seconds=15
+              if ((remaining_seconds < command_timeout_seconds)); then
+                command_timeout_seconds="$remaining_seconds"
+              fi
+              if permissions="$(timeout --foreground "${command_timeout_seconds}s" az rest \
+                --method get \
+                --url "https://management.azure.com${scope}/providers/Microsoft.Authorization/permissions?api-version=2022-04-01" \
+                --output json \
+                --only-show-errors 2>/dev/null)" &&
+                jq -e --arg required_action "$required_action" '
+                  any(.value[]?;
+                    any(.actions[]?;
+                      (ascii_downcase == "*") or
+                      (ascii_downcase == ($required_action | ascii_downcase))
+                    )
+                  )
+                ' <<<"$permissions" >/dev/null; then
+                printf '%s authority is effective.\n' "$label"
+                return 0
+              fi
+              permissions=""
+              if ((SECONDS + authority_retry_seconds >= authority_deadline)); then
+                break
+              fi
+              printf 'Waiting for %s authority (%s).\n' "$label" "$attempt"
+              sleep "$authority_retry_seconds"
+              ((attempt += 1))
+            done
+            printf '%s authority did not become effective within five minutes.\n' "$label" >&2
+            return 1
+          }
+
+          wait_for_effective_action "$RESOURCE_GROUP_ID" "*" "scenario-lab deployment"
+          if [[ "$ENABLE_VPN_OPERATOR_ACCESS" == "true" ]]; then
+            wait_for_effective_action \
+              "$OPERATOR_VNET_ID" "Microsoft.Network/*" "operator network"
           fi
 
       - name: Initialize private remote state
