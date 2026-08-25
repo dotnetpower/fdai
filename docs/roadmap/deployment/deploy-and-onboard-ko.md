@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: a20a28a73e3675ed86f595a10dc4190816cd37bf
-translation_revised: 2026-08-25
+translation_source_sha: fc84ac24164bf8b0ecde957645b466bf0d5d9129
+translation_revised: 2026-08-26
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 시스템이 관측 준비되도록 하는 방법. 이 문서는 **구체적 배포 인벤토리, 부트스트랩 순서, 분포/배포 책임 분리**의 진실 원본입니다; 배포 라이프사이클(CI/CD, progressive 전달, 롤백, DR)은 [deployment-ko.md](deployment-ko.md)에 남습니다.
@@ -127,8 +127,8 @@ GitHub에 등록된 실행기가 GitHub, 관리 평면, 신원 평면에 도달�
   `vnet-fdai-ops-...`), 러너 서브넷과 private-endpoint 서브넷 포함;
 - 비공개 로 잠긴 **terraform remote-state 저장소 계정**, ops VNet 에 링크된
   `privatelink.blob.core.windows.net` 블롭 비공개 엔드포인트 로 프론트;
-- 공개 IP 없이 독립 실행기 자리를 1-5개 등록하는 **자체 호스팅 배포 실행기 VM**. 자리마다
-  VM-side Bash에서 경로를 확장하고 필수 성공 표시를 내보냅니다. 작업 디렉터리는 분리하고 managed 신원은 공유합니다. 이 신원은 앱 RG에
+- 공개 IP 없이 지속형 `Standard_D4ds_v5`와 `Local` `ResourceDisk` 임시 OS에서 실행기 자리 1-5개를 등록하는 **자체 호스팅 배포 실행기 VM**.
+  VM-side Bash가 자리 경로를 확장하며, 할당 해제는 차단되고 예약 drift는 관리형 OS 디스크나 배치 변경을 거부합니다. 작업 디렉터리는 분리하고 managed 신원은 공유합니다. 이 신원은 앱 RG에
   `Contributor` + `User Access Administrator`, ops RG에 `Network Contributor`, 상태 계정에
   `Storage Blob Data Contributor`, 구독 범위에 `EventGrid Contributor`만 보유합니다.
   각 실행은 managed 신원 login 전에 Azure CLI 계정 캐시를 지운 뒤 저장소, 계획, 적용 전에
@@ -228,7 +228,7 @@ Preflight, 출처 우선순위, 커버리지 및 stale 유지 계약은
 
 #### 온보딩 자동화
 
-러너 경로를 반복 가능하게 만드는 6개 헬퍼(전부 customer-agnostic, 파라미터화):
+러너 경로를 반복 가능하게 만드는 7개 헬퍼(전부 customer-agnostic, 파라미터화):
 
 보조 로직 실행 전 `AZURE_SUBSCRIPTION_ID`와 `AZURE_TENANT_ID`를 승인된 배포 대상으로
 설정합니다. [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh)는
@@ -249,8 +249,8 @@ exact 쌍에 접근할 수 없으면 변경 전에 fail합니다.
   `run-command` 로 VNet 러너를 등록합니다. 다시 실행하면 기존 서비스를 중지하고 uninstall한
   뒤 수명이 짧은 제거 토큰으로 stale 로컬 및 GitHub 등록을 제거하고 fresh 서비스를
   설치합니다. 따라서 토큰을 보관하지 않고 broker-session 손상을 복구합니다.
-- [`teardown-env.sh`](../../../scripts/deployment/azure/teardown-env.sh) 는 러너 deallocate/시작(비용) 와 ops 허브
-  + 상태 계정 를 절대 건드리지 않는 env 별 `terraform destroy` 가드를 제공.
+- [`check-runner-storage-posture.sh`](../../../infra/bootstrap/check-runner-storage-posture.sh)는 크기와 임시 배치를 확인하고, [`teardown-env.sh`](../../../scripts/deployment/azure/teardown-env.sh)는 환경 destroy를 보호합니다.
+  두 도구 모두 ops 허브나 상태 계정을 변경하지 않고 안전하지 않은 실행기 저장소 또는 할당 해제를 차단합니다.
 
 #### 프로덕션 하드닝 knob
 

@@ -15,7 +15,7 @@ makes that possible, and it survives app rebuilds.
 | State storage account (private) + `tfstate` and `deployment-plans` containers | Terraform remote backend plus protected plan artifacts the runner reaches over a private endpoint. |
 | Blob private endpoint + `privatelink.blob.core.windows.net` | Private resolution of the state account from the ops VNet. |
 | NAT gateway + static public IP on `snet-runner` (`nat.tf`) | Explicit, durable outbound egress. The subnet originally relied on Azure "default outbound access", which is being retired: after a VM deallocate/start cycle the runner lost all outbound internet (GitHub + ARM + AAD all timed out) while the private state endpoint stayed reachable. A NAT gateway restores egress through one static IP while the VM keeps **no** public IP (no inbound exposure), and it survives deallocate/start cycles. Set `enable_public_egress = false` on a closed network: the host becomes a jumpbox rather than a GitHub-registered runner, no public IP is created at all, and the tenant supplies its own approved path to the management and identity planes. |
-| Runner VM (no public IP) + system-assigned MI | The only host with line-of-sight to the app's private endpoints. |
+| Runner VM (no public IP) + system-assigned MI | `Standard_D4ds_v5` provides sustained CPU and a local SSD-backed ephemeral OS disk. No managed OS disk exists for tenant policy to downgrade. |
 | Role assignments | Runner MI -> Contributor + User Access Administrator on the app RG, Network Contributor on the ops RG, Storage Blob Data Contributor on state, and EventGrid Contributor on the subscription. |
 
 The app config (`../`) peers its spoke VNet to `ops_vnet_id`, links its
@@ -105,13 +105,24 @@ Two options:
 The runner authenticates to Azure with `az login --identity` (its system MI) -
 no cloud credentials are stored on the box.
 
+The default runner uses an ephemeral OS disk on `ResourceDisk`. Keep the VM allocated because a
+deallocate, redeploy, or host move resets the OS and GitHub registration. The bootstrap plan rejects
+`runner_auto_shutdown_time`, and `teardown-env.sh runner-stop` verifies the live storage profile and
+refuses to deallocate an ephemeral runner. Recreate the runner through a reviewed blue/green
+transition when the VM size or OS placement must change.
+
+The scheduled `infra-drift.yml` workflow runs `check-runner-storage-posture.sh` before the bootstrap
+plan. It verifies the reviewed VM size, `Local` option, `ResourceDisk` placement, and absence of a
+managed OS disk. A mismatch fails the workflow with the blue/green recovery action; the check never
+changes the VM or fights a tenant policy in place.
+
 Independent service workflows use a concurrency group per service and environment. Set
 `runner_parallelism` from 1 through 5, or run
 `register-runner.sh <owner>/<repo> <ops-rg> <vm> <user> <parallelism>`, to register that many
 isolated runner slots on the same VM. The slots have distinct runner names and work directories
 but share the VM managed identity, so a protected plan and its exact apply keep one Azure
-principal. Keep the default of 1 on a small VM; increase `runner_vm_size` before enabling enough
-slots to make concurrent Terraform jobs contend for memory or CPU.
+principal. Keep the default of 1 unless measured workflow concurrency justifies more slots. Review
+CPU and memory contention before increasing `runner_parallelism`.
 
 ## Configuration tests
 

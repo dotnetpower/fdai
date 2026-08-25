@@ -58,9 +58,9 @@ variable "state_storage_account_name" {
 }
 
 variable "runner_vm_size" {
-  description = "Runner VM size. B-series is enough for terraform + a self-hosted runner."
+  description = "Runner VM size. The default provides sustained CPU and a local resource SSD for the ephemeral OS disk."
   type        = string
-  default     = "Standard_B2s"
+  default     = "Standard_D4ds_v5"
 }
 
 variable "runner_parallelism" {
@@ -117,7 +117,7 @@ variable "enable_state_lock" {
 }
 
 variable "runner_auto_shutdown_time" {
-  description = "Daily auto-shutdown time for the runner VM in 24h HHmm (e.g. '1900'). Empty disables auto-shutdown. Cuts idle cost; start the VM (or teardown-env.sh runner-start) before a CI run."
+  description = "Daily auto-shutdown time for a managed-OS runner. The ephemeral runner profile requires this to remain empty because deallocation resets the OS and runner registration."
   type        = string
   default     = ""
 }

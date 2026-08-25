@@ -17,7 +17,7 @@ networking, trusted images, notification destinations, monitoring, and cost ceil
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Production plan gates and environment knobs | implemented | `infra/production-gates.tf`; `infra/envs/{staging,prod}.tfvars.example`; Terraform configuration tests | Missing signed image, private network, durability, monitoring, or cost inputs block a production plan. Standard profiles permanently delete globally named resources and leave management locks disabled. |
-| Credential-free infrastructure and drift guards | implemented | `.github/workflows/infra-lint.yml`; `.github/workflows/infra-drift.yml`; CI contract tests | The checks cover all declared state roots and fail closed on a missing, unreadable, or changed root. |
+| Credential-free infrastructure and drift guards | implemented | `.github/workflows/infra-lint.yml`; `.github/workflows/infra-drift.yml`; runner posture script; CI contract tests | The checks cover all declared state roots and fail closed on a missing, unreadable, or changed root. Scheduled readback also rejects a managed runner OS disk, an unexpected VM size, or non-local placement. |
 | Baseline-free Terraform security scanning | implemented | `.github/workflows/infra-lint.yml`; inline Checkov and Trivy exceptions; focused infrastructure tests | Checkov and Trivy report no active finding above Low. Every intentional exception is attached to one resource and cites its compensating control or managed-service constraint. |
 | Exact-revision protected production apply evidence | in-progress | [Deploy and Onboard](deploy-and-onboard.md#implementation-status) | Code and plan guards exist, but this owner document does not retain one current production apply proving every control together. |
 
@@ -25,6 +25,7 @@ networking, trusted images, notification destinations, monitoring, and cost ceil
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-26 | implemented | Added a read-only runner storage posture check to scheduled infrastructure drift and blocked both configured and manual deallocation of the ephemeral runner profile. | `current change`; runner posture script, drift workflow, lifecycle helper, and 14 focused contract checks. | Complete the blue/green live runner replacement and retain one successful scheduled posture receipt. |
 | 2026-08-21 | in-progress | Moved the existing production hardening controls into a focused owner document without changing infrastructure behavior. | `current change`; document-size, translation, route, and link checks. | Retain one exact-revision protected production plan and apply receipt covering every required control. |
 | 2026-08-24 | implemented | Removed controllable teardown and exact-name recreation constraints from all standard environments. Terraform now purges deleted Key Vault and Cognitive accounts, permanently deletes Log Analytics workspaces, allows resource-group deletion with remaining resources, and keeps application and state-account management locks disabled. | `current change`; provider features and environment values under `infra/`; `tests/integration/infra/test_key_vault_lifecycle.py` (`2 passed`); Terraform formatting and validation for the shared, scenario-lab, bootstrap, and dev-access roots. | Retain a protected non-production destroy and exact-name recreation receipt. Azure-owned service delays remain outside Terraform control. |
 | 2026-08-24 | implemented | Bound the disposable scenario lab to an existing protected holding resource group instead of granting the private runner subscription-wide creation rights. Apply and destroy grant Contributor only on that group for the protected run and then revoke it; Terraform owns and destroys only tagged child resources. The non-overlapping `10.73.0.0/20` VNet and runner-only sensitive password materialization keep the lab private and fully disposable without a persistent secret store. | `current change`; scenario-lab Terraform validation and zero-finding Trivy and Checkov scans; focused scenario and workflow contracts. | Retain the exact protected plan, apply, VPN, approved sweep, and child-resource destroy receipts. |
@@ -39,6 +40,8 @@ networking, trusted images, notification destinations, monitoring, and cost ceil
     monitoring, and the cost budget together, including one blocked negative plan.
 - [ ] Retain a protected non-production destroy and exact-name recreation receipt for Key Vault,
     Cognitive Services, Log Analytics, and the resource group.
+- [ ] Retain one scheduled runner posture receipt after blue/green replacement that reports the
+    reviewed VM size, local ephemeral placement, and no managed OS disk.
 
 ## Deployer identity
 
@@ -70,7 +73,8 @@ reduce or widen that rollback boundary without a separately reviewed design chan
 | Email notifications | `enable_email_notifications`, `notification_email_recipients`, `email_data_location` | enabled + recipient group |
 | Registry | `acr_sku` | `Premium` |
 | Monitoring | `enable_monitoring`, `alert_email`, `alert_webhook_url` | on + destination |
-| Cost | `monthly_budget_amount`, `budget_alert_emails`, bootstrap `runner_auto_shutdown_time` | set |
+| Cost | `monthly_budget_amount`, `budget_alert_emails` | set |
+| Runner storage | bootstrap `runner_vm_size`, ephemeral `ResourceDisk`, `runner_auto_shutdown_time` | reviewed sustained size, local OS, empty shutdown time |
 
 Every Terraform root that owns a resource group disables the provider's populated-group deletion
 check. Roots that own Log Analytics permanently delete the workspace, and the shared root purges
@@ -125,6 +129,11 @@ names the production gate, implemented control, provider limitation, or managed-
 [`infra-drift.yml`](../../../.github/workflows/infra-drift.yml) runs scheduled
 `plan -detailed-exitcode` on the runner for the legacy, five independent-service, and bootstrap
 state roots. It fails closed on a missing, unreadable, or changed root, so green covers all seven.
+Before the bootstrap plan, it independently reads the runner VM and requires the reviewed size,
+`Local` `ResourceDisk` placement, and no managed OS disk. A mismatch reports the blue/green
+replacement action and fails without changing Azure state. The ephemeral profile stays allocated;
+configured auto-shutdown and the lifecycle helper both reject deallocation because it resets the
+OS and GitHub registration.
 Monitoring, when enabled, provisions an action group, metric alerts for PostgreSQL, Key Vault,
 Event Hubs, and Container Apps, and diagnostic settings to Log Analytics. Alerts are human signals
 only, never autonomous actions.

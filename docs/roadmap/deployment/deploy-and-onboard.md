@@ -124,8 +124,8 @@ jumpbox rather than a registered runner, and the tenant supplies its own approve
   separate from the app RG, with a runner subnet and a private-endpoint subnet;
 - a **terraform remote-state storage account** locked to private, fronted by a blob private
   endpoint on `privatelink.blob.core.windows.net` linked to the ops VNet;
-- a **self-hosted deploy runner VM** (no public IP) with one to five independent runner slots.
-  VM-side Bash expands slot paths and emits a required success marker; each slot has a separate work directory but shares the managed identity, which holds
+- a **self-hosted deploy runner VM** (no public IP) with one to five slots on sustained `Standard_D4ds_v5` compute and a `Local` `ResourceDisk` ephemeral OS.
+  VM-side Bash expands slot paths; deallocation is blocked, and scheduled drift rejects managed OS disks or placement changes. Each slot has a separate work directory but shares the managed identity, which holds
   `Contributor` + `User Access Administrator` on the app RG, `Network Contributor` on the ops RG,
   `Storage Blob Data Contributor` on state, and only subscription-scoped `EventGrid Contributor`.
   Each run clears the Azure CLI account cache before managed-identity login, then proves the exact
@@ -225,7 +225,7 @@ The preflight, source precedence, coverage, and stale-retention contract is owne
 
 #### Onboarding automation
 
-Six helpers make the runner path repeatable (all customer-agnostic, parameterized):
+Seven helpers make the runner path repeatable (all customer-agnostic, parameterized):
 
 Set `AZURE_SUBSCRIPTION_ID` and `AZURE_TENANT_ID` to the approved deployment target before running
 any helper. [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh)
@@ -246,8 +246,8 @@ before mutation when the identity cannot access that exact pair.
   registers the VNet runner over `run-command`. Re-running it stops and uninstalls an existing
   service, removes the stale local and GitHub registration with a short-lived removal token, and
   then installs the fresh service. This recovers broker-session corruption without keeping a token.
-- [`teardown-env.sh`](../../../scripts/deployment/azure/teardown-env.sh) deallocates/starts the runner (cost) and
-  guards a per-env `terraform destroy` that never touches the ops hub or state account.
+- [`check-runner-storage-posture.sh`](../../../infra/bootstrap/check-runner-storage-posture.sh) verifies the size and ephemeral placement; [`teardown-env.sh`](../../../scripts/deployment/azure/teardown-env.sh) guards environment destroy.
+  Both fail closed on unsafe runner storage or deallocation without changing the ops hub or state account.
 
 #### Production hardening knobs
 

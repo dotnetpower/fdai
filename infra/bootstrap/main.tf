@@ -160,8 +160,15 @@ resource "azurerm_linux_virtual_machine" "runner" {
   }
 
   os_disk {
-    caching              = "ReadWrite"
-    storage_account_type = "StandardSSD_LRS"
+    caching = "ReadWrite"
+    # Azure requires a storage type in the VM model, but Local placement creates
+    # no managed OS disk for tenant policy to downgrade.
+    storage_account_type = "Standard_LRS"
+
+    diff_disk_settings {
+      option    = "Local"
+      placement = "ResourceDisk"
+    }
   }
 
   # Managed boot diagnostics (serial console + screenshot) for a no-public-IP
@@ -187,6 +194,11 @@ resource "azurerm_linux_virtual_machine" "runner" {
   # job). Re-provision deliberately (taint) when the bootstrap really changes.
   lifecycle {
     ignore_changes = [custom_data, source_image_reference[0].version]
+
+    precondition {
+      condition     = var.runner_auto_shutdown_time == ""
+      error_message = "runner_auto_shutdown_time must be empty when the runner uses an ephemeral OS disk because deallocation resets the runner registration."
+    }
   }
 }
 

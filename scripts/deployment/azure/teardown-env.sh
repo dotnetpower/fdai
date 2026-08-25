@@ -35,6 +35,19 @@ case "${1:-}" in
   runner-stop)
     _need FDAI_OPS_RG "$OPS_RG"
     _need FDAI_OPS_RUNNER_VM "$VM"
+    diff_disk_option="$(az vm show \
+      --resource-group "$OPS_RG" \
+      --name "$VM" \
+      --query 'storageProfile.osDisk.diffDiskSettings.option' \
+      --output tsv \
+      --only-show-errors)" || {
+      echo "teardown-env: runner storage posture could not be verified." >&2
+      exit 1
+    }
+    if [[ "$diff_disk_option" == "Local" ]]; then
+      echo "teardown-env: runner-stop is unsupported for an ephemeral OS disk because deallocation resets the runner registration." >&2
+      exit 1
+    fi
     az vm deallocate -g "$OPS_RG" -n "$VM"
     echo "runner deallocated (compute billing stops; disk still billed)."
     ;;

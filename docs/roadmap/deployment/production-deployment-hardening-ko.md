@@ -1,8 +1,8 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: ab85935c51073f7fafd20984ca3fd3b136fd4a1e
-translation_revised: 2026-08-25
+translation_source_sha: 9806a8afa95da32645258b67f8728822182bef8b
+translation_revised: 2026-08-26
 ---
 # 운영 배포 강화
 
@@ -20,7 +20,7 @@ translation_revised: 2026-08-25
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 운영 계획 gate 및 환경 knob | implemented | `infra/production-gates.tf`, `infra/envs/{staging,prod}.tfvars.example`, Terraform 구성 테스트 | 서명된 이미지, 비공개 네트워크, 내구성, 모니터링 또는 비용 입력이 없으면 운영 계획을 차단합니다. 표준 프로파일은 전역 이름을 사용하는 리소스를 영구 삭제하고 관리 잠금을 비활성화합니다. |
-| 자격 증명 없는 인프라 및 drift gate | implemented | `.github/workflows/infra-lint.yml`, `.github/workflows/infra-drift.yml`, CI 계약 테스트 | 선언된 모든 상태 루트를 다루고 루트가 없거나 읽을 수 없거나 변경되면 실패 시 차단합니다. |
+| 자격 증명 없는 인프라 및 drift gate | implemented | `.github/workflows/infra-lint.yml`, `.github/workflows/infra-drift.yml`, 실행기 상태 스크립트, CI 계약 테스트 | 선언된 모든 상태 루트를 다루고 루트가 없거나 읽을 수 없거나 변경되면 실패 시 차단합니다. 예약된 실제 상태 확인은 관리형 실행기 OS 디스크, 예상하지 않은 VM 크기 또는 로컬이 아닌 배치를 거부합니다. |
 | Baseline 없는 Terraform 보안 검사 | implemented | `.github/workflows/infra-lint.yml`, 인라인 Checkov 및 Trivy 예외, 집중 인프라 테스트 | Checkov와 Trivy에 Low를 초과하는 활성 점검 결과가 없습니다. 의도적 예외는 하나의 리소스에 연결되고 보완 제어 또는 관리형 서비스 제약을 인용합니다. |
 | exact-revision 보호 운영 적용 근거 | in-progress | [배포와 온보딩](deploy-and-onboard-ko.md#구현-상태) | 코드와 계획 gate는 있지만 이 소유 문서는 모든 제어를 함께 입증하는 현재 운영 적용을 하나로 보존하지 않습니다. |
 
@@ -28,6 +28,7 @@ translation_revised: 2026-08-25
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-26 | implemented | 예약된 인프라 drift에 읽기 전용 실행기 저장소 상태 검사를 추가하고 임시 실행기 프로파일의 구성된 할당 해제와 수동 할당 해제를 모두 차단했습니다. | `current change`; 실행기 상태 스크립트, drift workflow, 수명 주기 도우미 및 집중 계약 검사 14개. | 실제 실행기의 blue/green 교체를 완료하고 성공한 예약 상태 검사 증적 하나를 보존합니다. |
 | 2026-08-21 | in-progress | 인프라 동작을 변경하지 않고 기존 운영 강화 제어를 집중 소유 문서로 옮겼습니다. | `current change`; 문서 크기, 번역, 경로 및 링크 검사입니다. | 모든 필수 제어를 다루는 exact-revision 보호 운영 계획 및 적용 증적 하나를 보존합니다. |
 | 2026-08-24 | implemented | 모든 표준 환경에서 제어 가능한 해체 및 동일 이름 재생성 제약을 제거했습니다. Terraform은 삭제된 Key Vault와 Cognitive Services 계정을 purge하고, Log Analytics 작업 영역을 영구 삭제하며, 리소스가 남은 리소스 그룹 삭제를 허용하고, 애플리케이션 및 상태 계정 관리 잠금을 비활성화합니다. | `current change`; `infra/` 아래 프로바이더 기능과 환경 값; `tests/integration/infra/test_key_vault_lifecycle.py` (`2 passed`); 공유, scenario-lab, bootstrap 및 dev-access 루트의 Terraform 형식과 유효성 검사. | 보호된 비운영 destroy 및 동일 이름 재생성 증적을 보존합니다. Azure 소유 서비스 지연은 Terraform 제어 밖에 남습니다. |
 | 2026-08-24 | implemented | 비공개 runner에 구독 전체 생성 권한을 부여하는 대신 일회용 scenario lab을 기존의 보호된 holding 리소스 그룹에 연결했습니다. Apply와 destroy는 보호된 실행 동안 해당 그룹에만 Contributor를 부여한 뒤 회수하며, Terraform은 태그가 지정된 하위 리소스만 소유하고 제거합니다. 겹치지 않는 `10.73.0.0/20` VNet과 runner 전용 민감한 암호 구체화는 영속 secret store 없이 lab을 비공개 상태로 완전히 폐기할 수 있게 합니다. | `current change`; scenario-lab Terraform 유효성 검사와 finding 0건의 Trivy 및 Checkov 검사; 집중 scenario 및 workflow 계약. | 정확한 보호 plan, apply, VPN, 승인된 sweep 및 하위 리소스 destroy 증적을 보존합니다. |
@@ -42,6 +43,8 @@ translation_revised: 2026-08-25
   exact-revision 보호 운영 계획 및 적용 증적을 보존합니다.
 - [ ] Key Vault, Cognitive Services, Log Analytics 및 리소스 그룹에 대해 보호된 비운영 destroy와
   동일 이름 재생성 증적을 보존합니다.
+- [ ] Blue/green 교체 뒤 검토된 VM 크기, 로컬 임시 배치 및 관리형 OS 디스크 부재를 보고하는
+  예약 실행기 상태 증적 하나를 보존합니다.
 
 ## 배포자 신원
 
@@ -72,7 +75,8 @@ revision 1개를 보존합니다. 계획은 이전 보존값을 `0`에서 `1`로
 | 이메일 알림 | `enable_email_notifications`, `notification_email_recipients`, `email_data_location` | 활성화 + 수신자 그룹 |
 | 레지스트리 | `acr_sku` | `Premium` |
 | 모니터링 | `enable_monitoring`, `alert_email`, `alert_webhook_url` | on + 대상 |
-| 비용 | `monthly_budget_amount`, `budget_alert_emails`, bootstrap `runner_auto_shutdown_time` | 설정 |
+| 비용 | `monthly_budget_amount`, `budget_alert_emails` | 설정 |
+| 실행기 저장소 | bootstrap `runner_vm_size`, 임시 `ResourceDisk`, `runner_auto_shutdown_time` | 검토된 지속형 크기, 로컬 OS, 빈 종료 시간 |
 
 리소스 그룹을 소유하는 모든 Terraform 루트는 프로바이더의 잔여 리소스 검사 기능을
 비활성화합니다. Log Analytics를 소유하는 루트는 작업 영역을 영구 삭제하고 공유 루트는 destroy
@@ -128,6 +132,10 @@ provider 제한 또는 관리형 서비스 제약을 설명합니다.
 [`infra-drift.yml`](../../../.github/workflows/infra-drift.yml)은 실행기에서 이전 방식, 독립 서비스
 다섯 개 및 bootstrap 상태 루트에 대해 scheduled `plan -detailed-exitcode`를 실행합니다. 루트가
 없거나 읽을 수 없거나 변경되면 실패 시 차단하므로 green은 일곱 루트를 모두 다룹니다.
+Bootstrap 계획 전에 실행기 VM을 독립적으로 읽고 검토된 크기, `Local` `ResourceDisk` 배치 및
+관리형 OS 디스크 부재를 요구합니다. 불일치하면 blue/green 교체 작업을 보고하고 Azure 상태를
+변경하지 않은 채 실패합니다. 임시 프로파일은 할당된 상태로 유지됩니다. 구성된 자동 종료와
+수명 주기 도우미는 OS와 GitHub 등록을 초기화하는 할당 해제를 모두 거부합니다.
 모니터링을 활성화하면 PostgreSQL, Key Vault, Event Hubs 및 Container Apps용 action group과
 metric alert, Log Analytics diagnostic setting을 프로비저닝합니다. 경보는 사람 신호일 뿐 자율
 작업이 아닙니다.

@@ -107,6 +107,15 @@ def test_destroy_helper_dispatches_the_protected_main_commit() -> None:
     assert '-f commit_sha="$COMMIT_SHA"' in helper
 
 
+def test_destroy_helper_refuses_to_deallocate_an_ephemeral_runner() -> None:
+    helper = (_REPO_ROOT / "scripts/deployment/azure/teardown-env.sh").read_text(encoding="utf-8")
+
+    posture_check = "storageProfile.osDisk.diffDiskSettings.option"
+    assert posture_check in helper
+    assert helper.index(posture_check) < helper.index('az vm deallocate -g "$OPS_RG" -n "$VM"')
+    assert "runner-stop is unsupported for an ephemeral OS disk" in helper
+
+
 @pytest.mark.parametrize(
     "workflow",
     (
