@@ -65,7 +65,7 @@
     "resultBoundTruncated": "First {count} Resources in the active projection",
     "noSearchResults": "No Resource in the active generation matches this search.",
     "emptyTitle": "Choose a Resource instance",
-    "emptyDescription": "The workspace will show only the selected Resource and its bounded one-hop neighborhood.",
+    "emptyDescription": "The workspace will show the selected Resource and its bounded multi-hop neighborhood.",
     "selectedResource": "Selected Resource",
     "resources": "Resources",
     "relationships": "Relationships",
@@ -86,6 +86,26 @@
     "verifiedEgress": "Verified egress",
     "accessContext": "Access context",
     "containmentContext": "Containment context",
+    "networkPathsTitle": "Modeled VM network paths",
+    "networkPathsHint": "Only stored edges with reviewed mapping evidence are summarized. Path direction does not rewrite stored edge orientation or prove packet delivery.",
+    "networkPathIngress": "Ingress",
+    "networkPathEgress": "Egress",
+    "networkPathStatus": {
+      "current": "Current configuration",
+      "stale": "Stale configuration",
+      "unknown": "Unknown"
+    },
+    "networkPathReason": {
+      "coverage_incomplete": "No complete reviewed path reaches this VM in the bounded graph, and relationship coverage is incomplete.",
+      "no_reviewed_path": "No complete reviewed path reaches this VM in the bounded graph. Unmodeled backend associations remain unknown.",
+      "null": "Path evidence is unavailable."
+    },
+    "networkPathKind": {
+      "frontend_ingress": "Configured frontend path - {count} stored edges",
+      "direct_public_ip": "Direct public IP attachment - {count} stored edges",
+      "nat_gateway": "NAT gateway path - {count} stored edges",
+      "null": "Path evidence unavailable"
+    },
     "graphIncoming": "Incoming relationship",
     "graphOutgoing": "Outgoing relationship",
     "directionMeaning": "Direction meaning",
@@ -95,7 +115,7 @@
       "egress": "Verified egress path"
     },
     "events": "Events",
-    "mapDescription": "One-hop ontology instance graph with {resources} Resources and {links} relationships.",
+    "mapDescription": "Bounded depth-{depth} ontology instance graph with {resources} Resources and {links} relationships.",
     "graphTitle": "Two-dimensional Resource relationship graph",
     "historyEyebrow": "State and event history",
     "historyTitle": "Returned FDAI audit window",

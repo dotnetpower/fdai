@@ -5,6 +5,7 @@ import {
   groupOntologyInstanceRelationships,
   isOntologyInstanceDirectoryResource,
   ontologyInstanceAutocompleteSuggestions,
+  ontologyInstanceNetworkPaths,
   ontologyInstanceResourceAutocompleteOptions,
   ontologyInstanceResourceOptionLabel,
   ontologyInstanceTrafficDirection,
@@ -255,6 +256,83 @@ describe("partitionOntologyInstanceLinks", () => {
       });
   });
 });
+
+describe("ontologyInstanceNetworkPaths", () => {
+  it("orders one current VM NAT egress path and keeps absent ingress unknown", () => {
+    const data = vmNetworkPayload();
+    data.complete = false;
+    data.relationship_drop_reasons = ["missing_target_endpoint"];
+
+    const paths = ontologyInstanceNetworkPaths(decodeOntologyInstanceExploration(data));
+
+    expect(paths?.egress).toMatchObject({
+      status: "current",
+      kind: "nat_gateway",
+      reason: null,
+    });
+    expect(paths?.egress.links.map((link) => link.evidence.mapping_id)).toEqual([
+      "azure.vm-nic-attached-to-vm",
+      "azure.nic-attached-to-subnet",
+      "azure.subnet-attached-to-nat-gateway",
+      "azure.nat-gateway-attached-to-public-ip",
+    ]);
+    expect(paths?.ingress).toEqual({
+      status: "unknown",
+      kind: null,
+      links: [],
+      reason: "coverage_incomplete",
+    });
+  });
+
+  it("lowers a configured path when one edge is stale", () => {
+    const data = vmNetworkPayload();
+    const links = data.links as Record<string, unknown>[];
+    links[2]!.evidence = {
+      ...relationshipEvidence(),
+      mapping_id: "azure.subnet-attached-to-nat-gateway",
+      status: "stale",
+      complete: false,
+      reason: "relationship_evidence_stale",
+    };
+
+    expect(ontologyInstanceNetworkPaths(decodeOntologyInstanceExploration(data))?.egress.status)
+      .toBe("stale");
+  });
+});
+
+function vmNetworkPayload(): Record<string, unknown> {
+  const value = payload();
+  value.root_id = "vm";
+  value.link_types = ["attached_to"];
+  value.resources = [
+    networkResource("vm", "compute.vm"),
+    networkResource("nic", "network.interface"),
+    networkResource("subnet", "network.subnet"),
+    networkResource("nat", "network.nat-gateway"),
+    networkResource("public-ip", "network.public-ip"),
+  ];
+  value.links = [
+    relationship("nic", "vm", "attached_to", "azure.vm-nic-attached-to-vm"),
+    relationship("nic", "subnet", "attached_to", "azure.nic-attached-to-subnet"),
+    relationship("subnet", "nat", "attached_to", "azure.subnet-attached-to-nat-gateway"),
+    relationship("nat", "public-ip", "attached_to", "azure.nat-gateway-attached-to-public-ip"),
+  ];
+  return value;
+}
+
+function networkResource(id: string, resourceType: string): Record<string, unknown> {
+  return {
+    id,
+    object_type: "Resource",
+    resource_type: resourceType,
+    name: id,
+    location: null,
+    resource_group: null,
+    status: null,
+    last_seen: null,
+    selected: id === "vm",
+  };
+}
 
 function relationshipEvidence(): Record<string, unknown> {
   return {

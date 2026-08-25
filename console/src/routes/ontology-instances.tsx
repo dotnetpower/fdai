@@ -369,6 +369,7 @@ function OntologyInstanceWorkspace({
           ) : null}
           <p id="ontology-instance-map-description" class="sr-only">
             {t("ontology.instances.mapDescription", {
+              depth: formatNumber(data.depth),
               resources: formatNumber(data.resources.length),
               links: formatNumber(data.links.length),
             })}

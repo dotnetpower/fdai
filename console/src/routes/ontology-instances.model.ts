@@ -192,6 +192,20 @@ export interface OntologyInstanceRelationshipGroups {
   readonly path: readonly OntologyInstanceLink[];
 }
 
+export type OntologyInstanceNetworkPathStatus = "current" | "stale" | "unknown";
+
+export interface OntologyInstanceNetworkPath {
+  readonly status: OntologyInstanceNetworkPathStatus;
+  readonly kind: "frontend_ingress" | "direct_public_ip" | "nat_gateway" | null;
+  readonly links: readonly OntologyInstanceLink[];
+  readonly reason: "coverage_incomplete" | "no_reviewed_path" | null;
+}
+
+export interface OntologyInstanceNetworkPaths {
+  readonly ingress: OntologyInstanceNetworkPath;
+  readonly egress: OntologyInstanceNetworkPath;
+}
+
 const VERIFIED_BACKEND_TRAFFIC_MAPPINGS = new Set([
   "azure.application-gateway-routes-to-configured-backend",
   "azure.load-balancer-routes-to-configured-backend",
@@ -200,6 +214,106 @@ const VERIFIED_EGRESS_TRAFFIC_MAPPINGS = new Set([
   ...VERIFIED_BACKEND_TRAFFIC_MAPPINGS,
   "azure.aks-routes-to-effective-outbound-ip",
 ]);
+const VM_NIC_MAPPING = "azure.vm-nic-attached-to-vm";
+const NIC_SUBNET_MAPPING = "azure.nic-attached-to-subnet";
+const NIC_PUBLIC_IP_MAPPING = "azure.nic-attached-to-public-ip";
+const SUBNET_NAT_MAPPING = "azure.subnet-attached-to-nat-gateway";
+const NAT_PUBLIC_IP_MAPPING = "azure.nat-gateway-attached-to-public-ip";
+
+/** Summarizes only evidence-backed VM ingress and egress paths present in one bounded response. */
+export function ontologyInstanceNetworkPaths(
+  data: OntologyInstanceExploration,
+): OntologyInstanceNetworkPaths | null {
+  const resources = new Map(data.resources.map((resource) => [resource.id, resource]));
+  if (resources.get(data.root_id)?.resource_type !== "compute.vm") return null;
+  const mapped = (mappingId: string): readonly OntologyInstanceLink[] => data.links
+    .filter((link) => link.evidence.mapping_id === mappingId)
+    .sort(compareNetworkPathLink);
+  const vmNics = mapped(VM_NIC_MAPPING).filter((link) => link.target === data.root_id);
+  const nicIds = new Set(vmNics.map((link) => link.source));
+  const nicSubnets = mapped(NIC_SUBNET_MAPPING).filter((link) => nicIds.has(link.source));
+  const subnetIds = new Set(nicSubnets.map((link) => link.target));
+  const localIds = new Set([data.root_id, ...nicIds, ...subnetIds]);
+
+  const frontendIngress = data.links
+    .filter((link) => link.link_type === "routes_to"
+      && VERIFIED_BACKEND_TRAFFIC_MAPPINGS.has(link.evidence.mapping_id ?? "")
+      && localIds.has(link.target))
+    .sort(compareNetworkPathLink)[0];
+  const directPublicIp = mapped(NIC_PUBLIC_IP_MAPPING)
+    .find((link) => nicIds.has(link.source));
+  const ingressLinks = frontendIngress
+    ? [frontendIngress, ...linksFromEndpointToVm(frontendIngress.target, vmNics, nicSubnets)]
+    : directPublicIp
+      ? [directPublicIp, ...vmNics.filter((link) => link.source === directPublicIp.source)]
+      : [];
+
+  let egressLinks: readonly OntologyInstanceLink[] = [];
+  for (const vmNic of vmNics) {
+    const nicSubnet = nicSubnets.find((link) => link.source === vmNic.source);
+    if (!nicSubnet) continue;
+    const subnetNat = mapped(SUBNET_NAT_MAPPING)
+      .find((link) => link.source === nicSubnet.target);
+    if (!subnetNat) continue;
+    const natPublicIp = mapped(NAT_PUBLIC_IP_MAPPING)
+      .find((link) => link.source === subnetNat.target);
+    if (!natPublicIp) continue;
+    egressLinks = [vmNic, nicSubnet, subnetNat, natPublicIp];
+    break;
+  }
+
+  const coverageIncomplete = data.relationship_drop_reasons.length > 0
+    || data.truncation_reasons.some((reason) => reason !== "activity_limit");
+  return {
+    ingress: networkPath(
+      ingressLinks,
+      frontendIngress ? "frontend_ingress" : directPublicIp ? "direct_public_ip" : null,
+      coverageIncomplete,
+    ),
+    egress: networkPath(egressLinks, egressLinks.length > 0 ? "nat_gateway" : null, coverageIncomplete),
+  };
+}
+
+function linksFromEndpointToVm(
+  endpointId: string,
+  vmNics: readonly OntologyInstanceLink[],
+  nicSubnets: readonly OntologyInstanceLink[],
+): readonly OntologyInstanceLink[] {
+  const vmNic = vmNics.find((link) => link.source === endpointId);
+  if (vmNic) return [vmNic];
+  const nicSubnet = nicSubnets.find((link) => link.target === endpointId);
+  if (!nicSubnet) return [];
+  const matchingVmNic = vmNics.find((link) => link.source === nicSubnet.source);
+  return matchingVmNic ? [nicSubnet, matchingVmNic] : [];
+}
+
+function networkPath(
+  links: readonly OntologyInstanceLink[],
+  kind: OntologyInstanceNetworkPath["kind"],
+  coverageIncomplete: boolean,
+): OntologyInstanceNetworkPath {
+  if (links.length === 0) {
+    return {
+      status: "unknown",
+      kind: null,
+      links: [],
+      reason: coverageIncomplete ? "coverage_incomplete" : "no_reviewed_path",
+    };
+  }
+  return {
+    status: links.every((link) => link.evidence.status === "available" && link.evidence.complete)
+      ? "current"
+      : "stale",
+    kind,
+    links,
+    reason: null,
+  };
+}
+
+function compareNetworkPathLink(left: OntologyInstanceLink, right: OntologyInstanceLink): number {
+  return `${left.source}\u0000${left.link_type}\u0000${left.target}`
+    .localeCompare(`${right.source}\u0000${right.link_type}\u0000${right.target}`);
+}
 
 /** Classifies only reviewed provider mappings that prove a configured network traffic path. */
 export function ontologyInstanceTrafficDirection(

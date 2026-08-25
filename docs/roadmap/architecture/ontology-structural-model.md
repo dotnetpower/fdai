@@ -191,7 +191,11 @@ Operator projections preserve source generation, ontology release, query bounds,
 coverage, and exact limitation codes. The Console may build containment, dependency, connectivity,
 authorization, classification, and evidence views from semantic traits. It also provides an
 `All bounded relationships` inspection surface and reports its own omitted node and edge counts by
-reason. Browser layout never changes completeness or authority.
+reason. A bounded multi-hop response is never described as one hop. For a selected VM, the Console
+may summarize only ordered network paths whose stored edges and reviewed mapping evidence are
+present in the response. A missing path remains unknown when relationship coverage is incomplete
+or the required backend association is not modeled. Browser layout never changes completeness or
+authority.
 
 ## Migration and rollout
 
@@ -226,6 +230,7 @@ major version or explicit graph migration. No rollout rewrites historical contex
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-25 | implemented | Required bounded multi-hop instance presentation to preserve stored edge direction, summarize only evidence-backed VM network paths, and keep absent ingress or egress unknown under incomplete or unmodeled coverage. | `current change`; active-generation PostgreSQL audit; focused Console checks passed 56 cases; typecheck, production build, and entry bundle check passed; authenticated 1440 x 900, 993 x 641, and 390 x 844 Browser checks retained zero overflow and 44 px mobile path controls. | No bounded implementation work remains. Governed runtime retention remains separate. |
 | 2026-08-23 | not-started | Adopted the structural model after reviewing Palantir ontology design guidance and the existing FDAI contracts. Earlier implementation provenance was not reconstructed because this is a new bounded design. | `current change`; this paired owner document and focused documentation gates. | Implement the delivery sequence and complete at least ten adversarial hardening rounds. |
 | 2026-08-23 | implemented | Added explicit ResourceClass taxonomy, ordered typed paths, LinkType traversal roles and semantic traits, exact manifest projection, and limitation-preserving declaration presentation without changing action authority or historical link direction. | `current change`; focused catalog, query, contract, materializer, and Console checks; Ruff and strict mypy; Console typecheck and production build. | Complete at least ten adversarial critique and hardening rounds, resolve every verified finding above Low, then run the final focused and diff validation stack. |
 | 2026-08-23 | implemented | Completed fifteen adversarial hardening rounds. Closed typed-path composition, bounded repetition, classification-evidence integrity, taxonomy identity and bounds, exact-release compatibility, Console decoding, rollout compatibility, and production taxonomy-closure integration defects. | `current change`; 308 focused Python tests passed, 29 focused Console tests passed, Ruff passed over 29 changed Python files, strict mypy passed over 19 changed source files, and Console typecheck and production build passed. | Run the paired documentation, roadmap, translation, punctuation, design-route, and final diff gates. |

@@ -6,10 +6,12 @@ import type {
   OntologyInstanceActivity,
   OntologyInstanceExploration,
   OntologyInstanceLink,
+  OntologyInstanceNetworkPath,
   OntologyInstanceResource,
 } from "./ontology-instances.model";
 import {
   groupOntologyInstanceRelationships,
+  ontologyInstanceNetworkPaths,
   ontologyInstanceTrafficDirection,
 } from "./ontology-instances.model";
 
@@ -112,6 +114,7 @@ function InstanceRelationships({
     data.links,
     data.root_id,
   );
+  const networkPaths = ontologyInstanceNetworkPaths(data);
   const directCount = groups.directIncoming.length
     + groups.directOutgoing.length
     + groups.verifiedIngress.length
@@ -122,6 +125,26 @@ function InstanceRelationships({
     <section class="ontology-instance-inspector-section">
       <h3>{t("ontology.instances.relationshipsTitle")}</h3>
       <p>{t("ontology.instances.relationshipsHint")}</p>
+      {networkPaths ? (
+        <section class="ontology-instance-network-paths">
+          <h4>{t("ontology.instances.networkPathsTitle")}</h4>
+          <p>{t("ontology.instances.networkPathsHint")}</p>
+          <NetworkPathDirection
+            title={t("ontology.instances.networkPathIngress")}
+            path={networkPaths.ingress}
+            rootId={data.root_id}
+            resources={byId}
+            onSelect={onSelect}
+          />
+          <NetworkPathDirection
+            title={t("ontology.instances.networkPathEgress")}
+            path={networkPaths.egress}
+            rootId={data.root_id}
+            resources={byId}
+            onSelect={onSelect}
+          />
+        </section>
+      ) : null}
       {directCount === 0 ? <p>{t("ontology.instances.noRelationships")}</p> : null}
       <RelationshipGroup title={t("ontology.instances.verifiedIngress")} links={groups.verifiedIngress} rootId={data.root_id} resources={byId} onSelect={onSelect} />
       <RelationshipGroup title={t("ontology.instances.verifiedEgress")} links={groups.verifiedEgress} rootId={data.root_id} resources={byId} onSelect={onSelect} />
@@ -141,6 +164,44 @@ function InstanceRelationships({
         </details>
       ) : null}
     </section>
+  );
+}
+
+function NetworkPathDirection({
+  title,
+  path,
+  rootId,
+  resources,
+  onSelect,
+}: {
+  readonly title: string;
+  readonly path: OntologyInstanceNetworkPath;
+  readonly rootId: string;
+  readonly resources: ReadonlyMap<string, OntologyInstanceResource>;
+  readonly onSelect: (resourceId: string | null) => void;
+}) {
+  return (
+    <div class={`ontology-instance-network-path is-${path.status}`}>
+      <div>
+        <strong>{title}</strong>
+        <span>{t(`ontology.instances.networkPathStatus.${path.status}`)}</span>
+      </div>
+      {path.links.length === 0 ? (
+        <p>{t(`ontology.instances.networkPathReason.${path.reason}`)}</p>
+      ) : (
+        <details>
+          <summary>{t(`ontology.instances.networkPathKind.${path.kind}`, {
+            count: String(path.links.length),
+          })}</summary>
+          <RelationshipList
+            links={path.links}
+            rootId={rootId}
+            resources={resources}
+            onSelect={onSelect}
+          />
+        </details>
+      )}
+    </div>
   );
 }
 

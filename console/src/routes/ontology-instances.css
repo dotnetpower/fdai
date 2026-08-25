@@ -146,6 +146,18 @@
 .ontology-instance-technical summary { padding: 10px 0; cursor: pointer; }
 .ontology-instance-technical code { display: block; padding: 8px 0; overflow-wrap: anywhere; border-top: 1px solid var(--border); font-size: var(--cs-type-caption-size); }
 .ontology-instance-relationship-list, .ontology-instance-source-list { margin: 0; padding: 0; list-style: none; }
+.ontology-instance-network-paths { margin: 16px 0 20px; padding: 12px; border: 1px solid var(--border); border-radius: var(--cs-radius-sm); background: var(--bg-elevated); }
+.ontology-instance-network-paths > h4 { margin: 0; font-size: var(--cs-type-compact-size); }
+.ontology-instance-network-paths > p { margin: 5px 0 10px; color: var(--fg-muted); font-size: var(--cs-type-caption-size); }
+.ontology-instance-network-path { padding: 9px 0; border-top: 1px solid var(--border); }
+.ontology-instance-network-path > div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.ontology-instance-network-path > div strong { font-size: var(--cs-type-label-size); }
+.ontology-instance-network-path > div span, .ontology-instance-network-path > p { color: var(--fg-muted); font-size: var(--cs-type-caption-size); }
+.ontology-instance-network-path.is-current > div span { color: var(--success); }
+.ontology-instance-network-path.is-stale > div span { color: var(--warning); }
+.ontology-instance-network-path > p { margin: 5px 0 0; }
+.ontology-instance-network-path details { margin-top: 6px; }
+.ontology-instance-network-path summary { min-height: 36px; padding: 8px 0; color: var(--accent-strong); font-size: var(--cs-type-caption-size); font-weight: 700; cursor: pointer; }
 .ontology-instance-relationship-group { margin-top: 16px; }
 .ontology-instance-relationship-group h4 { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0; padding-bottom: 6px; color: var(--fg); font-size: var(--cs-type-compact-size); }
 .ontology-instance-relationship-group h4 span { color: var(--fg-muted); font-variant-numeric: tabular-nums; }
@@ -214,4 +226,6 @@
   .ontology-instance-event-marker { width: 44px; height: 44px; }
   .ontology-instance-event-marker { top: 3px; }
   .ontology-instance-inspector > nav button { min-height: 44px; }
+  .ontology-instance-relationship-list button,
+  .ontology-instance-network-path summary { min-height: 44px; }
 }
