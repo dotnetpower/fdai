@@ -103,7 +103,30 @@ def test_canonical_projection_excludes_audit_only_correlations_and_pins_identity
         ).fetchone()
         assert pre_open_row is not None
         pre_open_snapshot = pre_open_row["seq"]
+        connection.execute(
+            """
+            CREATE FUNCTION fdai_stale_canonical_incident_trigger()
+            RETURNS TRIGGER LANGUAGE plpgsql AS $function$
+            BEGIN
+                RETURN NEW;
+            END;
+            $function$;
+            CREATE TRIGGER audit_log_zz_operator_incident_canonical
+                AFTER INSERT ON audit_log
+                FOR EACH ROW
+                EXECUTE FUNCTION fdai_stale_canonical_incident_trigger();
+            """
+        )
         connection.execute(_migration_sql(CANONICAL_MIGRATION, "upgrade"))
+        trigger_definition = connection.execute(
+            """
+            SELECT pg_get_triggerdef(trigger.oid, TRUE) AS definition
+              FROM pg_trigger AS trigger
+             WHERE trigger.tgrelid = 'audit_log'::regclass
+               AND trigger.tgname = 'audit_log_zz_operator_incident_canonical'
+               AND NOT trigger.tgisinternal
+            """
+        ).fetchone()
         connection.execute(
             """
             INSERT INTO audit_log (
@@ -203,6 +226,12 @@ def test_canonical_projection_excludes_audit_only_correlations_and_pins_identity
         ).fetchone()
 
     assert audit_only == {"has_canonical_incident": False}
+    assert trigger_definition is not None
+    assert (
+        "fdai_mark_operator_incident_projection_canonical_trigger()"
+        in (trigger_definition["definition"])
+    )
+    assert "fdai_stale_canonical_incident_trigger()" not in trigger_definition["definition"]
     assert canonical_projection == {
         "has_canonical_incident": True,
         "canonical_incident_id": "incident-1",

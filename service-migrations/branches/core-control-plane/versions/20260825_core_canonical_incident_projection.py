@@ -161,6 +161,7 @@ def upgrade() -> None:
             fdai_mark_operator_incident_projection_canonical_trigger()
         FROM PUBLIC;
 
+        DROP TRIGGER IF EXISTS audit_log_zz_operator_incident_canonical ON audit_log;
         CREATE TRIGGER audit_log_zz_operator_incident_canonical
             AFTER INSERT ON audit_log
             FOR EACH ROW

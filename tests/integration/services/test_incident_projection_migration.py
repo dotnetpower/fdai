@@ -48,5 +48,8 @@ def test_canonical_incident_projection_uses_unbounded_lifecycle_evidence() -> No
     assert "audit_log_zz_operator_incident_canonical" in migration_source
     assert "audit_log_operator_incident_projection" in base_source
     assert "audit_log_zz_operator_incident_canonical" > "audit_log_operator_incident_projection"
+    assert migration_source.index(
+        "DROP TRIGGER IF EXISTS audit_log_zz_operator_incident_canonical"
+    ) < (migration_source.rindex("CREATE TRIGGER audit_log_zz_operator_incident_canonical"))
     assert "DROP FUNCTION fdai_canonical_incident_identity(TEXT, BIGINT)" in migration_source
     assert "DROP COLUMN has_canonical_incident" in migration_source
