@@ -1,7 +1,7 @@
 ---
 title: 시작과 라이프사이클(Startup and Lifecycle)
 translation_of: startup-and-lifecycle.md
-translation_source_sha: 104ab12d7a9faad85e44310fbe12e104b224692d
+translation_source_sha: c2a45555cb686ccc1fde827b181314bfd975d026
 translation_revised: 2026-08-25
 ---
 
@@ -31,7 +31,7 @@ Azure 초점: 비-Azure 프로바이더는 TBD
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| 시작 준비 상태 조정 | `implemented` | [`runtime/readiness.py`](../../../services/core-control-plane/src/fdai/runtime/readiness.py), [`core/readiness/coordinator.py`](../../../services/core-control-plane/src/fdai/core/readiness/coordinator.py) 및 준비 상태 집중 테스트 | 런타임은 순서가 지정된 단계를 평가하고 정제된 보고서를 저장하며, 결과 결정에 따라 처리를 게이팅합니다. PostgreSQL 상태 접근과 감사 추가는 process-critical로 유지하고, 완료되지 않은 전체 체인 검증은 degraded shadow 작업만 열며 확인된 불일치는 준비 상태를 차단합니다. |
+| 시작 준비 상태 조정 | `implemented` | [`runtime/readiness.py`](../../../services/core-control-plane/src/fdai/runtime/readiness.py), [`runtime/bootstrap_incidents.py`](../../../services/core-control-plane/src/fdai/runtime/bootstrap_incidents.py), [`core/readiness/coordinator.py`](../../../services/core-control-plane/src/fdai/core/readiness/coordinator.py) 및 준비 상태 집중 테스트 | 런타임은 순서가 지정된 단계를 평가하고 정제된 보고서를 저장하며, 결과 결정에 따라 처리를 게이팅합니다. PostgreSQL 상태 재구성은 process-critical로 유지하고, 영속 A2 알림 replay는 느린 subscriber가 관련 없는 시작을 차단하지 않도록 격리된 readiness-gated worker에서 실행합니다. |
 | T2 교차 검사 시작 증명 재사용 | `implemented` | [`delivery/startup_model_probe.py`](../../../services/core-control-plane/src/fdai/delivery/startup_model_probe.py) 및 [`tests/delivery/test_startup_probe.py`](../../../services/core-control-plane/tests/delivery/test_startup_probe.py) | 프로세스에서 처음 성공한 증명은 구성된 샘플을 사용합니다. 이후 새로 고침은 추가 T2 요청 없이 이를 재사용하며 실패는 계속 재시도할 수 있습니다. |
 | 수집기 일정 및 통제된 발견 활성화 | `implemented` | [`rule_watcher_job.tf`](../../../infra/modules/compute/container-apps/rule_watcher_job.tf), [`rule_collector_job_cli.py`](../../../services/core-control-plane/src/fdai/delivery/rule_collector_job_cli.py), [`core/readiness/discovery_activation.py`](../../../services/core-control-plane/src/fdai/core/readiness/discovery_activation.py), [`runtime/discovery_activation.py`](../../../services/core-control-plane/src/fdai/runtime/discovery_activation.py) 및 집중 수집기/활성화/Norns/런타임/인프라 검사 | 구성 가능한 작업은 실행 권한이 없는 인벤토리 신원을 사용하고, 검증된 출처 증적만 기록합니다. 런타임 조립은 정책과 최신 선행 조건이 모두 통과할 때까지 Norns 게시를 차단합니다. |
 | 부트스트랩 및 수명 주기 자동화 | `in-progress` | [`llm_resolver_cli.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/llm_resolver_cli.py), `.github/workflows/deploy-dev.yml`, `.github/workflows/model-lifecycle-reconcile.yml` 및 집중 수명 주기 테스트 | 보호된 모델 해석과 제안 전용 조정은 구현됐습니다. 수집기 일정과 통제된 발견 활성화는 현재 변경에서 구현되며, 종단 간 사람 승인 초기화는 아직 완료되지 않았습니다. |
@@ -44,6 +44,7 @@ Azure 초점: 비-Azure 프로바이더는 TBD
 | 2026-08-19 | `implemented` | 보호된 Terraform 계획 전에 결정론적 실제 모델 해석을 실행하고, 정확한 매니페스트와 다이제스트를 적용까지 봉인했으며, 공급자 실패 시 판단을 보류하는 주간 초안 PR 조정기를 추가했습니다. | `current change`; 집중 수명 주기, 보호된 계획 검증기, Operator 서술기, Terraform 및 CI 보안 계약. | 통제된 조정기 실행을 보존하고 독립적인 수집기 및 사람 승인 workflow를 완료합니다. |
 | 2026-08-19 | `implemented` | 검증된 수집기를 구성 가능한 Container Apps Job으로 예약하고, 기본적으로 닫힌 발견 활성화 집약기를 Norns의 비활성 후보 게시 경계에 연결했습니다. 근거가 누락되거나 오래되거나 실패하거나 중복되거나 사용할 수 없으면 정제된 사유 코드와 함께 게이트를 닫으며, 정책 비활성화는 카탈로그를 바꾸지 않습니다. | `current change`; 집중 준비 상태 활성화, 수집기 Job/CLI, 런타임 설정, 수집/감시, Norns, 시작 연결 및 인프라 검사. | 통제된 수집기 및 활성화 전이 증적을 보존하고 독립적인 사람 승인 작업 흐름을 완료합니다. |
 | 2026-08-25 | `implemented` | 증가한 배포 감사 체인이 범위가 제한된 시작 탐색을 초과한 뒤 PostgreSQL 상태 도달 가능성과 전체 감사 체인 검증을 분리했습니다. 상태 접근과 감사 추가는 계속 프로세스 준비 상태를 차단하며, 완료되지 않은 체인 증명은 `autonomous-action`을 `shadow`로 강제하고 확인된 불일치는 준비 상태를 차단합니다. | `current change`; 시작 탐색, 집약기, 런타임 조립 및 집중 준비 상태 테스트: `43 passed`; Ruff와 영문/한글 문서 검사를 통과했습니다. | 모델 용량 변경 전에 대규모 감사 체인을 사용하는 정상 배포 Core 증적을 보존하고 영속 계측 쓰기 한 건을 증명합니다. |
+| 2026-08-25 | `implemented` | 사용할 수 없는 알림 route 뒤에서 보호된 revision 두 개가 멈춘 뒤 영속 A2 incident 알림 replay를 readiness-critical bootstrap 순서에서 분리했습니다. Incident 상태는 계속 준비 상태 전에 재구성합니다. 격리된 worker는 전송 checkpoint를 유지하고 transient 전달 실패를 재시도하며 권한을 부여할 수 없습니다. | 실패한 보호 적용 `32833058288`; `current change`; 집중 bootstrap 테스트 59개와 strict mypy 통과. | 정확한 수정 Core 이미지를 빌드하고 배포한 뒤 정상 시작, replay 및 peer-isolation 근거를 보존합니다. |
 
 ### 남은 작업
 

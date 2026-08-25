@@ -124,9 +124,10 @@ prod topology so shadow evaluation is representative.
   `SELECT, INSERT`; Operator consumes the same table with `SELECT` only. The service migration
   graph treats Operator as the read-only consumer and blocks provider rollback until the Operator
   metering grant is removed. Both provider and consumer migrations revoke `PUBLIC` access; neither
-  runtime receives update or delete privileges. During startup incident replay, Core retries only
-  transient PostgreSQL connection failures three times with 0.5 and 1.0 second backoff, then fails
-  readiness rather than continuing without a durable notification checkpoint. Incident lifecycle
+  runtime receives update or delete privileges. Core rehydrates incident lifecycle state before
+  readiness, then a readiness-gated background worker replays durable A2 notifications. Slow or
+  unavailable notification subscribers cannot block unrelated Core startup; sent checkpoints keep
+  replay idempotent, and transient delivery failures retry without granting authority. Incident lifecycle
   recovery reads the indexed `audit_log.action_kind` path; its partial index is built concurrently
   so active audit writers remain available. A later readiness refresh exception closes guarded
   processing immediately but does not terminate Core when the failure is a recoverable connection,

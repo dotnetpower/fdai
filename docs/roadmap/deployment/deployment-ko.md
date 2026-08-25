@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 303bd725800c0cf0c531e5aaa56892072aa53eba
+translation_source_sha: e370e26270f44483199ba43d5d53626d313eb89f
 translation_revised: 2026-08-25
 ---
 
@@ -126,10 +126,11 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
   migration graph는 Operator를 읽기 전용 consumer로 취급하고 Operator 측정 grant가
   제거될 때까지 provider rollback을 차단합니다. Provider와 consumer migration은 모두
   `PUBLIC` 접근을 revoke하며 두 runtime 모두 update 또는 delete 권한을 받지 않습니다.
-  Startup incident replay 중 Core는 transient PostgreSQL 연결 실패만 0.5초와 1.0초 backoff로
-  최대 3회 시도한 뒤 durable notification checkpoint 없이 계속하지 않고 readiness를
-  실패시킵니다. Incident lifecycle recovery는 index가 있는 `audit_log.action_kind` 경로를
-  읽고 partial index를 concurrently 생성해 active audit writer를 계속 사용할 수 있게 합니다.
+  Core는 준비 상태 전에 incident lifecycle 상태를 다시 구성한 뒤 준비 상태로 게이팅되는
+  background worker에서 영속 A2 알림을 재생합니다. 느리거나 사용할 수 없는 알림 subscriber는
+  관련 없는 Core 시작을 차단하지 않습니다. 전송 checkpoint가 replay idempotency를 유지하고,
+  transient 전달 실패는 권한을 부여하지 않은 채 재시도합니다. Incident lifecycle recovery는
+  index가 있는 `audit_log.action_kind` 경로를 읽고 partial index를 concurrently 생성해 active audit writer를 계속 사용할 수 있게 합니다.
   이후 준비 상태 새로 고침에서 예외가 발생하면 보호된 처리를 즉시 닫지만, 복구 가능한 연결,
   timeout, 운영 체제 또는 PostgreSQL operational error일 때는 Core를 종료하지 않습니다.
   Supervisor는 가장 이른 근거 만료 시점보다 늦지 않게 다음 검사를 예약하고 재평가 전에 처리를

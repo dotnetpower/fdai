@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
+import logging
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol
 
 import httpx
+from psycopg import OperationalError
 
 from fdai.core.incident import (
     IncidentAutoOpenPolicy,
@@ -35,6 +38,56 @@ class ReplayIncidentNotifier(Protocol):
 IncidentNotifierBuilder = Callable[..., ReplayIncidentNotifier]
 OpenIncidentCandidate = Callable[[dict[str, Any]], Awaitable[bool]]
 ObserveToolReceipt = Callable[[ToolCallRequest, ToolCallReceipt], Awaitable[None]]
+_LOGGER = logging.getLogger("fdai.startup")
+
+
+@dataclass(frozen=True, slots=True)
+class IncidentNotificationReplayWorker:
+    """Replay durable A2 notices without blocking unrelated runtime readiness."""
+
+    notifier: ReplayIncidentNotifier
+    entries: tuple[Mapping[str, Any], ...]
+    retry_interval_seconds: float = 30.0
+
+    async def run(self, stop: asyncio.Event) -> None:
+        """Retry transient delivery failures until replay succeeds or shutdown wins."""
+        if self.retry_interval_seconds <= 0:
+            raise ValueError("incident notification replay retry interval MUST be positive")
+        while not stop.is_set():
+            try:
+                delivered = await self.notifier.replay(self.entries)
+            except asyncio.CancelledError:
+                raise
+            except (
+                ConnectionError,
+                OSError,
+                OperationalError,
+                TimeoutError,
+                httpx.HTTPError,
+            ) as exc:
+                _LOGGER.warning(
+                    "incident_notification_replay_retry",
+                    extra={"entry_count": len(self.entries), "error_type": type(exc).__name__},
+                )
+                try:
+                    async with asyncio.timeout(self.retry_interval_seconds):
+                        await stop.wait()
+                except TimeoutError:
+                    continue
+            except Exception:
+                _LOGGER.exception(
+                    "incident_notification_replay_aborted",
+                    extra={"entry_count": len(self.entries)},
+                )
+                await stop.wait()
+                return
+            else:
+                _LOGGER.info(
+                    "incident_notification_replay_complete",
+                    extra={"entry_count": len(self.entries), "delivered_count": delivered},
+                )
+                await stop.wait()
+                return
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,6 +96,7 @@ class IncidentRuntime:
 
     registry: IncidentRegistry
     entries: tuple[Mapping[str, Any], ...]
+    notification_replay_worker: IncidentNotificationReplayWorker
     open_incident_candidate: OpenIncidentCandidate
     observe_tool_receipt: ObserveToolReceipt
 
@@ -72,7 +126,10 @@ async def build_incident_runtime(
     entries = await state_store.read_incident_transitions()
     registry.rehydrate(entries)
     notifier = notifier_builder(state_store, http_client=http_client)
-    await notifier.replay(entries)
+    notification_replay_worker = IncidentNotificationReplayWorker(
+        notifier=notifier,
+        entries=entries,
+    )
     workflow = IncidentLifecycleWorkflow(
         registry=registry,
         notifier=notifier,
@@ -107,6 +164,7 @@ async def build_incident_runtime(
     return IncidentRuntime(
         registry=registry,
         entries=entries,
+        notification_replay_worker=notification_replay_worker,
         open_incident_candidate=open_incident_candidate,
         observe_tool_receipt=observe_tool_receipt,
     )
@@ -114,6 +172,7 @@ async def build_incident_runtime(
 
 __all__ = [
     "IncidentNotifierBuilder",
+    "IncidentNotificationReplayWorker",
     "IncidentRuntime",
     "ObserveToolReceipt",
     "OpenIncidentCandidate",

@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sys
 from pathlib import Path
 
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
@@ -50,7 +51,7 @@ def main() -> int:
     try:
         digest = active_model_digest(args.attestations)
     except ActiveModelAttestationError as exc:
-        print(f"active model attestation verification failed: {exc}")
+        print(f"active model attestation verification failed: {exc}", file=sys.stderr)
         return 1
     print(digest)
     return 0

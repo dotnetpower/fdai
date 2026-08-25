@@ -48,6 +48,24 @@ def test_returns_one_verified_digest(module: ModuleType, tmp_path: Path) -> None
     assert module.active_model_digest(path) == digest
 
 
+def test_cli_failure_remains_visible_through_stdout_capture(
+    module: ModuleType,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    path = _write(tmp_path, [])
+    monkeypatch.setattr(sys, "argv", [str(_SCRIPT), "--attestations", str(path)])
+
+    assert module.main() == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err == (
+        "active model attestation verification failed: "
+        "active model attestations MUST be a non-empty array\n"
+    )
+
+
 @pytest.mark.parametrize(
     "payload",
     [

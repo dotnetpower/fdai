@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -94,7 +95,7 @@ def main() -> int:
             args.revision, require_model_binding=args.require_model_binding
         )
     except ActiveCoreRevisionError as exc:
-        print(f"active Core revision verification failed: {exc}")
+        print(f"active Core revision verification failed: {exc}", file=sys.stderr)
         return 1
     print(json.dumps(result, separators=(",", ":"), sort_keys=True))
     return 0

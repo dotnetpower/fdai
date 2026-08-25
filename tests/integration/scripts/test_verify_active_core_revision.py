@@ -85,6 +85,27 @@ def test_allows_unbound_revision_only_for_explicit_bootstrap(
         module.active_core_binding(path, require_model_binding=True)
 
 
+def test_cli_failure_remains_visible_through_stdout_capture(
+    module: ModuleType,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    path = _write(tmp_path, _revision())
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["properties"]["healthState"] = "Unhealthy"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    monkeypatch.setattr(sys, "argv", [str(_SCRIPT), "--revision", str(path)])
+
+    assert module.main() == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err == (
+        "active Core revision verification failed: "
+        "Core revision is not active, healthy, and provisioned\n"
+    )
+
+
 @pytest.mark.parametrize("field", ["active", "healthState", "provisioningState"])
 def test_rejects_ineligible_revision(module: ModuleType, tmp_path: Path, field: str) -> None:
     payload = _revision()

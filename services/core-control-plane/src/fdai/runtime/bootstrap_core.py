@@ -32,7 +32,10 @@ from fdai.runtime.bootstrap_bindings import (
 from fdai.runtime.bootstrap_bindings import (
     build_vertical_execution_identities as _build_vertical_execution_identities,
 )
-from fdai.runtime.bootstrap_incidents import build_incident_runtime
+from fdai.runtime.bootstrap_incidents import (
+    IncidentNotificationReplayWorker,
+    build_incident_runtime,
+)
 from fdai.runtime.bootstrap_lifecycle import (
     DiscoveryActivationRuntime,
     build_discovery_activation_runtime,
@@ -105,6 +108,7 @@ class CoreRuntime:
     effect_reconciliation_request_binding: EffectReconciliationRequestRuntimeBinding | None
     operational_readiness_handler: OperationalReadinessEventHandler | None
     continuous_operating_model_worker: Any
+    incident_notification_replay_worker: IncidentNotificationReplayWorker
     environment: Mapping[str, str]
 
     def task_configuration(self, stop: asyncio.Event) -> RuntimeTaskConfiguration:
@@ -136,6 +140,7 @@ class CoreRuntime:
             environment=self.environment,
             read_investigation_binding=self.semantic.read_investigation_binding,
             operational_readiness_handler=self.operational_readiness_handler,
+            incident_notification_replay_worker=self.incident_notification_replay_worker,
         )
 
 
@@ -429,6 +434,7 @@ async def build_core_runtime(
         effect_reconciliation_request_binding=effect_request_binding,
         operational_readiness_handler=operational_readiness_handler,
         continuous_operating_model_worker=continuous_operating_model_worker,
+        incident_notification_replay_worker=incident_runtime.notification_replay_worker,
         environment=environment,
     )
 

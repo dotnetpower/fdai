@@ -18,6 +18,7 @@ from fdai.runtime.bootstrap_bindings import (
     EffectReconciliationRequestRuntimeBinding,
     RuleGenerationRuntimeBinding,
 )
+from fdai.runtime.bootstrap_incidents import IncidentNotificationReplayWorker
 from fdai.runtime.case_history import CaseHistoryRetentionTickPublisher
 from fdai.runtime.discovery_activation import DiscoveryActivationRuntime
 from fdai.runtime.readiness import StartupReadinessRuntime
@@ -51,6 +52,7 @@ class RuntimeTaskConfiguration:
     rule_generation_binding: RuleGenerationRuntimeBinding | None
     rule_generation_reconciliation: RuleGenerationReconciliation | None
     case_history_retention_publisher: CaseHistoryRetentionTickPublisher | None
+    incident_notification_replay_worker: IncidentNotificationReplayWorker
     environment: Mapping[str, str]
     read_investigation_binding: Any = None
     operational_readiness_handler: OperationalReadinessEventHandler | None = None
@@ -198,6 +200,15 @@ async def run_runtime_tasks(
             ),
             name="operational-readiness-consumer",
         )
+    incident_notification_replay_task: asyncio.Task[None] | None = None
+    incident_notification_replay_worker = config.incident_notification_replay_worker
+    incident_notification_replay_task = asyncio.create_task(
+        config.readiness.run_when_ready(
+            config.stop,
+            lambda: incident_notification_replay_worker.run(config.stop),
+        ),
+        name="incident-notification-replay",
+    )
     if config.control_loop._hil_resume_coordinator is not None:
         from fdai.delivery.chatops.hil_decision import DEFAULT_HIL_DECISION_TOPIC
 
@@ -393,6 +404,7 @@ async def run_runtime_tasks(
             effect_reconciliation_task,
             rule_generation_outbox_task,
             rule_generation_reconciliation_task,
+            incident_notification_replay_task,
         ),
     )
 

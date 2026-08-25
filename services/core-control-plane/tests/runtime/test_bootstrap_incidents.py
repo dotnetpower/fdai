@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Mapping
 from typing import Any
 from uuid import UUID
@@ -27,6 +28,19 @@ class _RecordingNotifier:
         return len(entries)
 
 
+class _RetryingNotifier(_RecordingNotifier):
+    def __init__(self, failure: Exception) -> None:
+        super().__init__()
+        self.failure = failure
+        self.calls = 0
+
+    async def replay(self, entries: tuple[Mapping[str, Any], ...]) -> int:
+        self.calls += 1
+        if self.calls == 1:
+            raise self.failure
+        return await super().replay(entries)
+
+
 def _runtime_values(*, enabled: bool = True) -> dict[str, object]:
     return {
         "incident.auto_open.enabled": enabled,
@@ -34,7 +48,7 @@ def _runtime_values(*, enabled: bool = True) -> dict[str, object]:
     }
 
 
-async def test_incident_runtime_rehydrates_and_replays_before_use() -> None:
+async def test_incident_runtime_rehydrates_without_blocking_on_notification_replay() -> None:
     store = InMemoryStateStore()
     notifier = _RecordingNotifier()
 
@@ -46,7 +60,60 @@ async def test_incident_runtime_rehydrates_and_replays_before_use() -> None:
     )
 
     assert runtime.entries == ()
+    assert notifier.replayed is None
+
+    stop = asyncio.Event()
+    replay = asyncio.create_task(runtime.notification_replay_worker.run(stop))
+    for _ in range(10):
+        if notifier.replayed is not None:
+            break
+        await asyncio.sleep(0)
+    stop.set()
+    await replay
+
     assert notifier.replayed == ()
+
+
+async def test_incident_notification_replay_retries_transient_failure() -> None:
+    notifier = _RetryingNotifier(ConnectionError("provider unavailable"))
+    runtime = await build_incident_runtime(
+        state_store=InMemoryStateStore(),
+        runtime_values=_runtime_values(),
+        http_client=None,
+        notifier_builder=lambda *_args, **_kwargs: notifier,
+    )
+    worker = runtime.notification_replay_worker
+    object.__setattr__(worker, "retry_interval_seconds", 0.001)
+    stop = asyncio.Event()
+    replay = asyncio.create_task(worker.run(stop))
+    for _ in range(100):
+        if notifier.replayed is not None:
+            break
+        await asyncio.sleep(0.001)
+    stop.set()
+    await replay
+
+    assert notifier.calls == 2
+    assert notifier.replayed == ()
+
+
+async def test_incident_notification_replay_isolates_programming_failure() -> None:
+    notifier = _RetryingNotifier(ValueError("invalid durable record"))
+    runtime = await build_incident_runtime(
+        state_store=InMemoryStateStore(),
+        runtime_values=_runtime_values(),
+        http_client=None,
+        notifier_builder=lambda *_args, **_kwargs: notifier,
+    )
+    stop = asyncio.Event()
+    replay = asyncio.create_task(runtime.notification_replay_worker.run(stop))
+    await asyncio.sleep(0)
+
+    assert notifier.calls == 1
+    assert not replay.done()
+
+    stop.set()
+    await replay
 
 
 async def test_incident_runtime_respects_disabled_auto_open_policy() -> None:
