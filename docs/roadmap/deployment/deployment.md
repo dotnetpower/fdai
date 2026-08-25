@@ -26,6 +26,7 @@ bindings through configuration (see
 | Terraform plan/apply and supply-chain gates | implemented | `.github/workflows/deploy-dev.yml`, `.github/workflows/container-supply-chain.yml`, and focused workflow tests | Production inputs, image attestations, drift plans, and post-apply smoke checks are shipped. |
 | Independent-service protected deployment | validated | `config/independent-service-live-evidence-manifest.json` and `config/independent-service-remote-evidence.json` | Protected plans bind source, backend, target, identities, and images; peer isolation and rollback evidence are retained. |
 | Bounded database host binding | implemented | `.github/workflows/service-deploy.yml`, `guard_plan.py`, `plan_bundle.py`, and focused service-deploy tests in the current change | The sealed mode permits only the non-secret host binding and may compose with the exact reviewed topic migration. Governed apply evidence remains open. |
+| Startup readiness refresh recovery | implemented | `runtime/readiness.py` and `tests/runtime/test_readiness.py`; focused transient-failure, expiry, and programming-error regressions in the current change | The supervisor closes guarded processing at the earliest evidence expiry. Recoverable connection failures keep Core alive, while programming errors propagate after readiness closes. |
 | Operator schema and catalog bootstrap | implemented | `infra/modules/operator-api/container-app/`, `.github/workflows/deploy-dev.yml`, and `tests/integration/scripts/test_service_deploy_workflow.py` in the current change | A successful Alembic Job gates a separate Core-image Job that writes immutable Rule and Ontology reference projections. |
 | Browser-evidence retention Job | implemented | `infra/modules/compute/container-apps/browser_evidence_cleanup_job.tf`; focused Terraform contract checks (`4 passed`) and `terraform validate` | The opt-in scheduled Job uses a non-executor identity and bounded one-shot cleanup. Governed apply and run receipts are not retained. |
 | Automated promotion and progressive delivery | not-started | Target design in this document | Automated dev -> staging -> prod promotion, traffic-split canaries, SLO rollback, and console blue/green are not implemented. |
@@ -40,6 +41,7 @@ bindings through configuration (see
 | 2026-08-20 | implemented | Bounded every service migration connection, cross-service lock, and protected workflow stage after a stalled migration consumed the service job's full two-hour budget. Cleanup now preserves the original migration error. | `current change`; service migration and protected workflow contract checks passed 204 cases; Ruff and strict mypy passed. | Complete one protected exact apply and retain its migration, service health, and rollback-boundary evidence. |
 | 2026-08-24 | implemented | Added a sealed database host binding mode, removed Core's duplicate host declaration, and retained an explicit legacy Operator name compatibility boundary for an in-place update. | `current change`; focused guard, bundle, workflow, naming, and Terraform validation checks. | Complete five zero-destroy plans and exact applies, then retain independent runtime and inventory evidence in Issue #262. |
 | 2026-08-24 | implemented | Bound the disposable scenario OpenAI private endpoint to the existing central Private DNS zone instead of creating a second zone with the same namespace. The scenario state owns its lab-VNet link and endpoint zone group, while the centrally owned runner and P2S links remain unchanged. | Failed protected apply `32752288798`; `current change` in `infra/scenario-lab/` and `.github/workflows/sre-demo-lab.yml`; focused Terraform and workflow checks. | Complete the protected scenario apply, approved sweep, and final destroy receipts. |
+| 2026-08-25 | implemented | Kept the startup readiness refresh supervisor alive across recoverable provider failures, closed guarded processing at the earliest evidence expiry, and continued to propagate programming errors after closing readiness. The last successful report remains available for diagnosis, and only a complete refresh clears a recoverable failure fence. | `current change`; focused transient-failure, evidence-expiry, programming-error, and integration checks. | Retain exact-revision deployed recovery evidence separately before making a runtime validation claim. |
 
 ### Remaining work
 
@@ -124,7 +126,12 @@ prod topology so shadow evaluation is representative.
   transient PostgreSQL connection failures three times with 0.5 and 1.0 second backoff, then fails
   readiness rather than continuing without a durable notification checkpoint. Incident lifecycle
   recovery reads the indexed `audit_log.action_kind` path; its partial index is built concurrently
-  so active audit writers remain available.
+  so active audit writers remain available. A later readiness refresh exception closes guarded
+  processing immediately but does not terminate Core when the failure is a recoverable connection,
+  timeout, operating-system, or PostgreSQL operational error. The supervisor schedules the next
+  check no later than the earliest evidence expiry, closes processing before reevaluation, and
+  keeps the prior report for diagnosis. Programming errors still propagate after readiness closes,
+  and only a complete successful refresh reopens processing.
 - **Drift detection**: a scheduled read-only `plan` covers the legacy platform root, the five
   independent service roots, and the bootstrap root for each environment. The root contract uses
   distinct backend keys and resolves service images from pre-refresh state, so an out-of-band image

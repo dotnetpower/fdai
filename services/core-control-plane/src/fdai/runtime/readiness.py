@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+
+from psycopg import OperationalError
 
 from fdai.core.quality_gate.gate import CrossCheckModel
 from fdai.core.readiness import (
@@ -40,6 +43,7 @@ from fdai.shared.resilience.kill_switch import StateStoreKillSwitch
 
 _IDENTITY_AUDIENCE = "https://management.azure.com/.default"
 _PROBE_TOPIC_DEFAULT = "runtime.startup.probe"
+_LOGGER = logging.getLogger("fdai.startup")
 
 
 def _utc_now() -> datetime:
@@ -51,6 +55,7 @@ class RuntimeReadinessState:
     """Hold the current report and open processing only while evidence is fresh."""
 
     report: StartupReadinessReport | None = None
+    _refresh_failed: bool = field(default=False, init=False, repr=False)
     _ready_event: asyncio.Event = field(default_factory=asyncio.Event, init=False, repr=False)
     _blocked_event: asyncio.Event = field(default_factory=asyncio.Event, init=False, repr=False)
 
@@ -62,6 +67,7 @@ class RuntimeReadinessState:
 
     def update(self, report: StartupReadinessReport) -> None:
         self.report = report
+        self._refresh_failed = False
         if self.is_ready():
             self._ready_event.set()
             self._blocked_event.clear()
@@ -69,11 +75,37 @@ class RuntimeReadinessState:
             self._ready_event.clear()
             self._blocked_event.set()
 
+    def mark_refresh_failed(self) -> None:
+        """Close processing while preserving the last report for diagnosis."""
+        self._refresh_failed = True
+        self._ready_event.clear()
+        self._blocked_event.set()
+
+    @property
+    def refresh_failed(self) -> bool:
+        """Return whether the latest refresh attempt failed before producing a report."""
+        return self._refresh_failed
+
+    def next_expiry(self) -> datetime | None:
+        """Return the earliest evidence expiry in the current report."""
+        if self.report is None or not self.report.results:
+            return None
+        return min(result.expires_at for result in self.report.results)
+
+    def close_if_unready(self, *, now: datetime | None = None) -> bool:
+        """Close processing when current evidence no longer satisfies readiness."""
+        if self.is_ready(now=now):
+            return False
+        self._ready_event.clear()
+        self._blocked_event.set()
+        return True
+
     def is_ready(self, *, now: datetime | None = None) -> bool:
         current = self.report
         checked_at = now or _utc_now()
         return bool(
             current is not None
+            and not self._refresh_failed
             and current.decision is not ReadinessDecision.BLOCKED
             and all(result.expires_at > checked_at for result in current.results)
             and not current.missing_probe_ids
@@ -109,10 +141,25 @@ class StartupReadinessRuntime:
 
     async def refresh_until_stopped(self, stop: asyncio.Event) -> None:
         while not stop.is_set():
+            delay = self.refresh_interval_seconds
+            next_expiry = self.state.next_expiry()
+            if next_expiry is not None and not self.state.refresh_failed:
+                delay = min(delay, max(0.0, (next_expiry - _utc_now()).total_seconds()))
             try:
-                await asyncio.wait_for(stop.wait(), timeout=self.refresh_interval_seconds)
+                await asyncio.wait_for(stop.wait(), timeout=delay)
             except TimeoutError:
-                await self.evaluate()
+                self.state.close_if_unready()
+                try:
+                    await self.evaluate()
+                except (ConnectionError, OSError, OperationalError, TimeoutError) as exc:
+                    self.state.mark_refresh_failed()
+                    _LOGGER.warning(
+                        "startup_readiness_refresh_failed",
+                        extra={"error_type": type(exc).__name__},
+                    )
+                except Exception:
+                    self.state.mark_refresh_failed()
+                    raise
 
     async def run_when_ready(
         self,

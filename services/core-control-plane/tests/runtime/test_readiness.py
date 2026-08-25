@@ -15,7 +15,11 @@ from fdai.core.readiness import (
     StartupReadinessReport,
 )
 from fdai.delivery.startup_probe import StaticStartupProbe
-from fdai.runtime.readiness import RuntimeReadinessState, build_startup_readiness_runtime
+from fdai.runtime.readiness import (
+    RuntimeReadinessState,
+    StartupReadinessRuntime,
+    build_startup_readiness_runtime,
+)
 from fdai.shared.providers.event_bus import PublishReceipt
 from fdai.shared.providers.local.event_bus import LocalEventBus
 from fdai.shared.providers.local.identity import LocalWorkloadIdentity
@@ -190,6 +194,142 @@ async def test_waiting_processing_gate_opens_after_recovery() -> None:
     state.update(ready)
 
     assert await waiting is True
+
+
+async def test_refresh_survives_transient_evaluation_failure_and_recovers(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    stop = asyncio.Event()
+    first_attempt_finished = asyncio.Event()
+    allow_recovery = asyncio.Event()
+    now = datetime.now(UTC)
+
+    class _Coordinator:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def evaluate(self) -> StartupReadinessReport:
+            self.calls += 1
+            if self.calls == 1:
+                first_attempt_finished.set()
+                raise ConnectionError("state store unavailable")
+            await allow_recovery.wait()
+            stop.set()
+            return StartupReadinessReport(
+                generated_at=now,
+                decision=ReadinessDecision.READY,
+                results=(
+                    StartupProbeResult(
+                        probe_id="postgres",
+                        status=ProbeStatus.PASSED,
+                        observed_at=now,
+                        expires_at=now + timedelta(minutes=5),
+                        latency_ms=1,
+                    ),
+                ),
+            )
+
+    coordinator = _Coordinator()
+    runtime = StartupReadinessRuntime(
+        coordinator=coordinator,  # type: ignore[arg-type]
+        state=RuntimeReadinessState(),
+        refresh_interval_seconds=0.001,
+    )
+    caplog.set_level("WARNING", logger="fdai.startup")
+
+    refresh = asyncio.create_task(runtime.refresh_until_stopped(stop))
+    await first_attempt_finished.wait()
+    while "startup_readiness_refresh_failed" not in caplog.messages:
+        await asyncio.sleep(0)
+
+    assert runtime.state.refresh_failed is True
+    assert runtime.state._blocked_event.is_set()
+    assert not runtime.state.is_ready(now=now)
+
+    allow_recovery.set()
+    await asyncio.wait_for(refresh, timeout=0.5)
+
+    assert coordinator.calls == 2
+    assert runtime.state.refresh_failed is False
+    assert runtime.state.is_ready(now=now)
+    assert "startup_readiness_refresh_failed" in caplog.messages
+    failure_record = next(
+        record for record in caplog.records if record.message == "startup_readiness_refresh_failed"
+    )
+    assert failure_record.error_type == "ConnectionError"  # type: ignore[attr-defined]
+    assert "state store unavailable" not in caplog.text
+
+
+async def test_refresh_propagates_programming_error_after_closing_readiness() -> None:
+    class _Coordinator:
+        async def evaluate(self) -> StartupReadinessReport:
+            raise AttributeError("broken coordinator")
+
+    runtime = StartupReadinessRuntime(
+        coordinator=_Coordinator(),  # type: ignore[arg-type]
+        state=RuntimeReadinessState(),
+        refresh_interval_seconds=0.001,
+    )
+
+    with pytest.raises(AttributeError, match="broken coordinator"):
+        await runtime.refresh_until_stopped(asyncio.Event())
+
+    assert runtime.state.refresh_failed is True
+    assert runtime.state._blocked_event.is_set()
+
+
+async def test_refresh_closes_running_operation_at_evidence_expiry() -> None:
+    now = datetime.now(UTC)
+    cancelled = asyncio.Event()
+    evaluation_started = asyncio.Event()
+    stop = asyncio.Event()
+
+    class _Coordinator:
+        async def evaluate(self) -> StartupReadinessReport:
+            evaluation_started.set()
+            await stop.wait()
+            return StartupReadinessReport(
+                generated_at=now,
+                decision=ReadinessDecision.BLOCKED,
+                results=(),
+            )
+
+    runtime = StartupReadinessRuntime(
+        coordinator=_Coordinator(),  # type: ignore[arg-type]
+        state=RuntimeReadinessState(
+            report=StartupReadinessReport(
+                generated_at=now,
+                decision=ReadinessDecision.READY,
+                results=(
+                    StartupProbeResult(
+                        probe_id="postgres",
+                        status=ProbeStatus.PASSED,
+                        observed_at=now,
+                        expires_at=now + timedelta(milliseconds=20),
+                        latency_ms=1,
+                    ),
+                ),
+            )
+        ),
+        refresh_interval_seconds=60,
+    )
+
+    async def operation() -> None:
+        try:
+            await asyncio.Event().wait()
+        finally:
+            cancelled.set()
+
+    guarded = asyncio.create_task(runtime.run_when_ready(stop, operation))
+    refresh = asyncio.create_task(runtime.refresh_until_stopped(stop))
+
+    await asyncio.wait_for(evaluation_started.wait(), timeout=0.5)
+    await asyncio.wait_for(cancelled.wait(), timeout=0.5)
+    assert runtime.state._blocked_event.is_set()
+    assert not runtime.state.is_ready()
+
+    stop.set()
+    await asyncio.gather(guarded, refresh)
 
 
 async def test_guarded_operation_is_not_created_before_readiness() -> None:

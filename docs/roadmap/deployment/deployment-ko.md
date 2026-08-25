@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 5a2eca2dc814c9d852a5f976086284bafe5245ed
+translation_source_sha: c69a01e51b525be768c167fdb626ad1a15bc5ef5
 translation_revised: 2026-08-25
 ---
 
@@ -30,6 +30,7 @@ translation_revised: 2026-08-25
 | Terraform 계획/적용 및 공급망 게이트 | implemented | `.github/workflows/deploy-dev.yml`, `.github/workflows/container-supply-chain.yml` 및 집중 workflow 테스트 | 운영 입력, 이미지 증명, 표류 계획 및 post-apply smoke 검사가 제공됩니다. |
 | 독립 서비스 protected 배포 | validated | `config/independent-service-live-evidence-manifest.json` 및 `config/independent-service-remote-evidence.json` | Protected 계획은 출처, 백엔드, 대상, 신원 및 이미지를 결합하고 peer 격리와 롤백 증적을 보존합니다. |
 | 범위가 제한된 데이터베이스 호스트 연결 | implemented | 현재 변경의 `.github/workflows/service-deploy.yml`, `guard_plan.py`, `plan_bundle.py` 및 집중 service-deploy 테스트 | 봉인된 mode는 비밀이 아닌 host 연결만 허용하며 검토된 exact topic migration과 함께 사용할 수 있습니다. 통제된 apply 근거는 아직 열려 있습니다. |
+| 시작 준비 상태 새로 고침 복구 | implemented | `runtime/readiness.py` 및 `tests/runtime/test_readiness.py`, 현재 변경의 집중 transient-failure, expiry 및 programming-error 회귀 검사 | Supervisor는 가장 이른 근거 만료 시점에 보호된 처리를 닫습니다. 복구 가능한 연결 실패는 Core를 유지하지만 programming error는 준비 상태를 닫은 뒤 전파합니다. |
 | Operator schema 및 catalog 초기화 | implemented | 현재 변경의 `infra/modules/operator-api/container-app/`, `.github/workflows/deploy-dev.yml` 및 `tests/integration/scripts/test_service_deploy_workflow.py` | Alembic Job 성공 후 별도의 Core-image Job이 변경 불가능한 Rule 및 Ontology 참조 projection을 기록합니다. |
 | 브라우저 근거 보존 Job | implemented | `infra/modules/compute/container-apps/browser_evidence_cleanup_job.tf`; focused Terraform 계약 검사(`4 passed`) 및 `terraform validate` | 명시적으로 선택하는 예약 Job은 실행기 신원이 아닌 신원과 범위가 제한된 1회 정리를 사용합니다. 관리되는 적용 및 실행 증적은 보존되지 않았습니다. |
 | 자동 승격 및 점진적 배포 | not-started | 이 문서의 목표 설계 | 자동 dev -> staging -> prod 승격, traffic-split canary, SLO 롤백 및 콘솔 blue/green은 구현되지 않았습니다. |
@@ -44,6 +45,7 @@ translation_revised: 2026-08-25
 | 2026-08-20 | implemented | 정지한 migration이 service job의 2시간 전체 예산을 소진한 뒤 모든 service migration 연결, service 간 잠금 및 protected workflow 단계에 경계를 추가했습니다. Cleanup은 이제 원래 migration 오류를 보존합니다. | `current change`; service migration 및 protected workflow 계약 검사 204개 통과; Ruff 및 strict mypy 통과. | Protected exact 적용 하나를 완료하고 migration, service 상태 및 rollback 경계 근거를 보존합니다. |
 | 2026-08-24 | implemented | 봉인된 database host binding mode를 추가하고 Core의 중복 host 선언을 제거했으며 in-place 갱신을 위한 명시적 legacy Operator 이름 호환 경계를 유지했습니다. | `current change`; focused guard, bundle, workflow, naming 및 Terraform validation 검사. | Zero-destroy plan 5개와 exact apply를 완료한 뒤 이슈 #262에 독립 runtime 및 inventory 근거를 보존합니다. |
 | 2026-08-24 | implemented | 같은 namespace의 두 번째 zone을 만들지 않고 일회용 scenario OpenAI private endpoint를 기존 중앙 Private DNS zone에 연결했습니다. Scenario state는 lab VNet link와 endpoint zone group을 소유하며, 중앙에서 소유하는 runner 및 P2S link는 바꾸지 않습니다. | 실패한 protected apply `32752288798`; `infra/scenario-lab/` 및 `.github/workflows/sre-demo-lab.yml`의 `current change`; 집중 Terraform 및 workflow 검사입니다. | Protected scenario apply, 승인된 sweep 및 최종 destroy 증적을 완료합니다. |
+| 2026-08-25 | implemented | 복구 가능한 provider 실패가 발생해도 시작 준비 상태 새로 고침 supervisor를 유지하고, 가장 이른 근거 만료 시점에 보호된 처리를 닫으며, programming error는 준비 상태를 닫은 뒤 계속 전파하도록 했습니다. 마지막 성공 보고서는 진단을 위해 유지하고 완전한 새로 고침이 성공해야만 복구 가능한 실패 fence를 해제합니다. | `current change`, 집중 transient-failure, evidence-expiry, programming-error 및 통합 검사 | 런타임 validated 상태를 주장하기 전에 exact-revision 배포 복구 근거를 별도로 보존합니다. |
 
 ### 남은 작업
 
@@ -127,6 +129,11 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
   최대 3회 시도한 뒤 durable notification checkpoint 없이 계속하지 않고 readiness를
   실패시킵니다. Incident lifecycle recovery는 index가 있는 `audit_log.action_kind` 경로를
   읽고 partial index를 concurrently 생성해 active audit writer를 계속 사용할 수 있게 합니다.
+  이후 준비 상태 새로 고침에서 예외가 발생하면 보호된 처리를 즉시 닫지만, 복구 가능한 연결,
+  timeout, 운영 체제 또는 PostgreSQL operational error일 때는 Core를 종료하지 않습니다.
+  Supervisor는 가장 이른 근거 만료 시점보다 늦지 않게 다음 검사를 예약하고 재평가 전에 처리를
+  닫으며 진단을 위해 이전 보고서를 유지합니다. Programming error는 준비 상태를 닫은 뒤 계속
+  전파하고, 완전한 새로 고침이 성공해야만 처리를 다시 엽니다.
 - **표류 감지**: 환경별로 스케줄된 읽기 전용 `plan`은 이전 방식 platform 루트, 독립 서비스 루트
   5개, 초기화 루트를 모두 검사합니다. 루트 계약은 서로 다른 백엔드 키를 사용하고
   새로 고침 전 상태에서 서비스 이미지를 해석하므로 out-of-band 이미지 변경도 드러납니다. 상태나
