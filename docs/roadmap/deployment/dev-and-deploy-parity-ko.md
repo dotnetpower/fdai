@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 8079aa17e4b9a65fa33fd34aeef8c6d4d6c55f53
+translation_source_sha: 3ec18ba58c63ae374d4f6997a64d44336cdde7ff
 translation_revised: 2026-08-25
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -11,7 +11,6 @@ translation_revised: 2026-08-25
 - **자동화 테스트 truth**: pytest와 committed mock은 결정론적 가짜를 사용할 수 있습니다. 명시적 test-fixture 빌더를 사용하며 Azure 관측 상태로 표현하지 않습니다.
 - **Full-stack 로컬 truth**: `Console Web: Full Stack`은 배포와 같은 App 역할 검사를 적용하는 브라우저 Entra sign-in을 사용합니다. 서버의 Azure CLI 세션은 Azure 개발 데이터 평면 프로바이더 자격 증명만 제공합니다. 인벤토리, 모델 가용성, 에이전트 활동, 프로세스 상태, 승격 근거, 감사 데이터는 권위 있는 프로바이더에서만 표시합니다. 출처가 없으면 사용 불가 또는 명시적 빈으로 표시하며 생성 예제로 대체하지 않습니다.
 - **Deploy truth**: `terraform apply` 가 CSP-neutral 컨트랙트의 Azure 측 실현체를 생성. **LLM 부분은 배포자-스코프**: 초기화 해석기가 배포자 아이덴티티를 대상 리전 카탈로그와 대조해 **배포자가 만들 권한이 있는 것만** 프로비저닝하고, resolved `{capability → deployment}` 매핑과 해석기 입력 출처 이력을 산출물에 기록합니다.
-
 모든 프로파일은 **하나의 컨트롤 경로**를 공유하며 composition-root 어댑터와 자격 증명만 다릅니다.
 ([project-structure.md § Customization via 의존성 주입](../architecture/project-structure-ko.md#customization-via-dependency-injection)). 검토된 docstring은 기존 경계를 기록하며 별도 런타임을 만들거나 상태 소유권을 변경하거나 고정본을 허용하지 않습니다. 실제 Azure 클라이언트 추가는 fork-side 주입이며 `core/`를 편집하지 않습니다.
 ## 구현 상태
@@ -40,7 +39,6 @@ translation_revised: 2026-08-25
 | 격리된 Console E2E 개발 루프 | implemented | `console/playwright.config.ts`, `console/playwright.live.config.ts`, `console/scripts/playwright-port-pool.ts`, focused 테스트 및 `.github/skills/vscode-profile-onboarding/SKILL.md`의 Playwright 지침, Console 타입 검사와 동시 focused desktop E2E 통과 | 각 세션은 frontend/API 포트 쌍 10개 중 하나를 원자적으로 임대하고 worker와 공유합니다. slot별로 산출물을 격리하고 종료된 PID의 잠금을 회수하며 전체 desktop 및 mobile 행렬은 바꾸지 않습니다. |
 | 같은 체크아웃의 백엔드 시작 재사용 | implemented | `local-service-input-digest.py`, `run-local-service.sh`, `run-local-service-child.py`, `developer-workflow.py`, `.vscode/tasks.json`, 집중 런처 및 workspace 태스크 테스트 | 재사용하려면 서비스 소스, private 환경, 의존성, 감독 코드 및 실행 명령 fingerprint가 정확히 일치해야 합니다. 오래된 managed 태스크는 자동으로 교체합니다. 시작 후에는 최신 Core heartbeat를 포함한 표준 로컬 구성 요소 6개가 범위가 제한된 준비 상태 검사를 모두 통과해야 합니다. 종료는 범위가 제한된 유예 시간 뒤 강제로 전환합니다. 체크아웃 외부에서 소유한 포트 또는 런타임 잠금은 계속 시작 실패로 처리합니다. |
 | FDAI Pylance launch ceiling 런타임 증명 | deferred | FDAI Remote WSL을 clean restart해도 Pylance는 bundled VS Code Node 실행 파일로 시작했고 `--max-old-space-size=2048`이 없었습니다. VS Code Server 1.133은 활성 프로파일 서비스와 별개로 Remote Machine 설정 리소스 하나를 생성합니다. | 격리된 런타임을 마련할 때까지 blocked 상태입니다. Shared Remote Machine 재정의는 제외 대상 workspace에도 영향을 주므로 ceiling을 활성화하려면 별도 VS Code Server data root 또는 WSL 배포판으로 런타임을 격리해야 합니다. |
-
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|

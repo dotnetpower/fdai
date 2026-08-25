@@ -314,6 +314,8 @@ describe("agents.model", () => {
           severity: "high",
           status: "in_progress",
           status_source: "audit_projection",
+          lifecycle_state: null,
+          target_ref: null,
           disposition: "awaiting_hil",
           verdict: "hil",
           vertical: "change_safety",
