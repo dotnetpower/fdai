@@ -17,6 +17,9 @@ _DEPLOY = (_ROOT / ".github" / "workflows" / "deploy-dev.yml").read_text(encodin
 _REQUEST_VALIDATOR = (_ROOT / "scripts/deployment/azure/validate_deploy_request.py").read_text(
     encoding="utf-8"
 )
+_PROPOSAL_HELPER = (
+    _ROOT / "scripts/deployment/azure/materialize-model-binding-proposal.sh"
+).read_text(encoding="utf-8")
 _PLAN_SCOPE = (_ROOT / "scripts/deployment/azure/enforce_plan_scope.py").read_text(encoding="utf-8")
 
 
@@ -57,10 +60,10 @@ def test_protected_deploy_resolves_and_seals_model_manifest_before_plan() -> Non
     assert 'echo "TF_VAR_resolved_capabilities=' in _DEPLOY
     assert 'policy_args=(--binding-policy "$policy")' in _DEPLOY
     assert '--environment "${{ inputs.environment }}"' in _DEPLOY
-    assert 'proposal_id="operator-$proposal_token"' in _DEPLOY
-    assert "Materialize exact model binding proposal" in _DEPLOY
-    assert "model_binding_proposal.py" in _DEPLOY
-    assert "--from-database" in _DEPLOY
+    assert 'proposal_id="operator-$proposal_token"' in _PROPOSAL_HELPER
+    assert "materialize-model-binding-proposal.sh" in _DEPLOY
+    assert "model_binding_proposal.py" in _PROPOSAL_HELPER
+    assert "--from-database" in _PROPOSAL_HELPER
     assert "Verify model binding policy active digest" in _DEPLOY
     assert "verify_active_core_revision.py" in _DEPLOY
     assert "verify_active_model_attestation.py" in _DEPLOY
@@ -101,10 +104,12 @@ def test_model_binding_plan_is_exactly_scoped_and_allows_held_quorum() -> None:
     assert "deploy_model_binding:" not in _DEPLOY
     assert "startsWith(inputs.request_id, 'plan-model-')" in _DEPLOY
     assert "model-[0-9a-f]{32}-[0-9a-f]{64}" in _REQUEST_VALIDATOR
-    assert "model-binding plan request does not match the proposal policy digest" in _DEPLOY
+    assert (
+        "model-binding plan request does not match the proposal policy digest" in _PROPOSAL_HELPER
+    )
     assert "model-binding apply request does not match the sealed policy digest" in _DEPLOY
     assert "validate_deploy_request.py" in _DEPLOY
-    assert "model-binding plan request coordinates are invalid" in _DEPLOY
+    assert "model-binding plan request coordinates are invalid" in _PROPOSAL_HELPER
     assert "Bind model-binding Terraform target" in _DEPLOY
     assert "-target=module.llm_azure_openai[0]" in _DEPLOY
     assert "enforce_plan_scope.py" in _DEPLOY

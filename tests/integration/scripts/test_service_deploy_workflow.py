@@ -29,6 +29,9 @@ _IMAGE_BINDER = (_ROOT / "scripts/deployment/azure/bind_isolated_executor_image.
 _GH_INSTALLER = (_ROOT / "scripts/deployment/azure/install-pinned-github-cli.sh").read_text(
     encoding="utf-8"
 )
+_MODEL_PROPOSAL_HELPER = (
+    _ROOT / "scripts/deployment/azure/materialize-model-binding-proposal.sh"
+).read_text(encoding="utf-8")
 _LEGACY_COMPUTE = (_ROOT / "infra/modules/compute/container-apps/main.tf").read_text(
     encoding="utf-8"
 )
@@ -146,19 +149,14 @@ def test_platform_protected_source_guard_is_valid_bash() -> None:
 
 
 def test_platform_model_proposal_materializer_is_valid_bash() -> None:
-    step = _LEGACY_WORKFLOW.split("- name: Materialize exact model binding proposal", maxsplit=1)[
-        1
-    ].split("- name: Resolve and seal model capabilities", maxsplit=1)[0]
-    script = textwrap.dedent(step.split("run: |", maxsplit=1)[1]).replace(
-        "${{ inputs.environment }}", "dev"
-    )
     bash = shutil.which("bash")
 
     assert bash is not None
+    assert "materialize-model-binding-proposal.sh" in _LEGACY_WORKFLOW
 
     completed = subprocess.run(  # noqa: S603 - resolved Bash with test-controlled input.
         [bash, "-n"],
-        input=script,
+        input=_MODEL_PROPOSAL_HELPER,
         capture_output=True,
         check=False,
         text=True,

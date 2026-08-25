@@ -404,116 +404,27 @@ jobs:
           bash scripts/deployment/azure/verify-azure-context.sh \
             "$ARM_SUBSCRIPTION_ID" "$TF_VAR_tenant_id"
 
-      - name: Ensure protected storage containers for model binding
-        if: ${{ !inputs.apply && env.MODEL_BINDING_ONLY == 'true' }}
-        run: |
-          az storage container create \
-            --account-name "${{ vars.STATE_STORAGE_ACCOUNT }}" \
-            --name tfstate --auth-mode login --public-access off --only-show-errors \
-            --output none
-          az storage container create \
-            --account-name "${{ vars.STATE_STORAGE_ACCOUNT }}" \
-            --name deployment-plans --auth-mode login --public-access off --only-show-errors \
-            --output none
-
-      - name: Initialize Terraform remote state for model binding
-        if: ${{ !inputs.apply && env.MODEL_BINDING_ONLY == 'true' }}
-        run: |
-          cp backend.azurerm.tf.example backend.tf
-          terraform init -input=false \
-            -backend-config="resource_group_name=${{ vars.OPS_RESOURCE_GROUP_NAME }}" \
-            -backend-config="storage_account_name=${{ vars.STATE_STORAGE_ACCOUNT }}" \
-            -backend-config="container_name=tfstate" \
-            -backend-config="key=fdai-${{ inputs.environment }}.tfstate"
-
-      - name: Materialize exact model binding proposal
-        if: ${{ !inputs.apply && env.MODEL_BINDING_ONLY == 'true' }}
-        working-directory: ${{ github.workspace }}
-        env:
-          REQUEST_ID: ${{ inputs.request_id }}
-        run: |
-          set -euo pipefail
-          request_coordinates="${REQUEST_ID#plan-model-}"
-          proposal_token="${request_coordinates%%-*}"
-          expected_policy_digest="${request_coordinates#*-}"
-          [[ "$proposal_token" =~ ^[0-9a-f]{32}$ \
-            && "$expected_policy_digest" =~ ^[0-9a-f]{64}$ ]] || {
-            echo "model-binding plan request coordinates are invalid" >&2
-            exit 1
-          }
-          proposal_id="operator-$proposal_token"
-          vault_uri="$(terraform -chdir=infra output -raw key_vault_uri)"
-          vault_name="$(VAULT_URI="$vault_uri" python3 - <<'PY'
-          import os
-          import re
-          from urllib.parse import urlparse
-
-          parsed = urlparse(os.environ["VAULT_URI"])
-          match = re.fullmatch(r"([a-z0-9-]{3,24})[.]vault[.]azure[.]net", parsed.hostname or "")
-          if parsed.scheme != "https" or match is None:
-              raise SystemExit("Terraform key_vault_uri is not an Azure Key Vault HTTPS URI")
-          print(match.group(1))
-          PY
-          )"
-          migration_secret_name="$(
-            jq -er '.services["core-control-plane"].migration_dsn_secret_name' \
-              scripts/deployment/service/service-matrix.json
-          )"
-          migration_dsn="$(
-            timeout 60s az keyvault secret show \
-              --vault-name "$vault_name" \
-              --name "$migration_secret_name" \
-              --query value \
-              --only-show-errors \
-              --output tsv
-          )"
-          [[ -n "$migration_dsn" ]] || {
-            echo "model binding proposal database is unavailable" >&2
-            exit 1
-          }
-          echo "::add-mask::$migration_dsn"
-          export FDAI_DATABASE_URL="$migration_dsn"
-          policy="$RUNNER_TEMP/model-binding-policy.json"
-          PYTHONPATH="$GITHUB_WORKSPACE/packages/service-contracts/src" \
-            uv run --frozen --package fdai-core-control-plane python \
-              scripts/deployment/azure/model_binding_proposal.py \
-              --from-database \
-              --proposal-id "$proposal_id" \
-              --environment "${{ inputs.environment }}" \
-              --output "$policy"
-          unset FDAI_DATABASE_URL migration_dsn
-          policy_bytes="$(wc -c < "$policy")"
-          if (( policy_bytes > 16000 )); then
-            echo "Model binding policy exceeds the 16000-byte plan input bound." >&2
-            exit 1
-          fi
-          policy_digest="$(python3 - "$policy" <<'PY'
-          import hashlib
-          import json
-          import sys
-
-          with open(sys.argv[1], encoding="utf-8") as stream:
-              payload = json.load(stream)
-          canonical = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()
-          print(hashlib.sha256(canonical).hexdigest())
-          PY
-          )"
-          [[ "$policy_digest" == "$expected_policy_digest" ]] || {
-            echo "model-binding plan request does not match the proposal policy digest" >&2
-            exit 1
-          }
-          echo "MODEL_BINDING_POLICY_JSON=$(cat "$policy")" >> "$GITHUB_ENV"
-
       - name: Resolve and seal model capabilities
         if: ${{ !inputs.apply && !inputs.deploy_monitoring && env.TF_VAR_enable_llm == 'true' }}
         working-directory: ${{ github.workspace }}
         env:
           MODEL_COMPLETENESS_FAIL_ON: ${{ (inputs.deploy_dev_operations_gateway || env.MODEL_BINDING_ONLY == 'true') && 'none' || 'critical' }}
+          OPS_RESOURCE_GROUP_NAME: ${{ vars.OPS_RESOURCE_GROUP_NAME }}
+          REQUEST_ID: ${{ inputs.request_id }}
+          STATE_STORAGE_ACCOUNT: ${{ vars.STATE_STORAGE_ACCOUNT }}
         run: |
           set -euo pipefail
           if [[ ! "$MODEL_RESOLVER_DEPLOYER_OBJECT_ID" =~ ^[0-9a-fA-F-]{36}$ ]]; then
             echo "MODEL_RESOLVER_DEPLOYER_OBJECT_ID must name the deployment principal." >&2
             exit 1
+          fi
+          if [[ "$MODEL_BINDING_ONLY" == "true" ]]; then
+            policy="$RUNNER_TEMP/model-binding-policy.json"
+            bash scripts/deployment/azure/materialize-model-binding-proposal.sh \
+              "${{ inputs.environment }}" "$REQUEST_ID" "$policy"
+            MODEL_BINDING_POLICY_JSON="$(cat "$policy")"
+            export MODEL_BINDING_POLICY_JSON
+            echo "MODEL_BINDING_POLICY_JSON=$MODEL_BINDING_POLICY_JSON" >> "$GITHUB_ENV"
           fi
           resolved="$RUNNER_TEMP/resolved-models.json"
           manifest="$RUNNER_TEMP/deployment-models.json"
