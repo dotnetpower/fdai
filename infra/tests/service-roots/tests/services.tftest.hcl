@@ -21,7 +21,8 @@ run "core_control_plane_plan" {
     }
     identity     = { resource_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-core", client_id = "core-client" }
     event_topics = { events = "object.event", executor_command = "object.executor-command", executor_receipt = "object.executor-receipt" }
-    database     = { dsn_secret_id = "https://example.vault.azure.net/secrets/core-dsn", role = "fdai_core" }
+    database     = { dsn_secret_id = "https://example.vault.azure.net/secrets/core-dsn", host = "postgres.example.com", role = "fdai_core" }
+    llm          = { endpoint = "https://models.example.com" }
     rollback     = { strategy = "previous-revision", previous_image = "registry.example.com/fdai@sha256:1111111111111111111111111111111111111111111111111111111111111111" }
     runtime_env  = "dev"
   }
@@ -39,7 +40,7 @@ run "operator_service_plan" {
   command = plan
   module { source = "../../services/operator-service" }
   variables {
-    name = "ca-fdai-operator"
+    name = "ca-fdai-operator-api"
     platform = {
       resource_group_name          = "rg-example"
       container_app_environment_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example/providers/Microsoft.App/managedEnvironments/cae-example"
@@ -54,7 +55,7 @@ run "operator_service_plan" {
       command_client_id   = "command-client"
     }
     event_topics = { events = "object.event" }
-    database     = { dsn_secret_id = "https://example.vault.azure.net/secrets/operator-dsn", role = "fdai_operator" }
+    database     = { dsn_secret_id = "https://example.vault.azure.net/secrets/operator-dsn", host = "postgres.example.com", role = "fdai_operator" }
     rollback     = { strategy = "previous-revision", previous_image = "registry.example.com/operator@sha256:1111111111111111111111111111111111111111111111111111111111111111" }
     runtime_env  = "dev"
     auth         = { tenant_id = "example-tenant", api_audience = "api://fdai-example" }
@@ -68,7 +69,7 @@ run "operator_service_plan" {
     cors_allow_origins = "https://console.example.com"
   }
   assert {
-    condition     = output.service.name == "ca-fdai-operator"
+    condition     = output.service.name == "ca-fdai-operator-api"
     error_message = "Operator root must preserve its service name."
   }
 }
@@ -87,7 +88,7 @@ run "document_ingestion_api_plan" {
     image          = "registry.example.com/ingestion@sha256:0000000000000000000000000000000000000000000000000000000000000000"
     identity       = { resource_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-ingestion", client_id = "ingestion-client" }
     event_topics   = { pipeline_stages = "fdai.pipeline.stages" }
-    database       = { dsn_secret_id = "https://example.vault.azure.net/secrets/ingestion-dsn", role = "fdai_ingestion_api" }
+    database       = { dsn_secret_id = "https://example.vault.azure.net/secrets/ingestion-dsn", host = "postgres.example.com", role = "fdai_ingestion_api" }
     document_store = { account_name = "storageexample", account_url = "https://storage.example.com", source_file_system = "documents" }
     rollback       = { strategy = "previous-revision", previous_image = "registry.example.com/ingestion@sha256:1111111111111111111111111111111111111111111111111111111111111111" }
     runtime_env    = "dev"
@@ -123,7 +124,7 @@ run "document_processing_worker_plan" {
     clamav       = { image = "registry.example.com/clamav@sha256:2222222222222222222222222222222222222222222222222222222222222222", host = "127.0.0.1", port = 3310 }
     identity     = { resource_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-document-worker", client_id = "document-worker-client" }
     event_topics = { pipeline_stages = "fdai.pipeline.stages", pantheon_objects = "fdai.pantheon.objects" }
-    database     = { dsn_secret_id = "https://example.vault.azure.net/secrets/document-worker-dsn", role = "fdai_ingestion_worker" }
+    database     = { dsn_secret_id = "https://example.vault.azure.net/secrets/document-worker-dsn", host = "postgres.example.com", role = "fdai_ingestion_worker" }
     document_store = {
       account_name        = "storageexample"
       account_url         = "https://storage.example.com"
@@ -163,7 +164,7 @@ run "isolated_executor_plan" {
       finops_client_id       = "executor-finops-client"
     }
     event_topics = { command = "object.executor-command", receipt = "object.executor-receipt", dlq_suffix = ".dlq" }
-    database     = { dsn_secret_id = "https://example.vault.azure.net/secrets/executor-dsn", role = "fdai_executor" }
+    database     = { dsn_secret_id = "https://example.vault.azure.net/secrets/executor-dsn", host = "postgres.example.com", role = "fdai_executor" }
     rollback     = { strategy = "previous-revision", previous_image = "registry.example.com/executor@sha256:1111111111111111111111111111111111111111111111111111111111111111", authority_fallback = "core-in-process" }
     runtime_env  = "dev"
     authority    = { cutover = false, dev_operations_gateway_url = "", dev_operations_gateway_audience = "" }

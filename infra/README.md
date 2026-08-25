@@ -223,15 +223,15 @@ only prove the text is present, while a run block proves the resource is planned
 in a test file synthetic
 ([generic-scope.instructions.md](../.github/instructions/generic-scope.instructions.md)).
 
-## Security scan baseline
+## Security scan exceptions
 
-`infra-lint.yml` runs Trivy and Checkov as blocking checks. `infra/.checkov.baseline` records
-the reviewed day-zero detected issues that depend on a production-only setting, an external Azure
-control, or an intentionally retained development path. The baseline is technical debt, not
-proof that a detected issue is fixed: each production-relevant item remains covered by the ARB
-blockers and `production-gates.tf`. A new detected issue fails CI. Removing or hardening a resource
-also removes its baseline entry; do not regenerate the whole file to absorb a new failure.
+`infra-lint.yml` runs Trivy and Checkov as blocking checks without a repository-wide baseline.
+An intentional exception stays next to the exact resource and check. Its comment must identify
+the implemented compensating control, production gate, provider limitation, or managed-service
+constraint. A new finding therefore fails CI unless the source either implements the control or
+records a narrow, reviewable exception.
 
-The only Trivy inline exception is the Key Vault module's public development path. The
-production Terraform gate requires private networking, disables public access, and sets the
-vault network default to deny, so the exception cannot authorize a production plan.
+Conditional development paths remain bounded by `production-gates.tf`. For example, production
+requires private networking and private PostgreSQL, while the documented Key Vault teardown
+profile remains purgeable with seven-day soft delete. Inline exceptions do not authorize a plan;
+the Terraform checks remain authoritative for the selected environment.

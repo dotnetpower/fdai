@@ -15,8 +15,7 @@ postgres_admin_login    = "fdaiadmin"
 postgres_admin_password = "SET-ME-VIA-VAULT"
 
 # Core control-plane image reference (pin by digest for prod).
-core_image   = "REPLACE_WITH_FDAI_IMAGE"
-max_replicas = 3
+core_image = "REPLACE_WITH_FDAI_IMAGE"
 
 # Cost-attribution vertical for the fdai:vertical tag (shared |
 # resilience | change-safety | cost-governance). Default 'shared'.

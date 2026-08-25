@@ -10,8 +10,7 @@ tenant_id = "00000000-0000-0000-0000-000000000000"
 postgres_admin_login    = "fdaiadmin"
 postgres_admin_password = "SET-ME-VIA-VAULT"
 
-core_image   = "REPLACE_WITH_FDAI_IMAGE"
-max_replicas = 5
+core_image = "REPLACE_WITH_FDAI_IMAGE"
 
 # Private-networking + ops runner (same as dev; supply from infra/bootstrap).
 enable_private_networking = true

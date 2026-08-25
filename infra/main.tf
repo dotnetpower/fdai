@@ -1060,6 +1060,7 @@ module "document_storage" {
   resource_group_name             = module.resource_group.name
   location                        = var.region
   deployer_principal_id           = data.azurerm_client_config.current.object_id
+  log_analytics_workspace_id      = module.log_analytics.workspace_id
   replication_type                = var.document_storage_replication_type
   public_network_access_enabled   = !var.enable_private_networking
   soft_delete_retention_days      = var.document_soft_delete_retention_days
@@ -1101,6 +1102,7 @@ module "case_history_storage" {
   location                      = var.region
   deployer_principal_id         = data.azurerm_client_config.current.object_id
   runtime_principal_id          = module.case_history_identity[0].principal_id
+  log_analytics_workspace_id    = module.log_analytics.workspace_id
   replication_type              = var.case_history_replication_type
   public_network_access_enabled = !var.enable_private_networking
   soft_delete_retention_days    = var.case_history_retention_days
@@ -1171,6 +1173,7 @@ module "case_history_blob_private_endpoint" {
 # Development-only operations gateway - authenticated FC1 Function App.
 # -----------------------------------------------------------------------
 resource "azurerm_storage_account" "dev_gateway" {
+  # checkov:skip=CKV2_AZURE_1:Platform-managed encryption protects development-only deployment and idempotency artifacts without a second key lifecycle.
   count                    = var.enable_dev_operations_gateway ? 1 : 0
   name                     = substr("st${var.workload}gw${local.acr_suffix}${local.storage_unique_suffix}", 0, 24)
   resource_group_name      = module.resource_group.name
@@ -1181,10 +1184,21 @@ resource "azurerm_storage_account" "dev_gateway" {
 
   public_network_access_enabled   = false
   shared_access_key_enabled       = false
+  local_user_enabled              = false
   default_to_oauth_authentication = true
   allow_nested_items_to_be_public = false
   min_tls_version                 = "TLS1_2"
   tags                            = merge(local.tags, { "fdai:component" = "dev-operations-gateway" })
+
+  blob_properties {
+    delete_retention_policy {
+      days = 7
+    }
+
+    container_delete_retention_policy {
+      days = 7
+    }
+  }
 }
 
 resource "azurerm_role_assignment" "dev_gateway_storage_deployer" {
@@ -1245,6 +1259,7 @@ resource "azurerm_private_endpoint" "dev_gateway_blob_shared_dns" {
 }
 
 resource "azurerm_storage_container" "dev_gateway_deployment" {
+  # checkov:skip=CKV2_AZURE_21:The dev_gateway_blob diagnostic setting emits Blob read, write, and delete logs for this account.
   count                 = var.enable_dev_operations_gateway ? 1 : 0
   name                  = "function-releases"
   storage_account_id    = azurerm_storage_account.dev_gateway[0].id
@@ -1260,6 +1275,7 @@ resource "azurerm_storage_container" "dev_gateway_deployment" {
 }
 
 resource "azurerm_storage_container" "dev_gateway_idempotency" {
+  # checkov:skip=CKV2_AZURE_21:The dev_gateway_blob diagnostic setting emits Blob read, write, and delete logs for this account.
   count                 = var.enable_dev_operations_gateway ? 1 : 0
   name                  = "operation-idempotency"
   storage_account_id    = azurerm_storage_account.dev_gateway[0].id
@@ -1272,6 +1288,25 @@ resource "azurerm_storage_container" "dev_gateway_idempotency" {
     azurerm_virtual_network_peering.spoke_to_hub,
     azurerm_virtual_network_peering.hub_to_spoke,
   ]
+}
+
+resource "azurerm_monitor_diagnostic_setting" "dev_gateway_blob" {
+  count                      = var.enable_dev_operations_gateway ? 1 : 0
+  name                       = "diag-${azurerm_storage_account.dev_gateway[0].name}-blob"
+  target_resource_id         = "${azurerm_storage_account.dev_gateway[0].id}/blobServices/default"
+  log_analytics_workspace_id = module.log_analytics.workspace_id
+
+  enabled_log {
+    category = "StorageRead"
+  }
+
+  enabled_log {
+    category = "StorageWrite"
+  }
+
+  enabled_log {
+    category = "StorageDelete"
+  }
 }
 
 resource "azurerm_service_plan" "dev_gateway" {
@@ -1610,6 +1645,7 @@ resource "azurerm_role_assignment" "kv_officer_self" {
 }
 
 resource "azurerm_key_vault_secret" "state_store_dsn" {
+  # checkov:skip=CKV_AZURE_41:Apply-driven password rotation creates a new version and rolls Container Apps; fixed expiry would cause an uncoordinated outage.
   name         = "fdai-state-store-dsn"
   value        = module.state_store.application_dsn
   key_vault_id = module.key_vault.id
@@ -1696,26 +1732,6 @@ resource "azurerm_key_vault_secret" "github_webhook_secret" {
   depends_on = [azurerm_role_assignment.kv_officer_self, module.kv_private_endpoint, azurerm_virtual_network_peering.spoke_to_hub, azurerm_virtual_network_peering.hub_to_spoke]
 }
 
-resource "azurerm_key_vault_secret" "operator_memory_dsn" {
-  name         = "fdai-operator-memory-dsn"
-  value        = module.state_store.application_dsn
-  key_vault_id = module.key_vault.id
-  content_type = "postgres-dsn"
-  tags         = local.tags
-
-  depends_on = [azurerm_role_assignment.kv_officer_self, module.kv_private_endpoint, azurerm_virtual_network_peering.spoke_to_hub, azurerm_virtual_network_peering.hub_to_spoke]
-}
-
-resource "azurerm_key_vault_secret" "pattern_library_dsn" {
-  name         = "fdai-pattern-library-dsn"
-  value        = module.state_store.application_dsn
-  key_vault_id = module.key_vault.id
-  content_type = "postgres-dsn"
-  tags         = local.tags
-
-  depends_on = [azurerm_role_assignment.kv_officer_self, module.kv_private_endpoint, azurerm_virtual_network_peering.spoke_to_hub, azurerm_virtual_network_peering.hub_to_spoke]
-}
-
 # -----------------------------------------------------------------------
 # Compute - Container Apps env + core app + out-of-band job.
 # -----------------------------------------------------------------------
@@ -1746,16 +1762,11 @@ module "compute" {
     var.enable_isolated_executor_authority_cutover ? "" : module.identity_finops.client_id
   )
   isolated_executor_authority_cutover = var.enable_isolated_executor_authority_cutover
-  t1_similarity_threshold             = var.t1_similarity_threshold
-  t1_min_success_rate                 = var.t1_min_success_rate
-  quality_gate_confidence_threshold   = var.quality_gate_confidence_threshold
-  quality_gate_quorum                 = var.quality_gate_quorum
   startup_kafka_settle_seconds        = var.startup_kafka_settle_seconds
   startup_probe_timeout_seconds       = var.startup_probe_timeout_seconds
   startup_phase_timeout_seconds       = var.startup_phase_timeout_seconds
   inventory_identity_id               = module.inventory_identity.resource_id
   inventory_identity_client_id        = module.inventory_identity.client_id
-  inventory_raw_topic                 = local.inventory_raw_topic
   canary_identity_id                  = module.canary_identity.resource_id
   canary_identity_client_id           = module.canary_identity.client_id
   canary_topic                        = local.canary_topic
@@ -1779,7 +1790,6 @@ module "compute" {
   ohl_evidence_campaign_id            = var.ohl_scale_out_evidence_campaign_id
   ohl_evidence_initiator_principal_id = var.ohl_scale_out_evidence_initiator_principal_id
   image                               = var.core_image
-  max_replicas                        = var.max_replicas
   extra_identity_ids = concat(
     local.core_vertical_identity_ids,
     var.enable_email_notifications ? [module.notification_identity[0].resource_id] : [],
@@ -1814,16 +1824,8 @@ module "compute" {
   postgres_database                   = module.state_store.database_name
   runtime_env                         = var.env == "" ? "dev" : var.env
   autonomy_mode_default               = "shadow"
-  dev_operations_gateway_url = (
-    var.enable_dev_operations_gateway && !var.enable_isolated_executor_authority_cutover
-    ? "https://${azurerm_function_app_flex_consumption.dev_gateway[0].default_hostname}"
-    : ""
-  )
-  dev_operations_gateway_audience = (
-    var.enable_dev_operations_gateway && !var.enable_isolated_executor_authority_cutover
-    ? var.operator_api_audience
-    : ""
-  )
+  dev_operations_gateway_url          = var.enable_dev_operations_gateway && !var.enable_isolated_executor_authority_cutover ? "https://${azurerm_function_app_flex_consumption.dev_gateway[0].default_hostname}" : ""
+  dev_operations_gateway_audience     = var.enable_dev_operations_gateway && !var.enable_isolated_executor_authority_cutover ? var.operator_api_audience : ""
 
   # Auto-bind the Azure Monitor Logs metric adapter at composition time.
   # Threading the Log Analytics workspace **customer GUID** (NOT the ARM
@@ -1861,15 +1863,7 @@ module "compute" {
   )
 
   # Persistence DSNs (KV-backed; executor MI reads at runtime).
-  state_store_dsn_secret_id     = azurerm_key_vault_secret.state_store_dsn.id
-  operator_memory_dsn_secret_id = azurerm_key_vault_secret.operator_memory_dsn.id
-  pattern_library_dsn_secret_id = azurerm_key_vault_secret.pattern_library_dsn.id
-  chatops_webhook_url_secret_id = (
-    var.enable_chatops_hil ? azurerm_key_vault_secret.chatops_webhook_url[0].id : ""
-  )
-  chatops_webhook_secret_id = (
-    var.enable_chatops_hil ? azurerm_key_vault_secret.chatops_webhook_secret[0].id : ""
-  )
+  state_store_dsn_secret_id                 = azurerm_key_vault_secret.state_store_dsn.id
   inventory_dsn_secret_id                   = azurerm_key_vault_secret.state_store_dsn.id
   inventory_cron_expression                 = var.inventory_cron_expression
   inventory_kubernetes_api_server           = var.inventory_kubernetes_api_server
@@ -1937,8 +1931,6 @@ module "compute" {
   depends_on = [
     module.state_store,
     azurerm_key_vault_secret.state_store_dsn,
-    azurerm_key_vault_secret.operator_memory_dsn,
-    azurerm_key_vault_secret.pattern_library_dsn,
     azurerm_role_assignment.executor_eventhubs_data_owner,
     azurerm_role_assignment.executor_acr_pull,
     azurerm_role_assignment.inventory_reader,
@@ -2289,7 +2281,7 @@ module "operator_api" {
   monitor_workspace_customer_id     = module.log_analytics.workspace_customer_id
   command_api_identity_id           = module.command_api_identity[0].resource_id
   command_api_identity_client_id    = module.command_api_identity[0].client_id
-  resolved_models_path              = var.resolved_models_json
+  resolved_models_path              = var.resolved_models_json != "" ? var.resolved_models_json : var.operator_api_resolved_models_path
   resolved_models_sha256            = var.resolved_models_sha256
   narrator_probe_interval_seconds   = var.operator_api_narrator_probe_interval_seconds
   web_search_enabled                = var.operator_api_web_search_enabled
@@ -2379,8 +2371,7 @@ module "ingestion_gateway" {
   worker_identity_client_id = var.ingestion_cohost_worker ? "" : (
     module.ingestion_worker_identity[0].client_id
   )
-  migration_identity_id        = module.ingestion_migration_identity[0].resource_id
-  migration_identity_client_id = module.ingestion_migration_identity[0].client_id
+  migration_identity_id = module.ingestion_migration_identity[0].resource_id
   database_dsn_secret_id = var.ingestion_cohost_worker ? (
     azurerm_key_vault_secret.ingestion_cohost_dsn[0].id
   ) : azurerm_key_vault_secret.ingestion_api_dsn[0].id

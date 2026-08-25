@@ -14,6 +14,7 @@ def test_account_enforces_private_access_and_preserves_policy_acls() -> None:
 
     assert "public_network_access_enabled = false" in module
     assert "local_auth_enabled            = false" in module
+    assert 'identity {\n    type = "SystemAssigned"' in module
     assert "ignore_changes = [network_acls]" in module
 
 

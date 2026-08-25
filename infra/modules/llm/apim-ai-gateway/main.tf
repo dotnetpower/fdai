@@ -6,6 +6,7 @@ locals {
 }
 
 resource "azurerm_api_management_backend" "ptu" {
+  # checkov:skip=CKV_AZURE_215:ptu_backend.url has an HTTPS-only variable validation.
   name                = var.ptu_backend.name
   resource_group_name = var.resource_group_name
   api_management_name = var.api_management_name
@@ -15,6 +16,7 @@ resource "azurerm_api_management_backend" "ptu" {
 }
 
 resource "azurerm_api_management_backend" "standard" {
+  # checkov:skip=CKV_AZURE_215:standard_backend.url has an HTTPS-only variable validation.
   name                = var.standard_backend.name
   resource_group_name = var.resource_group_name
   api_management_name = var.api_management_name

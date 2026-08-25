@@ -11,10 +11,7 @@ resource "azurerm_eventhub_namespace" "primary" {
 
   lifecycle {
     precondition {
-      condition = (
-        !contains(["Basic", "Standard"], var.sku)
-        || length(var.topics) * 2 + length(var.auxiliary_topics) <= 10
-      )
+      condition     = !contains(["Basic", "Standard"], var.sku) || length(var.topics) * 2 + length(var.auxiliary_topics) <= 10
       error_message = "Basic and Standard Event Hubs namespaces support at most 10 entities including generated DLQs."
     }
   }

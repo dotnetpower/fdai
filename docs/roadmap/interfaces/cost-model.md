@@ -25,8 +25,8 @@ down by fixed vs variable spend and by traffic scenario. Cost-efficiency princip
   reduce these by 5-20%; Reserved Instances / Savings Plans can reduce compute + database
   spend by 30-60% on 1-year / 3-year terms.
 - **Traffic (baseline)**: **low traffic** - events in the thousands to tens of thousands per
-  month. The current core Container App uses `min_replicas = 1` because no Event Hubs lag scaler
-  is configured. Scheduled jobs return to zero between executions.
+  month. The independent Core service uses `min_replicas = 1` because no Event Hubs lag scaler is
+  configured. Scheduled jobs return to zero between executions.
 - **Retention**: Log Analytics 30-day default
   ([deploy-and-onboard.md](../deployment/deploy-and-onboard.md#azure-resource-inventory-minimum-set)).
 - **Free tier**: assume the free grants for Container Apps monthly compute and Log Analytics
@@ -59,7 +59,7 @@ a moderately busier month.
 | # | Resource | Cost model | Baseline monthly (USD) | Category | Notes |
 |---|----------|-----------|------------------------|----------|-------|
 | 1 | Container Apps environment | environment fee = $0; vCPU-second + GB-second consumption | **recalculate from current plan** | variable | depends on the core replica floor and enabled app count |
-| 2 | Container App (unified core, one Python process) | rolled into #1 | rolled into #1 | variable | default `min_replicas = 1`, `max_replicas = 3`; zero requires a verified lag scaler |
+| 2 | Container App (independent Core service) | rolled into #1 | rolled into #1 | variable | the service-owned scaling contract defaults to `min_replicas = 1`, `max_replicas = 3`; zero requires a verified lag scaler |
 | 3 | Container Apps Jobs | rolled into #1 | **recalculate from current plan** | variable | scheduler, out-of-band, inventory, canary, and enabled worker jobs share Consumption usage |
 | 4 | Event Hubs **Standard** namespace (1 TU, auto-inflate off) | throughput unit hourly (~$0.03/hr × 730h) + ingress events (~$0.028/million) | **≈ $22** | fixed | consumed as the Kafka wire event bus on `:9093`; DLQ is a Kafka `<topic>.dlq` convention, no extra resource |
 | 5 | Event Grid inventory subscription + Diagnostic Settings | Event Grid delivery operations plus destination-service usage | **recalculate from current plan** | variable | no custom topic; inventory events go to Event Hubs and diagnostics to Log Analytics |
@@ -223,6 +223,7 @@ Costs deliberately outside this document:
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. | `current change`; current infrastructure and metering evidence listed in the scope table. | Reconcile the current plan, confirm prices, and retain a measured deployment baseline. |
+| 2026-08-25 | implemented | Removed the retired legacy-root replica input and aligned this estimate with the independent Core service scaling contract. | `current change`; `infra/services/core-control-plane/variables.tf`; Terraform validation and TFLint. | Reconcile the current plan, confirm prices, and retain a measured deployment baseline. |
 
 ### Remaining work
 

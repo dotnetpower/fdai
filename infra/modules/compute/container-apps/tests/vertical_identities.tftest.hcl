@@ -5,6 +5,8 @@ variables {
   core_app_name                       = "ca-fdai-example-core"
   oob_job_name                        = "caj-fdai-example-oob"
   rule_watcher_job_name               = "caj-fdai-example-watcher"
+  provider_schema_job_name            = "caj-fdai-example-provider-schema"
+  browser_evidence_cleanup_job_name   = "caj-fdai-example-browser-gc"
   location                            = "koreacentral"
   resource_group_name                 = "rg-example"
   log_workspace_id                    = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example/providers/Microsoft.OperationalInsights/workspaces/log-example"
@@ -13,16 +15,11 @@ variables {
   change_identity_client_id           = "00000000-0000-0000-0000-000000000000"
   resilience_identity_client_id       = "00000000-0000-0000-0000-000000000000"
   finops_identity_client_id           = "00000000-0000-0000-0000-000000000000"
-  t1_similarity_threshold             = 0.8
-  t1_min_success_rate                 = 0.9
-  quality_gate_confidence_threshold   = 0.7
-  quality_gate_quorum                 = 2
   startup_kafka_settle_seconds        = 12
   startup_probe_timeout_seconds       = 30
   startup_phase_timeout_seconds       = 75
   inventory_identity_id               = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-inventory"
   inventory_identity_client_id        = "00000000-0000-0000-0000-000000000000"
-  inventory_raw_topic                 = "fdai.inventory.raw"
   canary_identity_id                  = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-canary"
   canary_identity_client_id           = "00000000-0000-0000-0000-000000000000"
   canary_topic                        = "fdai.control.canary"

@@ -113,6 +113,7 @@ def test_dev_access_uses_entra_openvpn_and_private_dns() -> None:
     assert "aad_issuer" in main
     assert 'zones               = ["1", "2", "3"]' in main
     assert 'resource "azurerm_private_dns_resolver_inbound_endpoint" "dev_access"' in main
+    assert main.count('resource "azurerm_private_dns_resolver_inbound_endpoint"') == 1
     assert 'resource "azurerm_virtual_network_dns_servers" "dev_access"' in main
     assert 'resource "azurerm_private_dns_zone_virtual_network_link" "fdai"' in main
     assert '"vaultcore.azure.net"' in outputs

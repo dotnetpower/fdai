@@ -1,4 +1,6 @@
 resource "azurerm_cognitive_account" "search" {
+  # checkov:skip=CKV_AZURE_134:The production private-networking gate disables public access and the root creates a services.ai private endpoint.
+  # checkov:skip=CKV2_AZURE_22:Platform-managed encryption protects bounded web-search configuration without adding a second Key Vault lifecycle.
   name                          = var.account_name
   location                      = var.location
   resource_group_name           = var.resource_group_name

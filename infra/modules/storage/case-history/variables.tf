@@ -26,6 +26,11 @@ variable "runtime_principal_id" {
   type        = string
 }
 
+variable "log_analytics_workspace_id" {
+  description = "Log Analytics workspace receiving case-history Blob access diagnostics."
+  type        = string
+}
+
 variable "replication_type" {
   type    = string
   default = "ZRS"

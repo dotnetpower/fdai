@@ -92,26 +92,6 @@ variable "isolated_executor_authority_cutover" {
   default     = false
 }
 
-variable "t1_similarity_threshold" {
-  description = "Cosine-similarity floor for T1 reuse."
-  type        = number
-}
-
-variable "t1_min_success_rate" {
-  description = "Historical-success floor for T1 reuse."
-  type        = number
-}
-
-variable "quality_gate_confidence_threshold" {
-  description = "Aggregate confidence floor for T2 quality gating."
-  type        = number
-}
-
-variable "quality_gate_quorum" {
-  description = "Minimum independent-model agreement quorum."
-  type        = number
-}
-
 variable "startup_kafka_settle_seconds" {
   description = "Seconds allowed for the startup probe consumer to join before publishing."
   type        = number
@@ -134,11 +114,6 @@ variable "inventory_identity_id" {
 
 variable "inventory_identity_client_id" {
   description = "Client id of the dedicated inventory managed identity."
-  type        = string
-}
-
-variable "inventory_raw_topic" {
-  description = "Raw Event Grid resource-change Event Hub consumed by Huginn's realtime discovery normalizer."
   type        = string
 }
 
@@ -364,54 +339,6 @@ variable "acr_login_server" {
   default     = ""
 }
 
-variable "max_replicas" {
-  description = "KEDA scale ceiling."
-  type        = number
-  default     = 3
-
-  validation {
-    # Container Apps hard limit is 300 replicas per revision. A day-zero
-    # ceiling of 3 is a safe default; a fork raises it deliberately. A
-    # ``0`` here would make the app unreachable, and an unbounded number
-    # would let a burst blow through cost guardrails.
-    condition     = var.max_replicas >= 1 && var.max_replicas <= 300
-    error_message = "max_replicas must be between 1 and 300 (Container Apps limit)."
-  }
-}
-
-variable "core_cpu" {
-  description = "CPU quota for the core container. Container Apps accepts increments of 0.25 up to 4.0."
-  type        = number
-  default     = 0.5
-
-  validation {
-    condition     = var.core_cpu >= 0.25 && var.core_cpu <= 4.0
-    error_message = "core_cpu must be between 0.25 and 4.0 (Container Apps limit)."
-  }
-}
-
-variable "core_memory" {
-  description = "Memory quota for the core container (Container Apps expects Gi units, e.g. `1Gi`, `2Gi`)."
-  type        = string
-  default     = "1Gi"
-
-  validation {
-    condition     = can(regex("^[0-9]+(\\.[0-9]+)?Gi$", var.core_memory))
-    error_message = "core_memory must be a Container Apps value like `1Gi` / `2.5Gi`."
-  }
-}
-
-variable "health_port" {
-  description = "Internal HTTP port for the core liveness and readiness probes. No ingress is exposed."
-  type        = number
-  default     = 8080
-
-  validation {
-    condition     = var.health_port >= 1 && var.health_port <= 65535
-    error_message = "health_port must be between 1 and 65535."
-  }
-}
-
 variable "oob_cpu" {
   description = "CPU quota for the out-of-band scheduled probes container (typically half of core)."
   type        = number
@@ -434,37 +361,11 @@ variable "oob_memory" {
   }
 }
 
-variable "min_replicas" {
-  description = <<-EOT
-    Floor replica count. Day-zero default 1 keeps the P1 control loop
-    reachable without a KEDA scale rule; a fork that adds a scale rule
-    tied to Event Hubs unprocessed-message lag MAY flip this back to 0
-    for scale-to-zero. If it stays 0 without a scale rule, incoming
-    Kafka events never wake the app - a silent regression that only
-    the KPI dashboard would eventually surface.
-  EOT
-  type        = number
-  default     = 1
-
-  validation {
-    condition     = var.min_replicas >= 0 && var.min_replicas <= var.max_replicas
-    error_message = "min_replicas must be >= 0 and <= max_replicas."
-  }
-}
-
 # ---------------------------------------------------------------------------
-# Persistence DSNs (Key Vault-backed).
+# Persistence DSN (Key Vault-backed).
 #
-# The core control plane reads three env vars for its Postgres seams
-# (`FDAI_STATE_STORE_DSN`, `FDAI_OPERATOR_MEMORY_DSN`,
-# `FDAI_T1_PATTERN_LIBRARY_DSN`). Each is delivered as a Container App
-# `secret {}` block that resolves a Key Vault secret via the executor
-# user-assigned MI (which the KV module has already granted `Secrets User`
-# on). The env var references the Container App secret, not the KV URI, so
-# rotating the KV value never touches the app template.
-#
-# Empty string means "not wired" - the composition root then falls back
-# to the in-memory backend (`_build_state_store` etc. in `src/fdai/__main__.py`).
+# Legacy scheduled jobs use the platform StateStore DSN. Independent runtime
+# services receive role-scoped database references from service-owned roots.
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
@@ -621,34 +522,6 @@ variable "state_store_dsn_secret_id" {
   type        = string
   default     = ""
   sensitive   = true
-}
-
-variable "operator_memory_dsn_secret_id" {
-  description = "Key Vault secret resource id backing FDAI_OPERATOR_MEMORY_DSN. Empty = fall back to in-memory."
-  type        = string
-  default     = ""
-  sensitive   = true
-}
-
-variable "pattern_library_dsn_secret_id" {
-  description = "Key Vault secret resource id backing FDAI_T1_PATTERN_LIBRARY_DSN. Empty = fall back to in-memory."
-  type        = string
-  default     = ""
-  sensitive   = true
-}
-
-variable "chatops_webhook_url_secret_id" {
-  description = "Key Vault secret id containing the HIL webhook URL. Empty disables push delivery."
-  type        = string
-  sensitive   = true
-  default     = ""
-}
-
-variable "chatops_webhook_secret_id" {
-  description = "Key Vault secret id containing the HIL HMAC secret."
-  type        = string
-  sensitive   = true
-  default     = ""
 }
 
 variable "tags" {

@@ -136,12 +136,6 @@ variable "core_image" {
   }
 }
 
-variable "max_replicas" {
-  description = "Container App max replica count (KEDA scale ceiling). Day-zero default is 3."
-  type        = number
-  default     = 3
-}
-
 variable "canary_cron_expression" {
   description = "Full-loop canary cadence in UTC cron format. Empty disables canary publication."
   type        = string
@@ -192,6 +186,8 @@ variable "cost_vertical" {
 # Seam-kind selectors (approved alternates per csp-neutrality.md)
 # -----------------------------------------------------------------------
 
+# The selector is a fail-fast public contract until a second implementation lands.
+# tflint-ignore: terraform_unused_declarations
 variable "compute_kind" {
   description = "Runtime seam implementation. Only 'container_apps' is scaffolded today; alternate sub-modules land when a measured need arises."
   type        = string
@@ -202,6 +198,8 @@ variable "compute_kind" {
   }
 }
 
+# The selector is a fail-fast public contract until a second implementation lands.
+# tflint-ignore: terraform_unused_declarations
 variable "state_store_kind" {
   description = "State-store seam. 'postgres_flex' today; 'cosmos' lands under modules/state-store/cosmos/ when a measured need arises."
   type        = string
@@ -212,6 +210,8 @@ variable "state_store_kind" {
   }
 }
 
+# The selector is a fail-fast public contract until a second implementation lands.
+# tflint-ignore: terraform_unused_declarations
 variable "event_bus_kind" {
   description = "Event-bus seam. 'event_hubs_kafka' today; 'redpanda_aks' etc. land as sibling sub-modules."
   type        = string

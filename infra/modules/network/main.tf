@@ -27,6 +27,7 @@ resource "azurerm_virtual_network" "primary" {
 }
 
 resource "azurerm_subnet" "pe" {
+  # checkov:skip=CKV2_AZURE_31:This subnet contains only private-endpoint NICs and disables endpoint network policies by design.
   name                            = "snet-pe"
   resource_group_name             = var.resource_group_name
   virtual_network_name            = azurerm_virtual_network.primary.name
@@ -39,6 +40,7 @@ resource "azurerm_subnet" "pe" {
 }
 
 resource "azurerm_subnet" "infra" {
+  # checkov:skip=CKV2_AZURE_31:Azure Container Apps owns this delegated infrastructure subnet; default outbound access is disabled.
   name                            = "snet-infra"
   resource_group_name             = var.resource_group_name
   virtual_network_name            = azurerm_virtual_network.primary.name
@@ -57,6 +59,7 @@ resource "azurerm_subnet" "infra" {
 }
 
 resource "azurerm_subnet" "postgres" {
+  # checkov:skip=CKV2_AZURE_31:PostgreSQL Flexible Server owns this delegated private subnet; default outbound access is disabled.
   name                            = "snet-postgres"
   resource_group_name             = var.resource_group_name
   virtual_network_name            = azurerm_virtual_network.primary.name
@@ -73,6 +76,7 @@ resource "azurerm_subnet" "postgres" {
 }
 
 resource "azurerm_subnet" "functions" {
+  # checkov:skip=CKV2_AZURE_31:Flex Consumption owns this delegated integration subnet; default outbound access is disabled.
   count                           = var.enable_functions_subnet ? 1 : 0
   name                            = "snet-functions"
   resource_group_name             = var.resource_group_name
@@ -96,4 +100,30 @@ resource "azurerm_subnet" "evidence_target" {
   virtual_network_name            = azurerm_virtual_network.primary.name
   address_prefixes                = [var.evidence_target_subnet_prefix]
   default_outbound_access_enabled = false
+}
+
+resource "azurerm_network_security_group" "evidence_target" {
+  count               = var.enable_evidence_target_subnet ? 1 : 0
+  name                = "nsg-ohl-evidence"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  tags                = var.tags
+
+  security_rule {
+    name                       = "DenyInternetInbound"
+    priority                   = 4000
+    direction                  = "Inbound"
+    access                     = "Deny"
+    protocol                   = "*"
+    source_port_range          = "*"
+    destination_port_range     = "*"
+    source_address_prefix      = "Internet"
+    destination_address_prefix = "*"
+  }
+}
+
+resource "azurerm_subnet_network_security_group_association" "evidence_target" {
+  count                     = var.enable_evidence_target_subnet ? 1 : 0
+  subnet_id                 = azurerm_subnet.evidence_target[0].id
+  network_security_group_id = azurerm_network_security_group.evidence_target[0].id
 }

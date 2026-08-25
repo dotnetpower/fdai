@@ -18,7 +18,6 @@ variables {
   worker_identity_id               = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-fdai-ingestion-worker"
   worker_identity_client_id        = "worker-client"
   migration_identity_id            = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-fdai-ingestion-migration"
-  migration_identity_client_id     = "migration-client"
   worker_database_dsn_secret_id    = "https://vault.example.com/secrets/ingestion-worker-dsn"
   migration_database_dsn_secret_id = "https://vault.example.com/secrets/ingestion-migration-dsn"
   stewardship_governance_enabled   = false

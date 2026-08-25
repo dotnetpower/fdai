@@ -41,6 +41,10 @@ def test_premium_registry_is_locked_behind_a_private_endpoint() -> None:
     assert 'private_dns_zone_name = "privatelink.azurecr.io"' in root
     assert "public_network_access_enabled = !local.acr_private_link" in root
 
+    module = (_ROOT / "infra/modules/container-registry/main.tf").read_text(encoding="utf-8")
+    assert 'data_endpoint_enabled         = var.sku == "Premium"' in module
+    assert 'retention_policy_in_days      = var.sku == "Premium" ? 30 : null' in module
+
 
 def test_non_premium_registry_stays_reachable() -> None:
     """Basic and Standard registries have no private-link path; closing them

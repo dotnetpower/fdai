@@ -1,8 +1,8 @@
 ---
 title: 비용 모델 (예시)
 translation_of: cost-model.md
-translation_source_sha: ebf4facef88e325ed0e6c9f8ae0b1e8f5ef1cabf
-translation_revised: 2026-08-14
+translation_source_sha: 1be959949625599ee60d867138c86ef9b1990581
+translation_revised: 2026-08-25
 ---
 
 # 비용 모델 (예시)
@@ -27,7 +27,7 @@ translation_revised: 2026-08-14
 - **통화**: USD 리스트 가격, PAYG(Pay-As-You-Go) 티어. 엔터프라이즈 계약은 보통 5-20%
   감소; Reserved Instances / 절감 계획은 1년/3년 약정으로 컴퓨트 + 데이터베이스 지출을
   30-60% 감소시킬 수 있음.
-- **트래픽 (베이스라인)**: **낮은 트래픽** - 월 수천에서 수만 이벤트. 현재 코어 Container App은
+- **트래픽 (베이스라인)**: **낮은 트래픽** - 월 수천에서 수만 이벤트. 독립 Core 서비스는
   Event Hubs lag scaler가 없으므로 `min_replicas = 1`입니다. Scheduled 작업만 실행 사이에 0으로
   내려갑니다.
 - **보존**: Log Analytics 기본 30일
@@ -59,7 +59,7 @@ translation_revised: 2026-08-14
 | # | 리소스 | 비용 모델 | 베이스라인 월간 (USD) | 카테고리 | 노트 |
 |---|--------|----------|---------------------|----------|------|
 | 1 | Container Apps 환경 | 환경 fee = $0; vCPU-초 + GB-초 소비 | **현재 계획으로 재산정** | variable | Core 복제본 하한과 명시적 선택 앱 수에 따라 달라짐 |
-| 2 | Container App (통합 코어, 단일 Python 프로세스) | #1에 포함 | #1에 포함 | variable | 기본 `min_replicas = 1`, `max_replicas = 3`; 검증된 lag scaler가 있을 때만 0 허용 |
+| 2 | Container App (독립 Core 서비스) | #1에 포함 | #1에 포함 | variable | 서비스 소유 scaling 계약의 기본값은 `min_replicas = 1`, `max_replicas = 3`; 검증된 lag scaler가 있을 때만 0 허용 |
 | 3 | Container Apps Jobs | #1에 포함 | **현재 계획으로 재산정** | variable | 스케줄러, out-of-band, 인벤토리, canary 및 활성화된 워커/작업이 Consumption 사용량 공유 |
 | 4 | Event Hubs **Standard** 네임스페이스 (1 TU, auto-inflate off) | 처리량 단위 시간당 (~$0.03/시 × 730시) + 인그레스 이벤트 (~$0.028/백만) | **≈ $22** | fixed | `:9093` 의 Kafka 와이어 이벤트 버스로 소비; DLQ는 Kafka `<topic>.dlq` 규약, 추가 리소스 없음 |
 | 5 | Event Grid 인벤토리 구독 + Diagnostic Settings | Event Grid 전달 연산 + 목적지 서비스 사용량 | **현재 계획으로 재산정** | variable | 별도 custom 토픽은 없고 인벤토리 이벤트는 Event Hubs로, 진단은 Log Analytics로 전달 |

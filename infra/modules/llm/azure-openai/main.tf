@@ -1,4 +1,5 @@
 resource "azurerm_cognitive_account" "primary" {
+  # checkov:skip=CKV2_AZURE_22:Platform-managed encryption protects replaceable model deployments without adding a second Key Vault lifecycle.
   name                          = var.name
   location                      = var.location
   resource_group_name           = var.resource_group_name
@@ -8,6 +9,10 @@ resource "azurerm_cognitive_account" "primary" {
   public_network_access_enabled = false
   local_auth_enabled            = false
   tags                          = var.tags
+
+  identity {
+    type = "SystemAssigned"
+  }
 
   # Public access remains disabled by Terraform. Tenant policy may add a deny
   # ACL and approved operator IPs; those policy-owned details must not create

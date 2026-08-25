@@ -26,6 +26,7 @@ resource "azurerm_virtual_network" "dev_access" {
 }
 
 resource "azurerm_subnet" "gateway" {
+  # checkov:skip=CKV2_AZURE_31:Azure VPN Gateway exclusively owns GatewaySubnet; associating an NSG is not a supported gateway design.
   name                 = "GatewaySubnet"
   resource_group_name  = azurerm_resource_group.dev_access.name
   virtual_network_name = azurerm_virtual_network.dev_access.name
@@ -33,6 +34,7 @@ resource "azurerm_subnet" "gateway" {
 }
 
 resource "azurerm_subnet" "resolver_inbound" {
+  # checkov:skip=CKV2_AZURE_31:Private DNS Resolver exclusively owns this delegated inbound-endpoint subnet.
   name                 = "snet-dns-inbound"
   resource_group_name  = azurerm_resource_group.dev_access.name
   virtual_network_name = azurerm_virtual_network.dev_access.name
@@ -114,6 +116,7 @@ resource "azurerm_private_dns_resolver_inbound_endpoint" "dev_access" {
 # profiles. The resolver inbound endpoint can resolve zones linked below while
 # the FDAI VNet keeps its existing DNS configuration unchanged.
 resource "azurerm_virtual_network_dns_servers" "dev_access" {
+  # checkov:skip=CKV_AZURE_182:Azure Private DNS Resolver is managed and zone-redundant; one inbound endpoint is the supported P2S forwarding target.
   virtual_network_id = azurerm_virtual_network.dev_access.id
   dns_servers = [
     azurerm_private_dns_resolver_inbound_endpoint.dev_access.ip_configurations[0].private_ip_address,

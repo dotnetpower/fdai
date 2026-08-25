@@ -60,10 +60,12 @@ def test_policy_emits_every_required_route_evidence_header() -> None:
 
 def test_module_does_not_create_an_apim_service() -> None:
     main = (MODULE / "main.tf").read_text(encoding="utf-8")
+    variables = (MODULE / "variables.tf").read_text(encoding="utf-8")
 
     assert 'resource "azurerm_api_management" ' not in main
     assert 'resource "azurerm_api_management_backend"' in main
     assert 'resource "azurerm_api_management_api_policy"' in main
+    assert variables.count('can(regex("^https://[^?#]+$"') == 2
 
 
 def test_root_integration_is_opt_in_and_disabled_by_default() -> None:

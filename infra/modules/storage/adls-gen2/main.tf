@@ -1,4 +1,14 @@
+# Blob access diagnostics are emitted by the dedicated document_blob
+# diagnostic setting below; Trivy does not correlate that child resource.
+#trivy:ignore:AZU-0057
 resource "azurerm_storage_account" "documents" {
+  # checkov:skip=CKV_AZURE_35:The production private-networking gate makes default_action resolve to Deny.
+  # checkov:skip=CKV_AZURE_59:The production private-networking gate disables public access.
+  # checkov:skip=CKV_AZURE_43:The name variable enforces the Storage 3-24 lowercase alphanumeric contract.
+  # checkov:skip=CKV_AZURE_33:The account exposes ADLS Gen2 filesystems only; no Queue service is consumed.
+  # checkov:skip=CKV_AZURE_206:The validated replication input defaults to zone-redundant storage.
+  # checkov:skip=CKV2_AZURE_33:The root creates the private endpoint whenever the production private-networking gate is active.
+  # checkov:skip=CKV2_AZURE_1:Infrastructure encryption and platform-managed keys avoid a second key lifecycle for governed document storage.
   name                              = var.name
   resource_group_name               = var.resource_group_name
   location                          = var.location
@@ -7,6 +17,7 @@ resource "azurerm_storage_account" "documents" {
   account_replication_type          = var.replication_type
   is_hns_enabled                    = true
   shared_access_key_enabled         = false
+  local_user_enabled                = false
   public_network_access_enabled     = var.public_network_access_enabled
   allow_nested_items_to_be_public   = false
   min_tls_version                   = "TLS1_2"
@@ -56,6 +67,24 @@ resource "azurerm_role_assignment" "deployer_data_owner" {
   scope                = azurerm_storage_account.documents.id
   role_definition_name = "Storage Blob Data Owner"
   principal_id         = var.deployer_principal_id
+}
+
+resource "azurerm_monitor_diagnostic_setting" "document_blob" {
+  name                       = "diag-${var.name}-blob"
+  target_resource_id         = "${azurerm_storage_account.documents.id}/blobServices/default"
+  log_analytics_workspace_id = var.log_analytics_workspace_id
+
+  enabled_log {
+    category = "StorageRead"
+  }
+
+  enabled_log {
+    category = "StorageWrite"
+  }
+
+  enabled_log {
+    category = "StorageDelete"
+  }
 }
 
 resource "azurerm_storage_data_lake_gen2_filesystem" "documents" {

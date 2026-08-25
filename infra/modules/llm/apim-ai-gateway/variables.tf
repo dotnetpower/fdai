@@ -56,6 +56,11 @@ variable "ptu_backend" {
     url         = string
     resource_id = string
   })
+
+  validation {
+    condition     = can(regex("^https://[^?#]+$", var.ptu_backend.url))
+    error_message = "ptu_backend.url must use HTTPS without a query or fragment."
+  }
 }
 
 variable "standard_backend" {
@@ -65,6 +70,11 @@ variable "standard_backend" {
     url         = string
     resource_id = string
   })
+
+  validation {
+    condition     = can(regex("^https://[^?#]+$", var.standard_backend.url))
+    error_message = "standard_backend.url must use HTTPS without a query or fragment."
+  }
 }
 
 variable "apim_principal_id" {

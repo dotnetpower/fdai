@@ -31,7 +31,6 @@ variable "worker_identity_client_id" {
   default = ""
 }
 variable "migration_identity_id" { type = string }
-variable "migration_identity_client_id" { type = string }
 variable "worker_database_dsn_secret_id" {
   type    = string
   default = ""

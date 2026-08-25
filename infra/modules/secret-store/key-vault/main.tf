@@ -1,8 +1,16 @@
 # The module retains a public dev path for disposable environments. Production
 # is not exempt: infra/production-gates.tf requires private networking, which
 # sets public access off and default_action to Deny.
-#trivy:ignore:AVD-AZU-0013
+# FDAI's reviewed teardown profile requires a purgeable seven-day vault so a
+# destroyed globally named environment can be recreated immediately.
+#trivy:ignore:AZU-0013
+#trivy:ignore:AZU-0016
 resource "azurerm_key_vault" "primary" {
+  # checkov:skip=CKV_AZURE_189:The production gate disables public access; the module retains a conditional day-zero path.
+  # checkov:skip=CKV_AZURE_109:network_acls explicitly bind the reviewed bypass, default action, IP rules, and subnet rules.
+  # checkov:skip=CKV_AZURE_42:Soft delete remains enabled by Azure and the provider recovers soft-deleted vaults on create.
+  # checkov:skip=CKV_AZURE_110:The documented teardown profile intentionally requires purge protection off with seven-day soft delete.
+  # checkov:skip=CKV2_AZURE_32:The root creates and links the Key Vault private endpoint whenever the production private-networking gate is active.
   name                            = var.name
   location                        = var.location
   resource_group_name             = var.resource_group_name
@@ -39,4 +47,3 @@ resource "azurerm_role_assignment" "executor_secrets_user" {
   role_definition_name = "Key Vault Secrets User"
   principal_id         = var.executor_principal_id
 }
-

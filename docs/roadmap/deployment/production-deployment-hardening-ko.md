@@ -1,8 +1,8 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: 1fbb3a15aeb50ab6294774fade8225eb161a5559
-translation_revised: 2026-08-24
+translation_source_sha: 28cb356d90432b06136dea5e2db5112cb3df1b49
+translation_revised: 2026-08-25
 ---
 # 운영 배포 강화
 
@@ -21,6 +21,7 @@ translation_revised: 2026-08-24
 |------|------|------|------|
 | 운영 계획 gate 및 환경 knob | implemented | `infra/production-gates.tf`, `infra/envs/{staging,prod}.tfvars.example`, Terraform 구성 테스트 | 서명된 이미지, 비공개 네트워크, 내구성, 모니터링 또는 비용 입력이 없으면 운영 계획을 차단합니다. 표준 프로파일은 전역 이름을 사용하는 리소스를 영구 삭제하고 관리 잠금을 비활성화합니다. |
 | 자격 증명 없는 인프라 및 drift gate | implemented | `.github/workflows/infra-lint.yml`, `.github/workflows/infra-drift.yml`, CI 계약 테스트 | 선언된 모든 상태 루트를 다루고 루트가 없거나 읽을 수 없거나 변경되면 실패 시 차단합니다. |
+| Baseline 없는 Terraform 보안 검사 | implemented | `.github/workflows/infra-lint.yml`, 인라인 Checkov 및 Trivy 예외, 집중 인프라 테스트 | Checkov와 Trivy에 Low를 초과하는 활성 점검 결과가 없습니다. 의도적 예외는 하나의 리소스에 연결되고 보완 제어 또는 관리형 서비스 제약을 인용합니다. |
 | exact-revision 보호 운영 적용 근거 | in-progress | [배포와 온보딩](deploy-and-onboard-ko.md#구현-상태) | 코드와 계획 gate는 있지만 이 소유 문서는 모든 제어를 함께 입증하는 현재 운영 적용을 하나로 보존하지 않습니다. |
 
 ### 구현 이력
@@ -32,6 +33,7 @@ translation_revised: 2026-08-24
 | 2026-08-24 | implemented | 비공개 runner에 구독 전체 생성 권한을 부여하는 대신 일회용 scenario lab을 기존의 보호된 holding 리소스 그룹에 연결했습니다. Apply와 destroy는 보호된 실행 동안 해당 그룹에만 Contributor를 부여한 뒤 회수하며, Terraform은 태그가 지정된 하위 리소스만 소유하고 제거합니다. 겹치지 않는 `10.73.0.0/20` VNet과 runner 전용 민감한 암호 구체화는 영속 secret store 없이 lab을 비공개 상태로 완전히 폐기할 수 있게 합니다. | `current change`; scenario-lab Terraform 유효성 검사와 finding 0건의 Trivy 및 Checkov 검사; 집중 scenario 및 workflow 계약. | 정확한 보호 plan, apply, VPN, 승인된 sweep 및 하위 리소스 destroy 증적을 보존합니다. |
 | 2026-08-24 | implemented | 비공개 runner에 구독 전체 생성 권한을 부여하는 대신 일회용 scenario lab을 기존의 보호된 holding 리소스 그룹에 연결했습니다. Apply와 destroy는 보호된 실행 동안 해당 그룹에만 Contributor를 부여한 뒤 회수하며, Terraform은 태그가 지정된 하위 리소스만 소유하고 제거합니다. Workflow는 명시적인 runner principal을 요구하며 권한을 부여하기 전에 활성 Azure Resource Manager token의 `oid`와 일치하는지 확인합니다. 겹치지 않는 `10.73.0.0/20` VNet과 runner 전용 민감한 암호 구체화는 영속 secret store 없이 lab을 비공개 상태로 완전히 폐기할 수 있게 합니다. | `current change`; scenario-lab Terraform 유효성 검사와 finding 0건의 Trivy 및 Checkov 검사; 집중 scenario 및 workflow 계약. | 정확한 보호 plan, apply, VPN, 승인된 sweep 및 하위 리소스 destroy 증적을 보존합니다. |
 | 2026-08-24 | implemented | 앞선 이력의 인플레이스 확장을 교정하기 위해 원래 scenario-lab 전환을 복원하고 runner 신원 결합을 별도로 기록했습니다. Workflow는 모호한 Azure CLI 계정 메타데이터를 명시적인 scenario runner principal로 교체하고, 임시 Contributor 권한을 부여하기 전에 활성 Azure Resource Manager token의 `oid`와 일치하도록 요구합니다. | `current change`; `.github/workflows/sre-demo-lab.yml`; `tests/integration/infra/test_scenario_lab.py` (`6 passed`); CI 계약과 일치 및 불일치 합성 token 검사. | 정확한 보호 plan, apply, VPN, 승인된 sweep 및 하위 리소스 destroy 증적을 보존합니다. |
+| 2026-08-25 | implemented | 오래된 리포지토리 전체 Checkov baseline을 리소스 로컬 예외로 교체하고 Storage 액세스 진단, PostgreSQL 감사 로깅, 로컬 사용자 비활성화, managed identity 및 범위가 제한된 NSG를 추가했으며 재사용 모듈마다 Terraform 호환성을 선언했습니다. | `current change`; 모든 루트의 Terraform 유효성 검사, Checkov `88 passed / 0 failed`, Trivy Medium 이상 0건, TFLint 0건. | 아래 열린 항목이 요구하는 exact protected 운영 계획 및 적용 근거를 보존합니다. |
 
 ### 남은 작업
 
@@ -116,7 +118,9 @@ Terraform이 stack을 직접 생성하도록 합니다.
 ## 지속적인 인프라 검사
 
 CI는 자격 증명 없는 gate 두 개를 추가합니다. [`infra-lint.yml`](../../../.github/workflows/infra-lint.yml)은
-모든 인프라 PR에서 format, validation, tfsec 및 Checkov를 실행합니다.
+모든 인프라 PR에서 format, validation, Trivy 및 Checkov를 실행합니다. Scanner는 리포지토리 전체
+finding baseline을 사용하지 않습니다. 의도적 예외는 정확한 리소스 옆에서 운영 gate, 구현된 제어,
+provider 제한 또는 관리형 서비스 제약을 설명합니다.
 [`infra-drift.yml`](../../../.github/workflows/infra-drift.yml)은 실행기에서 이전 방식, 독립 서비스
 다섯 개 및 bootstrap 상태 루트에 대해 scheduled `plan -detailed-exitcode`를 실행합니다. 루트가
 없거나 읽을 수 없거나 변경되면 실패 시 차단하므로 green은 일곱 루트를 모두 다룹니다.

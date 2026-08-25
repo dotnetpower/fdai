@@ -1,8 +1,8 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: e9804fa74ea3c88db455d09015df990a003be1cd
-translation_revised: 2026-08-24
+translation_source_sha: 76676b213b335c95976c02842537e1cecfd83719
+translation_revised: 2026-08-25
 ---
 # 배포 리소스 규약
 
@@ -25,6 +25,7 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 | Event Bus 제품 토픽 namespace | validated | 보호된 platform 적용 `32475924808`, Operator 적용 `32514233525`, 최종 실제 entity, RBAC, 환경, 서비스 상태, canary, HIL, stage, inventory, semantic 및 lag 관측 | 두 namespace에는 현재 `fdai.*` 제품 토픽만 있으며 runtime principal은 entity 범위 Event Hubs role을 사용하고 service 5개가 모두 healthy합니다. 승인된 개발 backlog는 삭제된 legacy entity와 함께 폐기했습니다. |
 | 독립 service Terraform state root | validated | `config/independent-service-live-evidence-manifest.json` 및 `config/independent-service-remote-evidence.json` | Service root 5개 모두에 통제된 계획, 적용, 상태, peer 격리 및 rollback 근거가 있습니다. |
 | 이전 방식 platform 및 ops-bootstrap Terraform state root | implemented | `infra/main.tf`, `infra/bootstrap/main.tf`, `.github/workflows/deploy-dev.yml` 및 집중 Terraform과 workflow 검사 | 안정적인 backend key와 배포 메커니즘은 제공되지만, 이 두 root의 통제된 적용 증적은 리포지토리에 보존되어 있지 않습니다. |
+| 재사용 Terraform 모듈 호환성 | implemented | `infra/modules/**/versions.tf`, `infra/services/**/modules/**/versions.tf`, TFLint | 모든 재사용 모듈은 Terraform `>= 1.9`를 선언하고 Azure 리소스를 소유한 모듈은 지원되는 AzureRM 4.x 범위를 제한합니다. |
 | OHL scale-out evidence target 명명 및 tag | implemented | `infra/main.tf`의 current change, `terraform -chdir=infra test -filter=tests/dev_operations_gateway.tftest.hcl` 결과 8 passed | 실제 프로비저닝 및 recurrence evidence는 열려 있습니다. |
 | Operator schema 및 catalog Job 명명 | implemented | `infra/main.tf`, `infra/modules/operator-api/container-app/`, `.github/workflows/deploy-dev.yml` 및 집중 배포 workflow 테스트 | 결정론적 이름과 digest-pinned image를 연결했으며 순서가 지정된 Job의 보호된 적용 증적은 열려 있습니다. |
 | 예약된 규칙 수집기 Job | implemented | `infra/main.tf`; `infra/modules/compute/container-apps/rule_watcher_job.tf`; `tests/integration/infra/test_rule_watcher_job.py`; 집중 인프라 검사(`26 passed`) 및 `terraform validate` | 구성 가능한 cron이 실행 권한이 없는 인벤토리 신원과 네이티브 StateStore 비밀 참조를 사용해 검증된 수집기 wrapper를 호출합니다. 실행기 신원을 받거나 카탈로그 항목을 승격할 수 없습니다. 보호된 적용 및 실행 증적은 열려 있습니다. |
@@ -37,6 +38,7 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-24 | implemented | 보호된 model resolver의 deployment-environment 입력을 복원하고 기존 proposal-only lifecycle caller를 위한 development 기본값을 유지했으며 provider query 전에 다른 environment 범위의 policy를 거부하도록 했습니다. | 실패한 보호 계획 `32735269365`는 Terraform 및 Azure mutation 전에 중단됨; `current change`; 집중 resolver 및 deployment workflow 검사 | 보호된 exact-revision 계획을 다시 실행하고 봉인된 model 및 Terraform receipt를 보존합니다. |
+| 2026-08-25 | implemented | 모든 재사용 모듈에 명시적인 Terraform 및 AzureRM 호환성 계약을 추가하고 더 이상 리소스를 소유하지 않는 이전 root 입력을 제거했습니다. | `current change`; platform, bootstrap, scenario-lab, dev-access 및 service root 5개의 유효성 검사 통과, TFLint 0건. | Provider major version 변경을 명시적으로 유지하고 지원 범위를 높이기 전에 각 재사용 모듈을 독립적으로 검증합니다. |
 | 2026-08-23 | implemented | 이전 `readapi` 물리 이름 선언을 현재 `operator-api` 구성 요소로 교체하고 독립 Operator 서비스 입력도 같은 접미사를 사용하도록 요구했습니다. 기존 Terraform 상태를 계속 해석할 수 있도록 과거 `moved` 주소는 유지합니다. | `current change`; `infra/main.tf`; `infra/services/operator-service/variables.tf`; 집중 명명 테스트 및 Terraform 검증 | 보호된 개발 교체를 실행하고 봉인된 Operator 서비스 입력을 새 앱과 워크로드 신원으로 갱신한 뒤 상태 및 신원 근거를 보존합니다. |
 | 2026-08-22 | validated | 보호된 Event Bus namespace migration 및 post-apply transport 감사를 완료했습니다. 최종 inventory에는 `aw.*` entity 또는 runtime binding이 없고, runtime Event Hubs role은 entity 범위이며, service 5개가 모두 healthy합니다. Canary 및 inventory Job이 성공했고, HIL은 효과가 없는 unknown-park decision을 소비했으며, Core는 stage 토픽을 binding했고, Operator semantic bridge는 request와 typed projection을 상관시켰고, 활성 Core consumer lag는 0이었습니다. 승인된 개발 backlog는 drain하지 않고 폐기했습니다. | Platform plan/apply `32475286429`/`32475924808`, worker 적용 `32491597630`, Operator plan/apply `32513787359`/`32514233525`, canary `ca-fdai-dev-krc-core-canary-7hdxtnq`, inventory `ca-fdai-dev-krc-core-inventory-xxv64n0`, semantic request `00000000-0000-0000-0000-000000000000` 및 projection `00000000-0000-0000-0000-000000000000`. Core 적용 `32505670219`은 exact plan 적용 및 health를 통과한 뒤 동시 Operator state serial 변경 때문에 peer receipt만 실패했으며 최종 5-service audit가 결과 live state를 다시 검증했습니다. | 이슈 #253에 남은 작업이 없습니다. |
 | 2026-08-22 | implemented | 동일 image 토픽 전환은 schema 변경 없이 유지하면서, image가 변경되는 봉인된 토픽 rollout은 service 소유 database migration을 먼저 실행하도록 했습니다. 이전의 무조건적인 skip 때문에 더 최신 Operator image가 baseline service migration head에서 시작해 준비되지 못하고 자동 rollback되었습니다. | 실패한 Operator 적용 `32505673096`, `service-deploy.yml`의 `current change`, 집중 workflow contract 테스트. | 정확한 Operator plan을 다시 생성하고 적용한 뒤 semantic request 및 projection transport를 입증합니다. |
@@ -218,6 +220,11 @@ Container App은 `service-deploy.yml`을 사용하며, 이전 방식 platform �
   이름을 결정합니다.
 
 ## Terraform 상태 루트 규약
+
+재사용 모듈은 호출자의 우발적인 provider 선택을 상속하지 않고 자체 호환성 하한을 선언합니다.
+Azure 리소스 모듈은 Terraform `>= 1.9` 및 AzureRM `~> 4.14`를 요구하고 provider가 없는 rendering
+모듈은 Terraform 하한만 선언합니다. 따라서 provider major upgrade에는 명시적인 모듈 계약 변경과
+독립 검증이 필요합니다.
 
 모든 운영 Terraform 루트는 안정적인 루트 id, 환경별 백엔드 키, 스케줄된 표류 계획을
 각각 하나씩 가집니다. 현재 배포 계약에는 루트 7개가 있습니다.

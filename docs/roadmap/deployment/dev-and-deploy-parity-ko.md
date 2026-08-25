@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 2b2915b804a18aba052c174b40b78752a69547b8
+translation_source_sha: 541418785ccaf28d2466c46ca87792eda6877b41
 translation_revised: 2026-08-25
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -26,6 +26,7 @@ translation_revised: 2026-08-25
 | 로컬 컨트롤 루프 변경 이벤트 유입 | validated | `.vscode/tasks.json`, `infra/modules/compute/container-apps/inventory_job.tf`, `tests/integration/infra/test_inventory_repair_wiring.py`, 로컬 실행 1회가 권위 있는 `inventory.resource_changed` 이벤트 5건을 발행했고 인증된 Live 화면이 `Runtime observed`와 `5 routed events`를 보고 | 로컬 inventory reconciliation 태스크가 VNet 통합 배포 job과 똑같이 `FDAI_INVENTORY_RECOVERY_DELTA=1`을 바인딩하므로 Activity Log delta가 두 장소 모두에서 `aw.change.events`에 도달합니다. 배포 job은 infrastructure subnet이 없으면 여전히 delta를 비활성화합니다. |
 | 로컬 및 배포 composition 동등성 | implemented | `.vscode/tasks.json`, `.vscode/launch.json`, `scripts/deployment/local/`, `infra/`, `fdai_operator_service/composition.py`, 서비스 통합 테스트 및 focused Operator 검사(`51 passed`) | Composition root는 근거 권한을 바꾸지 않고 자격 증명과 어댑터를 선택합니다. 로컬 및 배포 Operator composition은 같은 Reader 범위 `GET /browser-evidence` 경로와 권위 있는 데이터 출처 ID를 등록하며 PostgreSQL이 없으면 합성 데이터 대신 사용 불가를 반환합니다. |
 | 독립 A3 channel-edge 동등성 | 구현됨 | `channel_edge/`, `prepare-channel-edge-env.sh`, `.vscode/tasks.json`, `infra/services/operator-service`, 플랫폼 edge identity/RBAC, 집중 edge 및 로컬 실행 검사 | 두 venue는 port 8014에서 동일한 Operator distribution ASGI factory, PostgreSQL store, 의미 EventBus bridge, 프로바이더 경로 및 readiness 논리를 실행합니다. Local은 private 0600 provider input과 Redpanda를 사용하고 deployed는 Key Vault reference, Event Hubs Kafka 및 전용 non-executor Managed Identity를 사용합니다. Provider 구성이 없으면 선택적 기능은 synthetic 대신 unavailable 상태를 유지합니다. |
+| 재사용 가능한 서비스 Terraform 모듈 호환성 | implemented | `infra/services/**/modules/**/versions.tf`, Terraform 검증 및 TFLint | 모든 재사용 가능한 서비스 모듈이 Terraform `>= 1.9`를 선언하며 프로바이더 소유권은 서비스 루트에 유지됩니다. |
 | Primary worktree 명시적 전체 스택 시작 | implemented | `.vscode/tasks.json`, `prepare-console-full-stack.sh`, `start-console-services.sh`, `run-console-service.sh`, `developer-workflow.py`, 집중 시작 계약 테스트 | 폴더를 열 때 더 이상 이행, 권위 데이터 새로 고침 또는 애플리케이션 서비스를 실행하지 않습니다. 준비 작업은 로컬 의존성을 복구하고 독립적으로 fingerprint된 7개 단계를 재사용하며, 캐시 재사용에 실행 중인 스택을 요구하지 않습니다. Supervisor는 프로세스를 시작한 뒤 시작 호출자를 해제하고 전체 준비 상태 게이트를 계속 실행하며 명시적 대기 작업을 제공합니다. |
 | 선택적 10분 로컬 복구 감시 | implemented | `.vscode/tasks.json`, `watch-console-services.sh`, `developer-workflow.py`, 집중 workspace 태스크 계약 | 단일 인스턴스 태스크가 600초마다 구성 요소 6개의 준비 상태 계약을 확인합니다. 정상 스택은 건너뛰고 실패한 경우에는 표준 준비 및 supervisor 경로를 사용하여 고정 로컬 포트와 서비스 소유권 규칙을 유지합니다. |
 | 로컬 진단 로그 복원력 | implemented | `capture-local-service-log.py`, `fdai.shared.telemetry.logging`, 집중 telemetry 및 launcher 검사 | 경고 보존은 레코드별 압축 없이 추가하고, 로컬 파일 캡처는 터미널 역압력과 격리하며, 과대 레코드는 범위를 제한하고, 반복 의존성 실패는 최초·주기·서로 다른 실패 근거를 보존합니다. |
@@ -43,6 +44,7 @@ translation_revised: 2026-08-25
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
+| 2026-08-25 | implemented | 서비스 소유권이나 프로바이더 선택을 바꾸지 않고 모든 재사용 가능한 서비스 모듈에 Terraform `>= 1.9` 호환성을 선언했습니다. | `current change`, `infra/services/**/modules/**/versions.tf`, Terraform 검증 및 TFLint | 프로바이더 주 버전 변경을 명시적으로 유지하고 지원 범위를 넓히기 전에 각 서비스 루트를 검증합니다. |
 | 2026-08-25 | implemented | LLM 측정 행을 추가하는 데 필요한 정확한 identity sequence 권한을 부여하되 sequence 변경 권한은 주지 않는 정방향 Core service migration을 추가했습니다. | `current change`, `core_metering_sequence_20260825`, service migration inventory 55건 통과, Core branch 검증에서 table 126개, transition 12개 및 새 head 확인 | 성공한 exact Core apply, 측정 기록 쓰기 및 post-apply 상태 증적을 보존합니다. |
 | 2026-08-25 | implemented | 선택적 `console: keep full stack ready (10m)` 태스크를 추가했습니다. 기존의 범위가 제한된 6개 구성 요소 준비 상태 검사를 600초마다 실행하고, 정상 구성은 건너뛰며 준비 상태 검사에 실패한 경우에만 표준 준비 및 supervisor 경로로 진입합니다. | `current change`, `.vscode/tasks.json`, `scripts/deployment/local/watch-console-services.sh`, `tests/integration/scripts/test_vscode_workspace_performance.py`, 집중 workspace 계약 테스트 4개 통과, 셸 구문 및 VS Code 진단 통과 | 선택적 로컬 복구 감시에 남은 구현 작업은 없습니다. |
 | 2026-08-25 | implemented | 배포 Core 모델 조립을 exact image가 증명한 resolved artifact에 결속하고 모델 정책 CAS가 변경 가능한 Terraform 입력 대신 healthy active revision을 관측하도록 했습니다. Apply는 같은 revision, image 및 model digest를 다시 검증합니다. | [이슈 #270](https://github.com/dotnetpower/fdai/issues/270); 보호 service/model workflow, guard, plan bundle, active-runtime 검증기 및 통합 집중 검사. | 검증 전에 live Core transition 및 정방향/역방향 PTU 증적을 보존합니다. |

@@ -11,8 +11,7 @@ postgres_admin_login    = "fdaiadmin"
 postgres_admin_password = "SET-ME-VIA-VAULT"
 
 # Replace the all-zero digest before planning; production-gates.tf blocks it.
-core_image   = "REPLACE-WITH-SIGNED-IMAGE@sha256:0000000000000000000000000000000000000000000000000000000000000000"
-max_replicas = 10
+core_image = "REPLACE-WITH-SIGNED-IMAGE@sha256:0000000000000000000000000000000000000000000000000000000000000000"
 
 enable_private_networking = true
 enable_private_postgres   = true

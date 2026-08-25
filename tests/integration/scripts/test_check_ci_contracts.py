@@ -484,3 +484,5 @@ def test_infrastructure_scan_blocks_medium_high_and_critical_findings() -> None:
     ).read_text(encoding="utf-8")
 
     assert "trivy config --exit-code 1 --severity MEDIUM,HIGH,CRITICAL infra" in workflow
+    assert "checkov -d infra --quiet --compact --framework terraform" in workflow
+    assert "--baseline" not in workflow

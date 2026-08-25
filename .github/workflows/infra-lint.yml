@@ -74,4 +74,3 @@ jobs:
       - name: Checkov
         run: >-
           checkov -d infra --quiet --compact --framework terraform
-          --baseline infra/.checkov.baseline

@@ -18,6 +18,7 @@ networking, trusted images, notification destinations, monitoring, and cost ceil
 |------|-------|----------|-------|
 | Production plan gates and environment knobs | implemented | `infra/production-gates.tf`; `infra/envs/{staging,prod}.tfvars.example`; Terraform configuration tests | Missing signed image, private network, durability, monitoring, or cost inputs block a production plan. Standard profiles permanently delete globally named resources and leave management locks disabled. |
 | Credential-free infrastructure and drift guards | implemented | `.github/workflows/infra-lint.yml`; `.github/workflows/infra-drift.yml`; CI contract tests | The checks cover all declared state roots and fail closed on a missing, unreadable, or changed root. |
+| Baseline-free Terraform security scanning | implemented | `.github/workflows/infra-lint.yml`; inline Checkov and Trivy exceptions; focused infrastructure tests | Checkov and Trivy report no active finding above Low. Every intentional exception is attached to one resource and cites its compensating control or managed-service constraint. |
 | Exact-revision protected production apply evidence | in-progress | [Deploy and Onboard](deploy-and-onboard.md#implementation-status) | Code and plan guards exist, but this owner document does not retain one current production apply proving every control together. |
 
 ### Implementation history
@@ -29,6 +30,7 @@ networking, trusted images, notification destinations, monitoring, and cost ceil
 | 2026-08-24 | implemented | Bound the disposable scenario lab to an existing protected holding resource group instead of granting the private runner subscription-wide creation rights. Apply and destroy grant Contributor only on that group for the protected run and then revoke it; Terraform owns and destroys only tagged child resources. The non-overlapping `10.73.0.0/20` VNet and runner-only sensitive password materialization keep the lab private and fully disposable without a persistent secret store. | `current change`; scenario-lab Terraform validation and zero-finding Trivy and Checkov scans; focused scenario and workflow contracts. | Retain the exact protected plan, apply, VPN, approved sweep, and child-resource destroy receipts. |
 | 2026-08-24 | implemented | Bound the disposable scenario lab to an existing protected holding resource group instead of granting the private runner subscription-wide creation rights. Apply and destroy grant Contributor only on that group for the protected run and then revoke it; Terraform owns and destroys only tagged child resources. The workflow requires an explicit runner principal and matches it to the active Azure Resource Manager token `oid` before the grant. The non-overlapping `10.73.0.0/20` VNet and runner-only sensitive password materialization keep the lab private and fully disposable without a persistent secret store. | `current change`; scenario-lab Terraform validation and zero-finding Trivy and Checkov scans; focused scenario and workflow contracts. | Retain the exact protected plan, apply, VPN, approved sweep, and child-resource destroy receipts. |
 | 2026-08-24 | implemented | Corrected the preceding in-place history expansion by restoring the original scenario-lab transition and recording the runner identity binding separately. The workflow replaces ambiguous Azure CLI account metadata with an explicit scenario runner principal and requires it to match the active Azure Resource Manager token `oid` before temporary Contributor authority can be granted. | `current change`; `.github/workflows/sre-demo-lab.yml`; `tests/integration/infra/test_scenario_lab.py` (`6 passed`); CI contracts and synthetic matching and mismatched token checks. | Retain the exact protected plan, apply, VPN, approved sweep, and child-resource destroy receipts. |
+| 2026-08-25 | implemented | Replaced the stale repository-wide Checkov baseline with resource-local exceptions, added Storage access diagnostics, PostgreSQL audit logging, local-user disablement, managed identities, and bounded NSGs, and made every reusable module declare its Terraform compatibility. | `current change`; Terraform validation across all roots; Checkov `88 passed / 0 failed`; Trivy reported no Medium-or-higher issue; TFLint reported no issue. | Retain the exact protected production plan and apply evidence required by the open items below. |
 
 ### Remaining work
 
@@ -113,7 +115,9 @@ applied; new environments should let Terraform create the stack directly.
 ## Continuous infrastructure checks
 
 CI adds two credential-free guards: [`infra-lint.yml`](../../../.github/workflows/infra-lint.yml)
-runs format, validation, tfsec, and Checkov on every infrastructure PR.
+runs format, validation, Trivy, and Checkov on every infrastructure PR. The scanners use no
+repository-wide finding baseline. An intentional exception stays beside its exact resource and
+names the production gate, implemented control, provider limitation, or managed-service constraint.
 [`infra-drift.yml`](../../../.github/workflows/infra-drift.yml) runs scheduled
 `plan -detailed-exitcode` on the runner for the legacy, five independent-service, and bootstrap
 state roots. It fails closed on a missing, unreadable, or changed root, so green covers all seven.

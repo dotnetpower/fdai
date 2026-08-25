@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[3]
 def test_case_history_storage_is_private_versioned_and_keyless() -> None:
     module = (ROOT / "infra/modules/storage/case-history/main.tf").read_text(encoding="utf-8")
     assert "shared_access_key_enabled         = false" in module
+    assert "local_user_enabled                = false" in module
     assert "default_to_oauth_authentication   = true" in module
     assert "versioning_enabled  = true" in module
     assert 'container_access_type = "private"' in module
@@ -16,6 +17,10 @@ def test_case_history_storage_is_private_versioned_and_keyless() -> None:
     assert 'bypass         = ["None"]' in module
     assert 'dynamic "private_link_access"' in module
     assert "for_each = var.private_link_access" in module
+    assert 'resource "azurerm_monitor_diagnostic_setting" "case_history_blob"' in module
+    assert 'category = "StorageRead"' in module
+    assert 'category = "StorageWrite"' in module
+    assert 'category = "StorageDelete"' in module
 
 
 def test_root_wires_case_history_private_endpoint_and_core_environment() -> None:
@@ -25,6 +30,7 @@ def test_root_wires_case_history_private_endpoint_and_core_environment() -> None
     assert 'module "case_history_storage"' in root
     assert 'module "case_history_identity"' in root
     assert "runtime_principal_id          = module.case_history_identity[0].principal_id" in root
+    assert "log_analytics_workspace_id    = module.log_analytics.workspace_id" in root
     assert "private_link_access = var.enable_private_networking ? {" in root
     assert "Microsoft.Security/datascanners/StorageDataScanner" in root
     assert "module.case_history_identity[0].resource_id" in root

@@ -19,16 +19,10 @@ output "database_name" {
 }
 
 # ---------------------------------------------------------------------------
-# Application DSNs.
+# Application DSN.
 #
-# The core control plane reads three env vars:
-#   - FDAI_STATE_STORE_DSN         (audit + KPI append-only tables)
-#   - FDAI_OPERATOR_MEMORY_DSN     (HIL-approved operator memory)
-#   - FDAI_T1_PATTERN_LIBRARY_DSN  (pgvector similarity reuse)
-#
-# Day-zero the three point at the same database (see deploy-and-onboard.md
-# "PostgreSQL Flexible Server ... single store"). A fork MAY split them
-# later without touching the core, since each is a separate env var.
+# The platform root publishes this DSN for legacy jobs. Independent services
+# add role-scoped secret references at their service roots.
 #
 # Marked `sensitive` because it embeds the bootstrap admin password. In
 # production, forks rotate to AAD auth and swap this DSN for a token-based
@@ -39,4 +33,3 @@ output "application_dsn" {
   value       = "postgresql://${urlencode(var.administrator_login)}:${urlencode(var.administrator_password)}@${azurerm_postgresql_flexible_server.primary.fqdn}:5432/${var.database_name}?sslmode=require"
   sensitive   = true
 }
-
