@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 7e5f203d680426025e55110a816b830d9d1c243f
-translation_revised: 2026-08-24
+translation_source_sha: 3de946fd81e2b0efadb92a21d533a1f173560144
+translation_revised: 2026-08-25
 ---
 # 프로젝트 구조
 
@@ -152,6 +152,10 @@ translation_revised: 2026-08-24
   rate limit, 범위가 제한된 backoff, 최대 노후 목표에 따라 이벤트 ingress, 재개 가능한 delta,
   부하 인식 reconciliation을 지속적으로 결합합니다. 로컬 실행 장치는
   Azure 발견을 실행하지 않습니다.
+  OI-12 집계 인증은 순수 Core 증적으로 유지합니다. 정확히 7개 축을 요구하고, 측정하지 않은
+  축은 범위가 제한된 사유와 함께 사용할 수 없는 상태로 유지하며, 관찰, 변경 및 실행 권한을
+  false로 고정합니다. `complete` 필드는 측정 범위만 의미합니다. 수집은 계속 provider adapter가
+  소유하며 배포 인증은 별도 근거로 남습니다.
   Organization은 디렉터리와 Org chart 보기를 제공하며, `?view=org`는 실시간 보고 계층의 직접
   링크를 유지하고 각 노드는 해당 에이전트의 런타임 상세 포커스를 엽니다.
   활동 링크는 선택한 에이전트를 경로 조회에 유지합니다. 활동은 영구 감사 타임라인보다

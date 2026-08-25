@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 1182,
+  "file_count": 1183,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "ebca41cd37517c9c564b1351302f9222805b56f186b9a83e9a562e69a51a74a9",
     ".github/instructions/agent-stewardship.instructions.md": "e2e2224db17159323f910252e0f9f6efb44c0f1d7e0d217d5159745c15c9ff46",
@@ -550,6 +550,7 @@
     "services/core-control-plane/src/fdai/core/ontology_platform/objective_rule_resolution.py": "eb61af2b3c65542ba974c52b2665cbea9beea2419eda60cd0acb10a12f054efc",
     "services/core-control-plane/src/fdai/core/ontology_platform/observation_adjudication.py": "a63046490d8f5f427b38e015d1b7e8ac356e4c7907b064ce26a0a1b9fd567f17",
     "services/core-control-plane/src/fdai/core/ontology_platform/operational_functions.py": "bb7ef2f9e4f4239aca3807024c7c895e10b19026d0189e00e554b5194ce64920",
+    "services/core-control-plane/src/fdai/core/ontology_platform/operational_instance_certification.py": "43d897ed8ce5aa211b3ef7a4a30f68b42e3cfbd39c47c515300424d72a19f2a0",
     "services/core-control-plane/src/fdai/core/ontology_platform/operational_instance_competency.py": "a100cd57d83934a41fd82d6d6806efbae7ede325f8505bb821eb50fa33999230",
     "services/core-control-plane/src/fdai/core/ontology_platform/planning.py": "35e537003f1b68f88d7cb13a8fc214ed3a5ea210f98e894483c784fd42b87f07",
     "services/core-control-plane/src/fdai/core/ontology_platform/pod_telemetry.py": "e1f0ec5a121bee9cfd5b45fcd44dc27434522e6f37a3b6c605739fe52160b34b",
@@ -1185,7 +1186,7 @@
     "services/core-control-plane/src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "services/core-control-plane/src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-25T03:01:25Z",
+  "generated_at": "2026-08-25T03:21:46Z",
   "surface": [
     "services/core-control-plane/src/fdai/core/",
     "services/core-control-plane/src/fdai/composition.py",

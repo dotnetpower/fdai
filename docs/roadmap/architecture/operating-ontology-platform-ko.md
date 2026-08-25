@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 2c7681df20c777b9156726913d1f15738e5df0a3
-translation_revised: 2026-08-24
+translation_source_sha: 4f61648300f855f8da20b85f8cb96fc233e5f2e5
+translation_revised: 2026-08-25
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -119,6 +119,7 @@ Console은 redaction, 호환성, 완전성 또는 권한을 계산하지 않습�
 |------|------|------|------|
 | K0 exact release 신원 및 영속성 | implemented | [`release.py`](../../../services/core-control-plane/src/fdai/shared/ontology/release.py), [`postgres_ontology.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_ontology.py), [`inventory_ontology.py`](../../../services/core-control-plane/src/fdai/runtime/inventory_ontology.py), [`20260813_0081_ontology_release_registry.py`](../../../alembic/versions/20260813_0081_ontology_release_registry.py), [`20260817_0085_historical_ontology_release.py`](../../../alembic/versions/20260817_0085_historical_ontology_release.py), focused 영속성/런타임 테스트 | Exact 신원, release에 고정된 쓰기, 재시작에 안전한 매니페스트 로딩, release에 결속된 인벤토리 변환 근거, 정확한 과거 객체/링크 release backfill이 존재합니다. 등록되지 않은 release는 계속 안전하게 차단됩니다. 이행 전 행과 과거 인벤토리 매니페스트는 정직하게 고정하지 않은 상태로 유지합니다. 운영 Live 근거는 아직 남아 있습니다. |
 | 인벤토리 상태 사실 최신성과 분류 동등성 | implemented | `inventory_projection.py`, `inventory_ontology.py`, 예약 및 로컬 인벤토리 조립, 집중 변환 및 연결 검사 | 관측 상태 사실은 더 짧은 고정 유효 기간 대신 구성된 정상 조정 보장 시간을 선언합니다. 예약 및 로컬 변환기는 모두 검토된 ResourceType mapping digest를 받습니다. Exact revision 런타임 근거는 아직 남아 있습니다. |
+| OI-12 집계 인증 증적 | implemented | `operational_instance_certification.py`, 집중 인증 검사(`8 passed`) | 순수 증적은 최신성, API 압력, 지연, 저장소 증가, rollup 범위, archive 복원 및 provider 실패 복구 축을 정확히 한 번씩 요구합니다. 측정하지 않은 축은 범위가 제한된 사유와 함께 사용할 수 없는 상태로 남고, `complete`는 통과 판정이 아니라 측정 범위를 보고하며, 모든 권한 필드는 false를 유지합니다. 배포 측정과 인증은 열린 상태입니다. |
 | Exact-release 선언 워크벤치 변환 결과 | implemented | `delivery/ontology_{declaration,dependents,evidence_health,release_diff}_projection.py`; 로컬 권한 카탈로그 materializer; Operator operations family; focused 변환 및 route 검사 | ObjectType, LinkType, ActionType 상세는 정확한 release 신원을 보존합니다. 종속 항목은 카탈로그 토폴로지만 사용하고, 근거 상태는 0을 만들어 내지 않으며, 보존 release 비교는 변경 권한 없이 선언 참조 수준을 유지합니다. InterfaceType 및 FunctionType 전용 보기는 측정된 P2 진입 조건에 따라 deferred 상태입니다. |
 | K1-K5 범위가 제한된 의미 조회 및 함수 인프라 | in-progress | [`semantic_planning_frame.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning_frame.py), [`operational_functions.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/operational_functions.py), [`incident_queries.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/incident_queries.py), [`kubernetes_api_inventory.py`](../../../services/core-control-plane/src/fdai/delivery/kubernetes_api_inventory.py), [`kubernetes_inventory.py`](../../../services/core-control-plane/src/fdai/delivery/kubernetes_inventory.py), [`test_inventory_sync.py`](../../../services/core-control-plane/tests/delivery/test_inventory_sync.py), [`test_wire_pod_telemetry.py`](../../../services/core-control-plane/tests/composition/test_wire_pod_telemetry.py) | Core 기본 요소, 범위가 제한된 인시던트 근거, UID에 근거한 Kubernetes API 수집, 원자적 런타임 enrichment 및 발급된 Pod 조립 검사가 존재합니다. 인시던트 조회는 근거가 있는 기록에서만 근본 원인을 노출할 수 있습니다. Kubernetes 링크는 독립적으로 검증되며 실행 권한을 부여하지 않습니다. 인증된 인시던트 및 Kubernetes 실제 운영 근거는 아직 남아 있습니다. |
 | 정확한 대상 상태 근거 FunctionType | validated | `semantic_health_planning.py`, `resource_health_assessment_queries.py`, `query_source_handlers.py`, 운영 의미 조립, 집중 검사 및 인증된 Console 증적 | 소스에서 파생한 결정론적 FunctionType은 정확한 현재 상태, 범위가 제한된 활동, 검토된 메트릭 구간을 결합합니다. 파생 상태는 근거 충분성, 수명 주기, 확인되지 않은 준비 상태 및 애플리케이션 상태, 안정성, 리소스 압력, 최신성, 공백만 보고할 수 있습니다. 외부 사실을 단정하거나 불완전한 근거를 숨기거나 실행 권한을 부여할 수 없습니다. 재시작 후 같은 질문 실행은 노드 7개를 모두 완료하고 사용할 수 없는 모든 소스를 공백으로 보존했습니다. |

@@ -155,6 +155,10 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   resumable deltas, and load-aware reconciliation under source budgets, provider rate limits,
   bounded backoff, and [maximum staleness objectives](continuous-operational-instance-graph.md);
   the local harness runs no Azure discovery.
+  OI-12 aggregate certification remains a pure Core receipt. It requires exactly seven axes,
+  keeps unmeasured axes unavailable with bounded reasons, and fixes observation, mutation, and
+  execution authority to false. Its `complete` field means measurement coverage only. Provider
+  adapters still own collection, and deployed certification remains separate evidence.
   Organization offers Directory and Org chart views; `?view=org` preserves a direct link to the
   live reporting hierarchy, and each node opens that agent's focused runtime detail.
   Its filters and search are browser-local presentation controls; Activity links preserve the
