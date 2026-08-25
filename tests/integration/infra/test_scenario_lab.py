@@ -113,6 +113,16 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     assert "Grant bounded operator network authority" in workflow
     assert '--role "Network Contributor"' in workflow
     assert '--scope "$OPERATOR_VNET_ID"' in workflow
+    assert "Wait for bounded authority propagation" in workflow
+    assert "readonly authority_deadline_seconds=300" in workflow
+    assert "readonly authority_retry_seconds=15" in workflow
+    assert "readonly authority_deadline=$((SECONDS + authority_deadline_seconds))" in workflow
+    assert "local deadline=$((SECONDS + authority_deadline_seconds))" not in workflow
+    assert "Microsoft.Authorization/permissions?api-version=2022-04-01" in workflow
+    assert 'wait_for_effective_action "$RESOURCE_GROUP_ID" "*"' in workflow
+    assert '"$OPERATOR_VNET_ID" "Microsoft.Network/*"' in workflow
+    assert "authority did not become effective within five minutes" in workflow
+    assert 'echo "$permissions"' not in workflow
     assert "Revoke bounded operator network authority" in workflow
     assert "steps.operator-network-authority.outputs.remove_after_run == 'true'" in workflow
     assert "Install checksum-pinned kubelogin" in workflow
@@ -126,7 +136,7 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     assert "--retry 2 --retry-delay 2 --retry-all-errors --retry-max-time 120" in workflow
     assert "required kubelogin installer command is unavailable" in workflow
     assert 'trap \'rm -rf -- "$archive" "$extract_dir"\' EXIT' in workflow
-    assert "for command_name in az helm jq kubectl kubelogin terraform" in workflow
+    assert "for command_name in az helm jq kubectl kubelogin terraform timeout" in workflow
     assert "Adopt succeeded partial-apply network resources" in workflow
     assert "scenario-lab partial-resource adoption rejected an invalid resource id" in workflow
     assert (
