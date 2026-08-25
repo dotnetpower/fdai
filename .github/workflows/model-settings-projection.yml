@@ -59,8 +59,8 @@ jobs:
               "$PROTECTED_ORIGIN_URL" \
               "+refs/heads/main:refs/remotes/origin/main" "$TARGET_COMMIT_SHA"
           unset auth_header
-          git -C "$guard_repo" merge-base --is-ancestor \
-            "$TARGET_COMMIT_SHA" refs/remotes/origin/main
+          git -C "$guard_repo" merge-base --is-ancestor "$TARGET_COMMIT_SHA" \
+            refs/remotes/origin/main
           git -C "$guard_repo" diff --quiet \
             "$TARGET_COMMIT_SHA:$PROTECTED_WORKFLOW_PATH" \
             "refs/remotes/origin/main:$PROTECTED_WORKFLOW_PATH"

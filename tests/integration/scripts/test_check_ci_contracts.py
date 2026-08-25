@@ -235,6 +235,7 @@ def test_shipped_privileged_workflow_inventory_is_explicitly_audited() -> None:
         "infra-drift.yml",
         "issue-lifecycle.yml",
         "model-lifecycle-reconcile.yml",
+        "model-settings-projection.yml",
         "pages.yml",
         "remote-evidence-attest.yml",
         "service-deploy.yml",

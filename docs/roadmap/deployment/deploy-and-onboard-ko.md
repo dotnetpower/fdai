@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: e3ce90132ba1d5c8c81a3aebb1e6d3718722c372
+translation_source_sha: a20a28a73e3675ed86f595a10dc4190816cd37bf
 translation_revised: 2026-08-25
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -26,7 +26,6 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 | 지속 인벤토리 Job | implemented | `inventory_job.tf`, `inventory_job_config.py`, 집중 인벤토리 및 인프라 검사 | 1분 cron이 변경 비우기와 실행 조건 확인을 구동합니다. Terraform은 변경 하한, 진행 및 절대 마감, 공유 ARG 요청 예산을 전달합니다. 보호 적용 및 실제 운영 주기 근거는 아직 남아 있습니다. |
 | 전역 provider-schema Job | implemented | `provider_schema_job.tf`, `provider_schema_watcher_cli.py`, `provider_schema_state_ledger.py`, 집중 provider, Pantheon, Terraform 및 infrastructure 검사 | Daily read-only Job은 immutable upstream revision을 해석하고 append-only ledger를 private PostgreSQL로 보존하며 strict material drift를 Heimdall의 기존 shadow topic으로 route합니다. Protected apply 및 scheduled-run receipt는 열린 작업입니다. |
 ### 구현 이력
-
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-21 | implemented | 보호된 runner의 암묵적인 system pip 의존성을 제거했습니다. Workflow는 저장소가 pin한 uv release를 설치하고 frozen Core package 환경에서 model resolution과 production readiness를 실행합니다. | `current change`; 실패한 보호 계획 실행 `32434472993`; 집중 배포 workflow 계약, YAML parsing 및 dependency command 검사. | 정확한 Event Bus 이행 계획을 다시 실행하고 protected plan/apply 근거를 보존합니다. |
@@ -38,6 +37,7 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 | 2026-08-25 | implemented | 변경 가능한 repository 정책 입력을 정확한 Operator 모델 계획 제안 하나와 현재 revision 정책을 결합하는 보호된 runner의 읽기 전용 경로로 대체했습니다. 요청 ID는 제안 token과 정책 다이제스트를 결속하고 exact 적용은 계속 봉인된 산출물만 복원합니다. | `current change`; `model_binding_proposal.py`; `deploy-dev.yml`; 집중 제안, 요청, 수명 주기 및 workflow 검사. | 통제된 제안-계획 증적 하나를 보존한 뒤 exact 모델 적용, readback 및 rollback 근거를 완료합니다. |
 | 2026-08-25 | implemented | 보호된 workflow가 reviewability 예산을 초과한 뒤 모델 제안 조회와 state 초기화를 범위가 제한된 helper 하나로 추출했습니다. Workflow는 line 및 step 상한 안에 유지되고 helper 구문과 제안 guard는 실행 가능한 계약으로 남습니다. | `current change`; `materialize-model-binding-proposal.sh`; `test_deploy_workflow_diet.py`; 집중 수명 주기 및 workflow 검사. | 앞서 기록한 통제된 제안-계획과 exact 적용 근거를 보존합니다. |
 | 2026-08-25 | implemented | Repository 산출물, 활성 Core runtime 및 image attestation 다이제스트가 일치한 뒤 누락된 deployed 모델 Settings projection만 복원하는 exact-revision 보호 workflow를 추가했습니다. 완료 전에 환경과 다이제스트를 다시 읽어 검증합니다. | `current change`; `model-settings-projection.yml`; `materialize-authoritative-settings.py`; 집중 projection 및 workflow 검사. | 통제된 모델 계획 제안을 제출하기 전에 projection 증적 하나를 실행하고 보존합니다. |
+| 2026-08-25 | implemented | Required CI가 초기 workflow를 거부한 뒤 모델 Settings producer를 명시적 privileged-workflow inventory에 등록하고 ancestor 검사를 protected-source audit 계약과 일치시켰습니다. | 실패한 required CI 실행 `32829880817`; `current change`; CI 계약 및 projection workflow 검사 45개 통과. | Projection을 dispatch하기 전에 정확한 repair revision의 required CI를 다시 실행합니다. |
 | 2026-08-24 | implemented | 일회용 scenario endpoint에 기존 중앙 OpenAI Private DNS zone을 재사용했습니다. Scenario state는 lab VNet link, private endpoint 및 zone group만 소유하며 기존 runner와 P2S link는 중앙 소유로 유지합니다. | 실패한 protected apply `32752288798`; `infra/scenario-lab/` 및 `.github/workflows/sre-demo-lab.yml`의 `current change`; 집중 Terraform 및 workflow 검사입니다. | Protected scenario apply, 승인된 sweep 및 최종 destroy 증적을 완료합니다. |
 | 2026-08-13 | implemented | 이전 provenance를 재구성하지 않고 implementation ledger를 도입하고 범위가 제한된 OHL evidence target의 protected provisioning 및 proposal-only Job을 추가했습니다. | current change, 집중 Terraform test 결과 8 passed 및 publisher/workflow test 결과 13 passed | Exact 계획을 적용하고 증명된 런타임 이미지를 배포한 뒤 실제 evidence campaign을 완료합니다. |
 | 2026-08-13 | implemented | 로컬 파괴적 migration 검증을 활성 로컬 런타임 PostgreSQL cluster에서 격리했습니다. | 현재 변경, Compose configuration 통과, focused queue 및 local-environment test 68개 통과, 격리된 migration upgrade/downgrade 검사 2개 통과. | 로컬 검증 데이터베이스 격리에 남은 구현 작업은 없습니다. |
