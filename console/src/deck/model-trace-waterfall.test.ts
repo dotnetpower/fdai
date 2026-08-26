@@ -106,6 +106,10 @@ describe("buildModelTraceBars", () => {
     expect(styles).toContain(".deck-model-trace-messages pre::-webkit-scrollbar-thumb,");
   });
 
+  it("keeps standalone traces on the compact run-record type scale", () => {
+    expect(styles).toMatch(/\.deck-trajectory,\s*\.deck-model-trace\s*{[^}]*--deck-font-heading: 13px;[^}]*--deck-font-body: 12px;[^}]*--deck-font-small: 11px;[^}]*--deck-font-label: 11px;/s);
+  });
+
   it("expands escaped JSON inside a model request message", () => {
     const nested = JSON.stringify({
       role: "user",

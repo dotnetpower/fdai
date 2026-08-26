@@ -81,6 +81,7 @@ async function installOperatorApiFixture(
     readonly executionTimeline?: boolean;
     readonly modelTrace?: boolean;
     readonly presentationArtifact?: Record<string, unknown>;
+    readonly source?: string;
     readonly streamDelayMs?: number;
   } = {},
 ): Promise<{
@@ -234,7 +235,7 @@ async function installOperatorApiFixture(
           revision: 1,
           answer,
           model: "narrator-test",
-          source: "evidence:corrected",
+          source: options.source ?? "evidence:corrected",
           ...(options.modelTrace ? {
             model_trace: {
               schema_version: 1,
@@ -825,6 +826,46 @@ test("pretty-prints nested serialized JSON in the model trace", async ({ page },
     documentOverflow: 0,
     requestOverflow: 0,
     responseOverflow: 0,
+  });
+});
+
+test("keeps a standalone direct-response model trace compact", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "mobile-chromium", "Desktop owns the standalone trace baseline.");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.addInitScript(() => {
+    localStorage.setItem("fdai:console:show-model-trace", "true");
+  });
+  await installOperatorApiFixture(page, {
+    answer: "Hello. What would you like to check?",
+    modelTrace: true,
+    source: "semantic-direct-response",
+  });
+  await page.goto(`/agents?view=org&agent=Var&correlation=${encodeURIComponent(correlationId)}`);
+
+  await page.getByRole("button", { name: "Open command deck" }).click();
+  const deck = page.getByRole("complementary", { name: "Command deck" });
+  await deck.getByPlaceholder(/Ask anything/i).fill("Hello");
+  await deck.getByRole("button", { name: "Send" }).click();
+
+  const modelTrace = deck.locator(".deck-model-trace");
+  await expect(modelTrace).toBeVisible();
+  await expect(deck.locator(".deck-trajectory")).toHaveCount(0);
+  const metrics = await modelTrace.evaluate((root) => {
+    const heading = root.querySelector<HTMLElement>(".deck-model-trace-head h4");
+    const notice = root.querySelector<HTMLElement>(".deck-model-trace-head p");
+    const model = root.querySelector<HTMLElement>(".deck-model-trace-model");
+    return {
+      headingSize: heading ? getComputedStyle(heading).fontSize : "",
+      noticeSize: notice ? getComputedStyle(notice).fontSize : "",
+      modelSize: model ? getComputedStyle(model).fontSize : "",
+      overflow: root.scrollWidth - root.clientWidth,
+    };
+  });
+  expect(metrics).toEqual({
+    headingSize: "13px",
+    noticeSize: "12px",
+    modelSize: "12px",
+    overflow: 0,
   });
 });
 

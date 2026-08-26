@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: d23fa0d7b700ab1536bee2cd1559e291b410383d
+translation_source_sha: 13b91f708c3382a0c31bb57784ec0ac953d1472a
 translation_revised: 2026-08-26
 ---
 # 콘솔 근거 및 복원력
@@ -32,6 +32,7 @@ translation_revised: 2026-08-26
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
+| 2026-08-26 | implemented | 모델 공급자 워터폴이 실행 기록 안과 독립적인 직접 응답 위치 모두에서 간결한 실행 기록 타이포그래피 크기를 직접 사용하도록 수정했습니다. 좁은 Command Deck 컨테이너에서는 6열 호출 행을 3열로 재배치해 넘침을 방지합니다. | `current change`, `styles.css`, `model-trace-waterfall.test.ts`, `agents-incident-deck.spec.ts`, 집중 Vitest 7개 통과, 계산된 제목 `13px`, 안내 및 모델 텍스트 `12px`, 패널 overflow 0을 확인한 집중 데스크톱 Playwright 1개 통과, Console Vite 운영 빌드 통과 | 범위가 제한된 모델 trace 작업은 남아 있지 않습니다. 전체 Console 타입 검사는 `retrieval-trace.test.ts`의 기존 비공개 `sourceCards` import로 인해 별도로 차단된 상태입니다. |
 | 2026-08-26 | implemented | 캡처된 모델 요청 및 응답 페이로드가 다른 JSON 문자열 안에 직렬화된 객체 또는 배열 JSON을 포함할 때 읽기 쉽게 표시하도록 수정했습니다. Formatter는 고정된 깊이와 노드 수 안에서 유효한 구조 값만 펼치고 일반 문자열 또는 잘못된 문자열을 보존하며 trace hash와 저장된 페이로드를 변경하지 않습니다. | `current change`, `json-code-block.tsx`, `model-trace-waterfall.tsx`, focused Vitest 15개 통과, escaped quote sequence와 document, request, response overflow가 모두 0인 focused desktop Playwright 통과, Console 타입 검사 및 운영 빌드 통과 | 통제된 런타임 검증을 주장하기 전에 인증된 캡처 모델 trace를 별도로 보존합니다. |
 | 2026-08-25 | implemented | 기본 instance presentation을 operational Resource와 immediate scope context로 제한하고 이전에 AKS VMSS가 template에서 멈추게 한 source path를 완료했습니다. | 집중 Console 검사 59개, typecheck 및 build가 통과했습니다. 인증된 VNet view는 role assignment 0개와 direct owner Resource Group 1개를 표시했습니다. AKS view는 initial viewport에서 managed Resource Group level 1, VMSS level 2, VM 및 NIC level 3을 표시했고 desktop/constrained overflow는 0이었습니다. | 독립적으로 열린 Command Deck이 mobile hierarchy 검사를 가렸지만 mobile document overflow와 44 px control은 통과했습니다. 통제된 Browser 보존은 별도입니다. |
 | 2026-08-25 | implemented | 대표 VM의 edge 4개 NAT egress path가 간접 관계 420개 안에 숨겨지고 depth 8 응답이 1단계로 설명되던 Ontology Instances 표현을 수정했습니다. 새 요약은 evidence-backed stored edge만 표시하고 누락된 ingress를 unknown으로 유지합니다. | `current change`, Resource 897개와 link 1,642개를 포함하고 inventory/ontology generation이 정확히 일치한 활성 snapshot, graph truncation 없이 Resource 197개와 link 424개를 반환한 인증된 Console, 집중 테스트 56개, typecheck, production build, entry 검사 및 세 viewport Browser 검사 통과 | 범위가 제한된 구현 작업은 남아 있지 않습니다. Browser 관측은 로컬 표현 근거이며 통제된 runtime receipt가 아닙니다. |

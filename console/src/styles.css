@@ -7065,11 +7065,14 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-trajectory-signals > div[data-state="failed"] dd::before { background: var(--danger); }
 .deck-trajectory-results > span[data-state="not_observed"]::before,
 .deck-trajectory-signals > div[data-state="not_observed"] dd::before { background: var(--fg-muted); }
-.deck-trajectory {
+.deck-trajectory,
+.deck-model-trace {
   --deck-font-heading: 13px;
   --deck-font-body: 12px;
   --deck-font-small: 11px;
   --deck-font-label: 11px;
+}
+.deck-trajectory {
   margin-top: 7px;
 }
 .deck-trajectory-summary {
@@ -7585,6 +7588,12 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   .deck-execution-outcome { grid-column: 3; grid-row: 1; }
   .deck-execution-chevron { grid-column: 4; grid-row: 1; }
   .deck-execution-detail { margin-left: 0; }
+  .deck-model-trace-lanes > li > details > summary { grid-template-columns: 2.25rem minmax(0, 1fr) auto; }
+  .deck-model-trace-kind { grid-column: 2; }
+  .deck-model-trace-bar { grid-column: 1 / -1; width: 100%; }
+  .deck-model-trace-lanes time { grid-column: 2; }
+  .deck-model-trace-duration { grid-column: 3; grid-row: 1; }
+  .deck-model-trace-detail { padding-left: 0; }
   .deck-table { display: block; table-layout: auto; }
   .deck-table thead {
     position: absolute;
