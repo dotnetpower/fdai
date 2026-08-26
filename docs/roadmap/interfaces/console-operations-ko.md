@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 9248160bdf072432ed3a702fb885d6b7fa9de8c4
+translation_source_sha: 6fc797d629b48864adaf9bb9e481632d164ec660
 translation_revised: 2026-08-26
 ---
 
@@ -103,6 +103,12 @@ AKS 루트의 첫 화면은 저장된 응답 링크와 명시적인 출처 가�
 런타임 및 Service 경로를 요약할 수 있습니다. Resource 또는 링크를 만들지 않고 각 구간을
 관측됨, 알 수 없음 또는 사용 불가로 표시합니다. Resource Group 포함 관계는 트래픽 또는
 의존성이 되지 않으며, 구성되지 않은 Kubernetes 출처는 런타임 부재를 입증하지 않습니다.
+
+Graph는 관측된 각 namespace가 담고 있는 것도 제한된 표본으로 그리며, 선언된 workload를 파생된
+것보다 먼저 놓습니다. Namespace를 leaf로 그리면 응답이 보고한 적 없는 빈 namespace를 주장하기
+때문입니다. 여러 계층에 반복된 Resource는 자신의 반복 횟수를 밝히고, 선택한 cluster가 관리하는
+node resource group은 또 하나의 소유 scope처럼 보이지 않도록 관리 대상으로 표시합니다.
+Inspector는 좁은 고정 열을 차지하여 graph가 폭을 유지하도록 합니다.
 
 브라우저에 표시할 pending 접근 요청이 있으면 인증된 GET-only 스트림이 principal의 App 역할로
 영속 기록을 필터링합니다. 탭과 Command Deck이 idle 상태이면 콘솔은 기능, 범위 및

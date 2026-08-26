@@ -156,7 +156,8 @@ export function OntologyInstancesView({ client }: Props) {
   const chooseAutocompleteOption = (
     option: OntologyInstanceAutocompleteOption,
   ): void => {
-    setSearchDraft(option.value);
+    // The decorated option label is not a directory query, so keep the searchable name.
+    setSearchDraft(option.primary);
     setAutocompleteOpen(false);
     selectResource(option.resourceId);
   };

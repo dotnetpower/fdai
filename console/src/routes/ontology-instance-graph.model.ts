@@ -15,6 +15,10 @@ export interface InstanceGraphNode {
   readonly lane: InstanceGraphLane;
   readonly side: InstanceGraphSide;
   readonly parentId: string | null;
+  /** How many times this one Resource is drawn; layering repeats it to keep edges directed. */
+  readonly occurrences: number;
+  /** The selected cluster owns this Resource's lifecycle, so it is not a peer scope. */
+  readonly clusterManaged: boolean;
   readonly x: number;
   readonly y: number;
 }
@@ -117,6 +121,18 @@ const INSTANCE_SCOPE_DIRECT_LIMIT = INSTANCE_MAX_ROWS;
 const INSTANCE_SCOPE_INTERNAL_LINK_LIMIT = 12;
 const INSTANCE_AKS_VM_LIMIT_PER_SCALE_SET = 12;
 const INSTANCE_AKS_NIC_LIMIT_PER_VM = 2;
+const INSTANCE_KUBERNETES_NAMESPACE_CHILD_LIMIT = 6;
+// A namespace contains far more than a viewport holds, so declared workloads outrank derived ones.
+const INSTANCE_KUBERNETES_CHILD_PRIORITY: readonly string[] = [
+  "kubernetes.deployment",
+  "kubernetes.stateful-set",
+  "kubernetes.daemon-set",
+  "kubernetes.service",
+  "kubernetes.cron-job",
+  "kubernetes.job",
+  "kubernetes.ingress",
+  "kubernetes.pod",
+];
 const INSTANCE_OUTER_EDGE_CLEARANCE = 150;
 const INSTANCE_NETWORK_CONTEXT_TYPES = new Set([
   "network.interface",
@@ -342,6 +358,16 @@ export function buildInstanceGraphLayout(data: OntologyInstanceExploration): Ins
   );
   const height = Math.max(568, 40 + rowCount * INSTANCE_ROW_HEIGHT);
   let columnCursor = leadingGutter + 20 + contentOffset;
+  const occurrenceCounts = new Map<string, number>();
+  occurrences.nodes.forEach((occurrence) => {
+    const id = occurrence.resource.id;
+    occurrenceCounts.set(id, (occurrenceCounts.get(id) ?? 0) + 1);
+  });
+  const clusterManagedIds = new Set(focus.links
+    .filter((link) =>
+      link.source === data.root_id
+      && link.evidence.mapping_id === "azure.aks-attached-to-node-resource-group")
+    .map((link) => link.target));
   const nodes = orderedLevels.flatMap(([level, resources]) => {
     const levelColumns = columnsByLevel.get(level)!;
     const positioned = columnNodes(
@@ -350,6 +376,8 @@ export function buildInstanceGraphLayout(data: OntologyInstanceExploration): Ins
       columnCursor,
       levelColumns,
       height,
+      occurrenceCounts,
+      clusterManagedIds,
     );
     columnCursor += levelColumns * INSTANCE_COLUMN_WIDTH;
     return positioned;
@@ -1071,6 +1099,8 @@ function columnNodes(
   x: number,
   columnCount: number,
   height: number,
+  occurrenceCounts: ReadonlyMap<string, number>,
+  clusterManagedIds: ReadonlySet<string>,
 ): InstanceGraphNode[] {
   const rows = Math.min(INSTANCE_MAX_ROWS, resources.length);
   const contentHeight = rows * INSTANCE_ROW_HEIGHT - (rows > 0 ? INSTANCE_ROW_GAP : 0);
@@ -1086,6 +1116,8 @@ function columnNodes(
     lane: occurrence.rank.lane,
     side: graphSide(level),
     parentId: occurrence.rank.parentId,
+    occurrences: occurrenceCounts.get(occurrence.resource.id) ?? 1,
+    clusterManaged: clusterManagedIds.has(occurrence.resource.id),
     x: x + (level < 0
       ? columnCount - 1 - Math.floor(index / INSTANCE_MAX_ROWS)
       : Math.floor(index / INSTANCE_MAX_ROWS)) * INSTANCE_COLUMN_WIDTH,
@@ -1138,6 +1170,11 @@ function instanceGraphFocus(data: OntologyInstanceExploration): {
     selectedResourceIds,
   });
   expandAksInfrastructureContext({
+    data: { ...data, links: ordered },
+    selected,
+    selectedResourceIds,
+  });
+  expandKubernetesNamespaceContext({
     data: { ...data, links: ordered },
     selected,
     selectedResourceIds,
@@ -1301,8 +1338,47 @@ function expandAksInfrastructureContext({
   }
 }
 
-function selectedNetworkBranch(data: OntologyInstanceExploration): {
-  readonly resourcesById: ReadonlyMap<string, OntologyInstanceResource>;
+/** Adds a bounded, declared-workload-first sample of what each cluster namespace holds. */
+function expandKubernetesNamespaceContext({
+  data,
+  selected,
+  selectedResourceIds,
+}: {
+  readonly data: OntologyInstanceExploration;
+  readonly selected: Map<string, OntologyInstanceLink>;
+  readonly selectedResourceIds: Set<string>;
+}): void {
+  const resourcesById = new Map(data.resources.map((resource) => [resource.id, resource]));
+  if (resourcesById.get(data.root_id)?.resource_type !== "kubernetes-cluster") return;
+  const namespaceIds = data.links
+    .filter((link) =>
+      link.source === data.root_id
+      && link.link_type === "contains"
+      && resourcesById.get(link.target)?.resource_type === "kubernetes.namespace")
+    .map((link) => link.target);
+  for (const namespaceId of namespaceIds) {
+    data.links
+      .filter((link) =>
+        link.source === namespaceId
+        && link.link_type === "contains"
+        && INSTANCE_KUBERNETES_CHILD_PRIORITY.includes(
+          resourcesById.get(link.target)?.resource_type ?? ""))
+      .sort((first, second) => {
+        const rank = (link: OntologyInstanceLink): number =>
+          INSTANCE_KUBERNETES_CHILD_PRIORITY.indexOf(
+            resourcesById.get(link.target)?.resource_type ?? "");
+        return rank(first) - rank(second) || compareInstanceGraphLinks(first, second);
+      })
+      .slice(0, INSTANCE_KUBERNETES_NAMESPACE_CHILD_LIMIT)
+      .forEach((childLink) => {
+        selected.set(instanceGraphLinkKey(childLink), childLink);
+        selectedResourceIds.add(childLink.source);
+        selectedResourceIds.add(childLink.target);
+      });
+  }
+}
+
+function selectedNetworkBranch(data: OntologyInstanceExploration): {  readonly resourcesById: ReadonlyMap<string, OntologyInstanceResource>;
   readonly vnets: readonly string[];
   readonly subnets: readonly string[];
   readonly privateEndpoints: readonly string[];

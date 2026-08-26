@@ -42,6 +42,7 @@ interface InstanceGraphTooltipState {
   readonly title: string;
   readonly detail: string;
   readonly status?: string;
+  readonly note?: string;
 }
 
 interface InstanceGraphPanState {
@@ -373,6 +374,12 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
             const resource = node.resource;
             const displayName = resource.name ?? resource.resource_type;
             const onFocusedPath = focusedPath.has(resource.id);
+            const repeatNotice = node.occurrences > 1
+              ? t("ontology.instances.nodeRepeated", { count: String(node.occurrences) })
+              : null;
+            const typeCaption = node.clusterManaged
+              ? t("ontology.instances.nodeClusterManaged", { type: resource.resource_type })
+              : resource.resource_type;
             return (
               <g
                 key={node.key}
@@ -385,23 +392,25 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
                 <a
                   class={`ontology-instance-node is-${node.emphasis} is-${node.lane}-lane${resource.id === data.root_id ? " is-selected" : ""}${onFocusedPath ? " is-focus-path" : ""}`}
                   href={routeHref("ontology", { params: { view: "instances", instance: resource.id } })}
-                  aria-label={`${displayName}, ${resource.resource_type}, ${resource.status ?? t("ontology.instances.notObserved")}`}
+                  aria-label={`${displayName}, ${typeCaption}, ${resource.status ?? t("ontology.instances.notObserved")}${repeatNotice ? `, ${repeatNotice}` : ""}`}
                   onPointerEnter={(event) => {
                     setFocusedResourceId(resource.id);
                     setGraphTooltip({
                       x: event.clientX + 12,
                       y: event.clientY + 12,
                       title: displayName,
-                      detail: resource.resource_type,
+                      detail: typeCaption,
                       status: resource.status ?? t("ontology.instances.notObserved"),
+                      ...(repeatNotice ? { note: repeatNotice } : {}),
                     });
                   }}
                   onPointerMove={(event) => setGraphTooltip({
                     x: event.clientX + 12,
                     y: event.clientY + 12,
                     title: displayName,
-                    detail: resource.resource_type,
+                    detail: typeCaption,
                     status: resource.status ?? t("ontology.instances.notObserved"),
+                    ...(repeatNotice ? { note: repeatNotice } : {}),
                   })}
                   onPointerLeave={() => {
                     setFocusedResourceId(null);
@@ -414,8 +423,9 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
                       x: rect.right + 8,
                       y: rect.top,
                       title: displayName,
-                      detail: resource.resource_type,
+                      detail: typeCaption,
                       status: resource.status ?? t("ontology.instances.notObserved"),
+                      ...(repeatNotice ? { note: repeatNotice } : {}),
                     });
                   }}
                   onBlur={() => {
@@ -429,10 +439,18 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
                 >
                   <rect width={INSTANCE_NODE_WIDTH} height={INSTANCE_NODE_HEIGHT} rx="5" />
                   <image href={ontologyInstanceIconForResourceType(resource.resource_type)} x="12" y="14" width="22" height="22" aria-hidden="true" />
+                  {repeatNotice ? (
+                    <g class="ontology-instance-node-repeat" aria-hidden="true">
+                      <circle cx={INSTANCE_NODE_WIDTH - 12} cy="12" r="8" />
+                      <text x={INSTANCE_NODE_WIDTH - 12} y="15" text-anchor="middle">
+                        {`\u00d7${node.occurrences}`}
+                      </text>
+                    </g>
+                  ) : null}
                   <foreignObject x="43" y="8" width="121" height="54" aria-hidden="true">
                     <div class="ontology-instance-node-copy">
                       <strong>{displayName}</strong>
-                      <span>{resource.resource_type}</span>
+                      <span>{typeCaption}</span>
                       <span class="ontology-instance-node-state">{resource.status ?? t("ontology.instances.notObserved")}</span>
                     </div>
                   </foreignObject>
@@ -522,6 +540,7 @@ function InstanceGraphTooltip({ state }: { readonly state: InstanceGraphTooltipS
       <strong>{state.title}</strong>
       <span>{state.detail}</span>
       {state.status ? <span>{state.status}</span> : null}
+      {state.note ? <span>{state.note}</span> : null}
     </span>,
     document.body,
   );

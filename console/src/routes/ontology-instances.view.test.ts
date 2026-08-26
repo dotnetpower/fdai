@@ -6,6 +6,10 @@ const graphSource = readFileSync(
   fileURLToPath(new URL("./ontology-instance-graph.tsx", import.meta.url)),
   "utf8",
 );
+const graphModelSource = readFileSync(
+  fileURLToPath(new URL("./ontology-instance-graph.model.ts", import.meta.url)),
+  "utf8",
+);
 const instancesSource = readFileSync(
   fileURLToPath(new URL("./ontology-instances.tsx", import.meta.url)),
   "utf8",
@@ -118,6 +122,20 @@ describe("Ontology Instances view controls", () => {
     expect(graphSource).toContain('class="app-tooltip ontology-instance-graph-tooltip"');
     expect(graphSource).toContain('role="tooltip"');
     expect(graphSource).not.toContain("<title>");
+  });
+
+  it("draws what a cluster namespace holds without hiding its own repeats", () => {
+    expect(graphModelSource).toContain("expandKubernetesNamespaceContext");
+    expect(graphModelSource).toContain("INSTANCE_KUBERNETES_NAMESPACE_CHILD_LIMIT");
+    expect(graphModelSource).toContain("INSTANCE_KUBERNETES_CHILD_PRIORITY");
+    expect(graphModelSource).toMatch(/"kubernetes\.deployment",[\s\S]*"kubernetes\.pod",/);
+    expect(graphModelSource).toContain("readonly occurrences: number;");
+    expect(graphModelSource).toContain("readonly clusterManaged: boolean;");
+    expect(graphModelSource).toContain('"azure.aks-attached-to-node-resource-group"');
+    expect(graphSource).toContain('t("ontology.instances.nodeRepeated"');
+    expect(graphSource).toContain('t("ontology.instances.nodeClusterManaged"');
+    expect(graphSource).toContain('class="ontology-instance-node-repeat"');
+    expect(styles).toContain(".ontology-instance-node-repeat");
   });
 
   it("uses one fullscreen command while wheel input owns graph zoom", () => {

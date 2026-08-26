@@ -102,6 +102,12 @@ paths only from stored response links and explicit source availability. It label
 Unknown, or Unavailable without creating a Resource or edge. Resource Group containment never
 becomes traffic or dependency, and an unconfigured Kubernetes source never proves runtime absence.
 
+The graph also draws a bounded sample of what each observed namespace holds, declared workloads
+before derived ones, because a namespace drawn as a leaf claims an empty namespace the response
+never reported. A Resource repeated across layers states its own repeat count, and the node
+resource group the selected cluster manages is labeled as managed rather than shown as a second
+owning scope. The Inspector occupies a narrow fixed column so the graph keeps the width.
+
 For a browser-visible pending access request, an authenticated GET-only stream filters the durable
 records by the principal's App Roles. When the tab and Command Deck are idle, the console opens a
 request-scoped conversation with the capability, scope, and expiry. Active work, an unsent draft,

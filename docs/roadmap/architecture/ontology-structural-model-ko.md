@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: afa5f9e9143ab280f758d93c4c493ed6cbb6b819
+translation_source_sha: 918434ba9626660aae80538f4c99ebd4607f7f48
 translation_revised: 2026-08-26
 ---
 # 온톨로지 구조 모델
@@ -224,6 +224,13 @@ Directory 상한은 표현상의 제한이며 완전성 주장이 아닙니다. 
 Resource 유형 아이콘은 표현일 뿐입니다. 객체 identity, 유형 권한 또는 evidence를 담지
 않습니다. 매핑되지 않은 유형은 비슷해 보이는 아이콘 대신 명시적인 일반 아이콘으로 해석되고,
 두 유형이 공유하는 아이콘은 두 유형을 묶을 뿐 같은 객체라고 주장하지 않습니다.
+
+그 반대도 성립합니다. 계층형 graph는 모든 관계의 방향을 유지하려고 Resource 하나를 여러 번
+그릴 수 있으므로, 반복된 각 node는 그 Resource 하나가 몇 번 그려졌는지 밝혀 서로 다른 객체처럼
+읽히지 않게 합니다. Cluster root에서는 각 namespace가 담고 있는 것을 선언된 workload 우선으로
+제한해 표본을 추가합니다. Namespace를 leaf로 그리면 관측한 적 없는 빈 namespace를 주장하기
+때문입니다. 선택한 Resource를 대신해 운영 scope가 관리하는 Resource는 관리 대상으로 표시하여,
+선택을 소유한 scope와 나란히 놓인 동등한 scope처럼 읽히지 않게 합니다.
 
 ## 이행 및 출시
 

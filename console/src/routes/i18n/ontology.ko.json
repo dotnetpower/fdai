@@ -172,6 +172,8 @@
       "sources": "출처"
     },
     "notObserved": "관측되지 않음",
+    "nodeRepeated": "모든 관계의 방향을 유지하려고 Resource 하나를 {count}번 그렸습니다",
+    "nodeClusterManaged": "{type} - 클러스터 관리",
     "resourceType": "Resource 유형",
     "location": "위치",
     "resourceGroup": "리소스 그룹",

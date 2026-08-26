@@ -172,6 +172,8 @@
       "sources": "Sources"
     },
     "notObserved": "Not observed",
+    "nodeRepeated": "One Resource drawn {count} times to keep every relationship directed",
+    "nodeClusterManaged": "{type} - cluster managed",
     "resourceType": "Resource type",
     "location": "Location",
     "resourceGroup": "Resource group",

@@ -227,6 +227,14 @@ A Resource type icon is presentation only. It never carries object identity, typ
 evidence. An unmapped type resolves to an explicit generic glyph instead of a lookalike, and a
 glyph shared by two types groups them without asserting that they are the same object.
 
+The converse also holds. A layered graph may draw one Resource more than once to keep every
+relationship directed, so each repeated node states how many times that single Resource is drawn
+rather than reading as separate objects. For a cluster root, the graph adds a bounded,
+declared-workload-first sample of what each namespace holds, because a namespace drawn as a leaf
+asserts an empty namespace it never observed. The Resource an operating scope manages on the
+selected Resource's behalf is labeled as managed, so it does not read as a peer scope alongside the
+scope that owns the selection.
+
 ## Migration and rollout
 
 1. Add the structural declarations, loaders, and validators without changing the visible query
