@@ -300,6 +300,8 @@ describe("Command Deck workspace hierarchy", () => {
   test("keeps pending stages visible in a stable compact source slot", () => {
     expect(sharedStyles).toMatch(/\.cs-grounding-source-window \{[^}]*height: 88px;[^}]*overflow: hidden;/s);
     expect(sharedStyles).toMatch(/\.cs-grounding-source \{[^}]*min-height: 28px;/s);
+    expect(styles).toMatch(/\.deck-rt-source \{[^}]*grid-template-columns: 64px minmax\(0, 1fr\);/s);
+    expect(styles).toMatch(/\.deck-rt-badge \{[^}]*overflow: hidden;[^}]*text-overflow: ellipsis;[^}]*white-space: nowrap;/s);
     expect(styles).not.toContain(".deck-rt-source::after");
     expect(styles).toMatch(/@keyframes deck-rt-rise \{\s*from \{ opacity: 0;/s);
     expect(styles).toMatch(/@keyframes deck-rt-pop \{\s*from \{ opacity: 0;/s);

@@ -9333,12 +9333,15 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   transform: none;
   animation: deck-rt-pop 0.26s ease forwards;
   position: relative;
+  grid-template-columns: 64px minmax(0, 1fr);
 }
 @keyframes deck-rt-pop {
   from { opacity: 0; transform: translateY(8px) scale(0.98); }
   to { opacity: 1; transform: none; }
 }
 .deck-rt-badge {
+  min-width: 0;
+  max-width: 100%;
   flex: none;
   padding: 2px 4px;
   box-sizing: border-box;
@@ -9353,6 +9356,9 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   letter-spacing: 0.02em;
   background: color-mix(in oklab, var(--accent) 16%, transparent);
   color: var(--accent);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .deck-rt-badge.is-operational,
 .deck-rt-badge.is-audit { background: color-mix(in oklab, var(--fg) 14%, transparent); color: var(--fg); }
