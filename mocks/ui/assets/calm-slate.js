@@ -56,6 +56,7 @@
       ["deck-sources-v2.html", "Deck adaptive response", "is-teal"]
     ]],
     ["Labs", [
+      ["chat-home-variants.html", "Chat home variants", "is-steel"],
       ["components.html", "Components", ""],
       ["typography.html", "Typography", "is-steel"],
       ["agent-icons.html", "Agent icons", "is-plum"],
@@ -84,6 +85,7 @@
   }
 
   function decoratePageTitle() {
+    if (document.body.hasAttribute("data-preserve-page-title")) return;
     var context = currentNavigationContext();
     var heading = document.querySelector("main h1") || document.querySelector("body > header h1");
     if (!context || !heading || heading.querySelector(".cs-page-domain")) return;
