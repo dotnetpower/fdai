@@ -201,7 +201,7 @@
     </header>
 
     <section class="decision-grid" aria-label="판단 아이콘 후보">
-      <button class="decision-option" type="button" aria-pressed="true" data-option="01 Verdict pair">
+      <button class="decision-option" type="button" aria-pressed="false" data-option="01 Verdict pair">
         <span class="decision-visual">
           <svg class="decision-icon" viewBox="0 0 24 24" aria-hidden="true"><g class="approve"><circle cx="7" cy="12" r="5"></circle><path d="m4.6 12 1.7 1.7 3.4-3.6"></path></g><g class="deny"><circle cx="17" cy="12" r="5"></circle><path d="m14.8 9.8 4.4 4.4m0-4.4-4.4 4.4"></path></g></svg>
         </span>
@@ -233,16 +233,16 @@
         <span class="decision-actual"><span class="decision-actual-box" aria-hidden="true"></span>42px icon</span>
       </button>
 
-      <button class="decision-option" type="button" aria-pressed="false" data-option="05 Judgment balance">
+      <button class="decision-option" type="button" aria-pressed="true" data-option="05 Judgment balance">
         <span class="decision-visual">
-          <svg class="decision-icon" viewBox="0 0 24 24" aria-hidden="true"><g class="route"><path d="M12 4v16M5 8h14M8 8l-3 6m11-6 3 6M9 20h6"></path><path d="M2.5 14h5a2.5 2.5 0 0 1-5 0Zm14 0h5a2.5 2.5 0 0 1-5 0Z"></path></g><path class="approve" d="m3.8 11.5 1 1 1.8-2"></path><path class="deny" d="m17.8 10.5 2.4 2.4m0-2.4-2.4 2.4"></path></svg>
+          <svg class="decision-icon" viewBox="0 0 24 24" aria-hidden="true"><g class="route"><path d="M12 4v16M5 8h14M8 8v3M16 8v3M9 20h6"></path></g><g class="approve"><circle cx="8" cy="14" r="3"></circle><path d="m6.6 14 1 1 1.8-2"></path></g><g class="deny"><circle cx="16" cy="14" r="3"></circle><path d="m14.7 12.7 2.6 2.6m0-2.6-2.6 2.6"></path></g></svg>
         </span>
         <span class="decision-copy"><span class="decision-index">05</span><strong>Judgment balance</strong><span>비교와 판단의 의미를 저울 형태로 직접 전달.</span></span>
         <span class="decision-actual"><span class="decision-actual-box" aria-hidden="true"></span>42px icon</span>
       </button>
     </section>
 
-    <div class="decision-selection" role="status" aria-live="polite">Selected <strong id="selected-option">01 Verdict pair</strong></div>
+    <div class="decision-selection" role="status" aria-live="polite">Selected <strong id="selected-option">05 Judgment balance</strong></div>
   </main>
 
   <script>
