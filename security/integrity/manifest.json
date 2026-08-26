@@ -975,11 +975,11 @@
     "services/core-control-plane/src/fdai/core/views/engine.py": "15da16a04f7caec48d80a63b6d86f8044b19fd5194845c13712efd6cfc02bc31",
     "services/core-control-plane/src/fdai/core/views/models.py": "8f9dddfdcaaae43f5e19c7a0e6c275e8ec466db00253bda69696de845a04eea4",
     "services/core-control-plane/src/fdai/core/views/workflow_apps.py": "888fc65c0325b957490abd969059ee61855da8b378b9a470e04d2811af2e7436",
-    "services/core-control-plane/src/fdai/core/web_search/__init__.py": "c98524ae7bfbf88fa34a3c09639c9d30bc397291c7e558f4fe5a6cd1b27387cd",
+    "services/core-control-plane/src/fdai/core/web_search/__init__.py": "95db4eba09f528399a6e24bfe99cb09803d64c564d52e9c831a7d173f2b033cc",
     "services/core-control-plane/src/fdai/core/web_search/policy.py": "6903713ac2579ce073a298dc97738bb091a6900d01dd4eceb4bb0bfa60b8ae12",
     "services/core-control-plane/src/fdai/core/web_search/provider.py": "35b6cf6a5103b492ae1dfba181bbd3a2b40910d9966c4ddddc147f814f91640c",
     "services/core-control-plane/src/fdai/core/web_search/sanitizer.py": "5dfec4449ff18991a43c6d1e64ff463c6bdb32aa365c0f7b87d4e6ac398f483c",
-    "services/core-control-plane/src/fdai/core/web_search/types.py": "53e3b040cc540f1e08c09568ddbe85df8c4e116a21875a060e7fae35396df332",
+    "services/core-control-plane/src/fdai/core/web_search/types.py": "c456a16fd23530115adba6f16aa08ff9fc24a3e2f98108d894e712502ba9d117",
     "services/core-control-plane/src/fdai/core/workflow/__init__.py": "9afdd3f70998b99c45fb7a575c2be9ae13476cb7a145d97fb4221bf72cce742e",
     "services/core-control-plane/src/fdai/core/workflow/approval.py": "4b1ccd96890330c2788e3ad569b2264e33817ab06ed6114afc6d71b0dce3e047",
     "services/core-control-plane/src/fdai/core/workflow/automation_hold.py": "68f8ec52b45511d8e780e63b972de6585169cb413c5e419884e4fb75a0c79172",
@@ -1201,7 +1201,7 @@
     "services/core-control-plane/src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "services/core-control-plane/src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-26T01:08:46Z",
+  "generated_at": "2026-08-26T01:22:31Z",
   "surface": [
     "services/core-control-plane/src/fdai/core/",
     "services/core-control-plane/src/fdai/composition.py",

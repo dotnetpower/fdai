@@ -44,6 +44,7 @@ from fdai.core.web_search.sanitizer import (
     wrap_web_snippet,
 )
 from fdai.core.web_search.types import (
+    WebCitation,
     WebSearchQuery,
     WebSearchResult,
     WebSnippet,
@@ -53,6 +54,7 @@ __all__ = [
     "InjectionMarkerError",
     "NoOpWebSearchProvider",
     "SanitizedWebResult",
+    "WebCitation",
     "WebSearchDecision",
     "WebSearchPolicyConfig",
     "WebSearchProvider",

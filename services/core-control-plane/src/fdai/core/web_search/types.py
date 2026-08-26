@@ -89,6 +89,21 @@ class WebSnippet:
 
 
 @dataclass(frozen=True, slots=True)
+class WebCitation:
+    """Bind one answer span to an exact retrieved snippet digest."""
+
+    source_hash: str
+    start_index: int
+    end_index: int
+
+    def __post_init__(self) -> None:
+        if not self.source_hash:
+            raise ValueError("WebCitation.source_hash MUST be non-empty")
+        if self.start_index < 0 or self.end_index <= self.start_index:
+            raise ValueError("WebCitation indexes MUST describe a non-empty forward span")
+
+
+@dataclass(frozen=True, slots=True)
 class WebSearchResult:
     """The return shape of :meth:`WebSearchProvider.search`.
 
@@ -104,10 +119,23 @@ class WebSearchResult:
 
     query: WebSearchQuery
     snippets: tuple[WebSnippet, ...] = ()
+    answer: str = ""
+    citations: tuple[WebCitation, ...] = ()
+    provider_ref: str | None = None
+    execution_receipt_digest: str | None = None
     reasons: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        source_hashes = {snippet.content_hash for snippet in self.snippets}
+        for citation in self.citations:
+            if citation.source_hash not in source_hashes:
+                raise ValueError("WebCitation source_hash MUST reference a returned snippet")
+            if citation.end_index > len(self.answer):
+                raise ValueError("WebCitation span MUST fit inside the answer")
 
 
 __all__ = [
+    "WebCitation",
     "WebSearchQuery",
     "WebSearchResult",
     "WebSnippet",

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -24,6 +25,8 @@ from fdai_service_contracts import (
     OperatorRole,
     ReadDataSource,
 )
+from fdai_service_contracts.incident_intervention import IncidentInterventionProposalBody
+from pydantic import ValidationError
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
@@ -51,8 +54,10 @@ from fdai_operator_service.families.iam import (
 from fdai_operator_service.families.operations import (
     OPERATIONS_ROUTE_MANIFEST,
     DurableReplayReader,
+    EventProposal,
     EventProposalWriter,
     ProjectionReader,
+    ProposalConflictError,
     ReportPdfEncoder,
     WebhookVerifier,
     build_operations_routes,
@@ -116,6 +121,7 @@ MINIMAL_ROUTE_MANIFEST: Final = (
     RouteOwnership("GET", "/healthz", "minimal"),
     RouteOwnership("GET", "/hil-queue", "minimal"),
     RouteOwnership("GET", "/incidents", "minimal"),
+    RouteOwnership("POST", "/incidents/{correlation_id}/interventions", "minimal"),
     RouteOwnership("GET", "/incidents/stream", "minimal"),
     RouteOwnership("GET", "/kpi", "minimal"),
     RouteOwnership("GET", "/kpi/llm-cost", "minimal"),
@@ -240,6 +246,30 @@ def build_operator_app(
             raise _BadQueryError(str(exc)) from exc
         return JSONResponse(redact_projection(projection.to_dict()))
 
+    async def post_incident_intervention(request: Request) -> Response:
+        principal = authorize(request)
+        raw_body = await request.body()
+        if len(raw_body) > 16_384:
+            return _error(413, "incident intervention body is too large")
+        try:
+            raw = json.loads(raw_body)
+            body = IncidentInterventionProposalBody.model_validate(raw)
+        except (UnicodeDecodeError, ValueError, ValidationError):
+            return _error(400, "invalid incident intervention request")
+        correlation_id = str(request.path_params.get("correlation_id", ""))
+        if body.correlation_id != correlation_id:
+            return _error(400, "incident correlation does not match the route")
+        idempotency_key = request.headers.get("idempotency-key", "").strip()
+        if not 1 <= len(idempotency_key) <= 256:
+            return _error(400, "Idempotency-Key MUST contain 1 to 256 characters")
+        return await _accept_incident_intervention(
+            body=body,
+            principal=principal,
+            idempotency_key=idempotency_key,
+            read_model=read_model,
+            proposal_writer=route_families.operations_proposal_writer,
+        )
+
     async def incident_attention_stream(request: Request) -> Response:
         authorize(request)
         after_seq = _last_event_id(request)
@@ -345,6 +375,12 @@ def build_operator_app(
         Route("/hil-queue", get_hil_queue, methods=["GET"], name="get_hil_queue"),
         Route("/incidents", get_incidents, methods=["GET"], name="panel:incidents"),
         Route(
+            "/incidents/{correlation_id}/interventions",
+            post_incident_intervention,
+            methods=["POST"],
+            name="post_incident_intervention",
+        ),
+        Route(
             "/incidents/stream",
             incident_attention_stream,
             methods=["GET"],
@@ -393,7 +429,12 @@ def build_operator_app(
                 CORSMiddleware,
                 allow_origins=list(cors_allow_origins),
                 allow_methods=["GET", "POST", "PUT", "DELETE"],
-                allow_headers=["Authorization", "Content-Type"],
+                allow_headers=[
+                    "Authorization",
+                    "Content-Type",
+                    "Idempotency-Key",
+                    "X-Correlation-ID",
+                ],
             )
         )
 
@@ -421,6 +462,74 @@ def build_operator_app(
             _BadQueryError: _bad_query_error,
         },
     )
+
+
+_OPERATOR_ROLE_RANK: Final = {
+    OperatorRole.READER: 0,
+    OperatorRole.CONTRIBUTOR: 1,
+    OperatorRole.APPROVER: 2,
+    OperatorRole.OWNER: 3,
+    OperatorRole.BREAK_GLASS: -1,
+}
+
+
+async def _accept_incident_intervention(
+    *,
+    body: IncidentInterventionProposalBody,
+    principal: OperatorPrincipal,
+    idempotency_key: str,
+    read_model: OperatorReadModel,
+    proposal_writer: EventProposalWriter,
+) -> Response:
+    """Ground and durably queue one no-authority Incident intervention."""
+
+    highest_role = max(
+        (_OPERATOR_ROLE_RANK.get(role, -1) for role in principal.roles),
+        default=-1,
+    )
+    if highest_role < _OPERATOR_ROLE_RANK[body.required_role()]:
+        return _error(403, "principal role does not meet the intervention floor")
+    page = await read_model.list_incidents(
+        IncidentQuery(status="all", limit=1, correlation_id=body.correlation_id)
+    )
+    incident = next(
+        (
+            item
+            for item in page.items
+            if item.get("incident_id") == body.incident_id
+            and item.get("correlation_id") == body.correlation_id
+        ),
+        None,
+    )
+    if incident is None:
+        return _error(404, "incident is not available in the authoritative projection")
+    target_ref = incident.get("target_ref")
+    if (
+        incident.get("lifecycle_state") != body.expected_state
+        or not isinstance(target_ref, str)
+        or re.fullmatch(r"sha256:[a-f0-9]{64}", target_ref) is None
+    ):
+        return _error(409, "incident state or target changed before intervention")
+    payload = {
+        **body.model_dump(mode="json", exclude_none=True),
+        "target_ref": target_ref,
+        "principal_roles": sorted(role.value for role in principal.roles),
+    }
+    try:
+        receipt = await proposal_writer.propose(
+            EventProposal(
+                operation="incident.intervention",
+                principal_id=principal.subject_id,
+                idempotency_key=idempotency_key,
+                correlation_id=body.correlation_id,
+                payload=payload,
+            )
+        )
+    except ProposalConflictError:
+        return _error(409, "idempotency key conflicts with another proposal")
+    if not receipt.durably_queued:
+        return _error(503, "incident intervention was not durably queued")
+    return JSONResponse(receipt.to_dict(), status_code=202)
 
 
 async def _authentication_error(_: Request, exc: Exception) -> Response:

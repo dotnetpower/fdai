@@ -95,6 +95,7 @@ EXPECTED_ROUTES = (
     ),
     (("GET", "HEAD"), "/rca", "panel:rca"),
     (("GET", "HEAD"), "/system/data-sources", "get_data_sources"),
+    (("POST",), "/incidents/{correlation_id}/interventions", "post_incident_intervention"),
 )
 
 
