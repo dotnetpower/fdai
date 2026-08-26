@@ -34,12 +34,15 @@ describe("Ontology Instances view controls", () => {
     expect(styles).toMatch(/\.ontology-instance-empty\s*\{[^}]*min-height:\s*min\(360px,\s*44vh\)/s);
     expect(instancesSource).not.toContain('class="ontology-instance-map-summary"');
     expect(styles).not.toContain(".ontology-instance-map-summary");
-    expect(styles).toMatch(/\.ontology-instance-legend-dock\s*\{[^}]*position:\s*absolute[^}]*right:\s*12px[^}]*bottom:\s*12px[^}]*left:\s*12px/s);
+    expect(styles).toMatch(/\.ontology-instance-legend-dock\s*\{[^}]*position:\s*absolute[^}]*right:\s*12px[^}]*bottom:\s*12px[^}]*left:\s*12px[^}]*flex-wrap:\s*wrap/s);
+    expect(styles).not.toMatch(/\.ontology-instance-legend-dock\s*\{[^}]*overflow-x:\s*auto/s);
     expect(styles).toMatch(/\.ontology-instance-graph-key i\.is-direction::after\s*\{[^}]*right:\s*-1px[^}]*border-left:\s*6px solid #637c93[^}]*content:\s*""/s);
     expect(styles).not.toContain('content: ">"');
     expect(styles).toMatch(/\.ontology-instance-graph-tools\s*\{[^}]*position:\s*absolute[^}]*top:\s*12px[^}]*right:\s*12px/s);
     expect(graphSource).toContain('class="ontology-instance-graph-viewport"');
-    expect(graphSource).toContain('class="ontology-instance-legend-dock" tabIndex={0}');
+    expect(graphSource).toContain('class="ontology-instance-legend-dock"');
+    expect(graphSource).toContain("defaultInstanceLegendLinkTypes(linkTypeCounts)");
+    expect(graphSource).toContain('aria-expanded={showAllRelationshipTypes}');
     expect(ontologySource).toContain('class={`stack governance-ontology is-${view}`}');
     expect(globalStyles).toMatch(/\.ontology-route:has\(\.governance-ontology\.is-instances\)\s*>\s*\.page-header \.page-header-subtitle\s*\{[^}]*display:\s*none/s);
     expect(instancesSource).toContain('class="ontology-instance-toolbar-status"');
@@ -74,6 +77,7 @@ describe("Ontology Instances view controls", () => {
     expect(styles).toMatch(/@media\s*\(max-height:\s*720px\)\s*\{[^}]*\.ontology-instance-combobox\s*>\s*ul\s*\{[^}]*bottom:\s*calc\(100%\s*\+\s*4px\)/s);
     expect(styles).toMatch(/@media\s*\(max-width:\s*640px\)[\s\S]*\.ontology-instance-combobox\s*>\s*ul\s*\{[^}]*bottom:\s*calc\(100%\s*\+\s*4px\)[^}]*max-height:\s*min\(420px,\s*calc\(100vh\s*-\s*32px\)\)/s);
     expect(styles).toMatch(/@media\s*\(max-width:\s*640px\)[\s\S]*\.ontology-instance-combobox\s*>\s*ul\s*\{[^}]*width:\s*100%/s);
+    expect(styles).toMatch(/@media\s*\(max-width:\s*640px\)[\s\S]*\.ontology-instance-dense-legend button\s*\{[^}]*min-height:\s*44px/s);
   });
 
   it("uses the FDAI graph tooltip instead of native SVG title bubbles", () => {

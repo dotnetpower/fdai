@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: b55b5c25601e4a005766883c449856a59b6c1683
+translation_source_sha: a2034202ab94755e36b71f3edcc8855ea1e141d9
 translation_revised: 2026-08-26
 ---
 # 온톨로지 구조 모델
@@ -201,6 +201,10 @@ VM에서 Console은 응답에 저장된 edge와 검토된 mapping evidence가 �
 network path를 요약할 수 있습니다. 관계 커버리지가 불완전하거나 필요한 backend association이
 모델링되지 않았으면 누락된 path를 unknown으로 유지합니다. 브라우저 레이아웃은 완전성이나
 권한을 바꾸지 않습니다.
+
+인스턴스 그래프 범례는 기본적으로 `contains`, `attached_to`, `depends_on`을 표시합니다. 운영자는
+범례를 펼쳐 범위가 제한된 응답의 모든 관계 유형을 확인할 수 있습니다. 이 표현 방식은 링크를
+제거하거나 관계 개수를 바꾸거나 Inspector의 범위를 줄이지 않습니다.
 
 기본 instance presentation은 선택, graph, relationship inspection 및 conversational screen
 context에서 `authorization.role-assignment` Resource를 생략합니다. IAM projection은 underlying

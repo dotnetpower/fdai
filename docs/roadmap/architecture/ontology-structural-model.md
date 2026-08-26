@@ -203,6 +203,10 @@ present in the response. A missing path remains unknown when relationship covera
 or the required backend association is not modeled. Browser layout never changes completeness or
 authority.
 
+The instance graph legend shows `contains`, `attached_to`, and `depends_on` by default. Operators
+can expand the legend to inspect every relationship type in the bounded response. This presentation
+choice does not remove links, change relationship counts, or narrow the Inspector.
+
 The default instance presentation omits `authorization.role-assignment` Resources from selection,
 the graph, relationship inspection, and conversational screen context. IAM projections retain the
 underlying evidence. A Resource Group remains selectable as a bounded scope overview. For any

@@ -70,6 +70,8 @@
     "resources": "Resource",
     "relationships": "관계",
     "relationshipTypes": "관계 유형",
+    "showMoreRelationshipTypes": "유형 {count}개 더 보기",
+    "showBasicRelationshipTypes": "기본 유형만 보기",
     "graphLegend": "그래프 방향과 관계 의미",
     "graphControls": "그래프 화면 제어",
     "graphViewport": "드래그할 수 있는 Resource 그래프 화면",

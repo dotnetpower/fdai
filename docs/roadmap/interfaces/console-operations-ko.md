@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: a4619125cf0085f6aeb70dfe60764ea8a57518f8
+translation_source_sha: 168229b8f867a277974fbdfac5da147bc7915c09
 translation_revised: 2026-08-26
 ---
 
@@ -76,6 +76,9 @@ Operations는 기존 객체와 링크를 재사용합니다.
 온톨로지 인스턴스 작업 영역은 읽기 전용 운영 화면입니다. 그래프 우선 레이아웃, 선택된 리소스와
 범례 오버레이, Inspector 소유 접기 상태는 표현 컨트롤일 뿐이며 링크를 만들거나 쿼리 범위를
 바꾸거나 변경 권한을 부여하지 않습니다.
+관계 범례는 기본적으로 `contains`, `attached_to`, `depends_on`을 표시하고 명시적인 펼치기
+컨트롤을 통해 범위가 제한된 응답의 나머지 유형을 제공합니다. 범례를 펼치거나 접어도 링크를
+제거하거나 개수를 바꾸거나 Inspector의 범위를 줄이지 않습니다.
 
 아이콘은 표현이며 증거가 아닙니다. Resource 유형은 검토된 공식 벤더 아이콘으로 해석되고,
 매핑되지 않은 유형은 비슷해 보이는 아이콘 대신 명시적인 일반 대체 아이콘으로 해석됩니다.

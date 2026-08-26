@@ -5,6 +5,7 @@ import {
   buildInstanceTimeline,
   clampInstanceGraphScale,
   countInstanceLinkTypes,
+  defaultInstanceLegendLinkTypes,
   instanceGraphFitScale,
   instanceGraphPathNodeIds,
   instanceGraphScrollTarget,
@@ -42,6 +43,23 @@ describe("buildInstanceGraphLayout", () => {
       { linkType: "depends_on", count: 2 },
     ]);
   });
+
+  it("keeps the default dense legend limited to structural relationship types", () => {
+    const counts = countInstanceLinkTypes([
+      link("root", "a", "routes_to"),
+      link("root", "b", "depends_on"),
+      link("root", "c", "contains"),
+      link("root", "d", "kubernetes_owned_by"),
+      link("root", "e", "attached_to"),
+    ]);
+
+    expect(defaultInstanceLegendLinkTypes(counts)).toEqual([
+      { linkType: "attached_to", count: 1 },
+      { linkType: "contains", count: 1 },
+      { linkType: "depends_on", count: 1 },
+    ]);
+  });
+
   it("places incoming, root, and outgoing Resources in non-overlapping columns", () => {
     const data = exploration();
     const layout = buildInstanceGraphLayout(data);

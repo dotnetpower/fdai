@@ -74,6 +74,9 @@ table, or new approval topic. Each source keeps its own schema, revision, lifecy
 The Ontology instance workspace is a read-only operational view. Its graph-first layout, selected
 resource and legend overlays, and Inspector-owned collapse state are presentation controls only;
 they do not create links, change query scope, or grant mutation authority.
+The relationship legend shows `contains`, `attached_to`, and `depends_on` by default and exposes
+the remaining bounded-response types through an explicit disclosure. Expanding or collapsing the
+legend does not remove links, change counts, or narrow the Inspector.
 
 Iconography is presentation, never evidence. A Resource type resolves to a reviewed official
 vendor glyph, and an unmapped type resolves to an explicit generic fallback rather than a

@@ -10,6 +10,7 @@ import {
   buildInstanceTimeline,
   clampInstanceGraphScale,
   countInstanceLinkTypes,
+  defaultInstanceLegendLinkTypes,
   INSTANCE_NODE_HEIGHT,
   INSTANCE_NODE_WIDTH,
   instanceGraphPathNodeIds,
@@ -74,6 +75,7 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
   const [graphScale, setGraphScale] = useState(1);
   const [isPanning, setIsPanning] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+  const [showAllRelationshipTypes, setShowAllRelationshipTypes] = useState(false);
   const showEdgeLabels = showInstanceEdgeLabels(layout.edges.length);
   const focusedPath = useMemo(
     () => focusedResourceId === null
@@ -91,6 +93,9 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
       displayed: displayed.get(item.linkType) ?? 0,
     }));
   }, [data.links, layout.edges]);
+  const defaultLinkTypeCounts = defaultInstanceLegendLinkTypes(linkTypeCounts);
+  const visibleLinkTypeCounts = showAllRelationshipTypes ? linkTypeCounts : defaultLinkTypeCounts;
+  const hiddenLinkTypeCount = linkTypeCounts.length - defaultLinkTypeCounts.length;
   const defaultPreview = timeline.events.length > 0
     ? { kind: "event", event: timeline.events[timeline.events.length - 1]! } as const
     : null;
@@ -207,7 +212,7 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
   return (
     <div class="ontology-instance-graph" ref={graphRef}>
       <div class="ontology-instance-graph-viewport">
-        <div class="ontology-instance-legend-dock" tabIndex={0}>
+        <div class="ontology-instance-legend-dock">
           <div class="ontology-instance-graph-key" aria-label={t("ontology.instances.graphLegend") }>
             <span><i class="is-direction" aria-hidden="true" />{t("ontology.instances.storedDirection")}</span>
             <span><i class="is-traffic" aria-hidden="true" />{t("ontology.instances.verifiedTrafficPath")}</span>
@@ -220,8 +225,8 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
               <span>
                 {t("ontology.instances.relationshipTypes")} · {layout.edges.length}/{data.links.length}
               </span>
-              <ul>
-                {linkTypeCounts.map((item) => (
+              <ul id="ontology-instance-relationship-types">
+                {visibleLinkTypeCounts.map((item) => (
                   <li key={item.linkType}>
                     <i class={`is-${item.linkType}`} aria-hidden="true" />
                     <strong>{t(`ontology.instances.link.${item.linkType}`)}</strong>
@@ -229,6 +234,20 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
                   </li>
                 ))}
               </ul>
+              {hiddenLinkTypeCount > 0 ? (
+                <button
+                  type="button"
+                  aria-controls="ontology-instance-relationship-types"
+                  aria-expanded={showAllRelationshipTypes}
+                  onClick={() => setShowAllRelationshipTypes((current) => !current)}
+                >
+                  {t(showAllRelationshipTypes
+                    ? "ontology.instances.showBasicRelationshipTypes"
+                    : "ontology.instances.showMoreRelationshipTypes", {
+                      count: hiddenLinkTypeCount,
+                    })}
+                </button>
+              ) : null}
             </div>
           ) : null}
         </div>

@@ -55,6 +55,12 @@ export interface InstanceLinkTypeCount {
   readonly count: number;
 }
 
+const DEFAULT_INSTANCE_LEGEND_LINK_TYPES = new Set<OntologyInstanceLink["link_type"]>([
+  "attached_to",
+  "contains",
+  "depends_on",
+]);
+
 export interface InstanceGraphScrollTarget {
   readonly left: number;
   readonly top: number;
@@ -135,6 +141,13 @@ export function countInstanceLinkTypes(
   return [...counts.entries()]
     .sort(([first], [second]) => first.localeCompare(second))
     .map(([linkType, count]) => ({ linkType, count }));
+}
+
+/** Selects the structural relationships shown before the dense legend is expanded. */
+export function defaultInstanceLegendLinkTypes<T extends InstanceLinkTypeCount>(
+  counts: readonly T[],
+): readonly T[] {
+  return counts.filter((item) => DEFAULT_INSTANCE_LEGEND_LINK_TYPES.has(item.linkType));
 }
 
 /** Centers one Resource while keeping the scroll target inside the graph canvas. */
