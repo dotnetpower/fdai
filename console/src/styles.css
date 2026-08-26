@@ -7770,60 +7770,125 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-intro-lead { margin: 0 0 12px; font-size: 14px; line-height: 1.55; }
 .deck-overlay-mode-workspace .deck-intro-lead {
   max-width: 62ch;
-  margin: 0 auto 24px;
+  margin: 0 auto;
   color: var(--fg-muted);
 }
-.deck-intro-verticals {
+.deck-intro-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+  margin: 18px auto 20px;
+  text-align: left;
+}
+.deck-intro-card {
+  --intro-card-accent: var(--accent);
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 10px;
-}
-.deck-overlay-mode-workspace .deck-intro-verticals {
-  justify-content: center;
-  margin-top: 2px;
-}
-.deck-intro-verticals > span {
-  margin-right: 2px;
-  color: var(--fg-muted);
-  font-size: 11px;
-  font-weight: 600;
-}
-.deck-overlay-mode-workspace .deck-intro-verticals > span {
-  flex-basis: 100%;
-  margin: 0 0 2px;
-  text-align: center;
-}
-.deck-vertical-suggest {
-  min-height: 30px;
-  padding: 5px 9px;
+  min-width: 0;
+  min-height: 116px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 15px 16px;
   border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg);
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--intro-card-accent) 4%, var(--bg));
   color: var(--fg);
+  box-shadow: 0 5px 18px color-mix(in oklab, var(--fg) 5%, transparent);
   cursor: pointer;
   font: inherit;
-  font-size: 11.5px;
+  text-align: left;
+  transition: border-color .18s ease, box-shadow .18s ease, background-color .18s ease;
 }
-.deck-vertical-suggest:hover,
-.deck-vertical-suggest:focus-visible {
-  border-color: var(--accent);
-  color: var(--accent-strong);
+.deck-intro-card:hover {
+  border-color: color-mix(in oklab, var(--intro-card-accent) 38%, var(--border));
+  box-shadow: 0 12px 28px color-mix(in oklab, var(--fg) 9%, transparent);
 }
-.deck-vertical-suggest:focus-visible {
+.deck-intro-card:focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: 1px;
+  outline-offset: 3px;
 }
-.deck-intro-suggest {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+.deck-intro-card.is-attention { --intro-card-accent: var(--warning); }
+.deck-intro-card.is-resilience { --intro-card-accent: var(--success); }
+.deck-intro-card.is-changeSafety { --intro-card-accent: var(--accent); }
+.deck-intro-card.is-costGovernance { --intro-card-accent: var(--info, var(--accent)); }
+.deck-intro-card.is-feature {
+  grid-column: 1 / -1;
+  min-height: 132px;
+  background: color-mix(in oklab, var(--warning) 6%, var(--bg));
 }
-.deck-overlay-mode-workspace .deck-intro-suggest { justify-content: center; }
+.deck-intro-card-icon {
+  display: inline-flex;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in oklab, var(--intro-card-accent) 18%, var(--border));
+  border-radius: 11px;
+  background: color-mix(in oklab, var(--intro-card-accent) 8%, var(--bg));
+  color: var(--intro-card-accent);
+}
+.deck-intro-card-icon svg {
+  width: 23px;
+  height: 23px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.deck-intro-card-copy {
+  display: block;
+  min-width: 0;
+}
+.deck-intro-card-label {
+  display: block;
+  margin-bottom: 4px;
+  overflow: hidden;
+  color: var(--fg-muted);
+  font-size: 10.5px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.deck-intro-card-copy strong {
+  display: block;
+  color: var(--fg);
+  font-size: 12.5px;
+  font-weight: 650;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.deck-overlay-mode-workspace .deck-intro-card-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) minmax(230px, 1.35fr);
+  grid-template-rows: repeat(2, 132px);
+  width: min(100%, 760px);
+  gap: 14px;
+  margin-top: 24px;
+}
+.deck-overlay-mode-workspace .deck-intro-card { min-height: 132px; }
+.deck-overlay-mode-workspace .deck-intro-card.is-feature {
+  grid-column: 3;
+  grid-row: 1 / 3;
+  min-height: 278px;
+  padding: 22px;
+}
+.deck-overlay-mode-workspace .deck-intro-card.is-feature .deck-intro-card-icon {
+  width: 76px;
+  height: 76px;
+  margin: 12px auto 0;
+  align-self: center;
+  border-radius: 22px;
+}
+.deck-overlay-mode-workspace .deck-intro-card.is-feature .deck-intro-card-icon svg {
+  width: 42px;
+  height: 42px;
+}
+.deck-overlay-mode-workspace .deck-intro-card.is-feature .deck-intro-card-copy strong {
+  font-size: 15px;
+}
 
 .deck-history-state {
   width: min(100%, 720px);
@@ -7862,27 +7927,6 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-history-state.is-loading span:nth-child(1) { width: 42%; }
 .deck-history-state.is-loading span:nth-child(2) { width: 88%; }
 .deck-history-state.is-loading span:nth-child(3) { width: 68%; }
-.deck-suggest {
-  padding: 6px 12px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--fg);
-  cursor: pointer;
-  font-size: 12.5px;
-  font-family: inherit;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
-}
-.deck-suggest:hover {
-  color: var(--accent-strong);
-  border-color: var(--accent);
-  background: color-mix(in oklab, var(--accent) 10%, var(--bg));
-}
-.deck-suggest:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-
 .deck-turn {
   max-width: 780px;
   display: flex;
@@ -10963,8 +11007,30 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   }
   .deck-input-row button { min-width: 44px; min-height: 44px; }
   .deck-input { min-height: 44px; }
-  .deck-vertical-suggest,
-  .deck-suggest { min-height: 44px; }
+  .deck-overlay-mode-workspace .deck-intro-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: auto;
+    gap: 10px;
+    width: 100%;
+  }
+  .deck-intro-card,
+  .deck-overlay-mode-workspace .deck-intro-card { min-height: 116px; }
+  .deck-overlay-mode-workspace .deck-intro-card.is-feature {
+    grid-column: 1 / -1;
+    grid-row: auto;
+    min-height: 132px;
+    padding: 16px;
+  }
+  .deck-overlay-mode-workspace .deck-intro-card.is-feature .deck-intro-card-icon {
+    width: 52px;
+    height: 52px;
+    margin: 0;
+    border-radius: 14px;
+  }
+  .deck-overlay-mode-workspace .deck-intro-card.is-feature .deck-intro-card-icon svg {
+    width: 29px;
+    height: 29px;
+  }
   .deck-history-state button { min-height: 44px; }
   .deck-composer-inner { grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; }
   .deck-composer-inner > .tooltip-anchor { align-self: end; }

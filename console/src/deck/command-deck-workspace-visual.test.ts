@@ -108,7 +108,15 @@ describe("Command Deck workspace hierarchy", () => {
     expect(source).toContain('{centeredEmptyState ? null : composer}');
     expect(source).toContain('centeredEmptyState ? " is-empty-conversation" : ""');
     expect(presenters).toContain('class="deck-intro-title"');
+    expect(presenters).toContain('class="deck-intro deck-intro-cards"');
+    expect(presenters).toContain('class="deck-intro-card-grid"');
+    expect(presenters).toContain('class="deck-intro-card is-feature"');
+    expect(presenters).toContain('<IntroCardIcon kind="checklist" />');
+    expect(presenters).toContain('onClick={() => onPick(card.prompt)}');
+    expect(presenters).toContain('onClick={() => onPick(screenPrompt)}');
     expect(styles).toMatch(/\.deck-overlay-mode-workspace \.deck-transcript-inner\.is-empty-conversation \{[^}]*justify-content: center;/s);
+    expect(styles).toMatch(/\.deck-overlay-mode-workspace \.deck-intro-card-grid \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\) minmax\(230px, 1\.35fr\);[^}]*grid-template-rows: repeat\(2, 132px\);/s);
+    expect(styles).toMatch(/\.deck-overlay-mode-workspace \.deck-intro-card\.is-feature \{[^}]*grid-column: 3;[^}]*grid-row: 1 \/ 3;[^}]*min-height: 278px;/s);
     expect(styles).toMatch(/\.deck-input-row\.is-centered \{[^}]*border-top: 0;[^}]*background: transparent;/s);
     expect(styles).toMatch(/\.deck-overlay-mode-workspace \.deck-input-row\.is-centered \.deck-composer-inner \{[^}]*width: min\(100%, 820px\);[^}]*border-radius: 14px;/s);
     expect(styles).toMatch(/\.deck-input-row\.is-centered \.deck-input \{[^}]*height: 48px;[^}]*padding-block: 13px;[^}]*line-height: 22px;/s);
@@ -333,7 +341,9 @@ describe("Command Deck workspace hierarchy", () => {
     expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-source-status \{ min-height: 44px;/);
     expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-search input \{ min-height: 44px; \}/);
     expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-input \{ min-height: 44px; \}/);
-    expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-vertical-suggest,[\s\S]*\.deck-suggest \{ min-height: 44px; \}/);
+    expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-intro-card-grid \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/s);
+    expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-intro-card,[\s\S]*\.deck-overlay-mode-workspace \.deck-intro-card \{ min-height: 116px; \}/);
+    expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-overlay-mode-workspace \.deck-intro-card\.is-feature \{[^}]*grid-column: 1 \/ -1;[^}]*min-height: 132px;/s);
     expect(sidebarStyles).toMatch(/@media \(max-width: 780px\)[\s\S]*\.deck-overlay-mode-workspace \.deck-conversation-filter \{ min-height: 44px; \}/);
     expect(sidebarStyles).toMatch(/\.deck-overlay-mode-workspace \.deck-conversation-remove \{[^}]*width: 44px;[^}]*height: 44px;/s);
     expect(sidebarStyles).toMatch(/\.deck-overlay-mode-workspace \.deck-conversation-favorite \{[^}]*width: 44px;[^}]*height: 44px;/s);

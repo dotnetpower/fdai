@@ -797,34 +797,63 @@ export function IntroPanel({
 }) {
   const suggestions = introSuggestions(snapshot, getLocale());
   const verticals = verticalQuickStarts();
+  const screenPrompt = t("deck.starterSuggestions.screen");
+  const situationalPrompt = suggestions.find((suggestion) => suggestion !== screenPrompt) ??
+    t("deck.starterSuggestions.tierMix");
+  const cards = [
+    { key: "situation", label: routeLabel, prompt: situationalPrompt, icon: "attention" },
+    ...verticals.map((vertical) => ({ ...vertical, icon: vertical.key })),
+  ] as const;
   return (
-    <div class="deck-intro">
+    <div class="deck-intro deck-intro-cards">
       <h2 class="deck-intro-title">{t("deck.emptyTitle", { route: routeLabel })}</h2>
       <p class="deck-intro-lead">{t("deck.intro")}</p>
-      {children}
-      <div class="deck-intro-verticals" aria-label={t("deck.verticalQuickStarts.label")}>
-        <span>{t("deck.verticalQuickStarts.label")}</span>
-        {verticals.map((vertical) => (
+      <div class="deck-intro-card-grid" aria-label={t("deck.verticalQuickStarts.label")}>
+        {cards.map((card) => (
           <button
-            key={vertical.key}
+            key={card.key}
             type="button"
-            class="deck-vertical-suggest"
-            onClick={() => onPick(vertical.prompt)}
+            class={`deck-intro-card is-${card.icon}`}
+            onClick={() => onPick(card.prompt)}
           >
-            {vertical.label}
+            <IntroCardIcon kind={card.icon} />
+            <span class="deck-intro-card-copy">
+              <span class="deck-intro-card-label">{card.label}</span>
+              <strong>{card.prompt}</strong>
+            </span>
           </button>
         ))}
+        <button
+          type="button"
+          class="deck-intro-card is-feature"
+          onClick={() => onPick(screenPrompt)}
+        >
+          <IntroCardIcon kind="checklist" />
+          <span class="deck-intro-card-copy">
+            <span class="deck-intro-card-label">{routeLabel}</span>
+            <strong>{screenPrompt}</strong>
+          </span>
+        </button>
       </div>
-      <ul class="deck-intro-suggest">
-        {suggestions.map((suggestion) => (
-          <li key={suggestion}>
-            <button type="button" class="deck-suggest" onClick={() => onPick(suggestion)}>
-              {suggestion}
-            </button>
-          </li>
-        ))}
-      </ul>
+      {children}
     </div>
+  );
+}
+
+function IntroCardIcon({ kind }: { readonly kind: string }) {
+  const paths = kind === "attention"
+    ? <><path d="M12 3.5 21 20H3L12 3.5Z" /><path d="M12 9v5M12 17.2h.01" /></>
+    : kind === "resilience"
+      ? <path d="M3.5 12h4l2-5 4.5 10 2-5h4.5" />
+      : kind === "changeSafety"
+        ? <><rect x="5" y="3" width="14" height="18" rx="2" /><path d="m8 12 2.2 2.2L16 8.5" /></>
+        : kind === "costGovernance"
+          ? <><path d="m4 17 5-5 4 3 7-8" /><path d="M15 7h5v5" /></>
+          : <><rect x="5" y="3" width="14" height="18" rx="2" /><path d="M9 3.5V2h6v1.5" /><path d="m8 9 1.5 1.5L12 8M14 9h2M8 15l1.5 1.5L12 14M14 15h2" /></>;
+  return (
+    <span class="deck-intro-card-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24">{paths}</svg>
+    </span>
   );
 }
 
