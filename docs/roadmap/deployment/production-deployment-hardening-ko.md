@@ -1,7 +1,7 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: 9806a8afa95da32645258b67f8728822182bef8b
+translation_source_sha: 9068761b6024487ad81e1751d8f5cf79e4e27dde
 translation_revised: 2026-08-26
 ---
 # 운영 배포 강화
@@ -28,6 +28,7 @@ translation_revised: 2026-08-26
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-26 | implemented | 해석되지 않는 Functions 배포 액션을 인증된 Azure CLI `config-zip` 경로로 교체했습니다. 개발 operations gateway는 원격 빌드를 유지하고 관리 ID 실행기의 게시 작업을 900초로 제한합니다. | `current change`, 집중 배포 workflow 검사 93개 통과, CI 계약 통과 | 정확히 커밋된 workflow에서 보호된 gateway 게시 증적 하나를 보존합니다. |
 | 2026-08-26 | implemented | 예약된 인프라 drift에 읽기 전용 실행기 저장소 상태 검사를 추가하고 임시 실행기 프로파일의 구성된 할당 해제와 수동 할당 해제를 모두 차단했습니다. | `current change`; 실행기 상태 스크립트, drift workflow, 수명 주기 도우미 및 집중 계약 검사 14개. | 실제 실행기의 blue/green 교체를 완료하고 성공한 예약 상태 검사 증적 하나를 보존합니다. |
 | 2026-08-21 | in-progress | 인프라 동작을 변경하지 않고 기존 운영 강화 제어를 집중 소유 문서로 옮겼습니다. | `current change`; 문서 크기, 번역, 경로 및 링크 검사입니다. | 모든 필수 제어를 다루는 exact-revision 보호 운영 계획 및 적용 증적 하나를 보존합니다. |
 | 2026-08-24 | implemented | 모든 표준 환경에서 제어 가능한 해체 및 동일 이름 재생성 제약을 제거했습니다. Terraform은 삭제된 Key Vault와 Cognitive Services 계정을 purge하고, Log Analytics 작업 영역을 영구 삭제하며, 리소스가 남은 리소스 그룹 삭제를 허용하고, 애플리케이션 및 상태 계정 관리 잠금을 비활성화합니다. | `current change`; `infra/` 아래 프로바이더 기능과 환경 값; `tests/integration/infra/test_key_vault_lifecycle.py` (`2 passed`); 공유, scenario-lab, bootstrap 및 dev-access 루트의 Terraform 형식과 유효성 검사. | 보호된 비운영 destroy 및 동일 이름 재생성 증적을 보존합니다. Azure 소유 서비스 지연은 Terraform 제어 밖에 남습니다. |

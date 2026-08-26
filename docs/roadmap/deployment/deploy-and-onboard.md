@@ -141,10 +141,6 @@ Key Vault privately. The runner is the terraform apply principal, so the existin
 `kv_officer_self` grant makes it `Key Vault Secrets Officer` on the app vault - it writes the
 DSN secrets during apply. Deploys run through the [`deploy-dev` workflow](../../../.github/workflows/deploy-dev.yml)
 on the `[self-hosted, fdai-deploy]` runner (plan-only by default; the `apply` input enforces).
-The development operations gateway publishes its reviewed source archive through the authenticated
-Azure CLI `config-zip` path with remote build enabled and a 900-second deployment timeout. This
-keeps the Flex Consumption One Deploy operation on the runner's managed identity and avoids a
-separate Functions deployment action.
 Repository workflows allow only reviewed remote actions pinned to exact Node 24-compatible release
 refs; container supply-chain actions use immutable commit SHAs. The CI contract rejects unknown
 actions and mismatched refs. Terraform fixture tests use syntax accepted at the declared `>= 1.9`
