@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: edc1b045ea4ede2d9562f11d1e17f0207e1973f2
+translation_source_sha: 4cbf0e477e4ee2fdc9030dcdfb2ff8a420e89636
 translation_revised: 2026-08-26
 ---
 # 온톨로지 구조 모델
@@ -239,9 +239,11 @@ Resource 유형 아이콘은 표현일 뿐입니다. 객체 identity, 유형 권
 
 포함 관계는 Resource의 아래쪽에서, 연결 관계는 측면에서 나가며, 포함된 Resource는 열 안에서
 소유자의 순서를 따릅니다. Resource가 연결된 대상은 위에, 포함한 대상은 아래에 그리고 두 묶음
-사이에는 눈에 보이는 간격을 둡니다. 선이 사용하는 접점과 Resource가 놓인 행은 읽기를 돕는
-장치일 뿐입니다. 둘 중 어느 것도 관계를 만들거나 없애거나 방향을 바꾸거나 evidence를 다시
-부여하지 않습니다.
+사이에는 눈에 보이는 간격을 둡니다. 계층형 레이아웃은 그 순서를 선택한 Resource에 대해서만
+보장할 수 있으므로, 더 깊은 계층에서 자기 자식보다 아래에 그려진 소유자는 배치가 보여 주지
+못하는 계층을 주장하지 않고 측면 접점을 유지합니다. 선이 사용하는 접점과 Resource가 놓인 행은
+읽기를 돕는 장치일 뿐입니다. 둘 중 어느 것도 관계를 만들거나 없애거나 방향을 바꾸거나 evidence를
+다시 부여하지 않습니다.
 
 ## 이행 및 출시
 

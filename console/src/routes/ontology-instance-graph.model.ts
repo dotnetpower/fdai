@@ -282,7 +282,8 @@ export function buildInstanceEdgeGeometry(
   const sourceY = source.y + INSTANCE_NODE_HEIGHT / 2;
   const targetY = target.y + INSTANCE_NODE_HEIGHT / 2 + targetPortOffset;
   // Containment reads as a hierarchy, so it leaves the owner's underside rather than its side.
-  if (orientation === "descend" && Math.abs(source.x - target.x) <= 300) {
+  // An owner drawn below its child cannot claim that reading, so it keeps the side port.
+  if (orientation === "descend" && target.y > source.y && Math.abs(source.x - target.x) <= 300) {
     const sourceX = source.x + INSTANCE_NODE_WIDTH / 2 + parallelOffset;
     const sourceBottom = source.y + INSTANCE_NODE_HEIGHT;
     const movingRight = target.x >= source.x;

@@ -244,8 +244,10 @@ independent decision.
 Containment leaves a Resource from its underside while attachment leaves from its side, and a
 contained Resource follows its owner's order within a column. What a Resource is attached to is
 drawn above it and what it contains is drawn below it, with a visible break between the two groups.
-The port a line uses and the row a Resource occupies are reading aids only. Neither creates,
-removes, reorients, or re-evidences a relationship.
+A layered layout can only guarantee that order for the selected Resource, so an owner that a deeper
+level draws below its own child keeps the side port instead of claiming a hierarchy the placement
+does not show. The port a line uses and the row a Resource occupies are reading aids only. Neither
+creates, removes, reorients, or re-evidences a relationship.
 
 ## Migration and rollout
 

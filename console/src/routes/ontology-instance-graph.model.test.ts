@@ -824,7 +824,7 @@ describe("buildInstanceGraphLayout", () => {
     expect(containment.path.startsWith(`M${20 + 88} ${40 + 68}`)).toBe(true);
     expect(containment.path).not.toBe(attachment.path);
 
-    // An owner drawn below its child still leaves from the underside.
+    // An owner drawn below its child cannot claim ownership by port, so it keeps the side.
     const upward = buildInstanceEdgeGeometry(
       { x: 20, y: 400 },
       { x: 308, y: 40 },
@@ -833,7 +833,7 @@ describe("buildInstanceGraphLayout", () => {
       "above",
       "descend",
     );
-    expect(upward.path.startsWith(`M${20 + 88} ${400 + 68}`)).toBe(true);
+    expect(upward.path.startsWith(`M${20 + 176} ${400 + 34}`)).toBe(true);
 
     // Distant columns keep the long channel so containment never crosses a node.
     const distant = buildInstanceEdgeGeometry(

@@ -117,8 +117,10 @@ and does not follow the row bound.
 Attachment leaves a Resource from its side and containment leaves it from its underside, so the two
 readings stay distinguishable without depending on line colour alone. Contained Resources follow
 their owner's order within a column. What a Resource is attached to sits above it, what it contains
-sits below it, and a visible break separates the two so they never read as one run. Neither the port
-a line uses nor the row a Resource occupies changes a relationship, its direction, or its evidence.
+sits below it, and a visible break separates the two so they never read as one run. Only the
+selected Resource is anchored above what it contains, so a deeper owner the layout draws below its
+own child keeps the side port rather than pointing an ownership line upward. Neither the port a line
+uses nor the row a Resource occupies changes a relationship, its direction, or its evidence.
 
 For a browser-visible pending access request, an authenticated GET-only stream filters the durable
 records by the principal's App Roles. When the tab and Command Deck are idle, the console opens a

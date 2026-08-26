@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: be56fd7c53ee8f4d2d06c615dd862639e180ab1c
+translation_source_sha: 901aa8c50e9991515f21d5666c0ba1472fed2e24
 translation_revised: 2026-08-26
 ---
 
@@ -117,9 +117,11 @@ Canvas는 고정된 상자를 유지하는 대신 viewport에 맞춰 커지고, 
 
 연결 관계는 Resource의 측면에서, 포함 관계는 아래쪽에서 나가므로 선 색만으로 구분하지 않아도
 두 읽기가 서로 구별됩니다. 포함된 Resource는 열 안에서 소유자의 순서를 따릅니다. Resource가
-연결된 대상은 위에, 포함한 대상은 아래에 놓이며, 둘이 하나의 단일 단락처럼 읽힐지 않도록 그
-사이에 눈에 보이는 간격을 둡니다. 선이 사용하는 접점도, Resource가 놓인 행도 관계나 그 방향,
-evidence를 바꾸지 않습니다.
+연결된 대상은 위에, 포함한 대상은 아래에 놓이며, 둘이 하나의 단일 단락처럼 읽히지 않도록 그
+사이에 눈에 보이는 간격을 둡니다. 선택한 Resource만 자신이 포함한 대상 위에 고정되므로, 더 깊은
+계층에서 자기 자식보다 아래에 그려진 소유자는 소유 관계 선을 위로 향하게 하지 않고 측면 접점을
+유지합니다. 선이 사용하는 접점도, Resource가 놓인 행도 관계나 그 방향, evidence를 바꾸지
+않습니다.
 
 브라우저에 표시할 pending 접근 요청이 있으면 인증된 GET-only 스트림이 principal의 App 역할로
 영속 기록을 필터링합니다. 탭과 Command Deck이 idle 상태이면 콘솔은 기능, 범위 및
