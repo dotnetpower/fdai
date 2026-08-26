@@ -124,8 +124,7 @@ describe("Ontology Instances view controls", () => {
     expect(graphSource).not.toContain("<title>");
   });
 
-  it("gives the canvas the viewport instead of a fixed box", () => {
-    expect(styles).toMatch(
+  it("gives the canvas the viewport instead of a fixed box", () => {    expect(styles).toMatch(
       /\.ontology-instance-graph-scroll\s*\{[^}]*max-height:\s*clamp\(560px,\s*calc\(100vh\s*-\s*300px\),\s*900px\)/s,
     );
     expect(graphModelSource).toContain("const INSTANCE_MAX_ROWS = 10;");
@@ -133,6 +132,10 @@ describe("Ontology Instances view controls", () => {
     expect(graphSource).toContain("minScaleRef");
     expect(graphSource).toContain("clampInstanceGraphScale(requestedScale, minScaleRef.current)");
     expect(graphSource).toContain("minScaleRef.current = initialScale;");
+    expect(graphSource).toContain(
+      'edge.link.link_type === "contains" ? "descend" : "side"',
+    );
+    expect(graphModelSource).toContain("const ownerY = new Map<string, number>();");
   });
 
   it("draws what a cluster namespace holds without hiding its own repeats", () => {

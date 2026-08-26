@@ -324,6 +324,7 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
               edge.parallelOffset,
               edge.targetPortOffset,
               edge.longChannel,
+              edge.link.link_type === "contains" ? "descend" : "side",
             );
             const trafficDirection = ontologyInstanceTrafficDirection(edge.link, data.root_id);
             const relationshipLabel = t(`ontology.instances.link.${edge.link.link_type}`);

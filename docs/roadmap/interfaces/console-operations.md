@@ -114,6 +114,11 @@ the graph first rendered with, because shrinking past that point only shrinks no
 reveals another relationship. How much of a scope a root summarizes is a separate reading decision
 and does not follow the row bound.
 
+Attachment leaves a Resource from its side and containment leaves it from its underside, so the two
+readings stay distinguishable without depending on line colour alone. Contained Resources follow
+their owner's order within a column. Neither the port a line uses nor the row a Resource occupies
+changes a relationship, its direction, or its evidence.
+
 For a browser-visible pending access request, an authenticated GET-only stream filters the durable
 records by the principal's App Roles. When the tab and Command Deck are idle, the console opens a
 request-scoped conversation with the capability, scope, and expiry. Active work, an unsent draft,

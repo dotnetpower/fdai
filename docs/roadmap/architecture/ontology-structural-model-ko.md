@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 4d7de5f38e9377f460d276995741f90cb1d8cdd0
+translation_source_sha: 10d3c8190bc69c75bbf610b18a630fa0df45e265
 translation_revised: 2026-08-26
 ---
 # 온톨로지 구조 모델
@@ -236,6 +236,10 @@ Resource 유형 아이콘은 표현일 뿐입니다. 객체 identity, 유형 권
 채우므로, 폭은 행 배치가 아니라 hop 깊이가 결정합니다. 확대·축소는 첫 렌더링 배율에서 멈춥니다.
 더 작은 배율은 node만 작게 만들 뿐 관계를 더하지 않기 때문입니다. 레이아웃 상한은 완전성 상한을
 겸하지 않습니다. Root가 scope를 얼마나 요약할지는 독립된 판단으로 남습니다.
+
+포함 관계는 Resource의 아래쪽에서, 연결 관계는 측면에서 나가며, 포함된 Resource는 열 안에서
+소유자의 순서를 따릅니다. 선이 사용하는 접점과 Resource가 놓인 행은 읽기를 돕는 장치일 뿐입니다.
+둘 중 어느 것도 관계를 만들거나 없애거나 방향을 바꾸거나 evidence를 다시 부여하지 않습니다.
 
 ## 이행 및 출시
 

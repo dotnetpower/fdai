@@ -241,6 +241,11 @@ first render because a smaller scale only shrinks nodes and never adds a relatio
 bound never doubles as a completeness bound: how much of a scope a root summarizes stays an
 independent decision.
 
+Containment leaves a Resource from its underside while attachment leaves from its side, and a
+contained Resource follows its owner's order within a column. The port a line uses and the row a
+Resource occupies are reading aids only. Neither creates, removes, reorients, or re-evidences a
+relationship.
+
 ## Migration and rollout
 
 1. Add the structural declarations, loaders, and validators without changing the visible query

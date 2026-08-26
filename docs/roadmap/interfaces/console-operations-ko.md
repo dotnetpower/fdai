@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 40a53dd2f829bb06fe12e8c792d21d5f09ad0c5d
+translation_source_sha: 27d82572dcc8738ae46a036c78c406337b89edc1
 translation_revised: 2026-08-26
 ---
 
@@ -114,6 +114,10 @@ Canvas는 고정된 상자를 유지하는 대신 viewport에 맞춰 커지고, 
 먼저 채우므로 폭은 배치 방식이 아니라 깊이가 결정합니다. 확대·축소는 graph가 처음 렌더링된
 배율 아래로 내려가지 않습니다. 그 아래로 줄여도 node만 작아질 뿐 관계가 더 드러나지 않기
 때문입니다. Root가 scope를 얼마나 요약할지는 별개의 읽기 판단이며 행 상한을 따르지 않습니다.
+
+연결 관계는 Resource의 측면에서, 포함 관계는 아래쪽에서 나가므로 선 색만으로 구분하지 않아도
+두 읽기가 서로 구별됩니다. 포함된 Resource는 열 안에서 소유자의 순서를 따릅니다. 선이 사용하는
+접점도, Resource가 놓인 행도 관계나 그 방향, evidence를 바꾸지 않습니다.
 
 브라우저에 표시할 pending 접근 요청이 있으면 인증된 GET-only 스트림이 principal의 App 역할로
 영속 기록을 필터링합니다. 탭과 Command Deck이 idle 상태이면 콘솔은 기능, 범위 및

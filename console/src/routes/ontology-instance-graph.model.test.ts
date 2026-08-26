@@ -661,8 +661,7 @@ describe("buildInstanceGraphLayout", () => {
       .toBe(INSTANCE_GRAPH_MIN_SCALE);
   });
 
-  it("never zooms out past the scale the graph first rendered with", () => {
-    expect(clampInstanceGraphScale(0.2, 0.68)).toBe(0.68);
+  it("never zooms out past the scale the graph first rendered with", () => {    expect(clampInstanceGraphScale(0.2, 0.68)).toBe(0.68);
     expect(clampInstanceGraphScale(1.2, 0.68)).toBe(1.2);
     expect(instanceGraphWheelScale(0.68, 1, 0.68)).toBe(0.68);
     expect(instanceGraphWheelScale(0.88, 1, 0.68)).toBeCloseTo(0.68);
@@ -758,6 +757,44 @@ describe("buildInstanceGraphLayout", () => {
 
     expect(geometry.labelY).toBeLessThan(146);
     expect(geometry.path).toContain("C276 98,424 98");
+  });
+
+  it("leaves the owner underside for containment and the side for attachment", () => {
+    const attachment = buildInstanceEdgeGeometry({ x: 20, y: 40 }, { x: 308, y: 200 }, 0);
+    const containment = buildInstanceEdgeGeometry(
+      { x: 20, y: 40 },
+      { x: 308, y: 200 },
+      0,
+      0,
+      "above",
+      "descend",
+    );
+
+    expect(attachment.path.startsWith(`M${20 + 176} ${40 + 34}`)).toBe(true);
+    expect(containment.path.startsWith(`M${20 + 88} ${40 + 68}`)).toBe(true);
+    expect(containment.path).not.toBe(attachment.path);
+
+    // An owner drawn below its child still leaves from the underside.
+    const upward = buildInstanceEdgeGeometry(
+      { x: 20, y: 400 },
+      { x: 308, y: 40 },
+      0,
+      0,
+      "above",
+      "descend",
+    );
+    expect(upward.path.startsWith(`M${20 + 88} ${400 + 68}`)).toBe(true);
+
+    // Distant columns keep the long channel so containment never crosses a node.
+    const distant = buildInstanceEdgeGeometry(
+      { x: 20, y: 40 },
+      { x: 900, y: 40 },
+      0,
+      0,
+      "above",
+      "descend",
+    );
+    expect(distant.path.startsWith(`M${20 + 176} ${40 + 34}`)).toBe(true);
   });
 });
 

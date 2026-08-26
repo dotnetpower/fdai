@@ -275,9 +275,24 @@ export function buildInstanceEdgeGeometry(
   parallelOffset: number,
   targetPortOffset = 0,
   longChannel: "above" | "outer-above" | "below" = "above",
+  orientation: "side" | "descend" = "side",
 ): InstanceEdgeGeometry {
   const sourceY = source.y + INSTANCE_NODE_HEIGHT / 2;
   const targetY = target.y + INSTANCE_NODE_HEIGHT / 2 + targetPortOffset;
+  // Containment reads as a hierarchy, so it leaves the owner's underside rather than its side.
+  if (orientation === "descend" && Math.abs(source.x - target.x) <= 300) {
+    const sourceX = source.x + INSTANCE_NODE_WIDTH / 2 + parallelOffset;
+    const sourceBottom = source.y + INSTANCE_NODE_HEIGHT;
+    const movingRight = target.x >= source.x;
+    const targetX = movingRight ? target.x : target.x + INSTANCE_NODE_WIDTH;
+    const approach = movingRight ? -72 : 72;
+    const dropY = sourceBottom + 36 + parallelOffset;
+    return {
+      path: `M${sourceX} ${sourceBottom} C${sourceX} ${dropY},${targetX + approach} ${targetY},${targetX} ${targetY}`,
+      labelX: (sourceX + targetX) / 2,
+      labelY: (dropY + targetY) / 2 - 8,
+    };
+  }
   if (Math.abs(source.x - target.x) > 300) {
     const movingRight = target.x > source.x;
     const sourceX = movingRight ? source.x + INSTANCE_NODE_WIDTH : source.x;
@@ -378,10 +393,24 @@ export function buildInstanceGraphLayout(data: OntologyInstanceExploration): Ins
       link.source === data.root_id
       && link.evidence.mapping_id === "azure.aks-attached-to-node-resource-group")
     .map((link) => link.target));
+  // Levels advance left to right, so an owner already has a row when its children are placed.
+  const ownerY = new Map<string, number>();
   const nodes = orderedLevels.flatMap(([level, resources]) => {
     const levelColumns = columnsByLevel.get(level)!;
+    const parentRow = (occurrence: InstanceGraphOccurrence): number =>
+      occurrence.rank.parentId === null
+        ? Number.MAX_SAFE_INTEGER
+        : ownerY.get(occurrence.rank.parentId) ?? Number.MAX_SAFE_INTEGER;
+    const ordered = [...resources].sort((first, second) =>
+      graphLaneOrder(first.rank.lane) - graphLaneOrder(second.rank.lane)
+      || parentRow(first) - parentRow(second)
+      || (first.rank.parentId ?? "").localeCompare(second.rank.parentId ?? "")
+      || (first.resource.name ?? first.resource.resource_type).localeCompare(
+        second.resource.name ?? second.resource.resource_type,
+      )
+      || first.key.localeCompare(second.key));
     const positioned = columnNodes(
-      resources,
+      ordered,
       level,
       columnCursor,
       levelColumns,
@@ -389,6 +418,9 @@ export function buildInstanceGraphLayout(data: OntologyInstanceExploration): Ins
       occurrenceCounts,
       clusterManagedIds,
     );
+    positioned.forEach((node) => {
+      if (!ownerY.has(node.resource.id)) ownerY.set(node.resource.id, node.y);
+    });
     columnCursor += levelColumns * INSTANCE_COLUMN_WIDTH;
     return positioned;
   });
