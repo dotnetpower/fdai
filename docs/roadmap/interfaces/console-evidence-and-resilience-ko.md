@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 5fa9872642d3f4f85857ce2a521953856b9ad53b
+translation_source_sha: d23fa0d7b700ab1536bee2cd1559e291b410383d
 translation_revised: 2026-08-26
 ---
 # 콘솔 근거 및 복원력
@@ -19,7 +19,7 @@ translation_revised: 2026-08-26
 | 관측 네트워크 포커스 및 경로 표현 | implemented | `architecture-network-{focus,map,tools,icons,route}.ts*`, 집중 Console 검사 71개, 밀집 세 viewport 순차 Playwright 1개, 인증된 모바일 관측 | Console은 `InventoryGraphResponse`를 권위 있는 응답으로 유지하고 타입이 지정된 containment 및 attachment 근거로 2D 표현 형상을 다시 만들며, 범위가 불완전하면 경로 부재 대신 unknown을 반환하고 같은 타입 지정 route를 사용하는 self-contained 식별자 없는 SVG 및 PNG를 내보냅니다. 관리되는 런타임 아티팩트는 보존하지 않았습니다. |
 | 의미 모델 및 관계 방향 | 구현됨 | `ontology-semantic-model.ts`, `ontology-semantic-map.tsx`, 카탈로그 토폴로지 renderer 및 inspector, focused Vitest 23개 및 Console 타입 검사 통과 | 검토된 네 가지 의미 영역, 다섯 가지 운영 보기, 화살표 및 분리된 들어오는 관계와 나가는 관계를 구현했습니다. 인증된 데스크톱 및 모바일 근거는 남아 있습니다. |
 | 에이전트 활동 하트비트 표현 | validated | `console/src/routes/agents.model.ts`, `console/src/routes/agents.model.test.ts`, `docs/baselines/agent-activity-heartbeat-assurance-2026-08-14.json`, focused Vitest 31개 통과 및 인증된 Browser Entra assurance | 두 번 새로고치는 동안 연속된 하트비트 시각 세 개가 증가했고 인증된 self 검사 세 번이 모두 성공했으며 런타임 초기화 행은 0개였습니다. |
-| Command Deck JSON 대비 | 구현됨 | `console/src/styles.css`, `console/src/deck/command-deck-workspace-visual.test.ts`, focused Vitest 10개 통과 및 인증된 브라우저 검사 | 구문 강조 JSON은 전역의 밝은 `pre` 스타일과 관계없이 고정된 어두운 코드 표면을 유지합니다. 브라우저 검사는 통제된 런타임 근거로 보존하지 않았습니다. |
+| Command Deck JSON 가독성 | implemented | `json-code-block.tsx`, `model-trace-waterfall.tsx`, focused Vitest 15개, focused Playwright 1개, Console 타입 검사 및 운영 빌드 통과 | 구문 강조 JSON은 전역의 밝은 `pre` 스타일과 관계없이 고정된 어두운 코드 표면을 유지합니다. 모델 요청 및 응답 trace는 JSON 문자열 안에 다시 직렬화된 범위가 제한된 객체 또는 배열 JSON을 펼치고 일반 텍스트와 잘못된 값은 보존합니다. 브라우저 fixture는 synthetic 표현 근거이며 통제된 런타임 근거가 아닙니다. |
 | Web 표현 모듈 레지스트리 | 구현됨 | `console/src/deck/presentation-modules/`, `presentation-artifact.ts`, `structured-reply.tsx`, 집중 Console 검사 115개, 타입 검사, 운영 빌드 및 synthetic 세 화면 크기 Playwright 통과 | 얇은 shell이 수락된 모든 블록을 닫힌 레지스트리 항목 하나에 위임합니다. V2 차트는 설명과 exact 표를 요구하며 키보드 focus 및 reduced-motion 규칙을 고정합니다. Synthetic fixture는 1440 x 900, 993 x 641, 390 x 844에서 문서, workspace, chart overflow 없이 통과했으며 통제된 런타임 증적을 주장하지 않습니다. |
 | Console 및 시안 공유 타이포그래피 | implemented | `ui/calm-slate-tokens.css`, `ui/calm-slate-primitives.css`, `console/src/shared-style-tokens.test.ts`, [이슈 #212](https://github.com/dotnetpower/fdai/issues/212) | 의미 기반 페이지 제목, 페이지 부제목, 리드, 구역 제목, 패널 제목, 본문, 간결한 본문, 레이블 및 캡션 역할이 하나의 크기와 행간 계약을 공유합니다. 대표 Console 및 시안 선택자는 같은 토큰을 사용하며, 특수한 경로 텍스트는 해당 경로가 계속 소유합니다. |
 | 정적 시안 상호 작용 보증 | implemented | `index.html`, `mocks/ui/components.html`, `mocks/ui/assets/calm-slate.{css,js}`, focused 시안 및 Console 시각 계약, [이슈 #215](https://github.com/dotnetpower/fdai/issues/215) | 마스터 및 내부 셸이 정확한 컴포넌트 구역 링크를 보존합니다. 갤러리는 런타임 근거를 주장하지 않으면서 검색, synthetic 표기, 밝고 어두운 미리 보기, 키보드, reduced-motion, 표, 모바일 터치 대상 및 읽을 수 있는 텍스트 참조 상태를 제공합니다. |
@@ -32,6 +32,7 @@ translation_revised: 2026-08-26
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
+| 2026-08-26 | implemented | 캡처된 모델 요청 및 응답 페이로드가 다른 JSON 문자열 안에 직렬화된 객체 또는 배열 JSON을 포함할 때 읽기 쉽게 표시하도록 수정했습니다. Formatter는 고정된 깊이와 노드 수 안에서 유효한 구조 값만 펼치고 일반 문자열 또는 잘못된 문자열을 보존하며 trace hash와 저장된 페이로드를 변경하지 않습니다. | `current change`, `json-code-block.tsx`, `model-trace-waterfall.tsx`, focused Vitest 15개 통과, escaped quote sequence와 document, request, response overflow가 모두 0인 focused desktop Playwright 통과, Console 타입 검사 및 운영 빌드 통과 | 통제된 런타임 검증을 주장하기 전에 인증된 캡처 모델 trace를 별도로 보존합니다. |
 | 2026-08-25 | implemented | 기본 instance presentation을 operational Resource와 immediate scope context로 제한하고 이전에 AKS VMSS가 template에서 멈추게 한 source path를 완료했습니다. | 집중 Console 검사 59개, typecheck 및 build가 통과했습니다. 인증된 VNet view는 role assignment 0개와 direct owner Resource Group 1개를 표시했습니다. AKS view는 initial viewport에서 managed Resource Group level 1, VMSS level 2, VM 및 NIC level 3을 표시했고 desktop/constrained overflow는 0이었습니다. | 독립적으로 열린 Command Deck이 mobile hierarchy 검사를 가렸지만 mobile document overflow와 44 px control은 통과했습니다. 통제된 Browser 보존은 별도입니다. |
 | 2026-08-25 | implemented | 대표 VM의 edge 4개 NAT egress path가 간접 관계 420개 안에 숨겨지고 depth 8 응답이 1단계로 설명되던 Ontology Instances 표현을 수정했습니다. 새 요약은 evidence-backed stored edge만 표시하고 누락된 ingress를 unknown으로 유지합니다. | `current change`, Resource 897개와 link 1,642개를 포함하고 inventory/ontology generation이 정확히 일치한 활성 snapshot, graph truncation 없이 Resource 197개와 link 424개를 반환한 인증된 Console, 집중 테스트 56개, typecheck, production build, entry 검사 및 세 viewport Browser 검사 통과 | 범위가 제한된 구현 작업은 남아 있지 않습니다. Browser 관측은 로컬 표현 근거이며 통제된 runtime receipt가 아닙니다. |
 | 2026-08-25 | implemented | Ontology Instances Inspector에서 relationship freshness와 verification level을 분리했습니다. Stale 또는 future-cutoff evidence는 incomplete 상태를 유지하면서 source, mapping, cutoff, ceiling을 보존하며 provider configuration이 independent verification으로 보이지 않습니다. | `current change`, 집중 Console 테스트 45개, source 및 test typecheck, production build, entry bundle 검사, 집중 Operator 테스트 4개 통과 | Task-owned commit 후 새로 고친 generation의 인증된 Browser evidence를 보존합니다. |
@@ -492,7 +493,10 @@ Exact-answer 영속 재생에는 같은 범위가 제한된 브라우저 파서�
 않은 턴은 명시적인 사용 불가 상태를 표시합니다. 캡처 설정이 꺼져 있어도 패널은 Settings 명시적 선택
 안내와 함께 표시하지만 저장된 trace 데이터는 계속 숨깁니다. 각 공개는 역할 순서의
 기록된 메시지 array와 요청 SHA를 보존하면서 연속 system 계층을 하나의 `SYSTEM` heading으로 묶습니다.
-JSON 본문은 pretty-print하고 범위가 제한된 요청 및 응답 블록에는 테마에 맞는 scrollbar를 적용합니다. 공개는 assistant 내용, 토큰 사용량, exact-content SHA-256 및 민감정보 제거 개수도 표시합니다. 자격 증명, 테넌트 또는 리소스 식별자, URL, 이메일, IP 주소, inline 이미지,
+JSON 본문은 보기 좋게 정렬합니다. JSON 문자열 안에 다시 직렬화된 객체 또는 배열 JSON은 제한된 깊이와
+노드 수 안에서 펼치며, 일반 텍스트와 잘못된 중첩 값은 변경하지 않습니다. 범위가 제한된 요청 및 응답
+블록에는 테마에 맞는 scrollbar를 적용합니다. 공개는 assistant 내용, 토큰 사용량, exact-content SHA-256
+및 민감정보 제거 개수도 표시합니다. 자격 증명, 테넌트 또는 리소스 식별자, URL, 이메일, IP 주소, inline 이미지,
 hidden reasoning, 헤더 및 프로바이더 내부 정보는 저장하지 않습니다. 설정을 끄면 캡처를 중지하고
 저장된 trace 데이터를 숨기며 프로바이더 호출을 반복하지 않고 멱등적 재생 응답에서 trace를 제거합니다.
 

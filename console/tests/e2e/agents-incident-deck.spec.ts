@@ -252,13 +252,23 @@ async function installOperatorApiFixture(
                   messages: [
                     { role: "system", content: "Safety layer" },
                     { role: "system", content: '{"policy":{"status":"ready"}}' },
-                    { role: "user", content: "List resource groups" },
+                    {
+                      role: "user",
+                      content: JSON.stringify({
+                        untrusted_input: {
+                          question: "List resource groups",
+                          capabilities: [{ kind: "object_type", name: "Resource" }],
+                        },
+                      }),
+                    },
                   ],
                   sha256: "a".repeat(64),
                 },
                 response: {
                   role: "assistant",
-                  content: answer,
+                  content: JSON.stringify({
+                    result: JSON.stringify({ status: "ready", matched: 1 }),
+                  }),
                   sha256: "b".repeat(64),
                 },
                 usage: { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 },
@@ -663,7 +673,7 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
   expect(hoveredFooter.button.x + hoveredFooter.button.width).toBeLessThanOrEqual(
     hoveredFooter.row.width,
   );
-  await workspace.getByRole("button", { name: /^Conversations/ }).click();
+  await workspace.getByRole("button", { name: /^Conversation history/ }).click();
   const conversationRow = workspace.locator(".deck-conversation-select", {
     hasText: "List resource groups",
   });
@@ -674,7 +684,7 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
   });
   await expect(conversationTooltip).toHaveCount(1);
   await expect(conversationTooltip).toHaveText("List resource groups");
-  await workspace.getByRole("button", { name: /^Conversations/ }).click();
+  await workspace.getByRole("button", { name: /^Conversation history/ }).click();
   await runRecord.locator(":scope > summary").click();
   await expect(runRecord).toHaveAttribute("open", "");
   await expect(runRecord.locator(".deck-trajectory-phase-strip")).toHaveCount(1);
@@ -767,6 +777,55 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
   expect(metrics.commandScrollbar).not.toBe("auto");
   expect(metrics.outputScrollbar).not.toBe("auto");
   expect(metrics.modelMessageScrollbar).not.toBe("auto");
+});
+
+test("pretty-prints nested serialized JSON in the model trace", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "mobile-chromium", "Mobile hides workspace layout controls.");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.addInitScript(() => {
+    localStorage.setItem("fdai:console:show-model-trace", "true");
+  });
+  await installOperatorApiFixture(page, { executionTimeline: true, modelTrace: true });
+  await page.goto(
+    `/agents?view=org&agent=Var&correlation=${encodeURIComponent(correlationId)}`,
+  );
+
+  await page.getByRole("button", { name: "Open command deck" }).click();
+  const dock = page.getByRole("complementary", { name: "Command deck" });
+  await dock.getByRole("button", { name: "Full workspace" }).click();
+  const workspace = page.getByRole("dialog", { name: "Command deck" });
+  await workspace.getByPlaceholder(/Ask anything/i).fill("List resource groups");
+  await workspace.getByRole("button", { name: "Send" }).click();
+  await expect(workspace.getByText(/no grounded root cause with citations is recorded/i))
+    .toBeVisible();
+
+  const runRecord = workspace.locator(".deck-trajectory");
+  await runRecord.locator(":scope > summary").click();
+  const modelTrace = runRecord.locator(".deck-model-trace");
+  await modelTrace.locator(".deck-model-trace-lanes > li > details > summary").click();
+  const userMessage = modelTrace.locator(".deck-model-trace-message-content").nth(1);
+  await expect(userMessage).toContainText('"untrusted_input": {');
+  await expect(userMessage).toContainText('"name": "Resource"');
+  expect(await userMessage.textContent()).not.toContain('\\"untrusted_input\\"');
+  const modelResponse = modelTrace.locator(".deck-model-trace-response .deck-code-pre code");
+  await expect(modelResponse).toContainText('"result": {');
+  await expect(modelResponse).toContainText('"matched": 1');
+  expect(await modelResponse.textContent()).not.toContain('\\"status\\"');
+
+  const geometry = await modelTrace.evaluate((root) => {
+    const request = root.querySelector<HTMLElement>(".deck-model-trace-message-content");
+    const response = root.querySelector<HTMLElement>(".deck-model-trace-response pre");
+    return {
+      documentOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      requestOverflow: request ? request.scrollWidth - request.clientWidth : 1,
+      responseOverflow: response ? response.scrollWidth - response.clientWidth : 1,
+    };
+  });
+  expect(geometry).toEqual({
+    documentOverflow: 0,
+    requestOverflow: 0,
+    responseOverflow: 0,
+  });
 });
 
 test("keeps completed observed work compact across supported viewports", async ({ page }) => {

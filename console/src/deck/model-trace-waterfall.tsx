@@ -49,7 +49,9 @@ export function formatModelTraceMessageGroup(group: ModelTraceMessageGroup): {
   readonly text: string;
   readonly format: "json" | "text";
 } {
-  const formatted = group.contents.map(formatJsonValue);
+  const formatted = group.contents.map((content) =>
+    formatJsonValue(content, { expandNestedStrings: true })
+  );
   return {
     text: formatted.map((item) => item.text).join("\n\n"),
     format: formatted.length === 1 && formatted[0]?.isJson ? "json" : "text",
@@ -158,7 +160,7 @@ export function ModelTraceWaterfall({
                   <section class="deck-model-trace-response">
                     <h5>{t("deck.modelTrace.response")}</h5>
                     <TraceHash label={t("deck.modelTrace.responseHash")} value={call.response.sha256} />
-                    <JsonCodeBlock value={call.response.content} />
+                    <JsonCodeBlock value={call.response.content} expandNestedStrings />
                   </section>
                 ) : (
                   <p class="deck-model-trace-missing">{t("deck.modelTrace.responseMissing")}</p>

@@ -105,4 +105,21 @@ describe("buildModelTraceBars", () => {
     expect(styles).toContain("scrollbar-color: #68737e #101820;");
     expect(styles).toContain(".deck-model-trace-messages pre::-webkit-scrollbar-thumb,");
   });
+
+  it("expands escaped JSON inside a model request message", () => {
+    const nested = JSON.stringify({
+      role: "user",
+      content: JSON.stringify({ untrusted_input: { question: "status" } }),
+    });
+
+    const formatted = formatModelTraceMessageGroup({
+      role: "user",
+      contents: [nested],
+    });
+
+    expect(formatted.format).toBe("json");
+    expect(formatted.text).toContain('"content": {');
+    expect(formatted.text).toContain('"question": "status"');
+    expect(formatted.text).not.toContain('\\"question\\"');
+  });
 });

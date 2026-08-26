@@ -27,6 +27,36 @@ describe("formatJsonValue", () => {
     });
   });
 
+  it("expands bounded nested object and array strings when requested", () => {
+    const value = JSON.stringify({
+      role: "user",
+      content: JSON.stringify({
+        untrusted_input: {
+          capabilities: [{ kind: "object_type", name: "Resource" }],
+        },
+      }),
+    });
+
+    const formatted = formatJsonValue(value, { expandNestedStrings: true });
+
+    expect(formatted.isJson).toBe(true);
+    expect(formatted.text).toContain('"content": {');
+    expect(formatted.text).toContain('"untrusted_input": {');
+    expect(formatted.text).toContain('"name": "Resource"');
+    expect(formatted.text).not.toContain('\\"untrusted_input\\"');
+  });
+
+  it("preserves nested plain text and malformed JSON strings", () => {
+    const value = JSON.stringify({
+      plain: "keep this text",
+      malformed: "{not-json",
+    });
+
+    expect(formatJsonValue(value, { expandNestedStrings: true }).text).toContain(
+      '"malformed": "{not-json"',
+    );
+  });
+
   it("keeps non-string primitives in the plain-text path", () => {
     expect(formatJsonValue(null)).toEqual({ text: "null", isJson: false });
     expect(formatJsonValue(42)).toEqual({ text: "42", isJson: false });
