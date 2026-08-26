@@ -344,10 +344,10 @@
       perspective: 900px;
     }
     .scout-card {
-      --card-rx: 0deg;
-      --card-ry: 0deg;
       --visual-x: 0px;
       --visual-y: 0px;
+      --card-accent: var(--cs-steel);
+      --card-tint: color-mix(in srgb, var(--cs-steel) 4%, var(--cs-card));
       position: relative;
       display: flex;
       min-width: 0;
@@ -356,33 +356,76 @@
       align-items: flex-start;
       justify-content: space-between;
       overflow: hidden;
-      padding: 17px;
-      border: 1px solid color-mix(in srgb, var(--cs-hairline) 88%, var(--cs-text-soft));
+      padding: 18px;
+      border: 1px solid color-mix(in srgb, var(--cs-hairline) 86%, var(--cs-text-soft));
       border-radius: var(--cs-radius);
-      background: var(--cs-card);
-      box-shadow: 0 4px 14px rgba(46, 54, 64, .045);
+      background: var(--card-tint);
+      box-shadow:
+        0 1px 0 rgba(255, 255, 255, .82) inset,
+        0 5px 18px rgba(46, 54, 64, .055);
       cursor: pointer;
       text-align: left;
-      transform: perspective(760px) rotateX(var(--card-rx)) rotateY(var(--card-ry));
-      transform-style: preserve-3d;
-      transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease, background-color .16s ease;
-      will-change: transform;
+      transform: translateY(0);
+      transition: transform .22s cubic-bezier(.2, .75, .25, 1), border-color .2s ease, box-shadow .22s ease, background-color .2s ease;
+    }
+    .scout-card-action {
+      position: absolute;
+      top: 17px;
+      right: 17px;
+      display: inline-flex;
+      width: 24px;
+      height: 24px;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid color-mix(in srgb, var(--card-accent) 18%, var(--cs-hairline));
+      border-radius: 50%;
+      background: color-mix(in srgb, var(--card-accent) 5%, var(--cs-card));
+      color: color-mix(in srgb, var(--card-accent) 72%, var(--cs-text));
+      font-size: 13px;
+      line-height: 1;
+      opacity: .72;
+      transition: transform .2s ease, opacity .2s ease, background-color .2s ease;
     }
     .scout-card:hover {
-      border-color: color-mix(in srgb, var(--cs-steel) 48%, var(--cs-hairline));
-      box-shadow: 0 12px 28px rgba(46, 54, 64, .11);
+      border-color: color-mix(in srgb, var(--card-accent) 38%, var(--cs-hairline));
+      box-shadow:
+        0 1px 0 rgba(255, 255, 255, .9) inset,
+        0 14px 32px rgba(46, 54, 64, .105);
+      transform: translateY(-3px);
+    }
+    .scout-card:hover .scout-card-action {
+      background: color-mix(in srgb, var(--card-accent) 11%, var(--cs-card));
+      opacity: 1;
+      transform: translateX(2px);
     }
     .scout-card:focus-visible {
       outline: 2px solid var(--cs-steel);
       outline-offset: 3px;
-      transform: translateY(-2px);
+      transform: translateY(-3px);
+    }
+    .scout-card.is-resilience {
+      --card-accent: var(--cs-teal);
+      --card-tint: color-mix(in srgb, var(--cs-teal) 4%, var(--cs-card));
+    }
+    .scout-card.is-change {
+      --card-accent: var(--cs-plum);
+      --card-tint: color-mix(in srgb, var(--cs-plum) 4%, var(--cs-card));
+    }
+    .scout-card.is-slo {
+      --card-accent: var(--cs-steel);
+      --card-tint: color-mix(in srgb, var(--cs-steel) 4%, var(--cs-card));
+    }
+    .scout-card.is-cost {
+      --card-accent: var(--cs-sage);
+      --card-tint: color-mix(in srgb, var(--cs-sage) 4%, var(--cs-card));
     }
     .scout-card.is-feature {
+      --card-accent: var(--cs-terracotta);
+      --card-tint: color-mix(in srgb, var(--cs-terracotta) 6%, var(--cs-card));
       grid-column: 3;
       grid-row: 1 / 3;
       min-height: 298px;
-      padding: 22px;
-      background: color-mix(in srgb, var(--cs-terracotta) 7%, var(--cs-card));
+      padding: 24px;
     }
     .scout-card-visual {
       position: relative;
@@ -391,15 +434,20 @@
       height: 44px;
       align-items: center;
       justify-content: center;
-      color: var(--cs-steel);
-      transform: translate3d(var(--visual-x), var(--visual-y), 18px);
-      transition: transform .12s ease;
+      border: 1px solid color-mix(in srgb, var(--card-accent) 16%, var(--cs-hairline));
+      border-radius: 12px;
+      background: color-mix(in srgb, var(--card-accent) 8%, var(--cs-card));
+      color: var(--card-accent);
+      box-shadow: 0 6px 18px color-mix(in srgb, var(--card-accent) 9%, transparent);
+      transform: translate3d(var(--visual-x), var(--visual-y), 0);
+      will-change: transform;
     }
     .scout-card.is-feature .scout-card-visual {
-      width: 72px;
-      height: 72px;
-      margin: 14px auto 0;
+      width: 84px;
+      height: 84px;
+      margin: 18px auto 0;
       align-self: center;
+      border-radius: 24px;
     }
     .visual-pulse span {
       position: absolute;
@@ -464,26 +512,31 @@
       transform: rotate(-45deg) translate(2px, -2px);
     }
     .visual-summary {
-      border-radius: 22px;
-      background: color-mix(in srgb, var(--cs-steel) 24%, var(--cs-card));
+      gap: 5px;
+      flex-direction: column;
+      background: color-mix(in srgb, var(--cs-terracotta) 10%, var(--cs-card));
     }
     .visual-summary::before {
-      width: 46px;
-      height: 31px;
-      border-radius: 12px;
-      background: var(--cs-card);
-      box-shadow: 0 7px 20px rgba(46, 54, 64, .08);
+      width: 44px;
+      height: 32px;
+      border: 1px solid color-mix(in srgb, var(--cs-terracotta) 24%, var(--cs-hairline));
+      border-radius: 10px;
+      background:
+        linear-gradient(to top, color-mix(in srgb, var(--cs-terracotta) 32%, transparent) 0 34%, transparent 34% 100%),
+        var(--cs-card);
+      box-shadow: 0 7px 20px rgba(46, 54, 64, .07);
       content: "";
     }
     .visual-summary::after {
       position: absolute;
-      right: 12px;
-      bottom: 14px;
-      width: 10px;
-      height: 10px;
-      background: var(--cs-card);
+      right: 20px;
+      bottom: 19px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--cs-sage);
       content: "";
-      transform: rotate(45deg);
+      box-shadow: 0 0 0 4px color-mix(in srgb, var(--cs-sage) 12%, transparent);
     }
     .scout-card-copy {
       position: relative;
@@ -494,7 +547,6 @@
       font-size: var(--cs-type-compact-size);
       font-weight: 650;
       line-height: 1.45;
-      transform: translateZ(12px);
     }
     .scout-card.is-feature .scout-card-copy {
       max-width: 22ch;
@@ -506,6 +558,7 @@
       color: var(--cs-text-soft);
       font-size: var(--cs-type-caption-size);
       font-weight: 600;
+      text-transform: uppercase;
     }
     .minimal-panel .chat-composer {
       width: min(100%, 760px);
@@ -737,6 +790,12 @@
     }
     @media (prefers-reduced-motion: reduce) {
       * { scroll-behavior: auto !important; }
+      .scout-card,
+      .scout-card-visual,
+      .scout-card-action { transition: none; }
+      .scout-card:hover,
+      .scout-card:focus-visible { transform: none; }
+      .scout-card-visual { transform: none; }
     }
   </style>
 </head>
@@ -790,24 +849,29 @@
           <p>현재 화면에서 바로 시작할 운영 질문을 골라보세요.</p>
         </div>
         <div class="scout-card-grid" aria-label="빠른 운영 질문">
-          <button class="scout-card" type="button" data-reactive-card data-prompt="현재 가장 위험한 서비스와 판단 근거를 알려 주세요.">
+          <button class="scout-card is-resilience" type="button" data-reactive-card data-prompt="현재 가장 위험한 서비스와 판단 근거를 알려 주세요.">
             <span class="scout-card-visual visual-pulse" aria-hidden="true"><span></span><span></span></span>
+            <span class="scout-card-action" aria-hidden="true">&rarr;</span>
             <span class="scout-card-copy"><span class="scout-card-tag">복원력</span>지금 가장 위험한 서비스는?</span>
           </button>
-          <button class="scout-card" type="button" data-reactive-card data-prompt="오늘 변경 중 차단하거나 사람의 검토가 필요한 항목을 알려 주세요.">
+          <button class="scout-card is-change" type="button" data-reactive-card data-prompt="오늘 변경 중 차단하거나 사람의 검토가 필요한 항목을 알려 주세요.">
             <span class="scout-card-visual visual-gate" aria-hidden="true"></span>
+            <span class="scout-card-action" aria-hidden="true">&rarr;</span>
             <span class="scout-card-copy"><span class="scout-card-tag">변경 안전</span>오늘 무엇을 막아야 할까?</span>
           </button>
-          <button class="scout-card" type="button" data-reactive-card data-prompt="현재 SLO 하락 원인과 영향을 근거로 설명해 주세요.">
+          <button class="scout-card is-slo" type="button" data-reactive-card data-prompt="현재 SLO 하락 원인과 영향을 근거로 설명해 주세요.">
             <span class="scout-card-visual visual-slo" aria-hidden="true"><span></span><span></span><span></span></span>
+            <span class="scout-card-action" aria-hidden="true">&rarr;</span>
             <span class="scout-card-copy"><span class="scout-card-tag">서비스 수준</span>SLO 하락 원인을 찾아줘</span>
           </button>
-          <button class="scout-card" type="button" data-reactive-card data-prompt="현재 근거로 확인 가능한 비용 절감 후보를 알려 주세요.">
+          <button class="scout-card is-cost" type="button" data-reactive-card data-prompt="현재 근거로 확인 가능한 비용 절감 후보를 알려 주세요.">
             <span class="scout-card-visual visual-cost" aria-hidden="true"></span>
+            <span class="scout-card-action" aria-hidden="true">&rarr;</span>
             <span class="scout-card-copy"><span class="scout-card-tag">비용 거버넌스</span>지금 줄일 수 있는 비용은?</span>
           </button>
           <button class="scout-card is-feature" type="button" data-reactive-card data-prompt="현재 운영 상황을 우선순위와 근거를 포함해 요약해 주세요.">
             <span class="scout-card-visual visual-summary" aria-hidden="true"></span>
+            <span class="scout-card-action" aria-hidden="true">&rarr;</span>
             <span class="scout-card-copy"><span class="scout-card-tag">운영 브리핑</span>현재 운영 상황을 근거와 함께 요약해줘</span>
           </button>
         </div>
@@ -952,23 +1016,47 @@
         composer.addEventListener("submit", function (event) { event.preventDefault(); });
       });
 
-      var reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      var reducedMotionQuery = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)");
       document.querySelectorAll("[data-reactive-card]").forEach(function (card) {
+        var targetX = 0;
+        var targetY = 0;
+        var currentX = 0;
+        var currentY = 0;
+        var frameId = 0;
+
+        function renderVisual() {
+          currentX += (targetX - currentX) * .18;
+          currentY += (targetY - currentY) * .18;
+          card.style.setProperty("--visual-x", currentX.toFixed(2) + "px");
+          card.style.setProperty("--visual-y", currentY.toFixed(2) + "px");
+          if (Math.abs(targetX - currentX) > .05 || Math.abs(targetY - currentY) > .05) {
+            frameId = requestAnimationFrame(renderVisual);
+          } else {
+            currentX = targetX;
+            currentY = targetY;
+            card.style.setProperty("--visual-x", currentX.toFixed(2) + "px");
+            card.style.setProperty("--visual-y", currentY.toFixed(2) + "px");
+            frameId = 0;
+          }
+        }
+
+        function scheduleVisual() {
+          if (!frameId) frameId = requestAnimationFrame(renderVisual);
+        }
+
         card.addEventListener("pointermove", function (event) {
-          if (reducedMotion || event.pointerType === "touch") return;
+          if ((reducedMotionQuery && reducedMotionQuery.matches) || event.pointerType === "touch") return;
           var bounds = card.getBoundingClientRect();
           var horizontal = (event.clientX - bounds.left) / bounds.width - .5;
           var vertical = (event.clientY - bounds.top) / bounds.height - .5;
-          card.style.setProperty("--card-rx", (-vertical * 5).toFixed(2) + "deg");
-          card.style.setProperty("--card-ry", (horizontal * 6).toFixed(2) + "deg");
-          card.style.setProperty("--visual-x", (horizontal * 5).toFixed(2) + "px");
-          card.style.setProperty("--visual-y", (vertical * 5).toFixed(2) + "px");
+          targetX = horizontal * 4;
+          targetY = vertical * 4;
+          scheduleVisual();
         });
         card.addEventListener("pointerleave", function () {
-          card.style.removeProperty("--card-rx");
-          card.style.removeProperty("--card-ry");
-          card.style.removeProperty("--visual-x");
-          card.style.removeProperty("--visual-y");
+          targetX = 0;
+          targetY = 0;
+          scheduleVisual();
         });
       });
 
