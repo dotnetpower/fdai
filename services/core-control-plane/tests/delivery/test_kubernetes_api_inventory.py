@@ -166,6 +166,7 @@ async def test_collects_uid_grounded_runtime_inventory() -> None:
                     "uid-replica-set",
                     namespace="default",
                     owner_uids=("uid-deployment",),
+                    spec={"selector": {"matchLabels": {"app": "api"}}},
                 )
             ]
         elif request.url.path == "/apis/apps/v1/deployments":
@@ -174,7 +175,15 @@ async def test_collects_uid_grounded_runtime_inventory() -> None:
                     "api",
                     "uid-deployment",
                     namespace="default",
-                    spec={"replicas": 3},
+                    spec={
+                        "replicas": 3,
+                        "selector": {
+                            "matchLabels": {"app": "api"},
+                            "matchExpressions": [
+                                {"key": "tier", "operator": "In", "values": ["web"]}
+                            ],
+                        },
+                    },
                     status={
                         "observedGeneration": 7,
                         "updatedReplicas": 1,
@@ -245,6 +254,8 @@ async def test_collects_uid_grounded_runtime_inventory() -> None:
     assert by_type["kubernetes.pod"].props["restart_count"] == 2
     assert by_type["kubernetes.pod"].props["container_waiting_reasons"] == ("ImagePullBackOff",)
     assert by_type["kubernetes.service"].props["selector"] == {"app": "api"}
+    assert "selector" not in by_type["kubernetes.deployment"].props
+    assert "selector" not in by_type["kubernetes.replica-set"].props
     assert by_type["kubernetes.endpoint-slice"].props["service_name"] == "api"
     assert by_type["kubernetes.ingress"].props["backend_service_names"] == (
         "api",

@@ -93,6 +93,47 @@ def test_complete_snapshot_projects_canonical_kubernetes_relationships() -> None
     assert all(link.mapping_evidence is not None for link in result.links)
 
 
+def test_provider_endpoints_without_cluster_ref_still_resolve() -> None:
+    node_pool_id = f"{CLUSTER_REF}/agentpools/system"
+    node_id = f"{CLUSTER_REF}/resource/node-0"
+    resources = (
+        # A provider-collected cluster and node pool carry no cluster_ref prop.
+        ResourceRecord(
+            resource_id=CLUSTER_REF,
+            type="kubernetes-cluster",
+            props={"name": "example"},
+            last_seen=OBSERVED_AT,
+        ),
+        ResourceRecord(
+            resource_id=node_pool_id,
+            type="kubernetes-node-pool",
+            props={"name": "system"},
+            last_seen=OBSERVED_AT,
+        ),
+        _resource(NAMESPACE_ID, "kubernetes.namespace", name="default"),
+        ResourceRecord(
+            resource_id=node_id,
+            type="kubernetes.node",
+            props={"cluster_ref": CLUSTER_REF, "name": "node-0", "node_pool": "system"},
+            last_seen=OBSERVED_AT,
+        ),
+    )
+
+    result = project_kubernetes_relationships(
+        resources,
+        catalog=load_provider_relationship_mapping_catalog(CATALOG_ROOT),
+        complete=True,
+    )
+
+    assert result.dropped == ()
+    assert (CLUSTER_REF, "contains", NAMESPACE_ID) in [
+        (link.from_id, link.link_type, link.to_id) for link in result.links
+    ]
+    assert (node_pool_id, "contains", node_id) in [
+        (link.from_id, link.link_type, link.to_id) for link in result.links
+    ]
+
+
 def test_complete_snapshot_projects_ingress_and_endpoint_slice_relationships() -> None:
     ingress_class_id = f"{CLUSTER_REF}/resource/ingress-class-web"
     ingress_id = f"{CLUSTER_REF}/resource/ingress-api"

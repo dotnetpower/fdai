@@ -284,9 +284,12 @@ def _resource_record(
         props["owner_uids"] = owner_uids
     spec = item.get("spec")
     if isinstance(spec, Mapping):
-        selector = _string_mapping(spec.get("selector"), limit=_MAX_LABELS)
-        if selector and resource_type == "kubernetes.service":
-            props["selector"] = selector
+        if resource_type == "kubernetes.service":
+            # Only a Service selects by a flat label map; workload kinds carry a
+            # LabelSelector object here that this record never references.
+            selector = _string_mapping(spec.get("selector"), limit=_MAX_LABELS)
+            if selector:
+                props["selector"] = selector
         node_name = spec.get("nodeName")
         if resource_type == "kubernetes.pod" and isinstance(node_name, str) and node_name.strip():
             props["node_name"] = node_name.strip()

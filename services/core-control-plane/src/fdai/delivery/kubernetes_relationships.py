@@ -246,8 +246,14 @@ def _has_reference(
 
 def _same_cluster(left: ResourceRecord, right: ResourceRecord) -> bool:
     left_cluster = left.props.get("cluster_ref")
+    if not isinstance(left_cluster, str) or not left_cluster:
+        return False
     right_cluster = right.props.get("cluster_ref")
-    return isinstance(left_cluster, str) and bool(left_cluster) and left_cluster == right_cluster
+    if isinstance(right_cluster, str) and right_cluster:
+        return left_cluster == right_cluster
+    # A provider-side endpoint carries no cluster_ref: it is the cluster identity
+    # itself or a child resource nested under that identity.
+    return right.resource_id == left_cluster or right.resource_id.startswith(f"{left_cluster}/")
 
 
 def _provider_identity_matches(
