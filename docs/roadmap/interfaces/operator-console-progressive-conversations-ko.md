@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: 9a5b6d153a04049b8a4a563d73cb87bf836eda5b
+translation_source_sha: fd07839f52741ff177671c677ba062e1e14f6ec8
 translation_revised: 2026-08-26
 ---
 # 오퍼레이터 콘솔 점진적 대화
@@ -16,7 +16,7 @@ translation_revised: 2026-08-26
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | Web 점진적 스트림 집약 | 구현됨 | [`backend-stream.ts`](../../../console/src/deck/backend-stream.ts), [`backend-stream-fallback.test.ts`](../../../console/src/deck/backend-stream-fallback.test.ts), [`backend-stream-v1-contract.test.ts`](../../../console/src/deck/backend-stream-v1-contract.test.ts) | 집중 테스트는 순서가 있는 프레임, 재생 거부, 가지 수명 주기, 확정된 개정판, 부분 턴을 다룹니다. 이 행은 Teams 또는 Slack 런타임 검증을 주장하지 않습니다. |
-| 직접 응답 수명 주기 억제 | 구현됨 | [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), [`command-deck-view.tsx`](../../../console/src/deck/command-deck-view.tsx), [`retrieval-trace.tsx`](../../../console/src/deck/retrieval-trace.tsx), [`use-command-deck-submit.ts`](../../../console/src/deck/use-command-deck-submit.ts), 집중 Operator 및 Console 검사 | Operator는 스트림을 열 때 운영자 텍스트를 검사하거나 최종 처리 결과를 예측하지 않습니다. 모델이 선택한 타입 기반 직접 응답은 `done`만 보냅니다. Console은 제출 직후 영속 기록에 남지 않는 compact 대기 행을 표시하고, 관측된 진행 프레임이 온 뒤에만 상세 준비 trace로 확장하며, 직접 최종 응답이 오면 두 상태를 모두 제거합니다. |
+| 직접 응답 수명 주기 억제 | 구현됨 | [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), [`command-deck-view.tsx`](../../../console/src/deck/command-deck-view.tsx), [`retrieval-trace.tsx`](../../../console/src/deck/retrieval-trace.tsx), [`use-command-deck-submit.ts`](../../../console/src/deck/use-command-deck-submit.ts), 집중 Operator 및 Console 검사 | Operator는 스트림을 열 때 운영자 텍스트를 검사하거나 최종 처리 결과를 예측하지 않습니다. 모델이 선택한 타입 기반 직접 응답은 `done`만 보냅니다. Console은 제출 직후 영속 기록에 남지 않는 간결한 대기 행을 표시하고, 관측된 진행 프레임이 온 뒤에만 상세 준비 추적으로 확장하며, 직접 최종 응답이 오면 두 상태를 모두 제거합니다. 브라우저는 표현의 크기 전환과 최종 응답 전용 텍스트 공개만 보간하며 수명 주기 내용을 만들지 않습니다. |
 | Operator 대화 SSE 종료 | 구현됨 | [`shutdown.py`](../../../services/operator-service/src/fdai_operator_service/streaming/shutdown.py), [`factory.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/factory.py), [`test_stream_shutdown.py`](../../../services/operator-service/tests/test_stream_shutdown.py) | 애플리케이션 종료와 호출자 취소는 모두 진행 중인 source 읽기를 취소하고 기다린 뒤 스트림을 닫습니다. 유휴 source는 정상 종료를 막거나 분리된 읽기 task를 남길 수 없습니다. |
 | 채널 중립적 최종 집약 | 구현됨 | [`conversation_channel.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_channel.py), [`test_rich_contract.py`](../../../services/core-control-plane/tests/delivery/channels/test_rich_contract.py) | 집중 계약 테스트 36개가 통과했습니다. Teams와 Slack은 영속 재생 전체에서 동일한 정본 답변, 제한, 근거 참조, `execution_authority=false`, 단조 증가하는 최종 확정 갱신을 보존합니다. 운영 A3 게시자나 통제된 채널 런타임 증적을 주장하지 않습니다. |
 | 드로어 표현 및 새 대화 정체성 | 진행 중 | [`use-command-deck-sessions.ts`](../../../console/src/deck/use-command-deck-sessions.ts), [`console-routes.spec.ts`](../../../console/tests/live-e2e/console-routes.spec.ts) | Console은 저장된 드로어 표시 여부와 독립적으로 새 세션을 만들며, 라이브 테스트는 이제 새 대화에서 요청을 격리합니다. 인증된 런타임 증적 통과가 아직 필요합니다. |
@@ -30,6 +30,7 @@ translation_revised: 2026-08-26
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-26 | 구현됨 | 순서가 있는 이벤트나 근거 계약을 바꾸지 않고 브라우저 전용 답변 전환을 부드럽게 했습니다. 관측된 준비 추적은 간결한 대기 높이에서 440ms 동안 확장되고, 토큰 프레임이 없는 정본 최종 답변은 최대 60프레임 동안 화면 프레임마다 범위가 제한된 조각 하나를 공개합니다. 숨겨졌거나 포커스가 없는 탭은 계속 동기적으로 완료되며 모션 감소 설정에서는 즉시 전환합니다. | `current change`, `console/src/deck/stream-paint.ts`, `console/src/deck/use-command-deck-submit.ts`, `console/src/styles.css`, 집중 Console 검사 36건 통과. 인증된 세션에서 기존 70px에서 260px로 이동하는 준비 단계 점프를 재현했고, 숨겨진 탭이 최종 답변을 바꾸지 않은 채 표현 애니메이션을 일시 중지함을 확인했습니다. | 더 넓은 통제된 Browser 보증 산출물에 포커스가 있는 인증된 활성 탭 관찰을 보존합니다. |
 | 2026-08-26 | 구현됨 | 직접 응답 정리 source 계약을 공유 typed source helper와 맞췄습니다. 테스트는 계속 일시적 조사 활동 제거를 요구하며 더 이상 폐기된 inline 문자열 비교에 의존하지 않습니다. | `current change`, 집중 Command Deck 이벤트 검사 11개 통과 | 이 회귀 정정에 남은 구현 작업은 없습니다. |
 | 2026-08-26 | 구현됨 | 제출과 첫 backend 프레임 사이에 Bragi의 compact 대기 상태를 즉시 표시하도록 추가했습니다. 이 행은 브라우저에만 존재하고 추론한 단계나 근거 주장을 포함하지 않으며, 관측된 진행 상황이 온 뒤에만 기존 상세 trace로 확장되고 최종 답변으로 교체됩니다. 직접 인사는 완료 후 대기, 근거 검색 또는 조사 행을 남기지 않습니다. | `current change`, 집중 Console 시각, 스트림 및 presenter 검사 69개 통과, typecheck 통과, 인증된 Browser 관찰에서 6.6초가 걸린 일반 최종 응답 전에 compact 행을 확인했고 직접 인사 완료 후 대기, 근거 검색, 조사 행이 모두 0개임을 확인했습니다. | 통제된 browser 보증 산출물에 이 상호 작용을 보존합니다. 추가 수명 주기 프레임이나 backend 의도 분류기는 필요하지 않습니다. |
 | 2026-08-25 | 구현됨 | Operator의 직접 응답 텍스트 분류기와 모든 추측성 수락 및 계획 이벤트를 제거했습니다. Bridge는 이제 Core 변환 결과를 기다리고 모델이 선택한 직접 응답에는 `done`만 보내며, 검증된 답변 최종 결과에서만 질의 진행 상황을 파생합니다. 따라서 relay가 두 번째 의도 소유자가 되지 않습니다. | `current change`, 집중 직접 응답, 답변, 지연 최종 결과, 재생 및 질의 실행 스트림 검사 8개 통과 | 현재 source 스택을 다시 시작하고 인증된 직접 및 답변 스트림 근거를 보존합니다. |
@@ -119,7 +120,10 @@ Full-workspace 웹 채팅은 대화 기록 중심으로 열립니다. 새 빈 �
 정본 텍스트를 fallback으로 표시합니다. 기존 `Preparing answer` 컴포넌트는 일시적인 브라우저
 상태입니다. Compact 행은 관측되지 않은 단계를 이름 붙이지 않고 제출과 첫 server 프레임 사이를
 채웁니다. 상세 trace는 관측된 진행 프레임 뒤에만 표시되므로 완료된 replay에서 수행 작업을 설명하는
-근거는 계속 server 수명 주기 event에 의존합니다.
+근거는 계속 server 수명 주기 event에 의존합니다. 해당 프레임이 도착하면 브라우저는 전체 패널을 한
+번에 삽입하지 않고 간결한 행의 높이에서 상세 추적을 확장합니다. 토큰 프레임이 없는 최종 응답은
+정확한 정본 텍스트를 최대 60개의 화면 프레임에 걸쳐 공개합니다. 백그라운드 탭은 동기적으로
+완료되며 모션 감소 설정에서는 두 전환을 모두 생략합니다.
 
 Machine 결과는 계속 권위 있고 재생 가능하지만 primary 사람 답변은 아닙니다. 다음 다섯 작업
 패키지로 수정합니다.

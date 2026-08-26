@@ -29,6 +29,8 @@ import type { ViewSnapshot } from "./context";
 import { record as recordHistory, type DraftHistory } from "./draft-history";
 import {
   drainStreamPaint,
+  drainTerminalReveal,
+  flushStreamPaint,
   shouldFlushStreamPaintSynchronously,
   terminalRevealChunks,
 } from "./stream-paint";
@@ -41,6 +43,27 @@ import {
 } from "./backend-normalizers";
 
 const MIN_PREPARING_VISIBLE_MS = 420;
+
+function waitForVisualRevealFrame(): Promise<void> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      cancelAnimationFrame(frame);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      resolve();
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") finish();
+    };
+    const frame = requestAnimationFrame(finish);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    if (shouldFlushStreamPaintSynchronously(document.visibilityState, document.hasFocus())) {
+      finish();
+    }
+  });
+}
 
 export interface ActiveRequest {
   readonly id: string;
@@ -547,8 +570,13 @@ export function useCommandDeckSubmit({
         } else {
           visibleAcc = "";
           while (terminalQueue.length > 0 && isCurrent()) {
-            await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-            visibleAcc += drainStreamPaint(terminalQueue);
+            await waitForVisualRevealFrame();
+            visibleAcc += shouldFlushStreamPaintSynchronously(
+              document.visibilityState,
+              document.hasFocus(),
+            )
+              ? flushStreamPaint(terminalQueue)
+              : drainTerminalReveal(terminalQueue);
             setTurns((current) => {
               const next = current.map((turn) => turn.id === deckId
                 ? { ...turn, text: visibleAcc }

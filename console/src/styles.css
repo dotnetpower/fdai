@@ -9140,6 +9140,25 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   align-self: flex-start;
   width: min(100%, 780px);
   min-width: 0;
+  max-height: 520px;
+  overflow: hidden;
+  animation: deck-preparing-expand-fallback 0.44s ease-in-out both;
+}
+@keyframes deck-preparing-expand-fallback {
+  from { max-height: 70px; }
+  to { max-height: 520px; }
+}
+@supports (interpolate-size: allow-keywords) {
+  .deck-rt-turn {
+    height: auto;
+    max-height: none;
+    interpolate-size: allow-keywords;
+    animation: deck-preparing-expand 0.44s cubic-bezier(0.4, 0, 0.2, 1) both;
+  }
+  @keyframes deck-preparing-expand {
+    from { height: 70px; }
+    to { height: auto; }
+  }
 }
 .deck-rt-agent-head { margin-bottom: 6px; }
 .deck-rt {
@@ -10969,6 +10988,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 @media (prefers-reduced-motion: reduce) {
   .deck-overlay,
   .deck-backend-probing,
+  .deck-rt-turn,
   .deck-rt,
   .deck-rt-spin,
   .deck-rt-stage,

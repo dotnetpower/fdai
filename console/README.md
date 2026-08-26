@@ -634,12 +634,15 @@ resolution, the server replaces that preview with a bounded list of the actual
 tool, operational, agent, or glossary sources it selected. The trace remains
 visible through every pre-token progress event and for at least 420 ms, then
 changes into the answer bubble when text is ready. The preparing and answer
-surfaces share the same width and alignment; short entry motion and staggered
+surfaces share the same width and alignment. The observed trace expands from
+the compact pending row instead of replacing it at full height, and staggered
 source rows avoid an abrupt layout jump. Tokens that arrive during the minimum
 interval enter an adaptive visual queue: each display frame drains one to three
 already-paced deltas, depending on backlog, rather than dumping the whole
-buffer at once. It fabricates nothing: every row comes from the live snapshot,
-backend health descriptor, or server-owned evidence selection.
+buffer at once. A terminal-only canonical answer uses up to 60 one-chunk display
+frames when the tab is visible; hidden or unfocused tabs finish synchronously.
+It fabricates nothing: every row comes from the live snapshot, backend health
+descriptor, or server-owned evidence selection.
 
 Rich replies render ATX headings, emphasis, strong text, strikethrough,
 unordered and ordered lists, read-only task lists, blockquotes, thematic

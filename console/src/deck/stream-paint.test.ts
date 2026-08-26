@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   drainStreamPaint,
+  drainTerminalReveal,
   flushStreamPaint,
   shouldFlushStreamPaintSynchronously,
   streamPaintBatchSize,
@@ -62,18 +63,18 @@ describe("stream paint batching", () => {
     expect(chunks.join("")).toBe(text);
   });
 
-  it("bounds a long terminal-only reveal to roughly 300 ms of display frames", () => {
+  it("paces a long terminal-only reveal over roughly one second of display frames", () => {
     const text = Array.from({ length: 300 }, (_, index) => `word-${index} `).join("");
     const chunks = terminalRevealChunks(text);
     const queue = [...chunks];
     let frames = 0;
     while (queue.length > 0) {
-      drainStreamPaint(queue);
+      drainTerminalReveal(queue);
       frames += 1;
     }
 
-    expect(chunks).toHaveLength(30);
-    expect(frames).toBeLessThanOrEqual(18);
+    expect(chunks).toHaveLength(60);
+    expect(frames).toBe(60);
     expect(chunks.join("")).toBe(text);
   });
 
@@ -84,5 +85,11 @@ describe("stream paint batching", () => {
     expect(receiptIndex).toBeGreaterThan(0);
     expect(revealIndex).toBeGreaterThan(receiptIndex);
     expect(submitSource).toContain("recordedAt: terminalRecordedAt");
+  });
+
+  it("finishes a visible reveal when the tab becomes hidden", () => {
+    expect(submitSource).toContain('document.addEventListener("visibilitychange"');
+    expect(submitSource).toContain("await waitForVisualRevealFrame()");
+    expect(submitSource).toContain("flushStreamPaint(terminalQueue)");
   });
 });
