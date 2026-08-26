@@ -46,7 +46,14 @@ from .semantic_planning_frame import (
     build_semantic_frame,
     canonicalize_semantic_judgment_frame_proposal,
 )
+from .semantic_planning_frame_normalization import (
+    normalize_bound_latency_recovery,
+    normalize_missing_mysql_pressure_investigation,
+    normalize_missing_vm_cpu_investigation,
+    normalize_network_application_latency_investigation,
+)
 from .semantic_planning_models import (
+    BoundInvestigationContinuation,
     QueryPlanProposal,
     SemanticFrameProposal,
     SemanticOutputShape,
@@ -164,6 +171,7 @@ class SemanticPlanningCascade:
         principal: Principal,
         purpose: str,
         semantic_judgment: Mapping[str, Any] | None = None,
+        bound_investigation_continuation: BoundInvestigationContinuation | None = None,
         escalation_policy: SemanticPlanningEscalationPolicy | None = None,
     ) -> (
         tuple[
@@ -173,6 +181,28 @@ class SemanticPlanningCascade:
         ]
         | None
     ):
+        if (
+            semantic_judgment is not None
+            and semantic_judgment.get("action_posture") == "advise_only"
+            and "cause" in semantic_judgment.get("requested_facets", ())
+        ):
+            candidate = build_resource_target_candidates_fallback(
+                utterance=utterance,
+                context=context,
+                descriptors=descriptors,
+                confidence=float(semantic_judgment.get("confidence", 0.0)),
+                inventory_query_language=self._inventory_query_language,
+                temporal_scope=_judgment_candidate_temporal_scope(semantic_judgment),
+            )
+            if candidate is not None:
+                _LOGGER.info(
+                    "semantic_planning_candidate_recovered",
+                    extra={
+                        "stage": "judgment",
+                        "recovery": "resource_target_candidates",
+                    },
+                )
+                return (*candidate, None)
         for tier, model in self._planning_models():
             raw = model.propose_frame(
                 utterance=utterance,
@@ -264,6 +294,47 @@ class SemanticPlanningCascade:
                 proposal = canonicalize_semantic_judgment_frame_proposal(
                     proposal,
                     judgment=semantic_judgment,
+                )
+                proposal = normalize_bound_latency_recovery(
+                    proposal,
+                    continuation=bound_investigation_continuation,
+                    semantic_judgment=semantic_judgment,
+                )
+                target_candidate = (
+                    _candidate_frame_fallback(
+                        tier=tier,
+                        proposal=proposal,
+                        semantic_judgment=semantic_judgment,
+                        utterance=utterance,
+                        context=context,
+                        descriptors=descriptors,
+                        inventory_query_language=self._inventory_query_language,
+                    )
+                    if proposal.output_shape is SemanticOutputShape.CAUSAL_EVIDENCE
+                    else None
+                )
+                if target_candidate is not None:
+                    return (*target_candidate, None)
+                proposal = normalize_missing_vm_cpu_investigation(
+                    proposal,
+                    utterance=utterance,
+                    descriptors=descriptors,
+                    metric_concepts=metric_concepts,
+                    inventory_query_language=self._inventory_query_language,
+                )
+                proposal = normalize_missing_mysql_pressure_investigation(
+                    proposal,
+                    utterance=utterance,
+                    descriptors=descriptors,
+                    metric_concepts=metric_concepts,
+                    inventory_query_language=self._inventory_query_language,
+                )
+                proposal = normalize_network_application_latency_investigation(
+                    proposal,
+                    utterance=utterance,
+                    descriptors=descriptors,
+                    metric_concepts=metric_concepts,
+                    inventory_query_language=self._inventory_query_language,
                 )
                 if proposal.investigation is not None:
                     investigation = normalize_investigation_symptom(

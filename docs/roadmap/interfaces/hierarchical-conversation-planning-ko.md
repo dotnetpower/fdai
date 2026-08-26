@@ -1,8 +1,8 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: 8f241b5e011654ee5566e1d3e61f5861773eef1f
-translation_revised: 2026-08-22
+translation_source_sha: 06f8e9c41602c6cf16bd9d8f02badd6211c1be0c
+translation_revised: 2026-08-26
 ---
 
 # 계층형 대화 계획
@@ -29,6 +29,11 @@ T1 모델 또는 프로바이더를 사용할 수 없고 활성화된 타입 기
 `golden_campaign_no_t2` 프로필을 선택하므로 프로바이더를 사용할 수 없어도 캠페인 fallback을
 호출하지 않습니다.
 
+모델 기반 의미 판단 경계는 범위가 제한된 전체 턴을 해석하고 `greeting` 또는 `self_introduction` 같은 정본 사회적 의도를 제안할 수 있습니다. Core는 정확한 타입 기반 의도를 검증하고 질의나 근거 읽기
+없이 직접 응답을 반환합니다. Runtime 코드는 키워드, 문구 표, 정규식, 토큰 비교 또는 하드코딩된 발화에서 의도를 추론하지 않습니다. 사회적 표현과 결합된 운영 요청은
+모델이 해당 의미를 보존하면 운영 의도로 유지됩니다. 유효하지 않거나 사용할 수 없고, 모호하거나
+신뢰도가 낮은 판단은 lexical fallback 없이 안전하게 종료되며 어떤 경로도 실행 권한을 얻지 않습니다.
+
 ## 구현 상태
 
 ### 구현 범위
@@ -36,9 +41,10 @@ T1 모델 또는 프로바이더를 사용할 수 없고 활성화된 타입 기
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | Semantic frame, 검증된 계획 및 intent graph | implemented | [`semantic_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning.py), [`semantic_planning_cascade.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning_cascade.py), [`semantic_runtime.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_runtime.py), 의미 계획 집중 테스트 | 전체 턴 제안은 범위와 release가 제한되고 검증되며 실행 권한 없이 projection됩니다. T1을 항상 먼저 시도합니다. 기본 타입 기반 정책은 T1을 사용할 수 없을 때만 같은 단계의 T2 재시도를 한 번 허용하고, 유효하지 않은 frame, 스키마, 구성, 결정론적 plan 불일치는 안전하게 종료합니다. |
+| 모델 기반 사회적 직접 응답 | implemented | `semantic-judgment.v3.yaml`, [`semantic_judgment.py`](../../../services/core-control-plane/src/fdai/delivery/azure/llm/semantic_judgment.py), [`semantic_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning.py), [`semantic_turn.py`](../../../packages/service-contracts/src/fdai_service_contracts/semantic_turn.py), [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py), 집중 모델 라우팅, 사용량, 정제 및 스트림 테스트 | 스키마로 검증된 의미 판단 모델이 전체 턴에서 정본 의도를 선택합니다. Core는 enum만 검증하고 타입이 지정된 응답을 전달합니다. 직접 응답은 측정된 모델 사용량과 신원을 유지하고 정제된 요청/응답 trace는 요청이 명시적으로 활성화한 경우에만 보존합니다. Operator는 운영자 텍스트를 검사하지 않고 `done`만 보냅니다. 모델 실패에는 lexical fallback이 없습니다. |
 | 구조화된 인과 조사 | implemented | `semantic_investigation.py`, `semantic_investigation_planning.py`, 조사 query-node 및 표현 테스트, 집중 조사 검사 | 대상 결속 인과 diagnosis는 정확한 source span, 타입이 지정된 entity 역할, 증상 방향, 시간 단서, 순서가 있는 LinkType side, 경쟁 가설, 근거 기준, 답변 형태를 전달합니다. Core는 이 요소를 검증하고 모델이 작성한 plan 없이 entity 해석, multi-hop 확장, 정렬된 window, topology diff, 증상 비교, 지지/반증 wave를 컴파일합니다. 일반 선언 범위 causal evidence는 기존의 범위가 제한된 plan을 유지합니다. 가설 결과가 두 개 미만으로 표현 계층에 도달하면 거짓 완전 진단을 만들지 않고 대상과 증상 비교를 명시적인 근거 한계와 함께 유지합니다. |
 | 운영 Core semantic runtime 조립 | implemented | [`wire_semantic_query.py`](../../../services/core-control-plane/src/fdai/composition/wire_semantic_query.py), [`semantic_query_model_targets.py`](../../../services/core-control-plane/src/fdai/composition/semantic_query_model_targets.py), [`bootstrap.py`](../../../services/core-control-plane/src/fdai/runtime/bootstrap.py), 의미 질의 조립 집중 테스트 | Azure T1 및 T2 계획 어댑터를 별도로 연결합니다. 전제 조건을 갖추면 principal 범위 매니페스트, 보안 ObjectSet, 읽기 함수 및 범위가 제한된 DAG 실행이 조립됩니다. |
-| 버전이 지정된 서비스 간 semantic-turn 계약 | implemented | [`semantic_turn.py`](../../../packages/service-contracts/src/fdai_service_contracts/semantic_turn.py), [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py), [`test_semantic_turn_processor.py`](../../../services/core-control-plane/tests/test_semantic_turn_processor.py) | Version 1.2 요청과 projection은 실행 권한을 부여하지 않으면서 identity, purpose, deadline, digest, disposition 및 evidence를 결합합니다. |
+| 버전이 지정된 서비스 간 semantic-turn 계약 | implemented | [`semantic_turn.py`](../../../packages/service-contracts/src/fdai_service_contracts/semantic_turn.py), [`operator-core-request/1.4.0.json`](../../../packages/service-contracts/src/fdai_service_contracts/schemas/operator-core-request/1.4.0.json), [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py), [`test_semantic_turn_processor.py`](../../../services/core-control-plane/tests/test_semantic_turn_processor.py) | 요청 1.4는 N-1 해석 호환성을 유지하면서 범위가 제한된 `include_model_trace` 활성화 설정을 추가합니다. Projection은 실행 권한을 부여하지 않으면서 신원, 목적, 기한, digest, 처리 결과, 근거 및 관측 모델 메타데이터를 결합합니다. |
 | Durable Operator bridge 및 Console projection | implemented | [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), [`postgres_semantic_turn_store.py`](../../../services/operator-service/src/fdai_operator_service/postgres_semantic_turn_store.py), [`test_semantic_turn_bridge.py`](../../../services/operator-service/tests/test_semantic_turn_bridge.py) | Operator는 durable acceptance, outbox claim, result projection, 인증된 replay, typed hold 및 `done` event 변환을 담당합니다. |
 | Event transport 및 배포 설정 | implemented | [`semantic_kafka.py`](../../../services/operator-service/src/fdai_operator_service/adapters/semantic_kafka.py), [`main.tf`](../../../infra/main.tf), [`test_semantic_turn_topics.py`](../../../tests/integration/infra/test_semantic_turn_topics.py) | 논리 request 및 projection topic은 통제된 물리 event stream을 공유하며 두 service에 설정됩니다. |
 | 구조 및 인식 상태 커버리지 기반 | in-progress | [`epistemic_coverage.py`](../../../services/core-control-plane/src/fdai/core/conversation/epistemic_coverage.py), [`test_epistemic_coverage.py`](../../../services/core-control-plane/tests/conversation/test_epistemic_coverage.py) | Receipt와 gate 계약은 존재하지만 완전한 descriptor generation, runtime question receipt 및 L3/L4 인증은 제공되지 않았습니다. |
@@ -50,6 +56,12 @@ T1 모델 또는 프로바이더를 사용할 수 없고 활성화된 타입 기
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-25 | implemented | 실제 의미 판단 배포, 프로바이더가 측정한 토큰 사용량, 호출 시간, 요청이 명시적으로 활성화한 정제된 모델 trace를 직접 인사 및 자기소개 projection으로 전달했습니다. Trace는 범위가 제한되고 자격 증명 및 고객 식별자 패턴을 제거하며 숨겨진 추론을 보존하지 않습니다. 또한 질의, 근거, 검증 또는 실행 권한을 만들지 않습니다. | `current change`, 요청 1.4 호환성 검사 128개 통과, 집중 판단, 정제, 직접 projection, Operator 최종 처리, Console 배지 검사 통과, 엄격한 Python 및 TypeScript 검사 통과 | 정확한 소스의 로컬 스택을 다시 시작하고 토큰 사용량과 모델 trace를 활성화한 인증된 인사 하나를 보존합니다. 그런 다음 trace를 비활성화한 상태로 반복해 영속 trace가 생성되지 않음을 입증합니다. |
+| 2026-08-25 | implemented | 다양한 인증 Command Deck 캠페인에서 발견한 문제를 바탕으로 모델 기반 사회적 의도와 액션 처리 방식을 보강했습니다. 이제 자기소개는 닫힌 정본 facet을 사용하고, 고유한 신원 및 권한 facet은 근거 읽기가 없는 직접 응답으로 이동할 수 있으며, 승인된 `advise_only` 판단은 frame 단계에서 액션 초안으로 바뀔 수 없습니다. 대상, 비교 기준 또는 기간에 필요한 정보가 없으면 lexical 추론 대신 명확화를 요청합니다. Core 로컬 입력 digest에는 prompt catalog도 포함되므로 오래된 의미 지침을 읽은 정상 프로세스가 source readiness를 통과할 수 없습니다. | `current change`, 한국어, 영어, 혼합 언어, 구어체, 오타, 사회적 표현과 운영 요청의 결합, 모호성, 직접 액션 및 2턴 후속 질문을 포함한 서로 다른 브라우저 질문 32개와 durable 최종 시도 44개. 직접 응답은 검사 0/0, 근거 참조 0개, 조사 수명 주기 미노출을 유지했습니다. 집중 prompt, routing, posture 및 launcher 검사 통과 | 선택된 화면 Resource와 검증된 view fact를 타입이 지정된 의미 요청으로 전달해 화면 기준 상태, 관계, 요약 및 후속 질문이 명확화 또는 지원되지 않음으로 저하되지 않도록 합니다. 별도의 Ontology instance graph 표현 방향 오류를 해결한 뒤 캠페인을 통제된 근거로 보존합니다. |
+| 2026-08-25 | implemented | 문구 목록과 정규식으로 의도를 추론하던 전체 발화 인사 및 자기소개 분류기를 철회했습니다. 의미 판단 prompt v3는 예시 발화 없이 두 사회적 의미를 정의하고, Core는 스키마로 검증된 정본 모델 의도만 사용해 분기합니다. Operator는 더 이상 운영자 텍스트를 읽거나 추측성 수락 및 계획 프레임을 보내지 않습니다. | `current change`, 공유 계약 검사 19개, 집중 모델 라우팅 검사 6개, 최종 변환 결과 기반 Operator 수명 주기 검사 5개, 활성 prompt 계약 통과 | 현재 source 스택을 다시 시작하고 lexical fallback 없이 인증된 인사, 자기소개, 복합 운영 및 모델 사용 불가 결과를 보존합니다. |
+| 2026-08-25 | implemented | Bragi의 자기소개를 요청한 문장이 일반 조사 수명 주기에 진입한 뒤 타입이 지정된 `self_introduction` 직접 응답 의도를 추가했습니다. 공유 전체 발화 분류기는 이제 범위가 제한된 한국어 및 영어 신원 요청을 인식하고, Core는 지역화된 신원 및 권한 경계를 렌더링하며, Operator는 `done`만 보냅니다. 자기소개와 운영 작업을 결합한 요청은 일반 계획 경로를 유지합니다. | `current change`, 공유 계약 집중 검사 17개, Core 계획 검사 9개, Core 최종 변환 결과 검사 2개, Operator 표현 및 수명 주기 검사 3개, Console 엄격 증적 구문 분석 검사 53개 통과 | 로컬 스택을 다시 시작하고 일시적인 조사 UI가 없는 인증된 자기소개를 보존합니다. |
+| 2026-08-25 | implemented | 정확한 인사 분류기를 공유 서비스 계약으로 옮기고, Core의 직접 응답 최종 변환 결과가 도착하기 전에 Operator와 Console이 추측성 조사 진행 상황을 표시하지 않도록 수정했습니다. Operator는 정확한 인사에 `done`만 보냅니다. Console은 관측된 진행 프레임이 있을 때만 `Preparing answer`를 표시하며 직접 응답에는 최소 준비 지연을 적용하지 않습니다. 복합 운영 요청은 일반 수명 주기를 유지합니다. | `current change`, 집중 Core 인사 경계 검사 23개, Operator 직접 및 일반 수명 주기 검사 3개, Console 스트림 및 시각 검사 58개 통과 | Core, Operator, Console을 다시 시작한 뒤 일시적인 조사 UI가 없는 인증된 인사 응답을 보존합니다. |
+| 2026-08-25 | implemented | 매니페스트와 모델 기반 의미 판단보다 먼저 실행되는 결정론적 전체 발화 인사 사전 검사를 추가했습니다. 정확히 비교하기 전에 Unicode, 대소문자, 공백, 경계 구두점을 정규화하며, 인사로 시작하는 운영 요청은 의미 계획 경로에 남깁니다. | `current change`, `direct_response.py`, 집중 분류기 및 전체 의미 tier-routing 검사 378개 통과, 변경 범위 Ruff 및 strict mypy 통과 | Core를 재시작하고 조사, 질의, 출처 사용 불가 또는 근거 projection이 없는 인증된 Console 인사 응답을 보존합니다. |
 | 2026-08-22 | implemented | 광범위한 유효하지 않음 또는 사용 불가 T2 대체 경로를 타입 기반 escalation 조건과 정책으로 교체했습니다. Interactive Console 계획은 T1 사용 불가 대체 경로만 제한적으로 허용하고 `golden_campaign_no_t2`는 어떤 대체 경로도 허용하지 않습니다. | `current change`, 집중 tier-routing, 공유 계약, Core processor, Operator bridge, Console 캠페인 검사 통과 | 560-turn golden 캠페인 전에 인증된 준비 상태 probe를 실행합니다. |
 | 2026-08-20 | implemented | Prompt v30이 이전 system prompt 문자 제한을 초과해 계획 전에 전체 runtime을 사용할 수 없게 된 문제를 수정하고, 범위가 제한된 Azure semantic adapter와 통제된 frame prompt를 정렬했습니다. Adapter는 고정된 32,768자 system prompt 제한과 기존 전체 request byte 제한을 유지합니다. | `current change`, 실제 prompt catalog 조립 및 제한 초과 adapter 회귀 검사 | Core readiness는 이제 semantic runtime이 연결됐다고 보고합니다. 재시작 전에 완료한 replay를 반복하지 않았으므로 인증된 대상 결속 답변은 남아 있습니다. |
 | 2026-08-20 | implemented | 가설 결과가 0개 또는 1개만 표현 계층에 도달해도 구조화된 인과 artifact를 유지하도록 보강했습니다. Artifact는 검증된 대상과 증상 비교를 유지하고, 사용할 수 있는 가설 행만 표시하며, 불완전한 경쟁 근거 집합을 영어와 한국어 한계로 명시합니다. | `current change`, 집중 조사 및 Operator 표현 검사 | Runtime 검증을 주장하기 전에 인증된 대상 결속 slowdown 답변과 viewport 근거를 보존합니다. |
@@ -74,6 +86,9 @@ T1 모델 또는 프로바이더를 사용할 수 없고 활성화된 타입 기
     검사를 약화하지 않으면서 release gate에 연결합니다.
 - [ ] 인증된 cross-service browser 및 randomized assurance 증적을 수집하고 rollback과 typed-hold
     동작을 검증한 뒤 이 경로를 production-ready로 보고합니다.
+- [ ] 인증된 선택 화면 Resource 하나와 검증된 view-fact digest를 Console, Operator 및 Core를
+    통해 전달한 뒤 광범위한 질의 대체나 lexical routing 없이 상태, 관계, 요약 및 문맥 기반
+    후속 browser case를 통과합니다.
 - [ ] 서비스 하나를 해석하고 순서가 있는 LinkType side를 둘 이상 순회하며, 실행 권한 없이
     지지됨, 반증됨 또는 미해결 가설을 둘 이상 보고하는 인증된 인과 조사를 보존합니다.
 - [ ] Semantic graph 경로의 replay가 동등하거나 더 나은 coverage와 safety를 입증한 뒤에만

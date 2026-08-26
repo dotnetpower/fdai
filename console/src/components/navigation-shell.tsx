@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
-import { requestWorkspaceDeckCloseForNavigation } from "../deck/open-deck";
+import {
+  DECK_STATE_EVENT,
+  isDeckOpen,
+  requestDeckToggle,
+  requestWorkspaceDeckCloseForNavigation,
+} from "../deck/open-deck";
 import { t } from "../i18n";
 import {
   DEFAULT_NAVIGATION_PREFERENCES,
@@ -19,7 +24,7 @@ import {
   type PanelGroup,
 } from "../panels";
 import { navigate, panelPath } from "../router";
-import { groupIcon, settingsIcon } from "./rail-icons";
+import { chatIcon, groupIcon, settingsIcon } from "./rail-icons";
 import { Tooltip } from "./tooltip";
 
 interface Props {
@@ -50,6 +55,7 @@ export function NavigationShell({ activePanelId, principalId, devMode }: Props) 
   });
   const [editing, setEditing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [deckOpen, setDeckOpen] = useState(isDeckOpen);
   const groupRefs = useRef(new Map<PanelGroup, HTMLButtonElement | null>());
   const menuRef = useRef<HTMLDivElement | null>(null);
   const menuButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -80,6 +86,14 @@ export function NavigationShell({ activePanelId, principalId, devMode }: Props) 
     };
     media.addEventListener("change", onChange);
     return () => media.removeEventListener("change", onChange);
+  }, []);
+
+  useEffect(() => {
+    const onDeckState = (event: Event) => {
+      setDeckOpen((event as CustomEvent<{ readonly open: boolean }>).detail.open);
+    };
+    window.addEventListener(DECK_STATE_EVENT, onDeckState);
+    return () => window.removeEventListener(DECK_STATE_EVENT, onDeckState);
   }, []);
 
   useEffect(() => {
@@ -292,6 +306,19 @@ export function NavigationShell({ activePanelId, principalId, devMode }: Props) 
           {visibleGroups.filter((group) => group.placement !== "bottom").map(renderGroupButton)}
         </ul>
         <ul class="activity-bar-list activity-bar-bottom">
+          <li>
+            <Tooltip content={deckOpen ? t("deck.close") : t("deck.invoke")} placement="right">
+              <button
+                type="button"
+                class={`activity-bar-button ${deckOpen ? "active" : ""}`}
+                aria-label={deckOpen ? t("deck.close") : t("deck.invoke")}
+                aria-pressed={deckOpen}
+                onClick={requestDeckToggle}
+              >
+                <span aria-hidden="true">{chatIcon()}</span>
+              </button>
+            </Tooltip>
+          </li>
           {visibleGroups.filter((group) => group.placement === "bottom").map(renderGroupButton)}
           {bottomRailPanels().map((panel) => (
             <li key={panel.id}>

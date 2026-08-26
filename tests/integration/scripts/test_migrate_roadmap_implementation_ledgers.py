@@ -173,6 +173,56 @@ def test_plan_fails_before_writing_on_ambiguous_status_sections(tmp_path: Path) 
     assert not (tmp_path / "docs/roadmap-implementation/architecture/example.md").exists()
 
 
+def test_reconcile_existing_preserves_history_and_cuts_over_owner(tmp_path: Path) -> None:
+    module = _load_module()
+    owner = _write_pair(tmp_path)
+    initial = module.plan_migrations(tmp_path, [owner])
+    ledger_path = Path("docs/roadmap-implementation/architecture/example.md")
+    ledger = tmp_path / ledger_path
+    ledger.parent.mkdir(parents=True)
+    ledger.write_text(initial.writes[ledger_path], encoding="utf-8")
+    owner_path = tmp_path / owner
+    owner_text = owner_path.read_text(encoding="utf-8")
+    owner_path.write_text(
+        owner_text.replace(
+            "### Remaining work",
+            "| 2026-08-25 | implemented | Added follow-up. | current change | None. |\n\n"
+            "### Remaining work",
+        ),
+        encoding="utf-8",
+    )
+
+    plan = module.plan_migrations(tmp_path, [owner], reconcile_existing=True)
+
+    replacement = plan.writes[ledger_path]
+    assert "| 2026-08-24 | implemented | Added loader." in replacement
+    assert "| 2026-08-25 | implemented | Added follow-up." in replacement
+    assert "## Implementation status" not in plan.writes[Path(owner)]
+
+
+def test_reconcile_existing_rejects_history_loss(tmp_path: Path) -> None:
+    module = _load_module()
+    owner = _write_pair(tmp_path)
+    ledger_path = tmp_path / "docs/roadmap-implementation/architecture/example.md"
+    ledger_path.parent.mkdir(parents=True)
+    ledger_path.write_text(
+        "# Example implementation ledger\n\n"
+        "## Implementation status\n\n"
+        "### Implementation history\n\n"
+        "| Date | State | Change | Evidence | Remaining |\n"
+        "|------|-------|--------|----------|-----------|\n"
+        "| 2026-08-23 | implemented | Prior unique row. | old evidence | None. |\n",
+        encoding="utf-8",
+    )
+
+    try:
+        module.plan_migrations(tmp_path, [owner], reconcile_existing=True)
+    except ValueError as error:
+        assert "absent from owner" in str(error)
+    else:
+        raise AssertionError("reconciliation must reject append-only history loss")
+
+
 def test_plan_normalizes_legacy_unstructured_status(tmp_path: Path) -> None:
     module = _load_module()
     owner = _write_pair(tmp_path, korean_status=False)

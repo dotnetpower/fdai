@@ -1,3 +1,4 @@
+import type { ComponentChildren } from "preact";
 import { Tooltip } from "../components/tooltip";
 import { getLocale, t } from "../i18n";
 import { useEffect, useState } from "preact/hooks";
@@ -45,6 +46,8 @@ import { ConversationTurnAttachments } from "./conversation-turn-attachments";
 import { GroundedReply } from "./grounded-reply";
 import { InvestigationTimeline } from "./investigation-timeline";
 import { introSuggestions } from "./intro-suggestions";
+import { isSemanticDirectResponseSource } from "./backend-normalizers";
+import { ModelTraceWaterfall } from "./model-trace-waterfall";
 import type { TurnAttachment } from "./turn-attachments";
 import { presentationTimestamp, presentationTimeZoneLabel } from "./presentation-value";
 
@@ -603,6 +606,7 @@ export function TurnBubble({
   const isInvestigationFlow = isActivity || isProgressMessage || investigationFlowContinuation;
   const isInvestigationFinalAnswer = isDeck && investigationFlowEnd &&
     !isActivity && !isProgressMessage;
+  const isSemanticDirectResponse = isSemanticDirectResponseSource(turn.source);
   const showReplySource = turn.source && turn.source !== "semantic-direct-response";
   return (
     <article
@@ -705,6 +709,12 @@ export function TurnBubble({
           showModelTrace={showModelTrace}
         />
       ) : null}
+      {isDeck && isSemanticDirectResponse && !turn.streaming && showModelTrace ? (
+        <ModelTraceWaterfall
+          {...(turn.modelTrace ? { trace: turn.modelTrace } : {})}
+          captureEnabled
+        />
+      ) : null}
       {!isInvestigationFlow || isInvestigationFinalAnswer ? (
         <div class="deck-turn-foot cs-deck-turn-foot">
           <TurnRecordedTime turn={turn} />
@@ -776,16 +786,22 @@ export function BackendBadge({
 
 export function IntroPanel({
   snapshot,
+  routeLabel,
   onPick,
+  children,
 }: {
   readonly snapshot: ReturnType<typeof useViewContext>;
+  readonly routeLabel: string;
   readonly onPick: (suggestion: string) => void;
+  readonly children?: ComponentChildren;
 }) {
-  const suggestions = introSuggestions(snapshot);
+  const suggestions = introSuggestions(snapshot, getLocale());
   const verticals = verticalQuickStarts();
   return (
     <div class="deck-intro">
+      <h2 class="deck-intro-title">{t("deck.emptyTitle", { route: routeLabel })}</h2>
       <p class="deck-intro-lead">{t("deck.intro")}</p>
+      {children}
       <div class="deck-intro-verticals" aria-label={t("deck.verticalQuickStarts.label")}>
         <span>{t("deck.verticalQuickStarts.label")}</span>
         {verticals.map((vertical) => (

@@ -12,6 +12,8 @@
 /** The window event name the CommandDeck listens for. */
 export const DECK_OPEN_EVENT = "fdai:deck:open";
 export const DECK_OPEN_READY_EVENT = "fdai:deck:open-ready";
+export const DECK_TOGGLE_EVENT = "fdai:deck:toggle";
+export const DECK_STATE_EVENT = "fdai:deck:state";
 
 /** Cancelable request used by Activity Bar group navigation. */
 export const DECK_WORKSPACE_NAVIGATION_EVENT = "fdai:deck:workspace-navigation";
@@ -58,6 +60,8 @@ export interface DeckOpenDetail {
 }
 
 let deckOpenListenerReady = false;
+let deckOpen = false;
+let pendingDeckToggle = false;
 const MAX_PENDING_DECK_OPENS = 8;
 let pendingDeckOpens: DeckOpenDetail[] = [];
 const handledDeckOpenEvents = new WeakSet<Event>();
@@ -66,18 +70,42 @@ export function isDeckOpenListenerReady(): boolean {
   return deckOpenListenerReady;
 }
 
+export function isDeckOpen(): boolean {
+  return deckOpen;
+}
+
 export function setDeckOpenListenerReady(ready: boolean): void {
   deckOpenListenerReady = ready;
   if (ready && typeof window !== "undefined" && typeof Event !== "undefined") {
     const pending = pendingDeckOpens;
     pendingDeckOpens = [];
     for (const detail of pending) dispatchDeckOpen(detail);
+    if (pendingDeckToggle) {
+      pendingDeckToggle = false;
+      window.dispatchEvent(new Event(DECK_TOGGLE_EVENT));
+    }
     window.dispatchEvent(new Event(DECK_OPEN_READY_EVENT));
   }
 }
 
 export function clearPendingDeckOpenRequests(): void {
   pendingDeckOpens = [];
+  pendingDeckToggle = false;
+}
+
+export function publishDeckOpenState(open: boolean): void {
+  deckOpen = open;
+  if (typeof window === "undefined" || typeof CustomEvent === "undefined") return;
+  window.dispatchEvent(new CustomEvent(DECK_STATE_EVENT, { detail: { open } }));
+}
+
+export function requestDeckToggle(): void {
+  if (typeof window === "undefined" || typeof Event === "undefined") return;
+  if (!deckOpenListenerReady) {
+    pendingDeckToggle = !pendingDeckToggle;
+    return;
+  }
+  window.dispatchEvent(new Event(DECK_TOGGLE_EVENT));
 }
 
 export function acknowledgeDeckOpenEvent(event: Event): void {

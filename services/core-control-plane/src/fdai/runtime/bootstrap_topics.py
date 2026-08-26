@@ -1,6 +1,9 @@
 """Assemble the complete logical topic registry for the Core runtime bus."""
 
-from fdai_service_contracts.read_investigation import READ_INVESTIGATION_REQUEST_TOPIC
+from fdai_service_contracts.read_investigation import (
+    READ_INVESTIGATION_COMPLETION_TOPIC,
+    READ_INVESTIGATION_REQUEST_TOPIC,
+)
 from fdai_service_contracts.semantic_turn import (
     SEMANTIC_PROJECTION_TOPIC,
     SEMANTIC_REQUEST_TOPIC,
@@ -20,6 +23,7 @@ RUNTIME_LOGICAL_TOPICS = (
             SEMANTIC_REQUEST_TOPIC,
             SEMANTIC_PROJECTION_TOPIC,
             READ_INVESTIGATION_REQUEST_TOPIC,
+            READ_INVESTIGATION_COMPLETION_TOPIC,
         }
     )
     | RECONCILIATION_TOPICS

@@ -1,4 +1,3 @@
-import { getLocale } from "../i18n";
 import { readConsolePreferences } from "../preferences";
 import { ROUTE_ACTION_HINTS } from "./answerer";
 import type { AnswerVerification, BackendTurn } from "./backend-types";
@@ -11,7 +10,7 @@ import type { IncidentConversationBinding } from "./open-deck";
 const HANGUL = /[가-힣]/u;
 
 function responseLocale(prompt: string): "en" | "ko" {
-  return HANGUL.test(prompt) ? "ko" : getLocale();
+  return HANGUL.test(prompt) ? "ko" : "en";
 }
 
 function viewContextWithUser(

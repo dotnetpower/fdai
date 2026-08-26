@@ -18,8 +18,10 @@ import {
   parseRetrievalSourcePreviews,
   parseResourceContext,
   parseRouter,
+  isSemanticDirectResponseSource,
   parseSemanticProjectionReceipt,
   parseVerificationStatus,
+  semanticDirectResponseSource,
   tokenSuffix,
 } from "./backend-normalizers";
 import {
@@ -477,11 +479,13 @@ export async function askBackendStream(
     const conversationBinding = normalizeIncidentBinding(done.conversation_context);
   const chosen = router?.chose ?? model;
   const explicitSource = typeof done.source === "string" ? done.source : null;
-  const source = explicitSource ?? (
+  const directResponse = isSemanticDirectResponseSource(explicitSource);
+  const source = directResponse
+    ? semanticDirectResponseSource(chosen, latencyMs, done.usage)
+    : explicitSource ?? (
     (latencyMs !== null && latencyMs >= 0 ? `llm:${chosen} · ${latencyMs}ms` : `llm:${chosen}`) +
     tokenSuffix(done.usage)
   );
-  const directResponse = source === "semantic-direct-response";
   const base: Answer & { readonly source: string } = {
     text: finalText,
     citations: directResponse ? [] : citationsForVerification(snapshot, verification),

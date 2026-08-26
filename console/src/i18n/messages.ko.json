@@ -2137,7 +2137,7 @@
     "close": "명령 덱 닫기",
     "closeConversations": "대화 닫기",
     "invoke": "이 화면에 대해 질문하기",
-    "conversations": "대화",
+    "conversations": "대화 이력",
     "newConversation": "새 대화",
     "currentScreen": "현재 화면",
     "otherScreens": "다른 화면",
@@ -2218,7 +2218,17 @@
     },
     "suggestedFollowUps": "추천 후속 질문",
     "reviewAnswer": "답변 품질 검토",
-    "intro": "현재 표시된 타일, KPI, 승인, 감사 행, 프로모션 상태, 영향 범위 또는 온톨로지에 관해 질문하세요. 모든 답변은 오른쪽 스냅샷을 근거로 합니다.",
+    "emptyTitle": "{route}에서 질문하기",
+    "intro": "현재 화면에서 확인된 정보와 운영 근거를 바탕으로 답변합니다.",
+    "starterSuggestions": {
+      "routes": "어떤 화면을 이용할 수 있나요?",
+      "failed": "실패한 작업은 왜 실패했나요?",
+      "approval": "어떤 항목이 승인을 기다리고 있나요?",
+      "denied": "무엇이 거부됐고 그 이유는 무엇인가요?",
+      "stuck": "어떤 작업이 멈춰 있나요?",
+      "screen": "이 화면에서 무엇을 확인할 수 있나요?",
+      "tierMix": "현재 신뢰 티어 구성은 어떤가요?"
+    },
     "verticalQuickStarts": {
       "label": "운영 영역",
       "resilience": "복원력",

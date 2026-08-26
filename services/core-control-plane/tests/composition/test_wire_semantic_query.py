@@ -27,6 +27,14 @@ from fdai.core.ontology_platform.evidence_health_queries import (
 )
 from fdai.core.ontology_platform.incident_queries import INCIDENT_EVIDENCE_FUNCTION_NAME
 from fdai.core.ontology_platform.inventory_impact_queries import INVENTORY_IMPACT_FUNCTION_NAME
+from fdai.core.ontology_platform.latency_recovery_evidence import (
+    LATENCY_RECOVERY_FUNCTION_NAME,
+)
+from fdai.core.ontology_platform.mysql_pressure_evidence import (
+    MYSQL_DEMAND_BUNDLE_FUNCTION_NAME,
+    MYSQL_PRESSURE_FUNCTION_NAME,
+    MYSQL_SATURATION_BUNDLE_FUNCTION_NAME,
+)
 from fdai.core.ontology_platform.network_path import NetworkPathResult, NetworkPathStatus
 from fdai.core.ontology_platform.operational_functions import operational_function_types
 from fdai.core.ontology_platform.release_diff_queries import (
@@ -63,6 +71,10 @@ from fdai.core.ontology_platform.resource_state_queries import RESOURCE_STATE_FU
 from fdai.core.ontology_platform.service_health_queries import (
     SERVICE_HEALTH_FUNCTION_NAME,
     ServiceHealthCollection,
+)
+from fdai.core.ontology_platform.vm_process_evidence import (
+    VM_PROCESS_CPU_FUNCTION_NAME,
+    VmProcessCpuCollection,
 )
 from fdai.delivery.catalog_search import InMemoryCatalogSemanticIndex
 from fdai.rule_catalog.schema.inventory_query_language import (
@@ -991,6 +1003,29 @@ class _EmptyServiceHealthReader:
         )
 
 
+class _EmptyVmProcessCpuReader:
+    async def read_process_cpu(
+        self,
+        *,
+        resource_id: str,
+        start: datetime,
+        end: datetime,
+        limit: int,
+    ) -> VmProcessCpuCollection:
+        assert 1 <= limit <= 32
+        return VmProcessCpuCollection(
+            resource_id=resource_id,
+            start=start,
+            end=end,
+            observed_at=NOW,
+            observations=(),
+            complete=False,
+            truncated=False,
+            limitation="provider_gap",
+            attempt_ref="azure-monitor-perf:empty",
+        )
+
+
 def _health_language() -> InventoryQueryLanguageRegistry:
     return InventoryQueryLanguageRegistry(
         schema_version="1.1.0",
@@ -1242,6 +1277,60 @@ async def test_runtime_exposes_service_health_only_when_reader_is_bound() -> Non
     )
 
     assert SERVICE_HEALTH_FUNCTION_NAME in model.function_names
+
+
+async def test_runtime_exposes_vm_process_cpu_only_when_reader_is_bound() -> None:
+    object_type = _object_type()
+    model = _ManifestCaptureModel(_definition())
+    runtime = build_semantic_query_runtime(
+        model=model,
+        ontology_release=build_ontology_release(
+            object_types=(object_type,),
+            function_types=operational_function_types(()),
+        ),
+        ontology_catalog=_catalog(object_type),
+        ontology_store=InMemoryOntologyInstanceStore(
+            object_types=(object_type,),
+            link_types=(),
+        ),
+        vm_process_cpu_reader=_EmptyVmProcessCpuReader(),
+        now=lambda: NOW,
+    )
+    await runtime.handle(
+        utterance="Show resources",
+        prior_turns=(),
+        principal=Principal(id="reader", role=Role.READER),
+    )
+
+    assert VM_PROCESS_CPU_FUNCTION_NAME in model.function_names
+
+
+async def test_runtime_exposes_pure_mysql_pressure_reducer() -> None:
+    object_type = _object_type()
+    model = _ManifestCaptureModel(_definition())
+    runtime = build_semantic_query_runtime(
+        model=model,
+        ontology_release=build_ontology_release(
+            object_types=(object_type,),
+            function_types=operational_function_types(()),
+        ),
+        ontology_catalog=_catalog(object_type),
+        ontology_store=InMemoryOntologyInstanceStore(
+            object_types=(object_type,),
+            link_types=(),
+        ),
+        now=lambda: NOW,
+    )
+    await runtime.handle(
+        utterance="Show resources",
+        prior_turns=(),
+        principal=Principal(id="reader", role=Role.READER),
+    )
+
+    assert MYSQL_PRESSURE_FUNCTION_NAME in model.function_names
+    assert MYSQL_DEMAND_BUNDLE_FUNCTION_NAME in model.function_names
+    assert MYSQL_SATURATION_BUNDLE_FUNCTION_NAME in model.function_names
+    assert LATENCY_RECOVERY_FUNCTION_NAME in model.function_names
 
 
 async def test_runtime_exposes_resource_metrics_only_with_registry_and_provider() -> None:

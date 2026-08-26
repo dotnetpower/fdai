@@ -12,11 +12,16 @@ from types import MappingProxyType, SimpleNamespace
 from typing import Any, cast
 
 import pytest
+from fdai.core.conversation.semantic_investigation import InvestigationEntityRole
+from fdai.core.conversation.semantic_judgment import SemanticJudgmentObservation
 from fdai.core.conversation.semantic_planning_cascade import (
     NO_T2_ESCALATION_POLICY,
     SemanticPlanningEscalationPolicy,
 )
-from fdai.core.conversation.semantic_planning_models import BoundIncident
+from fdai.core.conversation.semantic_planning_models import (
+    BoundIncident,
+    BoundInvestigationContinuation,
+)
 from fdai.core.conversation.semantic_runtime import (
     SemanticTurnResult as RuntimeSemanticTurnResult,
 )
@@ -53,6 +58,7 @@ from fdai_core_service.semantic_turn_processor import (
     SemanticTurnRejectedError,
     _answer_row_values,
     _incident_next_step_text,
+    _project_investigation_continuation,
     _render_general_query_answer,
     _typed_extension_answer_output,
     incident_next_step_actions,
@@ -525,6 +531,7 @@ class _Runtime:
         self.principals: list[Principal] = []
         self.prior_turns: tuple[Turn, ...] = ()
         self.bound_incidents: list[BoundIncident | None] = []
+        self.bound_investigation_continuations: list[BoundInvestigationContinuation | None] = []
         self.escalation_policies: list[SemanticPlanningEscalationPolicy | None] = []
 
     async def handle(
@@ -535,6 +542,7 @@ class _Runtime:
         principal: Principal,
         cancelled: asyncio.Event | None = None,
         bound_incident: BoundIncident | None = None,
+        bound_investigation_continuation: BoundInvestigationContinuation | None = None,
         escalation_policy: SemanticPlanningEscalationPolicy | None = None,
     ) -> RuntimeSemanticTurnResult:
         assert utterance == "Show current operations evidence."
@@ -542,6 +550,7 @@ class _Runtime:
         self.principals.append(principal)
         self.prior_turns = prior_turns
         self.bound_incidents.append(bound_incident)
+        self.bound_investigation_continuations.append(bound_investigation_continuation)
         self.escalation_policies.append(escalation_policy)
         if self.failure is not None:
             raise self.failure
@@ -566,12 +575,14 @@ class _ContendedRuntime(_Runtime):
         principal: Principal,
         cancelled: asyncio.Event | None = None,
         bound_incident: BoundIncident | None = None,
+        bound_investigation_continuation: BoundInvestigationContinuation | None = None,
         escalation_policy: SemanticPlanningEscalationPolicy | None = None,
     ) -> RuntimeSemanticTurnResult:
         self.calls += 1
         self.principals.append(principal)
         self.prior_turns = prior_turns
         self.bound_incidents.append(bound_incident)
+        self.bound_investigation_continuations.append(bound_investigation_continuation)
         self.escalation_policies.append(escalation_policy)
         self.entered.set()
         await self.release.wait()
@@ -611,8 +622,10 @@ def _request(
     idempotency_key: str = "semantic-turn-1",
     prior_turns: list[dict[str, str]] | None = None,
     bound_context: dict[str, str] | None = None,
+    investigation_continuation: dict[str, object] | None = None,
     locale: str = "en",
     planning_profile: str = "interactive",
+    include_model_trace: bool = False,
 ) -> dict[str, object]:
     semantic_turn: dict[str, object] = {
         "utterance": "Show current operations evidence.",
@@ -634,9 +647,19 @@ def _request(
         semantic_turn["planning_profile"] = planning_profile
     if bound_context is not None:
         semantic_turn["bound_context"] = bound_context
+    if investigation_continuation is not None:
+        semantic_turn["investigation_continuation"] = investigation_continuation
+    if include_model_trace:
+        semantic_turn["include_model_trace"] = True
     return {
         "schema_version": (
-            "1.3.0" if bound_context is not None or planning_profile != "interactive" else "1.2.0"
+            "1.5.0"
+            if investigation_continuation is not None
+            else "1.4.0"
+            if include_model_trace
+            else "1.3.0"
+            if bound_context is not None or planning_profile != "interactive"
+            else "1.2.0"
         ),
         "request_id": "00000000-0000-0000-0000-000000000101",
         "correlation_id": "semantic-correlation-1",
@@ -645,6 +668,27 @@ def _request(
         "request_kind": "semantic_query",
         "requested_at": NOW.isoformat(),
         "semantic_turn": semantic_turn,
+    }
+
+
+def _continuation_request_payload() -> dict[str, object]:
+    return {
+        "schema_version": "1.0.0",
+        "source_session_id": "session-1",
+        "source_turn_id": "turn-prior",
+        "source_turn_sequence": 2,
+        "target_type": "BusinessService",
+        "target_value": "service-example-api",
+        "recovery_measure_concepts": ["dependency.latency", "service.latency"],
+        "baseline_start": (NOW - timedelta(minutes=20)).isoformat(),
+        "baseline_end": (NOW - timedelta(minutes=10)).isoformat(),
+        "initial_observation_cutoff": NOW.isoformat(),
+        "ontology_release_digest": RELEASE_DIGEST,
+        "principal_manifest_digest": MANIFEST_DIGEST,
+        "source_frame_digest": f"sha256:{'f' * 64}",
+        "source_plan_digest": PLAN_DIGEST,
+        "source_execution_receipt_digest": f"sha256:{'e' * 64}",
+        "execution_authority": False,
     }
 
 
@@ -670,6 +714,8 @@ def _runtime_result(
     disposition: str,
     *,
     reason: str = "provider detail must not escape",
+    direct_response_intent: SemanticDirectResponseIntent = SemanticDirectResponseIntent.GREETING,
+    model_observations: tuple[SemanticJudgmentObservation, ...] = (),
 ) -> RuntimeSemanticTurnResult:
     plan = SimpleNamespace(
         ontology_release_digest=RELEASE_DIGEST,
@@ -684,8 +730,9 @@ def _runtime_result(
         ),
         manifest_digest=MANIFEST_DIGEST,
         direct_response_intent=(
-            SemanticDirectResponseIntent.GREETING if disposition == "direct_response" else None
+            direct_response_intent if disposition == "direct_response" else None
         ),
+        model_observations=model_observations,
     )
     if disposition != "answered":
         return RuntimeSemanticTurnResult(
@@ -767,6 +814,84 @@ def _runtime_result(
             ],
         },
     )
+
+
+def test_s3_answer_projects_exact_no_authority_continuation() -> None:
+    target = SimpleNamespace(
+        role=InvestigationEntityRole.AFFECTED_TARGET,
+        object_type_candidates=("BusinessService",),
+        span=SimpleNamespace(text="service-example-api"),
+    )
+    primary = SimpleNamespace(measure_id="latency", concept_id="service.latency")
+    intent = SimpleNamespace(
+        entities=(target,),
+        symptom_measures=(primary,),
+        primary_symptom_measure_id="latency",
+        hypotheses=(SimpleNamespace(cause_measure_concept="dependency.latency"),),
+    )
+    plan = SimpleNamespace(
+        ontology_release_digest=RELEASE_DIGEST,
+        plan_digest=PLAN_DIGEST,
+        nodes=(
+            SimpleNamespace(
+                node_id="symptom-baseline",
+                arguments={
+                    "start": "2026-08-11T11:40:00+00:00",
+                    "end": "2026-08-11T11:50:00+00:00",
+                },
+            ),
+            SimpleNamespace(
+                node_id="symptom-current",
+                arguments={
+                    "start": "2026-08-11T11:50:00+00:00",
+                    "end": "2026-08-11T12:00:00+00:00",
+                },
+            ),
+        ),
+    )
+    result = SimpleNamespace(
+        planning=SimpleNamespace(
+            investigation_intent=intent,
+            plan=plan,
+            frame=SimpleNamespace(frame_digest=f"sha256:{'f' * 64}"),
+            manifest_digest=MANIFEST_DIGEST,
+        )
+    )
+    request = SemanticTurnRequest.model_validate(
+        cast(dict[str, object], _request()["semantic_turn"])
+    )
+
+    continuation = _project_investigation_continuation(
+        request,
+        cast(Any, result),
+        execution_receipt_digest=f"sha256:{'e' * 64}",
+    )
+
+    assert continuation is not None
+    assert continuation.source_session_id == "session-1"
+    assert continuation.target_type == "BusinessService"
+    assert continuation.target_value == "service-example-api"
+    assert continuation.recovery_measure_concepts == (
+        "dependency.latency",
+        "service.latency",
+    )
+    assert continuation.initial_observation_cutoff == NOW
+    assert continuation.execution_authority is False
+
+
+def test_non_s3_answer_does_not_project_investigation_continuation() -> None:
+    result = _runtime_result("answered")
+    request = SemanticTurnRequest.model_validate(
+        cast(dict[str, object], _request()["semantic_turn"])
+    )
+
+    continuation = _project_investigation_continuation(
+        request,
+        result,
+        execution_receipt_digest=f"sha256:{'e' * 64}",
+    )
+
+    assert continuation is None
 
 
 def _rule_search_runtime_result(*, execution_authority: bool = False) -> RuntimeSemanticTurnResult:
@@ -1269,6 +1394,55 @@ async def test_bound_incident_context_reaches_runtime_as_last_system_turn() -> N
     ]
 
 
+async def test_investigation_continuation_reaches_runtime_as_typed_binding() -> None:
+    runtime = _Runtime()
+
+    await _processor(runtime).process(
+        _request(investigation_continuation=_continuation_request_payload())
+    )
+
+    assert runtime.bound_investigation_continuations == [
+        BoundInvestigationContinuation(
+            source_session_id="session-1",
+            source_turn_id="turn-prior",
+            source_turn_sequence=2,
+            target_type="BusinessService",
+            target_value="service-example-api",
+            recovery_measure_concepts=("dependency.latency", "service.latency"),
+            baseline_start=NOW - timedelta(minutes=20),
+            baseline_end=NOW - timedelta(minutes=10),
+            initial_observation_cutoff=NOW,
+            ontology_release_digest=RELEASE_DIGEST,
+            principal_manifest_digest=MANIFEST_DIGEST,
+            source_frame_digest=f"sha256:{'f' * 64}",
+            source_plan_digest=PLAN_DIGEST,
+            source_execution_receipt_digest=f"sha256:{'e' * 64}",
+        )
+    ]
+    assert all(turn.direction != "system" for turn in runtime.prior_turns)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    (("source_session_id", "other-session"), ("source_turn_sequence", 3)),
+)
+async def test_investigation_continuation_mismatch_is_rejected_before_runtime(
+    field: str,
+    value: object,
+) -> None:
+    runtime = _Runtime()
+    continuation = _continuation_request_payload()
+    continuation[field] = value
+
+    with pytest.raises(
+        SemanticTurnRejectedError,
+        match="semantic_investigation_continuation_mismatched",
+    ):
+        await _processor(runtime).process(_request(investigation_continuation=continuation))
+
+    assert runtime.calls == 0
+
+
 async def test_absent_bound_context_adds_no_anchor_turn() -> None:
     runtime = _Runtime()
 
@@ -1339,6 +1513,99 @@ async def test_direct_greeting_projection_has_no_query_or_evidence_claims(
         "direct_response_intent": "greeting",
         "execution_authority": False,
     }
+    assert projection["payload"].get("technical_details") is None
+
+
+@pytest.mark.parametrize("include_model_trace", [False, True])
+async def test_direct_greeting_projects_measured_usage_and_opt_in_trace(
+    include_model_trace: bool,
+) -> None:
+    trace_call: dict[str, object] = {
+        "call_id": "adapter-call",
+        "kind": "semantic-judgment",
+        "model": "semantic-test",
+        "status": "completed",
+        "started_at": "2026-08-11T12:00:00+00:00",
+        "completed_at": "2026-08-11T12:00:00.025000+00:00",
+        "duration_ms": 25,
+        "request": {"messages": [], "sha256": "a" * 64},
+        "response": {"role": "assistant", "content": "{}", "sha256": "b" * 64},
+        "usage": {"prompt_tokens": 12, "completion_tokens": 3, "total_tokens": 15},
+        "redactions": [],
+    }
+    runtime_result = _runtime_result(
+        "direct_response",
+        model_observations=(
+            SemanticJudgmentObservation(
+                model="semantic-test",
+                usage={"prompt_tokens": 12, "completion_tokens": 3, "total_tokens": 15},
+                trace_call=trace_call,
+            ),
+        ),
+    )
+
+    projection = _projection(
+        await _processor(_Runtime(runtime_result)).process(
+            _request(include_model_trace=include_model_trace)
+        )
+    )
+
+    payload = projection["payload"]
+    assert payload["model"] == "semantic-test"
+    assert payload["latency_ms"] == 25
+    assert payload["usage"] == {
+        "prompt_tokens": 12,
+        "completion_tokens": 3,
+        "total_tokens": 15,
+    }
+    if include_model_trace:
+        trace = payload["model_trace"]
+        assert trace["redacted"] is True
+        assert trace["calls"][0]["call_id"] == "semantic-judgment-1"
+    else:
+        assert "model_trace" not in payload
+    semantic = projection["semantic_result"]
+    assert semantic["evidence_refs"] == []
+    assert semantic["checks_total"] == 0
+
+
+@pytest.mark.parametrize(
+    ("locale", "expected"),
+    [
+        (
+            "en",
+            "I am Bragi, the FDAI Console conversation interface. I explain questions about the "
+            "current screen and operational state from verified evidence. I do not execute changes "
+            "directly; requested work follows FDAI approval and safety paths.",
+        ),
+        (
+            "ko",
+            "저는 FDAI Console의 대화 인터페이스 Bragi입니다. 화면과 운영 상태에 관한 질문을 "
+            "검증된 근거에 맞춰 설명합니다. 직접 변경을 실행하지 않으며, 필요한 작업은 FDAI의 "
+            "승인 및 안전 경로로 전달합니다.",
+        ),
+    ],
+)
+async def test_self_introduction_projection_has_no_query_or_evidence_claims(
+    locale: str,
+    expected: str,
+) -> None:
+    projection = _projection(
+        await _processor(
+            _Runtime(
+                _runtime_result(
+                    "direct_response",
+                    direct_response_intent=SemanticDirectResponseIntent.SELF_INTRODUCTION,
+                )
+            )
+        ).process(_request(locale=locale))
+    )
+
+    semantic = projection["semantic_result"]
+    assert projection["status"] == "direct_response"
+    assert semantic["answer"] == expected
+    assert semantic["direct_response_intent"] == "self_introduction"
+    assert semantic["evidence_refs"] == []
     assert projection["payload"].get("technical_details") is None
 
 
@@ -2323,6 +2590,55 @@ async def test_execution_hold_preserves_verified_attempts_and_limitations() -> N
     assert "실제로 시도한 읽기 전용 조사" in semantic["answer"]
     assert "다음 안전 단계" in semantic["answer"]
     assert "`execution_authority=false`" in semantic["answer"]
+
+
+async def test_s3_execution_hold_projects_recovery_continuation() -> None:
+    runtime_result = _runtime_result("answered")
+    assert runtime_result.execution is not None
+    target = SimpleNamespace(
+        role=InvestigationEntityRole.AFFECTED_TARGET,
+        object_type_candidates=("BusinessService",),
+        span=SimpleNamespace(text="service-example-api"),
+    )
+    runtime_result.planning.investigation_intent = SimpleNamespace(
+        entities=(target,),
+        symptom_measures=(SimpleNamespace(measure_id="latency", concept_id="service.latency"),),
+        primary_symptom_measure_id="latency",
+        hypotheses=(SimpleNamespace(cause_measure_concept="dependency.latency"),),
+    )
+    runtime_result.planning.frame.frame_digest = f"sha256:{'f' * 64}"
+    runtime_result.planning.plan.nodes = (
+        SimpleNamespace(
+            node_id="symptom-baseline",
+            arguments={"start": "2026-08-11T11:40:00Z", "end": "2026-08-11T11:50:00Z"},
+        ),
+        SimpleNamespace(
+            node_id="symptom-current",
+            arguments={"start": "2026-08-11T11:50:00Z", "end": NOW.isoformat()},
+        ),
+    )
+    unavailable_receipt = runtime_result.execution.receipts[0].model_copy(
+        update={"status": TaskStatus.UNAVAILABLE, "reason": "capability_unavailable"}
+    )
+    execution = replace(
+        runtime_result.execution,
+        status="failed",
+        receipts=(unavailable_receipt,),
+    )
+    held = replace(
+        runtime_result,
+        disposition="held",
+        reason="semantic_execution_failed",
+        execution=execution,
+    )
+
+    projection = _projection(await _processor(_Runtime(held)).process(_request()))
+
+    continuation = projection["payload"]["investigation_continuation"]
+    assert continuation["source_session_id"] == "session-1"
+    assert continuation["source_turn_sequence"] == 3
+    assert continuation["target_value"] == "service-example-api"
+    assert continuation["execution_authority"] is False
 
 
 async def test_unavailable_and_internal_failure_are_detail_free_holds() -> None:

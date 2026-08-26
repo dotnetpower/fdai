@@ -14,9 +14,21 @@ from fdai.core.background_task import (
     BackgroundTaskQuotaExceededError,
     BackgroundTaskService,
 )
+from fdai.core.read_investigation import (
+    InteractiveReadInvestigationSubmission,
+    ReadInvestigationBudget,
+    ReadInvestigationExecutionMode,
+    ReadInvestigationRunConflictError,
+)
+from fdai.core.read_investigation import (
+    ReadInvestigationRequest as CoreReadInvestigationRequest,
+)
 from fdai.core.read_investigation.intent_spec import read_investigation_intent_spec
 from fdai.shared.providers.event_bus import EventBus, subscription
-from fdai.shared.providers.read_investigation import ReadInvestigationIntent
+from fdai.shared.providers.read_investigation import (
+    ReadInvestigationIntent,
+    ResourceSelector,
+)
 from fdai_service_contracts.read_investigation import (
     ReadInvestigationCancellation,
     ReadInvestigationRequest,
@@ -39,6 +51,17 @@ class ReadInvestigationCoordinatorControl(Protocol):
     ) -> None: ...
 
 
+class InteractiveReadInvestigationControl(Protocol):
+    """Persist interactive work or report that detached execution owns it."""
+
+    async def submit(
+        self,
+        submission: InteractiveReadInvestigationSubmission,
+    ) -> ReadInvestigationExecutionMode: ...
+
+    async def cancel(self, task_id: str, *, actor: str, is_admin: bool) -> bool: ...
+
+
 @dataclass(frozen=True, slots=True)
 class ReadInvestigationConsumerBinding:
     """Bind one request topic to durable task creation and coordinator wakeup."""
@@ -47,6 +70,7 @@ class ReadInvestigationConsumerBinding:
     group_id: str
     service: BackgroundTaskService
     coordinator: ReadInvestigationCoordinatorControl
+    interactive: InteractiveReadInvestigationControl | None = None
 
     async def run(self, *, bus: EventBus, stop: asyncio.Event) -> None:
         """Consume until the shared Core stop event is set."""
@@ -57,6 +81,7 @@ class ReadInvestigationConsumerBinding:
             group_id=self.group_id,
             service=self.service,
             coordinator=self.coordinator,
+            interactive=self.interactive,
             stop=stop,
         )
 
@@ -68,6 +93,7 @@ async def consume_read_investigations(
     group_id: str,
     service: BackgroundTaskService,
     coordinator: ReadInvestigationCoordinatorControl,
+    interactive: InteractiveReadInvestigationControl | None = None,
     stop: asyncio.Event,
 ) -> None:
     """Persist valid requests before allowing at-least-once delivery to advance."""
@@ -82,6 +108,7 @@ async def consume_read_investigations(
                     envelope=envelope,
                     service=service,
                     coordinator=coordinator,
+                    interactive=interactive,
                 )
                 continue
             try:
@@ -100,6 +127,10 @@ async def consume_read_investigations(
                 )
                 continue
             try:
+                if interactive is not None and request.budget.max_tool_calls > 0:
+                    mode = await interactive.submit(_interactive_submission(request))
+                    if mode is not ReadInvestigationExecutionMode.DETACHED:
+                        continue
                 await service.create(
                     owner_principal_id=request.owner_principal_id,
                     origin=BackgroundTaskOrigin(
@@ -140,6 +171,14 @@ async def consume_read_investigations(
                     "read_investigation_idempotency_conflict",
                 )
                 continue
+            except ReadInvestigationRunConflictError:
+                await bus.dead_letter(
+                    envelope.topic,
+                    envelope.key,
+                    envelope.payload,
+                    "read_investigation_idempotency_conflict",
+                )
+                continue
             except BackgroundTaskQuotaExceededError:
                 await bus.dead_letter(
                     envelope.topic,
@@ -157,6 +196,7 @@ async def _consume_cancellation(
     envelope: Any,
     service: BackgroundTaskService,
     coordinator: ReadInvestigationCoordinatorControl,
+    interactive: InteractiveReadInvestigationControl | None,
 ) -> None:
     try:
         cancellation = ReadInvestigationCancellation.model_validate(envelope.payload)
@@ -171,6 +211,12 @@ async def _consume_cancellation(
         )
         return
     try:
+        if interactive is not None and await interactive.cancel(
+            cancellation.task_id,
+            actor=cancellation.owner_principal_id,
+            is_admin=cancellation.admin_override,
+        ):
+            return
         await service.cancel(
             cancellation.task_id,
             actor=cancellation.owner_principal_id,
@@ -190,8 +236,47 @@ async def _consume_cancellation(
         )
 
 
+def _interactive_submission(
+    request: ReadInvestigationRequest,
+) -> InteractiveReadInvestigationSubmission:
+    intent = ReadInvestigationIntent(request.intent.value)
+    return InteractiveReadInvestigationSubmission(
+        task_id=read_investigation_task_id(
+            request.owner_principal_id,
+            request.idempotency_key,
+        ),
+        request=CoreReadInvestigationRequest(
+            requester_ref=request.owner_principal_id,
+            conversation_ref=request.origin.conversation_id,
+            correlation_ref=request.correlation_id,
+            intent=intent,
+            selector=ResourceSelector(
+                name=request.selector.name,
+                scope_ref="scope:configured-reader",
+                resource_type=request.selector.resource_type,
+                resource_group=request.selector.resource_group,
+            ),
+            lookback_seconds=read_investigation_intent_spec(intent).lookback_seconds,
+            requested_evidence=(),
+            budget=ReadInvestigationBudget(
+                max_wall_seconds=request.budget.max_wall_seconds,
+                max_cost_microusd=request.budget.max_cost_microusd,
+                max_tool_calls=min(5, request.budget.max_tool_calls),
+            ),
+            idempotency_key=request.idempotency_key,
+            created_at=request.requested_at,
+            explicit_deep=request.explicit_deep,
+            origin_channel_kind=request.origin.channel_kind,
+            origin_channel_id=request.origin.channel_id,
+            origin_thread_id=request.origin.thread_id,
+            origin_message_id=request.origin.message_id,
+        ),
+    )
+
+
 __all__ = [
     "ReadInvestigationConsumerBinding",
     "ReadInvestigationCoordinatorControl",
+    "InteractiveReadInvestigationControl",
     "consume_read_investigations",
 ]

@@ -82,6 +82,18 @@ are **configuration**, not hard-coded. Module names for these stages
 (`event-ingest`, `trust-router`, `tiers/*`, `quality-gate`, `risk-gate`, `executor`, `audit`)
 are fixed by [project-structure.md](../../docs/roadmap/architecture/project-structure.md).
 
+### Natural-language intent routing (MUST)
+
+- Conversational intent MUST come from the schema-validated model-backed semantic judgment
+  boundary. Runtime code MUST NOT select an intent, route, capability, or direct response from
+  keyword lists, phrase tables, regular expressions, token matching, or hard-coded utterances.
+- Deterministic code MAY validate and dispatch a canonical typed intent after semantic judgment.
+  It MUST NOT reinterpret the operator's natural language to manufacture that intent.
+- Model unavailability, malformed output, ambiguity, or insufficient confidence MUST produce the
+  typed clarification, unavailable, or held outcome. It MUST NOT fall back to lexical routing.
+- Gate checks MAY compare exact identifiers, enum values, source spans, and machine-contract fields.
+  Those checks validate a proposed meaning; they do not infer meaning from prose.
+
 ## Control Loop
 
 The diagram below is the **canonical** control-loop diagram. Docs that need to

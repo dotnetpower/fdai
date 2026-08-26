@@ -28,9 +28,17 @@ from .semantic_investigation_planning import (
     InvestigationClarificationRequiredError,
     compile_investigation_plan,
 )
+from .semantic_kubernetes_pod_recovery_planning import compile_kubernetes_pod_recovery_plan
+from .semantic_kubernetes_rollout_planning import compile_kubernetes_rollout_plan
+from .semantic_latency_recovery_planning import (
+    LatencyRecoveryWindowPendingError,
+    compile_latency_recovery_plan,
+)
+from .semantic_mysql_pressure_planning import compile_mysql_pressure_plan
 from .semantic_planning_cascade import SemanticPlanningCascade, SemanticPlanningEscalationPolicy
 from .semantic_planning_models import (
     BoundIncident,
+    BoundInvestigationContinuation,
     SemanticOutputShape,
     SemanticPlanningDisposition,
     SemanticPlanningOutcome,
@@ -93,6 +101,7 @@ def dispatch_semantic_plan(
     principal: Principal,
     purpose: str,
     bound_incident: BoundIncident | None,
+    bound_investigation_continuation: BoundInvestigationContinuation | None,
     verifier: OntologyQueryPlanVerifier,
     metric_concepts: tuple[str, ...],
     inventory_query_language: InventoryQueryLanguageRegistry | None,
@@ -120,6 +129,26 @@ def dispatch_semantic_plan(
     )
     plan_source = "bound_incident" if plan is not None else "proposed"
     if plan is None:
+        try:
+            plan = compile_latency_recovery_plan(
+                frame=frame,
+                continuation=bound_investigation_continuation,
+                manifest=manifest,
+                verifier=verifier,
+                evaluation_time=evaluation_time,
+                purpose=purpose,
+                available_metric_concepts=metric_concepts,
+            )
+        except LatencyRecoveryWindowPendingError:
+            return _outcome(
+                SemanticPlanningDisposition.UNAVAILABLE,
+                "semantic_recovery_window_pending",
+                manifest_digest=manifest.manifest_digest,
+                frame=frame,
+            )
+        if plan is not None:
+            plan_source = "server_latency_recovery"
+    if plan is None:
         plan = compile_resource_target_candidates_plan(
             frame=frame,
             utterance=utterance,
@@ -130,6 +159,18 @@ def dispatch_semantic_plan(
         )
         if plan is not None:
             plan_source = "server_resource_target_candidates"
+    if plan is None:
+        plan = compile_kubernetes_pod_recovery_plan(
+            frame=frame,
+            investigation_intent=investigation_intent,
+            manifest=manifest,
+            verifier=verifier,
+            evaluation_time=evaluation_time,
+            purpose=purpose,
+            available_metric_concepts=metric_concepts,
+        )
+        if plan is not None:
+            plan_source = "server_kubernetes_pod_recovery"
     if plan is None:
         plan = compile_target_error_activity_plan(
             frame=frame,
@@ -275,6 +316,32 @@ def dispatch_semantic_plan(
         )
         if plan is not None:
             plan_source = "server_target_impact"
+    if plan is None:
+        plan = compile_kubernetes_rollout_plan(
+            frame=frame,
+            investigation_intent=investigation_intent,
+            manifest=manifest,
+            verifier=verifier,
+            evaluation_time=evaluation_time,
+            purpose=purpose,
+        )
+        if plan is not None:
+            plan_source = "server_kubernetes_rollout"
+    if plan is None:
+        plan = compile_mysql_pressure_plan(
+            investigation_intent=investigation_intent,
+            manifest=manifest,
+            verifier=verifier,
+            windows=_investigation_windows(
+                evaluation_time,
+                duration=investigation_window,
+            ),
+            purpose=purpose,
+            problem_frame_digest=frame.frame_digest,
+            available_metric_concepts=metric_concepts,
+        )
+        if plan is not None:
+            plan_source = "server_mysql_pressure"
     if plan is None and investigation_intent is not None:
         try:
             plan = compile_investigation_plan(

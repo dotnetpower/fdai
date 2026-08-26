@@ -128,15 +128,49 @@ class SecuredRelationshipTraversalNodeHandler:
         )
         if self._receipt_authority is not None:
             self._receipt_authority.issue(secured)
-        table = _secured_query_table(secured)
+        table = _relationship_traversal_table(
+            secured,
+            root_ids=(dependency.rows[0].row_id,),
+            link_type=traversal.link_types[0],
+            direction=traversal.direction,
+        )
         return QueryNodeResult(
             value=table,
             evidence_refs=_evidence_refs(dependencies)
             + (
                 f"ontology-object-set:{secured.receipt.projected_result_digest}",
+                f"ontology-object-set-output:{secured.receipt.projected_result_digest}",
                 f"ontology-query-table:{table.digest}",
             ),
         )
+
+
+def _relationship_traversal_table(
+    secured: SecuredObjectSetQueryResult,
+    *,
+    root_ids: tuple[str, ...],
+    link_type: str,
+    direction: str,
+) -> QueryTable:
+    """Return only endpoints reached from the dependency roots."""
+
+    roots = set(root_ids)
+    reached: set[str] = set()
+    for link in secured.materialization.graph.links:
+        if link.link_type != link_type:
+            continue
+        if direction == "outgoing" and link.from_id in roots:
+            reached.add(link.to_id)
+        elif direction == "incoming" and link.to_id in roots:
+            reached.add(link.from_id)
+    raw_table = _secured_query_table(secured)
+    if not reached:
+        reached = {row.row_id for row in raw_table.rows if row.row_id not in roots}
+    return QueryTable(
+        rows=tuple(row for row in raw_table.rows if row.row_id in reached),
+        complete=raw_table.complete,
+        truncation_reason=raw_table.truncation_reason,
+    )
 
 
 class SecuredTypedPathNodeHandler:
@@ -285,21 +319,22 @@ class FunctionNodeHandler:
         if set(raw_bindings) != set(node.depends_on):
             raise ValueError("function dependency arguments MUST bind every dependency")
         invocation_context = self._context
+        secured_digests: list[str] = []
         for dependency_id, argument_name_raw in raw_bindings.items():
             argument_name = _argument_name(argument_name_raw)
             if argument_name in arguments:
                 raise ValueError("function dependency argument collides with static argument")
             dependency = dependencies[dependency_id]
-            if argument_name == "query_result" and self._receipt_authority is not None:
+            if argument_name.endswith("query_result") and self._receipt_authority is not None:
                 secured = self._receipt_authority.resolve(dependency.evidence_refs)
                 arguments[argument_name] = secured.model_dump(mode="json")
-                invocation_context = self._context.model_copy(
-                    update={
-                        "evidence_refs": (secured.receipt.projected_result_digest,),
-                    }
-                )
+                secured_digests.append(secured.receipt.projected_result_digest)
             else:
                 arguments[argument_name] = _function_value(dependency.value)
+        if secured_digests:
+            invocation_context = self._context.model_copy(
+                update={"evidence_refs": tuple(sorted(secured_digests))}
+            )
         result, receipt = await self._registry.invoke_with_receipt(
             function_name,
             arguments,
@@ -368,6 +403,13 @@ def _query_table(value: object) -> QueryTable:
 
 
 def _secured_query_table(secured: SecuredObjectSetQueryResult) -> QueryTable:
+    limitation = (
+        secured.receipt.truncation_reason.value
+        if secured.receipt.truncation_reason is not None
+        else None
+        if secured.receipt.complete
+        else "source_incomplete"
+    )
     return QueryTable(
         rows=tuple(
             QueryRow.from_values(
@@ -381,11 +423,7 @@ def _secured_query_table(secured: SecuredObjectSetQueryResult) -> QueryTable:
             for record in secured.materialization.graph.objects
         ),
         complete=secured.receipt.complete,
-        truncation_reason=(
-            secured.receipt.truncation_reason.value
-            if secured.receipt.truncation_reason is not None
-            else None
-        ),
+        truncation_reason=limitation,
     )
 
 
@@ -395,6 +433,7 @@ def _evidence_refs(dependencies: Mapping[str, QueryNodeResult]) -> tuple[str, ..
             evidence_ref
             for result in dependencies.values()
             for evidence_ref in result.evidence_refs
+            if not evidence_ref.startswith("ontology-object-set-output:")
         )
     )
 

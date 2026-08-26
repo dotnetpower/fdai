@@ -18,6 +18,10 @@ from fdai_service_contracts.ontology_query import (
     SemanticOperation,
     SemanticProblemFrame,
 )
+from fdai_service_contracts.semantic_judgment import (
+    SemanticDiscourseMode,
+    SemanticJudgmentProposal,
+)
 from pydantic import ValidationError
 
 from fdai.core.ontology_platform import (
@@ -47,6 +51,7 @@ from .semantic_planning_frame_checks import (
 )
 from .semantic_planning_models import (
     BoundIncident,
+    BoundInvestigationContinuation,
     CompleteManifestSelector,
     QueryManifestProvider,
     QueryNodeProposal,
@@ -108,22 +113,33 @@ _SAFE_VALIDATION_REASONS = frozenset(
 
 _INCIDENT_EVIDENCE_FUNCTION = INCIDENT_EVIDENCE_FUNCTION_NAME
 _INCIDENT_EVIDENCE_NODE_ID = "bound_incident_evidence"
+_DIRECT_RESPONSE_FACETS = {
+    SemanticDirectResponseIntent.GREETING: frozenset(),
+    SemanticDirectResponseIntent.SELF_INTRODUCTION: frozenset(
+        {"identity", "role", "capabilities", "authority", "authority_boundary"}
+    ),
+}
 
 
 def _direct_response_intent(
-    primary_intent: str | None,
+    proposal: SemanticJudgmentProposal | None,
 ) -> SemanticDirectResponseIntent | None:
-    """Resolve a closed direct-answer intent without parsing operator text."""
+    """Validate one canonical direct-answer intent selected by semantic judgment."""
 
-    if primary_intent is None:
-        return None
-    candidate = primary_intent.removeprefix("advise.").removeprefix("conversation_")
-    if "." in candidate:
+    if (
+        proposal is None
+        or proposal.discourse_mode is not SemanticDiscourseMode.DIRECT
+        or proposal.secondary_intents
+        or proposal.targets
+    ):
         return None
     try:
-        return SemanticDirectResponseIntent(candidate)
+        intent = SemanticDirectResponseIntent(proposal.primary_intent)
     except ValueError:
         return None
+    if not set(proposal.requested_facets).issubset(_DIRECT_RESPONSE_FACETS[intent]):
+        return None
+    return intent
 
 
 def _safe_validation_reason(exc: ValidationError | TypeError | ValueError) -> str:
@@ -219,6 +235,7 @@ class SemanticPlanningService:
         principal: Principal,
         purpose: str,
         bound_incident: BoundIncident | None = None,
+        bound_investigation_continuation: BoundInvestigationContinuation | None = None,
         escalation_policy: SemanticPlanningEscalationPolicy | None = None,
     ) -> SemanticPlanningOutcome:
         """Return a verified plan, one clarification, or a typed safe hold."""
@@ -281,8 +298,28 @@ class SemanticPlanningService:
                             if judgment_result.proposal is not None
                             else None
                         ),
+                        "secondary_intents": (
+                            ",".join(judgment_result.proposal.secondary_intents)
+                            if judgment_result.proposal is not None
+                            else ""
+                        ),
+                        "discourse_mode": (
+                            judgment_result.proposal.discourse_mode.value
+                            if judgment_result.proposal is not None
+                            else None
+                        ),
                         "requested_facets": (
                             ",".join(judgment_result.proposal.requested_facets)
+                            if judgment_result.proposal is not None
+                            else ""
+                        ),
+                        "target_count": (
+                            len(judgment_result.proposal.targets)
+                            if judgment_result.proposal is not None
+                            else 0
+                        ),
+                        "target_kinds": (
+                            ",".join(target.kind for target in judgment_result.proposal.targets)
                             if judgment_result.proposal is not None
                             else ""
                         ),
@@ -308,7 +345,7 @@ class SemanticPlanningService:
                 judgment_result.proposal if self._semantic_judgment is not None else None
             )
             direct_response_intent = _direct_response_intent(
-                judgment_result.proposal.primary_intent
+                judgment_result.proposal
                 if self._semantic_judgment is not None
                 and judgment_result.accepted
                 and judgment_result.proposal is not None
@@ -320,6 +357,7 @@ class SemanticPlanningService:
                     "semantic_direct_response",
                     manifest_digest=manifest.manifest_digest,
                     direct_response_intent=direct_response_intent,
+                    model_observations=judgment_result.observations,
                 )
             pre_frame_outcome = deterministic_pre_frame_outcome(
                 judgment=judgment_proposal,
@@ -340,6 +378,7 @@ class SemanticPlanningService:
                 principal=principal,
                 purpose=purpose,
                 semantic_judgment=semantic_judgment,
+                bound_investigation_continuation=bound_investigation_continuation,
                 escalation_policy=escalation_policy,
             )
             if frame_result is None:
@@ -351,6 +390,30 @@ class SemanticPlanningService:
             proposal, frame, investigation_intent = frame_result
             _LOGGER.info("semantic_planning_stage_completed", extra={"stage": stage})
             _LOGGER.info("semantic_planning_stage_completed", extra={"stage": "frame_build"})
+            declared_subject_types = {
+                descriptor["name"]
+                for descriptor in descriptors
+                if descriptor.get("kind") in {"object", "interface"}
+                and isinstance(descriptor.get("name"), str)
+            }
+            subject_types = ",".join(
+                sorted(set(frame.subject_constraints).intersection(declared_subject_types))
+            )
+            measure_concepts = ",".join(
+                sorted(set(frame.measure_concepts).intersection(self._metric_concepts))
+            )
+            _LOGGER.info(
+                "semantic_planning_frame_observed "
+                "operation=%s output_shape=%s subject_types=%s measure_concepts=%s "
+                "unresolved_count=%d structured_investigation=%s",
+                frame.operation.value,
+                frame.output_shape,
+                subject_types,
+                measure_concepts,
+                len(frame.unresolved_terms),
+                investigation_intent is not None,
+                extra={"output_shape": frame.output_shape},
+            )
             normalized_frame = normalize_and_gate_frame(
                 proposal=proposal,
                 frame=frame,
@@ -379,6 +442,7 @@ class SemanticPlanningService:
                 principal=principal,
                 purpose=purpose,
                 bound_incident=bound_incident,
+                bound_investigation_continuation=bound_investigation_continuation,
                 verifier=self._verifier,
                 metric_concepts=self._metric_concepts,
                 inventory_query_language=self._inventory_query_language,

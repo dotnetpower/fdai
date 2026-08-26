@@ -14,12 +14,10 @@ import {
   TurnBubble,
   type Turn,
 } from "./command-deck-presenters";
-import { DigestList } from "./command-deck-digest";
 import { CommandDeckLauncher } from "./command-deck-launcher";
 import { CommandDeckHeader } from "./command-deck-header";
 import { ComposerAttachments } from "./composer-attachments.view";
 import { ConversationHistoryState } from "./conversation-history-state";
-import { ContextFreshnessIndicator } from "./context-freshness";
 import { resumedConversationAt } from "./conversation-resume";
 import { clampDockWidth, type DeckLayoutMode } from "./command-deck-session";
 import { presentationTimestamp } from "./presentation-value";
@@ -37,7 +35,7 @@ import {
   saveConversationWidth,
 } from "./conversation-sidebar-width";
 import type { useViewContext } from "./context";
-import { RetrievalTrace } from "./retrieval-trace";
+import { PendingReplyIndicator, RetrievalTrace } from "./retrieval-trace";
 import { SourceReadinessStrip } from "./source-readiness-view";
 import "./conversation-sidebar.css";
 
@@ -170,7 +168,10 @@ export function CommandDeckView({
     return () => window.removeEventListener(PREFERENCES_CHANGED_EVENT, sync);
   }, []);
   const [showConversations, setShowConversations] = useState(false);
-  const [showDigest, setShowDigest] = useState(false);
+  const beginNewConversation = () => {
+    setShowConversations(false);
+    onNewConversation();
+  };
   const [conversationWidth, setConversationWidth] = useState(initialConversationWidth);
   const openedAtRef = useRef(Date.now());
   const processedResumeKeysRef = useRef(new Set<string>());
@@ -184,21 +185,27 @@ export function CommandDeckView({
     }
   }, [sessionKey, turns]);
   const resumedAt = resumedAtBySession[sessionKey];
-  const recordCount = snapshot?.records
-    ? Object.values(snapshot.records).reduce((count, records) => count + records.length, 0)
-    : 0;
   const lastTurn = turns[turns.length - 1];
   const finalAnswerPresent = lastTurn?.role === "deck" &&
     lastTurn.kind !== "activity" && lastTurn.source !== "investigation" &&
     (lastTurn.streaming === true || lastTurn.terminal === true);
-  const showPreparingAnswer = inFlight && !finalAnswerPresent;
+  const showPendingReply = pending && retrievalProgress === null && !finalAnswerPresent;
+  const showPreparingAnswer = inFlight && retrievalProgress !== null && !finalAnswerPresent;
   const hydrationStatus = conversationHydration.key === sessionKey
     ? conversationHydration.status
     : "idle";
+  const emptyConversation = turns.length === 0 && hydrationStatus === "idle";
+  const centeredEmptyState = emptyConversation && layoutMode === "workspace";
+  const activeConversation = conversations.find((conversation) => conversation.key === sessionKey);
+  const conversationTitle = emptyConversation
+    ? t("deck.newConversation")
+    : activeConversation?.label ?? sessionLabel ?? t("deck.label");
   const activeOperatorIndex = turns.reduce(
     (latest, turn, index) => turn.role === "operator" ? index : latest,
     -1,
   );
+  const conversationCount = conversationCountLabel(conversations.length, conversationHasMore);
+  const showTranscriptTools = !stuck && turns.length > 0;
   const startConversationResize = (event: MouseEvent) => {
     if (layoutMode !== "workspace" || event.button !== 0) return;
     event.preventDefault();
@@ -227,6 +234,23 @@ export function CommandDeckView({
     setConversationWidth(next);
     saveConversationWidth(next);
   };
+  const composer = (
+    <DeckComposer
+      centered={centeredEmptyState}
+      routeLabel={routeLabel}
+      draft={draft}
+      inFlight={inFlight}
+      slashSuggestions={slashSuggestions}
+      slashActiveIndex={slashActiveIndex}
+      inputRef={inputRef}
+      onSubmit={onSubmit}
+      onRunSlashCommand={onRunSlashCommand}
+      onSlashActiveIndex={onSlashActiveIndex}
+      onDraftInput={onDraftInput}
+      onInputKeyDown={onInputKeyDown}
+      onStopStream={onStopStream}
+    />
+  );
   return (
     <>
       <CommandDeckLauncher
@@ -238,7 +262,7 @@ export function CommandDeckView({
 
       {open ? (
         <div
-          class={`deck-overlay cs-deck-surface cs-deck-workspace-shell deck-overlay-mode-${layoutMode}${dragging ? " is-dragging" : ""}`}
+          class={`deck-overlay cs-deck-surface cs-deck-workspace-shell deck-overlay-mode-${layoutMode}${dragging ? " is-dragging" : ""}${centeredEmptyState ? " is-empty-conversation" : ""}`}
           role={layoutMode === "workspace" ? "dialog" : "complementary"}
           aria-modal={layoutMode === "workspace" ? "true" : undefined}
           aria-label={t("deck.label")}
@@ -261,9 +285,14 @@ export function CommandDeckView({
             <span /><span /><span />
           </button>
           <CommandDeckHeader
+            conversationTitle={conversationTitle}
             routeLabel={routeLabel}
             sessionLabel={sessionLabel}
             health={health}
+            searchAvailable={!emptyConversation}
+            canStartNewConversation={!emptyConversation}
+            conversationCount={conversationCount}
+            conversationsOpen={showConversations}
             searchRef={searchRef}
             searchQuery={searchQuery}
             searchMatches={searchMatches}
@@ -273,7 +302,8 @@ export function CommandDeckView({
             onOpenGeneral={onOpenGeneral}
             onSearchInput={onSearchInput}
             onMoveSearch={onMoveSearch}
-            onNewConversation={onNewConversation}
+            onNewConversation={beginNewConversation}
+            onToggleConversations={() => setShowConversations((visible) => !visible)}
             onSelectLayout={onSelectLayout}
             onClose={onClose}
           />
@@ -287,7 +317,7 @@ export function CommandDeckView({
           </div>
 
           <div
-            class={`deck-body cs-deck-workspace-body${showConversations ? " has-conversations" : ""}${showDigest ? " has-digest" : ""}`}
+            class={`deck-body cs-deck-workspace-body${showConversations ? " has-conversations" : ""}`}
             style={`--deck-conversation-width: ${conversationWidth}px`}
           >
             {showConversations ? (
@@ -306,7 +336,7 @@ export function CommandDeckView({
                   loading={conversationPageLoading}
                   resizable={layoutMode === "workspace"}
                   width={conversationWidth}
-                  onNew={onNewConversation}
+                  onNew={beginNewConversation}
                   onDismiss={() => setShowConversations(false)}
                   onLoadMore={onLoadMoreConversations}
                   onRemove={onRemoveConversation}
@@ -317,27 +347,9 @@ export function CommandDeckView({
                 />
               </>
             ) : null}
-            <div class="deck-transcript-column cs-deck-transcript-column">
-              <div class="deck-transcript-tools cs-deck-workspace-toolbar" role="toolbar" aria-label={t("deck.workspaceTools")}>
-                <button type="button" onClick={onNewConversation}>+ {t("deck.newConversation")}</button>
-                <button
-                  type="button"
-                  aria-pressed={showConversations}
-                  onClick={() => setShowConversations((visible) => !visible)}
-                >
-                  {t("deck.conversations")} <span>
-                    {conversationCountLabel(conversations.length, conversationHasMore)}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  class="deck-panel-toggle-context"
-                  aria-pressed={showDigest}
-                  onClick={() => setShowDigest((visible) => !visible)}
-                >
-                  {t("deck.digest.title")} <span>{recordCount}</span>
-                </button>
-                {!stuck && turns.length > 0 ? (
+            <div class={`deck-transcript-column cs-deck-transcript-column${showTranscriptTools ? " has-tools" : ""}`}>
+              {showTranscriptTools ? (
+                <div class="deck-transcript-tools cs-deck-workspace-toolbar" role="toolbar" aria-label={t("deck.workspaceTools")}>
                   <button
                     type="button"
                     class="deck-jump"
@@ -346,8 +358,8 @@ export function CommandDeckView({
                   >
                     <span aria-hidden="true">↓</span> {t("deck.jumpLatest")}
                   </button>
-                ) : null}
-              </div>
+                </div>
+              ) : null}
               <section
                 class="deck-transcript"
                 ref={scrollerRef}
@@ -358,13 +370,13 @@ export function CommandDeckView({
                 aria-busy={pending}
                 onScroll={onTranscriptScroll}
               >
-              <div class="deck-transcript-inner">
+              <div class={`deck-transcript-inner${centeredEmptyState ? " is-empty-conversation" : ""}`}>
               {resumedAt ? (
                 <div class="deck-resume-banner" role="status">
                   <span>{t("deck.resumedConversation", {
                     time: resumedConversationTime(resumedAt),
                   })}</span>
-                  <button type="button" onClick={onNewConversation}>{t("deck.newConversation")}</button>
+                  <button type="button" onClick={beginNewConversation}>{t("deck.newConversation")}</button>
                 </div>
               ) : null}
               {turns.length === 0 && hydrationStatus !== "idle" ? (
@@ -373,8 +385,10 @@ export function CommandDeckView({
                   onRetry={onRetryConversation}
                 />
               ) : null}
-              {turns.length === 0 && hydrationStatus === "idle" ? (
-                <IntroPanel snapshot={snapshot} onPick={onSubmit} />
+              {emptyConversation ? (
+                <IntroPanel snapshot={snapshot} routeLabel={routeLabel} onPick={onSubmit}>
+                  {centeredEmptyState ? composer : null}
+                </IntroPanel>
               ) : null}
               {turns.map((turn, index) => {
                 const trajectory = trajectories.get(turn.id);
@@ -414,94 +428,133 @@ export function CommandDeckView({
                         health={health}
                         progress={retrievalProgress}
                       />
+                    ) : showPendingReply && index === activeOperatorIndex ? (
+                      <PendingReplyIndicator />
                     ) : null}
                   </Fragment>
                 );
               })}
               {pending && activeOperatorIndex < 0 ? (
-                <RetrievalTrace
-                  snapshot={snapshot}
-                  health={health}
-                  progress={retrievalProgress}
-                />
+                retrievalProgress ? (
+                  <RetrievalTrace
+                    snapshot={snapshot}
+                    health={health}
+                    progress={retrievalProgress}
+                  />
+                ) : (
+                  <PendingReplyIndicator />
+                )
               ) : null}
               </div>
               </section>
             </div>
-
-            {showDigest ? <aside class="deck-digest cs-deck-digest-panel" aria-label={t("deck.digest.label")}>
-              <div class="deck-digest-header">
-                <span class="deck-digest-title">{t("deck.digest.title")}</span>
-                {snapshot ? <ContextFreshnessIndicator capturedAt={snapshot.capturedAt} /> : null}
-              </div>
-              <DigestList snapshot={snapshot} />
-            </aside> : null}
           </div>
 
-          <form
-            class="deck-input-row cs-deck-composer-shell"
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (onRunSlashCommand(draft)) return;
-              onSubmit(draft);
-            }}
-          >
-            <div class="deck-composer-inner cs-deck-composer-grid">
-              {slashSuggestions.length > 0 ? (
-                <ul class="deck-slash-palette" aria-label={t("deck.slashCommands")}>
-                  {slashSuggestions.map((command, index) => (
-                    <li key={command.name}>
-                      <button
-                        type="button"
-                        class={`deck-slash-item${index === slashActiveIndex ? " is-active" : ""}`}
-                        onMouseEnter={() => onSlashActiveIndex(index)}
-                        onMouseDown={(event) => {
-                          event.preventDefault();
-                          onRunSlashCommand(`/${command.name}`);
-                        }}
-                      >
-                        <span class="deck-slash-name">/{command.name}</span>
-                        <span class="deck-slash-summary muted">{command.summary}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-              <ComposerAttachments />
-              <textarea
-                ref={inputRef}
-                class="deck-input cs-deck-composer-input"
-                placeholder={t("deck.inputPlaceholder")}
-                aria-label={t("deck.inputPlaceholderContext", { route: routeLabel })}
-                value={draft}
-                rows={1}
-                onInput={(event) => onDraftInput((event.target as HTMLTextAreaElement).value)}
-                onKeyDown={onInputKeyDown}
-              />
-              <div class="deck-input-actions">
-                {inFlight ? (
-                  <button
-                    type="button"
-                    class="deck-btn deck-btn-stop cs-deck-composer-send"
-                    onClick={onStopStream}
-                  >
-                    {t("deck.stop")}
-                  </button>
-                ) : (
-                  <button
-                    type="submit"
-                    class="deck-btn deck-btn-primary cs-deck-composer-send"
-                    disabled={draft.trim().length === 0}
-                  >
-                    {t("deck.send")}
-                  </button>
-                )}
-              </div>
-            </div>
-          </form>
+          {centeredEmptyState ? null : composer}
         </div>
       ) : null}
     </>
+  );
+}
+
+type DeckComposerProps = Pick<CommandDeckViewProps,
+  | "draft"
+  | "inFlight"
+  | "slashSuggestions"
+  | "slashActiveIndex"
+  | "inputRef"
+  | "onSubmit"
+  | "onRunSlashCommand"
+  | "onSlashActiveIndex"
+  | "onDraftInput"
+  | "onInputKeyDown"
+  | "onStopStream"
+> & {
+  readonly centered: boolean;
+  readonly routeLabel: string;
+};
+
+function DeckComposer({
+  centered,
+  routeLabel,
+  draft,
+  inFlight,
+  slashSuggestions,
+  slashActiveIndex,
+  inputRef,
+  onSubmit,
+  onRunSlashCommand,
+  onSlashActiveIndex,
+  onDraftInput,
+  onInputKeyDown,
+  onStopStream,
+}: DeckComposerProps) {
+  return (
+    <form
+      class={`deck-input-row cs-deck-composer-shell${centered ? " is-centered" : ""}`}
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (onRunSlashCommand(draft)) return;
+        onSubmit(draft);
+      }}
+    >
+      <div class="deck-composer-inner cs-deck-composer-grid">
+        {slashSuggestions.length > 0 ? (
+          <ul class="deck-slash-palette" aria-label={t("deck.slashCommands")}>
+            {slashSuggestions.map((command, index) => (
+              <li key={command.name}>
+                <button
+                  type="button"
+                  class={`deck-slash-item${index === slashActiveIndex ? " is-active" : ""}`}
+                  onMouseEnter={() => onSlashActiveIndex(index)}
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    onRunSlashCommand(`/${command.name}`);
+                  }}
+                >
+                  <span class="deck-slash-name">/{command.name}</span>
+                  <span class="deck-slash-summary muted">{command.summary}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        <ComposerAttachments />
+        <textarea
+          ref={inputRef}
+          class="deck-input cs-deck-composer-input"
+          placeholder={t("deck.inputPlaceholder")}
+          aria-label={t("deck.inputPlaceholderContext", { route: routeLabel })}
+          value={draft}
+          rows={1}
+          onInput={(event) => onDraftInput((event.target as HTMLTextAreaElement).value)}
+          onKeyDown={onInputKeyDown}
+        />
+        <div class="deck-input-actions">
+          {inFlight ? (
+            <button
+              type="button"
+              class="deck-btn deck-btn-stop cs-deck-composer-send"
+              onClick={onStopStream}
+            >
+              {t("deck.stop")}
+            </button>
+          ) : (
+            <button
+              type="submit"
+              class="deck-btn deck-btn-primary cs-deck-composer-send"
+              aria-label={t("deck.send")}
+              disabled={draft.trim().length === 0}
+            >
+              <span class="deck-send-label">{t("deck.send")}</span>
+              <svg class="deck-send-icon" aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M12 19 V5 M6 11 L12 5 L18 11" />
+              </svg>
+            </button>
+          )}
+        </div>
+      </div>
+    </form>
   );
 }
 

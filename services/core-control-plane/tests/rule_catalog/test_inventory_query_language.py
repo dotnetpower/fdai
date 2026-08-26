@@ -40,6 +40,29 @@ def test_shipped_inventory_query_language_loads() -> None:
         "symptom_request_timeout",
     )
     assert query_signal_matches(
+        "주문 API Pod가 갑자기 재시작된 원인을 조사해줘.",
+        registry,
+        "symptom_pod_restart",
+    )
+    assert query_signal_matches(
+        "이 VM의 CPU 급증 원인을 조사해줘.",
+        registry,
+        "symptom_cpu_spike",
+    )
+    assert query_signal_matches(
+        "CPU 급증으로 영향을 받는 서비스를 조사해줘.",
+        registry,
+        "service_impact",
+    )
+    mysql_question = "DB 지연이 MySQL 포화인지 요청량 증가인지 반증 근거까지 포함해 판단해줘."
+    assert query_signal_matches(mysql_question, registry, "symptom_database_latency")
+    assert query_signal_matches(mysql_question, registry, "hypothesis_mysql_saturation")
+    assert query_signal_matches(mysql_question, registry, "hypothesis_request_growth")
+    latency_question = "지난 10분간 응답 지연이 네트워크 때문인지 애플리케이션 때문인지 비교해줘."
+    assert query_signal_matches(latency_question, registry, "symptom_response_latency")
+    assert query_signal_matches(latency_question, registry, "hypothesis_network_latency")
+    assert query_signal_matches(latency_question, registry, "hypothesis_application_latency")
+    assert query_signal_matches(
         "Container App에서 무엇이 변경됐어?",
         registry,
         "activity",

@@ -105,6 +105,72 @@ async def test_same_owner_and_same_digest_dedupes() -> None:
     assert second.attempt_count == 1
 
 
+async def test_explicit_cancellation_is_idempotent_and_terminal() -> None:
+    store = InMemoryReadInvestigationRunStore()
+    claimed, _ = await store.claim(
+        owner_principal_id="principal:one",
+        request=_request(),
+        mode=ReadInvestigationRunMode.STREAMED,
+        lease_owner="coordinator:one",
+        lease_token="lease:one",
+        now=_NOW,
+        lease_seconds=30,
+        retention_seconds=300,
+    )
+
+    requested = await store.request_cancel(
+        task_id=claimed.task_id,
+        actor="principal:one",
+        is_admin=False,
+        now=_NOW + timedelta(seconds=1),
+    )
+    replayed = await store.request_cancel(
+        task_id=claimed.task_id,
+        actor="principal:one",
+        is_admin=False,
+        now=_NOW + timedelta(seconds=2),
+    )
+    cancelled = await store.finish_cancel(
+        owner_principal_id="principal:one",
+        idempotency_key=claimed.idempotency_key,
+        expected_revision=requested.revision,
+        lease_token="lease:one",
+        usage=ReadInvestigationRunUsage(tool_calls=0, execution_duration_ms=2_000),
+        now=_NOW + timedelta(seconds=2),
+    )
+
+    assert replayed == requested
+    assert cancelled.state is ReadInvestigationRunState.CANCELLED
+    assert cancelled.failure_reason == "cancelled_by_owner"
+    assert cancelled.lease is None
+
+
+async def test_cancel_requested_process_loss_reconciles_to_cancelled() -> None:
+    store = InMemoryReadInvestigationRunStore()
+    claimed, _ = await store.claim(
+        owner_principal_id="principal:one",
+        request=_request(),
+        mode=ReadInvestigationRunMode.DIRECT,
+        lease_owner="coordinator:one",
+        lease_token="lease:one",
+        now=_NOW,
+        lease_seconds=5,
+        retention_seconds=300,
+    )
+    await store.request_cancel(
+        task_id=claimed.task_id,
+        actor="principal:one",
+        is_admin=False,
+        now=_NOW + timedelta(seconds=1),
+    )
+
+    reconciled = await store.reconcile_expired(now=_NOW + timedelta(seconds=6))
+
+    assert len(reconciled) == 1
+    assert reconciled[0].state is ReadInvestigationRunState.CANCELLED
+    assert reconciled[0].failure_reason == "cancelled_after_process_loss"
+
+
 async def test_same_owner_and_key_with_different_digest_conflicts() -> None:
     store = InMemoryReadInvestigationRunStore()
     await store.claim(

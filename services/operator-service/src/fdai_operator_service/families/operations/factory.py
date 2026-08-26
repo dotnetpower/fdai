@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 from collections.abc import AsyncIterator, Mapping, Sequence
@@ -34,7 +35,10 @@ from fdai_operator_service.families.operations.manifest import (
 )
 from fdai_operator_service.redaction import redact_projection
 from fdai_service_contracts import OperatorPrincipal, OperatorRole
-from fdai_service_contracts.read_investigation import ReadInvestigationProposalBody
+from fdai_service_contracts.read_investigation import (
+    ReadInvestigationProposalBody,
+    read_investigation_task_id,
+)
 from pydantic import ValidationError
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response, StreamingResponse
@@ -47,6 +51,9 @@ MAX_QUERY_VALUES: Final = 64
 MAX_QUERY_VALUE_CHARS: Final = 2048
 MAX_BODY_BYTES: Final = 256 * 1024
 MAX_SSE_FRAME_BYTES: Final = 256 * 1024
+READ_INVESTIGATION_STREAM_SECONDS: Final = 35.0
+READ_INVESTIGATION_POLL_SECONDS: Final = 0.25
+READ_INVESTIGATION_HEARTBEAT_SECONDS: Final = 10.0
 _EVENT_NAME: Final = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
 
 
@@ -273,7 +280,13 @@ async def _proposal(
             replay_reader,
             stream=f"read-investigation:{receipt.request_id}",
         )
-    return JSONResponse(receipt.to_dict(), status_code=202)
+    response = receipt.to_dict()
+    if entry.operation == "read_investigation.start":
+        response["task_id"] = read_investigation_task_id(
+            principal.subject_id,
+            idempotency_key,
+        )
+    return JSONResponse(response, status_code=202)
 
 
 async def _webhook(
@@ -340,9 +353,41 @@ async def _stream(
         return _error(400, str(exc))
 
     async def events() -> AsyncIterator[bytes]:
-        for event in batch.events:
-            yield _sse_event(event)
-        yield f"event: watermark\ndata: {json.dumps({'sequence': batch.watermark})}\n\n".encode()
+        if not (stream or entry.operation).startswith("read-investigation:"):
+            for event in batch.events:
+                yield _sse_event(event)
+            yield _watermark(batch.watermark)
+            return
+        cursor = after_sequence or 0
+        current = batch
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + READ_INVESTIGATION_STREAM_SECONDS
+        heartbeat_at = loop.time() + READ_INVESTIGATION_HEARTBEAT_SECONDS
+        while True:
+            for event in current.events:
+                cursor = max(cursor, event.sequence)
+                yield _sse_event(event)
+                if event.event == "investigation.completed":
+                    return
+            now = loop.time()
+            if now >= deadline:
+                yield _watermark(max(cursor, current.watermark))
+                return
+            if now >= heartbeat_at:
+                yield b": heartbeat\n\n"
+                heartbeat_at = now + READ_INVESTIGATION_HEARTBEAT_SECONDS
+            await asyncio.sleep(READ_INVESTIGATION_POLL_SECONDS)
+            try:
+                current = await reader.replay(
+                    ReplayQuery(
+                        stream=stream or entry.operation,
+                        principal_id=principal.subject_id,
+                        after_sequence=cursor,
+                        limit=MAX_LIMIT,
+                    )
+                )
+            except (ProjectionUnavailableError, ValueError):
+                return
 
     return StreamingResponse(
         events(),
@@ -434,6 +479,10 @@ def _sse_event(event: ReplayEvent) -> bytes:
     if _EVENT_NAME.fullmatch(event.event) is None:
         return _bounded_sse_frame(event.sequence, "invalid", {"error": "invalid_event_name"})
     return _bounded_sse_frame(event.sequence, event.event, redact_projection(event.data))
+
+
+def _watermark(sequence: int) -> bytes:
+    return f"event: watermark\ndata: {json.dumps({'sequence': sequence})}\n\n".encode()
 
 
 def _bounded_sse_frame(sequence: int, event: str, data: object) -> bytes:

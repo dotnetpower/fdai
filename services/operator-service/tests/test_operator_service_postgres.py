@@ -666,7 +666,7 @@ def test_postgres_configs_reject_targetless_dsn(
 
 
 @pytest.mark.asyncio
-async def test_operator_readiness_verifies_role_and_privileges_without_durable_write() -> None:
+async def test_operator_readiness_verifies_exact_projection_and_conversation_privileges() -> None:
     store = ReadinessPostgresFamilyStore({"ready": True})
 
     assert await store.probe_readiness() is True
@@ -700,7 +700,13 @@ async def test_operator_readiness_verifies_role_and_privileges_without_durable_w
         "has_table_privilege(current_user, 'inventory_realtime_resource', 'SELECT')",
         "has_table_privilege(current_user, 'inventory_realtime_link', 'SELECT')",
         "has_table_privilege(current_user, 'conversation_record', 'SELECT')",
+        "has_table_privilege(current_user, 'conversation_record', 'INSERT')",
+        "has_table_privilege(current_user, 'conversation_record', 'UPDATE')",
         "has_table_privilege(current_user, 'conversation_turn', 'SELECT')",
+        "has_table_privilege(current_user, 'conversation_turn', 'INSERT')",
+        "current_user, 'operator_read_investigation_completion', 'SELECT'",
+        "current_user, 'operator_read_investigation_completion', 'INSERT'",
+        "current_user, 'operator_read_investigation_completion_sequence_seq', 'USAGE'",
         "NOT has_schema_privilege(current_user, 'public', 'CREATE')",
     ):
         assert fragment in statement
@@ -711,11 +717,21 @@ async def test_operator_readiness_verifies_role_and_privileges_without_durable_w
         "inventory_active",
         "inventory_realtime_resource",
         "inventory_realtime_link",
-        "conversation_record",
-        "conversation_turn",
     ):
         for privilege in ("INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER"):
             assert f"NOT has_table_privilege(current_user, '{table}', '{privilege}')" in statement
+    for privilege in ("DELETE", "TRUNCATE", "REFERENCES", "TRIGGER"):
+        assert (
+            f"NOT has_table_privilege(current_user, 'conversation_record', '{privilege}')"
+            in statement
+        )
+    for privilege in ("UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER"):
+        assert (
+            f"NOT has_table_privilege(current_user, 'conversation_turn', '{privilege}')"
+            in statement
+        )
+    for privilege in ("UPDATE", "DELETE"):
+        assert f"current_user, 'operator_read_investigation_completion', '{privilege}'" in statement
     assert "INSERT,UPDATE,DELETE" not in statement
     for mutation in ("INSERT INTO", "UPDATE state_kv", "DELETE FROM"):
         assert mutation not in statement

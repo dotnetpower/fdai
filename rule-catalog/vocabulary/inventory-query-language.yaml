@@ -1,5 +1,5 @@
 schema_version: "1.1.0"
-version: "1.1.34"
+version: "1.1.39"
 default_scope: subscription
 default_activity_lookback_seconds: 604800
 current_requires_fresh: true
@@ -29,6 +29,28 @@ signals:
     terms: [request timeout, request timed out, requests timed out, timed out, 시간 초과, 시간 초과돼, 시간 초과되는, 타임아웃]
   symptom_request_error:
     terms: [HTTP 500, HTTP 5xx, status 500, 500 error, server error, 서버 오류]
+  symptom_cpu_spike:
+    terms: [cpu spike, cpu surge, high cpu, CPU 급증, CPU 상승, CPU 사용률 급증]
+  symptom_database_latency:
+    terms: [database latency, db latency, slow database, DB 지연, 데이터베이스 지연]
+  symptom_response_latency:
+    terms: [response latency, response delay, slow response, 응답 지연, 응답 지연이]
+  hypothesis_network_latency:
+    terms:
+      [network latency, network cause, caused by network, 네트워크 때문, 네트워크 때문인지, 네트워크 지연]
+  hypothesis_application_latency:
+    terms:
+      [application latency, application cause, caused by application, 애플리케이션 때문, 애플리케이션 때문인지, 애플리케이션 지연]
+  hypothesis_mysql_saturation:
+    terms: [mysql saturation, saturated mysql, MySQL 포화, MySQL 포화인지, MySQL 병목]
+  hypothesis_request_growth:
+    terms: [request growth, request volume increase, traffic increase, 요청량 증가, 요청량 증가인지, 트래픽 증가]
+  service_impact:
+    terms: [affected services, impacted services, services affected, 영향받는 서비스, 영향을 받는 서비스]
+  symptom_pod_restart:
+    terms: [pod restarted, pod restart, container restarted, container restart, 재시작된, 파드 재시작]
+  symptom_rollout_stall:
+    terms: [rollout stalled, rollout stuck, rollout stopped, stalled rollout, stuck rollout, rollout 멈춤, rollout이 멈춘, 롤아웃 멈춤, 롤아웃이 멈춘]
   temporal:
     terms: [recent, recently, last, past, history, when, since when, became, 최근, 지난, 이력, 언제, 누가]
   activity:

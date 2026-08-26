@@ -26,7 +26,11 @@ _PLAIN_CONTEXT_FIELDS = (
     "failure_type",
     "validation_reason",
     "primary_intent",
+    "secondary_intents",
+    "discourse_mode",
     "requested_facets",
+    "target_count",
+    "target_kinds",
     "canonical_target_types",
 )
 _TERMINAL_BUFFER_LINES = 1_024

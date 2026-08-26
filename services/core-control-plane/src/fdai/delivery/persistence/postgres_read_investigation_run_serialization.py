@@ -37,7 +37,7 @@ from fdai.shared.providers.read_investigation import (
 from fdai.shared.providers.tool import ToolCallOutcome, ToolCallReceipt
 
 COLUMNS: Final[str] = (
-    "owner_principal_id, idempotency_key, request_digest, request, mode, state, revision, "
+    "task_id, owner_principal_id, idempotency_key, request_digest, request, mode, state, revision, "
     "attempt_count, "
     "lease_owner, lease_token, lease_expires_at, result, usage, failure_reason, "
     "created_at, updated_at, retention_until, terminal_at"
@@ -50,6 +50,7 @@ def run_from_row(row: dict[str, Any]) -> ReadInvestigationRunRecord:
     result_raw = row["result"]
     lease_owner = row["lease_owner"]
     return ReadInvestigationRunRecord(
+        task_id=str(row["task_id"]),
         owner_principal_id=str(row["owner_principal_id"]),
         idempotency_key=str(row["idempotency_key"]),
         request_digest=str(row["request_digest"]),
@@ -101,6 +102,10 @@ def request_to_dict(request: ReadInvestigationRequest) -> dict[str, object]:
         "idempotency_key": request.idempotency_key,
         "created_at": request.created_at.isoformat(),
         "explicit_deep": request.explicit_deep,
+        "origin_channel_kind": request.origin_channel_kind,
+        "origin_channel_id": request.origin_channel_id,
+        "origin_thread_id": request.origin_thread_id,
+        "origin_message_id": request.origin_message_id,
     }
 
 
@@ -165,6 +170,16 @@ def _request(raw: dict[str, Any]) -> ReadInvestigationRequest:
         idempotency_key=str(raw["idempotency_key"]),
         created_at=datetime.fromisoformat(str(raw["created_at"])),
         explicit_deep=bool(raw.get("explicit_deep", False)),
+        origin_channel_kind=str(raw.get("origin_channel_kind", "operator-api")),
+        origin_channel_id=(
+            str(raw["origin_channel_id"]) if raw.get("origin_channel_id") is not None else None
+        ),
+        origin_thread_id=(
+            str(raw["origin_thread_id"]) if raw.get("origin_thread_id") is not None else None
+        ),
+        origin_message_id=(
+            str(raw["origin_message_id"]) if raw.get("origin_message_id") is not None else None
+        ),
     )
 
 

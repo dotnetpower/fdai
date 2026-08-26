@@ -6,7 +6,7 @@ import hashlib
 import json
 import math
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 from types import MappingProxyType
@@ -41,6 +41,7 @@ class MetricSemanticDefinition:
     aggregation: MetricAggregation
     description: str
     monotonic: bool = False
+    scope_label_selectors: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         for name, value, maximum in (
@@ -51,6 +52,20 @@ class MetricSemanticDefinition:
         ):
             if not value or len(value) > maximum:
                 raise ValueError(f"metric semantic {name} MUST be bounded and non-empty")
+        selectors: dict[str, tuple[str, ...]] = {}
+        for label, path in self.scope_label_selectors.items():
+            if not label or len(label) > 128 or not label.isascii():
+                raise ValueError("metric semantic scope label MUST be bounded ASCII text")
+            if not 1 <= len(path) <= 8 or any(
+                not segment or len(segment) > 128 or not segment.isascii() for segment in path
+            ):
+                raise ValueError("metric semantic scope selector path is invalid")
+            selectors[label] = tuple(path)
+        object.__setattr__(
+            self,
+            "scope_label_selectors",
+            MappingProxyType(dict(sorted(selectors.items()))),
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,6 +95,9 @@ class MetricSemanticRegistry:
                 "aggregation": item.aggregation.value,
                 "description": item.description,
                 "monotonic": item.monotonic,
+                "scope_label_selectors": {
+                    label: list(path) for label, path in item.scope_label_selectors.items()
+                },
             }
             for item in sorted(by_id.values(), key=lambda item: item.concept_id)
         ]
@@ -302,6 +320,7 @@ class MetricWindowProvider(Protocol):
         resource_id: str,
         start: datetime,
         end: datetime,
+        query_labels: Mapping[str, str] | None = None,
     ) -> MetricWindow: ...
 
 

@@ -67,9 +67,12 @@ def test_shipped_vocabulary_covers_three_verticals() -> None:
     assert "compute.vm-scale-set" in ids
     assert "resource-group" in ids
     # Resilience anchors
+    assert "mysql-server" in ids
     assert "postgresql-server" in ids
     assert "sql-database" in ids
     assert "nosql-database" in ids
+    assert "mysql" in registry.get("mysql-server").query_terms
+    assert "MySQL 데이터베이스" in registry.get("mysql-server").query_terms
 
 
 def test_shipped_vocabulary_covers_common_azure_inventory_types() -> None:

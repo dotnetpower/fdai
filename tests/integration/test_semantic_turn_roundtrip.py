@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import ast
 import hashlib
 import json
 from collections.abc import AsyncIterator, Mapping
 from datetime import UTC, datetime
+from pathlib import Path
 from types import MappingProxyType, SimpleNamespace
 from typing import Any, cast
 
@@ -42,6 +44,49 @@ NOW = datetime(2026, 8, 11, 12, 0, tzinfo=UTC)
 RELEASE_DIGEST = "sha256:" + ("a" * 64)
 MANIFEST_DIGEST = "sha256:" + ("b" * 64)
 PLAN_DIGEST = "sha256:" + ("c" * 64)
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def test_direct_response_intent_has_no_lexical_runtime_owner() -> None:
+    classifier_path = (
+        REPO_ROOT / "services/core-control-plane/src/fdai/core/conversation/direct_response.py"
+    )
+    assert not classifier_path.exists()
+
+    contract_tree = ast.parse(
+        (
+            REPO_ROOT / "packages/service-contracts/src/fdai_service_contracts/semantic_turn.py"
+        ).read_text(encoding="utf-8")
+    )
+    assert all(
+        not (isinstance(node, ast.FunctionDef) and "direct_response_intent" in node.name)
+        for node in ast.walk(contract_tree)
+    )
+
+    planning_tree = ast.parse(
+        (
+            REPO_ROOT
+            / "services/core-control-plane/src/fdai/core/conversation/semantic_planning.py"
+        ).read_text(encoding="utf-8")
+    )
+    direct_response_validator = next(
+        node
+        for node in ast.walk(planning_tree)
+        if isinstance(node, ast.FunctionDef) and node.name == "_direct_response_intent"
+    )
+    assert [argument.arg for argument in direct_response_validator.args.args] == ["proposal"]
+
+    operator_tree = ast.parse(
+        (
+            REPO_ROOT
+            / "services/operator-service/src"
+            / "fdai_operator_service/families/conversation/semantic_turn_runtime.py"
+        ).read_text(encoding="utf-8")
+    )
+    assert all(
+        not (isinstance(node, ast.Attribute) and node.attr == "utterance")
+        for node in ast.walk(operator_tree)
+    )
 
 
 class _OperatorStore:
@@ -366,11 +411,9 @@ async def test_semantic_turn_round_trip_preserves_verified_evidence_and_principa
         )
     )
     events = [event async for event in stream]
-    # Timeline steps interleave with the backbone and have their own tests, so this
-    # roundtrip asserts the backbone it owns rather than the step count.
+    # Terminal-derived timeline steps interleave with the backbone and have their
+    # own tests, so this roundtrip asserts the backbone rather than the step count.
     assert [event.event for event in events if event.event != "activity"] == [
-        "status",
-        "status",
         "status",
         "verification",
         "status",

@@ -76,6 +76,7 @@ def _item(
     labels: dict[str, str] | None = None,
     owner_uids: tuple[str, ...] = (),
     spec: dict[str, object] | None = None,
+    status: dict[str, object] | None = None,
 ) -> dict[str, object]:
     metadata: dict[str, object] = {"name": name, "uid": uid}
     if namespace is not None:
@@ -87,6 +88,8 @@ def _item(
     result: dict[str, object] = {"metadata": metadata}
     if spec is not None:
         result["spec"] = spec
+    if status is not None:
+        result["status"] = status
     return result
 
 
@@ -123,6 +126,19 @@ async def test_collects_uid_grounded_runtime_inventory() -> None:
                     namespace="default",
                     owner_uids=("uid-replica-set",),
                     spec={"nodeName": "node-1"},
+                    status={
+                        "phase": "Pending",
+                        "conditions": [{"type": "Ready", "status": "False"}],
+                        "containerStatuses": [
+                            {
+                                "ready": False,
+                                "restartCount": 2,
+                                "state": {
+                                    "waiting": {"reason": "ImagePullBackOff"},
+                                },
+                            }
+                        ],
+                    },
                 )
             ]
         elif request.url.path == "/api/v1/services":
@@ -153,7 +169,28 @@ async def test_collects_uid_grounded_runtime_inventory() -> None:
                 )
             ]
         elif request.url.path == "/apis/apps/v1/deployments":
-            items = [_item("api", "uid-deployment", namespace="default")]
+            items = [
+                _item(
+                    "api",
+                    "uid-deployment",
+                    namespace="default",
+                    spec={"replicas": 3},
+                    status={
+                        "observedGeneration": 7,
+                        "updatedReplicas": 1,
+                        "readyReplicas": 0,
+                        "availableReplicas": 0,
+                        "unavailableReplicas": 3,
+                        "conditions": [
+                            {
+                                "type": "Progressing",
+                                "status": "False",
+                                "reason": "ProgressDeadlineExceeded",
+                            }
+                        ],
+                    },
+                )
+            ]
         elif request.url.path == "/apis/networking.k8s.io/v1/ingresses":
             items = [
                 _item(
@@ -201,6 +238,12 @@ async def test_collects_uid_grounded_runtime_inventory() -> None:
     )
     assert by_type["kubernetes.pod"].props["node_name"] == "node-1"
     assert by_type["kubernetes.pod"].props["owner_uids"] == ("uid-replica-set",)
+    assert by_type["kubernetes.pod"].props["phase"] == "Pending"
+    assert by_type["kubernetes.pod"].props["ready"] is False
+    assert by_type["kubernetes.pod"].props["container_count"] == 1
+    assert by_type["kubernetes.pod"].props["ready_container_count"] == 0
+    assert by_type["kubernetes.pod"].props["restart_count"] == 2
+    assert by_type["kubernetes.pod"].props["container_waiting_reasons"] == ("ImagePullBackOff",)
     assert by_type["kubernetes.service"].props["selector"] == {"app": "api"}
     assert by_type["kubernetes.endpoint-slice"].props["service_name"] == "api"
     assert by_type["kubernetes.ingress"].props["backend_service_names"] == (
@@ -208,6 +251,16 @@ async def test_collects_uid_grounded_runtime_inventory() -> None:
         "health",
     )
     assert by_type["kubernetes.ingress"].props["ingress_class_name"] == "web"
+    assert by_type["kubernetes.deployment"].props["desired_replicas"] == 3
+    assert by_type["kubernetes.deployment"].props["observed_generation"] == 7
+    assert by_type["kubernetes.deployment"].props["updated_replicas"] == 1
+    assert by_type["kubernetes.deployment"].props["ready_replicas"] == 0
+    assert by_type["kubernetes.deployment"].props["available_replicas"] == 0
+    assert by_type["kubernetes.deployment"].props["unavailable_replicas"] == 3
+    assert by_type["kubernetes.deployment"].props["progressing_status"] == "False"
+    assert (
+        by_type["kubernetes.deployment"].props["progressing_reason"] == "ProgressDeadlineExceeded"
+    )
     assert all(resource.resource_id.startswith(CLUSTER_REF) for resource in snapshot.resources)
     assert all(
         resource.provider_ref.startswith("kubernetes-uid:")
@@ -260,6 +313,89 @@ async def test_rejects_malformed_endpoint_slice_service_label() -> None:
         )
         with pytest.raises(KubernetesApiInventoryError, match="Service label is malformed"):
             await source.collect()
+
+
+async def test_rollout_status_projection_rejects_malformed_container_evidence() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        items: list[dict[str, object]] = []
+        if request.url.path == "/api/v1/pods":
+            items = [
+                _item(
+                    "api-123",
+                    "uid-pod",
+                    namespace="default",
+                    status={
+                        "containerStatuses": [
+                            {
+                                "ready": "false",
+                                "restartCount": -1,
+                            }
+                        ]
+                    },
+                )
+            ]
+        return httpx.Response(200, json={"items": items, "metadata": {"continue": ""}})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        source = KubernetesApiInventorySource(
+            config=KubernetesApiInventoryConfig(
+                api_server="https://kubernetes.example",
+                cluster_ref=CLUSTER_REF,
+            ),
+            auth=_Auth(),
+            http_client=client,
+        )
+        with pytest.raises(KubernetesApiInventoryError, match="ready status MUST be boolean"):
+            await source.collect()
+
+
+async def test_rollout_status_projection_omits_raw_image_and_message_content() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        items: list[dict[str, object]] = []
+        if request.url.path == "/api/v1/pods":
+            items = [
+                _item(
+                    "api-123",
+                    "uid-pod",
+                    namespace="default",
+                    status={
+                        "phase": "Pending",
+                        "message": "provider-specific diagnostic text",
+                        "containerStatuses": [
+                            {
+                                "image": "registry.example/workload:private-tag",
+                                "imageID": "sha256:private-image-digest",
+                                "ready": False,
+                                "restartCount": 0,
+                                "state": {
+                                    "waiting": {
+                                        "reason": "ErrImagePull",
+                                        "message": "provider-specific pull failure",
+                                    }
+                                },
+                            }
+                        ],
+                    },
+                )
+            ]
+        return httpx.Response(200, json={"items": items, "metadata": {"continue": ""}})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        source = KubernetesApiInventorySource(
+            config=KubernetesApiInventoryConfig(
+                api_server="https://kubernetes.example",
+                cluster_ref=CLUSTER_REF,
+            ),
+            auth=_Auth(),
+            http_client=client,
+        )
+        snapshot = await source.collect()
+
+    pod = next(resource for resource in snapshot.resources if resource.type == "kubernetes.pod")
+    assert pod.props["container_waiting_reasons"] == ("ErrImagePull",)
+    assert "image" not in pod.props
+    assert "image_id" not in pod.props
+    assert "message" not in pod.props
 
 
 async def test_rejects_pagination_beyond_bound() -> None:

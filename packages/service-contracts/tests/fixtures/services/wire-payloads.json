@@ -3,7 +3,7 @@
     "contract_id": "operator-core-request",
     "producer_release": "N",
     "payload": {
-      "schema_version": "1.3.0",
+      "schema_version": "1.5.0",
       "request_id": "00000000-0000-0000-0000-000000000101",
       "correlation_id": "correlation-101",
       "idempotency_key": "operator-request-101",

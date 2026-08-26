@@ -20,8 +20,12 @@ from fdai.core.read_investigation.idempotency import (
     ReadInvestigationRunState,
     ReadInvestigationRunUsage,
     read_investigation_request_digest,
+    read_investigation_run_id,
 )
 from fdai.core.read_investigation.models import ReadInvestigationRequest, ReadInvestigationResult
+from fdai.delivery.persistence.postgres_read_investigation_completion import (
+    completion_insert_values as _completion_insert_values,
+)
 from fdai.delivery.persistence.postgres_read_investigation_run_serialization import (
     COLUMNS as _COLUMNS,
 )
@@ -99,11 +103,12 @@ class PostgresReadInvestigationRunStore:
             insert = await connection.execute(
                 "INSERT INTO read_investigation_run ("
                 f"{_COLUMNS}) VALUES ("
-                "%s, %s, %s, %s::jsonb, %s, %s, %s, %s, %s, %s, %s, "
+                "%s, %s, %s, %s, %s::jsonb, %s, %s, %s, %s, %s, %s, %s, "
                 "%s::jsonb, %s::jsonb, %s, %s, %s, %s, %s) "
-                "ON CONFLICT (owner_principal_id, idempotency_key) DO NOTHING "
+                "ON CONFLICT DO NOTHING "
                 f"RETURNING {_COLUMNS}",
                 (
+                    read_investigation_run_id(owner_principal_id, request.idempotency_key),
                     owner_principal_id,
                     request.idempotency_key,
                     digest,
@@ -210,6 +215,20 @@ class PostgresReadInvestigationRunStore:
             row = await cursor.fetchone()
         return _run(row) if row is not None else None
 
+    async def get_by_task_id(
+        self,
+        *,
+        task_id: str,
+    ) -> ReadInvestigationRunRecord | None:
+        async with await self._connect() as connection:
+            await self._timeout(connection)
+            cursor = await connection.execute(
+                f"SELECT {_COLUMNS} FROM read_investigation_run WHERE task_id = %s",
+                (task_id,),
+            )
+            row = await cursor.fetchone()
+        return _run(row) if row is not None else None
+
     async def start(
         self,
         *,
@@ -284,6 +303,93 @@ class PostgresReadInvestigationRunStore:
         )
         return _run(row)
 
+    async def request_cancel(
+        self,
+        *,
+        task_id: str,
+        actor: str,
+        is_admin: bool,
+        now: datetime,
+    ) -> ReadInvestigationRunRecord:
+        _aware("cancel now", now)
+        async with await self._connect() as connection, connection.transaction():
+            await self._timeout(connection)
+            cursor = await connection.execute(
+                f"SELECT {_COLUMNS} FROM read_investigation_run WHERE task_id = %s FOR UPDATE",
+                (task_id,),
+            )
+            row = await cursor.fetchone()
+            if row is None:
+                raise LookupError("read investigation run was not found")
+            current = _run(row)
+            if actor != current.owner_principal_id and not is_admin:
+                raise PermissionError("read investigation cancellation is not authorized")
+            if (
+                current.state is ReadInvestigationRunState.CANCEL_REQUESTED
+                or current.state.terminal
+            ):
+                return current
+            if current.lease is None or current.lease.expires_at <= now:
+                raise ReadInvestigationRunConflictError("read investigation lease expired")
+            updated = await connection.execute(
+                "UPDATE read_investigation_run SET state = %s, revision = revision + 1, "
+                "updated_at = %s WHERE task_id = %s AND revision = %s "
+                "AND state = ANY(%s) RETURNING "
+                f"{_COLUMNS}",
+                (
+                    ReadInvestigationRunState.CANCEL_REQUESTED.value,
+                    now,
+                    task_id,
+                    current.revision,
+                    [
+                        ReadInvestigationRunState.CLAIMED.value,
+                        ReadInvestigationRunState.RUNNING.value,
+                    ],
+                ),
+            )
+            updated_row = await updated.fetchone()
+            if updated_row is None:
+                raise ReadInvestigationRunConflictError(
+                    "read investigation cancellation revision conflict"
+                )
+            return _run(updated_row)
+
+    async def finish_cancel(
+        self,
+        *,
+        owner_principal_id: str,
+        idempotency_key: str,
+        expected_revision: int,
+        lease_token: str,
+        usage: ReadInvestigationRunUsage,
+        now: datetime,
+    ) -> ReadInvestigationRunRecord:
+        _aware("finish cancel now", now)
+        usage_payload = json.dumps(_usage_to_dict(usage), sort_keys=True, separators=(",", ":"))
+        return await self._terminal_update(
+            "UPDATE read_investigation_run SET state = %s, revision = revision + 1, "
+            "updated_at = %s, terminal_at = %s, lease_owner = NULL, lease_token = NULL, "
+            "lease_expires_at = NULL, result = NULL, usage = %s::jsonb, failure_reason = %s "
+            "WHERE owner_principal_id = %s AND idempotency_key = %s AND revision = %s "
+            "AND lease_token = %s AND lease_expires_at > %s AND state = %s RETURNING "
+            f"{_COLUMNS}",
+            (
+                ReadInvestigationRunState.CANCELLED.value,
+                now,
+                now,
+                usage_payload,
+                "cancelled_by_owner",
+                owner_principal_id,
+                idempotency_key,
+                expected_revision,
+                lease_token,
+                now,
+                ReadInvestigationRunState.CANCEL_REQUESTED.value,
+            ),
+            owner_principal_id,
+            idempotency_key,
+        )
+
     async def complete(
         self,
         *,
@@ -299,7 +405,7 @@ class PostgresReadInvestigationRunStore:
         result_payload = json.dumps(_result_to_dict(result), sort_keys=True, separators=(",", ":"))
         usage_payload = json.dumps(_usage_to_dict(usage), sort_keys=True, separators=(",", ":"))
         request_digest = read_investigation_request_digest(result.request)
-        row = await self._leased_update(
+        return await self._terminal_update(
             "UPDATE read_investigation_run SET state = %s, revision = revision + 1, "
             "updated_at = %s, terminal_at = %s, lease_owner = NULL, lease_token = NULL, "
             "lease_expires_at = NULL, result = %s::jsonb, usage = %s::jsonb, "
@@ -327,7 +433,6 @@ class PostgresReadInvestigationRunStore:
             owner_principal_id,
             idempotency_key,
         )
-        return _run(row)
 
     async def fail(
         self,
@@ -345,7 +450,7 @@ class PostgresReadInvestigationRunStore:
         if state not in {ReadInvestigationRunState.FAILED, ReadInvestigationRunState.EXPIRED}:
             raise ValueError("run failure state MUST be failed or expired")
         usage_payload = json.dumps(_usage_to_dict(usage), sort_keys=True, separators=(",", ":"))
-        row = await self._leased_update(
+        return await self._terminal_update(
             "UPDATE read_investigation_run SET state = %s, revision = revision + 1, "
             "updated_at = %s, terminal_at = %s, lease_owner = NULL, lease_token = NULL, "
             "lease_expires_at = NULL, result = NULL, usage = %s::jsonb, failure_reason = %s "
@@ -371,7 +476,6 @@ class PostgresReadInvestigationRunStore:
             owner_principal_id,
             idempotency_key,
         )
-        return _run(row)
 
     async def reconcile_expired(
         self,
@@ -391,13 +495,15 @@ class PostgresReadInvestigationRunStore:
                 "ORDER BY lease_expires_at, owner_principal_id, idempotency_key "
                 "FOR UPDATE SKIP LOCKED LIMIT %s"
                 ") UPDATE read_investigation_run AS run SET "
-                "state = %s, revision = run.revision + 1, updated_at = %s, terminal_at = %s, "
+                "state = CASE WHEN run.state = %s THEN %s ELSE %s END, "
+                "revision = run.revision + 1, updated_at = %s, terminal_at = %s, "
                 "lease_owner = NULL, lease_token = NULL, lease_expires_at = NULL, "
                 "result = NULL, usage = jsonb_build_object("
                 "'tool_calls', 0, 'execution_duration_ms', 0, "
                 "'reserved_cost_microusd', COALESCE("
                 "(run.request->'budget'->>'max_cost_microusd')::bigint, 0), "
-                "'measured_cost_microusd', NULL), failure_reason = %s "
+                "'measured_cost_microusd', NULL), failure_reason = CASE "
+                "WHEN run.state = %s THEN %s ELSE %s END "
                 "FROM candidate WHERE run.owner_principal_id = candidate.owner_principal_id "
                 "AND run.idempotency_key = candidate.idempotency_key "
                 f"RETURNING {_qualified_columns('run')}",
@@ -405,17 +511,25 @@ class PostgresReadInvestigationRunStore:
                     [
                         ReadInvestigationRunState.CLAIMED.value,
                         ReadInvestigationRunState.RUNNING.value,
+                        ReadInvestigationRunState.CANCEL_REQUESTED.value,
                     ],
                     now,
                     limit,
+                    ReadInvestigationRunState.CANCEL_REQUESTED.value,
+                    ReadInvestigationRunState.CANCELLED.value,
                     ReadInvestigationRunState.EXPIRED.value,
                     now,
                     now,
+                    ReadInvestigationRunState.CANCEL_REQUESTED.value,
+                    "cancelled_after_process_loss",
                     "lease_expired",
                 ),
             )
             rows = await cursor.fetchall()
-        return tuple(_run(row) for row in rows)
+            records = tuple(_run(row) for row in rows)
+            for record in records:
+                await self._insert_completion(connection, record)
+        return records
 
     async def purge_retained(
         self,
@@ -438,16 +552,22 @@ class PostgresReadInvestigationRunStore:
                 "DELETE FROM read_investigation_run AS run USING candidate "
                 "WHERE run.owner_principal_id = candidate.owner_principal_id "
                 "AND run.idempotency_key = candidate.idempotency_key "
+                "AND NOT EXISTS ("
+                "SELECT 1 FROM read_investigation_run_completion AS completion "
+                "WHERE completion.task_id = run.task_id AND completion.state <> ALL(%s)"
+                ") "
                 "RETURNING run.owner_principal_id, run.idempotency_key"
                 ") SELECT owner_principal_id, idempotency_key FROM deleted",
                 (
                     [
                         ReadInvestigationRunState.COMPLETED.value,
+                        ReadInvestigationRunState.CANCELLED.value,
                         ReadInvestigationRunState.FAILED.value,
                         ReadInvestigationRunState.EXPIRED.value,
                     ],
                     now,
                     limit,
+                    ["delivered", "abandoned"],
                 ),
             )
             rows = await cursor.fetchall()
@@ -472,6 +592,66 @@ class PostgresReadInvestigationRunStore:
         ):
             raise ReadInvestigationRunConflictError("read investigation lease or revision conflict")
         raise LookupError("read investigation run was not found")
+
+    async def _terminal_update(
+        self,
+        query: str,
+        params: tuple[object, ...],
+        owner_principal_id: str,
+        idempotency_key: str,
+    ) -> ReadInvestigationRunRecord:
+        async with await self._connect() as connection, connection.transaction():
+            await self._timeout(connection)
+            cursor = await connection.execute(query, params)
+            row = await cursor.fetchone()
+            if row is None:
+                exists = await connection.execute(
+                    "SELECT 1 FROM read_investigation_run "
+                    "WHERE owner_principal_id = %s AND idempotency_key = %s",
+                    (owner_principal_id, idempotency_key),
+                )
+                if await exists.fetchone() is not None:
+                    raise ReadInvestigationRunConflictError(
+                        "read investigation lease or revision conflict"
+                    )
+                raise LookupError("read investigation run was not found")
+            record = _run(row)
+            await self._insert_completion(connection, record)
+            return record
+
+    async def _insert_completion(
+        self,
+        connection: psycopg.AsyncConnection[Any],
+        record: ReadInvestigationRunRecord,
+    ) -> None:
+        values = _completion_insert_values(record)
+        inserted = await connection.execute(
+            "INSERT INTO read_investigation_run_completion ("
+            "completion_id, task_id, run_attempt_count, payload, state, next_attempt_at, "
+            "retention_until, created_at, updated_at"
+            ") VALUES (%s, %s, %s, %s::jsonb, %s, %s, %s, %s, %s) "
+            "ON CONFLICT (completion_id) DO NOTHING RETURNING completion_id",
+            values,
+        )
+        if await inserted.fetchone() is not None:
+            return
+        existing_cursor = await connection.execute(
+            "SELECT task_id, run_attempt_count, payload, retention_until "
+            "FROM read_investigation_run_completion WHERE completion_id = %s",
+            (values[0],),
+        )
+        existing = await existing_cursor.fetchone()
+        expected_payload = json.loads(str(values[3]))
+        if (
+            existing is None
+            or str(existing["task_id"]) != values[1]
+            or int(existing["run_attempt_count"]) != values[2]
+            or existing["payload"] != expected_payload
+            or existing["retention_until"] != values[6]
+        ):
+            raise ReadInvestigationRunConflictError(
+                "read investigation completion outbox conflicts with terminal run"
+            )
 
     async def _run_exists(self, *, owner_principal_id: str, idempotency_key: str) -> bool:
         async with await self._connect() as connection:

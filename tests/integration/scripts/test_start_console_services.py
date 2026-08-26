@@ -11,6 +11,7 @@ _BASH = "/usr/bin/bash"
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _DEV_UP_SCRIPT = _REPO_ROOT / "scripts/deployment/local/dev-up.sh"
 _PREPARE_SCRIPT = _REPO_ROOT / "scripts/deployment/local/prepare-console-full-stack.sh"
+_RUN_SERVICE_SCRIPT = _REPO_ROOT / "scripts/deployment/local/run-console-service.sh"
 _START_SCRIPT = _REPO_ROOT / "scripts/deployment/local/start-console-services.sh"
 _BOUNDED_RUNNER = _REPO_ROOT / "scripts/automation/run-bounded-command.py"
 
@@ -26,6 +27,13 @@ def _write_ready_dependency_script(repo: Path) -> None:
         repo / "scripts/deployment/local/dev-up.sh",
         "#!/usr/bin/env bash\nexit 0\n",
     )
+
+
+def test_core_runtime_digest_includes_prompt_catalog() -> None:
+    script = _RUN_SERVICE_SCRIPT.read_text(encoding="utf-8")
+
+    assert 'if [[ "$service" == "core-runtime" ]]' in script
+    assert "digest_inputs+=(rule-catalog/prompts)" in script
 
 
 def test_supervisor_reports_a_service_that_exits_before_readiness(tmp_path: Path) -> None:

@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import cast
 
+import fdai_operator_service.families.operations.factory as operations_factory
 import pytest
 from fdai_operator_service.auth import OperatorAuthenticator
 from fdai_operator_service.families.operations import (
@@ -25,6 +26,7 @@ from fdai_operator_service.families.operations import (
     build_operations_routes,
 )
 from fdai_service_contracts import OperatorRole
+from fdai_service_contracts.read_investigation import read_investigation_task_id
 from starlette.applications import Starlette
 from starlette.routing import Route
 from starlette.testclient import TestClient
@@ -102,6 +104,7 @@ class RecordingDependencies:
         self.replay_events = (
             ReplayEvent(8, "message", {"type": "provision.progress", "secret": "x"}),
         )
+        self.replay_batches: list[ReplayBatch] = []
 
     async def read(self, query: ProjectionQuery) -> Mapping[str, object]:
         self.queries.append(query)
@@ -127,6 +130,8 @@ class RecordingDependencies:
 
     async def replay(self, query: ReplayQuery) -> ReplayBatch:
         self.replays.append(query)
+        if self.replay_batches:
+            return self.replay_batches.pop(0)
         return ReplayBatch(
             events=self.replay_events,
             watermark=8,
@@ -735,6 +740,9 @@ def test_provision_stream_replays_from_durable_last_event_id_and_redacts() -> No
 
 def test_read_investigation_sse_replays_only_after_durable_proposal() -> None:
     dependencies = RecordingDependencies()
+    dependencies.replay_events = (
+        ReplayEvent(1008, "investigation.completed", {"status": "succeeded"}),
+    )
 
     with _client(dependencies).stream(
         "POST",
@@ -763,7 +771,84 @@ def test_read_investigation_sse_replays_only_after_durable_proposal() -> None:
             limit=500,
         )
     ]
-    assert "id: 8\nevent: message" in body
+    assert "id: 1008\nevent: investigation.completed" in body
+
+
+def test_read_investigation_acceptance_returns_canonical_task_id() -> None:
+    dependencies = RecordingDependencies()
+
+    response = _client(dependencies).post(
+        "/read-investigations",
+        headers={
+            "Authorization": "Bearer contributor",
+            "Idempotency-Key": "idem-cancel-address",
+        },
+        json={
+            "prompt": "inspect",
+            "intent": "resource_state",
+            "resource_name": "service-one",
+        },
+    )
+
+    assert response.status_code == 202
+    assert response.json()["task_id"] == read_investigation_task_id(
+        "contributor-oid",
+        "idem-cancel-address",
+    )
+
+
+def test_read_investigation_sse_polls_progress_to_terminal_with_heartbeat(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dependencies = RecordingDependencies()
+    dependencies.replay_batches = [
+        ReplayBatch(
+            events=(ReplayEvent(8, "resource.resolved", {"kind": "resource.resolved"}),),
+            watermark=8,
+        ),
+        ReplayBatch(
+            events=(ReplayEvent(1008, "investigation.completed", {"status": "succeeded"}),),
+            watermark=1008,
+        ),
+    ]
+    monkeypatch.setattr(operations_factory, "READ_INVESTIGATION_POLL_SECONDS", 0.0)
+    monkeypatch.setattr(operations_factory, "READ_INVESTIGATION_HEARTBEAT_SECONDS", 0.0)
+
+    with _client(dependencies).stream(
+        "POST",
+        "/read-investigations",
+        headers={
+            "Authorization": "Bearer contributor",
+            "Idempotency-Key": "idem-live-stream",
+            "Last-Event-ID": "7",
+            "Accept": "text/event-stream",
+        },
+        json={
+            "prompt": "inspect",
+            "intent": "resource_state",
+            "resource_name": "service-one",
+        },
+    ) as response:
+        body = b"".join(response.iter_bytes()).decode()
+
+    assert response.status_code == 200
+    assert "id: 8\nevent: resource.resolved" in body
+    assert ": heartbeat\n\n" in body
+    assert "id: 1008\nevent: investigation.completed" in body
+    assert dependencies.replays == [
+        ReplayQuery(
+            stream="read-investigation:request-1",
+            principal_id="contributor-oid",
+            after_sequence=7,
+            limit=500,
+        ),
+        ReplayQuery(
+            stream="read-investigation:request-1",
+            principal_id="contributor-oid",
+            after_sequence=8,
+            limit=500,
+        ),
+    ]
 
 
 def test_operations_sse_rejects_multiline_event_names() -> None:

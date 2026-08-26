@@ -313,10 +313,10 @@ describe("upsertEvidenceBranch", () => {
       /@media \(max-width: 640px\)[\s\S]*\.deck-rt-stage\s*\{[^}]*grid-template-columns:\s*20px minmax\(0, 1fr\) auto;/s,
     );
     expect(view).toContain("showPreparingAnswer");
-    expect(view).toContain("inFlight && !finalAnswerPresent");
+    expect(view).toContain("pending && retrievalProgress === null && !finalAnswerPresent");
     expect(view).toContain("index === activeOperatorIndex");
     expect(view).toContain('class="deck-composer-inner cs-deck-composer-grid"');
-    expect(view).toContain('class="deck-transcript-inner"');
+    expect(view).toContain('class={`deck-transcript-inner');
     expect(styles).toContain("overflow-anchor: none;");
     expect(styles).toContain("padding: 16px 42px 28px;");
     expect(styles).toContain(".deck-table-wrap { max-height: none; overflow: visible; }");

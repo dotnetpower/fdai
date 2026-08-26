@@ -6,6 +6,8 @@ import { record as recordHistory, type DraftHistory } from "./draft-history";
 import {
   acknowledgeDeckOpenEvent,
   DECK_OPEN_EVENT,
+  DECK_TOGGLE_EVENT,
+  publishDeckOpenState,
   setDeckOpenListenerReady,
   installWorkspaceDeckNavigationHandler,
   type DeckOpenDetail,
@@ -172,6 +174,15 @@ export function useCommandDeckEvents(options: EventsOptions) {
     openDeck();
   }, [openDeck, startNewConversation]);
 
+  const layoutModeRef = useRef(layoutMode);
+  const openRef = useRef(open);
+  const routeLabelRef = useRef<string | undefined>(routeLabel);
+  useEffect(() => { layoutModeRef.current = layoutMode; }, [layoutMode]);
+  useEffect(() => { openRef.current = open; }, [open]);
+  useEffect(() => { routeLabelRef.current = routeLabel; }, [routeLabel]);
+  useEffect(() => { publishDeckOpenState(open); }, [open]);
+  useEffect(() => () => publishDeckOpenState(false), []);
+
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
@@ -181,8 +192,12 @@ export function useCommandDeckEvents(options: EventsOptions) {
       if ((event.key === "k" || event.key === "K") && (event.metaKey || event.ctrlKey)) {
         event.preventDefault();
         if (open) {
-          searchRef.current?.focus();
-          searchRef.current?.select();
+          if (searchRef.current) {
+            searchRef.current.focus();
+            searchRef.current.select();
+          } else {
+            focusInput();
+          }
         } else openGeneralDeck();
         return;
       }
@@ -271,17 +286,25 @@ export function useCommandDeckEvents(options: EventsOptions) {
       }
       openDeck();
     };
+    const onToggleDeck = () => {
+      if (openRef.current) closeDeck();
+      else openGeneralDeck();
+    };
     window.addEventListener(DECK_OPEN_EVENT, onOpenDeck);
+    window.addEventListener(DECK_TOGGLE_EVENT, onToggleDeck);
     setDeckOpenListenerReady(true);
     return () => {
       setDeckOpenListenerReady(false);
       window.removeEventListener(DECK_OPEN_EVENT, onOpenDeck);
+      window.removeEventListener(DECK_TOGGLE_EVENT, onToggleDeck);
     };
   }, [
+    closeDeck,
     draft,
     historyRef,
     inFlightRef,
     openDeck,
+    openGeneralDeck,
     sessionKeyRef,
     setDraft,
     submitPrompt,
@@ -291,12 +314,6 @@ export function useCommandDeckEvents(options: EventsOptions) {
     userScope,
   ]);
 
-  const layoutModeRef = useRef(layoutMode);
-  const openRef = useRef(open);
-  const routeLabelRef = useRef<string | undefined>(routeLabel);
-  useEffect(() => { layoutModeRef.current = layoutMode; }, [layoutMode]);
-  useEffect(() => { openRef.current = open; }, [open]);
-  useEffect(() => { routeLabelRef.current = routeLabel; }, [routeLabel]);
   useEffect(() => installWorkspaceDeckNavigationHandler(
     () => openRef.current && layoutModeRef.current === "workspace",
     closeDeck,

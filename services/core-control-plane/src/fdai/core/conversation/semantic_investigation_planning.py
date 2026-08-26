@@ -26,6 +26,11 @@ from fdai.core.ontology_platform import (
 from fdai.core.ontology_platform.resource_activity_queries import (
     RESOURCE_ACTIVITY_FUNCTION_NAME,
 )
+from fdai.core.ontology_platform.resource_state_queries import (
+    RESOURCE_STATE_FUNCTION_NAME,
+    RESOURCE_STATE_MEASURE_CONCEPTS,
+)
+from fdai.core.ontology_platform.vm_process_evidence import VM_PROCESS_CPU_FUNCTION_NAME
 
 from .semantic_investigation import (
     InvestigationEntityRole,
@@ -119,20 +124,43 @@ def compile_investigation_plan(
             output_kind="query.table",
         )
     )
-    activity_id = "change-activity"
-    nodes.append(
-        _node(
-            activity_id,
-            QueryNodeKind.FUNCTION,
-            depends_on=(resolve_id,),
-            arguments={
-                "function_name": RESOURCE_ACTIVITY_FUNCTION_NAME,
-                "arguments": {"lookback_seconds": 86_400},
-                "dependency_arguments": {resolve_id: "query_result"},
-            },
-            output_kind="query.table",
+    process_evidence_id: str | None = None
+    if primary_measure.concept_id == "resource.cpu.utilization_pct":
+        _descriptor(manifest, kind="function", name=VM_PROCESS_CPU_FUNCTION_NAME)
+        process_evidence_id = "vm-process-evidence"
+        nodes.append(
+            _node(
+                process_evidence_id,
+                QueryNodeKind.FUNCTION,
+                depends_on=(resolve_id,),
+                arguments={
+                    "function_name": VM_PROCESS_CPU_FUNCTION_NAME,
+                    "arguments": {
+                        "start": windows.current_start.isoformat(),
+                        "end": windows.current_end.isoformat(),
+                        "limit": 8,
+                    },
+                    "dependency_arguments": {resolve_id: "query_result"},
+                },
+                output_kind="query.table",
+            )
         )
-    )
+    activity_id: str | None = None
+    if target_type == "Resource":
+        activity_id = "change-activity"
+        nodes.append(
+            _node(
+                activity_id,
+                QueryNodeKind.FUNCTION,
+                depends_on=(resolve_id,),
+                arguments={
+                    "function_name": RESOURCE_ACTIVITY_FUNCTION_NAME,
+                    "arguments": {"lookback_seconds": 86_400},
+                    "dependency_arguments": {resolve_id: "query_result"},
+                },
+                output_kind="query.table",
+            )
+        )
 
     traversal_ids: dict[str, str] = {}
     for relationship in intent.relationship_intents:
@@ -153,6 +181,27 @@ def compile_investigation_plan(
                     "as_of": windows.current_end.isoformat(),
                     "purpose": purpose,
                     "limit": 100,
+                },
+                output_kind="query.table",
+            )
+        )
+
+    resource_state_id: str | None = None
+    if target_type == "BusinessService" and primary_measure.concept_id == "service.latency":
+        _descriptor(manifest, kind="function", name=RESOURCE_STATE_FUNCTION_NAME)
+        resource_state_id = "service-resource-state"
+        resource_scope_id = next(iter(traversal_ids.values()))
+        nodes.append(
+            _node(
+                resource_state_id,
+                QueryNodeKind.FUNCTION,
+                depends_on=(resource_scope_id,),
+                arguments={
+                    "function_name": RESOURCE_STATE_FUNCTION_NAME,
+                    "arguments": {
+                        "state_concepts": list(RESOURCE_STATE_MEASURE_CONCEPTS),
+                    },
+                    "dependency_arguments": {resource_scope_id: "query_result"},
                 },
                 output_kind="query.table",
             )
@@ -219,7 +268,8 @@ def compile_investigation_plan(
         result_id = f"hypothesis-{hypothesis.hypothesis_id}"
         cause_scope_id = (
             resolve_id
-            if hypothesis.cause_measure_concept in {"dependency.latency", "resource.saturation"}
+            if target_type == "Resource"
+            and hypothesis.cause_measure_concept in {"dependency.latency", "resource.saturation"}
             else traversal_ids[relationship.relationship_id]
         )
         nodes.append(
@@ -256,7 +306,13 @@ def compile_investigation_plan(
 
     if len(nodes) > 16:
         raise ValueError("investigation query DAG exceeds 16 nodes")
-    output_node_ids = (comparison_id, activity_id, *hypothesis_outputs)
+    output_node_ids = (
+        comparison_id,
+        *((activity_id,) if activity_id is not None else ()),
+        *((resource_state_id,) if resource_state_id is not None else ()),
+        *((process_evidence_id,) if process_evidence_id is not None else ()),
+        *hypothesis_outputs,
+    )
     frame_digest = problem_frame_digest or intent.intent_digest
     body = {
         "schema_version": "1.0.0",

@@ -68,9 +68,31 @@ from fdai.core.ontology_platform.incident_queries import (
     IncidentEvidenceReader,
     incident_evidence_function,
 )
+from fdai.core.ontology_platform.kubernetes_pod_recovery_queries import (
+    KUBERNETES_POD_RECOVERY_FUNCTION_NAME,
+    KUBERNETES_POD_RESTART_SYMPTOM_CONCEPT,
+    kubernetes_pod_recovery_function,
+)
+from fdai.core.ontology_platform.kubernetes_rollout_queries import (
+    KUBERNETES_ROLLOUT_FUNCTION_NAME,
+    KUBERNETES_ROLLOUT_SYMPTOM_CONCEPT,
+    kubernetes_rollout_function,
+)
+from fdai.core.ontology_platform.latency_recovery_evidence import (
+    LATENCY_RECOVERY_FUNCTION_NAME,
+    latency_recovery_function,
+)
 from fdai.core.ontology_platform.manifest_queries import (
     ONTOLOGY_MANIFEST_FUNCTION_NAME,
     ontology_manifest_function,
+)
+from fdai.core.ontology_platform.mysql_pressure_evidence import (
+    MYSQL_DEMAND_BUNDLE_FUNCTION_NAME,
+    MYSQL_PRESSURE_FUNCTION_NAME,
+    MYSQL_SATURATION_BUNDLE_FUNCTION_NAME,
+    mysql_demand_bundle_function,
+    mysql_pressure_function,
+    mysql_saturation_bundle_function,
 )
 from fdai.core.ontology_platform.network_path import (
     NETWORK_PATH_FUNCTION_NAME,
@@ -135,6 +157,11 @@ from fdai.core.ontology_platform.service_health_queries import (
     SERVICE_HEALTH_FUNCTION_NAME,
     ServiceHealthReader,
     service_health_function,
+)
+from fdai.core.ontology_platform.vm_process_evidence import (
+    VM_PROCESS_CPU_FUNCTION_NAME,
+    VmProcessCpuReader,
+    vm_process_cpu_function,
 )
 from fdai.core.prompts.registry import FileSystemPromptRegistry
 from fdai.delivery.azure.llm.semantic_planning import (
@@ -209,6 +236,7 @@ def build_semantic_query_runtime(
     resource_health_reader: ResourceHealthCollectionReader | None = None,
     resource_event_reader: ResourceEventCollectionReader | None = None,
     service_health_reader: ServiceHealthReader | None = None,
+    vm_process_cpu_reader: VmProcessCpuReader | None = None,
     property_values: Sequence[PropertyValueDomain] = (),
     inventory_query_language: InventoryQueryLanguageRegistry | None = None,
     purpose: str = "operations-review",
@@ -383,6 +411,30 @@ def build_semantic_query_runtime(
         error_activity_correlation_function(ontology_release),
     )
     bound_function_names.add(correlation_declaration.name)
+    latency_recovery_declaration = declarations[LATENCY_RECOVERY_FUNCTION_NAME]
+    function_registry.register_contextual(
+        latency_recovery_declaration,
+        latency_recovery_function(ontology_release),
+    )
+    bound_function_names.add(latency_recovery_declaration.name)
+    mysql_pressure_declaration = declarations[MYSQL_PRESSURE_FUNCTION_NAME]
+    function_registry.register_contextual(
+        mysql_pressure_declaration,
+        mysql_pressure_function(ontology_release),
+    )
+    bound_function_names.add(mysql_pressure_declaration.name)
+    mysql_demand_declaration = declarations[MYSQL_DEMAND_BUNDLE_FUNCTION_NAME]
+    function_registry.register_contextual(
+        mysql_demand_declaration,
+        mysql_demand_bundle_function(ontology_release),
+    )
+    bound_function_names.add(mysql_demand_declaration.name)
+    mysql_saturation_declaration = declarations[MYSQL_SATURATION_BUNDLE_FUNCTION_NAME]
+    function_registry.register_contextual(
+        mysql_saturation_declaration,
+        mysql_saturation_bundle_function(ontology_release),
+    )
+    bound_function_names.add(mysql_saturation_declaration.name)
     health_declaration = declarations[TARGET_HEALTH_ASSESSMENT_FUNCTION_NAME]
     function_registry.register_contextual(
         health_declaration,
@@ -399,6 +451,16 @@ def build_semantic_query_runtime(
             ),
         )
         bound_function_names.add(activity_declaration.name)
+    if vm_process_cpu_reader is not None:
+        process_declaration = declarations[VM_PROCESS_CPU_FUNCTION_NAME]
+        function_registry.register_contextual(
+            process_declaration,
+            vm_process_cpu_function(
+                ontology_release,
+                reader=vm_process_cpu_reader,
+            ),
+        )
+        bound_function_names.add(process_declaration.name)
     relationship_declaration = declarations[ONTOLOGY_RELATIONSHIPS_FUNCTION_NAME]
     function_registry.register_contextual(
         relationship_declaration,
@@ -429,6 +491,26 @@ def build_semantic_query_runtime(
         ),
     )
     bound_function_names.add(pod_declaration.name)
+    pod_recovery_declaration = declarations[KUBERNETES_POD_RECOVERY_FUNCTION_NAME]
+    function_registry.register_contextual(
+        pod_recovery_declaration,
+        kubernetes_pod_recovery_function(
+            ontology_release,
+            receipt_verifier=receipt_authority,
+            verification_context=receipt_authority.verification_context,
+        ),
+    )
+    bound_function_names.add(pod_recovery_declaration.name)
+    rollout_declaration = declarations[KUBERNETES_ROLLOUT_FUNCTION_NAME]
+    function_registry.register_contextual(
+        rollout_declaration,
+        kubernetes_rollout_function(
+            ontology_release,
+            receipt_verifier=receipt_authority,
+            verification_context=receipt_authority.verification_context,
+        ),
+    )
+    bound_function_names.add(rollout_declaration.name)
     manifest_declaration = declarations[ONTOLOGY_MANIFEST_FUNCTION_NAME]
 
     def manifest_for_context(
@@ -549,8 +631,14 @@ def build_semantic_query_runtime(
             ),
         ),
         descriptor_selector=CompleteManifestSelector(),
-        metric_concepts=(
-            tuple(sorted(metric_registry.definitions)) if metric_registry is not None else ()
+        metric_concepts=tuple(
+            sorted(
+                {
+                    KUBERNETES_POD_RESTART_SYMPTOM_CONCEPT,
+                    KUBERNETES_ROLLOUT_SYMPTOM_CONCEPT,
+                    *(metric_registry.definitions if metric_registry is not None else ()),
+                }
+            )
         ),
         inventory_query_language=inventory_query_language,
         resource_freshness_seconds=resource_freshness_seconds,
@@ -624,6 +712,7 @@ def compose_azure_semantic_query_runtime(
     resource_health_reader: ResourceHealthCollectionReader | None = None,
     resource_event_reader: ResourceEventCollectionReader | None = None,
     service_health_reader: ServiceHealthReader | None = None,
+    vm_process_cpu_reader: VmProcessCpuReader | None = None,
     graph_live_refresh_provider: BoundedGraphLiveRefreshProvider | None = None,
     resource_freshness_seconds: int | None = None,
 ) -> SemanticQueryRuntimeComposition:
@@ -707,6 +796,7 @@ def compose_azure_semantic_query_runtime(
             resource_health_reader=resource_health_reader,
             resource_event_reader=resource_event_reader,
             service_health_reader=service_health_reader,
+            vm_process_cpu_reader=vm_process_cpu_reader,
             graph_live_refresh_provider=graph_live_refresh_provider,
             resource_freshness_seconds=resource_freshness_seconds,
             property_values=_resource_type_property_values(catalog_root),

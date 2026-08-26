@@ -8,6 +8,18 @@
   "migration_dependencies": [
     {
       "consumer_service": "operator-service",
+      "consumer_revision": "operator_interactive_read_investigation_20260826",
+      "provider_service": "core-control-plane",
+      "provider_revision": "core_interactive_read_investigation_20260826",
+      "schema_prerequisites": [
+        "read_investigation_run",
+        "read_investigation_run_progress",
+        "read_investigation_run_completion"
+      ],
+      "provider_rollback": "blocked-until-operator-read-grant-rollback"
+    },
+    {
+      "consumer_service": "operator-service",
       "consumer_revision": "operator_inventory_realtime_read_20260822",
       "provider_service": "core-control-plane",
       "provider_revision": "core_runtime_role_20260809",
@@ -71,9 +83,9 @@
     }
   ],
   "legacy_inventory": {
-    "head": "20260819_0086",
-    "revision_count": 88,
-    "table_count": 101
+    "head": "20260826_0087",
+    "revision_count": 89,
+    "table_count": 103
   },
   "table_migrations": {
     "core-control-plane": [
@@ -123,6 +135,9 @@
       "question_manual_campaign_review",
       "question_release_assurance",
       "question_review_projection",
+      "read_investigation_run",
+      "read_investigation_run_completion",
+      "read_investigation_run_progress",
       "report_signal",
       "schedule_dispatch_run",
       "scheduled_task",
@@ -170,13 +185,13 @@
       "model_health_transition",
       "operator_memory",
       "operator_memory_proposal",
+      "operator_read_investigation_completion",
       "post_turn_proposal_claim",
       "post_turn_review",
       "principal_conversation_binding",
       "programmatic_pipeline_call",
       "programmatic_pipeline_run",
       "python_task_artifact",
-      "read_investigation_run",
       "rpc_idempotency_claim",
       "scheduled_conversation_anchor",
       "skill_proposal",
@@ -259,6 +274,9 @@
       "question_manual_campaign_review",
       "question_release_assurance",
       "question_review_projection",
+      "read_investigation_run",
+      "read_investigation_run_completion",
+      "read_investigation_run_progress",
       "report_signal",
       "schedule_dispatch_run",
       "scheduled_task",
@@ -305,13 +323,13 @@
       "model_health_transition",
       "operator_memory",
       "operator_memory_proposal",
+      "operator_read_investigation_completion",
       "post_turn_proposal_claim",
       "post_turn_review",
       "principal_conversation_binding",
       "programmatic_pipeline_call",
       "programmatic_pipeline_run",
       "python_task_artifact",
-      "read_investigation_run",
       "rpc_idempotency_claim",
       "scheduled_conversation_anchor",
       "skill_proposal",

@@ -1,4 +1,5 @@
 import type { EvidenceBranch, InvestigationActivity, InvestigationMilestone } from "./backend";
+import { isSemanticDirectResponseSource } from "./backend-normalizers";
 import type { Turn } from "./command-deck-presenters";
 
 export interface ConversationTrajectory {
@@ -46,7 +47,7 @@ function isTerminalAnswer(turn: Turn): boolean {
     turn.kind !== "activity" &&
     turn.source !== "investigation" &&
     turn.source !== "context" &&
-    turn.source !== "semantic-direct-response";
+    !isSemanticDirectResponseSource(turn.source);
 }
 
 function buildTrajectory(

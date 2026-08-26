@@ -69,6 +69,9 @@ from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStoreUnavailable,
     PostgresProposalConflict,
 )
+from fdai_operator_service.postgres_read_investigation_replay import (
+    PostgresReadInvestigationReplayStore,
+)
 from fdai_operator_service.postgres_semantic_turn_store import rule_search_projection_key
 
 
@@ -384,6 +387,7 @@ class PostgresOperationsAdapters:
 
     store: PostgresFamilyStore
     webhook_secret: str | None = None
+    read_investigation_replay: PostgresReadInvestigationReplayStore | None = None
 
     async def read(self, query: ProjectionQuery) -> Mapping[str, object]:
         """Read one explicitly materialized operations projection."""
@@ -461,6 +465,11 @@ class PostgresOperationsAdapters:
 
     async def replay(self, query: ReplayQuery) -> ReplayBatch:
         """Replay authoritative audit events using the durable sequence watermark."""
+
+        if query.stream.startswith("read-investigation:"):
+            if self.read_investigation_replay is None:
+                raise ProjectionUnavailableError
+            return await self.read_investigation_replay.replay(query)
         try:
             stored = await self.store.replay(
                 stream=query.stream,

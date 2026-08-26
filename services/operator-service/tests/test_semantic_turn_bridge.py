@@ -56,6 +56,7 @@ from fdai_operator_service.postgres_family_store import (
 from fdai_operator_service.postgres_semantic_turn_store import (
     PostgresSemanticTurnRepository,
     SemanticTurnConflictError,
+    SemanticTurnStoreError,
     rule_search_projection_key,
 )
 from fdai_service_contracts import (
@@ -63,6 +64,7 @@ from fdai_service_contracts import (
     GoalTaskReceipt,
     RuleSearchProjection,
     RuleSearchReceipt,
+    SemanticInvestigationContinuation,
     query_content_digest,
     rule_search_query_digest,
 )
@@ -80,6 +82,27 @@ def _proposal(*, body: JsonObject | None = None) -> ConversationProposal:
     )
 
 
+def _investigation_continuation() -> dict[str, object]:
+    return {
+        "schema_version": "1.0.0",
+        "source_session_id": "session-1",
+        "source_turn_id": "turn-1",
+        "source_turn_sequence": 1,
+        "target_type": "BusinessService",
+        "target_value": "service-example-api",
+        "recovery_measure_concepts": ["dependency.latency", "service.latency"],
+        "baseline_start": "2026-08-11T11:40:00Z",
+        "baseline_end": "2026-08-11T11:50:00Z",
+        "initial_observation_cutoff": "2026-08-11T12:00:00Z",
+        "ontology_release_digest": f"sha256:{'a' * 64}",
+        "principal_manifest_digest": f"sha256:{'b' * 64}",
+        "source_frame_digest": f"sha256:{'c' * 64}",
+        "source_plan_digest": f"sha256:{'d' * 64}",
+        "source_execution_receipt_digest": f"sha256:{'e' * 64}",
+        "execution_authority": False,
+    }
+
+
 def test_semantic_envelope_defaults_to_core_operations_review_purpose() -> None:
     envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
         _proposal()
@@ -88,6 +111,22 @@ def test_semantic_envelope_defaults_to_core_operations_review_purpose() -> None:
     semantic_turn = cast(dict[str, object], envelope["semantic_turn"])
     assert semantic_turn["purpose"] == "operations-review"
     assert semantic_turn["planning_profile"] == "interactive"
+    assert semantic_turn["include_model_trace"] is False
+
+
+def test_semantic_envelope_forwards_model_trace_opt_in() -> None:
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal(
+            body={
+                "prompt": "Hello",
+                "include_model_trace": True,
+            }
+        )
+    )
+
+    assert envelope["schema_version"] == "1.5.0"
+    semantic_turn = cast(dict[str, object], envelope["semantic_turn"])
+    assert semantic_turn["include_model_trace"] is True
 
 
 def test_semantic_envelope_carries_golden_campaign_no_t2_profile() -> None:
@@ -282,6 +321,32 @@ class _MemorySemanticStore:
         self.results[projection_id] = stored
         return stored
 
+    async def latest_semantic_investigation_continuation(
+        self,
+        *,
+        principal_id: str,
+        session_id: str,
+    ) -> SemanticInvestigationContinuation | None:
+        eligible: list[tuple[int, Mapping[str, object]]] = []
+        for result in self.results.values():
+            if result.principal_id != principal_id:
+                continue
+            semantic = cast(Mapping[str, object], result.data.get("semantic_result", {}))
+            payload = cast(Mapping[str, object], result.data.get("payload", {}))
+            sequence = semantic.get("turn_sequence")
+            continuation = payload.get("investigation_continuation")
+            if (
+                semantic.get("session_id") == session_id
+                and isinstance(sequence, int)
+                and isinstance(continuation, Mapping)
+            ):
+                eligible.append((sequence, continuation))
+        if not eligible:
+            return None
+        return SemanticInvestigationContinuation.model_validate(
+            max(eligible, key=lambda item: item[0])[1]
+        )
+
     async def replay_semantic_turn(
         self,
         *,
@@ -302,6 +367,153 @@ class _MemorySemanticStore:
                 key=lambda result: (result.sequence, result.projection_id),
             )
         )[:limit]
+
+
+async def test_bridge_injects_latest_same_principal_session_continuation() -> None:
+    store = _MemorySemanticStore()
+    store.results["prior"] = StoredSemanticResult(
+        sequence=2,
+        event="semantic_turn_result",
+        request_id="prior-request",
+        principal_id="operator-1",
+        projection_id="prior",
+        data={
+            "semantic_result": {
+                "session_id": "session-1",
+                "turn_id": "turn-1",
+                "turn_sequence": 1,
+            },
+            "payload": {"investigation_continuation": _investigation_continuation()},
+        },
+        duplicate=False,
+    )
+    bridge = SemanticTurnBridge(store=store)
+
+    receipt = await bridge.append(
+        _proposal(
+            body={
+                "prompt": "Verify recovery.",
+                "session_id": "session-1",
+            }
+        )
+    )
+
+    stored = store.turns[receipt.proposal_id]
+    semantic = cast(Mapping[str, object], stored.envelope["semantic_turn"])
+    assert semantic["investigation_continuation"] == _investigation_continuation()
+    assert semantic["turn_sequence"] == 2
+
+
+def test_semantic_envelope_rejects_conflicting_session_aliases() -> None:
+    build = SemanticTurnEnvelopeBuilder().build
+
+    with pytest.raises(ValueError, match="MUST identify the same session"):
+        build(
+            _proposal(
+                body={
+                    "prompt": "Verify recovery.",
+                    "session_id": "session-1",
+                    "conversation_id": "session-2",
+                }
+            )
+        )
+
+
+async def test_continuation_lookup_rejects_cross_principal_result() -> None:
+    store = _MemorySemanticStore()
+    store.results["prior"] = StoredSemanticResult(
+        sequence=2,
+        event="semantic_turn_result",
+        request_id="prior-request",
+        principal_id="other-operator",
+        projection_id="prior",
+        data={
+            "semantic_result": {
+                "session_id": "session-1",
+                "turn_id": "turn-1",
+                "turn_sequence": 1,
+            },
+            "payload": {"investigation_continuation": _investigation_continuation()},
+        },
+        duplicate=False,
+    )
+
+    continuation = await store.latest_semantic_investigation_continuation(
+        principal_id="operator-1",
+        session_id="session-1",
+    )
+
+    assert continuation is None
+
+
+async def test_postgres_continuation_lookup_is_principal_session_and_sequence_scoped() -> None:
+    captured: dict[str, object] = {}
+
+    async def fetch_all(
+        statement: str,
+        parameters: Mapping[str, object],
+    ) -> list[dict[str, object]]:
+        captured["statement"] = statement
+        captured["parameters"] = dict(parameters)
+        return [
+            {
+                "continuation": _investigation_continuation(),
+                "source_session_id": "session-1",
+                "source_turn_id": "turn-1",
+                "source_turn_sequence": 1,
+            }
+        ]
+
+    async def insert_if_absent(**_kwargs: object) -> tuple[bool, dict[str, object]]:
+        raise AssertionError("continuation lookup must not write")
+
+    repository = PostgresSemanticTurnRepository(
+        fetch_all=fetch_all,
+        insert_if_absent=insert_if_absent,
+    )
+
+    continuation = await repository.latest_investigation_continuation(
+        principal_id="operator-1",
+        session_id="session-1",
+    )
+
+    assert continuation is not None
+    assert continuation.target_value == "service-example-api"
+    parameters = cast(dict[str, object], captured["parameters"])
+    assert parameters["principal_id"] == "operator-1"
+    assert parameters["session_id"] == "session-1"
+    statement = cast(str, captured["statement"])
+    assert "request.value ->> 'principal_id'" in statement
+    assert "result.updated_at DESC" in statement
+
+
+async def test_postgres_continuation_lookup_rejects_mismatched_result_lineage() -> None:
+    async def fetch_all(
+        _statement: str,
+        _parameters: Mapping[str, object],
+    ) -> list[dict[str, object]]:
+        return [
+            {
+                "continuation": _investigation_continuation(),
+                "source_session_id": "session-1",
+                "source_turn_id": "different-turn",
+                "source_turn_sequence": 1,
+            }
+        ]
+
+    async def insert_if_absent(**_kwargs: object) -> tuple[bool, dict[str, object]]:
+        raise AssertionError("continuation lookup must not write")
+
+    repository = PostgresSemanticTurnRepository(
+        fetch_all=fetch_all,
+        insert_if_absent=insert_if_absent,
+    )
+
+    with pytest.raises(SemanticTurnStoreError, match="lineage is malformed"):
+        await repository.latest_investigation_continuation(
+            principal_id="operator-1",
+            session_id="session-1",
+        )
 
 
 class _FailOncePublisher:
@@ -326,6 +538,7 @@ def _projection(
     *,
     disposition: str = "held",
     answered_evidence: bool = False,
+    direct_response_intent: str = "greeting",
 ) -> dict[str, object]:
     semantic = cast(dict[str, object], envelope["semantic_turn"])
     result: dict[str, object] = {
@@ -351,7 +564,11 @@ def _projection(
         "checks_completed": 1 if answered_evidence else 0,
         "checks_total": 1 if answered_evidence else 0,
         "answer": f"Semantic result: {disposition}",
-        **({"direct_response_intent": "greeting"} if disposition == "direct_response" else {}),
+        **(
+            {"direct_response_intent": direct_response_intent}
+            if disposition == "direct_response"
+            else {}
+        ),
         "execution_authority": False,
     }
     if answered_evidence:
@@ -896,17 +1113,8 @@ async def test_missing_transport_projects_typed_held_result() -> None:
 
     assert receipt.response.body is not None
     assert cast(dict[str, object], receipt.response.body)["dispatch_status"] == "held"
-    assert [event.event for event in events if event.event != "activity"] == [
-        "status",
-        "status",
-        "done",
-    ]
-    # A held turn observes no evidence phase, so its waiting step still settles.
-    assert [event.data["status"] for event in events if event.event == "activity"] == [
-        "completed",
-        "running",
-        "completed",
-    ]
+    assert [event.event for event in events] == ["status", "status", "done"]
+    assert [event.data["phase"] for event in events[:-1]] == ["accepted", "planning"]
     semantic_result = cast(dict[str, object], events[-1].data["semantic_result"])
     verification = cast(dict[str, object], events[-1].data["verification"])
     assert semantic_result["disposition"] == "held"
@@ -1282,12 +1490,31 @@ def test_direct_greeting_done_omits_query_verification_and_artifacts() -> None:
         _proposal()
     )
     projection = _projection(envelope, disposition="direct_response")
+    projection["payload"] = {
+        "model": "semantic-test",
+        "latency_ms": 25,
+        "usage": {"prompt_tokens": 12, "completion_tokens": 3, "total_tokens": 15},
+        "model_trace": {
+            "schema_version": 1,
+            "redacted": True,
+            "calls": [],
+            "omitted_calls": 0,
+        },
+    }
 
     done = semantic_turn_runtime_module._done_event_data(projection)
 
     assert done["status"] == "direct_response"
     assert done["source"] == "semantic-direct-response"
     assert done["answer"] == "Semantic result: direct_response"
+    assert done["model"] == "semantic-test"
+    assert done["latency_ms"] == 25
+    assert done["usage"] == {
+        "prompt_tokens": 12,
+        "completion_tokens": 3,
+        "total_tokens": 15,
+    }
+    assert done["model_trace"] == projection["payload"]["model_trace"]
     assert done["answer_plan"] == {
         "intent": "greeting",
         "detail_level": "brief",
@@ -1305,6 +1532,77 @@ def test_direct_greeting_done_omits_query_verification_and_artifacts() -> None:
     receipt = cast(dict[str, object], done["semantic_receipt"])
     assert receipt["semantic_route"] == "semantic_direct_response"
     assert receipt["direct_response_intent"] == "greeting"
+
+
+def test_self_introduction_done_uses_identity_answer_plan() -> None:
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal(body={"prompt": "너에 대해서 소개해봐", "locale": "ko"})
+    )
+    projection = _projection(
+        envelope,
+        disposition="direct_response",
+        direct_response_intent="self_introduction",
+    )
+
+    done = semantic_turn_runtime_module._done_event_data(projection)
+
+    assert done["answer_plan"] == {
+        "intent": "self_introduction",
+        "detail_level": "brief",
+        "format": "prose",
+        "sections": ["identity", "capabilities", "authority_boundary"],
+        "evidence_requirement": "none",
+        "max_words": 100,
+        "discuss": "skip",
+        "explicit_overrides": [],
+        "preference_applied": False,
+    }
+    receipt = cast(dict[str, object], done["semantic_receipt"])
+    assert receipt["direct_response_intent"] == "self_introduction"
+
+
+@pytest.mark.parametrize(
+    ("prompt", "direct_response_intent"),
+    [
+        ("안녕", "greeting"),
+        ("너에 대해서 소개해봐", "self_introduction"),
+    ],
+)
+async def test_direct_social_response_stream_emits_no_investigation_lifecycle(
+    prompt: str,
+    direct_response_intent: str,
+) -> None:
+    store = _MemorySemanticStore()
+    bridge = SemanticTurnBridge(
+        store=store,
+        publisher=cast(Any, object()),
+        result_source=cast(Any, object()),
+        builder=SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)),
+    )
+    receipt = await bridge.append(_proposal(body={"prompt": prompt, "locale": "ko"}))
+    stored_turn = store.turns[receipt.proposal_id]
+    await SemanticTurnProjectionConsumer(store).consume(
+        _projection(
+            stored_turn.envelope,
+            disposition="direct_response",
+            direct_response_intent=direct_response_intent,
+        )
+    )
+
+    stream = await bridge.open(
+        ConversationStreamRequest(
+            operation="chat.stream",
+            scope=PrincipalScope("operator-1", frozenset({"Reader"})),
+            proposal_id=receipt.proposal_id,
+        )
+    )
+    events = [event async for event in stream]
+
+    assert [event.event for event in events] == ["status", "status", "done"]
+    assert [event.data["phase"] for event in events[:-1]] == ["accepted", "planning"]
+    assert all(event.event != "activity" for event in events)
+    assert events[-1].data["status"] == "direct_response"
+    assert events[-1].data["source"] == "semantic-direct-response"
 
 
 def test_answered_done_preserves_typed_semantic_assurance_observation() -> None:
@@ -1568,15 +1866,12 @@ async def test_answered_replay_emits_observed_lifecycle_before_readable_terminal
 
     assert [event.event for event in events] == [
         "status",
-        "activity",
         "status",
-        "activity",
         "status",
         "activity",
         "verification",
         "activity",
         "status",
-        "activity",
         "activity",
         "done",
     ]
@@ -1590,17 +1885,11 @@ async def test_answered_replay_emits_observed_lifecycle_before_readable_terminal
     ]
     steps = [event for event in events if event.event == "activity"]
     assert [event.data["activity_id"] for event in steps] == [
-        "semantic:accepted",
-        "semantic:planning",
         "semantic:evidence",
         "semantic:verification",
         "semantic:presentation",
-        "semantic:planning",
     ]
     assert [event.data["status"] for event in steps] == [
-        "completed",
-        "running",
-        "completed",
         "completed",
         "completed",
         "completed",
@@ -2221,7 +2510,10 @@ async def test_semantic_bridge_waits_for_delayed_terminal_projection() -> None:
             proposal_id=receipt.proposal_id,
         )
     )
-    events = [event async for event in stream]
+    events = [await anext(stream), await anext(stream)]
+    assert [event.event_id for event in events] == ["0:accepted", "0:planning"]
+    assert projection_task.done() is False
+    events.extend([event async for event in stream])
     await projection_task
 
     assert [event.event for event in events if event.event != "activity"] == [
@@ -2232,10 +2524,13 @@ async def test_semantic_bridge_waits_for_delayed_terminal_projection() -> None:
         "status",
         "done",
     ]
+    assert [event.data["phase"] for event in events if event.event == "status"] == [
+        "accepted",
+        "planning",
+        "evidence",
+        "presentation",
+    ]
     assert [event.data["status"] for event in events if event.event == "activity"] == [
-        "completed",
-        "running",
-        "completed",
         "completed",
         "completed",
         "completed",
@@ -2267,6 +2562,39 @@ async def test_semantic_replay_cursor_resumes_after_observed_phase() -> None:
     events = [event async for event in resumed]
 
     assert [event.event_id for event in events if event.event != "activity"] == [
+        "1:verification",
+        "1:presentation",
+        "1",
+    ]
+
+
+async def test_semantic_replay_cursor_resumes_after_initial_progress() -> None:
+    store = _MemorySemanticStore()
+    bridge = SemanticTurnBridge(
+        store=store,
+        publisher=cast(Any, object()),
+        result_source=cast(Any, object()),
+        builder=SemanticTurnEnvelopeBuilder(clock=lambda: datetime.now(UTC)),
+    )
+    receipt = await bridge.append(_proposal())
+    stored_turn = store.turns[receipt.proposal_id]
+    await SemanticTurnProjectionConsumer(store).consume(
+        _projection(stored_turn.envelope, disposition="answered", answered_evidence=True)
+    )
+
+    resumed = await bridge.open(
+        ConversationStreamRequest(
+            operation="chat.stream",
+            scope=PrincipalScope("operator-1", frozenset({"Reader"})),
+            proposal_id=receipt.proposal_id,
+            after_event_id="0:accepted",
+        )
+    )
+    events = [event async for event in resumed]
+
+    assert [event.event_id for event in events if event.event != "activity"] == [
+        "0:planning",
+        "1:evidence",
         "1:verification",
         "1:presentation",
         "1",
@@ -2342,7 +2670,6 @@ async def test_evidence_step_carries_the_verified_query_and_its_row_counts() -> 
     # A step that executed nothing MUST NOT report a command.
     assert executions["semantic:verification"] is None
     assert executions["semantic:presentation"] is None
-    assert executions["semantic:accepted"] is None
 
 
 async def test_evidence_step_omits_a_command_when_the_plan_has_several_goals() -> None:
@@ -2432,11 +2759,8 @@ async def test_semantic_bridge_deadline_projects_typed_hold() -> None:
     )
     events = [event async for event in stream]
 
-    assert [event.event for event in events if event.event != "activity"] == [
-        "status",
-        "status",
-        "done",
-    ]
+    assert [event.event for event in events] == ["status", "status", "done"]
+    assert [event.data["phase"] for event in events[:-1]] == ["accepted", "planning"]
     semantic_result = cast(dict[str, object], events[-1].data["semantic_result"])
     assert semantic_result["disposition"] == "held"
     assert semantic_result["reason_code"] == "semantic_transport_unavailable"

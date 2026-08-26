@@ -3,21 +3,17 @@ title: Continuous Operational Instance Graph
 ---
 # Continuous Operational Instance Graph
 
-This document owns the runtime contract that keeps cloud resource instances, relationships, and
-observed state current in the FDAI ontology. Collection is continuous and load-aware, while raw
-history moves through typed rollups and verified archives so the active data plane remains bounded.
+This document owns the runtime contract that keeps cloud resource instances, relationships, and observed state current in the FDAI ontology.
+Collection is continuous and load-aware, while raw history moves through typed rollups and verified archives so the active data plane remains bounded.
 
-> **Scope boundary:** This design covers provider observation, ontology instance projection,
-> freshness, compaction, archive, and graph-first reads. It does not grant approval, mutation, or
-> execution authority.
+> **Scope boundary:** This design covers provider observation, ontology instance projection, freshness, compaction, archive, and graph-first reads.
+> It does not grant approval, mutation, or execution authority.
 >
-> **Provider boundary:** The contracts are cloud-provider-neutral (CSP-neutral). Azure Resource
-> Graph, Activity Log, Monitor, and Resource Health are the implemented provider sources.
+> **Provider boundary:** The contracts are cloud-provider-neutral (CSP-neutral). Azure Resource Graph, Activity Log, Monitor, and Resource Health are the implemented provider sources.
 
 ## Design at a glance
 
-Continuous collection combines push events, resumable provider deltas, and adaptive reconciliation.
-It does not use a fixed six-hour scan as the normal freshness mechanism and does not run an
+Continuous collection combines push events, resumable provider deltas, and adaptive reconciliation. It does not use a fixed six-hour scan as the normal freshness mechanism and does not run an
 unbounded tight polling loop.
 
 ![Design at a glance. The main stages are Provider events and delta APIs, Durable observation ingress, Normalize and adjudicate, Current operational graph, Bitemporal observation history, Typed rollups, Verified archive, Verified semantic query, Evidence current and complete?, Evidence-backed result, Bounded live read.](../../diagrams/generated/fdai-roadmap-architecture-continuous-operational-instance-graph-01.en.svg)
@@ -107,6 +103,10 @@ generation, conflict, or cardinality violation remains blocking and preserves th
 An exact reviewed provider parent shadows generic Resource Group containment for the same child.
 Snapshot promotion independently rejects more than one `contains` parent for any child before the
 active pointer changes, and the ontology store revalidates LinkType cardinality before commit. The
+bounded ARM compute source lists VM Scale Set VM children and each child's network interfaces under
+the same page, child-collection, host, and generation fences as other ARM-only nested resources.
+Child collection failure aborts the generation; template network configuration never fabricates an
+instance identity. The
 ontology projector holds a process-local lock and a PostgreSQL session advisory lock across graph
 replacement and its manifest/status commit marker. Readers require the active snapshot, status, and
 manifest generations to match. A crash or stale replica therefore yields incomplete evidence until
@@ -207,7 +207,7 @@ work, or an open stage that does not name its exact gap.
 | Push events and durable delta overlay | implemented | `delivery/azure/activity_log.py`; realtime inventory projector and focused tests | Resource changes can update a bounded overlay. Deployment evidence remains separate. |
 | Complete inventory promotion and ontology projection | implemented | `delivery/inventory_sync.py`; `runtime/inventory_ontology.py`; focused inventory and projection tests | Complete generations replace the owned subgraph atomically. The existing routine cadence is not the target continuous policy. |
 | Relationship generation convergence | implemented | `arm_inventory.py`, `postgres_inventory_snapshot.py`, `inventory_projection.py`, `inventory_ontology.py`, PostgreSQL source coverage, Operator/Console evidence projection, and focused regression checks | Reviewed parents shadow generic fallback, snapshot and ontology cardinality gates agree, classified non-edges advance the exact generation without claiming complete coverage, and graph receipts preserve generation, freshness, verification level, and zero-result limitations. |
-| Kubernetes rollout observations | implemented | `kubernetes_api_inventory.py`; `test_kubernetes_api_inventory.py` (`7 passed`) | The complete UID-grounded generation preserves an allowlisted Deployment replica and Progressing condition projection plus Pod phase, readiness, restart count, and waiting reasons. Raw image names, image digests, messages, and status payloads remain excluded. Live exact-release evidence remains open. |
+| Kubernetes workload observations | implemented | `kubernetes_api_inventory.py`; `kubernetes_rollout_queries.py`; `kubernetes_pod_recovery_queries.py`; focused inventory, metric, reducer, planner, receipt, and composition checks; authenticated targetless Console receipts | The complete UID-grounded generation preserves allowlisted Deployment and Pod rollout state. The rollout path follows two explicit incoming `kubernetes_owned_by` hops. The Pod path joins one exact current Pod, a reviewed 30-minute restart-count delta selected by cluster identity and immutable Pod UID, and two issued outgoing ownership hops to its ReplicaSet and Deployment. Recovery requires a positive bounded delta and owner Deployment replicas that are fully ready and available with zero unavailable replicas. Pure reducers keep cause and execution authority false, incomplete scopes stop before the restart metric read, and zero-row candidates preserve `source_incomplete` instead of claiming absence. Raw image names, image digests, messages, and status payloads remain excluded. Exact-target live evidence remains open. |
 | Bitemporal topology history | implemented | `core/ontology_platform/topology_history.py`; PostgreSQL topology history adapter and focused tests | Current production retention, rollup, archive, and restore evidence remains open. |
 | Adaptive continuous scheduling | implemented | `inventory_source_policy.py`, `inventory_scheduler.py`, PostgreSQL reconciliation state, collection health, and focused collection checks | Source policy and deterministic scheduling are implemented. Deployed operational measurement remains separate validation evidence. |
 | Typed rollup and archive lifecycle | implemented | `semantic_rollup*.py`, `archive_*.py`, `inventory_rollup.py`, PostgreSQL archive adapter, Core service migration, and focused integration checks | Rollup and archive contracts are implemented and locally verified. No Azure archive store or deployed purge was invoked. |
@@ -223,6 +223,9 @@ work, or an open stage that does not name its exact gap.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-25 | implemented | Extended the issued exact-Pod S1 assessment with a reviewed 30-minute restart-count delta and two explicit outgoing ownership hops to the exact ReplicaSet and Deployment. The five-node server plan authenticates all three secured graph receipts, verifies ownership-link evidence, and requires a positive bounded delta plus fully ready and available owner replicas before reporting recovery. Incomplete, ambiguous, stale, or conflicting evidence remains unresolved, and dependency-only inputs reject model-authored substitution. Neither current state nor the metric claims cause or execution authority. | `current change`; focused metric, verifier, reducer, receipt, planner, and production-composition cohort (`49 passed`); semantic routing regression (`370 passed`); Ruff, formatter, and strict mypy passed. | Retain a complete Kubernetes generation with an exact Pod, then add independent Kubernetes event/change, replacement-UID, impact, and new-cutoff evidence before claiming cause or post-replacement recovery. |
+| 2026-08-25 | implemented | Preserved a zero-row source-incomplete Resource ObjectSet as a completed typed query result instead of raising a generic capability failure. The targetless S12 question now returns zero verified candidates, `source_incomplete`, completed verification, and no execution authority without treating incomplete coverage as absence. | `current change`; `query_source_handlers.py`; focused rollout and incomplete-source cohort (`19 passed`); authenticated standard-port Console turn completed 4 observed events and 5/5 evidence checks. | Retain a complete Kubernetes generation with one exact Deployment, then run the four-node rollout assessment and independent new-cutoff recovery verification. |
+| 2026-08-25 | implemented | Connected rollout observations to the graph-first semantic path. Targetless rollout wording resolves to bounded Kubernetes Deployment candidates, while an exact target compiles two explicit ownership hops and an issued no-cause FunctionType. | `current change`; focused targetless, reducer, receipt, traversal, planner, and production-composition checks passed 17 cases; task-scoped Ruff and strict mypy passed. | Restart Core and retain authenticated candidate and exact-target receipts from a complete Kubernetes generation. |
 | 2026-08-25 | implemented | Hardened Azure relationship convergence after a live local generation exposed eight AKS AgentPools with both reviewed AKS parents and evidence-free Resource Group parents. Exact-parent shadowing and a durable cardinality gate remove the duplicate parent path. Classified non-edges can now advance current verified Resources and links while preserving incomplete coverage; distributed projection locking, source-bound query receipts, stale evidence projection, and additive N-1 receipt decode close the generation and evidence gaps. | `current change`; focused ARM, provider contract, projection, runtime, PostgreSQL, ObjectSet, Operator, and Console checks; twelve adversarial rounds below. | Refresh and retain an authoritative local generation after focused validation. Deployed Azure certification remains separate under Issue #262. |
 | 2026-08-25 | implemented | Added bounded Kubernetes Deployment and Pod rollout status to the complete inventory generation. The adapter retains only replica counts, the single Progressing condition, Pod readiness, restart counts, and waiting reasons, and rejects malformed status instead of retaining raw provider payloads. | `current change`; `kubernetes_api_inventory.py`; focused Kubernetes API inventory checks passed 7 cases. | Retain a complete live exact-release generation and bind the typed rollout assessment through the graph-first query path. |
 | 2026-08-25 | implemented | Corrected complete-generation relationship verification so an observed endpoint with the wrong type is classified as `target_type_mismatch` instead of an unrelated duplicate conflict. The candidate remains absent from the active graph and retains its mapping-specific unavailable reason. | `current change`; focused relationship projection and verification checks passed 65 cases. | Retain deployed complete-generation evidence separately; this correction adds no relationship or authority. |

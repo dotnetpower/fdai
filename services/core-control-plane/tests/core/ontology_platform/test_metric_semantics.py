@@ -32,7 +32,10 @@ START = datetime(2026, 8, 10, tzinfo=UTC)
 
 
 class _Provider:
-    async def read(self, *, definition, resource_id, start, end):  # type: ignore[no-untyped-def]
+    async def read(  # type: ignore[no-untyped-def]
+        self, *, definition, resource_id, start, end, query_labels=None
+    ):
+        del query_labels
         return MetricWindow(
             concept_id=definition.concept_id,
             resource_id=resource_id,
@@ -61,13 +64,18 @@ def _scope_node() -> OntologyQueryNode:
     )
 
 
-def _scope_handler(provider: object | None = None) -> MetricScopeSeriesNodeHandler:
+def _scope_handler(
+    provider: object | None = None,
+    *,
+    scope_label_selectors: dict[str, tuple[str, ...]] | None = None,
+) -> MetricScopeSeriesNodeHandler:
     definition = MetricSemanticDefinition(
         concept_id="request.volume",
         provider_metric="http.server.request.count",
         canonical_unit="count",
         aggregation=MetricAggregation.SUM,
         description="Completed requests.",
+        scope_label_selectors=scope_label_selectors or {},
     )
     return MetricScopeSeriesNodeHandler(
         registry=MetricSemanticRegistry.build((definition,)),
@@ -368,3 +376,57 @@ async def test_metric_scope_series_preserves_provider_and_sampling_gaps() -> Non
     assert isinstance(result.value, MetricWindow)
     assert result.value.complete is False
     assert result.value.missing_reason == "object_scope_sampled+provider_gap"
+
+
+async def test_metric_scope_series_uses_reviewed_exact_identity_labels() -> None:
+    class _ScopedProvider(_Provider):
+        query_labels: dict[str, str] | None = None
+
+        async def read(  # type: ignore[no-untyped-def]
+            self, *, definition, resource_id, start, end, query_labels=None
+        ):
+            self.query_labels = query_labels
+            return await super().read(
+                definition=definition,
+                resource_id=resource_id,
+                start=start,
+                end=end,
+            )
+
+    provider = _ScopedProvider()
+    handler = _scope_handler(
+        provider,
+        scope_label_selectors={
+            "resource_id": ("properties", "properties", "cluster_ref"),
+            "pod_uid": ("properties", "properties", "uid"),
+        },
+    )
+    scope = QueryTable(
+        rows=(
+            QueryRow.from_values(
+                "pod-a",
+                {
+                    "id": "pod-a",
+                    "properties": {
+                        "properties": {
+                            "cluster_ref": "/Subscriptions/EXAMPLE/ManagedClusters/AKS",
+                            "uid": "pod-uid-a",
+                        }
+                    },
+                },
+            ),
+        ),
+        complete=True,
+    )
+
+    result = await handler(
+        _scope_node(),
+        {"scope": QueryNodeResult(value=scope, evidence_refs=("objectset:receipt",))},
+    )
+
+    assert isinstance(result.value, MetricWindow)
+    assert result.value.resource_id == "pod-a"
+    assert provider.query_labels == {
+        "resource_id": "/subscriptions/example/managedclusters/aks",
+        "pod_uid": "pod-uid-a",
+    }

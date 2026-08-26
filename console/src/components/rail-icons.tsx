@@ -97,6 +97,14 @@ export function settingsIcon(): JSX.Element {
   );
 }
 
+export function chatIcon(): JSX.Element {
+  return (
+    <svg {...iconProps}>
+      <path d="M21 15 A4 4 0 0 1 17 19 H8 L3 22 V7 A4 4 0 0 1 7 3 H17 A4 4 0 0 1 21 7 Z" />
+    </svg>
+  );
+}
+
 export function groupIcon(group: PanelGroup): JSX.Element {
   switch (group) {
     case "overview":

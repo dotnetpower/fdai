@@ -257,9 +257,12 @@ def build_operator_app(
                 else:
                     yield b": keepalive\n\n"
                 await asyncio.sleep(2.0)
-                projection = await read_model.incident_attention(
-                    IncidentAttentionQuery(after_seq=current, limit=50)
-                )
+                try:
+                    projection = await read_model.incident_attention(
+                        IncidentAttentionQuery(after_seq=current, limit=50)
+                    )
+                except ProjectionUnavailableError:
+                    return
 
         return StreamingResponse(
             events(),

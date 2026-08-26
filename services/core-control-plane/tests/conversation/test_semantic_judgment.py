@@ -8,6 +8,8 @@ import pytest
 from fdai.core.conversation.semantic_judgment import (
     SemanticJudgmentBinding,
     SemanticJudgmentBoundary,
+    SemanticJudgmentModelResponse,
+    SemanticJudgmentObservation,
 )
 from fdai_service_contracts.ontology_query import content_digest
 from fdai_service_contracts.semantic_judgment import (
@@ -107,6 +109,29 @@ def test_accepts_grounded_t1_proposal_with_content_free_receipt() -> None:
     assert result.receipt.input_digest == content_digest({"utterance": utterance})
     assert utterance not in result.receipt.model_dump_json()
     assert result.receipt.execution_authority is False
+
+
+def test_preserves_measured_provider_observation_without_changing_proposal_validation() -> None:
+    observation = SemanticJudgmentObservation(
+        model="semantic-test",
+        usage={"prompt_tokens": 12, "completion_tokens": 3, "total_tokens": 15},
+        trace_call={"call_id": "semantic-judgment-1", "redacted": True},
+    )
+    model = _Model(
+        SemanticJudgmentModelResponse(
+            proposal=_proposal(),
+            observation=observation,
+        )
+    )
+
+    result = _boundary(model).judge(
+        utterance="Show api-example budget status",
+        context=(),
+        capabilities=({"intent": "cost_breakdown"},),
+    )
+
+    assert result.accepted is True
+    assert result.observations == (observation,)
 
 
 @pytest.mark.parametrize(

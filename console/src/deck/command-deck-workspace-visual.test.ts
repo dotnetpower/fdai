@@ -43,10 +43,10 @@ const historyState = readFileSync(
 describe("Command Deck workspace hierarchy", () => {
   test("opens transcript-first and adds columns only for requested panels", () => {
     expect(source).toContain("const [showConversations, setShowConversations] = useState(false);");
-    expect(source).toContain("const [showDigest, setShowDigest] = useState(false);");
     expect(source).toContain('class="deck-source-readiness-slot cs-deck-source-readiness-slot"');
     expect(sidebarStyles).toContain("grid-template-columns: var(--deck-conversation-width, 240px) minmax(0, 1fr);");
-    expect(styles).toContain(".deck-body.has-digest { grid-template-columns: minmax(0, 1fr) 280px; }");
+    expect(source).not.toContain("showDigest");
+    expect(source).not.toContain("DigestList");
     expect(styles).toMatch(/\.deck-overlay \{[^}]*grid-template-columns: minmax\(0, 1fr\);/s);
     for (const role of [
       "cs-deck-workspace-shell",
@@ -57,7 +57,6 @@ describe("Command Deck workspace hierarchy", () => {
       "cs-deck-conversation-scrim",
       "cs-deck-transcript-column",
       "cs-deck-workspace-toolbar",
-      "cs-deck-digest-panel",
     ]) {
       expect(sharedStyles).toContain(`.${role}`);
       expect(`${source}\n${header}\n${presenters}`).toContain(role);
@@ -74,6 +73,22 @@ describe("Command Deck workspace hierarchy", () => {
     expect(presenters).toContain("visibleLimit");
   });
 
+  test("keeps conversation actions in the header and omits screen information", () => {
+    expect(header).toContain('class="deck-header-actions"');
+    expect(header).toContain('class="deck-header-action deck-header-history"');
+    expect(header).toContain('class="deck-header-action-count"');
+    expect(source).not.toContain("deck-panel-toggle-context");
+    expect(source).not.toContain("deck-digest");
+    expect(styles).toContain(".deck-header-action {");
+  });
+
+  test("closes auxiliary panels when starting a new conversation", () => {
+    expect(source).toContain("const beginNewConversation = () => {");
+    expect(source).toContain("setShowConversations(false);");
+    expect(source).toContain("onNewConversation={beginNewConversation}");
+    expect(source).toContain("onNew={beginNewConversation}");
+  });
+
   test("separates durable history loading and failures from a new conversation", () => {
     expect(source).toContain('hydrationStatus !== "idle"');
     expect(source).toContain('hydrationStatus === "idle"');
@@ -84,6 +99,40 @@ describe("Command Deck workspace hierarchy", () => {
     expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-history-state button \{ min-height: 44px; \}/);
     expect(styles).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*\.deck-history-state\.is-loading span,/);
     expect(styles).toContain(".deck-history-state button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }");
+  });
+
+  test("centers the composer only for a new workspace conversation", () => {
+    expect(source).toContain('const centeredEmptyState = emptyConversation && layoutMode === "workspace";');
+    expect(source).toContain('centered={centeredEmptyState}');
+    expect(source).toContain('{centeredEmptyState ? composer : null}');
+    expect(source).toContain('{centeredEmptyState ? null : composer}');
+    expect(source).toContain('centeredEmptyState ? " is-empty-conversation" : ""');
+    expect(presenters).toContain('class="deck-intro-title"');
+    expect(styles).toMatch(/\.deck-overlay-mode-workspace \.deck-transcript-inner\.is-empty-conversation \{[^}]*justify-content: center;/s);
+    expect(styles).toMatch(/\.deck-input-row\.is-centered \{[^}]*border-top: 0;[^}]*background: transparent;/s);
+    expect(styles).toMatch(/\.deck-overlay-mode-workspace \.deck-input-row\.is-centered \.deck-composer-inner \{[^}]*width: min\(100%, 820px\);[^}]*border-radius: 14px;/s);
+    expect(styles).toMatch(/\.deck-input-row\.is-centered \.deck-input \{[^}]*height: 48px;[^}]*padding-block: 13px;[^}]*line-height: 22px;/s);
+    expect(source).toContain('class="deck-send-icon"');
+    expect(styles).toContain(".deck-input-row.is-centered .deck-send-label { display: none; }");
+    expect(source).toContain('showTranscriptTools ? " has-tools" : ""');
+    expect(styles).toContain(".deck-transcript-column.has-tools { grid-template-rows: auto minmax(0, 1fr); }");
+  });
+
+  test("shows compact pending feedback before observed progress", () => {
+    expect(source).toContain(
+      "const showPendingReply = pending && retrievalProgress === null && !finalAnswerPresent;",
+    );
+    expect(source).toContain(
+      "const showPreparingAnswer = inFlight && retrievalProgress !== null && !finalAnswerPresent;",
+    );
+    expect(source).toContain("<PendingReplyIndicator />");
+    expect(source).toContain("<RetrievalTrace");
+    expect(styles).toContain(".deck-pending-reply {");
+    expect(styles).toContain("@keyframes deck-pending-dot");
+    expect(styles).toContain(':root[data-motion="reduced"] .deck-pending-reply,');
+    expect(styles).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.deck-pending-reply-dots > span,/,
+    );
   });
 
   test("persists a bounded workspace conversation width", () => {
@@ -103,12 +152,8 @@ describe("Command Deck workspace hierarchy", () => {
     expect(sidebarStyles).toContain("overflow-y: auto;");
   });
 
-  test("does not reserve a hidden digest column on narrow screens", () => {
-    expect(styles).toContain(".deck-body.has-digest { grid-template-columns: minmax(0, 1fr); }");
-    expect(styles).toContain(".deck-panel-toggle-context { display: none; }");
-    expect(sidebarStyles).toMatch(
-      /@media \(max-width: 1100px\)[\s\S]*\.deck-overlay-mode-workspace \.deck-body\.has-conversations\.has-digest \{[^}]*grid-template-columns: minmax\(0, 1fr\);/,
-    );
+  test("keeps the conversation overlay from reserving another side panel", () => {
+    expect(source).not.toContain("has-digest");
     expect(styles).not.toContain(".deck-body { min-width: 0; grid-template-columns: 200px minmax(0, 1fr); }");
   });
 
@@ -131,9 +176,7 @@ describe("Command Deck workspace hierarchy", () => {
 
   test("opens conversation history as an overlay outside workspace mode", () => {
     expect(styles).toContain(".deck-overlay-mode-floating .deck-body.has-conversations,");
-    expect(styles).toContain(".deck-overlay-mode-floating .deck-body.has-digest,");
     expect(styles).toContain(".deck-overlay-mode-dock .deck-body.has-conversations,");
-    expect(styles).toContain(".deck-overlay-mode-dock .deck-body.has-digest { grid-template-columns: minmax(0, 1fr); }");
     expect(sidebarStyles).toMatch(/\.deck-overlay-mode-floating \.deck-conversations,[\s\S]*\.deck-overlay-mode-dock \.deck-conversations \{[^}]*position: absolute;[^}]*inset: 0 auto 0 0;[^}]*width: min\(300px, 82%\);/);
     expect(sidebarStyles).toMatch(/\.deck-overlay-mode-floating \.deck-conversations-scrim,[\s\S]*\.deck-overlay-mode-dock \.deck-conversations-scrim \{[^}]*position: absolute;[^}]*inset: 0;[^}]*display: block;/);
     expect(styles).not.toContain(".deck-overlay-mode-dock .deck-transcript-tools { display: none; }");
@@ -144,7 +187,7 @@ describe("Command Deck workspace hierarchy", () => {
     expect(styles).not.toContain(".deck-composer-scope");
     expect(source).toContain("<CommandDeckHeader");
     expect(source).toContain("routeLabel={routeLabel}");
-    expect(source).toContain('class="deck-digest-header"');
+    expect(source).not.toContain('class="deck-digest-header"');
     expect(source).toContain('placeholder={t("deck.inputPlaceholder")}');
     expect(source).toContain('aria-label={t("deck.inputPlaceholderContext", { route: routeLabel })}');
   });
@@ -293,8 +336,9 @@ describe("Command Deck workspace hierarchy", () => {
 
   test("keeps mobile header and composer compact", () => {
     expect(styles).toMatch(
-      /@media \(max-width: 640px\)[\s\S]*grid-template-areas:\s*"title close"\s*"headline headline";/,
+      /@media \(max-width: 640px\)[\s\S]*grid-template-areas:\s*"title actions window"\s*"headline headline headline";/,
     );
+    expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-header-action \{ width: 44px; height: 44px; \}/);
     expect(styles).toMatch(
       /@media \(max-width: 640px\)[\s\S]*\.deck-composer-inner \{ grid-template-columns: auto minmax\(0, 1fr\) auto;/,
     );

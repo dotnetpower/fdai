@@ -52,15 +52,27 @@ class ReadInvestigationRequest:
     idempotency_key: str
     created_at: datetime
     explicit_deep: bool = False
+    origin_channel_kind: str = "operator-api"
+    origin_channel_id: str | None = None
+    origin_thread_id: str | None = None
+    origin_message_id: str | None = None
 
     def __post_init__(self) -> None:
-        for name, value in (
+        for name, required_value in (
             ("requester_ref", self.requester_ref),
             ("conversation_ref", self.conversation_ref),
             ("correlation_ref", self.correlation_ref),
             ("idempotency_key", self.idempotency_key),
+            ("origin_channel_kind", self.origin_channel_kind),
         ):
-            _identifier(name, value)
+            _identifier(name, required_value)
+        for name, optional_value in (
+            ("origin_channel_id", self.origin_channel_id),
+            ("origin_thread_id", self.origin_thread_id),
+            ("origin_message_id", self.origin_message_id),
+        ):
+            if optional_value is not None:
+                _identifier(name, optional_value)
         if self.created_at.tzinfo is None:
             raise ValueError("created_at MUST be timezone-aware")
         if not 60 <= self.lookback_seconds <= 2_592_000:

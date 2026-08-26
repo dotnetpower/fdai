@@ -2,6 +2,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   DECK_OPEN_EVENT,
   DECK_OPEN_READY_EVENT,
+  DECK_STATE_EVENT,
+  DECK_TOGGLE_EVENT,
+  isDeckOpen,
   isDeckOpenListenerReady,
   DECK_WORKSPACE_NAVIGATION_EVENT,
   installWorkspaceDeckNavigationHandler,
@@ -9,6 +12,8 @@ import {
   acknowledgeDeckOpenEvent,
   openDeckWithContext,
   openDeckWithPrompt,
+  publishDeckOpenState,
+  requestDeckToggle,
   requestWorkspaceDeckCloseForNavigation,
   setDeckOpenListenerReady,
 } from "./open-deck";
@@ -25,6 +30,7 @@ class FakeCustomEvent<T> {
 afterEach(() => {
   setDeckOpenListenerReady(false);
   clearPendingDeckOpenRequests();
+  publishDeckOpenState(false);
   vi.unstubAllGlobals();
 });
 
@@ -158,6 +164,52 @@ describe("openDeckWithContext", () => {
       correlationId: "corr-selected",
       selectedAgent: "Var",
     });
+  });
+});
+
+describe("Activity Bar Deck controls", () => {
+  it("defers one toggle until the lazy Deck listener is ready", () => {
+    const target = new EventTarget();
+    const toggle = vi.fn();
+    const ready = vi.fn();
+    target.addEventListener(DECK_TOGGLE_EVENT, toggle);
+    target.addEventListener(DECK_OPEN_READY_EVENT, ready);
+    vi.stubGlobal("window", target);
+
+    requestDeckToggle();
+    expect(toggle).not.toHaveBeenCalled();
+
+    setDeckOpenListenerReady(true);
+    expect(toggle).toHaveBeenCalledOnce();
+    expect(ready).toHaveBeenCalledOnce();
+  });
+
+  it("cancels two deferred toggles before the Deck mounts", () => {
+    const target = new EventTarget();
+    const toggle = vi.fn();
+    target.addEventListener(DECK_TOGGLE_EVENT, toggle);
+    vi.stubGlobal("window", target);
+
+    requestDeckToggle();
+    requestDeckToggle();
+    setDeckOpenListenerReady(true);
+
+    expect(toggle).not.toHaveBeenCalled();
+  });
+
+  it("publishes the current open state", () => {
+    const dispatched: FakeCustomEvent<{ open: boolean }>[] = [];
+    vi.stubGlobal("CustomEvent", FakeCustomEvent);
+    vi.stubGlobal("window", {
+      dispatchEvent: (event: FakeCustomEvent<{ open: boolean }>) => dispatched.push(event),
+    });
+
+    publishDeckOpenState(true);
+
+    expect(isDeckOpen()).toBe(true);
+    expect(dispatched).toHaveLength(1);
+    expect(dispatched[0]?.type).toBe(DECK_STATE_EVENT);
+    expect(dispatched[0]?.detail.open).toBe(true);
   });
 });
 

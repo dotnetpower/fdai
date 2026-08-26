@@ -19,7 +19,7 @@ from fdai_service_contracts.semantic_turn import (
     multiplexed_consumer_group,
 )
 
-from fdai_operator_service.contract_codecs import CORE_REQUEST_PRODUCER_V13
+from fdai_operator_service.contract_codecs import CORE_REQUEST_PRODUCER_V15
 
 MAX_SEMANTIC_MESSAGE_BYTES = 1_000_000
 _TOPIC_PATTERN = re.compile(r"^[a-z0-9._-]+$")
@@ -46,6 +46,7 @@ class OperatorSemanticKafkaConfig:
     request_topic: str = "operator.semantic-turn.requests"
     projection_topic: str = "core.semantic-turn.projections"
     read_investigation_topic: str | None = None
+    read_investigation_completion_topic: str | None = None
     client_id: str = "fdai-operator-service"
     auto_offset_reset: str = "earliest"
     dlq_suffix: str = ".dlq"
@@ -70,6 +71,16 @@ class OperatorSemanticKafkaConfig:
             or self.read_investigation_topic in {self.request_topic, self.projection_topic}
         ):
             raise ValueError("read investigation topic MUST be distinct and valid")
+        if self.read_investigation_completion_topic is not None and (
+            _TOPIC_PATTERN.fullmatch(self.read_investigation_completion_topic) is None
+            or self.read_investigation_completion_topic
+            in {
+                self.request_topic,
+                self.projection_topic,
+                self.read_investigation_topic,
+            }
+        ):
+            raise ValueError("read investigation completion topic MUST be distinct and valid")
         if self.auto_offset_reset not in {"earliest", "latest"}:
             raise ValueError("auto_offset_reset MUST be earliest or latest")
         if not self.dlq_suffix:
@@ -139,11 +150,15 @@ class OperatorSemanticKafkaBus:
                     f"{self._config.read_investigation_topic}{self._config.dlq_suffix}",
                 }
             )
+        if self._config.read_investigation_completion_topic is not None:
+            allowed.add(
+                f"{self._config.read_investigation_completion_topic}{self._config.dlq_suffix}"
+            )
         if topic not in allowed:
             raise ValueError("semantic Kafka publish topic is not configured")
         producer = await self._get_producer()
         encoded = (
-            CORE_REQUEST_PRODUCER_V13.encode(payload)
+            CORE_REQUEST_PRODUCER_V15.encode(payload)
             if topic == self._config.request_topic
             else _encode(payload, maximum=self._config.maximum_message_bytes)
         )
@@ -168,7 +183,10 @@ class OperatorSemanticKafkaBus:
         group_id: str,
     ) -> AsyncIterator[Mapping[str, object]]:
         """Yield valid mappings and commit only after downstream processing resumes."""
-        if topic != self._config.projection_topic:
+        if topic not in {
+            self._config.projection_topic,
+            self._config.read_investigation_completion_topic,
+        }:
             raise ValueError("semantic Kafka subscription topic is not configured")
         physical_topic = self._config.physical_topic or topic
         routed_group = (

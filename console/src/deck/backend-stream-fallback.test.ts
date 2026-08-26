@@ -1152,8 +1152,12 @@ describe("askBackendStream fallback typewriter", () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
     const mod = await import("./backend");
 
+    const progress = vi.fn();
+    const activity = vi.fn();
     const reply = await mod.askBackendStream("hello", snap(), [], {
       onToken: () => undefined,
+      onProgress: progress,
+      onActivity: activity,
     });
 
     expect(reply.source).toBe("semantic-direct-response");
@@ -1161,6 +1165,8 @@ describe("askBackendStream fallback typewriter", () => {
     expect(reply.answerPlan?.intent).toBe("greeting");
     expect(reply.verification).toBeUndefined();
     expect(reply.trajectoryDetail).toBeUndefined();
+    expect(progress).not.toHaveBeenCalled();
+    expect(activity).not.toHaveBeenCalled();
   });
 
 });

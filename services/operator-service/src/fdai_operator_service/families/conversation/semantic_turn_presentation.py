@@ -17,7 +17,7 @@ from fdai_operator_service.families.conversation.presentation_rows import (
 from fdai_operator_service.families.conversation.presentation_rows import (
     readable_row as _readable_row,
 )
-from fdai_service_contracts import SemanticAssuranceObservation
+from fdai_service_contracts import SemanticAssuranceObservation, SemanticDirectResponseIntent
 from pydantic import ValidationError
 
 _SEMANTIC_ROUTE_BY_DISPOSITION = {
@@ -33,6 +33,7 @@ _SEMANTIC_UNAVAILABLE_REASONS = {
     "historical_evidence_unavailable",
     "semantic_planner_unavailable",
 }
+_DIRECT_RESPONSE_INTENTS = frozenset(intent.value for intent in SemanticDirectResponseIntent)
 _MAX_SUMMARY_ITEMS = 16
 _MAX_TABLE_COLUMNS = 6
 _MAX_TABLE_ROWS = 40
@@ -79,6 +80,10 @@ def semantic_done_event_data(
     verified = disposition == "answered" and not missing_answer
     payload = projection.get("payload")
     technical_details = payload.get("technical_details") if isinstance(payload, Mapping) else None
+    model = payload.get("model") if isinstance(payload, Mapping) else None
+    latency_ms = payload.get("latency_ms") if isinstance(payload, Mapping) else None
+    usage = payload.get("usage") if isinstance(payload, Mapping) else None
+    model_trace = payload.get("model_trace") if isinstance(payload, Mapping) else None
     presentation_artifact = semantic_presentation_artifact(
         semantic=semantic,
         technical_details=technical_details,
@@ -109,6 +114,22 @@ def semantic_done_event_data(
             "status": disposition,
             "answer": answer,
             "source": "semantic-direct-response" if direct_response else "ontology-query",
+            **(
+                {
+                    **({"model": model} if isinstance(model, str) and model else {}),
+                    **(
+                        {"latency_ms": latency_ms}
+                        if isinstance(latency_ms, int)
+                        and not isinstance(latency_ms, bool)
+                        and latency_ms >= 0
+                        else {}
+                    ),
+                    **({"usage": usage} if isinstance(usage, Mapping) else {}),
+                    **({"model_trace": model_trace} if isinstance(model_trace, Mapping) else {}),
+                }
+                if direct_response
+                else {}
+            ),
             **(
                 {}
                 if direct_response
@@ -1361,19 +1382,28 @@ def semantic_answer_plan(technical_details: object) -> JsonObject | None:
 
 
 def _direct_response_answer_plan(semantic: Mapping[str, object]) -> JsonObject:
-    """Describe an evidence-free greeting without query presentation metadata."""
+    """Describe an evidence-free social response without query presentation metadata."""
 
-    if semantic.get("direct_response_intent") != "greeting":
+    direct_response_intent = semantic.get("direct_response_intent")
+    if direct_response_intent == SemanticDirectResponseIntent.GREETING:
+        intent = "greeting"
+        sections = ["greeting", "next_step"]
+        max_words = 80
+    elif direct_response_intent == SemanticDirectResponseIntent.SELF_INTRODUCTION:
+        intent = "self_introduction"
+        sections = ["identity", "capabilities", "authority_boundary"]
+        max_words = 100
+    else:
         raise ValueError("stored direct response intent is unsupported")
     return cast(
         JsonObject,
         {
-            "intent": "greeting",
+            "intent": intent,
             "detail_level": "brief",
             "format": "prose",
-            "sections": ["greeting", "next_step"],
+            "sections": sections,
             "evidence_requirement": "none",
-            "max_words": 80,
+            "max_words": max_words,
             "discuss": "skip",
             "explicit_overrides": [],
             "preference_applied": False,
@@ -1456,7 +1486,7 @@ def _semantic_receipt(
     if semantic.get("execution_authority") is not False:
         raise ValueError("stored semantic projection MUST deny execution authority")
     if disposition == "direct_response":
-        if direct_response_intent != "greeting" or digests:
+        if direct_response_intent not in _DIRECT_RESPONSE_INTENTS or digests:
             raise ValueError("stored direct response semantic projection is malformed")
     elif direct_response_intent is not None:
         raise ValueError("stored non-direct semantic projection carries a direct answer intent")

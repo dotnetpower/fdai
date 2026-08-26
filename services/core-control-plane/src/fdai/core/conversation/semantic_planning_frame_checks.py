@@ -313,6 +313,17 @@ def normalize_and_gate_frame(
         utterance=utterance,
         context=context,
     )
+    if (
+        judgment is not None
+        and judgment.action_posture == "advise_only"
+        and frame.operation is SemanticOperation.ACTION_DRAFT
+    ):
+        return _outcome(
+            SemanticPlanningDisposition.UNSUPPORTED,
+            "semantic_action_posture_mismatch",
+            manifest_digest=manifest_digest,
+            frame=frame,
+        )
     proposal, frame = _resolve_semantic_judgment_bound_read(
         proposal,
         frame,

@@ -22,6 +22,7 @@ from .semantic_planning import SemanticPlanningService
 from .semantic_planning_cascade import SemanticPlanningEscalationPolicy
 from .semantic_planning_models import (
     BoundIncident,
+    BoundInvestigationContinuation,
     SemanticPlanningDisposition,
     SemanticPlanningOutcome,
 )
@@ -88,6 +89,7 @@ class SemanticConversationRuntime:
         principal: Principal,
         cancelled: asyncio.Event | None = None,
         bound_incident: BoundIncident | None = None,
+        bound_investigation_continuation: BoundInvestigationContinuation | None = None,
         escalation_policy: SemanticPlanningEscalationPolicy | None = None,
     ) -> SemanticTurnResult:
         """Terminate every accepted turn without invoking a compatibility parser."""
@@ -99,6 +101,7 @@ class SemanticConversationRuntime:
             principal=principal,
             purpose=self._purpose,
             bound_incident=bound_incident,
+            bound_investigation_continuation=bound_investigation_continuation,
             escalation_policy=escalation_policy,
         )
         if planning.disposition is SemanticPlanningDisposition.DIRECT_RESPONSE:

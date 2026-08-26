@@ -16,6 +16,7 @@ from uuid import uuid4
 
 import anyio
 import psycopg
+from fdai_service_contracts import SemanticInvestigationContinuation
 from psycopg.rows import dict_row
 
 from fdai_operator_service.environment import EXPECTED_DATABASE_ROLE
@@ -140,14 +141,14 @@ SELECT (
     AND NOT has_table_privilege(current_user, 'inventory_realtime_link', 'REFERENCES')
     AND NOT has_table_privilege(current_user, 'inventory_realtime_link', 'TRIGGER')
     AND has_table_privilege(current_user, 'conversation_record', 'SELECT')
-    AND NOT has_table_privilege(current_user, 'conversation_record', 'INSERT')
-    AND NOT has_table_privilege(current_user, 'conversation_record', 'UPDATE')
+    AND has_table_privilege(current_user, 'conversation_record', 'INSERT')
+    AND has_table_privilege(current_user, 'conversation_record', 'UPDATE')
     AND NOT has_table_privilege(current_user, 'conversation_record', 'DELETE')
     AND NOT has_table_privilege(current_user, 'conversation_record', 'TRUNCATE')
     AND NOT has_table_privilege(current_user, 'conversation_record', 'REFERENCES')
     AND NOT has_table_privilege(current_user, 'conversation_record', 'TRIGGER')
     AND has_table_privilege(current_user, 'conversation_turn', 'SELECT')
-    AND NOT has_table_privilege(current_user, 'conversation_turn', 'INSERT')
+    AND has_table_privilege(current_user, 'conversation_turn', 'INSERT')
     AND NOT has_table_privilege(current_user, 'conversation_turn', 'UPDATE')
     AND NOT has_table_privilege(current_user, 'conversation_turn', 'DELETE')
     AND NOT has_table_privilege(current_user, 'conversation_turn', 'TRUNCATE')
@@ -174,6 +175,21 @@ SELECT (
     AND NOT has_table_privilege(current_user, 'background_task_completion', 'TRUNCATE')
     AND NOT has_table_privilege(current_user, 'background_task_completion', 'REFERENCES')
     AND NOT has_table_privilege(current_user, 'background_task_completion', 'TRIGGER')
+    AND has_table_privilege(
+        current_user, 'operator_read_investigation_completion', 'SELECT'
+    )
+    AND has_table_privilege(
+        current_user, 'operator_read_investigation_completion', 'INSERT'
+    )
+    AND NOT has_table_privilege(
+        current_user, 'operator_read_investigation_completion', 'UPDATE'
+    )
+    AND NOT has_table_privilege(
+        current_user, 'operator_read_investigation_completion', 'DELETE'
+    )
+    AND has_sequence_privilege(
+        current_user, 'operator_read_investigation_completion_sequence_seq', 'USAGE'
+    )
        ) AS ready
   FROM pg_catalog.pg_roles AS login_role
  WHERE login_role.rolname = current_user
@@ -1807,6 +1823,24 @@ class PostgresFamilyStore:
                 "authoritative semantic result projection is unavailable"
             ) from exc
 
+    async def latest_semantic_investigation_continuation(
+        self,
+        *,
+        principal_id: str,
+        session_id: str,
+    ) -> SemanticInvestigationContinuation | None:
+        """Resolve the latest prior continuation from principal-scoped durable results."""
+
+        try:
+            return await self._semantic_turn_store.latest_investigation_continuation(
+                principal_id=principal_id,
+                session_id=session_id,
+            )
+        except SemanticTurnStoreError as exc:
+            raise PostgresFamilyStoreUnavailable(
+                "authoritative semantic continuation is unavailable"
+            ) from exc
+
     async def replay_semantic_turn(
         self,
         *,
@@ -1843,8 +1877,27 @@ class PostgresFamilyStore:
             raise ValueError("after_sequence MUST be non-negative")
         if not 1 <= limit <= 500:
             raise ValueError("replay limit MUST be in [1, 500]")
-        rows = await self._fetch_all(
-            """
+        if stream.startswith("read-investigation:"):
+            rows = await self._fetch_all(
+                """
+                SELECT sequence AS seq, event AS action_kind, data AS entry
+                  FROM operator_read_investigation_completion
+                 WHERE sequence > %(after_sequence)s
+                   AND stream = %(stream)s
+                   AND principal_id = %(principal_id)s
+                 ORDER BY sequence ASC
+                 LIMIT %(limit)s
+                """,
+                {
+                    "after_sequence": after_sequence or 0,
+                    "stream": stream,
+                    "principal_id": principal_id,
+                    "limit": limit,
+                },
+            )
+        else:
+            rows = await self._fetch_all(
+                """
             SELECT seq, action_kind, entry
               FROM audit_log
              WHERE seq > %(after_sequence)s
@@ -1853,13 +1906,13 @@ class PostgresFamilyStore:
              ORDER BY seq ASC
              LIMIT %(limit)s
             """,
-            {
-                "after_sequence": after_sequence or 0,
-                "stream": stream,
-                "principal_id": principal_id,
-                "limit": limit,
-            },
-        )
+                {
+                    "after_sequence": after_sequence or 0,
+                    "stream": stream,
+                    "principal_id": principal_id,
+                    "limit": limit,
+                },
+            )
         events: list[StoredReplayEvent] = []
         for row in rows:
             sequence = row.get("seq")
@@ -2136,6 +2189,15 @@ class UnavailablePostgresFamilyStore(PostgresFamilyStore):
     ) -> StoredSemanticResult:
         del projection
         raise PostgresFamilyStoreUnavailable("semantic result projection is unavailable")
+
+    async def latest_semantic_investigation_continuation(
+        self,
+        *,
+        principal_id: str,
+        session_id: str,
+    ) -> SemanticInvestigationContinuation | None:
+        del principal_id, session_id
+        raise PostgresFamilyStoreUnavailable("semantic continuation is unavailable")
 
     async def replay_semantic_turn(
         self,

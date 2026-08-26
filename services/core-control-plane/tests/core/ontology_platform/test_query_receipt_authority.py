@@ -62,3 +62,46 @@ def test_receipt_bound_evicts_oldest_issue() -> None:
         )
         is False
     )
+
+
+def test_output_receipt_marker_selects_one_result_from_preserved_lineage() -> None:
+    first = _secured_result(objects=(_resource("resource-a", "network.nic"),), links=())
+    second = _secured_result(objects=(_resource("resource-b", "network.nic"),), links=())
+    authority = SecuredQueryReceiptAuthority()
+    authority.issue(first)
+    authority.issue(second)
+
+    resolved = authority.resolve(
+        (
+            f"ontology-object-set:{first.receipt.projected_result_digest}",
+            f"ontology-object-set:{second.receipt.projected_result_digest}",
+            f"ontology-object-set-output:{second.receipt.projected_result_digest}",
+        )
+    )
+
+    assert resolved.receipt.projected_result_digest == second.receipt.projected_result_digest
+
+
+def test_issued_receipt_accepts_an_exact_multi_dependency_context() -> None:
+    first = _secured_result(objects=(_resource("resource-a", "network.nic"),), links=())
+    second = _secured_result(objects=(_resource("resource-b", "network.nic"),), links=())
+    authority = SecuredQueryReceiptAuthority()
+    authority.issue(first)
+    authority.issue(second)
+    context = _context(first.receipt.projected_result_digest).model_copy(
+        update={
+            "evidence_refs": (
+                first.receipt.projected_result_digest,
+                second.receipt.projected_result_digest,
+            )
+        }
+    )
+
+    assert authority.verify(
+        receipt=second.receipt,
+        invocation_context=context,
+        expected_release=second.receipt.ontology_release,
+        expected_purpose=second.receipt.purpose,
+        expected_result_digest=second.receipt.projected_result_digest,
+        verification_context=authority.verification_context,
+    )

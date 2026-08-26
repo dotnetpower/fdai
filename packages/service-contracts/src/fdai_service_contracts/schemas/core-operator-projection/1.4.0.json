@@ -96,7 +96,7 @@
         "checks_completed": {"type": "integer", "minimum": 0, "maximum": 64},
         "checks_total": {"type": "integer", "minimum": 0, "maximum": 64},
         "answer": {"type": "string", "minLength": 1, "maxLength": 64000},
-        "direct_response_intent": {"enum": ["greeting"]},
+        "direct_response_intent": {"enum": ["greeting", "self_introduction"]},
         "assurance_observation": {
           "type": "object",
           "additionalProperties": false,

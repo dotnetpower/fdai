@@ -170,6 +170,13 @@ scope, model, mode, conversation (`correlation_id`), day, and month, plus
 a bounded newest-first invocation ledger with model and capability on
 every row. The console renders this as the read-only **LLM usage** panel.
 
+Command Deck direct social responses reuse the measured `usage`, actual deployment identity, and
+duration of the semantic judgment call that selected the typed intent. The token-usage preference
+controls the answer badge only and never changes metering. The model-trace preference adds
+`include_model_trace` to operator-core request 1.4; Core then returns only bounded redacted request
+messages and the assistant JSON response. A disabled preference emits no durable trace. Neither
+setting retains hidden reasoning or changes evidence, approval, or execution authority.
+
 Derived price isn't exposed by the Operator API or console because regional,
 currency, and negotiated rates can make a configured estimate differ
 from the provider invoice. A deployment can still use its configured
@@ -388,9 +395,10 @@ class ConversationSession:
   opened. A floating Deck remains open across route navigation and
   live screen re-renders. In full-workspace mode, an Activity Bar group closes it and
   opens that group's first visible child page; otherwise explicit close or `Escape` dismisses it.
-  L3 response language follows the current turn: a Korean prompt renders a
-  Korean answer even when the console display locale is English. Otherwise,
-  the operator's configured locale controls the answer language. Before returning localized
+  L3 response language follows the current turn, independently from the Console display locale.
+  A prompt containing Korean requests a Korean answer, including mixed-language prompts. A prompt
+  without Korean requests an English answer. The configured locale controls the shell and product
+  labels but never overrides the current question's answer language. Before returning localized
   prose, the narrator proofreads only its own surrounding prose for malformed or nonsensical
   words, accidental character sequences, duplicated fragments, and accidental language mixing.
   It never corrects, normalizes, translates, or rewrites quoted evidence values, identifiers,
@@ -541,6 +549,7 @@ as data, exactly as the T2 quality gate treats event payloads.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-26 | implemented | Made the current question language authoritative for Command Deck answers. English questions request English even when the Console display language is Korean, while Korean and mixed prompts containing Korean request Korean. Display locale continues to control shell labels only. | `current change`; `backend-context.ts`; focused request-payload locale checks passed 18 cases. | Retain authenticated English and Korean browser turns from the same display locale. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. | `current change`; current conversation, working-context, history, Operator application, and introspection evidence listed in the scope table. | Close durable restart, independent narrator routing, and authenticated long-session evidence. |
 | 2026-08-14 | implemented | Added live restart and principal-isolation coverage, then promoted durable history and complete-history assembly. | `current change`; the history/latest-context, image, and search suites passed 12 cases with zero skips against a disposable supported PostgreSQL database. | Close independent narrator routing and authenticated long-session evidence. |
 | 2026-08-14 | implemented | Added a dedicated restart check that rebuilds the complete principal-scoped turn sequence into a working-context manifest without borrowing another principal's history. | `current change`; `test_postgres_conversation_history_restart.py` passed its focused live case with no skips; focused Ruff and mypy passed. | Retain governed long-session and authenticated JSON/SSE evidence. |

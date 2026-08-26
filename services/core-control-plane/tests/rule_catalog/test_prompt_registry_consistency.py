@@ -130,6 +130,23 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     plan = prompts.get_base("semantic.query.plan")
 
     assert frame.version == 38
+    assert judgment.version == 3
+    assert "These are semantic categories, not words or phrase patterns" in judgment.body
+    assert "Never select a direct-response intent from string matching" in judgment.body
+    assert "select that operational intent as primary" in judgment.body
+    assert "Use the canonical primary_intent greeting" in judgment.body
+    assert "Use self_introduction" in judgment.body
+    assert "exact tokens identity, role, capabilities, and authority_boundary" in judgment.body
+    assert "For greeting, requested_facets and targets MUST be empty" in judgment.body
+    assert "A non-execution constraint is not an artifact deliverable" in judgment.body
+    assert "independently requests a governed artifact" in judgment.body
+    assert "needs a target, comparison side, or time range" in judgment.body
+    assert "ask for it instead of selecting unsupported" in judgment.body
+    assert "recommend the safest recovery sequence" in judgment.body
+    assert "recommendation, and advisory requests remain advise_only" in judgment.body
+    assert "create, draft, write, or revise a governed artifact" in judgment.body
+    assert "가장 안전한 복구안이나 복구 순서를 제시" in judgment.body
+    assert "작성, 생성, 초안 작성 또는 개정" in judgment.body
     assert "An exact ActionType target is not required" in judgment.body
     assert "rollback proposal -> Change" in judgment.body
     assert "The requested deliverable determines action_subject" in judgment.body

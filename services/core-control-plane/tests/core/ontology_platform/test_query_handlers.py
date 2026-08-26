@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from unittest.mock import AsyncMock
 
 import pytest
 from fdai.core.detection.series import MetricSample
@@ -26,6 +27,7 @@ from fdai.core.ontology_platform import (
 )
 from fdai.core.ontology_platform.metric_semantics import MetricWindow
 from fdai.core.ontology_platform.query_gateway import SecuredObjectSetQueryGateway
+from fdai.core.ontology_platform.query_receipt_authority import SecuredQueryReceiptAuthority
 from fdai.shared.contracts.models import (
     CeilingRole,
     OntologyFunctionKind,
@@ -35,7 +37,7 @@ from fdai.shared.contracts.models import (
     PropertyType,
 )
 from fdai.shared.ontology.release import build_ontology_release
-from fdai.shared.providers.ontology_instance import OntologyObjectRecord
+from fdai.shared.providers.ontology_instance import OntologyGraphSnapshot, OntologyObjectRecord
 from fdai.shared.providers.testing import InMemoryOntologyInstanceStore
 from fdai_service_contracts.ontology_query import (
     OntologyQueryNode,
@@ -437,4 +439,73 @@ async def test_secured_object_set_handler_applies_property_acl() -> None:
     assert properties["id"] == "resource-a"
     assert properties["secret"] == "[redacted]"
     assert properties["__redactions__"]["secret"]["reason"] == "access_scope"
+    assert result.evidence_refs[0].startswith("ontology-object-set:sha256:")
+
+
+async def test_secured_object_set_handler_preserves_source_incompleteness(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    resource = OntologyObjectType(
+        schema_version="1.0.0",
+        name="Resource",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    release = build_ontology_release(object_types=(resource,))
+    store = InMemoryOntologyInstanceStore(object_types=(resource,), link_types=())
+    monkeypatch.setattr(
+        store,
+        "query_objects",
+        AsyncMock(
+            return_value=OntologyGraphSnapshot(
+                objects=(),
+                links=(),
+                source_complete=False,
+            )
+        ),
+    )
+    service = ObjectSetService(
+        store=store,
+        interfaces=compile_interfaces(
+            interfaces=(),
+            implementations=(),
+            object_types=(resource,),
+            release=release,
+        ),
+        object_type_names=frozenset({"Resource"}),
+    )
+    gateway = SecuredObjectSetQueryGateway(
+        service=service,
+        object_types={"Resource": resource},
+        ontology_release=release,
+        evaluation_cutoff=lambda: NOW,
+    )
+    definition = ObjectSetDefinition(
+        selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Resource"),
+        as_of=NOW,
+        purpose="operations-review",
+        limit=10,
+    )
+    handler = SecuredObjectSetNodeHandler(
+        gateway,
+        caller_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        receipt_authority=SecuredQueryReceiptAuthority(),
+    )
+
+    result = await handler(
+        _node(
+            QueryNodeKind.OBJECT_SET,
+            dependencies=(),
+            arguments={"definition": definition.model_dump(mode="json")},
+        ),
+        {},
+    )
+
+    assert result.value == QueryTable(
+        rows=(),
+        complete=False,
+        truncation_reason="source_incomplete",
+    )
     assert result.evidence_refs[0].startswith("ontology-object-set:sha256:")

@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import replace
 from datetime import datetime
+from typing import Any
 
 from fdai_service_contracts.ontology_query import OntologyQueryNode, QueryNodeKind
 
@@ -171,12 +172,44 @@ class MetricScopeSeriesNodeHandler:
             )
             return QueryNodeResult(value=result, evidence_refs=result.evidence_refs)
         resource_id = resource_ids[0]
-        result = await self._provider.read(
-            definition=definition,
-            resource_id=resource_id,
-            start=start,
-            end=end,
-        )
+        query_labels = None
+        if definition.scope_label_selectors:
+            if not table.complete or len(resource_ids) != 1:
+                reason = (
+                    "object_scope_incomplete" if not table.complete else "object_scope_ambiguous"
+                )
+                result = MetricWindow(
+                    concept_id=concept_id,
+                    resource_id=resource_id,
+                    unit=definition.canonical_unit,
+                    start=start,
+                    end=end,
+                    samples=(),
+                    complete=False,
+                    evidence_refs=dependency.evidence_refs,
+                    missing_reason=reason,
+                )
+                return QueryNodeResult(value=result, evidence_refs=result.evidence_refs)
+            row = next(row for row in table.rows if row.values.get("id") == resource_id)
+            query_labels = _scope_query_labels(
+                row.values,
+                definition.scope_label_selectors,
+            )
+        if query_labels is None:
+            result = await self._provider.read(
+                definition=definition,
+                resource_id=resource_id,
+                start=start,
+                end=end,
+            )
+        else:
+            result = await self._provider.read(
+                definition=definition,
+                resource_id=resource_id,
+                start=start,
+                end=end,
+                query_labels=query_labels,
+            )
         if (
             result.concept_id != concept_id
             or result.resource_id != resource_id
@@ -206,6 +239,22 @@ class MetricScopeSeriesNodeHandler:
         elif result.evidence_refs != evidence_refs:
             result = replace(result, evidence_refs=evidence_refs)
         return QueryNodeResult(value=result, evidence_refs=result.evidence_refs)
+
+
+def _scope_query_labels(
+    values: Mapping[str, Any],
+    selectors: Mapping[str, tuple[str, ...]],
+) -> Mapping[str, str]:
+    labels: dict[str, str] = {}
+    for label, path in selectors.items():
+        selected: object = values
+        for segment in path:
+            if not isinstance(selected, Mapping) or segment not in selected:
+                raise ValueError("metric scope selector is absent from the verified Resource")
+            selected = selected[segment]
+        value = _text(selected, f"scope_label.{label}")
+        labels[label] = value.casefold() if label == "resource_id" else value
+    return labels
 
 
 class EvidenceJoinNodeHandler:

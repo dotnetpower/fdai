@@ -12,6 +12,7 @@ from fdai_service_contracts import (
     RuleSearchProjection,
     RuleSearchReceipt,
     SemanticAssuranceObservation,
+    SemanticInvestigationContinuation,
     SemanticTurnResult,
     query_content_digest,
     rule_search_query_digest,
@@ -129,6 +130,56 @@ def _semantic_result_payload() -> dict[str, Any]:
     }
 
 
+def _continuation_payload() -> dict[str, Any]:
+    return {
+        "schema_version": "1.0.0",
+        "source_session_id": "session-1",
+        "source_turn_id": "turn-1",
+        "source_turn_sequence": 1,
+        "target_type": "BusinessService",
+        "target_value": "service-example-api",
+        "recovery_measure_concepts": ["dependency.latency", "service.latency"],
+        "baseline_start": "2026-08-26T00:00:00Z",
+        "baseline_end": "2026-08-26T00:10:00Z",
+        "initial_observation_cutoff": "2026-08-26T00:20:00Z",
+        "ontology_release_digest": f"sha256:{'a' * 64}",
+        "principal_manifest_digest": f"sha256:{'b' * 64}",
+        "source_frame_digest": f"sha256:{'c' * 64}",
+        "source_plan_digest": f"sha256:{'d' * 64}",
+        "source_execution_receipt_digest": f"sha256:{'e' * 64}",
+        "execution_authority": False,
+    }
+
+
+def test_semantic_investigation_continuation_accepts_ordered_verified_context() -> None:
+    continuation = SemanticInvestigationContinuation.model_validate(_continuation_payload())
+
+    assert continuation.target_type == "BusinessService"
+    assert continuation.execution_authority is False
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    (
+        lambda payload: payload.__setitem__(
+            "recovery_measure_concepts", ["service.latency", "dependency.latency"]
+        ),
+        lambda payload: payload.__setitem__("baseline_end", "2026-08-25T23:59:00Z"),
+        lambda payload: payload.__setitem__("baseline_start", "2026-08-26T00:00:00"),
+        lambda payload: payload.__setitem__("execution_authority", True),
+    ),
+    ids=("unordered-measures", "reversed-window", "naive-time", "authority"),
+)
+def test_semantic_investigation_continuation_rejects_invalid_context(
+    mutation: Callable[[dict[str, Any]], None],
+) -> None:
+    payload = _continuation_payload()
+    mutation(payload)
+
+    with pytest.raises(ValidationError):
+        SemanticInvestigationContinuation.model_validate(payload)
+
+
 def test_semantic_result_accepts_typed_unavailability() -> None:
     result = SemanticTurnResult.model_validate(_semantic_result_payload())
 
@@ -152,6 +203,25 @@ def test_semantic_result_accepts_evidence_free_direct_greeting() -> None:
     result = SemanticTurnResult.model_validate(payload)
 
     assert result.direct_response_intent == "greeting"
+    assert result.evidence_refs == ()
+
+
+def test_semantic_result_accepts_evidence_free_self_introduction() -> None:
+    payload = {
+        "disposition": "direct_response",
+        "reason_code": "semantic_direct_response",
+        "semantic_route": "semantic_direct_response",
+        "session_id": "session-1",
+        "turn_id": "turn-1",
+        "turn_sequence": 1,
+        "answer": "I am Bragi, the FDAI Console conversation interface.",
+        "direct_response_intent": "self_introduction",
+        "execution_authority": False,
+    }
+
+    result = SemanticTurnResult.model_validate(payload)
+
+    assert result.direct_response_intent == "self_introduction"
     assert result.evidence_refs == ()
 
 

@@ -1,7 +1,7 @@
 ---
 translation_of: durable-conversation-delivery.md
-translation_source_sha: 27aeff87833c82c6c71b95f95612a7f89d59599b
-translation_revised: 2026-08-24
+translation_source_sha: 12fc2acc7c266a68b507f4990f720e58e745237b
+translation_revised: 2026-08-26
 ---
 # 영구 대화 전송
 
@@ -15,6 +15,37 @@ translation_revised: 2026-08-24
 
 > 벤더 sender id는 라우팅 근거이며 principal id가 아닙니다. 모호한 프로바이더 증적은
 > visible 최종 상태이며 자동으로 재시도하지 않습니다.
+
+## 읽기 조사 최종 완료
+
+Core는 변경할 수 없는 background-task 결과와 보류 중인 완료 발신함이 commit된 뒤에만
+`read-investigation-completion` `1.0.0`을 publish합니다. 권한이 없는 계약은 결정론적 완료 id,
+정본 task 및 attempt identity, 요청 멱등성 키, principal, correlation 및 origin binding, 범위가
+제한된 최종 결과와 근거 참조, 사용량, 순서가 보장된 timestamp, 보존 기한,
+`trusted=false`, `execution_authority=false`를 전달합니다. Task id가 partition key입니다.
+Core는 Operator 구현을 import하거나 Operator conversation, inbox 또는 delivery table에 쓰지
+않습니다.
+
+Operator 완료 consumer는 exact 계약과 digest를 검증한 뒤 일치하는 영속
+`read_investigation.start` 제안이 있어야 기록을 수락합니다. 하나의 Operator 소유 database
+transaction이 완료 inbox 기록을 insert 또는 replay하고, 결정론적인 신뢰되지 않는 assistant
+turn을 append하며, 변경할 수 없는 outbound response를 enqueue해야 합니다. Broker offset은 이
+transaction 뒤에 commit합니다. 기존 delivery worker가 provider claim, send, acknowledgement,
+ambiguous-send 처리 및 retry를 소유합니다. Delivery 실패는 Core에 조사를 다시 실행하거나 결과를
+다시 쓰도록 요청하지 않습니다.
+
+첫 codec은 exact `1.0.0`을 수락합니다. 가산 후속 버전은 N 및 N-1 decoder를 유지해야 하며 새
+payload를 downgrade할 수 없습니다. Malformed 기록은 즉시 sibling DLQ로 이동합니다. 일치하는
+제안이 아직 보이지 않는 완료는 범위가 제한된 횟수만큼 retry한 뒤 quarantine합니다. Inbox,
+turn 및 outbound identity는 결정론적이므로 중복 전송은 같은 기록을 재사용합니다. Broker는 일반
+기록을 1일, DLQ 기록을 7일 보존합니다. 영속 inbox 및 delivery 행은 계약이 제공한 기한과 최종
+delivery 보존 규칙이 purge를 허용할 때까지 데이터를 유지합니다.
+
+Rollback은 완료 consumer와 Core publisher를 비활성화하고 마지막 호환 Operator codec을
+복원하며 Core 완료 발신함 행과 수락된 Operator inbox 및 delivery 행을 그대로 유지합니다.
+호환성을 복원한 뒤 이 영속 기록에서 replay를 재개합니다. Rollback은 최종 결과를 삭제하거나,
+수락된 Operator transaction 이전으로 broker offset을 되돌리거나, Core에 Operator database
+writer를 부여하지 않습니다.
 
 ## 구현 상태
 
@@ -35,7 +66,7 @@ translation_revised: 2026-08-24
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| 읽기 조사 최종 완료 수신 | 시작 전 | [Azure 읽기 조사](azure-read-investigations-ko.md#남은-작업), [영속 Background 작업 Sessions](background-task-sessions-ko.md#남은-작업), [서비스 승격 및 데이터 소유권](../architecture/service-graduation-and-ownership-ko.md#프로세스-간-계약-매트릭스) | Core는 변경할 수 없는 최종 작업 결과를 소유하고 Operator는 대화 턴과 outbound 전달을 소유합니다. 현재 이 소유자를 연결하는 버전 지정 완료 codec, Operator 영속 inbox, 재시도 정책, 보존 규칙 또는 롤백 계약이 없습니다. |
+| 읽기 조사 최종 완료 수신 | 진행 중 | `read-investigation-completion` `1.0.0`, Core 완료 publisher, Operator 완료 저장소 및 consumer, `operator_read_investigation_completion_20260826`, 집중 완료 및 권한 검사 | Core는 변경할 수 없는 최종 작업 결과 하나를 publish합니다. Operator 운영 조립은 exact 제안을 검증하고 영속 inbox 행 하나와 멱등적인 Web assistant turn 하나를 원자적으로 씁니다. Migration은 Operator 대화 writer 권한을 부여하고 rollback에서 읽기 전용 접근을 복원합니다. Slack 및 Teams outbound enqueue, 보존 정리 및 통제된 재시작 근거는 열린 상태입니다. |
 
 ### 구현 이력
 
@@ -52,6 +83,7 @@ translation_revised: 2026-08-24
 | 2026-08-20 | 구현됨 | 기한 도래 전달 권한과 lifecycle 복구를 hardening했습니다. Claim된 모든 재시도는 활성 principal, scope, conversation 및 channel binding을 다시 검증하고, known Teams JWKS key는 범위가 제한된 TTL 뒤 갱신하며, runtime과 credential 종료는 멱등적입니다. | `current change`, 집중 edge 검사 81개, Ruff 및 strict mypy 통과 | 검증 전에 통제된 restart 및 외부 프로바이더 근거를 보존합니다. |
 | 2026-08-20 | 구현됨 | 영속 채널 reduction 전에 사용하는 읽기 쉬운 의미 행 projection을 통합했습니다. 중첩 provider property가 v2에서 사라지거나 raw 표시 JSON으로 노출되지 않고, response는 허용된 이름, 타입, 상태, 위치 필드를 보여 주면서 replay를 위한 exact 근거를 보존합니다. | `current change`, [이슈 #241](https://github.com/dotnetpower/fdai/issues/241), focused Operator 표현 검사 94개 통과, Ruff, formatting, strict mypy 통과 | 채널 검증 주장을 높이기 전에 인증된 Web 근거와 기존 통제된 Slack/Teams 런타임 증적을 보존합니다. |
 | 2026-08-23 | 시작 전 | 전송 스키마를 만들거나 Core에 Operator 대화 table 접근 권한을 부여하지 않고 교차 서비스 최종 읽기 조사 완료 수신을 명시적 소유권 선행 작업으로 등록했습니다. | `current change`; 구현 범위 행에 연결된 세 owner 문서가 열린 경계에 동의합니다. | 버전이 지정된 계약을 정의하고 검토한 뒤 Operator 소유 영속 수락, 멱등 projection, 전달 재시도, 보존 및 롤백 테스트를 구현합니다. |
+| 2026-08-26 | 진행 중 | 버전이 지정된 완료 codec, Core publisher, Operator inbox 및 Web 대화 materializer를 구현했습니다. Operator migration은 대화 쓰기를 부여하고 하나의 writable CTE가 영속 제안, assistant turn 및 inbox 행을 dedupe하며 rollback은 inbox를 drop하기 전에 쓰기 권한을 제거합니다. | `current change`; 집중 Operator readiness, 완료 저장소 및 migration 권한 검사가 통과했습니다. | 검증된 채널 binding 해석과 outbound enqueue, 보존 정리 및 통제된 재시작/process-loss 증적을 추가합니다. |
 
 ### 남은 작업
 
@@ -69,9 +101,10 @@ translation_revised: 2026-08-24
 - [x] 변경 제어가 없는 GET 전용 `ConversationDeliveryPanel` 투영을 구현합니다.
 - [ ] `ConversationDeliveryPanel`을 인증된 Console 읽기 경로와 운영 전달 저장소에 연결하고
      범위가 제한된 progressive-conversation 수집기를 함께 공유합니다.
-- [ ] 버전이 지정된 최종 읽기 조사 완료 계약과 Operator 소유 영속 inbox를 정의하고 멱등성 키,
-     N/N-1 호환성, poison 처리, 재시도, 보존 및 롤백을 포함한 뒤 Core가 Operator 대화 table에
-     직접 쓰지 않음을 입증합니다.
+- [x] 버전이 지정된 최종 완료 계약을 정의하고 Core publisher, Operator 소유 영속 inbox,
+     poison 처리, 범위가 제한된 재시도, rollback grant 및 멱등적인 Web assistant turn을 연결합니다.
+- [ ] 검증된 Slack 및 Teams binding 해석과 outbound enqueue를 추가하고 완료 inbox 보존 정리를
+     구현하며 통제된 재시작 및 process-loss 증적을 보존합니다.
 - [ ] 어떤 행이든 `검증됨`으로 승격하기 전에 재시작 간 영속성, 프로세스 손실 조정,
      외부 어댑터 확인 응답, 차단기 제어, 예약 전달 및 읽기 전용 메트릭에 대한 통제된
      런타임 증적을 기록합니다.

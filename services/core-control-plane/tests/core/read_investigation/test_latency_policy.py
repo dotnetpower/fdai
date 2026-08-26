@@ -7,6 +7,7 @@ from fdai.core.read_investigation import (
     PlanLatencyEstimate,
     ReadInvestigationBudget,
     ReadInvestigationExecutionMode,
+    ReadInvestigationModeSelector,
     ReadInvestigationPlan,
     ReadInvestigationRequest,
     ReadLatencyProfile,
@@ -16,6 +17,7 @@ from fdai.core.read_investigation import (
     interactive_investigation_policy,
     latency_profile,
     plan_read_investigation,
+    read_tool_spec,
 )
 from fdai.shared.providers.read_investigation import (
     ReadInvestigationIntent,
@@ -149,3 +151,63 @@ def test_interactive_policy_preserves_local_and_deployed_mode_parity() -> None:
         )
         is ReadInvestigationExecutionMode.STREAMED
     )
+
+
+async def test_mode_selector_uses_durable_profiles_before_provider_io() -> None:
+    plan = _plan()
+    samples = {
+        step.tool_id: tuple(
+            ReadLatencySample(
+                tool_id=step.tool_id,
+                transport="test",
+                operation_class=read_tool_spec(step.tool_id).operation_class,
+                succeeded=True,
+                queue_duration_ms=0,
+                execution_duration_ms=12_000,
+                recorded_at=NOW,
+            )
+            for _ in range(20)
+        )
+        for step in plan.steps
+    }
+
+    class Store:
+        async def append(self, sample: ReadLatencySample) -> None:
+            raise AssertionError("selection MUST NOT append latency")
+
+        async def recent(
+            self,
+            *,
+            tool_id: ReadToolId,
+            transport: str,
+            operation_class: str,
+            limit: int,
+        ) -> tuple[ReadLatencySample, ...]:
+            assert transport == "test"
+            assert operation_class == read_tool_spec(tool_id).operation_class
+            return samples[tool_id][-limit:]
+
+    selected = await ReadInvestigationModeSelector(
+        latency_store=Store(),
+        transport="test",
+        policy=interactive_investigation_policy(),
+    ).select(plan)
+
+    assert selected is ReadInvestigationExecutionMode.STREAMED
+
+
+async def test_mode_selector_fails_closed_to_detached_when_profiles_are_unavailable() -> None:
+    class Store:
+        async def append(self, sample: ReadLatencySample) -> None:
+            raise AssertionError("selection MUST NOT append latency")
+
+        async def recent(self, **_kwargs: object) -> tuple[ReadLatencySample, ...]:
+            raise RuntimeError("latency store unavailable")
+
+    selected = await ReadInvestigationModeSelector(
+        latency_store=Store(),
+        transport="test",
+        policy=interactive_investigation_policy(),
+    ).select(_plan())
+
+    assert selected is ReadInvestigationExecutionMode.DETACHED

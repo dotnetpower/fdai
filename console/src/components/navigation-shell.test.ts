@@ -36,9 +36,17 @@ describe("navigation shell groups", () => {
   test("uses the shared portal tooltip instead of native activity-bar titles", () => {
     expect(source).toContain('<Tooltip content={group.label} placement="right">');
     expect(source).toContain('<Tooltip content={panel.label} placement="right">');
+    expect(source).toContain('content={deckOpen ? t("deck.close") : t("deck.invoke")}');
     expect(source).not.toContain("title=");
     expect(styles).toContain('.app-tooltip[data-state="delayed-open"]');
     expect(styles).toContain("@media (prefers-reduced-motion: reduce)");
+  });
+
+  test("toggles the Command Deck from the bottom utility rail without navigation", () => {
+    expect(source).toContain("onClick={requestDeckToggle}");
+    expect(source).toContain("aria-pressed={deckOpen}");
+    expect(source).toContain('{chatIcon()}');
+    expect(source).not.toContain('href={requestDeckToggle}');
   });
 
   test("keeps pointer entry deliberate and tooltip exit fast", () => {

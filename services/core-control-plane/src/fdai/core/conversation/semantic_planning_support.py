@@ -23,6 +23,7 @@ from fdai.core.ontology_platform import QueryManifest
 
 from .semantic_investigation import VerifiedInvestigationIntent
 from .semantic_investigation_planning import InvestigationTimeWindows
+from .semantic_judgment import SemanticJudgmentObservation
 from .semantic_planning_models import (
     QueryNodeProposal,
     QueryPlanProposal,
@@ -330,6 +331,7 @@ def _outcome(
     investigation_intent: VerifiedInvestigationIntent | None = None,
     clarification: str | None = None,
     direct_response_intent: SemanticDirectResponseIntent | None = None,
+    model_observations: tuple[SemanticJudgmentObservation, ...] = (),
 ) -> SemanticPlanningOutcome:
     return SemanticPlanningOutcome(
         disposition=disposition,
@@ -341,6 +343,7 @@ def _outcome(
         investigation_intent=investigation_intent,
         clarification=clarification,
         direct_response_intent=direct_response_intent,
+        model_observations=model_observations,
     )
 
 

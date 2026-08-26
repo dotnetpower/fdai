@@ -35,7 +35,10 @@ import {
 import { completedWorkRevealTarget } from "./scroll-stick";
 import { backendHistoryForTurns } from "./turn-history";
 import type { IncidentConversationBinding } from "./open-deck";
-import { queueNextRequestId } from "./backend-normalizers";
+import {
+  isSemanticDirectResponseSource,
+  queueNextRequestId,
+} from "./backend-normalizers";
 
 const MIN_PREPARING_VISIBLE_MS = 420;
 
@@ -516,8 +519,9 @@ export function useCommandDeckSubmit({
         throw error;
       }
       const terminalRecordedAt = reply.turnTiming?.completed_at ?? new Date().toISOString();
+      const directResponse = isSemanticDirectResponseSource(reply.source);
       terminalReplyReady = true;
-      if (!started && isCurrent()) {
+      if (!directResponse && !started && isCurrent()) {
         const remaining = MIN_PREPARING_VISIBLE_MS - (Date.now() - preparingStartedAt);
         if (remaining > 0) {
           await new Promise<void>((resolve) => window.setTimeout(resolve, remaining));
@@ -533,7 +537,6 @@ export function useCommandDeckSubmit({
       }
       paintQueue.length = 0;
       ensureTurn();
-      const directResponse = reply.source === "semantic-direct-response";
       if (!receivedToken && reply.text.length > 0 && isCurrent()) {
         const terminalQueue = terminalRevealChunks(reply.text);
         if (shouldFlushStreamPaintSynchronously(

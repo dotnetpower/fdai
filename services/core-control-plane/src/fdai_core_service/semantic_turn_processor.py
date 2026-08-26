@@ -11,8 +11,12 @@ from datetime import UTC, datetime
 from typing import Any, Protocol
 from uuid import UUID, uuid5
 
+from fdai.core.conversation.semantic_investigation import InvestigationEntityRole
 from fdai.core.conversation.semantic_planning_cascade import NO_T2_ESCALATION_POLICY
-from fdai.core.conversation.semantic_planning_models import BoundIncident
+from fdai.core.conversation.semantic_planning_models import (
+    BoundIncident,
+    BoundInvestigationContinuation,
+)
 from fdai.core.conversation.semantic_runtime import (
     SemanticTurnResult as RuntimeSemanticTurnResult,
 )
@@ -37,6 +41,7 @@ from fdai_service_contracts import (
     RuleSearchRequest,
     SemanticAssuranceObservation,
     SemanticDirectResponseIntent,
+    SemanticInvestigationContinuation,
     SemanticPlanningProfile,
     SemanticRoute,
     SemanticTurnDisposition,
@@ -56,7 +61,7 @@ from fdai_service_contracts.ontology_query import (
 from .contract_codecs import (
     OPERATOR_PROJECTION_PRODUCER_V13,
     OPERATOR_PROJECTION_PRODUCER_V14,
-    OPERATOR_REQUEST_CONSUMER_V13,
+    OPERATOR_REQUEST_CONSUMER_V15,
 )
 from .semantic_assurance_projection import project_semantic_assurance
 from .semantic_presentation_semantics import project_presentation_semantics
@@ -100,6 +105,11 @@ _AUTHORITATIVE_EVIDENCE_UNAVAILABLE_REASONS = {
 class _SemanticProjectionExtensions:
     rule_search: RuleSearchProjection | None = None
     technical_details: dict[str, object] | None = None
+    model: str | None = None
+    latency_ms: int | None = None
+    usage: dict[str, int] | None = None
+    model_trace: dict[str, object] | None = None
+    investigation_continuation: SemanticInvestigationContinuation | None = None
 
 
 class SemanticTurnRejectedError(ValueError):
@@ -117,6 +127,7 @@ class SemanticTurnRuntime(Protocol):
         principal: Principal,
         cancelled: asyncio.Event | None = None,
         bound_incident: BoundIncident | None = None,
+        bound_investigation_continuation: BoundInvestigationContinuation | None = None,
     ) -> RuntimeSemanticTurnResult: ...
 
 
@@ -419,6 +430,7 @@ class SemanticTurnProcessor:
                 principal=principal,
                 cancelled=runtime_cancelled,
                 bound_incident=_bound_incident(request),
+                bound_investigation_continuation=_bound_investigation_continuation(request),
                 **(
                     {"escalation_policy": NO_T2_ESCALATION_POLICY}
                     if request.planning_profile is SemanticPlanningProfile.GOLDEN_CAMPAIGN_NO_T2
@@ -491,6 +503,18 @@ class SemanticTurnProcessor:
                 payload["rule_search"] = extensions.rule_search.model_dump(mode="json")
             if extensions.technical_details is not None:
                 payload["technical_details"] = extensions.technical_details
+            if extensions.model is not None:
+                payload["model"] = extensions.model
+            if extensions.latency_ms is not None:
+                payload["latency_ms"] = extensions.latency_ms
+            if extensions.usage is not None:
+                payload["usage"] = extensions.usage
+            if extensions.model_trace is not None:
+                payload["model_trace"] = extensions.model_trace
+            if extensions.investigation_continuation is not None:
+                payload["investigation_continuation"] = (
+                    extensions.investigation_continuation.model_dump(mode="json")
+                )
         projection = {
             "schema_version": "1.4.0",
             "projection_id": projection_id,
@@ -527,13 +551,14 @@ def _decode_request(
     payload: Mapping[str, Any],
 ) -> tuple[dict[str, Any], SemanticTurnRequest, datetime]:
     try:
-        envelope = OPERATOR_REQUEST_CONSUMER_V13.decode_mapping(payload)
+        envelope = OPERATOR_REQUEST_CONSUMER_V15.decode_mapping(payload)
         if envelope.get("request_kind") != "semantic_query":
             raise SemanticTurnRejectedError("semantic_request_kind_required")
         semantic_turn = envelope.get("semantic_turn")
         if not isinstance(semantic_turn, dict):
             raise SemanticTurnRejectedError("semantic_turn_required")
         request = SemanticTurnRequest.model_validate(semantic_turn)
+        _validate_investigation_continuation(request)
         requested_at_raw = envelope["requested_at"]
         if not isinstance(requested_at_raw, str):
             raise SemanticTurnRejectedError("semantic_requested_at_invalid")
@@ -615,6 +640,41 @@ def _bound_incident(request: SemanticTurnRequest) -> BoundIncident | None:
     )
 
 
+def _validate_investigation_continuation(request: SemanticTurnRequest) -> None:
+    continuation = request.investigation_continuation
+    if continuation is None:
+        return
+    if (
+        continuation.source_session_id != request.session_id
+        or continuation.source_turn_sequence >= request.turn_sequence
+    ):
+        raise SemanticTurnRejectedError("semantic_investigation_continuation_mismatched")
+
+
+def _bound_investigation_continuation(
+    request: SemanticTurnRequest,
+) -> BoundInvestigationContinuation | None:
+    continuation = request.investigation_continuation
+    if continuation is None:
+        return None
+    return BoundInvestigationContinuation(
+        source_session_id=continuation.source_session_id,
+        source_turn_id=continuation.source_turn_id,
+        source_turn_sequence=continuation.source_turn_sequence,
+        target_type=continuation.target_type,
+        target_value=continuation.target_value,
+        recovery_measure_concepts=continuation.recovery_measure_concepts,
+        baseline_start=continuation.baseline_start,
+        baseline_end=continuation.baseline_end,
+        initial_observation_cutoff=continuation.initial_observation_cutoff,
+        ontology_release_digest=continuation.ontology_release_digest,
+        principal_manifest_digest=continuation.principal_manifest_digest,
+        source_frame_digest=continuation.source_frame_digest,
+        source_plan_digest=continuation.source_plan_digest,
+        source_execution_receipt_digest=continuation.source_execution_receipt_digest,
+    )
+
+
 def _canonical_incident_id(value: str) -> str:
     """The evidence function echoes a canonical UUID, so compare against the same form."""
     try:
@@ -635,20 +695,39 @@ def _project_runtime_result(
                 "held",
                 "semantic_runtime_failed",
             ), None
-        return ContractSemanticTurnResult(
-            disposition=SemanticTurnDisposition.DIRECT_RESPONSE,
-            reason_code="semantic_direct_response",
-            semantic_route="semantic_direct_response",
-            session_id=request.session_id,
-            turn_id=request.turn_id,
-            turn_sequence=request.turn_sequence,
-            answer=_direct_response_answer(request.locale, intent),
-            direct_response_intent=intent,
-        ), None
+        return (
+            ContractSemanticTurnResult(
+                disposition=SemanticTurnDisposition.DIRECT_RESPONSE,
+                reason_code="semantic_direct_response",
+                semantic_route="semantic_direct_response",
+                session_id=request.session_id,
+                turn_id=request.turn_id,
+                turn_sequence=request.turn_sequence,
+                answer=_direct_response_answer(request.locale, intent),
+                direct_response_intent=intent,
+            ),
+            _direct_response_model_extensions(request, result),
+        )
     if result.disposition != "answered":
         execution_hold = _project_execution_hold(request, result)
         if execution_hold is not None:
-            return execution_hold, None
+            continuation = (
+                _project_investigation_continuation(
+                    request,
+                    result,
+                    execution_receipt_digest=_execution_receipt_digest(result.execution),
+                )
+                if result.execution is not None
+                else None
+            )
+            return (
+                execution_hold,
+                (
+                    _SemanticProjectionExtensions(investigation_continuation=continuation)
+                    if continuation is not None
+                    else None
+                ),
+            )
         reason_codes = {
             "clarification": "semantic_clarification_required",
             "held": "semantic_evidence_held",
@@ -664,7 +743,7 @@ def _project_runtime_result(
         )
         disposition = result.disposition if result.disposition in reason_codes else "held"
         answer = result.planning.clarification if result.disposition == "clarification" else None
-        return _terminal_result(
+        terminal = _terminal_result(
             request,
             disposition,
             reason_code,
@@ -673,7 +752,22 @@ def _project_runtime_result(
                 result,
                 disposition=disposition,
             ),
-        ), None
+        )
+        continuation = None
+        if result.disposition == "held" and result.execution is not None:
+            continuation = _project_investigation_continuation(
+                request,
+                result,
+                execution_receipt_digest=_execution_receipt_digest(result.execution),
+            )
+        return (
+            terminal,
+            (
+                _SemanticProjectionExtensions(investigation_continuation=continuation)
+                if continuation is not None
+                else None
+            ),
+        )
 
     planning = result.planning
     plan = planning.plan
@@ -695,13 +789,11 @@ def _project_runtime_result(
         return _evidence_incomplete(request, "no_evidence_refs", result=result), None
     if len(evidence_refs) > MAX_SEMANTIC_EVIDENCE_REFS:
         return _evidence_incomplete(request, "too_many_evidence_refs", result=result), None
-    execution_receipt_digest = content_digest(
-        {
-            "plan_digest": execution.plan_digest,
-            "status": execution.status,
-            "output_node_ids": execution.output_node_ids,
-            "receipts": [receipt.model_dump(mode="json") for receipt in execution.receipts],
-        }
+    execution_receipt_digest = _execution_receipt_digest(execution)
+    investigation_continuation = _project_investigation_continuation(
+        request,
+        result,
+        execution_receipt_digest=execution_receipt_digest,
     )
     checks_total = len(execution.receipts)
     rule_search_found, rule_search, rule_search_node_id = _project_rule_search(result, execution)
@@ -777,6 +869,138 @@ def _project_runtime_result(
     ), _SemanticProjectionExtensions(
         rule_search=rule_search,
         technical_details=technical_details,
+        investigation_continuation=investigation_continuation,
+    )
+
+
+def _project_investigation_continuation(
+    request: SemanticTurnRequest,
+    result: RuntimeSemanticTurnResult,
+    *,
+    execution_receipt_digest: str,
+) -> SemanticInvestigationContinuation | None:
+    """Project one exact S3 recovery anchor without retaining operator prose."""
+
+    planning = result.planning
+    intent = getattr(planning, "investigation_intent", None)
+    plan = getattr(planning, "plan", None)
+    frame = getattr(planning, "frame", None)
+    if intent is None or plan is None or frame is None:
+        return None
+    targets = tuple(
+        entity
+        for entity in intent.entities
+        if entity.role is InvestigationEntityRole.AFFECTED_TARGET
+    )
+    primary = next(
+        (
+            measure
+            for measure in intent.symptom_measures
+            if measure.measure_id == intent.primary_symptom_measure_id
+        ),
+        None,
+    )
+    cause_measures = {hypothesis.cause_measure_concept for hypothesis in intent.hypotheses}
+    if (
+        len(targets) != 1
+        or targets[0].object_type_candidates != ("BusinessService",)
+        or primary is None
+        or primary.concept_id != "service.latency"
+        or "dependency.latency" not in cause_measures
+    ):
+        return None
+    nodes = {node.node_id: node for node in plan.nodes}
+    baseline = nodes.get("symptom-baseline")
+    current = nodes.get("symptom-current")
+    if baseline is None or current is None:
+        return None
+    baseline_start = _argument_datetime(baseline.arguments, "start")
+    baseline_end = _argument_datetime(baseline.arguments, "end")
+    observation_cutoff = _argument_datetime(current.arguments, "end")
+    frame_digest = getattr(frame, "frame_digest", None)
+    manifest_digest = planning.manifest_digest
+    if not isinstance(frame_digest, str) or not isinstance(manifest_digest, str):
+        return None
+    return SemanticInvestigationContinuation(
+        source_session_id=request.session_id,
+        source_turn_id=request.turn_id,
+        source_turn_sequence=request.turn_sequence,
+        target_type="BusinessService",
+        target_value=targets[0].span.text,
+        recovery_measure_concepts=("dependency.latency", "service.latency"),
+        baseline_start=baseline_start,
+        baseline_end=baseline_end,
+        initial_observation_cutoff=observation_cutoff,
+        ontology_release_digest=plan.ontology_release_digest,
+        principal_manifest_digest=manifest_digest,
+        source_frame_digest=frame_digest,
+        source_plan_digest=plan.plan_digest,
+        source_execution_receipt_digest=execution_receipt_digest,
+        execution_authority=False,
+    )
+
+
+def _execution_receipt_digest(execution: QueryPlanExecution) -> str:
+    return content_digest(
+        {
+            "plan_digest": execution.plan_digest,
+            "status": execution.status,
+            "output_node_ids": execution.output_node_ids,
+            "receipts": [receipt.model_dump(mode="json") for receipt in execution.receipts],
+        }
+    )
+
+
+def _argument_datetime(arguments: Mapping[str, object], field: str) -> datetime:
+    value = arguments.get(field)
+    if not isinstance(value, str):
+        raise ValueError(f"investigation continuation {field} is unavailable")
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    return _aware_utc(parsed, field=f"investigation continuation {field}")
+
+
+def _direct_response_model_extensions(
+    request: SemanticTurnRequest,
+    result: RuntimeSemanticTurnResult,
+) -> _SemanticProjectionExtensions | None:
+    observations = getattr(result.planning, "model_observations", ())
+    if not observations:
+        return None
+    usage_keys = ("prompt_tokens", "completion_tokens", "total_tokens")
+    usage = {
+        key: sum(
+            observation.usage.get(key, 0)
+            for observation in observations
+            if observation.usage is not None
+        )
+        for key in usage_keys
+    }
+    measured_usage = (
+        usage if any(observation.usage is not None for observation in observations) else None
+    )
+    calls: list[dict[str, object]] = []
+    latency_ms = 0
+    for index, observation in enumerate(observations, start=1):
+        call = dict(observation.trace_call)
+        call["call_id"] = f"semantic-judgment-{index}"
+        duration = call.get("duration_ms")
+        if isinstance(duration, int) and not isinstance(duration, bool) and duration >= 0:
+            latency_ms += duration
+        calls.append(call)
+    return _SemanticProjectionExtensions(
+        model=observations[-1].model,
+        latency_ms=latency_ms,
+        usage=measured_usage,
+        model_trace=(
+            {
+                "schema_version": 1,
+                "redacted": True,
+                "calls": calls,
+                "omitted_calls": 0,
+            }
+            if request.include_model_trace
+            else None
+        ),
     )
 
 
@@ -2989,6 +3213,16 @@ def _direct_response_answer(locale: str, intent: SemanticDirectResponseIntent) -
             "안녕하세요. 현재 화면이나 운영 상태에 대해 무엇을 확인할까요?"
             if locale.casefold().startswith("ko")
             else "Hello. What would you like to inspect on this screen or in current operations?"
+        )
+    if intent is SemanticDirectResponseIntent.SELF_INTRODUCTION:
+        return (
+            "저는 FDAI Console의 대화 인터페이스 Bragi입니다. 화면과 운영 상태에 관한 질문을 "
+            "검증된 근거에 맞춰 설명합니다. 직접 변경을 실행하지 않으며, 필요한 작업은 FDAI의 "
+            "승인 및 안전 경로로 전달합니다."
+            if locale.casefold().startswith("ko")
+            else "I am Bragi, the FDAI Console conversation interface. I explain questions about "
+            "the current screen and operational state from verified evidence. I do not execute "
+            "changes directly; requested work follows FDAI approval and safety paths."
         )
     raise ValueError("semantic direct response intent is unsupported")
 

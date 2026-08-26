@@ -18,7 +18,10 @@ from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _MAX_OWNER_REFERENCES: Final[int] = 8
 _MAX_LABELS: Final[int] = 128
+_MAX_CONTAINER_STATUSES: Final[int] = 128
+_MAX_CONDITIONS: Final[int] = 64
 _MAX_INGRESS_BACKENDS: Final[int] = 128
+_MAX_STATUS_TEXT: Final[int] = 128
 _NODE_POOL_LABELS: Final[tuple[str, ...]] = (
     "kubernetes.azure.com/agentpool",
     "agentpool",
@@ -287,6 +290,10 @@ def _resource_record(
         node_name = spec.get("nodeName")
         if resource_type == "kubernetes.pod" and isinstance(node_name, str) and node_name.strip():
             props["node_name"] = node_name.strip()
+        if resource_type == "kubernetes.deployment":
+            desired_replicas = _optional_non_negative_int(spec, "replicas")
+            if desired_replicas is not None:
+                props["desired_replicas"] = desired_replicas
         if resource_type == "kubernetes.node":
             provider_ref = _azure_vmss_vm_provider_ref(spec.get("providerID"))
             if provider_ref is not None:
@@ -298,6 +305,12 @@ def _resource_record(
             ingress_class_name = spec.get("ingressClassName")
             if isinstance(ingress_class_name, str) and ingress_class_name.strip():
                 props["ingress_class_name"] = ingress_class_name.strip()
+    status = item.get("status")
+    if isinstance(status, Mapping):
+        if resource_type == "kubernetes.pod":
+            props.update(_pod_status_properties(status))
+        elif resource_type == "kubernetes.deployment":
+            props.update(_deployment_status_properties(status))
     if resource_type == "kubernetes.node":
         for label in _NODE_POOL_LABELS:
             node_pool = labels.get(label)
@@ -435,6 +448,149 @@ def _bounded_ingress_sequence(
     if any(not isinstance(item, Mapping) for item in value):
         raise KubernetesApiInventoryError(f"Kubernetes {field} contains a malformed item")
     return tuple(item for item in value if isinstance(item, Mapping))
+
+
+def _pod_status_properties(status: Mapping[str, Any]) -> dict[str, object]:
+    props: dict[str, object] = {}
+    phase = _optional_status_text(status, "phase")
+    if phase is not None:
+        props["phase"] = phase
+    conditions = _bounded_mapping_sequence(
+        status.get("conditions"),
+        field="conditions",
+        limit=_MAX_CONDITIONS,
+    )
+    ready_conditions = [
+        condition for condition in conditions if _optional_status_text(condition, "type") == "Ready"
+    ]
+    if len(ready_conditions) > 1:
+        raise KubernetesApiInventoryError("Kubernetes Pod Ready condition is duplicated")
+    if ready_conditions:
+        ready_status = _optional_status_text(ready_conditions[0], "status")
+        if ready_status not in {"True", "False", "Unknown"}:
+            raise KubernetesApiInventoryError("Kubernetes Pod Ready condition status is invalid")
+        props["ready_status"] = ready_status
+        if ready_status != "Unknown":
+            props["ready"] = ready_status == "True"
+
+    container_statuses = _bounded_mapping_sequence(
+        status.get("containerStatuses"),
+        field="containerStatuses",
+        limit=_MAX_CONTAINER_STATUSES,
+    )
+    if container_statuses:
+        ready_count = 0
+        restart_count = 0
+        waiting_reasons: list[str] = []
+        for container_status in container_statuses:
+            ready = container_status.get("ready")
+            if not isinstance(ready, bool):
+                raise KubernetesApiInventoryError(
+                    "Kubernetes container ready status MUST be boolean"
+                )
+            ready_count += int(ready)
+            restart_count += _required_non_negative_int(container_status, "restartCount")
+            state = container_status.get("state")
+            if state is not None and not isinstance(state, Mapping):
+                raise KubernetesApiInventoryError("Kubernetes container state is malformed")
+            waiting = state.get("waiting") if isinstance(state, Mapping) else None
+            if waiting is not None and not isinstance(waiting, Mapping):
+                raise KubernetesApiInventoryError("Kubernetes container waiting state is malformed")
+            if isinstance(waiting, Mapping):
+                reason = _optional_status_text(waiting, "reason")
+                if reason is not None:
+                    waiting_reasons.append(reason)
+        props["container_count"] = len(container_statuses)
+        props["ready_container_count"] = ready_count
+        props["restart_count"] = restart_count
+        if waiting_reasons:
+            props["container_waiting_reasons"] = tuple(sorted(set(waiting_reasons)))
+    return props
+
+
+def _deployment_status_properties(status: Mapping[str, Any]) -> dict[str, object]:
+    field_names = (
+        ("observedGeneration", "observed_generation"),
+        ("updatedReplicas", "updated_replicas"),
+        ("readyReplicas", "ready_replicas"),
+        ("availableReplicas", "available_replicas"),
+        ("unavailableReplicas", "unavailable_replicas"),
+    )
+    props: dict[str, object] = {}
+    for source_name, output_name in field_names:
+        value = _optional_non_negative_int(status, source_name)
+        if value is not None:
+            props[output_name] = value
+    conditions = _bounded_mapping_sequence(
+        status.get("conditions"),
+        field="conditions",
+        limit=_MAX_CONDITIONS,
+    )
+    progressing_conditions = [
+        condition
+        for condition in conditions
+        if _optional_status_text(condition, "type") == "Progressing"
+    ]
+    if len(progressing_conditions) > 1:
+        raise KubernetesApiInventoryError(
+            "Kubernetes Deployment Progressing condition is duplicated"
+        )
+    if progressing_conditions:
+        progressing_status = _optional_status_text(progressing_conditions[0], "status")
+        if progressing_status not in {"True", "False", "Unknown"}:
+            raise KubernetesApiInventoryError(
+                "Kubernetes Deployment Progressing condition status is invalid"
+            )
+        props["progressing_status"] = progressing_status
+        progressing_reason = _optional_status_text(progressing_conditions[0], "reason")
+        if progressing_reason is not None:
+            props["progressing_reason"] = progressing_reason
+    return props
+
+
+def _bounded_mapping_sequence(
+    value: object,
+    *,
+    field: str,
+    limit: int,
+) -> tuple[Mapping[str, Any], ...]:
+    if value is None:
+        return ()
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)) or len(value) > limit:
+        raise KubernetesApiInventoryError(f"Kubernetes {field} exceeds its contract")
+    if any(not isinstance(item, Mapping) for item in value):
+        raise KubernetesApiInventoryError(f"Kubernetes {field} contains a malformed item")
+    return tuple(item for item in value if isinstance(item, Mapping))
+
+
+def _optional_status_text(value: Mapping[str, Any], key: str) -> str | None:
+    raw = value.get(key)
+    if raw is None:
+        return None
+    if not isinstance(raw, str) or not raw.strip() or len(raw) > _MAX_STATUS_TEXT:
+        raise KubernetesApiInventoryError(f"Kubernetes status {key!r} is malformed")
+    return raw.strip()
+
+
+def _optional_non_negative_int(value: Mapping[str, Any], key: str) -> int | None:
+    raw = value.get(key)
+    if raw is None:
+        return None
+    return _non_negative_int(raw, key)
+
+
+def _required_non_negative_int(value: Mapping[str, Any], key: str) -> int:
+    if key not in value:
+        raise KubernetesApiInventoryError(f"Kubernetes status {key!r} is missing")
+    return _non_negative_int(value[key], key)
+
+
+def _non_negative_int(value: object, key: str) -> int:
+    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+        raise KubernetesApiInventoryError(
+            f"Kubernetes status {key!r} MUST be a non-negative integer"
+        )
+    return value
 
 
 __all__ = [

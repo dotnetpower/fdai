@@ -28,12 +28,18 @@ def test_shipped_metric_semantics_load_without_language_aliases() -> None:
     registry = load_metric_semantic_registry(ROOT / "rule-catalog/vocabulary/metric-semantics.yaml")
 
     assert set(registry.definitions) >= {
+        "database.mysql.active_connections",
+        "database.mysql.cpu.utilization_pct",
+        "database.mysql.query.count",
+        "database.mysql.slow_query.count",
         "request.volume",
         "request.errors",
         "request.timeout",
+        "resource.cpu.utilization_pct",
         "resource.activation.failure",
         "storage.write.success",
         "network.change",
+        "pod.restart.history",
         "resource.memory.available_pct",
         "resource.memory.usage_pct",
     }
@@ -53,6 +59,26 @@ def test_shipped_metric_semantics_load_without_language_aliases() -> None:
     activation = registry.resolve("resource.activation.failure")
     assert activation.provider_metric == "container_app_activation_failure_count"
     assert activation.canonical_unit == "count"
+    pod_restart = registry.resolve("pod.restart.history")
+    assert pod_restart.provider_metric == "k8s.pod.restarts"
+    assert pod_restart.scope_label_selectors == {
+        "pod_uid": ("properties", "properties", "uid"),
+        "resource_id": ("properties", "properties", "cluster_ref"),
+    }
+    vm_cpu = registry.resolve("resource.cpu.utilization_pct")
+    assert vm_cpu.provider_metric == "host.cpu.percent"
+    assert vm_cpu.canonical_unit == "percent"
+    assert vm_cpu.aggregation.value == "average"
+    mysql_cpu = registry.resolve("database.mysql.cpu.utilization_pct")
+    assert mysql_cpu.provider_metric == "cpu_percent"
+    assert mysql_cpu.canonical_unit == "percent"
+    assert mysql_cpu.aggregation.value == "average"
+    mysql_connections = registry.resolve("database.mysql.active_connections")
+    assert mysql_connections.provider_metric == "active_connections"
+    assert mysql_connections.canonical_unit == "count"
+    assert mysql_connections.aggregation.value == "maximum"
+    assert registry.resolve("database.mysql.query.count").provider_metric == "Queries"
+    assert registry.resolve("database.mysql.slow_query.count").provider_metric == "Slow_queries"
 
 
 async def test_metric_provider_binding_preserves_zero_and_marks_empty_as_gap() -> None:
@@ -88,6 +114,36 @@ async def test_metric_provider_binding_preserves_zero_and_marks_empty_as_gap() -
     assert observed.samples[0].value == 0.0
     assert missing.complete is False
     assert missing.missing_reason == "provider_gap"
+
+
+async def test_metric_provider_binding_uses_exact_scoped_labels() -> None:
+    registry = load_metric_semantic_registry(ROOT / "rule-catalog/vocabulary/metric-semantics.yaml")
+    definition = registry.resolve("pod.restart.history")
+    labels = {"resource_id": "cluster-a", "pod_uid": "pod-uid-a"}
+    reader = ProviderMetricWindowReader(
+        provider=StaticMetricProvider(
+            (
+                MetricPoint(
+                    metric_name=definition.provider_metric,
+                    at=NOW,
+                    value=2.0,
+                    labels=labels,
+                ),
+            )
+        )
+    )
+
+    result = await reader.read(
+        definition=definition,
+        resource_id="ontology-pod-a",
+        start=NOW,
+        end=NOW + timedelta(minutes=5),
+        query_labels=labels,
+    )
+
+    assert result.complete is True
+    assert result.resource_id == "ontology-pod-a"
+    assert result.samples[0].value == 2.0
 
 
 async def test_metric_provider_failure_becomes_explicit_unavailable_window() -> None:

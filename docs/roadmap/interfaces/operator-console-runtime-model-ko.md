@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Narrator, DI Seams, and Session Model
 translation_of: operator-console-runtime-model.md
-translation_source_sha: f959c94f31e854f6f6d53f1aa1e6e32f6f84ab3d
-translation_revised: 2026-08-21
+translation_source_sha: 4045f3965e89c42f67b1731279bc9572faac7738
+translation_revised: 2026-08-26
 ---
 
 # Operator Console - Narrator, DI Seams, and 세션 모델
@@ -161,6 +161,13 @@ D12에 따라: mini (t1.판정자)는 항상 켜져 있고 오퍼레이터 예�
 토큰 사용량만 포함합니다. 범위, 모델, 모드, 대화(`correlation_id`),
 일, 월별 합계와 함께 각 행에 모델 및 기능이 있는 최신 호출 원장을
 상한 내에서 반환합니다. 콘솔은 이를 읽기 전용 **LLM 사용량** 패널로 렌더링합니다.
+
+Command Deck의 사회적 직접 응답은 타입이 지정된 의도를 선택한 의미 판단 호출에서 측정한 `usage`,
+실제 배포 신원, 호출 시간을 재사용합니다. 토큰 사용량 기본 설정은 답변 배지만 제어하며 계량 결과를
+바꾸지 않습니다. 모델 trace 기본 설정은 operator-core 요청 1.4에 `include_model_trace`를 추가합니다.
+그러면 Core는 범위가 제한되고 정제된 요청 메시지와 assistant JSON 응답만 반환합니다. 이 설정을
+비활성화하면 영속 trace를 만들지 않습니다. 두 설정 모두 숨겨진 추론을 보존하거나 근거, 승인 또는
+실행 권한을 변경하지 않습니다.
 
 리전, 통화, 협상 요율 차이로 설정 기반 추정치와 프로바이더 청구서가 달라질 수
 있으므로 Operator API와 콘솔에는 파생 비용을 노출하지 않습니다. 배포는 내부 예산
@@ -371,9 +378,11 @@ class ConversationSession:
   계속 선택할 수 있고, 열 때 첫 운영자 턴에서 제목을 복원합니다.
   Floating Deck은 경로 탐색과 실제 운영 화면 re-render 중에도 유지된다.
   Full-workspace에서 활동 Bar 그룹을 선택하면 Deck을 닫고 해당 그룹의 첫 visible
-  하위 페이지를 열며, 그 외에는 명시적인 닫기 액션 또는 `Escape`로 닫는다. L3 응답 언어는 현재 턴을 따름: 콘솔 display
-  로케일이 영어여도 한국어 프롬프트에는 한국어로 답변. 그 외에는 운영자가
-  설정한 로케일이 응답 언어를 제어. Localized 산문을 반환하기 전에 서술기는
+  하위 페이지를 열며, 그 외에는 명시적인 닫기 액션 또는 `Escape`로 닫는다. L3 응답 언어는
+  Console 표시 로케일과 독립적으로 현재 턴을 따릅니다. 한국어가 포함된 프롬프트는 혼합 언어
+  프롬프트를 포함해 한국어 답변을 요청하고, 한국어가 없는 프롬프트는 영어 답변을 요청합니다.
+  설정한 로케일은 shell과 product label을 제어하지만 현재 질문의 답변 언어를 재정의하지 않습니다.
+  Localized 산문을 반환하기 전에 서술기는
   자신이 작성한 surrounding 산문만 교정하여 malformed 또는 nonsensical word, 우발적
   character 순서, duplicated 조각 및 우발적 언어 혼합을 제거합니다. Quoted
   근거 값, 식별자, 코드 및 도구 출력은 교정, 정규화, 번역 또는 재작성하지 않습니다.
@@ -515,6 +524,7 @@ wrapping 되며, 이는 T2 quality 게이트가 이벤트 페이로드를 다루
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|-----------|
+| 2026-08-26 | implemented | 현재 질문 언어가 Command Deck 답변 언어를 결정하도록 수정했습니다. Console 표시 언어가 한국어여도 영어 질문은 영어를 요청하며, 한국어 질문과 한국어가 포함된 혼합 프롬프트는 한국어를 요청합니다. 표시 로케일은 shell label만 계속 제어합니다. | `current change`, `backend-context.ts`, 집중 요청 payload locale 검사 18개 통과 | 같은 표시 로케일에서 인증된 영어 및 한국어 browser turn을 보존합니다. |
 | 2026-08-14 | in-progress | 구현 ledger를 도입했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 현재 conversation, working-context, history, Operator application 및 introspection 근거입니다. | 영속 재시작, 독립 narrator routing 및 인증된 장기 session 근거를 완료해야 합니다. |
 | 2026-08-14 | implemented | 실제 재시작 및 principal 격리 검사를 추가한 뒤 영속 history와 complete-history 조립을 승격했습니다. | `current change`; history/latest-context, 이미지 및 검색 suite가 지원되는 일회용 PostgreSQL 데이터베이스에서 12건을 건너뛰기 없이 통과했습니다. | 독립 narrator routing 및 인증된 장기 session 근거를 완료해야 합니다. |
 | 2026-08-14 | implemented | 다른 principal의 history를 빌리지 않고 complete principal 범위 turn 순서를 working-context 매니페스트로 재구축하는 전용 재시작 검사를 추가했습니다. | `current change`; `test_postgres_conversation_history_restart.py`의 focused live 사례가 skip 없이 통과했고 focused Ruff 및 mypy가 통과했습니다. | 관리되는 장기 session 및 인증된 JSON/SSE 근거를 보존해야 합니다. |

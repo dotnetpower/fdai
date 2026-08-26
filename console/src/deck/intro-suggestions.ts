@@ -9,6 +9,7 @@
  */
 
 import type { ViewFact, ViewSnapshot } from "./context";
+import { tForLocale, type Locale } from "../i18n";
 
 const MAX_SUGGESTIONS = 5;
 
@@ -26,21 +27,30 @@ function count(facts: readonly ViewFact[], key: string): number {
   return 0;
 }
 
-export function introSuggestions(snapshot: ViewSnapshot | null): readonly string[] {
-  if (snapshot === null) return ["what routes are available?"];
+export function introSuggestions(
+  snapshot: ViewSnapshot | null,
+  locale: Locale = "en",
+): readonly string[] {
+  if (snapshot === null) return [tForLocale(locale, "deck.starterSuggestions.routes")];
   const facts = snapshot.facts;
   const out: string[] = [];
 
-  if (count(facts, "attention.failed") > 0) out.push("why did the failed actions fail?");
-  if (count(facts, "attention.hil") > 0 || count(facts, "gate.hil") > 0) {
-    out.push("what is waiting for approval?");
+  if (count(facts, "attention.failed") > 0) {
+    out.push(tForLocale(locale, "deck.starterSuggestions.failed"));
   }
-  if (count(facts, "gate.deny") > 0) out.push("what was denied and why?");
-  if (count(facts, "attention.stuck") > 0) out.push("which actions are stuck?");
+  if (count(facts, "attention.hil") > 0 || count(facts, "gate.hil") > 0) {
+    out.push(tForLocale(locale, "deck.starterSuggestions.approval"));
+  }
+  if (count(facts, "gate.deny") > 0) {
+    out.push(tForLocale(locale, "deck.starterSuggestions.denied"));
+  }
+  if (count(facts, "attention.stuck") > 0) {
+    out.push(tForLocale(locale, "deck.starterSuggestions.stuck"));
+  }
 
   // Evergreen prompts, added after the situational ones.
-  out.push("what do you see on this screen?");
-  out.push("what is the tier mix right now?");
+  out.push(tForLocale(locale, "deck.starterSuggestions.screen"));
+  out.push(tForLocale(locale, "deck.starterSuggestions.tierMix"));
 
   // De-duplicate while preserving order, then cap.
   const seen = new Set<string>();

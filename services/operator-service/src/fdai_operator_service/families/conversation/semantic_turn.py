@@ -15,6 +15,7 @@ from fdai_service_contracts import (
     OperatorRole,
     PackageResourceSchemaRegistry,
     SemanticBoundContext,
+    SemanticInvestigationContinuation,
     SemanticPlanningProfile,
     SemanticPriorTurn,
     SemanticTurnPrincipal,
@@ -29,14 +30,19 @@ Clock = Callable[[], datetime]
 
 
 class SemanticTurnEnvelopeBuilder:
-    """Construct no-authority v1.2 requests with retry-stable identities."""
+    """Construct no-authority v1.5 requests with retry-stable identities."""
 
     def __init__(self, *, clock: Clock | None = None) -> None:
         self._clock = clock or (lambda: datetime.now(UTC))
         self._validator = JsonSchemaContractValidator(PackageResourceSchemaRegistry())
 
-    def build(self, proposal: ConversationProposal) -> dict[str, object]:
-        """Validate one authorized ``chat.stream`` proposal as a v1.2 wire envelope."""
+    def build(
+        self,
+        proposal: ConversationProposal,
+        *,
+        investigation_continuation: SemanticInvestigationContinuation | None = None,
+    ) -> dict[str, object]:
+        """Validate one authorized ``chat.stream`` proposal as a v1.5 wire envelope."""
         if proposal.operation != "chat.stream":
             raise ValueError("semantic turn builder accepts only chat.stream proposals")
         requested_at = _aware_utc(self._clock())
@@ -59,8 +65,10 @@ class SemanticTurnEnvelopeBuilder:
             deadline_at=_deadline(proposal.body, requested_at),
             view_context_digest=_optional_digest(proposal.body.get("view_context")),
             bound_context=_bound_context(proposal.body.get("conversation_context")),
+            investigation_continuation=investigation_continuation,
             prior_turns=_prior_turns(proposal.body.get("history")),
             planning_profile=_planning_profile(proposal.body),
+            include_model_trace=proposal.body.get("include_model_trace") is True,
             cancelled=proposal.cancellation,
         )
         semantic_payload = semantic_turn.model_dump(mode="json", exclude_none=True)
@@ -69,7 +77,7 @@ class SemanticTurnEnvelopeBuilder:
             if isinstance(principal_payload, dict):
                 principal_payload.pop("principal_kind", None)
         envelope: dict[str, object] = {
-            "schema_version": "1.3.0",
+            "schema_version": "1.5.0",
             "request_id": request_id,
             "correlation_id": f"semantic-turn:{request_id}",
             "idempotency_key": proposal.idempotency_key,
@@ -78,7 +86,7 @@ class SemanticTurnEnvelopeBuilder:
             "requested_at": requested_at.isoformat(),
             "semantic_turn": semantic_payload,
         }
-        self._validator.validate("operator-core-request", envelope, version="1.3.0")
+        self._validator.validate("operator-core-request", envelope, version="1.5.0")
         return envelope
 
 
@@ -106,9 +114,19 @@ def _authorized_roles(proposal: ConversationProposal) -> tuple[OperatorRole, ...
 
 
 def _session_id(proposal: ConversationProposal, identity_seed: str) -> str:
-    supplied = proposal.body.get("conversation_id")
-    if isinstance(supplied, str) and supplied.strip():
-        return supplied.strip()
+    supplied = proposal.body.get("session_id")
+    conversation_id = proposal.body.get("conversation_id")
+    if (
+        isinstance(supplied, str)
+        and supplied.strip()
+        and isinstance(conversation_id, str)
+        and conversation_id.strip()
+        and supplied.strip() != conversation_id.strip()
+    ):
+        raise ValueError("session_id and conversation_id MUST identify the same session")
+    for candidate in (supplied, conversation_id):
+        if isinstance(candidate, str) and candidate.strip():
+            return candidate.strip()
     return str(uuid5(_IDENTITY_NAMESPACE, f"session\0{identity_seed}"))
 
 

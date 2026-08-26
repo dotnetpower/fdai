@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: f574328ae372f3dd16d46e6fc5a12093792aba97
-translation_revised: 2026-08-25
+translation_source_sha: 7af15f1c288b31fe7d59ead8106835cbf169a543
+translation_revised: 2026-08-26
 ---
 # 프로젝트 구조
 
@@ -368,8 +368,9 @@ grounding 권한을 우회할 수 없습니다. HIL 승인 id와 실행기 멱�
 - 서비스 wire 계약은 `packages/service-contracts/src/fdai_service_contracts/`에 있습니다.
   `schemas/<contract-id>/<version>.json` 아래의 버전별 JSON 스키마는 불변이므로 새 필드는
   새 추가적 버전으로 배포되며 이전 소비자는 그것을 계속 무시합니다. `operator-core-request`는
-  `1.3.0`이며, `1.2.0` 대비 유일한 추가는 실행 권한을 부여하지 않고 해석된 대화 바인딩을
-  전달하는 서버 소유 `semantic_turn.bound_context`입니다.
+  `1.4.0`입니다. Version 1.3은 서버 소유 `semantic_turn.bound_context`를 추가했고, version 1.4는
+  실행 권한을 부여하지 않는 범위가 제한된 `semantic_turn.include_model_trace` 활성화 설정을
+  추가합니다.
   `core-operator-projection` 1.4는 조회 digest, 근거 참조, 검증 주장 또는 권한 없이 닫힌 인사
   의도를 전달하는 타입 지정 `direct_response` 최종 처리 결과를 추가합니다.
   바인딩된 인시던트 읽기 경로는 canonical `incident_id`와 감사 `correlation_id`를 서로 다른

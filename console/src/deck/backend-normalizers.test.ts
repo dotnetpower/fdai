@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  isSemanticDirectResponseSource,
   newRequestId,
   parseAnswerVerification,
   parseDelegation,
   parseSemanticProjectionReceipt,
   queueNextRequestId,
+  semanticDirectResponseSource,
   tokenSuffix,
 } from "./backend-normalizers";
 
@@ -93,6 +95,23 @@ describe("parseSemanticProjectionReceipt", () => {
     expect(parseSemanticProjectionReceipt({ ...direct, direct_response_intent: undefined }))
       .toBeUndefined();
     expect(parseSemanticProjectionReceipt({ ...direct, plan_digest: DIGEST })).toBeUndefined();
+  });
+
+  it("preserves an evidence-free self-introduction receipt", () => {
+    const direct = semanticReceipt({
+      disposition: "direct_response",
+      reason_code: "semantic_direct_response",
+      semantic_route: "semantic_direct_response",
+      direct_response_intent: "self_introduction",
+      ontology_release_digest: undefined,
+      principal_manifest_digest: undefined,
+      plan_digest: undefined,
+      execution_receipt_digest: undefined,
+    });
+
+    expect(parseSemanticProjectionReceipt(direct)).toEqual(direct);
+    expect(parseSemanticProjectionReceipt({ ...direct, direct_response_intent: "identity" }))
+      .toBeUndefined();
   });
 
   it("preserves a strict version 2 semantic assurance observation", () => {
@@ -227,6 +246,17 @@ describe("tokenSuffix", () => {
     { prompt_tokens: -1, completion_tokens: 10 },
   ])("hides invalid negative token telemetry: %o", (usage) => {
     expect(tokenSuffix(usage)).toBe("");
+  });
+
+  it("decorates a semantic direct response with measured model telemetry", () => {
+    const source = semanticDirectResponseSource(
+      "semantic-t1",
+      25,
+      { prompt_tokens: 12, completion_tokens: 3, total_tokens: 15 },
+    );
+
+    expect(source).toBe("semantic-direct-response · semantic-t1 · 25ms · 15 tok");
+    expect(isSemanticDirectResponseSource(source)).toBe(true);
   });
 });
 

@@ -14,28 +14,28 @@ function snap(facts: ViewFact[]): ViewSnapshot {
 
 describe("introSuggestions", () => {
   it("offers route discovery when there is no snapshot", () => {
-    expect(introSuggestions(null)).toEqual(["what routes are available?"]);
+    expect(introSuggestions(null)).toEqual(["What routes are available?"]);
   });
 
   it("falls back to evergreen prompts when nothing notable is on screen", () => {
     const s = introSuggestions(snap([{ key: "eps", value: 4 }]));
     expect(s).toEqual([
-      "what do you see on this screen?",
-      "what is the tier mix right now?",
+      "What do you see on this screen?",
+      "What is the tier mix right now?",
     ]);
   });
 
   it("surfaces failed actions first when present", () => {
     const s = introSuggestions(snap([{ key: "attention.failed", value: 3 }]));
-    expect(s[0]).toBe("why did the failed actions fail?");
+    expect(s[0]).toBe("Why did the failed actions fail?");
   });
 
   it("surfaces approvals from either attention.hil or gate.hil", () => {
     expect(introSuggestions(snap([{ key: "gate.hil", value: 2 }]))).toContain(
-      "what is waiting for approval?",
+      "What is waiting for approval?",
     );
     expect(introSuggestions(snap([{ key: "attention.hil", value: 1 }]))).toContain(
-      "what is waiting for approval?",
+      "What is waiting for approval?",
     );
   });
 
@@ -52,16 +52,23 @@ describe("introSuggestions", () => {
     expect(s.length).toBe(5);
     expect(new Set(s).size).toBe(5);
     // Situational prompts win the cap over the trailing evergreen ones.
-    expect(s).toContain("why did the failed actions fail?");
-    expect(s).toContain("which actions are stuck?");
+    expect(s).toContain("Why did the failed actions fail?");
+    expect(s).toContain("Which actions are stuck?");
   });
 
   it("treats numeric strings as counts and ignores zero", () => {
     expect(introSuggestions(snap([{ key: "attention.failed", value: "0" }]))).not.toContain(
-      "why did the failed actions fail?",
+      "Why did the failed actions fail?",
     );
     expect(introSuggestions(snap([{ key: "attention.failed", value: "2" }]))).toContain(
-      "why did the failed actions fail?",
+      "Why did the failed actions fail?",
     );
+  });
+
+  it("localizes starter questions for Korean operators", () => {
+    expect(introSuggestions(snap([{ key: "eps", value: 4 }]), "ko")).toEqual([
+      "이 화면에서 무엇을 확인할 수 있나요?",
+      "현재 신뢰 티어 구성은 어떤가요?",
+    ]);
   });
 });

@@ -219,6 +219,8 @@ METRIC_BACKEND_FIRST_BYTE_MS = "backend_first_byte_response_time_ms"
 METRIC_HEALTHY_HOST_COUNT = "healthy_host_count"
 METRIC_MYSQL_CPU_PERCENT = "cpu_percent"
 METRIC_MYSQL_ACTIVE_CONNECTIONS = "active_connections"
+METRIC_MYSQL_QUERY_COUNT = "Queries"
+METRIC_MYSQL_SLOW_QUERY_COUNT = "Slow_queries"
 METRIC_APIM_HTTP_5XX_RATE = "http_5xx_rate"
 METRIC_APIM_BACKEND_LATENCY_MS = "backend_latency_ms"
 METRIC_CONTAINER_APP_CPU_NANOCORES = "container_app_cpu_nanocores"
@@ -369,6 +371,32 @@ _MYSQL_ACTIVE_CONNECTIONS = MetricKqlTemplate(
     label_columns=("resource_id",),
 )
 
+_MYSQL_QUERY_COUNT = MetricKqlTemplate(
+    kql=(
+        "AzureMetrics "
+        "| where ResourceProvider == 'MICROSOFT.DBFORMYSQL' "
+        "| where MetricName == 'Queries' "
+        "| summarize v = sum(Total) "
+        "  by bin(TimeGenerated, 1m), resource_id = tolower(ResourceId) "
+        "| project TimeGenerated, v, resource_id"
+    ),
+    value_column="v",
+    label_columns=("resource_id",),
+)
+
+_MYSQL_SLOW_QUERY_COUNT = MetricKqlTemplate(
+    kql=(
+        "AzureMetrics "
+        "| where ResourceProvider == 'MICROSOFT.DBFORMYSQL' "
+        "| where MetricName == 'Slow_queries' "
+        "| summarize v = sum(Total) "
+        "  by bin(TimeGenerated, 1m), resource_id = tolower(ResourceId) "
+        "| project TimeGenerated, v, resource_id"
+    ),
+    value_column="v",
+    label_columns=("resource_id",),
+)
+
 _APIM_HTTP_5XX_RATE = MetricKqlTemplate(
     # API Management 5xx rate from ``ApiManagementGatewayLogs``. Failed /
     # total per minute per resource; zero-total minutes yield 0.0 rather
@@ -488,6 +516,8 @@ _SEMANTIC_INVESTIGATION_QUERIES: Mapping[str, MetricKqlTemplate] = MappingProxyT
     {
         METRIC_SERVICE_REQUEST_DURATION_MS: _SERVICE_REQUEST_DURATION_MS,
         METRIC_DEPENDENCY_DURATION_MS: _DEPENDENCY_DURATION_MS,
+        METRIC_MYSQL_QUERY_COUNT: _MYSQL_QUERY_COUNT,
+        METRIC_MYSQL_SLOW_QUERY_COUNT: _MYSQL_SLOW_QUERY_COUNT,
     }
 )
 
@@ -573,6 +603,8 @@ __all__ = [
     "METRIC_HTTP_429_RATE",
     "METRIC_MYSQL_ACTIVE_CONNECTIONS",
     "METRIC_MYSQL_CPU_PERCENT",
+    "METRIC_MYSQL_QUERY_COUNT",
+    "METRIC_MYSQL_SLOW_QUERY_COUNT",
     "METRIC_NODE_CPU_PERCENT",
     "METRIC_POD_RESTART_COUNT",
     "METRIC_POD_RESTARTS",

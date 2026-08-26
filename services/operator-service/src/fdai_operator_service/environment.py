@@ -33,6 +33,10 @@ SEMANTIC_OUTBOX_NAMESPACE_ENV = "FDAI_SEMANTIC_TURN_OUTBOX_NAMESPACE"
 SEMANTIC_CONSUMER_GROUP_ENV = "FDAI_SEMANTIC_TURN_CONSUMER_GROUP_ID"
 SEMANTIC_KAFKA_CLIENT_ID_ENV = "FDAI_SEMANTIC_TURN_KAFKA_CLIENT_ID"
 READ_INVESTIGATION_REQUEST_TOPIC_ENV = "FDAI_READ_INVESTIGATION_REQUEST_TOPIC"
+READ_INVESTIGATION_COMPLETION_TOPIC_ENV = "FDAI_READ_INVESTIGATION_COMPLETION_TOPIC"
+READ_INVESTIGATION_COMPLETION_CONSUMER_GROUP_ENV = (
+    "FDAI_READ_INVESTIGATION_COMPLETION_CONSUMER_GROUP_ID"
+)
 MANAGED_IDENTITY_CLIENT_ID_ENV = "FDAI_COMMAND_MI_CLIENT_ID"
 DEFAULT_HOST = "0.0.0.0"  # noqa: S104 - Container ingress terminates external HTTPS.
 DEFAULT_PORT = 8000
@@ -42,6 +46,8 @@ DEFAULT_SEMANTIC_CONSUMER_GROUP = "operator-semantic-turn-v1"
 DEFAULT_SEMANTIC_KAFKA_CLIENT_ID = "fdai-operator-service"
 DEFAULT_STAGE_TOPIC = "fdai.pipeline.stages"
 DEFAULT_LIVE_STAGE_CONSUMER_GROUP = "fdai-operator-live-stage-v1"
+DEFAULT_READ_INVESTIGATION_COMPLETION_TOPIC = "core.read-investigation.completions"
+DEFAULT_READ_INVESTIGATION_COMPLETION_CONSUMER_GROUP = "operator-read-investigation-completion-v1"
 DEFAULT_NARRATOR_PROBE_INTERVAL_SECONDS = 300
 MIN_NARRATOR_PROBE_INTERVAL_SECONDS = 30
 MAX_NARRATOR_PROBE_INTERVAL_SECONDS = 3_600
@@ -91,6 +97,8 @@ class OperatorEnvironment:
     semantic_consumer_group_id: str
     semantic_kafka_client_id: str
     read_investigation_request_topic: str | None
+    read_investigation_completion_topic: str | None
+    read_investigation_completion_consumer_group_id: str | None
     managed_identity_client_id: str | None
 
     @classmethod
@@ -225,6 +233,42 @@ class OperatorEnvironment:
             raise OperatorServiceConfigurationError(
                 f"{READ_INVESTIGATION_REQUEST_TOPIC_ENV} MUST be distinct from semantic topics"
             )
+        explicit_completion_topic = values.get(
+            READ_INVESTIGATION_COMPLETION_TOPIC_ENV,
+            "",
+        ).strip()
+        explicit_completion_group = values.get(
+            READ_INVESTIGATION_COMPLETION_CONSUMER_GROUP_ENV,
+            "",
+        ).strip()
+        if (
+            explicit_completion_topic or explicit_completion_group
+        ) and kafka_bootstrap_servers is None:
+            raise OperatorServiceConfigurationError(
+                f"read investigation completion transport requires {KAFKA_BOOTSTRAP_SERVERS_ENV}"
+            )
+        read_investigation_completion_topic = (
+            explicit_completion_topic or DEFAULT_READ_INVESTIGATION_COMPLETION_TOPIC
+            if kafka_bootstrap_servers is not None
+            else None
+        )
+        read_investigation_completion_consumer_group_id = (
+            explicit_completion_group or DEFAULT_READ_INVESTIGATION_COMPLETION_CONSUMER_GROUP
+            if kafka_bootstrap_servers is not None
+            else None
+        )
+        if read_investigation_completion_topic is not None and (
+            read_investigation_completion_topic
+            in {
+                semantic_request_topic,
+                semantic_projection_topic,
+                semantic_physical_topic,
+                read_investigation_request_topic,
+            }
+        ):
+            raise OperatorServiceConfigurationError(
+                f"{READ_INVESTIGATION_COMPLETION_TOPIC_ENV} MUST be distinct from other topics"
+            )
         managed_identity_client_id = values.get(MANAGED_IDENTITY_CLIENT_ID_ENV, "").strip() or None
 
         return cls(
@@ -253,6 +297,10 @@ class OperatorEnvironment:
             semantic_consumer_group_id=semantic_consumer_group_id,
             semantic_kafka_client_id=semantic_kafka_client_id,
             read_investigation_request_topic=read_investigation_request_topic,
+            read_investigation_completion_topic=read_investigation_completion_topic,
+            read_investigation_completion_consumer_group_id=(
+                read_investigation_completion_consumer_group_id
+            ),
             managed_identity_client_id=managed_identity_client_id,
         )
 
@@ -323,6 +371,8 @@ __all__ = [
     "JWKS_URI_ENV",
     "PORT_ENV",
     "READ_INVESTIGATION_REQUEST_TOPIC_ENV",
+    "READ_INVESTIGATION_COMPLETION_CONSUMER_GROUP_ENV",
+    "READ_INVESTIGATION_COMPLETION_TOPIC_ENV",
     "SEMANTIC_CONSUMER_GROUP_ENV",
     "SEMANTIC_KAFKA_CLIENT_ID_ENV",
     "SEMANTIC_PROJECTION_TOPIC_ENV",

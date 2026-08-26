@@ -94,14 +94,14 @@ describe("viewContextWithUser wiring", () => {
     expect(ctx._locale).toBe("en");
   });
 
-  test("respects setLocale('ko')", async () => {
+  test("uses English for an English prompt when the Console language is Korean", async () => {
     const i18n = await import("../i18n");
     i18n.setLocale("ko");
     try {
       const parsed = await callAskAndCaptureBody(liveSnap());
       const ctx = parsed?.view_context ?? {};
-      expect((parsed as Record<string, unknown>).locale).toBe("ko");
-      expect(ctx._locale).toBe("ko");
+      expect((parsed as Record<string, unknown>).locale).toBe("en");
+      expect(ctx._locale).toBe("en");
     } finally {
       i18n.setLocale("en");
     }
@@ -110,6 +110,18 @@ describe("viewContextWithUser wiring", () => {
   test("uses Korean for a Korean prompt when the Console default is English", () => {
     const payload = createBackendRequestPayload(
       "ca-example-core가 갑자기 왜 느려졌어?",
+      liveSnap(),
+      [],
+      "session-42",
+    );
+
+    expect(payload.locale).toBe("ko");
+    expect((payload.view_context as Record<string, unknown>)._locale).toBe("ko");
+  });
+
+  test("uses Korean for a mixed prompt that contains Korean", () => {
+    const payload = createBackendRequestPayload(
+      "Please check 이 리소스의 current status",
       liveSnap(),
       [],
       "session-42",

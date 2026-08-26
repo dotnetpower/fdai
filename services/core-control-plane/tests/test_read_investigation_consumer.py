@@ -11,6 +11,10 @@ from fdai.core.background_task import (
     BackgroundTaskService,
     InMemoryBackgroundTaskStore,
 )
+from fdai.core.read_investigation import (
+    InteractiveReadInvestigationSubmission,
+    ReadInvestigationExecutionMode,
+)
 from fdai.shared.providers.event_bus import EventEnvelope
 from fdai_core_service.read_investigation_consumer import consume_read_investigations
 from fdai_service_contracts.read_investigation import (
@@ -44,6 +48,30 @@ class _Coordinator:
 
     async def cancel(self, task_id: str, *, actor: str, is_admin: bool) -> None:
         self.cancellations.append((task_id, actor, is_admin))
+
+
+class _Interactive:
+    def __init__(
+        self,
+        *,
+        mode: ReadInvestigationExecutionMode = ReadInvestigationExecutionMode.DIRECT,
+        owns_cancellation: bool = True,
+    ) -> None:
+        self.mode = mode
+        self.owns_cancellation = owns_cancellation
+        self.submissions: list[InteractiveReadInvestigationSubmission] = []
+        self.cancellations: list[tuple[str, str, bool]] = []
+
+    async def submit(
+        self,
+        submission: InteractiveReadInvestigationSubmission,
+    ) -> ReadInvestigationExecutionMode:
+        self.submissions.append(submission)
+        return self.mode
+
+    async def cancel(self, task_id: str, *, actor: str, is_admin: bool) -> bool:
+        self.cancellations.append((task_id, actor, is_admin))
+        return self.owns_cancellation
 
 
 class _Stream:
@@ -152,6 +180,63 @@ async def test_consumer_persists_before_wake_and_deduplicates_redelivery() -> No
     assert len(audit.events) == 1
     assert bus.dead_letters == []
     assert bus.stream.closed is True
+
+
+async def test_consumer_routes_interactive_mode_without_detached_task() -> None:
+    store = InMemoryBackgroundTaskStore(clock=lambda: NOW)
+    coordinator = _Coordinator()
+    interactive = _Interactive(mode=ReadInvestigationExecutionMode.STREAMED)
+    envelope = EventEnvelope(
+        READ_INVESTIGATION_REQUEST_TOPIC,
+        read_investigation_task_id("principal-one", "idempotency-one"),
+        _payload(),
+        1,
+    )
+    bus = _Bus([envelope])
+
+    await consume_read_investigations(
+        bus=bus,  # type: ignore[arg-type]
+        topic=READ_INVESTIGATION_REQUEST_TOPIC,
+        group_id="core-read-investigation-v1",
+        service=BackgroundTaskService(store=store, audit=_Audit(), clock=lambda: NOW),
+        coordinator=coordinator,
+        interactive=interactive,
+        stop=asyncio.Event(),
+    )
+
+    assert await store.list() == ()
+    assert coordinator.wakes == 0
+    assert len(interactive.submissions) == 1
+    submission = interactive.submissions[0]
+    assert submission.task_id == envelope.key
+    assert submission.request.origin_channel_kind == "operator-api"
+    assert submission.request.origin_channel_id == "principal-one"
+    assert bus.dead_letters == []
+
+
+async def test_consumer_cancels_only_the_owning_interactive_state_machine() -> None:
+    coordinator = _Coordinator()
+    interactive = _Interactive(owns_cancellation=True)
+    payload = _cancellation_payload()
+    bus = _Bus([EventEnvelope(READ_INVESTIGATION_REQUEST_TOPIC, "background-one", payload, 2)])
+
+    await consume_read_investigations(
+        bus=bus,  # type: ignore[arg-type]
+        topic=READ_INVESTIGATION_REQUEST_TOPIC,
+        group_id="core-read-investigation-v1",
+        service=BackgroundTaskService(
+            store=InMemoryBackgroundTaskStore(clock=lambda: NOW),
+            audit=_Audit(),
+            clock=lambda: NOW,
+        ),
+        coordinator=coordinator,
+        interactive=interactive,
+        stop=asyncio.Event(),
+    )
+
+    assert interactive.cancellations == [("background-one", "principal-one", False)]
+    assert coordinator.cancellations == []
+    assert bus.dead_letters == []
 
 
 async def test_consumer_dead_letters_invalid_key_without_persistence() -> None:

@@ -122,6 +122,14 @@ from fdai.delivery.persistence.postgres_programmatic_pipeline import (
     PostgresProgrammaticPipelineStore,
     PostgresProgrammaticPipelineStoreConfig,
 )
+from fdai.delivery.persistence.postgres_read_investigation_completion import (
+    PostgresReadInvestigationCompletionStore,
+    PostgresReadInvestigationCompletionStoreConfig,
+)
+from fdai.delivery.persistence.postgres_read_investigation_progress import (
+    PostgresReadInvestigationProgressStore,
+    PostgresReadInvestigationProgressStoreConfig,
+)
 from fdai.delivery.persistence.postgres_read_investigation_run import (
     PostgresReadInvestigationRunStore,
     PostgresReadInvestigationRunStoreConfig,
@@ -284,6 +292,10 @@ __all__ = [
     "PostgresReportSignalStoreConfig",
     "PostgresReadInvestigationRunStore",
     "PostgresReadInvestigationRunStoreConfig",
+    "PostgresReadInvestigationCompletionStore",
+    "PostgresReadInvestigationCompletionStoreConfig",
+    "PostgresReadInvestigationProgressStore",
+    "PostgresReadInvestigationProgressStoreConfig",
     "PostgresRpcIdempotencyStore",
     "PostgresRpcIdempotencyStoreConfig",
     "PostgresScheduleStore",

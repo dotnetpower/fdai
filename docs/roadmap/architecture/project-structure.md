@@ -375,8 +375,8 @@ per-resource locking serializes competing applies before any delivery adapter ca
 - Service wire contracts live in `packages/service-contracts/src/fdai_service_contracts/`.
   Each versioned JSON Schema under `schemas/<contract-id>/<version>.json` is immutable, so a new
   field ships as a new additive version that older consumers keep ignoring. `operator-core-request`
-  is at `1.3.0`, whose only addition over `1.2.0` is the server-owned `semantic_turn.bound_context`
-  that carries a resolved conversation binding without granting execution authority.
+  is at `1.4.0`. Version 1.3 added the server-owned `semantic_turn.bound_context`, and version 1.4
+  adds the bounded `semantic_turn.include_model_trace` opt-in without granting execution authority.
   `core-operator-projection` 1.4 adds the typed `direct_response` terminal disposition for a closed
   greeting intent without query digests, evidence references, verification claims, or authority.
   The bound incident read path passes canonical `incident_id` and audit `correlation_id` as

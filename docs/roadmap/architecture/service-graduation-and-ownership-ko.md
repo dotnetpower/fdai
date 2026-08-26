@@ -1,7 +1,7 @@
 ---
 translation_of: service-graduation-and-ownership.md
-translation_source_sha: e28bade86ac20bf6d39251d6af3a1e50017a2417
-translation_revised: 2026-08-24
+translation_source_sha: 4838622e2f815a943cdf039ae04eb3460c0c9d40
+translation_revised: 2026-08-26
 ---
 # 서비스 승격과 데이터 소유권
 
@@ -43,7 +43,8 @@ translation_revised: 2026-08-24
 | 보류 및 거절된 향후 후보 | deferred | [후보 결정](#후보-결정) | Operator 애플리케이션, 읽기, SSE 분리 및 background 읽기 작업은 측정된 강제 트리거와 완전한 게이트 근거가 생길 때까지 보류됩니다. A3 channel edge는 별도 구현 gate가 있는 non-distribution adapter workload로 승인했습니다. Ad hoc 제어 루프 서비스 분리는 계속 거절됩니다. |
 | 경계 docstring 강제 적용 | implemented | `scripts/quality/architecture/check-boundary-docstrings.py`; SD-09 근거 | 검토된 모든 분해 범위에서 구조적 docstring 계약을 강제 적용합니다. 의미 정확성은 계속 집중 아키텍처 테스트에 의존합니다. |
 | Temporal 인시던트 roster projection | implemented | `core_incident_projection_20260819`, `operator_incident_projection_read_20260819`, 집중 migration 및 Operator 검사 | Alembic이 소유하는 trigger가 추가 전용 감사 transaction 안에서 temporal version을 파생합니다. Core와 Executor 역할에는 projection 직접 쓰기 권한을 주지 않고 Operator 역할에는 SELECT만 부여합니다. |
-| 읽기 조사 요청 전송 | 구현됨 | `fdai-service-contracts`의 `read-investigation-request` `1.0.0`, Operator CAS 발신함, Core consumer 및 선택적 coordinator, 집중 교차 프로세스 테스트 | Operator는 영속 제안 수락과 발행을 소유합니다. Core는 요청 소비와 background-task 상태를 소유합니다. 조정기는 여섯 번째 서비스가 아니라 선택적 Core 런타임 구성 요소로 유지합니다. Operator 소유 대화 writer로 돌아가는 최종 완료 전송은 열린 상태입니다. |
+| 읽기 조사 요청 전송 | 구현됨 | `fdai-service-contracts`의 `read-investigation-request` `1.0.0`, Operator CAS 발신함, Core consumer 및 선택적 coordinator, 집중 교차 프로세스 테스트 | Operator는 영속 제안 수락과 발행을 소유합니다. Core는 요청 소비와 background-task 상태를 소유합니다. 조정기는 여섯 번째 서비스가 아니라 선택적 Core 런타임 구성 요소로 유지합니다. |
+| 읽기 조사 완료 전송 | 진행 중 | `fdai-service-contracts`의 `read-investigation-completion` `1.0.0`, Core 완료 발신함 publisher, Operator inbox, Web 대화 writer 및 `operator_read_investigation_completion_20260826` | 5개 서비스 토폴로지는 바뀌지 않습니다. Core는 Operator 대화 테이블을 쓰지 않습니다. Operator는 inbox와 멱등적인 Web assistant turn을 원자적으로 소유합니다. 채널 outbound enqueue, 보존 정리 및 통제된 배포 근거는 열린 상태입니다. |
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
@@ -60,6 +61,7 @@ translation_revised: 2026-08-24
 | 2026-08-23 | 진행 중 | Operator 소유 영속 발신함에서 Core 소유 background-task 조정기로 이어지는 권한 없는 버전 지정 `read-investigation-request` 전송을 정의했습니다. 조정기를 별도 서비스로 승격하지 않습니다. | `current change`, 이 소유 문서와 [Azure 읽기 조사](../interfaces/azure-read-investigations-ko.md) | 실행 가능한 경로를 주장하기 전에 N/N-1 코덱, 발신함 발행, Core 소비, 중복/재시작 검사 및 운영 조합을 구현합니다. |
 | 2026-08-23 | 구현됨 | 정확한 `1.0.0` 요청 및 취소 codec, Operator CAS publish, Core wake 전 영속 소비, 중복 및 poison 처리, 선택적 coordinator 조합 및 로컬/deployed 논리 토픽 구성을 5개 서비스 토폴로지를 바꾸지 않고 구현했습니다. | `current change`; 집중 교차 프로세스, background-task, PostgreSQL, Operator, 토픽 및 로컬 환경 게이트 152개가 skip 또는 warning 없이 통과했습니다. | 버전이 지정된 최종 완료 전송을 정의하고 관리되는 재시작, 배포 및 롤백 근거를 보존합니다. |
 | 2026-08-23 | 구현됨 | 서로 독립적이던 시작 및 취소 partition key를 소유자 범위의 정본 background-task 수명 주기 identity로 교체했습니다. 이제 한 작업의 시작 및 취소 기록이 같은 partition을 사용하며 Core는 영속화 또는 취소 전에 같은 identity를 다시 검증합니다. | `current change`; 시작/취소 partition 동등성 검사를 포함한 집중 계약 및 전송 검사 22개가 통과했고 작업 범위 Ruff 및 strict mypy가 통과했습니다. | Core에 Operator 대화 writer를 추가하지 않고 역방향 최종 완료 계약을 정의합니다. |
+| 2026-08-26 | 진행 중 | 역방향 완료 계약을 Core 발신함과 Operator 소유 writer에 연결했습니다. Operator migration은 대화 쓰기와 inbox sequence 사용을 부여하고 하나의 transaction이 서비스 토폴로지 또는 Core 권한을 바꾸지 않으면서 제안, Web assistant turn 및 inbox 행을 dedupe합니다. | `current change`; 집중 Operator readiness, 완료 저장소 및 migration 권한 검사가 통과했습니다. | 채널 outbound enqueue, 보존 정리 및 통제된 배포/rollback 근거를 추가합니다. |
 ### 남은 작업
 
 - [x] 승인된 5개 서비스 토폴로지에 남은 작업이 없습니다. 승격, 쓰기 담당 소유권, 신원 격리, 롤백 및 원격 전이 근거는 분해 프로그램에 보존돼 있습니다.
@@ -67,9 +69,8 @@ translation_revised: 2026-08-24
 - [ ] 구현된 non-distribution A3 edge의 통제된 provider 및 보호된 배포 근거를 소유 설계에
   보존합니다. Background 읽기 작업 실행기만 독립 전송 계층, 신원, 영속성, 비용 또는 실패
   근거, 배포 smoke 및 롤백을 갖춘 뒤 향후 서비스 후보로 다시 평가합니다.
-- [ ] [영속 대화 전달](../interfaces/durable-conversation-delivery-ko.md)이 Operator 소유 영속성,
-  멱등성, 재시도, 보존 및 롤백 동작을 정의한 뒤 프로세스 간 계약 매트릭스에 버전이 지정된 최종
-  읽기 조사 완료 행을 추가합니다.
+- [x] Core publisher, Operator inbox 및 멱등적인 Web 대화 writer를 통해 프로세스 간 계약 매트릭스의 버전 지정 최종 읽기 조사 완료 행을 구현합니다.
+- [ ] [영속 대화 전달](../interfaces/durable-conversation-delivery-ko.md)의 채널 outbound enqueue와 보존 주장을 완료한 뒤 통제된 배포 및 rollback 근거를 보존합니다.
 
 ## 승격 점수표
 
@@ -138,6 +139,7 @@ Logical 기록 또는 수명 주기 전이 하나에는 쓰기 담당 하나만 
 | `conversation_image` | principal 범위로 한정된 Operator API 이미지 저장소 | 인증된 owning-principal 이력 경로 | Alembic 이행 작업 |
 | `conversation_outbound_delivery*`, `conversation_adapter_breaker`, `conversation_channel_message_claim` | Operator 영속 conversation-delivery 조정기 | Operator API 전달 상태와 claimed 작업의 Operator edge adapter | Operator service migration branch |
 | `background_task_attempt`, `background_task_progress`, `background_task_completion` ([이행 0040/0051](../../../alembic/versions/20260720_0040_background_task.py)) | Background-task 조정기/저장소 | Owner-scoped Operator API 변환 결과와 완료 전달 | Alembic 이행 작업 |
+| `read_investigation_run`, `read_investigation_run_progress`, `read_investigation_run_completion` | Core 대화형 읽기 조사 조정기/저장소 | 소유자 범위 Operator API 재생 및 완료 전달 | Core 서비스 migration, Operator 서비스 읽기 권한 |
 | `scheduled_task`, `schedule_dispatch_run`, `scheduled_conversation_anchor` | 정의와 CAS-claimed 전달 실행의 스케줄러 서비스/저장소 | Operator API 스케줄러/실행 변환 결과와 이어가기 전달 | Alembic 이행 작업 |
 | `inventory_snapshot*`, `inventory_active` | Full-snapshot 승격의 인벤토리 synchronization 작업 | Core 인벤토리 프로바이더와 authorized Operator API 인벤토리 변환 결과 | Alembic 이행 작업 |
 | `inventory_realtime_resource`, `inventory_realtime_link` | 정규화된 프로바이더 이벤트의 realtime 인벤토리 projector | 인벤토리 materializer와 authorized 그래프 변환 결과 | Alembic 이행 작업 |
@@ -155,6 +157,12 @@ Logical 기록 또는 수명 주기 전이 하나에는 쓰기 담당 하나만 
 
 새 후보는 구현 전에 데이터 행을 추가합니다. 쓰기 담당이 겹치는 행, 소유자가 "shared 서비스"인
 행, 이름이 없는 이행 경로는 승격을 차단합니다.
+
+Direct 및 streamed 읽기 실행은 기존 Core distribution 안에 유지됩니다. Core만 프로바이더 I/O
+전에 모드를 선택하고 실행, 진행 상황, 취소 및 완료 발신함 전이를 씁니다. Operator는 제안과 취소
+명령을 인증하고 SELECT 전용 권한 아래에서 소유자 조건으로 해당 테이블을 읽으며, 버전이 지정된
+완료 인계 뒤 대화 또는 채널 구체화를 소유합니다. 전송 연결 해제는 재생 구독자만 분리하며 상태
+전이 권한을 부여하지 않습니다.
 ## 프로세스 간 계약 매트릭스
 
 | 계약 | 스키마 소유자 | 생산자 | 소비자 | 파티션 키 | 호환성 | 재시도, DLQ, 멱등성, 보존 |
@@ -166,6 +174,7 @@ Logical 기록 또는 수명 주기 전이 하나에는 쓰기 담당 하나만 
 | Operator 명령/제안 이벤트 | [Event](../../../services/core-control-plane/src/fdai/shared/contracts/event/schema.json)와 [액션](../../../services/core-control-plane/src/fdai/shared/contracts/action/schema.json) 계약 | Operator API 명령 신원 | Huginn/Forseti 타입이 지정된 파이프라인 | 정규화된 `resource_id` | 레지스트리 semver와 가산 호환성 | At-least-once, 카탈로그 멱등성 키, normal 이벤트/DLQ 보존 1일/7일 |
 | Operator 의미 턴 `1.2.0` | `fdai-service-contracts` 의미 요청 및 변환 결과 codec | Operator API 영속 발신함 / Core 의미 런타임 | Core 의미 소비자 / Operator 변환 결과 소비자 | `request_id` | N은 `1.0.0`, `1.1.0`, `1.2.0`을 수락하며 `1.2.0` 페이로드를 downgrade하지 않음 | At-least-once, 멱등적 생산자, 변환 결과 영속성 이후 수동 커밋, malformed JSON은 형제 DLQ, 영속 요청/변환 결과 dedupe |
 | 읽기 조사 요청 `1.0.0` | `fdai-service-contracts` 요청 코덱 | Operator API 영속 제안 발신함 | Core 읽기 조사 소비자와 Core 소유 background-task 조정기 | 소유자와 생성 멱등성 키에서 파생한 정본 `task_id` | 정확한 `1.0.0`, 지원하지 않는 버전은 실패 시 차단, 가산 후속 버전은 N/N-1 코덱 검사 필요 | At-least-once, 한 작업의 시작 및 취소가 같은 partition을 사용, Operator CAS 점유는 브로커 수락 뒤에만 닫힘, malformed 기록은 형제 DLQ로 이동, Core는 partition identity를 다시 검증하고 소유자와 멱등성 키로 중복 제거하며 영속 작업 또는 최종 실행 원장을 저장한 뒤에만 전송을 커밋, 일반/DLQ 보존 1일/7일 |
+| 읽기 조사 완료 `1.0.0` | `fdai-service-contracts` 완료 codec | Core 소유 background-task 완료 발신함 | Operator 완료 consumer, inbox, conversation writer 및 영속 outbound delivery | 정본 `task_id` | 정확한 `1.0.0`, 가산 후속 버전은 N/N-1 decoder를 유지하며 새 payload를 downgrade하지 않음 | At-least-once, Core는 broker 수락 뒤에만 완료를 닫음, malformed 기록은 sibling DLQ로 이동, 일치하지 않는 기록은 범위가 제한된 retry 뒤 quarantine, 하나의 Operator transaction이 inbox, turn 및 outbound enqueue를 dedupe, 일반/DLQ 보존 1일/7일 및 영속 purge는 계약 기한을 따름, rollback은 양쪽 발신함과 수락된 모든 Operator 기록을 보존 |
 | 에이전트 introspection 요청/회신 | [Agent-introspection 전송 계층](../../../services/core-control-plane/src/fdai/delivery/agent_introspection_bus.py) | Bragi/Operator API 브리지 | Addressed 에이전트와 범위가 제한된 회신 소비자 | 상관관계 id | 프로세스 분리 전 versioned 요청/회신 묶음 | 범위가 제한된 시간 초과/재시도, 권한 없음, content-redacted 실패, 브로커 보존 1일 |
 | 실행기 명령 `1.0.0` 및 증적 `1.0.0` / `1.1.0` | [실행기 전송 계층](../../../services/core-control-plane/src/fdai/shared/contracts/models/executor_transport.py) | Core Thor 실행 포트 | Isolated 실행기와 Core 증적 클라이언트 | exact 대상 리소스 참조 | `1.0.0` 증적은 효과가 없고 가산 `1.1.0`은 전달을 보고하지만 독립적인 검증을 주장할 수 없음 | At-least-once, poison DLQ, 고정된 Core 소비자 그룹, 프로바이더와 실행기 멱등성, normal/DLQ 보존 1일/7일 |
 

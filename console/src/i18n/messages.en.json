@@ -2137,7 +2137,7 @@
     "close": "Close command deck",
     "closeConversations": "Close conversations",
     "invoke": "Ask anything about this screen",
-    "conversations": "Conversations",
+    "conversations": "Conversation history",
     "newConversation": "New conversation",
     "currentScreen": "Current screen",
     "otherScreens": "Other screens",
@@ -2218,7 +2218,17 @@
     },
     "suggestedFollowUps": "Suggested follow-ups",
     "reviewAnswer": "Review answer quality",
-    "intro": "Ask about anything currently visible - tiles, KPIs, approvals, audit rows, promotion status, impact scope, or ontology. I ground every answer in the snapshot on the right.",
+    "emptyTitle": "Ask about {route}",
+    "intro": "Answers stay grounded in the verified information and operational evidence on this screen.",
+    "starterSuggestions": {
+      "routes": "What routes are available?",
+      "failed": "Why did the failed actions fail?",
+      "approval": "What is waiting for approval?",
+      "denied": "What was denied and why?",
+      "stuck": "Which actions are stuck?",
+      "screen": "What do you see on this screen?",
+      "tierMix": "What is the tier mix right now?"
+    },
     "verticalQuickStarts": {
       "label": "Operating domains",
       "resilience": "Resilience",

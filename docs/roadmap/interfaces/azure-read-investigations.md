@@ -13,7 +13,7 @@ This document defines how an operator question becomes a bounded, read-only Azur
 > sanitized reproduction commands, and coverage reconciliation are defined in
 > [Azure Resource Discovery Command Coverage](azure-resource-discovery-commands.md).
 >
-> **Current implementation boundary:** The running Pantheon composes `resource_state` through Heimdall's interactive read hook. The Operator request transport also reaches a detached Core executor for all seven registered intents. Guest logs, NSG rules, and VNet peerings remain explicit unavailable evidence until their typed providers are configured. Direct and streamed execution and terminal conversation delivery remain open.
+> **Current implementation boundary:** The running Pantheon composes `resource_state` through Heimdall's interactive read hook. The Operator request transport also reaches a detached Core executor for all seven registered intents. Guest logs, NSG rules, and VNet peerings remain explicit unavailable evidence until their typed providers are configured. Direct and streamed execution plus external-channel terminal delivery remain open.
 
 ## Design at a glance
 
@@ -36,59 +36,6 @@ A read investigation stays outside the mutation control loop. Shared semantic ju
 An operator question is not published as `object.event`. That topic enters detection, judgment, risk, and execution processing. The current Operator API persists a proposal and outbox record before it returns `202` or begins SSE replay. The Operator outbox now publishes a versioned request or cancellation, and the optional Core consumer creates or cancels the owner-scoped durable task. Durable acceptance is still not evidence that provider work completed. PostgreSQL remains the source of truth; the coordinator wake signal is only a delivery hint.
 
 The production handoff uses the versioned, no-authority `read-investigation-request` contract. Operator owns durable acceptance and CAS-fenced publication; Core consumes the request and is the only runtime writer for the run ledger and background-task tables. The transport is at-least-once, so Core commits its broker offset only after durable task creation or terminal run-ledger persistence. The optional coordinator starts inside the existing Core service. It is not another Pantheon member, service distribution, or executor identity.
-
-## Implementation status
-
-### Implementation scope
-
-| Area | State | Evidence | Notes |
-|------|-------|----------|-------|
-| Bragi and Heimdall routing | implemented | Schema-validated English, Korean, and mixed-language semantic judgment projects only exact registered intents and routes the resulting read contract to Heimdall. | Model failure returns clarification or unavailable without lexical fallback. |
-| Investigation evidence signal | implemented | A bound read-investigation hook counts as owned evidence for Heimdall's conversational port, so an investigable turn is not composed with the evidence-gap prompt layer even before the local signal window fills. | - |
-| Exact resource resolution | implemented | `not_found`, bounded `ambiguous`, and one scope-bound exact reference stop history queries until resolution succeeds. | - |
-| Typed intent and plan contracts | implemented | `ReadInvestigationIntent`, `ReadToolId`, immutable plan specs, planner checks, and normalized evidence envelopes cover all seven registered intents. | Contract coverage does not prove that every intent is reachable in production. |
-| Catalog/runtime binding | implemented | Local and deployed composition fail before provider I/O unless catalog intent IDs exactly match the runtime enum, every read intent remains owned by Heimdall, and plan IDs are unique. | - |
-| Planner intent coverage | implemented | One immutable runtime intent spec owns plan ID, default and interactive tools, and lookback. Import and exhaustive tests fail on enum gaps, and startup rejects catalog plan-ID drift. | - |
-| Resource-state ontology shadow comparison | implemented | Durable inventory composition supplies the authoritative state read, the exact runtime release supplies `inventory.select_resources`, and Heimdall's read hook executes the ontology query in shadow. The comparator reverifies request, profile, plan, invocation, and result lineage, applies one trusted cutoff and the 300-second freshness ceiling, and appends a principal-scoped immutable receipt through `StateStore`. Requester and conversation references are stable opaque hashes, so durable shadow receipts retain ownership scope without raw identity values. Within one invocation, durable and live activity share an opaque hashed correlation. Repeated invocations receive distinct correlations even when the principal, conversation, and question match, while the logical request idempotency key remains stable. The profile stores no question, resource identity, or invocation token and adds no correlation to the latency audit. Shadow failure never changes or retries the authoritative answer. A cross-source conflict can only lower the disposition: a state or identity disagreement between the live read and the projected graph is adjudicated into one `derived` conflict, retained in the receipt digest, and makes the hook withhold the contested state and report degraded activity with unknown freshness. An observation-time difference alone is not a conflict. | Live cross-service parity receipts remain release evidence. |
-| Conversational resource continuity | implemented | Command Deck retains one server-selected inventory resource across terminal turns. Resource Health history may also retain one complete anomalous-event anchor: resource group, timestamp, and status. Elliptical history and pre-incident follow-ups bypass semantic and public-web planning, then Heimdall revalidates the bounded context and returns matching read evidence directly. | - |
-| Subscription scope identity | implemented | Current-subscription identity questions read the server-configured subscription name and state from Azure Resource Manager, render only a masked subscription ID, and never call the narrator model. | - |
-| Subscription health sweep | implemented | Explicit subscription checks, general service-outage questions, and generic degraded or unavailable resource-state questions use the configured reader scope. The inventory language catalog selects Resource Health authority for availability semantics. The provider defaults to the configured resource-group allowlist. An explicit server-owned subscription mode aligns interactive local health with its subscription inventory. Platform-impact reads query active Service Health events and impacted resources, separate outages from maintenance and advisories, and correlate Resource Health causes. Other diagnosis reads can check representative metrics for up to 16 supported resources with concurrency limited to four. | - |
-| Reachable production provider composition | in-progress | `runtime/providers.py` composes promoted-inventory resolution and state reads, then wraps them with bounded Activity Log and Resource Health REST reads when Azure identity and subscription settings exist. | Guest logs, NSG rules, and VNet peerings return explicit unavailable envelopes in this composition. |
-| Optional Azure MCP reads | implemented | `fdai.delivery.azure.mcp_read_investigation`, `runtime/providers.py`, and `runtime/read_investigation_runtime.py` compose allowlisted Resource Health reads with bounded stdio discovery, per-plan limits, a circuit breaker, exact-resource normalization, periodic recovery probes, and REST fallback. | MCP is opt-in through `FDAI_AZURE_MCP_ENABLED`. Other read tools remain on their typed provider or explicitly unavailable. |
-| Read-tool attenuation | implemented | `background.read-only` contains exactly seven Reader tools and denies mutation, approval, shell, arbitrary-query, and nested-worker capabilities. | - |
-| Operator API proposal ingress | implemented | `POST /read-investigations` requires Contributor or Owner, persists one idempotent `read_investigation.start` proposal before returning `202`, and starts SSE replay only from the durable request stream. | Proposal acceptance remains distinct from terminal provider completion. |
-| Cross-process request transport | implemented | The Operator CAS outbox publishes the exact `1.0.0` no-authority request or owner-scoped cancellation. The Core consumer validates the digest and partition key, deduplicates by owner and idempotency key, persists before wake, and dead-letters malformed or conflicting records. | Governed restart and deployed transport receipts remain validation evidence. |
-| Execution modes and progress | in-progress | The core service enforces exact-resolution-first execution, bounded parallel reads, typed progress, and a tested direct/streamed/detached selection policy. | Accepted API proposals currently enter only the detached path; the Operator API doesn't construct the interactive policy or stream provider execution. |
-| Interactive policy parity | in-progress | One shared interactive policy function defines thresholds independently of venue. | No production composition currently consumes that function, so parity is not yet executable evidence. |
-| Direct and streamed replay | in-progress | The owner-scoped PostgreSQL run ledger implements claims, lease renewal, bounded reclaim, terminal usage, and result replay with focused persistence coverage. | The detached-only production binding does not construct the unused store. Direct or streamed composition remains open. |
-| Detached execution and quotas | implemented | The optional Core binding constructs the PostgreSQL task store, typed executor, supervised coordinator, exact request consumer, quotas, cancellation, reconciliation, and bounded shutdown. All seven intents retain exact-resource-first plans; unsupported providers return explicit unavailable evidence. | Completion delivery and governed restart evidence remain separate. |
-| Completion handoff | in-progress | Atomic terminal-plus-outbox persistence, an idempotent conversation completion sink, and atomic single-write completion audit markers exist with focused tests. | The production coordinator has no completion sink. A versioned Core-to-Operator completion contract and Operator-owned conversation delivery adapter must be defined before binding it. |
-| Live Azure scenario evidence | in-progress | Caller attribution, Resource Health, unauthorized scope, and ambiguous names passed read-only live validation. | Guest-event matching and an actual provider `429` remain release evidence gaps. |
-
-### Implementation history
-
-| Date | State | Change | Evidence | Remaining |
-|------|-------|--------|----------|-----------|
-| 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and recorded the bounded current-state activity identity. | Current source plus `test_read_investigation_latency.py` and `test_activity_projection.py`; the focused suites passed. | Record the live cross-service parity receipt below. |
-| 2026-08-13 | implemented | Assigned a distinct opaque activity correlation to each current-state read invocation while preserving one correlation across its live and durable lifecycle and retaining stable logical request idempotency. | Current change in `wire_read_investigation.py` and `test_wire_read_investigation.py`; the focused composition suite passes 5 tests. | Record the live cross-service parity receipts and close the live Azure scenario gaps below. |
-| 2026-08-13 | implemented | Replaced raw requester and conversation references with stable opaque hashes, preserving principal scope without exposing raw identity in durable shadow receipts. | Current change in `wire_read_investigation.py` and `test_wire_read_investigation.py`; the focused composition suite passes 5 tests, including durable receipt privacy and identity separation. | Record the live cross-service parity receipts and close the live Azure scenario gaps below. |
-| 2026-08-15 | implemented | Adjudicated the live provider read against the inventory-projected graph state into one `derived` cross-source fact, retained the conflict in the receipt digest, and made a conflict withhold the asserted state and degrade the terminal activity. | `current change`; `test_resource_state_shadow.py` adjudication cases and `test_wire_read_investigation.py::test_cross_source_state_conflict_lowers_the_answer_and_activity` with an agreeing control. | Record the live cross-service parity receipts and close the live Azure scenario gaps below. |
-| 2026-08-21 | implemented | Replaced language-specific read-intent classification with the shared candidate-only semantic judgment and retained deterministic exact resource-id parsing, plan ownership, evidence budgets, and provider authority. | `current change`; focused read-investigation checks passed 9 cases and the repository semantic-routing guard reports no migrate paths. | Record the live cross-service parity receipts and close the live Azure scenario gaps below. |
-| 2026-08-23 | in-progress | Corrected earlier scope overclaims after the Operator service extraction: durable proposal ingress is implemented, while the production consumer, full provider set, execution-mode binding, replay store binding, detached coordinator, completion sink binding, and Azure MCP adapter remain incomplete. | `current change`; focused read-investigation, composition, and Operator proposal tests passed 118 cases; translation, Korean quality, Hangul, punctuation, design-route, and roadmap-ledger checks passed. | Make the accepted proposal executable through the bounded read path, then retain cross-service and live-provider evidence. |
-| 2026-08-23 | implemented | Added atomic single-write `background-task.completed` and `background-task.delivery-enqueued` markers around durable conversation handoff without composing or starting a detached executor. | `current change`; focused completion sink and StateStore audit checks passed 14 cases; Ruff and strict mypy passed. | Bind the audit writer together with the completion sink and coordinator after the production proposal consumer exists. |
-| 2026-08-23 | implemented | Added the versioned Operator-to-Core start and cancellation transport, optional Core detached coordinator, typed seven-intent executor, owner-scoped task projection, and local/deployed logical-topic configuration. Hardening closed duplicate cancellation, coordinator tick concurrency, wake bursts, control-character contract drift, and cross-midnight PostgreSQL active quotas. | `current change`; the focused contract, Operator, Core, background-task, PostgreSQL, MCP, topic, and local-environment gate passed 152 cases with no skips or warnings; the cross-midnight quota cases passed against local PostgreSQL. | Define terminal completion transport and bind the Operator-owned delivery path; connect direct/streamed execution to the run ledger; finish MCP production discovery and recovery. |
-| 2026-08-23 | implemented | Hardened the integrated detached path with a creation-audit claim fence, Core-clock request creation, one task-lifecycle partition key for ordered start and cancellation, bounded sink-less completion retention, and optional Resource Health MCP discovery and recovery over authoritative REST fallback. | `current change`; routed read-investigation checks passed 800 cases, focused transport and background checks passed 67 cases, MCP checks passed 5 cases, and isolated PostgreSQL persistence passed 15 cases; task-scoped Ruff and strict mypy passed. | Define terminal completion transport, connect direct and streamed execution, and retain governed restart plus live-provider evidence. |
-
-### Remaining work
-
-- [x] Implement and consume the versioned `read-investigation-request` transport for each durable `read_investigation.start` proposal through a production composition that preserves principal scope, idempotency, cancellation, and bounded SSE replay.
-- [x] Keep unconfigured guest-log, NSG, and VNet-peering tools explicitly unavailable and prove all seven registered intents retain exact-resource-first plans through the production detached composition.
-- [ ] Put direct and streamed execution behind the PostgreSQL run store and shared policy, then pass owner-scoped replay and disconnect cancellation checks before enabling either mode in production.
-- [ ] Define a versioned Core-to-Operator terminal completion contract in [Durable Conversation Delivery](durable-conversation-delivery.md) and [Service Graduation and Data Ownership](../architecture/service-graduation-and-ownership.md), then bind the completion sink and audit writer without giving Core an Operator conversation write.
-- [x] Implement the optional Azure MCP Resource Health adapter, allowlist probe, circuit breaker, periodic recovery, per-plan limits, and REST fallback. Other MCP read tools stay unavailable until their exact-resource schemas and normalizers are reviewed.
-- [ ] Record live cross-service parity receipts proving snapshot-first hydration and same-invocation durable/live identity.
-- [ ] Validate guest-event matching and an actual provider `429` response in the governed live Azure scenario evidence.
-
 ## Investigation request and plan
 
 The planner turns one accepted semantic judgment into an immutable `ReadInvestigationRequest`. It carries the requester, conversation and correlation references, canonical intent, source-grounded resource selector, lookback, requested evidence, budget, and idempotency key. The model proposes meaning only; deterministic code validates exact registered intent, plan ownership, resource identity, evidence authority, and bounds.
@@ -238,10 +185,6 @@ It never updates the graph, treats a provider receipt as convergence, or grants 
 Azure MCP can provide an additional read transport for registered tools. It remains optional: Resource Graph and typed REST providers stay authoritative and continue serving requests when MCP
 is absent, unreachable, unauthorized, or missing an allowlisted tool.
 
-> **Implementation status:** The optional adapter is implemented for exact-resource Resource Health
-> only. The production wrapper remains disabled unless `FDAI_AZURE_MCP_ENABLED` is true. Other read
-> tools continue through their typed provider or return explicit unavailable evidence.
-
 The adapter performs one bounded MCP handshake and `tools/list` probe before accepting MCP traffic.
 The initial deadline is configurable and capped at 10 seconds. Probe failure records the capability
 as unavailable but does not block the Operator API. While unavailable, a request does not contact the
@@ -347,6 +290,11 @@ provider-unavailable result as authorization or scope unless the provider proves
 Broad CPU spike questions also use this server-owned metric path before semantic or screen
 interpretation. Unsupported or unavailable metric coverage remains visible and cannot become a
 generic CPU definition or a claim that no spike occurred.
+An exact VM CPU investigation can also query Azure Monitor `Perf` process counters. The server
+fixes the Resource ID, baseline and current windows, process limit, object names, and counter name.
+The result keeps each process identity, average and maximum counter values, sample count, observed
+times, completeness, truncation, and evidence reference separate from Activity Log and topology
+evidence. Missing counters keep the process hypothesis unresolved and cannot become a cause claim.
 Broad memory-pressure questions follow the same path. The typed query records the diagnostic metric
 family, and rendering excludes observations from other metric families while retaining the sweep's
 unavailable, unsupported, and truncation limits.
@@ -465,22 +413,22 @@ conclusion and lists missing evidence.
 `InvestigationExecutionPolicy` selects one mode from a measured plan estimate. Thresholds are
 configuration, not literals embedded in routing code.
 
-> **Implementation status:** The policy, latency, progress, run-ledger, background-task, and worker
-> primitives have focused coverage. No production source currently composes them behind
-> `POST /read-investigations`; that endpoint persists and replays a proposal only.
-
 | Mode | Suggested initial p95 band | Behavior |
 |------|----------------------------|----------|
-| `direct` | Up to 4 seconds | Execute in the current request and return one answer |
-| `streamed` | More than 4 and up to 15 seconds | Keep the chat stream open and emit bounded semantic progress |
-| `detached` | More than 15 seconds, multi-source fan-out, or explicit deep investigation | Create a durable background task and return its task reference immediately |
+| `direct` | Up to 20 seconds | Execute as one durable Core run and deliver one terminal answer without requiring progress attachment |
+| `streamed` | More than 20 and up to 30 seconds | Execute as one durable Core run while exposing bounded persisted semantic progress |
+| `detached` | More than 30 seconds or explicit deep investigation | Create a durable background task and return its task reference immediately |
 
 These values are starting configuration, not performance claims. Deployment owners replace them
-after measuring the same scenario set in the target environment. Once composed, detached work reuses the existing
+after measuring the same scenario set in the target environment. Multi-source fan-out does not by
+itself force detachment because the executor already bounds and parallelizes independent reads.
+Once composed, detached work reuses the existing
 `queued -> claimed -> running -> terminal` state machine. Its worker receives no parent transcript,
 screen state, mutable memory, shell, executor identity, or mutation tool.
 
-Direct and streamed requests use a separate owner-scoped run ledger keyed by the authenticated
+Core builds the canonical plan, loads the matching latency profiles, and selects the mode before
+provider I/O. Operator cannot select or raise a mode through an HTTP header, browser state, or
+prompt. Direct and streamed requests use a separate owner-scoped run ledger keyed by the authenticated
 principal and idempotency key. The ledger stores a digest of the canonical request projection,
 including selector, lookback, evidence, every budget field, and the explicit-deep flag. A matching
 completed request replays its immutable result. An active request returns a bounded retry interval,
@@ -489,6 +437,12 @@ inside the original wall-clock ceiling, and terminal rows are removed only after
 The production consumer must place the direct executor behind this ledger rather than call a
 provider around it. Direct and streamed plans use the bounded progress path; only a detached
 selection returns a durable-task handoff.
+
+The same Core writer appends bounded progress rows under the run identity and a monotonic sequence.
+Operator receives SELECT-only access and applies the authenticated principal predicate inside every
+run and progress query. Core and Operator never split state transitions on the run ledger. Direct,
+streamed, and detached keep their separate state machines until measured recovery behavior justifies
+unification.
 
 Detached creation uses the same canonical request digest in its context binding. Reusing a key
 with a different budget or other request field therefore returns a conflict instead of replaying a
@@ -552,8 +506,12 @@ streamed provider call is idle, the route emits the standards-compliant SSE comm
 `: heartbeat` followed by a blank line. The heartbeat keeps the connection active without
 inventing a progress event. The stream emits one terminal event after the provider task succeeds
 or fails; failure terminals contain only a bounded reason and never raw provider error text.
-Closing a streamed response cancels and awaits its in-flight investigation, so a disconnected
-client cannot leave provider reads running without a consumer. Detached completion commits the
+Closing a streamed response detaches that subscriber only. The durable Core run continues, and a
+reconnecting owner resumes persisted progress with `Last-Event-ID` before receiving the one terminal
+event. Browser refresh, network loss, and another tab therefore cannot manufacture cancellation.
+Only an authenticated owner-scoped cancellation command may move an active run through
+`cancel_requested -> cancelled`; Core cancels pending provider work and commits the terminal state.
+Detached completion commits the
 immutable result first, then appends an untrusted assistant turn and enqueues it through the
 durable background completion outbox and reply ledger. Delivery failure cannot rerun the
 investigation or rewrite its result.
@@ -600,8 +558,9 @@ raw CLI output, prompts, and unredacted caller payloads.
 - **Partial evidence:** Return supported facts and name the missing source.
 - **Process loss:** Mark an expired running attempt `unknown(process_lost)`; do not replay it
   automatically.
-- **Cancellation:** Stop pending provider work, commit `cancelled`, and retain completed evidence
-  references already written.
+- **Cancellation:** An explicit authorized command records `cancel_requested`, stops pending
+  provider work, commits `cancelled`, and retains completed evidence references already written.
+  A delivery disconnect never implies this command.
 - **Prompt injection in evidence:** Treat provider strings as data and deny output that attempts to
   change tools, scope, authorization, or execution mode.
 
@@ -631,8 +590,9 @@ raw CLI output, prompts, and unredacted caller payloads.
 - Scenario tests prove an investigation never publishes `object.event` and never invokes Thor.
 - Latency tests cover cold profiles, minimum samples, sequential and parallel estimates, threshold
   boundaries, delayed milestones, and cross-replica persistence.
-- Stream tests cover idle SSE comment heartbeats before terminal delivery and cancellation of the
-  in-flight provider task when the response closes.
+- Stream tests cover idle SSE comment heartbeats before terminal delivery, owner-scoped replay after
+  disconnect, continued execution without a subscriber, and explicit cancellation of in-flight
+  provider work.
 - Background tests cover lease contention, cancellation, timeout, process loss, progress caps,
   terminal immutability, and durable reply handoff.
 - Live Azure checks verify Activity Log caller attribution, Resource Health fallback, unauthorized
@@ -642,6 +602,7 @@ raw CLI output, prompts, and unredacted caller payloads.
 
 | To learn about | Read |
 |----------------|------|
+| Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/interfaces/azure-read-investigations.md) |
 | Operator tools and chat tiers | [Operator Console](operator-console.md) |
 | Detached investigation lifecycle | [Durable Background Task Sessions](background-task-sessions.md) |
 | Isolated tool attenuation | [Bounded Task Workers](../agents/bounded-task-workers.md) |

@@ -22,8 +22,11 @@ _INTENT_ID_PATTERN = r"^[a-z][a-z0-9_.-]{0,79}$"
 _MAX_UTTERANCE_CHARS = 32_000
 _SYMPTOM_CONCEPT_BY_SIGNAL = (
     ("symptom_activation_failure", "resource.activation.failure"),
+    ("symptom_cpu_spike", "resource.cpu.utilization_pct"),
     ("symptom_request_timeout", "request.timeout"),
     ("symptom_request_error", "request.errors"),
+    ("symptom_pod_restart", "pod.restart"),
+    ("symptom_rollout_stall", "deployment.rollout.stall"),
 )
 
 

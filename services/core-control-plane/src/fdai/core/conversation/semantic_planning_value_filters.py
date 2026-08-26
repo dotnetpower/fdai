@@ -58,6 +58,14 @@ def stated_value_filters(
                     continue
                 if any(isinstance(term, str) and _term_stated(term, lowered) for term in terms):
                     selected.append(tuple(str(value) for value in values))
+            selected = list(dict.fromkeys(selected))
+            if len(selected) > 1:
+                most_specific = tuple(
+                    candidate
+                    for candidate in selected
+                    if all(set(candidate) < set(other) for other in selected if other != candidate)
+                )
+                selected = list(most_specific) if len(most_specific) == 1 else selected
             if len(selected) != 1 or not 1 <= len(selected[0]) <= MAX_GROUNDED_FILTER_VALUES:
                 continue
             matched[(object_type, property_name)] = tuple(sorted(set(selected[0])))

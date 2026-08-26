@@ -22,6 +22,7 @@ _ALLOWED_KEYS = frozenset(
         "aggregation",
         "description",
         "monotonic",
+        "scope_label_selectors",
     }
 )
 
@@ -44,7 +45,11 @@ def load_metric_semantic_registry(path: Path) -> MetricSemanticRegistry:
 
 
 def _definition(raw: object) -> MetricSemanticDefinition:
-    if not isinstance(raw, Mapping) or set(raw) != _ALLOWED_KEYS:
+    if (
+        not isinstance(raw, Mapping)
+        or not set(raw).issubset(_ALLOWED_KEYS)
+        or not (_ALLOWED_KEYS - {"scope_label_selectors"}).issubset(raw)
+    ):
         raise ValueError("metric semantic definition fields are invalid")
     values: dict[str, Any] = dict(raw)
     if not isinstance(values["monotonic"], bool):
@@ -60,7 +65,25 @@ def _definition(raw: object) -> MetricSemanticDefinition:
         aggregation=aggregation,
         description=_string(values, "description"),
         monotonic=values["monotonic"],
+        scope_label_selectors=_scope_label_selectors(values.get("scope_label_selectors", {})),
     )
+
+
+def _scope_label_selectors(raw: object) -> Mapping[str, tuple[str, ...]]:
+    if not isinstance(raw, Mapping):
+        raise ValueError("metric semantic scope_label_selectors MUST be an object")
+    selectors: dict[str, tuple[str, ...]] = {}
+    for label, path in raw.items():
+        if (
+            not isinstance(label, str)
+            or not isinstance(path, Sequence)
+            or isinstance(path, (str, bytes))
+        ):
+            raise ValueError("metric semantic scope label selector is invalid")
+        if any(not isinstance(segment, str) for segment in path):
+            raise ValueError("metric semantic scope label selector path is invalid")
+        selectors[label] = tuple(path)
+    return selectors
 
 
 def _string(values: Mapping[str, Any], key: str) -> str:

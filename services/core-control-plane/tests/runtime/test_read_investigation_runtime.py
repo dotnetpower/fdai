@@ -62,7 +62,7 @@ def test_binding_fails_closed_on_partial_configuration(
         )
 
 
-def test_complete_binding_constructs_detached_consumer_and_coordinator() -> None:
+def test_complete_binding_constructs_detached_and_interactive_coordinators() -> None:
     binding = build_read_investigation_runtime_binding(
         environment={
             "FDAI_READ_INVESTIGATION_REQUEST_TOPIC": ("operator.read-investigation.requests"),
@@ -77,8 +77,20 @@ def test_complete_binding_constructs_detached_consumer_and_coordinator() -> None
     assert binding is not None
     assert binding.consumer.request_topic == "operator.read-investigation.requests"
     assert binding.consumer.group_id == "core-read-investigation-v1"
-    assert not hasattr(binding, "execution_policy")
-    assert not hasattr(binding, "run_store")
+    assert type(binding.completion_sink).__name__ == "EventBusReadInvestigationCompletionSink"
+    assert binding.consumer.interactive is binding.interactive
+    assert type(binding.interactive_run_store).__name__ == "PostgresReadInvestigationRunStore"
+    assert (
+        type(binding.interactive_progress_store).__name__
+        == "PostgresReadInvestigationProgressStore"
+    )
+    assert (
+        type(binding.interactive_completion_store).__name__
+        == "PostgresReadInvestigationCompletionStore"
+    )
+    assert type(binding.interactive_completion_publisher).__name__ == (
+        "InteractiveReadInvestigationCompletionPublisher"
+    )
 
 
 async def test_production_control_forwards_cancellation_to_coordinator() -> None:
@@ -106,6 +118,65 @@ async def test_production_control_forwards_cancellation_to_coordinator() -> None
         actor="principal-one",
         is_admin=False,
     )
+
+
+async def test_schema_failure_does_not_bind_completion_transport() -> None:
+    binding = build_read_investigation_runtime_binding(
+        environment={
+            "FDAI_READ_INVESTIGATION_REQUEST_TOPIC": "operator.read-investigation.requests",
+            "FDAI_STATE_STORE_DSN": "postgresql://example.invalid/fdai",
+        },
+        provider=Mock(transport="promoted_inventory"),
+        state_store=Mock(),
+        saga_audit_chain=Mock(),
+    )
+    assert binding is not None
+    object.__setattr__(binding.interactive_run_store, "verify_schema", AsyncMock())
+    object.__setattr__(
+        binding.interactive_progress_store,
+        "verify_schema",
+        AsyncMock(side_effect=RuntimeError("schema unavailable")),
+    )
+    object.__setattr__(binding.interactive_completion_store, "verify_schema", AsyncMock())
+
+    with pytest.raises(RuntimeError, match="schema unavailable"):
+        await binding.run(bus=Mock(), stop=asyncio.Event())
+
+    assert binding.completion_sink._bus is None
+
+
+async def test_completion_wake_during_scan_triggers_immediate_rescan() -> None:
+    binding = build_read_investigation_runtime_binding(
+        environment={
+            "FDAI_READ_INVESTIGATION_REQUEST_TOPIC": "operator.read-investigation.requests",
+            "FDAI_STATE_STORE_DSN": "postgresql://example.invalid/fdai",
+        },
+        provider=Mock(transport="promoted_inventory"),
+        state_store=Mock(),
+        saga_audit_chain=Mock(),
+    )
+    assert binding is not None
+    stop = asyncio.Event()
+    scans = 0
+
+    async def run_once(*, bus: object) -> int:
+        nonlocal scans
+        del bus
+        scans += 1
+        if scans == 1:
+            binding.interactive_completion_wake.event.set()
+        else:
+            stop.set()
+        return 0
+
+    object.__setattr__(binding.interactive_completion_publisher, "run_once", run_once)
+
+    await asyncio.wait_for(
+        binding._run_interactive_completions(Mock(), stop),
+        timeout=1.0,
+    )
+
+    assert scans == 2
 
 
 async def test_runtime_refreshes_optional_mcp_discovery_until_stopped() -> None:

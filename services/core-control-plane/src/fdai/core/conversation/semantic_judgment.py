@@ -64,7 +64,24 @@ class SemanticJudgmentModel(Protocol):
         profile_id: str,
         profile_version: str,
         schema_repair: tuple[dict[str, str], ...],
-    ) -> Mapping[str, Any] | None: ...
+    ) -> Mapping[str, Any] | SemanticJudgmentModelResponse | None: ...
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticJudgmentObservation:
+    """Measured provider metadata for one authority-free judgment attempt."""
+
+    model: str
+    usage: Mapping[str, int] | None
+    trace_call: Mapping[str, object]
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticJudgmentModelResponse:
+    """One raw proposal paired with its already-issued provider observation."""
+
+    proposal: Mapping[str, Any]
+    observation: SemanticJudgmentObservation
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,6 +100,7 @@ class SemanticJudgmentResult:
 
     proposal: SemanticJudgmentProposal | None
     receipt: SemanticJudgmentReceipt
+    observations: tuple[SemanticJudgmentObservation, ...] = ()
 
     @property
     def accepted(self) -> bool:
@@ -156,11 +174,12 @@ class SemanticJudgmentBoundary:
         final_reason = "model_attempts_unavailable"
         final_binding: SemanticJudgmentBinding | None = None
         final_proposal: SemanticJudgmentProposal | None = None
+        observations: list[SemanticJudgmentObservation] = []
         bindings = self._bindings if allow_escalation else self._bindings[:1]
         for binding in bindings:
             schema_repair: tuple[dict[str, str], ...] = ()
             for attempt in range(_MAX_SCHEMA_ATTEMPTS_PER_BINDING):
-                raw = binding.model.judge(
+                model_response = binding.model.judge(
                     utterance=utterance,
                     context=bounded_context,
                     capabilities=bounded_capabilities,
@@ -168,8 +187,13 @@ class SemanticJudgmentBoundary:
                     profile_version=self.profile_version,
                     schema_repair=schema_repair,
                 )
-                if raw is None:
+                if model_response is None:
                     break
+                if isinstance(model_response, SemanticJudgmentModelResponse):
+                    raw = model_response.proposal
+                    observations.append(model_response.observation)
+                else:
+                    raw = model_response
                 try:
                     proposal = SemanticJudgmentProposal.model_validate(
                         _canonicalize_machine_tokens(raw)
@@ -200,6 +224,7 @@ class SemanticJudgmentBoundary:
                             reason_code="accepted_safe_trace_hold",
                             binding=binding,
                             proposal=recovered_trace,
+                            observations=tuple(observations),
                         )
                     recovered_proposal = _recover_bound_subject_proposal(
                         raw,
@@ -217,6 +242,7 @@ class SemanticJudgmentBoundary:
                             reason_code="accepted",
                             binding=binding,
                             proposal=recovered_proposal,
+                            observations=tuple(observations),
                         )
                     latest_repair = _schema_repair_feedback(exc)
                     schema_repair = _merge_schema_repair(schema_repair, latest_repair)
@@ -244,6 +270,7 @@ class SemanticJudgmentBoundary:
                         reason_code=final_reason,
                         binding=binding,
                         proposal=proposal,
+                        observations=tuple(observations),
                     )
                 if proposal.confidence < self._confidence_threshold:
                     final_disposition = SemanticJudgmentDisposition.LOW_CONFIDENCE
@@ -260,6 +287,7 @@ class SemanticJudgmentBoundary:
                     reason_code="accepted",
                     binding=binding,
                     proposal=proposal,
+                    observations=tuple(observations),
                 )
         return self._result(
             started=started,
@@ -278,6 +306,7 @@ class SemanticJudgmentBoundary:
                 if final_disposition is SemanticJudgmentDisposition.LOW_CONFIDENCE
                 else None
             ),
+            observations=tuple(observations),
         )
 
     def _result(
@@ -291,6 +320,7 @@ class SemanticJudgmentBoundary:
         reason_code: str,
         binding: SemanticJudgmentBinding | None = None,
         proposal: SemanticJudgmentProposal | None = None,
+        observations: tuple[SemanticJudgmentObservation, ...] = (),
     ) -> SemanticJudgmentResult:
         body = {
             "schema_version": "1.0.0",
@@ -319,7 +349,11 @@ class SemanticJudgmentBoundary:
         receipt = SemanticJudgmentReceipt.model_validate(
             {**body, "receipt_digest": content_digest(body)}
         )
-        return SemanticJudgmentResult(proposal=proposal, receipt=receipt)
+        return SemanticJudgmentResult(
+            proposal=proposal,
+            receipt=receipt,
+            observations=observations,
+        )
 
 
 def _bounded_context(context: Sequence[str]) -> tuple[str, ...]:

@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: a4358c8861c4fee6cd18ca3aacbf6bbe53bd621e
-translation_revised: 2026-08-25
+translation_source_sha: 93235415a0ff5c0c1691c291bb5eb3f95fd7d61b
+translation_revised: 2026-08-26
 ---
 # 지속형 운영 인스턴스 그래프
 
@@ -107,7 +107,10 @@ Ontology projection은 같은 세대를 `relationship_complete=false`로 전진�
 정확히 검토된 공급자 parent는 같은 child에 대한 일반 Resource Group containment를
 shadow합니다. Snapshot promotion은 활성 pointer를 변경하기 전에 child별 `contains` parent가
 하나를 초과하는지 독립적으로 거부하고, ontology store는 commit 전에 LinkType cardinality를
-다시 검증합니다. Ontology projector는 graph 교체와 manifest/status commit marker 전체에서
+다시 검증합니다. Bounded ARM compute source는 다른 ARM-only nested resource와 같은 page,
+child-collection, host 및 generation fence 아래에서 VM Scale Set VM child와 각 child의 network
+interface를 나열합니다. Child collection 실패는 generation을 중단하며 template network
+configuration으로 instance identity를 만들지 않습니다. Ontology projector는 graph 교체와 manifest/status commit marker 전체에서
 process-local lock과 PostgreSQL session advisory lock을 유지합니다. Reader는 active snapshot,
 status, manifest generation이 일치해야 한다고 요구합니다. 따라서 crash 또는 stale replica는
 idempotent retry가 commit을 닫을 때까지 incomplete evidence를 반환하며 혼합 세대를 complete로
@@ -207,7 +210,7 @@ binding을
 | Push 이벤트와 durable delta overlay | implemented | `delivery/azure/activity_log.py`, 실시간 inventory projector와 집중 테스트 | 리소스 변경은 범위가 제한된 overlay를 업데이트할 수 있습니다. 배포 근거는 별도입니다. |
 | 완전한 inventory promotion과 ontology 변환 결과 | implemented | `delivery/inventory_sync.py`, `runtime/inventory_ontology.py`, 집중 inventory 및 변환 결과 테스트 | 완전 세대가 소유된 하위 그래프를 원자적으로 대체합니다. 기존 정기 cadence는 목표 지속형 정책이 아닙니다. |
 | 관계 세대 수렴 | implemented | `arm_inventory.py`, `postgres_inventory_snapshot.py`, `inventory_projection.py`, `inventory_ontology.py`, PostgreSQL source coverage, Operator/Console evidence projection, 집중 회귀 검사 | 검토된 parent가 일반 fallback을 shadow하고 snapshot과 ontology cardinality gate가 일치합니다. 분류된 non-edge는 complete coverage를 주장하지 않고 exact generation을 전진시키며 graph receipt는 generation, freshness, verification level, zero-result limitation을 보존합니다. |
-| Kubernetes rollout 관측 | implemented | `kubernetes_api_inventory.py`, `test_kubernetes_api_inventory.py`(`7 passed`) | UID에 근거한 완전 세대는 허용 목록에 있는 Deployment replica 및 Progressing 조건 변환과 Pod phase, 준비 상태, 재시작 횟수, 대기 사유를 보존합니다. 원시 image 이름, image digest, message, status payload는 제외합니다. 실제 운영 exact-release 근거는 열린 상태입니다. |
+| Kubernetes 워크로드 관측 | implemented | `kubernetes_api_inventory.py`, `kubernetes_rollout_queries.py`, `kubernetes_pod_recovery_queries.py`, 집중 인벤토리, 메트릭, 축약기, 플래너, 증적, 조립 검사, 인증된 대상 없는 Console 증적 | UID에 근거한 완전 세대는 허용 목록에 있는 Deployment 및 Pod rollout 상태를 보존합니다. Rollout 경로는 들어오는 `kubernetes_owned_by` 단계를 명시적으로 두 번 탐색합니다. Pod 경로는 정확한 현재 Pod 하나, 클러스터 ID 및 불변 Pod UID로 선택한 검토된 30분 재시작 횟수 변화량, ReplicaSet 및 Deployment로 향하는 발급된 나가는 소유권 단계 두 개를 결합합니다. 복구 검증에는 범위가 제한된 양수 변화량과 ready 및 available 상태인 소유 Deployment replica 전체, unavailable replica 0개가 필요합니다. 순수 축약기는 원인 및 실행 권한을 false로 유지하고, 불완전한 범위는 재시작 메트릭 읽기 전에 중단하며, 행이 0개인 후보는 부재를 주장하지 않고 `source_incomplete`를 보존합니다. 원시 image 이름, image digest, message, status payload는 제외합니다. 정확한 대상 실제 운영 근거는 열린 상태입니다. |
 | Bitemporal topology 이력 | implemented | `core/ontology_platform/topology_history.py`, PostgreSQL topology 이력 adapter와 집중 테스트 | 현재 production 보존, rollup, archive, 복원 근거는 열려 있습니다. |
 | 적응형 지속 일정 관리 | implemented | `inventory_source_policy.py`, `inventory_scheduler.py`, PostgreSQL reconciliation 상태, collection health, focused collection 검사 | Source policy와 결정론적 scheduling이 구현됐습니다. 배포 운영 측정은 별도의 validation evidence로 남습니다. |
 | 타입 지정 rollup과 archive lifecycle | implemented | `semantic_rollup*.py`, `archive_*.py`, `inventory_rollup.py`, PostgreSQL archive adapter, Core service migration, focused integration 검사 | Rollup과 archive 계약은 구현되고 로컬에서 검증됐습니다. Azure archive store 또는 배포 purge는 호출하지 않았습니다. |
@@ -223,6 +226,9 @@ binding을
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-25 | implemented | 발급된 정확한 Pod S1 평가에 검토된 30분 재시작 횟수 변화량과 정확한 ReplicaSet 및 Deployment로 향하는 명시적인 나가는 소유권 단계 두 개를 추가했습니다. 서버 소유 5-node 계획은 보안이 적용된 그래프 증적 세 개를 모두 인증하고 소유권 link 근거를 검증하며, 범위가 제한된 양수 변화량과 ready 및 available 상태인 소유자 replica 전체를 복구 보고의 조건으로 사용합니다. 불완전하거나 모호하거나 오래되거나 충돌하는 근거는 판단을 보류하며, dependency-only 입력은 모델이 작성한 대체 값을 거부합니다. 현재 상태와 메트릭 모두 원인 또는 실행 권한을 주장하지 않습니다. | `current change`, 집중 메트릭, 검증기, 축약기, 증적, 플래너, 운영 조립 검사 49개 통과, 의미 라우팅 회귀 검사 370개 통과, Ruff, formatter, strict mypy 통과 | 정확한 Pod가 포함된 완전한 Kubernetes 세대를 보존한 뒤 원인 또는 교체 후 복구를 주장하기 전에 독립적인 Kubernetes 이벤트, 변경, 교체 UID, 영향 범위, 새 기준 시점 근거를 추가합니다. |
+| 2026-08-25 | implemented | 행이 0개이고 원본이 불완전한 Resource ObjectSet을 일반 기능 실패 대신 완료된 타입 기반 조회 결과로 보존했습니다. 이제 대상 없는 S12 질문은 불완전한 범위를 부재로 취급하지 않고 검증된 후보 0개, `source_incomplete`, 완료된 검증, 실행 권한 없음을 반환합니다. | `current change`, `query_source_handlers.py`, 집중 rollout 및 불완전 원본 검사 19개 통과, 인증된 표준 포트 Console 턴에서 관측 이벤트 4개와 근거 검사 5/5 완료 | 정확한 Deployment 하나가 포함된 완전한 Kubernetes 세대를 보존한 뒤 4-node rollout 평가와 독립적인 새 기준 시점 복구 검증을 실행합니다. |
+| 2026-08-25 | implemented | Rollout 관측을 그래프 우선 의미 경로에 연결했습니다. 대상 없는 rollout 표현은 범위가 제한된 Kubernetes Deployment 후보로 해석하고, 정확한 대상은 명시적인 소유권 탐색 두 단계와 원인을 주장하지 않는 발급된 FunctionType으로 컴파일합니다. | `current change`, 집중 대상 없는 요청, 축약기, 증적, 탐색, 플래너, 운영 조립 검사 17개 통과, 작업 범위 Ruff 및 strict mypy 통과 | Core를 재시작하고 완전한 Kubernetes 세대에서 인증된 후보 및 정확한 대상 증적을 보존합니다. |
 | 2026-08-25 | implemented | 실제 로컬 세대에서 AKS AgentPool 8개가 검토된 AKS parent와 evidence가 없는 Resource Group parent를 동시에 가진 상태를 확인한 뒤 Azure 관계 수렴을 강화했습니다. Exact-parent shadowing과 durable cardinality gate가 중복 parent 경로를 제거합니다. 분류된 non-edge는 incomplete coverage를 보존하면서 현재의 검증된 Resource와 link를 전진시킬 수 있습니다. Distributed projection lock, source-bound query receipt, stale evidence projection, additive N-1 receipt decode로 generation 및 evidence 공백을 닫았습니다. | `current change`, 집중 ARM, provider contract, projection, runtime, PostgreSQL, ObjectSet, Operator, Console 검사, 아래 adversarial round 12회 | 집중 검증 후 권위 있는 로컬 세대를 refresh하고 보존합니다. 배포 Azure certification은 Issue #262에서 별도로 유지합니다. |
 | 2026-08-25 | implemented | 범위가 제한된 Kubernetes Deployment 및 Pod rollout 상태를 완전 인벤토리 세대에 추가했습니다. 어댑터는 replica 수, 단일 Progressing 조건, Pod 준비 상태, 재시작 횟수, 대기 사유만 유지하며 원시 프로바이더 payload를 보존하지 않고 잘못된 status를 거부합니다. | `current change`, `kubernetes_api_inventory.py`, 집중 Kubernetes API 인벤토리 검사 7개 통과 | 완전한 실제 운영 exact-release 세대를 보존하고 타입이 지정된 rollout 평가를 그래프 우선 조회 경로에 결속합니다. |
 | 2026-08-25 | implemented | 완전 세대 관계 검증에서 관측된 endpoint의 타입이 잘못된 경우 무관한 duplicate conflict 대신 `target_type_mismatch`로 분류하도록 수정했습니다. Candidate는 활성 그래프에서 계속 제외되며 mapping별 unavailable reason을 보존합니다. | `current change`; 집중 관계 변환 및 검증 검사 65개 통과. | 배포된 완전 세대 근거는 별도로 보존합니다. 이 수정은 관계나 권한을 추가하지 않습니다. |

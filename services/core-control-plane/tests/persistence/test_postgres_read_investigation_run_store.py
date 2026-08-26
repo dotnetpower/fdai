@@ -21,8 +21,14 @@ from fdai.core.read_investigation import (
     ReadInvestigationRunMode,
     ReadInvestigationRunState,
     ReadInvestigationRunUsage,
+    read_investigation_run_id,
 )
+from fdai.core.read_investigation.progress import ReadInvestigationProgressKind
 from fdai.delivery.persistence import (
+    PostgresReadInvestigationCompletionStore,
+    PostgresReadInvestigationCompletionStoreConfig,
+    PostgresReadInvestigationProgressStore,
+    PostgresReadInvestigationProgressStoreConfig,
     PostgresReadInvestigationRunStore,
     PostgresReadInvestigationRunStoreConfig,
 )
@@ -41,6 +47,7 @@ from fdai.shared.providers.read_investigation import (
     ResourceSelector,
 )
 from fdai.shared.providers.tool import ToolCallOutcome, ToolCallReceipt
+from fdai_service_contracts.read_investigation import read_investigation_completion_id
 
 _ROOT = Path(__file__).resolve().parents[4]
 _NOW = datetime(2026, 7, 22, 0, 0, 0, tzinfo=UTC)
@@ -55,14 +62,6 @@ def _dsn() -> str:
 
 
 def _upgrade() -> None:
-    downgrade = subprocess.run(  # noqa: S603 - controlled module invocation
-        [sys.executable, "-m", "alembic", "downgrade", "20260722_0051"],
-        cwd=_ROOT,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert downgrade.returncode == 0, downgrade.stderr
     upgrade = subprocess.run(  # noqa: S603 - controlled module invocation
         [sys.executable, "-m", "alembic", "upgrade", "head"],
         cwd=_ROOT,
@@ -88,6 +87,18 @@ async def database_url() -> str:
 def _store(dsn: str) -> PostgresReadInvestigationRunStore:
     return PostgresReadInvestigationRunStore(
         config=PostgresReadInvestigationRunStoreConfig(dsn=dsn),
+    )
+
+
+def _progress_store(dsn: str) -> PostgresReadInvestigationProgressStore:
+    return PostgresReadInvestigationProgressStore(
+        config=PostgresReadInvestigationProgressStoreConfig(dsn=dsn),
+    )
+
+
+def _completion_store(dsn: str) -> PostgresReadInvestigationCompletionStore:
+    return PostgresReadInvestigationCompletionStore(
+        config=PostgresReadInvestigationCompletionStoreConfig(dsn=dsn),
     )
 
 
@@ -232,6 +243,179 @@ async def test_postgres_claim_is_concurrent_exactly_once(database_url: str) -> N
 
 
 @pytest.mark.integration
+async def test_postgres_progress_is_monotonic_capped_and_owner_scoped(
+    database_url: str,
+) -> None:
+    owner = f"{_OWNER_PREFIX}progress-{uuid.uuid4().hex}"
+    request = _request(owner_ref=owner, idempotency_key=f"request:{uuid.uuid4().hex}")
+    run, _ = await _store(database_url).claim(
+        owner_principal_id=owner,
+        request=request,
+        mode=ReadInvestigationRunMode.STREAMED,
+        lease_owner="coordinator:one",
+        lease_token="lease:one",
+        now=_NOW,
+        lease_seconds=30,
+        retention_seconds=300,
+    )
+    run = await _store(database_url).start(
+        owner_principal_id=owner,
+        idempotency_key=request.idempotency_key,
+        expected_revision=run.revision,
+        lease_token="lease:one",
+        now=_NOW,
+    )
+    first_store = _progress_store(database_url)
+    second_store = _progress_store(database_url)
+
+    appended = await asyncio.gather(
+        first_store.append(
+            task_id=run.task_id,
+            owner_principal_id=owner,
+            kind=ReadInvestigationProgressKind.PLANNED,
+            recorded_at=_NOW,
+            limit=2,
+        ),
+        second_store.append(
+            task_id=run.task_id,
+            owner_principal_id=owner,
+            kind=ReadInvestigationProgressKind.RESOURCE_RESOLVING,
+            recorded_at=_NOW + timedelta(seconds=1),
+            limit=2,
+        ),
+    )
+    capped = await first_store.append(
+        task_id=run.task_id,
+        owner_principal_id=owner,
+        kind=ReadInvestigationProgressKind.COMPLETED,
+        recorded_at=_NOW + timedelta(seconds=2),
+        limit=2,
+    )
+
+    replay = await first_store.list_after(
+        task_id=run.task_id,
+        owner_principal_id=owner,
+        after_sequence=0,
+        limit=2,
+    )
+    foreign = await first_store.list_after(
+        task_id=run.task_id,
+        owner_principal_id="principal:other",
+        after_sequence=0,
+        limit=2,
+    )
+    assert sorted(item.sequence for item in appended) == [1, 2]
+    assert [item.sequence for item in replay] == [1, 2]
+    assert capped.sequence == 2
+    assert foreign == ()
+
+
+@pytest.mark.integration
+async def test_postgres_explicit_cancel_enforces_owner_and_terminal_cas(
+    database_url: str,
+) -> None:
+    owner = f"{_OWNER_PREFIX}cancel-{uuid.uuid4().hex}"
+    request = _request(owner_ref=owner, idempotency_key=f"request:{uuid.uuid4().hex}")
+    store = _store(database_url)
+    claimed, _ = await store.claim(
+        owner_principal_id=owner,
+        request=request,
+        mode=ReadInvestigationRunMode.DIRECT,
+        lease_owner="coordinator:one",
+        lease_token="lease:one",
+        now=_NOW,
+        lease_seconds=30,
+        retention_seconds=300,
+    )
+    with pytest.raises(PermissionError, match="not authorized"):
+        await store.request_cancel(
+            task_id=claimed.task_id,
+            actor="principal:other",
+            is_admin=False,
+            now=_NOW + timedelta(seconds=1),
+        )
+    requested = await store.request_cancel(
+        task_id=claimed.task_id,
+        actor="principal:admin",
+        is_admin=True,
+        now=_NOW + timedelta(seconds=1),
+    )
+    with pytest.raises(RuntimeError, match="requires a running run"):
+        await _progress_store(database_url).append(
+            task_id=claimed.task_id,
+            owner_principal_id=owner,
+            kind=ReadInvestigationProgressKind.COMPLETED,
+            recorded_at=_NOW + timedelta(seconds=1),
+            limit=32,
+        )
+    cancelled = await store.finish_cancel(
+        owner_principal_id=owner,
+        idempotency_key=request.idempotency_key,
+        expected_revision=requested.revision,
+        lease_token="lease:one",
+        usage=ReadInvestigationRunUsage(tool_calls=0, execution_duration_ms=1_000),
+        now=_NOW + timedelta(seconds=2),
+    )
+
+    assert requested.state is ReadInvestigationRunState.CANCEL_REQUESTED
+    assert cancelled.state is ReadInvestigationRunState.CANCELLED
+    assert await store.get_by_task_id(task_id=claimed.task_id) == cancelled
+
+
+@pytest.mark.integration
+async def test_postgres_conflicting_completion_rolls_back_terminal_transition(
+    database_url: str,
+) -> None:
+    owner = f"{_OWNER_PREFIX}outbox-conflict-{uuid.uuid4().hex}"
+    key = f"request:{uuid.uuid4().hex}"
+    store = _store(database_url)
+    claimed, _ = await store.claim(
+        owner_principal_id=owner,
+        request=_request(owner_ref=owner, idempotency_key=key),
+        mode=ReadInvestigationRunMode.DIRECT,
+        lease_owner="coordinator:one",
+        lease_token="lease:one",
+        now=_NOW,
+        lease_seconds=30,
+        retention_seconds=300,
+    )
+    completion_id = read_investigation_completion_id(
+        claimed.task_id,
+        "interactive-1",
+        1,
+    )
+    async with await psycopg.AsyncConnection.connect(database_url) as connection:
+        await connection.execute(
+            "INSERT INTO read_investigation_run_completion ("
+            "completion_id, task_id, run_attempt_count, payload, state, next_attempt_at, "
+            "retention_until, created_at, updated_at"
+            ") VALUES (%s, %s, 1, '{}'::jsonb, 'pending', %s, %s, %s, %s)",
+            (
+                completion_id,
+                claimed.task_id,
+                _NOW,
+                claimed.retention_until,
+                _NOW,
+                _NOW,
+            ),
+        )
+
+    with pytest.raises(ReadInvestigationRunConflictError, match="outbox conflicts"):
+        await store.fail(
+            owner_principal_id=owner,
+            idempotency_key=key,
+            expected_revision=claimed.revision,
+            lease_token="lease:one",
+            failure_reason="provider_unavailable",
+            usage=ReadInvestigationRunUsage(tool_calls=0, execution_duration_ms=1),
+            now=_NOW + timedelta(seconds=1),
+        )
+
+    replayed = await store.get(owner_principal_id=owner, idempotency_key=key)
+    assert replayed == claimed
+
+
+@pytest.mark.integration
 async def test_postgres_schema_exposes_attempt_count_with_bounds(database_url: str) -> None:
     async with await psycopg.AsyncConnection.connect(database_url) as connection:
         column_cursor = await connection.execute(
@@ -243,19 +427,22 @@ async def test_postgres_schema_exposes_attempt_count_with_bounds(database_url: s
         assert column[1] == "NO"
 
         with pytest.raises(psycopg.errors.CheckViolation):
+            owner = f"{_OWNER_PREFIX}schema-{uuid.uuid4().hex}"
+            idempotency_key = f"request:{uuid.uuid4().hex}"
             await connection.execute(
                 "INSERT INTO read_investigation_run ("
-                "owner_principal_id, idempotency_key, request_digest, request, "
+                "task_id, owner_principal_id, idempotency_key, request_digest, request, "
                 "mode, state, revision, attempt_count, "
                 "lease_owner, lease_token, lease_expires_at, result, usage, failure_reason, "
                 "created_at, updated_at, retention_until, terminal_at"
                 ") VALUES ("
-                "%s, %s, %s, %s::jsonb, %s, %s, %s, %s, %s, %s, %s, "
+                "%s, %s, %s, %s, %s::jsonb, %s, %s, %s, %s, %s, %s, %s, "
                 "%s::jsonb, %s::jsonb, %s, %s, %s, %s, %s"
                 ")",
                 (
-                    f"{_OWNER_PREFIX}schema-{uuid.uuid4().hex}",
-                    f"request:{uuid.uuid4().hex}",
+                    read_investigation_run_id(owner, idempotency_key),
+                    owner,
+                    idempotency_key,
                     "0" * 64,
                     "{}",
                     "direct",
@@ -697,8 +884,24 @@ async def test_postgres_purge_retained_terminal_only(database_url: str) -> None:
         retention_seconds=2,
     )
 
+    blocked = await store.purge_retained(now=_NOW + timedelta(seconds=3), limit=10)
+    completion_store = _completion_store(database_url)
+    claimed = await completion_store.claim_due(
+        lease_token="completion-lease",
+        now=_NOW + timedelta(milliseconds=1_500),
+        lease_seconds=1,
+    )
+    assert len(claimed) == 1
+    assert claimed[0].task_id == terminal_claimed.task_id
+    assert claimed[0].payload.status == "failed"
+    await completion_store.mark_delivered(
+        completion_id=claimed[0].completion_id,
+        lease_token="completion-lease",
+        now=_NOW + timedelta(milliseconds=1_750),
+    )
     purged = await store.purge_retained(now=_NOW + timedelta(seconds=3), limit=10)
     active = await store.get(owner_principal_id=owner, idempotency_key=active_key)
 
+    assert blocked == ()
     assert purged == ((owner, terminal_key),)
     assert active is not None and active.state is ReadInvestigationRunState.CLAIMED

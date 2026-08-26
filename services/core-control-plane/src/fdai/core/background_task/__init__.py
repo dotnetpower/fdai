@@ -1,5 +1,8 @@
 """Durable detached background task sessions."""
 
+from fdai.core.background_task.completion_transport import (
+    EventBusReadInvestigationCompletionSink,
+)
 from fdai.core.background_task.coordinator import (
     BackgroundTaskCompletionSink,
     BackgroundTaskCoordinator,
@@ -73,6 +76,7 @@ __all__ = [
     "BackgroundTaskStore",
     "BackgroundTaskService",
     "BackgroundTaskUsage",
+    "EventBusReadInvestigationCompletionSink",
     "InMemoryBackgroundTaskStore",
     "ReadInvestigationBackgroundExecutor",
     "ProgressCallback",

@@ -46,6 +46,7 @@ from fdai_operator_service.main import SERVICE
 from fdai_operator_service.parity import BLOCKED_ROUTE_PATHS, PARITY_COMPLETE, ROUTE_PARITY
 from fdai_operator_service.postgres import PostgresOperatorReadModel
 from fdai_operator_service.production import serve
+from fdai_operator_service.projections import ProjectionUnavailableError
 from fdai_service_contracts import (
     AgentActivityQuery,
     AuditQuery,
@@ -715,6 +716,32 @@ def test_incident_and_rca_queries_preserve_stable_error_envelopes() -> None:
         },
     )
     assert bad_replay.status_code == 400
+
+
+def test_incident_stream_closes_when_projection_becomes_unavailable() -> None:
+    class FailingReplayReadModel(EmptyReadModel):
+        calls = 0
+
+        async def incident_attention(
+            self, query: IncidentAttentionQuery
+        ) -> IncidentAttentionProjection | None:
+            self.calls += 1
+            if self.calls > 1:
+                raise ProjectionUnavailableError("projection query timed out")
+            return await super().incident_attention(query)
+
+    read_model = FailingReplayReadModel()
+    client = _client(read_model=read_model)
+
+    response = client.get(
+        "/incidents/stream",
+        headers={"Authorization": "Bearer reader"},
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/event-stream")
+    assert "event: incident-attention" in response.text
+    assert read_model.calls == 2
 
 
 def test_incident_query_normalizes_and_bounds_server_search() -> None:

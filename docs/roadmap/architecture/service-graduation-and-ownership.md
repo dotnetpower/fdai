@@ -41,7 +41,8 @@ Core only after the exact live evidence closes.
 | Deferred and rejected future candidates | deferred | [Candidate decisions](#candidate-decisions) | Operator application/read/SSE splits and background read tasks remain deferred until their measured forcing triggers and complete gate evidence exist. The A3 channel edge is accepted as a non-distribution adapter workload with separate implementation gates. Ad hoc control-loop service splits remain rejected. |
 | Boundary docstring enforcement | implemented | `scripts/quality/architecture/check-boundary-docstrings.py`; SD-09 evidence | All reviewed decomposition scopes enforce the structural docstring contract. Semantic correctness still depends on focused architecture tests. |
 | Temporal Incident roster projection | implemented | `core_incident_projection_20260819`; `operator_incident_projection_read_20260819`; focused migration and Operator checks | An Alembic-owned trigger derives temporal versions inside the append-only audit transaction. Core and Executor roles receive no direct projection write grant, while the Operator role receives SELECT only. |
-| Read-investigation request transport | implemented | `fdai-service-contracts` `read-investigation-request` `1.0.0`; Operator CAS outbox; Core consumer and optional coordinator; focused cross-process tests | Operator owns durable proposal acceptance and publication. Core owns request consumption and background-task state. The coordinator remains an optional Core runtime component, not a sixth service. Terminal completion transport back to the Operator-owned conversation writer remains open. |
+| Read-investigation request transport | implemented | `fdai-service-contracts` `read-investigation-request` `1.0.0`; Operator CAS outbox; Core consumer and optional coordinator; focused cross-process tests | Operator owns durable proposal acceptance and publication. Core owns request consumption and background-task state. The coordinator remains an optional Core runtime component, not a sixth service. |
+| Read-investigation completion transport | in-progress | `fdai-service-contracts` `read-investigation-completion` `1.0.0`; Core completion outbox publisher; Operator inbox, Web conversation writer, and `operator_read_investigation_completion_20260826` | The five-service topology is unchanged. Core never writes Operator conversation tables. Operator atomically owns the inbox and idempotent Web assistant turn. Channel outbound enqueue, retention purge, and governed deployment evidence remain open. |
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
@@ -58,6 +59,7 @@ Core only after the exact live evidence closes.
 | 2026-08-23 | in-progress | Defined the versioned, no-authority `read-investigation-request` transport from the Operator-owned durable outbox to the Core-owned background-task coordinator without promoting that coordinator to another service. | `current change`; this owner document and [Azure Read Investigations](../interfaces/azure-read-investigations.md). | Implement N/N-1 codecs, outbox publication, Core consumption, duplicate/restart tests, and production composition before claiming the path executable. |
 | 2026-08-23 | implemented | Implemented exact `1.0.0` request and cancellation codecs, Operator CAS publication, Core persistence-before-wake consumption, duplicate and poison handling, optional coordinator composition, and local/deployed logical-topic configuration without changing the five-service topology. | `current change`; the focused cross-process, background-task, PostgreSQL, Operator, topic, and local-environment gate passed 152 cases with no skips or warnings. | Define the versioned terminal completion transport and retain governed restart, deployment, and rollback evidence. |
 | 2026-08-23 | implemented | Replaced independent start and cancellation partition keys with the canonical owner-scoped background-task lifecycle identity. Start and cancel records for one task now share one partition, while Core revalidates the same identity before persistence or cancellation. | `current change`; focused contract and transport checks passed 22 cases, including direct start/cancel partition equality; task-scoped Ruff and strict mypy passed. | Define the reverse terminal completion contract without adding an Operator conversation writer to Core. |
+| 2026-08-26 | in-progress | Bound the reverse completion contract to the Core outbox and Operator-owned writer. The Operator migration grants conversation writes and inbox sequence use; one transaction deduplicates the proposal, Web assistant turn, and inbox row without changing service topology or Core authority. | `current change`; focused Operator readiness, completion store, and migration privilege checks passed. | Add channel outbound enqueue, retention purge, and governed deployment/rollback evidence. |
 ### Remaining work
 
 - [x] No work remains for the approved five-service topology; its graduation, writer ownership, identity isolation, rollback, and remote transition evidence is retained in the decomposition program.
@@ -66,9 +68,11 @@ Core only after the exact live evidence closes.
 	non-distribution A3 edge through its owner design. Re-evaluate only the background read-task
 	executor as a future service candidate after it has independent transport, identity,
 	persistence, cost/failure evidence, deployment smoke, and rollback.
-- [ ] Add a versioned terminal read-investigation completion row to the cross-process contract
-  matrix after [Durable Conversation Delivery](../interfaces/durable-conversation-delivery.md)
-  defines the Operator-owned persistence, idempotency, retry, retention, and rollback behavior.
+- [x] Add and implement the versioned terminal read-investigation completion row through the Core
+	publisher, Operator inbox, and idempotent Web conversation writer.
+- [ ] Complete the matrix's channel outbound enqueue and retention claims in
+	[Durable Conversation Delivery](../interfaces/durable-conversation-delivery.md), then retain
+	governed deployment and rollback evidence.
 
 ## Graduation scorecard
 
@@ -137,6 +141,7 @@ enforce the split. A reader never becomes a writer by deployment proximity.
 | `conversation_image` | Principal-scoped Operator API image repository | Authenticated owning-principal history route | Alembic migration job |
 | `conversation_outbound_delivery*`, `conversation_adapter_breaker`, `conversation_channel_message_claim` | Operator durable conversation-delivery coordinator | Operator API delivery status and Operator edge adapters for claimed work | Operator service migration branch |
 | `background_task_attempt`, `background_task_progress`, `background_task_completion` ([migrations 0040/0051](../../../alembic/versions/20260720_0040_background_task.py)) | Background-task coordinator/store | Owner-scoped Operator API projections and completion delivery | Alembic migration job |
+| `read_investigation_run`, `read_investigation_run_progress`, `read_investigation_run_completion` | Core interactive read-investigation coordinator/store | Owner-scoped Operator API replay and completion delivery | Core service migration; Operator service read grant |
 | `scheduled_task`, `schedule_dispatch_run`, `scheduled_conversation_anchor` | Scheduler service/store for definitions and one CAS-claimed dispatch run | Operator API scheduler/run projections and continuation delivery | Alembic migration job |
 | `inventory_snapshot*`, `inventory_active` | Inventory synchronization job for full-snapshot promotion | Core inventory provider and authorized Operator API inventory projections | Alembic migration job |
 | `inventory_realtime_resource`, `inventory_realtime_link` | Realtime inventory projector for normalized provider events | Inventory materializer and authorized graph projections | Alembic migration job |
@@ -154,6 +159,13 @@ enforce the split. A reader never becomes a writer by deployment proximity.
 
 A new candidate must add its data rows before implementation. A row with two overlapping writers,
 "shared service" as owner, or an unnamed migration path blocks graduation.
+
+Direct and streamed read execution remains inside the existing Core distribution. Core alone
+selects the mode before provider I/O and writes run, progress, cancellation, and completion-outbox
+transitions. Operator authenticates proposals and cancellation commands, reads those tables with an
+owner predicate under SELECT-only grants, and owns conversation or channel materialization after the
+versioned completion handoff. Transport disconnect detaches a replay subscriber and grants no state
+transition authority.
 ## Cross-process contract matrix
 
 | Contract | Schema owner | Producer | Consumers | Partition key | Compatibility | Retry, DLQ, idempotency, retention |
@@ -165,6 +177,7 @@ A new candidate must add its data rows before implementation. A row with two ove
 | Operator command/proposal event | [Event](../../../services/core-control-plane/src/fdai/shared/contracts/event/schema.json) and [Action](../../../services/core-control-plane/src/fdai/shared/contracts/action/schema.json) contracts | Operator API command identity | Huginn/Forseti typed pipeline | normalized `resource_id` | Registry semver and additive compatibility | At-least-once; catalog idempotency key; normal event/DLQ retention 1/7 days |
 | Operator semantic turn `1.2.0` | `fdai-service-contracts` semantic request and projection codecs | Operator API durable outbox / Core semantic runtime | Core semantic consumer / Operator projection consumer | `request_id` | N accepts `1.0.0`, `1.1.0`, and `1.2.0`; no downgrade of a `1.2.0` payload | At-least-once; idempotent producer; manual commit after projection persistence; malformed JSON to sibling DLQ; durable request/projection dedupe |
 | Read investigation request `1.0.0` | `fdai-service-contracts` request codec | Operator API durable proposal outbox | Core read-investigation consumer and Core-owned background-task coordinator | canonical `task_id` derived from owner plus creation idempotency key | Exact `1.0.0`; unsupported versions fail closed; additive successors require N/N-1 codec tests | At-least-once; start and cancel for one task share a partition; Operator CAS claim closes only after broker acceptance; malformed records go to a sibling DLQ; Core revalidates the partition identity, deduplicates by owner plus idempotency key, and commits transport only after durable task or terminal run-ledger persistence; normal/DLQ retention 1/7 days |
+| Read investigation completion `1.0.0` | `fdai-service-contracts` completion codec | Core-owned background-task completion outbox | Operator completion consumer, inbox, conversation writer, and durable outbound delivery | canonical `task_id` | Exact `1.0.0`; additive successors retain N/N-1 decoders and never downgrade a newer payload | At-least-once; Core closes its completion only after broker acceptance; malformed records go to a sibling DLQ; unmatched records receive bounded retry before quarantine; one Operator transaction deduplicates inbox, turn, and outbound enqueue; normal/DLQ retention 1/7 days and durable purge follows the contract deadline; rollback preserves both outboxes and every accepted Operator record |
 | Agent introspection request/reply | [Agent-introspection transport](../../../services/core-control-plane/src/fdai/delivery/agent_introspection_bus.py) | Bragi/Operator API bridge | Addressed agent and bounded reply consumer | correlation id | Versioned request/reply envelope before process split | Bounded timeout/retry, no authority, content-redacted failure, broker retention 1 day |
 | Executor command `1.0.0` and receipt `1.0.0` / `1.1.0` | [Executor transport](../../../services/core-control-plane/src/fdai/shared/contracts/models/executor_transport.py) | Core Thor execution port | Isolated Executor and Core receipt client | exact target resource ref | `1.0.0` receipts remain no-effect; additive `1.1.0` reports dispatch but cannot claim independent verification | At-least-once, poison DLQ, stable Core consumer group, provider plus executor idempotency, normal/DLQ retention 1/7 days |
 

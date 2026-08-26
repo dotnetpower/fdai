@@ -19,7 +19,9 @@ MAX_READ_INVESTIGATION_ATTEMPTS = 3
 class ReadInvestigationRunState(StrEnum):
     CLAIMED = "claimed"
     RUNNING = "running"
+    CANCEL_REQUESTED = "cancel_requested"
     COMPLETED = "completed"
+    CANCELLED = "cancelled"
     FAILED = "failed"
     EXPIRED = "expired"
 
@@ -27,6 +29,7 @@ class ReadInvestigationRunState(StrEnum):
     def terminal(self) -> bool:
         return self in {
             ReadInvestigationRunState.COMPLETED,
+            ReadInvestigationRunState.CANCELLED,
             ReadInvestigationRunState.FAILED,
             ReadInvestigationRunState.EXPIRED,
         }
@@ -65,6 +68,7 @@ class ReadInvestigationRunLease:
 
 @dataclass(frozen=True, slots=True)
 class ReadInvestigationRunRecord:
+    task_id: str
     owner_principal_id: str
     idempotency_key: str
     request_digest: str
@@ -83,11 +87,17 @@ class ReadInvestigationRunRecord:
     failure_reason: str | None = None
 
     def __post_init__(self) -> None:
+        _identifier("task_id", self.task_id)
         _identifier("owner_principal_id", self.owner_principal_id)
         _identifier("idempotency_key", self.idempotency_key)
         _request_digest(self.request_digest)
         if self.request_digest != read_investigation_request_digest(self.request):
             raise ValueError("request_digest MUST match the canonical request projection")
+        if self.task_id != read_investigation_run_id(
+            self.owner_principal_id,
+            self.idempotency_key,
+        ):
+            raise ValueError("task_id MUST match the owner-scoped run identity")
         _aware("created_at", self.created_at)
         _aware("updated_at", self.updated_at)
         _aware("retention_until", self.retention_until)
@@ -102,7 +112,11 @@ class ReadInvestigationRunRecord:
         if not self.created_at <= self.updated_at <= self.retention_until:
             raise ValueError("run timestamps MUST be ordered")
 
-        if self.state in {ReadInvestigationRunState.CLAIMED, ReadInvestigationRunState.RUNNING}:
+        if self.state in {
+            ReadInvestigationRunState.CLAIMED,
+            ReadInvestigationRunState.RUNNING,
+            ReadInvestigationRunState.CANCEL_REQUESTED,
+        }:
             if self.lease is None:
                 raise ValueError("claimed/running run MUST carry a lease")
             if self.terminal_at is not None:
@@ -130,7 +144,7 @@ class ReadInvestigationRunRecord:
             return
 
         if self.result is not None:
-            raise ValueError("failed/expired runs cannot carry a replay result")
+            raise ValueError("cancelled/failed/expired runs cannot carry a replay result")
         if self.failure_reason is None:
             raise ValueError("failed/expired runs MUST carry failure_reason")
         _identifier("failure_reason", self.failure_reason)
@@ -159,6 +173,12 @@ class ReadInvestigationRunStore(Protocol):
         *,
         owner_principal_id: str,
         idempotency_key: str,
+    ) -> ReadInvestigationRunRecord | None: ...
+
+    async def get_by_task_id(
+        self,
+        *,
+        task_id: str,
     ) -> ReadInvestigationRunRecord | None: ...
 
     async def reclaim(
@@ -208,6 +228,26 @@ class ReadInvestigationRunStore(Protocol):
         now: datetime,
         lease_seconds: int,
         lease_ceiling_at: datetime,
+    ) -> ReadInvestigationRunRecord: ...
+
+    async def request_cancel(
+        self,
+        *,
+        task_id: str,
+        actor: str,
+        is_admin: bool,
+        now: datetime,
+    ) -> ReadInvestigationRunRecord: ...
+
+    async def finish_cancel(
+        self,
+        *,
+        owner_principal_id: str,
+        idempotency_key: str,
+        expected_revision: int,
+        lease_token: str,
+        usage: ReadInvestigationRunUsage,
+        now: datetime,
     ) -> ReadInvestigationRunRecord: ...
 
     async def fail(
@@ -277,6 +317,7 @@ class InMemoryReadInvestigationRunStore:
                     )
                 return current, False
             claimed = ReadInvestigationRunRecord(
+                task_id=read_investigation_run_id(owner_principal_id, request.idempotency_key),
                 owner_principal_id=owner_principal_id,
                 idempotency_key=request.idempotency_key,
                 request_digest=digest,
@@ -303,6 +344,17 @@ class InMemoryReadInvestigationRunStore:
         idempotency_key: str,
     ) -> ReadInvestigationRunRecord | None:
         return self._records.get((owner_principal_id, idempotency_key))
+
+    async def get_by_task_id(
+        self,
+        *,
+        task_id: str,
+    ) -> ReadInvestigationRunRecord | None:
+        _identifier("task_id", task_id)
+        return next(
+            (record for record in self._records.values() if record.task_id == task_id),
+            None,
+        )
 
     async def reclaim(
         self,
@@ -482,6 +534,77 @@ class InMemoryReadInvestigationRunStore:
             self._records[(owner_principal_id, idempotency_key)] = updated
             return updated
 
+    async def request_cancel(
+        self,
+        *,
+        task_id: str,
+        actor: str,
+        is_admin: bool,
+        now: datetime,
+    ) -> ReadInvestigationRunRecord:
+        _identifier("cancel actor", actor)
+        _aware("cancel now", now)
+        async with self._lock:
+            matched = next(
+                (
+                    (key, record)
+                    for key, record in self._records.items()
+                    if record.task_id == task_id
+                ),
+                None,
+            )
+            if matched is None:
+                raise LookupError("read investigation run was not found")
+            key, current = matched
+            if actor != current.owner_principal_id and not is_admin:
+                raise PermissionError("read investigation cancellation is not authorized")
+            if current.state is ReadInvestigationRunState.CANCEL_REQUESTED:
+                return current
+            if current.state.terminal:
+                return current
+            if current.lease is None or current.lease.expires_at <= now:
+                raise ReadInvestigationRunConflictError("read investigation lease expired")
+            updated = replace(
+                current,
+                state=ReadInvestigationRunState.CANCEL_REQUESTED,
+                revision=current.revision + 1,
+                updated_at=now,
+            )
+            self._records[key] = updated
+            return updated
+
+    async def finish_cancel(
+        self,
+        *,
+        owner_principal_id: str,
+        idempotency_key: str,
+        expected_revision: int,
+        lease_token: str,
+        usage: ReadInvestigationRunUsage,
+        now: datetime,
+    ) -> ReadInvestigationRunRecord:
+        async with self._lock:
+            current = self._leased(
+                owner_principal_id=owner_principal_id,
+                idempotency_key=idempotency_key,
+                expected_revision=expected_revision,
+                lease_token=lease_token,
+                now=now,
+                states=frozenset({ReadInvestigationRunState.CANCEL_REQUESTED}),
+            )
+            updated = replace(
+                current,
+                state=ReadInvestigationRunState.CANCELLED,
+                revision=current.revision + 1,
+                updated_at=now,
+                terminal_at=now,
+                lease=None,
+                usage=usage,
+                failure_reason="cancelled_by_owner",
+            )
+            self._records[(owner_principal_id, idempotency_key)] = updated
+            return updated
+
     async def fail(
         self,
         *,
@@ -545,9 +668,14 @@ class InMemoryReadInvestigationRunStore:
                     continue
                 if current.lease.expires_at > now:
                     continue
+                cancelled = current.state is ReadInvestigationRunState.CANCEL_REQUESTED
                 updated = replace(
                     current,
-                    state=ReadInvestigationRunState.EXPIRED,
+                    state=(
+                        ReadInvestigationRunState.CANCELLED
+                        if cancelled
+                        else ReadInvestigationRunState.EXPIRED
+                    ),
                     revision=current.revision + 1,
                     updated_at=now,
                     terminal_at=now,
@@ -558,7 +686,9 @@ class InMemoryReadInvestigationRunStore:
                         execution_duration_ms=0,
                         reserved_cost_microusd=current.request.budget.max_cost_microusd,
                     ),
-                    failure_reason="lease_expired",
+                    failure_reason=(
+                        "cancelled_after_process_loss" if cancelled else "lease_expired"
+                    ),
                 )
                 self._records[key] = updated
                 reconciled.append(updated)
@@ -651,6 +781,15 @@ def read_investigation_request_digest(request: ReadInvestigationRequest) -> str:
     return hashlib.sha256(payload.encode()).hexdigest()
 
 
+def read_investigation_run_id(owner_principal_id: str, idempotency_key: str) -> str:
+    """Return the stable owner-scoped identity shared with the request transport."""
+
+    _identifier("owner_principal_id", owner_principal_id)
+    _identifier("idempotency_key", idempotency_key)
+    digest = hashlib.sha256(f"{owner_principal_id}\x00{idempotency_key}".encode()).hexdigest()
+    return f"background-{digest[:32]}"
+
+
 def _identifier(name: str, value: str) -> None:
     if not value.strip() or len(value) > _MAX_ID or any(ord(char) < 32 for char in value):
         raise ValueError(f"{name} MUST be a bounded identifier")
@@ -678,4 +817,5 @@ __all__ = [
     "ReadInvestigationRunUsage",
     "read_investigation_request_digest",
     "read_investigation_request_projection",
+    "read_investigation_run_id",
 ]

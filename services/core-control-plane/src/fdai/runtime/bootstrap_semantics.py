@@ -52,6 +52,7 @@ from fdai.runtime.providers import (
     _build_resource_event_history_reader,
     _build_resource_health_collection_reader,
     _build_service_health_reader,
+    _build_vm_process_cpu_reader,
 )
 from fdai.runtime.read_investigation_runtime import (
     ReadInvestigationRuntimeBinding,
@@ -212,6 +213,10 @@ async def build_semantic_runtime(
         identity=identity,
         http_client=http_client,
     )
+    vm_process_cpu_reader = _build_vm_process_cpu_reader(
+        identity=identity,
+        http_client=http_client,
+    )
     endpoint = environment.get("FDAI_LLM_ENDPOINT", "").strip() or None
     semantic_composition = compose_azure_semantic_query_runtime(
         container=container,
@@ -236,6 +241,7 @@ async def build_semantic_runtime(
         resource_health_reader=resource_health_reader,
         resource_event_reader=resource_event_reader,
         service_health_reader=service_health_reader,
+        vm_process_cpu_reader=vm_process_cpu_reader,
         graph_live_refresh_provider=_graph_live_refresh_provider(
             environment=environment,
             read_provider=read_investigation_provider,

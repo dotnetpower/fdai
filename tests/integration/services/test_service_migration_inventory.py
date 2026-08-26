@@ -38,9 +38,9 @@ SERVICE_IDS = (
 def test_legacy_migration_inventory_is_linear_and_complete() -> None:
     inventory = inventory_module.load_legacy_inventory(REPO_ROOT / "alembic" / "versions")
 
-    assert len(inventory.down_revisions) == 88
-    assert inventory.heads == ("20260819_0086",)
-    assert len(inventory.table_sources) == 101
+    assert len(inventory.down_revisions) == 89
+    assert inventory.heads == ("20260826_0087",)
+    assert len(inventory.table_sources) == 103
     assert "IF" not in inventory.table_sources
     assert inventory.table_sources["document_worker_claim"] == ("20260806_0075",)
     assert inventory.table_sources["case_history_migration_state"] == (
@@ -66,6 +66,7 @@ def test_every_legacy_table_has_one_migrator_and_one_write_contract() -> None:
         "document_worker_outbox",
         "executor_receipt_outbox",
         "conversation_channel_message_claim",
+        "operator_read_investigation_completion",
         "operator_incident_projection",
         "operational_archive_manifest",
         "operational_archive_coverage_receipt",
@@ -1298,7 +1299,7 @@ def test_schema_contract_covers_exactly_five_services() -> None:
     assert all(value.table_count > 0 for value in contract.values())
     assert all(value.column_count >= value.table_count for value in contract.values())
     assert all(value.extensions for value in contract.values())
-    assert contract["core-control-plane"].constraint_count == 190
+    assert contract["core-control-plane"].constraint_count == 223
 
 
 def test_schema_contract_rejects_stale_legacy_revision(tmp_path: Path) -> None:
@@ -1359,6 +1360,11 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
         MIGRATION_ROOT / "branches/core-control-plane/versions/20260825_core_metering_writer.py"
     )
     metering_writer_migration = inventory_module.load_revision_metadata(metering_writer_path)
+    interactive_path = (
+        MIGRATION_ROOT
+        / "branches/core-control-plane/versions/20260826_core_interactive_read_investigation.py"
+    )
+    interactive_migration = inventory_module.load_revision_metadata(interactive_path)
 
     expected_tables = {
         table for table, owner in ownership.table_migrators.items() if owner == "core-control-plane"
@@ -1372,6 +1378,7 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
         | set(question_assurance_migration.owned_tables)
         | set(operational_archive_migration.owned_tables)
         | set(metering_writer_migration.owned_tables)
+        | set(interactive_migration.owned_tables)
     )
     assert granted_tables == expected_tables
     source = role_path.read_text(encoding="utf-8")

@@ -257,7 +257,37 @@ def service_impact_query_sides(
     return tuple(query_ids)
 
 
+def service_resource_query_sides(
+    descriptors: tuple[dict[str, Any], ...],
+) -> tuple[str, ...] | None:
+    """Return query-side ids for the reverse service-to-Resource path."""
+
+    path = _service_impact_path(descriptors)
+    if path is None:
+        return None
+    link_types, _direction = path
+    query_ids: list[str] = []
+    for link_type in reversed(link_types):
+        selected = tuple(
+            descriptor
+            for descriptor in descriptors
+            if descriptor.get("kind") == "link" and descriptor.get("name") == link_type
+        )
+        if len(selected) != 1 or not isinstance(selected[0].get("query_sides"), Mapping):
+            return None
+        matching = tuple(
+            side.get("query_id")
+            for side in selected[0]["query_sides"].values()
+            if isinstance(side, Mapping) and side.get("direction") == "outgoing"
+        )
+        if len(matching) != 1 or not isinstance(matching[0], str):
+            return None
+        query_ids.append(matching[0])
+    return tuple(query_ids)
+
+
 __all__ = [
     "compile_target_impact_plan",
     "service_impact_query_sides",
+    "service_resource_query_sides",
 ]

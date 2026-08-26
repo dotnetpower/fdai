@@ -31,6 +31,7 @@ KOREAN_STATUS_ALIASES = ("## 구현 현황",)
 LINK_PATTERN = re.compile(r"(\[[^\]]*\]\()([^)\s]+)([^)]*\))")
 FRONT_MATTER_SHA = re.compile(r"(?m)^translation_source_sha:.*$")
 FRONT_MATTER_REVISED = re.compile(r"(?m)^translation_revised:.*$")
+HISTORY_ROW = re.compile(r"^\|\s*\d{4}-\d{2}-\d{2}\s*\|")
 
 
 class OwnerMigration(NamedTuple):
@@ -290,6 +291,21 @@ def _render_ledger(
     )
 
 
+def _verify_reconciled_ledger(existing: str, replacement: str, *, relative: str) -> None:
+    """Reject replacement when it would drop prior history or migrated notes."""
+
+    existing_history = {line for line in existing.splitlines() if HISTORY_ROW.match(line)}
+    replacement_history = {line for line in replacement.splitlines() if HISTORY_ROW.match(line)}
+    missing_history = existing_history - replacement_history
+    existing_notes = {line for line in existing.splitlines() if line.startswith(">")}
+    replacement_notes = {line for line in replacement.splitlines() if line.startswith(">")}
+    missing_notes = existing_notes - replacement_notes
+    if missing_history or missing_notes:
+        raise ValueError(
+            f"{relative}: existing ledger contains history or migrated notes absent from owner"
+        )
+
+
 def _normalize_status_lines(status_lines: list[str], *, owner_relative: str) -> list[str]:
     required = (
         "### Implementation scope",
@@ -362,7 +378,11 @@ def _missing_status_lines(owner_relative: str) -> list[str]:
 
 
 def _plan_owner(
-    repo_root: Path, owner_relative: str, *, allow_missing: bool = False
+    repo_root: Path,
+    owner_relative: str,
+    *,
+    allow_missing: bool = False,
+    reconcile_existing: bool = False,
 ) -> tuple[OwnerMigration, dict[Path, str]] | None:
     owner_path = repo_root / owner_relative
     if not owner_path.is_file():
@@ -379,7 +399,7 @@ def _plan_owner(
             return None
         if not allow_missing:
             raise ValueError(f"{owner_relative}: owner is neither inline nor delegated")
-    if ledger_path.exists():
+    if ledger_path.exists() and not reconcile_existing:
         raise ValueError(f"{owner_relative}: ledger already exists: {ledger_relative}")
 
     original_owner_lines = owner_text.splitlines()
@@ -442,6 +462,12 @@ def _plan_owner(
         callouts=callouts,
         repo_root=repo_root,
     )
+    if ledger_path.exists():
+        _verify_reconciled_ledger(
+            ledger_path.read_text(encoding="utf-8"),
+            ledger,
+            relative=ledger_relative,
+        )
     migration = OwnerMigration(
         owner=owner_relative,
         ledger=ledger_relative,
@@ -456,12 +482,21 @@ def _plan_owner(
 
 
 def plan_migrations(
-    repo_root: Path, owners: Iterable[str], *, allow_missing: bool = False
+    repo_root: Path,
+    owners: Iterable[str],
+    *,
+    allow_missing: bool = False,
+    reconcile_existing: bool = False,
 ) -> MigrationPlan:
     migrations: list[OwnerMigration] = []
     writes: dict[Path, str] = {}
     for owner in owners:
-        planned = _plan_owner(repo_root, owner, allow_missing=allow_missing)
+        planned = _plan_owner(
+            repo_root,
+            owner,
+            allow_missing=allow_missing,
+            reconcile_existing=reconcile_existing,
+        )
         if planned is None:
             continue
         migration, owner_writes = planned
@@ -647,13 +682,24 @@ def _parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Merge duplicate Related sections and remove status aliases",
     )
+    parser.add_argument(
+        "--reconcile-existing",
+        action="store_true",
+        help="Replace a stale mirrored ledger only when owner history is a strict superset",
+    )
     return parser
 
 
 def main() -> int:
     args = _parser().parse_args()
     if args.repair_owner_structure:
-        if args.all or args.owners or args.limit is not None or args.adopt_missing:
+        if (
+            args.all
+            or args.owners
+            or args.limit is not None
+            or args.adopt_missing
+            or args.reconcile_existing
+        ):
             raise SystemExit("--repair-owner-structure cannot be combined with owner selection")
         writes = plan_owner_structure_repairs(REPO_ROOT)
         for relative in writes:
@@ -671,6 +717,7 @@ def main() -> int:
             or args.limit is not None
             or args.adopt_missing
             or args.repair_owner_structure
+            or args.reconcile_existing
         ):
             raise SystemExit("--repair-links cannot be combined with owner selection")
         writes = plan_status_link_repairs(REPO_ROOT)
@@ -686,13 +733,20 @@ def main() -> int:
         raise SystemExit("choose exactly one of --all or explicit owner paths")
     if args.adopt_missing and args.all:
         raise SystemExit("--adopt-missing requires explicit owner paths")
+    if args.reconcile_existing and args.all:
+        raise SystemExit("--reconcile-existing requires explicit owner paths")
     owners = discover_inline_owners(REPO_ROOT) if args.all else args.owners
     if args.limit is not None:
         if not args.all or args.limit < 1:
             raise SystemExit("--limit requires --all and a positive value")
         owners = owners[: args.limit]
     try:
-        plan = plan_migrations(REPO_ROOT, owners, allow_missing=args.adopt_missing)
+        plan = plan_migrations(
+            REPO_ROOT,
+            owners,
+            allow_missing=args.adopt_missing,
+            reconcile_existing=args.reconcile_existing,
+        )
     except ValueError as error:
         print(f"roadmap-ledger-migration: ERROR: {error}")
         return 1

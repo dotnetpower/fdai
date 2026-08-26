@@ -60,11 +60,17 @@ class SecuredQueryReceiptAuthority:
     def resolve(self, evidence_refs: tuple[str, ...]) -> SecuredObjectSetQueryResult:
         """Return one issued secured result named by a dependency evidence ref."""
 
-        digests = tuple(
+        output_digests = tuple(
+            ref.removeprefix("ontology-object-set-output:")
+            for ref in evidence_refs
+            if ref.startswith("ontology-object-set-output:")
+        )
+        lineage_digests = tuple(
             ref.removeprefix("ontology-object-set:")
             for ref in evidence_refs
             if ref.startswith("ontology-object-set:")
         )
+        digests = output_digests or lineage_digests
         if len(digests) != 1 or digests[0] not in self._results:
             raise PermissionError("function dependency does not identify one issued ObjectSet")
         return SecuredObjectSetQueryResult.model_validate(
@@ -93,7 +99,7 @@ class SecuredQueryReceiptAuthority:
             and receipt.ontology_release == expected_release == issued.ontology_release
             and receipt.purpose == expected_purpose == issued.purpose
             and invocation_context.purposes == (expected_purpose,)
-            and invocation_context.evidence_refs == (expected_result_digest,)
+            and expected_result_digest in invocation_context.evidence_refs
         )
 
 

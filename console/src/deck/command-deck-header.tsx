@@ -6,9 +6,14 @@ import { BackendBadge, DeckLayoutIcon } from "./command-deck-presenters";
 import type { DeckLayoutMode } from "./command-deck-session";
 
 export function CommandDeckHeader({
+  conversationTitle,
   routeLabel,
   sessionLabel,
   health,
+  searchAvailable,
+  canStartNewConversation,
+  conversationCount,
+  conversationsOpen,
   searchRef,
   searchQuery,
   searchMatches,
@@ -19,12 +24,18 @@ export function CommandDeckHeader({
   onSearchInput,
   onMoveSearch,
   onNewConversation,
+  onToggleConversations,
   onSelectLayout,
   onClose,
 }: {
+  readonly conversationTitle: string;
   readonly routeLabel: string;
   readonly sessionLabel: string | null;
   readonly health: BackendHealth | null;
+  readonly searchAvailable: boolean;
+  readonly canStartNewConversation: boolean;
+  readonly conversationCount: string;
+  readonly conversationsOpen: boolean;
   readonly searchRef: RefObject<HTMLInputElement>;
   readonly searchQuery: string;
   readonly searchMatches: readonly number[];
@@ -35,6 +46,7 @@ export function CommandDeckHeader({
   readonly onSearchInput: (value: string) => void;
   readonly onMoveSearch: (direction: -1 | 1) => void;
   readonly onNewConversation: () => void;
+  readonly onToggleConversations: () => void;
   readonly onSelectLayout: (mode: DeckLayoutMode) => void;
   readonly onClose: () => void;
 }) {
@@ -53,9 +65,10 @@ export function CommandDeckHeader({
             />
           </svg>
         </span>
-        <span>{t("deck.label")}</span>
-        <span class="deck-header-sep muted">·</span>
-        <span class="deck-header-route">{routeLabel}</span>
+        <span class="deck-header-copy">
+          <strong class="deck-header-conversation-title">{conversationTitle}</strong>
+          <span class="deck-header-route">{routeLabel}</span>
+        </span>
         {sessionLabel && (
           <>
             <Tooltip content={t("deck.tooltip.chattingWith", { session: sessionLabel })}>
@@ -71,7 +84,7 @@ export function CommandDeckHeader({
         <BackendBadge health={health} placement="header" />
       </div>
       <div class="deck-header-center">
-        <div class="deck-search" role="search">
+        {searchAvailable ? <div class="deck-search" role="search">
           <span class="deck-search-icon" aria-hidden="true">⌕</span>
           <input
             ref={searchRef}
@@ -109,61 +122,83 @@ export function CommandDeckHeader({
             ↓
           </button>
           <kbd>{navigator.platform.toLowerCase().includes("mac") ? "⌘K" : "Ctrl K"}</kbd>
+        </div> : null}
+      </div>
+      <div class="deck-header-actions">
+        {canStartNewConversation ? (
+          <Tooltip content={t("deck.newConversation")}>
+            <button
+              type="button"
+              class="deck-header-action"
+              onClick={onNewConversation}
+              aria-label={t("deck.newConversation")}
+            >
+              <HeaderActionIcon kind="new" />
+            </button>
+          </Tooltip>
+        ) : null}
+        <Tooltip content={`${t("deck.conversations")} ${conversationCount}`}>
+          <button
+            type="button"
+            class="deck-header-action deck-header-history"
+            aria-label={`${t("deck.conversations")} ${conversationCount}`}
+            aria-pressed={conversationsOpen}
+            onClick={onToggleConversations}
+          >
+            <HeaderActionIcon kind="history" />
+            <span class="deck-header-action-count">{conversationCount}</span>
+          </button>
+        </Tooltip>
+      </div>
+      <div class="deck-window-controls">
+        <div class="deck-layout-controls" aria-label={t("deck.layoutControls")}>
+          <Tooltip content={t("deck.tooltip.floatingPanel")}>
+            <button
+              type="button"
+              class="deck-layout-button"
+              aria-label={t("deck.tooltip.floatingPanel")}
+              aria-pressed={layoutMode === "floating"}
+              onClick={() => onSelectLayout("floating")}
+            >
+              <DeckLayoutIcon mode="floating" />
+            </button>
+          </Tooltip>
+          <Tooltip content={t("deck.tooltip.dockRight")}>
+            <button
+              type="button"
+              class="deck-layout-button"
+              aria-label={t("deck.tooltip.dockRight")}
+              aria-pressed={layoutMode === "dock"}
+              onClick={() => onSelectLayout("dock")}
+            >
+              <DeckLayoutIcon mode="dock" />
+            </button>
+          </Tooltip>
+          <Tooltip content={t("deck.tooltip.fullWorkspace")}>
+            <button
+              type="button"
+              class="deck-layout-button"
+              aria-label={t("deck.tooltip.fullWorkspace")}
+              aria-pressed={layoutMode === "workspace"}
+              onClick={() => onSelectLayout("workspace")}
+            >
+              <DeckLayoutIcon mode="workspace" />
+            </button>
+          </Tooltip>
         </div>
-      </div>
-      <span class="deck-header-new-slot">
-        <Tooltip content={t("deck.newConversation")}>
-          <button
-            type="button"
-            class="deck-header-new"
-            onClick={onNewConversation}
-            aria-label={t("deck.newConversation")}
-          >
-            <span class="deck-header-new-glyph" aria-hidden="true">+</span>
-            <span class="deck-header-new-label">{t("deck.newConversation")}</span>
-          </button>
-        </Tooltip>
-      </span>
-      <div class="deck-layout-controls" aria-label={t("deck.layoutControls")}>
-        <Tooltip content={t("deck.tooltip.floatingPanel")}>
-          <button
-            type="button"
-            class="deck-layout-button"
-            aria-label={t("deck.tooltip.floatingPanel")}
-            aria-pressed={layoutMode === "floating"}
-            onClick={() => onSelectLayout("floating")}
-          >
-            <DeckLayoutIcon mode="floating" />
-          </button>
-        </Tooltip>
-        <Tooltip content={t("deck.tooltip.dockRight")}>
-          <button
-            type="button"
-            class="deck-layout-button"
-            aria-label={t("deck.tooltip.dockRight")}
-            aria-pressed={layoutMode === "dock"}
-            onClick={() => onSelectLayout("dock")}
-          >
-            <DeckLayoutIcon mode="dock" />
-          </button>
-        </Tooltip>
-        <Tooltip content={t("deck.tooltip.fullWorkspace")}>
-          <button
-            type="button"
-            class="deck-layout-button"
-            aria-label={t("deck.tooltip.fullWorkspace")}
-            aria-pressed={layoutMode === "workspace"}
-            onClick={() => onSelectLayout("workspace")}
-          >
-            <DeckLayoutIcon mode="workspace" />
+        <Tooltip content={t("deck.close")}>
+          <button type="button" class="deck-close" onClick={onClose} aria-label={t("deck.close")}>
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 6 L18 18 M18 6 L6 18" /></svg>
           </button>
         </Tooltip>
       </div>
-      <Tooltip content={t("deck.close")}>
-        <button type="button" class="deck-close" onClick={onClose} aria-label={t("deck.close")}>
-          ×
-        </button>
-      </Tooltip>
     </div>
   );
+}
+
+function HeaderActionIcon({ kind }: { readonly kind: "new" | "history" }) {
+  if (kind === "new") {
+    return <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 5 V19 M5 12 H19" /></svg>;
+  }
+  return <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 12 A9 9 0 1 0 6 5.3 M3 4 V10 H9 M12 7 V12 L15 14" /></svg>;
 }

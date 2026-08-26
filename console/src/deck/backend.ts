@@ -27,8 +27,10 @@ import {
   parseAnswerVerification,
   parseDelegation,
   parseEvidenceFreshnessContext,
+  isSemanticDirectResponseSource,
   parseRouter,
   parseResourceContext,
+  semanticDirectResponseSource,
   tokenSuffix,
 } from "./backend-normalizers";
 import {
@@ -225,17 +227,18 @@ export async function askBackend(
   // field so the operator always sees the deployment that actually served
   // the turn (they can differ if the backend echoes a canonical name).
   const chosen = router?.chose ?? model;
-  const source = explicitSource ?? (
+  const usage = typeof payload === "object" && payload !== null
+    ? (payload as Record<string, unknown>).usage
+    : undefined;
+  const directResponse = isSemanticDirectResponseSource(explicitSource);
+  const source = directResponse
+    ? semanticDirectResponseSource(chosen, latencyMs, usage)
+    : explicitSource ?? (
     (latencyMs !== null && latencyMs >= 0
       ? `llm:${chosen} · ${latencyMs}ms`
       : `llm:${chosen}`) +
-    tokenSuffix(
-      typeof payload === "object" && payload !== null
-        ? (payload as Record<string, unknown>).usage
-        : undefined,
-    )
+    tokenSuffix(usage)
   );
-  const directResponse = source === "semantic-direct-response";
   const base = {
     text: answerText,
     // LLM replies do not carry structured citations; the deck grounds the

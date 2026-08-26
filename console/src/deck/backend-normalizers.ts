@@ -38,6 +38,7 @@ const EVENT_STATUS_PATTERN = /^[A-Za-z][A-Za-z0-9 _.-]{1,63}$/;
 const RESOURCE_EVIDENCE_PREFIXES = ["inventory:", "subscription-health:"] as const;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const DIGEST_PATTERN = /^sha256:[0-9a-f]{64}$/;
+const SEMANTIC_DIRECT_RESPONSE_INTENTS = new Set(["greeting", "self_introduction"] as const);
 const SEMANTIC_REASON_PATTERN = /^[a-z0-9_]{1,128}$/;
 const SEMANTIC_ASSURANCE_IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/;
 const SEMANTIC_OPERATIONS = new Set<SemanticAssuranceFrame["operation"]>([
@@ -145,7 +146,10 @@ export function parseSemanticProjectionReceipt(
     return undefined;
   }
   if (
-    (disposition === "direct_response" && directResponseIntent !== "greeting") ||
+    (disposition === "direct_response" &&
+      !SEMANTIC_DIRECT_RESPONSE_INTENTS.has(
+        directResponseIntent as "greeting" | "self_introduction",
+      )) ||
     (disposition !== "direct_response" && directResponseIntent !== undefined) ||
     (disposition === "direct_response" && Object.keys(digests).length > 0)
   ) return undefined;
@@ -169,7 +173,7 @@ export function parseSemanticProjectionReceipt(
       unavailable_reason: unavailableReason as NonNullable<SemanticProjectionReceipt["unavailable_reason"]>,
     } : {}),
     ...(directResponseIntent !== undefined ? {
-      direct_response_intent: directResponseIntent as "greeting",
+      direct_response_intent: directResponseIntent as "greeting" | "self_introduction",
     } : {}),
     ...digests,
     ...(assuranceObservation !== undefined ? {
@@ -1137,6 +1141,24 @@ export function tokenSuffix(usage: unknown): string {
   const label =
     total >= 1000 ? `${(total / 1000).toFixed(total >= 10000 ? 0 : 1)}k` : `${total}`;
   return ` · ${label} tok`;
+}
+const SEMANTIC_DIRECT_RESPONSE_SOURCE = "semantic-direct-response";
+
+export function isSemanticDirectResponseSource(source: unknown): source is string {
+  return typeof source === "string" && (
+    source === SEMANTIC_DIRECT_RESPONSE_SOURCE ||
+    source.startsWith(`${SEMANTIC_DIRECT_RESPONSE_SOURCE} · `)
+  );
+}
+
+export function semanticDirectResponseSource(
+  model: string,
+  latencyMs: number | null,
+  usage: unknown,
+): string {
+  const modelSuffix = model !== "llm" ? ` · ${model}` : "";
+  const latencySuffix = latencyMs !== null && latencyMs >= 0 ? ` · ${latencyMs}ms` : "";
+  return `${SEMANTIC_DIRECT_RESPONSE_SOURCE}${modelSuffix}${latencySuffix}${tokenSuffix(usage)}`;
 }
 
 export function parseRouter(raw: unknown): RouterSnapshot | undefined {

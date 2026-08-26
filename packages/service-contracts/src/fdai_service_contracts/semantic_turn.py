@@ -164,6 +164,7 @@ class SemanticDirectResponseIntent(StrEnum):
     """Closed no-evidence answer intents carried across the service boundary."""
 
     GREETING = "greeting"
+    SELF_INTRODUCTION = "self_introduction"
 
 
 class SemanticPlanningProfile(StrEnum):
@@ -230,6 +231,47 @@ class SemanticBoundContext(QueryContract):
     correlation_id: Annotated[str, Field(min_length=1, max_length=512)] | None = None
 
 
+class SemanticInvestigationContinuation(QueryContract):
+    """Verified prior investigation identity for one same-session follow-up."""
+
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    source_session_id: BoundedId
+    source_turn_id: BoundedId
+    source_turn_sequence: Annotated[int, Field(ge=0)]
+    target_type: Annotated[str, Field(pattern=_ASSURANCE_IDENTIFIER_PATTERN)]
+    target_value: Annotated[str, Field(min_length=1, max_length=512)]
+    recovery_measure_concepts: Annotated[
+        tuple[Annotated[str, Field(pattern=_ASSURANCE_IDENTIFIER_PATTERN)], ...],
+        Field(min_length=1, max_length=8),
+    ]
+    baseline_start: datetime
+    baseline_end: datetime
+    initial_observation_cutoff: datetime
+    ontology_release_digest: Digest
+    principal_manifest_digest: Digest
+    source_frame_digest: Digest
+    source_plan_digest: Digest
+    source_execution_receipt_digest: Digest
+    execution_authority: Literal[False] = False
+
+    @model_validator(mode="after")
+    def _continuation_is_bounded(self) -> SemanticInvestigationContinuation:
+        _require_ordered_unique(
+            "semantic continuation recovery measures",
+            self.recovery_measure_concepts,
+        )
+        for label, value in (
+            ("baseline_start", self.baseline_start),
+            ("baseline_end", self.baseline_end),
+            ("initial_observation_cutoff", self.initial_observation_cutoff),
+        ):
+            if value.tzinfo is None or value.utcoffset() is None:
+                raise ValueError(f"semantic continuation {label} MUST be timezone-aware")
+        if not self.baseline_start < self.baseline_end <= self.initial_observation_cutoff:
+            raise ValueError("semantic continuation windows MUST be ordered")
+        return self
+
+
 class SemanticTurnRequest(QueryContract):
     """One bounded ordinary-language request with no execution authority."""
 
@@ -243,8 +285,10 @@ class SemanticTurnRequest(QueryContract):
     deadline_at: datetime
     view_context_digest: Digest | None = None
     bound_context: SemanticBoundContext | None = None
+    investigation_continuation: SemanticInvestigationContinuation | None = None
     prior_turns: Annotated[tuple[SemanticPriorTurn, ...], Field(max_length=12)] = ()
     planning_profile: SemanticPlanningProfile = SemanticPlanningProfile.INTERACTIVE
+    include_model_trace: bool = False
     cancelled: bool = False
     execution_authority: Literal[False] = False
 
@@ -501,6 +545,7 @@ __all__ = [
     "SemanticAssuranceObservation",
     "SemanticAssurancePath",
     "SemanticAssurancePathStep",
+    "SemanticInvestigationContinuation",
     "SemanticPlanningProfile",
     "SemanticPriorTurn",
     "SemanticTurnDisposition",

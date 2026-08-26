@@ -7,6 +7,10 @@ from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from fdai_core_service.read_investigation_completion import (
+    InteractiveCompletionWakeSink,
+    InteractiveReadInvestigationCompletionPublisher,
+)
 from fdai_core_service.read_investigation_consumer import (
     ReadInvestigationConsumerBinding,
 )
@@ -19,12 +23,28 @@ from fdai.core.background_task import (
     BackgroundTaskCoordinator,
     BackgroundTaskCoordinatorConfig,
     BackgroundTaskService,
+    EventBusReadInvestigationCompletionSink,
     ReadInvestigationBackgroundExecutor,
 )
-from fdai.core.read_investigation import ReadInvestigationService
+from fdai.core.read_investigation import (
+    InteractiveReadInvestigationConfig,
+    InteractiveReadInvestigationCoordinator,
+    ReadInvestigationModeSelector,
+    ReadInvestigationService,
+    interactive_investigation_policy,
+)
 from fdai.delivery.persistence import (
     PostgresBackgroundTaskStore,
     PostgresBackgroundTaskStoreConfig,
+    PostgresReadInvestigationCompletionStore,
+    PostgresReadInvestigationCompletionStoreConfig,
+    PostgresReadInvestigationProgressStore,
+    PostgresReadInvestigationProgressStoreConfig,
+    PostgresReadInvestigationRunStore,
+    PostgresReadInvestigationRunStoreConfig,
+)
+from fdai.delivery.persistence.background_task_completion_audit import (
+    StateStoreBackgroundTaskCompletionAudit,
 )
 from fdai.delivery.persistence.background_task_lifecycle_audit import (
     StateStoreBackgroundTaskLifecycleAudit,
@@ -65,6 +85,13 @@ class ReadInvestigationRuntimeBinding:
     consumer: ReadInvestigationConsumerBinding
     coordinator: BackgroundTaskCoordinator
     wake_signal: _CoordinatorControl
+    completion_sink: EventBusReadInvestigationCompletionSink
+    interactive: InteractiveReadInvestigationCoordinator
+    interactive_run_store: PostgresReadInvestigationRunStore
+    interactive_progress_store: PostgresReadInvestigationProgressStore
+    interactive_completion_store: PostgresReadInvestigationCompletionStore
+    interactive_completion_publisher: InteractiveReadInvestigationCompletionPublisher
+    interactive_completion_wake: InteractiveCompletionWakeSink
     maintenance_seconds: float = 30.0
     discovery_refresh: Callable[[], Awaitable[bool]] | None = None
     discovery_refresh_seconds: float = 30.0
@@ -72,6 +99,12 @@ class ReadInvestigationRuntimeBinding:
     async def run(self, *, bus: EventBus, stop: asyncio.Event) -> None:
         """Supervise transport consumption, reconciliation, and bounded shutdown."""
 
+        await asyncio.gather(
+            self.interactive_run_store.verify_schema(),
+            self.interactive_progress_store.verify_schema(),
+            self.interactive_completion_store.verify_schema(),
+        )
+        self.completion_sink.bind(bus)
         consumer_task = asyncio.create_task(
             self.consumer.run(bus=bus, stop=stop),
             name="read-investigation-consumer",
@@ -79,6 +112,14 @@ class ReadInvestigationRuntimeBinding:
         coordinator_task = asyncio.create_task(
             self._run_coordinator(stop),
             name="read-investigation-coordinator",
+        )
+        interactive_task = asyncio.create_task(
+            self._run_interactive_maintenance(stop),
+            name="read-investigation-interactive-maintenance",
+        )
+        interactive_completion_task = asyncio.create_task(
+            self._run_interactive_completions(bus, stop),
+            name="read-investigation-interactive-completions",
         )
         discovery_task = (
             asyncio.create_task(
@@ -91,7 +132,14 @@ class ReadInvestigationRuntimeBinding:
         stop_task = asyncio.create_task(stop.wait(), name="read-investigation-stop")
         tasks = tuple(
             task
-            for task in (consumer_task, coordinator_task, discovery_task, stop_task)
+            for task in (
+                consumer_task,
+                coordinator_task,
+                interactive_task,
+                interactive_completion_task,
+                discovery_task,
+                stop_task,
+            )
             if task is not None
         )
         try:
@@ -108,7 +156,9 @@ class ReadInvestigationRuntimeBinding:
                 if not task.done():
                     task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
+            await self.interactive.shutdown(drain_seconds=10.0)
             await self.coordinator.shutdown(drain_seconds=10.0)
+            self.completion_sink.unbind()
 
     async def _run_coordinator(self, stop: asyncio.Event) -> None:
         while not stop.is_set():
@@ -132,6 +182,33 @@ class ReadInvestigationRuntimeBinding:
             except TimeoutError:
                 pass
 
+    async def _run_interactive_maintenance(self, stop: asyncio.Event) -> None:
+        while not stop.is_set():
+            await self.interactive.reconcile()
+            try:
+                async with asyncio.timeout(self.maintenance_seconds):
+                    await stop.wait()
+            except TimeoutError:
+                pass
+
+    async def _run_interactive_completions(
+        self,
+        bus: EventBus,
+        stop: asyncio.Event,
+    ) -> None:
+        while not stop.is_set():
+            self.interactive_completion_wake.event.clear()
+            await self.interactive_completion_publisher.run_once(bus=bus)
+            if stop.is_set():
+                return
+            if self.interactive_completion_wake.event.is_set():
+                continue
+            try:
+                async with asyncio.timeout(self.maintenance_seconds):
+                    await self.interactive_completion_wake.event.wait()
+            except TimeoutError:
+                pass
+
 
 def build_read_investigation_runtime_binding(
     *,
@@ -141,6 +218,8 @@ def build_read_investigation_runtime_binding(
     saga_audit_chain: Any,
 ) -> ReadInvestigationRuntimeBinding | None:
     """Build the optional production path only from complete durable inputs."""
+
+    del saga_audit_chain
 
     topic = environment.get("FDAI_READ_INVESTIGATION_REQUEST_TOPIC", "").strip()
     if not topic:
@@ -164,10 +243,36 @@ def build_read_investigation_runtime_binding(
     task_store = PostgresBackgroundTaskStore(config=PostgresBackgroundTaskStoreConfig(dsn=dsn))
     latency_store = StateStoreReadLatencyProfileStore(store=state_store)
     service = ReadInvestigationService(provider, latency_store=latency_store)
+    interactive_run_store = PostgresReadInvestigationRunStore(
+        config=PostgresReadInvestigationRunStoreConfig(dsn=dsn)
+    )
+    interactive_progress_store = PostgresReadInvestigationProgressStore(
+        config=PostgresReadInvestigationProgressStoreConfig(dsn=dsn)
+    )
+    interactive_completion_store = PostgresReadInvestigationCompletionStore(
+        config=PostgresReadInvestigationCompletionStoreConfig(dsn=dsn)
+    )
+    interactive_completion_wake = InteractiveCompletionWakeSink()
+    interactive = InteractiveReadInvestigationCoordinator(
+        store=interactive_run_store,
+        progress_store=interactive_progress_store,
+        executor=service,
+        mode_selector=ReadInvestigationModeSelector(
+            latency_store=latency_store,
+            transport=provider.transport,
+            policy=interactive_investigation_policy(),
+        ),
+        config=InteractiveReadInvestigationConfig(coordinator_id=coordinator_id),
+        completion_sink=interactive_completion_wake,
+    )
+    completion_sink = EventBusReadInvestigationCompletionSink(
+        audit=StateStoreBackgroundTaskCompletionAudit(state_store),
+    )
     coordinator = BackgroundTaskCoordinator(
         store=task_store,
         executor=ReadInvestigationBackgroundExecutor(service),
         config=BackgroundTaskCoordinatorConfig(coordinator_id=coordinator_id),
+        completion_sink=completion_sink,
     )
     wake_signal = _CoordinatorControl(coordinator)
     consumer = ReadInvestigationConsumerBinding(
@@ -178,6 +283,7 @@ def build_read_investigation_runtime_binding(
             audit=StateStoreBackgroundTaskLifecycleAudit(state_store),
         ),
         coordinator=wake_signal,
+        interactive=interactive,
     )
     discovery_refresh = (
         provider.discover if isinstance(provider, ReadInvestigationDiscoveryRefresher) else None
@@ -186,6 +292,15 @@ def build_read_investigation_runtime_binding(
         consumer=consumer,
         coordinator=coordinator,
         wake_signal=wake_signal,
+        completion_sink=completion_sink,
+        interactive=interactive,
+        interactive_run_store=interactive_run_store,
+        interactive_progress_store=interactive_progress_store,
+        interactive_completion_store=interactive_completion_store,
+        interactive_completion_publisher=InteractiveReadInvestigationCompletionPublisher(
+            store=interactive_completion_store,
+        ),
+        interactive_completion_wake=interactive_completion_wake,
         discovery_refresh=discovery_refresh,
         discovery_refresh_seconds=_discovery_refresh_seconds(environment),
     )

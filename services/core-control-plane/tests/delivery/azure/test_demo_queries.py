@@ -16,6 +16,8 @@ from fdai.delivery.azure.demo_queries import (
     METRIC_HTTP_429_RATE,
     METRIC_MYSQL_ACTIVE_CONNECTIONS,
     METRIC_MYSQL_CPU_PERCENT,
+    METRIC_MYSQL_QUERY_COUNT,
+    METRIC_MYSQL_SLOW_QUERY_COUNT,
     METRIC_NODE_CPU_PERCENT,
     METRIC_POD_RESTART_COUNT,
     METRIC_POD_RESTARTS,
@@ -238,14 +240,27 @@ def test_semantic_investigation_templates_require_exact_otel_resource_identity()
     assert set(queries) == {
         METRIC_SERVICE_REQUEST_DURATION_MS,
         METRIC_DEPENDENCY_DURATION_MS,
+        METRIC_MYSQL_QUERY_COUNT,
+        METRIC_MYSQL_SLOW_QUERY_COUNT,
     }
     assert "AppRequests" in queries[METRIC_SERVICE_REQUEST_DURATION_MS].kql
     assert "AppDependencies" in queries[METRIC_DEPENDENCY_DURATION_MS].kql
-    for template in queries.values():
+    for metric_name in (METRIC_SERVICE_REQUEST_DURATION_MS, METRIC_DEPENDENCY_DURATION_MS):
+        template = queries[metric_name]
         assert "Properties['cloud.resource_id']" in template.kql
         assert "isnotempty(resource_id)" in template.kql
         assert "_ResourceId" not in template.kql
         assert template.label_columns == ("resource_id",)
+    analyzer_queries = sre_demo_analyzer_queries()
+    assert "MetricName == 'cpu_percent'" in analyzer_queries[METRIC_MYSQL_CPU_PERCENT].kql
+    assert "avg(Average)" in analyzer_queries[METRIC_MYSQL_CPU_PERCENT].kql
+    assert (
+        "MetricName == 'active_connections'"
+        in analyzer_queries[METRIC_MYSQL_ACTIVE_CONNECTIONS].kql
+    )
+    assert "max(Maximum)" in analyzer_queries[METRIC_MYSQL_ACTIVE_CONNECTIONS].kql
+    assert "MetricName == 'Queries'" in queries[METRIC_MYSQL_QUERY_COUNT].kql
+    assert "MetricName == 'Slow_queries'" in queries[METRIC_MYSQL_SLOW_QUERY_COUNT].kql
 
 
 def test_resource_metric_templates_use_official_memory_percentage_semantics() -> None:

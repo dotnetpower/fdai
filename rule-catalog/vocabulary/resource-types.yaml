@@ -348,6 +348,7 @@ types:
     category: database
     description: MySQL-family managed database engine.
     azure_arm_type: Microsoft.DBforMySQL/flexibleServers
+    query_terms: [mysql, mysql server, mysql database, MySQL 서버, MySQL 데이터베이스]
     typical_parents: [resource-group]
   - id: nosql-database
     category: database

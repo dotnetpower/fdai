@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Final
@@ -55,7 +56,19 @@ class AzureMetricWindowProvider:
         resource_id: str,
         start: datetime,
         end: datetime,
+        query_labels: Mapping[str, str] | None = None,
     ) -> MetricWindow:
+        if query_labels is not None:
+            result = await self._provider.read(
+                definition=definition,
+                resource_id=resource_id,
+                start=start,
+                end=end,
+                query_labels=query_labels,
+            )
+            if result.resource_id != resource_id:
+                raise ValueError("Azure metric provider widened the exact scoped identity")
+            return result
         arm_id = azure_arm_resource_id(
             resource_id,
             subscription_id=self._config.subscription_id,

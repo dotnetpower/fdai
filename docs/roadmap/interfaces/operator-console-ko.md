@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 7980ee7d927b53ea804e47adc749b782396469c1
+translation_source_sha: 0359829859346e6eef751a498935bf526d6c3723
 translation_revised: 2026-08-25
 ---
 # FDAI Console 대화
@@ -34,7 +34,7 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 | 읽기 전용 Conversation Search interaction | implemented | `conversation-search.tsx`, `conversation-search.model.ts`, `conversation-search.test.ts`, focused route 테스트(`5 passed`) 및 Console typecheck | Bounded filter, 안전한 text highlight, exact context toggle, empty 및 unavailable 상태, fail-closed decoder 오류는 승인 또는 실행 권한을 추가하지 않습니다. |
 | 인시던트 대화 RCA 표현 | implemented | `incident_queries.py`, `semantic_turn_processor.py`, `semantic_turn_presentation.py`, `presentation-artifact.ts`, focused Core, Operator 및 Console 검사(`138 passed`) | 기록된 원인은 일치하는 인용이 포함된 grounded 가설 또는 정확한 감사 행에 근거한 허용 목록의 결정론적 최종 실패를 요구합니다. T0는 범위가 제한된 영향 근거를 기록하고 두 언어 모두 실행 권한 없이 근본 원인, 영향 및 인용을 렌더링합니다. 누락된 근거는 명시적으로 유지합니다. |
 | 구조화된 인시던트 근거 가독성 | implemented | `structured-reply.tsx`, `presentation-value.ts`, `structured-reply.css`, 집중 Console 검사(`19 passed`) 및 타입 검사 | Console은 의미가 있는 마크업에 정확한 RFC 3339 값을 보존하면서 운영자 로컬 시각과 시간대, 관찰 구간, 읽기 쉬운 주체와 기계 토큰 레이블, 반응형 근거 행, 범위가 명확한 채팅 연결 상태, 모바일 44 px 컨트롤을 표시합니다. 브라우저 비평 5회 뒤에는 범위가 제한된 모바일 출처 목록의 가로 스크롤만 Low로 남았으며 통제된 브라우저 산출물은 보존하지 않았습니다. |
-| Command Deck workspace 시각적 계층 | implemented | `console/src/styles.css`, 답변, 활동, 서식 있는 텍스트 및 표현 모듈, 집중 답변 UI 검사 164개 통과, 타입 검사, 운영 빌드, 합성 3개 viewport Playwright | 시안 동등성 검토 12회에서 연결된 조사의 신원, 기본 답변 텍스트와 복사, 제한 상태 색상, 근거 참조의 정확한 의미, 평면 리포트 표, 순서와 부호를 보존하는 차트, 44 px disclosure, 범위가 제한된 workspace 및 작성기 grid를 정렬했습니다. 정확한 기계 사유는 Run record에 남고 답변, 근거, 승인, 변경 또는 실행 권한은 바뀌지 않았습니다. 합성 브라우저 근거는 표현 방식만 증명합니다. |
+| Command Deck workspace 시각적 계층 | implemented | `console/src/deck/command-deck-{view,header}.tsx`, `console/src/deck/intro-suggestions.ts`, `console/src/styles.css`, 집중 Deck 화면 검사 46개 통과, 타입 검사, 운영 빌드 및 인증된 이중 언어 데스크톱/모바일 Browser 검사 | 비어 있는 새 workspace는 화면 근거가 연결된 작성기 하나와 지역화된 빠른 시작을 중앙에 배치하고, 첫 턴 또는 복원된 대화는 작성기를 하단으로 되돌립니다. 헤더는 대화 신원과 경로 맥락을 구분하고 레이아웃 및 닫기 컨트롤을 viewport 가장자리에 고정하며, 간결한 새 대화와 이력 컨트롤을 소유합니다. 현재 화면 스냅샷은 답변 근거로 유지하지만 별도 패널로 표시하지 않습니다. 정확한 기계 사유는 Run record에 남고 답변, 근거, 승인, 변경 또는 실행 권한은 바뀌지 않았습니다. |
 | 관찰된 활동 출처 이력 | implemented | `semantic_turn_runtime.py`, `conversation_activity.py`, `conversation_channel.py`, `backend-normalizers.ts`, `investigation-timeline.tsx`, 집중 Core, Operator 및 Console 검사, 인증된 세 viewport Browser 검토 | 수명 주기 전용 이벤트는 기록된 사람용 설명을 먼저 표시하고 외부 명령 또는 프로바이더 요청이 실행되지 않았음을 밝힙니다. 조회 실행 기록은 서비스 간 전송과 실제 실행 인터페이스를 구분합니다. 온톨로지 읽기는 CLI 명령, 공개 엔드포인트 또는 프로바이더 구현을 만들지 않고 Core의 타입이 지정된 조회 실행기, 작업 및 프로바이더 중립 출처를 식별합니다. 추가된 출처 이력 필드가 없는 과거 기록은 추론하지 않고 명시적으로 표시합니다. |
 | 대상 결속 인과 표현 | implemented | `semantic_turn_presentation.py`, `test_semantic_turn_bridge.py`, 집중 이중 언어 및 causal matrix 검사 31개 통과 | 여러 output으로 구성된 causal 결과는 exact 대상, 증상 concept, 정렬된 baseline 및 current window, 측정된 변화, 경쟁 가설 2개 이상을 표시합니다. 각 가설은 `supported`, `refuted`, `unresolved` 중 하나와 범위가 제한된 근거 상세 및 limitation을 유지합니다. 불완전하거나 오래되거나 충돌하는 근거는 limitation으로 남고 인과 claim으로 승격되지 않습니다. 이 projection은 승인, 변경 또는 실행 권한을 부여하지 않습니다. 인증된 post-commit 검증은 Issue #244에 열린 상태로 남아 있습니다. |
 | 온톨로지 보증 cohort release oracle | implemented | `console/tests/live-e2e/ontology-query-assurance.{ts,spec.ts,test.ts}`, 집중 보증 테스트 101개 통과 | 전체 cohort operation coverage는 고정 개수를 복제하지 않고 결과 histogram을 결정론적으로 생성된 cohort와 비교합니다. 누락 또는 대체 operation은 실패하고 extension operation은 작성된 범위 제한 분포를 유지합니다. |
@@ -42,6 +42,9 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-25 | implemented | 비어 있는 Command Deck의 최종 표현 개선을 완료했습니다. 레이아웃과 닫기 동작을 viewport 오른쪽 12 px에 고정된 창 제어 그룹으로 묶고, 텍스트 닫기 표시를 일관된 아이콘과 제한된 위험 상태 hover로 바꿨습니다. 반복되던 화면 배지를 제거하고 작성기를 넓혀 중앙 정렬했으며, 보내기를 아이콘 동작으로 바꾸고 빠른 시작과 추천 질문을 중앙 정렬했으며, 맥락 기반 시작 질문을 영어와 한국어로 지역화했습니다. | `current change`, 집중 Command Deck 검사 46개, Console 소스 및 테스트 타입 검사, 카탈로그 일치, 읽기 쉬운 한글, 문장부호, 운영 빌드와 진입 번들 게이트 통과. 인증된 영어 데스크톱과 한국어 데스크톱/모바일 Browser 검사에서 닫기 여백 12 px, 모바일 동작 44 px, 지역화된 질문, 컨트롤 겹침 없음 및 가로 overflow 0을 측정했습니다. | 범위가 제한된 구현 작업은 남아 있지 않습니다. Browser 관측은 로컬 표현 근거이며 통제된 런타임 증적이 아닙니다. |
+| 2026-08-25 | implemented | 직접 검토한 뒤 개선된 Command Deck을 한 번 더 단순화했습니다. 답변 근거에 사용하는 내부 화면 스냅샷은 유지하면서 사용자에게 보이던 현재 화면 정보 컨트롤, 개수, 상태 및 오른쪽 패널을 제거했습니다. 새 대화와 이력은 간결한 헤더 아이콘 동작으로 옮기고, 빈 상태의 도구 행을 제거했으며, 대화 기록이 회수된 높이를 사용하도록 했습니다. | `current change`, 집중 Command Deck 검사 39개, Console 소스 및 테스트 타입 검사, 운영 빌드와 진입 번들 게이트 통과. 인증된 데스크톱 및 모바일 Browser 검사에서 현재 화면 컨트롤과 패널이 없고, 모바일 헤더 동작이 44 px이며, 중앙 및 하단 작성기 상태가 올바르고, 가로 overflow가 0임을 측정했습니다. | 범위가 제한된 구현 작업은 남아 있지 않습니다. Browser 관측은 로컬 표현 근거이며 통제된 런타임 증적이 아닙니다. |
+| 2026-08-25 | implemented | 새 대화 workspace를 중앙 작성기, 화면 맥락, 운영 영역 빠른 시작 및 범위가 제한된 추천 질문 중심으로 재구성했습니다. 활성 또는 복원 대화는 하단 작성기를 유지합니다. 헤더는 대화 제목과 경로를 먼저 표시하고 턴이 있을 때만 검색을 노출하며 정상 연결 상태는 툴팁이 있는 상태 점으로 줄였습니다. 새 대화, 대화 이력 및 화면 정보에는 구분되는 아이콘과 레이블을 적용했고, 새 대화를 시작하면 보조 패널을 닫습니다. | `current change`, 집중 Command Deck 검사 39개, Console 소스 및 테스트 타입 검사, 운영 빌드와 진입 번들 게이트 통과. 인증된 1440 x 900, 993 x 641, 390 x 844 Browser 검사에서 경로 유지, 44 px 모바일 컨트롤, 올바른 중앙-하단 작성기 전환, 패널 겹침 없음 및 가로 overflow 0을 측정했습니다. | 범위가 제한된 구현 작업은 남아 있지 않습니다. Browser 관측은 로컬 표현 근거이며 통제된 런타임 증적이 아닙니다. |
 | 2026-08-22 | implemented | 직접 인증 비교에서 남아 있던 specimen 축약을 확인한 뒤 열린 shell 동등성 검토를 한 차례 더 완료했습니다. Adaptive shell은 이제 운영 화면과 같은 검색 결과 수 및 이전/다음 탐색, `Ctrl+K`, 검색 전용 및 Deck 수준 `Escape`, workspace `Tab` focus 순환, source-readiness loading/error/ready 상태, 이력 수 및 새 대화 동작, 현재/다른 화면/에이전트 그룹, favorite 및 remove 동작, 180-360 px keyboard 및 pointer resize, 오래된 digest 새로 고침, 운영 chat glyph와 Bragi avatar asset 및 운영 표시 문구를 사용합니다. 모바일에서는 layout selector를 숨기고 검색과 닫기를 유지하며 resize를 숨기고 표시된 모든 shell input과 button을 최소 44 px로 유지합니다. | `current change`, 집중 시각 계약 52개 통과, 운영 및 직접 static-specimen Playwright 4개 통과, 전체 Console typecheck 통과, Vite 운영 build 11.68초 완료 및 entry bundle gate 통과. 인증된 `/architecture` 비교에서 240 px 이력, 280 px digest, 8 px resize handle, 오래된 freshness, 70 px composer 및 overflow 0을 측정했습니다. Master mock은 대응하는 240/280 px panel, 69 px composer, desktop, constrained, mobile, outer, iframe, root overflow 0을 측정했으며 직접 Playwright는 모든 source 및 keyboard 상태도 실행했습니다. | Static row와 source 상태는 합성이며 runtime 권한을 부여하지 않습니다. 인증된 Architecture route의 418-resource map 때문에 lazy Deck launcher가 최초 10초 probe보다 늦게 mount됐지만 import 오류 없이 나타났고 이후 열린 shell을 측정했습니다. 통제된 runtime artifact는 주장하지 않습니다. |
 | 2026-08-22 | implemented | 재검토에서 데스크톱 대화 이력이 기본으로 열리고, 표시된 shell control 대부분이 동작하지 않으며, digest와 source-readiness 상태가 없고, shell 배치가 시안 로컬에 남아 있음을 확인하여 앞선 workspace specimen 주장을 바로잡았습니다. 운영 화면과 adaptive specimen은 이제 공용 shell 역할 9개를 사용합니다. 둘 다 대화 이력과 digest가 닫힌 transcript-first 상태로 시작하고, 범위가 제한된 240 px 이력과 280 px digest를 사용하며, constrained overlay를 보존합니다. 검색, filter, 대화 선택, 새 대화, source readiness, digest, layout, 닫기, 최신 위치 이동, 첨부 및 보내기 control은 접근성 상태와 함께 실제로 동작합니다. | `current change`, 집중 시각 matrix 52개 통과, 운영 및 직접 static-specimen Playwright 4개 통과, 전체 Console typecheck 통과, Vite 운영 build 11.01초 완료 및 entry bundle gate 통과. Browser 검사는 1440 x 900, 바깥 993 x 641 master viewport가 만드는 745 x 589 content frame, 390 x 844를 순서대로 실행하고 screenshot을 보존했으며 root와 document 가로 overflow 0, 표시된 모바일 toolbar 및 닫기 control 44 px를 확인했습니다. | 저장소 루트 시안 navigation과 운영 Activity rail은 별도 host surface로 유지합니다. 여기의 Browser 근거는 합성 표현 근거이며 통제된 인증 runtime 근거를 대체하지 않습니다. 이전 `charts-composed.tsx` typecheck blocker는 현재 working tree에 더 이상 없습니다. |
 | 2026-08-22 | implemented | 디자인 시안 index를 Console shell로 간주하지 않고 동일한 adaptive answer DOM을 운영 형태의 workspace specimen으로 감쌌습니다. 선택적 모드는 50 px Deck header, 검색 및 layout control, 220 px 데스크톱 대화 이력, 36 px workspace toolbar, 자체 스크롤을 소유하는 transcript, 69 px composer, 1100 px constrained-desktop 대화 overlay, 닫기 및 scrim 동작을 갖춘 82% 모바일 대화 drawer를 추가합니다. | `current change`, `mocks/ui/deck-sources-v2.html`, 집중 시각 계약 52개 통과, 운영 Playwright 검사 3개 통과, Console Vite build 11.16초 완료 및 entry bundle gate 통과. 브라우저 검사에서 desktop workspace 1129 x 694, header 50 px, conversations 220 px, toolbar 36 px, composer 69 px, overflow 0을 측정했습니다. 바깥 viewport 993 px에서는 전체 transcript 위에 240 px overlay를 사용했고 모바일 drawer를 닫으면 overflow 0으로 transcript가 복원됐습니다. | 저장소 루트의 디자인 시안 navigation은 specimen 외부의 host tool로 유지되며, 운영 Activity rail도 Deck overlay 외부에 남습니다. 전체 Console typecheck는 `console/src/components/charts-composed.tsx`의 이번 변경과 무관한 `exactOptionalPropertyTypes` 오류 3건으로 계속 차단됩니다. |
@@ -161,12 +164,16 @@ intent-graph 도구보다 정본 glossary를 먼저 사용합니다. 이 우선�
   답변을 항상 보존합니다. 렌더러는 producer-side 부분 근거를
   `[UPSTREAM OUTPUT TRUNCATED]`로, vendor-limit clipping을 `[CHANNEL OUTPUT TRUNCATED]`로
   구분합니다.
-  Full-workspace 웹 채팅은 대화 기록 중심으로 열립니다. 대화 이력과 현재 화면 다이제스트는 항상
-  표시되는 열이 아니라 toolbar 패널입니다. 일반 Deck 열기는 새로운 principal 범위 대화를
-  시작합니다. 이전 대화는 명시적으로 선택할 때만 복원하고, 에이전트와 인시던트 진입점은 연결된
-  세션을 유지합니다. Deck 헤더는 활성 경로를 표시하고, 다이제스트 토글과
-  헤더는 근거 기록 수, 스냅샷 age 및 오래된 맥락 새로고침을 담당합니다. 작성기에는
-  첨부, 질문 입력 및 보내기 또는 중지만 유지합니다. 전송된 이미지는 운영자 턴 안에 표시되며 검증된 이미지 첨부는 prompt-only semantic 도구 계획 수립과
+  Full-workspace 웹 채팅은 대화 기록 중심으로 열립니다. 새 빈 대화는 현재 경로, 화면 근거 설명,
+  운영 영역 빠른 시작 및 범위가 제한된 추천 질문과 함께 작성기 하나를 중앙에 배치합니다. 첫 운영자
+  턴 이후 또는 영속 대화를 명시적으로 복원하면 작성기는 대화 기록 하단으로 돌아갑니다. 대화 이력은
+  항상 표시되는 열이 아니라 간결한 헤더 동작이며, 새 대화를 시작하면 이력 패널을 닫습니다. 현재 화면
+  스냅샷은 내부 답변 근거로 유지하고 운영자에게 별도 패널로 표시하지 않습니다.
+  일반 Deck 열기는 새로운 principal 범위 대화를 시작합니다. 이전 대화는 명시적으로 선택할 때만
+  복원하고, 에이전트와 인시던트 진입점은 연결된 세션을 유지합니다. Deck 헤더는 활성 대화 제목과
+  경로 맥락을 먼저 표시하고 턴이 있을 때만 대화 기록 검색을 노출하며, 정상 연결 상태는 툴팁이 있는
+  상태 정보로 줄여 표시합니다. 헤더는 스냅샷 개수나 freshness 컨트롤을 반복하지 않고 경로 맥락만
+  유지합니다. 작성기에는 첨부, 질문 입력 및 보내기 또는 중지만 유지합니다. 전송된 이미지는 운영자 턴 안에 표시되며 검증된 이미지 첨부는 prompt-only semantic 도구 계획 수립과
   주어가 생략된 LLM 사용량 구체화를 우회하여 현재 이미지를 vision 서술에 전달합니다. 최종 검증은 해당 해석을 screen-verified로 취급하지 않고 현재 `conversation-image` 참조가 있는 검증되지 않은 답변으로 보존합니다. 측정된 LLM 사용량을 명시한 요청은 결정론적 도구 요청으로 유지합니다. 브라우저 대화 기록 캐시에는 이미지 서술자만 유지하고 인증된 이력 읽기가
   principal 범위 대화 이미지 저장소에서 바이트를 부하합니다. 복원된 대화 기록에는 마지막 기록 시각과
   새 대화 작업을 표시합니다. 표 cell의 `<br>` 변형만 안전한 줄바꿈으로 바꾸고 다른 raw HTML은 텍스트로 유지합니다. 좁은 화면에서도 Markdown 표는 native 표 의미 규칙을 유지합니다.

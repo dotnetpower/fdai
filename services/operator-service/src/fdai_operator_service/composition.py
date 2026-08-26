@@ -58,7 +58,18 @@ from fdai_operator_service.postgres_family_store import (
     UnavailablePostgresFamilyStore,
 )
 from fdai_operator_service.postgres_iam import PostgresIamAdapters
+from fdai_operator_service.postgres_read_investigation_completion import (
+    PostgresReadInvestigationCompletionConfig,
+    PostgresReadInvestigationCompletionRepository,
+)
+from fdai_operator_service.postgres_read_investigation_replay import (
+    PostgresReadInvestigationReplayConfig,
+    PostgresReadInvestigationReplayStore,
+)
 from fdai_operator_service.projections import UnavailableOperatorReadModel
+from fdai_operator_service.read_investigation_completion_runtime import (
+    ReadInvestigationCompletionBridge,
+)
 from fdai_operator_service.read_investigation_runtime import ReadInvestigationBridge
 from fdai_operator_service.reporting import optional_pdf_report_encoder
 from fdai_operator_service.reporting.incident_rca_projection import (
@@ -143,6 +154,26 @@ class ProductionOperatorComposition:
             and environment.read_investigation_request_topic is not None
             else None
         )
+        read_investigation_completion_bridge = (
+            ReadInvestigationCompletionBridge(
+                store=PostgresReadInvestigationCompletionRepository(
+                    config=PostgresReadInvestigationCompletionConfig(
+                        dsn=environment.database_url,
+                        statement_timeout_ms=environment.database_statement_timeout_ms,
+                        connect_timeout_s=environment.database_connect_timeout_s,
+                    )
+                ),
+                source=semantic_bus,
+                publisher=semantic_bus,
+                topic=environment.read_investigation_completion_topic,
+                group_id=environment.read_investigation_completion_consumer_group_id,
+            )
+            if environment.database_url is not None
+            and semantic_bus is not None
+            and environment.read_investigation_completion_topic is not None
+            and environment.read_investigation_completion_consumer_group_id is not None
+            else None
+        )
         authenticator = OperatorAuthenticator(
             verifier=self.verifier_factory(environment),
             group_ids=environment.group_ids,
@@ -174,6 +205,7 @@ class ProductionOperatorComposition:
                 semantic_bus,
                 semantic_bridge,
                 read_investigation_bridge,
+                read_investigation_completion_bridge,
                 live_stage_relay,
             ),
             live_stream_hub=live_stream_hub,
@@ -181,6 +213,7 @@ class ProductionOperatorComposition:
             lifecycle=_application_lifecycle(
                 semantic_bridge,
                 read_investigation_bridge,
+                read_investigation_completion_bridge,
                 semantic_bus,
                 live_stage_relay,
                 narrator_scheduler,
@@ -248,6 +281,9 @@ def _build_route_families(
         )
         return routes, None
 
+    database_url = environment.database_url
+    if database_url is None:  # pragma: no cover - store construction requires the same URL
+        raise RuntimeError("validated Operator database URL is missing")
     postgres_conversation = PostgresConversationAdapters(store)
     local_narrator = (
         LocalAzureNarratorAdapters.from_environment(
@@ -274,6 +310,9 @@ def _build_route_families(
     postgres_operations = PostgresOperationsAdapters(
         store,
         webhook_secret=environment.values.get(WEBHOOK_SIGNING_SECRET_ENV, "").strip() or None,
+        read_investigation_replay=PostgresReadInvestigationReplayStore(
+            config=PostgresReadInvestigationReplayConfig(dsn=database_url)
+        ),
     )
     operations_reader: ProjectionReader = (
         IncidentRcaReportingProjectionReader(postgres_operations, read_model)
@@ -378,6 +417,7 @@ def _build_semantic_bus(environment: OperatorEnvironment) -> OperatorSemanticKaf
             projection_topic=environment.semantic_projection_topic
             or "core.semantic-turn.projections",
             read_investigation_topic=environment.read_investigation_request_topic,
+            read_investigation_completion_topic=(environment.read_investigation_completion_topic),
             physical_topic=environment.semantic_physical_topic,
             client_id=environment.semantic_kafka_client_id,
         ),
@@ -447,6 +487,7 @@ class _CompositeLifecycle:
 def _application_lifecycle(
     bridge: SemanticTurnBridge | None,
     read_investigation_bridge: ReadInvestigationBridge | None,
+    read_investigation_completion_bridge: ReadInvestigationCompletionBridge | None,
     bus: OperatorSemanticKafkaBus | None,
     live_stage_relay: LiveStageKafkaRelay | None,
     narrator_scheduler: PeriodicNarratorRefreshScheduler | None,
@@ -457,6 +498,7 @@ def _application_lifecycle(
             bus,
             bridge,
             read_investigation_bridge,
+            read_investigation_completion_bridge,
             live_stage_relay,
             narrator_scheduler,
         )
@@ -474,6 +516,7 @@ def _readiness_probe(
     bus: OperatorSemanticKafkaBus | None,
     bridge: SemanticTurnBridge | None,
     read_investigation_bridge: ReadInvestigationBridge | None,
+    read_investigation_completion_bridge: ReadInvestigationCompletionBridge | None,
     live_stage_relay: LiveStageKafkaRelay | None,
 ) -> ReadinessProbe:
     if store is None:
@@ -487,6 +530,10 @@ def _readiness_probe(
             and await bus.probe_readiness()
             and (bridge is None or bridge.workers_ready())
             and (read_investigation_bridge is None or read_investigation_bridge.workers_ready())
+            and (
+                read_investigation_completion_bridge is None
+                or read_investigation_completion_bridge.workers_ready()
+            )
             and (live_stage_relay is None or live_stage_relay.readiness())
         )
 

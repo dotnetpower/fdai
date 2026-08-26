@@ -11,7 +11,11 @@ from datetime import UTC, datetime
 from typing import Any, Final
 from uuid import uuid4
 
-from fdai_service_contracts import RuleSearchProjection, SemanticTurnRequest
+from fdai_service_contracts import (
+    RuleSearchProjection,
+    SemanticInvestigationContinuation,
+    SemanticTurnRequest,
+)
 
 _OUTBOX_PREFIX: Final = "operator-semantic-outbox:"
 _NAMESPACED_OUTBOX_PREFIX: Final = "operator-semantic-namespaced-outbox:"
@@ -335,6 +339,60 @@ class PostgresSemanticTurnRepository:
                 "semantic result identity conflicts with the durable request"
             )
         return result
+
+    async def latest_investigation_continuation(
+        self,
+        *,
+        principal_id: str,
+        session_id: str,
+    ) -> SemanticInvestigationContinuation | None:
+        """Resolve one prior verified continuation under exact owner and session scope."""
+
+        _bounded_component("principal_id", principal_id)
+        _bounded_component("session_id", session_id)
+        rows = await self._fetch_all(
+            """
+            SELECT result.value -> 'data' -> 'payload' -> 'investigation_continuation'
+                       AS continuation,
+                   result.value -> 'data' -> 'semantic_result' ->> 'session_id'
+                       AS source_session_id,
+                   result.value -> 'data' -> 'semantic_result' ->> 'turn_id'
+                       AS source_turn_id,
+                   (result.value -> 'data' -> 'semantic_result' ->> 'turn_sequence')::integer
+                       AS source_turn_sequence
+              FROM state_kv AS result
+              JOIN state_kv AS request
+                ON request.value ->> 'request_id' = result.value ->> 'request_id'
+             WHERE result.key LIKE %(result_prefix)s
+               AND result.value ->> 'kind' = 'operator.semantic_result'
+               AND request.key LIKE %(request_prefix)s
+               AND request.value ->> 'kind' = 'operator.semantic_turn'
+               AND COALESCE(request.value ->> 'outbox_namespace', '') = %(outbox_namespace)s
+               AND request.value ->> 'principal_id' = %(principal_id)s
+               AND result.value -> 'data' -> 'semantic_result' ->> 'session_id' = %(session_id)s
+               AND result.value -> 'data' -> 'payload' ? 'investigation_continuation'
+                         ORDER BY result.updated_at DESC, result.key DESC
+             LIMIT 1
+            """,
+            {
+                "result_prefix": f"{_RESULT_PREFIX}%",
+                "request_prefix": f"{self._outbox_prefix}%",
+                "outbox_namespace": self._outbox_namespace,
+                "principal_id": principal_id,
+                "session_id": session_id,
+            },
+        )
+        if not rows:
+            return None
+        continuation = _json_object(rows[0].get("continuation"), label="continuation")
+        parsed = SemanticInvestigationContinuation.model_validate(continuation)
+        if (
+            parsed.source_session_id != rows[0].get("source_session_id")
+            or parsed.source_turn_id != rows[0].get("source_turn_id")
+            or parsed.source_turn_sequence != rows[0].get("source_turn_sequence")
+        ):
+            raise SemanticTurnStoreError("semantic continuation lineage is malformed")
+        return parsed
 
     async def replay(
         self,

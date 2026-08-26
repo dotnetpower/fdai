@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -49,12 +50,16 @@ class ProviderMetricWindowReader:
         resource_id: str,
         start: datetime,
         end: datetime,
+        query_labels: Mapping[str, str] | None = None,
     ) -> MetricWindow:
         """Return provider samples or an explicit incomplete window, never inferred zero."""
 
+        labels = dict(query_labels) if query_labels is not None else {"resource_id": resource_id}
+        if not labels or any(not key or not value for key, value in labels.items()):
+            raise ValueError("metric query labels MUST contain bounded non-empty identities")
         query = MetricQuery(
             metric_name=definition.provider_metric,
-            labels={"resource_id": resource_id},
+            labels=labels,
             since=start,
             until=end,
             aggregation=definition.aggregation.value,
@@ -65,8 +70,8 @@ class ProviderMetricWindowReader:
             async for point in self._provider.query(query):
                 if point.metric_name != definition.provider_metric:
                     raise ValueError("metric provider returned another metric")
-                if point.labels.get("resource_id") != resource_id:
-                    raise ValueError("metric provider returned another resource")
+                if any(point.labels.get(key) != value for key, value in labels.items()):
+                    raise ValueError("metric provider returned another scoped identity")
                 if len(points) >= self._coverage.maximum_samples:
                     truncated = True
                     break

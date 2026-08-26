@@ -334,17 +334,26 @@ class OntologyQueryPlanVerifier:
         if len(node.depends_on) != 1:
             raise ValueError("relationship traversal requires one entity dependency")
         source = nodes_by_id[node.depends_on[0]]
-        if source.kind is not QueryNodeKind.OBJECT_SET or source.output_kind != "query.table":
-            raise ValueError("relationship traversal source MUST be an object_set table")
-        source_definition = ObjectSetDefinition.model_validate(source.arguments.get("definition"))
+        if source.output_kind != "query.table":
+            raise ValueError("relationship traversal source MUST be a secured query table")
+        if source.kind is QueryNodeKind.OBJECT_SET:
+            source_definition = ObjectSetDefinition.model_validate(
+                source.arguments.get("definition")
+            )
+            source_selector = source_definition.selector
+        elif source.kind is QueryNodeKind.RELATIONSHIP_TRAVERSAL:
+            source_traversal = RelationshipTraversalDefinition.model_validate(source.arguments)
+            source_selector = source_traversal.selector
+        else:
+            raise ValueError("relationship traversal source MUST be a secured query table")
         definition = RelationshipTraversalDefinition.model_validate(arguments)
-        if source_definition.selector.kind is not ObjectSelectorKind.OBJECT_TYPE:
+        if source_selector.kind is not ObjectSelectorKind.OBJECT_TYPE:
             raise ValueError("relationship traversal source MUST select one ObjectType")
         if definition.selector.kind is not ObjectSelectorKind.OBJECT_TYPE:
             raise ValueError("relationship traversal target MUST select one ObjectType")
         if ("object", definition.selector.name) not in descriptors:
             raise ValueError("relationship traversal target is absent from the manifest")
-        current_type = source_definition.selector.name
+        current_type = source_selector.name
         for link_type in definition.link_types:
             descriptor = descriptors.get(("link", link_type))
             if descriptor is None:
@@ -463,6 +472,8 @@ class OntologyQueryPlanVerifier:
         for name, value in static_arguments.items():
             property_schema = properties.get(name)
             if isinstance(property_schema, dict):
+                if property_schema.get("x-fdai-dependency-only") is True:
+                    raise ValueError("function dependency-only argument MUST come from a DAG node")
                 errors = list(Draft202012Validator(property_schema).iter_errors(value))
                 if errors:
                     raise ValueError("function static argument violates input_schema")

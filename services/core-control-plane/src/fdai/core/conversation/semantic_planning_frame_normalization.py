@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import logging
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from fdai_service_contracts.ontology_query import (
@@ -12,6 +13,30 @@ from fdai_service_contracts.ontology_query import (
 )
 from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal
 
+from fdai.rule_catalog.schema.inventory_query_language import (
+    InventoryQueryLanguageRegistry,
+    query_signal_matches,
+    query_signal_span,
+)
+
+from .semantic_impact_planning import (
+    service_impact_query_sides,
+    service_resource_query_sides,
+)
+from .semantic_investigation import (
+    IntentSourceSpan,
+    InvestigationAnswerShape,
+    InvestigationEntityMention,
+    InvestigationEntityRole,
+    InvestigationEvidenceStandard,
+    InvestigationHypothesis,
+    InvestigationIntentProposal,
+    InvestigationMeasureDirection,
+    InvestigationRelationshipIntent,
+    InvestigationSymptomMeasure,
+    InvestigationTemporalCue,
+    InvestigationTemporalRole,
+)
 from .semantic_planning_frame_core import build_semantic_frame
 from .semantic_planning_frame_facets import (
     _facet_affirms_concept,
@@ -26,6 +51,7 @@ from .semantic_planning_frame_facets import (
     _facets_describe_service_relationship_evidence_gap,
 )
 from .semantic_planning_models import (
+    BoundInvestigationContinuation,
     ClarificationRequirement,
     SemanticFrameProposal,
     SemanticOutputShape,
@@ -40,6 +66,498 @@ _ACTION_DRAFT_TEMPORAL_SCOPE = {
     "RecoveryPlan": {"kind": "current"},
     "Rule": {},
 }
+_LOGGER = logging.getLogger(__name__)
+_VM_CPU_SYMPTOM_CONCEPT = "resource.cpu.utilization_pct"
+
+
+def normalize_bound_latency_recovery(
+    proposal: SemanticFrameProposal,
+    *,
+    continuation: BoundInvestigationContinuation | None,
+    semantic_judgment: Mapping[str, Any] | None,
+) -> SemanticFrameProposal:
+    """Bind one typed recovery frame to an Operator-verified S3 continuation."""
+
+    facets_raw = semantic_judgment.get("requested_facets", ()) if semantic_judgment else ()
+    facets = {str(item) for item in facets_raw} if isinstance(facets_raw, (list, tuple)) else set()
+    if (
+        continuation is None
+        or continuation.target_type != "BusinessService"
+        or continuation.recovery_measure_concepts != ("dependency.latency", "service.latency")
+        or proposal.operation is not SemanticOperation.VALIDATE
+        or proposal.output_shape
+        not in {
+            SemanticOutputShape.EVIDENCE_VALIDATION,
+            SemanticOutputShape.TARGET_HEALTH_ASSESSMENT,
+        }
+        or "recovery" not in facets
+        or not facets.intersection({"dependency", "dependency_state"})
+    ):
+        return proposal
+    return proposal.model_copy(
+        update={
+            "subject_constraints": ("BusinessService", continuation.target_value),
+            "measure_concepts": continuation.recovery_measure_concepts,
+            "temporal_scope": {"kind": "windowed"},
+            "output_shape": SemanticOutputShape.EVIDENCE_VALIDATION,
+            "evidence_requirements": ("recovery_verification",),
+            "unresolved_terms": (),
+            "clarification_requirements": (),
+            "clarification": None,
+            "investigation": None,
+        }
+    )
+
+
+def normalize_missing_vm_cpu_investigation(
+    proposal: SemanticFrameProposal,
+    *,
+    utterance: str,
+    descriptors: tuple[dict[str, Any], ...],
+    metric_concepts: Sequence[str],
+    inventory_query_language: InventoryQueryLanguageRegistry | None,
+) -> SemanticFrameProposal:
+    """Complete one fully typed exact-VM CPU diagnosis without selecting a new capability."""
+
+    required_metrics = {
+        _VM_CPU_SYMPTOM_CONCEPT,
+        "dependency.latency",
+        "request.volume",
+    }
+    candidate = (
+        proposal.investigation is None
+        and proposal.output_shape == SemanticOutputShape.CAUSAL_EVIDENCE
+        and inventory_query_language is not None
+        and query_signal_matches(
+            utterance,
+            inventory_query_language,
+            "symptom_cpu_spike",
+        )
+    )
+    if candidate:
+        _LOGGER.info(
+            "semantic_planning_vm_cpu_recovery_evaluated",
+            extra={
+                "operation_matches": proposal.operation is SemanticOperation.EXPLAIN_CHANGE,
+                "metrics_available": required_metrics.issubset(metric_concepts),
+                "service_impact_matches": query_signal_matches(
+                    utterance,
+                    inventory_query_language,
+                    "service_impact",
+                ),
+            },
+        )
+    if (
+        proposal.investigation is not None
+        or proposal.operation is not SemanticOperation.EXPLAIN_CHANGE
+        or proposal.output_shape != SemanticOutputShape.CAUSAL_EVIDENCE
+        or inventory_query_language is None
+        or not required_metrics.issubset(metric_concepts)
+        or not query_signal_matches(
+            utterance,
+            inventory_query_language,
+            "symptom_cpu_spike",
+        )
+        or not query_signal_matches(
+            utterance,
+            inventory_query_language,
+            "service_impact",
+        )
+    ):
+        return proposal
+    target = exact_target_from_constraints(
+        proposal.subject_constraints,
+        utterance=utterance,
+        descriptors=descriptors,
+    )
+    query_sides = service_impact_query_sides(descriptors)
+    symptom_match = query_signal_span(
+        utterance,
+        inventory_query_language,
+        "symptom_cpu_spike",
+    )
+    impact_match = query_signal_span(
+        utterance,
+        inventory_query_language,
+        "service_impact",
+    )
+    if target is None or query_sides is None or symptom_match is None or impact_match is None:
+        _LOGGER.info(
+            "semantic_planning_vm_cpu_recovery_unavailable",
+            extra={
+                "target_available": target is not None,
+                "query_sides_available": query_sides is not None,
+                "symptom_span_available": symptom_match is not None,
+                "impact_span_available": impact_match is not None,
+            },
+        )
+        return proposal
+    target_start = utterance.casefold().find(target.casefold())
+    if target_start < 0 or utterance.casefold().count(target.casefold()) != 1:
+        return proposal
+    target_span = IntentSourceSpan(
+        start=target_start,
+        end=target_start + len(target),
+        text=utterance[target_start : target_start + len(target)],
+    )
+    symptom_span = IntentSourceSpan(
+        start=symptom_match[0],
+        end=symptom_match[1],
+        text=symptom_match[2],
+    )
+    impact_span = IntentSourceSpan(
+        start=impact_match[0],
+        end=impact_match[1],
+        text=impact_match[2],
+    )
+    investigation = InvestigationIntentProposal(
+        operation=SemanticOperation.EXPLAIN_CHANGE,
+        entities=(
+            InvestigationEntityMention(
+                mention_id="target",
+                span=target_span,
+                role=InvestigationEntityRole.AFFECTED_TARGET,
+                object_type_candidates=("Resource",),
+            ),
+        ),
+        symptom_measures=(
+            InvestigationSymptomMeasure(
+                measure_id="cpu-spike",
+                span=symptom_span,
+                concept_id=_VM_CPU_SYMPTOM_CONCEPT,
+                target_mention_id="target",
+                direction=InvestigationMeasureDirection.INCREASE,
+            ),
+        ),
+        primary_symptom_measure_id="cpu-spike",
+        temporal_cues=(
+            InvestigationTemporalCue(
+                cue_id="onset",
+                span=symptom_span,
+                role=InvestigationTemporalRole.ONSET,
+            ),
+        ),
+        relationship_intents=(
+            InvestigationRelationshipIntent(
+                relationship_id="service-impact",
+                span=impact_span,
+                source_mention_id="target",
+                query_side_candidates=query_sides,
+            ),
+        ),
+        hypotheses=(
+            InvestigationHypothesis(
+                hypothesis_id="traffic-load",
+                span=symptom_span,
+                relationship_id="service-impact",
+                cause_measure_concept="request.volume",
+                effect_measure_id="cpu-spike",
+                competing_explanations=("dependency-latency",),
+            ),
+            InvestigationHypothesis(
+                hypothesis_id="dependency-latency",
+                span=impact_span,
+                relationship_id="service-impact",
+                cause_measure_concept="dependency.latency",
+                effect_measure_id="cpu-spike",
+                competing_explanations=("traffic-load",),
+            ),
+        ),
+        evidence_standard=InvestigationEvidenceStandard.SUPPORT_AND_REFUTATION,
+        answer_shape=InvestigationAnswerShape.DIAGNOSIS,
+        confidence=proposal.confidence,
+    )
+    _LOGGER.info(
+        "semantic_planning_vm_cpu_investigation_recovered",
+        extra={"hypothesis_count": len(investigation.hypotheses)},
+    )
+    return proposal.model_copy(
+        update={
+            "measure_concepts": (_VM_CPU_SYMPTOM_CONCEPT,),
+            "investigation": investigation,
+        }
+    )
+
+
+def normalize_missing_mysql_pressure_investigation(
+    proposal: SemanticFrameProposal,
+    *,
+    utterance: str,
+    descriptors: tuple[dict[str, Any], ...],
+    metric_concepts: Sequence[str],
+    inventory_query_language: InventoryQueryLanguageRegistry | None,
+) -> SemanticFrameProposal:
+    """Complete one fully typed exact MySQL pressure comparison without widening scope."""
+
+    required_metrics = {
+        "database.mysql.active_connections",
+        "database.mysql.cpu.utilization_pct",
+        "database.mysql.query.count",
+        "database.mysql.slow_query.count",
+        "dependency.latency",
+    }
+    signal_names = (
+        "symptom_database_latency",
+        "hypothesis_mysql_saturation",
+        "hypothesis_request_growth",
+    )
+    if (
+        proposal.investigation is not None
+        or proposal.operation is not SemanticOperation.EXPLAIN_CHANGE
+        or proposal.output_shape != SemanticOutputShape.CAUSAL_EVIDENCE
+        or inventory_query_language is None
+        or not required_metrics.issubset(metric_concepts)
+        or any(
+            not query_signal_matches(utterance, inventory_query_language, signal_name)
+            for signal_name in signal_names
+        )
+    ):
+        return proposal
+    target = exact_target_from_constraints(
+        proposal.subject_constraints,
+        utterance=utterance,
+        descriptors=descriptors,
+    )
+    query_sides = service_impact_query_sides(descriptors)
+    spans = {
+        signal_name: query_signal_span(
+            utterance,
+            inventory_query_language,
+            signal_name,
+        )
+        for signal_name in signal_names
+    }
+    if target is None or query_sides is None or any(value is None for value in spans.values()):
+        return proposal
+    target_start = utterance.casefold().find(target.casefold())
+    if target_start < 0 or utterance.casefold().count(target.casefold()) != 1:
+        return proposal
+
+    def source(signal_name: str) -> IntentSourceSpan:
+        match = spans[signal_name]
+        if match is None:
+            raise ValueError("MySQL pressure signal span is unavailable")
+        return IntentSourceSpan(start=match[0], end=match[1], text=match[2])
+
+    target_span = IntentSourceSpan(
+        start=target_start,
+        end=target_start + len(target),
+        text=utterance[target_start : target_start + len(target)],
+    )
+    latency_span = source("symptom_database_latency")
+    saturation_span = source("hypothesis_mysql_saturation")
+    request_span = source("hypothesis_request_growth")
+    investigation = InvestigationIntentProposal(
+        operation=SemanticOperation.EXPLAIN_CHANGE,
+        entities=(
+            InvestigationEntityMention(
+                mention_id="target",
+                span=target_span,
+                role=InvestigationEntityRole.AFFECTED_TARGET,
+                object_type_candidates=("Resource",),
+            ),
+        ),
+        symptom_measures=(
+            InvestigationSymptomMeasure(
+                measure_id="database-latency",
+                span=latency_span,
+                concept_id="dependency.latency",
+                target_mention_id="target",
+                direction=InvestigationMeasureDirection.INCREASE,
+            ),
+        ),
+        primary_symptom_measure_id="database-latency",
+        temporal_cues=(
+            InvestigationTemporalCue(
+                cue_id="onset",
+                span=latency_span,
+                role=InvestigationTemporalRole.ONSET,
+            ),
+        ),
+        relationship_intents=(
+            InvestigationRelationshipIntent(
+                relationship_id="service-impact",
+                span=request_span,
+                source_mention_id="target",
+                query_side_candidates=query_sides,
+            ),
+        ),
+        hypotheses=(
+            InvestigationHypothesis(
+                hypothesis_id="mysql-saturation",
+                span=saturation_span,
+                relationship_id="service-impact",
+                cause_measure_concept="database.mysql.cpu.utilization_pct",
+                effect_measure_id="database-latency",
+                competing_explanations=("request-growth",),
+            ),
+            InvestigationHypothesis(
+                hypothesis_id="request-growth",
+                span=request_span,
+                relationship_id="service-impact",
+                cause_measure_concept="database.mysql.query.count",
+                effect_measure_id="database-latency",
+                competing_explanations=("mysql-saturation",),
+            ),
+        ),
+        evidence_standard=InvestigationEvidenceStandard.SUPPORT_AND_REFUTATION,
+        answer_shape=InvestigationAnswerShape.DIAGNOSIS,
+        confidence=proposal.confidence,
+    )
+    return proposal.model_copy(
+        update={
+            "subject_constraints": ("Resource", target),
+            "measure_concepts": ("dependency.latency",),
+            "investigation": investigation,
+        }
+    )
+
+
+def normalize_network_application_latency_investigation(
+    proposal: SemanticFrameProposal,
+    *,
+    utterance: str,
+    descriptors: tuple[dict[str, Any], ...],
+    metric_concepts: Sequence[str],
+    inventory_query_language: InventoryQueryLanguageRegistry | None,
+) -> SemanticFrameProposal:
+    """Ground exact S3 evidence or require an affected service before provider I/O."""
+
+    required_metrics = {"dependency.latency", "network.change", "service.latency"}
+    signals = (
+        "symptom_response_latency",
+        "hypothesis_network_latency",
+        "hypothesis_application_latency",
+    )
+    if (
+        proposal.operation
+        not in {
+            SemanticOperation.COMPARE,
+            SemanticOperation.EXPLAIN_CHANGE,
+            SemanticOperation.VALIDATE,
+        }
+        or inventory_query_language is None
+        or not required_metrics.issubset(metric_concepts)
+        or any(
+            not query_signal_matches(utterance, inventory_query_language, signal)
+            for signal in signals
+        )
+    ):
+        return proposal
+    target = exact_target_from_constraints(
+        proposal.subject_constraints,
+        utterance=utterance,
+        descriptors=descriptors,
+    )
+    if target is None:
+        korean = any("가" <= character <= "힣" for character in utterance)
+        return proposal.model_copy(
+            update={
+                "subject_constraints": ("BusinessService",),
+                "measure_concepts": ("service.latency",),
+                "unresolved_terms": ("service_identity",),
+                "clarification_requirements": (ClarificationRequirement.RESOURCE_IDENTITY,),
+                "clarification": (
+                    "응답 지연을 조사할 정확한 서비스 이름 또는 ID를 알려주세요?"
+                    if korean
+                    else "Provide the exact service name or ID for the latency investigation?"
+                ),
+            }
+        )
+    query_sides = service_resource_query_sides(descriptors)
+    spans = {
+        signal: query_signal_span(utterance, inventory_query_language, signal) for signal in signals
+    }
+    if query_sides is None or any(value is None for value in spans.values()):
+        return proposal
+    target_start = utterance.casefold().find(target.casefold())
+    if target_start < 0 or utterance.casefold().count(target.casefold()) != 1:
+        return proposal
+
+    def source(signal: str) -> IntentSourceSpan:
+        match = spans[signal]
+        if match is None:
+            raise ValueError("S3 signal span is unavailable")
+        return IntentSourceSpan(start=match[0], end=match[1], text=match[2])
+
+    target_span = IntentSourceSpan(
+        start=target_start,
+        end=target_start + len(target),
+        text=utterance[target_start : target_start + len(target)],
+    )
+    latency_span = source("symptom_response_latency")
+    network_span = source("hypothesis_network_latency")
+    application_span = source("hypothesis_application_latency")
+    investigation = InvestigationIntentProposal(
+        operation=SemanticOperation.EXPLAIN_CHANGE,
+        entities=(
+            InvestigationEntityMention(
+                mention_id="target",
+                span=target_span,
+                role=InvestigationEntityRole.AFFECTED_TARGET,
+                object_type_candidates=("BusinessService",),
+            ),
+        ),
+        symptom_measures=(
+            InvestigationSymptomMeasure(
+                measure_id="response-latency",
+                span=latency_span,
+                concept_id="service.latency",
+                target_mention_id="target",
+                direction=InvestigationMeasureDirection.INCREASE,
+            ),
+        ),
+        primary_symptom_measure_id="response-latency",
+        temporal_cues=(
+            InvestigationTemporalCue(
+                cue_id="lookback",
+                span=latency_span,
+                role=InvestigationTemporalRole.ONSET,
+            ),
+        ),
+        relationship_intents=(
+            InvestigationRelationshipIntent(
+                relationship_id="service-resources",
+                span=application_span,
+                source_mention_id="target",
+                query_side_candidates=query_sides,
+            ),
+        ),
+        hypotheses=(
+            InvestigationHypothesis(
+                hypothesis_id="network-latency",
+                span=network_span,
+                relationship_id="service-resources",
+                cause_measure_concept="network.change",
+                effect_measure_id="response-latency",
+                competing_explanations=("application-latency",),
+            ),
+            InvestigationHypothesis(
+                hypothesis_id="application-latency",
+                span=application_span,
+                relationship_id="service-resources",
+                cause_measure_concept="dependency.latency",
+                effect_measure_id="response-latency",
+                competing_explanations=("network-latency",),
+            ),
+        ),
+        evidence_standard=InvestigationEvidenceStandard.SUPPORT_AND_REFUTATION,
+        answer_shape=InvestigationAnswerShape.DIAGNOSIS,
+        confidence=proposal.confidence,
+    )
+    return proposal.model_copy(
+        update={
+            "operation": SemanticOperation.EXPLAIN_CHANGE,
+            "subject_constraints": ("BusinessService", target),
+            "measure_concepts": ("service.latency",),
+            "output_shape": SemanticOutputShape.CAUSAL_EVIDENCE,
+            "evidence_requirements": ("support_and_refutation",),
+            "unresolved_terms": (),
+            "clarification_requirements": (),
+            "clarification": None,
+            "investigation": investigation,
+        }
+    )
 
 
 def _action_draft_subject_types(constraints: tuple[str, ...]) -> set[str]:

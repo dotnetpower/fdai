@@ -15,6 +15,10 @@ from fdai.core.ontology_platform import (
     OntologyQueryPlanVerifier,
     build_query_manifest,
 )
+from fdai.core.ontology_platform.kubernetes_pod_recovery_queries import (
+    KUBERNETES_POD_RECOVERY_FUNCTION_NAME,
+    kubernetes_pod_recovery_function_type,
+)
 from fdai.core.ontology_platform.property_values import PropertyValueDomain
 from fdai.shared.contracts.models import (
     CeilingRole,
@@ -290,6 +294,49 @@ def test_verifier_rejects_unavailable_kind_and_stale_manifest() -> None:
     stale = plan.model_copy(update={"semantic_catalog_digest": DIGEST})
     with pytest.raises(ValueError, match="stale query manifest"):
         verifier.verify(stale, manifest=manifest)
+
+
+def test_verifier_rejects_static_dependency_only_function_evidence() -> None:
+    resource = _resource()
+    function = kubernetes_pod_recovery_function_type()
+    release = build_ontology_release(object_types=(resource,), function_types=(function,))
+    manifest = build_query_manifest(
+        release=release,
+        principal_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        principal_scope_digest=DIGEST,
+        object_types=(resource,),
+        functions=(function,),
+        bound_function_names=(function.name,),
+    )
+    node = OntologyQueryNode(
+        node_id="forged-restart-history",
+        kind=QueryNodeKind.FUNCTION,
+        arguments_json=canonical_json(
+            {
+                "function_name": KUBERNETES_POD_RECOVERY_FUNCTION_NAME,
+                "arguments": {
+                    "pod_query_result": {},
+                    "controller_query_result": {},
+                    "deployment_query_result": {},
+                    "restart_history": {},
+                },
+                "dependency_arguments": {},
+            }
+        ),
+        output_kind="kubernetes.pod.recovery.evidence",
+    )
+    plan = _plan(
+        (node,),
+        release_digest=release.digest,
+        manifest_digest=manifest.manifest_digest,
+    )
+
+    with pytest.raises(ValueError, match="dependency-only argument"):
+        OntologyQueryPlanVerifier(available_kinds=(QueryNodeKind.FUNCTION,)).verify(
+            plan,
+            manifest=manifest,
+        )
 
 
 def test_verifier_rejects_topology_cutoff_after_knowledge_cutoff() -> None:

@@ -1340,6 +1340,111 @@ def test_targetless_sre_examples_discover_verified_container_app_candidates(
     assert outcome.execution_authority is False
 
 
+def test_targetless_rollout_diagnosis_discovers_kubernetes_deployment_candidates() -> None:
+    kubernetes_deployment = PropertyValueGroup(
+        id="kubernetes-deployment",
+        values=("kubernetes.deployment",),
+        terms=(
+            "kubernetes deployment",
+            "kubernetes deployments",
+            "rollout",
+            "rollouts",
+            "롤아웃",
+            "쿠버네티스 디플로이먼트",
+            "쿠버네티스 배포",
+        ),
+    )
+    manifest, _definition = _typed_fixture(groups=(kubernetes_deployment,))
+    model = _Model(
+        frame=_frame(
+            operation="explain_change",
+            subject_constraints=["Resource", "배포"],
+            measure_concepts=["deployment.rollout.stall"],
+            output_shape="causal_evidence",
+            investigation={
+                "operation": "explain_change",
+                "entities": [
+                    {
+                        "mention_id": "target",
+                        "span": {"text": "배포", "start": 0, "end": 2},
+                        "role": "affected_target",
+                        "object_type_candidates": ["Resource"],
+                    }
+                ],
+                "symptom_measures": [
+                    {
+                        "measure_id": "rollout",
+                        "span": {"text": "rollout", "start": 0, "end": 7},
+                        "target_mention_id": "target",
+                        "concept_id": "deployment.rollout.stall",
+                        "direction": "decrease",
+                    }
+                ],
+                "primary_symptom_measure_id": "rollout",
+                "temporal_cues": [
+                    {
+                        "cue_id": "after_deployment",
+                        "span": {"text": "이후", "start": 0, "end": 2},
+                        "role": "change_point",
+                    }
+                ],
+                "relationship_intents": [
+                    {
+                        "relationship_id": "invalid",
+                        "span": {"text": "이후", "start": 0, "end": 2},
+                        "source_mention_id": "target",
+                        "target_mention_id": None,
+                        "query_side_candidates": ["missing.outgoing"],
+                    }
+                ],
+                "hypotheses": [
+                    {
+                        "hypothesis_id": "rollout_controller",
+                        "span": {"text": "원인", "start": 0, "end": 2},
+                        "relationship_id": "invalid",
+                        "cause_measure_concept": "deployment.change",
+                        "effect_measure_id": "rollout",
+                        "competing_explanations": ["pod_capacity"],
+                    },
+                    {
+                        "hypothesis_id": "pod_capacity",
+                        "span": {"text": "복구안", "start": 0, "end": 3},
+                        "relationship_id": "invalid",
+                        "cause_measure_concept": "resource.cpu.saturation",
+                        "effect_measure_id": "rollout",
+                        "competing_explanations": ["rollout_controller"],
+                    },
+                ],
+                "evidence_standard": "support_and_refutation",
+                "answer_shape": "diagnosis",
+                "confidence": 0.8,
+            },
+        ),
+        plan=None,
+    )
+
+    outcome = _service(model, manifest).plan(
+        utterance="배포 이후 rollout이 멈춘 원인과 가장 안전한 복구안을 제시해줘.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == "resource_target_candidates"
+    assert outcome.plan is not None
+    assert outcome.plan.nodes[0].arguments["definition"]["predicates"] == [
+        {
+            "property": "type",
+            "operator": "equals",
+            "equals": "kubernetes.deployment",
+        }
+    ]
+    assert model.plan_calls == 0
+    assert outcome.execution_authority is False
+
+
 def test_broad_subtype_measure_query_does_not_require_an_exact_resource() -> None:
     container_app = PropertyValueGroup(
         id="compute-container-app",
@@ -1998,6 +2103,25 @@ def test_two_stated_value_groups_leave_the_plan_to_the_planner() -> None:
     assert predicates == [{"property": "type", "operator": "exists"}]
 
 
+def test_stated_subtype_wins_over_its_broader_category_group() -> None:
+    database_group = PropertyValueGroup(
+        id="database",
+        values=("mysql-server", "postgresql-server"),
+        terms=("database", "db"),
+    )
+    mysql_group = PropertyValueGroup(
+        id="mysql-server",
+        values=("mysql-server",),
+        terms=("mysql",),
+    )
+    manifest, definition = _typed_fixture(groups=(database_group, mysql_group))
+    model = _Model(frame=_frame(output_shape="property_filtered_resources"), plan=_plan(definition))
+
+    predicates = _grounded_predicates(model, manifest, "DB 지연과 MySQL 포화를 조사해줘")
+
+    assert predicates == [{"property": "type", "operator": "equals", "equals": "mysql-server"}]
+
+
 def test_a_term_inside_a_longer_word_does_not_ground_a_filter() -> None:
     manifest, definition = _typed_fixture(groups=(_VM_GROUP,))
     model = _Model(frame=_frame(output_shape="property_filtered_resources"), plan=_plan(definition))
@@ -2092,6 +2216,17 @@ def test_successful_plan_logs_only_stage_progress(caplog) -> None:
         if record.message == "semantic_planning_stage_completed" and record.stage == "plan_verify"
     )
     assert verify.plan_nodes == "object_set[Resource;id equals]"
+    frame = next(
+        record
+        for record in caplog.records
+        if record.message.startswith("semantic_planning_frame_observed")
+    )
+    assert frame.output_shape == "resource_list"
+    assert frame.getMessage() == (
+        "semantic_planning_frame_observed operation=select output_shape=resource_list "
+        "subject_types=Resource measure_concepts= unresolved_count=0 "
+        "structured_investigation=False"
+    )
     assert "Show matching resources" not in caplog.text
     # A predicate operand can carry a tenant identifier, so the shape names the
     # filtered property and its operator and never the value it compares.

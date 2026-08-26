@@ -182,6 +182,32 @@
       }
     },
     {
+      "label": "console: restart operator api",
+      "type": "shell",
+      "command": "bash scripts/deployment/local/run-console-service.sh operator-api",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "console-operator-api-restart",
+        "pattern": { "regexp": "^(?!)$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "service=operator-api event=starting$",
+          "endsPattern": "service=operator-api event=ready$"
+        }
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "group": "console-operator-restart",
+        "clear": true,
+        "showReuseMessage": false
+      },
+      "runOptions": {
+        "instanceLimit": 1,
+        "instancePolicy": "silent"
+      }
+    },
+    {
       "label": "console: start local services",
       "hide": true,
       "type": "shell",

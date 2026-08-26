@@ -15,6 +15,38 @@ durable state-machine owner.
 > A vendor sender id is routing evidence, not a principal id. Ambiguous provider receipt is a
 > visible terminal state and is never retried automatically.
 
+## Read-investigation terminal completion
+
+Core publishes `read-investigation-completion` `1.0.0` only after the immutable background-task
+result and its pending completion outbox commit. The authority-free contract carries a
+deterministic completion id, canonical task and attempt identity, request idempotency key,
+principal, correlation and origin binding, bounded terminal result and evidence references,
+usage, ordered timestamps, retention deadline, `trusted=false`, and
+`execution_authority=false`. The task id is the partition key. Core never imports an Operator
+implementation or writes an Operator conversation, inbox, or delivery table.
+
+The Operator completion consumer validates the exact contract and digest, then requires the
+matching durable `read_investigation.start` proposal before it accepts the record. One
+Operator-owned database transaction must insert or replay the completion inbox record, append the
+deterministic untrusted assistant turn, and enqueue the immutable outbound response. Broker offset
+commit follows that transaction. The existing delivery worker owns provider claim, send,
+acknowledgement, ambiguous-send handling, and retry. A delivery failure never asks Core to rerun
+the investigation or rewrite its result.
+
+The first codec accepts exact `1.0.0`. An additive successor must keep N and N-1 decoders and may
+not downgrade a newer payload. Malformed records go directly to the sibling DLQ. A completion whose
+matching proposal is not yet visible is retried with a bounded count before quarantine. Inbox,
+turn, and outbound identities are deterministic, so duplicate transport delivery reuses the same
+records. The broker retains normal records for one day and DLQ records for seven days; the durable
+inbox and delivery rows retain data until the contract-provided deadline and terminal delivery
+retention rules permit purge.
+
+Rollback disables the completion consumer and Core publisher, restores the last compatible
+Operator codec, and leaves Core completion outbox rows plus accepted Operator inbox and delivery
+rows intact. After compatibility is restored, replay resumes from those durable records. Rollback
+never deletes a terminal result, rewinds a broker offset past an accepted Operator transaction, or
+grants Core an Operator database writer.
+
 ## Implementation status
 
 ### Implementation scope
@@ -34,7 +66,7 @@ durable state-machine owner.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| Read-investigation terminal completion ingress | not-started | [Azure Read Investigations](azure-read-investigations.md#remaining-work); [Durable Background Task Sessions](background-task-sessions.md#remaining-work); [Service Graduation and Data Ownership](../architecture/service-graduation-and-ownership.md#cross-process-contract-matrix) | Core owns the immutable terminal task result, while Operator owns conversation turns and outbound delivery. No versioned completion codec, Operator durable inbox, retry policy, retention rule, or rollback contract currently connects those owners. |
+| Read-investigation terminal completion ingress | in-progress | `read-investigation-completion` `1.0.0`; Core completion publisher; Operator completion repository and consumer; `operator_read_investigation_completion_20260826`; focused completion and privilege checks | Core publishes one immutable terminal task result. Operator production composition validates the exact proposal and atomically writes one durable inbox row plus one idempotent Web assistant turn. The migration grants the Operator conversation writer and restores read-only access on rollback. Slack and Teams outbound enqueue, retention purge, and governed restart evidence remain open. |
 
 ### Implementation history
 
@@ -51,6 +83,7 @@ durable state-machine owner.
 | 2026-08-20 | implemented | Hardened due-delivery authorization and lifecycle recovery: every claimed retry revalidates an active principal, scope, conversation, and channel binding, known Teams JWKS keys refresh after a bounded TTL, and runtime plus credential shutdown is idempotent. | `current change`; focused edge checks passed 81 cases; Ruff and strict mypy passed. | Retain governed restart and external-provider evidence before validation. |
 | 2026-08-20 | implemented | Unified the readable semantic-row projection used before durable channel reduction. Nested provider properties no longer disappear from v2 or leak as raw display JSON; the response exposes allowlisted name, type, status, and location fields while preserving exact evidence for replay. | `current change`; [Issue #241](https://github.com/dotnetpower/fdai/issues/241); focused Operator presentation checks passed 94 cases; Ruff, formatting, and strict mypy passed. | Retain authenticated Web evidence and the existing governed Slack/Teams runtime receipts before raising channel validation claims. |
 | 2026-08-23 | not-started | Registered the cross-service terminal read-investigation completion ingress as an explicit ownership prerequisite without inventing a transport schema or granting Core access to Operator conversation tables. | `current change`; the three owner documents linked in the scope row agree on the open boundary. | Define and review the versioned contract, then implement Operator-owned durable acceptance, idempotent projection, delivery retry, retention, and rollback tests. |
+| 2026-08-26 | in-progress | Implemented the versioned completion codec, Core publisher, Operator inbox, and Web conversation materializer. The Operator migration grants conversation writes, one writable CTE deduplicates the durable proposal, assistant turn, and inbox row, and rollback removes writes before dropping the inbox. | `current change`; focused Operator readiness, completion store, and migration privilege checks passed. | Add verified channel binding resolution and outbound enqueue, retention purge, and governed restart/process-loss receipts. |
 
 ### Remaining work
 
@@ -68,9 +101,10 @@ durable state-machine owner.
 - [x] Implement the GET-only `ConversationDeliveryPanel` projection without mutation controls.
 - [ ] Bind `ConversationDeliveryPanel` to an authenticated console read route and a production
     delivery store, and share the bounded progressive-conversation collector with it.
-- [ ] Define the versioned terminal read-investigation completion contract and Operator-owned
-    durable inbox, including idempotency key, N/N-1 compatibility, poison handling, retry,
-    retention, and rollback; then prove Core never writes Operator conversation tables directly.
+- [x] Define the versioned terminal completion contract and bind the Core publisher, Operator-owned
+    durable inbox, poison handling, bounded retry, rollback grant, and idempotent Web assistant turn.
+- [ ] Add verified Slack and Teams binding resolution plus outbound enqueue, implement completion
+    inbox retention purge, and retain governed restart and process-loss receipts.
 - [ ] Record governed runtime receipts for persistence across restart, process-loss reconciliation,
     external adapter acknowledgement, breaker control, scheduled delivery, and read-only metrics
     before promoting any row to `validated`.

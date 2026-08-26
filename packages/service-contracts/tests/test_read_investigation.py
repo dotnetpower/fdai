@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from pydantic import ValidationError
 
 from fdai_service_contracts.read_investigation import (
     ReadInvestigationCancellation,
+    ReadInvestigationCompletion,
+    ReadInvestigationCompletionUsage,
     ReadInvestigationIntent,
     ReadInvestigationOrigin,
     ReadInvestigationProposalBody,
@@ -16,6 +18,7 @@ from fdai_service_contracts.read_investigation import (
     ReadInvestigationSelector,
     ReadInvestigationTaskBudget,
     build_read_investigation_cancellation,
+    build_read_investigation_completion,
     build_read_investigation_request,
     read_investigation_task_id,
 )
@@ -148,4 +151,83 @@ def test_cancellation_round_trips_and_rejects_tampering() -> None:
     with pytest.raises(ValidationError, match="digest does not match"):
         ReadInvestigationCancellation.model_validate(
             {**cancellation.model_dump(mode="json"), "task_id": "background-other"}
+        )
+
+
+def _completion() -> ReadInvestigationCompletion:
+    started_at = datetime(2026, 8, 26, tzinfo=UTC)
+    return build_read_investigation_completion(
+        task_id=read_investigation_task_id("principal-one", "idempotency-one"),
+        attempt_id="attempt-one",
+        attempt_number=1,
+        owner_principal_id="principal-one",
+        request_idempotency_key="idempotency-one",
+        correlation_id="correlation-one",
+        origin=ReadInvestigationOrigin(
+            conversation_id="conversation-one",
+            channel_kind="web",
+            channel_id="principal-one",
+        ),
+        status="succeeded",
+        terminal_reason="matched",
+        summary="The resource is healthy.",
+        evidence_refs=("evidence-one",),
+        usage=ReadInvestigationCompletionUsage(tool_calls=1),
+        started_at=started_at,
+        finished_at=started_at + timedelta(seconds=1),
+        completed_at=started_at + timedelta(seconds=2),
+        retention_until=started_at + timedelta(days=30),
+    )
+
+
+def test_completion_round_trips_with_deterministic_no_authority_identity() -> None:
+    completion = _completion()
+
+    restored = ReadInvestigationCompletion.model_validate_json(completion.model_dump_json())
+
+    assert restored == completion
+    assert restored.schema_version == "1.0.0"
+    assert restored.completion_id.startswith("read-completion-")
+    assert restored.trusted is False
+    assert restored.execution_authority is False
+
+
+def test_completion_rejects_tampering_and_invalid_evidence_or_time() -> None:
+    completion = _completion()
+    values = {
+        "task_id": completion.task_id,
+        "attempt_id": completion.attempt_id,
+        "attempt_number": completion.attempt_number,
+        "owner_principal_id": completion.owner_principal_id,
+        "request_idempotency_key": completion.request_idempotency_key,
+        "correlation_id": completion.correlation_id,
+        "origin": completion.origin,
+        "status": completion.status,
+        "terminal_reason": completion.terminal_reason,
+        "summary": completion.summary,
+        "evidence_refs": completion.evidence_refs,
+        "usage": completion.usage,
+        "started_at": completion.started_at,
+        "finished_at": completion.finished_at,
+        "completed_at": completion.completed_at,
+        "retention_until": completion.retention_until,
+    }
+
+    with pytest.raises(ValidationError, match="digest does not match"):
+        ReadInvestigationCompletion.model_validate(
+            {**completion.model_dump(mode="json"), "summary": "tampered"}
+        )
+    with pytest.raises(ValidationError, match="evidence_refs MUST be unique"):
+        build_read_investigation_completion(
+            **{
+                **values,
+                "evidence_refs": ("evidence-one", "evidence-one"),
+            }
+        )
+    with pytest.raises(ValidationError, match="timestamps MUST be ordered"):
+        build_read_investigation_completion(
+            **{
+                **values,
+                "retention_until": completion.completed_at - timedelta(seconds=1),
+            }
         )

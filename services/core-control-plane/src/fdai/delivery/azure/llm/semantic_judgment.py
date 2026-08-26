@@ -13,7 +13,16 @@ import httpx
 from fdai_service_contracts.ontology_query import content_digest
 from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal
 
+from fdai.core.conversation.semantic_judgment import (
+    SemanticJudgmentModelResponse,
+    SemanticJudgmentObservation,
+)
 from fdai.delivery.azure.llm.completion_body import completion_body_params
+from fdai.delivery.azure.llm.model_trace import (
+    bounded_usage,
+    complete_model_trace,
+    start_model_trace,
+)
 from fdai.delivery.azure.llm.request_target import ModelRequestTarget
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
@@ -83,7 +92,7 @@ class AzureOpenAISemanticJudgmentModel:
         profile_id: str,
         profile_version: str,
         schema_repair: tuple[dict[str, str], ...],
-    ) -> Mapping[str, Any] | None:
+    ) -> Mapping[str, Any] | SemanticJudgmentModelResponse | None:
         """Return a raw JSON-object proposal or ``None`` on transport failure."""
 
         try:
@@ -133,7 +142,7 @@ class AzureOpenAISemanticJudgmentModel:
         user_content: str,
         *,
         input_digest: str,
-    ) -> Mapping[str, Any] | None:
+    ) -> SemanticJudgmentModelResponse | None:
         schema = json.dumps(
             SemanticJudgmentProposal.model_json_schema(),
             allow_nan=False,
@@ -162,6 +171,10 @@ class AzureOpenAISemanticJudgmentModel:
                     }
                     if request.model_body_field is not None:
                         body["model"] = request.model_body_field
+                    messages = body["messages"]
+                    if not isinstance(messages, list):  # pragma: no cover - local construction
+                        raise TypeError("semantic judgment messages MUST be a list")
+                    trace_start = start_model_trace(messages)
                     response = await self._http.post(
                         request.url,
                         params=request.params,
@@ -173,7 +186,23 @@ class AzureOpenAISemanticJudgmentModel:
                         timeout=candidate_timeout,
                     )
                     response.raise_for_status()
-                    return _response_mapping(response)
+                    proposal, response_content, usage = _response_mapping(response)
+                    trace_call = complete_model_trace(
+                        trace_start,
+                        call_id=f"semantic-judgment-{index + 1}",
+                        kind="semantic-judgment",
+                        model=target.deployment,
+                        response_content=response_content,
+                        usage=usage,
+                    )
+                    return SemanticJudgmentModelResponse(
+                        proposal=proposal,
+                        observation=SemanticJudgmentObservation(
+                            model=target.deployment,
+                            usage=bounded_usage(usage),
+                            trace_call=trace_call,
+                        ),
+                    )
             except Exception as exc:  # noqa: BLE001 - bounded candidate failover
                 failure: dict[str, Any] = {
                     "candidate_index": index,
@@ -186,20 +215,29 @@ class AzureOpenAISemanticJudgmentModel:
         return None
 
 
-def _response_mapping(response: httpx.Response) -> Mapping[str, Any]:
+def _response_mapping(
+    response: httpx.Response,
+) -> tuple[Mapping[str, Any], str, Mapping[str, Any] | None]:
     envelope = response.json()
     choices = envelope.get("choices") if isinstance(envelope, Mapping) else None
+    usage = envelope.get("usage") if isinstance(envelope, Mapping) else None
+    bounded_provider_usage = usage if isinstance(usage, Mapping) else None
     if not isinstance(choices, list) or not choices:
-        return {"invalid_semantic_judgment_response": True}
+        invalid = "[INVALID_SEMANTIC_JUDGMENT_RESPONSE]"
+        return {"invalid_semantic_judgment_response": True}, invalid, bounded_provider_usage
     message = choices[0].get("message") if isinstance(choices[0], Mapping) else None
     content = message.get("content") if isinstance(message, Mapping) else None
     if not isinstance(content, str) or not content or len(content.encode()) > _MAX_RESPONSE_BYTES:
-        return {"invalid_semantic_judgment_response": True}
+        invalid = "[INVALID_SEMANTIC_JUDGMENT_RESPONSE]"
+        return {"invalid_semantic_judgment_response": True}, invalid, bounded_provider_usage
     try:
         payload = json.loads(content)
     except json.JSONDecodeError:
-        return {"invalid_semantic_judgment_response": True}
-    return payload if isinstance(payload, Mapping) else {"invalid_semantic_judgment_response": True}
+        return {"invalid_semantic_judgment_response": True}, content, bounded_provider_usage
+    proposal = (
+        payload if isinstance(payload, Mapping) else {"invalid_semantic_judgment_response": True}
+    )
+    return proposal, content, bounded_provider_usage
 
 
 __all__ = [

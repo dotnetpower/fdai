@@ -24,6 +24,7 @@ from .semantic_investigation import (
     InvestigationIntentProposal,
     VerifiedInvestigationIntent,
 )
+from .semantic_judgment import SemanticJudgmentObservation
 from .session import Principal
 
 
@@ -46,6 +47,43 @@ class BoundIncident:
     def __post_init__(self) -> None:
         if not self.incident_id.strip() or not self.correlation_id.strip():
             raise ValueError("bound incident identifiers MUST NOT be empty")
+
+
+@dataclass(frozen=True, slots=True)
+class BoundInvestigationContinuation:
+    """Trusted prior investigation identity resolved by Operator persistence."""
+
+    source_session_id: str
+    source_turn_id: str
+    source_turn_sequence: int
+    target_type: str
+    target_value: str
+    recovery_measure_concepts: tuple[str, ...]
+    baseline_start: datetime
+    baseline_end: datetime
+    initial_observation_cutoff: datetime
+    ontology_release_digest: str
+    principal_manifest_digest: str
+    source_frame_digest: str
+    source_plan_digest: str
+    source_execution_receipt_digest: str
+
+    def __post_init__(self) -> None:
+        if (
+            not self.source_session_id.strip()
+            or not self.source_turn_id.strip()
+            or self.source_turn_sequence < 0
+            or not self.target_type.strip()
+            or not self.target_value.strip()
+        ):
+            raise ValueError("bound investigation continuation identity is invalid")
+        if self.recovery_measure_concepts != tuple(sorted(set(self.recovery_measure_concepts))):
+            raise ValueError("bound investigation continuation measures MUST be ordered")
+        times = (self.baseline_start, self.baseline_end, self.initial_observation_cutoff)
+        if any(value.tzinfo is None or value.utcoffset() is None for value in times):
+            raise ValueError("bound investigation continuation times MUST be timezone-aware")
+        if not self.baseline_start < self.baseline_end <= self.initial_observation_cutoff:
+            raise ValueError("bound investigation continuation windows MUST be ordered")
 
 
 class ClarificationRequirement(StrEnum):
@@ -241,6 +279,7 @@ class SemanticPlanningOutcome:
     investigation_intent: VerifiedInvestigationIntent | None = None
     clarification: str | None = None
     direct_response_intent: SemanticDirectResponseIntent | None = None
+    model_observations: tuple[SemanticJudgmentObservation, ...] = ()
     execution_authority: Literal[False] = False
 
     def __post_init__(self) -> None:
@@ -260,9 +299,12 @@ class SemanticPlanningOutcome:
         direct_response = self.disposition is SemanticPlanningDisposition.DIRECT_RESPONSE
         if direct_response != (self.direct_response_intent is not None):
             raise ValueError("direct response disposition requires exactly one answer intent")
+        if self.model_observations and not direct_response:
+            raise ValueError("model observations are retained only for direct responses")
 
 
 __all__ = [
+    "BoundInvestigationContinuation",
     "ClarificationRequirement",
     "CompleteManifestSelector",
     "QueryManifestProvider",

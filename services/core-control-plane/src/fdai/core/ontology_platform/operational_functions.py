@@ -11,7 +11,15 @@ from .declaration_queries import ontology_declaration_function_type
 from .evidence_health_queries import ontology_evidence_health_function_type
 from .incident_queries import incident_evidence_function_type
 from .inventory_impact_queries import inventory_impact_function_type
+from .kubernetes_pod_recovery_queries import kubernetes_pod_recovery_function_type
+from .kubernetes_rollout_queries import kubernetes_rollout_function_type
+from .latency_recovery_evidence import latency_recovery_function_type
 from .manifest_queries import ontology_manifest_function_type
+from .mysql_pressure_evidence import (
+    mysql_demand_bundle_function_type,
+    mysql_pressure_function_type,
+    mysql_saturation_bundle_function_type,
+)
 from .network_path import network_path_function_type
 from .pod_telemetry import pod_telemetry_function_type
 from .relationship_queries import ontology_relationships_function_type
@@ -32,6 +40,7 @@ from .resource_metric_queries import (
 )
 from .resource_state_queries import resource_state_function_type
 from .service_health_queries import service_health_function_type
+from .vm_process_evidence import vm_process_cpu_function_type
 
 
 def operational_function_types(
@@ -43,10 +52,16 @@ def operational_function_types(
         catalog_search_rules_function_type(),
         incident_evidence_function_type(),
         inventory_impact_function_type(),
+        kubernetes_pod_recovery_function_type(),
+        kubernetes_rollout_function_type(),
+        latency_recovery_function_type(),
         ontology_declaration_function_type(),
         ontology_evidence_health_function_type(),
         ontology_manifest_function_type(),
         network_path_function_type(),
+        mysql_demand_bundle_function_type(),
+        mysql_pressure_function_type(),
+        mysql_saturation_bundle_function_type(),
         ontology_relationships_function_type(),
         ontology_release_diff_function_type(),
         resource_class_closure_function_type(),
@@ -62,6 +77,7 @@ def operational_function_types(
         service_health_function_type(),
         error_activity_correlation_function_type(),
         target_health_assessment_function_type(),
+        vm_process_cpu_function_type(),
     )
     names = [item.name for item in combined]
     if len(names) != len(set(names)):

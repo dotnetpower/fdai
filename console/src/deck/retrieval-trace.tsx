@@ -243,3 +243,29 @@ export function RetrievalTrace({
     </article>
   );
 }
+
+export function PendingReplyIndicator() {
+  const iconUrl = `url("${typeof import.meta.env.BASE_URL === "string" ? import.meta.env.BASE_URL : "/"}agent-icons/bragi.svg")`;
+  return (
+    <article class="deck-pending-reply cs-deck-turn cs-deck-agent-turn" aria-busy="true">
+      <header class="deck-turn-head cs-deck-turn-head">
+        <span class="deck-turn-role deck-turn-agent cs-deck-agent-name">
+          <span
+            class="deck-turn-agent-icon cs-deck-agent-icon"
+            aria-hidden="true"
+            style={{ WebkitMaskImage: iconUrl, maskImage: iconUrl }}
+          />
+          Bragi
+        </span>
+      </header>
+      <div class="deck-pending-reply-body">
+        <span class="deck-pending-reply-dots" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </span>
+        <span>{t("deck.retrieval.preparingAnswer")}</span>
+      </div>
+    </article>
+  );
+}

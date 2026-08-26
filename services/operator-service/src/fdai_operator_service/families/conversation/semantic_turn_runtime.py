@@ -8,7 +8,7 @@ import json
 import logging
 from collections import deque
 from collections.abc import AsyncIterator, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Any, Protocol, cast
 from uuid import UUID, uuid5
@@ -42,6 +42,7 @@ from fdai_service_contracts import (
     MAX_INTENT_GRAPH_GOALS,
     ContractValidationError,
     RuleSearchProjection,
+    SemanticInvestigationContinuation,
     SemanticTurnDisposition,
     SemanticTurnRequest,
     SemanticTurnResult,
@@ -93,6 +94,13 @@ class SemanticTurnStore(Protocol):
         *,
         projection: Mapping[str, object],
     ) -> StoredSemanticResult: ...
+
+    async def latest_semantic_investigation_continuation(
+        self,
+        *,
+        principal_id: str,
+        session_id: str,
+    ) -> SemanticInvestigationContinuation | None: ...
 
     async def replay_semantic_turn(
         self,
@@ -159,7 +167,7 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
         self._terminal_loaded = False
         self._stream_sequence = 0
         self._running_activities: dict[str, tuple[str, str | None]] = {}
-        self._queue_pending_progress()
+        self._queue_initial_progress()
 
     def __aiter__(self) -> _SemanticEventIterator:
         return self
@@ -178,23 +186,19 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
         """Stop polling for a durable semantic terminal after HTTP disconnect."""
         self._closed = True
 
-    def _queue_pending_progress(self) -> None:
-        if self._cursor is not None and self._cursor.projection_sequence > 0:
-            return
-        for phase, label in _pending_progress(self._request.locale):
-            if _cursor_includes(self._cursor, 0, phase):
+    def _queue_initial_progress(self) -> None:
+        """Queue replay-safe progress for states observed by the Operator itself."""
+        labels = _initial_progress(self._request.locale)
+        for phase in ("accepted", "planning"):
+            if self._cursor is not None and (
+                self._cursor.projection_sequence > 0 or _cursor_includes(self._cursor, 0, phase)
+            ):
                 continue
-            self._append_event("status", phase, label, event_id=f"0:{phase}")
-            # The same observation as an addressable step. `accepted` is already
-            # behind us when the stream opens; `planning` is what this stream is
-            # waiting on, so it stays running until the terminal projection
-            # settles it. A step is never reported ahead of its observation.
-            self._append_activity(
+            self._append_event(
+                "status",
                 phase,
-                label,
-                status="completed" if phase == "accepted" else "running",
+                labels[phase],
                 event_id=f"0:{phase}",
-                detail=_pending_progress_detail(phase, self._request.locale),
             )
 
     def _append_activity(
@@ -486,6 +490,23 @@ class SemanticTurnBridge:
     async def append(self, proposal: ConversationProposal) -> OutboxReceipt:
         """Accept one authorized stream proposal and persist a typed held fallback if unbound."""
         envelope = self._builder.build(proposal)
+        semantic = SemanticTurnRequest.model_validate(envelope["semantic_turn"])
+        continuation = await self._store.latest_semantic_investigation_continuation(
+            principal_id=proposal.scope.subject_id,
+            session_id=semantic.session_id,
+        )
+        if continuation is not None:
+            proposal = replace(
+                proposal,
+                body={
+                    **proposal.body,
+                    "turn_sequence": continuation.source_turn_sequence + 1,
+                },
+            )
+            envelope = self._builder.build(
+                proposal,
+                investigation_continuation=continuation,
+            )
         stored = await self._store.append_semantic_turn(
             principal_id=proposal.scope.subject_id,
             idempotency_key=proposal.idempotency_key,
@@ -1090,40 +1111,6 @@ def _cursor_includes(
     return _SEMANTIC_PHASES.index(phase) <= _SEMANTIC_PHASES.index(cursor.phase)
 
 
-def _pending_progress(locale: str) -> tuple[tuple[str, str], ...]:
-    if locale.casefold().startswith("ko"):
-        return (
-            ("accepted", "의미 요청을 수락했습니다."),
-            ("planning", "검증된 의미 계획을 기다리는 중입니다."),
-        )
-    return (
-        ("accepted", "Semantic request accepted."),
-        ("planning", "Waiting for a verified semantic plan."),
-    )
-
-
-def _pending_progress_detail(phase: str, locale: str) -> str:
-    korean = locale.casefold().startswith("ko")
-    if phase == "accepted":
-        return (
-            "인증된 읽기 전용 요청을 저장하고 Core 조사 큐에 등록했습니다."
-            if korean
-            else (
-                "Persisted the authenticated read-only request and queued it for Core "
-                "investigation."
-            )
-        )
-    return (
-        "Core가 정확한 대상, 허용 범위, 사용 가능한 근거 기능을 검증하고 제한된 조회 "
-        "계획을 구성합니다."
-        if korean
-        else (
-            "Core is validating the exact target, allowed scope, and available evidence "
-            "capabilities before compiling a bounded read plan."
-        )
-    )
-
-
 def _terminal_progress(locale: str) -> dict[str, str]:
     if locale.casefold().startswith("ko"):
         return {
@@ -1135,6 +1122,18 @@ def _terminal_progress(locale: str) -> dict[str, str]:
         "evidence": "Evidence execution completed.",
         "verification": "Evidence verification completed.",
         "presentation": "Operator answer prepared.",
+    }
+
+
+def _initial_progress(locale: str) -> dict[str, str]:
+    if locale.casefold().startswith("ko"):
+        return {
+            "accepted": "질문을 수락했습니다.",
+            "planning": "검증된 조사 계획을 기다리는 중입니다.",
+        }
+    return {
+        "accepted": "Semantic request accepted.",
+        "planning": "Waiting for a verified semantic plan.",
     }
 
 

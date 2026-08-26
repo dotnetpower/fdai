@@ -23,11 +23,20 @@ from fdai.core.read_investigation.idempotency import (
     ReadInvestigationRunUsage,
     read_investigation_request_digest,
     read_investigation_request_projection,
+    read_investigation_run_id,
 )
 from fdai.core.read_investigation.intent_spec import (
     READ_INVESTIGATION_INTENT_SPECS,
     ReadInvestigationIntentSpec,
     read_investigation_intent_spec,
+)
+from fdai.core.read_investigation.interactive import (
+    InMemoryReadInvestigationRunProgressStore,
+    InteractiveReadInvestigationConfig,
+    InteractiveReadInvestigationCoordinator,
+    InteractiveReadInvestigationSubmission,
+    ReadInvestigationRunProgress,
+    ReadInvestigationRunProgressStore,
 )
 from fdai.core.read_investigation.latency import (
     PlanLatencyEstimate,
@@ -37,6 +46,7 @@ from fdai.core.read_investigation.latency import (
     estimate_sequential_p95,
     latency_profile,
 )
+from fdai.core.read_investigation.mode_selector import ReadInvestigationModeSelector
 from fdai.core.read_investigation.models import (
     ReadInvestigationBudget,
     ReadInvestigationOutcome,
@@ -56,6 +66,10 @@ __all__ = [
     "InvestigationExecutionPolicy",
     "interactive_investigation_policy",
     "InMemoryReadInvestigationRunStore",
+    "InMemoryReadInvestigationRunProgressStore",
+    "InteractiveReadInvestigationConfig",
+    "InteractiveReadInvestigationCoordinator",
+    "InteractiveReadInvestigationSubmission",
     "PlanLatencyEstimate",
     "MAX_READ_INVESTIGATION_ATTEMPTS",
     "ReadInvestigationExecutionMode",
@@ -67,10 +81,13 @@ __all__ = [
     "ReadInvestigationPlan",
     "ReadInvestigationProgressKind",
     "ReadInvestigationRequest",
+    "ReadInvestigationModeSelector",
     "ReadInvestigationResult",
     "ReadInvestigationRunConflictError",
     "ReadInvestigationRunLease",
     "ReadInvestigationRunMode",
+    "ReadInvestigationRunProgress",
+    "ReadInvestigationRunProgressStore",
     "ReadInvestigationRunRecord",
     "ReadInvestigationRunState",
     "ReadInvestigationRunStore",
@@ -86,6 +103,7 @@ __all__ = [
     "plan_read_investigation",
     "read_investigation_request_digest",
     "read_investigation_request_projection",
+    "read_investigation_run_id",
     "read_tool_spec",
     "resource_name_from_question",
 ]

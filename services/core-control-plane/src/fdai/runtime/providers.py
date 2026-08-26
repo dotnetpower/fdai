@@ -531,6 +531,30 @@ def _build_service_health_reader(
     )
 
 
+def _build_vm_process_cpu_reader(
+    *,
+    identity: Any = None,
+    http_client: Any = None,
+) -> Any:
+    """Bind VM process CPU evidence only from the configured Monitor workspace."""
+
+    workspace_id = os.environ.get("FDAI_MONITOR_WORKSPACE_ID", "").strip()
+    if identity is None or http_client is None or not workspace_id:
+        return None
+    from fdai.delivery.azure.log_query import (
+        AzureLogAnalyticsQueryConfig,
+        AzureLogAnalyticsQueryProvider,
+    )
+    from fdai.delivery.azure.vm_process_evidence import AzureVmProcessCpuReader
+
+    provider = AzureLogAnalyticsQueryProvider(
+        config=AzureLogAnalyticsQueryConfig(workspace_id=workspace_id),
+        identity=identity,
+        http_client=http_client,
+    )
+    return AzureVmProcessCpuReader(provider)
+
+
 def _build_inventory_delta_projector() -> Any:
     dsn = (
         os.environ.get("FDAI_INVENTORY_DSN", "").strip()
