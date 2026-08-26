@@ -1630,18 +1630,21 @@ jobs:
             --only-show-errors --output none
           az functionapp restart --resource-group "$rg" --name "$app" --only-show-errors
           {
-            echo "GATEWAY_FUNCTION_APP=$app"
             echo "GATEWAY_FUNCTION_RESOURCE_ID=$resource_id"
             echo "GATEWAY_DEPLOYMENT_STARTED_EPOCH=$(date -u +%s)"
           } >> "$GITHUB_ENV"
 
       - name: Publish exact development operations gateway source
         if: ${{ inputs.apply && inputs.deploy_dev_operations_gateway }}
-        uses: Azure/functions-action@bc63708cc6539760eea18d8a7de4ce8ef5fdf593 # v1.5.6
-        with:
-          app-name: ${{ env.GATEWAY_FUNCTION_APP }}
-          package: infra/fdai-dev-operations-gateway.zip
-          remote-build: true
+        run: |
+          set -euo pipefail
+          az functionapp deployment source config-zip \
+            --ids "$GATEWAY_FUNCTION_RESOURCE_ID" \
+            --src fdai-dev-operations-gateway.zip \
+            --build-remote true \
+            --timeout 900 \
+            --only-show-errors \
+            --output none
 
       - name: Verify exact development operations gateway source
         if: ${{ inputs.apply && inputs.deploy_dev_operations_gateway }}

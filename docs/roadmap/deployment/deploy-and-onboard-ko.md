@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: fc84ac24164bf8b0ecde957645b466bf0d5d9129
+translation_source_sha: 327ca83bce1afea2b8333b7aeda694b8541f0f8c
 translation_revised: 2026-08-26
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -144,6 +144,9 @@ residue가 exact-commit clean을 막지 않게 합니다. 해당 단계는 Azure
 `Key Vault Secrets Officer` 로 만든다 - 적용 중 DSN 시크릿을 쓰기 한다. 배포는
 `[self-hosted, fdai-deploy]` 러너 위에서 [`deploy-dev` 워크플로](../../../.github/workflows/deploy-dev.yml)
 로 실행한다(기본 plan-only; `apply` 입력이 강제 적용).
+개발 operations gateway는 인증된 Azure CLI `config-zip` 경로를 통해 검토된 소스 보관 파일을
+게시하며 원격 빌드와 900초 배포 제한 시간을 사용합니다. 따라서 Flex Consumption One Deploy
+작업은 실행기의 관리 ID를 계속 사용하며 별도 Functions 배포 액션이 필요하지 않습니다.
 저장소 작업 흐름은 검토된 원격 액션만 허용하고 exact 노드 24-compatible release 참조로
 pin하며 컨테이너 supply-chain 액션은 변경할 수 없는 커밋 SHA를 사용합니다. CI 계약은 알 수 없음
 액션과 mismatched 참조를 차단합니다. Terraform 고정본 테스트는 선언된 `>= 1.9` 하한에서 허용되는

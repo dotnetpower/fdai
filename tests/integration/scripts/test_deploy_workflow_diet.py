@@ -98,6 +98,19 @@ def test_deploy_workflow_initializes_remote_state_before_terraform_use() -> None
     assert init < first_state_use
 
 
+def test_gateway_publish_uses_bounded_cli_one_deploy() -> None:
+    publish = _WORKFLOW.index("- name: Publish exact development operations gateway source")
+    verify = _WORKFLOW.index("- name: Verify exact development operations gateway source")
+    block = _WORKFLOW[publish:verify]
+
+    assert "functions-action" not in _WORKFLOW
+    assert "az functionapp deployment source config-zip" in block
+    assert '--ids "$GATEWAY_FUNCTION_RESOURCE_ID"' in block
+    assert "--src fdai-dev-operations-gateway.zip" in block
+    assert "--build-remote true" in block
+    assert "--timeout 900" in block
+
+
 def test_registry_credentials_are_not_process_arguments() -> None:
     binder = (_ROOT / "scripts/deployment/azure/bind_isolated_executor_image.sh").read_text(
         encoding="utf-8"
