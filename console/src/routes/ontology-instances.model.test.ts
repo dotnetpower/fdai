@@ -5,6 +5,7 @@ import {
   groupOntologyInstanceRelationships,
   isOntologyInstanceDirectoryResource,
   isOntologyInstancePresentationRoot,
+  isMatchableOntologyInstanceQuery,
   ontologyInstanceAutocompleteSuggestions,
   ontologyInstanceAksLanes,
   ontologyInstanceNetworkPaths,
@@ -552,6 +553,26 @@ describe("Resource instance autocomplete", () => {
     expect(ontologyInstanceAutocompleteSuggestions(options, "RESOURCE")).toEqual(options.slice(0, 10));
     expect(ontologyInstanceAutocompleteSuggestions(options, "  shared  ")).toEqual(options.slice(0, 10));
     expect(ontologyInstanceAutocompleteSuggestions(options, "missing")).toEqual([]);
-    expect(ontologyInstanceAutocompleteSuggestions(options, "   ")).toEqual([]);
+  });
+
+  it("browses the directory when the operator has typed nothing", () => {
+    const options = Array.from({ length: 12 }, (_, index) => ({
+      resourceId: `resource-${index}`,
+      value: `Shared Resource ${index}`,
+      primary: `Shared Resource ${index}`,
+      secondary: "service.shared-resource",
+      kind: "RES",
+    }));
+
+    expect(ontologyInstanceAutocompleteSuggestions(options, "")).toEqual(options.slice(0, 10));
+    expect(ontologyInstanceAutocompleteSuggestions(options, "   ")).toEqual(options.slice(0, 10));
+    expect(ontologyInstanceAutocompleteSuggestions(options, "", 0)).toEqual([]);
+  });
+
+  it("refuses a query the recorded identifiers cannot contain", () => {
+    expect(isMatchableOntologyInstanceQuery("aks-fdai-sre-lab-krc")).toBe(true);
+    expect(isMatchableOntologyInstanceQuery("")).toBe(true);
+    expect(isMatchableOntologyInstanceQuery("쿠버네티스")).toBe(false);
+    expect(isMatchableOntologyInstanceQuery("aks 클러스터")).toBe(false);
   });
 });

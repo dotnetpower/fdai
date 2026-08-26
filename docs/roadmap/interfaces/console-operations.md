@@ -84,6 +84,13 @@ Search reaches the authoritative directory while the operator types, so a Resour
 stays reachable without pressing a button. Keyboard suggestions never act on the operator's behalf:
 `Enter` runs the typed search unless the operator has actively highlighted a suggestion.
 
+The search control is the only Resource selection control. It browses the bounded directory when
+empty, so removing the separate list does not remove discovery, and it keeps its suggestions open
+across a search refresh instead of unmounting mid-query. Recorded Resource names, types, and
+identifiers are Latin, so a query outside that range is declared unmatchable rather than issued and
+reported as an empty generation. The console never translates or rewrites an operator query, because
+a rewritten term would silently change which Resource the evidence describes.
+
 Iconography is presentation, never evidence. A Resource type resolves to a reviewed official
 vendor glyph, and an unmapped type resolves to an explicit generic fallback rather than a
 lookalike. Kubernetes runtime objects use the official Kubernetes Icons Set instead of an Azure

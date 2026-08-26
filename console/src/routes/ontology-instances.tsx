@@ -12,10 +12,10 @@ import {
   groupOntologyInstanceRelationships,
   isOntologyInstanceDirectoryResource,
   isOntologyInstancePresentationRoot,
+  isMatchableOntologyInstanceQuery,
   ontologyInstanceAksLanes,
   ontologyInstanceAutocompleteSuggestions,
   ontologyInstanceResourceAutocompleteOptions,
-  ontologyInstanceResourceOptionLabel,
   ontologyInstancePresentationLinks,
   ontologyInstanceTrafficDirection,
   partitionOntologyInstanceLinks,
@@ -51,7 +51,8 @@ export function OntologyInstancesView({ client }: Props) {
 
   useEffect(() => {
     let cancelled = false;
-    setDirectory({ status: "loading" });
+    // Unmounting the toolbar mid-search would blur the input and close its suggestions.
+    setDirectory((current) => current.status === "ready" ? current : { status: "loading" });
     client.panel<unknown>("/ontology/instances", search
       ? { limit: "200", search }
       : { limit: "200" }).then(
@@ -85,7 +86,7 @@ export function OntologyInstancesView({ client }: Props) {
   // The directory is server-bounded, so an unsearched page hides most Resources.
   useEffect(() => {
     const draft = searchDraft.trim();
-    if (draft === search) return;
+    if (draft === search || !isMatchableOntologyInstanceQuery(draft)) return;
     const timer = window.setTimeout(
       () => setSearch(draft),
       ONTOLOGY_INSTANCE_SEARCH_DEBOUNCE_MS,
@@ -179,7 +180,10 @@ export function OntologyInstancesView({ client }: Props) {
     () => ontologyInstanceAutocompleteSuggestions(autocompleteOptions, searchDraft),
     [autocompleteOptions, searchDraft],
   );
-  const autocompleteVisible = autocompleteOpen && autocompleteSuggestions.length > 0;
+  const searchUnmatchable = !isMatchableOntologyInstanceQuery(searchDraft);
+  const autocompleteVisible = autocompleteOpen
+    && !searchUnmatchable
+    && autocompleteSuggestions.length > 0;
 
   return (
     <section class="ontology-instance-explorer" aria-label={t("ontology.instances.title")}>
@@ -190,6 +194,7 @@ export function OntologyInstancesView({ client }: Props) {
               class="ontology-instance-toolbar"
               onSubmit={(event) => {
                 event.preventDefault();
+                if (searchUnmatchable) return;
                 setSearch(searchDraft.trim());
               }}
             >
@@ -262,23 +267,6 @@ export function OntologyInstancesView({ client }: Props) {
                   <button type="submit" class="btn">{t("ontology.instances.searchCommand")}</button>
                 </span>
               </label>
-              <label>
-                <span>{t("ontology.instances.resourceSelector")}</span>
-                <select
-                  value={selectedId ?? ""}
-                  onChange={(event) => selectResource(event.currentTarget.value || null)}
-                >
-                  <option value="">{t("ontology.instances.chooseResource")}</option>
-                  {options.map((resource) => (
-                    <option key={resource.id} value={resource.id}>
-                      {ontologyInstanceResourceOptionLabel(
-                        resource,
-                        unnamedResourceLabel,
-                      )}
-                    </option>
-                  ))}
-                </select>
-              </label>
               <div class="ontology-instance-toolbar-status">
                 <strong>{t("ontology.instances.readOnly")}</strong>
                 <span>{t("ontology.instances.resultBound", {
@@ -287,14 +275,19 @@ export function OntologyInstancesView({ client }: Props) {
                 </span>
               </div>
             </form>
-            {directory.status === "ready" && !directory.data.complete ? (
+            {searchUnmatchable ? (
+              <p class="ontology-instance-bound-notice" role="note">
+                {t("ontology.instances.searchNotMatchable")}
+              </p>
+            ) : null}
+            {!searchUnmatchable && directory.status === "ready" && !directory.data.complete ? (
               <p class="ontology-instance-bound-notice" role="note">
                 {t("ontology.instances.resultBoundTruncated", {
                   count: formatNumber(options.length),
                 })}
               </p>
             ) : null}
-            {directory.status === "ready" && options.length === 0 ? (
+            {!searchUnmatchable && directory.status === "ready" && options.length === 0 ? (
               <UnavailableState message={t("ontology.instances.noSearchResults")} />
             ) : null}
             {selectedId === null ? (

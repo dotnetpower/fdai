@@ -106,10 +106,22 @@ export function ontologyInstanceAutocompleteSuggestions(
   limit = ONTOLOGY_INSTANCE_AUTOCOMPLETE_LIMIT,
 ): readonly OntologyInstanceAutocompleteOption[] {
   const normalized = query.trim().toLowerCase();
-  if (!normalized || limit <= 0) return [];
+  if (limit <= 0) return [];
+  // An empty query browses the directory: it is the only entry point without a selector.
+  if (!normalized) return options.slice(0, limit);
   return options
     .filter((option) => option.value.toLowerCase().includes(normalized))
     .slice(0, limit);
+}
+
+/**
+ * Returns whether the directory can match this query at all.
+ *
+ * Resource names, types, and identifiers are ASCII, so a query outside that range
+ * cannot match any Resource and an empty result would misread as an absent Resource.
+ */
+export function isMatchableOntologyInstanceQuery(query: string): boolean {
+  return !/[^\u0020-\u007e]/.test(query);
 }
 
 export interface OntologyInstanceLink {

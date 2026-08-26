@@ -219,7 +219,9 @@ traffic or dependency.
 The directory bound is a presentation limit, never a completeness claim. When the active generation
 holds more Resources than the bound, the surface states the bound as its own notice and directs the
 operator to narrow the search. Search runs against the authoritative directory rather than the
-already-bounded page, so a Resource beyond the bound stays reachable.
+already-bounded page, so a Resource beyond the bound stays reachable. A query the recorded
+identifiers cannot contain is refused as unmatchable instead of returning an empty result that would
+read as an absent Resource, and no query is translated or rewritten before it reaches the directory.
 
 A Resource type icon is presentation only. It never carries object identity, type authority, or
 evidence. An unmapped type resolves to an explicit generic glyph instead of a lookalike, and a

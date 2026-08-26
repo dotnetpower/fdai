@@ -98,6 +98,22 @@ describe("Ontology Instances view controls", () => {
     expect(styles).toContain(".ontology-instance-bound-notice");
   });
 
+  it("selects through the search control alone and refuses an unmatchable query", () => {
+    expect(instancesSource).not.toContain("<select");
+    expect(instancesSource).not.toContain("ontology.instances.resourceSelector");
+    expect(instancesSource).not.toContain("ontology.instances.chooseResource");
+    expect(instancesSource).toContain("isMatchableOntologyInstanceQuery");
+    expect(instancesSource).toContain("ontology.instances.searchNotMatchable");
+    expect(instancesSource).toMatch(
+      /draft === search \|\| !isMatchableOntologyInstanceQuery\(draft\)/,
+    );
+    expect(instancesSource).toContain("if (searchUnmatchable) return;");
+    expect(instancesSource).toMatch(/autocompleteOpen\s*&&\s*!searchUnmatchable/s);
+    expect(instancesSource).toMatch(
+      /setDirectory\(\(current\) =>\s*current\.status === "ready" \? current : \{ status: "loading" \}\)/s,
+    );
+  });
+
   it("uses the FDAI graph tooltip instead of native SVG title bubbles", () => {
     expect(graphSource).toContain('class="app-tooltip ontology-instance-graph-tooltip"');
     expect(graphSource).toContain('role="tooltip"');
