@@ -235,6 +235,12 @@ asserts an empty namespace it never observed. The Resource an operating scope ma
 selected Resource's behalf is labeled as managed, so it does not read as a peer scope alongside the
 scope that owns the selection.
 
+Layout consumes the viewport it has rather than a fixed box, and fills rows before it adds a
+column, so hop depth rather than row packing decides the width. Zoom stops at the scale of the
+first render because a smaller scale only shrinks nodes and never adds a relationship. A layout
+bound never doubles as a completeness bound: how much of a scope a root summarizes stays an
+independent decision.
+
 ## Migration and rollout
 
 1. Add the structural declarations, loaders, and validators without changing the visible query

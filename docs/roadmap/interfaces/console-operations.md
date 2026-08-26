@@ -108,6 +108,12 @@ never reported. A Resource repeated across layers states its own repeat count, a
 resource group the selected cluster manages is labeled as managed rather than shown as a second
 owning scope. The Inspector occupies a narrow fixed column so the graph keeps the width.
 
+The canvas grows with the viewport instead of holding a fixed box, and the layout fills rows before
+it adds a column, so depth rather than packing decides the width. Zoom never goes below the scale
+the graph first rendered with, because shrinking past that point only shrinks nodes and never
+reveals another relationship. How much of a scope a root summarizes is a separate reading decision
+and does not follow the row bound.
+
 For a browser-visible pending access request, an authenticated GET-only stream filters the durable
 records by the principal's App Roles. When the tab and Command Deck are idle, the console opens a
 request-scoped conversation with the capability, scope, and expiry. Active work, an unsent draft,

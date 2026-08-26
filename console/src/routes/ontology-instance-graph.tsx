@@ -68,6 +68,8 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
   const graphRef = useRef<HTMLDivElement>(null);
   const graphScrollRef = useRef<HTMLDivElement>(null);
   const graphScaleRef = useRef(1);
+  // Zooming below the first render only shrinks nodes; it never reveals another relationship.
+  const minScaleRef = useRef(1);
   const pendingScrollRef = useRef<{ readonly left: number; readonly top: number } | null>(null);
   const panStateRef = useRef<InstanceGraphPanState | null>(null);
   const [preview, setPreview] = useState<HistoryPreview | null>(null);
@@ -106,7 +108,7 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
   const changeScale = (requestedScale: number, fit = false): void => {
     const scroll = graphScrollRef.current;
     if (!scroll) return;
-    const nextScale = clampInstanceGraphScale(requestedScale);
+    const nextScale = clampInstanceGraphScale(requestedScale, minScaleRef.current);
     if (nextScale === graphScaleRef.current && !fit) return;
     pendingScrollRef.current = fit
       ? { left: 0, top: 0 }
@@ -167,6 +169,7 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
     const scroll = graphScrollRef.current;
     if (!scroll) return;
     const initialScale = isAksRoot ? AKS_INITIAL_GRAPH_SCALE : 1;
+    minScaleRef.current = initialScale;
     graphScaleRef.current = initialScale;
     setGraphScale(initialScale);
     const centerSelected = (): void => {
@@ -279,7 +282,11 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
           onPointerCancel={finishPan}
           onWheel={(event) => {
             event.preventDefault();
-            changeScale(instanceGraphWheelScale(graphScaleRef.current, event.deltaY));
+            changeScale(instanceGraphWheelScale(
+              graphScaleRef.current,
+              event.deltaY,
+              minScaleRef.current,
+            ));
           }}
         >
         <svg

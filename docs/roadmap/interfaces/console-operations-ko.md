@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 6fc797d629b48864adaf9bb9e481632d164ec660
+translation_source_sha: 40a53dd2f829bb06fe12e8c792d21d5f09ad0c5d
 translation_revised: 2026-08-26
 ---
 
@@ -109,6 +109,11 @@ Graph는 관측된 각 namespace가 담고 있는 것도 제한된 표본으로 
 때문입니다. 여러 계층에 반복된 Resource는 자신의 반복 횟수를 밝히고, 선택한 cluster가 관리하는
 node resource group은 또 하나의 소유 scope처럼 보이지 않도록 관리 대상으로 표시합니다.
 Inspector는 좁은 고정 열을 차지하여 graph가 폭을 유지하도록 합니다.
+
+Canvas는 고정된 상자를 유지하는 대신 viewport에 맞춰 커지고, 레이아웃은 열을 추가하기 전에 행을
+먼저 채우므로 폭은 배치 방식이 아니라 깊이가 결정합니다. 확대·축소는 graph가 처음 렌더링된
+배율 아래로 내려가지 않습니다. 그 아래로 줄여도 node만 작아질 뿐 관계가 더 드러나지 않기
+때문입니다. Root가 scope를 얼마나 요약할지는 별개의 읽기 판단이며 행 상한을 따르지 않습니다.
 
 브라우저에 표시할 pending 접근 요청이 있으면 인증된 GET-only 스트림이 principal의 App 역할로
 영속 기록을 필터링합니다. 탭과 Command Deck이 idle 상태이면 콘솔은 기능, 범위 및

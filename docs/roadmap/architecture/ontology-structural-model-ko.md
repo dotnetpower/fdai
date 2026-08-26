@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 918434ba9626660aae80538f4c99ebd4607f7f48
+translation_source_sha: 4d7de5f38e9377f460d276995741f90cb1d8cdd0
 translation_revised: 2026-08-26
 ---
 # 온톨로지 구조 모델
@@ -231,6 +231,11 @@ Resource 유형 아이콘은 표현일 뿐입니다. 객체 identity, 유형 권
 제한해 표본을 추가합니다. Namespace를 leaf로 그리면 관측한 적 없는 빈 namespace를 주장하기
 때문입니다. 선택한 Resource를 대신해 운영 scope가 관리하는 Resource는 관리 대상으로 표시하여,
 선택을 소유한 scope와 나란히 놓인 동등한 scope처럼 읽히지 않게 합니다.
+
+레이아웃은 고정된 상자가 아니라 주어진 viewport를 사용하며 열을 추가하기 전에 행을 먼저
+채우므로, 폭은 행 배치가 아니라 hop 깊이가 결정합니다. 확대·축소는 첫 렌더링 배율에서 멈춥니다.
+더 작은 배율은 node만 작게 만들 뿐 관계를 더하지 않기 때문입니다. 레이아웃 상한은 완전성 상한을
+겸하지 않습니다. Root가 scope를 얼마나 요약할지는 독립된 판단으로 남습니다.
 
 ## 이행 및 출시
 

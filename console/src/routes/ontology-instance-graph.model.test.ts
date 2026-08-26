@@ -601,7 +601,7 @@ describe("buildInstanceGraphLayout", () => {
     const positions = layout.nodes.map((node) => `${node.x}:${node.y}`);
     expect(new Set(positions).size).toBe(80);
     expect(layout.nodes.every((node) => node.y + INSTANCE_NODE_HEIGHT <= layout.height)).toBe(true);
-    expect(layout.height).toBeLessThanOrEqual(600);
+    expect(layout.height).toBeLessThanOrEqual(840);
     const target = instanceGraphScrollTarget(layout, "root", 640, 560);
     expect(target.top).toBeGreaterThanOrEqual(0);
     expect(target.top).toBeLessThanOrEqual(layout.height - 560);
@@ -659,6 +659,17 @@ describe("buildInstanceGraphLayout", () => {
       .toBe(INSTANCE_GRAPH_MAX_SCALE);
     expect(instanceGraphWheelScale(INSTANCE_GRAPH_MIN_SCALE, 1))
       .toBe(INSTANCE_GRAPH_MIN_SCALE);
+  });
+
+  it("never zooms out past the scale the graph first rendered with", () => {
+    expect(clampInstanceGraphScale(0.2, 0.68)).toBe(0.68);
+    expect(clampInstanceGraphScale(1.2, 0.68)).toBe(1.2);
+    expect(instanceGraphWheelScale(0.68, 1, 0.68)).toBe(0.68);
+    expect(instanceGraphWheelScale(0.88, 1, 0.68)).toBeCloseTo(0.68);
+    expect(instanceGraphWheelScale(0.68, -1, 0.68)).toBeCloseTo(0.88);
+    // A floor outside the supported range must never widen the range.
+    expect(clampInstanceGraphScale(0.5, 0)).toBe(0.5);
+    expect(clampInstanceGraphScale(1, 5)).toBe(INSTANCE_GRAPH_MAX_SCALE);
   });
 
   it("offsets parallel and reciprocal links between the same Resources", () => {

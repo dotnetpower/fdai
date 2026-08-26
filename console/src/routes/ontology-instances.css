@@ -75,7 +75,7 @@
 .ontology-instance-dense-legend li span { color: var(--fg-muted); font-variant-numeric: tabular-nums; }
 .ontology-instance-dense-legend button { min-height: 28px; padding: 4px 8px; border: 1px solid var(--border); border-radius: var(--cs-radius-sm); background: var(--bg-elevated); color: var(--fg-muted); font: inherit; font-size: var(--cs-type-caption-size); font-weight: 700; cursor: pointer; }
 .ontology-instance-dense-legend button:hover, .ontology-instance-dense-legend button:focus-visible { border-color: var(--accent); color: var(--fg); outline: 2px solid color-mix(in srgb, var(--accent) 25%, transparent); outline-offset: 1px; }
-.ontology-instance-graph-scroll { min-width: 0; max-height: 560px; overflow: auto; touch-action: none; cursor: grab; background-color: var(--bg); background-image: linear-gradient(rgba(68, 104, 142, 0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(68, 104, 142, 0.045) 1px, transparent 1px); background-size: 24px 24px; }
+.ontology-instance-graph-scroll { min-width: 0; max-height: clamp(560px, calc(100vh - 300px), 900px); overflow: auto; touch-action: none; cursor: grab; background-color: var(--bg); background-image: linear-gradient(rgba(68, 104, 142, 0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(68, 104, 142, 0.045) 1px, transparent 1px); background-size: 24px 24px; }
 .ontology-instance-graph-scroll.is-panning { cursor: grabbing; user-select: none; }
 .ontology-instance-graph-scroll:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .ontology-instance-graph-canvas { display: block; margin: 0 auto; }

@@ -124,6 +124,17 @@ describe("Ontology Instances view controls", () => {
     expect(graphSource).not.toContain("<title>");
   });
 
+  it("gives the canvas the viewport instead of a fixed box", () => {
+    expect(styles).toMatch(
+      /\.ontology-instance-graph-scroll\s*\{[^}]*max-height:\s*clamp\(560px,\s*calc\(100vh\s*-\s*300px\),\s*900px\)/s,
+    );
+    expect(graphModelSource).toContain("const INSTANCE_MAX_ROWS = 10;");
+    expect(graphModelSource).toContain("const INSTANCE_SCOPE_DIRECT_LIMIT = 7;");
+    expect(graphSource).toContain("minScaleRef");
+    expect(graphSource).toContain("clampInstanceGraphScale(requestedScale, minScaleRef.current)");
+    expect(graphSource).toContain("minScaleRef.current = initialScale;");
+  });
+
   it("draws what a cluster namespace holds without hiding its own repeats", () => {
     expect(graphModelSource).toContain("expandKubernetesNamespaceContext");
     expect(graphModelSource).toContain("INSTANCE_KUBERNETES_NAMESPACE_CHILD_LIMIT");

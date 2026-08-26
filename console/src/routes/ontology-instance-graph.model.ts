@@ -112,12 +112,14 @@ export const INSTANCE_GRAPH_SCALE_STEP = 0.2;
 const INSTANCE_COLUMN_GAP = 112;
 const INSTANCE_COLUMN_WIDTH = INSTANCE_NODE_WIDTH + INSTANCE_COLUMN_GAP;
 const INSTANCE_FOCUS_MARGIN = 350;
-const INSTANCE_MAX_ROWS = 7;
+// Rows are cheaper than columns: the viewport is taller than one column is wide.
+const INSTANCE_MAX_ROWS = 10;
 const INSTANCE_ROW_GAP = 12;
 const INSTANCE_ROW_HEIGHT = INSTANCE_NODE_HEIGHT + INSTANCE_ROW_GAP;
 const INSTANCE_INDIRECT_BRANCH_LIMIT = 3;
 const INSTANCE_CONTAINMENT_ANCESTOR_LIMIT = 3;
-const INSTANCE_SCOPE_DIRECT_LIMIT = INSTANCE_MAX_ROWS;
+// How much of a scope a root summarizes is a reading decision, not a row-packing one.
+const INSTANCE_SCOPE_DIRECT_LIMIT = 7;
 const INSTANCE_SCOPE_INTERNAL_LINK_LIMIT = 12;
 const INSTANCE_AKS_VM_LIMIT_PER_SCALE_SET = 12;
 const INSTANCE_AKS_NIC_LIMIT_PER_VM = 2;
@@ -193,8 +195,12 @@ export function instanceGraphScrollTarget(
 }
 
 /** Clamps one operator-selected canvas scale to the supported readable range. */
-export function clampInstanceGraphScale(scale: number): number {
-  return Math.max(INSTANCE_GRAPH_MIN_SCALE, Math.min(INSTANCE_GRAPH_MAX_SCALE, scale));
+export function clampInstanceGraphScale(
+  scale: number,
+  minScale: number = INSTANCE_GRAPH_MIN_SCALE,
+): number {
+  const floor = Math.max(INSTANCE_GRAPH_MIN_SCALE, Math.min(INSTANCE_GRAPH_MAX_SCALE, minScale));
+  return Math.max(floor, Math.min(INSTANCE_GRAPH_MAX_SCALE, scale));
 }
 
 /** Fits the complete canvas into one viewport without enlarging above 100%. */
@@ -236,11 +242,15 @@ export function instanceGraphZoomScrollTarget(
 }
 
 /** Maps one ordinary wheel direction to a single bounded graph zoom step. */
-export function instanceGraphWheelScale(currentScale: number, deltaY: number): number {
-  if (deltaY === 0) return clampInstanceGraphScale(currentScale);
+export function instanceGraphWheelScale(
+  currentScale: number,
+  deltaY: number,
+  minScale?: number,
+): number {
+  if (deltaY === 0) return clampInstanceGraphScale(currentScale, minScale);
   return clampInstanceGraphScale(currentScale + (
     deltaY < 0 ? INSTANCE_GRAPH_SCALE_STEP : -INSTANCE_GRAPH_SCALE_STEP
-  ));
+  ), minScale);
 }
 
 /** Returns the deterministic shortest focus path from one rendered Resource to the root. */
