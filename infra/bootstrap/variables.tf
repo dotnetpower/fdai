@@ -24,7 +24,7 @@ variable "region_short" {
 }
 
 variable "app_resource_group_name" {
-  description = "The app deploy's resource group (rg-<workload>-<env>-<region_short>). The runner MI gets Contributor here."
+  description = "The app deploy's resource group (rg-<workload>-<env>-<region_short>). The stable deploy UAMI gets Contributor here."
   type        = string
 }
 
@@ -87,6 +87,12 @@ variable "runner_ssh_public_key" {
 
 variable "create_runner_vm" {
   description = "Create the self-hosted runner VM. Set false to provision only the state backend + networking first."
+  type        = bool
+  default     = true
+}
+
+variable "enable_deploy_identity_roles" {
+  description = "Assign the stable deploy UAMI role manifest independently of runner VM creation. Set false only before the app resource group exists."
   type        = bool
   default     = true
 }

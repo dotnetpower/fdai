@@ -15,8 +15,9 @@ makes that possible, and it survives app rebuilds.
 | State storage account (private) + `tfstate` and `deployment-plans` containers | Terraform remote backend plus protected plan artifacts the runner reaches over a private endpoint. |
 | Blob private endpoint + `privatelink.blob.core.windows.net` | Private resolution of the state account from the ops VNet. |
 | NAT gateway + static public IP on `snet-runner` (`nat.tf`) | Explicit, durable outbound egress. The subnet originally relied on Azure "default outbound access", which is being retired: after a VM deallocate/start cycle the runner lost all outbound internet (GitHub + ARM + AAD all timed out) while the private state endpoint stayed reachable. A NAT gateway restores egress through one static IP while the VM keeps **no** public IP (no inbound exposure), and it survives deallocate/start cycles. Set `enable_public_egress = false` on a closed network: the host becomes a jumpbox rather than a GitHub-registered runner, no public IP is created at all, and the tenant supplies its own approved path to the management and identity planes. |
-| Runner VM (no public IP) + system-assigned MI | `Standard_D4ds_v5` provides sustained CPU and a local SSD-backed ephemeral OS disk. No managed OS disk exists for tenant policy to downgrade. |
-| Role assignments | Runner MI -> Contributor + User Access Administrator on the app RG, Network Contributor on the ops RG, Storage Blob Data Contributor on state, and EventGrid Contributor on the subscription. |
+| Stable deploy UAMI | Survives runner VM replacement and exposes separate client and principal IDs for login and token verification. |
+| Runner VM (no public IP) | `Standard_D4ds_v5` provides sustained CPU and a local SSD-backed ephemeral OS disk. The stable UAMI is attached alongside the system identity during migration. |
+| Role assignments | Stable deploy UAMI -> Contributor + User Access Administrator on the app RG, Network Contributor on the ops RG, Storage Blob Data Contributor on state, and EventGrid Contributor on the subscription. |
 
 The app config (`../`) peers its spoke VNet to `ops_vnet_id`, links its
 private DNS zones to the ops VNet, and grants `runner_principal_id` **Key Vault
@@ -102,8 +103,11 @@ Two options:
    short-lived (~1h) and lands in the VM's `custom_data`; prefer manual for
    long-lived hygiene.
 
-The runner authenticates to Azure with `az login --identity` (its system MI) -
-no cloud credentials are stored on the box.
+Protected workflows authenticate with
+`az login --identity --client-id "$DEPLOY_RUNNER_CLIENT_ID"`. The shared login helper verifies the
+configured tenant and subscription, then requires the ARM token `oid` to equal
+`DEPLOY_RUNNER_PRINCIPAL_ID`. Missing or mismatched coordinates stop before state or provider work.
+No cloud credentials are stored on the box.
 
 The default runner uses an ephemeral OS disk on `ResourceDisk`. Keep the VM allocated because a
 deallocate, redeploy, or host move resets the OS and GitHub registration. The bootstrap plan rejects
@@ -140,10 +144,10 @@ association.
 
 ## Security notes
 
-- The runner MI uses app-RG Contributor for resource mutation. Its subscription-scope role is
+- The stable deploy UAMI uses app-RG Contributor for resource mutation. Its subscription-scope role is
    limited to Event Grid system-topic and subscription management for realtime inventory; it is not subscription
    Contributor. The deploy workflow clears the Azure CLI account cache before each managed-identity
-   login so newly granted roles are reflected in Terraform provider tokens.
+   login and selects the UAMI by client ID so newly granted roles are reflected in Terraform provider tokens.
 - No public IP; access is Bastion / run-command / serial console.
 - The state account is private + versioned; a bad apply is recoverable.
 - `bootstrap.tfvars` and `*.tfstate` are gitignored - never commit them.

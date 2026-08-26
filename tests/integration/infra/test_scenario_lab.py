@@ -100,9 +100,7 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     assert "SCENARIO_LAB_OPENAI_PRIVATE_DNS_ZONE_ID" in workflow
     assert "SCENARIO_LAB_OPENAI_PRIVATE_DNS_RESOURCE_GROUP_NAME" in workflow
     assert "scenario-lab requires the existing central OpenAI Private DNS zone" in workflow
-    assert (
-        "SCENARIO_LAB_RUNNER_PRINCIPAL_ID: ${{ vars.SCENARIO_LAB_RUNNER_PRINCIPAL_ID }}" in workflow
-    )
+    assert "DEPLOY_RUNNER_PRINCIPAL_ID: ${{ vars.DEPLOY_RUNNER_PRINCIPAL_ID }}" in workflow
     assert "TF_VAR_resource_group_name" in workflow
     assert "DEV_ACCESS_VNET_ID" in workflow
     assert "Grant bounded scenario-lab deployment authority" in workflow
@@ -185,8 +183,7 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     assert "sre-demo-lab-summary-${{ github.run_id }}-${{ github.run_attempt }}" in workflow
     assert "retention-days: 30" in workflow
     assert "az account show --query user.name" not in workflow
-    assert "az account get-access-token" in workflow
-    assert "active runner managed identity does not match the configured principal" in workflow
+    assert "login-deploy-identity.sh" in workflow
     assert "infra/scenario-lab" in infra_lint
     assert "infra/scenario-lab/backend.tf" in (REPO_ROOT / ".gitignore").read_text(encoding="utf-8")
 

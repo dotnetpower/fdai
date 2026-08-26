@@ -39,6 +39,8 @@ jobs:
       ARM_USE_AZUREAD: "true"
       ARM_SUBSCRIPTION_ID: ${{ vars.ARM_SUBSCRIPTION_ID }}
       ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      DEPLOY_RUNNER_CLIENT_ID: ${{ vars.DEPLOY_RUNNER_CLIENT_ID }}
+      DEPLOY_RUNNER_PRINCIPAL_ID: ${{ vars.DEPLOY_RUNNER_PRINCIPAL_ID }}
       STATE_RESOURCE_GROUP: ${{ vars.STATE_RESOURCE_GROUP }}
       STATE_STORAGE_ACCOUNT: ${{ vars.STATE_STORAGE_ACCOUNT }}
       STATE_CONTAINER: tfstate
@@ -97,8 +99,12 @@ jobs:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.commit_sha || github.sha }}
           fetch-depth: 0
 
-      - name: Azure login (runner managed identity)
-        run: az login --identity --allow-no-subscriptions
+      - name: Authenticate and verify stable deploy identity
+        working-directory: ${{ github.workspace }}
+        run: >-
+          bash scripts/deployment/azure/login-deploy-identity.sh
+          "$ARM_SUBSCRIPTION_ID" "$ARM_TENANT_ID"
+          "$DEPLOY_RUNNER_CLIENT_ID" "$DEPLOY_RUNNER_PRINCIPAL_ID"
 
       - name: Activate remote state backend
         run: cp backend.azurerm.tf.example backend.tf

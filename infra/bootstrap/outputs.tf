@@ -26,8 +26,28 @@ output "state_container_name" {
 }
 
 output "runner_principal_id" {
-  value       = var.create_runner_vm ? azurerm_linux_virtual_machine.runner[0].identity[0].principal_id : null
-  description = "Runner MI object id. The app config grants this Key Vault Secrets Officer on the app vault."
+  value       = module.deploy_runner_identity.principal_id
+  description = "Stable deploy UAMI object id. Retained as the compatibility output consumed by the app config."
+}
+
+output "deploy_runner_client_id" {
+  value       = module.deploy_runner_identity.client_id
+  description = "Stable deploy UAMI client id used by protected workflows for explicit managed-identity login."
+}
+
+output "deploy_runner_principal_id" {
+  value       = module.deploy_runner_identity.principal_id
+  description = "Stable deploy UAMI object id used for token oid and effective-role verification."
+}
+
+output "deploy_runner_identity_id" {
+  value       = module.deploy_runner_identity.resource_id
+  description = "Stable deploy UAMI Azure resource id attached to current and candidate runner VMs."
+}
+
+output "deploy_runner_role_manifest" {
+  value       = local.deploy_runner_role_manifest
+  description = "Bootstrap-owned role names and scopes that must be exact for the stable deploy UAMI."
 }
 
 output "runner_vm_name" {

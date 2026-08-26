@@ -1,7 +1,7 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: 9068761b6024487ad81e1751d8f5cf79e4e27dde
+translation_source_sha: a59998a775ff004e1d4e63fb65f1be523f2322e1
 translation_revised: 2026-08-26
 ---
 # 운영 배포 강화
@@ -20,7 +20,7 @@ translation_revised: 2026-08-26
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 운영 계획 gate 및 환경 knob | implemented | `infra/production-gates.tf`, `infra/envs/{staging,prod}.tfvars.example`, Terraform 구성 테스트 | 서명된 이미지, 비공개 네트워크, 내구성, 모니터링 또는 비용 입력이 없으면 운영 계획을 차단합니다. 표준 프로파일은 전역 이름을 사용하는 리소스를 영구 삭제하고 관리 잠금을 비활성화합니다. |
-| 자격 증명 없는 인프라 및 drift gate | implemented | `.github/workflows/infra-lint.yml`, `.github/workflows/infra-drift.yml`, 실행기 상태 스크립트, CI 계약 테스트 | 선언된 모든 상태 루트를 다루고 루트가 없거나 읽을 수 없거나 변경되면 실패 시 차단합니다. 예약된 실제 상태 확인은 관리형 실행기 OS 디스크, 예상하지 않은 VM 크기 또는 로컬이 아닌 배치를 거부합니다. |
+| 자격 증명 없는 인프라 및 drift gate | implemented | `.github/workflows/infra-lint.yml`, `.github/workflows/infra-drift.yml`, 안정적인 배포 신원 도우미, 실행기 상태 스크립트, CI 계약 테스트 | 보호된 workflow는 bootstrap이 소유한 UAMI 하나를 선택하고 token `oid`를 검증합니다. Drift 검사는 모든 상태 root를 다루며 상태 누락, 예상하지 않은 실행기 저장소 또는 로컬이 아닌 배치를 거부합니다. |
 | Baseline 없는 Terraform 보안 검사 | implemented | `.github/workflows/infra-lint.yml`, 인라인 Checkov 및 Trivy 예외, 집중 인프라 테스트 | Checkov와 Trivy에 Low를 초과하는 활성 점검 결과가 없습니다. 의도적 예외는 하나의 리소스에 연결되고 보완 제어 또는 관리형 서비스 제약을 인용합니다. |
 | exact-revision 보호 운영 적용 근거 | in-progress | [배포와 온보딩](deploy-and-onboard-ko.md#구현-상태) | 코드와 계획 gate는 있지만 이 소유 문서는 모든 제어를 함께 입증하는 현재 운영 적용을 하나로 보존하지 않습니다. |
 
@@ -44,8 +44,9 @@ translation_revised: 2026-08-26
   exact-revision 보호 운영 계획 및 적용 증적을 보존합니다.
 - [ ] Key Vault, Cognitive Services, Log Analytics 및 리소스 그룹에 대해 보호된 비운영 destroy와
   동일 이름 재생성 증적을 보존합니다.
-- [ ] Blue/green 교체 뒤 검토된 VM 크기, 로컬 임시 배치 및 관리형 OS 디스크 부재를 보고하는
-  예약 실행기 상태 증적 하나를 보존합니다.
+- [ ] 필수 CI가 green이면 관련 없는 destroy가 0인 UAMI 역할 이행 계획과 검토된 VM 크기,
+  로컬 임시 배치, 관리형 OS 디스크 부재 및 정확한 배포 principal을 보고하는 예약 실행기 상태
+  증적 하나를 보존합니다.
 
 ## 배포자 신원
 

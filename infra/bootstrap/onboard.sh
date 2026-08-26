@@ -44,7 +44,8 @@ echo
 echo "ops_vnet_id             = $(terraform output -raw ops_vnet_id)"
 echo "ops_vnet_name           = $(terraform output -raw ops_vnet_name)"
 echo "ops_resource_group_name = $(terraform output -raw ops_resource_group_name)"
-echo "runner_principal_id     = $(terraform output -raw runner_principal_id)"
+echo "deploy_runner_client_id = $(terraform output -raw deploy_runner_client_id)"
+echo "deploy_runner_principal_id = $(terraform output -raw deploy_runner_principal_id)"
 echo
 echo "Next:"
 echo "  1. ../../scripts/deployment/azure/set-gh-actions-config.sh   # sets repo Variables/Secrets"

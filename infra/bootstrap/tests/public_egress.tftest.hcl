@@ -64,6 +64,24 @@ run "public_egress_provisions_one_nat_path" {
     condition     = length(azurerm_subnet_nat_gateway_association.runner) == 1
     error_message = "the runner subnet MUST stay associated with the NAT gateway"
   }
+
+  assert {
+    condition = (
+      length(output.deploy_runner_role_manifest) == 5 &&
+      toset([
+        for assignment in values(output.deploy_runner_role_manifest) :
+        assignment.role_definition_name
+        ]) == toset([
+        "Contributor",
+        "EventGrid Contributor",
+        "Network Contributor",
+        "Storage Blob Data Contributor",
+        "User Access Administrator",
+      ])
+    )
+    error_message = "the stable deploy UAMI role manifest MUST contain exactly the five bootstrap-owned roles"
+  }
+
 }
 
 run "closed_network_creates_no_public_address" {
@@ -91,5 +109,29 @@ run "closed_network_creates_no_public_address" {
   assert {
     condition     = length(azurerm_subnet_nat_gateway_association.runner) == 0
     error_message = "a closed network MUST NOT plan a NAT subnet association"
+  }
+}
+
+run "deploy_identity_authority_survives_runner_removal" {
+  command = plan
+
+  variables {
+    create_runner_vm = false
+  }
+
+  assert {
+    condition     = length(azurerm_linux_virtual_machine.runner) == 0
+    error_message = "the runner VM MUST be absent in the identity lifecycle check"
+  }
+
+  assert {
+    condition = alltrue([
+      length(azurerm_role_assignment.runner_app_contributor) == 1,
+      length(azurerm_role_assignment.runner_app_uaa) == 1,
+      length(azurerm_role_assignment.runner_ops_network) == 1,
+      length(azurerm_role_assignment.runner_state_blob) == 1,
+      length(azurerm_role_assignment.runner_eventgrid_contributor) == 1,
+    ])
+    error_message = "stable deploy UAMI roles MUST remain when no runner VM exists"
   }
 }

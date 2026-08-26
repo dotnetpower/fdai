@@ -26,6 +26,8 @@ jobs:
     env:
       ARM_SUBSCRIPTION_ID: ${{ vars.ARM_SUBSCRIPTION_ID }}
       AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      DEPLOY_RUNNER_CLIENT_ID: ${{ vars.DEPLOY_RUNNER_CLIENT_ID }}
+      DEPLOY_RUNNER_PRINCIPAL_ID: ${{ vars.DEPLOY_RUNNER_PRINCIPAL_ID }}
       AZURE_REGION: ${{ vars.AZURE_REGION }}
       MODEL_RESOLVER_DEPLOYER_OBJECT_ID: ${{ vars.MODEL_RESOLVER_DEPLOYER_OBJECT_ID }}
       MODEL_RESOLVER_ACCOUNT_NAME: ${{ vars.MODEL_RESOLVER_ACCOUNT_NAME }}
@@ -75,19 +77,11 @@ jobs:
           ref: ${{ inputs.commit_sha != '' && inputs.commit_sha || github.sha }}
           fetch-depth: 0
 
-      - name: Prepare runner identity
-        run: |
-          set -euo pipefail
-          azure_config_dir="$RUNNER_TEMP/azure-cli"
-          mkdir -p "$azure_config_dir"
-          echo "AZURE_CONFIG_DIR=$azure_config_dir" >> "$GITHUB_ENV"
-          az account clear
-          az login --identity --allow-no-subscriptions
-
-      - name: Verify exact Azure context
-        run: |
-          bash scripts/deployment/azure/verify-azure-context.sh \
-            "$ARM_SUBSCRIPTION_ID" "$AZURE_TENANT_ID"
+      - name: Authenticate and verify stable deploy identity
+        run: >-
+          bash scripts/deployment/azure/login-deploy-identity.sh
+          "$ARM_SUBSCRIPTION_ID" "$AZURE_TENANT_ID"
+          "$DEPLOY_RUNNER_CLIENT_ID" "$DEPLOY_RUNNER_PRINCIPAL_ID"
 
       - name: Resolve lifecycle candidate
         id: candidate

@@ -322,7 +322,7 @@ All cost claims below are **directional targets to validate against a measured b
 - [x] Compute target - **resolved: Azure Container Apps + Jobs**. Revisit AKS only for a
   measured need such as custom networking, DaemonSets, or GPUs.
 - [ ] Canary step function and automated-rollback thresholds for enforce promotion.
-- [x] Azure remote state and identity - **resolved: private Storage backend + VNet self-hosted
-  runner MI**, with a state key per environment. Per-CSP identity for non-Azure targets is TBD; see
+- [x] Azure remote state and identity - **resolved: private Storage backend + stable deploy UAMI
+  attached to VNet self-hosted runners**, with a state key per environment. Per-CSP identity for non-Azure targets is TBD; see
       [Implementation Focus](../../../.github/copilot-instructions.md#implementation-focus-must)
       and [security-and-identity.md](../architecture/security-and-identity.md)).

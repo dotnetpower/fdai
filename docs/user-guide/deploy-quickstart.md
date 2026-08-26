@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Provision the FDAI minimum-set inventory on Azure - two equivalent paths (azd turnkey or Terraform direct), preview first, apply only when the plan looks right.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: fc84ac24164bf8b0ecde957645b466bf0d5d9129 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 7236a804b4811bb435ae8a3fd81abcdd09bb6781 }]
 ---
 
 # Deploy Quickstart
@@ -24,6 +24,10 @@ first, so you can review the plan before you run the separate apply step.
   `AZURE_TENANT_ID`. Bootstrap and turnkey helpers stop before making any change
   if the active identity or the selected `azd` environment does not match that
   exact pair.
+- Apply `infra/bootstrap` to create the stable deploy UAMI, then publish its
+  client and principal IDs as `DEPLOY_RUNNER_CLIENT_ID` and
+  `DEPLOY_RUNNER_PRINCIPAL_ID`. Protected workflows select that client ID and
+  stop unless the ARM token `oid`, tenant, and subscription all match.
 - Attested FDAI service images from `container-supply-chain.yml`. Protected
   service plans verify the exact Core, Operator, Document Ingestion API,
   Document Processing Worker, and Isolated Executor image attestations for the

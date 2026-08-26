@@ -17,7 +17,7 @@ networking, trusted images, notification destinations, monitoring, and cost ceil
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Production plan gates and environment knobs | implemented | `infra/production-gates.tf`; `infra/envs/{staging,prod}.tfvars.example`; Terraform configuration tests | Missing signed image, private network, durability, monitoring, or cost inputs block a production plan. Standard profiles permanently delete globally named resources and leave management locks disabled. |
-| Credential-free infrastructure and drift guards | implemented | `.github/workflows/infra-lint.yml`; `.github/workflows/infra-drift.yml`; runner posture script; CI contract tests | The checks cover all declared state roots and fail closed on a missing, unreadable, or changed root. Scheduled readback also rejects a managed runner OS disk, an unexpected VM size, or non-local placement. |
+| Credential-free infrastructure and drift guards | implemented | `.github/workflows/infra-lint.yml`; `.github/workflows/infra-drift.yml`; stable deploy identity helper; runner posture script; CI contract tests | Protected workflows select one bootstrap-owned UAMI and verify its token `oid`. Drift checks cover every state root and reject missing state, unexpected runner storage, or non-local placement. |
 | Baseline-free Terraform security scanning | implemented | `.github/workflows/infra-lint.yml`; inline Checkov and Trivy exceptions; focused infrastructure tests | Checkov and Trivy report no active finding above Low. Every intentional exception is attached to one resource and cites its compensating control or managed-service constraint. |
 | Exact-revision protected production apply evidence | in-progress | [Deploy and Onboard](deploy-and-onboard.md#implementation-status) | Code and plan guards exist, but this owner document does not retain one current production apply proving every control together. |
 
@@ -41,8 +41,9 @@ networking, trusted images, notification destinations, monitoring, and cost ceil
     monitoring, and the cost budget together, including one blocked negative plan.
 - [ ] Retain a protected non-production destroy and exact-name recreation receipt for Key Vault,
     Cognitive Services, Log Analytics, and the resource group.
-- [ ] Retain one scheduled runner posture receipt after blue/green replacement that reports the
-    reviewed VM size, local ephemeral placement, and no managed OS disk.
+- [ ] After green required CI, retain zero-unrelated-destroy UAMI role-migration plans and one
+    scheduled runner posture receipt that reports the reviewed VM size, local ephemeral placement,
+    no managed OS disk, and the exact deploy principal.
 
 ## Deployer identity
 

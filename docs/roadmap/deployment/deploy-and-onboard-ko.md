@@ -1,22 +1,20 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: fc84ac24164bf8b0ecde957645b466bf0d5d9129
+translation_source_sha: 7236a804b4811bb435ae8a3fd81abcdd09bb6781
 translation_revised: 2026-08-26
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 시스템이 관측 준비되도록 하는 방법. 이 문서는 **구체적 배포 인벤토리, 부트스트랩 순서, 분포/배포 책임 분리**의 진실 원본입니다; 배포 라이프사이클(CI/CD, progressive 전달, 롤백, DR)은 [deployment-ko.md](deployment-ko.md)에 남습니다.
 Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로바이더는 TBD ([구현 Focus](../../../.github/copilot-instructions.md#implementation-focus-must)). 모든 식별자는 [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)에 따라 합성.
-> Day-zero 서비스 계층과 수량은 [최소 Azure 리소스 인벤토리](#azure-리소스-인벤토리-최소-세트)에서 결정되어 있습니다.
-> 배포 소유자는 배포 전에 지역, 할당량, 보존, 복제본 상한, 운영 계층 재정의를
-> 확인합니다. **실행 엔진**은 `infra/`의 `terraform apply`로 결정되어 있습니다. 계획된 운영자 진입점은 설치형 `fdaictl` 파사드입니다. 이 파사드는 Terraform을 출처 of
-> truth로 유지하고 계획 및 적용 작업을 승인된 실행기에 제출합니다.
+> Day-zero 서비스 계층과 수량은 [최소 Azure 리소스 인벤토리](#azure-리소스-인벤토리-최소-세트)에서 결정되어 있습니다. 배포 소유자는 배포 전에 지역, 할당량, 보존, 복제본 상한, 운영 계층 재정의를 확인합니다.
+> **실행 엔진**은 `infra/`의 `terraform apply`로 결정되어 있습니다. 계획된 운영자 진입점은 설치형 `fdaictl` 파사드입니다. 이 파사드는 Terraform을 출처 of truth로 유지하고 계획 및 적용 작업을 승인된 실행기에 제출합니다.
 > [설치형 배포 CLI](installable-deployment-cli-ko.md)와 [배포 아티팩트](#배포-아티팩트)를 참조하세요.
 ## 구현 상태
 ### 구현 범위
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| Protected platform 계획 및 exact 적용 | implemented | `.github/workflows/deploy-dev.yml`, `.github/workflows/model-settings-projection.yml`, `materialize-model-binding-proposal.sh`, `model_binding_proposal.py` 및 집중 배포 workflow 검사 | Private runner 계획에는 정확한 읽기 전용 Operator 제안 handoff와 3-way-CAS 모델 projection 부트스트랩, 변경 불가 적용 claim, 적용 후 검사, 선택적 non-executor channel-edge identity 및 versionless secret-scope input이 포함됩니다. 통제된 platform 적용 증적은 리포지토리에 보존되어 있지 않습니다. |
+| Protected platform 계획 및 exact 적용 | implemented | `.github/workflows/deploy-dev.yml`, `.github/workflows/model-settings-projection.yml`, `login-deploy-identity.sh`, `materialize-model-binding-proposal.sh`, `model_binding_proposal.py` 및 집중 배포 workflow 검사 | 모든 보호된 배포 경로는 client ID로 안정적인 배포 UAMI를 선택하고 token `oid`를 검증합니다. Private runner 계획에는 변경 불가 적용 claim과 적용 후 검사가 포함됩니다. 통제된 UAMI 역할 이행 또는 platform 적용 증적은 리포지토리에 보존되어 있지 않습니다. |
 | 독립 소유 런타임 service | validated | `.github/workflows/service-deploy.yml` 및 `config/independent-service-live-evidence-manifest.json` | 각 service에 별도 root, protected 계획, 상태 검사 및 rollback evidence가 있습니다. |
 | OHL scale-out evidence target 및 proposal Job | implemented | `infra/` 및 `services/core-control-plane/src/fdai/delivery/`의 current change, 집중 Terraform 및 publisher test 결과 8 passed와 13 passed | 둘 다 기본적으로 비활성화되며 protected 적용이 남아 있습니다. |
 | OHL production evidence campaign | in-progress | `config/ohl-scale-out-evidence.json` 및 `docs/runbooks/ohl-scale-out-evidence-ko.md` | Runtime rollout, 통제된 실행, sample 100개 및 14일 recurrence window가 남아 있습니다. |
@@ -28,6 +26,7 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-26 | implemented | 보호된 배포 권한을 실행기 VM 수명 주기에서 분리했습니다. Bootstrap은 이제 안정적인 UAMI와 5개 역할 매니페스트를 소유하고, 현재 VM은 시스템 신원과 함께 UAMI를 연결하며, 7개 `fdai-deploy` workflow는 명시적인 client ID 로그인과 테넌트, 구독 및 token `oid` 검증을 요구합니다. | `current change`; bootstrap Terraform 유효성 검사 및 계획 테스트, 집중 신원, workflow, 컨텍스트 및 scenario 검사. | 필수 CI가 green인 exact revision을 push한 뒤 후보를 만들기 전에 관련 없는 destroy가 0인 bootstrap, platform 및 scenario 계획과 유효 역할 실제 상태 확인을 보존합니다. |
 | 2026-08-21 | implemented | 보호된 runner의 암묵적인 system pip 의존성을 제거했습니다. Workflow는 저장소가 pin한 uv release를 설치하고 frozen Core package 환경에서 model resolution과 production readiness를 실행합니다. | `current change`; 실패한 보호 계획 실행 `32434472993`; 집중 배포 workflow 계약, YAML parsing 및 dependency command 검사. | 정확한 Event Bus 이행 계획을 다시 실행하고 protected plan/apply 근거를 보존합니다. |
 | 2026-08-24 | implemented | Azure RBAC kubeconfig가 변경 가능한 VM 이미지 상태에 의존하지 않도록 보호된 시나리오 workflow에 runner 임시 저장소용 checksum-pinned `kubelogin` 설치를 추가했습니다. | 실패한 시나리오 실행 `32780056314`; `current change`; 집중 workflow, 스크립트, checksum 및 시나리오 계약 검사. | 비공개 AKS 기반 준비를 완료하고 보호된 적용 증적을 보존합니다. |
 | 2026-08-21 | implemented | 파괴적 계획 게이트를 유지하면서 검토된 임베딩 이행 하나를 승인했습니다. Terraform 계획이 정확한 주소, 계정 연결, 모델 계열, 기존 `GlobalStandard` 용량 1, 목표 `Standard` 용량 200과 일치할 때만 `t1.embedding` 교체를 허용합니다. 삭제 전용 계획과 값이 달라진 교체는 계속 차단됩니다. | `current change`; `.github/workflows/deploy-dev.yml`; 집중 파괴적 계획 검사 2개 통과. | 정확한 보호 계획을 적용하고 새 배포와 런타임 연결을 검증한 뒤 증적을 보존하고 일회성 전환 승인을 제거합니다. |
@@ -127,12 +126,12 @@ GitHub에 등록된 실행기가 GitHub, 관리 평면, 신원 평면에 도달�
   `vnet-fdai-ops-...`), 러너 서브넷과 private-endpoint 서브넷 포함;
 - 비공개 로 잠긴 **terraform remote-state 저장소 계정**, ops VNet 에 링크된
   `privatelink.blob.core.windows.net` 블롭 비공개 엔드포인트 로 프론트;
+- 현재 및 후보 실행기 VM과 수명 주기가 분리된 **안정적인 배포용 사용자 할당 Managed Identity(UAMI)**. Bootstrap은 정확한 역할 매니페스트를 소유하며 client ID와 principal ID를 별도로 출력합니다.
 - 공개 IP 없이 지속형 `Standard_D4ds_v5`와 `Local` `ResourceDisk` 임시 OS에서 실행기 자리 1-5개를 등록하는 **자체 호스팅 배포 실행기 VM**.
-  VM-side Bash가 자리 경로를 확장하며, 할당 해제는 차단되고 예약 drift는 관리형 OS 디스크나 배치 변경을 거부합니다. 작업 디렉터리는 분리하고 managed 신원은 공유합니다. 이 신원은 앱 RG에
+  VM-side Bash가 자리 경로를 확장하며, 할당 해제는 차단되고 예약 drift는 관리형 OS 디스크나 배치 변경을 거부합니다. 작업 디렉터리는 분리하고 안정적인 UAMI를 공유합니다. 이 신원은 앱 RG에
   `Contributor` + `User Access Administrator`, ops RG에 `Network Contributor`, 상태 계정에
   `Storage Blob Data Contributor`, 구독 범위에 `EventGrid Contributor`만 보유합니다.
-  각 실행은 managed 신원 login 전에 Azure CLI 계정 캐시를 지운 뒤 저장소, 계획, 적용 전에
-  저장소에 설정된 exact 구독과 테넌트를 증명합니다.
+  이행 중에는 현재 VM에 시스템 신원과 UAMI를 함께 연결하지만 workflow는 신원을 암묵적으로 선택하지 않습니다. 각 실행은 Azure CLI 계정 캐시를 지우고 구성된 UAMI client ID로 로그인한 뒤 저장소, 계획, 적용 전에 저장소에 설정된 exact 구독, 테넌트 및 ARM token `oid`를 증명합니다.
 체크아웃 전 실행기는 이전 방식 생성된 `infra/None` 캐시 경로만 제거해 root-owned 액션
 residue가 exact-commit clean을 막지 않게 합니다. 해당 단계는 Azure CLI 구성을
 `RUNNER_TEMP` 아래에 만들고 subsequent 단계용 `GITHUB_ENV`로 내보내기합니다. 배포 작업의

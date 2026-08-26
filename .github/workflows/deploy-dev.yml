@@ -7,10 +7,11 @@ name: deploy-dev
 #
 # Prerequisites (see infra/bootstrap/README.md):
 #   - `infra/bootstrap` applied: ops VNet + state storage + registered runner
-#     with labels [self-hosted, fdai-deploy] and a system-assigned MI holding
+#     with labels [self-hosted, fdai-deploy] and the stable deploy UAMI holding
 #     Contributor on the app RG + Storage Blob Data Contributor on the state SA.
 #   - Repo variables (Settings > Secrets and variables > Actions > Variables):
 #       ARM_SUBSCRIPTION_ID, AZURE_REGION, AZURE_REGION_SHORT, AZURE_TENANT_ID,
+#       DEPLOY_RUNNER_CLIENT_ID, DEPLOY_RUNNER_PRINCIPAL_ID,
 #       OPS_RESOURCE_GROUP_NAME, OPS_VNET_ID, OPS_VNET_NAME, STATE_STORAGE_ACCOUNT,
 #       DEPLOY_PREFLIGHT_INPUT_JSON (non-secret complete live-probe profile),
 #       ENTRA_CONSOLE_SPA_CLIENT_ID (required when deploy_console=true),
@@ -162,9 +163,11 @@ jobs:
         working-directory: infra
     env:
       # AAD auth for both the azurerm provider and the state backend blob,
-      # using the runner's system-assigned managed identity (az login below).
+      # using the runner's stable user-assigned managed identity.
       ARM_USE_AZUREAD: "true"
       ARM_SUBSCRIPTION_ID: ${{ vars.ARM_SUBSCRIPTION_ID }}
+      DEPLOY_RUNNER_CLIENT_ID: ${{ vars.DEPLOY_RUNNER_CLIENT_ID }}
+      DEPLOY_RUNNER_PRINCIPAL_ID: ${{ vars.DEPLOY_RUNNER_PRINCIPAL_ID }}
       # tfvars-equivalent inputs (non-secret via Variables, secret via Secrets).
       TF_VAR_env: ${{ inputs.environment }}
       TF_VAR_region: ${{ vars.AZURE_REGION }}
@@ -391,18 +394,14 @@ jobs:
             echo "TF_VAR_budget_alert_emails=$PROD_BUDGET_ALERT_EMAILS_JSON"
           } >> "$GITHUB_ENV"
 
-      - name: Azure login (runner managed identity)
-        run: |
-          az account clear
-          az login --identity --allow-no-subscriptions
-
-      - name: Verify exact Azure context
+      - name: Verify exact Azure context and deploy identity
         # The job defaults to `infra`, so a repository-root script path only
         # resolves from the workspace root.
         working-directory: ${{ github.workspace }}
-        run: |
-          bash scripts/deployment/azure/verify-azure-context.sh \
-            "$ARM_SUBSCRIPTION_ID" "$TF_VAR_tenant_id"
+        run: >-
+          bash scripts/deployment/azure/login-deploy-identity.sh
+          "$ARM_SUBSCRIPTION_ID" "$TF_VAR_tenant_id"
+          "$DEPLOY_RUNNER_CLIENT_ID" "$DEPLOY_RUNNER_PRINCIPAL_ID"
 
       - name: Resolve and seal model capabilities
         if: ${{ !inputs.apply && !inputs.deploy_monitoring && env.TF_VAR_enable_llm == 'true' }}

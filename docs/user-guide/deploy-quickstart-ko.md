@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: FDAI 최소 Azure 인벤토리를 프로비저닝하는 방법. azd 턴키와 Terraform 직접 실행 두 경로 모두 먼저 미리보고, 계획이 맞을 때만 적용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 0e4815177ca17c22b53d65aee4dff57396d1d7e4
+translation_source_sha: e6d982b5794f9436e085e67c1866e212747b49ba
 translation_revised: 2026-08-26
 ---
 
@@ -23,6 +23,9 @@ FDAI는 `infra/` 아래의 코드형 인프라(IaC)로 프로비저닝하며, Te
 - 승인된 대상을 `AZURE_SUBSCRIPTION_ID`와 `AZURE_TENANT_ID`로 내보내기합니다. 현재 자격
   증명이나 선택된 `azd` 환경이 이 조합과 다르면, 부트스트랩과 턴키 헬퍼가 아무것도 바꾸기
   전에 중단합니다.
+- `infra/bootstrap`을 적용해 안정적인 배포 UAMI를 만든 뒤 client ID와 principal ID를
+  `DEPLOY_RUNNER_CLIENT_ID`와 `DEPLOY_RUNNER_PRINCIPAL_ID`로 게시합니다. 보호된 workflow는
+  이 client ID를 선택하고 ARM token `oid`, 테넌트 및 구독이 모두 일치하지 않으면 중단합니다.
 - `container-supply-chain.yml`이 증명한 FDAI 서비스 이미지가 필요합니다. 보호된 서비스
   계획은 선택한 source revision에 대한 Core, Operator, Document Ingestion API,
   Document Processing Worker, Isolated Executor 이미지 증명을 각각 검증합니다. Exact 적용은

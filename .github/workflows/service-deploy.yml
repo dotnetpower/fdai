@@ -93,6 +93,8 @@ jobs:
       ARM_USE_AZUREAD: "true"
       ARM_SUBSCRIPTION_ID: ${{ vars.ARM_SUBSCRIPTION_ID }}
       ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      DEPLOY_RUNNER_CLIENT_ID: ${{ vars.DEPLOY_RUNNER_CLIENT_ID }}
+      DEPLOY_RUNNER_PRINCIPAL_ID: ${{ vars.DEPLOY_RUNNER_PRINCIPAL_ID }}
       STATE_RESOURCE_GROUP: ${{ vars.STATE_RESOURCE_GROUP }}
       STATE_STORAGE_ACCOUNT: ${{ vars.STATE_STORAGE_ACCOUNT }}
       STATE_CONTAINER: ${{ vars.STATE_CONTAINER || 'tfstate' }}
@@ -333,31 +335,11 @@ jobs:
           fi
           echo "RESOLVED_MODELS_DIGEST=$resolved_models_digest" >> "$GITHUB_ENV"
 
-      - name: Authenticate runner managed identity
-        run: |
-          set -euo pipefail
-          [[ -n "$ARM_SUBSCRIPTION_ID" && -n "$ARM_TENANT_ID" ]] || {
-            echo "ARM_SUBSCRIPTION_ID and AZURE_TENANT_ID repository variables are required." >&2
-            exit 1
-          }
-          azure_config="$RUNNER_TEMP/service-deploy-azure"
-          rm -rf "$azure_config"
-          mkdir -m 700 "$azure_config"
-          echo "AZURE_CONFIG_DIR=$azure_config" >> "$GITHUB_ENV"
-          export AZURE_CONFIG_DIR="$azure_config"
-          az account clear >/dev/null 2>&1 || true
-          az login --identity --allow-no-subscriptions --output none
-          az account set --subscription "$ARM_SUBSCRIPTION_ID"
-          actual_subscription="$(az account show --query id --output tsv)"
-          actual_tenant="$(az account show --query tenantId --output tsv)"
-          [[ "$actual_subscription" == "$ARM_SUBSCRIPTION_ID" ]] || {
-            echo "runner identity is authenticated to the wrong subscription." >&2
-            exit 1
-          }
-          [[ "$actual_tenant" == "$ARM_TENANT_ID" ]] || {
-            echo "runner identity is authenticated to the wrong tenant." >&2
-            exit 1
-          }
+      - name: Authenticate and verify stable deploy identity
+        run: >-
+          bash "$TRUSTED_CONTROLS/scripts/deployment/azure/login-deploy-identity.sh"
+          "$ARM_SUBSCRIPTION_ID" "$ARM_TENANT_ID"
+          "$DEPLOY_RUNNER_CLIENT_ID" "$DEPLOY_RUNNER_PRINCIPAL_ID"
 
       - name: Validate isolated backend mapping
         env:

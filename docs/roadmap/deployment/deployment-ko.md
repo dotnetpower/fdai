@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: a046b195553d5a7d83bb73eb6951d18845a563f3
+translation_source_sha: c62ae6de355ac1310d41290dae512570ab44769b
 translation_revised: 2026-08-26
 ---
 
@@ -319,7 +319,7 @@ point-in-time 복원이 아닙니다. 각 운영 배포는 명시적 이벤트 �
 - [x] Compute 대상 - **해결: Azure Container Apps + Jobs**. AKS는 custom networking,
   DaemonSet, GPU 같은 측정된 요구가 생길 때만 재검토합니다.
 - [ ] 강제 적용 승격을 위한 canary 스텝 함수와 자동 롤백 임계값.
-- [x] Azure 원격 상태와 신원 - **해결: 비공개 Storage 백엔드 + VNet 자체 호스팅
-  실행기 MI**, 환경별 상태 키. 비-Azure 대상의 per-CSP 신원은 TBD;
+- [x] Azure 원격 상태와 신원 - **해결: 비공개 Storage 백엔드 + VNet 자체 호스팅 실행기에
+  연결된 안정적인 배포 UAMI**, 환경별 상태 키. 비-Azure 대상의 per-CSP 신원은 TBD;
       [구현 Focus](../../../.github/copilot-instructions.md#implementation-focus-must)
       와 [security-and-identity-ko.md](../architecture/security-and-identity-ko.md) 참조).

@@ -28,6 +28,9 @@ gh variable set OPS_RESOURCE_GROUP_NAME -R "$REPO" -b "$(out ops_resource_group_
 gh variable set OPS_VNET_ID             -R "$REPO" -b "$(out ops_vnet_id)"
 gh variable set OPS_VNET_NAME           -R "$REPO" -b "$(out ops_vnet_name)"
 gh variable set STATE_STORAGE_ACCOUNT   -R "$REPO" -b "$(out state_storage_account_name)"
+gh variable set DEPLOY_RUNNER_CLIENT_ID -R "$REPO" -b "$(out deploy_runner_client_id)"
+gh variable set DEPLOY_RUNNER_PRINCIPAL_ID \
+  -R "$REPO" -b "$(out deploy_runner_principal_id)"
 
 echo "== repo Secrets =="
 printf 'fdaiadmin' | gh secret set POSTGRES_ADMIN_LOGIN -R "$REPO"

@@ -31,6 +31,8 @@ jobs:
     env:
       ARM_SUBSCRIPTION_ID: ${{ vars.ARM_SUBSCRIPTION_ID }}
       AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      DEPLOY_RUNNER_CLIENT_ID: ${{ vars.DEPLOY_RUNNER_CLIENT_ID }}
+      DEPLOY_RUNNER_PRINCIPAL_ID: ${{ vars.DEPLOY_RUNNER_PRINCIPAL_ID }}
       OPS_RESOURCE_GROUP_NAME: ${{ vars.OPS_RESOURCE_GROUP_NAME }}
       RESOLVED_MODELS_JSON: ${{ vars.RESOLVED_MODELS_JSON }}
       STATE_STORAGE_ACCOUNT: ${{ vars.STATE_STORAGE_ACCOUNT }}
@@ -80,18 +82,11 @@ jobs:
       - name: Install pinned GitHub CLI
         run: bash scripts/deployment/azure/install-pinned-github-cli.sh
 
-      - name: Authenticate runner managed identity
-        run: |
-          set -euo pipefail
-          azure_config="$RUNNER_TEMP/model-settings-azure"
-          rm -rf "$azure_config"
-          mkdir -m 700 "$azure_config"
-          echo "AZURE_CONFIG_DIR=$azure_config" >> "$GITHUB_ENV"
-          export AZURE_CONFIG_DIR="$azure_config"
-          az account clear >/dev/null 2>&1 || true
-          az login --identity --allow-no-subscriptions --output none
-          bash scripts/deployment/azure/verify-azure-context.sh \
-            "$ARM_SUBSCRIPTION_ID" "$AZURE_TENANT_ID"
+      - name: Authenticate and verify stable deploy identity
+        run: >-
+          bash scripts/deployment/azure/login-deploy-identity.sh
+          "$ARM_SUBSCRIPTION_ID" "$AZURE_TENANT_ID"
+          "$DEPLOY_RUNNER_CLIENT_ID" "$DEPLOY_RUNNER_PRINCIPAL_ID"
 
       - name: Bind authoritative platform state
         run: |

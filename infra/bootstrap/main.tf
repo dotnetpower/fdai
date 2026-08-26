@@ -114,10 +114,19 @@ module "state_blob_pe" {
   tags                  = local.tags
 }
 
+module "deploy_runner_identity" {
+  source              = "../modules/identity/user-assigned-mi"
+  name                = "id-${local.suffix}-deploy"
+  resource_group_name = azurerm_resource_group.ops.name
+  location            = var.region
+  tags                = merge(local.tags, { "fdai:component" = "deploy-runner" })
+}
+
 # -----------------------------------------------------------------------
 # Self-hosted deploy runner - the only host with line-of-sight to the app's
-# private endpoints. System-assigned MI authenticates terraform to Azure;
-# no public IP (reach via Bastion / az vm run-command / serial console).
+# private endpoints. The stable deploy UAMI authenticates Terraform to Azure;
+# the system identity remains attached only for the reviewed migration window.
+# No public IP (reach via Bastion / az vm run-command / serial console).
 # -----------------------------------------------------------------------
 # The runner NIC is protected by azurerm_network_security_group.runner through
 # the runner subnet association above. Trivy does not resolve that relationship
@@ -151,7 +160,8 @@ resource "azurerm_linux_virtual_machine" "runner" {
   tags = local.tags
 
   identity {
-    type = "SystemAssigned"
+    type         = "SystemAssigned, UserAssigned"
+    identity_ids = [module.deploy_runner_identity.resource_id]
   }
 
   admin_ssh_key {
@@ -211,38 +221,63 @@ resource "azurerm_linux_virtual_machine" "runner" {
 # consumes runner_principal_id from this layer's output.
 # -----------------------------------------------------------------------
 data "azurerm_resource_group" "app" {
-  count = var.create_runner_vm ? 1 : 0
+  count = var.enable_deploy_identity_roles ? 1 : 0
   name  = var.app_resource_group_name
 }
 
 data "azurerm_subscription" "current" {}
+
+locals {
+  deploy_runner_role_manifest = var.enable_deploy_identity_roles ? {
+    app_contributor = {
+      role_definition_name = "Contributor"
+      scope                = data.azurerm_resource_group.app[0].id
+    }
+    app_user_access_administrator = {
+      role_definition_name = "User Access Administrator"
+      scope                = data.azurerm_resource_group.app[0].id
+    }
+    ops_network_contributor = {
+      role_definition_name = "Network Contributor"
+      scope                = azurerm_resource_group.ops.id
+    }
+    state_blob_data_contributor = {
+      role_definition_name = "Storage Blob Data Contributor"
+      scope                = data.azurerm_storage_account.state.id
+    }
+    subscription_eventgrid_contributor = {
+      role_definition_name = "EventGrid Contributor"
+      scope                = data.azurerm_subscription.current.id
+    }
+  } : {}
+}
 
 # Only the runner needs data-plane access to the state account (Storage Blob
 # Data Contributor below). The bootstrap operator (laptop) reads the account
 # via a control-plane data source only, so no laptop blob-data grant is issued
 # - the tfstate (which carries secrets) stays reachable by the runner alone.
 resource "azurerm_role_assignment" "runner_app_contributor" {
-  count                = var.create_runner_vm ? 1 : 0
-  scope                = data.azurerm_resource_group.app[0].id
-  role_definition_name = "Contributor"
-  principal_id         = azurerm_linux_virtual_machine.runner[0].identity[0].principal_id
+  count                = var.enable_deploy_identity_roles ? 1 : 0
+  scope                = local.deploy_runner_role_manifest.app_contributor.scope
+  role_definition_name = local.deploy_runner_role_manifest.app_contributor.role_definition_name
+  principal_id         = module.deploy_runner_identity.principal_id
 }
 
 resource "azurerm_role_assignment" "runner_state_blob" {
-  count                = var.create_runner_vm ? 1 : 0
-  scope                = data.azurerm_storage_account.state.id
-  role_definition_name = "Storage Blob Data Contributor"
-  principal_id         = azurerm_linux_virtual_machine.runner[0].identity[0].principal_id
+  count                = var.enable_deploy_identity_roles ? 1 : 0
+  scope                = local.deploy_runner_role_manifest.state_blob_data_contributor.scope
+  role_definition_name = local.deploy_runner_role_manifest.state_blob_data_contributor.role_definition_name
+  principal_id         = module.deploy_runner_identity.principal_id
 }
 
 # Network Contributor on the ops RG so the runner's app apply can create the
 # hub->spoke VNet peering and the ops-side private DNS zone links (the app
 # spoke VNet id only exists after that apply, so these cross into the ops RG).
 resource "azurerm_role_assignment" "runner_ops_network" {
-  count                = var.create_runner_vm ? 1 : 0
-  scope                = azurerm_resource_group.ops.id
-  role_definition_name = "Network Contributor"
-  principal_id         = azurerm_linux_virtual_machine.runner[0].identity[0].principal_id
+  count                = var.enable_deploy_identity_roles ? 1 : 0
+  scope                = local.deploy_runner_role_manifest.ops_network_contributor.scope
+  role_definition_name = local.deploy_runner_role_manifest.ops_network_contributor.role_definition_name
+  principal_id         = module.deploy_runner_identity.principal_id
 }
 
 # User Access Administrator on the app RG so the runner can manage the role
@@ -250,21 +285,21 @@ resource "azurerm_role_assignment" "runner_ops_network" {
 # principal Key Vault Secrets Officer; the executor MI role bindings on ACR /
 # Event Hubs / KV). Contributor alone lacks Microsoft.Authorization/* .
 resource "azurerm_role_assignment" "runner_app_uaa" {
-  count                = var.create_runner_vm ? 1 : 0
-  scope                = data.azurerm_resource_group.app[0].id
-  role_definition_name = "User Access Administrator"
-  principal_id         = azurerm_linux_virtual_machine.runner[0].identity[0].principal_id
+  count                = var.enable_deploy_identity_roles ? 1 : 0
+  scope                = local.deploy_runner_role_manifest.app_user_access_administrator.scope
+  role_definition_name = local.deploy_runner_role_manifest.app_user_access_administrator.role_definition_name
+  principal_id         = module.deploy_runner_identity.principal_id
 }
 
 # Realtime inventory is a subscription-scoped Event Grid subscription. Keep
 # the runner's permission narrower than subscription Contributor: this built-in
 # role can manage Event Grid subscriptions but cannot mutate target resources.
 resource "azurerm_role_assignment" "runner_eventgrid_contributor" {
-  count                = var.create_runner_vm ? 1 : 0
-  name                 = uuidv5("url", "fdai.runner-eventgrid:${data.azurerm_subscription.current.id}:${azurerm_linux_virtual_machine.runner[0].identity[0].principal_id}")
-  scope                = data.azurerm_subscription.current.id
-  role_definition_name = "EventGrid Contributor"
-  principal_id         = azurerm_linux_virtual_machine.runner[0].identity[0].principal_id
+  count                = var.enable_deploy_identity_roles ? 1 : 0
+  name                 = uuidv5("url", "fdai.runner-eventgrid:${data.azurerm_subscription.current.id}:${module.deploy_runner_identity.principal_id}")
+  scope                = local.deploy_runner_role_manifest.subscription_eventgrid_contributor.scope
+  role_definition_name = local.deploy_runner_role_manifest.subscription_eventgrid_contributor.role_definition_name
+  principal_id         = module.deploy_runner_identity.principal_id
 }
 
 # Optional delete protection on the state account. Standard FDAI profiles keep
