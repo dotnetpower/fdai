@@ -45,6 +45,7 @@ _ACTIVITY_FACTS = (
     "tier",
     "verdict",
 )
+_READY_STATUS_TEXT = {"True": "Ready", "False": "NotReady", "Unknown": "Ready unknown"}
 
 
 async def project_inventory_instances(
@@ -385,10 +386,13 @@ def _resource_projection(
 
 
 def _resource_status(properties: Mapping[str, object]) -> str | None:
-    for key in ("status", "state", "provisioningState"):
+    for key in ("status", "state", "phase", "provisioningState"):
         value = _optional_text(properties.get(key))
         if value is not None:
             return value
+    ready_status = _optional_text(properties.get("ready_status"))
+    if ready_status is not None:
+        return _READY_STATUS_TEXT.get(ready_status)
     nested = properties.get("properties")
     if isinstance(nested, Mapping):
         return _optional_text(nested.get("provisioningState"))

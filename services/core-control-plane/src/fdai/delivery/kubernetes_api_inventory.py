@@ -312,6 +312,8 @@ def _resource_record(
     if isinstance(status, Mapping):
         if resource_type == "kubernetes.pod":
             props.update(_pod_status_properties(status))
+        elif resource_type == "kubernetes.node":
+            props.update(_node_status_properties(status))
         elif resource_type == "kubernetes.deployment":
             props.update(_deployment_status_properties(status))
     if resource_type == "kubernetes.node":
@@ -453,11 +455,7 @@ def _bounded_ingress_sequence(
     return tuple(item for item in value if isinstance(item, Mapping))
 
 
-def _pod_status_properties(status: Mapping[str, Any]) -> dict[str, object]:
-    props: dict[str, object] = {}
-    phase = _optional_status_text(status, "phase")
-    if phase is not None:
-        props["phase"] = phase
+def _ready_condition_properties(status: Mapping[str, Any], *, subject: str) -> dict[str, object]:
     conditions = _bounded_mapping_sequence(
         status.get("conditions"),
         field="conditions",
@@ -467,14 +465,28 @@ def _pod_status_properties(status: Mapping[str, Any]) -> dict[str, object]:
         condition for condition in conditions if _optional_status_text(condition, "type") == "Ready"
     ]
     if len(ready_conditions) > 1:
-        raise KubernetesApiInventoryError("Kubernetes Pod Ready condition is duplicated")
-    if ready_conditions:
-        ready_status = _optional_status_text(ready_conditions[0], "status")
-        if ready_status not in {"True", "False", "Unknown"}:
-            raise KubernetesApiInventoryError("Kubernetes Pod Ready condition status is invalid")
-        props["ready_status"] = ready_status
-        if ready_status != "Unknown":
-            props["ready"] = ready_status == "True"
+        raise KubernetesApiInventoryError(f"Kubernetes {subject} Ready condition is duplicated")
+    if not ready_conditions:
+        return {}
+    ready_status = _optional_status_text(ready_conditions[0], "status")
+    if ready_status not in {"True", "False", "Unknown"}:
+        raise KubernetesApiInventoryError(f"Kubernetes {subject} Ready condition status is invalid")
+    props: dict[str, object] = {"ready_status": ready_status}
+    if ready_status != "Unknown":
+        props["ready"] = ready_status == "True"
+    return props
+
+
+def _node_status_properties(status: Mapping[str, Any]) -> dict[str, object]:
+    return _ready_condition_properties(status, subject="Node")
+
+
+def _pod_status_properties(status: Mapping[str, Any]) -> dict[str, object]:
+    props: dict[str, object] = {}
+    phase = _optional_status_text(status, "phase")
+    if phase is not None:
+        props["phase"] = phase
+    props.update(_ready_condition_properties(status, subject="Pod"))
 
     container_statuses = _bounded_mapping_sequence(
         status.get("containerStatuses"),

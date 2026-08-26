@@ -421,6 +421,19 @@ mappings:
     freshness: *freshness
     completeness: *completeness
 
+  - mapping_id: azure.agent-pool-attached-to-subnet
+    provider: azure
+    source_identity: azure-resource-manager-containerservice
+    source_provider_types: [Microsoft.ContainerService/managedClusters/agentPools]
+    source_property_path: properties.vnetSubnetID
+    target_provider_types: [Microsoft.Network/virtualNetworks/subnets]
+    link_type: attached_to
+    endpoint_orientation: owner_to_referenced
+    source_schema: *arm_container_service_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
   - mapping_id: azure.aks-attached-to-node-resource-group
     provider: azure
     source_identity: azure-resource-graph-complete-generation
@@ -1003,6 +1016,7 @@ mappings:
     target_provider_types:
       - Microsoft.CognitiveServices/accounts
       - Microsoft.ContainerRegistry/registries
+      - Microsoft.ContainerService/managedClusters
       - Microsoft.DBforMySQL/flexibleServers
       - Microsoft.DBforPostgreSQL/flexibleServers
       - Microsoft.DocumentDB/databaseAccounts
@@ -1323,4 +1337,4 @@ review:
   reviewer_identity: fdai-provider-relationship-review
   reviewed_at: 2026-08-12T00:00:00Z
   immutable_receipt_ref: catalog-receipt:provider-relationships:azure-arg-v1
-  content_hash: sha256:2be742e623d2ec75588f8963ac19a87f1767fcb048b7ef53cf2e5bd85e1e439a
+  content_hash: sha256:680d02a534ffce25d129f03afe27e88f1763f64eb693ae33024e1fbfc1b9f97e

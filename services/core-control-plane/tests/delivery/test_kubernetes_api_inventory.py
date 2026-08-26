@@ -116,6 +116,12 @@ async def test_collects_uid_grounded_runtime_inventory() -> None:
                             "virtualMachines/0"
                         )
                     },
+                    status={
+                        "conditions": [
+                            {"type": "MemoryPressure", "status": "False"},
+                            {"type": "Ready", "status": "True"},
+                        ]
+                    },
                 )
             ]
         elif request.url.path == "/api/v1/pods":
@@ -241,6 +247,8 @@ async def test_collects_uid_grounded_runtime_inventory() -> None:
     by_type = {resource.type: resource for resource in snapshot.resources}
     assert by_type["kubernetes.namespace"].props["namespace"] == "default"
     assert by_type["kubernetes.node"].props["node_pool"] == "system"
+    assert by_type["kubernetes.node"].props["ready_status"] == "True"
+    assert by_type["kubernetes.node"].props["ready"] is True
     assert by_type["kubernetes.node"].props["provider_resource_ref"] == (
         "/subscriptions/subscription-example/resourceGroups/rg-example/providers/"
         "Microsoft.Compute/virtualMachineScaleSets/vmss-example/virtualMachines/0"

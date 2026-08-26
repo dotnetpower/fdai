@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 1ace54f59ede88027575d70a7da0cfb4b87be463
+translation_source_sha: b8742b3a55fdea0732452f1f502137f3020b0334
 translation_revised: 2026-08-26
 ---
 
@@ -292,7 +292,7 @@ translation_revised: 2026-08-26
 | Interface | 운영 카탈로그 로딩은 `Identifiable`, 출처 이력 및 모든 현재 ObjectType의 명시적 연결을 검증합니다. 런타임 조립은 이를 compile하고 exact release에 pin합니다. | 추가 기능 Interface와 운영 ObjectSet 조회 연결은 남아 있습니다. |
 | 관계 | 모든 directed LinkType은 엔드포인트, cardinality, causal, transitive 및 temporal 메타데이터와 함께 결정론적 `<name>.outgoing`/`<name>.incoming` 머신 조회 id를 변환 결과합니다. | 이 side를 사용하는 범용 계획 검증기와 플래너 연결은 남아 있습니다. |
 | 의미 세대 | 구체적인 service-owned atomic in-memory 인덱스와 off-path full/incremental 온톨로지 세대 발행기가 선언 및 조건을 충족한 deployment-local 객체를 독립적인 검증과 함께 다룹니다. | 영속 PostgreSQL 어댑터, scheduled 발행기 프로세스 및 운영 의미 서술자 선택자는 남아 있습니다. |
-| 현재 토폴로지 | Azure 변환 결과는 containment, attachment, dependency, peering 및 exact-resource routing 후보에 검토된 관계 mapping을 사용합니다. 완전한 세대 verifier는 두 엔드포인트, 독립 verifier 신원, 변경할 수 없는 receipt 및 정본 state-fact 메타데이터를 갖춘 링크만 허용합니다. | 워크로드 및 서비스 의존성 커버리지와 운영 network-path 발급자가 아직 불완전합니다. |
+| 현재 토폴로지 | Azure 변환 결과는 containment, attachment, dependency, peering 및 exact-resource routing 후보에 검토된 관계 mapping을 사용합니다. 완전한 세대 verifier는 두 엔드포인트, 독립 verifier 신원, 변경할 수 없는 receipt 및 정본 state-fact 메타데이터를 갖춘 링크만 허용합니다. Mapping은 받아들일 대상 유형을 선언하므로, 선언되지 않은 관리형 서비스 연결 대상은 프로바이더가 기록했더라도 링크를 생성하지 않습니다. | 워크로드 및 서비스 의존성 커버리지와 운영 network-path 발급자가 아직 불완전합니다. |
 | Historical 토폴로지 | Bitemporal 추가 전용 개정 번호 계약, 이행, retained 세대 참조, tombstone, `graph_at`, `topology_diff`, late-evidence 재생 및 타입이 지정된 조회 핸들러가 있습니다. | PostgreSQL 읽기 담당/쓰기 담당 조립과 inventory-promotion 발행은 남아 있습니다. |
 | 메트릭 및 causality | Exact metric-concept 레지스트리, 완전한/불완전한 구간, aligned 비교 및 topology-aware temporal support/refutation 핸들러가 있습니다. | 운영 프로바이더 연결과 검토된 메트릭 카탈로그 항목은 남아 있습니다. |
 

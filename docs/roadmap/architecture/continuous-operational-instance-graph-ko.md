@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 06897663cbe0f7d9c7f0d23b8186149e0ec906bb
+translation_source_sha: a7996c5b2eab89bcaf4f2208f78da1451cd46139
 translation_revised: 2026-08-26
 ---
 # 지속형 운영 인스턴스 그래프
@@ -58,6 +58,12 @@ translation_revised: 2026-08-26
    reconciliation을 실행합니다.
 4. inventory 원본이 제공할 수 없는 근거 유형이나 검증된 쿼리가 현재 그래프보다 최신인
    근거를 요구할 때만 정확한 실시간 조회를 실행합니다.
+
+수집된 속성은 검토된 프로바이더 mapping을 거쳐야만 관계가 됩니다. Mapping이 관측된 연결
+대상을 빠뜨리면 프로바이더가 기록한 경로가 있어도 그래프는 경로 없음을 보고하므로,
+없는 edge가 경로 부재를 입증하지 않습니다. 따라서 운영자가 도달할 수 있는 모든 관리형 서비스
+연결은, private cluster의 control plane endpoint와 agent pool이 참여하는 subnet을 포함해
+검토된 mapping 카탈로그에 대상 유형을 선언해야 합니다.
 
 지속형은 수집에 항상 durable한 다음 작업이 있음을 뜻합니다. 하나의 끝나지 않는 프로세스를
 요구하지 않습니다. 이벤트 소비자는 활성 상태를 유지할 수 있고, cursor 및 reconciliation

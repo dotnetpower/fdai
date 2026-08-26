@@ -56,6 +56,12 @@ The collector uses the cheapest authoritative signal that can preserve the requi
 4. Run exact live reads only for evidence families that the inventory source cannot provide or when
    a verified query needs fresher evidence than the graph currently carries.
 
+A collected property becomes a relationship only through a reviewed provider mapping. When a
+mapping omits an observed connection target, the graph reports no path even though the provider
+recorded one, so an absent edge never proves an absent path. Every managed-service connection that
+an operator can reach, including a private cluster control-plane endpoint and the subnet an agent
+pool joins, therefore needs its target type declared in the reviewed mapping catalog.
+
 Continuous means that collection always has a durable next action. It does not require one
 never-ending process. Event consumers can remain active while cursor and reconciliation workers run
 as safe-to-retry one-shot tasks that persist progress before yielding or scaling to zero.

@@ -181,7 +181,7 @@ def test_shipped_relationship_review_is_replay_identical_and_authority_free() ->
         "source_only_modeled": 56,
         "target_only_modeled": 213,
     }
-    assert shipped["reviewed_mapping_overlap_count"] == 7
+    assert shipped["reviewed_mapping_overlap_count"] == 8
     assert shipped["semantic_review_status"] == "review_required"
     assert shipped["automatic_promotion"] is False
     assert shipped["grants_authority"] is False

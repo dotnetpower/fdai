@@ -195,8 +195,13 @@ def test_job_loads_reviewed_kubernetes_relationship_mappings() -> None:
         mapping.mapping_id for mapping in catalog.mappings if mapping.provider == "kubernetes"
     } == {
         "kubernetes.agent-pool-contains-node",
+        "kubernetes.cluster-contains-ingress-class",
         "kubernetes.cluster-contains-namespace",
+        "kubernetes.endpoint-slice-exposed-by-service",
+        "kubernetes.ingress-attached-to-class",
+        "kubernetes.ingress-routes-to-service",
         "kubernetes.namespace-contains-resource",
+        "kubernetes.node-backed-by-vmss-vm",
         "kubernetes.pod-scheduled-on-node",
         "kubernetes.resource-owned-by-controller",
         "kubernetes.service-exposes-endpoints",

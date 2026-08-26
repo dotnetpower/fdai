@@ -19,6 +19,7 @@ from fdai_operator_service.families.operations.contracts import (
 )
 from fdai_operator_service.families.operations.instance_explorer import (
     _relationship_evidence_projection,
+    _resource_status,
     project_inventory_instance,
     project_inventory_instances,
 )
@@ -415,3 +416,12 @@ def test_relationship_evidence_freshness_boundaries_and_verification_level() -> 
     assert future["status"] == "stale"
     assert future["complete"] is False
     assert future["reason"] == "relationship_evidence_future_cutoff"
+
+
+def test_observed_kubernetes_state_is_reported_instead_of_absent_status() -> None:
+    assert _resource_status({"phase": "Running", "ready_status": "True"}) == "Running"
+    assert _resource_status({"ready_status": "True"}) == "Ready"
+    assert _resource_status({"ready_status": "False"}) == "NotReady"
+    assert _resource_status({"ready_status": "Unknown"}) == "Ready unknown"
+    assert _resource_status({"provisioningState": "Succeeded"}) == "Succeeded"
+    assert _resource_status({"name": "kube-system"}) is None
