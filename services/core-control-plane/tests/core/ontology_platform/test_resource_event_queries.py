@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -45,6 +46,23 @@ def _resource(name: str) -> OntologyObjectRecord:
             "id": f"resource-{name}",
             "name": name,
             "type": "container-app",
+        },
+    )
+
+
+def _kubernetes_resource(name: str) -> OntologyObjectRecord:
+    return OntologyObjectRecord(
+        id=f"resource-{name}",
+        object_type="Resource",
+        properties={
+            "id": f"resource-{name}",
+            "name": name,
+            "type": "kubernetes.pod",
+            "properties": {
+                "cluster_ref": "cluster-example",
+                "uid": "pod-uid-example",
+                "status": "Running",
+            },
         },
     )
 
@@ -111,6 +129,27 @@ class _Reader:
         lookback_seconds: int,
     ) -> ResourceEventCollection:
         self.calls.append((resource_ids, event_families, lookback_seconds))
+        return self.result
+
+
+class _IdentityReader(_Reader):
+    def __init__(self, result: ResourceEventCollection) -> None:
+        super().__init__(result)
+        self.identity: Mapping[str, Mapping[str, str]] | None = None
+
+    async def read_history_with_identity(
+        self,
+        *,
+        resource_ids: tuple[str, ...],
+        resource_identity: Mapping[str, Mapping[str, str]],
+        event_families: tuple[str, ...],
+        lookback_seconds: int,
+    ) -> ResourceEventCollection:
+        self.identity = resource_identity
+        with pytest.raises(TypeError):
+            resource_identity[resource_ids[0]]["uid"] = "changed"  # type: ignore[index]
+        with pytest.raises(TypeError):
+            resource_identity["other"] = {}  # type: ignore[index]
         return self.result
 
 
@@ -260,3 +299,17 @@ async def test_event_function_rejects_provider_scope_widening() -> None:
 
     with pytest.raises(ValueError, match="changed the secured resource scope"):
         await _invoke(reader, _query_result((_resource("service-a"),)))
+
+
+async def test_event_function_passes_only_immutable_secured_identity_fields() -> None:
+    resource = _kubernetes_resource("pod-a")
+    reader = _IdentityReader(_collection(("resource-pod-a",)))
+
+    await _invoke(reader, _query_result((resource,)))
+
+    assert reader.identity == {
+        "resource-pod-a": {
+            "cluster_ref": "cluster-example",
+            "uid": "pod-uid-example",
+        }
+    }

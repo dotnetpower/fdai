@@ -8,6 +8,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any, Protocol, cast
 
 from fdai.core.ontology_platform.functions import (
@@ -108,6 +109,19 @@ class ResourceEventCollectionReader(Protocol):
     ) -> ResourceEventCollection: ...
 
 
+class ResourceEventIdentityReader(Protocol):
+    """Narrow a history read with receipt-bound immutable identity hints."""
+
+    async def read_history_with_identity(
+        self,
+        *,
+        resource_ids: tuple[str, ...],
+        resource_identity: Mapping[str, Mapping[str, str]],
+        event_families: tuple[str, ...],
+        lookback_seconds: int,
+    ) -> ResourceEventCollection: ...
+
+
 def resource_event_function_type() -> OntologyFunctionType:
     """Declare bounded Resource Health history over a secured collection."""
 
@@ -190,11 +204,20 @@ def resource_event_history_function(
         event_families = tuple(str(item) for item in arguments["event_families"])
         lookback_seconds = int(arguments["lookback_seconds"])
         resource_ids = tuple(item.id for item in objects)
-        collection = await reader.read_history(
-            resource_ids=resource_ids,
-            event_families=event_families,
-            lookback_seconds=lookback_seconds,
-        )
+        identity_read = getattr(reader, "read_history_with_identity", None)
+        if callable(identity_read):
+            collection = await identity_read(
+                resource_ids=resource_ids,
+                resource_identity=_resource_identity(objects),
+                event_families=event_families,
+                lookback_seconds=lookback_seconds,
+            )
+        else:
+            collection = await reader.read_history(
+                resource_ids=resource_ids,
+                event_families=event_families,
+                lookback_seconds=lookback_seconds,
+            )
         if collection.resource_ids != resource_ids:
             raise ValueError("Resource event reader changed the secured resource scope")
         by_id = {item.id: item for item in objects}
@@ -228,6 +251,24 @@ def _text(value: object) -> str | None:
     return value.strip() if isinstance(value, str) and value.strip() else None
 
 
+def _resource_identity(
+    objects: tuple[Any, ...],
+) -> Mapping[str, Mapping[str, str]]:
+    identity: dict[str, Mapping[str, str]] = {}
+    for item in objects:
+        provider_properties = item.properties.get("properties")
+        if not isinstance(provider_properties, Mapping):
+            continue
+        fields = {
+            name: value.strip()
+            for name in ("cluster_ref", "uid")
+            if isinstance((value := provider_properties.get(name)), str) and value.strip()
+        }
+        if fields:
+            identity[item.id] = MappingProxyType(fields)
+    return MappingProxyType(identity)
+
+
 def _table(
     rows: tuple[QueryRow, ...],
     *,
@@ -245,6 +286,7 @@ __all__ = [
     "RESOURCE_EVENT_MEASURE_CONCEPTS",
     "ResourceEventCollection",
     "ResourceEventCollectionReader",
+    "ResourceEventIdentityReader",
     "ResourceEventObservation",
     "resource_event_function_type",
     "resource_event_history_function",

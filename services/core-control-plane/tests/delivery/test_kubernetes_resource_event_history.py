@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from datetime import UTC, datetime
 
 import httpx
@@ -11,6 +12,7 @@ from fdai.delivery.kubernetes_resource_event_history import (
     KubernetesResourceEventHistoryConfig,
     KubernetesResourceEventHistoryReader,
 )
+from fdai.delivery.resource_event_history import CompositeResourceEventHistoryReader
 
 NOW = datetime(2026, 8, 26, 13, 5, tzinfo=UTC)
 CLUSTER_REF = (
@@ -79,6 +81,15 @@ def _event(*, uid: str = "event-uid-a", pod_uid: str = "pod-uid-a") -> dict[str,
     }
 
 
+def _resource_identity(resource_id: str, *, uid: str) -> dict[str, Mapping[str, str]]:
+    return {
+        resource_id: {
+            "cluster_ref": CLUSTER_REF,
+            "uid": uid,
+        }
+    }
+
+
 async def test_deleted_pod_event_is_bound_to_the_selected_cluster() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.path == "/api/v1/events"
@@ -111,7 +122,7 @@ async def test_deleted_pod_event_is_bound_to_the_selected_cluster() -> None:
     assert event.evidence_ref.startswith("kubernetes-resource-event:")
 
 
-async def test_exact_pod_without_cluster_scope_stops_before_provider_io() -> None:
+async def test_exact_pod_without_identity_properties_stops_before_provider_io() -> None:
     called = False
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -137,6 +148,101 @@ async def test_exact_pod_without_cluster_scope_stops_before_provider_io() -> Non
     assert result.complete is False
     assert result.events == ()
     assert result.limitation == "source_scope_incomplete"
+
+
+async def test_exact_pod_uses_uid_field_selector() -> None:
+    selected_id = kubernetes_resource_id(
+        cluster_ref=CLUSTER_REF,
+        resource_type="kubernetes.pod",
+        uid="pod-uid-a",
+        namespace="example-namespace",
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.params["fieldSelector"] == "involvedObject.uid=pod-uid-a"
+        return _json_response({"metadata": {"continue": ""}, "items": [_event()]})
+
+    reader = _reader(httpx.MockTransport(handler))
+    result = await reader.read_history_with_identity(
+        resource_ids=(selected_id,),
+        resource_identity=_resource_identity(selected_id, uid="pod-uid-a"),
+        event_families=("resource_event.kubernetes",),
+        lookback_seconds=3600,
+    )
+
+    assert result.complete is False
+    assert result.limitation == "source_retention_unverified"
+    assert len(result.events) == 1
+    assert result.events[0].resource_id == selected_id
+
+
+async def test_composite_propagates_exact_pod_uid_field_selector() -> None:
+    selected_id = kubernetes_resource_id(
+        cluster_ref=CLUSTER_REF,
+        resource_type="kubernetes.pod",
+        uid="pod-uid-a",
+        namespace="example-namespace",
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.params["fieldSelector"] == "involvedObject.uid=pod-uid-a"
+        return _json_response({"metadata": {"continue": ""}, "items": [_event()]})
+
+    reader = CompositeResourceEventHistoryReader(
+        readers={"resource_event.kubernetes": _reader(httpx.MockTransport(handler))},
+        now=lambda: NOW,
+    )
+    result = await reader.read_history_with_identity(
+        resource_ids=(selected_id,),
+        resource_identity=_resource_identity(selected_id, uid="pod-uid-a"),
+        event_families=("resource_event.kubernetes",),
+        lookback_seconds=3600,
+    )
+
+    assert result.complete is False
+    assert result.limitation == "source_retention_unverified"
+    assert len(result.events) == 1
+    assert result.events[0].resource_id == selected_id
+
+
+async def test_exact_pod_rejects_mismatched_identity_properties_before_provider_io() -> None:
+    selected_id = kubernetes_resource_id(
+        cluster_ref=CLUSTER_REF,
+        resource_type="kubernetes.pod",
+        uid="pod-uid-a",
+        namespace="example-namespace",
+    )
+    called = False
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal called
+        called = True
+        return _json_response({"metadata": {"continue": ""}, "items": [_event()]})
+
+    reader = _reader(httpx.MockTransport(handler))
+    wrong_uid = await reader.read_history_with_identity(
+        resource_ids=(selected_id,),
+        resource_identity=_resource_identity(selected_id, uid="different-uid"),
+        event_families=("resource_event.kubernetes",),
+        lookback_seconds=3600,
+    )
+    wrong_cluster = await reader.read_history_with_identity(
+        resource_ids=(selected_id,),
+        resource_identity={
+            selected_id: {
+                "cluster_ref": "scope-example/other-cluster",
+                "uid": "pod-uid-a",
+            }
+        },
+        event_families=("resource_event.kubernetes",),
+        lookback_seconds=3600,
+    )
+
+    assert called is False
+    for result in (wrong_uid, wrong_cluster):
+        assert result.complete is False
+        assert result.events == ()
+        assert result.limitation == "source_scope_incomplete"
 
 
 async def test_event_uid_maps_to_the_exact_current_pod() -> None:

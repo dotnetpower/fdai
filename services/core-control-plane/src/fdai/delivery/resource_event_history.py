@@ -6,12 +6,13 @@ import asyncio
 import hashlib
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
-from typing import Final
+from typing import Final, cast
 
 from fdai.core.ontology_platform.resource_event_queries import (
     RESOURCE_EVENT_MEASURE_CONCEPTS,
     ResourceEventCollection,
     ResourceEventCollectionReader,
+    ResourceEventIdentityReader,
     ResourceEventObservation,
 )
 
@@ -42,6 +43,39 @@ class CompositeResourceEventHistoryReader:
     ) -> ResourceEventCollection:
         """Read each requested family and return one ordered bounded collection."""
 
+        return await self._read_history(
+            resource_ids=resource_ids,
+            resource_identity=None,
+            event_families=event_families,
+            lookback_seconds=lookback_seconds,
+        )
+
+    async def read_history_with_identity(
+        self,
+        *,
+        resource_ids: tuple[str, ...],
+        resource_identity: Mapping[str, Mapping[str, str]],
+        event_families: tuple[str, ...],
+        lookback_seconds: int,
+    ) -> ResourceEventCollection:
+        """Read families with immutable identity hints where the adapter supports them."""
+
+        return await self._read_history(
+            resource_ids=resource_ids,
+            resource_identity=resource_identity,
+            event_families=event_families,
+            lookback_seconds=lookback_seconds,
+        )
+
+    async def _read_history(
+        self,
+        *,
+        resource_ids: tuple[str, ...],
+        resource_identity: Mapping[str, Mapping[str, str]] | None,
+        event_families: tuple[str, ...],
+        lookback_seconds: int,
+    ) -> ResourceEventCollection:
+
         requested_families = tuple(sorted(set(event_families)))
         if (
             not requested_families
@@ -57,6 +91,13 @@ class CompositeResourceEventHistoryReader:
             reader = self._readers.get(family)
             if reader is None:
                 return None
+            if resource_identity is not None and hasattr(reader, "read_history_with_identity"):
+                return await cast(ResourceEventIdentityReader, reader).read_history_with_identity(
+                    resource_ids=resource_ids,
+                    resource_identity=resource_identity,
+                    event_families=(family,),
+                    lookback_seconds=lookback_seconds,
+                )
             return await reader.read_history(
                 resource_ids=resource_ids,
                 event_families=(family,),

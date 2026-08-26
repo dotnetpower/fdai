@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 8aebcd0d9462650752bd02cc611ff770c821679b
+translation_source_sha: 78e97b9f4e916c7f9bc81c954f461bbca9426dcd
 translation_revised: 2026-08-27
 ---
 # 지속형 운영 인스턴스 그래프
@@ -162,6 +162,7 @@ Hot 그래프는 archive index와 범위 요약을 유지하여 쿼리가 archiv
 
 ## 그래프 우선 조회와 실시간 보강
 
+
 검증된 쿼리 계획은 근거 요구 사항과 최신성 예산을 포함합니다. 결정론적 refresh 정책은 그래프
 근거를 다음 결과 중 하나로 축소합니다.
 
@@ -218,7 +219,7 @@ binding을
 | Push 이벤트와 durable delta overlay | implemented | `delivery/azure/activity_log.py`, 실시간 inventory projector와 집중 테스트 | 리소스 변경은 범위가 제한된 overlay를 업데이트할 수 있습니다. 배포 근거는 별도입니다. |
 | 완전한 inventory promotion과 ontology 변환 결과 | implemented | `delivery/inventory_sync.py`, `runtime/inventory_ontology.py`, 집중 inventory 및 변환 결과 테스트 | 완전 세대가 소유된 하위 그래프를 원자적으로 대체합니다. 기존 정기 cadence는 목표 지속형 정책이 아닙니다. |
 | 관계 세대 수렴 | implemented | `arm_inventory.py`, `postgres_inventory_snapshot.py`, `inventory_projection.py`, `inventory_ontology.py`, PostgreSQL source coverage, Operator/Console evidence projection, 집중 회귀 검사 | 검토된 parent가 일반 fallback을 shadow하고 snapshot과 ontology cardinality gate가 일치합니다. 분류된 non-edge는 complete coverage를 주장하지 않고 exact generation을 전진시키며 graph receipt는 generation, freshness, verification level, zero-result limitation을 보존합니다. |
-| Kubernetes 워크로드 관측 | implemented | `kubernetes_api_inventory.py`, Kubernetes 이벤트 읽기 경로, rollout 및 Pod 복구 FunctionType, 집중 인벤토리, 이벤트, 메트릭, 축약기, 플래너, 증적, 조립 및 런타임 검사, 인증된 대상 없는 Console 증적 | UID에 근거한 세대는 허용 목록에 있는 rollout 상태를 보존하고 `query.resource_event_history`는 정확한 클러스터가 secured scope에 명시됐을 때만 범위가 제한된 실제 이벤트를 읽습니다. 삭제된 객체 이벤트는 그 선택한 클러스터에만 귀속하며, child-only hashed identity는 안전한 Kubernetes field selector를 만들 수 없으므로 provider I/O 전에 중단합니다. 혼합 범위는 적용할 수 있는 클러스터 이벤트를 `source_scope_incomplete`와 함께 보존합니다. 인코딩하지 않은 raw 응답은 JSON 구체화 전에 256 KiB로 제한하고 provider 항목은 최대 256개만 정규화합니다. 권위 있는 보존 출처가 생길 때까지 모든 Kubernetes Event API 결과는 `source_retention_unverified`를 보존하며, 일부만 읽었거나 미래 시각이거나 잘못됐거나 상한에 도달한 읽기도 불완전하게 유지합니다. 원시 이미지 이름, 메시지, 프로바이더 페이로드는 제외합니다. Rollout 및 복구 축약기는 정확한 소유권과 재시작 변화량 근거를 요구하고 원인 및 실행 권한을 false로 유지하며 source-incomplete 행 0개를 부재로 취급하지 않습니다. 영속 Event 보존과 정확한 대상 실제 운영 근거는 열린 상태입니다. |
+| Kubernetes 워크로드 관측 | implemented | `kubernetes_api_inventory.py`, Kubernetes 이벤트 읽기 경로, rollout 및 Pod 복구 FunctionType, 집중 인벤토리, 이벤트, 메트릭, 축약기, 플래너, 증적, 조립 및 런타임 검사, 인증된 대상 없는 Console 증적 | UID에 근거한 세대는 허용 목록에 있는 rollout 상태를 보존합니다. `query.resource_event_history`는 secured ObjectSet 증적에 보존된 불변 `uid`와 `cluster_ref`로 정확한 child 하나를 좁힐 수 있습니다. Core는 이 두 field만 분리된 상태로 전달하고 adapter는 provider I/O 전에 canonical Resource id를 다시 계산합니다. 누락, redaction, malformed 또는 불일치 identity는 인증 전에 중단합니다. 삭제된 객체와 범위가 제한된 클러스터 이력에는 명시적인 정확한 클러스터 읽기를 계속 사용합니다. 혼합 범위는 적용할 수 있는 클러스터 이벤트를 `source_scope_incomplete`와 함께 보존합니다. 인코딩하지 않은 raw 응답은 JSON 구체화 전에 256 KiB로 제한하고 provider 항목은 최대 256개만 정규화합니다. 권위 있는 보존 출처가 생길 때까지 모든 Kubernetes Event API 결과는 `source_retention_unverified`를 보존하며, 일부만 읽었거나 미래 시각이거나 잘못됐거나 상한에 도달한 읽기도 불완전하게 유지합니다. 원시 이미지 이름, 메시지, 프로바이더 페이로드는 제외합니다. Rollout 및 복구 축약기는 정확한 소유권과 재시작 변화량 근거를 요구하고 원인 및 실행 권한을 false로 유지하며 source-incomplete 행 0개를 부재로 취급하지 않습니다. 영속 Event 보존과 정확한 대상 실제 운영 근거는 열린 상태입니다. |
 | Bitemporal topology 이력 | implemented | `core/ontology_platform/topology_history.py`, PostgreSQL topology 이력 adapter와 집중 테스트 | 현재 production 보존, rollup, archive, 복원 근거는 열려 있습니다. |
 | 적응형 지속 일정 관리 | implemented | `inventory_source_policy.py`, `inventory_scheduler.py`, PostgreSQL reconciliation 상태, collection health, focused collection 검사 | Source policy와 결정론적 scheduling이 구현됐습니다. 배포 운영 측정은 별도의 validation evidence로 남습니다. |
 | 타입 지정 rollup과 archive lifecycle | implemented | `semantic_rollup*.py`, `archive_*.py`, `inventory_rollup.py`, PostgreSQL archive adapter, Core service migration, focused integration 검사 | Rollup과 archive 계약은 구현되고 로컬에서 검증됐습니다. Azure archive store 또는 배포 purge는 호출하지 않았습니다. |
@@ -234,6 +235,7 @@ binding을
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-27 | implemented | 기존 reader seam을 넓히지 않고 증적에 결속된 정확한 child Kubernetes Event 필터를 추가했습니다. Core는 identity-aware reader에만 불변 two-field identity snapshot을 전달하고, 복합 reader는 legacy reader를 보존하며, Kubernetes adapter는 정확한 cluster 및 canonical Resource-id 재계산 뒤에만 UID selector를 허용합니다. | `current change`, Resource 이벤트 FunctionType, 복합 및 Kubernetes reader, legacy compatibility, immutable identity, selector 전달, 위조 UID/cluster 회귀 검사 27개 통과, Ruff, formatter, strict mypy 통과 | 인증된 정확한 child Console 근거를 보존합니다. 행 0개가 과거 부재를 증명하려면 영속 보존이 여전히 필요합니다. |
 | 2026-08-26 | implemented | 기존 Resource 이벤트 이력 FunctionType에 범위가 제한된 Kubernetes Event 기능군을 추가했습니다. 프로바이더 라우팅은 Azure Resource Health를 독립적으로 보존하고, Kubernetes 이벤트는 불변 UID를 사용해 정확히 선택한 Resource에 귀속하거나 관련 객체가 이미 사라졌을 때 정확히 선택한 클러스터에 귀속합니다. 어댑터는 정규화한 종류, 상태, 분류, 발생 시각, 내용 기반 근거 신원만 보존합니다. | `current change`, Kubernetes 및 복합 이벤트 읽기 경로, 런타임 연결, 공유 UID 신원 helper, 집중 어댑터, 라우터, FunctionType, 의미 계획, 조립 및 런타임 검사, exact typed duration 정렬, 혼합 범위 보존, 인코딩 응답 거부, raw 256 KiB 상한을 검사했습니다. 인증된 정확한 클러스터 Console 실행에서 서버 소유 ObjectSet 및 `query.resource_event_history` 계획을 사용해 6.8초에 노드 2/2와 근거 검사 8/8을 실행 권한 없이 완료했습니다. 관측된 0건은 Kubernetes Event 보존이 권위 있게 확인되지 않았으므로 과거 부재가 아니며, 강화한 어댑터는 `source_retention_unverified`를 보고합니다. | 프로바이더 TTL 만료 전 이벤트를 과거 커버리지로 취급하려면 영속 이벤트 보존을 추가합니다. Pod 원인 또는 복구를 주장하기 전에 보존된 이벤트, 변경, replica, 교체 UID, 영향 범위, 새 기준 시점 근거를 결합합니다. |
 | 2026-08-25 | implemented | 발급된 정확한 Pod S1 평가에 검토된 30분 재시작 횟수 변화량과 정확한 ReplicaSet 및 Deployment로 향하는 명시적인 나가는 소유권 단계 두 개를 추가했습니다. 서버 소유 5-node 계획은 보안이 적용된 그래프 증적 세 개를 모두 인증하고 소유권 link 근거를 검증하며, 범위가 제한된 양수 변화량과 ready 및 available 상태인 소유자 replica 전체를 복구 보고의 조건으로 사용합니다. 불완전하거나 모호하거나 오래되거나 충돌하는 근거는 판단을 보류하며, dependency-only 입력은 모델이 작성한 대체 값을 거부합니다. 현재 상태와 메트릭 모두 원인 또는 실행 권한을 주장하지 않습니다. | `current change`, 집중 메트릭, 검증기, 축약기, 증적, 플래너, 운영 조립 검사 49개 통과, 의미 라우팅 회귀 검사 370개 통과, Ruff, formatter, strict mypy 통과 | 정확한 Pod가 포함된 완전한 Kubernetes 세대를 보존한 뒤 원인 또는 교체 후 복구를 주장하기 전에 독립적인 Kubernetes 이벤트, 변경, 교체 UID, 영향 범위, 새 기준 시점 근거를 추가합니다. |
 | 2026-08-25 | implemented | 행이 0개이고 원본이 불완전한 Resource ObjectSet을 일반 기능 실패 대신 완료된 타입 기반 조회 결과로 보존했습니다. 이제 대상 없는 S12 질문은 불완전한 범위를 부재로 취급하지 않고 검증된 후보 0개, `source_incomplete`, 완료된 검증, 실행 권한 없음을 반환합니다. | `current change`, `query_source_handlers.py`, 집중 rollout 및 불완전 원본 검사 19개 통과, 인증된 표준 포트 Console 턴에서 관측 이벤트 4개와 근거 검사 5/5 완료 | 정확한 Deployment 하나가 포함된 완전한 Kubernetes 세대를 보존한 뒤 4-node rollout 평가와 독립적인 새 기준 시점 복구 검증을 실행합니다. |

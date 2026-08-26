@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import ssl
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -112,6 +113,39 @@ class KubernetesResourceEventHistoryReader:
     ) -> ResourceEventCollection:
         """Return chronological normalized Events or an explicit limitation."""
 
+        return await self._read_history(
+            resource_ids=resource_ids,
+            resource_identity=None,
+            event_families=event_families,
+            lookback_seconds=lookback_seconds,
+        )
+
+    async def read_history_with_identity(
+        self,
+        *,
+        resource_ids: tuple[str, ...],
+        resource_identity: Mapping[str, Mapping[str, str]],
+        event_families: tuple[str, ...],
+        lookback_seconds: int,
+    ) -> ResourceEventCollection:
+        """Narrow one exact child read with receipt-bound Kubernetes identity."""
+
+        return await self._read_history(
+            resource_ids=resource_ids,
+            resource_identity=resource_identity,
+            event_families=event_families,
+            lookback_seconds=lookback_seconds,
+        )
+
+    async def _read_history(
+        self,
+        *,
+        resource_ids: tuple[str, ...],
+        resource_identity: Mapping[str, Mapping[str, str]] | None,
+        event_families: tuple[str, ...],
+        lookback_seconds: int,
+    ) -> ResourceEventCollection:
+
         if event_families != (KUBERNETES_EVENT_FAMILY,):
             raise ValueError("Kubernetes event reader received an unsupported family")
         if not 60 <= lookback_seconds <= 86_400:
@@ -129,7 +163,14 @@ class KubernetesResourceEventHistoryReader:
         observed_at = self._now()
         if observed_at.tzinfo is None:
             raise ValueError("Kubernetes event reader clock MUST be timezone-aware")
+        exact_uid = None
         if self._config.cluster_ref not in applicable:
+            exact_uid = _exact_child_uid(
+                applicable,
+                resource_identity=resource_identity,
+                cluster_ref=self._config.cluster_ref,
+            )
+        if self._config.cluster_ref not in applicable and exact_uid is None:
             return self._result(
                 requested,
                 observed_at=observed_at,
@@ -141,11 +182,14 @@ class KubernetesResourceEventHistoryReader:
             headers = await self._auth.headers()
             request_headers = dict(headers)
             request_headers["Accept-Encoding"] = "identity"
+            params = {"limit": str(_MAX_EVENTS + 1)}
+            if exact_uid is not None:
+                params["fieldSelector"] = f"involvedObject.uid={exact_uid}"
             async with self._client() as client:
                 async with client.stream(
                     "GET",
                     f"{self._config.api_server.rstrip('/')}/api/v1/events",
-                    params={"limit": str(_MAX_EVENTS + 1)},
+                    params=params,
                     headers=request_headers,
                     timeout=self._config.timeout_seconds,
                 ) as response:
@@ -366,6 +410,43 @@ def _event(
             ),
         ),
     )
+
+
+def _exact_child_uid(
+    applicable: tuple[str, ...],
+    *,
+    resource_identity: Mapping[str, Mapping[str, str]] | None,
+    cluster_ref: str,
+) -> str | None:
+    if len(applicable) != 1 or resource_identity is None:
+        return None
+    resource_id = applicable[0]
+    identity = resource_identity.get(resource_id)
+    if not isinstance(identity, Mapping):
+        return None
+    uid = identity.get("uid")
+    observed_cluster = identity.get("cluster_ref")
+    if (
+        not isinstance(uid, str)
+        or re.fullmatch(r"[A-Za-z0-9._-]{1,512}", uid) is None
+        or observed_cluster != cluster_ref
+    ):
+        return None
+    prefix = f"{cluster_ref}/kubernetes/"
+    if not resource_id.startswith(prefix):
+        return None
+    identity_parts = resource_id.removeprefix(prefix).split("/")
+    if len(identity_parts) != 3:
+        return None
+    resource_type, namespace_key, _digest = identity_parts
+    namespace = None if namespace_key == "_cluster" else namespace_key
+    expected = kubernetes_resource_id(
+        cluster_ref=cluster_ref,
+        resource_type=resource_type,
+        uid=uid,
+        namespace=namespace,
+    )
+    return uid if expected == resource_id else None
 
 
 def _event_time(item: Mapping[str, Any], *, metadata: Mapping[str, Any]) -> datetime | None:
