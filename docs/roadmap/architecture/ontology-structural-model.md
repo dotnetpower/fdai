@@ -209,10 +209,17 @@ choice does not remove links, change relationship counts, or narrow the Inspecto
 
 The default instance presentation omits `authorization.role-assignment` Resources from selection,
 the graph, relationship inspection, and conversational screen context. IAM projections retain the
-underlying evidence. A Resource Group remains selectable as a bounded scope overview. For any
+underlying evidence. The instance directory applies this omission before it applies its bound, so
+the bounded page counts only Resources an operator can select. A Resource Group remains selectable
+as a bounded scope overview. For any
 non-scope root, the graph shows only that root's immediate owning Resource Group and does not add
 Resource Groups that belong only to indirect peers or branch nodes. Scope membership never proves
 traffic or dependency.
+
+The directory bound is a presentation limit, never a completeness claim. When the active generation
+holds more Resources than the bound, the surface states the bound as its own notice and directs the
+operator to narrow the search. Search runs against the authoritative directory rather than the
+already-bounded page, so a Resource beyond the bound stays reachable.
 
 A Resource type icon is presentation only. It never carries object identity, type authority, or
 evidence. An unmapped type resolves to an explicit generic glyph instead of a lookalike, and a

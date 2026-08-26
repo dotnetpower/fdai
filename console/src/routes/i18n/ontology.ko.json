@@ -62,7 +62,7 @@
     "chooseResource": "관측된 Resource 선택",
     "unnamedResource": "이름 없는 Resource",
     "resultBound": "활성 프로젝션에 표시 가능한 Resource {count}개",
-    "resultBoundTruncated": "활성 프로젝션의 첫 Resource {count}개",
+    "resultBoundTruncated": "이 목록은 활성 세대의 첫 Resource {count}개로 제한됩니다. 목록에 없는 Resource를 찾으려면 검색어를 좁히세요.",
     "noSearchResults": "활성 세대에서 이 검색과 일치하는 Resource가 없습니다.",
     "emptyTitle": "Resource 인스턴스를 선택하세요",
     "emptyDescription": "선택한 Resource와 범위가 제한된 multi-hop 인접 관계를 워크스페이스에 표시합니다.",

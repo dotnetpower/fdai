@@ -34,6 +34,8 @@ interface Props {
   readonly client: OperatorApiClient;
 }
 
+const ONTOLOGY_INSTANCE_SEARCH_DEBOUNCE_MS = 250;
+
 type DetailState = AsyncState<OntologyInstanceExploration> | { readonly status: "idle" };
 
 export function OntologyInstancesView({ client }: Props) {
@@ -41,7 +43,7 @@ export function OntologyInstancesView({ client }: Props) {
   const [searchDraft, setSearchDraft] = useState("");
   const [search, setSearch] = useState("");
   const [autocompleteOpen, setAutocompleteOpen] = useState(false);
-  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0);
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState<number | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(
     () => currentRoute().search.get("instance"),
   );
@@ -79,6 +81,17 @@ export function OntologyInstancesView({ client }: Props) {
       window.removeEventListener("fdai:route-changed", sync);
     };
   }, []);
+
+  // The directory is server-bounded, so an unsearched page hides most Resources.
+  useEffect(() => {
+    const draft = searchDraft.trim();
+    if (draft === search) return;
+    const timer = window.setTimeout(
+      () => setSearch(draft),
+      ONTOLOGY_INSTANCE_SEARCH_DEBOUNCE_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [searchDraft, search]);
 
   useEffect(() => {
     if (selectedId === null) {
@@ -134,7 +147,7 @@ export function OntologyInstancesView({ client }: Props) {
   const updateSearchDraft = (value: string): void => {
     setSearchDraft(value);
     setAutocompleteOpen(true);
-    setActiveSuggestionIndex(0);
+    setActiveSuggestionIndex(null);
     const resourceId = resolveOntologyInstanceAutocomplete(autocompleteOptions, value);
     if (resourceId !== null && resourceId !== selectedId) selectResource(resourceId);
   };
@@ -189,7 +202,7 @@ export function OntologyInstancesView({ client }: Props) {
                       aria-autocomplete="list"
                       aria-controls="ontology-instance-search-options"
                       aria-expanded={autocompleteVisible}
-                      aria-activedescendant={autocompleteVisible
+                      aria-activedescendant={autocompleteVisible && activeSuggestionIndex !== null
                         ? `ontology-instance-search-option-${activeSuggestionIndex}`
                         : undefined}
                       type="search"
@@ -207,11 +220,13 @@ export function OntologyInstancesView({ client }: Props) {
                         if (event.key === "ArrowDown") {
                           event.preventDefault();
                           setActiveSuggestionIndex((current) =>
-                            Math.min(current + 1, autocompleteSuggestions.length - 1));
+                            Math.min((current ?? -1) + 1, autocompleteSuggestions.length - 1));
                         } else if (event.key === "ArrowUp") {
                           event.preventDefault();
-                          setActiveSuggestionIndex((current) => Math.max(current - 1, 0));
-                        } else if (event.key === "Enter") {
+                          setActiveSuggestionIndex((current) =>
+                            current === null || current <= 0 ? null : current - 1);
+                        } else if (event.key === "Enter" && activeSuggestionIndex !== null) {
+                          // Enter without an actively highlighted option must still run the search.
                           event.preventDefault();
                           chooseAutocompleteOption(autocompleteSuggestions[activeSuggestionIndex]!);
                         }
@@ -266,11 +281,19 @@ export function OntologyInstancesView({ client }: Props) {
               </label>
               <div class="ontology-instance-toolbar-status">
                 <strong>{t("ontology.instances.readOnly")}</strong>
-                <span>{directory.status === "ready" && !directory.data.complete
-                  ? t("ontology.instances.resultBoundTruncated", { count: formatNumber(options.length) })
-                  : t("ontology.instances.resultBound", { count: formatNumber(options.length) })}</span>
+                <span>{t("ontology.instances.resultBound", {
+                  count: formatNumber(options.length),
+                })}
+                </span>
               </div>
             </form>
+            {directory.status === "ready" && !directory.data.complete ? (
+              <p class="ontology-instance-bound-notice" role="note">
+                {t("ontology.instances.resultBoundTruncated", {
+                  count: formatNumber(options.length),
+                })}
+              </p>
+            ) : null}
             {directory.status === "ready" && options.length === 0 ? (
               <UnavailableState message={t("ontology.instances.noSearchResults")} />
             ) : null}

@@ -55,6 +55,8 @@ _CONTEXT_SELECTION_PREFIX: Final = "context-selection:evaluation:"
 _LOGGER = logging.getLogger(__name__)
 _MAX_INSTANCE_NEIGHBORHOOD_DEPTH: Final = 8
 _MAX_INSTANCE_NEIGHBORHOOD_LINKS: Final = 1_600
+# Bounding before this exclusion spends the directory page on Resources the console hides.
+UNSELECTABLE_INSTANCE_DIRECTORY_TYPES: Final = ("authorization.role-assignment",)
 _BACKGROUND_TASK_STATUSES: Final = frozenset(
     {"queued", "claimed", "running", "succeeded", "failed", "cancelled", "timed_out", "unknown"}
 )
@@ -840,6 +842,7 @@ class PostgresFamilyStore:
             "SELECT resource_id, resource_type, props, last_seen "
             "FROM inventory_snapshot_resource "
             "WHERE snapshot_id = %(snapshot_id)s "
+            "AND resource_type <> ALL(%(unselectable_types)s) "
             "AND (%(pattern)s::text IS NULL "
             "OR COALESCE(props ->> 'name', '') ILIKE %(pattern)s ESCAPE '\\' "
             "OR resource_type ILIKE %(pattern)s ESCAPE '\\' "
@@ -850,6 +853,7 @@ class PostgresFamilyStore:
                 "snapshot_id": snapshot_id,
                 "pattern": pattern,
                 "probe": limit + 1,
+                "unselectable_types": list(UNSELECTABLE_INSTANCE_DIRECTORY_TYPES),
             },
         )
         return InventoryInstanceResourcePage(

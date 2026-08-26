@@ -32,6 +32,7 @@
 .ontology-instance-search .btn { min-height: 38px; }
 .ontology-instance-toolbar-status { display: grid; gap: 2px; color: var(--fg-muted); font-size: var(--cs-type-caption-size); text-align: right; white-space: nowrap; }
 .ontology-instance-toolbar-status strong { color: var(--fg); }
+.ontology-instance-bound-notice { margin: 0; padding: 8px 12px; border: 1px solid var(--warning, var(--border)); border-radius: var(--cs-radius-sm); background: var(--bg-elevated); color: var(--fg-muted); font-size: var(--cs-type-caption-size); line-height: 1.5; }
 .ontology-instance-empty { min-height: min(360px, 44vh); display: grid; place-content: center; gap: 5px; text-align: center; }
 .ontology-instance-empty p { max-width: 56ch; margin: 0; color: var(--fg-muted); }
 .ontology-instance-workbench { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 360px); min-width: 0; overflow: hidden; border: 1px solid var(--border); border-radius: var(--cs-radius); background: var(--bg-elevated); }

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import replace
 from typing import Protocol
 
@@ -19,6 +20,9 @@ from fdai.rule_catalog.schema.provider_relationship_mapping import (
 )
 
 KUBERNETES_INVENTORY_SOURCE_NAME = "kubernetes_runtime_inventory"
+
+_LOGGER = logging.getLogger(__name__)
+_KUBERNETES_CLUSTER_TYPE = "kubernetes-cluster"
 
 
 class KubernetesRuntimeInventorySource(Protocol):
@@ -52,6 +56,18 @@ class UnavailableKubernetesInventoryEnricher:
         self,
         observation: PromotedInventoryObservation,
     ) -> PromotedInventoryObservation:
+        clusters = sum(
+            1 for resource in observation.resources if resource.type == _KUBERNETES_CLUSTER_TYPE
+        )
+        if clusters:
+            # Silent degradation here reads as an empty cluster rather than a missing source.
+            _LOGGER.warning(
+                "kubernetes_runtime_source_unconfigured_for_observed_clusters",
+                extra={
+                    "generation": observation.generation,
+                    "observed_cluster_count": clusters,
+                },
+            )
         return _unavailable(observation, reason="kubernetes_source_unconfigured")
 
 

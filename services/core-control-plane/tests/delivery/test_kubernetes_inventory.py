@@ -2,15 +2,21 @@
 
 from __future__ import annotations
 
+import logging
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
+import pytest
 from fdai.delivery.inventory_sync import (
     InventoryProjectionSourceStatus,
     PromotedInventoryObservation,
 )
 from fdai.delivery.kubernetes_api_inventory import KubernetesApiInventorySnapshot
-from fdai.delivery.kubernetes_inventory import KubernetesInventoryEnricher
+from fdai.delivery.kubernetes_inventory import (
+    KubernetesInventoryEnricher,
+    UnavailableKubernetesInventoryEnricher,
+)
 from fdai.rule_catalog.schema.provider_relationship_mapping import (
     load_provider_relationship_mapping_catalog,
 )
@@ -138,3 +144,36 @@ async def test_cluster_identity_mismatch_preserves_provider_generation() -> None
     assert result.links == original.links
     assert result.source_states[-1].status is InventoryProjectionSourceStatus.UNAVAILABLE
     assert result.source_states[-1].reason == "cluster_identity_mismatch"
+
+
+async def test_unconfigured_source_reports_the_clusters_it_leaves_unobserved(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    with caplog.at_level(logging.WARNING, logger="fdai.delivery.kubernetes_inventory"):
+        result = await UnavailableKubernetesInventoryEnricher().enrich(_observation())
+
+    assert result.source_states[-1].reason == "kubernetes_source_unconfigured"
+    records = [
+        record
+        for record in caplog.records
+        if record.getMessage() == "kubernetes_runtime_source_unconfigured_for_observed_clusters"
+    ]
+    assert [record.observed_cluster_count for record in records] == [1]  # type: ignore[attr-defined]
+
+
+async def test_unconfigured_source_stays_quiet_without_an_observed_cluster(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    observation = _observation()
+    without_cluster = replace(
+        observation,
+        resources=tuple(
+            resource for resource in observation.resources if resource.type != "kubernetes-cluster"
+        ),
+    )
+
+    with caplog.at_level(logging.WARNING, logger="fdai.delivery.kubernetes_inventory"):
+        result = await UnavailableKubernetesInventoryEnricher().enrich(without_cluster)
+
+    assert result.source_states[-1].reason == "kubernetes_source_unconfigured"
+    assert caplog.records == []

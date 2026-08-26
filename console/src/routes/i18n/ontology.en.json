@@ -62,7 +62,7 @@
     "chooseResource": "Choose an observed Resource",
     "unnamedResource": "Unnamed Resource",
     "resultBound": "{count} visible Resources in the active projection",
-    "resultBoundTruncated": "First {count} Resources in the active projection",
+    "resultBoundTruncated": "This list is bounded to the first {count} Resources of the active generation. Narrow the search to reach a Resource that is not listed.",
     "noSearchResults": "No Resource in the active generation matches this search.",
     "emptyTitle": "Choose a Resource instance",
     "emptyDescription": "The workspace will show the selected Resource and its bounded multi-hop neighborhood.",

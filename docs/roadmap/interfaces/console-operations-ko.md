@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 168229b8f867a277974fbdfac5da147bc7915c09
+translation_source_sha: 0dec8fcf3aec38287693c11ee9d340242dfa1fde
 translation_revised: 2026-08-26
 ---
 
@@ -79,6 +79,12 @@ Operations는 기존 객체와 링크를 재사용합니다.
 관계 범례는 기본적으로 `contains`, `attached_to`, `depends_on`을 표시하고 명시적인 펼치기
 컨트롤을 통해 범위가 제한된 응답의 나머지 유형을 제공합니다. 범례를 펼치거나 접어도 링크를
 제거하거나 개수를 바꾸거나 Inspector의 범위를 줄이지 않습니다.
+
+Resource 목록에는 상한이 있으므로, 검색하지 않은 페이지는 완전한 인벤토리가 아닙니다. 작업
+영역은 그 상한을 별도 안내로 알리고 운영자가 선택할 수 있는 Resource만 셉니다. 검색은 운영자가
+입력하는 동안 권위 있는 directory에 도달하므로, 상한을 벗어난 Resource도 버튼을 누르지 않고 계속
+찾을 수 있습니다. 키보드 제안은 운영자를 대신해 동작하지 않습니다. 운영자가 제안을 직접
+선택하지 않았다면 `Enter`는 입력한 검색어를 그대로 실행합니다.
 
 아이콘은 표현이며 증거가 아닙니다. Resource 유형은 검토된 공식 벤더 아이콘으로 해석되고,
 매핑되지 않은 유형은 비슷해 보이는 아이콘 대신 명시적인 일반 대체 아이콘으로 해석됩니다.

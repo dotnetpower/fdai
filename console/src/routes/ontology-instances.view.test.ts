@@ -80,6 +80,24 @@ describe("Ontology Instances view controls", () => {
     expect(styles).toMatch(/@media\s*\(max-width:\s*640px\)[\s\S]*\.ontology-instance-dense-legend button\s*\{[^}]*min-height:\s*44px/s);
   });
 
+  it("searches the server directory and never selects an unchosen suggestion", () => {
+    expect(instancesSource).toContain("ONTOLOGY_INSTANCE_SEARCH_DEBOUNCE_MS");
+    expect(instancesSource).toMatch(
+      /window\.setTimeout\(\s*\(\)\s*=>\s*setSearch\(draft\),\s*ONTOLOGY_INSTANCE_SEARCH_DEBOUNCE_MS,?\s*\)/s,
+    );
+    expect(instancesSource).toContain("window.clearTimeout(timer)");
+    expect(instancesSource).toContain("useState<number | null>(null)");
+    expect(instancesSource).toContain('event.key === "Enter" && activeSuggestionIndex !== null');
+    expect(instancesSource).toContain("activeSuggestionIndex !== null");
+    expect(instancesSource).not.toMatch(/setActiveSuggestionIndex\(0\)/);
+  });
+
+  it("states the bounded directory as its own notice", () => {
+    expect(instancesSource).toContain('class="ontology-instance-bound-notice"');
+    expect(instancesSource).toContain('role="note"');
+    expect(styles).toContain(".ontology-instance-bound-notice");
+  });
+
   it("uses the FDAI graph tooltip instead of native SVG title bubbles", () => {
     expect(graphSource).toContain('class="app-tooltip ontology-instance-graph-tooltip"');
     expect(graphSource).toContain('role="tooltip"');

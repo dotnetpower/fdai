@@ -575,7 +575,9 @@ async def test_postgres_instance_directory_and_activity_are_bounded_exact_reads(
         "snapshot_id": "generation-1",
         "pattern": "%core\\_\\%%",
         "probe": 2,
+        "unselectable_types": ["authorization.role-assignment"],
     }
+    assert "resource_type <> ALL(%(unselectable_types)s)" in captured[0][0]
     assert "entry #>> '{payload,resource_id}' = %(resource_id)s" in captured[1][0]
     assert captured[1][1] == {"resource_id": "root", "probe": 2}
 

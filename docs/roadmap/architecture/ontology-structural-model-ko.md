@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: a2034202ab94755e36b71f3edcc8855ea1e141d9
+translation_source_sha: 8b3d701515ed543f65c2eb0628a8ccde6659c317
 translation_revised: 2026-08-26
 ---
 # 온톨로지 구조 모델
@@ -208,10 +208,17 @@ network path를 요약할 수 있습니다. 관계 커버리지가 불완전하�
 
 기본 instance presentation은 선택, graph, relationship inspection 및 conversational screen
 context에서 `authorization.role-assignment` Resource를 생략합니다. IAM projection은 underlying
-evidence를 유지합니다. Resource Group은 범위가 제한된 scope overview로 선택할 수 있습니다.
+evidence를 유지합니다. Instance directory는 이 생략을 상한보다 먼저 적용하므로, 제한된 페이지는
+운영자가 선택할 수 있는 Resource만 셉니다. Resource Group은 범위가 제한된 scope overview로 선택할
+수 있습니다.
 Non-scope root에서 graph는 해당 root를 직접 소유한 Resource Group 하나만 표시하고 indirect peer
 또는 branch node에만 속한 Resource Group을 추가하지 않습니다. Scope membership은 traffic 또는
 dependency를 입증하지 않습니다.
+
+Directory 상한은 표현상의 제한이며 완전성 주장이 아닙니다. 활성 세대가 상한보다 많은 Resource를
+담고 있으면, 표면은 그 상한을 별도 안내로 알리고 검색어를 좁히도록 안내합니다. 검색은 이미 제한된
+페이지가 아니라 권위 있는 directory를 대상으로 실행되므로, 상한을 벗어난 Resource도 계속 찾을 수
+있습니다.
 
 Resource 유형 아이콘은 표현일 뿐입니다. 객체 identity, 유형 권한 또는 evidence를 담지
 않습니다. 매핑되지 않은 유형은 비슷해 보이는 아이콘 대신 명시적인 일반 아이콘으로 해석되고,
