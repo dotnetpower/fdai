@@ -125,7 +125,7 @@ const INSTANCE_AKS_VM_LIMIT_PER_SCALE_SET = 12;
 const INSTANCE_AKS_NIC_LIMIT_PER_VM = 2;
 const INSTANCE_KUBERNETES_NAMESPACE_CHILD_LIMIT = 6;
 // A namespace contains far more than a viewport holds, so declared workloads outrank derived ones.
-const INSTANCE_KUBERNETES_CHILD_PRIORITY: readonly string[] = [
+export const INSTANCE_KUBERNETES_CHILD_PRIORITY: readonly string[] = [
   "kubernetes.deployment",
   "kubernetes.stateful-set",
   "kubernetes.daemon-set",

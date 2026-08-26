@@ -249,6 +249,18 @@ level draws below its own child keeps the side port instead of claiming a hierar
 does not show. The port a line uses and the row a Resource occupies are reading aids only. Neither
 creates, removes, reorients, or re-evidences a relationship.
 
+A layered layout reaches its limit there: it can order one root above its children but cannot show a
+hierarchy several levels deep without degenerating into an indented outline. Containment is
+therefore modeled as nesting rather than as an edge, because a box drawn inside another box cannot
+point the wrong way. The model computes box sizes bottom-up, packs each owner's children into a
+near-square grid, and reports per-owner how many children a bound left out, so a box that hides
+children never reads as an empty owner. Nesting removes the line for every containment relationship
+it absorbs; a measured cluster resolves 190 of 385 relationships that way. Ordering inside a box
+follows the same declared-workload-first rank the layered layout uses, so a bound removes derived
+Resources before declared ones. Nesting is a reading arrangement only. It never asserts containment
+the evidence did not report, and a Resource with no owning `contains` relationship is never placed
+inside a box to make the drawing tidy.
+
 ## Migration and rollout
 
 1. Add the structural declarations, loaders, and validators without changing the visible query

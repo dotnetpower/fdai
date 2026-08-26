@@ -122,6 +122,16 @@ selected Resource is anchored above what it contains, so a deeper owner the layo
 own child keeps the side port rather than pointing an ownership line upward. Neither the port a line
 uses nor the row a Resource occupies changes a relationship, its direction, or its evidence.
 
+That arrangement orders the selected Resource correctly and still cannot express ownership more than
+one level deep, so containment moves to nesting: what a Resource contains is drawn inside it. A box
+placed inside another box cannot point the wrong way, and every containment line it absorbs leaves
+the canvas. Each owner packs its children into a near-square grid and states how many children a
+bound left out, so a collapsed owner is never mistaken for an empty one. Against a measured cluster
+the nested arrangement holds the same seven owners the current canvas shows in a comparable
+footprint, and holds all 102 contained Resources at 4628 by 1452 when no bound applies. The model
+lands first and changes no rendering; the canvas keeps drawing containment as an edge until the
+nested drawing replaces it.
+
 For a browser-visible pending access request, an authenticated GET-only stream filters the durable
 records by the principal's App Roles. When the tab and Command Deck are idle, the console opens a
 request-scoped conversation with the capability, scope, and expiry. Active work, an unsent draft,
