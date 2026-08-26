@@ -264,7 +264,11 @@ removing that Resource's status or evidence. Column count favours height over wi
 is the axis the direction bands and the surrounding Resources already compete for. Nesting removes
 the line for every containment relationship it absorbs; a measured cluster resolves 190 of 385
 relationships that way. Ordering inside a box follows the same declared-workload-first rank the
-layered layout uses, so a bound removes derived Resources before declared ones. Nesting is a reading
+layered layout uses, so a bound removes derived Resources before declared ones. A bound then takes
+one Resource of every kind before a second of any, because ranking and truncating lets the most
+numerous kind consume the whole bound: a namespace holding fourteen DaemonSets behind seven
+Deployments would report only Deployments and read as though it holds nothing else. A count of what
+was left out cannot repair a sample that misstates composition. Nesting is a reading
 arrangement only. It never asserts containment the evidence did not report, never adds a Resource
 the layout left out, and never places a Resource with no owning `contains` relationship inside a box
 to make the drawing tidy.

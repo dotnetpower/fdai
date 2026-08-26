@@ -147,6 +147,11 @@ observation that never ran and imply the state is missing in the cluster. The ca
 report that no state is reported instead. "Not observed" is kept for a source that genuinely
 returned no observation, such as one with no observation time.
 
+A bounded owner shows one Resource of every kind it holds before a second of any kind. Ranking and
+truncating would hand the whole bound to the most numerous kind: a cluster namespace holding
+fourteen DaemonSets behind seven Deployments drew six Deployments and no DaemonSet at all, so the
+box reported a namespace of Deployments while disclosing only a count of what it left out.
+
 For a browser-visible pending access request, an authenticated GET-only stream filters the durable
 records by the principal's App Roles. When the tab and Command Deck are idle, the console opens a
 request-scoped conversation with the capability, scope, and expiry. Active work, an unsent draft,

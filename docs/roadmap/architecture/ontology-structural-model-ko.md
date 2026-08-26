@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 6ebbd3bc5656e5d9a346b0eccafec492267b4c59
-translation_revised: 2026-08-26
+translation_source_sha: e7d47ef96f82c09d784b6757c4dc1b964b1d5357
+translation_revised: 2026-08-27
 ---
 # 온톨로지 구조 모델
 
@@ -259,7 +259,11 @@ Resource 유형 아이콘은 표현일 뿐입니다. 객체 identity, 유형 권
 없애지 않습니다. 열 개수는 폭보다 높이를 선택합니다. 폭은 방향 띄와 주변 Resource가 이미
 다투는 축이기 때문입니다. 중첩은 흡수한 포함 관계의 선을 모두 없애며, 실측한 클러스터에서는
 385개 관계 중 190개가 그렇게 사라집니다. 상자 안의 순서는 계층형 레이아웃과 같은 선언 워크로드
-우선 순위를 따르므로, 한도는 선언된 Resource보다 파생된 Resource를 먼저 제외합니다. 중첩은
+우선 순위를 따르므로, 한도는 선언된 Resource보다 파생된 Resource를 먼저 제외합니다. 이어서
+한도는 어떤 종류든 두 번째를 담기 전에 모든 종류의 첫 번째를 담습니다. 순위를 매겨 잘라내면
+가장 수가 많은 종류가 한도를 통째로 차지하기 때문입니다. Deployment 7개 뒤에 DaemonSet 14개를
+가진 namespace는 Deployment만 보고하게 되고, 다른 것은 아무것도 없는 것처럼 읽힙니다. 무엇이
+제외되었는지 세어 알리는 것으로는 구성을 잘못 말한 표본을 되돌릴 수 없습니다. 중첩은
 읽기를 위한 배치일 뿐입니다. evidence가 보고하지 않은 포함 관계를 주장하지 않고, 레이아웃이
 제외한 Resource를 더하지 않으며, 소유 `contains` 관계가 없는 Resource를 그림을 정돈하려고
 상자 안에 넣지 않습니다.

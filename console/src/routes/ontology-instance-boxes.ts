@@ -2,6 +2,7 @@ import {
   INSTANCE_KUBERNETES_CHILD_PRIORITY,
   INSTANCE_NODE_HEIGHT,
   INSTANCE_NODE_WIDTH,
+  sampleAcrossKinds,
 } from "./ontology-instance-graph.model";
 import type { InstanceGraphLayout } from "./ontology-instance-graph.model";
 import type {
@@ -74,7 +75,11 @@ export function buildInstanceContainmentBoxes(
     visiting.add(resource.id);
     // Counting against everything declared keeps a drawn box from claiming it holds the whole owner.
     const ordered = [...declared].sort(compareBoxChildren);
-    const kept = ordered.filter((child) => isVisible(child.id)).slice(0, maxChildren);
+    const kept = sampleAcrossKinds(
+      ordered.filter((child) => isVisible(child.id)),
+      (child) => child.resource_type,
+      maxChildren,
+    );
     const children = kept.map((child) => build(child, depth + 1));
     visiting.delete(resource.id);
     return children.length === 0

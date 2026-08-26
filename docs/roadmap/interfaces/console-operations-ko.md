@@ -1,8 +1,8 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: af8a6f8a2f16f4f0f312a027866a6244900ff85d
-translation_revised: 2026-08-26
+translation_source_sha: d59eb4644009f4b77c38a5ddda56600fb788e7a7
+translation_revised: 2026-08-27
 ---
 
 # 콘솔 운영
@@ -147,6 +147,12 @@ Resource 수를 보조 기술을 위해 카드에, 그리고 짧은 표시로 �
 적 없는 관측을 주장하고 클러스터에 상태가 없는 것처럼 읽히게 됩니다. 카드와 Inspector는 대신
 상태 정보가 없다고 보고합니다. "관측되지 않음"은 관측 시각이 없는 출처처럼 실제로 관측을
 반환하지 않은 경우에만 남습니다.
+
+한도가 적용된 소유자는 어떤 종류든 두 번째를 보이기 전에 자신이 가진 모든 종류의 첫 번째를
+보입니다. 순위를 매겨 잘라내면 가장 수가 많은 종류가 한도를 통째로 가져갑니다. Deployment
+7개 뒤에 DaemonSet 14개를 가진 클러스터 namespace는 Deployment 6개만 그리고 DaemonSet은
+하나도 그리지 않았으며, 그 결과 상자는 제외된 개수만 밝힌 채 Deployment만 들어있는
+namespace를 보고했습니다.
 
 브라우저에 표시할 pending 접근 요청이 있으면 인증된 GET-only 스트림이 principal의 App 역할로
 영속 기록을 필터링합니다. 탭과 Command Deck이 idle 상태이면 콘솔은 기능, 범위 및

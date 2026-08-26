@@ -189,6 +189,35 @@ describe("buildInstanceGraphLayout", () => {
     contained.forEach((item) => expect(byId.get(item.id)!.y).toBeGreaterThan(rootY));
   });
 
+  it("keeps every workload kind a namespace holds inside the bound", () => {
+    const data = exploration();
+    const cluster = resource(data.root_id, true, "kubernetes-cluster");
+    const namespace = resource("namespace", false, "kubernetes.namespace");
+    // More Deployments than the bound: ranking alone would report a namespace of Deployments.
+    const deployments = Array.from({ length: 9 }, (_value, index) =>
+      resource(`deploy-${index}`, false, "kubernetes.deployment"));
+    const daemonSets = Array.from({ length: 8 }, (_value, index) =>
+      resource(`daemon-${index}`, false, "kubernetes.daemon-set"));
+    const services = Array.from({ length: 4 }, (_value, index) =>
+      resource(`svc-${index}`, false, "kubernetes.service"));
+    const connected: OntologyInstanceExploration = {
+      ...data,
+      resources: [cluster, namespace, ...deployments, ...daemonSets, ...services],
+      links: [
+        link(data.root_id, namespace.id, "contains"),
+        ...[...deployments, ...daemonSets, ...services]
+          .map((child) => link(namespace.id, child.id, "contains")),
+      ],
+    };
+
+    const drawn = new Set(buildInstanceGraphLayout(connected).nodes
+      .map((node) => node.resource.resource_type));
+
+    expect(drawn.has("kubernetes.deployment")).toBe(true);
+    expect(drawn.has("kubernetes.daemon-set")).toBe(true);
+    expect(drawn.has("kubernetes.service")).toBe(true);
+  });
+
   it("breaks a shared column between attached and contained Resources", () => {
     const data = exploration();
     const cluster = resource(data.root_id, true, "kubernetes-cluster");

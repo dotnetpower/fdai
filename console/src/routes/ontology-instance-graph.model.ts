@@ -1448,7 +1448,7 @@ function expandKubernetesNamespaceContext({
       && resourcesById.get(link.target)?.resource_type === "kubernetes.namespace")
     .map((link) => link.target);
   for (const namespaceId of namespaceIds) {
-    data.links
+    const ordered = data.links
       .filter((link) =>
         link.source === namespaceId
         && link.link_type === "contains"
@@ -1459,14 +1459,49 @@ function expandKubernetesNamespaceContext({
           INSTANCE_KUBERNETES_CHILD_PRIORITY.indexOf(
             resourcesById.get(link.target)?.resource_type ?? "");
         return rank(first) - rank(second) || compareInstanceGraphLinks(first, second);
-      })
-      .slice(0, INSTANCE_KUBERNETES_NAMESPACE_CHILD_LIMIT)
+      });
+    sampleAcrossKinds(
+      ordered,
+      (link) => resourcesById.get(link.target)?.resource_type ?? "",
+      INSTANCE_KUBERNETES_NAMESPACE_CHILD_LIMIT,
+    )
       .forEach((childLink) => {
         selected.set(instanceGraphLinkKey(childLink), childLink);
         selectedResourceIds.add(childLink.source);
         selectedResourceIds.add(childLink.target);
       });
   }
+}
+
+/**
+ * Takes one of every kind before a second of any, so a bound cannot hide a kind entirely.
+ *
+ * Ranking and then truncating lets the most numerous kind consume the whole bound: a namespace
+ * holding fourteen DaemonSets behind seven Deployments would report only Deployments and read as
+ * though it holds nothing else. Items must already be ordered by kind rank, then deterministically.
+ */
+export function sampleAcrossKinds<T>(
+  items: readonly T[],
+  kindOf: (item: T) => string,
+  limit: number,
+): readonly T[] {
+  const byKind = new Map<string, T[]>();
+  for (const item of items) {
+    const kind = kindOf(item);
+    byKind.set(kind, [...(byKind.get(kind) ?? []), item]);
+  }
+  const taken: T[] = [];
+  for (let round = 0; taken.length < limit; round += 1) {
+    let progressed = false;
+    for (const bucket of byKind.values()) {
+      if (round >= bucket.length) continue;
+      taken.push(bucket[round]!);
+      progressed = true;
+      if (taken.length === limit) break;
+    }
+    if (!progressed) break;
+  }
+  return taken;
 }
 
 function selectedNetworkBranch(data: OntologyInstanceExploration): {  readonly resourcesById: ReadonlyMap<string, OntologyInstanceResource>;
