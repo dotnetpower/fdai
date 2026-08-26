@@ -26,7 +26,12 @@ from fdai.shared.contracts.models import (
 )
 
 RESOURCE_EVENT_FUNCTION_NAME = "query.resource_event_history"
-RESOURCE_EVENT_MEASURE_CONCEPTS = ("resource_event.resource_health",)
+RESOURCE_HEALTH_EVENT_FAMILY = "resource_event.resource_health"
+KUBERNETES_EVENT_FAMILY = "resource_event.kubernetes"
+RESOURCE_EVENT_MEASURE_CONCEPTS = (
+    RESOURCE_HEALTH_EVENT_FAMILY,
+    KUBERNETES_EVENT_FAMILY,
+)
 _MAX_RESOURCES = 1000
 _MAX_EVENTS = 256
 
@@ -234,7 +239,9 @@ def _table(
 
 
 __all__ = [
+    "KUBERNETES_EVENT_FAMILY",
     "RESOURCE_EVENT_FUNCTION_NAME",
+    "RESOURCE_HEALTH_EVENT_FAMILY",
     "RESOURCE_EVENT_MEASURE_CONCEPTS",
     "ResourceEventCollection",
     "ResourceEventCollectionReader",

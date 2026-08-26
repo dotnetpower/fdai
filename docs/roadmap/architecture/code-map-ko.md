@@ -1,8 +1,8 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 758dbdc716af31327069c74aca4b8080af5d54d8
-translation_revised: 2026-08-26
+translation_source_sha: d1159e649342d65a7e6b45844174977c324d0ba1
+translation_revised: 2026-08-27
 ---
 # 코드 맵
 
@@ -53,6 +53,7 @@ semantic-routing 기준선은 각 어휘 판단 소유자를 기록하고 compet
 
 | 영역 | Responsibility | 출처 | 테스트 |
 |------|----------------|--------|------|
+| Kubernetes Resource 이벤트 이력 | 선택한 불변 UID 귀속, 정규화한 이벤트 시각, 내용 기반 근거를 사용하는 명시적인 정확한 클러스터 범위의 제한된 Kubernetes Event 읽기, 독립적인 Azure/Kubernetes 기능군 라우팅, 명시적인 불완전 결과, 원시 메시지와 원인, 변경 또는 실행 권한 없음 | [FunctionType](../../../services/core-control-plane/src/fdai/core/ontology_platform/resource_event_queries.py), [Kubernetes 읽기 경로](../../../services/core-control-plane/src/fdai/delivery/kubernetes_resource_event_history.py), [기능군 라우터](../../../services/core-control-plane/src/fdai/delivery/resource_event_history.py), [런타임 연결](../../../services/core-control-plane/src/fdai/runtime/resource_event_providers.py) | [Kubernetes 어댑터 테스트](../../../services/core-control-plane/tests/delivery/test_kubernetes_resource_event_history.py), [라우터 테스트](../../../services/core-control-plane/tests/delivery/test_resource_event_history.py), [FunctionType 테스트](../../../services/core-control-plane/tests/core/ontology_platform/test_resource_event_queries.py), [런타임 테스트](../../../services/core-control-plane/tests/runtime/test_resource_health_provider.py) |
 | 컨트롤 루프와 decisioning | Event 정규화, 계층 라우팅, 정확한 Rego allow/deny 평가 증적, quality, risk, 승인, 실행 coordination, 복구 및 감사 | [코어](../../../services/core-control-plane/src/fdai/core/) | [코어 테스트](../../../services/core-control-plane/tests/core/) |
 | 컨트롤 플레인 지역 복구 shadow 경로 | 실제 공급자를 변경하지 않고 예상 epoch 차단, 검증된 단일 writer 상태, 범위가 제한된 근거 증적, 다음 작업 전 중단 동작을 적용하는 공급자 중립적인 순서 기반 failover 및 failback 예행 연습 | [shadow 복구](../../../services/core-control-plane/src/fdai/core/verticals/resilience/shadow_recovery.py), [복구 공급자 계약](../../../services/core-control-plane/src/fdai/shared/providers/control_plane_recovery.py) | [shadow 복구 테스트](../../../services/core-control-plane/tests/core/verticals/test_recovery_plan_shadow.py), [복구 계획 테스트](../../../services/core-control-plane/tests/core/verticals/test_recovery_plan.py), [복구 조정기 테스트](../../../services/core-control-plane/tests/core/verticals/test_recovery_coordinator.py) |
 | 환각 루브릭 승격 | 짝지은 불변 기준선/처리군 근거, 신뢰도를 고려한 준비 판정, 독립 검토 결속, 엄격한 매니페스트 검증 및 승격 권한이 없는 ActionType별 실패 시 차단 루브릭 모드 해석 | [루브릭 승격 core](../../../services/core-control-plane/src/fdai/core/quality_gate/promotion.py) 및 [매니페스트 어댑터](../../../services/core-control-plane/src/fdai/delivery/measurement/rubric_promotion_evidence.py) | [루브릭 승격 테스트](../../../services/core-control-plane/tests/core/quality_gate/test_rubric_promotion.py), [어댑터 테스트](../../../services/core-control-plane/tests/delivery/test_rubric_promotion_evidence.py) 및 [조립 테스트](../../../services/core-control-plane/tests/composition/test_rubric_promotion_binding.py) |

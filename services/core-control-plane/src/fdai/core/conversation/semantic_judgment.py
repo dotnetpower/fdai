@@ -523,6 +523,17 @@ def _normalize_primary_intent_capability(
     *,
     capabilities: tuple[dict[str, Any], ...],
 ) -> SemanticJudgmentProposal:
+    function_names = {
+        name
+        for capability in capabilities
+        if capability.get("kind") == "function_type"
+        if isinstance((name := capability.get("name")), str)
+    }
+    if (
+        proposal.primary_intent in {"query.kubernetes_event_history", "query.kubernetes_events"}
+        and "query.resource_event_history" in function_names
+    ):
+        return proposal.model_copy(update={"primary_intent": "query.resource_event_history"})
     link_names = {
         name
         for capability in capabilities

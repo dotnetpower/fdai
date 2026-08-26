@@ -208,6 +208,7 @@ async def build_semantic_runtime(
     resource_event_reader = _build_resource_event_history_reader(
         identity=identity,
         http_client=http_client,
+        environment=environment,
     )
     service_health_reader = _build_service_health_reader(
         identity=identity,

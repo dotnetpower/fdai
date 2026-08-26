@@ -13,7 +13,7 @@ from uuid import UUID
 import httpx
 
 from fdai.core.ontology_platform.resource_event_queries import (
-    RESOURCE_EVENT_MEASURE_CONCEPTS,
+    RESOURCE_HEALTH_EVENT_FAMILY,
     ResourceEventCollection,
     ResourceEventObservation,
 )
@@ -92,7 +92,7 @@ class AzureResourceEventHistoryReader:
     ) -> ResourceEventCollection:
         """Return chronological Resource Health events or an explicit limitation."""
 
-        if event_families != RESOURCE_EVENT_MEASURE_CONCEPTS:
+        if event_families != (RESOURCE_HEALTH_EVENT_FAMILY,):
             raise ValueError("Azure Resource event reader received an unsupported family")
         if not 60 <= lookback_seconds <= 86_400:
             raise ValueError("Resource event lookback_seconds MUST be in [60, 86400]")
@@ -276,7 +276,7 @@ def _event(
     )
     return ResourceEventObservation(
         resource_id=resource_id,
-        event_family="resource_event.resource_health",
+        event_family=RESOURCE_HEALTH_EVENT_FAMILY,
         event_kind=event_kind,
         status=status,
         classification=classification,

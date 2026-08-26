@@ -491,21 +491,18 @@ def _build_resource_event_history_reader(
     *,
     identity: Any = None,
     http_client: Any = None,
+    environment: Mapping[str, str] | None = None,
 ) -> Any:
-    """Bind Resource Health history only from server-owned Azure scope."""
+    """Bind available Resource event families from server-owned scope."""
 
-    subscription_id = os.environ.get("AZURE_SUBSCRIPTION_ID", "").strip()
-    if identity is None or http_client is None or not subscription_id:
-        return None
-    from fdai.delivery.azure.resource_event_history import (
-        AzureResourceEventHistoryConfig,
-        AzureResourceEventHistoryReader,
+    from fdai.runtime.resource_event_providers import (
+        build_resource_event_history_reader,
     )
 
-    return AzureResourceEventHistoryReader(
+    return build_resource_event_history_reader(
+        environment=environment if environment is not None else os.environ,
         identity=identity,
         http_client=http_client,
-        config=AzureResourceEventHistoryConfig(subscription_id=subscription_id),
     )
 
 

@@ -322,9 +322,12 @@ def _resource_record(
             if node_pool:
                 props["node_pool"] = node_pool
                 break
-    namespace_key = namespace or "_cluster"
-    digest = hashlib.sha256(uid.encode("utf-8")).hexdigest()[:24]
-    resource_id = f"{cluster_ref}/kubernetes/{resource_type}/{namespace_key}/{digest}"
+    resource_id = kubernetes_resource_id(
+        cluster_ref=cluster_ref,
+        resource_type=resource_type,
+        uid=uid,
+        namespace=namespace,
+    )
     return ResourceRecord(
         resource_id=resource_id,
         type=resource_type,
@@ -332,6 +335,20 @@ def _resource_record(
         provider_ref=f"kubernetes-uid:{uid}",
         last_seen=observed_at.isoformat(),
     )
+
+
+def kubernetes_resource_id(
+    *,
+    cluster_ref: str,
+    resource_type: str,
+    uid: str,
+    namespace: str | None,
+) -> str:
+    """Return the inventory identity for one immutable Kubernetes UID."""
+
+    namespace_key = namespace or "_cluster"
+    digest = hashlib.sha256(uid.encode("utf-8")).hexdigest()[:24]
+    return f"{cluster_ref}/kubernetes/{resource_type}/{namespace_key}/{digest}"
 
 
 def _required_text(value: Mapping[str, Any], key: str) -> str:
@@ -616,4 +633,5 @@ __all__ = [
     "KubernetesApiInventorySource",
     "ServiceAccountTokenAuth",
     "WorkloadIdentityKubernetesAuth",
+    "kubernetes_resource_id",
 ]

@@ -129,8 +129,11 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     judgment = prompts.get_base("semantic.judgment")
     plan = prompts.get_base("semantic.query.plan")
 
-    assert frame.version == 38
-    assert judgment.version == 3
+    assert frame.version == 39
+    assert judgment.version == 4
+    assert "query.resource_event_history with resource_event.kubernetes" in judgment.body
+    assert "include kubernetes_events and an ordering facet" in judgment.body
+    assert "Do not add resource_event.resource_health" in judgment.body
     assert "These are semantic categories, not words or phrase patterns" in judgment.body
     assert "Never select a direct-response intent from string matching" in judgment.body
     assert "select that operational intent as primary" in judgment.body
@@ -192,6 +195,8 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     assert "uses select with resource_health_list" in frame.body
     assert "uses select with resource_metric_list" in frame.body
     assert "uses select with resource_event_history" in frame.body
+    assert 'temporal_scope as exactly {"lookback_seconds": <integer>}' in frame.body
+    assert "do not add kind, window, duration, lookback" in frame.body
     assert "A current snapshot never answers a historical event question" in frame.body
     assert "combines operational inventory state with health or readiness" in frame.body
     assert "Do not answer only the operational-state subset" in frame.body

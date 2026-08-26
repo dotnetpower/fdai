@@ -111,6 +111,66 @@ def test_accepts_grounded_t1_proposal_with_content_free_receipt() -> None:
     assert result.receipt.execution_authority is False
 
 
+def test_normalizes_kubernetes_event_history_to_the_bound_function() -> None:
+    result = _boundary(
+        _Model(
+            _proposal(
+                primary_intent="query.kubernetes_event_history",
+                targets=[],
+                requested_facets=["kubernetes_events", "recent_window", "time_order"],
+            )
+        )
+    ).judge(
+        utterance="Show Kubernetes events from the recent window in time order.",
+        context=(),
+        capabilities=({"kind": "function_type", "name": "query.resource_event_history"},),
+    )
+
+    assert result.accepted is True
+    assert result.proposal is not None
+    assert result.proposal.primary_intent == "query.resource_event_history"
+
+
+def test_normalizes_kubernetes_events_to_the_bound_function() -> None:
+    result = _boundary(
+        _Model(
+            _proposal(
+                primary_intent="query.kubernetes_events",
+                targets=[],
+                requested_facets=["kubernetes_events", "time_range", "chronological_order"],
+            )
+        )
+    ).judge(
+        utterance="Show Kubernetes events from the recent window in time order.",
+        context=(),
+        capabilities=({"kind": "function_type", "name": "query.resource_event_history"},),
+    )
+
+    assert result.accepted is True
+    assert result.proposal is not None
+    assert result.proposal.primary_intent == "query.resource_event_history"
+
+
+def test_does_not_normalize_kubernetes_event_history_without_the_function() -> None:
+    result = _boundary(
+        _Model(
+            _proposal(
+                primary_intent="query.kubernetes_event_history",
+                targets=[],
+                requested_facets=["kubernetes_events", "recent_window", "time_order"],
+            )
+        )
+    ).judge(
+        utterance="Show Kubernetes events from the recent window in time order.",
+        context=(),
+        capabilities=(),
+    )
+
+    assert result.accepted is True
+    assert result.proposal is not None
+    assert result.proposal.primary_intent == "query.kubernetes_event_history"
+
+
 def test_preserves_measured_provider_observation_without_changing_proposal_validation() -> None:
     observation = SemanticJudgmentObservation(
         model="semantic-test",

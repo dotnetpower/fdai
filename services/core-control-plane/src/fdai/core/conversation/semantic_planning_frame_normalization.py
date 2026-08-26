@@ -13,6 +13,7 @@ from fdai_service_contracts.ontology_query import (
 )
 from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal
 
+from fdai.core.ontology_platform.resource_event_queries import KUBERNETES_EVENT_FAMILY
 from fdai.rule_catalog.schema.inventory_query_language import (
     InventoryQueryLanguageRegistry,
     query_signal_matches,
@@ -776,6 +777,65 @@ def resolve_semantic_judgment_bound_read(
     if judgment is None or judgment.action_posture != "advise_only":
         return proposal, frame
     facets = {facet.replace("-", "_") for facet in judgment.requested_facets}
+    lookback_seconds = proposal.temporal_scope.get("lookback_seconds")
+    lookback_hours = proposal.temporal_scope.get("lookback_hours")
+    resource_targets = tuple(target for target in judgment.targets if target.kind == "resource")
+    time_range_targets = tuple(target for target in judgment.targets if target.kind == "time_range")
+    event_type_targets = tuple(target for target in judgment.targets if target.kind == "event_type")
+    temporal_keys = set(proposal.temporal_scope)
+    bounded_event_window = temporal_keys == {"lookback_seconds"} or (
+        temporal_keys
+        in (
+            {"kind", "lookback_seconds"},
+            {"kind", "lookback_seconds", "order"},
+            {"kind", "lookback_seconds", "ordering"},
+        )
+        and proposal.temporal_scope.get("kind") in {"historical", "windowed"}
+    )
+    if (
+        temporal_keys == {"kind", "lookback_hours", "order"}
+        and proposal.temporal_scope.get("kind") in {"historical", "windowed"}
+        and isinstance(lookback_hours, int)
+        and not isinstance(lookback_hours, bool)
+        and 1 <= lookback_hours <= 24
+    ):
+        lookback_seconds = lookback_hours * 3_600
+        bounded_event_window = True
+    kubernetes_event_family = "kubernetes_events" in facets
+    judgment_lookback_seconds = (
+        _canonical_duration_seconds(time_range_targets[0].canonical_value)
+        if len(time_range_targets) == 1
+        else None
+    )
+    kubernetes_event_history = (
+        judgment.primary_intent == "query.resource_event_history"
+        and kubernetes_event_family
+        and bool(facets & {"time_order", "chronological_order", "ordering"})
+        and len(resource_targets) == 1
+        and len(time_range_targets) == 1
+        and len(event_type_targets) == 1
+        and len(judgment.targets)
+        == len(resource_targets) + len(time_range_targets) + len(event_type_targets)
+        and resource_targets[0].canonical_value in {None, "Resource"}
+        and proposal.operation is SemanticOperation.SELECT
+        and proposal.output_shape == SemanticOutputShape.RESOURCE_EVENT_HISTORY
+        and "Resource" in proposal.subject_constraints
+        and bounded_event_window
+        and isinstance(lookback_seconds, int)
+        and not isinstance(lookback_seconds, bool)
+        and 60 <= lookback_seconds <= 86_400
+        and judgment_lookback_seconds == lookback_seconds
+        and not proposal.unresolved_terms
+        and not proposal.clarification_requirements
+    )
+    if kubernetes_event_history:
+        resolved = proposal.model_copy(
+            update={
+                "measure_concepts": (KUBERNETES_EVENT_FAMILY,),
+                "temporal_scope": {"lookback_seconds": lookback_seconds},
+            }
+        )
+        return resolved, build_semantic_frame(resolved, utterance=utterance, context=context)
     configuration_drift_evidence = _facets_describe_configuration_drift_evidence(facets)
     if configuration_drift_evidence:
         resolved = proposal.model_copy(
@@ -939,6 +999,19 @@ def resolve_semantic_judgment_bound_read(
         }
     )
     return resolved, build_semantic_frame(resolved, utterance=utterance, context=context)
+
+
+def _canonical_duration_seconds(value: str | None) -> int | None:
+    if value is None:
+        return None
+    match = re.fullmatch(r"duration\.PT(?:(\d{1,2})H)?(?:(\d{1,2})M)?(?:(\d{1,2})S)?", value)
+    if match is None or all(part is None for part in match.groups()):
+        return None
+    hours, minutes, seconds = (int(part or 0) for part in match.groups())
+    if minutes >= 60 or seconds >= 60:
+        return None
+    duration_seconds = hours * 3_600 + minutes * 60 + seconds
+    return duration_seconds if 60 <= duration_seconds <= 86_400 else None
 
 
 def normalize_resource_classification_frame(

@@ -6432,6 +6432,206 @@ def test_historical_topology_event_history_judgment_builds_clarification() -> No
     assert frame.temporal_scope == {"kind": "historical"}
 
 
+def test_kubernetes_event_judgment_without_grounded_time_and_type_keeps_frame() -> None:
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(
+            operation="select",
+            subject_constraints=["Resource", "example-cluster"],
+            measure_concepts=["resource_event.kubernetes"],
+            temporal_scope={
+                "kind": "historical",
+                "lookback_seconds": 3600,
+                "order": "ascending",
+            },
+            output_shape="resource_event_history",
+        )
+    )
+    frame = build_semantic_frame(proposal, utterance="cluster events", context=())
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": "query.resource_event_history",
+            "requested_facets": ["kubernetes_events", "recent_window", "time_order"],
+            "targets": [
+                {
+                    "kind": "resource",
+                    "value": "cluster",
+                    "source_start": 0,
+                    "source_end": 7,
+                }
+            ],
+        }
+    )
+
+    resolved, resolved_frame = resolve_semantic_judgment_bound_read(
+        proposal,
+        frame,
+        judgment=SemanticJudgmentProposal.model_validate(judgment_data),
+        bound_incident=False,
+        utterance="cluster events",
+        context=(),
+    )
+
+    assert resolved is proposal
+    assert resolved_frame is frame
+
+
+def test_kubernetes_event_alias_facets_complete_the_canonical_measure() -> None:
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(
+            operation="select",
+            subject_constraints=["Resource", "example-cluster"],
+            measure_concepts=[],
+            temporal_scope={"lookback_seconds": 3600},
+            output_shape="resource_event_history",
+        )
+    )
+    utterance = "cluster recent hour Kubernetes event"
+    frame = build_semantic_frame(proposal, utterance=utterance, context=())
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": "query.resource_event_history",
+            "requested_facets": [
+                "kubernetes_events",
+                "recent_1h",
+                "time_order",
+            ],
+            "targets": [
+                {
+                    "kind": "resource",
+                    "value": "cluster",
+                    "source_start": 0,
+                    "source_end": 7,
+                },
+                {
+                    "kind": "time_range",
+                    "value": "recent hour",
+                    "canonical_value": "duration.PT1H",
+                    "source_start": 8,
+                    "source_end": 19,
+                },
+                {
+                    "kind": "event_type",
+                    "value": "Kubernetes event",
+                    "source_start": 20,
+                    "source_end": 36,
+                },
+            ],
+        }
+    )
+
+    resolved, resolved_frame = resolve_semantic_judgment_bound_read(
+        proposal,
+        frame,
+        judgment=SemanticJudgmentProposal.model_validate(judgment_data),
+        bound_incident=False,
+        utterance=utterance,
+        context=(),
+    )
+
+    assert resolved.measure_concepts == ("resource_event.kubernetes",)
+    assert resolved_frame.measure_concepts == ("resource_event.kubernetes",)
+    assert resolved_frame.execution_authority is False
+
+
+def test_kubernetes_event_judgment_duration_must_match_frame_lookback() -> None:
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(
+            operation="select",
+            subject_constraints=["Resource", "example-cluster"],
+            measure_concepts=["resource_event.kubernetes"],
+            temporal_scope={"lookback_seconds": 86_400},
+            output_shape="resource_event_history",
+        )
+    )
+    utterance = "cluster recent hour Kubernetes event"
+    frame = build_semantic_frame(proposal, utterance=utterance, context=())
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": "query.resource_event_history",
+            "requested_facets": ["kubernetes_events", "recent_1h", "time_order"],
+            "targets": [
+                {"kind": "resource", "value": "cluster", "source_start": 0, "source_end": 7},
+                {
+                    "kind": "time_range",
+                    "value": "recent hour",
+                    "canonical_value": "duration.PT1H",
+                    "source_start": 8,
+                    "source_end": 19,
+                },
+                {
+                    "kind": "event_type",
+                    "value": "Kubernetes event",
+                    "source_start": 20,
+                    "source_end": 36,
+                },
+            ],
+        }
+    )
+
+    resolved, resolved_frame = resolve_semantic_judgment_bound_read(
+        proposal,
+        frame,
+        judgment=SemanticJudgmentProposal.model_validate(judgment_data),
+        bound_incident=False,
+        utterance=utterance,
+        context=(),
+    )
+
+    assert resolved is proposal
+    assert resolved_frame is frame
+
+
+def test_incomplete_kubernetes_event_judgment_does_not_change_the_frame() -> None:
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(
+            operation="select",
+            subject_constraints=["Resource", "example-cluster"],
+            measure_concepts=[],
+            temporal_scope={"lookback_seconds": 3600},
+            output_shape="resource_event_history",
+        )
+    )
+    frame = build_semantic_frame(proposal, utterance="cluster events", context=())
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": "query.resource_event_history",
+            "requested_facets": ["kubernetes_events", "recent_window"],
+            "targets": [
+                {
+                    "kind": "resource",
+                    "value": "cluster",
+                    "source_start": 0,
+                    "source_end": 7,
+                }
+            ],
+        }
+    )
+
+    resolved, resolved_frame = resolve_semantic_judgment_bound_read(
+        proposal,
+        frame,
+        judgment=SemanticJudgmentProposal.model_validate(judgment_data),
+        bound_incident=False,
+        utterance="cluster events",
+        context=(),
+    )
+
+    assert resolved is proposal
+    assert resolved_frame is frame
+
+
 @pytest.mark.parametrize(
     "requested_facets",
     [
