@@ -465,6 +465,43 @@ def normalize_decision_outcome_relationship(
     return resolved, build_semantic_frame(resolved, utterance=utterance, context=context)
 
 
+_RESOURCE_IDENTITY_TERMS = frozenset({"resource_identity", "resource identity"})
+
+
+def resolve_stated_resource_identity(
+    proposal: SemanticFrameProposal,
+    *,
+    utterance: str,
+    descriptors: tuple[dict[str, Any], ...],
+) -> SemanticFrameProposal:
+    """Clear a resource-identity hold the utterance already answers exactly."""
+
+    if proposal.clarification_requirements != (ClarificationRequirement.RESOURCE_IDENTITY,):
+        return proposal
+    if not proposal.unresolved_terms or any(
+        term.casefold() not in _RESOURCE_IDENTITY_TERMS for term in proposal.unresolved_terms
+    ):
+        return proposal
+    if _has_non_resource_object_subject(proposal.subject_constraints, descriptors):
+        return proposal
+    if (
+        exact_target_from_constraints(
+            proposal.subject_constraints,
+            utterance=utterance,
+            descriptors=descriptors,
+        )
+        is None
+    ):
+        return proposal
+    return proposal.model_copy(
+        update={
+            "unresolved_terms": (),
+            "clarification_requirements": (),
+            "clarification": None,
+        }
+    )
+
+
 def _has_non_resource_object_subject(
     constraints: tuple[str, ...],
     descriptors: tuple[dict[str, Any], ...],
@@ -548,4 +585,5 @@ __all__ = [
     "resource_target_candidates_apply_to_proposal",
     "resource_target_candidates_apply_to_utterance",
     "resolve_resource_target_candidates",
+    "resolve_stated_resource_identity",
 ]

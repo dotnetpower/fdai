@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: b8c581fed880ede7a8519edac2ba6470abc43505
+translation_source_sha: 7339978a400c396f2e2db0cd1c9eb0b60fc50c07
 translation_revised: 2026-08-26
 ---
 # FDAI 온톨로지 안전 인프라
@@ -139,6 +139,7 @@ Console은 redaction, 호환성, 완전성 또는 권한을 계산하지 않습�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-26 | implemented | 정확한 현재 상태 계열에만 적용되던 "발화가 지목한 정확한 Resource 신원 해소"를 모든 출력 계열로 확장했습니다. 근거가 되는 런타임 식별자를 하나만 지목한 frame이 event-history와 health-list 계열에서는 여전히 `resource_identity`를 미해소로 보고해서, 발화가 이미 지목한 대상을 되묻고 아무리 반복해도 해소되지 않는 턴이 됐습니다. 해소는 서버 소유이며 fail closed입니다. `resource_identity`가 유일한 clarification 요구이자 유일한 미해소 항목이고, 주체가 Resource 전용이며, 근거가 되는 식별자가 정확히 하나일 때만 적용합니다. | `current change`, `semantic_target_candidate_planning.py`, 해소와 4가지 보류 조건(대상 미지목, 대상 2개 지목, 추가 미해소 항목, 더 넓은 요구, 비-Resource 주체)을 고정하는 집중 검사 6개, 대화 코호트 1100개 통과, Ruff, formatter, strict mypy 통과, 라이브 event-history 및 health-list 턴이 이미 지목된 클러스터를 더는 되묻지 않음 | 두 계열 모두 이제 정직한 `semantic_request_unsupported`에 도달합니다. Kubernetes 노드 및 워크로드 준비 상태나 Resource Health와 Pod 재시작 이력을 결합한 읽기를 제공하는 검증된 역량이 없기 때문입니다. 두 질문이 답변되려면 해당 역량을 먼저 추가해야 합니다. |
 | 2026-08-26 | implemented | 객체 값을 받는 모든 FunctionType 입력에 `x-fdai-dependency-only`를 표시했습니다. 이 입력은 게이트웨이가 보호한 ObjectSet 결과와 파생 근거 묶음을 전달하지만 `query.vm_process_cpu_evidence`만 마커를 선언하고 있었습니다. 그래서 계획 검증기가 보호된 근거 대신 모델이 작성한 리터럴을 공급하는 제안 계획을 통과시켰습니다. 리소스 이벤트 이력 턴이 이를 불투명한 `capability_failed` 증적으로 재현했고, 이제는 계획 검증 단계에서 fail closed 됩니다. | `current change`, 모든 운영 FunctionType을 검사하는 신규 `test_function_dependency_inputs.py` 계약 가드, 집중 온톨로지 플랫폼 및 영속 검사 12개 통과, Ruff, formatter, strict mypy 통과, 라이브 이벤트 이력 턴이 `capability_failed`에서 정직한 clarification으로 전환됨 | 발화가 이미 지목한 대상을 되묻지 않고 답하도록 리소스 이벤트 이력에 서버 소유 결정론 계획을 바인딩합니다. |
 | 2026-08-26 | implemented | 인벤토리 투영 상태를 보안 ObjectSet 증적으로 축약할 때 관계 커버리지와 객체 커버리지를 분리했습니다. Resource 스냅샷이 세대 전체의 관계 커버리지를 물려받고 있었기 때문에, 다른 곳의 분류된 non-edge가 정확한 단일 리소스 현재 상태 답변을 전부 `authoritative_evidence_unavailable`로 보류시켰습니다. 이제 관계 커버리지는 객체 집합이 집합 내부 edge를 만들 수 있는 스냅샷만 게이팅하며, 객체 커버리지는 여전히 모든 스냅샷을 게이팅하고 순회는 기존의 엄격한 규칙을 유지합니다. | `current change`, `postgres_ontology.py`, 객체 공백과 관계 공백 뮤테이션을 포함한 집중 커버리지 축약기 4개 사례, 인증된 Console이 정확한 클러스터 현재 상태 질문을 11.7초에 `Verified`(주장 3/3 지지, 근거 6/6)로 답변 | 렌더된 답변이 일반 검증 행 수 대신 반환된 현재 상태 필드를 보고하도록 합니다. |
 | 2026-08-25 | implemented | `query.kubernetes_pod_recovery_evidence`가 발급된 정확한 Pod, ReplicaSet 소유자, Deployment 소유자 증적과 검토된 30분 `pod.restart.history` 구간을 결합하도록 확장했습니다. 서버 소유 5-node 계획은 모든 종속 신원과 소유권 link 근거를 검증하며, 복구에는 범위가 제한된 양수 변화량과 ready 및 available 상태인 소유자 replica 전체가 필요합니다. Dependency-only 입력은 모델이 작성한 정적 인자를 거부합니다. | `current change`, 집중 메트릭, 검증기, 축약기, 증적 인증, 의미 플래너, 운영 조립 검사 49개 통과, 의미 라우팅 회귀 검사 370개 통과, Ruff, formatter, strict mypy 통과 | 보존된 Kubernetes 이벤트, 변경, 교체 UID, 영향 범위, 새 기준 시점 근거를 추가한 뒤 인증된 Console에서 복구 턴을 검증합니다. |
