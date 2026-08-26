@@ -189,6 +189,29 @@ describe("buildInstanceGraphLayout", () => {
     contained.forEach((item) => expect(byId.get(item.id)!.y).toBeGreaterThan(rootY));
   });
 
+  it("places a co-located scale set interface beside its virtual machine", () => {
+    const data = exploration();
+    const vm = resource(data.root_id, true, "compute.vm");
+    const nic = resource("nic", false, "network.interface");
+    const subnet = resource("subnet", false, "network.subnet");
+    const connected: OntologyInstanceExploration = {
+      ...data,
+      resources: [vm, nic, subnet],
+      links: [
+        link(nic.id, subnet.id, "attached_to"),
+        // Recovery once always added an occurrence one level right, which this rule can never pair.
+        linkWithMapping(nic.id, vm.id, "attached_to", "azure.vm-scale-set-nic-attached-to-vm"),
+      ],
+    };
+
+    const layout = buildInstanceGraphLayout(connected);
+    const edge = layout.edges.find((entry) =>
+      entry.link.evidence.mapping_id === "azure.vm-scale-set-nic-attached-to-vm")!;
+
+    expect(edge.source.level).toBe(edge.target.level);
+    expect(edge.source.x).toBe(edge.target.x);
+  });
+
   it("keeps every workload kind a namespace holds inside the bound", () => {
     const data = exploration();
     const cluster = resource(data.root_id, true, "kubernetes-cluster");

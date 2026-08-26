@@ -294,6 +294,12 @@ check that never ran and imply the state is missing in the cluster. The same hol
 field a ResourceClass never carries, such as an Azure location on a Kubernetes workload. Reporting
 absence is only truthful when it names the right absence.
 
+When a relationship cannot be placed, the recovery has to satisfy the rule that rejected it. Some
+relationships are drawn between levels and some, such as a scale set interface and the virtual
+machine it serves, are drawn on the same level. A recovery that always added the missing occurrence
+one level to the right could never satisfy the same-level rule, and the graph refused to draw rather
+than draw a false direction.
+
 ## Migration and rollout
 
 1. Add the structural declarations, loaders, and validators without changing the visible query

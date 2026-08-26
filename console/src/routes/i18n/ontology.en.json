@@ -66,6 +66,7 @@
     "emptyTitle": "Choose a Resource instance",
     "emptyDescription": "The workspace will show the selected Resource and its bounded multi-hop neighborhood.",
     "selectedResource": "Selected Resource",
+    "selectedResourceAndContents": "Selected Resource and what it contains",
     "resources": "Resources",
     "relationships": "Relationships",
     "relationshipTypes": "Relationship types",

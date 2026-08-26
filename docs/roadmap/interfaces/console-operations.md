@@ -153,6 +153,10 @@ ownership path, evidence references, and freshness, and it resolves to insuffici
 evidence when those do not support a verdict, so a single word on a card would drop exactly the
 qualifications that make it honest. Rollout health stays an evidence query.
 
+The middle band is named for what it holds. Nesting put the selected Resource and everything it
+contains inside that band, so it says so whenever a box is drawn and keeps the plain name when the
+selected Resource contains nothing.
+
 A bounded owner shows one Resource of every kind it holds before a second of any kind. Ranking and
 truncating would hand the whole bound to the most numerous kind: a cluster namespace holding
 fourteen DaemonSets behind seven Deployments drew six Deployments and no DaemonSet at all, so the

@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 7f6f391e72e2d693605e04a2d07f633ea09cdab9
+translation_source_sha: 3819c98f92fe5039142f4d7fe2ec8763a1e05a74
 translation_revised: 2026-08-27
 ---
 # 온톨로지 구조 모델
@@ -287,6 +287,11 @@ ResourceClass는 상태를 투영하지 않은 채 인벤토리에 들어오므�
 실행된 적 없는 검사를 주장하고 클러스터에 상태가 없는 것처럼 읽히게 됩니다. Kubernetes 워크로드의
 Azure 위치처럼 ResourceClass가 애초에 가지지 않는 기록 필드도 마찬가지입니다. 부재를 알리는 일은
 어떤 부재인지를 정확히 말할 때만 진실합니다.
+
+관계를 배치할 수 없을 때의 복구는 그것을 거부한 규칙을 만족시켜야 합니다. 어떤 관계는 레벨 사이에
+그려지고, 스케일 셋 인터페이스와 그것이 보조하는 가상 머신처럼 어떤 관계는 같은 레벨에
+그려집니다. 빠진 occurrence를 항상 한 레벨 오른쪽에 더하던 복구는 같은 레벨 규칙을 결코
+만족시킬 수 없었고, 그래프는 틀린 방향을 그리는 대신 그리기를 거부했습니다.
 
 ## 이행 및 출시
 

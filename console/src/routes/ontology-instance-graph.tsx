@@ -325,7 +325,9 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
             <rect class="is-selected" x={selectedLeft} y="0" width={selectedWidth} height={layout.height} />
             <rect class="is-outgoing" x={selectedLeft + selectedWidth} y="0" width={Math.max(0, layout.width - selectedLeft - selectedWidth)} height={layout.height} />
             <text x={Math.max(70, selectedLeft / 2)} y="19">{t("ontology.common.incoming")}</text>
-            <text x={selectedLeft + selectedWidth / 2} y="19">{t("ontology.instances.selectedResource")}</text>
+            <text x={selectedLeft + selectedWidth / 2} y="19">{t(rootBox === null
+              ? "ontology.instances.selectedResource"
+              : "ontology.instances.selectedResourceAndContents")}</text>
             <text x={selectedLeft + selectedWidth + Math.max(70, (layout.width - selectedLeft - selectedWidth) / 2)} y="19">{t("ontology.common.outgoing")}</text>
           </g>
           <g class="ontology-instance-boxes" aria-hidden="true">

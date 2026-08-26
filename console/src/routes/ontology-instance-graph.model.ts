@@ -594,9 +594,10 @@ function instanceGraphOccurrences(
       const anchorCandidates = reverseForNetworkHierarchy ? targetCandidates : sourceCandidates;
       const anchor = [...anchorCandidates].sort(compareOccurrences)[0];
       if (!anchor) throw new Error("Ontology instance graph edge anchor is missing");
-      const candidateLevel = anchor.rank.level + 1;
+      // The added occurrence has to land where the chosen rule can pair it, not always one right.
+      const candidateLevel = coLocatedVmssNic ? anchor.rank.level : anchor.rank.level + 1;
       addOccurrence(reverseForNetworkHierarchy ? link.source : link.target, {
-        level: candidateLevel === 0 ? 1 : candidateLevel,
+        level: candidateLevel === 0 && !coLocatedVmssNic ? 1 : candidateLevel,
         distance: anchor.rank.distance + 1,
         lane: instanceGraphLinkLane(link),
         parentId: anchor.resource.id,
@@ -605,7 +606,12 @@ function instanceGraphOccurrences(
       targetCandidates = byResource.get(link.target) ?? [];
       pair = selectPair(sourceCandidates, targetCandidates);
     }
-    if (!pair) throw new Error("Ontology instance graph edge cannot satisfy presentation direction");
+    if (!pair) {
+      throw new Error(
+        "Ontology instance graph edge cannot satisfy presentation direction: "
+        + `${link.link_type} via ${link.evidence.mapping_id ?? "unmapped"}`,
+      );
+    }
     edges.set(instanceGraphLinkKey(link), {
       sourceKey: pair[0].key,
       targetKey: pair[1].key,

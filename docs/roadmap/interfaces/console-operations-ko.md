@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 573ed96ec4a4f89755f0ecf4e03e001c17731b63
+translation_source_sha: 4fc3a1e03b1c16972069cc98bde0e3bd627957a0
 translation_revised: 2026-08-27
 ---
 
@@ -153,6 +153,10 @@ Deployment 카드는 롤아웃 건강을 담지 않습니다. 진실한 롤아�
 참조, 신선도를 필요로 하며 그것들이 판단을 받치지 못하면 근거 부족 또는 근거 충돌로 귀착합니다.
 카드 위의 단어 하나는 그를 진실하게 만드는 단서를 정확히 떨구게 됩니다. 롤아웃 건강은 evidence
 질의로 남습니다.
+
+가운데 띄는 그것이 담고 있는 것으로 이름 붙입니다. 중첩이 선택한 Resource와 그것이 포함한
+것을 모두 그 띄 안에 넣었으므로, 상자를 그릴 때는 그렇게 말하고 선택한 Resource가 아무것도
+포함하지 않을 때는 원래 이름을 유지합니다.
 
 한도가 적용된 소유자는 어떤 종류든 두 번째를 보이기 전에 자신이 가진 모든 종류의 첫 번째를
 보입니다. 순위를 매겨 잘라내면 가장 수가 많은 종류가 한도를 통째로 가져갑니다. Deployment
