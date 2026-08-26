@@ -172,6 +172,7 @@
       "sources": "출처"
     },
     "notObserved": "관측되지 않음",
+    "notReported": "보고되지 않음",
     "stateNotReported": "상태 정보 없음",
     "nodeRepeated": "모든 관계의 방향을 유지하려고 Resource 하나를 {count}번 그렸습니다",
     "nodeOmittedChildren": "포함한 Resource {count}개를 더 그리지 않았습니다",

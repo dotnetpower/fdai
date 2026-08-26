@@ -172,6 +172,7 @@
       "sources": "Sources"
     },
     "notObserved": "Not observed",
+    "notReported": "Not reported",
     "stateNotReported": "No state reported",
     "nodeRepeated": "One Resource drawn {count} times to keep every relationship directed",
     "nodeOmittedChildren": "{count} more contained Resources not drawn",

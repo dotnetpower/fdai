@@ -290,8 +290,9 @@ the answer.
 
 An absent state is reported as unreported rather than as unobserved. Most Kubernetes ResourceClasses
 are inventoried without a projected state, so naming that absence an observation would assert a
-check that never ran and imply the state is missing in the cluster. Reporting absence is only
-truthful when it names the right absence.
+check that never ran and imply the state is missing in the cluster. The same holds for a record
+field a ResourceClass never carries, such as an Azure location on a Kubernetes workload. Reporting
+absence is only truthful when it names the right absence.
 
 ## Migration and rollout
 

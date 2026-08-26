@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 03845631fc948d6c54a7ef3ff41896dd1aeec50c
+translation_source_sha: 7f6f391e72e2d693605e04a2d07f633ea09cdab9
 translation_revised: 2026-08-27
 ---
 # 온톨로지 구조 모델
@@ -284,7 +284,8 @@ Resource 유형 아이콘은 표현일 뿐입니다. 객체 identity, 유형 권
 
 상태의 부재는 관측되지 않았다가 아니라 보고되지 않았다고 알립니다. 대부분의 Kubernetes
 ResourceClass는 상태를 투영하지 않은 채 인벤토리에 들어오므로, 그 부재를 관측이라고 부르면
-실행된 적 없는 검사를 주장하고 클러스터에 상태가 없는 것처럼 읽히게 됩니다. 부재를 알리는 일은
+실행된 적 없는 검사를 주장하고 클러스터에 상태가 없는 것처럼 읽히게 됩니다. Kubernetes 워크로드의
+Azure 위치처럼 ResourceClass가 애초에 가지지 않는 기록 필드도 마찬가지입니다. 부재를 알리는 일은
 어떤 부재인지를 정확히 말할 때만 진실합니다.
 
 ## 이행 및 출시

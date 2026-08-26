@@ -144,8 +144,14 @@ more strongly than the borders nested inside it.
 A Resource with no state does not report that it was not observed. Most Kubernetes classes are
 inventoried without a projected state, so calling that absence "not observed" would claim an
 observation that never ran and imply the state is missing in the cluster. The card and the Inspector
-report that no state is reported instead. "Not observed" is kept for a source that genuinely
-returned no observation, such as one with no observation time.
+report that no state is reported instead, and the Inspector reports an absent location or resource
+group the same way, because a Kubernetes workload never carried either. "Not observed" is kept for a
+source that genuinely returned no observation, such as one with no observation time.
+
+A Deployment card does not carry rollout health. A truthful rollout disposition needs the Pod
+ownership path, evidence references, and freshness, and it resolves to insufficient or conflicting
+evidence when those do not support a verdict, so a single word on a card would drop exactly the
+qualifications that make it honest. Rollout health stays an evidence query.
 
 A bounded owner shows one Resource of every kind it holds before a second of any kind. Ranking and
 truncating would hand the whole bound to the most numerous kind: a cluster namespace holding

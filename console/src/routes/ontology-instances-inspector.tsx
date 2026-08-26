@@ -85,8 +85,8 @@ function InstanceOverview({
       <p>{root.status ?? t("ontology.instances.stateNotReported")}</p>
       <dl class="ontology-instance-facts">
         <div><dt>{t("ontology.instances.resourceType")}</dt><dd><code>{root.resource_type}</code></dd></div>
-        <div><dt>{t("ontology.instances.location")}</dt><dd>{root.location ?? t("ontology.instances.notObserved")}</dd></div>
-        <div><dt>{t("ontology.instances.resourceGroup")}</dt><dd>{root.resource_group ?? t("ontology.instances.notObserved")}</dd></div>
+        <div><dt>{t("ontology.instances.location")}</dt><dd>{root.location ?? t("ontology.instances.notReported")}</dd></div>
+        <div><dt>{t("ontology.instances.resourceGroup")}</dt><dd>{root.resource_group ?? t("ontology.instances.notReported")}</dd></div>
         <div><dt>{t("ontology.instances.lastSeen")}</dt><dd>{root.last_seen ? formatDateTime(root.last_seen) : t("ontology.instances.notObserved")}</dd></div>
         <div><dt>{t("ontology.instances.snapshot")}</dt><dd><code>{data.source_generation}</code></dd></div>
         <div><dt>{t("ontology.instances.cutoff")}</dt><dd>{formatDateTime(data.source_cutoff)}</dd></div>
