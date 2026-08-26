@@ -164,18 +164,8 @@ selector continues to require server-owned action lifecycle evidence.
   Teams keeps the Adaptive Card under 24,000 bytes, counts omitted activities, and always retains
   the final accountable-agent answer. Renderers distinguish producer-side partial evidence with
   `[UPSTREAM OUTPUT TRUNCATED]` from vendor-limit clipping with `[CHANNEL OUTPUT TRUNCATED]`.
-  Full-workspace web chat opens transcript-first. A fresh empty conversation centers one composer
-  with the current route, screen-grounding statement, operating-domain quick starts, and bounded
-  suggestions. After the first operator turn or an explicit durable restore, the composer returns
-  to the bottom of the transcript. Conversation history is a compact header action rather than a
-  permanent column, and starting a new conversation closes it. The current-screen snapshot remains
-  internal answer grounding and doesn't render as a separate operator panel. A
-  general Deck open starts a fresh user-scoped conversation; past conversations restore only after
-  explicit selection, while agent and incident entry points retain their bound session. The Deck
-  header leads with the active conversation title and route context, exposes transcript search only
-  when turns exist, and reduces healthy connectivity to a tooltip-backed status datum. The screen
-  header keeps the route context visible without repeating snapshot counts or freshness controls.
-  The composer keeps only attachments, question entry, and send or stop. Sent images render inside the operator turn, and validated image attachments bypass prompt-only semantic tool planning and omitted-subject
+  Full-workspace presentation, composer placement, history restore, header controls, and internal
+  screen grounding are owned by [progressive conversations](operator-console-progressive-conversations.md#command-deck-workspace-lifecycle). Sent images render inside the operator turn, and validated image attachments bypass prompt-only semantic tool planning and omitted-subject
   LLM-usage refinement so the current image reaches vision narration. Terminal verification preserves the interpretation as unverified with a current `conversation-image` ref instead of treating it as screen-verified. Explicit measured LLM usage remains a deterministic tool request. Browser transcript caches retain only image descriptors, while authenticated history reads load
   bytes from the principal-scoped conversation image repository. A restored transcript shows its last recorded
   time and a new-conversation action. Tables render every bounded row without internal scrolling or expansion controls; cell-level `<br>` variants become safe line breaks while other raw HTML remains text.

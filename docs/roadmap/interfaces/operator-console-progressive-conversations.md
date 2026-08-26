@@ -90,6 +90,22 @@ bounded progress contract for progressive Operator Console conversations.
 - [x] Retain a governed authenticated Browser artifact for the completed semantic presentation and
   regeneration path, then run and retain the Korean equivalent.
 
+## Command Deck workspace lifecycle
+
+Full-workspace web chat opens transcript-first. A fresh empty conversation centers one composer
+with the current route, screen-grounding statement, operating-domain quick starts, and bounded
+suggestions. After the first operator turn or an explicit durable restore, the composer returns to
+the bottom of the transcript. Conversation history is a compact header action rather than a
+permanent column, and starting a new conversation closes it. The current-screen snapshot remains
+internal answer grounding and doesn't render as a separate operator panel.
+
+A general Deck open starts a fresh user-scoped conversation. Past conversations restore only after
+explicit selection, while agent and incident entry points retain their bound session. The Deck
+header leads with the active conversation title and route context, exposes transcript search only
+when turns exist, and reduces healthy connectivity to a tooltip-backed status datum. The screen
+header keeps the route context visible without repeating snapshot counts or freshness controls.
+The composer keeps only attachments, question entry, and send or stop.
+
 ## Semantic terminal presentation plan
 
 A typed `direct_response` is separate from a verified query answer. It carries one closed answer

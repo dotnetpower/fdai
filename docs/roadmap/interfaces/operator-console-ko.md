@@ -1,8 +1,8 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 0359829859346e6eef751a498935bf526d6c3723
-translation_revised: 2026-08-25
+translation_source_sha: f20a2589ed38ea6e79cdb1ea0d796851411bc47c
+translation_revised: 2026-08-26
 ---
 # FDAI Console 대화
 사람 오퍼레이터가 CLI, Teams, Slack, 웹 챗을 통해 FDAI에 **역으로 말할 수 있는** 방식입니다. 별도 제품이 아닌 FDAI Console의 **대화형 표면**로서 계층 아키텍처, 도구 카탈로그, LLM tier, 세션 지속성, 도구별 RBAC, 안전 invariant, 롤아웃 상태를 정의합니다.
@@ -164,16 +164,8 @@ intent-graph 도구보다 정본 glossary를 먼저 사용합니다. 이 우선�
   답변을 항상 보존합니다. 렌더러는 producer-side 부분 근거를
   `[UPSTREAM OUTPUT TRUNCATED]`로, vendor-limit clipping을 `[CHANNEL OUTPUT TRUNCATED]`로
   구분합니다.
-  Full-workspace 웹 채팅은 대화 기록 중심으로 열립니다. 새 빈 대화는 현재 경로, 화면 근거 설명,
-  운영 영역 빠른 시작 및 범위가 제한된 추천 질문과 함께 작성기 하나를 중앙에 배치합니다. 첫 운영자
-  턴 이후 또는 영속 대화를 명시적으로 복원하면 작성기는 대화 기록 하단으로 돌아갑니다. 대화 이력은
-  항상 표시되는 열이 아니라 간결한 헤더 동작이며, 새 대화를 시작하면 이력 패널을 닫습니다. 현재 화면
-  스냅샷은 내부 답변 근거로 유지하고 운영자에게 별도 패널로 표시하지 않습니다.
-  일반 Deck 열기는 새로운 principal 범위 대화를 시작합니다. 이전 대화는 명시적으로 선택할 때만
-  복원하고, 에이전트와 인시던트 진입점은 연결된 세션을 유지합니다. Deck 헤더는 활성 대화 제목과
-  경로 맥락을 먼저 표시하고 턴이 있을 때만 대화 기록 검색을 노출하며, 정상 연결 상태는 툴팁이 있는
-  상태 정보로 줄여 표시합니다. 헤더는 스냅샷 개수나 freshness 컨트롤을 반복하지 않고 경로 맥락만
-  유지합니다. 작성기에는 첨부, 질문 입력 및 보내기 또는 중지만 유지합니다. 전송된 이미지는 운영자 턴 안에 표시되며 검증된 이미지 첨부는 prompt-only semantic 도구 계획 수립과
+  Full-workspace 표현, 작성기 배치, 이력 복원, 헤더 컨트롤 및 내부 화면 근거는
+  [점진적 대화](operator-console-progressive-conversations-ko.md#command-deck-workspace-lifecycle)에서 소유합니다. 전송된 이미지는 운영자 턴 안에 표시되며 검증된 이미지 첨부는 prompt-only semantic 도구 계획 수립과
   주어가 생략된 LLM 사용량 구체화를 우회하여 현재 이미지를 vision 서술에 전달합니다. 최종 검증은 해당 해석을 screen-verified로 취급하지 않고 현재 `conversation-image` 참조가 있는 검증되지 않은 답변으로 보존합니다. 측정된 LLM 사용량을 명시한 요청은 결정론적 도구 요청으로 유지합니다. 브라우저 대화 기록 캐시에는 이미지 서술자만 유지하고 인증된 이력 읽기가
   principal 범위 대화 이미지 저장소에서 바이트를 부하합니다. 복원된 대화 기록에는 마지막 기록 시각과
   새 대화 작업을 표시합니다. 표 cell의 `<br>` 변형만 안전한 줄바꿈으로 바꾸고 다른 raw HTML은 텍스트로 유지합니다. 좁은 화면에서도 Markdown 표는 native 표 의미 규칙을 유지합니다.
