@@ -1,8 +1,8 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: bd1998068e3eba233dd1221453a59cd40a5a78bb
-translation_revised: 2026-08-24
+translation_source_sha: da4ebec346a6804b814dc5a382b59b8e893dd1f5
+translation_revised: 2026-08-26
 ---
 # FDAI 로드맵
 
@@ -113,6 +113,7 @@ canonical 영문 roadmap context를 실제 4,500줄로 제한합니다. Route가
 | 15d | [human-agent-assignment-and-knowledge-handover-ko.md](interfaces/human-agent-assignment-and-knowledge-handover-ko.md) | 관리자 ID 검색, 통제된 IAM 등록, 기본 및 백업 에이전트 임무, 승인 무응답 에스컬레이션, 피로도 제한 인수인계 목표, 에이전트 소유 지식 처리 |
 | 15e | [human-agent-assignment-implementation-plan-ko.md](interfaces/human-agent-assignment-implementation-plan-ko.md) | 담당 체계 v2, 할당 케이스, 콘솔 프로젝션, 담당 체계 조정, Entra 적용, 에스컬레이션 감독, 인수인계 목표, 지식 처리, 프로덕션 롤아웃을 위한 `main`의 종속성 순서 작업 묶음 9개 |
 | 16 | [channels-and-notifications-ko.md](interfaces/channels-and-notifications-ko.md) | 비-웹UI 채널(Teams / Slack / 이메일 / 웹훅 / pager / SMS), 카테고리와 trust-tier 매트릭스 |
+| 16a | [multi-channel-notification-delivery-ko.md](interfaces/multi-channel-notification-delivery-ko.md) | 활성화되고 설정된 모든 A2/A4 채널로의 fan-out 전달, 이름이 있는 채널 바인딩, 채널별 영속 전달, 부분 성공 결과, Teams Workflows 웹훅 바인딩 |
 | 17 | [risk-classification-ko.md](decisioning/risk-classification-ko.md) | auto vs HIL vs 거부 분류: 차원, 초기 규칙 표, 환경 감지 |
 | 17b | [escalation-and-standing-authority-ko.md](decisioning/escalation-and-standing-authority-ko.md) | `hil` 판정 후 아무도 응답하지 않을 때 무슨 일이 벌어지는가: 감독형 OODA 루프, 영향도 계층 별 시간 감쇠 에스컬레이션 사다리(채널 대체 경로 과 구별), 상시 권한(사전 승인·묶음 경계·가역 전용 조건부 자동 조치를 결정론적 risk-gate 입력으로) |
 | 18 | [dev-and-deploy-parity-ko.md](deployment/dev-and-deploy-parity-ko.md) | 권위 있는 interactive 로컬/deployed 동등성, 명시적 고정본 프로파일, deployer-scoped LLM 게이트 |

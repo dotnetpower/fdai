@@ -19,6 +19,10 @@ only its outbound browser-notification boundary. Console identity lives in
 Production A3 ingress, publishing, lifecycle, persistence composition, deployment, and rollback are
 owned by [Production A3 channel runtime](production-a3-channel-runtime.md).
 
+A2/A4 fan-out delivery to every enabled and configured channel, named channel bindings, per-channel
+durable delivery, and the Teams Workflows webhook binding are owned by
+[Multi-channel notification delivery](multi-channel-notification-delivery.md).
+
 > **Direction scope.** Outbound notifications, A1 approvals, and bidirectional conversations use
 > separate Protocols. This document owns their shared trust/category/routing principles and
 > outbound delivery; [operator-console.md](operator-console.md) owns conversation tool and session

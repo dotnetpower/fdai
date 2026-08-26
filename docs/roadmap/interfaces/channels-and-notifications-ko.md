@@ -1,8 +1,8 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 1d6dedd22bfd7daeb1e6fed594432d366c2da4b8
-translation_revised: 2026-08-20
+translation_source_sha: 5e5b21fb8ceca5f81d844e301e90a883edc48c16
+translation_revised: 2026-08-26
 ---
 
 # 채널과 알림(Channels and Notifications)
@@ -22,6 +22,10 @@ FDAI가 Teams, Slack, 이메일, 웹훅, paging 서비스, SMS 및 명시적 선
 
 운영 A3 유입, 발행, 수명 주기, 영속성 조립, 배포 및 롤백은
 [운영 A3 채널 런타임](production-a3-channel-runtime-ko.md)이 소유합니다.
+
+활성화되고 설정된 모든 채널로의 A2/A4 fan-out 전달, 이름이 있는 채널 바인딩, 채널별 영속 전달,
+Teams Workflows 웹훅 바인딩은
+[다중 채널 알림 전달](multi-channel-notification-delivery-ko.md)이 소유합니다.
 
 > **방향 범위.** 아웃바운드 알림, A1 승인, bidirectional 대화는 서로 다른
 > 프로토콜입니다. 이 문서는 공통 trust/category/라우팅 원칙과 아웃바운드 전달을 소유하고,

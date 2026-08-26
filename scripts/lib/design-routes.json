@@ -967,6 +967,32 @@
       ]
     },
     {
+      "id": "multi-channel-notification-delivery",
+      "paths": [
+        "services/core-control-plane/src/fdai/core/notifications/**",
+        "services/core-control-plane/src/fdai/delivery/notifications/**",
+        "services/core-control-plane/src/fdai/shared/providers/notifications/**",
+        "services/core-control-plane/src/fdai/core/incident/notification_delivery.py",
+        "services/core-control-plane/src/fdai/core/incident/durable_notifications.py",
+        "services/core-control-plane/src/fdai/delivery/persistence/postgres_incident_notification.py",
+        "config/notifications-matrix.yaml",
+        "services/core-control-plane/tests/notifications/**"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        "docs/roadmap/interfaces/multi-channel-notification-delivery.md",
+        "docs/roadmap/interfaces/channels-and-notifications.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/interfaces/multi-channel-notification-delivery.md",
+        "docs/roadmap-implementation/interfaces/multi-channel-notification-delivery.md",
+        "docs/roadmap/interfaces/channels-and-notifications.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov services/core-control-plane/tests/notifications"
+      ]
+    },
+    {
       "id": "durable-conversation-delivery",
       "paths": [
         "services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py",
