@@ -184,6 +184,25 @@ class SemanticPlanningCascade:
     ):
         if (
             semantic_judgment is not None
+            and semantic_judgment.get("primary_intent") == "query.resource_current_state"
+            and semantic_judgment.get("action_posture") == "advise_only"
+            and semantic_judgment.get("execution_authority") is False
+        ):
+            current_state = _current_state_clarification_fallback(
+                semantic_judgment=semantic_judgment,
+                utterance=utterance,
+                context=context,
+                descriptors=descriptors,
+                confidence=float(semantic_judgment.get("confidence", 0.0)),
+            )
+            if current_state is not None:
+                _LOGGER.info(
+                    "semantic_planning_candidate_recovered",
+                    extra={"stage": "judgment", "recovery": "current_state"},
+                )
+                return (*current_state, None)
+        if (
+            semantic_judgment is not None
             and semantic_judgment.get("action_posture") == "advise_only"
             and "cause" in semantic_judgment.get("requested_facets", ())
         ):
