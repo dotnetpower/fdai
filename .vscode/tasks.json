@@ -140,7 +140,7 @@
         "background": {
           "activeOnStart": true,
           "beginsPattern": "service=core-runtime event=starting$",
-          "endsPattern": "service=core-runtime event=ready$"
+          "endsPattern": "service=core-runtime event=(ready|failed)(?: |$)"
         }
       },
       "presentation": {
@@ -166,7 +166,7 @@
         "background": {
           "activeOnStart": true,
           "beginsPattern": "service=core-runtime event=starting$",
-          "endsPattern": "service=core-runtime event=ready$"
+          "endsPattern": "service=core-runtime event=(ready|failed)(?: |$)"
         }
       },
       "presentation": {
@@ -184,7 +184,7 @@
     {
       "label": "console: restart operator api",
       "type": "shell",
-      "command": "bash scripts/deployment/local/run-console-service.sh operator-api",
+      "command": "bash scripts/deployment/local/run-console-service.sh operator-api --wait-ready",
       "isBackground": true,
       "problemMatcher": {
         "owner": "console-operator-api-restart",
@@ -192,7 +192,7 @@
         "background": {
           "activeOnStart": true,
           "beginsPattern": "service=operator-api event=starting$",
-          "endsPattern": "service=operator-api event=ready$"
+          "endsPattern": "service=operator-api event=(ready|failed)(?: |$)"
         }
       },
       "presentation": {

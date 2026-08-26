@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import shutil
 import stat
 import subprocess
@@ -34,6 +35,114 @@ def test_core_runtime_digest_includes_prompt_catalog() -> None:
 
     assert 'if [[ "$service" == "core-runtime" ]]' in script
     assert "digest_inputs+=(rule-catalog/prompts)" in script
+
+
+def _operator_restart_repo(tmp_path: Path) -> Path:
+    repo = tmp_path / "repo"
+    run_script = repo / "scripts/deployment/local/run-console-service.sh"
+    run_script.parent.mkdir(parents=True)
+    shutil.copy2(_RUN_SERVICE_SCRIPT, run_script)
+    (repo / ".fdai").mkdir()
+    (repo / ".fdai/local-operator-service.env").write_text("", encoding="utf-8")
+    _write_executable(
+        repo / "scripts/automation/run-local-service.sh",
+        """#!/usr/bin/env bash
+status="${FDAI_TEST_RUNNER_STATUS:-0}"
+if [[ "$status" != "0" ]]; then
+    exit "$status"
+fi
+sleep "${FDAI_TEST_LAUNCH_DELAY:-0}"
+printf '2026-08-26T00:00:00.000000+00:00 service=operator-api event=starting\n'
+printf '2026-08-26T00:00:00.000000+00:00 service=operator-api event=reused\n'
+printf 'launch\n' >> "$FDAI_TEST_ORDER_FILE"
+mkdir -p "$(dirname "$FDAI_LOCAL_SERVICE_LAUNCH_MARKER")"
+printf 'reused\n' > "$FDAI_LOCAL_SERVICE_LAUNCH_MARKER"
+""",
+    )
+    _write_executable(
+        repo / ".venv/bin/python",
+        """#!/usr/bin/env bash
+set -euo pipefail
+case "$1" in
+  */local-service-input-digest.py) printf '%064d\n' 0 ;;
+  */run-bounded-command.py)
+        printf 'readiness\n' >> "$FDAI_TEST_ORDER_FILE"
+    sleep "${FDAI_TEST_READINESS_DELAY:-0}"
+    exit "${FDAI_TEST_READINESS_STATUS:-0}"
+    ;;
+  *) printf 'unexpected python call: %s\n' "$1" >&2; exit 99 ;;
+esac
+""",
+    )
+    return repo
+
+
+def _run_operator_restart(
+    repo: Path,
+    *,
+    readiness_status: int = 0,
+    readiness_delay: int = 0,
+    runner_status: int = 0,
+    launch_delay: int = 0,
+) -> subprocess.CompletedProcess[str]:
+    order_file = repo / "order.txt"
+    return subprocess.run(  # noqa: S603 - fixed test script with test-owned environment.
+        [
+            _BASH,
+            str(repo / "scripts/deployment/local/run-console-service.sh"),
+            "operator-api",
+            "--wait-ready",
+        ],
+        cwd=repo,
+        env={
+            **os.environ,
+            "FDAI_TEST_LAUNCH_DELAY": str(launch_delay),
+            "FDAI_TEST_ORDER_FILE": str(order_file),
+            "FDAI_TEST_READINESS_DELAY": str(readiness_delay),
+            "FDAI_TEST_READINESS_STATUS": str(readiness_status),
+            "FDAI_TEST_RUNNER_STATUS": str(runner_status),
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=3,
+    )
+
+
+def test_operator_restart_emits_ready_after_reuse(tmp_path: Path) -> None:
+    repo = _operator_restart_repo(tmp_path)
+    result = _run_operator_restart(repo, launch_delay=1)
+
+    assert result.returncode == 0
+    assert (repo / "order.txt").read_text(encoding="utf-8").splitlines() == [
+        "launch",
+        "readiness",
+    ]
+    assert "service=operator-api event=ready" in result.stdout
+    assert "service=operator-api event=failed" not in result.stderr
+
+
+def test_operator_restart_emits_failed_for_readiness_failure(tmp_path: Path) -> None:
+    result = _run_operator_restart(
+        _operator_restart_repo(tmp_path),
+        readiness_status=7,
+    )
+
+    assert result.returncode == 7
+    assert "service=operator-api event=ready" not in result.stdout
+    assert "service=operator-api event=failed stage=readiness exit_code=7" in result.stderr
+
+
+def test_operator_restart_emits_failed_for_runner_failure(tmp_path: Path) -> None:
+    result = _run_operator_restart(
+        _operator_restart_repo(tmp_path),
+        readiness_delay=1,
+        runner_status=9,
+    )
+
+    assert result.returncode == 9
+    assert "service=operator-api event=ready" not in result.stdout
+    assert "service=operator-api event=failed stage=runner exit_code=9" in result.stderr
 
 
 def test_supervisor_reports_a_service_that_exits_before_readiness(tmp_path: Path) -> None:

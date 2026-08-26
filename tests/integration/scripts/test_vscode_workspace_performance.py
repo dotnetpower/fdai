@@ -177,7 +177,7 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
     assert core_runtime["problemMatcher"]["background"] == {
         "activeOnStart": True,
         "beginsPattern": "service=core-runtime event=starting$",
-        "endsPattern": "service=core-runtime event=ready$",
+        "endsPattern": "service=core-runtime event=(ready|failed)(?: |$)",
     }
 
     restart_core_runtime = tasks_by_label["console: restart core runtime"]
@@ -190,12 +190,12 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
     assert restart_core_runtime["problemMatcher"]["background"] == {
         "activeOnStart": True,
         "beginsPattern": "service=core-runtime event=starting$",
-        "endsPattern": "service=core-runtime event=ready$",
+        "endsPattern": "service=core-runtime event=(ready|failed)(?: |$)",
     }
 
     restart_operator_api = tasks_by_label["console: restart operator api"]
     assert restart_operator_api["command"] == (
-        "bash scripts/deployment/local/run-console-service.sh operator-api"
+        "bash scripts/deployment/local/run-console-service.sh operator-api --wait-ready"
     )
     assert restart_operator_api["isBackground"] is True
     assert restart_operator_api["runOptions"] == {
@@ -205,7 +205,7 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
     assert restart_operator_api["problemMatcher"]["background"] == {
         "activeOnStart": True,
         "beginsPattern": "service=operator-api event=starting$",
-        "endsPattern": "service=operator-api event=ready$",
+        "endsPattern": "service=operator-api event=(ready|failed)(?: |$)",
     }
 
     local_services = tasks_by_label["console: start local services"]
@@ -296,9 +296,9 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
     assert 'export FDAI_LOCAL_SERVICE_INPUT_DIGEST="$input_digest"' in service_script
     assert "export FDAI_LOCAL_SERVICE_RESTART_STALE=1" in service_script
     assert "export FDAI_LOCAL_SERVICE_REUSE_EXISTING=1" in service_script
-    assert "--only core-runtime" in service_script
-    assert service_script.index("--only core-runtime") < service_script.index(
-        "service=core-runtime event=ready"
+    assert '--only "$service"' in service_script
+    assert service_script.index('--only "$service"') < service_script.index(
+        'write_task_marker "ready"'
     )
     for service_name in (*managed_services, "operator-channel-edge"):
         assert service_name in service_script

@@ -13,7 +13,8 @@ fi
 service="$1"
 wait_ready=0
 if [[ $# -eq 2 ]]; then
-  if [[ "$2" != "--wait-ready" || "$service" != "core-runtime" ]]; then
+  if [[ "$2" != "--wait-ready" \
+    || ( "$service" != "core-runtime" && "$service" != "operator-api" ) ]]; then
     usage
   fi
   wait_ready=1
@@ -205,23 +206,74 @@ runner=(
   --
   "${service_command[@]}"
 )
+
+write_task_marker() {
+  local event="$1"
+  local detail="${2:-}"
+  local marker
+  marker="$(date '+%Y-%m-%dT%H:%M:%S.%6N%:z') service=$service event=$event"
+  if [[ -n "$detail" ]]; then
+    marker+=" $detail"
+  fi
+  if [[ "$event" == "failed" ]]; then
+    printf '%s\n' "$marker" >&2
+  else
+    printf '%s\n' "$marker"
+  fi
+}
+
 if [[ "$wait_ready" == "0" ]]; then
   exec "${runner[@]}"
 fi
 
-"${runner[@]}" &
+launch_marker="$repo_root/.fdai/logs/.$service.launch.$$"
+rm -f -- "$launch_marker"
+cleanup_launch_marker() {
+  rm -f -- "$launch_marker"
+}
+trap cleanup_launch_marker EXIT
+
+FDAI_LOCAL_SERVICE_LAUNCH_MARKER="$launch_marker" "${runner[@]}" &
 runner_pid="$!"
+launch_deadline=$((SECONDS + readiness_budget_seconds))
+while [[ ! -s "$launch_marker" ]]; do
+  if ! kill -0 "$runner_pid" 2>/dev/null; then
+    if wait "$runner_pid"; then
+      runner_status=0
+    else
+      runner_status=$?
+    fi
+    write_task_marker "failed" "stage=runner exit_code=$runner_status"
+    exit "$runner_status"
+  fi
+  if (( SECONDS >= launch_deadline )); then
+    kill -TERM "$runner_pid" 2>/dev/null || true
+    wait "$runner_pid" 2>/dev/null || true
+    write_task_marker "failed" "stage=launch exit_code=124"
+    exit 124
+  fi
+  sleep 0.05
+done
+rm -f -- "$launch_marker"
+remaining_budget_seconds=$((launch_deadline - SECONDS))
+if (( remaining_budget_seconds <= 1 )); then
+  kill -TERM "$runner_pid" 2>/dev/null || true
+  wait "$runner_pid" 2>/dev/null || true
+  write_task_marker "failed" "stage=launch exit_code=124"
+  exit 124
+fi
+probe_wait_seconds=$((remaining_budget_seconds - 1))
 "$repo_root/.venv/bin/python" \
   "$repo_root/scripts/automation/run-bounded-command.py" \
-  --label core-runtime-readiness \
-  --timeout-seconds "$readiness_budget_seconds" \
-  --no-progress-seconds "$readiness_budget_seconds" \
+  --label "$service-readiness" \
+  --timeout-seconds "$remaining_budget_seconds" \
+  --no-progress-seconds "$remaining_budget_seconds" \
   -- \
   "$repo_root/.venv/bin/python" \
   "$repo_root/scripts/automation/developer-workflow.py" \
   local-services \
-  --wait-seconds "$readiness_seconds" \
-  --only core-runtime >/dev/null &
+  --wait-seconds "$probe_wait_seconds" \
+  --only "$service" >/dev/null &
 readiness_pid="$!"
 
 completed_pid=""
@@ -234,17 +286,23 @@ if [[ "$completed_pid" == "$runner_pid" ]]; then
   if (( completed_status != 0 )); then
     kill -TERM "$readiness_pid" 2>/dev/null || true
     wait "$readiness_pid" 2>/dev/null || true
+    write_task_marker "failed" "stage=runner exit_code=$completed_status"
     exit "$completed_status"
   fi
-  if ! wait "$readiness_pid"; then
-    exit 1
+  if wait "$readiness_pid"; then
+    readiness_status=0
+  else
+    readiness_status=$?
+    write_task_marker "failed" "stage=readiness exit_code=$readiness_status"
+    exit "$readiness_status"
   fi
 elif (( completed_status != 0 )); then
   kill -TERM "$runner_pid" 2>/dev/null || true
   wait "$runner_pid" 2>/dev/null || true
-  exit 1
+  write_task_marker "failed" "stage=readiness exit_code=$completed_status"
+  exit "$completed_status"
 fi
-printf '%s service=core-runtime event=ready\n' "$(date '+%Y-%m-%dT%H:%M:%S.%6N%:z')"
+write_task_marker "ready"
 if kill -0 "$runner_pid" 2>/dev/null; then
   wait "$runner_pid"
 fi

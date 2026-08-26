@@ -66,6 +66,21 @@ log_dir="$(dirname "$log_file")"
 mkdir -p "$log_dir"
 chmod 700 "$log_dir"
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+launch_marker="${FDAI_LOCAL_SERVICE_LAUNCH_MARKER:-}"
+if [[ -n "$launch_marker" \
+  && "$(readlink -m "$(dirname "$launch_marker")")" != "$(readlink -m "$log_dir")" ]]; then
+  echo "FDAI_LOCAL_SERVICE_LAUNCH_MARKER must stay inside the service log directory" >&2
+  exit 2
+fi
+
+write_launch_marker() {
+  local event="$1"
+  if [[ -z "$launch_marker" ]]; then
+    return
+  fi
+  printf '%s\n' "$event" > "$launch_marker.tmp.$$"
+  mv -f -- "$launch_marker.tmp.$$" "$launch_marker"
+}
 
 lock_file="${log_file}.lock"
 exec {service_lock_fd}>> "$lock_file"
@@ -137,6 +152,7 @@ if ! flock -n "$service_lock_fd"; then
     else
       printf '%s service=%s event=starting\n' "$(date '+%Y-%m-%dT%H:%M:%S.%6N%:z')" "$service"
       printf '%s service=%s event=reused\n' "$(date '+%Y-%m-%dT%H:%M:%S.%6N%:z')" "$service"
+      write_launch_marker "reused"
       exit 0
     fi
   else
@@ -290,6 +306,7 @@ fi
 
 rotate_log
 write_marker "starting"
+write_launch_marker "starting"
 
 cleanup_stale_output_pipes
 output_pipe="$log_dir/.${service}.output.$$"
