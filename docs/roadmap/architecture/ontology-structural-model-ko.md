@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 3819c98f92fe5039142f4d7fe2ec8763a1e05a74
+translation_source_sha: bd109b76b6a7a537d9e598faf81c73eeafceec46
 translation_revised: 2026-08-27
 ---
 # 온톨로지 구조 모델
@@ -292,6 +292,10 @@ Azure 위치처럼 ResourceClass가 애초에 가지지 않는 기록 필드도 
 그려지고, 스케일 셋 인터페이스와 그것이 보조하는 가상 머신처럼 어떤 관계는 같은 레벨에
 그려집니다. 빠진 occurrence를 항상 한 레벨 오른쪽에 더하던 복구는 같은 레벨 규칙을 결코
 만족시킬 수 없었고, 그래프는 틀린 방향을 그리는 대신 그리기를 거부했습니다.
+
+상자가 담고 있는 관계도 그림이 보여 주는 관계입니다. 선만 세면 중첩이 선을 없앱는 순간
+그래프가 실제로 제시하는 것보다 적은 범위를 보고하게 되며, 이는 과대 보고와 마찬가지로
+운영자가 보고 있는 evidence를 잘못 말하는 일입니다.
 
 ## 이행 및 출시
 

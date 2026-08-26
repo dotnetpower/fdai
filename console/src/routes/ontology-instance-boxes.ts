@@ -7,6 +7,7 @@ import {
 import type { InstanceGraphLayout } from "./ontology-instance-graph.model";
 import type {
   OntologyInstanceExploration,
+  OntologyInstanceLink,
   OntologyInstanceResource,
 } from "./ontology-instances.model";
 
@@ -118,6 +119,8 @@ export interface NestedInstanceGraph {
   readonly boxes: readonly InstanceBox[];
   /** Resources whose distance the drawing now states by position. */
   readonly nestedIds: ReadonlySet<string>;
+  /** Relationships the boxes show. They left the canvas as lines but not as readings. */
+  readonly absorbedLinks: readonly OntologyInstanceLink[];
 }
 
 /**
@@ -138,7 +141,7 @@ export function nestInstanceContainment(
   });
   const rootNode = layout.nodes.find((node) => node.resource.id === data.root_id);
   if (root === null || root.children.length === 0 || rootNode === undefined) {
-    return { layout, boxes: [], nestedIds: new Set() };
+    return { layout, boxes: [], nestedIds: new Set(), absorbedLinks: [] };
   }
 
   const boxes = flattenInstanceBoxes(
@@ -177,8 +180,10 @@ export function nestInstanceContainment(
   });
 
   const byId = new Map(nodes.map((node) => [node.resource.id, node]));
+  const absorbedLinks: OntologyInstanceLink[] = [];
   const edges = layout.edges.flatMap((edge) => {
     if (edge.link.link_type === "contains" && ownerOf.get(edge.link.target) === edge.link.source) {
+      absorbedLinks.push(edge.link);
       return [];
     }
     const source = byId.get(edge.source.resource.id);
@@ -206,6 +211,7 @@ export function nestInstanceContainment(
     },
     boxes: boxes.filter((box) => box.children.length > 0),
     nestedIds,
+    absorbedLinks,
   };
 }
 

@@ -300,6 +300,10 @@ machine it serves, are drawn on the same level. A recovery that always added the
 one level to the right could never satisfy the same-level rule, and the graph refused to draw rather
 than draw a false direction.
 
+A relationship a box carries is still a relationship the drawing shows. Counting only the lines made
+the graph report less coverage than it presents once nesting removed them, which understates the
+evidence an operator is looking at just as surely as overstating it would.
+
 ## Migration and rollout
 
 1. Add the structural declarations, loaders, and validators without changing the visible query

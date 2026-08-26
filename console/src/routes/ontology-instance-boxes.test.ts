@@ -222,6 +222,19 @@ describe("nestInstanceContainment", () => {
     expect(workload.x + workload.w).toBeLessThanOrEqual(nsBox.x + nsBox.width);
   });
 
+  it("reports the relationships a box shows so they are not counted as dropped", () => {
+    const data = cluster();
+    const before = buildInstanceGraphLayout(data);
+    const nested = nestInstanceContainment(before, data);
+    const containsIn = (links: readonly { link_type: string }[]) =>
+      links.filter((link) => link.link_type === "contains").length;
+
+    expect(nested.absorbedLinks.every((link) => link.link_type === "contains")).toBe(true);
+    expect(containsIn(nested.layout.edges.map((edge) => edge.link)) + nested.absorbedLinks.length)
+      .toBe(containsIn(before.edges.map((edge) => edge.link)));
+    expect(nested.layout.edges.length + nested.absorbedLinks.length).toBe(before.edges.length);
+  });
+
   it("names the Resources whose distance the drawing now states by position", () => {
     const data = cluster();
     const nested = nestInstanceContainment(buildInstanceGraphLayout(data), data);

@@ -92,15 +92,16 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
     [focusedResourceId, layout.nodes],
   );
   const linkTypeCounts = useMemo(() => {
+    // A nested relationship left the canvas as a line but is still drawn, so it still counts.
+    const shown = [...layout.edges.map((edge) => edge.link), ...nested.absorbedLinks];
     const displayed = new Map(
-      countInstanceLinkTypes(layout.edges.map((edge) => edge.link))
-        .map((item) => [item.linkType, item.count]),
+      countInstanceLinkTypes(shown).map((item) => [item.linkType, item.count]),
     );
     return countInstanceLinkTypes(data.links).map((item) => ({
       ...item,
       displayed: displayed.get(item.linkType) ?? 0,
     }));
-  }, [data.links, layout.edges]);
+  }, [data.links, layout.edges, nested.absorbedLinks]);
   const defaultLinkTypeCounts = defaultInstanceLegendLinkTypes(linkTypeCounts);
   const visibleLinkTypeCounts = showAllRelationshipTypes ? linkTypeCounts : defaultLinkTypeCounts;
   const hiddenLinkTypeCount = linkTypeCounts.length - defaultLinkTypeCounts.length;
@@ -238,7 +239,8 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
           {!showEdgeLabels ? (
             <div class="ontology-instance-dense-legend" aria-label={t("ontology.instances.relationshipTypes") }>
               <span>
-                {t("ontology.instances.relationshipTypes")} · {layout.edges.length}/{data.links.length}
+                {t("ontology.instances.relationshipTypes")} ·{" "}
+                {layout.edges.length + nested.absorbedLinks.length}/{data.links.length}
               </span>
               <ul id="ontology-instance-relationship-types">
                 {visibleLinkTypeCounts.map((item) => (

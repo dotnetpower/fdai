@@ -157,6 +157,11 @@ The middle band is named for what it holds. Nesting put the selected Resource an
 contains inside that band, so it says so whenever a box is drawn and keeps the plain name when the
 selected Resource contains nothing.
 
+The relationship counter counts a nested relationship as shown. Nesting removes lines, so counting
+only the lines made the graph report less than it draws: a measured cluster fell to 11 of 190
+containment relationships while the boxes were showing 36. A count that tells an operator how much
+of the graph they are seeing has to include the relationships the boxes carry.
+
 A bounded owner shows one Resource of every kind it holds before a second of any kind. Ranking and
 truncating would hand the whole bound to the most numerous kind: a cluster namespace holding
 fourteen DaemonSets behind seven Deployments drew six Deployments and no DaemonSet at all, so the
