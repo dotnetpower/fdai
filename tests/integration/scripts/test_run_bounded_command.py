@@ -59,6 +59,26 @@ def test_runner_kills_a_command_that_makes_no_progress() -> None:
     ) in result.stderr
 
 
+def test_runner_force_kills_a_command_that_ignores_termination() -> None:
+    started = time.monotonic()
+    result = _run(
+        sys.executable,
+        "-c",
+        (
+            "import signal, time\n"
+            "signal.signal(signal.SIGTERM, signal.SIG_IGN)\n"
+            "while True:\n"
+            " time.sleep(1)"
+        ),
+    )
+
+    assert time.monotonic() - started < 4
+    assert result.returncode == 124
+    assert (
+        "bounded-command: label=test-stage event=failed reason=no-progress-1s exit_code=124"
+    ) in result.stderr
+
+
 def test_runner_enforces_total_budget_while_output_continues() -> None:
     result = _run(
         sys.executable,

@@ -91,7 +91,7 @@ def run_bounded_command(
     try:
         while selector.get_map() or process.poll() is None:
             now = time.monotonic()
-            if process.poll() is None and forwarded_signal is None:
+            if process.poll() is None and forwarded_signal is None and expired_reason is None:
                 if now - started >= timeout_seconds:
                     expired_reason = f"exceeded-total-{timeout_seconds}s"
                     _signal_process_group(process, signal.SIGTERM)

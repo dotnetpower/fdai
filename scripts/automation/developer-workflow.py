@@ -349,6 +349,12 @@ def main(argv: list[str] | None = None) -> int:
         report = context_plan_report(Path.cwd(), arguments.targets)
         renderer = _render_context_plan
     elif arguments.command == "local-services":
+        if not arguments.as_json:
+            print(
+                "developer-workflow: local services check started "
+                f"wait_seconds={arguments.wait_seconds:g}",
+                flush=True,
+            )
         if arguments.selected_names:
             report = local_services_report(
                 Path.cwd(),

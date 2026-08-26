@@ -74,7 +74,7 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
     tasks = _load_jsonc(REPO_ROOT / ".vscode" / "tasks.json")
     assert isinstance(tasks, dict)
     tasks_by_label = {task["label"]: task for task in tasks["tasks"]}
-    assert len(tasks_by_label) == 15
+    assert len(tasks_by_label) == 16
 
     prepare_stack = tasks_by_label["console: prepare full stack"]
     assert prepare_stack["command"] == (
@@ -158,6 +158,7 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
         "console: prepare full stack",
         "console: start core runtime",
         "console: restart core runtime",
+        "console: restart operator api",
         "console: start full stack",
         "console: keep full stack ready (10m)",
         "console: wait full stack ready",
@@ -190,6 +191,21 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
         "activeOnStart": True,
         "beginsPattern": "service=core-runtime event=starting$",
         "endsPattern": "service=core-runtime event=ready$",
+    }
+
+    restart_operator_api = tasks_by_label["console: restart operator api"]
+    assert restart_operator_api["command"] == (
+        "bash scripts/deployment/local/run-console-service.sh operator-api"
+    )
+    assert restart_operator_api["isBackground"] is True
+    assert restart_operator_api["runOptions"] == {
+        "instanceLimit": 1,
+        "instancePolicy": "silent",
+    }
+    assert restart_operator_api["problemMatcher"]["background"] == {
+        "activeOnStart": True,
+        "beginsPattern": "service=operator-api event=starting$",
+        "endsPattern": "service=operator-api event=ready$",
     }
 
     local_services = tasks_by_label["console: start local services"]

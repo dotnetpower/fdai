@@ -537,8 +537,32 @@ def test_local_services_command_fails_for_an_incomplete_topology(
 
     assert module.main(["local-services", "--wait-seconds", "0"]) == 1
     output = capsys.readouterr().out
+    assert output.startswith("developer-workflow: local services check started wait_seconds=0\n")
     assert "local services warning" in output
     assert "unavailable: operator-api" in output
+
+
+def test_local_services_json_omits_text_progress(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    module = _load_module()
+    monkeypatch.setattr(
+        module,
+        "local_services_report",
+        lambda _root, *, wait_seconds: {
+            "attempt_count": 1,
+            "ready_count": 6,
+            "read_only": True,
+            "schema_version": 1,
+            "service_count": 6,
+            "status": "ok",
+            "unavailable_services": [],
+        },
+    )
+
+    assert module.main(["local-services", "--wait-seconds", "0", "--json"]) == 0
+    assert json.loads(capsys.readouterr().out)["status"] == "ok"
 
 
 def test_local_services_report_can_scope_readiness_to_core_runtime(
