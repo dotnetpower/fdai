@@ -138,7 +138,14 @@ A nested card is not faded. Distance from the selected Resource is already state
 card sits in and how deep, so fading it would encode the same fact twice and spend legibility on the
 Resources nesting exists to reveal. Fading is kept for Resources outside every box, where nothing
 else shows how far they sit, and for the transient hover path, which is an interaction rather than a
-judgment about the Resource.
+judgment about the Resource. A box border carries the grouping instead, so the outer border is drawn
+more strongly than the borders nested inside it.
+
+A Resource with no state does not report that it was not observed. Most Kubernetes classes are
+inventoried without a projected state, so calling that absence "not observed" would claim an
+observation that never ran and imply the state is missing in the cluster. The card and the Inspector
+report that no state is reported instead. "Not observed" is kept for a source that genuinely
+returned no observation, such as one with no observation time.
 
 For a browser-visible pending access request, an authenticated GET-only stream filters the durable
 records by the principal's App Roles. When the tab and Command Deck are idle, the console opens a

@@ -87,8 +87,8 @@
 .ontology-instance-direction-bands rect.is-incoming, .ontology-instance-direction-bands rect.is-outgoing { fill: color-mix(in srgb, var(--accent) 2.5%, transparent); }
 .ontology-instance-direction-bands rect.is-selected { fill: color-mix(in srgb, var(--accent) 6%, transparent); }
 .ontology-instance-direction-bands text { fill: var(--fg-muted); text-anchor: middle; font-size: var(--cs-type-caption-size); font-weight: 800; }
-.ontology-instance-box { fill: color-mix(in srgb, var(--accent) 3%, transparent); stroke: color-mix(in srgb, var(--accent) 32%, transparent); stroke-width: 1.5; }
-.ontology-instance-box[data-box-depth="1"] { fill: color-mix(in srgb, var(--accent) 5%, transparent); stroke-dasharray: 4 3; }
+.ontology-instance-box { fill: color-mix(in srgb, var(--accent) 4%, transparent); stroke: color-mix(in srgb, var(--accent) 55%, transparent); stroke-width: 2; }
+.ontology-instance-box[data-box-depth="1"] { fill: color-mix(in srgb, var(--accent) 7%, transparent); stroke: color-mix(in srgb, var(--accent) 34%, transparent); stroke-width: 1.5; stroke-dasharray: 4 3; }
 .ontology-instance-box-omitted { fill: var(--fg-muted); text-anchor: end; font-size: var(--cs-type-caption-size); font-weight: 700; }
 .ontology-instance-edge { fill: none; stroke: #7d8992; stroke-width: 1.5; marker-end: url(#ontology-instance-arrow); }
 .ontology-instance-edge.is-direct { opacity: 0.92; }

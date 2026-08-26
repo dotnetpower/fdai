@@ -433,6 +433,8 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
             const typeCaption = node.clusterManaged
               ? t("ontology.instances.nodeClusterManaged", { type: resource.resource_type })
               : resource.resource_type;
+            // Absent status means no state is projected for this class, not an observation that found none.
+            const stateText = resource.status ?? t("ontology.instances.stateNotReported");
             return (
               <g
                 key={node.key}
@@ -445,7 +447,7 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
                 <a
                   class={`ontology-instance-node is-${node.emphasis} is-${node.lane}-lane${nested.nestedIds.has(resource.id) ? " is-nested" : ""}${resource.id === data.root_id ? " is-selected" : ""}${onFocusedPath ? " is-focus-path" : ""}`}
                   href={routeHref("ontology", { params: { view: "instances", instance: resource.id } })}
-                  aria-label={`${displayName}, ${typeCaption}, ${resource.status ?? t("ontology.instances.notObserved")}${nodeNotice ? `, ${nodeNotice}` : ""}`}
+                  aria-label={`${displayName}, ${typeCaption}, ${stateText}${nodeNotice ? `, ${nodeNotice}` : ""}`}
                   onPointerEnter={(event) => {
                     setFocusedResourceId(resource.id);
                     setGraphTooltip({
@@ -453,7 +455,7 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
                       y: event.clientY + 12,
                       title: displayName,
                       detail: typeCaption,
-                      status: resource.status ?? t("ontology.instances.notObserved"),
+                      status: stateText,
                       ...(nodeNotice ? { note: nodeNotice } : {}),
                     });
                   }}
@@ -462,7 +464,7 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
                     y: event.clientY + 12,
                     title: displayName,
                     detail: typeCaption,
-                    status: resource.status ?? t("ontology.instances.notObserved"),
+                    status: stateText,
                     ...(nodeNotice ? { note: nodeNotice } : {}),
                   })}
                   onPointerLeave={() => {
@@ -477,7 +479,7 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
                       y: rect.top,
                       title: displayName,
                       detail: typeCaption,
-                      status: resource.status ?? t("ontology.instances.notObserved"),
+                      status: stateText,
                       ...(nodeNotice ? { note: nodeNotice } : {}),
                     });
                   }}
@@ -504,7 +506,7 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
                     <div class="ontology-instance-node-copy">
                       <strong>{displayName}</strong>
                       <span>{typeCaption}</span>
-                      <span class="ontology-instance-node-state">{resource.status ?? t("ontology.instances.notObserved")}</span>
+                      <span class="ontology-instance-node-state">{stateText}</span>
                     </div>
                   </foreignObject>
                 </a>

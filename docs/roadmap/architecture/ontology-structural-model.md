@@ -274,6 +274,11 @@ not also fade it, because a second encoding of the same fact costs legibility wi
 and lands hardest on the Resources nesting exists to reveal. Emphasis by distance is kept where
 position says nothing, which is outside every box.
 
+An absent state is reported as unreported rather than as unobserved. Most Kubernetes ResourceClasses
+are inventoried without a projected state, so naming that absence an observation would assert a
+check that never ran and imply the state is missing in the cluster. Reporting absence is only
+truthful when it names the right absence.
+
 ## Migration and rollout
 
 1. Add the structural declarations, loaders, and validators without changing the visible query

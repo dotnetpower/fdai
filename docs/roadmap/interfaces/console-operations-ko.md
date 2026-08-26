@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 17ac83e8c42b1a79a5fabf60783f49cec9dac2e3
+translation_source_sha: af8a6f8a2f16f4f0f312a027866a6244900ff85d
 translation_revised: 2026-08-26
 ---
 
