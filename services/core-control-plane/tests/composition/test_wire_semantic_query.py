@@ -15,6 +15,7 @@ from fdai.core.ontology_platform import (
     MetricSemanticDefinition,
     MetricSemanticRegistry,
     MetricWindow,
+    ObjectPredicate,
     ObjectSelector,
     ObjectSelectorKind,
     ObjectSetDefinition,
@@ -376,8 +377,27 @@ async def test_runtime_verifies_and_executes_relationship_traversal() -> None:
             properties={"id": "resource-a", "label": "API"},
         )
     )
+    await store.upsert_object(
+        OntologyObjectRecord(
+            id="resource-b",
+            object_type="Resource",
+            properties={"id": "resource-b", "label": "Dependency"},
+        )
+    )
+    await store.upsert_link(OntologyLinkRecord("routes_to", "resource-a", "resource-b"))
     runtime = build_semantic_query_runtime(
-        model=_RelationshipTraversalModel(_definition()),
+        model=_RelationshipTraversalModel(
+            ObjectSetDefinition(
+                selector=ObjectSelector(
+                    kind=ObjectSelectorKind.OBJECT_TYPE,
+                    name="Resource",
+                ),
+                predicates=(ObjectPredicate(property="id", equals="resource-a"),),
+                as_of=NOW,
+                purpose="operations-review",
+                limit=10,
+            )
+        ),
         ontology_release=build_ontology_release(
             object_types=(object_type,),
             link_types=(link_type,),
@@ -405,7 +425,7 @@ async def test_runtime_verifies_and_executes_relationship_traversal() -> None:
     assert result.execution is not None
     related = result.execution.results["related-resources"].value
     assert isinstance(related, QueryTable)
-    assert tuple(row.row_id for row in related.rows) == ("resource-a",)
+    assert tuple(row.row_id for row in related.rows) == ("resource-b",)
 
 
 async def test_runtime_verifies_and_executes_typed_path() -> None:
