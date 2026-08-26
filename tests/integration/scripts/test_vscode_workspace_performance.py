@@ -184,8 +184,8 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
     assert restart_core_runtime["command"] == core_runtime["command"]
     assert restart_core_runtime["isBackground"] is True
     assert restart_core_runtime["runOptions"] == {
-        "instanceLimit": 1,
-        "instancePolicy": "silent",
+        "instanceLimit": 2,
+        "instancePolicy": "concurrency",
     }
     assert restart_core_runtime["problemMatcher"]["background"] == {
         "activeOnStart": True,
@@ -199,8 +199,8 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
     )
     assert restart_operator_api["isBackground"] is True
     assert restart_operator_api["runOptions"] == {
-        "instanceLimit": 1,
-        "instancePolicy": "silent",
+        "instanceLimit": 2,
+        "instancePolicy": "concurrency",
     }
     assert restart_operator_api["problemMatcher"]["background"] == {
         "activeOnStart": True,

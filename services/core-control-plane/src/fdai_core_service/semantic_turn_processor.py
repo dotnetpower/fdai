@@ -2266,6 +2266,13 @@ def _render_general_query_answer(
     )
     if target_candidates_answer is not None:
         return target_candidates_answer
+    resource_event_answer = _render_resource_event_history_answer(
+        outputs,
+        korean=korean,
+        output_shape=output_shape,
+    )
+    if resource_event_answer is not None:
+        return resource_event_answer
     causal_answer = _render_causal_query_answer(outputs, korean=korean)
     if causal_answer is not None:
         return causal_answer
@@ -2338,6 +2345,82 @@ def _render_general_query_answer(
             ),
         ]
     )
+    return "\n".join(lines)
+
+
+def _render_resource_event_history_answer(
+    outputs: list[dict[str, object]],
+    *,
+    korean: bool,
+    output_shape: str | None,
+) -> str | None:
+    """Render bounded Resource Events without turning incomplete zero rows into absence."""
+
+    if output_shape != "resource_event_history" or len(outputs) != 1:
+        return None
+    output = outputs[0]
+    rows = output.get("rows")
+    if not isinstance(rows, list):
+        return None
+    events: list[Mapping[str, object]] = []
+    for row in rows[:8]:
+        values = row.get("values") if isinstance(row, Mapping) else None
+        if not isinstance(values, Mapping):
+            return None
+        events.append(values)
+    complete = output.get("source_complete") is True
+    limitation = output.get("source_truncation_reason")
+    limitation_text = limitation if isinstance(limitation, str) else None
+    if korean:
+        lines = ["## 관측된 Resource Event", ""]
+        if events:
+            for event in events:
+                lines.append(
+                    "- "
+                    f"{event.get('occurred_at', '시각 미확인')} - "
+                    f"`{event.get('name') or '이름 미확인'}` "
+                    f"({event.get('type') or '유형 미확인'}): "
+                    f"{event.get('event_kind') or 'event 종류 미확인'} / "
+                    f"{event.get('status') or '상태 미확인'} / "
+                    f"{event.get('classification') or '분류 미확인'}"
+                )
+        else:
+            lines.append("- 요청한 구간에서 반환된 Resource Event가 없습니다.")
+        lines.extend(["", "## 근거 한계", ""])
+        lines.append(f"- 원본 완전성: {'complete' if complete else 'incomplete'}")
+        if not complete:
+            lines.append(f"- 제한 사항: `{limitation_text or 'source_incomplete'}`")
+        if limitation_text == "source_retention_unverified":
+            lines.append(
+                "- Kubernetes Event 보존 기간이 권위 있게 확인되지 않았으므로 "
+                "행 0개는 과거 Event 부재를 증명하지 않습니다."
+            )
+        lines.extend(["", "`execution_authority=false`"])
+        return "\n".join(lines)
+    lines = ["## Observed Resource Events", ""]
+    if events:
+        for event in events:
+            lines.append(
+                "- "
+                f"{event.get('occurred_at', 'time unavailable')} - "
+                f"`{event.get('name') or 'name unavailable'}` "
+                f"({event.get('type') or 'type unavailable'}): "
+                f"{event.get('event_kind') or 'event kind unavailable'} / "
+                f"{event.get('status') or 'status unavailable'} / "
+                f"{event.get('classification') or 'classification unavailable'}"
+            )
+    else:
+        lines.append("- No Resource Events were returned for the requested window.")
+    lines.extend(["", "## Evidence limitations", ""])
+    lines.append(f"- Source completeness: {'complete' if complete else 'incomplete'}")
+    if not complete:
+        lines.append(f"- Limitation: `{limitation_text or 'source_incomplete'}`")
+    if limitation_text == "source_retention_unverified":
+        lines.append(
+            "- Kubernetes Event retention is not authoritative, so zero rows do not prove "
+            "historical absence."
+        )
+    lines.extend(["", "`execution_authority=false`"])
     return "\n".join(lines)
 
 

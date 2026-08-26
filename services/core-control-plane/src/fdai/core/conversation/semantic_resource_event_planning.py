@@ -16,6 +16,7 @@ from fdai_service_contracts.ontology_query import (
 )
 
 from fdai.core.ontology_platform import OntologyQueryPlanVerifier, QueryManifest
+from fdai.core.ontology_platform.models import ObjectPredicate, ObjectPredicateOperator
 from fdai.core.ontology_platform.resource_event_queries import (
     RESOURCE_EVENT_FUNCTION_NAME,
     RESOURCE_EVENT_MEASURE_CONCEPTS,
@@ -23,6 +24,7 @@ from fdai.core.ontology_platform.resource_event_queries import (
 
 from .semantic_planning_models import SemanticOutputShape
 from .semantic_resource_state_planning import resource_collection_definition
+from .semantic_target_identity import exact_target_from_constraints
 
 _EVENT_MEASURES = frozenset(RESOURCE_EVENT_MEASURE_CONCEPTS)
 
@@ -56,6 +58,26 @@ def compile_resource_event_plan(
         evaluation_time=evaluation_time,
         purpose=purpose,
     )
+    exact_target = exact_target_from_constraints(
+        frame.subject_constraints,
+        utterance=utterance,
+        descriptors=manifest.descriptors,
+    )
+    identity_property = _resource_identity_property(manifest.descriptors)
+    if exact_target is not None and identity_property is not None:
+        definition = definition.model_copy(
+            update={
+                "predicates": (
+                    *definition.predicates,
+                    ObjectPredicate(
+                        property=identity_property,
+                        operator=ObjectPredicateOperator.EQUALS,
+                        equals=exact_target,
+                    ),
+                ),
+                "limit": 2,
+            }
+        )
     nodes = (
         OntologyQueryNode(
             node_id="resource-event-scope",
@@ -119,6 +141,18 @@ def _has_event_function(descriptors: tuple[dict[str, Any], ...]) -> bool:
         and descriptor.get("name") == RESOURCE_EVENT_FUNCTION_NAME
         for descriptor in descriptors
     )
+
+
+def _resource_identity_property(descriptors: tuple[dict[str, Any], ...]) -> str | None:
+    selected = tuple(
+        descriptor
+        for descriptor in descriptors
+        if descriptor.get("kind") == "object" and descriptor.get("name") == "Resource"
+    )
+    if len(selected) != 1 or not isinstance(selected[0].get("properties"), dict):
+        return None
+    properties = selected[0]["properties"]
+    return next((name for name in ("name", "display_name", "id") if name in properties), None)
 
 
 __all__ = ["compile_resource_event_plan"]

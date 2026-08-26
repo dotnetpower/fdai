@@ -290,17 +290,72 @@ def test_current_state_answer_states_a_complete_read_without_inventing_a_gap() -
     assert "Related nodes, workloads, and resources: not included" in answer
 
 
-def test_current_state_answer_keeps_the_generic_shape_for_other_outputs() -> None:
+def test_resource_event_answer_preserves_retention_unknown_zero_rows() -> None:
     request = _request(locale="en")
     semantic_request = cast(dict[str, object], request["semantic_turn"])
 
     answer = _render_general_query_answer(
         SemanticTurnRequest.model_validate(semantic_request),
-        _current_state_outputs({"name": "app-example"}, None),
+        [
+            {
+                "node_id": "resource-events",
+                "rows": [],
+                "returned_rows": 0,
+                "total_rows": 0,
+                "source_complete": False,
+                "source_truncation_reason": "source_retention_unverified",
+            }
+        ],
         output_shape="resource_event_history",
     )
 
-    assert "Verified 1 of 1 rows" in answer
+    assert "No Resource Events were returned" in answer
+    assert "Source completeness: incomplete" in answer
+    assert "`source_retention_unverified`" in answer
+    assert "zero rows do not prove historical absence" in answer
+    assert "`execution_authority=false`" in answer
+    assert "Verified 0 of 0 rows" not in answer
+
+
+def test_resource_event_answer_lists_observed_rows_without_causal_claims() -> None:
+    request = _request(locale="ko")
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+
+    answer = _render_general_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        [
+            {
+                "node_id": "resource-events",
+                "rows": [
+                    {
+                        "row_id": "resource-event-0001",
+                        "values": {
+                            "name": "api-example",
+                            "type": "kubernetes.deployment",
+                            "event_kind": "scalingreplicaset",
+                            "status": "normal",
+                            "classification": "kubernetes_deployment",
+                            "occurred_at": "2026-08-27T03:00:00+00:00",
+                            "execution_authority": False,
+                        },
+                    }
+                ],
+                "returned_rows": 1,
+                "total_rows": 1,
+                "source_complete": False,
+                "source_truncation_reason": "source_retention_unverified",
+            }
+        ],
+        output_shape="resource_event_history",
+    )
+
+    assert "## 관측된 Resource Event" in answer
+    assert "api-example" in answer
+    assert "scalingreplicaset / normal / kubernetes_deployment" in answer
+    assert "행 0개는 과거 Event 부재를 증명하지 않습니다" in answer
+    assert "원인" not in answer
+    assert "복구" not in answer
+    assert "`execution_authority=false`" in answer
 
 
 def test_error_activity_answer_separates_windows_gaps_and_causation() -> None:

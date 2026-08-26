@@ -177,8 +177,8 @@
         "showReuseMessage": false
       },
       "runOptions": {
-        "instanceLimit": 1,
-        "instancePolicy": "silent"
+        "instanceLimit": 2,
+        "instancePolicy": "concurrency"
       }
     },
     {
@@ -203,8 +203,8 @@
         "showReuseMessage": false
       },
       "runOptions": {
-        "instanceLimit": 1,
-        "instancePolicy": "silent"
+        "instanceLimit": 2,
+        "instancePolicy": "concurrency"
       }
     },
     {

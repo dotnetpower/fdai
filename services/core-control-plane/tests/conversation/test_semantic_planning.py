@@ -1626,6 +1626,43 @@ def test_resource_health_history_uses_exact_event_function() -> None:
     assert outcome.execution_authority is False
 
 
+def test_kubernetes_history_preserves_one_source_grounded_target() -> None:
+    manifest, _definition = _typed_fixture(
+        groups=(_VM_GROUP,),
+        include_resource_event=True,
+    )
+    model = _Model(
+        frame=_frame(
+            subject_constraints=["Resource", "api-backend"],
+            measure_concepts=["resource_event.kubernetes"],
+            temporal_scope={"lookback_seconds": 3600},
+            output_shape="resource_event_history",
+        ),
+        plan=None,
+    )
+
+    outcome = _service(model, manifest).plan(
+        utterance="Show api-backend Kubernetes events from the last hour.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.plan is not None
+    definition = ObjectSetDefinition.model_validate(outcome.plan.nodes[0].arguments["definition"])
+    assert tuple(
+        (predicate.property, predicate.operator.value, predicate.equals)
+        for predicate in definition.predicates
+    ) == (
+        ("type", "exists", None),
+        ("name", "equals", "api-backend"),
+    )
+    assert definition.limit == 2
+    assert model.plan_calls == 0
+    assert outcome.execution_authority is False
+
+
 def test_platform_impact_uses_server_scoped_service_health_function() -> None:
     manifest, _definition = _typed_fixture(
         groups=(_VM_GROUP,),
