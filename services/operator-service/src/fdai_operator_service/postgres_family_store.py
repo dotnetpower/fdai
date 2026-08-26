@@ -57,6 +57,25 @@ _MAX_INSTANCE_NEIGHBORHOOD_DEPTH: Final = 8
 _MAX_INSTANCE_NEIGHBORHOOD_LINKS: Final = 1_600
 # Bounding before this exclusion spends the directory page on Resources the console hides.
 UNSELECTABLE_INSTANCE_DIRECTORY_TYPES: Final = ("authorization.role-assignment",)
+# A realtime event reports fresher state, not a whole Resource, so it enriches the snapshot
+# record rather than replacing it. Replacing it dropped the name, location, and resource group.
+_EFFECTIVE_RESOURCES_CTE: Final = (
+    "WITH effective_resources AS ("
+    "SELECT snapshot.resource_id, snapshot.resource_type, "
+    "CASE WHEN overlay.resource_id IS NULL THEN snapshot.props "
+    "ELSE snapshot.props || overlay.props END AS props, "
+    "COALESCE(overlay.observed_at, snapshot.last_seen) AS last_seen "
+    "FROM inventory_snapshot_resource snapshot "
+    "LEFT JOIN inventory_realtime_resource overlay "
+    "ON overlay.resource_id=snapshot.resource_id AND overlay.change_kind='upsert' "
+    "WHERE snapshot.snapshot_id=%(snapshot_id)s "
+    "UNION ALL "
+    "SELECT overlay.resource_id, overlay.resource_type, overlay.props, overlay.observed_at "
+    "FROM inventory_realtime_resource overlay WHERE overlay.change_kind='upsert' "
+    "AND NOT EXISTS (SELECT 1 FROM inventory_snapshot_resource snapshot "
+    "WHERE snapshot.snapshot_id=%(snapshot_id)s "
+    "AND snapshot.resource_id=overlay.resource_id)) "
+)
 _BACKGROUND_TASK_STATUSES: Final = frozenset(
     {"queued", "claimed", "running", "succeeded", "failed", "cancelled", "timed_out", "unknown"}
 )
@@ -677,14 +696,8 @@ class PostgresFamilyStore:
         if not 1 <= limit <= 200:
             raise ValueError("instance resource limit MUST be in [1, 200]")
         root_rows = await self._fetch_all(
-            "WITH effective_resources AS ("
-            "SELECT resource_id, resource_type, props, last_seen "
-            "FROM inventory_snapshot_resource WHERE snapshot_id=%(snapshot_id)s "
-            "AND NOT EXISTS (SELECT 1 FROM inventory_realtime_resource overlay "
-            "WHERE overlay.resource_id=inventory_snapshot_resource.resource_id) "
-            "UNION ALL SELECT resource_id, resource_type, props, observed_at "
-            "FROM inventory_realtime_resource WHERE change_kind='upsert') "
-            "SELECT resource_id, resource_type, props, last_seen FROM effective_resources "
+            _EFFECTIVE_RESOURCES_CTE
+            + "SELECT resource_id, resource_type, props, last_seen FROM effective_resources "
             "WHERE resource_id=%(root_id)s",
             {
                 "snapshot_id": snapshot_id,
@@ -747,14 +760,8 @@ class PostgresFamilyStore:
                         next_frontier.add(endpoint)
             frontier = next_frontier
         resource_rows = await self._fetch_all(
-            "WITH effective_resources AS ("
-            "SELECT resource_id, resource_type, props, last_seen "
-            "FROM inventory_snapshot_resource WHERE snapshot_id=%(snapshot_id)s "
-            "AND NOT EXISTS (SELECT 1 FROM inventory_realtime_resource overlay "
-            "WHERE overlay.resource_id=inventory_snapshot_resource.resource_id) "
-            "UNION ALL SELECT resource_id, resource_type, props, observed_at "
-            "FROM inventory_realtime_resource WHERE change_kind='upsert') "
-            "SELECT resource_id, resource_type, props, last_seen FROM effective_resources "
+            _EFFECTIVE_RESOURCES_CTE
+            + "SELECT resource_id, resource_type, props, last_seen FROM effective_resources "
             "WHERE resource_id = ANY(%(resource_ids)s) "
             "ORDER BY resource_id",
             {

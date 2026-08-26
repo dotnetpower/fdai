@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import UTC, datetime
 
+import pytest
 from fdai_operator_service.families.operations.contracts import (
     InventoryImpactContext,
     InventoryInstanceActivity,
@@ -22,6 +24,10 @@ from fdai_operator_service.families.operations.instance_explorer import (
     _resource_status,
     project_inventory_instance,
     project_inventory_instances,
+)
+from fdai_operator_service.postgres_family_store import (
+    PostgresFamilyStore,
+    PostgresFamilyStoreConfig,
 )
 from fdai_service_contracts import OperatorRole
 
@@ -425,3 +431,39 @@ def test_observed_kubernetes_state_is_reported_instead_of_absent_status() -> Non
     assert _resource_status({"ready_status": "Unknown"}) == "Ready unknown"
     assert _resource_status({"provisioningState": "Succeeded"}) == "Succeeded"
     assert _resource_status({"name": "kube-system"}) is None
+
+
+async def test_a_realtime_event_refreshes_a_resource_without_erasing_its_identity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    statements: list[str] = []
+
+    async def fetch_all(
+        self: PostgresFamilyStore,
+        statement: str,
+        parameters: Mapping[str, object],
+    ) -> list[dict[str, object]]:
+        del self, parameters
+        statements.append(statement)
+        return []
+
+    monkeypatch.setattr(PostgresFamilyStore, "_fetch_all", fetch_all)
+    store = PostgresFamilyStore(PostgresFamilyStoreConfig("postgresql://example.invalid/fdai"))
+
+    await store.read_inventory_instance_neighborhood(
+        snapshot_id="generation-1",
+        root_id="scope/resource-group/rg/providers/microsoft.example/widgets/one",
+        link_types=("contains",),
+        depth=1,
+        limit=10,
+    )
+
+    assert statements, "the neighborhood read MUST issue at least one statement"
+    resource_query = statements[0]
+    # Replacing the snapshot row with the event row dropped name, location, and resource group.
+    assert "snapshot.props || overlay.props" in resource_query
+    assert "LEFT JOIN inventory_realtime_resource overlay" in resource_query
+    assert (
+        "AND NOT EXISTS (SELECT 1 FROM inventory_realtime_resource overlay "
+        "WHERE overlay.resource_id=inventory_snapshot_resource.resource_id)"
+    ) not in resource_query
