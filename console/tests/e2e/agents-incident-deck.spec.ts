@@ -804,7 +804,17 @@ test("pretty-prints nested serialized JSON in the model trace", async ({ page },
   await runRecord.locator(":scope > summary").click();
   const modelTrace = runRecord.locator(".deck-model-trace");
   await modelTrace.locator(".deck-model-trace-lanes > li > details > summary").click();
+  const systemMessage = modelTrace.locator(".deck-model-trace-message-content").first();
+  await expect(systemMessage).toHaveAttribute("data-format", "mixed");
+  await expect(systemMessage.locator(":scope > pre")).toContainText("Safety layer");
+  await expect(systemMessage.locator(".deck-code-lang")).toHaveText("json");
+  await expect(systemMessage.locator(".hljs-attr").first()).toBeVisible();
   const userMessage = modelTrace.locator(".deck-model-trace-message-content").nth(1);
+  await expect(userMessage).toHaveAttribute("data-format", "json");
+  await expect(userMessage.locator(".deck-code-lang")).toHaveText("json");
+  await expect(userMessage.locator(".deck-code-copy")).toHaveText("Copy JSON");
+  await expect(userMessage.locator(".hljs-attr").first()).toBeVisible();
+  await expect(userMessage.locator(".hljs-string").first()).toBeVisible();
   await expect(userMessage).toContainText('"untrusted_input": {');
   await expect(userMessage).toContainText('"name": "Resource"');
   expect(await userMessage.textContent()).not.toContain('\\"untrusted_input\\"');

@@ -192,11 +192,32 @@ export function ModelTraceWaterfall({
 }
 
 function TraceMessageContent({ group }: { readonly group: ModelTraceMessageGroup }) {
-  const formatted = formatModelTraceMessageGroup(group);
+  const formattedContents = group.contents.map((content) =>
+    formatJsonValue(content, { expandNestedStrings: true })
+  );
+  if (formattedContents.length === 1) {
+    const formatted = formattedContents[0]!;
+    if (!formatted.isJson) {
+      return (
+        <pre class="deck-model-trace-message-content" data-format="text">
+          <code>{formatted.text}</code>
+        </pre>
+      );
+    }
+    return (
+      <div class="deck-model-trace-message-content" data-format="json">
+        <JsonCodeBlock value={formatted.text} />
+      </div>
+    );
+  }
   return (
-    <pre class="deck-model-trace-message-content" data-format={formatted.format}>
-      <code>{formatted.text}</code>
-    </pre>
+    <div class="deck-model-trace-message-content deck-model-trace-message-group" data-format="mixed">
+      {formattedContents.map((formatted, index) => formatted.isJson ? (
+        <JsonCodeBlock key={index} value={formatted.text} />
+      ) : (
+        <pre key={index}><code>{formatted.text}</code></pre>
+      ))}
+    </div>
   );
 }
 
