@@ -254,7 +254,14 @@ while [[ ! -s "$launch_marker" ]]; do
   fi
   sleep 0.05
 done
+launch_event="$(< "$launch_marker")"
 rm -f -- "$launch_marker"
+if [[ "$launch_event" != "starting" && "$launch_event" != "reused" ]]; then
+  kill -TERM "$runner_pid" 2>/dev/null || true
+  wait "$runner_pid" 2>/dev/null || true
+  write_task_marker "failed" "stage=launch exit_code=1"
+  exit 1
+fi
 remaining_budget_seconds=$((launch_deadline - SECONDS))
 if (( remaining_budget_seconds <= 1 )); then
   kill -TERM "$runner_pid" 2>/dev/null || true
@@ -288,6 +295,12 @@ if [[ "$completed_pid" == "$runner_pid" ]]; then
     wait "$readiness_pid" 2>/dev/null || true
     write_task_marker "failed" "stage=runner exit_code=$completed_status"
     exit "$completed_status"
+  fi
+  if [[ "$launch_event" != "reused" ]]; then
+    kill -TERM "$readiness_pid" 2>/dev/null || true
+    wait "$readiness_pid" 2>/dev/null || true
+    write_task_marker "failed" "stage=runner exit_code=1"
+    exit 1
   fi
   if wait "$readiness_pid"; then
     readiness_status=0

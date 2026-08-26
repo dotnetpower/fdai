@@ -56,7 +56,7 @@ printf '2026-08-26T00:00:00.000000+00:00 service=operator-api event=starting\n'
 printf '2026-08-26T00:00:00.000000+00:00 service=operator-api event=reused\n'
 printf 'launch\n' >> "$FDAI_TEST_ORDER_FILE"
 mkdir -p "$(dirname "$FDAI_LOCAL_SERVICE_LAUNCH_MARKER")"
-printf 'reused\n' > "$FDAI_LOCAL_SERVICE_LAUNCH_MARKER"
+printf '%s\n' "${FDAI_TEST_LAUNCH_EVENT:-reused}" > "$FDAI_LOCAL_SERVICE_LAUNCH_MARKER"
 """,
     )
     _write_executable(
@@ -84,6 +84,7 @@ def _run_operator_restart(
     readiness_delay: int = 0,
     runner_status: int = 0,
     launch_delay: int = 0,
+    launch_event: str = "reused",
 ) -> subprocess.CompletedProcess[str]:
     order_file = repo / "order.txt"
     return subprocess.run(  # noqa: S603 - fixed test script with test-owned environment.
@@ -97,6 +98,7 @@ def _run_operator_restart(
         env={
             **os.environ,
             "FDAI_TEST_LAUNCH_DELAY": str(launch_delay),
+            "FDAI_TEST_LAUNCH_EVENT": launch_event,
             "FDAI_TEST_ORDER_FILE": str(order_file),
             "FDAI_TEST_READINESS_DELAY": str(readiness_delay),
             "FDAI_TEST_READINESS_STATUS": str(readiness_status),
@@ -143,6 +145,18 @@ def test_operator_restart_emits_failed_for_runner_failure(tmp_path: Path) -> Non
     assert result.returncode == 9
     assert "service=operator-api event=ready" not in result.stdout
     assert "service=operator-api event=failed stage=runner exit_code=9" in result.stderr
+
+
+def test_operator_restart_rejects_started_service_early_zero_exit(tmp_path: Path) -> None:
+    result = _run_operator_restart(
+        _operator_restart_repo(tmp_path),
+        readiness_delay=1,
+        launch_event="starting",
+    )
+
+    assert result.returncode == 1
+    assert "service=operator-api event=ready" not in result.stdout
+    assert "service=operator-api event=failed stage=runner exit_code=1" in result.stderr
 
 
 def test_supervisor_reports_a_service_that_exits_before_readiness(tmp_path: Path) -> None:
