@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 7e7ac09d22b693f6fb1971f5b11d5f2b8828c1a3
+translation_source_sha: 27276fdd5a7c2ebf018c336ad37c3f26901ff6e4
 translation_revised: 2026-08-26
 ---
 # 온톨로지 구조 모델
@@ -258,6 +258,11 @@ Resource 유형 아이콘은 표현일 뿐입니다. 객체 identity, 유형 권
 읽기를 위한 배치일 뿐입니다. evidence가 보고하지 않은 포함 관계를 주장하지 않고, 레이아웃이
 제외한 Resource를 더하지 않으며, 소유 `contains` 관계가 없는 Resource를 그림을 정돈하려고
 상자 안에 넣지 않습니다.
+
+하나의 사실은 하나의 표현만 가집니다. 상자가 위치로 Resource의 거리를 말해 준 다음에는 그
+카드를 흐리게도 표시하지 않습니다. 같은 사실을 두 번 표현하면 의미는 늘지 않은 채 가독성만
+잃으며, 그 비용은 중첩이 드러내려던 바로 그 Resource가 가장 크게 치릅니다. 거리에 따른 강조는
+위치가 아무것도 말해 주지 않는 곳, 즉 모든 상자 밖에서만 유지합니다.
 
 ## 이행 및 출시
 

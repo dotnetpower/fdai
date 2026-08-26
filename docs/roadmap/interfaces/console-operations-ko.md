@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 833c0cd25bc4b70286700a844de3f8e75b6af1a9
+translation_source_sha: 17ac83e8c42b1a79a5fabf60783f49cec9dac2e3
 translation_revised: 2026-08-26
 ---
 
@@ -134,6 +134,12 @@ Resource 수를 보조 기술을 위해 카드에, 그리고 짧은 표시로 �
 스크롤 비용만 들기 때문입니다. 실측한 클러스터에서 이는 이전 캔버스가 그리던 포함 선 36개 중
 25개를 흡수하며, 대가로 캔버스가 2520 x 880에서 3176 x 1718로 커집니다. 중첩은 레이아웃이
 제외한 Resource를 더하지 않으며, evidence가 보고하지 않은 포함 관계를 주장하지 않습니다.
+
+중첩된 카드는 흐리게 표시하지 않습니다. 선택한 Resource로부터의 거리는 카드가 어느 상자에 몇
+단계 깊이로 놓였는지가 이미 말해 주므로, 흐림은 같은 사실을 두 번 표현하면서 중첩이 드러내려던
+바로 그 Resource의 가독성을 깎습니다. 흐림은 어느 상자에도 속하지 않아 거리를 달리 보여 줄
+방법이 없는 Resource와, Resource에 대한 판단이 아니라 상호작용인 일시적 hover 경로에만
+남습니다.
 
 브라우저에 표시할 pending 접근 요청이 있으면 인증된 GET-only 스트림이 principal의 App 역할로
 영속 기록을 필터링합니다. 탭과 Command Deck이 idle 상태이면 콘솔은 기능, 범위 및

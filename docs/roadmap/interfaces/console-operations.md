@@ -134,6 +134,12 @@ while height only costs a scroll. Against a measured cluster this absorbs 25 of 
 lines the canvas drew before, and it costs canvas: 2520 by 880 becomes 3176 by 1718. Nesting never
 adds a Resource the layout left out and never asserts containment the evidence did not report.
 
+A nested card is not faded. Distance from the selected Resource is already stated by which box a
+card sits in and how deep, so fading it would encode the same fact twice and spend legibility on the
+Resources nesting exists to reveal. Fading is kept for Resources outside every box, where nothing
+else shows how far they sit, and for the transient hover path, which is an interaction rather than a
+judgment about the Resource.
+
 For a browser-visible pending access request, an authenticated GET-only stream filters the durable
 records by the principal's App Roles. When the tab and Command Deck are idle, the console opens a
 request-scoped conversation with the capability, scope, and expiry. Active work, an unsent draft,

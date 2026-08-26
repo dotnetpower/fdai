@@ -264,6 +264,11 @@ arrangement only. It never asserts containment the evidence did not report, neve
 the layout left out, and never places a Resource with no owning `contains` relationship inside a box
 to make the drawing tidy.
 
+One fact earns one encoding. Once a box states a Resource's distance by position, the drawing does
+not also fade it, because a second encoding of the same fact costs legibility without adding meaning
+and lands hardest on the Resources nesting exists to reveal. Emphasis by distance is kept where
+position says nothing, which is outside every box.
+
 ## Migration and rollout
 
 1. Add the structural declarations, loaders, and validators without changing the visible query

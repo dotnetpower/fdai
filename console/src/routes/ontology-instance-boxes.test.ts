@@ -222,6 +222,14 @@ describe("nestInstanceContainment", () => {
     expect(workload.x + workload.w).toBeLessThanOrEqual(nsBox.x + nsBox.width);
   });
 
+  it("names the Resources whose distance the drawing now states by position", () => {
+    const data = cluster();
+    const nested = nestInstanceContainment(buildInstanceGraphLayout(data), data);
+
+    expect([...nested.nestedIds].sort()).toEqual(["ns-a", "ns-b", "root", "workload"]);
+    expect(nested.nestedIds.has("peer")).toBe(false);
+  });
+
   it("removes the relationship lines nesting absorbs and keeps the rest", () => {
     const data = cluster();
     const before = buildInstanceGraphLayout(data);

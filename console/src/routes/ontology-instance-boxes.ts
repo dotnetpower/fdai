@@ -111,6 +111,8 @@ export interface NestedInstanceGraph {
   readonly layout: InstanceGraphLayout;
   /** Owners worth a border, outermost first. Empty when nothing nests. */
   readonly boxes: readonly InstanceBox[];
+  /** Resources whose distance the drawing now states by position. */
+  readonly nestedIds: ReadonlySet<string>;
 }
 
 /**
@@ -131,7 +133,7 @@ export function nestInstanceContainment(
   });
   const rootNode = layout.nodes.find((node) => node.resource.id === data.root_id);
   if (root === null || root.children.length === 0 || rootNode === undefined) {
-    return { layout, boxes: [] };
+    return { layout, boxes: [], nestedIds: new Set() };
   }
 
   const boxes = flattenInstanceBoxes(
@@ -198,6 +200,7 @@ export function nestInstanceContainment(
       hiddenEdgeCount: data.links.length - edges.length,
     },
     boxes: boxes.filter((box) => box.children.length > 0),
+    nestedIds,
   };
 }
 

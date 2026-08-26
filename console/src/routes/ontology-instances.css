@@ -113,6 +113,8 @@
 .ontology-instance-node { cursor: pointer; outline: none; }
 .ontology-instance-node.is-direct { opacity: 0.96; }
 .ontology-instance-node.is-indirect { opacity: 0.28; }
+/* A nested card already states its distance by where it sits, so fading it only costs legibility. */
+.ontology-instance-node.is-nested.is-indirect { opacity: 0.96; }
 .ontology-instance-node.is-access-lane rect { stroke-dasharray: 4 3; }
 .ontology-instance-node.is-runtime-lane rect { stroke: #4f7a69; }
 .ontology-instance-node.is-containment-lane rect { stroke: #8b8175; stroke-width: 1.6; }

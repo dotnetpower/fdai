@@ -443,7 +443,7 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
                 transform={`translate(${node.x} ${node.y})`}
               >
                 <a
-                  class={`ontology-instance-node is-${node.emphasis} is-${node.lane}-lane${resource.id === data.root_id ? " is-selected" : ""}${onFocusedPath ? " is-focus-path" : ""}`}
+                  class={`ontology-instance-node is-${node.emphasis} is-${node.lane}-lane${nested.nestedIds.has(resource.id) ? " is-nested" : ""}${resource.id === data.root_id ? " is-selected" : ""}${onFocusedPath ? " is-focus-path" : ""}`}
                   href={routeHref("ontology", { params: { view: "instances", instance: resource.id } })}
                   aria-label={`${displayName}, ${typeCaption}, ${resource.status ?? t("ontology.instances.notObserved")}${nodeNotice ? `, ${nodeNotice}` : ""}`}
                   onPointerEnter={(event) => {
