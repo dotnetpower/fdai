@@ -208,6 +208,7 @@ describe("upsertEvidenceBranch", () => {
     expect(component).toContain("is-answer-settled");
     expect(component).toContain('key="answer-settled"');
     expect(component).not.toMatch(/key="answer-settled"[\s\S]*?class=\{`deck-investigation[^>]*\sopen(?:\s|>)/);
+    expect(component).toMatch(/key="answer-settled"[\s\S]*?open=\{eventCount > 1\}/);
     expect(component).toContain('<summary class="deck-investigation-head cs-work-summary">{head}</summary>');
     expect(component).toContain("{body}");
     expect(component).toContain("!answerSettled ? (");
