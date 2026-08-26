@@ -436,6 +436,7 @@ def test_observed_kubernetes_state_is_reported_instead_of_absent_status() -> Non
 async def test_a_realtime_event_refreshes_a_resource_without_erasing_its_identity(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    root_id = "scope/resource-group/rg/providers/microsoft.example/widgets/one"
     statements: list[str] = []
 
     async def fetch_all(
@@ -445,6 +446,15 @@ async def test_a_realtime_event_refreshes_a_resource_without_erasing_its_identit
     ) -> list[dict[str, object]]:
         del self, parameters
         statements.append(statement)
+        if "WHERE resource_id=%(root_id)s" in statement:
+            return [
+                {
+                    "resource_id": root_id,
+                    "resource_type": "microsoft.example/widgets",
+                    "props": {"name": "one"},
+                    "last_seen": datetime(2026, 8, 22, 1, 0, tzinfo=UTC),
+                }
+            ]
         return []
 
     monkeypatch.setattr(PostgresFamilyStore, "_fetch_all", fetch_all)
@@ -452,7 +462,7 @@ async def test_a_realtime_event_refreshes_a_resource_without_erasing_its_identit
 
     await store.read_inventory_instance_neighborhood(
         snapshot_id="generation-1",
-        root_id="scope/resource-group/rg/providers/microsoft.example/widgets/one",
+        root_id=root_id,
         link_types=("contains",),
         depth=1,
         limit=10,
@@ -467,3 +477,11 @@ async def test_a_realtime_event_refreshes_a_resource_without_erasing_its_identit
         "AND NOT EXISTS (SELECT 1 FROM inventory_realtime_resource overlay "
         "WHERE overlay.resource_id=inventory_snapshot_resource.resource_id)"
     ) not in resource_query
+
+    link_queries = [statement for statement in statements if "effective_links" in statement]
+    assert link_queries, "the neighborhood read MUST read relationships"
+    for link_query in link_queries:
+        # Replacing the snapshot link with the event link dropped its relationship evidence.
+        assert "snapshot.props || overlay.props" in link_query
+        assert "LEFT JOIN inventory_realtime_link overlay" in link_query
+        assert "NOT EXISTS (SELECT 1 FROM inventory_realtime_link overlay" not in link_query

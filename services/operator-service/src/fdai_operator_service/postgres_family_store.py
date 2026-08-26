@@ -76,6 +76,26 @@ _EFFECTIVE_RESOURCES_CTE: Final = (
     "WHERE snapshot.snapshot_id=%(snapshot_id)s "
     "AND snapshot.resource_id=overlay.resource_id)) "
 )
+_EFFECTIVE_LINKS_CTE: Final = (
+    "WITH effective_links AS ("
+    "SELECT snapshot.from_id, snapshot.from_type, snapshot.link_type, "
+    "snapshot.to_id, snapshot.to_type, "
+    "CASE WHEN overlay.from_id IS NULL THEN snapshot.props "
+    "ELSE snapshot.props || overlay.props END AS props "
+    "FROM inventory_snapshot_link snapshot "
+    "LEFT JOIN inventory_realtime_link overlay "
+    "ON overlay.from_id=snapshot.from_id AND overlay.link_type=snapshot.link_type "
+    "AND overlay.to_id=snapshot.to_id AND overlay.change_kind='upsert' "
+    "WHERE snapshot.snapshot_id=%(snapshot_id)s "
+    "UNION ALL "
+    "SELECT overlay.from_id, overlay.from_type, overlay.link_type, "
+    "overlay.to_id, overlay.to_type, overlay.props "
+    "FROM inventory_realtime_link overlay WHERE overlay.change_kind='upsert' "
+    "AND NOT EXISTS (SELECT 1 FROM inventory_snapshot_link snapshot "
+    "WHERE snapshot.snapshot_id=%(snapshot_id)s "
+    "AND snapshot.from_id=overlay.from_id AND snapshot.link_type=overlay.link_type "
+    "AND snapshot.to_id=overlay.to_id)) "
+)
 _BACKGROUND_TASK_STATUSES: Final = frozenset(
     {"queued", "claimed", "running", "succeeded", "failed", "cancelled", "timed_out", "unknown"}
 )
@@ -715,16 +735,8 @@ class PostgresFamilyStore:
             if not frontier:
                 break
             edge_rows = await self._fetch_all(
-                "WITH effective_links AS ("
-                "SELECT from_id, from_type, link_type, to_id, to_type, props "
-                "FROM inventory_snapshot_link WHERE snapshot_id=%(snapshot_id)s "
-                "AND NOT EXISTS (SELECT 1 FROM inventory_realtime_link overlay "
-                "WHERE overlay.from_id=inventory_snapshot_link.from_id "
-                "AND overlay.link_type=inventory_snapshot_link.link_type "
-                "AND overlay.to_id=inventory_snapshot_link.to_id) "
-                "UNION ALL SELECT from_id, from_type, link_type, to_id, to_type, props "
-                "FROM inventory_realtime_link WHERE change_kind='upsert') "
-                "SELECT from_id, from_type, link_type, to_id, to_type, props "
+                _EFFECTIVE_LINKS_CTE
+                + "SELECT from_id, from_type, link_type, to_id, to_type, props "
                 "FROM effective_links WHERE link_type=ANY(%(link_types)s) "
                 "AND ((from_id=ANY(%(frontier)s) AND NOT (to_id=ANY(%(selected)s))) "
                 "OR (to_id=ANY(%(frontier)s) AND NOT (from_id=ANY(%(selected)s)))) "
@@ -770,16 +782,7 @@ class PostgresFamilyStore:
             },
         )
         induced_rows = await self._fetch_all(
-            "WITH effective_links AS ("
-            "SELECT from_id, from_type, link_type, to_id, to_type, props "
-            "FROM inventory_snapshot_link WHERE snapshot_id=%(snapshot_id)s "
-            "AND NOT EXISTS (SELECT 1 FROM inventory_realtime_link overlay "
-            "WHERE overlay.from_id=inventory_snapshot_link.from_id "
-            "AND overlay.link_type=inventory_snapshot_link.link_type "
-            "AND overlay.to_id=inventory_snapshot_link.to_id) "
-            "UNION ALL SELECT from_id, from_type, link_type, to_id, to_type, props "
-            "FROM inventory_realtime_link WHERE change_kind='upsert') "
-            "SELECT from_id, link_type, to_id, props FROM effective_links "
+            _EFFECTIVE_LINKS_CTE + "SELECT from_id, link_type, to_id, props FROM effective_links "
             "WHERE link_type = ANY(%(link_types)s) "
             "AND from_id = ANY(%(resource_ids)s) "
             "AND to_id = ANY(%(resource_ids)s) "
