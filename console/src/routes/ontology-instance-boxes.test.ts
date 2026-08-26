@@ -2,12 +2,14 @@ import { describe, expect, it } from "vitest";
 import {
   buildInstanceContainmentBoxes,
   flattenInstanceBoxes,
+  nestInstanceContainment,
   INSTANCE_BOX_GAP,
   INSTANCE_BOX_HEADER,
   INSTANCE_BOX_PADDING,
   type InstanceBox,
 } from "./ontology-instance-boxes";
 import {
+  buildInstanceGraphLayout,
   INSTANCE_NODE_HEIGHT,
   INSTANCE_NODE_WIDTH,
 } from "./ontology-instance-graph.model";
@@ -32,13 +34,49 @@ describe("buildInstanceContainmentBoxes", () => {
       ["a", "b", "c", "d"].map((child) => link("root", child, "contains")),
     ))!;
 
-    // Four children pack two by two, which is the point of nesting over an outline.
+    // Width is the scarce axis, so four children stack rather than spread.
     expect(box.children).toHaveLength(4);
-    expect(box.width).toBe(2 * INSTANCE_NODE_WIDTH + INSTANCE_BOX_GAP + INSTANCE_BOX_PADDING * 2);
+    expect(box.width).toBe(INSTANCE_NODE_WIDTH + INSTANCE_BOX_PADDING * 2);
     expect(box.height).toBe(
-      INSTANCE_BOX_HEADER + 2 * INSTANCE_NODE_HEIGHT + INSTANCE_BOX_GAP + INSTANCE_BOX_PADDING,
+      INSTANCE_BOX_HEADER + 4 * INSTANCE_NODE_HEIGHT + 3 * INSTANCE_BOX_GAP + INSTANCE_BOX_PADDING,
     );
     expect(box.omittedChildren).toBe(0);
+  });
+
+  it("adds a column only once stacking would make a tower", () => {
+    const columnsFor = (count: number): number => {
+      const children = Array.from({ length: count }, (_value, index) => resource(`child-${index}`));
+      const box = buildInstanceContainmentBoxes(exploration(
+        [resource("root"), ...children],
+        children.map((child) => link("root", child.id, "contains")),
+      ))!;
+      return new Set(box.children.map((child) => child.x)).size;
+    };
+
+    expect(columnsFor(5)).toBe(1);
+    expect(columnsFor(6)).toBe(2);
+  });
+
+  it("does not let one wide child widen the column beside it", () => {
+    const grandchildren = Array.from({ length: 6 }, (_value, index) => resource(`g-${index}`));
+    const narrow = Array.from({ length: 5 }, (_value, index) => resource(`n-${index}`));
+    const box = buildInstanceContainmentBoxes(exploration(
+      [resource("root"), resource("a-wide"), ...narrow, ...grandchildren],
+      [
+        link("root", "a-wide", "contains"),
+        ...narrow.map((child) => link("root", child.id, "contains")),
+        ...grandchildren.map((child) => link("a-wide", child.id, "contains")),
+      ],
+    ))!;
+
+    const wide = box.children.find((child) => child.resource.id === "a-wide")!;
+    const columnWidths = [...new Set(box.children.map((child) => child.x))];
+    expect(columnWidths).toHaveLength(2);
+    expect(wide.width).toBeGreaterThan(INSTANCE_NODE_WIDTH);
+    // A uniform column width would have charged the narrow column the wide child's width.
+    expect(box.width).toBe(
+      wide.width + INSTANCE_NODE_WIDTH + INSTANCE_BOX_GAP + INSTANCE_BOX_PADDING * 2,
+    );
   });
 
   it("never lets a box overlap a sibling or leave its owner", () => {
@@ -128,6 +166,102 @@ describe("buildInstanceContainmentBoxes", () => {
       x: 40 + INSTANCE_BOX_PADDING * 2,
       y: 24 + INSTANCE_BOX_HEADER * 2,
     });
+  });
+});
+
+describe("nestInstanceContainment", () => {
+  const cluster = (): OntologyInstanceExploration => exploration(
+    [
+      resource("root", "kubernetes-cluster"),
+      resource("ns-a", "kubernetes.namespace"),
+      resource("ns-b", "kubernetes.namespace"),
+      resource("workload", "kubernetes.deployment"),
+      resource("peer"),
+    ],
+    [
+      link("root", "ns-a", "contains"),
+      link("root", "ns-b", "contains"),
+      link("ns-a", "workload", "contains"),
+      link("root", "peer", "attached_to"),
+      link("workload", "peer", "depends_on"),
+    ],
+  );
+
+  it("leaves a layout alone when the selected Resource contains nothing drawn", () => {
+    const data = exploration(
+      [resource("root"), resource("peer")],
+      [link("root", "peer", "attached_to")],
+    );
+    const layout = buildInstanceGraphLayout(data);
+    const nested = nestInstanceContainment(layout, data);
+
+    expect(nested.boxes).toEqual([]);
+    expect(nested.layout).toBe(layout);
+  });
+
+  it("draws each owner as a box that encloses the cards it owns", () => {
+    const data = cluster();
+    const nested = nestInstanceContainment(buildInstanceGraphLayout(data), data);
+    const position = (id: string) => {
+      const node = nested.layout.nodes.find((entry) => entry.resource.id === id)!;
+      return { x: node.x, y: node.y, w: INSTANCE_NODE_WIDTH, h: INSTANCE_NODE_HEIGHT };
+    };
+
+    const rootBox = nested.boxes.find((box) => box.resource.id === "root")!;
+    ["root", "ns-a", "ns-b", "workload"].forEach((id) => {
+      const card = position(id);
+      expect(card.x).toBeGreaterThanOrEqual(rootBox.x);
+      expect(card.y).toBeGreaterThanOrEqual(rootBox.y);
+      expect(card.x + card.w).toBeLessThanOrEqual(rootBox.x + rootBox.width);
+      expect(card.y + card.h).toBeLessThanOrEqual(rootBox.y + rootBox.height);
+    });
+
+    const nsBox = nested.boxes.find((box) => box.resource.id === "ns-a")!;
+    const workload = position("workload");
+    expect(workload.x).toBeGreaterThanOrEqual(nsBox.x);
+    expect(workload.x + workload.w).toBeLessThanOrEqual(nsBox.x + nsBox.width);
+  });
+
+  it("removes the relationship lines nesting absorbs and keeps the rest", () => {
+    const data = cluster();
+    const before = buildInstanceGraphLayout(data);
+    const nested = nestInstanceContainment(before, data);
+    const absorbed = (edges: typeof before.edges): string[] => edges
+      .filter((edge) => edge.link.link_type === "contains")
+      .map((edge) => `${edge.link.source}->${edge.link.target}`);
+
+    expect(absorbed(before.edges)).toEqual(expect.arrayContaining([
+      "root->ns-a",
+      "root->ns-b",
+      "ns-a->workload",
+    ]));
+    expect(absorbed(nested.layout.edges)).toEqual([]);
+    expect(nested.layout.edges.some((edge) => edge.link.link_type === "attached_to")).toBe(true);
+    expect(nested.layout.edges.some((edge) => edge.link.link_type === "depends_on")).toBe(true);
+  });
+
+  it("moves everything on the outgoing side clear of the box it now spans", () => {
+    const data = cluster();
+    const nested = nestInstanceContainment(buildInstanceGraphLayout(data), data);
+    const rootBox = nested.boxes.find((box) => box.resource.id === "root")!;
+    const nestedIds = new Set(["root", "ns-a", "ns-b", "workload"]);
+
+    nested.layout.nodes
+      .filter((node) => !nestedIds.has(node.resource.id) && node.x > rootBox.x)
+      .forEach((node) => expect(node.x).toBeGreaterThanOrEqual(rootBox.x + rootBox.width));
+  });
+
+  it("counts children the layout left out instead of claiming the box is complete", () => {
+    const data = cluster();
+    const layout = buildInstanceGraphLayout(data);
+    const nested = nestInstanceContainment(layout, data, {
+      isVisible: (id) => id !== "ns-b",
+    });
+
+    const rootBox = nested.boxes.find((box) => box.resource.id === "root")!;
+    expect(rootBox.children.map((child) => child.resource.id)).toEqual(["ns-a"]);
+    expect(rootBox.omittedChildren).toBe(1);
+    expect(nested.layout.nodes.some((node) => node.resource.id === "ns-b")).toBe(true);
   });
 });
 

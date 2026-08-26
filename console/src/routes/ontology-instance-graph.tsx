@@ -21,6 +21,7 @@ import {
   type InstanceTimelineEvent,
   type InstanceTimelineSegment,
 } from "./ontology-instance-graph.model";
+import { nestInstanceContainment } from "./ontology-instance-boxes";
 import { ontologyInstanceIconForResourceType } from "./ontology-instance-resource-icons";
 import {
   ontologyInstanceTrafficDirection,
@@ -58,7 +59,11 @@ const AKS_INITIAL_HORIZONTAL_ANCHOR = 0.02;
 
 /** Renders one bounded Resource neighborhood and its authority-preserving audit history. */
 export function OntologyInstanceGraph({ data, onSelect }: Props) {
-  const layout = useMemo(() => buildInstanceGraphLayout(data), [data]);
+  const nested = useMemo(
+    () => nestInstanceContainment(buildInstanceGraphLayout(data), data),
+    [data],
+  );
+  const layout = nested.layout;
   const isAksRoot = data.resources.find((resource) => resource.id === data.root_id)
     ?.resource_type === "kubernetes-cluster";
   const timeline = useMemo(
@@ -104,6 +109,12 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
     : null;
   const visiblePreview = preview ?? defaultPreview;
   const rootNode = layout.nodes.find((node) => node.resource.id === data.root_id)!;
+  const rootBox = nested.boxes.find((box) => box.resource.id === data.root_id) ?? null;
+  const selectedLeft = rootBox?.x ?? rootNode.x;
+  const selectedWidth = rootBox?.width ?? INSTANCE_NODE_WIDTH;
+  const omittedByOwner = new Map(nested.boxes
+    .filter((box) => box.omittedChildren > 0)
+    .map((box) => [box.resource.id, box.omittedChildren]));
 
   const changeScale = (requestedScale: number, fit = false): void => {
     const scroll = graphScrollRef.current;
@@ -310,12 +321,39 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
             </marker>
           </defs>
           <g class="ontology-instance-direction-bands" aria-hidden="true">
-            <rect class="is-incoming" x="0" y="0" width={rootNode.x} height={layout.height} />
-            <rect class="is-selected" x={rootNode.x} y="0" width={INSTANCE_NODE_WIDTH} height={layout.height} />
-            <rect class="is-outgoing" x={rootNode.x + INSTANCE_NODE_WIDTH} y="0" width={Math.max(0, layout.width - rootNode.x - INSTANCE_NODE_WIDTH)} height={layout.height} />
-            <text x={Math.max(70, rootNode.x / 2)} y="19">{t("ontology.common.incoming")}</text>
-            <text x={rootNode.x + INSTANCE_NODE_WIDTH / 2} y="19">{t("ontology.instances.selectedResource")}</text>
-            <text x={rootNode.x + INSTANCE_NODE_WIDTH + Math.max(70, (layout.width - rootNode.x - INSTANCE_NODE_WIDTH) / 2)} y="19">{t("ontology.common.outgoing")}</text>
+            <rect class="is-incoming" x="0" y="0" width={selectedLeft} height={layout.height} />
+            <rect class="is-selected" x={selectedLeft} y="0" width={selectedWidth} height={layout.height} />
+            <rect class="is-outgoing" x={selectedLeft + selectedWidth} y="0" width={Math.max(0, layout.width - selectedLeft - selectedWidth)} height={layout.height} />
+            <text x={Math.max(70, selectedLeft / 2)} y="19">{t("ontology.common.incoming")}</text>
+            <text x={selectedLeft + selectedWidth / 2} y="19">{t("ontology.instances.selectedResource")}</text>
+            <text x={selectedLeft + selectedWidth + Math.max(70, (layout.width - selectedLeft - selectedWidth) / 2)} y="19">{t("ontology.common.outgoing")}</text>
+          </g>
+          <g class="ontology-instance-boxes" aria-hidden="true">
+            {nested.boxes.map((box) => (
+              <g key={`box:${box.resource.id}`}>
+                <rect
+                  class="ontology-instance-box"
+                  data-box-id={box.resource.id}
+                  data-box-depth={box.depth}
+                  x={box.x}
+                  y={box.y}
+                  width={box.width}
+                  height={box.height}
+                  rx="12"
+                />
+                {box.omittedChildren > 0 ? (
+                  <text
+                    class="ontology-instance-box-omitted"
+                    x={box.x + box.width - 12}
+                    y={box.y + box.height - 8}
+                  >
+                    {t("ontology.instances.nodeOmittedChildrenShort", {
+                      count: String(box.omittedChildren),
+                    })}
+                  </text>
+                ) : null}
+              </g>
+            ))}
           </g>
           {layout.edges.map((edge) => {
             const geometry = buildInstanceEdgeGeometry(
@@ -382,9 +420,16 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
             const resource = node.resource;
             const displayName = resource.name ?? resource.resource_type;
             const onFocusedPath = focusedPath.has(resource.id);
-            const repeatNotice = node.occurrences > 1
-              ? t("ontology.instances.nodeRepeated", { count: String(node.occurrences) })
-              : null;
+            const omittedChildren = omittedByOwner.get(resource.id) ?? 0;
+            // A box that holds back children states it on the owner, not only as a drawn label.
+            const nodeNotice = [
+              node.occurrences > 1
+                ? t("ontology.instances.nodeRepeated", { count: String(node.occurrences) })
+                : null,
+              omittedChildren > 0
+                ? t("ontology.instances.nodeOmittedChildren", { count: String(omittedChildren) })
+                : null,
+            ].filter((notice): notice is string => notice !== null).join(", ") || null;
             const typeCaption = node.clusterManaged
               ? t("ontology.instances.nodeClusterManaged", { type: resource.resource_type })
               : resource.resource_type;
@@ -400,7 +445,7 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
                 <a
                   class={`ontology-instance-node is-${node.emphasis} is-${node.lane}-lane${resource.id === data.root_id ? " is-selected" : ""}${onFocusedPath ? " is-focus-path" : ""}`}
                   href={routeHref("ontology", { params: { view: "instances", instance: resource.id } })}
-                  aria-label={`${displayName}, ${typeCaption}, ${resource.status ?? t("ontology.instances.notObserved")}${repeatNotice ? `, ${repeatNotice}` : ""}`}
+                  aria-label={`${displayName}, ${typeCaption}, ${resource.status ?? t("ontology.instances.notObserved")}${nodeNotice ? `, ${nodeNotice}` : ""}`}
                   onPointerEnter={(event) => {
                     setFocusedResourceId(resource.id);
                     setGraphTooltip({
@@ -409,7 +454,7 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
                       title: displayName,
                       detail: typeCaption,
                       status: resource.status ?? t("ontology.instances.notObserved"),
-                      ...(repeatNotice ? { note: repeatNotice } : {}),
+                      ...(nodeNotice ? { note: nodeNotice } : {}),
                     });
                   }}
                   onPointerMove={(event) => setGraphTooltip({
@@ -418,7 +463,7 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
                     title: displayName,
                     detail: typeCaption,
                     status: resource.status ?? t("ontology.instances.notObserved"),
-                    ...(repeatNotice ? { note: repeatNotice } : {}),
+                    ...(nodeNotice ? { note: nodeNotice } : {}),
                   })}
                   onPointerLeave={() => {
                     setFocusedResourceId(null);
@@ -433,7 +478,7 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
                       title: displayName,
                       detail: typeCaption,
                       status: resource.status ?? t("ontology.instances.notObserved"),
-                      ...(repeatNotice ? { note: repeatNotice } : {}),
+                      ...(nodeNotice ? { note: nodeNotice } : {}),
                     });
                   }}
                   onBlur={() => {
@@ -447,7 +492,7 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
                 >
                   <rect width={INSTANCE_NODE_WIDTH} height={INSTANCE_NODE_HEIGHT} rx="5" />
                   <image href={ontologyInstanceIconForResourceType(resource.resource_type)} x="12" y="14" width="22" height="22" aria-hidden="true" />
-                  {repeatNotice ? (
+                  {node.occurrences > 1 ? (
                     <g class="ontology-instance-node-repeat" aria-hidden="true">
                       <circle cx={INSTANCE_NODE_WIDTH - 12} cy="12" r="8" />
                       <text x={INSTANCE_NODE_WIDTH - 12} y="15" text-anchor="middle">

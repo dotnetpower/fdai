@@ -123,14 +123,16 @@ own child keeps the side port rather than pointing an ownership line upward. Nei
 uses nor the row a Resource occupies changes a relationship, its direction, or its evidence.
 
 That arrangement orders the selected Resource correctly and still cannot express ownership more than
-one level deep, so containment moves to nesting: what a Resource contains is drawn inside it. A box
-placed inside another box cannot point the wrong way, and every containment line it absorbs leaves
-the canvas. Each owner packs its children into a near-square grid and states how many children a
-bound left out, so a collapsed owner is never mistaken for an empty one. Against a measured cluster
-the nested arrangement holds the same seven owners the current canvas shows in a comparable
-footprint, and holds all 102 contained Resources at 4628 by 1452 when no bound applies. The model
-lands first and changes no rendering; the canvas keeps drawing containment as an edge until the
-nested drawing replaces it.
+one level deep, so containment is drawn as nesting: what a Resource contains is drawn inside it. A
+box placed inside another box cannot point the wrong way, and every containment line it absorbs
+leaves the canvas. An owner keeps its own card, with its status and evidence, at the top of its box,
+so nesting removes a line without removing a reading. Each owner states how many contained
+Resources are not drawn, both on the card for assistive technology and as a short marker on the box,
+so a bounded owner is never mistaken for a complete one. Boxes prefer height over width, because
+width competes with the incoming and outgoing bands and with every Resource a box pushes sideways
+while height only costs a scroll. Against a measured cluster this absorbs 25 of the 36 containment
+lines the canvas drew before, and it costs canvas: 2520 by 880 becomes 3176 by 1718. Nesting never
+adds a Resource the layout left out and never asserts containment the evidence did not report.
 
 For a browser-visible pending access request, an authenticated GET-only stream filters the durable
 records by the principal's App Roles. When the tab and Command Deck are idle, the console opens a

@@ -173,6 +173,8 @@
     },
     "notObserved": "관측되지 않음",
     "nodeRepeated": "모든 관계의 방향을 유지하려고 Resource 하나를 {count}번 그렸습니다",
+    "nodeOmittedChildren": "포함한 Resource {count}개를 더 그리지 않았습니다",
+    "nodeOmittedChildrenShort": "+{count} 미표시",
     "nodeClusterManaged": "{type} - 클러스터 관리",
     "resourceType": "Resource 유형",
     "location": "위치",

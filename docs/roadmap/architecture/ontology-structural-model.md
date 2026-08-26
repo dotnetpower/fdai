@@ -251,15 +251,18 @@ creates, removes, reorients, or re-evidences a relationship.
 
 A layered layout reaches its limit there: it can order one root above its children but cannot show a
 hierarchy several levels deep without degenerating into an indented outline. Containment is
-therefore modeled as nesting rather than as an edge, because a box drawn inside another box cannot
-point the wrong way. The model computes box sizes bottom-up, packs each owner's children into a
-near-square grid, and reports per-owner how many children a bound left out, so a box that hides
-children never reads as an empty owner. Nesting removes the line for every containment relationship
-it absorbs; a measured cluster resolves 190 of 385 relationships that way. Ordering inside a box
-follows the same declared-workload-first rank the layered layout uses, so a bound removes derived
-Resources before declared ones. Nesting is a reading arrangement only. It never asserts containment
-the evidence did not report, and a Resource with no owning `contains` relationship is never placed
-inside a box to make the drawing tidy.
+therefore drawn as nesting rather than as an edge, because a box drawn inside another box cannot
+point the wrong way. The model computes box sizes bottom-up, gives each column its own width, and
+reports per-owner how many children a bound left out, so a box that hides children never reads as a
+complete owner. An owner keeps its own card inside its box, so nesting removes a line without
+removing that Resource's status or evidence. Column count favours height over width, because width
+is the axis the direction bands and the surrounding Resources already compete for. Nesting removes
+the line for every containment relationship it absorbs; a measured cluster resolves 190 of 385
+relationships that way. Ordering inside a box follows the same declared-workload-first rank the
+layered layout uses, so a bound removes derived Resources before declared ones. Nesting is a reading
+arrangement only. It never asserts containment the evidence did not report, never adds a Resource
+the layout left out, and never places a Resource with no owning `contains` relationship inside a box
+to make the drawing tidy.
 
 ## Migration and rollout
 
