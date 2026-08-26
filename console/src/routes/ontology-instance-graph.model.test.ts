@@ -167,8 +167,57 @@ describe("buildInstanceGraphLayout", () => {
     expect(layout.hiddenEdgeCount).toBe(0);
   });
 
-  it("separates stored Kubernetes runtime and traffic relationships", () => {
+  it("keeps what a root contains below what it is attached to", () => {
     const data = exploration();
+    const attached = Array.from({ length: 2 }, (_value, index) =>
+      resource(`attached-${index}`, false, "managed-identity"));
+    const contained = Array.from({ length: 3 }, (_value, index) =>
+      resource(`contained-${index}`, false, "kubernetes.namespace"));
+    const connected: OntologyInstanceExploration = {
+      ...data,
+      resources: [data.resources[0]!, ...attached, ...contained],
+      links: [
+        ...attached.map((item) => link(data.root_id, item.id, "attached_to")),
+        ...contained.map((item) => link(data.root_id, item.id, "contains")),
+      ],
+    };
+
+    const layout = buildInstanceGraphLayout(connected);
+    const byId = new Map(layout.nodes.map((node) => [node.resource.id, node]));
+    const rootY = byId.get(data.root_id)!.y;
+
+    contained.forEach((item) => expect(byId.get(item.id)!.y).toBeGreaterThan(rootY));
+  });
+
+  it("breaks a shared column between attached and contained Resources", () => {
+    const data = exploration();
+    const cluster = resource(data.root_id, true, "kubernetes-cluster");
+    const namespace = resource("namespace", false, "kubernetes.namespace");
+    const service = resource("service", false, "kubernetes.service");
+    const pods = Array.from({ length: 2 }, (_value, index) =>
+      resource(`pod-${index}`, false, "kubernetes.pod"));
+    const connected: OntologyInstanceExploration = {
+      ...data,
+      resources: [cluster, namespace, service, ...pods],
+      links: [
+        link(data.root_id, namespace.id, "contains"),
+        link(namespace.id, service.id, "attached_to"),
+        ...pods.map((pod) => link(namespace.id, pod.id, "contains")),
+      ],
+    };
+
+    const layout = buildInstanceGraphLayout(connected);
+    const byId = new Map(layout.nodes.map((node) => [node.resource.id, node]));
+    const serviceNode = byId.get(service.id)!;
+    const podYs = pods.map((pod) => byId.get(pod.id)!.y);
+
+    expect(new Set(podYs.concat(serviceNode.y).map(() => serviceNode.level)).size).toBe(1);
+    podYs.forEach((podY) => expect(podY).toBeGreaterThan(serviceNode.y));
+    // One row alone would read as a single run; the break has to be visible.
+    expect(Math.min(...podYs) - serviceNode.y).toBeGreaterThan(80);
+  });
+
+  it("separates stored Kubernetes runtime and traffic relationships", () => {    const data = exploration();
     const runtime = resource("runtime", false, "kubernetes.node");
     const traffic = resource("traffic", false, "kubernetes.service");
     const connected: OntologyInstanceExploration = {
@@ -486,8 +535,9 @@ describe("buildInstanceGraphLayout", () => {
     expect(byId.get(identity.id)?.level).toBe(3);
     expect(byId.get(publicIp.id)?.level).toBe(3);
     expect(byId.get(publicIp.id)?.parentId).toBe(loadBalancer.id);
+    // One row, plus the break that separates contained Resources from attached ones.
     expect(Math.abs(byId.get(publicIp.id)!.y - byId.get(loadBalancer.id)!.y))
-      .toBeLessThanOrEqual(80);
+      .toBeLessThanOrEqual(120);
     expect(byId.get(loadBalancer.id)!.y).toBeGreaterThan(byId.get(scaleSet.id)!.y);
     expect(byId.get(publicIp.id)!.y).toBeGreaterThan(byId.get(identity.id)!.y);
     const publicIpFanIn = layout.edges.filter((edge) => edge.link.target === publicIp.id);

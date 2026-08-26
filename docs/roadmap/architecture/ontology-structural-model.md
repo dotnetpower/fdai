@@ -242,9 +242,10 @@ bound never doubles as a completeness bound: how much of a scope a root summariz
 independent decision.
 
 Containment leaves a Resource from its underside while attachment leaves from its side, and a
-contained Resource follows its owner's order within a column. The port a line uses and the row a
-Resource occupies are reading aids only. Neither creates, removes, reorients, or re-evidences a
-relationship.
+contained Resource follows its owner's order within a column. What a Resource is attached to is
+drawn above it and what it contains is drawn below it, with a visible break between the two groups.
+The port a line uses and the row a Resource occupies are reading aids only. Neither creates,
+removes, reorients, or re-evidences a relationship.
 
 ## Migration and rollout
 

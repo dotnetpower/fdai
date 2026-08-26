@@ -136,6 +136,11 @@ describe("Ontology Instances view controls", () => {
       'edge.link.link_type === "contains" ? "descend" : "side"',
     );
     expect(graphModelSource).toContain("const ownerY = new Map<string, number>();");
+    expect(graphModelSource).toContain("INSTANCE_CONTAINMENT_GROUP_GAP");
+    expect(graphModelSource).toMatch(
+      /link\.link_type === "contains" && ranks\.get\(link\.target\)\?\.parentId === link\.source/,
+    );
+    expect(graphModelSource).toContain("rootContainedTop - INSTANCE_ROW_HEIGHT");
   });
 
   it("draws what a cluster namespace holds without hiding its own repeats", () => {

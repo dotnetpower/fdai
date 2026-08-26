@@ -136,6 +136,8 @@ const INSTANCE_KUBERNETES_CHILD_PRIORITY: readonly string[] = [
   "kubernetes.pod",
 ];
 const INSTANCE_OUTER_EDGE_CLEARANCE = 150;
+// Attachment and containment must not read as one run of Resources in the same column.
+const INSTANCE_CONTAINMENT_GROUP_GAP = 40;
 const INSTANCE_NETWORK_CONTEXT_TYPES = new Set([
   "network.interface",
   "network.private-endpoint",
@@ -350,7 +352,14 @@ export function buildInstanceGraphLayout(data: OntologyInstanceExploration): Ins
     resources.push(occurrence);
     resourcesByLevel.set(occurrence.rank.level, resources);
   });
+  // Containment by some distant scope is not what this column shows: only the owner drawn here.
+  const containedIds = new Set(focus.links
+    .filter((link) =>
+      link.link_type === "contains" && ranks.get(link.target)?.parentId === link.source)
+    .map((link) => link.target));
   resourcesByLevel.forEach((resources) => resources.sort((first, second) =>
+    Number(containedIds.has(first.resource.id)) - Number(containedIds.has(second.resource.id))
+    ||
     graphLaneOrder(first.rank.lane) - graphLaneOrder(second.rank.lane)
     ||
     (first.rank.parentId ?? "").localeCompare(second.rank.parentId ?? "")
@@ -381,7 +390,11 @@ export function buildInstanceGraphLayout(data: OntologyInstanceExploration): Ins
     ...orderedLevels.map(([, resources]) => Math.min(INSTANCE_MAX_ROWS, resources.length)),
     1,
   );
-  const height = Math.max(568, 40 + rowCount * INSTANCE_ROW_HEIGHT);
+  const groupedLevel = orderedLevels.some(([, resources]) =>
+    resources.some((occurrence) => containedIds.has(occurrence.resource.id))
+    && resources.some((occurrence) => !containedIds.has(occurrence.resource.id)));
+  const height = Math.max(568, 40 + rowCount * INSTANCE_ROW_HEIGHT)
+    + (groupedLevel ? INSTANCE_CONTAINMENT_GROUP_GAP : 0);
   let columnCursor = leadingGutter + 20 + contentOffset;
   const occurrenceCounts = new Map<string, number>();
   occurrences.nodes.forEach((occurrence) => {
@@ -402,7 +415,8 @@ export function buildInstanceGraphLayout(data: OntologyInstanceExploration): Ins
         ? Number.MAX_SAFE_INTEGER
         : ownerY.get(occurrence.rank.parentId) ?? Number.MAX_SAFE_INTEGER;
     const ordered = [...resources].sort((first, second) =>
-      graphLaneOrder(first.rank.lane) - graphLaneOrder(second.rank.lane)
+      Number(containedIds.has(first.resource.id)) - Number(containedIds.has(second.resource.id))
+      || graphLaneOrder(first.rank.lane) - graphLaneOrder(second.rank.lane)
       || parentRow(first) - parentRow(second)
       || (first.rank.parentId ?? "").localeCompare(second.rank.parentId ?? "")
       || (first.resource.name ?? first.resource.resource_type).localeCompare(
@@ -417,6 +431,7 @@ export function buildInstanceGraphLayout(data: OntologyInstanceExploration): Ins
       height,
       occurrenceCounts,
       clusterManagedIds,
+      containedIds,
     );
     positioned.forEach((node) => {
       if (!ownerY.has(node.resource.id)) ownerY.set(node.resource.id, node.y);
@@ -424,7 +439,22 @@ export function buildInstanceGraphLayout(data: OntologyInstanceExploration): Ins
     columnCursor += levelColumns * INSTANCE_COLUMN_WIDTH;
     return positioned;
   });
-  const byId = new Map(nodes.map((node) => [node.key, node]));
+  // The owner has to sit above what it contains for the underside port to read as ownership.
+  const rootContainedTop = Math.min(...nodes
+    .filter((node) => node.parentId === data.root_id && containedIds.has(node.resource.id))
+    .map((node) => node.y));
+  const placedNodes = Number.isFinite(rootContainedTop)
+    ? nodes.map((node) => node.resource.id === data.root_id
+      ? {
+        ...node,
+        y: Math.max(24, Math.min(
+          rootContainedTop - INSTANCE_ROW_HEIGHT,
+          height - INSTANCE_NODE_HEIGHT - 24,
+        )),
+      }
+      : node)
+    : nodes;
+  const byId = new Map(placedNodes.map((node) => [node.key, node]));
   const parallelCounts = new Map<string, number>();
   focus.links.forEach((link) => {
     const key = edgePairKey(link);
@@ -461,9 +491,10 @@ export function buildInstanceGraphLayout(data: OntologyInstanceExploration): Ins
     direction: "LR",
     width,
     height,
-    nodes,
+    nodes: placedNodes,
     edges,
-    hiddenNodeCount: data.resources.length - new Set(nodes.map((node) => node.resource.id)).size,
+    hiddenNodeCount: data.resources.length
+      - new Set(placedNodes.map((node) => node.resource.id)).size,
     hiddenEdgeCount: data.links.length - focus.links.length,
   };
 }
@@ -1143,9 +1174,26 @@ function columnNodes(
   height: number,
   occurrenceCounts: ReadonlyMap<string, number>,
   clusterManagedIds: ReadonlySet<string>,
+  containedIds: ReadonlySet<string>,
 ): InstanceGraphNode[] {
   const rows = Math.min(INSTANCE_MAX_ROWS, resources.length);
-  const contentHeight = rows * INSTANCE_ROW_HEIGHT - (rows > 0 ? INSTANCE_ROW_GAP : 0);
+  // Contained Resources sit last in a column, so the break needs its own visible gap.
+  const columnBreak = (index: number): number => {
+    const columnStart = Math.floor(index / INSTANCE_MAX_ROWS) * INSTANCE_MAX_ROWS;
+    const columnEnd = Math.min(columnStart + INSTANCE_MAX_ROWS, resources.length);
+    for (let row = columnStart; row < columnEnd; row += 1) {
+      if (containedIds.has(resources[row]!.resource.id)) {
+        return row > columnStart && index >= row ? INSTANCE_CONTAINMENT_GROUP_GAP : 0;
+      }
+    }
+    return 0;
+  };
+  const maxBreak = resources.reduce(
+    (widest, _occurrence, index) => Math.max(widest, columnBreak(index)),
+    0,
+  );
+  const contentHeight = rows * INSTANCE_ROW_HEIGHT - (rows > 0 ? INSTANCE_ROW_GAP : 0)
+    + maxBreak;
   const startY = Math.max(24, Math.round((height - contentHeight) / 2));
   return resources.map((occurrence, index) => ({
     key: occurrence.key,
@@ -1163,7 +1211,7 @@ function columnNodes(
     x: x + (level < 0
       ? columnCount - 1 - Math.floor(index / INSTANCE_MAX_ROWS)
       : Math.floor(index / INSTANCE_MAX_ROWS)) * INSTANCE_COLUMN_WIDTH,
-    y: startY + index % INSTANCE_MAX_ROWS * INSTANCE_ROW_HEIGHT,
+    y: startY + index % INSTANCE_MAX_ROWS * INSTANCE_ROW_HEIGHT + columnBreak(index),
   }));
 }
 
