@@ -41,8 +41,6 @@ def _parse_args(arguments: Sequence[str]) -> argparse.Namespace:
 
 
 def _signal_process_group(process: subprocess.Popen[bytes], signal_number: int) -> None:
-    if process.poll() is not None:
-        return
     try:
         os.killpg(process.pid, signal_number)
     except ProcessLookupError:
@@ -91,7 +89,7 @@ def run_bounded_command(
     try:
         while selector.get_map() or process.poll() is None:
             now = time.monotonic()
-            if process.poll() is None and forwarded_signal is None and expired_reason is None:
+            if forwarded_signal is None and expired_reason is None:
                 if now - started >= timeout_seconds:
                     expired_reason = f"exceeded-total-{timeout_seconds}s"
                     _signal_process_group(process, signal.SIGTERM)
@@ -100,11 +98,7 @@ def run_bounded_command(
                     expired_reason = f"no-progress-{no_progress_seconds}s"
                     _signal_process_group(process, signal.SIGTERM)
                     forwarded_at = now
-            if (
-                process.poll() is None
-                and forwarded_at is not None
-                and now - forwarded_at >= termination_grace_seconds
-            ):
+            if forwarded_at is not None and now - forwarded_at >= termination_grace_seconds:
                 _signal_process_group(process, signal.SIGKILL)
 
             events = selector.select(timeout=0.1)
