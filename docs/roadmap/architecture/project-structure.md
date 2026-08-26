@@ -44,6 +44,10 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   Command surfaces may submit authenticated records or typed proposals, but neither they nor the dev narrator can call an executor; risk, approval, audit, and execution remain server-side
   ([security-and-identity.md](security-and-identity.md)). With transport active, one semantic-aware adapter binds projection, proposal, and stream ports.
   Its outbox uses database `NOW()` deadlines, while transactional result reuse validates the request, principal, and terminal-result digest.
+  Verified semantic query-node transitions use a separate bounded best-effort topic from Core to
+  Operator. Operator keeps that progress transient for the active SSE stream; durable terminal
+  projections and evidence receipts remain the reconnect and completion authority. Progress
+  publication failure cannot change query execution or grant execution authority.
   Repository Best Practice definitions are loaded once at the composition root and exposed through
   GET-only list and detail routes. They remain catalog reference data; the projection reports
   `Unknown` and `not-connected` until a runtime evidence provider is explicitly bound.

@@ -298,6 +298,7 @@ from fdai_service_contracts.semantic_turn import (
     SemanticBoundContext,
     SemanticDirectResponseIntent,
     SemanticPlanningProfile,
+    SemanticQueryProgress,
     SemanticPriorTurn,
     SemanticRoute,
     SemanticTurnDisposition,
@@ -305,6 +306,7 @@ from fdai_service_contracts.semantic_turn import (
     SemanticTurnRequest,
     SemanticTurnResult,
     SemanticUnavailableReason,
+    SEMANTIC_PROGRESS_TOPIC,
     rule_search_query_digest,
 )
 from fdai_service_contracts.transition import (
@@ -518,6 +520,7 @@ __all__ = [
     "SemanticBoundContext",
     "SemanticDirectResponseIntent",
     "SemanticPlanningProfile",
+    "SemanticQueryProgress",
     "MAX_INTENT_GRAPH_GOALS",
     "MAX_SEMANTIC_EVIDENCE_REFS",
     "SemanticPriorTurn",
@@ -527,6 +530,7 @@ __all__ = [
     "SemanticTurnRequest",
     "SemanticTurnResult",
     "SemanticUnavailableReason",
+    "SEMANTIC_PROGRESS_TOPIC",
     "SemVer",
     "SemanticOperation",
     "SemanticProblemFrame",

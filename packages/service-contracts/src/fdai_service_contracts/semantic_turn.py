@@ -12,9 +12,11 @@ from pydantic import Field, model_validator
 
 from fdai_service_contracts.ontology_query import (
     GoalTaskReceipt,
+    QueryNodeKind,
     QueryContract,
     SemanticOperation,
     TaskStatus,
+    canonical_json,
     content_digest,
 )
 from fdai_service_contracts.operator import OperatorPrincipalKind, OperatorRole
@@ -23,6 +25,7 @@ Digest = Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")]
 BoundedId = Annotated[str, Field(min_length=1, max_length=256)]
 SEMANTIC_REQUEST_TOPIC = "operator.semantic-turn.requests"
 SEMANTIC_PROJECTION_TOPIC = "core.semantic-turn.projections"
+SEMANTIC_PROGRESS_TOPIC = "core.semantic-turn.progress"
 SEMANTIC_PHYSICAL_TOPIC = "fdai.pantheon.objects"
 MAX_SEMANTIC_EVIDENCE_REFS = 12
 """Turn-level evidence references a projected semantic result may carry."""
@@ -291,6 +294,63 @@ class SemanticTurnRequest(QueryContract):
     include_model_trace: bool = False
     cancelled: bool = False
     execution_authority: Literal[False] = False
+
+
+class SemanticQueryProgress(QueryContract):
+    """One observed query-node lifecycle update with no evidence authority."""
+
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    request_id: BoundedId
+    session_id: BoundedId
+    turn_id: BoundedId
+    turn_sequence: Annotated[int, Field(ge=0)]
+    progress_sequence: Annotated[int, Field(ge=1, le=256)]
+    node_id: Annotated[str, Field(pattern=_ASSURANCE_IDENTIFIER_PATTERN)]
+    node_kind: QueryNodeKind
+    capability: Annotated[str, Field(pattern=r"^query\.[a-z][a-z0-9_.-]{0,79}$")]
+    arguments: dict[str, Any] = Field(default_factory=dict)
+    status: Literal["running"] | TaskStatus
+    step_index: Annotated[int, Field(ge=1, le=32)]
+    step_total: Annotated[int, Field(ge=1, le=32)]
+    depends_on: Annotated[
+        tuple[Annotated[str, Field(pattern=_ASSURANCE_IDENTIFIER_PATTERN)], ...],
+        Field(max_length=32),
+    ] = ()
+    started_at: datetime
+    completed_at: datetime | None = None
+    duration_ms: Annotated[int, Field(ge=0, le=86_400_000)] | None = None
+    reason: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{0,127}$")] | None = None
+    evidence_refs: Annotated[tuple[BoundedId, ...], Field(max_length=12)] = ()
+    execution_authority: Literal[False] = False
+
+    @model_validator(mode="after")
+    def _lifecycle_is_consistent(self) -> SemanticQueryProgress:
+        if self.execution_authority:
+            raise ValueError("semantic query progress MUST NOT carry execution authority")
+        if len(self.arguments) > 32 or len(canonical_json(self.arguments)) > 65_536:
+            raise ValueError("semantic query progress arguments MUST be bounded")
+        if self.step_index > self.step_total:
+            raise ValueError("semantic query progress step index MUST NOT exceed total")
+        if self.started_at.tzinfo is None or self.started_at.utcoffset() is None:
+            raise ValueError("semantic query progress started_at MUST be timezone-aware")
+        if self.completed_at is not None and (
+            self.completed_at.tzinfo is None or self.completed_at.utcoffset() is None
+        ):
+            raise ValueError("semantic query progress completed_at MUST be timezone-aware")
+        if self.status == "running":
+            if self.completed_at is not None or self.duration_ms is not None:
+                raise ValueError("running progress MUST NOT carry terminal timing")
+            if self.reason is not None or self.evidence_refs:
+                raise ValueError("running progress MUST NOT carry terminal evidence")
+        elif self.completed_at is None or self.duration_ms is None:
+            raise ValueError("terminal progress MUST carry completion timing")
+        elif self.completed_at < self.started_at:
+            raise ValueError("terminal progress completion MUST NOT precede start")
+        if len(self.depends_on) != len(set(self.depends_on)):
+            raise ValueError("semantic query progress dependencies MUST be unique")
+        if len(self.evidence_refs) != len(set(self.evidence_refs)):
+            raise ValueError("semantic query progress evidence refs MUST be unique")
+        return self
 
 
 class SemanticTurnResult(QueryContract):

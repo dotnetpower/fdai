@@ -36,6 +36,35 @@ class QueryNodeResult:
     evidence_refs: tuple[str, ...] = ()
 
 
+@dataclass(frozen=True, slots=True)
+class QueryNodeProgress:
+    """One observed query-node lifecycle transition."""
+
+    node: OntologyQueryNode
+    status: Literal["running"] | TaskStatus
+    started_at: datetime
+    step_index: int
+    step_total: int
+    receipt: GoalTaskReceipt | None = None
+    execution_authority: Literal[False] = False
+
+    def __post_init__(self) -> None:
+        if self.execution_authority:
+            raise ValueError("query node progress MUST NOT carry execution authority")
+        if not 1 <= self.step_index <= self.step_total <= 32:
+            raise ValueError("query node progress position is invalid")
+        if (self.status == "running") != (self.receipt is None):
+            raise ValueError("query node progress lifecycle is inconsistent")
+        if self.receipt is not None and self.status is not self.receipt.status:
+            raise ValueError("query node progress status MUST match its receipt")
+
+
+class QueryProgressObserver(Protocol):
+    """Observe best-effort query progress without controlling execution."""
+
+    def __call__(self, progress: QueryNodeProgress) -> Awaitable[None]: ...
+
+
 class QueryNodeHandler(Protocol):
     """Execute one already-verified query node without changing authority."""
 
@@ -105,6 +134,7 @@ class OntologyQueryPlanExecutor:
         expected_role: str,
         expected_purpose: str,
         cancelled: asyncio.Event | None = None,
+        progress_observer: QueryProgressObserver | None = None,
     ) -> QueryPlanExecution:
         """Execute a plan only when its release, role, and purpose still match."""
 
@@ -122,6 +152,9 @@ class OntologyQueryPlanExecutor:
         terminal_statuses: dict[str, TaskStatus] = {}
         receipts: dict[str, GoalTaskReceipt] = {}
         semaphore = asyncio.Semaphore(self._max_concurrency)
+        step_positions = {
+            node.node_id: (index, len(plan.nodes)) for index, node in enumerate(plan.nodes, start=1)
+        }
 
         while pending:
             ready = tuple(
@@ -151,6 +184,17 @@ class OntologyQueryPlanExecutor:
                     receipts[node.node_id] = receipt
                     terminal_statuses[node.node_id] = receipt.status
                     pending.pop(node.node_id)
+                    await self._notify_progress(
+                        QueryNodeProgress(
+                            node=node,
+                            status=receipt.status,
+                            started_at=receipt.started_at,
+                            step_index=step_positions[node.node_id][0],
+                            step_total=step_positions[node.node_id][1],
+                            receipt=receipt,
+                        ),
+                        progress_observer,
+                    )
                 else:
                     runnable.append(node)
 
@@ -162,6 +206,9 @@ class OntologyQueryPlanExecutor:
                             dependencies={key: results[key] for key in node.depends_on},
                             semaphore=semaphore,
                             cancelled=cancelled,
+                            progress_observer=progress_observer,
+                            step_index=step_positions[node.node_id][0],
+                            step_total=step_positions[node.node_id][1],
                         )
                         for node in runnable
                     )
@@ -198,9 +245,53 @@ class OntologyQueryPlanExecutor:
         dependencies: Mapping[str, QueryNodeResult],
         semaphore: asyncio.Semaphore,
         cancelled: asyncio.Event | None,
+        progress_observer: QueryProgressObserver | None,
+        step_index: int,
+        step_total: int,
     ) -> tuple[OntologyQueryNode, QueryNodeResult | None, GoalTaskReceipt]:
         started_at = self._aware_now()
         started = time.monotonic()
+        await self._notify_progress(
+            QueryNodeProgress(
+                node=node,
+                status="running",
+                started_at=started_at,
+                step_index=step_index,
+                step_total=step_total,
+            ),
+            progress_observer,
+        )
+        node, result, receipt = await self._execute_node(
+            node,
+            dependencies=dependencies,
+            semaphore=semaphore,
+            cancelled=cancelled,
+            started_at=started_at,
+            started_monotonic=started,
+        )
+        await self._notify_progress(
+            QueryNodeProgress(
+                node=node,
+                status=receipt.status,
+                started_at=started_at,
+                step_index=step_index,
+                step_total=step_total,
+                receipt=receipt,
+            ),
+            progress_observer,
+        )
+        return node, result, receipt
+
+    async def _execute_node(
+        self,
+        node: OntologyQueryNode,
+        *,
+        dependencies: Mapping[str, QueryNodeResult],
+        semaphore: asyncio.Semaphore,
+        cancelled: asyncio.Event | None,
+        started_at: datetime,
+        started_monotonic: float,
+    ) -> tuple[OntologyQueryNode, QueryNodeResult | None, GoalTaskReceipt]:
         if cancelled is not None and cancelled.is_set():
             return (
                 node,
@@ -210,7 +301,7 @@ class OntologyQueryPlanExecutor:
                     status=TaskStatus.CANCELLED,
                     reason="request_cancelled",
                     started_at=started_at,
-                    started_monotonic=started,
+                    started_monotonic=started_monotonic,
                 ),
             )
         handler = self._handlers.get(node.kind)
@@ -223,7 +314,7 @@ class OntologyQueryPlanExecutor:
                     status=TaskStatus.UNAVAILABLE,
                     reason="capability_unavailable",
                     started_at=started_at,
-                    started_monotonic=started,
+                    started_monotonic=started_monotonic,
                 ),
             )
         try:
@@ -245,7 +336,7 @@ class OntologyQueryPlanExecutor:
                     status=TaskStatus.UNAVAILABLE,
                     reason=error.reason,
                     started_at=started_at,
-                    started_monotonic=started,
+                    started_monotonic=started_monotonic,
                 ),
             )
         except _QueryCancelledError:
@@ -257,7 +348,7 @@ class OntologyQueryPlanExecutor:
                     status=TaskStatus.CANCELLED,
                     reason="request_cancelled",
                     started_at=started_at,
-                    started_monotonic=started,
+                    started_monotonic=started_monotonic,
                 ),
             )
         except TimeoutError:
@@ -269,7 +360,7 @@ class OntologyQueryPlanExecutor:
                     status=TaskStatus.TIMED_OUT,
                     reason="capability_timed_out",
                     started_at=started_at,
-                    started_monotonic=started,
+                    started_monotonic=started_monotonic,
                 ),
             )
         except PermissionError:
@@ -281,7 +372,7 @@ class OntologyQueryPlanExecutor:
                     status=TaskStatus.UNAVAILABLE,
                     reason="authorization_denied",
                     started_at=started_at,
-                    started_monotonic=started,
+                    started_monotonic=started_monotonic,
                 ),
             )
         except (TypeError, ValueError, RuntimeError) as error:
@@ -300,7 +391,7 @@ class OntologyQueryPlanExecutor:
                     status=TaskStatus.FAILED,
                     reason="capability_failed",
                     started_at=started_at,
-                    started_monotonic=started,
+                    started_monotonic=started_monotonic,
                 ),
             )
         except Exception:  # noqa: BLE001 - provider failures become stable typed receipts
@@ -316,7 +407,7 @@ class OntologyQueryPlanExecutor:
                     status=TaskStatus.FAILED,
                     reason="capability_failed",
                     started_at=started_at,
-                    started_monotonic=started,
+                    started_monotonic=started_monotonic,
                 ),
             )
         return (
@@ -328,9 +419,34 @@ class OntologyQueryPlanExecutor:
                 reason=None,
                 evidence_refs=result.evidence_refs,
                 started_at=started_at,
-                started_monotonic=started,
+                started_monotonic=started_monotonic,
             ),
         )
+
+    async def _notify_progress(
+        self,
+        progress: QueryNodeProgress,
+        observer: QueryProgressObserver | None,
+    ) -> None:
+        if observer is None:
+            return
+        _LOGGER.info(
+            "ontology_query_progress_observed",
+            extra={
+                "node_kind": progress.node.kind.value,
+                "status": str(progress.status),
+            },
+        )
+        try:
+            await observer(progress)
+        except Exception:  # noqa: BLE001 - presentation progress cannot control query truth
+            _LOGGER.warning(
+                "ontology_query_progress_observer_failed",
+                extra={
+                    "node_id": progress.node.node_id,
+                    "status": str(progress.status),
+                },
+            )
 
     async def _invoke_with_deadline(
         self,

@@ -5,6 +5,7 @@ from fdai_service_contracts.read_investigation import (
     READ_INVESTIGATION_REQUEST_TOPIC,
 )
 from fdai_service_contracts.semantic_turn import (
+    SEMANTIC_PROGRESS_TOPIC,
     SEMANTIC_PROJECTION_TOPIC,
     SEMANTIC_REQUEST_TOPIC,
 )
@@ -22,6 +23,7 @@ RUNTIME_LOGICAL_TOPICS = (
             _TRANSITION_TOPIC,
             SEMANTIC_REQUEST_TOPIC,
             SEMANTIC_PROJECTION_TOPIC,
+            SEMANTIC_PROGRESS_TOPIC,
             READ_INVESTIGATION_REQUEST_TOPIC,
             READ_INVESTIGATION_COMPLETION_TOPIC,
         }

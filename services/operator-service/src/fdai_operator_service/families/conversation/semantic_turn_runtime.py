@@ -6,7 +6,7 @@ import asyncio
 import hashlib
 import json
 import logging
-from collections import deque
+from collections import OrderedDict, deque
 from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
@@ -43,6 +43,7 @@ from fdai_service_contracts import (
     ContractValidationError,
     RuleSearchProjection,
     SemanticInvestigationContinuation,
+    SemanticQueryProgress,
     SemanticTurnDisposition,
     SemanticTurnRequest,
     SemanticTurnResult,
@@ -51,11 +52,15 @@ from pydantic import ValidationError
 
 SEMANTIC_REQUEST_TOPIC = "operator.semantic-turn.requests"
 SEMANTIC_RESULT_TOPIC = "core.semantic-turn.projections"
+SEMANTIC_PROGRESS_TOPIC = "core.semantic-turn.progress"
 SEMANTIC_RESULT_GROUP = "operator-semantic-turn-v1"
+SEMANTIC_PROGRESS_GROUP = "operator-semantic-progress-v1"
 _IDENTITY_NAMESPACE = UUID("00000000-0000-0000-0000-000000000000")
 _MAX_PROJECTION_CONFLICT_ATTEMPTS = 5
 _MAX_TRACKED_PROJECTION_CONFLICTS = 256
 _MAX_EXECUTION_OUTPUT_CHARS = 64 * 1024
+_MAX_TRACKED_PROGRESS_REQUESTS = 256
+_MAX_PROGRESS_UPDATES_PER_REQUEST = MAX_INTENT_GRAPH_GOALS * 2
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -133,6 +138,63 @@ class SemanticTurnResultSource(Protocol):
     ) -> AsyncIterator[Mapping[str, object]]: ...
 
 
+class _SemanticProgressRelay:
+    """Retain a bounded best-effort timeline until the terminal replay arrives."""
+
+    def __init__(self) -> None:
+        self._updates: OrderedDict[str, deque[SemanticQueryProgress]] = OrderedDict()
+        self._signals: dict[str, asyncio.Event] = {}
+
+    def consume(self, payload: Mapping[str, object]) -> bool:
+        """Validate and retain one monotonic update, ignoring stale redelivery."""
+        progress = SemanticQueryProgress.model_validate(payload)
+        updates = self._updates.get(progress.request_id)
+        if updates is None:
+            if len(self._updates) >= _MAX_TRACKED_PROGRESS_REQUESTS:
+                expired_request_id, _expired = self._updates.popitem(last=False)
+                self._signals.pop(expired_request_id, None)
+            updates = deque(maxlen=_MAX_PROGRESS_UPDATES_PER_REQUEST)
+            self._updates[progress.request_id] = updates
+        elif updates and progress.progress_sequence <= updates[-1].progress_sequence:
+            return False
+        updates.append(progress)
+        self._signals.setdefault(progress.request_id, asyncio.Event()).set()
+        self._updates.move_to_end(progress.request_id)
+        return True
+
+    def after(self, request_id: str, progress_sequence: int) -> tuple[SemanticQueryProgress, ...]:
+        """Return retained updates after one iterator-local sequence cursor."""
+        return tuple(
+            update
+            for update in self._updates.get(request_id, ())
+            if update.progress_sequence > progress_sequence
+        )
+
+    def discard(self, request_id: str) -> None:
+        """Drop transient updates once durable terminal replay is authoritative."""
+        self._updates.pop(request_id, None)
+        self._signals.pop(request_id, None)
+
+    async def wait_for_update(
+        self,
+        request_id: str,
+        progress_sequence: int,
+        *,
+        timeout: float,
+    ) -> None:
+        """Wake one active stream as soon as a newer progress record arrives."""
+        if self.after(request_id, progress_sequence):
+            return
+        signal = self._signals.setdefault(request_id, asyncio.Event())
+        signal.clear()
+        if self.after(request_id, progress_sequence):
+            return
+        try:
+            await asyncio.wait_for(signal.wait(), timeout=timeout)
+        except TimeoutError:
+            return
+
+
 @dataclass(frozen=True, slots=True)
 class _SemanticReplayCursor:
     projection_sequence: int
@@ -147,6 +209,7 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
         *,
         store: SemanticTurnStore,
         consumer: SemanticTurnProjectionConsumer,
+        progress_relay: _SemanticProgressRelay,
         stored: StoredSemanticTurn,
         principal_id: str,
         cursor: _SemanticReplayCursor | None,
@@ -157,6 +220,7 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
             raise ValueError("stored semantic request is missing")
         self._store = store
         self._consumer = consumer
+        self._progress_relay = progress_relay
         self._stored = stored
         self._principal_id = principal_id
         self._cursor = cursor
@@ -165,7 +229,9 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
         self._events: deque[StreamEvent] = deque()
         self._closed = False
         self._terminal_loaded = False
+        self._terminal_absent_observed = False
         self._stream_sequence = 0
+        self._progress_sequence = 0
         self._running_activities: dict[str, tuple[str, str | None]] = {}
         self._queue_initial_progress()
 
@@ -295,7 +361,25 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
                 request_id=self._stored.request_id,
                 after_sequence=store_after,
             )
+            if not results:
+                self._terminal_absent_observed = True
+            progress_updates = self._progress_relay.after(
+                self._stored.request_id,
+                self._progress_sequence,
+            )
+            if progress_updates and self._terminal_absent_observed:
+                progress = progress_updates[0]
+                self._progress_sequence = progress.progress_sequence
+                if (
+                    progress.session_id == self._request.session_id
+                    and progress.turn_id == self._request.turn_id
+                    and progress.turn_sequence == self._request.turn_sequence
+                ):
+                    self._queue_progress(progress)
+                    return
+                continue
             if results:
+                self._progress_relay.discard(self._stored.request_id)
                 for result in results:
                     self._queue_result(result)
                 self._terminal_loaded = True
@@ -308,7 +392,28 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
                 await self._consumer.consume(_held_projection(self._stored.envelope))
                 store_after = _store_after_sequence(self._cursor)
                 continue
-            await asyncio.sleep(min(self._retry_seconds, remaining))
+            await self._progress_relay.wait_for_update(
+                self._stored.request_id,
+                self._progress_sequence,
+                timeout=min(self._retry_seconds, remaining),
+            )
+
+    def _queue_progress(self, progress: SemanticQueryProgress) -> None:
+        _LOGGER.info("semantic_query_progress_streamed")
+        activity = _progress_query_activity(progress, locale=self._request.locale)
+        self._append_activity(
+            f"goal:{progress.step_index}",
+            cast(str, activity["label"]),
+            status=cast(str, activity["status"]),
+            event_id="0:planning",
+            activity_id=cast(str, activity["activity_id"]),
+            kind="ontology_query",
+            detail=cast(str, activity["detail"]),
+            observed_at=cast(str, activity["observed_at"]),
+            completed=cast(int, activity["completed"]),
+            total=cast(int, activity["total"]),
+            execution=cast(JsonObject, activity["execution"]),
+        )
 
     def _queue_result(self, result: StoredSemanticResult) -> None:
         semantic = result.data.get("semantic_result")
@@ -463,19 +568,24 @@ class SemanticTurnBridge:
         request_topic: str = SEMANTIC_REQUEST_TOPIC,
         result_topic: str = SEMANTIC_RESULT_TOPIC,
         result_group: str = SEMANTIC_RESULT_GROUP,
+        progress_topic: str = SEMANTIC_PROGRESS_TOPIC,
+        progress_group: str = SEMANTIC_PROGRESS_GROUP,
         retry_seconds: float = 1.0,
     ) -> None:
         if (publisher is None) != (result_source is None):
             raise ValueError("semantic publisher and result source MUST be bound together")
         if retry_seconds <= 0:
             raise ValueError("semantic retry_seconds MUST be positive")
-        if not request_topic or not result_topic or not result_group:
+        if not request_topic or not result_topic or not result_group or not progress_topic:
             raise ValueError("semantic transport topics and consumer group MUST be non-empty")
+        if not progress_group or progress_topic in {request_topic, result_topic}:
+            raise ValueError("semantic progress transport MUST be distinct and non-empty")
         self._store = store
         self._publisher = publisher
         self._result_source = result_source
         self._builder = builder or SemanticTurnEnvelopeBuilder()
         self._consumer = SemanticTurnProjectionConsumer(store)
+        self._progress_relay = _SemanticProgressRelay()
         self._drainer = (
             SemanticTurnOutboxDrainer(store, publisher, worker_id, request_topic)
             if publisher is not None
@@ -484,6 +594,8 @@ class SemanticTurnBridge:
         self._request_topic = request_topic
         self._result_topic = result_topic
         self._result_group = result_group
+        self._progress_topic = progress_topic
+        self._progress_group = progress_group
         self._retry_seconds = retry_seconds
         self._tasks: tuple[asyncio.Task[None], ...] = ()
 
@@ -554,6 +666,7 @@ class SemanticTurnBridge:
         return _SemanticEventIterator(
             store=self._store,
             consumer=self._consumer,
+            progress_relay=self._progress_relay,
             stored=stored,
             principal_id=request.scope.subject_id,
             cursor=_after_sequence(request.after_event_id),
@@ -570,6 +683,7 @@ class SemanticTurnBridge:
             "mode": "event-bridge" if available else ("starting" if configured else "held"),
             "request_topic": self._request_topic,
             "result_topic": self._result_topic,
+            "progress_topic": self._progress_topic,
         }
 
     def workers_ready(self) -> bool:
@@ -605,6 +719,11 @@ class SemanticTurnBridge:
             await asyncio.sleep(0 if published else self._retry_seconds)
 
     async def _run_consumer(self) -> None:
+        async with asyncio.TaskGroup() as group:
+            group.create_task(self._run_result_consumer())
+            group.create_task(self._run_progress_consumer())
+
+    async def _run_result_consumer(self) -> None:
         if self._result_source is None or self._publisher is None:
             return
         conflicts: dict[str, int] = {}
@@ -643,6 +762,24 @@ class SemanticTurnBridge:
                 _LOGGER.warning("semantic_projection_consumer_retrying", exc_info=True)
             await asyncio.sleep(self._retry_seconds)
 
+    async def _run_progress_consumer(self) -> None:
+        if self._result_source is None or self._publisher is None:
+            return
+        while True:
+            try:
+                async for payload in self._result_source.subscribe(
+                    self._progress_topic,
+                    self._progress_group,
+                ):
+                    try:
+                        if self._progress_relay.consume(payload):
+                            _LOGGER.info("semantic_query_progress_received")
+                    except (ValidationError, ValueError):
+                        await self._quarantine_progress(payload)
+            except Exception:  # noqa: BLE001 - preserve offset and resubscribe after backoff
+                _LOGGER.warning("semantic_progress_consumer_retrying", exc_info=True)
+            await asyncio.sleep(self._retry_seconds)
+
     async def _quarantine(self, quarantine_key: str) -> None:
         if self._publisher is None:  # pragma: no cover - bound with the result source
             raise RuntimeError("semantic publisher is unavailable")
@@ -653,6 +790,24 @@ class SemanticTurnBridge:
                 "original_topic": self._result_topic,
                 "projection_ref": quarantine_key,
                 "reason": "semantic_turn_projection_rejected",
+            },
+        )
+
+    async def _quarantine_progress(self, payload: Mapping[str, object]) -> None:
+        if self._publisher is None:  # pragma: no cover - bound with the result source
+            raise RuntimeError("semantic publisher is unavailable")
+        request_id = payload.get("request_id")
+        identity = request_id if isinstance(request_id, str) else "missing-request-id"
+        quarantine_key = (
+            f"semantic-progress-rejected:{hashlib.sha256(identity.encode()).hexdigest()}"
+        )
+        await self._publisher.publish(
+            f"{self._progress_topic}.dlq",
+            quarantine_key,
+            {
+                "original_topic": self._progress_topic,
+                "progress_ref": quarantine_key,
+                "reason": "semantic_query_progress_rejected",
             },
         )
 
@@ -947,6 +1102,78 @@ def _verified_query_activities(
     return tuple(activities)
 
 
+def _progress_query_activity(
+    progress: SemanticQueryProgress,
+    *,
+    locale: str,
+) -> JsonObject:
+    """Project one actual Core node update into the stable query activity shape."""
+    status = str(progress.status)
+    korean = locale.casefold().startswith("ko")
+    command = json.dumps(
+        {"capability": progress.capability, "arguments": progress.arguments},
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    output: str | None = None
+    if status != "running":
+        output_value: dict[str, object] = {
+            "status": status,
+            "duration_ms": progress.duration_ms,
+            "evidence_refs": list(progress.evidence_refs),
+        }
+        if progress.reason is not None:
+            output_value["reason"] = progress.reason
+        output = json.dumps(
+            output_value,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+    return cast(
+        JsonObject,
+        {
+            "activity_id": f"semantic:goal:{progress.node_id}",
+            "status": status if status == "running" else _activity_status(status),
+            "label": _query_goal_label(
+                progress.node_id,
+                intent=progress.node_kind.value,
+                korean=korean,
+            ),
+            "detail": _query_goal_detail(
+                capability=progress.capability,
+                status=status,
+                evidence_count=len(progress.evidence_refs),
+                dependency_count=len(progress.depends_on),
+                reason=progress.reason,
+                korean=korean,
+            ),
+            "observed_at": (progress.completed_at or progress.started_at).isoformat(),
+            "completed": progress.step_index - (1 if status == "running" else 0),
+            "total": progress.step_total,
+            "execution": {
+                "tool": "Ontology query",
+                "input_kind": "query",
+                "target": _query_execution_target(progress.capability),
+                "command": command,
+                "redacted": True,
+                **({"output": output} if output is not None else {}),
+                "output_truncated": False,
+                "started_at": progress.started_at.isoformat(),
+                **(
+                    {
+                        "completed_at": progress.completed_at.isoformat(),
+                        "duration_ms": progress.duration_ms,
+                    }
+                    if progress.completed_at is not None
+                    else {}
+                ),
+            },
+        },
+    )
+
+
 def _technical_outputs_by_node(
     projection: Mapping[str, object],
 ) -> dict[str, Mapping[str, object]]:
@@ -1184,6 +1411,8 @@ def _mapping_int(value: Mapping[str, Any], key: str) -> int:
 
 __all__ = [
     "SEMANTIC_REQUEST_TOPIC",
+    "SEMANTIC_PROGRESS_TOPIC",
+    "SEMANTIC_PROGRESS_GROUP",
     "SEMANTIC_RESULT_GROUP",
     "SEMANTIC_RESULT_TOPIC",
     "SemanticTurnBridge",

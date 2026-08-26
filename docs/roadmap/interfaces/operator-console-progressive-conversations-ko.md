@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: fb23a50a1c3076b3c60a9ae11322d989192464b7
+translation_source_sha: c324ce44cc85479999cf48e62e7a3554d0253124
 translation_revised: 2026-08-26
 ---
 # 오퍼레이터 콘솔 점진적 대화
@@ -23,6 +23,8 @@ translation_revised: 2026-08-26
 | 통제된 4단계 온톨로지 증적 | 진행 중 | [`console-routes.spec.ts`](../../../console/tests/live-e2e/console-routes.spec.ts) | 외부 Browser Entra 실행기는 정확한 Operator API 원본을 요구하고, 성공 경로에서 모호하지 않은 조회 가능 유형 요청을 사용하며, 요청 및 변환 결과에 결속된 증적을 펼치고, 산출물을 출처, 작업 영역 패치, 실행 구성 digest에 결속합니다. `answered`가 아닌 증적을 받으면 답변 전용 UI 단언 전에 중단합니다. `검증됨`을 뒷받침하는 새 보존 통과 산출물은 없습니다. |
 | 이중 언어 무작위 릴리스 게이트 | 진행 중 | [`ontology-query-assurance-readiness.ts`](../../../console/tests/live-e2e/ontology-query-assurance-readiness.ts), [`ontology-query-assurance.test.ts`](../../../console/tests/live-e2e/ontology-query-assurance.test.ts) | 집중 보증 테스트 49개가 통과했습니다. 통제되는 모든 실행은 범위가 제한된 실행 식별자를 요구하고 질문 범위의 안정된 backend session id를 파생하므로 checkpoint 재개는 정체성을 보존하지만 새 실행은 다른 실행의 영속 semantic projection을 재사용할 수 없습니다. 전체 집단은 영어와 한국어 모두에서 근거가 완전한 answered 턴이 없으면 `production_ready=true`를 보고할 수 없습니다. 새 100-case 통과 산출물은 여전히 필요합니다. |
 | 의미 명확화 표현 | 구현됨 | [`verification-presentation.ts`](../../../console/src/deck/verification-presentation.ts), [`grounded-reply.tsx`](../../../console/src/deck/grounded-reply.tsx), 집중 Console 검사 | `semantic_clarification_required`를 `Context required`로 표시하면서 범위가 제한된 서버 작성 질문을 기본 답변으로 보존합니다. 질문이 잘못되었거나 없으면 지역화된 대체 문구를 사용합니다. 분류는 제어 평면이 실제로 방출하는 이유 코드만 다룹니다. 인증되고 보존된 증적은 열린 항목으로 남아 있습니다. |
+| 의미 모델 투명성 | 구현됨 | `semantic_planning.py`, `semantic_turn_processor.py`, `semantic_turn_presentation.py`, 집중 Core 및 Operator 검사 | 이미 수행된 모든 의미 판단은 표현을 위해 범위가 제한된 실측 모델, 처리 시간 및 토큰 metadata를 보존합니다. 요청과 응답 본문은 요청에서 명시적으로 활성화한 경우에만 projection하며 결정론적으로 민감정보를 제거하고 범위를 제한합니다. 이 정보는 계획 근거나 실행 권한이 되지 않습니다. |
+| 실시간 의미 조회 진행 상황 | 구현됨 | `SemanticQueryProgress`, `query_execution.py`, Core semantic consumer, Operator semantic bridge, 집중 progress 검사 25개 통과 | Core는 검증된 실제 조회 노드의 시작 및 최종 관측만 별도 best-effort topic으로 발행합니다. Operator는 실제 내부 조회를 렌더링하고 권위 있는 최종 receipt가 도착하면 일시적인 진행 상태를 폐기합니다. 진행 정보는 범위가 제한되고 읽기 전용이며 `execution_authority=false`로 고정됩니다. 인증된 Command Deck 증적은 열린 상태입니다. |
 | 검증된 의미 답변 표현 | 검증됨 | [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py), [`semantic_turn_presentation.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_presentation.py), [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), [`semantic-answer-presentation.spec.ts`](../../../console/tests/live-e2e/semantic-answer-presentation.spec.ts), `.fdai/live-validation/semantic-answer-presentation-244d003ef77bd37dc0041f0b6a29634cdbaacb91-post-validation/` | 범위가 제한된 인증 Web/한국어 경로는 명시적 workspace patch digest와 함께 중앙 검증된 source revision `244d003ef`에서 검증됐습니다. 최초 턴과 재생성 턴은 관찰된 5단계, 동일한 인시던트 및 기술 출력 digest, 읽기 전용 근거 수집, primary JSON 미노출, `execution_authority=false`를 유지했습니다. 이 상태는 Teams, Slack, 4단계 온톨로지 실행기 또는 이중 언어 100-case 집단을 주장하지 않습니다. |
 | 결정론적 교차 채널 표현 계획 | 구현됨 | `semantic_presentation_semantics.py`, `semantic_turn_processor.py`, `presentation_rows.py`, `presentation_planner.py`, `presentation_artifact_v2.py`, `presentation.py`, Console artifact 및 module registry, 집중 semantic presentation 검사 137개, Console deck 검사 693개, chart browser 검사 4개 통과 | Core는 검증된 종단 행에서 renderer-neutral semantics를 파생합니다. Operator는 시각화 10개 중 하나를 선택하기 전에 shape별 역할과 행 불변식을 다시 검증합니다. Web과 channel artifact 경계는 동일한 bounded schema를 적용합니다. Legacy와 v2 경로는 읽기 쉬운 행과 exact 기술 값을 보존합니다. 모델은 차트 컴포넌트를 선택할 수 없습니다. |
 
@@ -30,6 +32,8 @@ translation_revised: 2026-08-26
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-26 | 구현됨 | 최종 결과의 권위를 바꾸지 않고 실시간 의미 조회 노드 진행 상황을 추가했습니다. Executor는 실제 노드 시작과 receipt 완료를 관측하고, Core는 범위가 제한되고 권한이 없는 별도 record를 발행하며, Operator는 `done` 전에 안정된 조회 activity를 스트리밍합니다. 느리거나 실패한 progress 발행은 범위 안에서 끝나며 조회 실행을 바꿀 수 없습니다. Reconnect 및 최종 완료는 기존 영속 receipt를 계속 권위로 사용합니다. | `current change`, 공유 계약 및 schema, Core executor 및 consumer, Operator relay 및 Kafka adapter, 집중 progress 검사 25개 통과, Ruff, formatting 및 strict mypy 통과 | 인증된 Command Deck 실행에서 정확한 AKS 현재 상태 ObjectSet 및 Function 단계가 검증된 최종 답변 전에 running에서 completed로 바뀌는 것을 보존합니다. |
+| 2026-08-26 | 구현됨 | 실측 의미 판단 투명성을 타입이 지정된 직접 응답에서 일반 답변, 명확화, 보류 및 지원하지 않음 결과까지 확장했습니다. Core는 범위가 제한되고 권한이 없는 관측을 계획 전체에서 보존하고 processor extension은 이를 조회 근거와 병합하며 Operator는 검증을 바꾸지 않고 최종 event에 포함합니다. 요청과 응답 본문은 명시적으로 활성화한 경우에만 포함합니다. | `current change`, 집중 계획, processor 및 Operator 검사 544개와 strict mypy, Ruff 통과, 인증된 일반 Resource 턴에서 모델 호출 1건, 실측 토큰 5,398개, 범위가 제한되고 민감정보가 제거된 요청 및 응답 내용, 변경되지 않은 권한 없는 근거 상태 표시 | 이 범위가 제한된 투명성 결함에 남은 구현 작업은 없습니다. |
 | 2026-08-26 | implemented | 여러 단계를 관측한 조사는 답변이 끝난 뒤에도 펼친 상태로 유지합니다. 기존에는 무엇을 관측했든 조사가 접혔고, 의미 경로는 모든 계획 단계를 최종 시점에만 내보내기 때문에 검증된 조사의 단계별 근거가 답변 뒤에 나타나면서 이미 닫혀 있었습니다. 단일 읽기는 답변이 이미 말하는 내용에 더할 것이 없으므로 그대로 접힙니다. | `current change`, [`investigation-timeline.tsx`](../../../console/src/deck/investigation-timeline.tsx), 집중 타임라인·궤적 표현·작업공간 시각 검사 47개 통과, 인증된 Console 턴이 실행된 조회 노드 2개의 범위·증적·소요 시간을 추가 클릭 없이 렌더함 | 의미 경로는 Core가 여전히 최종 projection 하나만 발행하므로 실행 중 단계별 진행 표시는 미해결로 남습니다. |
 | 2026-08-26 | 구현됨 | 모든 의미 명확화를 일반 context 질문으로 교체하는 대신 `semantic_clarification_required`에 포함된 범위가 제한된 서버 작성 질문을 보존했습니다. 잘못된 질문과 다른 검증되지 않은 이유는 기존 지역화 대체 문구를 유지하고 machine reason은 변경하지 않습니다. | `current change`, `grounded-reply.tsx`, 집중 Console 검사 12개 통과 | 수정된 exact-target 질문의 인증 증적을 보존합니다. 이 표현 결함에 남은 추가 구현 작업은 없습니다. |
 | 2026-08-26 | 구현됨 | 완료된 출처 세부 정보를 검사 가능하게 만들고 검증되지 않은 대화를 대화형으로 바꿨습니다. `SCREEN` 및 `RECORDS` 배지는 범위가 제한된 60px 라벨을 유지하고, 레코드 출처는 행 수와 브라우저에 표시된 첫 행의 스칼라 값 최대 4개를 보여 주며, 타입이 지정된 검증 실패 이유는 지역화된 명확화 질문으로 표시합니다. 정본 최종 답변과 이유는 대화, 보증 및 실행 기록 경로에 변경 없이 남습니다. | `current change`, 집중 Console 검사 30건과 카탈로그 동등성 검사가 통과했습니다. 인증된 데스크톱 및 390px Browser 검사에서 온전한 배지, 대표 값, 한국어 근거 원본 및 범위 질문, 행·패널·문서 오버플로 0을 확인했습니다. | 이 범위가 제한된 출처 세부 정보 및 명확화 작업에 남은 구현 작업은 없습니다. |
@@ -78,6 +82,8 @@ translation_revised: 2026-08-26
 
 ### 남은 작업
 
+- [ ] 인증된 Command Deck 증적에서 정확한 AKS 현재 상태 ObjectSet 및 Function activity가
+  권위 있는 최종 답변 전에 running 및 completed로 바뀌는 것을 보존합니다.
 - [ ] 인증된 요청부터 Console까지 이어지는 4단계 온톨로지 통과 증적을 새 저장소 경로에
   보존합니다.
 - [ ] 2026-08-11 기준선을 교체하지 않고, 두 언어 모두에서 근거가 완전한 answered 턴이 있는

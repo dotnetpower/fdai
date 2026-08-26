@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -15,6 +17,7 @@ from fdai_service_contracts.ontology_query import (
 )
 
 from fdai.core.ontology_platform import OntologyQueryPlanExecutor, QueryPlanExecution
+from fdai.core.ontology_platform.query_execution import QueryProgressObserver
 from fdai.core.ontology_platform.query_values import QueryTable
 
 from .intent_graph import build_intent_graph_evidence
@@ -27,6 +30,29 @@ from .semantic_planning_models import (
     SemanticPlanningOutcome,
 )
 from .session import Principal, Turn
+
+_PROGRESS_OBSERVER: ContextVar[QueryProgressObserver | None] = ContextVar(
+    "semantic_query_progress_observer",
+    default=None,
+)
+
+
+@contextmanager
+def bind_semantic_query_progress_observer(
+    observer: QueryProgressObserver,
+) -> Iterator[None]:
+    """Bind one invocation-scoped presentation observer without changing authority."""
+    token = _PROGRESS_OBSERVER.set(observer)
+    try:
+        yield
+    finally:
+        _PROGRESS_OBSERVER.reset(token)
+
+
+def _resolve_progress_observer(
+    explicit: QueryProgressObserver | None,
+) -> QueryProgressObserver | None:
+    return explicit or _PROGRESS_OBSERVER.get()
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,6 +117,7 @@ class SemanticConversationRuntime:
         bound_incident: BoundIncident | None = None,
         bound_investigation_continuation: BoundInvestigationContinuation | None = None,
         escalation_policy: SemanticPlanningEscalationPolicy | None = None,
+        progress_observer: QueryProgressObserver | None = None,
     ) -> SemanticTurnResult:
         """Terminate every accepted turn without invoking a compatibility parser."""
 
@@ -126,6 +153,7 @@ class SemanticConversationRuntime:
             expected_role=principal.role.value,
             expected_purpose=self._purpose,
             cancelled=cancelled,
+            progress_observer=_resolve_progress_observer(progress_observer),
         )
         evidence: IntentGraphEvidence = build_intent_graph_evidence(
             graph=planning.intent_graph,
@@ -201,6 +229,7 @@ def _terminal(
 
 
 __all__ = [
+    "bind_semantic_query_progress_observer",
     "SemanticConversationRuntime",
     "SemanticTurnResult",
 ]

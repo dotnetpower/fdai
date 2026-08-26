@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 import pytest
 from fdai.core.ontology_platform.query_execution import (
     OntologyQueryPlanExecutor,
+    QueryNodeProgress,
     QueryNodeResult,
 )
 from fdai_service_contracts.ontology_query import (
@@ -111,6 +112,42 @@ async def test_executor_runs_independent_nodes_concurrently_then_joins() -> None
         TaskStatus.COMPLETED,
     ]
     assert execution.execution_authority is False
+
+
+async def test_executor_observes_actual_node_lifecycle_without_changing_result() -> None:
+    observed: list[QueryNodeProgress] = []
+
+    async def handler(node, dependencies):  # type: ignore[no-untyped-def]
+        assert not dependencies
+        return QueryNodeResult(value=node.node_id, evidence_refs=("evidence:first",))
+
+    async def observe(progress: QueryNodeProgress) -> None:
+        observed.append(progress)
+        if progress.status == "running":
+            raise RuntimeError("presentation relay unavailable")
+
+    node = OntologyQueryNode(
+        node_id="first",
+        kind=QueryNodeKind.OBJECT_SET,
+        output_kind="object_set",
+    )
+    execution = await OntologyQueryPlanExecutor(
+        handlers={QueryNodeKind.OBJECT_SET: handler},
+        now=lambda: NOW,
+    ).execute(
+        _plan((node,), ("first",)),
+        expected_release_digest=DIGEST_A,
+        expected_manifest_digest=DIGEST_B,
+        expected_role="Reader",
+        expected_purpose="incident-investigation",
+        progress_observer=observe,
+    )
+
+    assert [item.status for item in observed] == ["running", TaskStatus.COMPLETED]
+    assert [(item.step_index, item.step_total) for item in observed] == [(1, 1), (1, 1)]
+    assert observed[0].receipt is None
+    assert observed[1].receipt == execution.receipts[0]
+    assert execution.status == "completed"
 
 
 async def test_executor_skips_descendant_after_stable_failure(

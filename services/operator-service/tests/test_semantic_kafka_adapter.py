@@ -380,6 +380,11 @@ async def test_transport_rejects_unconfigured_topics_and_invalid_requests(monkey
         await bus.publish("unconfigured.topic", "request-1", _request())
     with pytest.raises(ValueError, match="subscription topic is not configured"):
         bus.subscribe("unconfigured.topic", "operator-semantic-turn-v1")
+    progress_stream = bus.subscribe(
+        "core.semantic-turn.progress",
+        "operator-semantic-progress-v1",
+    )
+    await progress_stream.aclose()
     invalid = _request()
     invalid["schema_version"] = "invalid"
     with pytest.raises(Exception, match="schema_version"):

@@ -45,6 +45,7 @@ class OperatorSemanticKafkaConfig:
     security_protocol: Literal["SASL_SSL", "PLAINTEXT"] = "SASL_SSL"
     request_topic: str = "operator.semantic-turn.requests"
     projection_topic: str = "core.semantic-turn.projections"
+    progress_topic: str = "core.semantic-turn.progress"
     read_investigation_topic: str | None = None
     read_investigation_completion_topic: str | None = None
     client_id: str = "fdai-operator-service"
@@ -60,15 +61,14 @@ class OperatorSemanticKafkaConfig:
             raise ValueError("Kafka client id MUST NOT be empty")
         if self.security_protocol not in {"SASL_SSL", "PLAINTEXT"}:
             raise ValueError("security_protocol MUST be SASL_SSL or PLAINTEXT")
-        if (
-            self.request_topic == self.projection_topic
-            or _TOPIC_PATTERN.fullmatch(self.request_topic) is None
-            or _TOPIC_PATTERN.fullmatch(self.projection_topic) is None
+        semantic_topics = {self.request_topic, self.projection_topic, self.progress_topic}
+        if len(semantic_topics) != 3 or any(
+            _TOPIC_PATTERN.fullmatch(topic) is None for topic in semantic_topics
         ):
             raise ValueError("semantic Kafka topics MUST be distinct valid topic names")
         if self.read_investigation_topic is not None and (
             _TOPIC_PATTERN.fullmatch(self.read_investigation_topic) is None
-            or self.read_investigation_topic in {self.request_topic, self.projection_topic}
+            or self.read_investigation_topic in semantic_topics
         ):
             raise ValueError("read investigation topic MUST be distinct and valid")
         if self.read_investigation_completion_topic is not None and (
@@ -77,6 +77,7 @@ class OperatorSemanticKafkaConfig:
             in {
                 self.request_topic,
                 self.projection_topic,
+                self.progress_topic,
                 self.read_investigation_topic,
             }
         ):
@@ -87,7 +88,7 @@ class OperatorSemanticKafkaConfig:
             raise ValueError("Kafka DLQ suffix MUST NOT be empty")
         if self.physical_topic is not None and (
             _TOPIC_PATTERN.fullmatch(self.physical_topic) is None
-            or self.physical_topic in {self.request_topic, self.projection_topic}
+            or self.physical_topic in semantic_topics
         ):
             raise ValueError("semantic Kafka physical topic MUST be a distinct valid topic")
         if self.maximum_message_bytes < 1:
@@ -142,6 +143,7 @@ class OperatorSemanticKafkaBus:
             self._config.request_topic,
             f"{self._config.request_topic}{self._config.dlq_suffix}",
             f"{self._config.projection_topic}{self._config.dlq_suffix}",
+            f"{self._config.progress_topic}{self._config.dlq_suffix}",
         }
         if self._config.read_investigation_topic is not None:
             allowed.update(
@@ -185,6 +187,7 @@ class OperatorSemanticKafkaBus:
         """Yield valid mappings and commit only after downstream processing resumes."""
         if topic not in {
             self._config.projection_topic,
+            self._config.progress_topic,
             self._config.read_investigation_completion_topic,
         }:
             raise ValueError("semantic Kafka subscription topic is not configured")

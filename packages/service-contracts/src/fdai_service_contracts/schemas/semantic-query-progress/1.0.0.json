@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.example/schemas/semantic-query-progress/1.0.0.json",
+  "title": "SemanticQueryProgress",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "request_id",
+    "session_id",
+    "turn_id",
+    "turn_sequence",
+    "progress_sequence",
+    "node_id",
+    "node_kind",
+    "capability",
+    "arguments",
+    "status",
+    "step_index",
+    "step_total",
+    "depends_on",
+    "started_at",
+    "evidence_refs",
+    "execution_authority"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "request_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "session_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "turn_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "turn_sequence": {"type": "integer", "minimum": 0},
+    "progress_sequence": {"type": "integer", "minimum": 1, "maximum": 256},
+    "node_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$"
+    },
+    "node_kind": {
+      "enum": [
+        "object_set",
+        "relationship_traversal",
+        "typed_path",
+        "union",
+        "intersection",
+        "subtraction",
+        "order",
+        "project",
+        "aggregate",
+        "function",
+        "topology_at",
+        "topology_diff",
+        "metric_series",
+        "metric_scope_series",
+        "metric_comparison",
+        "evidence_join"
+      ]
+    },
+    "capability": {
+      "type": "string",
+      "pattern": "^query\\.[a-z][a-z0-9_.-]{0,79}$"
+    },
+    "arguments": {
+      "type": "object",
+      "maxProperties": 32,
+      "propertyNames": {"pattern": "^[A-Za-z_][A-Za-z0-9_.-]{0,127}$"}
+    },
+    "status": {
+      "enum": [
+        "running",
+        "completed",
+        "unavailable",
+        "failed",
+        "timed_out",
+        "skipped",
+        "cancelled"
+      ]
+    },
+    "step_index": {"type": "integer", "minimum": 1, "maximum": 32},
+    "step_total": {"type": "integer", "minimum": 1, "maximum": 32},
+    "depends_on": {
+      "type": "array",
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$"
+      }
+    },
+    "started_at": {"type": "string", "format": "date-time"},
+    "completed_at": {
+      "oneOf": [
+        {"type": "string", "format": "date-time"},
+        {"type": "null"}
+      ]
+    },
+    "duration_ms": {
+      "oneOf": [
+        {"type": "integer", "minimum": 0, "maximum": 86400000},
+        {"type": "null"}
+      ]
+    },
+    "reason": {
+      "oneOf": [
+        {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,127}$"},
+        {"type": "null"}
+      ]
+    },
+    "evidence_refs": {
+      "type": "array",
+      "maxItems": 12,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1, "maxLength": 256}
+    },
+    "execution_authority": {"const": false}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "running"}}},
+      "then": {
+        "properties": {
+          "completed_at": {"type": "null"},
+          "duration_ms": {"type": "null"},
+          "reason": {"type": "null"},
+          "evidence_refs": {"maxItems": 0}
+        }
+      },
+      "else": {
+        "required": ["completed_at", "duration_ms"],
+        "properties": {
+          "completed_at": {"type": "string", "format": "date-time"},
+          "duration_ms": {"type": "integer", "minimum": 0, "maximum": 86400000}
+        }
+      }
+    }
+  ]
+}

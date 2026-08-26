@@ -6,15 +6,21 @@ import asyncio
 import base64
 import hashlib
 import json
+import logging
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
-from fdai.core.conversation.semantic_runtime import SemanticConversationRuntime
+from fdai.core.conversation.semantic_runtime import (
+    SemanticConversationRuntime,
+    bind_semantic_query_progress_observer,
+)
+from fdai.core.ontology_platform.query_execution import QueryNodeProgress
 from fdai.shared.providers.event_bus import EventBus, subscription
 from fdai.shared.providers.state_store import StateStore
+from fdai_service_contracts import SemanticQueryProgress
 
 from .semantic_turn_processor import (
     SemanticTurnProcessor,
@@ -24,6 +30,9 @@ from .semantic_turn_processor import (
 _STATE_PREFIX = "semantic-turn-result:"
 _CLAIM_PREFIX = "semantic-turn-claim:"
 _DEFAULT_CLAIM_LEASE_SECONDS = 120.0
+_MAX_PROGRESS_RECORDS = 64
+_PROGRESS_DRAIN_SECONDS = 0.5
+_LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,6 +41,7 @@ class SemanticTurnConsumerBinding:
 
     request_topic: str
     projection_topic: str
+    progress_topic: str
     group_id: str
     processor: SemanticTurnProcessor
     available: bool
@@ -44,6 +54,7 @@ class SemanticTurnConsumerBinding:
             bus=bus,
             request_topic=self.request_topic,
             projection_topic=self.projection_topic,
+            progress_topic=self.progress_topic,
             group_id=self.group_id,
             processor=self.processor,
             stop=stop,
@@ -186,12 +197,18 @@ def semantic_turn_binding_from_config(
 
     request_topic = config.get("FDAI_SEMANTIC_TURN_REQUEST_TOPIC", "").strip()
     projection_topic = config.get("FDAI_SEMANTIC_TURN_PROJECTION_TOPIC", "").strip()
+    progress_topic = config.get(
+        "FDAI_SEMANTIC_TURN_PROGRESS_TOPIC",
+        "core.semantic-turn.progress",
+    ).strip()
     if not request_topic and not projection_topic:
         return None
-    if not request_topic or not projection_topic:
+    if not request_topic or not projection_topic or not progress_topic:
         raise RuntimeError(
-            "semantic turn request and projection topics MUST be configured together"
+            "semantic turn request, projection, and progress topics MUST be configured together"
         )
+    if progress_topic in {request_topic, projection_topic}:
+        raise RuntimeError("semantic turn progress topic MUST be distinct")
     purpose = config.get("FDAI_SEMANTIC_TURN_PURPOSE", "operations-review").strip()
     if not purpose:
         raise RuntimeError("FDAI_SEMANTIC_TURN_PURPOSE MUST be non-empty")
@@ -204,6 +221,7 @@ def semantic_turn_binding_from_config(
     return SemanticTurnConsumerBinding(
         request_topic=request_topic,
         projection_topic=projection_topic,
+        progress_topic=progress_topic,
         group_id=group_id,
         processor=build_semantic_turn_processor(
             state_store=state_store,
@@ -222,6 +240,7 @@ async def consume_semantic_turns(
     bus: EventBus,
     request_topic: str,
     projection_topic: str,
+    progress_topic: str = "core.semantic-turn.progress",
     group_id: str,
     processor: SemanticTurnProcessor,
     stop: asyncio.Event,
@@ -238,9 +257,53 @@ async def consume_semantic_turns(
         async for envelope in stream:
             if stop.is_set():
                 return
+            progress_queue: asyncio.Queue[SemanticQueryProgress] = asyncio.Queue(
+                maxsize=_MAX_PROGRESS_RECORDS
+            )
+            progress_publisher = asyncio.create_task(
+                _drain_progress(
+                    bus=bus,
+                    topic=progress_topic,
+                    queue=progress_queue,
+                )
+            )
             try:
-                encoded = await processor.process(envelope.payload, cancelled=stop)
-                projection = _projection_mapping(encoded)
+                progress_sequence = 0
+
+                async def publish_progress(
+                    progress: QueryNodeProgress,
+                    request_payload: Mapping[str, Any] = envelope.payload,
+                    queue: asyncio.Queue[SemanticQueryProgress] = progress_queue,
+                ) -> None:
+                    nonlocal progress_sequence
+                    progress_sequence += 1
+                    payload = _progress_mapping(
+                        request_payload,
+                        progress,
+                        progress_sequence=progress_sequence,
+                    )
+                    try:
+                        queue.put_nowait(payload)
+                    except asyncio.QueueFull:
+                        return
+
+                try:
+                    with bind_semantic_query_progress_observer(publish_progress):
+                        encoded = await processor.process(
+                            envelope.payload,
+                            cancelled=stop,
+                        )
+                    projection = _projection_mapping(encoded)
+                finally:
+                    try:
+                        await asyncio.wait_for(
+                            progress_queue.join(),
+                            timeout=_PROGRESS_DRAIN_SECONDS,
+                        )
+                    except TimeoutError:
+                        pass
+                    progress_publisher.cancel()
+                    await asyncio.gather(progress_publisher, return_exceptions=True)
             except SemanticTurnRejectedError:
                 await bus.dead_letter(
                     envelope.topic,
@@ -274,6 +337,26 @@ async def consume_semantic_turns(
                 )
 
 
+async def _drain_progress(
+    *,
+    bus: EventBus,
+    topic: str,
+    queue: asyncio.Queue[SemanticQueryProgress],
+) -> None:
+    while True:
+        progress = await queue.get()
+        try:
+            await bus.publish(
+                topic,
+                progress.request_id,
+                progress.model_dump(mode="json"),
+            )
+        except Exception:  # noqa: BLE001 - progress cannot control terminal truth
+            _LOGGER.warning("semantic_query_progress_publish_failed")
+        finally:
+            queue.task_done()
+
+
 async def _publish_projection(
     *,
     bus: EventBus,
@@ -302,6 +385,41 @@ def _projection_mapping(encoded: bytes) -> Mapping[str, Any]:
     if not isinstance(loaded, dict):
         raise ValueError("semantic projection MUST be an object")
     return loaded
+
+
+def _progress_mapping(
+    request_envelope: Mapping[str, Any],
+    progress: QueryNodeProgress,
+    *,
+    progress_sequence: int,
+) -> SemanticQueryProgress:
+    semantic = request_envelope.get("semantic_turn")
+    if not isinstance(semantic, Mapping):
+        raise ValueError("semantic request payload is missing")
+    request_id = request_envelope.get("request_id")
+    if not isinstance(request_id, str):
+        raise ValueError("semantic request identity is missing")
+    receipt = progress.receipt
+    return SemanticQueryProgress(
+        request_id=request_id,
+        session_id=str(semantic["session_id"]),
+        turn_id=str(semantic["turn_id"]),
+        turn_sequence=int(semantic["turn_sequence"]),
+        progress_sequence=progress_sequence,
+        node_id=progress.node.node_id,
+        node_kind=progress.node.kind,
+        capability=f"query.{progress.node.kind.value}",
+        arguments=dict(progress.node.arguments),
+        status=progress.status,
+        step_index=progress.step_index,
+        step_total=progress.step_total,
+        depends_on=progress.node.depends_on,
+        started_at=progress.started_at,
+        completed_at=receipt.completed_at if receipt is not None else None,
+        duration_ms=receipt.duration_ms if receipt is not None else None,
+        reason=receipt.reason if receipt is not None else None,
+        evidence_refs=receipt.evidence_refs if receipt is not None else (),
+    )
 
 
 def _state_key(idempotency_key: str) -> str:

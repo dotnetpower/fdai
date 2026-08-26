@@ -300,7 +300,7 @@
     "services/core-control-plane/src/fdai/core/conversation/semantic_resource_health_planning.py": "9757213a398706d93f5e4baa84f933ecf8b3831029820fc67c0419ef68361700",
     "services/core-control-plane/src/fdai/core/conversation/semantic_resource_metric_planning.py": "e17c814e64ca10ec6b61f330be868bca44a1ee50dcba25027d65fa7de5f04697",
     "services/core-control-plane/src/fdai/core/conversation/semantic_resource_state_planning.py": "f820d96fc33de6e6cda4810a26a26075dd416002c7c2adc59f6f0f3c053e63a6",
-    "services/core-control-plane/src/fdai/core/conversation/semantic_runtime.py": "cc1ef93cdc2e7aaacb3f9fd4076bc0ab9930ee0b5c192eac580be83962650613",
+    "services/core-control-plane/src/fdai/core/conversation/semantic_runtime.py": "b0abb3b6ad353e269095c31428aec6fe30d20e778b20dc7627b9e8ed542e6c50",
     "services/core-control-plane/src/fdai/core/conversation/semantic_service_health_planning.py": "98510ca48669a12f4dab910ba51a9da5aa1a9e612e381896275f7760215114f6",
     "services/core-control-plane/src/fdai/core/conversation/semantic_target_candidate_planning.py": "836dd4d63475c95932c7665e73da86e2d9103860a1f844f385abf67fbbad633a",
     "services/core-control-plane/src/fdai/core/conversation/semantic_target_identity.py": "a63860c74b3d58ec97f7dfbcd6bdd9ecf35cf14d308c21386e0f59ba4a9cd945",
@@ -570,7 +570,7 @@
     "services/core-control-plane/src/fdai/core/ontology_platform/postgres_role_evidence.py": "086487efd45546f756220057c49983ec1d2a6008112cf311e5adc205612a620d",
     "services/core-control-plane/src/fdai/core/ontology_platform/projection.py": "c39e903c920dbaea9fe598638fdc3392174d2f73b2925747705410d92e7ee22e",
     "services/core-control-plane/src/fdai/core/ontology_platform/property_values.py": "412fadc96fcede75819ac47afb7a0a527841c64802cc19944c7f750198ee90fb",
-    "services/core-control-plane/src/fdai/core/ontology_platform/query_execution.py": "9d56955f0b7aaf46b6a1f68723d4148908a47bdd64de70c0415bb2697cf56f5b",
+    "services/core-control-plane/src/fdai/core/ontology_platform/query_execution.py": "fd89cf1b2bf6b0555fa710a356e303f13eb86e2fdba950529994ade6ee824b24",
     "services/core-control-plane/src/fdai/core/ontology_platform/query_gateway.py": "111627b3cdfecfd61dbb21eb0818b0360864f158d046cce9a0e302f75096cd36",
     "services/core-control-plane/src/fdai/core/ontology_platform/query_handlers.py": "3a760d85b2bbf7ba595405940a27773dc75ac803ff9254bbaf01a1716e695c3c",
     "services/core-control-plane/src/fdai/core/ontology_platform/query_manifest.py": "340a55174396171310d9ca4d4696e92d178899e7ecb29286824544aa99855347",
@@ -1202,7 +1202,7 @@
     "services/core-control-plane/src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "services/core-control-plane/src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-26T11:50:43Z",
+  "generated_at": "2026-08-26T14:53:03Z",
   "surface": [
     "services/core-control-plane/src/fdai/core/",
     "services/core-control-plane/src/fdai/composition.py",

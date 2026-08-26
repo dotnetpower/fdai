@@ -147,6 +147,11 @@ declarations until a competency-driven audit promotes them.
 
 The query contract separates open graph expansion from an ordered semantic path.
 
+Verified query execution may expose bounded node lifecycle observations for presentation. Each
+observation preserves the verified node kind, dependency position, status, and evidence references
+without provider commands or execution authority. Missing, delayed, or failed observation delivery
+does not change the query result; the terminal execution receipt remains authoritative.
+
 ### Exploratory traversal
 
 An exploratory traversal accepts an allowed LinkType set, one direction, maximum depth, object

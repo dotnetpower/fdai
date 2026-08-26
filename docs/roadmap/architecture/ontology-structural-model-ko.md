@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 27276fdd5a7c2ebf018c336ad37c3f26901ff6e4
+translation_source_sha: 3867607e81dcc9163ca1dc9734c7e3e2556f36d4
 translation_revised: 2026-08-26
 ---
 # 온톨로지 구조 모델
@@ -146,6 +146,11 @@ API endpoint, CA 묶음 또는 마운트된 service-account token이 구성되�
 ## 쿼리 대수
 
 쿼리 계약은 열린 그래프 확장과 순서가 있는 의미 경로를 분리합니다.
+
+검증된 조회 실행은 표현을 위해 범위가 제한된 노드 수명 주기 관측을 노출할 수 있습니다. 각 관측은
+프로바이더 명령이나 실행 권한 없이 검증된 노드 종류, 의존성 위치, 상태 및 근거 참조를 보존합니다.
+관측 전달이 누락되거나 지연되거나 실패해도 조회 결과는 바뀌지 않으며 최종 실행 증적이 권위를
+유지합니다.
 
 ### 탐색형 관계 탐색
 
