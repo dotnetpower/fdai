@@ -133,10 +133,42 @@ export function snapshotCitations(
   const records = snapshot.records ?? {};
   for (const [key, rows] of Object.entries(records)) {
     if (Array.isArray(rows) && rows.length > 0) {
-      citations.push({ label: `records.${key}`, value: `${rows.length} row(s)` });
+      citations.push({
+        label: `records.${key}`,
+        value: recordCitationPreview(rows),
+      });
     }
   }
   return citations;
+}
+
+const MAX_RECORD_PREVIEW_FIELDS = 4;
+const MAX_RECORD_PREVIEW_VALUE_CHARS = 72;
+const MAX_RECORD_PREVIEW_CHARS = 320;
+
+/** Summarize only browser-visible scalar fields from the first bounded record. */
+export function recordCitationPreview(
+  rows: readonly Record<string, unknown>[],
+): string {
+  const fields = Object.entries(rows[0] ?? {})
+    .filter((entry): entry is [string, string | number | boolean] =>
+      typeof entry[1] === "string" ||
+      typeof entry[1] === "number" ||
+      typeof entry[1] === "boolean")
+    .slice(0, MAX_RECORD_PREVIEW_FIELDS)
+    .map(([key, value]) => {
+      const rendered = String(value);
+      const bounded = rendered.length > MAX_RECORD_PREVIEW_VALUE_CHARS
+        ? `${rendered.slice(0, MAX_RECORD_PREVIEW_VALUE_CHARS - 3)}...`
+        : rendered;
+      return `${key.replaceAll("_", " ")}: ${bounded}`;
+    });
+  const count = `${rows.length} row(s)`;
+  if (fields.length === 0) return count;
+  const preview = `${count} - ${fields.join("; ")}`;
+  return preview.length > MAX_RECORD_PREVIEW_CHARS
+    ? `${preview.slice(0, MAX_RECORD_PREVIEW_CHARS - 3)}...`
+    : preview;
 }
 
 export function citationsForVerification(

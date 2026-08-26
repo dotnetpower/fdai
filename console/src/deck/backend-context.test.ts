@@ -10,7 +10,7 @@ import type { ViewSnapshot } from "./context";
 import { askBackend } from "./backend";
 import { healthUrl, requestHeaders } from "./backend-endpoints";
 import { createBackendHealthProbe } from "./backend-health";
-import { createBackendRequestPayload } from "./backend-context";
+import { createBackendRequestPayload, snapshotCitations } from "./backend-context";
 import { parseRouter } from "./backend-normalizers";
 import { setChatAuth } from "./auth";
 import { resetConsolePreferences, setConsolePreference } from "../preferences";
@@ -249,6 +249,29 @@ describe("viewContextWithUser wiring", () => {
     ], "session-42");
 
     expect(payload.resource_context).toBeUndefined();
+  });
+});
+
+describe("snapshotCitations", () => {
+  test("includes bounded representative record values", () => {
+    const citations = snapshotCitations({
+      ...liveSnap(),
+      records: {
+        direct_relationships: [{
+          direction: "incoming",
+          link_type: "contains",
+          source: "example-resource-group",
+          target: "kubernetes-cluster",
+          nested: { hidden: true },
+        }],
+      },
+    });
+
+    expect(citations.at(-1)).toEqual({
+      label: "records.direct_relationships",
+      value: "1 row(s) - direction: incoming; link type: contains; source: example-resource-group; target: kubernetes-cluster",
+    });
+    expect(citations.at(-1)?.value).not.toContain("nested");
   });
 });
 

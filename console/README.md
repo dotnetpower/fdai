@@ -652,9 +652,15 @@ only after the closing fence arrives. Unsafe link schemes remain plain text.
 
 The completed reply distinguishes evidence references from sources. A screen
 or server-owned provider is a source; the individual manifest entries checked
-inside that source are shown as `evidence references`. A bounded correction
-that removes unsupported sentences and passes re-verification is presented as
-verified, not as a warning.
+inside that source are shown as `evidence references`. Expanded screen-record
+sources show the row count plus at most four scalar fields from the first
+browser-visible record. Nulls, nested values, and off-snapshot data are omitted,
+and every preview is length-bounded. A bounded correction that removes
+unsupported sentences and passes re-verification is presented as verified, not
+as a warning. An unverified terminal keeps its canonical result and reason in
+the turn record but presents a typed clarification question in the transcript,
+so the operator can name the target, time range, condition, or evidence source
+for the next read.
 
 Opening the deck uses a **floating panel** by default so the operator can keep
 the underlying console visible. Dragging the header title moves the panel and

@@ -9669,7 +9669,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 }
 .deck-src-badge {
   flex: none;
-  width: 30px;
+  width: 60px;
   height: 22px;
   display: inline-flex;
   align-items: center;
@@ -9680,6 +9680,9 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   letter-spacing: 0.02em;
   color: #fff;
   background: var(--fg-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .deck-src-badge.is-screen { background: #44688e; }
 .deck-src-badge.is-records { background: #3e4c59; }

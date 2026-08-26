@@ -200,7 +200,7 @@ export function GroundedReply({
             {t(`deck.answerState.${answerState}`)}
           </span>
         ) : null}
-        {!streaming && presentationArtifact
+        {!streaming && !verificationIssue && presentationArtifact
           && presentationArtifactSupersedesText(presentationArtifact) ? (
           <StructuredReply artifact={presentationArtifact} />
         ) : (
@@ -426,6 +426,11 @@ export function primaryAnswerText(
   text: string,
   verification: AnswerVerification | undefined,
 ): string {
+  if (verification?.status === "unverified") {
+    return t(
+      `deck.grounded.clarificationPrompt.${verificationIssueKind(verification.reason_code)}`,
+    );
+  }
   const reason = verification?.reason_code?.trim();
   if (!reason) return text;
   const trimmed = text.trimEnd();

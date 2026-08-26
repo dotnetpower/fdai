@@ -77,7 +77,7 @@ describe("verificationLabel", () => {
 });
 
 describe("grounded reply presentation", () => {
-  it("keeps a terminal machine reason in technical detail instead of primary prose", () => {
+  it("asks a bounded clarification instead of repeating an unavailable answer", () => {
     const unavailable = {
       ...verification("server_read_model"),
       status: "unverified" as const,
@@ -87,11 +87,29 @@ describe("grounded reply presentation", () => {
     expect(primaryAnswerText(
       "Verified evidence is unavailable. (semantic_runtime_unavailable)",
       unavailable,
-    )).toBe("Verified evidence is unavailable.");
-    expect(primaryAnswerText(
-      "The semantic_runtime_unavailable state was observed earlier.",
-      unavailable,
-    )).toBe("The semantic_runtime_unavailable state was observed earlier.");
+    )).toBe(
+      "Which source or scope should I check instead? Name a resource, time range, or evidence source.",
+    );
+
+    setLocale("ko");
+    try {
+      expect(primaryAnswerText("검증된 근거를 사용할 수 없습니다.", unavailable)).toBe(
+        "대신 어떤 근거 원본이나 범위를 확인할까요? 리소스, 기간 또는 근거 원본을 지정해 주세요.",
+      );
+    } finally {
+      setLocale("en");
+    }
+  });
+
+  it("keeps long source badges readable without clipping", () => {
+    const styles = readFileSync(
+      fileURLToPath(new URL("../styles.css", import.meta.url)),
+      "utf8",
+    );
+
+    expect(styles).toMatch(
+      /\.deck-src-badge \{[^}]*width: 60px;[^}]*overflow: hidden;[^}]*text-overflow: ellipsis;/s,
+    );
   });
 
   it("links answer review to the exact turn assessment", () => {
@@ -129,6 +147,7 @@ describe("grounded reply presentation", () => {
     expect(component).toContain("verificationIssueKind(verification.reason_code)");
     expect(component).toContain('is-${verificationIssue}');
     expect(component).toContain('verification?.status === "unverified"');
+    expect(component).toContain("!verificationIssue && presentationArtifact");
     expect(component).toContain('groundingAttention ? "!" : "\\u2713"');
   });
 

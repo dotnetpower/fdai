@@ -2362,6 +2362,13 @@
       "deterministicSummary": "No LLM was used. The deterministic answerer composed this answer.",
       "deterministicReasonSummary": "No LLM was used. The deterministic answerer composed this answer. Reason: {reason}.",
       "partialEvidence": "partial evidence",
+      "clarificationPrompt": {
+        "contextRequired": "Which target do you mean? Name the resource, incident, or time range to continue.",
+        "sourceUnavailable": "Which source or scope should I check instead? Name a resource, time range, or evidence source.",
+        "invalidQuery": "How should I narrow this read? Specify the target and the condition to check.",
+        "visionUnverified": "What part of the image should I verify first? Point to the object or value that matters.",
+        "unsupportedClaim": "Which claim or target should I verify first? Name the resource, time range, or evidence you want checked."
+      },
       "handoffReason": {
         "portUnavailable": "The agent conversational port is unavailable.",
         "portError": "The agent conversational port failed.",
