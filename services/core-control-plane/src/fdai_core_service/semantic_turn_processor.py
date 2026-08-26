@@ -2283,6 +2283,13 @@ def _render_general_query_answer(
     )
     if health_answer is not None:
         return health_answer
+    current_state_answer = _render_current_state_answer(
+        outputs,
+        korean=korean,
+        output_shape=output_shape,
+    )
+    if current_state_answer is not None:
+        return current_state_answer
     impact_answer = _render_impact_query_answer(
         outputs,
         korean=korean,
@@ -2611,6 +2618,163 @@ def _readable_health_token(value: object) -> str:
     if isinstance(value, str) and value:
         return value.replace("_", " ")
     return "not proven"
+
+
+_CURRENT_STATE_FIELDS: tuple[tuple[str, str, str], ...] = (
+    ("provisioning_status", "프로비저닝 상태", "Provisioning status"),
+    ("running_status", "실행 상태", "Running status"),
+    ("revision_name", "최신 리비전", "Latest revision"),
+    ("ready_revision_name", "준비된 리비전", "Ready revision"),
+)
+
+
+def _render_current_state_answer(
+    outputs: list[dict[str, object]],
+    *,
+    korean: bool,
+    output_shape: str | None,
+) -> str | None:
+    """State one exact target's read current-state fields and every unobserved field."""
+
+    if output_shape != "target_current_state" or len(outputs) != 1:
+        return None
+    output = outputs[0]
+    rows = output.get("rows")
+    if output.get("node_id") != "resource-current-state" or not isinstance(rows, list):
+        return None
+    if len(rows) != 1 or not isinstance(rows[0], Mapping):
+        return None
+    values = rows[0].get("values")
+    if not isinstance(values, Mapping):
+        return None
+    name = _readable_state_text(values.get("name"))
+    if name is None:
+        return None
+    # Every reported field is listed even when unobserved. Listing only populated fields
+    # would let an unreported status read as a healthy one. A field the capability did not
+    # report does not apply to this resource type, so naming it would invent a gap.
+    unobserved = "관측되지 않음" if korean else "not observed"
+    state_lines = [
+        f"- {korean_label if korean else english_label}: "
+        f"{_readable_state_text(values.get(key)) or unobserved}."
+        for key, korean_label, english_label in _CURRENT_STATE_FIELDS
+        if key in values
+    ]
+    freshness = [
+        f"- {label}: {value or unobserved}."
+        for label, value in (
+            (
+                "원본 관측 시각" if korean else "Source observation",
+                _readable_state_text(values.get("source_observed_at")),
+            ),
+            (
+                "인벤토리 조회 시각" if korean else "Inventory read",
+                _readable_state_text(values.get("inventory_read_at")),
+            ),
+        )
+    ]
+    gap_lines = [
+        f"- {_readable_health_token(item)}."
+        for item in _split_truncation_reason(output.get("source_truncation_reason"))
+    ]
+    assessment = _readable_state_text(values.get("target_state_assessment"))
+    related_resources_assessed = values.get("related_resources_assessed") is True
+    assessment_lines = _current_state_assessment_lines(
+        assessment,
+        related_resources_assessed=related_resources_assessed,
+        korean=korean,
+    )
+    if korean:
+        return (
+            f"## `{name}`의 검증된 현재 상태\n\n"
+            + "\n".join(state_lines)
+            + "\n\n## 비정상 리소스 판정\n\n"
+            + "\n".join(assessment_lines)
+            + "\n\n## 근거 시각\n\n"
+            + "\n".join(freshness)
+            + "\n\n## 근거 공백\n\n"
+            + (
+                "\n".join(gap_lines)
+                if gap_lines
+                else "- 요청한 현재 상태 필드에는 기록된 공백이 없습니다."
+            )
+            + "\n- 이 결과는 지정한 대상 1개의 현재 상태만 포함하며, 그 범위 밖의 리소스가 "
+            "정상인지 여부는 판정하지 않았습니다.\n"
+            "- 프로바이더가 보고한 상태는 관측이며 원인이 아닙니다.\n\n"
+            "## 권한\n\n- 읽기 전용이며 `execution_authority=false`입니다."
+        )
+    return (
+        f"## Verified current state for `{name}`\n\n"
+        + "\n".join(state_lines)
+        + "\n\n## Abnormal resource assessment\n\n"
+        + "\n".join(assessment_lines)
+        + "\n\n## Evidence freshness\n\n"
+        + "\n".join(freshness)
+        + "\n\n## Evidence gaps\n\n"
+        + (
+            "\n".join(gap_lines)
+            if gap_lines
+            else "- No gap was recorded for the requested current-state fields."
+        )
+        + "\n- This result covers only the one named target; it does not judge whether any "
+        "resource outside that scope is healthy.\n"
+        "- Provider-reported status is an observation, not a cause.\n\n"
+        "## Authority\n\n- Read-only; `execution_authority=false`."
+    )
+
+
+def _readable_state_text(value: object) -> str | None:
+    return value.strip() if isinstance(value, str) and value.strip() else None
+
+
+def _current_state_assessment_lines(
+    assessment: str | None,
+    *,
+    related_resources_assessed: bool,
+    korean: bool,
+) -> tuple[str, str]:
+    assessment_key = assessment or ""
+    target = {
+        "observed_running": (
+            "- 지정한 대상: 프로바이더 lifecycle 상태에서 비정상 징후가 관측되지 않았습니다."
+            if korean
+            else "- Named target: no abnormal provider lifecycle state was observed."
+        ),
+        "observed_not_running": (
+            "- 지정한 대상: 프로바이더 lifecycle 상태에서 비정상 징후가 관측되었습니다."
+            if korean
+            else "- Named target: an abnormal provider lifecycle state was observed."
+        ),
+    }.get(
+        assessment_key,
+        (
+            "- 지정한 대상: 비정상 여부를 판정할 상태 근거가 충분하지 않습니다."
+            if korean
+            else "- Named target: state evidence is insufficient to assess abnormality."
+        ),
+    )
+    related = (
+        (
+            "- 연관 리소스: 이 조회에서 상태가 평가되었습니다."
+            if korean
+            else "- Related resources: their state was assessed by this read."
+        )
+        if related_resources_assessed
+        else (
+            "- 연관 노드·워크로드·리소스: 이번 exact-target 조회에 포함되지 않았습니다. "
+            "따라서 비정상 리소스가 없다고 판정하지 않습니다."
+            if korean
+            else "- Related nodes, workloads, and resources: not included in this exact-target "
+            "read, so the absence of abnormal resources is not proven."
+        )
+    )
+    return target, related
+
+
+def _split_truncation_reason(value: object) -> tuple[str, ...]:
+    if not isinstance(value, str):
+        return ()
+    return tuple(item for item in (part.strip() for part in value.split("+")) if item)
 
 
 def _render_impact_query_answer(

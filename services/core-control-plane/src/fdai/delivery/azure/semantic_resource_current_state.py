@@ -62,12 +62,20 @@ def semantic_resource_current_state_function(
         provider = _mapping(target.properties.get("properties"))
         state = _mapping(provider.get("properties"))
         source_fact = _mapping(provider.get(STATE_FACT_METADATA_PROPERTY))
+        provisioning_status = _text(state.get("provisioningState"))
+        running_status = _text(provider.get("status")) or _text(state.get("runningStatus"))
         values: dict[str, object | None] = {
             "name": _text(target.properties.get("name")),
-            "provisioning_status": _text(state.get("provisioningState")),
+            "provisioning_status": provisioning_status,
             # The inventory normalizes observed runtime status for every provider type;
             # runningStatus is a revision-scaled field and is absent elsewhere.
-            "running_status": _text(provider.get("status")) or _text(state.get("runningStatus")),
+            "running_status": running_status,
+            "target_state_assessment": _target_state_assessment(
+                provisioning_status=provisioning_status,
+                running_status=running_status,
+            ),
+            "assessment_scope": "exact_target_only",
+            "related_resources_assessed": False,
             "source_observed_at": _text(source_fact.get("effective_at")),
             "inventory_read_at": secured.receipt.observation_cutoff.isoformat(),
             "execution_authority": False,
@@ -92,6 +100,18 @@ def _models_revisions(target: Any, state: Mapping[str, Any]) -> bool:
     if _text(target.properties.get("type")) in _REVISION_SCALED_TYPES:
         return True
     return any(provider_key in state for _, provider_key in _REVISION_FIELDS)
+
+
+def _target_state_assessment(
+    *,
+    provisioning_status: str | None,
+    running_status: str | None,
+) -> str:
+    if provisioning_status == "Succeeded" and running_status == "Running":
+        return "observed_running"
+    if provisioning_status is not None or running_status is not None:
+        return "observed_not_running"
+    return "not_proven"
 
 
 def _mapping(value: object) -> Mapping[str, Any]:

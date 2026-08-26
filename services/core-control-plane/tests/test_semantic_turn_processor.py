@@ -200,6 +200,109 @@ def test_health_answer_separates_lifecycle_readiness_application_and_gaps() -> N
     assert "`execution_authority=false`" in answer
 
 
+def _current_state_outputs(
+    values: dict[str, object],
+    reason: str | None,
+) -> list[dict[str, object]]:
+    return [
+        {
+            "node_id": "resource-current-state",
+            "rows": [{"row_id": "resource-current-state", "values": values}],
+            "returned_rows": 1,
+            "total_rows": 1,
+            "source_complete": reason is None,
+            "source_truncation_reason": reason,
+            "display_truncated": False,
+        }
+    ]
+
+
+def test_current_state_answer_reports_read_fields_unobserved_fields_and_gaps() -> None:
+    request = _request(locale="en")
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+
+    answer = _render_general_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        _current_state_outputs(
+            {
+                "name": "cluster-example",
+                "provisioning_status": "Succeeded",
+                "running_status": None,
+                "revision_name": None,
+                "ready_revision_name": None,
+                "target_state_assessment": "observed_running",
+                "assessment_scope": "exact_target_only",
+                "related_resources_assessed": False,
+                "source_observed_at": None,
+                "inventory_read_at": "2026-08-26T08:29:23Z",
+                "execution_authority": False,
+            },
+            "revision_name_unavailable+source_observed_at_unavailable",
+        ),
+        output_shape="target_current_state",
+    )
+
+    assert "Verified current state for `cluster-example`" in answer
+    assert "Provisioning status: Succeeded." in answer
+    assert "Running status: not observed." in answer
+    assert "Ready revision: not observed." in answer
+    assert "Inventory read: 2026-08-26T08:29:23Z." in answer
+    assert "Source observation: not observed." in answer
+    assert "revision name unavailable" in answer
+    assert "source observed at unavailable" in answer
+    assert "no abnormal provider lifecycle state was observed" in answer
+    assert "absence of abnormal resources is not proven" in answer
+    assert "does not judge whether any resource outside that scope is healthy" in answer
+    assert "Provider-reported status is an observation, not a cause." in answer
+    assert "`execution_authority=false`" in answer
+    assert "Verified 1 of 1 rows" not in answer
+
+
+def test_current_state_answer_states_a_complete_read_without_inventing_a_gap() -> None:
+    request = _request(locale="en")
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+
+    answer = _render_general_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        _current_state_outputs(
+            {
+                "name": "app-example",
+                "provisioning_status": "Succeeded",
+                "running_status": "Running",
+                "revision_name": "app-example--0000002",
+                "ready_revision_name": "app-example--0000002",
+                "target_state_assessment": "observed_running",
+                "assessment_scope": "exact_target_only",
+                "related_resources_assessed": False,
+                "source_observed_at": "2026-08-26T08:20:00Z",
+                "inventory_read_at": "2026-08-26T08:29:23Z",
+                "execution_authority": False,
+            },
+            None,
+        ),
+        output_shape="target_current_state",
+    )
+
+    assert "Running status: Running." in answer
+    assert "Latest revision: app-example--0000002." in answer
+    assert "not observed" not in answer
+    assert "No gap was recorded for the requested current-state fields." in answer
+    assert "Related nodes, workloads, and resources: not included" in answer
+
+
+def test_current_state_answer_keeps_the_generic_shape_for_other_outputs() -> None:
+    request = _request(locale="en")
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+
+    answer = _render_general_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        _current_state_outputs({"name": "app-example"}, None),
+        output_shape="resource_event_history",
+    )
+
+    assert "Verified 1 of 1 rows" in answer
+
+
 def test_error_activity_answer_separates_windows_gaps_and_causation() -> None:
     request = _request(locale="en")
     semantic_request = cast(dict[str, object], request["semantic_turn"])
