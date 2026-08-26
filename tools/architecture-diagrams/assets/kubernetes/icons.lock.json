@@ -1,0 +1,100 @@
+{
+  "icons": {
+    "cronjob": {
+      "file": "cronjob.svg",
+      "mediaType": "image/svg+xml",
+      "productName": "Kubernetes CronJob",
+      "sha256": "284d0726a739ee021ff2ee24f669b7b58cc5865624f0df5702b5f1efb8618cde",
+      "source": "https://raw.githubusercontent.com/kubernetes/community/a222663ef579405457f78f9fe3c077894565a918/icons/svg/resources/unlabeled/cronjob.svg",
+      "sourcePage": "https://github.com/kubernetes/community/tree/master/icons"
+    },
+    "deploy": {
+      "file": "deploy.svg",
+      "mediaType": "image/svg+xml",
+      "productName": "Kubernetes Deployment",
+      "sha256": "7538b0166ebf470a2e4986a94b00d97d5cadb14cfce2334fcb507e4caeae41c8",
+      "source": "https://raw.githubusercontent.com/kubernetes/community/a222663ef579405457f78f9fe3c077894565a918/icons/svg/resources/unlabeled/deploy.svg",
+      "sourcePage": "https://github.com/kubernetes/community/tree/master/icons"
+    },
+    "ds": {
+      "file": "ds.svg",
+      "mediaType": "image/svg+xml",
+      "productName": "Kubernetes DaemonSet",
+      "sha256": "12ccdc8ae9e50be9d29bafd80e7d80a99a00c4b9e4bdd71b57d15a78ce9e1e19",
+      "source": "https://raw.githubusercontent.com/kubernetes/community/a222663ef579405457f78f9fe3c077894565a918/icons/svg/resources/unlabeled/ds.svg",
+      "sourcePage": "https://github.com/kubernetes/community/tree/master/icons"
+    },
+    "ep": {
+      "file": "ep.svg",
+      "mediaType": "image/svg+xml",
+      "productName": "Kubernetes Endpoints",
+      "sha256": "43283848bf5b8940f083bbf114f4fedef3d79c71897f4a46c96ca9b911a6f1b4",
+      "source": "https://raw.githubusercontent.com/kubernetes/community/a222663ef579405457f78f9fe3c077894565a918/icons/svg/resources/unlabeled/ep.svg",
+      "sourcePage": "https://github.com/kubernetes/community/tree/master/icons"
+    },
+    "ing": {
+      "file": "ing.svg",
+      "mediaType": "image/svg+xml",
+      "productName": "Kubernetes Ingress",
+      "sha256": "98005a576d693833682ac5985353314f73887352016b4584e5a5f8b5b7142115",
+      "source": "https://raw.githubusercontent.com/kubernetes/community/a222663ef579405457f78f9fe3c077894565a918/icons/svg/resources/unlabeled/ing.svg",
+      "sourcePage": "https://github.com/kubernetes/community/tree/master/icons"
+    },
+    "job": {
+      "file": "job.svg",
+      "mediaType": "image/svg+xml",
+      "productName": "Kubernetes Job",
+      "sha256": "1cfbf418a8abe600ec8f0885f6c07b0fa36356f48dbdf161d13560d0731d6234",
+      "source": "https://raw.githubusercontent.com/kubernetes/community/a222663ef579405457f78f9fe3c077894565a918/icons/svg/resources/unlabeled/job.svg",
+      "sourcePage": "https://github.com/kubernetes/community/tree/master/icons"
+    },
+    "node": {
+      "file": "node.svg",
+      "mediaType": "image/svg+xml",
+      "productName": "Kubernetes Node",
+      "sha256": "170307ed79084f46d4a3ae35ff72654adb72868463aefd48a6d3dc6d465190d8",
+      "source": "https://raw.githubusercontent.com/kubernetes/community/a222663ef579405457f78f9fe3c077894565a918/icons/svg/infrastructure_components/unlabeled/node.svg",
+      "sourcePage": "https://github.com/kubernetes/community/tree/master/icons"
+    },
+    "ns": {
+      "file": "ns.svg",
+      "mediaType": "image/svg+xml",
+      "productName": "Kubernetes Namespace",
+      "sha256": "3b2dcb1f9698d63fbda5e247a71b1f739a41d87e3fa99cc89e9cdfd4a3f65b33",
+      "source": "https://raw.githubusercontent.com/kubernetes/community/a222663ef579405457f78f9fe3c077894565a918/icons/svg/resources/unlabeled/ns.svg",
+      "sourcePage": "https://github.com/kubernetes/community/tree/master/icons"
+    },
+    "pod": {
+      "file": "pod.svg",
+      "mediaType": "image/svg+xml",
+      "productName": "Kubernetes Pod",
+      "sha256": "087e444b4ebd5df78c7e66af32711bc9bda522f524a7d22bded3400ff13882cc",
+      "source": "https://raw.githubusercontent.com/kubernetes/community/a222663ef579405457f78f9fe3c077894565a918/icons/svg/resources/unlabeled/pod.svg",
+      "sourcePage": "https://github.com/kubernetes/community/tree/master/icons"
+    },
+    "rs": {
+      "file": "rs.svg",
+      "mediaType": "image/svg+xml",
+      "productName": "Kubernetes ReplicaSet",
+      "sha256": "5e8a505a4b32a5b5cd7529bbb9328152d15786aabf984551bc369d35d2a1c3d8",
+      "source": "https://raw.githubusercontent.com/kubernetes/community/a222663ef579405457f78f9fe3c077894565a918/icons/svg/resources/unlabeled/rs.svg",
+      "sourcePage": "https://github.com/kubernetes/community/tree/master/icons"
+    },
+    "sts": {
+      "file": "sts.svg",
+      "mediaType": "image/svg+xml",
+      "productName": "Kubernetes StatefulSet",
+      "sha256": "8a581ba8e45f74a4b95f79bac29777dbb81d369ef320592a6a35ca404839dc22",
+      "source": "https://raw.githubusercontent.com/kubernetes/community/a222663ef579405457f78f9fe3c077894565a918/icons/svg/resources/unlabeled/sts.svg",
+      "sourcePage": "https://github.com/kubernetes/community/tree/master/icons"
+    },
+    "svc": {
+      "file": "svc.svg",
+      "mediaType": "image/svg+xml",
+      "productName": "Kubernetes Service",
+      "sha256": "d4dc4c769ce7a93a65ed8537affb8f376550829dac9decee107b2995cadc58bd",
+      "source": "https://raw.githubusercontent.com/kubernetes/community/a222663ef579405457f78f9fe3c077894565a918/icons/svg/resources/unlabeled/svc.svg",
+      "sourcePage": "https://github.com/kubernetes/community/tree/master/icons"
+    }
+  }
+}

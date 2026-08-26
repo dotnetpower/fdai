@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 1b4565015bcacfcb333d87ed79c7c63bccb4fec8
+translation_source_sha: a4619125cf0085f6aeb70dfe60764ea8a57518f8
 translation_revised: 2026-08-26
 ---
 
@@ -76,6 +76,12 @@ Operations는 기존 객체와 링크를 재사용합니다.
 온톨로지 인스턴스 작업 영역은 읽기 전용 운영 화면입니다. 그래프 우선 레이아웃, 선택된 리소스와
 범례 오버레이, Inspector 소유 접기 상태는 표현 컨트롤일 뿐이며 링크를 만들거나 쿼리 범위를
 바꾸거나 변경 권한을 부여하지 않습니다.
+
+아이콘은 표현이며 증거가 아닙니다. Resource 유형은 검토된 공식 벤더 아이콘으로 해석되고,
+매핑되지 않은 유형은 비슷해 보이는 아이콘 대신 명시적인 일반 대체 아이콘으로 해석됩니다.
+Kubernetes 런타임 객체는 Azure 아이콘이 아니라 공식 Kubernetes 아이콘 세트를 사용하므로
+워크로드가 관리형 Azure 서비스처럼 읽히지 않습니다. 공유 아이콘은 관련 유형을 묶을 뿐이며
+두 유형이 같은 객체라고 주장하지 않습니다.
 
 AKS 루트의 첫 화면은 저장된 응답 링크와 명시적인 출처 가용성만 사용해 인바운드, 인프라,
 런타임 및 Service 경로를 요약할 수 있습니다. Resource 또는 링크를 만들지 않고 각 구간을

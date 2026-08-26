@@ -17,6 +17,18 @@ import eventGridTopics from "../../../tools/architecture-diagrams/assets/azure/e
 import functionApps from "../../../tools/architecture-diagrams/assets/azure/function-apps.svg?url";
 import keyVault from "../../../tools/architecture-diagrams/assets/azure/key-vault.svg?url";
 import kubernetesServices from "../../../tools/architecture-diagrams/assets/azure/kubernetes-services.svg?url";
+import kubernetesCronJob from "../../../tools/architecture-diagrams/assets/kubernetes/cronjob.svg?url";
+import kubernetesDaemonSet from "../../../tools/architecture-diagrams/assets/kubernetes/ds.svg?url";
+import kubernetesDeployment from "../../../tools/architecture-diagrams/assets/kubernetes/deploy.svg?url";
+import kubernetesEndpoints from "../../../tools/architecture-diagrams/assets/kubernetes/ep.svg?url";
+import kubernetesIngress from "../../../tools/architecture-diagrams/assets/kubernetes/ing.svg?url";
+import kubernetesJob from "../../../tools/architecture-diagrams/assets/kubernetes/job.svg?url";
+import kubernetesNamespace from "../../../tools/architecture-diagrams/assets/kubernetes/ns.svg?url";
+import kubernetesNode from "../../../tools/architecture-diagrams/assets/kubernetes/node.svg?url";
+import kubernetesPod from "../../../tools/architecture-diagrams/assets/kubernetes/pod.svg?url";
+import kubernetesReplicaSet from "../../../tools/architecture-diagrams/assets/kubernetes/rs.svg?url";
+import kubernetesService from "../../../tools/architecture-diagrams/assets/kubernetes/svc.svg?url";
+import kubernetesStatefulSet from "../../../tools/architecture-diagrams/assets/kubernetes/sts.svg?url";
 import logicApps from "../../../tools/architecture-diagrams/assets/azure/logic-apps.svg?url";
 import managedIdentity from "../../../tools/architecture-diagrams/assets/azure/managed-identity.svg?url";
 import monitor from "../../../tools/architecture-diagrams/assets/azure/monitor.svg?url";
@@ -99,6 +111,22 @@ const ICON_BY_RESOURCE_TYPE: Readonly<Record<string, string>> = Object.freeze({
   "secret-store": keyVault,
   "service-bus-namespace": serviceBus,
   "kubernetes-cluster": kubernetesServices,
+  "kubernetes-node-pool": vmScaleSets,
+  "kubernetes.cron-job": kubernetesCronJob,
+  "kubernetes.daemon-set": kubernetesDaemonSet,
+  "kubernetes.deployment": kubernetesDeployment,
+  "kubernetes.endpoints": kubernetesEndpoints,
+  // Upstream publishes no EndpointSlice or IngressClass glyph; see the catalog NOTICE.
+  "kubernetes.endpoint-slice": kubernetesEndpoints,
+  "kubernetes.ingress": kubernetesIngress,
+  "kubernetes.ingress-class": kubernetesIngress,
+  "kubernetes.job": kubernetesJob,
+  "kubernetes.namespace": kubernetesNamespace,
+  "kubernetes.node": kubernetesNode,
+  "kubernetes.pod": kubernetesPod,
+  "kubernetes.replica-set": kubernetesReplicaSet,
+  "kubernetes.service": kubernetesService,
+  "kubernetes.stateful-set": kubernetesStatefulSet,
   "storage-account": storageAccount,
   "static-web-app": staticWebApp,
   "sql-database": sqlDatabase,

@@ -210,6 +210,10 @@ non-scope root, the graph shows only that root's immediate owning Resource Group
 Resource Groups that belong only to indirect peers or branch nodes. Scope membership never proves
 traffic or dependency.
 
+A Resource type icon is presentation only. It never carries object identity, type authority, or
+evidence. An unmapped type resolves to an explicit generic glyph instead of a lookalike, and a
+glyph shared by two types groups them without asserting that they are the same object.
+
 ## Migration and rollout
 
 1. Add the structural declarations, loaders, and validators without changing the visible query

@@ -13,6 +13,7 @@ topology under `docs/diagrams/` and leaves `site/` as a presentation layer.
 | `src/render/` | Accessible SVG renderer and verified icon embedding. |
 | `src/viewer/` | Dependency-light Web Component with pan, zoom, node focus, fullscreen, and download. |
 | `assets/azure/` | Allowlisted official Azure icons and provenance lock. |
+| `assets/kubernetes/` | Allowlisted official Kubernetes icons and provenance lock. |
 | `assets/fonts/` | Noto Sans KR subset used for deterministic bilingual PNG output. |
 | `test/` | Schema, reference-integrity, layout, and SVG regression tests. |
 
@@ -242,6 +243,13 @@ Only use an official Azure icon for an actual Azure service. Keep the product
 name adjacent to the icon. Don't crop, rotate, recolor, distort, or use an Azure
 icon to represent an FDAI component.
 
+Kubernetes runtime objects use the official Kubernetes Icons Set vendored in
+`assets/kubernetes/`, not an Azure icon. The Console resolves a Resource type to
+a glyph in `console/src/routes/ontology-instance-resource-icons.ts`. The subset
+uses the unlabeled variant because the Console renders these glyphs at 22 px.
+Read `assets/kubernetes/NOTICE.md` for the licence and the two documented glyph
+reuses before extending the subset.
+
 FDAI-owned concepts may use the statically imported Lucide glyphs allowlisted in
 the renderer. The package pins Lucide through `package-lock.json`; Lucide is
 distributed under the ISC license, with Feather-derived portions under MIT. See
@@ -250,7 +258,8 @@ the installed package `LICENSE` and <https://lucide.dev/license>.
 The compiler verifies every vendored icon against `assets/azure/icons.lock.json`.
 Builds don't download assets from the network. When updating the official icon
 pack, review the current Microsoft terms, replace only the allowlisted subset,
-and update the archive and file checksums together.
+and update the archive and file checksums together. `assets/kubernetes/` follows
+the same lock format, pinned to an immutable upstream commit.
 
 PNG output uses the checked-in Noto Sans KR subset with system fonts disabled.
 If a new diagram introduces a missing glyph, regenerate the subset from the

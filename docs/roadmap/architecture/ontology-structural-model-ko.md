@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: ce8dbd49b92174c902ef5228c7961228cbf5ed82
+translation_source_sha: b55b5c25601e4a005766883c449856a59b6c1683
 translation_revised: 2026-08-26
 ---
 # 온톨로지 구조 모델
@@ -208,6 +208,10 @@ evidence를 유지합니다. Resource Group은 범위가 제한된 scope overvie
 Non-scope root에서 graph는 해당 root를 직접 소유한 Resource Group 하나만 표시하고 indirect peer
 또는 branch node에만 속한 Resource Group을 추가하지 않습니다. Scope membership은 traffic 또는
 dependency를 입증하지 않습니다.
+
+Resource 유형 아이콘은 표현일 뿐입니다. 객체 identity, 유형 권한 또는 evidence를 담지
+않습니다. 매핑되지 않은 유형은 비슷해 보이는 아이콘 대신 명시적인 일반 아이콘으로 해석되고,
+두 유형이 공유하는 아이콘은 두 유형을 묶을 뿐 같은 객체라고 주장하지 않습니다.
 
 ## 이행 및 출시
 

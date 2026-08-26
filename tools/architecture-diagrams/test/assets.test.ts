@@ -39,7 +39,7 @@ async function assertLockedIcons(catalog: string): Promise<void> {
         id,
       );
     }
-    if (catalog === "brands") {
+    if (catalog === "brands" || catalog === "kubernetes") {
       assert.match(typedEntry.source ?? "", /^https:\/\//u, `${id} source`);
       assert.match(
         typedEntry.sourcePage ?? "",
@@ -56,6 +56,10 @@ test("vendored Azure icon payloads match the provenance lock", async () => {
 
 test("vendored brand icon payloads match the provenance lock", async () => {
   await assertLockedIcons("brands");
+});
+
+test("vendored Kubernetes icon payloads match the provenance lock", async () => {
+  await assertLockedIcons("kubernetes");
 });
 
 test("the deterministic diagram font matches its provenance lock", async () => {

@@ -75,6 +75,12 @@ The Ontology instance workspace is a read-only operational view. Its graph-first
 resource and legend overlays, and Inspector-owned collapse state are presentation controls only;
 they do not create links, change query scope, or grant mutation authority.
 
+Iconography is presentation, never evidence. A Resource type resolves to a reviewed official
+vendor glyph, and an unmapped type resolves to an explicit generic fallback rather than a
+lookalike. Kubernetes runtime objects use the official Kubernetes Icons Set instead of an Azure
+icon, so a workload never reads as a managed Azure service. A shared glyph groups related types
+and never asserts that they are the same object.
+
 For an AKS root, the first viewport may summarize ingress, infrastructure, runtime, and Service
 paths only from stored response links and explicit source availability. It labels a hop Observed,
 Unknown, or Unavailable without creating a Resource or edge. Resource Group containment never

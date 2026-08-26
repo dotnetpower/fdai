@@ -18,6 +18,11 @@ import sqlDatabase from "../../../tools/architecture-diagrams/assets/azure/sql-d
 import sqlServer from "../../../tools/architecture-diagrams/assets/azure/sql-server.svg?url";
 import subscriptions from "../../../tools/architecture-diagrams/assets/azure/subscriptions.svg?url";
 import vmScaleSets from "../../../tools/architecture-diagrams/assets/azure/vm-scale-sets.svg?url";
+import kubernetesEndpoints from "../../../tools/architecture-diagrams/assets/kubernetes/ep.svg?url";
+import kubernetesIngress from "../../../tools/architecture-diagrams/assets/kubernetes/ing.svg?url";
+import kubernetesNode from "../../../tools/architecture-diagrams/assets/kubernetes/node.svg?url";
+import kubernetesPod from "../../../tools/architecture-diagrams/assets/kubernetes/pod.svg?url";
+import kubernetesService from "../../../tools/architecture-diagrams/assets/kubernetes/svc.svg?url";
 import { ontologyInstanceIconForResourceType } from "./ontology-instance-resource-icons";
 
 describe("ontologyInstanceIconForResourceType", () => {
@@ -60,5 +65,35 @@ describe("ontologyInstanceIconForResourceType", () => {
     expect(ontologyInstanceIconForResourceType("authorization.role-assignment")).toBe(resourceGraph);
     expect(ontologyInstanceIconForResourceType("data-collection-endpoint")).toBe(resourceGraph);
     expect(ontologyInstanceIconForResourceType("unclassified-resource")).toBe(resourceGraph);
+  });
+
+  it("separates collected Kubernetes runtime types from the generic fallback", () => {
+    const collected = [
+      "kubernetes.namespace",
+      "kubernetes.node",
+      "kubernetes.pod",
+      "kubernetes.service",
+      "kubernetes.endpoints",
+      "kubernetes.endpoint-slice",
+      "kubernetes.ingress",
+      "kubernetes.ingress-class",
+      "kubernetes.job",
+      "kubernetes.cron-job",
+      "kubernetes.deployment",
+      "kubernetes.replica-set",
+      "kubernetes.daemon-set",
+      "kubernetes.stateful-set",
+    ].map(ontologyInstanceIconForResourceType);
+
+    expect(collected).not.toContain(resourceGraph);
+    expect(ontologyInstanceIconForResourceType("kubernetes.pod")).toBe(kubernetesPod);
+    expect(ontologyInstanceIconForResourceType("kubernetes.service")).toBe(kubernetesService);
+    expect(ontologyInstanceIconForResourceType("kubernetes.node")).toBe(kubernetesNode);
+    expect(ontologyInstanceIconForResourceType("kubernetes.endpoint-slice"))
+      .toBe(kubernetesEndpoints);
+    expect(ontologyInstanceIconForResourceType("kubernetes.ingress-class")).toBe(kubernetesIngress);
+    // 14 declared types minus the two documented glyph reuses.
+    expect(new Set(collected).size).toBe(12);
+    expect(ontologyInstanceIconForResourceType("kubernetes-node-pool")).toBe(vmScaleSets);
   });
 });
