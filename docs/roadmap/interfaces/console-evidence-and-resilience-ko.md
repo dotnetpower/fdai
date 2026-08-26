@@ -1,8 +1,8 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 6013b3ea18b595f1324bd8a560f2e097f424c49f
-translation_revised: 2026-08-26
+translation_source_sha: 98f87bcce56b7f67d4c4cfab07b89649a20c766e
+translation_revised: 2026-08-27
 ---
 # 콘솔 근거 및 복원력
 이 문서는 운영자 콘솔의 근거 출처 이력, localization, 스트림 복구, 영속 재생 및 아키텍처 지도 복원력 계약을 소유합니다. 대화형 도구 및 RBAC 계약은 [operator-console-ko.md](operator-console-ko.md)에 유지됩니다.
@@ -740,7 +740,7 @@ Console 데이터를 열기 전에 초기화는 인증된 `GET /iam/self`로 pri
 ## 아키텍처 지도 복원력
 
 아키텍처 경로는 지도 오른쪽 위에 떠 있는 간결한 패널에 범위 선택만 배치합니다. 인벤토리 개수, 설명문 및 계층 필터는 표시하지 않습니다. 리소스를 선택하기 전의 Map 모드는 리소스, 관계, 지도 컨트롤, 범례 또는 관계 인덱스를 렌더링하지 않으며 리소스 선택기, 범위 선택기, 표현 모드 컨트롤 및 가운데 선택 안내는 계속 사용할 수 있습니다. 리소스를 선택하면 범위가 제한된 지도와 점검 컨트롤을 표시합니다. 잘린 그래프는 짧은 상태 배지 하나로 알립니다. Resource-color legend는 floating 또는 bottom 패널이 아니라 구독 경계 옆 세계 하한에 직접 그립니다. Camera fit은 범례가 들어갈 하한 공간을 예약합니다. 고정된 legend box, title 또는 color swatch 없이 리소스 타입 이름을 해당 하한에 직접 표시합니다. 타입 이름은 pan과 함께 이동하고 읽을 수 있는 범위 안에서 지도 zoom에 비례해 조정됩니다.
-Resource glyph는 Microsoft Cloud Adoption Framework의 [Azure 리소스 abbreviations](https://learn.microsoft.com/azure/cloud-adoption-framework/ready/azure-best-practices/resource-abbreviations)를 사용합니다. 알려진 모든 정본 타입은 명시적인 lowercase abbreviation을 가지며, Kubernetes API 타입은 runtime layer, AKS color family 및 자동 initialism이 아닌 고정된 확장을 사용합니다.
+Resource glyph는 Microsoft Cloud Adoption Framework의 [Azure 리소스 abbreviations](https://learn.microsoft.com/azure/cloud-adoption-framework/ready/azure-best-practices/resource-abbreviations)를 사용합니다. 알려진 모든 정본 타입은 명시적인 lowercase abbreviation을 가지며, Kubernetes API 타입은 runtime layer, AKS color family 및 자동 initialism이 아닌 고정된 확장을 사용합니다. focused 검사가 카탈로그 어휘를 훑어 선언된 ResourceClass에 layer, 색, abbreviation이 없으면 실패합니다. 그렇지 않으면 지도는 계속 그리면서도 해당 타입을 일반 대체 도형으로 조용히 뭉개기 때문입니다.
 관계 legend는 간결한 캔버스 컨트롤로 유지합니다. 기본 isometric 지도는 Reflections와 Connections가 활성화된 상태로 시작합니다. Containment는 흐린 dashed 링크로, 첨부 및 의존성은 각각의 directional style로 표시하고 리소스 형태를 렌더링합니다. Top 및 front 화면은 선택적입니다. 단순 변환 결과는 선택된 단일 범위를 포함한 모든 resource-group 패널의 크기를 관찰된 하위 수에 따라 정하고 균형 잡힌 세계에 패널을 배치합니다. Focused 서비스 및 resource-group 화면은 full 구독 프레임이 아니라 repacked 내용에 맞춰 표시합니다. Resource 노드는 표준 Event Grid 토픽 블록보다 작게 렌더링되지 않습니다. 인벤토리에 맞춰 세계와 캔버스가 커지며 authored 중첩된 배치는 supplied 형상을 유지합니다. 지도는 workspace 전체 너비를 사용하고 점검 상세는 아래에 배치합니다. 좁은 뷰포트에서는 box를 읽을 수 없게 줄이는 대신 노드 크기를 유지하고 지도 panning을 사용합니다. 선택은 인벤토리를 reload하지 않고 정본 deep 링크를 갱신하며 technical 식별자보다 directional 관계를 먼저 표시합니다. 선택 중에는 모든 공통 리소스 coordinate를 유지하면서 auxiliary neighbor만 표시합니다. 관련 없는 리소스는 흐리게 처리하지 않으며 선택된 outline과 점검 상세만 사용해 선택을 나타냅니다. 가상 머신을 포함한 모든 리소스 선택은 현재 camera 규모와 position을 유지합니다. Zoom, fit, pan 및 camera-view 컨트롤은 운영자가 명시적으로 조작할 때만 변경됩니다.
 
 별도의 `Network` 모드는 완전한 인벤토리 응답을 권위 있는 상태로 유지하고 isometric 표현을 범위가 제한된 2D 포커스로 바꿉니다. 리소스를 선택한 경우 해당 VNet을 선택하고, 선택한 리소스가 없으면 관측된 subnet containment가 가장 많은 VNet을 선택합니다. VNet 및 subnet 사각형은 타입이 지정된 `contains` 링크로 다시 만들며 리소스 배치는 아래의 제한된 unique-subnet attachment 규칙만 사용합니다. 범주 필터 6개, 선택 및 경로 강조는 표현만 바꿉니다.

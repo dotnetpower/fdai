@@ -1,8 +1,8 @@
 ---
 title: 네트워크 토폴로지 시각화
 translation_of: network-topology-visualization.md
-translation_source_sha: fc0bb21ca9e22f90e0645079698e27bfdb4dd08b
-translation_revised: 2026-08-23
+translation_source_sha: 3a8d8e62c5f6553cee439bf6bc563c57345e1c69
+translation_revised: 2026-08-27
 ---
 # 네트워크 토폴로지 시각화
 
@@ -61,6 +61,11 @@ Console은 인벤토리 리소스와 타입이 지정된 관계만으로 범위�
 ## 정본 어휘
 
 계약은 고정된 ASCII 기계 값과 지역화된 표시 라벨을 사용합니다.
+
+카탈로그 어휘가 선언하는 모든 ResourceClass는 명시적인 계층, 색, 약어를 가집니다. 이것들 없이
+카탈로그에만 추가된 유형은 일반 도형으로 대체되므로, 지도는 계속 그리면서도 카탈로그가 방금
+만든 구분을 조용히 잃게 됩니다. Kubernetes EndpointSlice, Ingress, IngressClass가 그렇게
+어휘에 들어와 있었고 이제 매핑되었습니다.
 
 ### 경계 역할
 

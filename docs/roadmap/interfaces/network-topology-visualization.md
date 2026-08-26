@@ -60,6 +60,11 @@ but they use separate contracts. Authored diagrams are `expected`; Console topol
 
 The contract uses stable ASCII machine values and localized display labels.
 
+Every ResourceClass the catalog vocabulary declares carries an explicit layer, colour, and
+abbreviation. A type added to the catalog without them falls back to a generic shape, so the map
+would keep drawing while silently losing the distinction the catalog had just made. Kubernetes
+EndpointSlice, Ingress, and IngressClass entered the vocabulary that way and are now mapped.
+
 ### Boundary roles
 
 | Role | Meaning |

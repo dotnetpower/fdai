@@ -71,7 +71,12 @@ describe("mock console visual boundary", () => {
     expect(landing).toContain('data-page="service-map.html"');
     expect(masterLanding).toContain('<span class="nav-group-label">Visualization</span>');
     expect(masterLanding).toContain('data-page="mocks/ui/service-map.html"');
-    expect(masterLanding).toContain('<span class="count">43 pages</span>');
+    // A literal total went stale on every added page, so assert the sum it is supposed to report.
+    const groupTotal = [...masterLanding.matchAll(
+      /nav-group-label">[^<]+<\/span><span class="count">(\d+)<\/span>/g,
+    )].reduce((total, match) => total + Number(match[1]), 0);
+    expect(groupTotal).toBeGreaterThan(0);
+    expect(masterLanding).toContain(`<span class="count">${groupTotal} pages</span>`);
     expect(navigation).toContain('["Visualization", [');
     expect(navigation).toContain('["service-map.html", "Service map", "is-steel"]');
     expect(serviceMap).toContain("Design preview · Synthetic telemetry");
