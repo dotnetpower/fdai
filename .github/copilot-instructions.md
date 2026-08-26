@@ -64,16 +64,13 @@ unknown, no-op, denial, rollback, or human-review outcome with an audit record.
    CI owns integration validation for pushed SHAs, and
    `make validation-all` is reserved for explicit merge or release boundaries.
 5. Do not commit by default. Commit only when explicitly requested or required by an invoked
-   workflow or external operation. Before the first commit attempt, build and inspect the complete
-   staged snapshot: no task-owned path may have both staged and unstaged changes, unrelated paths
-   stay unstaged, and `uv run pre-commit run --hook-stage pre-commit` MUST pass. Re-stage only
-   task-owned auto-fixes and rerun the preflight before committing. Never use `--no-verify` to turn
-   a failed gate into a commit. Load the
-   [`commit-readiness` skill](skills/commit-readiness/SKILL.md) for the exact overlap check, path-to-gate
-   routing, and failure recovery. Git, hook, signing, or push failures MUST NOT interrupt unfinished
-   implementation.
-   Except for repository-owned generated workflows, every agent-authored commit MUST originate in the
-   active local checkout after focused validation and diff review. Never create a remote-only commit.
+   workflow or external operation. After focused validation and diff review, commit only task-owned
+   paths from the active checkout with `git commit -m "<message>" -- <task-owned paths>`; stage new
+   task-owned files first when needed. Preserve unrelated index and worktree changes, never bypass
+   hooks, and do not rerun successful checks unless relevant inputs changed. The commit hook is the
+   deterministic preflight. Load the [`commit-readiness` skill](skills/commit-readiness/SKILL.md)
+   only after a hook failure or when one task-owned path mixes unrelated edits. Git, hook, signing,
+   or push failures MUST NOT interrupt unfinished implementation. Never create a remote-only commit.
    Push only when requested, then verify the remote ref resolves to the expected local commit.
 6. Treat GitHub Actions, Azure operations, container publication, and other slow network work as a
    post-validation phase. Deployment and release target a pushed SHA with required CI and protected
@@ -99,9 +96,10 @@ unknown, no-op, denial, rollback, or human-review outcome with an audit record.
 ## Issue Lifecycle (MUST)
 
 - Every new issue includes explicit, observable **Exit criteria** as a checkbox list.
-- Read-only analysis and reproduction do not require an issue. Reuse or create one before the
-  first task-owned commit or external state change. Use `project-board.py start <issue-number>`
-  when GitHub is available; Project updates are best-effort and never block local work.
+- Read-only analysis, reproduction, and a local task-owned checkpoint commit do not require an
+   issue solely for bookkeeping. Reuse or create one before a push, pull request, external state
+   change, or tracked delivery begins. Use `project-board.py start <issue-number>` when GitHub is
+   available; Project updates are best-effort and never block local work.
 - Issue content, labels, evidence comments, and open or closed state are authoritative. Project
   fields are derived; only `In progress` records active work.
 - The WIP limit of two applies to active `Story` and `Bug` outcomes per maintainer. Child `Task`
