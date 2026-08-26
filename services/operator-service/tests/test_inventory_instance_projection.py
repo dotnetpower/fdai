@@ -477,6 +477,8 @@ async def test_a_realtime_event_refreshes_a_resource_without_erasing_its_identit
         "AND NOT EXISTS (SELECT 1 FROM inventory_realtime_resource overlay "
         "WHERE overlay.resource_id=inventory_snapshot_resource.resource_id)"
     ) not in resource_query
+    # Merging must not resurrect what a realtime delete removed.
+    assert "removed.change_kind='delete'" in resource_query
 
     link_queries = [statement for statement in statements if "effective_links" in statement]
     assert link_queries, "the neighborhood read MUST read relationships"
@@ -485,3 +487,4 @@ async def test_a_realtime_event_refreshes_a_resource_without_erasing_its_identit
         assert "snapshot.props || overlay.props" in link_query
         assert "LEFT JOIN inventory_realtime_link overlay" in link_query
         assert "NOT EXISTS (SELECT 1 FROM inventory_realtime_link overlay" not in link_query
+        assert "removed.change_kind='delete'" in link_query
