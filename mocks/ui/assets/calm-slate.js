@@ -57,6 +57,7 @@
     ]],
     ["Labs", [
       ["chat-home-variants.html", "Chat home variants", "is-steel"],
+      ["decision-icon-variants.html", "Decision icon variants", "is-terracotta"],
       ["components.html", "Components", ""],
       ["typography.html", "Typography", "is-steel"],
       ["agent-icons.html", "Agent icons", "is-plum"],
