@@ -278,6 +278,16 @@ not also fade it, because a second encoding of the same fact costs legibility wi
 and lands hardest on the Resources nesting exists to reveal. Emphasis by distance is kept where
 position says nothing, which is outside every box.
 
+A management scope becomes a box only when it is the selected Resource. Nesting begins at the
+selected Resource and follows what it contains, so a scope that merely holds it stays an ordinary
+relationship. The ontology already separates the two: `azure.resource-group-contains-resource` is a
+distinct mapping from `kubernetes.namespace-contains-resource` and `azure.vnet-contains-subnet`, and
+it accounts for 46 of 190 containment relationships in a measured subscription. Scope membership
+states where a Resource is billed and administered rather than what it runs inside, and a box that
+enclosed the selected Resource would make the subject of the view an occupant of its own context.
+Selecting the scope reverses that: the question is then what the scope holds, and its membership is
+the answer.
+
 An absent state is reported as unreported rather than as unobserved. Most Kubernetes ResourceClasses
 are inventoried without a projected state, so naming that absence an observation would assert a
 check that never ran and imply the state is missing in the cluster. Reporting absence is only

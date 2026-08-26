@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: e7d47ef96f82c09d784b6757c4dc1b964b1d5357
+translation_source_sha: 03845631fc948d6c54a7ef3ff41896dd1aeec50c
 translation_revised: 2026-08-27
 ---
 # 온톨로지 구조 모델
@@ -272,6 +272,15 @@ Resource 유형 아이콘은 표현일 뿐입니다. 객체 identity, 유형 권
 카드를 흐리게도 표시하지 않습니다. 같은 사실을 두 번 표현하면 의미는 늘지 않은 채 가독성만
 잃으며, 그 비용은 중첩이 드러내려던 바로 그 Resource가 가장 크게 치릅니다. 거리에 따른 강조는
 위치가 아무것도 말해 주지 않는 곳, 즉 모든 상자 밖에서만 유지합니다.
+
+관리 범위는 선택한 Resource일 때만 상자가 됩니다. 중첩은 선택한 Resource에서 시작해 그것이
+담은 것을 따라가므로, 그것을 담고 있을 뿐인 범위는 평범한 관계로 남습니다. 온톨로지는 이미
+둘을 구분합니다. `azure.resource-group-contains-resource`는
+`kubernetes.namespace-contains-resource`나 `azure.vnet-contains-subnet`과 다른 mapping이며,
+실측한 구독에서 포함 관계 190개 중 46개를 차지합니다. 범위 소속은 Resource가 무엇 안에서
+도는지가 아니라 어디서 청구되고 관리되는지를 말하며, 선택한 Resource를 감싸는 상자는 이 화면의
+주체를 자기 맥락의 입주자로 만들어 버립니다. 범위를 선택하면 관계가 뒤바뀝니다. 그때의 질문은
+그 범위가 무엇을 담고 있는가이고, 소속이 곧 답입니다.
 
 상태의 부재는 관측되지 않았다가 아니라 보고되지 않았다고 알립니다. 대부분의 Kubernetes
 ResourceClass는 상태를 투영하지 않은 채 인벤토리에 들어오므로, 그 부재를 관측이라고 부르면
