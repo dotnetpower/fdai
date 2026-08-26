@@ -155,7 +155,7 @@ def network_path_function_type() -> OntologyFunctionType:
                 "max_segments",
             ],
             "properties": {
-                "query_result": {"type": "object"},
+                "query_result": {"type": "object", "x-fdai-dependency-only": True},
                 "source_id": {"type": "string", "minLength": 1, "maxLength": 512},
                 "target_id": {"type": "string", "minLength": 1, "maxLength": 512},
                 "evaluated_at": {"type": "string", "format": "date-time"},

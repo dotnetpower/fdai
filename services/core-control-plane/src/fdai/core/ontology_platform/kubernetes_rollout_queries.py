@@ -64,9 +64,9 @@ def kubernetes_rollout_function_type() -> OntologyFunctionType:
                 "pod_query_result",
             ],
             "properties": {
-                "deployment_query_result": {"type": "object"},
-                "controller_query_result": {"type": "object"},
-                "pod_query_result": {"type": "object"},
+                "deployment_query_result": {"type": "object", "x-fdai-dependency-only": True},
+                "controller_query_result": {"type": "object", "x-fdai-dependency-only": True},
+                "pod_query_result": {"type": "object", "x-fdai-dependency-only": True},
                 "cutoff": {"type": "string", "format": "date-time"},
             },
         },

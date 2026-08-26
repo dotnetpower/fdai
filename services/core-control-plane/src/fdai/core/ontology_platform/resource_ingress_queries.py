@@ -37,7 +37,9 @@ def resource_ingress_function_type() -> OntologyFunctionType:
             "type": "object",
             "additionalProperties": False,
             "required": ["query_result"],
-            "properties": {"query_result": {"type": "object"}},
+            "properties": {
+                "query_result": {"type": "object", "x-fdai-dependency-only": True},
+            },
         },
         output_schema={
             "type": "object",

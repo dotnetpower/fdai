@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 93235415a0ff5c0c1691c291bb5eb3f95fd7d61b
+translation_source_sha: 06897663cbe0f7d9c7f0d23b8186149e0ec906bb
 translation_revised: 2026-08-26
 ---
 # 지속형 운영 인스턴스 그래프
@@ -100,7 +100,9 @@ archive 계보를 유지합니다.
 정확한 참조가 관측되지 않아 edge가 될 수 없는 검토된 candidate가 포함될 수 있습니다. 이
 타입 지정 non-edge는 최신 Resource 객체와 독립적으로 검증된 link의 전진을 막지 않습니다.
 Ontology projection은 같은 세대를 `relationship_complete=false`로 전진시키고 분류된 모든
-사유를 보존하며 쿼리가 그래프를 완전한 근거로 사용하지 못하게 합니다. 분류되지 않은 drop,
+사유를 보존합니다. 관계 커버리지는 관계 주장을 한정합니다. 즉 쿼리가 그래프를 완전한 관계
+근거로 사용하지 못하게 하되, 객체 집합이 집합 내부 edge를 만들 수 없는 스냅샷은 관계에 대해
+아무것도 진술하지 않으므로 자신의 객체 커버리지를 그대로 유지합니다. 분류되지 않은 drop,
 잘못된 검증 metadata, 부분 source 세대, conflict 또는 cardinality 위반은 계속 차단되며 이전
 그래프를 보존합니다.
 

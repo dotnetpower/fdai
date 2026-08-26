@@ -483,6 +483,7 @@ class PostgresOntologyInstanceStore:
                 connection,
                 objects,
                 requires_resource_coverage="Resource" in object_types,
+                expresses_relationships=bool(links) or len(objects) > 1,
             )
         return OntologyGraphSnapshot(
             objects=objects,
@@ -690,6 +691,7 @@ async def _resource_graph_source_coverage(
     objects: Sequence[OntologyObjectRecord],
     *,
     requires_resource_coverage: bool = False,
+    expresses_relationships: bool = True,
 ) -> tuple[bool, str | None]:
     """Read exact inventory projection coverage for snapshots containing Resources."""
 
@@ -714,6 +716,7 @@ async def _resource_graph_source_coverage(
         active_generation=row.get("snapshot_id"),
         status=status,
         manifest=manifest,
+        expresses_relationships=expresses_relationships,
     )
 
 
@@ -722,6 +725,7 @@ def _resolve_inventory_graph_source_coverage(
     active_generation: object,
     status: Mapping[str, Any],
     manifest: Mapping[str, Any],
+    expresses_relationships: bool = True,
 ) -> tuple[bool, str | None]:
     """Reduce inventory projection state to exact graph generation and completeness."""
 
@@ -736,6 +740,11 @@ def _resolve_inventory_graph_source_coverage(
         or manifest.get("complete") is not True
     ):
         return False, source_generation
+    # Relationship coverage bounds relationship claims. A snapshot whose object set admits
+    # no intra-set edge states nothing about relationships, so classified non-edges
+    # elsewhere in the generation cannot make its object evidence incomplete.
+    if not expresses_relationships:
+        return True, source_generation
     relationship_complete = manifest.get("relationship_complete")
     if relationship_complete is None:
         dropped = manifest.get("dropped_reasons")

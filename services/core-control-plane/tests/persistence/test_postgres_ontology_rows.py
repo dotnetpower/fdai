@@ -66,6 +66,55 @@ def test_inventory_graph_source_coverage_rejects_stale_or_incomplete_projection(
     assert complete is False
 
 
+def test_relationship_gap_holds_a_snapshot_that_can_state_a_relationship() -> None:
+    complete, _generation = postgres_ontology._resolve_inventory_graph_source_coverage(
+        active_generation="generation-2",
+        status={"status": "available", "generation": "generation-2"},
+        manifest={
+            "generation": "generation-2",
+            "complete": True,
+            "relationship_complete": False,
+            "dropped_reasons": ["missing_target_endpoint"],
+        },
+        expresses_relationships=True,
+    )
+
+    assert complete is False
+
+
+def test_relationship_gap_does_not_hold_a_snapshot_with_no_expressible_relationship() -> None:
+    complete, generation = postgres_ontology._resolve_inventory_graph_source_coverage(
+        active_generation="generation-2",
+        status={"status": "available", "generation": "generation-2"},
+        manifest={
+            "generation": "generation-2",
+            "complete": True,
+            "relationship_complete": False,
+            "dropped_reasons": ["missing_target_endpoint"],
+        },
+        expresses_relationships=False,
+    )
+
+    assert complete is True
+    assert generation == "generation-2"
+
+
+def test_object_gap_still_holds_a_snapshot_with_no_expressible_relationship() -> None:
+    complete, _generation = postgres_ontology._resolve_inventory_graph_source_coverage(
+        active_generation="generation-2",
+        status={"status": "available", "generation": "generation-2"},
+        manifest={
+            "generation": "generation-2",
+            "complete": False,
+            "relationship_complete": True,
+            "dropped_reasons": [],
+        },
+        expresses_relationships=False,
+    )
+
+    assert complete is False
+
+
 def test_projection_revision_fence_rejects_unpinned_overwrite() -> None:
     with pytest.raises(OntologyInstanceValidationError, match="revision fence"):
         postgres_ontology._require_projection_revision(  # noqa: SLF001 - persistence boundary

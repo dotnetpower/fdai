@@ -96,9 +96,12 @@ A complete provider generation may contain reviewed candidates that cannot becom
 endpoint is outside the active generation, its provider type is not modeled, or its exact reference
 was not observed. These typed non-edges do not freeze newer Resource objects and independently
 verified links. The ontology projection advances the same generation with
-`relationship_complete=false`, preserves every classified reason, and prevents a query from using
-the graph as complete evidence. An unclassified drop, invalid verification metadata, partial source
-generation, conflict, or cardinality violation remains blocking and preserves the previous graph.
+`relationship_complete=false` and preserves every classified reason. Relationship coverage bounds
+relationship claims: it prevents a query from using the graph as complete relationship evidence,
+while a snapshot whose object set admits no intra-set edge states nothing about relationships and
+therefore keeps its own object coverage. An unclassified drop, invalid verification metadata,
+partial source generation, conflict, or cardinality violation remains blocking and preserves the
+previous graph.
 
 An exact reviewed provider parent shadows generic Resource Group containment for the same child.
 Snapshot promotion independently rejects more than one `contains` parent for any child before the

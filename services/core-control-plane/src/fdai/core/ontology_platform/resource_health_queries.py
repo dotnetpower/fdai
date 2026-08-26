@@ -110,7 +110,7 @@ def resource_health_function_type() -> OntologyFunctionType:
             "additionalProperties": False,
             "required": ["query_result", "health_concepts", "state_concepts"],
             "properties": {
-                "query_result": {"type": "object"},
+                "query_result": {"type": "object", "x-fdai-dependency-only": True},
                 "health_concepts": {
                     "type": "array",
                     "minItems": 1,

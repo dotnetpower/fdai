@@ -29,7 +29,7 @@ def resource_activity_function_type() -> OntologyFunctionType:
             "additionalProperties": False,
             "required": ["query_result", "lookback_seconds"],
             "properties": {
-                "query_result": {"type": "object"},
+                "query_result": {"type": "object", "x-fdai-dependency-only": True},
                 "lookback_seconds": {
                     "type": "integer",
                     "minimum": 60,

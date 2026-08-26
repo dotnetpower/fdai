@@ -117,7 +117,7 @@ def resource_event_function_type() -> OntologyFunctionType:
             "additionalProperties": False,
             "required": ["query_result", "event_families", "lookback_seconds"],
             "properties": {
-                "query_result": {"type": "object"},
+                "query_result": {"type": "object", "x-fdai-dependency-only": True},
                 "event_families": {
                     "type": "array",
                     "minItems": 1,

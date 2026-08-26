@@ -57,7 +57,7 @@ def resource_metric_function_type() -> OntologyFunctionType:
             "additionalProperties": False,
             "required": ["query_result", "metric_concepts", "window_seconds"],
             "properties": {
-                "query_result": {"type": "object"},
+                "query_result": {"type": "object", "x-fdai-dependency-only": True},
                 "metric_concepts": {
                     "type": "array",
                     "minItems": 1,
@@ -112,7 +112,7 @@ def resource_metric_series_function_type() -> OntologyFunctionType:
             "additionalProperties": False,
             "required": ["query_result", "metric_concept", "window_seconds"],
             "properties": {
-                "query_result": {"type": "object"},
+                "query_result": {"type": "object", "x-fdai-dependency-only": True},
                 "metric_concept": {
                     "type": "string",
                     "pattern": r"^[a-z][a-z0-9_.-]{0,127}$",

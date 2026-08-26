@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 93ad0d2c414f6ef1cdb74b097169cabd8fdbc842
+translation_source_sha: b8c581fed880ede7a8519edac2ba6470abc43505
 translation_revised: 2026-08-26
 ---
 # FDAI 온톨로지 안전 인프라
@@ -139,6 +139,8 @@ Console은 redaction, 호환성, 완전성 또는 권한을 계산하지 않습�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-26 | implemented | 객체 값을 받는 모든 FunctionType 입력에 `x-fdai-dependency-only`를 표시했습니다. 이 입력은 게이트웨이가 보호한 ObjectSet 결과와 파생 근거 묶음을 전달하지만 `query.vm_process_cpu_evidence`만 마커를 선언하고 있었습니다. 그래서 계획 검증기가 보호된 근거 대신 모델이 작성한 리터럴을 공급하는 제안 계획을 통과시켰습니다. 리소스 이벤트 이력 턴이 이를 불투명한 `capability_failed` 증적으로 재현했고, 이제는 계획 검증 단계에서 fail closed 됩니다. | `current change`, 모든 운영 FunctionType을 검사하는 신규 `test_function_dependency_inputs.py` 계약 가드, 집중 온톨로지 플랫폼 및 영속 검사 12개 통과, Ruff, formatter, strict mypy 통과, 라이브 이벤트 이력 턴이 `capability_failed`에서 정직한 clarification으로 전환됨 | 발화가 이미 지목한 대상을 되묻지 않고 답하도록 리소스 이벤트 이력에 서버 소유 결정론 계획을 바인딩합니다. |
+| 2026-08-26 | implemented | 인벤토리 투영 상태를 보안 ObjectSet 증적으로 축약할 때 관계 커버리지와 객체 커버리지를 분리했습니다. Resource 스냅샷이 세대 전체의 관계 커버리지를 물려받고 있었기 때문에, 다른 곳의 분류된 non-edge가 정확한 단일 리소스 현재 상태 답변을 전부 `authoritative_evidence_unavailable`로 보류시켰습니다. 이제 관계 커버리지는 객체 집합이 집합 내부 edge를 만들 수 있는 스냅샷만 게이팅하며, 객체 커버리지는 여전히 모든 스냅샷을 게이팅하고 순회는 기존의 엄격한 규칙을 유지합니다. | `current change`, `postgres_ontology.py`, 객체 공백과 관계 공백 뮤테이션을 포함한 집중 커버리지 축약기 4개 사례, 인증된 Console이 정확한 클러스터 현재 상태 질문을 11.7초에 `Verified`(주장 3/3 지지, 근거 6/6)로 답변 | 렌더된 답변이 일반 검증 행 수 대신 반환된 현재 상태 필드를 보고하도록 합니다. |
 | 2026-08-25 | implemented | `query.kubernetes_pod_recovery_evidence`가 발급된 정확한 Pod, ReplicaSet 소유자, Deployment 소유자 증적과 검토된 30분 `pod.restart.history` 구간을 결합하도록 확장했습니다. 서버 소유 5-node 계획은 모든 종속 신원과 소유권 link 근거를 검증하며, 복구에는 범위가 제한된 양수 변화량과 ready 및 available 상태인 소유자 replica 전체가 필요합니다. Dependency-only 입력은 모델이 작성한 정적 인자를 거부합니다. | `current change`, 집중 메트릭, 검증기, 축약기, 증적 인증, 의미 플래너, 운영 조립 검사 49개 통과, 의미 라우팅 회귀 검사 370개 통과, Ruff, formatter, strict mypy 통과 | 보존된 Kubernetes 이벤트, 변경, 교체 UID, 영향 범위, 새 기준 시점 근거를 추가한 뒤 인증된 Console에서 복구 턴을 검증합니다. |
 | 2026-08-25 | implemented | 원본이 불완전하고 잘리지 않은 ObjectSet 결과에 안정된 보안 조회 제한을 추가했습니다. 따라서 행이 0개인 대상 후보 조회를 실행하고 근거를 연결할 수 있으며 불완전한 그래프 범위를 부재로 바꾸지 않습니다. | `current change`, `query_source_handlers.py`, 집중 rollout 및 불완전 원본 검사 19개 통과, 인증된 대상 없는 Console 턴이 `source_incomplete`와 실행 권한 없이 검증 완료 | 완전한 Kubernetes 세대에서 정확한 대상 rollout 근거와 독립적인 복구 근거를 보존합니다. |
 | 2026-08-25 | implemented | `query.kubernetes_rollout_evidence`와 서버 소유 정확한 대상 계획을 통해 rollout 축약기를 연결했습니다. Core는 전이적이지 않은 `kubernetes_owned_by` 단계를 명시적으로 두 번 탐색하고, 발급된 secured 결과 3개를 모두 인증하며, 증적 계보에서 현재 의존성 신원을 보존합니다. 모델이 작성한 계획이나 프로바이더 API는 호출하지 않습니다. | `current change`, 집중 축약기, 증적 권한, 탐색, 플래너, 운영 조립 검사 15개 통과, 작업 범위 Ruff 및 strict mypy 통과 | Core를 재시작하고 대상 없는 후보 선택과 정확한 대상 rollout 근거를 인증된 경로로 보존합니다. 복구 효과 검증은 별도의 열린 작업입니다. |

@@ -68,7 +68,7 @@ def pod_telemetry_function_type() -> OntologyFunctionType:
                 "expected_cluster_ref",
             ],
             "properties": {
-                "query_result": {"type": "object"},
+                "query_result": {"type": "object", "x-fdai-dependency-only": True},
                 "pod_id": {"type": "string", "minLength": 1, "maxLength": 512},
                 "expected_cluster_ref": {
                     "type": "string",

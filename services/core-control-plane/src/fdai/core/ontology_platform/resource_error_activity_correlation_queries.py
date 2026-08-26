@@ -41,7 +41,9 @@ def error_activity_correlation_function_type() -> OntologyFunctionType:
             "type": "object",
             "additionalProperties": False,
             "required": list(_INPUT_NAMES),
-            "properties": {name: {"type": "object"} for name in _INPUT_NAMES},
+            "properties": {
+                name: {"type": "object", "x-fdai-dependency-only": True} for name in _INPUT_NAMES
+            },
         },
         output_schema={
             "type": "object",

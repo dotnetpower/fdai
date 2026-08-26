@@ -83,7 +83,7 @@ def resource_state_function_type() -> OntologyFunctionType:
             "additionalProperties": False,
             "required": ["query_result", "state_concepts"],
             "properties": {
-                "query_result": {"type": "object"},
+                "query_result": {"type": "object", "x-fdai-dependency-only": True},
                 "state_concepts": {
                     "type": "array",
                     "minItems": 1,
