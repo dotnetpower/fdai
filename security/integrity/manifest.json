@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 1198,
+  "file_count": 1199,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "ebca41cd37517c9c564b1351302f9222805b56f186b9a83e9a562e69a51a74a9",
     ".github/instructions/agent-stewardship.instructions.md": "e2e2224db17159323f910252e0f9f6efb44c0f1d7e0d217d5159745c15c9ff46",
@@ -725,7 +725,7 @@
     "services/core-control-plane/src/fdai/core/read_investigation/__init__.py": "63deb0661ca658f7c10596b351dfa0abc012af05941a02698f0b218811c2adc9",
     "services/core-control-plane/src/fdai/core/read_investigation/catalog.py": "e11dc50909ac4ba934c2a6ecf852588b25d6ed4e8ac24db46eb56d561d50c0f6",
     "services/core-control-plane/src/fdai/core/read_investigation/execution_policy.py": "1b35dc863e77a184aa5d63aeb4ee53e1bf95587f68711bda336b5340036a78a8",
-    "services/core-control-plane/src/fdai/core/read_investigation/idempotency.py": "aa48bf6b706c81df7fe4f2aa0f89fa18225d57301594002ef36cfa2c1848f9d6",
+    "services/core-control-plane/src/fdai/core/read_investigation/idempotency.py": "b020ea20f13ba27471b8d7008a2cc5805c45768bc6b9a302522b30ce7bca5bc5",
     "services/core-control-plane/src/fdai/core/read_investigation/intent_spec.py": "1e8663bcd047a3de4676e0384e67fd65bf93cacbb7d2f9fa42e25ea4fc8920e2",
     "services/core-control-plane/src/fdai/core/read_investigation/interactive.py": "fece350fa71205feff8ff99d2b168a1934f7ddfece92717981dde0680c64cb56",
     "services/core-control-plane/src/fdai/core/read_investigation/latency.py": "ce2354b983109953c406898e0951eb791742ef3c0ff42a5d286ae900d833ac20",
@@ -733,6 +733,7 @@
     "services/core-control-plane/src/fdai/core/read_investigation/models.py": "4e92b4c848a7d10db11670b821ca742c8ba56923075f94892089410eb500c9ad",
     "services/core-control-plane/src/fdai/core/read_investigation/planner.py": "0f98fa264f13e0d34c083292500c3f62345b5008d04bc089ba34ef5748769d8d",
     "services/core-control-plane/src/fdai/core/read_investigation/progress.py": "04f961a4fd7e285bc7ef28c0ee7a120ad45ad026226f6eff4dfb9d6b31852943",
+    "services/core-control-plane/src/fdai/core/read_investigation/request_identity.py": "c3ac210347face2dd2048c02b1383809945086c5967edd2f84e01c83ff8ba2eb",
     "services/core-control-plane/src/fdai/core/read_investigation/resource_state_shadow_evidence.py": "f96de20532faa8f62dc9e0ee1d005bc75dd732c720355615757481b52899c0d7",
     "services/core-control-plane/src/fdai/core/read_investigation/resource_state_shadow_models.py": "d7a75e36ea0051897830467bc58315fcc339ce29f0e004e6c1898e467ff23905",
     "services/core-control-plane/src/fdai/core/read_investigation/resource_state_shadow_service.py": "690752acb890dc5bd4dbc138bcd3d5f32e664299b2a6451060a325e1ea35e9d4",
@@ -1201,7 +1202,7 @@
     "services/core-control-plane/src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "services/core-control-plane/src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-26T01:22:31Z",
+  "generated_at": "2026-08-26T03:57:18Z",
   "surface": [
     "services/core-control-plane/src/fdai/core/",
     "services/core-control-plane/src/fdai/composition.py",

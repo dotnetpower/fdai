@@ -1,0 +1,4 @@
+# Split the evidence-specific normalizers into focused semantic-planning modules (issue #283).
+1191 services/core-control-plane/src/fdai/core/conversation/semantic_planning_frame_normalization.py
+# Split Azure-specific semantic query composition from the provider-neutral binder (issue #283).
+851 services/core-control-plane/src/fdai/composition/wire_semantic_query.py

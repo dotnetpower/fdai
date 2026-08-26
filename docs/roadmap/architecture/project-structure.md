@@ -21,6 +21,9 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   `shared/` contracts, providers, telemetry, and config; `delivery/` may compose `core/` and
   `shared/` behind adapter boundaries; `composition/` binds all layers. `core/` and `agents/`
   never import `delivery/`; provider behavior enters through shared Protocols and composition.
+  Focused sibling modules may own canonical identity projection and hashing while the established
+  owner module re-exports that public surface; the split must preserve serialized bytes and replay
+  semantics.
   Pantheon members remain flat under `agents/`; private behavior-extraction mixins belong under
   `agents/_framework/` and cannot change the member's AgentSpec, topics, ownership, model policy,
   or authority.

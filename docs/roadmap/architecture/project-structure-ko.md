@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 7af15f1c288b31fe7d59ead8106835cbf169a543
+translation_source_sha: d174496781a904be903bc85f59d28814f1e72d55
 translation_revised: 2026-08-26
 ---
 # 프로젝트 구조
@@ -23,6 +23,8 @@ translation_revised: 2026-08-26
   계약, 프로바이더, 텔레메트리, 구성만 가져옵니다. `delivery/`는 어댑터 경계 뒤에서
   `core/`와 `shared/`를 조립하고 `composition/`이 모든 계층을 연결합니다. `core/`와 `agents/`는
   `delivery/`를 가져오기하지 않으며 provider 동작은 shared Protocol과 composition으로 진입합니다.
+  집중 sibling 모듈은 canonical identity 투영과 hashing을 소유할 수 있으며 기존 소유 모듈은
+  해당 공개 표면을 다시 내보냅니다. 이 분리는 직렬화 바이트와 replay 의미를 보존해야 합니다.
   Pantheon member는 `agents/` 바로 아래의 flat layout을 유지합니다. Private behavior-extraction
   mixin은 `agents/_framework/`에 두며 member의 AgentSpec, topic, ownership, model policy 또는
   authority를 바꿀 수 없습니다.

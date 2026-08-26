@@ -166,7 +166,7 @@ describe("shouldDeferDeckOpen", () => {
   });
 
   it("removes transient investigation activity from a direct response", () => {
-    expect(submitSource).toContain('reply.source === "semantic-direct-response"');
+    expect(submitSource).toContain("isSemanticDirectResponseSource(reply.source)");
     expect(submitSource).toContain("current.filter((turn) => !activityTurnIds.has(turn.id))");
   });
 });

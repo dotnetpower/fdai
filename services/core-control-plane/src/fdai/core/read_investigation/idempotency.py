@@ -4,13 +4,16 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import json
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Protocol
 
 from fdai.core.read_investigation.models import ReadInvestigationRequest, ReadInvestigationResult
+from fdai.core.read_investigation.request_identity import (
+    read_investigation_request_digest,
+    read_investigation_request_projection,
+)
 
 _MAX_ID = 256
 MAX_READ_INVESTIGATION_ATTEMPTS = 3
@@ -745,40 +748,6 @@ class InMemoryReadInvestigationRunStore:
         if lease.expires_at <= now:
             raise ReadInvestigationRunConflictError("read investigation lease expired")
         return current
-
-
-def read_investigation_request_projection(request: ReadInvestigationRequest) -> dict[str, object]:
-    """Return the provider-neutral canonical projection used for request digesting."""
-
-    return {
-        "intent": request.intent.value,
-        "selector": {
-            "name": request.selector.name,
-            "scope_ref": request.selector.scope_ref,
-            "resource_type": request.selector.resource_type,
-            "resource_group": request.selector.resource_group,
-        },
-        "lookback_seconds": request.lookback_seconds,
-        "requested_evidence": [tool_id.value for tool_id in request.requested_evidence],
-        "budget": {
-            "max_wall_seconds": request.budget.max_wall_seconds,
-            "max_cost_microusd": request.budget.max_cost_microusd,
-            "max_tool_calls": request.budget.max_tool_calls,
-            "max_results": request.budget.max_results,
-            "max_output_bytes": request.budget.max_output_bytes,
-        },
-        "explicit_deep": request.explicit_deep,
-    }
-
-
-def read_investigation_request_digest(request: ReadInvestigationRequest) -> str:
-    payload = json.dumps(
-        read_investigation_request_projection(request),
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=True,
-    )
-    return hashlib.sha256(payload.encode()).hexdigest()
 
 
 def read_investigation_run_id(owner_principal_id: str, idempotency_key: str) -> str:
