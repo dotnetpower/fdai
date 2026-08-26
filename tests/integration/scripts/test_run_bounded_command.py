@@ -97,6 +97,27 @@ def test_runner_kills_descendants_after_direct_child_exits() -> None:
     ) in result.stderr
 
 
+def test_runner_stops_waiting_for_an_escaped_output_holder() -> None:
+    started = time.monotonic()
+    result = _run(
+        sys.executable,
+        "-c",
+        (
+            "import subprocess, sys\n"
+            "subprocess.Popen(\n"
+            " [sys.executable, '-c', 'import time; time.sleep(3)'],\n"
+            " start_new_session=True,\n"
+            ")"
+        ),
+    )
+
+    assert time.monotonic() - started < 2.8
+    assert result.returncode == 124
+    assert (
+        "bounded-command: label=test-stage event=failed reason=no-progress-1s exit_code=124"
+    ) in result.stderr
+
+
 def test_runner_enforces_total_budget_while_output_continues() -> None:
     result = _run(
         sys.executable,

@@ -86,6 +86,7 @@ def run_bounded_command(
     selector = selectors.DefaultSelector()
     selector.register(process.stdout, selectors.EVENT_READ)
     expired_reason: str | None = None
+    force_kill_sent = False
     try:
         while selector.get_map() or process.poll() is None:
             now = time.monotonic()
@@ -98,8 +99,13 @@ def run_bounded_command(
                     expired_reason = f"no-progress-{no_progress_seconds}s"
                     _signal_process_group(process, signal.SIGTERM)
                     forwarded_at = now
-            if forwarded_at is not None and now - forwarded_at >= termination_grace_seconds:
+            if (
+                not force_kill_sent
+                and forwarded_at is not None
+                and now - forwarded_at >= termination_grace_seconds
+            ):
                 _signal_process_group(process, signal.SIGKILL)
+                force_kill_sent = True
 
             events = selector.select(timeout=0.1)
             for key, _mask in events:
@@ -110,6 +116,10 @@ def run_bounded_command(
                     sys.stdout.buffer.flush()
                 else:
                     selector.unregister(key.fileobj)
+            if force_kill_sent and process.poll() is not None:
+                for key in tuple(selector.get_map().values()):
+                    selector.unregister(key.fileobj)
+                    key.fileobj.close()
         status = process.wait()
     finally:
         selector.close()
