@@ -16,6 +16,22 @@ from fdai.core.ontology_platform.resource_current_state_queries import (
     RESOURCE_CURRENT_STATE_FUNCTION_NAME,
 )
 from fdai.shared.contracts.models import OntologyDeclarationKind, OntologyRelease
+from fdai.shared.providers.state_evidence import STATE_FACT_METADATA_PROPERTY
+
+#: Revision identity exists only for revision-scaled provider types. Every other resource
+#: has no revision concept at all, so reporting one would state a gap that cannot exist.
+_REVISION_SCALED_TYPES = frozenset({"compute.container-app"})
+_REVISION_FIELDS: tuple[tuple[str, str], ...] = (
+    ("revision_name", "latestRevisionName"),
+    ("ready_revision_name", "latestReadyRevisionName"),
+)
+_OBSERVABLE_FIELDS: tuple[str, ...] = (
+    "provisioning_status",
+    "running_status",
+    "revision_name",
+    "ready_revision_name",
+    "source_observed_at",
+)
 
 
 def semantic_resource_current_state_function(
@@ -45,25 +61,22 @@ def semantic_resource_current_state_function(
         target = objects[0]
         provider = _mapping(target.properties.get("properties"))
         state = _mapping(provider.get("properties"))
-        source_fact = _mapping(provider.get("_state_fact"))
-        values = {
+        source_fact = _mapping(provider.get(STATE_FACT_METADATA_PROPERTY))
+        values: dict[str, object | None] = {
             "name": _text(target.properties.get("name")),
-            "revision_name": _text(state.get("latestRevisionName")),
-            "ready_revision_name": _text(state.get("latestReadyRevisionName")),
             "provisioning_status": _text(state.get("provisioningState")),
-            "running_status": _text(state.get("runningStatus")),
+            # The inventory normalizes observed runtime status for every provider type;
+            # runningStatus is a revision-scaled field and is absent elsewhere.
+            "running_status": _text(provider.get("status")) or _text(state.get("runningStatus")),
             "source_observed_at": _text(source_fact.get("effective_at")),
             "inventory_read_at": secured.receipt.observation_cutoff.isoformat(),
             "execution_authority": False,
         }
+        if _models_revisions(target, state):
+            for field, provider_key in _REVISION_FIELDS:
+                values[field] = _text(state.get(provider_key))
         missing = tuple(
-            field
-            for field in (
-                "revision_name",
-                "ready_revision_name",
-                "source_observed_at",
-            )
-            if values[field] is None
+            field for field in _OBSERVABLE_FIELDS if field in values and values[field] is None
         )
         reason = "+".join(f"{field}_unavailable" for field in missing) or None
         return _table(
@@ -73,6 +86,12 @@ def semantic_resource_current_state_function(
         )
 
     return evaluate
+
+
+def _models_revisions(target: Any, state: Mapping[str, Any]) -> bool:
+    if _text(target.properties.get("type")) in _REVISION_SCALED_TYPES:
+        return True
+    return any(provider_key in state for _, provider_key in _REVISION_FIELDS)
 
 
 def _mapping(value: object) -> Mapping[str, Any]:

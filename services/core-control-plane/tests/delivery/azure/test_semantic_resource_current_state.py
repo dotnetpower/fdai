@@ -31,6 +31,7 @@ from fdai.delivery.azure.semantic_resource_current_state import (
 from fdai.shared.contracts.models import CeilingRole
 from fdai.shared.ontology.release import build_ontology_release
 from fdai.shared.providers.ontology_instance import OntologyGraphSnapshot, OntologyObjectRecord
+from fdai.shared.providers.state_evidence import STATE_FACT_METADATA_PROPERTY
 
 NOW = datetime(2026, 8, 21, 3, 20, tzinfo=UTC)
 
@@ -39,6 +40,9 @@ def _query_result(
     *,
     source_observed_at: str | None,
     complete: bool = True,
+    resource_type: str = "compute.container-app",
+    provider_state: dict[str, object] | None = None,
+    normalized_status: str | None = None,
 ) -> SecuredObjectSetQueryResult:
     definition = ObjectSetDefinition(
         selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Resource"),
@@ -47,15 +51,21 @@ def _query_result(
         limit=2,
     )
     provider: dict[str, object] = {
-        "properties": {
-            "latestRevisionName": "app-example--new",
-            "latestReadyRevisionName": "app-example--ready",
-            "provisioningState": "Succeeded",
-            "runningStatus": "Running",
-        }
+        "properties": (
+            provider_state
+            if provider_state is not None
+            else {
+                "latestRevisionName": "app-example--new",
+                "latestReadyRevisionName": "app-example--ready",
+                "provisioningState": "Succeeded",
+                "runningStatus": "Running",
+            }
+        )
     }
+    if normalized_status is not None:
+        provider["status"] = normalized_status
     if source_observed_at is not None:
-        provider["_state_fact"] = {"effective_at": source_observed_at}
+        provider[STATE_FACT_METADATA_PROPERTY] = {"effective_at": source_observed_at}
     materialization = ObjectSetMaterialization(
         definition=definition,
         graph=OntologyGraphSnapshot(
@@ -66,6 +76,7 @@ def _query_result(
                     properties={
                         "id": "resource-example",
                         "name": "app-example",
+                        "type": resource_type,
                         "properties": provider,
                     },
                 ),
@@ -169,3 +180,48 @@ async def test_current_state_rejects_incomplete_target_before_projection() -> No
     assert result["complete"] is False
     assert result["rows"] == []
     assert result["truncation_reason"] == "target_resolution_incomplete"
+
+
+async def test_current_state_reads_the_canonical_state_fact_property() -> None:
+    query_result = _query_result(source_observed_at="2026-08-21T03:19:00+00:00")
+    provider = query_result.materialization.graph.objects[0].properties["properties"]
+
+    assert isinstance(provider, dict)
+    assert STATE_FACT_METADATA_PROPERTY in provider
+
+
+async def test_a_resource_without_a_revision_concept_reports_no_revision_gap() -> None:
+    result = await _invoke(
+        _query_result(
+            source_observed_at="2026-08-21T03:19:00+00:00",
+            resource_type="kubernetes-cluster",
+            provider_state={"provisioningState": "Succeeded", "powerState": {"code": "Running"}},
+            normalized_status="Running",
+        )
+    )
+
+    assert result["complete"] is True
+    assert result["truncation_reason"] is None
+    rows = result["rows"]
+    assert isinstance(rows, list)
+    values = rows[0]["values"]
+    assert values["provisioning_status"] == "Succeeded"
+    assert values["running_status"] == "Running"
+    assert "revision_name" not in values
+    assert "ready_revision_name" not in values
+
+
+async def test_an_unobserved_running_status_stays_a_recorded_gap() -> None:
+    result = await _invoke(
+        _query_result(
+            source_observed_at="2026-08-21T03:19:00+00:00",
+            resource_type="kubernetes-cluster",
+            provider_state={"provisioningState": "Succeeded"},
+        )
+    )
+
+    assert result["complete"] is False
+    assert result["truncation_reason"] == "running_status_unavailable"
+    rows = result["rows"]
+    assert isinstance(rows, list)
+    assert rows[0]["values"]["running_status"] is None
