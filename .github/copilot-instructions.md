@@ -64,7 +64,14 @@ unknown, no-op, denial, rollback, or human-review outcome with an audit record.
    CI owns integration validation for pushed SHAs, and
    `make validation-all` is reserved for explicit merge or release boundaries.
 5. Do not commit by default. Commit only when explicitly requested or required by an invoked
-   workflow or external operation. Git, hook, signing, or push failures MUST NOT interrupt unfinished implementation.
+   workflow or external operation. Before the first commit attempt, build and inspect the complete
+   staged snapshot: no task-owned path may have both staged and unstaged changes, unrelated paths
+   stay unstaged, and `uv run pre-commit run --hook-stage pre-commit` MUST pass. Re-stage only
+   task-owned auto-fixes and rerun the preflight before committing. Never use `--no-verify` to turn
+   a failed gate into a commit. Load the
+   [`commit-readiness` skill](skills/commit-readiness/SKILL.md) for the exact overlap check, path-to-gate
+   routing, and failure recovery. Git, hook, signing, or push failures MUST NOT interrupt unfinished
+   implementation.
    Except for repository-owned generated workflows, every agent-authored commit MUST originate in the
    active local checkout after focused validation and diff review. Never create a remote-only commit.
    Push only when requested, then verify the remote ref resolves to the expected local commit.
