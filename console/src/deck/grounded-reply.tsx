@@ -427,6 +427,13 @@ export function primaryAnswerText(
   verification: AnswerVerification | undefined,
 ): string {
   if (verification?.status === "unverified") {
+    const clarification = text.trim();
+    if (
+      verification.reason_code === "semantic_clarification_required" &&
+      clarification.endsWith("?")
+    ) {
+      return clarification;
+    }
     return t(
       `deck.grounded.clarificationPrompt.${verificationIssueKind(verification.reason_code)}`,
     );

@@ -77,6 +77,19 @@ describe("verificationLabel", () => {
 });
 
 describe("grounded reply presentation", () => {
+  it("preserves the server's concrete semantic clarification question", () => {
+    const clarification = {
+      ...verification("ontology-query"),
+      status: "unverified" as const,
+      reason_code: "semantic_clarification_required",
+    };
+
+    expect(primaryAnswerText(
+      "확인할 리소스의 정확한 이름 또는 리소스 ID를 알려주세요?",
+      clarification,
+    )).toBe("확인할 리소스의 정확한 이름 또는 리소스 ID를 알려주세요?");
+  });
+
   it("asks a bounded clarification instead of repeating an unavailable answer", () => {
     const unavailable = {
       ...verification("server_read_model"),

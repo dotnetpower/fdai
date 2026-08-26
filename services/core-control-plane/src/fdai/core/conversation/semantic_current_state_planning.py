@@ -75,16 +75,27 @@ def normalize_current_state_proposal(
         )
     if normalized.operation is not SemanticOperation.SELECT:
         return proposal
+    exact_target = exact_target_from_constraints(
+        normalized.subject_constraints,
+        utterance=utterance,
+        descriptors=descriptors,
+    )
     if normalized.unresolved_terms:
+        if (
+            normalized.unresolved_terms in {("resource_identity",), ("Resource identity",)}
+            and normalized.clarification_requirements
+            == (ClarificationRequirement.RESOURCE_IDENTITY,)
+            and exact_target is not None
+        ):
+            return normalized.model_copy(
+                update={
+                    "unresolved_terms": (),
+                    "clarification_requirements": (),
+                    "clarification": None,
+                }
+            )
         return normalized
-    if (
-        exact_target_from_constraints(
-            normalized.subject_constraints,
-            utterance=utterance,
-            descriptors=descriptors,
-        )
-        is not None
-    ):
+    if exact_target is not None:
         return normalized
     clarification = (
         _KOREAN_TARGET_CLARIFICATION

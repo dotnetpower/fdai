@@ -27,6 +27,11 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   Pantheon members remain flat under `agents/`; private behavior-extraction mixins belong under
   `agents/_framework/` and cannot change the member's AgentSpec, topics, ownership, model policy,
   or authority.
+- **semantic target resolution is deterministic**: a model-authored resource-identity
+  clarification is removed only when Core verifies one exact runtime identifier from the same
+  utterance. Zero or multiple identifiers and every other unresolved concept remain a typed
+  clarification. This validation adds no provider I/O, decision, approval, mutation, or execution
+  authority.
 - **policies and rules are data, not code paths**: T0 loads `rule-catalog/` entries and
   `policies/` at runtime; adding a rule or policy never requires an engine change. Rules
   describe intent and remediation; policies are the executable OPA/Rego the verifier re-checks.
