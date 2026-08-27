@@ -34,6 +34,8 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   transient holds without deleting prior checks.
   Observation verdicts remain audit-only: Odin excludes them from action portfolios and Thor never
   dispatches them.
+  A bounded process-local oldest-first cache retains projection status only when the injected state
+  store lacks that marker contract.
   It validates complete graph source generation before publishing a conformant envelope and
   retries failed read-model projections from their persisted status.
   Scenario identifiers are ASCII-safe and bounded so UUID-shaped changes remain valid ontology

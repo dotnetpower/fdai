@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: c0e75788725ff43f12026a30003d7a6871f08af7
+translation_source_sha: 560f34d960f81a984b1b690939490248fdf700a6
 translation_revised: 2026-08-30
 ---
 # 프로젝트 구조
@@ -37,6 +37,8 @@ translation_revised: 2026-08-30
   사용해 실패한 읽기 모델 projection을 재시도합니다.
   관찰 판정은 감사 전용입니다. Odin은 이를 액션 포트폴리오에서 제외하고 Thor는 전달하지
   않습니다.
+  주입된 상태 저장소에 projection 상태 표식 계약이 없을 때만 범위가 제한된 프로세스 로컬
+  선입선출 캐시가 해당 상태를 보존합니다.
   시나리오 식별자는 ASCII 안전성과 길이 제한을 유지하므로 UUID 형태의 변경도 유효한 온톨로지
   branch 키로 처리됩니다.
 기한 초과 영속화는 제한된 방식으로 수행하거나 내구성 있는 outbox로 전달하며, 정규화된 Change

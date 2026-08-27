@@ -539,6 +539,31 @@ async def test_forseti_publishes_one_typed_observation_verdict_and_saga_audits()
     assert len(saga.replay_for_correlation("correlation-1")) == 1
 
 
+async def test_legacy_local_projection_status_is_bounded() -> None:
+    class _LegacyStateStore:
+        async def get(self, key: str) -> ArchitectureReviewObservation | None:
+            return None
+
+        async def put_if_absent(
+            self,
+            key: str,
+            observation: ArchitectureReviewObservation,
+        ) -> ArchitectureReviewObservation | None:
+            return None
+
+    loop = OntologyArchitectureReviewLoop(
+        context_source=_ContextSource(),
+        evidence_source=_EvidenceSource(),
+        state_store=_LegacyStateStore(),
+    )
+
+    for index in range(1_025):
+        await loop._mark_projection(f"change-{index}", "projected")
+
+    assert len(loop._local_projection_status) == 1_024
+    assert "change-0" not in loop._local_projection_status
+
+
 async def test_projection_derives_lineage_and_reconciles_removed_checks() -> None:
     result = await _loop(_EvidenceSource()).evaluate(_change())
     store = _ProjectionStore()
