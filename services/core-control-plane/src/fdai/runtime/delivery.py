@@ -261,6 +261,7 @@ def _build_direct_api_executor(
             PROMOTION_ACTION_TYPE,
             GovernancePromotionDispatcher,
             OperationalPromotionDirectApiExecutor,
+            StateStorePromotionAttestationStore,
         )
 
         if isinstance(promotion_registry, StateStoreActionPromotionRegistry):
@@ -269,7 +270,8 @@ def _build_direct_api_executor(
                     action_types=action_types_by_name,
                     receipts=StateStoreOperationalPromotionReceiptStore(audit_store),
                     registry=promotion_registry,
-                )
+                ),
+                attestation_store=StateStorePromotionAttestationStore(audit_store),
             )
             allow_enforce = True
 

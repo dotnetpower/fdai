@@ -35,6 +35,7 @@ from fdai.shared.providers.remediation_pr import RemediationPr
 OWNER = "acme"
 REPO = "iac"
 TOKEN = "test-token"  # noqa: S105 - deterministic test literal, not a secret
+BRANCH_K1 = "fdai/shadow/k1-6ab9f1eb8f7d3388f4f9d586f66e99fd54080df2c446f0e58668b09c08a16dd0"
 
 
 def _config(**overrides: Any) -> GitOpsPrConfig:
@@ -111,6 +112,16 @@ def test_non_https_api_base_is_rejected() -> None:
             )
 
 
+def test_branch_derivation_uses_full_idempotency_key_digest() -> None:
+    adapter = _adapter(httpx.MockTransport(lambda _: httpx.Response(200, json=[])))
+
+    first = adapter._branch_for("same/prefix")
+    second = adapter._branch_for("same prefix")
+
+    assert first != second
+    assert first.endswith("810c895d3a8c04834f700f7bb003a57ff166be3401e6f2d4a7b96cdc4f3487b3")
+
+
 # ---------------------------------------------------------------------------
 # Enforce label guard
 # ---------------------------------------------------------------------------
@@ -145,6 +156,7 @@ async def test_existing_open_pr_short_circuits_publish() -> None:
                     {
                         "number": 7,
                         "html_url": "https://github.com/acme/iac/pull/7",
+                        "state": "open",
                     }
                 ],
             )
@@ -170,7 +182,10 @@ async def test_concurrent_retries_serialize_and_open_one_pr() -> None:
         counts[key] = counts.get(key, 0) + 1
         if request.method == "GET" and request.url.path.endswith("/pulls"):
             if pr_open:
-                return httpx.Response(200, json=[{"number": 9, "html_url": "url"}])
+                return httpx.Response(
+                    200,
+                    json=[{"number": 9, "html_url": "url", "state": "open"}],
+                )
             return httpx.Response(200, json=[])
         if request.method == "GET" and "/git/refs/heads/" in request.url.path:
             return httpx.Response(200, json={"object": {"sha": "base"}})
@@ -198,6 +213,27 @@ async def test_concurrent_retries_serialize_and_open_one_pr() -> None:
     assert second.already_existed is True
 
 
+@pytest.mark.asyncio
+async def test_closed_or_merged_pr_is_reused_without_recreation() -> None:
+    calls: list[str] = []
+
+    def _handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request.method + " " + request.url.path)
+        if request.method == "GET" and request.url.path.endswith("/pulls"):
+            return httpx.Response(
+                200,
+                json=[{"number": 11, "html_url": "url", "state": "closed"}],
+            )
+        raise AssertionError(f"terminal PR lookup must not write: {request.method} {request.url}")
+
+    receipt = await _adapter(httpx.MockTransport(_handler)).publish(_pr(idempotency_key="terminal"))
+
+    assert receipt.pr_ref == "acme/iac#11"
+    assert receipt.already_existed is True
+    assert receipt.state == "closed"
+    assert calls == ["GET /repos/acme/iac/pulls"]
+
+
 # ---------------------------------------------------------------------------
 # Full publish flow
 # ---------------------------------------------------------------------------
@@ -221,7 +257,7 @@ async def test_full_publish_calls_every_wire_step_in_order() -> None:
         # 3. Create branch
         if method == "POST" and path.endswith("/git/refs"):
             body = json.loads(request.content.decode("utf-8"))
-            assert body["ref"] == "refs/heads/fdai/shadow/k1"
+            assert body["ref"] == f"refs/heads/{BRANCH_K1}"
             assert body["sha"] == "deadbeef"
             return httpx.Response(201, json={"ref": body["ref"]})
         # 4a. Contents GET (existing file? → 404 = new file)
@@ -232,14 +268,14 @@ async def test_full_publish_calls_every_wire_step_in_order() -> None:
             body = json.loads(request.content.decode("utf-8"))
             decoded = base64.b64decode(body["content"]).decode("utf-8")
             assert 'resource "azurerm_storage_account"' in decoded
-            assert body["branch"] == "fdai/shadow/k1"
+            assert body["branch"] == BRANCH_K1
             return httpx.Response(201, json={"commit": {"sha": "cafe"}})
         # 5. Open draft PR
         if method == "POST" and path.endswith("/pulls"):
             body = json.loads(request.content.decode("utf-8"))
             assert body["draft"] is True
             assert body["base"] == "main"
-            assert body["head"] == "fdai/shadow/k1"
+            assert body["head"] == BRANCH_K1
             return httpx.Response(
                 201,
                 json={

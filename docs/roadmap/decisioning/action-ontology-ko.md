@@ -802,6 +802,7 @@ verbatim 기록되므로 과거 감사 항목 를 절대 break 하지 않음.
 | 2026-08-27 | implemented | 거버넌스 승격 dispatcher, replay 가능한 governance PR lifecycle publisher, 배포 제공 live probe 계약을 추가했습니다. | `current change`; 승격, governance PR lifecycle, live probe 실패 연속, O7 batch 생산 focused delivery 테스트 통과. | 배포 provider를 연결하고 인증된 live 증적을 보존해야 하며, 로컬 변경은 승격 또는 병합 권한을 부여하지 않습니다. |
 | 2026-08-27 | implemented | 위조된 review decision, 임의 document path, 동시 PR 재시도, 오래된 open 증적 및 형식 불일치를 차단하고 검증된 retirement loader와 active rule projection을 추가했습니다. | `current change`; governance, GitOps 및 governance-catalog 집중 테스트 통과. | 인증된 배포 검토와 병합된 카탈로그 증적을 보존해야 하며, 로컬 테스트는 운영 상태를 주장하지 않습니다. |
 | 2026-08-27 | implemented | Promotion에 exact target, revision 및 evidence attestation을 요구하고 non-finite probe deadline을 거부하며 governance artifact를 runtime loader와 정렬했습니다. | `current change`; promotion, probe 및 catalog 집중 adversarial 테스트 통과. | 인증된 배포 검토와 병합된 카탈로그 증적을 보존하며 로컬 테스트는 운영 상태를 주장하지 않습니다. |
+| 2026-08-27 | implemented | 완전한 direct-request fingerprint와 영속 one-time promotion nonce를 실제 HIL/direct 경로에 연결했습니다. Retirement rule은 quality 및 HIL rule map에서 제외되고 PR 조회는 merged 또는 closed record를 재사용합니다. | `current change`; HIL, replay, concurrency 및 runtime dispatch 집중 테스트 통과. | 배포 소유 attestation 발급과 실제 PR 증적은 외부 게이트입니다. |
 
 ### 남은 작업
 

@@ -415,7 +415,7 @@ def _build_control_loop(
             min_success_rate=container.config.llm.t1_min_success_rate,
         ),
     )
-    rules_by_id = {rule.id: rule for rule in rules}
+    rules_by_id = {rule.id: rule for rule in active_rules}
     quality_gate = QualityGate(
         verifier=RuleBasedVerifier(rules_by_id=rules_by_id),
         cross_check_models=llm_bindings.cross_check_models,
@@ -583,7 +583,7 @@ def _build_control_loop(
         state_store=audit_store,
         executor=executor,
         hil_channel=hil_channel,
-        rules_by_id={r.id: r for r in rules},
+        rules_by_id={r.id: r for r in active_rules},
         direct_api_executor=direct_api_executor,
         tool_executor=tool_executor,
         action_types_by_name=action_types_by_name,
