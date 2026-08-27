@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 기반 ARB 에이전트 루프
 translation_of: ontology-agent-loop.md
-translation_source_sha: c35f76f64470fd8499b7ee02cdef5e985ccb0bfd
-translation_revised: 2026-08-27
+translation_source_sha: 213d94a72f4c29eef43bfe6fca5a8d28933b02da
+translation_revised: 2026-08-28
 ---
 # 온톨로지 기반 ARB 에이전트 루프
 
@@ -91,6 +91,8 @@ ARB 읽기 모델은 에이전트가 소유한 레코드에서 파생됩니다. 
 정확한 `object.change` 개정을 받고, 인증된 현재 컨텍스트를 확인하고,
 `OperationalEvidenceBundle`을 가져오며, 근거에 결속된 copy-on-write 시나리오를 구체화하고,
 관찰 전용 `DecisionCase` 및 `ImpactEnvelope` 계보를 `object.verdict`에 게시합니다. Change
+Thor는 이 명시적으로 타입이 지정된 비실행 verdict를 action idempotency 처리 전에 무시하고,
+Odin은 action portfolio 개수에서 제외하며 Saga는 감사용으로 보존합니다. Payload는 JSON-safe timestamp를 사용합니다.
 멱등성 키로 중복 전달을 억제하며, 기한, 역압, 오래됨, 충돌 또는 사용할 수 없는 근거는 보류
 판정을 만듭니다. 어떤 ARB 결과도 승인, 변경, 실행 또는 승격 권한을 가지지 않습니다.
 

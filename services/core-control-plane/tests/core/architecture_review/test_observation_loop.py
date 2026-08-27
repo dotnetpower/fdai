@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from datetime import UTC, datetime
 
 from fdai.agents import InMemoryBus, load_pantheon
 from fdai.agents.forseti import Forseti
+from fdai.agents.odin import Odin
 from fdai.agents.saga import Saga
+from fdai.agents.thor import Thor
 from fdai.core.architecture_review import (
     ArchitectureReviewBackpressureError,
     ArchitectureReviewEvidence,
@@ -500,6 +503,14 @@ async def test_incomplete_base_graph_holds_before_envelope() -> None:
     assert result.impact_envelope is None
 
 
+def test_observation_mapping_is_json_serializable() -> None:
+    observation = asyncio.run(_loop(_EvidenceSource()).evaluate(_change()))
+
+    payload = observation.to_mapping()
+
+    assert json.loads(json.dumps(payload))["normalized_change"]["occurred_at"] == NOW.isoformat()
+
+
 async def test_forseti_publishes_one_typed_observation_verdict_and_saga_audits() -> None:
     bus = InMemoryBus(registry=load_pantheon())
     source = _EvidenceSource()
@@ -507,9 +518,13 @@ async def test_forseti_publishes_one_typed_observation_verdict_and_saga_audits()
         bus=bus,
         architecture_review_loop=_loop(source),
     )
+    odin = Odin()
     saga = Saga()
+    thor = Thor(bus=bus)
     bus.subscribe("object.change", "Forseti", forseti.on_typed_message)
+    bus.subscribe("object.verdict", "Odin", odin.on_typed_message)
     bus.subscribe("object.verdict", "Saga", saga.on_typed_message)
+    bus.subscribe("object.verdict", "Thor", thor.on_typed_message)
 
     await bus.publish("Huginn", "object.change", _change())
     await bus.publish("Huginn", "object.change", _change())
@@ -519,6 +534,8 @@ async def test_forseti_publishes_one_typed_observation_verdict_and_saga_audits()
     assert verdicts[0].payload["mode"] == "observation"
     assert verdicts[0].payload["execution_authority"] is False
     assert not bus.messages_on("object.action-run")
+    assert thor.action_runs == {}
+    assert odin.behavior_snapshot().get("portfolio_outcome:unknown") is None
     assert len(saga.replay_for_correlation("correlation-1")) == 1
 
 

@@ -89,6 +89,8 @@ The observation-mode vertical slice is now composed by `OntologyArchitectureRevi
 receives Huginn's exact `object.change` revision, resolves an authenticated current context, obtains
 an `OperationalEvidenceBundle`, materializes an evidence-bound copy-on-write scenario, and publishes
 the resulting observation-only `DecisionCase` and `ImpactEnvelope` lineage on `object.verdict`.
+Thor ignores this explicitly typed non-actuation verdict before action idempotency, Odin excludes it
+from action-portfolio counts, and Saga retains it for audit. The payload uses JSON-safe timestamps.
 Duplicate deliveries are suppressed by the Change idempotency key; deadline, backpressure, stale,
 conflicting, or unavailable evidence produces a held verdict. No ARB result carries approval,
 mutation, execution, or promotion authority.
