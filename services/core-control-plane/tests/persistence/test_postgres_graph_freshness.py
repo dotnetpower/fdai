@@ -86,6 +86,26 @@ def test_active_inventory_row_builds_exact_no_authority_receipt() -> None:
     assert first.graph_revision.startswith("sha256:")
 
 
+def test_read_time_changes_receipt_audit_identity_but_not_graph_revision() -> None:
+    first = _receipt_from_row(
+        _row(),
+        target_ref="resource-a",
+        ontology_release_digest=_RELEASE,
+        freshness_budget=timedelta(hours=1),
+    )
+    reread = _receipt_from_row(
+        _row(recorded_at=_NOW + timedelta(seconds=3)),
+        target_ref="resource-a",
+        ontology_release_digest=_RELEASE,
+        freshness_budget=timedelta(hours=1),
+    )
+
+    assert first is not None
+    assert reread is not None
+    assert first.graph_revision == reread.graph_revision
+    assert first.receipt_digest != reread.receipt_digest
+
+
 def test_active_inventory_gaps_remain_explicit_and_incomplete() -> None:
     receipt = _receipt_from_row(
         _row(

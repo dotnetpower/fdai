@@ -258,6 +258,23 @@ async def test_generation_change_during_assessment_requires_review() -> None:
     assert "graph_changed_during_assessment" in assessment.reasons
 
 
+async def test_read_time_change_during_assessment_is_not_a_graph_change() -> None:
+    service = ChangeAssessmentService(
+        analyzer=ImpactAnalyzer(store=_Store()),
+        graph_freshness_source=_ChangingSource(
+            _receipt(),
+            _receipt(recorded_at=_RECORDED + timedelta(seconds=1)),
+        ),
+        ontology_release_digest=_RELEASE,
+        clock=lambda: _NOW,
+    )
+
+    assessment = await service.assess(_change())
+
+    assert "graph_changed_during_assessment" not in assessment.reasons
+    assert assessment.review_required is False
+
+
 @pytest.mark.parametrize(
     ("source", "store"),
     [

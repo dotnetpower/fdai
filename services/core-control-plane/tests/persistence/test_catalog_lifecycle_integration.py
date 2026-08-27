@@ -17,6 +17,7 @@ pytestmark = pytest.mark.integration
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 _SERVICE_CONFIG = REPO_ROOT / "service-migrations" / "configs" / "core-control-plane.ini"
+_CATALOG_LIFECYCLE_REVISION = "core_catalog_lifecycle_20260829"
 
 
 def _requires_live_db() -> str:
@@ -101,10 +102,10 @@ def _downgrade_service(url: str, revision: str) -> None:
     )
 
 
-def _service_previous_head(head: str) -> str:
-    revision = ScriptDirectory.from_config(Config(str(_SERVICE_CONFIG))).get_revision(head)
+def _service_predecessor(revision_id: str) -> str:
+    revision = ScriptDirectory.from_config(Config(str(_SERVICE_CONFIG))).get_revision(revision_id)
     if revision is None or not isinstance(revision.down_revision, str):
-        raise AssertionError(f"service migration head {head!r} has no single predecessor")
+        raise AssertionError(f"service migration {revision_id!r} has no single predecessor")
     return revision.down_revision
 
 
@@ -117,8 +118,8 @@ def test_catalog_version_lifecycle_on_current_service_migration_head() -> None:
     url = _requires_live_db()
     _run_legacy_upgrade(url)
     head = _ensure_service_head(url)
-    previous_head = _service_previous_head(head)
-    _downgrade_service(url, previous_head)
+    catalog_predecessor = _service_predecessor(_CATALOG_LIFECYCLE_REVISION)
+    _downgrade_service(url, catalog_predecessor)
     prefix = uuid.uuid4().hex
     rule_id = f"lifecycle.rule.{prefix}"
     old_version = f"catalog-n-{prefix}"
@@ -148,7 +149,7 @@ def test_catalog_version_lifecycle_on_current_service_migration_head() -> None:
             )
             conn.commit()
 
-        upgrade = _run_service("upgrade", "head", url=url)
+        upgrade = _run_service("upgrade", _CATALOG_LIFECYCLE_REVISION, url=url)
         assert upgrade.returncode == 0, (
             f"service migration upgrade failed:\nstdout:\n{upgrade.stdout}\nstderr:\n"
             f"{upgrade.stderr}"
@@ -246,7 +247,7 @@ def test_catalog_version_lifecycle_on_current_service_migration_head() -> None:
                 "-c",
                 str(_SERVICE_CONFIG),
                 "downgrade",
-                previous_head,
+                catalog_predecessor,
             ],
             cwd=REPO_ROOT,
             env={**os.environ, "FDAI_DATABASE_URL": url},

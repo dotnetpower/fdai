@@ -193,7 +193,7 @@ class ChangeAssessmentService:
             if (
                 receipt is None
                 or latest_receipt is None
-                or latest_receipt.receipt_digest != receipt.receipt_digest
+                or _graph_state_identity(latest_receipt) != _graph_state_identity(receipt)
             ):
                 reasons.append("graph_changed_during_assessment")
         if affected.truncated:
@@ -250,6 +250,24 @@ def _required_text(value: Mapping[str, Any], name: str) -> str:
     if not resolved:
         raise ValueError(f"change {name} MUST be non-empty")
     return resolved
+
+
+def _graph_state_identity(receipt: GraphFreshnessReceipt) -> tuple[object, ...]:
+    """Compare authoritative graph state without treating read time as a mutation."""
+
+    return (
+        receipt.ontology_release_digest,
+        receipt.target_ref,
+        receipt.source_generation,
+        receipt.graph_revision,
+        receipt.observed_at,
+        receipt.valid_until,
+        receipt.complete,
+        receipt.truncated,
+        receipt.conflicts,
+        receipt.source_identity,
+        receipt.verification_method,
+    )
 
 
 def _required_datetime(value: Mapping[str, Any], name: str) -> datetime:
