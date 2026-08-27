@@ -81,6 +81,38 @@ def adjudicate_observations(claims: Sequence[ObservedClaim]) -> ObservationVerdi
         ObservationIdentityConflictError: the claims disagree on the observed type.
     """
 
+    return _adjudicate(claims, flag_provider_conflict=True)
+
+
+def adjudicate_independent_observations(
+    claims: Sequence[ObservedClaim],
+) -> ObservationVerdict:
+    """Adjudicate two or more distinct provider observations without selecting a winner.
+
+    Agreement across providers is an empty conflict result, while a differing
+    property is withheld and named in the conflict tuple. Provider identity is
+    a prerequisite for this mode, not a conflict itself.
+    """
+
+    if len(claims) < 2:
+        raise ValueError("independent observation adjudication requires at least two claims")
+    providers = {claim.provider_ref for claim in claims}
+    if (
+        None in providers
+        or any(not isinstance(provider, str) or not provider.strip() for provider in providers)
+        or len(providers) != len(claims)
+    ):
+        raise ValueError(
+            "independent observations require one distinct provider reference per claim"
+        )
+    return _adjudicate(claims, flag_provider_conflict=False)
+
+
+def _adjudicate(
+    claims: Sequence[ObservedClaim],
+    *,
+    flag_provider_conflict: bool,
+) -> ObservationVerdict:
     if not claims:
         raise ValueError("observation adjudication requires at least one claim")
     types = {claim.type.strip() for claim in claims}
@@ -101,7 +133,7 @@ def adjudicate_observations(claims: Sequence[ObservedClaim]) -> ObservationVerdi
 
     conflicts: set[str] = set()
     provider_refs = {claim.provider_ref for claim in claims}
-    if len(provider_refs) != 1:
+    if flag_provider_conflict and len(provider_refs) != 1:
         conflicts.add(CONFLICT_PROVIDER_REF)
 
     agreed: dict[str, Any] = {}
@@ -157,5 +189,6 @@ __all__ = [
     "ObservationIdentityConflictError",
     "ObservationVerdict",
     "ObservedClaim",
+    "adjudicate_independent_observations",
     "adjudicate_observations",
 ]

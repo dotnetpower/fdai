@@ -10,6 +10,7 @@ from fdai.core.ontology_platform.observation_adjudication import (
     MAX_OBSERVATION_CONFLICTS,
     ObservationIdentityConflictError,
     ObservedClaim,
+    adjudicate_independent_observations,
     adjudicate_observations,
 )
 
@@ -125,6 +126,62 @@ def test_disagreeing_provider_ref_is_an_explicit_conflict() -> None:
     )
 
     assert "observed_provider_ref_conflict" in verdict.conflicts
+
+
+def test_independent_providers_agree_without_increasing_authority() -> None:
+    verdict = adjudicate_independent_observations(
+        (
+            _claim(provider_ref="provider-ref-1"),
+            _claim(provider_ref="provider-ref-2"),
+        )
+    )
+
+    assert verdict.conflicts == ()
+    assert verdict.agreed_properties == {"status": "running"}
+
+
+def test_independent_provider_disagreement_withholds_only_contested_values() -> None:
+    verdict = adjudicate_independent_observations(
+        (
+            _claim(
+                provider_ref="provider-ref-1",
+                properties={"status": "running", "region": "one"},
+            ),
+            _claim(
+                provider_ref="provider-ref-2",
+                properties={"status": "deallocated", "region": "one"},
+            ),
+        )
+    )
+
+    assert verdict.conflicts == ("observed_property_conflict:status",)
+    assert verdict.agreed_properties == {"region": "one"}
+
+
+@pytest.mark.parametrize(
+    ("claims", "message"),
+    (
+        ((_claim(provider_ref="provider-ref-1"),), "at least two"),
+        (
+            (_claim(provider_ref=None), _claim(provider_ref="provider-ref-2")),
+            "distinct provider",
+        ),
+        (
+            (_claim(provider_ref=" "), _claim(provider_ref="provider-ref-2")),
+            "distinct provider",
+        ),
+        (
+            (_claim(provider_ref="provider-ref-1"), _claim(provider_ref="provider-ref-1")),
+            "distinct provider",
+        ),
+    ),
+)
+def test_independent_adjudication_requires_distinct_provider_identity(
+    claims: tuple[ObservedClaim, ...],
+    message: str,
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        adjudicate_independent_observations(claims)
 
 
 def test_conflicting_type_is_an_identity_contradiction() -> None:

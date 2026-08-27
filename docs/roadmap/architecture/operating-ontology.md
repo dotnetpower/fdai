@@ -135,6 +135,7 @@ dependencies, objectives, evidence, allowed actions, and expected effects. Upstr
 | 2026-08-27 | implemented | Closed the semantic-empty revision case after follow-up review. Matching whitespace-only operating-model revisions now remain incomplete instead of satisfying identity equality. | `current change`; focused freshness and pantheon checks (`53 passed`); Ruff and strict mypy. | Retain deployed evidence separately. |
 | 2026-08-27 | implemented | Reviewed every shipped lifecycle-free ObjectType and recorded the existing catalog, event-bus, provider, service, or principal-scoped authority without introducing speculative agent writers. | `current change`; `rule-catalog/vocabulary/object-types/` inventory and the owner documentation authority table. | Reopen only when an existing authority changes or a type gains an objectively required lifecycle. |
 | 2026-08-27 | implemented | Added authority-free runtime projections for positive `Forecast` episodes and balanced `Pattern` candidates, preserving detector, target, interval, case, and evidence identities without restoring unsupported relationships. | `current change`; `core/ontology_platform/detection_projection.py`; focused detection, forecast-episode, and operational-learning tests (`11 passed`). | Restore `predicts_breach_of` or `learned_as` only after a producer supplies the exact objective or outcome endpoint identity. |
+| 2026-08-27 | implemented | Added deterministic adjudication for two distinct provider observations and documented the existing projected-state-versus-telemetry shadow adjudication as the second cross-source pair. Conflicts remain explicit, contested values are withheld, and no authority or autonomy ceiling is raised. | `current change`; `observation_adjudication.py`; `test_observation_adjudication.py` and `test_resource_state_shadow.py` (`37 passed`). | Decide any future non-read-path conflict carrier only through an explicit single-writer design. |
 | 2026-08-27 | implemented | Completed bounded canonical JSON semantics for object and array Property values. Normalization now enforces finite, depth- and byte-bounded JSON with stable key ordering, and the collection coverage gate records all rule-evaluated references as reviewed. | `current change`; `property_semantic.py`; `test_property_semantic.py`; `check-property-semantic-coverage.py` reports 62/62 reviewed references. | Preserve the reviewed registry and raise its floor with any new collection Property reference. |
 | 2026-08-27 | implemented | Bound receipt-verified Context metadata into the existing principal-scoped operational evidence response. The response now carries a server-checked principal, and Context projection rejects principal, purpose, release, stale, incomplete, and truncated evidence before returning metadata. | `current change`; `core/operational_context/test_console_projection.py` and `test_evidence_read.py` (`14 passed`). | Retain authenticated Console evidence separately; no authority or runtime promotion changes. |
 
@@ -156,12 +157,12 @@ dependencies, objectives, evidence, allowed actions, and expected effects. Upstr
   agent single-writer is required or whether catalog-as-code, a projection, or the event-bus
   registry is the correct authority ([#130](https://github.com/dotnetpower/fdai/issues/130)); the
   complete authority table is in the owner document.
-- [ ] Adjudicate two independent cloud providers against each other, and projected state against
-  telemetry. Today only repeated observations inside one generation and the live-read against
-  inventory-projection pair are decided.
-- [ ] Decide whether an adjudicated cross-source conflict should also reach an autonomy ceiling
-  outside the read path, and which writer may carry it without breaking single-writer ownership of
-  the projected subgraph.
+- [x] Adjudicate two independent cloud providers against each other, and projected state against
+  telemetry. Focused tests prove explicit conflicts, contested-value withholding, and no authority
+  increase.
+- [ ] Decide whether an adjudicated cross-source conflict should reach an autonomy ceiling outside
+  the read path, and which writer may carry it without breaking single-writer ownership of the
+  projected subgraph; this remains deferred pending a separate authority design.
 
 ## Catalog semantic projection
 
@@ -531,8 +532,11 @@ fact with `deterministic_function` authority:
   changes the authoritative value, and the shadow path still has no approval, mutation, or
   execution authority.
 
-**Not adjudicated yet.** No production path compares two independent providers, and no path
-adjudicates projected state against telemetry.
+The provider-pair gap is now closed as a deterministic, read-only primitive. The
+`adjudicate_independent_observations` path requires one distinct authenticated provider reference
+per claim, withholds contested properties, and emits explicit conflict keys without choosing a
+winner. The existing projected-state-versus-telemetry shadow path applies the same no-authority
+rule and records conflicts on its derived fact and receipt.
 
 **Reading an empty conflict tuple.** An empty `StateFactMetadata.conflicts` means only that the
 observations that were compared agreed. It is not proof that the fact was independently
