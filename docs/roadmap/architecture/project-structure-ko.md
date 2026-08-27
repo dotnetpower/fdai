@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 6d1698f80d88469c329fad0ae8aa17d1603bc11b
+translation_source_sha: f912ee80fa5dc8bf95749c59a73c49da978e76e5
 translation_revised: 2026-08-30
 ---
 # 프로젝트 구조
@@ -31,6 +31,8 @@ translation_revised: 2026-08-30
   `ArchitectureReviewProjector.project_observation`은 읽기 전용 ReviewCase와 ReviewCheck 객체를
   파생합니다. 이 경로에는 승인, 변경, 승격 또는 실행 권한이 없고 주입된 상태 저장소로 중복 및
   재시작 안전 재생을 보장합니다.
+  이 루프는 `planned` 의도만 허용하고 정확한 온톨로지 및 카탈로그 릴리스를 연결하며, 일시적
+  보류를 변환할 때 기존 검사를 삭제하지 않습니다.
   Pantheon member는 `agents/` 바로 아래의 flat layout을 유지합니다. Private behavior-extraction
   mixin은 `agents/_framework/`에 두며 member의 AgentSpec, topic, ownership, model policy 또는
   authority를 바꿀 수 없습니다.

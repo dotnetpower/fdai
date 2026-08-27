@@ -96,6 +96,13 @@ retains terminal observer `gave_up`/`halted` states as degradation evidence. It 
 agents directly, mutate runtime state, or grant execution authority. When an ARB stage has no
 distinct owned record yet, the trace stays on hold instead of synthesizing success.
 
+The review accepts only `planned` intent. It hashes the complete Change identity, uses one absolute
+deadline, and serializes only identical idempotency keys, so unrelated reviews can continue in
+parallel. Context and evidence must name the same ontology and catalog releases. An unavailable
+re-read preserves existing checks instead of removing them, and evidence artifact identities bind
+the bundle and item content. The resulting `Change`, `DecisionCase`, `ImpactEnvelope`, and
+`ReviewCase` records retain typed lineage links and remain explicitly observation-only.
+
 ## Autonomous review levels
 
 Autonomy applies to review work before it applies to changes. A machine-ready result is not the

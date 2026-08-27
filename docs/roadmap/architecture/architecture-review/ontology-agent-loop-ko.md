@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 기반 ARB 에이전트 루프
 translation_of: ontology-agent-loop.md
-translation_source_sha: 083140616cb2524a508bbb0f8901fac6c6b4af06
-translation_revised: 2026-08-29
+translation_source_sha: 05a1184027915abd9fa6b962792358bf452bbc85
+translation_revised: 2026-08-30
 ---
 # 온톨로지 기반 ARB 에이전트 루프
 
@@ -96,6 +96,13 @@ ARB 읽기 모델은 에이전트가 소유한 레코드에서 파생됩니다. 
 종료된 observer `gave_up`/`halted` 상태를 성능 저하 근거로 보존합니다. 이 연결은 에이전트를
 직접 호출하지 않고 런타임 상태를 변경하지 않으며 실행 권한도 부여하지 않습니다. ARB 단계에
 해당하는 고유한 소유 레코드가 아직 없으면 추적은 성공을 합성하지 않고 보류 상태로 남습니다.
+
+검토는 `planned` 의도만 허용합니다. 전체 Change 신원을 해시하고 하나의 절대 기한을 사용하며
+동일한 멱등성 키만 직렬화하므로 관련 없는 검토는 병렬로 계속될 수 있습니다. 컨텍스트와 근거는
+같은 온톨로지 및 카탈로그 릴리스를 지목해야 합니다. 다시 읽을 수 없는 경우 기존 검사를 제거하지
+않고 보존하며, 근거 산출물 신원은 묶음과 항목 내용을 연결합니다. 결과 `Change`,
+`DecisionCase`, `ImpactEnvelope`, `ReviewCase` 레코드는 타입이 지정된 계보 연결을 유지하고
+명시적인 관찰 전용 상태로 남습니다.
 
 ## 자율 검토 수준
 

@@ -166,6 +166,9 @@ Heimdall publishes the finding and never acquires resources or starts reconcilia
 The 15 agents jointly cover SRE, ARB, and FinOps workflows through composition. Non-agent
 observation consumers may retain replay and health evidence from owned topics, but they never join
 the pantheon, publish owned objects, judge, approve, or execute; see §6, §6.4, and §7.6.
+Forseti's observation-mode ARB failure record preserves the complete Change digest even when context
+or evidence collection fails. The hold remains replayable and cannot gain approval or execution
+authority from an unknown dependency result.
 
 ### 4.1 Per-agent task inventory
 

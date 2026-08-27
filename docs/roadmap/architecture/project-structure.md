@@ -30,6 +30,8 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   existing typed bus; Saga audits it, and `ArchitectureReviewProjector.project_observation` derives
   read-only ReviewCase and ReviewCheck objects. This path has no approval, mutation, promotion, or
   execution authority and uses an injected state store for duplicate and restart-safe replay.
+  The loop accepts only planned intent, binds exact ontology and catalog releases, and projects
+  transient holds without deleting prior checks.
   Pantheon members remain flat under `agents/`; private behavior-extraction mixins belong under
   `agents/_framework/` and cannot change the member's AgentSpec, topics, ownership, model policy,
   or authority.
