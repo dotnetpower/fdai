@@ -54,6 +54,7 @@ TOPOLOGY_LINK_TYPES: tuple[str, ...] = (
     "depends_on",
     "routes_to",
     "peered_with",
+    "runtime_calls",
 )
 
 _RESOURCE_OBJECT_TYPE = "Resource"
