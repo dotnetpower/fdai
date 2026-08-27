@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 7f1c61f72ace6421c446e570dfa5a7d5a9393021
+translation_source_sha: 413936f799eb4c30315829bda9ee152e6fb2b95f
 translation_revised: 2026-08-30
 ---
 # FDAI 온톨로지 안전 인프라
@@ -169,6 +169,7 @@ Console은 redaction, 호환성, 완전성 또는 권한을 계산하지 않습�
 | 2026-08-27 | implemented | 정확한 id batch를 객체 전용으로 유지해 관계 완전성을 상속하지 않게 했습니다. 또한 불투명한 선택 token을 스칼라 Function 입력으로 전달해 객체 값인 결과를 의존성 전용으로 유지했습니다. | `current change`, contextual Function, ObjectSet, 의존성 입력 및 semantic planning 검사 123개 통과, Ruff 및 strict mypy 통과. PostgreSQL 런타임 근거는 환경 제약으로 아직 확인하지 못했습니다. | 배포 database 지연 시간 및 connection pressure 근거는 별도로 보존합니다. Remote database는 조회하지 않았습니다. |
 | 2026-08-27 | implemented | 불완전한 결과 hold를 contextual resource plan에만 적용해 일반 bounded query가 명시적인 잘림 결과를 계속 반환하게 했습니다. | `current change`, contextual 및 non-contextual semantic runtime 검사 108개 통과, Ruff 및 strict mypy 통과 | 인증된 runtime 표시 근거는 별도로 보존합니다. |
 | 2026-08-27 | implemented | Operator 경계에서 서버가 해석한 화면 또는 리소스 그룹 선택 다이제스트를 semantic 요청 생성 전에 다시 계산합니다. 등록된 선택 신원이 일치하지 않으면 이제 서비스 간 전송 전에 실패합니다. | `current change`, 정확한 화면, 변조된 다이제스트 및 512개 id Operator 묶음 검사 3개 통과, Ruff 및 strict mypy 통과 | 인증된 runtime 전송 근거는 별도로 보존합니다. |
+| 2026-08-27 | implemented | 호출자가 주장하는 프로바이더 검증 boolean을 주입된 신원 검증기로 교체하고 범위가 제한된 비어 있지 않은 대상 및 세대 신원을 요구했습니다. 모든 프로바이더가 해당 대상 세대에 대해 검증된 뒤에만 독립 프로바이더 판정을 시작합니다. | `current change`; 프로바이더 판정 및 변환 상태 shadow 검사 42개 통과; Ruff 및 strict mypy. | 이 선택적 기본 요소를 조립하기 전에 프로덕션 검증기를 연결합니다. 외부 프로바이더는 조회하지 않았습니다. |
 | 2026-08-27 | implemented | 근거 묶음을 만들기 전에 직렬화된 Context 응답 묶음 공간을 예약했습니다. 바이트 예산이 가득 찬 읽기는 Context 메타데이터를 붙인 뒤 실패하지 않고 명시적인 보류 이유와 함께 범위가 제한된 근거를 제거합니다. | `current change`; 근거 읽기 및 묶음 검사 37개 통과; Ruff 및 strict mypy. | 인증된 런타임 응답은 별도로 보존합니다. 외부 근거는 만들지 않았습니다. |
 | 2026-08-27 | implemented | 보안 증적 인증을 principal 범위, 호출자 역할, 기준 시점, 출처 완전성 및 세대, 개수, 잘림 및 정제 요약을 포함한 전체 발급 증적에 연결했습니다. 다이제스트에 포함된 그래프 상태에서 완전성을 다시 파생하므로 발급 다이제스트의 표지만 바꿔 불완전한 근거를 완전하게 만들 수 없습니다. | `current change`; 보안 쿼리, Context 변환 및 네트워크 증적 검사 43개 통과; Ruff 및 strict mypy. | 인증된 런타임 근거는 별도로 보존합니다. 외부 읽기는 수행하지 않았습니다. |
 | 2026-08-27 | implemented | Principal 범위 운영 근거 읽기를 증적으로 검증된 Context 메타데이터에 연결했습니다. 기존의 범위가 제한된 읽기 응답은 요청 principal을 보존하며 Context 근거가 일치하지 않거나 불완전하면 변경 또는 실행 권한 없이 차단합니다. | `current change`; 집중 운영 컨텍스트 및 시나리오 분기 검사 14개 통과. | 인증된 런타임 근거는 별도로 보존합니다. |

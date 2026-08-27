@@ -111,6 +111,8 @@ relationships require exact endpoint identities before catalog restoration.
 Their persistence methods are idempotent over the existing ontology instance-store seam.
 Provider-neutral observation adjudication preserves only properties that distinct providers report
 identically and records every contested field without selecting a winner.
+Independent-provider comparison requires an injected verifier for every canonical provider in the
+exact bounded target generation.
 Context reads bind authenticated principal-scoped receipts, while Forecast and Pattern producers
 use atomic persistence and authenticated producer attestations.
 Secured query receipt verification re-derives completeness from the full digest-covered issued

@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 3f8fa824fc42fd17250cbf11a7b4c3da149bb508
+translation_source_sha: ec22105171c96857eba967f38e62f5f1ae9e3434
 translation_revised: 2026-08-30
 ---
 # 코드 맵
@@ -115,6 +115,8 @@ Detection 변환 결과도 출처에서 파생된 Forecast 및 Pattern 객체만
 해당 영속화 메서드는 기존 온톨로지 인스턴스 저장소 경계에서 멱등성을 유지합니다.
 프로바이더 중립 관측 판정은 서로 다른 프로바이더가 동일하게 보고한 속성만 보존하고 승자를
 선택하지 않은 채 모든 경합 필드를 기록합니다.
+독립 프로바이더 비교는 범위가 제한된 정확한 대상 세대의 모든 정규 프로바이더에 주입된
+검증기를 요구합니다.
 Context 읽기는 인증된 principal 범위 증적을 연결하고 Forecast 및 Pattern 생산자는 원자적
 영속화와 인증된 생산자 증명을 사용합니다.
 보안 쿼리 증적 검증은 표지만 바꾼 다이제스트를 신뢰하지 않고 다이제스트에 포함된 전체 발급
