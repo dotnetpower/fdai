@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 0c8afe0036a6588664467cdb25b25880dabd64c5
+translation_source_sha: b97fa4e126727065a48cde88aba638155b453fff
 translation_revised: 2026-08-27
 ---
 # 온톨로지 조회 커버리지 구현 계획
@@ -130,9 +130,9 @@ translation_revised: 2026-08-27
 > 고정해야 게이트를 통과하며 stale 결정론적 receipt는 compatibility로 수락하지 않습니다.
 > `resource_classified_as` 카탈로그 개정과 `Forecast`/`Pattern` 카탈로그 개정은 각각 같은 release
 > 변경에서 해당 결정론적 고정본 다이제스트를 갱신했습니다.
-> 현재 구조 release 갱신도 답변이 있는 결정론적 고정본 4개를 정확한 release 및 Reader
-> principal-manifest 다이제스트에 고정합니다. 게이트는 질문 10개, principal 매니페스트 4개,
-> 질문 증적 10개로 통과하며 `production_ready=false`를 유지합니다.
+> 현재 구조 release 갱신은 답변이 있는 결정론적 고정본 4개를 정확한 release 및 Reader
+> principal-manifest 다이제스트에 고정합니다. 설계 경로는 전체 Operator Console 소유자를
+> 중복하지 않고 App Shape 계약을 사용하며 `production_ready=false`를 유지합니다.
 > 첫 인식 상태 완결성 구현 구획은 이제 변경할 수 없는 유한 `QuestionUniverseReceipt`, 형식이
 > 지정된 `EpistemicStatus`, 증명을 포함하는 `EpistemicQuestionRecord`, 0건 임계값을 적용하는
 > `EpistemicCoverageReceipt`를 제공합니다. 기존 커버리지 게이트는 외부 증적 출처가

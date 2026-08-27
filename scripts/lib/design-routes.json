@@ -1495,8 +1495,7 @@
         "docs/roadmap/architecture/operating-ontology-platform.md",
         "docs/roadmap/architecture/continuous-operational-instance-graph.md",
         "docs/roadmap/rules-and-detection/rule-semantic-retrieval.md",
-        "docs/roadmap/rules-and-detection/causal-incident-graph.md",
-        "docs/roadmap/interfaces/operator-console.md"
+        "docs/roadmap/rules-and-detection/causal-incident-graph.md"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/hierarchical-conversation-planning.md",
