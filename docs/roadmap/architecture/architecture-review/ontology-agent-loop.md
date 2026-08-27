@@ -113,7 +113,7 @@ The Console should present separate axes instead of one green or red status:
 Every displayed state links to the exact `Change`, context digest, evidence bundle digest,
 `DecisionCase`, conditions, approvals, and audit records that produced it.
 
-Planned-change freshness now binds the persisted ontology and operating-model manifests, rejects pending resource or relationship overlays, and requires a stable authoritative re-read after graph traversal.
+Planned-change freshness binds the persisted ontology manifest and one matching projected operating-model revision, rejects pending resource or relationship overlays, and requires a stable authoritative re-read after graph traversal.
 
 ## Current gaps
 

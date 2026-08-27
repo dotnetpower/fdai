@@ -200,6 +200,38 @@ def test_operating_model_revision_changes_receipt_identity() -> None:
     assert first.receipt_digest != second.receipt_digest
 
 
+@pytest.mark.parametrize(
+    ("overrides", "reason"),
+    [
+        ({"operating_status": None}, "operating_model_incomplete"),
+        ({"operating_manifest": None}, "operating_model_incomplete"),
+        (
+            {
+                "operating_status": {
+                    "status": "projected",
+                    "source_revision": "operating-model-2",
+                }
+            },
+            "operating_model_incomplete",
+        ),
+    ],
+)
+def test_operating_model_identity_is_required(
+    overrides: dict[str, object],
+    reason: str,
+) -> None:
+    receipt = _receipt_from_row(
+        _row(**overrides),
+        target_ref="resource-a",
+        ontology_release_digest=_RELEASE,
+        freshness_budget=timedelta(hours=1),
+    )
+
+    assert receipt is not None
+    assert receipt.complete is False
+    assert reason in receipt.conflicts
+
+
 @pytest.mark.parametrize("metadata", [None, [], "{not-json"])
 def test_active_inventory_rejects_malformed_metadata(metadata: object) -> None:
     with pytest.raises((TypeError, ValueError)):
