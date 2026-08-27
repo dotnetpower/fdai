@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: ed48589ea6de22c844930d98a1174971c4630c01
+translation_source_sha: e779337570e43a1ec0bc97d164925a639ad06e87
 translation_revised: 2026-08-28
 ---
 # FDAI 온톨로지 안전 인프라
@@ -44,6 +44,8 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 > delta 및 tombstone을 보존합니다. Pure `graph_at`/`topology_diff` 함수는 late 근거가 도착해도
 > pinned `known_at` 재생을 보존합니다. 모든 replay batch는 일관된 ontology release binding을
 > 가져야 하며 dangling link 또는 누락되거나 혼합된 release는 completeness를 낮춥니다. 타입이 지정된 조회
+> 검토된 `runtime_calls` LinkType은 inventory topology projection contract에 포함되므로 인증된
+> caller-to-target edge가 current 및 historical view에서 exact Resource endpoint를 유지합니다.
 > 핸들러와 검증기 스키마는 프로바이더 텍스트 없이 이 함수를 노출합니다. Core-owned 이행은
 > 삽입/읽기 전용 런타임 권한 부여를 가진 추가 전용 이력 표를 만듭니다. PostgreSQL 읽기 담당/쓰기 담당
 > 조립과 inventory-promotion 발행은 남아 있습니다.

@@ -13,6 +13,7 @@ from fdai.core.ontology_platform.runtime_call_telemetry import (
     RuntimeCallTelemetryProducer,
 )
 from fdai.delivery.inventory_sync import PromotedInventoryObservation
+from fdai.delivery.inventory_topology_history import InventoryTopologyHistoryPublisher
 from fdai.delivery.runtime_call_inventory import (
     RuntimeCallInventoryEnricher,
     RuntimeCallTelemetryBatch,
@@ -20,8 +21,10 @@ from fdai.delivery.runtime_call_inventory import (
     UnavailableRuntimeCallInventoryEnricher,
 )
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
+from fdai.runtime.inventory_ontology import InventoryOntologyProjector
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.providers.inventory import ResourceRecord
+from fdai.shared.providers.testing import InMemoryOntologyInstanceStore, InMemoryStateStore
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 NOW = datetime(2026, 8, 24, 4, 0, tzinfo=UTC)
@@ -172,3 +175,59 @@ async def test_unbound_production_enricher_records_explicit_unavailability() -> 
     assert enriched.source_states[0].source == "runtime_call_graph"
     assert enriched.source_states[0].status.value == "unavailable"
     assert enriched.source_states[0].reason == "telemetry_source_unavailable"
+
+
+async def test_runtime_call_flows_through_inventory_current_and_history_projections() -> None:
+    envelope = _envelope()
+    enriched = await _enricher(
+        RuntimeCallTelemetryBatch(
+            records=(RuntimeCallTelemetryRecord(envelope, _context(envelope)),),
+            observed_at=NOW + timedelta(seconds=1),
+            complete=True,
+        )
+    ).enrich(_observation())
+    catalog = load_ontology_catalog(
+        REPO_ROOT / "rule-catalog",
+        schema_registry=PackageResourceSchemaRegistry(),
+        probes_root=REPO_ROOT / "rule-catalog" / "probes",
+    )
+    store = InMemoryOntologyInstanceStore(
+        object_types=catalog.object_types,
+        link_types=catalog.link_types,
+    )
+    status = InMemoryStateStore()
+    current = InventoryOntologyProjector(
+        store=store,
+        status_store=status,
+        ontology_release_digest="sha256:" + "a" * 64,
+    )
+
+    class _HistoryWriter:
+        def __init__(self) -> None:
+            self.batches = []
+
+        async def append(self, batch, *, ontology_release_digest, source_receipt_digest):
+            self.batches.append((batch, ontology_release_digest, source_receipt_digest))
+
+    writer = _HistoryWriter()
+    history = InventoryTopologyHistoryPublisher(
+        writer=writer,
+        ontology_release_digest="sha256:" + "a" * 64,
+    )
+
+    projection = await current.apply(enriched)
+    batch = await history.publish(enriched)
+    graph = await store.traverse(
+        root_ids=("resource:caller",),
+        link_types=("runtime_calls",),
+        direction="outgoing",
+        max_depth=1,
+    )
+
+    assert projection.complete is True
+    assert projection.link_count == 1
+    assert batch is not None
+    assert len(writer.batches) == 1
+    assert [(link.link_type, link.from_id, link.to_id) for link in graph.links] == [
+        ("runtime_calls", "resource:caller", "resource:target")
+    ]

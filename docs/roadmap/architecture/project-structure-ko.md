@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: a288ffb6630ebdd73873e0a46596f06f50faa682
+translation_source_sha: 44ae98769a17af6c2be2945b97b78561854a6e88
 translation_revised: 2026-08-28
 ---
 # 프로젝트 구조
@@ -53,6 +53,9 @@ provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니�
 - Historical topology는 선택된 모든 PostgreSQL revision이 동일한 exact ontology release
   binding을 가질 때에만 replay-safe입니다. 누락되거나 혼합된 release와 dangling active link는
   absence를 입증하지 않고 completeness를 낮춥니다.
+- Inventory projection contract는 다른 Resource topology link와 함께 검토된 `runtime_calls` link를
+  등록합니다. 따라서 verified telemetry edge는 선언된 Resource-to-Resource 방향을 사용하며
+  current 및 historical read path에서 사용할 수 있습니다.
 - **정책과 규칙은 코드 경로가 아닌 데이터**: T0가 런타임에 `rule-catalog/` 엔트리와 `policies/`
   를 로드하므로 규칙/정책 추가에 엔진 변경이 필요 없습니다. 규칙은 의도와 교정을
   기술하고, 정책은 검증기가 재검사하는 실행 가능한 OPA/Rego입니다. 소스가 이 YAML로 수집·
