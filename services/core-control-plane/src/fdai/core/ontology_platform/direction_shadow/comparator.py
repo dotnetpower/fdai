@@ -119,6 +119,7 @@ def compare_graph_generations(
         migration_ready=False,
         graph_mutation_authority=False,
         migration_execution_authority=False,
+        exact_release_mode=require_exact_releases,
     )
 
 
@@ -135,9 +136,7 @@ def replay_matches(
         migration_revision=receipt.migration_revision,
         rebuild_pointer=receipt.rebuild_pointer,
         bounds=receipt.bounds,
-        require_exact_releases=(
-            legacy.provider_schema_digest is not None or aligned.provider_schema_digest is not None
-        ),
+        require_exact_releases=receipt.exact_release_mode,
     )
     return replayed == receipt
 
@@ -215,6 +214,14 @@ def _generation_review_reasons(
                 (
                     aligned.provider_schema_digest is None,
                     ReviewReason.ALIGNED_PROVIDER_SCHEMA_UNBOUND,
+                ),
+                (
+                    legacy.mapping_revision is None,
+                    ReviewReason.LEGACY_MAPPING_RELEASE_UNBOUND,
+                ),
+                (
+                    aligned.mapping_revision is None,
+                    ReviewReason.ALIGNED_MAPPING_RELEASE_UNBOUND,
                 ),
             )
         )

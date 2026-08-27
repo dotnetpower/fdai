@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: bd109b76b6a7a537d9e598faf81c73eeafceec46
+translation_source_sha: 5fecf81a0177cc9f0bdac6e0daf447217879da0f
 translation_revised: 2026-08-27
 ---
 # 온톨로지 구조 모델
@@ -137,6 +137,11 @@ API endpoint, CA 묶음 또는 마운트된 service-account token이 구성되�
 역할 이름은 LinkType 하나의 범위에서만 유효하며 다른 저장 링크를 암시하지 않습니다. 특성은
 도메인 의미를 표현하며 색상, 레이아웃 레인 또는 그래프 좌표를 표현하지 않습니다. 기존 인과,
 시간, 전이, 카디널리티, 엔드포인트 계약은 계속 독립적입니다.
+
+Provider 관계 mapping은 검토된 cardinality도 보존합니다. 후보 materialization은 versioned
+proposal generation에 들어가기 전에 카탈로그 cardinality, LinkType, endpoint orientation,
+source property path 및 source schema identity와 일치해야 합니다. 카탈로그 값이 생략된 경우에는
+검토된 LinkType default만 사용합니다.
 
 첫 구현은 `contains`, `attached_to`, `depends_on`, `routes_to`, `runtime_calls`, `peered_with`,
 `resource_classified_as`, `resource_type_member_of_class`, `resource_class_specializes`에 이 필드를

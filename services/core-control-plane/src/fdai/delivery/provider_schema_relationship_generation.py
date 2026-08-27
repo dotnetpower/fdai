@@ -24,6 +24,7 @@ from fdai.delivery.provider_schema_relationship_review import (
 )
 from fdai.rule_catalog.schema.provider_relationship_mapping import (
     EndpointOrientation,
+    ProviderRelationshipMapping,
     ProviderRelationshipMappingCatalog,
 )
 
@@ -99,12 +100,20 @@ class ProviderSchemaRelationshipCandidate:
 
     source_provider_type: str
     target_provider_type: str
+    source_provider_versions: tuple[str, ...]
+    target_provider_versions: tuple[str, ...]
     reference_count: int
     metadata: RelationshipLinkMetadata
 
     def __post_init__(self) -> None:
         if self.reference_count < 1:
             raise ValueError("relationship candidate reference_count MUST be positive")
+        for name, versions in (
+            ("source_provider_versions", self.source_provider_versions),
+            ("target_provider_versions", self.target_provider_versions),
+        ):
+            if not versions or versions != tuple(sorted(set(versions))):
+                raise ValueError(f"relationship candidate {name} MUST be sorted and non-empty")
         if (
             self.source_provider_type.casefold() != self.metadata.source_provider_type
             or self.target_provider_type.casefold() != self.metadata.target_provider_type
@@ -115,7 +124,9 @@ class ProviderSchemaRelationshipCandidate:
         return {
             "reference_count": self.reference_count,
             "source_provider_type": self.source_provider_type,
+            "source_provider_versions": list(self.source_provider_versions),
             "target_provider_type": self.target_provider_type,
+            "target_provider_versions": list(self.target_provider_versions),
             **self.metadata.to_mapping(),
         }
 
@@ -208,6 +219,7 @@ def generate_provider_schema_relationship_generation(
         relationship_snapshot.source_revision.strip()
     ):
         raise ProviderSchemaError("provider relationship generation provider identity is invalid")
+    review.verify_digest()
     if relationship_snapshot.provider_schema_digest != provider_schema.schema_digest:
         raise ProviderSchemaError("provider relationship generation schema release is stale")
     if review.provider_schema_digest != provider_schema.schema_digest:
@@ -219,6 +231,7 @@ def generate_provider_schema_relationship_generation(
     _require_digest(projection_manifest_digest, "projection manifest digest")
     if mapping_catalog.review.content_hash != review.mapping_catalog_digest:
         raise ProviderSchemaError("provider relationship mapping catalog release is stale")
+    schema_types = {item.resource_type: item for item in provider_schema.types}
 
     metadata_by_pair: dict[tuple[str, str], list[RelationshipLinkMetadata]] = {}
     for metadata in link_metadata.values():
@@ -230,6 +243,12 @@ def generate_provider_schema_relationship_generation(
     drops: set[RelationshipGenerationDropReason] = set()
     for pair in review.candidates:
         key = (pair.source_provider_type, pair.target_provider_type)
+        source_schema_type = schema_types.get(pair.source_provider_type.casefold())
+        target_schema_type = schema_types.get(pair.target_provider_type.casefold())
+        if source_schema_type is None or target_schema_type is None:
+            raise ProviderSchemaError(
+                "provider relationship review candidate endpoint is not in schema snapshot"
+            )
         matching = [
             item
             for item in metadata_by_pair.get(key, ())
@@ -247,15 +266,22 @@ def generate_provider_schema_relationship_generation(
                 continue
             matching = [sorted(matching, key=lambda item: item.mapping_id)[0]]
         metadata = matching[0]
-        if metadata.source_schema_digest != _mapping_schema_digest(
-            metadata.mapping_id, mapping_catalog
-        ):
+        mapping = _mapping_for_id(metadata.mapping_id, mapping_catalog)
+        if not _metadata_matches_mapping(metadata, mapping):
             drops.add(RelationshipGenerationDropReason.STALE_LINK_METADATA)
             continue
         candidates.append(
             ProviderSchemaRelationshipCandidate(
                 source_provider_type=pair.source_provider_type,
                 target_provider_type=pair.target_provider_type,
+                source_provider_versions=(
+                    *source_schema_type.stable_api_versions,
+                    *source_schema_type.preview_api_versions,
+                ),
+                target_provider_versions=(
+                    *target_schema_type.stable_api_versions,
+                    *target_schema_type.preview_api_versions,
+                ),
                 reference_count=pair.reference_count,
                 metadata=metadata,
             )
@@ -337,8 +363,7 @@ def invalidate_changed_relationship_candidates(
     retained = tuple(
         candidate
         for candidate in generation.candidates
-        if candidate.source_provider_type not in changed
-        and candidate.target_provider_type not in changed
+        if not _candidate_is_changed(candidate, changed)
     )
     invalidated = len(retained) != len(generation.candidates)
     drops = set(generation.drops)
@@ -357,11 +382,33 @@ def invalidate_changed_relationship_candidates(
     )
 
 
-def _mapping_schema_digest(mapping_id: str, catalog: ProviderRelationshipMappingCatalog) -> str:
+def _mapping_for_id(
+    mapping_id: str,
+    catalog: ProviderRelationshipMappingCatalog,
+) -> ProviderRelationshipMapping:
     for mapping in catalog.mappings:
         if mapping.mapping_id == mapping_id:
-            return mapping.source_schema.digest
+            return mapping
     raise ProviderSchemaError("provider relationship metadata references an unknown mapping")
+
+
+def _metadata_matches_mapping(
+    metadata: RelationshipLinkMetadata,
+    mapping: ProviderRelationshipMapping,
+) -> bool:
+    """Require every semantic field to match the reviewed catalog entry."""
+
+    return (
+        metadata.mapping_id == mapping.mapping_id
+        and metadata.source_provider_type in mapping.source_provider_types
+        and metadata.target_provider_type in mapping.target_provider_types
+        and metadata.link_type == mapping.link_type
+        and metadata.endpoint_orientation is mapping.endpoint_orientation
+        and metadata.cardinality == mapping.cardinality
+        and metadata.source_property_path == mapping.source_property_path
+        and metadata.source_schema_version == mapping.source_schema.version
+        and metadata.source_schema_digest == mapping.source_schema.digest
+    )
 
 
 def _candidate_key(item: ProviderSchemaRelationshipCandidate) -> tuple[str, str, str]:
@@ -370,6 +417,25 @@ def _candidate_key(item: ProviderSchemaRelationshipCandidate) -> tuple[str, str,
         item.target_provider_type,
         item.metadata.mapping_id,
     )
+
+
+def _candidate_is_changed(
+    candidate: ProviderSchemaRelationshipCandidate,
+    changed: set[str],
+) -> bool:
+    identities = {
+        candidate.source_provider_type,
+        candidate.target_provider_type,
+        *(
+            f"{candidate.source_provider_type}@{version}"
+            for version in candidate.source_provider_versions
+        ),
+        *(
+            f"{candidate.target_provider_type}@{version}"
+            for version in candidate.target_provider_versions
+        ),
+    }
+    return bool(identities & changed)
 
 
 def _require_digest(value: str, name: str) -> None:
