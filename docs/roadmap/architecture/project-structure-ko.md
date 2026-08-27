@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 13aad6651033cf4e9f1e1a704b8b254d8a4f056b
+translation_source_sha: 838140f68db51e025a6d4053f276c62db8a56506
 translation_revised: 2026-08-27
 ---
 # 프로젝트 구조
@@ -97,6 +97,12 @@ translation_revised: 2026-08-27
   남기고 active graph edge를 만들지 않습니다. 검증된 링크는 변경할 수 없는 state-fact 및 링크 관찰
   메타데이터를 운반합니다. stale 또는 conflicting 근거는 operational-context 자율성을 낮출 수만
   있습니다.
+  Versioned provider-schema 후보 materialization은 delivery 책임으로 유지합니다.
+  `provider_schema_relationship_generation.py`은 정확한 provider-schema 및 REST evidence digest,
+  mapping revision, projection manifest, direction, cardinality 및 link metadata를 결속합니다.
+  변경된 provider type/version 신원은 영향받은 후보만 무효화합니다. Append-only ledger는
+  rollback과 replay를 지원하며 promotion은 별도 검토된 proposal-only catalog 작업으로
+  유지되고 graph 또는 migration 권한은 없습니다.
   범위가 제한된 배치의 모든 이벤트는 첫 발행 전에 생성 및 검증되므로 뒤쪽의 잘못된 리소스 때문에 앞쪽
   이벤트가 검증 단계에서 부분 발행되지 않습니다.
   `has_more`로 표시된 모든 delta 페이지는 기록을 방출하기 전에 새로운 이어가기 커서를 제공해야

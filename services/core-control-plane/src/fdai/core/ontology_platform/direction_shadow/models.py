@@ -37,6 +37,10 @@ class ReviewReason(StrEnum):
     LEGACY_LINK_EVIDENCE_UNVERIFIED = "legacy_link_evidence_unverified"
     ALIGNED_LINK_EVIDENCE_UNVERIFIED = "aligned_link_evidence_unverified"
     COMPARISON_TRUNCATED = "comparison_truncated"
+    LEGACY_PROVIDER_SCHEMA_UNBOUND = "legacy_provider_schema_unbound"
+    ALIGNED_PROVIDER_SCHEMA_UNBOUND = "aligned_provider_schema_unbound"
+    PROVIDER_SCHEMA_RELEASE_MISMATCH = "provider_schema_release_mismatch"
+    MAPPING_RELEASE_MISMATCH = "mapping_release_mismatch"
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,12 +115,18 @@ class DirectionGraphGeneration:
     links: tuple[DirectionGraphLink, ...]
     complete: bool
     truncated: bool
+    provider_schema_digest: str | None = None
+    mapping_revision: str | None = None
     generation_digest: str = field(init=False)
 
     def __post_init__(self) -> None:
         _bounded_ref("generation_ref", self.generation_ref)
         if self.ontology_release_digest is not None:
             _digest_value("ontology_release_digest", self.ontology_release_digest)
+        if self.provider_schema_digest is not None:
+            _digest_value("provider_schema_digest", self.provider_schema_digest)
+        if self.mapping_revision is not None:
+            _bounded_ref("mapping_revision", self.mapping_revision)
         if self.object_ids != tuple(sorted(set(self.object_ids))):
             raise ValueError("direction graph object_ids MUST be unique and sorted")
         for object_id in self.object_ids:
@@ -136,6 +146,8 @@ class DirectionGraphGeneration:
         links: tuple[DirectionGraphLink, ...],
         complete: bool,
         truncated: bool = False,
+        provider_schema_digest: str | None = None,
+        mapping_revision: str | None = None,
     ) -> DirectionGraphGeneration:
         """Canonicalize and content-address one immutable generation."""
 
@@ -146,6 +158,8 @@ class DirectionGraphGeneration:
             links=tuple(sorted(links, key=lambda item: item.key)),
             complete=complete,
             truncated=truncated,
+            provider_schema_digest=provider_schema_digest,
+            mapping_revision=mapping_revision,
         )
 
     @property
@@ -169,6 +183,8 @@ class DirectionGraphGeneration:
             "links": [link.to_mapping() for link in self.links],
             "object_ids": list(self.object_ids),
             "ontology_release_digest": self.ontology_release_digest,
+            "provider_schema_digest": self.provider_schema_digest,
+            "mapping_revision": self.mapping_revision,
             "truncated": self.truncated,
         }
 
