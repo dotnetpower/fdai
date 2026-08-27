@@ -198,6 +198,9 @@ export interface OntologyInstanceExploration {
   readonly principal_scope_digest?: string;
   readonly selection_digest?: string;
   readonly selection_token?: string;
+  readonly context_capability?: {
+    readonly selection_token: string;
+  };
   readonly source_cutoff: string;
   readonly root_id: string;
   readonly depth: number;
@@ -745,7 +748,7 @@ function decodeContextIdentity(
     principal_id: record.principal_id,
     principal_scope_digest: record.principal_scope_digest,
     selection_digest: record.selection_digest,
-    selection_token: record.selection_token,
+    selection_token: capabilityToken(record.context_capability),
   };
   const present = Object.values(values).some((value) => value !== undefined);
   if (!present) return {};
@@ -759,6 +762,16 @@ function decodeContextIdentity(
     !/^sha256:[a-f0-9]{64}$/.test(values.selection_digest)
   ) {
     throw new Error("instance context identity is incomplete or invalid");
+  }
+
+  function capabilityToken(value: unknown): string | undefined {
+    if (value === undefined) return undefined;
+    const capability = objectRecord(value, "context capability");
+    const token = requiredString(capability.selection_token, "context capability token", 256);
+    if (!/^context-selection:[a-f0-9]{32}$/.test(token)) {
+      throw new Error("context capability token is invalid");
+    }
+    return token;
   }
   return values as Pick<
     OntologyInstanceExploration,

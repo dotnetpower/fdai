@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 22bf819098e88b99d4e001581161c1e97407c365
+translation_source_sha: 3817174524ef8523777a6bd9409fc962121da654
 translation_revised: 2026-08-27
 ---
 # 코드 맵
@@ -221,6 +221,8 @@ Semantic-turn 요청은 opaque server-issued token과 함께 타입이 지정된
 answered claim이 되지 않고 semantic turn을 hold합니다. Operator instance projection은
 인증된 principal과 활성 generation에서 token을 발급하며, 잘린 projection은 신원을 완전히
 생략합니다.
+Contextual FunctionType 자체도 opaque capability envelope를 요구하므로 연결되지 않은
+model node가 specialized read를 호출할 수 없습니다.
 공유 범위 digest는 소문자 일반 역할(`reader`, `contributor`, `approver`, `owner`)만 사용하고
 `BreakGlass`는 거부합니다. 정확한 id 조건식은 항상 고정 batch의 개별 id 조회를 사용합니다.
 Wire 계약은 보수적인 512개 id context envelope를 허용하고
