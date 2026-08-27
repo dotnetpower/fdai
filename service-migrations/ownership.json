@@ -149,7 +149,8 @@
       "t2_cache",
       "t2_cache_default",
       "kubernetes_lifecycle_cursor",
-      "kubernetes_lifecycle_observation"
+      "kubernetes_lifecycle_observation",
+      "kubernetes_pod_lifecycle_identity"
     ],
     "operator-service": [
       "automation_blueprint_candidate",
@@ -289,7 +290,8 @@
       "t2_cache",
       "t2_cache_default",
       "kubernetes_lifecycle_cursor",
-      "kubernetes_lifecycle_observation"
+      "kubernetes_lifecycle_observation",
+      "kubernetes_pod_lifecycle_identity"
     ],
     "operator-service": [
       "automation_blueprint_candidate",

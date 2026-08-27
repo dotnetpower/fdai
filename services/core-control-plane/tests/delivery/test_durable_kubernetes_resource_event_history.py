@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 
 from fdai.core.ontology_platform.kubernetes_lifecycle_observation import (
@@ -118,6 +118,35 @@ async def test_durable_reader_maps_retained_uid_events_to_resource_events() -> N
     assert result.events[0].evidence_ref == "kubernetes-lifecycle:pod-uid-a"
 
 
+async def test_durable_reader_never_relabels_sibling_uid_events() -> None:
+    reader = DurableKubernetesResourceEventHistoryReader(
+        store=_Store(
+            observations=(
+                _observation("pod-uid-a"),
+                _observation("pod-uid-sibling"),
+            )
+        ),
+        cluster_ref="cluster-a",
+        now=lambda: NOW,
+    )
+
+    result = await reader.read_history_with_identity(
+        resource_ids=("pod-a",),
+        resource_identity={
+            "pod-a": {
+                "cluster_ref": "cluster-a",
+                "uid": "pod-uid-a",
+                "namespace": "default",
+                "owner_uid": "rs-uid-a",
+            }
+        },
+        event_families=("resource_event.kubernetes",),
+        lookback_seconds=900,
+    )
+
+    assert tuple(item.object_uid for item in result.events) == ("pod-uid-a",)
+
+
 async def test_missing_cursor_and_empty_rows_are_not_successful_absence() -> None:
     no_cursor = DurableKubernetesResourceEventHistoryReader(
         store=_Store(cursor=None),
@@ -164,7 +193,15 @@ async def test_stale_cursor_and_capped_rows_remain_incomplete() -> None:
     assert stale_result.complete is False
     assert stale_result.limitation == "lifecycle_cursor_stale"
 
-    capped_store = _Store(observations=tuple(_observation(f"pod-uid-{i}") for i in range(257)))
+    capped_store = _Store(
+        observations=tuple(
+            replace(
+                _observation("pod-uid-a"),
+                evidence_ref=f"kubernetes-lifecycle:{i:064x}",
+            )
+            for i in range(257)
+        )
+    )
     capped = DurableKubernetesResourceEventHistoryReader(
         store=capped_store,
         cluster_ref="cluster-a",

@@ -25,14 +25,13 @@ from fdai.core.ontology_platform import (
     OntologyQueryPlanVerifier,
     QueryManifest,
 )
+from fdai.core.ontology_platform.kubernetes_pod_lifecycle_cohort_queries import (
+    KUBERNETES_POD_LIFECYCLE_COHORT_FUNCTION_NAME,
+)
 from fdai.core.ontology_platform.kubernetes_pod_recovery_queries import (
     KUBERNETES_POD_RECOVERY_FUNCTION_NAME,
     KUBERNETES_POD_RESTART_HISTORY_CONCEPT,
     KUBERNETES_POD_RESTART_SYMPTOM_CONCEPT,
-)
-from fdai.core.ontology_platform.resource_event_queries import (
-    KUBERNETES_EVENT_FAMILY,
-    RESOURCE_EVENT_FUNCTION_NAME,
 )
 
 from .semantic_investigation import InvestigationEntityRole, VerifiedInvestigationIntent
@@ -182,7 +181,10 @@ def compile_kubernetes_pod_recovery_plan(
     ]
     recovery_node = nodes.pop()
     lifecycle_dependency: str | None = None
-    if _has_function(manifest.descriptors, RESOURCE_EVENT_FUNCTION_NAME):
+    if _has_function(
+        manifest.descriptors,
+        KUBERNETES_POD_LIFECYCLE_COHORT_FUNCTION_NAME,
+    ):
         candidate_dependency = "pod-replacement-candidates"
         nodes.append(
             _replacement_candidate_node(
@@ -198,26 +200,31 @@ def compile_kubernetes_pod_recovery_plan(
                 OntologyQueryNode(
                     node_id=lifecycle_dependency,
                     kind=QueryNodeKind.FUNCTION,
-                    depends_on=("pod-recovery-target",),
+                    depends_on=(
+                        "pod-recovery-target",
+                        "pod-recovery-controller",
+                        "pod-recovery-deployment",
+                    ),
                     arguments_json=canonical_json(
                         {
-                            "function_name": RESOURCE_EVENT_FUNCTION_NAME,
+                            "function_name": KUBERNETES_POD_LIFECYCLE_COHORT_FUNCTION_NAME,
                             "arguments": {
-                                "event_families": [KUBERNETES_EVENT_FAMILY],
                                 "lookback_seconds": int(_RESTART_HISTORY_WINDOW.total_seconds()),
                             },
                             "dependency_arguments": {
-                                "pod-recovery-target": "query_result",
+                                "pod-recovery-target": "pod_query_result",
+                                "pod-recovery-controller": "controller_query_result",
+                                "pod-recovery-deployment": "deployment_query_result",
                             },
                         }
                     ),
-                    output_kind="query.table",
+                    output_kind="kubernetes.pod.lifecycle.cohort",
                 ),
             )
         )
     if lifecycle_dependency is not None:
         recovery_arguments = dict(json.loads(recovery_node.arguments_json))
-        recovery_arguments["dependency_arguments"][lifecycle_dependency] = "lifecycle_events"
+        recovery_arguments["dependency_arguments"][lifecycle_dependency] = "lifecycle_cohort"
         recovery_arguments["dependency_arguments"][candidate_dependency] = (
             "replacement_candidates_query_result"
         )

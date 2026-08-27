@@ -75,6 +75,10 @@ from fdai.delivery.persistence.postgres_inventory_snapshot import (
     PostgresInventorySnapshotStore,
     PostgresInventorySnapshotStoreConfig,
 )
+from fdai.delivery.persistence.postgres_kubernetes_lifecycle import (
+    PostgresKubernetesLifecycleStore,
+    PostgresKubernetesLifecycleStoreConfig,
+)
 from fdai.delivery.persistence.postgres_resource_lock import (
     PostgresAdvisoryResourceLock,
     PostgresAdvisoryResourceLockConfig,
@@ -192,6 +196,9 @@ async def _build_kubernetes_enricher(
             http_client=kubernetes_client,
         ),
         relationship_mapping_catalog=relationship_catalog,
+        pod_lifecycle_identity_sink=PostgresKubernetesLifecycleStore(
+            config=PostgresKubernetesLifecycleStoreConfig(dsn=config.dsn)
+        ),
     )
 
 

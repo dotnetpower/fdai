@@ -93,7 +93,7 @@ def kubernetes_pod_recovery_function_type() -> OntologyFunctionType:
                     "type": "object",
                     "x-fdai-dependency-only": True,
                 },
-                "lifecycle_events": {
+                "lifecycle_cohort": {
                     "type": "object",
                     "x-fdai-dependency-only": True,
                 },
@@ -251,13 +251,13 @@ def kubernetes_pod_recovery_function(
             restart_history=arguments["restart_history"],
             cutoff=cutoff,
         )
-        lifecycle_events = arguments.get("lifecycle_events")
-        if isinstance(lifecycle_events, Mapping) and lifecycle_events.get("complete") is False:
-            reason = lifecycle_events.get("truncation_reason")
+        lifecycle_cohort = arguments.get("lifecycle_cohort")
+        if isinstance(lifecycle_cohort, Mapping) and lifecycle_cohort.get("complete") is False:
+            reason = lifecycle_cohort.get("truncation_reason")
             gap = (
-                f"lifecycle_events_{reason}"
+                f"lifecycle_cohort_{reason}"
                 if isinstance(reason, str) and reason
-                else "lifecycle_events_incomplete"
+                else "lifecycle_cohort_incomplete"
             )
             result = result.model_copy(
                 update={
@@ -271,7 +271,7 @@ def kubernetes_pod_recovery_function(
                     "evidence_gaps": tuple(dict.fromkeys((*result.evidence_gaps, gap))),
                 }
             )
-        elif isinstance(lifecycle_events, Mapping) and lifecycle_events.get("complete") is True:
+        elif isinstance(lifecycle_cohort, Mapping) and lifecycle_cohort.get("complete") is True:
             replacement_context = arguments.get("replacement_context")
             if (
                 replacement_context is None
@@ -288,13 +288,26 @@ def kubernetes_pod_recovery_function(
                 replacement_context = _default_replacement_context(
                     pod_result,
                     deployment_result=deployment_result,
-                    lifecycle_events=lifecycle_events,
+                    lifecycle_cohort=lifecycle_cohort,
                     candidate_result=replacement_candidates_result,
                 )
-            if isinstance(replacement_context, Mapping):
+            if replacement_context is None:
+                result = result.model_copy(
+                    update={
+                        "complete": False,
+                        "recovery_verified": False,
+                        "status": KubernetesPodRecoveryStatus.INSUFFICIENT_EVIDENCE,
+                        "evidence_gaps": tuple(
+                            dict.fromkeys(
+                                (*result.evidence_gaps, "replacement_evidence_unavailable")
+                            )
+                        ),
+                    }
+                )
+            elif isinstance(replacement_context, Mapping):
                 replacement = _replacement_from_context(
                     replacement_context,
-                    lifecycle_events=lifecycle_events,
+                    lifecycle_cohort=lifecycle_cohort,
                     cutoff=cutoff,
                 )
                 if replacement is not None and replacement.evidence_gaps:
@@ -418,7 +431,7 @@ def evaluate_kubernetes_pod_replacement_graph(
 def _replacement_from_context(
     context: Mapping[str, Any],
     *,
-    lifecycle_events: Mapping[str, Any],
+    lifecycle_cohort: Mapping[str, Any],
     cutoff: datetime,
 ) -> KubernetesPodReplacementEvidenceResult | None:
     """Parse an exact replacement dependency bundle and invoke the reducer."""
@@ -435,14 +448,14 @@ def _replacement_from_context(
     if any(item is None for item in candidates):
         raise ValueError("replacement context candidates MUST be valid Pods")
     deployment = _replacement_deployment(context.get("deployment"))
-    raw_rows = lifecycle_events.get("rows")
+    raw_rows = lifecycle_cohort.get("rows")
     if not isinstance(raw_rows, Sequence) or isinstance(raw_rows, (str, bytes)):
-        raise ValueError("lifecycle_events rows MUST be a sequence")
+        raise ValueError("lifecycle_cohort rows MUST be a sequence")
     observations = tuple(
         _lifecycle_observation(row.get("values")) for row in raw_rows if isinstance(row, Mapping)
     )
     if any(item is None for item in observations):
-        raise ValueError("lifecycle_events rows MUST contain typed observations")
+        raise ValueError("lifecycle_cohort rows MUST contain typed observations")
     window_start = _required_time(context, "correlation_window_start")
     return evaluate_kubernetes_pod_replacement_graph(
         old_pod=old_pod,
@@ -458,7 +471,7 @@ def _default_replacement_context(
     pod_result: SecuredObjectSetQueryResult,
     *,
     deployment_result: SecuredObjectSetQueryResult,
-    lifecycle_events: Mapping[str, Any],
+    lifecycle_cohort: Mapping[str, Any],
     candidate_result: SecuredObjectSetQueryResult | None = None,
 ) -> Mapping[str, Any] | None:
     """Translate complete lifecycle rows into a conservative exact replacement bundle."""
@@ -471,7 +484,7 @@ def _default_replacement_context(
     current_uid = properties.get("uid")
     if not isinstance(current_uid, str) or not current_uid.strip():
         return None
-    raw_rows = lifecycle_events.get("rows")
+    raw_rows = lifecycle_cohort.get("rows")
     if not isinstance(raw_rows, Sequence) or isinstance(raw_rows, (str, bytes)):
         return None
     typed_rows: tuple[Mapping[str, Any], ...] = tuple(
@@ -486,7 +499,11 @@ def _default_replacement_context(
     )
     if not old_rows:
         return None
-    old_uid = str(old_rows[0]["object_uid"])
+    old_uids = tuple(sorted({str(row["object_uid"]) for row in old_rows}))
+    if len(old_uids) != 1:
+        return None
+    old_uid = old_uids[0]
+    old_rows = tuple(row for row in old_rows if row["object_uid"] == old_uid)
     deployment_objects = tuple(
         item
         for item in deployment_result.materialization.graph.objects
@@ -495,22 +512,39 @@ def _default_replacement_context(
     deployment = deployment_objects[0] if len(deployment_objects) == 1 else None
     if deployment is None:
         return None
+    deployment_properties = _resource_properties(deployment)
+    root_controller_uid = _required_replacement_text(deployment_properties, "uid")
     enriched_properties = dict(properties)
-    enriched_properties.setdefault("cluster_ref", old_rows[0].get("cluster_ref"))
-    enriched_properties.setdefault("namespace", old_rows[0].get("namespace"))
-    enriched_properties.setdefault("owner_uid", old_rows[0].get("owner_uid"))
-    enriched_properties.setdefault("root_controller_uid", deployment.id)
+    enriched_properties.setdefault("owner_uid", properties.get("controller_uid"))
+    enriched_properties.setdefault("root_controller_uid", root_controller_uid)
     enriched_properties.setdefault("root_controller_kind", "Deployment")
     pod = replace(
         pod,
         properties={**pod.properties, "properties": enriched_properties},
     )
     current_metadata = _state_metadata(pod).to_mapping()
+    identity_observed_at = _required_replacement_time(old_rows[0], "identity_observed_at")
+    identity_revision = _required_replacement_text(
+        old_rows[0],
+        "identity_source_revision",
+    )
     old_metadata = dict(current_metadata)
-    old_metadata["completeness"] = 0.0
+    old_metadata.update(
+        {
+            "source_identity": "kubernetes-api-inventory",
+            "source_revision": identity_revision,
+            "effective_at": identity_observed_at.isoformat(),
+            "recorded_at": identity_observed_at.isoformat(),
+            "evidence_cutoff": identity_observed_at.isoformat(),
+            "completeness": 1.0,
+            "synthetic": False,
+            "conflicts": (),
+        }
+    )
     old_metadata["evidence_refs"] = tuple(
         dict.fromkeys(
             (
+                _required_replacement_text(old_rows[0], "identity_evidence_ref"),
                 *(
                     str(row["evidence_ref"])
                     for row in old_rows
@@ -539,17 +573,22 @@ def _default_replacement_context(
     if not candidate_objects or len(candidate_objects) > 32:
         return None
     old = dict(current)
-    old["pod_id"] = f"{pod.id}:historical:{old_uid}"
+    old["pod_id"] = _required_replacement_text(old_rows[0], "pod_id")
     old["pod_uid"] = old_uid
+    old["owner_uid"] = _required_replacement_text(old_rows[0], "owner_uid")
+    old["root_controller_uid"] = _required_replacement_text(
+        old_rows[0],
+        "root_controller_uid",
+    )
+    old["root_controller_kind"] = _required_replacement_text(
+        old_rows[0],
+        "root_controller_kind",
+    )
     old["created_at"] = None
     old["phase"] = None
     old["ready"] = None
     old["ready_container_count"] = None
     old["metadata"] = old_metadata
-    deployment_properties = _resource_properties(deployment)
-    times = tuple(
-        _required_replacement_alias_time(row, "event_time", "occurred_at") for row in old_rows
-    )
     return {
         "old_pod": old,
         "candidates": [
@@ -574,7 +613,10 @@ def _default_replacement_context(
             "metadata": _state_metadata(deployment).to_mapping(),
             "evidence_refs": list(_state_metadata(deployment).evidence_refs),
         },
-        "correlation_window_start": min(times).isoformat(),
+        "correlation_window_start": _required_time(
+            lifecycle_cohort,
+            "window_start",
+        ).isoformat(),
     }
 
 
@@ -742,7 +784,11 @@ def _lifecycle_observation(value: object) -> KubernetesLifecycleObservation | No
         category=_required_replacement_alias(value, "category", "classification"),
         event_type=_required_replacement_alias(value, "event_type", "status"),
         event_time=_required_replacement_alias_time(value, "event_time", "occurred_at"),
-        recorded_time=_required_replacement_time(value, "recorded_at"),
+        recorded_time=_required_replacement_alias_time(
+            value,
+            "recorded_time",
+            "recorded_at",
+        ),
         source_revision=_required_replacement_text(value, "source_revision"),
         evidence_ref=_required_replacement_text(value, "evidence_ref"),
     )

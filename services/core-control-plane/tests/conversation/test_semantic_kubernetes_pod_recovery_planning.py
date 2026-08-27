@@ -9,6 +9,10 @@ from fdai.core.conversation.semantic_planning import SemanticPlanningService
 from fdai.core.conversation.semantic_planning_models import SemanticPlanningDisposition
 from fdai.core.conversation.session import Principal, Role
 from fdai.core.ontology_platform import OntologyQueryPlanVerifier, build_query_manifest
+from fdai.core.ontology_platform.kubernetes_pod_lifecycle_cohort_queries import (
+    KUBERNETES_POD_LIFECYCLE_COHORT_FUNCTION_NAME,
+    kubernetes_pod_lifecycle_cohort_function_type,
+)
 from fdai.core.ontology_platform.kubernetes_pod_recovery_queries import (
     KUBERNETES_POD_RECOVERY_FUNCTION_NAME,
     KUBERNETES_POD_RESTART_HISTORY_CONCEPT,
@@ -16,7 +20,6 @@ from fdai.core.ontology_platform.kubernetes_pod_recovery_queries import (
     kubernetes_pod_recovery_function_type,
 )
 from fdai.core.ontology_platform.query_metric_handlers import METRIC_ARGUMENT_SCHEMAS
-from fdai.core.ontology_platform.resource_event_queries import resource_event_function_type
 from fdai.shared.contracts.models import (
     CeilingRole,
     LinkCardinality,
@@ -68,7 +71,7 @@ def _manifest():  # type: ignore[no-untyped-def]
         },
     )
     function = kubernetes_pod_recovery_function_type()
-    event_function = resource_event_function_type()
+    cohort_function = kubernetes_pod_lifecycle_cohort_function_type()
     dependency = OntologyLinkType(
         schema_version="1.0.0",
         name="depends_on",
@@ -88,7 +91,7 @@ def _manifest():  # type: ignore[no-untyped-def]
     release = build_ontology_release(
         object_types=(resource,),
         link_types=(dependency, ownership),
-        function_types=(function, event_function),
+        function_types=(function, cohort_function),
     )
     return build_query_manifest(
         release=release,
@@ -97,8 +100,8 @@ def _manifest():  # type: ignore[no-untyped-def]
         principal_scope_digest=DIGEST,
         object_types=(resource,),
         link_types=(dependency, ownership),
-        functions=(function, event_function),
-        bound_function_names=(function.name, event_function.name),
+        functions=(function, cohort_function),
+        bound_function_names=(function.name, cohort_function.name),
     )
 
 
@@ -224,7 +227,10 @@ def test_exact_pod_restart_investigation_uses_server_owned_plan() -> None:
     assert outcome.plan.nodes[-1].arguments["function_name"] == (
         KUBERNETES_POD_RECOVERY_FUNCTION_NAME
     )
-    assert outcome.plan.nodes[-2].arguments["function_name"] == "query.resource_event_history"
+    assert (
+        outcome.plan.nodes[-2].arguments["function_name"]
+        == KUBERNETES_POD_LIFECYCLE_COHORT_FUNCTION_NAME
+    )
     assert "pod-lifecycle-events" in outcome.plan.nodes[-1].depends_on
     assert "pod-replacement-candidates" in outcome.plan.nodes[-1].depends_on
     assert model.plan_calls == 0
