@@ -1,8 +1,8 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: 92ef8908d656f65816f98bd04da3c5b81060e28f
-translation_revised: 2026-08-25
+translation_source_sha: 3c657ecb37775f658483e590ebf3c3cdcd1822ca
+translation_revised: 2026-08-28
 ---
 # LLM 전략(LLM Strategy)
 이 설계는 LLM을 **덜 사용**합니다. 모델은 **T2** 대체 경로이며 T0와 T1이 사례를 해결하지 못했을 때만 사용합니다. 결정론적 검증이 승인하기 전에는 모델 출력을 실행에 사용하지 않습니다. 실행 자격은 검증이 부여하며 **모델은 부여하지 않습니다**. 이 문서는
@@ -15,6 +15,7 @@ translation_revised: 2026-08-25
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 기능 레지스트리, 해석 및 프로비저닝 평가 | implemented | `rule-catalog/llm-registry.yaml`; `rule_catalog/schema/llm_resolver.py`; `provisioning_assessment.py`; 집중 resolver 테스트 | 기능과 모델 대응, 명시적 용량 단위, 혼합 발행기 불변식 및 실패 시 차단 준비 상태를 실행할 수 있습니다. |
+| 발행기 한정 Foundry 카탈로그 검색 | implemented | `delivery/azure/llm/resolver_queries.py`; 집중 resolver 및 adapter 검사 | 선택적 발행기 인식 경계는 OpenAI, Anthropic 및 MistralAI 계열을 구분하고 안정된 AIServices 버전을 읽으며 기존 adapter의 계열 전용 대체 경로를 보존합니다. Partner 배포 및 endpoint routing은 미완료 상태입니다. |
 | 환경 모델 바인딩 정책 및 PTU 계획 | implemented | `fdai_service_contracts/model_binding.py`; `model_binding_policy.py`; Operator IAM 바인딩 경로 및 PostgreSQL 어댑터; `model_binding_proposal.py`; `model-settings-projection.yml`; Console 모델 편집기; 보호된 배포 워크플로; 집중 계약, 해석기, Operator, Console 및 Terraform 검사 | Owner는 모든 T1/T2 기능에 리비전이 있는 `auto`, `pinned` 또는 `hil-only` 의도를 저장할 수 있습니다. 보호된 runner는 권한이 없는 정확한 계획 제안 하나를 현재 정책과 결합한 후 PTU와 정확한 모델 버전을 평가합니다. 별도 3-way CAS는 runtime Settings를 바꾸지 않고 정제된 모델 Settings projection을 복원합니다. Console과 Operator에는 공급자 변경 또는 실행 권한이 없습니다. |
 | 후보 전용 의미 판단 및 계획 | implemented | `core/conversation/semantic_judgment.py`; `core/conversation/semantic_planning.py`; `composition/wire_semantic_query.py`; Azure 의미 어댑터; 집중 판단 및 계획 테스트 | 범위가 제한된 T1 판단은 같은 바인딩에서 잘못된 스키마 출력을 다시 시도한 후 선택적으로 T2로 전환합니다. 수락된 의미는 계획에 사용될 수 있지만 실행 권한을 부여하지 않습니다. |
 | T2 교차 검사, 검증기, 근거 확인, 신뢰도 및 rubric | implemented | `core/quality_gate/`; `delivery/azure/llm/rubric.py`; 집중 quality 게이트 및 Azure 어댑터 테스트 | 필수 4개 경로와 선택적 감산 rubric이 있습니다. 근거가 없거나 잘못되면 거부, 판단 보류 또는 사람 검토로 결과를 낮춥니다. |
@@ -26,6 +27,7 @@ translation_revised: 2026-08-25
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-28 | implemented | Azure OpenAI 및 AIServices 모델에 대해 이전 버전과 호환되는 발행기 한정 카탈로그 검색과 안정된 partner 버전 조회를 추가했습니다. | `current change`; 집중 resolver 검사(`46 passed`); Ruff 및 strict mypy. | Partner registry preference를 활성화하기 전에 발행기 인식 Terraform account, 배포 format, private endpoint 및 runtime endpoint binding을 추가해야 합니다. |
 | 2026-08-14 | in-progress | 이전 이력을 재구성하지 않고 구현 원장을 도입했으며 quality 게이트 상태를 현재 resolver, rubric, 에스컬레이션 및 지연 시간 라우팅 코드에 맞췄습니다. | `current change`; 위의 레지스트리, quality 게이트, Azure 어댑터, 조립 및 측정 경로입니다. | 운영 모델 근거를 보존하고 통제된 조정기 흐름을 구현합니다. |
 | 2026-08-19 | implemented | 실제 모델 해석을 보호된 계획에 연결하고, 정확한 전체 및 배포 매니페스트를 계획 메타데이터에 봉인했으며, 적용 시 같은 JSON과 SHA를 복원하고, 제안 전용 주간 수명 주기 조정기를 추가했습니다. | `current change`; 집중 모델 수명 주기, 계획 검증기, Operator 서술기, Terraform 및 권한 workflow 검사. | 통제된 조정기 실행을 한 번 보존하고, 레지스트리나 배포를 바꾸기 전에 모든 교체 초안을 별도로 검토합니다. |
 | 2026-08-21 | implemented | 기존 `GlobalStandard` 1K TPM 임베딩 배포와 검토된 `Standard` 200K TPM 후보를 변경 없음으로 잘못 분류한 문제를 수정했습니다. 수명 주기 제안은 이제 SKU와 유효 용량을 포함합니다. 보호된 계획은 정확한 주소, 모델 계열, 계정 연결, 기존 SKU/용량, 목표 SKU/용량, 교체 작업이 모두 일치할 때만 이 전환을 허용합니다. | `current change`; `model_lifecycle_reconciler.py`; `deploy-dev.yml`; 집중 수명 주기 검사 5개와 파괴적 계획 검사 2개 통과. | 정확한 보호 계획만 적용하고 교체와 런타임 연결을 검증한 뒤 적용 증적을 보존하고 수렴 후 범위가 제한된 이행 승인을 제거합니다. |
@@ -271,6 +273,13 @@ capacity: { unit: ptu, value: 30 }
 프로비저닝합니다. 가상 `t1.vision`은
 별도 배포를 만들지 않고 일치하는 서술기 배포를 재사용합니다. Resolved `{기능 →
 배포}` 매핑이 Key Vault에 기록되고 감사됨.
+
+Azure delivery는 이제 카탈로그 포함 여부를 `(publisher, family)` 쌍으로 보고할 수 있습니다.
+`kind=OpenAI`는 `OpenAI`로, 허용 목록에 있는 `kind=AIServices` format은 `Anthropic` 또는
+`MistralAI`로 매핑하며 안정된 버전은 발행기와 계열을 함께 키로 사용합니다. 계열 이름만
+노출하는 기존 카탈로그 adapter는 이전 경계를 계속 사용합니다. 이 검색 지원만으로 partner
+모델을 배포할 수 있는 것은 아닙니다. 발행기 인식 인프라와 endpoint binding이 준비될 때까지
+활성화를 보류합니다.
 
 배포자가 `Cognitive Services Contributor` 를 갖지 않을 때, 선호 계열이 리전에 없을 때,
 `capacity_tpm` 쿼터가 부족할 때, mixed-model 불변식을 만족할 수 없을 때의 **배포자-권한 게이트

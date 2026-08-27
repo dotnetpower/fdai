@@ -13,6 +13,7 @@ the threat model in [security-and-identity.md](security-and-identity.md).
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Capability registry, resolution, and provisioning assessment | implemented | `rule-catalog/llm-registry.yaml`; `rule_catalog/schema/llm_resolver.py`; `provisioning_assessment.py`; focused resolver tests | Capability-to-model mappings, explicit capacity units, mixed-publisher invariants, and fail-closed readiness are executable. |
+| Publisher-qualified Foundry catalog discovery | implemented | `delivery/azure/llm/resolver_queries.py`; focused resolver and adapter checks | The optional publisher-aware seam distinguishes OpenAI, Anthropic, and MistralAI families, reads stable AIServices versions, and preserves the family-only fallback for existing adapters. Partner deployment and endpoint routing remain open. |
 | Environment model binding policy and PTU planning | implemented | `fdai_service_contracts/model_binding.py`; `model_binding_policy.py`; Operator IAM binding routes and PostgreSQL adapter; `model_binding_proposal.py`; `model-settings-projection.yml`; Console Models editor; protected deploy workflow; focused contract, resolver, Operator, Console, and Terraform checks | Owners can save revisioned `auto`, `pinned`, or `hil-only` intent for every T1/T2 capability. The protected runner joins one exact authority-free plan proposal to the current policy before evaluating PTU and exact model versions. A separate three-way CAS restores the sanitized model Settings projection without changing runtime Settings. Console and Operator retain no provider mutation or execution authority. |
 | Candidate-only semantic judgment and planning | implemented | `core/conversation/semantic_judgment.py`; `core/conversation/semantic_planning.py`; `composition/wire_semantic_query.py`; Azure semantic adapters; focused judgment and planning tests | Bounded T1 judgment retries malformed schema output on the same binding before optional T2 escalation. Accepted meaning can guide planning but grants no execution authority. |
 | T2 cross-check, verifier, grounding, confidence, and rubric | implemented | `core/quality_gate/`; `delivery/azure/llm/rubric.py`; focused quality-gate and Azure adapter tests | The four required legs and optional subtractive rubric exist. Missing or invalid evidence lowers the result to denial, abstention, or human review. |
@@ -24,6 +25,7 @@ the threat model in [security-and-identity.md](security-and-identity.md).
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-28 | implemented | Added backward-compatible publisher-qualified catalog discovery and stable partner-version lookup for Azure OpenAI and AIServices models. | `current change`; focused resolver checks (`46 passed`); Ruff and strict mypy. | Add publisher-aware Terraform accounts, deployment formats, private endpoints, and runtime endpoint bindings before enabling a partner registry preference. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and aligned the quality-gate status with current resolver, rubric, escalation, and latency-routing code. | `current change`; registry, quality-gate, Azure adapter, composition, and measurement paths listed above. | Retain operational model evidence and implement the governed reconciler flow. |
 | 2026-08-19 | implemented | Bound live model resolution to protected planning, sealed the exact full and deployment manifests into plan metadata, restored the same JSON and SHA for apply, and added a proposal-only weekly lifecycle reconciler. | `current change`; focused model lifecycle, plan verifier, Operator narrator, Terraform, and privileged-workflow checks. | Retain one governed reconciler run and separately review any draft replacement before registry or deployment change. |
 | 2026-08-21 | implemented | Versioned lifecycle proposals to include SKU and effective capacity after an existing `GlobalStandard` 1K TPM embedding deployment and the reviewed `Standard` 200K TPM candidate were incorrectly classified as no change. The protected plan permits only that exact address, family, account binding, source SKU/capacity, target SKU/capacity, and replacement action. | `current change`; `model_lifecycle_reconciler.py`; `deploy-dev.yml`; focused lifecycle checks passed 5 cases and destructive-plan checks passed 2 cases. | Apply only the exact protected plan, verify the replacement and runtime binding, retain the apply receipt, and remove the bounded migration approval after convergence. |
@@ -277,6 +279,12 @@ policy, queries the target region's Azure OpenAI / Foundry catalog and capacity 
 provisions **one deployment per concrete capability**;
 virtual `t1.vision` reuses matching narrator deployments. The resolved `{capability → deployment}`
 mapping is written to Key Vault and audited.
+
+Azure delivery can now report catalog membership as `(publisher, family)` pairs. It maps
+`kind=OpenAI` to `OpenAI` and allowlisted `kind=AIServices` formats to `Anthropic` or `MistralAI`,
+and keys stable versions by both publisher and family. Existing catalog adapters that expose only
+family names continue through the legacy seam. This discovery support does not make partner models
+deployable by itself; activation waits for publisher-aware infrastructure and endpoint bindings.
 
 The full **deployer-permission gate table** (what happens when the deployer identity lacks
 `Cognitive Services Contributor`, when a preferred family is missing from the region, when

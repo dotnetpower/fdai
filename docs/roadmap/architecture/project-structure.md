@@ -32,6 +32,10 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   utterance. Zero or multiple identifiers and every other unresolved concept remain a typed
   clarification. This validation adds no provider I/O, decision, approval, mutation, or execution
   authority.
+- **model catalog identity is publisher-qualified when available**: Core accepts an optional
+  `(publisher, family)` catalog seam while preserving the family-only adapter contract. Azure
+  delivery maps only allowlisted OpenAI and AIServices formats and keeps partner deployment and
+  endpoint ownership outside the resolver.
 - **qualification reduction is authority-free**:
   `core/conversation_assurance/quality_qualification.py` accepts only premeasured normalized
   observations and reduces them against the installed quality contract. It derives hard caps from

@@ -79,7 +79,7 @@ def _run_az(argv: Sequence[str], *, timeout: float) -> str:
 
 
 class AzureCliCatalogQuery(CatalogQuery, ModelVersionQuery):
-    """Fetch the OpenAI model catalog for a region via ``az cognitiveservices model list``.
+    """Fetch OpenAI and Foundry model catalogs via ``az cognitiveservices model list``.
 
     The result is memoised per region so a single resolver run does not
     re-invoke ``az`` once per capability. Memoisation is per-instance,
@@ -95,11 +95,21 @@ class AzureCliCatalogQuery(CatalogQuery, ModelVersionQuery):
         self._executable = executable
         self._timeout = timeout
         self._cache: dict[str, set[str]] = {}
-        self._versions: dict[str, dict[str, tuple[str, ...]]] = {}
+        self._publisher_cache: dict[str, set[tuple[str, str]]] = {}
+        self._versions: dict[str, dict[tuple[str, str], tuple[str, ...]]] = {}
 
     def families_in_region(self, region: str) -> set[str]:
         if region in self._cache:
             return set(self._cache[region])
+        self._load_region(region)
+        return set(self._cache[region])
+
+    def publisher_families_in_region(self, region: str) -> set[tuple[str, str]]:
+        if region not in self._publisher_cache:
+            self._load_region(region)
+        return set(self._publisher_cache[region])
+
+    def _load_region(self, region: str) -> None:
         argv = [
             self._executable,
             "cognitiveservices",
@@ -108,7 +118,11 @@ class AzureCliCatalogQuery(CatalogQuery, ModelVersionQuery):
             "-l",
             region,
             "--query",
-            "[?kind=='OpenAI'].model",
+            (
+                "[?kind=='OpenAI' || kind=='AIServices']."
+                "{kind:kind,name:model.name,version:model.version,"
+                "lifecycleStatus:model.lifecycleStatus,format:model.format}"
+            ),
             "-o",
             "json",
         ]
@@ -120,33 +134,38 @@ class AzureCliCatalogQuery(CatalogQuery, ModelVersionQuery):
         if not isinstance(names, list):
             raise AzureCliResolverError("catalog query MUST return a JSON array")
         families: set[str] = set()
-        versions: dict[str, set[str]] = {}
+        publisher_families: set[tuple[str, str]] = set()
+        versions: dict[tuple[str, str], set[str]] = {}
         for item in names:
             if isinstance(item, str):
                 families.add(item)
+                publisher_families.add(("OpenAI", item))
                 continue
             if not isinstance(item, dict):
                 continue
             family = item.get("name")
             if not isinstance(family, str) or not family:
                 continue
+            publisher = _catalog_publisher(item)
+            if publisher is None:
+                continue
             families.add(family)
+            publisher_families.add((publisher, family))
             version = item.get("version")
             lifecycle = item.get("lifecycleStatus")
             if isinstance(version, str) and version and lifecycle == "GenerallyAvailable":
-                versions.setdefault(family, set()).add(version)
+                versions.setdefault((publisher.casefold(), family), set()).add(version)
         self._cache[region] = families
+        self._publisher_cache[region] = publisher_families
         self._versions[region] = {
-            family: tuple(sorted(family_versions)) for family, family_versions in versions.items()
+            identity: tuple(sorted(family_versions))
+            for identity, family_versions in versions.items()
         }
-        return set(families)
 
     def latest_stable_version(self, *, region: str, publisher: str, family: str) -> str | None:
         """Return the latest GA version from the same cached catalog snapshot."""
-        if publisher.casefold() != "openai":
-            return None
         self.families_in_region(region)
-        versions = self._versions.get(region, {}).get(family, ())
+        versions = self._versions.get(region, {}).get((publisher.casefold(), family), ())
         return versions[-1] if versions else None
 
 
@@ -548,6 +567,19 @@ def _family_aliases(family: str) -> set[str]:
         expanded = "gpt-" + family[3:]
         aliases.update((expanded, expanded.replace(".", "-")))
     return aliases
+
+
+def _catalog_publisher(item: dict[str, object]) -> str | None:
+    kind = item.get("kind")
+    model_format = item.get("format")
+    if kind == "OpenAI" and model_format == "OpenAI":
+        return "OpenAI"
+    if kind != "AIServices" or not isinstance(model_format, str):
+        return None
+    return {
+        "Anthropic": "Anthropic",
+        "Mistral AI": "MistralAI",
+    }.get(model_format)
 
 
 def _is_interactive_tpm_quota(name_value: str) -> bool:

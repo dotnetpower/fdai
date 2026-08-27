@@ -79,6 +79,7 @@ class TestCatalogQuery:
         assert argv[0] == "az"
         assert "koreacentral" in argv
         assert "--query" in argv
+        assert "AIServices" in argv[argv.index("--query") + 1]
 
     def test_returns_empty_when_no_families(self, fake_subprocess: _FakeSubprocess) -> None:
         fake_subprocess._responses = [_CompletedProc(returncode=0, stdout="[]")]
@@ -94,17 +95,23 @@ class TestCatalogQuery:
                 stdout=json.dumps(
                     [
                         {
+                            "kind": "OpenAI",
                             "name": "gpt-4o",
+                            "format": "OpenAI",
                             "version": "2024-05-13",
                             "lifecycleStatus": "GenerallyAvailable",
                         },
                         {
+                            "kind": "OpenAI",
                             "name": "gpt-4o",
+                            "format": "OpenAI",
                             "version": "2024-08-06",
                             "lifecycleStatus": "GenerallyAvailable",
                         },
                         {
+                            "kind": "OpenAI",
                             "name": "gpt-4o",
+                            "format": "OpenAI",
                             "version": "2024-11-20-preview",
                             "lifecycleStatus": "Preview",
                         },
@@ -120,6 +127,48 @@ class TestCatalogQuery:
                 region="koreacentral", publisher="OpenAI", family="gpt-4o"
             )
             == "2024-08-06"
+        )
+        assert len(fake_subprocess.calls) == 1
+
+    def test_returns_publisher_qualified_foundry_family_and_version(
+        self, fake_subprocess: _FakeSubprocess
+    ) -> None:
+        fake_subprocess._responses = [
+            _CompletedProc(
+                returncode=0,
+                stdout=json.dumps(
+                    [
+                        {
+                            "kind": "AIServices",
+                            "name": "Mistral-Large-3",
+                            "format": "Mistral AI",
+                            "version": "1",
+                            "lifecycleStatus": "GenerallyAvailable",
+                        },
+                        {
+                            "kind": "AIServices",
+                            "name": "claude-opus-4-8",
+                            "format": "Anthropic",
+                            "version": "2",
+                            "lifecycleStatus": "GenerallyAvailable",
+                        },
+                    ]
+                ),
+            )
+        ]
+        catalog = AzureCliCatalogQuery()
+
+        assert catalog.publisher_families_in_region("koreacentral") == {
+            ("MistralAI", "Mistral-Large-3"),
+            ("Anthropic", "claude-opus-4-8"),
+        }
+        assert (
+            catalog.latest_stable_version(
+                region="koreacentral",
+                publisher="MistralAI",
+                family="Mistral-Large-3",
+            )
+            == "1"
         )
         assert len(fake_subprocess.calls) == 1
 
