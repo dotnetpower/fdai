@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import MappingProxyType
@@ -54,11 +55,13 @@ from fdai.core.conversation.semantic_planning_models import (
     ClarificationRequirement,
     SemanticDirectResponseIntent,
     SemanticFrameProposal,
+    SemanticOutputShape,
     SemanticPlanningDisposition,
 )
 from fdai.core.conversation.semantic_runtime import (
     SemanticConversationRuntime,
     _current_relationship_mapping_unavailable,
+    _query_output_incomplete,
 )
 from fdai.core.conversation.semantic_target_candidate_planning import (
     build_non_resource_target_clarification,
@@ -3747,6 +3750,45 @@ def test_current_relationship_mapping_holds_an_empty_endpoint() -> None:
 
     assert _current_relationship_mapping_unavailable(planning, empty_execution) is True
     assert _current_relationship_mapping_unavailable(planning, populated_execution) is False
+
+
+def test_incomplete_output_holds_only_contextual_resource_plans() -> None:
+    manifest, definition = _fixture()
+    service = SemanticPlanningService(
+        model=_Model(frame=_frame(), plan=_plan(definition)),
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+    planning = _run(service)
+    assert planning.plan is not None
+    assert planning.frame is not None
+    execution = QueryPlanExecution(
+        plan_digest=planning.plan.plan_digest,
+        status="completed",
+        results=MappingProxyType(
+            {
+                planning.plan.output_node_ids[0]: QueryNodeResult(
+                    value=QueryTable(
+                        rows=(),
+                        complete=False,
+                        truncation_reason="row_limit",
+                    )
+                )
+            }
+        ),
+        receipts=(),
+        output_node_ids=planning.plan.output_node_ids,
+    )
+
+    assert _query_output_incomplete(planning, execution) is False
+    contextual_planning = replace(
+        planning,
+        frame=planning.frame.model_copy(
+            update={"output_shape": SemanticOutputShape.CONTEXTUAL_RESOURCE_LIST}
+        ),
+    )
+    assert _query_output_incomplete(contextual_planning, execution) is True
 
 
 def test_declaration_frame_without_exact_measure_fails_closed_without_t2() -> None:
