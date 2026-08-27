@@ -23,7 +23,7 @@ import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Protocol
 
 #: Bounded conflict evidence. A wider disagreement is truncated to a stable marker so a
 #: hostile or malfunctioning source cannot grow the projected metadata without bound.
@@ -55,7 +55,18 @@ class ObservedClaim:
     observed_at: datetime | None = None
     target_id: str | None = None
     generation_id: str | None = None
-    provider_identity_verified: bool = False
+
+
+class ProviderIdentityVerifier(Protocol):
+    """Verify one provider identity in the exact target-generation context."""
+
+    def verify(
+        self,
+        *,
+        provider_ref: str,
+        target_id: str,
+        generation_id: str,
+    ) -> bool: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,6 +104,8 @@ def adjudicate_observations(claims: Sequence[ObservedClaim]) -> ObservationVerdi
 
 def adjudicate_independent_observations(
     claims: Sequence[ObservedClaim],
+    *,
+    provider_identity_verifier: ProviderIdentityVerifier,
 ) -> ObservationVerdict:
     """Adjudicate two or more distinct provider observations without selecting a winner.
 
@@ -103,24 +116,43 @@ def adjudicate_independent_observations(
 
     if len(claims) < 2:
         raise ValueError("independent observation adjudication requires at least two claims")
-    providers = {claim.provider_ref for claim in claims}
-    target_ids = {claim.target_id for claim in claims}
-    generation_ids = {claim.generation_id for claim in claims}
-    if (
-        None in providers
-        or any(not isinstance(provider, str) or not provider.strip() for provider in providers)
-        or any(
-            provider != provider.strip().casefold()
-            or _CANONICAL_PROVIDER.fullmatch(provider) is None
-            for provider in providers
-            if isinstance(provider, str)
+    providers = tuple(claim.provider_ref for claim in claims)
+    if any(
+        not isinstance(provider, str)
+        or provider != provider.strip().casefold()
+        or _CANONICAL_PROVIDER.fullmatch(provider) is None
+        for provider in providers
+    ) or len(set(providers)) != len(claims):
+        raise ValueError(
+            "independent observations require verified canonical providers for one target "
+            "generation"
         )
-        or len(providers) != len(claims)
-        or len(target_ids) != 1
-        or None in target_ids
-        or len(generation_ids) != 1
-        or None in generation_ids
-        or not all(claim.provider_identity_verified for claim in claims)
+    target_id = claims[0].target_id
+    generation_id = claims[0].generation_id
+    if (
+        not isinstance(target_id, str)
+        or target_id != target_id.strip()
+        or not target_id
+        or len(target_id) > 1_024
+        or any(claim.target_id != target_id for claim in claims)
+        or not isinstance(generation_id, str)
+        or generation_id != generation_id.strip()
+        or not generation_id
+        or len(generation_id) > 512
+        or any(claim.generation_id != generation_id for claim in claims)
+    ):
+        raise ValueError(
+            "independent observations require verified canonical providers for one target "
+            "generation"
+        )
+    if not all(
+        provider_identity_verifier.verify(
+            provider_ref=provider,
+            target_id=target_id,
+            generation_id=generation_id,
+        )
+        for provider in providers
+        if isinstance(provider, str)
     ):
         raise ValueError(
             "independent observations require verified canonical providers for one target "
@@ -129,8 +161,8 @@ def adjudicate_independent_observations(
     return _adjudicate(
         claims,
         flag_provider_conflict=False,
-        target_id=next(iter(target_ids)),
-        generation_id=next(iter(generation_ids)),
+        target_id=target_id,
+        generation_id=generation_id,
     )
 
 
@@ -221,6 +253,7 @@ __all__ = [
     "ObservationIdentityConflictError",
     "ObservationVerdict",
     "ObservedClaim",
+    "ProviderIdentityVerifier",
     "adjudicate_independent_observations",
     "adjudicate_observations",
 ]

@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: c928a4625399d078ec3aa3fb400d1816496d26ff
+translation_source_sha: cd0d352efd84f9a399a562d306947eb281e6280d
 translation_revised: 2026-08-28
 ---
 # 코드 맵
@@ -102,6 +102,8 @@ Detection 변환 결과도 원본에서 파생된 Forecast 및 Pattern 객체만
 교차 출처 상태 판정은 결정론적 읽기 전용입니다. 서로 다른 provider와 변환 상태 shadow 쌍은
 권한을 선택하지 않고 충돌을 제외합니다.
 서로 다른 provider 입력은 비교 전에 비어 있지 않은 provider 신원을 요구합니다.
+또한 범위가 제한된 target 및 generation identity와 provider별 주입 검증기를 요구하므로 caller
+boolean으로 provider identity를 증명할 수 없습니다.
 Forecast 및 Pattern 원본 변환 결과는 기존 instance-store sink를 사용해 멱등적으로 저장합니다.
 인증된 Context 읽기와 detection 변환 결과는 의미 근거를 반환하거나 저장하기 전에
 canonical receipt, 신원 및 producer 검사를 강제합니다.

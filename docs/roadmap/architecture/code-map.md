@@ -97,6 +97,8 @@ relationships require exact endpoint identities before catalog restoration.
 Cross-source state adjudication is deterministic and read-only: distinct providers and the
 projected-state shadow pair withhold conflicts rather than selecting authority.
 Distinct-provider inputs require non-empty provider identities before comparison.
+They also require bounded target and generation identities plus an injected verifier for every
+provider; a caller boolean cannot attest provider identity.
 Forecast and Pattern source projections use an idempotent existing instance-store sink.
 Authenticated Context reads and detection projections enforce canonical receipt, identity, and
 producer checks before returning or persisting semantic evidence.
