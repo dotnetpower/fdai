@@ -24,6 +24,12 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   Focused sibling modules may own canonical identity projection and hashing while the established
   owner module re-exports that public surface; the split must preserve serialized bytes and replay
   semantics.
+- **observation-mode ARB composition**: `core/architecture_review/observation_loop.py` owns the
+  provider-neutral Change -> authenticated context -> evidence bundle -> scenario -> DecisionCase
+  and ImpactEnvelope composition. Forseti is the only publisher of its observation verdict on the
+  existing typed bus; Saga audits it, and `ArchitectureReviewProjector.project_observation` derives
+  read-only ReviewCase and ReviewCheck objects. This path has no approval, mutation, promotion, or
+  execution authority and uses an injected state store for duplicate and restart-safe replay.
   Pantheon members remain flat under `agents/`; private behavior-extraction mixins belong under
   `agents/_framework/` and cannot change the member's AgentSpec, topics, ownership, model policy,
   or authority.

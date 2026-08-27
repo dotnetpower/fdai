@@ -173,10 +173,9 @@ class PantheonRuntime:
         ``saga`` injects a durable auditor (a fork wires an append-only
         StateStore-backed ``Saga``); the default is the in-memory audit
         chain, adequate for shadow but lost on restart.
-        ``disabled_agents`` lets a fork run a partial pantheon
-        (agent-pantheon.md 10). Unknown names and the hard-dependency
-        agents (Saga / Vidar) are rejected - disabling audit or rollback
-        would break the mutation safety invariants. Disabling Huginn
+        ``disabled_agents`` lets a fork run a partial pantheon (agent-pantheon.md 10).
+        Unknown names and hard-dependency agents (Saga / Vidar) are rejected. Disabling
+        audit or rollback would break the mutation safety invariants. Disabling Huginn
         turns off ingress (warned), which effectively idles the pantheon.
         """
         if not raw_event_topic or not raw_event_topic.strip():

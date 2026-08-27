@@ -23,7 +23,7 @@ from fdai.agents._framework.base import (
     ConversationTool,
     Layer,
 )
-from fdai.agents._framework.bus import PantheonBus
+from fdai.agents._framework.bus import InMemoryBus, PantheonBus
 from fdai.agents._framework.bus_bridge import (
     AgentHandlerObserver,
     AgentHandlerPhase,
@@ -125,6 +125,7 @@ __all__ = [
     "Layer",
     "Norns",
     "PantheonBus",
+    "InMemoryBus",
     "PantheonRegistry",
     "PantheonRuntime",
     "RuleGenerationWorkerBindings",
