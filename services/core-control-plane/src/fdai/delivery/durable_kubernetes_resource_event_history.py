@@ -112,7 +112,7 @@ class DurableKubernetesResourceEventHistoryReader:
                     ResourceEventObservation(
                         resource_id=target_id,
                         event_family=KUBERNETES_EVENT_FAMILY,
-                        event_kind=item.lifecycle_kind,
+                        event_kind=_machine_token(item.reason),
                         status=item.event_type.casefold(),
                         classification=f"kubernetes_{item.object_kind.casefold()}"[:64],
                         occurred_at=item.occurred_at,
@@ -218,8 +218,19 @@ def _namespace_from_id(resource_id: str) -> str | None:
     return None if parts[1] == "_cluster" else parts[1]
 
 
-def _event_identity(item: ResourceEventObservation) -> tuple[str, datetime, str, str]:
-    return (item.resource_id, item.occurred_at, item.status, item.classification)
+def _event_identity(item: ResourceEventObservation) -> tuple[str, datetime, str, str, str]:
+    return (
+        item.resource_id,
+        item.occurred_at,
+        item.status,
+        item.classification,
+        item.event_kind,
+    )
+
+
+def _machine_token(value: str) -> str:
+    normalized = "_".join(value.casefold().replace("-", " ").split())
+    return normalized[:128] or "unknown"
 
 
 def _result(

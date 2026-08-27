@@ -144,3 +144,50 @@ async def test_merge_deduplicates_overlapping_live_and_durable_rows() -> None:
     )
 
     assert len(result.events) == 1
+
+
+async def test_merge_preserves_distinct_same_second_event_kinds() -> None:
+    durable_store = _Store(coverage_started_at=NOW - timedelta(hours=2))
+    durable = DurableKubernetesResourceEventHistoryReader(
+        store=durable_store,  # type: ignore[arg-type]
+        cluster_ref=CLUSTER,
+        now=lambda: NOW,
+    )
+    base = (
+        await durable.read_history_with_identity(
+            resource_ids=(RESOURCE_ID,),
+            resource_identity={RESOURCE_ID: {"cluster_ref": CLUSTER, "uid": UID}},
+            event_families=("resource_event.kubernetes",),
+            lookback_seconds=3600,
+        )
+    ).events[0]
+
+    class _Live:
+        async def read_history_with_identity(self, **kwargs):  # type: ignore[no-untyped-def]
+            del kwargs
+            return type(
+                "Collection",
+                (),
+                {
+                    "resource_ids": (RESOURCE_ID,),
+                    "events": (
+                        replace(base, event_kind="unhealthy", evidence_ref="live:unhealthy"),
+                        replace(base, event_kind="killing", evidence_ref="live:killing"),
+                    ),
+                    "observed_at": NOW,
+                    "complete": False,
+                    "limitation": "source_retention_unverified",
+                },
+            )()
+
+    result = await MergedKubernetesResourceEventHistoryReader(
+        live=_Live(),
+        durable=durable,
+    ).read_history_with_identity(
+        resource_ids=(RESOURCE_ID,),
+        resource_identity={RESOURCE_ID: {"cluster_ref": CLUSTER, "uid": UID}},
+        event_families=("resource_event.kubernetes",),
+        lookback_seconds=3600,
+    )
+
+    assert {item.event_kind for item in result.events} == {"backoff", "killing", "unhealthy"}
