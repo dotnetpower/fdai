@@ -21,6 +21,7 @@ class _ReleaseRef(Protocol):
 
 
 class _Receipt(Protocol):
+    principal_ref: str
     ontology_release: _ReleaseRef
     projected_result_digest: str
     purpose: str
@@ -60,11 +61,19 @@ def project_context_snapshot(
     snapshot: OperationalContextSnapshot,
     secured_result: SecuredContextResult,
     expected_purpose: str,
+    expected_principal_ref: str,
 ) -> dict[str, object]:
     """Return bounded Context metadata only after receipt and graph verification."""
 
     if not expected_purpose.strip() or secured_result.receipt.purpose != expected_purpose:
         raise ValueError("secured Context receipt purpose does not match the requested purpose")
+    if (
+        not expected_principal_ref.strip()
+        or secured_result.receipt.principal_ref != expected_principal_ref
+    ):
+        raise ValueError(
+            "secured Context receipt principal does not match the requesting principal"
+        )
     if secured_result.receipt.execution_authority is not False:
         raise ValueError("secured Context receipt MUST NOT grant execution authority")
     release_digest = secured_result.receipt.ontology_release.digest
@@ -73,6 +82,13 @@ def project_context_snapshot(
         raise ValueError("secured Context receipt release does not match snapshot release")
     if _utc(snapshot.cutoff) != _utc(secured_result.receipt.observation_cutoff):
         raise ValueError("secured Context receipt cutoff does not match snapshot cutoff")
+    if (
+        not secured_result.receipt.complete
+        or secured_result.receipt.truncated
+        or snapshot.stale_sources
+        or snapshot.conflicts
+    ):
+        raise ValueError("secured Context evidence is unavailable")
 
     graph = secured_result.materialization.graph
     if len(graph.objects) > _MAX_CONTEXT_OBJECTS or len(graph.links) > _MAX_CONTEXT_LINKS:
@@ -98,6 +114,7 @@ def project_context_snapshot(
     return {
         "schema_version": "1.0.0",
         "snapshot_id": snapshot.snapshot_id,
+        "principal_ref": expected_principal_ref,
         "ontology_release_digest": release_digest,
         "query_result_digest": secured_result.receipt.projected_result_digest,
         "purpose": secured_result.receipt.purpose,

@@ -113,6 +113,7 @@ scope, append-only transitions, and resumable work.
 | 2026-08-27 | implemented | Hardened planned-change freshness by verifying persisted inventory and operating-model manifests, rejecting all pending resource and link overlays, double-reading the receipt around traversal, and classifying configured PostgreSQL failures as unavailable. | `current change`; focused freshness, impact, persistence-decoder, change-chain, and pantheon checks (`49 passed`); Ruff and strict mypy. | Preserve ordinary execution-time RiskGate revalidation and retain deployed receipt evidence separately. |
 | 2026-08-27 | implemented | Required matching non-empty operating-model status and manifest revisions before a freshness receipt can be complete. | `current change`; focused freshness and pantheon checks (`52 passed`); Ruff and strict mypy. | Retain deployed exact-revision evidence separately. |
 | 2026-08-27 | implemented | Rejected matching whitespace-only operating-model revisions as semantically empty. | `current change`; focused freshness and pantheon checks (`53 passed`); Ruff and strict mypy. | Retain deployed evidence separately. |
+| 2026-08-27 | implemented | Bound receipt-verified Context metadata into the existing principal-scoped operational evidence response. The response now carries a server-checked principal, and Context projection rejects principal, purpose, release, stale, incomplete, and truncated evidence before returning metadata. | `current change`; `core/operational_context/test_console_projection.py` and `test_evidence_read.py` (`14 passed`). | Retain authenticated Console evidence separately; no authority or runtime promotion changes. |
 
 ### Remaining work
 
@@ -129,8 +130,9 @@ scope, append-only transitions, and resumable work.
 - [ ] Extend independent closure from one matched effect to the complete multi-effect set and carry
   an authoritative telemetry-completeness receipt; a scorable `ResponseOutcome` alone continues to
   project `telemetry_complete=false`.
-- [ ] Bind receipt-verified Context metadata through an existing principal-scoped evidence response;
-  prove wrong-principal, wrong-purpose, wrong-release, stale, and truncated cases remain unavailable.
+- [x] Bind receipt-verified Context metadata through the existing principal-scoped evidence response;
+  focused tests prove wrong-principal, wrong-purpose, wrong-release, stale, incomplete, and truncated
+  cases remain unavailable.
 - [ ] Keep the operating ontology and platform ledgers synchronized as topology, temporal,
   reconciliation, and graph-wide Dynamic delivery reaches its focused exit conditions.
 - [x] Bind `project_operating_scope` to the authenticated read-only inventory graph response so

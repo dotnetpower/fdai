@@ -28,6 +28,7 @@ from fdai.shared.providers.ontology_instance import (
 
 NOW = datetime(2026, 8, 24, tzinfo=UTC)
 RELEASE = "sha256:" + "a" * 64
+PRINCIPAL = "principal-example"
 
 
 class _EvidenceSource:
@@ -38,6 +39,7 @@ class _EvidenceSource:
             purpose=request.purpose,
             scope=request.scope,
             cutoff=request.cutoff,
+            principal_ref=request.principal_ref,
         )
 
 
@@ -52,6 +54,7 @@ async def _bundle():
             purpose="scenario-review",
             scope=("resource-base",),
             cutoff=NOW,
+            principal_ref=PRINCIPAL,
         )
     )
     return result.bundle
