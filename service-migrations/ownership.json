@@ -147,7 +147,9 @@
       "topology_object_revision",
       "topology_revision_batch",
       "t2_cache",
-      "t2_cache_default"
+      "t2_cache_default",
+      "kubernetes_lifecycle_cursor",
+      "kubernetes_lifecycle_observation"
     ],
     "operator-service": [
       "automation_blueprint_candidate",
@@ -285,7 +287,9 @@
       "topology_object_revision",
       "topology_revision_batch",
       "t2_cache",
-      "t2_cache_default"
+      "t2_cache_default",
+      "kubernetes_lifecycle_cursor",
+      "kubernetes_lifecycle_observation"
     ],
     "operator-service": [
       "automation_blueprint_candidate",

@@ -87,6 +87,8 @@ def test_every_legacy_table_has_one_migrator_and_one_write_contract() -> None:
         "question_manual_campaign_review",
         "question_release_assurance",
         "question_review_projection",
+        "kubernetes_lifecycle_cursor",
+        "kubernetes_lifecycle_observation",
     }
     assert set(manifest.table_writers) | transition_tables == set(manifest.table_migrators)
     assert not set(manifest.table_writers) & transition_tables
@@ -1365,6 +1367,13 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
         / "branches/core-control-plane/versions/20260826_core_interactive_read_investigation.py"
     )
     interactive_migration = inventory_module.load_revision_metadata(interactive_path)
+    kubernetes_lifecycle_path = (
+        MIGRATION_ROOT
+        / "branches/core-control-plane/versions/20260828_core_kubernetes_lifecycle.py"
+    )
+    kubernetes_lifecycle_migration = inventory_module.load_revision_metadata(
+        kubernetes_lifecycle_path
+    )
 
     expected_tables = {
         table for table, owner in ownership.table_migrators.items() if owner == "core-control-plane"
@@ -1379,6 +1388,7 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
         | set(operational_archive_migration.owned_tables)
         | set(metering_writer_migration.owned_tables)
         | set(interactive_migration.owned_tables)
+        | set(kubernetes_lifecycle_migration.owned_tables)
     )
     assert granted_tables == expected_tables
     source = role_path.read_text(encoding="utf-8")
