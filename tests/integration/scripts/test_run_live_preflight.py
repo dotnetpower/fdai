@@ -36,6 +36,7 @@ class _Reader:
             },
         ]
         self.secret_statuses = {"state-dsn": 200}
+        self.value_paths: list[str] = []
 
     def get_json(self, path: str, *, api_version: str) -> dict[str, Any]:
         del api_version
@@ -49,6 +50,7 @@ class _Reader:
         params: dict[str, str] | None = None,
     ) -> list[dict[str, Any]]:
         del api_version, params
+        self.value_paths.append(path)
         return self.usages if path.endswith("/usages") else self.policy_assignments
 
     def query_role_assignments(
@@ -134,7 +136,8 @@ def _environment() -> dict[str, Any]:
 
 
 def test_live_preflight_reports_all_categories_clear() -> None:
-    result = _MODULE.run_preflight(_profile(), _plan(), _environment(), _Reader())
+    reader = _Reader()
+    result = _MODULE.run_preflight(_profile(), _plan(), _environment(), reader)
 
     report = result["report"]
     assert report["verdict"] == "clear"
@@ -145,6 +148,59 @@ def test_live_preflight_reports_all_categories_clear() -> None:
         "identity_rbac",
         "secret_config",
     }
+    assert any(
+        path.endswith(
+            "/subscriptions/00000000-0000-0000-0000-000000000001/providers/Microsoft.Authorization/policyAssignments"
+        )
+        for path in reader.value_paths
+    )
+
+
+def test_live_preflight_checks_additional_resource_group_scope() -> None:
+    profile = _profile()
+    profile["azure_live"]["additional_policy_scopes"] = [
+        {
+            "resource_group": "ops-group",
+            "resource_types": ["event.stream"],
+        }
+    ]
+    reader = _Reader()
+
+    _MODULE.run_preflight(profile, _plan(), _environment(), reader)
+
+    assert any(
+        "/resourceGroups/ops-group/providers/Microsoft.Authorization/policyAssignments" in path
+        for path in reader.value_paths
+    )
+
+
+def test_live_preflight_skips_additional_scope_type_absent_from_plan() -> None:
+    profile = _profile()
+    profile["azure_live"]["additional_policy_scopes"] = [
+        {
+            "resource_group": "ops-group",
+            "resource_types": ["network.vnet-peering"],
+        }
+    ]
+    profile["azure_live"]["arm_resource_type_map"]["network.vnet-peering"] = (
+        "Microsoft.Network/virtualNetworks/virtualNetworkPeerings"
+    )
+    reader = _Reader()
+
+    _MODULE.run_preflight(profile, _plan(), _environment(), reader)
+
+    assert not any("/resourceGroups/ops-group/" in path for path in reader.value_paths)
+
+
+def test_live_preflight_rejects_case_variant_duplicate_additional_scopes() -> None:
+    profile = _profile()
+    profile["azure_live"]["additional_policy_scopes"] = [
+        {"resource_group": "ops-group", "resource_types": ["event.stream"]},
+        {"resource_group": "OPS-GROUP", "resource_types": ["event.stream"]},
+    ]
+
+    with pytest.raises(_MODULE.PreflightError, match="unique and non-empty"):
+        _MODULE.run_preflight(profile, _plan(), _environment(), _Reader())
 
 
 def test_live_preflight_blocks_grounded_policy_quota_rbac_and_secret_failures() -> None:

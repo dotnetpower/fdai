@@ -13,11 +13,11 @@ def azure_policy_findings(
     reader: AzureReader,
     *,
     subscription_id: str,
-    resource_group: str,
+    resource_group: str | None,
     neutral_types: tuple[str, ...],
     arm_type_map: Mapping[str, str],
 ) -> list[dict[str, Any]]:
-    """Return grounded findings for planned ARM types denied at the target scope."""
+    """Return grounded findings for planned ARM types denied at one exact scope."""
     arm_types: set[str] = set()
     for neutral_type in neutral_types:
         arm_type = neutral_type if "/" in neutral_type else arm_type_map.get(neutral_type)
@@ -26,7 +26,9 @@ def azure_policy_findings(
         arm_types.add(arm_type)
     if not arm_types:
         return []
-    scope = f"/subscriptions/{subscription_id}/resourceGroups/{resource_group}"
+    scope = f"/subscriptions/{subscription_id}"
+    if resource_group is not None:
+        scope += f"/resourceGroups/{resource_group}"
     assignments = reader.get_values(
         f"{scope}/providers/Microsoft.Authorization/policyAssignments",
         api_version="2022-06-01",
