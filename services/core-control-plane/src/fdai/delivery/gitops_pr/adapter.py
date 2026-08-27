@@ -41,7 +41,7 @@ import hashlib
 import json
 from dataclasses import dataclass
 from typing import Any, Final
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 import httpx
 
@@ -205,9 +205,7 @@ class GitOpsPrAdapter(RemediationPrPublisher):
         number = pr_ref[len(marker) :]
         if not number.isdigit():
             raise GitOpsPrError("governance PR reference number is invalid")
-        payload = await self._get_json(
-            f"{self._config.api_base}/repos/{self._config.owner}/{self._config.repo}/pulls/{number}"
-        )
+        payload = await self._get_json(self._repo_url(f"pulls/{quote(number, safe='')}"))
         if not isinstance(payload, dict):
             raise GitOpsPrError("governance PR lookup returned no pull request")
         if payload.get("merged_at") is not None:
@@ -236,6 +234,15 @@ class GitOpsPrAdapter(RemediationPrPublisher):
             "Accept": "application/vnd.github+json",
             "X-GitHub-Api-Version": "2022-11-28",
         }
+
+    def _repo_url(self, suffix: str = "") -> str:
+        owner = quote(self._config.owner, safe="")
+        repo = quote(self._config.repo, safe="")
+        return f"{self._config.api_base}/repos/{owner}/{repo}/{suffix}".rstrip("/")
+
+    @staticmethod
+    def _content_path(path: str) -> str:
+        return "/".join(quote(segment, safe="") for segment in path.split("/"))
 
     async def _get_json(self, url: str) -> Any:
         try:
@@ -305,9 +312,7 @@ class GitOpsPrAdapter(RemediationPrPublisher):
     async def _find_open_pr(self, branch: str) -> dict[str, Any] | None:
         head = f"{self._config.owner}:{branch}"
         query = urlencode({"state": "all", "head": head})
-        url = (
-            f"{self._config.api_base}/repos/{self._config.owner}/{self._config.repo}/pulls?{query}"
-        )
+        url = f"{self._repo_url('pulls')}?{query}"
         payload = await self._get_json(url)
         if not payload:
             return None
@@ -325,11 +330,7 @@ class GitOpsPrAdapter(RemediationPrPublisher):
         }
 
     async def _resolve_base_sha(self) -> str:
-        url = (
-            f"{self._config.api_base}/repos/"
-            f"{self._config.owner}/{self._config.repo}"
-            f"/git/refs/heads/{self._config.default_branch}"
-        )
+        url = self._repo_url(f"git/refs/heads/{quote(self._config.default_branch, safe='')}")
         payload = await self._get_json(url)
         if payload is None:
             raise GitOpsPrError(f"default branch {self._config.default_branch!r} not found")
@@ -339,7 +340,7 @@ class GitOpsPrAdapter(RemediationPrPublisher):
         return sha
 
     async def _create_branch(self, *, branch: str, base_sha: str) -> None:
-        url = f"{self._config.api_base}/repos/{self._config.owner}/{self._config.repo}/git/refs"
+        url = self._repo_url("git/refs")
         body = {"ref": f"refs/heads/{branch}", "sha": base_sha}
         try:
             await self._post_json(url, body, ok_statuses=(201,))
@@ -356,10 +357,7 @@ class GitOpsPrAdapter(RemediationPrPublisher):
         content: str,
         title: str,
     ) -> str:
-        url = (
-            f"{self._config.api_base}/repos/"
-            f"{self._config.owner}/{self._config.repo}/contents/{path}"
-        )
+        url = self._repo_url(f"contents/{self._content_path(path)}")
         encoded = base64.b64encode(content.encode("utf-8")).decode("ascii")
         body: dict[str, Any] = {
             "message": title,
@@ -372,7 +370,7 @@ class GitOpsPrAdapter(RemediationPrPublisher):
         }
         # If the file already exists on the branch, GitHub requires the
         # target file's blob sha for an update.
-        existing = await self._get_json(f"{url}?ref={branch}")
+        existing = await self._get_json(f"{url}?{urlencode({'ref': branch})}")
         if isinstance(existing, dict) and isinstance(existing.get("sha"), str):
             body["sha"] = existing["sha"]
 
@@ -383,7 +381,7 @@ class GitOpsPrAdapter(RemediationPrPublisher):
         return commit_sha
 
     async def _open_draft_pr(self, *, branch: str, title: str, body: str) -> tuple[str, str | None]:
-        url = f"{self._config.api_base}/repos/{self._config.owner}/{self._config.repo}/pulls"
+        url = self._repo_url("pulls")
         payload = await self._post_json(
             url,
             {
@@ -402,11 +400,7 @@ class GitOpsPrAdapter(RemediationPrPublisher):
 
     async def _apply_labels(self, *, pr_ref: str, labels: tuple[str, ...]) -> None:
         pr_number = pr_ref.rsplit("#", 1)[-1]
-        url = (
-            f"{self._config.api_base}/repos/"
-            f"{self._config.owner}/{self._config.repo}"
-            f"/issues/{pr_number}/labels"
-        )
+        url = self._repo_url(f"issues/{quote(pr_number, safe='')}/labels")
         await self._post_json(url, {"labels": list(labels)})
 
 

@@ -1,7 +1,7 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 33e638ccd391a6f950593f03929ae1d2247557de
+translation_source_sha: f6644b7c11526e86c076fb594cce59b3111f914a
 translation_revised: 2026-08-30
 ---
 # 프로세스 자동화(프로세스 자동화)
@@ -46,6 +46,7 @@ translation_revised: 2026-08-30
 | 2026-08-14 | implemented | 보상 실패, ledger 재시작, 중복 전달, 정방향 전달 차단 및 일치하는 복구 해제 전반에서 영속 자동화 hold를 검증하고 FDAI-CONST-009를 implemented로 기록했습니다. | `current change`; `test_automation_hold.py`, `test_orchestrator.py`, `test_control_loop_authority.py`, `test_gate.py`; 집중 검사 10개가 통과했습니다. | 아래의 독립 워크플로 승격 근거와 관련 없는 트리거 및 분기 작업은 계속 남아 있습니다. |
 | 2026-08-14 | implemented | `on_failure` 분기를 실패 시에만 실행되도록 바꿔, 선언된 대체 스텝이 성공 경로에서 일반 정방향 스텝으로 실행되지 않게 했습니다. | `current change`; [`runner.py`](../../../services/core-control-plane/src/fdai/core/runbook/runner.py), [`test_runbook_runner.py`](../../../services/core-control-plane/tests/core/runbook/test_runbook_runner.py); 집중 runbook 및 workflow 검사 114개가 통과했습니다. | 로드 시점 교차 검사 전에 요청 및 명령 트리거를 포함하는 `SignalType` 어휘를 승격하고, 독립 워크플로 승격 근거를 보존해야 합니다. |
 | 2026-08-27 | implemented | 선언된 governance promotion ActionType을 별도 승인된 서로 다른 승인자 전환을 요구하는 inert direct-action dispatcher로 라우팅했습니다. | `current change`; `runtime/delivery.py`, `delivery/promotion.py`, 집중 governance dispatch 테스트 통과. | 배포 검토와 병합 근거는 외부 게이트이며 로컬 경로는 권한을 부여하지 않습니다. |
+| 2026-08-27 | implemented | Runtime, HIL resume 및 frozen measurement replay에서 current active-rule projection을 일관되게 유지하고 원격 접근 전에 GitOps path segment와 query value를 직렬화했습니다. | `current change`; HIL, scenario-replay 및 GitOps 집중 테스트 통과. | 배포 증적은 외부 게이트입니다. |
 
 ### 남은 작업
 

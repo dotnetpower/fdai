@@ -1,7 +1,7 @@
 ---
 title: Action 온톨로지 라이프사이클
 translation_of: action-ontology-lifecycle.md
-translation_source_sha: 60e16f1f0f4dd03c87c6ed85d22ac9faaf4b1aa7
+translation_source_sha: 327a0c5bdf8187b039890416cd4d563ee46f4e59
 translation_revised: 2026-08-27
 ---
 

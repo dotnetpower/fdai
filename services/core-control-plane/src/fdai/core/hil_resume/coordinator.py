@@ -664,8 +664,6 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
         is_delegated = delegation is not None and delegation.is_delegated
         action = Action.model_validate(parked["action"])
         rule = self._rules_by_id.get(str(parked.get("rule_id") or ""))
-        if rule is None and isinstance(parked.get("rule"), dict):
-            rule = Rule.model_validate(parked["rule"])
         # Mark resolved BEFORE executing so a concurrent duplicate decision
         # cannot double-apply; the executor is itself idempotent by
         # idempotency_key, this is defense in depth.
