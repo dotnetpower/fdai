@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 36660bb1aeb65ad126592fbc9562da5154996ab1
+translation_source_sha: df64e1a2280f7202fae57f359a1569169f0f0816
 translation_revised: 2026-08-27
 ---
 # 코드 맵
@@ -95,6 +95,8 @@ ObjectSet receipt는 결과가 0개인 read를 포함해 source generation 및 c
 truncation과 독립적으로 보존합니다.
 Principal 범위 운영 근거 읽기는 기존 범위 제한 응답을 통해 receipt로 검증된 컨텍스트
 메타데이터를 결속하며 mutation 또는 execution 권한을 추가하지 않습니다.
+Detection 변환 결과도 원본에서 파생된 Forecast 및 Pattern 객체만 노출하며, 보류된 관계는
+카탈로그를 복원하기 전에 정확한 endpoint 신원을 요구합니다.
 
 Bounded ARM compute overlay는 검토된 parent 및 attachment mapping을 통해 VMSS VM과 NIC child
 collection을 소유합니다. Console instance presentation은 role assignment를 생략하고 선택한
