@@ -400,7 +400,7 @@ def _context_identity(
     selection_registry: ContextSelectionRegistry | None,
 ) -> dict[str, object]:
     """Issue a digest-bound selection only for a complete principal-scoped read."""
-    if not complete:
+    if not complete or not resource_ids:
         return {}
     ordinary_roles = tuple(
         role

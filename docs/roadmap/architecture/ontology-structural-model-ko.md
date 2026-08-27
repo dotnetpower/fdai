@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 4ab568ffca4533a93ba5f6cb99781e44c8a8de60
+translation_source_sha: d11bf7d9a6b3bacacc8ca4a95f97ea285fe2e50d
 translation_revised: 2026-08-30
 ---
 # 온톨로지 구조 모델
@@ -238,6 +238,8 @@ Directory 상한은 표현상의 제한이며 완전성 주장이 아닙니다. 
 페이지가 아니라 권위 있는 directory를 대상으로 실행되므로, 상한을 벗어난 Resource도 계속 찾을 수
 있습니다. 기록된 식별자가 담을 수 없는 검색어는 없는 Resource처럼 보이는 빈 결과를 돌려주는 대신
 찾을 수 없음으로 거부하며, 어떤 검색어도 directory에 도달하기 전에 번역하거나 바꾸지 않습니다.
+유효한 검색에서 일치하는 Resource가 없으면 결속할 객체 identity가 없으므로 contextual selection
+capability를 발급하지 않고 완전한 빈 page를 반환합니다.
 
 Resource 유형 아이콘은 표현일 뿐입니다. 객체 identity, 유형 권한 또는 evidence를 담지
 않습니다. 매핑되지 않은 유형은 비슷해 보이는 아이콘 대신 명시적인 일반 아이콘으로 해석되고,
@@ -343,6 +345,7 @@ Azure 위치처럼 ResourceClass가 애초에 가지지 않는 기록 필드도 
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-27 | implemented | 완전한 빈 instance directory를 유효한 읽기 결과로 유지했습니다. 빈 capability 발급을 시도해 HTTP 400을 반환하지 않고 contextual selection identity를 생략합니다. | `current change`, 집중 Operator instance-projection 검사(`7 passed`), Ruff 및 strict mypy | 인증된 Console 빈 검색 근거는 별도로 보존합니다. 런타임 근거를 생성하지 않았습니다. |
 | 2026-08-26 | implemented | 정확한 Node `providerID`와 VMSS VM 아이덴티티 연결, Ingress 및 EndpointSlice 런타임 분류 체계, 명시적인 Kubernetes 출처 가용성, 런타임을 구분하는 Operator 및 Console LinkType 프로젝션, 근거만 사용하는 AKS 첫 화면 커버리지 대역을 추가했습니다. | `current change`, 집중 카탈로그 및 인벤토리 통합 검사 111개, 집중 Operator 검사 30개, 집중 Console 검사 60개가 통과했습니다. 권위 있는 로컬 새로 고침은 Resource 897개와 인벤토리 링크 1,640개를 보존했습니다. Snapshot과 ontology 아이덴티티 집합이 정확히 일치했고 dangling, duplicate, multiple-parent, endpoint-type 및 generation 불일치는 모두 0이었습니다. 선택한 중지된 AKS 분기는 managed Resource Group 1개, 직접 AgentPool 1개, VMSS Resource 4개를 보존했습니다. 정확한 VMSS VM 또는 VMSS NIC child edge는 0개였습니다. Kubernetes 런타임은 명시적으로 `unavailable`이었으므로 Node, Pod, Service, Endpoint 및 연결 개수도 0으로 유지됐습니다. | 런타임 검증을 주장하기 전에 하나의 완전하고 정확한 클러스터 Kubernetes API 세대를 보존합니다. 외부 gateway 또는 load balancer와 Kubernetes 아이덴티티 사이의 관계는 권위 있는 출처가 두 엔드포인트를 입증할 때까지 알 수 없음으로 유지합니다. |
 | 2026-08-25 | implemented | VMSS VM 및 NIC child의 bounded ARM collection과 role assignment를 숨기고 선택한 root의 immediate Resource Group context만 유지하는 기본 presentation 규칙을 추가했습니다. | 집중 Python 검사 43개와 Console 검사 59개, Ruff, strict mypy, typecheck 및 build가 통과했습니다. Local refresh는 Resource 901개와 ontology link 2,550개를 정확한 generation agreement 및 structural invariant violation 0으로 승격했습니다. 인증된 VNet 및 AKS view는 VNet direct owner group 하나를 유지하고 VMSS, VM, NIC hierarchy node를 표시했습니다. | 범위가 제한된 구현 작업은 남아 있지 않습니다. 배포 근거는 별도입니다. |
 | 2026-08-25 | implemented | 범위가 제한된 multi-hop 인스턴스 표현이 저장된 edge 방향을 보존하고 evidence-backed VM network path만 요약하며, 불완전하거나 모델링되지 않은 커버리지에서는 누락된 ingress 또는 egress를 unknown으로 유지하도록 요구했습니다. | `current change`, 활성 세대 PostgreSQL 감사, 집중 Console 검사 56개, typecheck, production build, entry bundle 검사 통과, overflow 0과 44 px 모바일 path control을 유지한 인증된 1440 x 900, 993 x 641, 390 x 844 Browser 검사 | 범위가 제한된 구현 작업은 남아 있지 않습니다. 통제된 runtime 보존은 별도입니다. |
