@@ -241,6 +241,55 @@ async def test_projector_retry_recovers_after_manifest_write_before_status_commi
     assert committed["generation"] == "snapshot-1"
 
 
+async def test_multi_link_type_manifest_replays_and_upgrades_legacy_schema() -> None:
+    store = _store()
+    status = InMemoryStateStore()
+    projector = _projector(store, status)
+    observation = _observation(
+        generation="snapshot-multi-link",
+        resource_ids=("vm-1", "vm-2", "vm-3"),
+        links=(
+            LinkRecord(
+                from_id="vm-2",
+                from_type="compute.vm",
+                link_type="attached_to",
+                to_id="vm-3",
+                to_type="compute.vm",
+            ),
+            LinkRecord(
+                from_id="vm-1",
+                from_type="compute.vm",
+                link_type="routes_to",
+                to_id="vm-2",
+                to_type="compute.vm",
+            ),
+        ),
+    )
+
+    await projector.apply(observation)
+    await projector.apply(observation)
+    manifest = await status.read_state(INVENTORY_ONTOLOGY_MANIFEST_KEY)
+    assert manifest is not None
+    legacy_manifest = {
+        "schema_version": "1.2.0",
+        "generation": manifest["generation"],
+        "ontology_release_digest": manifest["ontology_release_digest"],
+        "object_ids": manifest["object_ids"],
+        "link_keys": manifest["link_keys"],
+    }
+    await status.write_state(INVENTORY_ONTOLOGY_MANIFEST_KEY, legacy_manifest)
+
+    await projector.apply(observation)
+
+    upgraded = await status.read_state(INVENTORY_ONTOLOGY_MANIFEST_KEY)
+    assert upgraded is not None
+    assert upgraded["schema_version"] == "1.3.0"
+    assert upgraded["link_keys"] == [
+        ["vm-2", "attached_to", "vm-3"],
+        ["vm-1", "routes_to", "vm-2"],
+    ]
+
+
 async def test_projector_rejects_tampered_manifest_before_replacing_owned_graph() -> None:
     store = _store()
     status = InMemoryStateStore()

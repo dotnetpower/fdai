@@ -274,7 +274,10 @@ class InventoryOntologyProjector:
             and len(item) == 3
             and all(isinstance(value, str) and value for value in item)
         )
-        if len(link_keys) != len(link_values) or link_keys != tuple(sorted(set(link_keys))):
+        canonical_link_keys = tuple(
+            sorted(set(link_keys), key=lambda item: (item[1], item[0], item[2]))
+        )
+        if len(link_keys) != len(link_values) or link_keys != canonical_link_keys:
             raise ValueError("inventory ontology manifest link keys are invalid")
         if schema_version == _LEGACY_MANIFEST_SCHEMA_VERSION:
             return _OwnedIdentities(

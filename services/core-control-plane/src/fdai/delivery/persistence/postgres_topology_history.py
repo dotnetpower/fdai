@@ -311,7 +311,7 @@ async def _read_existing_batch(
         "SELECT revision_id, from_id, from_type, link_type, to_id, to_type, "
         "properties, effective_at, recorded_at, deleted, evidence_ref "
         "FROM topology_link_revision WHERE revision_id = %s "
-        "ORDER BY from_id, link_type, to_id",
+        "ORDER BY link_type, from_id, to_id",
         (revision_id,),
     )
     batches = _reconstruct_batches(
