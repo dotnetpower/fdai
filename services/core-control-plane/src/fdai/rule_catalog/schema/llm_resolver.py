@@ -106,6 +106,13 @@ class CatalogQuery(Protocol):
 
 
 @runtime_checkable
+class PublisherCatalogQuery(Protocol):
+    """Publisher-qualified model families available in the target region."""
+
+    def publisher_families_in_region(self, region: str) -> set[tuple[str, str]]: ...
+
+
+@runtime_checkable
 class ModelVersionQuery(Protocol):
     """Latest stable model version selected for one regional family."""
 
@@ -412,6 +419,11 @@ def resolve(
         principal_object_id=deployer_object_id,
     )
     catalog_families = catalog.families_in_region(region)
+    publisher_families = (
+        catalog.publisher_families_in_region(region)
+        if isinstance(catalog, PublisherCatalogQuery)
+        else None
+    )
 
     entries: list[ResolvedCapability] = []
     # Sort capabilities by name so the output is deterministic regardless
@@ -458,7 +470,13 @@ def resolve(
             continue
 
         available_preferences = tuple(
-            preference for preference in spec.preferences if preference.family in catalog_families
+            preference
+            for preference in spec.preferences
+            if (
+                (preference.publisher, preference.family) in publisher_families
+                if publisher_families is not None
+                else preference.family in catalog_families
+            )
         )
         if not available_preferences:
             entries.append(
@@ -671,6 +689,7 @@ __all__ = [
     "ModelVersionQuery",
     "NarratorCandidate",
     "PermissionQuery",
+    "PublisherCatalogQuery",
     "QuotaQuery",
     "ResolvedCapability",
     "ResolvedModels",

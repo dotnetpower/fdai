@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: d937d39f4073dc6e15f34ad0ed76786032e9f596
+translation_source_sha: b8dc0abd7801937ebffd1df6fc7b193ac9c99c31
 translation_revised: 2026-08-28
 ---
 # 프로젝트 구조
@@ -32,6 +32,10 @@ translation_revised: 2026-08-28
   발화에서 정확한 런타임 식별자 하나를 검증한 경우에만 제거합니다. 식별자가 없거나 여러 개이면
   명확화를 유지하고 다른 모든 미해결 개념도 타입이 지정된 명확화로 남깁니다. 이 검증은
   프로바이더 입출력, 의사 결정, 승인, 변경 또는 실행 권한을 추가하지 않습니다.
+- **모델 카탈로그 신원은 가능한 경우 발행기로 한정**: Core는 계열 전용 adapter 계약을
+  보존하면서 선택적 `(publisher, family)` 카탈로그 경계를 받습니다. Azure delivery는 허용
+  목록의 OpenAI 및 AIServices format만 매핑하고 partner 배포 및 endpoint 소유권은 resolver
+  밖에 유지합니다.
 - **자격 검증 축약에는 권한이 없음**:
   `core/conversation_assurance/quality_qualification.py`는 미리 측정하고 정규화한 관측값만
   받아 설치된 품질 계약에 따라 축약합니다. 원시 근거 상태에서 하드 상한을 계산하며 모델 호출,

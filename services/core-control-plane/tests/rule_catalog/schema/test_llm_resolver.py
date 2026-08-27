@@ -70,6 +70,16 @@ class _StaticCatalog(CatalogQuery):
         return set(self._families)
 
 
+class _PublisherStaticCatalog(_StaticCatalog):
+    def __init__(self, families: set[str], publisher_families: set[tuple[str, str]]) -> None:
+        super().__init__(families)
+        self._publisher_families = set(publisher_families)
+
+    def publisher_families_in_region(self, region: str) -> set[tuple[str, str]]:
+        del region
+        return set(self._publisher_families)
+
+
 class _AlwaysPermissionQuery(PermissionQuery):
     def __init__(self, granted: bool) -> None:
         self._granted = granted
@@ -168,6 +178,23 @@ def test_resolve_maps_every_capability_when_all_gates_pass() -> None:
     }
     for c in result.capabilities:
         assert c.status is CapabilityStatus.RESOLVED
+
+
+def test_publisher_catalog_does_not_match_same_named_family_from_wrong_publisher() -> None:
+    publisher_families = {("OpenAI", family) for family in _families_full()}
+    result = resolve(
+        registry=_registry(),
+        region=_REGION,
+        subscription_id=_SUB,
+        deployer_object_id=_OID,
+        catalog=_PublisherStaticCatalog(_families_full(), publisher_families),
+        permission=_AlwaysPermissionQuery(True),
+        quota=_default_full_quota(),
+    )
+
+    secondary = next(item for item in result.capabilities if item.name == "t2.reasoner.secondary")
+    assert secondary.status is CapabilityStatus.HIL_ONLY
+    assert secondary.reasons[0].startswith("no_preferred_family_in_region")
 
 
 def test_resolve_maps_ontology_council_slots_without_weakening_reasoner_invariant() -> None:

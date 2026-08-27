@@ -14,6 +14,9 @@ or a second source of provider truth.
 > **Compatibility boundary:** Existing `Resource`, `ResourceType`, LinkType identities, stored link
 > directions, and historical ontology releases remain valid. New structural surfaces are additive
 > and start as read-only capabilities.
+>
+> Model capability selection may qualify a catalog family by publisher. That pair is deployment
+> metadata, not ontology identity, and cannot grant model invocation or execution authority.
 
 ## Design at a glance
 
