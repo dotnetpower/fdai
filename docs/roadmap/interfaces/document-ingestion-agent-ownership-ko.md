@@ -1,7 +1,7 @@
 ---
 translation_of: document-ingestion-agent-ownership.md
-translation_source_sha: 9b3c670b4cb48a35be7d57f2b04724c616ad8764
-translation_revised: 2026-08-21
+translation_source_sha: c75363a147aa5bf1c2f726856962e0fcc29fc2f8
+translation_revised: 2026-08-27
 ---
 
 # 문서 인제스트 에이전트 소유권
@@ -113,6 +113,7 @@ system-assigned principal로 대체 경로하지 않습니다.
 |------|------|------|------|
 | Huginn, Heimdall, Forseti, Saga, Var 및 Muninn 게이트 체인 | implemented | `services/core-control-plane/tests/agents/test_document_ingestion_agent_chain.py`; `services/core-control-plane/src/fdai/agents/`; document worker 감사 및 인덱스 계약 | Focused agent-chain 테스트는 내용이 없는 ingress, 판정, 감사, 승인 및 인덱스 명령 소유권을 입증하며 Thor는 non-action 문서 결정을 무시합니다. |
 | 독립 ingestion API 및 처리 worker | implemented | `services/document-ingestion-api/`; `services/document-processing-worker/`; `packages/service-contracts/src/fdai_service_contracts/document.py` | 별도 패키지, 진입점, 계약, 어댑터 및 focused service 테스트가 기계적 프로세스 역할을 보존합니다. |
+| 격리된 native PDF 구문 분석 | implemented | `services/document-processing-worker/src/fdai_document_worker_service/adapters/pdf_isolation.py`; 집중 격리 및 구문 분석기 동등성 검사 | 기계적 worker는 신뢰할 수 없는 native PDF 구문 분석을 리소스 상한이 있는 별도 프로세스에 위임합니다. 구문 분석기 실패는 타입이 지정된 안전하지 않은 패키지 결과를 반환하며 수명 주기 또는 에이전트 권한을 부여하지 않습니다. |
 | 영속 worker 점유 fencing 및 복구 | implemented | `services/core-control-plane/src/fdai/core/document_ingestion/`; `services/core-control-plane/tests/core/document_ingestion/`; service-owned worker 테스트 | Focused 테스트는 gated 상태 재생, 임차 기간과 점유 소유권, 중복 전달 및 결정 이후 복구 동작을 다룹니다. |
 | 배포 신원, topic RBAC 및 재시작 근거 | in-progress | `config/independent-service-live-evidence-manifest.json`; `infra/`; 독립 service 패키지 | 토폴로지와 연결이 선언되고 service 검사가 있지만 이 owner 문서에는 현재 이미지 신원, topic 권한, 재시작 및 실행기 접근 부재 탐색에 대한 정확한 관리 증적이 없습니다. |
 
@@ -121,6 +122,7 @@ system-assigned principal로 대체 경로하지 않습니다.
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 구현 ledger를 도입했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 agent-chain, core ingestion, service 패키지 및 계약 근거입니다. | 정확한 배포 신원, 전송, 재시작 및 권한 상한 근거를 보존해야 합니다. |
+| 2026-08-27 | implemented | 서버가 소유하는 벽시계, CPU, 주소 공간, 페이지 및 문자 상한을 적용해 native PDF 구문 분석을 장기 실행 문서 worker와 격리했습니다. | `current change`; 문서 worker 격리 및 구문 분석기 동등성 검사입니다. | 배포 신원, 전송, 재시작 및 엔드투엔드 에이전트 근거는 아래 열린 작업으로 유지합니다. |
 
 ### 남은 작업
 

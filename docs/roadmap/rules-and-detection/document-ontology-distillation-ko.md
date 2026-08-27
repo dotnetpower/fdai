@@ -1,6 +1,6 @@
 ---
 translation_of: document-ontology-distillation.md
-translation_source_sha: f37fd180c01542b5e873119ef63b75f8e123bf43
+translation_source_sha: 0b672580172b582c96f99d319d50e8cd083fdd8e
 translation_revised: 2026-08-27
 ---
 # 문서 온톨로지 증류
@@ -33,6 +33,9 @@ translation_revised: 2026-08-27
 > D4e는 영어 native PDF, Office 및 OCR 범위와 한국어 Office 및 OCR 기반 스캔 PDF 범위를
 > 합성 corpus로 추가합니다. 연결된 결정론적 프로바이더는 필요한 모든 합성 파티션을 통과하지만,
 > 이 결과를 운영 추출 근거로 취급하지 않습니다.
+> D4f는 운영 native PDF 구문 분석을 벽시계, CPU, 주소 공간, 페이지 및 문자 상한이 있는 별도
+> 프로세스로 이동합니다. 잘못됐거나 상한을 초과했거나 시간 초과 또는 종료된 구문 분석기는
+> 타입이 지정된 안전하지 않은 패키지 결과를 반환하며 문서 처리 서비스를 종료할 수 없습니다.
 
 ## 한눈에 보는 설계
 

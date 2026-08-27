@@ -38,6 +38,7 @@ from fdai_service_contracts import (
 )
 
 from fdai_document_worker_service.adapters.ooxml import OoxmlParserBudget, extract_ooxml
+from fdai_document_worker_service.adapters.pdf_isolation import extract_pdf_pages_isolated
 
 _TEXT_EXTENSIONS = frozenset(
     {".txt", ".md", ".rst", ".json", ".yaml", ".yml", ".xml", ".csv", ".tf", ".rego"}
@@ -244,7 +245,7 @@ class BoundedDocumentExtractor:
         elif observed == "ooxml":
             units = extract_ooxml(content, budget=self._ooxml_budget)
         elif observed == "pdf":
-            pdf_pages = _pdf_units(content)
+            pdf_pages = await asyncio.to_thread(_pdf_units, content)
             native_units = tuple(unit for unit in pdf_pages if unit is not None)
             if pdf_pages and len(native_units) == len(pdf_pages):
                 units = native_units
@@ -548,17 +549,16 @@ def _text_units(text: str) -> tuple[StructuralUnit, ...]:
 
 def _pdf_units(content: bytes) -> tuple[StructuralUnit | None, ...]:
     """Preserve every source page so blank pages remain eligible for OCR."""
-    reader = pypdf.PdfReader(io.BytesIO(content))
     return tuple(
         StructuralUnit(
             unit_id=f"page-{index}",
             kind="page",
             locator=f"pdf/page:{index}/block:1",
-            text=text,
+            text=page,
         )
-        if (text := (page.extract_text() or "").strip())
+        if page is not None
         else None
-        for index, page in enumerate(reader.pages, start=1)
+        for index, page in enumerate(extract_pdf_pages_isolated(content), start=1)
     )
 
 

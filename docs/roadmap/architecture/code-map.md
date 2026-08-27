@@ -208,6 +208,8 @@ These packages depend only on `fdai-service-contracts`, never another service im
 Local composition binds service-owned client lifecycles and loopback adapters, so the Operator
 semantic bridge, ingestion publisher, document worker consumer, and isolated Executor preserve the
 same logical topics, idempotency, readiness, and receipt boundaries as deployed adapters.
+The document worker parses native PDFs in a spawned resource-limited process so untrusted
+decompression cannot terminate its long-lived service.
 
 ## Shared contract SDK
 
