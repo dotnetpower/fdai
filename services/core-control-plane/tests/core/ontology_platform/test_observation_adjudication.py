@@ -17,6 +17,24 @@ from fdai.core.ontology_platform.observation_adjudication import (
 OBSERVED_AT = datetime(2026, 8, 8, 12, tzinfo=UTC)
 
 
+class _ProviderIdentityVerifier:
+    def verify(
+        self,
+        *,
+        provider_ref: str,
+        target_id: str,
+        generation_id: str,
+    ) -> bool:
+        return (
+            provider_ref in {"provider-ref-1", "provider-ref-2"}
+            and target_id == "resource-1"
+            and generation_id == "generation-1"
+        )
+
+
+VERIFIER = _ProviderIdentityVerifier()
+
+
 def _claim(
     *,
     properties: dict[str, object] | None = None,
@@ -25,7 +43,6 @@ def _claim(
     type_id: str = "compute.vm",
     target_id: str | None = "resource-1",
     generation_id: str | None = "generation-1",
-    provider_identity_verified: bool = True,
 ) -> ObservedClaim:
     return ObservedClaim(
         type=type_id,
@@ -34,7 +51,6 @@ def _claim(
         observed_at=OBSERVED_AT + timedelta(seconds=offset_seconds),
         target_id=target_id,
         generation_id=generation_id,
-        provider_identity_verified=provider_identity_verified,
     )
 
 
@@ -139,7 +155,8 @@ def test_independent_providers_agree_without_increasing_authority() -> None:
         (
             _claim(provider_ref="provider-ref-1"),
             _claim(provider_ref="provider-ref-2"),
-        )
+        ),
+        provider_identity_verifier=VERIFIER,
     )
 
     assert verdict.conflicts == ()
@@ -159,7 +176,8 @@ def test_independent_provider_disagreement_withholds_only_contested_values() -> 
                 provider_ref="provider-ref-2",
                 properties={"status": "deallocated", "region": "one"},
             ),
-        )
+        ),
+        provider_identity_verifier=VERIFIER,
     )
 
     assert verdict.conflicts == ("observed_property_conflict:status",)
@@ -191,10 +209,17 @@ def test_independent_provider_disagreement_withholds_only_contested_values() -> 
         ),
         (
             (
-                _claim(provider_ref="provider-ref-1", provider_identity_verified=False),
-                _claim(provider_ref="provider-ref-2"),
+                _claim(provider_ref="provider-ref-1", target_id=" "),
+                _claim(provider_ref="provider-ref-2", target_id=" "),
             ),
-            "verified canonical providers",
+            "one target generation",
+        ),
+        (
+            (
+                _claim(provider_ref="provider-ref-1", generation_id=""),
+                _claim(provider_ref="provider-ref-2", generation_id=""),
+            ),
+            "one target generation",
         ),
     ),
 )
@@ -203,7 +228,23 @@ def test_independent_adjudication_requires_distinct_provider_identity(
     message: str,
 ) -> None:
     with pytest.raises(ValueError, match=message):
-        adjudicate_independent_observations(claims)
+        adjudicate_independent_observations(
+            claims,
+            provider_identity_verifier=VERIFIER,
+        )
+
+
+def test_independent_adjudication_requires_verifier_backed_provider_identity() -> None:
+    denied = _ProviderIdentityVerifier()
+
+    with pytest.raises(ValueError, match="verified canonical providers"):
+        adjudicate_independent_observations(
+            (
+                _claim(provider_ref="provider-ref-1", generation_id="generation-other"),
+                _claim(provider_ref="provider-ref-2", generation_id="generation-other"),
+            ),
+            provider_identity_verifier=denied,
+        )
 
 
 def test_conflicting_type_is_an_identity_contradiction() -> None:
