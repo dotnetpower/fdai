@@ -438,6 +438,7 @@ class OntologyInstanceStore(Protocol):
         object_ids: Sequence[str] = (),
         property_equals: Mapping[str, Any] | None = None,
         limit: int = 100,
+        include_relationships: bool = True,
     ) -> OntologyGraphSnapshot:
         """Return a bounded object selection and internal links."""
         ...

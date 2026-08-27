@@ -101,7 +101,7 @@ async def _invoke(
     resource_ids: list[str],
     *,
     generation: str = "generation-1",
-    capability: dict[str, object] | None = None,
+    capability: str | None = None,
     include_capability: bool = True,
 ) -> dict[str, object]:
     declaration = contextual_resource_function_type()
@@ -133,11 +133,7 @@ async def _invoke(
             "selection_digest": selection_digest,
             **(
                 {
-                    "selection_capability": capability
-                    or {
-                        "selection_token": "context-selection:" + "d" * 32,
-                        "selection_digest": selection_digest,
-                    },
+                    "selection_token": capability or "context-selection:" + "d" * 32,
                 }
                 if include_capability
                 else {}
@@ -161,20 +157,12 @@ async def test_contextual_function_returns_only_exact_context_membership() -> No
 
 
 async def test_contextual_function_holds_without_a_valid_opaque_capability() -> None:
-    result = await _invoke(
-        _result((_resource("resource-a"),)),
-        ["resource-a"],
-        capability={
-            "selection_token": "context-selection:" + "f" * 32,
-            "selection_digest": "sha256:" + "e" * 64,
-        },
-    )
-
-    assert result == {
-        "complete": False,
-        "rows": [],
-        "truncation_reason": "context_capability_mismatch",
-    }
+    with pytest.raises(ValueError, match="input_schema"):
+        await _invoke(
+            _result((_resource("resource-a"),)),
+            ["resource-a"],
+            capability="not-an-issued-selection-token",
+        )
 
 
 async def test_contextual_function_requires_an_opaque_capability() -> None:
