@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 1209,
+  "file_count": 1210,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "ebca41cd37517c9c564b1351302f9222805b56f186b9a83e9a562e69a51a74a9",
     ".github/instructions/agent-stewardship.instructions.md": "e2e2224db17159323f910252e0f9f6efb44c0f1d7e0d217d5159745c15c9ff46",
@@ -327,6 +327,7 @@
     "services/core-control-plane/src/fdai/core/conversation_assurance/quality_action_observations.py": "293c1dd9157c8ccad2d2478f73d36d9f3a29bc66a78df1cff0b29d3f1e45e058",
     "services/core-control-plane/src/fdai/core/conversation_assurance/quality_observation_models.py": "c9cc19d378cabc1cf9cc3037d5d330aa788f52616d2dc0c879f1580676706261",
     "services/core-control-plane/src/fdai/core/conversation_assurance/quality_observations.py": "a513d333da7cbc7be8326605403f6412ae9a6b9c76bf5f3f37bc169bceec872a",
+    "services/core-control-plane/src/fdai/core/conversation_assurance/quality_orchestration_observations.py": "f6018dd343634cf8d3fc669e6e921873b7fa149be88a0f0ec43049435f9653f4",
     "services/core-control-plane/src/fdai/core/conversation_assurance/quality_qualification.py": "d61afe5e6ec807bd115e768ed18fc6415d7b0439f14ab3f1cb4a9fe403aa8ae0",
     "services/core-control-plane/src/fdai/core/conversation_assurance/quality_scorecard.py": "87585d99e06be681c962c48a953d5eefc719c23b62cccc818b41de0b2a0c6d27",
     "services/core-control-plane/src/fdai/core/conversation_assurance/quality_sre_observations.py": "2afce73be56ed7224ca34e5645180078faf428ae9ad04e91192a08a3929cc9b5",

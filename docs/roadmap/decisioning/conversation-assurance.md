@@ -342,6 +342,12 @@ supplies `ChangeAssessment`; the adapter compares hashed affected-resource sets 
 assessment is complete. Ungrounded alternatives and truncated or incomplete impact never pass as
 complete evidence.
 
+The orchestration adapter measures items 31 through 34 from `AnswerPlanningResult`: exact primary
+owner, status plus contributor/token/time budgets, contributor attribution with evidence, and
+hashed conflict-reference sets. Item 35 compares the revisioned `AssignmentCase` state and whether
+both ownership and IAM effects converged. The adapter hashes the observed records and does not
+expose agent, evidence, or provider-subject identifiers in a contribution.
+
 ## Independent model review
 
 Evaluator A and evaluator B run independently and cannot read each other's result. Model identities

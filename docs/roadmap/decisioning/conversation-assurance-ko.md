@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: abe5c6f7493ccd1b60b3876b3c97613c1eeb321b
+translation_source_sha: 8cc145699d1a5f90e6f196266482afd95b03470f
 translation_revised: 2026-08-28
 ---
 # 대화 품질 보증
@@ -332,6 +332,12 @@ SRE adapter는 `RcaResult`를 사전 선언된 처리 결과, 원인 다이제�
 가설 집합을 제공하고 근거가 있는 원인 다이제스트만 비교에 참여합니다. 항목 20에서는 영향 소유자가
 `ChangeAssessment`를 제공하며 adapter는 해시한 영향 리소스 집합과 평가 완전성을 비교합니다.
 근거가 없는 대체 원인과 잘리거나 불완전한 영향은 완전한 근거로 통과하지 못합니다.
+
+조정 adapter는 `AnswerPlanningResult`에서 항목 31부터 34를 측정합니다. 정확한 기본 소유자,
+상태와 기여자/토큰/시간 예산, 근거가 있는 기여자 귀속 및 해시한 충돌 참조 집합을 비교합니다.
+항목 35는 리비전이 있는 `AssignmentCase` 상태와 소유권 및 IAM 효과가 모두 수렴했는지
+비교합니다. adapter는 관측 기록을 해시하며 agent, 근거 또는 provider subject 식별자를 기여에
+노출하지 않습니다.
 
 ## 독립 모델 평가
 
