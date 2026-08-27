@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 45db6008691945f6f88f14d466510b452831c271
+translation_source_sha: ebda134415498113fc7ec0bbec98620fa4d189b4
 translation_revised: 2026-08-27
 ---
 # 코드 맵
@@ -31,6 +31,8 @@ translation_revised: 2026-08-27
 > sentinel 행을 사용하는 truncation 검사가 필요합니다. lifecycle로 분류된 종료 행만
 > exact-target 교체 축약기에 전달되며 incomplete lifecycle 근거는 recovered 상태를 유지할 수
 > 없습니다.
+> collection completeness와 gap state는 cursor와 함께 보존되며 incomplete LIST snapshot은
+> cursor를 전진시키지 않습니다.
 
 ## 물리 서비스 소유권
 

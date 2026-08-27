@@ -321,6 +321,94 @@ async def test_pod_recovery_function_accepts_only_issued_receipt() -> None:
     assert held.status is KubernetesPodRecoveryStatus.INSUFFICIENT_EVIDENCE
     assert held.recovery_verified is False
 
+    replacement_context = {
+        "old_pod": {
+            "pod_id": "pod-old",
+            "pod_uid": "pod-uid-old",
+            "cluster_id": "cluster-a",
+            "namespace": "default",
+            "owner_uid": "rs-uid",
+            "root_controller_uid": "deployment-uid",
+            "root_controller_kind": "Deployment",
+            "created_at": (_CUTOFF - timedelta(hours=1)).isoformat(),
+            "phase": "Failed",
+            "ready": False,
+            "container_count": 1,
+            "ready_container_count": 0,
+            "waiting_reasons": [],
+            "workload_revision": None,
+            "metadata": _metadata().to_mapping(),
+            "evidence_refs": ["pod-old"],
+        },
+        "candidates": [
+            {
+                "pod_id": "pod-new",
+                "pod_uid": "pod-uid-new",
+                "cluster_id": "cluster-a",
+                "namespace": "default",
+                "owner_uid": "rs-uid",
+                "root_controller_uid": "deployment-uid",
+                "root_controller_kind": "Deployment",
+                "created_at": (_CUTOFF - timedelta(minutes=4)).isoformat(),
+                "phase": "Running",
+                "ready": True,
+                "container_count": 1,
+                "ready_container_count": 1,
+                "waiting_reasons": [],
+                "workload_revision": None,
+                "metadata": _metadata().to_mapping(),
+                "evidence_refs": ["pod-new"],
+            }
+        ],
+        "deployment": {
+            "deployment_id": "deployment-uid",
+            "desired_replicas_before": 1,
+            "desired_replicas_after": 1,
+            "ready_replicas": 1,
+            "available_replicas": 1,
+            "unavailable_replicas": 0,
+            "metadata": _metadata().to_mapping(),
+            "evidence_refs": ["deployment"],
+        },
+        "correlation_window_start": (_CUTOFF - timedelta(minutes=30)).isoformat(),
+    }
+    held_replacement = await registry.invoke(
+        KUBERNETES_POD_RECOVERY_FUNCTION_NAME,
+        {
+            "pod_query_result": secured.model_dump(mode="json"),
+            "controller_query_result": controller_result.model_dump(mode="json"),
+            "deployment_query_result": deployment_result.model_dump(mode="json"),
+            "restart_history": _restart_history(),
+            "lifecycle_events": {
+                "rows": [
+                    {
+                        "row_id": "lifecycle-1",
+                        "values": {
+                            "cluster_ref": "cluster-a",
+                            "namespace": "default",
+                            "object_uid": "pod-uid-old",
+                            "owner_uid": "rs-uid",
+                            "reason": "Started",
+                            "category": "started",
+                            "event_type": "Normal",
+                            "event_time": (_CUTOFF - timedelta(minutes=6)).isoformat(),
+                            "recorded_time": (_CUTOFF - timedelta(minutes=5)).isoformat(),
+                            "source_revision": "100",
+                            "evidence_ref": "lifecycle-started",
+                        },
+                    }
+                ],
+                "complete": True,
+                "truncation_reason": None,
+            },
+            "replacement_context": replacement_context,
+        },
+        context=context,
+    )
+    assert isinstance(held_replacement, KubernetesPodRecoveryEvidenceResult)
+    assert held_replacement.status is KubernetesPodRecoveryStatus.INSUFFICIENT_EVIDENCE
+    assert any(gap.startswith("replacement_evidence_") for gap in held_replacement.evidence_gaps)
+
     unissued = SecuredQueryReceiptAuthority()
     rejecting = OntologyFunctionRegistry(release=release)
     rejecting.register_contextual(

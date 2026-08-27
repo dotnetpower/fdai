@@ -95,6 +95,10 @@ def kubernetes_pod_recovery_function_type() -> OntologyFunctionType:
                     "type": "object",
                     "x-fdai-dependency-only": True,
                 },
+                "replacement_context": {
+                    "type": "object",
+                    "x-fdai-dependency-only": True,
+                },
                 "cutoff": {"type": "string", "format": "date-time"},
             },
         },
@@ -237,6 +241,31 @@ def kubernetes_pod_recovery_function(
                     "evidence_gaps": tuple(dict.fromkeys((*result.evidence_gaps, gap))),
                 }
             )
+        elif isinstance(lifecycle_events, Mapping) and lifecycle_events.get("complete") is True:
+            replacement_context = arguments.get("replacement_context")
+            if isinstance(replacement_context, Mapping):
+                replacement = _replacement_from_context(
+                    replacement_context,
+                    lifecycle_events=lifecycle_events,
+                    cutoff=cutoff,
+                )
+                if replacement is not None and replacement.evidence_gaps:
+                    result = result.model_copy(
+                        update={
+                            "complete": False,
+                            "recovery_verified": False,
+                            "status": KubernetesPodRecoveryStatus.INSUFFICIENT_EVIDENCE,
+                            "evidence_gaps": tuple(
+                                dict.fromkeys(
+                                    (
+                                        *result.evidence_gaps,
+                                        "replacement_evidence_"
+                                        + "+".join(replacement.evidence_gaps),
+                                    )
+                                )
+                            ),
+                        }
+                    )
         return result
 
     return evaluate
@@ -330,6 +359,168 @@ def evaluate_kubernetes_pod_replacement_graph(
         correlation_window_start=correlation_window_start,
         cutoff=cutoff,
     )
+
+
+def _replacement_from_context(
+    context: Mapping[str, Any],
+    *,
+    lifecycle_events: Mapping[str, Any],
+    cutoff: datetime,
+) -> KubernetesPodReplacementEvidenceResult | None:
+    """Parse an exact replacement dependency bundle and invoke the reducer."""
+
+    old_pod = _replacement_pod(context.get("old_pod"))
+    raw_candidates = context.get("candidates")
+    if (
+        old_pod is None
+        or not isinstance(raw_candidates, Sequence)
+        or isinstance(raw_candidates, (str, bytes))
+    ):
+        raise ValueError("replacement context MUST contain old_pod and candidates")
+    candidates = tuple(_replacement_pod(item) for item in raw_candidates)
+    if any(item is None for item in candidates):
+        raise ValueError("replacement context candidates MUST be valid Pods")
+    deployment = _replacement_deployment(context.get("deployment"))
+    raw_rows = lifecycle_events.get("rows")
+    if not isinstance(raw_rows, Sequence) or isinstance(raw_rows, (str, bytes)):
+        raise ValueError("lifecycle_events rows MUST be a sequence")
+    observations = tuple(
+        _lifecycle_observation(row.get("values")) for row in raw_rows if isinstance(row, Mapping)
+    )
+    if any(item is None for item in observations):
+        raise ValueError("lifecycle_events rows MUST contain typed observations")
+    window_start = _required_time(context, "correlation_window_start")
+    return evaluate_kubernetes_pod_replacement_graph(
+        old_pod=old_pod,
+        candidates=tuple(item for item in candidates if item is not None),
+        lifecycle_observations=tuple(item for item in observations if item is not None),
+        deployment=deployment,
+        correlation_window_start=window_start,
+        cutoff=cutoff,
+    )
+
+
+def _replacement_pod(value: object) -> PodLifecycleObservation | None:
+    if not isinstance(value, Mapping):
+        return None
+    metadata = value.get("metadata")
+    if not isinstance(metadata, Mapping):
+        return None
+    return PodLifecycleObservation(
+        pod_id=_required_replacement_text(value, "pod_id"),
+        pod_uid=_required_replacement_text(value, "pod_uid"),
+        cluster_id=_required_replacement_text(value, "cluster_id"),
+        namespace=_required_replacement_text(value, "namespace"),
+        owner_uid=_optional_replacement_text(value, "owner_uid"),
+        root_controller_uid=_optional_replacement_text(value, "root_controller_uid"),
+        root_controller_kind=_optional_replacement_text(value, "root_controller_kind"),
+        created_at=_optional_replacement_time(value, "created_at"),
+        phase=_optional_replacement_text(value, "phase"),
+        ready=value.get("ready") if isinstance(value.get("ready"), bool) else None,
+        container_count=_optional_replacement_int(value, "container_count"),
+        ready_container_count=_optional_replacement_int(value, "ready_container_count"),
+        waiting_reasons=_replacement_text_tuple(value, "waiting_reasons"),
+        workload_revision=_optional_replacement_text(value, "workload_revision"),
+        metadata=StateFactMetadata.from_mapping(metadata),
+        evidence_refs=_replacement_text_tuple(value, "evidence_refs"),
+    )
+
+
+def _replacement_deployment(value: object) -> PodReplacementDeploymentObservation | None:
+    if value is None:
+        return None
+    if not isinstance(value, Mapping) or not isinstance(value.get("metadata"), Mapping):
+        raise ValueError("replacement deployment context MUST be typed")
+    return PodReplacementDeploymentObservation(
+        deployment_id=_required_replacement_text(value, "deployment_id"),
+        desired_replicas_before=_optional_replacement_int(value, "desired_replicas_before"),
+        desired_replicas_after=_optional_replacement_int(value, "desired_replicas_after"),
+        ready_replicas=_optional_replacement_int(value, "ready_replicas"),
+        available_replicas=_optional_replacement_int(value, "available_replicas"),
+        unavailable_replicas=_optional_replacement_int(value, "unavailable_replicas"),
+        metadata=StateFactMetadata.from_mapping(value["metadata"]),
+        evidence_refs=_replacement_text_tuple(value, "evidence_refs"),
+    )
+
+
+def _lifecycle_observation(value: object) -> KubernetesLifecycleObservation | None:
+    if not isinstance(value, Mapping):
+        return None
+    return KubernetesLifecycleObservation(
+        cluster_ref=_required_replacement_text(value, "cluster_ref"),
+        namespace=_optional_replacement_text(value, "namespace"),
+        object_uid=_required_replacement_text(value, "object_uid"),
+        owner_uid=_optional_replacement_text(value, "owner_uid"),
+        reason=_required_replacement_text(value, "reason"),
+        category=_required_replacement_text(value, "category"),
+        event_type=_required_replacement_text(value, "event_type"),
+        event_time=_required_replacement_time(value, "event_time"),
+        recorded_time=_required_replacement_time(value, "recorded_time"),
+        source_revision=_required_replacement_text(value, "source_revision"),
+        evidence_ref=_required_replacement_text(value, "evidence_ref"),
+    )
+
+
+def _required_time(value: Mapping[str, Any], key: str) -> datetime:
+    parsed = _parse_time(value.get(key))
+    if parsed is None:
+        raise ValueError(f"{key} MUST be an ISO timestamp")
+    return parsed
+
+
+def _required_replacement_text(value: Mapping[str, Any], key: str) -> str:
+    item = value.get(key)
+    if not isinstance(item, str) or not item.strip():
+        raise ValueError(f"replacement {key} MUST be non-empty text")
+    return item.strip()
+
+
+def _optional_replacement_text(value: Mapping[str, Any], key: str) -> str | None:
+    item = value.get(key)
+    if item is None:
+        return None
+    return _required_replacement_text(value, key)
+
+
+def _optional_replacement_int(value: Mapping[str, Any], key: str) -> int | None:
+    item = value.get(key)
+    if item is None:
+        return None
+    if not isinstance(item, int) or isinstance(item, bool) or item < 0:
+        raise ValueError(f"replacement {key} MUST be a non-negative integer")
+    return item
+
+
+def _replacement_text_tuple(value: Mapping[str, Any], key: str) -> tuple[str, ...]:
+    item = value.get(key)
+    if not isinstance(item, Sequence) or isinstance(item, (str, bytes)):
+        raise ValueError(f"replacement {key} MUST be a sequence")
+    result = tuple(str(entry).strip() for entry in item)
+    if any(not entry for entry in result):
+        raise ValueError(f"replacement {key} MUST contain non-empty text")
+    return result
+
+
+def _required_replacement_time(value: Mapping[str, Any], key: str) -> datetime:
+    parsed = _parse_time(value.get(key))
+    if parsed is None:
+        raise ValueError(f"replacement {key} MUST be an ISO timestamp")
+    return parsed
+
+
+def _optional_replacement_time(value: Mapping[str, Any], key: str) -> datetime | None:
+    if value.get(key) is None:
+        return None
+    return _required_replacement_time(value, key)
+
+
+def _parse_time(value: object) -> datetime | None:
+    if not isinstance(value, str):
+        return None
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        raise ValueError("replacement timestamps MUST include timezone")
+    return parsed
 
 
 def _owner_deployment_observation(

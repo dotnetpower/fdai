@@ -81,8 +81,12 @@ class PostgresKubernetesLifecycleStore:
         if row is None:
             return None
         return KubernetesLifecycleCursorState(
-            resource_version=str(row["resource_version"]),
+            resource_version=(
+                None if row["resource_version"] is None else str(row["resource_version"])
+            ),
             updated_at=row["updated_at"],
+            complete=bool(row["complete"]),
+            limitation=None if row["limitation"] is None else str(row["limitation"]),
         )
 
     async def append(
@@ -92,6 +96,8 @@ class PostgresKubernetesLifecycleStore:
         previous_cursor: str | None,
         next_cursor: str | None,
         observations: tuple[KubernetesLifecycleObservation, ...],
+        complete: bool = True,
+        limitation: str | None = None,
     ) -> KubernetesLifecycleAppendReceipt:
         """Atomically admit new observations and advance the durable cursor.
 
@@ -146,21 +152,16 @@ class PostgresKubernetesLifecycleStore:
                     inserted += 1
                 else:
                     duplicate += 1
-            if next_cursor is None:
-                await connection.execute(
-                    "DELETE FROM kubernetes_lifecycle_cursor WHERE cluster_ref = %s",
-                    (cluster_ref,),
-                )
-            else:
-                await connection.execute(
-                    "INSERT INTO kubernetes_lifecycle_cursor "
-                    "(cluster_ref, resource_version, updated_at) "
-                    "VALUES (%s, %s, %s) "
-                    "ON CONFLICT (cluster_ref) DO UPDATE SET "
-                    "resource_version = excluded.resource_version, "
-                    "updated_at = excluded.updated_at",
-                    (cluster_ref, next_cursor, self._now()),
-                )
+            await connection.execute(
+                "INSERT INTO kubernetes_lifecycle_cursor "
+                "(cluster_ref, resource_version, updated_at, complete, limitation) "
+                "VALUES (%s, %s, %s, %s, %s) "
+                "ON CONFLICT (cluster_ref) DO UPDATE SET "
+                "resource_version = excluded.resource_version, "
+                "updated_at = excluded.updated_at, "
+                "complete = excluded.complete, limitation = excluded.limitation",
+                (cluster_ref, next_cursor, self._now(), complete, limitation),
+            )
         return KubernetesLifecycleAppendReceipt(
             cluster_ref=cluster_ref,
             inserted_count=inserted,
