@@ -1,8 +1,8 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 37e511224bb369e1af467c53b7de8c069341047e
-translation_revised: 2026-08-26
+translation_source_sha: bd2a97bbba4b7a3e77b2f555f69f45e143b35891
+translation_revised: 2026-08-27
 ---
 
 # Azure 읽기 조사
@@ -568,10 +568,12 @@ Activity Log 및 Resource Health REST 읽기를 추가합니다. 입력이 누�
 2. Promoted-inventory 상태, Activity Log 및 Resource Health 읽기가 현재 `resource_state` 경로에
   조합되어 있습니다. 게스트 로그, NSG 룰, VNet 피어링 및 Azure MCP는 운영 조합에서 사용할 수
   없습니다.
-3. 운영자 서비스는 `read_investigation.start`를 영속적으로 수락합니다. Direct, streamed 및 detached
-  실행을 담당할 운영 소비자는 아직 구현되지 않았습니다.
-4. 실행 원장, 지연 시간, 진행 상황, 배경 작업, 작업자, 할당량 및 완료 구성 요소에는 집중 테스트가
-  있지만 운영 조합과 교차 서비스 증적이 필요합니다.
+3. 운영자 서비스는 `read_investigation.start`를 영속적으로 수락합니다. Core 운영 구성은 direct,
+  streamed 또는 detached 실행을 선택하고 direct 및 streamed 상태를 소유자 범위 PostgreSQL 실행
+  저장소와 진행 상황 저장소 뒤에 유지합니다.
+4. Operator는 Core 쓰기 권한을 공유하지 않고 소유자 범위 진행 상황과 최종 결과를 재생합니다.
+  Web 완료 기록은 구성되어 있으며 채널 발신 등록, 보존 정리 및 통제된 교차 서비스 증적은 열린
+  상태입니다.
 5. Structural 테스트는 이 경로가 실행기를 가져오기하지 않고 Thor를 참조하지 않으며 `object.event`를
   publish하지 않음을 증명합니다.
 6. 읽기 전용 실제 운영 검증은 호출자 귀속, Resource Health, 승인되지 않은 범위 및 모호한

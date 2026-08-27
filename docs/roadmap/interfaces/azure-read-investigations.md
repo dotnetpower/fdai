@@ -571,10 +571,12 @@ raw CLI output, prompts, and unredacted caller payloads.
 2. Promoted-inventory state, Activity Log, and Resource Health reads are composed for the current
   `resource_state` path. Guest logs, NSG rules, VNet peerings, and Azure MCP remain unavailable in
   production composition.
-3. The Operator service durably accepts `read_investigation.start`; a production consumer for
-  direct, streamed, and detached execution remains open.
-4. Run-ledger, latency, progress, background-task, worker, quota, and completion components have
-  focused coverage but still require production composition and cross-service receipts.
+3. The Operator service durably accepts `read_investigation.start`. Core production composition
+  selects direct, streamed, or detached execution and keeps direct and streamed state behind the
+  owner-scoped PostgreSQL run and progress stores.
+4. Operator replays owner-scoped progress and terminal results without sharing Core write
+  authority. Web completion writeback is composed; channel enqueue, retention purge, and governed
+  cross-service receipts remain open.
 5. Structural tests prove the path does not import an executor, reference Thor, or publish
   `object.event`.
 6. Read-only live validation covers caller attribution, Resource Health, unauthorized scope, and
