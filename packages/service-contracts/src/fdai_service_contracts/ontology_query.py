@@ -14,7 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 _DIGEST_PATTERN = r"^sha256:[a-f0-9]{64}$"
 _ID_PATTERN = r"^[a-z][a-z0-9_.-]{0,79}$"
-_MAX_JSON_BYTES = 65_536
+_MAX_JSON_BYTES = 1_048_576
 _MAX_PLAN_NODES = 32
 MAX_INTENT_GRAPH_GOALS = 16
 
