@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 59a17a87b10f7fbc3152d29d8683a5d7824027dc
+translation_source_sha: c51ec8ebf4dc85887bb144acf8301276a8b7322d
 translation_revised: 2026-08-27
 ---
 # FDAI 운영 온톨로지
@@ -136,6 +136,7 @@ translation_revised: 2026-08-27
 | 2026-08-27 | implemented | 양의 `Forecast` episode와 균형 잡힌 `Pattern` 후보를 위한 권한 없는 런타임 변환 결과를 추가했습니다. Detector, target, interval, case 및 evidence 신원을 보존하며 근거 없는 관계는 복원하지 않습니다. | `current change`; `core/ontology_platform/detection_projection.py`, detection, forecast-episode 및 operational-learning 집중 검사 11개 통과 | 정확한 objective 또는 outcome endpoint 신원을 생산자가 제공할 때에만 `predicts_breach_of` 또는 `learned_as`를 복원합니다. |
 | 2026-08-27 | implemented | 서로 다른 두 provider 관측에 대한 결정적 판정을 추가하고, 기존 변환 상태 대 텔레메트리 shadow 판정을 두 번째 교차 출처 쌍으로 문서화했습니다. 충돌은 명시적으로 유지하고 이견이 있는 Property는 제외하며 권한이나 자율성 상한을 높이지 않습니다. | `current change`; `observation_adjudication.py`; `test_observation_adjudication.py` 및 `test_resource_state_shadow.py` 검사 37개 통과 | 이후 읽기 경로 밖에서 충돌을 전달하려면 명시적인 단일 작성자 설계로 결정해야 합니다. |
 | 2026-08-27 | implemented | object 및 array Property 값을 위한 범위 제한 canonical JSON 의미 규칙을 완료했습니다. 정규화는 유한성, 깊이 및 바이트 한도의 JSON과 안정적인 키 순서를 강제하며, collection coverage gate는 룰이 평가하는 모든 참조를 검토된 것으로 기록합니다. | `current change`; `property_semantic.py`; `test_property_semantic.py`; `check-property-semantic-coverage.py`가 검토된 참조 62/62개를 보고합니다. | 검토된 registry를 유지하고 새로운 collection Property 참조가 생기면 하한을 함께 올립니다. |
+| 2026-08-27 | implemented | 기존 `OntologyInstanceStore` 위에 멱등적인 `DetectionOntologyProjector` sink를 추가했습니다. Forecast 또는 Pattern을 반복 전달하면 동일하게 저장된 객체를 반환하고 내용 충돌은 fail closed 합니다. | `current change`; `detection_projection.py`; 집중 projection 검사 4개 통과 | 배포 런타임 근거를 주장하기 전에 sink를 운영 조립 지점에 연결합니다. |
 
 ### 남은 작업
 

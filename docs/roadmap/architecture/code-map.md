@@ -114,6 +114,7 @@ relationships require exact endpoint identities before catalog restoration.
 Cross-source state adjudication is deterministic and read-only: distinct providers and the
 projected-state shadow pair withhold conflicts rather than selecting authority.
 Distinct-provider inputs require non-empty provider identities before comparison.
+Forecast and Pattern source projections use an idempotent existing instance-store sink.
 the inventory ontology projector serializes graph replacement with its generation commit marker.
 Resource ObjectSet receipts preserve source generation and completeness independently from query
 truncation, including zero-result reads.

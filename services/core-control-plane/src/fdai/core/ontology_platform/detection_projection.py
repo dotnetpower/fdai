@@ -13,10 +13,50 @@ from fdai.core.detection.forecast_episode import (
     ForecastEvaluationKind,
 )
 from fdai.core.operational_learning.patterns import OperatingPatternCandidate
-from fdai.shared.providers.ontology_instance import OntologyObjectRecord
+from fdai.shared.providers.ontology_instance import OntologyInstanceStore, OntologyObjectRecord
 
 _FORECAST_OBJECT_TYPE: Final = "Forecast"
 _PATTERN_OBJECT_TYPE: Final = "Pattern"
+
+
+class DetectionOntologyProjector:
+    """Write detector-owned ontology objects idempotently through the instance store."""
+
+    def __init__(self, store: OntologyInstanceStore) -> None:
+        self._store = store
+
+    async def project_forecast(
+        self,
+        episode: ForecastEpisode,
+        *,
+        confidence: float,
+        issued_at: datetime,
+    ) -> OntologyObjectRecord:
+        """Persist one positive Forecast record without changing its authority."""
+
+        return await self._persist(
+            forecast_object_record(episode, confidence=confidence, issued_at=issued_at)
+        )
+
+    async def project_pattern(
+        self,
+        candidate: OperatingPatternCandidate,
+        *,
+        compiled_at: datetime,
+    ) -> OntologyObjectRecord:
+        """Persist one inert Pattern record without changing its authority."""
+
+        return await self._persist(pattern_object_record(candidate, compiled_at=compiled_at))
+
+    async def _persist(self, record: OntologyObjectRecord) -> OntologyObjectRecord:
+        existing = await self._store.get_object(record.id)
+        if existing is not None:
+            if existing.object_type != record.object_type or dict(existing.properties) != dict(
+                record.properties
+            ):
+                raise ValueError("detection ontology object identity conflicts with stored content")
+            return existing
+        return await self._store.upsert_object(record)
 
 
 def forecast_object_record(
@@ -106,4 +146,8 @@ def _digest(value: object) -> str:
     return "sha256:" + hashlib.sha256(encoded).hexdigest()
 
 
-__all__ = ["forecast_object_record", "pattern_object_record"]
+__all__ = [
+    "DetectionOntologyProjector",
+    "forecast_object_record",
+    "pattern_object_record",
+]
