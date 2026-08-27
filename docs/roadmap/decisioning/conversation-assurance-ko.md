@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 8cc145699d1a5f90e6f196266482afd95b03470f
+translation_source_sha: cc0795ab1770692c199b244f7951f2f1d4bdd3d7
 translation_revised: 2026-08-28
 ---
 # 대화 품질 보증
@@ -338,6 +338,11 @@ SRE adapter는 `RcaResult`를 사전 선언된 처리 결과, 원인 다이제�
 항목 35는 리비전이 있는 `AssignmentCase` 상태와 소유권 및 IAM 효과가 모두 수렴했는지
 비교합니다. adapter는 관측 기록을 해시하며 agent, 근거 또는 provider subject 식별자를 기여에
 노출하지 않습니다.
+
+의도 adapter는 `SemanticPlanningOutcome`에서 적용 가능한 항목 1부터 5를 측정합니다. 타입이
+지정된 처리 결과와 작업, 명확화 필요 여부, 선택적 명확화 약속값, 이전 맥락 연결을 위한 검증된
+프레임 입력 다이제스트 및 조회 DAG 형태를 비교합니다. 사례는 적용 가능한 선택적 메트릭만
+기여합니다. adapter는 키워드에서 의도를 추론하거나 명확화 텍스트를 저장하지 않습니다.
 
 ## 독립 모델 평가
 

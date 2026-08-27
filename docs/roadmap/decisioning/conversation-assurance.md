@@ -348,6 +348,12 @@ hashed conflict-reference sets. Item 35 compares the revisioned `AssignmentCase`
 both ownership and IAM effects converged. The adapter hashes the observed records and does not
 expose agent, evidence, or provider-subject identifiers in a contribution.
 
+The intent adapter measures applicable items 1 through 5 from `SemanticPlanningOutcome`. It compares
+the typed disposition and operation, whether clarification was required, an optional clarification
+commitment, the verified frame input digest for prior-context binding, and the query DAG shape. A
+case contributes only the applicable optional metrics. The adapter never infers intent from
+keywords or stores clarification text.
+
 ## Independent model review
 
 Evaluator A and evaluator B run independently and cannot read each other's result. Model identities
