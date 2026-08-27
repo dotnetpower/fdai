@@ -60,6 +60,10 @@ does not authorize a commit.
 ### 1. Critique honestly
 
 - Read the module and its adjacent modules (imports, callers).
+- For an observed error, read the construction site before interpreting the rendered message. Trace
+  the value from its producer through the consumer and authority boundary; fix the producer or
+  violated invariant rather than masking the failure downstream. Add consumer-side diagnostic
+  context only when the producer cannot yet be identified, and redact bounded values first.
 - List real defects: safety-invariant violations (stop-condition /
   rollback / blast-radius / audit), off-by-one, ordering hazards,
   fail-open branches, missing idempotency, non-async where async is

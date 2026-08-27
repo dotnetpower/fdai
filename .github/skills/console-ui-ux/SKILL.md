@@ -119,6 +119,17 @@ Run focused tests first, then inspect the live surface in this order:
 Check computed styles and geometry, not only screenshots. A screenshot can hide overflow or an
 inactive control outside the crop.
 
+Classify an explicit UI scenario as exactly one of:
+
+- `passed`: every declared assertion was exercised and supported by evidence.
+- `failed`: at least one exercised assertion did not hold.
+- `needs-human`: the remaining step requires a human action that automation must not perform.
+- `needs-infrastructure`: the harness cannot exercise the assertion with the available local setup.
+
+Skipped or unexercised steps never count as `passed`. Record the local evidence location and whether
+it was checked for sensitive or customer-identifying content. Screenshots, traces, and videos remain
+optional unless the request or owning test contract requires them.
+
 ## Navigation
 
 - Keep a single dominant active cue: quiet surface tint plus a complete border or outline.
@@ -211,5 +222,6 @@ Before reporting completion:
 - [ ] Long English, Korean, timestamp, and identifier samples fit without overlap.
 - [ ] Reduced-motion and keyboard focus behavior remain usable.
 - [ ] Shared tokens or docs were updated when the visual contract changed.
+- [ ] Explicit scenarios report `passed`, `failed`, `needs-human`, or `needs-infrastructure`.
 
 Report measured outcomes. Do not claim runtime or visual validation from source inspection alone.
