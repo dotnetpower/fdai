@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 1201,
+  "file_count": 1202,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "ebca41cd37517c9c564b1351302f9222805b56f186b9a83e9a562e69a51a74a9",
     ".github/instructions/agent-stewardship.instructions.md": "e2e2224db17159323f910252e0f9f6efb44c0f1d7e0d217d5159745c15c9ff46",
@@ -552,6 +552,7 @@
     "services/core-control-plane/src/fdai/core/ontology_platform/kinetics.py": "620cc1d354ad79590aa60bfb2a65ac4d245113c6820c14eabfe81092ffbd0fe3",
     "services/core-control-plane/src/fdai/core/ontology_platform/kubernetes_pod_recovery_evidence.py": "a57fefcb9149c8b63b8fea2a32efe6ca534d5a4ac71fe5a9b1c2c8d3e6257b84",
     "services/core-control-plane/src/fdai/core/ontology_platform/kubernetes_pod_recovery_queries.py": "c1d528d1f9bcb9225987216f84f72a111192fc17f1d285b64d030b533e5bb6aa",
+    "services/core-control-plane/src/fdai/core/ontology_platform/kubernetes_pod_replacement_evidence.py": "503742c74f625671eb1ebb08baad1481a1d6625f8574b9c26cb2c59596e4e5ab",
     "services/core-control-plane/src/fdai/core/ontology_platform/kubernetes_rollout_evidence.py": "c4bbbfde3977b9fe5057a2f12a703cd3051097824999e0485d4d45f0b99d61d4",
     "services/core-control-plane/src/fdai/core/ontology_platform/kubernetes_rollout_queries.py": "08ebb1e403b9277e00b041f6089bf18ae6d2eac1b5f90f69ce42a39a9f5e9f64",
     "services/core-control-plane/src/fdai/core/ontology_platform/latency_recovery_evidence.py": "4e5d6d148cf0a2ab782d260a40dedb6adb681b931fec38424729b6176e03eb38",
