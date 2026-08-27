@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 프로비저닝
 translation_of: subscription-genesis-provisioning.md
-translation_source_sha: cbb9bfd3139d70b6a015581824dc288db7eb4b41
+translation_source_sha: c5fd14187735cdf9fad40c44d114dc0cafd842c3
 translation_revised: 2026-08-30
 ---
 # 구독 초기 프로비저닝
@@ -290,6 +290,8 @@ fdaictl onboard resume-verification --run-id <run-id> --watch
 낮춥니다. 검증된 보강에서 추가된 관계 누락은 같은 승격 메타데이터에 남으며 인계 중 사라질 수
 없습니다. 부분 원본 커버리지, 분류되지 않은 누락, 잘못된 검증 메타데이터, 누락된 최종
 경계는 준비 완료를 차단합니다.
+변환 출처 메타데이터에는 정제된 음이 아닌 커버리지 개수만 포함할 수 있습니다. 잘못된 개수는
+준비 완료 근거가 되지 않고 변환 레코드를 차단합니다.
 
 각 배치가 영속 진행 신호를 갱신합니다. 무진행 제한 시간을 넘기면 시도를 실패로 처리하고
 이전 완전한 그래프를 유지하며 재개 가능한 커서 또는 범위가 제한된 재시작 결정을 남깁니다.

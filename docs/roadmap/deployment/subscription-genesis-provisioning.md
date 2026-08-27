@@ -285,8 +285,11 @@ scope is available only for later operator-requested refreshes and cannot satisf
 Provider-native object coverage, including materialized unmapped types, must be complete and
 untruncated. Classified relationship gaps can close object inventory while keeping relationship
 coverage limited and graph-dependent autonomy lowered. Relationship drops added by verified
-enrichment remain in the same promotion metadata and cannot disappear during handoff. Partial source coverage, unclassified
-drops, invalid verification metadata, or a missing final fence block readiness.
+enrichment remain in the same promotion metadata and cannot disappear during handoff. Partial source
+coverage, unclassified drops, invalid verification metadata, or a missing final fence block
+readiness.
+Projection-source metadata can include only sanitized nonnegative coverage counts; malformed counts
+block the projection record instead of becoming readiness evidence.
 
 Every emitted batch advances the durable heartbeat. A no-progress deadline fails the attempt,
 retains the previous complete graph, and leaves a resumable cursor or a bounded restart decision.

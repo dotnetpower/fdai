@@ -653,7 +653,7 @@
     "services/core-control-plane/src/fdai/core/ontology_platform/semantic_rollup.py": "6c4c919123d6878fd53952b222ca400e4b06b4d4ead1d73c4d9d56d3be159483",
     "services/core-control-plane/src/fdai/core/ontology_platform/semantic_rollup_merge.py": "e152fcc0d402cb8b05207ef5ac1b0432498a2cc8a31c22ad95d223937c939721",
     "services/core-control-plane/src/fdai/core/ontology_platform/service_health_queries.py": "7f1d43e11c5810c03504acf8115b663579888de6499afe8487d1e8ae2e101040",
-    "services/core-control-plane/src/fdai/core/ontology_platform/topology_history.py": "d5b4792697922c2fbe89fa561d2ad8e40adf36923d4359f395a285a1d9ba8949",
+    "services/core-control-plane/src/fdai/core/ontology_platform/topology_history.py": "484938c7348e5c2b2ab906b98d9b1705931eae780f5aadc2c50c7f20be042014",
     "services/core-control-plane/src/fdai/core/ontology_platform/vm_process_evidence.py": "f61153192d9b09c81b7d6f5cc4ce62599462af603ab36e9b088f10b22362fce5",
     "services/core-control-plane/src/fdai/core/operational_context/__init__.py": "7826690becd531da9d7a71e50b01aa1f7ba1adaba3338eee693e41242751d8bc",
     "services/core-control-plane/src/fdai/core/operational_context/console_projection.py": "5682df8978c1a5c2a4ee4c9102d8dc1bff98128809ace240808db3f532651237",

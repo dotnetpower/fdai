@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 4bb9ea16ebec3dbd663ae77e2c3d12d2b65f5e4d
+translation_source_sha: 393d7b93b6a7822642c36f00c47f1d0d23678c88
 translation_revised: 2026-08-30
 ---
 # 프로젝트 구조
@@ -124,6 +124,9 @@ provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니�
   `ExecutionAuthorizationRequest.target_resource_ref`의 exact Resource ID를 반환해야 합니다.
   불일치는 policy, identity 또는 effective-access 평가 전에 보류되며 권한 없는 audit context에
   기록됩니다.
+- Historical topology는 선택된 모든 PostgreSQL revision이 동일한 exact ontology release
+  binding을 가질 때에만 replay-safe입니다. 누락되거나 혼합된 release와 dangling active link는
+  absence를 입증하지 않고 completeness를 낮춥니다.
 - **정책과 규칙은 코드 경로가 아닌 데이터**: T0가 런타임에 `rule-catalog/` 엔트리와 `policies/`
   를 로드하므로 규칙/정책 추가에 엔진 변경이 필요 없습니다. 규칙은 의도와 교정을
   기술하고, 정책은 검증기가 재검사하는 실행 가능한 OPA/Rego입니다. 소스가 이 YAML로 수집·

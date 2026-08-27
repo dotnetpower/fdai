@@ -39,6 +39,7 @@ from fdai.shared.providers.state_store import StateStore
 INVENTORY_ONTOLOGY_MANIFEST_KEY = "inventory-ontology:manifest"
 INVENTORY_ONTOLOGY_STATUS_KEY = "inventory-ontology:status"
 _MANIFEST_SCHEMA_VERSION = "1.3.0"
+_LEGACY_MANIFEST_SCHEMA_VERSION = "1.2.0"
 _DIGEST_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$")
 _PROJECTION_LOCK_ID = "inventory-ontology-projection"
 
@@ -72,6 +73,8 @@ class _OwnedIdentities:
 
     object_ids: tuple[str, ...]
     link_keys: tuple[tuple[str, str, str], ...]
+    generation: str | None = None
+    manifest_digest: str | None = None
 
 
 class InventoryOntologyProjector:
@@ -147,6 +150,26 @@ class InventoryOntologyProjector:
                 dropped_reasons=projection.dropped_reasons,
             )
         previous = await self._read_manifest()
+        object_content, link_content = _projection_content(projection)
+        current_manifest_digest = _manifest_digest(
+            generation=projection.generation,
+            ontology_release_digest=self._ontology_release_digest,
+            complete=projection.complete,
+            relationship_complete=projection.relationship_complete,
+            dropped_reasons=projection.dropped_reasons,
+            object_ids=tuple(record.id for record in projection.objects),
+            link_keys=tuple(
+                (record.from_id, record.link_type, record.to_id) for record in projection.links
+            ),
+            object_content=object_content,
+            link_content=link_content,
+        )
+        if (
+            previous.generation == projection.generation
+            and previous.manifest_digest is not None
+            and previous.manifest_digest != current_manifest_digest
+        ):
+            raise ValueError("inventory ontology generation content changed")
         pinned = await self._pin_owned_revisions(projection.objects, owned_ids=previous.object_ids)
         await self._store.replace_subgraph(
             objects=pinned,
@@ -226,7 +249,8 @@ class InventoryOntologyProjector:
         raw = await self._status_store.read_state(INVENTORY_ONTOLOGY_MANIFEST_KEY)
         if not isinstance(raw, dict):
             return _OwnedIdentities((), ())
-        if raw.get("schema_version") != _MANIFEST_SCHEMA_VERSION:
+        schema_version = raw.get("schema_version")
+        if schema_version not in {_LEGACY_MANIFEST_SCHEMA_VERSION, _MANIFEST_SCHEMA_VERSION}:
             raise ValueError("inventory ontology manifest schema version is unsupported")
         if raw.get("ontology_release_digest") != self._ontology_release_digest:
             raise ValueError("inventory ontology manifest release digest does not match")
@@ -234,6 +258,8 @@ class InventoryOntologyProjector:
             raise ValueError("inventory ontology manifest generation is invalid")
         object_values = raw.get("object_ids")
         link_values = raw.get("link_keys")
+        object_content = raw.get("object_content")
+        link_content = raw.get("link_content")
         if not isinstance(object_values, list) or not isinstance(link_values, list):
             raise ValueError("inventory ontology manifest identities are invalid")
         object_ids = tuple(object_values)
@@ -250,6 +276,44 @@ class InventoryOntologyProjector:
         )
         if len(link_keys) != len(link_values) or link_keys != tuple(sorted(set(link_keys))):
             raise ValueError("inventory ontology manifest link keys are invalid")
+        if schema_version == _LEGACY_MANIFEST_SCHEMA_VERSION:
+            return _OwnedIdentities(
+                object_ids,
+                link_keys,
+                generation=raw["generation"],
+            )
+        if not isinstance(object_content, list) or not isinstance(link_content, list):
+            raise ValueError("inventory ontology manifest content is invalid")
+        if (
+            tuple(item.get("id") for item in object_content if isinstance(item, dict)) != object_ids
+            or len(object_content) != len(object_ids)
+            or any(
+                not isinstance(item, dict)
+                or set(item) != {"id", "object_type", "properties"}
+                or not isinstance(item["id"], str)
+                or not isinstance(item["object_type"], str)
+                or not isinstance(item["properties"], dict)
+                for item in object_content
+            )
+        ):
+            raise ValueError("inventory ontology manifest object content is invalid")
+        manifest_link_keys = tuple(
+            (item.get("from_id"), item.get("link_type"), item.get("to_id"))
+            for item in link_content
+            if isinstance(item, dict)
+        )
+        if (
+            manifest_link_keys != link_keys
+            or len(link_content) != len(link_keys)
+            or any(
+                not isinstance(item, dict)
+                or set(item) != {"from_id", "link_type", "to_id", "properties"}
+                or any(not isinstance(item[key], str) for key in ("from_id", "link_type", "to_id"))
+                or not isinstance(item["properties"], dict)
+                for item in link_content
+            )
+        ):
+            raise ValueError("inventory ontology manifest link content is invalid")
         expected_digest = _manifest_digest(
             generation=raw["generation"],
             ontology_release_digest=self._ontology_release_digest,
@@ -258,12 +322,20 @@ class InventoryOntologyProjector:
             dropped_reasons=raw.get("dropped_reasons"),
             object_ids=object_ids,
             link_keys=link_keys,
+            object_content=object_content,
+            link_content=link_content,
         )
         if raw.get("manifest_digest") != expected_digest:
             raise ValueError("inventory ontology manifest digest does not match its contents")
-        return _OwnedIdentities(object_ids, link_keys)
+        return _OwnedIdentities(
+            object_ids,
+            link_keys,
+            generation=raw["generation"],
+            manifest_digest=expected_digest,
+        )
 
     async def _write_manifest(self, projection: InventoryOntologyProjection) -> None:
+        object_content, link_content = _projection_content(projection)
         manifest_digest = _manifest_digest(
             generation=projection.generation,
             ontology_release_digest=self._ontology_release_digest,
@@ -274,6 +346,8 @@ class InventoryOntologyProjector:
             link_keys=tuple(
                 (record.from_id, record.link_type, record.to_id) for record in projection.links
             ),
+            object_content=object_content,
+            link_content=link_content,
         )
         await self._status_store.write_state(
             INVENTORY_ONTOLOGY_MANIFEST_KEY,
@@ -289,6 +363,8 @@ class InventoryOntologyProjector:
                 "link_keys": [
                     [record.from_id, record.link_type, record.to_id] for record in projection.links
                 ],
+                "object_content": list(object_content),
+                "link_content": list(link_content),
             },
         )
 
@@ -298,6 +374,7 @@ class InventoryOntologyProjector:
         *,
         status: InventoryOntologyProjectionStatus,
     ) -> None:
+        object_content, link_content = _projection_content(projection)
         manifest_digest = _manifest_digest(
             generation=projection.generation,
             ontology_release_digest=self._ontology_release_digest,
@@ -308,6 +385,8 @@ class InventoryOntologyProjector:
             link_keys=tuple(
                 (record.from_id, record.link_type, record.to_id) for record in projection.links
             ),
+            object_content=object_content,
+            link_content=link_content,
         )
         await self._status_store.write_state(
             INVENTORY_ONTOLOGY_STATUS_KEY,
@@ -324,6 +403,37 @@ class InventoryOntologyProjector:
         )
 
 
+def _projection_content(
+    projection: InventoryOntologyProjection,
+) -> tuple[tuple[dict[str, object], ...], tuple[dict[str, object], ...]]:
+    """Return canonical object and link content for the projection receipt."""
+
+    objects: tuple[dict[str, object], ...] = tuple(
+        {
+            "id": record.id,
+            "object_type": record.object_type,
+            "properties": _content_properties(record.properties),
+        }
+        for record in projection.objects
+    )
+    links: tuple[dict[str, object], ...] = tuple(
+        {
+            "from_id": record.from_id,
+            "link_type": record.link_type,
+            "to_id": record.to_id,
+            "properties": _content_properties(record.properties),
+        }
+        for record in projection.links
+    )
+    return objects, links
+
+
+def _content_properties(properties: Mapping[str, object]) -> dict[str, object]:
+    """Copy one normalized property mapping into the manifest content envelope."""
+
+    return dict(properties)
+
+
 def _manifest_digest(
     *,
     generation: str,
@@ -333,6 +443,8 @@ def _manifest_digest(
     dropped_reasons: object,
     object_ids: tuple[str, ...],
     link_keys: tuple[tuple[str, str, str], ...],
+    object_content: Sequence[Mapping[str, object]],
+    link_content: Sequence[Mapping[str, object]],
 ) -> str:
     """Hash the shared manifest payload used by status and reader reload checks."""
 
@@ -345,6 +457,8 @@ def _manifest_digest(
         "dropped_reasons": dropped_reasons,
         "object_ids": list(object_ids),
         "link_keys": [list(key) for key in link_keys],
+        "object_content": list(object_content),
+        "link_content": list(link_content),
     }
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode(
         "utf-8"

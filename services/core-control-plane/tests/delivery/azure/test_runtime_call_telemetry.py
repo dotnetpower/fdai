@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-import pytest
 from fdai.core.ontology_platform.runtime_call_telemetry import (
     AuthenticatedRuntimeCallContext,
 )
@@ -20,6 +19,9 @@ class _Provider:
 
     async def query_log(self, *, query: str, window: str, max_rows: int) -> LogQueryResult:
         assert "caller_resource_id" in query
+        assert "AppRequests" in query
+        assert "AppDependencies" in query
+        assert "isfuzzy" not in query
         assert window == "PT300S"
         assert max_rows == 2000
         return self.result
@@ -57,13 +59,21 @@ async def test_collects_exact_runtime_call_endpoints_as_authenticated_records() 
                     "caller_resource_id": "resource:caller",
                     "target_resource_id": "resource:target",
                     "observed_at": NOW,
+                    "table_name": "AppRequests",
+                },
+                {
+                    "observation_id": "span-2",
+                    "caller_resource_id": "resource:caller",
+                    "target_resource_id": "resource:target",
+                    "observed_at": NOW,
+                    "table_name": "AppDependencies",
                 },
             )
         )
     ).collect(None)
 
     assert batch.complete is True
-    assert len(batch.records) == 1
+    assert len(batch.records) == 2
     record = batch.records[0]
     assert record.envelope.caller_resource_ids == ("resource:caller",)
     assert record.envelope.target_resource_ids == ("resource:target",)
@@ -75,20 +85,40 @@ async def test_truncated_runtime_call_source_is_explicitly_incomplete() -> None:
 
     assert batch.records == ()
     assert batch.complete is False
-    assert batch.reason == "telemetry_incomplete"
+    assert batch.reason == "telemetry_rows_incomplete"
+    assert batch.coverage == {"unavailable_rows": 1}
 
 
-async def test_malformed_runtime_call_row_fails_closed() -> None:
-    with pytest.raises(ValueError, match="target_resource_id"):
-        await _source(
-            LogQueryResult(
-                rows=(
-                    {
-                        "observation_id": "span-1",
-                        "caller_resource_id": "resource:caller",
-                        "target_resource_id": "",
-                        "observed_at": NOW,
-                    },
-                )
+async def test_partial_rows_are_reported_and_never_returned_as_complete() -> None:
+    batch = await _source(
+        LogQueryResult(
+            rows=(
+                {
+                    "observation_id": "span-1",
+                    "caller_resource_id": "resource:caller",
+                    "target_resource_id": "",
+                    "observed_at": NOW,
+                    "table_name": "AppRequests",
+                },
+                {
+                    "observation_id": "span-2",
+                    "caller_resource_id": "resource:caller",
+                    "observed_at": NOW,
+                    "table_name": "AppDependencies",
+                },
             )
-        ).collect(None)
+        )
+    ).collect(None)
+
+    assert batch.complete is False
+    assert batch.records == ()
+    assert batch.reason == "telemetry_rows_incomplete"
+    assert batch.coverage == {"unavailable_rows": 0, "redacted_rows": 1, "malformed_rows": 1}
+
+
+async def test_missing_table_coverage_is_unavailable_even_when_no_rows_return() -> None:
+    batch = await _source(LogQueryResult(rows=())).collect(None)
+
+    assert batch.complete is False
+    assert batch.records == ()
+    assert batch.coverage == {"unavailable_rows": 1, "redacted_rows": 0, "malformed_rows": 0}

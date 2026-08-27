@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from collections.abc import Mapping
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import Protocol
 
@@ -31,6 +32,7 @@ _RUNTIME_CALL_UNAVAILABLE_REASONS = frozenset(
         "telemetry_incomplete",
         "telemetry_scope_unavailable",
         "telemetry_source_unavailable",
+        "telemetry_rows_incomplete",
     }
 )
 
@@ -51,6 +53,7 @@ class RuntimeCallTelemetryBatch:
     observed_at: datetime | None
     complete: bool
     reason: str | None = None
+    coverage: Mapping[str, int] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if len(self.records) > _MAX_RUNTIME_CALL_OBSERVATIONS:
@@ -69,6 +72,13 @@ class RuntimeCallTelemetryBatch:
             raise ValueError("unavailable runtime call telemetry MUST have only a reason")
         if self.reason is not None and self.reason not in _RUNTIME_CALL_UNAVAILABLE_REASONS:
             raise ValueError("runtime call telemetry reason is not allowlisted")
+        if any(
+            not isinstance(key, str) or not isinstance(value, int) or value < 0
+            for key, value in self.coverage.items()
+        ):
+            raise ValueError("runtime call telemetry coverage MUST contain non-negative counts")
+        if self.complete and any(self.coverage.values()):
+            raise ValueError("complete runtime call telemetry MUST NOT contain partial coverage")
 
 
 class RuntimeCallTelemetrySource(Protocol):
@@ -132,7 +142,11 @@ class RuntimeCallInventoryEnricher:
         except Exception:  # noqa: BLE001 - source details must not enter generation metadata
             return _unavailable(observation, reason="telemetry_source_unavailable")
         if not batch.complete:
-            return _unavailable(observation, reason=batch.reason or "telemetry_source_unavailable")
+            return _unavailable(
+                observation,
+                reason=batch.reason or "telemetry_source_unavailable",
+                coverage=batch.coverage,
+            )
         if batch.observed_at is None:  # pragma: no cover - guarded by batch validation
             return _unavailable(observation, reason="telemetry_source_unavailable")
 
@@ -190,6 +204,7 @@ def _unavailable(
     observation: PromotedInventoryObservation,
     *,
     reason: str,
+    coverage: Mapping[str, int] | None = None,
 ) -> PromotedInventoryObservation:
     return replace(
         observation,
@@ -200,6 +215,7 @@ def _unavailable(
                 status=InventoryProjectionSourceStatus.UNAVAILABLE,
                 observed_at=None,
                 reason=reason,
+                coverage=coverage or {},
             ),
         ),
     )
