@@ -47,7 +47,9 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   The repository CLI parses content-free samples and never converts a trace commitment into a
   complete-trace claim. The adjacent `quality_trace.py` reducer accepts only record commitments and
   proves completeness from the exact ordered session-to-audit chain; it performs no provider read
-  and grants no qualification authority.
+  and grants no qualification authority. `quality_timing.py` joins only matching source revisions,
+  trace counts, trace-set commitments, and the installed latency contract before deriving the two
+  qualification timing fields.
 - **policies and rules are data, not code paths**: T0 loads `rule-catalog/` entries and
   `policies/` at runtime; adding a rule or policy never requires an engine change. Rules
   describe intent and remediation; policies are the executable OPA/Rego the verifier re-checks.

@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 
+from fdai.core.conversation_assurance.quality_trace import trace_set_digest
+
 _TOKEN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 _REVISION = re.compile(r"^[0-9a-f]{40}$")
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
@@ -184,6 +186,8 @@ class ChatOpsLatencyEvidence:
     contract_version: str
     contract_digest: str
     sample_manifest_digest: str
+    trace_count: int
+    trace_set_digest: str
     started_at: str
     completed_at: str
     stages: tuple[LatencyStageEvidence, ...]
@@ -200,6 +204,8 @@ class ChatOpsLatencyEvidence:
             "contract_version": self.contract_version,
             "contract_digest": self.contract_digest,
             "sample_manifest_digest": self.sample_manifest_digest,
+            "trace_count": self.trace_count,
+            "trace_set_digest": self.trace_set_digest,
             "started_at": self.started_at,
             "completed_at": self.completed_at,
             "latency_slo_met": self.latency_slo_met,
@@ -281,12 +287,15 @@ def reduce_latency_benchmark(
                 gaps=tuple(gaps),
             )
         )
+    trace_digests = tuple(sorted({sample.trace_digest for sample in batch.samples}))
     return ChatOpsLatencyEvidence(
         run_digest=_digest(batch.run_id),
         source_revision=batch.source_revision,
         contract_version=effective_contract.version,
         contract_digest=effective_contract.content_digest,
         sample_manifest_digest=_sample_manifest_digest(batch.samples),
+        trace_count=len(trace_digests),
+        trace_set_digest=(trace_set_digest(trace_digests) if trace_digests else _digest([])),
         started_at=batch.started_at,
         completed_at=batch.completed_at,
         stages=tuple(stage_evidence),

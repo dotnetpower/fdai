@@ -182,6 +182,16 @@ def _event_manifest_digest(events: tuple[CorrelationTraceEvent, ...]) -> str:
     )
 
 
+def trace_set_digest(trace_digests: tuple[str, ...]) -> str:
+    """Commit to one non-empty unique set of trace identities."""
+
+    if not trace_digests or len(trace_digests) != len(set(trace_digests)):
+        raise ValueError("trace digest set MUST be non-empty and unique")
+    for value in trace_digests:
+        _sha256(value, "trace set digest")
+    return _digest(sorted(trace_digests))
+
+
 def _token(value: str, field: str) -> None:
     if _TOKEN.fullmatch(value) is None:
         raise ValueError(f"{field} MUST be a bounded portable token")
@@ -220,4 +230,5 @@ __all__ = [
     "CorrelationTraceStage",
     "TraceTimestampAuthority",
     "reduce_correlation_trace",
+    "trace_set_digest",
 ]

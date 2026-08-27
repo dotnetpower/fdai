@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 077db21c1f9372ce04bfc2116863cbf0e1c29d08
+translation_source_sha: d094f1a675c69936d2e693895286b01dfea47a63
 translation_revised: 2026-08-28
 ---
 # 대화 품질 보증
@@ -24,6 +24,7 @@ translation_revised: 2026-08-28
 | Qualification 점수표 및 캠페인 원장 | in-progress | [`test_quality_scorecard.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_scorecard.py), [`conversation-assurance-ledger.py`](../../../scripts/quality/conversation-assurance-ledger.py) | 점수표와 범위가 제한된 결과 형식은 구현되어 있지만 전체 이중 언어 qualification 집합은 통제된 근거로 보존되지 않았습니다. |
 | 5단계 지연 시간 qualification 근거 | implemented | [`quality_latency.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_latency.py), [`test_quality_latency.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_latency.py) | 고정 SLO 계약과 축약기는 콘텐츠가 없는 p50/p95/p99 근거를 생성하며 완전한 추적 범위를 추론하지 않습니다. 통제된 벤치마크 증적은 보존되지 않았습니다. |
 | 8단계 상관관계 추적 근거 | implemented | [`quality_trace.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_trace.py), [`test_quality_trace.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_trace.py) | 축약기는 세션부터 감사까지의 정확한 연결, 하나의 상관관계 약속값, 이전 레코드 연결, 권위 있는 타임스탬프 및 출처 이력 약속값을 요구합니다. 라이브 추적 증적은 보존되지 않았습니다. |
+| Timing qualification 근거 연결 | implemented | [`quality_timing.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_timing.py), [`test_quality_timing.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_timing.py) | 500개 완전 추적 집합이 latency 산출물의 출처 리비전, 추적 수, 추적 집합 약속값 및 설치된 SLO 계약과 일치해야 timing boolean이 하드 상한 축약기로 전달됩니다. |
 | 제한된 말뭉치 동결 경계 | implemented | [`chatops_quality_corpus_freeze.py`](../../../scripts/evaluation/chatops_quality_corpus_freeze.py), [`test_chatops_quality_corpus_freeze.py`](../../../tests/integration/scripts/test_chatops_quality_corpus_freeze.py) | 로컬 동결 도구는 `content` 또는 `label`을 출력하지 않고 소유자 전용 제한 산출물에서 공개 매니페스트를 파생합니다. 제한된 말뭉치 또는 독립 `label` 집합은 저장소에 보존하지 않습니다. |
 | Qualification 소유자 기여 | implemented | [`quality_observations.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_observations.py), [`test_quality_context_locale_observations.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_context_locale_observations.py) | 적용 가능한 1-35번 및 41-45번 항목의 결정론 소유자 어댑터는 콘텐츠가 없는 하나의 턴 묶음으로 결합됩니다. 소유하지 않은 차원은 unavailable로 남고 점수 입력이 될 수 없습니다. |
 | 맥락 및 로케일 소유자 기여 | implemented | [`quality_context_locale_observations.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_context_locale_observations.py), [`test_quality_context_locale_observations.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_context_locale_observations.py) | 41-45번 항목의 모든 기여는 하나의 사례 및 로케일에 연결됩니다. 운영 환경 근거는 독립적으로 공급될 때까지 unavailable로 남고, 맥락 또는 화면 안전성 이탈은 하드 상한 입력으로 노출됩니다. |
@@ -33,6 +34,7 @@ translation_revised: 2026-08-28
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-28 | implemented | 검증되지 않은 boolean으로 9.6 하드 상한을 해제하지 못하도록 설치된 계약, 출처 리비전, 추적 수 및 추적 집합 다이제스트로 latency와 trace 근거를 연결했습니다. | `current change`; `quality_timing.py`; 집중 timing 연결 검사(`4 passed`); 결합 latency/trace/timing 검사(`23 passed`). | 권위 있는 runtime 생산자를 연결하고 일치하는 통제 근거를 보존해야 합니다. |
 | 2026-08-28 | implemented | 세션, 요청, 턴, 도구/에이전트 근거, 제안, 결정, 전달 및 감사의 정확한 연결에 대해 콘텐츠가 없는 완전 추적 근거를 추가했습니다. | `current change`; `quality_trace.py`; `chatops_quality_trace.py`; 집중 Core 및 CLI 검사(`8 passed`). | 하드 상한이 해제됐다고 주장하기 전에 권위 있는 레코드 생산자를 연결하고 완전한 통제 추적 하나를 보존해야 합니다. |
 | 2026-08-28 | implemented | PR 회귀, 라이브 카나리 및 릴리스 환경을 위한 5단계 지연 시간 SLO 계약과 결정론 벤치마크 근거를 추가했습니다. | `current change`; `quality_latency.py`; `chatops_quality_latency.py`; 집중 Core 및 CLI 검사(`11 passed`). | 9.6 하드 상한을 해제하기 전에 통과한 통제 벤치마크 근거와 독립적으로 완전한 상관관계 추적을 보존해야 합니다. |
 | 2026-08-28 | implemented | 소유자 전용 제한 산출물에서 사례별 `content` 및 `label` 약속값을 파생하고, 전체 숨겨진 페이로드를 연결하고, 모든 매니페스트 하한을 검증하고, 숨겨진 값을 노출하지 않은 채 공개 매니페스트를 원자적으로 생성하는 동결 도구를 추가했습니다. | `current change`; [`chatops_quality_corpus_freeze.py`](../../../scripts/evaluation/chatops_quality_corpus_freeze.py); 집중 동결 및 매니페스트 검사(`22 passed`); Ruff 및 strict mypy. | 제한된 500턴 산출물을 제공하고 독립적으로 `label`을 지정한 다음 동결된 말뭉치를 주장하기 전에 통제된 공개 매니페스트를 보존해야 합니다. |
@@ -175,6 +177,9 @@ observability and 재생 `0.10`의 고정된 정규화된 가중치를 적용합
 기록합니다. 별도 추적 축약기는 하나의 correlation digest, 유효한 이전 레코드 연결, 추적
 구간 안의 권위 있는 타임스탬프, 모든 단계의 출처 이력 약속값을 갖는 정확한 세션부터 감사까지의
 연결에만 `complete_trace=true`를 설정합니다.
+Timing binder는 이어서 고유하고 완전한 추적 500개 이상과 latency 산출물의 출처 리비전, 추적
+수, 추적 집합 다이제스트, 설치된 계약이 정확히 일치하도록 요구합니다. 이 연결만
+`QualificationEvidence`의 두 timing 필드를 파생합니다.
 
 계약과 scorer에는 measured 결과, 말뭉치 라벨, 배포 식별자 또는 승격 상태가
 포함되지 않습니다. 이 산출물만으로 기준선 또는 qualification을 입증할 수 없습니다. 별도의
