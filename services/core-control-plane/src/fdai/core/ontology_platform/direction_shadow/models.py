@@ -223,6 +223,8 @@ class RebuildPointer:
     def __post_init__(self) -> None:
         _bounded_ref("authoritative_generation_ref", self.authoritative_generation_ref)
         _bounded_ref("rebuild_procedure_ref", self.rebuild_procedure_ref)
+        if self.restores_deleted_rows is not False or self.mutation_authority is not False:
+            raise ValueError("rebuild pointer cannot grant mutation authority")
 
 
 @dataclass(frozen=True, slots=True)
@@ -310,6 +312,12 @@ class DirectionShadowReceipt:
             raise ValueError("direction shadow review reasons MUST be unique and sorted")
         if not isinstance(self.exact_release_mode, bool):
             raise ValueError("direction shadow exact release mode MUST be boolean")
+        if (
+            self.migration_ready is not False
+            or self.graph_mutation_authority is not False
+            or self.migration_execution_authority is not False
+        ):
+            raise ValueError("direction shadow receipt cannot grant mutation authority")
         expected = (
             ComparisonDisposition.REVIEW_REQUIRED
             if self.review_reasons
