@@ -232,6 +232,42 @@ async def test_instance_directory_uses_the_active_detail_generation() -> None:
     ]
 
 
+async def test_empty_instance_directory_omits_context_selection_identity() -> None:
+    class _EmptyReader(_Reader):
+        async def read_inventory_instances(
+            self,
+            *,
+            snapshot_id: str,
+            search: str | None,
+            limit: int,
+        ) -> InventoryInstanceResourcePage:
+            assert (snapshot_id, search, limit) == ("generation-1", "missing", 25)
+            return InventoryInstanceResourcePage(resources=(), truncated=False)
+
+    result = await project_inventory_instances(
+        query=ProjectionQuery(
+            operation="ontology.instance.list",
+            principal_id="reader",
+            path={},
+            params={"search": ("missing",)},
+            limit=25,
+            cursor=None,
+            roles=frozenset({OperatorRole.READER}),
+        ),
+        reader=_EmptyReader(),
+        ontology_projection={
+            "ontology_release_digest": f"sha256:{'a' * 64}",
+            "link_types": ["contains"],
+        },
+        selection_registry=ContextSelectionRegistry(),
+    )
+
+    assert result["resources"] == []
+    assert result["complete"] is True
+    assert "context_capability" not in result
+    assert "selection_digest" not in result
+
+
 async def test_instance_projection_combines_snapshot_neighborhood_and_activity() -> None:
     result = await project_inventory_instance(
         query=ProjectionQuery(
