@@ -15,7 +15,10 @@ from fdai_service_contracts.ontology_query import (
     SemanticOperation,
     SemanticProblemFrame,
 )
-from fdai_service_contracts.semantic_turn import SemanticDirectResponseIntent
+from fdai_service_contracts.semantic_turn import (
+    SemanticDirectResponseIntent,
+    context_selection_digest,
+)
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from fdai.core.ontology_platform import QueryManifest
@@ -58,14 +61,46 @@ class BoundResourceContext:
     resource_ids: tuple[str, ...]
     screen_id: str | None = None
     resource_group_id: str | None = None
+    principal_id: str = ""
+    principal_scope_digest: str = ""
+    ontology_release_digest: str = ""
+    source_generation: str = ""
+    selection_digest: str = ""
+    complete: bool = False
 
     def __post_init__(self) -> None:
-        if not self.resource_ids or self.resource_ids != tuple(dict.fromkeys(self.resource_ids)):
-            raise ValueError("bound resource context requires unique resource ids")
+        if (
+            not self.resource_ids
+            or self.resource_ids != tuple(dict.fromkeys(self.resource_ids))
+            or not all(
+                value.strip()
+                for value in (
+                    self.principal_id,
+                    self.principal_scope_digest,
+                    self.ontology_release_digest,
+                    self.source_generation,
+                    self.selection_digest,
+                )
+            )
+            or not self.complete
+        ):
+            raise ValueError("bound resource context requires a complete server-issued identity")
         if self.kind == "screen" and not self.screen_id:
             raise ValueError("screen context requires screen_id")
         if self.kind == "resource_group" and not self.resource_group_id:
             raise ValueError("resource-group context requires resource_group_id")
+        if self.selection_digest != context_selection_digest(
+            kind=self.kind,
+            principal_id=self.principal_id,
+            principal_scope_digest=self.principal_scope_digest,
+            ontology_release_digest=self.ontology_release_digest,
+            source_generation=self.source_generation,
+            complete=self.complete,
+            screen_id=self.screen_id,
+            resource_group_id=self.resource_group_id,
+            resource_ids=self.resource_ids,
+        ):
+            raise ValueError("bound resource context selection digest does not match its identity")
 
 
 @dataclass(frozen=True, slots=True)

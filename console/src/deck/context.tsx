@@ -115,6 +115,12 @@ export interface ViewContextIdentity {
   readonly screenId?: string;
   readonly resourceGroupId?: string;
   readonly resourceIds: readonly string[];
+  readonly principalId: string;
+  readonly principalScopeDigest: string;
+  readonly ontologyReleaseDigest: string;
+  readonly sourceGeneration: string;
+  readonly selectionDigest: string;
+  readonly complete: true;
 }
 
 /** A structured snapshot for one route. */

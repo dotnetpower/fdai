@@ -367,6 +367,7 @@ from fdai_service_contracts.semantic_turn import (
     SemanticTurnResult,
     SemanticUnavailableReason,
     SEMANTIC_PROGRESS_TOPIC,
+    context_selection_digest,
     rule_search_query_digest,
 )
 from fdai_service_contracts.transition import (
@@ -620,6 +621,7 @@ __all__ = [
     "SemanticAssurancePathStep",
     "SemanticInvestigationContinuation",
     "SemanticBoundContext",
+    "context_selection_digest",
     "SemanticDirectResponseIntent",
     "SemanticPlanningProfile",
     "SemanticQueryProgress",

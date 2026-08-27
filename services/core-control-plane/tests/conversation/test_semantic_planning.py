@@ -76,6 +76,7 @@ from fdai.shared.contracts.models import (
     PropertyType,
 )
 from fdai.shared.ontology.release import build_ontology_release
+from fdai_service_contracts import context_selection_digest
 from fdai_service_contracts.ontology_query import (
     GoalEvidenceMode,
     GoalTaskReceipt,
@@ -2280,10 +2281,9 @@ def test_contextual_collection_uses_exact_bound_screen_scope(utterance: str) -> 
         prior_turns=(),
         principal=Principal(id="operator", role=Role.READER),
         purpose="operations-review",
-        bound_resource_context=BoundResourceContext(
-            kind="screen",
-            screen_id="ontology-instances",
-            resource_ids=("resource-a", "resource-b"),
+        bound_resource_context=_bound_context(
+            ("resource-a", "resource-b"),
+            release_digest=manifest.release_digest,
         ),
     )
 
@@ -2295,6 +2295,39 @@ def test_contextual_collection_uses_exact_bound_screen_scope(utterance: str) -> 
     ]
     assert outcome.plan.nodes[1].arguments["function_name"] == "query.contextual_resources"
     assert outcome.execution_authority is False
+
+
+def test_contextual_collection_intersects_explicit_type_and_name_filters() -> None:
+    manifest, _definition = _typed_fixture(
+        include_contextual_resource=True,
+        groups=(_RESOURCE_GROUP_GROUP,),
+    )
+    model = _Model(
+        frame=_frame(
+            output_shape="contextual_resource_list",
+            subject_constraints=["Resource", "fdai"],
+        ),
+        plan=None,
+    )
+
+    outcome = _service(model, manifest).plan(
+        utterance="Which fdai resource groups are on this screen?",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        bound_resource_context=_bound_context(
+            ("resource-a", "resource-b"),
+            release_digest=manifest.release_digest,
+        ),
+    )
+
+    assert outcome.plan is not None
+    predicates = outcome.plan.nodes[0].arguments["definition"]["predicates"]
+    assert predicates == [
+        {"property": "id", "operator": "in", "values": ["resource-a", "resource-b"]},
+        {"property": "type", "operator": "equals", "equals": "resource-group"},
+        {"property": "name", "operator": "contains", "equals": "fdai"},
+    ]
 
 
 @pytest.mark.parametrize(
@@ -2315,6 +2348,30 @@ def test_contextual_collection_without_bound_scope_clarifies(utterance: str) -> 
     assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
     assert outcome.reason == "contextual_resource_scope_required"
     assert outcome.plan is None
+
+
+def _bound_context(resource_ids: tuple[str, ...], *, release_digest: str) -> BoundResourceContext:
+    identity = {
+        "principal_id": "operator",
+        "principal_scope_digest": f"sha256:{'a' * 64}",
+        "ontology_release_digest": release_digest,
+        "source_generation": "generation-1",
+        "complete": True,
+    }
+    digest = context_selection_digest(
+        kind="screen",
+        screen_id="ontology-instances",
+        resource_group_id=None,
+        resource_ids=resource_ids,
+        **identity,
+    )
+    return BoundResourceContext(
+        kind="screen",
+        screen_id="ontology-instances",
+        resource_ids=resource_ids,
+        selection_digest=digest,
+        **identity,
+    )
 
 
 def test_property_filter_rejects_multiple_existence_only_predicates() -> None:

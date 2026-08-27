@@ -168,7 +168,10 @@ class SemanticConversationRuntime:
         disposition: Literal["answered", "held", "cancelled"]
         reason = f"semantic_execution_{execution.status}"
         if execution.status == "completed":
-            if _current_relationship_mapping_unavailable(planning, execution):
+            if _query_output_incomplete(planning, execution):
+                disposition = "held"
+                reason = "semantic_evidence_incomplete"
+            elif _current_relationship_mapping_unavailable(planning, execution):
                 disposition = "held"
                 reason = "semantic_current_relationship_mapping_unavailable"
             else:
@@ -212,6 +215,21 @@ def _current_relationship_mapping_unavailable(
         isinstance(node_result.value, QueryTable) and not node_result.value.rows
         for node_id in endpoint_node_ids
         if (node_result := execution.results.get(node_id)) is not None
+    )
+
+
+def _query_output_incomplete(
+    planning: SemanticPlanningOutcome,
+    execution: QueryPlanExecution,
+) -> bool:
+    """Hold a completed DAG when its authoritative output is explicitly incomplete."""
+    plan = planning.plan
+    if plan is None:
+        return False
+    return any(
+        isinstance(result.value, QueryTable) and not result.value.complete
+        for node_id in plan.output_node_ids
+        if (result := execution.results.get(node_id)) is not None
     )
 
 
