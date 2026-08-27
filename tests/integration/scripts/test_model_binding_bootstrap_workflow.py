@@ -103,6 +103,12 @@ def test_chatops_validation_requires_exact_resolved_foundry_secondary() -> None:
     assert workflow_text.index("verify-deployment-plan.py") < workflow_text.rindex(
         "require_resolved_capability.py"
     )
+    assert '"azurerm_cognitive_account_project": "azure.ai.project"' in workflow_text
+    assert '"azurerm_cognitive_deployment": "azure.ai.deployment"' in workflow_text
+    assert '"azure.ai.project": "Microsoft.CognitiveServices/accounts/projects"' in workflow_text
+    assert (
+        '"azure.ai.deployment": "Microsoft.CognitiveServices/accounts/deployments"' in workflow_text
+    )
     assert "plan-chatops-" in workflow_text
     assert "apply-chatops-" in workflow_text
     assert "TF_VAR_enable_llm: ${{ env." not in workflow_text
