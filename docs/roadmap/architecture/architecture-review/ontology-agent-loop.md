@@ -99,6 +99,11 @@ parallel. Context and evidence must name the same ontology and catalog releases.
 re-read preserves existing checks instead of removing them, and evidence artifact identities bind
 the bundle and item content. The resulting `Change`, `DecisionCase`, `ImpactEnvelope`, and
 `ReviewCase` records retain typed lineage links and remain explicitly observation-only.
+The base graph must be complete and its source generation must match the authenticated context
+before an envelope can be conformant. Projection status is recorded with the observation, so a
+stored result retries a failed or unavailable production projection without re-running evidence
+collection. Existing Huginn `Change` records are preserved; a new Change is projected only when
+the exact normalized fields are present.
 
 ## Autonomous review levels
 
