@@ -279,6 +279,8 @@ clean (see the fork model in
   `ProbeFailureStreakSource` implementations; missing or failed sources lower Axis E and never
   grant authority. Runtime assembly passes retired-rule projections to every downstream rule
   map and binds the durable promotion-attestation store before the HIL/direct route.
+  HIL resume resolves rules only from that current active map; serialized parked
+  rule bodies are never trusted after a catalog retirement or reload.
 - **Independent effect observation**: the durable kinetic artifact store is the exact-plan source.
   `StateStoreExecutedActionObservationStore` accepts only Heimdall-attributed observations whose
   signed context passes the configured verifier on write and replay. Missing evidence remains held.

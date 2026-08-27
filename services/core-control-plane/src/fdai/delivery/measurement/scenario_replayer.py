@@ -22,6 +22,7 @@ from fdai.core.risk_gate import ActionPromotionRegistry, RiskGate
 from fdai.core.risk_gate.risk_table import load_risk_table
 from fdai.core.tiers.t0_deterministic import OpaRegoEvaluator, RuleIndex, T0Engine
 from fdai.core.trust_router import TrustRouter
+from fdai.rule_catalog.schema.governance_catalog import load_governance_catalog
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
 from fdai.rule_catalog.schema.rule import load_rule_catalog
@@ -160,6 +161,14 @@ class FrozenScenarioReplayer:
             policies_root=self._root / "policies",
             remediation_root=catalog_root / "remediation",
         )
+        governance = load_governance_catalog(
+            catalog_root,
+            known_rule_versions={rule.id: rule.version for rule in rules},
+        )
+        retired_rule_ids = {
+            item.rule_id for item in governance.retirements if item.mode.value == "retired"
+        }
+        rules = tuple(rule for rule in rules if rule.id not in retired_rule_ids)
         rules_by_id = {rule.id: rule for rule in rules}
         action_types_by_name = {item.name: item for item in action_types}
         index = RuleIndex.build(rules)
