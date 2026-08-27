@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Mapping, Sequence
 from typing import Any
 
@@ -51,23 +52,34 @@ class ObjectSetService:
             if graph.truncated:
                 source_truncation_reason = ObjectSetTruncationReason.TRAVERSAL_LIMIT
         else:
+            exact_ids = _exact_id_values(definition.predicates)
+            if exact_ids is not None and len(exact_ids) > _STORE_QUERY_LIMIT:
+                graph = await _query_exact_ids(
+                    self._store,
+                    object_types=concrete_types,
+                    resource_ids=exact_ids,
+                )
+                source_truncation_reason = None
+            else:
+                graph = None
             filters = {
                 item.property: item.equals
                 for item in definition.predicates
                 if item.operator is ObjectPredicateOperator.EQUALS
             }
             has_memory_predicates = len(filters) != len(definition.predicates)
-            graph = await self._store.query_objects(
-                object_types=concrete_types,
-                property_equals=filters,
-                limit=_STORE_QUERY_LIMIT if has_memory_predicates else definition.limit,
-            )
-            if graph.truncated:
-                source_truncation_reason = (
-                    ObjectSetTruncationReason.CANDIDATE_LIMIT
-                    if has_memory_predicates
-                    else ObjectSetTruncationReason.RESULT_LIMIT
+            if graph is None:
+                graph = await self._store.query_objects(
+                    object_types=concrete_types,
+                    property_equals=filters,
+                    limit=_STORE_QUERY_LIMIT if has_memory_predicates else definition.limit,
                 )
+                if graph.truncated:
+                    source_truncation_reason = (
+                        ObjectSetTruncationReason.CANDIDATE_LIMIT
+                        if has_memory_predicates
+                        else ObjectSetTruncationReason.RESULT_LIMIT
+                    )
         graph, result_limited = _filter_graph(
             graph,
             concrete_types=concrete_types,
@@ -92,6 +104,54 @@ class ObjectSetService:
         if selector.name not in self._object_type_names:
             raise ValueError(f"unknown ontology ObjectType {selector.name!r}")
         return (selector.name,)
+
+
+def _exact_id_values(predicates: Sequence[ObjectPredicate]) -> tuple[str, ...] | None:
+    """Return an exact id selector suitable for bounded per-id store reads."""
+    for predicate in predicates:
+        if predicate.property != "id":
+            continue
+        if predicate.operator is ObjectPredicateOperator.EQUALS and isinstance(
+            predicate.equals, str
+        ):
+            return (predicate.equals,)
+        if predicate.operator is ObjectPredicateOperator.IN:
+            values = tuple(value for value in predicate.values if isinstance(value, str))
+            if len(values) == len(predicate.values):
+                return values
+    return None
+
+
+async def _query_exact_ids(
+    store: OntologyInstanceStore,
+    *,
+    object_types: Sequence[str],
+    resource_ids: Sequence[str],
+) -> OntologyGraphSnapshot:
+    """Read each selected id directly so other records cannot truncate the candidate set."""
+    results = await asyncio.gather(
+        *(
+            store.query_objects(
+                object_types=object_types,
+                property_equals={"id": resource_id},
+                limit=1,
+            )
+            for resource_id in resource_ids
+        )
+    )
+    objects = tuple(item for graph in results for item in graph.objects)
+    generations = {
+        graph.source_generation for graph in results if graph.source_generation is not None
+    }
+    if len(generations) > 1:
+        raise ValueError("exact id reads returned mixed source generations")
+    return OntologyGraphSnapshot(
+        objects=objects,
+        links=(),
+        truncated=False,
+        source_complete=all(graph.source_complete for graph in results),
+        source_generation=next(iter(generations), None),
+    )
 
 
 def _filter_graph(

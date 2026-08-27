@@ -140,8 +140,18 @@ async def test_contextual_function_returns_only_exact_context_membership() -> No
 
 async def test_contextual_function_holds_on_scope_widening() -> None:
     result = await _invoke(
-        _result((_resource("resource-a"), _resource("resource-b"))),
-        ["resource-a"],
+        _result((_resource("resource-a"),)),
+        ["resource-a", "resource-b"],
+    )
+
+    assert result["complete"] is True
+    assert [row["values"]["id"] for row in result["rows"]] == ["resource-a"]
+
+
+async def test_contextual_function_rejects_an_outside_id() -> None:
+    result = await _invoke(
+        _result((_resource("resource-outside"),)),
+        ["resource-a", "resource-b"],
     )
 
     assert result == {

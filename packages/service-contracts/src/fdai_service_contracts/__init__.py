@@ -300,6 +300,7 @@ from fdai_service_contracts.operator import (
     OperatorReadModel,
     OperatorRole,
     OperatorTokenVerifier,
+    canonical_ordinary_role,
     PageProjection,
     ReadDataSource,
 )
@@ -574,6 +575,7 @@ __all__ = [
     "OperatorPrincipalKind",
     "OperatorReadModel",
     "OperatorRole",
+    "canonical_ordinary_role",
     "OperatorTokenVerifier",
     "OperationalCoverageCount",
     "OperationalCoverageDisposition",

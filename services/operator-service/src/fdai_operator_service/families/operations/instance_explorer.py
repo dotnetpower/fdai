@@ -15,7 +15,11 @@ from fdai_operator_service.families.operations.contracts import (
     ProjectionQuery,
     ProjectionUnavailableError,
 )
-from fdai_service_contracts import OperatorRole, context_selection_digest
+from fdai_service_contracts import (
+    OperatorRole,
+    canonical_ordinary_role,
+    context_selection_digest,
+)
 from fdai_service_contracts.ontology_query import content_digest
 
 MAX_INSTANCE_LINK_TYPES = 16
@@ -399,7 +403,7 @@ def _context_identity(
     principal_scope_digest = content_digest(
         {
             "principal_id": query.principal_id,
-            "role": principal_role.value,
+            "role": canonical_ordinary_role(principal_role),
             "purpose": query.purpose,
         }
     )
