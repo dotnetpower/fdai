@@ -1,8 +1,8 @@
 ---
 title: FDAI 운영 온톨로지 메타모델
 translation_of: operating-ontology-metamodel.md
-translation_source_sha: df0abeffb2628112e9bb20016191937767b7c22d
-translation_revised: 2026-08-26
+translation_source_sha: 7ce61f9d3eca83605eb04f4aae883e15ac97760b
+translation_revised: 2026-08-27
 ---
 # FDAI 운영 온톨로지 메타모델
 
@@ -119,10 +119,15 @@ symmetric 관계는 현재 스키마에서 independently supported directed 기�
 | D1 | 모든 shipped LinkType과 생산자를 정본 역할/cardinality에 맞춰 감사합니다. | `contains`, `attached_to`, `depends_on` 선언, Azure/Kubernetes 변환 결과, 소유권 룰 및 테스트가 하나의 orientation에 동의합니다. |
 | D2 | 명시적 엔드포인트 orientation과 source-schema 출처 이력이 있는 검토된 프로바이더 관계 대응을 추가합니다. | 프로바이더 참조 소유권이 온톨로지 direction을 암묵적으로 선택할 수 없습니다. |
 | D3 | 완전한, missing-endpoint, reversed-input, 중복 및 partial-coverage 고정본을 추가합니다. | 검증된 링크만 활성 그래프에 들어가며 모호한/불완전한 경로는 absent 상태로 보고됩니다. |
-| D4 | 이행 전에 기존 그래프 세대와 aligned 그래프 세대를 shadow 비교합니다. | Directional 조회 및 blast-radius 차이가 측정, 검토, 재생 가능하며 롤백 포인터를 갖습니다. |
+| D4 | 이행 전에 기존 그래프 세대와 aligned 그래프 세대를 shadow 비교합니다. | Directional 조회 및 blast-radius 차이가 측정, 검토, 재생 가능하며 롤백 포인터를 갖습니다. 서로 다른 검토자와 비어 있지 않은 회귀 증적은 catalog PR 제안만 만들 수 있으며 이행 권한은 부여하지 않습니다. |
 
 저장된 링크 해석을 바꾸는 direction 또는 cardinality 수정에는 새 LinkType major 버전이나 명시적
 그래프 이행이 필요합니다. Historical 맥락 스냅샷을 제자리에서 수정하지 않습니다.
+
+승격 평가는 비교 증적, 두 세대 다이제스트, 회귀 증적, 서로 다른 요청자와 검토자 신원, 검토
+시각 및 재구성 포인터를 결속합니다. 승인은 catalog pull request 제안을 허용한다는 뜻입니다.
+비교를 이행 준비 완료로 바꾸거나 그래프를 변경하거나 이행을 실행하거나 과거 스냅샷을 다시
+쓰지 않습니다.
 
 ## 상태 모델
 

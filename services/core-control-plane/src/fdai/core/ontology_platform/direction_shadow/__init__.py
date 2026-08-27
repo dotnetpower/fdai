@@ -13,18 +13,26 @@ from .models import (
     RebuildPointer,
     ReviewReason,
 )
+from .promotion import (
+    DirectionPromotionAssessment,
+    DirectionPromotionDecision,
+    assess_direction_mapping_promotion,
+)
 
 __all__ = [
     "ComparisonBounds",
     "ComparisonDisposition",
     "DirectionGraphGeneration",
     "DirectionGraphLink",
+    "DirectionPromotionAssessment",
+    "DirectionPromotionDecision",
     "DirectionShadowReceipt",
     "LinkRef",
     "LinkReversal",
     "QueryResultDelta",
     "RebuildPointer",
     "ReviewReason",
+    "assess_direction_mapping_promotion",
     "compare_graph_generations",
     "replay_matches",
 ]

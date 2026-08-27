@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 1259,
+  "file_count": 1260,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "ebca41cd37517c9c564b1351302f9222805b56f186b9a83e9a562e69a51a74a9",
     ".github/instructions/agent-stewardship.instructions.md": "e2e2224db17159323f910252e0f9f6efb44c0f1d7e0d217d5159745c15c9ff46",
@@ -568,10 +568,11 @@
     "services/core-control-plane/src/fdai/core/ontology_platform/diagnostic_ledger.py": "c6863e75d45a2aa550bb71afad872bb74c2196f2446854cfbf45ebd370c2f8dc",
     "services/core-control-plane/src/fdai/core/ontology_platform/diagnostic_projection.py": "c1307832c77815206ef8ed82de23059dc5afc243b6b2e11918c0132440c662c2",
     "services/core-control-plane/src/fdai/core/ontology_platform/diagnostic_results.py": "c7de37c37c2347ebdc9b3f38431a6334aeb0433b4b44233251a149d3c74f02b2",
-    "services/core-control-plane/src/fdai/core/ontology_platform/direction_shadow/__init__.py": "265d46c239403c0fa5cc5b0d0086ff0935f5d05b1f891eddc7a21860d63ef984",
+    "services/core-control-plane/src/fdai/core/ontology_platform/direction_shadow/__init__.py": "e69dcd9ae597834c5689dcc5bd4bba7dd230e9659db22d2fa0e5165852d82807",
     "services/core-control-plane/src/fdai/core/ontology_platform/direction_shadow/comparator.py": "473196b305eb0cf695b8a0c36d60bb6d3503727c6025d6bacaeb4678e2660b9d",
     "services/core-control-plane/src/fdai/core/ontology_platform/direction_shadow/identity.py": "21b1e7e06a0fba0a984a345aba581cadf4b516dd62820d623e36826170772aae",
     "services/core-control-plane/src/fdai/core/ontology_platform/direction_shadow/models.py": "f978f1c026a9f704e509b900e5a93162146261ec5446aafd332c7dbd5a246379",
+    "services/core-control-plane/src/fdai/core/ontology_platform/direction_shadow/promotion.py": "ce17ab265e8fe49d610f17ef3ac9e3a29e82aec10c329a8e31c60701f9133bea",
     "services/core-control-plane/src/fdai/core/ontology_platform/evidence_health_queries.py": "ec35cc6e4301bb7c4f35b70fefd7b015f3815af8e0979936ec6d8fdef2f4690c",
     "services/core-control-plane/src/fdai/core/ontology_platform/functions.py": "86a84d88100524de15d75d53fd924281cbdc86a1df1cb968251e1c40a98f3244",
     "services/core-control-plane/src/fdai/core/ontology_platform/graph_evidence_refresh.py": "dcecff60565507dc35ab21fecfa73746dcd7bc6c424bebc0137ce13cabf941c0",
