@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: bb5ecae35bf21637856949f12ac98a7afca5507b
+translation_source_sha: 398f581f4726881f36d80509f27fa755026358d7
 translation_revised: 2026-08-28
 ---
 # 대화 품질 보증
@@ -29,6 +29,7 @@ translation_revised: 2026-08-28
 | Timing qualification 근거 연결 | implemented | [`quality_timing.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_timing.py), [`test_quality_timing.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_timing.py) | 500개 완전 추적 집합이 latency 산출물의 출처 리비전, 추적 수, 추적 집합 약속값 및 설치된 SLO 계약과 일치해야 timing boolean이 하드 상한 축약기로 전달됩니다. |
 | 제한된 말뭉치 동결 경계 | implemented | [`chatops_quality_corpus_freeze.py`](../../../scripts/evaluation/chatops_quality_corpus_freeze.py), [`test_chatops_quality_corpus_freeze.py`](../../../tests/integration/scripts/test_chatops_quality_corpus_freeze.py) | 로컬 동결 도구는 `content` 또는 `label`을 출력하지 않고 소유자 전용 제한 산출물에서 공개 매니페스트를 파생합니다. 제한된 말뭉치 또는 독립 `label` 집합은 저장소에 보존하지 않습니다. |
 | 독립 말뭉치 검토 축약기 | implemented | [`chatops_quality_corpus_review.py`](../../../scripts/evaluation/chatops_quality_corpus_review.py), [`test_chatops_quality_corpus_review.py`](../../../tests/integration/scripts/test_chatops_quality_corpus_review.py) | 두 소유자 전용 검토는 서로 다른 신원과 계열로 모든 동결 label 약속값을 다루고 합의율 0.80 이상을 충족하며 모든 불일치에 세 번째 계열 검토를 제공해야 합니다. 출력에는 집계 수와 다이제스트만 들어갑니다. |
+| 동결된 hidden corpus v1 | validated | [`hidden-corpus-manifest.v1.json`](../../../eval/chatops-quality/hidden-corpus-manifest.v1.json), [`hidden-corpus-review.v1.json`](../../../eval/chatops-quality/hidden-corpus-review.v1.json) | 공개 근거는 균형 잡힌 500턴, 다중 턴 대화 150개, 모든 하위 집합 및 루브릭 하한, 기본 합의율 `0.876`, 완료된 tie-break 62개, 최종 수락 label 500개를 기록합니다. 제한된 콘텐츠와 사례별 결정은 저장소 밖에 유지합니다. |
 | Qualification 소유자 기여 | implemented | [`quality_observations.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_observations.py), [`test_quality_context_locale_observations.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_context_locale_observations.py) | 적용 가능한 1-35번 및 41-45번 항목의 결정론 소유자 어댑터는 콘텐츠가 없는 하나의 턴 묶음으로 결합됩니다. 소유하지 않은 차원은 unavailable로 남고 점수 입력이 될 수 없습니다. |
 | 맥락 및 로케일 소유자 기여 | implemented | [`quality_context_locale_observations.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_context_locale_observations.py), [`test_quality_context_locale_observations.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_context_locale_observations.py) | 41-45번 항목의 모든 기여는 하나의 사례 및 로케일에 연결됩니다. 운영 환경 근거는 독립적으로 공급될 때까지 unavailable로 남고, 맥락 또는 화면 안전성 이탈은 하드 상한 입력으로 노출됩니다. |
 | 운영자 이의 제기 및 온톨로지 적정성 검토 | implemented | [`test_learning.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_learning.py), [`test_state_store_ontology_adequacy.py`](../../../services/core-control-plane/tests/delivery/persistence/test_state_store_ontology_adequacy.py) | 이의 제기와 재현된 적정성 공백은 실행 권한을 변경하지 않고 범위가 제한된 검토 근거를 만듭니다. |
@@ -37,6 +38,7 @@ translation_revised: 2026-08-28
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-28 | validated | 고객과 무관한 hidden corpus v1을 동결하고 독립적으로 검토했습니다. 서로 다른 두 기본 모델 계열이 500개 사례 전체를 검토했고 세 번째 계열이 불일치 62개를 모두 해결하여 label 500개가 수락되고 차단된 label은 0개가 됐습니다. | `current change`; 공개 매니페스트 다이제스트 `207683882d269a7cfec2c8a7a737f0a4fa156d7d4e5886bc7814814a91ca5182`; 검토 증적 다이제스트 `cc47f3dd7287e71372b60f6b82fa6e1df8815153b4e3b61cccaa1bdf077e5272`; 매니페스트 및 검토 축약기 통과. | 완전한 blind qualification 실행 3회를 수행해야 합니다. 이 변경에는 정책 승격이 포함되지 않습니다. |
 | 2026-08-28 | implemented | 정확한 기본 검토 범위, 계열 분리, 합의율 임계값 및 완전한 tie-break 적용을 갖춘 콘텐츠 없는 독립 검토 축약기를 추가했습니다. | `current change`; 집중 검토 검사(`6 passed`); Ruff 및 strict mypy. | 실행 중인 세 번째 계열 검토를 완료하고 검토된 산출물을 동결한 뒤 공개 증적을 보존해야 합니다. |
 | 2026-08-28 | implemented | 명시적 PR benchmark 구성에서 Core 소유 결정론 검증 호출을 타입이 지정된 timing 증적에 연결했습니다. | `current change`; 집중 평가 및 latency 검사(`24 passed`); Ruff 및 strict mypy. | 나머지 단계 소유자를 연결하고 일치하는 통제 집합을 보존해야 합니다. |
 | 2026-08-28 | implemented | 호출자가 작성한 기간과 환경 대체를 차단하는 단계 소유자 latency 증적을 추가했습니다. | `current change`; 집중 Core latency 검사(`8 passed`); Ruff 및 strict mypy. | 권위 있는 단계 소유자를 연결하고 통제 증적을 보존해야 합니다. |
@@ -269,6 +271,11 @@ uv run python scripts/evaluation/chatops_quality_corpus_review.py \
 합니다. 합의율이 `0.80`보다 낮으면 실패하며 모든 불일치는 세 번째 신원과 계열의 검토가
 필요합니다. 증적은 집계 합의율, 수락/차단 수, 검토 약속값 및 명시적 공백만 노출하며 사례별
 결정, label, 프롬프트 및 rater 신원은 제외합니다.
+
+보존된 v1 공개 매니페스트에는 English와 Korean으로 균등하게 나눈 500턴, 다중 턴 대화 150개,
+적대적 또는 모호한 턴 140개, SRE/RCA 턴 220개, 작업/채널/첨부 턴 160개, 50개 루브릭 전체의
+범위 하한이 들어갑니다. 독립 기본 검토 합의율은 `0.876`이며 세 번째 모델 계열이 불일치 62개를
+모두 해결했습니다. 최종 콘텐츠 없는 증적은 수락 500개와 차단 0개를 기록합니다.
 
 ### 자격 검증 관측 묶음
 
