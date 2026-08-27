@@ -18,6 +18,13 @@ from fdai.delivery.gitops_pr.adapter import (
 )
 from fdai.delivery.gitops_pr.catalog_review import GitOpsCatalogReviewPublisher
 from fdai.delivery.gitops_pr.catalog_validator import DeterministicCatalogValidator
+from fdai.delivery.gitops_pr.governance import (
+    GovernancePrError,
+    GovernancePrLifecycleReceipt,
+    GovernancePrLifecycleStore,
+    GovernedGovernancePrPublisher,
+    StateStoreGovernancePrLifecycleStore,
+)
 
 __all__ = [
     "DeterministicCatalogValidator",
@@ -25,4 +32,9 @@ __all__ = [
     "GitOpsPrAdapter",
     "GitOpsPrConfig",
     "GitOpsPrError",
+    "GovernancePrError",
+    "GovernancePrLifecycleReceipt",
+    "GovernancePrLifecycleStore",
+    "GovernedGovernancePrPublisher",
+    "StateStoreGovernancePrLifecycleStore",
 ]

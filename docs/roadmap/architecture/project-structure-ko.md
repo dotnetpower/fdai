@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: dbd90a39f5c5fa5de59854d72328a021193c3a69
-translation_revised: 2026-08-26
+translation_source_sha: a780597a371ce0db8fb25aefcb95df37be2e2dee
+translation_revised: 2026-08-27
 ---
 # 프로젝트 구조
 
@@ -264,6 +264,10 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
   `GitOpsCatalogReviewPublisher`는 내용 기반 주소가 지정된 비활성 검토 package만 게시합니다.
   `operational-promotion` 측정 작업은 exact-digest batch와 매니페스트 바인딩 causal 및 측정 단위
   근거만 받아 승격 상태를 바꾸지 않고 증적을 저장합니다.
+- **Governed action 및 probe 전달**: `GovernedGovernancePrPublisher`는 retire 및 exemption
+  순수 writer를 기존 write-once PR adapter에 연결하고 open-to-merge 증적을 저장합니다.
+  `LiveBlastProbeAdapter`는 배포가 제공하는 `BlastSignalSource`와 `ProbeFailureStreakSource`
+  구현을 연결하며, 소스가 없거나 실패하면 Axis E를 낮추고 권한을 부여하지 않습니다.
 - **독립 효과 관측**: 영속 kinetic artifact 저장소가 exact-plan source입니다.
   `StateStoreExecutedActionObservationStore`는 서명된 맥락이 쓰기와 replay에서 구성된 검증기를
   통과한 Heimdall 귀속 관측만 받습니다. 근거가 없으면 held 상태를 유지합니다.

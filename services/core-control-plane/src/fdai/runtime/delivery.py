@@ -259,14 +259,17 @@ def _build_direct_api_executor(
         )
         from fdai.delivery.promotion import (
             PROMOTION_ACTION_TYPE,
+            GovernancePromotionDispatcher,
             OperationalPromotionDirectApiExecutor,
         )
 
         if isinstance(promotion_registry, StateStoreActionPromotionRegistry):
-            routes[PROMOTION_ACTION_TYPE] = OperationalPromotionDirectApiExecutor(
-                action_types=action_types_by_name,
-                receipts=StateStoreOperationalPromotionReceiptStore(audit_store),
-                registry=promotion_registry,
+            routes[PROMOTION_ACTION_TYPE] = GovernancePromotionDispatcher(
+                OperationalPromotionDirectApiExecutor(
+                    action_types=action_types_by_name,
+                    receipts=StateStoreOperationalPromotionReceiptStore(audit_store),
+                    registry=promotion_registry,
+                )
             )
             allow_enforce = True
 

@@ -179,12 +179,36 @@ class LiveBlastProbe(Protocol):
     async def measure(self, query: ProbeQuery) -> ProbeResult: ...
 
 
+@runtime_checkable
+class BlastSignalSource(Protocol):
+    """Deployment-supplied, read-only source for one probe measurement.
+
+    The source is deliberately neutral: Azure Monitor, Prometheus, or another
+    provider is selected at composition time and is not imported by ``core``.
+    """
+
+    async def read(self, query: ProbeQuery) -> ProbeResult: ...
+
+
+@runtime_checkable
+class ProbeFailureStreakSource(Protocol):
+    """Deployment-supplied durable counter for consecutive probe failures."""
+
+    async def get(self, query: ProbeQuery) -> int: ...
+
+    async def record_failure(self, query: ProbeQuery) -> int: ...
+
+    async def record_success(self, query: ProbeQuery) -> None: ...
+
+
 __all__ = [
     "BlastProbeConfigError",
     "BlastProbeError",
     "BlastProbeTimeoutError",
+    "BlastSignalSource",
     "LiveBlastProbe",
     "ProbeQuery",
+    "ProbeFailureStreakSource",
     "ProbeResult",
     "ProbeVerdict",
 ]
