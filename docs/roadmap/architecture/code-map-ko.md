@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 8296fff50261b60633f0853e8e377197c45de9be
+translation_source_sha: 59fcbd0240edb1b22fa8a20298c711185a8a3419
 translation_revised: 2026-08-28
 ---
 # 코드 맵
@@ -127,6 +127,8 @@ Detection 변환 결과도 원본에서 파생된 Forecast 및 Pattern 객체만
 Forecast 및 Pattern 원본 변환 결과는 기존 instance-store sink를 사용해 멱등적으로 저장합니다.
 인증된 Context 읽기와 detection 변환 결과는 의미 근거를 반환하거나 저장하기 전에
 canonical receipt, 신원 및 producer 검사를 강제합니다.
+증적 인증은 보존된 발급 증적 전체를 비교하고 보안이 적용된 graph에서 완전성을 다시 계산하므로,
+scope 또는 완전성 label을 바꿔 발급된 digest를 재사용할 수 없습니다.
 PostgreSQL ontology persistence는 detection 신원 중복 제거를 위해 atomic create 의미를 제공합니다.
 
 Bounded ARM compute overlay는 검토된 parent 및 attachment mapping을 통해 VMSS VM과 NIC child

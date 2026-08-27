@@ -120,7 +120,8 @@ class SecuredObjectSetQueryResult(ContractBase):
             raise ValueError("object-set query receipt source completeness does not match result")
         if self.receipt.source_generation != graph.source_generation:
             raise ValueError("object-set query receipt source generation does not match result")
-        if self.receipt.complete and self.materialization.truncated:
+        expected_complete = graph.source_complete and not self.materialization.truncated
+        if self.receipt.complete is not expected_complete:
             raise ValueError("object-set query receipt completeness does not match result")
         as_of = self.materialization.definition.as_of.astimezone(UTC)
         cutoff = self.receipt.observation_cutoff.astimezone(UTC)

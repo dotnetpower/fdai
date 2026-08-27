@@ -13,9 +13,7 @@ from .query_gateway import SecuredObjectSetQueryReceipt, SecuredObjectSetQueryRe
 
 @dataclass(frozen=True, slots=True)
 class _IssuedReceipt:
-    ontology_release: OntologyReleaseRef
-    purpose: str
-    result_digest: str
+    receipt: SecuredObjectSetQueryReceipt
 
 
 class SecuredQueryReceiptAuthority:
@@ -40,11 +38,7 @@ class SecuredQueryReceiptAuthority:
 
         receipt = result.receipt
         key = receipt.projected_result_digest
-        issued = _IssuedReceipt(
-            ontology_release=receipt.ontology_release,
-            purpose=receipt.purpose,
-            result_digest=key,
-        )
+        issued = _IssuedReceipt(receipt=receipt)
         existing = self._issued.get(key)
         if existing is not None and existing != issued:
             raise ValueError("secured query receipt digest conflicts with issued content")
@@ -92,12 +86,14 @@ class SecuredQueryReceiptAuthority:
         if verification_context is not self._verification_context:
             return False
         issued = self._issued.get(expected_result_digest)
-        if issued is None:
+        retained = self._results.get(expected_result_digest)
+        if issued is None or retained is None:
             return False
         return (
-            receipt.projected_result_digest == expected_result_digest
-            and receipt.ontology_release == expected_release == issued.ontology_release
-            and receipt.purpose == expected_purpose == issued.purpose
+            receipt == issued.receipt == retained.receipt
+            and receipt.projected_result_digest == expected_result_digest
+            and receipt.ontology_release == expected_release
+            and receipt.purpose == expected_purpose
             and invocation_context.purposes == (expected_purpose,)
             and expected_result_digest in invocation_context.evidence_refs
         )
