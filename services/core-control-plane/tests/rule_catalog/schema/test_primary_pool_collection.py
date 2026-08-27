@@ -13,12 +13,14 @@ from typing import Any
 import pytest
 from fdai.rule_catalog.schema.llm_registry import load_llm_registry_from_mapping
 from fdai.rule_catalog.schema.llm_resolver import (
+    CapabilityStatus,
     CatalogQuery,
     NarratorCandidate,
     QuotaQuery,
     ResolvedModels,
     ResolverError,
     collect_primary_candidates,
+    collect_primary_deployments,
     reasoner_primary_deployment_name,
 )
 
@@ -66,9 +68,29 @@ class _Quota(QuotaQuery):
         return self._table.get(family, 0)
 
 
+class _Versions:
+    def latest_stable_version(self, *, region: str, publisher: str, family: str) -> str:
+        del region, publisher
+        return f"stable-{family}"
+
+
 def test_deployment_name_is_url_safe() -> None:
     assert reasoner_primary_deployment_name("gpt-5.4") == "t2primary-gpt-5-4"
     assert reasoner_primary_deployment_name("gpt-4o") == "t2primary-gpt-4o"
+
+
+def test_primary_pool_deployments_carry_stable_versions() -> None:
+    deployments = collect_primary_deployments(
+        registry=_registry([{"publisher": "OpenAI", "family": "gpt-4o"}]),
+        region=_REGION,
+        catalog=_Catalog({"gpt-4o"}),
+        quota=_Quota({"gpt-4o": 20_000}),
+        model_versions=_Versions(),
+    )
+
+    assert len(deployments) == 1
+    assert deployments[0].status is CapabilityStatus.RESOLVED
+    assert deployments[0].version == "stable-gpt-4o"
 
 
 class TestCollectPrimaryCandidates:

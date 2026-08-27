@@ -15,6 +15,7 @@ from fdai.rule_catalog.schema.llm_resolver import (
     ResolverError,
     collect_narrator,
     collect_narrator_deployments,
+    collect_web_search_deployments,
     narrator_deployment_name,
 )
 
@@ -39,6 +40,10 @@ def _registry() -> Any:
                         {"publisher": "OpenAI", "family": "gpt-4o-mini"},
                     ],
                     "capacity_tpm": 200_000,
+                },
+                "t1.web_search": {
+                    "preferences": [{"publisher": "OpenAI", "family": "gpt-4.1-nano"}],
+                    "capacity_tpm": 100_000,
                 },
                 "t2.reasoner.primary": {
                     "preferences": [{"publisher": "OpenAI", "family": "gpt-4o"}],
@@ -69,6 +74,18 @@ class _Quota(QuotaQuery):
     def available_capacity_tpm(self, *, region: str, publisher: str, family: str) -> int:
         del region, publisher
         return self._table.get(family, 0)
+
+
+class _Versions:
+    def latest_stable_version(self, *, region: str, publisher: str, family: str) -> str:
+        del region, publisher
+        return f"stable-{family}"
+
+
+class _MissingVersions:
+    def latest_stable_version(self, *, region: str, publisher: str, family: str) -> None:
+        del region, publisher, family
+        return None
 
 
 class TestCollectNarrator:
@@ -273,6 +290,7 @@ class TestCollectNarratorDeployments:
             region=_REGION,
             catalog=catalog,
             quota=quota,
+            model_versions=_Versions(),
         )
         # One per viable pref, in registry preference order.
         names = [d.name for d in deployments]
@@ -286,6 +304,7 @@ class TestCollectNarratorDeployments:
             assert d.status == CapabilityStatus.RESOLVED
             assert d.family in {"gpt-5.4-mini", "gpt-5-mini"}
             assert d.publisher == "OpenAI"
+            assert d.version == f"stable-{d.family}"
             assert d.reasons == ("narrator_deployment_for=t1.judge",)
 
     def test_no_viable_family_returns_empty(self) -> None:
@@ -296,6 +315,28 @@ class TestCollectNarratorDeployments:
             quota=_Quota({"text-embedding-3-small": 100_000}),
         )
         assert deployments == ()
+
+    def test_web_search_deployment_carries_stable_version(self) -> None:
+        deployments = collect_web_search_deployments(
+            registry=_registry(),
+            region=_REGION,
+            catalog=_Catalog({"gpt-4.1-nano"}),
+            quota=_Quota({"gpt-4.1-nano": 100_000}),
+            model_versions=_Versions(),
+        )
+
+        assert len(deployments) == 1
+        assert deployments[0].version == "stable-gpt-4.1-nano"
+
+    def test_live_version_query_missing_stable_version_fails_before_terraform(self) -> None:
+        with pytest.raises(ValueError, match="no stable model version"):
+            collect_narrator_deployments(
+                registry=_registry(),
+                region=_REGION,
+                catalog=_Catalog({"gpt-5.4-mini"}),
+                quota=_Quota({"gpt-5.4-mini": 200_000}),
+                model_versions=_MissingVersions(),
+            )
 
     def test_unknown_capability_returns_empty(self) -> None:
         deployments = collect_narrator_deployments(
