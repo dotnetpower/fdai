@@ -11,6 +11,7 @@ from fdai.delivery.analyzer_tick_cli import (
     TOPIC_ENV,
     TRACE_WINDOW_ENV,
     AnalyzerJobReport,
+    _collect_lifecycle_if_configured,
     metric_source_delays,
     parse_loop_interval,
     resolve_finding_topic,
@@ -37,6 +38,15 @@ def test_explicit_analyzer_topic_overrides_the_ingress_topic() -> None:
 def test_missing_ingress_topic_is_a_configuration_error() -> None:
     with pytest.raises(RuntimeError):
         resolve_finding_topic({TOPIC_ENV: "   "})
+
+
+async def test_inventory_only_tick_leaves_optional_kubernetes_lifecycle_unbound(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("FDAI_INVENTORY_DSN", "postgresql://example")
+    monkeypatch.delenv("FDAI_KUBERNETES_CLUSTER_REF", raising=False)
+
+    assert await _collect_lifecycle_if_configured() is None
 
 
 def test_trace_window_defaults_to_the_analyzer_window() -> None:
