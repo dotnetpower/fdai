@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 91759f370e62015c5b7eea473570f9f9167ab895
+translation_source_sha: d604eb444ad5b512bd848b46fab2790951d5792f
 translation_revised: 2026-08-30
 ---
 # FDAI 운영 온톨로지
@@ -107,6 +107,7 @@ translation_revised: 2026-08-30
 | 2026-08-27 | implemented | 기존의 배포 제공 운영 모델 경로를 통해 운영 의도 ObjectType 6개를 모두 고정했습니다. 고정본은 테넌트 값을 제공하지 않으며 각 정확한 유형이 일반 스냅샷에서 사라지지 않고 검증 및 저장되는지 확인합니다. | `current change`; `test_operating_model.py` 검사 7개 통과; Ruff 통과. | 배포별 목표, 담당 체계, 제약 조건, 변경 구간 인스턴스는 운영 근거로 별도 보존합니다. |
 | 2026-08-27 | implemented | `lifecycle`이 없는 모든 출하 ObjectType을 검토하고 추측성 에이전트 작성자를 도입하지 않은 채 기존 카탈로그, 이벤트 버스, 프로바이더, 서비스 또는 principal 범위 권한을 기록했습니다. | `current change`; `rule-catalog/vocabulary/object-types/` 목록 및 소유 문서 권한 표. | 기존 권한이 바뀌거나 유형에 객관적으로 필요한 수명 주기가 생길 때만 다시 검토합니다. |
 | 2026-08-27 | implemented | Context, 탐지 변환 및 교차 출처 근거 경계를 강화했습니다. Principal 신원은 인증된 서버 컨텍스트에서만 가져오고 Context는 principal 범위, 다이제스트, 정확한 객체 유형, 리비전, 시간 및 경로 검사가 있는 보안 ObjectSet 증적을 요구합니다. 탐지는 원자적 생성, 정규 비교, 활성 에피소드, 균형 잡힌 봉인 집단 및 인증된 생산자 증명을 사용합니다. | `current change`; 집중 Context, 게이트웨이, 탐지, 저장소, 판정 및 shadow 검사. | 인증된 배포 증적을 보존하고 탐지 sink를 프로덕션 조립에 연결합니다. 권한은 높아지지 않습니다. |
+| 2026-08-27 | implemented | 탐지가 소유한 온톨로지 신원에 실제 PostgreSQL 원자적 생성 동시성 회귀 검사를 추가했습니다. | `current change`; `tests/persistence/test_postgres_ontology_instance.py`는 로컬 PostgreSQL 게이트에서 실행되며 `FDAI_DATABASE_URL`이 없을 때만 건너뜁니다. | 런타임 검증을 주장하기 전에 서비스 소유 로컬 데이터베이스에서 실제 저장소 증적을 실행합니다. |
 | 2026-08-27 | implemented | 양의 `Forecast` 에피소드와 균형 잡힌 `Pattern` 후보를 위한 권한 없는 런타임 변환 결과를 추가했습니다. 탐지기, 대상, 구간, 사례 및 근거 신원을 보존하며 지원되지 않는 관계는 복원하지 않습니다. | `current change`; `core/ontology_platform/detection_projection.py`; 집중 탐지, 예측 에피소드 및 운영 학습 검사 11개 통과. | 생산자가 정확한 목표 또는 결과 엔드포인트 신원을 제공할 때만 `predicts_breach_of` 또는 `learned_as`를 복원합니다. |
 | 2026-08-27 | implemented | 객체 및 배열 Property 값을 위한 범위가 제한된 정규 JSON 의미를 완료했습니다. 정규화는 유한성, 깊이 및 바이트 상한과 안정적인 키 순서를 강제하며 수집 커버리지 게이트는 규칙이 평가하는 모든 참조를 검토 완료로 기록합니다. | `current change`; `property_semantic.py`; `test_property_semantic.py`; `check-property-semantic-coverage.py`가 검토된 참조 62/62를 보고합니다. | 검토된 레지스트리를 보존하고 새 수집 Property 참조가 생기면 하한을 높입니다. |
 | 2026-08-27 | implemented | 하나의 리소스 신원에 대한 서로 다른 프로바이더 관측 두 개 이상을 판정하는 프로바이더 중립 경로를 추가했습니다. 일치하는 속성만 보존하고 경합 필드를 기록하며 승리 프로바이더를 선택하거나 권한을 높이지 않습니다. | `current change`; `observation_adjudication.py`; 집중 반복 프로바이더, 교차 프로바이더 및 변환 상태와 텔레메트리 판정 검사. | 프로바이더 간 런타임 범위의 지연 상태를 바꾸기 전에 통제된 두 번째 프로바이더 집단을 보존합니다. |

@@ -79,6 +79,26 @@ def _store() -> PostgresOntologyInstanceStore:
     )
 
 
+async def test_postgres_atomic_create_deduplicates_concurrent_identity() -> None:
+    _requires_live_db()
+    _upgrade_head()
+    store = _store()
+    suffix = uuid.uuid4().hex
+    record = OntologyObjectRecord(
+        id=f"review-{suffix}",
+        object_type="ReviewCase",
+        properties={"id": f"review-{suffix}", "status": "open"},
+    )
+
+    results = await asyncio.gather(*(store.create_object_if_absent(record) for _ in range(8)))
+
+    created = tuple(item for item in results if item is not None)
+    assert len(created) == 1
+    assert created[0].revision == 1
+    assert sum(item is None for item in results) == 7
+    await store.delete_object(record.id)
+
+
 async def test_postgres_ontology_round_trip_and_traversal() -> None:
     _requires_live_db()
     _upgrade_head()
