@@ -14,6 +14,8 @@ silently adopted.
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 import logging
 import re
 from collections.abc import Mapping, Sequence
@@ -36,7 +38,7 @@ from fdai.shared.providers.state_store import StateStore
 
 INVENTORY_ONTOLOGY_MANIFEST_KEY = "inventory-ontology:manifest"
 INVENTORY_ONTOLOGY_STATUS_KEY = "inventory-ontology:status"
-_MANIFEST_SCHEMA_VERSION = "1.2.0"
+_MANIFEST_SCHEMA_VERSION = "1.3.0"
 _DIGEST_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$")
 _PROJECTION_LOCK_ID = "inventory-ontology-projection"
 
@@ -224,23 +226,62 @@ class InventoryOntologyProjector:
         raw = await self._status_store.read_state(INVENTORY_ONTOLOGY_MANIFEST_KEY)
         if not isinstance(raw, dict):
             return _OwnedIdentities((), ())
-        object_ids = tuple(
-            item for item in raw.get("object_ids", ()) if isinstance(item, str) and item
-        )
+        if raw.get("schema_version") != _MANIFEST_SCHEMA_VERSION:
+            raise ValueError("inventory ontology manifest schema version is unsupported")
+        if raw.get("ontology_release_digest") != self._ontology_release_digest:
+            raise ValueError("inventory ontology manifest release digest does not match")
+        if not isinstance(raw.get("generation"), str) or not raw["generation"].strip():
+            raise ValueError("inventory ontology manifest generation is invalid")
+        object_values = raw.get("object_ids")
+        link_values = raw.get("link_keys")
+        if not isinstance(object_values, list) or not isinstance(link_values, list):
+            raise ValueError("inventory ontology manifest identities are invalid")
+        object_ids = tuple(object_values)
+        if any(not isinstance(item, str) or not item for item in object_ids) or object_ids != tuple(
+            sorted(set(object_ids))
+        ):
+            raise ValueError("inventory ontology manifest object ids are invalid")
         link_keys = tuple(
-            (str(item[0]), str(item[1]), str(item[2]))
-            for item in raw.get("link_keys", ())
-            if isinstance(item, list | tuple) and len(item) == 3
+            tuple(item)
+            for item in link_values
+            if isinstance(item, list)
+            and len(item) == 3
+            and all(isinstance(value, str) and value for value in item)
         )
+        if len(link_keys) != len(link_values) or link_keys != tuple(sorted(set(link_keys))):
+            raise ValueError("inventory ontology manifest link keys are invalid")
+        expected_digest = _manifest_digest(
+            generation=raw["generation"],
+            ontology_release_digest=self._ontology_release_digest,
+            complete=raw.get("complete"),
+            relationship_complete=raw.get("relationship_complete"),
+            dropped_reasons=raw.get("dropped_reasons"),
+            object_ids=object_ids,
+            link_keys=link_keys,
+        )
+        if raw.get("manifest_digest") != expected_digest:
+            raise ValueError("inventory ontology manifest digest does not match its contents")
         return _OwnedIdentities(object_ids, link_keys)
 
     async def _write_manifest(self, projection: InventoryOntologyProjection) -> None:
+        manifest_digest = _manifest_digest(
+            generation=projection.generation,
+            ontology_release_digest=self._ontology_release_digest,
+            complete=projection.complete,
+            relationship_complete=projection.relationship_complete,
+            dropped_reasons=projection.dropped_reasons,
+            object_ids=tuple(record.id for record in projection.objects),
+            link_keys=tuple(
+                (record.from_id, record.link_type, record.to_id) for record in projection.links
+            ),
+        )
         await self._status_store.write_state(
             INVENTORY_ONTOLOGY_MANIFEST_KEY,
             {
                 "schema_version": _MANIFEST_SCHEMA_VERSION,
                 "generation": projection.generation,
                 "ontology_release_digest": self._ontology_release_digest,
+                "manifest_digest": manifest_digest,
                 "complete": projection.complete,
                 "relationship_complete": projection.relationship_complete,
                 "dropped_reasons": list(projection.dropped_reasons),
@@ -257,17 +298,58 @@ class InventoryOntologyProjector:
         *,
         status: InventoryOntologyProjectionStatus,
     ) -> None:
+        manifest_digest = _manifest_digest(
+            generation=projection.generation,
+            ontology_release_digest=self._ontology_release_digest,
+            complete=projection.complete,
+            relationship_complete=projection.relationship_complete,
+            dropped_reasons=projection.dropped_reasons,
+            object_ids=tuple(record.id for record in projection.objects),
+            link_keys=tuple(
+                (record.from_id, record.link_type, record.to_id) for record in projection.links
+            ),
+        )
         await self._status_store.write_state(
             INVENTORY_ONTOLOGY_STATUS_KEY,
             {
                 "schema_version": _MANIFEST_SCHEMA_VERSION,
                 "generation": projection.generation,
                 "ontology_release_digest": self._ontology_release_digest,
+                "manifest_digest": manifest_digest,
                 "status": status.value,
+                "complete": projection.complete,
                 "relationship_complete": projection.relationship_complete,
                 "dropped_reasons": list(projection.dropped_reasons),
             },
         )
+
+
+def _manifest_digest(
+    *,
+    generation: str,
+    ontology_release_digest: str,
+    complete: object,
+    relationship_complete: object,
+    dropped_reasons: object,
+    object_ids: tuple[str, ...],
+    link_keys: tuple[tuple[str, str, str], ...],
+) -> str:
+    """Hash the shared manifest payload used by status and reader reload checks."""
+
+    payload = {
+        "schema_version": _MANIFEST_SCHEMA_VERSION,
+        "generation": generation,
+        "ontology_release_digest": ontology_release_digest,
+        "complete": complete,
+        "relationship_complete": relationship_complete,
+        "dropped_reasons": dropped_reasons,
+        "object_ids": list(object_ids),
+        "link_keys": [list(key) for key in link_keys],
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode(
+        "utf-8"
+    )
+    return "sha256:" + hashlib.sha256(encoded).hexdigest()
 
 
 __all__ = [

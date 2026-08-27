@@ -353,6 +353,11 @@ permit an incomplete graph to prove absence.
 - [x] Preserve exact Container workload registry semantics and interaction evidence. All 9 Apps and
   11 Jobs with registry configuration have projected dependencies; the largest registry exposes
   16 incoming workloads, and zoom, fit, and fixed-node pan make the complete fan-in inspectable.
+- [x] Keep inventory projection commit records content addressed. The manifest digest is shared by
+  the release-bound status marker and readers reject a mixed or tampered generation after restart.
+- [x] Retain partial Kubernetes topology without inferred edges. Observed cluster, namespace, pool,
+  node, workload, Service, endpoint, and Ingress records remain available when a reviewed endpoint
+  is missing, while the missing relationship is reported as unavailable evidence.
 - [x] Complete the local authorization evidence contract beyond the validated Azure slice of 225
   role assignments, 185 scope attachments, and 106 managed-identity attachments. Unmodeled child
   scopes retain `authorization_child_scope_unmodeled`, and typed principal-safe PostgreSQL role

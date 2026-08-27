@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: c3facb63776470611e7c363e41fa25d84b6dbbae
+translation_source_sha: 4bb9ea16ebec3dbd663ae77e2c3d12d2b65f5e4d
 translation_revised: 2026-08-30
 ---
 # 프로젝트 구조
@@ -120,6 +120,10 @@ provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니�
   완전성을 증명합니다. 프로바이더를 읽지 않으며 qualification 권한을 부여하지 않습니다.
   `quality_timing.py`는 두 qualification timing 필드를 파생하기 전에 일치하는 출처 리비전,
   추적 수, 추적 집합 약속값 및 설치된 latency 계약만 결합합니다.
+- **authorization은 instance에 binding됩니다**: Context provider는
+  `ExecutionAuthorizationRequest.target_resource_ref`의 exact Resource ID를 반환해야 합니다.
+  불일치는 policy, identity 또는 effective-access 평가 전에 보류되며 권한 없는 audit context에
+  기록됩니다.
 - **정책과 규칙은 코드 경로가 아닌 데이터**: T0가 런타임에 `rule-catalog/` 엔트리와 `policies/`
   를 로드하므로 규칙/정책 추가에 엔진 변경이 필요 없습니다. 규칙은 의도와 교정을
   기술하고, 정책은 검증기가 재검사하는 실행 가능한 OPA/Rego입니다. 소스가 이 YAML로 수집·

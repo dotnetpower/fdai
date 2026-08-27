@@ -197,6 +197,7 @@ class PostgresOntologyInstanceStore:
             object_type=record.object_type,
             properties=dict(record.properties),
             revision=revision,
+            type_ref=record.type_ref,
         )
 
     def _validate_missing_revision(self, object_id: str, expected_revision: int | None) -> int:
@@ -751,8 +752,20 @@ def _resolve_inventory_graph_source_coverage(
         or source_generation is None
         or status.get("status") != "available"
         or status.get("generation") != active_generation
+        or ("complete" in status and status.get("complete") is not True)
         or source_generation != active_generation
         or manifest.get("complete") is not True
+        or (
+            "manifest_digest" in manifest
+            and (
+                not isinstance(manifest.get("manifest_digest"), str)
+                or manifest.get("manifest_digest") != status.get("manifest_digest")
+            )
+        )
+        or (
+            "ontology_release_digest" in manifest
+            and manifest.get("ontology_release_digest") != status.get("ontology_release_digest")
+        )
     ):
         return False, source_generation
     # Relationship coverage bounds relationship claims. A snapshot whose object set admits

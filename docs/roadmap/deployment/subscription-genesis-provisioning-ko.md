@@ -1,8 +1,8 @@
 ---
 title: 구독 초기 프로비저닝
 translation_of: subscription-genesis-provisioning.md
-translation_source_sha: 1ab9f8f59082f2e6420aa4a09beb18988f2367ec
-translation_revised: 2026-08-29
+translation_source_sha: cbb9bfd3139d70b6a015581824dc288db7eb4b41
+translation_revised: 2026-08-30
 ---
 # 구독 초기 프로비저닝
 
@@ -287,7 +287,8 @@ fdaictl onboard resume-verification --run-id <run-id> --watch
 운영자 요청 새로 고침에만 사용할 수 있으며 온보딩을 충족하지 않습니다. 구체화된 미매핑
 형식을 포함한 공급자 원본 객체 커버리지는 완전하고 잘리지 않아야 합니다. 분류된 관계
 미비점은 객체 인벤토리를 종결할 수 있지만 관계 커버리지를 제한하고 그래프 의존 자율성을
-낮춥니다. 부분 원본 커버리지, 분류되지 않은 누락, 잘못된 검증 메타데이터, 누락된 최종
+낮춥니다. 검증된 보강에서 추가된 관계 누락은 같은 승격 메타데이터에 남으며 인계 중 사라질 수
+없습니다. 부분 원본 커버리지, 분류되지 않은 누락, 잘못된 검증 메타데이터, 누락된 최종
 경계는 준비 완료를 차단합니다.
 
 각 배치가 영속 진행 신호를 갱신합니다. 무진행 제한 시간을 넘기면 시도를 실패로 처리하고

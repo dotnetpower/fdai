@@ -284,7 +284,8 @@ Genesis always scans the exact target subscription root with no resource-type fi
 scope is available only for later operator-requested refreshes and cannot satisfy onboarding.
 Provider-native object coverage, including materialized unmapped types, must be complete and
 untruncated. Classified relationship gaps can close object inventory while keeping relationship
-coverage limited and graph-dependent autonomy lowered. Partial source coverage, unclassified
+coverage limited and graph-dependent autonomy lowered. Relationship drops added by verified
+enrichment remain in the same promotion metadata and cannot disappear during handoff. Partial source coverage, unclassified
 drops, invalid verification metadata, or a missing final fence block readiness.
 
 Every emitted batch advances the durable heartbeat. A no-progress deadline fails the attempt,

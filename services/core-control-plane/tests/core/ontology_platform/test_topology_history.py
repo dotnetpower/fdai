@@ -156,6 +156,23 @@ def test_history_without_complete_baseline_cannot_prove_absence() -> None:
     assert len(result.graph.objects) == 1
 
 
+def test_dangling_active_link_lowers_replay_completeness() -> None:
+    baseline = TopologyRevisionBatch(
+        revision_id="revision-dangling",
+        provider_generation_ref="provider-generation-dangling",
+        effective_at=T0,
+        recorded_at=T0,
+        complete_snapshot=True,
+        object_revisions=(_object("vnet-a", effective_at=T0, recorded_at=T0),),
+        link_revisions=(_peering(effective_at=T0, recorded_at=T0),),
+    )
+
+    result = graph_at((baseline,), as_of=T0, known_at=T0)
+
+    assert result.graph.links == ()
+    assert result.complete is False
+
+
 async def test_topology_query_handlers_materialize_and_diff_retained_views() -> None:
     baseline = TopologyRevisionBatch(
         revision_id="revision-1",

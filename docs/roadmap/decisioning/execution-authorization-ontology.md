@@ -127,6 +127,12 @@ Scope expressions use a closed provider-neutral grammar:
 Unknown links, truncated traversal, stale inventory, an unresolved target, or a result wider than
 the declared maximum scope produces `UNKNOWN`. It never widens to an ancestor automatically.
 
+The context provider must resolve the same exact Resource instance named by
+`ExecutionAuthorizationRequest.target_resource_ref`. A mismatch produces `UNKNOWN` before policy,
+identity, or effective-access evaluation. The result retains the target reference in its
+authority-free audit context, so authorization cannot be replayed against a different graph
+instance.
+
 Requirements do not inherit from other ActionTypes. Shared meaning is expressed by linking
 several actions to one versioned requirement or capability. This avoids circular inheritance and
 keeps action evolution independent.

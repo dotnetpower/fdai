@@ -129,7 +129,7 @@ async def test_append_inserts_batch_and_children_in_one_transaction() -> None:
     assert len(connection.many) == 1
     assert "INSERT INTO topology_object_revision" in connection.many[0][0]
     assert connection.many[0][1][0][0:3] == ("revision-1", "vm-1", "Resource")
-    assert all("ON CONFLICT" not in query for query, _ in connection.executions)
+    assert "ON CONFLICT (revision_id) DO NOTHING" in connection.executions[1][0]
 
 
 async def test_read_reconstructs_bounded_batches_at_bitemporal_cutoff() -> None:
@@ -172,3 +172,28 @@ async def test_read_reconstructs_bounded_batches_at_bitemporal_cutoff() -> None:
     assert "recorded_at <= %s" in batch_query
     assert "LIMIT 1001" in batch_query
     assert batch_params == (EFFECTIVE_AT, RECORDED_AT, EFFECTIVE_AT, RECORDED_AT)
+
+
+async def test_read_preserves_release_and_source_receipt_bindings() -> None:
+    connection = _Connection(
+        [
+            [
+                {
+                    "revision_id": "revision-1",
+                    "provider_generation_ref": "snapshot-1",
+                    "ontology_release_digest": DIGEST,
+                    "source_receipt_digest": DIGEST,
+                    "effective_at": EFFECTIVE_AT,
+                    "recorded_at": RECORDED_AT,
+                    "complete_snapshot": True,
+                }
+            ],
+            [],
+            [],
+        ]
+    )
+
+    batches = await _store(connection).read(as_of=EFFECTIVE_AT, known_at=RECORDED_AT)
+
+    assert batches[0].ontology_release_digest == DIGEST
+    assert batches[0].source_receipt_digest == DIGEST
