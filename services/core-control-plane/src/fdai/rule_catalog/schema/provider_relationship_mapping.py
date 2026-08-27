@@ -17,6 +17,14 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from fdai.shared.providers.state_evidence import TRUSTED_LINK_VERIFICATION_METHODS
 
 _SHA256_PREFIX = "sha256:"
+_CARDINALITIES = frozenset({"one_to_one", "one_to_many", "many_to_one", "many_to_many"})
+_LINK_TYPE_CARDINALITIES = {
+    "contains": "one_to_many",
+    "attached_to": "many_to_many",
+    "depends_on": "many_to_many",
+    "routes_to": "many_to_one",
+    "peered_with": "many_to_many",
+}
 
 
 class EndpointOrientation(StrEnum):
@@ -107,6 +115,7 @@ class ProviderRelationshipMapping(BaseModel):
     predicate: RelationshipPredicate | None = None
     link_type: str = Field(min_length=1)
     endpoint_orientation: EndpointOrientation
+    cardinality: str | None = None
     source_schema: SourceSchemaIdentity
     evidence_method: str = Field(min_length=1)
     freshness: RelationshipFreshnessPolicy
@@ -126,6 +135,23 @@ class ProviderRelationshipMapping(BaseModel):
         if value not in TRUSTED_LINK_VERIFICATION_METHODS:
             raise ValueError("relationship mapping evidence method MUST be trusted")
         return value
+
+    @field_validator("cardinality")
+    @classmethod
+    def _bounded_cardinality(cls, value: str) -> str:
+        if value not in _CARDINALITIES:
+            raise ValueError("relationship mapping cardinality is invalid")
+        return value
+
+    @model_validator(mode="after")
+    def _default_cardinality(self) -> ProviderRelationshipMapping:
+        if self.cardinality is None:
+            object.__setattr__(
+                self,
+                "cardinality",
+                _LINK_TYPE_CARDINALITIES.get(self.link_type, "many_to_many"),
+            )
+        return self
 
 
 class RelationshipMappingReview(BaseModel):

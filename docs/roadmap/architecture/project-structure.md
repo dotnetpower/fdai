@@ -189,7 +189,11 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   digests, mapping revision, projection manifest, direction, cardinality, and link metadata.
   Changed provider type/version identities invalidate only affected candidates. Its append-only
   ledger supports rollback and replay, while promotion remains a separately reviewed
-  proposal-only catalog operation with no graph or migration authority.
+  proposal-only catalog operation with no graph or migration authority. Exact-release direction
+  comparison records whether strict release checks were requested, so replay cannot infer a
+  one-sided metadata mode from whichever generation happens to be present. The reviewed mapping
+  model supplies the canonical cardinality used to validate candidate metadata; an omitted
+  cardinality is derived only from its reviewed LinkType default.
   All events in the bounded batch are constructed and validated before the first publication, so
   a malformed later resource cannot leave an earlier event partially published by validation.
   Every delta page marked `has_more` must provide a new continuation cursor before its records are

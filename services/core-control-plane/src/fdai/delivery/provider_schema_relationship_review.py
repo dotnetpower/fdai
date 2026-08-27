@@ -40,6 +40,22 @@ class ProviderSchemaRelationshipCandidate:
     endpoint_coverage: ProviderSchemaEndpointCoverage
     matching_mapping_ids: tuple[str, ...]
 
+    def __post_init__(self) -> None:
+        for name, value in (
+            ("source_provider_type", self.source_provider_type),
+            ("target_provider_type", self.target_provider_type),
+        ):
+            if not value.strip():
+                raise ProviderSchemaError(f"provider schema relationship candidate {name} is empty")
+        if self.reference_count < 1:
+            raise ProviderSchemaError(
+                "provider schema relationship candidate reference count is invalid"
+            )
+        if self.matching_mapping_ids != tuple(sorted(set(self.matching_mapping_ids))):
+            raise ProviderSchemaError(
+                "provider schema relationship candidate mapping ids MUST be sorted and unique"
+            )
+
     def to_mapping(self) -> dict[str, object]:
         return {
             "source_provider_type": self.source_provider_type,
@@ -63,6 +79,34 @@ class ProviderSchemaRelationshipReview:
     target_only_type_count: int
     candidates: tuple[ProviderSchemaRelationshipCandidate, ...]
     review_digest: str
+
+    def __post_init__(self) -> None:
+        self.verify_digest()
+
+    def verify_digest(self) -> None:
+        """Recompute the digest after deserialization or before a trusted handoff."""
+
+        if not self.review_digest.startswith("sha256:") or len(self.review_digest) != 71:
+            raise ProviderSchemaError("provider schema relationship review digest is invalid")
+        expected = (
+            "sha256:"
+            + hashlib.sha256(
+                _canonical_json(
+                    _review_material(
+                        source_revision=self.source_revision,
+                        provider_schema_digest=self.provider_schema_digest,
+                        relationship_evidence_digest=self.relationship_evidence_digest,
+                        mapping_catalog_digest=self.mapping_catalog_digest,
+                        exact_reference_count=self.exact_reference_count,
+                        missing_source_reference_count=self.missing_source_reference_count,
+                        target_only_type_count=self.target_only_type_count,
+                        candidates=self.candidates,
+                    )
+                )
+            ).hexdigest()
+        )
+        if self.review_digest != expected:
+            raise ProviderSchemaError("provider schema relationship review digest mismatch")
 
     @classmethod
     def build(

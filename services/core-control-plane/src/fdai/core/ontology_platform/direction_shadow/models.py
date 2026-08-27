@@ -40,6 +40,8 @@ class ReviewReason(StrEnum):
     LEGACY_PROVIDER_SCHEMA_UNBOUND = "legacy_provider_schema_unbound"
     ALIGNED_PROVIDER_SCHEMA_UNBOUND = "aligned_provider_schema_unbound"
     PROVIDER_SCHEMA_RELEASE_MISMATCH = "provider_schema_release_mismatch"
+    LEGACY_MAPPING_RELEASE_UNBOUND = "legacy_mapping_release_unbound"
+    ALIGNED_MAPPING_RELEASE_UNBOUND = "aligned_mapping_release_unbound"
     MAPPING_RELEASE_MISMATCH = "mapping_release_mismatch"
 
 
@@ -290,6 +292,7 @@ class DirectionShadowReceipt:
     migration_ready: Literal[False]
     graph_mutation_authority: Literal[False]
     migration_execution_authority: Literal[False]
+    exact_release_mode: bool = False
     receipt_digest: str = field(init=False)
 
     def __post_init__(self) -> None:
@@ -305,6 +308,8 @@ class DirectionShadowReceipt:
         canonical_reasons = tuple(sorted(set(self.review_reasons), key=str))
         if canonical_reasons != self.review_reasons:
             raise ValueError("direction shadow review reasons MUST be unique and sorted")
+        if not isinstance(self.exact_release_mode, bool):
+            raise ValueError("direction shadow exact release mode MUST be boolean")
         expected = (
             ComparisonDisposition.REVIEW_REQUIRED
             if self.review_reasons
@@ -351,6 +356,7 @@ class DirectionShadowReceipt:
             "migration_execution_authority": self.migration_execution_authority,
             "migration_ready": self.migration_ready,
             "migration_revision": self.migration_revision,
+            "exact_release_mode": self.exact_release_mode,
             "prior_release_digest": self.prior_release_digest,
             "rebuild_pointer": {
                 "authoritative_generation_ref": (self.rebuild_pointer.authoritative_generation_ref),
