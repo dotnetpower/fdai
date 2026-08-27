@@ -20,7 +20,11 @@ _NOW = datetime(2026, 7, 31, tzinfo=UTC)
 
 
 class _Store:
-    async def traverse(self, **_kwargs: object) -> OntologyGraphSnapshot:
+    def __init__(self) -> None:
+        self.max_depth: object = None
+
+    async def traverse(self, **kwargs: object) -> OntologyGraphSnapshot:
+        self.max_depth = kwargs.get("max_depth")
         return OntologyGraphSnapshot(
             objects=(
                 OntologyObjectRecord("resource-a", "Resource", {"id": "resource-a"}),
@@ -42,9 +46,11 @@ class _Store:
 
 
 async def test_analyzer_classifies_affected_set() -> None:
-    affected = await ImpactAnalyzer(store=_Store()).analyze(
+    store = _Store()
+    affected = await ImpactAnalyzer(store=store).analyze(
         direct_target_ids=("resource-a",),
     )
+    assert store.max_depth == 3
     assert affected.direct_targets == ("resource-a",)
     assert affected.runtime_dependents == ("audit-a", "workload-a")
     assert affected.control_dependencies == ("audit-a",)

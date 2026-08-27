@@ -109,6 +109,8 @@ including source generation and verification lineage, and budgets the bundle and
 Detection projections similarly expose only source-derived Forecast and Pattern objects; deferred
 relationships require exact endpoint identities before catalog restoration.
 Their persistence methods are idempotent over the existing ontology instance-store seam.
+Analyzer execution selects bus security from the explicit venue and applies the deployed five-minute
+tick ceiling to local loops and one-shot runs.
 Provider-neutral observation adjudication preserves only properties that distinct providers report
 identically and records every contested field without selecting a winner.
 Independent-provider comparison requires an injected verifier for every canonical provider in the
