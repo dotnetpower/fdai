@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 ARB 에이전트 루프
 translation_of: ontology-agent-loop.md
-translation_source_sha: b381b25fb8ddf3145968908199d6b9018edfdbbf
+translation_source_sha: 131f8fc7227150fac59aaa54443dff1eeb53c20e
 translation_revised: 2026-08-28
 ---
 # 온톨로지 기반 ARB 에이전트 루프
@@ -140,6 +140,11 @@ Console은 하나의 녹색 또는 빨간색 상태 대신 다음 축을 별도�
 
 표시되는 모든 상태는 상태를 만든 정확한 `Change`, 컨텍스트 다이제스트, 근거 묶음 다이제스트,
 `DecisionCase`, 조건, 승인, 감사 레코드로 연결됩니다.
+
+관찰 결과 변환은 `Change.process_ref`를 출처 정보로 보존하고, 참조한 `Process`가 이미 있으며
+카디널리티가 관계를 허용할 때만 `change_instantiates_process`를 생성합니다. Process가 없거나
+이미 다른 Change에 연결되어도 Change와 검토 결과 변환은 중단되지 않으며, `runs_review`는
+워크플로 실행기의 `Process -> ReviewCase` 관계에만 사용합니다.
 
 계획된 변경의 최신성은 저장된 온톨로지 매니페스트와 동일한 개정의 변환된 운영 모델을 결합하고, 보류 중인 리소스 또는 관계 오버레이를 차단하며, 그래프 순회 뒤 안정된 권위 있는 재읽기를 요구합니다.
 

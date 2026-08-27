@@ -8,7 +8,10 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from fdai.core.architecture_review import ArchitectureReviewProjector
+from fdai.core.architecture_review import (
+    ArchitectureReviewObservation,
+    ArchitectureReviewProjector,
+)
 from fdai.core.workflow.projection import ProcessOntologyProjector
 from fdai.rule_catalog.schema.link_type import load_link_type_catalog
 from fdai.rule_catalog.schema.object_type import load_object_type_catalog
@@ -58,6 +61,37 @@ def _snapshot() -> ProcessSnapshot:
         updated_at=_NOW,
         correlation_id="corr-arb-1",
         revision=3,
+    )
+
+
+def _observation(
+    change_id: str,
+    *,
+    process_ref: str,
+) -> ArchitectureReviewObservation:
+    return ArchitectureReviewObservation(
+        change_id=change_id,
+        idempotency_key=f"{change_id}:key",
+        correlation_id=f"{change_id}:correlation",
+        target_ref="scope-1",
+        change_digest=f"sha256:{'a' * 64}",
+        recommendation="hold",
+        reasons=("observation_only",),
+        context=None,
+        evidence=None,
+        scenario=None,
+        decision_case=None,
+        impact_envelope=None,
+        normalized_change=(
+            ("id", change_id),
+            ("change_kind", "planned_change"),
+            ("target_ref", "scope-1"),
+            ("actor_ref", "actor:example"),
+            ("status", "proposed"),
+            ("occurred_at", _NOW.isoformat()),
+            ("evidence_ref", f"evidence:{change_id}"),
+            ("process_ref", process_ref),
+        ),
     )
 
 
@@ -188,3 +222,49 @@ async def test_approval_and_decision_events_materialize_governance_objects() -> 
     assert decision.properties["outcome"] == "conditional"
     assert any(link.link_type == "has_approval" for link in graph.links)
     assert any(link.link_type == "resolved_by" for link in graph.links)
+
+
+async def test_observation_projection_preserves_change_when_process_is_missing() -> None:
+    store = _store()
+    projector = ArchitectureReviewProjector(store, {})
+
+    await projector.project_observation(
+        _observation("change-missing-process", process_ref="process-missing")
+    )
+
+    assert await store.get_object("change-missing-process") is not None
+    assert await store.get_object("arb-review:change-missing-process") is not None
+    graph = await store.traverse(
+        root_ids=("change-missing-process",),
+        max_depth=1,
+        limit=10,
+    )
+    assert not any(link.link_type == "change_instantiates_process" for link in graph.links)
+
+
+async def test_observation_projection_does_not_reassign_reused_process() -> None:
+    store = _store()
+    process_projector = ProcessOntologyProjector(store)
+    await process_projector.project(_snapshot())
+    projector = ArchitectureReviewProjector(store, {})
+
+    await projector.project_observation(
+        _observation("change-primary", process_ref=_snapshot().process_id)
+    )
+    await projector.project_observation(
+        _observation("change-conflicting", process_ref=_snapshot().process_id)
+    )
+
+    assert await store.get_object("change-primary") is not None
+    assert await store.get_object("change-conflicting") is not None
+    assert await store.get_object("arb-review:change-conflicting") is not None
+    graph = await store.traverse(
+        root_ids=("change-primary",),
+        max_depth=1,
+        limit=20,
+    )
+    process_links = [
+        link for link in graph.links if link.link_type == "change_instantiates_process"
+    ]
+    assert len(process_links) == 1
+    assert process_links[0].from_id == "change-primary"

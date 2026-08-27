@@ -142,6 +142,11 @@ The Console should present separate axes instead of one green or red status:
 Every displayed state links to the exact `Change`, context digest, evidence bundle digest,
 `DecisionCase`, conditions, approvals, and audit records that produced it.
 
+Observation projection preserves `Change.process_ref` as provenance and emits
+`change_instantiates_process` only when the referenced `Process` already exists and cardinality
+accepts the edge. A missing or reused Process never blocks the Change or review projection, and
+`runs_review` remains reserved for the workflow runner's `Process -> ReviewCase` relationship.
+
 Planned-change freshness binds the persisted ontology manifest and one matching projected operating-model revision, rejects pending resource or relationship overlays, and requires a stable authoritative re-read after graph traversal.
 
 ## Current gaps

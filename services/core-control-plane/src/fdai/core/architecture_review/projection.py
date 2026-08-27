@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -11,12 +12,15 @@ from typing import Any
 
 from fdai.shared.providers.ontology_instance import (
     OntologyInstanceStore,
+    OntologyInstanceValidationError,
     OntologyLinkRecord,
     OntologyObjectRecord,
 )
 from fdai.shared.providers.process_runtime import ProcessEvent, ProcessEventKind, ProcessSnapshot
 
 from .observation_loop import ArchitectureReviewObservation
+
+_LOG = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,8 +69,6 @@ class ArchitectureReviewProjector:
     async def project_observation(
         self,
         observation: ArchitectureReviewObservation,
-        *,
-        process_id: str | None = None,
     ) -> None:
         """Project only authoritative observation lineage into ARB read models.
 
@@ -75,7 +77,7 @@ class ArchitectureReviewProjector:
         """
 
         review_id = f"arb-review:{observation.change_id}"
-        process_ref = _observation_process_ref(observation) or process_id
+        process_ref = _observation_process_ref(observation)
         recorded_at = (
             observation.context.recorded_at
             if observation.context is not None
@@ -99,8 +101,6 @@ class ArchitectureReviewProjector:
                 },
             )
         )
-        if process_ref is not None:
-            await _link(self.store, "runs_review", process_ref, review_id)
         target = await self.store.get_object(observation.target_ref)
         if target is not None and target.object_type == "Resource":
             await _link(self.store, "scoped_to", review_id, observation.target_ref)
@@ -128,6 +128,29 @@ class ArchitectureReviewProjector:
                 observation.change_id,
                 observation.target_ref,
             )
+        if (
+            process_ref is not None
+            and existing_change is not None
+            and existing_change.object_type == "Change"
+        ):
+            process = await self.store.get_object(process_ref)
+            if process is not None and process.object_type == "Process":
+                try:
+                    await _link(
+                        self.store,
+                        "change_instantiates_process",
+                        observation.change_id,
+                        process_ref,
+                    )
+                except OntologyInstanceValidationError:
+                    _LOG.warning(
+                        "architecture_review_process_lineage_unavailable",
+                        extra={
+                            "change_id": observation.change_id,
+                            "process_id": process_ref,
+                            "reason": "validation_conflict",
+                        },
+                    )
         if observation.context is not None and observation.evidence is not None:
             bundle = observation.evidence.bundle
             for entry in bundle.citation_manifest:
