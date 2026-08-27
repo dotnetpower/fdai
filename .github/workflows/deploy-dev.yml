@@ -88,6 +88,10 @@ on:
         description: "Provision the dedicated non-executor Operator channel-edge identity and RBAC."
         type: boolean
         default: false
+      validate_chatops_channels:
+        description: "Require the reviewed Foundry secondary for staging ChatOps validation."
+        type: boolean
+        default: false
       deploy_isolated_executor:
         description: "Provision the internal shadow-only isolated Executor Container App."
         type: boolean
@@ -192,10 +196,11 @@ jobs:
       TF_CLI_ARGS_plan: ${{ inputs.deploy_design_mocks && '-target=module.design_mocks' || inputs.deploy_monitoring && '-target=module.monitoring' || inputs.deploy_dev_operations_gateway && '-target=terraform_data.isolated_executor_authority_cutover_contract -target=azurerm_function_app_flex_consumption.dev_gateway[0] -target=azurerm_linux_virtual_machine_scale_set.ohl_evidence -target=module.ohl_evidence_identity -target=azurerm_role_assignment.ohl_evidence_acr_pull -target=azurerm_role_assignment.ohl_evidence_eventhubs_sender -target=module.network[0].azurerm_subnet.evidence_target -target=module.compute.azurerm_container_app_job.ohl_evidence_proposal -target=module.compute.azurerm_container_app_job.provider_schema[0] -target=module.compute.azurerm_container_app_job.canary[0] -target=module.compute.azurerm_container_app_job.inventory[0] -target=module.compute.azurerm_container_app_job.analyzer_tick[0] -target=module.operator_api[0] -target=module.ingestion_gateway[0] -target=module.isolated_executor[0] -target=azurerm_role_assignment.command_api_eventhubs_receiver -target=azurerm_role_assignment.command_api_eventhubs_sender -target=azurerm_role_assignment.executor_eventhubs_data_owner -target=azurerm_role_assignment.inventory_eventhubs_raw_sender -target=azurerm_eventgrid_system_topic_event_subscription.inventory_resource_changes[0] -target=azurerm_role_assignment.operator_api_acr_pull -target=azurerm_role_assignment.operator_api_kv_secrets_user -target=azurerm_role_assignment.operator_api_reader -target=azurerm_role_assignment.read_api_acr_pull -target=azurerm_role_assignment.read_api_kv_secrets_user -target=azurerm_role_assignment.read_api_reader -target=module.operator_api_identity[0].azurerm_user_assigned_identity.primary -target=module.read_api[0].azurerm_container_app.read_api -target=module.read_api[0].azurerm_container_app_job.migrate -target=module.read_api_identity[0].azurerm_user_assigned_identity.primary -target=module.llm_azure_openai[0].azurerm_cognitive_account.primary -target=module.llm_azure_openai[0].azurerm_role_assignment.additional_openai_user -target=azurerm_role_assignment.runtime_startup_probe_eventhubs_owner' || '' }}
       TF_VAR_dev_operations_gateway_private_probes_json: "${{ vars.DEV_OPERATIONS_GATEWAY_PRIVATE_PROBES_JSON || '{}' }}"
       TF_VAR_enable_document_ingestion: ${{ inputs.deploy_document_ingestion }}
-      TF_VAR_enable_llm: ${{ inputs.deploy_document_ingestion || vars.ENABLE_LLM == 'true' || vars.OPERATOR_API_WEB_SEARCH_ENABLED == 'true' }}
+      TF_VAR_enable_llm: ${{ inputs.validate_chatops_channels || inputs.deploy_document_ingestion || vars.ENABLE_LLM == 'true' || vars.OPERATOR_API_WEB_SEARCH_ENABLED == 'true' }}
       MODEL_RESOLVER_DEPLOYER_OBJECT_ID: ${{ vars.MODEL_RESOLVER_DEPLOYER_OBJECT_ID }}
       MODEL_BINDING_POLICY_JSON: ""
       MODEL_BINDING_ONLY: ${{ startsWith(inputs.request_id, 'plan-model-') || startsWith(inputs.request_id, 'apply-model-') }}
+      VALIDATE_CHATOPS_CHANNELS: ${{ inputs.validate_chatops_channels }}
       TF_VAR_core_image: ${{ vars.CORE_IMAGE || vars.OPERATOR_API_IMAGE }}
       # Operator API image + Entra/RBAC ids (tenant-specific; via repo Variables,
       # never committed). Empty when deploy_operator_api is false.
@@ -337,6 +342,8 @@ jobs:
           DEPLOY_MONITORING: ${{ inputs.deploy_monitoring }}
           DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET: ${{ inputs.deploy_ohl_scale_out_evidence_target }}
           DEPLOY_OPERATOR_API: ${{ inputs.deploy_operator_api }}
+          DEPLOY_OPERATOR_CHANNEL_EDGE: ${{ inputs.deploy_operator_channel_edge }}
+          VALIDATE_CHATOPS_CHANNELS: ${{ inputs.validate_chatops_channels }}
           MODEL_BINDING_ONLY: ${{ env.MODEL_BINDING_ONLY }}
           OHL_SCALE_OUT_EVIDENCE_CAMPAIGN_ID: ${{ vars.OHL_SCALE_OUT_EVIDENCE_CAMPAIGN_ID }}
           OHL_SCALE_OUT_EVIDENCE_IMAGE_VERSION: ${{ vars.OHL_SCALE_OUT_EVIDENCE_IMAGE_VERSION }}
@@ -407,7 +414,7 @@ jobs:
         if: ${{ !inputs.apply && !inputs.deploy_monitoring && env.TF_VAR_enable_llm == 'true' }}
         working-directory: ${{ github.workspace }}
         env:
-          MODEL_COMPLETENESS_FAIL_ON: ${{ (inputs.deploy_dev_operations_gateway || env.MODEL_BINDING_ONLY == 'true') && 'none' || 'critical' }}
+          MODEL_COMPLETENESS_FAIL_ON: ${{ (inputs.validate_chatops_channels || inputs.deploy_dev_operations_gateway || env.MODEL_BINDING_ONLY == 'true') && 'none' || 'critical' }}
           OPS_RESOURCE_GROUP_NAME: ${{ vars.OPS_RESOURCE_GROUP_NAME }}
           REQUEST_ID: ${{ inputs.request_id }}
           STATE_STORAGE_ACCOUNT: ${{ vars.STATE_STORAGE_ACCOUNT }}
@@ -460,6 +467,20 @@ jobs:
               --output "$resolved" \
               --partner-account-name "aif-fdai-models-${{ inputs.environment }}-${TF_VAR_region_short}" \
               --verified-at "$verified_at"
+          if [[ "${{ inputs.validate_chatops_channels }}" == "true" ]]; then
+            PYTHONPATH="$GITHUB_WORKSPACE/services/core-control-plane/src:$GITHUB_WORKSPACE/packages/service-contracts/src" \
+              uv run --frozen --package fdai-core-control-plane python \
+                scripts/deployment/azure/require_resolved_capability.py \
+                --resolved "$resolved" \
+                --capability t2.reasoner.secondary \
+                --publisher MistralAI \
+                --family Mistral-Large-3 \
+                --version 1 \
+                --sku GlobalStandard \
+                --minimum-capacity-tpm 1000 \
+                --provider-kind azure-foundry \
+                --endpoint-ref "azure-foundry:aif-fdai-models-${{ inputs.environment }}-${TF_VAR_region_short}"
+          fi
           python3 - "$resolved" "$manifest" <<'PY'
           import json
           import sys
@@ -1160,6 +1181,9 @@ jobs:
               model_resolution = {
                   "resolved_models_digest": resolved_digest,
                   "deployment_models_digest": deployment_digest,
+                  "chatops_channel_validation": (
+                      os.environ.get("VALIDATE_CHATOPS_CHANNELS") == "true"
+                  ),
               }
               binding_policy = resolved_payload.get("binding_policy")
               if binding_policy is not None:
@@ -1345,6 +1369,27 @@ jobs:
             --plan-id "$APPLY_PLAN_ID" --plan-digest "$APPLY_PLAN_DIGEST" \
             --context-digest "$APPLY_CONTEXT_DIGEST" --commit-sha "$APPLY_COMMIT_SHA" \
             --request-kind "$apply_request_kind" --environment "$APPLY_ENVIRONMENT"
+          sealed_chatops_validation="$(
+            python3 -c 'import json; evidence=json.load(open("plan-metadata.json", encoding="utf-8")).get("model_resolution"); value=False if evidence is None else evidence.get("chatops_channel_validation", False); print(str(value).lower())'
+          )"
+          if [[ "$sealed_chatops_validation" != "${{ inputs.validate_chatops_channels }}" ]]; then
+            echo "ChatOps validation input does not match the protected plan." >&2
+            exit 1
+          fi
+          if [[ "$sealed_chatops_validation" == "true" ]]; then
+            PYTHONPATH="$GITHUB_WORKSPACE/services/core-control-plane/src:$GITHUB_WORKSPACE/packages/service-contracts/src" \
+              uv run --frozen --package fdai-core-control-plane python \
+                ../scripts/deployment/azure/require_resolved_capability.py \
+                --resolved resolved-models.json \
+                --capability t2.reasoner.secondary \
+                --publisher MistralAI \
+                --family Mistral-Large-3 \
+                --version 1 \
+                --sku GlobalStandard \
+                --minimum-capacity-tpm 1000 \
+                --provider-kind azure-foundry \
+                --endpoint-ref "azure-foundry:aif-fdai-models-${APPLY_ENVIRONMENT}-${TF_VAR_region_short}"
+          fi
           if [[ "$apply_request_kind" == "model" ]]; then
             policy_digest="$(python3 -c 'import json; evidence=json.load(open("plan-metadata.json", encoding="utf-8"))["model_resolution"]; print(evidence["binding_policy_digest"].removeprefix("sha256:"))')"
             [[ "$APPLY_REQUEST_ID" == "apply-model-${policy_digest}" ]] || {

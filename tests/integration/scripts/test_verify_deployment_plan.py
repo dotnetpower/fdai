@@ -165,6 +165,57 @@ def test_matching_model_resolution_evidence_passes(
     )
 
 
+def test_matching_chatops_validation_evidence_passes(
+    verify_module: ModuleType,
+    tmp_path: Path,
+) -> None:
+    plan, source_artifact, metadata, preflight, azure_preflight, digest = _write_artifacts(
+        tmp_path,
+        expires_at=_NOW + timedelta(minutes=30),
+        model_resolution={
+            "resolved_models_digest": "a" * 64,
+            "deployment_models_digest": "b" * 64,
+            "chatops_channel_validation": True,
+        },
+    )
+
+    _verify(
+        verify_module,
+        plan,
+        source_artifact,
+        metadata,
+        preflight,
+        azure_preflight,
+        digest,
+    )
+
+
+def test_chatops_validation_evidence_must_be_boolean(
+    verify_module: ModuleType,
+    tmp_path: Path,
+) -> None:
+    plan, source_artifact, metadata, preflight, azure_preflight, digest = _write_artifacts(
+        tmp_path,
+        expires_at=_NOW + timedelta(minutes=30),
+        model_resolution={
+            "resolved_models_digest": "a" * 64,
+            "deployment_models_digest": "b" * 64,
+            "chatops_channel_validation": "true",
+        },
+    )
+
+    with pytest.raises(verify_module.PlanVerificationError, match="ChatOps validation flag"):
+        _verify(
+            verify_module,
+            plan,
+            source_artifact,
+            metadata,
+            preflight,
+            azure_preflight,
+            digest,
+        )
+
+
 def test_matching_model_binding_provenance_passes(
     verify_module: ModuleType,
     tmp_path: Path,

@@ -32,6 +32,8 @@ def _request(**overrides: str) -> dict[str, str]:
         "DEPLOY_DESIGN_MOCKS": "false",
         "DEPLOY_CONSOLE": "false",
         "DEPLOY_OPERATOR_API": "false",
+        "DEPLOY_OPERATOR_CHANNEL_EDGE": "false",
+        "VALIDATE_CHATOPS_CHANNELS": "false",
         "DEPLOY_DOCUMENT_INGESTION": "false",
         "DEPLOY_MONITORING": "false",
         "REQUEST_ID": "",
@@ -138,6 +140,36 @@ def test_monitoring_is_exclusive() -> None:
             _request(DEPLOY_MONITORING="true", DEPLOY_OPERATOR_API="true"),
             checkout_commit=_COMMIT,
         )
+
+
+def test_chatops_validation_requires_staging_operator_surfaces() -> None:
+    validate(
+        _request(
+            TARGET_ENVIRONMENT="staging",
+            DEPLOY_OPERATOR_API="true",
+            DEPLOY_OPERATOR_CHANNEL_EDGE="true",
+            VALIDATE_CHATOPS_CHANNELS="true",
+        ),
+        checkout_commit=_COMMIT,
+    )
+
+    for overrides in (
+        {"TARGET_ENVIRONMENT": "dev"},
+        {"DEPLOY_OPERATOR_API": "false"},
+        {"DEPLOY_OPERATOR_CHANNEL_EDGE": "false"},
+    ):
+        request = {
+            "TARGET_ENVIRONMENT": "staging",
+            "DEPLOY_OPERATOR_API": "true",
+            "DEPLOY_OPERATOR_CHANNEL_EDGE": "true",
+            "VALIDATE_CHATOPS_CHANNELS": "true",
+        }
+        request.update(overrides)
+        with pytest.raises(ValueError, match="ChatOps channel validation requires"):
+            validate(
+                _request(**request),
+                checkout_commit=_COMMIT,
+            )
 
 
 def test_runtime_image_and_effect_requests_keep_authority_prerequisites() -> None:

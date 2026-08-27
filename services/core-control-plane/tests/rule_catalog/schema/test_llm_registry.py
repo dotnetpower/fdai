@@ -59,6 +59,10 @@ def test_upstream_registry_file_loads_clean() -> None:
     }
     assert registry.models["t1.web_search"].preferences[0].family == "gpt-4.1-nano"
     assert registry.models["t1.web_search"].sku is Sku.GLOBAL_STANDARD
+    secondary = registry.models["t2.reasoner.secondary"]
+    assert secondary.preferences[-1].publisher == "MistralAI"
+    assert secondary.preferences[-1].family == "Mistral-Large-3"
+    assert secondary.sku is Sku.GLOBAL_STANDARD
     council = {
         name: registry.models[name]
         for name in (
@@ -124,7 +128,7 @@ def test_upstream_registry_file_loads_clean() -> None:
         "t1.judge": 200_000,
         "t1.web_search": 100_000,
         "t2.reasoner.primary": 100_000,
-        "t2.reasoner.secondary": 100_000,
+        "t2.reasoner.secondary": 1_000,
         "t2.reasoner.escalated": 50_000,
         "t2.critic": 50_000,
         "t2.rca": 50_000,
