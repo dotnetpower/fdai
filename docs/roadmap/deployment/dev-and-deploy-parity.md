@@ -360,10 +360,10 @@ startup-bound. The headless runtime loads durable effective values. An embedded 
 the same validated environment, defaults, and accepted-versus-held handoff outcome instead of a
 separate fixed severity or window.
 
-Detection readiness uses the same boundary. Deployment always reads Muninn StateSnapshots from
-PostgreSQL. Interactive local registers `/detection-readiness` only when local PostgreSQL is
-configured; otherwise the route and source manifest report unavailable. The local browser never
-substitutes Azure CLI inventory or recomputes Heimdall's decision.
+Detection readiness uses the same boundary. Deployment reads Muninn StateSnapshots from PostgreSQL,
+while interactive local registers `/detection-readiness` only with local PostgreSQL. The standard
+local analyzer task serially reuses the deployed one-shot CLI, inventory targets, metrics, idempotency,
+events, and shadow posture; readiness separates scheduling, discovery, metric, publication, and source-delay state.
 
 The standard full-stack launch keeps narrator endpoint reconciliation enabled. Its independent
 Operator Service binds a local-only narrator adapter only for `RUNTIME_ENV=dev`, reads

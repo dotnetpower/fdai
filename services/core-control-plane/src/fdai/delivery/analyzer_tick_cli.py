@@ -14,12 +14,13 @@ list alone, so the Job retries rather than silently narrowing its coverage.
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 import json
 import logging
 import os
 import sys
-from collections.abc import Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -31,6 +32,7 @@ from fdai.core.investigation import InvestigationCoordinator, default_analyzers
 from fdai.delivery.analyzer_targets import (
     DEFAULT_MAX_DISCOVERED,
     MAX_DISCOVERED_CEILING,
+    AnalyzerTargetResolution,
     resolve_analyzer_targets,
 )
 from fdai.delivery.analyzer_tick import (
@@ -78,6 +80,9 @@ INVENTORY_DSN_ENV = "FDAI_INVENTORY_DSN"
 TRACE_TOPOLOGIES_ENV = "FDAI_TRACE_TOPOLOGIES_JSON"
 _TRACE_TOPOLOGY_KEYS = frozenset({"topology_ref", "resource_ref", "expected_hops"})
 _MAX_TRACE_TOPOLOGIES = 32
+LOOP_INTERVAL_ENV = "FDAI_ANALYZER_INTERVAL_SECONDS"
+_DEFAULT_LOOP_INTERVAL_SECONDS = 60
+_SCHEDULING_MODES = frozenset({"one_shot", "local_loop", "container_apps_job"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -86,16 +91,68 @@ class AnalyzerJobReport:
 
     analyzer: AnalyzerTickReport
     trace_continuity: TraceContinuityTickReport
+    target_resolution: AnalyzerTargetResolution
 
     @property
     def failed(self) -> bool:
         """Return true when either publisher needs a Job retry."""
         return self.analyzer.failed or self.trace_continuity.failed
 
-    def to_dict(self) -> dict[str, object]:
+    def to_dict(
+        self,
+        *,
+        scheduling: str = "one_shot",
+        metric_delays: Mapping[str, str] | None = None,
+    ) -> dict[str, object]:
         return {
             **self.analyzer.to_dict(),
             "trace_continuity": self.trace_continuity.to_dict(),
+            "target_resolution": self.target_resolution.to_dict(),
+            "readiness": self.readiness(
+                scheduling=scheduling,
+                metric_delays=metric_delays or {},
+            ),
+        }
+
+    def readiness(
+        self,
+        *,
+        scheduling: str,
+        metric_delays: Mapping[str, str] | None = None,
+    ) -> dict[str, object]:
+        """Report availability without turning zero findings into verified health."""
+
+        if scheduling not in _SCHEDULING_MODES:
+            raise ValueError("analyzer scheduling mode is invalid")
+        target_discovery = (
+            "available"
+            if self.target_resolution.inventory_consulted or self.target_resolution.configured > 0
+            else "unbound"
+        )
+        metric_access = (
+            "unavailable"
+            if self.analyzer.analyzer_errors
+            or (
+                self.analyzer.targets > 0
+                and len(self.analyzer.unsupported_targets) == self.analyzer.targets
+            )
+            else "unverified"
+            if self.analyzer.targets == 0
+            else "available"
+        )
+        event_publication = (
+            "unavailable"
+            if self.analyzer.publish_errors or self.trace_continuity.publish_errors
+            else "verified"
+            if self.analyzer.published > 0 or self.trace_continuity.published > 0
+            else "unverified"
+        )
+        return {
+            "scheduling": scheduling,
+            "target_discovery": target_discovery,
+            "metric_access": metric_access,
+            "event_publication": event_publication,
+            "metric_source_delays": dict(sorted((metric_delays or {}).items())),
         }
 
 
@@ -247,6 +304,45 @@ def parse_max_discovered(raw: str) -> int:
     return bound
 
 
+def parse_loop_interval(raw: str) -> int:
+    """Parse the local/deployed schedule interval with one shared bound."""
+
+    text = raw.strip()
+    if not text:
+        return _DEFAULT_LOOP_INTERVAL_SECONDS
+    try:
+        interval = int(text)
+    except ValueError as exc:
+        raise ValueError(f"{LOOP_INTERVAL_ENV} MUST be a positive integer") from exc
+    if not 1 <= interval <= 86_400:
+        raise ValueError(f"{LOOP_INTERVAL_ENV} MUST be in [1, 86400]")
+    return interval
+
+
+def metric_source_delays(environ: Mapping[str, str]) -> dict[str, str]:
+    """Report configured source-specific delay floors without claiming a live measurement."""
+
+    return {
+        "log_analytics": (
+            "120-300_seconds" if environ.get("FDAI_MONITOR_WORKSPACE_ID", "").strip() else "unbound"
+        ),
+        "prometheus": (
+            "15_seconds_plus_ingestion"
+            if environ.get("FDAI_PROMETHEUS_ENDPOINT", "").strip()
+            else "unbound"
+        ),
+    }
+
+
+def resolve_scheduling_mode(raw: str) -> str:
+    """Resolve one allowlisted scheduling-mode receipt value."""
+
+    mode = raw.strip() or "one_shot"
+    if mode not in _SCHEDULING_MODES:
+        raise ValueError("FDAI_ANALYZER_SCHEDULING_MODE is invalid")
+    return mode
+
+
 def build_inventory_projection() -> PostgresOntologyInstanceStore | None:
     """Bind the durable inventory projection when its database is configured.
 
@@ -293,6 +389,7 @@ async def run_once() -> AnalyzerJobReport:
         return AnalyzerJobReport(
             analyzer=AnalyzerTickReport(targets=0, findings=0, published=0),
             trace_continuity=_empty_trace_report(),
+            target_resolution=resolution,
         )
 
     bootstrap_servers = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "").strip()
@@ -356,6 +453,7 @@ async def run_once() -> AnalyzerJobReport:
             return AnalyzerJobReport(
                 analyzer=analyzer_report,
                 trace_continuity=trace_report,
+                target_resolution=resolution,
             )
         finally:
             await bus.close()
@@ -385,13 +483,79 @@ def _optional(name: str) -> str | None:
     return os.environ.get(name, "").strip() or None
 
 
-def main(argv: list[str] | None = None) -> int:
-    del argv
-    logging.basicConfig(level=os.environ.get("FDAI_LOG_LEVEL", "INFO"))
-    report = asyncio.run(run_once())
-    summary: dict[str, Any] = report.to_dict()
+async def run_loop(
+    *,
+    interval_seconds: int,
+    max_ticks: int | None = None,
+    tick: Callable[[], Awaitable[AnalyzerJobReport]] = run_once,
+    sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+) -> int:
+    """Run identical one-shot ticks serially and stop on the first failed publication."""
+
+    if not 1 <= interval_seconds <= 86_400:
+        raise ValueError("analyzer loop interval_seconds MUST be in [1, 86400]")
+    if max_ticks is not None and max_ticks < 1:
+        raise ValueError("analyzer loop max_ticks MUST be positive")
+    completed = 0
+    while max_ticks is None or completed < max_ticks:
+        report = await tick()
+        _emit_report(report, scheduling="local_loop")
+        completed += 1
+        if report.failed:
+            print("service=local-analyzer event=failed", flush=True)
+            return 1
+        if completed == 1:
+            print("service=local-analyzer event=ready", flush=True)
+        if max_ticks is not None and completed >= max_ticks:
+            return 0
+        await sleep(float(interval_seconds))
+    return 0
+
+
+def _emit_report(report: AnalyzerJobReport, *, scheduling: str) -> None:
+    summary: dict[str, Any] = report.to_dict(
+        scheduling=scheduling,
+        metric_delays=metric_source_delays(os.environ),
+    )
     _LOGGER.info("analyzer_tick_complete", extra=summary)
-    print(json.dumps(summary, sort_keys=True))
+    print(json.dumps(summary, sort_keys=True), flush=True)
+
+
+def _parse_args(argv: list[str] | None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Run the bounded FDAI analyzer tick.")
+    parser.add_argument("--loop", action="store_true", help="Run serial ticks until stopped.")
+    parser.add_argument("--interval-seconds", type=int)
+    parser.add_argument("--max-ticks", type=int)
+    args = parser.parse_args(argv)
+    if not args.loop and (args.interval_seconds is not None or args.max_ticks is not None):
+        parser.error("--interval-seconds and --max-ticks require --loop")
+    return args
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = _parse_args(argv)
+    logging.basicConfig(level=os.environ.get("FDAI_LOG_LEVEL", "INFO"))
+    try:
+        if args.loop:
+            interval = (
+                args.interval_seconds
+                if args.interval_seconds is not None
+                else parse_loop_interval(os.environ.get(LOOP_INTERVAL_ENV, ""))
+            )
+            print("service=local-analyzer event=starting", flush=True)
+            return asyncio.run(
+                run_loop(
+                    interval_seconds=interval,
+                    max_ticks=args.max_ticks,
+                )
+            )
+        report = asyncio.run(run_once())
+    except KeyboardInterrupt:
+        return 130
+    _emit_report(
+        report,
+        scheduling=resolve_scheduling_mode(os.environ.get("FDAI_ANALYZER_SCHEDULING_MODE", "")),
+    )
     return 1 if report.failed else 0
 
 

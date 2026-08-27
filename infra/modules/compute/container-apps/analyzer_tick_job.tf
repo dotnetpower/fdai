@@ -102,6 +102,11 @@ resource "azurerm_container_app_job" "analyzer_tick" {
         value = var.trace_topologies_json
       }
 
+      env {
+        name  = "FDAI_ANALYZER_SCHEDULING_MODE"
+        value = "container_apps_job"
+      }
+
       dynamic "env" {
         for_each = nonsensitive(var.state_store_dsn_secret_id) == "" ? toset([]) : toset(["1"])
         content {

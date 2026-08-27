@@ -305,6 +305,38 @@
       }
     },
     {
+      "label": "analyzer: run continuously (local)",
+      "type": "shell",
+      "command": "bash scripts/deployment/local/run-analyzer-loop.sh",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "console: require primary worktree",
+        "console: prepare full stack"
+      ],
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "local-analyzer",
+        "pattern": { "regexp": "^(?!)$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^service=local-analyzer event=starting$",
+          "endsPattern": "^service=local-analyzer event=(ready|failed)(?: |$)"
+        }
+      },
+      "presentation": {
+        "reveal": "silent",
+        "revealProblems": "onProblem",
+        "panel": "dedicated",
+        "group": "local-analyzer",
+        "clear": true,
+        "showReuseMessage": false
+      },
+      "runOptions": {
+        "instanceLimit": 1,
+        "instancePolicy": "silent"
+      }
+    },
+    {
       "label": "channel edge: Operator Slack and Teams (Local)",
       "type": "shell",
       "command": "bash scripts/deployment/local/run-console-service.sh operator-channel-edge",
