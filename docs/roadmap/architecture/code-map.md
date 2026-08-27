@@ -24,6 +24,10 @@ retired top-level application tree.
 > implementation status and history. The retired mixed-purpose ledger is preserved in the
 > [archived Code Map implementation ledger](../../roadmap-implementation/architecture/code-map.md).
 
+> **Kubernetes recovery contract:** Durable lifecycle reads require a fresh cursor, exact UID scope,
+> and a sentinel-row truncation check. Lifecycle-classified termination rows feed the exact-target
+> replacement reducer; incomplete lifecycle evidence cannot retain a recovered status.
+
 ## Physical service ownership
 
 | Owner | Source | Tests | Distribution |

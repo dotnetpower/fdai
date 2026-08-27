@@ -19,6 +19,7 @@ from fdai.core.ontology_platform.kubernetes_lifecycle_observation import (
 from fdai.delivery.kubernetes_lifecycle_collector import (
     KubernetesLifecycleAppendReceipt,
     KubernetesLifecycleCursorConflictError,
+    KubernetesLifecycleCursorState,
 )
 
 _MAX_OBSERVATIONS_PER_APPEND: Final = 256
@@ -62,15 +63,27 @@ class PostgresKubernetesLifecycleStore:
     async def read_cursor(self, cluster_ref: str) -> str | None:
         """Return the durable resumption cursor, or `None` when never collected."""
 
+        state = await self.read_cursor_state(cluster_ref)
+        return None if state is None else state.resource_version
+
+    async def read_cursor_state(self, cluster_ref: str) -> KubernetesLifecycleCursorState | None:
+        """Return the cursor and its last collector update time."""
+
         async with await self._connect() as connection:
             await self._set_timeout(connection)
             await self._lock_cluster(connection, cluster_ref)
             cursor = await connection.execute(
-                "SELECT resource_version FROM kubernetes_lifecycle_cursor WHERE cluster_ref = %s",
+                "SELECT resource_version, updated_at FROM kubernetes_lifecycle_cursor "
+                "WHERE cluster_ref = %s",
                 (cluster_ref,),
             )
             row = await cursor.fetchone()
-        return None if row is None else str(row["resource_version"])
+        if row is None:
+            return None
+        return KubernetesLifecycleCursorState(
+            resource_version=str(row["resource_version"]),
+            updated_at=row["updated_at"],
+        )
 
     async def append(
         self,
@@ -177,7 +190,7 @@ class PostgresKubernetesLifecycleStore:
             raise ValueError("Kubernetes lifecycle read exceeds its UID bound")
         if start.tzinfo is None or end.tzinfo is None or start >= end:
             raise ValueError("Kubernetes lifecycle read interval MUST be aware and positive")
-        if not 1 <= limit <= _MAX_OBSERVATIONS_PER_APPEND:
+        if not 1 <= limit <= _MAX_OBSERVATIONS_PER_APPEND + 1:
             raise ValueError("Kubernetes lifecycle read limit exceeds its bound")
         if any(not uid.strip() or len(uid) > 512 for uid in object_uids):
             raise ValueError("Kubernetes lifecycle read UIDs MUST be bounded")

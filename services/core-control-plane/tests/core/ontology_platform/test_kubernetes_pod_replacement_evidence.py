@@ -8,6 +8,9 @@ from datetime import UTC, datetime, timedelta
 from fdai.core.ontology_platform.kubernetes_lifecycle_observation import (
     KubernetesLifecycleObservation,
 )
+from fdai.core.ontology_platform.kubernetes_pod_recovery_queries import (
+    evaluate_kubernetes_pod_replacement_graph,
+)
 from fdai.core.ontology_platform.kubernetes_pod_replacement_evidence import (
     KubernetesPodReplacementEvidenceResult,
     KubernetesPodReplacementStatus,
@@ -391,3 +394,56 @@ def test_replacement_reducer_consumes_durable_old_uid_lifecycle_rows() -> None:
     assert result.old_pod_uid == "pod-uid-old"
     assert result.new_pod_uid == "pod-uid-new"
     assert result.historical_evidence_refs == ("old-failure", "pod-old")
+
+
+def test_non_termination_old_uid_event_cannot_substitute_termination() -> None:
+    observation = KubernetesLifecycleObservation(
+        cluster_ref="cluster-a",
+        namespace="default",
+        object_uid="pod-uid-old",
+        owner_uid="replicaset-uid-a",
+        reason="Started",
+        category="started",
+        event_type="Normal",
+        event_time=_CUTOFF - timedelta(minutes=6),
+        recorded_time=_CUTOFF - timedelta(minutes=5),
+        source_revision="100",
+        evidence_ref="old-started",
+    )
+
+    assert (
+        termination_from_lifecycle_observations(
+            pod_uid="pod-uid-old",
+            observations=(observation,),
+            cutoff=_CUTOFF,
+        )
+        is None
+    )
+
+
+def test_exact_target_query_composition_uses_lifecycle_backed_reducer() -> None:
+    observation = KubernetesLifecycleObservation(
+        cluster_ref="cluster-a",
+        namespace="default",
+        object_uid="pod-uid-old",
+        owner_uid="replicaset-uid-a",
+        reason="Failed",
+        category="failed",
+        event_type="Warning",
+        event_time=_CUTOFF - timedelta(minutes=6),
+        recorded_time=_CUTOFF - timedelta(minutes=5),
+        source_revision="100",
+        evidence_ref="old-failure",
+    )
+
+    result = evaluate_kubernetes_pod_replacement_graph(
+        old_pod=_old_pod(),
+        candidates=(_new_pod(),),
+        lifecycle_observations=(observation,),
+        deployment=_deployment(),
+        correlation_window_start=_WINDOW_START,
+        cutoff=_CUTOFF,
+    )
+
+    assert result.new_pod_uid == "pod-uid-new"
+    assert result.replacement_supported is True

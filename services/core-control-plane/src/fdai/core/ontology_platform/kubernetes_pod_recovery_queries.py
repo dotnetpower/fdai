@@ -26,12 +26,20 @@ from fdai.shared.providers.state_evidence import (
 )
 
 from .functions import ContextualOntologyFunction, FunctionInvocationContext
+from .kubernetes_lifecycle_observation import KubernetesLifecycleObservation
 from .kubernetes_pod_recovery_evidence import (
     KubernetesPodRecoveryEvidenceResult,
+    KubernetesPodRecoveryStatus,
     PodOwnerDeploymentObservation,
     PodRecoveryObservation,
     PodRestartHistoryObservation,
     evaluate_kubernetes_pod_recovery,
+)
+from .kubernetes_pod_replacement_evidence import (
+    KubernetesPodReplacementEvidenceResult,
+    PodLifecycleObservation,
+    PodReplacementDeploymentObservation,
+    evaluate_kubernetes_pod_replacement_from_lifecycle,
 )
 from .network_path import NetworkQueryReceiptVerifier
 from .query_gateway import SecuredObjectSetQueryResult
@@ -225,6 +233,7 @@ def kubernetes_pod_recovery_function(
                 update={
                     "complete": False,
                     "recovery_verified": False,
+                    "status": KubernetesPodRecoveryStatus.INSUFFICIENT_EVIDENCE,
                     "evidence_gaps": tuple(dict.fromkeys((*result.evidence_gaps, gap))),
                 }
             )
@@ -291,6 +300,7 @@ def evaluate_kubernetes_pod_recovery_graph(
     evidence_refs = tuple(sorted(set((*result.evidence_refs, *ownership_refs))))
     if not ownership_gaps:
         return result.model_copy(update={"evidence_refs": evidence_refs})
+
     return result.model_copy(
         update={
             "complete": False,
@@ -298,6 +308,27 @@ def evaluate_kubernetes_pod_recovery_graph(
             "evidence_gaps": tuple(dict.fromkeys((*result.evidence_gaps, *ownership_gaps))),
             "evidence_refs": evidence_refs,
         }
+    )
+
+
+def evaluate_kubernetes_pod_replacement_graph(
+    *,
+    old_pod: PodLifecycleObservation,
+    candidates: tuple[PodLifecycleObservation, ...],
+    lifecycle_observations: tuple[KubernetesLifecycleObservation, ...],
+    deployment: PodReplacementDeploymentObservation | None,
+    correlation_window_start: datetime,
+    cutoff: datetime,
+) -> KubernetesPodReplacementEvidenceResult:
+    """Run the exact-target replacement reducer over retained lifecycle evidence."""
+
+    return evaluate_kubernetes_pod_replacement_from_lifecycle(
+        old_pod=old_pod,
+        candidates=candidates,
+        lifecycle_observations=lifecycle_observations,
+        deployment=deployment,
+        correlation_window_start=correlation_window_start,
+        cutoff=cutoff,
     )
 
 
@@ -547,6 +578,7 @@ __all__ = [
     "KUBERNETES_POD_RESTART_HISTORY_CONCEPT",
     "KUBERNETES_POD_RESTART_SYMPTOM_CONCEPT",
     "evaluate_kubernetes_pod_recovery_graph",
+    "evaluate_kubernetes_pod_replacement_graph",
     "kubernetes_pod_recovery_function",
     "kubernetes_pod_recovery_function_type",
 ]

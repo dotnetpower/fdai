@@ -12,6 +12,7 @@ from fdai.core.ontology_platform.kubernetes_lifecycle_observation import (
 from fdai.delivery.durable_kubernetes_resource_event_history import (
     DurableKubernetesResourceEventHistoryReader,
 )
+from fdai.delivery.kubernetes_lifecycle_collector import KubernetesLifecycleCursorState
 
 NOW = datetime(2026, 8, 27, 14, 0, tzinfo=UTC)
 
@@ -41,6 +42,14 @@ class _Store:
         assert cluster_ref == "cluster-a"
         return self.cursor
 
+    async def read_cursor_state(self, cluster_ref: str) -> KubernetesLifecycleCursorState | None:
+        assert cluster_ref == "cluster-a"
+        return (
+            None
+            if self.cursor is None
+            else KubernetesLifecycleCursorState(resource_version=self.cursor, updated_at=NOW)
+        )
+
     async def read_observations(
         self,
         *,
@@ -52,7 +61,7 @@ class _Store:
     ) -> tuple[KubernetesLifecycleObservation, ...]:
         assert cluster_ref == "cluster-a"
         assert object_uids == ("pod-uid-a",)
-        assert start < end and limit == 256
+        assert start < end and limit == 257
         return self.observations
 
 
@@ -105,6 +114,39 @@ async def test_missing_cursor_and_empty_rows_are_not_successful_absence() -> Non
     )
     assert result.complete is False
     assert result.limitation == "no_lifecycle_events_observed"
+
+
+async def test_stale_cursor_and_capped_rows_remain_incomplete() -> None:
+    stale = DurableKubernetesResourceEventHistoryReader(
+        store=_Store(),
+        cluster_ref="cluster-a",
+        now=lambda: NOW + timedelta(minutes=16),
+        freshness_ceiling_seconds=900,
+    )
+    stale_result = await stale.read_history_with_identity(
+        resource_ids=("pod-a",),
+        resource_identity={"pod-a": {"cluster_ref": "cluster-a", "uid": "pod-uid-a"}},
+        event_families=("resource_event.kubernetes",),
+        lookback_seconds=900,
+    )
+    assert stale_result.complete is False
+    assert stale_result.limitation == "lifecycle_cursor_stale"
+
+    capped_store = _Store(observations=tuple(_observation(f"pod-uid-{i}") for i in range(257)))
+    capped = DurableKubernetesResourceEventHistoryReader(
+        store=capped_store,
+        cluster_ref="cluster-a",
+        now=lambda: NOW,
+    )
+    capped_result = await capped.read_history_with_identity(
+        resource_ids=("pod-a",),
+        resource_identity={"pod-a": {"cluster_ref": "cluster-a", "uid": "pod-uid-a"}},
+        event_families=("resource_event.kubernetes",),
+        lookback_seconds=900,
+    )
+    assert capped_result.complete is False
+    assert capped_result.limitation == "result_limit"
+    assert len(capped_result.events) == 256
 
 
 async def test_reader_rejects_missing_or_foreign_uid_before_store_read() -> None:

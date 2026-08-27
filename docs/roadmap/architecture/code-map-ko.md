@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: bdcce206de16911d18a0a0bc9aa240eb86925265
+translation_source_sha: 12b9b044e0115555e6ad53045517c8d31547c0f3
 translation_revised: 2026-08-28
 ---
 # 코드 맵
@@ -26,6 +26,11 @@ translation_revised: 2026-08-28
 > **인덱스 계약:** 이 페이지는 탐색 전용입니다. 현재 구현 상태와 이력은 연결된 소유
 > 문서에서 관리합니다. 기존 혼합 목적 원장은
 > [보관된 코드 맵 구현 원장](../../roadmap-implementation/architecture/code-map.md)에 보존합니다.
+
+> **Kubernetes 복구 계약:** durable lifecycle 조회에는 fresh cursor, exact UID scope 및
+> sentinel 행을 사용하는 truncation 검사가 필요합니다. lifecycle로 분류된 종료 행만
+> exact-target 교체 축약기에 전달되며 incomplete lifecycle 근거는 recovered 상태를 유지할 수
+> 없습니다.
 
 ## 물리 서비스 소유권
 

@@ -14,6 +14,8 @@ from fdai.core.ontology_platform.resource_event_queries import (
 from fdai.delivery.kubernetes_lifecycle_collector import KubernetesLifecycleStore
 
 _MAX_EVENTS = 256
+_MAX_READ = _MAX_EVENTS + 1
+_DEFAULT_FRESHNESS_SECONDS = 900
 
 
 class DurableKubernetesResourceEventHistoryReader:
@@ -30,12 +32,16 @@ class DurableKubernetesResourceEventHistoryReader:
         store: KubernetesLifecycleStore,
         cluster_ref: str,
         now: Callable[[], datetime] | None = None,
+        freshness_ceiling_seconds: int = _DEFAULT_FRESHNESS_SECONDS,
     ) -> None:
         if not cluster_ref.strip():
             raise ValueError("durable Kubernetes event cluster_ref MUST NOT be empty")
         self._store = store
         self._cluster_ref = cluster_ref
         self._now = now or (lambda: datetime.now(UTC))
+        if freshness_ceiling_seconds < 1:
+            raise ValueError("durable Kubernetes freshness ceiling MUST be positive")
+        self._freshness_ceiling_seconds = freshness_ceiling_seconds
 
     async def read_history(
         self,
@@ -102,9 +108,9 @@ class DurableKubernetesResourceEventHistoryReader:
                 complete=False,
                 limitation="pod_uid_unavailable",
             )
-        cursor = await self._store.read_cursor(self._cluster_ref)
+        cursor_state = await self._store.read_cursor_state(self._cluster_ref)
         observed_at = self._now()
-        if cursor is None:
+        if cursor_state is None:
             return _result(
                 resource_ids,
                 observed_at=observed_at,
@@ -112,14 +118,35 @@ class DurableKubernetesResourceEventHistoryReader:
                 complete=False,
                 limitation="lifecycle_cursor_unavailable",
             )
+        cursor_age = observed_at - cursor_state.updated_at
+        if cursor_age.total_seconds() < 0:
+            return _result(
+                resource_ids,
+                observed_at=observed_at,
+                events=(),
+                complete=False,
+                limitation="lifecycle_cursor_future",
+            )
+        if cursor_age.total_seconds() > self._freshness_ceiling_seconds:
+            return _result(
+                resource_ids,
+                observed_at=observed_at,
+                events=(),
+                complete=False,
+                limitation="lifecycle_cursor_stale",
+            )
         start = observed_at - timedelta(seconds=lookback_seconds)
         observations = await self._store.read_observations(
             cluster_ref=self._cluster_ref,
             object_uids=(uid,),
             start=start,
             end=observed_at,
-            limit=_MAX_EVENTS,
+            limit=_MAX_READ,
         )
+        truncated = len(observations) > _MAX_EVENTS
+        bounded_observations = tuple(
+            sorted(observations, key=lambda item: (item.event_time, item.evidence_ref))
+        )[:_MAX_EVENTS]
         events = tuple(
             ResourceEventObservation(
                 resource_id=resource_ids[0],
@@ -130,14 +157,16 @@ class DurableKubernetesResourceEventHistoryReader:
                 occurred_at=item.event_time,
                 evidence_ref=item.evidence_ref,
             )
-            for item in observations
+            for item in bounded_observations
         )
         return _result(
             resource_ids,
             observed_at=observed_at,
             events=events,
-            complete=bool(events),
-            limitation=None if events else "no_lifecycle_events_observed",
+            complete=bool(events) and not truncated,
+            limitation=(
+                "result_limit" if truncated else None if events else "no_lifecycle_events_observed"
+            ),
         )
 
 

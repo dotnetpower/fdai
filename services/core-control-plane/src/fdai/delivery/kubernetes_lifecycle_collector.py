@@ -29,10 +29,22 @@ class KubernetesLifecycleAppendReceipt:
     cursor: str | None
 
 
+@dataclass(frozen=True, slots=True)
+class KubernetesLifecycleCursorState:
+    """Durable cursor plus the collector heartbeat that established it."""
+
+    resource_version: str
+    updated_at: datetime
+
+
 class KubernetesLifecycleStore(Protocol):
     """Persist durable cursor progress and append-only lifecycle evidence."""
 
     async def read_cursor(self, cluster_ref: str) -> str | None: ...
+
+    async def read_cursor_state(
+        self, cluster_ref: str
+    ) -> KubernetesLifecycleCursorState | None: ...
 
     async def append(
         self,
@@ -119,6 +131,7 @@ async def collect_kubernetes_lifecycle_once(
 __all__ = [
     "KubernetesLifecycleAppendReceipt",
     "KubernetesLifecycleCollectionReceipt",
+    "KubernetesLifecycleCursorState",
     "KubernetesLifecycleCursorConflictError",
     "KubernetesLifecycleStore",
     "collect_kubernetes_lifecycle_once",
