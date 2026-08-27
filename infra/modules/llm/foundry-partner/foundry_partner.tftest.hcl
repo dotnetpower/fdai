@@ -1,11 +1,10 @@
 mock_provider "azurerm" {}
 
 variables {
-  account_name               = "aif-fdai-partner-dev-krc"
-  project_name               = "proj-fdai-partner-dev-krc"
-  location                   = "koreacentral"
-  resource_group_name        = "rg-fdai-dev-krc"
-  private_networking_enabled = true
+  account_name        = "aif-fdai-partner-dev-krc"
+  project_name        = "proj-fdai-partner-dev-krc"
+  location            = "koreacentral"
+  resource_group_name = "rg-fdai-dev-krc"
   deployments = [{
     name         = "t2.reasoner.secondary"
     publisher    = "MistralAI"

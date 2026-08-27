@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: dc7dd1f2d1a6cbd743171931fa55073cd665ebfe
+translation_source_sha: 70fd378849da76c185c59ad100902cba434aa8af
 translation_revised: 2026-08-28
 ---
 # 배포 리소스 규약
@@ -32,7 +32,7 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 | 브라우저 근거 정리 Job 명명 | implemented | `infra/main.tf`; `tests/integration/infra/test_browser_evidence_cleanup_job.py`; focused 검사(`4 passed`) 및 `terraform validate` | `caj-<workload>[-env][-region]-browser-gc`는 허용된 모든 환경에서 Azure 32자 한계를 지킵니다. Protected 적용 근거는 남아 있습니다. |
 | Event Bus 소비자 지연 경고 | validated | `event_bus.py`; `infra/modules/observability/monitoring/`; 보호된 적용 실행 `32383519737`; 실제 발생 및 해제 경고 관측; 집중 소비자, 인프라 및 workflow 검사 | 범위가 제한된 commit이 정제된 파티션 진행률과 지연을 내보냅니다. Broker 기반 heartbeat도 downstream 처리가 멈춘 동안 할당된 파티션을 보고하며, 유휴 partial batch는 wall-clock commit deadline에 flush됩니다. 보호된 monitoring-only 적용은 scheduled-query rule만 변경했으며 정제된 합성 지연 행으로 stateful 경고가 발생하고 자동 해제되었습니다. |
 | 보호된 모델 해석 산출물 | implemented | `.github/workflows/deploy-dev.yml`; model binding sealer; 집중 수명 주기 및 workflow 검사 | 보호된 계획은 전체/배포 매니페스트와 SHA-256 다이제스트를 봉인하기 전에 결정론 partner endpoint binding을 추가합니다. Exact apply가 해당 byte를 복원하며 runtime은 같은 inline JSON과 digest를 받습니다. |
-| Private Foundry partner 모듈 | implemented | `infra/modules/llm/foundry-partner/`; root 및 모듈 Terraform 검사 | 재사용 모듈은 `aif-`/`proj-` 명명 규칙을 따르고 private 배포에서 public access를 끄며 partner format/버전/용량 및 project user 역할을 고정하고 partner 기능에 조건부로 조립됩니다. |
+| Private Foundry partner 모듈 | implemented | `infra/modules/llm/foundry-partner/`; root, 모듈 및 Checkov 검사 | 재사용 모듈은 `aif-`/`proj-` 명명 규칙을 따르고 public access를 항상 끄며 partner format/버전/용량 및 project user 역할을 고정하고 partner 기능에 조건부로 조립됩니다. |
 
 ### 구현 이력
 

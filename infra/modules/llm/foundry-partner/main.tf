@@ -19,7 +19,7 @@ resource "azurerm_cognitive_account" "partner" {
   sku_name                      = "S0"
   custom_subdomain_name         = var.account_name
   project_management_enabled    = true
-  public_network_access_enabled = !var.private_networking_enabled
+  public_network_access_enabled = false
   local_auth_enabled            = false
   tags                          = var.tags
 

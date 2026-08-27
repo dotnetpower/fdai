@@ -18,11 +18,6 @@ variable "resource_group_name" {
   type        = string
 }
 
-variable "private_networking_enabled" {
-  description = "Disable public access when the root binds a private endpoint."
-  type        = bool
-}
-
 variable "deployments" {
   description = "Publisher-qualified partner capability deployments."
   type = list(object({

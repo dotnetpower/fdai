@@ -2001,11 +2001,10 @@ module "llm_foundry_partner" {
   count  = var.enable_llm && length(local.partner_resolved_capabilities) > 0 ? 1 : 0
   source = "./modules/llm/foundry-partner"
 
-  account_name               = "aif-${var.workload}-models${local.full_suffix}"
-  project_name               = "proj-${var.workload}-models${local.full_suffix}"
-  location                   = var.region
-  resource_group_name        = module.resource_group.name
-  private_networking_enabled = var.enable_private_networking
+  account_name        = "aif-${var.workload}-models${local.full_suffix}"
+  project_name        = "proj-${var.workload}-models${local.full_suffix}"
+  location            = var.region
+  resource_group_name = module.resource_group.name
   deployments = [
     for capability in local.partner_resolved_capabilities : {
       name         = capability.name
