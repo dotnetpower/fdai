@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: b8dc0abd7801937ebffd1df6fc7b193ac9c99c31
+translation_source_sha: 6adcf0421051da79fd8efe9c53eec2f42dd4060f
 translation_revised: 2026-08-28
 ---
 # 프로젝트 구조
@@ -35,7 +35,8 @@ translation_revised: 2026-08-28
 - **모델 카탈로그 신원은 가능한 경우 발행기로 한정**: Core는 계열 전용 adapter 계약을
   보존하면서 선택적 `(publisher, family)` 카탈로그 경계를 받습니다. Azure delivery는 허용
   목록의 OpenAI 및 AIServices format만 매핑하고 partner 배포 및 endpoint 소유권은 resolver
-  밖에 유지합니다.
+  밖에 유지합니다. 격리된 `foundry-partner` Terraform 모듈은 private AIServices resource를
+  소유하지만 root routing이 완료될 때까지 비활성 상태입니다.
 - **자격 검증 축약에는 권한이 없음**:
   `core/conversation_assurance/quality_qualification.py`는 미리 측정하고 정규화한 관측값만
   받아 설치된 품질 계약에 따라 축약합니다. 원시 근거 상태에서 하드 상한을 계산하며 모델 호출,

@@ -35,7 +35,8 @@ Dependency direction is strict and one-way; a violation is a review blocker.
 - **model catalog identity is publisher-qualified when available**: Core accepts an optional
   `(publisher, family)` catalog seam while preserving the family-only adapter contract. Azure
   delivery maps only allowlisted OpenAI and AIServices formats and keeps partner deployment and
-  endpoint ownership outside the resolver.
+  endpoint ownership outside the resolver. The isolated `foundry-partner` Terraform module owns
+  private AIServices resources but remains inactive until root routing is complete.
 - **qualification reduction is authority-free**:
   `core/conversation_assurance/quality_qualification.py` accepts only premeasured normalized
   observations and reduces them against the installed quality contract. It derives hard caps from
