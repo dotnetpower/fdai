@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: bc6147029653b05afe78691f044e91c9cf1bfdbf
+translation_source_sha: 62c09e4e49e43f679d40133e3c3030c1c6d419f2
 translation_revised: 2026-08-28
 ---
 # 코드 맵
@@ -42,6 +42,8 @@ translation_revised: 2026-08-28
 > gateway를 통해 호환되지 않는 historical `as_of` query를 발급하지 않습니다.
 > owner 범위 durable lifecycle 조회는 과거 old UID를 보존하고 analyzer Job은 inventory Job과
 > 같은 검토된 Kubernetes binding을 받아 local/deployed parity를 유지합니다.
+> LIST pagination은 2048 observation으로 제한된 batch를 원자적으로 drain하며 Pod inventory는
+> creation timestamp와 명시적으로 controller 표시된 owner identity를 보존합니다.
 
 ## 물리 서비스 소유권
 
