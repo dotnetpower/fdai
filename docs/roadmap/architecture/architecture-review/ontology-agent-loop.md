@@ -94,6 +94,8 @@ from action-portfolio counts, and Saga retains it for audit. The payload uses JS
 Duplicate deliveries are suppressed by the Change idempotency key; deadline, backpressure, stale,
 conflicting, or unavailable evidence produces a held verdict. No ARB result carries approval,
 mutation, execution, or promotion authority.
+Legacy stores without durable projection-status methods use a bounded 1,024-entry local fallback;
+stores with the required durable marker do not duplicate that state in process memory.
 
 The review accepts only `planned` intent. It hashes the complete Change identity, uses one absolute
 deadline, and serializes only identical idempotency keys, so unrelated reviews can continue in
