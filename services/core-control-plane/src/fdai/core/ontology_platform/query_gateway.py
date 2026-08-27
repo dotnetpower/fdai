@@ -66,6 +66,7 @@ class SecuredObjectSetQueryReceipt(ContractBase):
     projected_result_digest: Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")]
     purpose: str = Field(pattern=r"^[a-z][a-z0-9_-]{0,63}$")
     caller_role: CeilingRole
+    principal_scope_digest: Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")] | None = None
     observation_cutoff: datetime
     temporal_support: Literal["current_state_only"] = "current_state_only"
     as_of_skew_seconds: float = Field(ge=0, le=5)
@@ -203,6 +204,7 @@ class SecuredObjectSetQueryGateway:
         effective_request = ProjectionRequest(
             caller_role=projection_request.caller_role,
             declared_purposes=frozenset({definition.purpose}),
+            principal_scope_digest=projection_request.principal_scope_digest,
         )
         materialization = await self._service.materialize(definition)
         projected_graph = project_graph_snapshot(
@@ -248,6 +250,7 @@ class SecuredObjectSetQueryGateway:
             projected_result_digest=_projected_result_digest(secured_materialization),
             purpose=definition.purpose,
             caller_role=effective_request.caller_role,
+            principal_scope_digest=effective_request.principal_scope_digest,
             observation_cutoff=observation_cutoff,
             as_of_skew_seconds=self._max_as_of_skew_seconds,
             returned_object_count=len(secured_graph.objects),

@@ -115,6 +115,8 @@ Cross-source state adjudication is deterministic and read-only: distinct provide
 projected-state shadow pair withhold conflicts rather than selecting authority.
 Distinct-provider inputs require non-empty provider identities before comparison.
 Forecast and Pattern source projections use an idempotent existing instance-store sink.
+Authenticated Context reads and detection projections enforce canonical receipt, identity, and
+producer checks before returning or persisting semantic evidence.
 the inventory ontology projector serializes graph replacement with its generation commit marker.
 Resource ObjectSet receipts preserve source generation and completeness independently from query
 truncation, including zero-result reads.

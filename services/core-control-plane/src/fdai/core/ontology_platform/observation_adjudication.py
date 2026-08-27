@@ -19,6 +19,7 @@ reported.
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -28,6 +29,7 @@ from typing import Any
 #: hostile or malfunctioning source cannot grow the projected metadata without bound.
 MAX_OBSERVATION_CONFLICTS = 32
 _MAX_CONFLICT_KEY_CHARS = 96
+_CANONICAL_PROVIDER = re.compile(r"^[a-z][a-z0-9_.-]{0,63}$")
 
 CONFLICT_PROPERTY_PREFIX = "observed_property_conflict"
 CONFLICT_TRUNCATED = "observed_property_conflict_truncated"
@@ -51,6 +53,9 @@ class ObservedClaim:
     properties: Mapping[str, Any]
     provider_ref: str | None = None
     observed_at: datetime | None = None
+    target_id: str | None = None
+    generation_id: str | None = None
+    provider_identity_verified: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,6 +72,8 @@ class ObservationVerdict:
     agreed_properties: Mapping[str, Any]
     observed_at: datetime | None
     conflicts: tuple[str, ...]
+    target_id: str | None = None
+    generation_id: str | None = None
 
     @property
     def contested(self) -> bool:
@@ -97,21 +104,42 @@ def adjudicate_independent_observations(
     if len(claims) < 2:
         raise ValueError("independent observation adjudication requires at least two claims")
     providers = {claim.provider_ref for claim in claims}
+    target_ids = {claim.target_id for claim in claims}
+    generation_ids = {claim.generation_id for claim in claims}
     if (
         None in providers
         or any(not isinstance(provider, str) or not provider.strip() for provider in providers)
+        or any(
+            provider != provider.strip().casefold()
+            or _CANONICAL_PROVIDER.fullmatch(provider) is None
+            for provider in providers
+            if isinstance(provider, str)
+        )
         or len(providers) != len(claims)
+        or len(target_ids) != 1
+        or None in target_ids
+        or len(generation_ids) != 1
+        or None in generation_ids
+        or not all(claim.provider_identity_verified for claim in claims)
     ):
         raise ValueError(
-            "independent observations require one distinct provider reference per claim"
+            "independent observations require verified canonical providers for one target "
+            "generation"
         )
-    return _adjudicate(claims, flag_provider_conflict=False)
+    return _adjudicate(
+        claims,
+        flag_provider_conflict=False,
+        target_id=next(iter(target_ids)),
+        generation_id=next(iter(generation_ids)),
+    )
 
 
 def _adjudicate(
     claims: Sequence[ObservedClaim],
     *,
     flag_provider_conflict: bool,
+    target_id: str | None = None,
+    generation_id: str | None = None,
 ) -> ObservationVerdict:
     if not claims:
         raise ValueError("observation adjudication requires at least one claim")
@@ -129,6 +157,8 @@ def _adjudicate(
             agreed_properties=dict(claims[0].properties),
             observed_at=observed_at,
             conflicts=(),
+            target_id=target_id,
+            generation_id=generation_id,
         )
 
     conflicts: set[str] = set()
@@ -149,6 +179,8 @@ def _adjudicate(
         agreed_properties=agreed,
         observed_at=observed_at,
         conflicts=_bounded_conflicts(conflicts),
+        target_id=target_id,
+        generation_id=generation_id,
     )
 
 

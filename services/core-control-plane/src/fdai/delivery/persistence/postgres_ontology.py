@@ -200,6 +200,44 @@ class PostgresOntologyInstanceStore:
             type_ref=record.type_ref,
         )
 
+    async def create_object_if_absent(
+        self,
+        record: OntologyObjectRecord,
+    ) -> OntologyObjectRecord | None:
+        """Atomically insert one object and never overwrite an existing identity."""
+        record = normalize_object_record(pin_object_record(record, self._release))
+        validate_object_record(record, self._object_types)
+        _, properties_json = canonical_json_mapping(
+            record.properties,
+            path=f"{record.object_type}.properties",
+        )
+        type_ref = _require_type_ref(record.type_ref)
+        async with await self._connect() as connection:
+            async with connection.transaction():
+                await self._set_timeout(connection)
+                cursor = await connection.execute(
+                    "INSERT INTO ontology_resource "
+                    "(id, object_type, properties, revision, type_version, catalog_digest) "
+                    "VALUES (%s, %s, %s::jsonb, 1, %s, %s) "
+                    "ON CONFLICT (id) DO NOTHING RETURNING id",
+                    (
+                        record.id,
+                        record.object_type,
+                        properties_json,
+                        type_ref.version,
+                        type_ref.catalog_digest,
+                    ),
+                )
+                if await cursor.fetchone() is None:
+                    return None
+        return OntologyObjectRecord(
+            id=record.id,
+            object_type=record.object_type,
+            properties=dict(record.properties),
+            revision=1,
+            type_ref=record.type_ref,
+        )
+
     def _validate_missing_revision(self, object_id: str, expected_revision: int | None) -> int:
         if expected_revision not in (None, 0):
             raise OntologyInstanceValidationError(

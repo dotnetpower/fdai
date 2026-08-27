@@ -42,6 +42,19 @@ class InMemoryOntologyInstanceStore:
         self._links: dict[tuple[str, str, str], OntologyLinkRecord] = {}
         self._release = build_ontology_release(object_types=object_types, link_types=link_types)
 
+    async def create_object_if_absent(
+        self,
+        record: OntologyObjectRecord,
+    ) -> OntologyObjectRecord | None:
+        """Atomically create one object without overwriting an existing identity."""
+        record = normalize_object_record(pin_object_record(record, self._release))
+        validate_object_record(record, self._object_types)
+        if record.id in self._objects:
+            return None
+        stored = replace(record, revision=1)
+        self._objects[stored.id] = stored
+        return stored
+
     async def upsert_object(
         self,
         record: OntologyObjectRecord,
