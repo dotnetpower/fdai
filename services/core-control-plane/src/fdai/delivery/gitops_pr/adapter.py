@@ -164,6 +164,25 @@ class GitOpsPrAdapter(RemediationPrPublisher):
             already_existed=False,
         )
 
+    async def publish_governance(
+        self,
+        document: Any,
+        *,
+        lifecycle_store: Any,
+        correlation_id: str,
+    ) -> Any:
+        """Publish a pure governance document with lifecycle evidence.
+
+        The governance wrapper uses this adapter's existing write-once,
+        shadow-labeled PR flow and never invokes a merge operation.
+        """
+        from fdai.delivery.gitops_pr.governance import GovernedGovernancePrPublisher
+
+        return await GovernedGovernancePrPublisher(
+            publisher=self,
+            lifecycle_store=lifecycle_store,
+        ).publish(document, correlation_id=correlation_id)
+
     # ------------------------------------------------------------------
     # helpers
     # ------------------------------------------------------------------
