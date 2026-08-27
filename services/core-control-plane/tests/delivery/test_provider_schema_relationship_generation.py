@@ -1,0 +1,278 @@
+"""Adversarial tests for versioned provider relationship materialization."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+from fdai.delivery.azure.provider_relationship_schema import (
+    AzureArmIdReference,
+    AzureProviderRelationshipSchemaSnapshot,
+)
+from fdai.delivery.provider_schema import ProviderSchemaSnapshot, ProviderSchemaType
+from fdai.delivery.provider_schema_relationship_generation import (
+    RelationshipGenerationDropReason,
+    RelationshipLinkMetadata,
+    changed_provider_type_versions,
+    generate_provider_schema_relationship_generation,
+    invalidate_changed_relationship_candidates,
+    replay_provider_schema_relationship_generation,
+)
+from fdai.delivery.provider_schema_relationship_ledger import ProviderSchemaRelationshipLedger
+from fdai.delivery.provider_schema_relationship_review import ProviderSchemaRelationshipReview
+from fdai.rule_catalog.schema.provider_relationship_mapping import (
+    EndpointOrientation,
+    load_provider_relationship_mapping_catalog,
+)
+
+ROOT = Path(__file__).resolve().parents[4]
+SCHEMA_DIGEST = "sha256:" + "a" * 64
+ARG_SCHEMA_DIGEST = "sha256:86b6fc0038f0492047c287e9bfc3c694ea9192658848ebdabee85ad4f8cb1340"
+MANIFEST_DIGEST = "sha256:" + "b" * 64
+
+
+def _schema(*, version: str = "2026-01-01", revision: str = "c" * 40) -> ProviderSchemaSnapshot:
+    return ProviderSchemaSnapshot.build(
+        provider="azure",
+        source_revision=revision,
+        types=(
+            ProviderSchemaType(
+                resource_type="Microsoft.Web/serverFarms",
+                stable_api_versions=(version,),
+                preview_api_versions=(),
+                preferred_api_version=version,
+                source_document="generated/web/types.md",
+            ),
+            ProviderSchemaType(
+                resource_type="Microsoft.Web/sites",
+                stable_api_versions=(version,),
+                preview_api_versions=(),
+                preferred_api_version=version,
+                source_document="generated/web/types.md",
+            ),
+        ),
+    )
+
+
+def _review(
+    schema: ProviderSchemaSnapshot,
+) -> tuple[AzureProviderRelationshipSchemaSnapshot, ProviderSchemaRelationshipReview]:
+    evidence = AzureProviderRelationshipSchemaSnapshot.build(
+        source_revision="d" * 40,
+        provider_schema_digest=schema.schema_digest,
+        extension_document_count=1,
+        arm_id_references=(
+            AzureArmIdReference(
+                source_document="specification/web/resource-manager/web.json",
+                json_pointer="/definitions/Site/properties/serverFarmId",
+                allowed_resource_types=("microsoft.web/serverfarms",),
+                unresolved_allowed_resources=(),
+                operation_paths=("/providers/Microsoft.Web/sites/{name}",),
+                source_resource_types=("microsoft.web/sites",),
+            ),
+        ),
+        resource_definitions=(),
+    )
+    catalog = load_provider_relationship_mapping_catalog(
+        ROOT / "rule-catalog/vocabulary/provider-relationship-mappings"
+    )
+    return evidence, ProviderSchemaRelationshipReview.build(
+        relationship_snapshot=evidence,
+        modeled_provider_types=frozenset({"microsoft.web/sites", "microsoft.web/serverfarms"}),
+        mapping_catalog=catalog,
+    )
+
+
+def _metadata() -> RelationshipLinkMetadata:
+    return RelationshipLinkMetadata(
+        mapping_id="azure.function-depends-on-app-service-plan",
+        source_provider_type="microsoft.web/sites",
+        target_provider_type="microsoft.web/serverfarms",
+        link_type="depends_on",
+        endpoint_orientation=EndpointOrientation.OWNER_TO_REFERENCED,
+        cardinality="many_to_one",
+        source_property_path="properties.serverFarmId",
+        source_schema_version="azure-resource-graph-resources@2022-10-01",
+        source_schema_digest=ARG_SCHEMA_DIGEST,
+        projection_manifest_digest=MANIFEST_DIGEST,
+    )
+
+
+def _generation(
+    schema: ProviderSchemaSnapshot,
+    *,
+    metadata: dict[str, RelationshipLinkMetadata] | None = None,
+):
+    evidence, review = _review(schema)
+    catalog = load_provider_relationship_mapping_catalog(
+        ROOT / "rule-catalog/vocabulary/provider-relationship-mappings"
+    )
+    return generate_provider_schema_relationship_generation(
+        provider_schema=schema,
+        relationship_snapshot=evidence,
+        review=review,
+        mapping_catalog=catalog,
+        link_metadata={} if metadata is None else metadata,
+        generation_ref="provider-schema-generation:one",
+        projection_manifest_digest=MANIFEST_DIGEST,
+    )
+
+
+def test_missing_link_metadata_is_inert_and_incomplete() -> None:
+    generation = _generation(_schema())
+
+    assert generation.candidates == ()
+    assert generation.complete is False
+    assert generation.drops == (RelationshipGenerationDropReason.MISSING_LINK_METADATA,)
+    assert generation.semantic_promotion == "proposal_only"
+    assert generation.graph_mutation_authority is False
+    assert generation.migration_execution_authority is False
+
+
+def test_materialization_binds_direction_cardinality_and_manifest() -> None:
+    generation = _generation(
+        _schema(),
+        metadata={"azure.function-depends-on-app-service-plan": _metadata()},
+    )
+
+    candidate = generation.candidates[0]
+    assert candidate.metadata.endpoint_orientation is EndpointOrientation.OWNER_TO_REFERENCED
+    assert candidate.metadata.cardinality == "many_to_one"
+    assert candidate.metadata.projection_manifest_digest == MANIFEST_DIGEST
+    assert generation.complete is True
+
+
+def test_conflicting_duplicate_metadata_is_not_order_dependent() -> None:
+    schema = _schema()
+    evidence, review = _review(schema)
+    catalog = load_provider_relationship_mapping_catalog(
+        ROOT / "rule-catalog/vocabulary/provider-relationship-mappings"
+    )
+    conflicting = RelationshipLinkMetadata(
+        mapping_id="azure.function-depends-on-app-service-plan",
+        source_provider_type="microsoft.web/sites",
+        target_provider_type="microsoft.web/serverfarms",
+        link_type="depends_on",
+        endpoint_orientation=EndpointOrientation.REFERENCED_TO_OWNER,
+        cardinality="many_to_one",
+        source_property_path="properties.serverFarmId",
+        source_schema_version="azure-resource-graph-resources@2022-10-01",
+        source_schema_digest=ARG_SCHEMA_DIGEST,
+        projection_manifest_digest=MANIFEST_DIGEST,
+    )
+    generation = generate_provider_schema_relationship_generation(
+        provider_schema=schema,
+        relationship_snapshot=evidence,
+        review=review,
+        mapping_catalog=catalog,
+        link_metadata={"z": _metadata(), "a": conflicting},
+        generation_ref="provider-schema-generation:one",
+        projection_manifest_digest=MANIFEST_DIGEST,
+    )
+    assert generation.candidates == ()
+    assert generation.drops == (RelationshipGenerationDropReason.AMBIGUOUS_LINK_METADATA,)
+
+
+def test_stale_relationship_evidence_release_is_rejected() -> None:
+    schema = _schema()
+    evidence, review = _review(schema)
+    catalog = load_provider_relationship_mapping_catalog(
+        ROOT / "rule-catalog/vocabulary/provider-relationship-mappings"
+    )
+    with pytest.raises(ValueError, match="schema release is stale"):
+        generate_provider_schema_relationship_generation(
+            provider_schema=_schema(revision="e" * 40),
+            relationship_snapshot=evidence,
+            review=review,
+            mapping_catalog=catalog,
+            link_metadata={"mapping": _metadata()},
+            generation_ref="generation",
+            projection_manifest_digest=MANIFEST_DIGEST,
+        )
+
+
+def test_changed_subset_invalidation_does_not_reuse_unrelated_candidates() -> None:
+    baseline = _schema()
+    observed = _schema(version="2026-02-01", revision="e" * 40)
+    changed = changed_provider_type_versions(baseline, observed)
+    assert "microsoft.web/sites" in changed
+    generation = _generation(
+        baseline,
+        metadata={"azure.function-depends-on-app-service-plan": _metadata()},
+    )
+    invalidated = invalidate_changed_relationship_candidates(generation, changed)
+    assert invalidated.candidates == ()
+    assert invalidated.complete is False
+    assert RelationshipGenerationDropReason.STALE_LINK_METADATA in invalidated.drops
+
+
+def test_ledger_rollback_keeps_proposal_only_authority(tmp_path: Path) -> None:
+    first = _generation(
+        _schema(),
+        metadata={"azure.function-depends-on-app-service-plan": _metadata()},
+    )
+    second = _generation(
+        _schema(version="2026-02-01", revision="e" * 40),
+        metadata={"azure.function-depends-on-app-service-plan": _metadata()},
+    )
+    ledger = ProviderSchemaRelationshipLedger(tmp_path)
+    ledger.record(first)
+    ledger.record(second)
+    assert ledger.rollback(first.generation_digest) == first.generation_digest
+    active = ledger.read_active()
+    assert active == {
+        "generation_digest": first.generation_digest,
+        "graph_mutation_authority": False,
+        "migration_execution_authority": False,
+        "semantic_promotion": "proposal_only",
+    }
+
+    evidence, review = _review(_schema())
+    catalog = load_provider_relationship_mapping_catalog(
+        ROOT / "rule-catalog/vocabulary/provider-relationship-mappings"
+    )
+    assert replay_provider_schema_relationship_generation(
+        first,
+        provider_schema=_schema(),
+        relationship_snapshot=evidence,
+        review=review,
+        mapping_catalog=catalog,
+        link_metadata={"azure.function-depends-on-app-service-plan": _metadata()},
+        generation_ref="provider-schema-generation:one",
+        projection_manifest_digest=MANIFEST_DIGEST,
+    )
+
+
+def test_direction_shadow_exact_release_rejects_mixed_provider_schema() -> None:
+    from fdai.core.ontology_platform.direction_shadow import (
+        ComparisonDisposition,
+        DirectionGraphGeneration,
+        RebuildPointer,
+        ReviewReason,
+        compare_exact_release_graph_generations,
+    )
+
+    kwargs = {
+        "generation_ref": "generation",
+        "ontology_release_digest": SCHEMA_DIGEST,
+        "object_ids": (),
+        "links": (),
+        "complete": True,
+        "mapping_revision": "mapping-a",
+    }
+    legacy = DirectionGraphGeneration.create(provider_schema_digest=SCHEMA_DIGEST, **kwargs)
+    aligned = DirectionGraphGeneration.create(
+        provider_schema_digest="sha256:" + "c" * 64,
+        **kwargs,
+    )
+    receipt = compare_exact_release_graph_generations(
+        legacy,
+        aligned,
+        migration_revision="migration",
+        rebuild_pointer=RebuildPointer(
+            authoritative_generation_ref="inventory-generation",
+            rebuild_procedure_ref="runbook:rebuild",
+        ),
+    )
+    assert receipt.disposition is ComparisonDisposition.REVIEW_REQUIRED
+    assert ReviewReason.PROVIDER_SCHEMA_RELEASE_MISMATCH in receipt.review_reasons

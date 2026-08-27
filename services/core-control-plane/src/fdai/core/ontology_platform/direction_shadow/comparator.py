@@ -29,10 +29,15 @@ def compare_graph_generations(
     migration_revision: str,
     rebuild_pointer: RebuildPointer,
     bounds: ComparisonBounds = _DEFAULT_BOUNDS,
+    require_exact_releases: bool = False,
 ) -> DirectionShadowReceipt:
     """Compare two immutable generations without mutation or migration authority."""
 
-    reasons = _generation_review_reasons(legacy, aligned)
+    reasons = _generation_review_reasons(
+        legacy,
+        aligned,
+        require_exact_releases=require_exact_releases,
+    )
     roots = tuple(sorted(set(legacy.object_ids) | set(aligned.object_ids)))
     if len(roots) > bounds.max_roots:
         roots = roots[: bounds.max_roots]
@@ -130,16 +135,41 @@ def replay_matches(
         migration_revision=receipt.migration_revision,
         rebuild_pointer=receipt.rebuild_pointer,
         bounds=receipt.bounds,
+        require_exact_releases=(
+            legacy.provider_schema_digest is not None or aligned.provider_schema_digest is not None
+        ),
     )
     return replayed == receipt
+
+
+def compare_exact_release_graph_generations(
+    legacy: DirectionGraphGeneration,
+    aligned: DirectionGraphGeneration,
+    *,
+    migration_revision: str,
+    rebuild_pointer: RebuildPointer,
+    bounds: ComparisonBounds = _DEFAULT_BOUNDS,
+) -> DirectionShadowReceipt:
+    """Compare complete generations while requiring provider-schema release identity."""
+
+    return compare_graph_generations(
+        legacy,
+        aligned,
+        migration_revision=migration_revision,
+        rebuild_pointer=rebuild_pointer,
+        bounds=bounds,
+        require_exact_releases=True,
+    )
 
 
 def _generation_review_reasons(
     legacy: DirectionGraphGeneration,
     aligned: DirectionGraphGeneration,
+    *,
+    require_exact_releases: bool,
 ) -> set[ReviewReason]:
     reasons: set[ReviewReason] = set()
-    checks = (
+    checks = [
         (
             legacy.ontology_release_digest is None,
             ReviewReason.LEGACY_RELEASE_UNBOUND,
@@ -162,7 +192,32 @@ def _generation_review_reasons(
             not aligned.link_evidence_verified,
             ReviewReason.ALIGNED_LINK_EVIDENCE_UNVERIFIED,
         ),
-    )
+        (
+            legacy.provider_schema_digest is not None
+            and aligned.provider_schema_digest is not None
+            and legacy.provider_schema_digest != aligned.provider_schema_digest,
+            ReviewReason.PROVIDER_SCHEMA_RELEASE_MISMATCH,
+        ),
+        (
+            legacy.mapping_revision is not None
+            and aligned.mapping_revision is not None
+            and legacy.mapping_revision != aligned.mapping_revision,
+            ReviewReason.MAPPING_RELEASE_MISMATCH,
+        ),
+    ]
+    if require_exact_releases:
+        checks.extend(
+            (
+                (
+                    legacy.provider_schema_digest is None,
+                    ReviewReason.LEGACY_PROVIDER_SCHEMA_UNBOUND,
+                ),
+                (
+                    aligned.provider_schema_digest is None,
+                    ReviewReason.ALIGNED_PROVIDER_SCHEMA_UNBOUND,
+                ),
+            )
+        )
     reasons.update(reason for failed, reason in checks if failed)
     return reasons
 
@@ -385,4 +440,8 @@ def _link_ref(key: tuple[str, str, str]) -> LinkRef:
     return LinkRef(link_type=link_type, from_id=from_id, to_id=to_id)
 
 
-__all__ = ["compare_graph_generations", "replay_matches"]
+__all__ = [
+    "compare_exact_release_graph_generations",
+    "compare_graph_generations",
+    "replay_matches",
+]

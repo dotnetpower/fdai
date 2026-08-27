@@ -1,6 +1,10 @@
 """Read-only graph-generation shadow comparison for direction migrations."""
 
-from .comparator import compare_graph_generations, replay_matches
+from .comparator import (
+    compare_exact_release_graph_generations,
+    compare_graph_generations,
+    replay_matches,
+)
 from .models import (
     ComparisonBounds,
     ComparisonDisposition,
@@ -33,6 +37,7 @@ __all__ = [
     "RebuildPointer",
     "ReviewReason",
     "assess_direction_mapping_promotion",
+    "compare_exact_release_graph_generations",
     "compare_graph_generations",
     "replay_matches",
 ]
