@@ -226,12 +226,14 @@ principal and active generation, while truncated projections omit the identity e
 The shared scope digest uses lowercase ordinary roles (`reader`, `contributor`, `approver`, or
 `owner`) and rejects `BreakGlass`; exact id predicates use bounded per-id reads when a context
 contains more than 1,000 resources.
-The wire contract permits a bounded 10,000-id context envelope; Core's exact-id store reads still
-cap returned table materialization at the existing safe result bound.
+The wire contract permits a conservative bounded 512-id context envelope; the general ObjectSet
+and store limits remain 1,000.
 The context contract rejects mixed incident, screen, and resource-group identities, while exact
 selection reads are batched at fixed concurrency and retain the source-generation receipt.
-The bounded semantic query JSON envelope is sized for the 10,000-id selection without removing
-the existing row and byte limits on ordinary outputs.
+The conservative context identity cap is 512 resource ids so the signed selection remains within
+the shared wire budget; general ObjectSet limits remain 1,000.
+The bounded semantic query JSON envelope remains within its existing byte limit for the 512-id
+selection without removing the existing row and byte limits on ordinary outputs.
 
 The SDK also owns the logical-topic marker and deterministic consumer-group derivation used when
 those two semantic channels share a physical Event Hub. Core and Operator keep separate adapters,

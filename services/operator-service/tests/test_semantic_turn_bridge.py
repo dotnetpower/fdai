@@ -282,8 +282,8 @@ def test_semantic_envelope_rejects_mixed_context_identity_kinds() -> None:
         )
 
 
-def test_semantic_envelope_accepts_the_bounded_10000_id_context() -> None:
-    resource_ids = tuple(f"resource-{index}" for index in range(10_000))
+def test_semantic_envelope_accepts_the_bounded_512_id_context() -> None:
+    resource_ids = tuple(f"resource-{index}" for index in range(512))
     identity = {
         "principal_id": "operator-1",
         "principal_scope_digest": f"sha256:{'a' * 64}",
@@ -315,7 +315,40 @@ def test_semantic_envelope_accepts_the_bounded_10000_id_context() -> None:
 
     bound_context = cast(dict[str, object], envelope["semantic_turn"])["bound_context"]
     assert isinstance(bound_context, dict)
-    assert len(bound_context["resource_ids"]) == 10_000
+    assert len(bound_context["resource_ids"]) == 512
+
+
+def test_semantic_envelope_rejects_context_over_512_ids() -> None:
+    resource_ids = tuple(f"resource-{index}" for index in range(513))
+    identity = {
+        "principal_id": "operator-1",
+        "principal_scope_digest": f"sha256:{'a' * 64}",
+        "ontology_release_digest": f"sha256:{'b' * 64}",
+        "source_generation": "generation-1",
+        "complete": True,
+    }
+    selection_digest = context_selection_digest(
+        kind="screen",
+        screen_id="ontology-instances",
+        resource_group_id=None,
+        resource_ids=resource_ids,
+        **identity,
+    )
+    with pytest.raises(ValueError, match="at most 512"):
+        SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+            _proposal(
+                body={
+                    "prompt": "Which resources are on this screen?",
+                    "conversation_context": {
+                        "kind": "screen",
+                        "screen_id": "ontology-instances",
+                        "resource_ids": list(resource_ids),
+                        **identity,
+                        "selection_digest": selection_digest,
+                    },
+                }
+            )
+        )
 
 
 def test_semantic_envelope_omits_unbound_or_unsupported_conversation_context() -> None:

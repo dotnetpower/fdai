@@ -24,8 +24,8 @@ from .query_gateway import SecuredObjectSetQueryResult
 from .query_values import QueryRow, QueryTable
 
 CONTEXTUAL_RESOURCE_FUNCTION_NAME = "query.contextual_resources"
-_MAX_CONTEXT_IDS = 10_000
-_MAX_RESOURCES = 10_000
+_MAX_CONTEXT_IDS = 512
+_MAX_RESOURCES = 1_000
 
 
 def contextual_resource_function_type() -> OntologyFunctionType:

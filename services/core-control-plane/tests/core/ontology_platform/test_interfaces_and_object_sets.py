@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import asyncio
 from datetime import UTC, datetime
-from typing import Any
 
 import pytest
 from fdai.core.ontology_platform import (
@@ -57,22 +55,6 @@ def _interfaces() -> tuple[OntologyInterfaceType, OntologyInterfaceType]:
         supported_actions=("ops.restart-service",),
     )
     return ownable, operable
-
-
-class _TrackingStore(InMemoryOntologyInstanceStore):
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-        self.active = 0
-        self.max_active = 0
-
-    async def query_objects(self, **kwargs: Any):  # type: ignore[no-untyped-def]
-        self.active += 1
-        self.max_active = max(self.max_active, self.active)
-        try:
-            await asyncio.sleep(0)
-            return await super().query_objects(**kwargs)
-        finally:
-            self.active -= 1
 
 
 def test_interface_compilation_expands_inheritance() -> None:
@@ -269,54 +251,6 @@ async def test_object_set_materializes_interface_query_with_hard_limit() -> None
     assert result.truncation_reason == "result_limit"
 
 
-async def test_exact_id_membership_reads_beyond_store_candidate_limit() -> None:
-    resource_type = _object_type("Resource", include_owner=False).model_copy(
-        update={
-            "properties": {
-                **_object_type("Resource", include_owner=False).properties,
-                "name": PropertyDecl(type=PropertyType.STRING),
-            }
-        }
-    )
-    store = _TrackingStore(object_types=(resource_type,), link_types=())
-    identifiers = tuple(f"resource-{index}" for index in range(1001))
-    for identifier in identifiers:
-        await store.upsert_object(
-            OntologyObjectRecord(
-                id=identifier,
-                object_type="Resource",
-                properties={
-                    "id": identifier,
-                    "status": "ready",
-                    "name": "target" if identifier == "resource-1000" else "other",
-                },
-            )
-        )
-    service = ObjectSetService(
-        store=store,
-        interfaces=compile_interfaces(
-            interfaces=(), implementations=(), object_types=(resource_type,)
-        ),
-        object_type_names=frozenset({"Resource"}),
-    )
-    definition = ObjectSetDefinition(
-        selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Resource"),
-        predicates=(
-            ObjectPredicate(property="id", operator="in", values=identifiers),
-            ObjectPredicate(property="name", equals="target"),
-        ),
-        as_of=datetime(2026, 8, 1, tzinfo=UTC),
-        purpose="operations-review",
-        limit=1000,
-    )
-
-    result = await service.materialize(definition)
-
-    assert [item.id for item in result.graph.objects] == ["resource-1000"]
-    assert result.truncated is False
-    assert store.max_active <= 16
-
-
 def test_object_set_rejects_unbounded_or_naive_traversal() -> None:
     with pytest.raises(ValueError, match="less than or equal to 1000"):
         ObjectSetDefinition(
@@ -325,6 +259,8 @@ def test_object_set_rejects_unbounded_or_naive_traversal() -> None:
             purpose="operations-review",
             limit=1001,
         )
+    with pytest.raises(ValueError, match="at most 1000"):
+        ObjectPredicate(property="id", operator="in", values=tuple(f"r-{i}" for i in range(1001)))
 
 
 def test_relationship_traversal_v1_accepts_exactly_one_link_type() -> None:
