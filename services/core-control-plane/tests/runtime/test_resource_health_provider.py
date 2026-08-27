@@ -8,6 +8,7 @@ from fdai.delivery.azure.resource_health_collection import (
 )
 from fdai.delivery.azure.service_health import AzureServiceHealthReader
 from fdai.delivery.azure.vm_process_evidence import AzureVmProcessCpuReader
+from fdai.delivery.kubernetes_lifecycle_source import KubernetesLifecycleWatchSource
 from fdai.delivery.kubernetes_resource_event_history import (
     KubernetesResourceEventHistoryReader,
 )
@@ -19,6 +20,7 @@ from fdai.runtime.providers import (
     _build_vm_process_cpu_reader,
 )
 from fdai.runtime.resource_event_providers import (
+    build_kubernetes_lifecycle_source,
     build_kubernetes_resource_event_history_reader,
 )
 
@@ -88,6 +90,34 @@ def test_kubernetes_event_reader_uses_workload_identity_binding() -> None:
     )
 
     assert isinstance(reader, KubernetesResourceEventHistoryReader)
+
+
+def test_kubernetes_lifecycle_source_stays_unbound_without_server_scope() -> None:
+    assert build_kubernetes_lifecycle_source(environment={}, identity=object()) is None
+
+
+def test_kubernetes_lifecycle_source_requires_complete_server_binding() -> None:
+    environment = {
+        "FDAI_KUBERNETES_API_SERVER": "https://cluster.example.com",
+    }
+
+    with pytest.raises(RuntimeError, match="requires API server, cluster ref, auth mode, and CA"):
+        build_kubernetes_lifecycle_source(environment=environment, identity=object())
+
+
+def test_kubernetes_lifecycle_source_uses_the_same_workload_identity_binding() -> None:
+    source = build_kubernetes_lifecycle_source(
+        environment={
+            "FDAI_KUBERNETES_API_SERVER": "https://cluster.example.com",
+            "FDAI_KUBERNETES_CLUSTER_REF": "cluster-example",
+            "FDAI_KUBERNETES_CA_PEM": "test-ca-pem",
+            "FDAI_KUBERNETES_AUTH_MODE": "workload-identity",
+            "FDAI_KUBERNETES_AUDIENCE": "api://kubernetes",
+        },
+        identity=object(),
+    )
+
+    assert isinstance(source, KubernetesLifecycleWatchSource)
 
 
 def test_service_health_reader_uses_the_same_server_scope(monkeypatch) -> None:  # type: ignore[no-untyped-def]
