@@ -30,7 +30,7 @@ _MAX_WATCH_LINE_BYTES: Final = 65_536
 # explicit `result_limit` gap and leaves the cursor untouched so the next attempt
 # safely restarts the list (idempotent: observations are content-addressed).
 _MAX_LIST_PAGES: Final = 8
-_MAX_LIST_DRAIN_EVENTS: Final = _MAX_EVENTS * _MAX_LIST_PAGES
+MAX_KUBERNETES_LIFECYCLE_POLL_OBSERVATIONS: Final = _MAX_EVENTS * _MAX_LIST_PAGES
 
 
 class KubernetesLifecycleSourceError(RuntimeError):
@@ -97,7 +97,7 @@ class KubernetesLifecyclePoll:
     def __post_init__(self) -> None:
         if not self.cluster_ref.strip() or len(self.cluster_ref) > 512:
             raise ValueError("Kubernetes lifecycle poll cluster_ref MUST be bounded non-empty")
-        if len(self.observations) > _MAX_LIST_DRAIN_EVENTS:
+        if len(self.observations) > MAX_KUBERNETES_LIFECYCLE_POLL_OBSERVATIONS:
             raise ValueError("Kubernetes lifecycle poll exceeds its event bound")
         if any(item.cluster_ref != self.cluster_ref for item in self.observations):
             raise ValueError("Kubernetes lifecycle poll widened the requested cluster scope")
@@ -190,7 +190,7 @@ class KubernetesLifecycleWatchSource:
         malformed = False
         continue_token: str | None = None
         for _ in range(_MAX_LIST_PAGES):
-            params = {"limit": str(self._config.list_limit + 1)}
+            params = {"limit": str(self._config.list_limit)}
             if continue_token is not None:
                 params["continue"] = continue_token
             try:
@@ -219,9 +219,9 @@ class KubernetesLifecycleWatchSource:
             continuation = metadata.get("continue")
             if continuation is not None and not isinstance(continuation, str):
                 return self._gap(cluster_ref, limitation="lifecycle_response_invalid")
-            if len(items) > self._config.list_limit and not continuation:
-                malformed = True
-            for item in items[: self._config.list_limit]:
+            if len(items) > self._config.list_limit:
+                return self._gap(cluster_ref, limitation="lifecycle_response_invalid")
+            for item in items:
                 if not isinstance(item, Mapping):
                     malformed = True
                     continue
@@ -592,6 +592,7 @@ def _text(value: object, *, maximum: int) -> str | None:
 
 
 __all__ = [
+    "MAX_KUBERNETES_LIFECYCLE_POLL_OBSERVATIONS",
     "KubernetesLifecyclePoll",
     "KubernetesLifecycleSource",
     "KubernetesLifecycleSourceConfig",

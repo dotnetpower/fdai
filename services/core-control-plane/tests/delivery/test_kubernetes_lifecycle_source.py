@@ -382,6 +382,7 @@ async def test_list_drains_more_than_one_output_page_before_advancing_cursor() -
     def handler(request: httpx.Request) -> httpx.Response:
         nonlocal calls
         calls += 1
+        assert request.url.params["limit"] == "256"
         if calls == 1:
             return _json_response(
                 {
@@ -407,6 +408,10 @@ async def test_list_drains_more_than_one_output_page_before_advancing_cursor() -
     assert poll.complete is True
     assert poll.next_cursor == "3001"
     assert len(poll.observations) == 257
+    assert {item.source_revision for item in poll.observations} == {
+        *(str(5000 + index) for index in range(256)),
+        "6000",
+    }
 
 
 async def test_malformed_response_never_raises_and_reports_response_invalid() -> None:

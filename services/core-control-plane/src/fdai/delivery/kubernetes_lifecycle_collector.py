@@ -10,12 +10,12 @@ from fdai.core.ontology_platform.kubernetes_lifecycle_observation import (
     KubernetesLifecycleObservation,
 )
 from fdai.delivery.kubernetes_lifecycle_source import (
-    _MAX_LIST_DRAIN_EVENTS,
+    MAX_KUBERNETES_LIFECYCLE_POLL_OBSERVATIONS,
     KubernetesLifecyclePoll,
     KubernetesLifecycleSource,
 )
 
-_MAX_OBSERVATIONS_PER_APPEND = _MAX_LIST_DRAIN_EVENTS
+_MAX_OBSERVATIONS_PER_APPEND = MAX_KUBERNETES_LIFECYCLE_POLL_OBSERVATIONS
 
 
 class KubernetesLifecycleCursorConflictError(RuntimeError):
