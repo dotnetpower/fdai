@@ -257,23 +257,27 @@ def _bound_context(
             screen_id = selection.get("screen_id")
             if not isinstance(screen_id, str):
                 raise ValueError("screen selection identity is invalid")
-            return SemanticBoundContext(
+            context = SemanticBoundContext(
                 kind="screen",
                 screen_id=screen_id,
                 selection_token=token,
                 resource_ids=tuple(selection["resource_ids"]),
                 **_context_identity_fields(selection, principal_id=principal_id),
             )
+            _verify_context_selection_digest(context)
+            return context
         resource_group_id = selection.get("resource_group_id")
         if not isinstance(resource_group_id, str):
             raise ValueError("resource-group selection identity is invalid")
-        return SemanticBoundContext(
+        context = SemanticBoundContext(
             kind="resource_group",
             resource_group_id=resource_group_id,
             selection_token=token,
             resource_ids=tuple(selection["resource_ids"]),
             **_context_identity_fields(selection, principal_id=principal_id),
         )
+        _verify_context_selection_digest(context)
+        return context
     incident_id = value.get("incident_id")
     correlation_id = value.get("correlation_id")
     if incident_id is None and correlation_id is None:
