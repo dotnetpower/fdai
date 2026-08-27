@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: b8cce8bb61a233b686e370f2e3913e010ac8b74b
+translation_source_sha: 5f90f2f30bfbf87c4fc0d736837d91bb5338072f
 translation_revised: 2026-08-27
 ---
 # FDAI 운영 온톨로지
@@ -134,6 +134,7 @@ translation_revised: 2026-08-27
 | 2026-08-27 | implemented | 후속 검토에서 발견한 의미상 빈 개정 사례를 닫았습니다. 서로 일치하더라도 공백으로만 된 운영 모델 개정은 식별자 일치를 충족하지 않고 불완전 상태로 유지합니다. | `current change`; 집중 최신성 및 판테온 검사 53개 통과; Ruff와 strict mypy 통과. | 배포 근거는 별도로 보존합니다. |
 | 2026-08-27 | implemented | Receipt로 검증된 컨텍스트 메타데이터를 기존 principal 범위 운영 근거 응답에 연결했습니다. 응답은 이제 서버가 확인한 principal을 포함하며, 컨텍스트 변환은 메타데이터를 반환하기 전에 principal, 목적, 릴리스, stale, 불완전 및 잘린 근거를 거부합니다. | `current change`; `core/operational_context/test_console_projection.py` 및 `test_evidence_read.py` 검사 14개 통과 | 인증된 Console 근거는 별도로 보존하며 권한이나 런타임 승격은 바꾸지 않습니다. |
 | 2026-08-27 | implemented | 양의 `Forecast` episode와 균형 잡힌 `Pattern` 후보를 위한 권한 없는 런타임 변환 결과를 추가했습니다. Detector, target, interval, case 및 evidence 신원을 보존하며 근거 없는 관계는 복원하지 않습니다. | `current change`; `core/ontology_platform/detection_projection.py`, detection, forecast-episode 및 operational-learning 집중 검사 11개 통과 | 정확한 objective 또는 outcome endpoint 신원을 생산자가 제공할 때에만 `predicts_breach_of` 또는 `learned_as`를 복원합니다. |
+| 2026-08-27 | implemented | object 및 array Property 값을 위한 범위 제한 canonical JSON 의미 규칙을 완료했습니다. 정규화는 유한성, 깊이 및 바이트 한도의 JSON과 안정적인 키 순서를 강제하며, collection coverage gate는 룰이 평가하는 모든 참조를 검토된 것으로 기록합니다. | `current change`; `property_semantic.py`; `test_property_semantic.py`; `check-property-semantic-coverage.py`가 검토된 참조 62/62개를 보고합니다. | 검토된 registry를 유지하고 새로운 collection Property 참조가 생기면 하한을 함께 올립니다. |
 
 ### 남은 작업
 

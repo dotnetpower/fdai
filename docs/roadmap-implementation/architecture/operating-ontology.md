@@ -115,6 +115,7 @@ scope, append-only transitions, and resumable work.
 | 2026-08-27 | implemented | Rejected matching whitespace-only operating-model revisions as semantically empty. | `current change`; focused freshness and pantheon checks (`53 passed`); Ruff and strict mypy. | Retain deployed evidence separately. |
 | 2026-08-27 | implemented | Bound receipt-verified Context metadata into the existing principal-scoped operational evidence response. The response now carries a server-checked principal, and Context projection rejects principal, purpose, release, stale, incomplete, and truncated evidence before returning metadata. | `current change`; `core/operational_context/test_console_projection.py` and `test_evidence_read.py` (`14 passed`). | Retain authenticated Console evidence separately; no authority or runtime promotion changes. |
 | 2026-08-27 | implemented | Added authority-free runtime projections for positive `Forecast` episodes and balanced `Pattern` candidates, preserving detector, target, interval, case, and evidence identities without restoring unsupported relationships. | `current change`; `core/ontology_platform/detection_projection.py`; focused detection, forecast-episode, and operational-learning tests (`11 passed`). | Restore `predicts_breach_of` or `learned_as` only after a producer supplies the exact objective or outcome endpoint identity. |
+| 2026-08-27 | implemented | Completed bounded canonical JSON semantics for object and array Property values. Normalization now enforces finite, depth- and byte-bounded JSON with stable key ordering, and the collection coverage gate records all rule-evaluated references as reviewed. | `current change`; `property_semantic.py`; `test_property_semantic.py`; `check-property-semantic-coverage.py` reports 62/62 reviewed references. | Preserve the reviewed registry and raise its floor with any new collection Property reference. |
 | 2026-08-27 | implemented | Reviewed every shipped lifecycle-free ObjectType and recorded the existing catalog, event-bus, provider, service, or principal-scoped authority without introducing speculative agent writers. | `current change`; `rule-catalog/vocabulary/object-types/` inventory and the owner documentation authority table. | Reopen only when an existing authority changes or a type gains an objectively required lifecycle. |
 
 ### Remaining work
@@ -155,4 +156,5 @@ scope, append-only transitions, and resumable work.
 - [ ] Decide whether an adjudicated cross-source conflict should also reach an autonomy ceiling
   outside the read path, and which writer may carry it without breaking single-writer ownership of
   the projected subgraph.
-- [ ] Support bounded canonical JSON Property semantics; the coverage gate ranks the blocked reads.
+- [x] Support bounded canonical JSON Property semantics; the coverage gate reports 62/62 reviewed
+  references and focused normalization tests cover finite, depth, byte, object, and array bounds.
