@@ -9,7 +9,8 @@ import ssl
 import sys
 from contextlib import AsyncExitStack
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from uuid import uuid4
 
 import httpx
 import yaml
@@ -56,6 +57,7 @@ from fdai.delivery.kubernetes_inventory import (
     SequentialInventoryPromotionEnricher,
     UnavailableKubernetesInventoryEnricher,
 )
+from fdai.delivery.kubernetes_lifecycle_collection import KubernetesLifecycleCollector
 from fdai.delivery.operational_activity import (
     EventBusOperationalActivityPublisher,
     ObservedInventorySnapshotStore,
@@ -74,6 +76,10 @@ from fdai.delivery.persistence.postgres_inventory_reconciliation import (
 from fdai.delivery.persistence.postgres_inventory_snapshot import (
     PostgresInventorySnapshotStore,
     PostgresInventorySnapshotStoreConfig,
+)
+from fdai.delivery.persistence.postgres_kubernetes_lifecycle import (
+    PostgresKubernetesLifecycleConfig,
+    PostgresKubernetesLifecycleStore,
 )
 from fdai.delivery.persistence.postgres_resource_lock import (
     PostgresAdvisoryResourceLock,
@@ -626,6 +632,7 @@ async def _run_due_once() -> InventoryJobConfig:
 
     runtime_values = await runtime_settings_service_from_env(os.environ).effective_values()
     config = InventoryJobConfig.from_env(runtime_values=runtime_values)
+    await _collect_kubernetes_lifecycle(config)
     snapshot_config = PostgresInventorySnapshotStoreConfig(
         dsn=config.dsn,
         freshness_budget_seconds=config.freshness_budget_seconds,
@@ -671,6 +678,75 @@ async def _run_due_once() -> InventoryJobConfig:
             flush=True,
         )
     return config
+
+
+async def _collect_kubernetes_lifecycle(config: InventoryJobConfig) -> int | None:
+    """Collect one leased watch window independently of inventory snapshot due state."""
+
+    if (
+        config.kubernetes_api_server is None
+        or config.kubernetes_cluster_ref is None
+        or config.kubernetes_auth_mode is None
+        or (config.kubernetes_ca_path is None and config.kubernetes_ca_pem is None)
+    ):
+        return 0
+    now = datetime.now(UTC)
+    holder = f"inventory-lifecycle:{uuid4()}"
+    store = PostgresKubernetesLifecycleStore(
+        config=PostgresKubernetesLifecycleConfig(dsn=config.dsn)
+    )
+    try:
+        cursor = await store.acquire(
+            cluster_ref=config.kubernetes_cluster_ref,
+            holder=holder,
+            now=now,
+            lease_until=now + timedelta(seconds=45),
+        )
+        if cursor is None:
+            return 0
+        kubernetes_ssl = ssl.create_default_context(
+            cafile=str(config.kubernetes_ca_path) if config.kubernetes_ca_path else None,
+            cadata=config.kubernetes_ca_pem,
+        )
+        async with httpx.AsyncClient() as identity_client:
+            identity = _workload_identity(http_client=identity_client)
+            auth: KubernetesApiAuth
+            if config.kubernetes_auth_mode == "workload-identity":
+                if config.kubernetes_audience is None:
+                    raise RuntimeError("Kubernetes lifecycle workload audience is unavailable")
+                auth = WorkloadIdentityKubernetesAuth(
+                    identity=identity,
+                    audience=config.kubernetes_audience,
+                )
+            else:
+                if config.kubernetes_token_path is None:
+                    raise RuntimeError("Kubernetes lifecycle service-account token is unavailable")
+                auth = ServiceAccountTokenAuth(config.kubernetes_token_path)
+            async with httpx.AsyncClient(verify=kubernetes_ssl) as kubernetes_client:
+                batch = await KubernetesLifecycleCollector(
+                    api_server=config.kubernetes_api_server,
+                    cluster_ref=config.kubernetes_cluster_ref,
+                    auth=auth,
+                    http_client=kubernetes_client,
+                ).collect(cursor)
+        if not await store.append(batch, holder=holder, now=datetime.now(UTC)):
+            _LOGGER.warning(
+                "kubernetes_lifecycle_cursor_contended",
+                extra={"reason": "lease_or_sequence_changed"},
+            )
+            return None
+        if batch.limitation is not None:
+            _LOGGER.warning(
+                "kubernetes_lifecycle_collection_incomplete",
+                extra={"reason": batch.limitation},
+            )
+        return len(batch.observations)
+    except Exception as exc:  # noqa: BLE001 - independent read-only evidence source
+        _LOGGER.warning(
+            "kubernetes_lifecycle_collection_failed",
+            extra={"reason": type(exc).__name__},
+        )
+        return None
 
 
 async def _publish_collection_health(

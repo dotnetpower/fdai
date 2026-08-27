@@ -30,6 +30,7 @@ from fdai.delivery.inventory_sync_cli import (
     _build_kubernetes_enricher,
     _build_ontology_observer,
     _build_sources,
+    _collect_kubernetes_lifecycle,
     _drain_change_stream,
     _forward_recovery_deltas,
     _load_relationship_mapping_catalog,
@@ -186,6 +187,17 @@ async def test_inventory_job_selects_only_the_venue_specific_identity(
 
     assert isinstance(local, AsyncAzureCliWorkloadIdentity)
     assert isinstance(deployed, ManagedIdentityWorkloadIdentity)
+
+
+async def test_lifecycle_collection_skips_an_unconfigured_source() -> None:
+    config = InventoryJobConfig.from_env(
+        {
+            "FDAI_INVENTORY_DSN": "postgresql://example",
+            "AZURE_SUBSCRIPTION_ID": "sub-1",
+        }
+    )
+
+    assert await _collect_kubernetes_lifecycle(config) == 0
 
 
 def test_job_loads_reviewed_kubernetes_relationship_mappings() -> None:

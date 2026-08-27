@@ -15,6 +15,10 @@ from fdai.delivery.azure.resource_event_history import (
     AzureResourceEventHistoryConfig,
     AzureResourceEventHistoryReader,
 )
+from fdai.delivery.durable_kubernetes_resource_event_history import (
+    DurableKubernetesResourceEventHistoryReader,
+    MergedKubernetesResourceEventHistoryReader,
+)
 from fdai.delivery.kubernetes_api_inventory import (
     KubernetesApiAuth,
     ServiceAccountTokenAuth,
@@ -23,6 +27,10 @@ from fdai.delivery.kubernetes_api_inventory import (
 from fdai.delivery.kubernetes_resource_event_history import (
     KubernetesResourceEventHistoryConfig,
     KubernetesResourceEventHistoryReader,
+)
+from fdai.delivery.persistence.postgres_kubernetes_lifecycle import (
+    PostgresKubernetesLifecycleConfig,
+    PostgresKubernetesLifecycleStore,
 )
 from fdai.delivery.resource_event_history import CompositeResourceEventHistoryReader
 
@@ -58,7 +66,23 @@ def build_resource_event_history_reader(
         identity=identity,
     )
     if kubernetes is not None:
-        readers[KUBERNETES_EVENT_FAMILY] = kubernetes
+        dsn = (
+            environment.get("FDAI_INVENTORY_DSN", "").strip()
+            or environment.get("FDAI_STATE_STORE_DSN", "").strip()
+        )
+        readers[KUBERNETES_EVENT_FAMILY] = (
+            MergedKubernetesResourceEventHistoryReader(
+                live=kubernetes,
+                durable=DurableKubernetesResourceEventHistoryReader(
+                    store=PostgresKubernetesLifecycleStore(
+                        config=PostgresKubernetesLifecycleConfig(dsn=dsn)
+                    ),
+                    cluster_ref=environment["FDAI_KUBERNETES_CLUSTER_REF"].strip(),
+                ),
+            )
+            if dsn
+            else kubernetes
+        )
     return CompositeResourceEventHistoryReader(readers=readers) if readers else None
 
 

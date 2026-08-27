@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 1c5156afc124a0488d6836740c1a4c4c4aad8e53
+translation_source_sha: 4884979f8fae57c1be474264e05acc54c171d73e
 translation_revised: 2026-08-27
 ---
 # FDAI 온톨로지 안전 인프라
@@ -139,6 +139,7 @@ Console은 redaction, 호환성, 완전성 또는 권한을 계산하지 않습�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-27 | in-progress | 타입 지정 Kubernetes lifecycle 관측, lease 기반 불투명 cursor, 범위가 제한된 bookmark watch, 원자적 PostgreSQL append와 cursor 진행 및 정확한 범위의 영속 Resource Event reader를 추가했습니다. Provider message text는 저장하지 않으며 collector에는 ontology 쓰기 경로가 없습니다. | `current change`, lifecycle/Event 검사 76개 통과, service-migration 계약 60개 통과, Ruff, formatter 및 strict mypy 통과, 인증된 Event API와 정확한 UID 읽기 성공 | Validation schema fingerprint와 경쟁하는 untracked migration head를 해결한 뒤 migration을 적용하고 과거 부재를 검증할 만큼 중단 없는 coverage를 축적합니다. |
 | 2026-08-27 | implemented | Resource Event 답변 변환이 가장 최근의 범위가 제한된 행을 보존하고 표시 잘림을 공개하도록 변경했습니다. 이중 언어 답변은 원본 전체에서 표시한 행 8개를 보고하고 최신 행을 시간순으로 유지합니다. | `current change`, 집중 Resource Event 답변 검사 3개 통과, Ruff 및 formatter 통과 | 런타임 출처 접근을 복구한 뒤 Event 행이 있는 인증된 답변 하나를 보존해야 합니다. 영속 Event 이력은 계속 열린 상태입니다. |
 | 2026-08-27 | implemented | 정확한 identity 조건식이 Resource 0개 또는 여러 개로 해소되면 Event Function이 이를 차단하도록 수정했습니다. Provider에는 요청하지 않고 결과는 `target_resolution_not_exact`로 불완전하게 유지합니다. 완전한 넓은 범위의 기존 빈 결과 의미는 유지합니다. | `current change`, 집중 Resource Event FunctionType 회귀 검사 | 런타임 Kubernetes Event 출처를 복구하고 인증된 정확한 대상 프로바이더 증적 하나를 보존해야 합니다. 행 0개가 과거 부재를 증명하려면 영속 이력이 계속 필요합니다. |
 | 2026-08-27 | implemented | 출처에 근거한 정확한 대상 하나를 Event 계획에 결속하고 전용 이중 언어 읽기 전용 답변으로 Event 행과 제한 사항을 변환했습니다. 이름이 같은 Resource가 모호하면 검토된 유형 범위가 함께 좁히기 전까지 incomplete로 유지합니다. 이름은 권한을 만들거나 secured ObjectSet을 우회하지 않습니다. | `current change`, 집중 Event 수직 경로 검사 287개 통과, Ruff, formatter 및 strict mypy 통과. 인증된 후보 선택과 정확한 대상 후속 실행은 노드 2개 Function 계획과 근거 검사 8/8을 완료하고 `source_unavailable`, 출처 불완전성 및 실행 권한 없음을 렌더링했습니다. | 런타임 Kubernetes Event 출처를 복구하고 identity-aware 프로바이더 증적 1개를 보존한 뒤 provider TTL을 보존 커버리지로 취급하기 전에 영속 이력을 추가합니다. |
