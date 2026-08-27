@@ -104,6 +104,8 @@ Inventory relationship convergence is owned by the continuous operational instan
 provider parents shadow generic containment, and snapshot and ontology stores enforce cardinality.
 principal-scoped operational evidence reads bind receipt-verified Context metadata through the
 existing bounded response without adding mutation or execution authority.
+Detection projections similarly expose only source-derived Forecast and Pattern objects; deferred
+relationships require exact endpoint identities before catalog restoration.
 The inventory ontology projector serializes graph replacement with its generation commit marker.
 Resource ObjectSet receipts preserve source generation and completeness independently from query
 truncation, including zero-result reads.

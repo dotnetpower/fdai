@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 831b3abfdb12b4c4a164df5ee6dd79ae9f6d203e
+translation_source_sha: 3969eee4cba568892876c6420b24b65d48c344a0
 translation_revised: 2026-08-30
 ---
 # 코드 맵
@@ -110,6 +110,8 @@ ObjectSet receipt는 결과가 0개인 read를 포함해 source generation 및 c
 truncation과 독립적으로 보존합니다.
 Principal 범위 운영 근거 읽기는 기존의 범위가 제한된 응답을 통해 증적으로 검증된 Context
 메타데이터를 연결하며 변경 또는 실행 권한을 추가하지 않습니다.
+Detection 변환 결과도 출처에서 파생된 Forecast 및 Pattern 객체만 노출하며 보류된 관계는
+카탈로그를 복원하기 전에 정확한 엔드포인트 신원을 요구합니다.
 같은 변환은 독립적으로 검증된 `runtime_calls` edge를 양방향으로 보존하며 서비스 간 상호 호출을
 방향 충돌로 취급하지 않습니다.
 

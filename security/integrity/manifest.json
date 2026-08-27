@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 1263,
+  "file_count": 1264,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "ebca41cd37517c9c564b1351302f9222805b56f186b9a83e9a562e69a51a74a9",
     ".github/instructions/agent-stewardship.instructions.md": "e2e2224db17159323f910252e0f9f6efb44c0f1d7e0d217d5159745c15c9ff46",
@@ -568,6 +568,7 @@
     "services/core-control-plane/src/fdai/core/ontology_platform/catalog_queries.py": "395b61dd56f9c51a164b440a29c1c081b7e21cdee4d2a08a089715883a08a9df",
     "services/core-control-plane/src/fdai/core/ontology_platform/contextual_resource_queries.py": "8cda2501c5b8d59125a5b835b131dce77097d75ae357c89915121fbb0cf75ab2",
     "services/core-control-plane/src/fdai/core/ontology_platform/declaration_queries.py": "bf560e218e09afaa38487daa712a0a8106ef921c1308cbc29e723ca10e279bc9",
+    "services/core-control-plane/src/fdai/core/ontology_platform/detection_projection.py": "7cff89e624557a11b9efb5c27e07cdbf4c83d607b872068e6bed8e7e101e052f",
     "services/core-control-plane/src/fdai/core/ontology_platform/diagnostic_ledger.py": "c6863e75d45a2aa550bb71afad872bb74c2196f2446854cfbf45ebd370c2f8dc",
     "services/core-control-plane/src/fdai/core/ontology_platform/diagnostic_projection.py": "c1307832c77815206ef8ed82de23059dc5afc243b6b2e11918c0132440c662c2",
     "services/core-control-plane/src/fdai/core/ontology_platform/diagnostic_results.py": "c7de37c37c2347ebdc9b3f38431a6334aeb0433b4b44233251a149d3c74f02b2",

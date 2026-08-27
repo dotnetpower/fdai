@@ -130,6 +130,7 @@ This document defines the typed operational truth infrastructure used by FDAI's 
 | 2026-08-24 | implemented | Extended interrupted-update recovery across the projection-to-revision-claim boundary. The projected manifest now pins the canonical snapshot digest, so an exact retry after claim persistence fails closes the claim and cursor without replacing the graph or incrementing object revisions. | `current change`; `runtime/{operating_model,continuous_operating_model}.py`; projection-before-claim failure injection and the complete focused worker file (`8 passed`). | Retain cross-replica lock-pressure and process-kill measurements as deployment evidence. |
 | 2026-08-24 | implemented | Corrected multi-effect lineage scoring so a terminal plan-level reconciliation cannot make an effect scorable when the independent target observation omits that effect's metric. The lineage remains complete but records the effect as explicitly unscorable. | `current change`; `delivery/operational_lineage.py`; focused lineage checks (`2 passed`). | Retain a production episode with one independently observed value per expected effect before using the lineage for governed learning evidence. |
 | 2026-08-27 | implemented | Reviewed every shipped lifecycle-free ObjectType and recorded the existing catalog, event-bus, provider, service, or principal-scoped authority without introducing speculative agent writers. | `current change`; `rule-catalog/vocabulary/object-types/` inventory and the owner documentation authority table. | Reopen only when an existing authority changes or a type gains an objectively required lifecycle. |
+| 2026-08-27 | implemented | Added authority-free runtime projections for positive `Forecast` episodes and balanced `Pattern` candidates, preserving detector, target, interval, case, and evidence identities without restoring unsupported relationships. | `current change`; `core/ontology_platform/detection_projection.py`; focused detection, forecast-episode, and operational-learning tests (`11 passed`). | Restore `predicts_breach_of` or `learned_as` only after a producer supplies the exact objective or outcome endpoint identity. |
 | 2026-08-27 | implemented | Bound receipt-verified Context metadata into the existing principal-scoped operational evidence response. The response now carries a server-checked principal, and Context projection rejects principal, purpose, release, stale, incomplete, and truncated evidence before returning metadata. | `current change`; `core/operational_context/test_console_projection.py` and `test_evidence_read.py` (`14 passed`). | Retain authenticated Console evidence separately; no authority or runtime promotion changes. |
 
 ### Remaining work
@@ -143,9 +144,9 @@ This document defines the typed operational truth infrastructure used by FDAI's 
   reconciliation, and graph-wide Dynamic delivery reaches its focused exit conditions.
 - [x] Bind `project_operating_scope` to the authenticated read-only inventory graph response so
   `unknown_service` reaches an operator surface; focused consumer checks pass 4 cases.
-- [ ] Supply a producer for the `Forecast` and `Pattern` endpoint pairs before restoring
-  `predicts_breach_of` and `learned_as`. Both ObjectTypes now ship, so the blocker is that no
-  runtime path writes either endpoint, not that the catalog would reject the declaration.
+- [x] Supply authority-free producers for the `Forecast` and `Pattern` endpoint objects. Focused
+  producer and source checks pass. Keep `predicts_breach_of` and `learned_as` deferred until exact
+  objective and outcome endpoint identities exist.
 - [x] Project the six operating-intent types from a deployment-supplied source and pin them with a
   focused test that fails when an intent type produces no instance (`7 passed`).
 - [x] Review the shipped ObjectTypes that carry no `lifecycle` block and record, per type, whether an
