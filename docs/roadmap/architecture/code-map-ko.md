@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 3b289bf1c975965217fae24dcd03cb4c1ac0bd39
+translation_source_sha: f9f203cbd9f2f14789e29271224b8f0034dfa353
 translation_revised: 2026-08-30
 ---
 # 코드 맵
@@ -117,6 +117,8 @@ Detection 변환 결과도 출처에서 파생된 Forecast 및 Pattern 객체만
 선택하지 않은 채 모든 경합 필드를 기록합니다.
 Context 읽기는 인증된 principal 범위 증적을 연결하고 Forecast 및 Pattern 생산자는 원자적
 영속화와 인증된 생산자 증명을 사용합니다.
+보안 쿼리 증적 검증은 표지만 바꾼 다이제스트를 신뢰하지 않고 다이제스트에 포함된 전체 발급
+증적에서 완전성을 다시 파생합니다.
 같은 변환은 독립적으로 검증된 `runtime_calls` edge를 양방향으로 보존하며 서비스 간 상호 호출을
 방향 충돌로 취급하지 않습니다.
 Context 변환 결과는 증적 발급을 인증하고, 출처 세대와 검증 계보를 포함한 전체 링크 관측

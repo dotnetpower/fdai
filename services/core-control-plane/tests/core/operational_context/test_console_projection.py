@@ -107,6 +107,7 @@ def _secured_result(
     complete: bool = True,
     truncated: bool = False,
     object_ids: tuple[str, ...] = ("resource-example", "workload-example"),
+    source_complete: bool = True,
 ) -> SecuredObjectSetQueryResult:
     definition = ObjectSetDefinition(
         selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Resource"),
@@ -136,6 +137,7 @@ def _secured_result(
             objects=objects,
             links=links,
             truncated=truncated,
+            source_complete=source_complete,
         ),
         concrete_types=("Resource", "Workload"),
         truncated=truncated,
@@ -153,6 +155,7 @@ def _secured_result(
             as_of_skew_seconds=0,
             returned_object_count=len(objects),
             returned_link_count=len(links),
+            source_complete=source_complete,
             complete=complete and not truncated,
             truncated=truncated,
             truncation_reason=ObjectSetTruncationReason.RESULT_LIMIT if truncated else None,
@@ -245,7 +248,7 @@ def test_projects_bounded_context_from_matching_secured_receipt() -> None:
         (_secured_result(release_digest="sha256:" + "c" * 64), "release"),
         (_secured_result(cutoff=datetime(2026, 8, 14, 0, 1, tzinfo=UTC)), "cutoff"),
         (_secured_result(object_ids=("resource-example",)), "object coverage"),
-        (_secured_result(complete=False), "unavailable"),
+        (_secured_result(complete=False, source_complete=False), "unavailable"),
         (_secured_result(truncated=True), "unavailable"),
     ),
 )
@@ -328,6 +331,44 @@ def test_rejects_forged_receipt_digest() -> None:
             snapshot=_snapshot(),
             secured_result=forged,
             authenticated_context=_authenticated_context(secured),
+        )
+
+
+def test_rejects_issued_receipt_completeness_forgery() -> None:
+    secured = _secured_result(complete=False, source_complete=False)
+    context = _authenticated_context(secured)
+    forged = secured.model_copy(
+        update={
+            "receipt": secured.receipt.model_copy(update={"complete": True}),
+        }
+    )
+
+    with pytest.raises(ValueError, match="not issued"):
+        project_context_snapshot(
+            snapshot=_snapshot(),
+            secured_result=forged,
+            authenticated_context=context,
+        )
+
+
+def test_rejects_issued_receipt_principal_scope_relabelling() -> None:
+    secured = _secured_result(
+        principal_scope_digest="sha256:" + "d" * 64,
+    )
+    context = _authenticated_context(secured)
+    forged = secured.model_copy(
+        update={
+            "receipt": secured.receipt.model_copy(
+                update={"principal_scope_digest": PRINCIPAL_SCOPE}
+            ),
+        }
+    )
+
+    with pytest.raises(ValueError, match="not issued"):
+        project_context_snapshot(
+            snapshot=_snapshot(),
+            secured_result=forged,
+            authenticated_context=context,
         )
 
 

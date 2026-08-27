@@ -113,6 +113,8 @@ Provider-neutral observation adjudication preserves only properties that distinc
 identically and records every contested field without selecting a winner.
 Context reads bind authenticated principal-scoped receipts, while Forecast and Pattern producers
 use atomic persistence and authenticated producer attestations.
+Secured query receipt verification re-derives completeness from the full digest-covered issued
+receipt rather than trusting a relabelled digest.
 The inventory ontology projector serializes graph replacement with its generation commit marker.
 Resource ObjectSet receipts preserve source generation and completeness independently from query
 truncation, including zero-result reads.
