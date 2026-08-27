@@ -51,7 +51,10 @@ server-verifiable selection identity:
 }
 ```
 
-The Console forwards only this opaque token as additive `conversation_context`.
+Operator projections carry the token in a dedicated `context_capability` envelope.
+The generic projection redactor allowlists only this non-secret opaque capability
+field and continues to redact ordinary `*token` fields. The Console decodes the
+envelope and forwards only this opaque token as additive `conversation_context`.
 Operator resolves it against a process-local server registry and the current
 authenticated principal, ordinary lowercase role scope, purpose, exact
 ontology release, source generation, completeness, and resource-id set. Core

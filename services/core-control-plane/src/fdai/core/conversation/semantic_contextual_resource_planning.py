@@ -50,6 +50,7 @@ def compile_contextual_resource_plan(
         or bound_context is None
         or not _has_contextual_function(manifest)
         or bound_context.principal_id is None
+        or not bound_context.selection_token
     ):
         return None
     resource_ids = tuple(bound_context.resource_ids)
@@ -122,6 +123,10 @@ def compile_contextual_resource_plan(
                     "source_generation": bound_context.source_generation,
                     "selection_digest": bound_context.selection_digest,
                     "complete": bound_context.complete,
+                    "selection_capability": {
+                        "selection_token": bound_context.selection_token,
+                        "selection_digest": bound_context.selection_digest,
+                    },
                 },
                 "dependency_arguments": {scope.node_id: "query_result"},
             }

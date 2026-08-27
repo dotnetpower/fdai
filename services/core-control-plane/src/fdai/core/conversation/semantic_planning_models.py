@@ -66,6 +66,7 @@ class BoundResourceContext:
     ontology_release_digest: str = ""
     source_generation: str = ""
     selection_digest: str = ""
+    selection_token: str = ""
     complete: bool = False
 
     def __post_init__(self) -> None:

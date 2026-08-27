@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
 from itertools import islice
 from typing import Final
@@ -48,6 +49,7 @@ _SENSITIVE_SUFFIXES: Final = (
     "sharedkey",
     "token",
 )
+_CONTEXT_CAPABILITY_TOKEN: Final = re.compile(r"^context-selection:[a-f0-9]{32}$")
 
 
 def redact_projection(value: object, *, depth: int = 0) -> JsonValue:
@@ -58,6 +60,8 @@ def redact_projection(value: object, *, depth: int = 0) -> JsonValue:
         return {
             str(key): REDACTED
             if _sensitive_key(str(key))
+            else _context_capability(item, depth=depth + 1)
+            if str(key) == "context_capability"
             else redact_projection(item, depth=depth + 1)
             for key, item in islice(value.items(), MAX_REDACTION_ITEMS)
         }
@@ -68,6 +72,16 @@ def redact_projection(value: object, *, depth: int = 0) -> JsonValue:
     if value is None or isinstance(value, (str, int, float, bool)):
         return value
     return str(value)
+
+
+def _context_capability(value: object, *, depth: int) -> JsonValue:
+    """Preserve only the non-secret opaque selection token envelope."""
+    if depth >= MAX_REDACTION_DEPTH or not isinstance(value, Mapping):
+        return REDACTED
+    token = value.get("selection_token")
+    if not isinstance(token, str) or _CONTEXT_CAPABILITY_TOKEN.fullmatch(token) is None:
+        return REDACTED
+    return {"selection_token": token}
 
 
 def redact_mapping(value: Mapping[str, object]) -> JsonObject:

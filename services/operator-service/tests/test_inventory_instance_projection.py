@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from datetime import UTC, datetime
 
 import pytest
+from fdai_operator_service.context_selection import ContextSelectionRegistry
 from fdai_operator_service.families.operations.contracts import (
     InventoryImpactContext,
     InventoryInstanceActivity,
@@ -29,6 +30,7 @@ from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStore,
     PostgresFamilyStoreConfig,
 )
+from fdai_operator_service.redaction import redact_projection
 from fdai_service_contracts import OperatorRole
 from fdai_service_contracts.ontology_query import content_digest
 
@@ -174,6 +176,7 @@ class _Reader:
 
 
 async def test_instance_directory_uses_the_active_detail_generation() -> None:
+    selection_registry = ContextSelectionRegistry()
     result = await project_inventory_instances(
         query=ProjectionQuery(
             operation="ontology.instance.list",
@@ -189,6 +192,7 @@ async def test_instance_directory_uses_the_active_detail_generation() -> None:
             "ontology_release_digest": f"sha256:{'a' * 64}",
             "link_types": ["contains"],
         },
+        selection_registry=selection_registry,
     )
 
     assert result["source_generation"] == "generation-1"
@@ -199,7 +203,18 @@ async def test_instance_directory_uses_the_active_detail_generation() -> None:
         {"principal_id": "reader", "role": "reader", "purpose": "operations-review"}
     )
     assert isinstance(result["selection_digest"], str)
-    assert isinstance(result["selection_token"], str)
+    capability = result["context_capability"]
+    assert isinstance(capability, dict)
+    token = capability.get("selection_token")
+    assert isinstance(token, str)
+    resolved = selection_registry.resolve(
+        token,
+        principal_id="reader",
+        role="reader",
+        purpose="operations-review",
+    )
+    assert resolved is not None
+    assert redact_projection(result)["context_capability"] == capability
     resources = result["resources"]
     assert isinstance(resources, list)
     assert resources == [
