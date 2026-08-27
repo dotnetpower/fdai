@@ -37,6 +37,8 @@ def _observation(uid: str = "pod-uid-a") -> KubernetesLifecycleObservation:
 class _Store:
     cursor: str | None = "100"
     observations: tuple[KubernetesLifecycleObservation, ...] = (_observation(),)
+    complete: bool = True
+    limitation: str | None = None
 
     async def read_cursor(self, cluster_ref: str) -> str | None:
         assert cluster_ref == "cluster-a"
@@ -47,7 +49,12 @@ class _Store:
         return (
             None
             if self.cursor is None
-            else KubernetesLifecycleCursorState(resource_version=self.cursor, updated_at=NOW)
+            else KubernetesLifecycleCursorState(
+                resource_version=self.cursor,
+                updated_at=NOW,
+                complete=self.complete,
+                limitation=self.limitation,
+            )
         )
 
     async def read_observations(
@@ -147,6 +154,20 @@ async def test_stale_cursor_and_capped_rows_remain_incomplete() -> None:
     assert capped_result.complete is False
     assert capped_result.limitation == "result_limit"
     assert len(capped_result.events) == 256
+
+    gap_state = DurableKubernetesResourceEventHistoryReader(
+        store=_Store(complete=False, limitation="lifecycle_response_invalid"),
+        cluster_ref="cluster-a",
+        now=lambda: NOW,
+    )
+    gap_result = await gap_state.read_history_with_identity(
+        resource_ids=("pod-a",),
+        resource_identity={"pod-a": {"cluster_ref": "cluster-a", "uid": "pod-uid-a"}},
+        event_families=("resource_event.kubernetes",),
+        lookback_seconds=900,
+    )
+    assert gap_result.complete is False
+    assert gap_result.limitation == "lifecycle_cursor_lifecycle_response_invalid"
 
 
 async def test_reader_rejects_missing_or_foreign_uid_before_store_read() -> None:

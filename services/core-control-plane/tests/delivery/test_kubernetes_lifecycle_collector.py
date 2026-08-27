@@ -12,6 +12,7 @@ from fdai.core.ontology_platform.kubernetes_lifecycle_observation import (
 from fdai.delivery.kubernetes_lifecycle_collector import (
     KubernetesLifecycleAppendReceipt,
     KubernetesLifecycleCursorConflictError,
+    KubernetesLifecycleCursorState,
     collect_kubernetes_lifecycle_once,
 )
 from fdai.delivery.kubernetes_lifecycle_source import KubernetesLifecyclePoll
@@ -50,10 +51,20 @@ class _FakeStore:
     cursor: str | None = None
     observations: dict[str, KubernetesLifecycleObservation] = field(default_factory=dict)
     mutation_attempts: int = 0
+    last_complete: bool | None = None
+    last_limitation: str | None = None
 
     async def read_cursor(self, cluster_ref: str) -> str | None:
         assert cluster_ref == CLUSTER_REF
         return self.cursor
+
+    async def read_cursor_state(self, cluster_ref: str) -> KubernetesLifecycleCursorState | None:
+        assert cluster_ref == CLUSTER_REF
+        return (
+            None
+            if self.cursor is None
+            else KubernetesLifecycleCursorState(resource_version=self.cursor, updated_at=NOW)
+        )
 
     async def append(
         self,
@@ -62,8 +73,11 @@ class _FakeStore:
         previous_cursor: str | None,
         next_cursor: str | None,
         observations: tuple[KubernetesLifecycleObservation, ...],
+        complete: bool = True,
+        limitation: str | None = None,
     ) -> KubernetesLifecycleAppendReceipt:
         assert cluster_ref == CLUSTER_REF
+        self.mutation_attempts += 1
         if previous_cursor != self.cursor:
             raise KubernetesLifecycleCursorConflictError("cursor moved concurrently")
         inserted = 0
@@ -75,6 +89,8 @@ class _FakeStore:
             self.observations[observation.evidence_ref] = observation
             inserted += 1
         self.cursor = next_cursor
+        self.last_complete = complete
+        self.last_limitation = limitation
         return KubernetesLifecycleAppendReceipt(
             cluster_ref=cluster_ref,
             inserted_count=inserted,
@@ -240,6 +256,48 @@ async def test_provider_outage_is_surfaced_explicitly_and_never_mutates_the_stor
     # arrived: append() is not invoked, so the cursor row is left durable and intact.
     assert store.cursor == "1000"
     assert store.observations == {}
+    assert store.mutation_attempts == 1
+    assert store.last_complete is False
+    assert store.last_limitation == "source_unavailable"
+
+
+async def test_incomplete_poll_does_not_advance_cursor_but_persists_gap_state() -> None:
+    store = _FakeStore(cursor="1000")
+    observation = _observation(source_revision="1001")
+    source = _FakeSource(
+        [
+            _poll(
+                observations=(observation,),
+                next_cursor="1001",
+                complete=False,
+                limitation="lifecycle_response_invalid",
+            )
+        ]
+    )
+
+    receipt = await collect_kubernetes_lifecycle_once(
+        source=source, store=store, cluster_ref=CLUSTER_REF
+    )
+
+    assert receipt.cursor == "1000"
+    assert store.cursor == "1000"
+    assert store.last_complete is False
+    assert store.last_limitation == "lifecycle_response_invalid"
+    assert len(store.observations) == 1
+
+
+async def test_successful_noop_poll_refreshes_cursor_heartbeat() -> None:
+    store = _FakeStore(cursor="1000")
+    source = _FakeSource([_poll(observations=(), next_cursor="1000")])
+
+    receipt = await collect_kubernetes_lifecycle_once(
+        source=source, store=store, cluster_ref=CLUSTER_REF
+    )
+
+    assert receipt.cursor == "1000"
+    assert store.mutation_attempts == 1
+    assert store.last_complete is True
+    assert store.last_limitation is None
 
 
 async def test_never_mutates_or_deletes_a_previously_persisted_observation() -> None:

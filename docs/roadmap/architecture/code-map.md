@@ -27,6 +27,8 @@ retired top-level application tree.
 > **Kubernetes recovery contract:** Durable lifecycle reads require a fresh cursor, exact UID scope,
 > and a sentinel-row truncation check. Lifecycle-classified termination rows feed the exact-target
 > replacement reducer; incomplete lifecycle evidence cannot retain a recovered status.
+> Collection completeness and gap state are persisted with the cursor, and incomplete LIST snapshots
+> do not advance it.
 
 ## Physical service ownership
 

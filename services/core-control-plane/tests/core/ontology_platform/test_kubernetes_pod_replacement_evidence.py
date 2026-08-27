@@ -421,6 +421,32 @@ def test_non_termination_old_uid_event_cannot_substitute_termination() -> None:
     )
 
 
+def test_precursor_lifecycle_rows_do_not_substitute_terminal_evidence() -> None:
+    for reason, category in (("Unhealthy", "unhealthy"), ("BackOff", "backoff")):
+        observation = KubernetesLifecycleObservation(
+            cluster_ref="cluster-a",
+            namespace="default",
+            object_uid="pod-uid-old",
+            owner_uid="replicaset-uid-a",
+            reason=reason,
+            category=category,
+            event_type="Warning",
+            event_time=_CUTOFF - timedelta(minutes=6),
+            recorded_time=_CUTOFF - timedelta(minutes=5),
+            source_revision="100",
+            evidence_ref=f"old-{category}",
+        )
+
+        assert (
+            termination_from_lifecycle_observations(
+                pod_uid="pod-uid-old",
+                observations=(observation,),
+                cutoff=_CUTOFF,
+            )
+            is None
+        )
+
+
 def test_exact_target_query_composition_uses_lifecycle_backed_reducer() -> None:
     observation = KubernetesLifecycleObservation(
         cluster_ref="cluster-a",

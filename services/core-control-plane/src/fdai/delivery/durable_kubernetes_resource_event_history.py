@@ -118,6 +118,18 @@ class DurableKubernetesResourceEventHistoryReader:
                 complete=False,
                 limitation="lifecycle_cursor_unavailable",
             )
+        if not cursor_state.complete or cursor_state.limitation is not None:
+            return _result(
+                resource_ids,
+                observed_at=observed_at,
+                events=(),
+                complete=False,
+                limitation=(
+                    f"lifecycle_cursor_{cursor_state.limitation}"
+                    if cursor_state.limitation
+                    else "lifecycle_collection_incomplete"
+                ),
+            )
         cursor_age = observed_at - cursor_state.updated_at
         if cursor_age.total_seconds() < 0:
             return _result(

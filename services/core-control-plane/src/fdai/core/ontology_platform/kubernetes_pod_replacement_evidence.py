@@ -22,7 +22,7 @@ _ABNORMAL_REASONS = frozenset(
         "Unhealthy",
     }
 )
-_TERMINATION_CATEGORIES = frozenset({"killing", "failed", "backoff", "unhealthy", "deletion"})
+_TERMINATION_CATEGORIES = frozenset({"killing", "failed", "deletion"})
 
 
 class KubernetesPodReplacementStatus(StrEnum):
@@ -335,7 +335,17 @@ def termination_from_lifecycle_observations(
         and item.event_time <= cutoff
         and (
             item.category in _TERMINATION_CATEGORIES
-            or item.reason in {"OOMKilled", "Evicted", "Preempted", "Terminated"}
+            or item.reason
+            in {
+                "OOMKilled",
+                "Evicted",
+                "Preempted",
+                "Terminated",
+                "Completed",
+                "SuccessfulDelete",
+                "FailedDelete",
+                "Deleted",
+            }
         )
     )
     if not matching:

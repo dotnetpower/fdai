@@ -33,8 +33,10 @@ class KubernetesLifecycleAppendReceipt:
 class KubernetesLifecycleCursorState:
     """Durable cursor plus the collector heartbeat that established it."""
 
-    resource_version: str
+    resource_version: str | None
     updated_at: datetime
+    complete: bool = True
+    limitation: str | None = None
 
 
 class KubernetesLifecycleStore(Protocol):
@@ -53,6 +55,8 @@ class KubernetesLifecycleStore(Protocol):
         previous_cursor: str | None,
         next_cursor: str | None,
         observations: tuple[KubernetesLifecycleObservation, ...],
+        complete: bool = True,
+        limitation: str | None = None,
     ) -> KubernetesLifecycleAppendReceipt: ...
 
     async def read_observations(
@@ -100,31 +104,27 @@ async def collect_kubernetes_lifecycle_once(
     )
     if poll.cluster_ref != cluster_ref:
         raise ValueError("Kubernetes lifecycle source responded with a foreign cluster_ref")
-    cursor_changed = poll.next_cursor != previous_cursor
-    if poll.observations or cursor_changed:
-        receipt = await store.append(
-            cluster_ref=cluster_ref,
-            previous_cursor=previous_cursor,
-            next_cursor=poll.next_cursor,
-            observations=poll.observations,
-        )
-        return KubernetesLifecycleCollectionReceipt(
-            cluster_ref=cluster_ref,
-            polled_count=len(poll.observations),
-            inserted_count=receipt.inserted_count,
-            duplicate_count=receipt.duplicate_count,
-            complete=poll.complete,
-            limitation=poll.limitation,
-            cursor=receipt.cursor,
-        )
-    return KubernetesLifecycleCollectionReceipt(
+    next_cursor = (
+        poll.next_cursor
+        if poll.complete or poll.limitation == "cursor_expired"
+        else previous_cursor
+    )
+    receipt = await store.append(
         cluster_ref=cluster_ref,
-        polled_count=0,
-        inserted_count=0,
-        duplicate_count=0,
+        previous_cursor=previous_cursor,
+        next_cursor=next_cursor,
+        observations=poll.observations,
         complete=poll.complete,
         limitation=poll.limitation,
-        cursor=previous_cursor,
+    )
+    return KubernetesLifecycleCollectionReceipt(
+        cluster_ref=cluster_ref,
+        polled_count=len(poll.observations),
+        inserted_count=receipt.inserted_count,
+        duplicate_count=receipt.duplicate_count,
+        complete=poll.complete,
+        limitation=poll.limitation,
+        cursor=receipt.cursor,
     )
 
 
