@@ -222,18 +222,18 @@ fallback to the principal-visible collection. No context field grants approval o
 authority.
 Explicit utterance predicates are intersected with the token's set, and an incomplete
 object-only contextual table holds the semantic turn instead of becoming an answered claim.
-The contextual FunctionType also requires its opaque capability envelope, so a disconnected model
-node cannot invoke the specialized read.
+The contextual FunctionType carries its opaque selection token as a scalar schema input while the
+object-valued query result remains dependency-only, so a disconnected model node cannot invoke the
+specialized read.
 Operator instance projections issue the token from the authenticated principal and active
 generation, while truncated projections omit the identity entirely.
 The shared scope digest uses lowercase ordinary roles (`reader`, `contributor`, `approver`, or
-`owner`) and rejects `BreakGlass`; exact id predicates always use fixed-batch per-id reads.
+`owner`) and rejects `BreakGlass`. Exact id predicates use batches of at most 128 ids and omit
+relationship materialization and relationship-completeness gating for these object-only reads.
 The wire contract permits a conservative bounded 512-id context envelope; the general ObjectSet
 and store limits remain 1,000.
 The context contract rejects mixed incident, screen, and resource-group identities, while exact
-selection reads are batched at fixed concurrency and retain the source-generation receipt.
-The conservative context identity cap is 512 resource ids so the signed selection remains within
-the shared wire budget; general ObjectSet limits remain 1,000.
+selection reads retain the source-generation receipt.
 The same 512 bound is enforced by the Operator/Core schema, so oversized client context cannot
 enter planning.
 The bounded semantic query JSON envelope remains within its existing byte limit for the 512-id

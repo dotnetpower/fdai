@@ -2029,14 +2029,10 @@ def test_contextual_collection_uses_exact_bound_screen_scope(utterance: str) -> 
         {"property": "id", "operator": "in", "values": ["resource-a", "resource-b"]}
     ]
     assert outcome.plan.nodes[1].arguments["function_name"] == "query.contextual_resources"
-    assert outcome.plan.nodes[1].arguments["arguments"]["selection_capability"] == {
-        "selection_token": "context-selection:" + "a" * 32,
-        "selection_digest": _bound_context(
-            ("resource-a", "resource-b"),
-            release_digest=manifest.release_digest,
-            principal_scope_digest=manifest.coverage_receipt.principal_scope_digest,
-        ).selection_digest,
-    }
+    assert (
+        outcome.plan.nodes[1].arguments["arguments"]["selection_token"]
+        == "context-selection:" + "a" * 32
+    )
     assert outcome.execution_authority is False
 
 

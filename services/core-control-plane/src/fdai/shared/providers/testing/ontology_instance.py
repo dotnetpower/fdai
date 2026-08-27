@@ -158,6 +158,7 @@ class InMemoryOntologyInstanceStore:
         object_ids: Sequence[str] = (),
         property_equals: Mapping[str, Any] | None = None,
         limit: int = 100,
+        include_relationships: bool = True,
     ) -> OntologyGraphSnapshot:
         _validate_limit(limit)
         if (
@@ -182,10 +183,14 @@ class InMemoryOntologyInstanceStore:
         truncated = len(matches) > limit
         objects = tuple(matches[:limit])
         identifiers = {item.id for item in objects}
-        links = tuple(
-            link
-            for _, link in sorted(self._links.items())
-            if link.from_id in identifiers and link.to_id in identifiers
+        links = (
+            tuple(
+                link
+                for _, link in sorted(self._links.items())
+                if link.from_id in identifiers and link.to_id in identifiers
+            )
+            if include_relationships
+            else ()
         )
         return OntologyGraphSnapshot(objects=objects, links=links, truncated=truncated)
 

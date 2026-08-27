@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 9a14de58c0742f15a652e325bebf25402aab9f5e
-translation_revised: 2026-08-27
+translation_source_sha: 5e413c52e9e9186451d840eddfec90b56662fc0e
+translation_revised: 2026-08-28
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -140,6 +140,7 @@ Console은 redaction, 호환성, 완전성 또는 권한을 계산하지 않습�
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-27 | implemented | 개별 id별 ontology store 읽기를 범위가 제한된 exact-id batch query와 이른 result-limit 종결로 교체했습니다. Context id 512개 선택은 이제 새 database connection 수백 개 대신 indexed store query 최대 4개를 사용합니다. | `current change`, ObjectSet, 조건식 및 PostgreSQL instance-store 검사(`31 passed`, `FDAI_DATABASE_URL` 미설정으로 `4 skipped`), Ruff 및 strict mypy | 배포 database 지연 시간 및 connection pressure 근거는 별도로 보존합니다. Remote database는 조회하지 않았습니다. |
+| 2026-08-27 | implemented | 정확한 id batch를 객체 전용으로 유지해 관계 완전성을 상속하지 않게 했습니다. 또한 불투명한 선택 token을 스칼라 Function 입력으로 전달해 객체 값인 결과를 의존성 전용으로 유지했습니다. | `current change`, contextual Function, ObjectSet, 의존성 입력 및 semantic planning 검사 123개 통과, Ruff 및 strict mypy 통과. PostgreSQL 런타임 근거는 환경 제약으로 아직 확인하지 못했습니다. | 배포 database 지연 시간 및 connection pressure 근거는 별도로 보존합니다. Remote database는 조회하지 않았습니다. |
 | 2026-08-27 | implemented | Resource Event 답변 변환이 가장 최근의 범위가 제한된 행을 보존하고 표시 잘림을 공개하도록 변경했습니다. 이중 언어 답변은 원본 전체에서 표시한 행 8개를 보고하고 최신 행을 시간순으로 유지합니다. | `current change`, 집중 Resource Event 답변 검사 3개 통과, Ruff 및 formatter 통과 | 런타임 출처 접근을 복구한 뒤 Event 행이 있는 인증된 답변 하나를 보존해야 합니다. 영속 Event 이력은 계속 열린 상태입니다. |
 | 2026-08-27 | implemented | 정확한 identity 조건식이 Resource 0개 또는 여러 개로 해소되면 Event Function이 이를 차단하도록 수정했습니다. Provider에는 요청하지 않고 결과는 `target_resolution_not_exact`로 불완전하게 유지합니다. 완전한 넓은 범위의 기존 빈 결과 의미는 유지합니다. | `current change`, 집중 Resource Event FunctionType 회귀 검사 | 런타임 Kubernetes Event 출처를 복구하고 인증된 정확한 대상 프로바이더 증적 하나를 보존해야 합니다. 행 0개가 과거 부재를 증명하려면 영속 이력이 계속 필요합니다. |
 | 2026-08-27 | implemented | 출처에 근거한 정확한 대상 하나를 Event 계획에 결속하고 전용 이중 언어 읽기 전용 답변으로 Event 행과 제한 사항을 변환했습니다. 이름이 같은 Resource가 모호하면 검토된 유형 범위가 함께 좁히기 전까지 incomplete로 유지합니다. 이름은 권한을 만들거나 secured ObjectSet을 우회하지 않습니다. | `current change`, 집중 Event 수직 경로 검사 287개 통과, Ruff, formatter 및 strict mypy 통과. 인증된 후보 선택과 정확한 대상 후속 실행은 노드 2개 Function 계획과 근거 검사 8/8을 완료하고 `source_unavailable`, 출처 불완전성 및 실행 권한 없음을 렌더링했습니다. | 런타임 Kubernetes Event 출처를 복구하고 identity-aware 프로바이더 증적 1개를 보존한 뒤 provider TTL을 보존 커버리지로 취급하기 전에 영속 이력을 추가합니다. |

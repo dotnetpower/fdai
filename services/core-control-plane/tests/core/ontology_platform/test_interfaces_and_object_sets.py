@@ -264,16 +264,24 @@ async def test_exact_id_predicates_use_bounded_lookups_and_preserve_intersection
             )
         )
 
-    calls: list[tuple[str, ...]] = []
+    calls: list[tuple[tuple[str, ...], bool]] = []
     original_query = store.query_objects
 
-    async def recording_query(*, object_types, object_ids=(), property_equals=None, limit):
-        calls.append(tuple(object_ids))
+    async def recording_query(
+        *,
+        object_types,
+        object_ids=(),
+        property_equals=None,
+        limit,
+        include_relationships=True,
+    ):
+        calls.append((tuple(object_ids), include_relationships))
         return await original_query(
             object_types=object_types,
             object_ids=object_ids,
             property_equals=property_equals,
             limit=limit,
+            include_relationships=include_relationships,
         )
 
     store.query_objects = recording_query  # type: ignore[method-assign]
@@ -299,8 +307,8 @@ async def test_exact_id_predicates_use_bounded_lookups_and_preserve_intersection
     assert len(result.graph.objects) == 1_000
     assert result.truncated is False
     assert len(calls) == 8
-    assert all(1 <= len(call) <= 128 for call in calls)
-    assert tuple(item for call in calls for item in call) == identifiers
+    assert all(1 <= len(object_ids) <= 128 and not includes for object_ids, includes in calls)
+    assert tuple(item for object_ids, _ in calls for item in object_ids) == identifiers
 
 
 async def test_exact_id_batches_stop_after_the_result_limit() -> None:
@@ -318,7 +326,14 @@ async def test_exact_id_batches_stop_after_the_result_limit() -> None:
     calls = 0
     original_query = store.query_objects
 
-    async def recording_query(*, object_types, object_ids=(), property_equals=None, limit):
+    async def recording_query(
+        *,
+        object_types,
+        object_ids=(),
+        property_equals=None,
+        limit,
+        include_relationships=True,
+    ):
         nonlocal calls
         calls += 1
         return await original_query(
@@ -326,6 +341,7 @@ async def test_exact_id_batches_stop_after_the_result_limit() -> None:
             object_ids=object_ids,
             property_equals=property_equals,
             limit=limit,
+            include_relationships=include_relationships,
         )
 
     store.query_objects = recording_query  # type: ignore[method-assign]

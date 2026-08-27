@@ -439,6 +439,7 @@ class PostgresOntologyInstanceStore:
         object_ids: Sequence[str] = (),
         property_equals: Mapping[str, Any] | None = None,
         limit: int = 100,
+        include_relationships: bool = True,
     ) -> OntologyGraphSnapshot:
         _validate_limit(limit)
         if (
@@ -478,7 +479,11 @@ class PostgresOntologyInstanceStore:
             truncated = len(rows) > limit
             objects = tuple(_object_from_row(row, releases=self._releases) for row in rows[:limit])
             objects_by_id = {item.id: item for item in objects}
-            raw_links = await self._links_within(connection, tuple(objects_by_id))
+            raw_links = (
+                await self._links_within(connection, tuple(objects_by_id))
+                if include_relationships
+                else ()
+            )
             links = tuple(
                 sorted(
                     raw_links,
@@ -493,7 +498,7 @@ class PostgresOntologyInstanceStore:
                 connection,
                 objects,
                 requires_resource_coverage="Resource" in object_types,
-                expresses_relationships=bool(links) or len(objects) > 1,
+                expresses_relationships=include_relationships and (bool(links) or len(objects) > 1),
             )
         return OntologyGraphSnapshot(
             objects=objects,

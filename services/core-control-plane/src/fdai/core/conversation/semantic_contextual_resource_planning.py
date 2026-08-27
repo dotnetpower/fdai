@@ -123,10 +123,7 @@ def compile_contextual_resource_plan(
                     "source_generation": bound_context.source_generation,
                     "selection_digest": bound_context.selection_digest,
                     "complete": bound_context.complete,
-                    "selection_capability": {
-                        "selection_token": bound_context.selection_token,
-                        "selection_digest": bound_context.selection_digest,
-                    },
+                    "selection_token": bound_context.selection_token,
                 },
                 "dependency_arguments": {scope.node_id: "query_result"},
             }
