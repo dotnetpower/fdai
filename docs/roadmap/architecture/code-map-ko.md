@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 4ab5e64ae34e22682a7965b6a47e323d08d745f2
+translation_source_sha: 3ab02ea5e95bc6332cd589529311f9f63f8d08fb
 translation_revised: 2026-08-28
 ---
 # 코드 맵
@@ -226,8 +226,10 @@ shadow 테스트가 두 경계를 고정합니다.
 로컬 조립은 각 패키지 안에서 service-owned client lifecycle과 loopback adapter를 연결합니다.
 따라서 Operator semantic bridge, ingestion publisher, 문서 worker consumer 및 isolated Executor는
 배포된 managed-identity adapter와 동일한 logical topic, 멱등성, 준비 상태 및 증적 경계를
-보존합니다. 문서 worker는 신뢰할 수 없는 압축 해제가 장기 실행 서비스를 종료하지 못하도록
-native PDF를 리소스 상한이 있는 별도 프로세스에서 구문 분석합니다.
+보존합니다. 문서 worker는 native PDF를 리소스 상한이 있는 별도 프로세스에서 구문 분석합니다.
+하나의 wall-clock deadline이 입력 전송과 전체 IPC frame 수신을 포함하며, 부모 프로세스가 page,
+문자 및 출력 byte 상한을 독립적으로 강제하므로 신뢰할 수 없는 압축 해제나 자식 프로세스 출력이
+장기 실행 서비스를 멈추거나 고갈시키지 못합니다.
 
 ## Shared 계약 SDK
 

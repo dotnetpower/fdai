@@ -5,6 +5,9 @@ from __future__ import annotations
 import io
 import json
 import multiprocessing
+import queue
+import threading
+import time
 from dataclasses import dataclass
 from multiprocessing.connection import Connection
 from multiprocessing.process import BaseProcess
@@ -61,11 +64,12 @@ def extract_pdf_pages_isolated(
 ) -> tuple[str | None, ...]:
     """Parse native PDF text in a spawned process or return a typed unsafe-package failure."""
 
+    deadline = time.monotonic() + policy.timeout_seconds
     context = multiprocessing.get_context("spawn")
-    parent, child = context.Pipe(duplex=False)
+    parent, child = context.Pipe(duplex=True)
     process = context.Process(
         target=_pdf_worker,
-        args=(child, content, policy),
+        args=(child, policy),
         name="fdai-pdf-parser",
         daemon=True,
     )
@@ -76,18 +80,30 @@ def extract_pdf_pages_isolated(
         parent.close()
         raise _unavailable() from None
     child.close()
+    exchange_result: queue.Queue[bytes | None] = queue.Queue(maxsize=1)
+    exchange = threading.Thread(
+        target=_exchange_payload,
+        args=(parent, content, policy.max_output_bytes, exchange_result),
+        name="fdai-pdf-parser-ipc",
+        daemon=True,
+    )
+    exchange.start()
     try:
-        if not parent.poll(policy.timeout_seconds):
+        exchange.join(timeout=max(0.0, deadline - time.monotonic()))
+        if exchange.is_alive():
             _stop(process)
             raise _unavailable()
-        try:
-            encoded = parent.recv_bytes(maxlength=policy.max_output_bytes)
-            payload = json.loads(encoded.decode("utf-8"))
-        except (EOFError, OSError, UnicodeError, json.JSONDecodeError):
-            payload = {"status": "error"}
+        encoded = exchange_result.get_nowait()
+        if encoded is None:
+            payload: object = {"status": "error"}
+        else:
+            try:
+                payload = json.loads(encoded.decode("utf-8"))
+            except (UnicodeError, json.JSONDecodeError):
+                payload = {"status": "error"}
     finally:
         parent.close()
-    process.join(timeout=1)
+    process.join(timeout=max(0.0, deadline - time.monotonic()))
     if process.is_alive():
         _stop(process)
         raise _unavailable()
@@ -98,6 +114,9 @@ def extract_pdf_pages_isolated(
         or payload.get("status") != "ok"
         or not isinstance(payload.get("pages"), list)
         or any(item is not None and not isinstance(item, str) for item in payload["pages"])
+        or not 1 <= len(payload["pages"]) <= policy.max_pages
+        or sum(len(item) for item in payload["pages"] if isinstance(item, str))
+        > policy.max_characters
     ):
         raise _unavailable()
     return tuple(payload["pages"])
@@ -105,11 +124,11 @@ def extract_pdf_pages_isolated(
 
 def _pdf_worker(
     connection: Connection,
-    content: bytes,
     policy: PdfIsolationPolicy,
 ) -> None:
     try:
         _apply_resource_limits(policy)
+        content = connection.recv_bytes()
         reader = pypdf.PdfReader(io.BytesIO(content), strict=False)
         if reader.is_encrypted:
             raise ValueError("encrypted")
@@ -136,6 +155,19 @@ def _pdf_worker(
         _send_error(connection)
     finally:
         connection.close()
+
+
+def _exchange_payload(
+    connection: Connection,
+    content: bytes,
+    max_output_bytes: int,
+    result: queue.Queue[bytes | None],
+) -> None:
+    try:
+        connection.send_bytes(content)
+        result.put(connection.recv_bytes(maxlength=max_output_bytes))
+    except (EOFError, OSError):
+        result.put(None)
 
 
 def _apply_resource_limits(policy: PdfIsolationPolicy) -> None:

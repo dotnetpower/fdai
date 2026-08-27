@@ -226,7 +226,9 @@ Local composition binds service-owned client lifecycles and loopback adapters in
 The Operator semantic bridge, ingestion publisher, document worker consumer, and isolated Executor
 therefore preserve the same logical topics, idempotency, readiness, and receipt boundaries as their
 deployed managed-identity adapters. The document worker also parses native PDFs in a spawned
-resource-limited process so untrusted decompression cannot terminate its long-lived service.
+resource-limited process. One wall-clock deadline covers input transfer and complete IPC frame
+receipt, and the parent independently enforces page, character, and output-byte ceilings so
+untrusted decompression or child output cannot pin or exhaust its long-lived service.
 
 ## Shared contract SDK
 
