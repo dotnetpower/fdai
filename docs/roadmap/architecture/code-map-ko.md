@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: d9e78a1ea4cee642074ee6b3938dde18ee496b58
+translation_source_sha: d9bc46f1e543e151bf2a4d3253ef179dfba25cd7
 translation_revised: 2026-08-28
 ---
 # 코드 맵
@@ -249,6 +249,8 @@ Context 계약은 incident, screen 및 resource-group 신원을 혼합하는 입
 선택 읽기는 고정 concurrency로 batch 처리하고 source-generation receipt를 보존합니다.
 보수적인 context identity 상한은 512개 resource id로 두어 서명된 선택을 공유 wire 예산
 안에 유지하며, 일반 ObjectSet 상한은 1,000개로 유지합니다.
+같은 512개 상한을 Operator/Core schema가 함께 적용하므로 과도한 client context는
+planning에 들어갈 수 없습니다.
 범위가 제한된 semantic query JSON envelope는 10,000개 id 선택에 맞게 크기를 확보하면서도
 일반 output의 기존 행 및 byte 상한은 제거하지 않습니다.
 
