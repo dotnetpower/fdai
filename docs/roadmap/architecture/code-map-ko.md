@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: a37924b3c870993f807a4309d5e567eb4fad2a32
+translation_source_sha: 729ce0feaf78fd39bf3a4237cb42c76290da8e37
 translation_revised: 2026-08-28
 ---
 # 코드 맵
@@ -243,6 +243,8 @@ Operator instance projection은 인증된 principal과 활성 generation에서 �
 공유 범위 digest는 소문자 일반 역할(`reader`, `contributor`, `approver`, `owner`)만 사용하고
 `BreakGlass`는 거부합니다. context에 1,000개가 넘는 리소스가 있으면 정확한 id 조건식은
 범위가 제한된 개별 id 읽기를 사용합니다.
+Wire 계약은 범위가 제한된 10,000개 id context envelope를 허용하지만 Core의 정확한 id
+저장은 기존의 안전한 결과 상한에서 표 materialization을 제한합니다.
 
 SDK는 두 semantic channel이 하나의 physical Event Hub를 공유할 때 사용하는 logical-topic marker와
 결정론적 consumer-group 파생 규칙도 소유합니다. Core와 Operator는 서로 다른 adapter, codec,

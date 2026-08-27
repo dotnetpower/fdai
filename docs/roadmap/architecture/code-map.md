@@ -245,6 +245,8 @@ principal and active generation, while truncated projections omit the identity e
 The shared scope digest uses lowercase ordinary roles (`reader`, `contributor`, `approver`, or
 `owner`) and rejects `BreakGlass`; exact id predicates use bounded per-id reads when a context
 contains more than 1,000 resources.
+The wire contract permits a bounded 10,000-id context envelope; Core's exact-id store reads still
+cap returned table materialization at the existing safe result bound.
 
 The SDK also owns the logical-topic marker and deterministic consumer-group derivation used when
 those two semantic channels share a physical Event Hub. Core and Operator keep separate adapters,
