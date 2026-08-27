@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: c13bb865415af75dc1d02c70c795f9caadbda7ca
+translation_source_sha: 33deb8541dcccf15e6e2a57ed7537b8992d5a1ab
 translation_revised: 2026-08-30
 ---
 # 코드 맵
@@ -247,9 +247,11 @@ Semantic-turn 요청은 opaque server-issued token과 함께 타입이 지정된
 컬렉션으로 대체하지 않고 타입이 지정된 사용 불가 결과가 됩니다. 어떤 context 필드도 승인
 또는 실행 권한을 부여하지 않습니다.
 명시적 발화 조건식은 token의 집합과 교집합하며, 불완전한 object-only contextual 표는
-answered claim이 되지 않고 semantic turn을 hold합니다. Operator instance projection은
-인증된 principal과 활성 generation에서 token을 발급하며, 잘린 projection은 신원을 완전히
-생략합니다.
+answered claim이 되지 않고 semantic turn을 hold합니다.
+이 hold는 contextual resource plan에만 적용합니다. 범위가 제한된 다른 query table은 명시적
+잘림 상태와 함께 계속 반환됩니다.
+Operator instance projection은 인증된 principal과 활성 generation에서 token을 발급하며,
+잘린 projection은 신원을 완전히 생략합니다.
 Contextual FunctionType은 불투명한 선택 token을 스칼라 스키마 입력으로 전달하고 객체 값인
 조회 결과는 의존성 전용으로 유지합니다. 따라서 연결되지 않은 model node는 specialized
 read를 호출할 수 없습니다.

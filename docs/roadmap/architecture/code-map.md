@@ -250,6 +250,8 @@ fallback to the principal-visible collection. No context field grants approval o
 authority.
 Explicit utterance predicates are intersected with the token's set, and an incomplete
 object-only contextual table holds the semantic turn instead of becoming an answered claim.
+This hold is limited to contextual resource plans; other bounded query tables continue to return
+their explicit truncation state.
 The contextual FunctionType carries its opaque selection token as a scalar schema input while the
 object-valued query result remains dependency-only, so a disconnected model node cannot invoke the
 specialized read.

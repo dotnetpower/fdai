@@ -27,6 +27,7 @@ from .semantic_planning_models import (
     BoundIncident,
     BoundInvestigationContinuation,
     BoundResourceContext,
+    SemanticOutputShape,
     SemanticPlanningDisposition,
     SemanticPlanningOutcome,
 )
@@ -223,8 +224,13 @@ def _query_output_incomplete(
     execution: QueryPlanExecution,
 ) -> bool:
     """Hold a completed DAG when its authoritative output is explicitly incomplete."""
+    frame = planning.frame
     plan = planning.plan
-    if plan is None:
+    if (
+        frame is None
+        or plan is None
+        or frame.output_shape != SemanticOutputShape.CONTEXTUAL_RESOURCE_LIST
+    ):
         return False
     return any(
         isinstance(result.value, QueryTable) and not result.value.complete
