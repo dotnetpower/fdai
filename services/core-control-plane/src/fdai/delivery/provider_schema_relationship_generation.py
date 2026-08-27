@@ -18,7 +18,11 @@ from typing import Literal
 from fdai.delivery.azure.provider_relationship_schema import (
     AzureProviderRelationshipSchemaSnapshot,
 )
-from fdai.delivery.provider_schema import ProviderSchemaError, ProviderSchemaSnapshot
+from fdai.delivery.provider_schema import (
+    ProviderSchemaError,
+    ProviderSchemaSnapshot,
+    ProviderSchemaType,
+)
 from fdai.delivery.provider_schema_relationship_review import (
     ProviderSchemaRelationshipReview,
 )
@@ -41,6 +45,8 @@ class RelationshipGenerationDropReason(StrEnum):
     MISSING_LINK_METADATA = "missing_link_metadata"
     STALE_LINK_METADATA = "stale_link_metadata"
     AMBIGUOUS_LINK_METADATA = "ambiguous_link_metadata"
+    UNRESOLVED_REFERENCE = "unresolved_reference"
+    SOURCELESS_REFERENCE = "sourceless_reference"
 
 
 @dataclass(frozen=True, slots=True)
@@ -241,6 +247,10 @@ def generate_provider_schema_relationship_generation(
 
     candidates: list[ProviderSchemaRelationshipCandidate] = []
     drops: set[RelationshipGenerationDropReason] = set()
+    if relationship_snapshot.unresolved_reference_count:
+        drops.add(RelationshipGenerationDropReason.UNRESOLVED_REFERENCE)
+    if review.missing_source_reference_count:
+        drops.add(RelationshipGenerationDropReason.SOURCELESS_REFERENCE)
     for pair in review.candidates:
         key = (pair.source_provider_type, pair.target_provider_type)
         source_schema_type = schema_types.get(pair.source_provider_type.casefold())
@@ -274,14 +284,8 @@ def generate_provider_schema_relationship_generation(
             ProviderSchemaRelationshipCandidate(
                 source_provider_type=pair.source_provider_type,
                 target_provider_type=pair.target_provider_type,
-                source_provider_versions=(
-                    *source_schema_type.stable_api_versions,
-                    *source_schema_type.preview_api_versions,
-                ),
-                target_provider_versions=(
-                    *target_schema_type.stable_api_versions,
-                    *target_schema_type.preview_api_versions,
-                ),
+                source_provider_versions=(*_all_provider_versions(source_schema_type),),
+                target_provider_versions=(*_all_provider_versions(target_schema_type),),
                 reference_count=pair.reference_count,
                 metadata=metadata,
             )
@@ -436,6 +440,21 @@ def _candidate_is_changed(
         ),
     }
     return bool(identities & changed)
+
+
+def _all_provider_versions(provider_type: ProviderSchemaType) -> tuple[str, ...]:
+    """Return one globally ordered version identity set for a provider type."""
+
+    return tuple(
+        sorted(
+            set(
+                (
+                    *provider_type.stable_api_versions,
+                    *provider_type.preview_api_versions,
+                )
+            )
+        )
+    )
 
 
 def _require_digest(value: str, name: str) -> None:

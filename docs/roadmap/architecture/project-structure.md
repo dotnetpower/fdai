@@ -107,7 +107,8 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   comparison records whether strict release checks were requested, so replay cannot infer a
   one-sided metadata mode from whichever generation happens to be present. The reviewed mapping
   model supplies the canonical cardinality used to validate candidate metadata; an omitted
-  cardinality is derived only from its reviewed LinkType default.
+  cardinality is derived only from its reviewed LinkType default. Runtime constructors reject any
+  attempt to set the rebuild, graph, execution, or migration authority literals to true.
   All events in the bounded batch are constructed and validated before the first publication, so
   a malformed later resource cannot leave an earlier event partially published by validation.
   Every delta page marked `has_more` must provide a new continuation cursor before its records are

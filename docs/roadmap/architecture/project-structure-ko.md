@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 0296f7bc70b2e9d24a63d776b7069cfbaefcdad2
+translation_source_sha: 898e858db5d37be9b2281cc2f47e6ef9296ff10f
 translation_revised: 2026-08-27
 ---
 # 프로젝트 구조
@@ -106,7 +106,8 @@ translation_revised: 2026-08-27
   release 검사를 요청했는지 기록하므로 replay는 어느 generation에 one-sided metadata가
   있는지에 따라 mode를 추론할 수 없습니다. Reviewed mapping model은 후보 metadata 검증에
   사용하는 canonical cardinality를 제공하며, cardinality가 생략된 경우에는 reviewed
-  LinkType default에서만 파생합니다.
+  LinkType default에서만 파생합니다. Runtime constructor는 rebuild, graph, execution 또는
+  migration authority literal을 true로 설정하려는 시도를 거부합니다.
   범위가 제한된 배치의 모든 이벤트는 첫 발행 전에 생성 및 검증되므로 뒤쪽의 잘못된 리소스 때문에 앞쪽
   이벤트가 검증 단계에서 부분 발행되지 않습니다.
   `has_more`로 표시된 모든 delta 페이지는 기록을 방출하기 전에 새로운 이어가기 커서를 제공해야

@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지 메타모델
 translation_of: operating-ontology-metamodel.md
-translation_source_sha: 8bc6e237db9dc290a8ff14f22086b91794c173ef
+translation_source_sha: 4ec5ff49aa7f008419e9709fb7ea5c5d36b024c5
 translation_revised: 2026-08-27
 ---
 # FDAI 운영 온톨로지 메타모델
@@ -288,6 +288,7 @@ declaration-kind 제안이 됩니다.
 | 2026-08-26 | implemented | Private endpoint 연결 대상에 `Microsoft.ContainerService/managedClusters`를 추가하고 agent pool subnet mapping을 추가한 뒤 제공된 의미 검토 receipt를 재생성했습니다. 검토된 mapping 겹침은 pair 7개에서 8개로 바뀌지만 모든 coverage 수, `review_required` 및 automatic promotion은 그대로 유지됩니다. | `current change`, relationship review `sha256:241764e6a330bec539922652fcf7ff018bba27cba790f54d0464827a0e0b6c2b`, catalog, mapping, review 재생성 및 실제 AKS promotion 포커스 검사 | Private cluster의 control plane endpoint와 agent pool subnet은 Azure에서 관측되었지만 연결되지 않았으므로 부재가 경로 없음을 입증하지 않았습니다. |
 | 2026-08-27 | implemented | Exact schema 및 evidence release 검사, 명시적 direction/cardinality/link metadata, 변경 subset 무효화, append-only proposal rollback/replay 및 exact-release direction-shadow 비교를 포함하는 versioned provider relationship candidate materialization을 추가했습니다. 기존 bounded Kubernetes API inventory는 authoritative topology source로 충분하며 lifecycle observation은 별도 Event source로 유지하여 중복하지 않습니다. | `current change`; `provider_schema_relationship_generation.py`; 집중 generation 및 direction-shadow 검사(`22 passed`); Ruff, formatter 및 strict mypy 통과 | Complete release-bound 실제 generation 근거와 governed human review를 확보해야 합니다. Live 또는 remote generation은 만들지 않았습니다. |
 | 2026-08-27 | implemented | Independent review 후 provider 관계 materialization을 보강하여 catalog cardinality를 포함한 모든 reviewed semantic field, review digest 및 candidate endpoint를 다시 검증하고 type@version 신원과 exact-release replay mode를 보존했으며, 고유 staging 파일을 사용한 ledger record/rollback 직렬화를 추가했습니다. | `current change`; generation, review, ledger, mapping 및 direction-shadow 모듈, 집중 adversarial 검사(`43 passed`), Ruff, formatter 및 strict mypy | Complete release-bound 실제 generation 근거와 governed human review를 확보해야 합니다. Live 또는 remote generation은 만들지 않았습니다. |
+| 2026-08-27 | implemented | 남은 review gap을 닫았습니다. Unresolved 및 source-less ARM reference는 candidate generation을 incomplete로 만들고, provider type version은 globally sorted union을 사용하며, rebuild, graph, execution 및 migration authority literal을 runtime에서 강제합니다. | `current change`; generation, direction-shadow model, promotion assessment 및 집중 adversarial 검사(`38 passed`), Ruff, formatter 및 strict mypy | Complete release-bound 실제 generation 근거와 governed human review를 확보해야 합니다. Live 또는 remote generation은 만들지 않았습니다. |
 
 ### 남은 작업
 
