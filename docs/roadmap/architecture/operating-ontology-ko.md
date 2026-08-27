@@ -132,6 +132,7 @@ translation_revised: 2026-08-27
 | 2026-08-27 | implemented | 독립 검토 후 계획된 변경의 최신성 처리를 강화했습니다. 증적은 이제 저장된 인벤토리 온톨로지 릴리스와 변환 매니페스트를 검증하고, 운영 모델 매니페스트를 포함하며, 보류 중인 모든 리소스 또는 관계 오버레이를 차단합니다. 순회 뒤 두 번째 권위 있는 읽기에서도 증적 바이트가 같아야 합니다. 명시적으로 구성한 PostgreSQL 오류는 취소나 관련 없는 결함을 포착하지 않으면서 실패한 평가 및 사람 검토가 됩니다. | `current change`; 집중 최신성, 영향, 영속성 디코더, 변경 체인, 판테온 검사 49개 통과; Ruff와 strict mypy 통과. | 평가는 권한이 없는 근거로 유지하며 일반 RiskGate가 현재 실행 사전 조건을 다시 검사합니다. |
 | 2026-08-27 | implemented | 계획된 변경 최신성의 완전성을 인정하기 전에 운영 모델 상태와 매니페스트가 모두 같은 비어 있지 않은 출처 개정으로 변환되도록 요구했습니다. 누락되거나 중간 상태인 운영 모델은 이제 `operating_model_incomplete`로 유지합니다. | `current change`; 집중 최신성 및 판테온 검사 52개 통과; Ruff와 strict mypy 통과. | 배포된 정확한 개정 증적은 별도로 보존합니다. |
 | 2026-08-27 | implemented | 후속 검토에서 발견한 의미상 빈 개정 사례를 닫았습니다. 서로 일치하더라도 공백으로만 된 운영 모델 개정은 식별자 일치를 충족하지 않고 불완전 상태로 유지합니다. | `current change`; 집중 최신성 및 판테온 검사 53개 통과; Ruff와 strict mypy 통과. | 배포 근거는 별도로 보존합니다. |
+| 2026-08-27 | implemented | `lifecycle` 블록이 없는 모든 출하 ObjectType을 검토하고, 임의의 agent writer를 추가하지 않은 채 기존 catalog, event-bus, provider, service 또는 principal 범위 권한을 기록했습니다. | `current change`, `rule-catalog/vocabulary/object-types/` 인벤토리 및 소유자 문서 권한 표 | 기존 권한이 바뀌거나 타입에 객관적으로 필요한 lifecycle이 생길 때만 다시 검토합니다. |
 | 2026-08-27 | implemented | Receipt로 검증된 컨텍스트 메타데이터를 기존 principal 범위 운영 근거 응답에 연결했습니다. 응답은 이제 서버가 확인한 principal을 포함하며, 컨텍스트 변환은 메타데이터를 반환하기 전에 principal, 목적, 릴리스, stale, 불완전 및 잘린 근거를 거부합니다. | `current change`; `core/operational_context/test_console_projection.py` 및 `test_evidence_read.py` 검사 14개 통과 | 인증된 Console 근거는 별도로 보존하며 권한이나 런타임 승격은 바꾸지 않습니다. |
 | 2026-08-27 | implemented | 양의 `Forecast` episode와 균형 잡힌 `Pattern` 후보를 위한 권한 없는 런타임 변환 결과를 추가했습니다. Detector, target, interval, case 및 evidence 신원을 보존하며 근거 없는 관계는 복원하지 않습니다. | `current change`; `core/ontology_platform/detection_projection.py`, detection, forecast-episode 및 operational-learning 집중 검사 11개 통과 | 정확한 objective 또는 outcome endpoint 신원을 생산자가 제공할 때에만 `predicts_breach_of` 또는 `learned_as`를 복원합니다. |
 | 2026-08-27 | implemented | 서로 다른 두 provider 관측에 대한 결정적 판정을 추가하고, 기존 변환 상태 대 텔레메트리 shadow 판정을 두 번째 교차 출처 쌍으로 문서화했습니다. 충돌은 명시적으로 유지하고 이견이 있는 Property는 제외하며 권한이나 자율성 상한을 높이지 않습니다. | `current change`; `observation_adjudication.py`; `test_observation_adjudication.py` 및 `test_resource_state_shadow.py` 검사 37개 통과 | 이후 읽기 경로 밖에서 충돌을 전달하려면 명시적인 단일 작성자 설계로 결정해야 합니다. |
@@ -151,9 +152,8 @@ translation_revised: 2026-08-27
 - [x] `predicts_breach_of`와 `learned_as`를 복원하기 전에 권한 없는 `Forecast` 및 `Pattern` 엔드포인트 객체 생산자를 마련했습니다. 집중 생산자 및 원본 검사가 통과했습니다. 정확한 objective 및 outcome endpoint 신원을 아직 생산하지 않으므로 두 관계는 계속 보류합니다.
 - [x] 운영 의도 6종을 배포가 제공하는 출처에서 변환하고, 의도 타입이 인스턴스를 만들지
   못하면 실패하는 집중 테스트로 고정했습니다(검사 7개 통과).
-- [ ] `lifecycle` 블록이 없는 출하 ObjectType을 검토해, 타입별로 에이전트 단일 작성자가 필요한지
-  아니면 catalog-as-code, 변환 결과, 이벤트 버스 레지스트리 중 무엇이 올바른 권한인지
-  기록합니다 ([#130](https://github.com/dotnetpower/fdai/issues/130)).
+- [x] `lifecycle` 블록이 없는 출하 ObjectType을 검토해 타입별로 에이전트 단일 작성자가 필요한지, 아니면 catalog-as-code, 변환 결과, 이벤트 버스 레지스트리 중 무엇이 올바른 권한인지 기록했습니다
+  ([#130](https://github.com/dotnetpower/fdai/issues/130)). 전체 권한 표는 소유자 문서에 있습니다.
 - [x] 서로 독립된 두 클라우드 프로바이더를 맞대어 판정하고, 변환된 상태와 텔레메트리를 판정했습니다. 집중 테스트가 명시적 충돌, 이견 값 제외 및 권한 증가 없음을 입증합니다.
 - [ ] 판정된 교차 출처 충돌이 읽기 경로 밖의 자율성 상한에도 도달해야 하는지, 그리고 변환된
   서브그래프의 단일 작성자 소유권을 깨지 않고 어느 작성자가 이를 실어 나를 수 있는지 정해야
