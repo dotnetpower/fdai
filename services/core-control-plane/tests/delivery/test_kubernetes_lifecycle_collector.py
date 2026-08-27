@@ -116,6 +116,7 @@ def _poll(
     next_cursor: str | None,
     complete: bool = True,
     limitation: str | None = None,
+    cursor_safe: bool = False,
 ) -> KubernetesLifecyclePoll:
     return KubernetesLifecyclePoll(
         cluster_ref=CLUSTER_REF,
@@ -124,6 +125,7 @@ def _poll(
         complete=complete,
         limitation=limitation,
         attempt_ref=f"kubernetes-lifecycle:test-{next_cursor}-{limitation}",
+        cursor_safe=cursor_safe,
     )
 
 
@@ -284,6 +286,30 @@ async def test_incomplete_poll_does_not_advance_cursor_but_persists_gap_state() 
     assert store.last_complete is False
     assert store.last_limitation == "lifecycle_response_invalid"
     assert len(store.observations) == 1
+
+
+async def test_count_cap_advances_safe_partial_cursor_while_retaining_gap() -> None:
+    store = _FakeStore(cursor="1000")
+    source = _FakeSource(
+        [
+            _poll(
+                observations=(_observation(source_revision="1001"),),
+                next_cursor="1001",
+                complete=False,
+                limitation="result_limit",
+                cursor_safe=True,
+            )
+        ]
+    )
+
+    receipt = await collect_kubernetes_lifecycle_once(
+        source=source, store=store, cluster_ref=CLUSTER_REF
+    )
+
+    assert receipt.cursor == "1001"
+    assert store.cursor == "1001"
+    assert store.last_complete is False
+    assert store.last_limitation == "result_limit"
 
 
 async def test_successful_noop_poll_refreshes_cursor_heartbeat() -> None:

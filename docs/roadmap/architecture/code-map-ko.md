@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 025e0e2017c918e82a6b848aef63b32c1e506724
+translation_source_sha: 9cb50601380f09fc9ce153aa44450368d6695249
 translation_revised: 2026-08-27
 ---
 # 코드 맵
@@ -35,6 +35,8 @@ translation_revised: 2026-08-27
 > cursor를 전진시키지 않습니다.
 > cursor 조회는 completeness와 limitation을 포함하고 expiry 후 SQL `NULL`을 보존하며 WATCH
 > count cap은 명시적인 truncation gap입니다.
+> Resource-event 행은 durable object UID, cluster, recorded time 및 source revision을 보존하므로
+> recovery Function이 실제 query schema를 typed replacement 근거로 변환할 수 있습니다.
 
 ## 물리 서비스 소유권
 
