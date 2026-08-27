@@ -53,9 +53,17 @@ from fdai.delivery.azure.trace_continuity import (
     TraceTopologyTarget,
 )
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
+from fdai.delivery.kubernetes_lifecycle_collector import (
+    KubernetesLifecycleCollectionReceipt,
+    collect_kubernetes_lifecycle_once,
+)
 from fdai.delivery.persistence import (
     PostgresOntologyInstanceStore,
     PostgresOntologyInstanceStoreConfig,
+)
+from fdai.delivery.persistence.postgres_kubernetes_lifecycle import (
+    PostgresKubernetesLifecycleStore,
+    PostgresKubernetesLifecycleStoreConfig,
 )
 from fdai.delivery.repo_assets import repo_asset_root
 from fdai.delivery.trace_continuity_tick import (
@@ -63,6 +71,7 @@ from fdai.delivery.trace_continuity_tick import (
     TraceContinuityTickRunner,
 )
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
+from fdai.runtime.resource_event_providers import build_kubernetes_lifecycle_source
 from fdai.runtime.venue import resolve_execution_venue, uses_developer_identity
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.providers.workload_identity import WorkloadIdentity
@@ -92,11 +101,16 @@ class AnalyzerJobReport:
     analyzer: AnalyzerTickReport
     trace_continuity: TraceContinuityTickReport
     target_resolution: AnalyzerTargetResolution
+    lifecycle_collection: KubernetesLifecycleCollectionReceipt | None = None
 
     @property
     def failed(self) -> bool:
         """Return true when either publisher needs a Job retry."""
-        return self.analyzer.failed or self.trace_continuity.failed
+        return (
+            self.analyzer.failed
+            or self.trace_continuity.failed
+            or (self.lifecycle_collection is not None and not self.lifecycle_collection.complete)
+        )
 
     def to_dict(
         self,
@@ -104,7 +118,7 @@ class AnalyzerJobReport:
         scheduling: str = "one_shot",
         metric_delays: Mapping[str, str] | None = None,
     ) -> dict[str, object]:
-        return {
+        result = {
             **self.analyzer.to_dict(),
             "trace_continuity": self.trace_continuity.to_dict(),
             "target_resolution": self.target_resolution.to_dict(),
@@ -113,6 +127,17 @@ class AnalyzerJobReport:
                 metric_delays=metric_delays or {},
             ),
         }
+        if self.lifecycle_collection is not None:
+            result["lifecycle_collection"] = {
+                "cluster_ref": self.lifecycle_collection.cluster_ref,
+                "polled_count": self.lifecycle_collection.polled_count,
+                "inserted_count": self.lifecycle_collection.inserted_count,
+                "duplicate_count": self.lifecycle_collection.duplicate_count,
+                "complete": self.lifecycle_collection.complete,
+                "limitation": self.lifecycle_collection.limitation,
+                "cursor": self.lifecycle_collection.cursor,
+            }
+        return result
 
     def readiness(
         self,
@@ -370,6 +395,7 @@ def build_inventory_projection() -> PostgresOntologyInstanceStore | None:
 
 async def run_once() -> AnalyzerJobReport:
     """Compose the tick from the environment and run one analyzer pass."""
+    lifecycle_collection = await _collect_lifecycle_if_configured()
     configured = parse_targets(os.environ.get(TARGETS_ENV, ""))
     trace_topologies = parse_trace_topologies(os.environ.get(TRACE_TOPOLOGIES_ENV, ""))
     window_seconds = parse_window_seconds(os.environ.get(WINDOW_ENV, ""))
@@ -390,6 +416,7 @@ async def run_once() -> AnalyzerJobReport:
             analyzer=AnalyzerTickReport(targets=0, findings=0, published=0),
             trace_continuity=_empty_trace_report(),
             target_resolution=resolution,
+            lifecycle_collection=lifecycle_collection,
         )
 
     bootstrap_servers = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "").strip()
@@ -454,9 +481,56 @@ async def run_once() -> AnalyzerJobReport:
                 analyzer=analyzer_report,
                 trace_continuity=trace_report,
                 target_resolution=resolution,
+                lifecycle_collection=lifecycle_collection,
             )
         finally:
             await bus.close()
+
+
+async def _collect_lifecycle_if_configured() -> KubernetesLifecycleCollectionReceipt | None:
+    """Run the durable lifecycle pass used by both the Job and local analyzer loop.
+
+    No binding is a clean no-op. Once the Kubernetes and database bindings are
+    present, an incomplete source receipt fails the tick so scheduler retry
+    cannot silently turn missing lifecycle evidence into a healthy pass.
+    """
+
+    dsn = os.environ.get(INVENTORY_DSN_ENV, "").strip()
+    cluster_ref = os.environ.get("FDAI_KUBERNETES_CLUSTER_REF", "").strip()
+    if not dsn and not cluster_ref:
+        return None
+    if not dsn or not cluster_ref:
+        raise RuntimeError(
+            "Kubernetes lifecycle collection requires FDAI_INVENTORY_DSN and "
+            "FDAI_KUBERNETES_CLUSTER_REF"
+        )
+    async with httpx.AsyncClient(timeout=httpx.Timeout(connect=5.0, read=30.0)) as client:
+        identity = _build_identity(client)
+        source = build_kubernetes_lifecycle_source(
+            environment=os.environ,
+            identity=identity,
+        )
+        if source is None:
+            raise RuntimeError("Kubernetes lifecycle source binding is unavailable")
+        store = PostgresKubernetesLifecycleStore(
+            config=PostgresKubernetesLifecycleStoreConfig(dsn=dsn)
+        )
+        receipt = await collect_kubernetes_lifecycle_once(
+            source=source,
+            store=store,
+            cluster_ref=cluster_ref,
+        )
+    _LOGGER.info(
+        "kubernetes_lifecycle_collection_complete",
+        extra={
+            "cluster_ref": receipt.cluster_ref,
+            "complete": receipt.complete,
+            "limitation": receipt.limitation,
+            "inserted_count": receipt.inserted_count,
+            "duplicate_count": receipt.duplicate_count,
+        },
+    )
+    return receipt
 
 
 def _empty_trace_report() -> TraceContinuityTickReport:

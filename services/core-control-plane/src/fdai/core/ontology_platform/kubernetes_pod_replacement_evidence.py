@@ -10,6 +10,8 @@ from typing import Literal
 from fdai.shared.contracts.models import ContractBase
 from fdai.shared.providers.state_evidence import StateFactMetadata
 
+from .kubernetes_lifecycle_observation import KubernetesLifecycleObservation
+
 _MAX_ID_LENGTH = 512
 _MAX_CANDIDATES = 32
 _ABNORMAL_REASONS = frozenset(
@@ -310,6 +312,42 @@ def evaluate_kubernetes_pod_replacement(
     )
 
 
+def termination_from_lifecycle_observations(
+    *,
+    pod_uid: str,
+    observations: tuple[KubernetesLifecycleObservation, ...],
+    cutoff: datetime,
+) -> PodTerminationObservation | None:
+    """Convert retained lifecycle rows into one replayable old-Pod termination fact.
+
+    Only rows for the exact old UID and at or before the secured cutoff are
+    considered. An empty match is intentionally ``None`` rather than evidence
+    that termination did not occur.
+    """
+
+    if not pod_uid.strip() or cutoff.tzinfo is None:
+        raise ValueError("lifecycle termination identity and cutoff MUST be valid")
+    matching = tuple(
+        item for item in observations if item.object_uid == pod_uid and item.event_time <= cutoff
+    )
+    if not matching:
+        return None
+    selected = max(matching, key=lambda item: (item.event_time, item.evidence_ref))
+    return PodTerminationObservation(
+        pod_uid=pod_uid,
+        event_type=selected.event_type,
+        reason=selected.reason,
+        exit_code=None,
+        event_time=selected.event_time,
+        recorded_at=selected.recorded_time,
+        source_identity="durable-kubernetes-lifecycle",
+        evidence_refs=tuple(
+            item.evidence_ref
+            for item in sorted(matching, key=lambda item: (item.event_time, item.evidence_ref))
+        ),
+    )
+
+
 def _append_termination_findings(
     gaps: list[str],
     conflicts: list[str],
@@ -500,4 +538,5 @@ __all__ = [
     "PodReplacementDeploymentObservation",
     "PodTerminationObservation",
     "evaluate_kubernetes_pod_replacement",
+    "termination_from_lifecycle_observations",
 ]

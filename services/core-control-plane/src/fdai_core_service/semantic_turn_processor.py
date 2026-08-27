@@ -2276,6 +2276,12 @@ def _render_general_query_answer(
     )
     if resource_event_answer is not None:
         return resource_event_answer
+    pod_evidence_answer = _render_kubernetes_pod_evidence_answer(
+        outputs,
+        korean=korean,
+    )
+    if pod_evidence_answer is not None:
+        return pod_evidence_answer
     causal_answer = _render_causal_query_answer(outputs, korean=korean)
     if causal_answer is not None:
         return causal_answer
@@ -2349,6 +2355,61 @@ def _render_general_query_answer(
         ]
     )
     return "\n".join(lines)
+
+
+def _render_kubernetes_pod_evidence_answer(
+    outputs: list[dict[str, object]],
+    *,
+    korean: bool,
+) -> str | None:
+    """Present Pod recovery or diagnosis rows without converting gaps to success."""
+
+    for output in outputs:
+        if output.get("node_id") not in {"pod-recovery-evidence", "pod-diagnosis"}:
+            continue
+        rows = output.get("rows")
+        if not isinstance(rows, list) or len(rows) != 1 or not isinstance(rows[0], Mapping):
+            continue
+        values = rows[0].get("values")
+        if not isinstance(values, Mapping):
+            continue
+        status = values.get("status")
+        complete = values.get("complete")
+        recovered = values.get("recovery_verified")
+        gaps = values.get("evidence_gaps")
+        gap_values = (
+            [item for item in gaps if isinstance(item, str)]
+            if isinstance(gaps, list)
+            else [item.strip() for item in gaps.split(",") if item.strip()]
+            if isinstance(gaps, str)
+            else []
+        )
+        status_text = _readable_health_token(status)
+        recovery_text = (
+            ("확인됨" if korean else "verified")
+            if recovered is True
+            else ("확인되지 않음" if korean else "not verified")
+        )
+        gap_text = ", ".join(_readable_health_token(item) for item in gap_values)
+        if korean:
+            return (
+                "## Kubernetes Pod 근거\n\n"
+                f"- 상태: {status_text}\n"
+                f"- 복구: {recovery_text}\n"
+                f"- 근거 완전성: {'완전함' if complete is True else '불완전하거나 확인되지 않음'}\n"
+                f"- 근거 공백: {gap_text or '기록된 공백 없음'}\n\n"
+                "## 권한\n\n- 읽기 전용이며 `execution_authority=false`입니다."
+            )
+        return (
+            "## Kubernetes Pod evidence\n\n"
+            f"- Status: {status_text}\n"
+            f"- Recovery: {recovery_text}\n"
+            "- Evidence completeness: "
+            f"{'complete' if complete is True else 'incomplete or unverified'}\n"
+            f"- Evidence gaps: {gap_text or 'none recorded'}\n\n"
+            "## Authority\n\n- Read-only; `execution_authority=false`."
+        )
+    return None
 
 
 def _render_resource_event_history_answer(

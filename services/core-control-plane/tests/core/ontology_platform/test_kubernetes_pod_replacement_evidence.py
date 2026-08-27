@@ -5,6 +5,9 @@ from __future__ import annotations
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
+from fdai.core.ontology_platform.kubernetes_lifecycle_observation import (
+    KubernetesLifecycleObservation,
+)
 from fdai.core.ontology_platform.kubernetes_pod_replacement_evidence import (
     KubernetesPodReplacementEvidenceResult,
     KubernetesPodReplacementStatus,
@@ -12,6 +15,7 @@ from fdai.core.ontology_platform.kubernetes_pod_replacement_evidence import (
     PodReplacementDeploymentObservation,
     PodTerminationObservation,
     evaluate_kubernetes_pod_replacement,
+    termination_from_lifecycle_observations,
 )
 from fdai.shared.providers.state_evidence import (
     StateFactAuthority,
@@ -304,3 +308,55 @@ def test_result_round_trip_preserves_replay_inputs() -> None:
     assert replayed == result
     assert replayed.historical_evidence_refs == ("pod-old", "termination-old")
     assert replayed.current_evidence_refs == ("deployment-current", "pod-new")
+
+
+def test_retained_lifecycle_rows_preserve_old_uid_termination_evidence() -> None:
+    observation = KubernetesLifecycleObservation(
+        cluster_ref="cluster-a",
+        namespace="default",
+        object_uid="pod-uid-old",
+        owner_uid="replicaset-uid-a",
+        reason="Failed",
+        category="failed",
+        event_type="Warning",
+        event_time=_CUTOFF - timedelta(minutes=6),
+        recorded_time=_CUTOFF - timedelta(minutes=5),
+        source_revision="100",
+        evidence_ref="old-failure",
+    )
+
+    termination = termination_from_lifecycle_observations(
+        pod_uid="pod-uid-old",
+        observations=(observation,),
+        cutoff=_CUTOFF,
+    )
+
+    assert termination is not None
+    assert termination.pod_uid == "pod-uid-old"
+    assert termination.reason == "Failed"
+    assert termination.evidence_refs == ("old-failure",)
+
+
+def test_lifecycle_rows_for_another_uid_do_not_substitute_old_termination() -> None:
+    observation = KubernetesLifecycleObservation(
+        cluster_ref="cluster-a",
+        namespace="default",
+        object_uid="pod-uid-new",
+        owner_uid="replicaset-uid-a",
+        reason="Failed",
+        category="failed",
+        event_type="Warning",
+        event_time=_CUTOFF - timedelta(minutes=6),
+        recorded_time=_CUTOFF - timedelta(minutes=5),
+        source_revision="100",
+        evidence_ref="new-failure",
+    )
+
+    assert (
+        termination_from_lifecycle_observations(
+            pod_uid="pod-uid-old",
+            observations=(observation,),
+            cutoff=_CUTOFF,
+        )
+        is None
+    )

@@ -18,6 +18,7 @@ from fdai.delivery.analyzer_tick_cli import (
     resolve_trace_window_seconds,
     run_loop,
 )
+from fdai.delivery.kubernetes_lifecycle_collector import KubernetesLifecycleCollectionReceipt
 from fdai.delivery.trace_continuity_tick import TraceContinuityTickReport
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -99,6 +100,34 @@ def test_readiness_separates_scheduling_discovery_metrics_and_publication() -> N
             "log_analytics": "120-300_seconds",
             "prometheus": "unbound",
         },
+    }
+
+
+def test_incomplete_configured_lifecycle_collection_fails_the_scheduled_tick() -> None:
+    report = AnalyzerJobReport(
+        analyzer=_job_report().analyzer,
+        trace_continuity=_job_report().trace_continuity,
+        target_resolution=_job_report().target_resolution,
+        lifecycle_collection=KubernetesLifecycleCollectionReceipt(
+            cluster_ref="cluster-a",
+            polled_count=0,
+            inserted_count=0,
+            duplicate_count=0,
+            complete=False,
+            limitation="source_unavailable",
+            cursor="100",
+        ),
+    )
+
+    assert report.failed is True
+    assert report.to_dict()["lifecycle_collection"] == {
+        "cluster_ref": "cluster-a",
+        "polled_count": 0,
+        "inserted_count": 0,
+        "duplicate_count": 0,
+        "complete": False,
+        "limitation": "source_unavailable",
+        "cursor": "100",
     }
 
 

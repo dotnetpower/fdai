@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -28,6 +29,10 @@ from fdai.core.ontology_platform.kubernetes_pod_recovery_queries import (
     KUBERNETES_POD_RECOVERY_FUNCTION_NAME,
     KUBERNETES_POD_RESTART_HISTORY_CONCEPT,
     KUBERNETES_POD_RESTART_SYMPTOM_CONCEPT,
+)
+from fdai.core.ontology_platform.resource_event_queries import (
+    KUBERNETES_EVENT_FAMILY,
+    RESOURCE_EVENT_FUNCTION_NAME,
 )
 
 from .semantic_investigation import InvestigationEntityRole, VerifiedInvestigationIntent
@@ -89,7 +94,7 @@ def compile_kubernetes_pod_recovery_plan(
         purpose=purpose,
         limit=2,
     )
-    nodes = (
+    nodes: list[OntologyQueryNode] = [
         OntologyQueryNode(
             node_id="pod-recovery-target",
             kind=QueryNodeKind.OBJECT_SET,
@@ -174,7 +179,43 @@ def compile_kubernetes_pod_recovery_plan(
             ),
             output_kind="kubernetes.pod.recovery.evidence",
         ),
-    )
+    ]
+    recovery_node = nodes.pop()
+    lifecycle_dependency: str | None = None
+    if _has_function(manifest.descriptors, RESOURCE_EVENT_FUNCTION_NAME):
+        lifecycle_dependency = "pod-lifecycle-events"
+        nodes.extend(
+            (
+                OntologyQueryNode(
+                    node_id=lifecycle_dependency,
+                    kind=QueryNodeKind.FUNCTION,
+                    depends_on=("pod-recovery-target",),
+                    arguments_json=canonical_json(
+                        {
+                            "function_name": RESOURCE_EVENT_FUNCTION_NAME,
+                            "arguments": {
+                                "event_families": [KUBERNETES_EVENT_FAMILY],
+                                "lookback_seconds": int(_RESTART_HISTORY_WINDOW.total_seconds()),
+                            },
+                            "dependency_arguments": {
+                                "pod-recovery-target": "query_result",
+                            },
+                        }
+                    ),
+                    output_kind="query.table",
+                ),
+            )
+        )
+    if lifecycle_dependency is not None:
+        recovery_arguments = dict(json.loads(recovery_node.arguments_json))
+        recovery_arguments["dependency_arguments"][lifecycle_dependency] = "lifecycle_events"
+        recovery_node = recovery_node.model_copy(
+            update={
+                "depends_on": (*recovery_node.depends_on, lifecycle_dependency),
+                "arguments_json": canonical_json(recovery_arguments),
+            }
+        )
+    nodes.append(recovery_node)
     body = {
         "schema_version": "1.0.0",
         "ontology_release_digest": manifest.release_digest,
@@ -192,7 +233,7 @@ def compile_kubernetes_pod_recovery_plan(
         problem_frame_digest=frame.frame_digest,
         purpose=purpose,
         caller_role=manifest.principal_role.value,
-        nodes=nodes,
+        nodes=tuple(nodes),
         output_node_ids=("pod-recovery-evidence",),
         plan_digest=content_digest(body),
     )
@@ -211,10 +252,12 @@ def _resource_identity_property(descriptors: tuple[dict[str, Any], ...]) -> str 
     return next((name for name in ("name", "display_name", "id") if name in properties), None)
 
 
-def _has_function(descriptors: tuple[dict[str, Any], ...]) -> bool:
+def _has_function(
+    descriptors: tuple[dict[str, Any], ...],
+    name: str = KUBERNETES_POD_RECOVERY_FUNCTION_NAME,
+) -> bool:
     return any(
-        descriptor.get("kind") == "function"
-        and descriptor.get("name") == KUBERNETES_POD_RECOVERY_FUNCTION_NAME
+        descriptor.get("kind") == "function" and descriptor.get("name") == name
         for descriptor in descriptors
     )
 
