@@ -133,6 +133,7 @@ dependencies, objectives, evidence, allowed actions, and expected effects. Upstr
 | 2026-08-27 | implemented | Hardened planned-change freshness after independent review. The receipt now verifies the persisted inventory-ontology release and projection manifest, includes the operating-model manifest, rejects every pending resource or relationship overlay, and must remain byte-identical across a second authoritative read after traversal. Configured PostgreSQL failures become an explicit failed assessment and human review without catching cancellation or unrelated defects. | `current change`; focused freshness, impact, persistence-decoder, change-chain, and pantheon checks (`49 passed`); Ruff and strict mypy. | The assessment remains no-authority evidence; the ordinary RiskGate still rechecks current execution prerequisites. |
 | 2026-08-27 | implemented | Required both operating-model status and manifest records to be projected at the same non-empty source revision before planned-change freshness can be complete. Missing or torn operating-model state now stays `operating_model_incomplete`. | `current change`; focused freshness and pantheon checks (`52 passed`); Ruff and strict mypy. | Retain a deployed exact-revision receipt separately. |
 | 2026-08-27 | implemented | Closed the semantic-empty revision case after follow-up review. Matching whitespace-only operating-model revisions now remain incomplete instead of satisfying identity equality. | `current change`; focused freshness and pantheon checks (`53 passed`); Ruff and strict mypy. | Retain deployed evidence separately. |
+| 2026-08-27 | implemented | Reviewed every shipped lifecycle-free ObjectType and recorded the existing catalog, event-bus, provider, service, or principal-scoped authority without introducing speculative agent writers. | `current change`; `rule-catalog/vocabulary/object-types/` inventory and the owner documentation authority table. | Reopen only when an existing authority changes or a type gains an objectively required lifecycle. |
 | 2026-08-27 | implemented | Bound receipt-verified Context metadata into the existing principal-scoped operational evidence response. The response now carries a server-checked principal, and Context projection rejects principal, purpose, release, stale, incomplete, and truncated evidence before returning metadata. | `current change`; `core/operational_context/test_console_projection.py` and `test_evidence_read.py` (`14 passed`). | Retain authenticated Console evidence separately; no authority or runtime promotion changes. |
 
 ### Remaining work
@@ -147,9 +148,10 @@ dependencies, objectives, evidence, allowed actions, and expected effects. Upstr
   runtime path writes either endpoint, not that the catalog would reject the declaration.
 - [x] Project the six operating-intent types from a deployment-supplied source and pin them with a
   focused test that fails when an intent type produces no instance (`7 passed`).
-- [ ] Review the shipped ObjectTypes that carry no `lifecycle` block and record, per type, whether an
+- [x] Review the shipped ObjectTypes that carry no `lifecycle` block and record, per type, whether an
   agent single-writer is required or whether catalog-as-code, a projection, or the event-bus
-  registry is the correct authority ([#130](https://github.com/dotnetpower/fdai/issues/130)).
+  registry is the correct authority ([#130](https://github.com/dotnetpower/fdai/issues/130)); the
+  complete authority table is in the owner document.
 - [ ] Adjudicate two independent cloud providers against each other, and projected state against
   telemetry. Today only repeated observations inside one generation and the live-read against
   inventory-projection pair are decided.
@@ -592,6 +594,16 @@ type is governed by whichever authority already applies: catalog-as-code for `Ac
 such as `Approval`, `SecurityEvent`, `Conversation`, `Turn`, and `RuleCandidate`. Most shipped
 ObjectTypes are in this state today. Adding a `lifecycle` block to one is a deliberate act that
 introduces an agent single-writer, so it MUST NOT be added merely to fill the field in.
+
+The complete review of lifecycle-free shipped types is recorded below. These are existing
+authorities, not new ontology writers; none requires an agent single-writer merely because it is
+represented in the graph.
+
+| Existing authority | Lifecycle-free ObjectTypes |
+|--------------------|---------------------------|
+| Catalog-as-code or reviewed catalog projection | `ActionType`, `AuthorizationCapability`, `AuthorizationPolicyAssignment`, `AuthorizationRequirement`, `ControlObjective`, `PolicyArtifact`, `Property`, `ProviderPermissionSet`, `ResourceClass`, `ResourceType`, `Rule`, `RuleObjectiveBinding`, `SignalType`, `WorkflowDefinition` |
+| Event-bus registry and typed event contract | `Agent`, `Approval`, `Conversation`, `HandoffEscalation`, `PostTurnReview`, `RuleCandidate`, `SecurityEvent`, `Signal`, `Turn` |
+| Provider, service, or principal-scoped projection/store | `AccessGrant`, `AccessGrantRequest`, `AuthorizationDecision`, `AuthorizationObservation`, `BenchmarkValidation`, `BriefingRun`, `BriefingSubscription`, `ChangeSummary`, `ConfigurationBaseline`, `ConfigurationDriftCheck`, `ConfigurationDriftEvidence`, `ConfigurationDriftFinding`, `Decision`, `DiagnosticEvidence`, `DiagnosticFinding`, `DiagnosticMechanism`, `EquivalenceValidationReceipt`, `EvidenceArtifact`, `ExecutionProfile`, `Finding`, `Principal`, `Process`, `PythonTask`, `Resource`, `ReviewCase`, `ReviewCheck`, `UserMemoryFact`, `UserPreference`, `VmTaskRun`, `WorkflowBinding` |
 
 Agents collaborate through typed events. No agent mutates another agent's object, calls another
 agent directly, or shares mutable workflow state.
