@@ -59,6 +59,7 @@ _OPERATOR_CHANNEL_EDGE_FORBIDDEN_ENVIRONMENT = frozenset(
 _MODEL_BINDING_ENVIRONMENT = frozenset(
     {
         "FDAI_LLM_ENDPOINT",
+        "FDAI_MODEL_ENDPOINTS_JSON",
         "FDAI_WEB_SEARCH_ALLOWED_DOMAINS",
         "FDAI_WEB_SEARCH_ENABLED",
         "FDAI_WEB_SEARCH_MAX_RESULTS",
@@ -306,6 +307,39 @@ def _valid_web_search_domains(value: str) -> bool:
     )
 
 
+def _valid_model_endpoints(value: str, *, primary_endpoint: str) -> bool:
+    try:
+        raw = json.loads(value)
+    except json.JSONDecodeError:
+        return False
+    if not isinstance(raw, dict) or not 1 <= len(raw) <= 16:
+        return False
+    primary_matches = 0
+    for reference, endpoint in raw.items():
+        if not isinstance(reference, str) or not isinstance(endpoint, str):
+            return False
+        if reference.startswith("azure-openai:"):
+            prefix = "azure-openai:"
+            suffix = ".openai.azure.com"
+        elif reference.startswith("azure-foundry:"):
+            prefix = "azure-foundry:"
+            suffix = ".services.ai.azure.com"
+        else:
+            return False
+        if not _valid_https_origin(endpoint):
+            return False
+        parsed = urlsplit(endpoint.strip().rstrip("/"))
+        hostname = (parsed.hostname or "").lower()
+        if not hostname.endswith(suffix):
+            return False
+        account = hostname.removesuffix(suffix)
+        if not account or reference != f"{prefix}{account}":
+            return False
+        if prefix == "azure-openai:" and endpoint.rstrip("/") == primary_endpoint.rstrip("/"):
+            primary_matches += 1
+    return primary_matches == 1
+
+
 def _guard_database_host_binding(
     before: dict[str, Any],
     after: dict[str, Any],
@@ -381,6 +415,10 @@ def _guard_model_binding_transition(
     )
     endpoint_binding = _environment_binding(after_environment.get("FDAI_LLM_ENDPOINT"))
     endpoint, endpoint_secret = endpoint_binding or (None, None)
+    model_endpoints_binding = _environment_binding(
+        after_environment.get("FDAI_MODEL_ENDPOINTS_JSON")
+    )
+    model_endpoints, model_endpoints_secret = model_endpoints_binding or (None, None)
     web_enabled_binding = _environment_binding(after_environment.get("FDAI_WEB_SEARCH_ENABLED"))
     web_enabled, web_enabled_secret = web_enabled_binding or (None, None)
     domains_binding = _environment_binding(after_environment.get("FDAI_WEB_SEARCH_ALLOWED_DOMAINS"))
@@ -396,6 +434,13 @@ def _guard_model_binding_transition(
         or not _valid_https_origin(endpoint)
     ):
         invalid.append("FDAI_LLM_ENDPOINT")
+    if (
+        model_endpoints_secret is not None
+        or not isinstance(model_endpoints, str)
+        or not isinstance(endpoint, str)
+        or not _valid_model_endpoints(model_endpoints, primary_endpoint=endpoint)
+    ):
+        invalid.append("FDAI_MODEL_ENDPOINTS_JSON")
     if web_enabled_secret is not None or web_enabled not in {"true", "false"}:
         invalid.append("FDAI_WEB_SEARCH_ENABLED")
     if (

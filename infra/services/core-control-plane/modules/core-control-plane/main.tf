@@ -52,6 +52,8 @@ module "container_app" {
     { name = "FDAI_INCIDENT_INTERVENTION_REQUEST_TOPIC", value = var.event_topics.incident_intervention_requests },
     { name = "FDAI_START_CONSUMER", value = "1" },
     { name = "FDAI_HEALTH_PORT", value = tostring(var.health.port) },
+    ], length(var.llm.model_endpoints) == 0 ? [] : [
+    { name = "FDAI_MODEL_ENDPOINTS_JSON", value = jsonencode(var.llm.model_endpoints) },
     ], var.llm.resolved_models_digest == "" ? [] : [
     { name = "LLM_RESOLVED_MODELS_SHA256", value = var.llm.resolved_models_digest },
   ])

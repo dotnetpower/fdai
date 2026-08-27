@@ -11,6 +11,7 @@ from typing import Any
 
 import httpx
 
+from fdai.composition.semantic_query_model_targets import model_target_for_capability
 from fdai.core.learning import (
     ConsensusPostTurnReviewer,
     GovernedPostTurnProposalRouter,
@@ -154,6 +155,7 @@ def build_azure_post_turn_models(
     repo_root: Path,
     resolved_models_path: str,
     endpoint: str,
+    endpoint_resolver: Callable[[str], str],
     identity: WorkloadIdentity,
     http_client: httpx.AsyncClient,
 ) -> tuple[PostTurnProposalModel, ...]:
@@ -172,20 +174,37 @@ def build_azure_post_turn_models(
     concrete = tuple(item for item in selected if item is not None)
     if len({item.family for item in concrete}) != len(concrete):
         return ()
+    targets = tuple(
+        model_target_for_capability(
+            resolved,
+            capability,
+            endpoint=endpoint,
+            endpoint_resolver=endpoint_resolver,
+        )
+        for capability in _CAPABILITIES
+    )
+    if any(target is None for target in targets):
+        return ()
+    concrete_targets = tuple(target for target in targets if target is not None)
     prompt = FileSystemPromptRegistry(repo_root / "rule-catalog").get_base("norns.post-turn-review")
     return tuple(
         AzureOpenAIPostTurnModel(
             identity=identity,
             http_client=http_client,
             config=AzureOpenAIPostTurnModelConfig(
-                endpoint=endpoint,
-                deployment=item.name,
+                endpoint=target.endpoint,
+                deployment=target.deployment,
                 model_identity=f"{item.publisher}:{item.family}:{item.name}",
                 model_family=item.family or "",
                 system_prompt=prompt.body,
+                api_version=target.api_version or "2024-06-01",
+                api_style=target.api_style,
+                auth_audience=target.auth_audience,
+                route_kind=target.route_kind,
+                binding_id=target.binding_id,
             ),
         )
-        for item in concrete
+        for item, target in zip(concrete, concrete_targets, strict=True)
     )
 
 

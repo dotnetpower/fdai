@@ -146,6 +146,7 @@ variable "llm" {
   description = "Attested Core model endpoint and controlled external-information egress settings."
   type = object({
     endpoint                   = string
+    model_endpoints            = optional(map(string), {})
     web_search_enabled         = optional(bool, false)
     web_search_allowed_domains = optional(list(string), [])
     web_search_max_results     = optional(number, 8)
@@ -159,6 +160,42 @@ variable "llm" {
       trimspace(var.llm.endpoint)
     ))
     error_message = "llm.endpoint must be an HTTPS origin without a path, query, or fragment."
+  }
+
+  validation {
+    condition = (
+      length(var.llm.model_endpoints) <= 16 &&
+      alltrue([
+        for reference, endpoint in var.llm.model_endpoints :
+        (
+          startswith(reference, "azure-openai:") &&
+          can(regex(
+            "^[a-z0-9][a-z0-9-]{0,62}[a-z0-9]$",
+            trimprefix(reference, "azure-openai:")
+          )) &&
+          lower(trimsuffix(trimspace(endpoint), "/")) == "https://${trimprefix(reference, "azure-openai:")}.openai.azure.com"
+          ) || (
+          startswith(reference, "azure-foundry:") &&
+          can(regex(
+            "^[a-z0-9][a-z0-9-]{0,62}[a-z0-9]$",
+            trimprefix(reference, "azure-foundry:")
+          )) &&
+          lower(trimsuffix(trimspace(endpoint), "/")) == "https://${trimprefix(reference, "azure-foundry:")}.services.ai.azure.com"
+        )
+      ])
+    )
+    error_message = "llm.model_endpoints must contain at most 16 exact account-qualified Azure OpenAI or Foundry HTTPS origins."
+  }
+
+  validation {
+    condition = (
+      length(var.llm.model_endpoints) == 0 ||
+      contains(
+        [for endpoint in values(var.llm.model_endpoints) : lower(trimsuffix(trimspace(endpoint), "/"))],
+        lower(trimsuffix(trimspace(var.llm.endpoint), "/"))
+      )
+    )
+    error_message = "llm.model_endpoints must include the primary llm.endpoint origin when provided."
   }
 
   validation {

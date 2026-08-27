@@ -44,7 +44,7 @@ from fdai.runtime.bootstrap_lifecycle import (
     semantic_turn_readiness_registration,
 )
 from fdai.runtime.configuration import (
-    _direct_model_endpoint_resolver,
+    _model_endpoint_resolver,
     _resolve_catalog_root,
 )
 from fdai.runtime.providers import (
@@ -227,7 +227,12 @@ async def build_semantic_runtime(
         http_client=http_client,
         endpoint=endpoint,
         endpoint_resolver=(
-            _direct_model_endpoint_resolver(endpoint) if endpoint is not None else None
+            _model_endpoint_resolver(
+                endpoint,
+                environment.get("FDAI_MODEL_ENDPOINTS_JSON"),
+            )
+            if endpoint is not None
+            else None
         ),
         catalog_root=catalog_root,
         owner_loop=asyncio.get_running_loop(),

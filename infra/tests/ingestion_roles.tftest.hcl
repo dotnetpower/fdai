@@ -55,10 +55,20 @@ override_module {
 override_module {
   target = module.llm_azure_openai
   outputs = {
-    endpoint       = "https://models.example.com/"
+    endpoint       = "https://oai-fdai.openai.azure.com/"
     resource_id    = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.CognitiveServices/accounts/oai-fdai"
     deployments    = { "t1.embedding" = "embedding" }
     capacity_units = { "t1.embedding" = 10 }
+  }
+}
+
+override_module {
+  target = module.llm_foundry_partner
+  outputs = {
+    account_id  = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.CognitiveServices/accounts/aif-fdai-models"
+    project_id  = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.CognitiveServices/accounts/aif-fdai-models/projects/proj-fdai-models"
+    endpoint    = "https://aif-fdai-models.services.ai.azure.com/"
+    deployments = { "t2.reasoner.secondary" = "t2.reasoner.secondary" }
   }
 }
 
@@ -176,6 +186,15 @@ run "split_roles_are_independent_by_default" {
     ingestion_worker_max_replicas = 2
     ingestion_worker_cpu          = 2
     ingestion_worker_memory       = "4Gi"
+  }
+
+  assert {
+    condition = (
+      length(output.llm_model_endpoints) == 1 &&
+      output.llm_model_endpoints["azure-openai:oai-fdai"] ==
+      "https://oai-fdai.openai.azure.com/"
+    )
+    error_message = "An OpenAI-only deployment must publish only its exact account endpoint."
   }
 
   assert {
@@ -398,6 +417,17 @@ run "partner_models_use_separate_foundry_account" {
     condition     = keys(module.llm_foundry_partner[0].deployments) == ["t2.reasoner.secondary"]
     error_message = "Partner capabilities must remain in the Foundry account."
   }
+
+  assert {
+    condition = (
+      length(output.llm_model_endpoints) == 2 &&
+      output.llm_model_endpoints["azure-openai:oai-fdai"] ==
+      "https://oai-fdai.openai.azure.com/" &&
+      output.llm_model_endpoints["azure-foundry:aif-fdai-models"] ==
+      "https://aif-fdai-models.services.ai.azure.com/"
+    )
+    error_message = "Partner deployments must publish exact OpenAI and Foundry account endpoints."
+  }
 }
 
 run "cohost_flag_is_rejected" {
@@ -426,6 +456,11 @@ run "disabled_ingestion_emits_inert_evidence" {
   variables {
     enable_document_ingestion = false
     enable_llm                = false
+  }
+
+  assert {
+    condition     = output.llm_model_endpoints == {}
+    error_message = "A disabled LLM deployment must not publish model endpoints."
   }
 
   assert {

@@ -1960,6 +1960,8 @@ module "compute" {
 # Skipped by default so a Reader-only deployer can plan/apply.
 # -----------------------------------------------------------------------
 locals {
+  openai_model_account_name  = "oai-${var.workload}${local.full_suffix}"
+  partner_model_account_name = "aif-${var.workload}-models${local.full_suffix}"
   openai_resolved_capabilities = [
     for capability in var.resolved_capabilities : capability
     if capability.publisher == "OpenAI"
@@ -1974,7 +1976,7 @@ module "llm_azure_openai" {
   count  = var.enable_llm ? 1 : 0
   source = "./modules/llm/azure-openai"
 
-  name                  = "oai-${var.workload}${local.full_suffix}"
+  name                  = local.openai_model_account_name
   location              = var.region
   resource_group_name   = module.resource_group.name
   executor_principal_id = module.identity.principal_id
@@ -2001,7 +2003,7 @@ module "llm_foundry_partner" {
   count  = var.enable_llm && length(local.partner_resolved_capabilities) > 0 ? 1 : 0
   source = "./modules/llm/foundry-partner"
 
-  account_name        = "aif-${var.workload}-models${local.full_suffix}"
+  account_name        = local.partner_model_account_name
   project_name        = "proj-${var.workload}-models${local.full_suffix}"
   location            = var.region
   resource_group_name = module.resource_group.name
@@ -2020,6 +2022,20 @@ module "llm_foundry_partner" {
     executor = module.identity.principal_id
   }
   tags = merge(local.tags, { "fdai:component" = "partner-models" })
+}
+
+locals {
+  llm_model_endpoints = var.enable_llm ? merge(
+    {
+      "azure-openai:${local.openai_model_account_name}" = module.llm_azure_openai[0].endpoint
+    },
+    length(local.partner_resolved_capabilities) == 0 ? {} : {
+      "azure-foundry:${local.partner_model_account_name}" = module.llm_foundry_partner[0].endpoint
+    },
+  ) : {}
+  llm_model_endpoints_json = length(local.llm_model_endpoints) == 0 ? "" : jsonencode(
+    local.llm_model_endpoints
+  )
 }
 
 locals {
@@ -2192,6 +2208,7 @@ module "measurement_runners" {
     LLM_RESOLVED_MODELS_PATH   = var.resolved_models_json
     LLM_RESOLVED_MODELS_SHA256 = var.resolved_models_sha256
     FDAI_LLM_ENDPOINT          = module.llm_azure_openai[0].endpoint
+    FDAI_MODEL_ENDPOINTS_JSON  = local.llm_model_endpoints_json
   } : {})
   tags = local.tags
 }

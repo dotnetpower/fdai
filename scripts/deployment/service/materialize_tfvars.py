@@ -64,6 +64,60 @@ def _candidate_endpoints(payload: dict[str, Any], key: str) -> set[str]:
     return endpoints
 
 
+def _model_endpoints(
+    raw: object,
+    *,
+    primary_endpoint: str,
+    resolved_models: dict[str, Any],
+) -> dict[str, str]:
+    if not isinstance(raw, dict) or not 1 <= len(raw) <= 16:
+        raise TfvarsError("platform model endpoints must contain 1-16 entries")
+    endpoints: dict[str, str] = {}
+    for reference, endpoint_value in raw.items():
+        if not isinstance(reference, str):
+            raise TfvarsError("platform model endpoint references must be strings")
+        endpoint = _https_origin(endpoint_value)
+        parsed = urlsplit(endpoint)
+        if reference.startswith("azure-openai:"):
+            prefix = "azure-openai:"
+            suffix = ".openai.azure.com"
+        elif reference.startswith("azure-foundry:"):
+            prefix = "azure-foundry:"
+            suffix = ".services.ai.azure.com"
+        else:
+            raise TfvarsError("platform model endpoint reference uses an unsupported provider")
+        hostname = (parsed.hostname or "").lower()
+        if not hostname.endswith(suffix):
+            raise TfvarsError("platform model endpoint provider and hostname do not match")
+        account = hostname.removesuffix(suffix)
+        if not account or reference != f"{prefix}{account}":
+            raise TfvarsError("platform model endpoint reference and account do not match")
+        endpoints[reference] = endpoint
+
+    primary_refs = [
+        reference
+        for reference, endpoint in endpoints.items()
+        if reference.startswith("azure-openai:") and endpoint == primary_endpoint
+    ]
+    if len(primary_refs) != 1:
+        raise TfvarsError("platform model endpoints must include the primary OpenAI account")
+
+    bindings = resolved_models.get("endpoint_bindings", [])
+    if not isinstance(bindings, list):
+        raise TfvarsError("resolved models endpoint_bindings must be an array")
+    for binding in bindings:
+        if not isinstance(binding, dict):
+            raise TfvarsError("resolved models endpoint_bindings entries must be objects")
+        endpoint_ref = binding.get("endpoint_ref")
+        if (
+            isinstance(endpoint_ref, str)
+            and endpoint_ref.startswith("azure-foundry:")
+            and endpoint_ref not in endpoints
+        ):
+            raise TfvarsError("platform model endpoints do not cover a Foundry binding")
+    return dict(sorted(endpoints.items()))
+
+
 def _web_search_domains(values: list[str] | None) -> list[str]:
     normalized: list[str] = []
     for value in values or []:
@@ -97,6 +151,7 @@ def materialize_core_llm(
     resolved_models: dict[str, Any],
     *,
     expected_digest: str,
+    model_endpoints: object,
     web_search_requested: bool = False,
     web_search_allowed_domains: list[str] | None = None,
 ) -> dict[str, Any]:
@@ -123,6 +178,12 @@ def materialize_core_llm(
         endpoints.add(_https_origin(narrator.get("endpoint")))
     if len(endpoints) != 1:
         raise TfvarsError("resolved models must identify exactly one narrator endpoint origin")
+    primary_endpoint = next(iter(endpoints))
+    endpoint_map = _model_endpoints(
+        model_endpoints,
+        primary_endpoint=primary_endpoint,
+        resolved_models=resolved_models,
+    )
 
     allowed_domains = _web_search_domains(web_search_allowed_domains)
     web_search_endpoints = _candidate_endpoints(resolved_models, "web_search_candidates")
@@ -132,7 +193,8 @@ def materialize_core_llm(
         raise TfvarsError("enabled web search requires an allowed-domain policy")
 
     return {
-        "endpoint": endpoints.pop(),
+        "endpoint": primary_endpoint,
+        "model_endpoints": endpoint_map,
         "web_search_enabled": web_search_enabled,
         "web_search_allowed_domains": allowed_domains if web_search_enabled else [],
         "web_search_max_results": 8,
@@ -149,6 +211,7 @@ def select_tfvars(
     operator_channel_edge_enabled: bool | None = None,
     resolved_models: dict[str, Any] | None = None,
     resolved_models_digest: str = "",
+    model_endpoints: object = None,
     web_search_requested: bool = False,
     web_search_allowed_domains: list[str] | None = None,
 ) -> dict[str, Any]:
@@ -179,6 +242,7 @@ def select_tfvars(
         materialized["llm"] = materialize_core_llm(
             resolved_models,
             expected_digest=resolved_models_digest,
+            model_endpoints=model_endpoints,
             web_search_requested=web_search_requested,
             web_search_allowed_domains=web_search_allowed_domains,
         )
@@ -238,6 +302,7 @@ def main() -> int:
             operator_channel_edge_enabled=edge_enabled,
             resolved_models=resolved_models,
             resolved_models_digest=os.environ.get("RESOLVED_MODELS_DIGEST", ""),
+            model_endpoints=json.loads(os.environ.get("MODEL_ENDPOINTS_JSON", "")),
             web_search_requested=web_search_requested,
             web_search_allowed_domains=web_search_allowed_domains,
         )

@@ -18,6 +18,8 @@ _SCRIPTS = Path(__file__).resolve().parents[3] / "scripts" / "deployment" / "ser
 _WORKFLOW = (
     Path(__file__).resolve().parents[3] / ".github" / "workflows" / "service-deploy.yml"
 ).read_text(encoding="utf-8")
+_PRIMARY_ENDPOINT = "https://oai-fdai.openai.azure.com"
+_MODEL_ENDPOINTS = {"azure-openai:oai-fdai": _PRIMARY_ENDPOINT}
 sys.path.insert(0, str(_SCRIPTS))
 
 
@@ -67,8 +69,8 @@ def test_derives_core_llm_from_attested_resolved_models(tfvars: ModuleType) -> N
         "schema_version": "1.0.0",
         "capabilities": [],
         "narrator_candidates": [
-            {"endpoint": "https://models.example.com/", "deployment": "primary"},
-            {"endpoint": "https://models.example.com", "deployment": "secondary"},
+            {"endpoint": f"{_PRIMARY_ENDPOINT}/", "deployment": "primary"},
+            {"endpoint": _PRIMARY_ENDPOINT, "deployment": "secondary"},
         ],
     }
     digest = _digest(resolved_models)
@@ -84,12 +86,14 @@ def test_derives_core_llm_from_attested_resolved_models(tfvars: ModuleType) -> N
         environment="dev",
         resolved_models=resolved_models,
         resolved_models_digest=digest,
+        model_endpoints=_MODEL_ENDPOINTS,
         web_search_requested=True,
         web_search_allowed_domains=["learn.example.com"],
     )
 
     assert selected["llm"] == {
-        "endpoint": "https://models.example.com",
+        "endpoint": _PRIMARY_ENDPOINT,
+        "model_endpoints": _MODEL_ENDPOINTS,
         "web_search_enabled": False,
         "web_search_allowed_domains": [],
         "web_search_max_results": 8,
@@ -97,6 +101,74 @@ def test_derives_core_llm_from_attested_resolved_models(tfvars: ModuleType) -> N
         "resolved_models_digest": digest,
     }
     assert payload["environments"]["dev"]["core-control-plane"]["llm"] == {"endpoint": "stale"}
+
+
+def test_derives_foundry_endpoint_from_authoritative_platform_map(tfvars: ModuleType) -> None:
+    foundry_ref = "azure-foundry:aif-fdai-models"
+    foundry_endpoint = "https://aif-fdai-models.services.ai.azure.com"
+    resolved_models = {
+        "schema_version": "1.0.0",
+        "capabilities": [],
+        "narrator": {"endpoint": _PRIMARY_ENDPOINT, "deployment": "primary"},
+        "endpoint_bindings": [{"endpoint_ref": foundry_ref}],
+    }
+
+    materialized = tfvars.materialize_core_llm(
+        resolved_models,
+        expected_digest=_digest(resolved_models),
+        model_endpoints={
+            **_MODEL_ENDPOINTS,
+            foundry_ref: f"{foundry_endpoint}/",
+        },
+    )
+
+    assert materialized["model_endpoints"] == {
+        foundry_ref: foundry_endpoint,
+        **_MODEL_ENDPOINTS,
+    }
+
+
+def test_rejects_missing_foundry_endpoint_for_sealed_binding(tfvars: ModuleType) -> None:
+    resolved_models = {
+        "schema_version": "1.0.0",
+        "capabilities": [],
+        "narrator": {"endpoint": _PRIMARY_ENDPOINT, "deployment": "primary"},
+        "endpoint_bindings": [{"endpoint_ref": "azure-foundry:aif-fdai-models"}],
+    }
+
+    with pytest.raises(tfvars.TfvarsError, match="do not cover a Foundry binding"):
+        tfvars.materialize_core_llm(
+            resolved_models,
+            expected_digest=_digest(resolved_models),
+            model_endpoints=_MODEL_ENDPOINTS,
+        )
+
+
+@pytest.mark.parametrize(
+    "model_endpoints",
+    [
+        {},
+        {"azure-openai:wrong": _PRIMARY_ENDPOINT},
+        {"azure-foundry:aif-fdai": _PRIMARY_ENDPOINT},
+        {"unknown:oai-fdai": _PRIMARY_ENDPOINT},
+    ],
+)
+def test_rejects_malformed_or_mismatched_platform_model_endpoints(
+    tfvars: ModuleType,
+    model_endpoints: dict[str, str],
+) -> None:
+    resolved_models = {
+        "schema_version": "1.0.0",
+        "capabilities": [],
+        "narrator": {"endpoint": _PRIMARY_ENDPOINT, "deployment": "primary"},
+    }
+
+    with pytest.raises(tfvars.TfvarsError, match="platform model endpoint"):
+        tfvars.materialize_core_llm(
+            resolved_models,
+            expected_digest=_digest(resolved_models),
+            model_endpoints=model_endpoints,
+        )
 
 
 def test_hydrates_database_host_from_authoritative_platform_output(
@@ -293,15 +365,14 @@ def test_enables_web_search_only_with_attested_candidate_and_policy(tfvars: Modu
     resolved_models = {
         "schema_version": "1.0.0",
         "capabilities": [],
-        "narrator": {"endpoint": "https://models.example.com/", "deployment": "primary"},
-        "web_search_candidates": [
-            {"endpoint": "https://models.example.com", "deployment": "search"}
-        ],
+        "narrator": {"endpoint": f"{_PRIMARY_ENDPOINT}/", "deployment": "primary"},
+        "web_search_candidates": [{"endpoint": _PRIMARY_ENDPOINT, "deployment": "search"}],
     }
 
     materialized = tfvars.materialize_core_llm(
         resolved_models,
         expected_digest=_digest(resolved_models),
+        model_endpoints=_MODEL_ENDPOINTS,
         web_search_requested=True,
         web_search_allowed_domains=[" Learn.Example.COM. "],
     )
@@ -316,13 +387,16 @@ def test_enables_web_search_only_with_attested_candidate_and_policy(tfvars: Modu
         (lambda payload: payload.pop("narrator_candidates"), "exactly one narrator endpoint"),
         (
             lambda payload: payload["narrator_candidates"].append(
-                {"endpoint": "https://other.example.com", "deployment": "other"}
+                {
+                    "endpoint": "https://oai-other.openai.azure.com",
+                    "deployment": "other",
+                }
             ),
             "exactly one narrator endpoint",
         ),
         (
             lambda payload: payload["narrator_candidates"].append(
-                {"endpoint": "http://models.example.com", "deployment": "other"}
+                {"endpoint": "http://oai-fdai.openai.azure.com", "deployment": "other"}
             ),
             "must be an HTTPS origin",
         ),
@@ -336,25 +410,31 @@ def test_rejects_missing_or_ambiguous_core_model_endpoint(
     resolved_models = {
         "schema_version": "1.0.0",
         "capabilities": [],
-        "narrator_candidates": [
-            {"endpoint": "https://models.example.com", "deployment": "primary"}
-        ],
+        "narrator_candidates": [{"endpoint": _PRIMARY_ENDPOINT, "deployment": "primary"}],
     }
     mutation(resolved_models)
 
     with pytest.raises(tfvars.TfvarsError, match=error):
-        tfvars.materialize_core_llm(resolved_models, expected_digest=_digest(resolved_models))
+        tfvars.materialize_core_llm(
+            resolved_models,
+            expected_digest=_digest(resolved_models),
+            model_endpoints=_MODEL_ENDPOINTS,
+        )
 
 
 def test_rejects_resolved_models_digest_mismatch(tfvars: ModuleType) -> None:
     resolved_models = {
         "schema_version": "1.0.0",
         "capabilities": [],
-        "narrator": {"endpoint": "https://models.example.com", "deployment": "primary"},
+        "narrator": {"endpoint": _PRIMARY_ENDPOINT, "deployment": "primary"},
     }
 
     with pytest.raises(tfvars.TfvarsError, match="does not match the attested digest"):
-        tfvars.materialize_core_llm(resolved_models, expected_digest="a" * 64)
+        tfvars.materialize_core_llm(
+            resolved_models,
+            expected_digest="a" * 64,
+            model_endpoints=_MODEL_ENDPOINTS,
+        )
 
 
 @pytest.mark.parametrize(
@@ -369,7 +449,7 @@ def test_rejects_resolved_models_digest_mismatch(tfvars: ModuleType) -> None:
             {
                 "schema_version": "1.0.0",
                 "capabilities": [],
-                "narrator": {"endpoint": "https://models.example.com", "deployment": ""},
+                "narrator": {"endpoint": _PRIMARY_ENDPOINT, "deployment": ""},
             },
             [],
             "deployment must be non-empty",
@@ -379,7 +459,7 @@ def test_rejects_resolved_models_digest_mismatch(tfvars: ModuleType) -> None:
                 "schema_version": "1.0.0",
                 "capabilities": [],
                 "narrator": {
-                    "endpoint": "https://models.example.com:invalid",
+                    "endpoint": "https://oai-fdai.openai.azure.com:invalid",
                     "deployment": "primary",
                 },
             },
@@ -390,7 +470,7 @@ def test_rejects_resolved_models_digest_mismatch(tfvars: ModuleType) -> None:
             {
                 "schema_version": "1.0.0",
                 "capabilities": [],
-                "narrator": {"endpoint": "https://models.example.com", "deployment": "primary"},
+                "narrator": {"endpoint": _PRIMARY_ENDPOINT, "deployment": "primary"},
             },
             ["example.com", "EXAMPLE.COM."],
             "100 unique hosts or fewer",
@@ -407,6 +487,7 @@ def test_rejects_malformed_model_binding_inputs(
         tfvars.materialize_core_llm(
             resolved_models,
             expected_digest=_digest(resolved_models),
+            model_endpoints=_MODEL_ENDPOINTS,
             web_search_allowed_domains=domains,
         )
 
@@ -419,7 +500,7 @@ def test_cli_materializes_model_binding_with_owner_only_permissions(
     resolved_models = {
         "schema_version": "1.0.0",
         "capabilities": [],
-        "narrator": {"endpoint": "https://models.example.com", "deployment": "primary"},
+        "narrator": {"endpoint": _PRIMARY_ENDPOINT, "deployment": "primary"},
     }
     service_tfvars = {"environments": {"dev": {"core-control-plane": {"name": "example"}}}}
     output = tmp_path / "service.tfvars.json"
@@ -427,6 +508,7 @@ def test_cli_materializes_model_binding_with_owner_only_permissions(
     monkeypatch.setenv("RESOLVED_MODELS_DIGEST", _digest(resolved_models))
     monkeypatch.setenv("WEB_SEARCH_ENABLED", "false")
     monkeypatch.setenv("WEB_SEARCH_ALLOWED_DOMAINS_JSON", "[]")
+    monkeypatch.setenv("MODEL_ENDPOINTS_JSON", json.dumps(_MODEL_ENDPOINTS))
     monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(service_tfvars)))
     monkeypatch.setattr(
         sys,
@@ -457,5 +539,7 @@ def test_workflow_delegates_core_model_binding_materialization() -> None:
     assert "WEB_SEARCH_ALLOWED_DOMAINS_JSON:" in _WORKFLOW
     assert '[[ "$SERVICE" == "core-control-plane" ]]' in _WORKFLOW
     assert "resolved_model_args+=(--model-binding-transition)" in _WORKFLOW
+    assert "output -json llm_model_endpoints" in _WORKFLOW
+    assert 'MODEL_ENDPOINTS_JSON="$model_endpoints_json"' in _WORKFLOW
     assert '"${resolved_model_args[@]}"' in _WORKFLOW
     assert "Core service tfvars has no LLM configuration" not in _WORKFLOW
