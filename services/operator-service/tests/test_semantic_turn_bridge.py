@@ -65,6 +65,7 @@ from fdai_service_contracts import (
     RuleSearchProjection,
     RuleSearchReceipt,
     SemanticInvestigationContinuation,
+    context_selection_digest,
     query_content_digest,
     rule_search_query_digest,
 )
@@ -181,6 +182,20 @@ def test_semantic_envelope_forwards_bound_incident_conversation_context() -> Non
 
 
 def test_semantic_envelope_forwards_exact_screen_resource_scope() -> None:
+    identity = {
+        "principal_id": "operator-1",
+        "principal_scope_digest": f"sha256:{'a' * 64}",
+        "ontology_release_digest": f"sha256:{'b' * 64}",
+        "source_generation": "generation-1",
+        "complete": True,
+    }
+    selection_digest = context_selection_digest(
+        kind="screen",
+        screen_id="ontology-instances",
+        resource_group_id=None,
+        resource_ids=("resource-a", "resource-b"),
+        **identity,
+    )
     envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
         _proposal(
             body={
@@ -189,6 +204,8 @@ def test_semantic_envelope_forwards_exact_screen_resource_scope() -> None:
                     "kind": "screen",
                     "screen_id": "ontology-instances",
                     "resource_ids": ["resource-a", "resource-b"],
+                    **identity,
+                    "selection_digest": selection_digest,
                 },
             }
         )
@@ -199,6 +216,8 @@ def test_semantic_envelope_forwards_exact_screen_resource_scope() -> None:
         "kind": "screen",
         "screen_id": "ontology-instances",
         "resource_ids": ["resource-a", "resource-b"],
+        **identity,
+        "selection_digest": selection_digest,
     }
 
 
@@ -212,6 +231,28 @@ def test_semantic_envelope_rejects_context_scope_without_resource_ids() -> None:
                         "kind": "screen",
                         "screen_id": "ontology-instances",
                         "resource_ids": [],
+                    },
+                }
+            )
+        )
+
+
+def test_semantic_envelope_rejects_unsigned_or_mismatched_context_identity() -> None:
+    with pytest.raises(ValueError, match="selection digest"):
+        SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+            _proposal(
+                body={
+                    "prompt": "Which resources are on this screen?",
+                    "conversation_context": {
+                        "kind": "screen",
+                        "screen_id": "ontology-instances",
+                        "resource_ids": ["resource-a"],
+                        "principal_id": "operator-1",
+                        "principal_scope_digest": f"sha256:{'a' * 64}",
+                        "ontology_release_digest": f"sha256:{'b' * 64}",
+                        "source_generation": "generation-1",
+                        "selection_digest": f"sha256:{'c' * 64}",
+                        "complete": True,
                     },
                 }
             )

@@ -79,6 +79,24 @@ describe("viewContextWithUser wiring", () => {
     expect(ctx._route_actions).toBeUndefined();
   });
 
+  test("does not forward an incomplete context identity", async () => {
+    const parsed = await callAskAndCaptureBody({
+      ...liveSnap(),
+      contextIdentity: {
+        kind: "screen",
+        screenId: "live",
+        resourceIds: ["resource-a"],
+        principalId: "operator-1",
+        principalScopeDigest: "sha256:" + "a".repeat(64),
+        ontologyReleaseDigest: "sha256:" + "b".repeat(64),
+        sourceGeneration: "generation-1",
+        selectionDigest: "sha256:" + "c".repeat(64),
+        complete: false as unknown as true,
+      },
+    });
+    expect((parsed as Record<string, unknown>).conversation_context).toBeUndefined();
+  });
+
   test("keeps the current screen path when the panel snapshot is unavailable", async () => {
     vi.stubGlobal("window", { location: { pathname: "/workflow-builder" } });
     const parsed = await callAskAndCaptureBody(null);

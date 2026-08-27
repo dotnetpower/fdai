@@ -8,6 +8,8 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, cast
 
+from fdai_service_contracts import context_selection_digest
+
 from fdai.shared.contracts.models import (
     CeilingRole,
     LogicExecutionClass,
@@ -37,7 +39,18 @@ def contextual_resource_function_type() -> OntologyFunctionType:
         input_schema={
             "type": "object",
             "additionalProperties": False,
-            "required": ["query_result", "context_kind", "context_id", "resource_ids"],
+            "required": [
+                "query_result",
+                "context_kind",
+                "context_id",
+                "resource_ids",
+                "principal_id",
+                "principal_scope_digest",
+                "ontology_release_digest",
+                "source_generation",
+                "selection_digest",
+                "complete",
+            ],
             "properties": {
                 "query_result": {"type": "object", "x-fdai-dependency-only": True},
                 "context_kind": {"enum": ["screen", "resource_group"]},
@@ -49,6 +62,12 @@ def contextual_resource_function_type() -> OntologyFunctionType:
                     "uniqueItems": True,
                     "items": {"type": "string", "minLength": 1, "maxLength": 256},
                 },
+                "principal_id": {"type": "string", "minLength": 1, "maxLength": 256},
+                "principal_scope_digest": {"type": "string", "pattern": r"^sha256:[a-f0-9]{64}$"},
+                "ontology_release_digest": {"type": "string", "pattern": r"^sha256:[a-f0-9]{64}$"},
+                "source_generation": {"type": "string", "minLength": 1, "maxLength": 256},
+                "selection_digest": {"type": "string", "pattern": r"^sha256:[a-f0-9]{64}$"},
+                "complete": {"const": True},
             },
         },
         output_schema={
@@ -92,6 +111,23 @@ def contextual_resource_function(
             raise PermissionError("contextual resource purpose does not match invocation context")
         secured = SecuredObjectSetQueryResult.model_validate(arguments["query_result"])
         expected_ids = tuple(str(item) for item in arguments["resource_ids"])
+        expected_digest = context_selection_digest(
+            kind=arguments["context_kind"],
+            principal_id=arguments["principal_id"],
+            principal_scope_digest=arguments["principal_scope_digest"],
+            ontology_release_digest=arguments["ontology_release_digest"],
+            source_generation=arguments["source_generation"],
+            complete=arguments["complete"],
+            screen_id=arguments["context_id"] if arguments["context_kind"] == "screen" else None,
+            resource_group_id=(
+                arguments["context_id"] if arguments["context_kind"] == "resource_group" else None
+            ),
+            resource_ids=expected_ids,
+        )
+        if arguments["selection_digest"] != expected_digest:
+            return _table((), complete=False, reason="context_identity_mismatch")
+        if arguments["ontology_release_digest"] != secured.receipt.ontology_release.digest:
+            return _table((), complete=False, reason="context_release_mismatch")
         actual_ids = tuple(item.id for item in secured.materialization.graph.objects)
         if len(expected_ids) != len(set(expected_ids)) or set(actual_ids) != set(expected_ids):
             return _table((), complete=False, reason="context_scope_mismatch")

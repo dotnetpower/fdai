@@ -6,6 +6,7 @@ import hashlib
 import json
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import UUID, uuid5
 
 from fdai_operator_service.families.conversation.contracts import ConversationProposal
@@ -20,6 +21,7 @@ from fdai_service_contracts import (
     SemanticPriorTurn,
     SemanticTurnPrincipal,
     SemanticTurnRequest,
+    context_selection_digest,
 )
 
 _IDENTITY_NAMESPACE = UUID("00000000-0000-0000-0000-000000000000")
@@ -64,7 +66,10 @@ class SemanticTurnEnvelopeBuilder:
             purpose=_optional_text(proposal.body, "purpose", default="operations-review"),
             deadline_at=_deadline(proposal.body, requested_at),
             view_context_digest=_optional_digest(proposal.body.get("view_context")),
-            bound_context=_bound_context(proposal.body.get("conversation_context")),
+            bound_context=_bound_context(
+                proposal.body.get("conversation_context"),
+                principal_id=proposal.scope.subject_id,
+            ),
             investigation_continuation=investigation_continuation,
             prior_turns=_prior_turns(proposal.body.get("history")),
             planning_profile=_planning_profile(proposal.body),
@@ -187,7 +192,7 @@ def _prior_turns(value: object) -> tuple[SemanticPriorTurn, ...]:
     return tuple(turns)
 
 
-def _bound_context(value: object) -> SemanticBoundContext | None:
+def _bound_context(value: object, *, principal_id: str) -> SemanticBoundContext | None:
     """Accept only server-resolved incident and exact screen/resource scopes."""
 
     if value is None:
@@ -210,19 +215,25 @@ def _bound_context(value: object) -> SemanticBoundContext | None:
             screen_id = value.get("screen_id", value.get("id"))
             if not isinstance(screen_id, str) or not screen_id.strip():
                 return None
-            return SemanticBoundContext(
+            context = SemanticBoundContext(
                 kind="screen",
                 screen_id=screen_id,
                 resource_ids=resource_ids,
+                **_context_identity_fields(value, principal_id=principal_id),
             )
+            _verify_context_selection_digest(context)
+            return context
         resource_group_id = value.get("resource_group_id", value.get("id"))
         if not isinstance(resource_group_id, str) or not resource_group_id.strip():
             return None
-        return SemanticBoundContext(
+        context = SemanticBoundContext(
             kind="resource_group",
             resource_group_id=resource_group_id,
             resource_ids=resource_ids,
+            **_context_identity_fields(value, principal_id=principal_id),
         )
+        _verify_context_selection_digest(context)
+        return context
     incident_id = value.get("incident_id")
     correlation_id = value.get("correlation_id")
     if incident_id is None and correlation_id is None:
@@ -234,6 +245,47 @@ def _bound_context(value: object) -> SemanticBoundContext | None:
             correlation_id if isinstance(correlation_id, str) and correlation_id else None
         ),
     )
+
+
+def _context_identity_fields(value: dict[str, object], *, principal_id: str) -> dict[str, Any]:
+    """Require the server-issued identity envelope before accepting resource ids."""
+    fields: dict[str, Any] = {
+        "principal_id": value.get("principal_id"),
+        "principal_scope_digest": value.get("principal_scope_digest"),
+        "ontology_release_digest": value.get("ontology_release_digest"),
+        "source_generation": value.get("source_generation"),
+        "selection_digest": value.get("selection_digest"),
+        "complete": value.get("complete"),
+    }
+    if fields["principal_id"] != principal_id or fields["complete"] is not True:
+        raise ValueError(
+            "conversation_context identity is not bound to the authenticated principal"
+        )
+    if any(
+        not isinstance(fields[key], str) or not fields[key].strip()
+        for key in fields
+        if key != "complete"
+    ):
+        raise ValueError("conversation_context identity is incomplete")
+    return fields
+
+
+def _verify_context_selection_digest(context: SemanticBoundContext) -> None:
+    if context.kind == "incident":
+        raise ValueError("incident context cannot carry a resource selection digest")
+    expected = context_selection_digest(
+        kind=context.kind,
+        principal_id=context.principal_id or "",
+        principal_scope_digest=context.principal_scope_digest or "",
+        ontology_release_digest=context.ontology_release_digest or "",
+        source_generation=context.source_generation or "",
+        complete=context.complete is True,
+        screen_id=context.screen_id,
+        resource_group_id=context.resource_group_id,
+        resource_ids=context.resource_ids,
+    )
+    if context.selection_digest != expected:
+        raise ValueError("conversation_context selection digest does not match its identity")
 
 
 def _required_text(body: Mapping[str, object], key: str) -> str:

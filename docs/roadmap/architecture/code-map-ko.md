@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 02f958b52554dc526c6e7eec8476dc7188af50d6
+translation_source_sha: 9284f5e09002cbaa26d0566e4ba7c05067b78ce8
 translation_revised: 2026-08-27
 ---
 # 코드 맵
@@ -215,6 +215,9 @@ Semantic-turn 요청은 정확한 resource id와 함께 타입이 지정된 화�
 정확한 `Resource.id` 범위를 컴파일합니다. 범위가 일치하지 않으면 principal이 볼 수 있는
 컬렉션으로 대체하지 않고 타입이 지정된 사용 불가 결과를 반환합니다. 어떤 context 필드도
 승인 또는 실행 권한을 부여하지 않습니다.
+선택은 principal 범위, 활성 release, source generation, completeness 및 id 집합에 결속된
+서버 발급 digest가 있을 때만 허용됩니다. 명시적 발화 조건식은 해당 집합과 교집합하며,
+불완전한 contextual 표는 answered claim이 되지 않고 semantic turn을 hold합니다.
 
 SDK는 두 semantic channel이 하나의 physical Event Hub를 공유할 때 사용하는 logical-topic marker와
 결정론적 consumer-group 파생 규칙도 소유합니다. Core와 Operator는 서로 다른 adapter, codec,

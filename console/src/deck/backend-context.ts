@@ -62,12 +62,27 @@ function latestConversationBinding(history: readonly BackendTurn[]) {
 
 function contextBinding(snapshot: ViewSnapshot | null): Record<string, unknown> | undefined {
   const identity = snapshot?.contextIdentity;
-  if (!identity || identity.resourceIds.length === 0) return undefined;
+  if (
+    !identity ||
+    identity.resourceIds.length === 0 ||
+    identity.complete !== true ||
+    !identity.principalId ||
+    !identity.principalScopeDigest ||
+    !identity.ontologyReleaseDigest ||
+    !identity.sourceGeneration ||
+    !identity.selectionDigest
+  ) return undefined;
   return {
     kind: identity.kind,
     ...(identity.screenId ? { screen_id: identity.screenId } : {}),
     ...(identity.resourceGroupId ? { resource_group_id: identity.resourceGroupId } : {}),
     resource_ids: [...identity.resourceIds],
+    principal_id: identity.principalId,
+    principal_scope_digest: identity.principalScopeDigest,
+    ontology_release_digest: identity.ontologyReleaseDigest,
+    source_generation: identity.sourceGeneration,
+    selection_digest: identity.selectionDigest,
+    complete: true,
   };
 }
 

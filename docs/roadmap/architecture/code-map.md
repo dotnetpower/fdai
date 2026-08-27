@@ -217,6 +217,10 @@ resource ids. Operator validates the additive context and Core compiles an exact
 scope for `query.contextual_resources`; a scope mismatch is typed unavailable rather than a
 fallback to the principal-visible collection. No context field grants approval or execution
 authority.
+The selection is accepted only with a server-issued digest bound to the principal scope, active
+release, source generation, completeness, and id set. Explicit utterance predicates are intersected
+with that set, and an incomplete contextual table holds the semantic turn instead of becoming an
+answered claim.
 
 The SDK also owns the logical-topic marker and deterministic consumer-group derivation used when
 those two semantic channels share a physical Event Hub. Core and Operator keep separate adapters,
