@@ -354,6 +354,10 @@ commitment, the verified frame input digest for prior-context binding, and the q
 case contributes only the applicable optional metrics. The adapter never infers intent from
 keywords or stores clarification text.
 
+The answer-plan adapter measures item 7 from the deterministic format and ordered section set, and
+item 8 from detail level and word budget. It retains only the plan content digest in the
+contribution, not the subject or clarification text.
+
 ## Independent model review
 
 Evaluator A and evaluator B run independently and cannot read each other's result. Model identities

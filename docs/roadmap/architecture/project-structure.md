@@ -63,7 +63,8 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   observations reuse deterministic `ChangeAssessment` and preserve incomplete or truncated state.
   Orchestration observations reuse bounded shadow-planning and revisioned assignment records; they
   do not route work or apply ownership or IAM effects. Intent observations consume typed semantic
-  outcomes and verified digests only; they do not add a lexical intent path. The sibling
+  outcomes and verified digests only; they do not add a lexical intent path. Answer-quality shape
+  observations reuse the deterministic AnswerPlan and do not inspect answer prose. The sibling
   `quality_latency.py` module owns only the five-stage SLO contract and pure percentile reduction;
   Operator, channel, verification, and delivery owners retain timestamp and measurement authority.
   Stage owners provide monotonic start and completion values through a typed receipt; Core derives
