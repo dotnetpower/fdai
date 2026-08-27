@@ -53,14 +53,20 @@ class PostgresTopologyHistoryStore:
 
         _validate_digest(ontology_release_digest, "ontology_release_digest")
         _validate_digest(source_receipt_digest, "source_receipt_digest")
+        stored_batch = _with_digests(
+            batch,
+            ontology_release_digest=ontology_release_digest,
+            source_receipt_digest=source_receipt_digest,
+        )
         async with await self._connect() as connection:
             async with connection.transaction():
                 await self._set_timeout(connection)
-                await connection.execute(
+                inserted = await connection.execute(
                     "INSERT INTO topology_revision_batch "
                     "(revision_id, provider_generation_ref, ontology_release_digest, "
                     "source_receipt_digest, effective_at, recorded_at, complete_snapshot) "
-                    "VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s) "
+                    "ON CONFLICT (revision_id) DO NOTHING",
                     (
                         batch.revision_id,
                         batch.provider_generation_ref,
@@ -71,6 +77,19 @@ class PostgresTopologyHistoryStore:
                         batch.complete_snapshot,
                     ),
                 )
+                # The revision identity is content addressed by the publisher. A
+                # retry must be a no-op only when the retained children and release
+                # bindings are byte-for-byte the same.
+                if getattr(inserted, "rowcount", 1) == 0:
+                    existing = await _read_existing_batch(
+                        connection,
+                        revision_id=batch.revision_id,
+                    )
+                    if existing != stored_batch:
+                        raise ValueError(
+                            "topology revision replay does not match the retained batch"
+                        )
+                    return
                 if batch.object_revisions:
                     async with connection.cursor() as cursor:
                         await cursor.executemany(
@@ -135,8 +154,9 @@ class PostgresTopologyHistoryStore:
                     "WHERE effective_at <= %s AND recorded_at <= %s AND complete_snapshot "
                     "ORDER BY recorded_at DESC, revision_id DESC LIMIT 1"
                     ") "
-                    "SELECT revision_id, provider_generation_ref, effective_at, recorded_at, "
-                    "complete_snapshot FROM topology_revision_batch "
+                    "SELECT revision_id, provider_generation_ref, ontology_release_digest, "
+                    "source_receipt_digest, effective_at, recorded_at, complete_snapshot "
+                    "FROM topology_revision_batch "
                     "WHERE effective_at <= %s AND recorded_at <= %s AND ("
                     "NOT EXISTS (SELECT 1 FROM latest_complete) OR "
                     "(recorded_at, revision_id) >= "
@@ -229,9 +249,79 @@ def _reconstruct_batches(
             complete_snapshot=bool(row["complete_snapshot"]),
             object_revisions=tuple(objects.get(str(row["revision_id"]), ())),
             link_revisions=tuple(links.get(str(row["revision_id"]), ())),
+            ontology_release_digest=(
+                str(row["ontology_release_digest"])
+                if row.get("ontology_release_digest") is not None
+                else None
+            ),
+            source_receipt_digest=(
+                str(row["source_receipt_digest"])
+                if row.get("source_receipt_digest") is not None
+                else None
+            ),
         )
         for row in batch_rows
     )
+
+
+def _with_digests(
+    batch: TopologyRevisionBatch,
+    *,
+    ontology_release_digest: str,
+    source_receipt_digest: str,
+) -> TopologyRevisionBatch:
+    if batch.ontology_release_digest not in (None, ontology_release_digest):
+        raise ValueError("topology batch ontology release binding does not match append")
+    if batch.source_receipt_digest not in (None, source_receipt_digest):
+        raise ValueError("topology batch source receipt binding does not match append")
+    return TopologyRevisionBatch(
+        revision_id=batch.revision_id,
+        provider_generation_ref=batch.provider_generation_ref,
+        effective_at=batch.effective_at,
+        recorded_at=batch.recorded_at,
+        complete_snapshot=batch.complete_snapshot,
+        object_revisions=batch.object_revisions,
+        link_revisions=batch.link_revisions,
+        ontology_release_digest=ontology_release_digest,
+        source_receipt_digest=source_receipt_digest,
+    )
+
+
+async def _read_existing_batch(
+    connection: psycopg.AsyncConnection[Any],
+    *,
+    revision_id: str,
+) -> TopologyRevisionBatch:
+    cursor = await connection.execute(
+        "SELECT revision_id, provider_generation_ref, ontology_release_digest, "
+        "source_receipt_digest, effective_at, recorded_at, complete_snapshot "
+        "FROM topology_revision_batch WHERE revision_id = %s",
+        (revision_id,),
+    )
+    batch_rows = await cursor.fetchall()
+    if len(batch_rows) != 1:
+        raise RuntimeError("topology revision replay parent disappeared")
+    object_cursor = await connection.execute(
+        "SELECT revision_id, object_id, object_type, properties, effective_at, "
+        "recorded_at, deleted, evidence_ref FROM topology_object_revision "
+        "WHERE revision_id = %s ORDER BY object_id",
+        (revision_id,),
+    )
+    link_cursor = await connection.execute(
+        "SELECT revision_id, from_id, from_type, link_type, to_id, to_type, "
+        "properties, effective_at, recorded_at, deleted, evidence_ref "
+        "FROM topology_link_revision WHERE revision_id = %s "
+        "ORDER BY from_id, link_type, to_id",
+        (revision_id,),
+    )
+    batches = _reconstruct_batches(
+        batch_rows,
+        await object_cursor.fetchall(),
+        await link_cursor.fetchall(),
+    )
+    if len(batches) != 1:
+        raise RuntimeError("topology revision replay parent is malformed")
+    return batches[0]
 
 
 def _canonical_properties(value: object) -> str:

@@ -65,6 +65,14 @@ class ResolverBackedExecutionAuthorizationEvaluator:
         request: ExecutionAuthorizationRequest,
     ) -> ExecutionAuthorizationResult:
         context = await self.context_provider.resolve_context(request)
+        if context.resource_id != request.target_resource_ref:
+            return self._result(
+                request=request,
+                context=context,
+                status=ExecutionAuthorizationStatus.UNKNOWN,
+                outcomes=(),
+                extra_reasons=("target_resource_identity_mismatch",),
+            )
         resource = ResourceContext(
             organization=context.organization,
             account=context.account,

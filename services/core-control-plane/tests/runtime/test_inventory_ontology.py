@@ -186,14 +186,18 @@ async def test_first_generation_writes_owned_objects_and_manifest() -> None:
     assert sorted(manifest["object_ids"]) == ["vm-1", "vm-2"]
     assert manifest["generation"] == "snapshot-1"
     assert manifest["ontology_release_digest"] == ONTOLOGY_RELEASE_DIGEST
-    assert await status.read_state(INVENTORY_ONTOLOGY_STATUS_KEY) == {
-        "schema_version": "1.2.0",
-        "generation": "snapshot-1",
-        "ontology_release_digest": ONTOLOGY_RELEASE_DIGEST,
-        "status": "available",
-        "relationship_complete": True,
-        "dropped_reasons": [],
-    }
+    status_record = await status.read_state(INVENTORY_ONTOLOGY_STATUS_KEY)
+    assert status_record is not None
+    assert status_record["schema_version"] == "1.3.0"
+    assert status_record["generation"] == "snapshot-1"
+    assert status_record["ontology_release_digest"] == ONTOLOGY_RELEASE_DIGEST
+    assert status_record["status"] == "available"
+    assert status_record["complete"] is True
+    assert status_record["relationship_complete"] is True
+    assert status_record["dropped_reasons"] == []
+    manifest = await status.read_state(INVENTORY_ONTOLOGY_MANIFEST_KEY)
+    assert manifest is not None
+    assert status_record["manifest_digest"] == manifest["manifest_digest"]
 
 
 async def test_projector_serializes_the_complete_commit_under_injected_lock() -> None:
@@ -235,6 +239,24 @@ async def test_projector_retry_recovers_after_manifest_write_before_status_commi
     committed = await status.read_state(INVENTORY_ONTOLOGY_STATUS_KEY)
     assert committed is not None
     assert committed["generation"] == "snapshot-1"
+
+
+async def test_projector_rejects_tampered_manifest_before_replacing_owned_graph() -> None:
+    store = _store()
+    status = InMemoryStateStore()
+    projector = _projector(store, status)
+    await projector.apply(_observation(generation="snapshot-1", resource_ids=("vm-1",)))
+
+    manifest = await status.read_state(INVENTORY_ONTOLOGY_MANIFEST_KEY)
+    assert manifest is not None
+    manifest["object_ids"] = ["vm-tampered"]
+    await status.write_state(INVENTORY_ONTOLOGY_MANIFEST_KEY, manifest)
+
+    with pytest.raises(ValueError, match="manifest digest"):
+        await projector.apply(_observation(generation="snapshot-2", resource_ids=("vm-2",)))
+
+    assert await store.get_object("vm-1") is not None
+    assert await store.get_object("vm-2") is None
 
 
 def test_projector_rejects_unpinned_ontology_release() -> None:
@@ -437,14 +459,15 @@ async def test_incomplete_observation_preserves_prior_projection_and_records_una
     assert await store.get_object("vm-1") is not None
     assert await store.get_object("vm-2") is None
     assert await status.read_state(INVENTORY_ONTOLOGY_MANIFEST_KEY) == prior_manifest
-    assert await status.read_state("inventory-ontology:status") == {
-        "schema_version": "1.2.0",
-        "generation": "snapshot-2",
-        "ontology_release_digest": ONTOLOGY_RELEASE_DIGEST,
-        "status": "unavailable",
-        "relationship_complete": False,
-        "dropped_reasons": ["observation_incomplete"],
-    }
+    unavailable_status = await status.read_state("inventory-ontology:status")
+    assert unavailable_status is not None
+    assert unavailable_status["schema_version"] == "1.3.0"
+    assert unavailable_status["generation"] == "snapshot-2"
+    assert unavailable_status["ontology_release_digest"] == ONTOLOGY_RELEASE_DIGEST
+    assert unavailable_status["status"] == "unavailable"
+    assert unavailable_status["complete"] is False
+    assert unavailable_status["relationship_complete"] is False
+    assert unavailable_status["dropped_reasons"] == ["observation_incomplete"]
 
 
 async def test_metadata_less_link_preserves_prior_projection_and_reports_unverified() -> None:

@@ -1,7 +1,7 @@
 ---
 translation_of: execution-authorization-ontology.md
-translation_source_sha: 0b45452618eb59ce7518a352368de153c387f2c1
-translation_revised: 2026-08-23
+translation_source_sha: ac23add884308e7f29293ffe277151d5840ee5ef
+translation_revised: 2026-08-27
 ---
 # 실행 권한 부여 온톨로지
 
@@ -126,6 +126,11 @@ translation_revised: 2026-08-23
 
 알 수 없는 링크, 잘린 탐색, stale 인벤토리, 확인되지 않은 대상 또는 선언된 최대 범위보다
 넓은 결과는 `UNKNOWN`을 생성합니다. 자동으로 ancestor까지 넓히지 않습니다.
+
+Context provider는 `ExecutionAuthorizationRequest.target_resource_ref`가 지정한 exact Resource
+instance와 동일한 instance를 해석해야 합니다. 불일치는 policy, identity 또는
+effective-access 평가 전에 `UNKNOWN`을 반환합니다. 결과는 권한이 없는 audit context에 target
+reference를 보존하므로 authorization을 다른 graph instance에 재생할 수 없습니다.
 
 요구사항은 다른 ActionType에서 상속하지 않습니다. 여러 액션을 하나의 versioned 요구사항 또는
 기능과 연결하여 공통 의미를 표현합니다. 이 방식은 circular inheritance를 방지하고 액션

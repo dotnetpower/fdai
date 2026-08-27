@@ -133,6 +133,34 @@ async def test_adds_runtime_resources_and_verified_relationships() -> None:
     assert result.source_states[-1].status is InventoryProjectionSourceStatus.AVAILABLE
 
 
+async def test_retains_observed_resources_when_one_relationship_endpoint_is_unavailable() -> None:
+    snapshot = _snapshot()
+    without_node = KubernetesApiInventorySnapshot(
+        resources=tuple(
+            resource for resource in snapshot.resources if resource.type != "kubernetes.node"
+        ),
+        observed_at=snapshot.observed_at,
+    )
+
+    result = await KubernetesInventoryEnricher(
+        source=_Source(without_node),
+        relationship_mapping_catalog=load_provider_relationship_mapping_catalog(CATALOG_ROOT),
+    ).enrich(_observation())
+
+    assert {resource.type for resource in result.resources} == {
+        "kubernetes-cluster",
+        "kubernetes-node-pool",
+        "kubernetes.namespace",
+        "kubernetes.pod",
+    }
+    assert any(link.link_type == "contains" for link in result.links)
+    assert result.source_states[-1].status is InventoryProjectionSourceStatus.UNAVAILABLE
+    assert result.source_states[-1].reason == "kubernetes_relationship_incomplete"
+    assert any(
+        drop.mapping_id == "kubernetes.pod-scheduled-on-node" for drop in result.relationship_drops
+    )
+
+
 async def test_cluster_identity_mismatch_preserves_provider_generation() -> None:
     original = _observation()
     result = await KubernetesInventoryEnricher(

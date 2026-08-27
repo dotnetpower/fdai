@@ -46,6 +46,9 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   utterance. Zero or multiple identifiers and every other unresolved concept remain a typed
   clarification. This validation adds no provider I/O, decision, approval, mutation, or execution
   authority.
+- **authorization is instance-bound**: the context provider must return the exact Resource ID from
+  `ExecutionAuthorizationRequest.target_resource_ref`. A mismatch holds before policy, identity,
+  or effective-access evaluation and is retained in the no-authority audit context.
 - **policies and rules are data, not code paths**: T0 loads `rule-catalog/` entries and
   `policies/` at runtime; adding a rule or policy never requires an engine change. Rules
   describe intent and remediation; policies are the executable OPA/Rego the verifier re-checks.

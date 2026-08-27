@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 487d924ce28dc60e31d81ace540d3cd736ab462a
+translation_source_sha: efd663ba4a6caec86f1ae01df41a5ba73b15b111
 translation_revised: 2026-08-28
 ---
 # FDAI 온톨로지 안전 인프라
@@ -633,6 +633,8 @@ payload, 변경/executor 자격 증명 또는 browser 계산 권한/호환성이
 | Dynamic 종결 | 완전한 독립적인 관측만 trajectory fidelity를 점수하거나 challenger를 갱신합니다. |
 | Pod 텔레메트리 | 용도 범위가 지정된 secured 그래프와 상태 근거가 프로바이더 I/O 또는 상태 inference 없이 결정론적 `verified`, `unverified`, `stale`, `missing` 구간을 만듭니다. |
 | Pod 진단 | 하나의 정확한 secured Pod UID는 범위가 제한된 수명 주기 및 로그 본문을 보존하지 않는 근거와 결합할 수 있습니다. 행 0개, 불완전한 출처 및 범위 충돌은 명시적으로 유지하며 원인 또는 실행 권한을 부여할 수 없습니다. |
+| Historical topology | PostgreSQL replay는 선택된 각 revision batch에 exact ontology release와 source receipt binding을 보존하며, dangling active link는 completeness를 낮춥니다. |
+| Projection reload | Inventory status marker와 manifest는 content digest를 공유하므로 재시작 후 혼합 generation이 노출되지 않습니다. |
 
 ## 관련 문서
 

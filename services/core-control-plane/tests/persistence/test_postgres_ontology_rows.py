@@ -82,6 +82,30 @@ def test_relationship_gap_holds_a_snapshot_that_can_state_a_relationship() -> No
     assert complete is False
 
 
+def test_manifest_status_digest_mismatch_holds_even_when_generations_match() -> None:
+    complete, generation = postgres_ontology._resolve_inventory_graph_source_coverage(
+        active_generation="generation-2",
+        status={
+            "status": "available",
+            "generation": "generation-2",
+            "complete": True,
+            "manifest_digest": "sha256:" + "b" * 64,
+            "ontology_release_digest": "sha256:" + "c" * 64,
+        },
+        manifest={
+            "generation": "generation-2",
+            "complete": True,
+            "relationship_complete": True,
+            "dropped_reasons": [],
+            "manifest_digest": "sha256:" + "a" * 64,
+            "ontology_release_digest": "sha256:" + "c" * 64,
+        },
+    )
+
+    assert complete is False
+    assert generation == "generation-2"
+
+
 def test_relationship_gap_does_not_hold_a_snapshot_with_no_expressible_relationship() -> None:
     complete, generation = postgres_ontology._resolve_inventory_graph_source_coverage(
         active_generation="generation-2",

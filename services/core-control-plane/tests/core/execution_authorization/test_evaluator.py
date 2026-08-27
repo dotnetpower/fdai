@@ -37,6 +37,7 @@ _NOW = datetime(2026, 7, 31, tzinfo=UTC)
 @dataclass
 class _ContextProvider:
     calls: int = 0
+    resource_id: str = "target-ref"
 
     async def resolve_context(
         self, request: ExecutionAuthorizationRequest
@@ -46,7 +47,7 @@ class _ContextProvider:
             organization="example",
             account="account",
             resource_group="group",
-            resource_id="resource",
+            resource_id=self.resource_id,
             resource_type="object-storage",
             inventory_generation="inventory-v1",
             evaluated_at=_NOW,
@@ -206,6 +207,21 @@ def _evaluator(
     return evaluator, context_provider, identity_resolver, mapper
 
 
+async def test_target_identity_mismatch_holds_before_policy_or_identity_resolution() -> None:
+    probe = _Probe(EffectiveAccessStatus.ALLOWED)
+    evaluator, context_provider, identity_resolver, _ = _evaluator(probe=probe)
+    context_provider.resource_id = "different-resource"
+
+    result = await evaluator.evaluate(_request())
+
+    assert result.status is ExecutionAuthorizationStatus.UNKNOWN
+    assert result.reason_codes == ("target_resource_identity_mismatch",)
+    assert context_provider.calls == 1
+    assert identity_resolver.calls == 0
+    assert probe.calls == 0
+    assert result.audit_context["target_resource_ref"] == "target-ref"
+
+
 async def test_allowed_probe_reaches_authorized_result() -> None:
     probe = _Probe(EffectiveAccessStatus.ALLOWED)
     evaluator, context_provider, identity_resolver, mapper = _evaluator(probe=probe)
@@ -233,7 +249,7 @@ async def test_denied_probe_plans_one_exact_bounded_grant() -> None:
 
     assert result.status is ExecutionAuthorizationStatus.GRANT_REQUIRED
     assert len(result.grant_proposals) == 1
-    assert result.grant_proposals[0].scope_ref == "scope://example/account/group/resource"
+    assert result.grant_proposals[0].scope_ref == "scope://example/account/group/target-ref"
     assert result.grant_proposals[0].authorization_decision_digest == result.decision_digest
     assert planner.calls == 1
 
@@ -269,8 +285,8 @@ async def test_multiple_missing_requirements_plan_every_grant() -> None:
     assert tuple(
         (proposal.requirement_id, proposal.scope_ref) for proposal in result.grant_proposals
     ) == (
-        ("object.write.secondary", "scope://example/account/group/resource"),
-        ("object.write.target", "scope://example/account/group/resource"),
+        ("object.write.secondary", "scope://example/account/group/target-ref"),
+        ("object.write.target", "scope://example/account/group/target-ref"),
     )
     assert planner.calls == 2
 

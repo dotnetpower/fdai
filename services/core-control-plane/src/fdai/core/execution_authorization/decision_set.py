@@ -138,6 +138,7 @@ def build_result(
         executor_identity_ref=(next(iter(identity_refs)) if len(identity_refs) == 1 else None),
         audit_context={
             "inventory_generation": context.inventory_generation,
+            "target_resource_ref": request.target_resource_ref,
             "requirements": [
                 {
                     "requirement_id": outcome.requirement_id,

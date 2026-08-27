@@ -628,6 +628,8 @@ decoding is removed only after retained audit and instance fixtures replay under
 | Dynamic closure | Only complete independent observations score trajectory fidelity or update a challenger. |
 | Pod telemetry | A purpose-scoped secured graph plus state evidence yields deterministic verified, unverified, stale, and missing segments without provider I/O or health inference. |
 | Pod diagnosis | One exact secured Pod UID can join bounded lifecycle and content-free log evidence; zero rows, incomplete sources, and scope conflicts remain explicit and cannot grant cause or execution authority. |
+| Historical topology | PostgreSQL replay retains the exact ontology release and source receipt bindings for each selected revision batch; dangling active links lower completeness. |
+| Projection reload | The inventory status marker and manifest share a content digest, so a restart never exposes a mixed generation. |
 
 ## Related docs
 
