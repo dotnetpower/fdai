@@ -20,6 +20,7 @@ model families, bounded debate, blind replay, automatic promotion, and automatic
 | Assessment contract and independent reduction | implemented | [`test_assessment.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_assessment.py), [`test_attribution.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_attribution.py) | Deterministic checks, independent evaluator reduction, attribution, and hold behavior have focused coverage. |
 | Cost-aware runtime policy and lifecycle | implemented | [`test_runtime_policy.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_runtime_policy.py), [`test_lifecycle.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_lifecycle.py) | The cascade, candidate lifecycle, fail-closed promotion checks, and rollback mechanics exist in code; this does not prove an operational promotion. |
 | Qualification scorecard and campaign ledger | in-progress | [`test_quality_scorecard.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_scorecard.py), [`conversation-assurance-ledger.py`](../../../scripts/quality/conversation-assurance-ledger.py) | The scorecard and bounded result format are implemented, but the complete bilingual qualification cohort has not been retained as governed evidence. |
+| Restricted corpus freeze boundary | implemented | [`chatops_quality_corpus_freeze.py`](../../../scripts/evaluation/chatops_quality_corpus_freeze.py), [`test_chatops_quality_corpus_freeze.py`](../../../tests/integration/scripts/test_chatops_quality_corpus_freeze.py) | The local freezer derives the public manifest from an owner-only restricted artifact without printing content or labels. No restricted corpus or independent label set is retained in the repository. |
 | Qualification owner contributions | implemented | [`quality_observations.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_observations.py), [`test_quality_context_locale_observations.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_context_locale_observations.py) | Deterministic owner adapters for applicable items 1-35 and 41-45 merge into one content-free turn envelope. Non-owned dimensions remain unavailable and cannot become score inputs. |
 | Context and locale owner contributions | implemented | [`quality_context_locale_observations.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_context_locale_observations.py), [`test_quality_context_locale_observations.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_context_locale_observations.py) | Items 41-45 bind every contribution to one case and locale, keep production evidence unavailable until independently supplied, and expose context or screen safety escapes as hard-cap inputs. |
 | Operator disputes and ontology adequacy review | implemented | [`test_learning.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_learning.py), [`test_state_store_ontology_adequacy.py`](../../../services/core-control-plane/tests/delivery/persistence/test_state_store_ontology_adequacy.py) | Disputes and reproduced adequacy gaps create bounded review evidence without changing execution authority. |
@@ -28,6 +29,7 @@ model families, bounded debate, blind replay, automatic promotion, and automatic
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-28 | implemented | Added an owner-only restricted-artifact freezer that derives per-case content and label commitments, binds the complete hidden payload, validates all manifest floors, and atomically creates a public manifest without exposing hidden values. | `current change`; [`chatops_quality_corpus_freeze.py`](../../../scripts/evaluation/chatops_quality_corpus_freeze.py); focused freeze and manifest checks (`22 passed`); Ruff and strict mypy. | Supply and independently label the restricted 500-turn artifact, then retain its governed public manifest before claiming a frozen corpus. |
 | 2026-08-28 | implemented | Restored the previously verified item 1-35 adapters to the active branch and replaced the separate item 41-45 scorecard envelope with locale-bound contributions to the shared turn envelope. | `current change`; `quality_{action,answer,grounding,intent,orchestration,sre,context_locale}_observations.py`; focused qualification checks (`108 passed`); Docker PostgreSQL persistence restart check (`1 passed`). | Retain the governed bilingual hidden corpus and complete production-like qualification runs under Issues #299 and #300 before claiming validation. |
 | 2026-08-28 | implemented | Added deterministic item adapters for scorecard items 41-45 so locale parity, persistence fidelity, personalization accuracy, context isolation, and screen awareness are measured from bounded content-free observations with the existing hard-cap contract. | `current change`; [`context_locale_scorecard.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/context_locale_scorecard.py); [`test_context_locale_scorecard.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_context_locale_scorecard.py); focused scorecard, persistence, answer-plan, lifecycle, and Deck isolation checks plus task-scoped Ruff, strict mypy, translation, and roadmap verification. | Retain one governed 50-item bilingual qualification run on a pinned revision before claiming scorecard validation. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | `current change`; current source and focused tests listed in the scope table. | Retain the qualification, blind-replay, and operational promotion or rollback evidence described below. |
@@ -201,6 +203,33 @@ uv run python scripts/evaluation/chatops_quality_corpus_manifest.py \
 A passing manifest proves only metadata shape, commitments, and coverage. Qualification still
 requires the restricted artifact, independent review records, complete measured runs, and the
 production-like evidence declared by the scorecard.
+
+### Restricted corpus freeze
+
+Use the local freezer to derive a public manifest from a restricted artifact. The restricted JSON
+root contains the corpus identity, freeze metadata, review protocol, rubric floors, and cases. Each
+case contains only these private-input fields: `case_id`, `conversation_id`, `turn_index`, `locale`,
+`content`, `label`, `tags`, and `rubric_item_ids`.
+
+The input should be a regular owner-only file with mode `0600`; symbolic links are not accepted.
+The freezer rejects duplicate JSON keys, non-finite numbers, files over 64 MiB, and content or label
+records over 64 KiB. It computes a unique content commitment, a case-bound label commitment, and
+one digest for the complete restricted payload. It then applies the existing 500-turn, locale,
+subset, multi-turn, rubric, and review-protocol checks before writing anything.
+
+Run the freezer from the repository root:
+
+```bash
+chmod 600 <restricted-corpus.json>
+uv run python scripts/evaluation/chatops_quality_corpus_freeze.py \
+  --restricted-artifact <restricted-corpus.json> \
+  --output <public-manifest.json>
+```
+
+The command prints only the content-free summary. Public output is created atomically and is
+idempotent for the same digest. An existing different manifest is never overwritten, so changing a
+label or prompt requires a new reviewed corpus version and output path. Keep the restricted input
+and independent review records outside the repository in their approved evidence store.
 
 ### Qualification observation envelope
 
