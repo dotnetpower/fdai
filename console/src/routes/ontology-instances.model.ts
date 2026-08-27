@@ -665,6 +665,7 @@ export function decodeOntologyInstanceExploration(value: unknown): OntologyInsta
     if (!sourceNames.has(required)) throw new Error(`instance source ${required} is required`);
   }
   const complete = boolean(record.complete, "complete");
+  const identityFields = decodeContextIdentity(record, complete);
   const relationshipDropReasons = uniqueStrings(
     record.relationship_drop_reasons,
     "relationship drop reasons",
@@ -728,7 +729,38 @@ export function decodeOntologyInstanceExploration(value: unknown): OntologyInsta
     )[],
     execution_authority: false,
     mutation_authority: false,
+    ...identityFields,
   };
+}
+
+function decodeContextIdentity(
+  record: Record<string, unknown>,
+  complete: boolean,
+): Pick<
+  OntologyInstanceExploration,
+  "principal_id" | "principal_scope_digest" | "selection_digest"
+> {
+  const values = {
+    principal_id: record.principal_id,
+    principal_scope_digest: record.principal_scope_digest,
+    selection_digest: record.selection_digest,
+  };
+  const present = Object.values(values).some((value) => value !== undefined);
+  if (!present) return {};
+  if (!complete) throw new Error("incomplete instance exploration MUST NOT carry context identity");
+  if (
+    typeof values.principal_id !== "string" ||
+    typeof values.principal_scope_digest !== "string" ||
+    typeof values.selection_digest !== "string" ||
+    !/^sha256:[a-f0-9]{64}$/.test(values.principal_scope_digest) ||
+    !/^sha256:[a-f0-9]{64}$/.test(values.selection_digest)
+  ) {
+    throw new Error("instance context identity is incomplete or invalid");
+  }
+  return values as Pick<
+    OntologyInstanceExploration,
+    "principal_id" | "principal_scope_digest" | "selection_digest"
+  >;
 }
 
 function decodeRelationshipDropClassification(

@@ -240,6 +240,8 @@ The selection is accepted only with a server-issued digest bound to the principa
 release, source generation, completeness, and id set. Explicit utterance predicates are intersected
 with that set, and an incomplete contextual table holds the semantic turn instead of becoming an
 answered claim.
+Operator instance projections issue the validated selection fields from the authenticated
+principal and active generation, while truncated projections omit the identity entirely.
 
 The SDK also owns the logical-topic marker and deterministic consumer-group derivation used when
 those two semantic channels share a physical Event Hub. Core and Operator keep separate adapters,

@@ -137,6 +137,8 @@ def dispatch_semantic_plan(
                 bound_resource_context is not None
                 and bound_resource_context.principal_id == principal.id
                 and bound_resource_context.ontology_release_digest == manifest.release_digest
+                and bound_resource_context.principal_scope_digest
+                == manifest.coverage_receipt.principal_scope_digest
             )
             else None
         )
