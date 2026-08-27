@@ -26,6 +26,8 @@ Determinism guarantees
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Iterable
 from dataclasses import dataclass
 from threading import RLock
@@ -149,6 +151,7 @@ class CatalogReloadReceipt:
     current_catalog_version: str
     accepted: bool
     retained_catalog_versions: tuple[str, ...]
+    content_digest: str
     failure_reason: str | None = None
 
 
@@ -167,14 +170,20 @@ class CatalogIndexLifecycle:
         catalog_version: str,
         rules: Iterable[Rule],
         signal_types: SignalTypeRegistry | None = None,
+        max_version_tombstones: int = 4096,
     ) -> None:
         if not catalog_version.strip():
             raise ValueError("catalog_version MUST be non-empty")
+        if max_version_tombstones < 1:
+            raise ValueError("max_version_tombstones MUST be >= 1")
+        initial_rules = tuple(rules)
         self._lock = RLock()
         self._signal_types = signal_types
+        self._max_version_tombstones = max_version_tombstones
         self._indexes: dict[str, RuleIndex] = {
-            catalog_version: RuleIndex.build(rules, signal_types=signal_types)
+            catalog_version: RuleIndex.build(initial_rules, signal_types=signal_types)
         }
+        self._version_digests = {catalog_version: _rules_digest(initial_rules)}
         self._current_catalog_version = catalog_version
         self._previous_catalog_version: str | None = None
         self._last_receipt = CatalogReloadReceipt(
@@ -183,6 +192,7 @@ class CatalogIndexLifecycle:
             current_catalog_version=catalog_version,
             accepted=True,
             retained_catalog_versions=(catalog_version,),
+            content_digest=self._version_digests[catalog_version],
         )
 
     @property
@@ -220,6 +230,7 @@ class CatalogIndexLifecycle:
         if not catalog_version.strip():
             raise ValueError("catalog_version MUST be non-empty")
         candidate_rules = tuple(rules)
+        content_digest = _rules_digest(candidate_rules)
         try:
             candidate = RuleIndex.build(candidate_rules, signal_types=self._signal_types)
         except Exception as exc:
@@ -231,6 +242,7 @@ class CatalogIndexLifecycle:
                     current_catalog_version=previous,
                     accepted=False,
                     retained_catalog_versions=self._retained_versions(),
+                    content_digest=content_digest,
                     failure_reason=type(exc).__name__,
                 )
             raise
@@ -249,6 +261,7 @@ class CatalogIndexLifecycle:
                         current_catalog_version=previous,
                         accepted=False,
                         retained_catalog_versions=self._retained_versions(),
+                        content_digest=content_digest,
                         failure_reason=type(error).__name__,
                     )
                     raise error
@@ -258,6 +271,7 @@ class CatalogIndexLifecycle:
                     current_catalog_version=previous,
                     accepted=True,
                     retained_catalog_versions=self._retained_versions(),
+                    content_digest=content_digest,
                 )
                 return self._last_receipt
 
@@ -271,12 +285,48 @@ class CatalogIndexLifecycle:
                     current_catalog_version=previous,
                     accepted=False,
                     retained_catalog_versions=self._retained_versions(),
+                    content_digest=content_digest,
+                    failure_reason=type(error).__name__,
+                )
+                raise error
+
+            accepted_digest = self._version_digests.get(catalog_version)
+            if accepted_digest is not None and accepted_digest != content_digest:
+                error = ValueError(
+                    f"catalog version {catalog_version!r} was previously accepted with "
+                    "different rules"
+                )
+                self._last_receipt = CatalogReloadReceipt(
+                    attempted_catalog_version=catalog_version,
+                    previous_catalog_version=previous,
+                    current_catalog_version=previous,
+                    accepted=False,
+                    retained_catalog_versions=self._retained_versions(),
+                    content_digest=content_digest,
+                    failure_reason=type(error).__name__,
+                )
+                raise error
+            if (
+                accepted_digest is None
+                and len(self._version_digests) >= self._max_version_tombstones
+            ):
+                error = ValueError(
+                    "catalog version tombstone capacity is exhausted; refusing reload"
+                )
+                self._last_receipt = CatalogReloadReceipt(
+                    attempted_catalog_version=catalog_version,
+                    previous_catalog_version=previous,
+                    current_catalog_version=previous,
+                    accepted=False,
+                    retained_catalog_versions=self._retained_versions(),
+                    content_digest=content_digest,
                     failure_reason=type(error).__name__,
                 )
                 raise error
 
             # The only state mutation occurs after successful compilation.
             self._indexes = {previous: self._indexes[previous], catalog_version: candidate}
+            self._version_digests.setdefault(catalog_version, content_digest)
             self._previous_catalog_version = previous
             self._current_catalog_version = catalog_version
             self._last_receipt = CatalogReloadReceipt(
@@ -285,6 +335,7 @@ class CatalogIndexLifecycle:
                 current_catalog_version=catalog_version,
                 accepted=True,
                 retained_catalog_versions=self._retained_versions(),
+                content_digest=content_digest,
             )
             return self._last_receipt
 
@@ -307,6 +358,7 @@ class CatalogIndexLifecycle:
                 current_catalog_version=previous,
                 accepted=True,
                 retained_catalog_versions=self._retained_versions(),
+                content_digest=self._version_digests[previous],
             )
             return self._last_receipt
 
@@ -326,6 +378,18 @@ class CatalogIndexLifecycle:
             for version in (self._current_catalog_version, self._previous_catalog_version)
             if version is not None
         )
+
+
+def _rules_digest(rules: Iterable[Rule]) -> str:
+    """Return a stable identity for a compiled catalog's rule content."""
+    payload = tuple(
+        sorted(
+            ((rule.id, rule.model_dump(mode="json")) for rule in rules),
+            key=lambda item: item[0],
+        )
+    )
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
 
 
 __all__ = ["CatalogIndexLifecycle", "CatalogReloadReceipt", "RuleIndex"]
