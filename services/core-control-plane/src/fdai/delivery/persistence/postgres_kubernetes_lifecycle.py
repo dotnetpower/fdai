@@ -155,6 +155,46 @@ class PostgresKubernetesLifecycleStore:
             cursor=next_cursor,
         )
 
+    async def read_observations(
+        self,
+        *,
+        cluster_ref: str,
+        object_uids: tuple[str, ...],
+        start: datetime,
+        end: datetime,
+        limit: int = _MAX_OBSERVATIONS_PER_APPEND,
+    ) -> tuple[KubernetesLifecycleObservation, ...]:
+        """Read retained lifecycle observations without changing the append-only store.
+
+        An empty result is deliberately not interpreted as proof that no lifecycle event
+        occurred. Callers must combine this read with the durable cursor and collection
+        completeness before presenting a historical absence.
+        """
+
+        if not cluster_ref.strip() or not object_uids:
+            raise ValueError("Kubernetes lifecycle read scope MUST be non-empty")
+        if len(object_uids) > _MAX_OBSERVATIONS_PER_APPEND:
+            raise ValueError("Kubernetes lifecycle read exceeds its UID bound")
+        if start.tzinfo is None or end.tzinfo is None or start >= end:
+            raise ValueError("Kubernetes lifecycle read interval MUST be aware and positive")
+        if not 1 <= limit <= _MAX_OBSERVATIONS_PER_APPEND:
+            raise ValueError("Kubernetes lifecycle read limit exceeds its bound")
+        if any(not uid.strip() or len(uid) > 512 for uid in object_uids):
+            raise ValueError("Kubernetes lifecycle read UIDs MUST be bounded")
+        async with await self._connect() as connection:
+            await self._set_timeout(connection)
+            cursor = await connection.execute(
+                "SELECT cluster_ref, namespace, object_uid, owner_uid, reason, category, "
+                "event_type, event_time, recorded_time, source_revision, record, evidence_ref "
+                "FROM kubernetes_lifecycle_observation "
+                "WHERE cluster_ref = %s AND object_uid = ANY(%s) "
+                "AND event_time >= %s AND event_time <= %s "
+                "ORDER BY event_time, evidence_ref LIMIT %s",
+                (cluster_ref, list(object_uids), start, end, limit),
+            )
+            rows = await cursor.fetchall()
+        return tuple(_observation_from_row(row) for row in rows)
+
     async def _connect(self) -> psycopg.AsyncConnection[dict[str, Any]]:
         dsn = self._config.dsn.replace("postgresql+psycopg://", "postgresql://", 1)
         return await psycopg.AsyncConnection.connect(
@@ -203,6 +243,24 @@ def _record(observation: KubernetesLifecycleObservation) -> dict[str, object]:
         "source_revision": observation.source_revision,
         "evidence_ref": observation.evidence_ref,
     }
+
+
+def _observation_from_row(row: dict[str, Any]) -> KubernetesLifecycleObservation:
+    """Decode one database row using the typed columns, never arbitrary JSON payload."""
+
+    return KubernetesLifecycleObservation(
+        cluster_ref=str(row["cluster_ref"]),
+        namespace=None if row["namespace"] is None else str(row["namespace"]),
+        object_uid=str(row["object_uid"]),
+        owner_uid=None if row["owner_uid"] is None else str(row["owner_uid"]),
+        reason=str(row["reason"]),
+        category=str(row["category"]),
+        event_type=str(row["event_type"]),
+        event_time=row["event_time"],
+        recorded_time=row["recorded_time"],
+        source_revision=str(row["source_revision"]),
+        evidence_ref=str(row["evidence_ref"]),
+    )
 
 
 __all__ = [

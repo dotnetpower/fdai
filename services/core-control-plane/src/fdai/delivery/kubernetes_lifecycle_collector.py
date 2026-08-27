@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Protocol
 
 from fdai.core.ontology_platform.kubernetes_lifecycle_observation import (
@@ -41,6 +42,16 @@ class KubernetesLifecycleStore(Protocol):
         next_cursor: str | None,
         observations: tuple[KubernetesLifecycleObservation, ...],
     ) -> KubernetesLifecycleAppendReceipt: ...
+
+    async def read_observations(
+        self,
+        *,
+        cluster_ref: str,
+        object_uids: tuple[str, ...],
+        start: datetime,
+        end: datetime,
+        limit: int,
+    ) -> tuple[KubernetesLifecycleObservation, ...]: ...
 
 
 @dataclass(frozen=True, slots=True)

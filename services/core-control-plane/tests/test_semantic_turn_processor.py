@@ -201,6 +201,37 @@ def test_health_answer_separates_lifecycle_readiness_application_and_gaps() -> N
     assert "`execution_authority=false`" in answer
 
 
+def test_pod_evidence_answer_does_not_turn_missing_recovery_into_success() -> None:
+    request = _request(locale="en")
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+
+    answer = _render_general_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        [
+            {
+                "node_id": "pod-recovery-evidence",
+                "rows": [
+                    {
+                        "row_id": "pod-recovery-evidence",
+                        "values": {
+                            "status": "insufficient_evidence",
+                            "complete": False,
+                            "recovery_verified": False,
+                            "evidence_gaps": ["lifecycle_cursor_unavailable"],
+                            "execution_authority": False,
+                        },
+                    }
+                ],
+            }
+        ],
+    )
+
+    assert "Kubernetes Pod evidence" in answer
+    assert "incomplete or unverified" in answer
+    assert "lifecycle cursor unavailable" in answer
+    assert "`execution_authority=false`" in answer
+
+
 def _current_state_outputs(
     values: dict[str, object],
     reason: str | None,

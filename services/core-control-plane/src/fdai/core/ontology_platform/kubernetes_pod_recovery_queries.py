@@ -83,6 +83,10 @@ def kubernetes_pod_recovery_function_type() -> OntologyFunctionType:
                     "type": "object",
                     "x-fdai-dependency-only": True,
                 },
+                "lifecycle_events": {
+                    "type": "object",
+                    "x-fdai-dependency-only": True,
+                },
                 "cutoff": {"type": "string", "format": "date-time"},
             },
         },
@@ -202,13 +206,29 @@ def kubernetes_pod_recovery_function(
             cutoff != result.receipt.observation_cutoff for result in query_results
         ):
             raise ValueError("Kubernetes Pod recovery cutoff MUST equal the secured query cutoff")
-        return evaluate_kubernetes_pod_recovery_graph(
+        result = evaluate_kubernetes_pod_recovery_graph(
             pod_result,
             controller_result=controller_result,
             deployment_result=deployment_result,
             restart_history=arguments["restart_history"],
             cutoff=cutoff,
         )
+        lifecycle_events = arguments.get("lifecycle_events")
+        if isinstance(lifecycle_events, Mapping) and lifecycle_events.get("complete") is False:
+            reason = lifecycle_events.get("truncation_reason")
+            gap = (
+                f"lifecycle_events_{reason}"
+                if isinstance(reason, str) and reason
+                else "lifecycle_events_incomplete"
+            )
+            result = result.model_copy(
+                update={
+                    "complete": False,
+                    "recovery_verified": False,
+                    "evidence_gaps": tuple(dict.fromkeys((*result.evidence_gaps, gap))),
+                }
+            )
+        return result
 
     return evaluate
 
