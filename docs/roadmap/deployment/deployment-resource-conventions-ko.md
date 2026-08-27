@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 302043f4f03a84242cd1fdb7a5ddd10240e61172
+translation_source_sha: 558ccb17830ad23ad5e8786ef715c8ac17fa3a38
 translation_revised: 2026-08-28
 ---
 # 배포 리소스 규약
@@ -32,13 +32,14 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 | 브라우저 근거 정리 Job 명명 | implemented | `infra/main.tf`; `tests/integration/infra/test_browser_evidence_cleanup_job.py`; focused 검사(`4 passed`) 및 `terraform validate` | `caj-<workload>[-env][-region]-browser-gc`는 허용된 모든 환경에서 Azure 32자 한계를 지킵니다. Protected 적용 근거는 남아 있습니다. |
 | Event Bus 소비자 지연 경고 | validated | `event_bus.py`; `infra/modules/observability/monitoring/`; 보호된 적용 실행 `32383519737`; 실제 발생 및 해제 경고 관측; 집중 소비자, 인프라 및 workflow 검사 | 범위가 제한된 commit이 정제된 파티션 진행률과 지연을 내보냅니다. Broker 기반 heartbeat도 downstream 처리가 멈춘 동안 할당된 파티션을 보고하며, 유휴 partial batch는 wall-clock commit deadline에 flush됩니다. 보호된 monitoring-only 적용은 scheduled-query rule만 변경했으며 정제된 합성 지연 행으로 stateful 경고가 발생하고 자동 해제되었습니다. |
 | 보호된 모델 해석 산출물 | implemented | `.github/workflows/deploy-dev.yml`; `model_lifecycle_reconciler.py`; 집중 수명 주기, 계획 검증기, Terraform 및 CI 보안 검사 | 보호된 계획은 전체 및 배포 전용 매니페스트와 SHA-256 다이제스트를 봉인합니다. Exact apply가 그 byte를 복원하며 런타임은 같은 인라인 JSON과 다이제스트를 받습니다. |
-| Private Foundry partner 모듈 | implemented | `infra/modules/llm/foundry-partner/`; 격리된 Terraform 검사(`1 passed`) | 비활성 재사용 모듈은 `aif-`/`proj-` 명명 규칙을 따르고 private 배포에서 public access를 끄며 partner format/버전/용량을 고정하고 project user 역할만 부여합니다. |
+| Private Foundry partner 모듈 | implemented | `infra/modules/llm/foundry-partner/`; root 및 모듈 Terraform 검사 | 재사용 모듈은 `aif-`/`proj-` 명명 규칙을 따르고 private 배포에서 public access를 끄며 partner format/버전/용량 및 project user 역할을 고정하고 partner 기능에 조건부로 조립됩니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-28 | implemented | 발행기 한정 partner 모델을 위한 격리된 private AIServices account/project/deployment 모듈을 추가했습니다. | `current change`; 모듈 format, validate 및 Terraform 검사(`1 passed`). | 활성화 전에 private endpoint/DNS와 endpoint-specific runtime binding을 사용해 root에 모듈을 조립해야 합니다. |
+| 2026-08-28 | implemented | 발행기 한정 기능을 OpenAI와 Foundry account로 분리하고 조건부 services.ai private endpoint/DNS 조립을 추가했습니다. | `current change`; root Terraform 검사(`5 passed`); 모듈 검사(`1 passed`). | Registry 활성화 전에 각 runtime 기능을 소유 endpoint에 binding해야 합니다. |
 | 2026-08-25 | implemented | 완료된 Event Bus 토픽 이행 request 모드, service 입력, 대상 지정 계획 예외 및 현재 운영자 지침을 제거했습니다. 표준 계획은 이제 정본 `fdai.*` 연결만 수락합니다. 과거 Terraform `moved` 블록과 활성 접두사 거부 guard는 유지하므로 이전 state를 리소스 재생성 없이 해석하고 legacy 선언은 계속 차단합니다. | `current change`, `.github/workflows/deploy-dev.yml`, `.github/workflows/service-deploy.yml`, 집중 배포 workflow 검사 | 일회성 이행 제어에 남은 구현 작업은 없습니다. |
 | 2026-08-24 | implemented | 보호된 model resolver의 deployment-environment 입력을 복원하고 기존 proposal-only lifecycle caller를 위한 development 기본값을 유지했으며 provider query 전에 다른 environment 범위의 policy를 거부하도록 했습니다. | 실패한 보호 계획 `32735269365`는 Terraform 및 Azure mutation 전에 중단됨; `current change`; 집중 resolver 및 deployment workflow 검사 | 보호된 exact-revision 계획을 다시 실행하고 봉인된 model 및 Terraform receipt를 보존합니다. |
 | 2026-08-25 | implemented | 임시 Terraform state bootstrap 예외를 정확한 정상 활성 Core 리비전, 다이제스트로 고정된 이미지, 검증된 resolved-model attestation 및 런타임 다이제스트를 기준으로 하는 fail-closed 모델 정책 CAS로 교체했습니다. Terraform 출력은 진단에만 사용하며 exact apply는 같은 활성 런타임 경계를 다시 검증합니다. | 실패한 보호 계획 `32753619537`, `32754737930`, `32798548057`, `32798561510`은 모두 Terraform plan 및 Azure mutation 전에 중단됨; commit `5e1e8214ef0f80a1e9b57d00bd2a35723bca6b7b`; 집중 모델 CAS 및 수명 주기 검사 26개 통과. | 현재 활성 다이제스트에 결합된 통제된 Owner 초안을 영속화한 뒤 삭제 0건인 보호 계획, exact apply, provider-schema 및 Saga 증적을 보존합니다. |
