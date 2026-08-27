@@ -42,7 +42,12 @@ def _result(objects: tuple[OntologyObjectRecord, ...]) -> SecuredObjectSetQueryR
     )
     materialization = ObjectSetMaterialization(
         definition=definition,
-        graph=OntologyGraphSnapshot(objects=objects, links=(), truncated=False),
+        graph=OntologyGraphSnapshot(
+            objects=objects,
+            links=(),
+            truncated=False,
+            source_generation="generation-1",
+        ),
         concrete_types=("Resource",),
         truncated=False,
     )
@@ -59,6 +64,7 @@ def _result(objects: tuple[OntologyObjectRecord, ...]) -> SecuredObjectSetQueryR
             returned_link_count=0,
             complete=True,
             truncated=False,
+            source_generation="generation-1",
             redactions=ObjectSetRedactionSummary(
                 objects_with_redactions=0,
                 redacted_identity_count=0,
@@ -84,6 +90,8 @@ def _resource(resource_id: str) -> OntologyObjectRecord:
 async def _invoke(
     result: SecuredObjectSetQueryResult,
     resource_ids: list[str],
+    *,
+    generation: str = "generation-1",
 ) -> dict[str, object]:
     declaration = contextual_resource_function_type()
     release = build_ontology_release(function_types=(declaration,))
@@ -93,7 +101,7 @@ async def _invoke(
         "principal_id": "operator",
         "principal_scope_digest": f"sha256:{'a' * 64}",
         "ontology_release_digest": release.digest,
-        "source_generation": "generation-1",
+        "source_generation": generation,
         "complete": True,
     }
     selection_digest = context_selection_digest(
@@ -140,4 +148,18 @@ async def test_contextual_function_holds_on_scope_widening() -> None:
         "complete": False,
         "rows": [],
         "truncation_reason": "context_scope_mismatch",
+    }
+
+
+async def test_contextual_function_holds_on_source_generation_mismatch() -> None:
+    result = await _invoke(
+        _result((_resource("resource-a"),)),
+        ["resource-a"],
+        generation="generation-2",
+    )
+
+    assert result == {
+        "complete": False,
+        "rows": [],
+        "truncation_reason": "context_generation_mismatch",
     }

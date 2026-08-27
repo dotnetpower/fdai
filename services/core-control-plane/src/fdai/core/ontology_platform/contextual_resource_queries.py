@@ -128,6 +128,8 @@ def contextual_resource_function(
             return _table((), complete=False, reason="context_identity_mismatch")
         if arguments["ontology_release_digest"] != secured.receipt.ontology_release.digest:
             return _table((), complete=False, reason="context_release_mismatch")
+        if arguments["source_generation"] != secured.receipt.source_generation:
+            return _table((), complete=False, reason="context_generation_mismatch")
         actual_ids = tuple(item.id for item in secured.materialization.graph.objects)
         if len(expected_ids) != len(set(expected_ids)) or set(actual_ids) != set(expected_ids):
             return _table((), complete=False, reason="context_scope_mismatch")

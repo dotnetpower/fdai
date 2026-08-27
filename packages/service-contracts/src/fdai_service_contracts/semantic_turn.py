@@ -12,8 +12,8 @@ from pydantic import Field, model_validator
 
 from fdai_service_contracts.ontology_query import (
     GoalTaskReceipt,
-    QueryNodeKind,
     QueryContract,
+    QueryNodeKind,
     SemanticOperation,
     TaskStatus,
     canonical_json,
@@ -511,7 +511,7 @@ class RuleSearchRank(QueryContract):
 
     rule_ref: BoundedId
     rank: Annotated[int, Field(ge=1, le=_MAX_RULE_CANDIDATES)]
-    components: dict[Annotated[str, Field(pattern=_RULE_COMPONENT_PATTERN)], float] = {}
+    components: dict[Annotated[str, Field(pattern=_RULE_COMPONENT_PATTERN)], float] = {}  # noqa: RUF012
 
     @model_validator(mode="after")
     def _components_are_stable(self) -> RuleSearchRank:
@@ -527,7 +527,7 @@ class RuleSearchCandidate(QueryContract):
 
     rule_ref: BoundedId
     rank: Annotated[int, Field(ge=1, le=_MAX_RULE_CANDIDATES)]
-    components: dict[Annotated[str, Field(pattern=_RULE_COMPONENT_PATTERN)], float] = {}
+    components: dict[Annotated[str, Field(pattern=_RULE_COMPONENT_PATTERN)], float] = {}  # noqa: RUF012
     authority: Literal["candidate_only"]
 
     @model_validator(mode="after")
@@ -676,17 +676,17 @@ __all__ = [
     "RuleSearchCandidate",
     "RuleSearchProjection",
     "RuleSearchRank",
-    "RuleSearchRequest",
     "RuleSearchReceipt",
+    "RuleSearchRequest",
     "SemanticAssuranceFrame",
     "SemanticAssuranceObservation",
     "SemanticAssurancePath",
     "SemanticAssurancePathStep",
+    "SemanticDirectResponseIntent",
     "SemanticInvestigationContinuation",
     "SemanticPlanningProfile",
     "SemanticPriorTurn",
     "SemanticTurnDisposition",
-    "SemanticDirectResponseIntent",
     "SemanticTurnPrincipal",
     "SemanticTurnRequest",
     "SemanticTurnResult",

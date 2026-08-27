@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: ad5d3558476db78ee790bc8507b98b95dd8e0c25
+translation_source_sha: 698f2eeab5029b3b65e10303dfec30733bd69b25
 translation_revised: 2026-08-30
 ---
 # FDAI Console 대화
@@ -33,7 +33,7 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 | 구조화된 인시던트 근거 가독성 | implemented | `structured-reply.tsx`, `presentation-value.ts`, `structured-reply.css`, 집중 Console 검사(`19 passed`) 및 타입 검사 | Console은 의미가 있는 마크업에 정확한 RFC 3339 값을 보존하면서 운영자 로컬 시각과 시간대, 관찰 구간, 읽기 쉬운 주체와 기계 토큰 레이블, 반응형 근거 행, 범위가 명확한 채팅 연결 상태, 모바일 44 px 컨트롤을 표시합니다. 브라우저 비평 5회 뒤에는 범위가 제한된 모바일 출처 목록의 가로 스크롤만 Low로 남았으며 통제된 브라우저 산출물은 보존하지 않았습니다. |
 | Command Deck workspace 시각적 계층 | implemented | `console/src/deck/command-deck-presenters.tsx`, `console/src/deck/command-deck-workspace-visual.test.ts`, `console/src/styles.css`, 집중 presenter 검사 11개 및 빈 상태 시각 검사 2개 통과, 정확한 staged snapshot 타입 검사와 운영 빌드, 인증된 데스크톱, constrained-desktop 및 모바일 Browser 검사 | 비어 있는 새 workspace는 화면 근거가 연결된 작성기 하나와 상황 또는 운영 영역 prompt 카드 4개, 현재 화면 Checklist 대표 카드 1개를 중앙에 배치합니다. 카드를 선택하면 기존 작성기에 prompt를 채우고 기존 제출 경로가 대화를 시작하며, 첫 턴 또는 복원된 대화는 작성기를 하단으로 되돌립니다. 현재 화면 스냅샷은 답변 근거로 유지하지만 별도 패널로 표시하지 않습니다. 답변, 근거, 승인, 변경 또는 실행 권한은 바뀌지 않았습니다. |
 | 관찰된 활동 출처 이력 | implemented | `semantic_turn_runtime.py`, `conversation_activity.py`, `conversation_channel.py`, `backend-normalizers.ts`, `investigation-timeline.tsx`, 집중 Core, Operator 및 Console 검사, 인증된 세 viewport Browser 검토 | 수명 주기 전용 이벤트는 기록된 사람용 설명을 먼저 표시하고 외부 명령 또는 프로바이더 요청이 실행되지 않았음을 밝힙니다. 조회 실행 기록은 서비스 간 전송과 실제 실행 인터페이스를 구분합니다. 온톨로지 읽기는 CLI 명령, 공개 엔드포인트 또는 프로바이더 구현을 만들지 않고 Core의 타입이 지정된 조회 실행기, 작업 및 프로바이더 중립 출처를 식별합니다. 추가된 출처 이력 필드가 없는 과거 기록은 추론하지 않고 명시적으로 표시합니다. |
-| 정확한 contextual Resource 선택 | 구현됨 | `context.tsx`, `backend-context.ts`, `ontology-instances.tsx`, 집중 Console context, Operator envelope 및 Core contextual FunctionType 검사 | 완전한 화면만 principal 범위, release, generation 및 completeness에 결속된 서버 발급 digest와 함께 정확한 resource id 집합을 게시합니다. Operator는 이를 타입이 지정된 `conversation_context`로 전달하고 Core는 contextual read 전에 발화의 명시적 조건식과 교집합합니다. 중복, 불완전 또는 확장된 membership은 타입이 지정된 제한을 반환하며 principal이 볼 수 있는 Resource 집합으로 넓히지 않습니다. 인증된 Browser receipt는 아직 열려 있습니다. |
+| 정확한 contextual Resource 선택 | 구현됨 | `context.tsx`, `backend-context.ts`, `ontology-instances.tsx`, `instance_explorer.py`, 집중 Console context, Operator envelope 및 Core contextual FunctionType 검사 | 완전한 화면만 principal 범위, release, generation 및 completeness에 결속된 서버 발급 digest와 함께 정확한 resource id 집합을 게시합니다. Operator는 이를 타입이 지정된 `conversation_context`로 전달하고 Core는 contextual read 전에 발화의 명시적 조건식과 교집합합니다. 중복, 불완전 또는 확장된 membership은 타입이 지정된 제한을 반환하며 principal이 볼 수 있는 Resource 집합으로 넓히지 않습니다. 인증된 Browser receipt는 아직 열려 있습니다. |
 | 대상 결속 인과 표현 | implemented | `semantic_turn_presentation.py`, `test_semantic_turn_bridge.py`, 집중 이중 언어 및 causal matrix 검사 31개 통과 | 여러 output으로 구성된 causal 결과는 exact 대상, 증상 concept, 정렬된 baseline 및 current window, 측정된 변화, 경쟁 가설 2개 이상을 표시합니다. 각 가설은 `supported`, `refuted`, `unresolved` 중 하나와 범위가 제한된 근거 상세 및 limitation을 유지합니다. 불완전하거나 오래되거나 충돌하는 근거는 limitation으로 남고 인과 claim으로 승격되지 않습니다. 이 projection은 승인, 변경 또는 실행 권한을 부여하지 않습니다. 인증된 post-commit 검증은 Issue #244에 열린 상태로 남아 있습니다. |
 | 온톨로지 보증 cohort release oracle | implemented | `console/tests/live-e2e/ontology-query-assurance.{ts,spec.ts,test.ts}`, 집중 보증 테스트 101개 통과 | 전체 cohort operation coverage는 고정 개수를 복제하지 않고 결과 histogram을 결정론적으로 생성된 cohort와 비교합니다. 누락 또는 대체 operation은 실패하고 extension operation은 작성된 범위 제한 분포를 유지합니다. |
 ### 구현 이력
