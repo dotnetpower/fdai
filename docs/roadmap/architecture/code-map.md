@@ -242,6 +242,9 @@ with that set, and an incomplete contextual table holds the semantic turn instea
 answered claim.
 Operator instance projections issue the validated selection fields from the authenticated
 principal and active generation, while truncated projections omit the identity entirely.
+The shared scope digest uses lowercase ordinary roles (`reader`, `contributor`, `approver`, or
+`owner`) and rejects `BreakGlass`; exact id predicates use bounded per-id reads when a context
+contains more than 1,000 resources.
 
 The SDK also owns the logical-topic marker and deterministic consumer-group derivation used when
 those two semantic channels share a physical Event Hub. Core and Operator keep separate adapters,

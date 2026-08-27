@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+from fdai_service_contracts import canonical_ordinary_role
 from fdai_service_contracts.ontology_query import content_digest
 
 from fdai.core.ontology_platform import QueryManifest, build_query_manifest
@@ -64,7 +65,7 @@ class CatalogQueryManifestProvider:
         scope_digest = content_digest(
             {
                 "principal_id": principal.id,
-                "role": principal.role.value,
+                "role": canonical_ordinary_role(principal.role.value),
                 "purpose": purpose,
             }
         )

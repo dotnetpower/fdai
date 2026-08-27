@@ -24,7 +24,8 @@ from .query_gateway import SecuredObjectSetQueryResult
 from .query_values import QueryRow, QueryTable
 
 CONTEXTUAL_RESOURCE_FUNCTION_NAME = "query.contextual_resources"
-_MAX_RESOURCES = 1000
+_MAX_CONTEXT_IDS = 10_000
+_MAX_RESOURCES = 1_000
 
 
 def contextual_resource_function_type() -> OntologyFunctionType:
@@ -58,7 +59,7 @@ def contextual_resource_function_type() -> OntologyFunctionType:
                 "resource_ids": {
                     "type": "array",
                     "minItems": 1,
-                    "maxItems": _MAX_RESOURCES,
+                    "maxItems": _MAX_CONTEXT_IDS,
                     "uniqueItems": True,
                     "items": {"type": "string", "minLength": 1, "maxLength": 256},
                 },
@@ -131,7 +132,11 @@ def contextual_resource_function(
         if arguments["source_generation"] != secured.receipt.source_generation:
             return _table((), complete=False, reason="context_generation_mismatch")
         actual_ids = tuple(item.id for item in secured.materialization.graph.objects)
-        if len(expected_ids) != len(set(expected_ids)) or set(actual_ids) != set(expected_ids):
+        if (
+            len(actual_ids) != len(set(actual_ids))
+            or len(expected_ids) != len(set(expected_ids))
+            or not set(actual_ids) <= set(expected_ids)
+        ):
             return _table((), complete=False, reason="context_scope_mismatch")
         if secured.receipt.truncated or not secured.receipt.complete:
             return _table((), complete=False, reason="context_scope_incomplete")
