@@ -371,7 +371,6 @@ def _require_digest(value: str) -> None:
         raise ValueError("scenario evidence_digest MUST be a lowercase SHA-256 digest")
 
 __all__ = [
-__all__ = [
     "AuditReplayScenarioResult",
     "AuthorizationScenarioResult",
     "HilScenarioResult",

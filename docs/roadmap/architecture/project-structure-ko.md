@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: b64be839deb2fd4cd0db3a9a03946ef69746e2bb
+translation_source_sha: 2e7b7c1c1d59ce8df402da5b06ae91d342d4b23a
 translation_revised: 2026-08-28
 ---
 # 프로젝트 구조
@@ -53,7 +53,8 @@ translation_revised: 2026-08-28
   점수를 만들지 않고 `unavailable`로 유지합니다. 근거 소유자는 계약에 연결된 기여를 통해
   측정값을 추가합니다. 결합기는 다른 사례의 입력, 중복 차원 및 기존 측정값 덮어쓰기를 차단합니다.
   작업 관측은 대화 품질 보증 안에서 판정을 복제하지 않고 기존 safeguard, 실행 권한 및 통합 위험
-  기록을 재사용합니다.
+  기록을 재사용합니다. HIL, 신원 분리 및 감사 재실행 관측도 기존 결과 기록을 비교하며 승인 또는
+  실행 경로가 되지 않습니다.
   인접한 `quality_latency.py` 모듈은 5단계 SLO 계약과 순수 백분위수 축약만 소유합니다. Operator,
   채널, 검증 및 전달 소유자는 타임스탬프와 측정 권한을 유지합니다.
   단계 소유자는 타입이 지정된 증적을 통해 monotonic 시작 및 완료 값을 제공합니다. Core는 증적

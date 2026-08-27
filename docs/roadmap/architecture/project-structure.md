@@ -55,7 +55,8 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   measurements through contract-bound contributions; the merge rejects cross-case input,
   duplicate dimensions, and overwrite of existing measurements. Action observations reuse existing
   safeguard, execution-authorization, and unified-risk records instead of duplicating their
-  decisions inside Conversation Assurance. The sibling
+  decisions inside Conversation Assurance. HIL, identity-separation, and audit-replay observations
+  likewise compare existing result records and never become approval or execution paths. The sibling
   `quality_latency.py` module owns only the five-stage SLO contract and pure percentile reduction;
   Operator, channel, verification, and delivery owners retain timestamp and measurement authority.
   Stage owners provide monotonic start and completion values through a typed receipt; Core derives
