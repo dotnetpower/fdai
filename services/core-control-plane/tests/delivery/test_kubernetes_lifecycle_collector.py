@@ -312,6 +312,29 @@ async def test_count_cap_advances_safe_partial_cursor_while_retaining_gap() -> N
     assert store.last_limitation == "result_limit"
 
 
+async def test_malformed_count_cap_retains_previous_cursor() -> None:
+    store = _FakeStore(cursor="1000")
+    source = _FakeSource(
+        [
+            _poll(
+                observations=(_observation(source_revision="1001"),),
+                next_cursor="1001",
+                complete=False,
+                limitation="result_limit",
+                cursor_safe=False,
+            )
+        ]
+    )
+
+    receipt = await collect_kubernetes_lifecycle_once(
+        source=source, store=store, cluster_ref=CLUSTER_REF
+    )
+
+    assert receipt.cursor == "1000"
+    assert store.cursor == "1000"
+    assert store.last_complete is False
+
+
 async def test_successful_noop_poll_refreshes_cursor_heartbeat() -> None:
     store = _FakeStore(cursor="1000")
     source = _FakeSource([_poll(observations=(), next_cursor="1000")])

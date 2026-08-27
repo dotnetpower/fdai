@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 548a1f60285106adc766001bf17472ebfc583b3e
+translation_source_sha: bb30d2ed13ef6ccf61ad24090b5c1ebe1be5cf05
 translation_revised: 2026-08-28
 ---
 # 코드 맵
@@ -37,6 +37,7 @@ translation_revised: 2026-08-28
 > count cap은 명시적인 truncation gap입니다.
 > Resource-event 행은 durable object UID, cluster, recorded time 및 source revision을 보존하므로
 > recovery Function이 실제 query schema를 typed replacement 근거로 변환할 수 있습니다.
+> WATCH count cap 진행은 safe boundary 앞에 malformed envelope이 없을 때만 재개할 수 있습니다.
 
 ## 물리 서비스 소유권
 

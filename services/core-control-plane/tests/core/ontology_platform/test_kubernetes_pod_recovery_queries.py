@@ -91,6 +91,13 @@ def _secured(*, release=None) -> SecuredObjectSetQueryResult:  # type: ignore[no
         _POD_ID,
         "kubernetes.pod",
         phase="Running",
+        uid="pod-uid-new",
+        cluster_ref="cluster-a",
+        namespace="default",
+        owner_uid="rs-uid",
+        root_controller_uid="deployment-uid",
+        root_controller_kind="Deployment",
+        created_at=(_CUTOFF - timedelta(minutes=4)).isoformat(),
         ready=True,
         container_count=1,
         ready_container_count=1,
@@ -372,6 +379,7 @@ async def test_pod_recovery_function_accepts_only_issued_receipt() -> None:
         },
         "correlation_window_start": (_CUTOFF - timedelta(minutes=30)).isoformat(),
     }
+    assert replacement_context["candidates"]
     held_replacement = await registry.invoke(
         KUBERNETES_POD_RECOVERY_FUNCTION_NAME,
         {
@@ -402,7 +410,6 @@ async def test_pod_recovery_function_accepts_only_issued_receipt() -> None:
                 "complete": True,
                 "truncation_reason": None,
             },
-            "replacement_context": replacement_context,
         },
         context=context,
     )

@@ -205,6 +205,34 @@ async def test_watch_event_count_cap_is_an_explicit_truncation_gap() -> None:
     assert len(poll.observations) == 256
 
 
+async def test_malformed_envelope_before_watch_cap_prevents_safe_progress() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return _response(
+            b"{malformed}\n"
+            + b"".join(
+                json.dumps(
+                    {
+                        "type": "ADDED",
+                        "object": _event_object(
+                            event_uid=f"event-uid-{index}",
+                            resource_version=str(4000 + index),
+                        ),
+                    },
+                    separators=(",", ":"),
+                ).encode()
+                + b"\n"
+                for index in range(255)
+            )
+        )
+
+    source = _source(httpx.MockTransport(handler))
+    poll = await source.poll(cluster_ref=CLUSTER_REF, cursor="2000")
+
+    assert poll.complete is False
+    assert poll.limitation == "lifecycle_response_invalid"
+    assert poll.cursor_safe is False
+
+
 async def test_watch_gone_error_surfaces_an_explicit_cursor_expiry_gap() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return _ndjson_response({"type": "ERROR", "object": {"code": 410}})

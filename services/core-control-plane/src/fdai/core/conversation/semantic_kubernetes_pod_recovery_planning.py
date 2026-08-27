@@ -183,6 +183,28 @@ def compile_kubernetes_pod_recovery_plan(
     recovery_node = nodes.pop()
     lifecycle_dependency: str | None = None
     if _has_function(manifest.descriptors, RESOURCE_EVENT_FUNCTION_NAME):
+        old_dependency = "pod-replacement-old"
+        candidate_dependency = "pod-replacement-candidates"
+        nodes.extend(
+            (
+                _replacement_object_set(
+                    node_id=old_dependency,
+                    identity_property=identity_property,
+                    identity_value=targets[0].span.text,
+                    as_of=evaluation_time - _RESTART_HISTORY_WINDOW,
+                    purpose=purpose,
+                    limit=32,
+                ),
+                _replacement_object_set(
+                    node_id=candidate_dependency,
+                    identity_property=identity_property,
+                    identity_value=targets[0].span.text,
+                    as_of=evaluation_time,
+                    purpose=purpose,
+                    limit=32,
+                ),
+            )
+        )
         lifecycle_dependency = "pod-lifecycle-events"
         nodes.extend(
             (
@@ -209,9 +231,20 @@ def compile_kubernetes_pod_recovery_plan(
     if lifecycle_dependency is not None:
         recovery_arguments = dict(json.loads(recovery_node.arguments_json))
         recovery_arguments["dependency_arguments"][lifecycle_dependency] = "lifecycle_events"
+        recovery_arguments["dependency_arguments"][old_dependency] = (
+            "replacement_old_pod_query_result"
+        )
+        recovery_arguments["dependency_arguments"][candidate_dependency] = (
+            "replacement_candidates_query_result"
+        )
         recovery_node = recovery_node.model_copy(
             update={
-                "depends_on": (*recovery_node.depends_on, lifecycle_dependency),
+                "depends_on": (
+                    *recovery_node.depends_on,
+                    old_dependency,
+                    candidate_dependency,
+                    lifecycle_dependency,
+                ),
                 "arguments_json": canonical_json(recovery_arguments),
             }
         )
@@ -250,6 +283,38 @@ def _resource_identity_property(descriptors: tuple[dict[str, Any], ...]) -> str 
         return None
     properties = selected[0]["properties"]
     return next((name for name in ("name", "display_name", "id") if name in properties), None)
+
+
+def _replacement_object_set(
+    *,
+    node_id: str,
+    identity_property: str,
+    identity_value: str,
+    as_of: datetime,
+    purpose: str,
+    limit: int,
+) -> OntologyQueryNode:
+    """Build one bounded historical/current Pod dependency for replacement reduction."""
+
+    definition = ObjectSetDefinition(
+        selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Resource"),
+        predicates=(
+            ObjectPredicate(
+                property=identity_property,
+                operator=ObjectPredicateOperator.EQUALS,
+                equals=identity_value,
+            ),
+        ),
+        as_of=as_of.astimezone(UTC),
+        purpose=purpose,
+        limit=limit,
+    )
+    return OntologyQueryNode(
+        node_id=node_id,
+        kind=QueryNodeKind.OBJECT_SET,
+        arguments_json=canonical_json({"definition": definition.model_dump(mode="json")}),
+        output_kind="query.table",
+    )
 
 
 def _has_function(

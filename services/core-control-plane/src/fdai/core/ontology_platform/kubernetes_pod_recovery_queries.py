@@ -5,7 +5,8 @@ from __future__ import annotations
 import hashlib
 import math
 from collections.abc import Mapping, Sequence
-from datetime import UTC, datetime
+from dataclasses import replace
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
 
@@ -97,6 +98,14 @@ def kubernetes_pod_recovery_function_type() -> OntologyFunctionType:
                     "x-fdai-dependency-only": True,
                 },
                 "replacement_context": {
+                    "type": "object",
+                    "x-fdai-dependency-only": True,
+                },
+                "replacement_old_pod_query_result": {
+                    "type": "object",
+                    "x-fdai-dependency-only": True,
+                },
+                "replacement_candidates_query_result": {
                     "type": "object",
                     "x-fdai-dependency-only": True,
                 },
@@ -197,7 +206,23 @@ def kubernetes_pod_recovery_function(
         deployment_result = SecuredObjectSetQueryResult.model_validate(
             arguments["deployment_query_result"]
         )
-        query_results = (pod_result, controller_result, deployment_result)
+        replacement_old_result = _optional_secured_result(
+            arguments.get("replacement_old_pod_query_result")
+        )
+        replacement_candidates_result = _optional_secured_result(
+            arguments.get("replacement_candidates_query_result")
+        )
+        query_results = (
+            pod_result,
+            controller_result,
+            deployment_result,
+            *((replacement_old_result,) if replacement_old_result is not None else ()),
+            *(
+                (replacement_candidates_result,)
+                if replacement_candidates_result is not None
+                else ()
+            ),
+        )
         expected_evidence_refs = tuple(
             sorted(result.receipt.projected_result_digest for result in query_results)
         )
@@ -248,6 +273,17 @@ def kubernetes_pod_recovery_function(
             )
         elif isinstance(lifecycle_events, Mapping) and lifecycle_events.get("complete") is True:
             replacement_context = arguments.get("replacement_context")
+            if (
+                replacement_context is None
+                and replacement_old_result is not None
+                and replacement_candidates_result is not None
+            ):
+                replacement_context = _replacement_context_from_query_results(
+                    replacement_old_result,
+                    replacement_candidates_result,
+                    deployment_result=deployment_result,
+                    cutoff=cutoff,
+                )
             if replacement_context is None:
                 replacement_context = _default_replacement_context(
                     pod_result,
@@ -449,6 +485,24 @@ def _default_replacement_context(
     if not old_rows:
         return None
     old_uid = str(old_rows[0]["object_uid"])
+    deployment_objects = tuple(
+        item
+        for item in deployment_result.materialization.graph.objects
+        if _resource_type(item) == "kubernetes.deployment"
+    )
+    deployment = deployment_objects[0] if len(deployment_objects) == 1 else None
+    if deployment is None:
+        return None
+    enriched_properties = dict(properties)
+    enriched_properties.setdefault("cluster_ref", old_rows[0].get("cluster_ref"))
+    enriched_properties.setdefault("namespace", old_rows[0].get("namespace"))
+    enriched_properties.setdefault("owner_uid", old_rows[0].get("owner_uid"))
+    enriched_properties.setdefault("root_controller_uid", deployment.id)
+    enriched_properties.setdefault("root_controller_kind", "Deployment")
+    pod = replace(
+        pod,
+        properties={**pod.properties, "properties": enriched_properties},
+    )
     current_metadata = _state_metadata(pod).to_mapping()
     old_metadata = dict(current_metadata)
     old_metadata["completeness"] = 0.0
@@ -473,14 +527,6 @@ def _default_replacement_context(
     old["ready"] = None
     old["ready_container_count"] = None
     old["metadata"] = old_metadata
-    deployment_objects = tuple(
-        item
-        for item in deployment_result.materialization.graph.objects
-        if _resource_type(item) == "kubernetes.deployment"
-    )
-    deployment = deployment_objects[0] if len(deployment_objects) == 1 else None
-    if deployment is None:
-        return None
     deployment_properties = _resource_properties(deployment)
     times = tuple(
         _required_replacement_alias_time(row, "event_time", "occurred_at") for row in old_rows
@@ -507,6 +553,77 @@ def _default_replacement_context(
             "evidence_refs": list(_state_metadata(deployment).evidence_refs),
         },
         "correlation_window_start": min(times).isoformat(),
+    }
+
+
+def _optional_secured_result(value: object) -> SecuredObjectSetQueryResult | None:
+    if value is None:
+        return None
+    return SecuredObjectSetQueryResult.model_validate(value)
+
+
+def _replacement_context_from_query_results(
+    old_result: SecuredObjectSetQueryResult,
+    candidates_result: SecuredObjectSetQueryResult,
+    *,
+    deployment_result: SecuredObjectSetQueryResult,
+    cutoff: datetime,
+) -> Mapping[str, Any] | None:
+    """Translate bounded historical/current Pod query results into reducer input."""
+
+    old_objects = tuple(
+        item
+        for item in old_result.materialization.graph.objects
+        if _resource_type(item) == "kubernetes.pod"
+    )
+    candidate_objects = tuple(
+        item
+        for item in candidates_result.materialization.graph.objects
+        if _resource_type(item) == "kubernetes.pod"
+    )
+    if not old_objects or not candidate_objects or len(candidate_objects) > 32:
+        return None
+    deployment_objects = tuple(
+        item
+        for item in deployment_result.materialization.graph.objects
+        if _resource_type(item) == "kubernetes.deployment"
+    )
+    if len(deployment_objects) != 1:
+        return None
+    deployment = deployment_objects[0]
+    deployment_properties = _resource_properties(deployment)
+    deployment_metadata = _state_metadata(deployment).to_mapping()
+    return {
+        "old_pod": _replacement_record(
+            old_objects[0],
+            metadata=_state_metadata(old_objects[0]).to_mapping(),
+        ),
+        "candidates": [
+            _replacement_record(
+                item,
+                metadata=_state_metadata(item).to_mapping(),
+            )
+            for item in candidate_objects
+        ],
+        "deployment": {
+            "deployment_id": deployment.id,
+            "desired_replicas_before": _optional_replacement_int(
+                deployment_properties, "desired_replicas"
+            ),
+            "desired_replicas_after": _optional_replacement_int(
+                deployment_properties, "desired_replicas"
+            ),
+            "ready_replicas": _optional_replacement_int(deployment_properties, "ready_replicas"),
+            "available_replicas": _optional_replacement_int(
+                deployment_properties, "available_replicas"
+            ),
+            "unavailable_replicas": _optional_replacement_int(
+                deployment_properties, "unavailable_replicas"
+            ),
+            "metadata": deployment_metadata,
+            "evidence_refs": list(cast(tuple[str, ...], deployment_metadata["evidence_refs"])),
+        },
+        "correlation_window_start": (cutoff - timedelta(minutes=30)).isoformat(),
     }
 
 
@@ -671,6 +788,10 @@ def _optional_replacement_time(value: Mapping[str, Any], key: str) -> datetime |
 
 
 def _parse_time(value: object) -> datetime | None:
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            raise ValueError("replacement timestamps MUST include timezone")
+        return value
     if not isinstance(value, str):
         return None
     parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
