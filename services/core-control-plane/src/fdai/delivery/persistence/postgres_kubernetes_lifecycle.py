@@ -20,6 +20,7 @@ from fdai.delivery.kubernetes_lifecycle_collector import (
     KubernetesLifecycleAppendReceipt,
     KubernetesLifecycleCursorConflictError,
     KubernetesLifecycleCursorState,
+    KubernetesLifecycleReadSnapshot,
 )
 
 _MAX_OBSERVATIONS_PER_APPEND: Final = 256
@@ -213,6 +214,57 @@ class PostgresKubernetesLifecycleStore:
             )
             rows = await cursor.fetchall()
         return tuple(_observation_from_row(row) for row in rows)
+
+    async def read_snapshot(
+        self,
+        *,
+        cluster_ref: str,
+        object_uids: tuple[str, ...],
+        start: datetime,
+        end: datetime,
+        limit: int,
+    ) -> KubernetesLifecycleReadSnapshot:
+        """Read cursor health and observations under one transaction snapshot."""
+
+        async with await self._connect() as connection, connection.transaction():
+            await self._set_timeout(connection)
+            await self._lock_cluster(connection, cluster_ref)
+            state_cursor = await connection.execute(
+                "SELECT resource_version, updated_at, complete, limitation "
+                "FROM kubernetes_lifecycle_cursor WHERE cluster_ref = %s",
+                (cluster_ref,),
+            )
+            state_row = await state_cursor.fetchone()
+            observation_cursor = await connection.execute(
+                "SELECT cluster_ref, namespace, object_uid, owner_uid, reason, category, "
+                "event_type, event_time, recorded_time, source_revision, record, evidence_ref "
+                "FROM kubernetes_lifecycle_observation "
+                "WHERE cluster_ref = %s AND object_uid = ANY(%s) "
+                "AND event_time >= %s AND event_time <= %s "
+                "ORDER BY event_time, evidence_ref LIMIT %s",
+                (cluster_ref, list(object_uids), start, end, limit),
+            )
+            rows = await observation_cursor.fetchall()
+        state = (
+            None
+            if state_row is None
+            else KubernetesLifecycleCursorState(
+                resource_version=(
+                    None
+                    if state_row["resource_version"] is None
+                    else str(state_row["resource_version"])
+                ),
+                updated_at=state_row["updated_at"],
+                complete=bool(state_row["complete"]),
+                limitation=(
+                    None if state_row["limitation"] is None else str(state_row["limitation"])
+                ),
+            )
+        )
+        return KubernetesLifecycleReadSnapshot(
+            state=state,
+            observations=tuple(_observation_from_row(row) for row in rows),
+        )
 
     async def _connect(self) -> psycopg.AsyncConnection[dict[str, Any]]:
         dsn = self._config.dsn.replace("postgresql+psycopg://", "postgresql://", 1)

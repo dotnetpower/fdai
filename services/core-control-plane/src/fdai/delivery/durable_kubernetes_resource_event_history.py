@@ -108,8 +108,15 @@ class DurableKubernetesResourceEventHistoryReader:
                 complete=False,
                 limitation="pod_uid_unavailable",
             )
-        cursor_state = await self._store.read_cursor_state(self._cluster_ref)
         observed_at = self._now()
+        snapshot = await self._store.read_snapshot(
+            cluster_ref=self._cluster_ref,
+            object_uids=(uid,),
+            start=observed_at - timedelta(seconds=lookback_seconds),
+            end=observed_at,
+            limit=_MAX_READ,
+        )
+        cursor_state = snapshot.state
         if cursor_state is None:
             return _result(
                 resource_ids,
@@ -147,14 +154,7 @@ class DurableKubernetesResourceEventHistoryReader:
                 complete=False,
                 limitation="lifecycle_cursor_stale",
             )
-        start = observed_at - timedelta(seconds=lookback_seconds)
-        observations = await self._store.read_observations(
-            cluster_ref=self._cluster_ref,
-            object_uids=(uid,),
-            start=start,
-            end=observed_at,
-            limit=_MAX_READ,
-        )
+        observations = snapshot.observations
         truncated = len(observations) > _MAX_EVENTS
         bounded_observations = tuple(
             sorted(observations, key=lambda item: (item.event_time, item.evidence_ref))

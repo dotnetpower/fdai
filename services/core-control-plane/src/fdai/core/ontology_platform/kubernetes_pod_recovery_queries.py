@@ -571,6 +571,13 @@ def _replacement_context_from_query_results(
 ) -> Mapping[str, Any] | None:
     """Translate bounded historical/current Pod query results into reducer input."""
 
+    if any(
+        not result.receipt.complete
+        or result.receipt.truncated
+        or result.materialization.graph.truncated
+        for result in (old_result, candidates_result)
+    ):
+        return None
     old_objects = tuple(
         item
         for item in old_result.materialization.graph.objects
@@ -581,7 +588,7 @@ def _replacement_context_from_query_results(
         for item in candidates_result.materialization.graph.objects
         if _resource_type(item) == "kubernetes.pod"
     )
-    if not old_objects or not candidate_objects or len(candidate_objects) > 32:
+    if len(old_objects) != 1 or not candidate_objects or len(candidate_objects) > 32:
         return None
     deployment_objects = tuple(
         item

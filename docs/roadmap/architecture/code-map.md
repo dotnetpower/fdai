@@ -34,6 +34,8 @@ retired top-level application tree.
 > Resource-event rows retain the durable object UID, cluster, recorded time, and source revision so
 > the recovery Function can translate its actual query schema into typed replacement evidence.
 > WATCH count-cap progress is resumable only when no malformed envelope preceded the safe boundary.
+> Historical Pod reduction uses durable lifecycle UIDs with the exact current Pod; it does not issue
+> an incompatible historical `as_of` query through the current-state gateway.
 
 ## Physical service ownership
 

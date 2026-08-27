@@ -12,7 +12,10 @@ from fdai.core.ontology_platform.kubernetes_lifecycle_observation import (
 from fdai.delivery.durable_kubernetes_resource_event_history import (
     DurableKubernetesResourceEventHistoryReader,
 )
-from fdai.delivery.kubernetes_lifecycle_collector import KubernetesLifecycleCursorState
+from fdai.delivery.kubernetes_lifecycle_collector import (
+    KubernetesLifecycleCursorState,
+    KubernetesLifecycleReadSnapshot,
+)
 
 NOW = datetime(2026, 8, 27, 14, 0, tzinfo=UTC)
 
@@ -70,6 +73,23 @@ class _Store:
         assert object_uids == ("pod-uid-a",)
         assert start < end and limit == 257
         return self.observations
+
+    async def read_snapshot(
+        self,
+        *,
+        cluster_ref: str,
+        object_uids: tuple[str, ...],
+        start: datetime,
+        end: datetime,
+        limit: int,
+    ) -> KubernetesLifecycleReadSnapshot:
+        assert cluster_ref == "cluster-a"
+        assert object_uids == ("pod-uid-a",)
+        assert start < end and limit == 257
+        return KubernetesLifecycleReadSnapshot(
+            state=await self.read_cursor_state(cluster_ref),
+            observations=self.observations,
+        )
 
 
 async def test_durable_reader_maps_retained_uid_events_to_resource_events() -> None:
