@@ -272,10 +272,12 @@ clean (see the fork model in
   `operational-promotion` measurement job accepts only exact-digest batches and manifest-bound
   causal and unit evidence, then stores a receipt without changing promotion state.
 - **Governed action and probe delivery**: `GovernedGovernancePrPublisher` binds the pure
-  retirement and exemption writers to the existing write-once PR adapter and persists an
-  open-to-merge receipt. `LiveBlastProbeAdapter` binds deployment-supplied `BlastSignalSource`
-  and `ProbeFailureStreakSource` implementations; missing or failed sources lower Axis E and
-  never grant authority.
+  retirement and exemption writers to the existing write-once PR adapter and persists a
+  replayable open-to-merge or terminal receipt. The retirement loader projects merged
+  retirement artifacts out of the active rule index, while exemptions use the canonical JSON
+  schema. `LiveBlastProbeAdapter` binds deployment-supplied `BlastSignalSource` and
+  `ProbeFailureStreakSource` implementations; missing or failed sources lower Axis E and never
+  grant authority.
 - **Independent effect observation**: the durable kinetic artifact store is the exact-plan source.
   `StateStoreExecutedActionObservationStore` accepts only Heimdall-attributed observations whose
   signed context passes the configured verifier on write and replay. Missing evidence remains held.

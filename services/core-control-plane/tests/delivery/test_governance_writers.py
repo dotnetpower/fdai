@@ -72,7 +72,7 @@ def test_retirement_renders_the_reviewed_record() -> None:
 def test_exemption_renders_the_time_boxed_record() -> None:
     document = _exemption()
 
-    assert document.path == "rule-catalog/exemptions/exemption-4711.yaml"  # type: ignore[attr-defined]
+    assert document.path == "rule-catalog/exemptions/exemption-4711.json"  # type: ignore[attr-defined]
     payload = document.document  # type: ignore[attr-defined]
     assert payload["state"] == "active"
     assert payload["scope"] == {

@@ -24,16 +24,22 @@ class _Records:
         return (self.record,)
 
 
-def _record(cohort: PromotionEvidenceCohort) -> OperationalPromotionRecord:
+def _record(
+    cohort: PromotionEvidenceCohort,
+    *,
+    sample_id: str = "sample-1",
+    unit_id: str = "unit-1",
+    hypothesis_id: str = "hypothesis-1",
+) -> OperationalPromotionRecord:
     causal = CausalPromotionReceipt(
-        hypothesis_id="hypothesis-1",
+        hypothesis_id=hypothesis_id,
         hypothesis_revision_digest="c" * 64,
         evidence_grade=CausalEvidenceGrade.QUASI_EXPERIMENTAL,
         status="supported",
     )
     return OperationalPromotionRecord(
-        sample_id="sample-1",
-        measurement_unit_id="unit-1",
+        sample_id=sample_id,
+        measurement_unit_id=unit_id,
         audit_sequence=1,
         action_type_name="ops.scale-out",
         action_type_version="1.0.0",
@@ -58,9 +64,16 @@ def _record(cohort: PromotionEvidenceCohort) -> OperationalPromotionRecord:
 @pytest.mark.asyncio
 async def test_live_producer_emits_exact_manifest_consumable_by_o7(tmp_path) -> None:
     record = _record(PromotionEvidenceCohort.LIVE_SHADOW)
+    benchmark = _record(
+        PromotionEvidenceCohort.FROZEN_BENCHMARK,
+        sample_id="sample-2",
+        unit_id="unit-2",
+        hypothesis_id="hypothesis-2",
+    )
     artifact = await GovernedLiveBatchProducer(
         source=_Records(record),
         output_dir=tmp_path,
+        benchmark_records=(benchmark,),
         clock=lambda: datetime(2026, 8, 23, tzinfo=UTC),
     ).produce(
         action_type_name="ops.scale-out",
@@ -75,6 +88,10 @@ async def test_live_producer_emits_exact_manifest_consumable_by_o7(tmp_path) -> 
         scenario_set_version="scenario-v1",
     )
     assert loaded == artifact.batch
+    assert {item.cohort for item in loaded.records} == {
+        PromotionEvidenceCohort.FROZEN_BENCHMARK,
+        PromotionEvidenceCohort.LIVE_SHADOW,
+    }
     assert artifact.batch_path.exists()
     assert artifact.manifest_path.exists()
 
@@ -85,6 +102,7 @@ async def test_producer_rejects_non_live_cohorts(tmp_path) -> None:
         await GovernedLiveBatchProducer(
             source=_Records(_record(PromotionEvidenceCohort.FROZEN_BENCHMARK)),
             output_dir=tmp_path,
+            benchmark_records=(_record(PromotionEvidenceCohort.FROZEN_BENCHMARK),),
         ).produce(
             action_type_name="ops.scale-out",
             action_type_version="1.0.0",

@@ -75,3 +75,9 @@ async def test_missing_streak_source_evidence_fails_closed() -> None:
         failure_streak_source=_BrokenStreak(),
     ).measure(_query())
     assert result.verdict is ProbeVerdict.OVERLOADED
+
+
+@pytest.mark.parametrize("deadline", [float("nan"), float("inf"), float("-inf")])
+def test_non_finite_probe_deadline_is_rejected(deadline: float) -> None:
+    with pytest.raises(ValueError, match="deadline_seconds"):
+        ProbeQuery("vm_traffic_last_5m", "opaque-target", deadline)

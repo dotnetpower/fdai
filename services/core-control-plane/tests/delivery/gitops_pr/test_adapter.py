@@ -16,6 +16,7 @@ Exercises the wire contract the P2 rollout will rely on:
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
 from typing import Any
@@ -156,6 +157,45 @@ async def test_existing_open_pr_short_circuits_publish() -> None:
     assert receipt.url == "https://github.com/acme/iac/pull/7"
     # Only the probe fired.
     assert len(calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_concurrent_retries_serialize_and_open_one_pr() -> None:
+    counts: dict[str, int] = {}
+    pr_open = False
+
+    def _handler(request: httpx.Request) -> httpx.Response:
+        nonlocal pr_open
+        key = request.method + " " + request.url.path
+        counts[key] = counts.get(key, 0) + 1
+        if request.method == "GET" and request.url.path.endswith("/pulls"):
+            if pr_open:
+                return httpx.Response(200, json=[{"number": 9, "html_url": "url"}])
+            return httpx.Response(200, json=[])
+        if request.method == "GET" and "/git/refs/heads/" in request.url.path:
+            return httpx.Response(200, json={"object": {"sha": "base"}})
+        if request.method == "POST" and request.url.path.endswith("/git/refs"):
+            return httpx.Response(201, json={})
+        if request.method == "GET" and "/contents/" in request.url.path:
+            return httpx.Response(404, json={})
+        if request.method == "PUT" and "/contents/" in request.url.path:
+            return httpx.Response(201, json={"commit": {"sha": "commit"}})
+        if request.method == "POST" and request.url.path.endswith("/pulls"):
+            pr_open = True
+            return httpx.Response(201, json={"number": 9, "html_url": "url"})
+        if request.method == "POST" and request.url.path.endswith("/labels"):
+            return httpx.Response(200, json=[])
+        raise AssertionError(f"unexpected {request.method} {request.url}")
+
+    adapter = _adapter(httpx.MockTransport(_handler))
+    first, second = await asyncio.gather(
+        adapter.publish(_pr(idempotency_key="same")),
+        adapter.publish(_pr(idempotency_key="same")),
+    )
+
+    assert first.pr_ref == second.pr_ref == "acme/iac#9"
+    assert counts["POST /repos/acme/iac/pulls"] == 1
+    assert second.already_existed is True
 
 
 # ---------------------------------------------------------------------------

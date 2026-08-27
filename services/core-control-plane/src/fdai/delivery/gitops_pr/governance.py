@@ -15,9 +15,11 @@ from fdai.shared.contracts.models import Mode
 from fdai.shared.providers.remediation_pr import RemediationPr, RemediationPrPublisher
 from fdai.shared.providers.state_store import StateStore
 
+_RETIREMENT_PREFIX = "rule-catalog/retirements/"
+_EXEMPTION_PREFIX = "rule-catalog/exemptions/"
 _SUPPORTED = {
-    "rule-retirement": "governance.retire-rule",
-    "exemption": "governance.grant-exemption",
+    "rule-retirement": ("governance.retire-rule", _RETIREMENT_PREFIX, ".yaml"),
+    "exemption": ("governance.grant-exemption", _EXEMPTION_PREFIX, ".json"),
 }
 _MAX_DOCUMENT_BYTES = 256 * 1024
 
@@ -43,8 +45,14 @@ class GovernancePrLifecycleReceipt:
     recorded_at: str = ""
 
     def __post_init__(self) -> None:
-        if self.state != "open" or not self.merge_required or self.applied:
-            raise ValueError("governance PR receipt MUST remain open until a human merge")
+        if self.state not in {"open", "merged", "closed"}:
+            raise ValueError("governance PR receipt state is invalid")
+        if self.state == "open" and (not self.merge_required or self.applied):
+            raise ValueError("open governance PR receipt MUST require a human merge")
+        if self.state == "merged" and (self.merge_required or not self.applied):
+            raise ValueError("merged governance PR receipt MUST be applied")
+        if self.state == "closed" and (self.merge_required or self.applied):
+            raise ValueError("closed governance PR receipt MUST remain unapplied")
         if (
             not self.pr_ref
             or not self.idempotency_key
@@ -87,7 +95,7 @@ class StateStoreGovernancePrLifecycleStore:
         self._store = store
 
     async def save(self, receipt: GovernancePrLifecycleReceipt) -> None:
-        key = f"governance-pr-lifecycle:{receipt.idempotency_key}"
+        key = f"governance-pr-lifecycle:{receipt.idempotency_key}:{receipt.state}"
         value = receipt.as_json()
         created = await self._store.write_state_with_audit_if_absent(
             key,
@@ -113,12 +121,13 @@ class StateStoreGovernancePrLifecycleStore:
             raise GovernancePrError("governance PR lifecycle key collision")
 
     async def load(self, idempotency_key: str) -> GovernancePrLifecycleReceipt | None:
-        raw = await self._store.read_state(f"governance-pr-lifecycle:{idempotency_key}")
-        if raw is None:
-            return None
-        if raw.get("schema_version") != "1.0.0":
-            raise GovernancePrError("unsupported governance PR lifecycle state")
-        return _decode_receipt(raw)
+        for state in ("merged", "closed", "open"):
+            raw = await self._store.read_state(f"governance-pr-lifecycle:{idempotency_key}:{state}")
+            if raw is not None:
+                if raw.get("schema_version") != "1.0.0":
+                    raise GovernancePrError("unsupported governance PR lifecycle state")
+                return _decode_receipt(raw)
+        return None
 
 
 class GovernedGovernancePrPublisher:
@@ -145,11 +154,24 @@ class GovernedGovernancePrPublisher:
         *,
         correlation_id: str,
     ) -> GovernancePrLifecycleReceipt:
-        action_type = _SUPPORTED.get(str(document.document.get("kind")))
-        if action_type is None and document.path.startswith("rule-catalog/exemptions/"):
-            action_type = "governance.grant-exemption"
-        if action_type is None or document.execution_path != "pr_native" or document.applied:
+        kind = (
+            "rule-retirement"
+            if document.path.startswith(_RETIREMENT_PREFIX)
+            else "exemption"
+            if document.path.startswith(_EXEMPTION_PREFIX)
+            else ""
+        )
+        if not kind:
+            raise GovernancePrError("governance document path is outside its canonical directory")
+        supported = _SUPPORTED.get(kind)
+        if supported is None or document.execution_path != "pr_native" or document.applied:
             raise GovernancePrError("governance document is not an unapplied supported PR artifact")
+        action_type, prefix, extension = supported
+        _validate_document_path(
+            document=document,
+            prefix=prefix,
+            extension=extension,
+        )
         _require_distinct_approval(document.document)
         if not correlation_id.strip():
             raise GovernancePrError("correlation_id MUST be non-empty")
@@ -158,8 +180,30 @@ class GovernedGovernancePrPublisher:
         key = f"{action_type}:{digest}"
         prior = await self._lifecycle_store.load(key)
         if prior is not None:
+            reconcile = getattr(self._publisher, "reconcile", None)
+            if callable(reconcile) and prior.state == "open":
+                state = await reconcile(prior.pr_ref)
+                if state not in {"open", "merged", "closed"}:
+                    raise GovernancePrError(
+                        "governance PR adapter returned an invalid lifecycle state"
+                    )
+                if state != prior.state:
+                    prior = GovernancePrLifecycleReceipt(
+                        action_type_name=prior.action_type_name,
+                        idempotency_key=prior.idempotency_key,
+                        document_digest=prior.document_digest,
+                        document_path=prior.document_path,
+                        pr_ref=prior.pr_ref,
+                        url=prior.url,
+                        state=state,
+                        merge_required=state == "open",
+                        applied=state == "merged",
+                        already_existed=True,
+                        recorded_at=_rfc3339(self._clock()),
+                    )
+                    await self._lifecycle_store.save(prior)
             return prior
-        patch = _yaml_document(document.document)
+        patch = _document_text(document.document, action_type)
         if len(patch.encode("utf-8")) > _MAX_DOCUMENT_BYTES:
             raise GovernancePrError("governance document exceeds its byte limit")
         receipt = await self._publisher.publish(
@@ -219,9 +263,12 @@ def _decode_receipt(raw: Mapping[str, Any]) -> GovernancePrLifecycleReceipt:
     url = raw.get("url")
     if url is not None and not isinstance(url, str):
         raise GovernancePrError("governance PR lifecycle URL is malformed")
-    if raw.get("state") != "open" or raw.get("merge_required") is not True:
-        raise GovernancePrError("governance PR lifecycle is not open-to-merge")
-    if raw.get("applied") is not False or raw.get("already_existed") not in (True, False):
+    state = raw.get("state")
+    merge_required = raw.get("merge_required")
+    applied = raw.get("applied")
+    if state not in {"open", "merged", "closed"} or not isinstance(merge_required, bool):
+        raise GovernancePrError("governance PR lifecycle state is malformed")
+    if not isinstance(applied, bool) or raw.get("already_existed") not in (True, False):
         raise GovernancePrError("governance PR lifecycle flags are malformed")
     recorded_at = _required_text(raw, "recorded_at")
     return GovernancePrLifecycleReceipt(
@@ -231,6 +278,9 @@ def _decode_receipt(raw: Mapping[str, Any]) -> GovernancePrLifecycleReceipt:
         document_path=document_path,
         pr_ref=pr_ref,
         url=url,
+        state=state,
+        merge_required=merge_required,
+        applied=applied,
         already_existed=raw["already_existed"],
         recorded_at=recorded_at,
     )
@@ -254,6 +304,30 @@ def _require_distinct_approval(document: Mapping[str, Any]) -> None:
         or requested == approved
     ):
         raise GovernancePrError("governance document requires a distinct approved_by principal")
+
+
+def _validate_document_path(
+    *,
+    document: GovernanceDocument,
+    prefix: str,
+    extension: str,
+) -> None:
+    path = document.path
+    if not path.startswith(prefix) or not path.endswith(extension):
+        raise GovernancePrError("governance document path is outside its canonical directory")
+    filename = path[len(prefix) : -len(extension)]
+    if not filename or "/" in filename or "\\" in filename:
+        raise GovernancePrError("governance document path filename is invalid")
+    identifier_key = "rule_id" if prefix == _RETIREMENT_PREFIX else "id"
+    identifier = document.document.get(identifier_key)
+    if not isinstance(identifier, str) or identifier != filename:
+        raise GovernancePrError("governance document path does not match its identifier")
+
+
+def _document_text(document: Mapping[str, Any], action_type: str) -> str:
+    if action_type == "governance.grant-exemption":
+        return json.dumps(dict(document), indent=2, sort_keys=False, ensure_ascii=False) + "\n"
+    return _yaml_document(document)
 
 
 def _rfc3339(value: datetime) -> str:

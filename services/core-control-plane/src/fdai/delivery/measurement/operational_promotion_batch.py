@@ -58,10 +58,12 @@ class GovernedLiveBatchProducer:
         *,
         source: OperationalPromotionLiveRecordSource,
         output_dir: Path,
+        benchmark_records: Sequence[OperationalPromotionRecord] = (),
         clock: object = None,
     ) -> None:
         self._source = source
         self._output_dir = output_dir
+        self._benchmark_records = tuple(benchmark_records)
         self._clock = clock or (lambda: datetime.now(tz=UTC))
 
     async def produce(
@@ -74,17 +76,27 @@ class GovernedLiveBatchProducer:
         scenario_set_version: str,
     ) -> OperationalPromotionBatchArtifact:
         """Read, validate, seal, and publish one exact-digest live batch."""
-        records = tuple(
+        live_records = tuple(
             await self._source.load_records(
                 action_type_name=action_type_name,
                 fdai_revision=fdai_revision,
                 scenario_set_version=scenario_set_version,
             )
         )
-        if not records:
+        if not live_records:
             raise ValueError("live operational promotion batch MUST contain records")
-        if any(record.cohort is not PromotionEvidenceCohort.LIVE_SHADOW for record in records):
+        if any(record.cohort is not PromotionEvidenceCohort.LIVE_SHADOW for record in live_records):
             raise ValueError("live operational promotion batch MUST contain live-shadow records")
+        if not self._benchmark_records:
+            raise ValueError(
+                "live operational promotion batch requires immutable benchmark records"
+            )
+        if any(
+            record.cohort is not PromotionEvidenceCohort.FROZEN_BENCHMARK
+            for record in self._benchmark_records
+        ):
+            raise ValueError("benchmark records MUST use the frozen-benchmark cohort")
+        records = (*self._benchmark_records, *live_records)
         batch = OperationalPromotionBatch(
             fdai_revision=fdai_revision,
             scenario_set_version=scenario_set_version,
