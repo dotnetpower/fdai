@@ -17,6 +17,8 @@ from fdai.delivery.persistence.postgres_kubernetes_lifecycle import (
     PostgresKubernetesLifecycleStore,
 )
 
+pytestmark = pytest.mark.integration
+
 NOW = datetime(2026, 8, 27, 12, 0, tzinfo=UTC)
 
 
