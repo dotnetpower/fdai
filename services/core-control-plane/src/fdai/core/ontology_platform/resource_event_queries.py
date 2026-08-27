@@ -288,9 +288,11 @@ def _resource_identity(
             continue
         fields = {
             name: value.strip()
-            for name in ("cluster_ref", "uid", "namespace", "owner_uid")
+            for name in ("cluster_ref", "uid", "namespace", "controller_uid")
             if isinstance((value := provider_properties.get(name)), str) and value.strip()
         }
+        if "controller_uid" in fields:
+            fields["owner_uid"] = fields.pop("controller_uid")
         if fields:
             identity[item.id] = MappingProxyType(fields)
     return MappingProxyType(identity)

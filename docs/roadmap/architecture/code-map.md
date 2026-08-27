@@ -38,6 +38,8 @@ retired top-level application tree.
 > an incompatible historical `as_of` query through the current-state gateway.
 > Owner-scoped durable lifecycle reads retain historical old UIDs, while the analyzer Job receives
 > the same reviewed Kubernetes bindings as the inventory Job for local/deployed parity.
+> LIST pagination drains a bounded 2048-observation batch atomically, and Pod inventory retains
+> creation timestamps plus explicitly controller-marked owner identity.
 
 ## Physical service ownership
 

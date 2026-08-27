@@ -258,14 +258,22 @@ def _resource_record(
         raise KubernetesApiInventoryError("Kubernetes resource metadata is missing")
     name = _required_text(metadata, "name")
     uid = _required_text(metadata, "uid")
+    created_at = _optional_timestamp(metadata, "creationTimestamp")
     namespace = _required_text(metadata, "namespace") if namespaced else None
     labels = _string_mapping(metadata.get("labels"), limit=_MAX_LABELS)
     owner_uids = _owner_uids(metadata.get("ownerReferences"))
+    controller_uid, controller_kind = _verified_controller_owner(metadata.get("ownerReferences"))
     props: dict[str, object] = {
         "cluster_ref": cluster_ref,
         "name": name,
         "uid": uid,
     }
+    if created_at is not None:
+        props["created_at"] = created_at.isoformat()
+    if controller_uid is not None:
+        props["controller_uid"] = controller_uid
+        if controller_kind in {"Deployment", "StatefulSet"}:
+            props["root_controller_uid"] = controller_uid
     if namespace is not None:
         props["namespace"] = namespace
     elif resource_type == "kubernetes.namespace":
@@ -395,6 +403,44 @@ def _owner_uids(value: object) -> tuple[str, ...]:
     if len(uids) != len(set(uids)):
         raise KubernetesApiInventoryError("Kubernetes owner reference UIDs MUST be unique")
     return tuple(uids)
+
+
+def _verified_controller_owner(value: object) -> tuple[str | None, str | None]:
+    """Return a single explicitly controller-marked owner, never an arbitrary owner."""
+
+    if value is None:
+        return None, None
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        raise KubernetesApiInventoryError("Kubernetes ownerReferences is malformed")
+    controllers: list[tuple[str, str | None]] = []
+    for reference in value:
+        if not isinstance(reference, Mapping):
+            raise KubernetesApiInventoryError("Kubernetes owner reference is not an object")
+        if reference.get("controller") is True:
+            controllers.append(
+                (
+                    _required_text(reference, "uid"),
+                    reference.get("kind") if isinstance(reference.get("kind"), str) else None,
+                )
+            )
+    if len(controllers) > 1:
+        raise KubernetesApiInventoryError("Kubernetes controller owner identity is ambiguous")
+    return controllers[0] if controllers else (None, None)
+
+
+def _optional_timestamp(value: Mapping[str, Any], key: str) -> datetime | None:
+    raw = value.get(key)
+    if raw is None:
+        return None
+    if not isinstance(raw, str):
+        raise KubernetesApiInventoryError(f"Kubernetes {key} is malformed")
+    try:
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise KubernetesApiInventoryError(f"Kubernetes {key} is malformed") from exc
+    if parsed.tzinfo is None:
+        raise KubernetesApiInventoryError(f"Kubernetes {key} MUST include timezone")
+    return parsed
 
 
 def _azure_vmss_vm_provider_ref(value: object) -> str | None:
