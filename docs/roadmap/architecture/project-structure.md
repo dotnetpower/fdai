@@ -37,7 +37,8 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   delivery maps only allowlisted OpenAI and AIServices formats and keeps partner deployment and
   endpoint ownership outside the resolver. Root Terraform sends resolved OpenAI and partner
   capabilities to separate modules and creates the partner private endpoint/DNS only when needed.
-  Runtime resolves a bounded map of exact account references and rejects provider/hostname mismatch.
+  Deployment seals partner bindings before plan hashing. Runtime resolves a bounded map of exact
+  account references and rejects provider/hostname mismatch.
 - **qualification reduction is authority-free**:
   `core/conversation_assurance/quality_qualification.py` accepts only premeasured normalized
   observations and reduces them against the installed quality contract. It derives hard caps from

@@ -452,6 +452,14 @@ jobs:
               --azure-cli-timeout-seconds 90 \
               --assess-fail-on "$MODEL_COMPLETENESS_FAIL_ON" \
               --out "$resolved"
+          verified_at="$(git show -s --format=%cI '${{ inputs.commit_sha != '' && inputs.commit_sha || github.sha }}')"
+          PYTHONPATH="$GITHUB_WORKSPACE/services/core-control-plane/src:$GITHUB_WORKSPACE/packages/service-contracts/src" \
+            uv run --frozen --package fdai-core-control-plane python \
+              scripts/deployment/azure/seal_model_endpoint_bindings.py \
+              --input "$resolved" \
+              --output "$resolved" \
+              --partner-account-name "aif-fdai-models-${{ inputs.environment }}-${TF_VAR_region_short}" \
+              --verified-at "$verified_at"
           python3 - "$resolved" "$manifest" <<'PY'
           import json
           import sys

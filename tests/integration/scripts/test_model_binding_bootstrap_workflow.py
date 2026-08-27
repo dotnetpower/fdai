@@ -54,3 +54,19 @@ def test_model_apply_reverifies_the_sealed_active_revision() -> None:
     assert workflow.index("Reverify active Core model fence") < workflow.index(
         "Claim exact plan apply"
     )
+
+
+def test_partner_endpoint_bindings_are_sealed_before_manifest_digest() -> None:
+    workflow = yaml.safe_load(_WORKFLOW.read_text(encoding="utf-8"))
+    step = next(
+        step
+        for step in workflow["jobs"]["terraform"]["steps"]
+        if step.get("name") == "Resolve and seal model capabilities"
+    )
+    script = step["run"]
+
+    assert "seal_model_endpoint_bindings.py" in script
+    assert script.index("seal_model_endpoint_bindings.py") < script.index(
+        'python3 - "$resolved" "$manifest"'
+    )
+    assert "git show -s --format=%cI" in script
