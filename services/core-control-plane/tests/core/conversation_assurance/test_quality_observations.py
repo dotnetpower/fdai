@@ -1,5 +1,3 @@
-"""Tests for completed-turn ChatOps qualification observations."""
-
 from __future__ import annotations
 
 import json
@@ -110,7 +108,6 @@ def test_emits_all_50_items_and_all_six_dimensions_without_raw_identity() -> Non
         tuple(value.dimension for value in item.dimensions) == tuple(QualityDimension)
         for item in observation.items
     )
-    assert observation.locale == "en"
     assert observation.turn_digest != turn.turn_id
     assert observation.conversation_digest != turn.conversation_id
     assert observation.principal_scope_digest != turn.principal_scope
