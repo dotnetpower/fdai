@@ -7,6 +7,7 @@ import json
 import os
 import time
 from multiprocessing.connection import Connection
+from multiprocessing.process import BaseProcess
 
 import pytest
 from fdai_document_worker_service.adapters import pdf_isolation as pdf_isolation_module
@@ -150,3 +151,26 @@ def test_parent_rejects_valid_json_that_exceeds_page_budget(
         )
 
     assert unavailable.value.reason is ExtractionUnavailableReason.UNSAFE_PACKAGE
+
+
+def test_ipc_thread_start_failure_stops_the_parser_process(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stopped = False
+    original_stop = pdf_isolation_module._stop
+
+    def fail_start(_thread: object) -> None:
+        raise RuntimeError("thread unavailable")
+
+    def record_stop(process: BaseProcess) -> None:
+        nonlocal stopped
+        stopped = True
+        original_stop(process)
+
+    monkeypatch.setattr(pdf_isolation_module, "_start_exchange_thread", fail_start)
+    monkeypatch.setattr(pdf_isolation_module, "_stop", record_stop)
+
+    with pytest.raises(DocumentExtractionUnavailableError):
+        extract_pdf_pages_isolated(_pdf())
+
+    assert stopped is True
