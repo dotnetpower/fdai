@@ -75,6 +75,18 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
     assert isinstance(tasks, dict)
     tasks_by_label = {task["label"]: task for task in tasks["tasks"]}
     assert len(tasks_by_label) == 16
+    allowed_instance_policies = {
+        "terminateNewest",
+        "terminateOldest",
+        "prompt",
+        "warn",
+        "silent",
+    }
+    assert {
+        task["runOptions"]["instancePolicy"]
+        for task in tasks["tasks"]
+        if "instancePolicy" in task.get("runOptions", {})
+    } <= allowed_instance_policies
 
     prepare_stack = tasks_by_label["console: prepare full stack"]
     assert prepare_stack["command"] == (
@@ -125,7 +137,7 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
     ]
     assert full_stack["runOptions"] == {
         "instanceLimit": 2,
-        "instancePolicy": "concurrency",
+        "instancePolicy": "silent",
     }
 
     start_guard = tasks_by_label["console: require primary worktree"]
@@ -185,7 +197,7 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
     assert restart_core_runtime["isBackground"] is True
     assert restart_core_runtime["runOptions"] == {
         "instanceLimit": 2,
-        "instancePolicy": "concurrency",
+        "instancePolicy": "silent",
     }
     assert restart_core_runtime["problemMatcher"]["background"] == {
         "activeOnStart": True,
@@ -200,7 +212,7 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
     assert restart_operator_api["isBackground"] is True
     assert restart_operator_api["runOptions"] == {
         "instanceLimit": 2,
-        "instancePolicy": "concurrency",
+        "instancePolicy": "silent",
     }
     assert restart_operator_api["problemMatcher"]["background"] == {
         "activeOnStart": True,
@@ -214,7 +226,7 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
     assert "dependsOn" not in local_services
     assert local_services["runOptions"] == {
         "instanceLimit": 2,
-        "instancePolicy": "concurrency",
+        "instancePolicy": "silent",
     }
     assert local_services["problemMatcher"]["background"] == {
         "activeOnStart": True,

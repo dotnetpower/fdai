@@ -178,7 +178,7 @@
       },
       "runOptions": {
         "instanceLimit": 2,
-        "instancePolicy": "concurrency"
+        "instancePolicy": "silent"
       }
     },
     {
@@ -204,7 +204,7 @@
       },
       "runOptions": {
         "instanceLimit": 2,
-        "instancePolicy": "concurrency"
+        "instancePolicy": "silent"
       }
     },
     {
@@ -232,7 +232,7 @@
       },
       "runOptions": {
         "instanceLimit": 2,
-        "instancePolicy": "concurrency"
+        "instancePolicy": "silent"
       }
     },
     {
@@ -271,7 +271,7 @@
       "problemMatcher": [],
       "runOptions": {
         "instanceLimit": 2,
-        "instancePolicy": "concurrency"
+        "instancePolicy": "silent"
       }
     },
     {
