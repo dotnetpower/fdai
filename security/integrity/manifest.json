@@ -635,7 +635,7 @@
     "services/core-control-plane/src/fdai/core/ontology_platform/resource_class_closure.py": "68e4d5313d92b2b2ede8b3065132221df4ffea5e3032a093b90a996bb60234be",
     "services/core-control-plane/src/fdai/core/ontology_platform/resource_current_state_queries.py": "3f2b6d82673867c51466c342c2f6aa8626791251b6433b5905a921ce4df09ea2",
     "services/core-control-plane/src/fdai/core/ontology_platform/resource_error_activity_correlation_queries.py": "a0d76e80175866ed2c24509469bd3e21d1f4b3412351e4d8718ff509930a5efb",
-    "services/core-control-plane/src/fdai/core/ontology_platform/resource_event_queries.py": "62831b52327a6f8e0dea7a242efa27f51229361e642e4c054d2fbeb823b810f8",
+    "services/core-control-plane/src/fdai/core/ontology_platform/resource_event_queries.py": "2db8818a47925adddf966a34178bdcafc79952be73e96bac405f6d8a875a9561",
     "services/core-control-plane/src/fdai/core/ontology_platform/resource_health_assessment_queries.py": "428921d295f65512e7c26217785fdb3b18708645a5a533c58701adf293e7d20a",
     "services/core-control-plane/src/fdai/core/ontology_platform/resource_health_queries.py": "cb8f70d118d09372bbe318c323db5cb35cb1599db59c5bb7dc2f147606d9813c",
     "services/core-control-plane/src/fdai/core/ontology_platform/resource_ingress_queries.py": "efbc7a8f7b887ff54167ae759da2ffdfa12353876d2126221b0b70105a77df0b",

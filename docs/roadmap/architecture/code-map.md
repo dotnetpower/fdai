@@ -52,6 +52,9 @@ validation separately from semantic inference. Content-free judgment telemetry e
 model-configuration revisions, tier, confidence, latency, outcome, and abstention rate without
 retaining utterance, context, or proposal digests. The competency fixture pins the current structural
 release and Reader manifest without claiming production readiness.
+Kubernetes Resource Event projections retain optional object UID, cluster, recorded time, and source
+revision fields so downstream recovery evidence can preserve identity and provenance without raw
+provider payloads.
 
 | Area | Responsibility | Source | Tests |
 |------|----------------|--------|-------|

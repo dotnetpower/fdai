@@ -75,6 +75,8 @@ def _item(
     namespace: str | None = None,
     labels: dict[str, str] | None = None,
     owner_uids: tuple[str, ...] = (),
+    controller_kind: str | None = None,
+    created_at: str | None = None,
     spec: dict[str, object] | None = None,
     status: dict[str, object] | None = None,
 ) -> dict[str, object]:
@@ -83,8 +85,20 @@ def _item(
         metadata["namespace"] = namespace
     if labels is not None:
         metadata["labels"] = labels
+    if created_at is not None:
+        metadata["creationTimestamp"] = created_at
     if owner_uids:
-        metadata["ownerReferences"] = [{"uid": uid} for uid in owner_uids]
+        metadata["ownerReferences"] = [
+            {
+                "uid": owner,
+                **(
+                    {"controller": True, "kind": controller_kind}
+                    if controller_kind is not None
+                    else {}
+                ),
+            }
+            for owner in owner_uids
+        ]
     result: dict[str, object] = {"metadata": metadata}
     if spec is not None:
         result["spec"] = spec
@@ -131,6 +145,8 @@ async def test_collects_uid_grounded_runtime_inventory() -> None:
                     "uid-pod",
                     namespace="default",
                     owner_uids=("uid-replica-set",),
+                    controller_kind="ReplicaSet",
+                    created_at="2026-08-27T08:00:00Z",
                     spec={"nodeName": "node-1"},
                     status={
                         "phase": "Pending",
@@ -266,6 +282,8 @@ async def test_collects_uid_grounded_runtime_inventory() -> None:
     )
     assert by_type["kubernetes.pod"].props["node_name"] == "node-1"
     assert by_type["kubernetes.pod"].props["owner_uids"] == ("uid-replica-set",)
+    assert by_type["kubernetes.pod"].props["controller_uid"] == "uid-replica-set"
+    assert by_type["kubernetes.pod"].props["created_at"] == "2026-08-27T08:00:00+00:00"
     assert by_type["kubernetes.pod"].props["phase"] == "Pending"
     assert by_type["kubernetes.pod"].props["ready"] is False
     assert by_type["kubernetes.pod"].props["container_count"] == 1

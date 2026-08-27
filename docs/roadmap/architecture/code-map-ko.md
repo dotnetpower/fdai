@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 9ba009f88723843d22871dad1d59840c094099ee
+translation_source_sha: 71888757079aee1786cbe89016fd7c44712ca8e9
 translation_revised: 2026-08-30
 ---
 # 코드 맵
@@ -55,6 +55,9 @@ semantic-routing 기준선은 각 어휘 판단 소유자를 기록하고 결정
 프로필 및 모델 구성 개정, 계층, 신뢰도, 지연 시간, 결과 및 판단 보류 비율을 제공합니다.
 competency fixture는 운영 준비 완료를 주장하지 않으면서 현재 구조 release와 Reader 매니페스트를
 고정합니다.
+Kubernetes Resource Event 변환 결과는 선택적 객체 UID, 클러스터, 기록 시각 및 출처 리비전을
+보존합니다. 따라서 후속 복구 근거는 원시 프로바이더 페이로드 없이 신원과 출처 계보를 유지할 수
+있습니다.
 
 | 영역 | Responsibility | 출처 | 테스트 |
 |------|----------------|--------|------|
