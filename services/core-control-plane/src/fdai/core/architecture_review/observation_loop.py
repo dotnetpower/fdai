@@ -108,6 +108,17 @@ class ArchitectureReviewObservationSink(Protocol):
     ) -> None: ...
 
 
+class ArchitectureReviewObservationOutbox(Protocol):
+    """Durable non-blocking fallback for observations that exceed their deadline."""
+
+    async def enqueue(
+        self,
+        observation: ArchitectureReviewObservation,
+        *,
+        process_id: str | None = None,
+    ) -> None: ...
+
+
 class InMemoryArchitectureReviewStateStore:
     """Deterministic state store used by local and focused integration tests."""
 
@@ -238,6 +249,7 @@ class OntologyArchitectureReviewLoop:
         evidence_source: ArchitectureReviewEvidenceSource,
         state_store: ArchitectureReviewStateStore | None = None,
         observation_sink: ArchitectureReviewObservationSink | None = None,
+        observation_outbox: ArchitectureReviewObservationOutbox | None = None,
         deadline_seconds: float = 5.0,
         max_dependency_depth: int = 3,
         max_duration_seconds: int = 300,
@@ -251,10 +263,14 @@ class OntologyArchitectureReviewLoop:
             raise ValueError("max_dependency_depth MUST be in [1, 5]")
         if max_duration_seconds < 1 or action_type_cap < 1 or decision_cap < 1:
             raise ValueError("ARB bounds MUST be positive")
+        if deadline_seconds < 0.001:
+            raise ValueError("deadline_seconds MUST be at least 0.001")
         self._context_source = context_source
         self._evidence_source = evidence_source
         self._state_store = state_store or InMemoryArchitectureReviewStateStore()
         self._observation_sink = observation_sink
+        self._observation_outbox = observation_outbox
+        self._fallback_timeout_seconds = min(0.05, deadline_seconds / 10)
         self._deadline_seconds = deadline_seconds
         self._max_dependency_depth = max_dependency_depth
         self._max_duration_seconds = max_duration_seconds
@@ -285,13 +301,17 @@ class OntologyArchitectureReviewLoop:
                 **identity.to_kwargs(),
                 reason="deadline_exceeded",
             )
-            existing = await self._state_store.put_if_absent(
-                identity.idempotency_key,
-                observation,
-            )
+            existing = await self._bounded_put(identity.idempotency_key, observation)
             if existing is not None:
+                if existing.change_digest != identity.change_digest:
+                    raise ValueError(
+                        "ARB idempotency key conflicts with another Change identity"
+                    ) from None
                 return replace(existing, replayed=True)
-            await self._project(identity, change, observation)
+            if self._observation_outbox is not None:
+                self._schedule_outbox(observation, change)
+            else:
+                await self._bounded_project(identity, change, observation)
             return observation
 
     async def _evaluate_locked(
@@ -360,6 +380,48 @@ class OntologyArchitectureReviewLoop:
             await self._mark_projection(identity.idempotency_key, "failed")
             return
         await self._mark_projection(identity.idempotency_key, "projected")
+
+    async def _bounded_put(
+        self,
+        key: str,
+        observation: ArchitectureReviewObservation,
+    ) -> ArchitectureReviewObservation | None:
+        try:
+            return await asyncio.wait_for(
+                self._state_store.put_if_absent(key, observation),
+                timeout=self._fallback_timeout_seconds,
+            )
+        except TimeoutError:
+            return None
+
+    async def _bounded_project(
+        self,
+        identity: _ChangeIdentity,
+        change: Mapping[str, object],
+        observation: ArchitectureReviewObservation,
+    ) -> None:
+        try:
+            await asyncio.wait_for(
+                self._project(identity, change, observation),
+                timeout=self._fallback_timeout_seconds,
+            )
+        except TimeoutError:
+            return
+
+    def _schedule_outbox(
+        self,
+        observation: ArchitectureReviewObservation,
+        change: Mapping[str, object],
+    ) -> None:
+        if self._observation_outbox is None:
+            return
+        task = asyncio.create_task(
+            self._observation_outbox.enqueue(
+                observation,
+                process_id=_process_id(change),
+            )
+        )
+        task.add_done_callback(_consume_background_task)
 
     async def _projection_status(self, key: str) -> str:
         getter = getattr(self._state_store, "get_projection_status", None)
@@ -613,11 +675,16 @@ def _canonical_value(value: object) -> object:
 
 
 def _process_id(change: Mapping[str, object]) -> str | None:
-    value = change.get("process_id")
+    value = change.get("process_ref") or change.get("process_id")
     if value is None:
         return None
     result = str(value).strip()
     return result or None
+
+
+def _consume_background_task(task: asyncio.Task[object]) -> None:
+    if not task.cancelled():
+        task.exception()
 
 
 def _normalized_change_fields(change: Mapping[str, object]) -> tuple[tuple[str, object], ...]:
@@ -647,6 +714,19 @@ def _normalized_change_fields(change: Mapping[str, object]) -> tuple[tuple[str, 
             return ()
     if not isinstance(values["occurred_at"], datetime) or values["occurred_at"].tzinfo is None:
         return ()
+    optional_names = (
+        "desired_state_digest",
+        "plan_receipt_ref",
+        "window_ref",
+        "incident_ref",
+        "process_ref",
+    )
+    for name in optional_names:
+        if name in change:
+            value = change[name]
+            if not isinstance(value, str) or not value.strip():
+                return ()
+            values[name] = value
     return tuple(values.items())
 
 
@@ -702,6 +782,7 @@ __all__ = [
     "ArchitectureReviewEvidenceUnavailableError",
     "ArchitectureReviewObservation",
     "ArchitectureReviewObservationSink",
+    "ArchitectureReviewObservationOutbox",
     "ArchitectureReviewStateStore",
     "InMemoryArchitectureReviewStateStore",
     "OntologyArchitectureReviewLoop",

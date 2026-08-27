@@ -196,6 +196,11 @@ def _change(number: str = "1") -> dict[str, object]:
         "status": "proposed",
         "occurred_at": NOW,
         "evidence_ref": "change-evidence:1",
+        "desired_state_digest": "sha256:" + "c" * 64,
+        "plan_receipt_ref": "plan:1",
+        "window_ref": "window:1",
+        "incident_ref": "incident:1",
+        "process_ref": "process:canonical-1",
     }
 
 
@@ -224,6 +229,41 @@ class _ProjectionSink:
         if self.fail:
             self.fail = False
             raise RuntimeError("projection unavailable")
+
+
+class _TimeoutFallbackStore(InMemoryArchitectureReviewStateStore):
+    def __init__(self, existing: ArchitectureReviewObservation | None = None) -> None:
+        super().__init__()
+        self.existing = existing
+
+    async def get(self, key: str) -> ArchitectureReviewObservation | None:
+        del key
+        return None
+
+    async def put_if_absent(
+        self,
+        key: str,
+        value: ArchitectureReviewObservation,
+    ) -> ArchitectureReviewObservation | None:
+        del key, value
+        if self.existing is not None:
+            return self.existing
+        await asyncio.sleep(10)
+        return None
+
+
+class _ObservationOutbox:
+    def __init__(self) -> None:
+        self.observations: list[ArchitectureReviewObservation] = []
+
+    async def enqueue(
+        self,
+        observation: ArchitectureReviewObservation,
+        *,
+        process_id: str | None = None,
+    ) -> None:
+        del process_id
+        self.observations.append(observation)
 
 
 async def test_observation_slice_composes_case_and_envelope_without_authority() -> None:
@@ -355,6 +395,61 @@ async def test_lock_wait_is_inside_absolute_deadline() -> None:
     assert "deadline_exceeded" in timed_out.reasons
 
 
+async def test_timeout_fallback_rejects_conflicting_stored_identity() -> None:
+    conflicting = ArchitectureReviewObservation.hold(
+        change_id="other",
+        idempotency_key="change-key-1",
+        correlation_id="other-correlation",
+        target_ref="other-resource",
+        change_digest="other-digest",
+        reason="prior",
+    )
+    loop = OntologyArchitectureReviewLoop(
+        context_source=_ContextSource(),
+        evidence_source=_EvidenceSource(delay=0.02),
+        state_store=_TimeoutFallbackStore(conflicting),
+        deadline_seconds=0.001,
+    )
+
+    try:
+        await loop.evaluate(_change())
+    except ValueError as exc:
+        assert "identity" in str(exc)
+    else:
+        raise AssertionError("timeout fallback accepted a conflicting identity")
+
+
+async def test_timeout_fallback_does_not_block_on_hanging_persistence() -> None:
+    loop = OntologyArchitectureReviewLoop(
+        context_source=_ContextSource(),
+        evidence_source=_EvidenceSource(delay=0.02),
+        state_store=_TimeoutFallbackStore(),
+        deadline_seconds=0.001,
+    )
+
+    result = await asyncio.wait_for(loop.evaluate(_change()), timeout=0.1)
+
+    assert result.recommendation == "hold"
+    assert "deadline_exceeded" in result.reasons
+
+
+async def test_timeout_uses_nonblocking_durable_outbox_fallback() -> None:
+    outbox = _ObservationOutbox()
+    loop = OntologyArchitectureReviewLoop(
+        context_source=_ContextSource(),
+        evidence_source=_EvidenceSource(delay=0.02),
+        state_store=_TimeoutFallbackStore(),
+        observation_outbox=outbox,
+        deadline_seconds=0.001,
+    )
+
+    result = await loop.evaluate(_change())
+    await asyncio.sleep(0)
+
+    assert result.recommendation == "hold"
+    assert outbox.observations
+
+
 async def test_projection_failure_is_retried_for_stored_observation() -> None:
     sink = _ProjectionSink()
     store = InMemoryArchitectureReviewStateStore()
@@ -372,6 +467,21 @@ async def test_projection_failure_is_retried_for_stored_observation() -> None:
     assert duplicate.replayed is True
     assert sink.calls == 2
     assert await store.get_projection_status(first.idempotency_key) == "projected"
+
+
+async def test_optional_change_provenance_and_process_ref_are_preserved() -> None:
+    result = await _loop(_EvidenceSource()).evaluate(_change())
+    assert dict(result.normalized_change)["desired_state_digest"] == "sha256:" + "c" * 64
+    store = _ProjectionStore()
+
+    await ArchitectureReviewProjector(store, {}).project_observation(
+        result,
+        process_id="caller-supplied-process",
+    )
+
+    assert store.objects[result.change_id].properties["plan_receipt_ref"] == "plan:1"
+    run_links = [link for link in store.links if link.link_type == "runs_review"]
+    assert run_links and run_links[0].from_id == "process:canonical-1"
 
 
 async def test_incomplete_base_graph_holds_before_envelope() -> None:

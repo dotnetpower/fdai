@@ -76,6 +76,7 @@ class ArchitectureReviewProjector:
         """
 
         review_id = f"arb-review:{observation.change_id}"
+        process_ref = _observation_process_ref(observation) or process_id
         recorded_at = (
             observation.context.recorded_at
             if observation.context is not None
@@ -99,8 +100,8 @@ class ArchitectureReviewProjector:
                 },
             )
         )
-        if process_id is not None:
-            await _link(self.store, "runs_review", process_id, review_id)
+        if process_ref is not None:
+            await _link(self.store, "runs_review", process_ref, review_id)
         target = await self.store.get_object(observation.target_ref)
         if target is not None and target.object_type == "Resource":
             await _link(self.store, "scoped_to", review_id, observation.target_ref)
@@ -613,6 +614,16 @@ def _observation_artifact_id(
         sort_keys=True,
     ).encode()
     return f"evidence:sha256:{hashlib.sha256(material).hexdigest()}"
+
+
+def _observation_process_ref(
+    observation: ArchitectureReviewObservation,
+) -> str | None:
+    value = dict(observation.normalized_change).get("process_ref")
+    if value is None:
+        return None
+    process_ref = str(value).strip()
+    return process_ref or None
 
 
 def _case_status(snapshot: ProcessSnapshot, design: str, production: str) -> str:

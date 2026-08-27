@@ -109,6 +109,9 @@ collection. Existing Huginn `Change` records are preserved; a new Change is proj
 the exact normalized fields are present.
 Scenario branch identifiers use an ASCII-safe bounded prefix plus a content digest, including for
 UUID-shaped or otherwise long Change identifiers.
+Deadline fallbacks compare the full Change identity before accepting stored state and use bounded
+persistence or a durable outbox. Normalized optional provenance fields, including `process_ref`,
+remain available for exact Change and Process lineage.
 
 ## Autonomous review levels
 

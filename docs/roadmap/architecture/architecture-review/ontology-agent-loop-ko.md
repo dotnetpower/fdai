@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 ARB 에이전트 루프
 translation_of: ontology-agent-loop.md
-translation_source_sha: 916cb278a319b054bff865cf05b2efe269367dbe
+translation_source_sha: 4a4712163eb784e2113f643943fe4ad99a25e321
 translation_revised: 2026-08-30
 ---
 # 온톨로지 기반 ARB 에이전트 루프
@@ -109,6 +109,9 @@ ARB 읽기 모델은 에이전트가 소유한 레코드에서 파생됩니다. 
 `Change` 레코드는 보존되며, 정확한 정규화 필드가 있을 때만 새 Change를 변환합니다.
 시나리오 branch 식별자는 UUID 형태이거나 긴 Change 식별자에도 ASCII 안전한 제한 prefix와
 콘텐츠 다이제스트를 사용합니다.
+기한 대체 경로는 저장된 상태를 수락하기 전에 전체 Change 식별자를 비교하고, 제한된 영속화
+또는 내구성 있는 outbox를 사용합니다. `process_ref`를 포함한 정규화된 선택적 provenance
+필드는 정확한 Change 및 Process 계보에 계속 사용할 수 있습니다.
 
 ## 자율 검토 수준
 

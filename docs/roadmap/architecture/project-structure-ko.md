@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: fdce7dc02f159b754f6b6539828c9200631addb6
+translation_source_sha: 171115a795b6825e1555ba30427b34fef7ce0a1a
 translation_revised: 2026-08-30
 ---
 # 프로젝트 구조
@@ -37,6 +37,8 @@ translation_revised: 2026-08-30
   사용해 실패한 읽기 모델 projection을 재시도합니다.
   시나리오 식별자는 ASCII 안전성과 길이 제한을 유지하므로 UUID 형태의 변경도 유효한 온톨로지
   branch 키로 처리됩니다.
+기한 초과 영속화는 제한된 방식으로 수행하거나 내구성 있는 outbox로 전달하며, 정규화된 Change
+provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니다.
   Pantheon member는 `agents/` 바로 아래의 flat layout을 유지합니다. Private behavior-extraction
   mixin은 `agents/_framework/`에 두며 member의 AgentSpec, topic, ownership, model policy 또는
   authority를 바꿀 수 없습니다.
