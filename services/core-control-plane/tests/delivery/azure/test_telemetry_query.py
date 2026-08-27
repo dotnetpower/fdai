@@ -86,6 +86,52 @@ async def test_log_provider_builds_bounded_kql_and_maps_rows() -> None:
 
 
 @pytest.mark.asyncio
+async def test_log_provider_filters_exact_pod_uid_across_app_and_container_logs() -> None:
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            200,
+            json=_table(
+                ["at", "body", "severity", "service", "resource_id", "pod_uid", "source"],
+                [
+                    [
+                        "2026-07-20T11:59:00Z",
+                        "runtime line",
+                        "error",
+                        "api",
+                        "",
+                        "pod-uid-a",
+                        "ContainerLogV2",
+                    ]
+                ],
+            ),
+        )
+
+    provider = AzureLogAnalyticsRcaLogProvider(_provider(handler))
+    records = [
+        record
+        async for record in provider.query(
+            LogQuery(
+                expression="",
+                labels={"pod_uid": "pod-uid-a"},
+                since=_NOW - timedelta(hours=1),
+                until=_NOW,
+                limit=20,
+            )
+        )
+    ]
+
+    assert records[0].labels == {"pod_uid": "pod-uid-a", "source": "ContainerLogV2"}
+    query = json.loads(requests[0].content)["query"]
+    assert "AppTraces" in query
+    assert "AppExceptions" in query
+    assert "ContainerLogV2" in query
+    assert "| where pod_uid == 'pod-uid-a'" in query
+
+
+@pytest.mark.asyncio
 async def test_trace_provider_maps_requests_and_dependencies() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(

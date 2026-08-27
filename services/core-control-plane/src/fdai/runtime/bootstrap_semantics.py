@@ -27,6 +27,7 @@ from fdai.delivery.inventory_live_evidence import (
     InventoryGraphLiveRefreshProvider,
     InventoryLiveEvidenceWriter,
 )
+from fdai.delivery.kubernetes_pod_log_evidence import KubernetesPodLogEvidenceCollector
 from fdai.delivery.operational_activity import EventBusOperationalActivityPublisher
 from fdai.delivery.persistence.postgres_inventory_delta import PostgresInventoryDeltaProjector
 from fdai.delivery.persistence.postgres_inventory_snapshot import (
@@ -64,6 +65,7 @@ from fdai.runtime.rule_generation_documents import (
     build_rule_generation_reconciliation,
 )
 from fdai.shared.providers.event_bus import EventBus
+from fdai.shared.providers.log_query import NoopLogQueryProvider
 from fdai.shared.providers.state_store import StateStore
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
@@ -218,6 +220,17 @@ async def build_semantic_runtime(
         identity=identity,
         http_client=http_client,
     )
+    pod_log_evidence_reader = (
+        None
+        if isinstance(container.log_query_provider, NoopLogQueryProvider)
+        else KubernetesPodLogEvidenceCollector(
+            provider=container.log_query_provider,
+            source_identity=(
+                f"{type(container.log_query_provider).__module__}."
+                f"{type(container.log_query_provider).__qualname__}"
+            ),
+        )
+    )
     endpoint = environment.get("FDAI_LLM_ENDPOINT", "").strip() or None
     semantic_composition = compose_azure_semantic_query_runtime(
         container=container,
@@ -248,6 +261,7 @@ async def build_semantic_runtime(
         resource_event_reader=resource_event_reader,
         service_health_reader=service_health_reader,
         vm_process_cpu_reader=vm_process_cpu_reader,
+        pod_log_evidence_reader=pod_log_evidence_reader,
         graph_live_refresh_provider=_graph_live_refresh_provider(
             environment=environment,
             read_provider=read_investigation_provider,

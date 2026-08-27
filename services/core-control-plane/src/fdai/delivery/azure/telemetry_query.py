@@ -22,6 +22,7 @@ _DEFAULT_LIMIT: Final[int] = 100
 _MAX_LIMIT: Final[int] = 500
 _MAX_WINDOW: Final[timedelta] = timedelta(days=31)
 _RESOURCE_LABEL: Final[str] = "resource_id"
+_POD_UID_LABEL: Final[str] = "pod_uid"
 _SEVERITIES: Final[tuple[str, ...]] = (
     "verbose",
     "information",
@@ -40,11 +41,12 @@ class AzureLogAnalyticsRcaLogProvider:
     async def query(self, query: LogQuery) -> AsyncIterator[LogRecord]:
         try:
             since, until, limit = _bounds(query.since, query.until, query.limit)
-            resource_ref = _resource_ref(query.labels)
+            resource_ref, pod_uid = _log_identity_filters(query.labels)
             kql = _log_kql(
                 since=since,
                 until=until,
                 resource_ref=resource_ref,
+                pod_uid=pod_uid,
                 body_filter=query.expression,
             )
             result = await self._query_provider.query_log(
@@ -123,14 +125,37 @@ def _resource_ref(labels: Mapping[str, str]) -> str | None:
     return value.strip() if isinstance(value, str) and value.strip() else None
 
 
+def _log_identity_filters(labels: Mapping[str, str]) -> tuple[str | None, str | None]:
+    unsupported = set(labels) - {_RESOURCE_LABEL, _POD_UID_LABEL}
+    if unsupported:
+        names = ", ".join(sorted(unsupported))
+        raise ValueError(f"unsupported Azure Monitor telemetry labels: {names}")
+    return (
+        _optional_label(labels, _RESOURCE_LABEL),
+        _optional_label(labels, _POD_UID_LABEL),
+    )
+
+
+def _optional_label(labels: Mapping[str, str], name: str) -> str | None:
+    value = labels.get(name)
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.strip() or len(value) > 512:
+        raise ValueError(f"Azure Monitor telemetry label {name!r} is invalid")
+    return value.strip()
+
+
 def _log_kql(
     *,
     since: datetime,
     until: datetime,
     resource_ref: str | None,
+    pod_uid: str | None,
     body_filter: str,
 ) -> str:
     filters = _common_filters(since=since, until=until, resource_ref=resource_ref)
+    if pod_uid is not None:
+        filters.append(f"| where pod_uid == {_kql_string(pod_uid)}")
     if body_filter.strip():
         filters.append(f"| where body contains {_kql_string(body_filter.strip())}")
     filters.extend(("| order by at asc",))
@@ -141,14 +166,22 @@ def _log_kql(
             "body=tostring(column_ifexists('Message', '')), "
             "severity=tostring(column_ifexists('SeverityLevel', 0)), "
             "service=tostring(column_ifexists('AppRoleName', '')), "
-            "resource_id=tostring(column_ifexists('_ResourceId', ''))),",
+            "resource_id=tostring(column_ifexists('_ResourceId', '')), "
+            "pod_uid=tostring(column_ifexists('PodUid', '')), source='AppTraces'),",
             "(AppExceptions | project at=TimeGenerated, "
             "body=tostring(column_ifexists('OuterMessage', '')), "
             "severity=tostring(column_ifexists('SeverityLevel', 3)), "
             "service=tostring(column_ifexists('AppRoleName', '')), "
-            "resource_id=tostring(column_ifexists('_ResourceId', '')))",
+            "resource_id=tostring(column_ifexists('_ResourceId', '')), "
+            "pod_uid=tostring(column_ifexists('PodUid', '')), source='AppExceptions'),",
+            "(ContainerLogV2 | project at=TimeGenerated, "
+            "body=tostring(column_ifexists('LogMessage', '')), "
+            "severity=tostring(column_ifexists('LogLevel', 'information')), "
+            "service=tostring(column_ifexists('ContainerName', '')), "
+            "resource_id=tostring(column_ifexists('_ResourceId', '')), "
+            "pod_uid=tostring(column_ifexists('PodUid', '')), source='ContainerLogV2')",
             *filters,
-            "| project at, body, severity, service, resource_id",
+            "| project at, body, severity, service, resource_id, pod_uid, source",
         )
     )
 
@@ -246,8 +279,16 @@ def _span(row: Mapping[str, Any]) -> Span:
 
 
 def _labels(row: Mapping[str, Any]) -> dict[str, str]:
-    resource_ref = str(row.get("resource_id") or "").strip()
-    return {_RESOURCE_LABEL: resource_ref} if resource_ref else {}
+    labels = {
+        name: value
+        for name, value in (
+            (_RESOURCE_LABEL, str(row.get("resource_id") or "").strip()),
+            (_POD_UID_LABEL, str(row.get("pod_uid") or "").strip()),
+            ("source", str(row.get("source") or "").strip()),
+        )
+        if value
+    }
+    return labels
 
 
 def _timestamp(value: Any) -> datetime:

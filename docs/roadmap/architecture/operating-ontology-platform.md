@@ -625,6 +625,7 @@ decoding is removed only after retained audit and instance fixtures replay under
 | Dynamic authority | Prediction, model agreement, or model promotion evidence cannot approve or execute an action. |
 | Dynamic closure | Only complete independent observations score trajectory fidelity or update a challenger. |
 | Pod telemetry | A purpose-scoped secured graph plus state evidence yields deterministic verified, unverified, stale, and missing segments without provider I/O or health inference. |
+| Pod diagnosis | One exact secured Pod UID can join bounded lifecycle and content-free log evidence; zero rows, incomplete sources, and scope conflicts remain explicit and cannot grant cause or execution authority. |
 
 ## Related docs
 

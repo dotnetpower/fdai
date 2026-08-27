@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 0c77bc7051f39f8e739cfe820407dbcd22e41222
-translation_revised: 2026-08-29
+translation_source_sha: 3344de5d078cbb5dc97873d17d1f95bd78c0c872
+translation_revised: 2026-08-30
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -626,6 +626,7 @@ payload, 변경/executor 자격 증명 또는 browser 계산 권한/호환성이
 | Dynamic 권한 | Prediction, 모델 agreement 또는 모델 승격 근거가 액션을 승인하거나 실행할 수 없습니다. |
 | Dynamic 종결 | 완전한 독립적인 관측만 trajectory fidelity를 점수하거나 challenger를 갱신합니다. |
 | Pod 텔레메트리 | 용도 범위가 지정된 secured 그래프와 상태 근거가 프로바이더 I/O 또는 상태 inference 없이 결정론적 `verified`, `unverified`, `stale`, `missing` 구간을 만듭니다. |
+| Pod 진단 | 하나의 정확한 secured Pod UID는 범위가 제한된 수명 주기 및 로그 본문을 보존하지 않는 근거와 결합할 수 있습니다. 행 0개, 불완전한 출처 및 범위 충돌은 명시적으로 유지하며 원인 또는 실행 권한을 부여할 수 없습니다. |
 
 ## 관련 문서
 

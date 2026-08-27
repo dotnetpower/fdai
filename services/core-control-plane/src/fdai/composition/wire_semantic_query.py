@@ -67,6 +67,11 @@ from fdai.core.ontology_platform.incident_queries import (
     IncidentEvidenceReader,
     incident_evidence_function,
 )
+from fdai.core.ontology_platform.kubernetes_pod_diagnosis_queries import (
+    KUBERNETES_POD_DIAGNOSIS_FUNCTION_NAME,
+    KubernetesPodLogEvidenceReader,
+    kubernetes_pod_diagnosis_function,
+)
 from fdai.core.ontology_platform.kubernetes_pod_recovery_queries import (
     KUBERNETES_POD_RECOVERY_FUNCTION_NAME,
     KUBERNETES_POD_RESTART_SYMPTOM_CONCEPT,
@@ -229,6 +234,7 @@ def build_semantic_query_runtime(
     resource_event_reader: ResourceEventCollectionReader | None = None,
     service_health_reader: ServiceHealthReader | None = None,
     vm_process_cpu_reader: VmProcessCpuReader | None = None,
+    pod_log_evidence_reader: KubernetesPodLogEvidenceReader | None = None,
     property_values: Sequence[PropertyValueDomain] = (),
     inventory_query_language: InventoryQueryLanguageRegistry | None = None,
     purpose: str = "operations-review",
@@ -503,6 +509,16 @@ def build_semantic_query_runtime(
         ),
     )
     bound_function_names.add(pod_recovery_declaration.name)
+    if pod_log_evidence_reader is not None:
+        pod_diagnosis_declaration = declarations[KUBERNETES_POD_DIAGNOSIS_FUNCTION_NAME]
+        function_registry.register_contextual(
+            pod_diagnosis_declaration,
+            kubernetes_pod_diagnosis_function(
+                ontology_release,
+                log_reader=pod_log_evidence_reader,
+            ),
+        )
+        bound_function_names.add(pod_diagnosis_declaration.name)
     rollout_declaration = declarations[KUBERNETES_ROLLOUT_FUNCTION_NAME]
     function_registry.register_contextual(
         rollout_declaration,
@@ -718,6 +734,7 @@ def compose_azure_semantic_query_runtime(
     resource_event_reader: ResourceEventCollectionReader | None = None,
     service_health_reader: ServiceHealthReader | None = None,
     vm_process_cpu_reader: VmProcessCpuReader | None = None,
+    pod_log_evidence_reader: KubernetesPodLogEvidenceReader | None = None,
     graph_live_refresh_provider: BoundedGraphLiveRefreshProvider | None = None,
     resource_freshness_seconds: int | None = None,
 ) -> SemanticQueryRuntimeComposition:
@@ -749,6 +766,7 @@ def compose_azure_semantic_query_runtime(
         resource_event_reader=resource_event_reader,
         service_health_reader=service_health_reader,
         vm_process_cpu_reader=vm_process_cpu_reader,
+        pod_log_evidence_reader=pod_log_evidence_reader,
         graph_live_refresh_provider=graph_live_refresh_provider,
         resource_freshness_seconds=resource_freshness_seconds,
     )
