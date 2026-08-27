@@ -582,9 +582,44 @@ jobs:
       - name: Run alembic upgrade head
         run: uv run alembic upgrade head
 
+      - name: Prepare service migration database
+        run: |
+          uv run python - <<'PY'
+          import os
+          from urllib.parse import urlsplit, urlunsplit
+
+          import psycopg
+
+          source = urlsplit(os.environ["FDAI_DATABASE_URL"])
+          service_url = urlunsplit(source._replace(path="/fdai_services"))
+          with psycopg.connect(os.environ["FDAI_DATABASE_URL"], autocommit=True) as connection:
+              connection.execute("CREATE DATABASE fdai_services")
+          print(f"::add-mask::{service_url}")
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as stream:
+              stream.write(f"FDAI_SERVICE_DATABASE_URL={service_url}\n")
+          PY
+
+      - name: Install OPA (Rego runner)
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 3 --retry-delay 2 --retry-all-errors \
+            --retry-max-time 120 --connect-timeout 10 --max-time 90 -o /tmp/opa \
+            "https://openpolicyagent.org/downloads/v0.68.0/opa_linux_amd64_static"
+          echo "dfd5081fc6f930dfeaf2a225e31e616fc227dc0c7b43019b73d6f8fb8a1de1aa  /tmp/opa" \
+            | sha256sum -c -
+          chmod +x /tmp/opa
+          sudo mv /tmp/opa /usr/local/bin/opa
+
+      - name: Run integration test suite
+        env:
+          FDAI_PYTEST_MODE: integration
+        run: bash scripts/quality/ci/run-python-tests.sh
+
       - name: Run service-owned migrations
         run: |
           set -euo pipefail
+          export FDAI_DATABASE_URL="$FDAI_SERVICE_DATABASE_URL"
+          uv run alembic upgrade head
           evidence_dir="${RUNNER_TEMP}/service-migration-adoption"
           mkdir -p "$evidence_dir"
           migration_order="$(
@@ -605,21 +640,12 @@ jobs:
                   "git:${GITHUB_SHA}:service-migrations/branches/${service}/adoption.json#rollback"
           done
 
-      - name: Install OPA (Rego runner)
-        run: |
-          set -euo pipefail
-          curl -fsSL --retry 3 --retry-delay 2 --retry-all-errors \
-            --retry-max-time 120 --connect-timeout 10 --max-time 90 -o /tmp/opa \
-            "https://openpolicyagent.org/downloads/v0.68.0/opa_linux_amd64_static"
-          echo "dfd5081fc6f930dfeaf2a225e31e616fc227dc0c7b43019b73d6f8fb8a1de1aa  /tmp/opa" \
-            | sha256sum -c -
-          chmod +x /tmp/opa
-          sudo mv /tmp/opa /usr/local/bin/opa
-
-      - name: Run integration test suite
+      - name: Run service-owned database tests
         env:
-          FDAI_PYTEST_MODE: integration
-        run: bash scripts/quality/ci/run-python-tests.sh
+          FDAI_SERVICE_MIGRATIONS_READY: "1"
+        run: >-
+          uv run pytest -q --no-cov
+          services/operator-service/tests/test_read_investigation_completion_store.py::test_postgres_allocates_attempt_turns_and_reuses_duplicate_slot
 
   terraform-validate:
     name: Terraform fmt + validate + config tests

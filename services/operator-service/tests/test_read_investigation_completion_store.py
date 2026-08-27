@@ -52,9 +52,11 @@ def _completion() -> ReadInvestigationCompletion:
 
 
 def _database_url() -> str:
-    value = os.environ.get("FDAI_DATABASE_URL", "").strip()
+    if os.environ.get("FDAI_SERVICE_MIGRATIONS_READY") != "1":
+        pytest.skip("service-owned migrations are not ready")
+    value = os.environ.get("FDAI_SERVICE_DATABASE_URL", "").strip()
     if not value:
-        pytest.skip("FDAI_DATABASE_URL is unset")
+        pytest.skip("FDAI_SERVICE_DATABASE_URL is unset")
     return value.replace("postgresql+psycopg://", "postgresql://", 1)
 
 
