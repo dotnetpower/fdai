@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 398f581f4726881f36d80509f27fa755026358d7
+translation_source_sha: ef1a6b06d5645497cb7a2307d430376e6b680655
 translation_revised: 2026-08-28
 ---
 # 대화 품질 보증
@@ -32,12 +32,14 @@ translation_revised: 2026-08-28
 | 동결된 hidden corpus v1 | validated | [`hidden-corpus-manifest.v1.json`](../../../eval/chatops-quality/hidden-corpus-manifest.v1.json), [`hidden-corpus-review.v1.json`](../../../eval/chatops-quality/hidden-corpus-review.v1.json) | 공개 근거는 균형 잡힌 500턴, 다중 턴 대화 150개, 모든 하위 집합 및 루브릭 하한, 기본 합의율 `0.876`, 완료된 tie-break 62개, 최종 수락 label 500개를 기록합니다. 제한된 콘텐츠와 사례별 결정은 저장소 밖에 유지합니다. |
 | Qualification 소유자 기여 | implemented | [`quality_observations.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_observations.py), [`test_quality_context_locale_observations.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_context_locale_observations.py) | 적용 가능한 1-35번 및 41-45번 항목의 결정론 소유자 어댑터는 콘텐츠가 없는 하나의 턴 묶음으로 결합됩니다. 소유하지 않은 차원은 unavailable로 남고 점수 입력이 될 수 없습니다. |
 | 맥락 및 로케일 소유자 기여 | implemented | [`quality_context_locale_observations.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_context_locale_observations.py), [`test_quality_context_locale_observations.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_context_locale_observations.py) | 41-45번 항목의 모든 기여는 하나의 사례 및 로케일에 연결됩니다. 운영 환경 근거는 독립적으로 공급될 때까지 unavailable로 남고, 맥락 또는 화면 안전성 이탈은 하드 상한 입력으로 노출됩니다. |
+| 맥락 및 로케일 호환 경로 | implemented | [`context_locale_scorecard.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/context_locale_scorecard.py), [`test_context_locale_scorecard.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_context_locale_scorecard.py) | 과거 모듈 경로는 통합 소유자 기여 API만 다시 내보내며 대체된 별도 묶음을 복원하지 않습니다. |
 | 운영자 이의 제기 및 온톨로지 적정성 검토 | implemented | [`test_learning.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_learning.py), [`test_state_store_ontology_adequacy.py`](../../../services/core-control-plane/tests/delivery/persistence/test_state_store_ontology_adequacy.py) | 이의 제기와 재현된 적정성 공백은 실행 권한을 변경하지 않고 범위가 제한된 검토 근거를 만듭니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-28 | implemented | 과거 맥락/로케일 모듈 및 테스트 경로를 통합 기여 API의 호환 연결로 복원했습니다. | `current change`; 집중 호환 검사; 저장소 링크 검증. | 과거 링크 복구에 남은 작업은 없습니다. |
 | 2026-08-28 | validated | 고객과 무관한 hidden corpus v1을 동결하고 독립적으로 검토했습니다. 서로 다른 두 기본 모델 계열이 500개 사례 전체를 검토했고 세 번째 계열이 불일치 62개를 모두 해결하여 label 500개가 수락되고 차단된 label은 0개가 됐습니다. | `current change`; 공개 매니페스트 다이제스트 `207683882d269a7cfec2c8a7a737f0a4fa156d7d4e5886bc7814814a91ca5182`; 검토 증적 다이제스트 `cc47f3dd7287e71372b60f6b82fa6e1df8815153b4e3b61cccaa1bdf077e5272`; 매니페스트 및 검토 축약기 통과. | 완전한 blind qualification 실행 3회를 수행해야 합니다. 이 변경에는 정책 승격이 포함되지 않습니다. |
 | 2026-08-28 | implemented | 정확한 기본 검토 범위, 계열 분리, 합의율 임계값 및 완전한 tie-break 적용을 갖춘 콘텐츠 없는 독립 검토 축약기를 추가했습니다. | `current change`; 집중 검토 검사(`6 passed`); Ruff 및 strict mypy. | 실행 중인 세 번째 계열 검토를 완료하고 검토된 산출물을 동결한 뒤 공개 증적을 보존해야 합니다. |
 | 2026-08-28 | implemented | 명시적 PR benchmark 구성에서 Core 소유 결정론 검증 호출을 타입이 지정된 timing 증적에 연결했습니다. | `current change`; 집중 평가 및 latency 검사(`24 passed`); Ruff 및 strict mypy. | 나머지 단계 소유자를 연결하고 일치하는 통제 집합을 보존해야 합니다. |

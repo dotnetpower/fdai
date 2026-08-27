@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 7052d7d5d1f73c7e8139c795c9a7e1f053680139
+translation_source_sha: d937d39f4073dc6e15f34ad0ed76786032e9f596
 translation_revised: 2026-08-28
 ---
 # 프로젝트 구조
@@ -47,6 +47,8 @@ translation_revised: 2026-08-28
   환경이 설치된 단계 계약과 일치한 후에만 기간을 파생합니다. 저장소 CLI는 콘텐츠가 없는
   Conversation Assurance는 composition이 PR benchmark 환경과 sink를 모두 주입한 경우에만
   결정론 검증 증적을 생성합니다. 일반 runtime composition은 변경되지 않습니다.
+  과거 `context_locale_scorecard.py` 가져오기는 통합 기여 모듈의 호환 전용 재내보내기로
+  유지합니다.
   표본을 구문 분석하며 추적 약속값을 완전한 추적 주장으로 변환하지 않습니다. 인접한
   `quality_trace.py` 축약기는 레코드 약속값만 받고 순서가 정확한 세션부터 감사까지의 연결에서
   완전성을 증명합니다. 프로바이더를 읽지 않으며 qualification 권한을 부여하지 않습니다.
