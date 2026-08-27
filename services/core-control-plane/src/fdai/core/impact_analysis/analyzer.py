@@ -24,7 +24,7 @@ IMPACT_LINKS = (
 
 @dataclass(frozen=True, slots=True)
 class ImpactTraversalBounds:
-    max_depth: int = 2
+    max_depth: int = 3
     max_nodes: int = 500
     max_edges: int = 2000
     max_bytes: int = 4 * 1024 * 1024

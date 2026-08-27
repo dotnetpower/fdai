@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 import pytest
+from fdai.delivery import analyzer_tick_cli as analyzer_tick_cli_module
 from fdai.delivery.analyzer_targets import AnalyzerTargetResolution
 from fdai.delivery.analyzer_tick import AnalyzerTarget, AnalyzerTickReport
 from fdai.delivery.analyzer_tick_cli import (
+    BUDGET_ENV,
     INGRESS_TOPIC_ENV,
     LOOP_INTERVAL_ENV,
     TOPIC_ENV,
@@ -14,6 +17,7 @@ from fdai.delivery.analyzer_tick_cli import (
     _collect_lifecycle_if_configured,
     metric_source_delays,
     parse_loop_interval,
+    parse_tick_budget,
     resolve_finding_topic,
     resolve_scheduling_mode,
     resolve_trace_window_seconds,
@@ -21,6 +25,7 @@ from fdai.delivery.analyzer_tick_cli import (
 )
 from fdai.delivery.kubernetes_lifecycle_collector import KubernetesLifecycleCollectionReceipt
 from fdai.delivery.trace_continuity_tick import TraceContinuityTickReport
+from fdai.runtime.venue import ExecutionVenue
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 
@@ -93,6 +98,35 @@ def test_loop_interval_uses_one_bounded_contract() -> None:
     for value in ("0", "86401", "invalid"):
         with pytest.raises(ValueError, match=LOOP_INTERVAL_ENV):
             parse_loop_interval(value)
+
+
+def test_tick_budget_matches_the_deployed_job_ceiling() -> None:
+    assert parse_tick_budget("") == 300
+    assert parse_tick_budget("45") == 45
+    for value in ("0", "301", "invalid"):
+        with pytest.raises(ValueError, match=BUDGET_ENV):
+            parse_tick_budget(value)
+
+
+def test_local_finding_bus_uses_plaintext_without_workload_identity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    class _Bus:
+        def __init__(self, *, identity: object, config: object) -> None:
+            captured["identity"] = identity
+            captured["config"] = config
+
+    monkeypatch.setattr(analyzer_tick_cli_module, "EventHubsKafkaBus", _Bus)
+    analyzer_tick_cli_module._build_finding_bus(  # type: ignore[arg-type]
+        identity=object(),  # type: ignore[arg-type]
+        bootstrap_servers="127.0.0.1:9092",
+        venue=ExecutionVenue.LOCAL,
+    )
+
+    assert captured["identity"] is None
+    assert captured["config"].security_protocol == "PLAINTEXT"  # type: ignore[union-attr]
 
 
 def test_readiness_separates_scheduling_discovery_metrics_and_publication() -> None:
@@ -209,6 +243,24 @@ async def test_local_loop_stops_on_publish_failure_without_sleeping(
     output = capsys.readouterr().out
     assert "service=local-analyzer event=failed" in output
     assert "service=local-analyzer event=ready" not in output
+
+
+async def test_local_loop_stops_when_one_tick_exceeds_the_deployed_deadline(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    async def stalled_tick() -> AnalyzerJobReport:
+        await asyncio.sleep(1)
+        return _job_report()
+
+    result = await run_loop(
+        interval_seconds=5,
+        max_ticks=1,
+        tick_timeout_seconds=0.01,
+        tick=stalled_tick,
+    )
+
+    assert result == 1
+    assert "reason=tick_deadline" in capsys.readouterr().out
 
 
 async def _async_report(report: AnalyzerJobReport) -> AnalyzerJobReport:

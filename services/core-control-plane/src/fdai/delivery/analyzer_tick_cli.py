@@ -72,7 +72,13 @@ from fdai.delivery.trace_continuity_tick import (
 )
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.runtime.resource_event_providers import build_kubernetes_lifecycle_source
-from fdai.runtime.venue import resolve_execution_venue, uses_developer_identity
+from fdai.runtime.venue import (
+    ExecutionVenue,
+    bus_security_protocol,
+    resolve_execution_venue,
+    uses_developer_identity,
+    uses_workload_identity,
+)
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
@@ -90,7 +96,9 @@ TRACE_TOPOLOGIES_ENV = "FDAI_TRACE_TOPOLOGIES_JSON"
 _TRACE_TOPOLOGY_KEYS = frozenset({"topology_ref", "resource_ref", "expected_hops"})
 _MAX_TRACE_TOPOLOGIES = 32
 LOOP_INTERVAL_ENV = "FDAI_ANALYZER_INTERVAL_SECONDS"
+BUDGET_ENV = "FDAI_ANALYZER_BUDGET_SECONDS"
 _DEFAULT_LOOP_INTERVAL_SECONDS = 60
+_DEFAULT_TICK_BUDGET_SECONDS = 300
 _SCHEDULING_MODES = frozenset({"one_shot", "local_loop", "container_apps_job"})
 
 
@@ -344,6 +352,21 @@ def parse_loop_interval(raw: str) -> int:
     return interval
 
 
+def parse_tick_budget(raw: str) -> int:
+    """Parse the shared local and deployed wall-clock budget."""
+
+    text = raw.strip()
+    if not text:
+        return _DEFAULT_TICK_BUDGET_SECONDS
+    try:
+        budget = int(text)
+    except ValueError as exc:
+        raise ValueError(f"{BUDGET_ENV} MUST be a positive integer") from exc
+    if not 1 <= budget <= _DEFAULT_TICK_BUDGET_SECONDS:
+        raise ValueError(f"{BUDGET_ENV} MUST be in [1, {_DEFAULT_TICK_BUDGET_SECONDS}]")
+    return budget
+
+
 def metric_source_delays(environ: Mapping[str, str]) -> dict[str, str]:
     """Report configured source-specific delay floors without claiming a live measurement."""
 
@@ -427,7 +450,8 @@ async def run_once() -> AnalyzerJobReport:
     async with httpx.AsyncClient(
         timeout=httpx.Timeout(connect=5.0, read=30.0, write=30.0, pool=5.0)
     ) as http_client:
-        identity = _build_identity(http_client)
+        venue = resolve_execution_venue()
+        identity = _build_identity(http_client, venue=venue)
         container = attach_metric_provider(
             default_container_from_env(),
             identity=identity,
@@ -439,9 +463,10 @@ async def run_once() -> AnalyzerJobReport:
             prometheus_queries=None,
             prometheus_audience=_optional("FDAI_PROMETHEUS_AUDIENCE"),
         )
-        bus = EventHubsKafkaBus(
+        bus = _build_finding_bus(
             identity=identity,
-            config=EventHubsKafkaBusConfig(bootstrap_servers=bootstrap_servers),
+            bootstrap_servers=bootstrap_servers,
+            venue=venue,
         )
         try:
             if targets:
@@ -544,12 +569,32 @@ def _empty_trace_report() -> TraceContinuityTickReport:
     )
 
 
-def _build_identity(http_client: httpx.AsyncClient) -> WorkloadIdentity:
-    if uses_developer_identity(resolve_execution_venue()):
+def _build_identity(
+    http_client: httpx.AsyncClient,
+    *,
+    venue: ExecutionVenue | None = None,
+) -> WorkloadIdentity:
+    active_venue = venue or resolve_execution_venue()
+    if uses_developer_identity(active_venue):
         return AsyncAzureCliWorkloadIdentity.from_env()
     return ManagedIdentityWorkloadIdentity.from_env(
         http_client=http_client,
         client_id_env="FDAI_MI_CLIENT_ID",
+    )
+
+
+def _build_finding_bus(
+    *,
+    identity: WorkloadIdentity,
+    bootstrap_servers: str,
+    venue: ExecutionVenue,
+) -> EventHubsKafkaBus:
+    return EventHubsKafkaBus(
+        identity=identity if uses_workload_identity(venue) else None,
+        config=EventHubsKafkaBusConfig(
+            bootstrap_servers=bootstrap_servers,
+            security_protocol=bus_security_protocol(venue),
+        ),
     )
 
 
@@ -561,6 +606,7 @@ async def run_loop(
     *,
     interval_seconds: int,
     max_ticks: int | None = None,
+    tick_timeout_seconds: float = _DEFAULT_TICK_BUDGET_SECONDS,
     tick: Callable[[], Awaitable[AnalyzerJobReport]] = run_once,
     sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
 ) -> int:
@@ -570,9 +616,15 @@ async def run_loop(
         raise ValueError("analyzer loop interval_seconds MUST be in [1, 86400]")
     if max_ticks is not None and max_ticks < 1:
         raise ValueError("analyzer loop max_ticks MUST be positive")
+    if not 0 < tick_timeout_seconds <= _DEFAULT_TICK_BUDGET_SECONDS:
+        raise ValueError("analyzer loop tick_timeout_seconds is out of bounds")
     completed = 0
     while max_ticks is None or completed < max_ticks:
-        report = await tick()
+        try:
+            report = await asyncio.wait_for(tick(), timeout=tick_timeout_seconds)
+        except TimeoutError:
+            print("service=local-analyzer event=failed reason=tick_deadline", flush=True)
+            return 1
         _emit_report(report, scheduling="local_loop")
         completed += 1
         if report.failed:
@@ -609,6 +661,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
     logging.basicConfig(level=os.environ.get("FDAI_LOG_LEVEL", "INFO"))
+    tick_budget = parse_tick_budget(os.environ.get(BUDGET_ENV, ""))
     try:
         if args.loop:
             interval = (
@@ -621,9 +674,10 @@ def main(argv: list[str] | None = None) -> int:
                 run_loop(
                     interval_seconds=interval,
                     max_ticks=args.max_ticks,
+                    tick_timeout_seconds=tick_budget,
                 )
             )
-        report = asyncio.run(run_once())
+        report = asyncio.run(asyncio.wait_for(run_once(), timeout=tick_budget))
     except KeyboardInterrupt:
         return 130
     _emit_report(
