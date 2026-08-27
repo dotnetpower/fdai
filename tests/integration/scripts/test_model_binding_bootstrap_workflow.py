@@ -105,3 +105,8 @@ def test_chatops_validation_requires_exact_resolved_foundry_secondary() -> None:
     )
     assert "plan-chatops-" in workflow_text
     assert "apply-chatops-" in workflow_text
+    assert "TF_VAR_enable_llm: ${{ env." not in workflow_text
+    assert (
+        "TF_VAR_enable_llm: ${{ startsWith(inputs.request_id, 'plan-chatops-') || "
+        "startsWith(inputs.request_id, 'apply-chatops-')"
+    ) in workflow_text

@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: fdbfb77126b73a990a1b211a8f479c92bf306409
+translation_source_sha: 24f8fcb1b480bad41c2b6b3068fc4563c9913f93
 translation_revised: 2026-08-28
 ---
 # 배포 리소스 규약
@@ -44,6 +44,7 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 | 2026-08-28 | implemented | Platform Terraform에서 OpenAI 및 조건부 Foundry 계정 origin을 내보내고 측정 Job과 보호된 독립 Core 입력에 범위 제한 map을 전달했습니다. | `current change`; 집중 구체화, 계획 검증기, 런타임, root Terraform 및 서비스 root 검사. | 검토된 partner registry 항목을 활성화한 후 보호된 배포와 런타임 readback 근거를 보존합니다. |
 | 2026-08-28 | implemented | `Mistral-Large-3` secondary 대체 경로를 `GlobalStandard` 1K TPM으로 활성화하고 quota 검사를 SKU로 한정했습니다. 선택적 staging ChatOps 경계를 보호된 계획 metadata에 연결해 적용 시 다시 검증합니다. | `current change`; 집중 resolver, quota, 요청, 기능 gate, 계획 검증기, sealer 및 workflow 검사. | 보호된 계획/적용, 모델 배포 readback, 런타임 binding 및 공급자 채널 증적을 보존합니다. |
 | 2026-08-28 | implemented | 추가 ChatOps dispatch boolean을 범위가 제한된 `plan-chatops-*` 및 `apply-chatops-*` 요청 ID로 교체하고 복원된 계획의 모드 일치 검사를 기능 gate에 통합했습니다. | `current change`; 집중 workflow budget, 요청, 기능 gate, 수명 주기 및 계획 검증기 검사(`117 passed`). | 보호된 계획/적용, 모델 배포 readback, 런타임 binding 및 공급자 채널 증적을 보존합니다. |
+| 2026-08-28 | implemented | GitHub가 dispatch 전에 같은 map의 job 환경 참조를 차단한 후 ChatOps LLM 활성화 식을 수정했습니다. 이제 job은 범위가 제한된 요청 ID에서 두 값을 독립적으로 파생합니다. | Merge `d936ccfb2`의 차단된 dispatch; `current change`; 집중 workflow 구문 분석, budget 및 binding 검사. | 정확히 병합된 staging 계획을 다시 실행하고 보호된 근거를 보존합니다. |
 | 2026-08-25 | implemented | 완료된 Event Bus 토픽 이행 request 모드, service 입력, 대상 지정 계획 예외 및 현재 운영자 지침을 제거했습니다. 표준 계획은 이제 정본 `fdai.*` 연결만 수락합니다. 과거 Terraform `moved` 블록과 활성 접두사 거부 guard는 유지하므로 이전 state를 리소스 재생성 없이 해석하고 legacy 선언은 계속 차단합니다. | `current change`, `.github/workflows/deploy-dev.yml`, `.github/workflows/service-deploy.yml`, 집중 배포 workflow 검사 | 일회성 이행 제어에 남은 구현 작업은 없습니다. |
 | 2026-08-24 | implemented | 보호된 model resolver의 deployment-environment 입력을 복원하고 기존 proposal-only lifecycle caller를 위한 development 기본값을 유지했으며 provider query 전에 다른 environment 범위의 policy를 거부하도록 했습니다. | 실패한 보호 계획 `32735269365`는 Terraform 및 Azure mutation 전에 중단됨; `current change`; 집중 resolver 및 deployment workflow 검사 | 보호된 exact-revision 계획을 다시 실행하고 봉인된 model 및 Terraform receipt를 보존합니다. |
 | 2026-08-25 | implemented | 임시 Terraform state bootstrap 예외를 정확한 정상 활성 Core 리비전, 다이제스트로 고정된 이미지, 검증된 resolved-model attestation 및 런타임 다이제스트를 기준으로 하는 fail-closed 모델 정책 CAS로 교체했습니다. Terraform 출력은 진단에만 사용하며 exact apply는 같은 활성 런타임 경계를 다시 검증합니다. | 실패한 보호 계획 `32753619537`, `32754737930`, `32798548057`, `32798561510`은 모두 Terraform plan 및 Azure mutation 전에 중단됨; commit `5e1e8214ef0f80a1e9b57d00bd2a35723bca6b7b`; 집중 모델 CAS 및 수명 주기 검사 26개 통과. | 현재 활성 다이제스트에 결합된 통제된 Owner 초안을 영속화한 뒤 삭제 0건인 보호 계획, exact apply, provider-schema 및 Saga 증적을 보존합니다. |
