@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import pytest
 from fdai.delivery.provider_schema import ProviderSchemaSnapshot, ProviderSchemaType
 from fdai.delivery.provider_schema_ledger import ProviderSchemaLedger
 from fdai.delivery.provider_schema_watcher import (
     ProviderSchemaRefreshDisposition,
+    ProviderSchemaRefreshReceipt,
     ProviderSchemaSourceBinding,
     ProviderSchemaSourceKind,
     ProviderSchemaWatcher,
@@ -109,6 +112,35 @@ async def test_unconfigured_source_is_explicitly_unavailable(tmp_path: Path) -> 
 
     assert receipt.disposition is ProviderSchemaRefreshDisposition.UNAVAILABLE
     assert receipt.reason == "source_unconfigured"
+
+
+async def test_refresh_receipt_authority_is_literal_false_and_serialized_false(
+    tmp_path: Path,
+) -> None:
+    receipt = await _watcher(tmp_path).run(now=NOW)
+
+    assert receipt.to_mapping()["grants_authority"] is False
+    with pytest.raises(ValueError, match="cannot grant authority"):
+        replace(receipt, grants_authority=True)  # type: ignore[arg-type]
+
+    with pytest.raises(ValueError, match="cannot grant authority"):
+        ProviderSchemaRefreshReceipt(
+            provider="azure",
+            disposition=ProviderSchemaRefreshDisposition.UNAVAILABLE,
+            reason="source_unconfigured",
+            checked_at=NOW.isoformat(),
+            source_name=None,
+            source_kind=None,
+            fallback_used=False,
+            baseline_digest=None,
+            observed_digest=None,
+            drift_digest=None,
+            type_count=None,
+            modeled_count=None,
+            stale=True,
+            review_required=False,
+            grants_authority=True,  # type: ignore[arg-type]
+        )
 
 
 async def test_policy_blocked_makes_zero_calls_and_keeps_baseline(tmp_path: Path) -> None:

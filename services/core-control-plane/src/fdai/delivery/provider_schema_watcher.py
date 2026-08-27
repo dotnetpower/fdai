@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
-from typing import Protocol
+from typing import Literal, Protocol
 
 from fdai.delivery.provider_schema import (
     ProviderSchemaCoverage,
@@ -103,7 +103,11 @@ class ProviderSchemaRefreshReceipt:
     review_package_digest: str | None = None
     review_dispatched: bool = False
     review_handoff_reason: str | None = None
-    grants_authority: bool = False
+    grants_authority: Literal[False] = False
+
+    def __post_init__(self) -> None:
+        if self.grants_authority is not False:
+            raise ValueError("provider schema refresh receipt cannot grant authority")
 
     def to_mapping(self) -> dict[str, object]:
         return {
@@ -125,7 +129,7 @@ class ProviderSchemaRefreshReceipt:
             "review_package_digest": self.review_package_digest,
             "review_dispatched": self.review_dispatched,
             "review_handoff_reason": self.review_handoff_reason,
-            "grants_authority": self.grants_authority,
+            "grants_authority": False,
         }
 
 
