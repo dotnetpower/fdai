@@ -364,3 +364,85 @@ def test_catalog_reload_and_rollback_are_serialized() -> None:
     assert lifecycle.index_for(lifecycle.current_catalog_version)
     assert lifecycle.index_for(lifecycle.previous_catalog_version)
     assert lifecycle.last_receipt.current_catalog_version == lifecycle.current_catalog_version
+
+
+def test_catalog_tombstone_rejects_conflicting_evicted_version() -> None:
+    baseline = _make_rule(
+        rule_id="baseline.rule",
+        resource_type="compute.vm",
+        severity=Severity.LOW,
+    )
+    first = _make_rule(
+        rule_id="first.rule",
+        resource_type="object-storage",
+        severity=Severity.HIGH,
+    )
+    second = _make_rule(
+        rule_id="second.rule",
+        resource_type="database",
+        severity=Severity.CRITICAL,
+    )
+    lifecycle = CatalogIndexLifecycle(catalog_version="catalog-n", rules=(baseline,))
+    lifecycle.reload(catalog_version="catalog-n-plus-one", rules=(first,))
+    lifecycle.reload(catalog_version="catalog-n-plus-two", rules=(second,))
+
+    with pytest.raises(ValueError, match="previously accepted with different rules"):
+        lifecycle.reload(
+            catalog_version="catalog-n",
+            rules=(
+                _make_rule(
+                    rule_id="conflicting.rule",
+                    resource_type="compute.vm",
+                    severity=Severity.CRITICAL,
+                ),
+            ),
+        )
+
+    assert lifecycle.current_catalog_version == "catalog-n-plus-two"
+    with pytest.raises(LookupError, match="not replayable"):
+        lifecycle.index_for("catalog-n")
+    assert lifecycle.last_receipt.accepted is False
+
+
+def test_catalog_tombstone_allows_identical_evicted_version() -> None:
+    baseline = _make_rule(
+        rule_id="baseline.rule",
+        resource_type="compute.vm",
+        severity=Severity.LOW,
+    )
+    first = _make_rule(
+        rule_id="first.rule",
+        resource_type="object-storage",
+        severity=Severity.HIGH,
+    )
+    second = _make_rule(
+        rule_id="second.rule",
+        resource_type="database",
+        severity=Severity.CRITICAL,
+    )
+    lifecycle = CatalogIndexLifecycle(catalog_version="catalog-n", rules=(baseline,))
+    lifecycle.reload(catalog_version="catalog-n-plus-one", rules=(first,))
+    lifecycle.reload(catalog_version="catalog-n-plus-two", rules=(second,))
+
+    receipt = lifecycle.reload(catalog_version="catalog-n", rules=(baseline,))
+
+    assert receipt.accepted is True
+    assert lifecycle.current_catalog_version == "catalog-n"
+    assert lifecycle.current_index.rule("baseline.rule") is not None
+
+
+def test_catalog_tombstone_capacity_fails_closed() -> None:
+    baseline = _make_rule(
+        rule_id="baseline.rule",
+        resource_type="compute.vm",
+        severity=Severity.LOW,
+    )
+    lifecycle = CatalogIndexLifecycle(
+        catalog_version="catalog-n",
+        rules=(baseline,),
+        max_version_tombstones=1,
+    )
+
+    with pytest.raises(ValueError, match="tombstone capacity is exhausted"):
+        lifecycle.reload(catalog_version="catalog-n-plus-one", rules=(baseline,))
+    assert lifecycle.current_catalog_version == "catalog-n"

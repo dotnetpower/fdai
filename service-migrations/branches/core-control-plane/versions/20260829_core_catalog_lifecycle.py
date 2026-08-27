@@ -61,6 +61,20 @@ def downgrade() -> None:
     """Remove only the lifecycle columns added by this service revision."""
     op.execute(
         """
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT action_signature
+                  FROM learned_action
+                 GROUP BY action_signature
+                HAVING COUNT(*) > 1
+            ) THEN
+                RAISE EXCEPTION
+                    'cannot downgrade catalog lifecycle: duplicate action_signature values '
+                    'exist across catalog versions; resolve collisions before rollback';
+            END IF;
+        END
+        $$;
         DROP INDEX IF EXISTS idx_t2_cache_expires_at;
         ALTER TABLE t2_cache
             DROP COLUMN IF EXISTS expires_at;

@@ -965,7 +965,7 @@
     "services/core-control-plane/src/fdai/core/tiers/t0_deterministic/README.md": "315f3033dc95a963350972cd2fbc96b5e618700bdec0efc48e733747cd5e8254",
     "services/core-control-plane/src/fdai/core/tiers/t0_deterministic/__init__.py": "b197fd80fde8e79720f0819d2f38f23c193ae2daa4dd7d56a42cdb5893eb4e1f",
     "services/core-control-plane/src/fdai/core/tiers/t0_deterministic/engine.py": "7fca4ecaba6cb1888bd8911cbf3e81b0d1638b919db30733d2b88ce819d4f44a",
-    "services/core-control-plane/src/fdai/core/tiers/t0_deterministic/index.py": "dbd3507ad292b8ef1ec9273d82a3ea1c0f53c06a93122de000e25feda0d8b57f",
+    "services/core-control-plane/src/fdai/core/tiers/t0_deterministic/index.py": "f4ae1493596fb03ab9b6e36e3822897579e10d0e30a841a15cc5248e1a055423",
     "services/core-control-plane/src/fdai/core/tiers/t0_deterministic/models.py": "02d83d191f1790b4d2e5cb999ec91678a33b9d46269cad4e06f87d7241b86997",
     "services/core-control-plane/src/fdai/core/tiers/t0_deterministic/opa_evaluator.py": "2c0a6d21f0abc2c018c7de26d4ce2c9bd1610dcd0292b9807e5866f415403a57",
     "services/core-control-plane/src/fdai/core/tiers/t1_lightweight/README.md": "d43c7927c15f0f61368e348df5d5fffc1111df95b0ec70a3eee684813b6b8432",

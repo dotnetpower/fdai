@@ -238,12 +238,24 @@ def test_catalog_version_lifecycle_on_current_service_migration_head() -> None:
             )
             assert cur.fetchone() == (1,), "catalog invalidation must retain learned actions"
 
-        with _connect(url) as conn, conn.cursor() as cur:
-            cur.execute(
-                "DELETE FROM learned_action WHERE action_signature = %s AND catalog_version = %s",
-                (old_signature, new_version),
-            )
-        _downgrade_service(url, previous_head)
+        downgrade = subprocess.run(  # noqa: S603 - controlled repository command
+            [
+                sys.executable,
+                "-m",
+                "alembic",
+                "-c",
+                str(_SERVICE_CONFIG),
+                "downgrade",
+                previous_head,
+            ],
+            cwd=REPO_ROOT,
+            env={**os.environ, "FDAI_DATABASE_URL": url},
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert downgrade.returncode != 0, "downgrade must refuse cross-version duplicates"
+        assert "resolve collisions before rollback" in (downgrade.stdout + downgrade.stderr)
 
         with _connect(url) as conn, conn.cursor() as cur:
             cur.execute(
@@ -255,22 +267,11 @@ def test_catalog_version_lifecycle_on_current_service_migration_head() -> None:
                    AND column_name IN ('catalog_version', 'expires_at')
                 """
             )
-            assert set(cur.fetchall()) == {("t2_cache", "catalog_version")}, (
-                "rollback must remove only service-added lifecycle columns"
-            )
-            cur.execute(
-                """
-                SELECT indexdef
-                  FROM pg_indexes
-                 WHERE schemaname = 'public'
-                   AND tablename = 'learned_action'
-                   AND indexname = 'learned_action_action_signature_key'
-                """
-            )
-            unique_index = cur.fetchone()
-            assert unique_index is not None and "(action_signature)" in unique_index[0], (
-                "rollback must restore global signature uniqueness"
-            )
+            assert set(cur.fetchall()) == {
+                ("learned_action", "catalog_version"),
+                ("t2_cache", "catalog_version"),
+                ("t2_cache", "expires_at"),
+            }, "refused rollback must preserve version-aware lifecycle columns"
     finally:
         restore = _run_service("upgrade", "head", url=url)
         assert restore.returncode == 0, (
