@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 기반 ARB 에이전트 루프
 translation_of: ontology-agent-loop.md
-translation_source_sha: 1d2cf46740c2c4e0fe25d482f66ee29a258625f4
-translation_revised: 2026-08-24
+translation_source_sha: a3189783629bf3cb2edf81e3f1b78a85fdd870e9
+translation_revised: 2026-08-27
 ---
 # 온톨로지 기반 ARB 에이전트 루프
 
@@ -118,7 +118,6 @@ Console은 하나의 녹색 또는 빨간색 상태 대신 다음 축을 별도�
 
 | 미비점 | 필요한 수정 |
 |--------|-------------|
-| 계획된 변경 평가가 `graph_fresh=False`를 전달합니다. | 부울 값을 인증된 그래프 개정 및 최신성 증적으로 대체합니다. |
 | 워크플로 병렬 분기가 호출자가 제공한 결과를 기록합니다. | 에이전트가 소유한 형식화된 근거로 분기를 구동하고 기한을 명시적으로 기록합니다. |
 | ARB 변환 결과가 매니페스트 상태를 직접 읽습니다. | 결정 계보와 검증된 근거에서 `ReviewCase`와 `ReviewCheck`를 파생합니다. |
 | `OperationalEvidenceBundle`과 시나리오 분기가 ARB에 구성되지 않았습니다. | Forseti가 검토 `DecisionCase`를 만들기 전에 두 기반을 연결합니다. |

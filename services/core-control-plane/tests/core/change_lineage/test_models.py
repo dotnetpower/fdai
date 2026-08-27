@@ -73,6 +73,7 @@ def _fixtures() -> tuple[
         target_ref="resource:one",
         occurred_at=change.at,
         affected_set=affected,
+        graph_freshness_receipt=None,
         review_required=False,
         reasons=(),
         evidence_digest="a" * 64,

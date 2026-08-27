@@ -1,8 +1,8 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: a1d7087bfe1b35d009faba6002827b61d4b2f2d8
-translation_revised: 2026-08-26
+translation_source_sha: b8fb19c059f778797fdd17e33a72123d355bd595
+translation_revised: 2026-08-27
 ---
 # FDAI 운영 온톨로지
 
@@ -43,13 +43,12 @@ translation_revised: 2026-08-26
 > 근거를 출력하고 번들의 자율성 상한을 유지하거나 낮출 수만 있습니다. 선택적 source는
 > 의미 런타임에 dependency injection되며 모든 결과는 `SHADOW_ONLY`와 변경 및 실행 권한
 > 없음으로 고정됩니다.
-> 변경관리는 `Change`에 planned-change 근거를 추가하고, 검토된 `ChangeWindow`와 대상 및
-> 결정에서 영향, 프로세스, 결과, 복구까지 이어지는 타입이 지정된 링크를 제공합니다. 이러한
-> 선언은 의미 근거일 뿐 승인 또는 실행 권한을 제공하지 않습니다. Huginn은 같은
-> 정규화된 변경을 causal Event와 소유자 토픽에 포함합니다. Forseti는 범위가 제한된
-> `ChangeAssessment`를 계산해 Verdict와 DecisionCase 근거에 보존하고, stale, 불완전한,
-> 실패한 또는 review-required 평가에는 사람 검토를 요구합니다. 현재 런타임에는
-> graph-freshness 권한이 없으므로 planned 변경은 이 게이트를 auto-clear할 수 없습니다.
+> 변경관리는 `Change`에 planned-change 근거를 추가하고, 검토된 `ChangeWindow`와 대상에서 결정, 영향, 프로세스, 결과, 복구까지 이어지는 타입이 지정된 링크를 제공합니다.
+> 이러한 선언은 의미 근거일 뿐 승인 또는 실행 권한을 제공하지 않습니다. Huginn은 같은 정규화된 변경을 causal Event와 소유자 토픽에 포함합니다.
+> Forseti는 범위가 제한된 `ChangeAssessment`를 계산해 Verdict와 DecisionCase 근거에 보존하고, 오래되거나 불완전하거나 실패했거나 검토가 필요한 평가에는 사람 검토를 요구합니다.
+> 런타임은 승격 잠금 아래의 활성 PostgreSQL 인벤토리 세대에서 내용 기반 주소를 가진 그래프 최신성 증적을 읽습니다.
+> 계획된 변경은 정확한 대상이 있고 릴리스가 일치하며 세대가 관측 기반이고 완전하며 최신이고 식별자 범위가 완전한 경우에만 이 게이트를 통과할 수 있습니다.
+> 보류 중인 오버레이, 실패한 후속 세대, 잘림, 출처 또는 관계 미비점이 있으면 검토 상태를 유지합니다.
 > M5는 카탈로그에 선언된 `routes_to` 및 `peered_with` Resource 링크를 인벤토리 변환 결과에
 > 추가하고 읽기 전용 결정론적 네트워크 및 Pod 텔레메트리 함수를 제공합니다.
 > Composition-owned 범위가 제한된 발급자는 secured ObjectSet 결과를 기록하고 exact 함수
@@ -98,7 +97,7 @@ translation_revised: 2026-08-26
 | 결정과 학습 writer | in-progress | [`hypothesis_lineage.py`](../../../services/core-control-plane/src/fdai/core/operational_planning/hypothesis_lineage.py), [`_execution.py`](../../../services/core-control-plane/src/fdai/core/control_loop/_execution.py), 집중 계보 및 독립 결과 검사 | `OperationalOutcomeLineageProducer`는 Forseti가 소유한 prospective record가 이미 존재할 때만 단일 효과 에피소드 하나를 종결합니다. 실제 ControlLoop 호출 지점은 런타임 `Action`, 정확한 ActionType 버전, 실행기 시작·종료 시각, terminal 상태와 receipt, `IndependentEffectObserver` 뒤에서 생성된 scorable `ResponseOutcome`을 제공합니다. Prospective record가 없으면 아무것도 쓰지 않으며, 응답 계약에 완전성 receipt가 없으므로 producer는 `telemetry_complete=false`를 기록합니다. 어느 조립 루트도 source, sink 또는 projector를 연결하지 않습니다. 남은 prospective 필드, 다중 효과 독립 결과 및 명시적 telemetry completeness에는 composition 전에 이름이 지정된 권위 있는 생산자가 필요합니다. |
 | 최종 결정 계보 writer | implemented | [`operational_lineage.py`](../../../services/core-control-plane/src/fdai/delivery/operational_lineage.py), [`hypothesis_lineage.py`](../../../services/core-control-plane/src/fdai/core/operational_planning/hypothesis_lineage.py), 집중 계보 및 reconciliation 검사 | 독립 관측된 최종 reconciliation이 exact 영속 plan, proposal, safety receipt, observation 및 context 신원을 해석한 뒤 `DecisionCase -> ActionOption -> ExpectedEffect -> ActionRun -> ObservedOutcome`을 적재합니다. 독립적인 대상 관측에 해당 예상 효과의 정확한 metric이 있을 때만 outcome을 scorable로 기록합니다. Raw action argument는 변환하지 않습니다. Pattern learning은 별도입니다. |
 | 다중 효과 운영 계보 계약 | implemented | [`hypothesis_lineage.py`](../../../services/core-control-plane/src/fdai/core/operational_planning/hypothesis_lineage.py), [`ActionOption.yaml`](../../../rule-catalog/vocabulary/object-types/ActionOption.yaml), 집중 계보 및 competency 검사 | 새로운 계보 쓰기는 순서가 고정된 완전한 예상 효과 집합을 보존하고 효과마다 하나의 독립 결과를 요구합니다. 단일 속성만 있는 저장 레코드는 하나의 효과로 읽고, 두 필드가 동시에 있으면 안전하게 차단합니다. |
-| Wave 2 근거, 변경, Property 및 토폴로지 기반 | in-progress | [구현 상태 설명](#fdai-운영-온톨로지), [운영 온톨로지 플랫폼](operating-ontology-platform-ko.md), [`check-property-semantic-coverage.py`](../../../scripts/quality/architecture/check-property-semantic-coverage.py) | 룰이 평가하는 모든 Property에 검토된 의미가 있고 exact-target 현재 상태 읽기는 범위가 제한된 그래프 refresh를 한 번 수행할 수 있으며 evidence bundle은 선택적 런타임 읽기 조립을 가집니다. 계획 변경 판정과 더 넓은 플랫폼 제공은 남아 있습니다. |
+| Wave 2 근거, 변경, Property 및 토폴로지 기반 | in-progress | [구현 상태 설명](#fdai-운영-온톨로지), [운영 온톨로지 플랫폼](operating-ontology-platform-ko.md), [`check-property-semantic-coverage.py`](../../../scripts/quality/architecture/check-property-semantic-coverage.py) | 룰이 평가하는 모든 Property에 검토된 의미가 있고 exact-target 현재 상태 읽기는 범위가 제한된 그래프 refresh를 한 번 수행할 수 있으며 evidence bundle은 선택적 런타임 읽기 조립을 가집니다. 계획된 변경 평가는 정확한 활성 인벤토리 최신성 증적을 사용합니다. 더 넓은 플랫폼 제공은 남아 있습니다. |
 | Console 의미 band 선언 완전성 | implemented | [`Forecast.yaml`](../../../rule-catalog/vocabulary/object-types/Forecast.yaml), [`Pattern.yaml`](../../../rule-catalog/vocabulary/object-types/Pattern.yaml), [`test_ontology_console_projection.py`](../../../services/core-control-plane/tests/delivery/test_ontology_console_projection.py) | Console band가 지정하는 모든 객체 타입을 제공 릴리스가 선언하므로 band 구성원이 조용히 제외되지 않습니다. 두 선언은 의미 선언일 뿐이며 인스턴스 경로를 추가하지 않습니다. |
 | 운영 범위 `unknown_service` 커버리지 | validated | [`operating_scope.py`](../../../services/core-control-plane/src/fdai/core/operational_context/operating_scope.py), [`postgres_inventory_snapshot.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_inventory_snapshot.py), focused consumer 검사 4개 통과 | 인증된 인벤토리 그래프 변환 결과가 범위가 제한된 응답의 모든 Resource에 검토된 서비스 하나 또는 `unknown_service`를 표시하고, 집계 완전성을 반환하며, 대응되지 않거나 잘린 범위는 성능 저하로 표시합니다. |
 | 프로바이더 native 미분류 신원 | validated | [`inventory.py`](../../../services/core-control-plane/src/fdai/shared/providers/inventory.py), [`arg_query.py`](../../../services/core-control-plane/src/fdai/delivery/azure/arg_query.py), focused 검사 259개 통과 및 [이슈 #217](https://github.com/dotnetpower/fdai/issues/217) | 검토된 예약 ResourceType이 타입별 의미를 지어내지 않고 지원되지 않는 프로바이더 신원을 계속 표시합니다. 승격된 로컬 스냅샷과 온톨로지는 realtime overlay 잔여 없이 exact provider identity coverage를 유지합니다. |
@@ -128,11 +127,12 @@ translation_revised: 2026-08-26
 | 2026-08-24 | implemented | 모든 지속형 source revision을 durable canonical snapshot digest에 결속했습니다. 다른 내용으로 비연속 revision을 재사용하면 거부하고, 변환 뒤 cursor 쓰기가 중단된 경우 정확한 replay는 그래프를 다시 변환하지 않고 cursor만 닫습니다. | `current change`, 지속형 운영 모델 replay 및 failure-injection 검사(`7 passed`), Ruff | 배포별 replay 기간을 정의한 뒤에만 revision claim 보존 기간을 제한합니다. |
 | 2026-08-24 | implemented | 변환 결과와 revision claim 사이까지 중단 복구 경계를 확장했습니다. Projected manifest가 canonical snapshot digest를 고정하므로 claim 저장이 실패한 뒤 exact retry는 그래프를 다시 대체하거나 객체 revision을 증가시키지 않고 claim과 cursor만 닫습니다. | `current change`; `runtime/{operating_model,continuous_operating_model}.py`; projection-before-claim failure injection과 전체 focused worker 파일(`8 passed`). | Replica 간 lock pressure와 process-kill 측정은 배포 근거로 별도 보존합니다. |
 | 2026-08-24 | implemented | Plan-level 최종 reconciliation이 해당 효과의 metric을 독립 대상 관측에서 제공하지 않았는데도 효과를 scorable로 만들 수 없도록 다중 효과 계보 scoring을 수정했습니다. 계보는 완전한 형태로 남지만 해당 효과를 명시적으로 unscorable로 기록합니다. | `current change`; `delivery/operational_lineage.py`; 집중 계보 검사(`2 passed`). | 통제된 learning 근거에 계보를 사용하기 전에 예상 효과마다 독립 관측값이 하나씩 있는 운영 episode를 보존합니다. |
+| 2026-08-27 | implemented | 계획된 변경의 최신성 부울 값을 권위 있는 활성 인벤토리 증적으로 대체했습니다. 증적은 정확한 대상, 온톨로지 릴리스, 인벤토리 세대, 그래프 개정, 관측 및 기록 시각, 유효 기간, 완전성 미비점, 실행 권한 없음 상태를 결합합니다. Forseti는 최신이고 완전한 증적에서만 평가를 통과시킵니다. 누락, 오래됨, 미래 시각, 혼합 릴리스, 대상 불일치, 잘림, 보류 중인 오버레이, 실패한 후속 세대, 불완전한 출처 상태는 모두 타입이 지정된 검토 사유로 유지합니다. | `current change`; `change_assessment.py`; `postgres_graph_freshness.py`; 집중 영향, 영속성 디코더, 변경 체인, 계보, 판테온 레이아웃 검사 64개 통과; Ruff와 strict mypy 통과. | 이 경로를 운영 환경에서 검증되었다고 설명하기 전에 배포된 정확한 릴리스 증적 하나를 별도로 보존합니다. |
 
 ### 남은 작업
 
-- [ ] 계획 변경을 자동 통과시키기 전에 그래프 최신성 권한을 제공하고 검증하며 stale,
-  불완전한 및 conflicting 부정 사례를 포함합니다.
+- [x] 계획 변경을 자동 통과시키기 전에 그래프 최신성 권한을 제공하고 검증했습니다. 집중 검사는 오래됨, 불완전, 충돌, 혼합 릴리스, 대상 불일치,
+  미래 시각, 잘림, 보류 중인 오버레이, 사용 불가 사례를 포함합니다.
 - [ ] 하나의 고정된 온톨로지 release에서 남은 맥락, 결과 종결 및 통제된 learning 경로의 운영 바인딩과 재생 근거를 완료합니다.
 - [ ] Forseti 소유 uncertainty, 옵션, precondition, 효과 방향 및 predictor 버전 값에서 `OperationalProspectiveLineage`를 생산하고, 권위 있는 telemetry-completeness receipt가 있는 완전한 다중 효과 집합까지 독립 종결을 확장한 뒤, 완전한 런타임 에피소드 하나가 존재할 때만 source와 projector를 연결합니다.
 - [ ] Receipt로 검증된 컨텍스트 메타데이터를 기존 principal 범위 근거 응답에 연결하고 잘못된 principal, 목적, 릴리스, stale 및 truncated 사례가 사용 불가로 유지됨을 입증합니다.

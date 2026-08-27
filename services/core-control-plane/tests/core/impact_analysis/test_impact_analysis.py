@@ -41,6 +41,15 @@ class _Store:
         )
 
 
+class _IncompleteStore:
+    async def traverse(self, **_kwargs: object) -> OntologyGraphSnapshot:
+        return OntologyGraphSnapshot(
+            objects=(OntologyObjectRecord("resource-a", "Resource", {"id": "resource-a"}),),
+            source_complete=False,
+            source_generation="inventory-generation-2",
+        )
+
+
 async def test_analyzer_classifies_affected_set() -> None:
     affected = await ImpactAnalyzer(store=_Store()).analyze(
         direct_target_ids=("resource-a",),
@@ -59,6 +68,19 @@ async def test_stale_graph_blocks_complete_affected_set() -> None:
         graph_fresh=False,
     )
     assert affected.incomplete_reasons == ("graph_stale",)
+    assert not affected.complete
+
+
+async def test_source_completeness_and_generation_are_part_of_impact_identity() -> None:
+    affected = await ImpactAnalyzer(store=_IncompleteStore()).analyze(
+        direct_target_ids=("resource-a",),
+        expected_source_generation="inventory-generation-1",
+    )
+
+    assert affected.incomplete_reasons == (
+        "graph_generation_mismatch",
+        "graph_source_incomplete",
+    )
     assert not affected.complete
 
 

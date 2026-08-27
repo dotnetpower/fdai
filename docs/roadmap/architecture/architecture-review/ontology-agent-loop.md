@@ -117,7 +117,6 @@ Every displayed state links to the exact `Change`, context digest, evidence bund
 
 | Gap | Required correction |
 |-----|---------------------|
-| Planned-change assessment supplies `graph_fresh=False` | Replace the boolean with an authenticated graph revision and freshness receipt |
 | Workflow parallel branches journal caller-supplied outcomes | Drive branches from agent-owned typed evidence and record explicit deadlines |
 | ARB projection reads manifest status directly | Derive `ReviewCase` and `ReviewCheck` from decision lineage and verified evidence |
 | `OperationalEvidenceBundle` and scenario branches are not composed into ARB | Bind them before Forseti creates the review `DecisionCase` |

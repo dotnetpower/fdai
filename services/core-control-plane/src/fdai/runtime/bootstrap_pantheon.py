@@ -46,6 +46,12 @@ from fdai.delivery.persistence import (
     PostgresCaseHistoryMetadataStoreConfig,
     StateStoreSemanticFeedbackCandidateStore,
 )
+from fdai.delivery.persistence.postgres_graph_freshness import (
+    PostgresGraphFreshnessReceiptSource,
+)
+from fdai.delivery.persistence.postgres_inventory_snapshot import (
+    PostgresInventorySnapshotStoreConfig,
+)
 from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.runtime.bootstrap_bindings import RuleGenerationRuntimeBinding
 from fdai.runtime.case_history import (
@@ -123,6 +129,33 @@ def _pantheon_enforce_enabled(
     requested = environment.get("FDAI_PANTHEON_ENFORCE", "").lower() in ("1", "true")
     return requested and (
         startup_readiness.authority_ceiling("autonomous-action") is AuthorityCeiling.DEPLOYMENT
+    )
+
+
+def _change_assessment_service(config: PantheonInitialization) -> ChangeAssessmentService | None:
+    store = config.control_loop.ontology_instance_store
+    if store is None:
+        return None
+    release = config.control_loop.ontology_release
+    dsn = (
+        config.environment.get("FDAI_INVENTORY_DSN", "").strip()
+        or config.environment.get("FDAI_STATE_STORE_DSN", "").strip()
+    )
+    source = (
+        PostgresGraphFreshnessReceiptSource(
+            config=PostgresInventorySnapshotStoreConfig(dsn=dsn),
+            ontology_release_digest=release.digest,
+        )
+        if dsn and release is not None
+        else None
+    )
+    return ChangeAssessmentService(
+        analyzer=ImpactAnalyzer(store=store),
+        graph_freshness_source=source,
+        ontology_release_digest=(
+            release.digest if source is not None and release is not None else None
+        ),
+        clock=lambda: datetime.now(UTC),
     )
 
 
@@ -381,13 +414,7 @@ async def initialize_pantheon(
         ),
         operational_context_materializer=operational_context_materializer,
         operational_planner=operational_planner,
-        change_assessor=(
-            ChangeAssessmentService(
-                analyzer=ImpactAnalyzer(store=config.control_loop.ontology_instance_store)
-            )
-            if config.control_loop.ontology_instance_store is not None
-            else None
-        ),
+        change_assessor=_change_assessment_service(config),
         case_history_retention=(
             case_history_runtime.retention if case_history_runtime is not None else None
         ),

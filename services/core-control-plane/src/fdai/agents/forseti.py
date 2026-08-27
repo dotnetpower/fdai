@@ -89,9 +89,6 @@ class _ChangeAssessor(Protocol):
     async def assess(
         self,
         change: Mapping[str, Any],
-        *,
-        graph_fresh: bool,
-        unresolved_conflicts: tuple[str, ...] = (),
     ) -> ChangeAssessment: ...
 
 
@@ -205,8 +202,8 @@ class Forseti(Agent, ForsetiJudgmentMixin):
             self.record_behavior("change_assessment:unavailable")
             return
         try:
-            assessment = await self._change_assessor.assess(change, graph_fresh=False)
-        except Exception:  # noqa: BLE001 - missing impact evidence lowers authority
+            assessment = await self._change_assessor.assess(change)
+        except (TimeoutError, ValueError):
             event["change_assessment_status"] = "failed"
             event["human_approval_required"] = True
             self.record_behavior("change_assessment:failed")
