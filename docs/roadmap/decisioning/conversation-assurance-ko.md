@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: bb98b07b0b5031cb252a9ac2ea9f86f6ea4a76be
+translation_source_sha: 94c2622f0b3b7b7b152708cd5a596bf261a778fb
 translation_revised: 2026-08-28
 ---
 # 대화 품질 보증
@@ -325,6 +325,11 @@ truncation concealment는 qualification 축약기의 명시적 critical-safety �
 별도의 시나리오 근거 약속값을 요구합니다. `PENDING` HIL은 예상 종결 결과로 사용할 수 없고,
 승인자 신원이 없거나 실행자와 같으면 자기 승인 검사를 통과하지 못하며, 재실행은 기록된 작업
 종류를 비교합니다. 기능 외 차원은 추론하지 않습니다.
+
+SRE adapter는 `RcaResult`를 사전 선언된 처리 결과, 원인 다이제스트 및 선택적 인과 타임라인과
+비교합니다. 항목 16부터 18의 기능 정확성을 측정하며, 일치하는 근거 기반 원인 또는 명시적으로
+예상한 판단 보류를 올바른 결과로 계산합니다. RCA 계약에는 대체 원인 집합이나 영향 범위 결과가
+없으므로 항목 19와 20은 계속 `unavailable`로 유지합니다.
 
 ## 독립 모델 평가
 

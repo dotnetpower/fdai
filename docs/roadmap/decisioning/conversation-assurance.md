@@ -334,6 +334,11 @@ approver/executor identities fail the self-approval check, and replay compares t
 kinds. The adapter hashes the observed record and requires a separate scenario evidence commitment;
 it does not infer any non-functional dimension.
 
+The SRE adapter compares `RcaResult` with a predeclared outcome, cause digest, and optional causal
+timeline. It measures items 16 through 18 functional correctness and treats a matching grounded
+cause or an explicit expected abstention as correct. Items 19 and 20 remain unavailable because the
+RCA contract does not carry an alternative-cause set or blast-radius result.
+
 ## Independent model review
 
 Evaluator A and evaluator B run independently and cannot read each other's result. Model identities

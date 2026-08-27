@@ -194,7 +194,7 @@ def _contribution(
         evidence_ref_digests=(result.evidence_digest, observed_digest),
     )
 
-
+def _require_digest(value: str) -> None:
 def _require_digest(value: str) -> None:
     if not _is_digest(value):
         raise ValueError("scenario evidence_digest MUST be a lowercase SHA-256 digest")
