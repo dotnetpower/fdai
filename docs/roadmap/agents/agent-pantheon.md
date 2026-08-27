@@ -378,7 +378,7 @@ Each consumer closes its subscription inside its own task, so the broker adapter
 | Topic | Publisher | Primary subscribers |
 |-------|-----------|---------------------|
 | object.event | Huginn | Heimdall, Muninn (retention ticks), Njord/Freyr/Loki (bounded specialist signals) |
-| object.change | Huginn | Muninn (immutable change revisions) |
+| object.change | Huginn | Muninn (immutable change revisions), Forseti (observation-mode ARB join) |
 | object.anomaly, object.drift, object.forecast | Heimdall | Forseti; Muninn reads detection-readiness drift only |
 | object.forecast-outcome | Heimdall | Saga, Muninn |
 | object.retrieval-validation | Heimdall | Saga, Muninn; Mimir reads exact Rule generation evidence only |

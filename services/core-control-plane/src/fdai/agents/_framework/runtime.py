@@ -52,6 +52,7 @@ from fdai.agents.norns import Norns
 from fdai.agents.saga import Saga
 from fdai.agents.thor import ActionExecutor, ActionRunStore, Thor
 from fdai.agents.vidar import RollbackExecutor, Vidar
+from fdai.core.architecture_review import OntologyArchitectureReviewLoop
 from fdai.core.case_history import (
     CaseHistoryAnalyzer,
     CaseHistoryMaterializer,
@@ -148,6 +149,7 @@ class PantheonRuntime:
         operational_planner: factory.PlanningCoordinator | None = None,
         kinetic_proposal_source: factory.KineticProposalSource | None = None,
         change_assessor: ChangeAssessmentService | None = None,
+        architecture_review_loop: OntologyArchitectureReviewLoop | None = None,
         catalog_review: CatalogReviewBindings | None = None,
         case_history_retention: CaseHistoryRetentionService | None = None,
         forecast_evaluator: ForecastEpisodeEvaluator | None = None,
@@ -285,6 +287,7 @@ class PantheonRuntime:
             operational_planner=operational_planner,
             kinetic_proposal_source=kinetic_proposal_source,
             change_assessor=change_assessor,
+            architecture_review_loop=architecture_review_loop,
         )
         if forseti is not None:
             instantiated["Forseti"] = forseti
@@ -428,7 +431,7 @@ class PantheonRuntime:
             _semantic_tool_planner=semantic_tool_planner,
         )
 
-        # Ingress: raw events on the P1 topic -> Huginn.ingest -> normalized
+        # Ingress: raw events -> Huginn.ingest -> normalized object.event.
         # object.event (published via the bound bridge). Huginn's spec
         # subscribes to nothing (it is fed from external adapters), so the
         # ingress bridge is wired explicitly here. If Huginn is disabled
@@ -445,11 +448,7 @@ class PantheonRuntime:
         else:
             _LOG.warning("pantheon_ingress_disabled_no_huginn")
 
-        # Shadow observation: a dedicated observer consumer group tallies
-        # what the pantheon *would* decide (verdict risk split + ActionRun
-        # terminal states) so "shadow before enforce" has a measurable
-        # baseline. A distinct group means it never steals records from
-        # the real subscribers (Thor / Saga / Odin / Var).
+        # Shadow observation uses a distinct consumer group and never steals records.
         bridge.subscribe("object.verdict", _OBSERVER_PRINCIPAL, runtime._observe_verdict)
         bridge.subscribe("object.action-run", _OBSERVER_PRINCIPAL, runtime._observe_action_run)
         bridge.consumer_state_observer = runtime._observe_consumer_state

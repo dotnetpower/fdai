@@ -26,6 +26,7 @@ from fdai.agents.saga import Saga
 from fdai.agents.thor import Thor
 from fdai.agents.var import Var
 from fdai.agents.vidar import Vidar
+from fdai.core.architecture_review import OntologyArchitectureReviewLoop
 from fdai.core.impact_analysis import ChangeAssessmentService
 from fdai.core.operational_context import OperationalContextMaterializer
 from fdai.core.operational_planning import (
@@ -77,6 +78,7 @@ def configured_forseti(
     operational_planner: SpecialistPlanningCoordinator | None,
     kinetic_proposal_source: KineticActionProposalSource | None,
     change_assessor: ChangeAssessmentService | None,
+    architecture_review_loop: OntologyArchitectureReviewLoop | None = None,
 ) -> Forseti | None:
     """Build Forseti only when composition supplies an optional binding."""
     if all(
@@ -88,6 +90,7 @@ def configured_forseti(
             operational_planner,
             kinetic_proposal_source,
             change_assessor,
+            architecture_review_loop,
         )
     ):
         return None
@@ -98,6 +101,7 @@ def configured_forseti(
         operational_planner=operational_planner,
         kinetic_proposal_source=kinetic_proposal_source,
         change_assessor=change_assessor,
+        architecture_review_loop=architecture_review_loop,
     )
 
 

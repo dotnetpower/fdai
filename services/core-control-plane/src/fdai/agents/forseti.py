@@ -50,6 +50,10 @@ from fdai.agents._framework.introspection import (
 )
 from fdai.agents._framework.pantheon import _FORSETI
 from fdai.agents._framework.specialist_ingress import SPECIALIST_EVENT_PREFIX
+from fdai.core.architecture_review import (
+    ArchitectureReviewObservation,
+    OntologyArchitectureReviewLoop,
+)
 from fdai.core.decision_case import DomainDecisionCoordinator, DomainDecisionProjection
 from fdai.core.impact_analysis import ChangeAssessment, ChangeAssessmentUnavailableError
 from fdai.core.operational_context import OperationalContextMaterializer, SourceFreshness
@@ -106,6 +110,7 @@ class Forseti(Agent, ForsetiJudgmentMixin):
         operational_planner: SpecialistPlanningCoordinator | None = None,
         kinetic_proposal_source: KineticActionProposalSource | None = None,
         change_assessor: _ChangeAssessor | None = None,
+        architecture_review_loop: OntologyArchitectureReviewLoop | None = None,
     ) -> None:
         super().__init__(spec=_FORSETI)
         self.bus = bus
@@ -116,6 +121,7 @@ class Forseti(Agent, ForsetiJudgmentMixin):
         self._operational_planner = operational_planner
         self._kinetic_proposal_source = kinetic_proposal_source
         self._change_assessor = change_assessor
+        self._architecture_review_loop = architecture_review_loop
         # Latest arbitration winner per correlation id (populated when Odin
         # resolves a cross-vertical conflict Forseti raised).
         self.arbitrations: dict[str, str] = {}
@@ -156,6 +162,9 @@ class Forseti(Agent, ForsetiJudgmentMixin):
     # ---- typed port ----------------------------------------------------
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
+        if topic == "object.change":
+            await self._observe_architecture_change(payload)
+            return
         if topic == "object.event" and str(payload.get("event_type") or "").startswith(
             "control_plane.t2_proposer_"
         ):
@@ -191,6 +200,29 @@ class Forseti(Agent, ForsetiJudgmentMixin):
             await self._ingest_domain_signal("capacity", payload)
         elif topic == "object.arbitration-decision":
             await self._record_arbitration(payload)
+
+    async def _observe_architecture_change(self, payload: dict[str, Any]) -> None:
+        """Judge one planned Change through the observation-only ARB seam."""
+
+        if self._architecture_review_loop is None:
+            return
+        try:
+            observation = await self._architecture_review_loop.evaluate(payload)
+        except Exception as exc:  # noqa: BLE001 - fail closed and audit the hold
+            self.record_behavior("architecture_review:failed")
+            observation = ArchitectureReviewObservation.hold(
+                change_id=str(payload.get("id") or payload.get("event_id") or "unknown"),
+                idempotency_key=str(payload.get("idempotency_key") or "unknown"),
+                correlation_id=str(payload.get("correlation_id") or "unknown"),
+                target_ref=str(payload.get("target_ref") or "unknown"),
+                reason=f"observation_review_failed:{type(exc).__name__}",
+            )
+        if observation.replayed:
+            self.record_behavior("architecture_review:duplicate")
+            return
+        self.record_behavior(f"architecture_review:{observation.recommendation}")
+        if self.bus is not None:
+            await self.bus.publish("Forseti", "object.verdict", observation.to_mapping())
 
     async def _attach_change_assessment(self, event: dict[str, Any]) -> None:
         change = event.get("normalized_change")
