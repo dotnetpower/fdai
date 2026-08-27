@@ -122,6 +122,16 @@ def test_branch_derivation_uses_full_idempotency_key_digest() -> None:
     assert first.endswith("810c895d3a8c04834f700f7bb003a57ff166be3401e6f2d4a7b96cdc4f3487b3")
 
 
+def test_repository_path_segments_are_percent_encoded() -> None:
+    adapter = _adapter(
+        httpx.MockTransport(lambda _: httpx.Response(200, json=[])),
+        owner="owner#",
+    )
+
+    assert adapter._content_path("governance/a#b?.json") == "governance/a%23b%3F.json"
+    assert "/owner%23/" in adapter._repo_url("pulls")
+
+
 # ---------------------------------------------------------------------------
 # Enforce label guard
 # ---------------------------------------------------------------------------
