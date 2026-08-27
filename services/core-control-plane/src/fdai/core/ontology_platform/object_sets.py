@@ -23,6 +23,7 @@ from .models import (
 )
 
 _STORE_QUERY_LIMIT = 1000
+_EXACT_ID_CONCURRENCY = 16
 
 
 class ObjectSetService:
@@ -129,16 +130,20 @@ async def _query_exact_ids(
     resource_ids: Sequence[str],
 ) -> OntologyGraphSnapshot:
     """Read each selected id directly so other records cannot truncate the candidate set."""
-    results = await asyncio.gather(
-        *(
-            store.query_objects(
+    semaphore = asyncio.Semaphore(_EXACT_ID_CONCURRENCY)
+
+    async def read_one(resource_id: str) -> OntologyGraphSnapshot:
+        async with semaphore:
+            return await store.query_objects(
                 object_types=object_types,
                 property_equals={"id": resource_id},
                 limit=1,
             )
-            for resource_id in resource_ids
-        )
-    )
+
+    results: list[OntologyGraphSnapshot] = []
+    for offset in range(0, len(resource_ids), _EXACT_ID_CONCURRENCY):
+        batch = resource_ids[offset : offset + _EXACT_ID_CONCURRENCY]
+        results.extend(await asyncio.gather(*(read_one(resource_id) for resource_id in batch)))
     objects = tuple(item for graph in results for item in graph.objects)
     generations = {
         graph.source_generation for graph in results if graph.source_generation is not None
