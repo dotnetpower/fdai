@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 88cf02321de3ade25c2cadd492245dc1c6f23752
+translation_source_sha: 22cd590750d1c3cd37b57fb0bb3e683a36cd5267
 translation_revised: 2026-08-28
 ---
 # 코드 맵
@@ -234,7 +234,8 @@ pin합니다. Answered 결과에는 exact release, 매니페스트, 계획, 실�
 Semantic-turn 요청은 opaque server-issued token과 함께 타입이 지정된 화면 또는 리소스 그룹
 선택을 보존합니다. Operator는 Core가 `query.contextual_resources`를 위해 정확한
 `Resource.id` 범위를 컴파일하기 전에 인증된 principal, 일반 소문자 role 범위, purpose,
-정확한 release, source generation, completeness 및 id 집합에 대해 token을 조회합니다.
+정확한 release, source generation, completeness 및 id 집합에 대해 token을 조회하고 선택
+다이제스트를 다시 계산합니다.
 클라이언트가 위조하거나 다시 계산한 id, 재시작 후 사라진 token 또는 범위 불일치는 principal
 컬렉션으로 대체하지 않고 타입이 지정된 사용 불가 결과가 됩니다. 어떤 context 필드도 승인
 또는 실행 권한을 부여하지 않습니다.
