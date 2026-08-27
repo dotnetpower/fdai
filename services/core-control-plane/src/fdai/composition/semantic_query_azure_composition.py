@@ -17,6 +17,9 @@ from fdai.core.ontology_platform import (
 )
 from fdai.core.ontology_platform.graph_query_refresh import BoundedGraphLiveRefreshProvider
 from fdai.core.ontology_platform.incident_queries import IncidentEvidenceReader
+from fdai.core.ontology_platform.kubernetes_pod_diagnosis_queries import (
+    KubernetesPodLogEvidenceReader,
+)
 from fdai.core.ontology_platform.property_values import PropertyValueDomain
 from fdai.core.ontology_platform.resource_event_queries import ResourceEventCollectionReader
 from fdai.core.ontology_platform.resource_health_queries import ResourceHealthCollectionReader
@@ -75,6 +78,7 @@ def compose_azure_semantic_query_runtime(
     resource_event_reader: ResourceEventCollectionReader | None = None,
     service_health_reader: ServiceHealthReader | None = None,
     vm_process_cpu_reader: VmProcessCpuReader | None = None,
+    pod_log_evidence_reader: KubernetesPodLogEvidenceReader | None = None,
     graph_live_refresh_provider: BoundedGraphLiveRefreshProvider | None = None,
     resource_freshness_seconds: int | None = None,
 ) -> SemanticQueryRuntimeComposition:
@@ -164,6 +168,7 @@ def compose_azure_semantic_query_runtime(
             resource_event_reader=resource_event_reader,
             service_health_reader=service_health_reader,
             vm_process_cpu_reader=vm_process_cpu_reader,
+            pod_log_evidence_reader=pod_log_evidence_reader,
             graph_live_refresh_provider=graph_live_refresh_provider,
             resource_freshness_seconds=resource_freshness_seconds,
             property_values=_resource_type_property_values(catalog_root),
