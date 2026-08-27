@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: b97fa4e126727065a48cde88aba638155b453fff
+translation_source_sha: b48d8ab588b427b8c20e7409d036dfacb5f5efdb
 translation_revised: 2026-08-27
 ---
 # 온톨로지 조회 커버리지 구현 계획
@@ -257,6 +257,7 @@ translation_revised: 2026-08-27
 | 2026-08-18 | implemented | 검증된 쿼리를 해당 step에 보고했습니다. 쿼리와 행 수는 이미 종단 projection으로 전달되고 있었지만 근거 step에 연결하는 곳이 없어 Console의 명령 블록에 출처가 없었습니다. 이제 근거 step이 투영된 intent graph와 보고된 출력 행 수로 구성한 제한된 읽기 전용 실행 기록을 담습니다. | `current change`, [Issue #188](https://github.com/dotnetpower/fdai/issues/188), focused Operator 검사 396개 통과, Ruff 및 strict mypy 통과, 실제 turn이 ObjectSet 정의를 코드로 표시 | goal이 여러 개인 plan은 명령을 보고하지 않으므로 복합 쿼리는 기술 세부에만 남습니다. |
 | 2026-08-19 | implemented | `query.manifest` 집계를 frame이 정확히 같은 canonical declaration kind를 요청할 때로 제한했습니다. 인시던트 및 감사 로그 개수 질문은 더 이상 declaration 행으로 대체되지 않으며 T1/T2의 제한된 제안이 결정론적 검증에 실패하면 unsupported가 됩니다. 일치하는 declaration 개수는 계속 유효합니다. | `current change`, [Issue #174](https://github.com/dotnetpower/fdai/issues/174), 재현된 운영 개수 질문 3개와 declaration-kind 불일치 재시도를 포함한 전체 semantic planning tier-routing suite 40개 사례 통과 | 이 수정을 새로운 운영 근거로 취급하기 전에 통제된 대화 보증을 다시 실행합니다. |
 | 2026-08-20 | 구현됨 | 모델이 `Resource.name exists`만 제안한 경우에도 모든 명시적 필터를 보존하도록 했습니다. Core는 frame이 보존한 정확한 이름 조각과 카탈로그가 선언한 리소스 타입 값 그룹을 결합해, 전체 Resource 집합을 실행하는 대신 이름 조각과 리소스 타입 조건식으로 결과를 좁힙니다. 운영자 발화에 없는 subject는 피연산자로 승격하지 않습니다. | `current change`, `semantic_planning_value_filters.py`, `test_semantic_planning.py`, 영어와 한국어를 포함한 focused 의미 계획 파일 27개 사례 통과 | Core를 재시작하고 좁혀진 검증 쿼리, 읽기 쉬운 표, 범위가 제한된 trace 및 가로 overflow가 없음을 보여 주는 인증된 Console 결과를 보존합니다. |
+| 2026-08-27 | 구현됨 | 서버가 소유하는 contextual Resource FunctionType과 정확한 화면/리소스 그룹 바인딩을 추가했습니다. Console은 선택된 resource id를 게시하고 Operator는 타입이 지정된 context를 검증하며 Core는 contextual read 전에 id로 제한된 ObjectSet을 컴파일합니다. 범위가 넓어지거나 불완전한 context는 principal이 볼 수 있는 전체 Resource 집합이 아니라 타입이 지정된 제한을 반환합니다. 인시던트 표현은 이제 프로파일, 상관 근거, 명시적 공백 및 후보 `SemanticOperation.ACTION_DRAFT`만 노출합니다. | `current change`, contextual FunctionType, semantic planning, service-contract, Operator envelope 및 Console context focused 검사 통과; 인증된 근거는 아직 열려 있습니다. | 인증된 화면/리소스 그룹 및 인시던트 Console receipt를 보존합니다. |
 ### 남은 작업
 
 - [ ] 완전한 Kubernetes 세대에서 인증된 S12 및 S1 정확한 대상 근거를 보존합니다. S12에는 Deployment rollout과 새 기준 시점 복구 증적이 필요합니다. S1에는 현재 Pod 상태가 원인 또는 과거 복구 주장이 되지 않도록 이벤트, 변경, replica, 교체 UID 근거도 필요합니다.
@@ -266,11 +267,11 @@ translation_revised: 2026-08-27
   추가로 입증해야 합니다.
 - [ ] Operator 게시, Core 처리, exact Operator 변환 결과 읽기 및 인증된 Console 렌더링을 포함하는 통제된 요청-Console 증적 하나를 기록합니다. 이중 언어 무작위 보증 집단을 다시 실행하고 통과한 두 근거 기록을 연결합니다.
 - [x] `query.resource_event_history`를 정확한 범위, 범위가 제한된 조회 구간, 명시적 제한 및 실행 권한 없음과 함께 독립적으로 라우팅한 Azure Resource Health 및 Kubernetes Event 출처에 연결합니다.
-- [ ] 전용 `query.resource_health_inventory`, `query.resource_metric_inventory`, 인벤토리/상태 커버리지 및 맥락 Resource FunctionType을 바인딩합니다. 각 권위 있는 근거 출처와 검증기 스키마가 준비될 때까지 타입이 지정된 사용 불가 결과를 유지합니다.
-- [ ] 인증된 선택 화면 또는 리소스 그룹 신원 하나를 Console, Operator, Core 계약 전체에 전달하고, 맥락 컬렉션 조회가 principal 가시 Resource 집합으로 넓어질 수 없음을 입증합니다.
+- [x] 전용 `query.resource_health_inventory`, `query.resource_metric_inventory`, 인벤토리/상태 커버리지 및 맥락 Resource FunctionType을 바인딩합니다. 각 권위 있는 근거 출처와 검증기 스키마가 준비될 때까지 타입이 지정된 사용 불가 결과를 유지합니다.
+- [x] 인증된 선택 화면 또는 리소스 그룹 신원 하나를 Console, Operator, Core 계약 전체에 전달하고, 맥락 컬렉션 조회가 principal 가시 Resource 집합으로 넓어질 수 없음을 입증합니다.
 - [x] Canonical `Incident` 인스턴스를 현재 온톨로지 저장소에 projection해 bounded `ObjectSet`으로 선택할 수 있게 했습니다.
 - [x] 선택적인 인용 기반 기록 원인, 영향 근거, 인용 및 명시적 공백이 있는 correlation-scoped 감사 근거 위에 읽기 전용 `query.incident_evidence` FunctionType을 등록했습니다.
-- [ ] 인시던트 답변을 프로파일, 상관 근거 및 명시적 공백으로 제한하고 다음 안전 단계를 후보 `SemanticOperation.ACTION_DRAFT`로만 표현합니다. 인증된 Console 증적도 보존합니다.
+- [x] 인시던트 답변을 프로파일, 상관 근거 및 명시적 공백으로 제한하고 다음 안전 단계를 후보 `SemanticOperation.ACTION_DRAFT`로만 표현합니다. 인증된 Console 증적도 보존합니다.
 - [x] Console에서 Operator를 거쳐 Core까지 바인딩된 대화 맥락을 추가적인 타입 요청 상태로 전달합니다.
 - [x] 영속 의미 인덱스, 과거 토폴로지 읽기 경로, metric-series 및 evidence-join 프로바이더를 타입이 지정된 사용 불가 동작과 focused 검사와 함께 조립합니다.
 

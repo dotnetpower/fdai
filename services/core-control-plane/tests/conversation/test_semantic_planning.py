@@ -13,6 +13,7 @@ from fdai.core.conversation.intent_graph import build_intent_graph_evidence
 from fdai.core.conversation.semantic_manifest import CatalogQueryManifestProvider
 from fdai.core.conversation.semantic_planning import SemanticPlanningService, _plan_node_summary
 from fdai.core.conversation.semantic_planning_models import (
+    BoundResourceContext,
     SemanticFrameProposal,
     SemanticPlanningDisposition,
 )
@@ -30,6 +31,9 @@ from fdai.core.ontology_platform import (
     QueryNodeResult,
     QueryPlanExecution,
     build_query_manifest,
+)
+from fdai.core.ontology_platform.contextual_resource_queries import (
+    contextual_resource_function_type,
 )
 from fdai.core.ontology_platform.property_values import PropertyValueDomain, PropertyValueGroup
 from fdai.core.ontology_platform.resource_event_queries import (
@@ -820,6 +824,7 @@ def _typed_fixture(
     include_resource_metric: bool = False,
     include_resource_state: bool = False,
     include_service_health: bool = False,
+    include_contextual_resource: bool = False,
 ) -> tuple[Any, ObjectSetDefinition]:
     resource = OntologyObjectType(
         schema_version="1.0.0",
@@ -835,6 +840,7 @@ def _typed_fixture(
     function_types = tuple(
         function
         for function in (
+            contextual_resource_function_type() if include_contextual_resource else None,
             resource_event_function_type() if include_resource_event else None,
             resource_health_function_type() if include_resource_health else None,
             resource_metric_function_type() if include_resource_metric else None,
@@ -1984,10 +1990,64 @@ def test_specialized_collection_family_rejects_a_generic_object_set(
         purpose="operations-review",
     )
 
-    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.disposition is (
+        SemanticPlanningDisposition.CLARIFICATION
+        if output_shape == "contextual_resource_list"
+        else SemanticPlanningDisposition.UNSUPPORTED
+    )
     assert outcome.plan is None
     assert outcome.execution_authority is False
-    assert model.plan_calls == 1
+    assert model.plan_calls == (0 if output_shape == "contextual_resource_list" else 1)
+
+
+@pytest.mark.parametrize(
+    "utterance",
+    ("Which resources are on this screen?", "이 화면의 리소스를 보여줘."),
+)
+def test_contextual_collection_uses_exact_bound_screen_scope(utterance: str) -> None:
+    manifest, _definition = _typed_fixture(include_contextual_resource=True, groups=())
+    model = _Model(frame=_frame(output_shape="contextual_resource_list"), plan=None)
+
+    outcome = _service(model, manifest).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        bound_resource_context=BoundResourceContext(
+            kind="screen",
+            screen_id="ontology-instances",
+            resource_ids=("resource-a", "resource-b"),
+        ),
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.plan is not None
+    definition = outcome.plan.nodes[0].arguments["definition"]
+    assert definition["predicates"] == [
+        {"property": "id", "operator": "in", "values": ["resource-a", "resource-b"]}
+    ]
+    assert outcome.plan.nodes[1].arguments["function_name"] == "query.contextual_resources"
+    assert outcome.execution_authority is False
+
+
+@pytest.mark.parametrize(
+    "utterance",
+    ("Which resources are on this screen?", "이 화면의 리소스를 보여줘."),
+)
+def test_contextual_collection_without_bound_scope_clarifies(utterance: str) -> None:
+    manifest, _definition = _typed_fixture(include_contextual_resource=True, groups=())
+    model = _Model(frame=_frame(output_shape="contextual_resource_list"), plan=None)
+
+    outcome = _service(model, manifest).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.reason == "contextual_resource_scope_required"
+    assert outcome.plan is None
 
 
 def test_property_filter_rejects_multiple_existence_only_predicates() -> None:

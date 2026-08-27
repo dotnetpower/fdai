@@ -110,6 +110,13 @@ export interface ViewExplanations {
   };
 }
 
+export interface ViewContextIdentity {
+  readonly kind: "screen" | "resource_group";
+  readonly screenId?: string;
+  readonly resourceGroupId?: string;
+  readonly resourceIds: readonly string[];
+}
+
 /** A structured snapshot for one route. */
 export interface ViewSnapshot {
   /** Panel id, matches the hash route (`live`, `dashboard`, ...). */
@@ -137,6 +144,8 @@ export interface ViewSnapshot {
   readonly records?: Readonly<Record<string, readonly Record<string, unknown>[]>>;
   /** Structured selection, relationship, lifecycle, and provenance evidence. */
   readonly explanations?: ViewExplanations;
+  /** Trusted selection identity used for context-bound collection questions. */
+  readonly contextIdentity?: ViewContextIdentity;
   /** ISO timestamp captured on publish. */
   readonly capturedAt: string;
 }

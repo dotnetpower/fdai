@@ -16,6 +16,7 @@ from fdai.core.conversation.semantic_planning_cascade import NO_T2_ESCALATION_PO
 from fdai.core.conversation.semantic_planning_models import (
     BoundIncident,
     BoundInvestigationContinuation,
+    BoundResourceContext,
 )
 from fdai.core.conversation.semantic_runtime import (
     SemanticTurnResult as RuntimeSemanticTurnResult,
@@ -127,6 +128,7 @@ class SemanticTurnRuntime(Protocol):
         principal: Principal,
         cancelled: asyncio.Event | None = None,
         bound_incident: BoundIncident | None = None,
+        bound_resource_context: BoundResourceContext | None = None,
         bound_investigation_continuation: BoundInvestigationContinuation | None = None,
     ) -> RuntimeSemanticTurnResult: ...
 
@@ -423,6 +425,12 @@ class SemanticTurnProcessor:
             return _terminal_result(request, "held", "semantic_runtime_unavailable"), None
 
         runtime_cancelled = asyncio.Event()
+        bound_resource_context = _bound_resource_context(request)
+        runtime_kwargs: dict[str, Any] = {}
+        if bound_resource_context is not None:
+            runtime_kwargs["bound_resource_context"] = bound_resource_context
+        if request.planning_profile is SemanticPlanningProfile.GOLDEN_CAMPAIGN_NO_T2:
+            runtime_kwargs["escalation_policy"] = NO_T2_ESCALATION_POLICY
         runtime_task = asyncio.create_task(
             self._runtime.handle(
                 utterance=request.utterance,
@@ -431,11 +439,7 @@ class SemanticTurnProcessor:
                 cancelled=runtime_cancelled,
                 bound_incident=_bound_incident(request),
                 bound_investigation_continuation=_bound_investigation_continuation(request),
-                **(
-                    {"escalation_policy": NO_T2_ESCALATION_POLICY}
-                    if request.planning_profile is SemanticPlanningProfile.GOLDEN_CAMPAIGN_NO_T2
-                    else {}
-                ),
+                **runtime_kwargs,
             )
         )
         cancellation_task = asyncio.create_task(cancelled.wait()) if cancelled is not None else None
@@ -638,6 +642,26 @@ def _bound_incident(request: SemanticTurnRequest) -> BoundIncident | None:
         incident_id=_canonical_incident_id(binding.incident_id),
         correlation_id=binding.correlation_id,
     )
+
+
+def _bound_resource_context(request: SemanticTurnRequest) -> BoundResourceContext | None:
+    """Expose only the exact server-selected screen or group scope to planning."""
+    binding = request.bound_context
+    if binding is None or binding.kind == "incident":
+        return None
+    if binding.kind == "screen" and binding.screen_id is not None:
+        return BoundResourceContext(
+            kind="screen",
+            screen_id=binding.screen_id,
+            resource_ids=binding.resource_ids,
+        )
+    if binding.kind == "resource_group" and binding.resource_group_id is not None:
+        return BoundResourceContext(
+            kind="resource_group",
+            resource_group_id=binding.resource_group_id,
+            resource_ids=binding.resource_ids,
+        )
+    return None
 
 
 def _validate_investigation_continuation(request: SemanticTurnRequest) -> None:
@@ -1845,8 +1869,10 @@ def _incident_answer_output(
         "source_truncated": incident_evidence["truncated"],
         "display_truncated": len(displayed) < len(raw_evidence),
         "next_safe_step": {
-            "operation": "collect_evidence",
-            "authority": "read_only",
+            "operation": "action_draft",
+            "semantic_operation": "action_draft",
+            "candidate": "collect_evidence",
+            "authority": "candidate_only",
             "execution_authority": False,
         },
     }
@@ -2159,8 +2185,6 @@ def _render_incident_answer(
     evidence = output.get("correlated_evidence")
     profile = output.get("incident_profile")
     root_cause = output.get("root_cause")
-    impacts = output.get("impact_evidence")
-    citations = output.get("grounded_citations")
     gaps = output.get("evidence_gaps")
     shown = len(evidence) if isinstance(evidence, list) else 0
     verified = output.get("verified_records")
@@ -2173,12 +2197,6 @@ def _render_incident_answer(
     korean = request.locale.casefold().startswith("ko")
     facts = incident_profile_facts(profile, korean=korean)
     timeline = _incident_timeline_markdown(incident_timeline_rows(evidence), korean=korean)
-    rca_sections = _incident_rca_markdown(
-        root_cause,
-        impacts,
-        citations,
-        korean=korean,
-    )
     timeline_truncated = shown > _INCIDENT_TIMELINE_ROWS
     missing = ", ".join(_humanized_gap(gap, korean=korean) for gap in gap_values) or (
         "없음" if korean else "none"
@@ -2208,11 +2226,11 @@ def _render_incident_answer(
             "## 검증된 인시던트 근거\n\n"
             f"{found}\n"
             f"{timeline_section}"
-            f"{rca_sections + chr(10) + chr(10) if rca_sections else ''}"
             "## 제한 사항\n\n"
             f"- 누락된 근거: {missing}\n\n"
             "## 다음 안전 단계\n\n"
-            f"{_incident_next_step_text(gap_values, korean=True, root_cause=root_cause)} "
+            "- ACTION_DRAFT 후보: "
+            f"{_incident_next_step_text(gap_values, korean=True, root_cause=root_cause)}\n\n"
             "이 결과는 읽기 전용이며 실행 권한을 부여하지 않습니다."
         )
     evidence_label = "record was" if evidence_count == 1 else "records were"
@@ -2240,11 +2258,11 @@ def _render_incident_answer(
         "## Verified incident evidence\n\n"
         f"{found}\n"
         f"{timeline_section}"
-        f"{rca_sections + chr(10) + chr(10) if rca_sections else ''}"
         "## Limitations\n\n"
         f"- Missing evidence: {missing}\n\n"
         "## Next safe step\n\n"
-        f"{_incident_next_step_text(gap_values, korean=False, root_cause=root_cause)} "
+        "- Candidate ACTION_DRAFT: "
+        f"{_incident_next_step_text(gap_values, korean=False, root_cause=root_cause)}\n\n"
         "This result is read-only and grants no execution authority."
     )
 

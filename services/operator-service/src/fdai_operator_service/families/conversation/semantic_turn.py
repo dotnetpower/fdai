@@ -72,6 +72,12 @@ class SemanticTurnEnvelopeBuilder:
             cancelled=proposal.cancellation,
         )
         semantic_payload = semantic_turn.model_dump(mode="json", exclude_none=True)
+        bound_context_payload = semantic_payload.get("bound_context")
+        if (
+            isinstance(bound_context_payload, dict)
+            and bound_context_payload.get("kind") == "incident"
+        ):
+            bound_context_payload.pop("resource_ids", None)
         if proposal.scope.principal_kind is OperatorPrincipalKind.HUMAN:
             principal_payload = semantic_payload.get("principal")
             if isinstance(principal_payload, dict):
@@ -182,14 +188,41 @@ def _prior_turns(value: object) -> tuple[SemanticPriorTurn, ...]:
 
 
 def _bound_context(value: object) -> SemanticBoundContext | None:
-    """Accept only the bindings this Operator surface resolves; ignore the rest."""
+    """Accept only server-resolved incident and exact screen/resource scopes."""
 
     if value is None:
         return None
     if not isinstance(value, dict):
         raise ValueError("conversation_context MUST be an object")
-    if value.get("kind") != "incident":
+    kind = value.get("kind")
+    if kind not in {"incident", "screen", "resource_group"}:
         return None
+    if kind in {"screen", "resource_group"}:
+        raw_ids = value.get("resource_ids")
+        if raw_ids is None:
+            return None
+        if not isinstance(raw_ids, list) or not raw_ids:
+            raise ValueError("conversation_context resource_ids MUST be a non-empty array")
+        resource_ids = tuple(item for item in raw_ids if isinstance(item, str) and item.strip())
+        if len(resource_ids) != len(raw_ids):
+            raise ValueError("conversation_context resource_ids MUST be non-empty strings")
+        if kind == "screen":
+            screen_id = value.get("screen_id", value.get("id"))
+            if not isinstance(screen_id, str) or not screen_id.strip():
+                return None
+            return SemanticBoundContext(
+                kind="screen",
+                screen_id=screen_id,
+                resource_ids=resource_ids,
+            )
+        resource_group_id = value.get("resource_group_id", value.get("id"))
+        if not isinstance(resource_group_id, str) or not resource_group_id.strip():
+            return None
+        return SemanticBoundContext(
+            kind="resource_group",
+            resource_group_id=resource_group_id,
+            resource_ids=resource_ids,
+        )
     incident_id = value.get("incident_id")
     correlation_id = value.get("correlation_id")
     if incident_id is None and correlation_id is None:

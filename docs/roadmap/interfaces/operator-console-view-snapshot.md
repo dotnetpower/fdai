@@ -38,6 +38,25 @@ answer "why did this happen" without a per-screen answerer:
 }
 ```
 
+For a context-bound collection question, the snapshot may also carry a
+server-verifiable selection identity:
+
+```json
+{
+  "contextIdentity": {
+    "kind": "screen",
+    "screenId": "ontology-instances",
+    "resourceIds": ["resource-a", "resource-b"]
+  }
+}
+```
+
+The Console forwards this identity as additive `conversation_context`. Operator
+validates it against the authenticated principal and Core compiles an exact
+`Resource.id` predicate before any contextual FunctionType read. Missing,
+stale, duplicate, or widened ids produce a typed unavailable result; the
+principal-visible Resource collection is never used as a fallback.
+
 An interactive screen should publish a complete operator model, not only KPI
 counters. In addition to `purpose`, `glossary`, and `facts`, its `records`
 should contain:

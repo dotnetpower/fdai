@@ -1,8 +1,8 @@
 ---
 title: Operator Console - View Snapshot Contract
 translation_of: operator-console-view-snapshot.md
-translation_source_sha: a32cf026111c4832772ff7b2171c6484a377bce5
-translation_revised: 2026-08-16
+translation_source_sha: d99c27a98e1740631b627f541f8852e20c7355f4
+translation_revised: 2026-08-27
 ---
 
 # Operator Console - 화면 스냅샷 계약
@@ -40,6 +40,25 @@ translation_revised: 2026-08-16
   "capturedAt": "2026-07-06T11:12:30Z"
 }
 ```
+
+맥락이 지정된 컬렉션 질문에는 서버가 검증할 수 있는 선택 신원을 함께
+실을 수 있습니다.
+
+```json
+{
+  "contextIdentity": {
+    "kind": "screen",
+    "screenId": "ontology-instances",
+    "resourceIds": ["resource-a", "resource-b"]
+  }
+}
+```
+
+Console은 이 신원을 추가 `conversation_context`로 전달합니다. Operator는
+인증된 principal에 대해 이를 검증하고 Core는 contextual FunctionType을 읽기
+전에 정확한 `Resource.id` 조건식을 컴파일합니다. 누락, 오래됨, 중복 또는
+확장된 id는 타입이 지정된 사용 불가 결과를 만들며 principal이 볼 수 있는
+Resource 컬렉션을 대체 경로로 사용하지 않습니다.
 
 Interactive 화면은 KPI counter만이 아니라 완전한 운영자 모델을 publish하는
 것이 좋습니다. `purpose`, `glossary`, `facts` 외에도 `records`에 다음을

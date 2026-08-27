@@ -60,6 +60,17 @@ function latestConversationBinding(history: readonly BackendTurn[]) {
   return null;
 }
 
+function contextBinding(snapshot: ViewSnapshot | null): Record<string, unknown> | undefined {
+  const identity = snapshot?.contextIdentity;
+  if (!identity || identity.resourceIds.length === 0) return undefined;
+  return {
+    kind: identity.kind,
+    ...(identity.screenId ? { screen_id: identity.screenId } : {}),
+    ...(identity.resourceGroupId ? { resource_group_id: identity.resourceGroupId } : {}),
+    resource_ids: [...identity.resourceIds],
+  };
+}
+
 export function createBackendRequestPayload(
   prompt: string,
   snapshot: ViewSnapshot | null,
@@ -76,6 +87,7 @@ export function createBackendRequestPayload(
   const normalizedBinding = normalizeIncidentBinding(binding) ?? latestConversationBinding(history);
   const resourceContext = latestResourceContext(history);
   const evidenceFreshnessContext = latestEvidenceFreshnessContext(history);
+  const selectedContext = contextBinding(snapshot);
   return {
     ...(requestId === undefined
       ? {}
@@ -102,16 +114,18 @@ export function createBackendRequestPayload(
           })),
         }
       : {}),
-    ...(normalizedBinding ? {
-      conversation_context: {
-        kind: normalizedBinding.kind,
-        incident_id: normalizedBinding.incidentId,
-        correlation_id: normalizedBinding.correlationId,
-        ...(normalizedBinding.selectedAgent
-          ? { selected_agent: normalizedBinding.selectedAgent }
-          : {}),
-      },
-    } : {}),
+    ...(normalizedBinding
+      ? {
+          conversation_context: {
+            kind: normalizedBinding.kind,
+            incident_id: normalizedBinding.incidentId,
+            correlation_id: normalizedBinding.correlationId,
+            ...(normalizedBinding.selectedAgent
+              ? { selected_agent: normalizedBinding.selectedAgent }
+              : {}),
+          },
+        }
+      : (selectedContext ? { conversation_context: selectedContext } : {})),
     view_context: viewContextWithUser(snapshot, locale),
     history: toBackendHistory(history),
   };
