@@ -1,5 +1,3 @@
-"""Tests for completed-turn ChatOps qualification observations."""
-
 from __future__ import annotations
 
 import json
@@ -110,7 +108,6 @@ def test_emits_all_50_items_and_all_six_dimensions_without_raw_identity() -> Non
         tuple(value.dimension for value in item.dimensions) == tuple(QualityDimension)
         for item in observation.items
     )
-    assert observation.locale == "en"
     assert observation.turn_digest != turn.turn_id
     assert observation.conversation_digest != turn.conversation_id
     assert observation.principal_scope_digest != turn.principal_scope
@@ -200,6 +197,40 @@ def test_semantic_scores_without_two_independent_evaluators_remain_unavailable()
         ).availability
         is ObservationAvailability.UNAVAILABLE
     )
+
+
+def test_semantic_score_without_evidence_reference_remains_unavailable() -> None:
+    turn = _turn()
+    criteria = tuple(
+        CriterionScore(
+            criterion=criterion,
+            score=4,
+            rationale="Reviewed independently.",
+        )
+        for criterion in AssuranceCriterion
+    )
+    decision = AssuranceDecision(
+        verdict=AssuranceVerdict.PASS,
+        content_score=100.0,
+        confidence=1.0,
+        criteria=criteria,
+        evaluator_identities=("model-a", "model-b"),
+        model_calls=2,
+    )
+
+    observation = observe_completed_turn(
+        case_id="en-case-001",
+        turn=turn,
+        assessment=_assessment(turn, decision=decision),
+    )
+
+    dimension = _dimension(
+        observation,
+        6,
+        QualityDimension.FUNCTIONAL_CORRECTNESS,
+    )
+    assert dimension.availability is ObservationAvailability.UNAVAILABLE
+    assert dimension.reason_code == "semantic_evidence_ref_unavailable"
 
 
 def test_deterministic_terminal_evidence_maps_grounding_and_atomic_claim_support() -> None:

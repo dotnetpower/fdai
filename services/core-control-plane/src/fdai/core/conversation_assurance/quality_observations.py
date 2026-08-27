@@ -14,6 +14,7 @@ from fdai.core.conversation_assurance.models import (
 )
 from fdai.core.conversation_assurance.quality_observation_models import (
     ObservationAvailability,
+    QualificationDimensionContribution,
     QualificationDimensionObservation,
     QualificationRubricObservation,
     TurnQualificationObservation,
@@ -69,16 +70,20 @@ def observe_completed_turn(
 
     deterministic_grounding = _deterministic_grounding(turn, assessment)
     if deterministic_grounding is not None:
+        grounding_refs = turn.evidence_refs or turn.failed_claim_ids or assessment.decision.reasons
         items = _set_dimension(
             items,
             item_id=11,
             dimension=QualityDimension.GROUNDING_AND_SAFETY,
             value=deterministic_grounding,
             reason_code="terminal_grounding_verdict",
-            evidence_refs=turn.evidence_refs,
+            evidence_refs=grounding_refs,
         )
 
     atomic_claim_support = _atomic_claim_support(turn)
+    atomic_refs = turn.failed_claim_ids or turn.evidence_refs
+    if atomic_claim_support is not None and not atomic_refs:
+        atomic_claim_support = None
     if atomic_claim_support is not None:
         items = _set_dimension(
             items,
@@ -86,7 +91,7 @@ def observe_completed_turn(
             dimension=QualityDimension.GROUNDING_AND_SAFETY,
             value=atomic_claim_support,
             reason_code="terminal_atomic_claim_check",
-            evidence_refs=turn.evidence_refs,
+            evidence_refs=atomic_refs,
         )
 
     items = _set_dimension(
@@ -148,11 +153,15 @@ def _set_semantic_score(
     score: CriterionScore | None,
     dimension: QualityDimension = QualityDimension.FUNCTIONAL_CORRECTNESS,
 ) -> tuple[QualificationRubricObservation, ...]:
-    if score is None:
+    if score is None or not score.evidence_refs:
         return _set_unavailable_reason(
             items,
             item_id=item_id,
-            reason_code="semantic_criterion_unavailable",
+            reason_code=(
+                "semantic_criterion_unavailable"
+                if score is None
+                else "semantic_evidence_ref_unavailable"
+            ),
         )
     return _set_dimension(
         items,
@@ -173,6 +182,8 @@ def _set_dimension(
     reason_code: str,
     evidence_refs: tuple[str, ...],
 ) -> tuple[QualificationRubricObservation, ...]:
+    if not evidence_refs:
+        raise ValueError("measured qualification dimension MUST cite evidence")
     index = item_id - 1
     item = items[index]
     dimensions = tuple(
@@ -188,6 +199,44 @@ def _set_dimension(
         for existing in item.dimensions
     )
     return items[:index] + (replace(item, dimensions=dimensions),) + items[index + 1 :]
+
+
+def merge_dimension_contributions(
+    observation: TurnQualificationObservation,
+    contributions: tuple[QualificationDimensionContribution, ...],
+) -> TurnQualificationObservation:
+    """Fill unavailable slots without allowing cross-case or conflicting evidence."""
+
+    keys = tuple((item.item_id, item.dimension) for item in contributions)
+    if len(keys) != len(set(keys)):
+        raise ValueError("qualification contributions MUST be unique by item and dimension")
+    items = observation.items
+    for contribution in contributions:
+        if contribution.case_id != observation.case_id:
+            raise ValueError("qualification contribution case_id does not match the observation")
+        item_index = contribution.item_id - 1
+        item = items[item_index]
+        dimension_index = tuple(QualityDimension).index(contribution.dimension)
+        existing = item.dimensions[dimension_index]
+        if existing.availability is ObservationAvailability.MEASURED:
+            raise ValueError("qualification contribution MUST NOT overwrite measured evidence")
+        dimensions = (
+            item.dimensions[:dimension_index]
+            + (
+                QualificationDimensionObservation(
+                    dimension=contribution.dimension,
+                    availability=ObservationAvailability.MEASURED,
+                    value=contribution.value,
+                    reason_code=contribution.reason_code,
+                    evidence_ref_digests=contribution.evidence_ref_digests,
+                ),
+            )
+            + item.dimensions[dimension_index + 1 :]
+        )
+        items = (
+            items[:item_index] + (replace(item, dimensions=dimensions),) + items[item_index + 1 :]
+        )
+    return replace(observation, items=items)
 
 
 def _set_unavailable_reason(
@@ -274,5 +323,6 @@ __all__ = [
     "QualificationDimensionObservation",
     "QualificationRubricObservation",
     "TurnQualificationObservation",
+    "merge_dimension_contributions",
     "observe_completed_turn",
 ]

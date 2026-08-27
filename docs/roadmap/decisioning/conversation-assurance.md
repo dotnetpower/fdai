@@ -223,6 +223,13 @@ This envelope does not infer planning, SRE reasoning, action safety, agent orche
 latency, or production evidence from an answer assessment. Those owners must add their measured
 dimensions before the qualification reducer can score an item.
 
+Each evidence owner contributes through `QualificationDimensionContribution`. The contribution
+must match the fixed item's workstream and metric, cite one or more SHA-256 evidence commitments,
+and bind to the same case id. The merge rejects duplicate item/dimension contributions and never
+overwrites an already measured dimension. This makes independently produced planning, SRE, action,
+orchestration, context, channel, latency, and production measurements additive without making the
+Conversation Assurance adapter their hidden owner.
+
 Items 41-45 use a dedicated deterministic adapter that accepts only bounded observation envelopes:
 machine-readable case and scope identities, one source revision, ordered provenance and correlation
 references, and optional semantic-review ownership. Locale parity measures English and Korean

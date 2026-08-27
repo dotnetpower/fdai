@@ -39,7 +39,9 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   or execute an action. JSON parsing and artifact writing remain in the repository-owned
   `scripts/evaluation/chatops-quality-qualification.py` boundary. Completed-turn observation
   adapters use separate content-free contracts, hash runtime and evidence references, and keep
-  every unsupported dimension unavailable instead of manufacturing a score.
+  every unsupported dimension unavailable instead of manufacturing a score. Evidence owners add
+  measurements through contract-bound contributions; the merge rejects cross-case input,
+  duplicate dimensions, and overwrite of existing measurements.
 - **policies and rules are data, not code paths**: T0 loads `rule-catalog/` entries and
   `policies/` at runtime; adding a rule or policy never requires an engine change. Rules
   describe intent and remediation; policies are the executable OPA/Rego the verifier re-checks.

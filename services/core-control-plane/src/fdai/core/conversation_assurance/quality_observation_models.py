@@ -45,6 +45,38 @@ class QualificationDimensionObservation:
             not _is_sha256(value) for value in self.evidence_ref_digests
         ):
             raise ValueError("evidence_ref_digests MUST contain bounded SHA-256 values")
+        if self.availability is ObservationAvailability.MEASURED and not self.evidence_ref_digests:
+            raise ValueError("measured observation MUST cite evidence commitments")
+
+
+@dataclass(frozen=True, slots=True)
+class QualificationDimensionContribution:
+    """One evidence-owning workstream's measured contribution to a case."""
+
+    case_id: str
+    item_id: int
+    workstream: str
+    metric: str
+    dimension: QualityDimension
+    value: float
+    reason_code: str
+    evidence_ref_digests: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if _TOKEN.fullmatch(self.case_id) is None:
+            raise ValueError("contribution case_id MUST be a bounded portable token")
+        if not 1 <= self.item_id <= 50:
+            raise ValueError("contribution item_id MUST be in [1, 50]")
+        item = CHATOPS_QUALITY_CONTRACT_V1.items[self.item_id - 1]
+        if self.workstream != item.workstream or self.metric != item.metric:
+            raise ValueError("contribution workstream and metric MUST match the installed contract")
+        QualificationDimensionObservation(
+            dimension=self.dimension,
+            availability=ObservationAvailability.MEASURED,
+            value=self.value,
+            reason_code=self.reason_code,
+            evidence_ref_digests=self.evidence_ref_digests,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -183,6 +215,7 @@ def _is_sha256(value: str) -> bool:
 
 __all__ = [
     "ObservationAvailability",
+    "QualificationDimensionContribution",
     "QualificationDimensionObservation",
     "QualificationRubricObservation",
     "TurnQualificationObservation",

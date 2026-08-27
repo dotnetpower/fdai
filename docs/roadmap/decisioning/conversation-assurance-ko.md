@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 3ef83e89755a34bd2d4adb3cfb8f0017a72757ee
+translation_source_sha: a30ceac4576023b96fd8650d2f8d5b607962f2cf
 translation_revised: 2026-08-28
 ---
 # 대화 품질 보증
@@ -219,6 +219,12 @@ uv run python scripts/evaluation/chatops_quality_corpus_manifest.py \
 이 묶음은 답변 평가에서 계획 수립, SRE 추론, 작업 안전성, 에이전트 조정, 채널, 지연 시간 또는
 운영 근거를 추론하지 않습니다. 자격 검증 축약기가 항목을 채점하기 전에 각 소유자가 측정한
 차원을 추가해야 합니다.
+
+각 근거 소유자는 `QualificationDimensionContribution`을 통해 기여합니다. 기여는 고정 항목의
+작업 흐름 및 메트릭과 일치하고 하나 이상의 SHA-256 근거 약속값을 인용하며 동일한 사례 ID에
+연결되어야 합니다. 결합기는 중복된 항목/차원 기여를 차단하고 이미 측정한 차원을 덮어쓰지
+않습니다. 따라서 대화 품질 보증 adapter를 숨겨진 소유자로 만들지 않고도 계획 수립, SRE,
+작업, 조정, 맥락, 채널, 지연 시간 및 운영 측정값을 독립적으로 추가할 수 있습니다.
 
 41-45번 항목은 전용 결정론 어댑터를 사용하며, 이 어댑터는 기계가 읽을 수 있는 case 및 scope
 신원, 하나의 source revision, 순서가 정해진 provenance 및 correlation 참조, 선택적 semantic
