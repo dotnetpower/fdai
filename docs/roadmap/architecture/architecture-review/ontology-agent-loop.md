@@ -85,6 +85,14 @@ or escalate.
 Slow or failed subscribers do not block unrelated work. The owner of the join records an explicit
 missing or late branch instead of interpreting silence as success.
 
+The observation-mode vertical slice is now composed by `OntologyArchitectureReviewLoop`. Forseti
+receives Huginn's exact `object.change` revision, resolves an authenticated current context, obtains
+an `OperationalEvidenceBundle`, materializes an evidence-bound copy-on-write scenario, and publishes
+the resulting observation-only `DecisionCase` and `ImpactEnvelope` lineage on `object.verdict`.
+Duplicate deliveries are suppressed by the Change idempotency key; deadline, backpressure, stale,
+conflicting, or unavailable evidence produces a held verdict. No ARB result carries approval,
+mutation, execution, or promotion authority.
+
 ## Autonomous review levels
 
 Autonomy applies to review work before it applies to changes. A machine-ready result is not the
@@ -120,10 +128,11 @@ Planned-change freshness binds the persisted ontology manifest and one matching 
 | Gap | Required correction |
 |-----|---------------------|
 | Workflow parallel branches journal caller-supplied outcomes | Drive branches from agent-owned typed evidence and record explicit deadlines |
-| ARB projection reads manifest status directly | Derive `ReviewCase` and `ReviewCheck` from decision lineage and verified evidence |
-| `OperationalEvidenceBundle` and scenario branches are not composed into ARB | Bind them before Forseti creates the review `DecisionCase` |
 | Operating intent instances are not proven end to end | Project service, recovery, cost, ownership, constraint, and change-window instances with freshness |
-| No ARB pantheon integration test exists | Prove duplicate, reorder, restart, deadline, degradation, and replay behavior across owned topics |
+
+The completed observation-mode slices now bind the evidence bundle and scenario before Forseti
+creates its case, derive `ReviewCase` and `ReviewCheck` from that lineage, and retain the duplicate,
+reorder, restart, deadline, degradation, replay, and no-mutation trace described above.
 
 ## Related docs
 

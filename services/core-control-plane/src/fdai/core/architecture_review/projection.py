@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
 
 from fdai.shared.providers.ontology_instance import (
@@ -12,6 +13,8 @@ from fdai.shared.providers.ontology_instance import (
     OntologyObjectRecord,
 )
 from fdai.shared.providers.process_runtime import ProcessEvent, ProcessEventKind, ProcessSnapshot
+
+from .observation_loop import ArchitectureReviewObservation
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,6 +59,197 @@ class ArchitectureReviewProjector:
         await self._project_bindings(review, review_id)
         if event is not None:
             await self._project_transition(review, review_id, event)
+
+    async def project_observation(
+        self,
+        observation: ArchitectureReviewObservation,
+        *,
+        process_id: str | None = None,
+    ) -> None:
+        """Project only authoritative observation lineage into ARB read models.
+
+        The manifest remains a design profile. Review checks created here are
+        reconciled against the current evidence bundle and never grant authority.
+        """
+
+        review_id = f"arb-review:{observation.change_id}"
+        recorded_at = (
+            observation.context.recorded_at
+            if observation.context is not None
+            else datetime.fromtimestamp(0, tz=UTC)
+        )
+        await self.store.upsert_object(
+            OntologyObjectRecord(
+                id=review_id,
+                object_type="ReviewCase",
+                properties={
+                    "id": review_id,
+                    "title": "Observation-mode architecture review",
+                    "review_kind": "architecture",
+                    "status": observation.recommendation,
+                    "design_status": "conditional",
+                    "production_status": "blocked",
+                    "scope_ref": observation.target_ref,
+                    "workflow_ref": "architecture-review",
+                    "opened_at": recorded_at.isoformat(),
+                    "updated_at": recorded_at.isoformat(),
+                },
+            )
+        )
+        if process_id is not None:
+            await _link(self.store, "runs_review", process_id, review_id)
+        target = await self.store.get_object(observation.target_ref)
+        if target is not None and target.object_type == "Resource":
+            await _link(self.store, "scoped_to", review_id, observation.target_ref)
+
+        current_checks: set[str] = set()
+        if observation.context is not None and observation.evidence is not None:
+            bundle = observation.evidence.bundle
+            for entry in bundle.citation_manifest:
+                check_id = _check_id(review_id, "evidence", entry.evidence_ref)
+                current_checks.add(check_id)
+                expired = any(
+                    "expired" in reason
+                    for reason in (*bundle.evidence_issues, *bundle.hold_reasons)
+                )
+                status = "expired" if expired else ("blocked" if bundle.hold_required else "ready")
+                await self._upsert_lineage_check(
+                    review_id=review_id,
+                    check_id=check_id,
+                    check_key=entry.evidence_ref,
+                    status=status,
+                    updated_at=recorded_at,
+                )
+                artifact_id = f"evidence:{entry.evidence_ref}"
+                await self.store.upsert_object(
+                    OntologyObjectRecord(
+                        id=artifact_id,
+                        object_type="EvidenceArtifact",
+                        properties={
+                            "id": artifact_id,
+                            "kind": entry.lane.value,
+                            "uri": f"evidence://{entry.evidence_ref}",
+                            "sha256": entry.item_digest,
+                            "status": status,
+                            "classification": "internal",
+                            "captured_at": entry.cutoff,
+                        },
+                    )
+                )
+                await _link(self.store, "supported_by", check_id, artifact_id)
+
+            if observation.decision_case is not None:
+                case = observation.decision_case
+                await self.store.upsert_object(
+                    OntologyObjectRecord(
+                        id=case.case_id,
+                        object_type="DecisionCase",
+                        properties={
+                            "id": case.case_id,
+                            "target_ref": observation.target_ref,
+                            "evidence_cutoff": bundle.cutoff,
+                            "context_digest": case.context_snapshot_id,
+                            "no_action_baseline": {
+                                "objective_ids": list(case.protected_objective_ids),
+                                "observation_only": True,
+                            },
+                            "uncertainty": 1.0 if bundle.hold_required else 0.0,
+                            "status": observation.recommendation,
+                            "created_at": case.created_at,
+                        },
+                    )
+                )
+                decision_id = f"{review_id}:decision:{case.case_id[:32]}"
+                await self.store.upsert_object(
+                    OntologyObjectRecord(
+                        id=decision_id,
+                        object_type="Decision",
+                        properties={
+                            "id": decision_id,
+                            "outcome": observation.recommendation,
+                            "rationale": (
+                                "; ".join(observation.reasons) or "observation evidence accepted"
+                            ),
+                            "recorded_at": recorded_at,
+                        },
+                    )
+                )
+                await _link(self.store, "resolved_by", review_id, decision_id)
+
+            if observation.impact_envelope is not None:
+                envelope = observation.impact_envelope
+                properties = envelope.to_ontology_object().properties
+                await self.store.upsert_object(
+                    OntologyObjectRecord(
+                        id=envelope.envelope_id,
+                        object_type="ImpactEnvelope",
+                        properties={
+                            key: properties[key]
+                            for key in (
+                                "id",
+                                "decision_case_id",
+                                "graph_revision",
+                                "target_set_digest",
+                                "affected_set_digest",
+                                "max_affected_resources",
+                                "max_dependency_depth",
+                                "max_duration_seconds",
+                                "objective_bounds",
+                                "required_signals",
+                                "forbidden_signals",
+                                "telemetry_requirements",
+                                "uncertainty",
+                                "expires_at",
+                            )
+                        },
+                    )
+                )
+
+        existing = await self.store.query_objects(object_types=("ReviewCheck",), limit=1000)
+        for check in existing.objects:
+            if (
+                check.id.startswith(f"{review_id}:check:evidence:")
+                and check.id not in current_checks
+            ):
+                await self.store.upsert_object(
+                    OntologyObjectRecord(
+                        id=check.id,
+                        object_type="ReviewCheck",
+                        properties={
+                            **dict(check.properties),
+                            "status": "removed",
+                            "updated_at": recorded_at,
+                        },
+                        revision=check.revision,
+                    )
+                )
+
+    async def _upsert_lineage_check(
+        self,
+        *,
+        review_id: str,
+        check_id: str,
+        check_key: str,
+        status: str,
+        updated_at: datetime,
+    ) -> None:
+        await self.store.upsert_object(
+            OntologyObjectRecord(
+                id=check_id,
+                object_type="ReviewCheck",
+                properties={
+                    "id": check_id,
+                    "check_key": check_key,
+                    "category": "evidence",
+                    "status": status,
+                    "severity": "high",
+                    "required": True,
+                    "description": "Authoritative ARB evidence bundle item",
+                    "updated_at": updated_at,
+                },
+            )
+        )
+        await _link(self.store, "contains_check", review_id, check_id)
 
     async def _project_transition(
         self,

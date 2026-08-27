@@ -149,6 +149,7 @@ _FORSETI = AgentSpec(
     executes=(),
     initiates=(),
     subscribes=(
+        "object.change",
         "object.event",
         "object.anomaly",
         "object.drift",

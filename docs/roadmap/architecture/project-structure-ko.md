@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 9c75851a8bf4365b0e84ca0915dff0ab71cd446b
+translation_source_sha: 8ccf820e7736ff2331e46a2d6fbbc7b63ab2cd1f
 translation_revised: 2026-08-27
 ---
 # 프로젝트 구조
@@ -25,6 +25,12 @@ translation_revised: 2026-08-27
   `delivery/`를 가져오기하지 않으며 provider 동작은 shared Protocol과 composition으로 진입합니다.
   집중 sibling 모듈은 canonical identity 투영과 hashing을 소유할 수 있으며 기존 소유 모듈은
   해당 공개 표면을 다시 내보냅니다. 이 분리는 직렬화 바이트와 replay 의미를 보존해야 합니다.
+- **관찰 모드 ARB 구성**: `core/architecture_review/observation_loop.py`는 프로바이더 중립적인
+  Change -> 인증된 컨텍스트 -> 근거 묶음 -> 시나리오 -> DecisionCase 및 ImpactEnvelope 구성을
+  담당합니다. Forseti만 기존 형식화된 버스에 관찰 판정을 게시하고 Saga가 감사하며,
+  `ArchitectureReviewProjector.project_observation`이 읽기 전용 ReviewCase 및 ReviewCheck
+  객체를 파생합니다. 이 경로에는 승인, 변경, 승격 또는 실행 권한이 없으며 중복 및 재시작에
+  안전한 재현을 위해 주입된 상태 저장소를 사용합니다.
   Pantheon member는 `agents/` 바로 아래의 flat layout을 유지합니다. Private behavior-extraction
   mixin은 `agents/_framework/`에 두며 member의 AgentSpec, topic, ownership, model policy 또는
   authority를 바꿀 수 없습니다.
