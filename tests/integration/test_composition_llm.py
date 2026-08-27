@@ -1237,7 +1237,7 @@ async def test_wire_azure_container_missing_council_prompt_preserves_legacy_abst
     assert isinstance(finalized.distiller, AbstainingDistiller)
 
 
-async def test_wire_azure_container_missing_semantic_judgment_prompt_fails_closed(
+async def test_wire_azure_container_missing_semantic_judgment_prompt_stays_unavailable(
     tmp_path: Path,
 ) -> None:
     from fdai.composition import AzureWireOverrides, wire_azure_container
@@ -1250,19 +1250,20 @@ async def test_wire_azure_container_missing_semantic_judgment_prompt_fails_close
     resolved.write_text(_resolved_models_json(), encoding="utf-8")
     container = default_container(_config(mode=LlmMode.AZURE, resolved_path=str(resolved)))
 
-    with pytest.raises(LookupError, match="semantic.judgment"):
-        await wire_azure_container(
-            container,
-            http_client=httpx.AsyncClient(
-                transport=httpx.MockTransport(lambda _request: httpx.Response(200))
-            ),
-            identity=_StaticIdentity(),
-            overrides=AzureWireOverrides(
-                endpoint="https://legacy.example.com",
-                catalog_root=catalog,
-                operator_memory_store=InMemoryOperatorMemoryStore(),
-            ),
-        )
+    finalized = await wire_azure_container(
+        container,
+        http_client=httpx.AsyncClient(
+            transport=httpx.MockTransport(lambda _request: httpx.Response(200))
+        ),
+        identity=_StaticIdentity(),
+        overrides=AzureWireOverrides(
+            endpoint="https://legacy.example.com",
+            catalog_root=catalog,
+            operator_memory_store=InMemoryOperatorMemoryStore(),
+        ),
+    )
+
+    assert finalized.require_llm_bindings().conversation_semantic_judgment_factory is None
 
 
 async def test_wire_azure_container_partial_council_without_prompt_fails_closed(

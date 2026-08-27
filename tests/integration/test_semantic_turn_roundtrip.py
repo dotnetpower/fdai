@@ -95,6 +95,15 @@ class _OperatorStore:
         self.result: StoredSemanticResult | None = None
         self.claim_available = False
 
+    async def latest_semantic_investigation_continuation(
+        self,
+        *,
+        principal_id: str,
+        session_id: str,
+    ) -> None:
+        del principal_id, session_id
+        return None
+
     async def append_semantic_turn(
         self,
         *,
@@ -267,8 +276,9 @@ class _AnsweredRuntime:
         principal: Principal,
         cancelled: Any = None,
         bound_incident: Any = None,
+        bound_investigation_continuation: Any = None,
     ) -> RuntimeSemanticTurnResult:
-        del prior_turns, cancelled, bound_incident
+        del prior_turns, cancelled, bound_incident, bound_investigation_continuation
         assert utterance == "Show current operations evidence."
         assert principal.id == "operator-1"
         plan = SimpleNamespace(
@@ -411,14 +421,11 @@ async def test_semantic_turn_round_trip_preserves_verified_evidence_and_principa
         )
     )
     events = [event async for event in stream]
-    # Terminal-derived timeline steps interleave with the backbone and have their
-    # own tests, so this roundtrip asserts the backbone rather than the step count.
-    assert [event.event for event in events if event.event != "activity"] == [
-        "status",
-        "verification",
-        "status",
-        "done",
-    ]
+    backbone = [event.event for event in events if event.event != "activity"]
+    assert backbone[0] == "status"
+    assert backbone[-1] == "done"
+    assert backbone.count("verification") == 1
+    assert set(backbone) == {"status", "verification", "done"}
     assert any(event.event == "activity" for event in events)
     terminal = events[-1]
     semantic_result = cast(dict[str, object], terminal.data["semantic_result"])

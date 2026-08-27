@@ -21,7 +21,7 @@ RUN /usr/local/go/bin/go mod download "github.com/open-policy-agent/opa@${OPA_VE
     && test "$(/usr/local/go/bin/go version -m /go/bin/opa | awk '$2 == "oras.land/oras-go/v2" {print $3}')" = "${OPA_ORAS_VERSION}" \
     && /go/bin/opa version
 
-FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:9fdbf2e3e82628351513560b121e2ee6ce31cac212be9e070c5a5e2769fb5e76 AS builder
+FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:540c7d91f98ff6880174c40e99067bf5941eb54d818a7a5e094d188b196a934d AS builder
 
 ENV UV_LINK_MODE=copy \
     UV_COMPILE_BYTECODE=1 \
@@ -56,11 +56,17 @@ RUN uv build --wheel --package fdai-service-contracts --out-dir /wheels \
     && test -x /app/.venv/bin/fdai-core-control-plane \
     && test "$(head -n 1 /app/.venv/bin/fdai-core-control-plane)" = "#!/app/.venv/bin/python"
 
-FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:9fdbf2e3e82628351513560b121e2ee6ce31cac212be9e070c5a5e2769fb5e76 AS runtime
+FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:540c7d91f98ff6880174c40e99067bf5941eb54d818a7a5e094d188b196a934d AS runtime
 
+ARG OPENSSL_LIBS_VERSION=3.5.8-r0
 ARG SQLITE_LIBS_VERSION=3.53.4-r0
-RUN apk add --no-cache --repository https://dl-cdn.alpinelinux.org/alpine/edge/main \
-    "sqlite-libs=${SQLITE_LIBS_VERSION}"
+RUN apk add --no-cache --upgrade \
+        "libcrypto3=${OPENSSL_LIBS_VERSION}" \
+        "libssl3=${OPENSSL_LIBS_VERSION}" \
+    && apk add --no-cache --repository https://dl-cdn.alpinelinux.org/alpine/edge/main \
+        "sqlite-libs=${SQLITE_LIBS_VERSION}" \
+    && rm -rf /usr/local/lib/python3.13/site-packages/pip \
+        /usr/local/lib/python3.13/site-packages/pip-*.dist-info
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \

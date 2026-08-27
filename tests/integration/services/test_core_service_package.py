@@ -73,6 +73,7 @@ EXPECTED_RUNTIME_MODULES = {
     "providers.py",
     "read_investigation_runtime.py",
     "readiness.py",
+    "resource_event_providers.py",
     "rule_generation_documents.py",
     "rule_profile.py",
     "t2_recovery.py",

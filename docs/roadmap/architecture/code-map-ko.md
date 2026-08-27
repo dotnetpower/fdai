@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 5b3e5f062ff1b6ad60dcb75f8f244aa65b5dda28
+translation_source_sha: 581b808266fc78258ba1f3db888354e1e23d4141
 translation_revised: 2026-08-27
 ---
 # 코드 맵
@@ -183,6 +183,9 @@ shadow 테스트가 두 경계를 고정합니다.
 따라서 Operator semantic bridge, ingestion publisher, 문서 worker consumer 및 isolated Executor는
 배포된 managed-identity adapter와 동일한 logical topic, 멱등성, 준비 상태 및 증적 경계를
 보존합니다.
+서비스 소유 회귀 테스트는 요청, 최종 변환 결과, 진행 상황의 세 가지 의미 토픽을 모두 고정하고,
+영속 요청과 일치하지 않는 최종 변환 결과를 범위가 제한된 횟수만큼 재시도한 뒤 격리하며, 새 서비스
+테스트가 매니페스트 소유자 하나에만 속하는지 확인합니다.
 
 ## Shared 계약 SDK
 

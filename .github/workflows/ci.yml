@@ -582,6 +582,29 @@ jobs:
       - name: Run alembic upgrade head
         run: uv run alembic upgrade head
 
+      - name: Run service-owned migrations
+        run: |
+          set -euo pipefail
+          evidence_dir="${RUNNER_TEMP}/service-migration-adoption"
+          mkdir -p "$evidence_dir"
+          migration_order="$(
+            PYTHONPATH=service-migrations \
+              uv run python service-migrations/migrate.py all order
+          )
+          mapfile -t migration_services <<< "$migration_order"
+          [[ "${#migration_services[@]}" -eq 5 ]] || {
+            echo "service migration order must contain all five services" >&2
+            exit 1
+          }
+          for service in "${migration_services[@]}"; do
+            PYTHONPATH=service-migrations \
+              "service-migrations/bin/${service}" bootstrap \
+                --evidence-output "${evidence_dir}/${service}.json" \
+                --schema-output "${evidence_dir}/${service}-schema.json" \
+                --rollback-reference \
+                  "git:${GITHUB_SHA}:service-migrations/branches/${service}/adoption.json#rollback"
+          done
+
       - name: Install OPA (Rego runner)
         run: |
           set -euo pipefail

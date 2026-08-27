@@ -183,6 +183,8 @@ Local composition binds service-owned client lifecycles and loopback adapters in
 The Operator semantic bridge, ingestion publisher, document worker consumer, and isolated Executor
 therefore preserve the same logical topics, idempotency, readiness, and receipt boundaries as their
 deployed managed-identity adapters.
+Service-owned regressions pin all three semantic topics, quarantine unmatched terminal projections
+after bounded retry, and require every new service test to have exactly one manifest owner.
 
 ## Shared contract SDK
 

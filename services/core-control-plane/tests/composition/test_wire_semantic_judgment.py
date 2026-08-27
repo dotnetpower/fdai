@@ -23,18 +23,11 @@ class _Identity:
 def _proposal(
     *,
     conversation_act: str,
-    evidence_need: str,
     primary_intent: str,
-    capability_ref: str | None = None,
-    external_query: str | None = None,
     action_subject: str = "none",
 ) -> dict[str, object]:
     action_draft = conversation_act == "action_draft_request"
     return {
-        "conversation_act": conversation_act,
-        "evidence_need": evidence_need,
-        "capability_ref": capability_ref,
-        "external_query": external_query,
         "primary_intent": primary_intent,
         "secondary_intents": [],
         "targets": [],
@@ -57,7 +50,6 @@ _CASES = (
         "Hello",
         _proposal(
             conversation_act="direct_social",
-            evidence_need="none",
             primary_intent="greeting",
         ),
     ),
@@ -65,7 +57,6 @@ _CASES = (
         "안뇽",
         _proposal(
             conversation_act="direct_social",
-            evidence_need="none",
             primary_intent="greeting",
         ),
     ),
@@ -73,47 +64,34 @@ _CASES = (
         "What is the weather in Seoul now?",
         _proposal(
             conversation_act="information_request",
-            evidence_need="external",
             primary_intent="external.current_information",
-            capability_ref="external.current_weather",
-            external_query="current weather in Seoul",
         ),
     ),
     (
         "지금 서울 날씨가 어때?",
         _proposal(
             conversation_act="information_request",
-            evidence_need="external",
             primary_intent="external.current_information",
-            capability_ref="external.current_weather",
-            external_query="current weather in Seoul",
         ),
     ),
     (
         "Search the public web for the current Azure service status.",
         _proposal(
             conversation_act="information_request",
-            evidence_need="external",
             primary_intent="external.public_information",
-            capability_ref="external.public_web",
-            external_query="current Azure service status",
         ),
     ),
     (
         "공개 웹에서 현재 Azure 서비스 상태를 찾아줘.",
         _proposal(
             conversation_act="information_request",
-            evidence_need="external",
             primary_intent="external.public_information",
-            capability_ref="external.public_web",
-            external_query="current Azure service status",
         ),
     ),
     (
         "Hi, show the current resource status.",
         _proposal(
             conversation_act="information_request",
-            evidence_need="operational",
             primary_intent="resource.status",
         ),
     ),
@@ -121,7 +99,6 @@ _CASES = (
         "The runbook says 'draft a rollback'; what does that sentence mean?",
         _proposal(
             conversation_act="information_request",
-            evidence_need="screen",
             primary_intent="explain_text",
         ),
     ),
@@ -129,7 +106,6 @@ _CASES = (
         "If someone drafted a rollback, which approval would it need?",
         _proposal(
             conversation_act="information_request",
-            evidence_need="operational",
             primary_intent="approval.requirements",
         ),
     ),
@@ -137,7 +113,6 @@ _CASES = (
         "Draft a review-only rollback proposal.",
         _proposal(
             conversation_act="action_draft_request",
-            evidence_need="operational",
             primary_intent="action_request",
             action_subject="Change",
         ),
@@ -146,7 +121,6 @@ _CASES = (
         "검토 전용 롤백 제안을 작성해 줘.",
         _proposal(
             conversation_act="action_draft_request",
-            evidence_need="operational",
             primary_intent="action_request",
             action_subject="Change",
         ),
@@ -155,10 +129,7 @@ _CASES = (
         "Search the web for guidance, but do not send private resource identifiers.",
         _proposal(
             conversation_act="information_request",
-            evidence_need="external",
             primary_intent="external.public_information",
-            capability_ref="external.public_web",
-            external_query="public cloud operations guidance",
         ),
     ),
 )
@@ -225,15 +196,11 @@ async def test_production_factory_replays_typed_routes_without_local_text_routin
 
     assert result.accepted is True
     assert result.proposal is not None
-    assert result.proposal.conversation_act.value == proposal["conversation_act"]
-    assert result.proposal.evidence_need.value == proposal["evidence_need"]
-    expected_calls = 2 if proposal["conversation_act"] == "action_draft_request" else 1
-    assert len(requests) == expected_calls
+    assert result.proposal.primary_intent == proposal["primary_intent"]
+    assert result.proposal.action_posture == proposal["action_posture"]
+    assert len(requests) == 1
     for request in requests:
         body = json.loads(request.content)
         untrusted = json.loads(body["messages"][1]["content"])["untrusted_input"]
         assert untrusted["utterance"] == utterance
         assert untrusted["capabilities"][0]["kind"] == "information_source"
-    if proposal["evidence_need"] == "external":
-        assert result.proposal.capability_ref == proposal["capability_ref"]
-        assert result.proposal.external_query == proposal["external_query"]

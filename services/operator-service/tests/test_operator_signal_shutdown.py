@@ -11,6 +11,7 @@ import subprocess
 import sys
 import textwrap
 import time
+from pathlib import Path
 from types import FrameType, SimpleNamespace
 from typing import cast
 
@@ -131,9 +132,17 @@ def test_uvicorn_signal_drains_an_open_sse_connection_before_timeout() -> None:
         )
         """
     )
+    operator_src = Path(__file__).resolve().parents[1] / "src"
+    pythonpath = os.pathsep.join(
+        value for value in (str(operator_src), os.environ.get("PYTHONPATH", "")) if value
+    )
     process = subprocess.Popen(  # noqa: S603 - fixed interpreter and test-owned program
         [sys.executable, "-c", application],
-        env={**os.environ, "FDAI_TEST_PORT": str(port)},
+        env={
+            **os.environ,
+            "FDAI_TEST_PORT": str(port),
+            "PYTHONPATH": pythonpath,
+        },
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
