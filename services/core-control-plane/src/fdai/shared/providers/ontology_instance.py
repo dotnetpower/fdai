@@ -395,6 +395,13 @@ def _matches_property_type(value: Any, expected: PropertyType) -> bool:
 class OntologyInstanceStore(Protocol):
     """Persist and query the current typed ontology instance graph."""
 
+    async def create_object_if_absent(
+        self,
+        record: OntologyObjectRecord,
+    ) -> OntologyObjectRecord | None:
+        """Atomically create one object, returning ``None`` when its id exists."""
+        ...
+
     async def upsert_object(
         self,
         record: OntologyObjectRecord,

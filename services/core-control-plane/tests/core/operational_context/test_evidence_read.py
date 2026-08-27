@@ -2,20 +2,34 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import UTC, datetime
-from types import SimpleNamespace
 
 import pytest
+from fdai.core.ontology_platform.models import (
+    ObjectSelector,
+    ObjectSelectorKind,
+    ObjectSetDefinition,
+    ObjectSetMaterialization,
+)
+from fdai.core.ontology_platform.query_gateway import (
+    ObjectSetRedactionSummary,
+    SecuredObjectSetQueryReceipt,
+    SecuredObjectSetQueryResult,
+    _projected_result_digest,
+)
 from fdai.core.operational_context import (
+    AuthenticatedPrincipalContext,
     OperationalContextSnapshot,
     OperationalEvidenceMaterial,
     OperationalEvidenceReadRequest,
     OperationalEvidenceReadService,
 )
-from fdai.shared.contracts.models import Autonomy
+from fdai.shared.contracts.models import Autonomy, OntologyReleaseRef
+from fdai.shared.providers.ontology_instance import OntologyGraphSnapshot, OntologyObjectRecord
 
 NOW = datetime(2026, 8, 24, 1, tzinfo=UTC)
 RELEASE = "sha256:" + "a" * 64
 PRINCIPAL = "principal-example"
+PRINCIPAL_SCOPE = "sha256:" + "c" * 64
 
 
 def _request() -> OperationalEvidenceReadRequest:
@@ -25,7 +39,14 @@ def _request() -> OperationalEvidenceReadRequest:
         purpose="incident-review",
         scope=("resource-example",),
         cutoff=NOW,
+    )
+
+
+def _authenticated_context() -> AuthenticatedPrincipalContext:
+    return AuthenticatedPrincipalContext(
         principal_ref=PRINCIPAL,
+        principal_scope_digest=PRINCIPAL_SCOPE,
+        purpose="incident-review",
     )
 
 
@@ -55,21 +76,51 @@ def _context_snapshot() -> OperationalContextSnapshot:
     )
 
 
-def _secured_context() -> object:
-    return SimpleNamespace(
-        receipt=SimpleNamespace(
-            principal_ref=PRINCIPAL,
-            ontology_release=SimpleNamespace(digest=RELEASE),
-            projected_result_digest="sha256:" + "b" * 64,
+def _secured_context() -> SecuredObjectSetQueryResult:
+    definition = ObjectSetDefinition(
+        selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Resource"),
+        as_of=NOW,
+        purpose="incident-review",
+        limit=8,
+    )
+    materialization = ObjectSetMaterialization(
+        definition=definition,
+        graph=OntologyGraphSnapshot(
+            objects=(
+                OntologyObjectRecord(
+                    id="resource-example",
+                    object_type="Resource",
+                    properties={"id": "resource-example"},
+                ),
+            ),
+        ),
+        concrete_types=("Resource",),
+        truncated=False,
+    )
+    return SecuredObjectSetQueryResult(
+        materialization=materialization,
+        receipt=SecuredObjectSetQueryReceipt(
+            ontology_release=OntologyReleaseRef(digest=RELEASE),
+            projected_result_digest=_projected_result_digest(materialization),
             purpose="incident-review",
+            caller_role="reader",
+            principal_scope_digest=PRINCIPAL_SCOPE,
             observation_cutoff=NOW,
+            as_of_skew_seconds=0,
+            returned_object_count=1,
+            returned_link_count=0,
             complete=True,
             truncated=False,
-            truncation_reason=None,
-            execution_authority=False,
-        ),
-        materialization=SimpleNamespace(
-            graph=SimpleNamespace(objects=(), links=()),
+            redactions=ObjectSetRedactionSummary(
+                objects_with_redactions=0,
+                redacted_identity_count=0,
+                access_scope_count=0,
+                purpose_binding_count=0,
+                undeclared_property_count=0,
+                links_with_redactions=0,
+                redacted_link_property_count=0,
+                removed_link_count=0,
+            ),
         ),
     )
 
@@ -85,7 +136,6 @@ class _Source:
             purpose=request.purpose,
             scope=request.scope,
             cutoff=request.cutoff,
-            principal_ref=request.principal_ref,
         )
 
 
@@ -95,7 +145,7 @@ async def test_runtime_evidence_read_is_bounded_and_has_no_authority() -> None:
         clock=lambda: NOW,
         max_items=8,
         max_bytes=16_384,
-    ).read(_request())
+    ).read(_request(), authenticated_context=_authenticated_context())
 
     assert result.execution_authority is False
     assert result.mutation_authority is False
@@ -117,7 +167,7 @@ async def test_runtime_evidence_read_binds_receipt_verified_context_metadata() -
     result = await OperationalEvidenceReadService(
         source=source,
         clock=lambda: NOW,
-    ).read(_request())
+    ).read(_request(), authenticated_context=_authenticated_context())
 
     assert result.principal_ref == PRINCIPAL
     assert result.context_metadata is not None
@@ -135,4 +185,7 @@ async def test_runtime_evidence_read_rejects_source_identity_drift() -> None:
     )
 
     with pytest.raises(ValueError, match="source identity"):
-        await OperationalEvidenceReadService(source=source, clock=lambda: NOW).read(request)
+        await OperationalEvidenceReadService(source=source, clock=lambda: NOW).read(
+            request,
+            authenticated_context=_authenticated_context(),
+        )

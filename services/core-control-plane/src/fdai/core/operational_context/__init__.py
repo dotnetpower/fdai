@@ -40,6 +40,7 @@ from .operating_scope import (
     ResourceScopeCoverage,
     project_operating_scope,
 )
+from .principal_context import AuthenticatedPrincipalContext
 from .projector import OperatingModelProjectionResult, OperatingModelProjector
 
 __all__ = [
@@ -59,6 +60,7 @@ __all__ = [
     "OperationalContextEvidenceLink",
     "OperationalContextEvidencePath",
     "OperationalContextSnapshot",
+    "AuthenticatedPrincipalContext",
     "OperationalEvidenceBundle",
     "OperationalEvidenceMaterial",
     "OperationalEvidenceReadRequest",

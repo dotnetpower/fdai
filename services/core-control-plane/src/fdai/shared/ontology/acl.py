@@ -103,6 +103,17 @@ class ProjectionRequest:
 
     caller_role: CeilingRole
     declared_purposes: frozenset[str] = frozenset()
+    principal_scope_digest: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.principal_scope_digest is not None and (
+            len(self.principal_scope_digest) != 71
+            or not self.principal_scope_digest.startswith("sha256:")
+            or any(
+                character not in "0123456789abcdef" for character in self.principal_scope_digest[7:]
+            )
+        ):
+            raise ValueError("projection principal scope MUST be a SHA-256 digest")
 
 
 class OntologyProjectionError(ValueError):

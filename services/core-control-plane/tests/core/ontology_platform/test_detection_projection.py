@@ -1,21 +1,31 @@
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Callable
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
-from typing import cast
+from typing import Literal, cast
 from uuid import UUID, uuid4
 
 import pytest
+from fdai.core.case_history import OperationalOutcomeClass
 from fdai.core.detection.forecast_episode import (
     ForecastEpisode,
+    ForecastEpisodeState,
     ForecastEvaluationKind,
 )
 from fdai.core.ontology_platform.detection_projection import (
     DetectionOntologyProjector,
+    ProducerAttestation,
+    _record_digest,
     forecast_object_record,
     pattern_object_record,
 )
-from fdai.core.operational_learning.patterns import OperatingPatternCandidate
+from fdai.core.operational_learning.patterns import (
+    OperatingPatternCandidate,
+    OperatingPatternCompiler,
+    PatternCase,
+)
 from fdai.shared.providers.ontology_instance import (
     OntologyInstanceStore,
     OntologyObjectRecord,
@@ -31,6 +41,16 @@ class _Store:
         self.records: dict[str, OntologyObjectRecord] = {}
         self.writes = 0
 
+    async def create_object_if_absent(
+        self,
+        record: OntologyObjectRecord,
+    ) -> OntologyObjectRecord | None:
+        if record.id in self.records:
+            return None
+        self.writes += 1
+        self.records[record.id] = record
+        return record
+
     async def get_object(self, object_id: str) -> OntologyObjectRecord | None:
         return self.records.get(object_id)
 
@@ -44,6 +64,11 @@ class _Store:
         self.writes += 1
         self.records[record.id] = record
         return record
+
+
+class _Authenticator:
+    def verify(self, *, agent: str, credential_ref: str, content_digest: str) -> bool:
+        return credential_ref == f"credential:{agent}" and bool(content_digest)
 
 
 def _episode(
@@ -74,17 +99,49 @@ def _episode(
 
 
 def _candidate() -> OperatingPatternCandidate:
-    return OperatingPatternCandidate(
-        pattern_id=FINGERPRINT,
-        failure_fingerprint=FINGERPRINT,
-        resource_type="compute.vm",
-        action_type="restart",
-        sample_size=2,
-        reusable_count=1,
-        negative_count=1,
-        outcome_counts=(("failure", 1), ("success", 1)),
-        immutable_case_refs=("case-history:one:1:" + "c" * 64, "case-history:two:1:" + "d" * 64),
-        digest_evidence=(FINGERPRINT,),
+    candidate = OperatingPatternCompiler().compile(_cases())
+    assert candidate is not None
+    return candidate
+
+
+def _attestation(
+    record: OntologyObjectRecord,
+    *,
+    agent: Literal["Heimdall", "Norns"],
+) -> ProducerAttestation:
+    return ProducerAttestation(
+        agent=agent,
+        credential_ref=f"credential:{agent}",
+        content_digest=_record_digest(record),
+    )
+
+
+def _cases() -> tuple[PatternCase, PatternCase]:
+    return (
+        PatternCase(
+            case_id="case-one",
+            revision=1,
+            manifest_digest="c" * 64,
+            failure_fingerprint=FINGERPRINT,
+            resource_type="compute.vm",
+            action_type="restart",
+            outcome_class=OperationalOutcomeClass.SUCCESS,
+            reusable=True,
+            negative=False,
+            digest_evidence=(FINGERPRINT,),
+        ),
+        PatternCase(
+            case_id="case-two",
+            revision=1,
+            manifest_digest="d" * 64,
+            failure_fingerprint=FINGERPRINT,
+            resource_type="compute.vm",
+            action_type="restart",
+            outcome_class=OperationalOutcomeClass.ROLLBACK,
+            reusable=False,
+            negative=True,
+            digest_evidence=(FINGERPRINT,),
+        ),
     )
 
 
@@ -101,17 +158,120 @@ def test_forecast_and_pattern_records_match_catalog_shapes() -> None:
 
 async def test_projector_persists_each_record_once_and_replays_idempotently() -> None:
     store = _Store()
-    projector = DetectionOntologyProjector(cast(OntologyInstanceStore, store))
+    projector = DetectionOntologyProjector(
+        cast(OntologyInstanceStore, store),
+        authenticator=_Authenticator(),
+    )
+    episode = _episode()
+    record = forecast_object_record(episode, confidence=0.9, issued_at=NOW)
+    attestation = _attestation(record, agent="Heimdall")
 
-    first = await projector.project_forecast(_episode(), confidence=0.9, issued_at=NOW)
+    first = await projector.project_forecast(
+        episode,
+        confidence=0.9,
+        issued_at=NOW,
+        attestation=attestation,
+    )
     second = await projector.project_forecast(
         _episode_from(first),
         confidence=0.9,
         issued_at=NOW,
+        attestation=attestation,
     )
 
     assert first == second
     assert store.writes == 1
+    assert isinstance(store.records[first.id].properties["feature_cutoff"], str)
+
+
+async def test_projector_concurrent_delivery_uses_atomic_create() -> None:
+    store = _Store()
+    projector = DetectionOntologyProjector(
+        cast(OntologyInstanceStore, store),
+        authenticator=_Authenticator(),
+    )
+    episode = _episode()
+    attestation = _attestation(
+        forecast_object_record(episode, confidence=0.9, issued_at=NOW),
+        agent="Heimdall",
+    )
+
+    results = await asyncio.gather(
+        *(
+            projector.project_forecast(
+                episode,
+                confidence=0.9,
+                issued_at=NOW,
+                attestation=attestation,
+            )
+            for _ in range(8)
+        )
+    )
+
+    assert len({item.id for item in results}) == 1
+    assert store.writes == 1
+
+
+async def test_projector_requires_authenticated_owner_and_revalidates_pattern_cohort() -> None:
+    store = _Store()
+    projector = DetectionOntologyProjector(
+        cast(OntologyInstanceStore, store),
+        authenticator=_Authenticator(),
+    )
+    candidate = _candidate()
+    pattern = pattern_object_record(candidate, compiled_at=NOW)
+
+    stored = await projector.project_pattern(
+        candidate,
+        compiled_at=NOW,
+        cases=_cases(),
+        attestation=_attestation(pattern, agent="Norns"),
+    )
+
+    assert stored.object_type == "Pattern"
+    with pytest.raises(ValueError, match="producer MUST be Norns"):
+        await projector.project_pattern(
+            candidate,
+            compiled_at=NOW,
+            cases=_cases(),
+            attestation=_attestation(pattern, agent="Heimdall"),
+        )
+    with pytest.raises(ValueError, match="balanced sealed cohort"):
+        await projector.project_pattern(
+            candidate,
+            compiled_at=NOW,
+            cases=(_cases()[0],),
+            attestation=_attestation(pattern, agent="Norns"),
+        )
+
+
+async def test_forecast_requires_open_episode_and_verified_heimdall_attestation() -> None:
+    store = _Store()
+    projector = DetectionOntologyProjector(
+        cast(OntologyInstanceStore, store),
+        authenticator=_Authenticator(),
+    )
+    closed = replace(_episode(), state=ForecastEpisodeState.CLOSED)
+    record = forecast_object_record(_episode(), confidence=0.9, issued_at=NOW)
+    with pytest.raises(ValueError, match="open Forecast"):
+        await projector.project_forecast(
+            closed,
+            confidence=0.9,
+            issued_at=NOW,
+            attestation=_attestation(record, agent="Heimdall"),
+        )
+    open_episode = _episode()
+    with pytest.raises(ValueError, match="attestation"):
+        await projector.project_forecast(
+            open_episode,
+            confidence=0.9,
+            issued_at=NOW,
+            attestation=ProducerAttestation(
+                agent="Heimdall",
+                credential_ref="credential:Heimdall",
+                content_digest="sha256:" + "e" * 64,
+            ),
+        )
 
 
 def _episode_from(record: OntologyObjectRecord) -> ForecastEpisode:

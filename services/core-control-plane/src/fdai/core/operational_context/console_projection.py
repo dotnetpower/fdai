@@ -6,11 +6,18 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Protocol
 
+from fdai.core.ontology_platform.query_gateway import (
+    SecuredObjectSetQueryResult,
+    _projected_result_digest,
+)
+from fdai.shared.providers.ontology_instance import canonical_json_mapping
+
 from .models import (
     OperationalContextEvidenceLink,
     OperationalContextEvidencePath,
     OperationalContextSnapshot,
 )
+from .principal_context import AuthenticatedPrincipalContext
 
 _MAX_CONTEXT_OBJECTS = 1_000
 _MAX_CONTEXT_LINKS = 8_000
@@ -21,7 +28,6 @@ class _ReleaseRef(Protocol):
 
 
 class _Receipt(Protocol):
-    principal_ref: str
     ontology_release: _ReleaseRef
     projected_result_digest: str
     purpose: str
@@ -30,6 +36,7 @@ class _Receipt(Protocol):
     truncated: bool
     truncation_reason: object | None
     execution_authority: bool
+    principal_scope_digest: str | None
 
 
 class _Object(Protocol):
@@ -60,48 +67,80 @@ def project_context_snapshot(
     *,
     snapshot: OperationalContextSnapshot,
     secured_result: SecuredContextResult,
-    expected_purpose: str,
-    expected_principal_ref: str,
+    authenticated_context: AuthenticatedPrincipalContext,
 ) -> dict[str, object]:
     """Return bounded Context metadata only after receipt and graph verification."""
 
-    if not expected_purpose.strip() or secured_result.receipt.purpose != expected_purpose:
+    if not isinstance(secured_result, SecuredObjectSetQueryResult):
+        raise ValueError("secured Context result MUST use the ObjectSet query receipt contract")
+    receipt = secured_result.receipt
+    if receipt.purpose != authenticated_context.purpose:
         raise ValueError("secured Context receipt purpose does not match the requested purpose")
-    if (
-        not expected_principal_ref.strip()
-        or secured_result.receipt.principal_ref != expected_principal_ref
-    ):
+    if receipt.principal_scope_digest != authenticated_context.principal_scope_digest:
         raise ValueError(
-            "secured Context receipt principal does not match the requesting principal"
+            "secured Context receipt principal scope does not match authenticated context"
         )
-    if secured_result.receipt.execution_authority is not False:
+    if receipt.execution_authority is not False:
         raise ValueError("secured Context receipt MUST NOT grant execution authority")
-    release_digest = secured_result.receipt.ontology_release.digest
+    if receipt.projected_result_digest != _projected_result_digest(secured_result.materialization):
+        raise ValueError("secured Context receipt digest does not match the materialization")
+    release_digest = receipt.ontology_release.digest
     catalog_versions = dict(snapshot.catalog_versions)
     if catalog_versions.get("ontology") != release_digest:
         raise ValueError("secured Context receipt release does not match snapshot release")
-    if _utc(snapshot.cutoff) != _utc(secured_result.receipt.observation_cutoff):
+    if _utc(snapshot.cutoff) != _utc(receipt.observation_cutoff):
         raise ValueError("secured Context receipt cutoff does not match snapshot cutoff")
-    if (
-        not secured_result.receipt.complete
-        or secured_result.receipt.truncated
-        or snapshot.stale_sources
-        or snapshot.conflicts
-    ):
+    if not receipt.complete or receipt.truncated or snapshot.stale_sources or snapshot.conflicts:
         raise ValueError("secured Context evidence is unavailable")
 
     graph = secured_result.materialization.graph
     if len(graph.objects) > _MAX_CONTEXT_OBJECTS or len(graph.links) > _MAX_CONTEXT_LINKS:
         raise ValueError("secured Context result exceeds projection bounds")
-    object_ids = {item.id for item in graph.objects}
-    required_ids = {item.object_id for item in snapshot.evidence_paths}
+    object_by_id = {item.id: item for item in graph.objects}
+    if len(object_by_id) != len(graph.objects):
+        raise ValueError("secured Context result contains duplicate object identities")
+    required_paths = (*snapshot.evidence_paths, *snapshot.temporal_exclusions)
+    required_ids = {item.object_id for item in required_paths}
+    if snapshot.target_resource_id not in object_by_id:
+        raise ValueError("secured Context result does not provide the target Resource")
     required_ids.update(item.object_id for item in snapshot.temporal_exclusions)
-    if not required_ids <= object_ids:
+    if not required_ids <= set(object_by_id):
         raise ValueError("secured Context result does not provide complete object coverage")
+    target = object_by_id[snapshot.target_resource_id]
+    if target.object_type != "Resource":
+        raise ValueError("secured Context target object type does not match Resource")
+    for path in required_paths:
+        object_record = object_by_id[path.object_id]
+        if object_record.object_type != path.object_type or object_record.revision != path.revision:
+            raise ValueError(
+                "secured Context result object type or revision does not match its path"
+            )
+        canonical_json_mapping(
+            object_record.properties,
+            path=f"{object_record.object_type}.properties",
+        )
+        for name, expected in (
+            ("effective_from", path.effective_from),
+            ("effective_to", path.effective_to),
+        ):
+            actual = object_record.properties.get(name)
+            if expected is None and actual is not None:
+                raise ValueError("secured Context result temporal identity does not match its path")
+            if expected is not None and actual != _timestamp(expected):
+                raise ValueError("secured Context result temporal identity does not match its path")
     graph_links = {(item.from_id, item.link_type, item.to_id) for item in graph.links}
+    if len(graph_links) != len(graph.links):
+        raise ValueError("secured Context result contains duplicate link identities")
+    if any(
+        link.from_id not in object_by_id or link.to_id not in object_by_id for link in graph.links
+    ):
+        raise ValueError("secured Context result link endpoint identity is incomplete")
     required_links = {
         (item.from_id, item.link_type, item.to_id) for item in snapshot.evidence_links
     }
+    required_links.update(
+        (item.from_id, item.link_type, item.to_id) for path in required_paths for item in path.links
+    )
     if not required_links <= graph_links:
         raise ValueError("secured Context result does not provide complete link coverage")
 
@@ -114,16 +153,16 @@ def project_context_snapshot(
     return {
         "schema_version": "1.0.0",
         "snapshot_id": snapshot.snapshot_id,
-        "principal_ref": expected_principal_ref,
+        "principal_ref": authenticated_context.principal_ref,
         "ontology_release_digest": release_digest,
         "query_result_digest": secured_result.receipt.projected_result_digest,
-        "purpose": secured_result.receipt.purpose,
+        "purpose": receipt.purpose,
         "cutoff": _timestamp(snapshot.cutoff),
         "recorded_at": _timestamp(snapshot.recorded_at),
         "complete": complete,
-        "query_complete": secured_result.receipt.complete,
-        "truncated": secured_result.receipt.truncated,
-        "truncation_reason": _enum_value(secured_result.receipt.truncation_reason),
+        "query_complete": receipt.complete,
+        "truncated": receipt.truncated,
+        "truncation_reason": _enum_value(receipt.truncation_reason),
         "autonomy_ceiling": snapshot.autonomy_ceiling.value,
         "object_count": len(graph.objects),
         "link_count": len(graph.links),

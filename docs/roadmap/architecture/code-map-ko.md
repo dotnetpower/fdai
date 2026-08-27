@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 9fb6849cefa9e6939e109e5672bcdb27e738cdd4
+translation_source_sha: e3ce7c10435358edd2e239122480be97aedf8d49
 translation_revised: 2026-08-27
 ---
 # 코드 맵
@@ -101,6 +101,8 @@ Detection 변환 결과도 원본에서 파생된 Forecast 및 Pattern 객체만
 권한을 선택하지 않고 충돌을 제외합니다.
 서로 다른 provider 입력은 비교 전에 비어 있지 않은 provider 신원을 요구합니다.
 Forecast 및 Pattern 원본 변환 결과는 기존 instance-store sink를 사용해 멱등적으로 저장합니다.
+인증된 Context 읽기와 detection 변환 결과는 의미 근거를 반환하거나 저장하기 전에
+canonical receipt, 신원 및 producer 검사를 강제합니다.
 
 Bounded ARM compute overlay는 검토된 parent 및 attachment mapping을 통해 VMSS VM과 NIC child
 collection을 소유합니다. Console instance presentation은 role assignment를 생략하고 선택한

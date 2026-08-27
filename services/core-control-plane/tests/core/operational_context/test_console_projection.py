@@ -1,10 +1,23 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from datetime import UTC, datetime
-from types import SimpleNamespace
 
 import pytest
+from fdai.core.ontology_platform.models import (
+    ObjectSelector,
+    ObjectSelectorKind,
+    ObjectSetDefinition,
+    ObjectSetMaterialization,
+    ObjectSetTruncationReason,
+)
+from fdai.core.ontology_platform.query_gateway import (
+    ObjectSetRedactionSummary,
+    SecuredObjectSetQueryReceipt,
+    SecuredObjectSetQueryResult,
+    _projected_result_digest,
+)
+from fdai.core.operational_context import AuthenticatedPrincipalContext
 from fdai.core.operational_context.console_projection import project_context_snapshot
 from fdai.core.operational_context.models import (
     OperationalContextEvidenceLink,
@@ -12,24 +25,17 @@ from fdai.core.operational_context.models import (
     OperationalContextSnapshot,
     SourceFreshness,
 )
-from fdai.shared.contracts.models import Autonomy
+from fdai.shared.contracts.models import Autonomy, OntologyReleaseRef
+from fdai.shared.providers.ontology_instance import (
+    OntologyGraphSnapshot,
+    OntologyLinkRecord,
+    OntologyObjectRecord,
+)
 
 CUTOFF = datetime(2026, 8, 14, 0, 0, tzinfo=UTC)
 DIGEST = "sha256:" + "a" * 64
-RESULT_DIGEST = "sha256:" + "b" * 64
 PRINCIPAL = "principal-example"
-
-
-@dataclass(frozen=True)
-class _Object:
-    id: str
-
-
-@dataclass(frozen=True)
-class _Link:
-    link_type: str
-    from_id: str
-    to_id: str
+PRINCIPAL_SCOPE = "sha256:" + "c" * 64
 
 
 def _snapshot() -> OperationalContextSnapshot:
@@ -86,42 +92,89 @@ def _snapshot() -> OperationalContextSnapshot:
 
 def _secured_result(
     *,
-    principal_ref: str = PRINCIPAL,
-    purpose: str = "operator_context",
+    principal_scope_digest: str | None = PRINCIPAL_SCOPE,
     release_digest: str = DIGEST,
     cutoff: datetime = CUTOFF,
     complete: bool = True,
     truncated: bool = False,
     object_ids: tuple[str, ...] = ("resource-example", "workload-example"),
-) -> object:
-    receipt = SimpleNamespace(
-        principal_ref=principal_ref,
-        ontology_release=SimpleNamespace(digest=release_digest),
-        projected_result_digest=RESULT_DIGEST,
-        purpose=purpose,
-        observation_cutoff=cutoff,
-        complete=complete,
+) -> SecuredObjectSetQueryResult:
+    definition = ObjectSetDefinition(
+        selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Resource"),
+        as_of=cutoff,
+        purpose="operator_context",
+        limit=100,
+    )
+    objects = tuple(
+        OntologyObjectRecord(
+            id=item,
+            object_type="Workload" if item == "workload-example" else "Resource",
+            properties={"id": item},
+            revision=2 if item == "resource-example" else 1,
+        )
+        for item in object_ids
+    )
+    links = (
+        OntologyLinkRecord(
+            link_type="workload_runs_on",
+            from_id="workload-example",
+            to_id="resource-example",
+        ),
+    )
+    materialization = ObjectSetMaterialization(
+        definition=definition,
+        graph=OntologyGraphSnapshot(
+            objects=objects,
+            links=links,
+            truncated=truncated,
+        ),
+        concrete_types=("Resource", "Workload"),
         truncated=truncated,
-        truncation_reason="result_limit" if truncated else None,
-        execution_authority=False,
+        truncation_reason=ObjectSetTruncationReason.RESULT_LIMIT if truncated else None,
     )
-    graph = SimpleNamespace(
-        objects=tuple(_Object(item) for item in object_ids),
-        links=(_Link("workload_runs_on", "workload-example", "resource-example"),),
+    return SecuredObjectSetQueryResult(
+        materialization=materialization,
+        receipt=SecuredObjectSetQueryReceipt(
+            ontology_release=OntologyReleaseRef(digest=release_digest),
+            projected_result_digest=_projected_result_digest(materialization),
+            purpose="operator_context",
+            caller_role="reader",
+            principal_scope_digest=principal_scope_digest,
+            observation_cutoff=cutoff,
+            as_of_skew_seconds=0,
+            returned_object_count=len(objects),
+            returned_link_count=len(links),
+            complete=complete and not truncated,
+            truncated=truncated,
+            truncation_reason=ObjectSetTruncationReason.RESULT_LIMIT if truncated else None,
+            redactions=ObjectSetRedactionSummary(
+                objects_with_redactions=0,
+                redacted_identity_count=0,
+                access_scope_count=0,
+                purpose_binding_count=0,
+                undeclared_property_count=0,
+                links_with_redactions=0,
+                redacted_link_property_count=0,
+                removed_link_count=0,
+            ),
+        ),
     )
-    return SimpleNamespace(receipt=receipt, materialization=SimpleNamespace(graph=graph))
 
 
 def test_projects_bounded_context_from_matching_secured_receipt() -> None:
+    secured_result = _secured_result()
     projection = project_context_snapshot(
         snapshot=_snapshot(),
-        secured_result=_secured_result(),
-        expected_purpose="operator_context",
-        expected_principal_ref=PRINCIPAL,
+        secured_result=secured_result,
+        authenticated_context=AuthenticatedPrincipalContext(
+            principal_ref=PRINCIPAL,
+            principal_scope_digest=PRINCIPAL_SCOPE,
+            purpose="operator_context",
+        ),
     )
 
     assert projection["ontology_release_digest"] == DIGEST
-    assert projection["query_result_digest"] == RESULT_DIGEST
+    assert projection["query_result_digest"] == secured_result.receipt.projected_result_digest
     assert projection["complete"] is True
     assert projection["mutation_authority"] is False
     assert projection["execution_authority"] is False
@@ -134,8 +187,7 @@ def test_projects_bounded_context_from_matching_secured_receipt() -> None:
 @pytest.mark.parametrize(
     ("secured_result", "message"),
     (
-        (_secured_result(principal_ref="other-principal"), "principal"),
-        (_secured_result(purpose="other"), "purpose"),
+        (_secured_result(principal_scope_digest="sha256:" + "d" * 64), "principal"),
         (_secured_result(release_digest="sha256:" + "c" * 64), "release"),
         (_secured_result(cutoff=datetime(2026, 8, 14, 0, 1, tzinfo=UTC)), "cutoff"),
         (_secured_result(object_ids=("resource-example",)), "object coverage"),
@@ -148,8 +200,11 @@ def test_rejects_receipt_or_coverage_mismatch(secured_result: object, message: s
         project_context_snapshot(
             snapshot=_snapshot(),
             secured_result=secured_result,
-            expected_purpose="operator_context",
-            expected_principal_ref=PRINCIPAL,
+            authenticated_context=AuthenticatedPrincipalContext(
+                principal_ref=PRINCIPAL,
+                principal_scope_digest=PRINCIPAL_SCOPE,
+                purpose="operator_context",
+            ),
         )
 
 
@@ -160,6 +215,76 @@ def test_rejects_stale_snapshot_context() -> None:
         project_context_snapshot(
             snapshot=stale,
             secured_result=_secured_result(),
-            expected_purpose="operator_context",
-            expected_principal_ref=PRINCIPAL,
+            authenticated_context=AuthenticatedPrincipalContext(
+                principal_ref=PRINCIPAL,
+                principal_scope_digest=PRINCIPAL_SCOPE,
+                purpose="operator_context",
+            ),
+        )
+
+
+def test_rejects_object_type_revision_and_temporal_path_forgery() -> None:
+    secured = _secured_result()
+    forged_object = replace(secured.materialization.graph.objects[1], object_type="Resource")
+    forged_graph = replace(
+        secured.materialization.graph,
+        objects=(secured.materialization.graph.objects[0], forged_object),
+    )
+    forged_materialization = secured.materialization.model_copy(update={"graph": forged_graph})
+    forged = secured.model_copy(
+        update={
+            "materialization": forged_materialization,
+            "receipt": secured.receipt.model_copy(
+                update={"projected_result_digest": _projected_result_digest(forged_materialization)}
+            ),
+        }
+    )
+    context = AuthenticatedPrincipalContext(
+        principal_ref=PRINCIPAL,
+        principal_scope_digest=PRINCIPAL_SCOPE,
+        purpose="operator_context",
+    )
+    with pytest.raises(ValueError, match="object type or revision"):
+        project_context_snapshot(
+            snapshot=_snapshot(),
+            secured_result=forged,
+            authenticated_context=context,
+        )
+
+    temporal_snapshot = replace(
+        _snapshot(),
+        evidence_paths=(
+            replace(
+                _snapshot().evidence_paths[0],
+                effective_from=datetime(2026, 8, 13, tzinfo=UTC),
+            ),
+            _snapshot().evidence_paths[1],
+        ),
+    )
+    with pytest.raises(ValueError, match="temporal identity"):
+        project_context_snapshot(
+            snapshot=temporal_snapshot,
+            secured_result=secured,
+            authenticated_context=context,
+        )
+
+
+def test_rejects_forged_receipt_digest() -> None:
+    secured = _secured_result()
+    forged = secured.model_copy(
+        update={
+            "receipt": secured.receipt.model_copy(
+                update={"projected_result_digest": "sha256:" + "d" * 64}
+            )
+        }
+    )
+    with pytest.raises(ValueError, match="receipt digest"):
+        project_context_snapshot(
+            snapshot=_snapshot(),
+            secured_result=forged,
+            authenticated_context=AuthenticatedPrincipalContext(
+                principal_ref=PRINCIPAL,
+                principal_scope_digest=PRINCIPAL_SCOPE,
+                purpose="operator_context",
+            ),
         )

@@ -89,8 +89,13 @@ def _request(
     *,
     role: CeilingRole = CeilingRole.READER,
     purposes: frozenset[str] = frozenset({"operations-review"}),
+    principal_scope_digest: str | None = None,
 ) -> ProjectionRequest:
-    return ProjectionRequest(caller_role=role, declared_purposes=purposes)
+    return ProjectionRequest(
+        caller_role=role,
+        declared_purposes=purposes,
+        principal_scope_digest=principal_scope_digest,
+    )
 
 
 async def _gateway_with_records(
@@ -137,6 +142,25 @@ async def _gateway_with_records(
 
 async def _async_bool(value: bool) -> bool:
     return value
+
+
+async def test_gateway_binds_authenticated_principal_scope_to_receipt() -> None:
+    object_type = _object_type()
+    gateway = await _gateway_with_records(
+        object_type,
+        OntologyObjectRecord(
+            id="resource-a",
+            object_type="Resource",
+            properties={"id": "resource-a"},
+        ),
+    )
+
+    result = await gateway.materialize(
+        _definition(),
+        projection_request=_request(principal_scope_digest="sha256:" + "a" * 64),
+    )
+
+    assert result.receipt.principal_scope_digest == "sha256:" + "a" * 64
 
 
 async def test_gateway_applies_role_redaction_to_every_returned_object() -> None:
