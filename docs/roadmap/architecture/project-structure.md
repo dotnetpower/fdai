@@ -59,7 +59,9 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   likewise compare existing result records and never become approval or execution paths. The same
   adapter reads existing mitigation, runbook, what-if, and typed Action results without owning them.
   SRE observations likewise read the existing grounded RCA result and do not turn a hypothesis into
-  authority. The sibling
+  authority. Alternative-cause observations accept only grounded RCA candidates, while impact
+  observations reuse deterministic `ChangeAssessment` and preserve incomplete or truncated state.
+  The sibling
   `quality_latency.py` module owns only the five-stage SLO contract and pure percentile reduction;
   Operator, channel, verification, and delivery owners retain timestamp and measurement authority.
   Stage owners provide monotonic start and completion values through a typed receipt; Core derives

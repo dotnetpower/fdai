@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 947126f0234690d0f6f83fb9508268b5079d11d2
+translation_source_sha: 08e0e92dcd8112cbf414789b2c81b339adb55c50
 translation_revised: 2026-08-28
 ---
 # 프로젝트 구조
@@ -56,7 +56,9 @@ translation_revised: 2026-08-28
   기록을 재사용합니다. HIL, 신원 분리 및 감사 재실행 관측도 기존 결과 기록을 비교하며 승인 또는
   실행 경로가 되지 않습니다. 같은 어댑터는 기존 수정, 런북, what-if 및 타입이 지정된 `Action`
   결과를 소유하지 않고 읽습니다.
-  SRE 관측도 기존의 근거 기반 RCA 결과를 읽으며 가설을 권한으로 바꾸지 않습니다.
+  SRE 관측도 기존의 근거 기반 RCA 결과를 읽으며 가설을 권한으로 바꾸지 않습니다. 대체 원인
+  관측은 근거가 있는 RCA 후보만 받고, 영향 관측은 결정론적 `ChangeAssessment`를 재사용하며
+  불완전하거나 잘린 상태를 보존합니다.
   인접한 `quality_latency.py` 모듈은 5단계 SLO 계약과 순수 백분위수 축약만 소유합니다. Operator,
   채널, 검증 및 전달 소유자는 타임스탬프와 측정 권한을 유지합니다.
   단계 소유자는 타입이 지정된 증적을 통해 monotonic 시작 및 완료 값을 제공합니다. Core는 증적

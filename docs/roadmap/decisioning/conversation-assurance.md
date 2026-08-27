@@ -336,8 +336,11 @@ it does not infer any non-functional dimension.
 
 The SRE adapter compares `RcaResult` with a predeclared outcome, cause digest, and optional causal
 timeline. It measures items 16 through 18 functional correctness and treats a matching grounded
-cause or an explicit expected abstention as correct. Items 19 and 20 remain unavailable because the
-RCA contract does not carry an alternative-cause set or blast-radius result.
+cause or an explicit expected abstention as correct. For item 19, the RCA owner supplies a bounded
+candidate hypothesis set and only grounded cause digests participate. For item 20, the impact owner
+supplies `ChangeAssessment`; the adapter compares hashed affected-resource sets and whether the
+assessment is complete. Ungrounded alternatives and truncated or incomplete impact never pass as
+complete evidence.
 
 ## Independent model review
 

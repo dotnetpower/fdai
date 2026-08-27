@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 94c2622f0b3b7b7b152708cd5a596bf261a778fb
+translation_source_sha: abe5c6f7493ccd1b60b3876b3c97613c1eeb321b
 translation_revised: 2026-08-28
 ---
 # 대화 품질 보증
@@ -328,8 +328,10 @@ truncation concealment는 qualification 축약기의 명시적 critical-safety �
 
 SRE adapter는 `RcaResult`를 사전 선언된 처리 결과, 원인 다이제스트 및 선택적 인과 타임라인과
 비교합니다. 항목 16부터 18의 기능 정확성을 측정하며, 일치하는 근거 기반 원인 또는 명시적으로
-예상한 판단 보류를 올바른 결과로 계산합니다. RCA 계약에는 대체 원인 집합이나 영향 범위 결과가
-없으므로 항목 19와 20은 계속 `unavailable`로 유지합니다.
+예상한 판단 보류를 올바른 결과로 계산합니다. 항목 19에서는 RCA 소유자가 범위가 제한된 후보
+가설 집합을 제공하고 근거가 있는 원인 다이제스트만 비교에 참여합니다. 항목 20에서는 영향 소유자가
+`ChangeAssessment`를 제공하며 adapter는 해시한 영향 리소스 집합과 평가 완전성을 비교합니다.
+근거가 없는 대체 원인과 잘리거나 불완전한 영향은 완전한 근거로 통과하지 못합니다.
 
 ## 독립 모델 평가
 

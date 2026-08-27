@@ -51,6 +51,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 | 2026-08-27 | in-progress | Extended the action-owner adapter with terminal HIL decisions, approver/executor identity separation, and audit replay action-kind comparison for items 28-30. | `current change`; focused action observation tests (`21 passed`). | Add items 21-24 and the non-functional dimensions under Issue #297. |
 | 2026-08-27 | in-progress | Extended the action-owner adapter with exact remediation, runbook, what-if rule-set, and typed Action comparisons for items 21-24. | `current change`; focused action and proposal observation tests (`24 passed`). | Add the non-functional dimensions under Issue #297. |
 | 2026-08-27 | in-progress | Added grounded RCA outcome, causal timeline, and cause-digest comparisons for items 16-18, including explicit safe abstention. | `current change`; focused SRE observation tests (`3 passed`). | Add alternative-cause and blast-radius owners plus non-functional dimensions under Issue #297. |
+| 2026-08-27 | in-progress | Added grounded alternative-cause set and deterministic impact resource-set comparisons for items 19-20. | `current change`; focused SRE and impact observation tests (`6 passed`). | Add the non-functional dimensions under Issue #297. |
 
 ### Remaining work
 
