@@ -20,6 +20,7 @@ from .evidence_bundle_models import (
     StateEvidenceItem,
 )
 from .models import OperationalContextSnapshot
+from .principal_context import AuthenticatedPrincipalContext
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,7 +32,6 @@ class OperationalEvidenceReadRequest:
     purpose: str
     scope: tuple[str, ...]
     cutoff: datetime
-    principal_ref: str
 
     def __post_init__(self) -> None:
         if not self.ontology_release_digest.startswith("sha256:"):
@@ -40,8 +40,6 @@ class OperationalEvidenceReadRequest:
             raise ValueError("evidence read catalog revision and purpose MUST be non-empty")
         if not self.scope or any(not item.strip() for item in self.scope):
             raise ValueError("evidence read scope MUST be non-empty")
-        if not self.principal_ref.strip():
-            raise ValueError("evidence read principal_ref MUST be non-empty")
         if self.cutoff.tzinfo is None or self.cutoff.utcoffset() is None:
             raise ValueError("evidence read cutoff MUST be timezone-aware")
 
@@ -55,7 +53,6 @@ class OperationalEvidenceMaterial:
     purpose: str
     scope: tuple[str, ...]
     cutoff: datetime
-    principal_ref: str
     claims: tuple[ClaimRecord, ...] = ()
     ontology: tuple[OntologyEvidenceItem, ...] = ()
     state: tuple[StateEvidenceItem, ...] = ()
@@ -105,9 +102,16 @@ class OperationalEvidenceReadService:
         self._max_bytes = max_bytes
         self._receipt_validator = receipt_validator
 
-    async def read(self, request: OperationalEvidenceReadRequest) -> OperationalEvidenceReadResult:
+    async def read(
+        self,
+        request: OperationalEvidenceReadRequest,
+        *,
+        authenticated_context: AuthenticatedPrincipalContext,
+    ) -> OperationalEvidenceReadResult:
         """Collect and rebuild one exact read; mismatched source identity fails closed."""
 
+        if request.purpose != authenticated_context.purpose:
+            raise ValueError("evidence read purpose does not match authenticated context")
         material = await self._source.collect(request)
         expected = (
             request.ontology_release_digest,
@@ -115,7 +119,6 @@ class OperationalEvidenceReadService:
             request.purpose,
             tuple(sorted(set(request.scope))),
             request.cutoff,
-            request.principal_ref,
         )
         actual = (
             material.ontology_release_digest,
@@ -123,7 +126,6 @@ class OperationalEvidenceReadService:
             material.purpose,
             tuple(sorted(set(material.scope))),
             material.cutoff,
-            material.principal_ref,
         )
         if actual != expected:
             raise ValueError("operational evidence source identity does not match the read request")
@@ -154,12 +156,11 @@ class OperationalEvidenceReadService:
             context_metadata = project_context_snapshot(
                 snapshot=material.context_snapshot,
                 secured_result=material.secured_context_result,
-                expected_purpose=request.purpose,
-                expected_principal_ref=request.principal_ref,
+                authenticated_context=authenticated_context,
             )
         return OperationalEvidenceReadResult(
             bundle=bundle,
-            principal_ref=request.principal_ref,
+            principal_ref=authenticated_context.principal_ref,
             context_metadata=context_metadata,
         )
 

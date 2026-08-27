@@ -8,6 +8,7 @@ from fdai.core.ontology_platform import (
     OntologyScenarioChangeSet,
 )
 from fdai.core.operational_context import (
+    AuthenticatedPrincipalContext,
     OperationalEvidenceMaterial,
     OperationalEvidenceReadRequest,
     OperationalEvidenceReadService,
@@ -29,6 +30,7 @@ from fdai.shared.providers.ontology_instance import (
 NOW = datetime(2026, 8, 24, tzinfo=UTC)
 RELEASE = "sha256:" + "a" * 64
 PRINCIPAL = "principal-example"
+PRINCIPAL_SCOPE = "sha256:" + "c" * 64
 
 
 class _EvidenceSource:
@@ -39,7 +41,6 @@ class _EvidenceSource:
             purpose=request.purpose,
             scope=request.scope,
             cutoff=request.cutoff,
-            principal_ref=request.principal_ref,
         )
 
 
@@ -54,8 +55,12 @@ async def _bundle():
             purpose="scenario-review",
             scope=("resource-base",),
             cutoff=NOW,
+        ),
+        authenticated_context=AuthenticatedPrincipalContext(
             principal_ref=PRINCIPAL,
-        )
+            principal_scope_digest=PRINCIPAL_SCOPE,
+            purpose="scenario-review",
+        ),
     )
     return result.bundle
 

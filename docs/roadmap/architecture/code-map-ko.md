@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: b24ca1d3e408b59499f8a6201e9d4eeea3828491
+translation_source_sha: b787e2a0ba333bef75788fb1a6b890a1d57ae6df
 translation_revised: 2026-08-30
 ---
 # 코드 맵
@@ -115,6 +115,8 @@ Detection 변환 결과도 출처에서 파생된 Forecast 및 Pattern 객체만
 해당 영속화 메서드는 기존 온톨로지 인스턴스 저장소 경계에서 멱등성을 유지합니다.
 프로바이더 중립 관측 판정은 서로 다른 프로바이더가 동일하게 보고한 속성만 보존하고 승자를
 선택하지 않은 채 모든 경합 필드를 기록합니다.
+Context 읽기는 인증된 principal 범위 증적을 연결하고 Forecast 및 Pattern 생산자는 원자적
+영속화와 인증된 생산자 증명을 사용합니다.
 같은 변환은 독립적으로 검증된 `runtime_calls` edge를 양방향으로 보존하며 서비스 간 상호 호출을
 방향 충돌로 취급하지 않습니다.
 

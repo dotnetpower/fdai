@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 51ba5914c525ae43f34705ebbdb0b7a1230ffb38
+translation_source_sha: 514de5dbbae44a9009a629be7e6b25ba3a6d5035
 translation_revised: 2026-08-30
 ---
 # FDAI 온톨로지 안전 인프라
@@ -162,6 +162,7 @@ Console은 redaction, 호환성, 완전성 또는 권한을 계산하지 않습�
 | 2026-08-27 | implemented | 불완전한 결과 hold를 contextual resource plan에만 적용해 일반 bounded query가 명시적인 잘림 결과를 계속 반환하게 했습니다. | `current change`, contextual 및 non-contextual semantic runtime 검사 108개 통과, Ruff 및 strict mypy 통과 | 인증된 runtime 표시 근거는 별도로 보존합니다. |
 | 2026-08-27 | implemented | Operator 경계에서 서버가 해석한 화면 또는 리소스 그룹 선택 다이제스트를 semantic 요청 생성 전에 다시 계산합니다. 등록된 선택 신원이 일치하지 않으면 이제 서비스 간 전송 전에 실패합니다. | `current change`, 정확한 화면, 변조된 다이제스트 및 512개 id Operator 묶음 검사 3개 통과, Ruff 및 strict mypy 통과 | 인증된 runtime 전송 근거는 별도로 보존합니다. |
 | 2026-08-27 | implemented | Principal 범위 운영 근거 읽기를 증적으로 검증된 Context 메타데이터에 연결했습니다. 기존의 범위가 제한된 읽기 응답은 요청 principal을 보존하며 Context 근거가 일치하지 않거나 불완전하면 변경 또는 실행 권한 없이 차단합니다. | `current change`; 집중 운영 컨텍스트 및 시나리오 분기 검사 14개 통과. | 인증된 런타임 근거는 별도로 보존합니다. |
+| 2026-08-27 | implemented | 동일한 읽기 경로에 인증된 principal 범위 증적 결속, 다이제스트 검증, 정확한 객체 유형, 리비전, 시간, 경로 검사 및 정규 JSON 검증을 추가했습니다. 탐지 변환에는 원자적 생성, 생산자 증명, 활성 에피소드 및 봉인 집단 검증을 추가했습니다. | `current change`; 집중 Context, 게이트웨이, 탐지 및 저장소 검사. | 인증된 배포 증적과 프로덕션 조립 근거를 보존합니다. |
 | 2026-08-27 | implemented | 양의 Forecast 에피소드와 균형 잡힌 Pattern 후보를 위한 순수 권한 없는 변환 결과를 추가해 정확한 출처 신원과 변경 및 실행 권한 없음을 보존했습니다. | `current change`; `core/ontology_platform/detection_projection.py`; 집중 생산자 검사 11개 통과. | 정확한 목표 및 결과 엔드포인트 생산자가 생길 때까지 관계 복원은 계속 보류합니다. |
 | 2026-08-27 | implemented | 서로 다른 프로바이더 관측을 하나의 중립 리소스 신원에서 판정하는 경로를 추가했습니다. 일치하는 속성만 보존하고 경합 필드를 기록하며 승리 값을 선택하거나 권한을 높이지 않습니다. | `current change`; `observation_adjudication.py`; 집중 교차 프로바이더 검사. | 통제된 두 번째 프로바이더 런타임 근거는 별도로 보존합니다. |
 | 2026-08-27 | implemented | 출처에서 파생된 Forecast 및 Pattern 온톨로지 객체를 기존 인스턴스 저장소 경계에 멱등적으로 영속화하는 메서드를 추가했습니다. | `current change`; `detection_projection.py`; 집중 변환 검사 4개 통과. | 배포 근거를 주장하기 전에 프로덕션 조립에 연결합니다. |

@@ -109,6 +109,8 @@ relationships require exact endpoint identities before catalog restoration.
 Their persistence methods are idempotent over the existing ontology instance-store seam.
 Provider-neutral observation adjudication preserves only properties that distinct providers report
 identically and records every contested field without selecting a winner.
+Context reads bind authenticated principal-scoped receipts, while Forecast and Pattern producers
+use atomic persistence and authenticated producer attestations.
 The inventory ontology projector serializes graph replacement with its generation commit marker.
 Resource ObjectSet receipts preserve source generation and completeness independently from query
 truncation, including zero-result reads.

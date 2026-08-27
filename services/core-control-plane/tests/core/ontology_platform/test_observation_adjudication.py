@@ -32,12 +32,18 @@ def _claim(
     provider_ref: str | None = "provider-ref-1",
     offset_seconds: int = 0,
     type_id: str = "compute.vm",
+    target_id: str | None = "resource-1",
+    generation_id: str | None = "generation-1",
+    provider_identity_verified: bool = True,
 ) -> ObservedClaim:
     return ObservedClaim(
         type=type_id,
         properties=properties if properties is not None else {"status": "running"},
         provider_ref=provider_ref,
         observed_at=OBSERVED_AT + timedelta(seconds=offset_seconds),
+        target_id=target_id,
+        generation_id=generation_id,
+        provider_identity_verified=provider_identity_verified,
     )
 
 
@@ -206,6 +212,8 @@ def test_independent_providers_agree_without_increasing_authority() -> None:
 
     assert verdict.conflicts == ()
     assert verdict.agreed_properties == {"status": "running"}
+    assert verdict.target_id == "resource-1"
+    assert verdict.generation_id == "generation-1"
 
 
 def test_independent_provider_disagreement_withholds_only_contested_values() -> None:
@@ -232,15 +240,29 @@ def test_independent_provider_disagreement_withholds_only_contested_values() -> 
         ((_claim(provider_ref="provider-ref-1"),), "at least two"),
         (
             (_claim(provider_ref=None), _claim(provider_ref="provider-ref-2")),
-            "distinct provider",
+            "verified canonical providers",
         ),
         (
             (_claim(provider_ref=" "), _claim(provider_ref="provider-ref-2")),
-            "distinct provider",
+            "verified canonical providers",
         ),
         (
             (_claim(provider_ref="provider-ref-1"), _claim(provider_ref="provider-ref-1")),
-            "distinct provider",
+            "verified canonical providers",
+        ),
+        (
+            (
+                _claim(provider_ref="provider-ref-1", target_id="resource-1"),
+                _claim(provider_ref="provider-ref-2", target_id="resource-2"),
+            ),
+            "one target generation",
+        ),
+        (
+            (
+                _claim(provider_ref="provider-ref-1", provider_identity_verified=False),
+                _claim(provider_ref="provider-ref-2"),
+            ),
+            "verified canonical providers",
         ),
     ),
 )
