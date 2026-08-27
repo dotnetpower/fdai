@@ -43,7 +43,11 @@ def _context(
         target_resource_id=target,
         cutoff=NOW,
         recorded_at=NOW,
-        catalog_versions=(("catalog", "catalog-r1"), ("ontology", RELEASE)),
+        catalog_versions=(
+            ("catalog", "catalog-r1"),
+            ("generation", "generation-1"),
+            ("ontology", RELEASE),
+        ),
         service_ids=(),
         workload_ids=(),
         objective_ids=objectives,
@@ -102,10 +106,17 @@ class _ProjectionStore:
 
 
 class _EvidenceSource:
-    def __init__(self, *, delay: float = 0.0, backpressure: bool = False) -> None:
+    def __init__(
+        self,
+        *,
+        delay: float = 0.0,
+        backpressure: bool = False,
+        base_graph: OntologyGraphSnapshot | None = None,
+    ) -> None:
         self.calls = 0
         self.delay = delay
         self.backpressure = backpressure
+        self.base_graph = base_graph or OntologyGraphSnapshot(source_generation="generation-1")
         self.active = 0
         self.max_active = 0
 
@@ -126,7 +137,7 @@ class _EvidenceSource:
             bundle = await self._read_bundle(context)
             return ArchitectureReviewEvidence(
                 bundle=bundle,
-                base_graph=OntologyGraphSnapshot(),
+                base_graph=self.base_graph,
                 object_types=(),
                 link_types=(),
                 scenario_changes=OntologyScenarioChangeSet(),
@@ -179,6 +190,12 @@ def _change(number: str = "1") -> dict[str, object]:
         "correlation_id": f"correlation-{number}",
         "target_ref": "resource-example",
         "intent_kind": "planned",
+        "change_kind": "planned_change",
+        "source_kind": "git",
+        "actor_ref": "actor:example",
+        "status": "proposed",
+        "occurred_at": NOW,
+        "evidence_ref": "change-evidence:1",
     }
 
 
@@ -189,6 +206,24 @@ def _loop(source: _EvidenceSource, store: InMemoryArchitectureReviewStateStore |
         state_store=store,
         clock=lambda: NOW,
     )
+
+
+class _ProjectionSink:
+    def __init__(self) -> None:
+        self.calls = 0
+        self.fail = True
+
+    async def project_observation(
+        self,
+        observation: ArchitectureReviewObservation,
+        *,
+        process_id: str | None = None,
+    ) -> None:
+        del observation, process_id
+        self.calls += 1
+        if self.fail:
+            self.fail = False
+            raise RuntimeError("projection unavailable")
 
 
 async def test_observation_slice_composes_case_and_envelope_without_authority() -> None:
@@ -300,6 +335,59 @@ async def test_scenario_ids_remain_distinct_for_normalization_collisions() -> No
     assert first_result.scenario is not None
     assert second_result.scenario is not None
     assert first_result.scenario.branch_id != second_result.scenario.branch_id
+    assert len(first_result.scenario.branch_id) <= 64
+
+
+async def test_lock_wait_is_inside_absolute_deadline() -> None:
+    source = _EvidenceSource(delay=0.02)
+    loop = OntologyArchitectureReviewLoop(
+        context_source=_ContextSource(),
+        evidence_source=source,
+        deadline_seconds=0.005,
+    )
+    first_task = asyncio.create_task(loop.evaluate(_change()))
+    await asyncio.sleep(0)
+
+    timed_out = await loop.evaluate(_change())
+    await first_task
+
+    assert timed_out.recommendation == "hold"
+    assert "deadline_exceeded" in timed_out.reasons
+
+
+async def test_projection_failure_is_retried_for_stored_observation() -> None:
+    sink = _ProjectionSink()
+    store = InMemoryArchitectureReviewStateStore()
+    loop = OntologyArchitectureReviewLoop(
+        context_source=_ContextSource(),
+        evidence_source=_EvidenceSource(),
+        state_store=store,
+        observation_sink=sink,
+    )
+
+    first = await loop.evaluate(_change())
+    duplicate = await loop.evaluate(_change())
+
+    assert first.recommendation == "conformant_observation"
+    assert duplicate.replayed is True
+    assert sink.calls == 2
+    assert await store.get_projection_status(first.idempotency_key) == "projected"
+
+
+async def test_incomplete_base_graph_holds_before_envelope() -> None:
+    source = _EvidenceSource(
+        base_graph=OntologyGraphSnapshot(
+            truncated=True,
+            source_complete=False,
+            source_generation="generation-1",
+        )
+    )
+
+    result = await _loop(source).evaluate(_change())
+
+    assert result.recommendation == "hold"
+    assert "truncated or source-incomplete" in result.reasons[0]
+    assert result.impact_envelope is None
 
 
 async def test_forseti_publishes_one_typed_observation_verdict_and_saga_audits() -> None:
@@ -391,3 +479,28 @@ async def test_unavailable_reprojection_preserves_prior_evidence_checks() -> Non
     assert all(
         store.objects[check_id].properties["status"] == status for check_id, status in prior.items()
     )
+
+
+async def test_projection_preserves_huginn_change_authority() -> None:
+    result = await _loop(_EvidenceSource()).evaluate(_change())
+    store = _ProjectionStore()
+    store.objects[result.change_id] = OntologyObjectRecord(
+        id=result.change_id,
+        object_type="Change",
+        properties={
+            "id": result.change_id,
+            "change_kind": "authoritative-kind",
+            "source_kind": "huginn",
+            "intent_kind": "planned",
+            "target_ref": result.target_ref,
+            "actor_ref": "actor:huginn",
+            "status": "accepted",
+            "occurred_at": NOW,
+            "evidence_ref": "authoritative-evidence",
+        },
+    )
+
+    await ArchitectureReviewProjector(store, {}).project_observation(result)
+
+    assert store.objects[result.change_id].properties["source_kind"] == "huginn"
+    assert store.objects[result.change_id].properties["status"] == "accepted"

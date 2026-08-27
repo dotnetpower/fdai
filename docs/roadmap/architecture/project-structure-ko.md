@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: ef3d45454f8edb1857a0562f1593033fda15aead
+translation_source_sha: 947ca7c395b58be1622eed433bbf3bcc93345139
 translation_revised: 2026-08-27
 ---
 # 프로젝트 구조
@@ -33,6 +33,8 @@ translation_revised: 2026-08-27
   안전한 재현을 위해 주입된 상태 저장소를 사용합니다.
   루프는 계획된 의도만 수락하고 온톨로지 및 카탈로그 릴리스를 정확히 결속하며, 일시적인
   보류를 투영할 때 기존 점검을 삭제하지 않습니다.
+  적합한 envelope를 게시하기 전에 완전한 그래프 소스 generation을 검증하며, 영속화된 상태를
+  사용해 실패한 읽기 모델 projection을 재시도합니다.
   Pantheon member는 `agents/` 바로 아래의 flat layout을 유지합니다. Private behavior-extraction
   mixin은 `agents/_framework/`에 두며 member의 AgentSpec, topic, ownership, model policy 또는
   authority를 바꿀 수 없습니다.
