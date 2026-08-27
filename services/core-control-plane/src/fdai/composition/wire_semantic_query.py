@@ -7,6 +7,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import cast
 
 import httpx
 from fdai_service_contracts.ontology_query import QueryNodeKind, content_digest
@@ -71,6 +72,11 @@ from fdai.core.ontology_platform.kubernetes_pod_diagnosis_queries import (
     KUBERNETES_POD_DIAGNOSIS_FUNCTION_NAME,
     KubernetesPodLogEvidenceReader,
     kubernetes_pod_diagnosis_function,
+)
+from fdai.core.ontology_platform.kubernetes_pod_lifecycle_cohort_queries import (
+    KUBERNETES_POD_LIFECYCLE_COHORT_FUNCTION_NAME,
+    KubernetesPodLifecycleCohortReader,
+    kubernetes_pod_lifecycle_cohort_function,
 )
 from fdai.core.ontology_platform.kubernetes_pod_recovery_queries import (
     KUBERNETES_POD_RECOVERY_FUNCTION_NAME,
@@ -495,6 +501,19 @@ def build_semantic_query_runtime(
         ),
     )
     bound_function_names.add(pod_recovery_declaration.name)
+    cohort_read = getattr(resource_event_reader, "read_pod_lifecycle_cohort", None)
+    if callable(cohort_read):
+        cohort_declaration = declarations[KUBERNETES_POD_LIFECYCLE_COHORT_FUNCTION_NAME]
+        function_registry.register_contextual(
+            cohort_declaration,
+            kubernetes_pod_lifecycle_cohort_function(
+                ontology_release,
+                reader=cast(KubernetesPodLifecycleCohortReader, resource_event_reader),
+                receipt_verifier=receipt_authority,
+                verification_context=receipt_authority.verification_context,
+            ),
+        )
+        bound_function_names.add(cohort_declaration.name)
     if pod_log_evidence_reader is not None:
         pod_diagnosis_declaration = declarations[KUBERNETES_POD_DIAGNOSIS_FUNCTION_NAME]
         function_registry.register_contextual(

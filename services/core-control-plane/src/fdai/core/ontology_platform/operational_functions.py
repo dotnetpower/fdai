@@ -12,6 +12,9 @@ from .evidence_health_queries import ontology_evidence_health_function_type
 from .incident_queries import incident_evidence_function_type
 from .inventory_impact_queries import inventory_impact_function_type
 from .kubernetes_pod_diagnosis_queries import kubernetes_pod_diagnosis_function_type
+from .kubernetes_pod_lifecycle_cohort_queries import (
+    kubernetes_pod_lifecycle_cohort_function_type,
+)
 from .kubernetes_pod_recovery_queries import kubernetes_pod_recovery_function_type
 from .kubernetes_rollout_queries import kubernetes_rollout_function_type
 from .latency_recovery_evidence import latency_recovery_function_type
@@ -54,6 +57,7 @@ def operational_function_types(
         incident_evidence_function_type(),
         inventory_impact_function_type(),
         kubernetes_pod_diagnosis_function_type(),
+        kubernetes_pod_lifecycle_cohort_function_type(),
         kubernetes_pod_recovery_function_type(),
         kubernetes_rollout_function_type(),
         latency_recovery_function_type(),

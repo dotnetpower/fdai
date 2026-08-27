@@ -8,6 +8,7 @@ from typing import Protocol
 
 from fdai.core.ontology_platform.kubernetes_lifecycle_observation import (
     KubernetesLifecycleObservation,
+    KubernetesPodLifecycleIdentity,
 )
 from fdai.delivery.kubernetes_lifecycle_source import (
     MAX_KUBERNETES_LIFECYCLE_POLL_OBSERVATIONS,
@@ -47,6 +48,15 @@ class KubernetesLifecycleReadSnapshot:
     """Consistent cursor and retained-observation view from one database snapshot."""
 
     state: KubernetesLifecycleCursorState | None
+    observations: tuple[KubernetesLifecycleObservation, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class KubernetesPodLifecycleCohortSnapshot:
+    """Consistent collector state, Pod identities, and exact-UID lifecycle rows."""
+
+    state: KubernetesLifecycleCursorState | None
+    identities: tuple[KubernetesPodLifecycleIdentity, ...]
     observations: tuple[KubernetesLifecycleObservation, ...]
 
 
@@ -93,6 +103,23 @@ class KubernetesLifecycleStore(Protocol):
         namespace: str | None = None,
         owner_uid: str | None = None,
     ) -> KubernetesLifecycleReadSnapshot: ...
+
+    async def append_pod_identities(
+        self,
+        identities: tuple[KubernetesPodLifecycleIdentity, ...],
+    ) -> None: ...
+
+    async def read_pod_lifecycle_cohort(
+        self,
+        *,
+        cluster_ref: str,
+        namespace: str,
+        root_controller_uid: str,
+        start: datetime,
+        end: datetime,
+        identity_limit: int,
+        event_limit: int,
+    ) -> KubernetesPodLifecycleCohortSnapshot: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -158,6 +185,7 @@ __all__ = [
     "KubernetesLifecycleCollectionReceipt",
     "KubernetesLifecycleCursorState",
     "KubernetesLifecycleReadSnapshot",
+    "KubernetesPodLifecycleCohortSnapshot",
     "KubernetesLifecycleCursorConflictError",
     "KubernetesLifecycleStore",
     "collect_kubernetes_lifecycle_once",

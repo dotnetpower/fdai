@@ -6,6 +6,8 @@ import logging
 from dataclasses import replace
 from typing import Protocol
 
+import psycopg
+
 from fdai.delivery.inventory_relationship_verifier import verify_inventory_relationships
 from fdai.delivery.inventory_sync import (
     InventoryProjectionSourceState,
@@ -14,6 +16,10 @@ from fdai.delivery.inventory_sync import (
     PromotedInventoryObservation,
 )
 from fdai.delivery.kubernetes_api_inventory import KubernetesApiInventorySnapshot
+from fdai.delivery.kubernetes_pod_lifecycle_identity import (
+    KubernetesPodLifecycleIdentitySink,
+    pod_lifecycle_identities,
+)
 from fdai.delivery.kubernetes_relationships import project_kubernetes_relationships
 from fdai.rule_catalog.schema.provider_relationship_mapping import (
     ProviderRelationshipMappingCatalog,
@@ -79,9 +85,11 @@ class KubernetesInventoryEnricher:
         *,
         source: KubernetesRuntimeInventorySource,
         relationship_mapping_catalog: ProviderRelationshipMappingCatalog,
+        pod_lifecycle_identity_sink: KubernetesPodLifecycleIdentitySink | None = None,
     ) -> None:
         self._source = source
         self._relationship_mapping_catalog = relationship_mapping_catalog
+        self._pod_lifecycle_identity_sink = pod_lifecycle_identity_sink
 
     async def enrich(
         self,
@@ -107,6 +115,16 @@ class KubernetesInventoryEnricher:
         }
         if len(cluster_refs) != 1 or not cluster_refs <= cluster_ids:
             return _unavailable(observation, reason="cluster_identity_mismatch")
+        if self._pod_lifecycle_identity_sink is not None:
+            try:
+                await self._pod_lifecycle_identity_sink.append_pod_identities(
+                    pod_lifecycle_identities(snapshot)
+                )
+            except (OSError, RuntimeError, ValueError, psycopg.Error):
+                return _unavailable(
+                    observation,
+                    reason="kubernetes_pod_lifecycle_identity_unavailable",
+                )
 
         combined_resources = (*observation.resources, *snapshot.resources)
         projected = project_kubernetes_relationships(

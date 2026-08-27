@@ -11,6 +11,9 @@ from fdai.core.ontology_platform.resource_event_queries import (
     ResourceEventCollection,
     ResourceEventObservation,
 )
+from fdai.delivery.durable_kubernetes_pod_lifecycle_cohort import (
+    DurableKubernetesPodLifecycleCohortReader,
+)
 from fdai.delivery.kubernetes_lifecycle_collector import KubernetesLifecycleStore
 
 _MAX_EVENTS = 256
@@ -42,6 +45,11 @@ class DurableKubernetesResourceEventHistoryReader:
         if freshness_ceiling_seconds < 1:
             raise ValueError("durable Kubernetes freshness ceiling MUST be positive")
         self._freshness_ceiling_seconds = freshness_ceiling_seconds
+        self._pod_cohort_reader = DurableKubernetesPodLifecycleCohortReader(
+            store=store,
+            cluster_ref=cluster_ref,
+            freshness_ceiling_seconds=freshness_ceiling_seconds,
+        )
 
     async def read_history(
         self,
@@ -62,6 +70,27 @@ class DurableKubernetesResourceEventHistoryReader:
             resource_ids=resource_ids,
             resource_identity={},
             lookback_seconds=lookback_seconds,
+        )
+
+    async def read_pod_lifecycle_cohort(
+        self,
+        *,
+        current_pod_id: str,
+        current_pod_uid: str,
+        namespace: str,
+        root_controller_uid: str,
+        lookback_seconds: int,
+        observed_at: datetime,
+    ) -> Mapping[str, object]:
+        """Delegate replacement evidence to the typed controller-grounded reader."""
+
+        return await self._pod_cohort_reader.read_pod_lifecycle_cohort(
+            current_pod_id=current_pod_id,
+            current_pod_uid=current_pod_uid,
+            namespace=namespace,
+            root_controller_uid=root_controller_uid,
+            lookback_seconds=lookback_seconds,
+            observed_at=observed_at,
         )
 
     async def read_history_with_identity(
@@ -100,8 +129,6 @@ class DurableKubernetesResourceEventHistoryReader:
         identity = resource_identity.get(resource_ids[0], {})
         uid = identity.get("uid")
         cluster = identity.get("cluster_ref", self._cluster_ref)
-        namespace = identity.get("namespace")
-        owner_uid = identity.get("owner_uid")
         if not uid or cluster != self._cluster_ref:
             return _result(
                 resource_ids,
@@ -117,8 +144,6 @@ class DurableKubernetesResourceEventHistoryReader:
             start=observed_at - timedelta(seconds=lookback_seconds),
             end=observed_at,
             limit=_MAX_READ,
-            namespace=namespace,
-            owner_uid=owner_uid,
         )
         cursor_state = snapshot.state
         if cursor_state is None:
@@ -158,7 +183,7 @@ class DurableKubernetesResourceEventHistoryReader:
                 complete=False,
                 limitation="lifecycle_cursor_stale",
             )
-        observations = snapshot.observations
+        observations = tuple(item for item in snapshot.observations if item.object_uid == uid)
         truncated = len(observations) > _MAX_EVENTS
         bounded_observations = tuple(
             sorted(observations, key=lambda item: (item.event_time, item.evidence_ref))

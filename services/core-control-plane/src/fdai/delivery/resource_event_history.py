@@ -5,10 +5,11 @@ from __future__ import annotations
 import asyncio
 import hashlib
 from collections.abc import Callable, Mapping
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Final, cast
 
 from fdai.core.ontology_platform.resource_event_queries import (
+    KUBERNETES_EVENT_FAMILY,
     RESOURCE_EVENT_MEASURE_CONCEPTS,
     ResourceEventCollection,
     ResourceEventCollectionReader,
@@ -66,6 +67,40 @@ class CompositeResourceEventHistoryReader:
             event_families=event_families,
             lookback_seconds=lookback_seconds,
         )
+
+    async def read_pod_lifecycle_cohort(
+        self,
+        *,
+        current_pod_id: str,
+        current_pod_uid: str,
+        namespace: str,
+        root_controller_uid: str,
+        lookback_seconds: int,
+        observed_at: datetime,
+    ) -> Mapping[str, object]:
+        """Delegate the typed cohort read only to the Kubernetes family reader."""
+
+        reader = self._readers.get(KUBERNETES_EVENT_FAMILY)
+        cohort_read = getattr(reader, "read_pod_lifecycle_cohort", None)
+        if not callable(cohort_read):
+            return {
+                "complete": False,
+                "truncation_reason": "lifecycle_cohort_unavailable",
+                "window_start": (observed_at - timedelta(seconds=lookback_seconds)).isoformat(),
+                "rows": [],
+                "execution_authority": False,
+            }
+        result = await cohort_read(
+            current_pod_id=current_pod_id,
+            current_pod_uid=current_pod_uid,
+            namespace=namespace,
+            root_controller_uid=root_controller_uid,
+            lookback_seconds=lookback_seconds,
+            observed_at=observed_at,
+        )
+        if not isinstance(result, Mapping):
+            raise TypeError("Kubernetes Pod lifecycle cohort reader returned an invalid result")
+        return result
 
     async def _read_history(
         self,

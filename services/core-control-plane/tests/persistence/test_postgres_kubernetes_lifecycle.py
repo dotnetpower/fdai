@@ -8,13 +8,14 @@ import os
 import subprocess
 import sys
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
 from fdai.core.ontology_platform.kubernetes_lifecycle_observation import (
     KUBERNETES_LIFECYCLE_KILLING,
     KubernetesLifecycleObservation,
+    KubernetesPodLifecycleIdentity,
 )
 from fdai.delivery.kubernetes_lifecycle_collector import (
     KubernetesLifecycleAppendReceipt,
@@ -188,6 +189,64 @@ async def test_cursor_and_observations_persist_across_a_restart(tmp_path: Path) 
         config=PostgresKubernetesLifecycleStoreConfig(dsn=dsn)
     )
     assert await restarted.read_cursor(cluster_ref) == "150"
+
+
+@pytest.mark.integration
+async def test_controller_grounded_pod_cohort_persists_across_restart(tmp_path: Path) -> None:
+    dsn = _requires_live_db()
+    _upgrade_head(tmp_path)
+    cluster_ref = f"cluster-{uuid.uuid4().hex[:8]}"
+    store = PostgresKubernetesLifecycleStore(config=PostgresKubernetesLifecycleStoreConfig(dsn=dsn))
+    identities = tuple(
+        KubernetesPodLifecycleIdentity(
+            cluster_ref=cluster_ref,
+            namespace="default",
+            pod_id=f"pod/{suffix}",
+            pod_uid=f"pod-{suffix}",
+            controller_uid="replicaset-uid",
+            root_controller_uid="deployment-uid",
+            root_controller_kind="Deployment",
+            observed_at=_NOW - timedelta(minutes=10),
+            source_revision="sha256:" + "a" * 64,
+            evidence_ref=(
+                "kubernetes-pod-lifecycle:"
+                + hashlib.sha256(f"{cluster_ref}:{index}".encode()).hexdigest()
+            ),
+        )
+        for index, suffix in enumerate(("old", "new"), start=1)
+    )
+    await store.append_pod_identities(identities)
+    await store.append(
+        cluster_ref=cluster_ref,
+        previous_cursor=None,
+        next_cursor="150",
+        observations=(
+            _observation(
+                cluster_ref=cluster_ref,
+                object_uid="pod-old",
+                evidence_ref=(
+                    "kubernetes-lifecycle:"
+                    + hashlib.sha256(f"{cluster_ref}:event".encode()).hexdigest()
+                ),
+            ),
+        ),
+    )
+
+    restarted = PostgresKubernetesLifecycleStore(
+        config=PostgresKubernetesLifecycleStoreConfig(dsn=dsn)
+    )
+    cohort = await restarted.read_pod_lifecycle_cohort(
+        cluster_ref=cluster_ref,
+        namespace="default",
+        root_controller_uid="deployment-uid",
+        start=_NOW - timedelta(minutes=30),
+        end=_NOW + timedelta(seconds=1),
+        identity_limit=33,
+        event_limit=257,
+    )
+
+    assert tuple(item.pod_uid for item in cohort.identities) == ("pod-new", "pod-old")
+    assert tuple(item.object_uid for item in cohort.observations) == ("pod-old",)
 
 
 @pytest.mark.integration

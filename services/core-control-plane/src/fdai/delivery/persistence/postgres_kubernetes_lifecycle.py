@@ -15,12 +15,14 @@ from psycopg.types.json import Jsonb
 
 from fdai.core.ontology_platform.kubernetes_lifecycle_observation import (
     KubernetesLifecycleObservation,
+    KubernetesPodLifecycleIdentity,
 )
 from fdai.delivery.kubernetes_lifecycle_collector import (
     KubernetesLifecycleAppendReceipt,
     KubernetesLifecycleCursorConflictError,
     KubernetesLifecycleCursorState,
     KubernetesLifecycleReadSnapshot,
+    KubernetesPodLifecycleCohortSnapshot,
 )
 from fdai.delivery.kubernetes_lifecycle_source import (
     MAX_KUBERNETES_LIFECYCLE_POLL_OBSERVATIONS,
@@ -213,16 +215,12 @@ class PostgresKubernetesLifecycleStore:
                 "event_type, event_time, recorded_time, source_revision, record, evidence_ref "
                 "FROM kubernetes_lifecycle_observation "
                 "WHERE cluster_ref = %s "
-                "AND (object_uid = ANY(%s) OR "
-                "(%s IS NOT NULL AND namespace = %s AND owner_uid = %s)) "
+                "AND object_uid = ANY(%s) "
                 "AND event_time >= %s AND event_time <= %s "
                 "ORDER BY event_time, evidence_ref LIMIT %s",
                 (
                     cluster_ref,
                     list(object_uids),
-                    owner_uid,
-                    namespace,
-                    owner_uid,
                     start,
                     end,
                     limit,
@@ -258,16 +256,12 @@ class PostgresKubernetesLifecycleStore:
                 "event_type, event_time, recorded_time, source_revision, record, evidence_ref "
                 "FROM kubernetes_lifecycle_observation "
                 "WHERE cluster_ref = %s "
-                "AND (object_uid = ANY(%s) OR "
-                "(%s IS NOT NULL AND namespace = %s AND owner_uid = %s)) "
+                "AND object_uid = ANY(%s) "
                 "AND event_time >= %s AND event_time <= %s "
                 "ORDER BY event_time, evidence_ref LIMIT %s",
                 (
                     cluster_ref,
                     list(object_uids),
-                    owner_uid,
-                    namespace,
-                    owner_uid,
                     start,
                     end,
                     limit,
@@ -293,6 +287,131 @@ class PostgresKubernetesLifecycleStore:
         return KubernetesLifecycleReadSnapshot(
             state=state,
             observations=tuple(_observation_from_row(row) for row in rows),
+        )
+
+    async def append_pod_identities(
+        self,
+        identities: tuple[KubernetesPodLifecycleIdentity, ...],
+    ) -> None:
+        """Append immutable inventory-grounded Pod identities idempotently."""
+
+        if len(identities) > 20_000:
+            raise ValueError("Kubernetes Pod lifecycle identity append exceeds its bound")
+        if not identities:
+            return
+        cluster_refs = {item.cluster_ref for item in identities}
+        if len(cluster_refs) != 1:
+            raise ValueError("Kubernetes Pod lifecycle identity append mixed clusters")
+        async with await self._connect() as connection, connection.transaction():
+            await self._set_timeout(connection)
+            cluster_ref = next(iter(cluster_refs))
+            await self._lock_cluster(connection, cluster_ref)
+            for identity in identities:
+                inserted = await connection.execute(
+                    "INSERT INTO kubernetes_pod_lifecycle_identity ("
+                    "cluster_ref, namespace, pod_id, pod_uid, controller_uid, "
+                    "root_controller_uid, root_controller_kind, observed_at, "
+                    "source_revision, evidence_ref"
+                    ") VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
+                    "ON CONFLICT (cluster_ref, pod_uid) DO NOTHING "
+                    "RETURNING pod_uid",
+                    (
+                        identity.cluster_ref,
+                        identity.namespace,
+                        identity.pod_id,
+                        identity.pod_uid,
+                        identity.controller_uid,
+                        identity.root_controller_uid,
+                        identity.root_controller_kind,
+                        identity.observed_at,
+                        identity.source_revision,
+                        identity.evidence_ref,
+                    ),
+                )
+                if await inserted.fetchone() is not None:
+                    continue
+                existing = await connection.execute(
+                    "SELECT cluster_ref, namespace, pod_id, pod_uid, controller_uid, "
+                    "root_controller_uid, root_controller_kind "
+                    "FROM kubernetes_pod_lifecycle_identity "
+                    "WHERE cluster_ref = %s AND pod_uid = %s",
+                    (identity.cluster_ref, identity.pod_uid),
+                )
+                row = await existing.fetchone()
+                if row is None or (
+                    str(row["namespace"]),
+                    str(row["pod_id"]),
+                    str(row["controller_uid"]),
+                    str(row["root_controller_uid"]),
+                    str(row["root_controller_kind"]),
+                ) != (
+                    identity.namespace,
+                    identity.pod_id,
+                    identity.controller_uid,
+                    identity.root_controller_uid,
+                    identity.root_controller_kind,
+                ):
+                    raise ValueError(
+                        "Kubernetes Pod lifecycle identity conflicts with retained lineage"
+                    )
+
+    async def read_pod_lifecycle_cohort(
+        self,
+        *,
+        cluster_ref: str,
+        namespace: str,
+        root_controller_uid: str,
+        start: datetime,
+        end: datetime,
+        identity_limit: int,
+        event_limit: int,
+    ) -> KubernetesPodLifecycleCohortSnapshot:
+        """Read exact Pod identities and their events for one retained root controller."""
+
+        if not all(item.strip() for item in (cluster_ref, namespace, root_controller_uid)):
+            raise ValueError("Kubernetes Pod lifecycle cohort identity MUST be non-empty")
+        if start.tzinfo is None or end.tzinfo is None or start >= end:
+            raise ValueError("Kubernetes Pod lifecycle cohort interval MUST be aware and positive")
+        if not 1 <= identity_limit <= 33 or not 1 <= event_limit <= 257:
+            raise ValueError("Kubernetes Pod lifecycle cohort bounds are invalid")
+        async with await self._connect() as connection, connection.transaction():
+            await self._set_timeout(connection)
+            await self._lock_cluster(connection, cluster_ref)
+            state_cursor = await connection.execute(
+                "SELECT resource_version, updated_at, complete, limitation "
+                "FROM kubernetes_lifecycle_cursor WHERE cluster_ref = %s",
+                (cluster_ref,),
+            )
+            state_row = await state_cursor.fetchone()
+            identity_cursor = await connection.execute(
+                "SELECT cluster_ref, namespace, pod_id, pod_uid, controller_uid, "
+                "root_controller_uid, root_controller_kind, observed_at, "
+                "source_revision, evidence_ref "
+                "FROM kubernetes_pod_lifecycle_identity "
+                "WHERE cluster_ref = %s AND namespace = %s "
+                "AND root_controller_uid = %s AND observed_at <= %s "
+                "ORDER BY observed_at, pod_uid LIMIT %s",
+                (cluster_ref, namespace, root_controller_uid, end, identity_limit),
+            )
+            identity_rows = await identity_cursor.fetchall()
+            pod_uids = [str(row["pod_uid"]) for row in identity_rows]
+            observation_rows: list[dict[str, Any]] = []
+            if pod_uids:
+                observation_cursor = await connection.execute(
+                    "SELECT cluster_ref, namespace, object_uid, owner_uid, reason, category, "
+                    "event_type, event_time, recorded_time, source_revision, record, evidence_ref "
+                    "FROM kubernetes_lifecycle_observation "
+                    "WHERE cluster_ref = %s AND object_uid = ANY(%s) "
+                    "AND event_time >= %s AND event_time <= %s "
+                    "ORDER BY event_time, evidence_ref LIMIT %s",
+                    (cluster_ref, pod_uids, start, end, event_limit),
+                )
+                observation_rows = await observation_cursor.fetchall()
+        state = _cursor_state(state_row)
+        return KubernetesPodLifecycleCohortSnapshot(
+            state=state,
+            identities=tuple(_pod_identity_from_row(row) for row in identity_rows),
+            observations=tuple(_observation_from_row(row) for row in observation_rows),
         )
 
     async def _connect(self) -> psycopg.AsyncConnection[dict[str, Any]]:
@@ -360,6 +479,32 @@ def _observation_from_row(row: dict[str, Any]) -> KubernetesLifecycleObservation
         recorded_time=row["recorded_time"],
         source_revision=str(row["source_revision"]),
         evidence_ref=str(row["evidence_ref"]),
+    )
+
+
+def _pod_identity_from_row(row: dict[str, Any]) -> KubernetesPodLifecycleIdentity:
+    return KubernetesPodLifecycleIdentity(
+        cluster_ref=str(row["cluster_ref"]),
+        namespace=str(row["namespace"]),
+        pod_id=str(row["pod_id"]),
+        pod_uid=str(row["pod_uid"]),
+        controller_uid=str(row["controller_uid"]),
+        root_controller_uid=str(row["root_controller_uid"]),
+        root_controller_kind=str(row["root_controller_kind"]),
+        observed_at=row["observed_at"],
+        source_revision=str(row["source_revision"]),
+        evidence_ref=str(row["evidence_ref"]),
+    )
+
+
+def _cursor_state(row: dict[str, Any] | None) -> KubernetesLifecycleCursorState | None:
+    if row is None:
+        return None
+    return KubernetesLifecycleCursorState(
+        resource_version=None if row["resource_version"] is None else str(row["resource_version"]),
+        updated_at=row["updated_at"],
+        complete=bool(row["complete"]),
+        limitation=None if row["limitation"] is None else str(row["limitation"]),
     )
 
 

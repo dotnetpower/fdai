@@ -90,6 +90,39 @@ class KubernetesLifecycleObservation:
             raise ValueError("Kubernetes lifecycle observation times MUST be timezone-aware")
 
 
+@dataclass(frozen=True, slots=True)
+class KubernetesPodLifecycleIdentity:
+    """One immutable Pod-to-controller identity from a complete inventory snapshot."""
+
+    cluster_ref: str
+    namespace: str
+    pod_id: str
+    pod_uid: str
+    controller_uid: str
+    root_controller_uid: str
+    root_controller_kind: str
+    observed_at: datetime
+    source_revision: str
+    evidence_ref: str
+
+    def __post_init__(self) -> None:
+        for name, value, maximum in (
+            ("cluster_ref", self.cluster_ref, 512),
+            ("namespace", self.namespace, 253),
+            ("pod_id", self.pod_id, 1024),
+            ("pod_uid", self.pod_uid, 512),
+            ("controller_uid", self.controller_uid, 512),
+            ("root_controller_uid", self.root_controller_uid, 512),
+            ("root_controller_kind", self.root_controller_kind, 64),
+            ("source_revision", self.source_revision, 128),
+            ("evidence_ref", self.evidence_ref, 256),
+        ):
+            if not value.strip() or len(value) > maximum:
+                raise ValueError(f"Kubernetes Pod lifecycle {name} MUST be bounded and non-empty")
+        if self.observed_at.tzinfo is None:
+            raise ValueError("Kubernetes Pod lifecycle observed_at MUST be timezone-aware")
+
+
 __all__ = [
     "KUBERNETES_LIFECYCLE_BACKOFF",
     "KUBERNETES_LIFECYCLE_CATEGORIES",
@@ -102,5 +135,6 @@ __all__ = [
     "KUBERNETES_LIFECYCLE_SUCCESSFUL_CREATE",
     "KUBERNETES_LIFECYCLE_UNHEALTHY",
     "KubernetesLifecycleObservation",
+    "KubernetesPodLifecycleIdentity",
     "normalize_kubernetes_lifecycle_reason",
 ]

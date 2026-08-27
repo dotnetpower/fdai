@@ -9,6 +9,11 @@ from fdai.core.ontology_platform.functions import (
     FunctionInvocationContext,
     OntologyFunctionRegistry,
 )
+from fdai.core.ontology_platform.kubernetes_pod_lifecycle_cohort_queries import (
+    KUBERNETES_POD_LIFECYCLE_COHORT_FUNCTION_NAME,
+    kubernetes_pod_lifecycle_cohort_function,
+    kubernetes_pod_lifecycle_cohort_function_type,
+)
 from fdai.core.ontology_platform.kubernetes_pod_recovery_evidence import (
     KubernetesPodRecoveryEvidenceResult,
     KubernetesPodRecoveryStatus,
@@ -114,6 +119,7 @@ def _owner_results(
     deployment = _resource(
         _DEPLOYMENT_ID,
         "kubernetes.deployment",
+        uid="deployment-uid",
         desired_replicas=1,
         ready_replicas=1,
         available_replicas=1,
@@ -316,7 +322,7 @@ async def test_pod_recovery_function_accepts_only_issued_receipt() -> None:
             "controller_query_result": controller_result.model_dump(mode="json"),
             "deployment_query_result": deployment_result.model_dump(mode="json"),
             "restart_history": _restart_history(),
-            "lifecycle_events": {
+            "lifecycle_cohort": {
                 "rows": [],
                 "complete": False,
                 "truncation_reason": "lifecycle_cursor_stale",
@@ -327,6 +333,50 @@ async def test_pod_recovery_function_accepts_only_issued_receipt() -> None:
     assert isinstance(held, KubernetesPodRecoveryEvidenceResult)
     assert held.status is KubernetesPodRecoveryStatus.INSUFFICIENT_EVIDENCE
     assert held.recovery_verified is False
+
+    supported = await registry.invoke(
+        KUBERNETES_POD_RECOVERY_FUNCTION_NAME,
+        {
+            "pod_query_result": secured.model_dump(mode="json"),
+            "controller_query_result": controller_result.model_dump(mode="json"),
+            "deployment_query_result": deployment_result.model_dump(mode="json"),
+            "restart_history": _restart_history(),
+            "lifecycle_cohort": {
+                "rows": [
+                    {
+                        "row_id": "old-failure",
+                        "values": {
+                            "pod_id": "pod-old",
+                            "pod_uid": "pod-uid-old",
+                            "cluster_ref": "cluster-a",
+                            "namespace": "default",
+                            "object_uid": "pod-uid-old",
+                            "owner_uid": "rs-uid",
+                            "root_controller_uid": "deployment-uid",
+                            "root_controller_kind": "Deployment",
+                            "identity_observed_at": (_CUTOFF - timedelta(minutes=7)).isoformat(),
+                            "identity_source_revision": "sha256:" + "a" * 64,
+                            "identity_evidence_ref": "kubernetes-pod-lifecycle:" + "b" * 64,
+                            "reason": "Failed",
+                            "category": "failed",
+                            "event_type": "Warning",
+                            "event_time": (_CUTOFF - timedelta(minutes=6)).isoformat(),
+                            "recorded_time": (_CUTOFF - timedelta(minutes=5)).isoformat(),
+                            "source_revision": "100",
+                            "evidence_ref": "old-failure",
+                        },
+                    }
+                ],
+                "complete": True,
+                "truncation_reason": None,
+                "window_start": (_CUTOFF - timedelta(minutes=30)).isoformat(),
+            },
+        },
+        context=context,
+    )
+    assert isinstance(supported, KubernetesPodRecoveryEvidenceResult)
+    assert supported.complete is True
+    assert not any(gap.startswith("replacement_evidence_") for gap in supported.evidence_gaps)
 
     replacement_context = {
         "old_pod": {
@@ -387,15 +437,22 @@ async def test_pod_recovery_function_accepts_only_issued_receipt() -> None:
             "controller_query_result": controller_result.model_dump(mode="json"),
             "deployment_query_result": deployment_result.model_dump(mode="json"),
             "restart_history": _restart_history(),
-            "lifecycle_events": {
+            "lifecycle_cohort": {
                 "rows": [
                     {
                         "row_id": "lifecycle-1",
                         "values": {
+                            "pod_id": "pod-old",
+                            "pod_uid": "pod-uid-old",
                             "cluster_ref": "cluster-a",
                             "namespace": "default",
                             "object_uid": "pod-uid-old",
                             "owner_uid": "rs-uid",
+                            "root_controller_uid": "deployment-uid",
+                            "root_controller_kind": "Deployment",
+                            "identity_observed_at": (_CUTOFF - timedelta(minutes=7)).isoformat(),
+                            "identity_source_revision": "sha256:" + "a" * 64,
+                            "identity_evidence_ref": "kubernetes-pod-lifecycle:" + "b" * 64,
                             "event_kind": "Started",
                             "classification": "started",
                             "status": "Normal",
@@ -409,6 +466,7 @@ async def test_pod_recovery_function_accepts_only_issued_receipt() -> None:
                 ],
                 "complete": True,
                 "truncation_reason": None,
+                "window_start": (_CUTOFF - timedelta(minutes=30)).isoformat(),
             },
         },
         context=context,
@@ -438,3 +496,71 @@ async def test_pod_recovery_function_accepts_only_issued_receipt() -> None:
             },
             context=context,
         )
+
+
+async def test_pod_lifecycle_cohort_query_uses_secured_controller_lineage() -> None:
+    resource = _resource_type()
+    declaration = kubernetes_pod_lifecycle_cohort_function_type()
+    release = build_ontology_release(
+        object_types=(resource,),
+        function_types=(declaration,),
+    )
+    secured = _secured(release=release)
+    controller_result, deployment_result = _owner_results(release=release)
+    authority = SecuredQueryReceiptAuthority()
+    query_results = (secured, controller_result, deployment_result)
+    for query_result in query_results:
+        authority.issue(query_result)
+
+    class _Reader:
+        async def read_pod_lifecycle_cohort(self, **kwargs):  # type: ignore[no-untyped-def]
+            assert kwargs == {
+                "current_pod_id": _POD_ID,
+                "current_pod_uid": "pod-uid-new",
+                "namespace": "default",
+                "root_controller_uid": "deployment-uid",
+                "lookback_seconds": 1800,
+                "observed_at": _CUTOFF,
+            }
+            return {
+                "complete": True,
+                "truncation_reason": None,
+                "current_pod_uid": "pod-uid-new",
+                "root_controller_uid": "deployment-uid",
+                "window_start": (_CUTOFF - timedelta(minutes=30)).isoformat(),
+                "rows": [],
+                "attempt_ref": "cohort-attempt",
+                "execution_authority": False,
+            }
+
+    registry = OntologyFunctionRegistry(release=release)
+    registry.register_contextual(
+        declaration,
+        kubernetes_pod_lifecycle_cohort_function(
+            release,
+            reader=_Reader(),
+            receipt_verifier=authority,
+            verification_context=authority.verification_context,
+        ),
+    )
+    context = FunctionInvocationContext(
+        caller_agent="Heimdall",
+        caller_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        evidence_refs=tuple(
+            sorted(result.receipt.projected_result_digest for result in query_results)
+        ),
+    )
+
+    result = await registry.invoke(
+        KUBERNETES_POD_LIFECYCLE_COHORT_FUNCTION_NAME,
+        {
+            "pod_query_result": secured.model_dump(mode="json"),
+            "controller_query_result": controller_result.model_dump(mode="json"),
+            "deployment_query_result": deployment_result.model_dump(mode="json"),
+            "lookback_seconds": 1800,
+        },
+        context=context,
+    )
+
+    assert result["root_controller_uid"] == "deployment-uid"  # type: ignore[index]

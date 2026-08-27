@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any
 
@@ -151,6 +152,54 @@ class _RestartMetricProvider:
         )
 
 
+class _LifecycleCohortReader:
+    async def read_history(self, **_kwargs: object):
+        raise AssertionError("Pod recovery must not use generic Resource event presentation")
+
+    async def read_pod_lifecycle_cohort(
+        self,
+        **kwargs: object,
+    ) -> Mapping[str, object]:
+        assert kwargs["current_pod_uid"] == "pod-uid-a"
+        assert kwargs["root_controller_uid"] == "deployment-uid"
+        return {
+            "complete": True,
+            "truncation_reason": None,
+            "current_pod_uid": "pod-uid-a",
+            "root_controller_uid": "deployment-uid",
+            "window_start": datetime(2026, 8, 25, 17, 30, tzinfo=UTC).isoformat(),
+            "rows": [
+                {
+                    "row_id": "old-failure",
+                    "values": {
+                        "pod_id": "order-api-old",
+                        "pod_uid": "pod-uid-old",
+                        "object_uid": "pod-uid-old",
+                        "cluster_ref": "cluster-a",
+                        "namespace": "default",
+                        "owner_uid": "replicaset-uid",
+                        "root_controller_uid": "deployment-uid",
+                        "root_controller_kind": "Deployment",
+                        "identity_observed_at": datetime(
+                            2026, 8, 25, 17, 40, tzinfo=UTC
+                        ).isoformat(),
+                        "identity_source_revision": "sha256:" + "a" * 64,
+                        "identity_evidence_ref": "kubernetes-pod-lifecycle:" + "b" * 64,
+                        "reason": "Failed",
+                        "category": "failed",
+                        "event_type": "Warning",
+                        "event_time": datetime(2026, 8, 25, 17, 50, tzinfo=UTC).isoformat(),
+                        "recorded_time": datetime(2026, 8, 25, 17, 51, tzinfo=UTC).isoformat(),
+                        "source_revision": "100",
+                        "evidence_ref": "old-failure",
+                    },
+                }
+            ],
+            "attempt_ref": "cohort-attempt",
+            "execution_authority": False,
+        }
+
+
 def _metric_registry() -> MetricSemanticRegistry:
     return MetricSemanticRegistry.build(
         (
@@ -265,6 +314,11 @@ async def test_runtime_executes_issued_pod_recovery_plan_without_model_plan() ->
             "kubernetes.pod",
             cluster_ref="cluster-a",
             uid="pod-uid-a",
+            namespace="default",
+            owner_uid="replicaset-uid",
+            root_controller_uid="deployment-uid",
+            root_controller_kind="Deployment",
+            created_at=datetime(2026, 8, 25, 17, 55, tzinfo=UTC).isoformat(),
             phase="Running",
             ready=True,
             container_count=1,
@@ -275,6 +329,7 @@ async def test_runtime_executes_issued_pod_recovery_plan_without_model_plan() ->
         _resource(
             DEPLOYMENT_ID,
             "kubernetes.deployment",
+            uid="deployment-uid",
             desired_replicas=1,
             ready_replicas=1,
             available_replicas=1,
@@ -302,6 +357,7 @@ async def test_runtime_executes_issued_pod_recovery_plan_without_model_plan() ->
         ontology_store=store,
         metric_registry=_metric_registry(),
         metric_window_provider=_RestartMetricProvider(),
+        resource_event_reader=_LifecycleCohortReader(),
         purpose="operations-review",
         now=lambda: NOW,
     )

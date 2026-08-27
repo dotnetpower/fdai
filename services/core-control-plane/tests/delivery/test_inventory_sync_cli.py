@@ -280,6 +280,7 @@ async def test_configured_kubernetes_composition_binds_exact_source(
     source_factory = Mock(return_value=object())
     expected_enricher = UnavailableKubernetesInventoryEnricher()
     enricher_factory = Mock(return_value=expected_enricher)
+    lifecycle_store_factory = Mock(return_value=object())
     tls_factory = Mock(return_value=object())
     http_factory = Mock(return_value=_client_context())
     monkeypatch.setattr("fdai.delivery.inventory_sync_cli.ssl.create_default_context", tls_factory)
@@ -291,6 +292,10 @@ async def test_configured_kubernetes_composition_binds_exact_source(
     monkeypatch.setattr(
         "fdai.delivery.inventory_sync_cli.KubernetesInventoryEnricher",
         enricher_factory,
+    )
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_sync_cli.PostgresKubernetesLifecycleStore",
+        lifecycle_store_factory,
     )
 
     catalog = _load_relationship_mapping_catalog()
@@ -316,7 +321,9 @@ async def test_configured_kubernetes_composition_binds_exact_source(
     enricher_factory.assert_called_once_with(
         source=source_factory.return_value,
         relationship_mapping_catalog=catalog,
+        pod_lifecycle_identity_sink=lifecycle_store_factory.return_value,
     )
+    assert lifecycle_store_factory.call_args.kwargs["config"].dsn == "postgresql://example"
 
 
 def test_job_config_accepts_workload_identity_kubernetes_binding() -> None:
