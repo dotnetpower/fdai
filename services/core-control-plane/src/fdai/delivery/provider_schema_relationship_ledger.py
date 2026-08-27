@@ -53,6 +53,15 @@ class ProviderSchemaRelationshipLedger:
         raw = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(raw, dict) or raw.get("semantic_promotion") != "proposal_only":
             raise ProviderSchemaError("provider relationship active pointer is invalid")
+        generation_digest = raw.get("generation_digest")
+        if not isinstance(generation_digest, str):
+            raise ProviderSchemaError("provider relationship active pointer digest is invalid")
+        try:
+            _require_digest(generation_digest, "active generation digest")
+        except ValueError as exc:
+            raise ProviderSchemaError(
+                "provider relationship active pointer digest is invalid"
+            ) from exc
         if raw.get("graph_mutation_authority") is not False:
             raise ProviderSchemaError("provider relationship active pointer grants graph authority")
         if raw.get("migration_execution_authority") is not False:
