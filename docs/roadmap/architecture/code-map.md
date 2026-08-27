@@ -33,6 +33,7 @@ retired top-level application tree.
 > WATCH count cap is an explicit truncation gap.
 > Resource-event rows retain the durable object UID, cluster, recorded time, and source revision so
 > the recovery Function can translate its actual query schema into typed replacement evidence.
+> WATCH count-cap progress is resumable only when no malformed envelope preceded the safe boundary.
 
 ## Physical service ownership
 

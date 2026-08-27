@@ -344,7 +344,7 @@ class KubernetesLifecycleWatchSource:
             observations=tuple(observations),
             next_cursor=next_cursor,
             limitation=limitation,
-            cursor_safe=safe_progress,
+            cursor_safe=safe_progress and not malformed,
         )
 
     async def _get(
