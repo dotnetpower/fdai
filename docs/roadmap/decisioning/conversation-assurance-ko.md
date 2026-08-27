@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: a28f48ed838c6e15ecb7080042f24299e1528b10
+translation_source_sha: bb98b07b0b5031cb252a9ac2ea9f86f6ea4a76be
 translation_revised: 2026-08-28
 ---
 # 대화 품질 보증
@@ -316,13 +316,15 @@ exact replay를 측정하고, 개인화는 명시적이며 revision에 연결된
 생산자가 공급할 때까지 unavailable로 남습니다. hidden-scope leak, 근거 없는 screen claim,
 truncation concealment는 qualification 축약기의 명시적 critical-safety 입력으로 유지됩니다.
 
-첫 작업 소유자 adapter는 사전 선언된 숨겨진 사례 기대값을 기존 `SafeguardReceipt` 또는
+작업 소유자 adapter는 사전 선언된 숨겨진 사례 기대값을 항목 21부터 24의 기존
+`MitigationProposal`, `RunbookResult`, 타입이 지정된 `Action`, `WhatIfReplayReport` 기록과
+비교합니다. 또한 `SafeguardReceipt` 또는
 `SafeguardRefusal`, `AuthorizationDecision`, `UnifiedRiskDecision`, `HilResponse`, 신원 분리 및
 `WhatIfReplayReport` 기록과 비교합니다. 항목 25부터 30까지의 기능 정확성을 기여합니다. 예상한 안전 차단은 올바른 결과로 계산하고, 예상하지 않은
 증적, 차단, 권한 상태 또는 정규 위험 수준은 0점으로 계산합니다. adapter는 관측 기록을 해시하고
 별도의 시나리오 근거 약속값을 요구합니다. `PENDING` HIL은 예상 종결 결과로 사용할 수 없고,
 승인자 신원이 없거나 실행자와 같으면 자기 승인 검사를 통과하지 못하며, 재실행은 기록된 작업
-종류를 비교합니다. 항목 21부터 24 또는 기능 외 차원은 추론하지 않습니다.
+종류를 비교합니다. 기능 외 차원은 추론하지 않습니다.
 
 ## 독립 모델 평가
 

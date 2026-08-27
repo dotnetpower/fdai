@@ -56,7 +56,9 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   duplicate dimensions, and overwrite of existing measurements. Action observations reuse existing
   safeguard, execution-authorization, and unified-risk records instead of duplicating their
   decisions inside Conversation Assurance. HIL, identity-separation, and audit-replay observations
-  likewise compare existing result records and never become approval or execution paths. The sibling
+  likewise compare existing result records and never become approval or execution paths. The same
+  adapter reads existing mitigation, runbook, what-if, and typed Action results without owning them.
+  The sibling
   `quality_latency.py` module owns only the five-stage SLO contract and pure percentile reduction;
   Operator, channel, verification, and delivery owners retain timestamp and measurement authority.
   Stage owners provide monotonic start and completion values through a typed receipt; Core derives

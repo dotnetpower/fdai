@@ -322,7 +322,9 @@ authoritative evidence. Production end-to-end dimensions remain unavailable unti
 producer supplies them. Hidden-scope leaks, unsupported screen claims, and truncation concealment
 remain explicit critical-safety inputs to the qualification reducer.
 
-The first action-owner adapter compares predeclared hidden-case expectations with the existing
+The action-owner adapter compares predeclared hidden-case expectations with existing
+`MitigationProposal`, `RunbookResult`, typed `Action`, and `WhatIfReplayReport` records for items
+21 through 24. It also compares
 `SafeguardReceipt` or `SafeguardRefusal`, `AuthorizationDecision`, `UnifiedRiskDecision`,
 `HilResponse`, identity separation, and `WhatIfReplayReport` records. It contributes functional
 correctness for items 25 through 30. An expected safe
@@ -330,7 +332,7 @@ refusal counts as correct, while an unexpected receipt, refusal, authorization s
 risk level scores zero. Pending HIL cannot be an expected terminal result, missing or equal
 approver/executor identities fail the self-approval check, and replay compares the recorded action
 kinds. The adapter hashes the observed record and requires a separate scenario evidence commitment;
-it does not infer items 21 through 24 or any non-functional dimension.
+it does not infer any non-functional dimension.
 
 ## Independent model review
 
