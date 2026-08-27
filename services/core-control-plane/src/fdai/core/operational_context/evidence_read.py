@@ -134,6 +134,18 @@ class OperationalEvidenceReadService:
         recorded_at = self._clock()
         if recorded_at.tzinfo is None or recorded_at.utcoffset() is None:
             raise ValueError("operational evidence read clock MUST be timezone-aware")
+        if (material.context_snapshot is None) != (material.secured_context_result is None):
+            raise ValueError("operational context metadata requires both snapshot and receipt")
+        context_metadata = None
+        if material.context_snapshot is not None and material.secured_context_result is not None:
+            context_metadata = project_context_snapshot(
+                snapshot=material.context_snapshot,
+                secured_result=material.secured_context_result,
+                authenticated_context=authenticated_context,
+            )
+        bundle_max_bytes = self._max_bytes - _response_overhead(context_metadata)
+        if bundle_max_bytes < 1:
+            raise ValueError("operational evidence response exceeds max_bytes")
         bundle = build_operational_evidence_bundle(
             cutoff=request.cutoff,
             trusted_recorded_at=recorded_at,
@@ -147,19 +159,10 @@ class OperationalEvidenceReadService:
             catalog=material.catalog,
             documents=material.documents,
             max_items=self._max_items,
-            max_bytes=self._max_bytes,
+            max_bytes=bundle_max_bytes,
             autonomy_ceiling=Autonomy.SHADOW_ONLY,
             receipt_validator=self._receipt_validator,
         )
-        if (material.context_snapshot is None) != (material.secured_context_result is None):
-            raise ValueError("operational context metadata requires both snapshot and receipt")
-        context_metadata = None
-        if material.context_snapshot is not None and material.secured_context_result is not None:
-            context_metadata = project_context_snapshot(
-                snapshot=material.context_snapshot,
-                secured_result=material.secured_context_result,
-                authenticated_context=authenticated_context,
-            )
         if _serialized_response_size(bundle, context_metadata) > self._max_bytes:
             raise ValueError("operational evidence response exceeds max_bytes")
         return OperationalEvidenceReadResult(
@@ -211,3 +214,9 @@ def _serialized_response_size(
         "context_metadata": context_metadata,
     }
     return len(canonical_json(body).encode("utf-8"))
+
+
+def _response_overhead(context_metadata: dict[str, object] | None) -> int:
+    empty_bundle = canonical_json({})
+    response = canonical_json({"bundle": {}, "context_metadata": context_metadata})
+    return len(response.encode("utf-8")) - len(empty_bundle.encode("utf-8"))

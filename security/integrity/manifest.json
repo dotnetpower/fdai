@@ -663,7 +663,7 @@
     "services/core-control-plane/src/fdai/core/operational_context/evidence_bundle_models.py": "76c7a2423b7793ae0af41c7d8fd84abe8b224e9345c6dfee85024b4a01d46154",
     "services/core-control-plane/src/fdai/core/operational_context/evidence_bundle_prompt.py": "fd8cf635ee7a69ba955fb143ba570cb66e3c4bc97fae972b75e6ce955f6a3096",
     "services/core-control-plane/src/fdai/core/operational_context/evidence_bundle_sources.py": "56b8ed81ecb84e3129fdd5344d37352adc526a44b1ccb30a0e15a3c8188add70",
-    "services/core-control-plane/src/fdai/core/operational_context/evidence_read.py": "32bfb7905c8f5c99fed4c7f8f3b3b711136c49484b5241b7249ca35350c4441c",
+    "services/core-control-plane/src/fdai/core/operational_context/evidence_read.py": "4b89495cc34bbc369354b6d2ce4425a1d7b088ff45b6ef64817ed303814d46bc",
     "services/core-control-plane/src/fdai/core/operational_context/materializer.py": "888680e27dbb158cd61c254f1ebc0e9aaab6cde274f79447c44a7a5ceb26c7af",
     "services/core-control-plane/src/fdai/core/operational_context/models.py": "9962139ed08167d13378b7dd2e9fbf404b6caa3d5f1928957e5070da07030ecf",
     "services/core-control-plane/src/fdai/core/operational_context/operating_scope.py": "8ddec0759a50023bb9e48e52107fe84e1a28de2fa78d7e863794f96b405ff083",
