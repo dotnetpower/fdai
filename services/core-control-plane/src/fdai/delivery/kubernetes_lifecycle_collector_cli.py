@@ -74,12 +74,33 @@ async def _run(*, cluster_ref: str) -> dict[str, object]:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Run exactly one bounded Kubernetes lifecycle collection pass."""
+    """Run exactly one bounded Kubernetes lifecycle collection pass.
+
+    `cluster_ref` is sourced solely from `FDAI_KUBERNETES_CLUSTER_REF`: the source
+    built by `build_kubernetes_lifecycle_source` always binds its own `cluster_ref`
+    from that same environment variable, so an independent positional override
+    here could never be honored by the real source (it would either be a silent
+    no-op when it matched, or a guaranteed `ValueError` crash when it did not).
+    Any positional argument is therefore rejected explicitly rather than accepted
+    and then silently ignored or left to crash deep inside `poll()`.
+    """
 
     arguments = list(argv if argv is not None else sys.argv[1:])
-    cluster_ref = os.environ.get("FDAI_KUBERNETES_CLUSTER_REF", "").strip()
     if arguments:
-        cluster_ref = arguments[0]
+        print(
+            json.dumps(
+                {
+                    "status": "failed",
+                    "reason": (
+                        "positional arguments are not supported; set "
+                        "FDAI_KUBERNETES_CLUSTER_REF instead"
+                    ),
+                },
+                sort_keys=True,
+            )
+        )
+        return 2
+    cluster_ref = os.environ.get("FDAI_KUBERNETES_CLUSTER_REF", "").strip()
     if not cluster_ref:
         print(json.dumps({"status": "failed", "reason": "cluster_ref is required"}, sort_keys=True))
         return 2

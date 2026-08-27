@@ -64,6 +64,7 @@ class PostgresKubernetesLifecycleStore:
 
         async with await self._connect() as connection:
             await self._set_timeout(connection)
+            await self._lock_cluster(connection, cluster_ref)
             cursor = await connection.execute(
                 "SELECT resource_version FROM kubernetes_lifecycle_cursor WHERE cluster_ref = %s",
                 (cluster_ref,),
@@ -92,6 +93,7 @@ class PostgresKubernetesLifecycleStore:
             raise ValueError("Kubernetes lifecycle append widened the requested cluster scope")
         async with await self._connect() as connection, connection.transaction():
             await self._set_timeout(connection)
+            await self._lock_cluster(connection, cluster_ref)
             locked = await connection.execute(
                 "SELECT resource_version FROM kubernetes_lifecycle_cursor "
                 "WHERE cluster_ref = %s FOR UPDATE",
@@ -159,6 +161,25 @@ class PostgresKubernetesLifecycleStore:
             dsn,
             row_factory=dict_row,
             connect_timeout=self._config.connect_timeout_s,
+        )
+
+    async def _lock_cluster(
+        self, connection: psycopg.AsyncConnection[Any], cluster_ref: str
+    ) -> None:
+        """Serialize every cursor read/create/advance for one cluster.
+
+        A `SELECT ... FOR UPDATE` alone cannot lock a row that does not exist yet,
+        so two concurrent first-ever collections (or two collections racing right
+        after a cursor-expiry gap cleared the row) could both observe an absent
+        cursor and both proceed as the sole writer. This transaction-scoped
+        advisory lock, keyed by `cluster_ref`, is acquired before that row lookup so
+        the second caller blocks until the first commits or rolls back and then
+        correctly observes the now-current cursor.
+        """
+
+        await connection.execute(
+            "SELECT pg_advisory_xact_lock(hashtext(%s))",
+            (f"kubernetes-lifecycle-cursor:{cluster_ref}",),
         )
 
     async def _set_timeout(self, connection: psycopg.AsyncConnection[Any]) -> None:

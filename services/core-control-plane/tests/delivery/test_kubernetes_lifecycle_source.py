@@ -37,6 +37,19 @@ def _response(body: bytes, *, status_code: int = 200) -> httpx.Response:
     return httpx.Response(status_code, stream=_Stream(body))
 
 
+class _ChunkedStream(httpx.AsyncByteStream):
+    def __init__(self, chunks: tuple[bytes, ...]) -> None:
+        self._chunks = chunks
+
+    async def __aiter__(self):  # type: ignore[no-untyped-def]
+        for chunk in self._chunks:
+            yield chunk
+
+
+def _chunked_response(*chunks: bytes, status_code: int = 200) -> httpx.Response:
+    return httpx.Response(status_code, stream=_ChunkedStream(chunks))
+
+
 def _json_response(payload: object, *, status_code: int = 200) -> httpx.Response:
     return _response(json.dumps(payload, separators=(",", ":")).encode(), status_code=status_code)
 
@@ -248,7 +261,13 @@ async def test_authorization_failure_is_an_explicit_gap_before_any_request() -> 
 
 
 async def test_list_truncation_reports_result_limit_and_stays_bounded() -> None:
+    call_count = 0
+
     def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal call_count
+        call_count += 1
+        # Every page still advertises a `continue` token, so the list never drains
+        # within the bounded page budget.
         return _json_response(
             {
                 "metadata": {"resourceVersion": "2000", "continue": "next-page-token"},
@@ -261,7 +280,49 @@ async def test_list_truncation_reports_result_limit_and_stays_bounded() -> None:
 
     assert poll.complete is False
     assert poll.limitation == "result_limit"
-    assert poll.next_cursor == "2000"
+    # An incomplete drain MUST NOT advance the cursor to the snapshot's
+    # `resourceVersion`: doing so would silently skip every unconsumed
+    # continuation page forever.
+    assert poll.next_cursor is None
+    # The internal page budget bounds provider I/O even under an infinite
+    # continuation loop.
+    assert call_count == 8
+
+
+async def test_list_pagination_drains_within_budget_and_advances_the_cursor() -> None:
+    pages_seen: list[str | None] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        pages_seen.append(request.url.params.get("continue"))
+        if request.url.params.get("continue") is None:
+            return _json_response(
+                {
+                    "metadata": {"resourceVersion": "2000", "continue": "page-2-token"},
+                    "items": [_event_object(event_uid="event-uid-a", object_uid="pod-uid-a")],
+                }
+            )
+        return _json_response(
+            {
+                "metadata": {"resourceVersion": "2001"},
+                "items": [
+                    _event_object(
+                        event_uid="event-uid-b",
+                        object_uid="pod-uid-b",
+                        resource_version="1002",
+                    )
+                ],
+            }
+        )
+
+    source = _source(httpx.MockTransport(handler))
+    poll = await source.poll(cluster_ref=CLUSTER_REF, cursor=None)
+
+    assert poll.complete is True
+    assert poll.limitation is None
+    # The cursor only ever advances to the *final* page's snapshot resourceVersion.
+    assert poll.next_cursor == "2001"
+    assert len(poll.observations) == 2
+    assert pages_seen == [None, "page-2-token"]
 
 
 async def test_malformed_response_never_raises_and_reports_response_invalid() -> None:
@@ -306,3 +367,138 @@ async def test_deletion_reasons_normalize_without_reading_message_text() -> None
     poll = await source.poll(cluster_ref=CLUSTER_REF, cursor=None)
 
     assert poll.observations[0].category == "deletion"
+
+
+async def test_list_401_reports_authorization_failed_not_source_unavailable() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return _response(b"", status_code=401)
+
+    source = _source(httpx.MockTransport(handler))
+    poll = await source.poll(cluster_ref=CLUSTER_REF, cursor=None)
+
+    assert poll.complete is False
+    assert poll.limitation == "authorization_failed"
+    assert poll.observations == ()
+
+
+async def test_list_403_reports_authorization_failed_not_source_unavailable() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return _response(b"", status_code=403)
+
+    source = _source(httpx.MockTransport(handler))
+    poll = await source.poll(cluster_ref=CLUSTER_REF, cursor=None)
+
+    assert poll.complete is False
+    assert poll.limitation == "authorization_failed"
+
+
+async def test_watch_401_reports_authorization_failed_and_preserves_the_cursor() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return _response(b"", status_code=401)
+
+    source = _source(httpx.MockTransport(handler))
+    poll = await source.poll(cluster_ref=CLUSTER_REF, cursor="2000")
+
+    assert poll.complete is False
+    assert poll.limitation == "authorization_failed"
+    # A 401/403 is a distinct classification from a generic outage, but it MUST
+    # still preserve the durable cursor exactly like a `source_unavailable` gap.
+    assert poll.next_cursor == "2000"
+
+
+async def test_watch_403_reports_authorization_failed_and_preserves_the_cursor() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return _response(b"", status_code=403)
+
+    source = _source(httpx.MockTransport(handler))
+    poll = await source.poll(cluster_ref=CLUSTER_REF, cursor="2000")
+
+    assert poll.complete is False
+    assert poll.limitation == "authorization_failed"
+    assert poll.next_cursor == "2000"
+
+
+async def test_watch_byte_bound_truncation_reports_result_limit() -> None:
+    first_line = json.dumps(
+        {"type": "ADDED", "object": _event_object(resource_version="2001", reason="Started")},
+        separators=(",", ":"),
+    ).encode()
+    # A second, oversized chunk pushes the running total past the configured
+    # response byte bound partway through the stream.
+    overflow_chunk = b"x" * 2048
+    source = _source(
+        httpx.MockTransport(lambda request: _chunked_response(first_line + b"\n", overflow_chunk)),
+        max_response_bytes=1_024,
+    )
+
+    poll = await source.poll(cluster_ref=CLUSTER_REF, cursor="2000")
+
+    assert poll.complete is False
+    assert poll.limitation == "result_limit"
+    # The fully-received first line MUST still be honored...
+    assert len(poll.observations) == 1
+    # ...and the cursor MUST NOT advance past it into the discarded remainder.
+    assert poll.next_cursor == "2001"
+
+
+async def test_watch_oversized_line_reports_result_limit_without_skipping_ahead() -> None:
+    good_line = json.dumps(
+        {"type": "ADDED", "object": _event_object(resource_version="2001", reason="Started")},
+        separators=(",", ":"),
+    ).encode()
+    oversized_line = b"{" + b"x" * 70_000
+    trailing_line = json.dumps(
+        {"type": "ADDED", "object": _event_object(resource_version="2099", reason="Failed")},
+        separators=(",", ":"),
+    ).encode()
+    body = good_line + b"\n" + oversized_line + b"\n" + trailing_line + b"\n"
+
+    source = _source(httpx.MockTransport(lambda request: _response(body)))
+    poll = await source.poll(cluster_ref=CLUSTER_REF, cursor="2000")
+
+    assert poll.complete is False
+    assert poll.limitation == "result_limit"
+    assert len(poll.observations) == 1
+    # The cursor MUST stop at the last-good envelope, never at the trailing one
+    # that arrived only after the discarded oversized line.
+    assert poll.next_cursor == "2001"
+
+
+async def test_watch_undecodable_line_reports_result_limit_without_skipping_ahead() -> None:
+    good_line = json.dumps(
+        {"type": "ADDED", "object": _event_object(resource_version="2001", reason="Started")},
+        separators=(",", ":"),
+    ).encode()
+    bad_line = b"\xff\xfe not valid utf-8"
+    trailing_line = json.dumps(
+        {"type": "ADDED", "object": _event_object(resource_version="2099", reason="Failed")},
+        separators=(",", ":"),
+    ).encode()
+    body = good_line + b"\n" + bad_line + b"\n" + trailing_line + b"\n"
+
+    source = _source(httpx.MockTransport(lambda request: _response(body)))
+    poll = await source.poll(cluster_ref=CLUSTER_REF, cursor="2000")
+
+    assert poll.complete is False
+    assert poll.limitation == "result_limit"
+    assert len(poll.observations) == 1
+    assert poll.next_cursor == "2001"
+
+
+async def test_watch_oversized_trailing_buffer_reports_result_limit() -> None:
+    good_line = json.dumps(
+        {"type": "ADDED", "object": _event_object(resource_version="2001", reason="Started")},
+        separators=(",", ":"),
+    ).encode()
+    # No trailing newline: an oversized unterminated final buffer MUST be flagged
+    # exactly like an oversized complete line, never silently dropped.
+    oversized_trailing_buffer = b"{" + b"x" * 70_000
+    body = good_line + b"\n" + oversized_trailing_buffer
+
+    source = _source(httpx.MockTransport(lambda request: _response(body)))
+    poll = await source.poll(cluster_ref=CLUSTER_REF, cursor="2000")
+
+    assert poll.complete is False
+    assert poll.limitation == "result_limit"
+    assert len(poll.observations) == 1
+    assert poll.next_cursor == "2001"
