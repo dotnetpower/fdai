@@ -78,6 +78,29 @@ def _ensure_service_head(url: str) -> str:
     return head
 
 
+def _downgrade_service(url: str, revision: str) -> None:
+    downgrade = subprocess.run(  # noqa: S603 - controlled repository command
+        [
+            sys.executable,
+            "-m",
+            "alembic",
+            "-c",
+            str(_SERVICE_CONFIG),
+            "downgrade",
+            revision,
+        ],
+        cwd=REPO_ROOT,
+        env={**os.environ, "FDAI_DATABASE_URL": url},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert downgrade.returncode == 0, (
+        f"service migration rollback failed:\nstdout:\n{downgrade.stdout}\n"
+        f"stderr:\n{downgrade.stderr}"
+    )
+
+
 def _service_previous_head(head: str) -> str:
     revision = ScriptDirectory.from_config(Config(str(_SERVICE_CONFIG))).get_revision(head)
     if revision is None or not isinstance(revision.down_revision, str):
@@ -95,6 +118,7 @@ def test_catalog_version_lifecycle_on_current_service_migration_head() -> None:
     _run_legacy_upgrade(url)
     head = _ensure_service_head(url)
     previous_head = _service_previous_head(head)
+    _downgrade_service(url, previous_head)
     prefix = uuid.uuid4().hex
     rule_id = f"lifecycle.rule.{prefix}"
     old_version = f"catalog-n-{prefix}"
@@ -108,22 +132,60 @@ def test_catalog_version_lifecycle_on_current_service_migration_head() -> None:
             cur.execute(
                 """
                 INSERT INTO learned_action
-                    (rule_id, action_signature, action_payload, catalog_version)
-                VALUES (%s, %s, '{"action":"retain"}'::jsonb, %s)
+                    (rule_id, action_signature, action_payload)
+                VALUES (%s, %s, '{"action":"retain"}'::jsonb)
                 """,
-                (rule_id, old_signature, old_version),
+                (rule_id, old_signature),
             )
             cur.execute(
                 """
                 INSERT INTO t2_cache
-                    (catalog_version, input_hash, output, model, expires_at)
+                    (catalog_version, input_hash, output, model)
                 VALUES
-                    (%s, %s, '{"answer":"stale"}'::jsonb, 'test-model',
-                            NOW() + INTERVAL '1 hour')
+                    (%s, %s, '{"answer":"legacy"}'::jsonb, 'test-model')
                 """,
                 (old_version, old_input),
             )
             conn.commit()
+
+        upgrade = _run_service("upgrade", "head", url=url)
+        assert upgrade.returncode == 0, (
+            f"service migration upgrade failed:\nstdout:\n{upgrade.stdout}\nstderr:\n"
+            f"{upgrade.stderr}"
+        )
+        with _connect(url) as conn, conn.cursor() as cur:
+            cur.execute(
+                "SELECT catalog_version FROM learned_action WHERE action_signature = %s",
+                (old_signature,),
+            )
+            assert cur.fetchone() == ("legacy",), "legacy learned actions must be backfilled"
+            cur.execute(
+                """
+                SELECT expires_at > created_at, expires_at > NOW()
+                  FROM t2_cache
+                 WHERE input_hash = %s
+                """,
+                (old_input,),
+            )
+            assert cur.fetchone() == (True, True), "legacy T2 rows must receive a live expiry"
+
+            cur.execute(
+                """
+                INSERT INTO learned_action
+                    (rule_id, action_signature, action_payload, catalog_version)
+                VALUES (%s, %s, '{"action":"retain-new"}'::jsonb, %s)
+                """,
+                (rule_id, old_signature, new_version),
+            )
+            cur.execute(
+                """
+                SELECT COUNT(*) FROM learned_action
+                 WHERE action_signature = %s
+                   AND catalog_version IN (%s, %s)
+                """,
+                (old_signature, "legacy", new_version),
+            )
+            assert cur.fetchone() == (2,), "action signatures must be scoped by catalog version"
 
             cur.execute(
                 """
@@ -168,31 +230,20 @@ def test_catalog_version_lifecycle_on_current_service_migration_head() -> None:
             assert cur.fetchone() == (1,)
 
             cur.execute(
-                "SELECT COUNT(*) FROM learned_action WHERE action_signature = %s",
-                (old_signature,),
+                """
+                SELECT COUNT(*) FROM learned_action
+                 WHERE action_signature = %s AND catalog_version = %s
+                """,
+                (old_signature, "legacy"),
             )
             assert cur.fetchone() == (1,), "catalog invalidation must retain learned actions"
 
-        downgrade = subprocess.run(  # noqa: S603 - controlled repository command
-            [
-                sys.executable,
-                "-m",
-                "alembic",
-                "-c",
-                str(_SERVICE_CONFIG),
-                "downgrade",
-                previous_head,
-            ],
-            cwd=REPO_ROOT,
-            env={**os.environ, "FDAI_DATABASE_URL": url},
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        assert downgrade.returncode == 0, (
-            f"service migration rollback failed:\nstdout:\n{downgrade.stdout}\n"
-            f"stderr:\n{downgrade.stderr}"
-        )
+        with _connect(url) as conn, conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM learned_action WHERE action_signature = %s AND catalog_version = %s",
+                (old_signature, new_version),
+            )
+        _downgrade_service(url, previous_head)
 
         with _connect(url) as conn, conn.cursor() as cur:
             cur.execute(
@@ -206,6 +257,19 @@ def test_catalog_version_lifecycle_on_current_service_migration_head() -> None:
             )
             assert set(cur.fetchall()) == {("t2_cache", "catalog_version")}, (
                 "rollback must remove only service-added lifecycle columns"
+            )
+            cur.execute(
+                """
+                SELECT indexdef
+                  FROM pg_indexes
+                 WHERE schemaname = 'public'
+                   AND tablename = 'learned_action'
+                   AND indexname = 'learned_action_action_signature_key'
+                """
+            )
+            unique_index = cur.fetchone()
+            assert unique_index is not None and "(action_signature)" in unique_index[0], (
+                "rollback must restore global signature uniqueness"
             )
     finally:
         restore = _run_service("upgrade", "head", url=url)

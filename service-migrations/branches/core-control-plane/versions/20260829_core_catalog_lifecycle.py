@@ -35,6 +35,11 @@ def upgrade() -> None:
         ALTER TABLE learned_action
             ALTER COLUMN catalog_version SET NOT NULL,
             ALTER COLUMN catalog_version SET DEFAULT 'legacy';
+        ALTER TABLE learned_action
+            DROP CONSTRAINT IF EXISTS learned_action_action_signature_key;
+        DROP INDEX IF EXISTS learned_action_action_signature_key;
+        CREATE UNIQUE INDEX IF NOT EXISTS learned_action_catalog_signature_key
+            ON learned_action (catalog_version, action_signature);
         CREATE INDEX IF NOT EXISTS idx_learned_action_rule_catalog
             ON learned_action (rule_id, catalog_version);
 
@@ -59,6 +64,9 @@ def downgrade() -> None:
         DROP INDEX IF EXISTS idx_t2_cache_expires_at;
         ALTER TABLE t2_cache
             DROP COLUMN IF EXISTS expires_at;
+        DROP INDEX IF EXISTS learned_action_catalog_signature_key;
+        ALTER TABLE learned_action
+            ADD CONSTRAINT learned_action_action_signature_key UNIQUE (action_signature);
         DROP INDEX IF EXISTS idx_learned_action_rule_catalog;
         ALTER TABLE learned_action
             DROP COLUMN IF EXISTS catalog_version;
