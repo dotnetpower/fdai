@@ -1,8 +1,8 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 38b9ee004b4827f0526632b6f15c4a10eb923199
-translation_revised: 2026-08-28
+translation_source_sha: 60a39579efbe2ec8e377ee01c91686f07b95bcfd
+translation_revised: 2026-08-30
 ---
 # 프로세스 자동화(프로세스 자동화)
 
@@ -31,6 +31,7 @@ translation_revised: 2026-08-28
 | 보상 및 영속 자동화 hold | implemented | [`test_automation_hold.py`](../../../services/core-control-plane/tests/core/workflow/test_automation_hold.py), [`test_orchestrator.py`](../../../services/core-control-plane/tests/core/workflow/test_orchestrator.py), [`test_control_loop_authority.py`](../../../services/core-control-plane/tests/core/test_control_loop_authority.py), [`test_gate.py`](../../../services/core-control-plane/tests/core/risk_gate/test_gate.py) | 모든 불완전 보상 경로가 영속 대상 hold를 발행합니다. 재시작과 중복 전달에서도 hold를 유지하고 일반 정방향 전달을 차단하며, 일치하는 검증된 복구만 hold를 해제할 수 있습니다. |
 | 저작 및 읽기 전용 Process 화면 | implemented | [`workflow-builder.chat.ts`](../../../console/src/routes/workflow-builder.chat.ts), [저작 화면](#8-저작-표면-콘솔-workflow-builder) | 콘솔은 실행 권한 없이 비공개 초안을 만들고 검증하며 Process 변환 결과를 조회할 수 있습니다. |
 | 실패 시에만 실행되는 `on_failure` 분기 | implemented | [`runner.py`](../../../services/core-control-plane/src/fdai/core/runbook/runner.py), [`models.py`](../../../services/core-control-plane/src/fdai/core/runbook/models.py), [`test_runbook_runner.py`](../../../services/core-control-plane/tests/core/runbook/test_runbook_runner.py) | 선언된 대체 스텝은 성공 경로에서 `fallback_not_triggered` 로 건너뛰고, 자신을 가리키는 스텝이 실패했을 때만 실행되며, 무관한 스텝의 실패로는 발동하지 않고, 명시적 재개로는 여전히 진입할 수 있습니다. `Runbook` 은 이제 `Workflow` 계약과 같은 이유로 자기 참조 및 역방향 대체를 거부합니다. |
+| Governed direct-action 경로 | implemented | [`delivery.py`](../../../services/core-control-plane/src/fdai/runtime/delivery.py), [`promotion.py`](../../../services/core-control-plane/src/fdai/delivery/promotion.py), [`test_governance_dispatch.py`](../../../services/core-control-plane/tests/delivery/test_governance_dispatch.py) | 선언된 promotion 경로는 승인된 서로 다른 승인자 전환이 제공될 때까지 inert이며, 거버넌스 카탈로그 변경은 검토 전용 PR artifact로 남습니다. |
 | 타입이 지정된 `SignalType` 트리거 참조 | not-started | [알려진 한계](#21-알려진-한계-p1), [`signal_type.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/signal_type.py), [`signal-types.yaml`](../../../rule-catalog/vocabulary/signal-types.yaml) | 레지스트리는 관측 의미만 선언하지만 제공 워크플로 트리거는 요청 및 명령 이벤트를 가리킵니다. 레지스트리를 넓히면 T0 규칙 dispatch 해석도 바뀌므로, 로드 시점 교차 검사에는 온톨로지 승격이 먼저 필요합니다. |
 
 ### 구현 이력
@@ -44,6 +45,7 @@ translation_revised: 2026-08-28
 | 2026-08-14 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입하고 남은 헌법상 보상 공백을 표시했습니다. | `current change`; 구현 범위 표의 현재 소스, 집중 테스트 및 추적성입니다. | 아래의 보상 hold 및 승격 종료 조건을 완료해야 합니다. |
 | 2026-08-14 | implemented | 보상 실패, ledger 재시작, 중복 전달, 정방향 전달 차단 및 일치하는 복구 해제 전반에서 영속 자동화 hold를 검증하고 FDAI-CONST-009를 implemented로 기록했습니다. | `current change`; `test_automation_hold.py`, `test_orchestrator.py`, `test_control_loop_authority.py`, `test_gate.py`; 집중 검사 10개가 통과했습니다. | 아래의 독립 워크플로 승격 근거와 관련 없는 트리거 및 분기 작업은 계속 남아 있습니다. |
 | 2026-08-14 | implemented | `on_failure` 분기를 실패 시에만 실행되도록 바꿔, 선언된 대체 스텝이 성공 경로에서 일반 정방향 스텝으로 실행되지 않게 했습니다. | `current change`; [`runner.py`](../../../services/core-control-plane/src/fdai/core/runbook/runner.py), [`test_runbook_runner.py`](../../../services/core-control-plane/tests/core/runbook/test_runbook_runner.py); 집중 runbook 및 workflow 검사 114개가 통과했습니다. | 로드 시점 교차 검사 전에 요청 및 명령 트리거를 포함하는 `SignalType` 어휘를 승격하고, 독립 워크플로 승격 근거를 보존해야 합니다. |
+| 2026-08-27 | implemented | 선언된 governance promotion ActionType을 별도 승인된 서로 다른 승인자 전환을 요구하는 inert direct-action dispatcher로 라우팅했습니다. | `current change`; `runtime/delivery.py`, `delivery/promotion.py`, 집중 governance dispatch 테스트 통과. | 배포 검토와 병합 근거는 외부 게이트이며 로컬 경로는 권한을 부여하지 않습니다. |
 
 ### 남은 작업
 

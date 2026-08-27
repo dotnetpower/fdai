@@ -7,6 +7,12 @@ from typing import Protocol
 
 from fdai.core.measurement import OperationalPromotionReceipt
 from fdai.core.risk_gate import ActionModeRecord, PromotionMetrics
+from fdai.rule_catalog.schema.governance_review_authority import (
+    GovernanceChangeClass,
+    GovernanceReviewRequest,
+    ReviewAuthorityDecision,
+    validate_governance_review,
+)
 from fdai.shared.contracts.models import Mode, OntologyActionType
 from fdai.shared.providers.direct_api import (
     DirectApiExecutor,
@@ -72,6 +78,7 @@ class OperationalPromotionDirectApiExecutor(DirectApiExecutor):
                 receipt_ref=f"shadow:promotion:{target.name}",
                 detail="shadow: exact promotion receipt was not applied",
             )
+
         receipt = await self._receipts.load(
             action_type_name=target.name,
             fdai_revision=args["fdai_revision"],
@@ -118,6 +125,48 @@ class OperationalPromotionDirectApiExecutor(DirectApiExecutor):
         )
 
 
+class GovernancePromotionDispatcher:
+    """Require an approved, distinct-approver transition before promotion.
+
+    The wrapped direct-API executor remains the mechanical promotion writer.
+    This boundary validates the governance review first; a missing or
+    insufficient review therefore cannot change the ActionType mode registry.
+    """
+
+    def __init__(self, executor: OperationalPromotionDirectApiExecutor) -> None:
+        self._executor = executor
+
+    async def execute(self, request: DirectApiRequest) -> DirectApiReceipt:
+        """Reject ungoverned direct routing; use :meth:`dispatch` after review."""
+        del request
+        raise DirectApiPreconditionError(
+            "promotion direct routing is inert until a governance review is supplied"
+        )
+
+    async def dispatch(
+        self,
+        request: DirectApiRequest,
+        *,
+        review: GovernanceReviewRequest | ReviewAuthorityDecision | None = None,
+    ) -> DirectApiReceipt:
+        """Dispatch only after the exact enforce-promotion review is allowed."""
+        decision = (
+            validate_governance_review(review)
+            if isinstance(review, GovernanceReviewRequest)
+            else review
+        )
+        if (
+            decision is None
+            or decision.change_class is not GovernanceChangeClass.ENFORCE_PROMOTION
+            or not decision.allowed
+            or decision.satisfied_quorum < decision.required_quorum
+        ):
+            raise DirectApiPreconditionError(
+                "promotion requires an approved distinct-approver governance transition"
+            )
+        return await self._executor.execute(request)
+
+
 def _promotion_arguments(arguments: Mapping[str, object]) -> dict[str, str]:
     required = (
         "action_type_id",
@@ -138,6 +187,7 @@ def _promotion_arguments(arguments: Mapping[str, object]) -> dict[str, str]:
 
 __all__ = [
     "OperationalPromotionDirectApiExecutor",
+    "GovernancePromotionDispatcher",
     "OperationalPromotionReceiptReader",
     "PROMOTION_ACTION_TYPE",
     "PersistedActionPromotionRegistry",

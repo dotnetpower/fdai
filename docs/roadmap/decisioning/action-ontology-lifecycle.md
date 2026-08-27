@@ -17,7 +17,7 @@ ActionType ontology. The canonical schema and catalog remain in
 | Catalog lifecycle and inert defaults | implemented | [`test_action_type_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_action_type_catalog.py) | Shipped declarations validate lifecycle constraints and default to shadow. |
 | Rule-violation remediation consumer | implemented | [`test_unified_control_loop.py`](../../../services/core-control-plane/tests/pipeline/test_unified_control_loop.py) | The typed control loop routes remediation through ActionBuilder, RiskGate, and Executor. |
 | Operator-request proposal consumer | implemented | [`bragi.py`](../../../services/core-control-plane/src/fdai/agents/bragi.py), [`test_chat_to_pipeline_e2e.py`](../../../services/core-control-plane/tests/agents/test_chat_to_pipeline_e2e.py) | Bragi publishes a typed proposal to canonical ingress and never calls an executor directly. |
-| Governance dispatchers | in-progress | [`override_writer.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/override_writer.py), [`governance_writers.py`](../../../services/core-control-plane/src/fdai/delivery/gitops_pr/governance_writers.py), [`test_governance_writers.py`](../../../services/core-control-plane/tests/delivery/test_governance_writers.py) | The override writer is live. `retire-rule` and `grant-exemption` now have pure PR-native document writers that render nothing applied and reject self-approval, unbounded input, and subscription-wide exemptions. `promote-action-type` declares `execution_path: direct_api`, so its dispatcher is a separate design decision, and it stays inert. |
+| Governance dispatchers | implemented | [`promotion.py`](../../../services/core-control-plane/src/fdai/delivery/promotion.py), [`gitops_pr/governance.py`](../../../services/core-control-plane/src/fdai/delivery/gitops_pr/governance.py), [`governance_writers.py`](../../../services/core-control-plane/src/fdai/delivery/gitops_pr/governance_writers.py), and focused governance delivery tests | Promotion requires an approved distinct-approver transition. Retire and exemption documents are bound to the governed PR publisher, remain unapplied, and persist replayable open-to-merge evidence. |
 | Selected live probes | implemented | [`test_action_type_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_action_type_catalog.py) | Referenced probes are loader-validated; actions without one retain their static blast bound. |
 
 ### Implementation history
@@ -26,17 +26,17 @@ ActionType ontology. The canonical schema and catalog remain in
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | Current source, tests, and consumer-status section listed in the scope table. | Complete the observable governance-dispatch exit condition below. |
 | 2026-08-15 | in-progress | Added pure PR-native document writers for `governance.retire-rule` and `governance.grant-exemption`. | `current change`; `services/core-control-plane/src/fdai/delivery/gitops_pr/governance_writers.py`; `pytest services/core-control-plane/tests/delivery/test_governance_writers.py` (16 passed). | The `promote-action-type` dispatcher and the governed pull-request binding remain open. |
+| 2026-08-27 | implemented | Bound the two pure writers to a write-once PR publisher with durable open-to-merge lifecycle evidence and added a promotion dispatcher that refuses missing or insufficient distinct-approver review. | `current change`; `gitops_pr/governance.py`, `promotion.py`, and focused governance delivery tests passed. | GitHub review and merge remain deployment-controlled; no local receipt claims a merged change. |
 
 ### Remaining work
 
 - [x] PR-native writers exist for `governance.retire-rule` and `governance.grant-exemption`,
   and `services/core-control-plane/tests/delivery/test_governance_writers.py` proves each rendered
   document is unapplied, requires a distinct approver, and refuses a subscription-wide exemption.
-- [ ] Decide and implement the `governance.promote-action-type` dispatcher for its declared
-  `direct_api` execution path, then retain focused evidence that it stays inert without an
-  approved, distinct-approver transition.
-- [ ] Bind both PR-native writers to the governed pull-request adapter and retain one replayable
-  open-to-merge receipt.
+- [x] The `governance.promote-action-type` dispatcher rejects missing or insufficient
+  distinct-approver review before delegating to the exact-receipt direct API writer.
+- [x] Both PR-native writers are bound to the governed pull-request adapter, with durable
+  replayable open-to-merge evidence; merge and catalog activation remain human-controlled.
 
 ## Design boundaries and lifecycle
 
@@ -117,12 +117,12 @@ cannot act.
   it to the canonical ingress topic. They never call an executor directly. The
   catalog loader validates `argument_schema`; each live command surface remains
   responsible for accepting only its bounded server-owned argument shape.
-- **Three `governance.*` dispatchers are P2 backlog** (#8). Only
-  `governance.override-ceiling` has a live dispatcher
-  (`core/risk_gate/override_writer.py`); `promote-action-type`,
-  `retire-rule`, and the runtime `grant-exemption` writer land with the
-  P2 PR-native writer. Their YAML entries are inert catalog data until
-  then (shadow-default, no dispatcher = no side effect).
+- **Governance dispatch is bounded** (#8). `governance.override-ceiling` uses
+  its downgrade-only writer; `promote-action-type` has a direct route that is
+  inert unless an approved distinct-approver transition is supplied; and
+  `retire-rule` plus `grant-exemption` use the governed PR publisher. The PR
+  publisher records an open-to-merge receipt and never merges or activates a
+  catalog change.
 - **`live_probe_ref` is live for selected ops actions** (#9).
   `ops.restart-service` and `ops.scale-in` bind the shipped
   `vm_traffic_last_5m` probe. Actions without a probe continue to use the
