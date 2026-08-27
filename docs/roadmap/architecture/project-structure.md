@@ -184,6 +184,12 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   generations produce stable dropped reasons and no active graph edge. Verified links carry
   immutable state-fact and link-observation metadata. Stale or conflicting evidence can only lower
   operational-context autonomy.
+  Versioned provider-schema candidate materialization remains a delivery concern:
+  `provider_schema_relationship_generation.py` binds the exact provider-schema and REST evidence
+  digests, mapping revision, projection manifest, direction, cardinality, and link metadata.
+  Changed provider type/version identities invalidate only affected candidates. Its append-only
+  ledger supports rollback and replay, while promotion remains a separately reviewed
+  proposal-only catalog operation with no graph or migration authority.
   All events in the bounded batch are constructed and validated before the first publication, so
   a malformed later resource cannot leave an earlier event partially published by validation.
   Every delta page marked `has_more` must provide a new continuation cursor before its records are
