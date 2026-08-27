@@ -145,6 +145,7 @@ async def _query_exact_ids(
             object_types=object_types,
             object_ids=batch,
             limit=len(batch),
+            include_relationships=False,
         )
         results.append(graph)
         matching_count += sum(

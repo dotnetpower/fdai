@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: a6323ee25aa95b803e2173b3c34e77aa9f658064
+translation_source_sha: bdb338b129f5cda137a90ae433c83288b3641da1
 translation_revised: 2026-08-28
 ---
 # 코드 맵
@@ -242,18 +242,16 @@ Semantic-turn 요청은 opaque server-issued token과 함께 타입이 지정된
 answered claim이 되지 않고 semantic turn을 hold합니다. Operator instance projection은
 인증된 principal과 활성 generation에서 token을 발급하며, 잘린 projection은 신원을 완전히
 생략합니다.
-Contextual FunctionType 자체도 opaque capability envelope를 요구하므로 연결되지 않은
-model node가 specialized read를 호출할 수 없습니다.
+Contextual FunctionType은 불투명한 선택 token을 스칼라 스키마 입력으로 전달하고 객체 값인
+조회 결과는 의존성 전용으로 유지합니다. 따라서 연결되지 않은 model node는 specialized
+read를 호출할 수 없습니다.
 공유 범위 digest는 소문자 일반 역할(`reader`, `contributor`, `approver`, `owner`)만 사용하고
-`BreakGlass`는 거부합니다. 정확한 id 조건식은 항상 고정 batch의 개별 id 조회를 사용합니다.
+`BreakGlass`는 거부합니다. 정확한 id 조건식은 최대 128개씩 batch로 조회하고, 이러한 객체
+전용 읽기에서는 관계 구체화와 관계 완전성 검사를 생략합니다.
 Wire 계약은 보수적인 512개 id context envelope를 허용하고
 일반 ObjectSet과 store 상한은 1,000개로 유지합니다.
-정확한 선택 읽기는 기존 byte 상한 안에서 처리되며 일반 output의 행 및 byte 상한을
-제거하지 않습니다.
 Context 계약은 incident, screen 및 resource-group 신원을 혼합하는 입력을 거부하며, 정확한
-선택 읽기는 고정 concurrency로 batch 처리하고 source-generation receipt를 보존합니다.
-보수적인 context identity 상한은 512개 resource id로 두어 서명된 선택을 공유 wire 예산
-안에 유지하며, 일반 ObjectSet 상한은 1,000개로 유지합니다.
+선택 읽기는 source-generation receipt를 보존합니다.
 같은 512개 상한을 Operator/Core schema가 함께 적용하므로 과도한 client context는
 planning에 들어갈 수 없습니다.
 범위가 제한된 semantic query JSON envelope는 512개 id 선택에 맞게 크기를 확보하면서도
