@@ -234,7 +234,7 @@ class SemanticBoundContext(QueryContract):
     correlation_id: Annotated[str, Field(min_length=1, max_length=512)] | None = None
     screen_id: BoundedId | None = None
     resource_group_id: BoundedId | None = None
-    resource_ids: Annotated[tuple[BoundedId, ...], Field(max_length=1000)] = ()
+    resource_ids: Annotated[tuple[BoundedId, ...], Field(max_length=10000)] = ()
     principal_id: BoundedId | None = None
     principal_scope_digest: Digest | None = None
     ontology_release_digest: Digest | None = None

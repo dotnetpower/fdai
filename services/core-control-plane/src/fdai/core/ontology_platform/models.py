@@ -28,8 +28,8 @@ from fdai.shared.providers.ontology_instance import (
 
 _MAX_PREDICATE_OPERAND_BYTES = 65_536
 _MAX_PREDICATES = 32
-_MAX_IN_VALUES = 1_000
-_MAX_ROOT_IDS = 1_000
+_MAX_IN_VALUES = 10_000
+_MAX_ROOT_IDS = 10_000
 _MAX_LINK_TYPES = 64
 
 
