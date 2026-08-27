@@ -219,9 +219,17 @@ def _projection_gaps(
         or ontology_manifest.get("relationship_complete") is not True
     ):
         gaps.append("graph_projection_incomplete")
-    if operating_status and operating_status.get("status") != "projected":
-        gaps.append("operating_model_incomplete")
-    if operating_manifest and operating_manifest.get("status") != "projected":
+    status_revision = operating_status.get("source_revision")
+    manifest_revision = operating_manifest.get("source_revision")
+    if (
+        not operating_status
+        or not operating_manifest
+        or operating_status.get("status") != "projected"
+        or operating_manifest.get("status") != "projected"
+        or not isinstance(status_revision, str)
+        or not status_revision
+        or status_revision != manifest_revision
+    ):
         gaps.append("operating_model_incomplete")
     return tuple(sorted(set(gaps)))
 
