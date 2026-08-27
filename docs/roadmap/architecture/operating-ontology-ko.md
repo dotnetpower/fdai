@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 477556138185919e803a1ed8946deb4a1f92109b
+translation_source_sha: 2641512d02e367b931b8e68d7cc339bdc26d857b
 translation_revised: 2026-08-27
 ---
 # FDAI 운영 온톨로지
@@ -131,11 +131,11 @@ translation_revised: 2026-08-27
 | 2026-08-27 | implemented | 기존의 배포 제공 운영 모델 경로를 통해 운영 의도 ObjectType 6개를 모두 고정했습니다. Fixture는 tenant 값을 제공하지 않으며 각 정확한 타입이 일반 snapshot에서 사라지지 않고 검증 및 저장되는지 확인합니다. | `current change`; `test_operating_model.py` 검사 7개 통과; Ruff 통과. | 배포별 목표, 담당 체계, 제약 조건, 변경 구간 인스턴스는 운영 근거로 별도 보존합니다. |
 | 2026-08-27 | implemented | 독립 검토 후 계획된 변경의 최신성 처리를 강화했습니다. 증적은 이제 저장된 인벤토리 온톨로지 릴리스와 변환 매니페스트를 검증하고, 운영 모델 매니페스트를 포함하며, 보류 중인 모든 리소스 또는 관계 오버레이를 차단합니다. 순회 뒤 두 번째 권위 있는 읽기에서도 증적 바이트가 같아야 합니다. 명시적으로 구성한 PostgreSQL 오류는 취소나 관련 없는 결함을 포착하지 않으면서 실패한 평가 및 사람 검토가 됩니다. | `current change`; 집중 최신성, 영향, 영속성 디코더, 변경 체인, 판테온 검사 49개 통과; Ruff와 strict mypy 통과. | 평가는 권한이 없는 근거로 유지하며 일반 RiskGate가 현재 실행 사전 조건을 다시 검사합니다. |
 | 2026-08-27 | implemented | 계획된 변경 최신성의 완전성을 인정하기 전에 운영 모델 상태와 매니페스트가 모두 같은 비어 있지 않은 출처 개정으로 변환되도록 요구했습니다. 누락되거나 중간 상태인 운영 모델은 이제 `operating_model_incomplete`로 유지합니다. | `current change`; 집중 최신성 및 판테온 검사 52개 통과; Ruff와 strict mypy 통과. | 배포된 정확한 개정 증적은 별도로 보존합니다. |
+| 2026-08-27 | implemented | 후속 검토에서 발견한 의미상 빈 개정 사례를 닫았습니다. 서로 일치하더라도 공백으로만 된 운영 모델 개정은 식별자 일치를 충족하지 않고 불완전 상태로 유지합니다. | `current change`; 집중 최신성 및 판테온 검사 53개 통과; Ruff와 strict mypy 통과. | 배포 근거는 별도로 보존합니다. |
 
 ### 남은 작업
 
-- [x] 계획 변경을 자동 통과시키기 전에 그래프 최신성 권한을 제공하고 검증했습니다. 집중 검사는 오래됨, 불완전, 충돌, 혼합 릴리스, 대상 불일치,
-  미래 시각, 잘림, 보류 중인 오버레이, 사용 불가 사례를 포함합니다.
+- [x] 계획 변경을 자동 통과시키기 전에 그래프 최신성 권한을 제공하고 검증했습니다. 집중 검사는 오래됨, 불완전, 충돌, 혼합 릴리스, 대상 불일치, 미래 시각, 잘림, 보류 중인 오버레이, 사용 불가 사례를 포함합니다.
 - [ ] 하나의 고정된 온톨로지 release에서 남은 맥락, 결과 종결 및 통제된 learning 경로의 운영 바인딩과 재생 근거를 완료합니다.
 - [ ] Forseti 소유 uncertainty, 옵션, precondition, 효과 방향 및 predictor 버전 값에서 `OperationalProspectiveLineage`를 생산하고, 권위 있는 telemetry-completeness receipt가 있는 완전한 다중 효과 집합까지 독립 종결을 확장한 뒤, 완전한 런타임 에피소드 하나가 존재할 때만 source와 projector를 연결합니다.
 - [ ] Receipt로 검증된 컨텍스트 메타데이터를 기존 principal 범위 근거 응답에 연결하고 잘못된 principal, 목적, 릴리스, stale 및 truncated 사례가 사용 불가로 유지됨을 입증합니다.

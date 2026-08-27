@@ -112,6 +112,7 @@ scope, append-only transitions, and resumable work.
 | 2026-08-27 | implemented | Pinned all six operating-intent ObjectTypes through the deployment-supplied operating-model path, with no tenant values in the fixture. | `current change`; `test_operating_model.py` (`7 passed`); Ruff. | Retain deployment-specific instances separately as operational evidence. |
 | 2026-08-27 | implemented | Hardened planned-change freshness by verifying persisted inventory and operating-model manifests, rejecting all pending resource and link overlays, double-reading the receipt around traversal, and classifying configured PostgreSQL failures as unavailable. | `current change`; focused freshness, impact, persistence-decoder, change-chain, and pantheon checks (`49 passed`); Ruff and strict mypy. | Preserve ordinary execution-time RiskGate revalidation and retain deployed receipt evidence separately. |
 | 2026-08-27 | implemented | Required matching non-empty operating-model status and manifest revisions before a freshness receipt can be complete. | `current change`; focused freshness and pantheon checks (`52 passed`); Ruff and strict mypy. | Retain deployed exact-revision evidence separately. |
+| 2026-08-27 | implemented | Rejected matching whitespace-only operating-model revisions as semantically empty. | `current change`; focused freshness and pantheon checks (`53 passed`); Ruff and strict mypy. | Retain deployed evidence separately. |
 
 ### Remaining work
 

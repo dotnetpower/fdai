@@ -214,6 +214,13 @@ def test_operating_model_revision_changes_receipt_identity() -> None:
             },
             "operating_model_incomplete",
         ),
+        (
+            {
+                "operating_status": {"status": "projected", "source_revision": "   "},
+                "operating_manifest": {"status": "projected", "source_revision": "   "},
+            },
+            "operating_model_incomplete",
+        ),
     ],
 )
 def test_operating_model_identity_is_required(
