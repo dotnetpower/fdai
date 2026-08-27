@@ -137,10 +137,21 @@ async def test_collects_uid_grounded_runtime_inventory() -> None:
                         "conditions": [{"type": "Ready", "status": "False"}],
                         "containerStatuses": [
                             {
+                                "name": "api",
                                 "ready": False,
                                 "restartCount": 2,
                                 "state": {
                                     "waiting": {"reason": "ImagePullBackOff"},
+                                },
+                                "lastState": {
+                                    "terminated": {
+                                        "reason": "OOMKilled",
+                                        "exitCode": 137,
+                                        "signal": 9,
+                                        "finishedAt": "2026-08-27T08:10:00Z",
+                                        "message": "provider-specific termination details",
+                                        "containerID": "containerd://private-runtime-id",
+                                    }
                                 },
                             }
                         ],
@@ -261,6 +272,16 @@ async def test_collects_uid_grounded_runtime_inventory() -> None:
     assert by_type["kubernetes.pod"].props["ready_container_count"] == 0
     assert by_type["kubernetes.pod"].props["restart_count"] == 2
     assert by_type["kubernetes.pod"].props["container_waiting_reasons"] == ("ImagePullBackOff",)
+    assert by_type["kubernetes.pod"].props["container_terminations"] == (
+        {
+            "container_name": "api",
+            "observation_kind": "previous",
+            "reason": "OOMKilled",
+            "exit_code": 137,
+            "signal": 9,
+            "finished_at": "2026-08-27T08:10:00+00:00",
+        },
+    )
     assert by_type["kubernetes.service"].props["selector"] == {"app": "api"}
     assert "selector" not in by_type["kubernetes.deployment"].props
     assert "selector" not in by_type["kubernetes.replica-set"].props
@@ -346,6 +367,7 @@ async def test_rollout_status_projection_rejects_malformed_container_evidence() 
                     status={
                         "containerStatuses": [
                             {
+                                "name": "api",
                                 "ready": "false",
                                 "restartCount": -1,
                             }
@@ -368,6 +390,51 @@ async def test_rollout_status_projection_rejects_malformed_container_evidence() 
             await source.collect()
 
 
+async def test_rollout_status_projection_rejects_malformed_termination_evidence() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        items: list[dict[str, object]] = []
+        if request.url.path == "/api/v1/pods":
+            items = [
+                _item(
+                    "api-123",
+                    "uid-pod",
+                    namespace="default",
+                    status={
+                        "containerStatuses": [
+                            {
+                                "name": "api",
+                                "ready": False,
+                                "restartCount": 1,
+                                "lastState": {
+                                    "terminated": {
+                                        "reason": "Error",
+                                        "exitCode": -1,
+                                        "finishedAt": "not-a-timestamp",
+                                    }
+                                },
+                            }
+                        ]
+                    },
+                )
+            ]
+        return httpx.Response(200, json={"items": items, "metadata": {"continue": ""}})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        source = KubernetesApiInventorySource(
+            config=KubernetesApiInventoryConfig(
+                api_server="https://kubernetes.example",
+                cluster_ref=CLUSTER_REF,
+            ),
+            auth=_Auth(),
+            http_client=client,
+        )
+        with pytest.raises(
+            KubernetesApiInventoryError,
+            match="exitCode.*non-negative integer",
+        ):
+            await source.collect()
+
+
 async def test_rollout_status_projection_omits_raw_image_and_message_content() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         items: list[dict[str, object]] = []
@@ -382,6 +449,7 @@ async def test_rollout_status_projection_omits_raw_image_and_message_content() -
                         "message": "provider-specific diagnostic text",
                         "containerStatuses": [
                             {
+                                "name": "api",
                                 "image": "registry.example/workload:private-tag",
                                 "imageID": "sha256:private-image-digest",
                                 "ready": False,
@@ -390,6 +458,16 @@ async def test_rollout_status_projection_omits_raw_image_and_message_content() -
                                     "waiting": {
                                         "reason": "ErrImagePull",
                                         "message": "provider-specific pull failure",
+                                    }
+                                },
+                                "lastState": {
+                                    "terminated": {
+                                        "reason": "Error",
+                                        "exitCode": 1,
+                                        "signal": 0,
+                                        "finishedAt": "2026-08-27T08:10:00Z",
+                                        "message": "provider-specific process output",
+                                        "containerID": "containerd://private-runtime-id",
                                     }
                                 },
                             }
@@ -412,6 +490,16 @@ async def test_rollout_status_projection_omits_raw_image_and_message_content() -
 
     pod = next(resource for resource in snapshot.resources if resource.type == "kubernetes.pod")
     assert pod.props["container_waiting_reasons"] == ("ErrImagePull",)
+    assert pod.props["container_terminations"] == (
+        {
+            "container_name": "api",
+            "observation_kind": "previous",
+            "reason": "Error",
+            "exit_code": 1,
+            "signal": 0,
+            "finished_at": "2026-08-27T08:10:00+00:00",
+        },
+    )
     assert "image" not in pod.props
     assert "image_id" not in pod.props
     assert "message" not in pod.props
