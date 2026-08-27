@@ -704,7 +704,7 @@ jobs:
 
       - name: Terraform plan
         if: ${{ !inputs.apply }}
-        run: terraform plan -input=false -lock-timeout=300s -out=dev.plan
+        run:         env -u TF_CLI_ARGS terraform plan -no-color -input=false -lock-timeout=300s -out=dev.plan
 
       - name: Guard migrated runtimes from legacy recreation
         if: ${{ !inputs.apply && !inputs.deploy_design_mocks && !inputs.deploy_monitoring && env.MODEL_BINDING_ONLY != 'true' }}

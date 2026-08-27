@@ -110,3 +110,6 @@ def test_chatops_validation_requires_exact_resolved_foundry_secondary() -> None:
         "TF_VAR_enable_llm: ${{ startsWith(inputs.request_id, 'plan-chatops-') || "
         "startsWith(inputs.request_id, 'apply-chatops-')"
     ) in workflow_text
+    assert (
+        "env -u TF_CLI_ARGS terraform plan -no-color -input=false -lock-timeout=300s -out=dev.plan"
+    ) in workflow_text
