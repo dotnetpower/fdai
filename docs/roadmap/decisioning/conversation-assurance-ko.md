@@ -1,7 +1,7 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 310f91e8c8fd33ef6c2ac101131dbad138f40564
-translation_revised: 2026-08-20
+translation_source_sha: a59cc75d5cde586258953696731fc544bc6aa576
+translation_revised: 2026-08-28
 ---
 # 대화 품질 보증
 
@@ -22,12 +22,14 @@ translation_revised: 2026-08-20
 | 평가 계약 및 독립 축약 | implemented | [`test_assessment.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_assessment.py), [`test_attribution.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_attribution.py) | 결정론적 검사, 독립 평가자 축약, 귀속 및 판단 보류 동작에 집중 테스트가 있습니다. |
 | 비용 인식 런타임 정책 및 수명 주기 | implemented | [`test_runtime_policy.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_runtime_policy.py), [`test_lifecycle.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_lifecycle.py) | 단계적 평가, 후보 수명 주기, 실패 시 차단되는 승격 검사 및 롤백 동작이 구현되어 있습니다. 이는 운영 승격을 증명하지 않습니다. |
 | Qualification 점수표 및 캠페인 원장 | in-progress | [`test_quality_scorecard.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_scorecard.py), [`conversation-assurance-ledger.py`](../../../scripts/quality/conversation-assurance-ledger.py) | 점수표와 범위가 제한된 결과 형식은 구현되어 있지만 전체 이중 언어 qualification 집합은 통제된 근거로 보존되지 않았습니다. |
+| 맥락 및 로케일 결정론 점수표 어댑터 | implemented | [`context_locale_scorecard.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/context_locale_scorecard.py), [`test_context_locale_scorecard.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_context_locale_scorecard.py) | 41-45번 항목은 로케일 동등성, 영속성 fidelity, 개인화 정확성, 맥락 격리, 화면 인식을 콘텐츠 없는 재생 가능 관측으로 측정합니다. 이 행은 전체 이중 언어 qualification 실행 완료를 주장하지 않습니다. |
 | 운영자 이의 제기 및 온톨로지 적정성 검토 | implemented | [`test_learning.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_learning.py), [`test_state_store_ontology_adequacy.py`](../../../services/core-control-plane/tests/delivery/persistence/test_state_store_ontology_adequacy.py) | 이의 제기와 재현된 적정성 공백은 실행 권한을 변경하지 않고 범위가 제한된 검토 근거를 만듭니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-28 | implemented | 점수표 41-45번 항목에 대한 결정론 어댑터를 추가하여 로케일 동등성, 영속성 fidelity, 개인화 정확성, 맥락 격리, 화면 인식을 기존 하드 상한 계약 위에서 범위가 제한된 콘텐츠 없는 관측으로 측정하도록 했습니다. | `current change`; [`context_locale_scorecard.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/context_locale_scorecard.py); [`test_context_locale_scorecard.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_context_locale_scorecard.py); 집중 scorecard, persistence, answer-plan, Deck 격리 검사와 작업 범위 Ruff, strict mypy, translation, roadmap 검증. | 점수표 validation을 주장하기 전에 고정된 리비전에서 통제된 50개 항목 이중 언어 qualification 실행을 보존해야 합니다. |
 | 2026-08-14 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입했습니다. | `current change`; 구현 범위 표의 현재 소스와 집중 테스트입니다. | 아래에 설명된 qualification, 블라인드 재실행 및 운영 승격 또는 롤백 근거를 보존해야 합니다. |
 
 ### 남은 작업
@@ -162,6 +164,14 @@ observability and 재생 `0.10`의 고정된 정규화된 가중치를 적용합
 포함되지 않습니다. 이 산출물만으로 기준선 또는 qualification을 입증할 수 없습니다. 별도의
 version-pinned 말뭉치 실행기와 점수표 산출물이 같은 승격 변경에서 계약 또는 holdout
 라벨을 변경하지 않고 해당 기록을 제공해야 합니다.
+
+41-45번 항목은 전용 결정론 어댑터를 사용하며, 이 어댑터는 기계가 읽을 수 있는 case 및 scope
+신원, 하나의 source revision, 순서가 정해진 provenance 및 correlation 참조, 선택적 semantic
+review 소유자만 받습니다. 로케일 동등성은 English와 Korean을 서로 독립적으로 측정하고,
+영속성 fidelity는 재시작 이후에도 exact replay를 요구하며, 개인화는 명시적으로 저장된
+선호만 측정합니다. 맥락 격리는 hidden-scope leak가 있으면 hard-fail하고, 화면 인식은 근거 없는
+screen claim 또는 truncation concealment가 있으면 hard-fail합니다. 이 어댑터는 대화 텍스트를
+저장하지 않으며 브라우저에 보이는 텍스트를 권위 있는 근거로 대체할 수 없습니다.
 
 ## 독립 모델 평가
 

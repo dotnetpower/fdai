@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: dbd90a39f5c5fa5de59854d72328a021193c3a69
-translation_revised: 2026-08-26
+translation_source_sha: 24241161afad763446283111197e0dda9b471172
+translation_revised: 2026-08-28
 ---
 # 프로젝트 구조
 
@@ -68,7 +68,12 @@ translation_revised: 2026-08-26
   계속 사용할 수 있고, 현재 활성 패널은 숨길 수 없습니다. 세부 경로는 공통 페이지 제목 안에
   간결한 영역 / 패널 계층을 렌더링하여 Explorer를 접어도 맥락을 유지합니다. 대시보드는
   `전체 현황 / Dashboard`를 렌더링합니다. 패널 제목이 영역 레이블을 반복하는 영역 루트와 독립
-  유틸리티는 단일 제목을 유지합니다. 에이전트 영역은 명단,
+  유틸리티는 단일 제목을 유지합니다. 대화 품질 보증 점수 조립은
+  `core/conversation_assurance/context_locale_scorecard.py`에 남아 있는 Core 소유 기능입니다.
+  persistence, preference, session, screen 표면은 범위가 제한된 근거 또는 projection만
+  내보낼 수 있으며, principal 간 집계를 하거나 브라우저 텍스트를 권위 있는 근거로 대체하거나
+  qualification 상태를 직접 부여할 수 없습니다. 결정론 어댑터는 UI 텍스트를 성공 근거로
+  취급하지 않고 hidden-scope leak와 근거 없는 screen claim을 hard-fail합니다. 에이전트 영역은 명단,
   Organization, 활동, 인계 패널 전체에 표시되는 작업 공간 탭 행도 유지합니다. 명단은
   기본 에이전트 보기이며 Operator API가 반환하지 않은 지표를 만들지 않고 현재 스트림 상태, 현재 작업,
   인시던트 연결, 보고선, 증적 링크를 투영합니다. 필터와 검색은 브라우저 로컬 표시 제어이며,

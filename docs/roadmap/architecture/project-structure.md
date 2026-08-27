@@ -67,7 +67,12 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   routes render a compact domain / panel hierarchy inside the shared page title so context
   remains visible when the Explorer is collapsed. Dashboard renders `Overview / Dashboard`;
   domain roots whose panel title repeats the domain label and standalone utilities keep a single
-  title. The Agents domain also keeps a visible
+  title. Conversation assurance score assembly remains Core-owned in
+  `core/conversation_assurance/context_locale_scorecard.py`: persistence, preference, session, and
+  screen surfaces may emit only bounded evidence or projections, and they cannot aggregate across
+  principals, substitute browser text for authority, or assign qualification state themselves. The
+  deterministic adapter hard-fails hidden-scope leaks and unsupported screen claims instead of
+  treating UI text as success evidence. The Agents domain also keeps a visible
   workspace tab row across its Roster, Organization, Activity, and Handover panels. Roster is
   the default agent view and projects current stream state, current work, incident association,
   reporting line, and evidence links without inventing metrics that the Operator API did not return.
