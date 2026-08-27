@@ -75,6 +75,10 @@ class GraphFreshnessReceiptSource(Protocol):
     async def resolve(self, *, target_ref: str) -> GraphFreshnessReceipt | None: ...
 
 
+class ChangeAssessmentUnavailableError(RuntimeError):
+    """An authoritative planned-change assessment dependency is unavailable."""
+
+
 @dataclass(frozen=True, slots=True)
 class ChangeAssessment:
     change_id: str
@@ -120,6 +124,7 @@ class ChangeAssessmentService:
         ontology_release_digest: str | None = None,
         clock: Callable[[], datetime] | None = None,
         max_graph_age: timedelta = timedelta(hours=24),
+        analysis_error_types: tuple[type[Exception], ...] = (),
         max_affected_resources: int = 10,
         traversal_bounds: ImpactTraversalBounds | None = None,
     ) -> None:
@@ -135,11 +140,17 @@ class ChangeAssessmentService:
             not ontology_release_digest.startswith("sha256:") or len(ontology_release_digest) != 71
         ):
             raise ValueError("ontology release digest MUST be a SHA-256 digest")
+        if any(
+            error_type in {Exception, BaseException} or not issubclass(error_type, Exception)
+            for error_type in analysis_error_types
+        ):
+            raise ValueError("analysis error types MUST contain narrow Exception subclasses")
         self._analyzer = analyzer
         self._graph_freshness_source = graph_freshness_source
         self._ontology_release_digest = ontology_release_digest
         self._clock = clock or (lambda: datetime.now(UTC))
         self._max_graph_age = max_graph_age
+        self._analysis_error_types = analysis_error_types
         self._max_affected_resources = max_affected_resources
         self._traversal_bounds = traversal_bounds or ImpactTraversalBounds()
 
@@ -151,11 +162,7 @@ class ChangeAssessmentService:
         correlation_id = _required_text(change, "correlation_id")
         target_ref = _required_text(change, "target_ref")
         occurred_at = _required_datetime(change, "occurred_at")
-        receipt = (
-            await self._graph_freshness_source.resolve(target_ref=target_ref)
-            if self._graph_freshness_source is not None
-            else None
-        )
+        receipt = await self._resolve_graph_freshness(target_ref)
         now = self._clock()
         if now.tzinfo is None or now.utcoffset() is None:
             raise ValueError("change assessment clock MUST be timezone-aware")
@@ -166,14 +173,29 @@ class ChangeAssessmentService:
             evaluated_at=now,
             max_graph_age=self._max_graph_age,
         )
-        affected = await self._analyzer.analyze(
-            direct_target_ids=(target_ref,),
-            bounds=self._traversal_bounds,
-            graph_fresh=not graph_reasons,
-            unresolved_conflicts=tuple(graph_reasons),
-            expected_source_generation=(receipt.source_generation if receipt is not None else None),
-        )
+        try:
+            affected = await self._analyzer.analyze(
+                direct_target_ids=(target_ref,),
+                bounds=self._traversal_bounds,
+                graph_fresh=not graph_reasons,
+                unresolved_conflicts=tuple(graph_reasons),
+                expected_source_generation=(
+                    receipt.source_generation if receipt is not None else None
+                ),
+            )
+        except self._analysis_error_types as exc:
+            raise ChangeAssessmentUnavailableError(
+                "planned-change graph traversal is unavailable"
+            ) from exc
         reasons = list(affected.incomplete_reasons)
+        if self._graph_freshness_source is not None:
+            latest_receipt = await self._resolve_graph_freshness(target_ref)
+            if (
+                receipt is None
+                or latest_receipt is None
+                or latest_receipt.receipt_digest != receipt.receipt_digest
+            ):
+                reasons.append("graph_changed_during_assessment")
         if affected.truncated:
             reasons.append("impact_truncated")
         if not affected.protected_services:
@@ -208,6 +230,19 @@ class ChangeAssessmentService:
             reasons=normalized_reasons,
             evidence_digest=evidence_digest,
         )
+
+    async def _resolve_graph_freshness(
+        self,
+        target_ref: str,
+    ) -> GraphFreshnessReceipt | None:
+        if self._graph_freshness_source is None:
+            return None
+        try:
+            return await self._graph_freshness_source.resolve(target_ref=target_ref)
+        except self._analysis_error_types as exc:
+            raise ChangeAssessmentUnavailableError(
+                "planned-change graph freshness source is unavailable"
+            ) from exc
 
 
 def _required_text(value: Mapping[str, Any], name: str) -> str:
@@ -407,6 +442,7 @@ __all__ = [
     "build_graph_freshness_receipt",
     "ChangeAssessment",
     "ChangeAssessmentService",
+    "ChangeAssessmentUnavailableError",
     "GraphFreshnessReceipt",
     "GraphFreshnessReceiptSource",
 ]

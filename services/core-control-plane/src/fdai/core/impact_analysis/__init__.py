@@ -4,6 +4,7 @@ from fdai.core.impact_analysis.analyzer import ImpactAnalyzer, ImpactTraversalBo
 from fdai.core.impact_analysis.change_assessment import (
     ChangeAssessment,
     ChangeAssessmentService,
+    ChangeAssessmentUnavailableError,
     GraphFreshnessReceipt,
     GraphFreshnessReceiptSource,
     build_graph_freshness_receipt,
@@ -22,6 +23,7 @@ __all__ = [
     "build_graph_freshness_receipt",
     "ChangeAssessment",
     "ChangeAssessmentService",
+    "ChangeAssessmentUnavailableError",
     "compile_impact_envelope",
     "ImpactAnalyzer",
     "ImpactEnvelopeRecord",

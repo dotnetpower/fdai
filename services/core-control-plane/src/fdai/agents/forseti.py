@@ -51,7 +51,7 @@ from fdai.agents._framework.introspection import (
 from fdai.agents._framework.pantheon import _FORSETI
 from fdai.agents._framework.specialist_ingress import SPECIALIST_EVENT_PREFIX
 from fdai.core.decision_case import DomainDecisionCoordinator, DomainDecisionProjection
-from fdai.core.impact_analysis import ChangeAssessment
+from fdai.core.impact_analysis import ChangeAssessment, ChangeAssessmentUnavailableError
 from fdai.core.operational_context import OperationalContextMaterializer, SourceFreshness
 from fdai.core.operational_planning import (
     KineticActionProposal,
@@ -203,7 +203,7 @@ class Forseti(Agent, ForsetiJudgmentMixin):
             return
         try:
             assessment = await self._change_assessor.assess(change)
-        except (TimeoutError, ValueError):
+        except (ChangeAssessmentUnavailableError, TimeoutError, ValueError):
             event["change_assessment_status"] = "failed"
             event["human_approval_required"] = True
             self.record_behavior("change_assessment:failed")

@@ -8,7 +8,11 @@ from fdai.agents._framework.registry import load_pantheon
 from fdai.agents.forseti import Forseti
 from fdai.agents.huginn import Huginn
 from fdai.agents.muninn import Muninn
-from fdai.core.impact_analysis import AffectedSet, ChangeAssessment
+from fdai.core.impact_analysis import (
+    AffectedSet,
+    ChangeAssessment,
+    ChangeAssessmentUnavailableError,
+)
 
 
 async def test_huginn_publishes_change_and_muninn_keeps_revision() -> None:
@@ -126,6 +130,12 @@ class _ChangeAssessor:
         )
 
 
+class _UnavailableChangeAssessor:
+    async def assess(self, change: dict[str, object]) -> ChangeAssessment:
+        del change
+        raise ChangeAssessmentUnavailableError("database unavailable")
+
+
 def _planned_event() -> dict[str, object]:
     occurred_at = datetime(2026, 8, 4, tzinfo=UTC).isoformat()
     return {
@@ -166,3 +176,16 @@ async def test_forseti_holds_planned_change_without_assessor() -> None:
     verdict = bus.messages_on("object.verdict")[-1].payload
     assert verdict["risk_verdict"] == "hil"
     assert verdict["change_assessment_status"] == "unavailable"
+
+
+async def test_forseti_holds_planned_change_when_authoritative_read_fails() -> None:
+    bus = InMemoryBus(registry=load_pantheon())
+
+    await Forseti(
+        bus=bus,
+        change_assessor=_UnavailableChangeAssessor(),
+    ).on_typed_message("object.event", _planned_event())
+
+    verdict = bus.messages_on("object.verdict")[-1].payload
+    assert verdict["risk_verdict"] == "hil"
+    assert verdict["change_assessment_status"] == "failed"

@@ -59,6 +59,10 @@ class PostgresGraphFreshnessReceiptSource:
                 cursor = await connection.execute(
                     "SELECT s.id, s.observation_kind, s.metadata, s.completed_at, "
                     "a.updated_at, NOW() AS recorded_at, "
+                    "ontology_status.value AS ontology_status, "
+                    "ontology_manifest.value AS ontology_manifest, "
+                    "operating_status.value AS operating_status, "
+                    "operating_manifest.value AS operating_manifest, "
                     "EXISTS (SELECT 1 FROM inventory_realtime_resource d "
                     "WHERE d.resource_id=%s AND d.change_kind='upsert') OR ("
                     "EXISTS (SELECT 1 FROM inventory_snapshot_resource r "
@@ -66,11 +70,22 @@ class PostgresGraphFreshnessReceiptSource:
                     "SELECT 1 FROM inventory_realtime_resource d WHERE d.resource_id=%s)) "
                     "AS resource_present, EXISTS ("
                     "SELECT 1 FROM inventory_realtime_resource d WHERE d.resource_id=%s"
-                    ") AS realtime_pending, EXISTS (SELECT 1 FROM inventory_snapshot newer "
+                    ") AS realtime_pending, ("
+                    "EXISTS (SELECT 1 FROM inventory_realtime_resource) OR "
+                    "EXISTS (SELECT 1 FROM inventory_realtime_link)"
+                    ") AS overlay_pending, EXISTS (SELECT 1 FROM inventory_snapshot newer "
                     "WHERE newer.id<>s.id AND newer.started_at>s.completed_at AND ("
                     "newer.status='failed' OR (newer.status='collecting' AND "
                     "newer.started_at < NOW() - INTERVAL '30 minutes'))) AS newer_failure "
                     "FROM inventory_active a JOIN inventory_snapshot s ON s.id=a.snapshot_id "
+                    "LEFT JOIN state_kv ontology_status "
+                    "ON ontology_status.key='inventory-ontology:status' "
+                    "LEFT JOIN state_kv ontology_manifest "
+                    "ON ontology_manifest.key='inventory-ontology:manifest' "
+                    "LEFT JOIN state_kv operating_status "
+                    "ON operating_status.key='operating-model:status' "
+                    "LEFT JOIN state_kv operating_manifest "
+                    "ON operating_manifest.key='operating-model:manifest' "
                     "WHERE a.singleton=TRUE AND s.status='active'",
                     (target_ref, target_ref, target_ref, target_ref),
                 )
@@ -91,25 +106,51 @@ def _receipt_from_row(
     target_ref: str,
     ontology_release_digest: str,
     freshness_budget: timedelta,
-) -> GraphFreshnessReceipt:
+) -> GraphFreshnessReceipt | None:
     source_generation = _text(row, "id")
     observed_at = _timestamp(row, "completed_at")
     recorded_at = _timestamp(row, "recorded_at")
     active_updated_at = _timestamp(row, "updated_at")
     metadata = _metadata(row.get("metadata"))
-    conflicts = _completeness_gaps(row, metadata)
+    ontology_status = _optional_metadata(row.get("ontology_status"))
+    ontology_manifest = _optional_metadata(row.get("ontology_manifest"))
+    operating_status = _optional_metadata(row.get("operating_status"))
+    operating_manifest = _optional_metadata(row.get("operating_manifest"))
+    persisted_release = ontology_manifest.get("ontology_release_digest")
+    if (
+        not isinstance(persisted_release, str)
+        or not persisted_release.startswith("sha256:")
+        or len(persisted_release) != 71
+    ):
+        return None
+    conflicts = (
+        *_completeness_gaps(row, metadata),
+        *_projection_gaps(
+            source_generation=source_generation,
+            expected_release=ontology_release_digest,
+            persisted_release=persisted_release,
+            ontology_status=ontology_status,
+            ontology_manifest=ontology_manifest,
+            operating_status=operating_status,
+            operating_manifest=operating_manifest,
+        ),
+    )
     graph_revision = _graph_revision(
         source_generation=source_generation,
         observed_at=observed_at,
         active_updated_at=active_updated_at,
         metadata=metadata,
+        ontology_status=ontology_status,
+        ontology_manifest=ontology_manifest,
+        operating_status=operating_status,
+        operating_manifest=operating_manifest,
     )
     truncated = bool(metadata.get("truncated") is True)
     if truncated:
         conflicts = (*conflicts, "inventory_truncated")
     normalized_conflicts = tuple(sorted(set(conflicts)))
     return build_graph_freshness_receipt(
-        ontology_release_digest=ontology_release_digest,
+        ontology_release_digest=persisted_release,
         target_ref=target_ref,
         source_generation=source_generation,
         graph_revision=graph_revision,
@@ -131,6 +172,8 @@ def _completeness_gaps(
         gaps.append("graph_target_missing")
     if row.get("realtime_pending") is True:
         gaps.append("graph_realtime_pending")
+    if row.get("overlay_pending") is True:
+        gaps.append("graph_overlay_pending")
     if row.get("newer_failure") is True:
         gaps.append("newer_inventory_failure")
     if row.get("observation_kind") != "observed":
@@ -153,12 +196,46 @@ def _completeness_gaps(
     return tuple(sorted(set(gaps)))
 
 
+def _projection_gaps(
+    *,
+    source_generation: str,
+    expected_release: str,
+    persisted_release: str,
+    ontology_status: Mapping[str, Any],
+    ontology_manifest: Mapping[str, Any],
+    operating_status: Mapping[str, Any],
+    operating_manifest: Mapping[str, Any],
+) -> tuple[str, ...]:
+    gaps: list[str] = []
+    if persisted_release != expected_release or (
+        ontology_status.get("ontology_release_digest") != persisted_release
+    ):
+        gaps.append("graph_release_mismatch")
+    if (
+        ontology_status.get("status") != "available"
+        or ontology_status.get("generation") != source_generation
+        or ontology_manifest.get("generation") != source_generation
+        or ontology_manifest.get("complete") is not True
+        or ontology_manifest.get("relationship_complete") is not True
+    ):
+        gaps.append("graph_projection_incomplete")
+    if operating_status and operating_status.get("status") != "projected":
+        gaps.append("operating_model_incomplete")
+    if operating_manifest and operating_manifest.get("status") != "projected":
+        gaps.append("operating_model_incomplete")
+    return tuple(sorted(set(gaps)))
+
+
 def _graph_revision(
     *,
     source_generation: str,
     observed_at: datetime,
     active_updated_at: datetime,
     metadata: Mapping[str, Any],
+    ontology_status: Mapping[str, Any],
+    ontology_manifest: Mapping[str, Any],
+    operating_status: Mapping[str, Any],
+    operating_manifest: Mapping[str, Any],
 ) -> str:
     encoded = json.dumps(
         {
@@ -166,6 +243,10 @@ def _graph_revision(
             "observed_at": observed_at.isoformat(),
             "active_updated_at": active_updated_at.isoformat(),
             "metadata": metadata,
+            "ontology_status": ontology_status,
+            "ontology_manifest": ontology_manifest,
+            "operating_status": operating_status,
+            "operating_manifest": operating_manifest,
         },
         allow_nan=False,
         ensure_ascii=True,
@@ -181,6 +262,12 @@ def _metadata(value: object) -> Mapping[str, Any]:
     if not isinstance(value, Mapping):
         raise ValueError("inventory freshness metadata MUST be an object")
     return value
+
+
+def _optional_metadata(value: object) -> Mapping[str, Any]:
+    if value is None:
+        return {}
+    return _metadata(value)
 
 
 def _text(row: Mapping[str, Any], name: str) -> str:

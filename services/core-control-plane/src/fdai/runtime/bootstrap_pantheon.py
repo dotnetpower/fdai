@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import httpx
+import psycopg
 
 from fdai.agents import (
     Norns,
@@ -156,6 +157,7 @@ def _change_assessment_service(config: PantheonInitialization) -> ChangeAssessme
             release.digest if source is not None and release is not None else None
         ),
         clock=lambda: datetime.now(UTC),
+        analysis_error_types=(psycopg.Error,),
     )
 
 

@@ -29,8 +29,33 @@ def _row(**overrides: object) -> dict[str, object]:
         "completed_at": _NOW,
         "updated_at": _NOW + timedelta(seconds=1),
         "recorded_at": _NOW + timedelta(seconds=2),
+        "ontology_status": {
+            "status": "available",
+            "generation": "inventory-generation-1",
+            "ontology_release_digest": _RELEASE,
+        },
+        "ontology_manifest": {
+            "status": "available",
+            "generation": "inventory-generation-1",
+            "ontology_release_digest": _RELEASE,
+            "complete": True,
+            "relationship_complete": True,
+            "object_ids": ["resource-a"],
+            "link_keys": [],
+        },
+        "operating_status": {
+            "status": "projected",
+            "source_revision": "operating-model-1",
+        },
+        "operating_manifest": {
+            "status": "projected",
+            "source_revision": "operating-model-1",
+            "object_ids": [],
+            "link_keys": [],
+        },
         "resource_present": True,
         "realtime_pending": False,
+        "overlay_pending": False,
         "newer_failure": False,
     }
     value.update(overrides)
@@ -51,6 +76,7 @@ def test_active_inventory_row_builds_exact_no_authority_receipt() -> None:
         freshness_budget=timedelta(hours=1),
     )
 
+    assert first is not None
     assert first == replay
     assert first.complete is True
     assert first.conflicts == ()
@@ -66,6 +92,7 @@ def test_active_inventory_gaps_remain_explicit_and_incomplete() -> None:
             observation_kind="expected",
             resource_present=False,
             realtime_pending=True,
+            overlay_pending=True,
             newer_failure=True,
             metadata={
                 "link_types": ["contains"],
@@ -87,11 +114,13 @@ def test_active_inventory_gaps_remain_explicit_and_incomplete() -> None:
         freshness_budget=timedelta(hours=1),
     )
 
+    assert receipt is not None
     assert receipt.complete is False
     assert receipt.truncated is True
     assert receipt.conflicts == (
         "graph_link_coverage_incomplete",
         "graph_not_observed",
+        "graph_overlay_pending",
         "graph_provider_identity_incomplete",
         "graph_realtime_pending",
         "graph_relationship_incomplete",
@@ -100,6 +129,75 @@ def test_active_inventory_gaps_remain_explicit_and_incomplete() -> None:
         "inventory_truncated",
         "newer_inventory_failure",
     )
+
+
+def test_projection_release_and_generation_mismatch_remain_incomplete() -> None:
+    receipt = _receipt_from_row(
+        _row(
+            ontology_status={
+                "status": "available",
+                "generation": "inventory-generation-2",
+                "ontology_release_digest": "sha256:" + "b" * 64,
+            },
+            ontology_manifest={
+                "generation": "inventory-generation-2",
+                "ontology_release_digest": "sha256:" + "b" * 64,
+                "complete": True,
+                "relationship_complete": True,
+            },
+        ),
+        target_ref="resource-a",
+        ontology_release_digest=_RELEASE,
+        freshness_budget=timedelta(hours=1),
+    )
+
+    assert receipt is not None
+    assert receipt.ontology_release_digest == "sha256:" + "b" * 64
+    assert receipt.complete is False
+    assert "graph_projection_incomplete" in receipt.conflicts
+    assert "graph_release_mismatch" in receipt.conflicts
+
+
+def test_missing_persisted_projection_release_returns_unavailable() -> None:
+    receipt = _receipt_from_row(
+        _row(ontology_manifest={}),
+        target_ref="resource-a",
+        ontology_release_digest=_RELEASE,
+        freshness_budget=timedelta(hours=1),
+    )
+
+    assert receipt is None
+
+
+def test_operating_model_revision_changes_receipt_identity() -> None:
+    first = _receipt_from_row(
+        _row(),
+        target_ref="resource-a",
+        ontology_release_digest=_RELEASE,
+        freshness_budget=timedelta(hours=1),
+    )
+    second = _receipt_from_row(
+        _row(
+            operating_status={
+                "status": "projected",
+                "source_revision": "operating-model-2",
+            },
+            operating_manifest={
+                "status": "projected",
+                "source_revision": "operating-model-2",
+                "object_ids": ["objective-2"],
+                "link_keys": [],
+            },
+        ),
+        target_ref="resource-a",
+        ontology_release_digest=_RELEASE,
+        freshness_budget=timedelta(hours=1),
+    )
+
+    assert first is not None
+    assert second is not None
+    assert first.graph_revision != second.graph_revision
+    assert first.receipt_digest != second.receipt_digest
 
 
 @pytest.mark.parametrize("metadata", [None, [], "{not-json"])
