@@ -114,6 +114,7 @@ scope, append-only transitions, and resumable work.
 | 2026-08-27 | implemented | Required matching non-empty operating-model status and manifest revisions before a freshness receipt can be complete. | `current change`; focused freshness and pantheon checks (`52 passed`); Ruff and strict mypy. | Retain deployed exact-revision evidence separately. |
 | 2026-08-27 | implemented | Rejected matching whitespace-only operating-model revisions as semantically empty. | `current change`; focused freshness and pantheon checks (`53 passed`); Ruff and strict mypy. | Retain deployed evidence separately. |
 | 2026-08-27 | implemented | Bound receipt-verified Context metadata into the existing principal-scoped operational evidence response. The response now carries a server-checked principal, and Context projection rejects principal, purpose, release, stale, incomplete, and truncated evidence before returning metadata. | `current change`; `core/operational_context/test_console_projection.py` and `test_evidence_read.py` (`14 passed`). | Retain authenticated Console evidence separately; no authority or runtime promotion changes. |
+| 2026-08-27 | implemented | Added authority-free runtime projections for positive `Forecast` episodes and balanced `Pattern` candidates, preserving detector, target, interval, case, and evidence identities without restoring unsupported relationships. | `current change`; `core/ontology_platform/detection_projection.py`; focused detection, forecast-episode, and operational-learning tests (`11 passed`). | Restore `predicts_breach_of` or `learned_as` only after a producer supplies the exact objective or outcome endpoint identity. |
 | 2026-08-27 | implemented | Reviewed every shipped lifecycle-free ObjectType and recorded the existing catalog, event-bus, provider, service, or principal-scoped authority without introducing speculative agent writers. | `current change`; `rule-catalog/vocabulary/object-types/` inventory and the owner documentation authority table. | Reopen only when an existing authority changes or a type gains an objectively required lifecycle. |
 
 ### Remaining work
@@ -138,9 +139,10 @@ scope, append-only transitions, and resumable work.
   reconciliation, and graph-wide Dynamic delivery reaches its focused exit conditions.
 - [x] Bind `project_operating_scope` to the authenticated read-only inventory graph response so
   `unknown_service` reaches an operator surface; focused consumer checks pass 4 cases.
-- [ ] Supply a producer for the `Forecast` and `Pattern` endpoint pairs before restoring
-  `predicts_breach_of` and `learned_as`. Both ObjectTypes now ship, so the blocker is that no
-  runtime path writes either endpoint, not that the catalog would reject the declaration.
+- [x] Supply authority-free producers for the `Forecast` and `Pattern` endpoint objects before
+  restoring `predicts_breach_of` and `learned_as`; focused producer and source tests pass. Both
+  relationships remain deferred because their exact objective and outcome endpoint identities are
+  still not produced.
 - [x] Project the six operating-intent types from a deployment-supplied source and pin them with a
   focused test that fails when an intent type produces no instance (`7 passed`).
 - [x] Review the shipped ObjectTypes that carry no `lifecycle` block and record, per type, whether an

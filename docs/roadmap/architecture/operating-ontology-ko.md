@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 4a24327f76cd126787aa8467ee43df28cac5dd7b
+translation_source_sha: b8cce8bb61a233b686e370f2e3913e010ac8b74b
 translation_revised: 2026-08-27
 ---
 # FDAI 운영 온톨로지
@@ -133,6 +133,7 @@ translation_revised: 2026-08-27
 | 2026-08-27 | implemented | 계획된 변경 최신성의 완전성을 인정하기 전에 운영 모델 상태와 매니페스트가 모두 같은 비어 있지 않은 출처 개정으로 변환되도록 요구했습니다. 누락되거나 중간 상태인 운영 모델은 이제 `operating_model_incomplete`로 유지합니다. | `current change`; 집중 최신성 및 판테온 검사 52개 통과; Ruff와 strict mypy 통과. | 배포된 정확한 개정 증적은 별도로 보존합니다. |
 | 2026-08-27 | implemented | 후속 검토에서 발견한 의미상 빈 개정 사례를 닫았습니다. 서로 일치하더라도 공백으로만 된 운영 모델 개정은 식별자 일치를 충족하지 않고 불완전 상태로 유지합니다. | `current change`; 집중 최신성 및 판테온 검사 53개 통과; Ruff와 strict mypy 통과. | 배포 근거는 별도로 보존합니다. |
 | 2026-08-27 | implemented | Receipt로 검증된 컨텍스트 메타데이터를 기존 principal 범위 운영 근거 응답에 연결했습니다. 응답은 이제 서버가 확인한 principal을 포함하며, 컨텍스트 변환은 메타데이터를 반환하기 전에 principal, 목적, 릴리스, stale, 불완전 및 잘린 근거를 거부합니다. | `current change`; `core/operational_context/test_console_projection.py` 및 `test_evidence_read.py` 검사 14개 통과 | 인증된 Console 근거는 별도로 보존하며 권한이나 런타임 승격은 바꾸지 않습니다. |
+| 2026-08-27 | implemented | 양의 `Forecast` episode와 균형 잡힌 `Pattern` 후보를 위한 권한 없는 런타임 변환 결과를 추가했습니다. Detector, target, interval, case 및 evidence 신원을 보존하며 근거 없는 관계는 복원하지 않습니다. | `current change`; `core/ontology_platform/detection_projection.py`, detection, forecast-episode 및 operational-learning 집중 검사 11개 통과 | 정확한 objective 또는 outcome endpoint 신원을 생산자가 제공할 때에만 `predicts_breach_of` 또는 `learned_as`를 복원합니다. |
 
 ### 남은 작업
 
@@ -142,8 +143,7 @@ translation_revised: 2026-08-27
 - [x] Receipt로 검증된 컨텍스트 메타데이터를 기존 principal 범위 근거 응답에 연결했습니다. 집중 테스트가 잘못된 principal, 목적, 릴리스, stale, 불완전 및 truncated 사례를 사용 불가로 유지함을 입증합니다.
 - [ ] 토폴로지, 시간, reconciliation 및 graph-wide Dynamic 제공이 집중 종료 조건에 도달할 때 운영 온톨로지와 플랫폼 원장을 동기화합니다.
 - [x] `project_operating_scope`를 인증된 읽기 전용 인벤토리 그래프 응답에 연결해 `unknown_service`가 운영자 화면에 도달하게 했으며 focused consumer 검사 4개가 통과했습니다.
-- [ ] `predicts_breach_of`와 `learned_as`를 복원하기 전에 `Forecast`와 `Pattern` 엔드포인트 쌍을 만들어 낼 생산자를 마련해야 합니다. 두 ObjectType은 이제 출하되므로,
-  막고 있는 것은 카탈로그가 선언을 거부한다는 사실이 아니라 어느 런타임 경로도 두 엔드포인트를 쓰지 않는다는 사실입니다.
+- [x] `predicts_breach_of`와 `learned_as`를 복원하기 전에 권한 없는 `Forecast` 및 `Pattern` 엔드포인트 객체 생산자를 마련했습니다. 집중 생산자 및 원본 검사가 통과했습니다. 정확한 objective 및 outcome endpoint 신원을 아직 생산하지 않으므로 두 관계는 계속 보류합니다.
 - [x] 운영 의도 6종을 배포가 제공하는 출처에서 변환하고, 의도 타입이 인스턴스를 만들지
   못하면 실패하는 집중 테스트로 고정했습니다(검사 7개 통과).
 - [ ] `lifecycle` 블록이 없는 출하 ObjectType을 검토해, 타입별로 에이전트 단일 작성자가 필요한지
