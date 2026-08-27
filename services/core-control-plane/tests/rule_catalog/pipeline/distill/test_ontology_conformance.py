@@ -39,6 +39,13 @@ from fdai.shared.providers.distiller import (
 )
 
 _PARTITION = CorpusPartition("markdown", "en")
+_REQUIRED_SYNTHETIC_PARTITIONS = (
+    CorpusPartition("pdf", "en"),
+    CorpusPartition("ooxml", "en"),
+    CorpusPartition("pdf", "ko"),
+    CorpusPartition("ooxml", "ko"),
+    CorpusPartition("ocr", "ko"),
+)
 _TEXT = "Checkout service is owned by Platform team."
 _DIGEST = hashlib.sha256(_TEXT.encode()).hexdigest()
 
@@ -193,6 +200,95 @@ class StepClock:
 
     def __call__(self) -> float:
         return next(self._values)
+
+
+class IncrementingClock:
+    def __init__(self) -> None:
+        self._value = 0.0
+
+    def __call__(self) -> float:
+        self._value += 0.001
+        return self._value
+
+
+class PartitionDistiller(StaticDistiller):
+    async def distill(self, document: ManualDocument) -> DistillationResult:
+        return DistillationResult(
+            candidates=(
+                DistilledCandidate(
+                    kind=CandidateKind.ONTOLOGY_OBJECT,
+                    candidate_id=f"candidate-{document.doc_id}",
+                    source_ref=document.source_ref,
+                    source_section="Synthetic corpus",
+                    source_lines=(1, 1),
+                    content_sha=document.content_sha,
+                    body={
+                        "operation": "update",
+                        "target_type": "BusinessService",
+                        "target_identity": "service:checkout",
+                        "authority": "declared_intent",
+                        "source_assertion": document.text,
+                        "properties": {"owner_ref": "team:platform"},
+                    },
+                ),
+            )
+        )
+
+
+def _partition_case(partition: CorpusPartition) -> ConformanceCase:
+    text = (
+        f"합성 {partition.source_format} 한국어 소유권 근거입니다."
+        if partition.language == "ko"
+        else f"Synthetic {partition.source_format} English ownership evidence."
+    )
+    digest = hashlib.sha256(text.encode()).hexdigest()
+    document = ManualDocument(
+        doc_id=f"service-map-{partition.source_format}-{partition.language}",
+        text=text,
+        source_ref=f"doc:{partition.source_format}:{partition.language}",
+        content_sha=digest,
+        metadata={
+            "access_policy_ref": "access:synthetic-corpus",
+            "revision": "rev-1",
+            "source_format": partition.source_format,
+            "language": partition.language,
+        },
+    )
+    context = replace(
+        _context(),
+        source_policies=(
+            SourceAuthorityPolicy(
+                document.source_ref,
+                frozenset({AuthorityClass.DECLARED_INTENT}),
+                10,
+            ),
+        ),
+    )
+    claim_id = inventory_claims(document)[0].claim_id
+    expected = replace(_expected(), claim_id=claim_id)
+    return ConformanceCase(
+        case_id=document.doc_id,
+        partition=partition,
+        document=document,
+        verification_context=context,
+        expected_facts=(expected,),
+    )
+
+
+async def test_bound_provider_passes_all_synthetic_format_and_language_partitions() -> None:
+    report = await evaluate_distiller_conformance(
+        PartitionDistiller((_candidate(),)),
+        cases=tuple(_partition_case(partition) for partition in _REQUIRED_SYNTHETIC_PARTITIONS),
+        required_partitions=_REQUIRED_SYNTHETIC_PARTITIONS,
+        monotonic=IncrementingClock(),
+        cost_microunits=lambda case, result: len(result.candidates),
+    )
+
+    assert report.assessment.decision is CorpusGateDecision.PASS
+    assert tuple(item.partition for item in report.assessment.partitions) == (
+        _REQUIRED_SYNTHETIC_PARTITIONS
+    )
+    assert all(item.replay_match for item in report.case_results)
 
 
 async def test_passing_provider_records_real_output_latency_and_partition_metrics() -> None:

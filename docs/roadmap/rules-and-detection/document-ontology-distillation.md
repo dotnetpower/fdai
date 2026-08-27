@@ -28,6 +28,9 @@ revision.
 > production extraction quality. D4d adds a tool-free T2 ontology model council with blind ballots,
 > deterministic consensus, and bounded disagreement evidence. D5 promotion assessment remains
 > evidence-only; no live-shadow evidence or automatic promotion is claimed.
+> D4e adds synthetic English native-PDF, Office, and OCR coverage plus Korean Office and
+> OCR-backed scanned-PDF coverage. A bound deterministic provider passes every required synthetic
+> partition without turning that result into production extraction evidence.
 
 ## Design at a glance
 

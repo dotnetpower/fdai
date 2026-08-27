@@ -1,7 +1,7 @@
 ---
 translation_of: document-ontology-distillation.md
-translation_source_sha: ea3089491866bef83d0c7651c72cfcb3b8aa2da0
-translation_revised: 2026-08-21
+translation_source_sha: f37fd180c01542b5e873119ef63b75f8e123bf43
+translation_revised: 2026-08-27
 ---
 # 문서 온톨로지 증류
 
@@ -30,6 +30,9 @@ translation_revised: 2026-08-21
 > disagreement 근거를 사용하는 tool-free T2 온톨로지 모델 council을 추가합니다. D5 승격
 > 평가는 evidence-only이며 live-shadow 근거 또는 automatic 승격을 달성했다고
 > 주장하지 않습니다.
+> D4e는 영어 native PDF, Office 및 OCR 범위와 한국어 Office 및 OCR 기반 스캔 PDF 범위를
+> 합성 corpus로 추가합니다. 연결된 결정론적 프로바이더는 필요한 모든 합성 파티션을 통과하지만,
+> 이 결과를 운영 추출 근거로 취급하지 않습니다.
 
 ## 한눈에 보는 설계
 

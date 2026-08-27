@@ -45,7 +45,6 @@ from fdai.shared.providers.distiller import (
 from fdai.shared.providers.local.document_ingestion import StandardLibraryDocumentExtractor
 
 from tests.rule_catalog.pipeline.distill.golden_document_corpus import (
-    CLAIMS,
     GoldenDocument,
     golden_documents,
 )
@@ -54,6 +53,9 @@ _RELEASE = "a" * 64
 
 
 class _GoldenOcr:
+    def __init__(self, claims: tuple[str, ...]) -> None:
+        self._claims = claims
+
     async def extract(
         self, *, version: DocumentVersion, content: bytes
     ) -> tuple[StructuralUnit, ...]:
@@ -66,11 +68,14 @@ class _GoldenOcr:
                 locator=f"page:1:line:{index}",
                 text=claim,
             )
-            for index, claim in enumerate(CLAIMS, start=1)
+            for index, claim in enumerate(self._claims, start=1)
         )
 
 
 class _GoldenDistiller:
+    def __init__(self, claims: tuple[str, ...]) -> None:
+        self._claims = claims
+
     async def distill(self, document: ManualDocument) -> DistillationResult:
         lines = document.text.splitlines()
         bodies = (
@@ -79,7 +84,7 @@ class _GoldenDistiller:
                 "target_type": "BusinessService",
                 "target_identity": "service:checkout",
                 "authority": "declared_intent",
-                "source_assertion": CLAIMS[0],
+                "source_assertion": self._claims[0],
                 "properties": {"owner_ref": "team:platform"},
             },
             {
@@ -87,7 +92,7 @@ class _GoldenDistiller:
                 "target_type": "service_depends_on",
                 "target_identity": "link:checkout-billing",
                 "authority": "declared_intent",
-                "source_assertion": CLAIMS[1],
+                "source_assertion": self._claims[1],
                 "properties": {},
                 "from_identity": "service:checkout",
                 "to_identity": "service:billing",
@@ -97,7 +102,7 @@ class _GoldenDistiller:
                 "target_type": "ServiceObjective",
                 "target_identity": "objective:checkout-latency",
                 "authority": "declared_intent",
-                "source_assertion": CLAIMS[2],
+                "source_assertion": self._claims[2],
                 "properties": {"comparison": "<", "target_ms": 250, "unit": "ms"},
             },
             {
@@ -105,7 +110,7 @@ class _GoldenDistiller:
                 "target_type": "service_depends_on",
                 "target_identity": "link:checkout-legacy",
                 "authority": "declared_intent",
-                "source_assertion": CLAIMS[3],
+                "source_assertion": self._claims[3],
                 "properties": {"constraint": "not"},
                 "from_identity": "service:checkout",
                 "to_identity": "service:legacy",
@@ -128,7 +133,7 @@ class _GoldenDistiller:
                         next(
                             line_number
                             for line_number, line in enumerate(lines, start=1)
-                            if CLAIMS[index] in line
+                            if self._claims[index] in line
                         ),
                     )
                     * 2,
@@ -141,11 +146,11 @@ class _GoldenDistiller:
 
 
 async def test_formats_produce_equivalent_claims_proposals_and_graph() -> None:
-    projections = []
+    projections: dict[str, list[object]] = {}
     for index, golden in enumerate(golden_documents(), start=1):
         envelope = await _extract(golden, identity=index)
         document = manual_document_from_envelope(envelope)
-        result = await _GoldenDistiller().distill(document)
+        result = await _GoldenDistiller(golden.claims).distill(document)
         context = _context(document.source_ref)
         package = build_ontology_review_package(
             document=document,
@@ -181,9 +186,10 @@ async def test_formats_produce_equivalent_claims_proposals_and_graph() -> None:
         assert report.critical_claim_recall >= 0.98
         assert report.precision >= 0.98
         assert report.semantic_review_count == 0
-        projections.append(normalize_review_package(package))
+        projections.setdefault(golden.language, []).append(normalize_review_package(package))
 
-    assert len(set(projections)) == 1
+    assert set(projections) == {"en", "ko"}
+    assert all(len(set(items)) == 1 for items in projections.values())
 
 
 async def _extract(golden: GoldenDocument, *, identity: int):
@@ -211,7 +217,9 @@ async def _extract(golden: GoldenDocument, *, identity: int):
     async def chunks():
         yield golden.content
 
-    extractor = StandardLibraryDocumentExtractor(image_ocr=_GoldenOcr() if golden.scanned else None)
+    extractor = StandardLibraryDocumentExtractor(
+        image_ocr=_GoldenOcr(golden.claims) if golden.scanned else None
+    )
     return await extractor.extract(version=version, chunks=chunks())
 
 
