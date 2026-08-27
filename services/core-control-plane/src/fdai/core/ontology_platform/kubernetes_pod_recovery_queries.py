@@ -7,7 +7,7 @@ import math
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from fdai.shared.contracts.models import (
     CeilingRole,
@@ -37,6 +37,7 @@ from .kubernetes_pod_recovery_evidence import (
 )
 from .kubernetes_pod_replacement_evidence import (
     KubernetesPodReplacementEvidenceResult,
+    KubernetesPodReplacementStatus,
     PodLifecycleObservation,
     PodReplacementDeploymentObservation,
     evaluate_kubernetes_pod_replacement_from_lifecycle,
@@ -237,12 +238,22 @@ def kubernetes_pod_recovery_function(
                 update={
                     "complete": False,
                     "recovery_verified": False,
-                    "status": KubernetesPodRecoveryStatus.INSUFFICIENT_EVIDENCE,
+                    "status": (
+                        result.status
+                        if result.status is KubernetesPodRecoveryStatus.CONFLICTING_EVIDENCE
+                        else KubernetesPodRecoveryStatus.INSUFFICIENT_EVIDENCE
+                    ),
                     "evidence_gaps": tuple(dict.fromkeys((*result.evidence_gaps, gap))),
                 }
             )
         elif isinstance(lifecycle_events, Mapping) and lifecycle_events.get("complete") is True:
             replacement_context = arguments.get("replacement_context")
+            if replacement_context is None:
+                replacement_context = _default_replacement_context(
+                    pod_result,
+                    deployment_result=deployment_result,
+                    lifecycle_events=lifecycle_events,
+                )
             if isinstance(replacement_context, Mapping):
                 replacement = _replacement_from_context(
                     replacement_context,
@@ -254,7 +265,13 @@ def kubernetes_pod_recovery_function(
                         update={
                             "complete": False,
                             "recovery_verified": False,
-                            "status": KubernetesPodRecoveryStatus.INSUFFICIENT_EVIDENCE,
+                            "status": (
+                                KubernetesPodRecoveryStatus.CONFLICTING_EVIDENCE
+                                if replacement.status
+                                is KubernetesPodReplacementStatus.CONFLICTING_EVIDENCE
+                                or result.status is KubernetesPodRecoveryStatus.CONFLICTING_EVIDENCE
+                                else KubernetesPodRecoveryStatus.INSUFFICIENT_EVIDENCE
+                            ),
                             "evidence_gaps": tuple(
                                 dict.fromkeys(
                                     (
@@ -398,6 +415,128 @@ def _replacement_from_context(
         correlation_window_start=window_start,
         cutoff=cutoff,
     )
+
+
+def _default_replacement_context(
+    pod_result: SecuredObjectSetQueryResult,
+    *,
+    deployment_result: SecuredObjectSetQueryResult,
+    lifecycle_events: Mapping[str, Any],
+) -> Mapping[str, Any] | None:
+    """Translate complete lifecycle rows into a conservative exact replacement bundle."""
+
+    pod_objects = pod_result.materialization.graph.objects
+    if len(pod_objects) != 1:
+        return None
+    pod = pod_objects[0]
+    properties = _resource_properties(pod)
+    current_uid = properties.get("uid")
+    if not isinstance(current_uid, str) or not current_uid.strip():
+        return None
+    raw_rows = lifecycle_events.get("rows")
+    if not isinstance(raw_rows, Sequence) or isinstance(raw_rows, (str, bytes)):
+        return None
+    typed_rows: tuple[Mapping[str, Any], ...] = tuple(
+        cast(Mapping[str, Any], row["values"])
+        for row in raw_rows
+        if isinstance(row, Mapping) and isinstance(row.get("values"), Mapping)
+    )
+    old_rows = tuple(
+        row
+        for row in typed_rows
+        if isinstance(row.get("object_uid"), str) and row["object_uid"] != current_uid
+    )
+    if not old_rows:
+        return None
+    old_uid = str(old_rows[0]["object_uid"])
+    current_metadata = _state_metadata(pod).to_mapping()
+    old_metadata = dict(current_metadata)
+    old_metadata["completeness"] = 0.0
+    old_metadata["evidence_refs"] = tuple(
+        dict.fromkeys(
+            (
+                *(
+                    str(row["evidence_ref"])
+                    for row in old_rows
+                    if isinstance(row.get("evidence_ref"), str)
+                ),
+                *cast(tuple[str, ...], current_metadata["evidence_refs"]),
+            )
+        )
+    )
+    current = _replacement_record(pod, metadata=current_metadata)
+    old = dict(current)
+    old["pod_id"] = f"{pod.id}:historical:{old_uid}"
+    old["pod_uid"] = old_uid
+    old["created_at"] = None
+    old["phase"] = None
+    old["ready"] = None
+    old["ready_container_count"] = None
+    old["metadata"] = old_metadata
+    deployment_objects = tuple(
+        item
+        for item in deployment_result.materialization.graph.objects
+        if _resource_type(item) == "kubernetes.deployment"
+    )
+    deployment = deployment_objects[0] if len(deployment_objects) == 1 else None
+    if deployment is None:
+        return None
+    deployment_properties = _resource_properties(deployment)
+    times = tuple(_required_replacement_time(row, "event_time") for row in old_rows)
+    return {
+        "old_pod": old,
+        "candidates": [current],
+        "deployment": {
+            "deployment_id": deployment.id,
+            "desired_replicas_before": _optional_replacement_int(
+                deployment_properties, "desired_replicas"
+            ),
+            "desired_replicas_after": _optional_replacement_int(
+                deployment_properties, "desired_replicas"
+            ),
+            "ready_replicas": _optional_replacement_int(deployment_properties, "ready_replicas"),
+            "available_replicas": _optional_replacement_int(
+                deployment_properties, "available_replicas"
+            ),
+            "unavailable_replicas": _optional_replacement_int(
+                deployment_properties, "unavailable_replicas"
+            ),
+            "metadata": _state_metadata(deployment).to_mapping(),
+            "evidence_refs": list(_state_metadata(deployment).evidence_refs),
+        },
+        "correlation_window_start": min(times).isoformat(),
+    }
+
+
+def _replacement_record(
+    record: OntologyObjectRecord,
+    *,
+    metadata: Mapping[str, Any],
+) -> dict[str, object]:
+    """Return the bounded Pod fields used by the replacement reducer."""
+
+    properties = _resource_properties(record)
+    return {
+        "pod_id": record.id,
+        "pod_uid": _required_replacement_text(properties, "uid"),
+        "cluster_id": _required_replacement_text(properties, "cluster_ref"),
+        "namespace": _required_replacement_text(properties, "namespace"),
+        "owner_uid": _optional_replacement_text(properties, "owner_uid"),
+        "root_controller_uid": _optional_replacement_text(properties, "root_controller_uid"),
+        "root_controller_kind": _optional_replacement_text(properties, "root_controller_kind"),
+        "created_at": _optional_replacement_time(properties, "created_at"),
+        "phase": _optional_replacement_text(properties, "phase"),
+        "ready": properties.get("ready") if isinstance(properties.get("ready"), bool) else None,
+        "container_count": _optional_replacement_int(properties, "container_count"),
+        "ready_container_count": _optional_replacement_int(properties, "ready_container_count"),
+        "waiting_reasons": _replacement_text_tuple(
+            {"waiting_reasons": properties.get("container_waiting_reasons", ())},
+            "waiting_reasons",
+        ),
+        "workload_revision": _optional_replacement_text(properties, "workload_revision"),
+        "metadata": metadata,
+        "evidence_refs": list(metadata["evidence_refs"]),
+    }
 
 
 def _replacement_pod(value: object) -> PodLifecycleObservation | None:

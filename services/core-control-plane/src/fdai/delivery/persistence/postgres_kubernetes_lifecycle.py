@@ -73,7 +73,8 @@ class PostgresKubernetesLifecycleStore:
             await self._set_timeout(connection)
             await self._lock_cluster(connection, cluster_ref)
             cursor = await connection.execute(
-                "SELECT resource_version, updated_at FROM kubernetes_lifecycle_cursor "
+                "SELECT resource_version, updated_at, complete, limitation "
+                "FROM kubernetes_lifecycle_cursor "
                 "WHERE cluster_ref = %s",
                 (cluster_ref,),
             )
@@ -119,7 +120,11 @@ class PostgresKubernetesLifecycleStore:
                 (cluster_ref,),
             )
             row = await locked.fetchone()
-            current_cursor = None if row is None else str(row["resource_version"])
+            current_cursor = (
+                None
+                if row is None or row["resource_version"] is None
+                else str(row["resource_version"])
+            )
             if current_cursor != previous_cursor:
                 raise KubernetesLifecycleCursorConflictError(
                     "Kubernetes lifecycle cursor moved concurrently under another writer"

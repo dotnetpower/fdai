@@ -182,6 +182,29 @@ async def test_watch_bookmark_advances_cursor_without_an_observation() -> None:
     assert poll.next_cursor == "2050"
 
 
+async def test_watch_event_count_cap_is_an_explicit_truncation_gap() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return _ndjson_response(
+            *(
+                {
+                    "type": "ADDED",
+                    "object": _event_object(
+                        event_uid=f"event-uid-{index}",
+                        resource_version=str(3000 + index),
+                    ),
+                }
+                for index in range(256)
+            )
+        )
+
+    source = _source(httpx.MockTransport(handler))
+    poll = await source.poll(cluster_ref=CLUSTER_REF, cursor="2000")
+
+    assert poll.complete is False
+    assert poll.limitation == "result_limit"
+    assert len(poll.observations) == 256
+
+
 async def test_watch_gone_error_surfaces_an_explicit_cursor_expiry_gap() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return _ndjson_response({"type": "ERROR", "object": {"code": 410}})

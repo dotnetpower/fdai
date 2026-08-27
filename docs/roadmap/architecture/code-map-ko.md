@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 384422831998c935a1c280e68e01086470395186
+translation_source_sha: fc8103a3374bc0fa2e606ac8fe199e5d881c9263
 translation_revised: 2026-08-28
 ---
 # 코드 맵
@@ -33,6 +33,8 @@ translation_revised: 2026-08-28
 > 없습니다.
 > collection completeness와 gap state는 cursor와 함께 보존되며 incomplete LIST snapshot은
 > cursor를 전진시키지 않습니다.
+> cursor 조회는 completeness와 limitation을 포함하고 expiry 후 SQL `NULL`을 보존하며 WATCH
+> count cap은 명시적인 truncation gap입니다.
 
 ## 물리 서비스 소유권
 

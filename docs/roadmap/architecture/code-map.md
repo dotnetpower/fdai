@@ -29,6 +29,8 @@ retired top-level application tree.
 > replacement reducer; incomplete lifecycle evidence cannot retain a recovered status.
 > Collection completeness and gap state are persisted with the cursor, and incomplete LIST snapshots
 > do not advance it.
+> The cursor read includes completeness and limitation, preserves SQL `NULL` after expiry, and a
+> WATCH count cap is an explicit truncation gap.
 
 ## Physical service ownership
 
