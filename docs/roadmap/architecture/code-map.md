@@ -231,20 +231,19 @@ deadline, and idempotency. An answered result requires exact release, manifest, 
 receipt, and evidence references. The SDK rejects semantic downgrade to N-1 instead of dropping
 those fields. Runtime publication and consumption remain service-owned implementations.
 
-Semantic-turn requests also preserve a typed screen or resource-group selection with its exact
-resource ids. Operator validates the additive context and Core compiles an exact `Resource.id`
-scope for `query.contextual_resources`; a scope mismatch is typed unavailable rather than a
+Semantic-turn requests also preserve a typed screen or resource-group selection with an opaque
+server-issued token. Operator resolves the token against the authenticated principal, ordinary
+lowercase role scope, purpose, exact release, source generation, completeness, and id set before
+Core compiles an exact `Resource.id` scope for `query.contextual_resources`; a client-forged or
+recomputed id, missing-after-restart token, or scope mismatch is typed unavailable rather than a
 fallback to the principal-visible collection. No context field grants approval or execution
 authority.
-The selection is accepted only with a server-issued digest bound to the principal scope, active
-release, source generation, completeness, and id set. Explicit utterance predicates are intersected
-with that set, and an incomplete contextual table holds the semantic turn instead of becoming an
-answered claim.
-Operator instance projections issue the validated selection fields from the authenticated
-principal and active generation, while truncated projections omit the identity entirely.
+Explicit utterance predicates are intersected with the token's set, and an incomplete
+object-only contextual table holds the semantic turn instead of becoming an answered claim.
+Operator instance projections issue the token from the authenticated principal and active
+generation, while truncated projections omit the identity entirely.
 The shared scope digest uses lowercase ordinary roles (`reader`, `contributor`, `approver`, or
-`owner`) and rejects `BreakGlass`; exact id predicates use bounded per-id reads when a context
-contains more than 1,000 resources.
+`owner`) and rejects `BreakGlass`; exact id predicates always use fixed-batch per-id reads.
 The wire contract permits a conservative bounded 512-id context envelope; the general ObjectSet
 and store limits remain 1,000.
 The context contract rejects mixed incident, screen, and resource-group identities, while exact

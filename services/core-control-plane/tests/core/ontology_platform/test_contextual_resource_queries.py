@@ -25,13 +25,21 @@ from fdai.core.ontology_platform.query_gateway import (
 )
 from fdai.shared.contracts.models import CeilingRole
 from fdai.shared.ontology.release import build_ontology_release
-from fdai.shared.providers.ontology_instance import OntologyGraphSnapshot, OntologyObjectRecord
+from fdai.shared.providers.ontology_instance import (
+    OntologyGraphSnapshot,
+    OntologyLinkRecord,
+    OntologyObjectRecord,
+)
 from fdai_service_contracts import context_selection_digest
 
 NOW = datetime(2026, 8, 27, 10, 0, tzinfo=UTC)
 
 
-def _result(objects: tuple[OntologyObjectRecord, ...]) -> SecuredObjectSetQueryResult:
+def _result(
+    objects: tuple[OntologyObjectRecord, ...],
+    *,
+    links: tuple[OntologyLinkRecord, ...] = (),
+) -> SecuredObjectSetQueryResult:
     declaration = contextual_resource_function_type()
     release = build_ontology_release(function_types=(declaration,))
     definition = ObjectSetDefinition(
@@ -44,7 +52,7 @@ def _result(objects: tuple[OntologyObjectRecord, ...]) -> SecuredObjectSetQueryR
         definition=definition,
         graph=OntologyGraphSnapshot(
             objects=objects,
-            links=(),
+            links=links,
             truncated=False,
             source_generation="generation-1",
         ),
@@ -61,7 +69,7 @@ def _result(objects: tuple[OntologyObjectRecord, ...]) -> SecuredObjectSetQueryR
             observation_cutoff=NOW,
             as_of_skew_seconds=0,
             returned_object_count=len(objects),
-            returned_link_count=0,
+            returned_link_count=len(links),
             complete=True,
             truncated=False,
             source_generation="generation-1",
@@ -154,6 +162,22 @@ async def test_contextual_function_holds_on_scope_widening() -> None:
 
     assert result["complete"] is True
     assert [row["values"]["id"] for row in result["rows"]] == ["resource-a"]
+
+
+async def test_contextual_function_does_not_claim_link_coverage() -> None:
+    result = await _invoke(
+        _result(
+            (_resource("resource-a"), _resource("resource-b")),
+            links=(OntologyLinkRecord("depends_on", "resource-a", "resource-b"),),
+        ),
+        ["resource-a", "resource-b"],
+    )
+
+    assert result == {
+        "complete": False,
+        "rows": [],
+        "truncation_reason": "context_object_only",
+    }
 
 
 async def test_contextual_function_rejects_an_outside_id() -> None:

@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 
+from fdai_operator_service.context_selection import ContextSelectionRegistry
 from fdai_operator_service.families.operations.contracts import (
     InventoryImpactContext,
     InventoryInstanceActivity,
@@ -59,6 +60,7 @@ async def project_inventory_instances(
     query: ProjectionQuery,
     reader: InventoryInstanceReader,
     ontology_projection: Mapping[str, object],
+    selection_registry: ContextSelectionRegistry | None = None,
 ) -> dict[str, object]:
     """List Resources from the same active generation used by instance detail."""
 
@@ -87,6 +89,7 @@ async def project_inventory_instances(
             source_generation=context.snapshot_id,
             resource_ids=tuple(resource.resource_id for resource in page.resources),
             complete=not page.truncated,
+            selection_registry=selection_registry,
         ),
         "execution_authority": False,
         "mutation_authority": False,
@@ -99,6 +102,7 @@ async def project_inventory_instance(
     reader: InventoryInstanceReader,
     ontology_projection: Mapping[str, object],
     now: Callable[[], datetime] | None = None,
+    selection_registry: ContextSelectionRegistry | None = None,
 ) -> dict[str, object]:
     """Project one Resource, its bounded connected graph, and exact durable FDAI activity."""
 
@@ -264,6 +268,7 @@ async def project_inventory_instance(
             source_generation=context.snapshot_id,
             resource_ids=tuple(resource.resource_id for resource in neighborhood.resources),
             complete=not truncation_reasons and not context.relationship_drop_reasons,
+            selection_registry=selection_registry,
         ),
         "execution_authority": False,
         "mutation_authority": False,
@@ -392,12 +397,20 @@ def _context_identity(
     source_generation: str,
     resource_ids: tuple[str, ...],
     complete: bool,
+    selection_registry: ContextSelectionRegistry | None,
 ) -> dict[str, object]:
     """Issue a digest-bound selection only for a complete principal-scoped read."""
     if not complete:
         return {}
+    ordinary_roles = tuple(
+        role
+        for role in (query.roles or frozenset({OperatorRole.READER}))
+        if role is not OperatorRole.BREAK_GLASS
+    )
+    if not ordinary_roles:
+        return {}
     principal_role = max(
-        query.roles or frozenset({OperatorRole.READER}),
+        ordinary_roles,
         key=lambda role: tuple(OperatorRole).index(role),
     )
     principal_scope_digest = content_digest(
@@ -418,10 +431,27 @@ def _context_identity(
         resource_group_id=None,
         resource_ids=resource_ids,
     )
+    registry = selection_registry or ContextSelectionRegistry()
+    selection_token = registry.issue(
+        {
+            "kind": "screen",
+            "screen_id": "ontology-instances",
+            "resource_ids": list(resource_ids),
+            "principal_id": query.principal_id,
+            "role": canonical_ordinary_role(principal_role),
+            "purpose": query.purpose,
+            "principal_scope_digest": principal_scope_digest,
+            "ontology_release_digest": release_digest,
+            "source_generation": source_generation,
+            "selection_digest": selection_digest,
+            "complete": True,
+        }
+    )
     return {
         "principal_id": query.principal_id,
         "principal_scope_digest": principal_scope_digest,
         "selection_digest": selection_digest,
+        "selection_token": selection_token,
     }
 
 
