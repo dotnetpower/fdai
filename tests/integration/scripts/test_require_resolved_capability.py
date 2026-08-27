@@ -114,6 +114,18 @@ def test_accepts_exact_resolved_foundry_secondary(gate: ModuleType) -> None:
     _require(gate, _resolved())
 
 
+def test_apply_validation_mode_must_match_protected_plan(gate: ModuleType) -> None:
+    metadata = {"model_resolution": {"chatops_channel_validation": True}}
+
+    assert gate.chatops_validation_required(metadata, requested=True)
+    with pytest.raises(gate.CapabilityRequirementError, match="does not match"):
+        gate.chatops_validation_required(metadata, requested=False)
+
+
+def test_apply_without_model_resolution_skips_unrequested_validation(gate: ModuleType) -> None:
+    assert not gate.chatops_validation_required({}, requested=False)
+
+
 @pytest.mark.parametrize(
     ("resolved", "message"),
     [

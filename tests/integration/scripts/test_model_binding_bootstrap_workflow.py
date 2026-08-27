@@ -8,6 +8,9 @@ import yaml
 
 _ROOT = Path(__file__).resolve().parents[3]
 _WORKFLOW = _ROOT / ".github/workflows/deploy-dev.yml"
+_CAPABILITY_GATE = (_ROOT / "scripts/deployment/azure/require_resolved_capability.py").read_text(
+    encoding="utf-8"
+)
 _STEP_NAME = "Verify model binding policy active digest"
 
 
@@ -74,7 +77,6 @@ def test_partner_endpoint_bindings_are_sealed_before_manifest_digest() -> None:
 
 def test_chatops_validation_requires_exact_resolved_foundry_secondary() -> None:
     workflow = yaml.safe_load(_WORKFLOW.read_text(encoding="utf-8"))
-    inputs = workflow[True]["workflow_dispatch"]["inputs"]
     step = next(
         step
         for step in workflow["jobs"]["terraform"]["steps"]
@@ -82,8 +84,7 @@ def test_chatops_validation_requires_exact_resolved_foundry_secondary() -> None:
     )
     script = step["run"]
 
-    assert inputs["validate_chatops_channels"]["default"] is False
-    assert "inputs.validate_chatops_channels || inputs.deploy_dev_operations_gateway" in str(
+    assert "env.VALIDATE_CHATOPS_CHANNELS == 'true' || inputs.deploy_dev_operations_gateway" in str(
         step["env"]["MODEL_COMPLETENESS_FAIL_ON"]
     )
     assert "require_resolved_capability.py" in script
@@ -93,19 +94,14 @@ def test_chatops_validation_requires_exact_resolved_foundry_secondary() -> None:
     assert script.index("require_resolved_capability.py") < script.index(
         'python3 - "$resolved" "$manifest"'
     )
-    assert "--capability t2.reasoner.secondary" in script
-    assert "--publisher MistralAI" in script
-    assert "--family Mistral-Large-3" in script
-    assert "--version 1" in script
-    assert "--sku GlobalStandard" in script
-    assert "--minimum-capacity-tpm 1000" in script
-    assert "--provider-kind azure-foundry" in script
     assert '--endpoint-ref "azure-foundry:aif-fdai-models-' in script
 
     workflow_text = _WORKFLOW.read_text(encoding="utf-8")
-    assert '"chatops_channel_validation": (' in workflow_text
-    assert "ChatOps validation input does not match the protected plan." in workflow_text
+    assert '"chatops_channel_validation": os.environ' in workflow_text
+    assert "ChatOps validation input does not match the protected plan" in _CAPABILITY_GATE
     assert workflow_text.count("require_resolved_capability.py") == 2
     assert workflow_text.index("verify-deployment-plan.py") < workflow_text.rindex(
         "require_resolved_capability.py"
     )
+    assert "plan-chatops-" in workflow_text
+    assert "apply-chatops-" in workflow_text

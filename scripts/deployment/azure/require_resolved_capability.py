@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
 from fdai.rule_catalog.schema.llm_resolver import CapabilityStatus, ResolvedModels
@@ -15,6 +16,25 @@ from fdai.rule_catalog.schema.model_endpoint import (
 
 class CapabilityRequirementError(ValueError):
     """Raised when a protected model capability requirement is not satisfied."""
+
+
+def chatops_validation_required(metadata: object, *, requested: bool) -> bool:
+    """Match the apply request to the validation mode sealed during planning."""
+    if not isinstance(metadata, dict):
+        raise CapabilityRequirementError("protected plan metadata must be an object")
+    resolution = metadata.get("model_resolution")
+    sealed = False
+    if resolution is not None:
+        if not isinstance(resolution, dict):
+            raise CapabilityRequirementError("protected model resolution metadata is invalid")
+        sealed = resolution.get("chatops_channel_validation", False)
+        if not isinstance(sealed, bool):
+            raise CapabilityRequirementError("protected ChatOps validation flag is invalid")
+    if sealed != requested:
+        raise CapabilityRequirementError(
+            "ChatOps validation input does not match the protected plan"
+        )
+    return sealed
 
 
 def require_resolved_capability(
@@ -76,29 +96,35 @@ def require_resolved_capability(
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--resolved", type=Path, required=True)
-    parser.add_argument("--capability", required=True)
-    parser.add_argument("--publisher", required=True)
-    parser.add_argument("--family", required=True)
-    parser.add_argument("--version", required=True)
-    parser.add_argument("--sku", required=True)
-    parser.add_argument("--minimum-capacity-tpm", type=int, required=True)
-    parser.add_argument("--provider-kind", type=ModelProviderKind, required=True)
     parser.add_argument("--endpoint-ref", required=True)
+    parser.add_argument("--plan-metadata", type=Path)
+    parser.add_argument("--requested-validation", choices=("true", "false"))
     args = parser.parse_args()
     try:
+        if args.plan_metadata is not None:
+            if args.requested_validation is None:
+                raise CapabilityRequirementError(
+                    "--requested-validation is required with --plan-metadata"
+                )
+            metadata = json.loads(args.plan_metadata.read_text(encoding="utf-8"))
+            if not chatops_validation_required(
+                metadata,
+                requested=args.requested_validation == "true",
+            ):
+                return 0
         resolved = ResolvedModels.from_json(args.resolved.read_text(encoding="utf-8"))
         require_resolved_capability(
             resolved,
-            capability=args.capability,
-            publisher=args.publisher,
-            family=args.family,
-            version=args.version,
-            sku=args.sku,
-            minimum_capacity_tpm=args.minimum_capacity_tpm,
-            provider_kind=args.provider_kind,
+            capability="t2.reasoner.secondary",
+            publisher="MistralAI",
+            family="Mistral-Large-3",
+            version="1",
+            sku="GlobalStandard",
+            minimum_capacity_tpm=1_000,
+            provider_kind=ModelProviderKind.AZURE_FOUNDRY,
             endpoint_ref=args.endpoint_ref,
         )
-    except (OSError, ValueError) as exc:
+    except (json.JSONDecodeError, OSError, ValueError) as exc:
         parser.error(str(exc))
     return 0
 

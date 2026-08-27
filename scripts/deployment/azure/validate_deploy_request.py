@@ -11,8 +11,10 @@ from collections.abc import Mapping
 
 _SHA40 = re.compile(r"^[0-9a-f]{40}$")
 _SHA64 = re.compile(r"^[0-9a-f]{64}$")
-_PLAN_REQUEST = re.compile(r"^plan-([0-9a-f]{24}|model-[0-9a-f]{32}-[0-9a-f]{64})$")
-_APPLY_REQUEST = re.compile(r"^apply-([0-9a-f]{24}|model-[0-9a-f]{64})$")
+_PLAN_REQUEST = re.compile(
+    r"^plan-([0-9a-f]{24}|chatops-[0-9a-f]{24}|model-[0-9a-f]{32}-[0-9a-f]{64})$"
+)
+_APPLY_REQUEST = re.compile(r"^apply-([0-9a-f]{24}|chatops-[0-9a-f]{24}|model-[0-9a-f]{64})$")
 _PLAN_ID = re.compile(r"^plan-[1-9][0-9]*-[1-9][0-9]*$")
 _TRUE = "true"
 
