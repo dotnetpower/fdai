@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 60b8788d621a1808ce1be9c3e51aff7d48675bc4
+translation_source_sha: 5891c49889539302bff6ccae0726b4648a067cff
 translation_revised: 2026-08-27
 ---
 # 프로젝트 구조
@@ -270,6 +270,8 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
   index에서 projection하고 exemption은 canonical JSON schema를 사용합니다.
   `LiveBlastProbeAdapter`는 배포가 제공하는 `BlastSignalSource`와 `ProbeFailureStreakSource`
   구현을 연결하며, 소스가 없거나 실패하면 Axis E를 낮추고 권한을 부여하지 않습니다.
+  Runtime 조립은 retired-rule projection을 모든 downstream rule map에 전달하고 HIL/direct
+  경로 전에 영속 promotion-attestation store를 연결합니다.
 - **독립 효과 관측**: 영속 kinetic artifact 저장소가 exact-plan source입니다.
   `StateStoreExecutedActionObservationStore`는 서명된 맥락이 쓰기와 replay에서 구성된 검증기를
   통과한 Heimdall 귀속 관측만 받습니다. 근거가 없으면 held 상태를 유지합니다.

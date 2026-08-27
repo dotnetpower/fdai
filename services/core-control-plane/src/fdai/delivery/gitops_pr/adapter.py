@@ -37,9 +37,11 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import hashlib
 import json
 from dataclasses import dataclass
 from typing import Any, Final
+from urllib.parse import urlencode
 
 import httpx
 
@@ -145,6 +147,7 @@ class GitOpsPrAdapter(RemediationPrPublisher):
                     pr_ref=existing["ref"],
                     url=existing.get("url"),
                     already_existed=True,
+                    state=existing["state"],
                 )
 
             base_sha = await self._resolve_base_sha()
@@ -165,12 +168,14 @@ class GitOpsPrAdapter(RemediationPrPublisher):
                     pr_ref=existing["ref"],
                     url=existing.get("url"),
                     already_existed=True,
+                    state=existing["state"],
                 )
             await self._apply_labels(pr_ref=pr_ref, labels=pr.labels)
             return PublishReceipt(
                 pr_ref=pr_ref,
                 url=url,
                 already_existed=False,
+                state="open",
             )
 
     async def publish_governance(
@@ -218,8 +223,12 @@ class GitOpsPrAdapter(RemediationPrPublisher):
     # ------------------------------------------------------------------
 
     def _branch_for(self, idempotency_key: str) -> str:
-        safe = idempotency_key.replace(" ", "-").replace("/", "-")
-        return f"{self._config.branch_prefix}/{safe}"
+        safe = "".join(
+            character if character.isalnum() or character in "._-" else "-"
+            for character in idempotency_key
+        ).strip("-")[:80]
+        digest = hashlib.sha256(idempotency_key.encode("utf-8")).hexdigest()
+        return f"{self._config.branch_prefix}/{safe or 'request'}-{digest}"
 
     def _headers(self) -> dict[str, str]:
         return {
@@ -295,10 +304,9 @@ class GitOpsPrAdapter(RemediationPrPublisher):
 
     async def _find_open_pr(self, branch: str) -> dict[str, Any] | None:
         head = f"{self._config.owner}:{branch}"
+        query = urlencode({"state": "all", "head": head})
         url = (
-            f"{self._config.api_base}/repos/"
-            f"{self._config.owner}/{self._config.repo}/pulls"
-            f"?state=open&head={head}"
+            f"{self._config.api_base}/repos/{self._config.owner}/{self._config.repo}/pulls?{query}"
         )
         payload = await self._get_json(url)
         if not payload:
@@ -307,9 +315,13 @@ class GitOpsPrAdapter(RemediationPrPublisher):
         pr_number = first.get("number")
         if pr_number is None:
             return None
+        state = "merged" if first.get("merged_at") is not None else first.get("state")
+        if state not in {"open", "closed", "merged"}:
+            raise GitOpsPrError("pull request lookup returned an unknown lifecycle state")
         return {
             "ref": f"{self._config.owner}/{self._config.repo}#{pr_number}",
             "url": first.get("html_url"),
+            "state": state,
         }
 
     async def _resolve_base_sha(self) -> str:

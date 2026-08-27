@@ -224,6 +224,9 @@ class GovernedGovernancePrPublisher:
                 metadata={"correlation_id": correlation_id, "document_digest": digest},
             )
         )
+        state = receipt.state
+        if state not in {"open", "merged", "closed"}:
+            raise GovernancePrError("governance PR publisher returned an invalid lifecycle state")
         lifecycle = GovernancePrLifecycleReceipt(
             action_type_name=action_type,
             idempotency_key=key,
@@ -231,6 +234,9 @@ class GovernedGovernancePrPublisher:
             document_path=document.path,
             pr_ref=receipt.pr_ref,
             url=receipt.url,
+            state=state,
+            merge_required=state == "open",
+            applied=state == "merged",
             already_existed=receipt.already_existed,
             recorded_at=_rfc3339(self._clock()),
         )

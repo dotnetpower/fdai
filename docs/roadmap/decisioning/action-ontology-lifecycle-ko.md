@@ -1,7 +1,7 @@
 ---
 title: Action 온톨로지 라이프사이클
 translation_of: action-ontology-lifecycle.md
-translation_source_sha: 8d2cde694bc5e7027e9cccb3e78f4283ac09c7e2
+translation_source_sha: 60e16f1f0f4dd03c87c6ed85d22ac9faaf4b1aa7
 translation_revised: 2026-08-27
 ---
 
@@ -32,6 +32,7 @@ translation_revised: 2026-08-27
 | 2026-08-27 | implemented | 두 순수 writer를 write-once PR publisher와 영속 open-to-merge lifecycle 증적에 연결하고, 서로 다른 승인자 검토가 없으면 거부하는 승격 dispatcher를 추가했습니다. | `current change`; `gitops_pr/governance.py`, `promotion.py`, 집중 governance delivery 테스트 통과. | GitHub 검토와 병합은 배포가 관리하며, 로컬 증적은 병합된 변경을 주장하지 않습니다. |
 | 2026-08-27 | implemented | exact review attestation, canonical governance path, JSON exemption artifact, 동시 retry 조정 및 merged/closed PR replay를 추가하고 retirement loader와 projection을 연결했습니다. | `current change`; governance, GitOps 및 governance-catalog 집중 테스트 통과. | 배포 소유 identity와 병합된 카탈로그 근거는 외부 게이트입니다. |
 | 2026-08-27 | implemented | bare authority decision 차단, exact governance filename과 extension 강제, retry 직렬화 및 조정, O7 benchmark cohort 요구, non-finite probe deadline 거부, exemption output과 JSON loader 정렬로 review 결과를 반영했습니다. | `current change`; governance, GitOps, O7, probe 및 catalog 집중 adversarial 테스트 통과. | 배포 소유 인증 review와 종단 PR 증적을 보존해야 합니다. |
+| 2026-08-27 | implemented | 완전한 direct-request fingerprint와 영속 one-time promotion nonce를 실제 HIL/direct 경로에 연결했습니다. Retirement rule은 quality 및 HIL rule map에서 제외되고 PR 조회는 merged 또는 closed record를 재사용합니다. | `current change`; HIL, replay, concurrency 및 runtime dispatch 집중 테스트 통과. | 배포 소유 attestation 발급과 실제 PR 증적은 외부 게이트입니다. |
 
 ### 남은 작업
 
