@@ -22,8 +22,11 @@ from fdai.delivery.kubernetes_lifecycle_collector import (
     KubernetesLifecycleCursorState,
     KubernetesLifecycleReadSnapshot,
 )
+from fdai.delivery.kubernetes_lifecycle_source import (
+    MAX_KUBERNETES_LIFECYCLE_POLL_OBSERVATIONS,
+)
 
-_MAX_OBSERVATIONS_PER_APPEND: Final = 256
+_MAX_OBSERVATIONS_PER_APPEND: Final = MAX_KUBERNETES_LIFECYCLE_POLL_OBSERVATIONS
 
 
 @dataclass(frozen=True, slots=True)

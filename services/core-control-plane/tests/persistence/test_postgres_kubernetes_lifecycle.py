@@ -20,6 +20,9 @@ from fdai.delivery.kubernetes_lifecycle_collector import (
     KubernetesLifecycleAppendReceipt,
     KubernetesLifecycleCursorConflictError,
 )
+from fdai.delivery.kubernetes_lifecycle_source import (
+    MAX_KUBERNETES_LIFECYCLE_POLL_OBSERVATIONS,
+)
 from fdai.delivery.persistence.postgres_kubernetes_lifecycle import (
     PostgresKubernetesLifecycleStore,
     PostgresKubernetesLifecycleStoreConfig,
@@ -130,6 +133,37 @@ def _observation(
         source_revision="100",
         evidence_ref=ref,
     )
+
+
+async def test_append_bound_matches_the_multi_page_source(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _ConnectReachedError(RuntimeError):
+        pass
+
+    async def connect() -> None:
+        raise _ConnectReachedError
+
+    store = PostgresKubernetesLifecycleStore(
+        config=PostgresKubernetesLifecycleStoreConfig(dsn="postgresql://example")
+    )
+    monkeypatch.setattr(store, "_connect", connect)
+    observation = _observation(object_uid="pod-a")
+
+    with pytest.raises(_ConnectReachedError):
+        await store.append(
+            cluster_ref="cluster-a",
+            previous_cursor=None,
+            next_cursor="1000",
+            observations=(observation,) * MAX_KUBERNETES_LIFECYCLE_POLL_OBSERVATIONS,
+        )
+    with pytest.raises(ValueError, match="observation bound"):
+        await store.append(
+            cluster_ref="cluster-a",
+            previous_cursor=None,
+            next_cursor="1000",
+            observations=(observation,) * (MAX_KUBERNETES_LIFECYCLE_POLL_OBSERVATIONS + 1),
+        )
 
 
 @pytest.mark.integration
