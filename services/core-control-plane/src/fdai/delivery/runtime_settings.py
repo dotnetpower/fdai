@@ -339,6 +339,7 @@ class RuntimeSettingsService:
             self.env.get("FDAI_EMAIL_RECIPIENT_ADDRESSES_JSON", "")
         ):
             email = _invalid_configuration("email")
+        notification_bindings = _notification_bindings_projection(self.env)
         gitops = self._required_configuration(
             "gitops",
             ("FDAI_GITOPS_TOKEN", "FDAI_GITOPS_OWNER", "FDAI_GITOPS_REPO"),
@@ -381,7 +382,7 @@ class RuntimeSettingsService:
                 else "not configured"
             ),
         }
-        return [chatops, email, gitops, jira, human_access]
+        return [chatops, notification_bindings, email, gitops, jira, human_access]
 
     def _runtime_projection(self) -> dict[str, object]:
         runtime_env = self.env.get("RUNTIME_ENV", "").strip().lower()
@@ -606,6 +607,59 @@ def _valid_json_string_map(raw: str) -> bool:
             for key, item in value.items()
         )
     )
+
+
+def _notification_bindings_projection(env: Mapping[str, str]) -> dict[str, object]:
+    raw = env.get("FDAI_NOTIFICATION_BINDINGS_JSON", "").strip()
+    if not raw:
+        return {
+            "key": "notification-bindings",
+            "configured": False,
+            "ready": False,
+            "mode": "disabled",
+            "reason": "not configured",
+            "binding_count": 0,
+            "enabled_count": 0,
+        }
+    try:
+        from fdai.delivery.notifications import (
+            NotificationBindingKind,
+            TeamsWorkflowAuthMode,
+            parse_notification_bindings,
+        )
+
+        specs = parse_notification_bindings(raw)
+        enabled = tuple(spec for spec in specs if spec.enabled)
+        for spec in enabled:
+            required_env_names = [spec.endpoint_env]
+            if spec.kind is NotificationBindingKind.ACS_EMAIL:
+                required_env_names.extend((spec.sender_address_env, spec.recipient_addresses_env))
+            if (
+                spec.kind is NotificationBindingKind.ACS_EMAIL
+                or spec.auth_mode is TeamsWorkflowAuthMode.WORKLOAD_IDENTITY
+            ):
+                required_env_names.append(spec.identity_client_id_env)
+            if any(name is None or not env.get(name, "").strip() for name in required_env_names):
+                raise ValueError("enabled notification binding environment is incomplete")
+            if (
+                spec.kind is NotificationBindingKind.ACS_EMAIL
+                and spec.recipient_addresses_env is not None
+                and not _valid_json_string_array(env[spec.recipient_addresses_env])
+            ):
+                raise ValueError("notification binding recipients are invalid")
+    except ValueError:
+        projection = _invalid_configuration("notification-bindings")
+        projection.update({"binding_count": 0, "enabled_count": 0})
+        return projection
+    return {
+        "key": "notification-bindings",
+        "configured": True,
+        "ready": True,
+        "mode": "enabled",
+        "reason": None,
+        "binding_count": len(specs),
+        "enabled_count": len(enabled),
+    }
 
 
 def _invalid_configuration(key: str) -> dict[str, object]:

@@ -15,6 +15,7 @@ from fdai.core.incident import (
     IncidentAutoOpenPolicy,
     IncidentLifecycleNotice,
     IncidentLifecycleWorkflow,
+    IncidentNotificationPendingError,
     IncidentOntologyProjector,
     IncidentRegistry,
     incident_severity,
@@ -62,6 +63,7 @@ class IncidentNotificationReplayWorker:
                 ConnectionError,
                 OSError,
                 OperationalError,
+                IncidentNotificationPendingError,
                 TimeoutError,
                 httpx.HTTPError,
             ) as exc:

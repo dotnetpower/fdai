@@ -94,6 +94,9 @@ from fdai.delivery.persistence.postgres_model_health import (
     PostgresModelHealthTransitionSink,
     PostgresModelHealthTransitionSinkConfig,
 )
+from fdai.delivery.persistence.postgres_notification_delivery import (
+    PostgresNotificationDeliveryStore,
+)
 from fdai.delivery.persistence.postgres_ontology import (
     PostgresOntologyInstanceStore,
     PostgresOntologyInstanceStoreConfig,
@@ -274,6 +277,7 @@ __all__ = [
     "PostgresModelHealthTransitionSink",
     "PostgresModelHealthTransitionSinkConfig",
     "PostgresIncidentNotificationDeliveryStore",
+    "PostgresNotificationDeliveryStore",
     "PostgresOperatorMemoryStore",
     "PostgresOperatorMemoryStoreConfig",
     "PostgresOperatorMemoryProposalStore",

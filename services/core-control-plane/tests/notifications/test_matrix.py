@@ -158,3 +158,70 @@ class TestMatrixEdgeCases:
         )
         matrix = load_matrix_from_yaml(good)
         assert "r" in matrix.routes
+
+    def test_fanout_requires_channels_and_rejects_mixed_shape(self) -> None:
+        base = {
+            "matrix": {
+                "version": 1,
+                "default_route": "r",
+                "routes": {
+                    "r": {
+                        "trust_tier": "a2_operational_alert",
+                        "delivery_mode": "fanout",
+                        "channels": ["teams-ops", "email-oncall"],
+                    }
+                },
+            }
+        }
+        matrix = load_matrix_from_mapping(base)
+        assert matrix.routes["r"].channel_ids == ("teams-ops", "email-oncall")
+
+        mixed = {
+            "matrix": {
+                "version": 1,
+                "default_route": "r",
+                "routes": {
+                    "r": {
+                        "trust_tier": "a2_operational_alert",
+                        "delivery_mode": "fanout",
+                        "channels": ["teams-ops"],
+                        "primary": "teams-ops",
+                    }
+                },
+            }
+        }
+        with pytest.raises(MatrixValidationError, match="fanout mode"):
+            load_matrix_from_mapping(mixed)
+
+    def test_unknown_delivery_mode_and_route_key_are_rejected(self) -> None:
+        with pytest.raises(MatrixValidationError, match="unknown delivery_mode"):
+            load_matrix_from_mapping(
+                {
+                    "matrix": {
+                        "version": 1,
+                        "default_route": "r",
+                        "routes": {
+                            "r": {
+                                "trust_tier": "a2_operational_alert",
+                                "delivery_mode": "broadcast-ish",
+                            }
+                        },
+                    }
+                }
+            )
+        with pytest.raises(MatrixValidationError, match="unknown keys"):
+            load_matrix_from_mapping(
+                {
+                    "matrix": {
+                        "version": 1,
+                        "default_route": "r",
+                        "routes": {
+                            "r": {
+                                "trust_tier": "a2_operational_alert",
+                                "primary": "teams-ops",
+                                "typo": True,
+                            }
+                        },
+                    }
+                }
+            )

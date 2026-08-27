@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import pytest
@@ -344,3 +345,44 @@ async def test_malformed_integration_json_is_not_ready() -> None:
 
 def _setting(projection: dict[str, Any], key: str) -> dict[str, Any]:
     return next(item for item in projection["settings"] if item["key"] == key)
+
+
+async def test_notification_binding_projection_validates_referenced_environment() -> None:
+    bindings = json.dumps(
+        {
+            "teams-ops": {
+                "kind": "teams_workflow",
+                "enabled": True,
+                "trust_tiers": ["a2_operational_alert"],
+                "auth_mode": "anyone",
+                "endpoint_env": "FDAI_TEAMS_OPS_ENDPOINT",
+            }
+        }
+    )
+    invalid = RuntimeSettingsService(
+        store=None,
+        env={"FDAI_NOTIFICATION_BINDINGS_JSON": bindings},
+        durable=False,
+    )
+    invalid_projection = await invalid.projection(can_manage=False)
+    invalid_integration = next(
+        item
+        for item in invalid_projection["integrations"]
+        if item["key"] == "notification-bindings"
+    )
+    assert invalid_integration["ready"] is False
+
+    valid = RuntimeSettingsService(
+        store=None,
+        env={
+            "FDAI_NOTIFICATION_BINDINGS_JSON": bindings,
+            "FDAI_TEAMS_OPS_ENDPOINT": "https://flow.example.com/trigger",
+        },
+        durable=False,
+    )
+    valid_projection = await valid.projection(can_manage=False)
+    valid_integration = next(
+        item for item in valid_projection["integrations"] if item["key"] == "notification-bindings"
+    )
+    assert valid_integration["ready"] is True
+    assert valid_integration["enabled_count"] == 1

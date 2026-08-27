@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
+from fdai.core.notifications.router import RouteOutcome, RoutingResult
 from fdai.shared.contracts.models import IncidentSeverity, IncidentState
 
 from .lifecycle import (
@@ -28,6 +29,11 @@ class DurableNotificationResult:
 
     status: str
     delivery_result: object | None = None
+    delivered: bool = False
+
+
+class IncidentNotificationPendingError(RuntimeError):
+    """At least one durable channel delivery still awaits a terminal observation."""
 
 
 class DurableIncidentLifecycleNotifier:
@@ -67,16 +73,35 @@ class DurableIncidentLifecycleNotifier:
         except Exception:
             await self._delivery_store.release(audit_id=audit_id, token=token)
             raise
+        if isinstance(delivery, RoutingResult) and not delivery.terminal:
+            await self._delivery_store.release(audit_id=audit_id, token=token)
+            return DurableNotificationResult(status="pending", delivery_result=delivery)
         await self._delivery_store.complete(
             audit_id=audit_id,
             token=token,
             at=datetime.now(tz=UTC),
         )
-        return DurableNotificationResult(status="delivered", delivery_result=delivery)
+        if isinstance(delivery, RoutingResult):
+            status = delivery.outcome.value
+            delivered_now = delivery.outcome in {
+                RouteOutcome.DELIVERED,
+                RouteOutcome.DELIVERED_ON_FALLBACK,
+                RouteOutcome.DELIVERED_ALL,
+                RouteOutcome.PARTIALLY_DELIVERED,
+            }
+        else:
+            status = "delivered"
+            delivered_now = True
+        return DurableNotificationResult(
+            status=status,
+            delivery_result=delivery,
+            delivered=delivered_now,
+        )
 
     async def replay(self, entries: Iterable[Mapping[str, Any]]) -> int:
         """Deliver every lifecycle row without a sent checkpoint."""
         delivered = 0
+        pending = 0
         severities: dict[UUID, IncidentSeverity] = {}
         for entry in entries:
             if entry.get("kind") in {
@@ -97,8 +122,14 @@ class DurableIncidentLifecycleNotifier:
             if kind in {"incident.open", "incident.transition", "incident.severity"}:
                 severities[incident_id] = notice_severity
             result = await self.notify(notice)
-            if result.status == "delivered":
+            if result.delivered:
                 delivered += 1
+            elif result.status == "pending":
+                pending += 1
+        if pending:
+            raise IncidentNotificationPendingError(
+                f"{pending} incident notification delivery record(s) remain pending"
+            )
         return delivered
 
 
@@ -192,5 +223,6 @@ def _aware_datetime(entry: Mapping[str, Any], key: str) -> datetime:
 __all__ = [
     "DurableIncidentLifecycleNotifier",
     "DurableNotificationResult",
+    "IncidentNotificationPendingError",
     "notice_from_lifecycle_entry",
 ]

@@ -304,6 +304,7 @@ class TestMatrixLoader:
         loaded = load_matrix_from_yaml(repo_matrix)
         assert "hil_approval" in loaded.routes
         assert loaded.routes["hil_approval"].trust_tier is TrustTier.A1_HIL_APPROVAL
+        assert loaded.routes["operational_alert"].delivery_mode.value == "fanout"
 
 
 # ---------------------------------------------------------------------------

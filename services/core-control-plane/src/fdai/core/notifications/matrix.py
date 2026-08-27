@@ -53,6 +53,13 @@ class MatrixValidationError(ValueError):
     """
 
 
+class DeliveryMode(StrEnum):
+    """How one route applies its declared channel set."""
+
+    FAILOVER = "failover"
+    FANOUT = "fanout"
+
+
 class OnAllFailAction(StrEnum):
     """What the router does when every configured channel fails.
 
@@ -77,13 +84,17 @@ class RouteSpec:
 
     category: str
     trust_tier: TrustTier
-    primary: str
+    delivery_mode: DeliveryMode = DeliveryMode.FAILOVER
+    primary: str = ""
     fallback: tuple[str, ...] = ()
+    channels: tuple[str, ...] = ()
     on_all_fail: OnAllFailAction = OnAllFailAction.HIL_ESCALATE
 
     @property
     def channel_ids(self) -> tuple[str, ...]:
-        """Primary + fallback, in dispatch order."""
+        """Declared channel ids in deterministic order."""
+        if self.delivery_mode is DeliveryMode.FANOUT:
+            return self.channels
         return (self.primary, *self.fallback)
 
 
@@ -206,6 +217,18 @@ def _parse_channel_locales(raw: Any) -> dict[str, str]:
 
 
 def _parse_route(name: str, raw: Mapping[str, Any]) -> RouteSpec:
+    allowed_keys = {
+        "trust_tier",
+        "delivery_mode",
+        "primary",
+        "fallback",
+        "channels",
+        "on_all_fail",
+    }
+    unknown_keys = sorted(set(raw) - allowed_keys)
+    if unknown_keys:
+        raise MatrixValidationError(f"route {name!r}: unknown keys {unknown_keys!r}")
+
     trust_tier_raw = raw.get("trust_tier")
     if not isinstance(trust_tier_raw, str):
         raise MatrixValidationError(f"route {name!r}: 'trust_tier' MUST be a string")
@@ -216,22 +239,41 @@ def _parse_route(name: str, raw: Mapping[str, Any]) -> RouteSpec:
             f"route {name!r}: unknown trust_tier {trust_tier_raw!r}"
         ) from exc
 
-    primary = raw.get("primary")
-    if not isinstance(primary, str) or not primary:
+    delivery_mode_raw = raw.get("delivery_mode", DeliveryMode.FAILOVER.value)
+    if not isinstance(delivery_mode_raw, str):
+        raise MatrixValidationError(f"route {name!r}: 'delivery_mode' MUST be a string")
+    try:
+        delivery_mode = DeliveryMode(delivery_mode_raw)
+    except ValueError as exc:
         raise MatrixValidationError(
-            f"route {name!r}: 'primary' MUST be a non-empty channel-id string"
-        )
+            f"route {name!r}: unknown delivery_mode {delivery_mode_raw!r}"
+        ) from exc
 
-    fallback_raw = raw.get("fallback", [])
-    if not isinstance(fallback_raw, list):
-        raise MatrixValidationError(f"route {name!r}: 'fallback' MUST be a list")
-    fallback: list[str] = []
-    for i, entry in enumerate(fallback_raw):
-        if not isinstance(entry, str) or not entry:
+    primary = ""
+    fallback: tuple[str, ...] = ()
+    channels: tuple[str, ...] = ()
+    if delivery_mode is DeliveryMode.FANOUT:
+        if "primary" in raw or "fallback" in raw:
             raise MatrixValidationError(
-                f"route {name!r}: fallback[{i}] MUST be a non-empty channel-id string"
+                f"route {name!r}: fanout mode MUST use 'channels', not primary/fallback"
             )
-        fallback.append(entry)
+        channels = _channel_id_list(name, "channels", raw.get("channels"), required=True)
+    else:
+        if "channels" in raw:
+            raise MatrixValidationError(
+                f"route {name!r}: failover mode MUST use primary/fallback, not 'channels'"
+            )
+        primary_raw = raw.get("primary")
+        if not isinstance(primary_raw, str) or not primary_raw:
+            raise MatrixValidationError(
+                f"route {name!r}: 'primary' MUST be a non-empty channel-id string"
+            )
+        primary = primary_raw
+        fallback = _channel_id_list(name, "fallback", raw.get("fallback", []))
+
+    declared = channels if delivery_mode is DeliveryMode.FANOUT else (primary, *fallback)
+    if len(declared) != len(set(declared)):
+        raise MatrixValidationError(f"route {name!r}: channel ids MUST be unique")
 
     on_all_fail_raw = raw.get("on_all_fail", OnAllFailAction.HIL_ESCALATE.value)
     if not isinstance(on_all_fail_raw, str):
@@ -246,13 +288,38 @@ def _parse_route(name: str, raw: Mapping[str, Any]) -> RouteSpec:
     return RouteSpec(
         category=name,
         trust_tier=trust_tier,
+        delivery_mode=delivery_mode,
         primary=primary,
-        fallback=tuple(fallback),
+        fallback=fallback,
+        channels=channels,
         on_all_fail=on_all_fail,
     )
 
 
+def _channel_id_list(
+    route_name: str,
+    field_name: str,
+    raw: Any,
+    *,
+    required: bool = False,
+) -> tuple[str, ...]:
+    if not isinstance(raw, list) or (required and not raw):
+        qualifier = "non-empty " if required else ""
+        raise MatrixValidationError(
+            f"route {route_name!r}: '{field_name}' MUST be a {qualifier}list"
+        )
+    values: list[str] = []
+    for index, entry in enumerate(raw):
+        if not isinstance(entry, str) or not entry:
+            raise MatrixValidationError(
+                f"route {route_name!r}: {field_name}[{index}] MUST be a non-empty channel-id string"
+            )
+        values.append(entry)
+    return tuple(values)
+
+
 __all__ = [
+    "DeliveryMode",
     "MatrixValidationError",
     "NotificationMatrix",
     "OnAllFailAction",

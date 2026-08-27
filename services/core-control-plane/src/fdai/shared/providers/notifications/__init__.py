@@ -26,6 +26,7 @@ Design points
 """
 
 from .base import (
+    ChannelAmbiguousError,
     ChannelDeliveryError,
     ChannelKind,
     ChannelUnavailableError,
@@ -48,6 +49,7 @@ from .channels import (
 
 __all__ = [
     "ChannelDeliveryError",
+    "ChannelAmbiguousError",
     "ChannelKind",
     "ChannelUnavailableError",
     "DeliveryReceipt",

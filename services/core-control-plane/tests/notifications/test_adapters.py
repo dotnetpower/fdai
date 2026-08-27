@@ -28,6 +28,7 @@ from fdai.delivery.notifications import (
     SlackWebhookConfig,
     TeamsWebhookChannel,
     TeamsWebhookConfig,
+    TeamsWorkflowAuthMode,
 )
 from fdai.delivery.notifications._http import post_json, truncate
 from fdai.delivery.notifications.email_rendering import render_email_content
@@ -163,13 +164,16 @@ class TestTeamsAdapter:
             )
             receipt = await adapter.send(_message())
 
-        assert receipt.delivered is True
+        assert receipt.delivered is False
+        assert receipt.accepted is True
         assert receipt.channel_id == "teams-1"
         assert len(captured) == 1
         import json as _json
 
         body = _json.loads(captured[0].content.decode("utf-8"))
         assert body["type"] == "message"
+        assert body["attachments"][0]["contentUrl"] is None
+        assert "Authorization" not in captured[0].headers
         card = body["attachments"][0]["content"]
         assert card["type"] == "AdaptiveCard"
         assert any(b.get("text") == "DLQ depth" for b in card["body"])
@@ -215,6 +219,83 @@ class TestTeamsAdapter:
             )
             for sev in Severity:
                 await adapter.send(_message(severity=sev))
+
+    async def test_workload_identity_sends_flow_bearer_token(self) -> None:
+        captured: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured.append(request)
+            return httpx.Response(202, headers={"x-ms-workflow-run-id": "run-1"})
+
+        async def token_provider() -> str:
+            return "flow-token"
+
+        async with _client(handler) as http:
+            adapter = TeamsWebhookChannel(
+                config=TeamsWebhookConfig(
+                    channel_id="teams-auth",
+                    webhook_url="https://flow.example.com/trigger",
+                    trust_tiers=frozenset({TrustTier.A2_OPERATIONAL_ALERT}),
+                    auth_mode=TeamsWorkflowAuthMode.WORKLOAD_IDENTITY,
+                ),
+                http_client=http,
+                token_provider=token_provider,
+            )
+            receipt = await adapter.send(_message())
+
+        assert captured[0].headers["Authorization"] == "Bearer flow-token"
+        assert receipt.provider_message_id == "run-1"
+        assert receipt.accepted is True
+
+    async def test_429_uses_bounded_exponential_backoff(self) -> None:
+        attempts = 0
+        delays: list[float] = []
+
+        def handler(_: httpx.Request) -> httpx.Response:
+            nonlocal attempts
+            attempts += 1
+            return httpx.Response(429 if attempts < 3 else 202)
+
+        async def sleep(delay: float) -> None:
+            delays.append(delay)
+
+        async with _client(handler) as http:
+            adapter = TeamsWebhookChannel(
+                config=TeamsWebhookConfig(
+                    channel_id="teams-retry",
+                    webhook_url="https://flow.example.com/trigger",
+                    trust_tiers=frozenset({TrustTier.A2_OPERATIONAL_ALERT}),
+                    backoff_seconds=0.5,
+                    max_backoff_seconds=1.0,
+                ),
+                http_client=http,
+                sleep=sleep,
+            )
+            await adapter.send(_message())
+
+        assert attempts == 3
+        assert delays == [0.5, 1.0]
+
+    async def test_payload_over_28_kib_fails_before_provider_call(self) -> None:
+        requests = 0
+
+        def handler(_: httpx.Request) -> httpx.Response:
+            nonlocal requests
+            requests += 1
+            return httpx.Response(202)
+
+        async with _client(handler) as http:
+            adapter = TeamsWebhookChannel(
+                config=TeamsWebhookConfig(
+                    channel_id="teams-size",
+                    webhook_url="https://flow.example.com/trigger",
+                    trust_tiers=frozenset({TrustTier.A2_OPERATIONAL_ALERT}),
+                ),
+                http_client=http,
+            )
+            with pytest.raises(ChannelDeliveryError, match="exceeds 28672 bytes"):
+                await adapter.send(_message(body_markdown="x" * 30_000))
+        assert requests == 0
 
 
 # ---------------------------------------------------------------------------

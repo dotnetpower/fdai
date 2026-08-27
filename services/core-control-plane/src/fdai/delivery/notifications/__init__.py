@@ -5,7 +5,7 @@ Each adapter implements exactly one of the six Protocols in
 ``delivery/`` so ``core/`` cannot import them (enforced by
 ``scripts/quality/architecture/check-core-imports.sh``).
 
-- :mod:`.teams` - Microsoft Teams incoming-webhook (Adaptive Card body).
+- :mod:`.teams` - Microsoft Teams Workflows webhook (Adaptive Card body).
 - :mod:`.slack` - Slack incoming-webhook (Block Kit body).
 - :mod:`.email` - Azure Communication Services Email REST API.
 - :mod:`.webhook` - generic HMAC-signed HTTP POST.
@@ -19,12 +19,22 @@ are untrusted), and translates non-2xx into
 :class:`~fdai.shared.providers.notifications.ChannelDeliveryError`.
 """
 
+from .bindings import (
+    NotificationBindingKind,
+    NotificationBindingSpec,
+    parse_notification_bindings,
+)
 from .email import AzureCommunicationEmailChannel, AzureCommunicationEmailConfig
 from .hil_sink import StateStoreHilEscalationSink
 from .pagerduty import PagerDutyEventsV2Channel, PagerDutyEventsV2Config
+from .receipt import (
+    TeamsWorkflowReceiptConfig,
+    TeamsWorkflowReceiptHandler,
+    compute_receipt_signature,
+)
 from .slack import SlackWebhookChannel, SlackWebhookConfig
 from .sms import AzureCommunicationSmsChannel, AzureCommunicationSmsConfig
-from .teams import TeamsWebhookChannel, TeamsWebhookConfig
+from .teams import TeamsWebhookChannel, TeamsWebhookConfig, TeamsWorkflowAuthMode
 from .webhook import GenericWebhookChannel, GenericWebhookConfig
 
 __all__ = [
@@ -34,6 +44,8 @@ __all__ = [
     "AzureCommunicationSmsConfig",
     "GenericWebhookChannel",
     "GenericWebhookConfig",
+    "NotificationBindingKind",
+    "NotificationBindingSpec",
     "PagerDutyEventsV2Channel",
     "PagerDutyEventsV2Config",
     "SlackWebhookChannel",
@@ -41,4 +53,9 @@ __all__ = [
     "StateStoreHilEscalationSink",
     "TeamsWebhookChannel",
     "TeamsWebhookConfig",
+    "TeamsWorkflowAuthMode",
+    "TeamsWorkflowReceiptConfig",
+    "TeamsWorkflowReceiptHandler",
+    "compute_receipt_signature",
+    "parse_notification_bindings",
 ]

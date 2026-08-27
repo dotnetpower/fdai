@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: c023d1669dea0aeedea417be1fca790c1d5e8417
+translation_source_sha: c285b6463589101f356549a224aae11f731f5163
 translation_revised: 2026-08-28
 ---
 # 프로젝트 구조
@@ -399,6 +399,10 @@ grounding 권한을 우회할 수 없습니다. HIL 승인 id와 실행기 멱�
   fast** - degraded 상태로 시작하지 않습니다.
 - 시크릿은 주입된 프로바이더를 통해 읽으며, 가져오기 시점 전역 읽기 절대 금지, 로그·감사·에러
   메시지에 절대 쓰지 않습니다.
+- A2/A4 아웃바운드 알림 조립은 `FDAI_NOTIFICATION_BINDINGS_JSON`에서 이름이 있는 바인딩을
+  해석합니다. 엔드포인트와 자격 증명 필드는 배포 시크릿 프로바이더가 채우는 환경 변수 이름만
+  지정합니다. 활성화했지만 불완전한 바인딩은 시작을 실패시키며, `core/notifications`에는
+  프로바이더 중립 어댑터와 영속 전달 저장소만 전달합니다.
 - 포크는 `core/` 편집 없이 자체 설정과 secret-store 레이어를 공급합니다.
 - 기능 플래그는 신규 능력이 **shadow-mode** (judge-and-log only)로 출시되도록 게이팅하고,
   액션별 강제 적용 승격은 별도의 리뷰된 변경으로 진행합니다.

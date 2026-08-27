@@ -7,7 +7,7 @@ Implements the routing policy described in
 The router:
 
 - looks up a route by ``message.category`` in the matrix,
-- picks channels in ``primary → fallback[0] → fallback[1] → ...`` order,
+- preserves ordered failover for A1/A3 and fans A2/A4 out to declared channels,
 - refuses to dispatch to a channel whose declared
   :attr:`~fdai.shared.providers.notifications.NotificationChannel.trust_tiers`
   does not include the message's :class:`TrustTier`,
@@ -29,7 +29,17 @@ from .briefing import (
     StakeholderBriefing,
     StakeholderBriefingComposer,
 )
+from .delivery import (
+    ChannelDeliveryClaim,
+    ChannelDeliveryRecord,
+    ChannelDeliveryState,
+    DeliveryClaimStatus,
+    InMemoryNotificationDeliveryStore,
+    NotificationDeliveryStore,
+    NotificationDispatchPlan,
+)
 from .matrix import (
+    DeliveryMode,
     MatrixValidationError,
     NotificationMatrix,
     OnAllFailAction,
@@ -38,6 +48,7 @@ from .matrix import (
     load_matrix_from_yaml,
 )
 from .router import (
+    ChannelBinding,
     ChannelRegistry,
     NotificationRouter,
     RouteOutcome,
@@ -47,11 +58,20 @@ from .router import (
 __all__ = [
     "ActionTally",
     "BriefingInput",
+    "ChannelDeliveryClaim",
+    "ChannelDeliveryRecord",
+    "ChannelDeliveryState",
+    "ChannelBinding",
     "ChannelRegistry",
     "CostSnapshot",
+    "DeliveryClaimStatus",
+    "DeliveryMode",
     "ForecastRisk",
     "IncidentTally",
+    "InMemoryNotificationDeliveryStore",
     "MatrixValidationError",
+    "NotificationDeliveryStore",
+    "NotificationDispatchPlan",
     "NotificationMatrix",
     "NotificationRouter",
     "OnAllFailAction",

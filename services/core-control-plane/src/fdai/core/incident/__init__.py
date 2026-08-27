@@ -32,6 +32,7 @@ from .auto_open import (
 from .durable_notifications import (
     DurableIncidentLifecycleNotifier,
     DurableNotificationResult,
+    IncidentNotificationPendingError,
     notice_from_lifecycle_entry,
 )
 from .intent import (
@@ -117,6 +118,7 @@ __all__ = [
     "IncidentNoticeKind",
     "IncidentOntologyProjector",
     "IncidentNotificationDeferred",
+    "IncidentNotificationPendingError",
     "IncidentNotificationDeliveryStore",
     "IncidentMutationResult",
     "IncidentOpenResult",

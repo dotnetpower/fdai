@@ -1,8 +1,8 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 5e5b21fb8ceca5f81d844e301e90a883edc48c16
-translation_revised: 2026-08-26
+translation_source_sha: 5065ea9a7d618f793168ad725f731dc4d9a69808
+translation_revised: 2026-08-27
 ---
 
 # 채널과 알림(Channels and Notifications)
@@ -42,7 +42,7 @@ Teams Workflows 웹훅 바인딩은
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| 프로바이더 계약과 구성 기반 라우팅 | implemented | [`base.py`](../../../services/core-control-plane/src/fdai/shared/providers/notifications/base.py), [`hil_channel.py`](../../../services/core-control-plane/src/fdai/shared/providers/hil_channel.py), [`conversation_channel.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_channel.py), [`test_matrix.py`](../../../services/core-control-plane/tests/notifications/test_matrix.py), [`test_router.py`](../../../services/core-control-plane/tests/notifications/test_router.py) | A1, A2/A4 및 A3 계약이 분리되어 있습니다. 매트릭스 로드, 카테고리 검사, 신뢰 수준을 보존하는 대체 경로, 범위가 제한된 재시도 및 에스컬레이션이 집중 테스트를 통과했습니다. |
+| 프로바이더 계약과 구성 기반 라우팅 | implemented | [`base.py`](../../../services/core-control-plane/src/fdai/shared/providers/notifications/base.py), [`hil_channel.py`](../../../services/core-control-plane/src/fdai/shared/providers/hil_channel.py), [`conversation_channel.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_channel.py), [`test_matrix.py`](../../../services/core-control-plane/tests/notifications/test_matrix.py), [`test_fanout_delivery.py`](../../../services/core-control-plane/tests/notifications/test_fanout_delivery.py) | A1, A2/A4 및 A3 계약이 분리되어 있습니다. A1/A3는 신뢰 수준을 보존하는 대체 경로를 유지하고, A2/A4는 이름이 있는 바인딩 활성화, 채널별 영속 상태, 범위가 제한된 재시도 및 집계 결과를 갖춘 명시적 fan-out을 사용합니다. |
 | 페어링과 교차 채널 신원 연결 | implemented | [`channel_access.py`](../../../services/core-control-plane/src/fdai/core/conversation/channel_access.py), [`postgres_channel_pairing.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_channel_pairing.py), [`postgres_channel_identity_link.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_channel_identity_link.py), [`test_channel_access.py`](../../../services/core-control-plane/tests/conversation/test_channel_access.py), [`test_identity_links.py`](../../../services/core-control-plane/tests/conversation/test_identity_links.py), [`test_postgres_channel_pairing.py`](../../../services/core-control-plane/tests/persistence/test_postgres_channel_pairing.py), [`test_postgres_channel_identity_link.py`](../../../services/core-control-plane/tests/persistence/test_postgres_channel_identity_link.py) | 서비스 수준 페어링, challenge digest 처리, 명시적 신원 연결 및 재시작 후 영속성이 집중 테스트를 통과했습니다. PostgreSQL 통합 테스트 파일 두 개는 지원되는 일회용 데이터베이스에서 네 건을 건너뛰기 없이 통과했습니다. |
 | Teams, Slack 및 아웃바운드 알림 어댑터 | 구현됨 | [`teams_adapter.py`](../../../services/core-control-plane/src/fdai/delivery/chatops/teams_adapter.py), `fdai_operator_service/families/conversation/channel_edge/`, 집중 edge 검사 81개 통과 | Teams는 `HilChannel`을 구현하고 A2/A4 알림 adapter는 집중 테스트를 통과합니다. Operator 소유 A3 workload는 인증된 유입, 순수 렌더링, 영속 전달, 고정 프로바이더 발행 및 실패 시 닫히는 수명 주기를 구현합니다. Slack `HilChannel`, A1 callback, Entra 재인증 및 배포된 전송 증적은 열린 상태입니다. |
 | 영속 아웃바운드 대화 전달 | implemented | [`conversation_delivery.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py), [`outbound_delivery.py`](../../../services/core-control-plane/src/fdai/core/conversation/outbound_delivery.py), [`test_outbound_delivery.py`](../../../services/core-control-plane/tests/conversation/test_outbound_delivery.py), [`test_channel_gateway.py`](../../../services/core-control-plane/tests/conversation/test_channel_gateway.py) | 조정기는 확정적인 거절과 모호한 확인 응답을 구분하고 재시도를 제한하며 중단된 전송을 조정하고 안정적인 전달 신원을 보존합니다. 이 동작은 집중 테스트를 통과했습니다. |
@@ -62,6 +62,7 @@ Teams Workflows 웹훅 바인딩은
 | 2026-08-19 | 진행 중 | 운영 A3 package와 writer 소유권을 Core에서 Operator distribution의 별도 edge workload로 교정했습니다. 검증된 Core-local transport는 동등한 Operator 구현이 검사를 통과할 때까지 prototype으로 유지합니다. | `current change`, [운영 A3 채널 런타임](production-a3-channel-runtime-ko.md), service-migration 검사 47개 및 design-route 검사 122개 통과 | Operator-local transport, store, lifecycle, workload 및 통제된 runtime 근거를 구현합니다. |
 | 2026-08-20 | 구현됨 | 임시 Core-local A3 prototype을 Operator 소유 전송, 렌더러, 영속 파이프라인, 감독되는 런타임, 로컬 실행 및 선택적 Container App으로 교체했습니다. Core에는 구현이 없는 rich channel 계약만 유지합니다. | `current change`, 집중 shared 및 Operator channel 검사 110개, edge package 검사 74개, Ruff 및 strict mypy 통과, 플랫폼 및 Operator service Terraform root 검증 통과 | 검증됨을 주장하기 전에 통제된 로컬 프로바이더 및 보호된 배포 증적을 보존합니다. |
 | 2026-08-20 | 구현됨 | 독립 유입, 신원, persistence, publisher, lifecycle, 배포 및 replay 검토 10개로 standalone A3 edge를 hardening했습니다. Known Teams key는 범위가 제한된 TTL 뒤 갱신하고, 기한이 된 전송은 활성 binding 권한을 다시 검증하며, 로컬 secret 준비는 상속된 tracing을 끄고, 소유 resource는 한 번만 닫습니다. | `current change`, 집중 edge 검사 81개, Ruff 및 strict mypy 통과, [운영 A3 채널 런타임](production-a3-channel-runtime-ko.md) | 검증됨을 주장하기 전에 통제된 로컬 프로바이더 및 보호된 배포 증적을 보존합니다. |
+| 2026-08-27 | 구현됨 | A1 또는 A3 권한 경계를 바꾸지 않고 A2/A4의 이름이 있는 fan-out 바인딩, 채널별 영속 dispatch, Teams Workflows 전송 및 독립 게시 접수 검증을 추가했습니다. | `current change`, [다중 채널 알림 전달 구현 원장](../../roadmap-implementation/interfaces/multi-channel-notification-delivery.md), 알림, 인시던트 체크포인트 및 런타임 설정 집중 검사 162개와 작업 소유 범위 Ruff 및 strict mypy 통과 | 검증됨을 주장하기 전에 통제된 Teams 및 PostgreSQL 런타임 증적을 수집합니다. |
 
 ### 남은 작업
 
@@ -458,13 +459,13 @@ matrix:
       on_all_fail: hil_escalate
     operational_alert:
       trust_tier: a2_operational_alert
-      primary: teams-ops-prd
-      fallback: [pagerduty-primary, email-oncall]
+      delivery_mode: fanout
+      channels: [teams-ops-prd, pagerduty-primary, email-oncall]
       on_all_fail: hil_escalate
     digest_shadow_accuracy_daily:
       trust_tier: a4_digest
-      primary: teams-hil-prd
-      fallback: [email-governance]
+      delivery_mode: fanout
+      channels: [teams-hil-prd, email-governance]
       on_all_fail: hil_escalate
 ```
 

@@ -50,8 +50,9 @@ matrix:
     # A2 - operational alerts (send-only, low auth).
     operational_alert:
       trust_tier: a2_operational_alert
-      primary: teams-ops-prd
-      fallback:
+      delivery_mode: fanout
+      channels:
+        - teams-ops-prd
         - pagerduty-primary
         - email-oncall
         - webhook-observability
@@ -60,15 +61,17 @@ matrix:
     # Adapter-health / kill-switch state broadcasts share the ops lane.
     adapter_health:
       trust_tier: a2_operational_alert
-      primary: teams-ops-prd
-      fallback:
+      delivery_mode: fanout
+      channels:
+        - teams-ops-prd
         - pagerduty-primary
       on_all_fail: hil_escalate
 
     kill_switch_state:
       trust_tier: a2_operational_alert
-      primary: teams-ops-prd
-      fallback:
+      delivery_mode: fanout
+      channels:
+        - teams-ops-prd
         - pagerduty-primary
         - email-oncall
       on_all_fail: hil_escalate
@@ -88,50 +91,57 @@ matrix:
     # can retarget without editing code.
     digest_shadow_accuracy_daily:
       trust_tier: a4_digest
-      primary: teams-hil-prd
-      fallback:
+      delivery_mode: fanout
+      channels:
+        - teams-hil-prd
         - email-governance
       on_all_fail: hil_escalate
 
     digest_enforce_promotion_candidates_weekly:
       trust_tier: a4_digest
-      primary: teams-hil-prd
-      fallback:
+      delivery_mode: fanout
+      channels:
+        - teams-hil-prd
         - email-governance
       on_all_fail: hil_escalate
 
     digest_override_retrospective_weekly:
       trust_tier: a4_digest
-      primary: teams-hil-prd
-      fallback:
+      delivery_mode: fanout
+      channels:
+        - teams-hil-prd
         - email-governance
       on_all_fail: hil_escalate
 
     digest_governance_pr_aging_weekly:
       trust_tier: a4_digest
-      primary: teams-hil-prd
-      fallback:
+      delivery_mode: fanout
+      channels:
+        - teams-hil-prd
         - email-governance
       on_all_fail: hil_escalate
 
     digest_exemption_expiry_lookahead_weekly:
       trust_tier: a4_digest
-      primary: teams-hil-prd
-      fallback:
+      delivery_mode: fanout
+      channels:
+        - teams-hil-prd
         - email-governance
       on_all_fail: hil_escalate
 
     digest_kpi_and_cost_monthly:
       trust_tier: a4_digest
-      primary: email-governance
-      fallback:
+      delivery_mode: fanout
+      channels:
+        - email-governance
         - teams-hil-prd
       on_all_fail: hil_escalate
 
     digest_break_glass_usage_summary:
       trust_tier: a4_digest
-      primary: teams-break-glass
-      fallback:
+      delivery_mode: fanout
+      channels:
+        - teams-break-glass
         - sms-oncall
         - email-governance
       on_all_fail: hil_escalate

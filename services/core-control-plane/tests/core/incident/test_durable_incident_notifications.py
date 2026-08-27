@@ -11,10 +11,18 @@ from fdai.core.incident import (
     DurableIncidentLifecycleNotifier,
     IncidentLifecycleNotice,
     IncidentNoticeKind,
+    IncidentNotificationPendingError,
     IncidentRegistry,
     InMemoryIncidentNotificationDeliveryStore,
 )
+from fdai.core.notifications import (
+    DeliveryMode,
+    RouteOutcome,
+    RouteSpec,
+    RoutingResult,
+)
 from fdai.shared.contracts.models import IncidentSeverity, IncidentState
+from fdai.shared.providers.notifications import TrustTier
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 
@@ -70,6 +78,82 @@ async def test_failed_notice_has_no_checkpoint_and_retries() -> None:
 
     assert retried.status == "delivered"
     assert len(delegate.notices) == 2
+
+
+async def test_nonterminal_fanout_does_not_complete_incident_checkpoint() -> None:
+    class PendingNotifier:
+        async def notify(self, notice: IncidentLifecycleNotice) -> RoutingResult:
+            return RoutingResult(
+                outcome=RouteOutcome.FAILED_ALL,
+                route=RouteSpec(
+                    category="operational_alert",
+                    trust_tier=TrustTier.A2_OPERATIONAL_ALERT,
+                    delivery_mode=DeliveryMode.FANOUT,
+                    channels=("teams-ops",),
+                ),
+                attempted_channel_ids=("teams-ops",),
+                terminal=False,
+            )
+
+    delivery_store = InMemoryIncidentNotificationDeliveryStore()
+    notifier = DurableIncidentLifecycleNotifier(
+        delegate=PendingNotifier(),
+        delivery_store=delivery_store,
+    )
+
+    first = await notifier.notify(_open_notice())
+    second = await notifier.notify(_open_notice())
+
+    assert first.status == second.status == "pending"
+
+    with pytest.raises(IncidentNotificationPendingError, match="remain pending"):
+        await notifier.replay(
+            (
+                {
+                    "kind": "incident.open",
+                    "incident_id": "00000000-0000-0000-0000-000000000001",
+                    "actor_oid": "Heimdall",
+                    "severity": "sev2",
+                    "opened_at": "2026-07-15T00:00:00+00:00",
+                    "state": "open",
+                },
+            )
+        )
+
+
+async def test_terminal_fanout_success_counts_as_delivered_during_replay() -> None:
+    class SuccessfulFanoutNotifier:
+        async def notify(self, notice: IncidentLifecycleNotice) -> RoutingResult:
+            return RoutingResult(
+                outcome=RouteOutcome.DELIVERED_ALL,
+                route=RouteSpec(
+                    category="operational_alert",
+                    trust_tier=TrustTier.A2_OPERATIONAL_ALERT,
+                    delivery_mode=DeliveryMode.FANOUT,
+                    channels=("teams-ops",),
+                ),
+                attempted_channel_ids=("teams-ops",),
+                terminal=True,
+            )
+
+    notifier = DurableIncidentLifecycleNotifier(
+        delegate=SuccessfulFanoutNotifier(),
+        delivery_store=InMemoryIncidentNotificationDeliveryStore(),
+    )
+    delivered = await notifier.replay(
+        (
+            {
+                "kind": "incident.open",
+                "incident_id": "00000000-0000-0000-0000-000000000001",
+                "actor_oid": "Heimdall",
+                "severity": "sev2",
+                "opened_at": "2026-07-15T00:00:00+00:00",
+                "state": "open",
+            },
+        )
+    )
+
+    assert delivered == 1
 
 
 async def test_two_replicas_dispatch_identical_notice_once() -> None:

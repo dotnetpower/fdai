@@ -1,8 +1,8 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 6b87cd5dc387d015a91b174cf7aec81af3470f1d
-translation_revised: 2026-08-21
+translation_source_sha: bd5f8acd51e75756c1e7de39b55db744b3e4a211
+translation_revised: 2026-08-27
 ---
 # 프로세스 자동화(프로세스 자동화)
 
@@ -40,6 +40,7 @@ translation_revised: 2026-08-21
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-27 | implemented | A2/A4 알림 fan-out은 권한이 없는 런타임 조립이며 워크플로 스텝을 선택하거나 진행하거나 승인하거나 실행할 수 없음을 명확히 했습니다. | `current change`; [다중 채널 알림 전달](../interfaces/multi-channel-notification-delivery-ko.md); 알림 집중 검사 162개 통과. | 워크플로 자동화 동작은 변경하지 않았으며 기존 승격 및 트리거 작업은 아래와 같이 유지합니다. |
 | 2026-08-21 | implemented | 이전 Console chat 및 stream 테스트를 서버 소유의 의미 workflow 판정과 일치시켰습니다. Text-only turn은 맥락을 유지하지만 명시적 ActionType 및 trigger 선택을 요구하며, 요청이 일치하지 않거나 불완전한 v1 frame은 거부된 payload를 노출하지 않고 공유 unavailable 상태를 렌더합니다. | `current change`; `workflow-builder.chat.test.ts`, `backend-stream-v1-contract.test.ts`; 집중 Console 테스트 31개 통과. | 이 계약 테스트 정정에 남은 작업은 없습니다. |
 | 2026-08-17 | implemented | 이 리포에 존재하지 않는 구성 심볼로 워크플로 작성 경로를 활성화하라고 안내하던 운영자 대상 문구를 제거했습니다. | `current change`; `workflow-builder.chat.ts`, `workflow/validate.ts`, `workflow.{en,ko}.json`; 집중 콘솔 검사 9개 파일 71개 테스트 통과, 카탈로그 키 패리티 유지. | 이 문구 집합에 남은 작업은 없습니다. 워크플로 작성 경로 자체의 배선은 별도 작업입니다. |
 | 2026-08-14 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입하고 남은 헌법상 보상 공백을 표시했습니다. | `current change`; 구현 범위 표의 현재 소스, 집중 테스트 및 추적성입니다. | 아래의 보상 hold 및 승격 종료 조건을 완료해야 합니다. |
@@ -235,6 +236,11 @@ Mine은 비공개 user 정의를 포함한다. **My automations**는 principal �
 
 집중 [워크플로 컨트롤 루프 통합](workflow-control-loop-integration-ko.md) 문서가 오케스트레이션,
 catalog-root, 어댑터 라우팅, 저널, 명령 및 샌드박스 실행 세부 정보를 소유합니다.
+
+워크플로 액션 전달과 사람 대상 아웃바운드 알림 전달은 서로 다른 런타임 조립으로 유지합니다.
+프로세스 스텝은 계속 타입이 지정된 액션 파이프라인으로 다시 들어가며, A2/A4 알림은 이름이 있는
+바인딩과 채널별 영속 fan-out을 갖춘 프로바이더 중립 알림 라우터를 사용합니다. 알림 바인딩은
+워크플로 스텝을 선택하거나 진행하거나 승인하거나 실행할 수 없습니다.
 
 ## 5. saga 보상(saga 보상)
 

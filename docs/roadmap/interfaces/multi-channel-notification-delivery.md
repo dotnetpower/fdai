@@ -66,26 +66,25 @@ An empty target set is a configuration fault, not a quiet success. The dispatch 
 Channel configuration moves from one implicit environment triple per vendor to a named binding map,
 so one deployment can run several Teams rooms, several webhooks, or several mailboxes.
 
-```yaml
-bindings:
-  teams-ops-primary:
-    kind: teams_workflow
-    enabled: true
-    trust_tiers: [a2_operational_alert]
-    auth_mode: workload_identity
-    endpoint_secret_ref: teams-ops-primary-endpoint
+`FDAI_NOTIFICATION_BINDINGS_JSON` carries the named binding map. Secret-bearing fields name
+environment variables populated by the deployment secret provider; they never contain endpoint or
+credential values in the JSON itself.
 
-  teams-governance:
-    kind: teams_workflow
-    enabled: true
-    trust_tiers: [a4_digest]
-    auth_mode: workload_identity
-    endpoint_secret_ref: teams-governance-endpoint
-
-  email-oncall:
-    kind: acs_email
-    enabled: false
-    trust_tiers: [a2_operational_alert, a4_digest]
+```json
+{
+  "teams-ops-primary": {
+    "kind": "teams_workflow",
+    "enabled": true,
+    "trust_tiers": ["a2_operational_alert"],
+    "auth_mode": "workload_identity",
+    "endpoint_env": "FDAI_TEAMS_OPS_PRIMARY_ENDPOINT"
+  },
+  "email-oncall": {
+    "kind": "acs_email",
+    "enabled": false,
+    "trust_tiers": ["a2_operational_alert", "a4_digest"]
+  }
+}
 ```
 
 Rules:
@@ -129,6 +128,9 @@ dispatch:<audit_id>            targets = [teams-ops-primary, slack-ops, email-on
 - Sends run with **bounded parallelism**; one channel raising never cancels a sibling send.
 - Only the failed children are retried, under the existing bounded-attempt and abandonment ceiling.
 - After a restart, recovery resumes the non-terminal children only.
+- An `accepted` child has a bounded confirmation deadline. Expiry changes it to `ambiguous` without
+  an automatic resend, and the incident replay worker continues checking non-terminal plans until
+  they converge.
 
 Per-channel state:
 
@@ -158,8 +160,10 @@ Partial success is never rounded up to success. It is also never re-announced th
 route, because a delivery failure notice that uses the failing route can loop; it surfaces through
 channel-health metrics and the incident surface instead.
 
-The router keeps writing exactly one audit entry per dispatch. The entry gains the frozen target
-list, per-channel results, and exclusion reasons.
+The router writes exactly one route audit entry per dispatch call. The entry includes the frozen
+target list, current per-channel results, and exclusion reasons. A later workflow callback writes a
+separate `notification.delivery.observed` audit entry, so the append-only audit chain never mutates a
+prior routing decision.
 
 ## 5. Teams Workflows webhook binding
 
@@ -201,6 +205,12 @@ stays a secret reference, never a plain Terraform variable or a log value.
 Until the workflow reports back, a `2xx` closes the child at `accepted` only. Confirming
 `delivered` requires the workflow to call an authenticated FDAI receipt endpoint with the delivery
 id and its publication result. That callback carries no message body and no webhook URL.
+
+The receipt handler accepts only `audit_id`, `channel_id`, `publication_result`, and an optional
+provider message id. It verifies `X-FDAI-Timestamp` plus an HMAC-SHA256 `X-FDAI-Signature`, rejects
+stale or oversized requests, and records either `delivered` or `retryable_failed`. Prepared and
+completed observation audit phases bracket that state change. The callback secret is
+deployment-owned.
 
 ## 6. Boundaries this design does not cross
 

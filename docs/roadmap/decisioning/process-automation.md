@@ -34,6 +34,7 @@ workflow ship as catalog-as-code and run in shadow mode.
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-27 | implemented | Clarified that A2/A4 notification fan-out is an authority-free runtime composition and cannot select, advance, approve, or execute a workflow step. | `current change`; [Multi-channel notification delivery](../interfaces/multi-channel-notification-delivery.md); focused notification checks passed 162 cases. | No workflow automation behavior changed; retain the existing promotion and trigger work below. |
 | 2026-08-21 | implemented | Aligned legacy Console chat and stream tests with server-owned semantic workflow judgment. Text-only turns now retain context but require explicit ActionType and trigger choices, while mismatched or incomplete v1 frames render the shared unavailable state without exposing rejected payloads. | `current change`; `workflow-builder.chat.test.ts`, `backend-stream-v1-contract.test.ts`; 31 focused Console tests passed. | None for this contract-test correction. |
 | 2026-08-17 | implemented | Removed operator-facing guidance that told the operator to enable the workflow authoring routes through a configuration symbol that does not exist in this repository. | `current change`; `workflow-builder.chat.ts`, `workflow/validate.ts`, `workflow.{en,ko}.json`; focused console checks passed 71 tests across 9 files and catalog key parity held. | None for this message set. Wiring the workflow authoring routes themselves remains separate work. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and exposed the remaining constitutional compensation gap. | `current change`; current source, focused tests, and traceability listed in the scope table. | Close the compensation-hold and promotion exits below. |
@@ -234,6 +235,11 @@ LinkTypes cover only the runtime graph edges between first-class object types.
 
 The focused [Workflow Control-Loop Integration](workflow-control-loop-integration.md) document owns
 orchestration, catalog-root, adapter routing, journals, commands, and sandbox execution details.
+
+Workflow action delivery and outbound human notification delivery remain separate runtime
+compositions. Process steps continue to re-enter the typed action pipeline, while A2/A4 notices use
+the provider-neutral notification router with named bindings and durable per-channel fan-out. A
+notification binding cannot select, advance, approve, or execute a workflow step.
 
 ## 5. Saga compensation
 

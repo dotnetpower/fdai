@@ -93,6 +93,10 @@ class ChannelUnavailableError(ChannelDeliveryError):
     """
 
 
+class ChannelAmbiguousError(ChannelDeliveryError):
+    """The request may have reached the provider but acknowledgement was lost."""
+
+
 @dataclass(frozen=True, slots=True)
 class NotificationMessage:
     """Vendor-neutral payload every channel adapter accepts.
@@ -145,15 +149,17 @@ class NotificationMessage:
 class DeliveryReceipt:
     """One adapter's response for a single send attempt.
 
-    ``delivered=False`` is a soft failure - the router will try the next
-    fallback. Hard failures raise :class:`ChannelDeliveryError` so the
-    router can distinguish "adapter said the send didn't stick" from
-    "adapter never got that far".
+    ``accepted=True`` records provider acceptance without claiming channel
+    publication. ``delivered=False`` with ``accepted=False`` is a soft failure.
+    Hard failures raise :class:`ChannelDeliveryError`.
     """
 
     channel_kind: ChannelKind
     channel_id: str
     delivered: bool
+    accepted: bool = False
+    """The provider accepted the request but channel publication is unconfirmed."""
+
     provider_message_id: str | None = None
     """Vendor-side id (Teams `messageId`, Slack `ts`, PagerDuty `dedup_key`).
     Opaque to core."""
@@ -161,6 +167,10 @@ class DeliveryReceipt:
     error: str | None = None
     """Human-readable reason when ``delivered=False``. Free of secrets;
     already truncated by the adapter."""
+
+    def __post_init__(self) -> None:
+        if self.delivered and self.accepted:
+            raise ValueError("delivery receipt cannot be both accepted and delivered")
 
 
 @runtime_checkable
@@ -197,6 +207,7 @@ class HilEscalationSink(Protocol):
 
 __all__ = [
     "ChannelDeliveryError",
+    "ChannelAmbiguousError",
     "ChannelKind",
     "ChannelUnavailableError",
     "DeliveryReceipt",

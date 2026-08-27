@@ -1,8 +1,8 @@
 ---
 title: 다중 채널 알림 전달
 translation_of: multi-channel-notification-delivery.md
-translation_source_sha: e8970204f66a7e1676ff6c9bb7b37362752c1752
-translation_revised: 2026-08-26
+translation_source_sha: 05bf3980735ebb15c283622c267c168e4aa0b9b9
+translation_revised: 2026-08-27
 ---
 # 다중 채널 알림 전달
 
@@ -67,26 +67,25 @@ route에 없는 채널은 대상이 아니므로, 어댑터를 추가했다는 �
 채널 설정은 벤더별 암묵적 환경 변수 묶음에서 이름이 있는 바인딩 맵으로 바뀝니다. 그래야 한 배포가
 여러 Teams 채널, 여러 웹훅, 여러 메일함을 동시에 운영할 수 있습니다.
 
-```yaml
-bindings:
-  teams-ops-primary:
-    kind: teams_workflow
-    enabled: true
-    trust_tiers: [a2_operational_alert]
-    auth_mode: workload_identity
-    endpoint_secret_ref: teams-ops-primary-endpoint
+`FDAI_NOTIFICATION_BINDINGS_JSON`은 이름이 있는 바인딩 맵을 전달합니다. 시크릿이 필요한 필드는
+배포 시크릿 프로바이더가 채우는 환경 변수 이름만 지정합니다. JSON 자체에는 엔드포인트나 자격 증명
+값을 넣지 않습니다.
 
-  teams-governance:
-    kind: teams_workflow
-    enabled: true
-    trust_tiers: [a4_digest]
-    auth_mode: workload_identity
-    endpoint_secret_ref: teams-governance-endpoint
-
-  email-oncall:
-    kind: acs_email
-    enabled: false
-    trust_tiers: [a2_operational_alert, a4_digest]
+```json
+{
+  "teams-ops-primary": {
+    "kind": "teams_workflow",
+    "enabled": true,
+    "trust_tiers": ["a2_operational_alert"],
+    "auth_mode": "workload_identity",
+    "endpoint_env": "FDAI_TEAMS_OPS_PRIMARY_ENDPOINT"
+  },
+  "email-oncall": {
+    "kind": "acs_email",
+    "enabled": false,
+    "trust_tiers": ["a2_operational_alert", "a4_digest"]
+  }
+}
 ```
 
 규칙:
@@ -131,6 +130,8 @@ dispatch:<audit_id>            targets = [teams-ops-primary, slack-ops, email-on
 - 전송은 **제한된 병렬성**으로 수행하며, 한 채널의 예외가 다른 전송을 취소하지 않습니다.
 - 실패한 하위 항목만 기존 시도 횟수 및 포기 한도 안에서 재시도합니다.
 - 재시작 이후 복구는 종료되지 않은 하위 항목만 이어서 처리합니다.
+- `accepted` 하위 항목에는 범위가 제한된 확인 기한이 있습니다. 기한이 지나면 자동으로 다시 보내지
+  않고 `ambiguous`로 바꾸며, 인시던트 재처리 워커는 미종료 계획이 수렴할 때까지 계속 확인합니다.
 
 채널별 상태:
 
@@ -159,8 +160,10 @@ dispatch:<audit_id>            targets = [teams-ops-primary, slack-ops, email-on
 부분 성공을 성공으로 올려 보고하지 않습니다. 또한 실패한 route를 사용하는 전달 실패 알림은 순환을
 일으킬 수 있으므로 같은 A2 route로 다시 알리지 않고 채널 상태 지표와 인시던트 화면으로 드러냅니다.
 
-라우터는 dispatch마다 정확히 하나의 감사 항목을 계속 기록합니다. 이 항목에 고정된 대상 목록,
-채널별 결과, 제외 사유가 추가됩니다.
+라우터는 dispatch 호출마다 정확히 하나의 경로 감사 항목을 기록합니다. 이 항목에는 고정된 대상
+목록, 현재 채널별 결과, 제외 사유가 들어갑니다. 이후 워크플로 콜백은 별도의
+`notification.delivery.observed` 감사 항목을 기록하므로 추가 전용 감사 체인에서 이전 경로 결정을
+수정하지 않습니다.
 
 ## 5. Teams Workflows 웹훅 바인딩
 
@@ -202,6 +205,11 @@ dispatch:<audit_id>            targets = [teams-ops-primary, slack-ops, email-on
 워크플로가 결과를 회신하기 전까지 `2xx`는 하위 항목을 `accepted`로만 종료합니다. `delivered`로
 확정하려면 워크플로가 전달 id와 게시 결과를 담아 인증된 FDAI 접수 엔드포인트를 호출해야 합니다. 이
 콜백에는 메시지 본문과 웹훅 URL을 담지 않습니다.
+
+접수 처리기는 `audit_id`, `channel_id`, `publication_result`, 선택적 프로바이더 메시지 id만
+받습니다. `X-FDAI-Timestamp`와 HMAC-SHA256 `X-FDAI-Signature`를 검증하고, 오래되거나 크기
+제한을 넘은 요청을 차단하며, 결과를 `delivered` 또는 `retryable_failed`로 기록합니다. 준비 및
+완료 관찰 감사 단계가 이 상태 변경을 둘러쌉니다. 콜백 시크릿은 배포 환경에서 관리합니다.
 
 ## 6. 이 설계가 넘지 않는 경계
 

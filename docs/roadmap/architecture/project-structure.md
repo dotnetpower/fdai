@@ -411,6 +411,10 @@ per-resource locking serializes competing applies before any delivery adapter ca
   on invalid or missing required config rather than starting in a degraded state.
 - Secrets are read through an injected provider, never a global import-time read, and never
   written to logs, audit entries, or error messages.
+- Outbound A2/A4 notification composition resolves named bindings from
+  `FDAI_NOTIFICATION_BINDINGS_JSON`. Endpoint and credential fields name environment variables
+  populated by the deployment secret provider; enabled incomplete bindings fail startup, and
+  `core/notifications` receives only provider-neutral adapters plus durable delivery stores.
 - A fork supplies its own config and secret-store layer without editing `core/`.
 - Feature flags gate new capabilities so they ship in **shadow-mode** (judge-and-log only)
   and are promoted to enforce per-action, in a separate reviewed change.
