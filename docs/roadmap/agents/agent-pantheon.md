@@ -117,7 +117,7 @@ that data flows into judgment, not directly into execution.
 ## 3. Runtime relationship diagram
 
 The org chart is reporting lines; the relationship diagram is data flow. Sensing and specialists feed Forseti. Action verdicts feed Thor for dispatch to Vidar, Var, or execution; Thor ignores
-document-ingestion verdicts. Var and Saga preserve stable idempotency through document HIL, while
+document-ingestion and observation-only architecture-review verdicts. Odin excludes those ARB observations from action-portfolio counts, while Saga retains them as audit evidence. Var and Saga preserve stable idempotency through document HIL, while
 Saga persists gated and terminal audit. Workflow requests preserve bounded `workflow_action`
 lineage through Huginn, Forseti, and Thor. A delivery-owned producer stores an optional argument-bound kinetic proposal for one complete operational plan; Forseti resolves it through an injected source and keeps it on the same Verdict-to-ActionRun path after strict validation. Both are attribution and evidence only;
 neither changes quorum, mode, judgment, approval, or execution authority.

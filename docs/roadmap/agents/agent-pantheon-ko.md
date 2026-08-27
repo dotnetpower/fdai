@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: bce9542f5bfc6e8a79c81e653f67c2f997547eec
-translation_revised: 2026-08-27
+translation_source_sha: 5a968f564b05830120805d9810923a716b8f303b
+translation_revised: 2026-08-28
 ---
 
 # 에이전트 판테온
@@ -116,7 +116,7 @@ Odin 에 두 라인이 보고한다: Thor (operations) 와 Forseti (judgment). 4
 
 조직도는 보고 라인이고 관계도는 데이터 흐름입니다. Sensing과 전문가는 Forseti에 신호를
 전달합니다. Action verdict는 Thor가 Vidar, Var 또는 실행으로 전달하며 Thor는 document-ingestion
-verdict를 무시합니다. Var와 Saga는 document HIL의 stable idempotency를 보존하고 Saga는 gated 및
+및 관찰 전용 architecture-review verdict를 무시합니다. Odin은 해당 ARB 관측을 action portfolio 개수에서 제외하고 Saga는 감사 근거로 보존합니다. Var와 Saga는 document HIL의 stable idempotency를 보존하고 Saga는 gated 및
 terminal audit을 영속화합니다. Workflow request는 Huginn, Forseti, Thor를 통해 bounded
 `workflow_action` lineage를 보존합니다. Delivery 소유 producer는 하나의 완전한 operational plan에 대한 optional argument-bound kinetic proposal을 저장하고 Forseti는 주입된 source로 이를 해석해 strict validation 뒤 같은 Verdict-to-ActionRun path에 보존합니다. 둘 다 attribution 및 evidence 전용이며 quorum, mode,
 judgment, approval 또는 execution authority를 바꾸지 않습니다.

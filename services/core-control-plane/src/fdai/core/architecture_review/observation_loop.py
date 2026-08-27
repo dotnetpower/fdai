@@ -223,7 +223,7 @@ class ArchitectureReviewObservation:
             "mutation_authority": self.mutation_authority,
             "execution_authority": self.execution_authority,
             "observation_only": self.observation_only,
-            "normalized_change": dict(self.normalized_change),
+            "normalized_change": _wire_change_mapping(self.normalized_change),
             "context_snapshot_id": self.context.snapshot_id if self.context else None,
             "evidence_bundle_digest": self.evidence.bundle.digest if self.evidence else None,
             "scenario_digest": self.scenario.scenario_digest if self.scenario else None,
@@ -728,6 +728,16 @@ def _normalized_change_fields(change: Mapping[str, object]) -> tuple[tuple[str, 
                 return ()
             values[name] = value
     return tuple(values.items())
+
+
+def _wire_change_mapping(
+    normalized_change: tuple[tuple[str, object], ...],
+) -> dict[str, object]:
+    values = dict(normalized_change)
+    occurred_at = values.get("occurred_at")
+    if isinstance(occurred_at, datetime):
+        values["occurred_at"] = occurred_at.isoformat()
+    return values
 
 
 def _release_value(releases: tuple[tuple[str, str], ...], name: str) -> str:

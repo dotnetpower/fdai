@@ -253,6 +253,9 @@ class Thor(Agent):
             if payload.get("kind") == "document_ingestion":
                 self.record_behavior("document_verdict_ignored")
                 return
+            if payload.get("kind") == "architecture_review":
+                self.record_behavior("architecture_review_verdict_ignored")
+                return
             await self.dispatch_verdict(payload)
         elif topic == "object.approval":
             if payload.get("kind") == "document_ingestion":

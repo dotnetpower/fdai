@@ -150,6 +150,9 @@ class Odin(Agent):
             await self.arbitrate(payload)
             return
         if topic == "object.verdict":
+            if payload.get("kind") == "architecture_review":
+                self.record_behavior("architecture_review_verdict_observed")
+                return
             self._observe_verdict(payload)
 
     def _observe_verdict(self, payload: dict[str, Any]) -> None:

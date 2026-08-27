@@ -434,11 +434,8 @@ class PantheonRuntime:
             _semantic_tool_planner=semantic_tool_planner,
         )
 
-        # Ingress: raw events -> Huginn.ingest -> normalized object.event.
-        # object.event (published via the bound bridge). Huginn's spec
-        # subscribes to nothing (it is fed from external adapters), so the
-        # ingress bridge is wired explicitly here. If Huginn is disabled
-        # there is no ingress - the pantheon idles.
+        # Huginn has no bus subscription, so external ingress is wired explicitly.
+        # If Huginn is disabled, the pantheon idles without an ingress path.
         if huginn_active:
             bridge.subscribe(
                 raw_event_topic,
