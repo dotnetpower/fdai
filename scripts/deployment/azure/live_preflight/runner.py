@@ -123,7 +123,12 @@ def _planned_resource_types(profile: Mapping[str, Any], plan: Mapping[str, Any])
             continue
         result.add(type_map[resource_type])
     if missing:
-        raise PreflightError("Terraform resource type mapping is incomplete")
+        ordered = sorted(missing)
+        displayed = ordered[:16]
+        suffix = f", +{len(ordered) - len(displayed)} more" if len(ordered) > len(displayed) else ""
+        raise PreflightError(
+            f"Terraform resource type mapping is incomplete: {', '.join(displayed)}{suffix}"
+        )
     return tuple(sorted(result))
 
 
@@ -185,8 +190,8 @@ def _quota_findings(
         required = check.get("required", 1)
         if not isinstance(required, int) or isinstance(required, bool) or required < 1:
             raise PreflightError("quota requirement is invalid")
-        usage = indexed.get(name.casefold())
-        if usage is not None and usage[0] + required > usage[1]:
+        quota_usage = indexed.get(name.casefold())
+        if quota_usage is not None and quota_usage[0] + required > quota_usage[1]:
             findings.append(
                 finding(
                     identifier_value=f"quota:{name}@{region}",

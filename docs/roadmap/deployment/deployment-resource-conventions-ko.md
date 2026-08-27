@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 7e6e2b3bc77055e1668e7ffa4aae10932f665961
+translation_source_sha: 63215aab589842121b64b6b5a6c4320af0f41313
 translation_revised: 2026-08-28
 ---
 # 배포 리소스 규약
@@ -53,6 +53,7 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 | 2026-08-28 | implemented | 결정론적 no-color 재시도로 version이 없는 합성 모델 배포를 식별한 뒤 Terraform 입력 구체화 전에 catalog version을 전달했습니다. | 명시적으로 실패한 plan-only 실행 `33115864100`; `current change`; 집중 resolver 및 배포 변환 결과 검사(`67 passed`). | 다시 실행해 적용 가능한 계획 또는 다음 명시적 차단 원인을 보존합니다. |
 | 2026-08-28 | implemented | 다음 재시도에서 GA version이 없는 선택적 family를 확인한 후 version 처리를 바로잡았습니다. 해당 preference는 제외되며 해결되지 않은 선택적 기능은 Terraform 경로를 만들지 않습니다. | 명시적으로 실패한 plan-only 실행 `33118464379`; `current change`; 집중 resolver 및 배포 변환 결과 검사(`98 passed`). | 다시 실행해 적용 가능한 계획 또는 다음 명시적 차단 원인을 보존합니다. |
 | 2026-08-28 | implemented | Version이 지정된 계획이 매핑되지 않은 Terraform resource type 때문에 policy guard에서 중단된 후 Foundry account project 및 model deployment의 정규 live-preflight mapping을 추가했습니다. | 실패한 plan-only 실행 `33120128352`; `current change`; actionlint, workflow budget, model binding 및 live-preflight 검사. | 다시 실행해 적용 가능한 계획 또는 다음 명시적 차단 원인을 보존합니다. |
+| 2026-08-28 | implemented | 첫 Foundry mapping 추가 후에도 일반 오류가 발생한 뒤 불완전한 live-preflight mapping 오류가 누락된 Terraform resource type을 정렬되고 제한된 목록으로 보고하도록 했습니다. | 실패한 plan-only 실행 `33121335105`; `current change`; 집중 live-preflight 검사. | 한 번 다시 실행하고 정확한 나머지 mapping을 추가한 뒤 다음 보호된 결과를 보존합니다. |
 | 2026-08-25 | implemented | 완료된 Event Bus 토픽 이행 request 모드, service 입력, 대상 지정 계획 예외 및 현재 운영자 지침을 제거했습니다. 표준 계획은 이제 정본 `fdai.*` 연결만 수락합니다. 과거 Terraform `moved` 블록과 활성 접두사 거부 guard는 유지하므로 이전 state를 리소스 재생성 없이 해석하고 legacy 선언은 계속 차단합니다. | `current change`, `.github/workflows/deploy-dev.yml`, `.github/workflows/service-deploy.yml`, 집중 배포 workflow 검사 | 일회성 이행 제어에 남은 구현 작업은 없습니다. |
 | 2026-08-24 | implemented | 보호된 model resolver의 deployment-environment 입력을 복원하고 기존 proposal-only lifecycle caller를 위한 development 기본값을 유지했으며 provider query 전에 다른 environment 범위의 policy를 거부하도록 했습니다. | 실패한 보호 계획 `32735269365`는 Terraform 및 Azure mutation 전에 중단됨; `current change`; 집중 resolver 및 deployment workflow 검사 | 보호된 exact-revision 계획을 다시 실행하고 봉인된 model 및 Terraform receipt를 보존합니다. |
 | 2026-08-25 | implemented | 임시 Terraform state bootstrap 예외를 정확한 정상 활성 Core 리비전, 다이제스트로 고정된 이미지, 검증된 resolved-model attestation 및 런타임 다이제스트를 기준으로 하는 fail-closed 모델 정책 CAS로 교체했습니다. Terraform 출력은 진단에만 사용하며 exact apply는 같은 활성 런타임 경계를 다시 검증합니다. | 실패한 보호 계획 `32753619537`, `32754737930`, `32798548057`, `32798561510`은 모두 Terraform plan 및 Azure mutation 전에 중단됨; commit `5e1e8214ef0f80a1e9b57d00bd2a35723bca6b7b`; 집중 모델 CAS 및 수명 주기 검사 26개 통과. | 현재 활성 다이제스트에 결합된 통제된 Owner 초안을 영속화한 뒤 삭제 0건인 보호 계획, exact apply, provider-schema 및 Saga 증적을 보존합니다. |

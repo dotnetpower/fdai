@@ -193,7 +193,10 @@ def test_live_preflight_fails_closed_on_unmapped_created_resource() -> None:
     profile = _profile()
     profile["terraform_resource_type_map"] = {}
 
-    with pytest.raises(_MODULE.PreflightError, match="mapping is incomplete"):
+    with pytest.raises(
+        _MODULE.PreflightError,
+        match="mapping is incomplete: azurerm_eventhub",
+    ):
         _MODULE.run_preflight(profile, _plan(), _environment(), _Reader())
 
 
