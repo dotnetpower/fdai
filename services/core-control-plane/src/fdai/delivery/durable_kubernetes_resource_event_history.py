@@ -219,12 +219,15 @@ def _namespace_from_id(resource_id: str) -> str | None:
 
 
 def _event_identity(item: ResourceEventObservation) -> tuple[str, datetime, str, str, str]:
+    identity_kind = (
+        "failed" if item.event_kind in {"errimagepull", "imagepullbackoff"} else item.event_kind
+    )
     return (
         item.resource_id,
         item.occurred_at,
         item.status,
         item.classification,
-        item.event_kind,
+        identity_kind,
     )
 
 

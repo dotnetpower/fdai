@@ -27,7 +27,13 @@ RESOURCE_ID = kubernetes_resource_id(
 
 
 class _Store:
-    def __init__(self, *, coverage_started_at: datetime, limitation: str | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        coverage_started_at: datetime,
+        limitation: str | None = None,
+        reason: str = "BackOff",
+    ) -> None:
         self.cursor = KubernetesLifecycleCursor(
             cluster_ref=CLUSTER,
             sequence=2,
@@ -38,6 +44,7 @@ class _Store:
             limitation=limitation,
         )
         self.object_uid: str | None = None
+        self.reason = reason
 
     async def read_cursor(self, cluster_ref: str) -> KubernetesLifecycleCursor:
         assert cluster_ref == CLUSTER
@@ -61,7 +68,7 @@ class _Store:
                 object_kind="Pod",
                 namespace="default",
                 owner_uid="replica-set-a",
-                reason="BackOff",
+                reason=self.reason,
                 event_type="Warning",
                 lifecycle_kind="backoff",
                 action="modified",
@@ -191,3 +198,51 @@ async def test_merge_preserves_distinct_same_second_event_kinds() -> None:
     )
 
     assert {item.event_kind for item in result.events} == {"backoff", "killing", "unhealthy"}
+
+
+async def test_merge_deduplicates_message_refined_image_pull_failure() -> None:
+    durable_store = _Store(
+        coverage_started_at=NOW - timedelta(hours=2),
+        reason="Failed",
+    )
+    durable = DurableKubernetesResourceEventHistoryReader(
+        store=durable_store,  # type: ignore[arg-type]
+        cluster_ref=CLUSTER,
+        now=lambda: NOW,
+    )
+    base = (
+        await durable.read_history_with_identity(
+            resource_ids=(RESOURCE_ID,),
+            resource_identity={RESOURCE_ID: {"cluster_ref": CLUSTER, "uid": UID}},
+            event_families=("resource_event.kubernetes",),
+            lookback_seconds=3600,
+        )
+    ).events[0]
+
+    class _Live:
+        async def read_history_with_identity(self, **kwargs):  # type: ignore[no-untyped-def]
+            del kwargs
+            return type(
+                "Collection",
+                (),
+                {
+                    "resource_ids": (RESOURCE_ID,),
+                    "events": (replace(base, event_kind="imagepullbackoff"),),
+                    "observed_at": NOW,
+                    "complete": False,
+                    "limitation": "source_retention_unverified",
+                },
+            )()
+
+    result = await MergedKubernetesResourceEventHistoryReader(
+        live=_Live(),
+        durable=durable,
+    ).read_history_with_identity(
+        resource_ids=(RESOURCE_ID,),
+        resource_identity={RESOURCE_ID: {"cluster_ref": CLUSTER, "uid": UID}},
+        event_families=("resource_event.kubernetes",),
+        lookback_seconds=3600,
+    )
+
+    assert len(result.events) == 1
+    assert result.events[0].event_kind == "failed"
