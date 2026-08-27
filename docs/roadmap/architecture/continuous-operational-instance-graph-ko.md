@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 91025897a541acaa3f3d31d415d16c7f5aa89d05
+translation_source_sha: b63959ee9e5d2b9ae05fd25a82d8fd2b0856124b
 translation_revised: 2026-08-27
 ---
 # 지속형 운영 인스턴스 그래프
@@ -54,21 +54,15 @@ translation_revised: 2026-08-27
 1. 리소스 생성, 변경, 삭제 이벤트를 정식 이벤트 스트림에 push합니다.
 2. 지연 또는 불완전한 overlay가 존재하는 동안 durable cursor에서 재개 가능한 공급자
    delta를 가져옵니다.
-3. 누락 이벤트를 찾고 관계를 복구하며 범위 완전성을 증명하기 위해 범위가 제한된
-   reconciliation을 실행합니다.
-4. inventory 원본이 제공할 수 없는 근거 유형이나 검증된 쿼리가 현재 그래프보다 최신인
-   근거를 요구할 때만 정확한 실시간 조회를 실행합니다.
+3. 누락 이벤트를 찾고 관계를 복구하며 범위 완전성을 증명하도록 제한된 reconciliation을 실행합니다.
+4. inventory에 근거 유형이 없거나 검증된 쿼리에 더 최신 근거가 필요할 때만 정확한 실시간 조회를 실행합니다.
 
 수집된 속성은 검토된 프로바이더 mapping을 거쳐야만 관계가 됩니다. Mapping이 관측된 연결
-대상을 빠뜨리면 프로바이더가 기록한 경로가 있어도 그래프는 경로 없음을 보고하므로,
-없는 edge가 경로 부재를 입증하지 않습니다. 따라서 운영자가 도달할 수 있는 모든 관리형 서비스
-연결은, private cluster의 control plane endpoint와 agent pool이 참여하는 subnet을 포함해
-검토된 mapping 카탈로그에 대상 유형을 선언해야 합니다.
+대상을 빠뜨리면 없는 그래프 edge가 경로 부재를 입증하지 않습니다. 따라서 도달 가능한 모든
+관리형 서비스 연결의 대상 유형을 검토된 카탈로그에 선언하는 것이 좋습니다.
 
-지속형은 수집에 항상 durable한 다음 작업이 있음을 뜻합니다. 하나의 끝나지 않는 프로세스를
-요구하지 않습니다. 이벤트 소비자는 활성 상태를 유지할 수 있고, cursor 및 reconciliation
-작업자는 진행 상황을 저장한 후 양보하거나 0으로 확장되는 safe-to-retry 일회성 작업으로
-실행할 수 있습니다.
+지속형은 끝나지 않는 프로세스가 아니라 수집에 항상 durable한 다음 작업이 있음을 뜻합니다.
+이벤트 소비자는 활성 상태를 유지하고 safe-to-retry cursor 및 reconciliation 작업은 진행 상황을 저장합니다.
 
 ### 부하 인식 일정 관리
 
@@ -84,10 +78,9 @@ translation_revised: 2026-08-27
 - 공급자 `Retry-After`, quota, 남은 예산 관측
 
 backlog 또는 이벤트 지연이 증가하면 scheduler는 사용할 수 있는 예산을 더 자주 소비합니다.
-그래프가 최신이고 변경량이 낮으면 최대 노후 목표를 넘지 않는 범위에서 간격을 늘립니다.
-HTTP `429`와 공급자 throttling은 동시성을 줄이고 `Retry-After`를 따릅니다. 지속적인 사용
-불가는 circuit을 열고 최신성을 사용 불가로 표시하며 계속 재시도하는 대신 범위가 제한된
-probe를 예약합니다.
+그래프가 최신이고 변경량이 낮으면 최대 노후 목표 안에서 간격을 늘립니다. HTTP `429`와 공급자
+throttling은 동시성을 줄이고 `Retry-After`를 따릅니다. 지속적인 사용 불가는 circuit을 열고
+계속 재시도하는 대신 범위가 제한된 probe를 예약합니다.
 
 구성은 배포 값을 제공합니다. 저장소 기본값과 테스트는 안전한 범위를 정의하며, 하나의 간격이
 모든 tenant 또는 공급자 API에 적합하다고 주장하지 않습니다.

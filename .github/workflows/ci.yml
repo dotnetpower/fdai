@@ -590,7 +590,7 @@ jobs:
           migration_order="$(
             PYTHONPATH=service-migrations \
               uv run python service-migrations/migrate.py all order
-          )
+          )"
           mapfile -t migration_services <<< "$migration_order"
           [[ "${#migration_services[@]}" -eq 5 ]] || {
             echo "service migration order must contain all five services" >&2

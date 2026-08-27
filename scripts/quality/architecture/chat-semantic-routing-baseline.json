@@ -282,13 +282,6 @@
       "issue": 252
     },
     {
-      "path": "services/core-control-plane/src/fdai/core/conversation/semantic_planning.py",
-      "disposition": "retain",
-      "owner": "semantic-conversation",
-      "reason": "Retains bounded schema and capability verification while combining structured semantic frames into plans.",
-      "issue": 252
-    },
-    {
       "path": "services/core-control-plane/src/fdai/core/conversation/semantic_planning_cascade_judgment.py",
       "disposition": "retain",
       "owner": "semantic-conversation",
@@ -314,6 +307,13 @@
       "disposition": "retain",
       "owner": "semantic-conversation",
       "reason": "Retains typed subject and facet normalization after structured semantic selection.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai/core/conversation/semantic_planning_investigation_normalization.py",
+      "disposition": "retain",
+      "owner": "semantic-conversation",
+      "reason": "Retains evidence-specific normalization after structured semantic judgment and exact source-span validation.",
       "issue": 252
     },
     {

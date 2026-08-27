@@ -51,20 +51,15 @@ The collector uses the cheapest authoritative signal that can preserve the requi
 
 1. Push resource create, update, and delete events into the canonical event stream.
 2. Drain resumable provider deltas from a durable cursor while lag or an incomplete overlay exists.
-3. Run bounded reconciliation to detect missed events, repair relationships, and prove scope
-   completeness.
-4. Run exact live reads only for evidence families that the inventory source cannot provide or when
-   a verified query needs fresher evidence than the graph currently carries.
+3. Run bounded reconciliation to detect missed events, repair relationships, and prove scope completeness.
+4. Run exact live reads only when inventory lacks an evidence family or a verified query needs fresher evidence.
 
-A collected property becomes a relationship only through a reviewed provider mapping. When a
-mapping omits an observed connection target, the graph reports no path even though the provider
-recorded one, so an absent edge never proves an absent path. Every managed-service connection that
-an operator can reach, including a private cluster control-plane endpoint and the subnet an agent
-pool joins, therefore needs its target type declared in the reviewed mapping catalog.
+A collected property becomes a relationship only through a reviewed provider mapping. If that
+mapping omits an observed connection target, an absent graph edge never proves an absent path.
+Every reachable managed-service connection therefore needs its target type in the reviewed catalog.
 
-Continuous means that collection always has a durable next action. It does not require one
-never-ending process. Event consumers can remain active while cursor and reconciliation workers run
-as safe-to-retry one-shot tasks that persist progress before yielding or scaling to zero.
+Continuous means collection always has a durable next action, not one never-ending process. Event
+consumers can remain active while safe-to-retry cursor and reconciliation tasks persist progress.
 
 ### Load-aware scheduling
 
@@ -80,10 +75,9 @@ Each source has a validated policy rather than one global interval. The policy i
 - provider `Retry-After`, quota, and remaining-budget observations.
 
 When backlog or event lag grows, the scheduler consumes available budget more frequently. When the
-graph is current and churn is low, it increases the interval without exceeding the maximum
-staleness objective. HTTP `429` and provider throttling reduce concurrency and honor `Retry-After`.
-Persistent unavailability opens the circuit, marks freshness unavailable, and schedules a bounded
-probe instead of retrying continuously.
+graph is current and churn is low, it increases the interval within the maximum staleness objective.
+HTTP `429` and provider throttling reduce concurrency and honor `Retry-After`. Persistent
+unavailability opens the circuit and schedules a bounded probe instead of retrying continuously.
 
 Configuration supplies deployment values. Repository defaults and tests define safe bounds, not a
 claim that one interval fits every tenant or provider API.

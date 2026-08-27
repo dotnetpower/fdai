@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 581b808266fc78258ba1f3db888354e1e23d4141
+translation_source_sha: 49aaa79fcf339d8c82ed653884217f875d969dc5
 translation_revised: 2026-08-27
 ---
 # 코드 맵
@@ -169,7 +169,7 @@ shadow 테스트가 두 경계를 고정합니다.
 | 서비스 | 패키지 responsibility | 패키지 지도 |
 |---------|------------------------|-------------|
 | 환경 모델 바인딩 | 권한이 없는 공유 정책 계약, 정확한 제안-정책 결합, 3-way-CAS Settings projection, 고유한 기능 신원, 정확한 GA 및 TPM/PTU 해석, 범위가 제한된 공급자 읽기, Core 전용 attested runtime binding, healthy active-revision CAS, 정책 결속 exact 적용 및 독립 공급자 readback | [공유 계약](../../../packages/service-contracts/src/fdai_service_contracts/model_binding.py), [해석기 스키마](../../../services/core-control-plane/src/fdai/rule_catalog/schema/model_binding_policy.py), [제안 검증기](../../../scripts/deployment/azure/model_binding_proposal.py), [projection workflow](../../../.github/workflows/model-settings-projection.yml), [projection materializer](../../../scripts/deployment/local/materialize-authoritative-settings.py), [service guard](../../../scripts/deployment/service/guard_plan.py), [계획 검증기](../../../scripts/deployment/azure/verify-deployment-plan.py), [active revision 검증기](../../../scripts/deployment/azure/verify_active_core_revision.py), [공급자 readback](../../../scripts/deployment/azure/verify_model_deployments.py), [Operator IAM 어댑터](../../../services/operator-service/src/fdai_operator_service/postgres_iam.py), [Console 편집기](../../../console/src/routes/settings-model-binding-policy.tsx) |
-| Operator 서비스 | 인증된 경로 계열, 영속 의미 브리지, 프로세스 소유 브리지 상태, 순서가 정해진 Managed Identity Kafka 수명 주기, exact-release 온톨로지 읽기, 범위가 제한된 활성 인벤토리 영향 탐색, 소유자 범위 백그라운드 작업 목록, 상세, 진행 상황 및 유한 SSE 재생 | [operations family](../../../services/operator-service/src/fdai_operator_service/families/operations/), [백그라운드 작업 변환 결과](../../../services/operator-service/src/fdai_operator_service/families/conversation/background_tasks.py), [PostgreSQL family store](../../../services/operator-service/src/fdai_operator_service/postgres_family_store.py), [읽기 migration](../../../service-migrations/branches/operator-service/versions/20260823_operator_background_task_read.py), [어댑터](../../../services/operator-service/src/fdai_operator_service/adapters/), [streaming](../../../services/operator-service/src/fdai_operator_service/streaming/) 및 [composition.py](../../../services/operator-service/src/fdai_operator_service/composition.py) |
+| Operator 서비스 | 인증된 경로 계열, 영속적인 세 토픽 의미 브리지, 범위가 제한된 불일치 변환 결과 격리, 프로세스 소유 브리지 상태, 순서가 정해진 Managed Identity Kafka 수명 주기, exact-release 온톨로지 읽기, 범위가 제한된 활성 인벤토리 영향 탐색, 소유자 범위 백그라운드 작업 목록, 상세, 진행 상황 및 유한 SSE 재생 | [operations family](../../../services/operator-service/src/fdai_operator_service/families/operations/), [백그라운드 작업 변환 결과](../../../services/operator-service/src/fdai_operator_service/families/conversation/background_tasks.py), [PostgreSQL family store](../../../services/operator-service/src/fdai_operator_service/postgres_family_store.py), [읽기 migration](../../../service-migrations/branches/operator-service/versions/20260823_operator_background_task_read.py), [어댑터](../../../services/operator-service/src/fdai_operator_service/adapters/), [streaming](../../../services/operator-service/src/fdai_operator_service/streaming/) 및 [composition.py](../../../services/operator-service/src/fdai_operator_service/composition.py) |
 | FDAI Console 백그라운드 작업 점검 | 엄격한 소유자 범위 작업/진행 상황 decoder, 이중 언어 목록 및 선택 상세 표현, 생성, 취소, 재시도 또는 실행 컨트롤이 없는 명시적 새로 고침 | [경로](../../../console/src/routes/background-tasks.tsx), [decoder](../../../console/src/routes/background-tasks.model.ts), [decoder 테스트](../../../console/src/routes/background-tasks.model.test.ts) |
 | FDAI Console 온톨로지 워크벤치 | Exact 선언 경로, 엄격한 변환 결과 decoder, 근거/종속 항목/release 구역, localized 검증 상태 및 실행 control이 없는 스냅샷 결속 영향/map 표현 | [ObjectType 워크벤치](../../../console/src/routes/ontology-object-type-detail.tsx), [영향 경로](../../../console/src/routes/blast-radius.tsx), [영향 decoder](../../../console/src/routes/blast-radius.model.ts), [온톨로지 계약](../../../console/src/routes/ontology.types.ts) |
 | 네트워크 토폴로지 시각화 | 공유 네트워크 어휘, 작성된 정적 다이어그램 계약, 관측 전용 Console 포커스 및 경로 표현, 실행 권한이 없는 정제된 내보내기 | [공유 어휘](../../../packages/network-topology-contracts/), [다이어그램 컴파일러](../../../tools/architecture-diagrams/), [Console 아키텍처 컴포넌트](../../../console/src/components/), [소유 설계](../interfaces/network-topology-visualization-ko.md) |
@@ -177,15 +177,10 @@ shadow 테스트가 두 경계를 고정합니다.
 | 문서 처리 워커 | 영속 문서 처리와 워커 소유 어댑터 | [패키지](../../../services/document-processing-worker/src/fdai_document_worker_service/) |
 | Isolated 실행기 | Thor 소유 명령 처리, 프로바이더 효과, 증적 및 실행기 어댑터 | [패키지](../../../services/isolated-executor/src/fdai_executor_service/) |
 
-이 패키지는 `fdai-service-contracts`에 의존할 수 있습니다. 다른 서비스의 구현
-패키지는 가져오기하지 않습니다.
-로컬 조립은 각 패키지 안에서 service-owned client lifecycle과 loopback adapter를 연결합니다.
-따라서 Operator semantic bridge, ingestion publisher, 문서 worker consumer 및 isolated Executor는
-배포된 managed-identity adapter와 동일한 logical topic, 멱등성, 준비 상태 및 증적 경계를
-보존합니다.
-서비스 소유 회귀 테스트는 요청, 최종 변환 결과, 진행 상황의 세 가지 의미 토픽을 모두 고정하고,
-영속 요청과 일치하지 않는 최종 변환 결과를 범위가 제한된 횟수만큼 재시도한 뒤 격리하며, 새 서비스
-테스트가 매니페스트 소유자 하나에만 속하는지 확인합니다.
+이 패키지는 `fdai-service-contracts`에만 의존하며 다른 서비스 구현은 가져오지 않습니다.
+로컬 조립은 서비스 소유 클라이언트 수명 주기와 loopback 어댑터를 연결합니다. 따라서 Operator 의미
+브리지, 인제스트 게시자, 문서 워커 consumer 및 Isolated 실행기는 배포된 어댑터와 동일한 logical
+topic, 멱등성, 준비 상태 및 증적 경계를 보존합니다.
 
 ## Shared 계약 SDK
 

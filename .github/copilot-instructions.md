@@ -64,7 +64,8 @@ unknown, no-op, denial, rollback, or human-review outcome with an audit record.
    CI owns integration validation for pushed SHAs, and
    `make validation-all` is reserved for explicit merge or release boundaries.
 5. Do not commit by default. Commit only when explicitly requested or required by an invoked
-   workflow or external operation. After focused validation and diff review, commit only task-owned
+   workflow or external operation. After authorization, every agent-authored commit MUST originate
+   in the local checkout. After focused validation and diff review, commit only task-owned
    paths from the active checkout with `git commit -m "<message>" -- <task-owned paths>`; stage new
    task-owned files first when needed. Preserve unrelated index and worktree changes, never bypass
    hooks, and do not rerun successful checks unless relevant inputs changed. The commit hook is the

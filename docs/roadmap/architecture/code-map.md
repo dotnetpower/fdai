@@ -44,8 +44,7 @@ unchanged by the physical move.
 Semantic conversation planning keeps `semantic_planning.py`, `semantic_planning_cascade.py`, and
 `semantic_planning_frame.py` as compatibility facades. Focused sibling modules own frame checks,
 plan dispatch, judgment, validation, frame construction, facets, evidence-specific investigation
-normalization, and queries while preserving public imports, deterministic gate order, and
-read-only authority.
+normalization, and queries while preserving public imports, deterministic gate order, and read-only authority.
 The semantic-routing baseline records each lexical owner, while the competency fixture pins the
 current structural release and Reader manifest without claiming production readiness.
 
@@ -169,7 +168,7 @@ missing outcomes. Focused lineage and control-loop shadow tests pin both boundar
 | Service | Package responsibility | Package map |
 |---------|------------------------|-------------|
 | Environment model binding | Shared authority-free policy contract, exact proposal-to-policy join, three-way-CAS Settings projection, unique capability identities, exact GA and TPM/PTU resolution, bounded provider reads, Core-only attested runtime binding, healthy active-revision CAS, policy-bound exact apply, and independent provider readback | [shared contract](../../../packages/service-contracts/src/fdai_service_contracts/model_binding.py), [resolver schema](../../../services/core-control-plane/src/fdai/rule_catalog/schema/model_binding_policy.py), [proposal validator](../../../scripts/deployment/azure/model_binding_proposal.py), [projection workflow](../../../.github/workflows/model-settings-projection.yml), [projection materializer](../../../scripts/deployment/local/materialize-authoritative-settings.py), [service guard](../../../scripts/deployment/service/guard_plan.py), [plan verifier](../../../scripts/deployment/azure/verify-deployment-plan.py), [active revision verifier](../../../scripts/deployment/azure/verify_active_core_revision.py), [provider readback](../../../scripts/deployment/azure/verify_model_deployments.py), [Operator IAM adapter](../../../services/operator-service/src/fdai_operator_service/postgres_iam.py), and [Console editor](../../../console/src/routes/settings-model-binding-policy.tsx) |
-| Operator Service | Authenticated route families, durable semantic bridge, process-owned bridge health, ordered managed-identity Kafka lifecycles, exact-release ontology reads, bounded active-inventory impact traversal, and owner-scoped background-task list, detail, progress, and finite SSE replay | [operations family](../../../services/operator-service/src/fdai_operator_service/families/operations/), [background-task projections](../../../services/operator-service/src/fdai_operator_service/families/conversation/background_tasks.py), [PostgreSQL family store](../../../services/operator-service/src/fdai_operator_service/postgres_family_store.py), [read migration](../../../service-migrations/branches/operator-service/versions/20260823_operator_background_task_read.py), [adapters](../../../services/operator-service/src/fdai_operator_service/adapters/), [streaming](../../../services/operator-service/src/fdai_operator_service/streaming/), and [composition.py](../../../services/operator-service/src/fdai_operator_service/composition.py) |
+| Operator Service | Authenticated route families, durable three-topic semantic bridge, bounded unmatched-projection quarantine, process-owned bridge health, ordered managed-identity Kafka lifecycles, exact-release ontology reads, bounded active-inventory impact traversal, and owner-scoped background-task list, detail, progress, and finite SSE replay | [operations family](../../../services/operator-service/src/fdai_operator_service/families/operations/), [background-task projections](../../../services/operator-service/src/fdai_operator_service/families/conversation/background_tasks.py), [PostgreSQL family store](../../../services/operator-service/src/fdai_operator_service/postgres_family_store.py), [read migration](../../../service-migrations/branches/operator-service/versions/20260823_operator_background_task_read.py), [adapters](../../../services/operator-service/src/fdai_operator_service/adapters/), [streaming](../../../services/operator-service/src/fdai_operator_service/streaming/), and [composition.py](../../../services/operator-service/src/fdai_operator_service/composition.py) |
 | FDAI Console background-task inspection | Strict owner-scoped task/progress decoders, bilingual list and selected detail presentation, and explicit refresh without create, cancel, retry, or execute controls | [route](../../../console/src/routes/background-tasks.tsx), [decoder](../../../console/src/routes/background-tasks.model.ts), and [decoder tests](../../../console/src/routes/background-tasks.model.test.ts) |
 | FDAI Console ontology workbench | Exact declaration routes, strict projection decoders, evidence/dependent/release sections, localized verification state, and snapshot-bound impact/map presentation with no execution controls | [ObjectType workbench](../../../console/src/routes/ontology-object-type-detail.tsx), [impact route](../../../console/src/routes/blast-radius.tsx), [impact decoder](../../../console/src/routes/blast-radius.model.ts), and [ontology contracts](../../../console/src/routes/ontology.types.ts) |
 | Network topology visualization | Shared network vocabulary, authored static-diagram contract, observed-only Console focus and path presentation, and sanitized export with no execution authority | [shared vocabulary](../../../packages/network-topology-contracts/), [diagram compiler](../../../tools/architecture-diagrams/), [Console architecture components](../../../console/src/components/), and [owner design](../interfaces/network-topology-visualization.md) |
@@ -177,14 +176,10 @@ missing outcomes. Focused lineage and control-loop shadow tests pin both boundar
 | Document Processing Worker | Durable document processing and worker-owned adapters | [package](../../../services/document-processing-worker/src/fdai_document_worker_service/) |
 | Isolated Executor | Thor-owned command handling, provider effects, receipts, and executor adapters | [package](../../../services/isolated-executor/src/fdai_executor_service/) |
 
-These packages may depend on `fdai-service-contracts`. They do not import another service's
-implementation package.
-Local composition binds service-owned client lifecycles and loopback adapters inside each package.
-The Operator semantic bridge, ingestion publisher, document worker consumer, and isolated Executor
-therefore preserve the same logical topics, idempotency, readiness, and receipt boundaries as their
-deployed managed-identity adapters.
-Service-owned regressions pin all three semantic topics, quarantine unmatched terminal projections
-after bounded retry, and require every new service test to have exactly one manifest owner.
+These packages depend only on `fdai-service-contracts`, never another service implementation.
+Local composition binds service-owned client lifecycles and loopback adapters, so the Operator
+semantic bridge, ingestion publisher, document worker consumer, and isolated Executor preserve the
+same logical topics, idempotency, readiness, and receipt boundaries as deployed adapters.
 
 ## Shared contract SDK
 

@@ -20,7 +20,7 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    op.add_column("read_investigation_run", sa.Column("task_id", sa.Text(), nullable=True))
+    op.execute("ALTER TABLE read_investigation_run ADD COLUMN task_id TEXT")
     connection = op.get_bind()
     rows = connection.execute(
         sa.text(
