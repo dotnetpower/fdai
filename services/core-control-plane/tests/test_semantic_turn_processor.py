@@ -60,6 +60,7 @@ from fdai_core_service.semantic_turn_processor import (
     _incident_next_step_text,
     _project_investigation_continuation,
     _render_general_query_answer,
+    _render_query_answer,
     _typed_extension_answer_output,
     incident_next_step_actions,
     incident_profile_facts,
@@ -356,6 +357,60 @@ def test_resource_event_answer_lists_observed_rows_without_causal_claims() -> No
     assert "원인" not in answer
     assert "복구" not in answer
     assert "`execution_authority=false`" in answer
+
+
+def test_resource_event_answer_discloses_latest_bounded_display() -> None:
+    request = _request(locale="en")
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+    rows = tuple(
+        QueryRow.from_values(
+            f"resource-event-{index:04d}",
+            {
+                "name": f"event-{index:02d}",
+                "type": "kubernetes.pod",
+                "event_kind": "test",
+                "status": "normal",
+                "classification": "kubernetes_pod",
+                "occurred_at": f"2026-08-27T03:{index:02d}:00+00:00",
+                "execution_authority": False,
+            },
+        )
+        for index in range(24)
+    )
+    execution = QueryPlanExecution(
+        plan_digest=PLAN_DIGEST,
+        status="completed",
+        results=MappingProxyType(
+            {
+                "resource-events": QueryNodeResult(
+                    value=QueryTable(
+                        rows=rows,
+                        complete=False,
+                        truncation_reason="source_retention_unverified",
+                    ),
+                    evidence_refs=("kubernetes-resource-event:attempt",),
+                )
+            }
+        ),
+        receipts=(),
+        output_node_ids=("resource-events",),
+    )
+
+    answer, _details = _render_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        execution,
+        operation="select",
+        output_shape="resource_event_history",
+    )
+
+    assert answer is not None
+    assert "`event-23`" in answer
+    assert "`event-16`" in answer
+    assert "`event-15`" not in answer
+    assert "`event-00`" not in answer
+    assert "Displayed Resource Events: 8 of 24." in answer
+    assert "`display_truncated`" in answer
+    assert "most recent 8 in chronological order" in answer
 
 
 def test_error_activity_answer_separates_windows_gaps_and_causation() -> None:

@@ -1728,7 +1728,10 @@ def _render_query_answer(
             return None, None
         table = result.value
         rows: list[dict[str, object]] = []
-        for row in table.rows[:20]:
+        projected_rows = (
+            table.rows[-20:] if output_shape == "resource_event_history" else table.rows[:20]
+        )
+        for row in projected_rows:
             candidate_rows: list[dict[str, object]] = [
                 *rows,
                 {"row_id": row.row_id, "values": _answer_row_values(row.values)},
@@ -2362,12 +2365,25 @@ def _render_resource_event_history_answer(
     rows = output.get("rows")
     if not isinstance(rows, list):
         return None
-    events: list[Mapping[str, object]] = []
-    for row in rows[:8]:
+    projected_events: list[Mapping[str, object]] = []
+    for row in rows:
         values = row.get("values") if isinstance(row, Mapping) else None
         if not isinstance(values, Mapping):
             return None
-        events.append(values)
+        projected_events.append(values)
+    returned_rows = output.get("returned_rows")
+    total_rows = output.get("total_rows")
+    if (
+        not isinstance(returned_rows, int)
+        or isinstance(returned_rows, bool)
+        or returned_rows != len(projected_events)
+        or not isinstance(total_rows, int)
+        or isinstance(total_rows, bool)
+        or total_rows < returned_rows
+    ):
+        return None
+    events = projected_events[-8:]
+    display_truncated = len(events) < total_rows
     complete = output.get("source_complete") is True
     limitation = output.get("source_truncation_reason")
     limitation_text = limitation if isinstance(limitation, str) else None
@@ -2388,6 +2404,13 @@ def _render_resource_event_history_answer(
             lines.append("- 요청한 구간에서 반환된 Resource Event가 없습니다.")
         lines.extend(["", "## 근거 한계", ""])
         lines.append(f"- 원본 완전성: {'complete' if complete else 'incomplete'}")
+        if total_rows:
+            lines.append(f"- 표시한 Resource Event: 전체 {total_rows}개 중 {len(events)}개")
+        if display_truncated:
+            lines.append(
+                f"- 표시 제한: `display_truncated`; 가장 최근 {len(events)}개를 "
+                "시간순으로 표시합니다."
+            )
         if not complete:
             lines.append(f"- 제한 사항: `{limitation_text or 'source_incomplete'}`")
         if limitation_text == "source_retention_unverified":
@@ -2413,6 +2436,13 @@ def _render_resource_event_history_answer(
         lines.append("- No Resource Events were returned for the requested window.")
     lines.extend(["", "## Evidence limitations", ""])
     lines.append(f"- Source completeness: {'complete' if complete else 'incomplete'}")
+    if total_rows:
+        lines.append(f"- Displayed Resource Events: {len(events)} of {total_rows}.")
+    if display_truncated:
+        lines.append(
+            f"- Display limitation: `display_truncated`; showing the most recent {len(events)} "
+            "in chronological order."
+        )
     if not complete:
         lines.append(f"- Limitation: `{limitation_text or 'source_incomplete'}`")
     if limitation_text == "source_retention_unverified":
