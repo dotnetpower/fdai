@@ -235,6 +235,12 @@ class SemanticBoundContext(QueryContract):
     screen_id: BoundedId | None = None
     resource_group_id: BoundedId | None = None
     resource_ids: Annotated[tuple[BoundedId, ...], Field(max_length=1000)] = ()
+    principal_id: BoundedId | None = None
+    principal_scope_digest: Digest | None = None
+    ontology_release_digest: Digest | None = None
+    source_generation: BoundedId | None = None
+    selection_digest: Digest | None = None
+    complete: bool | None = None
 
     @model_validator(mode="after")
     def _context_matches_kind(self) -> SemanticBoundContext:
@@ -247,15 +253,62 @@ class SemanticBoundContext(QueryContract):
                 raise ValueError("incident bound context MUST NOT carry resource scope")
             return self
         if self.kind == "screen":
-            if self.screen_id is None or not self.resource_ids:
-                raise ValueError("screen bound context requires screen and resource ids")
+            if (
+                self.screen_id is None
+                or not self.resource_ids
+                or self.principal_id is None
+                or self.principal_scope_digest is None
+                or self.ontology_release_digest is None
+                or self.source_generation is None
+                or self.selection_digest is None
+                or self.complete is not True
+            ):
+                raise ValueError("screen bound context requires a complete server-issued identity")
             if self.incident_id is not None or self.correlation_id is not None:
                 raise ValueError("screen bound context MUST NOT carry incident identity")
-        elif self.resource_group_id is None or not self.resource_ids:
-            raise ValueError("resource-group bound context requires group and resource ids")
+        elif (
+            self.resource_group_id is None
+            or not self.resource_ids
+            or self.principal_id is None
+            or self.principal_scope_digest is None
+            or self.ontology_release_digest is None
+            or self.source_generation is None
+            or self.selection_digest is None
+            or self.complete is not True
+        ):
+            raise ValueError(
+                "resource-group bound context requires a complete server-issued identity"
+            )
         if self.resource_ids != tuple(dict.fromkeys(self.resource_ids)):
             raise ValueError("bound resource ids MUST be unique")
         return self
+
+
+def context_selection_digest(
+    *,
+    kind: Literal["screen", "resource_group"],
+    principal_id: str,
+    principal_scope_digest: str,
+    ontology_release_digest: str,
+    source_generation: str,
+    complete: bool,
+    screen_id: str | None,
+    resource_group_id: str | None,
+    resource_ids: tuple[str, ...],
+) -> str:
+    """Return the replay-stable digest for a server-issued context selection."""
+    body = {
+        "kind": kind,
+        "principal_id": principal_id,
+        "principal_scope_digest": principal_scope_digest,
+        "ontology_release_digest": ontology_release_digest,
+        "source_generation": source_generation,
+        "complete": complete,
+        "screen_id": screen_id,
+        "resource_group_id": resource_group_id,
+        "resource_ids": sorted(resource_ids),
+    }
+    return f"sha256:{hashlib.sha256(canonical_json(body).encode()).hexdigest()}"
 
 
 class SemanticInvestigationContinuation(QueryContract):
@@ -637,5 +690,6 @@ __all__ = [
     "SemanticTurnPrincipal",
     "SemanticTurnRequest",
     "SemanticTurnResult",
+    "context_selection_digest",
     "rule_search_query_digest",
 ]

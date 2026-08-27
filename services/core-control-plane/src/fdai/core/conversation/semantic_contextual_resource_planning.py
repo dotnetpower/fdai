@@ -28,11 +28,14 @@ from fdai.core.ontology_platform.contextual_resource_queries import (
 )
 
 from .semantic_planning_models import BoundResourceContext, SemanticOutputShape
+from .semantic_planning_value_filters import stated_subject_fragment, stated_value_filters
 
 
 def compile_contextual_resource_plan(
     *,
     frame: SemanticProblemFrame,
+    utterance: str,
+    descriptors: tuple[dict[str, object], ...],
     manifest: QueryManifest,
     verifier: OntologyQueryPlanVerifier,
     evaluation_time: datetime,
@@ -46,26 +49,48 @@ def compile_contextual_resource_plan(
         or frame.output_shape != SemanticOutputShape.CONTEXTUAL_RESOURCE_LIST
         or bound_context is None
         or not _has_contextual_function(manifest)
+        or bound_context.principal_id is None
     ):
         return None
     resource_ids = tuple(bound_context.resource_ids)
-    definition = ObjectSetDefinition(
-        selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Resource"),
-        predicates=(
+    filters = stated_value_filters(utterance, descriptors)
+    predicates: list[ObjectPredicate] = [
+        ObjectPredicate(
+            property="id",
+            operator=(
+                ObjectPredicateOperator.EQUALS
+                if len(resource_ids) == 1
+                else ObjectPredicateOperator.IN
+            ),
+            **({"equals": resource_ids[0]} if len(resource_ids) == 1 else {"values": resource_ids}),
+        )
+    ]
+    for (object_type, property_name), values in sorted(filters.items()):
+        if object_type != "Resource" or property_name == "id":
+            continue
+        predicates.append(
             ObjectPredicate(
-                property="id",
+                property=property_name,
                 operator=(
                     ObjectPredicateOperator.EQUALS
-                    if len(resource_ids) == 1
+                    if len(values) == 1
                     else ObjectPredicateOperator.IN
                 ),
-                **(
-                    {"equals": resource_ids[0]}
-                    if len(resource_ids) == 1
-                    else {"values": resource_ids}
-                ),
-            ),
-        ),
+                **({"equals": values[0]} if len(values) == 1 else {"values": values}),
+            )
+        )
+    subject = stated_subject_fragment(utterance, frame.subject_constraints, descriptors)
+    if subject is not None:
+        predicates.append(
+            ObjectPredicate(
+                property="name",
+                operator=ObjectPredicateOperator.CONTAINS,
+                equals=subject,
+            )
+        )
+    definition = ObjectSetDefinition(
+        selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Resource"),
+        predicates=tuple(predicates),
         as_of=evaluation_time.astimezone(UTC),
         purpose=purpose,
         limit=len(resource_ids),
@@ -91,6 +116,12 @@ def compile_contextual_resource_plan(
                         else bound_context.resource_group_id
                     ),
                     "resource_ids": list(resource_ids),
+                    "principal_id": bound_context.principal_id,
+                    "principal_scope_digest": bound_context.principal_scope_digest,
+                    "ontology_release_digest": bound_context.ontology_release_digest,
+                    "source_generation": bound_context.source_generation,
+                    "selection_digest": bound_context.selection_digest,
+                    "complete": bound_context.complete,
                 },
                 "dependency_arguments": {scope.node_id: "query_result"},
             }

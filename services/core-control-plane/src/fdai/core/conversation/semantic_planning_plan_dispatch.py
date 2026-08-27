@@ -125,13 +125,19 @@ def dispatch_semantic_plan(
         plan = (
             compile_contextual_resource_plan(
                 frame=frame,
+                utterance=utterance,
+                descriptors=descriptors,
                 manifest=manifest,
                 verifier=verifier,
                 evaluation_time=evaluation_time,
                 purpose=purpose,
                 bound_context=bound_resource_context,
             )
-            if bound_resource_context is not None
+            if (
+                bound_resource_context is not None
+                and bound_resource_context.principal_id == principal.id
+                and bound_resource_context.ontology_release_digest == manifest.release_digest
+            )
             else None
         )
         if plan is None:

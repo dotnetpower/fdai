@@ -26,6 +26,7 @@ from fdai.core.ontology_platform.query_gateway import (
 from fdai.shared.contracts.models import CeilingRole
 from fdai.shared.ontology.release import build_ontology_release
 from fdai.shared.providers.ontology_instance import OntologyGraphSnapshot, OntologyObjectRecord
+from fdai_service_contracts import context_selection_digest
 
 NOW = datetime(2026, 8, 27, 10, 0, tzinfo=UTC)
 
@@ -88,6 +89,20 @@ async def _invoke(
     release = build_ontology_release(function_types=(declaration,))
     registry = OntologyFunctionRegistry(release=release)
     registry.register_contextual(declaration, contextual_resource_function(release))
+    identity = {
+        "principal_id": "operator",
+        "principal_scope_digest": f"sha256:{'a' * 64}",
+        "ontology_release_digest": release.digest,
+        "source_generation": "generation-1",
+        "complete": True,
+    }
+    selection_digest = context_selection_digest(
+        kind="screen",
+        screen_id="ontology-instances",
+        resource_group_id=None,
+        resource_ids=tuple(resource_ids),
+        **identity,
+    )
     value = await registry.invoke(
         CONTEXTUAL_RESOURCE_FUNCTION_NAME,
         {
@@ -95,6 +110,8 @@ async def _invoke(
             "context_kind": "screen",
             "context_id": "ontology-instances",
             "resource_ids": resource_ids,
+            **identity,
+            "selection_digest": selection_digest,
         },
         context=FunctionInvocationContext(
             caller_agent="Bragi",

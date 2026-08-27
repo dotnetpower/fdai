@@ -194,6 +194,9 @@ export interface OntologyInstanceExploration {
   readonly schema_version: "1.3.0";
   readonly ontology_release_digest: string;
   readonly source_generation: string;
+  readonly principal_id?: string;
+  readonly principal_scope_digest?: string;
+  readonly selection_digest?: string;
   readonly source_cutoff: string;
   readonly root_id: string;
   readonly depth: number;

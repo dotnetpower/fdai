@@ -1,7 +1,7 @@
 ---
 title: Operator Console - View Snapshot Contract
 translation_of: operator-console-view-snapshot.md
-translation_source_sha: d99c27a98e1740631b627f541f8852e20c7355f4
+translation_source_sha: fc1cb2dee4beaac227cddc2a2dec7f8c33fdfaf6
 translation_revised: 2026-08-27
 ---
 
@@ -59,6 +59,9 @@ Console은 이 신원을 추가 `conversation_context`로 전달합니다. Opera
 전에 정확한 `Resource.id` 조건식을 컴파일합니다. 누락, 오래됨, 중복 또는
 확장된 id는 타입이 지정된 사용 불가 결과를 만들며 principal이 볼 수 있는
 Resource 컬렉션을 대체 경로로 사용하지 않습니다.
+신원은 서버가 발급한 selection digest가 principal 범위, 활성 온톨로지 release,
+source generation, complete 플래그 및 정확한 resource id 집합을 결속할 때만
+허용됩니다. `resource_limit`으로 잘린 스냅샷은 이를 게시할 수 없습니다.
 
 Interactive 화면은 KPI counter만이 아니라 완전한 운영자 모델을 publish하는
 것이 좋습니다. `purpose`, `glossary`, `facts` 외에도 `records`에 다음을

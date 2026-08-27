@@ -56,6 +56,9 @@ validates it against the authenticated principal and Core compiles an exact
 `Resource.id` predicate before any contextual FunctionType read. Missing,
 stale, duplicate, or widened ids produce a typed unavailable result; the
 principal-visible Resource collection is never used as a fallback.
+The identity is accepted only when the server-issued selection digest binds the
+principal scope, active ontology release, source generation, complete flag, and
+exact resource-id set. A truncated `resource_limit` snapshot cannot publish it.
 
 An interactive screen should publish a complete operator model, not only KPI
 counters. In addition to `purpose`, `glossary`, and `facts`, its `records`

@@ -654,12 +654,24 @@ def _bound_resource_context(request: SemanticTurnRequest) -> BoundResourceContex
             kind="screen",
             screen_id=binding.screen_id,
             resource_ids=binding.resource_ids,
+            principal_id=binding.principal_id or "",
+            principal_scope_digest=binding.principal_scope_digest or "",
+            ontology_release_digest=binding.ontology_release_digest or "",
+            source_generation=binding.source_generation or "",
+            selection_digest=binding.selection_digest or "",
+            complete=binding.complete is True,
         )
     if binding.kind == "resource_group" and binding.resource_group_id is not None:
         return BoundResourceContext(
             kind="resource_group",
             resource_group_id=binding.resource_group_id,
             resource_ids=binding.resource_ids,
+            principal_id=binding.principal_id or "",
+            principal_scope_digest=binding.principal_scope_digest or "",
+            ontology_release_digest=binding.ontology_release_digest or "",
+            source_generation=binding.source_generation or "",
+            selection_digest=binding.selection_digest or "",
+            complete=binding.complete is True,
         )
     return None
 
