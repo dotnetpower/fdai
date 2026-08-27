@@ -2208,26 +2208,29 @@ async def test_incident_evidence_answer_reports_missing_recorded_rca() -> None:
     assert incident["impact_evidence"] == []
     assert incident["grounded_citations"] == []
     assert incident["next_safe_step"] == {
-        "operation": "collect_evidence",
-        "authority": "read_only",
+        "operation": "action_draft",
+        "semantic_operation": "action_draft",
+        "candidate": "collect_evidence",
+        "authority": "candidate_only",
         "execution_authority": False,
     }
     assert '"cause":' not in answer
 
 
-async def test_incident_evidence_answer_renders_recorded_rca_impact_and_citations() -> None:
+async def test_incident_evidence_answer_does_not_render_recorded_rca_as_fact() -> None:
     encoded = await _processor(
         _Runtime(_incident_evidence_runtime_result(recorded_rca=True))
     ).process(_request())
 
     projection = _projection(encoded)
     answer = projection["semantic_result"]["answer"]
-    assert "## Root cause" in answer
-    assert "A required owner tag was absent." in answer
-    assert "## Impact evidence" in answer
-    assert "noncompliant_resources" in answer
-    assert "## Grounded citations" in answer
-    assert "object-storage.owner-tag.required" in answer
+    assert "## Root cause" not in answer
+    assert "A required owner tag was absent." not in answer
+    assert "## Impact evidence" not in answer
+    assert "noncompliant_resources" not in answer
+    assert "## Grounded citations" not in answer
+    assert "object-storage.owner-tag.required" not in answer
+    assert "Candidate ACTION_DRAFT" in answer
     assert "Missing evidence: none" in answer
     incident = projection["payload"]["technical_details"]["outputs"][0]
     assert incident["root_cause"]["outcome"] == "grounded"
@@ -2253,6 +2256,7 @@ async def test_incident_evidence_answer_is_localized_without_changing_machine_ou
     assert "감사 기록 1건을 검증했습니다." in answer
     assert "인과 분석이 구현되지 않아" not in answer
     assert "근거에 기반한 근본 원인 가설, 영향 근거, 근거 인용" in answer
+    assert "ACTION_DRAFT 후보" in answer
     assert "```json" not in answer
     assert (
         projection["payload"]["technical_details"]["outputs"][0]["correlated_evidence"][0][

@@ -52,6 +52,7 @@ from .semantic_planning_frame_checks import (
 from .semantic_planning_models import (
     BoundIncident,
     BoundInvestigationContinuation,
+    BoundResourceContext,
     CompleteManifestSelector,
     QueryManifestProvider,
     QueryNodeProposal,
@@ -235,6 +236,7 @@ class SemanticPlanningService:
         principal: Principal,
         purpose: str,
         bound_incident: BoundIncident | None = None,
+        bound_resource_context: BoundResourceContext | None = None,
         bound_investigation_continuation: BoundInvestigationContinuation | None = None,
         escalation_policy: SemanticPlanningEscalationPolicy | None = None,
     ) -> SemanticPlanningOutcome:
@@ -442,6 +444,7 @@ class SemanticPlanningService:
                 principal=principal,
                 purpose=purpose,
                 bound_incident=bound_incident,
+                bound_resource_context=bound_resource_context,
                 bound_investigation_continuation=bound_investigation_continuation,
                 verifier=self._verifier,
                 metric_concepts=self._metric_concepts,

@@ -212,6 +212,12 @@ deadline, and idempotency. An answered result requires exact release, manifest, 
 receipt, and evidence references. The SDK rejects semantic downgrade to N-1 instead of dropping
 those fields. Runtime publication and consumption remain service-owned implementations.
 
+Semantic-turn requests also preserve a typed screen or resource-group selection with its exact
+resource ids. Operator validates the additive context and Core compiles an exact `Resource.id`
+scope for `query.contextual_resources`; a scope mismatch is typed unavailable rather than a
+fallback to the principal-visible collection. No context field grants approval or execution
+authority.
+
 The SDK also owns the logical-topic marker and deterministic consumer-group derivation used when
 those two semantic channels share a physical Event Hub. Core and Operator keep separate adapters,
 codecs, identities, logical topics, and offset groups; neither imports the other's implementation.

@@ -54,6 +54,10 @@ from fdai.core.ontology_platform.catalog_queries import (
     CATALOG_SEARCH_RULES_FUNCTION_NAME,
     catalog_search_rules_function,
 )
+from fdai.core.ontology_platform.contextual_resource_queries import (
+    CONTEXTUAL_RESOURCE_FUNCTION_NAME,
+    contextual_resource_function,
+)
 from fdai.core.ontology_platform.declaration_queries import (
     ONTOLOGY_DECLARATION_FUNCTION_NAME,
     ontology_declaration_function,
@@ -315,6 +319,12 @@ def build_semantic_query_runtime(
             ),
         )
         bound_function_names.add(catalog_declaration.name)
+    contextual_declaration = declarations[CONTEXTUAL_RESOURCE_FUNCTION_NAME]
+    function_registry.register_contextual(
+        contextual_declaration,
+        contextual_resource_function(ontology_release),
+    )
+    bound_function_names.add(contextual_declaration.name)
     if incident_evidence_reader is not None:
         incident_declaration = declarations[INCIDENT_EVIDENCE_FUNCTION_NAME]
         function_registry.register_contextual(

@@ -229,9 +229,33 @@ class SemanticPriorTurn(QueryContract):
 class SemanticBoundContext(QueryContract):
     """Server-resolved conversation binding that anchors an ordinary-language turn."""
 
-    kind: Literal["incident"]
+    kind: Literal["incident", "screen", "resource_group"]
     incident_id: BoundedId | None = None
     correlation_id: Annotated[str, Field(min_length=1, max_length=512)] | None = None
+    screen_id: BoundedId | None = None
+    resource_group_id: BoundedId | None = None
+    resource_ids: Annotated[tuple[BoundedId, ...], Field(max_length=1000)] = ()
+
+    @model_validator(mode="after")
+    def _context_matches_kind(self) -> SemanticBoundContext:
+        if self.kind == "incident":
+            if (
+                self.screen_id is not None
+                or self.resource_group_id is not None
+                or self.resource_ids
+            ):
+                raise ValueError("incident bound context MUST NOT carry resource scope")
+            return self
+        if self.kind == "screen":
+            if self.screen_id is None or not self.resource_ids:
+                raise ValueError("screen bound context requires screen and resource ids")
+            if self.incident_id is not None or self.correlation_id is not None:
+                raise ValueError("screen bound context MUST NOT carry incident identity")
+        elif self.resource_group_id is None or not self.resource_ids:
+            raise ValueError("resource-group bound context requires group and resource ids")
+        if self.resource_ids != tuple(dict.fromkeys(self.resource_ids)):
+            raise ValueError("bound resource ids MUST be unique")
+        return self
 
 
 class SemanticInvestigationContinuation(QueryContract):

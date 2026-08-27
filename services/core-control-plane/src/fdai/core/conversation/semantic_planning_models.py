@@ -50,6 +50,24 @@ class BoundIncident:
 
 
 @dataclass(frozen=True, slots=True)
+class BoundResourceContext:
+    """Trusted exact screen or resource-group scope for contextual reads."""
+
+    kind: Literal["screen", "resource_group"]
+    resource_ids: tuple[str, ...]
+    screen_id: str | None = None
+    resource_group_id: str | None = None
+
+    def __post_init__(self) -> None:
+        if not self.resource_ids or self.resource_ids != tuple(dict.fromkeys(self.resource_ids)):
+            raise ValueError("bound resource context requires unique resource ids")
+        if self.kind == "screen" and not self.screen_id:
+            raise ValueError("screen context requires screen_id")
+        if self.kind == "resource_group" and not self.resource_group_id:
+            raise ValueError("resource-group context requires resource_group_id")
+
+
+@dataclass(frozen=True, slots=True)
 class BoundInvestigationContinuation:
     """Trusted prior investigation identity resolved by Operator persistence."""
 
@@ -304,7 +322,9 @@ class SemanticPlanningOutcome:
 
 
 __all__ = [
+    "BoundIncident",
     "BoundInvestigationContinuation",
+    "BoundResourceContext",
     "ClarificationRequirement",
     "CompleteManifestSelector",
     "QueryManifestProvider",
