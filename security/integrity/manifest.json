@@ -117,7 +117,7 @@
     "services/core-control-plane/src/fdai/core/__init__.py": "2089fdfc47357f4a4a12c6bb4bd9bf0d7aa471492e4957d50af8aa4293b1f9f6",
     "services/core-control-plane/src/fdai/core/architecture_review/__init__.py": "3f424640dc0016c3330b0cb8315a68152a5b7be12cf4000d19d533c7bb547916",
     "services/core-control-plane/src/fdai/core/architecture_review/decision_receipt.py": "0f9063bd5e8009b9b26cc936082833c467ce7c45262a1d37fcf737cd5271e484",
-    "services/core-control-plane/src/fdai/core/architecture_review/observation_loop.py": "584d81804a9d7f76a4e72dea995bb0af042911f3a8907c65b406231400ae21b6",
+    "services/core-control-plane/src/fdai/core/architecture_review/observation_loop.py": "1ada4f356ee906c145200e411cb4508f1cd3aab1dbdd6869c8f4b68ddec38a6c",
     "services/core-control-plane/src/fdai/core/architecture_review/observation_trace.py": "e7153d1adf3cd93264743c3e69250ee34978c32946cee1fcf6fccba80be15cb3",
     "services/core-control-plane/src/fdai/core/architecture_review/projection.py": "bfd97a9059e4a2dad137cccab9bf2bd74484659c19b6ebebaa0587af794d74dc",
     "services/core-control-plane/src/fdai/core/architecture_review/readiness.py": "214bddf4ecb9c6309ce797b726e5e88d3493ead978b818ea0043d1b5244848c6",
