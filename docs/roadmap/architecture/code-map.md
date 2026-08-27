@@ -102,6 +102,8 @@ Authenticated Context reads and detection projections enforce canonical receipt,
 producer checks before returning or persisting semantic evidence.
 Receipt authentication compares the complete retained issued receipt and re-derives completeness
 from the secured graph, so scope or completeness relabelling cannot reuse an issued digest.
+Evidence reads reserve the Context envelope before bundle truncation, so the configured response
+budget remains a graceful hold boundary rather than a post-build failure.
 PostgreSQL ontology persistence provides atomic create semantics for detection identity deduplication.
 the inventory ontology projector serializes graph replacement with its generation commit marker.
 Resource ObjectSet receipts preserve source generation and completeness independently from query
