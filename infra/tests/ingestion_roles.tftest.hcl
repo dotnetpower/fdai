@@ -4,6 +4,15 @@
 mock_provider "azurerm" {}
 mock_provider "archive" {}
 
+override_data {
+  target = data.azurerm_client_config.current
+  values = {
+    subscription_id = "00000000-0000-0000-0000-000000000000"
+    tenant_id       = "00000000-0000-0000-0000-000000000000"
+    object_id       = "00000000-0000-0000-0000-000000000001"
+  }
+}
+
 override_module {
   target = module.identity
   outputs = {
@@ -427,6 +436,43 @@ run "partner_models_use_separate_foundry_account" {
       "https://aif-fdai-models.services.ai.azure.com/"
     )
     error_message = "Partner deployments must publish exact OpenAI and Foundry account endpoints."
+  }
+}
+
+run "channel_edge_identity_gets_platform_dsn_without_external_secrets" {
+  command = plan
+
+  variables {
+    enable_operator_channel_edge     = true
+    operator_channel_edge_secret_ids = []
+  }
+
+  assert {
+    condition     = length(azurerm_role_assignment.operator_channel_edge_kv_secrets_user) == 1
+    error_message = "The platform must grant the channel-edge identity access to its Operator DSN."
+  }
+
+  assert {
+    condition = keys(azurerm_role_assignment.operator_channel_edge_kv_secrets_user) == [
+      local.operator_channel_edge_state_store_secret_id
+    ]
+    error_message = "Absent provider configuration must add only the platform-owned DSN scope."
+  }
+}
+
+run "channel_edge_dsn_scope_is_deduplicated_for_existing_inputs" {
+  command = plan
+
+  variables {
+    enable_operator_channel_edge = true
+    operator_channel_edge_secret_ids = [
+      "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.KeyVault/vaults/kv-fdai/secrets/fdai-state-store-dsn"
+    ]
+  }
+
+  assert {
+    condition     = length(azurerm_role_assignment.operator_channel_edge_kv_secrets_user) == 1
+    error_message = "An existing DSN input must retain one role-assignment state key without duplication."
   }
 }
 

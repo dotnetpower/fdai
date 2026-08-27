@@ -21,6 +21,9 @@ _HEALTH_SCRIPT = (_ROOT / "scripts" / "deployment" / "service" / "verify_health.
 _CORE_TERRAFORM = (
     _ROOT / "infra/services/core-control-plane/modules/core-control-plane/main.tf"
 ).read_text(encoding="utf-8")
+_OPERATOR_VARIABLES = (_ROOT / "infra/services/operator-service/variables.tf").read_text(
+    encoding="utf-8"
+)
 _SERVICE_CONTAINER_APP = (_ROOT / "infra/services/_modules/container-app/main.tf").read_text(
     encoding="utf-8"
 )
@@ -42,6 +45,7 @@ _LEGACY_OUTPUTS = (_ROOT / "infra/modules/compute/container-apps/outputs.tf").re
     encoding="utf-8"
 )
 _LEGACY_ROOT = (_ROOT / "infra/main.tf").read_text(encoding="utf-8")
+_LEGACY_VARIABLES = (_ROOT / "infra/variables.tf").read_text(encoding="utf-8")
 _LEGACY_OPERATOR_MODULE = (_ROOT / "infra/modules/operator-api/container-app/main.tf").read_text(
     encoding="utf-8"
 )
@@ -112,6 +116,13 @@ def test_platform_workflow_binds_channel_edge_identity_and_secret_scopes() -> No
         "\"${{ vars.OPERATOR_CHANNEL_EDGE_SECRET_IDS_JSON || '[]' }}\""
     ) in _LEGACY_WORKFLOW
     assert "OPERATOR_CHANNEL_EDGE_SECRET_IDS_JSON" in _LEGACY_WORKFLOW
+    assert "operator_channel_edge_effective_secret_ids" in _LEGACY_ROOT
+    assert "setunion(" in _LEGACY_ROOT
+    assert "length(var.operator_channel_edge_secret_ids) >= 2" not in _LEGACY_VARIABLES
+    assert 'var.channel_edge.principal_scopes_secret_id != ""' in _OPERATOR_VARIABLES
+    assert "one complete Slack or Teams provider contract plus principal scopes" in (
+        _OPERATOR_VARIABLES
+    )
 
 
 def test_platform_workflow_exposes_opt_in_monitoring_for_every_environment() -> None:

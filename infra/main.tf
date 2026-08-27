@@ -88,6 +88,16 @@ locals {
     "fdai:vertical"   = var.cost_vertical
   }
   tags = merge(local.base_tags, var.additional_tags)
+  operator_channel_edge_state_store_secret_id = join("", [
+    "/subscriptions/${data.azurerm_client_config.current.subscription_id}",
+    "/resourceGroups/rg-${var.workload}${local.full_suffix}",
+    "/providers/Microsoft.KeyVault/vaults/kv-${var.workload}${local.full_suffix}",
+    "/secrets/fdai-state-store-dsn",
+  ])
+  operator_channel_edge_effective_secret_ids = var.enable_operator_channel_edge ? setunion(
+    var.operator_channel_edge_secret_ids,
+    toset([local.operator_channel_edge_state_store_secret_id]),
+  ) : toset([])
 
   # Kafka topics served by Event Hubs (see docs/roadmap/deployment/deploy-and-onboard.md § Event Source Subscription).
   canary_topic                     = "fdai.control.canary"
@@ -1011,7 +1021,7 @@ resource "azurerm_role_assignment" "operator_api_kv_secrets_user" {
 }
 
 resource "azurerm_role_assignment" "operator_channel_edge_kv_secrets_user" {
-  for_each             = var.enable_operator_channel_edge ? var.operator_channel_edge_secret_ids : toset([])
+  for_each             = local.operator_channel_edge_effective_secret_ids
   scope                = each.value
   role_definition_name = "Key Vault Secrets User"
   principal_id         = module.operator_channel_edge_identity[0].principal_id
