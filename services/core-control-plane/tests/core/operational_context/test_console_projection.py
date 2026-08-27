@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
@@ -17,6 +17,7 @@ from fdai.shared.contracts.models import Autonomy
 CUTOFF = datetime(2026, 8, 14, 0, 0, tzinfo=UTC)
 DIGEST = "sha256:" + "a" * 64
 RESULT_DIGEST = "sha256:" + "b" * 64
+PRINCIPAL = "principal-example"
 
 
 @dataclass(frozen=True)
@@ -85,19 +86,23 @@ def _snapshot() -> OperationalContextSnapshot:
 
 def _secured_result(
     *,
+    principal_ref: str = PRINCIPAL,
     purpose: str = "operator_context",
     release_digest: str = DIGEST,
     cutoff: datetime = CUTOFF,
+    complete: bool = True,
+    truncated: bool = False,
     object_ids: tuple[str, ...] = ("resource-example", "workload-example"),
 ) -> object:
     receipt = SimpleNamespace(
+        principal_ref=principal_ref,
         ontology_release=SimpleNamespace(digest=release_digest),
         projected_result_digest=RESULT_DIGEST,
         purpose=purpose,
         observation_cutoff=cutoff,
-        complete=True,
-        truncated=False,
-        truncation_reason=None,
+        complete=complete,
+        truncated=truncated,
+        truncation_reason="result_limit" if truncated else None,
         execution_authority=False,
     )
     graph = SimpleNamespace(
@@ -112,6 +117,7 @@ def test_projects_bounded_context_from_matching_secured_receipt() -> None:
         snapshot=_snapshot(),
         secured_result=_secured_result(),
         expected_purpose="operator_context",
+        expected_principal_ref=PRINCIPAL,
     )
 
     assert projection["ontology_release_digest"] == DIGEST
@@ -128,10 +134,13 @@ def test_projects_bounded_context_from_matching_secured_receipt() -> None:
 @pytest.mark.parametrize(
     ("secured_result", "message"),
     (
+        (_secured_result(principal_ref="other-principal"), "principal"),
         (_secured_result(purpose="other"), "purpose"),
         (_secured_result(release_digest="sha256:" + "c" * 64), "release"),
         (_secured_result(cutoff=datetime(2026, 8, 14, 0, 1, tzinfo=UTC)), "cutoff"),
         (_secured_result(object_ids=("resource-example",)), "object coverage"),
+        (_secured_result(complete=False), "unavailable"),
+        (_secured_result(truncated=True), "unavailable"),
     ),
 )
 def test_rejects_receipt_or_coverage_mismatch(secured_result: object, message: str) -> None:
@@ -140,4 +149,17 @@ def test_rejects_receipt_or_coverage_mismatch(secured_result: object, message: s
             snapshot=_snapshot(),
             secured_result=secured_result,
             expected_purpose="operator_context",
+            expected_principal_ref=PRINCIPAL,
+        )
+
+
+def test_rejects_stale_snapshot_context() -> None:
+    stale = replace(_snapshot(), stale_sources=("inventory",))
+
+    with pytest.raises(ValueError, match="unavailable"):
+        project_context_snapshot(
+            snapshot=stale,
+            secured_result=_secured_result(),
+            expected_purpose="operator_context",
+            expected_principal_ref=PRINCIPAL,
         )

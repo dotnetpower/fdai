@@ -101,8 +101,10 @@ provider payloads.
 | Core service entry point | Core distribution startup and service composition | [fdai_core_service](../../../services/core-control-plane/src/fdai_core_service/) | [Core package tests](../../../services/core-control-plane/tests/) |
 
 Inventory relationship convergence is owned by the continuous operational instance graph. Reviewed
-provider parents shadow generic containment, snapshot and ontology stores enforce cardinality, and
-the inventory ontology projector serializes graph replacement with its generation commit marker.
+provider parents shadow generic containment, and snapshot and ontology stores enforce cardinality.
+principal-scoped operational evidence reads bind receipt-verified Context metadata through the
+existing bounded response without adding mutation or execution authority.
+The inventory ontology projector serializes graph replacement with its generation commit marker.
 Resource ObjectSet receipts preserve source generation and completeness independently from query
 truncation, including zero-result reads.
 The same projection preserves independently verified `runtime_calls` edges in both directions

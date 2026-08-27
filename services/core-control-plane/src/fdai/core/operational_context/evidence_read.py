@@ -9,6 +9,7 @@ from typing import Protocol
 
 from fdai.shared.contracts.models import Autonomy
 
+from .console_projection import SecuredContextResult, project_context_snapshot
 from .evidence_bundle import ReceiptValidator, build_operational_evidence_bundle
 from .evidence_bundle_models import (
     CatalogEvidenceItem,
@@ -18,6 +19,7 @@ from .evidence_bundle_models import (
     OperationalEvidenceBundle,
     StateEvidenceItem,
 )
+from .models import OperationalContextSnapshot
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,6 +31,7 @@ class OperationalEvidenceReadRequest:
     purpose: str
     scope: tuple[str, ...]
     cutoff: datetime
+    principal_ref: str
 
     def __post_init__(self) -> None:
         if not self.ontology_release_digest.startswith("sha256:"):
@@ -37,6 +40,8 @@ class OperationalEvidenceReadRequest:
             raise ValueError("evidence read catalog revision and purpose MUST be non-empty")
         if not self.scope or any(not item.strip() for item in self.scope):
             raise ValueError("evidence read scope MUST be non-empty")
+        if not self.principal_ref.strip():
+            raise ValueError("evidence read principal_ref MUST be non-empty")
         if self.cutoff.tzinfo is None or self.cutoff.utcoffset() is None:
             raise ValueError("evidence read cutoff MUST be timezone-aware")
 
@@ -50,11 +55,14 @@ class OperationalEvidenceMaterial:
     purpose: str
     scope: tuple[str, ...]
     cutoff: datetime
+    principal_ref: str
     claims: tuple[ClaimRecord, ...] = ()
     ontology: tuple[OntologyEvidenceItem, ...] = ()
     state: tuple[StateEvidenceItem, ...] = ()
     catalog: tuple[CatalogEvidenceItem, ...] = ()
     documents: tuple[DocumentEvidenceExcerpt, ...] = ()
+    context_snapshot: OperationalContextSnapshot | None = None
+    secured_context_result: SecuredContextResult | None = None
 
 
 class OperationalEvidenceSource(Protocol):
@@ -71,6 +79,8 @@ class OperationalEvidenceReadResult:
     """Read-only bundle response with explicit absence of mutation authority."""
 
     bundle: OperationalEvidenceBundle
+    principal_ref: str
+    context_metadata: dict[str, object] | None = None
     execution_authority: bool = False
     mutation_authority: bool = False
 
@@ -105,6 +115,7 @@ class OperationalEvidenceReadService:
             request.purpose,
             tuple(sorted(set(request.scope))),
             request.cutoff,
+            request.principal_ref,
         )
         actual = (
             material.ontology_release_digest,
@@ -112,6 +123,7 @@ class OperationalEvidenceReadService:
             material.purpose,
             tuple(sorted(set(material.scope))),
             material.cutoff,
+            material.principal_ref,
         )
         if actual != expected:
             raise ValueError("operational evidence source identity does not match the read request")
@@ -135,7 +147,21 @@ class OperationalEvidenceReadService:
             autonomy_ceiling=Autonomy.SHADOW_ONLY,
             receipt_validator=self._receipt_validator,
         )
-        return OperationalEvidenceReadResult(bundle=bundle)
+        if (material.context_snapshot is None) != (material.secured_context_result is None):
+            raise ValueError("operational context metadata requires both snapshot and receipt")
+        context_metadata = None
+        if material.context_snapshot is not None and material.secured_context_result is not None:
+            context_metadata = project_context_snapshot(
+                snapshot=material.context_snapshot,
+                secured_result=material.secured_context_result,
+                expected_purpose=request.purpose,
+                expected_principal_ref=request.principal_ref,
+            )
+        return OperationalEvidenceReadResult(
+            bundle=bundle,
+            principal_ref=request.principal_ref,
+            context_metadata=context_metadata,
+        )
 
 
 __all__: Sequence[str] = (
