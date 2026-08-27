@@ -129,6 +129,8 @@ This document defines the typed operational truth infrastructure used by FDAI's 
 | 2026-08-24 | implemented | Bound every continuous source revision to a durable canonical snapshot digest. Nonconsecutive revision reuse with different content is rejected, while exact replay after an interrupted post-projection cursor write closes the cursor without projecting the graph again. | `current change`; continuous operating-model replay and failure-injection checks (`7 passed`) and Ruff. | Bound revision-claim retention only after a deployment-specific replay horizon is defined. |
 | 2026-08-24 | implemented | Extended interrupted-update recovery across the projection-to-revision-claim boundary. The projected manifest now pins the canonical snapshot digest, so an exact retry after claim persistence fails closes the claim and cursor without replacing the graph or incrementing object revisions. | `current change`; `runtime/{operating_model,continuous_operating_model}.py`; projection-before-claim failure injection and the complete focused worker file (`8 passed`). | Retain cross-replica lock-pressure and process-kill measurements as deployment evidence. |
 | 2026-08-24 | implemented | Corrected multi-effect lineage scoring so a terminal plan-level reconciliation cannot make an effect scorable when the independent target observation omits that effect's metric. The lineage remains complete but records the effect as explicitly unscorable. | `current change`; `delivery/operational_lineage.py`; focused lineage checks (`2 passed`). | Retain a production episode with one independently observed value per expected effect before using the lineage for governed learning evidence. |
+| 2026-08-27 | implemented | Reviewed every shipped lifecycle-free ObjectType and recorded the existing catalog, event-bus, provider, service, or principal-scoped authority without introducing speculative agent writers. | `current change`; `rule-catalog/vocabulary/object-types/` inventory and the owner documentation authority table. | Reopen only when an existing authority changes or a type gains an objectively required lifecycle. |
+| 2026-08-27 | implemented | Bound receipt-verified Context metadata into the existing principal-scoped operational evidence response. The response now carries a server-checked principal, and Context projection rejects principal, purpose, release, stale, incomplete, and truncated evidence before returning metadata. | `current change`; `core/operational_context/test_console_projection.py` and `test_evidence_read.py` (`14 passed`). | Retain authenticated Console evidence separately; no authority or runtime promotion changes. |
 
 ### Remaining work
 
@@ -144,11 +146,12 @@ This document defines the typed operational truth infrastructure used by FDAI's 
 - [ ] Supply a producer for the `Forecast` and `Pattern` endpoint pairs before restoring
   `predicts_breach_of` and `learned_as`. Both ObjectTypes now ship, so the blocker is that no
   runtime path writes either endpoint, not that the catalog would reject the declaration.
-- [ ] Project the six operating-intent types from a deployment-supplied source and pin them with a
-  focused test that fails when an intent type produces no instance.
-- [ ] Review the shipped ObjectTypes that carry no `lifecycle` block and record, per type, whether an
+- [x] Project the six operating-intent types from a deployment-supplied source and pin them with a
+  focused test that fails when an intent type produces no instance (`7 passed`).
+- [x] Review the shipped ObjectTypes that carry no `lifecycle` block and record, per type, whether an
   agent single-writer is required or whether catalog-as-code, a projection, or the event-bus
-  registry is the correct authority ([#130](https://github.com/dotnetpower/fdai/issues/130)).
+  registry is the correct authority ([#130](https://github.com/dotnetpower/fdai/issues/130)); the
+  complete authority table is in the owner document.
 - [ ] Adjudicate two independent cloud providers against each other, and projected state against
   telemetry. Today only repeated observations inside one generation and the live-read against
   inventory-projection pair are decided.
@@ -591,6 +594,16 @@ objects. Architecture review uses additive `Approval` and `Decision` `1.1.0` dec
 the approver, receipt, exact case, context, evidence, graph, catalog, conditions, authority, audit,
 and effective interval. These fields add no ontology owner and always carry
 `execution_authority=false`; adding `lifecycle` merely to fill the field is not supported.
+
+The complete review of lifecycle-free shipped types is recorded below. These are existing
+authorities, not new ontology writers; none requires an agent single-writer merely because it is
+represented in the graph.
+
+| Existing authority | Lifecycle-free ObjectTypes |
+|--------------------|---------------------------|
+| Catalog-as-code or reviewed catalog projection | `ActionType`, `AuthorizationCapability`, `AuthorizationPolicyAssignment`, `AuthorizationRequirement`, `ControlObjective`, `PolicyArtifact`, `Property`, `ProviderPermissionSet`, `ResourceClass`, `ResourceType`, `Rule`, `RuleObjectiveBinding`, `SignalType`, `WorkflowDefinition` |
+| Event-bus registry and typed event contract | `Agent`, `Approval`, `Conversation`, `HandoffEscalation`, `PostTurnReview`, `RuleCandidate`, `SecurityEvent`, `Signal`, `Turn` |
+| Provider, service, or principal-scoped projection/store | `AccessGrant`, `AccessGrantRequest`, `AuthorizationDecision`, `AuthorizationObservation`, `BenchmarkValidation`, `BriefingRun`, `BriefingSubscription`, `ChangeSummary`, `ConfigurationBaseline`, `ConfigurationDriftCheck`, `ConfigurationDriftEvidence`, `ConfigurationDriftFinding`, `Decision`, `DiagnosticEvidence`, `DiagnosticFinding`, `DiagnosticMechanism`, `EquivalenceValidationReceipt`, `EvidenceArtifact`, `ExecutionProfile`, `Finding`, `Principal`, `Process`, `PythonTask`, `Resource`, `ReviewCase`, `ReviewCheck`, `UserMemoryFact`, `UserPreference`, `VmTaskRun`, `WorkflowBinding` |
 
 Agents collaborate through typed events. No agent mutates another agent's object, calls another
 agent directly, or shares mutable workflow state.

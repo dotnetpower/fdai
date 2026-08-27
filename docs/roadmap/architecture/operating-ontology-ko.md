@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 62644d0b2dabd437f9738e4e8768cf95926622b3
+translation_source_sha: 1448ab443af9348a5dfacdd7456a3ceb4bac6580
 translation_revised: 2026-08-30
 ---
 # FDAI 운영 온톨로지
@@ -105,6 +105,7 @@ translation_revised: 2026-08-30
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-27 | implemented | 기존의 배포 제공 운영 모델 경로를 통해 운영 의도 ObjectType 6개를 모두 고정했습니다. 고정본은 테넌트 값을 제공하지 않으며 각 정확한 유형이 일반 스냅샷에서 사라지지 않고 검증 및 저장되는지 확인합니다. | `current change`; `test_operating_model.py` 검사 7개 통과; Ruff 통과. | 배포별 목표, 담당 체계, 제약 조건, 변경 구간 인스턴스는 운영 근거로 별도 보존합니다. |
+| 2026-08-27 | implemented | `lifecycle`이 없는 모든 출하 ObjectType을 검토하고 추측성 에이전트 작성자를 도입하지 않은 채 기존 카탈로그, 이벤트 버스, 프로바이더, 서비스 또는 principal 범위 권한을 기록했습니다. | `current change`; `rule-catalog/vocabulary/object-types/` 목록 및 소유 문서 권한 표. | 기존 권한이 바뀌거나 유형에 객관적으로 필요한 수명 주기가 생길 때만 다시 검토합니다. |
 | 2026-08-29 | implemented | 의사 결정 사례와 운영 계획이 사용하는 기본 운영 컨텍스트 스냅샷을 마이그레이션했습니다. 런타임 조립은 의사 결정 근거를 요구하며, materializer는 승인 전 스냅샷 다이제스트, 대상과 기준 시점 범위, 카탈로그 및 시계 리비전, 승인 결과를 최종 재생 신원에 연결합니다. 승인 결과가 없거나 수락되지 않으면 충돌을 기록하고 자율성 상한을 `SHADOW_ONLY`로 고정합니다. | `current change`; 컨텍스트 스냅샷 모델, materializer, 런타임 pantheon 조립, 집중 컨텍스트, 에이전트 및 부트스트랩 테스트, Ruff 및 strict mypy. | 프로덕션 승인 프로바이더를 연결하고 통제된 컨텍스트 스냅샷 묶음을 보존합니다. |
 | 2026-08-29 | implemented | 운영 컨텍스트 상태 근거 경계를 공유 의사 결정 근거 승인 결과로 마이그레이션했습니다. 묶음 신원은 승인 결과를 보존하지만 순환 약속값을 피하기 위해 의사 결정 다이제스트에서는 제외합니다. 승인 결과가 없거나 일치하지 않거나 만료되면 범위가 제한된 근거 문제로 기록하고 `SHADOW_ONLY` 자율성의 `decision_evidence_unverified` 보류를 강제합니다. | `current change`; 운영 근거 모델, 신원, 빌더, 공유 승인 결과 매핑, 집중 묶음 및 materializer 테스트, Ruff 및 strict mypy. | 권위 있는 상태 승인 결과 생성기를 연결하고 운영 근거 묶음을 우회하는 직접 상태 소비자를 마이그레이션합니다. |
 | 2026-08-26 | implemented | UID에 근거한 Ingress, IngressClass, EndpointSlice Resource와 정확한 Node `providerID` -> VMSS VM 아이덴티티 연결로 프로바이더에서 관찰한 Kubernetes 의미를 확장했습니다. Service 선택자는 네임스페이스 범위를 유지하고, 불완전한 Ingress 백엔드 집합은 일부 경로를 내보내지 않으며, 이름이나 식별자 접두사는 연결을 만들지 않습니다. | `current change`, 집중 Kubernetes, 프로바이더 매핑, ResourceType, ResourceClass, 인벤토리 승격 및 카탈로그 검사 111개가 통과했습니다. | 런타임 검증을 주장하기 전에 하나의 완전하고 정확한 클러스터 Kubernetes 세대를 보존합니다. |
@@ -143,11 +144,11 @@ translation_revised: 2026-08-30
 - [ ] `predicts_breach_of`와 `learned_as`를 복원하기 전에 `Forecast`와 `Pattern` 엔드포인트 쌍을
   만들어 낼 생산자를 마련해야 합니다. 두 ObjectType은 이제 출하되므로, 막고 있는 것은 카탈로그가
   선언을 거부한다는 사실이 아니라 어느 런타임 경로도 두 엔드포인트를 쓰지 않는다는 사실입니다.
-- [ ] 운영 의도 6종을 배포가 제공하는 출처에서 변환하고, 의도 타입이 인스턴스를 만들지
-  못하면 실패하는 집중 테스트로 고정합니다.
-- [ ] `lifecycle` 블록이 없는 출하 ObjectType을 검토해, 타입별로 에이전트 단일 작성자가 필요한지
+- [x] 운영 의도 6종을 배포가 제공하는 출처에서 변환하고, 의도 타입이 인스턴스를 만들지
+  못하면 실패하는 집중 테스트로 고정했습니다 (`7 passed`).
+- [x] `lifecycle` 블록이 없는 출하 ObjectType을 검토해, 타입별로 에이전트 단일 작성자가 필요한지
   아니면 catalog-as-code, 변환 결과, 이벤트 버스 레지스트리 중 무엇이 올바른 권한인지
-  기록합니다 ([#130](https://github.com/dotnetpower/fdai/issues/130)).
+  기록했습니다. 전체 권한 표는 소유 문서에 있습니다.
 - [ ] 서로 독립된 두 클라우드 프로바이더를 맞대어 판정하고, 변환된 상태와 텔레메트리도
   판정해야 합니다. 현재는 한 세대 안의 반복 관측과 실시간 읽기 대 인벤토리 변환 결과 쌍만
   판정합니다.
@@ -579,6 +580,16 @@ ObjectType 선언이 없는 버스 계약이고, `DecisionCase`는 버스 토픽
 graph, catalog, condition, authority, audit 및 유효 구간을 보존합니다. 이 필드는 온톨로지 소유자를
 추가하지 않고 항상 `execution_authority=false`를 전달합니다. 빈칸을 채우기 위한 `lifecycle`
 추가는 지원되지 않습니다.
+
+`lifecycle`이 없는 출하 타입에 대한 전체 검토 결과는 아래와 같습니다. 이는 새 온톨로지
+writer가 아니라 기존 권한이며, 그래프에 표현된다는 이유만으로 에이전트 단일 작성자가 필요한
+타입은 없습니다.
+
+| 기존 권한 | lifecycle 없는 ObjectType |
+|-----------|---------------------------|
+| Catalog-as-code 또는 검토된 catalog projection | `ActionType`, `AuthorizationCapability`, `AuthorizationPolicyAssignment`, `AuthorizationRequirement`, `ControlObjective`, `PolicyArtifact`, `Property`, `ProviderPermissionSet`, `ResourceClass`, `ResourceType`, `Rule`, `RuleObjectiveBinding`, `SignalType`, `WorkflowDefinition` |
+| Event-bus registry 및 타입 지정 event contract | `Agent`, `Approval`, `Conversation`, `HandoffEscalation`, `PostTurnReview`, `RuleCandidate`, `SecurityEvent`, `Signal`, `Turn` |
+| Provider, service 또는 principal 범위 projection/store | `AccessGrant`, `AccessGrantRequest`, `AuthorizationDecision`, `AuthorizationObservation`, `BenchmarkValidation`, `BriefingRun`, `BriefingSubscription`, `ChangeSummary`, `ConfigurationBaseline`, `ConfigurationDriftCheck`, `ConfigurationDriftEvidence`, `ConfigurationDriftFinding`, `Decision`, `DiagnosticEvidence`, `DiagnosticFinding`, `DiagnosticMechanism`, `EquivalenceValidationReceipt`, `EvidenceArtifact`, `ExecutionProfile`, `Finding`, `Principal`, `Process`, `PythonTask`, `Resource`, `ReviewCase`, `ReviewCheck`, `UserMemoryFact`, `UserPreference`, `VmTaskRun`, `WorkflowBinding` |
 
 에이전트는 타입이 지정된 이벤트로 협업합니다. 다른 에이전트의 객체를 mutate하거나 직접 호출하거나 변경 가능한
 작업 흐름 상태를 공유하지 않습니다.
