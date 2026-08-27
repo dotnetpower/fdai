@@ -53,7 +53,9 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   adapters use the shared content-free contracts, hash runtime and evidence references, and keep
   every unsupported dimension unavailable instead of manufacturing a score. Evidence owners add
   measurements through contract-bound contributions; the merge rejects cross-case input,
-  duplicate dimensions, and overwrite of existing measurements. The sibling
+  duplicate dimensions, and overwrite of existing measurements. Action observations reuse existing
+  safeguard, execution-authorization, and unified-risk records instead of duplicating their
+  decisions inside Conversation Assurance. The sibling
   `quality_latency.py` module owns only the five-stage SLO contract and pure percentile reduction;
   Operator, channel, verification, and delivery owners retain timestamp and measurement authority.
   Stage owners provide monotonic start and completion values through a typed receipt; Core derives

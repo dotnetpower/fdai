@@ -370,7 +370,7 @@ def _require_digest(value: str) -> None:
     if len(value) != 64 or any(character not in "0123456789abcdef" for character in value):
         raise ValueError("scenario evidence_digest MUST be a lowercase SHA-256 digest")
 
-
+__all__ = [
 __all__ = [
     "AuditReplayScenarioResult",
     "AuthorizationScenarioResult",
