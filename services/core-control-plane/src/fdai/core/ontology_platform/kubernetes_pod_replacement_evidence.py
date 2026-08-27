@@ -22,6 +22,7 @@ _ABNORMAL_REASONS = frozenset(
         "Unhealthy",
     }
 )
+_TERMINATION_CATEGORIES = frozenset({"killing", "failed", "backoff", "unhealthy", "deletion"})
 
 
 class KubernetesPodReplacementStatus(StrEnum):
@@ -328,7 +329,14 @@ def termination_from_lifecycle_observations(
     if not pod_uid.strip() or cutoff.tzinfo is None:
         raise ValueError("lifecycle termination identity and cutoff MUST be valid")
     matching = tuple(
-        item for item in observations if item.object_uid == pod_uid and item.event_time <= cutoff
+        item
+        for item in observations
+        if item.object_uid == pod_uid
+        and item.event_time <= cutoff
+        and (
+            item.category in _TERMINATION_CATEGORIES
+            or item.reason in {"OOMKilled", "Evicted", "Preempted", "Terminated"}
+        )
     )
     if not matching:
         return None

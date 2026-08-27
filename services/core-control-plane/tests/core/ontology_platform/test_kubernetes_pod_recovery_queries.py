@@ -302,6 +302,25 @@ async def test_pod_recovery_function_accepts_only_issued_receipt() -> None:
     assert result.recovery_verified is True
     assert receipt.function_ref.catalog_digest == release.digest
 
+    held = await registry.invoke(
+        KUBERNETES_POD_RECOVERY_FUNCTION_NAME,
+        {
+            "pod_query_result": secured.model_dump(mode="json"),
+            "controller_query_result": controller_result.model_dump(mode="json"),
+            "deployment_query_result": deployment_result.model_dump(mode="json"),
+            "restart_history": _restart_history(),
+            "lifecycle_events": {
+                "rows": [],
+                "complete": False,
+                "truncation_reason": "lifecycle_cursor_stale",
+            },
+        },
+        context=context,
+    )
+    assert isinstance(held, KubernetesPodRecoveryEvidenceResult)
+    assert held.status is KubernetesPodRecoveryStatus.INSUFFICIENT_EVIDENCE
+    assert held.recovery_verified is False
+
     unissued = SecuredQueryReceiptAuthority()
     rejecting = OntologyFunctionRegistry(release=release)
     rejecting.register_contextual(
