@@ -9,10 +9,11 @@
   <style>
     /* Blast-radius: impact visualization for a proposed action. */
     .br-layout { display: grid; grid-template-columns: minmax(320px, 420px) 1fr; gap: 20px; align-items: start; }
+    .br-layout > * { min-width: 0; }
     @media (max-width: 900px) { .br-layout { grid-template-columns: 1fr; } }
 
     .br-viz { padding: 24px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); box-shadow: var(--cs-shadow); display: flex; justify-content: center; align-items: center; }
-    .br-radar { position: relative; width: 340px; height: 340px; }
+    .br-radar { position: relative; width: min(340px, 100%); aspect-ratio: 1; }
     .br-ring { position: absolute; inset: 0; border-radius: 50%; border: 1px dashed var(--cs-hairline); }
     .br-ring.is-r1 { inset: 25%; border-color: rgba(94,130,89,.35); background: rgba(94,130,89,.06); }
     .br-ring.is-r2 { inset: 12%; border-color: rgba(188,116,73,.30); background: rgba(188,116,73,.04); }
@@ -39,6 +40,11 @@
     .br-cap-bar.is-terracotta > span { background: var(--cs-terracotta); }
     .br-cap-bar.is-red > span       { background: var(--cs-dusty-red); }
     .br-cap-note { font-size: 12px; text-align: right; color: var(--cs-text-soft); }
+    @media (max-width: 620px) {
+      .br-viz { padding: 20px; }
+      .br-cap-row { grid-template-columns: minmax(0, 1fr) auto; gap: 7px 10px; }
+      .br-cap-bar { grid-column: 1 / -1; grid-row: 2; }
+    }
 
     /* Impact tree - who is inside each ring */
     .br-tree { padding: 16px 20px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); box-shadow: var(--cs-shadow); font-size: 13px; margin-top: 16px; }

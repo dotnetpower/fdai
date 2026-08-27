@@ -1101,7 +1101,7 @@ body.cs-has-sidebar { padding-left: var(--cs-sidebar-w); }
 .cs-mono { font-family: "Cascadia Code", "Consolas", monospace; font-size: 12.5px; color: var(--cs-text); }
 
 /* Read-only banner - reused across every operator page */
-.cs-readonly-banner { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border: 1px dashed var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-shade); color: var(--cs-text-soft); font-size: 12.5px; margin-bottom: 20px; }
+.cs-readonly-banner { display: flex; align-items: center; gap: 10px; padding: 10px 14px; overflow-wrap: anywhere; border: 1px dashed var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-shade); color: var(--cs-text-soft); font-size: 12.5px; margin-bottom: 20px; }
 .cs-readonly-banner strong { color: var(--cs-text); font-weight: 600; }
 
 /* HIL / Action cards - whole-card severity tint.
@@ -1961,3 +1961,525 @@ body.cs-modal-open { overflow: hidden; }
   .cs-schedule-facts :where(span, strong), .cs-type-caption,
   .cs-type-specimen-sample code
 ) { font-size: var(--cs-type-label-size) !important; }
+
+/* ==========================================================================
+   Cross-screen polish campaign: twenty focused passes over every Calm Slate
+   mock. Each pass owns one reusable quality dimension rather than one page.
+   ========================================================================== */
+
+/* 01. Keep wide studies bounded while preserving full-width operational canvases. */
+.cs-page:not(.cs-live-page) { width: min(100%, 1440px); margin-inline: auto; }
+
+/* 02. Let every grid and bounded region shrink instead of widening the document. */
+:where(.cs-grid, .cs-card, .cs-section, .cs-table-wrap, .cs-data-table-wrap, .cs-meta, .cs-alert) { min-width: 0; }
+
+/* 03. Strengthen page identity with one consistent reading edge. */
+.cs-page-header:not(:last-child) { padding-bottom: 18px; border-bottom: 1px solid var(--cs-hairline); }
+
+/* 04. Use section spacing, not extra containers, as the primary hierarchy. */
+.cs-section + .cs-section { margin-top: 52px; }
+
+/* 05. Bound prose for faster scanning in English and Korean. */
+:where(.cs-page-header, .cs-section-title, .cs-card, .cs-alert) > p { max-width: 76ch; }
+
+/* 06. Keep opaque identifiers inside their owning region. */
+:where(code, .cs-mono, .cs-code-file, [data-machine-value]) { max-width: 100%; overflow-wrap: anywhere; word-break: break-word; }
+
+/* 07. Stabilize numeric comparison across cards, tables, and evidence facts. */
+:where(.cs-kpi-value, .cs-num, td, dd, time) { font-variant-numeric: tabular-nums; }
+
+/* 08. Preserve readable table columns and one local horizontal scroll owner. */
+.cs-table-wrap, .cs-data-table-wrap { max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; }
+
+/* 09. Keep table headings available during long evidence review. */
+:where(.cs-table, .cs-data-table) thead { position: sticky; top: 0; z-index: 2; }
+
+/* 10. Reveal row tracking without turning state into container color. */
+:where(.cs-table, .cs-data-table) tbody tr { transition: background-color .12s ease; }
+:where(.cs-table, .cs-data-table) tbody tr:hover { background: color-mix(in srgb, var(--cs-shade) 60%, transparent); }
+
+/* 11. Give form controls a stable pointer target and shared type rhythm. */
+:where(.cs-input, .cs-select, .cs-textarea, input:not([type="checkbox"]):not([type="radio"]), select, textarea) { min-height: 40px; }
+
+/* 12. Keep unavailable controls legible and visibly distinct from active state. */
+:where(button, input, select, textarea):disabled { opacity: .72; cursor: not-allowed; }
+
+/* 13. Normalize primary pointer targets without inflating dense inline tools. */
+:where(.cs-btn, .cs-page-button, .cs-tab, .cs-subnav a) { min-height: 40px; }
+
+/* 14. Use one keyboard focus contract across native and custom controls. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--cs-steel);
+  outline-offset: 2px;
+}
+
+/* 15. Make inline destinations discoverable without adding decorative color. */
+.cs-page main a:not(.cs-btn), .cs-page > a:not(.cs-btn) { text-underline-offset: 3px; }
+
+/* 16. Prevent state labels from fragmenting across lines. */
+:where(.cs-badge, .cs-sev, .cs-tier, .cs-trend, .cs-presence, .cs-status-pill) { white-space: nowrap; }
+
+/* 17. Keep native disclosures comfortably operable. */
+details > summary { min-height: 40px; align-items: center; }
+
+/* 18. Switch dense grids before their labels become cramped. */
+@media (max-width: 760px) {
+  .cs-grid-4, .cs-grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cs-section-head { align-items: flex-start; }
+}
+
+/* 19. Meet the touch-target floor on narrow viewports. */
+@media (max-width: 620px) {
+  :where(.cs-btn, .cs-page-button, .cs-tab, .cs-subnav a, details > summary) { min-height: 44px; }
+  .cs-grid-4, .cs-grid-3, .cs-grid-2 { grid-template-columns: minmax(0, 1fr); }
+  .cs-readonly-banner { display: block; line-height: 1.55; }
+  .cs-readonly-banner > :first-child { margin-right: 6px; }
+}
+
+/* 20. Remove nonessential animation for reduced motion and printed evidence. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+@media print {
+  .cs-app-sidebar, .cs-sidebar-menu, .cs-sidebar-backdrop, .cs-btn { display: none !important; }
+  body.cs-has-sidebar { padding-left: 0; }
+  .cs-page { width: 100%; padding: 0; }
+  .cs-card, .cs-table-wrap, .cs-data-table-wrap { box-shadow: none; break-inside: avoid; }
+}
+
+/* Unified settings workspace ------------------------------------------------ */
+.cs-settings-surface {
+  background: var(--cs-card);
+}
+
+.cs-settings-workspace {
+  display: grid;
+  grid-template-columns: 216px minmax(0, 1fr);
+  width: min(100%, 1320px);
+  min-height: 100vh;
+  margin-inline: auto;
+  background: var(--cs-card);
+}
+
+.cs-settings-navigation {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  display: flex;
+  height: 100vh;
+  min-height: 560px;
+  flex-direction: column;
+  padding: 32px 18px 20px 0;
+  border-right: 1px solid var(--cs-hairline);
+}
+
+.cs-settings-navigation-head {
+  padding: 0 14px 22px;
+}
+
+.cs-settings-navigation-head > span {
+  color: var(--cs-steel);
+  font-size: var(--cs-type-label-size);
+  font-weight: 600;
+}
+
+.cs-settings-navigation-head h2 {
+  margin: 3px 0 5px;
+  font-size: 20px;
+}
+
+.cs-settings-navigation-head p {
+  margin: 0;
+  color: var(--cs-text-soft);
+  font-size: var(--cs-type-label-size);
+  line-height: 1.45;
+}
+
+.cs-settings-navigation ul {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cs-settings-navigation a {
+  display: grid;
+  gap: 2px;
+  min-height: 52px;
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--cs-radius-sm);
+  color: var(--cs-text);
+}
+
+.cs-settings-navigation a:hover {
+  background: var(--cs-shade);
+  text-decoration: none;
+}
+
+.cs-settings-navigation a[aria-current="page"] {
+  border-color: color-mix(in srgb, var(--cs-steel) 24%, var(--cs-hairline));
+  background: color-mix(in srgb, var(--cs-steel) 7%, var(--cs-card));
+}
+
+.cs-settings-navigation a strong {
+  font-size: var(--cs-type-compact-size);
+  font-weight: 600;
+}
+
+.cs-settings-navigation a small {
+  overflow: hidden;
+  color: var(--cs-text-soft);
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-settings-navigation footer {
+  display: grid;
+  gap: 3px;
+  margin-top: auto;
+  padding: 16px 14px 0;
+  border-top: 1px solid var(--cs-hairline);
+  color: var(--cs-text-soft);
+  font-size: var(--cs-type-caption-size);
+}
+
+.cs-settings-navigation footer strong {
+  color: var(--cs-text);
+  font-size: var(--cs-type-label-size);
+}
+
+.cs-settings-surface .cs-settings-content {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  padding: 36px 40px 80px;
+}
+
+.cs-settings-surface .cs-settings-content > .cs-page-header,
+.cs-settings-surface .cs-settings-content > .cp-header {
+  margin-bottom: 24px;
+  padding-bottom: 24px;
+}
+
+.cs-settings-surface .cp-header {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.cs-settings-surface .cp-header-meta {
+  display: none;
+}
+
+.cs-settings-surface .cs-settings-content .cs-page-domain {
+  color: var(--cs-text-soft);
+}
+
+.cs-settings-surface .cs-settings-section,
+.cs-settings-surface .cp-section {
+  margin: 0;
+  border-top: 1px solid var(--cs-hairline);
+}
+
+.cs-settings-surface .cs-settings-section + .cs-settings-section,
+.cs-settings-surface .cp-section + .cp-section {
+  margin-top: 40px;
+}
+
+.cs-settings-surface .cs-settings-section-head,
+.cs-settings-surface .cp-section-head {
+  display: grid;
+  grid-template-columns: minmax(160px, .34fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 20px;
+  padding: 22px 0 12px;
+}
+
+.cs-settings-surface .cs-settings-section-head h2,
+.cs-settings-surface .cp-section-head h2 {
+  font-size: var(--cs-type-panel-title-size);
+}
+
+.cs-settings-surface .cs-settings-section-head p,
+.cs-settings-surface .cp-section-head p {
+  max-width: 68ch;
+  margin: 0;
+  line-height: var(--cs-type-compact-line-height);
+}
+
+.cs-settings-surface .cs-settings-list {
+  border-bottom: 1px solid var(--cs-hairline);
+}
+
+.cs-settings-surface .cs-setting-row {
+  min-height: 68px;
+  padding: 14px 0;
+}
+
+.cs-settings-surface .cs-setting-row > :last-child {
+  justify-self: end;
+}
+
+.cs-settings-surface .cs-settings-input {
+  background: var(--cs-card);
+}
+
+.cs-settings-surface .cs-settings-segmented {
+  background: var(--cs-shade);
+}
+
+.cs-settings-surface .cs-settings-actions {
+  padding-top: 16px;
+}
+
+.cs-settings-surface .cs-settings-card {
+  padding: 16px 0;
+  border-width: 1px 0;
+  border-radius: 0;
+}
+
+.cs-settings-surface .cs-readonly-banner {
+  margin-bottom: 24px;
+  border-style: solid;
+  background: var(--cs-bg);
+}
+
+.cs-settings-surface .cp-kpis {
+  margin-bottom: 40px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius);
+  background: var(--cs-bg);
+}
+
+.cs-settings-surface .cp-kpi {
+  padding: 13px 16px;
+}
+
+.cs-settings-surface .cp-kpi strong {
+  font-size: 19px;
+}
+
+.cs-settings-surface .cp-table-wrap {
+  border-radius: var(--cs-radius-sm);
+}
+
+.cs-settings-surface .cp-tabs {
+  gap: 22px;
+  margin-bottom: 14px;
+}
+
+.cs-settings-surface .cp-tab {
+  min-height: 40px;
+  padding-inline: 0;
+}
+
+/* Models keeps its behavior while using the same quiet settings composition. */
+.cs-settings-surface .cs-discovery-panel {
+  grid-template-columns: minmax(0, 1.25fr) minmax(280px, .75fr);
+  margin-bottom: 40px;
+  padding: 20px 0;
+  border-width: 1px 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.cs-settings-surface .cs-discovery-side {
+  padding-left: 24px;
+}
+
+.cs-settings-surface .cs-discovery-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--cs-radius-sm);
+}
+
+.cs-settings-surface .cs-model-toolbar {
+  margin: 0 0 16px;
+}
+
+.cs-settings-surface .cs-model-providers {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+}
+
+.cs-settings-surface .cs-model-provider {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  align-items: start;
+  gap: 18px;
+  padding: 17px 0;
+  border-width: 1px 0 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.cs-settings-surface .cs-model-provider:last-child {
+  border-bottom: 1px solid var(--cs-hairline);
+}
+
+.cs-settings-surface .cs-model-provider-head {
+  margin: 0;
+}
+
+.cs-settings-surface .cs-model-provider-head > span:last-child {
+  display: none;
+}
+
+.cs-settings-surface .cs-provider-mark {
+  background: var(--cs-navy) !important;
+}
+
+.cs-settings-surface .cs-model-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.cs-settings-surface .cs-model-option {
+  width: 100%;
+  justify-content: space-between;
+  min-height: 38px;
+}
+
+.cs-settings-surface .cs-autosave {
+  border-color: var(--cs-hairline);
+  box-shadow: none;
+}
+
+@media (max-width: 980px) {
+  .cs-settings-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cs-settings-navigation {
+    position: static;
+    z-index: 5;
+    display: block;
+    height: auto;
+    min-height: 0;
+    padding: 18px 24px 0;
+    border-right: 0;
+    border-bottom: 1px solid var(--cs-hairline);
+  }
+
+  .cs-settings-navigation-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 0 0 12px;
+  }
+
+  .cs-settings-navigation-head h2 {
+    margin: 0;
+    font-size: 18px;
+  }
+
+  .cs-settings-navigation-head p,
+  .cs-settings-navigation footer {
+    display: none;
+  }
+
+  .cs-settings-navigation ul {
+    display: flex;
+    gap: 18px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .cs-settings-navigation ul::-webkit-scrollbar {
+    display: none;
+  }
+
+  .cs-settings-navigation a {
+    min-height: 42px;
+    padding: 8px 0;
+    border-width: 0 0 2px;
+    border-radius: 0;
+    white-space: nowrap;
+  }
+
+  .cs-settings-navigation a:hover {
+    background: transparent;
+  }
+
+  .cs-settings-navigation a[aria-current="page"] {
+    border-color: var(--cs-steel);
+    background: transparent;
+  }
+
+  .cs-settings-navigation a small {
+    display: none;
+  }
+
+  .cs-settings-surface .cs-settings-content {
+    padding: 32px 24px 72px;
+  }
+}
+
+@media (max-width: 720px) {
+  .cs-settings-surface .cs-settings-section-head,
+  .cs-settings-surface .cp-section-head {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+
+  .cs-settings-surface .cs-setting-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .cs-settings-surface .cs-setting-row > :last-child {
+    justify-self: stretch;
+  }
+
+  .cs-settings-surface .cs-discovery-panel,
+  .cs-settings-surface .cs-model-provider {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cs-settings-surface .cs-discovery-side {
+    padding: 16px 0 0;
+  }
+
+  .cs-settings-surface .cs-model-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .cs-settings-navigation {
+    padding-inline: 18px;
+  }
+
+  .cs-settings-navigation-head > span {
+    display: none;
+  }
+
+  .cs-settings-surface .cs-settings-content {
+    padding: 28px 18px 64px;
+  }
+
+  .cs-settings-surface .cs-settings-navigation a,
+  .cs-settings-surface .cs-settings-content :where(
+    button,
+    input:not([type="checkbox"]):not([type="radio"]),
+    select,
+    textarea
+  ) {
+    min-height: 44px !important;
+  }
+
+  .cs-settings-surface .cs-model-options {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media print {
+  .cs-settings-navigation {
+    display: none;
+  }
+
+  .cs-settings-workspace {
+    display: block;
+  }
+}

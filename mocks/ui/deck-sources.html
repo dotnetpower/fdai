@@ -193,7 +193,8 @@
     .gs-send { border: 0; border-radius: 8px; padding: 7px 14px; font: inherit; font-weight: 700;
       font-size: 12.5px; color: #fff; background: var(--cs-steel); cursor: pointer; }
 
-    .gs-controls { display: flex; align-items: center; gap: 12px; margin: 0 0 16px; }
+    .gs-controls { display: flex; align-items: center; gap: 12px; margin: 0 0 16px; flex-wrap: wrap; }
+    .cs-readonly-banner { overflow-wrap: anywhere; }
     .gs-btn { border: 1px solid var(--cs-hairline); background: var(--cs-card); border-radius: 9px;
       padding: 8px 16px; font: inherit; font-weight: 600; cursor: pointer; color: var(--cs-navy); }
     .gs-btn:hover { background: var(--cs-shade); }
@@ -201,6 +202,11 @@
     .gs-speed button { border: 1px solid var(--cs-hairline); background: var(--cs-card); border-radius: 7px;
       padding: 5px 10px; font: inherit; font-size: 12px; cursor: pointer; }
     .gs-speed button.on { background: var(--cs-steel); color: #fff; border-color: var(--cs-steel); }
+    @media (max-width: 620px) {
+      .cs-readonly-banner { display: block; line-height: 1.55; }
+      .cs-readonly-banner > :first-child { margin-right: 6px; }
+      .gs-controls > .cs-muted:last-child { flex: 1 1 100%; }
+    }
   </style>
 </head>
 <body>

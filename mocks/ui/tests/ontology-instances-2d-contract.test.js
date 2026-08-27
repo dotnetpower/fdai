@@ -53,8 +53,9 @@ test("instance mock exposes bounded navigation and evidence views", () => {
 test("instance mock is registered in both mock indexes", () => {
   assert.match(nestedIndex, /data-page="ontology-instances-2d\.html"/);
   assert.match(rootIndex, /data-page="mocks\/ui\/ontology-instances-2d\.html"/);
-  assert.match(rootIndex, /Console navigation<\/h3><span class="count">43 pages<\/span>/);
-  assert.match(rootIndex, /Governance<\/span><span class="count">8<\/span>/);
+  assert.match(rootIndex, /Console navigation<\/h3><span class="count">51 pages<\/span>/);
+  assert.match(rootIndex, /Governance<\/span><span class="count">11<\/span>/);
+  assert.match(rootIndex, /Design studies<\/span><span class="count">22 pages<\/span>/);
 });
 
 test("instance mock keeps synthetic data customer-agnostic", () => {

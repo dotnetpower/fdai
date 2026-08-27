@@ -179,7 +179,8 @@
         object_type:{label:"ObjectType",fill:"#44688e"},resource_type:{label:"ResourceType",fill:"#4f847e"},
         rule:{label:"Rule",fill:"#7b6c9c"},action_type:{label:"ActionType",fill:"#bc7449"},
         workflow:{label:"Workflow",fill:"#a58a4a"},agent:{label:"Agent",fill:"#5e8259"},
-        signal_type:{label:"SignalType",fill:"#a65d67"},property:{label:"Property",fill:"#6e747b"}
+        signal_type:{label:"SignalType",fill:"#a65d67"},property:{label:"Property",fill:"#6e747b"},
+        function_type:{label:"FunctionType",fill:"#527b86"},interface_type:{label:"InterfaceType",fill:"#58697a"}
       };
 
       graph.edges.forEach(function (edge) {
@@ -273,7 +274,8 @@
         context.globalAlpha=state==="muted"?.11:1;
         if(state==="selected"||state==="hovered"){context.beginPath();context.arc(position.x,position.y,nodeRadius+3,0,Math.PI*2);context.strokeStyle=state==="selected"?"#1d2730":"#5f6b75";context.lineWidth=2;context.stroke();}
         context.beginPath();context.arc(position.x,position.y,nodeRadius,0,Math.PI*2);
-        context.fillStyle=nodeStyles[node.kind].fill;context.fill();context.strokeStyle="rgba(255,255,255,.95)";context.lineWidth=1.5;context.stroke();
+        var nodeStyle=nodeStyles[node.kind]||{fill:"#6e747b"};
+        context.fillStyle=nodeStyle.fill;context.fill();context.strokeStyle="rgba(255,255,255,.95)";context.lineWidth=1.5;context.stroke();
       }
       function drawNodeLabel(node,labelBoxes) {
         var position=worldToScreen(node),state=nodeState(node),nodeRadius=Math.max(3.2,radius(node)*Math.min(1.15,Math.max(.65,camera.scale)));

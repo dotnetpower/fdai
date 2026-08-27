@@ -25,6 +25,15 @@ Operator console (read-only). Overview / Now / History surfaces:
 | [llm-cost.html](llm-cost.html) | LLM cost - per-tier daily budget bars, event mix, 7-day trend, and per-model attribution |
 | [incidents.html](incidents.html) | Incident-centric roster with active/resolved filtering, current disposition, and per-incident fix history |
 | [hil.html](hil.html) | Human approval queue - plain-first approval cards with safety facts, filters by risk / category / vertical |
+| [detection-readiness.html](detection-readiness.html) | Detection-readiness evidence with target decisions, coverage gaps, and authority ceilings |
+| [configuration-baselines.html](configuration-baselines.html) | Baseline integrity, drift, Knowledge evidence, history, review readiness, and measured latency |
+| [processes.html](processes.html) | Runtime process list, filters, selected process detail, and immutable workflow facts |
+| [workflow-apps.html](workflow-apps.html) | Published workflow-specific read surfaces and recent run history |
+| [scheduler-runs.html](scheduler-runs.html) | Scheduler dispatch filters, evidence metrics, and bounded attempt history |
+| [background-tasks.html](background-tasks.html) | Owner-scoped read-only investigations with selected task detail and progress timeline |
+| [automation-blueprints.html](automation-blueprints.html) | Recurring-work suggestions, review state, confidence, cost, and isolation profile |
+| [scheduled-continuations.html](scheduled-continuations.html) | Scoped conversation anchors with exact result, origin, evidence, digest, and expiry |
+| [conversation-delivery.html](conversation-delivery.html) | Delivery reliability, latency, duplicate risk, state distribution, and adapter breakers |
 | [promotion.html](promotion.html) | Shadow to enforce candidates and the four gate checks (accuracy, escapes, guard budget, safety invariants) |
 | [rules.html](rules.html) | Rule catalog: accepted rules, discovery-loop candidates, scoped overrides |
 | [actions.html](actions.html) | ActionType ontology - trigger, execution path, rollback contract, six-axis risk ceiling |
@@ -57,6 +66,31 @@ Knowledge surfaces (ontology + trace):
 | [ontology-knowledge-graph.html](ontology-knowledge-graph.html) | Complete generated catalog graph with type colors, weighted topology communities, fullscreen canvas, and current catalog relationships |
 | [rule-trace.html](rule-trace.html) | Per-correlation timeline - the full pipeline path (ingest &rarr; router &rarr; quality gate &rarr; safety check &rarr; dispatch &rarr; audit) for one event id |
 | [workflow-builder.html](workflow-builder.html) | Read-only visual view of a `when &rarr; do` workflow - ActionType palette, node/edge canvas, per-step inspector with safety facts |
+| [architecture.html](architecture.html) | Production Architecture route structure with summary metrics, observed path, selected relationship, and stored-topology boundary |
+| [handover.html](handover.html) | Agent oversight workspace with ownership coverage, stewardship facts, and identity health |
+| [capabilities.html](capabilities.html) | Capability declarations with side-effect class, default mode, eligibility, and required role |
+| [skills.html](skills.html) | Runtime skill packages, dependencies, agent eligibility, bundles, and load diagnostics |
+| [context-selection-comparisons.html](context-selection-comparisons.html) | Baseline and candidate context-policy evaluation with token, overlap, pinned-evidence, latency, and failure facts |
+| [scope.html](scope.html) | Effective monitoring and action scope with independent IAM and executor boundaries |
+
+Evidence and governed-source surfaces:
+
+| File | Purpose |
+|------|---------|
+| [browser-evidence.html](browser-evidence.html) | Redacted browser-evidence metadata, custody, isolation, expiry, and legal-hold state |
+| [forecast-learning.html](forecast-learning.html) | Prediction closure, outcome distribution, publication debt, and retention debt |
+| [conversation-search.html](conversation-search.html) | Authorized conversation search filters, result summaries, and selected context posture |
+| [conversation-assurance.html](conversation-assurance.html) | Answer review, model agreement, cost, dispute state, and selected assessment detail |
+| [reports.html](reports.html) | Declarative report selection, bounded variables, source readiness, and rendered widgets |
+| [documents.html](documents.html) | Governed document-ingestion form, scan/protection state, and recent ingestion results |
+
+Console utility surfaces:
+
+| File | Purpose |
+|------|---------|
+| [labs.html](labs.html) | Development-only index for static experiments and shared design studies |
+| [settings-runtime.html](settings-runtime.html) | Audited runtime-policy values, revisioned overrides, restart requirements, and unavailable state |
+| [settings-iam.html](settings-iam.html) | Identity and access tabs for personal access, users, roles, and governed requests |
 
 Chat surfaces:
 

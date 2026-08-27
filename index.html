@@ -52,6 +52,11 @@
     .side .fam h3, .side .family-label { margin: 0; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--cs-text-soft); font-weight: 700; }
     .side .fam .count { color: var(--cs-text-soft); font-size: 10.5px; opacity: .75; }
     .side .fam:first-of-type { margin-top: 2px; }
+    .nav-search { display: block; margin: 2px 2px 10px; }
+    .nav-search input { width: 100%; min-height: 38px; padding: 7px 10px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-bg); color: var(--cs-text); font: inherit; }
+    .nav-search input::placeholder { color: var(--cs-text-soft); }
+    .nav-search input:focus-visible { outline: 2px solid var(--cs-steel); outline-offset: -2px; }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; margin: -1px; padding: 0; border: 0; clip: rect(0 0 0 0); white-space: nowrap; }
     .side button.fam { width: calc(100% - 16px); min-height: 32px; align-items: center; margin-top: 5px; padding: 5px 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
     .side button.fam .count { margin-left: auto; }
     .side button.fam::after { width: 10px; color: var(--cs-text-soft); content: "-"; font-size: 12px; text-align: center; }
@@ -127,7 +132,11 @@
     </header>
 
     <aside class="side" id="master-nav" aria-label="Master navigation">
-      <div class="fam is-calm"><span class="swatch"></span><h3>Console navigation</h3><span class="count">44 pages</span></div>
+      <label class="nav-search">
+        <span class="sr-only">Filter design mocks</span>
+        <input type="search" placeholder="Filter 91 design mocks" autocomplete="off" data-nav-search />
+      </label>
+      <div class="fam is-calm"><span class="swatch"></span><h3>Console navigation</h3><span class="count">51 pages</span></div>
       <nav class="console-groups" aria-label="Console mock navigation">
         <section class="nav-group">
           <button class="nav-group-head" type="button"><span class="nav-group-label">Overview</span><span class="count">6</span></button>
@@ -142,13 +151,22 @@
         </section>
 
         <section class="nav-group">
-          <button class="nav-group-head" type="button"><span class="nav-group-label">Operations</span><span class="count">5</span></button>
+          <button class="nav-group-head" type="button"><span class="nav-group-label">Operations</span><span class="count">14</span></button>
           <ul>
             <li><a data-page="mocks/ui/live.html" data-title="Live"><span class="dot"></span>Live</a></li>
             <li><a data-page="mocks/ui/incidents.html" data-title="Incidents"><span class="dot is-dusty-red"></span>Incidents</a></li>
             <li><a data-page="mocks/ui/hil.html" data-title="Approvals"><span class="dot is-terracotta"></span>Approvals</a></li>
             <li><a data-page="mocks/ui/provision.html" data-title="Provisioning"><span class="dot"></span>Provisioning</a></li>
             <li><a data-page="mocks/ui/onboarding.html" data-title="Onboarding readiness"><span class="dot is-dusty-red"></span>Onboarding</a></li>
+            <li><a data-page="mocks/ui/detection-readiness.html" data-title="Detection readiness"><span class="dot is-teal"></span>Detection readiness</a></li>
+            <li><a data-page="mocks/ui/configuration-baselines.html" data-title="Configuration baselines"><span class="dot is-steel"></span>Configuration baselines</a></li>
+            <li><a data-page="mocks/ui/processes.html" data-title="Processes"><span class="dot"></span>Processes</a></li>
+            <li><a data-page="mocks/ui/workflow-apps.html" data-title="Workflow apps"><span class="dot is-plum"></span>Workflow apps</a></li>
+            <li><a data-page="mocks/ui/scheduler-runs.html" data-title="Scheduler runs"><span class="dot is-teal"></span>Scheduler runs</a></li>
+            <li><a data-page="mocks/ui/background-tasks.html" data-title="Background tasks"><span class="dot is-steel"></span>Background tasks</a></li>
+            <li><a data-page="mocks/ui/automation-blueprints.html" data-title="Automation blueprints"><span class="dot is-plum"></span>Automation blueprints</a></li>
+            <li><a data-page="mocks/ui/scheduled-continuations.html" data-title="Scheduled continuations"><span class="dot is-teal"></span>Scheduled continuations</a></li>
+            <li><a data-page="mocks/ui/conversation-delivery.html" data-title="Conversation delivery"><span class="dot is-sage"></span>Conversation delivery</a></li>
           </ul>
         </section>
 
@@ -162,65 +180,83 @@
         </section>
 
         <section class="nav-group">
-          <button class="nav-group-head" type="button"><span class="nav-group-label">Visualization</span><span class="count">1</span></button>
+          <button class="nav-group-head" type="button"><span class="nav-group-label">Governance</span><span class="count">11</span></button>
           <ul>
-            <li><a data-page="mocks/ui/service-map.html" data-title="Service map"><span class="dot is-steel"></span>Service map</a></li>
-          </ul>
-        </section>
-
-        <section class="nav-group">
-          <button class="nav-group-head" type="button"><span class="nav-group-label">Governance</span><span class="count">8</span></button>
-          <ul>
-            <li><a data-page="mocks/ui/rules.html" data-title="Rules"><span class="dot"></span>Rules</a></li>
-            <li><a data-page="mocks/ui/actions.html" data-title="Capabilities"><span class="dot is-plum"></span>Capabilities</a></li>
+            <li><a data-page="mocks/ui/architecture.html" data-title="Architecture"><span class="dot is-steel"></span>Architecture</a></li>
             <li><a data-page="mocks/ui/ontology.html" data-title="Ontology"><span class="dot is-plum"></span>Ontology</a></li>
-            <li><a data-page="mocks/ui/ontology-instances-2d.html" data-title="Ontology instances 2D"><span class="dot is-steel"></span>Ontology instances 2D</a></li>
-            <li><a data-page="mocks/ui/settings-iam.html" data-title="Agent oversight"><span class="dot is-sage"></span>Agent oversight</a></li>
+            <li><a data-page="mocks/ui/handover.html" data-title="Agent oversight"><span class="dot is-sage"></span>Agent oversight</a></li>
+            <li><a data-page="mocks/ui/rules.html" data-title="Rules"><span class="dot"></span>Rules</a></li>
             <li><a data-page="mocks/ui/workflow-builder.html" data-title="Workflow builder"><span class="dot"></span>Workflow builder</a></li>
+            <li><a data-page="mocks/ui/capabilities.html" data-title="Capabilities"><span class="dot is-plum"></span>Capabilities</a></li>
+            <li><a data-page="mocks/ui/skills.html" data-title="Skills"><span class="dot is-teal"></span>Skills</a></li>
             <li><a data-page="mocks/ui/blast-radius.html" data-title="Impact scope"><span class="dot is-terracotta"></span>Impact scope</a></li>
             <li><a data-page="mocks/ui/promotion.html" data-title="Promotion gates"><span class="dot is-teal"></span>Promotion gates</a></li>
+            <li><a data-page="mocks/ui/context-selection-comparisons.html" data-title="Context policy comparisons"><span class="dot is-steel"></span>Context policy comparisons</a></li>
+            <li><a data-page="mocks/ui/scope.html" data-title="Scope"><span class="dot is-navy"></span>Scope</a></li>
           </ul>
         </section>
 
         <section class="nav-group">
-          <button class="nav-group-head" type="button"><span class="nav-group-label">Evidence</span><span class="count">5</span></button>
+          <button class="nav-group-head" type="button"><span class="nav-group-label">Evidence</span><span class="count">9</span></button>
           <ul>
             <li><a data-page="mocks/ui/audit.html" data-title="Audit log"><span class="dot is-terracotta"></span>Audit log</a></li>
+            <li><a data-page="mocks/ui/browser-evidence.html" data-title="Browser evidence"><span class="dot is-steel"></span>Browser evidence</a></li>
+            <li><a data-page="mocks/ui/forecast-learning.html" data-title="Forecast learning"><span class="dot is-plum"></span>Forecast learning</a></li>
+            <li><a data-page="mocks/ui/conversation-search.html" data-title="Conversation search"><span class="dot is-teal"></span>Conversation search</a></li>
+            <li><a data-page="mocks/ui/conversation-assurance.html" data-title="Conversation assurance"><span class="dot is-sage"></span>Conversation assurance</a></li>
+            <li><a data-page="mocks/ui/reports.html" data-title="Reports"><span class="dot is-terracotta"></span>Reports</a></li>
             <li><a data-page="mocks/ui/rule-trace.html" data-title="Trace"><span class="dot is-teal"></span>Trace</a></li>
             <li><a data-page="mocks/ui/rca.html" data-title="RCA"><span class="dot is-teal"></span>RCA</a></li>
-            <li><a data-page="mocks/ui/report.html" data-title="Reports"><span class="dot is-terracotta"></span>Reports</a></li>
-            <li><a data-page="mocks/ui/rca-report.html" data-title="RCA report"><span class="dot is-teal"></span>RCA report</a></li>
+            <li><a data-page="mocks/ui/documents.html" data-title="Documents"><span class="dot is-navy"></span>Documents</a></li>
           </ul>
         </section>
 
         <section class="nav-group">
-          <button class="nav-group-head" type="button"><span class="nav-group-label">Labs</span><span class="count">11</span></button>
+          <button class="nav-group-head" type="button"><span class="nav-group-label">Labs</span><span class="count">1</span></button>
           <ul>
-            <li><a data-page="mocks/ui/deck.html" data-title="Command deck"><span class="dot is-plum"></span>Command deck</a></li>
-            <li><a data-page="mocks/ui/deck-sources-v2.html" data-title="Command deck adaptive response"><span class="dot is-teal"></span>Command deck adaptive response</a></li>
-            <li><a data-page="mocks/ui/chat-home-variants.html" data-title="Chat home variants"><span class="dot is-steel"></span>Chat home variants</a></li>
-            <li><a data-page="mocks/ui/decision-icon-variants.html" data-title="Decision icon variants"><span class="dot is-terracotta"></span>Decision icon variants</a></li>
-            <li><a data-page="mocks/ui/components.html" data-title="Component gallery"><span class="dot"></span>Component gallery</a></li>
-            <li><a data-page="mocks/ui/typography.html" data-title="Typography"><span class="dot is-steel"></span>Typography</a></li>
-            <li><a data-page="mocks/ui/agent-icons.html" data-title="Agent icons"><span class="dot is-plum"></span>Agent icons</a></li>
-            <li><a data-page="mocks/ui/agent-icons-v2.html" data-title="Agent icons v2"><span class="dot is-sage"></span>Agent icons v2</a></li>
-            <li><a data-page="mocks/ui/hcard-variants.html" data-title="Approval card variants"><span class="dot is-teal"></span>Approval card variants</a></li>
-            <li><a data-page="mocks/ui/nav-redesign-v3.html" data-title="Navigation redesign"><span class="dot is-steel"></span>Navigation redesign</a></li>
-            <li><a data-page="mocks/ui/index.html" data-title="Kit navigation shell"><span class="dot is-navy"></span>Kit navigation shell</a></li>
+            <li><a data-page="mocks/ui/labs.html" data-title="Labs"><span class="dot is-steel"></span>Labs</a></li>
           </ul>
         </section>
 
         <section class="nav-group">
-          <button class="nav-group-head" type="button"><span class="nav-group-label">Settings</span><span class="count">5</span></button>
+          <button class="nav-group-head" type="button"><span class="nav-group-label">Settings</span><span class="count">7</span></button>
           <ul>
             <li><a data-page="mocks/ui/settings.html" data-title="General settings"><span class="dot is-steel"></span>General</a></li>
             <li><a data-page="mocks/ui/settings-models.html" data-title="Models"><span class="dot is-plum"></span>Models</a></li>
+            <li><a data-page="mocks/ui/settings-runtime.html" data-title="Runtime policies"><span class="dot is-teal"></span>Runtime policies</a></li>
             <li><a data-page="mocks/ui/settings-memory.html" data-title="Operator memory"><span class="dot is-teal"></span>Operator memory</a></li>
+            <li><a data-page="mocks/ui/settings-iam.html" data-title="Identity and access"><span class="dot is-sage"></span>Identity and access</a></li>
             <li><a data-page="mocks/ui/settings-integrations.html" data-title="Integrations"><span class="dot is-terracotta"></span>Integrations</a></li>
             <li><a data-page="mocks/ui/settings-diagnostics.html" data-title="Diagnostics"><span class="dot is-navy"></span>Diagnostics</a></li>
           </ul>
         </section>
       </nav>
+
+      <button class="fam is-calm" type="button"><span class="swatch"></span><span class="family-label">Design studies</span><span class="count">22 pages</span></button>
+      <ul>
+        <li><a data-page="mocks/ui/components.html" data-title="Component gallery"><span class="dot"></span>Component gallery</a></li>
+        <li><a data-page="mocks/ui/typography.html" data-title="Typography"><span class="dot is-steel"></span>Typography</a></li>
+        <li><a data-page="mocks/ui/deck.html" data-title="Command deck"><span class="dot is-plum"></span>Command deck</a></li>
+        <li><a data-page="mocks/ui/deck-sources.html" data-title="Command deck sources"><span class="dot is-teal"></span>Command deck sources</a></li>
+        <li><a data-page="mocks/ui/deck-sources-v2.html" data-title="Command deck adaptive response"><span class="dot is-teal"></span>Adaptive response</a></li>
+        <li><a data-page="mocks/ui/incident-conversation.html" data-title="Incident conversation"><span class="dot is-terracotta"></span>Incident conversation</a></li>
+        <li><a data-page="mocks/ui/chat-home-variants.html" data-title="Chat home variants"><span class="dot is-steel"></span>Chat home variants</a></li>
+        <li><a data-page="mocks/ui/decision-icon-variants.html" data-title="Decision icon variants"><span class="dot is-terracotta"></span>Decision icon variants</a></li>
+        <li><a data-page="mocks/ui/hcard-variants.html" data-title="Approval card variants"><span class="dot is-teal"></span>Approval card variants</a></li>
+        <li><a data-page="mocks/ui/agent-icons.html" data-title="Agent icons"><span class="dot is-plum"></span>Agent icons</a></li>
+        <li><a data-page="mocks/ui/agent-icons-v2.html" data-title="Agent icons v2"><span class="dot is-sage"></span>Agent icons v2</a></li>
+        <li><a data-page="mocks/ui/nav-redesign-v3.html" data-title="Navigation redesign"><span class="dot is-steel"></span>Navigation redesign</a></li>
+        <li><a data-page="mocks/ui/service-map.html" data-title="Service map"><span class="dot is-steel"></span>Service map</a></li>
+        <li><a data-page="mocks/ui/ontology-instances-2d.html" data-title="Ontology instances 2D"><span class="dot is-steel"></span>Ontology instances 2D</a></li>
+        <li><a data-page="mocks/ui/ontology-map.html" data-title="Ontology map"><span class="dot is-plum"></span>Ontology map</a></li>
+        <li><a data-page="mocks/ui/ontology-knowledge-graph.html" data-title="Full knowledge graph"><span class="dot is-plum"></span>Full knowledge graph</a></li>
+        <li><a data-page="mocks/ui/actions.html" data-title="Action ontology"><span class="dot is-plum"></span>Action ontology</a></li>
+        <li><a data-page="mocks/ui/report.html" data-title="Weekly report layout"><span class="dot is-terracotta"></span>Weekly report layout</a></li>
+        <li><a data-page="mocks/ui/rca-report.html" data-title="RCA report layout"><span class="dot is-teal"></span>RCA report layout</a></li>
+        <li><a data-page="mocks/ui/fdai-l100-wireframe.html" data-title="L100 wireframe"><span class="dot"></span>L100 wireframe</a></li>
+        <li><a data-page="mocks/ui/roadmap-slide-wireframe.html" data-title="Roadmap slide wireframe"><span class="dot"></span>Roadmap slide wireframe</a></li>
+        <li><a data-page="mocks/ui/index.html" data-title="Kit navigation shell"><span class="dot is-navy"></span>Kit navigation shell</a></li>
+      </ul>
 
       <button class="fam is-webgl" type="button"><span class="swatch"></span><span class="family-label">WebGL drafts</span><span class="count">4 pages</span></button>
       <ul>
@@ -273,6 +309,7 @@
       const side = document.querySelector('.side');
       const preview = document.getElementById('preview');
       const navToggle = document.querySelector('[data-nav-toggle]');
+      const navSearch = document.querySelector('[data-nav-search]');
       const navGroups = Array.from(document.querySelectorAll('.nav-group'));
       const mockFamilies = Array.from(document.querySelectorAll('button.fam'));
       const mobileQuery = window.matchMedia('(max-width: 780px)');
@@ -325,10 +362,32 @@
           mockFamilies.forEach((family) => setFamilyExpanded(family, false));
           return;
         }
+
         const selectedFamily = mockFamilies.find((family) => family.nextElementSibling.querySelector(`[data-page="${page}"]`));
         if (!selectedFamily) return;
         navGroups.forEach((group) => setGroupExpanded(group, false));
         mockFamilies.forEach((family) => setFamilyExpanded(family, family === selectedFamily));
+      }
+
+      function filterNavigation(query) {
+        const normalized = query.trim().toLowerCase();
+        items.forEach((item) => {
+          const visible = !normalized || `${item.dataset.title} ${item.dataset.page}`.toLowerCase().includes(normalized);
+          item.closest('li').hidden = !visible;
+        });
+        navGroups.forEach((group) => {
+          const visible = Boolean(group.querySelector('li:not([hidden])'));
+          group.hidden = !visible;
+          if (normalized && visible) setGroupExpanded(group, true);
+        });
+        mockFamilies.forEach((family) => {
+          const list = family.nextElementSibling;
+          const visible = Boolean(list.querySelector('li:not([hidden])'));
+          family.hidden = !visible;
+          list.hidden = !visible;
+          if (normalized && visible) setFamilyExpanded(family, true);
+        });
+        if (!normalized) revealPageGroup(currentPage);
       }
 
       navGroups.forEach((group) => {
@@ -388,6 +447,7 @@
       navToggle.addEventListener('click', () => {
         setMobileNavOpen(app.classList.contains('is-mobile-nav-closed'));
       });
+      navSearch.addEventListener('input', () => filterNavigation(navSearch.value));
 
       document.querySelector('.skip-link').addEventListener('click', (event) => {
         event.preventDefault();

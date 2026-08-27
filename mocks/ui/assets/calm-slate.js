@@ -23,53 +23,82 @@
     ["Operations", [
       ["live.html", "Live", ""],
       ["incidents.html", "Incidents", "is-terracotta"],
-      ["hil.html", "HIL queue", "is-terracotta"],
+      ["hil.html", "Approvals", "is-terracotta"],
       ["provision.html", "Provisioning", ""],
       ["onboarding.html", "Onboarding", "is-dusty-red"],
-      ["deck.html", "Command deck", "is-plum"]
+      ["detection-readiness.html", "Detection readiness", "is-teal"],
+      ["configuration-baselines.html", "Configuration baselines", "is-steel"],
+      ["processes.html", "Processes", ""],
+      ["workflow-apps.html", "Workflow apps", "is-plum"],
+      ["scheduler-runs.html", "Scheduler runs", "is-teal"],
+      ["background-tasks.html", "Background tasks", "is-steel"],
+      ["automation-blueprints.html", "Automation blueprints", "is-plum"],
+      ["scheduled-continuations.html", "Scheduled continuations", "is-teal"],
+      ["conversation-delivery.html", "Conversation delivery", "is-sage"]
     ]],
     ["Agents", [
       ["agents.html", "Fleet", "is-sage"],
       ["agents-constellation.html", "Org", ""],
       ["agent-activity.html", "Agent activity", ""]
     ]],
-    ["Visualization", [
-      ["service-map.html", "Service map", "is-steel"]
-    ]],
     ["Governance", [
-      ["promotion.html", "Promotion", "is-teal"],
-      ["blast-radius.html", "Blast radius", "is-terracotta"],
-      ["rules.html", "Rules", ""],
-      ["actions.html", "Actions (ontology)", "is-plum"],
+      ["architecture.html", "Architecture", "is-steel"],
       ["ontology.html", "Ontology", "is-plum"],
-      ["ontology-map.html", "Ontology map", "is-plum"],
-      ["ontology-knowledge-graph.html", "Full knowledge graph", "is-plum"],
-      ["settings-iam.html", "Agent oversight", "is-sage"],
-      ["workflow-builder.html", "Workflow builder", ""]
+      ["handover.html", "Agent oversight", "is-sage"],
+      ["rules.html", "Rules", ""],
+      ["workflow-builder.html", "Workflow builder", ""],
+      ["capabilities.html", "Capabilities", "is-plum"],
+      ["skills.html", "Skills", "is-teal"],
+      ["blast-radius.html", "Impact scope", "is-terracotta"],
+      ["promotion.html", "Promotion gates", "is-teal"],
+      ["context-selection-comparisons.html", "Context policy comparisons", "is-steel"],
+      ["scope.html", "Scope", "is-navy"]
     ]],
     ["Evidence", [
-      ["audit.html", "Audit", "is-terracotta"],
+      ["audit.html", "Audit log", "is-terracotta"],
+      ["browser-evidence.html", "Browser evidence", "is-steel"],
+      ["forecast-learning.html", "Forecast learning", "is-plum"],
+      ["conversation-search.html", "Conversation search", "is-teal"],
+      ["conversation-assurance.html", "Conversation assurance", "is-sage"],
+      ["reports.html", "Reports", "is-terracotta"],
       ["rca.html", "RCA", "is-teal"],
-      ["rule-trace.html", "Rule trace", "is-teal"],
-      ["report.html", "Weekly report", "is-terracotta"],
-      ["rca-report.html", "RCA report", "is-teal"],
-      ["deck-sources-v2.html", "Deck adaptive response", "is-teal"]
+      ["rule-trace.html", "Trace", "is-teal"],
+      ["documents.html", "Documents", "is-navy"]
     ]],
     ["Labs", [
-      ["chat-home-variants.html", "Chat home variants", "is-steel"],
-      ["decision-icon-variants.html", "Decision icon variants", "is-terracotta"],
+      ["labs.html", "Labs", "is-steel"]
+    ]],
+    ["Design studies", [
       ["components.html", "Components", ""],
       ["typography.html", "Typography", "is-steel"],
+      ["deck.html", "Command deck", "is-plum"],
+      ["deck-sources.html", "Command deck sources", "is-teal"],
+      ["deck-sources-v2.html", "Adaptive response", "is-teal"],
+      ["incident-conversation.html", "Incident conversation", "is-terracotta"],
+      ["chat-home-variants.html", "Chat home variants", "is-steel"],
+      ["decision-icon-variants.html", "Decision icon variants", "is-terracotta"],
+      ["hcard-variants.html", "Approval card variants", "is-teal"],
       ["agent-icons.html", "Agent icons", "is-plum"],
       ["agent-icons-v2.html", "Agent icons v2", "is-sage"],
-      ["hcard-variants.html", "HIL card variants", "is-teal"]
+      ["nav-redesign-v3.html", "Navigation redesign", "is-steel"],
+      ["service-map.html", "Service map", "is-steel"],
+      ["ontology-instances-2d.html", "Ontology instances 2D", "is-steel"],
+      ["ontology-map.html", "Ontology map", "is-plum"],
+      ["ontology-knowledge-graph.html", "Full knowledge graph", "is-plum"],
+      ["actions.html", "Action ontology", "is-plum"],
+      ["report.html", "Weekly report layout", "is-terracotta"],
+      ["rca-report.html", "RCA report layout", "is-teal"],
+      ["fdai-l100-wireframe.html", "L100 wireframe", ""],
+      ["roadmap-slide-wireframe.html", "Roadmap slide wireframe", ""]
     ]],
     ["Settings", [
       ["settings.html", "General", "is-steel"],
-      ["settings-models.html", "Models", ""],
-      ["settings-memory.html", "Operator memory", ""],
-      ["settings-integrations.html", "Integrations", ""],
-      ["settings-diagnostics.html", "Diagnostics", ""]
+      ["settings-models.html", "Models", "is-plum"],
+      ["settings-runtime.html", "Runtime policies", "is-teal"],
+      ["settings-memory.html", "Operator memory", "is-teal"],
+      ["settings-iam.html", "Identity and access", "is-sage"],
+      ["settings-integrations.html", "Integrations", "is-terracotta"],
+      ["settings-diagnostics.html", "Diagnostics", "is-navy"]
     ]]
   ];
   function currentNavigationContext() {
@@ -120,8 +149,46 @@
     heading.appendChild(current);
   }
 
+  var settingsNavigation = [
+    ["settings.html", "General", "Display, accessibility, and local preferences"],
+    ["settings-models.html", "Models", "Inventory, routing, and model policy"],
+    ["settings-runtime.html", "Runtime policies", "Budgets, freshness, retention, and logging"],
+    ["settings-memory.html", "Operator memory", "Approved guidance and provenance"],
+    ["settings-iam.html", "Identity and access", "Human roles and governed requests"],
+    ["settings-integrations.html", "Integrations", "Identity and delivery connections"],
+    ["settings-diagnostics.html", "Diagnostics", "Runtime and authentication checks"]
+  ];
+
+  function createSettingsWorkspace() {
+    var currentPage = window.location.pathname.split("/").pop() || "";
+    if (!settingsNavigation.some(function (item) { return item[0] === currentPage; })) return;
+    var main = document.querySelector("body > main");
+    if (!main || main.closest(".cs-settings-workspace")) return;
+
+    var workspace = document.createElement("div");
+    workspace.className = "cs-settings-workspace";
+    var aside = document.createElement("aside");
+    aside.className = "cs-settings-navigation";
+    aside.setAttribute("aria-label", "Settings navigation");
+    aside.innerHTML = '<header class="cs-settings-navigation-head"><span>Console</span><h2>Settings</h2>' +
+      '<p>Preferences and governed configuration evidence.</p></header><nav><ul>' +
+      settingsNavigation.map(function (item) {
+        var active = item[0] === currentPage;
+        return '<li><a href="' + item[0] + '"' + (active ? ' aria-current="page"' : "") + '><strong>' +
+          item[1] + "</strong><small>" + item[2] + "</small></a></li>";
+      }).join("") + "</ul></nav>" +
+      '<footer><strong>Authority boundary</strong><span>Settings never grant executor identity.</span></footer>';
+
+    main.parentNode.insertBefore(workspace, main);
+    workspace.appendChild(aside);
+    workspace.appendChild(main);
+    main.classList.add("cs-settings-content");
+    document.body.classList.add("cs-settings-surface");
+  }
+
   function createNavigation() {
     decoratePageTitle();
+    createSettingsWorkspace();
     if (window.self !== window.top) {
       document.body.classList.add("cs-embedded");
       return;

@@ -15,8 +15,8 @@ test("typography has direct, kit, and master navigation entries", () => {
   assert.match(navigation, /\["typography\.html", "Typography", "is-steel"\]/);
   assert.match(landing, /data-page="typography\.html"[^>]*data-title="Typography"/);
   assert.match(masterLanding, /data-page="mocks\/ui\/typography\.html"[^>]*data-title="Typography"/);
-  assert.match(masterLanding, /<h3>Console navigation<\/h3><span class="count">42 pages<\/span>/);
-  assert.match(masterLanding, /<span class="nav-group-label">Labs<\/span><span class="count">9<\/span>/);
+  assert.match(masterLanding, /<h3>Console navigation<\/h3><span class="count">51 pages<\/span>/);
+  assert.match(masterLanding, /<span class="nav-group-label">Labs<\/span><span class="count">1<\/span>/);
 });
 
 test("direct mock URLs canonicalize through the master hash router", () => {
@@ -29,8 +29,8 @@ test("direct mock URLs canonicalize through the master hash router", () => {
 test("master navigation keeps one quiet, collapsible hierarchy", () => {
   assert.match(masterLanding, /--nav-w: 248px/);
   assert.match(masterLanding, /src="console\/public\/brand\/fdai-logo\.png"/);
-  assert.equal((masterLanding.match(/<button class="nav-group-head"/g) || []).length, 8);
-  assert.equal((masterLanding.match(/<button class="fam is-/g) || []).length, 4);
+  assert.equal((masterLanding.match(/<button class="nav-group-head"/g) || []).length, 7);
+  assert.equal((masterLanding.match(/<button class="fam is-/g) || []).length, 5);
   assert.doesNotMatch(masterLanding, /<button[^>]*>[^<]*<h[1-6]>/);
   assert.match(masterLanding, /\.side \.nav-group a \.dot \{ visibility: hidden; \}/);
   assert.match(masterLanding, /\.side \.nav-group a\.is-active \.dot \{ visibility: visible; \}/);

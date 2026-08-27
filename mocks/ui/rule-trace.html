@@ -9,7 +9,7 @@
   <style>
     /* Rule trace: pipeline path for one correlation id. */
     .rt-inbar { display: flex; gap: 8px; align-items: center; padding: 10px 14px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-card); box-shadow: var(--cs-shadow); margin-bottom: 20px; }
-    .rt-inbar input { flex: 1; border: none; outline: none; font: inherit; font-size: 13px; background: transparent; }
+    .rt-inbar input { min-width: 0; flex: 1; border: none; outline: none; font: inherit; font-size: 13px; background: transparent; }
     .rt-inbar .cs-mono { color: var(--cs-text-soft); }
 
     .rt-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px; }
@@ -25,6 +25,11 @@
     .rt-step.is-gate::before { background: var(--cs-terracotta); }
     .rt-step.is-exec::before { background: var(--cs-sage); }
     .rt-step.is-audit::before { background: var(--cs-navy); }
+    @media (max-width: 620px) {
+      .rt-inbar { align-items: stretch; flex-wrap: wrap; }
+      .rt-inbar input { flex: 1 1 180px; }
+      .rt-inbar .cs-btn { flex: 1 1 120px; justify-content: center; }
+    }
 
     .rt-step-head { display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline; margin-bottom: 6px; }
     .rt-step-title { font-weight: 600; font-size: 14.5px; margin: 0; }
