@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Mapping, Sequence
-from typing import Any
+from typing import Any, cast
 
 from fdai.shared.providers.ontology_instance import (
     OntologyGraphSnapshot,
@@ -54,7 +54,7 @@ class ObjectSetService:
                 source_truncation_reason = ObjectSetTruncationReason.TRAVERSAL_LIMIT
         else:
             exact_ids = _exact_id_values(definition.predicates)
-            if exact_ids is not None and len(exact_ids) > _STORE_QUERY_LIMIT:
+            if exact_ids is not None:
                 graph = await _query_exact_ids(
                     self._store,
                     object_types=concrete_types,
@@ -81,6 +81,7 @@ class ObjectSetService:
                         if has_memory_predicates
                         else ObjectSetTruncationReason.RESULT_LIMIT
                     )
+        graph = cast(OntologyGraphSnapshot, graph)
         graph, result_limited = _filter_graph(
             graph,
             concrete_types=concrete_types,
@@ -129,7 +130,7 @@ async def _query_exact_ids(
     object_types: Sequence[str],
     resource_ids: Sequence[str],
 ) -> OntologyGraphSnapshot:
-    """Read each selected id directly so other records cannot truncate the candidate set."""
+    """Read each selected id in fixed-size batches so candidates cannot be truncated."""
     semaphore = asyncio.Semaphore(_EXACT_ID_CONCURRENCY)
 
     async def read_one(resource_id: str) -> OntologyGraphSnapshot:

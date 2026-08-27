@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 7e557d786676fd222511ce759a664c92e0411436
+translation_source_sha: 22bf819098e88b99d4e001581161c1e97407c365
 translation_revised: 2026-08-27
 ---
 # 코드 맵
@@ -210,18 +210,20 @@ pin합니다. Answered 결과에는 exact release, 매니페스트, 계획, 실�
 필요합니다. SDK는 해당 필드를 폐기하는 대신 의미 downgrade to N-1을 거부합니다. 런타임
 게시와 consumption은 service-owned 구현으로 유지됩니다.
 
-Semantic-turn 요청은 정확한 resource id와 함께 타입이 지정된 화면 또는 리소스 그룹 선택도
-보존합니다. Operator는 추가 context를 검증하고 Core는 `query.contextual_resources`를 위해
-정확한 `Resource.id` 범위를 컴파일합니다. 범위가 일치하지 않으면 principal이 볼 수 있는
-컬렉션으로 대체하지 않고 타입이 지정된 사용 불가 결과를 반환합니다. 어떤 context 필드도
-승인 또는 실행 권한을 부여하지 않습니다.
-선택은 principal 범위, 활성 release, source generation, completeness 및 id 집합에 결속된
-서버 발급 digest가 있을 때만 허용됩니다. 명시적 발화 조건식은 해당 집합과 교집합하며,
-불완전한 contextual 표는 answered claim이 되지 않고 semantic turn을 hold합니다.
-Operator instance projection은 인증된 principal과 활성 generation에서 검증된 선택 필드를
-발급하며, 잘린 projection은 신원을 완전히 생략합니다.
+Semantic-turn 요청은 opaque server-issued token과 함께 타입이 지정된 화면 또는 리소스 그룹
+선택을 보존합니다. Operator는 Core가 `query.contextual_resources`를 위해 정확한
+`Resource.id` 범위를 컴파일하기 전에 인증된 principal, 일반 소문자 role 범위, purpose,
+정확한 release, source generation, completeness 및 id 집합에 대해 token을 조회합니다.
+클라이언트가 위조하거나 다시 계산한 id, 재시작 후 사라진 token 또는 범위 불일치는 principal
+컬렉션으로 대체하지 않고 타입이 지정된 사용 불가 결과가 됩니다. 어떤 context 필드도 승인
+또는 실행 권한을 부여하지 않습니다.
+명시적 발화 조건식은 token의 집합과 교집합하며, 불완전한 object-only contextual 표는
+answered claim이 되지 않고 semantic turn을 hold합니다. Operator instance projection은
+인증된 principal과 활성 generation에서 token을 발급하며, 잘린 projection은 신원을 완전히
+생략합니다.
 공유 범위 digest는 소문자 일반 역할(`reader`, `contributor`, `approver`, `owner`)만 사용하고
-`BreakGlass`는 거부합니다. Wire 계약은 보수적인 512개 id context envelope를 허용하고
+`BreakGlass`는 거부합니다. 정확한 id 조건식은 항상 고정 batch의 개별 id 조회를 사용합니다.
+Wire 계약은 보수적인 512개 id context envelope를 허용하고
 일반 ObjectSet과 store 상한은 1,000개로 유지합니다.
 정확한 선택 읽기는 기존 byte 상한 안에서 처리되며 일반 output의 행 및 byte 상한을
 제거하지 않습니다.
@@ -231,7 +233,7 @@ Context 계약은 incident, screen 및 resource-group 신원을 혼합하는 입
 안에 유지하며, 일반 ObjectSet 상한은 1,000개로 유지합니다.
 같은 512개 상한을 Operator/Core schema가 함께 적용하므로 과도한 client context는
 planning에 들어갈 수 없습니다.
-범위가 제한된 semantic query JSON envelope는 10,000개 id 선택에 맞게 크기를 확보하면서도
+범위가 제한된 semantic query JSON envelope는 512개 id 선택에 맞게 크기를 확보하면서도
 일반 output의 기존 행 및 byte 상한은 제거하지 않습니다.
 
 SDK는 두 semantic channel이 하나의 physical Event Hub를 공유할 때 사용하는 logical-topic marker와

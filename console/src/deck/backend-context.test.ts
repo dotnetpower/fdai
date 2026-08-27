@@ -86,6 +86,7 @@ describe("viewContextWithUser wiring", () => {
         kind: "screen",
         screenId: "live",
         resourceIds: ["resource-a"],
+        selectionToken: "context-selection:token",
         principalId: "operator-1",
         principalScopeDigest: "sha256:" + "a".repeat(64),
         ontologyReleaseDigest: "sha256:" + "b".repeat(64),
@@ -95,6 +96,28 @@ describe("viewContextWithUser wiring", () => {
       },
     });
     expect((parsed as Record<string, unknown>).conversation_context).toBeUndefined();
+  });
+
+  test("forwards only the opaque server selection token", async () => {
+    const parsed = await callAskAndCaptureBody({
+      ...liveSnap(),
+      contextIdentity: {
+        kind: "screen",
+        screenId: "ontology-instances",
+        resourceIds: ["resource-a", "resource-b"],
+        selectionToken: "context-selection:opaque",
+        principalId: "operator-1",
+        principalScopeDigest: "sha256:" + "a".repeat(64),
+        ontologyReleaseDigest: "sha256:" + "b".repeat(64),
+        sourceGeneration: "generation-1",
+        selectionDigest: "sha256:" + "c".repeat(64),
+        complete: true,
+      },
+    });
+    expect((parsed as Record<string, unknown>).conversation_context).toEqual({
+      kind: "screen",
+      selection_token: "context-selection:opaque",
+    });
   });
 
   test("keeps the current screen path when the panel snapshot is unavailable", async () => {

@@ -251,6 +251,56 @@ async def test_object_set_materializes_interface_query_with_hard_limit() -> None
     assert result.truncation_reason == "result_limit"
 
 
+async def test_exact_id_predicates_use_bounded_lookups_and_preserve_intersections() -> None:
+    workload = _object_type("Workload")
+    store = InMemoryOntologyInstanceStore(object_types=(workload,), link_types=())
+    for index in range(1_000):
+        identifier = f"workload-{index}"
+        await store.upsert_object(
+            OntologyObjectRecord(
+                id=identifier,
+                object_type="Workload",
+                properties={"id": identifier, "status": "ready", "owner_ref": "team-a"},
+            )
+        )
+
+    calls: list[dict[str, str]] = []
+    original_query = store.query_objects
+
+    async def recording_query(*, object_types, property_equals, limit):
+        calls.append(dict(property_equals))
+        return await original_query(
+            object_types=object_types,
+            property_equals=property_equals,
+            limit=limit,
+        )
+
+    store.query_objects = recording_query  # type: ignore[method-assign]
+    service = ObjectSetService(
+        store=store,
+        interfaces=compile_interfaces(interfaces=(), implementations=(), object_types=(workload,)),
+        object_type_names=frozenset({"Workload"}),
+    )
+    identifiers = tuple(f"workload-{index}" for index in range(1_000))
+    result = await service.materialize(
+        ObjectSetDefinition(
+            selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Workload"),
+            predicates=(
+                ObjectPredicate(property="id", operator="in", values=identifiers),
+                ObjectPredicate(property="status", equals="ready"),
+            ),
+            as_of=datetime(2026, 8, 1, tzinfo=UTC),
+            purpose="operations-review",
+            limit=1_000,
+        )
+    )
+
+    assert len(result.graph.objects) == 1_000
+    assert result.truncated is False
+    assert len(calls) == 1_000
+    assert all(set(call) == {"id"} for call in calls)
+
+
 def test_object_set_rejects_unbounded_or_naive_traversal() -> None:
     with pytest.raises(ValueError, match="less than or equal to 1000"):
         ObjectSetDefinition(

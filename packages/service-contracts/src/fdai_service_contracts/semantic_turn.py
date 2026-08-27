@@ -235,6 +235,7 @@ class SemanticBoundContext(QueryContract):
     correlation_id: Annotated[str, Field(min_length=1, max_length=512)] | None = None
     screen_id: BoundedId | None = None
     resource_group_id: BoundedId | None = None
+    selection_token: BoundedId | None = None
     resource_ids: Annotated[tuple[BoundedId, ...], Field(max_length=512)] = ()
     principal_id: BoundedId | None = None
     principal_scope_digest: Digest | None = None
@@ -249,6 +250,7 @@ class SemanticBoundContext(QueryContract):
             if (
                 self.screen_id is not None
                 or self.resource_group_id is not None
+                or self.selection_token is not None
                 or self.resource_ids
                 or any(
                     value is not None
@@ -273,6 +275,7 @@ class SemanticBoundContext(QueryContract):
                 or self.ontology_release_digest is None
                 or self.source_generation is None
                 or self.selection_digest is None
+                or self.selection_token is None
                 or self.complete is not True
             ):
                 raise ValueError("screen bound context requires a complete server-issued identity")
@@ -290,6 +293,7 @@ class SemanticBoundContext(QueryContract):
             or self.ontology_release_digest is None
             or self.source_generation is None
             or self.selection_digest is None
+            or self.selection_token is None
             or self.complete is not True
         ):
             raise ValueError(

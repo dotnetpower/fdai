@@ -46,19 +46,20 @@ server-verifiable selection identity:
   "contextIdentity": {
     "kind": "screen",
     "screenId": "ontology-instances",
-    "resourceIds": ["resource-a", "resource-b"]
+    "selectionToken": "context-selection:<opaque>"
   }
 }
 ```
 
-The Console forwards this identity as additive `conversation_context`. Operator
-validates it against the authenticated principal and Core compiles an exact
-`Resource.id` predicate before any contextual FunctionType read. Missing,
-stale, duplicate, or widened ids produce a typed unavailable result; the
-principal-visible Resource collection is never used as a fallback.
-The identity is accepted only when the server-issued selection digest binds the
-principal scope, active ontology release, source generation, complete flag, and
-exact resource-id set. A truncated `resource_limit` snapshot cannot publish it.
+The Console forwards only this opaque token as additive `conversation_context`.
+Operator resolves it against a process-local server registry and the current
+authenticated principal, ordinary lowercase role scope, purpose, exact
+ontology release, source generation, completeness, and resource-id set. Core
+then compiles the exact `Resource.id` predicate before any contextual
+FunctionType read. Client-supplied or recomputed ids, an unknown token after
+restart, and a token with a different principal, role, or purpose are rejected;
+the principal-visible Resource collection is never used as a fallback. A
+truncated `resource_limit` snapshot cannot publish a token.
 
 An interactive screen should publish a complete operator model, not only KPI
 counters. In addition to `purpose`, `glossary`, and `facts`, its `records`

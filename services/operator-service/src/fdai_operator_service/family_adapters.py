@@ -14,6 +14,7 @@ from typing import cast
 from fdai_service_contracts import OperatorRole, RuleSearchProjection, rule_search_query_digest
 from starlette.exceptions import HTTPException
 
+from fdai_operator_service.context_selection import ContextSelectionRegistry
 from fdai_operator_service.context_selection_projection import (
     project_context_selection_comparisons,
 )
@@ -388,6 +389,7 @@ class PostgresOperationsAdapters:
     store: PostgresFamilyStore
     webhook_secret: str | None = None
     read_investigation_replay: PostgresReadInvestigationReplayStore | None = None
+    context_selection_registry: ContextSelectionRegistry | None = None
 
     async def read(self, query: ProjectionQuery) -> Mapping[str, object]:
         """Read one explicitly materialized operations projection."""
@@ -406,12 +408,14 @@ class PostgresOperationsAdapters:
                         query=query,
                         reader=self.store,
                         ontology_projection=ontology_projection,
+                        selection_registry=self.context_selection_registry,
                     )
                 if query.operation == "ontology.instance.list":
                     return await project_inventory_instances(
                         query=query,
                         reader=self.store,
                         ontology_projection=ontology_projection,
+                        selection_registry=self.context_selection_registry,
                     )
                 return await project_inventory_impact(
                     query=query,

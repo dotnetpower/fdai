@@ -199,6 +199,7 @@ async def test_instance_directory_uses_the_active_detail_generation() -> None:
         {"principal_id": "reader", "role": "reader", "purpose": "operations-review"}
     )
     assert isinstance(result["selection_digest"], str)
+    assert isinstance(result["selection_token"], str)
     resources = result["resources"]
     assert isinstance(resources, list)
     assert resources == [

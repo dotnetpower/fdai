@@ -1,7 +1,7 @@
 ---
 title: Operator Console - View Snapshot Contract
 translation_of: operator-console-view-snapshot.md
-translation_source_sha: fc1cb2dee4beaac227cddc2a2dec7f8c33fdfaf6
+translation_source_sha: d4ff2ca27656196a6dcc6a0c7c1d638e36c14a5e
 translation_revised: 2026-08-27
 ---
 
@@ -49,19 +49,19 @@ translation_revised: 2026-08-27
   "contextIdentity": {
     "kind": "screen",
     "screenId": "ontology-instances",
-    "resourceIds": ["resource-a", "resource-b"]
+    "selectionToken": "context-selection:<opaque>"
   }
 }
 ```
 
-Console은 이 신원을 추가 `conversation_context`로 전달합니다. Operator는
-인증된 principal에 대해 이를 검증하고 Core는 contextual FunctionType을 읽기
-전에 정확한 `Resource.id` 조건식을 컴파일합니다. 누락, 오래됨, 중복 또는
-확장된 id는 타입이 지정된 사용 불가 결과를 만들며 principal이 볼 수 있는
-Resource 컬렉션을 대체 경로로 사용하지 않습니다.
-신원은 서버가 발급한 selection digest가 principal 범위, 활성 온톨로지 release,
-source generation, complete 플래그 및 정확한 resource id 집합을 결속할 때만
-허용됩니다. `resource_limit`으로 잘린 스냅샷은 이를 게시할 수 없습니다.
+Console은 이 불투명 토큰만 추가 `conversation_context`로 전달합니다. Operator는
+프로세스 내 서버 레지스트리에서 토큰을 조회하고 인증된 principal, 일반 소문자
+role 범위, purpose, 정확한 ontology release, source generation, complete 상태 및
+Resource id 집합과 일치하는지 확인합니다. 그 후 Core가 contextual FunctionType
+읽기 전에 정확한 `Resource.id` 조건식을 컴파일합니다. 클라이언트가 보낸 id 또는
+다시 계산한 id, 재시작 후 없는 토큰, 다른 principal/role/purpose의 토큰은
+거부되며 principal이 볼 수 있는 Resource 컬렉션을 대체 경로로 사용하지 않습니다.
+`resource_limit`으로 잘린 스냅샷은 토큰을 게시할 수 없습니다.
 
 Interactive 화면은 KPI counter만이 아니라 완전한 운영자 모델을 publish하는
 것이 좋습니다. `purpose`, `glossary`, `facts` 외에도 `records`에 다음을

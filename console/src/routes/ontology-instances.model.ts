@@ -197,6 +197,7 @@ export interface OntologyInstanceExploration {
   readonly principal_id?: string;
   readonly principal_scope_digest?: string;
   readonly selection_digest?: string;
+  readonly selection_token?: string;
   readonly source_cutoff: string;
   readonly root_id: string;
   readonly depth: number;
@@ -738,12 +739,13 @@ function decodeContextIdentity(
   complete: boolean,
 ): Pick<
   OntologyInstanceExploration,
-  "principal_id" | "principal_scope_digest" | "selection_digest"
+"principal_id" | "principal_scope_digest" | "selection_digest" | "selection_token"
 > {
   const values = {
     principal_id: record.principal_id,
     principal_scope_digest: record.principal_scope_digest,
     selection_digest: record.selection_digest,
+    selection_token: record.selection_token,
   };
   const present = Object.values(values).some((value) => value !== undefined);
   if (!present) return {};
@@ -752,6 +754,7 @@ function decodeContextIdentity(
     typeof values.principal_id !== "string" ||
     typeof values.principal_scope_digest !== "string" ||
     typeof values.selection_digest !== "string" ||
+    typeof values.selection_token !== "string" ||
     !/^sha256:[a-f0-9]{64}$/.test(values.principal_scope_digest) ||
     !/^sha256:[a-f0-9]{64}$/.test(values.selection_digest)
   ) {
@@ -760,6 +763,7 @@ function decodeContextIdentity(
   return values as Pick<
     OntologyInstanceExploration,
     "principal_id" | "principal_scope_digest" | "selection_digest"
+    | "selection_token"
   >;
 }
 

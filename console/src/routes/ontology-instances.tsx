@@ -457,7 +457,8 @@ function contextIdentityForExploration(
     !data.complete ||
     !data.principal_id ||
     !data.principal_scope_digest ||
-    !data.selection_digest
+    !data.selection_digest ||
+    !data.selection_token
   ) {
     return undefined;
   }
@@ -465,6 +466,7 @@ function contextIdentityForExploration(
     kind: "screen",
     screenId: "ontology-instances",
     resourceIds: data.resources.map((resource) => resource.id),
+    selectionToken: data.selection_token,
     principalId: data.principal_id,
     principalScopeDigest: data.principal_scope_digest,
     ontologyReleaseDigest: data.ontology_release_digest,

@@ -115,6 +115,7 @@ export interface ViewContextIdentity {
   readonly screenId?: string;
   readonly resourceGroupId?: string;
   readonly resourceIds: readonly string[];
+  readonly selectionToken: string;
   readonly principalId: string;
   readonly principalScopeDigest: string;
   readonly ontologyReleaseDigest: string;
