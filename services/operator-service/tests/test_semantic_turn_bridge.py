@@ -12,6 +12,7 @@ from uuid import UUID, uuid5
 import fdai_operator_service.composition as composition_module
 import pytest
 from fdai_operator_service.composition import ProductionOperatorComposition
+from fdai_operator_service.context_selection import ContextSelectionRegistry
 from fdai_operator_service.environment import (
     AUDIENCE_ENV,
     DATABASE_ROLE_ENV,
@@ -196,18 +197,30 @@ def test_semantic_envelope_forwards_exact_screen_resource_scope() -> None:
         resource_ids=("resource-a", "resource-b"),
         **identity,
     )
-    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+    registry = ContextSelectionRegistry()
+    token = registry.issue(
+        {
+            "kind": "screen",
+            "screen_id": "ontology-instances",
+            "resource_ids": ["resource-a", "resource-b"],
+            "role": "approver",
+            "purpose": "operations-review",
+            "selection_digest": selection_digest,
+            **identity,
+        }
+    )
+    envelope = SemanticTurnEnvelopeBuilder(
+        clock=lambda: datetime(2026, 8, 11, tzinfo=UTC),
+        selection_registry=registry,
+    ).build(
         _proposal(
             body={
                 "prompt": "Which resources are on this screen?",
                 "conversation_context": {
                     "kind": "screen",
-                    "screen_id": "ontology-instances",
-                    "resource_ids": ["resource-a", "resource-b"],
-                    **identity,
-                    "selection_digest": selection_digest,
+                    "selection_token": token,
                 },
-            }
+            },
         )
     )
 
@@ -215,14 +228,15 @@ def test_semantic_envelope_forwards_exact_screen_resource_scope() -> None:
     assert semantic_turn["bound_context"] == {
         "kind": "screen",
         "screen_id": "ontology-instances",
+        "selection_token": token,
         "resource_ids": ["resource-a", "resource-b"],
         **identity,
         "selection_digest": selection_digest,
     }
 
 
-def test_semantic_envelope_rejects_context_scope_without_resource_ids() -> None:
-    with pytest.raises(ValueError, match="conversation_context resource_ids"):
+def test_semantic_envelope_rejects_context_scope_without_selection_token() -> None:
+    with pytest.raises(ValueError, match="selection token"):
         SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
             _proposal(
                 body={
@@ -230,15 +244,15 @@ def test_semantic_envelope_rejects_context_scope_without_resource_ids() -> None:
                     "conversation_context": {
                         "kind": "screen",
                         "screen_id": "ontology-instances",
-                        "resource_ids": [],
+                        "resource_ids": ["resource-a"],
                     },
                 }
             )
         )
 
 
-def test_semantic_envelope_rejects_unsigned_or_mismatched_context_identity() -> None:
-    with pytest.raises(ValueError, match="selection digest"):
+def test_semantic_envelope_rejects_unsigned_or_recomputed_context_identity() -> None:
+    with pytest.raises(ValueError, match="selection token"):
         SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
             _proposal(
                 body={
@@ -260,7 +274,7 @@ def test_semantic_envelope_rejects_unsigned_or_mismatched_context_identity() -> 
 
 
 def test_semantic_envelope_rejects_mixed_context_identity_kinds() -> None:
-    with pytest.raises(ValueError, match="screen bound context"):
+    with pytest.raises(ValueError, match="selection token"):
         SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
             _proposal(
                 body={
@@ -269,13 +283,8 @@ def test_semantic_envelope_rejects_mixed_context_identity_kinds() -> None:
                         "kind": "screen",
                         "screen_id": "ontology-instances",
                         "resource_group_id": "resource-group-a",
+                        "selection_token": "context-selection:forged",
                         "resource_ids": ["resource-a"],
-                        "principal_id": "operator-1",
-                        "principal_scope_digest": f"sha256:{'a' * 64}",
-                        "ontology_release_digest": f"sha256:{'b' * 64}",
-                        "source_generation": "generation-1",
-                        "selection_digest": f"sha256:{'c' * 64}",
-                        "complete": True,
                     },
                 }
             )
@@ -298,18 +307,30 @@ def test_semantic_envelope_accepts_the_bounded_512_id_context() -> None:
         resource_ids=resource_ids,
         **identity,
     )
-    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+    registry = ContextSelectionRegistry()
+    token = registry.issue(
+        {
+            "kind": "screen",
+            "screen_id": "ontology-instances",
+            "resource_ids": list(resource_ids),
+            "role": "approver",
+            "purpose": "operations-review",
+            "selection_digest": selection_digest,
+            **identity,
+        }
+    )
+    envelope = SemanticTurnEnvelopeBuilder(
+        clock=lambda: datetime(2026, 8, 11, tzinfo=UTC),
+        selection_registry=registry,
+    ).build(
         _proposal(
             body={
                 "prompt": "Which resources are on this screen?",
                 "conversation_context": {
                     "kind": "screen",
-                    "screen_id": "ontology-instances",
-                    "resource_ids": list(resource_ids),
-                    **identity,
-                    "selection_digest": selection_digest,
+                    "selection_token": token,
                 },
-            }
+            },
         )
     )
 
@@ -327,28 +348,83 @@ def test_semantic_envelope_rejects_context_over_512_ids() -> None:
         "source_generation": "generation-1",
         "complete": True,
     }
-    selection_digest = context_selection_digest(
-        kind="screen",
-        screen_id="ontology-instances",
-        resource_group_id=None,
-        resource_ids=resource_ids,
-        **identity,
-    )
-    with pytest.raises(ValueError, match="at most 512"):
-        SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
-            _proposal(
-                body={
-                    "prompt": "Which resources are on this screen?",
-                    "conversation_context": {
-                        "kind": "screen",
-                        "screen_id": "ontology-instances",
-                        "resource_ids": list(resource_ids),
-                        **identity,
-                        "selection_digest": selection_digest,
-                    },
-                }
-            )
+    with pytest.raises(ValueError, match="1-512"):
+        ContextSelectionRegistry().issue(
+            {
+                "kind": "screen",
+                "screen_id": "ontology-instances",
+                "resource_ids": list(resource_ids),
+                "role": "approver",
+                "purpose": "operations-review",
+                "selection_digest": f"sha256:{'c' * 64}",
+                **identity,
+            }
         )
+
+
+def test_context_selection_token_is_bound_to_principal_role_and_purpose() -> None:
+    registry = ContextSelectionRegistry()
+    token = registry.issue(
+        {
+            "kind": "screen",
+            "screen_id": "ontology-instances",
+            "resource_ids": ["resource-a"],
+            "principal_id": "operator-1",
+            "role": "reader",
+            "purpose": "operations-review",
+            "principal_scope_digest": f"sha256:{'a' * 64}",
+            "ontology_release_digest": f"sha256:{'b' * 64}",
+            "source_generation": "generation-1",
+            "selection_digest": f"sha256:{'c' * 64}",
+            "complete": True,
+        }
+    )
+
+    assert (
+        registry.resolve(
+            token,
+            principal_id="operator-1",
+            role="Reader",
+            purpose="operations-review",
+        )
+        is not None
+    )
+    assert (
+        registry.resolve(
+            token,
+            principal_id="operator-2",
+            role="Reader",
+            purpose="operations-review",
+        )
+        is None
+    )
+    assert (
+        registry.resolve(
+            token,
+            principal_id="operator-1",
+            role="Approver",
+            purpose="operations-review",
+        )
+        is None
+    )
+    assert (
+        registry.resolve(
+            token,
+            principal_id="operator-1",
+            role="Reader",
+            purpose="other-purpose",
+        )
+        is None
+    )
+    assert (
+        ContextSelectionRegistry().resolve(
+            token,
+            principal_id="operator-1",
+            role="Reader",
+            purpose="operations-review",
+        )
+        is None
+    )
 
 
 def test_semantic_envelope_omits_unbound_or_unsupported_conversation_context() -> None:

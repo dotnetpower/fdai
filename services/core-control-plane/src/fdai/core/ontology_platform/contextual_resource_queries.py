@@ -140,6 +140,8 @@ def contextual_resource_function(
             return _table((), complete=False, reason="context_scope_mismatch")
         if secured.receipt.truncated or not secured.receipt.complete:
             return _table((), complete=False, reason="context_scope_incomplete")
+        if secured.materialization.graph.links:
+            return _table((), complete=False, reason="context_object_only")
         rows = tuple(
             QueryRow.from_values(
                 f"contextual-resource-{index:04d}",

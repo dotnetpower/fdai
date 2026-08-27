@@ -31,6 +31,7 @@ from fdai_operator_service.azure_monitor_webhook_runtime import AzureMonitorWebh
 from fdai_operator_service.background_task_projection_runtime import (
     BackgroundTaskProjectionBridge,
 )
+from fdai_operator_service.context_selection import ContextSelectionRegistry
 from fdai_operator_service.contracts import ApplicationLifecycle, ReadinessProbe
 from fdai_operator_service.conversation_assurance_reader import (
     ConversationAssuranceReader,
@@ -38,6 +39,7 @@ from fdai_operator_service.conversation_assurance_reader import (
 )
 from fdai_operator_service.environment import OperatorEnvironment
 from fdai_operator_service.families.conversation import ConversationFamilyDependencies
+from fdai_operator_service.families.conversation.semantic_turn import SemanticTurnEnvelopeBuilder
 from fdai_operator_service.families.conversation.semantic_turn_runtime import (
     SEMANTIC_REQUEST_TOPIC,
     SEMANTIC_RESULT_TOPIC,
@@ -165,6 +167,7 @@ class ProductionOperatorComposition:
         environment = OperatorEnvironment.parse(os.environ if environ is None else environ)
         configured_read_model = self.read_model or _postgres_read_model(environment)
         family_store = _postgres_family_store(environment)
+        context_selection_registry = ContextSelectionRegistry()
         semantic_bus: OperatorSemanticKafkaBus | None = None
         live_stream_hub = LiveStreamHub()
         agent_stream_hub = LiveStreamHub(latest_key=_agent_state_key)
@@ -187,6 +190,7 @@ class ProductionOperatorComposition:
             request_topic=environment.semantic_request_topic or SEMANTIC_REQUEST_TOPIC,
             result_topic=environment.semantic_projection_topic or SEMANTIC_RESULT_TOPIC,
             result_group=environment.semantic_consumer_group_id,
+            context_selection_registry=context_selection_registry,
         )
         read_investigation_bridge = (
             ReadInvestigationBridge(
@@ -269,6 +273,7 @@ class ProductionOperatorComposition:
             semantic_bridge=semantic_bridge,
             read_model=configured_read_model,
             webhook_enabled=azure_monitor_webhook_bridge is not None,
+            context_selection_registry=context_selection_registry,
         )
         narrator_scheduler = (
             PeriodicNarratorRefreshScheduler(
@@ -332,6 +337,7 @@ def _build_route_families(
     semantic_bridge: SemanticTurnBridge | None,
     read_model: OperatorReadModel | None,
     webhook_enabled: bool,
+    context_selection_registry: ContextSelectionRegistry,
 ) -> tuple[OperatorRouteFamilies, LocalAzureNarratorAdapters | None]:
     authorizer = OperatorFamilyAuthorizer(authenticator)
     report_pdf_encoder = optional_pdf_report_encoder()
@@ -421,6 +427,7 @@ def _build_route_families(
         read_investigation_replay=PostgresReadInvestigationReplayStore(
             config=PostgresReadInvestigationReplayConfig(dsn=database_url)
         ),
+        context_selection_registry=context_selection_registry,
     )
     cost_reader = PostgresCostGovernanceReader(
         PostgresCostGovernanceConfig(
@@ -515,6 +522,7 @@ def _semantic_bridge(
     request_topic: str,
     result_topic: str,
     result_group: str,
+    context_selection_registry: ContextSelectionRegistry,
 ) -> SemanticTurnBridge | None:
     if publisher is None and result_source is None:
         return None
@@ -529,6 +537,9 @@ def _semantic_bridge(
         request_topic=request_topic,
         result_topic=result_topic,
         result_group=result_group,
+        builder=SemanticTurnEnvelopeBuilder(
+            selection_registry=context_selection_registry,
+        ),
     )
 
 

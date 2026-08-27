@@ -98,6 +98,20 @@ describe("decodeOntologyInstanceExploration", () => {
     expect(decoded.timeline.items[0]?.evidence_ref).toBe("audit:42");
   });
 
+  it("requires an opaque selection token for complete context identity", () => {
+    const value = payload();
+    value.principal_id = "operator-1";
+    value.principal_scope_digest = `sha256:${"b".repeat(64)}`;
+    value.selection_digest = `sha256:${"c".repeat(64)}`;
+    expect(() => decodeOntologyInstanceExploration(value)).toThrow(
+      "instance context identity is incomplete or invalid",
+    );
+    value.selection_token = "context-selection:opaque";
+    expect(decodeOntologyInstanceExploration(value).selection_token).toBe(
+      "context-selection:opaque",
+    );
+  });
+
   it("accepts a legacy response before Kubernetes source state was additive", () => {
     const value = payload();
     value.sources = (value.sources as Record<string, unknown>[]).filter(

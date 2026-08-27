@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID, uuid5
 
+from fdai_operator_service.context_selection import ContextSelectionRegistry
 from fdai_operator_service.families.conversation.contracts import ConversationProposal
 from fdai_service_contracts import (
     JsonSchemaContractValidator,
@@ -21,8 +22,10 @@ from fdai_service_contracts import (
     SemanticPriorTurn,
     SemanticTurnPrincipal,
     SemanticTurnRequest,
+    canonical_ordinary_role,
     context_selection_digest,
 )
+from fdai_service_contracts.codec import MAX_WIRE_BYTES, encode_wire_object
 
 _IDENTITY_NAMESPACE = UUID("00000000-0000-0000-0000-000000000000")
 _DEFAULT_DEADLINE_SECONDS = 90
@@ -34,9 +37,15 @@ Clock = Callable[[], datetime]
 class SemanticTurnEnvelopeBuilder:
     """Construct no-authority v1.5 requests with retry-stable identities."""
 
-    def __init__(self, *, clock: Clock | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        clock: Clock | None = None,
+        selection_registry: ContextSelectionRegistry | None = None,
+    ) -> None:
         self._clock = clock or (lambda: datetime.now(UTC))
         self._validator = JsonSchemaContractValidator(PackageResourceSchemaRegistry())
+        self._selection_registry = selection_registry
 
     def build(
         self,
@@ -52,23 +61,28 @@ class SemanticTurnEnvelopeBuilder:
         request_id = _request_id(proposal, identity_seed)
         session_id = _session_id(proposal, identity_seed)
         turn_id = str(uuid5(_IDENTITY_NAMESPACE, f"turn\0{identity_seed}"))
+        roles = _authorized_roles(proposal)
+        purpose = _optional_text(proposal.body, "purpose", default="operations-review")
         semantic_turn = SemanticTurnRequest(
             utterance=_required_text(proposal.body, "prompt"),
             principal=SemanticTurnPrincipal(
                 subject_id=proposal.scope.subject_id,
-                roles=_authorized_roles(proposal),
+                roles=roles,
                 principal_kind=proposal.scope.principal_kind,
             ),
             session_id=session_id,
             turn_id=turn_id,
             turn_sequence=_turn_sequence(proposal.body),
             locale=_optional_text(proposal.body, "locale", default="en"),
-            purpose=_optional_text(proposal.body, "purpose", default="operations-review"),
+            purpose=purpose,
             deadline_at=_deadline(proposal.body, requested_at),
             view_context_digest=_optional_digest(proposal.body.get("view_context")),
             bound_context=_bound_context(
                 proposal.body.get("conversation_context"),
                 principal_id=proposal.scope.subject_id,
+                role=_highest_ordinary_role(roles),
+                purpose=purpose,
+                selection_registry=self._selection_registry,
             ),
             investigation_continuation=investigation_continuation,
             prior_turns=_prior_turns(proposal.body.get("history")),
@@ -98,6 +112,8 @@ class SemanticTurnEnvelopeBuilder:
             "semantic_turn": semantic_payload,
         }
         self._validator.validate("operator-core-request", envelope, version="1.5.0")
+        if len(encode_wire_object(envelope)) > MAX_WIRE_BYTES:
+            raise ValueError("semantic turn exceeds the 256 KiB wire bound")
         return envelope
 
 
@@ -192,8 +208,15 @@ def _prior_turns(value: object) -> tuple[SemanticPriorTurn, ...]:
     return tuple(turns)
 
 
-def _bound_context(value: object, *, principal_id: str) -> SemanticBoundContext | None:
-    """Accept only server-resolved incident and exact screen/resource scopes."""
+def _bound_context(
+    value: object,
+    *,
+    principal_id: str,
+    role: str,
+    purpose: str,
+    selection_registry: ContextSelectionRegistry | None,
+) -> SemanticBoundContext | None:
+    """Resolve opaque selections and accept only server-owned resource scopes."""
 
     if value is None:
         return None
@@ -203,41 +226,54 @@ def _bound_context(value: object, *, principal_id: str) -> SemanticBoundContext 
     if kind not in {"incident", "screen", "resource_group"}:
         return None
     if kind in {"screen", "resource_group"}:
-        raw_ids = value.get("resource_ids")
-        if raw_ids is None:
-            return None
-        if not isinstance(raw_ids, list) or not raw_ids:
-            raise ValueError("conversation_context resource_ids MUST be a non-empty array")
-        resource_ids = tuple(item for item in raw_ids if isinstance(item, str) and item.strip())
-        if len(resource_ids) != len(raw_ids):
-            raise ValueError("conversation_context resource_ids MUST be non-empty strings")
+        if selection_registry is None:
+            raise ValueError("conversation_context selection token is unavailable")
+        if any(
+            key in value
+            for key in (
+                "resource_ids",
+                "screen_id",
+                "resource_group_id",
+                "id",
+                "principal_id",
+                "principal_scope_digest",
+                "ontology_release_digest",
+                "source_generation",
+                "selection_digest",
+                "complete",
+            )
+        ):
+            raise ValueError("conversation_context resource identity MUST use its selection token")
+        token = value.get("selection_token")
+        selection = selection_registry.resolve(
+            token if isinstance(token, str) else "",
+            principal_id=principal_id,
+            role=role,
+            purpose=purpose,
+        )
+        if selection is None or selection.get("kind") != kind:
+            raise ValueError("conversation_context selection token is invalid or expired")
         if kind == "screen":
-            if value.get("resource_group_id") is not None:
-                raise ValueError("screen bound context MUST NOT carry mixed identity")
-            screen_id = value.get("screen_id", value.get("id"))
-            if not isinstance(screen_id, str) or not screen_id.strip():
-                return None
-            context = SemanticBoundContext(
+            screen_id = selection.get("screen_id")
+            if not isinstance(screen_id, str):
+                raise ValueError("screen selection identity is invalid")
+            return SemanticBoundContext(
                 kind="screen",
                 screen_id=screen_id,
-                resource_ids=resource_ids,
-                **_context_identity_fields(value, principal_id=principal_id),
+                selection_token=token,
+                resource_ids=tuple(selection["resource_ids"]),
+                **_context_identity_fields(selection, principal_id=principal_id),
             )
-            _verify_context_selection_digest(context)
-            return context
-        resource_group_id = value.get("resource_group_id", value.get("id"))
-        if value.get("screen_id") is not None:
-            raise ValueError("resource-group bound context MUST NOT carry mixed identity")
-        if not isinstance(resource_group_id, str) or not resource_group_id.strip():
-            return None
-        context = SemanticBoundContext(
+        resource_group_id = selection.get("resource_group_id")
+        if not isinstance(resource_group_id, str):
+            raise ValueError("resource-group selection identity is invalid")
+        return SemanticBoundContext(
             kind="resource_group",
             resource_group_id=resource_group_id,
-            resource_ids=resource_ids,
-            **_context_identity_fields(value, principal_id=principal_id),
+            selection_token=token,
+            resource_ids=tuple(selection["resource_ids"]),
+            **_context_identity_fields(selection, principal_id=principal_id),
         )
-        _verify_context_selection_digest(context)
-        return context
     incident_id = value.get("incident_id")
     correlation_id = value.get("correlation_id")
     if incident_id is None and correlation_id is None:
@@ -272,6 +308,13 @@ def _context_identity_fields(value: dict[str, object], *, principal_id: str) -> 
     ):
         raise ValueError("conversation_context identity is incomplete")
     return fields
+
+
+def _highest_ordinary_role(roles: tuple[OperatorRole, ...]) -> str:
+    ordinary = [role for role in roles if role is not OperatorRole.BREAK_GLASS]
+    if not ordinary:
+        raise ValueError("principal scope MUST contain an ordinary query role")
+    return canonical_ordinary_role(ordinary[-1])
 
 
 def _verify_context_selection_digest(context: SemanticBoundContext) -> None:

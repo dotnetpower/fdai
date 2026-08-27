@@ -73,6 +73,7 @@
             "correlation_id": {"type": "string", "minLength": 1, "maxLength": 512},
             "screen_id": {"type": "string", "minLength": 1, "maxLength": 256},
             "resource_group_id": {"type": "string", "minLength": 1, "maxLength": 256},
+            "selection_token": {"type": "string", "minLength": 1, "maxLength": 256},
             "resource_ids": {"type": "array", "maxItems": 512, "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 256}},
             "principal_id": {"type": "string", "minLength": 1, "maxLength": 256},
             "principal_scope_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
