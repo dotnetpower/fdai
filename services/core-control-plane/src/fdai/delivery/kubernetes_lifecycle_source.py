@@ -92,6 +92,7 @@ class KubernetesLifecyclePoll:
     complete: bool
     limitation: str | None
     attempt_ref: str
+    cursor_safe: bool = False
 
     def __post_init__(self) -> None:
         if not self.cluster_ref.strip() or len(self.cluster_ref) > 512:
@@ -106,6 +107,8 @@ class KubernetesLifecyclePoll:
             raise ValueError("Kubernetes lifecycle poll MUST carry a cursor when complete")
         if not self.attempt_ref.strip() or len(self.attempt_ref) > 256:
             raise ValueError("Kubernetes lifecycle poll attempt_ref MUST be bounded non-empty")
+        if self.cursor_safe and self.next_cursor is None:
+            raise ValueError("cursor-safe lifecycle poll MUST carry a cursor")
 
 
 class KubernetesLifecycleSource(Protocol):
@@ -265,7 +268,7 @@ class KubernetesLifecycleWatchSource:
             # Preserve the durable cursor on a transient outage: only an explicit
             # `cursor_expired` gap (HTTP 410 Gone) resets it to `None`.
             return self._gap(cluster_ref, limitation="source_unavailable", next_cursor=cursor)
-        lines, truncated = watch_result
+        lines, truncated, safe_progress = watch_result
         observations: list[KubernetesLifecycleObservation] = []
         next_cursor = cursor
         malformed = False
@@ -341,6 +344,7 @@ class KubernetesLifecycleWatchSource:
             observations=tuple(observations),
             next_cursor=next_cursor,
             limitation=limitation,
+            cursor_safe=safe_progress,
         )
 
     async def _get(
@@ -378,7 +382,7 @@ class KubernetesLifecycleWatchSource:
         *,
         cursor: str,
         headers: Mapping[str, str],
-    ) -> tuple[list[str], bool] | None:
+    ) -> tuple[list[str], bool, bool] | None:
         """Return decoded watch lines plus whether a bound cut the stream short.
 
         `truncated=True` means a byte, line-length, or UTF-8 bound was hit before
@@ -406,7 +410,11 @@ class KubernetesLifecycleWatchSource:
                     ),
                 ) as response:
                     if response.status_code == 410:
-                        return [json.dumps({"type": "ERROR", "object": {"code": 410}})], False
+                        return (
+                            [json.dumps({"type": "ERROR", "object": {"code": 410}})],
+                            False,
+                            False,
+                        )
                     if response.status_code in (401, 403):
                         raise _KubernetesLifecycleAuthorizationError(str(response.status_code))
                     response.raise_for_status()
@@ -419,28 +427,28 @@ class KubernetesLifecycleWatchSource:
                     async for chunk in response.aiter_raw():
                         total += len(chunk)
                         if total > self._config.max_response_bytes:
-                            return lines, True
+                            return lines, True, False
                         buffer.extend(chunk)
                         while b"\n" in buffer:
                             raw_line, _, remainder = buffer.partition(b"\n")
                             buffer = bytearray(remainder)
                             if len(raw_line) > _MAX_WATCH_LINE_BYTES:
-                                return lines, True
+                                return lines, True, False
                             try:
                                 decoded_line = raw_line.decode("utf-8")
                             except UnicodeDecodeError:
-                                return lines, True
+                                return lines, True, False
                             lines.append(decoded_line)
                             if len(lines) >= _MAX_EVENTS:
-                                return lines, True
+                                return lines, True, True
                     if buffer:
                         if len(buffer) > _MAX_WATCH_LINE_BYTES:
-                            return lines, True
+                            return lines, True, False
                         try:
                             lines.append(bytes(buffer).decode("utf-8"))
                         except UnicodeDecodeError:
-                            return lines, True
-                    return lines, False
+                            return lines, True, False
+                    return lines, False, False
         except (KubernetesLifecycleSourceError, httpx.HTTPError, OSError, ssl.SSLError):
             return None
 
@@ -476,6 +484,7 @@ class KubernetesLifecycleWatchSource:
         observations: tuple[KubernetesLifecycleObservation, ...],
         next_cursor: str | None,
         limitation: str | None,
+        cursor_safe: bool = False,
     ) -> KubernetesLifecyclePoll:
         material = "|".join(
             (
@@ -492,6 +501,7 @@ class KubernetesLifecycleWatchSource:
             complete=limitation is None,
             limitation=limitation,
             attempt_ref=f"kubernetes-lifecycle:{hashlib.sha256(material.encode()).hexdigest()}",
+            cursor_safe=cursor_safe,
         )
 
 

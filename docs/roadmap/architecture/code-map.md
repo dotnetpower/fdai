@@ -31,6 +31,8 @@ retired top-level application tree.
 > do not advance it.
 > The cursor read includes completeness and limitation, preserves SQL `NULL` after expiry, and a
 > WATCH count cap is an explicit truncation gap.
+> Resource-event rows retain the durable object UID, cluster, recorded time, and source revision so
+> the recovery Function can translate its actual query schema into typed replacement evidence.
 
 ## Physical service ownership
 

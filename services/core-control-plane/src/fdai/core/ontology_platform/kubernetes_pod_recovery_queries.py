@@ -482,7 +482,9 @@ def _default_replacement_context(
     if deployment is None:
         return None
     deployment_properties = _resource_properties(deployment)
-    times = tuple(_required_replacement_time(row, "event_time") for row in old_rows)
+    times = tuple(
+        _required_replacement_alias_time(row, "event_time", "occurred_at") for row in old_rows
+    )
     return {
         "old_pod": old,
         "candidates": [current],
@@ -590,11 +592,11 @@ def _lifecycle_observation(value: object) -> KubernetesLifecycleObservation | No
         namespace=_optional_replacement_text(value, "namespace"),
         object_uid=_required_replacement_text(value, "object_uid"),
         owner_uid=_optional_replacement_text(value, "owner_uid"),
-        reason=_required_replacement_text(value, "reason"),
-        category=_required_replacement_text(value, "category"),
-        event_type=_required_replacement_text(value, "event_type"),
-        event_time=_required_replacement_time(value, "event_time"),
-        recorded_time=_required_replacement_time(value, "recorded_time"),
+        reason=_required_replacement_alias(value, "reason", "event_kind"),
+        category=_required_replacement_alias(value, "category", "classification"),
+        event_type=_required_replacement_alias(value, "event_type", "status"),
+        event_time=_required_replacement_alias_time(value, "event_time", "occurred_at"),
+        recorded_time=_required_replacement_time(value, "recorded_at"),
         source_revision=_required_replacement_text(value, "source_revision"),
         evidence_ref=_required_replacement_text(value, "evidence_ref"),
     )
@@ -612,6 +614,21 @@ def _required_replacement_text(value: Mapping[str, Any], key: str) -> str:
     if not isinstance(item, str) or not item.strip():
         raise ValueError(f"replacement {key} MUST be non-empty text")
     return item.strip()
+
+
+def _required_replacement_alias(value: Mapping[str, Any], *keys: str) -> str:
+    for key in keys:
+        if isinstance(value.get(key), str) and value[key].strip():
+            return str(value[key]).strip()
+    raise ValueError(f"replacement {keys[0]} MUST be non-empty text")
+
+
+def _required_replacement_alias_time(value: Mapping[str, Any], *keys: str) -> datetime:
+    for key in keys:
+        parsed = _parse_time(value.get(key))
+        if parsed is not None:
+            return parsed
+    raise ValueError(f"replacement {keys[0]} MUST be an ISO timestamp")
 
 
 def _optional_replacement_text(value: Mapping[str, Any], key: str) -> str | None:

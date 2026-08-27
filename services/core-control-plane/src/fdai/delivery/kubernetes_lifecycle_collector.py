@@ -106,7 +106,7 @@ async def collect_kubernetes_lifecycle_once(
         raise ValueError("Kubernetes lifecycle source responded with a foreign cluster_ref")
     next_cursor = (
         poll.next_cursor
-        if poll.complete or poll.limitation == "cursor_expired"
+        if poll.complete or poll.cursor_safe or poll.limitation == "cursor_expired"
         else previous_cursor
     )
     receipt = await store.append(

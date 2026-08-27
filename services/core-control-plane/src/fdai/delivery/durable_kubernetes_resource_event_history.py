@@ -168,6 +168,10 @@ class DurableKubernetesResourceEventHistoryReader:
                 classification=item.category,
                 occurred_at=item.event_time,
                 evidence_ref=item.evidence_ref,
+                object_uid=item.object_uid,
+                cluster_ref=item.cluster_ref,
+                recorded_at=item.recorded_time,
+                source_revision=item.source_revision,
             )
             for item in bounded_observations
         )

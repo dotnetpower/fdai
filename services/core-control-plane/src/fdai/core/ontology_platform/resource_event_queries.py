@@ -49,6 +49,10 @@ class ResourceEventObservation:
     classification: str
     occurred_at: datetime
     evidence_ref: str
+    object_uid: str | None = None
+    cluster_ref: str | None = None
+    recorded_at: datetime | None = None
+    source_revision: str | None = None
 
     def __post_init__(self) -> None:
         for name, value, maximum in (
@@ -237,6 +241,18 @@ def resource_event_history_function(
                     "occurred_at": event.occurred_at.isoformat(),
                     "evidence_ref": event.evidence_ref,
                     "execution_authority": False,
+                    **({"object_uid": event.object_uid} if event.object_uid is not None else {}),
+                    **({"cluster_ref": event.cluster_ref} if event.cluster_ref is not None else {}),
+                    **(
+                        {"recorded_at": event.recorded_at.isoformat()}
+                        if event.recorded_at is not None
+                        else {}
+                    ),
+                    **(
+                        {"source_revision": event.source_revision}
+                        if event.source_revision is not None
+                        else {}
+                    ),
                 },
             )
             for index, event in enumerate(collection.events, start=1)
