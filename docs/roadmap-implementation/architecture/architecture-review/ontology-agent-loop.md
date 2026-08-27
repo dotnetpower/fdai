@@ -22,6 +22,7 @@ foundations as proof that ARB runs autonomously.
 |------|-------|--------|----------|-----------|
 | 2026-08-24 | in-progress | Split the ontology-agent loop into a focused owner and recorded the current foundation-to-runtime gap. | `current change`; owner document, paired translation, source paths, and focused documentation checks. | Implement the observation-mode vertical slice and prove it through owned topics. |
 | 2026-08-27 | implemented | Replaced the caller-supplied freshness boolean with an authoritative active-inventory receipt that binds target, release, generation, graph revision, temporal validity, completeness, and zero execution authority. | `current change`; focused impact, persistence-decoder, change-chain, lineage, and pantheon-layout checks (`64 passed`); Ruff and strict mypy. | Retain deployed receipt evidence separately and continue composing the remaining observation-mode ARB slice. |
+| 2026-08-27 | implemented | Closed review findings in the freshness boundary by binding persisted ontology and operating-model manifests, rejecting all pending overlays, double-reading around graph traversal, and routing configured PostgreSQL failures to explicit review. | `current change`; focused freshness and change-chain checks within the 49-case slice; Ruff and strict mypy. | Continue the remaining evidence join and lineage-derived projection work. |
 
 ### Remaining work
 

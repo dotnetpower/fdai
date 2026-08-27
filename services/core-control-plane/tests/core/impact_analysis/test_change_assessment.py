@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import pytest
 from fdai.core.impact_analysis import (
     ChangeAssessmentService,
+    ChangeAssessmentUnavailableError,
     GraphFreshnessReceipt,
     ImpactAnalyzer,
     build_graph_freshness_receipt,
@@ -49,6 +51,34 @@ class _Source:
     async def resolve(self, *, target_ref: str) -> GraphFreshnessReceipt | None:
         self.targets.append(target_ref)
         return self.receipt
+
+
+class _ChangingSource:
+    def __init__(
+        self,
+        first: GraphFreshnessReceipt,
+        second: GraphFreshnessReceipt,
+    ) -> None:
+        self._receipts = iter((first, second))
+
+    async def resolve(self, *, target_ref: str) -> GraphFreshnessReceipt:
+        del target_ref
+        return next(self._receipts)
+
+
+class _ProviderError(Exception):
+    pass
+
+
+class _FailingSource:
+    async def resolve(self, *, target_ref: str) -> None:
+        del target_ref
+        raise _ProviderError("unavailable")
+
+
+class _FailingStore:
+    async def traverse(self, **_kwargs: object) -> OntologyGraphSnapshot:
+        raise _ProviderError("unavailable")
 
 
 def _receipt(
@@ -206,3 +236,46 @@ async def test_freshness_identity_and_completeness_fail_closed(
 def test_freshness_receipt_rejects_digest_tampering() -> None:
     with pytest.raises(ValueError, match="digest"):
         replace(_receipt(), receipt_digest="sha256:" + "f" * 64)
+
+
+async def test_generation_change_during_assessment_requires_review() -> None:
+    service = ChangeAssessmentService(
+        analyzer=ImpactAnalyzer(store=_Store()),
+        graph_freshness_source=_ChangingSource(
+            _receipt(),
+            _receipt(
+                source_generation="inventory-generation-2",
+                graph_revision="sha256:" + "c" * 64,
+            ),
+        ),
+        ontology_release_digest=_RELEASE,
+        clock=lambda: _NOW,
+    )
+
+    assessment = await service.assess(_change())
+
+    assert assessment.review_required
+    assert "graph_changed_during_assessment" in assessment.reasons
+
+
+@pytest.mark.parametrize(
+    ("source", "store"),
+    [
+        (_FailingSource(), _Store()),
+        (_Source(_receipt()), _FailingStore()),
+    ],
+)
+async def test_authoritative_provider_errors_become_explicit_unavailable(
+    source: Any,
+    store: Any,
+) -> None:
+    service = ChangeAssessmentService(
+        analyzer=ImpactAnalyzer(store=store),
+        graph_freshness_source=source,
+        ontology_release_digest=_RELEASE,
+        clock=lambda: _NOW,
+        analysis_error_types=(_ProviderError,),
+    )
+
+    with pytest.raises(ChangeAssessmentUnavailableError):
+        await service.assess(_change())
