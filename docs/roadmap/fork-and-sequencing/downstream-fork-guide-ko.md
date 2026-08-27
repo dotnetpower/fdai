@@ -1,7 +1,7 @@
 ---
 title: Downstream Fork 가이드
 translation_of: downstream-fork-guide.md
-translation_source_sha: ae93d84b7ca9fcc26e26b85b69e0adf243b9d166
+translation_source_sha: b7906a018b827963a9585129e6d26b10f7b1deaa
 translation_revised: 2026-08-27
 ---
 
@@ -155,7 +155,9 @@ scripts/integrity/check-integrity.sh        # 서명 + 콘텐츠, 완전 오프�
 업스트림 서명자 체크아웃에서 pre-commit 훅은 준비 영역의 Git 인덱스를 해시하고 갱신한
 매니페스트와 서명을 인덱스에 직접 기록합니다. 작업 트리 사본은 수정하지 않습니다. 따라서 일부만
 준비한 프레임워크 파일은 준비한 내용만 증명하며, 관련 없는 작업 트리 무결성 변경은 해당 세션에서
-계속 사용할 수 있습니다. Pre-push 검증은 게시 전에 커밋된 스냅샷을 계속 확인합니다.
+계속 사용할 수 있습니다. Pre-push 검증은 게시 전에 커밋된 스냅샷을 계속 확인합니다. 인덱스
+생성은 준비된 매니페스트의 기존 `generated_at` 값을 유지하므로 pre-commit을 반복 실행해도
+바이트가 같은 결과를 만듭니다.
 
 ## 4. 포크를 위한 저장소 레이아웃
 

@@ -154,7 +154,8 @@ In the upstream signer checkout, the pre-commit hook hashes the staged Git index
 refreshed manifest and signature directly to the index. It does not modify worktree copies.
 Partially staged framework files therefore attest only their staged content, and unrelated
 worktree integrity edits remain available for their owning session. Pre-push verification still
-checks the committed snapshot before publication.
+checks the committed snapshot before publication. Index generation retains the staged manifest's
+existing `generated_at` value so a repeated pre-commit pass produces byte-identical artifacts.
 
 ## 4. Repo layout for a fork
 

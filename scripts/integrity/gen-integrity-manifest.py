@@ -107,6 +107,25 @@ def sha256_of_index(root: Path, path: str) -> str:
     return hashlib.sha256(content).hexdigest()
 
 
+def generated_at(root: Path, *, source: str) -> str:
+    if source == "index":
+        current = subprocess.run(
+            ["git", "show", f":{DEFAULT_OUT}"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if current.returncode == 0:
+            try:
+                value = json.loads(current.stdout).get("generated_at")
+            except json.JSONDecodeError:
+                value = None
+            if isinstance(value, str) and value:
+                return value
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 def build_manifest(root: Path, *, source: str = "worktree") -> dict:
     entries = load_surface(root)
     surface_files = sorted(p for p in tracked_files(root) if matches_surface(p, entries))
@@ -129,7 +148,7 @@ def build_manifest(root: Path, *, source: str = "worktree") -> dict:
     return {
         "version": MANIFEST_VERSION,
         "algorithm": "sha256",
-        "generated_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "generated_at": generated_at(root, source=source),
         "surface": entries,
         "file_count": len(files),
         "files": files,

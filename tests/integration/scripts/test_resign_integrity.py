@@ -171,3 +171,29 @@ def test_manifest_generator_hashes_staged_content(repo: Path) -> None:
     assert result.returncode == 0, result.stderr
     manifest = json.loads(output.read_text(encoding="utf-8"))
     assert manifest["files"][str(_PROTECTED_FILE)] == hashlib.sha256(b"VALUE = 2\n").hexdigest()
+
+
+def test_index_manifest_generation_preserves_existing_timestamp(repo: Path) -> None:
+    manifest_path = repo / "security" / "integrity" / "manifest.json"
+    manifest_path.write_text('{"generated_at": "2026-08-27T00:00:00Z"}\n', encoding="utf-8")
+    _git(repo, "add", str(manifest_path.relative_to(repo)))
+    output = repo / "index-manifest.json"
+
+    result = subprocess.run(  # noqa: S603 - fixed interpreter and test-controlled script
+        [
+            sys.executable,
+            str(repo / "scripts" / "integrity" / _GENERATOR.name),
+            "--source",
+            "index",
+            "--out",
+            str(output),
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    generated = json.loads(output.read_text(encoding="utf-8"))
+    assert generated["generated_at"] == "2026-08-27T00:00:00Z"
