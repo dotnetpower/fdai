@@ -93,7 +93,7 @@ def compile_contextual_resource_plan(
         predicates=tuple(predicates),
         as_of=evaluation_time.astimezone(UTC),
         purpose=purpose,
-        limit=min(len(resource_ids), 1000),
+        limit=len(resource_ids),
     )
     scope = OntologyQueryNode(
         node_id="context-resource-scope",

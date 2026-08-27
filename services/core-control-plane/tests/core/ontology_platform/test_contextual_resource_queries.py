@@ -138,6 +138,14 @@ async def test_contextual_function_returns_only_exact_context_membership() -> No
     assert [row["values"]["id"] for row in result["rows"]] == ["resource-a"]
 
 
+async def test_contextual_function_reads_the_complete_512_id_context() -> None:
+    resources = tuple(_resource(f"resource-{index}") for index in range(512))
+    result = await _invoke(_result(resources), [resource.id for resource in resources])
+
+    assert result["complete"] is True
+    assert len(result["rows"]) == 512
+
+
 async def test_contextual_function_holds_on_scope_widening() -> None:
     result = await _invoke(
         _result((_resource("resource-a"),)),
