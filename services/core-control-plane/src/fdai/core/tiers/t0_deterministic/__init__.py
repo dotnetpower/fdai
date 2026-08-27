@@ -27,7 +27,11 @@ from fdai.core.tiers.t0_deterministic.engine import (
     PolicyResult,
     T0Engine,
 )
-from fdai.core.tiers.t0_deterministic.index import RuleIndex
+from fdai.core.tiers.t0_deterministic.index import (
+    CatalogIndexLifecycle,
+    CatalogReloadReceipt,
+    RuleIndex,
+)
 from fdai.core.tiers.t0_deterministic.models import (
     AuditHint,
     Finding,
@@ -43,6 +47,8 @@ from fdai.core.tiers.t0_deterministic.opa_evaluator import (
 __all__ = [
     "AbstainEvaluator",
     "AuditHint",
+    "CatalogIndexLifecycle",
+    "CatalogReloadReceipt",
     "Finding",
     "MissingOpaBinaryError",
     "OpaEvaluatorError",
