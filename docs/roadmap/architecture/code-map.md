@@ -249,6 +249,8 @@ The wire contract permits a bounded 10,000-id context envelope; Core's exact-id 
 cap returned table materialization at the existing safe result bound.
 The context contract rejects mixed incident, screen, and resource-group identities, while exact
 selection reads are batched at fixed concurrency and retain the source-generation receipt.
+The bounded semantic query JSON envelope is sized for the 10,000-id selection without removing
+the existing row and byte limits on ordinary outputs.
 
 The SDK also owns the logical-topic marker and deterministic consumer-group derivation used when
 those two semantic channels share a physical Event Hub. Core and Operator keep separate adapters,

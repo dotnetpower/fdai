@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 2a6b5533dce77e1bbe89e69d6dda83fc7ded80dc
+translation_source_sha: 86a366bcd9331c694c46596f8ad0d048632a0262
 translation_revised: 2026-08-28
 ---
 # 코드 맵
@@ -247,6 +247,8 @@ Wire 계약은 범위가 제한된 10,000개 id context envelope를 허용하지
 저장은 기존의 안전한 결과 상한에서 표 materialization을 제한합니다.
 Context 계약은 incident, screen 및 resource-group 신원을 혼합하는 입력을 거부하며, 정확한
 선택 읽기는 고정 concurrency로 batch 처리하고 source-generation receipt를 보존합니다.
+범위가 제한된 semantic query JSON envelope는 10,000개 id 선택에 맞게 크기를 확보하면서도
+일반 output의 기존 행 및 byte 상한은 제거하지 않습니다.
 
 SDK는 두 semantic channel이 하나의 physical Event Hub를 공유할 때 사용하는 logical-topic marker와
 결정론적 consumer-group 파생 규칙도 소유합니다. Core와 Operator는 서로 다른 adapter, codec,
