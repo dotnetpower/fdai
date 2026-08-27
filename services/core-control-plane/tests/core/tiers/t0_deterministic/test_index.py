@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 import yaml
-from fdai.core.tiers.t0_deterministic import RuleIndex
+from fdai.core.tiers.t0_deterministic import CatalogIndexLifecycle, RuleIndex
 from fdai.rule_catalog.schema.action_type import load_action_type_catalog
 from fdai.rule_catalog.schema.resource_type import (
     load_resource_type_registry_from_mapping,
@@ -200,3 +200,83 @@ def test_index_without_signal_registry_preserves_shipped_catch_all_compatibility
     assert index.rules_for_signal(
         resource_type="compute.vm", signal_type="legacy.synthetic.event"
     ) == (configuration, metric)
+
+
+def test_catalog_reload_failure_preserves_current_and_previous_indexes() -> None:
+    baseline = _make_rule(
+        rule_id="baseline.rule",
+        resource_type="compute.vm",
+        severity=Severity.LOW,
+    )
+    lifecycle = CatalogIndexLifecycle(catalog_version="catalog-n", rules=(baseline,))
+    accepted = lifecycle.reload(
+        catalog_version="catalog-n-plus-one",
+        rules=(
+            _make_rule(
+                rule_id="replacement.rule",
+                resource_type="object-storage",
+                severity=Severity.HIGH,
+            ),
+        ),
+    )
+    current_before_failure = lifecycle.current_index
+
+    with pytest.raises(ValueError, match="duplicate rule id"):
+        lifecycle.reload(
+            catalog_version="catalog-n-plus-two",
+            rules=(baseline, baseline.model_copy(update={"severity": Severity.HIGH})),
+        )
+
+    assert lifecycle.current_catalog_version == "catalog-n-plus-one"
+    assert lifecycle.current_index is current_before_failure
+    assert lifecycle.index_for("catalog-n") is not None
+    assert lifecycle.last_receipt.accepted is False
+    assert lifecycle.last_receipt.retained_catalog_versions == accepted.retained_catalog_versions
+
+
+def test_catalog_reload_retains_n_minus_one_and_rolls_back_without_recompile() -> None:
+    baseline = _make_rule(
+        rule_id="baseline.rule",
+        resource_type="compute.vm",
+        severity=Severity.LOW,
+    )
+    replacement = _make_rule(
+        rule_id="replacement.rule",
+        resource_type="object-storage",
+        severity=Severity.HIGH,
+    )
+    lifecycle = CatalogIndexLifecycle(catalog_version="catalog-n", rules=(baseline,))
+
+    receipt = lifecycle.reload(catalog_version="catalog-n-plus-one", rules=(replacement,))
+    assert receipt.retained_catalog_versions == ("catalog-n-plus-one", "catalog-n")
+    assert lifecycle.index_for("catalog-n").rule("baseline.rule") is baseline
+    assert lifecycle.current_index.rule("replacement.rule") is replacement
+
+    rollback = lifecycle.rollback()
+    assert rollback.current_catalog_version == "catalog-n"
+    assert lifecycle.current_catalog_version == "catalog-n"
+    assert lifecycle.index_for("catalog-n-plus-one").rule("replacement.rule") is replacement
+    with pytest.raises(LookupError, match="not replayable"):
+        lifecycle.index_for("catalog-n-minus-one")
+
+
+def test_catalog_reload_rejects_same_version_with_different_rules() -> None:
+    baseline = _make_rule(
+        rule_id="baseline.rule",
+        resource_type="compute.vm",
+        severity=Severity.LOW,
+    )
+    lifecycle = CatalogIndexLifecycle(catalog_version="catalog-n", rules=(baseline,))
+
+    with pytest.raises(ValueError, match="already accepted"):
+        lifecycle.reload(
+            catalog_version="catalog-n",
+            rules=(
+                _make_rule(
+                    rule_id="different.rule",
+                    resource_type="compute.vm",
+                    severity=Severity.LOW,
+                ),
+            ),
+        )
+    assert lifecycle.current_index.rule("baseline.rule") is baseline

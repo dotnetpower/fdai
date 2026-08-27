@@ -1,8 +1,8 @@
 ---
 title: 규칙 조회 온톨로지 저장소
 translation_of: rule-lookup-ontology-storage.md
-translation_source_sha: e7a49011cbfc814b6100098dd17026486fb44dc7
-translation_revised: 2026-08-20
+translation_source_sha: e5bd0204fd4c1b63083ec86a6230a410d5e5c127
+translation_revised: 2026-08-27
 ---
 
 # 규칙 조회 온톨로지 저장소
@@ -19,20 +19,19 @@ translation_revised: 2026-08-20
 |------|------|------|------|
 | 버전이 지정된 온톨로지와 Rule 카탈로그 산출물 | implemented | `rule-catalog/vocabulary/`; `rule-catalog/catalog/`; `test_ontology_catalog.py`; `test_rule_catalog.py` | 카탈로그 로더는 시작 전에 ObjectType, LinkType, ActionType, Rule 참조 및 전달 의미 체계를 검증합니다. |
 | 관계형 온톨로지 인스턴스와 정확한 릴리스 고정 | implemented | `alembic/versions/20260713_0011_ontology_instances.py`; `20260801_0067_ontology_release_pinning.py`; `20260813_0081_ontology_release_registry.py`; `test_postgres_ontology_instance.py` | PostgreSQL은 방향 및 호환성 가드와 함께 타입이 지정된 인스턴스와 정확한 릴리스 메타데이터를 저장합니다. |
-| 단일 저장소 L2-L4 영속성 표면 | in-progress | `service-migrations/branches/core-control-plane/versions/20260809_core_runtime_role.py`; 현재 `learned_action`, `ontology_embedding`, `t2_cache` 표 | 표와 서비스 소유권은 있지만 이 문서는 승격 무효화, 만료 및 롤백을 함께 입증하는 하나의 집중 수명 주기 검사를 아직 인용하지 않습니다. |
-| 부트, 리로드 및 전달 인덱스 수명 주기 | in-progress | [부트와 리로드](#부트와-리로드); `tests/rule_catalog/` 아래의 카탈로그 로더 테스트 | 시작 컴파일과 정확한 카탈로그 로딩은 구현됐습니다. 원자적 인덱스 교체와 N/N-1 행동을 입증하는 보존된 리로드 증적은 이 소유 문서에 아직 없습니다. |
+| 단일 저장소 L2-L4 영속성 표면 | implemented | `service-migrations/branches/core-control-plane/versions/20260829_core_catalog_lifecycle.py`; `services/core-control-plane/tests/persistence/test_catalog_lifecycle_integration.py` | 현재 서비스 헤드는 학습된 액션을 카탈로그 버전으로 범위 지정하고 T2 항목을 만료시킵니다. 라이브 검사는 로컬 PostgreSQL 채택이 가능할 때 버전 무효화, 보존 및 migration 롤백도 확인합니다. |
+| 부트, 리로드 및 전달 인덱스 수명 주기 | implemented | `services/core-control-plane/src/fdai/core/tiers/t0_deterministic/index.py`; `services/core-control-plane/tests/core/tiers/t0_deterministic/test_index.py`; [부트와 리로드](#부트와-리로드) | 카탈로그 후보는 게시 전에 컴파일됩니다. 컴파일 실패 시 현재 및 N-1 인덱스가 변경되지 않으며 승인된 N/N-1 인덱스는 replay할 수 있습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 이전 이력을 재구성하지 않고 구현 원장을 도입했으며 저장소 설명을 현재 migration 소유 스키마에 맞췄습니다. | `current change`; 구현 범위 표의 카탈로그, migration 및 집중 영속성 근거입니다. | 아래의 L2-L4 수명 주기와 원자적 리로드 근거 미비점을 해결합니다. |
+| 2026-08-27 | implemented | 서비스 헤드 카탈로그 수명 주기 migration, 라이브 PostgreSQL 수명 주기 검사, N/N-1 replay 및 롤백을 보존하는 원자적 전달 인덱스 수명 주기를 추가했습니다. 스키마 스케치를 migration 소유 열에 맞췄습니다. | `current change`; `test_catalog_lifecycle_integration.py`; `test_index.py`; 서비스 migration inventory 및 집중 pytest 검사입니다. | 라이브 증적을 얻으려면 로컬 PostgreSQL 채택이 필요합니다. 원격 또는 Azure 증적은 주장하지 않습니다. |
 
 ### 남은 작업
 
-- [ ] 현재 서비스 migration 헤드에서 카탈로그 버전 무효화, T2 캐시 만료, 학습된 액션 보존 및 롤백을 입증하는 하나의 집중 PostgreSQL 수명 주기 검사를 추가합니다.
-- [ ] 실패한 컴파일이 이전 전달 인덱스를 보존하고 승인된 N/N-1 전이가 재현 가능함을 보여 주는 원자적 카탈로그 리로드 증적을 보존합니다.
-- [ ] 스키마 스케치의 필드가 권위 있는 Alembic 헤드와 다르면 정확한 운영자 참조로 취급하기 전에 해당 필드를 교체하거나 설명을 추가합니다.
+- [x] 내부 구현을 완료했습니다. 서비스 헤드 migration, 집중 수명 주기 검사, 원자적 리로드 및 롤백 동작, 권위 있는 스키마 스케치는 범위 및 이력 표의 근거로 다룹니다. 라이브 PostgreSQL 증적은 검증되지 않은 로컬 주장이 아니라 운영 증적으로 남겨 둡니다.
 
 ## 온톨로지 저장 레이아웃
 
@@ -70,97 +69,117 @@ PostgreSQL Flexible + pgvector는 하나의 저장소, 하나의 백업 경로, 
 
 ```sql
 CREATE TABLE ontology_object_type (
-  type_id            text PRIMARY KEY,
-  schema_version     text NOT NULL,
-  schema             jsonb NOT NULL
+  name               text PRIMARY KEY,
+  version            text NOT NULL,
+  key_field          text NOT NULL,
+  properties         jsonb NOT NULL,
+  description        text,
+  created_at         timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE TABLE ontology_link_type (
-  link_type_id       text PRIMARY KEY,
-  source_type        text NOT NULL,
-  target_type        text NOT NULL,
+  name               text PRIMARY KEY,
+  version            text NOT NULL,
+  from_type          text NOT NULL REFERENCES ontology_object_type(name),
+  to_type            text NOT NULL REFERENCES ontology_object_type(name),
   cardinality        text NOT NULL,
-  is_transitive      boolean DEFAULT false,
-  is_causal          boolean DEFAULT false,
-  temporal_order     boolean DEFAULT false
+  description        text,
+  created_at         timestamptz NOT NULL DEFAULT now(),
+  is_transitive      boolean NOT NULL DEFAULT false,
+  is_causal          boolean NOT NULL DEFAULT false,
+  temporal_order     boolean NOT NULL DEFAULT false,
+  order_by_property  text
 );
 
 CREATE TABLE ontology_resource (
-  resource_id        text PRIMARY KEY,
-  type               text NOT NULL REFERENCES ontology_object_type(type_id),
-  props              jsonb NOT NULL,        -- redacted before write
-  first_seen         timestamptz NOT NULL,
-  last_seen          timestamptz NOT NULL
+  id                 text PRIMARY KEY,
+  object_type        text NOT NULL REFERENCES ontology_object_type(name),
+  properties         jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at         timestamptz NOT NULL DEFAULT now(),
+  updated_at         timestamptz NOT NULL DEFAULT now(),
+  revision           bigint NOT NULL DEFAULT 1,
+  type_version       text,
+  catalog_digest     text
 );
-CREATE INDEX ix_resource_type       ON ontology_resource(type);
-CREATE INDEX ix_resource_props_gin  ON ontology_resource USING gin(props jsonb_path_ops);
+CREATE INDEX idx_ontology_resource_object_type ON ontology_resource(object_type);
 
 CREATE TABLE ontology_finding (
-  finding_id         text PRIMARY KEY,
+  id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   rule_id            text NOT NULL,
-  rule_version       text NOT NULL,
-  resource_id        text NOT NULL REFERENCES ontology_resource(resource_id),
-  signal_id          text NOT NULL,
-  verdict            text NOT NULL,
+  resource_ref       text NOT NULL REFERENCES ontology_resource(id),
   severity           text NOT NULL,
-  context            jsonb NOT NULL,
-  audit_id           text NOT NULL,
-  created_at         timestamptz NOT NULL
+  state              text NOT NULL,
+  details            jsonb NOT NULL DEFAULT '{}'::jsonb,
+  detected_at        timestamptz NOT NULL,
+  resolved_at        timestamptz
 );
-CREATE INDEX ix_finding_rule_resource ON ontology_finding(rule_id, resource_id);
+CREATE INDEX idx_ontology_finding_rule_id ON ontology_finding(rule_id);
+CREATE INDEX idx_ontology_finding_resource_ref ON ontology_finding(resource_ref);
+CREATE INDEX idx_ontology_finding_state ON ontology_finding(state);
 
 CREATE TABLE ontology_link (
+  id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  link_type          text NOT NULL REFERENCES ontology_link_type(name),
   from_id            text NOT NULL,
-  from_type          text NOT NULL,
-  link_type          text NOT NULL REFERENCES ontology_link_type(link_type_id),
   to_id              text NOT NULL,
-  to_type            text NOT NULL,
-  link_props         jsonb DEFAULT '{}',
-  created_at         timestamptz NOT NULL,
-  PRIMARY KEY (from_id, link_type, to_id)
+  properties         jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at         timestamptz NOT NULL DEFAULT now(),
+  type_version       text,
+  catalog_digest     text
 );
-CREATE INDEX ix_link_out ON ontology_link(from_type, from_id, link_type);
-CREATE INDEX ix_link_in  ON ontology_link(to_type, to_id, link_type);
+CREATE INDEX idx_ontology_link_from ON ontology_link(from_id);
+CREATE INDEX idx_ontology_link_to ON ontology_link(to_id);
 
 CREATE TABLE learned_action (             -- L2
-  signature          text PRIMARY KEY,
+  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   rule_id            text NOT NULL,
-  rule_version       text NOT NULL,
-  catalog_version    text NOT NULL,       -- partition key candidate
-  action             jsonb NOT NULL,
-  reused_from        text NOT NULL,       -- back-reference to origin audit_id
-  created_at         timestamptz NOT NULL
+  action_signature   text NOT NULL UNIQUE,
+  action_payload     jsonb NOT NULL,
+  success_count      integer NOT NULL DEFAULT 0,
+  rollback_count     integer NOT NULL DEFAULT 0,
+  last_used_at       timestamptz,
+  created_at         timestamptz NOT NULL DEFAULT now(),
+  catalog_version    text NOT NULL DEFAULT 'legacy'
 );
-CREATE INDEX ix_learned_by_rule ON learned_action(rule_id, catalog_version);
+CREATE INDEX idx_learned_action_rule_id ON learned_action(rule_id);
+CREATE INDEX idx_learned_action_rule_catalog ON learned_action(rule_id, catalog_version);
 
 CREATE TABLE ontology_embedding (         -- L3
-  embedding_id       text PRIMARY KEY,
-  kind               text NOT NULL,
-  ref_id             text NOT NULL,
-  vec                vector(384) NOT NULL
+  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  resource_ref      text NOT NULL REFERENCES ontology_resource(id) ON DELETE CASCADE,
+  model             text NOT NULL,
+  embedding         vector(1536) NOT NULL,
+  created_at        timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX ix_emb_hnsw ON ontology_embedding USING hnsw (vec vector_cosine_ops);
+CREATE INDEX idx_ontology_embedding_resource_ref ON ontology_embedding(resource_ref);
+CREATE INDEX idx_ontology_embedding_hnsw
+  ON ontology_embedding USING hnsw (embedding vector_cosine_ops);
 
 CREATE TABLE t2_cache (                   -- L4
-  signature          text PRIMARY KEY,
-  catalog_version    text NOT NULL,
-  model_config_ver   text NOT NULL,
-  mode               text NOT NULL,       -- 'shadow' | 'enforce'
-  outcome            jsonb NOT NULL,
-  expires_at         timestamptz NOT NULL
-);
-CREATE INDEX ix_t2_cache_expiry ON t2_cache(expires_at);
+  id                uuid NOT NULL DEFAULT gen_random_uuid(),
+  catalog_version   text NOT NULL,
+  input_hash        text NOT NULL,
+  output            jsonb NOT NULL,
+  model             text NOT NULL,
+  created_at        timestamptz NOT NULL DEFAULT now(),
+  expires_at        timestamptz NOT NULL DEFAULT (now() + interval '1 hour'),
+  PRIMARY KEY (catalog_version, id)
+) PARTITION BY LIST (catalog_version);
+CREATE TABLE t2_cache_default PARTITION OF t2_cache DEFAULT;
+CREATE INDEX idx_t2_cache_input_hash ON t2_cache(catalog_version, input_hash);
+CREATE INDEX idx_t2_cache_expires_at ON t2_cache(expires_at);
 ```
 
 스키마 노트:
 
-- `resource.props` 는 **민감정보가 제거된** 저장; 원시 페이로드는
+- `ontology_resource.properties` 는 **민감정보가 제거된** 저장; 원시 페이로드는
   [security-and-identity-ko.md § 데이터 Protection](security-and-identity-ko.md#데이터-보호) 과
   같은 아이덴티티와 프라이버시 규칙 하 `audit_log` 에 포인터로 존재.
-- `learned_action` 과 `t2_cache` 는 **`catalog_version` 으로 파티션** - 그래서 규칙 승격이
-  버전을 bump하고 stale 파티션이 하나의 작업으로 드롭됨 - per-row cache-flush 명령 불필요.
-- 모든 기본 키는 **결정론 해시** (`MD5(name)[:12]` 스타일 또는 서명용 SHA256), 그래서
-  리플레이와 크로스-서비스 참조가 같은 id 재현.
+- `t2_cache` 는 `catalog_version` 으로 파티션되고 `expires_at` 은 TTL 읽기 가드입니다.
+  카탈로그 승격은 리더가 사용하는 버전을 변경하므로 이전 항목을 재사용하지 않습니다.
+  `learned_action` 행은 보존되며 replay 및 감사 이력을 위해 카탈로그 버전과 함께 선택됩니다.
+- UUID 기본 키는 PostgreSQL이 생성합니다. `action_signature`, `input_hash` 및 카탈로그
+  digest가 idempotent 쓰기와 replay에 사용하는 안정적인 상관관계 키를 제공합니다.
 
 ## 부트와 리로드
 
@@ -168,5 +187,7 @@ CREATE INDEX ix_t2_cache_expiry ON t2_cache(expires_at);
 
 - **정적 아티팩트 진실 원본은 Git; 인스턴스 상태 진실 원본은 PostgreSQL.** 두 레이어는 절대
   겹치지 않음.
-- 카탈로그 PR 머지 → `catalog_version` bump → 전달 인덱스 재빌드 → 새 버전이 모든 후속
-  서명에 이동. **오래된 L2 / L4 엔트리는 자동으로 도달 불가** ; 명시적 무효화 명령 없음.
+- 카탈로그 PR 머지 -> `catalog_version` bump -> 후보 전달 인덱스를 게시 전에 컴파일합니다.
+  현재 및 N-1 인덱스는 replay에 사용할 수 있고 컴파일 실패 시 이전 현재 인덱스를 그대로 둡니다.
+  새 L2 리더는 `catalog_version`으로 범위를 지정하고 L4 리더는 `expires_at > now()`도 요구하므로
+  승격 후 오래된 항목을 재사용하지 않습니다.
