@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 2bbc24fb1c7cb759dd8ebdcb35da420bfcb44c6e
+translation_source_sha: 0ac4ed5a0b6982470d10979988c6d72e4eb6e8a4
 translation_revised: 2026-08-28
 ---
 # 코드 맵
@@ -113,6 +113,8 @@ containment를 shadow하고 snapshot 및 ontology store가 cardinality를 강제
 ontology projector는 graph 교체와 generation commit marker를 직렬화합니다. Resource
 ObjectSet receipt는 결과가 0개인 read를 포함해 source generation 및 completeness를 query
 truncation과 독립적으로 보존합니다.
+같은 변환 결과는 양방향으로 독립 검증된 `runtime_calls` edge를 보존하며, 서비스 간 상호
+호출을 orientation conflict로 처리하지 않습니다.
 
 Bounded ARM compute overlay는 검토된 parent 및 attachment mapping을 통해 VMSS VM과 NIC child
 collection을 소유합니다. Console instance presentation은 role assignment를 생략하고 선택한
