@@ -32,6 +32,30 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   utterance. Zero or multiple identifiers and every other unresolved concept remain a typed
   clarification. This validation adds no provider I/O, decision, approval, mutation, or execution
   authority.
+- **qualification reduction is authority-free**:
+  `core/conversation_assurance/quality_qualification.py` accepts only premeasured normalized
+  observations and reduces them against the installed quality contract. It derives hard caps from
+  raw evidence state and cannot call a model, read a provider, promote a policy, approve a request,
+  or execute an action. JSON parsing and artifact writing remain in the repository-owned
+  `scripts/evaluation/chatops-quality-qualification.py` boundary. Completed-turn observation
+  adapters use the shared content-free contracts, hash runtime and evidence references, and keep
+  every unsupported dimension unavailable instead of manufacturing a score. Evidence owners add
+  measurements through contract-bound contributions; the merge rejects cross-case input,
+  duplicate dimensions, and overwrite of existing measurements. The sibling
+  `quality_latency.py` module owns only the five-stage SLO contract and pure percentile reduction;
+  Operator, channel, verification, and delivery owners retain timestamp and measurement authority.
+  Stage owners provide monotonic start and completion values through a typed receipt; Core derives
+  duration only after the receipt environment matches the installed stage contract.
+  Conversation Assurance emits the deterministic-verification receipt only when composition injects
+  both the PR benchmark environment and a sink; normal runtime composition remains unchanged.
+  Historical `context_locale_scorecard.py` imports remain a compatibility-only re-export of the
+  unified contribution module.
+  The repository CLI parses content-free samples and never converts a trace commitment into a
+  complete-trace claim. The adjacent `quality_trace.py` reducer accepts only record commitments and
+  proves completeness from the exact ordered session-to-audit chain; it performs no provider read
+  and grants no qualification authority. `quality_timing.py` joins only matching source revisions,
+  trace counts, trace-set commitments, and the installed latency contract before deriving the two
+  qualification timing fields.
 - **policies and rules are data, not code paths**: T0 loads `rule-catalog/` entries and
   `policies/` at runtime; adding a rule or policy never requires an engine change. Rules
   describe intent and remediation; policies are the executable OPA/Rego the verifier re-checks.
@@ -67,7 +91,13 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   routes render a compact domain / panel hierarchy inside the shared page title so context
   remains visible when the Explorer is collapsed. Dashboard renders `Overview / Dashboard`;
   domain roots whose panel title repeats the domain label and standalone utilities keep a single
-  title. The Agents domain also keeps a visible
+  title. Conversation assurance context and locale measurements remain Core-owned in
+  `core/conversation_assurance/quality_context_locale_observations.py`. Persistence, preference,
+  session, and screen surfaces may emit only bounded evidence or projections. Their contributions
+  must match the shared turn envelope's case and locale; they cannot aggregate across principals,
+  substitute browser text for authority, or assign qualification state. Hidden-scope leaks and
+  unsupported screen claims remain explicit critical-safety inputs. The Agents domain also keeps a
+  visible
   workspace tab row across its Roster, Organization, Activity, and Handover panels. Roster is
   the default agent view and projects current stream state, current work, incident association,
   reporting line, and evidence links without inventing metrics that the Operator API did not return.

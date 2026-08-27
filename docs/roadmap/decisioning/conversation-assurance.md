@@ -20,12 +20,34 @@ model families, bounded debate, blind replay, automatic promotion, and automatic
 | Assessment contract and independent reduction | implemented | [`test_assessment.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_assessment.py), [`test_attribution.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_attribution.py) | Deterministic checks, independent evaluator reduction, attribution, and hold behavior have focused coverage. |
 | Cost-aware runtime policy and lifecycle | implemented | [`test_runtime_policy.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_runtime_policy.py), [`test_lifecycle.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_lifecycle.py) | The cascade, candidate lifecycle, fail-closed promotion checks, and rollback mechanics exist in code; this does not prove an operational promotion. |
 | Qualification scorecard and campaign ledger | in-progress | [`test_quality_scorecard.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_scorecard.py), [`conversation-assurance-ledger.py`](../../../scripts/quality/conversation-assurance-ledger.py) | The scorecard and bounded result format are implemented, but the complete bilingual qualification cohort has not been retained as governed evidence. |
+| Five-stage latency qualification evidence | implemented | [`quality_latency.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_latency.py), [`test_quality_latency.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_latency.py) | The fixed SLO contract and reducer emit content-free p50/p95/p99 evidence and never infer complete trace coverage. No controlled benchmark receipt is retained. |
+| Stage-owner latency receipt adapter | implemented | [`quality_latency.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_latency.py), focused Core checks | Duration is derived from monotonic owner values and a mismatched PR/canary/release environment is rejected. No runtime receipt is claimed. |
+| Deterministic verification timing producer | implemented | [`service.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/service.py), [`test_assessment.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_assessment.py) | The coordinator emits a content-free receipt only when an explicit benchmark environment and sink are injected. Default runtime behavior remains uninstrumented. |
+| Eight-stage correlation trace evidence | implemented | [`quality_trace.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_trace.py), [`test_quality_trace.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_trace.py) | The reducer requires the exact session-to-audit chain, one correlation commitment, predecessor links, authoritative timestamps, and provenance commitments. No live trace receipt is retained. |
+| Timing qualification evidence binding | implemented | [`quality_timing.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_timing.py), [`test_quality_timing.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_timing.py) | A 500-trace complete cohort must match the latency artifact's source revision, trace count, trace-set commitment, and installed SLO contract before timing booleans reach the hard-cap reducer. |
+| Restricted corpus freeze boundary | implemented | [`chatops_quality_corpus_freeze.py`](../../../scripts/evaluation/chatops_quality_corpus_freeze.py), [`test_chatops_quality_corpus_freeze.py`](../../../tests/integration/scripts/test_chatops_quality_corpus_freeze.py) | The local freezer derives the public manifest from an owner-only restricted artifact without printing content or labels. No restricted corpus or independent label set is retained in the repository. |
+| Independent corpus review reducer | implemented | [`chatops_quality_corpus_review.py`](../../../scripts/evaluation/chatops_quality_corpus_review.py), [`test_chatops_quality_corpus_review.py`](../../../tests/integration/scripts/test_chatops_quality_corpus_review.py) | Two owner-only reviews must cover every frozen label commitment with distinct identities and families, agreement of at least 0.80, and third-family coverage for every disagreement. Output contains aggregate counts and digests only. |
+| Frozen hidden corpus v1 | validated | [`hidden-corpus-manifest.v1.json`](../../../eval/chatops-quality/hidden-corpus-manifest.v1.json), [`hidden-corpus-review.v1.json`](../../../eval/chatops-quality/hidden-corpus-review.v1.json) | The public evidence records 500 balanced turns, 150 multi-turn conversations, all subset and rubric floors, primary agreement `0.876`, 62 completed tie-breaks, and 500 accepted final labels. Restricted content and per-case decisions remain outside the repository. |
+| Qualification owner contributions | implemented | [`quality_observations.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_observations.py), [`test_quality_context_locale_observations.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_context_locale_observations.py) | Deterministic owner adapters for applicable items 1-35 and 41-45 merge into one content-free turn envelope. Non-owned dimensions remain unavailable and cannot become score inputs. |
+| Context and locale owner contributions | implemented | [`quality_context_locale_observations.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_context_locale_observations.py), [`test_quality_context_locale_observations.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_context_locale_observations.py) | Items 41-45 bind every contribution to one case and locale, keep production evidence unavailable until independently supplied, and expose context or screen safety escapes as hard-cap inputs. |
+| Context and locale compatibility path | implemented | [`context_locale_scorecard.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/context_locale_scorecard.py), [`test_context_locale_scorecard.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_context_locale_scorecard.py) | The historical module path re-exports only the unified owner-contribution API and does not restore the superseded separate envelope. |
 | Operator disputes and ontology adequacy review | implemented | [`test_learning.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_learning.py), [`test_state_store_ontology_adequacy.py`](../../../services/core-control-plane/tests/delivery/persistence/test_state_store_ontology_adequacy.py) | Disputes and reproduced adequacy gaps create bounded review evidence without changing execution authority. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-28 | implemented | Restored the historical context-locale module and test paths as compatibility links to the unified contribution API. | `current change`; focused compatibility check; repository link validation. | None for the historical link repair. |
+| 2026-08-28 | validated | Froze and independently reviewed the customer-agnostic hidden corpus v1. Two distinct primary model families reviewed all 500 cases; a third family resolved all 62 disagreements, leaving 500 accepted and zero rejected labels. | `current change`; public manifest digest `207683882d269a7cfec2c8a7a737f0a4fa156d7d4e5886bc7814814a91ca5182`; review receipt digest `cc47f3dd7287e71372b60f6b82fa6e1df8815153b4e3b61cccaa1bdf077e5272`; manifest and review reducers passed. | Run three complete blind qualification passes; no policy promotion is part of this change. |
+| 2026-08-28 | implemented | Added the content-free independent review reducer with exact primary coverage, family separation, agreement threshold, and complete tie-break enforcement. | `current change`; focused review checks (`6 passed`); Ruff and strict mypy. | Complete the active third-family review, freeze the reviewed artifact, and retain its public receipt. |
+| 2026-08-28 | implemented | Connected the Core-owned deterministic verification call to the typed timing receipt under explicit PR benchmark configuration. | `current change`; focused assessment and latency checks (`24 passed`); Ruff and strict mypy. | Connect the remaining stage owners and retain a matching controlled cohort. |
+| 2026-08-28 | implemented | Added a stage-owner latency receipt that prevents caller-authored duration and environment substitution. | `current change`; focused Core latency checks (`8 passed`); Ruff and strict mypy. | Wire authoritative stage owners and retain controlled receipts. |
+| 2026-08-28 | implemented | Bound latency and trace evidence by installed contract, source revision, trace count, and trace-set digest so callers cannot clear the 9.6 hard cap with unverified booleans. | `current change`; `quality_timing.py`; focused timing-binding checks (`4 passed`); combined latency/trace/timing checks (`23 passed`). | Bind authoritative runtime producers and retain matching controlled evidence. |
+| 2026-08-28 | implemented | Added content-free complete-trace evidence for the exact session, request, turn, tool/agent evidence, proposal, decision, delivery, and audit chain. | `current change`; `quality_trace.py`; `chatops_quality_trace.py`; focused Core and CLI checks (`8 passed`). | Bind authoritative record producers and retain one complete controlled trace before claiming the hard cap is cleared. |
+| 2026-08-28 | implemented | Added the five-stage latency SLO contract and deterministic benchmark evidence for PR regression, live canary, and release environments. | `current change`; `quality_latency.py`; `chatops_quality_latency.py`; focused Core and CLI checks (`11 passed`). | Retain passing controlled benchmark evidence and an independently complete correlation trace before clearing the 9.6 hard cap. |
+| 2026-08-28 | implemented | Added an owner-only restricted-artifact freezer that derives per-case content and label commitments, binds the complete hidden payload, validates all manifest floors, and atomically creates a public manifest without exposing hidden values. | `current change`; [`chatops_quality_corpus_freeze.py`](../../../scripts/evaluation/chatops_quality_corpus_freeze.py); focused freeze and manifest checks (`22 passed`); Ruff and strict mypy. | Supply and independently label the restricted 500-turn artifact, then retain its governed public manifest before claiming a frozen corpus. |
+| 2026-08-28 | implemented | Restored the previously verified item 1-35 adapters to the active branch and replaced the separate item 41-45 scorecard envelope with locale-bound contributions to the shared turn envelope. | `current change`; `quality_{action,answer,grounding,intent,orchestration,sre,context_locale}_observations.py`; focused qualification checks (`108 passed`); Docker PostgreSQL persistence restart check (`1 passed`). | Retain the governed bilingual hidden corpus and complete production-like qualification runs under Issues #299 and #300 before claiming validation. |
+| 2026-08-28 | implemented | Added deterministic item adapters for scorecard items 41-45 so locale parity, persistence fidelity, personalization accuracy, context isolation, and screen awareness are measured from bounded content-free observations with the existing hard-cap contract. | `current change`; [`context_locale_scorecard.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/context_locale_scorecard.py); [`test_context_locale_scorecard.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_context_locale_scorecard.py); focused scorecard, persistence, answer-plan, lifecycle, and Deck isolation checks plus task-scoped Ruff, strict mypy, translation, and roadmap verification. | Retain one governed 50-item bilingual qualification run on a pinned revision before claiming scorecard validation. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | `current change`; current source and focused tests listed in the scope table. | Retain the qualification, blind-replay, and operational promotion or rollback evidence described below. |
 
 ### Remaining work
@@ -157,10 +179,148 @@ blind evidence caps an item at `9.5`; missing production end-to-end evidence cap
 missing latency SLO or a complete trace caps it at `9.6`; and any critical safety escape caps it at
 `8.0`. When multiple caps apply, the lowest cap wins.
 
+The independent `chatops-latency-v1` reducer supplies the latency-SLO half of the `9.6` hard-cap
+requirement. It reports all five stage percentiles, sample floors, environment bindings, timestamp
+authorities, and outcome counts from content-free samples. A missing stage, timeout, or percentile
+regression leaves `latency_slo_met=false`. The artifact always records
+`complete_trace_claimed=false`. The separate trace reducer sets `complete_trace=true` only for the
+exact ordered session-to-audit chain with one correlation digest, valid predecessor links,
+authoritative timestamps inside the trace window, and provenance commitments for every stage.
+The timing binder then requires at least 500 unique complete traces and an exact match with the
+latency artifact's source revision, trace count, trace-set digest, and installed contract. Only that
+binding derives the two `QualificationEvidence` timing fields.
+
 The contract and scorer contain no measured results, corpus labels, deployment identifiers, or
 promotion state. They do not establish a baseline or qualification by themselves. A separate
 version-pinned corpus runner and scorecard artifact must supply those records without changing the
 contract or holdout labels in the same promotion change.
+
+The repository runner, `scripts/evaluation/chatops-quality-qualification.py`, accepts complete
+50-item observations for each run and derives hard caps from raw evidence state. It records the
+source revision, contract and corpus digests, evaluator and runtime identifiers, run configuration,
+and run time windows in a content-addressed scorecard. The `--require-qualified` option returns a
+nonzero result unless the corpus floors, three-run floor, and worst-run 9.8 threshold all pass.
+Every generated artifact sets `qualification_authority: false`; a scorecard records evidence but
+cannot promote a policy or grant execution authority.
+
+Run the reducer from the repository root after a measurement harness has produced the input batch:
+
+```bash
+uv run python scripts/evaluation/chatops-quality-qualification.py \
+  --input <measured-batch.json> \
+  --output <scorecard.json> \
+  --require-qualified
+```
+
+The hidden corpus publishes only a content-free manifest to repository tooling. The manifest binds
+opaque content and label commitments to a pinned contract, freeze revision, review protocol, and
+case-to-rubric coverage matrix. Its validator requires at least 500 turns, equal English and Korean
+partitions, the declared adversarial, multi-turn, SRE, and action/channel/attachment floors, real
+consecutive multi-turn groups, all 50 rubric observation floors, three runs, two independent prose
+raters, agreement of at least 0.80, and a predeclared confidence method. It never reads or prints
+hidden prompts or labels.
+
+Validate a repository-safe manifest from the repository root:
+
+```bash
+uv run python scripts/evaluation/chatops_quality_corpus_manifest.py \
+  --manifest <hidden-corpus-manifest.json>
+```
+
+A passing manifest proves only metadata shape, commitments, and coverage. Qualification still
+requires the restricted artifact, independent review records, complete measured runs, and the
+production-like evidence declared by the scorecard.
+
+### Restricted corpus freeze
+
+Use the local freezer to derive a public manifest from a restricted artifact. The restricted JSON
+root contains the corpus identity, freeze metadata, review protocol, rubric floors, and cases. Each
+case contains only these private-input fields: `case_id`, `conversation_id`, `turn_index`, `locale`,
+`content`, `label`, `tags`, and `rubric_item_ids`.
+
+The input should be a regular owner-only file with mode `0600`; symbolic links are not accepted.
+The freezer rejects duplicate JSON keys, non-finite numbers, files over 64 MiB, and content or label
+records over 64 KiB. It computes a unique content commitment, a case-bound label commitment, and
+one digest for the complete restricted payload. It then applies the existing 500-turn, locale,
+subset, multi-turn, rubric, and review-protocol checks before writing anything.
+
+Run the freezer from the repository root:
+
+```bash
+chmod 600 <restricted-corpus.json>
+uv run python scripts/evaluation/chatops_quality_corpus_freeze.py \
+  --restricted-artifact <restricted-corpus.json> \
+  --output <public-manifest.json>
+```
+
+The command prints only the content-free summary. Public output is created atomically and is
+idempotent for the same digest. An existing different manifest is never overwritten, so changing a
+label or prompt requires a new reviewed corpus version and output path. Keep the restricted input
+and independent review records outside the repository in their approved evidence store.
+
+Reduce independent review files only after the public manifest is frozen:
+
+```bash
+uv run python scripts/evaluation/chatops_quality_corpus_review.py \
+  --manifest <public-manifest.json> \
+  --rater-a <rater-a.json> \
+  --rater-b <rater-b.json> \
+  --tie-break <tie-break.json> \
+  --output <review-receipt.json> \
+  --require-complete
+```
+
+Primary reviews must use distinct identities and model families and cover every case's exact label
+commitment. Agreement below `0.80` fails, and every disagreement requires a third identity and
+family. The receipt exposes only aggregate agreement, accept/reject counts, review commitments, and
+explicit gaps; it omits case decisions, labels, prompts, and rater identities.
+
+The retained v1 public manifest contains 500 turns split evenly between English and Korean, 150
+multi-turn conversations, 140 adversarial or ambiguous turns, 220 SRE/RCA turns, 160
+action/channel/attachment turns, and coverage floors for all 50 rubric items. Independent primary
+review agreement was `0.876`; a third model family resolved all 62 disagreements. The final
+content-free receipt records 500 accepted and zero rejected labels.
+
+### Qualification observation envelope
+
+The completed-turn adapter emits one content-free envelope with all 50 rubric items and all six
+dimension slots in the contract order. It hashes turn, conversation, principal scope, route,
+assessment, and evidence references; only existing question, answer, and evidence-manifest digests
+pass through. Stable serialization adds its own content digest and
+`qualification_authority: false`. A dimension without authoritative evidence remains `unavailable`
+with a reason code, and an item cannot become a score input until all six dimensions are measured.
+
+The initial adapter intentionally measures only facts already owned by Conversation Assurance:
+
+- Independently reviewed clarity, intent resolution, calibration, and factual correctness populate
+  their corresponding semantic dimensions for items 6, 9, 10, and 11.
+- Verified deterministic grounding and completed atomic-claim checks populate items 11 and 13.
+- Exact turn-to-assessment digest linkage populates the observability and replay dimension for item
+  42.
+- Locale parity remains unavailable for a single turn because it requires an English/Korean cohort
+  comparison.
+
+This envelope does not infer planning, SRE reasoning, action safety, agent orchestration, channel,
+latency, or production evidence from an answer assessment. Those owners must add their measured
+dimensions before the qualification reducer can score an item.
+
+Each evidence owner contributes through `QualificationDimensionContribution`. The contribution
+must match the fixed item's workstream and metric, cite one or more SHA-256 evidence commitments,
+and bind to the same case id. Schema `1.1.0` also carries an optional bounded semantic-review owner
+and locale. The merge rejects cross-locale input, duplicate item/dimension contributions, and
+overwrite of an already measured dimension. This makes independently produced planning, SRE,
+action, orchestration, context, channel, latency, and production measurements additive without
+making the Conversation Assurance adapter their hidden owner.
+
+Deterministic owner adapters now contribute applicable measurements for items 1-35 and 41-45 to
+that same envelope. The context and locale adapter binds every contribution to the envelope's case
+and locale, measures English and Korean independently, and uses only content commitments for paired
+locale evidence. Locale-parity contributions also retain the declared bounded semantic-review
+owner. Persistence fidelity measures exact restart replay, personalization measures only explicit
+revision-bound preferences, and screen awareness cannot substitute rendered browser text for
+authoritative evidence. Production end-to-end dimensions remain unavailable until an independent
+producer supplies them. Hidden-scope leaks, unsupported screen claims, and truncation concealment
+remain explicit critical-safety inputs to the qualification reducer.
 
 ## Independent model review
 

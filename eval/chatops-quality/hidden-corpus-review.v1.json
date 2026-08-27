@@ -1,0 +1,24 @@
+{
+  "accepted_count": 500,
+  "agreement_count": 438,
+  "agreement_rate": 0.876,
+  "case_count": 500,
+  "content_digest": "cc47f3dd7287e71372b60f6b82fa6e1df8815153b4e3b61cccaa1bdf077e5272",
+  "corpus_id": "chatops-hidden-candidate",
+  "corpus_version": "v1",
+  "disagreement_count": 62,
+  "evidence_kind": "hidden_chatops_corpus_review",
+  "gaps": [],
+  "manifest_digest": "207683882d269a7cfec2c8a7a737f0a4fa156d7d4e5886bc7814814a91ca5182",
+  "minimum_agreement_rate": 0.8,
+  "qualification_authority": false,
+  "rater_review_digests": [
+    "db171e1164d66004552cc3a7a0ff5cf7efd27745eaa6530835b0b928f9a10dcf",
+    "c16c5c047648163f33cb45b6fd3664232e6a187e707eef18a470f8c016f7c5b1",
+    "c4b9b56cc6e0045fb565e4bb636c7d69f7925de7320b0721a96e5fcbef5c4ab4"
+  ],
+  "rejected_count": 0,
+  "review_complete": true,
+  "schema_version": "1.0.0",
+  "tie_break_count": 62
+}

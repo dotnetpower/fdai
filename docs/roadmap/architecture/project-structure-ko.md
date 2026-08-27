@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: dbd90a39f5c5fa5de59854d72328a021193c3a69
-translation_revised: 2026-08-26
+translation_source_sha: d937d39f4073dc6e15f34ad0ed76786032e9f596
+translation_revised: 2026-08-28
 ---
 # 프로젝트 구조
 
@@ -32,6 +32,28 @@ translation_revised: 2026-08-26
   발화에서 정확한 런타임 식별자 하나를 검증한 경우에만 제거합니다. 식별자가 없거나 여러 개이면
   명확화를 유지하고 다른 모든 미해결 개념도 타입이 지정된 명확화로 남깁니다. 이 검증은
   프로바이더 입출력, 의사 결정, 승인, 변경 또는 실행 권한을 추가하지 않습니다.
+- **자격 검증 축약에는 권한이 없음**:
+  `core/conversation_assurance/quality_qualification.py`는 미리 측정하고 정규화한 관측값만
+  받아 설치된 품질 계약에 따라 축약합니다. 원시 근거 상태에서 하드 상한을 계산하며 모델 호출,
+  프로바이더 읽기, 정책 승격, 요청 승인 또는 작업 실행을 할 수 없습니다. JSON 구문 분석과
+  산출물 쓰기는 리포지토리가 소유하는
+  `scripts/evaluation/chatops-quality-qualification.py` 경계에 남습니다. 완료된 턴 관측 adapter는
+  콘텐츠가 없는 공용 계약을 사용하고 런타임 및 근거 참조를 해시하며, 지원하지 않는 모든 차원을
+  점수를 만들지 않고 `unavailable`로 유지합니다. 근거 소유자는 계약에 연결된 기여를 통해
+  측정값을 추가합니다. 결합기는 다른 사례의 입력, 중복 차원 및 기존 측정값 덮어쓰기를 차단합니다.
+  인접한 `quality_latency.py` 모듈은 5단계 SLO 계약과 순수 백분위수 축약만 소유합니다. Operator,
+  채널, 검증 및 전달 소유자는 타임스탬프와 측정 권한을 유지합니다.
+  단계 소유자는 타입이 지정된 증적을 통해 monotonic 시작 및 완료 값을 제공합니다. Core는 증적
+  환경이 설치된 단계 계약과 일치한 후에만 기간을 파생합니다. 저장소 CLI는 콘텐츠가 없는
+  Conversation Assurance는 composition이 PR benchmark 환경과 sink를 모두 주입한 경우에만
+  결정론 검증 증적을 생성합니다. 일반 runtime composition은 변경되지 않습니다.
+  과거 `context_locale_scorecard.py` 가져오기는 통합 기여 모듈의 호환 전용 재내보내기로
+  유지합니다.
+  표본을 구문 분석하며 추적 약속값을 완전한 추적 주장으로 변환하지 않습니다. 인접한
+  `quality_trace.py` 축약기는 레코드 약속값만 받고 순서가 정확한 세션부터 감사까지의 연결에서
+  완전성을 증명합니다. 프로바이더를 읽지 않으며 qualification 권한을 부여하지 않습니다.
+  `quality_timing.py`는 두 qualification timing 필드를 파생하기 전에 일치하는 출처 리비전,
+  추적 수, 추적 집합 약속값 및 설치된 latency 계약만 결합합니다.
 - **정책과 규칙은 코드 경로가 아닌 데이터**: T0가 런타임에 `rule-catalog/` 엔트리와 `policies/`
   를 로드하므로 규칙/정책 추가에 엔진 변경이 필요 없습니다. 규칙은 의도와 교정을
   기술하고, 정책은 검증기가 재검사하는 실행 가능한 OPA/Rego입니다. 소스가 이 YAML로 수집·
@@ -68,7 +90,13 @@ translation_revised: 2026-08-26
   계속 사용할 수 있고, 현재 활성 패널은 숨길 수 없습니다. 세부 경로는 공통 페이지 제목 안에
   간결한 영역 / 패널 계층을 렌더링하여 Explorer를 접어도 맥락을 유지합니다. 대시보드는
   `전체 현황 / Dashboard`를 렌더링합니다. 패널 제목이 영역 레이블을 반복하는 영역 루트와 독립
-  유틸리티는 단일 제목을 유지합니다. 에이전트 영역은 명단,
+  유틸리티는 단일 제목을 유지합니다. 대화 품질 보증 맥락 및 로케일 측정은
+  `core/conversation_assurance/quality_context_locale_observations.py`에 남아 있는 Core 소유
+  기능입니다. persistence, preference, session, screen 표면은 범위가 제한된 근거 또는
+  projection만 내보낼 수 있습니다. 기여는 공용 턴 묶음의 사례 및 로케일과 일치해야 하며,
+  principal 간 집계를 하거나 브라우저 텍스트를 권위 있는 근거로 대체하거나 qualification
+  상태를 직접 부여할 수 없습니다. hidden-scope leak와 근거 없는 screen claim은 명시적인
+  critical-safety 입력으로 남습니다. 에이전트 영역은 명단,
   Organization, 활동, 인계 패널 전체에 표시되는 작업 공간 탭 행도 유지합니다. 명단은
   기본 에이전트 보기이며 Operator API가 반환하지 않은 지표를 만들지 않고 현재 스트림 상태, 현재 작업,
   인시던트 연결, 보고선, 증적 링크를 투영합니다. 필터와 검색은 브라우저 로컬 표시 제어이며,
