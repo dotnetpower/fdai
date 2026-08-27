@@ -39,6 +39,14 @@ class KubernetesLifecycleCursorState:
     limitation: str | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class KubernetesLifecycleReadSnapshot:
+    """Consistent cursor and retained-observation view from one database snapshot."""
+
+    state: KubernetesLifecycleCursorState | None
+    observations: tuple[KubernetesLifecycleObservation, ...]
+
+
 class KubernetesLifecycleStore(Protocol):
     """Persist durable cursor progress and append-only lifecycle evidence."""
 
@@ -68,6 +76,16 @@ class KubernetesLifecycleStore(Protocol):
         end: datetime,
         limit: int,
     ) -> tuple[KubernetesLifecycleObservation, ...]: ...
+
+    async def read_snapshot(
+        self,
+        *,
+        cluster_ref: str,
+        object_uids: tuple[str, ...],
+        start: datetime,
+        end: datetime,
+        limit: int,
+    ) -> KubernetesLifecycleReadSnapshot: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -132,6 +150,7 @@ __all__ = [
     "KubernetesLifecycleAppendReceipt",
     "KubernetesLifecycleCollectionReceipt",
     "KubernetesLifecycleCursorState",
+    "KubernetesLifecycleReadSnapshot",
     "KubernetesLifecycleCursorConflictError",
     "KubernetesLifecycleStore",
     "collect_kubernetes_lifecycle_once",
