@@ -79,6 +79,7 @@ _DROP_CONFLICTING_DUPLICATE = "conflicting_duplicate"
 _DROP_UNMAPPED_RESOURCE_TYPE = "unmapped_resource_type"
 _DROP_UNSEEDED_RESOURCE_TYPE = "unseeded_resource_type"
 _NON_BLOCKING_DROPS = frozenset({_DROP_UNSEEDED_RESOURCE_TYPE})
+_RECIPROCAL_LINK_TYPES = frozenset({"peered_with", "runtime_calls"})
 
 
 class InventoryProjectionConflictError(RuntimeError):
@@ -443,7 +444,7 @@ def _build_links(
     for key in tuple(keyed):
         link_type, from_id, to_id = key
         reverse_key = (link_type, to_id, from_id)
-        if link_type != "peered_with" and reverse_key in keyed:
+        if link_type not in _RECIPROCAL_LINK_TYPES and reverse_key in keyed:
             dropped.add(_DROP_CONFLICTING_DUPLICATE)
             keyed.pop(key, None)
             keyed.pop(reverse_key, None)

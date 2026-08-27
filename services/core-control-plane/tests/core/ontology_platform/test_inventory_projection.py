@@ -513,6 +513,25 @@ def test_conflicting_duplicate_link_is_absent_and_reported() -> None:
     assert "conflicting_duplicate" in projection.dropped_reasons
 
 
+def test_reciprocal_runtime_calls_preserve_both_directional_observations() -> None:
+    projection = build_inventory_ontology_projection(
+        generation="snapshot-1",
+        resources=(_resource("service-a"), _resource("service-b")),
+        links=(
+            _link("service-a", "runtime_calls", "service-b"),
+            _link("service-b", "runtime_calls", "service-a"),
+        ),
+    )
+
+    assert [(item.link_type, item.from_id, item.to_id) for item in projection.links] == [
+        ("runtime_calls", "service-a", "service-b"),
+        ("runtime_calls", "service-b", "service-a"),
+    ]
+    assert projection.complete is True
+    assert projection.relationship_complete is True
+    assert projection.dropped_reasons == ()
+
+
 def test_link_endpoint_types_must_match_observed_resource_types() -> None:
     with pytest.raises(InventoryProjectionConflictError, match="endpoint type"):
         build_inventory_ontology_projection(
