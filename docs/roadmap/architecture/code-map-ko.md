@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 9ff53d34734decdd7e2bbae1cbb43e2e6f77e9e5
+translation_source_sha: 38dfa3a985ec98d9ed252eeddbd2e456f41fadf7
 translation_revised: 2026-08-28
 ---
 # 코드 맵
@@ -119,6 +119,9 @@ Principal 범위 운영 근거 읽기는 기존 범위 제한 응답을 통해 r
 메타데이터를 결속하며 mutation 또는 execution 권한을 추가하지 않습니다.
 Detection 변환 결과도 원본에서 파생된 Forecast 및 Pattern 객체만 노출하며, 보류된 관계는
 카탈로그를 복원하기 전에 정확한 endpoint 신원을 요구합니다.
+교차 출처 상태 판정은 결정론적 읽기 전용입니다. 서로 다른 provider와 변환 상태 shadow 쌍은
+권한을 선택하지 않고 충돌을 제외합니다.
+서로 다른 provider 입력은 비교 전에 비어 있지 않은 provider 신원을 요구합니다.
 
 Bounded ARM compute overlay는 검토된 parent 및 attachment mapping을 통해 VMSS VM과 NIC child
 collection을 소유합니다. Console instance presentation은 role assignment를 생략하고 선택한

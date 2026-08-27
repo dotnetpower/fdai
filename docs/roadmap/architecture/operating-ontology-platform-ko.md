@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: a3031cdcbef83cc008ac5e204456cb8ed1cd6e85
+translation_source_sha: 5cb4815c2a88b89f6a0dbee18bbfe592c21a8a8a
 translation_revised: 2026-08-28
 ---
 # FDAI 온톨로지 안전 인프라
@@ -147,6 +147,8 @@ Console은 redaction, 호환성, 완전성 또는 권한을 계산하지 않습�
 |------|------|------|------|-----------|
 | 2026-08-27 | implemented | 남은 review gap을 닫아 unresolved 및 source-less ARM reference를 incomplete generation으로 전달하고, candidate version union을 globally sort하며, proposal-only authority literal을 runtime에서 강제했습니다. | `current change`, generation, direction-shadow, promotion 및 집중 adversarial 검사(`38 passed`), Ruff, formatter 및 strict mypy | Complete release-bound 실제 generation 근거와 governed human review를 확보해야 합니다. Live 또는 remote generation은 만들지 않았습니다. |
 | 2026-08-27 | implemented | 양의 Forecast episode와 균형 잡힌 Pattern 후보를 위한 순수 권한 없는 변환 결과를 추가해 정확한 원본 신원과 mutation 및 execution 권한 없음을 보존했습니다. | `current change`, `core/ontology_platform/detection_projection.py`, 집중 producer 검사(`11 passed`) | 정확한 objective 및 outcome endpoint 생산자가 생길 때까지 관계 복원은 계속 보류합니다. |
+| 2026-08-27 | implemented | 기존 변환 상태 대 텔레메트리 shadow reducer와 함께 서로 다른 provider 판정 helper를 추가했습니다. 두 경로 모두 이견 값을 제외하고 명시적 충돌 근거를 보존하며 권한을 높이지 않습니다. | `current change`, `observation_adjudication.py`, 집중 adjudication 및 shadow 검사(`37 passed`) | 읽기 경로 밖의 충돌 전달은 별도 권한 설계 뒤로 유지합니다. |
+| 2026-08-27 | implemented | 서로 다른 provider 판정을 강화해 비교 전에 누락되거나 공백인 provider 신원을 거부합니다. | `current change`, provider 신원 회귀 검사(`38 passed`) | 읽기 경로 밖의 충돌 전달은 계속 보류합니다. |
 | 2026-08-27 | implemented | Principal 범위 운영 근거 읽기를 receipt로 검증된 컨텍스트 메타데이터에 연결했습니다. 기존 범위 제한 읽기 응답은 이제 요청 principal을 보존하고, 권한 또는 실행 권한 없이 불일치하거나 불완전한 컨텍스트 근거를 거부합니다. | `current change`, 운영 컨텍스트 및 scenario-branch 집중 검사(`14 passed`) | 인증된 런타임 근거는 별도로 보존합니다. |
 | 2026-08-27 | implemented | Bounded versioned provider 관계 materialization과 exact-release direction-shadow 검사를 추가했습니다. 기존 Kubernetes API inventory는 authoritative topology adapter로 충분하며 lifecycle observation은 별도 Event 출처로 유지하고 topology로 재사용하지 않습니다. | `current change`, `delivery/provider_schema_relationship_generation.py`, 집중 generation 및 direction-shadow 검사(`22 passed`), Ruff, formatter 및 strict mypy | Complete release-bound 실제 generation 근거와 governed review를 확보해야 합니다. Live 또는 remote generation은 만들지 않았습니다. |
 | 2026-08-27 | implemented | Independent review 후 provider 관계 materialization을 보강하여 모든 reviewed semantic field, review digest 및 candidate endpoint를 다시 검증하고 type@version 신원과 exact-release replay mode를 보존했으며, 고유 staging 파일을 사용한 ledger record/rollback 직렬화를 추가했습니다. | `current change`, generation, review, ledger 및 direction-shadow 모듈, 집중 adversarial 검사(`35 passed`), Ruff, formatter 및 strict mypy | Complete release-bound 실제 generation 근거와 governed human review를 확보해야 합니다. Live 또는 remote generation은 만들지 않았습니다. |

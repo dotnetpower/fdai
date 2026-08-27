@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 5f90f2f30bfbf87c4fc0d736837d91bb5338072f
+translation_source_sha: 59a17a87b10f7fbc3152d29d8683a5d7824027dc
 translation_revised: 2026-08-27
 ---
 # FDAI 운영 온톨로지
@@ -134,6 +134,7 @@ translation_revised: 2026-08-27
 | 2026-08-27 | implemented | 후속 검토에서 발견한 의미상 빈 개정 사례를 닫았습니다. 서로 일치하더라도 공백으로만 된 운영 모델 개정은 식별자 일치를 충족하지 않고 불완전 상태로 유지합니다. | `current change`; 집중 최신성 및 판테온 검사 53개 통과; Ruff와 strict mypy 통과. | 배포 근거는 별도로 보존합니다. |
 | 2026-08-27 | implemented | Receipt로 검증된 컨텍스트 메타데이터를 기존 principal 범위 운영 근거 응답에 연결했습니다. 응답은 이제 서버가 확인한 principal을 포함하며, 컨텍스트 변환은 메타데이터를 반환하기 전에 principal, 목적, 릴리스, stale, 불완전 및 잘린 근거를 거부합니다. | `current change`; `core/operational_context/test_console_projection.py` 및 `test_evidence_read.py` 검사 14개 통과 | 인증된 Console 근거는 별도로 보존하며 권한이나 런타임 승격은 바꾸지 않습니다. |
 | 2026-08-27 | implemented | 양의 `Forecast` episode와 균형 잡힌 `Pattern` 후보를 위한 권한 없는 런타임 변환 결과를 추가했습니다. Detector, target, interval, case 및 evidence 신원을 보존하며 근거 없는 관계는 복원하지 않습니다. | `current change`; `core/ontology_platform/detection_projection.py`, detection, forecast-episode 및 operational-learning 집중 검사 11개 통과 | 정확한 objective 또는 outcome endpoint 신원을 생산자가 제공할 때에만 `predicts_breach_of` 또는 `learned_as`를 복원합니다. |
+| 2026-08-27 | implemented | 서로 다른 두 provider 관측에 대한 결정적 판정을 추가하고, 기존 변환 상태 대 텔레메트리 shadow 판정을 두 번째 교차 출처 쌍으로 문서화했습니다. 충돌은 명시적으로 유지하고 이견이 있는 Property는 제외하며 권한이나 자율성 상한을 높이지 않습니다. | `current change`; `observation_adjudication.py`; `test_observation_adjudication.py` 및 `test_resource_state_shadow.py` 검사 37개 통과 | 이후 읽기 경로 밖에서 충돌을 전달하려면 명시적인 단일 작성자 설계로 결정해야 합니다. |
 | 2026-08-27 | implemented | object 및 array Property 값을 위한 범위 제한 canonical JSON 의미 규칙을 완료했습니다. 정규화는 유한성, 깊이 및 바이트 한도의 JSON과 안정적인 키 순서를 강제하며, collection coverage gate는 룰이 평가하는 모든 참조를 검토된 것으로 기록합니다. | `current change`; `property_semantic.py`; `test_property_semantic.py`; `check-property-semantic-coverage.py`가 검토된 참조 62/62개를 보고합니다. | 검토된 registry를 유지하고 새로운 collection Property 참조가 생기면 하한을 함께 올립니다. |
 
 ### 남은 작업
@@ -150,12 +151,10 @@ translation_revised: 2026-08-27
 - [ ] `lifecycle` 블록이 없는 출하 ObjectType을 검토해, 타입별로 에이전트 단일 작성자가 필요한지
   아니면 catalog-as-code, 변환 결과, 이벤트 버스 레지스트리 중 무엇이 올바른 권한인지
   기록합니다 ([#130](https://github.com/dotnetpower/fdai/issues/130)).
-- [ ] 서로 독립된 두 클라우드 프로바이더를 맞대어 판정하고, 변환된 상태와 텔레메트리도
-  판정해야 합니다. 현재는 한 세대 안의 반복 관측과 실시간 읽기 대 인벤토리 변환 결과 쌍만
-  판정합니다.
+- [x] 서로 독립된 두 클라우드 프로바이더를 맞대어 판정하고, 변환된 상태와 텔레메트리를 판정했습니다. 집중 테스트가 명시적 충돌, 이견 값 제외 및 권한 증가 없음을 입증합니다.
 - [ ] 판정된 교차 출처 충돌이 읽기 경로 밖의 자율성 상한에도 도달해야 하는지, 그리고 변환된
   서브그래프의 단일 작성자 소유권을 깨지 않고 어느 작성자가 이를 실어 나를 수 있는지 정해야
-  합니다.
+  합니다. 별도 권한 설계 전까지 보류합니다.
 
 ## 카탈로그 의미 변환 결과
 
@@ -516,8 +515,11 @@ owning 에이전트, 하나 이상의 생성 기준, 선택적인 중복 제거 
   degraded/최신성 unknown으로 표시합니다. 권위 있는 값을 바꾸지 않으며, shadow 경로에는 여전히
   승인·변경·실행 권한이 없습니다.
 
-**아직 판정하지 않는 범위.** 서로 독립된 두 클라우드 프로바이더를 비교하는 프로덕션 경로는
-없고, 변환된 상태와 텔레메트리를 판정하는 경로도 없습니다.
+프로바이더 쌍의 공백은 이제 결정론적이고 읽기 전용인 기본 요소로 닫혔습니다.
+`adjudicate_independent_observations` 경로는 주장마다 서로 다른 인증된 provider reference
+하나를 요구하고, 충돌한 Property를 제외하며, 승자를 선택하지 않고 명시적인 충돌 키를
+출력합니다. 기존 변환 상태 대 텔레메트리 shadow 경로도 동일한 권한 없는 규칙을 적용하고
+파생 사실과 receipt에 충돌을 기록합니다.
 
 **비어 있는 충돌 목록을 읽는 법.** 비어 있는 `StateFactMetadata.conflicts`는 비교한 관측들이
 일치했다는 뜻일 뿐입니다. 그 사실이 독립적으로 교차 확인되었다는 증거가 아니며, 충돌이 없다는
