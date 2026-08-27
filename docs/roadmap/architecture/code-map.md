@@ -260,6 +260,8 @@ The context contract rejects mixed incident, screen, and resource-group identiti
 selection reads are batched at fixed concurrency and retain the source-generation receipt.
 The conservative context identity cap is 512 resource ids so the signed selection remains within
 the shared wire budget; general ObjectSet limits remain 1,000.
+The same 512 bound is enforced by the Operator/Core schema, so oversized client context cannot
+enter planning.
 The bounded semantic query JSON envelope remains within its existing byte limit for the 512-id
 selection without removing the existing row and byte limits on ordinary outputs.
 
