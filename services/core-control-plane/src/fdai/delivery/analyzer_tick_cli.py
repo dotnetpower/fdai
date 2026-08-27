@@ -497,9 +497,9 @@ async def _collect_lifecycle_if_configured() -> KubernetesLifecycleCollectionRec
 
     dsn = os.environ.get(INVENTORY_DSN_ENV, "").strip()
     cluster_ref = os.environ.get("FDAI_KUBERNETES_CLUSTER_REF", "").strip()
-    if not dsn and not cluster_ref:
+    if not cluster_ref:
         return None
-    if not dsn or not cluster_ref:
+    if not dsn:
         raise RuntimeError(
             "Kubernetes lifecycle collection requires FDAI_INVENTORY_DSN and "
             "FDAI_KUBERNETES_CLUSTER_REF"

@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: f63cfc0008c1064ff65c799a68cb8ce13d1fec60
+translation_source_sha: 23026bc7d64158dc260b5c0ceefc840aec97cbd4
 translation_revised: 2026-08-27
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -13,9 +13,8 @@ translation_revised: 2026-08-27
 모든 프로파일은 **하나의 컨트롤 경로**를 공유하며 composition-root 어댑터와 자격 증명만 다릅니다.
 ([project-structure.md § Customization via 의존성 주입](../architecture/project-structure-ko.md#customization-via-dependency-injection)). 검토된 docstring은 기존 경계를 기록하며 별도 런타임을 만들거나 상태 소유권을 변경하거나 고정본을 허용하지 않습니다. 실제 Azure 클라이언트 추가는 fork-side 주입이며 `core/`를 편집하지 않습니다.
 
-> **Kubernetes lifecycle 동등성:** 배포 analyzer Job은 검토된 `FDAI_KUBERNETES_*` binding을
-> 받고 로컬 analyzer loop와 동일한 bounded one-shot lifecycle 수집을 실행합니다. binding이
-> 없으면 선택적 lifecycle source는 사용 불가 상태로 남습니다.
+> **Kubernetes lifecycle 동등성:** 배포 analyzer Job과 로컬 loop는 같은 bounded pass를
+> 실행합니다. `FDAI_KUBERNETES_*` cluster binding이 이를 활성화하며 inventory DSN만으로는 활성화하지 않습니다.
 ## 구현 상태
 ### 구현 범위
 | 영역 | 상태 | 근거 | 참고 |
@@ -46,6 +45,7 @@ translation_revised: 2026-08-27
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
+| 2026-08-27 | implemented | 두 analyzer 실행 환경 모두에서 shared inventory DSN이 아니라 선택적 Kubernetes cluster binding이 lifecycle 수집을 활성화하도록 수정했습니다. Inventory-only 로컬 및 배포 tick은 구성하지 않은 Kubernetes source 때문에 더 이상 실패하지 않습니다. | `current change`, analyzer lifecycle 및 지속형 graph audit 검사(`17 passed`), Ruff 및 strict mypy | 구성된 로컬 및 배포 lifecycle 증적은 별도로 보존합니다. Live source는 호출하지 않았습니다. |
 | 2026-08-27 | implemented | 인증된 Event 답변 검증 중 두 번 재시작을 요청한 뒤에도 활성 Core source digest가 오래된 상태로 유지되는 것을 확인하고 Core 및 Operator 재시작 태스크의 동시 실행을 수정했습니다. 재시작 태스크가 장기 실행 supervisor를 직접 소유하므로 `instanceLimit: 1`과 조용한 중복 처리는 교체 launcher 실행을 막았습니다. 이제 재시작 태스크는 동시 교체 invocation 하나를 허용하고 일반 시작 태스크는 singleton을 유지합니다. | `current change`, 두 번의 재시작 태스크 요청 뒤에도 process id가 바뀌지 않고 활성 Core digest가 현재 digest와 다른 상태를 재현, 집중 workspace 태스크 계약 4개 통과, 수정한 태스크가 오래된 Core를 active input digest와 현재 source가 정확히 일치하는 새 managed child로 교체한 뒤 서비스 준비 상태 통과 | 오래된 Core 또는 Operator 재시작 태스크 교체에 남은 구현 작업은 없습니다. 성공적인 Kubernetes Event 출처 접근은 재시작 태스크 공백이 아니라 근거 프로바이더 문제로 남습니다. |
 | 2026-08-26 | implemented | 검토된 AKS topology mapping 변경 뒤 content-addressed provider 관계 검토를 다시 생성했습니다. 후보 개수, `automatic_promotion=false`, `grants_authority=false`는 유지되며 산출물은 런타임 연결이나 권한을 바꾸지 않습니다. | `current change`, provider review `sha256:f6df73948d31bc1cce212918e776f515d6dad1713b61e10a9fa18eeb60a6c976`, 집중 provider-schema 검사 65개 통과 | semantic mapping을 바꾸기 전에 선택한 후보를 독립적으로 검토합니다. |
 | 2026-08-26 | validated | 프로세스 시작 시점의 잘못된 준비 완료를 terminal `ready` 또는 `failed`로 교체하고, 중복 시작 요청을 조용히 무시하던 동작을 제거했으며, 전체 및 무진행 process-group 기한을 추가했습니다. Console 의존성은 lockfile에서 자동 복구하고 서비스 migration 소유권 검증은 Docker 및 권위 데이터 새로 고침보다 먼저 실행합니다. | `current change`, `.vscode/tasks.json`, `scripts/automation/run-bounded-command.py`, `scripts/deployment/local/{prepare-console-full-stack,start-console-services,run-console-service}.sh`, 집중 시작 계약 테스트 19개 통과, 셸 구문 및 편집기 진단 통과, 표준 태스크에서 서비스 branch 5개와 table 127개를 검증하고 Console 의존성을 복구한 뒤 첫 번째 bounded 진단 시도에서 준비 상태 6/6 도달 | 범위가 제한되고 실패 시 닫히는 로컬 시작에 남은 구현 작업은 없습니다. |
