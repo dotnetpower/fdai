@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 09e82844e2f7cd8206ef80b02856ba57a39ac399
+translation_source_sha: bc6147029653b05afe78691f044e91c9cf1bfdbf
 translation_revised: 2026-08-28
 ---
 # 코드 맵
@@ -40,6 +40,8 @@ translation_revised: 2026-08-28
 > WATCH count cap 진행은 safe boundary 앞에 malformed envelope이 없을 때만 재개할 수 있습니다.
 > Historical Pod 축약은 durable lifecycle UID와 exact current Pod를 사용하며 current-state
 > gateway를 통해 호환되지 않는 historical `as_of` query를 발급하지 않습니다.
+> owner 범위 durable lifecycle 조회는 과거 old UID를 보존하고 analyzer Job은 inventory Job과
+> 같은 검토된 Kubernetes binding을 받아 local/deployed parity를 유지합니다.
 
 ## 물리 서비스 소유권
 

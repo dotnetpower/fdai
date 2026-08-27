@@ -289,6 +289,7 @@ def kubernetes_pod_recovery_function(
                     pod_result,
                     deployment_result=deployment_result,
                     lifecycle_events=lifecycle_events,
+                    candidate_result=replacement_candidates_result,
                 )
             if isinstance(replacement_context, Mapping):
                 replacement = _replacement_from_context(
@@ -458,6 +459,7 @@ def _default_replacement_context(
     *,
     deployment_result: SecuredObjectSetQueryResult,
     lifecycle_events: Mapping[str, Any],
+    candidate_result: SecuredObjectSetQueryResult | None = None,
 ) -> Mapping[str, Any] | None:
     """Translate complete lifecycle rows into a conservative exact replacement bundle."""
 
@@ -519,6 +521,23 @@ def _default_replacement_context(
         )
     )
     current = _replacement_record(pod, metadata=current_metadata)
+    if candidate_result is not None and (
+        not candidate_result.receipt.complete
+        or candidate_result.receipt.truncated
+        or candidate_result.materialization.graph.truncated
+    ):
+        return None
+    candidate_objects = (
+        tuple(
+            item
+            for item in candidate_result.materialization.graph.objects
+            if _resource_type(item) == "kubernetes.pod"
+        )
+        if candidate_result is not None
+        else (pod,)
+    )
+    if not candidate_objects or len(candidate_objects) > 32:
+        return None
     old = dict(current)
     old["pod_id"] = f"{pod.id}:historical:{old_uid}"
     old["pod_uid"] = old_uid
@@ -533,7 +552,10 @@ def _default_replacement_context(
     )
     return {
         "old_pod": old,
-        "candidates": [current],
+        "candidates": [
+            _replacement_record(item, metadata=_state_metadata(item).to_mapping())
+            for item in candidate_objects
+        ],
         "deployment": {
             "deployment_id": deployment.id,
             "desired_replicas_before": _optional_replacement_int(

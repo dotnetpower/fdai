@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 23dbff273ea5cb4d8e4f89a9f51a873432ef9237
+translation_source_sha: f63cfc0008c1064ff65c799a68cb8ce13d1fec60
 translation_revised: 2026-08-27
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -12,6 +12,10 @@ translation_revised: 2026-08-27
 - **Deploy truth**: `terraform apply` 가 CSP-neutral 컨트랙트의 Azure 측 실현체를 생성. **LLM 부분은 배포자-스코프**: 초기화 해석기가 배포자 아이덴티티를 대상 리전 카탈로그와 대조해 **배포자가 만들 권한이 있는 것만** 프로비저닝하고, resolved `{capability → deployment}` 매핑과 해석기 입력 출처 이력을 산출물에 기록합니다.
 모든 프로파일은 **하나의 컨트롤 경로**를 공유하며 composition-root 어댑터와 자격 증명만 다릅니다.
 ([project-structure.md § Customization via 의존성 주입](../architecture/project-structure-ko.md#customization-via-dependency-injection)). 검토된 docstring은 기존 경계를 기록하며 별도 런타임을 만들거나 상태 소유권을 변경하거나 고정본을 허용하지 않습니다. 실제 Azure 클라이언트 추가는 fork-side 주입이며 `core/`를 편집하지 않습니다.
+
+> **Kubernetes lifecycle 동등성:** 배포 analyzer Job은 검토된 `FDAI_KUBERNETES_*` binding을
+> 받고 로컬 analyzer loop와 동일한 bounded one-shot lifecycle 수집을 실행합니다. binding이
+> 없으면 선택적 lifecycle source는 사용 불가 상태로 남습니다.
 ## 구현 상태
 ### 구현 범위
 | 영역 | 상태 | 근거 | 참고 |

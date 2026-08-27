@@ -183,6 +183,8 @@ class PostgresKubernetesLifecycleStore:
         start: datetime,
         end: datetime,
         limit: int = _MAX_OBSERVATIONS_PER_APPEND,
+        namespace: str | None = None,
+        owner_uid: str | None = None,
     ) -> tuple[KubernetesLifecycleObservation, ...]:
         """Read retained lifecycle observations without changing the append-only store.
 
@@ -207,10 +209,21 @@ class PostgresKubernetesLifecycleStore:
                 "SELECT cluster_ref, namespace, object_uid, owner_uid, reason, category, "
                 "event_type, event_time, recorded_time, source_revision, record, evidence_ref "
                 "FROM kubernetes_lifecycle_observation "
-                "WHERE cluster_ref = %s AND object_uid = ANY(%s) "
+                "WHERE cluster_ref = %s "
+                "AND (object_uid = ANY(%s) OR "
+                "(%s IS NOT NULL AND namespace = %s AND owner_uid = %s)) "
                 "AND event_time >= %s AND event_time <= %s "
                 "ORDER BY event_time, evidence_ref LIMIT %s",
-                (cluster_ref, list(object_uids), start, end, limit),
+                (
+                    cluster_ref,
+                    list(object_uids),
+                    owner_uid,
+                    namespace,
+                    owner_uid,
+                    start,
+                    end,
+                    limit,
+                ),
             )
             rows = await cursor.fetchall()
         return tuple(_observation_from_row(row) for row in rows)
@@ -223,6 +236,8 @@ class PostgresKubernetesLifecycleStore:
         start: datetime,
         end: datetime,
         limit: int,
+        namespace: str | None = None,
+        owner_uid: str | None = None,
     ) -> KubernetesLifecycleReadSnapshot:
         """Read cursor health and observations under one transaction snapshot."""
 
@@ -239,10 +254,21 @@ class PostgresKubernetesLifecycleStore:
                 "SELECT cluster_ref, namespace, object_uid, owner_uid, reason, category, "
                 "event_type, event_time, recorded_time, source_revision, record, evidence_ref "
                 "FROM kubernetes_lifecycle_observation "
-                "WHERE cluster_ref = %s AND object_uid = ANY(%s) "
+                "WHERE cluster_ref = %s "
+                "AND (object_uid = ANY(%s) OR "
+                "(%s IS NOT NULL AND namespace = %s AND owner_uid = %s)) "
                 "AND event_time >= %s AND event_time <= %s "
                 "ORDER BY event_time, evidence_ref LIMIT %s",
-                (cluster_ref, list(object_uids), start, end, limit),
+                (
+                    cluster_ref,
+                    list(object_uids),
+                    owner_uid,
+                    namespace,
+                    owner_uid,
+                    start,
+                    end,
+                    limit,
+                ),
             )
             rows = await observation_cursor.fetchall()
         state = (

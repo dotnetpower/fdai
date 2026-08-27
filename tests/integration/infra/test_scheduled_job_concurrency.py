@@ -71,6 +71,20 @@ def test_the_scheduler_tick_is_opt_in_and_single_process() -> None:
     assert "parallelism              = 1" in job
 
 
+def test_analyzer_tick_binds_the_shared_kubernetes_lifecycle_collection() -> None:
+    job = (_MODULE / "analyzer_tick_job.tf").read_text(encoding="utf-8")
+
+    assert 'command = ["python", "-m", "fdai.delivery.analyzer_tick_cli"]' in job
+    for name in (
+        "FDAI_KUBERNETES_API_SERVER",
+        "FDAI_KUBERNETES_CLUSTER_REF",
+        "FDAI_KUBERNETES_AUTH_MODE",
+        "FDAI_KUBERNETES_CA_PEM",
+        "FDAI_KUBERNETES_AUDIENCE",
+    ):
+        assert f'name  = "{name}"' in job or f'name = "{name}"' in job
+
+
 def test_a_relaxed_schedule_block_would_fail_the_gate() -> None:
     relaxed = (
         'resource "azurerm_container_app_job" "example" {\n'
