@@ -1,8 +1,8 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: 0a80d0fc778300e0cc88720d590dce59db92fd05
-translation_revised: 2026-08-24
+translation_source_sha: 90ceb430d1b0c5bf1249b8b044c688583ff26179
+translation_revised: 2026-08-28
 ---
 # 서술기 라우팅과 지연 시간
 
@@ -132,6 +132,40 @@ Settings > Models는 Owner에게 배포 전체의 웹 검색 활성화와 정확
 - **조정기 전달**: 주간 workflow는 정제된 근거를 보존하고 검토가 필요할 때 멱등적 초안 PR을
   엽니다. Teams 경고를 보내지 않으며 활성화 권한이 없습니다.
 
+## Qualification 지연 시간 SLO
+
+버전이 지정된 `chatops-latency-v1` 계약은 PR 회귀 검사와 라이브 카나리(`live_canary`) 및
+릴리스(`release`)
+근거를 분리합니다. 각 단계는 하나의 소유 환경, 최소 표본 수, 순서가 지정된 p50, p95, p99
+상한을 갖습니다.
+
+| 단계 | 환경 | 최소 표본 수 | p50 | p95 | p99 |
+|------|------|-------------:|----:|----:|----:|
+| 첫 토큰까지 걸린 시간 | `live_canary` | 30 | 1000 ms | 2500 ms | 5000 ms |
+| 최종 답변 | `release` | 500 | 8000 ms | 20000 ms | 30000 ms |
+| 결정론 검증 | `pr_regression` | 100 | 250 ms | 750 ms | 1500 ms |
+| 채널 확인 응답 | `live_canary` | 30 | 1000 ms | 5000 ms | 9000 ms |
+| 전체 전달 | `release` | 500 | 10000 ms | 25000 ms | 40000 ms |
+
+단계 소유자는 미리 측정한 기간, 타임스탬프 권위 출처(`timestamp_authority`), 추적 및 출처 이력
+약속값을 제공합니다. 순수 Core 축약기는 완료, 수정, 판단 보류, 미지원, 대체 경로, 잘림, 시간
+초과 표본의 백분위수와 결과 수를 계산합니다. 시간 초과, 부족한 표본 수 또는 상한을 넘는 백분위수는 해당 단계를
+실패로 처리합니다.
+
+콘텐츠가 없는 표본을 수집한 후 저장소 벤치마크 어댑터를 실행합니다.
+
+```bash
+uv run python scripts/evaluation/chatops_quality_latency.py \
+  --input <latency-samples.json> \
+  --output <latency-evidence.json> \
+  --require-slo
+```
+
+출력은 실행 신원과 정본 표본 매니페스트를 해시합니다. 추적 ID, 출처 이력 레코드, 답변 텍스트,
+principal, 엔드포인트 또는 고객 식별자를 노출하지 않고 단계, 환경, 백분위수, 표본 수,
+타임스탬프 권위 출처, 결과 수, 출처 리비전 및 계약 근거를 보존합니다. 이 축약기는 완전한
+상관관계 추적을 주장하지 않습니다. 추적 완전성은 독립 요구사항으로 유지됩니다.
+
 ## 구현 상태
 
 ### 구현 범위
@@ -147,12 +181,14 @@ Settings > Models는 Owner에게 배포 전체의 웹 검색 활성화와 정확
 | 사용자별 라우팅 선호 설정 및 런타임 지연 시간 변환 결과 | in-progress | `services/operator-service/src/fdai_operator_service/adapters/narrator_preferences.py`; `services/operator-service/tests/test_narrator_preferences.py` | Service-local 개정 번호 기반 저장소는 principal마다 `Auto` 또는 허용된 배포 하나를 유지하고, 임의 모델 id를 거부하며, 오래된 개정 번호에는 충돌을 반환하고, principal을 격리하고, 제거된 배포는 저장된 선택을 버리지 않고 `Auto` 로 저하시킵니다. 정제된 변환 결과는 모드, 개정 번호, 허용 목록, 이동 timing 근거를 endpoint나 credential 없이 노출하며 T2 연결을 개인화하지 않는다고 선언합니다. 영속 저장, 인증된 Settings 경로, 배포 pinning 계약은 남아 있습니다. |
 | 환경 T1/T2 바인딩 초안 및 보호된 계획 | implemented | 공통 `ModelBindingPolicy`; Operator IAM 경로 및 PostgreSQL 어댑터; Console 모델 편집기; 보호된 해석기 및 배포 워크플로; 집중 테스트 | Owner 전용 초안은 리비전 및 멱등성 제한과 함께 영속화됩니다. 평가 및 계획 요청에는 권한이 없고 활성 산출물 다이제스트를 결합하며 보호된 배포 워크플로를 통해서만 활성화에 도달합니다. 공급자 및 롤백 증적은 남아 있습니다. |
 | 공개 웹 후보 라우팅 | in-progress | `services/operator-service/src/fdai_operator_service/application/conversation/capabilities/web_search/`; `services/operator-service/src/fdai_operator_service/adapters/conversation/web_search/`; focused Operator 테스트 | 프로바이더 중립 및 Azure 구성 경로가 있습니다. 로컬 및 배포 프로파일의 관리되는 이동 지연 시간 및 장애 조치 근거가 남아 있습니다. |
+| 5단계 qualification 지연 시간 계약 | implemented | [`quality_latency.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_latency.py), [`chatops_quality_latency.py`](../../../scripts/evaluation/chatops_quality_latency.py), 집중 검사 | 버전이 지정된 계약은 PR 회귀, 라이브 카나리, 릴리스 단계를 분리하고 표본 하한과 p50/p95/p99 상한을 적용하며 콘텐츠가 없는 근거를 생성합니다. 라이브 또는 릴리스 벤치마크 증적을 주장하지 않습니다. |
 | 선택적 report-format parity | implemented | `fdai_operator_service.reporting.optional_pdf_report_encoder`; `IncidentRcaReportingProjectionReader`; Operator composition 및 경로 테스트 | 로컬 및 배포 Operator composition은 같은 service-local loader와 authoritative audit-backed Incident report reader를 사용합니다. Venue, 환경 및 identity는 report 권한을 바꾸지 않습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-28 | implemented | 5단계 `chatops-latency-v1` SLO 계약, 결정론 백분위수 축약기 및 콘텐츠가 없는 벤치마크 CLI를 추가했습니다. | `current change`; 집중 Core 및 CLI 검사(`11 passed`); Ruff 및 strict mypy. | 지연 시간 qualification을 주장하기 전에 권위 있는 단계 생산자를 연결하고 PR/카나리/릴리스 증적을 보존하며 완전한 상관관계 추적을 검증해야 합니다. |
 | 2026-08-14 | in-progress | 구현 ledger를 도입하고 어떤 지연 시간 및 선호 설정 동작이 대상 설계로 남는지 명확히 했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 현재 로컬 narrator, 해석기, 웹 검색 source 및 focused 검사입니다. | 독립 service 지연 시간 창과 선호 설정을 구현한 뒤 관리되는 로컬 및 배포 근거를 보존해야 합니다. |
 | 2026-08-14 | implemented | 로컬 및 배포 Operator composition에서 선택적 PDF report 등록을 동일하게 유지했습니다. | `current change`; service-local optional loader, package-extra 계약, composition binding 및 focused 경로/composition 테스트입니다. | Package availability를 실행 권한으로 취급하지 않고 별도의 인증된 Incident report 증적을 보존해야 합니다. |
 | 2026-08-14 | implemented | 로컬 및 배포 Operator composition에서 authoritative Incident RCA report materialization을 동일하게 유지했습니다. | `current change`; service-local audit-backed report reader, composition binding 및 focused reader/family 테스트입니다. | 별도의 인증된 Incident report 증적을 보존해야 합니다. |

@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 00c693709d022cfeaab9703a5cac7f81cd89ab6e
+translation_source_sha: 135b012ce7aec1d06108e0dc116bdf024ae94b97
 translation_revised: 2026-08-28
 ---
 # 대화 품질 보증
@@ -22,6 +22,7 @@ translation_revised: 2026-08-28
 | 평가 계약 및 독립 축약 | implemented | [`test_assessment.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_assessment.py), [`test_attribution.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_attribution.py) | 결정론적 검사, 독립 평가자 축약, 귀속 및 판단 보류 동작에 집중 테스트가 있습니다. |
 | 비용 인식 런타임 정책 및 수명 주기 | implemented | [`test_runtime_policy.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_runtime_policy.py), [`test_lifecycle.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_lifecycle.py) | 단계적 평가, 후보 수명 주기, 실패 시 차단되는 승격 검사 및 롤백 동작이 구현되어 있습니다. 이는 운영 승격을 증명하지 않습니다. |
 | Qualification 점수표 및 캠페인 원장 | in-progress | [`test_quality_scorecard.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_scorecard.py), [`conversation-assurance-ledger.py`](../../../scripts/quality/conversation-assurance-ledger.py) | 점수표와 범위가 제한된 결과 형식은 구현되어 있지만 전체 이중 언어 qualification 집합은 통제된 근거로 보존되지 않았습니다. |
+| 5단계 지연 시간 qualification 근거 | implemented | [`quality_latency.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_latency.py), [`test_quality_latency.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_latency.py) | 고정 SLO 계약과 축약기는 콘텐츠가 없는 p50/p95/p99 근거를 생성하며 완전한 추적 범위를 추론하지 않습니다. 통제된 벤치마크 증적은 보존되지 않았습니다. |
 | 제한된 말뭉치 동결 경계 | implemented | [`chatops_quality_corpus_freeze.py`](../../../scripts/evaluation/chatops_quality_corpus_freeze.py), [`test_chatops_quality_corpus_freeze.py`](../../../tests/integration/scripts/test_chatops_quality_corpus_freeze.py) | 로컬 동결 도구는 `content` 또는 `label`을 출력하지 않고 소유자 전용 제한 산출물에서 공개 매니페스트를 파생합니다. 제한된 말뭉치 또는 독립 `label` 집합은 저장소에 보존하지 않습니다. |
 | Qualification 소유자 기여 | implemented | [`quality_observations.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_observations.py), [`test_quality_context_locale_observations.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_context_locale_observations.py) | 적용 가능한 1-35번 및 41-45번 항목의 결정론 소유자 어댑터는 콘텐츠가 없는 하나의 턴 묶음으로 결합됩니다. 소유하지 않은 차원은 unavailable로 남고 점수 입력이 될 수 없습니다. |
 | 맥락 및 로케일 소유자 기여 | implemented | [`quality_context_locale_observations.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_context_locale_observations.py), [`test_quality_context_locale_observations.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_context_locale_observations.py) | 41-45번 항목의 모든 기여는 하나의 사례 및 로케일에 연결됩니다. 운영 환경 근거는 독립적으로 공급될 때까지 unavailable로 남고, 맥락 또는 화면 안전성 이탈은 하드 상한 입력으로 노출됩니다. |
@@ -31,6 +32,7 @@ translation_revised: 2026-08-28
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-28 | implemented | PR 회귀, 라이브 카나리 및 릴리스 환경을 위한 5단계 지연 시간 SLO 계약과 결정론 벤치마크 근거를 추가했습니다. | `current change`; `quality_latency.py`; `chatops_quality_latency.py`; 집중 Core 및 CLI 검사(`11 passed`). | 9.6 하드 상한을 해제하기 전에 통과한 통제 벤치마크 근거와 독립적으로 완전한 상관관계 추적을 보존해야 합니다. |
 | 2026-08-28 | implemented | 소유자 전용 제한 산출물에서 사례별 `content` 및 `label` 약속값을 파생하고, 전체 숨겨진 페이로드를 연결하고, 모든 매니페스트 하한을 검증하고, 숨겨진 값을 노출하지 않은 채 공개 매니페스트를 원자적으로 생성하는 동결 도구를 추가했습니다. | `current change`; [`chatops_quality_corpus_freeze.py`](../../../scripts/evaluation/chatops_quality_corpus_freeze.py); 집중 동결 및 매니페스트 검사(`22 passed`); Ruff 및 strict mypy. | 제한된 500턴 산출물을 제공하고 독립적으로 `label`을 지정한 다음 동결된 말뭉치를 주장하기 전에 통제된 공개 매니페스트를 보존해야 합니다. |
 | 2026-08-28 | implemented | 이전에 검증한 1-35번 항목 어댑터를 활성 브랜치에 복구하고, 별도 41-45번 점수표 묶음을 로케일에 연결된 공용 턴 묶음 기여로 교체했습니다. | `current change`; `quality_{action,answer,grounding,intent,orchestration,sre,context_locale}_observations.py`; 집중 qualification 검사(`108 passed`); Docker PostgreSQL 영속성 재시작 검사(`1 passed`). | validation을 주장하기 전에 Issues #299 및 #300에서 통제된 이중 언어 hidden corpus와 완전한 운영 유사 qualification 실행을 보존해야 합니다. |
 | 2026-08-28 | implemented | 점수표 41-45번 항목에 대한 결정론 어댑터를 추가하여 로케일 동등성, 영속성 fidelity, 개인화 정확성, 맥락 격리, 화면 인식을 기존 하드 상한 계약 위에서 범위가 제한된 콘텐츠 없는 관측으로 측정하도록 했습니다. | `current change`; [`context_locale_scorecard.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/context_locale_scorecard.py); [`test_context_locale_scorecard.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_context_locale_scorecard.py); 집중 scorecard, persistence, answer-plan, Deck 격리 검사와 작업 범위 Ruff, strict mypy, translation, roadmap 검증. | 점수표 validation을 주장하기 전에 고정된 리비전에서 통제된 50개 항목 이중 언어 qualification 실행을 보존해야 합니다. |
@@ -163,6 +165,13 @@ observability and 재생 `0.10`의 고정된 정규화된 가중치를 적용합
 없으면 항목 점수는 `9.5`, 운영 종단 간 근거가 없으면 `9.4`, 지연 시간 SLO 또는 완전한
 추적이 없으면 `9.6`, critical 안전성 escape가 하나라도 있으면 `8.0`으로 제한됩니다. 여러 상한이
 적용되면 가장 낮은 상한을 사용합니다.
+
+독립 `chatops-latency-v1` 축약기는 `9.6` 하드 상한 요구사항 중 지연 시간 SLO 부분을 제공합니다.
+콘텐츠가 없는 표본에서 5개 단계의 백분위수, 표본 하한, 환경 연결, 타임스탬프 권위 출처 및 결과
+수를 보고합니다. 단계가 없거나 시간 초과 또는 백분위수 회귀가 있으면
+`latency_slo_met=false`를 유지합니다. 산출물은 항상 `complete_trace_claimed=false`를
+기록합니다. Qualification 입력이 `complete_trace=true`를 설정하려면 별도의 상관관계 추적
+축약기가 완전성을 증명해야 합니다.
 
 계약과 scorer에는 measured 결과, 말뭉치 라벨, 배포 식별자 또는 승격 상태가
 포함되지 않습니다. 이 산출물만으로 기준선 또는 qualification을 입증할 수 없습니다. 별도의

@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: e84115cdf097f12a1d5cadfc6173c1f06fb20326
+translation_source_sha: 64a90c6945ad5e4cef6c217651d8473044a66e07
 translation_revised: 2026-08-28
 ---
 # 프로젝트 구조
@@ -41,6 +41,9 @@ translation_revised: 2026-08-28
   콘텐츠가 없는 공용 계약을 사용하고 런타임 및 근거 참조를 해시하며, 지원하지 않는 모든 차원을
   점수를 만들지 않고 `unavailable`로 유지합니다. 근거 소유자는 계약에 연결된 기여를 통해
   측정값을 추가합니다. 결합기는 다른 사례의 입력, 중복 차원 및 기존 측정값 덮어쓰기를 차단합니다.
+  인접한 `quality_latency.py` 모듈은 5단계 SLO 계약과 순수 백분위수 축약만 소유합니다. Operator,
+  채널, 검증 및 전달 소유자는 타임스탬프와 측정 권한을 유지합니다. 저장소 CLI는 콘텐츠가 없는
+  표본을 구문 분석하며 추적 약속값을 완전한 추적 주장으로 변환하지 않습니다.
 - **정책과 규칙은 코드 경로가 아닌 데이터**: T0가 런타임에 `rule-catalog/` 엔트리와 `policies/`
   를 로드하므로 규칙/정책 추가에 엔진 변경이 필요 없습니다. 규칙은 의도와 교정을
   기술하고, 정책은 검증기가 재검사하는 실행 가능한 OPA/Rego입니다. 소스가 이 YAML로 수집·
