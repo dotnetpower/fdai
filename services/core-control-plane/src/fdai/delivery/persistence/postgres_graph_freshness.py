@@ -227,7 +227,7 @@ def _projection_gaps(
         or operating_status.get("status") != "projected"
         or operating_manifest.get("status") != "projected"
         or not isinstance(status_revision, str)
-        or not status_revision
+        or not status_revision.strip()
         or status_revision != manifest_revision
     ):
         gaps.append("operating_model_incomplete")
