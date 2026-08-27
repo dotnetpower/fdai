@@ -150,6 +150,12 @@ scripts/integrity/check-integrity.sh        # signature + content, fully offline
 The `framework-integrity` gate in `scripts/verify.sh` runs it
 automatically once the signed manifest exists.
 
+In the upstream signer checkout, the pre-commit hook hashes the staged Git index and writes the
+refreshed manifest and signature directly to the index. It does not modify worktree copies.
+Partially staged framework files therefore attest only their staged content, and unrelated
+worktree integrity edits remain available for their owning session. Pre-push verification still
+checks the committed snapshot before publication.
+
 ## 4. Repo layout for a fork
 
 Recommended shape:

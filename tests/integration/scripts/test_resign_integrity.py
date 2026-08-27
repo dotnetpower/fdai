@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _HOOK = _REPO_ROOT / "scripts" / "integrity" / "resign-if-surface-staged.sh"
+_GENERATOR = _REPO_ROOT / "scripts" / "integrity" / "gen-integrity-manifest.py"
 _SURFACE_LIST = _REPO_ROOT / "scripts" / "lib" / "framework-surface.txt"
 _BASH = shutil.which("bash") or "bash"
 _GIT = shutil.which("git") or "git"
@@ -21,6 +25,16 @@ def _git(repo: Path, *args: str) -> None:
     subprocess.run(  # noqa: S603 - fixed binary, test-controlled arguments
         [_GIT, *args], cwd=repo, check=True, capture_output=True, text=True
     )
+
+
+def _git_output(repo: Path, *args: str) -> str:
+    return subprocess.run(  # noqa: S603 - fixed binary, test-controlled arguments
+        [_GIT, *args],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
 
 
 @pytest.fixture
@@ -34,6 +48,7 @@ def repo(tmp_path: Path) -> Path:
     hook = root / "scripts" / "integrity" / _HOOK.name
     hook.parent.mkdir(parents=True)
     shutil.copy2(_HOOK, hook)
+    shutil.copy2(_GENERATOR, hook.parent / _GENERATOR.name)
     surface_list = root / "scripts" / "lib" / "framework-surface.txt"
     surface_list.parent.mkdir(parents=True)
     shutil.copy2(_SURFACE_LIST, surface_list)
@@ -42,8 +57,8 @@ def repo(tmp_path: Path) -> Path:
     signer.write_text(
         "#!/usr/bin/env bash\n"
         "touch signer-called\n"
-        "printf '{}\\n' > security/integrity/manifest.json\n"
-        "printf 'signature\\n' > security/integrity/manifest.json.sig\n",
+        "printf '{}\\n' > \"${FDAI_INTEGRITY_MANIFEST_OUT:?}\"\n"
+        "printf 'signature\\n' > \"${FDAI_INTEGRITY_SIGNATURE_OUT:?}\"\n",
         encoding="utf-8",
     )
     signer.chmod(0o755)
@@ -85,7 +100,7 @@ def test_staged_protected_deletion_triggers_resigning(repo: Path) -> None:
     assert (repo / "signer-called").exists()
 
 
-def test_partially_staged_protected_file_blocks_resigning(repo: Path) -> None:
+def test_partially_staged_protected_file_signs_index_content(repo: Path) -> None:
     protected = repo / _PROTECTED_FILE
     protected.write_text("VALUE = 2\n", encoding="utf-8")
     _git(repo, "add", str(protected.relative_to(repo)))
@@ -93,9 +108,10 @@ def test_partially_staged_protected_file_blocks_resigning(repo: Path) -> None:
 
     result = _run_hook(repo)
 
-    assert result.returncode == 1
-    assert "also has unstaged changes" in result.stderr
-    assert not (repo / "signer-called").exists()
+    assert result.returncode == 0, result.stderr
+    assert (repo / "signer-called").exists()
+    assert protected.read_text(encoding="utf-8") == "VALUE = 3\n"
+    assert _git_output(repo, "show", f":{_PROTECTED_FILE}") == "VALUE = 2\n"
 
 
 def test_partially_staged_unprotected_file_does_not_block_resigning(repo: Path) -> None:
@@ -110,3 +126,48 @@ def test_partially_staged_unprotected_file_does_not_block_resigning(repo: Path) 
 
     assert result.returncode == 0, result.stderr
     assert (repo / "signer-called").exists()
+
+
+def test_unstaged_integrity_worktree_changes_are_preserved(repo: Path) -> None:
+    manifest = repo / "security" / "integrity" / "manifest.json"
+    signature = repo / "security" / "integrity" / "manifest.json.sig"
+    manifest.write_text('{"worktree": "preserve"}\n', encoding="utf-8")
+    signature.write_text("worktree-signature\n", encoding="utf-8")
+    protected = repo / _PROTECTED_FILE
+    protected.write_text("VALUE = 2\n", encoding="utf-8")
+    _git(repo, "add", str(protected.relative_to(repo)))
+
+    result = _run_hook(repo)
+
+    assert result.returncode == 0, result.stderr
+    assert manifest.read_text(encoding="utf-8") == '{"worktree": "preserve"}\n'
+    assert signature.read_text(encoding="utf-8") == "worktree-signature\n"
+    assert _git_output(repo, "show", ":security/integrity/manifest.json") == "{}\n"
+    assert _git_output(repo, "show", ":security/integrity/manifest.json.sig") == "signature\n"
+
+
+def test_manifest_generator_hashes_staged_content(repo: Path) -> None:
+    protected = repo / _PROTECTED_FILE
+    protected.write_text("VALUE = 2\n", encoding="utf-8")
+    _git(repo, "add", str(protected.relative_to(repo)))
+    protected.write_text("VALUE = 3\n", encoding="utf-8")
+    output = repo / "index-manifest.json"
+
+    result = subprocess.run(  # noqa: S603 - fixed interpreter and test-controlled script
+        [
+            sys.executable,
+            str(repo / "scripts" / "integrity" / _GENERATOR.name),
+            "--source",
+            "index",
+            "--out",
+            str(output),
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    manifest = json.loads(output.read_text(encoding="utf-8"))
+    assert manifest["files"][str(_PROTECTED_FILE)] == hashlib.sha256(b"VALUE = 2\n").hexdigest()

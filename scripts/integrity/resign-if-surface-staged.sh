@@ -11,19 +11,18 @@
 #   2. a STAGED change touches the framework surface
 #      (scripts/lib/framework-surface.txt).
 #
-# When both hold it runs scripts/integrity/sign-integrity.sh (regenerate manifest + sign)
-# and stages the refreshed manifest + signature so they land in the SAME commit
-# as the surface change. This removes the manual "re-sign before release" chore
-# for the maintainer.
+# When both hold it signs the staged Git index into temporary artifacts and writes
+# those blobs directly back to the index. The worktree manifest and signature are
+# never modified, so concurrent unstaged integrity updates remain untouched.
 #
 # Fork safety: a fork never has the private key, so this always no-ops there -
 # a fork still cannot mint a manifest that verifies against the committed public
 # key, and its surface edits are still caught by check-integ.sh in fork mode on
 # push. Automating the signature does NOT weaken the fork-facing tamper-evidence.
 #
-# sign-integrity.sh hashes the WORKING TREE. A framework-surface file that is
-# both staged and modified again would therefore attest content outside the
-# commit. This hook detects that partial-staging state and blocks the commit.
+# sign-integrity.sh normally hashes the working tree. This hook selects its
+# index source instead, so a partially staged framework file attests exactly
+# the staged content rather than blocking or widening the commit.
 # Set FDAI_SKIP_RESIGN=1 to bypass deliberately.
 #
 # Exit codes: 0 = no-op or re-signed OK; 1 = signing failed (blocks the commit).
@@ -73,25 +72,27 @@ for f in "${staged[@]}"; do
 done
 [ "${#surface_staged[@]}" -gt 0 ] || exit 0
 
-# 3. Refuse to attest working-tree content that is not in the index.
-for f in "${surface_staged[@]}"; do
-  if ! git diff --quiet -- "$f"; then
-    echo "resign-integrity: BLOCKED - staged framework-surface file also has unstaged changes: $f" >&2
-    echo "  Stage the whole file, revert the unstaged part, or set FDAI_SKIP_RESIGN=1 deliberately." >&2
-    exit 1
-  fi
-done
-
-# 4. Re-sign and stage the refreshed artifacts into this commit.
-echo "resign-integrity: framework surface staged -> re-signing manifest..."
-out="$(mktemp)"
-if ! bash scripts/integrity/sign-integrity.sh >"$out" 2>&1; then
+# 3. Re-sign the staged snapshot without touching worktree artifacts.
+echo "resign-integrity: framework surface staged -> signing index snapshot..."
+temp_dir="$(mktemp -d)"
+out="$temp_dir/signing.log"
+manifest_out="$temp_dir/manifest.json"
+signature_out="$temp_dir/manifest.json.sig"
+trap 'rm -f "$out" "$manifest_out" "$signature_out"; rmdir "$temp_dir" 2>/dev/null || true' EXIT
+if ! FDAI_INTEGRITY_MANIFEST_OUT="$manifest_out" \
+  FDAI_INTEGRITY_SIGNATURE_OUT="$signature_out" \
+  FDAI_INTEGRITY_SOURCE=index \
+  bash scripts/integrity/sign-integrity.sh >"$out" 2>&1; then
   echo "resign-integrity: BLOCKED - sign-integrity failed:" >&2
   sed 's/^/  /' "$out" >&2
-  rm -f "$out"
   exit 1
 fi
-rm -f "$out"
-git add security/integrity/manifest.json security/integrity/manifest.json.sig
-echo "resign-integrity: manifest re-signed + staged."
+
+# 4. Add the signed blobs to the index directly. Do not copy them into the
+# worktree: pre-commit may have temporarily stashed unrelated edits there.
+manifest_blob="$(git hash-object -w "$manifest_out")"
+signature_blob="$(git hash-object -w "$signature_out")"
+git update-index --add --cacheinfo 100644 "$manifest_blob" security/integrity/manifest.json
+git update-index --add --cacheinfo 100644 "$signature_blob" security/integrity/manifest.json.sig
+echo "resign-integrity: index manifest re-signed + staged; worktree preserved."
 exit 0

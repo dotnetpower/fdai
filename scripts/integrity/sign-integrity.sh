@@ -30,6 +30,9 @@
 #
 # Environment:
 #   FDAI_INTEGRITY_KEY   private key path (default: secrets/integrity-signing-key.pem)
+#   FDAI_INTEGRITY_MANIFEST_OUT  alternate manifest output for index-only hooks
+#   FDAI_INTEGRITY_SIGNATURE_OUT alternate signature output for index-only hooks
+#   FDAI_INTEGRITY_SOURCE        worktree (default) or index
 
 set -euo pipefail
 
@@ -37,10 +40,19 @@ repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$repo_root"
 
 INTEGRITY_DIR="security/integrity"
-MANIFEST="$INTEGRITY_DIR/manifest.json"
-SIG="$INTEGRITY_DIR/manifest.json.sig"
+MANIFEST="${FDAI_INTEGRITY_MANIFEST_OUT:-$INTEGRITY_DIR/manifest.json}"
+SIG="${FDAI_INTEGRITY_SIGNATURE_OUT:-$INTEGRITY_DIR/manifest.json.sig}"
 PUBKEY="$INTEGRITY_DIR/upstream-signing-key.pub"
 PRIVKEY="${FDAI_INTEGRITY_KEY:-secrets/integrity-signing-key.pem}"
+SOURCE="${FDAI_INTEGRITY_SOURCE:-worktree}"
+
+case "$SOURCE" in
+  worktree | index) ;;
+  *)
+    echo "sign-integrity: ERROR - FDAI_INTEGRITY_SOURCE must be worktree or index." >&2
+    exit 2
+    ;;
+esac
 
 command -v openssl >/dev/null 2>&1 || {
   echo "sign-integrity: ERROR - openssl not found on PATH." >&2
@@ -72,7 +84,7 @@ for arg in "$@"; do
   esac
 done
 
-mkdir -p "$INTEGRITY_DIR"
+mkdir -p "$INTEGRITY_DIR" "$(dirname "$MANIFEST")" "$(dirname "$SIG")"
 
 if [ "$gen_key" = "1" ]; then
   if [ -f "$PRIVKEY" ]; then
@@ -99,7 +111,9 @@ if [ ! -f "$PRIVKEY" ]; then
 fi
 
 if [ "$regen" = "1" ]; then
-  "${python_cmd[@]}" scripts/integrity/gen-integrity-manifest.py --out "$MANIFEST"
+  "${python_cmd[@]}" scripts/integrity/gen-integrity-manifest.py \
+    --out "$MANIFEST" \
+    --source "$SOURCE"
 fi
 
 if [ ! -f "$MANIFEST" ]; then

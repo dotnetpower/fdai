@@ -16,11 +16,12 @@ What this gives you (and what it does not):
     Enforcement of trust belongs to an upstream-controlled gate, not this file.
 
 Usage:
-  scripts/integrity/gen-integrity-manifest.py [--out PATH] [--check]
+  scripts/integrity/gen-integrity-manifest.py [--out PATH] [--check] [--source SOURCE]
 
   --out PATH   where to write the manifest (default: security/integrity/manifest.json)
   --check      do not write; exit non-zero if the on-disk manifest is stale
                (used in CI to force a regenerate-and-sign when the surface changes)
+  --source     hash the working tree (default) or the staged Git index
 
 Determinism: files are sorted; JSON uses sorted keys, 2-space indent, and a
 trailing newline, so re-running on the same tree yields byte-identical output
@@ -96,7 +97,17 @@ def sha256_of(path: Path) -> str:
     return h.hexdigest()
 
 
-def build_manifest(root: Path) -> dict:
+def sha256_of_index(root: Path, path: str) -> str:
+    content = subprocess.run(
+        ["git", "show", f":{path}"],
+        cwd=root,
+        capture_output=True,
+        check=True,
+    ).stdout
+    return hashlib.sha256(content).hexdigest()
+
+
+def build_manifest(root: Path, *, source: str = "worktree") -> dict:
     entries = load_surface(root)
     surface_files = sorted(p for p in tracked_files(root) if matches_surface(p, entries))
     if not surface_files:
@@ -106,6 +117,9 @@ def build_manifest(root: Path) -> dict:
         )
     files: dict[str, str] = {}
     for rel in surface_files:
+        if source == "index":
+            files[rel] = sha256_of_index(root, rel)
+            continue
         abs_path = root / rel
         if not abs_path.is_file():
             # A tracked-but-absent path (e.g. sparse checkout) must fail loudly
@@ -143,11 +157,19 @@ def main() -> int:
         action="store_true",
         help="verify the on-disk manifest still matches the tree (CI staleness gate)",
     )
+    parser.add_argument(
+        "--source",
+        choices=("worktree", "index"),
+        default="worktree",
+        help="content source to hash (default: worktree)",
+    )
     args = parser.parse_args()
 
     root = repo_root()
-    manifest = build_manifest(root)
-    out_path = root / args.out
+    manifest = build_manifest(root, source=args.source)
+    out_path = Path(args.out)
+    if not out_path.is_absolute():
+        out_path = root / out_path
 
     if args.check:
         if not out_path.is_file():
