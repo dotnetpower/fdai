@@ -25,6 +25,15 @@ class OperatorRole(StrEnum):
     BREAK_GLASS = "BreakGlass"
 
 
+def canonical_ordinary_role(role: OperatorRole | str) -> str:
+    """Normalize one ordinary query role and exclude BreakGlass."""
+    value = role.value if isinstance(role, OperatorRole) else role
+    normalized = value.casefold()
+    if normalized not in {"reader", "contributor", "approver", "owner"}:
+        raise ValueError("BreakGlass is not a query role")
+    return normalized
+
+
 class OperatorPrincipalKind(StrEnum):
     """Authenticated principal classes accepted by the Operator boundary."""
 

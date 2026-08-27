@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 29257b94dc02462a15d37289938af156495cacac
+translation_source_sha: cf829273c89ef1c0d6ab236589d47224b1bf7e05
 translation_revised: 2026-08-27
 ---
 # 코드 맵
@@ -220,6 +220,9 @@ Semantic-turn 요청은 정확한 resource id와 함께 타입이 지정된 화�
 불완전한 contextual 표는 answered claim이 되지 않고 semantic turn을 hold합니다.
 Operator instance projection은 인증된 principal과 활성 generation에서 검증된 선택 필드를
 발급하며, 잘린 projection은 신원을 완전히 생략합니다.
+공유 범위 digest는 소문자 일반 역할(`reader`, `contributor`, `approver`, `owner`)만 사용하고
+`BreakGlass`는 거부합니다. context에 1,000개가 넘는 리소스가 있으면 정확한 id 조건식은
+범위가 제한된 개별 id 읽기를 사용합니다.
 
 SDK는 두 semantic channel이 하나의 physical Event Hub를 공유할 때 사용하는 logical-topic marker와
 결정론적 consumer-group 파생 규칙도 소유합니다. Core와 Operator는 서로 다른 adapter, codec,

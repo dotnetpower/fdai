@@ -251,6 +251,53 @@ async def test_object_set_materializes_interface_query_with_hard_limit() -> None
     assert result.truncation_reason == "result_limit"
 
 
+async def test_exact_id_membership_reads_beyond_store_candidate_limit() -> None:
+    resource_type = _object_type("Resource", include_owner=False).model_copy(
+        update={
+            "properties": {
+                **_object_type("Resource", include_owner=False).properties,
+                "name": PropertyDecl(type=PropertyType.STRING),
+            }
+        }
+    )
+    store = InMemoryOntologyInstanceStore(object_types=(resource_type,), link_types=())
+    identifiers = tuple(f"resource-{index}" for index in range(1001))
+    for identifier in identifiers:
+        await store.upsert_object(
+            OntologyObjectRecord(
+                id=identifier,
+                object_type="Resource",
+                properties={
+                    "id": identifier,
+                    "status": "ready",
+                    "name": "target" if identifier == "resource-1000" else "other",
+                },
+            )
+        )
+    service = ObjectSetService(
+        store=store,
+        interfaces=compile_interfaces(
+            interfaces=(), implementations=(), object_types=(resource_type,)
+        ),
+        object_type_names=frozenset({"Resource"}),
+    )
+    definition = ObjectSetDefinition(
+        selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Resource"),
+        predicates=(
+            ObjectPredicate(property="id", operator="in", values=identifiers),
+            ObjectPredicate(property="name", equals="target"),
+        ),
+        as_of=datetime(2026, 8, 1, tzinfo=UTC),
+        purpose="operations-review",
+        limit=1000,
+    )
+
+    result = await service.materialize(definition)
+
+    assert [item.id for item in result.graph.objects] == ["resource-1000"]
+    assert result.truncated is False
+
+
 def test_object_set_rejects_unbounded_or_naive_traversal() -> None:
     with pytest.raises(ValueError, match="less than or equal to 1000"):
         ObjectSetDefinition(
