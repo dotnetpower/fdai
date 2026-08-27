@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 ARB 에이전트 루프
 translation_of: ontology-agent-loop.md
-translation_source_sha: 213d94a72f4c29eef43bfe6fca5a8d28933b02da
+translation_source_sha: b381b25fb8ddf3145968908199d6b9018edfdbbf
 translation_revised: 2026-08-28
 ---
 # 온톨로지 기반 ARB 에이전트 루프
@@ -95,6 +95,8 @@ Thor는 이 명시적으로 타입이 지정된 비실행 verdict를 action idem
 Odin은 action portfolio 개수에서 제외하며 Saga는 감사용으로 보존합니다. Payload는 JSON-safe timestamp를 사용합니다.
 멱등성 키로 중복 전달을 억제하며, 기한, 역압, 오래됨, 충돌 또는 사용할 수 없는 근거는 보류
 판정을 만듭니다. 어떤 ARB 결과도 승인, 변경, 실행 또는 승격 권한을 가지지 않습니다.
+Durable projection-status 메서드가 없는 legacy store는 1,024개로 제한된 로컬 fallback을 사용하고,
+필수 durable marker가 있는 store는 해당 상태를 process memory에 중복 저장하지 않습니다.
 
 검토는 `planned` 의도만 수락합니다. 전체 Change 식별자를 해시하고 하나의 절대 기한을
 사용하며, 동일한 멱등성 키만 직렬화하므로 서로 다른 검토는 병렬로 진행할 수 있습니다.

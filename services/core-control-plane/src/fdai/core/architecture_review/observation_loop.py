@@ -278,7 +278,7 @@ class OntologyArchitectureReviewLoop:
         self._decision_cap = decision_cap
         self._clock = clock or (lambda: datetime.now(UTC))
         self._key_locks: OrderedDict[str, _KeyLockState] = OrderedDict()
-        self._local_projection_status: dict[str, str] = {}
+        self._local_projection_status: OrderedDict[str, str] = OrderedDict()
 
     def bind_observation_sink(self, sink: ArchitectureReviewObservationSink | None) -> None:
         """Attach the production read-model sink before processing begins."""
@@ -430,10 +430,14 @@ class OntologyArchitectureReviewLoop:
         return str(await getter(key))
 
     async def _mark_projection(self, key: str, status: str) -> None:
-        self._local_projection_status[key] = status
         marker = getattr(self._state_store, "mark_projection", None)
         if marker is not None:
             await marker(key, status)
+            return
+        self._local_projection_status[key] = status
+        self._local_projection_status.move_to_end(key)
+        while len(self._local_projection_status) > _MAX_KEY_LOCKS:
+            self._local_projection_status.popitem(last=False)
 
     def _evict_inactive_locks(self) -> None:
         while len(self._key_locks) > _MAX_KEY_LOCKS:
