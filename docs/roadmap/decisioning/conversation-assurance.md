@@ -26,6 +26,7 @@ model families, bounded debate, blind replay, automatic promotion, and automatic
 | Eight-stage correlation trace evidence | implemented | [`quality_trace.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_trace.py), [`test_quality_trace.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_trace.py) | The reducer requires the exact session-to-audit chain, one correlation commitment, predecessor links, authoritative timestamps, and provenance commitments. No live trace receipt is retained. |
 | Timing qualification evidence binding | implemented | [`quality_timing.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_timing.py), [`test_quality_timing.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_timing.py) | A 500-trace complete cohort must match the latency artifact's source revision, trace count, trace-set commitment, and installed SLO contract before timing booleans reach the hard-cap reducer. |
 | Restricted corpus freeze boundary | implemented | [`chatops_quality_corpus_freeze.py`](../../../scripts/evaluation/chatops_quality_corpus_freeze.py), [`test_chatops_quality_corpus_freeze.py`](../../../tests/integration/scripts/test_chatops_quality_corpus_freeze.py) | The local freezer derives the public manifest from an owner-only restricted artifact without printing content or labels. No restricted corpus or independent label set is retained in the repository. |
+| Independent corpus review reducer | implemented | [`chatops_quality_corpus_review.py`](../../../scripts/evaluation/chatops_quality_corpus_review.py), [`test_chatops_quality_corpus_review.py`](../../../tests/integration/scripts/test_chatops_quality_corpus_review.py) | Two owner-only reviews must cover every frozen label commitment with distinct identities and families, agreement of at least 0.80, and third-family coverage for every disagreement. Output contains aggregate counts and digests only. |
 | Qualification owner contributions | implemented | [`quality_observations.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_observations.py), [`test_quality_context_locale_observations.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_context_locale_observations.py) | Deterministic owner adapters for applicable items 1-35 and 41-45 merge into one content-free turn envelope. Non-owned dimensions remain unavailable and cannot become score inputs. |
 | Context and locale owner contributions | implemented | [`quality_context_locale_observations.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_context_locale_observations.py), [`test_quality_context_locale_observations.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_context_locale_observations.py) | Items 41-45 bind every contribution to one case and locale, keep production evidence unavailable until independently supplied, and expose context or screen safety escapes as hard-cap inputs. |
 | Operator disputes and ontology adequacy review | implemented | [`test_learning.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_learning.py), [`test_state_store_ontology_adequacy.py`](../../../services/core-control-plane/tests/delivery/persistence/test_state_store_ontology_adequacy.py) | Disputes and reproduced adequacy gaps create bounded review evidence without changing execution authority. |
@@ -34,6 +35,7 @@ model families, bounded debate, blind replay, automatic promotion, and automatic
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-28 | implemented | Added the content-free independent review reducer with exact primary coverage, family separation, agreement threshold, and complete tie-break enforcement. | `current change`; focused review checks (`6 passed`); Ruff and strict mypy. | Complete the active third-family review, freeze the reviewed artifact, and retain its public receipt. |
 | 2026-08-28 | implemented | Connected the Core-owned deterministic verification call to the typed timing receipt under explicit PR benchmark configuration. | `current change`; focused assessment and latency checks (`24 passed`); Ruff and strict mypy. | Connect the remaining stage owners and retain a matching controlled cohort. |
 | 2026-08-28 | implemented | Added a stage-owner latency receipt that prevents caller-authored duration and environment substitution. | `current change`; focused Core latency checks (`8 passed`); Ruff and strict mypy. | Wire authoritative stage owners and retain controlled receipts. |
 | 2026-08-28 | implemented | Bound latency and trace evidence by installed contract, source revision, trace count, and trace-set digest so callers cannot clear the 9.6 hard cap with unverified booleans. | `current change`; `quality_timing.py`; focused timing-binding checks (`4 passed`); combined latency/trace/timing checks (`23 passed`). | Bind authoritative runtime producers and retain matching controlled evidence. |
@@ -251,6 +253,23 @@ The command prints only the content-free summary. Public output is created atomi
 idempotent for the same digest. An existing different manifest is never overwritten, so changing a
 label or prompt requires a new reviewed corpus version and output path. Keep the restricted input
 and independent review records outside the repository in their approved evidence store.
+
+Reduce independent review files only after the public manifest is frozen:
+
+```bash
+uv run python scripts/evaluation/chatops_quality_corpus_review.py \
+  --manifest <public-manifest.json> \
+  --rater-a <rater-a.json> \
+  --rater-b <rater-b.json> \
+  --tie-break <tie-break.json> \
+  --output <review-receipt.json> \
+  --require-complete
+```
+
+Primary reviews must use distinct identities and model families and cover every case's exact label
+commitment. Agreement below `0.80` fails, and every disagreement requires a third identity and
+family. The receipt exposes only aggregate agreement, accept/reject counts, review commitments, and
+explicit gaps; it omits case decisions, labels, prompts, and rater identities.
 
 ### Qualification observation envelope
 
