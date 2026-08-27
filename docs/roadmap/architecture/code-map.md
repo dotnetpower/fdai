@@ -107,7 +107,10 @@ current structural release and Reader manifest without claiming production readi
 
 Inventory relationship convergence is owned by the continuous operational instance graph. Reviewed
 provider parents shadow generic containment, snapshot and ontology stores enforce cardinality, and
-principal-scoped operational evidence reads bind receipt-verified Context metadata through the
+the inventory ontology projector serializes graph replacement with its generation commit marker.
+Resource ObjectSet receipts preserve source generation and completeness independently from query
+truncation, including zero-result reads.
+Principal-scoped operational evidence reads bind receipt-verified Context metadata through the
 existing bounded response without adding mutation or execution authority.
 The Context projection authenticates receipt issuance, compares complete link observation metadata
 including source generation and verification lineage, and budgets the bundle and metadata together.
@@ -126,9 +129,6 @@ from the secured graph, so scope or completeness relabelling cannot reuse an iss
 Evidence reads reserve the Context envelope before bundle truncation, so the configured response
 budget remains a graceful hold boundary rather than a post-build failure.
 PostgreSQL ontology persistence provides atomic create semantics for detection identity deduplication.
-the inventory ontology projector serializes graph replacement with its generation commit marker.
-Resource ObjectSet receipts preserve source generation and completeness independently from query
-truncation, including zero-result reads.
 The same projection preserves independently verified `runtime_calls` edges in both directions
 without treating mutual service calls as an orientation conflict.
 
