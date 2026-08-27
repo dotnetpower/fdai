@@ -159,6 +159,15 @@ class _StaticVersions:
         return self._versions.get((publisher, family))
 
 
+class _InvalidVersions:
+    def __init__(self, value: object) -> None:
+        self._value = value
+
+    def latest_stable_version(self, *, region: str, publisher: str, family: str) -> str | None:
+        del region, publisher, family
+        return self._value  # type: ignore[return-value]
+
+
 def _default_full_quota() -> _DictQuota:
     return _DictQuota(
         {
@@ -221,6 +230,21 @@ def test_publisher_catalog_does_not_match_same_named_family_from_wrong_publisher
     secondary = next(item for item in result.capabilities if item.name == "t2.reasoner.secondary")
     assert secondary.status is CapabilityStatus.HIL_ONLY
     assert secondary.reasons[0].startswith("no_preferred_family_in_region")
+
+
+@pytest.mark.parametrize("version", [None, 1, ""])
+def test_live_version_query_must_return_stable_string(version: object) -> None:
+    with pytest.raises(ResolverError, match="no_stable_model_version"):
+        resolve(
+            registry=_registry(),
+            region=_REGION,
+            subscription_id=_SUB,
+            deployer_object_id=_OID,
+            catalog=_StaticCatalog(_families_full()),
+            permission=_AlwaysPermissionQuery(True),
+            quota=_default_full_quota(),
+            model_versions=_InvalidVersions(version),
+        )
 
 
 def test_upstream_secondary_resolves_reviewed_mistral_profile() -> None:

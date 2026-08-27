@@ -409,6 +409,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 
+    model_versions = catalog_query if isinstance(catalog_query, ModelVersionQuery) else None
     try:
         resolved = resolve(
             registry=registry,
@@ -420,9 +421,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             quota=quota_query,
             provisioned_capacity=provisioned_capacity_query,
             binding_policy=binding_policy,
-            model_versions=(
-                catalog_query if isinstance(catalog_query, ModelVersionQuery) else None
-            ),
+            model_versions=model_versions,
         )
     except (ResolverError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -451,13 +450,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         # ``azurerm_cognitive_deployment`` gets created for each family the
         # router might pick. Merged into the existing capabilities list;
         # the LLM module iterates for_each without additional wiring.
-        extra_deployments = collect_narrator_deployments(
-            registry=registry,
-            region=args.region,
-            catalog=catalog_query,
-            quota=quota_query,
-            capability_name=args.narrator_capability,
-        )
+        try:
+            extra_deployments = collect_narrator_deployments(
+                registry=registry,
+                region=args.region,
+                catalog=catalog_query,
+                quota=quota_query,
+                model_versions=model_versions,
+                capability_name=args.narrator_capability,
+            )
+        except (ResolverError, ValueError) as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
         vision_candidates = collect_vision_candidates(
             registry=registry,
             region=args.region,
@@ -475,12 +479,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             endpoint=args.narrator_endpoint,
             api_version=args.narrator_api_version,
         )
-        extra_deployments += collect_web_search_deployments(
-            registry=registry,
-            region=args.region,
-            catalog=catalog_query,
-            quota=quota_query,
-        )
+        try:
+            extra_deployments += collect_web_search_deployments(
+                registry=registry,
+                region=args.region,
+                catalog=catalog_query,
+                quota=quota_query,
+                model_versions=model_versions,
+            )
+        except (ResolverError, ValueError) as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
 
     if args.emit_primary_pool:
         if not args.narrator_endpoint:
@@ -504,8 +513,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 region=args.region,
                 catalog=catalog_query,
                 quota=quota_query,
+                model_versions=model_versions,
             )
-        except ResolverError as exc:
+        except (ResolverError, ValueError) as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 2
 

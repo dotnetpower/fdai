@@ -589,15 +589,19 @@ def resolve(
             continue
 
         chosen_pub, chosen_family, available = selected
-        version = (
-            model_versions.latest_stable_version(
+        version: str | None = None
+        if model_versions is not None:
+            version_value = model_versions.latest_stable_version(
                 region=region,
                 publisher=chosen_pub,
                 family=chosen_family,
             )
-            if model_versions is not None
-            else None
-        )
+            if not isinstance(version_value, str) or not version_value.strip():
+                raise ResolverError(
+                    f"no_stable_model_version:publisher={chosen_pub}:family={chosen_family}:"
+                    f"region={region}"
+                )
+            version = version_value
         effective = min(requested, available)
         status = (
             CapabilityStatus.RESOLVED

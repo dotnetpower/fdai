@@ -7,6 +7,50 @@ from typing import Any
 from fdai.rule_catalog.schema.llm_registry import LlmRegistry
 
 
+def _available_capacity_tpm(
+    quota: Any,
+    *,
+    region: str,
+    publisher: str,
+    family: str,
+    sku: str,
+) -> int:
+    sku_query = getattr(quota, "available_capacity_tpm_for_sku", None)
+    if callable(sku_query):
+        return int(
+            sku_query(
+                region=region,
+                publisher=publisher,
+                family=family,
+                sku=sku,
+            )
+        )
+    if sku != "Standard":
+        return 0
+    return int(
+        quota.available_capacity_tpm(
+            region=region,
+            publisher=publisher,
+            family=family,
+        )
+    )
+
+
+def _stable_version(model_versions: Any, *, region: str, publisher: str, family: str) -> str | None:
+    if model_versions is None:
+        return None
+    version = model_versions.latest_stable_version(
+        region=region,
+        publisher=publisher,
+        family=family,
+    )
+    if version is None:
+        raise ValueError(f"no stable model version for synthesized deployment {publisher}/{family}")
+    if not isinstance(version, str):
+        raise ValueError("model version query MUST return a string or None")
+    return version
+
+
 def narrator_deployment_name(family: str) -> str:
     """Return the URL-safe Azure deployment name for a narrator family."""
     return "narrator-" + family.replace(".", "-")
@@ -39,8 +83,12 @@ def _viable_narrator_prefs(
     for pref in spec.preferences:
         if pref.family in seen or pref.family not in catalog_families:
             continue
-        available = quota.available_capacity_tpm(
-            region=region, publisher=pref.publisher, family=pref.family
+        available = _available_capacity_tpm(
+            quota,
+            region=region,
+            publisher=pref.publisher,
+            family=pref.family,
+            sku=spec.sku.value,
         )
         if available <= 0:
             continue
@@ -87,6 +135,7 @@ def collect_narrator_deployments(
     region: str,
     catalog: Any,
     quota: Any,
+    model_versions: Any = None,
     capability_name: str = "t1.judge",
 ) -> tuple[Any, ...]:
     from fdai.rule_catalog.schema.llm_resolver import (
@@ -116,8 +165,12 @@ def collect_narrator_deployments(
                 f"{deployment_name!r}. Adjust llm-registry.yaml preferences."
             )
         seen_names[deployment_name] = pref.family
-        available = quota.available_capacity_tpm(
-            region=region, publisher=pref.publisher, family=pref.family
+        available = _available_capacity_tpm(
+            quota,
+            region=region,
+            publisher=pref.publisher,
+            family=pref.family,
+            sku=spec.sku.value,
         )
         effective = min(spec.requested_capacity, available)
         out.append(
@@ -129,6 +182,12 @@ def collect_narrator_deployments(
                 sku=spec.sku.value,
                 capacity_tpm=effective,
                 invocation=spec.invocation.value,
+                version=_stable_version(
+                    model_versions,
+                    region=region,
+                    publisher=pref.publisher,
+                    family=pref.family,
+                ),
                 reasons=(f"narrator_deployment_for={capability_name}",),
             )
         )
@@ -209,6 +268,7 @@ def collect_web_search_deployments(
     region: str,
     catalog: Any,
     quota: Any,
+    model_versions: Any = None,
     capability_name: str = "t1.web_search",
 ) -> tuple[Any, ...]:
     """Emit one provisionable capability for each web-search candidate."""
@@ -233,13 +293,21 @@ def collect_web_search_deployments(
             sku=spec.sku.value,
             capacity_tpm=min(
                 spec.requested_capacity,
-                quota.available_capacity_tpm(
+                _available_capacity_tpm(
+                    quota,
                     region=region,
                     publisher=pref.publisher,
                     family=pref.family,
+                    sku=spec.sku.value,
                 ),
             ),
             invocation=spec.invocation.value,
+            version=_stable_version(
+                model_versions,
+                region=region,
+                publisher=pref.publisher,
+                family=pref.family,
+            ),
             reasons=(f"web_search_deployment_for={capability_name}",),
         )
         for pref in prefs
@@ -284,6 +352,7 @@ def collect_primary_deployments(
     region: str,
     catalog: Any,
     quota: Any,
+    model_versions: Any = None,
     capability_name: str = "t2.reasoner.primary",
 ) -> tuple[Any, ...]:
     from fdai.rule_catalog.schema.llm_resolver import CapabilityStatus, ResolvedCapability
@@ -300,8 +369,12 @@ def collect_primary_deployments(
         return ()
     out: list[Any] = []
     for pref in prefs:
-        available = quota.available_capacity_tpm(
-            region=region, publisher=pref.publisher, family=pref.family
+        available = _available_capacity_tpm(
+            quota,
+            region=region,
+            publisher=pref.publisher,
+            family=pref.family,
+            sku=spec.sku.value,
         )
         effective = min(spec.requested_capacity, available)
         out.append(
@@ -313,6 +386,12 @@ def collect_primary_deployments(
                 sku=spec.sku.value,
                 capacity_tpm=effective,
                 invocation=spec.invocation.value,
+                version=_stable_version(
+                    model_versions,
+                    region=region,
+                    publisher=pref.publisher,
+                    family=pref.family,
+                ),
                 reasons=(f"primary_pool_deployment_for={capability_name}",),
             )
         )
