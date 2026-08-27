@@ -131,6 +131,7 @@ The workbench is complete only when it answers these bounded operational questio
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-27 | implemented | Replaced per-id ontology store reads with bounded exact-id batch queries and early result-limit closure. A 512-id contextual selection now uses at most four indexed store queries instead of hundreds of new database connections. | `current change`; ObjectSet, predicate, and PostgreSQL instance-store checks (`31 passed`, `4 skipped` because `FDAI_DATABASE_URL` was unset); Ruff and strict mypy. | Retain deployed database latency and connection-pressure evidence separately; no remote database was queried. |
 | 2026-08-27 | implemented | Changed Resource Event answer projection to retain the newest bounded rows and disclose display truncation. The bilingual answer reports eight displayed rows out of the source total and keeps those latest rows in chronological order. | `current change`; focused Resource Event answer checks (`3 passed`); Ruff and formatter passed | Retain one authenticated answer with Event rows after runtime source access is restored. Durable Event history remains open. |
 | 2026-08-27 | implemented | Made the Event Function reject an exact identity predicate that resolves to zero or multiple Resources. The provider receives no request and the result stays incomplete as `target_resolution_not_exact`; complete broad-scope empty results retain their existing meaning. | `current change`; focused Resource Event FunctionType regression checks | Restore the runtime Kubernetes Event source and retain one authenticated exact-target provider receipt. Durable history remains required before zero rows can prove historical absence. |
 | 2026-08-27 | implemented | Bound one source-grounded exact target into the Event plan and projected Event rows and limitations through a dedicated bilingual read-only answer. Ambiguous same-name Resources remain incomplete unless reviewed type scope also narrows them; no name creates authority or bypasses the secured ObjectSet. | `current change`; focused Event vertical cohort (`287 passed`), Ruff, formatter, and strict mypy. Authenticated candidate selection plus exact-target follow-up completed the two-node Function plan with 8/8 evidence checks and rendered `source_unavailable`, source incompleteness, and no execution authority. | Restore the runtime Kubernetes Event source, retain one successful identity-aware provider receipt, and add durable history before treating provider TTL as retained coverage. |
@@ -396,6 +397,8 @@ Materialization distinguishes `result_limit`, `candidate_limit`, and `traversal_
 short result is incomplete evidence rather than a complete absence claim. A `traversal_limit`
 means graph expansion reached its object ceiling. The in-memory and PostgreSQL stores both apply
 the requested object limit to initial roots as well as reached objects.
+Exact-id predicates use fixed batches of at most 128 ids through one indexed store query per batch.
+The reader stops after it has enough matching objects to prove `result_limit`.
 
 ## Semantic actions and mutation plans
 

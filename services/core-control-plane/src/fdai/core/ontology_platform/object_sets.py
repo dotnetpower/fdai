@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from collections.abc import Mapping, Sequence
 from typing import Any, cast
 
@@ -23,7 +22,7 @@ from .models import (
 )
 
 _STORE_QUERY_LIMIT = 1000
-_EXACT_ID_CONCURRENCY = 16
+_EXACT_ID_BATCH_SIZE = 128
 
 
 class ObjectSetService:
@@ -59,8 +58,12 @@ class ObjectSetService:
                     self._store,
                     object_types=concrete_types,
                     resource_ids=exact_ids,
+                    predicates=definition.predicates,
+                    limit=definition.limit,
                 )
-                source_truncation_reason = None
+                source_truncation_reason = (
+                    ObjectSetTruncationReason.RESULT_LIMIT if graph.truncated else None
+                )
             else:
                 graph = None
             filters = {
@@ -129,22 +132,28 @@ async def _query_exact_ids(
     *,
     object_types: Sequence[str],
     resource_ids: Sequence[str],
+    predicates: Sequence[ObjectPredicate],
+    limit: int,
 ) -> OntologyGraphSnapshot:
-    """Read each selected id in fixed-size batches so candidates cannot be truncated."""
-    semaphore = asyncio.Semaphore(_EXACT_ID_CONCURRENCY)
-
-    async def read_one(resource_id: str) -> OntologyGraphSnapshot:
-        async with semaphore:
-            return await store.query_objects(
-                object_types=object_types,
-                property_equals={"id": resource_id},
-                limit=1,
-            )
-
+    """Read selected ids in fixed-size store batches and stop after the result bound."""
     results: list[OntologyGraphSnapshot] = []
-    for offset in range(0, len(resource_ids), _EXACT_ID_CONCURRENCY):
-        batch = resource_ids[offset : offset + _EXACT_ID_CONCURRENCY]
-        results.extend(await asyncio.gather(*(read_one(resource_id) for resource_id in batch)))
+    matching_count = 0
+    stopped_early = False
+    for offset in range(0, len(resource_ids), _EXACT_ID_BATCH_SIZE):
+        batch = resource_ids[offset : offset + _EXACT_ID_BATCH_SIZE]
+        graph = await store.query_objects(
+            object_types=object_types,
+            object_ids=batch,
+            limit=len(batch),
+        )
+        results.append(graph)
+        matching_count += sum(
+            item.object_type in object_types and _matches_all(item, predicates)
+            for item in graph.objects
+        )
+        if matching_count > limit:
+            stopped_early = offset + len(batch) < len(resource_ids)
+            break
     objects = tuple(item for graph in results for item in graph.objects)
     generations = {
         graph.source_generation for graph in results if graph.source_generation is not None
@@ -154,7 +163,7 @@ async def _query_exact_ids(
     return OntologyGraphSnapshot(
         objects=objects,
         links=(),
-        truncated=False,
+        truncated=stopped_early or matching_count > limit,
         source_complete=all(graph.source_complete for graph in results),
         source_generation=next(iter(generations), None),
     )

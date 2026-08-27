@@ -264,13 +264,14 @@ async def test_exact_id_predicates_use_bounded_lookups_and_preserve_intersection
             )
         )
 
-    calls: list[dict[str, str]] = []
+    calls: list[tuple[str, ...]] = []
     original_query = store.query_objects
 
-    async def recording_query(*, object_types, property_equals, limit):
-        calls.append(dict(property_equals))
+    async def recording_query(*, object_types, object_ids=(), property_equals=None, limit):
+        calls.append(tuple(object_ids))
         return await original_query(
             object_types=object_types,
+            object_ids=object_ids,
             property_equals=property_equals,
             limit=limit,
         )
@@ -297,8 +298,60 @@ async def test_exact_id_predicates_use_bounded_lookups_and_preserve_intersection
 
     assert len(result.graph.objects) == 1_000
     assert result.truncated is False
-    assert len(calls) == 1_000
-    assert all(set(call) == {"id"} for call in calls)
+    assert len(calls) == 8
+    assert all(1 <= len(call) <= 128 for call in calls)
+    assert tuple(item for call in calls for item in call) == identifiers
+
+
+async def test_exact_id_batches_stop_after_the_result_limit() -> None:
+    workload = _object_type("Workload")
+    store = InMemoryOntologyInstanceStore(object_types=(workload,), link_types=())
+    for index in range(1_000):
+        identifier = f"workload-{index}"
+        await store.upsert_object(
+            OntologyObjectRecord(
+                id=identifier,
+                object_type="Workload",
+                properties={"id": identifier, "status": "ready", "owner_ref": "team-a"},
+            )
+        )
+    calls = 0
+    original_query = store.query_objects
+
+    async def recording_query(*, object_types, object_ids=(), property_equals=None, limit):
+        nonlocal calls
+        calls += 1
+        return await original_query(
+            object_types=object_types,
+            object_ids=object_ids,
+            property_equals=property_equals,
+            limit=limit,
+        )
+
+    store.query_objects = recording_query  # type: ignore[method-assign]
+    result = await ObjectSetService(
+        store=store,
+        interfaces=compile_interfaces(interfaces=(), implementations=(), object_types=(workload,)),
+        object_type_names=frozenset({"Workload"}),
+    ).materialize(
+        ObjectSetDefinition(
+            selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Workload"),
+            predicates=(
+                ObjectPredicate(
+                    property="id",
+                    operator="in",
+                    values=tuple(f"workload-{index}" for index in range(1_000)),
+                ),
+            ),
+            as_of=datetime(2026, 8, 1, tzinfo=UTC),
+            purpose="operations-review",
+            limit=10,
+        )
+    )
+
+    assert len(result.graph.objects) == 10
+    assert result.truncated is True
+    assert calls == 1
 
 
 def test_object_set_rejects_unbounded_or_naive_traversal() -> None:

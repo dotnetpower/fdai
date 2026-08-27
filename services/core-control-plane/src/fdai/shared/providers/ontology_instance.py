@@ -435,6 +435,7 @@ class OntologyInstanceStore(Protocol):
         self,
         *,
         object_types: Sequence[str] = (),
+        object_ids: Sequence[str] = (),
         property_equals: Mapping[str, Any] | None = None,
         limit: int = 100,
     ) -> OntologyGraphSnapshot:
