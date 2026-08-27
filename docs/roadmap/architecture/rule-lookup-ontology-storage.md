@@ -67,98 +67,118 @@ query model; operators should use the migrations for exact columns, constraints,
 
 ```sql
 CREATE TABLE ontology_object_type (
-  type_id            text PRIMARY KEY,
-  schema_version     text NOT NULL,
-  schema             jsonb NOT NULL
+  name               text PRIMARY KEY,
+  version            text NOT NULL,
+  key_field          text NOT NULL,
+  properties         jsonb NOT NULL,
+  description        text,
+  created_at         timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE TABLE ontology_link_type (
-  link_type_id       text PRIMARY KEY,
-  source_type        text NOT NULL,
-  target_type        text NOT NULL,
+  name               text PRIMARY KEY,
+  version            text NOT NULL,
+  from_type          text NOT NULL REFERENCES ontology_object_type(name),
+  to_type            text NOT NULL REFERENCES ontology_object_type(name),
   cardinality        text NOT NULL,
-  is_transitive      boolean DEFAULT false,
-  is_causal          boolean DEFAULT false,
-  temporal_order     boolean DEFAULT false
+  description        text,
+  created_at         timestamptz NOT NULL DEFAULT now(),
+  is_transitive      boolean NOT NULL DEFAULT false,
+  is_causal          boolean NOT NULL DEFAULT false,
+  temporal_order     boolean NOT NULL DEFAULT false,
+  order_by_property  text
 );
 
 CREATE TABLE ontology_resource (
-  resource_id        text PRIMARY KEY,
-  type               text NOT NULL REFERENCES ontology_object_type(type_id),
-  props              jsonb NOT NULL,        -- redacted before write
-  first_seen         timestamptz NOT NULL,
-  last_seen          timestamptz NOT NULL
+  id                 text PRIMARY KEY,
+  object_type        text NOT NULL REFERENCES ontology_object_type(name),
+  properties         jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at         timestamptz NOT NULL DEFAULT now(),
+  updated_at         timestamptz NOT NULL DEFAULT now(),
+  revision           bigint NOT NULL DEFAULT 1,
+  type_version       text,
+  catalog_digest     text
 );
-CREATE INDEX ix_resource_type       ON ontology_resource(type);
-CREATE INDEX ix_resource_props_gin  ON ontology_resource USING gin(props jsonb_path_ops);
+CREATE INDEX idx_ontology_resource_object_type ON ontology_resource(object_type);
 
 CREATE TABLE ontology_finding (
-  finding_id         text PRIMARY KEY,
+  id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   rule_id            text NOT NULL,
-  rule_version       text NOT NULL,
-  resource_id        text NOT NULL REFERENCES ontology_resource(resource_id),
-  signal_id          text NOT NULL,
-  verdict            text NOT NULL,
+  resource_ref       text NOT NULL REFERENCES ontology_resource(id),
   severity           text NOT NULL,
-  context            jsonb NOT NULL,
-  audit_id           text NOT NULL,
-  created_at         timestamptz NOT NULL
+  state              text NOT NULL,
+  details            jsonb NOT NULL DEFAULT '{}'::jsonb,
+  detected_at        timestamptz NOT NULL,
+  resolved_at        timestamptz
 );
-CREATE INDEX ix_finding_rule_resource ON ontology_finding(rule_id, resource_id);
+CREATE INDEX idx_ontology_finding_rule_id ON ontology_finding(rule_id);
+CREATE INDEX idx_ontology_finding_resource_ref ON ontology_finding(resource_ref);
+CREATE INDEX idx_ontology_finding_state ON ontology_finding(state);
 
 CREATE TABLE ontology_link (
+  id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  link_type          text NOT NULL REFERENCES ontology_link_type(name),
   from_id            text NOT NULL,
-  from_type          text NOT NULL,
-  link_type          text NOT NULL REFERENCES ontology_link_type(link_type_id),
   to_id              text NOT NULL,
-  to_type            text NOT NULL,
-  link_props         jsonb DEFAULT '{}',
-  created_at         timestamptz NOT NULL,
-  PRIMARY KEY (from_id, link_type, to_id)
+  properties         jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at         timestamptz NOT NULL DEFAULT now(),
+  type_version       text,
+  catalog_digest     text
 );
-CREATE INDEX ix_link_out ON ontology_link(from_type, from_id, link_type);
-CREATE INDEX ix_link_in  ON ontology_link(to_type, to_id, link_type);
+CREATE INDEX idx_ontology_link_from ON ontology_link(from_id);
+CREATE INDEX idx_ontology_link_to ON ontology_link(to_id);
 
 CREATE TABLE learned_action (             -- L2
-  signature          text PRIMARY KEY,
+  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   rule_id            text NOT NULL,
-  rule_version       text NOT NULL,
-  catalog_version    text NOT NULL,       -- partition key candidate
-  action             jsonb NOT NULL,
-  reused_from        text NOT NULL,       -- back-reference to origin audit_id
-  created_at         timestamptz NOT NULL
+  action_signature   text NOT NULL UNIQUE,
+  action_payload     jsonb NOT NULL,
+  success_count      integer NOT NULL DEFAULT 0,
+  rollback_count     integer NOT NULL DEFAULT 0,
+  last_used_at       timestamptz,
+  created_at         timestamptz NOT NULL DEFAULT now(),
+  catalog_version    text NOT NULL DEFAULT 'legacy'
 );
-CREATE INDEX ix_learned_by_rule ON learned_action(rule_id, catalog_version);
+CREATE INDEX idx_learned_action_rule_id ON learned_action(rule_id);
+CREATE INDEX idx_learned_action_rule_catalog ON learned_action(rule_id, catalog_version);
 
 CREATE TABLE ontology_embedding (         -- L3
-  embedding_id       text PRIMARY KEY,
-  kind               text NOT NULL,
-  ref_id             text NOT NULL,
-  vec                vector(384) NOT NULL
+  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  resource_ref      text NOT NULL REFERENCES ontology_resource(id) ON DELETE CASCADE,
+  model             text NOT NULL,
+  embedding         vector(1536) NOT NULL,
+  created_at        timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX ix_emb_hnsw ON ontology_embedding USING hnsw (vec vector_cosine_ops);
+CREATE INDEX idx_ontology_embedding_resource_ref ON ontology_embedding(resource_ref);
+CREATE INDEX idx_ontology_embedding_hnsw
+  ON ontology_embedding USING hnsw (embedding vector_cosine_ops);
 
 CREATE TABLE t2_cache (                   -- L4
-  signature          text PRIMARY KEY,
-  catalog_version    text NOT NULL,
-  model_config_ver   text NOT NULL,
-  mode               text NOT NULL,       -- 'shadow' | 'enforce'
-  outcome            jsonb NOT NULL,
-  expires_at         timestamptz NOT NULL
-);
-CREATE INDEX ix_t2_cache_expiry ON t2_cache(expires_at);
+  id                uuid NOT NULL DEFAULT gen_random_uuid(),
+  catalog_version   text NOT NULL,
+  input_hash        text NOT NULL,
+  output            jsonb NOT NULL,
+  model             text NOT NULL,
+  created_at        timestamptz NOT NULL DEFAULT now(),
+  expires_at        timestamptz NOT NULL DEFAULT (now() + interval '1 hour'),
+  PRIMARY KEY (catalog_version, id)
+) PARTITION BY LIST (catalog_version);
+CREATE TABLE t2_cache_default PARTITION OF t2_cache DEFAULT;
+CREATE INDEX idx_t2_cache_input_hash ON t2_cache(catalog_version, input_hash);
+CREATE INDEX idx_t2_cache_expires_at ON t2_cache(expires_at);
 ```
 
 Notes on the schema:
 
-- `resource.props` is stored **redacted**; the raw payload lives as a pointer in
+- `ontology_resource.properties` is stored **redacted**; the raw payload lives as a pointer in
   `audit_log` under the same identity and privacy rules as
   [security-and-identity.md § Data Protection](security-and-identity.md#data-protection).
-- `learned_action` and `t2_cache` are **partitioned by `catalog_version`** so a rule
-  promotion bumps the version and the stale partition is dropped in one operation - no
-  per-row cache-flush command needed.
-- All primary keys are **deterministic hashes** (`MD5(name)[:12]`-style or SHA256 for
-  signatures), so replay and cross-service references reproduce the same id.
+- `t2_cache` is partitioned by `catalog_version`, and `expires_at` is the TTL read guard.
+  A catalog promotion changes the version used by readers, so prior entries are not reused.
+  `learned_action` rows are retained and selected with their catalog version for replay and
+  audit history.
+- UUID primary keys are generated by PostgreSQL. `action_signature`, `input_hash`, and catalog
+  digests provide the stable correlation keys used for idempotent writes and replay.
 
 ## Boot and Reload
 
@@ -166,6 +186,7 @@ Notes on the schema:
 
 - **Static artifacts source of truth is Git; instance state source of truth is PostgreSQL.**
   The two layers never overlap.
-- A catalog PR merge → `catalog_version` bump → dispatch indexes rebuild → the new version
-  travels into every subsequent signature. **Old L2 / L4 entries become unreachable
-  automatically**; no explicit invalidation command exists.
+- A catalog PR merge -> `catalog_version` bump -> candidate dispatch indexes compile before
+  publication. The current and N-1 indexes remain available for replay; a failed compilation
+  leaves the prior current index untouched. New L2 readers scope by `catalog_version`, while
+  L4 readers also require `expires_at > now()`, so old entries are not reused after promotion.
