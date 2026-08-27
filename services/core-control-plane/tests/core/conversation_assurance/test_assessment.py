@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 import pytest
 from fdai.core.conversation_assurance import (
@@ -14,6 +15,12 @@ from fdai.core.conversation_assurance import (
     MixedFamilyAssuranceReviewer,
     TurnAssessmentInput,
     assess_deterministically,
+)
+from fdai.core.conversation_assurance.quality_latency import (
+    LatencyEnvironment,
+    LatencyStage,
+    LatencyStageReceipt,
+    latency_sample_from_stage_receipt,
 )
 from fdai.core.metering.budget import InMemoryBudgetLedger, ModelBudget
 
@@ -246,3 +253,52 @@ async def test_coordinator_caches_deterministic_assessment() -> None:
     assert first == second
     assert first.decision.verdict is AssuranceVerdict.PASS
     assert len(await ledger.list_assessments(principal_scope="principal-scope")) == 1
+
+
+async def test_coordinator_emits_explicit_pr_verification_timing_receipt() -> None:
+    receipts: list[LatencyStageReceipt] = []
+    ticks = iter((1_000_000_000, 1_125_500_000))
+    coordinator = ConversationAssuranceCoordinator(
+        ledger=InMemoryConversationAssuranceLedger(),
+        reviewer=None,
+        rubric_version="1.0.0",
+        now=lambda: datetime(2026, 8, 28, tzinfo=UTC),
+        deterministic_timing_environment=LatencyEnvironment.PR_REGRESSION,
+        deterministic_timing_sink=receipts.append,
+        monotonic_ns=lambda: next(ticks),
+    )
+
+    await coordinator.assess(_turn(deterministic_answer=True))
+
+    assert len(receipts) == 1
+    receipt = receipts[0]
+    assert receipt.stage is LatencyStage.DETERMINISTIC_VERIFICATION
+    assert receipt.environment is LatencyEnvironment.PR_REGRESSION
+    assert latency_sample_from_stage_receipt(receipt).duration_ms == 125.5
+    assert len(receipt.trace_digest) == len(receipt.provenance_digest) == 64
+
+
+async def test_coordinator_rejects_mislabeled_verification_environment() -> None:
+    receipts: list[LatencyStageReceipt] = []
+    coordinator = ConversationAssuranceCoordinator(
+        ledger=InMemoryConversationAssuranceLedger(),
+        reviewer=None,
+        rubric_version="1.0.0",
+        deterministic_timing_environment=LatencyEnvironment.LIVE_CANARY,
+        deterministic_timing_sink=receipts.append,
+        monotonic_ns=lambda: 1,
+    )
+
+    with pytest.raises(ValueError, match="environment"):
+        await coordinator.assess(_turn(deterministic_answer=True))
+    assert receipts == []
+
+
+def test_coordinator_requires_complete_timing_configuration() -> None:
+    with pytest.raises(ValueError, match="configured together"):
+        ConversationAssuranceCoordinator(
+            ledger=InMemoryConversationAssuranceLedger(),
+            reviewer=None,
+            rubric_version="1.0.0",
+            deterministic_timing_environment=LatencyEnvironment.PR_REGRESSION,
+        )

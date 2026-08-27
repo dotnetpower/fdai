@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import time
 from collections.abc import Callable
 from datetime import UTC, datetime
 
@@ -16,6 +17,13 @@ from fdai.core.conversation_assurance.models import (
     AssuranceVerdict,
     TurnAssessmentInput,
 )
+from fdai.core.conversation_assurance.quality_latency import (
+    LatencyEnvironment,
+    LatencySampleOutcome,
+    LatencyStage,
+    LatencyStageReceipt,
+    latency_sample_from_stage_receipt,
+)
 
 
 class ConversationAssuranceCoordinator:
@@ -28,6 +36,9 @@ class ConversationAssuranceCoordinator:
         reviewer: MixedFamilyAssuranceReviewer | None,
         rubric_version: str,
         now: Callable[[], datetime] | None = None,
+        deterministic_timing_environment: LatencyEnvironment | None = None,
+        deterministic_timing_sink: Callable[[LatencyStageReceipt], None] | None = None,
+        monotonic_ns: Callable[[], int] | None = None,
     ) -> None:
         if not rubric_version.strip():
             raise ValueError("assurance rubric_version MUST be non-empty")
@@ -35,9 +46,26 @@ class ConversationAssuranceCoordinator:
         self._reviewer = reviewer
         self._rubric_version = rubric_version
         self._now = now or (lambda: datetime.now(tz=UTC))
+        if (deterministic_timing_environment is None) is not (deterministic_timing_sink is None):
+            raise ValueError(
+                "deterministic timing environment and sink MUST be configured together"
+            )
+        self._deterministic_timing_environment = deterministic_timing_environment
+        self._deterministic_timing_sink = deterministic_timing_sink
+        self._monotonic_ns = monotonic_ns or time.monotonic_ns
 
     async def assess(self, turn: TurnAssessmentInput) -> AssessmentRecord:
-        deterministic = assess_deterministically(turn)
+        if self._deterministic_timing_sink is None:
+            deterministic = assess_deterministically(turn)
+        else:
+            started_monotonic_ns = self._monotonic_ns()
+            deterministic = assess_deterministically(turn)
+            completed_monotonic_ns = self._monotonic_ns()
+            self._record_deterministic_timing(
+                turn,
+                started_monotonic_ns=started_monotonic_ns,
+                completed_monotonic_ns=completed_monotonic_ns,
+            )
         model_set_digest = self._reviewer.model_set_digest if self._reviewer else "none"
         assessment_id = _assessment_id(
             turn,
@@ -98,6 +126,36 @@ class ConversationAssuranceCoordinator:
             raise RuntimeError("assurance assessment lost after idempotent append")
         return stored
 
+    def _record_deterministic_timing(
+        self,
+        turn: TurnAssessmentInput,
+        *,
+        started_monotonic_ns: int,
+        completed_monotonic_ns: int,
+    ) -> None:
+        environment = self._deterministic_timing_environment
+        sink = self._deterministic_timing_sink
+        if environment is None or sink is None:
+            return
+        receipt = LatencyStageReceipt(
+            stage=LatencyStage.DETERMINISTIC_VERIFICATION,
+            environment=environment,
+            observed_at=self._now().isoformat(),
+            started_monotonic_ns=started_monotonic_ns,
+            completed_monotonic_ns=completed_monotonic_ns,
+            timestamp_authority="conversation-assurance-monotonic",
+            trace_digest=_digest_parts(turn.conversation_id, turn.turn_id),
+            provenance_digest=_digest_parts(
+                turn.question_digest,
+                turn.answer_digest,
+                turn.evidence_manifest_digest,
+                self._rubric_version,
+            ),
+            outcome=LatencySampleOutcome.COMPLETED,
+        )
+        latency_sample_from_stage_receipt(receipt)
+        sink(receipt)
+
 
 def _assessment_id(
     turn: TurnAssessmentInput,
@@ -119,6 +177,10 @@ def _assessment_id(
         )
     )
     return "conversation-assessment:" + hashlib.sha256(material.encode()).hexdigest()
+
+
+def _digest_parts(*values: str) -> str:
+    return hashlib.sha256("\0".join(values).encode()).hexdigest()
 
 
 __all__ = ["ConversationAssuranceCoordinator"]

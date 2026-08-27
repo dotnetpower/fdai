@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: cc47e02222031eb57c28ee940794fba5c1248fec
+translation_source_sha: 7052d7d5d1f73c7e8139c795c9a7e1f053680139
 translation_revised: 2026-08-28
 ---
 # 프로젝트 구조
@@ -45,6 +45,8 @@ translation_revised: 2026-08-28
   채널, 검증 및 전달 소유자는 타임스탬프와 측정 권한을 유지합니다.
   단계 소유자는 타입이 지정된 증적을 통해 monotonic 시작 및 완료 값을 제공합니다. Core는 증적
   환경이 설치된 단계 계약과 일치한 후에만 기간을 파생합니다. 저장소 CLI는 콘텐츠가 없는
+  Conversation Assurance는 composition이 PR benchmark 환경과 sink를 모두 주입한 경우에만
+  결정론 검증 증적을 생성합니다. 일반 runtime composition은 변경되지 않습니다.
   표본을 구문 분석하며 추적 약속값을 완전한 추적 주장으로 변환하지 않습니다. 인접한
   `quality_trace.py` 축약기는 레코드 약속값만 받고 순서가 정확한 세션부터 감사까지의 연결에서
   완전성을 증명합니다. 프로바이더를 읽지 않으며 qualification 권한을 부여하지 않습니다.
