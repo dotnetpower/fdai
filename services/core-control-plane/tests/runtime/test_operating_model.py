@@ -67,6 +67,129 @@ async def test_runtime_projects_configured_operating_model(tmp_path: Path) -> No
     }
 
 
+async def test_runtime_projects_every_operating_intent_type(tmp_path: Path) -> None:
+    catalog, store = _catalog_and_store()
+    path = tmp_path / "operating-intent-model.json"
+    effective_from = "2026-08-27T00:00:00+00:00"
+    path.write_text(
+        json.dumps(
+            {
+                "source_revision": "operating-intent-revision-1",
+                "objects": [
+                    {
+                        "id": "service-objective-1",
+                        "object_type": "ServiceObjective",
+                        "properties": {
+                            "id": "service-objective-1",
+                            "objective_kind": "availability",
+                            "metric": "availability",
+                            "unit": "ratio",
+                            "target": 0.999,
+                            "window_seconds": 2592000,
+                            "measurement_source_ref": "source:service-objectives",
+                            "freshness_seconds": 86400,
+                            "effective_from": effective_from,
+                        },
+                    },
+                    {
+                        "id": "recovery-objective-1",
+                        "object_type": "RecoveryObjective",
+                        "properties": {
+                            "id": "recovery-objective-1",
+                            "rto_seconds": 3600,
+                            "rpo_seconds": 300,
+                            "measurement_source_ref": "source:recovery-objectives",
+                            "freshness_seconds": 86400,
+                            "effective_from": effective_from,
+                        },
+                    },
+                    {
+                        "id": "cost-objective-1",
+                        "object_type": "CostObjective",
+                        "properties": {
+                            "id": "cost-objective-1",
+                            "objective_kind": "monthly_budget",
+                            "currency": "USD",
+                            "target": 1000,
+                            "period_seconds": 2592000,
+                            "measurement_source_ref": "source:cost-objectives",
+                            "freshness_seconds": 86400,
+                            "effective_from": effective_from,
+                        },
+                    },
+                    {
+                        "id": "architecture-constraint-1",
+                        "object_type": "ArchitectureConstraint",
+                        "properties": {
+                            "id": "architecture-constraint-1",
+                            "constraint_kind": "network_isolation",
+                            "expression_ref": "policy:network-isolation",
+                            "severity": "high",
+                            "effective_from": effective_from,
+                        },
+                    },
+                    {
+                        "id": "ownership-1",
+                        "object_type": "Ownership",
+                        "properties": {
+                            "id": "ownership-1",
+                            "owner_ref": "group:operations-owner",
+                            "escalation_ref": "route:on-call",
+                            "effective_from": effective_from,
+                            "source_ref": "source:service-catalog",
+                        },
+                    },
+                    {
+                        "id": "change-window-1",
+                        "object_type": "ChangeWindow",
+                        "properties": {
+                            "id": "change-window-1",
+                            "window_kind": "maintenance",
+                            "scope_ref": "scope:example",
+                            "status": "approved",
+                            "effective_from": effective_from,
+                            "effective_to": "2026-08-27T02:00:00+00:00",
+                            "policy_ref": "policy:change-window",
+                        },
+                    },
+                ],
+                "links": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = await project_operating_model_from_env(
+        store=store,
+        object_types=catalog.object_types,
+        link_types=catalog.link_types,
+        env={"FDAI_OPERATING_MODEL_PATH": str(path)},
+    )
+
+    assert result is not None
+    expected_types = {
+        "ArchitectureConstraint",
+        "ChangeWindow",
+        "CostObjective",
+        "Ownership",
+        "RecoveryObjective",
+        "ServiceObjective",
+    }
+    projected_types = {
+        record.object_type
+        for identifier in (
+            "architecture-constraint-1",
+            "change-window-1",
+            "cost-objective-1",
+            "ownership-1",
+            "recovery-objective-1",
+            "service-objective-1",
+        )
+        if (record := await store.get_object(identifier)) is not None
+    }
+    assert projected_types == expected_types
+
+
 async def test_runtime_records_unconfigured_operating_model() -> None:
     status_store = InMemoryStateStore()
 

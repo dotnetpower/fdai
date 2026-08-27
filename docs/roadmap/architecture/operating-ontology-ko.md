@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: b8fb19c059f778797fdd17e33a72123d355bd595
+translation_source_sha: 6fb3fe58ee4d0be0e347d5c46fb004a2dcd54661
 translation_revised: 2026-08-27
 ---
 # FDAI 운영 온톨로지
@@ -101,7 +101,7 @@ translation_revised: 2026-08-27
 | Console 의미 band 선언 완전성 | implemented | [`Forecast.yaml`](../../../rule-catalog/vocabulary/object-types/Forecast.yaml), [`Pattern.yaml`](../../../rule-catalog/vocabulary/object-types/Pattern.yaml), [`test_ontology_console_projection.py`](../../../services/core-control-plane/tests/delivery/test_ontology_console_projection.py) | Console band가 지정하는 모든 객체 타입을 제공 릴리스가 선언하므로 band 구성원이 조용히 제외되지 않습니다. 두 선언은 의미 선언일 뿐이며 인스턴스 경로를 추가하지 않습니다. |
 | 운영 범위 `unknown_service` 커버리지 | validated | [`operating_scope.py`](../../../services/core-control-plane/src/fdai/core/operational_context/operating_scope.py), [`postgres_inventory_snapshot.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_inventory_snapshot.py), focused consumer 검사 4개 통과 | 인증된 인벤토리 그래프 변환 결과가 범위가 제한된 응답의 모든 Resource에 검토된 서비스 하나 또는 `unknown_service`를 표시하고, 집계 완전성을 반환하며, 대응되지 않거나 잘린 범위는 성능 저하로 표시합니다. |
 | 프로바이더 native 미분류 신원 | validated | [`inventory.py`](../../../services/core-control-plane/src/fdai/shared/providers/inventory.py), [`arg_query.py`](../../../services/core-control-plane/src/fdai/delivery/azure/arg_query.py), focused 검사 259개 통과 및 [이슈 #217](https://github.com/dotnetpower/fdai/issues/217) | 검토된 예약 ResourceType이 타입별 의미를 지어내지 않고 지원되지 않는 프로바이더 신원을 계속 표시합니다. 승격된 로컬 스냅샷과 온톨로지는 realtime overlay 잔여 없이 exact provider identity coverage를 유지합니다. |
-| 운영 의도 런타임 인스턴스 | in-progress | 의도 6종의 카탈로그 선언, [`ontology_console_projection.py`](../../../services/core-control-plane/src/fdai/delivery/ontology_console_projection.py) | `ServiceObjective`, `RecoveryObjective`, `CostObjective`, `ArchitectureConstraint`, `Ownership`, `ChangeWindow`는 선언되고 band에 포함되며 `OperatingModelProjector`가 배포 제공 인스턴스를 보존할 수 있습니다. 이를 도출하는 변환 결과와 end-to-end로 고정하는 집중 테스트는 없습니다. |
+| 운영 의도 런타임 인스턴스 | implemented | [`operating_model.py`](../../../services/core-control-plane/src/fdai/runtime/operating_model.py), [`test_operating_model.py`](../../../services/core-control-plane/tests/runtime/test_operating_model.py), 6개 카탈로그 선언 | 배포가 제공하는 snapshot 경로는 `ServiceObjective`, `RecoveryObjective`, `CostObjective`, `ArchitectureConstraint`, `Ownership`, `ChangeWindow`를 검증하고 변환합니다. 집중 fixture는 어느 타입이든 누락되면 실패합니다. 배포 값은 저장소 밖에 유지합니다. |
 
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
@@ -128,6 +128,7 @@ translation_revised: 2026-08-27
 | 2026-08-24 | implemented | 변환 결과와 revision claim 사이까지 중단 복구 경계를 확장했습니다. Projected manifest가 canonical snapshot digest를 고정하므로 claim 저장이 실패한 뒤 exact retry는 그래프를 다시 대체하거나 객체 revision을 증가시키지 않고 claim과 cursor만 닫습니다. | `current change`; `runtime/{operating_model,continuous_operating_model}.py`; projection-before-claim failure injection과 전체 focused worker 파일(`8 passed`). | Replica 간 lock pressure와 process-kill 측정은 배포 근거로 별도 보존합니다. |
 | 2026-08-24 | implemented | Plan-level 최종 reconciliation이 해당 효과의 metric을 독립 대상 관측에서 제공하지 않았는데도 효과를 scorable로 만들 수 없도록 다중 효과 계보 scoring을 수정했습니다. 계보는 완전한 형태로 남지만 해당 효과를 명시적으로 unscorable로 기록합니다. | `current change`; `delivery/operational_lineage.py`; 집중 계보 검사(`2 passed`). | 통제된 learning 근거에 계보를 사용하기 전에 예상 효과마다 독립 관측값이 하나씩 있는 운영 episode를 보존합니다. |
 | 2026-08-27 | implemented | 계획된 변경의 최신성 부울 값을 권위 있는 활성 인벤토리 증적으로 대체했습니다. 증적은 정확한 대상, 온톨로지 릴리스, 인벤토리 세대, 그래프 개정, 관측 및 기록 시각, 유효 기간, 완전성 미비점, 실행 권한 없음 상태를 결합합니다. Forseti는 최신이고 완전한 증적에서만 평가를 통과시킵니다. 누락, 오래됨, 미래 시각, 혼합 릴리스, 대상 불일치, 잘림, 보류 중인 오버레이, 실패한 후속 세대, 불완전한 출처 상태는 모두 타입이 지정된 검토 사유로 유지합니다. | `current change`; `change_assessment.py`; `postgres_graph_freshness.py`; 집중 영향, 영속성 디코더, 변경 체인, 계보, 판테온 레이아웃 검사 64개 통과; Ruff와 strict mypy 통과. | 이 경로를 운영 환경에서 검증되었다고 설명하기 전에 배포된 정확한 릴리스 증적 하나를 별도로 보존합니다. |
+| 2026-08-27 | implemented | 기존의 배포 제공 운영 모델 경로를 통해 운영 의도 ObjectType 6개를 모두 고정했습니다. Fixture는 tenant 값을 제공하지 않으며 각 정확한 타입이 일반 snapshot에서 사라지지 않고 검증 및 저장되는지 확인합니다. | `current change`; `test_operating_model.py` 검사 7개 통과; Ruff 통과. | 배포별 목표, 담당 체계, 제약 조건, 변경 구간 인스턴스는 운영 근거로 별도 보존합니다. |
 
 ### 남은 작업
 
@@ -136,15 +137,14 @@ translation_revised: 2026-08-27
 - [ ] 하나의 고정된 온톨로지 release에서 남은 맥락, 결과 종결 및 통제된 learning 경로의 운영 바인딩과 재생 근거를 완료합니다.
 - [ ] Forseti 소유 uncertainty, 옵션, precondition, 효과 방향 및 predictor 버전 값에서 `OperationalProspectiveLineage`를 생산하고, 권위 있는 telemetry-completeness receipt가 있는 완전한 다중 효과 집합까지 독립 종결을 확장한 뒤, 완전한 런타임 에피소드 하나가 존재할 때만 source와 projector를 연결합니다.
 - [ ] Receipt로 검증된 컨텍스트 메타데이터를 기존 principal 범위 근거 응답에 연결하고 잘못된 principal, 목적, 릴리스, stale 및 truncated 사례가 사용 불가로 유지됨을 입증합니다.
-- [ ] 토폴로지, 시간, reconciliation 및 graph-wide Dynamic 제공이 집중 종료 조건에 도달할
-  때 운영 온톨로지와 플랫폼 원장을 동기화합니다.
+- [ ] 토폴로지, 시간, reconciliation 및 graph-wide Dynamic 제공이 집중 종료 조건에 도달할 때 운영 온톨로지와 플랫폼 원장을 동기화합니다.
 - [x] `project_operating_scope`를 인증된 읽기 전용 인벤토리 그래프 응답에 연결해
   `unknown_service`가 운영자 화면에 도달하게 했으며 focused consumer 검사 4개가 통과했습니다.
 - [ ] `predicts_breach_of`와 `learned_as`를 복원하기 전에 `Forecast`와 `Pattern` 엔드포인트 쌍을
   만들어 낼 생산자를 마련해야 합니다. 두 ObjectType은 이제 출하되므로, 막고 있는 것은 카탈로그가
   선언을 거부한다는 사실이 아니라 어느 런타임 경로도 두 엔드포인트를 쓰지 않는다는 사실입니다.
-- [ ] 운영 의도 6종을 배포가 제공하는 출처에서 변환하고, 의도 타입이 인스턴스를 만들지
-  못하면 실패하는 집중 테스트로 고정합니다.
+- [x] 운영 의도 6종을 배포가 제공하는 출처에서 변환하고, 의도 타입이 인스턴스를 만들지
+  못하면 실패하는 집중 테스트로 고정했습니다(검사 7개 통과).
 - [ ] `lifecycle` 블록이 없는 출하 ObjectType을 검토해, 타입별로 에이전트 단일 작성자가 필요한지
   아니면 catalog-as-code, 변환 결과, 이벤트 버스 레지스트리 중 무엇이 올바른 권한인지
   기록합니다 ([#130](https://github.com/dotnetpower/fdai/issues/130)).
