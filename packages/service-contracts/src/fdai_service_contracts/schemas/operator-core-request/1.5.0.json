@@ -68,9 +68,12 @@
           "additionalProperties": false,
           "required": ["kind"],
           "properties": {
-            "kind": {"type": "string", "enum": ["incident"]},
+            "kind": {"type": "string", "enum": ["incident", "screen", "resource_group"]},
             "incident_id": {"type": "string", "minLength": 1, "maxLength": 256},
-            "correlation_id": {"type": "string", "minLength": 1, "maxLength": 512}
+            "correlation_id": {"type": "string", "minLength": 1, "maxLength": 512},
+            "screen_id": {"type": "string", "minLength": 1, "maxLength": 256},
+            "resource_group_id": {"type": "string", "minLength": 1, "maxLength": 256},
+            "resource_ids": {"type": "array", "maxItems": 1000, "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 256}}
           }
         },
         "investigation_continuation": {

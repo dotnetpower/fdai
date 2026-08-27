@@ -18,6 +18,7 @@ from fdai.core.ontology_platform import OntologyQueryPlanVerifier, QueryManifest
 from fdai.rule_catalog.schema.inventory_query_language import InventoryQueryLanguageRegistry
 
 from .semantic_activity_planning import compile_target_activity_plan
+from .semantic_contextual_resource_planning import compile_contextual_resource_plan
 from .semantic_current_state_planning import compile_target_current_state_plan
 from .semantic_error_activity_planning import compile_target_error_activity_plan
 from .semantic_health_planning import compile_target_health_plan
@@ -39,6 +40,7 @@ from .semantic_planning_cascade import SemanticPlanningCascade, SemanticPlanning
 from .semantic_planning_models import (
     BoundIncident,
     BoundInvestigationContinuation,
+    BoundResourceContext,
     SemanticOutputShape,
     SemanticPlanningDisposition,
     SemanticPlanningOutcome,
@@ -101,6 +103,7 @@ def dispatch_semantic_plan(
     principal: Principal,
     purpose: str,
     bound_incident: BoundIncident | None,
+    bound_resource_context: BoundResourceContext | None,
     bound_investigation_continuation: BoundInvestigationContinuation | None,
     verifier: OntologyQueryPlanVerifier,
     metric_concepts: tuple[str, ...],
@@ -118,16 +121,36 @@ def dispatch_semantic_plan(
     evaluation_time = now()
     if evaluation_time.tzinfo is None:
         raise ValueError("semantic planning evaluation time MUST be timezone-aware")
-    plan = anchored_incident_plan_builder(
-        bound_incident=bound_incident,
-        frame=frame,
-        descriptors=descriptors,
-        manifest=manifest,
-        principal=principal,
-        purpose=purpose,
-        evaluation_time=evaluation_time,
-    )
-    plan_source = "bound_incident" if plan is not None else "proposed"
+    if frame.output_shape == SemanticOutputShape.CONTEXTUAL_RESOURCE_LIST:
+        plan = (
+            compile_contextual_resource_plan(
+                frame=frame,
+                manifest=manifest,
+                verifier=verifier,
+                evaluation_time=evaluation_time,
+                purpose=purpose,
+                bound_context=bound_resource_context,
+            )
+            if bound_resource_context is not None
+            else None
+        )
+        if plan is None:
+            plan_source = "proposed"
+        else:
+            plan_source = "server_contextual_resource"
+    else:
+        plan = None
+    if frame.output_shape != SemanticOutputShape.CONTEXTUAL_RESOURCE_LIST:
+        plan = anchored_incident_plan_builder(
+            bound_incident=bound_incident,
+            frame=frame,
+            descriptors=descriptors,
+            manifest=manifest,
+            principal=principal,
+            purpose=purpose,
+            evaluation_time=evaluation_time,
+        )
+        plan_source = "bound_incident" if plan is not None else "proposed"
     if plan is None:
         try:
             plan = compile_latency_recovery_plan(
@@ -403,6 +426,26 @@ def dispatch_semantic_plan(
         if plan is not None:
             plan_source = "server_stated_filter"
     if plan is None:
+        if frame.output_shape == SemanticOutputShape.CONTEXTUAL_RESOURCE_LIST:
+            return _outcome(
+                (
+                    SemanticPlanningDisposition.CLARIFICATION
+                    if bound_resource_context is None
+                    else SemanticPlanningDisposition.UNAVAILABLE
+                ),
+                (
+                    "contextual_resource_scope_required"
+                    if bound_resource_context is None
+                    else "contextual_resource_query_unavailable"
+                ),
+                manifest_digest=manifest.manifest_digest,
+                frame=frame,
+                clarification=(
+                    "Select the screen or resource group to query."
+                    if bound_resource_context is None
+                    else None
+                ),
+            )
         plan = cascade.propose_plan(
             frame=frame,
             descriptors=descriptors,

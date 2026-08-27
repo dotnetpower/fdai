@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 71888757079aee1786cbe89016fd7c44712ca8e9
+translation_source_sha: d8f0835dbba4cae00b8b97322b084fa068844116
 translation_revised: 2026-08-30
 ---
 # 코드 맵
@@ -237,6 +237,12 @@ Shared SDK는 Core/Operator 경계에서 사용하는 no-authority ontology-quer
 pin합니다. Answered 결과에는 exact release, 매니페스트, 계획, 실행 증적 및 근거 참조가
 필요합니다. SDK는 해당 필드를 폐기하는 대신 의미 downgrade to N-1을 거부합니다. 런타임
 게시와 consumption은 service-owned 구현으로 유지됩니다.
+
+Semantic-turn 요청은 정확한 resource id와 함께 타입이 지정된 화면 또는 리소스 그룹 선택도
+보존합니다. Operator는 추가 context를 검증하고 Core는 `query.contextual_resources`를 위해
+정확한 `Resource.id` 범위를 컴파일합니다. 범위가 일치하지 않으면 principal이 볼 수 있는
+컬렉션으로 대체하지 않고 타입이 지정된 사용 불가 결과를 반환합니다. 어떤 context 필드도
+승인 또는 실행 권한을 부여하지 않습니다.
 
 SDK는 두 semantic channel이 하나의 physical Event Hub를 공유할 때 사용하는 logical-topic marker와
 결정론적 consumer-group 파생 규칙도 소유합니다. Core와 Operator는 서로 다른 adapter, codec,

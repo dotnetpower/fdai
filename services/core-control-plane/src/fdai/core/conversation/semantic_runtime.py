@@ -26,6 +26,7 @@ from .semantic_planning_cascade import SemanticPlanningEscalationPolicy
 from .semantic_planning_models import (
     BoundIncident,
     BoundInvestigationContinuation,
+    BoundResourceContext,
     SemanticPlanningDisposition,
     SemanticPlanningOutcome,
 )
@@ -116,6 +117,7 @@ class SemanticConversationRuntime:
         locale: str = "en",
         cancelled: asyncio.Event | None = None,
         bound_incident: BoundIncident | None = None,
+        bound_resource_context: BoundResourceContext | None = None,
         bound_investigation_continuation: BoundInvestigationContinuation | None = None,
         escalation_policy: SemanticPlanningEscalationPolicy | None = None,
         progress_observer: QueryProgressObserver | None = None,
@@ -130,6 +132,7 @@ class SemanticConversationRuntime:
             purpose=self._purpose,
             locale=locale,
             bound_incident=bound_incident,
+            bound_resource_context=bound_resource_context,
             bound_investigation_continuation=bound_investigation_continuation,
             escalation_policy=escalation_policy,
         )

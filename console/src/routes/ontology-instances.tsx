@@ -373,6 +373,11 @@ function OntologyInstanceWorkspace({
           evidence_ref: item.evidence_ref,
         })),
       },
+      contextIdentity: {
+        kind: "screen",
+        screenId: "ontology-instances",
+        resourceIds: data.resources.map((resource) => resource.id),
+      },
     }),
     [data, root],
   );

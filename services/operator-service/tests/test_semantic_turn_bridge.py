@@ -180,6 +180,44 @@ def test_semantic_envelope_forwards_bound_incident_conversation_context() -> Non
     }
 
 
+def test_semantic_envelope_forwards_exact_screen_resource_scope() -> None:
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal(
+            body={
+                "prompt": "Which resources are on this screen?",
+                "conversation_context": {
+                    "kind": "screen",
+                    "screen_id": "ontology-instances",
+                    "resource_ids": ["resource-a", "resource-b"],
+                },
+            }
+        )
+    )
+
+    semantic_turn = cast(dict[str, object], envelope["semantic_turn"])
+    assert semantic_turn["bound_context"] == {
+        "kind": "screen",
+        "screen_id": "ontology-instances",
+        "resource_ids": ["resource-a", "resource-b"],
+    }
+
+
+def test_semantic_envelope_rejects_context_scope_without_resource_ids() -> None:
+    with pytest.raises(ValueError, match="conversation_context resource_ids"):
+        SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+            _proposal(
+                body={
+                    "prompt": "Which resources are on this screen?",
+                    "conversation_context": {
+                        "kind": "screen",
+                        "screen_id": "ontology-instances",
+                        "resource_ids": [],
+                    },
+                }
+            )
+        )
+
+
 def test_semantic_envelope_omits_unbound_or_unsupported_conversation_context() -> None:
     build = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build
 
