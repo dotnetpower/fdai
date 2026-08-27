@@ -211,7 +211,8 @@ Version 1.2 of the existing Operator/Core envelopes adds one bounded semantic-tu
 evidence-bound terminal result. The request pins authenticated roles, session ordering, purpose,
 deadline, and idempotency. An answered result requires exact release, manifest, plan, execution
 receipt, and evidence references. The SDK rejects semantic downgrade to N-1 instead of dropping
-those fields. Runtime publication and consumption remain service-owned implementations.
+those fields. Runtime publication and consumption remain service-owned implementations, and the
+Operator bridge supervises distinct terminal-projection and progress topics.
 
 Semantic-turn requests also preserve a typed screen or resource-group selection with an opaque
 server-issued token. Operator resolves the token against the authenticated principal, ordinary
