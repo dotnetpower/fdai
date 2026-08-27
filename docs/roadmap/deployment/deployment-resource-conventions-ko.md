@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 0c71f848ac49e9cec0c149257cc02513ce98b1e7
+translation_source_sha: ed95c2e7c7e03841af29adb3eee154dc7687f901
 translation_revised: 2026-08-28
 ---
 # 배포 리소스 규약
@@ -22,6 +22,7 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 | Core control plane startup probe | not-applicable | `current change`; 서비스 root에서 `terraform fmt`와 `terraform validate` 통과 | Health 포트를 늦게 여는 부팅을 덮으려고 startup probe 예산을 세 번 조정했습니다. 이제 런타임이 startup readiness보다 먼저 포트를 열어 liveness가 즉시 응답하므로 이 probe는 필요 없습니다. 보호된 갱신 계약도 image와 revision suffix 변경만 rollback을 증명하므로 이 probe를 거부했습니다. |
 | CAF 명명 및 `fdai:` 소유권 tag | implemented | `infra/main.tf`, `infra/bootstrap/main.tf` 및 집중 Terraform test | Terraform이 이름과 tag를 계산하고 런타임 코드는 출력을 사용합니다. |
 | Operator API 물리 리소스 이름 | implemented | `infra/main.tf`, `infra/services/operator-service/variables.tf` 및 `tests/integration/infra/test_operator_api_resource_naming.py` | 새 계획은 워크로드 신원과 Container App에 `operator-api` 구성 요소를 사용합니다. 기존 개발 리소스에는 검토된 교체 적용이 아직 필요합니다. |
+| Channel-edge 신원 기반 | implemented | `infra/main.tf`; `infra/services/operator-service/`; root 및 서비스 Terraform 검사 | Platform은 전용 edge 신원에 Operator DSN 접근을 부여합니다. 추가 provider/principal 비밀 범위는 선택적 platform 입력이며, 서비스 root는 principal scope와 완전한 provider 계약 하나가 없으면 활성 edge를 차단합니다. |
 | Event Bus 제품 토픽 namespace | validated | 보호된 platform 적용 `32475924808`, Operator 적용 `32514233525`, 최종 실제 entity, RBAC, 환경, 서비스 상태, canary, HIL, stage, inventory, semantic 및 lag 관측 | 두 namespace에는 현재 `fdai.*` 제품 토픽만 있으며 runtime principal은 entity 범위 Event Hubs role을 사용하고 service 5개가 모두 healthy합니다. 완료된 일회성 이행 모드는 더 이상 노출하지 않습니다. 과거 Terraform `moved` 블록은 state 호환성을 위해 유지합니다. |
 | 독립 service Terraform state root | validated | `config/independent-service-live-evidence-manifest.json` 및 `config/independent-service-remote-evidence.json` | Service root 5개 모두에 통제된 계획, 적용, 상태, peer 격리 및 rollback 근거가 있습니다. |
 | 이전 방식 platform 및 ops-bootstrap Terraform state root | implemented | `infra/main.tf`, `infra/bootstrap/main.tf`, `.github/workflows/deploy-dev.yml` 및 집중 Terraform과 workflow 검사 | 안정적인 backend key와 배포 메커니즘은 제공되지만, 이 두 root의 통제된 적용 증적은 리포지토리에 보존되어 있지 않습니다. |
@@ -47,6 +48,7 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 | 2026-08-28 | implemented | 추가 ChatOps dispatch boolean을 범위가 제한된 `plan-chatops-*` 및 `apply-chatops-*` 요청 ID로 교체하고 복원된 계획의 모드 일치 검사를 기능 gate에 통합했습니다. | `current change`; 집중 workflow budget, 요청, 기능 gate, 수명 주기 및 계획 검증기 검사(`117 passed`). | 보호된 계획/적용, 모델 배포 readback, 런타임 binding 및 공급자 채널 증적을 보존합니다. |
 | 2026-08-28 | implemented | GitHub가 dispatch 전에 같은 map의 job 환경 참조를 차단한 후 ChatOps LLM 활성화 식을 수정했습니다. 이제 job은 범위가 제한된 요청 ID에서 두 값을 독립적으로 파생합니다. | Merge `d936ccfb2`의 차단된 dispatch; `current change`; 집중 workflow 구문 분석, budget 및 binding 검사. | 정확히 병합된 staging 계획을 다시 실행하고 보호된 근거를 보존합니다. |
 | 2026-08-28 | implemented | 첫 Terraform staging 계획에서 analyzer, inventory, observation, provider-schema 및 scheduler 이름이 Azure 32자 제한을 넘은 뒤 Job별 제한 명명을 추가했습니다. | 실패한 plan-only 실행 `33111410162`; `current change`; 집중 명명 검사 및 Terraform 검증. | Plan-only를 다시 실행합니다. Channel-edge 비밀 참조는 외부 필수 조건으로 남아 있습니다. |
+| 2026-08-28 | implemented | Platform 신원 준비와 Operator 채널 provider 구성을 분리했습니다. Platform은 기존 role-assignment 주소에 DSN을 합치고 이전의 명시적 DSN 입력을 중복 제거하며 추가 비밀 범위가 없어도 준비할 수 있습니다. | 실패한 plan-only 실행 `33111410162` 및 `33112559478`; `current change`; root Terraform 검사(`7 passed`), 서비스 root(`5 passed`), 배포 검사(`192 passed`). | Platform 계획을 보존합니다. 독립 Operator 활성화에는 principal 및 provider Key Vault 참조가 계속 필요합니다. |
 | 2026-08-25 | implemented | 완료된 Event Bus 토픽 이행 request 모드, service 입력, 대상 지정 계획 예외 및 현재 운영자 지침을 제거했습니다. 표준 계획은 이제 정본 `fdai.*` 연결만 수락합니다. 과거 Terraform `moved` 블록과 활성 접두사 거부 guard는 유지하므로 이전 state를 리소스 재생성 없이 해석하고 legacy 선언은 계속 차단합니다. | `current change`, `.github/workflows/deploy-dev.yml`, `.github/workflows/service-deploy.yml`, 집중 배포 workflow 검사 | 일회성 이행 제어에 남은 구현 작업은 없습니다. |
 | 2026-08-24 | implemented | 보호된 model resolver의 deployment-environment 입력을 복원하고 기존 proposal-only lifecycle caller를 위한 development 기본값을 유지했으며 provider query 전에 다른 environment 범위의 policy를 거부하도록 했습니다. | 실패한 보호 계획 `32735269365`는 Terraform 및 Azure mutation 전에 중단됨; `current change`; 집중 resolver 및 deployment workflow 검사 | 보호된 exact-revision 계획을 다시 실행하고 봉인된 model 및 Terraform receipt를 보존합니다. |
 | 2026-08-25 | implemented | 임시 Terraform state bootstrap 예외를 정확한 정상 활성 Core 리비전, 다이제스트로 고정된 이미지, 검증된 resolved-model attestation 및 런타임 다이제스트를 기준으로 하는 fail-closed 모델 정책 CAS로 교체했습니다. Terraform 출력은 진단에만 사용하며 exact apply는 같은 활성 런타임 경계를 다시 검증합니다. | 실패한 보호 계획 `32753619537`, `32754737930`, `32798548057`, `32798561510`은 모두 Terraform plan 및 Azure mutation 전에 중단됨; commit `5e1e8214ef0f80a1e9b57d00bd2a35723bca6b7b`; 집중 모델 CAS 및 수명 주기 검사 26개 통과. | 현재 활성 다이제스트에 결합된 통제된 Owner 초안을 영속화한 뒤 삭제 0건인 보호 계획, exact apply, provider-schema 및 Saga 증적을 보존합니다. |

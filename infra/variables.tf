@@ -897,13 +897,9 @@ variable "enable_operator_channel_edge" {
 }
 
 variable "operator_channel_edge_secret_ids" {
-  description = "Versionless Key Vault secret resource ids readable by the channel-edge identity. Supply only the Operator DSN and enabled provider/principal configuration secrets."
+  description = "Additional versionless Key Vault secret resource ids readable by the channel-edge identity. The platform grants the Operator DSN separately; supply only enabled provider and principal configuration secrets."
   type        = set(string)
   default     = []
-  validation {
-    condition     = !var.enable_operator_channel_edge || length(var.operator_channel_edge_secret_ids) >= 2
-    error_message = "Enabled operator channel edge requires at least the DSN and principal-scope secret ids."
-  }
 }
 
 variable "enable_isolated_executor" {
