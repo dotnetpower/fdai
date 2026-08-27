@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: ac47c7dd3e72d3448356a1965cc8f79484920c47
+translation_source_sha: b24ca1d3e408b59499f8a6201e9d4eeea3828491
 translation_revised: 2026-08-30
 ---
 # 코드 맵
@@ -112,6 +112,7 @@ Principal 범위 운영 근거 읽기는 기존의 범위가 제한된 응답을
 메타데이터를 연결하며 변경 또는 실행 권한을 추가하지 않습니다.
 Detection 변환 결과도 출처에서 파생된 Forecast 및 Pattern 객체만 노출하며 보류된 관계는
 카탈로그를 복원하기 전에 정확한 엔드포인트 신원을 요구합니다.
+해당 영속화 메서드는 기존 온톨로지 인스턴스 저장소 경계에서 멱등성을 유지합니다.
 프로바이더 중립 관측 판정은 서로 다른 프로바이더가 동일하게 보고한 속성만 보존하고 승자를
 선택하지 않은 채 모든 경합 필드를 기록합니다.
 같은 변환은 독립적으로 검증된 `runtime_calls` edge를 양방향으로 보존하며 서비스 간 상호 호출을

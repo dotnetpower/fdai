@@ -106,6 +106,7 @@ principal-scoped operational evidence reads bind receipt-verified Context metada
 existing bounded response without adding mutation or execution authority.
 Detection projections similarly expose only source-derived Forecast and Pattern objects; deferred
 relationships require exact endpoint identities before catalog restoration.
+Their persistence methods are idempotent over the existing ontology instance-store seam.
 Provider-neutral observation adjudication preserves only properties that distinct providers report
 identically and records every contested field without selecting a winner.
 The inventory ontology projector serializes graph replacement with its generation commit marker.
