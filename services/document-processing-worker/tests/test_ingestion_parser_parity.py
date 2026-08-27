@@ -9,7 +9,6 @@ from dataclasses import replace
 from datetime import UTC, datetime
 from uuid import uuid4
 
-import pypdf
 import pytest
 from fdai_document_worker_service.adapters import processing as processing_module
 from fdai_document_worker_service.adapters.ooxml import OoxmlParserBudget, extract_ooxml
@@ -112,14 +111,11 @@ async def test_input_byte_budget_reports_typed_extraction_reason() -> None:
 
 
 def test_native_pdf_uses_canonical_page_block_locator(monkeypatch: pytest.MonkeyPatch) -> None:
-    class _Page:
-        def extract_text(self) -> str:
-            return "Native text"
-
-    class _Reader:
-        pages = (_Page(),)
-
-    monkeypatch.setattr(pypdf, "PdfReader", lambda _stream: _Reader())
+    monkeypatch.setattr(
+        processing_module,
+        "extract_pdf_pages_isolated",
+        lambda _content: ("Native text",),
+    )
 
     units = processing_module._pdf_units(b"pdf")
 
@@ -146,17 +142,11 @@ async def test_scanned_pdf_reports_ocr_extractor_provenance(
 async def test_mixed_pdf_uses_ocr_only_for_pages_without_native_text(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    class _Page:
-        def __init__(self, text: str) -> None:
-            self._text = text
-
-        def extract_text(self) -> str:
-            return self._text
-
-    class _Reader:
-        pages = (_Page("Native text"), _Page(""))
-
-    monkeypatch.setattr(pypdf, "PdfReader", lambda _stream: _Reader())
+    monkeypatch.setattr(
+        processing_module,
+        "extract_pdf_pages_isolated",
+        lambda _content: ("Native text", None),
+    )
     extractor = BoundedDocumentExtractor(
         image_ocr=_MixedPdfOcr(),
         max_input_bytes=1024,
@@ -176,17 +166,11 @@ async def test_mixed_pdf_uses_ocr_only_for_pages_without_native_text(
 async def test_mixed_pdf_fails_closed_when_scanned_page_has_no_ocr_text(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    class _Page:
-        def __init__(self, text: str) -> None:
-            self._text = text
-
-        def extract_text(self) -> str:
-            return self._text
-
-    class _Reader:
-        pages = (_Page("Native text"), _Page(""))
-
-    monkeypatch.setattr(pypdf, "PdfReader", lambda _stream: _Reader())
+    monkeypatch.setattr(
+        processing_module,
+        "extract_pdf_pages_isolated",
+        lambda _content: ("Native text", None),
+    )
     extractor = BoundedDocumentExtractor(
         image_ocr=_IncompletePdfOcr(),
         max_input_bytes=1024,

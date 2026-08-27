@@ -31,6 +31,9 @@ revision.
 > D4e adds synthetic English native-PDF, Office, and OCR coverage plus Korean Office and
 > OCR-backed scanned-PDF coverage. A bound deterministic provider passes every required synthetic
 > partition without turning that result into production extraction evidence.
+> D4f moves production native-PDF parsing into a spawned worker with wall-time, CPU, address-space,
+> page, and character ceilings. A malformed, over-budget, timed-out, or terminated parser returns a
+> typed unsafe-package result and cannot terminate the document processing service.
 
 ## Design at a glance
 
