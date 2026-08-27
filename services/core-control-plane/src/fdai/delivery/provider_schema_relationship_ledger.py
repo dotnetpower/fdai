@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import fcntl
 import json
 import os
+import tempfile
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 from fdai.delivery.provider_schema import ProviderSchemaError
@@ -24,24 +28,26 @@ class ProviderSchemaRelationshipLedger:
     def record(self, generation: ProviderSchemaRelationshipGeneration) -> str:
         """Persist a generation and atomically select its proposal-only pointer."""
 
-        path = self._root / "generations" / f"{generation.generation_digest[7:]}.json"
-        payload = _canonical_json(generation.to_mapping()) + b"\n"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        if path.exists() and path.read_bytes() != payload:
-            raise ProviderSchemaError("provider relationship generation digest collision")
-        if not path.exists():
-            _atomic_write(path, payload)
-        self._write_active(generation.generation_digest)
+        with _exclusive_lock(self._root):
+            path = self._root / "generations" / f"{generation.generation_digest[7:]}.json"
+            payload = _canonical_json(generation.to_mapping()) + b"\n"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            if path.exists() and path.read_bytes() != payload:
+                raise ProviderSchemaError("provider relationship generation digest collision")
+            if not path.exists():
+                _atomic_write(path, payload)
+            self._write_active(generation.generation_digest)
         return generation.generation_digest
 
     def rollback(self, generation_digest: str) -> str:
         """Select an existing generation without changing graph or catalog state."""
 
         _require_digest(generation_digest, "generation digest")
-        path = self._root / "generations" / f"{generation_digest[7:]}.json"
-        if not path.is_file():
-            raise ProviderSchemaError("provider relationship rollback generation is missing")
-        self._write_active(generation_digest)
+        with _exclusive_lock(self._root):
+            path = self._root / "generations" / f"{generation_digest[7:]}.json"
+            if not path.is_file():
+                raise ProviderSchemaError("provider relationship rollback generation is missing")
+            self._write_active(generation_digest)
         return generation_digest
 
     def read_active(self) -> dict[str, object] | None:
@@ -100,12 +106,30 @@ def _canonical_json(value: object) -> bytes:
 
 def _atomic_write(path: Path, payload: bytes) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_name(f".{path.name}.staged")
-    with temporary.open("wb") as handle:
-        handle.write(payload)
-        handle.flush()
-        os.fsync(handle.fileno())
-    temporary.replace(path)
+    descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        temporary.replace(path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+@contextmanager
+def _exclusive_lock(root: Path) -> Iterator[None]:
+    """Serialize record and rollback transactions within this ledger."""
+
+    root.mkdir(parents=True, exist_ok=True)
+    descriptor = os.open(root / ".ledger.lock", os.O_CREAT | os.O_RDWR, 0o600)
+    try:
+        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        yield
+    finally:
+        fcntl.flock(descriptor, fcntl.LOCK_UN)
+        os.close(descriptor)
 
 
 __all__ = ["ProviderSchemaRelationshipLedger"]

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -90,7 +92,7 @@ def _metadata() -> RelationshipLinkMetadata:
         target_provider_type="microsoft.web/serverfarms",
         link_type="depends_on",
         endpoint_orientation=EndpointOrientation.OWNER_TO_REFERENCED,
-        cardinality="many_to_one",
+        cardinality="many_to_many",
         source_property_path="properties.serverFarmId",
         source_schema_version="azure-resource-graph-resources@2022-10-01",
         source_schema_digest=ARG_SCHEMA_DIGEST,
@@ -137,9 +139,44 @@ def test_materialization_binds_direction_cardinality_and_manifest() -> None:
 
     candidate = generation.candidates[0]
     assert candidate.metadata.endpoint_orientation is EndpointOrientation.OWNER_TO_REFERENCED
-    assert candidate.metadata.cardinality == "many_to_one"
+    assert candidate.metadata.cardinality == "many_to_many"
     assert candidate.metadata.projection_manifest_digest == MANIFEST_DIGEST
+    assert candidate.source_provider_versions == ("2026-01-01",)
+    assert candidate.target_provider_versions == ("2026-01-01",)
     assert generation.complete is True
+
+
+def test_semantic_mapping_fields_are_verified_against_the_reviewed_catalog() -> None:
+    for field, value in (("link_type", "attached_to"), ("cardinality", "one_to_many")):
+        metadata = replace(_metadata(), **{field: value})
+        generation = _generation(
+            _schema(),
+            metadata={"azure.function-depends-on-app-service-plan": metadata},
+        )
+
+        assert generation.candidates == ()
+        assert generation.complete is False
+        assert generation.drops == (RelationshipGenerationDropReason.STALE_LINK_METADATA,)
+
+
+def test_review_digest_is_recomputed_before_materialization() -> None:
+    schema = _schema()
+    evidence, review = _review(schema)
+    catalog = load_provider_relationship_mapping_catalog(
+        ROOT / "rule-catalog/vocabulary/provider-relationship-mappings"
+    )
+    object.__setattr__(review, "review_digest", "sha256:" + "f" * 64)
+
+    with pytest.raises(ValueError, match="review digest mismatch"):
+        generate_provider_schema_relationship_generation(
+            provider_schema=schema,
+            relationship_snapshot=evidence,
+            review=review,
+            mapping_catalog=catalog,
+            link_metadata={"azure.function-depends-on-app-service-plan": _metadata()},
+            generation_ref="provider-schema-generation:one",
+            projection_manifest_digest=MANIFEST_DIGEST,
+        )
 
 
 def test_conflicting_duplicate_metadata_is_not_order_dependent() -> None:
@@ -154,7 +191,7 @@ def test_conflicting_duplicate_metadata_is_not_order_dependent() -> None:
         target_provider_type="microsoft.web/serverfarms",
         link_type="depends_on",
         endpoint_orientation=EndpointOrientation.REFERENCED_TO_OWNER,
-        cardinality="many_to_one",
+        cardinality="many_to_many",
         source_property_path="properties.serverFarmId",
         source_schema_version="azure-resource-graph-resources@2022-10-01",
         source_schema_digest=ARG_SCHEMA_DIGEST,
@@ -243,6 +280,21 @@ def test_ledger_rollback_keeps_proposal_only_authority(tmp_path: Path) -> None:
     )
 
 
+def test_ledger_serializes_concurrent_recorders_with_unique_staging_files(
+    tmp_path: Path,
+) -> None:
+    generation = _generation(
+        _schema(),
+        metadata={"azure.function-depends-on-app-service-plan": _metadata()},
+    )
+    ledger = ProviderSchemaRelationshipLedger(tmp_path)
+    with ThreadPoolExecutor(max_workers=8) as workers:
+        digests = tuple(workers.map(lambda _: ledger.record(generation), range(32)))
+
+    assert set(digests) == {generation.generation_digest}
+    assert ledger.read_active() is not None
+
+
 def test_direction_shadow_exact_release_rejects_mixed_provider_schema() -> None:
     from fdai.core.ontology_platform.direction_shadow import (
         ComparisonDisposition,
@@ -250,6 +302,7 @@ def test_direction_shadow_exact_release_rejects_mixed_provider_schema() -> None:
         RebuildPointer,
         ReviewReason,
         compare_exact_release_graph_generations,
+        replay_matches,
     )
 
     kwargs = {
@@ -276,3 +329,40 @@ def test_direction_shadow_exact_release_rejects_mixed_provider_schema() -> None:
     )
     assert receipt.disposition is ComparisonDisposition.REVIEW_REQUIRED
     assert ReviewReason.PROVIDER_SCHEMA_RELEASE_MISMATCH in receipt.review_reasons
+    assert receipt.exact_release_mode is True
+    assert replay_matches(receipt, legacy, aligned) is True
+
+
+def test_direction_shadow_exact_release_requires_both_mapping_revisions() -> None:
+    from fdai.core.ontology_platform.direction_shadow import (
+        ComparisonDisposition,
+        DirectionGraphGeneration,
+        RebuildPointer,
+        ReviewReason,
+        compare_exact_release_graph_generations,
+    )
+
+    kwargs = {
+        "generation_ref": "generation",
+        "ontology_release_digest": SCHEMA_DIGEST,
+        "object_ids": (),
+        "links": (),
+        "complete": True,
+    }
+    legacy = DirectionGraphGeneration.create(
+        provider_schema_digest=SCHEMA_DIGEST,
+        mapping_revision="mapping-a",
+        **kwargs,
+    )
+    aligned = DirectionGraphGeneration.create(provider_schema_digest=SCHEMA_DIGEST, **kwargs)
+    receipt = compare_exact_release_graph_generations(
+        legacy,
+        aligned,
+        migration_revision="migration",
+        rebuild_pointer=RebuildPointer(
+            authoritative_generation_ref="inventory-generation",
+            rebuild_procedure_ref="runbook:rebuild",
+        ),
+    )
+    assert receipt.disposition is ComparisonDisposition.REVIEW_REQUIRED
+    assert ReviewReason.ALIGNED_MAPPING_RELEASE_UNBOUND in receipt.review_reasons

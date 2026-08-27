@@ -138,6 +138,11 @@ Role names are scoped to one LinkType and do not imply another stored edge. Trai
 meaning, not colors, layout lanes, or graph coordinates. Existing causal, temporal, transitive,
 cardinality, and endpoint contracts remain independent.
 
+Provider relationship mappings also carry a reviewed cardinality. Candidate materialization MUST
+match that catalog cardinality, LinkType, endpoint orientation, source property path, and source
+schema identity before it can enter a versioned proposal generation; an omitted catalog value uses
+only the reviewed LinkType default.
+
 The first implementation applies the fields to `contains`, `attached_to`, `depends_on`,
 `routes_to`, `runtime_calls`, `peered_with`, `resource_classified_as`, `resource_type_member_of_class`, and
 `resource_class_specializes`. Other LinkTypes remain readable through their exact legacy
