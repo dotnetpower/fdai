@@ -17,6 +17,7 @@ or a second source of provider truth.
 >
 > Model capability selection may qualify a catalog family by publisher. That pair is deployment
 > metadata, not ontology identity, and cannot grant model invocation or execution authority.
+> Provider kind and API style remain endpoint metadata under the same boundary.
 
 ## Design at a glance
 

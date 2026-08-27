@@ -15,6 +15,7 @@ _DIGEST = re.compile(r"^[a-f0-9]{64}$")
 
 class ModelProviderKind(StrEnum):
     AZURE_OPENAI = "azure-openai"
+    AZURE_FOUNDRY = "azure-foundry"
     SELF_HOSTED = "self-hosted"
 
 
@@ -124,6 +125,12 @@ class ModelEndpointBinding:
         ):
             raise ValueError("direct Azure OpenAI endpoints require azure-openai API style")
         if (
+            self.provider_kind is ModelProviderKind.AZURE_FOUNDRY
+            and self.route_kind is ModelRouteKind.DIRECT
+            and self.api_style is not ModelApiStyle.OPENAI_V1
+        ):
+            raise ValueError("direct Azure Foundry endpoints require openai-v1 API style")
+        if (
             self.provider_kind is ModelProviderKind.SELF_HOSTED
             and self.api_style is not ModelApiStyle.OPENAI_V1
         ):
@@ -137,9 +144,10 @@ class ModelEndpointBinding:
         ):
             raise ValueError("GPU capacity requires a self-hosted provider")
         if self.capacity.unit is ModelCapacityUnit.TPM and (
-            self.provider_kind is not ModelProviderKind.AZURE_OPENAI
+            self.provider_kind
+            not in {ModelProviderKind.AZURE_OPENAI, ModelProviderKind.AZURE_FOUNDRY}
         ):
-            raise ValueError("TPM capacity requires an Azure OpenAI provider")
+            raise ValueError("TPM capacity requires an Azure managed model provider")
 
     def to_dict(self) -> dict[str, Any]:
         return {
