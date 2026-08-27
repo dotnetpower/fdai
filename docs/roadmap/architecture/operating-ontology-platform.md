@@ -132,6 +132,7 @@ The workbench is complete only when it answers these bounded operational questio
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-27 | implemented | Replaced per-id ontology store reads with bounded exact-id batch queries and early result-limit closure. A 512-id contextual selection now uses at most four indexed store queries instead of hundreds of new database connections. | `current change`; ObjectSet, predicate, and PostgreSQL instance-store checks (`31 passed`, `4 skipped` because `FDAI_DATABASE_URL` was unset); Ruff and strict mypy. | Retain deployed database latency and connection-pressure evidence separately; no remote database was queried. |
 | 2026-08-27 | implemented | Changed Resource Event answer projection to retain the newest bounded rows and disclose display truncation. The bilingual answer reports eight displayed rows out of the source total and keeps those latest rows in chronological order. | `current change`; focused Resource Event answer checks (`3 passed`); Ruff and formatter passed | Retain one authenticated answer with Event rows after runtime source access is restored. Durable Event history remains open. |
 | 2026-08-27 | implemented | Added bounded versioned provider relationship materialization and exact-release direction-shadow checks. The existing Kubernetes API inventory is sufficient as the authoritative topology adapter; lifecycle observations remain a distinct Event source and are not reused as topology. | `current change`; `delivery/provider_schema_relationship_generation.py`; focused generation and direction-shadow tests (`22 passed`); Ruff, formatter, and strict mypy. | Capture complete release-bound real-generation evidence and governed review; no live or remote generation was fabricated. |
 | 2026-08-27 | implemented | Hardened provider relationship materialization after independent review by validating all reviewed semantic fields, recomputing review digests and candidate endpoints, preserving type@version identities and exact-release replay mode, and serializing ledger record/rollback with unique staging files. | `current change`; generation, review, ledger, and direction-shadow modules; focused adversarial tests (`35 passed`); Ruff, formatter, and strict mypy. | Capture complete release-bound real-generation evidence and governed review; no live or remote generation was fabricated. |
@@ -401,6 +402,8 @@ Materialization distinguishes `result_limit`, `candidate_limit`, and `traversal_
 short result is incomplete evidence rather than a complete absence claim. A `traversal_limit`
 means graph expansion reached its object ceiling. The in-memory and PostgreSQL stores both apply
 the requested object limit to initial roots as well as reached objects.
+Exact-id predicates use fixed batches of at most 128 ids through one indexed store query per batch.
+The reader stops after it has enough matching objects to prove `result_limit`.
 
 ## Semantic actions and mutation plans
 

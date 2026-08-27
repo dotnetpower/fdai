@@ -125,7 +125,8 @@ cancellation, and skip blocked descendants. Stable handler type, value, and runt
 without exception text, arguments, node identifiers, provider payloads, or operator data.
 Composition issues bounded secured ObjectSet receipts and registers the source-derived network
 and Pod telemetry functions in the exact release. Function dependencies resolve only an issued
-content digest. The `catalog.search_rules` function accepts only the active Rule generation bound to
+content digest. Exact-id ObjectSets use fixed indexed batches and stop after the result bound is
+decidable. The `catalog.search_rules` function accepts only the active Rule generation bound to
 that exact release and its provider-neutral bounded ordered-document manifest. The generation digest
 is independently reproducible from the exact ordered document set, so count, chunk, root, or row
 drift fails validation. The PostgreSQL adapter serializes each corpus lifecycle and checks the exact
