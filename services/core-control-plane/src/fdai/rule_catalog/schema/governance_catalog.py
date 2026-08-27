@@ -11,6 +11,7 @@ Layout (CSP-neutral, catalog-as-code):
     <root>/assignments/*.{yaml,yml}   -> Assignment
     <root>/rule-sets/*.{yaml,yml}     -> RuleSet
     <root>/exemptions/*.json          -> Exemption
+    <root>/retirements/*.{yaml,yml}   -> RuleRetirement
 
 A missing subdirectory is empty, not an error. Duplicate ids within a kind are
 rejected (a catalog cannot bind two assignments under one id).
@@ -39,6 +40,7 @@ from fdai.rule_catalog.schema.governance_loader import (
     load_assignment_from_mapping,
     load_rule_set_from_mapping,
 )
+from fdai.rule_catalog.schema.retirement import RuleRetirement, load_retirement_from_mapping
 from fdai.rule_catalog.schema.rule_set import RuleSet
 
 _ASSIGNMENTS_DIR = "assignments"
@@ -53,6 +55,7 @@ class GovernanceCatalog:
     assignments: tuple[Assignment, ...] = ()
     rule_sets: tuple[RuleSet, ...] = ()
     exemptions: tuple[Exemption, ...] = ()
+    retirements: tuple[RuleRetirement, ...] = ()
 
 
 def _load_dir[T](
@@ -102,6 +105,41 @@ def _load_dir[T](
             continue
         seen[obj_id] = path.name
         loaded.append(obj)
+    return tuple(loaded)
+
+
+def _load_retirements(
+    directory: Path,
+    issues: list[GovernanceLoadIssue],
+) -> tuple[RuleRetirement, ...]:
+    if not directory.is_dir():
+        return ()
+    loaded: list[RuleRetirement] = []
+    seen: dict[str, str] = {}
+    for path in sorted([*directory.glob("*.yaml"), *directory.glob("*.yml")]):
+        try:
+            raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+            if not isinstance(raw, dict):
+                raise ValueError("not a YAML mapping")
+            retirement = load_retirement_from_mapping(raw)
+            if path.stem != retirement.rule_id:
+                raise ValueError("retirement filename MUST match rule_id")
+        except (OSError, UnicodeDecodeError, yaml.YAMLError, ValueError) as exc:
+            issues.append(GovernanceLoadIssue(key=path.name, message=f"invalid retirement: {exc}"))
+            continue
+        if retirement.rule_id in seen:
+            issues.append(
+                GovernanceLoadIssue(
+                    key=path.name,
+                    message=(
+                        f"duplicate retirement for {retirement.rule_id!r} "
+                        f"(also in {seen[retirement.rule_id]})"
+                    ),
+                )
+            )
+            continue
+        seen[retirement.rule_id] = path.name
+        loaded.append(retirement)
     return tuple(loaded)
 
 
@@ -170,15 +208,22 @@ def load_governance_catalog(
     if known_rule_versions is not None:
         issues.extend(_assignment_reference_issues(assignments, known_rule_versions))
     exemptions = _load_exemptions(root / _EXEMPTIONS_DIR, issues)
+    retirements = _load_retirements(root / "retirements", issues)
     issues.extend(_duplicate_active_exemption_issues(exemptions))
     if known_rule_versions is not None:
         issues.extend(_exemption_reference_issues(exemptions, known_rule_versions))
+        issues.extend(
+            GovernanceLoadIssue(key=item.rule_id, message="references unknown rule id")
+            for item in retirements
+            if item.rule_id not in known_rule_versions
+        )
     if issues:
         raise GovernanceLoadError(issues)
     return GovernanceCatalog(
         assignments=assignments,
         rule_sets=rule_sets,
         exemptions=exemptions,
+        retirements=retirements,
     )
 
 

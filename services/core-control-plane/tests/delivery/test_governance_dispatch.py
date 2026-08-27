@@ -32,6 +32,12 @@ class _Publisher:
         return PublishReceipt(pr_ref="example/repo#1", url="https://example.com/pr/1")
 
 
+class _ReconcilingPublisher(_Publisher):
+    async def reconcile(self, pr_ref: str) -> str:
+        assert pr_ref == "example/repo#1"
+        return "merged"
+
+
 class _PromotionExecutor:
     async def execute(self, request):  # type: ignore[no-untyped-def]
         return DirectApiReceipt(outcome=DirectApiOutcome.SUCCEEDED, receipt_ref="promotion:1")
@@ -83,6 +89,23 @@ async def test_governance_writer_is_bound_to_replayable_open_to_merge_receipt() 
 
 
 @pytest.mark.asyncio
+async def test_replay_reconciles_a_merged_pr_terminal_state() -> None:
+    publisher = _ReconcilingPublisher()
+    store = StateStoreGovernancePrLifecycleStore(InMemoryStateStore())
+    service = GovernedGovernancePrPublisher(
+        publisher=publisher,
+        lifecycle_store=store,
+        clock=lambda: NOW,
+    )
+    await service.publish(_document(), correlation_id="governance-merged")
+    merged = await service.publish(_document(), correlation_id="governance-merged")
+
+    assert merged.state == "merged"
+    assert merged.applied is True
+    assert merged.merge_required is False
+
+
+@pytest.mark.asyncio
 async def test_exemption_writer_uses_the_same_governed_pr_binding() -> None:
     publisher = _Publisher()
     service = GovernedGovernancePrPublisher(
@@ -93,14 +116,45 @@ async def test_exemption_writer_uses_the_same_governed_pr_binding() -> None:
     receipt = await service.publish(_exemption_document(), correlation_id="governance-2")
     assert receipt.action_type_name == "governance.grant-exemption"
     assert receipt.applied is False
+    assert publisher.pr.patch_path.endswith(".json")
+    assert publisher.pr.patch.startswith("{")
+
+
+@pytest.mark.asyncio
+async def test_governance_publisher_rejects_path_traversal_and_identifier_mismatch() -> None:
+    from fdai.delivery.gitops_pr import GovernancePrError
+    from fdai.delivery.gitops_pr.governance_writers import GovernanceDocument
+
+    service = GovernedGovernancePrPublisher(
+        publisher=_Publisher(),
+        lifecycle_store=StateStoreGovernancePrLifecycleStore(InMemoryStateStore()),
+        clock=lambda: NOW,
+    )
+    document = _document()
+    for path in (
+        "rule-catalog/other/azure-builtin.storage.secure-transfer.yaml",
+        "rule-catalog/retirements/other.yaml",
+        "rule-catalog/retirements/azure-builtin.storage.secure-transfer.json",
+    ):
+        with pytest.raises(GovernancePrError, match="path"):
+            await service.publish(
+                GovernanceDocument(path=path, document=document.document),
+                correlation_id="governance-path",
+            )
 
 
 @pytest.mark.asyncio
 async def test_promotion_dispatch_requires_approved_distinct_approver_transition() -> None:
-    from fdai.delivery.promotion import GovernancePromotionDispatcher
+    from fdai.core.rbac.roles import Role
+    from fdai.delivery.promotion import (
+        GovernancePromotionAttestation,
+        GovernancePromotionDispatcher,
+    )
     from fdai.rule_catalog.schema.governance_review_authority import (
+        GovernanceApproval,
         GovernanceChangeClass,
-        ReviewAuthorityDecision,
+        GovernancePrincipal,
+        GovernanceReviewRequest,
     )
     from fdai.shared.contracts.models import Mode
     from fdai.shared.providers.direct_api import DirectApiRequest
@@ -126,15 +180,99 @@ async def test_promotion_dispatch_requires_approved_distinct_approver_transition
     with pytest.raises(DirectApiPreconditionError, match="distinct-approver"):
         await dispatcher.dispatch(request)
 
-    decision = ReviewAuthorityDecision(
+    review = GovernanceReviewRequest(
+        change_class=GovernanceChangeClass.ENFORCE_PROMOTION,
+        author=GovernancePrincipal(oid=OID_A, roles=frozenset({Role.APPROVER})),
+        head_revision="a" * 40,
+        head_committed_at=NOW,
+        approvals=(
+            GovernanceApproval(
+                approver=GovernancePrincipal(oid=OID_B, roles=frozenset({Role.APPROVER})),
+                reviewed_revision="a" * 40,
+                approved_at=NOW,
+                phishing_resistant=True,
+            ),
+            GovernanceApproval(
+                approver=GovernancePrincipal(
+                    oid="00000000-0000-0000-0000-000000000004",
+                    roles=frozenset({Role.APPROVER}),
+                ),
+                reviewed_revision="a" * 40,
+                approved_at=NOW,
+                phishing_resistant=True,
+            ),
+        ),
+    )
+    attestation = GovernancePromotionAttestation(
+        review=review,
+        action_type_id="remediate.tag-add",
+        fdai_revision="a" * 40,
+        scenario_set_version="scenario-v1",
+        evidence_digest="b" * 64,
+    )
+    result = await dispatcher.dispatch(request, attestation=attestation)
+    assert result.receipt_ref == "promotion:1"
+
+
+@pytest.mark.asyncio
+async def test_promotion_rejects_forged_bare_decision_and_mismatched_attestation() -> None:
+    from fdai.core.rbac.roles import Role
+    from fdai.delivery.promotion import (
+        GovernancePromotionAttestation,
+        GovernancePromotionDispatcher,
+    )
+    from fdai.rule_catalog.schema.governance_review_authority import (
+        GovernanceChangeClass,
+        GovernancePrincipal,
+        GovernanceReviewRequest,
+        ReviewAuthorityDecision,
+    )
+    from fdai.shared.contracts.models import Mode
+    from fdai.shared.providers.direct_api import DirectApiRequest
+
+    request = DirectApiRequest(
+        action_id=UUID("00000000-0000-0000-0000-000000000012"),
+        idempotency_key="promotion-3",
+        action_type_name="governance.promote-action-type",
+        rule_ids=("operator.promotion",),
+        resource_ref="action-type:remediate.tag-add",
+        arguments={
+            "action_type_id": "remediate.tag-add",
+            "target_mode": "enforce",
+            "fdai_revision": "a" * 40,
+            "scenario_set_version": "scenario-v1",
+            "evidence_digest": "b" * 64,
+        },
+        labels=("enforce",),
+        mode=Mode.ENFORCE,
+    )
+    dispatcher = GovernancePromotionDispatcher(_PromotionExecutor())  # type: ignore[arg-type]
+    forged = ReviewAuthorityDecision(
         change_class=GovernanceChangeClass.ENFORCE_PROMOTION,
         allowed=True,
-        required_quorum=2,
-        satisfied_quorum=2,
-        counted_approver_oids=(OID_A, OID_B),
+        required_quorum=0,
+        satisfied_quorum=0,
     )
-    result = await dispatcher.dispatch(request, review=decision)
-    assert result.receipt_ref == "promotion:1"
+    with pytest.raises(DirectApiPreconditionError):
+        await dispatcher.dispatch(request, attestation=forged)  # type: ignore[arg-type]
+
+    with pytest.raises(DirectApiPreconditionError, match="exact request"):
+        await dispatcher.dispatch(
+            request,
+            attestation=GovernancePromotionAttestation(
+                review=GovernanceReviewRequest(
+                    change_class=GovernanceChangeClass.ENFORCE_PROMOTION,
+                    author=GovernancePrincipal(oid=OID_A, roles=frozenset({Role.APPROVER})),
+                    head_revision="a" * 40,
+                    head_committed_at=NOW,
+                    approvals=(),
+                ),
+                action_type_id="remediate.other",
+                fdai_revision="a" * 40,
+                scenario_set_version="scenario-v1",
+                evidence_digest="b" * 64,
+            ),
+        )
 
 
 @pytest.mark.asyncio

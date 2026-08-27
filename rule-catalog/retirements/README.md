@@ -9,6 +9,10 @@ One YAML document per rule, rendered by
 for the `governance.retire-rule` ActionType, which declares
 `execution_path: pr_native`.
 
+The runtime governance loader validates these documents and projects a merged
+`retired` record out of the active rule index. `shadow_only` records remain
+available for evaluation. A draft or open PR has no runtime effect.
+
 | Field | Meaning |
 |-------|---------|
 | `rule_id` | The rule leaving the enforce set. |

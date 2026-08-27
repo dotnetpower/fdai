@@ -35,6 +35,7 @@ write-once contract per
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
 from dataclasses import dataclass
@@ -121,6 +122,7 @@ class GitOpsPrAdapter(RemediationPrPublisher):
         self._config: Final[GitOpsPrConfig] = config
         self._http: Final[httpx.AsyncClient] = http_client
         self._token: Final[str] = token
+        self._publish_locks: dict[str, asyncio.Lock] = {}
 
     # ------------------------------------------------------------------
     # RemediationPrPublisher
@@ -132,37 +134,44 @@ class GitOpsPrAdapter(RemediationPrPublisher):
                 "enforce-mode PR requires an explicit 'enforce' label (P1 promotion contract)"
             )
 
-        branch = self._branch_for(pr.idempotency_key)
+        lock = self._publish_locks.setdefault(pr.idempotency_key, asyncio.Lock())
+        async with lock:
+            branch = self._branch_for(pr.idempotency_key)
+            # Recheck under the per-key lock so concurrent retries cannot
+            # both pass the remote idempotency probe.
+            existing = await self._find_open_pr(branch)
+            if existing is not None:
+                return PublishReceipt(
+                    pr_ref=existing["ref"],
+                    url=existing.get("url"),
+                    already_existed=True,
+                )
 
-        # 1. Idempotency probe
-        existing = await self._find_open_pr(branch)
-        if existing is not None:
-            return PublishReceipt(
-                pr_ref=existing["ref"],
-                url=existing.get("url"),
-                already_existed=True,
+            base_sha = await self._resolve_base_sha()
+            await self._create_branch(branch=branch, base_sha=base_sha)
+            await self._put_contents(
+                branch=branch, path=pr.patch_path, content=pr.patch, title=pr.title
             )
-
-        # 2. Refresh base sha
-        base_sha = await self._resolve_base_sha()
-
-        # 3. Ensure branch + commit patch (idempotent - create-if-missing)
-        await self._create_branch(branch=branch, base_sha=base_sha)
-        await self._put_contents(
-            branch=branch, path=pr.patch_path, content=pr.patch, title=pr.title
-        )
-
-        # 4. Open draft PR
-        pr_ref, url = await self._open_draft_pr(branch=branch, title=pr.title, body=pr.body)
-
-        # 5. Apply labels
-        await self._apply_labels(pr_ref=pr_ref, labels=pr.labels)
-
-        return PublishReceipt(
-            pr_ref=pr_ref,
-            url=url,
-            already_existed=False,
-        )
+            try:
+                pr_ref, url = await self._open_draft_pr(branch=branch, title=pr.title, body=pr.body)
+            except GitOpsPrError:
+                # A transport timeout can occur after GitHub accepted the
+                # create. Reconcile before surfacing failure so a retry cannot
+                # create a second PR.
+                existing = await self._find_open_pr(branch)
+                if existing is None:
+                    raise
+                return PublishReceipt(
+                    pr_ref=existing["ref"],
+                    url=existing.get("url"),
+                    already_existed=True,
+                )
+            await self._apply_labels(pr_ref=pr_ref, labels=pr.labels)
+            return PublishReceipt(
+                pr_ref=pr_ref,
+                url=url,
+                already_existed=False,
+            )
 
     async def publish_governance(
         self,
@@ -182,6 +191,27 @@ class GitOpsPrAdapter(RemediationPrPublisher):
             publisher=self,
             lifecycle_store=lifecycle_store,
         ).publish(document, correlation_id=correlation_id)
+
+    async def reconcile(self, pr_ref: str) -> str:
+        """Return the remote PR lifecycle state for replay reconciliation."""
+        marker = f"{self._config.owner}/{self._config.repo}#"
+        if not pr_ref.startswith(marker):
+            raise GitOpsPrError("governance PR reference does not match this adapter")
+        number = pr_ref[len(marker) :]
+        if not number.isdigit():
+            raise GitOpsPrError("governance PR reference number is invalid")
+        payload = await self._get_json(
+            f"{self._config.api_base}/repos/{self._config.owner}/{self._config.repo}/pulls/{number}"
+        )
+        if not isinstance(payload, dict):
+            raise GitOpsPrError("governance PR lookup returned no pull request")
+        if payload.get("merged_at") is not None:
+            return "merged"
+        if payload.get("state") == "closed":
+            return "closed"
+        if payload.get("state") == "open":
+            return "open"
+        raise GitOpsPrError("governance PR lookup returned an unknown state")
 
     # ------------------------------------------------------------------
     # helpers

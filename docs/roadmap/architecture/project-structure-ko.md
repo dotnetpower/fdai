@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: a780597a371ce0db8fb25aefcb95df37be2e2dee
+translation_source_sha: 60b8788d621a1808ce1be9c3e51aff7d48675bc4
 translation_revised: 2026-08-27
 ---
 # 프로젝트 구조
@@ -265,7 +265,9 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
   `operational-promotion` 측정 작업은 exact-digest batch와 매니페스트 바인딩 causal 및 측정 단위
   근거만 받아 승격 상태를 바꾸지 않고 증적을 저장합니다.
 - **Governed action 및 probe 전달**: `GovernedGovernancePrPublisher`는 retire 및 exemption
-  순수 writer를 기존 write-once PR adapter에 연결하고 open-to-merge 증적을 저장합니다.
+  순수 writer를 기존 write-once PR adapter에 연결하고 replay 가능한 open-to-merge 또는
+  종단 증적을 저장합니다. Retirement loader는 병합된 retirement artifact를 active rule
+  index에서 projection하고 exemption은 canonical JSON schema를 사용합니다.
   `LiveBlastProbeAdapter`는 배포가 제공하는 `BlastSignalSource`와 `ProbeFailureStreakSource`
   구현을 연결하며, 소스가 없거나 실패하면 Axis E를 낮추고 권한을 부여하지 않습니다.
 - **독립 효과 관측**: 영속 kinetic artifact 저장소가 exact-plan source입니다.

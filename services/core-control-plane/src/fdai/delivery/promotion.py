@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Protocol
 
 from fdai.core.measurement import OperationalPromotionReceipt
@@ -10,7 +11,6 @@ from fdai.core.risk_gate import ActionModeRecord, PromotionMetrics
 from fdai.rule_catalog.schema.governance_review_authority import (
     GovernanceChangeClass,
     GovernanceReviewRequest,
-    ReviewAuthorityDecision,
     validate_governance_review,
 )
 from fdai.shared.contracts.models import Mode, OntologyActionType
@@ -24,6 +24,29 @@ from fdai.shared.providers.direct_api import (
 )
 
 PROMOTION_ACTION_TYPE = "governance.promote-action-type"
+
+
+@dataclass(frozen=True, slots=True)
+class GovernancePromotionAttestation:
+    """Authenticated review result bound to one exact promotion request."""
+
+    review: GovernanceReviewRequest
+    action_type_id: str
+    fdai_revision: str
+    scenario_set_version: str
+    evidence_digest: str
+
+    def __post_init__(self) -> None:
+        if not all(
+            isinstance(value, str) and value.strip()
+            for value in (
+                self.action_type_id,
+                self.fdai_revision,
+                self.scenario_set_version,
+                self.evidence_digest,
+            )
+        ):
+            raise ValueError("promotion attestation identity MUST be non-empty")
 
 
 class OperationalPromotionReceiptReader(Protocol):
@@ -140,19 +163,31 @@ class GovernancePromotionDispatcher:
         self,
         request: DirectApiRequest,
         *,
-        review: GovernanceReviewRequest | ReviewAuthorityDecision | None = None,
+        attestation: GovernancePromotionAttestation | None = None,
     ) -> DirectApiReceipt:
         """Dispatch only after the exact enforce-promotion review is allowed."""
-        decision = (
-            validate_governance_review(review)
-            if isinstance(review, GovernanceReviewRequest)
-            else review
-        )
+        if not isinstance(attestation, GovernancePromotionAttestation):
+            raise DirectApiPreconditionError(
+                "promotion requires an authenticated distinct-approver "
+                "governance review attestation"
+            )
+        args = _promotion_arguments(request.arguments)
         if (
-            decision is None
-            or decision.change_class is not GovernanceChangeClass.ENFORCE_PROMOTION
+            args["action_type_id"] != attestation.action_type_id
+            or args["fdai_revision"] != attestation.fdai_revision
+            or args["scenario_set_version"] != attestation.scenario_set_version
+            or args["evidence_digest"] != attestation.evidence_digest
+            or attestation.review.head_revision != attestation.fdai_revision
+        ):
+            raise DirectApiPreconditionError(
+                "promotion review attestation does not match the exact request"
+            )
+        decision = validate_governance_review(attestation.review)
+        if (
+            decision.change_class is not GovernanceChangeClass.ENFORCE_PROMOTION
             or not decision.allowed
             or decision.satisfied_quorum < decision.required_quorum
+            or len(decision.counted_approver_oids) < 2
         ):
             raise DirectApiPreconditionError(
                 "promotion requires an approved distinct-approver governance transition"
@@ -181,6 +216,7 @@ def _promotion_arguments(arguments: Mapping[str, object]) -> dict[str, str]:
 __all__ = [
     "OperationalPromotionDirectApiExecutor",
     "GovernancePromotionDispatcher",
+    "GovernancePromotionAttestation",
     "OperationalPromotionReceiptReader",
     "PROMOTION_ACTION_TYPE",
     "PersistedActionPromotionRegistry",
