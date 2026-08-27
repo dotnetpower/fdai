@@ -32,6 +32,8 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   execution authority and uses an injected state store for duplicate and restart-safe replay.
   The loop accepts only planned intent, binds exact ontology and catalog releases, and projects
   transient holds without deleting prior checks.
+  Observation verdicts remain audit-only: Odin excludes them from action portfolios and Thor never
+  dispatches them.
   It validates complete graph source generation before publishing a conformant envelope and
   retries failed read-model projections from their persisted status.
   Scenario identifiers are ASCII-safe and bounded so UUID-shaped changes remain valid ontology
