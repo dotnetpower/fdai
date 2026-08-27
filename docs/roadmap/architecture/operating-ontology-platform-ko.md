@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 996aadfc8cb5305c9ab73926962894c479ad2200
+translation_source_sha: 8f065055b291fc3dce13732c930e1b8cf5a66533
 translation_revised: 2026-08-27
 ---
 # FDAI 온톨로지 안전 인프라
@@ -141,6 +141,7 @@ Console은 redaction, 호환성, 완전성 또는 권한을 계산하지 않습�
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-27 | implemented | 남은 review gap을 닫아 unresolved 및 source-less ARM reference를 incomplete generation으로 전달하고, candidate version union을 globally sort하며, proposal-only authority literal을 runtime에서 강제했습니다. | `current change`, generation, direction-shadow, promotion 및 집중 adversarial 검사(`38 passed`), Ruff, formatter 및 strict mypy | Complete release-bound 실제 generation 근거와 governed human review를 확보해야 합니다. Live 또는 remote generation은 만들지 않았습니다. |
+| 2026-08-27 | implemented | Principal 범위 운영 근거 읽기를 receipt로 검증된 컨텍스트 메타데이터에 연결했습니다. 기존 범위 제한 읽기 응답은 이제 요청 principal을 보존하고, 권한 또는 실행 권한 없이 불일치하거나 불완전한 컨텍스트 근거를 거부합니다. | `current change`, 운영 컨텍스트 및 scenario-branch 집중 검사(`14 passed`) | 인증된 런타임 근거는 별도로 보존합니다. |
 | 2026-08-27 | implemented | Bounded versioned provider 관계 materialization과 exact-release direction-shadow 검사를 추가했습니다. 기존 Kubernetes API inventory는 authoritative topology adapter로 충분하며 lifecycle observation은 별도 Event 출처로 유지하고 topology로 재사용하지 않습니다. | `current change`, `delivery/provider_schema_relationship_generation.py`, 집중 generation 및 direction-shadow 검사(`22 passed`), Ruff, formatter 및 strict mypy | Complete release-bound 실제 generation 근거와 governed review를 확보해야 합니다. Live 또는 remote generation은 만들지 않았습니다. |
 | 2026-08-27 | implemented | Independent review 후 provider 관계 materialization을 보강하여 모든 reviewed semantic field, review digest 및 candidate endpoint를 다시 검증하고 type@version 신원과 exact-release replay mode를 보존했으며, 고유 staging 파일을 사용한 ledger record/rollback 직렬화를 추가했습니다. | `current change`, generation, review, ledger 및 direction-shadow 모듈, 집중 adversarial 검사(`35 passed`), Ruff, formatter 및 strict mypy | Complete release-bound 실제 generation 근거와 governed human review를 확보해야 합니다. Live 또는 remote generation은 만들지 않았습니다. |
 | 2026-08-27 | implemented | 정확한 identity 조건식이 Resource 0개 또는 여러 개로 해소되면 Event Function이 이를 차단하도록 수정했습니다. Provider에는 요청하지 않고 결과는 `target_resolution_not_exact`로 불완전하게 유지합니다. 완전한 넓은 범위의 기존 빈 결과 의미는 유지합니다. | `current change`, 집중 Resource Event FunctionType 회귀 검사 | 런타임 Kubernetes Event 출처를 복구하고 인증된 정확한 대상 프로바이더 증적 하나를 보존해야 합니다. 행 0개가 과거 부재를 증명하려면 영속 이력이 계속 필요합니다. |
