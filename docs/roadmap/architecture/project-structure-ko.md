@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: f912ee80fa5dc8bf95749c59a73c49da978e76e5
+translation_source_sha: b331527f1f456a67b531895ae7ed6f6263a0ed38
 translation_revised: 2026-08-30
 ---
 # 프로젝트 구조
@@ -25,14 +25,16 @@ translation_revised: 2026-08-30
   `delivery/`를 가져오기하지 않으며 provider 동작은 shared Protocol과 composition으로 진입합니다.
   집중 sibling 모듈은 canonical identity 투영과 hashing을 소유할 수 있으며 기존 소유 모듈은
   해당 공개 표면을 다시 내보냅니다. 이 분리는 직렬화 바이트와 replay 의미를 보존해야 합니다.
-- **관찰 모드 ARB 조립**: `core/architecture_review/observation_loop.py`는 프로바이더 중립
-  Change -> 인증된 컨텍스트 -> 근거 묶음 -> 시나리오 -> DecisionCase와 ImpactEnvelope 조립을
-  소유합니다. Forseti만 기존 타입 지정 버스에 관찰 판정을 게시하고 Saga가 이를 감사하며
-  `ArchitectureReviewProjector.project_observation`은 읽기 전용 ReviewCase와 ReviewCheck 객체를
-  파생합니다. 이 경로에는 승인, 변경, 승격 또는 실행 권한이 없고 주입된 상태 저장소로 중복 및
-  재시작 안전 재생을 보장합니다.
-  이 루프는 `planned` 의도만 허용하고 정확한 온톨로지 및 카탈로그 릴리스를 연결하며, 일시적
-  보류를 변환할 때 기존 검사를 삭제하지 않습니다.
+- **관찰 모드 ARB 구성**: `core/architecture_review/observation_loop.py`는 프로바이더 중립적인
+  Change -> 인증된 컨텍스트 -> 근거 묶음 -> 시나리오 -> DecisionCase 및 ImpactEnvelope 구성을
+  담당합니다. Forseti만 기존 형식화된 버스에 관찰 판정을 게시하고 Saga가 감사하며,
+  `ArchitectureReviewProjector.project_observation`이 읽기 전용 ReviewCase 및 ReviewCheck
+  객체를 파생합니다. 이 경로에는 승인, 변경, 승격 또는 실행 권한이 없으며 중복 및 재시작에
+  안전한 재현을 위해 주입된 상태 저장소를 사용합니다.
+  루프는 계획된 의도만 수락하고 온톨로지 및 카탈로그 릴리스를 정확히 결속하며, 일시적인
+  보류를 투영할 때 기존 점검을 삭제하지 않습니다.
+  적합한 envelope를 게시하기 전에 완전한 그래프 소스 generation을 검증하며, 영속화된 상태를
+  사용해 실패한 읽기 모델 projection을 재시도합니다.
   Pantheon member는 `agents/` 바로 아래의 flat layout을 유지합니다. Private behavior-extraction
   mixin은 `agents/_framework/`에 두며 member의 AgentSpec, topic, ownership, model policy 또는
   authority를 바꿀 수 없습니다.

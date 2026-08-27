@@ -107,24 +107,20 @@ class ArchitectureReviewProjector:
 
         current_checks: set[str] = set()
         evidence_available = observation.evidence is not None
-        await self.store.upsert_object(
-            OntologyObjectRecord(
-                id=observation.change_id,
-                object_type="Change",
-                properties={
-                    "id": observation.change_id,
-                    "change_kind": "planned",
-                    "source_kind": "architecture_review",
-                    "intent_kind": "planned",
-                    "target_ref": observation.target_ref,
-                    "actor_ref": "unknown",
-                    "status": observation.recommendation,
-                    "occurred_at": recorded_at,
-                    "evidence_ref": f"change:{observation.change_digest}",
-                },
+        existing_change = await self.store.get_object(observation.change_id)
+        if existing_change is None and observation.normalized_change:
+            await self.store.upsert_object(
+                OntologyObjectRecord(
+                    id=observation.change_id,
+                    object_type="Change",
+                    properties=dict(observation.normalized_change),
+                )
             )
-        )
-        target = await self.store.get_object(observation.target_ref)
+            existing_change = await self.store.get_object(observation.change_id)
+        if existing_change is not None and existing_change.object_type == "Change":
+            target = await self.store.get_object(observation.target_ref)
+        else:
+            target = None
         if target is not None and target.object_type == "Resource":
             await _link(
                 self.store,
@@ -188,12 +184,13 @@ class ArchitectureReviewProjector:
                         },
                     )
                 )
-                await _link(
-                    self.store,
-                    "case_evaluates_change",
-                    case.case_id,
-                    observation.change_id,
-                )
+                if existing_change is not None and existing_change.object_type == "Change":
+                    await _link(
+                        self.store,
+                        "case_evaluates_change",
+                        case.case_id,
+                        observation.change_id,
+                    )
                 decision_id = f"{review_id}:decision:{case.case_id[:32]}"
                 await self.store.upsert_object(
                     OntologyObjectRecord(
@@ -239,12 +236,13 @@ class ArchitectureReviewProjector:
                         },
                     )
                 )
-                await _link(
-                    self.store,
-                    "change_bounded_by_envelope",
-                    observation.change_id,
-                    envelope.envelope_id,
-                )
+                if existing_change is not None and existing_change.object_type == "Change":
+                    await _link(
+                        self.store,
+                        "change_bounded_by_envelope",
+                        observation.change_id,
+                        envelope.envelope_id,
+                    )
 
         if evidence_available:
             existing = await self.store.query_objects(object_types=("ReviewCheck",), limit=1000)

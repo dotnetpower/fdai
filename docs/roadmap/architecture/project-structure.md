@@ -32,6 +32,8 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   execution authority and uses an injected state store for duplicate and restart-safe replay.
   The loop accepts only planned intent, binds exact ontology and catalog releases, and projects
   transient holds without deleting prior checks.
+  It validates complete graph source generation before publishing a conformant envelope and
+  retries failed read-model projections from their persisted status.
   Pantheon members remain flat under `agents/`; private behavior-extraction mixins belong under
   `agents/_framework/` and cannot change the member's AgentSpec, topics, ownership, model policy,
   or authority.

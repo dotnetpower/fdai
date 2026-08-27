@@ -6,7 +6,8 @@ import asyncio
 import hashlib
 import json
 from collections import OrderedDict
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import AsyncIterator, Callable, Mapping, Sequence
+from contextlib import asynccontextmanager
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from typing import Protocol, TypedDict
@@ -31,6 +32,8 @@ from fdai.core.operational_context import (
 )
 from fdai.shared.contracts.models import OntologyLinkType, OntologyObjectType
 from fdai.shared.providers.ontology_instance import OntologyGraphSnapshot
+
+_MAX_KEY_LOCKS = 1024
 
 
 class ArchitectureReviewEvidenceUnavailableError(RuntimeError):
@@ -89,6 +92,10 @@ class ArchitectureReviewStateStore(Protocol):
         value: ArchitectureReviewObservation,
     ) -> ArchitectureReviewObservation | None: ...
 
+    async def get_projection_status(self, key: str) -> str: ...
+
+    async def mark_projection(self, key: str, status: str) -> None: ...
+
 
 class ArchitectureReviewObservationSink(Protocol):
     """Persist an observation projection without granting action authority."""
@@ -106,6 +113,7 @@ class InMemoryArchitectureReviewStateStore:
 
     def __init__(self) -> None:
         self._values: dict[str, ArchitectureReviewObservation] = {}
+        self._projection_status: dict[str, str] = {}
 
     async def get(self, key: str) -> ArchitectureReviewObservation | None:
         return self._values.get(key)
@@ -119,7 +127,14 @@ class InMemoryArchitectureReviewStateStore:
         if existing is not None:
             return existing
         self._values[key] = value
+        self._projection_status[key] = "pending"
         return None
+
+    async def get_projection_status(self, key: str) -> str:
+        return self._projection_status.get(key, "pending")
+
+    async def mark_projection(self, key: str, status: str) -> None:
+        self._projection_status[key] = status
 
 
 @dataclass(frozen=True, slots=True)
@@ -143,6 +158,7 @@ class ArchitectureReviewObservation:
     execution_authority: bool = False
     replayed: bool = False
     observation_only: bool = True
+    normalized_change: tuple[tuple[str, object], ...] = ()
 
     def __post_init__(self) -> None:
         if self.mode != "observation" or self.observation_only is not True:
@@ -196,6 +212,7 @@ class ArchitectureReviewObservation:
             "mutation_authority": self.mutation_authority,
             "execution_authority": self.execution_authority,
             "observation_only": self.observation_only,
+            "normalized_change": dict(self.normalized_change),
             "context_snapshot_id": self.context.snapshot_id if self.context else None,
             "evidence_bundle_digest": self.evidence.bundle.digest if self.evidence else None,
             "scenario_digest": self.scenario.scenario_digest if self.scenario else None,
@@ -244,7 +261,8 @@ class OntologyArchitectureReviewLoop:
         self._action_type_cap = action_type_cap
         self._decision_cap = decision_cap
         self._clock = clock or (lambda: datetime.now(UTC))
-        self._key_locks: OrderedDict[str, asyncio.Lock] = OrderedDict()
+        self._key_locks: OrderedDict[str, _KeyLockState] = OrderedDict()
+        self._local_projection_status: dict[str, str] = {}
 
     def bind_observation_sink(self, sink: ArchitectureReviewObservationSink | None) -> None:
         """Attach the production read-model sink before processing begins."""
@@ -258,86 +276,112 @@ class OntologyArchitectureReviewLoop:
         """Evaluate a normalized Change once, suppressing duplicates by stable idempotency."""
 
         identity = _change_identity(change)
-        async with self._lock_for_key(identity.idempotency_key):
+        try:
+            async with asyncio.timeout(self._deadline_seconds):
+                async with self._key_lock(identity.idempotency_key):
+                    return await self._evaluate_locked(identity, change)
+        except TimeoutError:
+            observation = ArchitectureReviewObservation.hold(
+                **identity.to_kwargs(),
+                reason="deadline_exceeded",
+            )
+            existing = await self._state_store.put_if_absent(
+                identity.idempotency_key,
+                observation,
+            )
+            if existing is not None:
+                return replace(existing, replayed=True)
+            await self._project(identity, change, observation)
+            return observation
+
+    async def _evaluate_locked(
+        self,
+        identity: _ChangeIdentity,
+        change: Mapping[str, object],
+    ) -> ArchitectureReviewObservation:
+        existing = await self._state_store.get(identity.idempotency_key)
+        if existing is not None:
+            if existing.change_digest != identity.change_digest:
+                raise ValueError("ARB idempotency key conflicts with another Change identity")
+            if await self._projection_status(identity.idempotency_key) != "projected":
+                await self._project(identity, change, existing)
+            return replace(existing, replayed=True)
+        if change.get("intent_kind") != "planned":
+            observation = ArchitectureReviewObservation.hold(
+                **identity.to_kwargs(),
+                reason="unsupported_intent_kind",
+            )
+        else:
             try:
-                async with asyncio.timeout(self._deadline_seconds):
-                    existing = await self._state_store.get(identity.idempotency_key)
-                    if existing is not None:
-                        if existing.change_digest != identity.change_digest:
-                            raise ValueError(
-                                "ARB idempotency key conflicts with another Change identity"
-                            )
-                        return replace(existing, replayed=True)
-                    if change.get("intent_kind") != "planned":
-                        observation = ArchitectureReviewObservation.hold(
-                            **identity.to_kwargs(),
-                            reason="unsupported_intent_kind",
-                        )
-                        stored = await self._state_store.put_if_absent(
-                            identity.idempotency_key,
-                            observation,
-                        )
-                        if stored is not None:
-                            return replace(stored, replayed=True)
-                        if self._observation_sink is not None:
-                            await self._observation_sink.project_observation(
-                                observation,
-                                process_id=_process_id(change),
-                            )
-                        return observation
-                    try:
-                        context = await self._context_source.resolve(change=change)
-                        evidence = await self._evidence_source.collect(
-                            change=change,
-                            context=context,
-                        )
-                        observation = await self._compose(identity, context, evidence)
-                    except (
-                        ArchitectureReviewBackpressureError,
-                        ArchitectureReviewEvidenceUnavailableError,
-                    ):
-                        observation = ArchitectureReviewObservation.hold(
-                            **identity.to_kwargs(),
-                            reason="evidence_unavailable",
-                        )
-                    except ValueError as exc:
-                        observation = ArchitectureReviewObservation.hold(
-                            **identity.to_kwargs(),
-                            reason=_safe_reason(exc),
-                        )
-                    existing = await self._state_store.put_if_absent(
-                        identity.idempotency_key,
-                        observation,
-                    )
-                    if existing is not None:
-                        if existing.change_digest != identity.change_digest:
-                            raise ValueError(
-                                "ARB idempotency key conflicts with another Change identity"
-                            )
-                        return replace(existing, replayed=True)
-                    if self._observation_sink is not None:
-                        await self._observation_sink.project_observation(
-                            observation,
-                            process_id=_process_id(change),
-                        )
-                    return observation
-            except TimeoutError:
+                context = await self._context_source.resolve(change=change)
+                evidence = await self._evidence_source.collect(
+                    change=change,
+                    context=context,
+                )
+                observation = await self._compose(identity, change, context, evidence)
+            except (
+                ArchitectureReviewBackpressureError,
+                ArchitectureReviewEvidenceUnavailableError,
+            ):
                 observation = ArchitectureReviewObservation.hold(
                     **identity.to_kwargs(),
-                    reason="deadline_exceeded",
+                    reason="evidence_unavailable",
                 )
-                existing = await self._state_store.put_if_absent(
-                    identity.idempotency_key,
-                    observation,
+            except ValueError as exc:
+                observation = ArchitectureReviewObservation.hold(
+                    **identity.to_kwargs(),
+                    reason=_safe_reason(exc),
                 )
-                if existing is not None:
-                    return replace(existing, replayed=True)
-                if self._observation_sink is not None:
-                    await self._observation_sink.project_observation(
-                        observation,
-                        process_id=_process_id(change),
-                    )
-                return observation
+        existing = await self._state_store.put_if_absent(identity.idempotency_key, observation)
+        if existing is not None:
+            if existing.change_digest != identity.change_digest:
+                raise ValueError("ARB idempotency key conflicts with another Change identity")
+            if await self._projection_status(identity.idempotency_key) != "projected":
+                await self._project(identity, change, existing)
+            return replace(existing, replayed=True)
+        await self._project(identity, change, observation)
+        return observation
+
+    async def _project(
+        self,
+        identity: _ChangeIdentity,
+        change: Mapping[str, object],
+        observation: ArchitectureReviewObservation,
+    ) -> None:
+        if self._observation_sink is None:
+            await self._mark_projection(identity.idempotency_key, "unavailable")
+            return
+        try:
+            await self._observation_sink.project_observation(
+                observation,
+                process_id=_process_id(change),
+            )
+        except Exception:
+            await self._mark_projection(identity.idempotency_key, "failed")
+            return
+        await self._mark_projection(identity.idempotency_key, "projected")
+
+    async def _projection_status(self, key: str) -> str:
+        getter = getattr(self._state_store, "get_projection_status", None)
+        if getter is None:
+            return self._local_projection_status.get(key, "pending")
+        return str(await getter(key))
+
+    async def _mark_projection(self, key: str, status: str) -> None:
+        self._local_projection_status[key] = status
+        marker = getattr(self._state_store, "mark_projection", None)
+        if marker is not None:
+            await marker(key, status)
+
+    def _evict_inactive_locks(self) -> None:
+        while len(self._key_locks) > _MAX_KEY_LOCKS:
+            key, state = next(iter(self._key_locks.items()))
+            if state.users or state.lock.locked():
+                self._key_locks.move_to_end(key)
+                if all(item.users or item.lock.locked() for item in self._key_locks.values()):
+                    return
+                continue
+            del self._key_locks[key]
 
     async def replay(
         self,
@@ -350,21 +394,30 @@ class OntologyArchitectureReviewLoop:
             results.append(await self.evaluate(change))
         return tuple(results)
 
-    def _lock_for_key(self, key: str) -> asyncio.Lock:
-        lock = self._key_locks.get(key)
-        if lock is None:
-            lock = asyncio.Lock()
-            self._key_locks[key] = lock
+    @asynccontextmanager
+    async def _key_lock(self, key: str) -> AsyncIterator[None]:
+        state = self._key_locks.get(key)
+        if state is None:
+            state = _KeyLockState(lock=asyncio.Lock())
+            self._key_locks[key] = state
+        state.users += 1
         self._key_locks.move_to_end(key)
-        return lock
+        try:
+            async with state.lock:
+                yield
+        finally:
+            state.users -= 1
+            if state.users == 0:
+                self._evict_inactive_locks()
 
     async def _compose(
         self,
         identity: _ChangeIdentity,
+        change: Mapping[str, object],
         context: OperationalContextSnapshot,
         evidence: ArchitectureReviewEvidence,
     ) -> ArchitectureReviewObservation:
-        _validate_binding(identity, context, evidence.bundle)
+        _validate_binding(identity, context, evidence)
         branch = OntologyScenarioBranch(
             branch_id=_branch_id(identity.change_id, identity.change_digest),
             evidence_bundle=evidence.bundle,
@@ -451,6 +504,7 @@ class OntologyArchitectureReviewLoop:
             scenario=scenario,
             decision_case=case,
             impact_envelope=envelope,
+            normalized_change=_normalized_change_fields(change),
         )
 
 
@@ -470,6 +524,12 @@ class _ChangeIdentity:
             "target_ref": self.target_ref,
             "change_digest": self.change_digest,
         }
+
+
+@dataclass(slots=True)
+class _KeyLockState:
+    lock: asyncio.Lock
+    users: int = 0
 
 
 class _IdentityKwargs(TypedDict):
@@ -502,25 +562,31 @@ def _change_identity(change: Mapping[str, object]) -> _ChangeIdentity:
 def _validate_binding(
     identity: _ChangeIdentity,
     context: OperationalContextSnapshot,
-    bundle: OperationalEvidenceBundle,
+    evidence: ArchitectureReviewEvidence,
 ) -> None:
+    bundle = evidence.bundle
     if context.target_resource_id != identity.target_ref:
         raise ValueError("ARB context target does not match Change target")
     if bundle.cutoff != context.cutoff:
         raise ValueError("ARB evidence cutoff does not match authenticated context")
-    if tuple(sorted(set(bundle.scope))) != (identity.target_ref,):
+    if not bundle.scope or tuple(sorted(set(bundle.scope))) != (identity.target_ref,):
         raise ValueError("ARB evidence scope does not exactly match Change target")
     releases = tuple(context.catalog_versions)
     if _release_value(releases, "ontology") != bundle.ontology_release_digest:
         raise ValueError("ARB evidence ontology release does not match authenticated context")
     if _release_value(releases, "catalog") != bundle.catalog_revision:
         raise ValueError("ARB evidence catalog release does not match authenticated context")
+    if evidence.base_graph.truncated or not evidence.base_graph.source_complete:
+        raise ValueError("ARB base graph is truncated or source-incomplete")
+    generation = evidence.base_graph.source_generation
+    if generation is None or _release_value(releases, "generation") != generation:
+        raise ValueError("ARB base graph generation does not match authenticated context")
 
 
 def _branch_id(change_id: str, change_digest: str) -> str:
     value = "".join(char.lower() if char.isalnum() else "-" for char in change_id)
     value = value.strip("-") or "change"
-    return f"arb-{value[:40]}-{change_digest[:24]}"
+    return f"arb-{value[:27]}-{change_digest[:32]}"
 
 
 def _digest_mapping(change: Mapping[str, object]) -> str:
@@ -550,6 +616,36 @@ def _process_id(change: Mapping[str, object]) -> str | None:
         return None
     result = str(value).strip()
     return result or None
+
+
+def _normalized_change_fields(change: Mapping[str, object]) -> tuple[tuple[str, object], ...]:
+    """Return exact normalized Change fields suitable for typed projection."""
+
+    names = (
+        "id",
+        "change_kind",
+        "source_kind",
+        "intent_kind",
+        "target_ref",
+        "actor_ref",
+        "status",
+        "occurred_at",
+        "evidence_ref",
+    )
+    if change.get("intent_kind") != "planned" or any(
+        name not in change or change[name] is None for name in names
+    ):
+        return ()
+    values = dict((name, change[name]) for name in names)
+    occurred_at = values["occurred_at"]
+    if isinstance(occurred_at, str):
+        try:
+            values["occurred_at"] = datetime.fromisoformat(occurred_at.replace("Z", "+00:00"))
+        except ValueError:
+            return ()
+    if not isinstance(values["occurred_at"], datetime) or values["occurred_at"].tzinfo is None:
+        return ()
+    return tuple(values.items())
 
 
 def _release_value(releases: tuple[tuple[str, str], ...], name: str) -> str:
