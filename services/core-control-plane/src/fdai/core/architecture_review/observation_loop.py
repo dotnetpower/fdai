@@ -584,7 +584,9 @@ def _validate_binding(
 
 
 def _branch_id(change_id: str, change_digest: str) -> str:
-    value = "".join(char.lower() if char.isalnum() else "-" for char in change_id)
+    value = "".join(
+        char.lower() if char.isascii() and char.isalnum() else "-" for char in change_id
+    )
     value = value.strip("-") or "change"
     return f"arb-{value[:27]}-{change_digest[:32]}"
 
