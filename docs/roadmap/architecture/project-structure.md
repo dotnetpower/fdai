@@ -45,7 +45,9 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   `quality_latency.py` module owns only the five-stage SLO contract and pure percentile reduction;
   Operator, channel, verification, and delivery owners retain timestamp and measurement authority.
   The repository CLI parses content-free samples and never converts a trace commitment into a
-  complete-trace claim.
+  complete-trace claim. The adjacent `quality_trace.py` reducer accepts only record commitments and
+  proves completeness from the exact ordered session-to-audit chain; it performs no provider read
+  and grants no qualification authority.
 - **policies and rules are data, not code paths**: T0 loads `rule-catalog/` entries and
   `policies/` at runtime; adding a rule or policy never requires an engine change. Rules
   describe intent and remediation; policies are the executable OPA/Rego the verifier re-checks.

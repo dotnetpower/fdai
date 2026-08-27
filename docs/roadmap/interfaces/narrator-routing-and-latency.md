@@ -168,6 +168,20 @@ contract evidence without exposing trace ids, provenance records, answer text, p
 endpoints, or customer identifiers. This reducer never claims a complete correlation trace;
 trace completeness remains an independent requirement.
 
+The sibling `chatops_quality_trace.py` command validates the independent trace requirement. A
+complete trace contains exactly one ordered commitment for session, request, turn, tool or agent
+evidence, proposal, decision, delivery, and audit. Every event uses the same correlation digest,
+links to its predecessor record, carries an authoritative timestamp and provenance commitment, and
+falls inside the trace window. Missing, duplicate, reordered, cross-correlation, or broken-link
+events keep `complete_trace=false`.
+
+```bash
+uv run python scripts/evaluation/chatops_quality_trace.py \
+  --input <trace-commitments.json> \
+  --output <trace-evidence.json> \
+  --require-complete
+```
+
 ## Implementation status
 
 ### Implementation scope
@@ -184,12 +198,14 @@ trace completeness remains an independent requirement.
 | Environment T1/T2 binding drafts and protected planning | implemented | Shared `ModelBindingPolicy`; Operator IAM routes and PostgreSQL adapter; Console Models editor; protected resolver and deploy workflow; focused tests | Owner-only drafts persist with revision and idempotency fences. Assessment and plan requests remain authority-free, bind the active artifact digest, and reach activation only through the protected deployment workflow. Provider and rollback receipts remain open. |
 | Public-web candidate routing | in-progress | `services/operator-service/src/fdai_operator_service/application/conversation/capabilities/web_search/`; `services/operator-service/src/fdai_operator_service/adapters/conversation/web_search/`; focused Operator tests | Provider-neutral and Azure construction paths exist. Governed rolling-latency and failover evidence from local and deployed profiles remains open. |
 | Five-stage qualification latency contract | implemented | [`quality_latency.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_latency.py), [`chatops_quality_latency.py`](../../../scripts/evaluation/chatops_quality_latency.py), focused checks | The versioned contract separates PR regression, live canary, and release stages, enforces sample floors and p50/p95/p99 ceilings, and emits content-free evidence. No live or release benchmark receipt is claimed. |
+| Eight-stage correlation trace contract | implemented | [`quality_trace.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_trace.py), [`chatops_quality_trace.py`](../../../scripts/evaluation/chatops_quality_trace.py), focused checks | The reducer requires one ordered session-to-audit chain with one correlation digest, predecessor links, authoritative timestamps, and provenance commitments. No live complete trace receipt is claimed. |
 | Optional report-format parity | implemented | `fdai_operator_service.reporting.optional_pdf_report_encoder`; `IncidentRcaReportingProjectionReader`; Operator composition and route tests | Local and deployed Operator composition use the same service-local loader and authoritative audit-backed Incident report reader. Venue, environment, and identity do not change report authority. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-28 | implemented | Added the eight-stage content-free correlation trace reducer and `--require-complete` CLI. | `current change`; focused Core and CLI checks (`8 passed`); Ruff and strict mypy. | Bind authoritative record producers and retain one complete PR/canary/release trace receipt. |
 | 2026-08-28 | implemented | Added the five-stage `chatops-latency-v1` SLO contract, deterministic percentile reducer, and content-free benchmark CLI. | `current change`; focused Core and CLI checks (`11 passed`); Ruff and strict mypy. | Bind authoritative stage producers, retain PR/canary/release receipts, and validate complete correlation traces before claiming latency qualification. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger and clarified which latency and preference behavior remains target design; earlier provenance was not reconstructed. | `current change`; current local narrator, resolver, web-search source, and focused checks listed in the scope table. | Implement independent-service latency windows and preferences, then retain governed local and deployed evidence. |
 | 2026-08-14 | implemented | Kept optional PDF report registration identical across local and deployed Operator composition. | `current change`; service-local optional loader, package-extra contract, composition binding, and focused route/composition tests. | Retain the separate authenticated Incident report receipt without treating package availability as execution authority. |
