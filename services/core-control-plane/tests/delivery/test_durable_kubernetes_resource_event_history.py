@@ -227,7 +227,13 @@ async def test_merge_deduplicates_message_refined_image_pull_failure() -> None:
                 (),
                 {
                     "resource_ids": (RESOURCE_ID,),
-                    "events": (replace(base, event_kind="imagepullbackoff"),),
+                    "events": (
+                        replace(
+                            base,
+                            event_kind="imagepullbackoff",
+                            evidence_ref="kubernetes-resource-event:live-image-pull",
+                        ),
+                    ),
                     "observed_at": NOW,
                     "complete": False,
                     "limitation": "source_retention_unverified",
