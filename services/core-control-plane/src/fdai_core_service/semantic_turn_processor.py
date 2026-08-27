@@ -659,6 +659,7 @@ def _bound_resource_context(request: SemanticTurnRequest) -> BoundResourceContex
             ontology_release_digest=binding.ontology_release_digest or "",
             source_generation=binding.source_generation or "",
             selection_digest=binding.selection_digest or "",
+            selection_token=binding.selection_token or "",
             complete=binding.complete is True,
         )
     if binding.kind == "resource_group" and binding.resource_group_id is not None:
@@ -671,6 +672,7 @@ def _bound_resource_context(request: SemanticTurnRequest) -> BoundResourceContex
             ontology_release_digest=binding.ontology_release_digest or "",
             source_generation=binding.source_generation or "",
             selection_digest=binding.selection_digest or "",
+            selection_token=binding.selection_token or "",
             complete=binding.complete is True,
         )
     return None

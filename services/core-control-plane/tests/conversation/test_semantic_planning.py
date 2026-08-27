@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime, timedelta
-from types import MappingProxyType
+from types import MappingProxyType, SimpleNamespace
 from typing import Any
 
 import pytest
@@ -12,6 +12,7 @@ from fdai.core.conversation.coordinator import ConversationCoordinator, Coordina
 from fdai.core.conversation.intent_graph import build_intent_graph_evidence
 from fdai.core.conversation.semantic_manifest import CatalogQueryManifestProvider
 from fdai.core.conversation.semantic_planning import SemanticPlanningService, _plan_node_summary
+from fdai.core.conversation.semantic_planning_alignment import verify_frame_plan_alignment
 from fdai.core.conversation.semantic_planning_models import (
     BoundResourceContext,
     SemanticFrameProposal,
@@ -2028,6 +2029,14 @@ def test_contextual_collection_uses_exact_bound_screen_scope(utterance: str) -> 
         {"property": "id", "operator": "in", "values": ["resource-a", "resource-b"]}
     ]
     assert outcome.plan.nodes[1].arguments["function_name"] == "query.contextual_resources"
+    assert outcome.plan.nodes[1].arguments["arguments"]["selection_capability"] == {
+        "selection_token": "context-selection:" + "a" * 32,
+        "selection_digest": _bound_context(
+            ("resource-a", "resource-b"),
+            release_digest=manifest.release_digest,
+            principal_scope_digest=manifest.coverage_receipt.principal_scope_digest,
+        ).selection_digest,
+    }
     assert outcome.execution_authority is False
 
 
@@ -2085,6 +2094,29 @@ def test_contextual_collection_without_bound_scope_clarifies(utterance: str) -> 
     assert outcome.plan is None
 
 
+def test_contextual_specialized_function_cannot_be_a_disconnected_model_node() -> None:
+    frame = SimpleNamespace(
+        operation="select",
+        output_shape="contextual_resource_list",
+        measure_concepts=(),
+        temporal_scope={},
+        subject_constraints=(),
+    )
+    plan = SimpleNamespace(
+        nodes=(
+            SimpleNamespace(
+                kind=QueryNodeKind.FUNCTION,
+                node_id="forged-context",
+                arguments_json='{"function_name":"query.contextual_resources"}',
+            ),
+        ),
+        output_node_ids=("forged-context",),
+    )
+
+    with pytest.raises(ValueError, match="bound-context output plan"):
+        verify_frame_plan_alignment(frame, plan, descriptors=())
+
+
 def _bound_context(
     resource_ids: tuple[str, ...],
     *,
@@ -2110,6 +2142,7 @@ def _bound_context(
         screen_id="ontology-instances",
         resource_ids=resource_ids,
         selection_digest=digest,
+        selection_token="context-selection:" + "a" * 32,
         **identity,
     )
 

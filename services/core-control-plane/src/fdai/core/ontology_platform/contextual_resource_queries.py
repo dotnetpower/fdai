@@ -51,6 +51,7 @@ def contextual_resource_function_type() -> OntologyFunctionType:
                 "source_generation",
                 "selection_digest",
                 "complete",
+                "selection_capability",
             ],
             "properties": {
                 "query_result": {"type": "object", "x-fdai-dependency-only": True},
@@ -69,6 +70,21 @@ def contextual_resource_function_type() -> OntologyFunctionType:
                 "source_generation": {"type": "string", "minLength": 1, "maxLength": 256},
                 "selection_digest": {"type": "string", "pattern": r"^sha256:[a-f0-9]{64}$"},
                 "complete": {"const": True},
+                "selection_capability": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["selection_token", "selection_digest"],
+                    "properties": {
+                        "selection_token": {
+                            "type": "string",
+                            "pattern": r"^context-selection:[a-f0-9]{32}$",
+                        },
+                        "selection_digest": {
+                            "type": "string",
+                            "pattern": r"^sha256:[a-f0-9]{64}$",
+                        },
+                    },
+                },
             },
         },
         output_schema={
@@ -110,6 +126,13 @@ def contextual_resource_function(
     ) -> object:
         if invocation_context.purposes != ("operations-review",):
             raise PermissionError("contextual resource purpose does not match invocation context")
+        capability = arguments["selection_capability"]
+        if (
+            not isinstance(capability, Mapping)
+            or capability["selection_digest"] != arguments["selection_digest"]
+            or not isinstance(capability["selection_token"], str)
+        ):
+            return _table((), complete=False, reason="context_capability_mismatch")
         secured = SecuredObjectSetQueryResult.model_validate(arguments["query_result"])
         expected_ids = tuple(str(item) for item in arguments["resource_ids"])
         expected_digest = context_selection_digest(

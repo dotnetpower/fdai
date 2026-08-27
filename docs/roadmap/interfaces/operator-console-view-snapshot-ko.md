@@ -1,7 +1,7 @@
 ---
 title: Operator Console - View Snapshot Contract
 translation_of: operator-console-view-snapshot.md
-translation_source_sha: d4ff2ca27656196a6dcc6a0c7c1d638e36c14a5e
+translation_source_sha: 68e9c7a7c8db6eea0f8f0b363a05d92d285a5a07
 translation_revised: 2026-08-27
 ---
 
@@ -54,7 +54,10 @@ translation_revised: 2026-08-27
 }
 ```
 
-Console은 이 불투명 토큰만 추가 `conversation_context`로 전달합니다. Operator는
+Operator projection은 token을 전용 `context_capability` envelope에 담습니다.
+일반 projection redactor는 이 비밀이 아닌 opaque capability 필드만 allowlist로
+통과시키고 일반 `*token` 필드는 계속 redaction합니다. Console은 이 envelope를
+decode한 뒤 이 불투명 토큰만 추가 `conversation_context`로 전달합니다. Operator는
 프로세스 내 서버 레지스트리에서 토큰을 조회하고 인증된 principal, 일반 소문자
 role 범위, purpose, 정확한 ontology release, source generation, complete 상태 및
 Resource id 집합과 일치하는지 확인합니다. 그 후 Core가 contextual FunctionType

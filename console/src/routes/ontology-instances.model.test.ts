@@ -106,9 +106,9 @@ describe("decodeOntologyInstanceExploration", () => {
     expect(() => decodeOntologyInstanceExploration(value)).toThrow(
       "instance context identity is incomplete or invalid",
     );
-    value.selection_token = "context-selection:opaque";
+    value.context_capability = { selection_token: "context-selection:" + "a".repeat(32) };
     expect(decodeOntologyInstanceExploration(value).selection_token).toBe(
-      "context-selection:opaque",
+      "context-selection:" + "a".repeat(32),
     );
   });
 

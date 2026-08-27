@@ -2,6 +2,7 @@
 
 from datetime import UTC, datetime
 
+import pytest
 from fdai.core.ontology_platform.contextual_resource_queries import (
     CONTEXTUAL_RESOURCE_FUNCTION_NAME,
     contextual_resource_function,
@@ -100,6 +101,8 @@ async def _invoke(
     resource_ids: list[str],
     *,
     generation: str = "generation-1",
+    capability: dict[str, object] | None = None,
+    include_capability: bool = True,
 ) -> dict[str, object]:
     declaration = contextual_resource_function_type()
     release = build_ontology_release(function_types=(declaration,))
@@ -128,6 +131,17 @@ async def _invoke(
             "resource_ids": resource_ids,
             **identity,
             "selection_digest": selection_digest,
+            **(
+                {
+                    "selection_capability": capability
+                    or {
+                        "selection_token": "context-selection:" + "d" * 32,
+                        "selection_digest": selection_digest,
+                    },
+                }
+                if include_capability
+                else {}
+            ),
         },
         context=FunctionInvocationContext(
             caller_agent="Bragi",
@@ -144,6 +158,32 @@ async def test_contextual_function_returns_only_exact_context_membership() -> No
 
     assert result["complete"] is True
     assert [row["values"]["id"] for row in result["rows"]] == ["resource-a"]
+
+
+async def test_contextual_function_holds_without_a_valid_opaque_capability() -> None:
+    result = await _invoke(
+        _result((_resource("resource-a"),)),
+        ["resource-a"],
+        capability={
+            "selection_token": "context-selection:" + "f" * 32,
+            "selection_digest": "sha256:" + "e" * 64,
+        },
+    )
+
+    assert result == {
+        "complete": False,
+        "rows": [],
+        "truncation_reason": "context_capability_mismatch",
+    }
+
+
+async def test_contextual_function_requires_an_opaque_capability() -> None:
+    with pytest.raises(ValueError, match="input_schema"):
+        await _invoke(
+            _result((_resource("resource-a"),)),
+            ["resource-a"],
+            include_capability=False,
+        )
 
 
 async def test_contextual_function_reads_the_complete_512_id_context() -> None:

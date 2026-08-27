@@ -75,9 +75,12 @@ def verify_frame_plan_alignment(
     plan: OntologyQueryPlan,
     *,
     descriptors: tuple[dict[str, Any], ...],
+    allow_bound_contextual: bool = False,
 ) -> None:
     """Reject a verified plan that selects capabilities outside its accepted frame."""
     selected_node_kinds = {node.kind for node in plan.nodes}
+    if frame.output_shape == "contextual_resource_list" and not allow_bound_contextual:
+        raise ValueError("contextual specialized functions require the bound-context output plan")
     if (QueryNodeKind.AGGREGATE in selected_node_kinds) != (
         frame.operation is SemanticOperation.AGGREGATE
     ):

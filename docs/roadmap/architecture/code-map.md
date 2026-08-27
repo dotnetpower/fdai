@@ -240,6 +240,8 @@ fallback to the principal-visible collection. No context field grants approval o
 authority.
 Explicit utterance predicates are intersected with the token's set, and an incomplete
 object-only contextual table holds the semantic turn instead of becoming an answered claim.
+The contextual FunctionType also requires its opaque capability envelope, so a disconnected model
+node cannot invoke the specialized read.
 Operator instance projections issue the token from the authenticated principal and active
 generation, while truncated projections omit the identity entirely.
 The shared scope digest uses lowercase ordinary roles (`reader`, `contributor`, `approver`, or

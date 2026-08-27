@@ -451,7 +451,7 @@ def _context_identity(
         "principal_id": query.principal_id,
         "principal_scope_digest": principal_scope_digest,
         "selection_digest": selection_digest,
-        "selection_token": selection_token,
+        "context_capability": {"selection_token": selection_token},
     }
 
 
