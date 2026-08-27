@@ -348,6 +348,34 @@ def termination_from_lifecycle_observations(
     )
 
 
+def evaluate_kubernetes_pod_replacement_from_lifecycle(
+    *,
+    old_pod: PodLifecycleObservation,
+    candidates: tuple[PodLifecycleObservation, ...],
+    lifecycle_observations: tuple[KubernetesLifecycleObservation, ...],
+    deployment: PodReplacementDeploymentObservation | None,
+    correlation_window_start: datetime,
+    cutoff: datetime,
+    ordering_margin: timedelta = timedelta(seconds=1),
+) -> KubernetesPodReplacementEvidenceResult:
+    """Evaluate replacement evidence using the durable lifecycle rows for the old UID."""
+
+    termination = termination_from_lifecycle_observations(
+        pod_uid=old_pod.pod_uid,
+        observations=lifecycle_observations,
+        cutoff=cutoff,
+    )
+    return evaluate_kubernetes_pod_replacement(
+        old_pod=old_pod,
+        candidates=candidates,
+        termination=termination,
+        deployment=deployment,
+        correlation_window_start=correlation_window_start,
+        cutoff=cutoff,
+        ordering_margin=ordering_margin,
+    )
+
+
 def _append_termination_findings(
     gaps: list[str],
     conflicts: list[str],
@@ -538,5 +566,6 @@ __all__ = [
     "PodReplacementDeploymentObservation",
     "PodTerminationObservation",
     "evaluate_kubernetes_pod_replacement",
+    "evaluate_kubernetes_pod_replacement_from_lifecycle",
     "termination_from_lifecycle_observations",
 ]

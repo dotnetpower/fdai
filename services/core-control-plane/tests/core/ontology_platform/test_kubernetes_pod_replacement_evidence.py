@@ -15,6 +15,7 @@ from fdai.core.ontology_platform.kubernetes_pod_replacement_evidence import (
     PodReplacementDeploymentObservation,
     PodTerminationObservation,
     evaluate_kubernetes_pod_replacement,
+    evaluate_kubernetes_pod_replacement_from_lifecycle,
     termination_from_lifecycle_observations,
 )
 from fdai.shared.providers.state_evidence import (
@@ -360,3 +361,33 @@ def test_lifecycle_rows_for_another_uid_do_not_substitute_old_termination() -> N
         )
         is None
     )
+
+
+def test_replacement_reducer_consumes_durable_old_uid_lifecycle_rows() -> None:
+    observation = KubernetesLifecycleObservation(
+        cluster_ref="cluster-a",
+        namespace="default",
+        object_uid="pod-uid-old",
+        owner_uid="replicaset-uid-a",
+        reason="Failed",
+        category="failed",
+        event_type="Warning",
+        event_time=_CUTOFF - timedelta(minutes=6),
+        recorded_time=_CUTOFF - timedelta(minutes=5),
+        source_revision="100",
+        evidence_ref="old-failure",
+    )
+
+    result = evaluate_kubernetes_pod_replacement_from_lifecycle(
+        old_pod=_old_pod(),
+        candidates=(_new_pod(),),
+        lifecycle_observations=(observation,),
+        deployment=_deployment(),
+        correlation_window_start=_WINDOW_START,
+        cutoff=_CUTOFF,
+    )
+
+    assert result.replacement_supported is True
+    assert result.old_pod_uid == "pod-uid-old"
+    assert result.new_pod_uid == "pod-uid-new"
+    assert result.historical_evidence_refs == ("old-failure", "pod-old")
