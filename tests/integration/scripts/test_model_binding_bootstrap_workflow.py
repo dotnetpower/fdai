@@ -109,6 +109,26 @@ def test_chatops_validation_requires_exact_resolved_foundry_secondary() -> None:
     assert (
         '"azure.ai.deployment": "Microsoft.CognitiveServices/accounts/deployments"' in workflow_text
     )
+    for terraform_type in (
+        "azurerm_application_insights",
+        "azurerm_container_app_environment",
+        "azurerm_container_registry",
+        "azurerm_key_vault",
+        "azurerm_log_analytics_workspace",
+        "azurerm_monitor_diagnostic_setting",
+        "azurerm_postgresql_flexible_server",
+        "azurerm_postgresql_flexible_server_configuration",
+        "azurerm_postgresql_flexible_server_database",
+        "azurerm_resource_group",
+        "azurerm_storage_management_policy",
+        "azurerm_virtual_network_peering",
+    ):
+        assert f'"{terraform_type}"' in workflow_text
+    assert (
+        'live["additional_policy_scopes"] = [{"resource_group": '
+        'os.environ["TF_VAR_ops_resource_group_name"], '
+        '"resource_types": ["network.vnet-peering"]}]'
+    ) in workflow_text
     assert "plan-chatops-" in workflow_text
     assert "apply-chatops-" in workflow_text
     assert "TF_VAR_enable_llm: ${{ env." not in workflow_text

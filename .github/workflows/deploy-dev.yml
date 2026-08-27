@@ -304,7 +304,6 @@ jobs:
         with:
           version: "0.11.32"
           enable-cache: false
-
       - name: Install pinned GitHub CLI
         if: ${{ env.MODEL_BINDING_ONLY == 'true' }}
         working-directory: ${{ github.workspace }}
@@ -969,8 +968,9 @@ jobs:
           arm_types = live.setdefault("arm_resource_type_map", {})
           if not isinstance(terraform_types, dict) or not isinstance(arm_types, dict):
             raise SystemExit("runner preflight resource type mappings must be objects")
-          terraform_types.update({"azurerm_cognitive_account_project": "azure.ai.project", "azurerm_cognitive_deployment": "azure.ai.deployment"})
-          arm_types.update({"azure.ai.project": "Microsoft.CognitiveServices/accounts/projects", "azure.ai.deployment": "Microsoft.CognitiveServices/accounts/deployments"})
+          terraform_types.update({"azurerm_application_insights": "observability.application-insights", "azurerm_cognitive_account_project": "azure.ai.project", "azurerm_cognitive_deployment": "azure.ai.deployment", "azurerm_container_app_environment": "runtime.container-app-environment", "azurerm_container_registry": "storage.container-registry", "azurerm_key_vault": "secret.vault", "azurerm_log_analytics_workspace": "observability.log-analytics", "azurerm_monitor_diagnostic_setting": "diagnostic-settings", "azurerm_postgresql_flexible_server": "data.postgresql", "azurerm_postgresql_flexible_server_configuration": "data.postgresql-configuration", "azurerm_postgresql_flexible_server_database": "data.postgresql-database", "azurerm_resource_group": "deployment.resource-group", "azurerm_storage_management_policy": "storage.management-policy", "azurerm_virtual_network_peering": "network.vnet-peering"})
+          arm_types.update({"azure.ai.project": "Microsoft.CognitiveServices/accounts/projects", "azure.ai.deployment": "Microsoft.CognitiveServices/accounts/deployments", "data.postgresql": "Microsoft.DBforPostgreSQL/flexibleServers", "data.postgresql-configuration": "Microsoft.DBforPostgreSQL/flexibleServers/configurations", "data.postgresql-database": "Microsoft.DBforPostgreSQL/flexibleServers/databases", "deployment.resource-group": "Microsoft.Resources/resourceGroups", "diagnostic-settings": "Microsoft.Insights/diagnosticSettings", "network.vnet-peering": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings", "observability.application-insights": "Microsoft.Insights/components", "observability.log-analytics": "Microsoft.OperationalInsights/workspaces", "runtime.container-app-environment": "Microsoft.App/managedEnvironments", "secret.vault": "Microsoft.KeyVault/vaults", "storage.container-registry": "Microsoft.ContainerRegistry/registries", "storage.management-policy": "Microsoft.Storage/storageAccounts/managementPolicies"})
+          live["additional_policy_scopes"] = [{"resource_group": os.environ["TF_VAR_ops_resource_group_name"], "resource_types": ["network.vnet-peering"]}]
           if os.environ["DEPLOY_MONITORING"] == "true":
             terraform_types.update({
               "azurerm_monitor_action_group": "action-group",

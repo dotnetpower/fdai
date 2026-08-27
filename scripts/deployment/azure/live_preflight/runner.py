@@ -37,15 +37,21 @@ def run_preflight(
     resource_group = identifier(live.get("resource_group"), "resource_group")
     neutral_types = _planned_resource_types(profile, plan)
     findings = _static_policy_findings(profile, neutral_types)
-    findings.extend(
-        azure_policy_findings(
-            reader,
-            subscription_id=subscription_id,
-            resource_group=resource_group,
-            neutral_types=neutral_types,
-            arm_type_map=string_map(live.get("arm_resource_type_map"), "arm_resource_type_map"),
+    arm_type_map = string_map(live.get("arm_resource_type_map"), "arm_resource_type_map")
+    for policy_resource_group, policy_types in (
+        (None, neutral_types),
+        (resource_group, neutral_types),
+        *_additional_policy_scopes(live, neutral_types=neutral_types),
+    ):
+        findings.extend(
+            azure_policy_findings(
+                reader,
+                subscription_id=subscription_id,
+                resource_group=policy_resource_group,
+                neutral_types=policy_types,
+                arm_type_map=arm_type_map,
+            )
         )
-    )
     checks = [{"category": "policy_guardrail", "status": "clear"}]
 
     quota_checks = live.get("quota_checks")
@@ -84,6 +90,7 @@ def run_preflight(
         )
     )
     checks.append({"category": "secret_config", "status": "clear"})
+    findings = list({str(item["id"]): item for item in findings}.values())
     findings.sort(key=lambda item: str(item["id"]))
     blocked_categories = {str(finding["category"]) for finding in findings}
     for check in checks:
@@ -130,6 +137,32 @@ def _planned_resource_types(profile: Mapping[str, Any], plan: Mapping[str, Any])
             f"Terraform resource type mapping is incomplete: {', '.join(displayed)}{suffix}"
         )
     return tuple(sorted(result))
+
+
+def _additional_policy_scopes(
+    live: Mapping[str, Any],
+    *,
+    neutral_types: tuple[str, ...],
+) -> tuple[tuple[str, tuple[str, ...]], ...]:
+    raw_scopes = live.get("additional_policy_scopes", [])
+    if not isinstance(raw_scopes, list) or len(raw_scopes) > 8:
+        raise PreflightError("additional policy scopes must be an array of at most 8 entries")
+    scopes: list[tuple[str, tuple[str, ...]]] = []
+    seen: set[str] = set()
+    for raw_scope in raw_scopes:
+        scope = mapping(raw_scope, "additional policy scope")
+        resource_group = identifier(scope.get("resource_group"), "additional resource_group")
+        declared_types = tuple(
+            sorted(set(string_list(scope.get("resource_types"), "additional resource_types")))
+        )
+        normalized_group = resource_group.casefold()
+        if not declared_types or normalized_group in seen:
+            raise PreflightError("additional policy scopes must be unique and non-empty")
+        seen.add(normalized_group)
+        resource_types = tuple(sorted(set(declared_types) & set(neutral_types)))
+        if resource_types:
+            scopes.append((resource_group, resource_types))
+    return tuple(scopes)
 
 
 def _static_policy_findings(
