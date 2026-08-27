@@ -445,6 +445,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             endpoint=args.narrator_endpoint,
             api_version=args.narrator_api_version,
             capability_name=args.narrator_capability,
+            model_versions=model_versions,
         )
         # Terraform-side companion: one ResolvedCapability per candidate so
         # ``azurerm_cognitive_deployment`` gets created for each family the
@@ -470,6 +471,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             endpoint=args.narrator_endpoint,
             narrator_candidates=narrator_candidates,
             api_version=args.narrator_api_version,
+            model_versions=model_versions,
         )
         web_search_candidates = collect_web_search_candidates(
             registry=registry,
@@ -478,6 +480,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             quota=quota_query,
             endpoint=args.narrator_endpoint,
             api_version=args.narrator_api_version,
+            model_versions=model_versions,
         )
         try:
             extra_deployments += collect_web_search_deployments(
@@ -507,6 +510,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 quota=quota_query,
                 endpoint=args.narrator_endpoint,
                 api_version=args.primary_api_version,
+                model_versions=model_versions,
             )
             extra_deployments = extra_deployments + collect_primary_deployments(
                 registry=registry,

@@ -234,17 +234,22 @@ def test_publisher_catalog_does_not_match_same_named_family_from_wrong_publisher
 
 @pytest.mark.parametrize("version", [None, 1, ""])
 def test_live_version_query_must_return_stable_string(version: object) -> None:
-    with pytest.raises(ResolverError, match="no_stable_model_version"):
-        resolve(
-            registry=_registry(),
-            region=_REGION,
-            subscription_id=_SUB,
-            deployer_object_id=_OID,
-            catalog=_StaticCatalog(_families_full()),
-            permission=_AlwaysPermissionQuery(True),
-            quota=_default_full_quota(),
-            model_versions=_InvalidVersions(version),
-        )
+    result = resolve(
+        registry=_registry(),
+        region=_REGION,
+        subscription_id=_SUB,
+        deployer_object_id=_OID,
+        catalog=_StaticCatalog(_families_full()),
+        permission=_AlwaysPermissionQuery(True),
+        quota=_default_full_quota(),
+        model_versions=_InvalidVersions(version),
+    )
+
+    assert all(item.status is CapabilityStatus.HIL_ONLY for item in result.capabilities)
+    assert all(
+        any(reason.startswith("no_stable_model_version") for reason in item.reasons)
+        for item in result.capabilities
+    )
 
 
 def test_upstream_secondary_resolves_reviewed_mistral_profile() -> None:

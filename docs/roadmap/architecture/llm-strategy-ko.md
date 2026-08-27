@@ -1,7 +1,7 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: 3fd43748847263b79b99bbc7b2fb6f78f043597d
+translation_source_sha: 71d5131aa982104be8f7cf44b6ee63b09070da69
 translation_revised: 2026-08-28
 ---
 # LLM 전략(LLM Strategy)
@@ -12,7 +12,7 @@ translation_revised: 2026-08-28
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 기능 레지스트리, 해석 및 프로비저닝 평가 | implemented | `rule-catalog/llm-registry.yaml`; `rule_catalog/schema/llm_resolver.py`; `provisioning_assessment.py`; 집중 resolver 테스트 | Anthropic 용량이 없으면 secondary reasoner가 검토된 `MistralAI` `Mistral-Large-3` 프로필의 버전 `1`, `GlobalStandard`, 1K TPM으로 대체됩니다. Azure quota 해석은 SKU로 한정되며 다른 tier의 용량을 빌리지 않습니다. |
-| 발행기 한정 Foundry 카탈로그, 인프라 및 endpoint 계약 | implemented | Resolver, 배포 변환 결과, partner 모듈, endpoint resolver, sealer, Terraform endpoint 출력 및 집중 검사 | 기본 기능과 합성된 narrator, web-search 및 primary-pool 배포는 catalog에서 선택한 stable version을 포함합니다. GA version이 없는 실제 catalog family는 Terraform 전에 resolver에서 중단됩니다. |
+| 발행기 한정 Foundry 카탈로그, 인프라 및 endpoint 계약 | implemented | Resolver, 배포 변환 결과, partner 모듈, endpoint resolver, sealer, Terraform endpoint 출력 및 집중 검사 | 기본 기능과 합성된 narrator, web-search 및 primary-pool 배포는 catalog에서 선택한 stable version을 포함합니다. GA version이 없는 preference는 건너뛰며 version이 있는 대안이 없는 기능은 `hil-only`가 되고 합성 경로를 만들지 않습니다. |
 | 환경 모델 바인딩 정책 및 PTU 계획 | implemented | `fdai_service_contracts/model_binding.py`; `model_binding_policy.py`; Operator IAM 바인딩 경로 및 PostgreSQL 어댑터; `model_binding_proposal.py`; `model-settings-projection.yml`; Console 모델 편집기; 보호된 배포 워크플로; 집중 계약, 해석기, Operator, Console 및 Terraform 검사 | Owner는 모든 T1/T2 기능에 리비전이 있는 `auto`, `pinned` 또는 `hil-only` 의도를 저장할 수 있습니다. 보호된 runner는 권한이 없는 정확한 계획 제안 하나를 현재 정책과 결합한 후 PTU와 정확한 모델 버전을 평가합니다. 별도 3-way CAS는 runtime Settings를 바꾸지 않고 정제된 모델 Settings projection을 복원합니다. Console과 Operator에는 공급자 변경 또는 실행 권한이 없습니다. |
 | 후보 전용 의미 판단 및 계획 | implemented | `core/conversation/semantic_judgment.py`; `core/conversation/semantic_planning.py`; `composition/wire_semantic_query.py`; Azure 의미 어댑터; 집중 판단 및 계획 테스트 | 범위가 제한된 T1 판단은 같은 바인딩에서 잘못된 스키마 출력을 다시 시도한 후 선택적으로 T2로 전환합니다. 수락된 의미는 계획에 사용될 수 있지만 실행 권한을 부여하지 않습니다. |
 | T2 교차 검사, 검증기, 근거 확인, 신뢰도 및 rubric | implemented | `core/quality_gate/`; `delivery/azure/llm/rubric.py`; 집중 quality 게이트 및 Azure 어댑터 테스트 | 필수 4개 경로와 선택적 감산 rubric이 있습니다. 근거가 없거나 잘못되면 거부, 판단 보류 또는 사람 검토로 결과를 낮춥니다. |
@@ -28,6 +28,7 @@ translation_revised: 2026-08-28
 | 2026-08-28 | implemented | Terraform이 소유하는 OpenAI와 조건부 Foundry endpoint origin을 측정 Job 및 독립 Core에 전달했습니다. 보호된 구체화, 계획 검증기, 의미 계획 및 턴 후 검토는 정확한 binding을 해석하고 누락되거나 잘못되었거나 계정과 일치하지 않거나 연결되지 않은 partner 경로를 차단합니다. | `current change`; 집중 서비스 구체화, 검증기, 런타임 소비자 및 Terraform root/service 검사. | 검토된 partner 계열을 활성화한 후 보호된 계획, 적용, readback 및 런타임 근거를 보존합니다. |
 | 2026-08-28 | implemented | 검토된 Mistral secondary 프로필을 활성화하고 Azure TPM quota 조회를 SKU로 한정했습니다. Staging ChatOps gate는 계획 근거를 봉인하고 계획 및 적용 전에 정확한 Foundry binding을 다시 검증합니다. | `current change`; 집중 registry, Azure catalog/quota, 기능 gate, 계획 metadata, 요청 검증, sealer 및 workflow 검사. | 보호된 계획, 적용, 모델 readback, 독립 런타임 binding 및 채널 근거를 보존합니다. |
 | 2026-08-28 | implemented | 실제 staging 계획이 version 없는 Terraform 기능을 차단한 후 기본 기능과 합성된 narrator, web-search 및 primary-pool 배포 모두에 catalog stable version과 SKU 한정 용량을 전달했습니다. 실제 stable version이 없거나 잘못되면 이제 resolver에서 중단됩니다. | 실패한 plan-only 실행 `33115864100`; `current change`; 집중 resolver, endpoint 선택, CLI, narrator, primary-pool 및 Azure 조회 검사. | 정확한 staging 계획을 다시 실행하고 봉인된 모델 산출물을 보존합니다. |
+| 2026-08-28 | implemented | 실제 계획에서 GA version이 없는 선택적 web-search family를 확인한 후 이전의 전체 중단 동작을 바로잡았습니다. Version이 없는 preference는 건너뛰며 version이 있는 대안이 없는 기능은 `hil-only`가 되고 합성 경로를 만들지 않습니다. | 실패한 plan-only 실행 `33118464379`; `current change`; 집중 resolver, endpoint 선택, CLI, narrator, primary-pool 및 Azure 조회 검사(`98 passed`). | 정확한 staging 계획을 다시 실행하고 봉인된 모델 산출물을 보존합니다. |
 | 2026-08-14 | in-progress | 이전 이력을 재구성하지 않고 구현 원장을 도입했으며 quality 게이트 상태를 현재 resolver, rubric, 에스컬레이션 및 지연 시간 라우팅 코드에 맞췄습니다. | `current change`; 위의 레지스트리, quality 게이트, Azure 어댑터, 조립 및 측정 경로입니다. | 운영 모델 근거를 보존하고 통제된 조정기 흐름을 구현합니다. |
 | 2026-08-19 | implemented | 실제 모델 해석을 보호된 계획에 연결하고, 정확한 전체 및 배포 매니페스트를 계획 메타데이터에 봉인했으며, 적용 시 같은 JSON과 SHA를 복원하고, 제안 전용 주간 수명 주기 조정기를 추가했습니다. | `current change`; 집중 모델 수명 주기, 계획 검증기, Operator 서술기, Terraform 및 권한 workflow 검사. | 통제된 조정기 실행을 한 번 보존하고, 레지스트리나 배포를 바꾸기 전에 모든 교체 초안을 별도로 검토합니다. |
 | 2026-08-21 | implemented | 기존 `GlobalStandard` 1K TPM 임베딩 배포와 검토된 `Standard` 200K TPM 후보를 변경 없음으로 잘못 분류한 문제를 수정했습니다. 수명 주기 제안은 이제 SKU와 유효 용량을 포함합니다. 보호된 계획은 정확한 주소, 모델 계열, 계정 연결, 기존 SKU/용량, 목표 SKU/용량, 교체 작업이 모두 일치할 때만 이 전환을 허용합니다. | `current change`; `model_lifecycle_reconciler.py`; `deploy-dev.yml`; 집중 수명 주기 검사 5개와 파괴적 계획 검사 2개 통과. | 정확한 보호 계획만 적용하고 교체와 런타임 연결을 검증한 뒤 적용 증적을 보존하고 수렴 후 범위가 제한된 이행 승인을 제거합니다. |
@@ -76,7 +77,6 @@ translation_revised: 2026-08-28
   주체를 요구하며, 결과 프레임과 계획을 검증합니다. 어느 모델도 권한이나 실행 자격을 부여하지 않습니다.
 - 목표: 프론티어 왕복 없이 이벤트의 ~15-20% 흡수.
 ## T2 - 추론 티어 (Quality 게이트 필수)
-
 T2는 신규 또는 모호 케이스만 처리(~5-10%). 그 출력은 실행 전 quality 게이트 통과해야 함.
 모델은 **후보를 생성** ; 결정론 검증기가 자격을 결정.
 
