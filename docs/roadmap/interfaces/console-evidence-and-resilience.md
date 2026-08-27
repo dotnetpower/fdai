@@ -146,13 +146,10 @@ Ordinal follow-ups revalidate the selected position through exact fresh inventor
 Verified source-manifest answers also preserve bounded unavailable or unknown entries as `source_failure_context`. Partial-source continuations render available facts and exact gaps from that receipt, including reason and last observation when present, without treating an arbitrary unverified answer as source authority. Verified or corrected `query_llm_usage` answers preserve a bounded `analysis_context` with the domain, capability, token measure, grouping, `usage_scope`, and numeric 1-90 day lookback. A refinement that changes only the period, grouping, table, or chart reuses that server-owned anchor and re-reads metering evidence. Comparison, export, missing-anchor, client-supplied-anchor, and explicit different-metric requests return a context-required hold instead of selecting inventory, Resource Health, or narrator output.
 Full-workspace Command Deck sessions start with the transcript as the only open content column. An empty transcript keeps situational suggestions and adds localized Resilience, Change Safety, and Cost Governance quick starts without changing tool selection or authority. The transcript toolbar exposes filtered conversation history in workspace, docked, and floating layouts; the narrower layouts open it over the transcript instead of reducing transcript width. In workspace, a pointer or keyboard separator resizes conversation history from 180 to 360 px and stores the last width locally. Narrow layouts hide the separator. The history header keeps search and icon-only creation in one compact row, uses lightweight filter tabs, and leaves scrolling to the list rather than the controls. The current-screen digest remains a workspace control. The Deck reads the composition-owned data-source manifest once per open surface and shows compact Inventory, Incidents, Audit, Knowledge, and Automation readiness links above the transcript. Missing or non-authoritative sources remain `unknown`; the browser doesn't infer health, expose raw provider details, or replace the manifest with route presence. Loading uses a stable skeleton, and manifest failure links to Diagnostics without blocking conversation history.
 History preserves stable cursor order but renders only 20 summaries initially. Nearing the history scroll boundary reveals the next 20 already loaded summaries. After the local window is exhausted, the same boundary requests the next server page of 20 and reveals it without replacing prior rows. The count shows `20+` while another page exists. Turn bodies hydrate only on selection. An operator image is visible in its sent turn. Browser cache serialization drops inline bytes and keeps a bounded descriptor; durable restoration fetches the binary through the authenticated principal-and-conversation-scoped image route. A transcript restored from browser or durable history shows a resumed-session marker until the operator starts a new conversation. The Deck header owns the route and optional agent context; it never repeats a non-agent conversation question. Digest owns record count, snapshot age, and stale refresh; the composer keeps attachments, question entry, and send or stop.
-
 The shared page title renders the domain and panel labels when they differ, including `Overview / Dashboard`. A domain root whose panel title repeats the domain label and a standalone
 utility keep a single title.
-
 The shared top bar renders the icon-only FDAI mark in its original source colors beside the
 `FDAI Console` wordmark. Console themes don't desaturate or recolor the brand asset.
-
 Live follows the same shared title contract as `Operations / Live`. Its observation controls stay
 in the shared header actions area and wrap below the title on narrow viewports, so Freeze, source,
 window, and connection status remain visible. An open SSE response proves transport connectivity
@@ -166,7 +163,6 @@ work, packs six items per desktop row, and sorts by attention priority and then 
 observation. Terminal outcomes remain available in History instead of occupying the Live work
 surface. Tier, autonomy, and mode badges use shared pointer and keyboard tooltips. A missing
 autonomy, risk, impact, or SLA remains `Not observed` and is never inferred in the browser.
-
 The Agents workspace uses three compact views: `Fleet`, `Org`, and `Activity`. Fleet combines live
 runtime state with the fixed registry ownership and safety flags inside per-agent Details
 disclosures. Org renders the keyboard-accessible reporting chart and selected incident evidence.
@@ -190,7 +186,6 @@ current state.
 Each agent's `bus_factor` counts distinct accountable `(kind, id)` subject units, matching the
 coverage evaluator. The browser recomputes that count from the steward projection and rejects a
 different headline value instead of overstating backup coverage.
-
 Settings includes a Runtime policies route backed by the authoritative StateStore. The route shows
 sanitized environment, override, and effective values without exposing secrets, endpoints, tenant
 identifiers, or workload identity identifiers. Reader access is observational. Owner updates use a
@@ -203,14 +198,12 @@ Integrations also renders the incident-open email through a sandboxed iframe. Th
 preview endpoint calls the same production renderer used by Azure Communication Services Email and
 supplies only synthetic placeholders. The preview exposes no runtime incident, endpoint, recipient,
 or identity value and provides no send, approval, or execution control.
-
 Operations includes a Detection readiness route backed only by Muninn's durable StateSnapshots.
 It shows Heimdall's decision, the six evidence dimensions, gaps, authority ceiling, source, and
 observation time. The browser does not probe AKS or derive a replacement decision. Each target
 links to its Architecture resource, and promotion-related counts link to Promotion gates. A
 successful HTTP response for this route or Capabilities that fails strict decoding renders an error
 instead of remaining in the loading skeleton or treating an unknown autonomy mode as enforcement.
-
 With a server-pinned drift context, the GET-only Configuration baselines route fresh-reads identity, lifecycle, drift, Knowledge citation, topology, latency, scheduled-review, and four safety counters.
 It reports absent binding or campaign as unavailable or `not-configured`, never invents progress, strictly rejects malformed data, and compares immutable in-scope versions with failed-attempt counts. The SPA exposes no activation, resume, schedule creation, approval, mitigation, or resource mutation; evidence-run, resume, blueprint review, and materialization use separate authenticated routes.
 Production exposes the panel only after its mounted JSON/DOCX pair, read-only Managed Identity, and exact resource-group allowlist validate at startup. The Operator API never receives executor identity.

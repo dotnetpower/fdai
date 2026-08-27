@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 98f87bcce56b7f67d4c4cfab07b89649a20c766e
+translation_source_sha: 398c230d6683b1d8971d32632372dcf98e2e3d40
 translation_revised: 2026-08-27
 ---
 # 콘솔 근거 및 복원력
@@ -156,12 +156,9 @@ Full-workspace Command Deck 세션은 대화 기록만 열린 내용 열로 시�
 toolbar는 workspace, docked 및 floating 배치에서 필터 가능한 대화 이력을 제공합니다. 좁은
 배치에서는 대화 기록 폭을 줄이지 않고 그 위에 overlay로 엽니다. Workspace에서는 포인터 또는 keyboard 구분자로 대화 이력 폭을 180-360 px 범위에서 조절하고 마지막 폭을 로컬에 저장합니다. 좁은 배치는 구분자를 숨깁니다. 이력 헤더는 검색과 icon-only 새 대화를 간결한한 한 줄에 배치하고 lightweight 필터 tab을 사용하며, 컨트롤 대신 목록만 scroll합니다. 현재 화면 다이제스트는 workspace 컨트롤로 유지됩니다. Deck은 열린 표면마다 composition-owned data-source 매니페스트를 한 번 읽고 대화 기록 위에 인벤토리, Incidents, 감사, Knowledge 및 자동화 준비 상태 링크를 간결한하게 표시합니다. 누락되거나 non-authoritative인 출처는 `unknown`으로 유지합니다. 브라우저는 상태를 추론하거나 raw 프로바이더 상세를 노출하거나 경로 존재로 매니페스트를 대체하지 않습니다. 로딩은 고정된 골격을 사용하고 매니페스트 실패는 대화 이력을 차단하지 않으면서 진단으로 연결합니다.
 이력은 고정된 커서 순서를 유지하지만 처음에는 요약 20건만 렌더링합니다. 이력 scroll 경계에 가까워지면 이미 부하된 요약 중 다음 20건을 표시합니다. 로컬 구간을 모두 사용한 뒤에는 같은 경계에서 서버 페이지 20건을 요청하고 기존 행을 교체하지 않고 이어서 표시합니다. 다음 페이지가 있으면 개수를 `20+`로 표시합니다. 대화 기록 본문은 선택할 때만 hydrate합니다. Operator 이미지는 전송된 턴 안에 표시됩니다. 브라우저 캐시 직렬화는 inline 바이트를 제거하고 범위가 제한된 서술자만 유지하며, 영속 복원은 인증된 principal 및 대화 범위 이미지 경로를 통해 binary를 fetch합니다. 브라우저 또는 영속 이력에서 복원된 대화 기록은 새 대화를 시작할 때까지 resumed-session 표시를 표시합니다. Deck 헤더는 경로와 선택적 에이전트 맥락만 담당하며 에이전트 대화가 아닌 질문은 반복 표시하지 않습니다. 다이제스트는 기록 수, 스냅샷 age 및 오래된 맥락 새로고침을 담당하며, 작성기에는 첨부, 질문 입력 및 보내기 또는 중지만 유지합니다.
-
 공통 페이지 제목은 영역과 패널 레이블이 다를 때 `전체 현황 / Dashboard`를 포함해 둘을 함께 렌더링합니다. 패널 제목이 영역 레이블을 반복하는 영역 루트와 독립 utility는 단일 제목을 유지합니다.
-
 공통 상단 표시줄은 아이콘 전용 FDAI 마크를 원본 색상으로 렌더링하고 옆에 `FDAI Console`
 워드마크를 표시합니다. 콘솔 테마는 브랜드 자산의 채도를 낮추거나 색을 변경하지 않습니다.
-
 실제 운영도 `운영 / 실시간`과 같은 공통 title 계약을 따릅니다. 관찰 컨트롤은 공통 헤더 actions
 영역에 유지되고 좁은 뷰포트에서는 제목 아래로 줄바꿈되어 화면 고정, 출처, 구간 및 연결
 상태가 계속 표시됩니다.
@@ -197,7 +194,6 @@ desktop 한 행에 6개씩 배치하며 attention priority와 최신 관찰 순�
 각 에이전트의 `bus_factor`는 커버리지 evaluator와 동일하게 서로 다른 accountable `(kind, id)` 대상
 단위 수를 사용합니다. 브라우저는 담당자 변환 결과에서 이 값을 다시 계산하고 다른 headline 값은
 백업 커버리지를 과장하지 않도록 거부합니다.
-
 Settings에는 권위 있는 StateStore를 사용하는 런타임 policies 경로가 포함됩니다. 이 경로는
 시크릿, 엔드포인트, 테넌트 식별자 또는 워크로드 신원 식별자를 노출하지 않고 정제된
 환경, 재정의 및 effective 값을 표시합니다. 읽기 담당 접근은 관찰 전용입니다. Owner 갱신은
@@ -210,13 +206,11 @@ Integrations는 sandboxed iframe으로 incident-open 이메일도 렌더링합�
 엔드포인트는 Azure Communication Services 이메일이 사용하는 동일한 운영 렌더러를 호출하고
 합성 자리 표시자만 제공합니다. 미리 보기는 런타임 인시던트, 엔드포인트, recipient 또는 신원 값을
 노출하지 않으며 전송, 승인 또는 실행 컨트롤을 제공하지 않습니다.
-
 Operations에는 Muninn의 영속 StateSnapshot만 사용하는 감지 준비도 경로가 있습니다.
 이 화면은 Heimdall 판정, 6개 근거 차원, 공백, 권한 상한, 원본, 관찰 시각을 표시합니다.
 브라우저는 AKS를 탐색하거나 대체 판정을 만들지 않습니다. 각 대상은 아키텍처 리소스로,
 승격 관련 개수는 승격 gates로 연결됩니다. 성공한 HTTP 응답이 strict 디코딩을
 통과하지 못하면 해당 경로와 Capabilities는 로딩 골격에 머물거나 알 수 없는 자율성 모드를 적용으로 취급하지 않고 오류를 렌더링합니다.
-
 Server-pinned drift 맥락이 있으면 GET-only 구성 기준선 경로가 신원, 수명 주기, drift, Knowledge 인용, topology, 지연 시간, 예약 검토, 네 안전성 counter를 fresh 읽기로 표시합니다.
 연결 또는 campaign 부재는 사용 불가이나 `not-configured`로 보고하며 진행 상황을 만들지 않고 malformed 데이터를 strict하게 거부하며 in-scope 변경할 수 없는 버전 비교와 failed-attempt 개수를 읽습니다. SPA는 activation, 재개, 예약 생성, 승인, 완화, 리소스 변경을 노출하지 않고 evidence-run, 재개, 청사진 검토, 구체화는 별도 인증된 경로를 사용합니다.
 운영은 mounted JSON/DOCX 쌍, 읽기 전용 Managed Identity, exact resource-group 허용 목록을 시작에서 검증한 뒤 패널을 노출합니다. Operator API는 실행기 신원을 받지 않습니다.

@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 089692b648c1cec0d754d1e524b5cc77e42f7179
+translation_source_sha: 062a0247109f4a5183b28b9ede5c0be02e61ddcf
 translation_revised: 2026-08-27
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -148,7 +148,6 @@ Operator 브라우저 E2E 테스트는 명시적인 dev-test 프로파일에서 
 채팅 SSE 응답을 제공합니다. 이 고정본은 테스트 실행기 안에서만 존재하며 `Console Web: Full
 Stack`에서는 활성화되지 않습니다. 백엔드 통합 테스트는 같은 요청과 범위가 제한된 최종
 turn-timing 계약을 실제 Starlette 경로와 근거 해석기로 별도 검증합니다.
-
 두 격리 Playwright 구성은 `*.spec.ts` 파일만 찾아 같은 위치의 단위 테스트가 호환되지 않는
 테스트 런타임을 불러오지 않게 합니다. 고정본 실행기는 Vite를 즉시 시작하고 사용하지 않는
 loopback URL 또는 dual-stack port를 probe하는 대신 stdout의 `ready in` 표시를 기다립니다. 각
@@ -158,7 +157,6 @@ Operator API port `8020-8029`와 짝을 이룹니다. Playwright worker는 부�
 사용합니다. repository root에서 `npm --prefix console run test:e2e:quick`은 desktop 범위를
 실행하며 VS Code의 `console: Playwright quick (desktop)` 테스트 작업도 같은 경로를 제공합니다.
 기존 `npm --prefix console run test:e2e` 명령은 전체 desktop 및 mobile 행렬을 계속 실행합니다.
-
 이를 보완하는 `npm --prefix console run test:e2e:live` 모음은 경로 interception 없이 운영 데이터
 어댑터와 테스트 전용 신원 검증을 사용하는 격리된 Operator Service를 시작합니다. 등록된 모든
 Console 패널을 방문하고, 패널 경계가 안정될 때까지 기다리며, 브라우저 exception, 공유 error
@@ -167,15 +165,12 @@ Console 패널을 방문하고, 패널 경계가 안정될 때까지 기다리�
 취급하지 않으면서 화면에 그대로 표시합니다. 또한 실제 운영 Command Deck을 통해 결정론적 현재
 시각 턴과 허용 목록에 포함된 Microsoft Learn 웹 검색을 제출하고, 검증된 또는 근거에 기반한 최종
 근거를 요구합니다. 통제된 온톨로지 보증 아티팩트는 정확한 source revision, 정규 run configuration과 digest, workspace patch digest, authentication attestation 및 정확한 request와 projection id를 기록하며, runner는 malformed source 또는 workspace 출처 이력을 첫 요청 전에 거부합니다.
-
 ### dev-up.sh 필요 (여전히 로컬)
-
 | 서브시스템 | 로컬 백엔드 | Prod 백엔드 |
 |-----------|-------------|--------------|
 | 런타임 상태 저장소 및 서비스 통합 | `pgvector/pgvector:pg16` on `:5432` | Azure PostgreSQL Flexible + pgvector |
 | 파괴적 migration 검증 | 별도 `pgvector/pgvector:pg16` cluster on `:5433` | 격리된 CI 검증 데이터베이스 |
 | Event 버스 (통합 테스트) | Redpanda on `:19092` (Kafka wire) | Event Hubs Kafka on `:9093` |
-
 ### 고정 workspace 포트
 
 커밋된 VS 코드 설정은 각 로컬 web 표면이 항상 같은 포트를 사용하게 합니다. 정적 design mock

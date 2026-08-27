@@ -143,7 +143,6 @@ profile. Route interception supplies a declared synthetic read-source manifest, 
 frames, and chat SSE response. These fixtures exist only inside the test runner and never activate
 for `Console Web: Full Stack`. Backend integration tests separately exercise the same request and
 bounded terminal turn-timing contract through the real Starlette route and evidence resolver.
-
 Both isolated Playwright configurations discover only `*.spec.ts` files so colocated unit tests
 cannot load an incompatible test runtime. The fixture runner starts Vite immediately and waits for
 its `ready in` stdout marker instead of probing an unused loopback URL or dual-stack port. Each
@@ -153,7 +152,6 @@ and traces, screenshots, and videos use a slot-scoped output directory. From the
 `npm --prefix console run test:e2e:quick` runs the desktop slice, and the `console: Playwright quick
 (desktop)` VS Code test task exposes the same path. The existing `npm --prefix console run
 test:e2e` command remains the complete desktop and mobile matrix.
-
 The complementary `npm --prefix console run test:e2e:live` suite starts an isolated Operator Service
 with production data adapters and test-only identity verification, without route interception. It
 visits every registered Console panel, waits for the panel boundary to settle, rejects browser
@@ -162,15 +160,12 @@ the tested route inventory remains synchronized with the production registry. Ex
 contracts remain visible without being treated as runtime defects. The suite also submits a
 deterministic current-time turn and an allowlisted Microsoft Learn web search through the live
 Command Deck, then requires verified or grounded terminal evidence. A governed ontology-assurance artifact records the exact source revision, canonical run configuration and digest, workspace patch digest, authentication attestation, and exact request and projection ids; the runner rejects malformed source or workspace provenance before its first request.
-
 ### Backed by dev-up.sh (still local)
-
 | Subsystem | Local backend | Prod backend |
 |-----------|---------------|--------------|
 | Runtime state store and service integration | `pgvector/pgvector:pg16` on `:5432` | Azure PostgreSQL Flexible + pgvector |
 | Destructive migration validation | Separate `pgvector/pgvector:pg16` cluster on `:5433` | Isolated CI validation database |
 | Event bus (integration tests) | Redpanda on `:19092` (Kafka wire) | Event Hubs Kafka on `:9093` |
-
 ### Fixed workspace ports
 
 Committed VS Code settings keep each local web surface on one predictable port. The design mock
