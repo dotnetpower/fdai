@@ -123,6 +123,7 @@ def test_emits_all_50_items_and_all_six_dimensions_without_raw_identity() -> Non
     assert len(observation.complete_measurements()) == 0
     first = observation.to_dict()
     assert first == observation.to_dict()
+    assert first["schema_version"] == "1.1.0"
     assert first["qualification_authority"] is False
     assert len(first["content_digest"]) == 64  # type: ignore[arg-type]
     serialized = json.dumps(first)

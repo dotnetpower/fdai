@@ -72,6 +72,7 @@ def _contribution(
     item_id: int = 1,
     dimension: QualityDimension = QualityDimension.FUNCTIONAL_CORRECTNESS,
     case_id: str = "en-case-001",
+    locale: str | None = None,
 ) -> QualificationDimensionContribution:
     item = CHATOPS_QUALITY_CONTRACT_V1.items[item_id - 1]
     return QualificationDimensionContribution(
@@ -83,6 +84,7 @@ def _contribution(
         value=0.98,
         reason_code="owner_measurement",
         evidence_ref_digests=("a" * 64,),
+        locale=locale,
     )
 
 
@@ -109,6 +111,11 @@ def test_contributions_reject_case_conflicts_duplicates_and_overwrites() -> None
         merge_dimension_contributions(
             observation,
             (_contribution(case_id="en-case-002"),),
+        )
+    with pytest.raises(ValueError, match="locale does not match"):
+        merge_dimension_contributions(
+            observation,
+            (_contribution(locale="ko"),),
         )
     with pytest.raises(ValueError, match="unique by item and dimension"):
         merge_dimension_contributions(observation, (contribution, contribution))
@@ -146,4 +153,16 @@ def test_contribution_requires_contract_owner_and_evidence_commitment() -> None:
             value=0.98,
             reason_code="owner_measurement",
             evidence_ref_digests=(),
+        )
+    with pytest.raises(ValueError, match="semantic_review_owner"):
+        QualificationDimensionContribution(
+            case_id="en-case-001",
+            item_id=1,
+            workstream="intent_and_planning",
+            metric="intent_accuracy",
+            dimension=QualityDimension.FUNCTIONAL_CORRECTNESS,
+            value=0.98,
+            reason_code="owner_measurement",
+            evidence_ref_digests=("a" * 64,),
+            semantic_review_owner="not portable",
         )

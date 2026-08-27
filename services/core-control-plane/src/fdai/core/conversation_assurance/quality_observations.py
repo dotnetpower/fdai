@@ -214,6 +214,8 @@ def merge_dimension_contributions(
     for contribution in contributions:
         if contribution.case_id != observation.case_id:
             raise ValueError("qualification contribution case_id does not match the observation")
+        if contribution.locale is not None and contribution.locale != observation.locale:
+            raise ValueError("qualification contribution locale does not match the observation")
         item_index = contribution.item_id - 1
         item = items[item_index]
         dimension_index = tuple(QualityDimension).index(contribution.dimension)
@@ -229,6 +231,7 @@ def merge_dimension_contributions(
                     value=contribution.value,
                     reason_code=contribution.reason_code,
                     evidence_ref_digests=contribution.evidence_ref_digests,
+                    semantic_review_owner=contribution.semantic_review_owner,
                 ),
             )
             + item.dimensions[dimension_index + 1 :]

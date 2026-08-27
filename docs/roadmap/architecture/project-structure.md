@@ -38,7 +38,7 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   raw evidence state and cannot call a model, read a provider, promote a policy, approve a request,
   or execute an action. JSON parsing and artifact writing remain in the repository-owned
   `scripts/evaluation/chatops-quality-qualification.py` boundary. Completed-turn observation
-  adapters use separate content-free contracts, hash runtime and evidence references, and keep
+  adapters use the shared content-free contracts, hash runtime and evidence references, and keep
   every unsupported dimension unavailable instead of manufacturing a score. Evidence owners add
   measurements through contract-bound contributions; the merge rejects cross-case input,
   duplicate dimensions, and overwrite of existing measurements.
@@ -77,12 +77,13 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   routes render a compact domain / panel hierarchy inside the shared page title so context
   remains visible when the Explorer is collapsed. Dashboard renders `Overview / Dashboard`;
   domain roots whose panel title repeats the domain label and standalone utilities keep a single
-  title. Conversation assurance score assembly remains Core-owned in
-  `core/conversation_assurance/context_locale_scorecard.py`: persistence, preference, session, and
-  screen surfaces may emit only bounded evidence or projections, and they cannot aggregate across
-  principals, substitute browser text for authority, or assign qualification state themselves. The
-  deterministic adapter hard-fails hidden-scope leaks and unsupported screen claims instead of
-  treating UI text as success evidence. The Agents domain also keeps a visible
+  title. Conversation assurance context and locale measurements remain Core-owned in
+  `core/conversation_assurance/quality_context_locale_observations.py`. Persistence, preference,
+  session, and screen surfaces may emit only bounded evidence or projections. Their contributions
+  must match the shared turn envelope's case and locale; they cannot aggregate across principals,
+  substitute browser text for authority, or assign qualification state. Hidden-scope leaks and
+  unsupported screen claims remain explicit critical-safety inputs. The Agents domain also keeps a
+  visible
   workspace tab row across its Roster, Organization, Activity, and Handover panels. Roster is
   the default agent view and projects current stream state, current work, incident association,
   reporting line, and evidence links without inventing metrics that the Operator API did not return.

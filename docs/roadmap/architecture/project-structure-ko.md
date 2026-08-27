@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: c7aeb63684b229407720d66ea550af2b880df850
+translation_source_sha: e84115cdf097f12a1d5cadfc6173c1f06fb20326
 translation_revised: 2026-08-28
 ---
 # 프로젝트 구조
@@ -38,7 +38,7 @@ translation_revised: 2026-08-28
   프로바이더 읽기, 정책 승격, 요청 승인 또는 작업 실행을 할 수 없습니다. JSON 구문 분석과
   산출물 쓰기는 리포지토리가 소유하는
   `scripts/evaluation/chatops-quality-qualification.py` 경계에 남습니다. 완료된 턴 관측 adapter는
-  내용이 없는 별도 계약을 사용하고 런타임 및 근거 참조를 해시하며, 지원하지 않는 모든 차원을
+  콘텐츠가 없는 공용 계약을 사용하고 런타임 및 근거 참조를 해시하며, 지원하지 않는 모든 차원을
   점수를 만들지 않고 `unavailable`로 유지합니다. 근거 소유자는 계약에 연결된 기여를 통해
   측정값을 추가합니다. 결합기는 다른 사례의 입력, 중복 차원 및 기존 측정값 덮어쓰기를 차단합니다.
 - **정책과 규칙은 코드 경로가 아닌 데이터**: T0가 런타임에 `rule-catalog/` 엔트리와 `policies/`
@@ -77,12 +77,13 @@ translation_revised: 2026-08-28
   계속 사용할 수 있고, 현재 활성 패널은 숨길 수 없습니다. 세부 경로는 공통 페이지 제목 안에
   간결한 영역 / 패널 계층을 렌더링하여 Explorer를 접어도 맥락을 유지합니다. 대시보드는
   `전체 현황 / Dashboard`를 렌더링합니다. 패널 제목이 영역 레이블을 반복하는 영역 루트와 독립
-  유틸리티는 단일 제목을 유지합니다. 대화 품질 보증 점수 조립은
-  `core/conversation_assurance/context_locale_scorecard.py`에 남아 있는 Core 소유 기능입니다.
-  persistence, preference, session, screen 표면은 범위가 제한된 근거 또는 projection만
-  내보낼 수 있으며, principal 간 집계를 하거나 브라우저 텍스트를 권위 있는 근거로 대체하거나
-  qualification 상태를 직접 부여할 수 없습니다. 결정론 어댑터는 UI 텍스트를 성공 근거로
-  취급하지 않고 hidden-scope leak와 근거 없는 screen claim을 hard-fail합니다. 에이전트 영역은 명단,
+  유틸리티는 단일 제목을 유지합니다. 대화 품질 보증 맥락 및 로케일 측정은
+  `core/conversation_assurance/quality_context_locale_observations.py`에 남아 있는 Core 소유
+  기능입니다. persistence, preference, session, screen 표면은 범위가 제한된 근거 또는
+  projection만 내보낼 수 있습니다. 기여는 공용 턴 묶음의 사례 및 로케일과 일치해야 하며,
+  principal 간 집계를 하거나 브라우저 텍스트를 권위 있는 근거로 대체하거나 qualification
+  상태를 직접 부여할 수 없습니다. hidden-scope leak와 근거 없는 screen claim은 명시적인
+  critical-safety 입력으로 남습니다. 에이전트 영역은 명단,
   Organization, 활동, 인계 패널 전체에 표시되는 작업 공간 탭 행도 유지합니다. 명단은
   기본 에이전트 보기이며 Operator API가 반환하지 않은 지표를 만들지 않고 현재 스트림 상태, 현재 작업,
   인시던트 연결, 보고선, 증적 링크를 투영합니다. 필터와 검색은 브라우저 로컬 표시 제어이며,

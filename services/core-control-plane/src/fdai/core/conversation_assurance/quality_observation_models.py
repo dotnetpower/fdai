@@ -32,6 +32,7 @@ class QualificationDimensionObservation:
     value: float | None
     reason_code: str
     evidence_ref_digests: tuple[str, ...] = ()
+    semantic_review_owner: str | None = None
 
     def __post_init__(self) -> None:
         if not self.reason_code.strip() or len(self.reason_code) > 128:
@@ -47,6 +48,10 @@ class QualificationDimensionObservation:
             raise ValueError("evidence_ref_digests MUST contain bounded SHA-256 values")
         if self.availability is ObservationAvailability.MEASURED and not self.evidence_ref_digests:
             raise ValueError("measured observation MUST cite evidence commitments")
+        if self.semantic_review_owner is not None and (
+            _TOKEN.fullmatch(self.semantic_review_owner) is None
+        ):
+            raise ValueError("semantic_review_owner MUST be a bounded portable token")
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,6 +66,8 @@ class QualificationDimensionContribution:
     value: float
     reason_code: str
     evidence_ref_digests: tuple[str, ...]
+    locale: str | None = None
+    semantic_review_owner: str | None = None
 
     def __post_init__(self) -> None:
         if _TOKEN.fullmatch(self.case_id) is None:
@@ -76,7 +83,10 @@ class QualificationDimensionContribution:
             value=self.value,
             reason_code=self.reason_code,
             evidence_ref_digests=self.evidence_ref_digests,
+            semantic_review_owner=self.semantic_review_owner,
         )
+        if self.locale is not None and self.locale not in {"en", "ko"}:
+            raise ValueError("contribution locale MUST be en or ko when supplied")
 
 
 @dataclass(frozen=True, slots=True)
@@ -162,7 +172,7 @@ class TurnQualificationObservation:
         """Return a stable content-addressed record without raw runtime identifiers."""
 
         payload: dict[str, object] = {
-            "schema_version": "1.0.0",
+            "schema_version": "1.1.0",
             "evidence_kind": "chatops_turn_qualification_observation",
             "qualification_authority": False,
             "case_id": self.case_id,
@@ -186,6 +196,7 @@ class TurnQualificationObservation:
                             "value": dimension.value,
                             "reason_code": dimension.reason_code,
                             "evidence_ref_digests": list(dimension.evidence_ref_digests),
+                            "semantic_review_owner": dimension.semantic_review_owner,
                         }
                         for dimension in item.dimensions
                     ],

@@ -20,13 +20,15 @@ model families, bounded debate, blind replay, automatic promotion, and automatic
 | Assessment contract and independent reduction | implemented | [`test_assessment.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_assessment.py), [`test_attribution.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_attribution.py) | Deterministic checks, independent evaluator reduction, attribution, and hold behavior have focused coverage. |
 | Cost-aware runtime policy and lifecycle | implemented | [`test_runtime_policy.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_runtime_policy.py), [`test_lifecycle.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_lifecycle.py) | The cascade, candidate lifecycle, fail-closed promotion checks, and rollback mechanics exist in code; this does not prove an operational promotion. |
 | Qualification scorecard and campaign ledger | in-progress | [`test_quality_scorecard.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_scorecard.py), [`conversation-assurance-ledger.py`](../../../scripts/quality/conversation-assurance-ledger.py) | The scorecard and bounded result format are implemented, but the complete bilingual qualification cohort has not been retained as governed evidence. |
-| Context and locale deterministic scorecard adapters | implemented | [`context_locale_scorecard.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/context_locale_scorecard.py), [`test_context_locale_scorecard.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_context_locale_scorecard.py) | Items 41-45 convert locale parity, persistence fidelity, personalization accuracy, context isolation, and screen awareness observations into content-free, replayable, fail-closed measurements. This row does not claim a completed bilingual qualification run. |
+| Qualification owner contributions | implemented | [`quality_observations.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_observations.py), [`test_quality_context_locale_observations.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_context_locale_observations.py) | Deterministic owner adapters for applicable items 1-35 and 41-45 merge into one content-free turn envelope. Non-owned dimensions remain unavailable and cannot become score inputs. |
+| Context and locale owner contributions | implemented | [`quality_context_locale_observations.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_context_locale_observations.py), [`test_quality_context_locale_observations.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_context_locale_observations.py) | Items 41-45 bind every contribution to one case and locale, keep production evidence unavailable until independently supplied, and expose context or screen safety escapes as hard-cap inputs. |
 | Operator disputes and ontology adequacy review | implemented | [`test_learning.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_learning.py), [`test_state_store_ontology_adequacy.py`](../../../services/core-control-plane/tests/delivery/persistence/test_state_store_ontology_adequacy.py) | Disputes and reproduced adequacy gaps create bounded review evidence without changing execution authority. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-28 | implemented | Restored the previously verified item 1-35 adapters to the active branch and replaced the separate item 41-45 scorecard envelope with locale-bound contributions to the shared turn envelope. | `current change`; `quality_{action,answer,grounding,intent,orchestration,sre,context_locale}_observations.py`; focused qualification checks (`108 passed`); Docker PostgreSQL persistence restart check (`1 passed`). | Retain the governed bilingual hidden corpus and complete production-like qualification runs under Issues #299 and #300 before claiming validation. |
 | 2026-08-28 | implemented | Added deterministic item adapters for scorecard items 41-45 so locale parity, persistence fidelity, personalization accuracy, context isolation, and screen awareness are measured from bounded content-free observations with the existing hard-cap contract. | `current change`; [`context_locale_scorecard.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/context_locale_scorecard.py); [`test_context_locale_scorecard.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_context_locale_scorecard.py); focused scorecard, persistence, answer-plan, lifecycle, and Deck isolation checks plus task-scoped Ruff, strict mypy, translation, and roadmap verification. | Retain one governed 50-item bilingual qualification run on a pinned revision before claiming scorecard validation. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | `current change`; current source and focused tests listed in the scope table. | Retain the qualification, blind-replay, and operational promotion or rollback evidence described below. |
 
@@ -225,19 +227,21 @@ dimensions before the qualification reducer can score an item.
 
 Each evidence owner contributes through `QualificationDimensionContribution`. The contribution
 must match the fixed item's workstream and metric, cite one or more SHA-256 evidence commitments,
-and bind to the same case id. The merge rejects duplicate item/dimension contributions and never
-overwrites an already measured dimension. This makes independently produced planning, SRE, action,
-orchestration, context, channel, latency, and production measurements additive without making the
-Conversation Assurance adapter their hidden owner.
+and bind to the same case id. Schema `1.1.0` also carries an optional bounded semantic-review owner
+and locale. The merge rejects cross-locale input, duplicate item/dimension contributions, and
+overwrite of an already measured dimension. This makes independently produced planning, SRE,
+action, orchestration, context, channel, latency, and production measurements additive without
+making the Conversation Assurance adapter their hidden owner.
 
-Items 41-45 use a dedicated deterministic adapter that accepts only bounded observation envelopes:
-machine-readable case and scope identities, one source revision, ordered provenance and correlation
-references, and optional semantic-review ownership. Locale parity measures English and Korean
-independently; persistence fidelity measures exact replay across restart-scoped records;
-personalization measures only explicit persisted preferences; context isolation hard-fails on any
-hidden-scope leak; and screen awareness hard-fails on unsupported screen claims or truncation
-concealment. The adapter stores no conversation text and cannot substitute browser-visible text for
-authoritative evidence.
+Deterministic owner adapters now contribute applicable measurements for items 1-35 and 41-45 to
+that same envelope. The context and locale adapter binds every contribution to the envelope's case
+and locale, measures English and Korean independently, and uses only content commitments for paired
+locale evidence. Locale-parity contributions also retain the declared bounded semantic-review
+owner. Persistence fidelity measures exact restart replay, personalization measures only explicit
+revision-bound preferences, and screen awareness cannot substitute rendered browser text for
+authoritative evidence. Production end-to-end dimensions remain unavailable until an independent
+producer supplies them. Hidden-scope leaks, unsupported screen claims, and truncation concealment
+remain explicit critical-safety inputs to the qualification reducer.
 
 ## Independent model review
 
