@@ -48,6 +48,7 @@
     "outboxDebt": "Publication debt",
     "deadLetters": "Dead letters",
     "retentionDebt": "Retention debt",
+    "viewHeadline": "{total} forecast episodes - {open} open, {overdue} overdue",
     "column": { "label": "Outcome", "origin": "Miss origin", "count": "Count" },
     "empty": "No terminal forecast outcomes are available."
   },

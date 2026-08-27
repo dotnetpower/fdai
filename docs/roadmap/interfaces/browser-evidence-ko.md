@@ -1,7 +1,7 @@
 ---
 translation_of: browser-evidence.md
-translation_source_sha: 795574f8df2bb25e88f0a57cd47a67c3128666cd
-translation_revised: 2026-08-20
+translation_source_sha: 4bc8f3ce499e5cc88c7f594a7fb24ecc188b4415
+translation_revised: 2026-08-27
 ---
 # 브라우저 근거 수집
 
@@ -32,7 +32,7 @@ translation_revised: 2026-08-20
 | 브라우저 런타임 | `delivery/browser/` | 선택적 비동기 Playwright 어댑터 |
 | 영속 산출물 메타데이터 및 페이로드 | 구현되지 않음. 현재 구체 저장소는 메모리 내 구현 | `BrowserEvidenceArtifactStore` 프로토콜 |
 | 런타임 연결 | `composition/wire_browser_evidence.py` | 명시적 실패 시 차단 DI 경계 |
-| 점검 | 대상 Operator API 및 Console 근거 도메인 | 전용 프로덕션 경로나 패널이 등록되지 않음 |
+| 점검 | Operator API 및 Console 근거 도메인 | Reader 범위 메타데이터 경로와 검사 전용 패널 |
 
 프로바이더는 `capture(policy, request)` 작업 하나만 노출합니다. `click`, `fill`, `press`, `select`,
 clipboard, 페이지, 맥락, 스크립트 evaluation, 업로드 또는 download API를 노출하지 않습니다. Bragi는
@@ -112,10 +112,10 @@ interaction 기본 요소 대신 산출물 증적을 반환합니다. `WorkflowS
 또는 실행기를 호출하지 않습니다. 사용 불가 또는 abstained 근거는 작업 흐름 단계를 실패 시 차단으로
 종료합니다.
 
-대상 Console 근거 화면은 검사 전용입니다. 출처 호스트, 정책, 수집과 만료, 민감정보 제거 개수,
-prompt-injection 검사 상태, 격리 상태, 해시 및 보관 참조를 표시합니다. 현재 전용 Operator API
-경로나 Console 패널은 등록되지 않았습니다. 추가할 때 API는 screenshot, visible 텍스트 및
-스냅샷 페이로드를 제외해야 하며 화면은 수집, 승격, 승인 또는 실행 컨트롤을 제공하지 않아야 합니다.
+Console 근거 화면은 검사 전용입니다. 출처 호스트, 정책, 수집과 만료, 민감정보 제거 개수,
+prompt-injection 검사 상태, 격리 상태, 해시 및 보관 참조를 표시합니다. Command Deck 스냅샷에는
+화면에 이미 표시된 메타데이터와 개수만 포함합니다. API는 screenshot, 표시 텍스트 및 스냅샷
+페이로드를 제외하며 화면은 수집, 승격, 승인 또는 실행 컨트롤을 제공하지 않습니다.
 
 ## Shadow 측정 및 승격
 
@@ -167,13 +167,14 @@ visual/텍스트 민감정보 제거, 주입 검사, 선언된 응답, 집계 �
 | 1회 보존 작업 진입점 | implemented | `services/core-control-plane/src/fdai/delivery/browser_evidence_cleanup_cli.py`; `services/core-control-plane/tests/delivery/test_browser_evidence_cleanup_cli.py`; focused 검사(`7 passed`) | 패키지된 CLI는 시간대가 포함된 UTC 기준 시각으로 범위가 제한된 제거를 한 번 시도하고 상태 및 제거 수만 출력합니다. |
 | Azure 보존 일정 | implemented | `infra/modules/compute/container-apps/browser_evidence_cleanup_job.tf`; `tests/integration/infra/test_browser_evidence_cleanup_job.py`; focused Terraform 계약 검사(`4 passed`) 및 `terraform validate` | `browser_evidence_cleanup_cron_expression`은 `FDAI_DATABASE_URL`을 Key Vault state-store DSN에서, `FDAI_BROWSER_EVIDENCE_CLEANUP_LIMIT`을 검증된 1..500 입력에서 연결하는 Container Apps Job을 명시적으로 선택합니다. 이 Job은 실행기 신원이 아닌 인벤토리 신원, 병렬 실행 수 1 및 플랫폼 재시도 없음을 사용합니다. Protected 적용 및 실행 증적과 이식 가능한 CronJob 렌더링은 남아 있습니다. |
 | Operator API 메타데이터 검사 | implemented | `services/operator-service/src/fdai_operator_service/browser_evidence_projection.py`; `service-migrations/branches/operator-service/versions/20260815_operator_browser_evidence_read.py`; focused Operator 검사(`51 passed`) | `GET /browser-evidence`는 Reader 범위의 GET-only 경로입니다. Operator 역할은 기본 테이블 권한이 없으며 파생 개수와 검증된 격리 상태만 포함하는 security-barrier 메타데이터 view만 조회할 수 있습니다. Projection은 스크린샷, 표시 텍스트, ARIA snapshot, selector, 민감정보 제거, 발견 사항 또는 격리 페이로드를 읽거나 반환하지 않습니다. |
-| Console 메타데이터 검사 | implemented | `console/src/routes/browser-evidence.tsx`; `console/src/routes/browser-evidence.test.ts`; focused decoder, panel 및 router 검사(`26 passed`) | 등록된 패널은 정확한 payload-free 메타데이터 묶음만 받고 수집 또는 구조화된 페이로드와 컨트롤을 거부하며 변경 컨트롤 없이 지역화된 로딩, 사용 불가, 빈 상태 및 준비 상태를 렌더링합니다. |
+| Console 메타데이터 검사 | implemented | `console/src/routes/browser-evidence.tsx`; `console/src/routes/browser-evidence.test.ts`; 집중 Console 컨텍스트 및 경로 검사 58개 통과 | 등록된 패널은 정확한 payload-free 메타데이터 묶음만 받아들이고 수집되거나 구조화된 페이로드와 컨트롤을 차단하며 변경 컨트롤 없이 지역화된 상태를 렌더링하고 표시된 메타데이터만 Command Deck에 게시합니다. |
 | 승격 근거 | not-started | [Shadow 측정 및 승격](#shadow-측정-및-승격) | 비교기는 항상 `promotion_eligible=false`를 보고하며 관리되는 실제 fidelity 또는 보안 훈련 구간은 보존되지 않았습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-27 | implemented | 페이로드나 숨은 식별자를 노출하지 않고 브라우저 근거 화면 식별자, 표시 요약 개수, 정제된 메타데이터 행을 Command Deck에 게시했습니다. | `current change`, `console/src/routes/browser-evidence.tsx`, `console/src/routes/browser-evidence.test.ts`, 집중 Console 검사 58개 통과, 고정 응답 데스크톱 브라우저 검사 | 이행된 Operator 역할에 대한 인증된 배포 읽기 근거를 보존합니다. |
 | 2026-08-14 | in-progress | 구현 ledger를 도입하고 PostgreSQL 영속성 및 검사 화면에 대한 오래된 주장을 수정했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 현재 source 및 focused core 검사입니다. | 영속 보관 및 읽기 화면을 구현한 뒤 승격 검토 전에 격리된 실제 근거를 보존해야 합니다. |
 | 2026-08-14 | implemented | 기존 산출물 스키마에 PostgreSQL browser-evidence custody와 단조 증가 legal hold를 추가하고 범위가 제한된 winner-only 만료 정리 및 읽기 시 hash 검증을 구현했습니다. | `current change`; migration `0050` 및 `0083`; PostgreSQL 어댑터; codec 및 지원되는 로컬 PostgreSQL 테스트 `2 passed`, skip 없음. | Cleanup 작업을 binding하고 read-only Operator 및 Console 검사를 구현하며 격리된 실제 근거를 보존합니다. |
 | 2026-08-14 | implemented | Artifact materialization 전에 malformed JSONB 배열, 객체, redaction surface, 문자열 member 및 강제 변환된 boolean을 거부하도록 durable row decoding을 강화했습니다. | `current change`; PostgreSQL 어댑터와 focused codec 및 지원되는 로컬 PostgreSQL 테스트 `9 passed`, skip 없음. | Cleanup 작업 binding, read-only 검사 및 격리된 live 근거는 남아 있습니다. |

@@ -295,7 +295,7 @@ export function AgentsRoute({ client }: Props) {
 
   usePublishViewContext(
     () => ({
-      routeId: "agents",
+      routeId: layout === "org" ? "pantheon" : "agents",
       routeLabel: layout === "org" ? t("agents.workspace.org") : t("agents.workspace.fleet"),
       purpose: layout === "org" ? t("agents.org.contextPurpose") : t("agents.context.purpose"),
       glossary: composeGlossary([

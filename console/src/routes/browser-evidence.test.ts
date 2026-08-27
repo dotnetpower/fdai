@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { OperatorApiError } from "../api";
 import type { OperatorApiClient } from "../api";
-import { decodeBrowserEvidence, loadBrowserEvidenceState } from "./browser-evidence";
+import {
+  buildBrowserEvidenceViewSnapshot,
+  decodeBrowserEvidence,
+  loadBrowserEvidenceState,
+} from "./browser-evidence";
 
 const artifact = {
   artifact_id: `sha256:${"a".repeat(64)}`,
@@ -48,6 +52,17 @@ describe("browser evidence decoder", () => {
     expect(result.items[0]?.source_host).toBe("dashboard.example");
     expect(result.items[0]?.redaction_count).toBe(2);
     expect(result.items[0]?.hash_count).toBe(1);
+
+    const snapshot = buildBrowserEvidenceViewSnapshot(result);
+    expect(snapshot).toMatchObject({
+      routeId: "browser-evidence",
+      routeLabel: "Browser evidence",
+      facts: expect.arrayContaining([
+        expect.objectContaining({ key: "artifact_count", value: 1 }),
+        expect.objectContaining({ key: "legal_hold_count", value: 0 }),
+      ]),
+    });
+    expect(snapshot.records?.["artifacts"]?.[0]).not.toHaveProperty("artifact_id");
   });
 
   it("rejects controls and captured or structured payloads", () => {

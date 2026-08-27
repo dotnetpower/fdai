@@ -11,6 +11,8 @@ import {
   type AsyncState,
   type Column,
 } from "../components/ui";
+import { usePublishViewContext, type ViewSnapshot } from "../deck/context";
+import { composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
 import { routeHref } from "../router";
 import { formatConsoleTimestamp, isRfc3339Timestamp } from "../time-format";
@@ -47,6 +49,50 @@ export interface BrowserEvidenceResponse {
   readonly surface: "browser-evidence";
   readonly count: number;
   readonly items: readonly BrowserEvidenceRow[];
+}
+
+export function buildBrowserEvidenceViewSnapshot(
+  data: BrowserEvidenceResponse,
+): ViewSnapshot {
+  const legalHolds = data.items.filter((row) => row.legal_hold).length;
+  return {
+    routeId: "browser-evidence",
+    routeLabel: t("route.browserEvidence"),
+    purpose: t("browserEvidence.readOnlyBody"),
+    glossary: composeGlossary([], [
+      {
+        term: t("route.browserEvidence"),
+        plain: t("browserEvidence.subtitle"),
+        tech: "BrowserEvidenceArtifact",
+      },
+    ]),
+    headline:
+      `${t("browserEvidence.artifacts")}: ${data.count}; ` +
+      `${t("browserEvidence.legalHolds")}: ${legalHolds}`,
+    capturedAt: new Date().toISOString(),
+    facts: [
+      { key: "artifact_count", label: t("browserEvidence.artifacts"), value: data.count },
+      { key: "mode", label: t("browserEvidence.mode"), value: t("browserEvidence.metadataOnly") },
+      { key: "legal_hold_count", label: t("browserEvidence.legalHolds"), value: legalHolds },
+    ],
+    records: {
+      artifacts: data.items.map((row) => ({
+        source: row.source_host === row.final_host
+          ? row.source_host
+          : `${row.source_host} -> ${row.final_host}`,
+        policy: row.policy_ref,
+        captured_at: row.captured_at,
+        expires_at: row.expires_at,
+        selectors: row.selector_count,
+        redactions: row.redaction_count,
+        prompt_injection_findings: row.prompt_injection_finding_count,
+        hashes: row.hash_count,
+        custody: row.custody_ref,
+        isolation_verified: row.isolation_verified,
+        retention: row.legal_hold ? t("browserEvidence.held") : t("browserEvidence.scheduled"),
+      })),
+    },
+  };
 }
 
 const ROOT_KEYS = new Set(["surface", "items", "count"]);
@@ -255,6 +301,10 @@ function optionalHash(row: Readonly<Record<string, unknown>>, key: string): stri
 }
 
 function BrowserEvidenceBody({ data }: { readonly data: BrowserEvidenceResponse }) {
+  usePublishViewContext(
+    () => buildBrowserEvidenceViewSnapshot(data),
+    [data],
+  );
   const artifactsHref = `${routeHref("browser-evidence")}#browser-evidence-artifacts`;
   const columns: readonly Column<BrowserEvidenceRow>[] = [
     { key: "source", header: t("browserEvidence.column.source"), render: (row) => row.source_host === row.final_host ? row.source_host : `${row.source_host} -> ${row.final_host}` },

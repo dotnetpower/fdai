@@ -19,7 +19,7 @@ import { Shell } from "./components/shell";
 import { PanelErrorBoundary } from "./components/panel-error-boundary";
 import { PageHeader } from "./components/ui";
 import { setChatAuth } from "./deck/auth";
-import { ViewContextProvider } from "./deck/context";
+import { buildFallbackViewSnapshot, ViewContextProvider } from "./deck/context";
 import { deckUserFromAuth, setDeckUser } from "./deck/deck-user";
 import { setWorkflowAuth } from "./workflow/validate";
 import { setPythonTaskAuth } from "./workflow/python-task";
@@ -301,7 +301,14 @@ export function App() {
   const PanelComponent = panel.component;
 
   return (
-    <ViewContextProvider scopeKey={routeKey}>
+    <ViewContextProvider
+      scopeKey={routeKey}
+      fallbackSnapshot={buildFallbackViewSnapshot({
+        routeId: panel.id,
+        routeLabel: panel.label,
+        ...(panel.subtitle ? { purpose: panel.subtitle } : {}),
+      })}
+    >
       <Shell
         activePanelId={panel.id}
         auth={auth}

@@ -48,6 +48,7 @@
     "outboxDebt": "게시 부채",
     "deadLetters": "배달 실패",
     "retentionDebt": "보존 부채",
+    "viewHeadline": "예측 에피소드 {total}개 - 진행 중 {open}개, 기한 초과 {overdue}개",
     "column": { "label": "결과", "origin": "누락 원인", "count": "건수" },
     "empty": "종료된 예측 결과가 없습니다."
   },

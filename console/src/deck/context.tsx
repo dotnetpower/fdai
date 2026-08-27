@@ -141,6 +141,39 @@ export interface ViewSnapshot {
   readonly capturedAt: string;
 }
 
+export function buildFallbackViewSnapshot({
+  routeId,
+  routeLabel,
+  purpose,
+  capturedAt = new Date().toISOString(),
+}: {
+  readonly routeId: string;
+  readonly routeLabel: string;
+  readonly purpose?: string;
+  readonly capturedAt?: string;
+}): ViewSnapshot {
+  const description = purpose?.trim() || routeLabel;
+  return {
+    routeId,
+    routeLabel,
+    purpose: description,
+    headline: description,
+    facts: [],
+    capturedAt,
+  };
+}
+
+export function resolveViewSnapshot(
+  scopeKey: string,
+  publishedScopeKey: string,
+  publishedSnapshot: ViewSnapshot | null,
+  fallbackSnapshot?: ViewSnapshot,
+): ViewSnapshot | null {
+  return scopeKey === publishedScopeKey
+    ? publishedSnapshot ?? fallbackSnapshot ?? null
+    : fallbackSnapshot ?? null;
+}
+
 interface ViewContextValue {
   readonly snapshot: ViewSnapshot | null;
   readonly setSnapshot: (s: ViewSnapshot | null) => void;
@@ -151,8 +184,9 @@ const Ctx = createContext<ViewContextValue>({
   setSnapshot: () => {},
 });
 
-export function ViewContextProvider({ children, scopeKey }: {
+export function ViewContextProvider({ children, fallbackSnapshot, scopeKey }: {
   readonly children: ComponentChildren;
+  readonly fallbackSnapshot?: ViewSnapshot;
   readonly scopeKey: string;
 }) {
   const [scoped, setScoped] = useState<{ readonly scopeKey: string; readonly snapshot: ViewSnapshot | null }>({
@@ -163,7 +197,12 @@ export function ViewContextProvider({ children, scopeKey }: {
     (snapshot: ViewSnapshot | null) => setScoped({ scopeKey, snapshot }),
     [scopeKey],
   );
-  const snapshot = scoped.scopeKey === scopeKey ? scoped.snapshot : null;
+  const snapshot = resolveViewSnapshot(
+    scopeKey,
+    scoped.scopeKey,
+    scoped.snapshot,
+    fallbackSnapshot,
+  );
   const value = useMemo(() => ({ snapshot, setSnapshot }), [snapshot, setSnapshot]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

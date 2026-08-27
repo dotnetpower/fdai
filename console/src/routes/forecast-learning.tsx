@@ -11,6 +11,8 @@ import {
   type AsyncState,
   type Column,
 } from "../components/ui";
+import { usePublishViewContext, type ViewSnapshot } from "../deck/context";
+import { TERMS, composeGlossary } from "../deck/glossary";
 import { routeHref } from "../router";
 import { t } from "./i18n/evidence";
 import { panelArray, panelRecord } from "./panel-decode";
@@ -37,13 +39,68 @@ interface DebtSummary {
   readonly overdue?: number;
 }
 
-interface ForecastLearningResponse {
+export interface ForecastLearningResponse {
   readonly source: string;
   readonly durable: boolean;
   readonly episodes: EpisodeSummary;
   readonly outcomes: readonly OutcomeRow[];
   readonly publication: DebtSummary;
   readonly retention: DebtSummary;
+}
+
+export function buildForecastLearningViewSnapshot(
+  data: ForecastLearningResponse,
+): ViewSnapshot {
+  return {
+    routeId: "forecast-learning",
+    routeLabel: t("evidence.forecastLearning.title"),
+    purpose: t("evidence.forecastLearning.bannerBody"),
+    glossary: composeGlossary([TERMS.outcome]),
+    headline: t("evidence.forecastLearning.viewHeadline", {
+      total: data.episodes.total,
+      open: data.episodes.open,
+      overdue: data.episodes.overdue,
+    }),
+    capturedAt: new Date().toISOString(),
+    facts: [
+      {
+        key: "closure_completeness",
+        label: t("evidence.forecastLearning.completeness"),
+        value: data.episodes.closure_completeness,
+        group: "episodes",
+        unit: "ratio",
+      },
+      {
+        key: "overdue_episodes",
+        label: t("evidence.forecastLearning.overdue"),
+        value: data.episodes.overdue,
+        group: "episodes",
+      },
+      {
+        key: "publication_debt",
+        label: t("evidence.forecastLearning.outboxDebt"),
+        value: data.publication.pending,
+        group: "delivery",
+      },
+      {
+        key: "dead_letters",
+        label: t("evidence.forecastLearning.deadLetters"),
+        value: data.publication.dead_lettered ?? 0,
+        group: "delivery",
+      },
+      {
+        key: "retention_debt",
+        label: t("evidence.forecastLearning.retentionDebt"),
+        value: data.retention.overdue ?? 0,
+        group: "retention",
+      },
+      { key: "source", value: data.source, group: "provenance" },
+      { key: "durable", value: data.durable, group: "provenance" },
+    ],
+    records: {
+      outcomes: data.outcomes.map((outcome) => ({ ...outcome })),
+    },
+  };
 }
 
 export function ForecastLearningRoute({ client }: { readonly client: OperatorApiClient }) {
@@ -141,6 +198,10 @@ export function decodeForecastLearning(value: unknown): ForecastLearningResponse
 }
 
 function ForecastLearningBody({ data }: { readonly data: ForecastLearningResponse }) {
+  usePublishViewContext(
+    () => buildForecastLearningViewSnapshot(data),
+    [data],
+  );
   const anchor = `${routeHref("forecast-learning")}#forecast-outcomes`;
   const columns: readonly Column<OutcomeRow>[] = [
     {

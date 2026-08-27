@@ -31,7 +31,7 @@ all extracted content as untrusted.
 | Browser runtime | `delivery/browser/` | Optional async Playwright adapter |
 | Durable artifact metadata and payload | Not implemented; the current concrete store is in-memory | `BrowserEvidenceArtifactStore` protocol |
 | Runtime binding | `composition/wire_browser_evidence.py` | Explicit, fail-closed DI seam |
-| Inspection | Target Operator API and Console Evidence domain | No dedicated production route or panel is registered |
+| Inspection | Operator API and Console Evidence domain | Reader-scoped metadata route and inspection-only panel |
 
 The provider exposes one operation: `capture(policy, request)`. It exposes no `click`, `fill`,
 `press`, `select`, clipboard, page, context, script-evaluation, upload, or download API. Bragi can
@@ -114,10 +114,10 @@ uses a separate `WorkflowEvidenceDispatcher`; it does not resolve an `ActionType
 the action dispatcher, risk gate, or executor. Unavailable or abstained evidence fails that workflow
 step closed.
 
-The target Console Evidence view is inspection-only. It shows source host, policy, capture and
+The Console Evidence view is inspection-only. It shows source host, policy, capture and
 expiry, redaction count, prompt-injection scan status, isolation status, hashes, and custody
-reference. No dedicated Operator API route or Console panel is currently registered. When added,
-the API must omit screenshot, visible text, and snapshot payloads, and the view must expose no
+reference. Its Command Deck snapshot includes only the metadata and counts already visible on the
+screen. The API omits screenshot, visible text, and snapshot payloads, and the view exposes no
 capture, promotion, approval, or execution controls.
 
 ## Shadow measurement and promotion
@@ -171,13 +171,14 @@ cleanup. Operator API projection and Console decoding tests remain open with tho
 | One-shot retention job entrypoint | implemented | `services/core-control-plane/src/fdai/delivery/browser_evidence_cleanup_cli.py`; `services/core-control-plane/tests/delivery/test_browser_evidence_cleanup_cli.py`; focused checks (`7 passed`) | The packaged CLI performs one bounded purge attempt with an aware UTC cutoff and emits only status plus purged count. |
 | Azure retention schedule | implemented | `infra/modules/compute/container-apps/browser_evidence_cleanup_job.tf`; `tests/integration/infra/test_browser_evidence_cleanup_job.py`; focused Terraform contract checks (`4 passed`) and `terraform validate` | `browser_evidence_cleanup_cron_expression` opts into a Container Apps Job that binds `FDAI_DATABASE_URL` from the Key Vault state-store DSN and `FDAI_BROWSER_EVIDENCE_CLEANUP_LIMIT` from a validated 1..500 input. It uses the non-executor inventory identity, parallelism one, and no platform retry. Protected apply and run receipts plus portable CronJob rendering remain open. |
 | Operator API metadata inspection | implemented | `services/operator-service/src/fdai_operator_service/browser_evidence_projection.py`; `service-migrations/branches/operator-service/versions/20260815_operator_browser_evidence_read.py`; focused Operator checks (`51 passed`) | `GET /browser-evidence` is Reader-scoped and GET-only. The Operator role has no base-table privilege and can select only a security-barrier metadata view with derived counts and verified-isolation state. The projection never reads or returns screenshot, visible text, ARIA snapshot, selector, redaction, finding, or isolation payloads. |
-| Console metadata inspection | implemented | `console/src/routes/browser-evidence.tsx`; `console/src/routes/browser-evidence.test.ts`; focused decoder, panel, and router checks (`26 passed`) | The registered panel accepts only the exact payload-free metadata envelope, rejects captured or structured payloads and controls, and renders localized loading, unavailable, empty, and ready states without mutation controls. |
+| Console metadata inspection | implemented | `console/src/routes/browser-evidence.tsx`; `console/src/routes/browser-evidence.test.ts`; focused Console context and route checks (`58 passed`) | The registered panel accepts only the exact payload-free metadata envelope, rejects captured or structured payloads and controls, renders localized states without mutation controls, and publishes only visible metadata to the Command Deck. |
 | Promotion evidence | not-started | [Shadow measurement and promotion](#shadow-measurement-and-promotion) | The comparator always reports `promotion_eligible=false`; no governed live fidelity or security-drill window is retained. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-27 | implemented | Published the browser-evidence screen identity, visible summary counts, and sanitized metadata rows to the Command Deck without exposing payloads or hidden identifiers. | `current change`; `console/src/routes/browser-evidence.tsx`; `console/src/routes/browser-evidence.test.ts`; focused Console checks (`58 passed`); fixed-response desktop browser inspection. | Retain authenticated deployed read evidence against the migrated Operator role. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger and corrected stale claims for PostgreSQL persistence and the inspection surface; earlier provenance was not reconstructed. | `current change`; current source and focused core checks listed in the scope table. | Implement durable custody and read surfaces, then retain isolated live evidence before promotion review. |
 | 2026-08-14 | implemented | Added PostgreSQL browser-evidence custody and monotonic legal hold on the existing artifact schema, with bounded winner-only expiry cleanup and read-time hash verification. | `current change`; migrations `0050` and `0083`; PostgreSQL adapter; codec and supported local PostgreSQL tests `2 passed`, no skips. | Bind the cleanup job, implement read-only Operator and Console inspection, and retain isolated live evidence. |
 | 2026-08-14 | implemented | Hardened durable row decoding to reject malformed JSONB arrays, objects, redaction surfaces, string members, and coerced booleans before artifact materialization. | `current change`; PostgreSQL adapter and focused codec plus supported local PostgreSQL tests `9 passed`, no skips. | Cleanup-job binding, read-only inspection, and isolated live evidence remain open. |

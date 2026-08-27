@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { decodeForecastLearning } from "./forecast-learning";
+import {
+  buildForecastLearningViewSnapshot,
+  decodeForecastLearning,
+} from "./forecast-learning";
 
 describe("decodeForecastLearning", () => {
   it("preserves pipeline miss and debt evidence", () => {
@@ -25,6 +28,21 @@ describe("decodeForecastLearning", () => {
     expect(value.outcomes[0]?.miss_origin).toBe("pipeline");
     expect(value.publication.dead_lettered).toBe(1);
     expect(value.retention.overdue).toBe(1);
+
+    const snapshot = buildForecastLearningViewSnapshot(value);
+    expect(snapshot).toMatchObject({
+      routeId: "forecast-learning",
+      routeLabel: "Forecast learning",
+      facts: expect.arrayContaining([
+        expect.objectContaining({ key: "overdue_episodes", value: 1 }),
+        expect.objectContaining({ key: "publication_debt", value: 2 }),
+      ]),
+      records: {
+        outcomes: [
+          { label: "false_negative", miss_origin: "pipeline", count: 1 },
+        ],
+      },
+    });
   });
 
   it("rejects unreconciled episode totals", () => {
