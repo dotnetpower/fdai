@@ -117,11 +117,16 @@ cannot retroactively reinterpret existing records.
 | D1 | Audit every shipped LinkType and producer against canonical roles and cardinality. | `contains`, `attached_to`, and `depends_on` declarations, Azure/Kubernetes projections, ownership rules, and tests agree on one orientation. |
 | D2 | Add reviewed provider relationship mappings with explicit endpoint orientation and source-schema provenance. | Provider reference ownership cannot silently choose ontology direction. |
 | D3 | Add complete, missing-endpoint, reversed-input, duplicate, and partial-coverage fixtures. | Only verified links enter the active graph; ambiguous or incomplete paths remain absent and reported. |
-| D4 | Shadow-compare old and aligned graph generations before migration. | Directional query and blast-radius differences are measured, reviewed, replayable, and covered by a rollback pointer. |
+| D4 | Shadow-compare old and aligned graph generations before migration. | Directional query and blast-radius differences are measured, reviewed, replayable, and covered by a rollback pointer. A distinct reviewer and non-empty regression receipts can produce only a catalog PR proposal, never migration authority. |
 
 A direction or cardinality correction that changes the interpretation of persisted links requires a
 new LinkType major version or an explicit graph migration. It never edits historical context
 snapshots in place.
+
+The promotion assessment binds the comparison receipt, both generation digests, regression
+receipts, distinct requester and reviewer identities, review time, and rebuild pointer. Approval
+means that a catalog pull request can be proposed. It does not mark the comparison migration-ready,
+mutate the graph, execute a migration, or rewrite a historical snapshot.
 
 ## State model
 
