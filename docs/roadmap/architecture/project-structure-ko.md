@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 560f34d960f81a984b1b690939490248fdf700a6
+translation_source_sha: c3facb63776470611e7c363e41fa25d84b6dbbae
 translation_revised: 2026-08-30
 ---
 # 프로젝트 구조
@@ -39,6 +39,8 @@ translation_revised: 2026-08-30
   않습니다.
   주입된 상태 저장소에 projection 상태 표식 계약이 없을 때만 범위가 제한된 프로세스 로컬
   선입선출 캐시가 해당 상태를 보존합니다.
+  프로세스 계보는 기존 타입 지정 Change의 `process_ref`에서 `change_instantiates_process`로만
+  변환하며 검증 충돌은 지름길 edge를 만들지 않습니다.
   시나리오 식별자는 ASCII 안전성과 길이 제한을 유지하므로 UUID 형태의 변경도 유효한 온톨로지
   branch 키로 처리됩니다.
 기한 초과 영속화는 제한된 방식으로 수행하거나 내구성 있는 outbox로 전달하며, 정규화된 Change

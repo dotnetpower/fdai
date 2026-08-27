@@ -36,6 +36,8 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   dispatches them.
   A bounded process-local oldest-first cache retains projection status only when the injected state
   store lacks that marker contract.
+  Process lineage is projected only from an existing typed Change `process_ref` to
+  `change_instantiates_process`; validation conflicts never create a shortcut edge.
   It validates complete graph source generation before publishing a conformant envelope and
   retries failed read-model projections from their persisted status.
   Scenario identifiers are ASCII-safe and bounded so UUID-shaped changes remain valid ontology

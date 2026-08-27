@@ -106,6 +106,9 @@ An `architecture_review` observation verdict is audit-only: Odin excludes it fro
 counts, Thor never dispatches it, and Saga retains the terminal evidence.
 If the injected state store cannot retain projection status, the loop uses a bounded process-local
 oldest-first cache; the fallback cannot grow without limit or create authority.
+Process lineage comes only from an existing Change `process_ref` that resolves to a typed Process.
+The projector emits `change_instantiates_process`; it never invents a review-to-process shortcut,
+and a validation conflict leaves lineage unavailable with a bounded warning.
 The base graph must be complete and its source generation must match the authenticated context
 before an envelope can be conformant. Projection status is recorded with the observation, so a
 stored result retries a failed or unavailable production projection without re-running evidence

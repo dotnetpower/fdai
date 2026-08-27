@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 ARB 에이전트 루프
 translation_of: ontology-agent-loop.md
-translation_source_sha: 70b28c567f86ed0bb18d84b82adcb7d4903ff7b1
+translation_source_sha: 3f0d80e7f03648f399960d05812cb212df45f351
 translation_revised: 2026-08-30
 ---
 # 온톨로지 기반 ARB 에이전트 루프
@@ -111,6 +111,10 @@ ARB 읽기 모델은 에이전트가 소유한 레코드에서 파생됩니다. 
 제외하고 Thor는 전달하지 않으며 Saga는 최종 근거를 보존합니다.
 주입된 상태 저장소가 projection 상태를 보존할 수 없으면 루프는 범위가 제한된 프로세스 로컬
 선입선출 캐시를 사용합니다. 이 대체 경로는 무한히 커지거나 권한을 만들 수 없습니다.
+프로세스 계보는 기존 Change의 `process_ref`가 타입 지정 Process로 해석될 때만 생성합니다.
+Projector는 `change_instantiates_process`를 내보내며 검토와 프로세스를 직접 잇는 지름길을
+만들지 않습니다. 검증 충돌이 있으면 범위가 제한된 경고와 함께 계보를 사용할 수 없는 상태로
+남깁니다.
 시나리오 branch 식별자는 UUID 형태이거나 긴 Change 식별자에도 ASCII 안전한 제한 prefix와
 콘텐츠 다이제스트를 사용합니다.
 기한 대체 경로는 저장된 상태를 수락하기 전에 전체 Change 식별자를 비교하고, 제한된 영속화

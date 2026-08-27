@@ -224,10 +224,8 @@ class _ProjectionSink:
     async def project_observation(
         self,
         observation: ArchitectureReviewObservation,
-        *,
-        process_id: str | None = None,
     ) -> None:
-        del observation, process_id
+        del observation
         self.calls += 1
         if self.fail:
             self.fail = False
@@ -262,10 +260,7 @@ class _ObservationOutbox:
     async def enqueue(
         self,
         observation: ArchitectureReviewObservation,
-        *,
-        process_id: str | None = None,
     ) -> None:
-        del process_id
         self.observations.append(observation)
 
 
@@ -476,15 +471,19 @@ async def test_optional_change_provenance_and_process_ref_are_preserved() -> Non
     result = await _loop(_EvidenceSource()).evaluate(_change())
     assert dict(result.normalized_change)["desired_state_digest"] == "sha256:" + "c" * 64
     store = _ProjectionStore()
-
-    await ArchitectureReviewProjector(store, {}).project_observation(
-        result,
-        process_id="caller-supplied-process",
+    store.objects["process:canonical-1"] = OntologyObjectRecord(
+        id="process:canonical-1",
+        object_type="Process",
+        properties={},
     )
 
+    await ArchitectureReviewProjector(store, {}).project_observation(result)
+
     assert store.objects[result.change_id].properties["plan_receipt_ref"] == "plan:1"
-    run_links = [link for link in store.links if link.link_type == "runs_review"]
-    assert run_links and run_links[0].from_id == "process:canonical-1"
+    process_links = [
+        link for link in store.links if link.link_type == "change_instantiates_process"
+    ]
+    assert process_links and process_links[0].to_id == "process:canonical-1"
 
 
 async def test_incomplete_base_graph_holds_before_envelope() -> None:
@@ -584,7 +583,7 @@ async def test_projection_derives_lineage_and_reconciles_removed_checks() -> Non
         },
     )
 
-    await ArchitectureReviewProjector(store, {}).project_observation(result, process_id="process-1")
+    await ArchitectureReviewProjector(store, {}).project_observation(result)
 
     assert store.objects[review_id].object_type == "ReviewCase"
     assert result.decision_case is not None

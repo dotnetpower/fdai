@@ -103,8 +103,6 @@ class ArchitectureReviewObservationSink(Protocol):
     async def project_observation(
         self,
         observation: ArchitectureReviewObservation,
-        *,
-        process_id: str | None = None,
     ) -> None: ...
 
 
@@ -114,8 +112,6 @@ class ArchitectureReviewObservationOutbox(Protocol):
     async def enqueue(
         self,
         observation: ArchitectureReviewObservation,
-        *,
-        process_id: str | None = None,
     ) -> None: ...
 
 
@@ -372,10 +368,7 @@ class OntologyArchitectureReviewLoop:
             await self._mark_projection(identity.idempotency_key, "unavailable")
             return
         try:
-            await self._observation_sink.project_observation(
-                observation,
-                process_id=_process_id(change),
-            )
+            await self._observation_sink.project_observation(observation)
         except Exception:
             await self._mark_projection(identity.idempotency_key, "failed")
             return
@@ -415,12 +408,7 @@ class OntologyArchitectureReviewLoop:
     ) -> None:
         if self._observation_outbox is None:
             return
-        task = asyncio.create_task(
-            self._observation_outbox.enqueue(
-                observation,
-                process_id=_process_id(change),
-            )
-        )
+        task = asyncio.create_task(self._observation_outbox.enqueue(observation))
         task.add_done_callback(_consume_background_task)
 
     async def _projection_status(self, key: str) -> str:
@@ -676,14 +664,6 @@ def _canonical_value(value: object) -> object:
     if value is None or isinstance(value, (str, int, float, bool)):
         return value
     return str(value)
-
-
-def _process_id(change: Mapping[str, object]) -> str | None:
-    value = change.get("process_ref") or change.get("process_id")
-    if value is None:
-        return None
-    result = str(value).strip()
-    return result or None
 
 
 def _consume_background_task(task: asyncio.Task[object]) -> None:
