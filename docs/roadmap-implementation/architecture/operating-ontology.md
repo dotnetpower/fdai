@@ -114,6 +114,7 @@ scope, append-only transitions, and resumable work.
 | 2026-08-27 | implemented | Required matching non-empty operating-model status and manifest revisions before a freshness receipt can be complete. | `current change`; focused freshness and pantheon checks (`52 passed`); Ruff and strict mypy. | Retain deployed exact-revision evidence separately. |
 | 2026-08-27 | implemented | Rejected matching whitespace-only operating-model revisions as semantically empty. | `current change`; focused freshness and pantheon checks (`53 passed`); Ruff and strict mypy. | Retain deployed evidence separately. |
 | 2026-08-27 | implemented | Bound receipt-verified Context metadata into the existing principal-scoped operational evidence response. The response now carries a server-checked principal, and Context projection rejects principal, purpose, release, stale, incomplete, and truncated evidence before returning metadata. | `current change`; `core/operational_context/test_console_projection.py` and `test_evidence_read.py` (`14 passed`). | Retain authenticated Console evidence separately; no authority or runtime promotion changes. |
+| 2026-08-27 | implemented | Reviewed every shipped lifecycle-free ObjectType and recorded the existing catalog, event-bus, provider, service, or principal-scoped authority without introducing speculative agent writers. | `current change`; `rule-catalog/vocabulary/object-types/` inventory and the owner documentation authority table. | Reopen only when an existing authority changes or a type gains an objectively required lifecycle. |
 
 ### Remaining work
 
@@ -142,9 +143,10 @@ scope, append-only transitions, and resumable work.
   runtime path writes either endpoint, not that the catalog would reject the declaration.
 - [x] Project the six operating-intent types from a deployment-supplied source and pin them with a
   focused test that fails when an intent type produces no instance (`7 passed`).
-- [ ] Review the shipped ObjectTypes that carry no `lifecycle` block and record, per type, whether an
+- [x] Review the shipped ObjectTypes that carry no `lifecycle` block and record, per type, whether an
   agent single-writer is required or whether catalog-as-code, a projection, or the event-bus
-  registry is the correct authority ([#130](https://github.com/dotnetpower/fdai/issues/130)).
+  registry is the correct authority ([#130](https://github.com/dotnetpower/fdai/issues/130)); the
+  complete authority table is in the owner document.
 - [ ] Adjudicate two independent cloud providers against each other, and projected state against
   telemetry. Today only repeated observations inside one generation and the live-read against
   inventory-projection pair are decided.

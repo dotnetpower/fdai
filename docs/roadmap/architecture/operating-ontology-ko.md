@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: d4c0fffe7a77669a1da2dcba9b157833dcfbe116
+translation_source_sha: 4a24327f76cd126787aa8467ee43df28cac5dd7b
 translation_revised: 2026-08-27
 ---
 # FDAI 운영 온톨로지
@@ -580,6 +580,16 @@ ObjectType 선언이 없는 버스 계약이고, `DecisionCase`는 버스 토픽
 `RuleCandidate`처럼 버스로 전달되는 객체는 이벤트 버스 레지스트리가 권한을 가집니다. 현재 출하되는
 대부분의 ObjectType이 이 상태입니다. 어떤 타입에 `lifecycle` 블록을 추가하는 것은 에이전트 단일
 작성자를 도입하는 의도적인 행위이므로, 빈칸을 채우려는 목적만으로 추가해서는 안 됩니다.
+
+`lifecycle`이 없는 출하 타입에 대한 전체 검토 결과는 아래와 같습니다. 이는 새 온톨로지
+writer가 아니라 기존 권한이며, 그래프에 표현된다는 이유만으로 에이전트 단일 작성자가 필요한
+타입은 없습니다.
+
+| 기존 권한 | lifecycle 없는 ObjectType |
+|-----------|---------------------------|
+| Catalog-as-code 또는 검토된 catalog projection | `ActionType`, `AuthorizationCapability`, `AuthorizationPolicyAssignment`, `AuthorizationRequirement`, `ControlObjective`, `PolicyArtifact`, `Property`, `ProviderPermissionSet`, `ResourceClass`, `ResourceType`, `Rule`, `RuleObjectiveBinding`, `SignalType`, `WorkflowDefinition` |
+| Event-bus registry 및 타입 지정 event contract | `Agent`, `Approval`, `Conversation`, `HandoffEscalation`, `PostTurnReview`, `RuleCandidate`, `SecurityEvent`, `Signal`, `Turn` |
+| Provider, service 또는 principal 범위 projection/store | `AccessGrant`, `AccessGrantRequest`, `AuthorizationDecision`, `AuthorizationObservation`, `BenchmarkValidation`, `BriefingRun`, `BriefingSubscription`, `ChangeSummary`, `ConfigurationBaseline`, `ConfigurationDriftCheck`, `ConfigurationDriftEvidence`, `ConfigurationDriftFinding`, `Decision`, `DiagnosticEvidence`, `DiagnosticFinding`, `DiagnosticMechanism`, `EquivalenceValidationReceipt`, `EvidenceArtifact`, `ExecutionProfile`, `Finding`, `Principal`, `Process`, `PythonTask`, `Resource`, `ReviewCase`, `ReviewCheck`, `UserMemoryFact`, `UserPreference`, `VmTaskRun`, `WorkflowBinding` |
 
 에이전트는 타입이 지정된 이벤트로 협업합니다. 다른 에이전트의 객체를 mutate하거나 직접 호출하거나 변경 가능한
 작업 흐름 상태를 공유하지 않습니다.
