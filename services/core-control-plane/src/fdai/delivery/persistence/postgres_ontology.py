@@ -436,15 +436,25 @@ class PostgresOntologyInstanceStore:
         self,
         *,
         object_types: Sequence[str] = (),
+        object_ids: Sequence[str] = (),
         property_equals: Mapping[str, Any] | None = None,
         limit: int = 100,
     ) -> OntologyGraphSnapshot:
         _validate_limit(limit)
+        if (
+            len(object_ids) > 1_000
+            or len(set(object_ids)) != len(object_ids)
+            or any(not object_id or len(object_id) > 1_024 for object_id in object_ids)
+        ):
+            raise ValueError("object_ids MUST contain at most 1000 unique bounded identities")
         clauses: list[str] = []
         params: list[Any] = []
         if object_types:
             clauses.append("object_type = ANY(%s::text[])")
             params.append(list(object_types))
+        if object_ids:
+            clauses.append("id = ANY(%s::text[])")
+            params.append(list(object_ids))
         if property_equals:
             clauses.append("properties @> %s::jsonb")
             normalized = normalize_json_value(property_equals, path="property_equals")

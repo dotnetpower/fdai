@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 3aea43b189a77e53e53df9db8901f9ca5814e7db
+translation_source_sha: 8d267c7469b2ca6b702366ebed70e9ae167a7064
 translation_revised: 2026-08-30
 ---
 # 코드 맵
@@ -124,7 +124,8 @@ Safety-core 커버리지 하한은 Core 패키지 안의 결정론적 계층과 
 예외 본문, 인자, 노드 식별자, 프로바이더 페이로드 또는 운영자 데이터는 포함하지 않습니다.
 조립은 범위가 제한된 secured ObjectSet 증적을 발급하고 source-derived 네트워크 및 Pod
 텔레메트리 함수를 exact release에 등록합니다. 함수 dependency는 발급된 content 다이제스트만
-해석합니다. `catalog.search_rules` 함수는 해당 exact release와 프로바이더 중립적이고 범위가
+해석합니다. Exact-id ObjectSet은 고정된 indexed batch를 사용하며 result 상한을 판단할 수 있으면
+중단합니다. `catalog.search_rules` 함수는 해당 exact release와 프로바이더 중립적이고 범위가
 제한된 순서 보장 문서 매니페스트에 연결된 활성 Rule 세대만 허용합니다. 세대 다이제스트는 exact
 순서 보장 문서 집합에서 독립적으로 재현할 수 있으므로 개수, 청크, 루트 또는 행 드리프트가 있으면
 검증에 실패합니다. PostgreSQL 어댑터는 각 코퍼스 수명 주기를 직렬화하고 활성 포인터를 교체하기

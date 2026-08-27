@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 1dfdcc6961788550f2a90750d16b7c1d25bb6ea5
+translation_source_sha: 3086b3408b759495408b4c195bf612ca73d17a84
 translation_revised: 2026-08-30
 ---
 # FDAI 온톨로지 안전 인프라
@@ -152,6 +152,7 @@ Console은 redaction, 호환성, 완전성 또는 권한을 계산하지 않습�
 | 2026-08-27 | implemented | 남은 review gap을 닫아 unresolved 및 source-less ARM reference를 incomplete generation으로 전달하고, candidate version union을 globally sort하며, proposal-only authority literal을 runtime에서 강제했습니다. | `current change`, generation, direction-shadow, promotion 및 집중 adversarial 검사(`38 passed`), Ruff, formatter 및 strict mypy | Complete release-bound 실제 generation 근거와 governed human review를 확보해야 합니다. Live 또는 remote generation은 만들지 않았습니다. |
 | 2026-08-27 | implemented | Bounded versioned provider 관계 materialization과 exact-release direction-shadow 검사를 추가했습니다. 기존 Kubernetes API inventory는 authoritative topology adapter로 충분하며 lifecycle observation은 별도 Event 출처로 유지하고 topology로 재사용하지 않습니다. | `current change`, `delivery/provider_schema_relationship_generation.py`, 집중 generation 및 direction-shadow 검사(`22 passed`), Ruff, formatter 및 strict mypy | Complete release-bound 실제 generation 근거와 governed review를 확보해야 합니다. Live 또는 remote generation은 만들지 않았습니다. |
 | 2026-08-27 | implemented | Independent review 후 provider 관계 materialization을 보강하여 모든 reviewed semantic field, review digest 및 candidate endpoint를 다시 검증하고 type@version 신원과 exact-release replay mode를 보존했으며, 고유 staging 파일을 사용한 ledger record/rollback 직렬화를 추가했습니다. | `current change`, generation, review, ledger 및 direction-shadow 모듈, 집중 adversarial 검사(`35 passed`), Ruff, formatter 및 strict mypy | Complete release-bound 실제 generation 근거와 governed human review를 확보해야 합니다. Live 또는 remote generation은 만들지 않았습니다. |
+| 2026-08-27 | implemented | 개별 id별 ontology store 읽기를 범위가 제한된 exact-id batch query와 이른 result-limit 종결로 교체했습니다. Context id 512개 선택은 이제 새 database connection 수백 개 대신 indexed store query 최대 4개를 사용합니다. | `current change`, ObjectSet, 조건식 및 PostgreSQL instance-store 검사(`31 passed`, `FDAI_DATABASE_URL` 미설정으로 `4 skipped`), Ruff 및 strict mypy | 배포 database 지연 시간 및 connection pressure 근거는 별도로 보존합니다. Remote database는 조회하지 않았습니다. |
 | 2026-08-27 | implemented | 정확한 identity 조건식이 Resource 0개 또는 여러 개로 해소되면 Event Function이 이를 차단하도록 수정했습니다. Provider에는 요청하지 않고 결과는 `target_resolution_not_exact`로 불완전하게 유지합니다. 완전한 넓은 범위의 기존 빈 결과 의미는 유지합니다. | `current change`, 집중 Resource Event FunctionType 회귀 검사 | 런타임 Kubernetes Event 출처를 복구하고 인증된 정확한 대상 프로바이더 증적 하나를 보존해야 합니다. 행 0개가 과거 부재를 증명하려면 영속 이력이 계속 필요합니다. |
 | 2026-08-27 | implemented | 출처에 근거한 정확한 대상 하나를 Event 계획에 결속하고 전용 이중 언어 읽기 전용 답변으로 Event 행과 제한 사항을 변환했습니다. 이름이 같은 Resource가 모호하면 검토된 유형 범위가 함께 좁히기 전까지 incomplete로 유지합니다. 이름은 권한을 만들거나 secured ObjectSet을 우회하지 않습니다. | `current change`, 집중 Event 수직 경로 검사 287개 통과, Ruff, formatter 및 strict mypy 통과. 인증된 후보 선택과 정확한 대상 후속 실행은 노드 2개 Function 계획과 근거 검사 8/8을 완료하고 `source_unavailable`, 출처 불완전성 및 실행 권한 없음을 렌더링했습니다. | 런타임 Kubernetes Event 출처를 복구하고 identity-aware 프로바이더 증적 1개를 보존한 뒤 provider TTL을 보존 커버리지로 취급하기 전에 영속 이력을 추가합니다. |
 | 2026-08-27 | implemented | Additive identity-aware reader capability을 통해 정확한 child Kubernetes Event 읽기를 좁혔습니다. Function은 secured projection에서 `cluster_ref`와 `uid`만 파생하고 두 map level을 모두 freeze하며 legacy DI reader를 보존합니다. Kubernetes adapter는 불변 UID가 정확한 Resource id를 재현할 때만 child selector를 허용합니다. | `current change`, 집중 FunctionType, legacy reader, 복합 selector 전달, 위조 identity, Azure 및 Kubernetes 검사 27개 통과, Ruff, formatter, strict mypy 통과 | 인증된 정확한 child Console 근거를 보존하고 provider TTL을 보존 커버리지로 취급하기 전에 영속 이력을 추가합니다. |
@@ -410,6 +411,8 @@ Property 조건식은 `equals`, `not_equals`, `in`, `exists`, `absent`, `at_leas
 짧은 결과를 완전한 absence 점유로 사용할 수 없습니다. `traversal_limit`은 그래프 expansion이
 객체 상한에 도달했다는 뜻입니다. In-memory 및 PostgreSQL 저장소는 reached 객체뿐 아니라 initial
 루트에도 요청한 객체 한도를 동일하게 적용합니다.
+Exact-id 조건식은 batch당 최대 id 128개를 하나의 indexed store query로 읽습니다. Reader는
+`result_limit`을 입증할 만큼 일치 객체를 확보하면 중단합니다.
 
 ## 의미 액션과 변경 계획
 

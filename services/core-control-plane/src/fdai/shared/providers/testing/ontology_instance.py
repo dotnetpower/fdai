@@ -155,16 +155,25 @@ class InMemoryOntologyInstanceStore:
         self,
         *,
         object_types: Sequence[str] = (),
+        object_ids: Sequence[str] = (),
         property_equals: Mapping[str, Any] | None = None,
         limit: int = 100,
     ) -> OntologyGraphSnapshot:
         _validate_limit(limit)
+        if (
+            len(object_ids) > 1_000
+            or len(set(object_ids)) != len(object_ids)
+            or any(not object_id or len(object_id) > 1_024 for object_id in object_ids)
+        ):
+            raise ValueError("object_ids MUST contain at most 1000 unique bounded identities")
         selected_types = set(object_types)
+        selected_ids = set(object_ids)
         filters = normalize_json_value(property_equals or {}, path="property_equals")
         matches = [
             item
             for item in sorted(self._objects.values(), key=lambda value: value.id)
             if (not selected_types or item.object_type in selected_types)
+            and (not selected_ids or item.id in selected_ids)
             and all(
                 _json_values_equal(item.properties.get(key), value)
                 for key, value in filters.items()
