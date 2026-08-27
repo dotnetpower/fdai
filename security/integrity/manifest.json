@@ -1202,7 +1202,7 @@
     "services/core-control-plane/src/fdai/shared/providers/python_task_author.py": "3cfa6c915e422b254118d66849b6b7b3088667d85a5362a4c990d99a8a9524c0",
     "services/core-control-plane/src/fdai/shared/providers/read_investigation.py": "1bfbd1a8982161b03156142d63ad0b217ae6f302f182fadb26d7b4219407cc8d",
     "services/core-control-plane/src/fdai/shared/providers/readiness.py": "85c05771106d1007fa9c1ac41046ea8c20130096d7c55241a0d34ba3d7ac2bf6",
-    "services/core-control-plane/src/fdai/shared/providers/remediation_pr.py": "4921fd4561a96ba2f3c934f1208abf9e855b1fe6e1dcb61531fa053e45f320f3",
+    "services/core-control-plane/src/fdai/shared/providers/remediation_pr.py": "ccde20a2396b498f91f62f3963d2fc168857063764f6c912a95ef611fa69931b",
     "services/core-control-plane/src/fdai/shared/providers/remediation_pr_ledger.py": "9c8b7a89b5ab8478627ff580b7fbfd1169e1b20bbdee83b29e6aa3ffd84a0e6a",
     "services/core-control-plane/src/fdai/shared/providers/resource_lock.py": "bc35dc2ca393bb79646f9446f9da7b55a2480a71a8766ecf60abbee60ebb0158",
     "services/core-control-plane/src/fdai/shared/providers/routed_metric.py": "4c057d612c3af3823333888194c665955a29b9acec193f100df5da4db4342207",

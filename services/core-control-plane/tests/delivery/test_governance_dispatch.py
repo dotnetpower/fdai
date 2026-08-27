@@ -149,6 +149,7 @@ async def test_promotion_dispatch_requires_approved_distinct_approver_transition
     from fdai.delivery.promotion import (
         GovernancePromotionAttestation,
         GovernancePromotionDispatcher,
+        promotion_request_fingerprint,
     )
     from fdai.rule_catalog.schema.governance_review_authority import (
         GovernanceApproval,
@@ -209,9 +210,24 @@ async def test_promotion_dispatch_requires_approved_distinct_approver_transition
         fdai_revision="a" * 40,
         scenario_set_version="scenario-v1",
         evidence_digest="b" * 64,
+        idempotency_key="promotion-1",
+        nonce="nonce-1",
+        request_fingerprint=promotion_request_fingerprint(request),
     )
     result = await dispatcher.dispatch(request, attestation=attestation)
     assert result.receipt_ref == "promotion:1"
+
+    from fdai.delivery.promotion import StateStorePromotionAttestationStore
+
+    store = StateStorePromotionAttestationStore(InMemoryStateStore())
+    await store.save(attestation)
+    routed = GovernancePromotionDispatcher(
+        _PromotionExecutor(),
+        attestation_store=store,
+    )
+    assert (await routed.execute(request)).receipt_ref == "promotion:1"
+    with pytest.raises(DirectApiPreconditionError, match="unused"):
+        await routed.execute(request)
 
 
 @pytest.mark.asyncio
@@ -220,6 +236,7 @@ async def test_promotion_rejects_forged_bare_decision_and_mismatched_attestation
     from fdai.delivery.promotion import (
         GovernancePromotionAttestation,
         GovernancePromotionDispatcher,
+        promotion_request_fingerprint,
     )
     from fdai.rule_catalog.schema.governance_review_authority import (
         GovernanceChangeClass,
@@ -271,6 +288,9 @@ async def test_promotion_rejects_forged_bare_decision_and_mismatched_attestation
                 fdai_revision="a" * 40,
                 scenario_set_version="scenario-v1",
                 evidence_digest="b" * 64,
+                idempotency_key="promotion-3",
+                nonce="nonce-3",
+                request_fingerprint=promotion_request_fingerprint(request),
             ),
         )
 

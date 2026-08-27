@@ -363,7 +363,8 @@ clean (see the fork model in
   retirement artifacts out of the active rule index, while exemptions use the canonical JSON
   schema. `LiveBlastProbeAdapter` binds deployment-supplied `BlastSignalSource` and
   `ProbeFailureStreakSource` implementations; missing or failed sources lower Axis E and never
-  grant authority.
+  grant authority. Runtime assembly passes retired-rule projections to every downstream rule
+  map and binds the durable promotion-attestation store before the HIL/direct route.
 - **Independent effect observation**: the durable kinetic artifact store is the exact-plan source.
   `StateStoreExecutedActionObservationStore` accepts only Heimdall-attributed observations whose
   signed context passes the configured verifier on write and replay. Missing evidence remains held.

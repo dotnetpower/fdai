@@ -100,6 +100,9 @@ class PublishReceipt:
     ``idempotency_key`` and returned it unchanged; the executor MUST
     audit that path distinctly so re-delivery is auditable."""
 
+    state: str = "open"
+    """Remote lifecycle state: ``open``, ``closed``, or ``merged``."""
+
 
 @runtime_checkable
 class RemediationPrPublisher(Protocol):
