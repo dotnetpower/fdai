@@ -303,6 +303,7 @@ variable "resolved_capabilities" {
   description = "Resolved LLM capabilities produced by the bootstrap resolver (fdai.rule_catalog.schema.llm_resolver_cli). Entries with status='hil-only' MUST be filtered out before being passed here."
   type = list(object({
     name           = string
+    publisher      = optional(string, "OpenAI")
     family         = string
     version        = string
     sku            = string
@@ -323,6 +324,14 @@ variable "resolved_capabilities" {
       )
     ])
     error_message = "resolved capabilities MUST use capacity_tpm for tpm or capacity_value for ptu, never both."
+  }
+
+  validation {
+    condition = alltrue([
+      for capability in var.resolved_capabilities :
+      contains(["OpenAI", "Anthropic", "MistralAI"], capability.publisher)
+    ])
+    error_message = "resolved capabilities MUST use an allowlisted publisher."
   }
 
   validation {

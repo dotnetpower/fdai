@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 5617d97c46b1207d2728d301d2073965426372fb
+translation_source_sha: 5c1445b76fb1d821333777056148a2f50a171676
 translation_revised: 2026-08-28
 ---
 # 온톨로지 구조 모델
@@ -18,7 +18,8 @@ translation_revised: 2026-08-28
 > 기능으로 시작합니다.
 >
 > 모델 기능 선택은 카탈로그 계열을 발행기로 한정할 수 있습니다. 이 쌍은 배포 메타데이터이며
-> 온톨로지 신원이 아니고 모델 호출 또는 실행 권한을 부여할 수 없습니다.
+> 온톨로지 신원이 아니고 모델 호출 또는 실행 권한을 부여할 수 없습니다. Provider kind와 API
+> style도 같은 경계의 endpoint 메타데이터로 유지합니다.
 
 ## 설계 요약
 

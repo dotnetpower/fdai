@@ -98,6 +98,27 @@ def test_self_hosted_gpu_binding_supports_apim_openai_v1() -> None:
     assert binding.capacity.unit is ModelCapacityUnit.GPU
 
 
+def test_foundry_partner_binding_supports_direct_openai_v1_tpm() -> None:
+    binding = _binding(
+        provider_kind=ModelProviderKind.AZURE_FOUNDRY,
+        route_kind=ModelRouteKind.DIRECT,
+        api_style=ModelApiStyle.OPENAI_V1,
+        endpoint_ref="azure-foundry:aif-fdai-models-dev-krc",
+        publisher="MistralAI",
+        family="Mistral-Large-3",
+        version="1",
+        capacity=ModelEndpointCapacity(unit=ModelCapacityUnit.TPM, value=1000),
+        discovery=ModelEndpointDiscovery(
+            source=ModelDiscoverySource.AZURE_MANAGEMENT,
+            resource_ref_digest="c" * 64,
+            verified_at=datetime(2026, 8, 28, tzinfo=UTC),
+        ),
+    )
+
+    assert binding.provider_kind is ModelProviderKind.AZURE_FOUNDRY
+    assert binding.api_style is ModelApiStyle.OPENAI_V1
+
+
 @pytest.mark.parametrize(
     "changes",
     (
@@ -114,6 +135,12 @@ def test_self_hosted_gpu_binding_supports_apim_openai_v1() -> None:
         {
             "provider_kind": ModelProviderKind.AZURE_OPENAI,
             "capacity": ModelEndpointCapacity(unit=ModelCapacityUnit.GPU, value=1),
+        },
+        {
+            "provider_kind": ModelProviderKind.AZURE_FOUNDRY,
+            "route_kind": ModelRouteKind.DIRECT,
+            "api_style": ModelApiStyle.AZURE_OPENAI,
+            "capacity": ModelEndpointCapacity(unit=ModelCapacityUnit.TPM, value=1000),
         },
         {"auth_kind": ModelAuthKind.ENTRA, "auth_audience": None},
     ),

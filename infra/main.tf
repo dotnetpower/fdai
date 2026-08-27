@@ -1959,6 +1959,17 @@ module "compute" {
 # LLM - Azure OpenAI (opt-in, docs/roadmap/deployment/dev-and-deploy-parity.md § W-D).
 # Skipped by default so a Reader-only deployer can plan/apply.
 # -----------------------------------------------------------------------
+locals {
+  openai_resolved_capabilities = [
+    for capability in var.resolved_capabilities : capability
+    if capability.publisher == "OpenAI"
+  ]
+  partner_resolved_capabilities = [
+    for capability in var.resolved_capabilities : capability
+    if contains(["Anthropic", "MistralAI"], capability.publisher)
+  ]
+}
+
 module "llm_azure_openai" {
   count  = var.enable_llm ? 1 : 0
   source = "./modules/llm/azure-openai"
@@ -1982,8 +1993,33 @@ module "llm_azure_openai" {
       : {},
     )
   )
-  resolved_capabilities = var.resolved_capabilities
+  resolved_capabilities = local.openai_resolved_capabilities
   tags                  = local.tags
+}
+
+module "llm_foundry_partner" {
+  count  = var.enable_llm && length(local.partner_resolved_capabilities) > 0 ? 1 : 0
+  source = "./modules/llm/foundry-partner"
+
+  account_name        = "aif-${var.workload}-models${local.full_suffix}"
+  project_name        = "proj-${var.workload}-models${local.full_suffix}"
+  location            = var.region
+  resource_group_name = module.resource_group.name
+  deployments = [
+    for capability in local.partner_resolved_capabilities : {
+      name         = capability.name
+      publisher    = capability.publisher
+      family       = capability.family
+      version      = capability.version
+      sku          = capability.sku
+      capacity_tpm = capability.capacity_tpm
+    }
+  ]
+  user_principal_ids = {
+    deployer = data.azurerm_client_config.current.object_id
+    executor = module.identity.principal_id
+  }
+  tags = merge(local.tags, { "fdai:component" = "partner-models" })
 }
 
 locals {
@@ -2095,6 +2131,21 @@ module "llm_private_endpoint" {
   private_dns_zone_name = "privatelink.openai.azure.com"
   extra_vnet_links      = var.runner_vnet_id != "" ? { ops = var.runner_vnet_id } : {}
   tags                  = local.tags
+}
+
+module "llm_foundry_partner_private_endpoint" {
+  count                 = var.enable_llm && length(local.partner_resolved_capabilities) > 0 && var.enable_private_networking ? 1 : 0
+  source                = "./modules/private-endpoint"
+  name                  = "pe-aif-${var.workload}-models${local.full_suffix}"
+  location              = var.region
+  resource_group_name   = module.resource_group.name
+  subnet_id             = module.network[0].pe_subnet_id
+  vnet_id               = module.network[0].vnet_id
+  target_resource_id    = module.llm_foundry_partner[0].account_id
+  subresource_name      = "account"
+  private_dns_zone_name = "privatelink.services.ai.azure.com"
+  extra_vnet_links      = var.runner_vnet_id != "" ? { ops = var.runner_vnet_id } : {}
+  tags                  = merge(local.tags, { "fdai:component" = "partner-models" })
 }
 
 # -----------------------------------------------------------------------

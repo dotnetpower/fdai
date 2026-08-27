@@ -5,7 +5,11 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from fdai.runtime.configuration import _catalog_root_candidates, _direct_model_endpoint_resolver
+from fdai.runtime.configuration import (
+    _catalog_root_candidates,
+    _direct_model_endpoint_resolver,
+    _model_endpoint_resolver,
+)
 
 
 def test_catalog_candidates_prefer_complete_container_payload() -> None:
@@ -35,6 +39,35 @@ def test_direct_model_endpoint_resolver_accepts_only_matching_account_ref() -> N
     assert resolve("azure-openai:oai-example") == endpoint
     with pytest.raises(ValueError, match="does not match"):
         resolve("azure-openai:other")
+
+
+def test_model_endpoint_resolver_accepts_exact_foundry_account_map() -> None:
+    primary = "https://oai-example.openai.azure.com/"
+    foundry = "https://aif-example.services.ai.azure.com/"
+    resolve = _model_endpoint_resolver(
+        primary,
+        '{"azure-foundry:aif-example":"https://aif-example.services.ai.azure.com/"}',
+    )
+
+    assert resolve("azure-openai:oai-example") == primary
+    assert resolve("azure-foundry:aif-example") == foundry
+
+
+@pytest.mark.parametrize(
+    "mapping",
+    [
+        "not-json",
+        "{}",
+        '{"azure-foundry:wrong":"https://aif-example.services.ai.azure.com/"}',
+        '{"azure-openai:aif-example":"https://aif-example.services.ai.azure.com/"}',
+    ],
+)
+def test_model_endpoint_resolver_rejects_invalid_maps(mapping: str) -> None:
+    with pytest.raises(ValueError):
+        _model_endpoint_resolver(
+            "https://oai-example.openai.azure.com/",
+            mapping,
+        )
 
 
 @pytest.mark.parametrize(

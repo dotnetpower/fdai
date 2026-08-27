@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 from collections.abc import Callable
@@ -26,6 +27,7 @@ from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _LOGGER = logging.getLogger("fdai.startup")
 _AZURE_OPENAI_HOST_SUFFIX = ".openai.azure.com"
+_AZURE_FOUNDRY_HOST_SUFFIX = ".services.ai.azure.com"
 
 
 def _direct_model_endpoint_resolver(endpoint: str) -> Callable[[str], str]:
@@ -48,6 +50,61 @@ def _direct_model_endpoint_resolver(endpoint: str) -> Callable[[str], str]:
         return endpoint
 
     return resolve
+
+
+def _model_endpoint_resolver(
+    primary_endpoint: str,
+    endpoint_map_json: str | None,
+) -> Callable[[str], str]:
+    primary_resolver = _direct_model_endpoint_resolver(primary_endpoint)
+    if not endpoint_map_json:
+        return primary_resolver
+    try:
+        raw = json.loads(endpoint_map_json)
+    except json.JSONDecodeError as exc:
+        raise ValueError("FDAI_MODEL_ENDPOINTS_JSON MUST be valid JSON") from exc
+    if not isinstance(raw, dict) or not 1 <= len(raw) <= 16:
+        raise ValueError("FDAI_MODEL_ENDPOINTS_JSON MUST contain 1-16 endpoint references")
+    endpoints: dict[str, str] = {}
+    for reference, endpoint in raw.items():
+        if not isinstance(reference, str) or not isinstance(endpoint, str):
+            raise ValueError("FDAI_MODEL_ENDPOINTS_JSON keys and values MUST be strings")
+        endpoints[reference] = _validate_model_endpoint(reference, endpoint)
+
+    def resolve(endpoint_ref: str) -> str:
+        endpoint = endpoints.get(endpoint_ref)
+        if endpoint is not None:
+            return endpoint
+        return primary_resolver(endpoint_ref)
+
+    return resolve
+
+
+def _validate_model_endpoint(reference: str, endpoint: str) -> str:
+    parsed = urlsplit(endpoint)
+    hostname = (parsed.hostname or "").lower()
+    expected_suffix = (
+        _AZURE_OPENAI_HOST_SUFFIX
+        if reference.startswith("azure-openai:")
+        else _AZURE_FOUNDRY_HOST_SUFFIX
+        if reference.startswith("azure-foundry:")
+        else None
+    )
+    if (
+        expected_suffix is None
+        or parsed.scheme != "https"
+        or not hostname.endswith(expected_suffix)
+        or parsed.path not in {"", "/"}
+        or parsed.query
+        or parsed.fragment
+        or parsed.username is not None
+        or parsed.password is not None
+    ):
+        raise ValueError("model endpoint reference and HTTPS origin do not match")
+    account_name = hostname.removesuffix(expected_suffix)
+    if reference != f"{reference.split(':', 1)[0]}:{account_name}":
+        raise ValueError("model endpoint reference does not match its account origin")
+    return endpoint
 
 
 def _new_http_client() -> httpx.AsyncClient:
@@ -201,7 +258,10 @@ async def _finalize_llm_bindings(
         identity=identity,
         overrides=AzureWireOverrides(
             endpoint=endpoint,
-            model_endpoint_resolver=_direct_model_endpoint_resolver(endpoint),
+            model_endpoint_resolver=_model_endpoint_resolver(
+                endpoint,
+                os.environ.get("FDAI_MODEL_ENDPOINTS_JSON"),
+            ),
             catalog_root=_resolve_catalog_root(),
             operator_memory_store=_build_operator_memory_store(),
             metering_sink=_build_metering_store(),

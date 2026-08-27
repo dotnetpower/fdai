@@ -360,6 +360,46 @@ run "split_roles_are_independent_by_default" {
   }
 }
 
+run "partner_models_use_separate_foundry_account" {
+  command = plan
+
+  variables {
+    resolved_capabilities = [
+      {
+        name         = "t1.embedding"
+        publisher    = "OpenAI"
+        family       = "text-embedding-3-small"
+        version      = "1"
+        sku          = "Standard"
+        capacity_tpm = 10000
+      },
+      {
+        name         = "t2.reasoner.secondary"
+        publisher    = "MistralAI"
+        family       = "Mistral-Large-3"
+        version      = "1"
+        sku          = "GlobalStandard"
+        capacity_tpm = 1000
+      }
+    ]
+  }
+
+  assert {
+    condition     = length(module.llm_foundry_partner) == 1
+    error_message = "Partner capabilities must create the dedicated Foundry module."
+  }
+
+  assert {
+    condition     = keys(module.llm_azure_openai[0].deployments) == ["t1.embedding"]
+    error_message = "Partner capabilities must not enter the OpenAI account."
+  }
+
+  assert {
+    condition     = keys(module.llm_foundry_partner[0].deployments) == ["t2.reasoner.secondary"]
+    error_message = "Partner capabilities must remain in the Foundry account."
+  }
+}
+
 run "cohost_flag_is_rejected" {
   command = plan
 

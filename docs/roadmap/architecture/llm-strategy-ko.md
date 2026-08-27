@@ -1,7 +1,7 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: 0cdcd039a0200ed893104abe5339abba268df047
+translation_source_sha: 457bad15cdcaf187c8665e37d15873c0ed7235e6
 translation_revised: 2026-08-28
 ---
 # LLM 전략(LLM Strategy)
@@ -12,7 +12,7 @@ translation_revised: 2026-08-28
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 기능 레지스트리, 해석 및 프로비저닝 평가 | implemented | `rule-catalog/llm-registry.yaml`; `rule_catalog/schema/llm_resolver.py`; `provisioning_assessment.py`; 집중 resolver 테스트 | 기능과 모델 대응, 명시적 용량 단위, 혼합 발행기 불변식 및 실패 시 차단 준비 상태를 실행할 수 있습니다. |
-| 발행기 한정 Foundry 카탈로그 검색 | implemented | `delivery/azure/llm/resolver_queries.py`; 집중 resolver 및 adapter 검사 | 선택적 발행기 인식 경계는 OpenAI, Anthropic 및 MistralAI 계열을 구분하고 안정된 AIServices 버전을 읽으며 기존 adapter의 계열 전용 대체 경로를 보존합니다. Partner 배포 및 endpoint routing은 미완료 상태입니다. |
+| 발행기 한정 Foundry 카탈로그, 인프라 및 endpoint 계약 | implemented | Resolver, partner 모듈, endpoint resolver 및 sealer, 집중 검사 | Root Terraform은 발행기와 private networking을 분리합니다. Partner endpoint binding은 plan metadata 전에 봉인됩니다. Runtime endpoint map 전달과 registry 활성화는 미완료 상태입니다. |
 | 환경 모델 바인딩 정책 및 PTU 계획 | implemented | `fdai_service_contracts/model_binding.py`; `model_binding_policy.py`; Operator IAM 바인딩 경로 및 PostgreSQL 어댑터; `model_binding_proposal.py`; `model-settings-projection.yml`; Console 모델 편집기; 보호된 배포 워크플로; 집중 계약, 해석기, Operator, Console 및 Terraform 검사 | Owner는 모든 T1/T2 기능에 리비전이 있는 `auto`, `pinned` 또는 `hil-only` 의도를 저장할 수 있습니다. 보호된 runner는 권한이 없는 정확한 계획 제안 하나를 현재 정책과 결합한 후 PTU와 정확한 모델 버전을 평가합니다. 별도 3-way CAS는 runtime Settings를 바꾸지 않고 정제된 모델 Settings projection을 복원합니다. Console과 Operator에는 공급자 변경 또는 실행 권한이 없습니다. |
 | 후보 전용 의미 판단 및 계획 | implemented | `core/conversation/semantic_judgment.py`; `core/conversation/semantic_planning.py`; `composition/wire_semantic_query.py`; Azure 의미 어댑터; 집중 판단 및 계획 테스트 | 범위가 제한된 T1 판단은 같은 바인딩에서 잘못된 스키마 출력을 다시 시도한 후 선택적으로 T2로 전환합니다. 수락된 의미는 계획에 사용될 수 있지만 실행 권한을 부여하지 않습니다. |
 | T2 교차 검사, 검증기, 근거 확인, 신뢰도 및 rubric | implemented | `core/quality_gate/`; `delivery/azure/llm/rubric.py`; 집중 quality 게이트 및 Azure 어댑터 테스트 | 필수 4개 경로와 선택적 감산 rubric이 있습니다. 근거가 없거나 잘못되면 거부, 판단 보류 또는 사람 검토로 결과를 낮춥니다. |
@@ -270,7 +270,7 @@ OpenAI / Foundry 카탈로그 및 용량 표면을 조회하여 **구체 기능�
 프로비저닝합니다. 가상 `t1.vision`은 일치하는 narrator 배포를 재사용하며 Key Vault와 감사가
 해석된 매핑을 보존합니다. Azure delivery는 `(publisher, family)` 쌍을 보고하고 허용된
 OpenAI/AIServices format을 매핑하며 두 값을 안정된 버전 키로 사용합니다. 계열 전용 adapter는
-호환되며 partner 활성화는 발행기 인식 인프라와 endpoint binding을 기다립니다.
+호환됩니다. Root Terraform은 발행기를 분리하고 private partner resource를 조건부로 조립합니다. Deployment는 hash 전에 partner binding을 봉인하며 runtime map 전달과 registry 활성화는 미완료 상태입니다.
 
 배포자가 `Cognitive Services Contributor` 를 갖지 않을 때, 선호 계열이 리전에 없을 때,
 `capacity_tpm` 쿼터가 부족할 때, mixed-model 불변식을 만족할 수 없을 때의 **배포자-권한 게이트
