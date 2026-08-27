@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 16fc461560275f296e729b51bf4c35b597f094b6
+translation_source_sha: 121e7d6fc23d27e321c2a964fcadb7740d10a5d6
 translation_revised: 2026-08-27
 ---
 # 지속형 운영 인스턴스 그래프
@@ -120,9 +120,10 @@ child-collection, host 및 generation fence 아래에서 VM Scale Set VM child�
 interface를 나열합니다. Child collection 실패는 generation을 중단하며 template network
 configuration으로 instance identity를 만들지 않습니다. Ontology projector는 graph 교체와 manifest/status commit marker 전체에서
 process-local lock과 PostgreSQL session advisory lock을 유지합니다. Reader는 active snapshot,
-status, manifest generation이 일치해야 한다고 요구합니다. 따라서 crash 또는 stale replica는
-idempotent retry가 commit을 닫을 때까지 incomplete evidence를 반환하며 혼합 세대를 complete로
-노출하지 않습니다.
+status, manifest generation과 content digest가 일치해야 한다고 요구합니다. 따라서 crash 또는
+stale replica는 safe-to-retry migration 또는 commit이 상태를 닫을 때까지 incomplete evidence를
+반환하며 혼합 세대를 complete로 노출하지 않습니다. Legacy 1.2.0 manifest는 다음 exact
+projection에서 다시 만들고 1.3.0으로 기록합니다.
 
 ## 보존, rollup, archive
 
@@ -229,7 +230,7 @@ binding을
 | 타입 지정 rollup과 archive lifecycle | implemented | `semantic_rollup*.py`, `archive_*.py`, `inventory_rollup.py`, PostgreSQL archive adapter, Core service migration, focused integration 검사 | Rollup과 archive 계약은 구현되고 로컬에서 검증됐습니다. Azure archive store 또는 배포 purge는 호출하지 않았습니다. |
 | 그래프 우선 조건부 실시간 보강 | implemented | `graph_evidence_refresh.py`, `graph_query_refresh.py`, `inventory_live_evidence.py`, runtime 의미 조립, 부분 overlay 영속성, 집중 테스트 | Exact-target 현재 상태 조립은 action authority 없이 graph-first 평가, bounded live read 1회, canonical write-through, 재조회 및 fail-closed hold를 종단으로 연결합니다. 최신성을 요구하는 Resource 결과는 반환된 모든 Resource가 완전한 state-fact metadata를 가질 때만 complete입니다. |
 | 운영 인스턴스 semantic 정확성 | implemented | `operational_instance_competency.py`, 집중 이중 언어 action-draft routing 검사, 타입 지정 no-authority 증적 | 대표 typed competency와 OI-11 이중 언어 positive 및 negative 분류 검사가 답변 text 또는 keyword routing 없이 통과합니다. 전체 corpus 및 예약 검증은 [지속형 의미 보증](../interfaces/continuous-semantic-assurance-ko.md)이 소유합니다. |
-| Runtime-call 근거 binding | implemented | `runtime_calls.yaml`, `runtime_call_projection.py`, `runtime_call_telemetry.py`, `runtime_call_inventory.py`, inventory single-writer 및 집중 endpoint 검사 | 인증된 producer는 정확한 envelope identity를 독립된 credential lineage에 결속합니다. 검증되고 fresh하며 exact이고 active-generation에 속하는 endpoint만 기존 inventory single writer에 들어갈 수 있습니다. 예약 경로는 권위 있는 endpoint-identity source가 주입될 때까지 명시적 unavailable 상태를 기록합니다. 인증된 runtime 근거는 열려 있습니다. |
+| Runtime-call 근거 binding | implemented | `runtime_calls.yaml`, `runtime_call_projection.py`, `runtime_call_telemetry.py`, `delivery/azure/runtime_call_telemetry.py`, `runtime_call_inventory.py`, inventory single-writer 및 집중 endpoint 검사 | 인증된 producer는 정확한 envelope identity를 독립된 credential lineage에 결속합니다. Azure query는 두 runtime table을 모두 요구하고 unavailable, redacted, malformed row coverage를 보존합니다. 부분 candidate가 하나라도 있으면 batch는 incomplete입니다. 검증되고 fresh하며 exact이고 active-generation에 속하는 endpoint만 기존 inventory single writer에 들어갈 수 있습니다. 인증된 runtime 근거는 열려 있습니다. |
 | Authorization 및 PostgreSQL role 근거 | implemented | `postgres_role_evidence.py`, `arg_relationships.py`, 집중 principal redaction 및 authorization scope 검사 | Database role은 content-addressed reference를 사용하는 별도의 principal-safe projection으로 유지되며 Resource 또는 Link 형태를 만들지 않습니다. 모델링되지 않은 role-assignment child scope는 `authorization_child_scope_unmodeled`를 보존하고 추론된 edge가 되지 않습니다. |
 | 운영자 인스턴스 탐색 | validated | `instance_explorer.py`, `postgres_family_store.py`, Operator 실시간 overlay 읽기 migration, `ontology-instance-graph*.ts*`, 집중 Operator 및 Console 검사, 인증된 표준 port 근거 | 읽기 전용 Console은 Resource Group을 transit hub로 사용하지 않고 깊이 8, Resource 200개, link 1,600개로 제한된 전체 응답을 검사와 맥락에 보존합니다. 기존 Instances canvas는 엄격한 왼쪽에서 오른쪽(`LR`) 좌표 계약을 사용합니다. 양방향 link와 범위가 제한된 cycle에서도 저장된 source occurrence를 target occurrence 왼쪽에 배치하며 저장 edge를 뒤집지 않습니다. 들어오는 occurrence는 선택한 Resource 왼쪽, 나가는 occurrence는 오른쪽에 유지합니다. 의미 column은 288px 간격을 사용합니다. 운영자는 일반 마우스 휠로 10%부터 180%까지 확대 또는 축소하고, 기본 전체 화면으로 전환하며, 빈 canvas를 drag해 pan할 수 있습니다. Node 좌표와 node 선택 동작은 고정됩니다. `contains`는 solid hierarchy line, `attached_to`는 dashed line, 양방향 `peered_with`는 dotted line입니다. Root 직접 containment와 최대 3개의 ancestor edge가 Resource Group, VNet, Subnet hierarchy를 복원하고, Resource Group과 Subscription은 표시되지만 transit 맥락으로 사용되지 않습니다. 정확한 AKS node Resource Group 근거는 AKS에서 VMSS로 향하는 edge를 만들지 않고 해당 분기 안의 hierarchy를 추가합니다. 비순환인 같은 방향 node는 가장 긴 predecessor rank를 사용하고 양방향 또는 cycle edge만 occurrence를 복제합니다. 정확히 검토된 gateway, load balancer, AKS outbound mapping만 검증된 traffic 의미를 추가할 수 있고 나머지 관계는 정직한 graph-direction label을 유지합니다. Inspector는 직접 incoming, 직접 outgoing, 검증된 ingress, 검증된 egress, access, containment, 연결 path segment를 mapping 근거와 함께 분리합니다. Azure Activity Log, Resource Health, runtime call graph는 명시적으로 사용할 수 없는 상태를 유지합니다. |
 | 애플리케이션 중심 공급자 관계 | in-progress | `azure-arg-v1.yaml`, ARG와 범위가 제한된 ARM child 수집, Kubernetes API pre-promotion enrichment, 완전 세대 검증, endpoint closure, snapshot 분류 metadata, 집중 Core/Operator/Console 검사, Terraform service-root 검사, 인증된 `5273` 근거 | 검토된 mapping 84개가 정확한 containment, identity, authorization, registry, observability, network, ingress, 구성된 data-service reference, Private DNS closure, AKS AgentPool 및 Kubernetes 런타임 토폴로지를 처리합니다. Azure 중첩 child는 검토된 parent 또는 root 해석을 사용합니다. Exact TLS, workload-identity 및 cluster binding이 구성되면 UID에 근거한 Kubernetes 객체와 독립적으로 검증된 링크가 원자적 승격 전에 같은 세대에 들어갑니다. Read-only identity는 request 시점에 수명이 짧은 token을 취득하며 static Kubernetes token은 Terraform에 들어가지 않습니다. 기존 로컬 Azure 근거는 변경되지 않았으며 실제 운영 Kubernetes 증적을 주장하지 않습니다. |

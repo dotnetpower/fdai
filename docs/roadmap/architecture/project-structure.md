@@ -35,6 +35,9 @@ Dependency direction is strict and one-way; a violation is a review blocker.
 - **authorization is instance-bound**: the context provider must return the exact Resource ID from
   `ExecutionAuthorizationRequest.target_resource_ref`. A mismatch holds before policy, identity,
   or effective-access evaluation and is retained in the no-authority audit context.
+- Historical topology is replay-safe only when every selected PostgreSQL revision carries the same
+  exact ontology release binding. Missing or mixed releases and dangling active links lower
+  completeness rather than proving absence.
 - **policies and rules are data, not code paths**: T0 loads `rule-catalog/` entries and
   `policies/` at runtime; adding a rule or policy never requires an engine change. Rules
   describe intent and remediation; policies are the executable OPA/Rego the verifier re-checks.

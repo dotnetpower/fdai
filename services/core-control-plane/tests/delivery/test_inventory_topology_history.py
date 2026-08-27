@@ -6,7 +6,12 @@ from datetime import UTC, datetime
 
 from fdai.delivery.inventory_sync import PromotedInventoryObservation
 from fdai.delivery.inventory_topology_history import InventoryTopologyHistoryPublisher
-from fdai.shared.providers.inventory import LinkRecord, ResourceRecord
+from fdai.shared.providers.inventory import (
+    LinkRecord,
+    RelationshipDrop,
+    RelationshipDropReason,
+    ResourceRecord,
+)
 from fdai.shared.providers.state_evidence import (
     LinkObservationMetadata,
     StateFactAuthority,
@@ -119,6 +124,32 @@ async def test_incomplete_promotion_does_not_publish_partial_history() -> None:
             resources=(),
             links=(),
             complete=False,
+            recorded_at=RECORDED_AT,
+        )
+    )
+
+    assert result is None
+    assert writer.calls == []
+
+
+async def test_relationship_gap_withholds_complete_history_baseline() -> None:
+    writer = _Writer()
+    publisher = InventoryTopologyHistoryPublisher(
+        writer=writer,
+        ontology_release_digest=RELEASE_DIGEST,
+    )
+
+    result = await publisher.publish(
+        PromotedInventoryObservation(
+            generation="snapshot-partial-links",
+            resources=(ResourceRecord(resource_id="vm-1", type="compute.vm"),),
+            links=(),
+            complete=True,
+            relationship_drops=(
+                # The source observed a candidate but not its endpoint.
+                # It must not become a complete replay baseline.
+                RelationshipDrop(reason=RelationshipDropReason.MISSING_TARGET_ENDPOINT),
+            ),
             recorded_at=RECORDED_AT,
         )
     )

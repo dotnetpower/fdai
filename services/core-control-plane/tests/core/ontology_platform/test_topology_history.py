@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime
 
 from fdai.core.ontology_platform import (
@@ -22,6 +23,7 @@ T0 = datetime(2026, 8, 10, 0, tzinfo=UTC)
 T1 = datetime(2026, 8, 10, 1, tzinfo=UTC)
 T2 = datetime(2026, 8, 10, 2, tzinfo=UTC)
 T3 = datetime(2026, 8, 10, 3, tzinfo=UTC)
+RELEASE_DIGEST = "sha256:" + ("a" * 64)
 
 
 class _Reader:
@@ -84,6 +86,8 @@ def test_graph_at_reconstructs_tombstone_and_topology_diff() -> None:
         effective_at=T0,
         recorded_at=T0,
         complete_snapshot=True,
+        ontology_release_digest=RELEASE_DIGEST,
+        source_receipt_digest=RELEASE_DIGEST,
         object_revisions=(
             _object("vnet-a", effective_at=T0, recorded_at=T0),
             _object("vnet-b", effective_at=T0, recorded_at=T0),
@@ -96,6 +100,8 @@ def test_graph_at_reconstructs_tombstone_and_topology_diff() -> None:
         effective_at=T1,
         recorded_at=T1,
         complete_snapshot=False,
+        ontology_release_digest=RELEASE_DIGEST,
+        source_receipt_digest=RELEASE_DIGEST,
         link_revisions=(_peering(effective_at=T1, recorded_at=T1, deleted=True),),
     )
 
@@ -119,6 +125,8 @@ def test_known_at_replay_excludes_late_evidence_without_rewriting_prior_view() -
         effective_at=T0,
         recorded_at=T0,
         complete_snapshot=True,
+        ontology_release_digest=RELEASE_DIGEST,
+        source_receipt_digest=RELEASE_DIGEST,
         object_revisions=(_object("vnet-a", effective_at=T0, recorded_at=T0),),
     )
     late_correction = TopologyRevisionBatch(
@@ -127,6 +135,8 @@ def test_known_at_replay_excludes_late_evidence_without_rewriting_prior_view() -
         effective_at=T0,
         recorded_at=T3,
         complete_snapshot=False,
+        ontology_release_digest=RELEASE_DIGEST,
+        source_receipt_digest=RELEASE_DIGEST,
         object_revisions=(_object("vnet-a", effective_at=T0, recorded_at=T3, name="corrected"),),
     )
 
@@ -147,6 +157,8 @@ def test_history_without_complete_baseline_cannot_prove_absence() -> None:
         effective_at=T1,
         recorded_at=T1,
         complete_snapshot=False,
+        ontology_release_digest=RELEASE_DIGEST,
+        source_receipt_digest=RELEASE_DIGEST,
         object_revisions=(_object("vnet-a", effective_at=T1, recorded_at=T1),),
     )
 
@@ -163,6 +175,8 @@ def test_dangling_active_link_lowers_replay_completeness() -> None:
         effective_at=T0,
         recorded_at=T0,
         complete_snapshot=True,
+        ontology_release_digest=RELEASE_DIGEST,
+        source_receipt_digest=RELEASE_DIGEST,
         object_revisions=(_object("vnet-a", effective_at=T0, recorded_at=T0),),
         link_revisions=(_peering(effective_at=T0, recorded_at=T0),),
     )
@@ -173,6 +187,32 @@ def test_dangling_active_link_lowers_replay_completeness() -> None:
     assert result.complete is False
 
 
+def test_missing_or_mixed_release_bindings_lower_replay_completeness() -> None:
+    baseline = TopologyRevisionBatch(
+        revision_id="revision-release",
+        provider_generation_ref="provider-generation-release",
+        effective_at=T0,
+        recorded_at=T0,
+        complete_snapshot=True,
+        ontology_release_digest=RELEASE_DIGEST,
+        source_receipt_digest=RELEASE_DIGEST,
+        object_revisions=(_object("vnet-a", effective_at=T0, recorded_at=T0),),
+    )
+    missing = replace(baseline, revision_id="revision-missing", ontology_release_digest=None)
+    mixed = replace(
+        baseline,
+        revision_id="revision-mixed",
+        complete_snapshot=False,
+        effective_at=T1,
+        recorded_at=T1,
+        object_revisions=(),
+        ontology_release_digest="sha256:" + ("b" * 64),
+    )
+
+    assert graph_at((missing,), as_of=T0, known_at=T0).complete is False
+    assert graph_at((baseline, mixed), as_of=T1, known_at=T1).complete is False
+
+
 async def test_topology_query_handlers_materialize_and_diff_retained_views() -> None:
     baseline = TopologyRevisionBatch(
         revision_id="revision-1",
@@ -180,6 +220,8 @@ async def test_topology_query_handlers_materialize_and_diff_retained_views() -> 
         effective_at=T0,
         recorded_at=T0,
         complete_snapshot=True,
+        ontology_release_digest=RELEASE_DIGEST,
+        source_receipt_digest=RELEASE_DIGEST,
         object_revisions=(
             _object("vnet-a", effective_at=T0, recorded_at=T0),
             _object("vnet-b", effective_at=T0, recorded_at=T0),
@@ -192,6 +234,8 @@ async def test_topology_query_handlers_materialize_and_diff_retained_views() -> 
         effective_at=T1,
         recorded_at=T1,
         complete_snapshot=False,
+        ontology_release_digest=RELEASE_DIGEST,
+        source_receipt_digest=RELEASE_DIGEST,
         link_revisions=(_peering(effective_at=T1, recorded_at=T1, deleted=True),),
     )
     at_handler = TopologyAtNodeHandler(_Reader((baseline, removal)))

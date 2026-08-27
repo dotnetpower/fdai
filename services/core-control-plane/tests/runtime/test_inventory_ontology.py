@@ -252,11 +252,84 @@ async def test_projector_rejects_tampered_manifest_before_replacing_owned_graph(
     manifest["object_ids"] = ["vm-tampered"]
     await status.write_state(INVENTORY_ONTOLOGY_MANIFEST_KEY, manifest)
 
-    with pytest.raises(ValueError, match="manifest digest"):
+    with pytest.raises(ValueError, match="manifest (digest|object content)"):
         await projector.apply(_observation(generation="snapshot-2", resource_ids=("vm-2",)))
 
     assert await store.get_object("vm-1") is not None
     assert await store.get_object("vm-2") is None
+
+
+async def test_projector_rejects_same_generation_content_changes() -> None:
+    store = _store()
+    status = InMemoryStateStore()
+    projector = _projector(store, status)
+    observation = _observation(generation="snapshot-same", resource_ids=("vm-1",))
+    await projector.apply(observation)
+    changed = replace(
+        observation,
+        resources=(replace(observation.resources[0], props={"name": "changed"}),),
+    )
+
+    with pytest.raises(ValueError, match="generation content changed"):
+        await projector.apply(changed)
+
+
+async def test_manifest_digest_binds_object_and_link_properties() -> None:
+    store = _store()
+    status = InMemoryStateStore()
+    projector = _projector(store, status)
+    link = LinkRecord(
+        from_id="vm-1",
+        from_type="compute.vm",
+        link_type="depends_on",
+        to_id="vm-2",
+        to_type="compute.vm",
+    )
+    await projector.apply(
+        _observation(generation="snapshot-content", resource_ids=("vm-1", "vm-2"), links=(link,))
+    )
+    manifest = await status.read_state(INVENTORY_ONTOLOGY_MANIFEST_KEY)
+    assert manifest is not None
+    manifest["link_content"][0]["properties"] = {"tampered": True}
+    await status.write_state(INVENTORY_ONTOLOGY_MANIFEST_KEY, manifest)
+
+    with pytest.raises(ValueError, match="manifest digest"):
+        await projector.apply(
+            _observation(generation="snapshot-content-next", resource_ids=("vm-3",))
+        )
+
+
+async def test_legacy_manifest_is_rebuilt_to_current_schema_on_retry() -> None:
+    store = _store()
+    status = InMemoryStateStore()
+    projector = _projector(store, status)
+    observation = _observation(generation="snapshot-legacy", resource_ids=("vm-1",))
+    await store.upsert_object(
+        OntologyObjectRecord(
+            id="vm-1",
+            object_type="Resource",
+            properties={"id": "vm-1", "type": "compute.vm", "name": "vm-1"},
+        )
+    )
+    await status.write_state(
+        INVENTORY_ONTOLOGY_MANIFEST_KEY,
+        {
+            "schema_version": "1.2.0",
+            "generation": observation.generation,
+            "ontology_release_digest": ONTOLOGY_RELEASE_DIGEST,
+            "complete": True,
+            "relationship_complete": True,
+            "dropped_reasons": [],
+            "object_ids": ["vm-1"],
+            "link_keys": [],
+        },
+    )
+
+    await projector.apply(observation)
+    upgraded = await status.read_state(INVENTORY_ONTOLOGY_MANIFEST_KEY)
+    assert upgraded is not None
+    assert upgraded["schema_version"] == "1.3.0"
+    assert upgraded["object_content"][0]["properties"]["name"] == "vm-1"
 
 
 def test_projector_rejects_unpinned_ontology_release() -> None:

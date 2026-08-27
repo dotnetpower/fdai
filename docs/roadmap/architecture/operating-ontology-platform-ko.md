@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 4b741d716eecf6f4c4641841c182e220da920765
+translation_source_sha: 1710a9f24af81aa873527b3d83ca6d74e31d8db2
 translation_revised: 2026-08-27
 ---
 # FDAI 온톨로지 안전 인프라
@@ -28,6 +28,8 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 > 시작 시 활성 매니페스트를 저장하고 이전 행을 디코딩하기 전에 등록된 모든 매니페스트를
 > 로드합니다. 누락된 release, 매니페스트/다이제스트 불일치 및 선언/버전 불일치는 안전하게
 > 차단됩니다. 기존 Reader-gated
+> 저장된 1.2.0 inventory manifest는 다음 exact projection에서 제한적으로 다시 빌드하여
+> 1.3.0으로 올리며, 현재 증적으로 조용히 취급하지 않습니다.
 > `GET /ontology/graph` 변환 결과는 release 다이제스트, proposal-only 쓰기 표면,
 > `mutation_authority: false`를 노출하며 변경 경로를 추가하지 않습니다.
 > Pre-migration 행은 original release 다이제스트를 정직하게 복원할 수 없으므로 명시적으로 unpinned
@@ -40,7 +42,8 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 > exact release로 compile합니다.
 > Bitemporal 토폴로지 기반은 provider-generation 신원, 이벤트/기록 시간, 완전한 스냅샷,
 > delta 및 tombstone을 보존합니다. Pure `graph_at`/`topology_diff` 함수는 late 근거가 도착해도
-> pinned `known_at` 재생을 보존하며 불완전한 이력은 absence를 입증할 수 없습니다. 타입이 지정된 조회
+> pinned `known_at` 재생을 보존합니다. 모든 replay batch는 일관된 ontology release binding을
+> 가져야 하며 dangling link 또는 누락되거나 혼합된 release는 completeness를 낮춥니다. 타입이 지정된 조회
 > 핸들러와 검증기 스키마는 프로바이더 텍스트 없이 이 함수를 노출합니다. Core-owned 이행은
 > 삽입/읽기 전용 런타임 권한 부여를 가진 추가 전용 이력 표를 만듭니다. PostgreSQL 읽기 담당/쓰기 담당
 > 조립과 inventory-promotion 발행은 남아 있습니다.
