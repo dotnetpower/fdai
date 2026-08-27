@@ -22,9 +22,15 @@ run "core_control_plane_plan" {
     identity     = { resource_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-core", client_id = "core-client" }
     event_topics = { events = "object.event", executor_command = "object.executor-command", executor_receipt = "object.executor-receipt" }
     database     = { dsn_secret_id = "https://example.vault.azure.net/secrets/core-dsn", host = "postgres.example.com", role = "fdai_core" }
-    llm          = { endpoint = "https://models.example.com" }
-    rollback     = { strategy = "previous-revision", previous_image = "registry.example.com/fdai@sha256:1111111111111111111111111111111111111111111111111111111111111111" }
-    runtime_env  = "dev"
+    llm = {
+      endpoint = "https://oai-fdai.openai.azure.com"
+      model_endpoints = {
+        "azure-openai:oai-fdai"         = "https://oai-fdai.openai.azure.com"
+        "azure-foundry:aif-fdai-models" = "https://aif-fdai-models.services.ai.azure.com"
+      }
+    }
+    rollback    = { strategy = "previous-revision", previous_image = "registry.example.com/fdai@sha256:1111111111111111111111111111111111111111111111111111111111111111" }
+    runtime_env = "dev"
   }
   assert {
     condition     = output.service.name == "ca-fdai-core"

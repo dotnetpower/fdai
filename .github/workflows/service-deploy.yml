@@ -475,8 +475,18 @@ jobs:
             exit 1
           }
           resolved_model_args=()
-          [[ "$SERVICE" == "core-control-plane" ]] \
-            && resolved_model_args+=(--model-binding-transition)
+          model_endpoints_json="{}"
+          if [[ "$SERVICE" == "core-control-plane" ]]; then
+            resolved_model_args+=(--model-binding-transition)
+            model_endpoints_json="$(
+              terraform -chdir="$TRUSTED_CONTROLS/infra" output -json llm_model_endpoints
+            )"
+            jq -e 'type == "object" and length >= 1 and length <= 16' \
+              <<<"$model_endpoints_json" >/dev/null || {
+              echo "Platform state returned an invalid model endpoint map." >&2
+              exit 1
+            }
+          fi
           database_host="$(
             terraform -chdir="$TRUSTED_CONTROLS/infra" output -raw postgres_fqdn
           )"
@@ -509,7 +519,8 @@ jobs:
                 --event-topic "$event_topic" \
                 --pipeline-stage-topic "$pipeline_stage_topic" \
                 --pantheon-object-topic "$pantheon_object_topic" \
-            | python3 "$TRUSTED_CONTROLS/scripts/deployment/service/materialize_tfvars.py" \
+            | MODEL_ENDPOINTS_JSON="$model_endpoints_json" \
+              python3 "$TRUSTED_CONTROLS/scripts/deployment/service/materialize_tfvars.py" \
                 --service "${{ inputs.service }}" \
                 --environment "${{ inputs.environment }}" \
                 "${resolved_model_args[@]}" \

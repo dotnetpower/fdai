@@ -1218,7 +1218,7 @@ def _core_model_binding_plan(guard: ModuleType, digest: str) -> dict[str, object
         "container"
     ][0]["env"]
     model_values = {
-        "FDAI_LLM_ENDPOINT": "https://models.example.com",
+        "FDAI_LLM_ENDPOINT": "https://oai-fdai.openai.azure.com",
         "FDAI_WEB_SEARCH_ALLOWED_DOMAINS": "",
         "FDAI_WEB_SEARCH_ENABLED": "false",
         "FDAI_WEB_SEARCH_MAX_RESULTS": "8",
@@ -1230,6 +1230,10 @@ def _core_model_binding_plan(guard: ModuleType, digest: str) -> dict[str, object
             next(item for item in environment if item["name"] == name)["value"] = value
     after_environment.extend(
         (
+            {
+                "name": "FDAI_MODEL_ENDPOINTS_JSON",
+                "value": '{"azure-openai:oai-fdai":"https://oai-fdai.openai.azure.com"}',
+            },
             {"name": "LLM_MODE", "value": "azure"},
             {"name": "LLM_RESOLVED_MODELS_PATH", "value": "/app/resolved-models.json"},
             {"name": "LLM_RESOLVED_MODELS_SHA256", "value": digest},
@@ -1291,6 +1295,11 @@ def test_plan_guard_rejects_model_binding_digest_mismatch(guard: ModuleType) -> 
     [
         ("FDAI_LLM_ENDPOINT", "http://models.example.com"),
         ("FDAI_LLM_ENDPOINT", "https://user@models.example.com"),
+        ("FDAI_MODEL_ENDPOINTS_JSON", "not-json"),
+        (
+            "FDAI_MODEL_ENDPOINTS_JSON",
+            '{"azure-foundry:wrong":"https://aif-fdai.services.ai.azure.com"}',
+        ),
         ("FDAI_WEB_SEARCH_ALLOWED_DOMAINS", "learn.example.com/path"),
         ("FDAI_WEB_SEARCH_ENABLED", "enabled"),
         ("FDAI_WEB_SEARCH_MAX_RESULTS", "21"),

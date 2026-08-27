@@ -225,6 +225,11 @@ output "llm_endpoint" {
   value       = length(module.llm_azure_openai) > 0 ? module.llm_azure_openai[0].endpoint : ""
 }
 
+output "llm_model_endpoints" {
+  description = "Account-qualified OpenAI and Foundry model endpoint origins. Empty when enable_llm=false."
+  value       = local.llm_model_endpoints
+}
+
 output "llm_resource_id" {
   description = "Cognitive Services account ARM id. Empty string when enable_llm=false."
   value       = length(module.llm_azure_openai) > 0 ? module.llm_azure_openai[0].resource_id : ""

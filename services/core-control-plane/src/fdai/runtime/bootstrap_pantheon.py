@@ -52,6 +52,7 @@ from fdai.runtime.case_history import (
     CaseHistoryRetentionTickPublisher,
     build_case_history_runtime,
 )
+from fdai.runtime.configuration import _model_endpoint_resolver
 from fdai.runtime.discovery_activation import DiscoveryActivationRuntime
 from fdai.runtime.forecast_learning import build_forecast_learning_runtime
 from fdai.runtime.operational_catalog_review import build_operational_catalog_review_bindings
@@ -164,6 +165,10 @@ async def initialize_pantheon(
             repo_root=Path(__file__).resolve().parents[5],
             resolved_models_path=resolved_models_path,
             endpoint=config.environment["FDAI_LLM_ENDPOINT"],
+            endpoint_resolver=_model_endpoint_resolver(
+                config.environment["FDAI_LLM_ENDPOINT"],
+                config.environment.get("FDAI_MODEL_ENDPOINTS_JSON"),
+            ),
             identity=config.identity,
             http_client=config.http_client,
         )

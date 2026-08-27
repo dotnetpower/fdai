@@ -38,7 +38,9 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   endpoint ownership outside the resolver. Root Terraform sends resolved OpenAI and partner
   capabilities to separate modules and creates the partner private endpoint/DNS only when needed.
   Deployment seals partner bindings before plan hashing. Runtime resolves a bounded map of exact
-  account references and rejects provider/hostname mismatch.
+  account references and rejects provider/hostname mismatch. Platform Terraform owns that map,
+  protected service materialization supplies the same origins to the independent Core root, and
+  semantic planning plus post-turn review resolve their capability bindings through it.
 - **qualification reduction is authority-free**:
   `core/conversation_assurance/quality_qualification.py` accepts only premeasured normalized
   observations and reduces them against the installed quality contract. It derives hard caps from

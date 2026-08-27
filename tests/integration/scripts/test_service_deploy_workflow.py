@@ -649,7 +649,9 @@ def test_service_workflow_seals_core_model_binding_transition() -> None:
     assert "database-host-binding+model-binding" in _WORKFLOW
     assert 'name = "LLM_RESOLVED_MODELS_PATH"' in _CORE_TERRAFORM
     assert 'name = "LLM_RESOLVED_MODELS_SHA256"' in _CORE_TERRAFORM
+    assert 'name = "FDAI_MODEL_ENDPOINTS_JSON"' in _CORE_TERRAFORM
     assert "var.llm.resolved_models_digest" in _CORE_TERRAFORM
+    assert "output -json llm_model_endpoints" in _WORKFLOW
 
 
 def test_apply_has_post_apply_health_and_no_destroy_command() -> None:

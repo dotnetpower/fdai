@@ -79,6 +79,7 @@ variable "startup_readiness" {
 variable "llm" {
   type = object({
     endpoint                   = string
+    model_endpoints            = optional(map(string), {})
     web_search_enabled         = optional(bool, false)
     web_search_allowed_domains = optional(list(string), [])
     web_search_max_results     = optional(number, 8)

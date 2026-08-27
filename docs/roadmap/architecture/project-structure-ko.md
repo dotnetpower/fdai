@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: c0cefb25eae79930ec92fa78b79ebcbff9ff959b
+translation_source_sha: 18f0ff3988fafc067ee83027d31c2fb1ee6faeea
 translation_revised: 2026-08-28
 ---
 # 프로젝트 구조
@@ -38,7 +38,9 @@ translation_revised: 2026-08-28
   밖에 유지합니다. Root Terraform은 해석된 OpenAI와 partner 기능을 별도 모듈로 보내고
   필요한 경우에만 partner private endpoint/DNS를 생성합니다. Deployment는 plan hash 전에
   partner binding을 봉인합니다. Runtime은 exact account 참조의 범위 제한 map을 해석하고
-  provider/hostname 불일치를 차단합니다.
+  provider/hostname 불일치를 차단합니다. Platform Terraform이 이 map을 소유하며 보호된 서비스
+  구체화는 같은 origin을 독립 Core root에 전달합니다. 의미 계획과 턴 후 검토는 이 map을 통해
+  기능 binding을 해석합니다.
 - **자격 검증 축약에는 권한이 없음**:
   `core/conversation_assurance/quality_qualification.py`는 미리 측정하고 정규화한 관측값만
   받아 설치된 품질 계약에 따라 축약합니다. 원시 근거 상태에서 하드 상한을 계산하며 모델 호출,

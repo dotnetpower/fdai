@@ -30,7 +30,7 @@ def t1_model_targets(
         for candidate in candidates
     ]
     if not targets:
-        judge = _target_for_capability(
+        judge = model_target_for_capability(
             resolved,
             "t1.judge",
             endpoint=endpoint,
@@ -59,7 +59,7 @@ def t2_model_targets(
         for candidate in resolved.reasoner_primary_candidates
     ]
     if not targets:
-        primary = _target_for_capability(
+        primary = model_target_for_capability(
             resolved,
             "t2.reasoner.primary",
             endpoint=endpoint,
@@ -77,7 +77,7 @@ def _unique_targets(targets: list[ModelRequestTarget]) -> tuple[ModelRequestTarg
     return tuple(unique.values())
 
 
-def _target_for_capability(
+def model_target_for_capability(
     resolved: ResolvedModels,
     capability_id: str,
     *,
@@ -113,7 +113,7 @@ def _target_for_capability(
         ),
         None,
     )
-    if capability is None or endpoint is None:
+    if capability is None or endpoint is None or capability.publisher != "OpenAI":
         return None
     return ModelRequestTarget(
         endpoint=endpoint,
@@ -122,4 +122,4 @@ def _target_for_capability(
     )
 
 
-__all__ = ["t1_model_targets", "t2_model_targets"]
+__all__ = ["model_target_for_capability", "t1_model_targets", "t2_model_targets"]
