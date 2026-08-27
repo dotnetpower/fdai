@@ -243,8 +243,9 @@ those fields. Runtime publication and consumption remain service-owned implement
 
 Semantic-turn requests also preserve a typed screen or resource-group selection with an opaque
 server-issued token. Operator resolves the token against the authenticated principal, ordinary
-lowercase role scope, purpose, exact release, source generation, completeness, and id set before
-Core compiles an exact `Resource.id` scope for `query.contextual_resources`; a client-forged or
+lowercase role scope, purpose, exact release, source generation, completeness, and id set, then
+recomputes the selection digest before Core compiles an exact `Resource.id` scope for
+`query.contextual_resources`; a client-forged or
 recomputed id, missing-after-restart token, or scope mismatch is typed unavailable rather than a
 fallback to the principal-visible collection. No context field grants approval or execution
 authority.

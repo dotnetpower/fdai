@@ -273,6 +273,41 @@ def test_semantic_envelope_rejects_unsigned_or_recomputed_context_identity() -> 
         )
 
 
+def test_semantic_envelope_rejects_registered_context_with_mismatched_digest() -> None:
+    registry = ContextSelectionRegistry()
+    token = registry.issue(
+        {
+            "kind": "screen",
+            "screen_id": "ontology-instances",
+            "resource_ids": ["resource-a"],
+            "role": "approver",
+            "purpose": "operations-review",
+            "principal_id": "operator-1",
+            "principal_scope_digest": f"sha256:{'a' * 64}",
+            "ontology_release_digest": f"sha256:{'b' * 64}",
+            "source_generation": "generation-1",
+            "selection_digest": f"sha256:{'c' * 64}",
+            "complete": True,
+        }
+    )
+
+    with pytest.raises(ValueError, match="selection digest does not match"):
+        SemanticTurnEnvelopeBuilder(
+            clock=lambda: datetime(2026, 8, 11, tzinfo=UTC),
+            selection_registry=registry,
+        ).build(
+            _proposal(
+                body={
+                    "prompt": "Which resources are on this screen?",
+                    "conversation_context": {
+                        "kind": "screen",
+                        "selection_token": token,
+                    },
+                }
+            )
+        )
+
+
 def test_semantic_envelope_rejects_mixed_context_identity_kinds() -> None:
     with pytest.raises(ValueError, match="selection token"):
         SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
