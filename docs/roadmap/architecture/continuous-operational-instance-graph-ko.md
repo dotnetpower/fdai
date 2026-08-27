@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 65f19fea81b8ffc450ebbfd2693577325b06fba5
+translation_source_sha: 5950dea12eaed9bfa76cd4767eec3a529060ccde
 translation_revised: 2026-08-27
 ---
 # 지속형 운영 인스턴스 그래프
@@ -222,7 +222,7 @@ binding을
 | Kubernetes 워크로드 관측 | implemented | `kubernetes_api_inventory.py`, Kubernetes 이벤트 읽기 경로, rollout, Pod 복구 및 Pod 진단 FunctionType, 집중 인벤토리, 이벤트, 메트릭, 축약기, 플래너, 증적, 조립 및 런타임 검사, 인증된 대상 없는 Console 증적과 정확한 대상 Console 증적 | UID에 근거한 세대는 허용 목록에 있는 rollout 상태를 보존합니다. `query.resource_event_history`는 검토된 유형 범위와 함께 출처에 근거한 정확한 Resource 이름 하나를 보존하고, secured ObjectSet 증적에 보존된 불변 `uid`와 `cluster_ref`로 정확한 child 하나를 좁힐 수 있습니다. Core는 이 두 field만 분리된 상태로 전달하고 adapter는 provider I/O 전에 canonical Resource id를 다시 계산합니다. 정확한 identity 조건식은 provider I/O 전에 Resource 하나로 해소되어야 하며 일치 항목이 없거나 여러 개면 `target_resolution_not_exact`로 불완전하게 유지합니다. 누락, redaction, malformed 또는 불일치 identity는 인증 전에 중단합니다. 삭제된 객체와 범위가 제한된 클러스터 이력에는 명시적인 정확한 클러스터 읽기를 계속 사용합니다. 혼합 범위는 적용할 수 있는 클러스터 이벤트를 `source_scope_incomplete`와 함께 보존합니다. 인코딩하지 않은 raw 응답은 JSON 구체화 전에 256 KiB로 제한하고 provider 항목은 최대 256개만 정규화합니다. 권위 있는 보존 출처가 생길 때까지 성공한 Kubernetes Event API 결과는 `source_retention_unverified`를 보존하고 일부만 읽었거나 미래 시각이거나 잘못됐거나 상한에 도달했거나 사용할 수 없는 읽기도 불완전하게 유지합니다. 이중 언어 답변은 정확한 제한 사항을 보여주며 행 0개를 과거 부재로 바꾸지 않습니다. 행이 답변 상한을 넘으면 표시 개수, 전체 개수 및 `display_truncated`를 보고하고 가장 최근 8개를 시간순으로 표시합니다. 범위가 제한된 현재 및 이전 컨테이너 종료 기록은 컨테이너 이름, 사유, 종료 코드, 신호 및 표준 시간대가 있는 완료 시각을 보존합니다. `query.kubernetes_pod_diagnosis`는 실제 로그 프로바이더가 연결된 경우에만 하나의 정확한 UID를 범위가 제한된 AppTraces, AppExceptions 및 ContainerLogV2 근거와 결합합니다. 원인 및 실행 권한을 false로 고정하면서 콘텐츠 다이제스트, 개수, 타임스탬프, 출처 신원 및 명시적 공백을 보존합니다. 로그 행 0개는 레이블 범위, 수집 범위 또는 과거 부재를 증명할 수 없으므로 `zero_records_unverified`로 유지합니다. 원시 이미지 이름, 메시지, 런타임 id, 로그 본문 및 프로바이더 페이로드는 제외합니다. Rollout 및 복구 축약기는 정확한 소유권과 재시작 변화량 근거를 요구하며 source-incomplete 행 0개를 부재로 취급하지 않습니다. 인증된 정확한 대상 계획과 제한 사항 표현 근거는 보존했으며 성공적인 Event 출처 접근과 영속 보존은 열린 상태입니다. |
 | 불변 Pod 교체 상관 분석 | in-progress | `kubernetes_pod_replacement_evidence.py`, 집중 교체 축약기 테스트(`13 passed`) | 결정론적 축약기는 클러스터, 네임스페이스 및 루트 컨트롤러 UID를 통해 정확히 한 후보만 허용합니다. 같은 UID의 컨테이너 재시작, 같은 소유자의 Pod 교체 및 소유자가 바뀐 rollout을 구분하고 순서가 확인된 종료, 비정상 근거, 안정적인 desired replica, 최신 현재 상태 및 엄격한 Deployment 복구를 요구합니다. 이름으로 상관 분석하거나 원인 또는 실행 권한을 부여하지 않습니다. 영속 수명 주기 수집과 조회 구성은 [이슈 #292](https://github.com/dotnetpower/fdai/issues/292)가 완료될 때까지 남아 있습니다. |
 | Bitemporal topology 이력 | implemented | `core/ontology_platform/topology_history.py`, PostgreSQL topology 이력 adapter와 집중 테스트 | 현재 production 보존, rollup, archive, 복원 근거는 열려 있습니다. |
-| 적응형 지속 일정 관리 | implemented | `inventory_source_policy.py`, `inventory_scheduler.py`, PostgreSQL reconciliation 상태, collection health, focused collection 검사 | Source policy와 결정론적 scheduling이 구현됐습니다. 배포 운영 측정은 별도의 validation evidence로 남습니다. |
+| 적응형 지속 일정 관리 | implemented | `inventory_source_policy.py`, `inventory_scheduler.py`, PostgreSQL reconciliation 상태, collection health, analyzer tick CLI와 로컬 VS Code 작업 및 집중 collection 검사 | Source policy와 결정론적 일정 관리가 구현됐습니다. 배포 Container Apps Job과 로컬 백그라운드 작업은 같은 one-shot analyzer 로직을 직렬로 실행합니다. 준비 상태는 일정 관리, 대상 검색, 메트릭 접근, 이벤트 게시 및 설정된 Log Analytics와 Prometheus 지연 바닥을 분리합니다. 배포 운영 측정은 별도의 검증 근거로 남습니다. |
 | 타입 지정 rollup과 archive lifecycle | implemented | `semantic_rollup*.py`, `archive_*.py`, `inventory_rollup.py`, PostgreSQL archive adapter, Core service migration, focused integration 검사 | Rollup과 archive 계약은 구현되고 로컬에서 검증됐습니다. Azure archive store 또는 배포 purge는 호출하지 않았습니다. |
 | 그래프 우선 조건부 실시간 보강 | implemented | `graph_evidence_refresh.py`, `graph_query_refresh.py`, `inventory_live_evidence.py`, runtime 의미 조립, 부분 overlay 영속성, 집중 테스트 | Exact-target 현재 상태 조립은 action authority 없이 graph-first 평가, bounded live read 1회, canonical write-through, 재조회 및 fail-closed hold를 종단으로 연결합니다. 최신성을 요구하는 Resource 결과는 반환된 모든 Resource가 완전한 state-fact metadata를 가질 때만 complete입니다. |
 | 운영 인스턴스 semantic 정확성 | implemented | `operational_instance_competency.py`, 집중 이중 언어 action-draft routing 검사, 타입 지정 no-authority 증적 | 대표 typed competency와 OI-11 이중 언어 positive 및 negative 분류 검사가 답변 text 또는 keyword routing 없이 통과합니다. 전체 corpus 및 예약 검증은 [지속형 의미 보증](../interfaces/continuous-semantic-assurance-ko.md)이 소유합니다. |
@@ -342,6 +342,9 @@ provider-type coverage와 deployed evidence 보존이며 authority를 넓히거�
   조건이 아닙니다.
 - [ ] `OI-12`는 OI-11 이후 표현 회귀와 [배포 Azure 인증](https://github.com/dotnetpower/fdai/issues/262)을
   실행해 최신성, API 압력, 지연, 저장소 증가, rollup 범위, archive 복원, 공급자 실패를 측정합니다.
+- [x] 표준 로컬 프로필에 `analyzer: run continuously (local)`을 제공합니다. 배포 one-shot
+  analyzer CLI, 로컬 런타임 환경, 인벤토리 대상 검색, 메트릭 매핑, 멱등성 키, 이벤트 계약 및
+  shadow 상태를 재사용하며 analyzer 로직을 중복하지 않습니다.
 - [ ] [타입이 지정된 재개 가능 Kubernetes 수명 주기 수집](https://github.com/dotnetpower/fdai/issues/292)을 완료하고 보존된 이전/신규 UID 및 종료 관측을 교체 축약기에 연결한 뒤 인증된 정확한 대상 교체 및 새 기준 시점 복구 증적을 보존합니다.
 - [x] 저장된 mapping별 모든 relationship candidate를 해결하거나 검토된 unavailable 상태로
   분류합니다. 최종 세대에는 classification 9개와 candidate 66개가 있습니다.

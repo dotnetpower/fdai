@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 062a0247109f4a5183b28b9ede5c0be02e61ddcf
+translation_source_sha: 23dbff273ea5cb4d8e4f89a9f51a873432ef9237
 translation_revised: 2026-08-27
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -355,11 +355,10 @@ API에 실행기 신원을 부여하거나 ActionType 및 작업 흐름 승격 �
 Headless 런타임은 영속 effective 값을 로드합니다. Embedded 로컬 Pantheon은 별도의 fixed 심각도나
 구간 대신 동일하게 검증된 환경, 기본값 및 accepted-versus-held 인계 결과를 사용합니다.
 
-Detection 준비 상태도 같은 경계를 사용합니다. 배포는 항상 PostgreSQL에서 Muninn
-StateSnapshot을 읽습니다. Interactive 로컬은 로컬 PostgreSQL이 구성된 경우에만
-`/detection-readiness`를 등록하며, 그렇지 않으면 경로와 출처 매니페스트가 사용 불가를
-보고합니다. 로컬 브라우저는 Azure CLI 인벤토리로 대체하거나 Heimdall 판정을 다시 계산하지
-않습니다.
+Detection 준비 상태도 같은 경계를 사용합니다. 배포는 PostgreSQL의 Muninn StateSnapshot을 읽고,
+interactive 로컬은 로컬 PostgreSQL이 있을 때만 `/detection-readiness`를 등록합니다. 표준 로컬
+analyzer 작업은 배포 one-shot CLI, 인벤토리 대상, 메트릭, 멱등성, 이벤트 및 shadow 상태를 직렬로
+재사용하며 준비 상태는 일정 관리, 검색, 메트릭, 게시 및 출처 지연 상태를 분리합니다.
 
 Standard full-stack launch는 서술기 엔드포인트 조정을 유지합니다. 독립 Operator 서비스는
 `RUNTIME_ENV=dev`에서만 local-only 서술기 어댑터를 연결하고 `LLM_RESOLVED_MODELS_PATH`와 수명이 짧은
