@@ -44,11 +44,7 @@ def _stable_version(model_versions: Any, *, region: str, publisher: str, family:
         publisher=publisher,
         family=family,
     )
-    if version is None:
-        raise ValueError(f"no stable model version for synthesized deployment {publisher}/{family}")
-    if not isinstance(version, str):
-        raise ValueError("model version query MUST return a string or None")
-    return version
+    return version if isinstance(version, str) and version.strip() else None
 
 
 def narrator_deployment_name(family: str) -> str:
@@ -73,6 +69,7 @@ def _viable_narrator_prefs(
     catalog: Any,
     quota: Any,
     capability_name: str,
+    model_versions: Any = None,
 ) -> list[Any]:
     spec = registry.models.get(capability_name)
     if spec is None:
@@ -92,6 +89,17 @@ def _viable_narrator_prefs(
         )
         if available <= 0:
             continue
+        if (
+            model_versions is not None
+            and _stable_version(
+                model_versions,
+                region=region,
+                publisher=pref.publisher,
+                family=pref.family,
+            )
+            is None
+        ):
+            continue
         seen.add(pref.family)
         out.append(pref)
     return out
@@ -106,6 +114,7 @@ def collect_narrator(
     endpoint: str,
     api_version: str = "2024-08-01-preview",
     capability_name: str = "t1.judge",
+    model_versions: Any = None,
 ) -> tuple[Any | None, tuple[Any, ...]]:
     from fdai.rule_catalog.schema.llm_resolver import NarratorCandidate
 
@@ -115,6 +124,7 @@ def collect_narrator(
         catalog=catalog,
         quota=quota,
         capability_name=capability_name,
+        model_versions=model_versions,
     )
     if not prefs:
         return None, ()
@@ -150,6 +160,7 @@ def collect_narrator_deployments(
         catalog=catalog,
         quota=quota,
         capability_name=capability_name,
+        model_versions=model_versions,
     )
     spec = registry.models.get(capability_name)
     if spec is None or not prefs:
@@ -204,6 +215,7 @@ def collect_vision_candidates(
     narrator_candidates: tuple[Any, ...],
     api_version: str = "2024-08-01-preview",
     capability_name: str = "t1.vision",
+    model_versions: Any = None,
 ) -> tuple[Any, ...]:
     """Collect vision-capable candidates backed by narrator deployments.
 
@@ -220,6 +232,7 @@ def collect_vision_candidates(
         catalog=catalog,
         quota=quota,
         capability_name=capability_name,
+        model_versions=model_versions,
     )
     return tuple(
         NarratorCandidate(
@@ -241,6 +254,7 @@ def collect_web_search_candidates(
     endpoint: str,
     api_version: str = "2024-08-01-preview",
     capability_name: str = "t1.web_search",
+    model_versions: Any = None,
 ) -> tuple[Any, ...]:
     """Collect model candidates dedicated to the Responses web-search tool."""
     from fdai.rule_catalog.schema.llm_resolver import NarratorCandidate
@@ -251,6 +265,7 @@ def collect_web_search_candidates(
         catalog=catalog,
         quota=quota,
         capability_name=capability_name,
+        model_versions=model_versions,
     )
     return tuple(
         NarratorCandidate(
@@ -280,6 +295,7 @@ def collect_web_search_deployments(
         catalog=catalog,
         quota=quota,
         capability_name=capability_name,
+        model_versions=model_versions,
     )
     spec = registry.models.get(capability_name)
     if spec is None:
@@ -323,6 +339,7 @@ def collect_primary_candidates(
     endpoint: str,
     api_version: str = "2024-06-01",
     capability_name: str = "t2.reasoner.primary",
+    model_versions: Any = None,
 ) -> tuple[Any | None, tuple[Any, ...]]:
     from fdai.rule_catalog.schema.llm_resolver import NarratorCandidate
 
@@ -332,6 +349,7 @@ def collect_primary_candidates(
         catalog=catalog,
         quota=quota,
         capability_name=capability_name,
+        model_versions=model_versions,
     )
     if not prefs:
         return None, ()
@@ -363,6 +381,7 @@ def collect_primary_deployments(
         catalog=catalog,
         quota=quota,
         capability_name=capability_name,
+        model_versions=model_versions,
     )
     spec = registry.models.get(capability_name)
     if spec is None or not prefs:
@@ -405,6 +424,7 @@ def _viable_primary_prefs(
     catalog: Any,
     quota: Any,
     capability_name: str,
+    model_versions: Any = None,
 ) -> list[Any]:
     from fdai.rule_catalog.schema.llm_resolver import ResolverError
 
@@ -414,6 +434,7 @@ def _viable_primary_prefs(
         catalog=catalog,
         quota=quota,
         capability_name=capability_name,
+        model_versions=model_versions,
     )
     publishers = {pref.publisher for pref in prefs}
     if len(publishers) > 1:

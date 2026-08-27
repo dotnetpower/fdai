@@ -328,15 +328,16 @@ class TestCollectNarratorDeployments:
         assert len(deployments) == 1
         assert deployments[0].version == "stable-gpt-4.1-nano"
 
-    def test_live_version_query_missing_stable_version_fails_before_terraform(self) -> None:
-        with pytest.raises(ValueError, match="no stable model version"):
-            collect_narrator_deployments(
-                registry=_registry(),
-                region=_REGION,
-                catalog=_Catalog({"gpt-5.4-mini"}),
-                quota=_Quota({"gpt-5.4-mini": 200_000}),
-                model_versions=_MissingVersions(),
-            )
+    def test_live_version_query_missing_stable_version_excludes_deployment(self) -> None:
+        deployments = collect_narrator_deployments(
+            registry=_registry(),
+            region=_REGION,
+            catalog=_Catalog({"gpt-5.4-mini"}),
+            quota=_Quota({"gpt-5.4-mini": 200_000}),
+            model_versions=_MissingVersions(),
+        )
+
+        assert deployments == ()
 
     def test_unknown_capability_returns_empty(self) -> None:
         deployments = collect_narrator_deployments(

@@ -514,7 +514,7 @@ def resolve(
         requested = spec.requested_capacity
         capacity_unit = spec.capacity_unit
         floor = max(1, int(requested * _MIN_QUOTA_RATIO))
-        selected: tuple[str, str, int] | None = None
+        selected: tuple[str, str, int, str | None] | None = None
         rejection_reasons: list[str] = []
         for preference in available_preferences:
             if (
@@ -566,7 +566,26 @@ def resolve(
                     f"floor={floor}:requested={requested}:unit={capacity_unit}"
                 )
                 continue
-            selected = (preference.publisher, preference.family, available)
+            selected_version: str | None = None
+            if model_versions is not None:
+                version_value = model_versions.latest_stable_version(
+                    region=region,
+                    publisher=preference.publisher,
+                    family=preference.family,
+                )
+                if not isinstance(version_value, str) or not version_value.strip():
+                    rejection_reasons.append(
+                        f"no_stable_model_version:publisher={preference.publisher}:"
+                        f"family={preference.family}:region={region}"
+                    )
+                    continue
+                selected_version = version_value
+            selected = (
+                preference.publisher,
+                preference.family,
+                available,
+                selected_version,
+            )
             break
 
         if selected is None:
@@ -588,20 +607,7 @@ def resolve(
             )
             continue
 
-        chosen_pub, chosen_family, available = selected
-        version: str | None = None
-        if model_versions is not None:
-            version_value = model_versions.latest_stable_version(
-                region=region,
-                publisher=chosen_pub,
-                family=chosen_family,
-            )
-            if not isinstance(version_value, str) or not version_value.strip():
-                raise ResolverError(
-                    f"no_stable_model_version:publisher={chosen_pub}:family={chosen_family}:"
-                    f"region={region}"
-                )
-            version = version_value
+        chosen_pub, chosen_family, available, version = selected
         effective = min(requested, available)
         status = (
             CapabilityStatus.RESOLVED
