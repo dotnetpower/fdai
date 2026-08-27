@@ -1,8 +1,8 @@
 ---
 title: 권한 인식 관측 캠페인
 translation_of: observation-campaign.md
-translation_source_sha: 4edbca73c1b158c25d05b330c0625b9d5d3c7769
-translation_revised: 2026-08-25
+translation_source_sha: 37df0bb95c8b312879881b14698ec9ed465f38ec
+translation_revised: 2026-08-28
 ---
 
 # 권한 인식 관측 캠페인
@@ -29,7 +29,7 @@ translation_revised: 2026-08-25
 | 기존 Azure 읽기 어댑터 | implemented | `delivery/azure/activity_log.py`, `delivery/azure/inventory.py`, `delivery/azure/log_query.py`, `delivery/azure/observation_campaign.py`, `core/read_investigation/` | 출처별 수집 및 분석 경로는 의미 있는 근거를 계속 소유합니다. 캠페인 커버리지는 전체 의미 payload 대신 집계 스냅샷 개수, ARG 개수 및 대상이 필요 없는 Log Analytics 메트릭을 읽습니다. |
 | 캠페인 계약 및 출처 레지스트리 | implemented | `config/observation-sources.yaml`, `fdai_service_contracts/operational_activity.py`, `delivery/observation_source_catalog.py`, 집중 계약 및 카탈로그 테스트 | 엄격한 의미 digest 카탈로그가 10개 도메인을 모두 다루고 알 수 없는 필드, 잘못된 소유자, 제한 없는 한도 및 원시 활동 사유 문구를 거부합니다. |
 | 영속 캠페인 실행기 | implemented | `delivery/observation_campaign.py`, 집중 수명 주기 테스트 | 원자적 lease, 개정 번호를 확인하는 종료 기록, 충돌 복구, 현재 상태 커서, 부분 격리, 동시성 4 및 개인정보가 제한된 활동 요약을 실행할 수 있습니다. |
-| 로컬 및 배포 예약 동등성 | implemented | `delivery/observation_campaign_cli.py`, `delivery/inventory_sync_cli.py`, `.vscode/tasks.json`, `infra/modules/compute/container-apps/observation_campaign_job.tf`, 집중 CLI 및 workspace 테스트 | 두 실행 위치 모두 매분 캠페인 실행 조건을 확인합니다. 캠페인은 활동 발행기를 조립할 때 자체 Kafka 연결 필드만 검증하므로 관련 없는 Core LLM 스키마 변경이 작업자를 중지할 수 없습니다. 두 위치 모두 권위 있는 인벤토리 실행 조건 게이트도 실행하며 자격 증명과 PostgreSQL 연결만 다릅니다. |
+| 로컬 및 배포 예약 동등성 | implemented | `delivery/observation_campaign_cli.py`, `delivery/inventory_sync_cli.py`, `.vscode/tasks.json`, `infra/modules/compute/container-apps/observation_campaign_job.tf`, 집중 CLI 및 workspace 테스트 | 두 실행 위치 모두 매분 캠페인 실행 조건을 확인합니다. 유효한 기존 배포 Job 이름은 유지하며 환경 이름 때문에 길이 제한을 넘을 때만 축약된 `caj-<workload>-<env>-observation` 형식을 사용합니다. |
 | Agent Activity 관측 변환 결과 | implemented | `fdai_operator_service/activity_projection.py`, `console/src/agent-operational-activity.ts`, 집중 Operator 및 Console 테스트 | 시작 및 종료 출처 상태를 실제 전달 전에 불러오고, 안정적인 활동 id를 사용하며, 잘못된 개인정보 필드를 거부하고, 지역화된 도메인 레이블을 표시합니다. |
 | 통제된 실제 캠페인 근거 | in-progress | 로컬 캠페인 `campaign-20260819t005835689445-9e1850c2`, 카탈로그 digest `sha256:0a3a4fa0c1ef0a0893f3ce50aec56320c6a558424af1e935eed81e27f81dc9fd`, 인증된 Agent Activity | 보존된 로컬 캠페인은 출처 10개가 모두 준비되고 최신인 상태로 완료됐으며 사유 코드가 없고 성공한 빈 상태도 명시적으로 유지합니다. 동등한 배포 개정 번호 근거는 열려 있습니다. |
 
@@ -38,6 +38,7 @@ translation_revised: 2026-08-25
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-25 | implemented | 캠페인 Event Bus 조립을 전체 Core 구성 검증에서 분리했습니다. 장기 실행 작업자가 이전 환경 프로바이더를 메모리에 유지한 채 다음 반복에서 갱신된 체크아웃의 최신 JSON Schema를 읽으면, 관련 없는 웹 검색 필드가 더 이상 일치하지 않아 종료될 수 있었습니다. 이제 작업자는 필수 Kafka 부트스트랩 연결과 선택적 배달 못 한 메시지 접미사만 읽습니다. | `current change`, `delivery/observation_campaign_cli.py`, `test_observation_campaign_cli.py`, 혼합 구성 집중 회귀 테스트 통과 | 반복 작업자가 이 개정 번호를 로드하도록 로컬 스택을 다시 시작합니다. 배포 개정 번호 캠페인 근거는 계속 열려 있습니다. |
+| 2026-08-28 | implemented | 유효한 관측 Job 이름을 유지하고 Azure 32자 제한을 넘을 때만 환경 범위 축약 형식을 추가했습니다. | 실패한 staging plan-only 실행 `33111410162`; `current change`; 집중 명명 검사 및 Terraform 검증. | 수정된 이름으로 배포 캠페인 실행 1개를 보존합니다. |
 | 2026-08-19 | validated | 보존된 Activity Log backlog를 범위가 제한된 영속 attempt로 모두 소진하고 current source의 최종 로컬 캠페인을 보존했습니다. 등록된 출처 10개가 모두 `ready`, `fresh`, `completed`이고 성공한 빈 결과는 명시적으로 유지되며 사유 코드가 없습니다. 반복 로컬 캠페인 작업도 다시 실행 중입니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217), 캠페인 `campaign-20260819t005835689445-9e1850c2`, 카탈로그 digest `sha256:0a3a4fa0c1ef0a0893f3ce50aec56320c6a558424af1e935eed81e27f81dc9fd`, focused observation 검사 59개 통과 | End-to-end 배포 검증을 주장하기 전에 동등한 배포 개정 번호 근거와 등록된 부정 권한 및 구성 결과를 보존합니다. |
 | 2026-08-19 | implemented | 첫 실제 catch-up 실행이 checkpoint를 영속화하기 전에 30초 source timeout을 소진한 뒤, Activity Log catch-up attempt 하나를 완전히 읽은 adaptive 창 4개로 제한했습니다. 이제 각 terminal attempt는 영속 cursor를 전진시키거나 명시적 source failure를 보고하며, 큰 backlog는 즉시 실행 조건을 만족하는 `source_catchup` 전이로 이어서 처리합니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). Bound 전 실제 실행은 `source_timeout`을 보고했고, 이후 focused checkpoint, cursor pruning, pagination 및 runner 검사 31개가 통과했습니다. | 완료된 로컬 campaign을 소진하고 보존합니다. |
 | 2026-08-19 | implemented | Activity Log coverage가 claims, request detail 또는 properties를 내려받지 않고 영속 cursor backlog를 복구하도록 했습니다. Probe는 timestamp 필드만 요청하고 등록된 result, byte 및 timeout 상한 안에서 닫힌 adaptive 시간 창을 조회하며, 완전히 읽은 창만 checkpoint합니다. `source_catchup`만 즉시 다시 실행 조건을 만족하며 권한, throttle, 전송 및 계약 실패는 정상 간격을 유지합니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). Focused Azure probe 및 영속 runner 검사 30개가 통과했습니다. 수정 전 보존된 로컬 backlog는 event 12,882개와 page 65개로 측정됐습니다. | 변경을 커밋하고 보존된 cursor를 현재 cutoff까지 소진한 뒤, 런타임 검증을 주장하기 전에 출처 10개가 모두 `completed`인 로컬 campaign 하나를 보존합니다. |
