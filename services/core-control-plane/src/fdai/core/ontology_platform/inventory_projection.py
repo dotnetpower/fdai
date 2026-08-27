@@ -60,6 +60,7 @@ TOPOLOGY_LINK_TYPES: tuple[str, ...] = (
     "kubernetes_selects",
     "kubernetes_exposes_endpoints",
     "kubernetes_exposes_endpoint_slice",
+    "runtime_calls",
 )
 
 _RESOURCE_OBJECT_TYPE = "Resource"

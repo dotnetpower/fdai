@@ -39,6 +39,9 @@ bounded object sets, semantic action effects, typed functions, authority-aware w
 > complete snapshots, deltas, and tombstones. Pure `graph_at` and `topology_diff` functions preserve
 > pinned `known_at` replay when late evidence arrives. Every replay batch must carry one consistent
 > ontology release binding, and dangling links or missing or mixed releases lower completeness.
+> The reviewed `runtime_calls` LinkType is included in the inventory topology projection contract,
+> so authenticated caller-to-target edges retain exact Resource endpoints in current and historical
+> views.
 > Typed query handlers and verifier schemas expose these functions without provider text. A
 > Core-owned migration creates append-only history tables with insert/read-only runtime grants.
 > PostgreSQL reader/writer composition and inventory-promotion publishing remain.
