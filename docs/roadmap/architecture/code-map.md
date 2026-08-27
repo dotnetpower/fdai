@@ -90,6 +90,8 @@ Inventory relationship convergence is owned by the continuous operational instan
 provider parents shadow generic containment, snapshot and ontology stores enforce cardinality, and
 principal-scoped operational evidence reads bind receipt-verified Context metadata through the
 existing bounded response without adding mutation or execution authority.
+The Context projection authenticates receipt issuance, compares complete link observation metadata
+including source generation and verification lineage, and budgets the bundle and metadata together.
 Detection projections similarly expose only source-derived Forecast and Pattern objects; deferred
 relationships require exact endpoint identities before catalog restoration.
 Cross-source state adjudication is deterministic and read-only: distinct providers and the

@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: dfded9e9b73bfa68ed5a3292ef9213e1dbeec2f6
+translation_source_sha: d12c389229e88b52b1b3bcd3b6ee12b83db65c04
 translation_revised: 2026-08-27
 ---
 # 코드 맵
@@ -95,6 +95,8 @@ ObjectSet receipt는 결과가 0개인 read를 포함해 source generation 및 c
 truncation과 독립적으로 보존합니다.
 Principal 범위 운영 근거 읽기는 기존 범위 제한 응답을 통해 receipt로 검증된 컨텍스트
 메타데이터를 결속하며 mutation 또는 execution 권한을 추가하지 않습니다.
+Context 변환 결과는 증적 발급을 인증하고, 출처 세대와 검증 계보를 포함한 전체 링크 관측
+메타데이터를 비교하며, 번들과 메타데이터를 하나의 바이트 예산으로 제한합니다.
 Detection 변환 결과도 원본에서 파생된 Forecast 및 Pattern 객체만 노출하며, 보류된 관계는
 카탈로그를 복원하기 전에 정확한 endpoint 신원을 요구합니다.
 교차 출처 상태 판정은 결정론적 읽기 전용입니다. 서로 다른 provider와 변환 상태 shadow 쌍은
