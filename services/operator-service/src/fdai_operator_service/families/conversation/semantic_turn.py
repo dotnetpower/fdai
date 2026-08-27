@@ -212,6 +212,8 @@ def _bound_context(value: object, *, principal_id: str) -> SemanticBoundContext 
         if len(resource_ids) != len(raw_ids):
             raise ValueError("conversation_context resource_ids MUST be non-empty strings")
         if kind == "screen":
+            if value.get("resource_group_id") is not None:
+                raise ValueError("screen bound context MUST NOT carry mixed identity")
             screen_id = value.get("screen_id", value.get("id"))
             if not isinstance(screen_id, str) or not screen_id.strip():
                 return None
@@ -224,6 +226,8 @@ def _bound_context(value: object, *, principal_id: str) -> SemanticBoundContext 
             _verify_context_selection_digest(context)
             return context
         resource_group_id = value.get("resource_group_id", value.get("id"))
+        if value.get("screen_id") is not None:
+            raise ValueError("resource-group bound context MUST NOT carry mixed identity")
         if not isinstance(resource_group_id, str) or not resource_group_id.strip():
             return None
         context = SemanticBoundContext(
