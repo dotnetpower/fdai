@@ -1,15 +1,12 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: 3c657ecb37775f658483e590ebf3c3cdcd1822ca
+translation_source_sha: 0cdcd039a0200ed893104abe5339abba268df047
 translation_revised: 2026-08-28
 ---
 # LLM 전략(LLM Strategy)
-이 설계는 LLM을 **덜 사용**합니다. 모델은 **T2** 대체 경로이며 T0와 T1이 사례를 해결하지 못했을 때만 사용합니다. 결정론적 검증이 승인하기 전에는 모델 출력을 실행에 사용하지 않습니다. 실행 자격은 검증이 부여하며 **모델은 부여하지 않습니다**. 이 문서는
-[architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) 의 티어와 quality-gate 규칙과
-[security-and-identity-ko.md](security-and-identity-ko.md) 의 위협 모델을 확장.
-> 아래 모델 이름은 **채택 시점에 확인**할 권장 사항입니다. 가용성, 가격, 미리 보기 상태는 바뀔 수 있습니다.
-> 구체적인 모델은 가정이 아니라 시나리오 세트에서 측정한 비용과 품질로 선택합니다. 이 문서는 특정 모델을 고정하지 않습니다.
+이 설계는 LLM을 **덜 사용**합니다. 모델은 **T2** 대체 경로이며 T0와 T1이 사례를 해결하지 못했을 때만 사용합니다. 결정론적 검증이 승인하기 전에는 모델 출력을 실행에 사용하지 않습니다. 실행 자격은 검증이 부여하며 **모델은 부여하지 않습니다**. 이 문서는 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md)의 tier 및 quality-gate 규칙과 [security-and-identity-ko.md](security-and-identity-ko.md)의 위협 모델을 확장합니다.
+> 가용성, 가격, 미리 보기 상태가 바뀌므로 채택 시 모델 권장 사항을 확인하세요. 구체 모델은 가정이 아니라 시나리오 세트에서 측정한 비용과 품질로 선택합니다.
 ## 구현 상태
 ### 구현 범위
 | 영역 | 상태 | 근거 | 참고 |
@@ -268,18 +265,12 @@ capacity: { unit: ptu, value: 30 }
 
 ### 부트스트랩 Provisioner
 
-`azd up`(또는 동등한 절차)에서 해석기는 레지스트리와 승인된 환경 정책을 결합하고 대상
-리전의 Azure OpenAI / Foundry 카탈로그 및 용량 표면을 조회하여 **구체 기능당 하나의 배포**를
-프로비저닝합니다. 가상 `t1.vision`은
-별도 배포를 만들지 않고 일치하는 서술기 배포를 재사용합니다. Resolved `{기능 →
-배포}` 매핑이 Key Vault에 기록되고 감사됨.
-
-Azure delivery는 이제 카탈로그 포함 여부를 `(publisher, family)` 쌍으로 보고할 수 있습니다.
-`kind=OpenAI`는 `OpenAI`로, 허용 목록에 있는 `kind=AIServices` format은 `Anthropic` 또는
-`MistralAI`로 매핑하며 안정된 버전은 발행기와 계열을 함께 키로 사용합니다. 계열 이름만
-노출하는 기존 카탈로그 adapter는 이전 경계를 계속 사용합니다. 이 검색 지원만으로 partner
-모델을 배포할 수 있는 것은 아닙니다. 발행기 인식 인프라와 endpoint binding이 준비될 때까지
-활성화를 보류합니다.
+`azd up` 또는 동등한 절차에서 resolver는 레지스트리와 승인된 환경 정책을 결합하고 Azure
+OpenAI / Foundry 카탈로그 및 용량 표면을 조회하여 **구체 기능당 하나의 배포**를
+프로비저닝합니다. 가상 `t1.vision`은 일치하는 narrator 배포를 재사용하며 Key Vault와 감사가
+해석된 매핑을 보존합니다. Azure delivery는 `(publisher, family)` 쌍을 보고하고 허용된
+OpenAI/AIServices format을 매핑하며 두 값을 안정된 버전 키로 사용합니다. 계열 전용 adapter는
+호환되며 partner 활성화는 발행기 인식 인프라와 endpoint binding을 기다립니다.
 
 배포자가 `Cognitive Services Contributor` 를 갖지 않을 때, 선호 계열이 리전에 없을 때,
 `capacity_tpm` 쿼터가 부족할 때, mixed-model 불변식을 만족할 수 없을 때의 **배포자-권한 게이트

@@ -2,12 +2,8 @@
 title: LLM Strategy
 ---
 # LLM Strategy
-The design **uses the LLM less**, not more. A model is the **T2** fallback, reached only after T0 and T1 cannot resolve a case, and its output is never trusted for execution until deterministic verification approves it. Execution eligibility is granted by that verification, **never by the model**. This file expands the tier and quality-gate rules in
-[architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) and
-the threat model in [security-and-identity.md](security-and-identity.md).
-> Model names below are recommendations to **confirm at adoption time**. Availability, pricing,
-> and preview status change; pick the concrete model by measured cost/quality on the scenario set,
-> never by assumption. No specific model is fixed by this document.
+The design **uses the LLM less**, not more. A model is the **T2** fallback, reached only after T0 and T1 cannot resolve a case, and its output is never trusted for execution until deterministic verification approves it. Execution eligibility is granted by that verification, **never by the model**. This file expands [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) and [security-and-identity.md](security-and-identity.md).
+> Confirm model recommendations at adoption time because availability, pricing, and preview status change. Select concrete models by measured scenario-set cost and quality, never assumption.
 ## Implementation status
 ### Implementation scope
 | Area | State | Evidence | Notes |
@@ -274,17 +270,12 @@ capacity: { unit: ptu, value: 30 }
 
 ### Bootstrap Provisioner
 
-At `azd up` (or equivalent) the resolver combines the registry with the approved environment
-policy, queries the target region's Azure OpenAI / Foundry catalog and capacity surfaces, and
-provisions **one deployment per concrete capability**;
-virtual `t1.vision` reuses matching narrator deployments. The resolved `{capability → deployment}`
-mapping is written to Key Vault and audited.
-
-Azure delivery can now report catalog membership as `(publisher, family)` pairs. It maps
-`kind=OpenAI` to `OpenAI` and allowlisted `kind=AIServices` formats to `Anthropic` or `MistralAI`,
-and keys stable versions by both publisher and family. Existing catalog adapters that expose only
-family names continue through the legacy seam. This discovery support does not make partner models
-deployable by itself; activation waits for publisher-aware infrastructure and endpoint bindings.
+At `azd up` (or equivalent), the resolver combines the registry and approved environment policy,
+queries Azure OpenAI / Foundry catalog and capacity surfaces, and provisions **one deployment per
+concrete capability**. Virtual `t1.vision` reuses matching narrator deployments; Key Vault and audit
+retain the resolved mapping. Azure delivery can report `(publisher, family)` pairs, maps allowlisted
+OpenAI/AIServices formats, and keys stable versions by both values. Family-only adapters remain
+compatible; partner activation waits for publisher-aware infrastructure and endpoint bindings.
 
 The full **deployer-permission gate table** (what happens when the deployer identity lacks
 `Cognitive Services Contributor`, when a preferred family is missing from the region, when
