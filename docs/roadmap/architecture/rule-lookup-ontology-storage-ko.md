@@ -1,7 +1,7 @@
 ---
 title: 규칙 조회 온톨로지 저장소
 translation_of: rule-lookup-ontology-storage.md
-translation_source_sha: e5bd0204fd4c1b63083ec86a6230a410d5e5c127
+translation_source_sha: ff15fd430e2fd5f6a8961321783f0871f0e813f4
 translation_revised: 2026-08-27
 ---
 
@@ -19,8 +19,8 @@ translation_revised: 2026-08-27
 |------|------|------|------|
 | 버전이 지정된 온톨로지와 Rule 카탈로그 산출물 | implemented | `rule-catalog/vocabulary/`; `rule-catalog/catalog/`; `test_ontology_catalog.py`; `test_rule_catalog.py` | 카탈로그 로더는 시작 전에 ObjectType, LinkType, ActionType, Rule 참조 및 전달 의미 체계를 검증합니다. |
 | 관계형 온톨로지 인스턴스와 정확한 릴리스 고정 | implemented | `alembic/versions/20260713_0011_ontology_instances.py`; `20260801_0067_ontology_release_pinning.py`; `20260813_0081_ontology_release_registry.py`; `test_postgres_ontology_instance.py` | PostgreSQL은 방향 및 호환성 가드와 함께 타입이 지정된 인스턴스와 정확한 릴리스 메타데이터를 저장합니다. |
-| 단일 저장소 L2-L4 영속성 표면 | implemented | `service-migrations/branches/core-control-plane/versions/20260829_core_catalog_lifecycle.py`; `services/core-control-plane/tests/persistence/test_catalog_lifecycle_integration.py` | 현재 서비스 헤드는 학습된 액션을 카탈로그 버전으로 범위 지정하고 T2 항목을 만료시킵니다. 라이브 검사는 로컬 PostgreSQL 채택이 가능할 때 버전 무효화, 보존 및 migration 롤백도 확인합니다. |
-| 부트, 리로드 및 전달 인덱스 수명 주기 | implemented | `services/core-control-plane/src/fdai/core/tiers/t0_deterministic/index.py`; `services/core-control-plane/tests/core/tiers/t0_deterministic/test_index.py`; [부트와 리로드](#부트와-리로드) | 카탈로그 후보는 게시 전에 컴파일됩니다. 컴파일 실패 시 현재 및 N-1 인덱스가 변경되지 않으며 승인된 N/N-1 인덱스는 replay할 수 있습니다. |
+| 단일 저장소 L2-L4 영속성 표면 | implemented | `service-migrations/branches/core-control-plane/versions/20260829_core_catalog_lifecycle.py`; `services/core-control-plane/tests/persistence/test_catalog_lifecycle_integration.py` | 현재 서비스 헤드는 학습된 액션을 카탈로그 버전으로 범위 지정하고, 서로 다른 버전에서 같은 signature를 허용하며, T2 항목을 만료시킵니다. 라이브 검사는 로컬 PostgreSQL 채택이 가능할 때 legacy backfill, 버전 무효화, 보존 및 migration 롤백도 확인합니다. |
+| 부트, 리로드 및 전달 인덱스 수명 주기 | implemented | `services/core-control-plane/src/fdai/core/tiers/t0_deterministic/index.py`; `services/core-control-plane/tests/core/tiers/t0_deterministic/test_index.py`; [부트와 리로드](#부트와-리로드) | 카탈로그 후보는 전이 lock 아래 게시 전에 컴파일됩니다. 컴파일 실패 시 현재 및 N-1 인덱스가 변경되지 않고, 보존된 버전의 충돌하는 내용은 거부되며, 승인된 N/N-1 인덱스는 replay할 수 있습니다. |
 
 ### 구현 이력
 
@@ -28,6 +28,7 @@ translation_revised: 2026-08-27
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 이전 이력을 재구성하지 않고 구현 원장을 도입했으며 저장소 설명을 현재 migration 소유 스키마에 맞췄습니다. | `current change`; 구현 범위 표의 카탈로그, migration 및 집중 영속성 근거입니다. | 아래의 L2-L4 수명 주기와 원자적 리로드 근거 미비점을 해결합니다. |
 | 2026-08-27 | implemented | 서비스 헤드 카탈로그 수명 주기 migration, 라이브 PostgreSQL 수명 주기 검사, N/N-1 replay 및 롤백을 보존하는 원자적 전달 인덱스 수명 주기를 추가했습니다. 스키마 스케치를 migration 소유 열에 맞췄습니다. | `current change`; `test_catalog_lifecycle_integration.py`; `test_index.py`; 서비스 migration inventory 및 집중 pytest 검사입니다. | 라이브 증적을 얻으려면 로컬 PostgreSQL 채택이 필요합니다. 원격 또는 Azure 증적은 주장하지 않습니다. |
+| 2026-08-27 | implemented | 동시 reload 및 rollback 전이를 직렬화하고, 보존된 N-1 버전의 충돌하는 내용을 거부했으며, legacy backfill 및 안전한 downgrade 검사를 포함하도록 학습된 액션의 유일성을 버전 기준으로 변경했습니다. | `current change`; `test_index.py`; `test_catalog_lifecycle_integration.py`; 서비스 migration inventory 및 집중 pytest 검사입니다. | 라이브 증적을 얻으려면 로컬 PostgreSQL 채택이 필요합니다. 원격 또는 Azure 증적은 주장하지 않습니다. |
 
 ### 남은 작업
 
@@ -139,7 +140,8 @@ CREATE TABLE learned_action (             -- L2
   rollback_count     integer NOT NULL DEFAULT 0,
   last_used_at       timestamptz,
   created_at         timestamptz NOT NULL DEFAULT now(),
-  catalog_version    text NOT NULL DEFAULT 'legacy'
+  catalog_version    text NOT NULL DEFAULT 'legacy',
+  UNIQUE (catalog_version, action_signature)
 );
 CREATE INDEX idx_learned_action_rule_id ON learned_action(rule_id);
 CREATE INDEX idx_learned_action_rule_catalog ON learned_action(rule_id, catalog_version);
@@ -178,8 +180,9 @@ CREATE INDEX idx_t2_cache_expires_at ON t2_cache(expires_at);
 - `t2_cache` 는 `catalog_version` 으로 파티션되고 `expires_at` 은 TTL 읽기 가드입니다.
   카탈로그 승격은 리더가 사용하는 버전을 변경하므로 이전 항목을 재사용하지 않습니다.
   `learned_action` 행은 보존되며 replay 및 감사 이력을 위해 카탈로그 버전과 함께 선택됩니다.
-- UUID 기본 키는 PostgreSQL이 생성합니다. `action_signature`, `input_hash` 및 카탈로그
-  digest가 idempotent 쓰기와 replay에 사용하는 안정적인 상관관계 키를 제공합니다.
+- UUID 기본 키는 PostgreSQL이 생성합니다. `action_signature`은 `catalog_version` 내에서
+  유일하며 `input_hash` 및 카탈로그 digest가 idempotent 쓰기와 replay에 사용하는 안정적인
+  상관관계 키를 제공합니다.
 
 ## 부트와 리로드
 

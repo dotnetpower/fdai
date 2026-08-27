@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import Barrier
 
 import pytest
 import yaml
-from fdai.core.tiers.t0_deterministic import CatalogIndexLifecycle, RuleIndex
+from fdai.core.tiers.t0_deterministic import (
+    CatalogIndexLifecycle,
+    CatalogReloadReceipt,
+    RuleIndex,
+)
 from fdai.rule_catalog.schema.action_type import load_action_type_catalog
 from fdai.rule_catalog.schema.resource_type import (
     load_resource_type_registry_from_mapping,
@@ -280,3 +286,81 @@ def test_catalog_reload_rejects_same_version_with_different_rules() -> None:
             ),
         )
     assert lifecycle.current_index.rule("baseline.rule") is baseline
+
+
+def test_catalog_reload_rejects_conflicting_retained_previous_version() -> None:
+    baseline = _make_rule(
+        rule_id="baseline.rule",
+        resource_type="compute.vm",
+        severity=Severity.LOW,
+    )
+    replacement = _make_rule(
+        rule_id="replacement.rule",
+        resource_type="object-storage",
+        severity=Severity.HIGH,
+    )
+    lifecycle = CatalogIndexLifecycle(catalog_version="catalog-n", rules=(baseline,))
+    lifecycle.reload(catalog_version="catalog-n-plus-one", rules=(replacement,))
+
+    with pytest.raises(ValueError, match="retained; use rollback explicitly"):
+        lifecycle.reload(
+            catalog_version="catalog-n",
+            rules=(
+                _make_rule(
+                    rule_id="conflicting.rule",
+                    resource_type="compute.vm",
+                    severity=Severity.CRITICAL,
+                ),
+            ),
+        )
+
+    assert lifecycle.current_catalog_version == "catalog-n-plus-one"
+    assert lifecycle.index_for("catalog-n").rule("baseline.rule") is baseline
+    assert lifecycle.last_receipt.accepted is False
+
+
+def test_catalog_reload_and_rollback_are_serialized() -> None:
+    baseline = _make_rule(
+        rule_id="baseline.rule",
+        resource_type="compute.vm",
+        severity=Severity.LOW,
+    )
+    replacement = _make_rule(
+        rule_id="replacement.rule",
+        resource_type="object-storage",
+        severity=Severity.HIGH,
+    )
+    lifecycle = CatalogIndexLifecycle(catalog_version="catalog-n", rules=(baseline,))
+    lifecycle.reload(catalog_version="catalog-n-plus-one", rules=(replacement,))
+    barrier = Barrier(2)
+
+    def _transition(operation: str) -> CatalogReloadReceipt:
+        barrier.wait()
+        if operation == "reload":
+            return lifecycle.reload(
+                catalog_version="catalog-n-plus-two",
+                rules=(baseline, replacement),
+            )
+        return lifecycle.rollback()
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = tuple(
+            executor.submit(_transition, operation) for operation in ("reload", "rollback")
+        )
+        receipts = tuple(future.result() for future in futures)
+
+    assert all(receipt.accepted for receipt in receipts)
+    retained = {
+        lifecycle.current_catalog_version,
+        lifecycle.previous_catalog_version,
+    }
+    assert set(receipts[0].retained_catalog_versions) >= {receipts[0].current_catalog_version}
+    assert set(receipts[1].retained_catalog_versions) >= {receipts[1].current_catalog_version}
+    assert retained == {
+        lifecycle.current_catalog_version,
+        lifecycle.previous_catalog_version,
+    }
+    assert lifecycle.previous_catalog_version is not None
+    assert lifecycle.index_for(lifecycle.current_catalog_version)
+    assert lifecycle.index_for(lifecycle.previous_catalog_version)
+    assert lifecycle.last_receipt.current_catalog_version == lifecycle.current_catalog_version

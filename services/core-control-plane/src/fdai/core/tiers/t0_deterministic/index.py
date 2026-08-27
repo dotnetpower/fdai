@@ -28,6 +28,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
+from threading import RLock
 
 from fdai.rule_catalog.schema.signal_type import SignalTypeRegistry
 from fdai.shared.contracts.models import Rule, Severity
@@ -169,6 +170,7 @@ class CatalogIndexLifecycle:
     ) -> None:
         if not catalog_version.strip():
             raise ValueError("catalog_version MUST be non-empty")
+        self._lock = RLock()
         self._signal_types = signal_types
         self._indexes: dict[str, RuleIndex] = {
             catalog_version: RuleIndex.build(rules, signal_types=signal_types)
@@ -186,22 +188,26 @@ class CatalogIndexLifecycle:
     @property
     def current_catalog_version(self) -> str:
         """Return the catalog version used for new dispatches."""
-        return self._current_catalog_version
+        with self._lock:
+            return self._current_catalog_version
 
     @property
     def previous_catalog_version(self) -> str | None:
         """Return the one retained predecessor, if one exists."""
-        return self._previous_catalog_version
+        with self._lock:
+            return self._previous_catalog_version
 
     @property
     def current_index(self) -> RuleIndex:
         """Return the immutable index for the current catalog."""
-        return self._indexes[self._current_catalog_version]
+        with self._lock:
+            return self._indexes[self._current_catalog_version]
 
     @property
     def last_receipt(self) -> CatalogReloadReceipt:
         """Return evidence for the most recent transition attempt."""
-        return self._last_receipt
+        with self._lock:
+            return self._last_receipt
 
     def reload(self, *, catalog_version: str, rules: Iterable[Rule]) -> CatalogReloadReceipt:
         """Compile and atomically accept a new catalog index.
@@ -214,24 +220,50 @@ class CatalogIndexLifecycle:
         if not catalog_version.strip():
             raise ValueError("catalog_version MUST be non-empty")
         candidate_rules = tuple(rules)
-        previous = self._current_catalog_version
         try:
             candidate = RuleIndex.build(candidate_rules, signal_types=self._signal_types)
         except Exception as exc:
-            self._last_receipt = CatalogReloadReceipt(
-                attempted_catalog_version=catalog_version,
-                previous_catalog_version=previous,
-                current_catalog_version=previous,
-                accepted=False,
-                retained_catalog_versions=self._retained_versions(),
-                failure_reason=type(exc).__name__,
-            )
+            with self._lock:
+                previous = self._current_catalog_version
+                self._last_receipt = CatalogReloadReceipt(
+                    attempted_catalog_version=catalog_version,
+                    previous_catalog_version=previous,
+                    current_catalog_version=previous,
+                    accepted=False,
+                    retained_catalog_versions=self._retained_versions(),
+                    failure_reason=type(exc).__name__,
+                )
             raise
 
-        if catalog_version == previous:
-            if candidate != self.current_index:
+        with self._lock:
+            previous = self._current_catalog_version
+            if catalog_version == previous:
+                if candidate != self._indexes[previous]:
+                    error = ValueError(
+                        f"catalog version {catalog_version!r} was already accepted "
+                        "with different rules"
+                    )
+                    self._last_receipt = CatalogReloadReceipt(
+                        attempted_catalog_version=catalog_version,
+                        previous_catalog_version=previous,
+                        current_catalog_version=previous,
+                        accepted=False,
+                        retained_catalog_versions=self._retained_versions(),
+                        failure_reason=type(error).__name__,
+                    )
+                    raise error
+                self._last_receipt = CatalogReloadReceipt(
+                    attempted_catalog_version=catalog_version,
+                    previous_catalog_version=self._previous_catalog_version,
+                    current_catalog_version=previous,
+                    accepted=True,
+                    retained_catalog_versions=self._retained_versions(),
+                )
+                return self._last_receipt
+
+            if catalog_version in self._indexes:
                 error = ValueError(
-                    f"catalog version {catalog_version!r} was already accepted with different rules"
+                    f"catalog version {catalog_version!r} is retained; use rollback explicitly"
                 )
                 self._last_receipt = CatalogReloadReceipt(
                     attempted_catalog_version=catalog_version,
@@ -242,55 +274,51 @@ class CatalogIndexLifecycle:
                     failure_reason=type(error).__name__,
                 )
                 raise error
+
+            # The only state mutation occurs after successful compilation.
+            self._indexes = {previous: self._indexes[previous], catalog_version: candidate}
+            self._previous_catalog_version = previous
+            self._current_catalog_version = catalog_version
             self._last_receipt = CatalogReloadReceipt(
                 attempted_catalog_version=catalog_version,
-                previous_catalog_version=self._previous_catalog_version,
+                previous_catalog_version=previous,
+                current_catalog_version=catalog_version,
+                accepted=True,
+                retained_catalog_versions=self._retained_versions(),
+            )
+            return self._last_receipt
+
+    def rollback(self) -> CatalogReloadReceipt:
+        """Switch dispatch back to the retained N-1 index without recompiling."""
+        with self._lock:
+            previous = self._previous_catalog_version
+            if previous is None:
+                raise LookupError("catalog rollback requires a retained previous version")
+            current = self._current_catalog_version
+            self._current_catalog_version = previous
+            self._previous_catalog_version = current
+            self._indexes = {
+                self._current_catalog_version: self._indexes[self._current_catalog_version],
+                self._previous_catalog_version: self._indexes[self._previous_catalog_version],
+            }
+            self._last_receipt = CatalogReloadReceipt(
+                attempted_catalog_version=previous,
+                previous_catalog_version=current,
                 current_catalog_version=previous,
                 accepted=True,
                 retained_catalog_versions=self._retained_versions(),
             )
             return self._last_receipt
 
-        # The only state mutation occurs after successful compilation.
-        self._indexes = {previous: self.current_index, catalog_version: candidate}
-        self._previous_catalog_version = previous
-        self._current_catalog_version = catalog_version
-        self._last_receipt = CatalogReloadReceipt(
-            attempted_catalog_version=catalog_version,
-            previous_catalog_version=previous,
-            current_catalog_version=catalog_version,
-            accepted=True,
-            retained_catalog_versions=self._retained_versions(),
-        )
-        return self._last_receipt
-
-    def rollback(self) -> CatalogReloadReceipt:
-        """Switch dispatch back to the retained N-1 index without recompiling."""
-        previous = self._previous_catalog_version
-        if previous is None:
-            raise LookupError("catalog rollback requires a retained previous version")
-        current = self._current_catalog_version
-        self._current_catalog_version = previous
-        self._previous_catalog_version = current
-        self._indexes = {
-            self._current_catalog_version: self._indexes[self._current_catalog_version],
-            self._previous_catalog_version: self._indexes[self._previous_catalog_version],
-        }
-        self._last_receipt = CatalogReloadReceipt(
-            attempted_catalog_version=previous,
-            previous_catalog_version=current,
-            current_catalog_version=previous,
-            accepted=True,
-            retained_catalog_versions=self._retained_versions(),
-        )
-        return self._last_receipt
-
     def index_for(self, catalog_version: str) -> RuleIndex:
         """Return current or N-1 index for a replay, rejecting stale versions."""
-        try:
-            return self._indexes[catalog_version]
-        except KeyError as exc:
-            raise LookupError(f"catalog version is not replayable: {catalog_version!r}") from exc
+        with self._lock:
+            try:
+                return self._indexes[catalog_version]
+            except KeyError as exc:
+                raise LookupError(
+                    f"catalog version is not replayable: {catalog_version!r}"
+                ) from exc
 
     def _retained_versions(self) -> tuple[str, ...]:
         return tuple(
