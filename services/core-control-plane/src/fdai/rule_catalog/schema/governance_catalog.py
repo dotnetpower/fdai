@@ -1,6 +1,6 @@
 """Directory loader for the governance catalog-as-code.
 
-Reads every assignment, rule-set, exemption, and override file under a catalog
+Reads every assignment, rule-set, exemption, override, and retirement file under a catalog
 root and returns a :class:`GovernanceCatalog`. This is the I/O boundary (it
 reads files); the per-document validation + domain mapping stays in
 :mod:`fdai.rule_catalog.schema.governance_loader`, which is pure. Issues from
@@ -12,6 +12,7 @@ Layout (CSP-neutral, catalog-as-code):
     <root>/rule-sets/*.{yaml,yml}     -> RuleSet
     <root>/exemptions/*.json          -> Exemption
     <root>/overrides/*.{yaml,yml}     -> Override
+    <root>/retirements/*.{yaml,yml}   -> RuleRetirement
 
 A missing subdirectory is empty, not an error. Duplicate ids within a kind are
 rejected (a catalog cannot bind two assignments under one id); an override
@@ -47,22 +48,25 @@ from fdai.rule_catalog.schema.governance_loader import (
 )
 from fdai.rule_catalog.schema.override import Override, OverrideMode
 from fdai.rule_catalog.schema.parameter_relaxation_policy import ParameterRelaxationPolicy
+from fdai.rule_catalog.schema.retirement import RuleRetirement, load_retirement_from_mapping
 from fdai.rule_catalog.schema.rule_set import RuleSet
 
 _ASSIGNMENTS_DIR = "assignments"
 _RULE_SETS_DIR = "rule-sets"
 _EXEMPTIONS_DIR = "exemptions"
 _OVERRIDES_DIR = "overrides"
+_RETIREMENTS_DIR = "retirements"
 
 
 @dataclass(frozen=True, slots=True)
 class GovernanceCatalog:
-    """The immutable assignment, rule-set, exemption, and override catalog."""
+    """The immutable assignment, rule-set, exemption, override, and retirement catalog."""
 
     assignments: tuple[Assignment, ...] = ()
     rule_sets: tuple[RuleSet, ...] = ()
     exemptions: tuple[Exemption, ...] = ()
     overrides: tuple[Override, ...] = ()
+    retirements: tuple[RuleRetirement, ...] = ()
 
 
 def _load_dir[T](
@@ -153,6 +157,41 @@ def _load_exemptions(
     return tuple(loaded)
 
 
+def _load_retirements(
+    directory: Path,
+    issues: list[GovernanceLoadIssue],
+) -> tuple[RuleRetirement, ...]:
+    if not directory.is_dir():
+        return ()
+    loaded: list[RuleRetirement] = []
+    seen: dict[str, str] = {}
+    for path in sorted([*directory.glob("*.yaml"), *directory.glob("*.yml")]):
+        try:
+            raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+            if not isinstance(raw, dict):
+                raise ValueError("not a YAML mapping")
+            retirement = load_retirement_from_mapping(raw)
+            if path.stem != retirement.rule_id:
+                raise ValueError("retirement filename MUST match rule_id")
+        except (OSError, UnicodeDecodeError, yaml.YAMLError, ValueError) as exc:
+            issues.append(GovernanceLoadIssue(key=path.name, message=f"invalid retirement: {exc}"))
+            continue
+        if retirement.rule_id in seen:
+            issues.append(
+                GovernanceLoadIssue(
+                    key=path.name,
+                    message=(
+                        f"duplicate retirement for {retirement.rule_id!r} "
+                        f"(also in {seen[retirement.rule_id]})"
+                    ),
+                )
+            )
+            continue
+        seen[retirement.rule_id] = path.name
+        loaded.append(retirement)
+    return tuple(loaded)
+
+
 def load_governance_catalog(
     root: Path,
     *,
@@ -160,7 +199,7 @@ def load_governance_catalog(
     max_exemption_duration: timedelta | None = None,
     parameter_relaxation_policies: Mapping[str, ParameterRelaxationPolicy] | None = None,
 ) -> GovernanceCatalog:
-    """Load every governed assignment, rule-set, exemption, and override under ``root``.
+    """Load assignments, rule-sets, exemptions, overrides, and retirements under ``root``.
 
     Rule-sets load first so an assignment that binds a rule-set (by ``rule_set``
     id, rather than an explicit ``target_rule_ids`` list) can be resolved. Raises
@@ -214,6 +253,13 @@ def load_governance_catalog(
     issues.extend(
         _override_parameter_relaxation_issues(overrides, parameter_relaxation_policies or {})
     )
+    retirements = _load_retirements(root / _RETIREMENTS_DIR, issues)
+    if known_rule_versions is not None:
+        issues.extend(
+            GovernanceLoadIssue(key=item.rule_id, message="references unknown rule id")
+            for item in retirements
+            if item.rule_id not in known_rule_versions
+        )
     if issues:
         raise GovernanceLoadError(issues)
     return GovernanceCatalog(
@@ -221,6 +267,7 @@ def load_governance_catalog(
         rule_sets=rule_sets,
         exemptions=exemptions,
         overrides=overrides,
+        retirements=retirements,
     )
 
 

@@ -1,7 +1,7 @@
 ---
 title: 운영 학습 온톨로지
 translation_of: operational-learning-ontology.md
-translation_source_sha: b0053b8e29c20b6112ce58c3851c294dee3e9c95
+translation_source_sha: 2306d4e8ba65d38c34f879db890c241958ad25c7
 translation_revised: 2026-08-27
 ---
 # 운영 학습 온톨로지
@@ -388,7 +388,7 @@ Terraform은 `operational_promotion_measurement_enabled=true`일 때만 Containe
 | O3 카탈로그 컴파일 | implemented | `services/core-control-plane/src/fdai/core/operational_learning/catalog.py`; `services/core-control-plane/src/fdai/delivery/gitops_pr/catalog_validator.py`; `catalog_review.py`; `services/core-control-plane/src/fdai/runtime/operational_catalog_review.py`; 집중 O3 테스트 | 완전한 구성이 있으면 기존 Rule 스키마 검증, 결정론적 고정 replay, 회귀 및 정책 검사, 내용 기반 주소가 지정된 비활성 초안 PR을 연결합니다. 구성이 없거나 일부만 있으면 사용할 수 없는 상태를 유지하거나 시작을 차단합니다. |
 | O4 현재 근거 T1 재사용 | implemented | `services/core-control-plane/tests/core/tiers/t1_lightweight/test_contextual_reuse.py`; `tests/core/test_control_loop_t1_wire.py` | 현재 근거가 누락되거나 오래됐거나 변경됐거나 안전하지 않으면 변경 없이 검토 대기합니다. |
 | O5-O6 Azure 근거 연결 | validated | [제공 계획](#제공-계획); `services/core-control-plane/src/fdai/delivery/azure/operational_evidence.py`; 집중 전달 테스트 | 저장소에 기록된 비운영 AKS 및 읽기 전용 Azure 훈련이 운영 환경 주장을 하지 않으면서 필요한 운영 근거를 제공합니다. |
-| O7 승격 측정 | implemented | `services/core-control-plane/src/fdai/core/measurement/operational_promotion.py`; `operational_promotion_runner.py`; `services/core-control-plane/src/fdai/delivery/measurement/{operational_promotion_evidence.py,operational_promotion_batch.py}`; `measurement_runner_cli.py`; `infra/modules/measurement-runners/`; 집중 O7 테스트 및 Terraform 검증 | exact-digest consumer, 매니페스트 검증기, 영속 영수증 저장소, opt-in 작업 및 governed live-shadow batch producer를 구현했습니다. 작업별 관측 일수, 신뢰도 표본 및 인증된 runtime 증적은 아직 부족합니다. |
+| O7 승격 측정 | implemented | `services/core-control-plane/src/fdai/core/measurement/operational_promotion.py`; `operational_promotion_runner.py`; `services/core-control-plane/src/fdai/delivery/measurement/{operational_promotion_evidence.py,operational_promotion_batch.py}`; `measurement_runner_cli.py`; `infra/modules/measurement-runners/`; 집중 O7 테스트 및 Terraform 검증 | exact-digest consumer, 매니페스트 검증기, 영속 영수증 저장소, opt-in 작업 및 governed batch producer를 구현했습니다. Producer는 변경할 수 없는 frozen-benchmark 레코드를 필수로 받아 live-shadow 레코드와 함께 구성하며 promotion state를 변경하지 않습니다. 작업별 관측 일수, 신뢰도 표본 및 인증된 runtime 증적은 아직 부족합니다. |
 | Evaluation adapter case 입력 | deferred | [Benchmark adapter 휴면 상태](../interfaces/benchmark-adapters-ko.md#휴면-상태) | 현재 EvaluationHost 또는 adapter runtime이 case 입력을 방출할 수 없습니다. Semantic golden dataset은 case history와 learning 밖에 유지됩니다. |
 
 ### 구현 이력
@@ -401,6 +401,8 @@ Terraform은 `operational_promotion_measurement_enabled=true`일 때만 Containe
 | 2026-08-23 | in-progress | exact-digest O7 근거 consumer, 매니페스트 바인딩 causal 및 측정 단위 검증기, 영속 증적 저장, opt-in `operational-promotion` Container Apps 작업을 추가했습니다. | `current change`; `delivery/measurement/operational_promotion_evidence.py`; `delivery/measurement_runner_cli.py`; `infra/modules/measurement-runners/`; 집중 O7 테스트 및 Terraform 검증 통과 | 관리되는 live-batch producer를 구현한 뒤 작업별 batch를 공급하고 관측 및 재발 구간을 닫습니다. |
 | 2026-08-24 | implemented | 순서가 고정된 완전한 `expected_effect_refs` 집합을 보존하고 효과마다 하나의 독립 ObservedOutcome을 요구해 일대다 `expects` 관계와 런타임 계보를 조정했습니다. 단일 속성만 있는 저장 레코드는 하나의 효과로 읽고, 단일 및 복수 필드가 동시에 있으면 안전하게 차단하며, 새 쓰기는 복수 필드를 사용합니다. | `current change`; `hypothesis_lineage.py`; `ActionOption.yaml`; 집중 계보 및 운영 가설 competency 검사 15개 통과. | Projector를 연결하기 전에 남은 실제 계보 속성과 런타임 생산자를 제공합니다. |
 | 2026-08-27 | implemented | 기존 O7 exact-digest source가 소비할 수 있는 canonical batch와 manifest를 생성하는 governed live-shadow batch producer를 추가했으며 promotion state는 변경하지 않습니다. | `current change`; `delivery/measurement/operational_promotion_batch.py` 및 producer/consumer 집중 검사 통과. | 배포 소유 작업 증적을 공급하고 완전한 live 일수, 재발, 신뢰도 및 인증된 검토 증적을 보존합니다. |
+| 2026-08-27 | implemented | live batch producer가 frozen-benchmark 코호트를 불변으로 구성하면서 live-shadow 분류와 exact-digest consumer 계약을 유지하도록 했습니다. | `current change`; 집중 O7 producer/consumer 검사 통과. | 배포 소유 작업 증적을 공급하고 완전한 live 일수, 재발, 신뢰도 및 인증된 검토 증적을 보존합니다. |
+| 2026-08-27 | implemented | Producer가 benchmark 근거를 요구하고 불변으로 유지하며 live-shadow 근거로 재분류하지 않도록 강화했습니다. | `current change`; 집중 O7 producer/consumer adversarial 검사 통과. | 배포 소유 작업 증적을 공급하고 완전한 live 일수, 재발, 신뢰도 및 인증된 검토 증적을 보존합니다. |
 
 ### 남은 작업
 

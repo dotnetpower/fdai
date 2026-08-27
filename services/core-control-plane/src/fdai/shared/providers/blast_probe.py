@@ -38,6 +38,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
+from math import isfinite
 from typing import Protocol, runtime_checkable
 
 
@@ -129,7 +130,7 @@ class ProbeQuery:
             raise ValueError("ProbeQuery.probe_id MUST be non-empty")
         if not self.target_ref:
             raise ValueError("ProbeQuery.target_ref MUST be non-empty")
-        if self.deadline_seconds <= 0:
+        if not isfinite(self.deadline_seconds) or self.deadline_seconds <= 0:
             raise ValueError("ProbeQuery.deadline_seconds MUST be > 0")
 
 

@@ -340,6 +340,12 @@ def _build_control_loop(
         ),
         parameter_relaxation_policies=_load_parameter_relaxation_policies(catalog_root),
     )
+    retired_rule_ids = {
+        item.rule_id for item in governance_catalog.retirements if item.mode.value == "retired"
+    }
+    if retired_rule_ids:
+        active_rules = tuple(rule for rule in active_rules if rule.id not in retired_rule_ids)
+        index = RuleIndex.build(active_rules, signal_types=signal_types)
 
     # Workflow catalog (fail-closed if the directory exists but any file is
     # invalid). Cross-references every step's action_type_ref / compensated_by

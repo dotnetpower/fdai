@@ -73,7 +73,6 @@ def render_rule_retirement(
         path=f"rule-catalog/retirements/{rule_id}.yaml",
         document={
             "schema_version": _SCHEMA_VERSION,
-            "kind": "rule-retirement",
             "rule_id": rule_id,
             "mode": mode.value,
             "justification": justification,
@@ -129,7 +128,7 @@ def render_exemption_grant(
             "subscription-wide grant is a rule retirement, not an exemption"
         )
     return GovernanceDocument(
-        path=f"rule-catalog/exemptions/{exemption_id}.yaml",
+        path=f"rule-catalog/exemptions/{exemption_id}.json",
         document={
             "schema_version": _SCHEMA_VERSION,
             "id": exemption_id,

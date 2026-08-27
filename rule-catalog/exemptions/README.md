@@ -12,7 +12,8 @@ upstream distribution intentionally ships no active exemption.
 - Customer and deployment exemptions belong in governed deployment configuration or a downstream
   distribution, not the generic upstream catalog.
 
-Validate exemption JSON with
+Exemption artifacts use JSON (`<id>.json`) because the runtime loader accepts
+only the canonical JSON schema. Validate exemption JSON with
 [`exemption_cli.py`](../../services/core-control-plane/src/fdai/rule_catalog/schema/exemption_cli.py)
 and the owning
 [`exemption.schema.json`](../../services/core-control-plane/src/fdai/rule_catalog/schema/exemption.schema.json).

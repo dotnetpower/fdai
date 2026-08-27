@@ -7,6 +7,7 @@ from datetime import timedelta
 from pathlib import Path
 
 import pytest
+import yaml
 from fdai.rule_catalog.schema.governance_catalog import load_governance_catalog
 from fdai.rule_catalog.schema.governance_loader import GovernanceLoadError
 
@@ -263,6 +264,28 @@ def test_duplicate_active_exemption_scope_is_rejected(tmp_path: Path) -> None:
     assert any(
         "duplicate active exemption scope" in issue.message for issue in exc_info.value.issues
     )
+
+
+def test_loads_retirement_and_requires_identifier_filename(tmp_path: Path) -> None:
+    payload = {
+        "schema_version": "1.0.0",
+        "rule_id": "rule-a",
+        "mode": "retired",
+        "justification": "The reviewed control is superseded by a narrower rule.",
+        "requested_by": "00000000-0000-0000-0000-000000000001",
+        "approved_by": "00000000-0000-0000-0000-000000000002",
+        "decided_at": "2026-08-15T00:00:00Z",
+    }
+    _write(tmp_path, "retirements", "rule-a.yaml", yaml.safe_dump(payload))
+
+    catalog = load_governance_catalog(tmp_path, known_rule_versions={"rule-a": "1.0.0"})
+
+    assert catalog.retirements[0].rule_id == "rule-a"
+    assert catalog.retirements[0].mode.value == "retired"
+
+    _write(tmp_path, "retirements", "wrong.yaml", yaml.safe_dump(payload))
+    with pytest.raises(GovernanceLoadError, match="filename MUST match rule_id"):
+        load_governance_catalog(tmp_path)
 
 
 def test_exemption_within_configured_max_duration_loads(tmp_path: Path) -> None:

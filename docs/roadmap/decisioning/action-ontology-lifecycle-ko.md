@@ -1,7 +1,7 @@
 ---
 title: Action 온톨로지 라이프사이클
 translation_of: action-ontology-lifecycle.md
-translation_source_sha: 30d5983b8182984460c23b4297a3b91d7bfc06c4
+translation_source_sha: 8d2cde694bc5e7027e9cccb3e78f4283ac09c7e2
 translation_revised: 2026-08-27
 ---
 
@@ -20,7 +20,7 @@ translation_revised: 2026-08-27
 | 카탈로그 lifecycle과 inert 기본값 | implemented | [`test_action_type_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_action_type_catalog.py) | 제공되는 선언은 lifecycle 제약을 검증하고 shadow를 기본값으로 사용합니다. |
 | 룰 위반 교정 소비자 | implemented | [`test_unified_control_loop.py`](../../../services/core-control-plane/tests/pipeline/test_unified_control_loop.py) | 타입이 지정된 컨트롤 루프는 교정을 ActionBuilder, RiskGate 및 Executor를 거쳐 라우팅합니다. |
 | 운영자 요청 제안 소비자 | implemented | [`bragi.py`](../../../services/core-control-plane/src/fdai/agents/bragi.py), [`test_chat_to_pipeline_e2e.py`](../../../services/core-control-plane/tests/agents/test_chat_to_pipeline_e2e.py) | Bragi는 타입이 지정된 제안을 정본 유입 경로에 게시하며 실행기를 직접 호출하지 않습니다. |
-| 거버넌스 dispatcher | implemented | [`promotion.py`](../../../services/core-control-plane/src/fdai/delivery/promotion.py), [`gitops_pr/governance.py`](../../../services/core-control-plane/src/fdai/delivery/gitops_pr/governance.py), [`governance_writers.py`](../../../services/core-control-plane/src/fdai/delivery/gitops_pr/governance_writers.py), 집중 governance delivery 테스트 | 승격은 승인된 서로 다른 승인자 전환을 요구합니다. retire 및 exemption 문서는 governed PR publisher에 연결되고 적용되지 않은 상태로 replay 가능한 open-to-merge 증적을 저장합니다. |
+| 거버넌스 dispatcher | implemented | [`promotion.py`](../../../services/core-control-plane/src/fdai/delivery/promotion.py), [`gitops_pr/governance.py`](../../../services/core-control-plane/src/fdai/delivery/gitops_pr/governance.py), [`retirement.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/retirement.py), 집중 governance delivery 테스트 | 승격은 인증된 exact 서로 다른 승인자 attestation을 요구하며 bare 또는 위조된 review decision을 거부합니다. retire 및 exemption 문서는 canonical path와 형식을 사용하고 PR 종단 상태를 조정하며, 병합된 retire는 active rule index에 projection됩니다. |
 | 선택된 실제 운영 probe | implemented | [`test_action_type_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_action_type_catalog.py) | 참조된 probe는 로더에서 검증되며 probe가 없는 액션은 static 영향 한계를 유지합니다. |
 
 ### 구현 이력
@@ -30,6 +30,8 @@ translation_revised: 2026-08-27
 | 2026-08-13 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입했습니다. | 구현 범위 표의 현재 소스, 테스트 및 소비자 상태 섹션입니다. | 아래의 관찰 가능한 거버넌스 dispatcher 종료 조건을 완료해야 합니다. |
 | 2026-08-15 | in-progress | `governance.retire-rule`과 `governance.grant-exemption`을 위한 순수 PR-native 문서 writer를 추가했습니다. | `current change`; `services/core-control-plane/src/fdai/delivery/gitops_pr/governance_writers.py`; `pytest services/core-control-plane/tests/delivery/test_governance_writers.py` (16 passed). | `promote-action-type` dispatcher와 관리되는 pull request 연결은 남아 있습니다. |
 | 2026-08-27 | implemented | 두 순수 writer를 write-once PR publisher와 영속 open-to-merge lifecycle 증적에 연결하고, 서로 다른 승인자 검토가 없으면 거부하는 승격 dispatcher를 추가했습니다. | `current change`; `gitops_pr/governance.py`, `promotion.py`, 집중 governance delivery 테스트 통과. | GitHub 검토와 병합은 배포가 관리하며, 로컬 증적은 병합된 변경을 주장하지 않습니다. |
+| 2026-08-27 | implemented | exact review attestation, canonical governance path, JSON exemption artifact, 동시 retry 조정 및 merged/closed PR replay를 추가하고 retirement loader와 projection을 연결했습니다. | `current change`; governance, GitOps 및 governance-catalog 집중 테스트 통과. | 배포 소유 identity와 병합된 카탈로그 근거는 외부 게이트입니다. |
+| 2026-08-27 | implemented | bare authority decision 차단, exact governance filename과 extension 강제, retry 직렬화 및 조정, O7 benchmark cohort 요구, non-finite probe deadline 거부, exemption output과 JSON loader 정렬로 review 결과를 반영했습니다. | `current change`; governance, GitOps, O7, probe 및 catalog 집중 adversarial 테스트 통과. | 배포 소유 인증 review와 종단 PR 증적을 보존해야 합니다. |
 
 ### 남은 작업
 
@@ -37,7 +39,7 @@ translation_revised: 2026-08-27
   `services/core-control-plane/tests/delivery/test_governance_writers.py`가 렌더링된 문서마다
   적용되지 않은 상태, 서로 다른 승인자 요구, 구독 전체 exemption 거부를 증명합니다.
 - [x] `governance.promote-action-type` dispatcher는 승인된 서로 다른 승인자 검토가 없으면 거부합니다.
-- [x] 두 PR-native writer를 governed pull request 어댑터에 연결하고 replay 가능한 open-to-merge
+- [x] 두 PR-native writer를 governed pull request 어댑터에 연결하고 replay 가능한 lifecycle
   증적을 저장합니다. 병합과 카탈로그 활성화는 사람의 통제에 남습니다.
 
 ## 설계 경계와 라이프사이클
