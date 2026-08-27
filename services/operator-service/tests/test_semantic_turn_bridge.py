@@ -3110,6 +3110,7 @@ async def test_semantic_adapter_delegates_reads_and_exposes_bridge_health() -> N
             "available": False,
             "configured": True,
             "mode": "starting",
+            "progress_topic": "core.semantic-turn.progress",
             "request_topic": "operator.semantic-turn.requests",
             "result_topic": "core.semantic-turn.projections",
         },
@@ -3268,9 +3269,11 @@ async def test_result_consumer_quarantines_an_unmatched_projection_and_keeps_dra
             topic: str,
             group_id: str,
         ) -> AsyncIterator[Mapping[str, object]]:
-            del topic, group_id
+            del group_id
 
             async def events() -> AsyncIterator[Mapping[str, object]]:
+                if topic != "core.semantic-turn.projections":
+                    await asyncio.Event().wait()
                 while self.pending:
                     yield self.pending[0]
                     self.pending.pop(0)
@@ -3485,6 +3488,7 @@ async def test_production_composition_auto_binds_one_kafka_bus_and_owns_lifecycl
         "available": False,
         "configured": True,
         "mode": "starting",
+        "progress_topic": "core.semantic-turn.progress",
         "request_topic": "semantic.requests",
         "result_topic": "semantic.projections",
     }

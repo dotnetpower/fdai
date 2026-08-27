@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 22cd590750d1c3cd37b57fb0bb3e683a36cd5267
+translation_source_sha: 550a41dc3ef02daf701fea39ce4b0ce4cc4fabfe
 translation_revised: 2026-08-28
 ---
 # 코드 맵
@@ -229,7 +229,8 @@ Shared SDK는 Core/Operator 경계에서 사용하는 no-authority ontology-quer
 결과 하나를 추가합니다. 요청은 인증된 역할, 세션 정렬, 용도, 기한 및 멱등성을
 pin합니다. Answered 결과에는 exact release, 매니페스트, 계획, 실행 증적 및 근거 참조가
 필요합니다. SDK는 해당 필드를 폐기하는 대신 의미 downgrade to N-1을 거부합니다. 런타임
-게시와 consumption은 service-owned 구현으로 유지됩니다.
+게시와 consumption은 service-owned 구현으로 유지되며, Operator bridge는 서로 다른 최종
+projection topic과 progress topic을 감독합니다.
 
 Semantic-turn 요청은 opaque server-issued token과 함께 타입이 지정된 화면 또는 리소스 그룹
 선택을 보존합니다. Operator는 Core가 `query.contextual_resources`를 위해 정확한
