@@ -299,7 +299,6 @@ jobs:
         with:
           ref: ${{ inputs.commit_sha != '' && inputs.commit_sha || github.sha }}
           fetch-depth: 0
-
       - name: Install pinned uv for deployment Python
         uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with:
@@ -938,7 +937,6 @@ jobs:
                 f"{address} -> {successor_text}"
               )
           PY
-
       - name: Run complete Azure live preflight
         if: ${{ !inputs.apply && inputs.request_id != '' }}
         env:
@@ -967,11 +965,13 @@ jobs:
           live = profile.get("azure_live")
           if not isinstance(live, dict) or set(live.get("required_categories", ())) != required:
             raise SystemExit("runner preflight profile must require all Azure live categories")
+          terraform_types = profile.setdefault("terraform_resource_type_map", {})
+          arm_types = live.setdefault("arm_resource_type_map", {})
+          if not isinstance(terraform_types, dict) or not isinstance(arm_types, dict):
+            raise SystemExit("runner preflight resource type mappings must be objects")
+          terraform_types.update({"azurerm_cognitive_account_project": "azure.ai.project", "azurerm_cognitive_deployment": "azure.ai.deployment"})
+          arm_types.update({"azure.ai.project": "Microsoft.CognitiveServices/accounts/projects", "azure.ai.deployment": "Microsoft.CognitiveServices/accounts/deployments"})
           if os.environ["DEPLOY_MONITORING"] == "true":
-            terraform_types = profile.setdefault("terraform_resource_type_map", {})
-            arm_types = live.setdefault("arm_resource_type_map", {})
-            if not isinstance(terraform_types, dict) or not isinstance(arm_types, dict):
-              raise SystemExit("runner preflight resource type mappings must be objects")
             terraform_types.update({
               "azurerm_monitor_action_group": "action-group",
               "azurerm_monitor_diagnostic_setting": "diagnostic-settings",
