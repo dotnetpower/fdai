@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
-from uuid import uuid4
+from typing import cast
+from uuid import UUID, uuid4
 
 import pytest
 from fdai.core.detection.forecast_episode import (
@@ -10,17 +11,39 @@ from fdai.core.detection.forecast_episode import (
     ForecastEvaluationKind,
 )
 from fdai.core.ontology_platform.detection_projection import (
+    DetectionOntologyProjector,
     forecast_object_record,
     pattern_object_record,
 )
 from fdai.core.operational_learning.patterns import OperatingPatternCandidate
 from fdai.shared.providers.ontology_instance import (
+    OntologyInstanceStore,
     OntologyObjectRecord,
 )
 
 NOW = datetime(2026, 8, 27, tzinfo=UTC)
 SCOPE_DIGEST = "a" * 64
 FINGERPRINT = "b" * 64
+
+
+class _Store:
+    def __init__(self) -> None:
+        self.records: dict[str, OntologyObjectRecord] = {}
+        self.writes = 0
+
+    async def get_object(self, object_id: str) -> OntologyObjectRecord | None:
+        return self.records.get(object_id)
+
+    async def upsert_object(
+        self,
+        record: OntologyObjectRecord,
+        *,
+        expected_revision: int | None = None,
+    ) -> OntologyObjectRecord:
+        del expected_revision
+        self.writes += 1
+        self.records[record.id] = record
+        return record
 
 
 def _episode(
@@ -74,6 +97,45 @@ def test_forecast_and_pattern_records_match_catalog_shapes() -> None:
     assert forecast.properties["breach_predicate"] == "cpu:rising:90"
     assert pattern.properties["evidence_digest"].startswith("sha256:")
     assert pattern.properties["sample_size"] == 2
+
+
+async def test_projector_persists_each_record_once_and_replays_idempotently() -> None:
+    store = _Store()
+    projector = DetectionOntologyProjector(cast(OntologyInstanceStore, store))
+
+    first = await projector.project_forecast(_episode(), confidence=0.9, issued_at=NOW)
+    second = await projector.project_forecast(
+        _episode_from(first),
+        confidence=0.9,
+        issued_at=NOW,
+    )
+
+    assert first == second
+    assert store.writes == 1
+
+
+def _episode_from(record: OntologyObjectRecord) -> ForecastEpisode:
+    return ForecastEpisode(
+        episode_id=UUID(record.id),
+        correlation_id="forecast:example",
+        detector_id="detector.example",
+        detector_version="v1",
+        scorer_version="scorer.v1",
+        access_scope_digest=SCOPE_DIGEST,
+        target_ref="resource-example",
+        metric="cpu",
+        feature_cutoff=NOW,
+        horizon_started_at=NOW,
+        horizon_ended_at=NOW + timedelta(seconds=600),
+        telemetry_grace_seconds=60,
+        direction="rising",
+        threshold=90.0,
+        evaluation_kind=ForecastEvaluationKind.PREDICTED_BREACH,
+        predicted_value=95.0,
+        interval_lower=92.0,
+        interval_upper=98.0,
+        evidence_refs=("metric-window:example",),
+    )
 
 
 @pytest.mark.parametrize(
