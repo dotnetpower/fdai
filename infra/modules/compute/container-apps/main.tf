@@ -27,6 +27,16 @@ resource "azurerm_container_app_environment" "primary" {
 # runs fine.
 # ---------------------------------------------------------------------------
 locals {
+  core_job_name_prefix = var.core_job_name_prefix == "" ? var.core_app_name : var.core_job_name_prefix
+  core_job_names = {
+    analyzer     = length("${var.core_app_name}-analyzer") <= 32 ? "${var.core_app_name}-analyzer" : "${local.core_job_name_prefix}-analyzer"
+    canary       = length("${var.core_app_name}-canary") <= 32 ? "${var.core_app_name}-canary" : "${local.core_job_name_prefix}-canary"
+    forecast     = length("${var.core_app_name}-forecast") <= 32 ? "${var.core_app_name}-forecast" : "${local.core_job_name_prefix}-forecast"
+    inventory    = length("${var.core_app_name}-inventory") <= 32 ? "${var.core_app_name}-inventory" : "${local.core_job_name_prefix}-inventory"
+    observation  = length("${var.core_app_name}-observation") <= 32 ? "${var.core_app_name}-observation" : "${local.core_job_name_prefix}-observation"
+    ohl_evidence = length("${var.core_app_name}-ohl-evidence") <= 32 ? "${var.core_app_name}-ohl-evidence" : "${local.core_job_name_prefix}-ohl-evidence"
+    scheduler    = length("${var.core_app_name}-scheduler") <= 32 ? "${var.core_app_name}-scheduler" : "${local.core_job_name_prefix}-scheduler"
+  }
   core_config_env = {
     AZURE_TENANT_ID                    = var.azure_tenant_id
     AZURE_SUBSCRIPTION_ID              = var.azure_subscription_id

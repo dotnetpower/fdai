@@ -5,7 +5,7 @@
 resource "azurerm_container_app_job" "ohl_evidence_proposal" {
   count = var.ohl_evidence_enabled ? 1 : 0
 
-  name                         = "${var.core_app_name}-ohl-evidence"
+  name                         = local.core_job_names.ohl_evidence
   container_app_environment_id = azurerm_container_app_environment.primary.id
   resource_group_name          = var.resource_group_name
   location                     = var.location

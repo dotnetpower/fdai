@@ -3,7 +3,7 @@
 resource "azurerm_container_app_job" "observation_campaign" {
   count = var.observation_campaign_cron_expression == "" ? 0 : 1
 
-  name                         = "${var.core_app_name}-observation"
+  name                         = local.core_job_names.observation
   container_app_environment_id = azurerm_container_app_environment.primary.id
   resource_group_name          = var.resource_group_name
   location                     = var.location

@@ -14,6 +14,12 @@ variable "core_app_name" {
   type        = string
 }
 
+variable "core_job_name_prefix" {
+  description = "Compact CAF prefix used only when a Core-derived Container Apps Job name would exceed 32 characters."
+  type        = string
+  default     = ""
+}
+
 variable "oob_job_name" {
   description = "Container Apps Job name for out-of-band scheduled probes (CAF: caj-<workload>[-env][-region]-oob)."
   type        = string

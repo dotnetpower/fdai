@@ -1739,13 +1739,18 @@ resource "azurerm_key_vault_secret" "github_webhook_secret" {
 # Compute - Container Apps env + core app + out-of-band job.
 # -----------------------------------------------------------------------
 module "compute" {
-  source                          = "./modules/compute/container-apps"
-  env_name                        = "cae-${var.workload}${local.full_suffix}"
-  core_app_name                   = "ca-${var.workload}${local.full_suffix}-core"
-  oob_job_name                    = "caj-${var.workload}${local.full_suffix}-oob"
-  rule_watcher_job_name           = "caj-${var.workload}${local.full_suffix}-watcher"
-  rule_watcher_cron_expression    = var.rule_watcher_cron_expression
-  provider_schema_job_name        = "caj-${var.workload}${local.full_suffix}-provider-schema"
+  source                       = "./modules/compute/container-apps"
+  env_name                     = "cae-${var.workload}${local.full_suffix}"
+  core_app_name                = "ca-${var.workload}${local.full_suffix}-core"
+  core_job_name_prefix         = "caj-${var.workload}${local.env_suffix}"
+  oob_job_name                 = "caj-${var.workload}${local.full_suffix}-oob"
+  rule_watcher_job_name        = "caj-${var.workload}${local.full_suffix}-watcher"
+  rule_watcher_cron_expression = var.rule_watcher_cron_expression
+  provider_schema_job_name = (
+    length("caj-${var.workload}${local.full_suffix}-provider-schema") <= 32
+    ? "caj-${var.workload}${local.full_suffix}-provider-schema"
+    : "caj-${var.workload}${local.env_suffix}-provider"
+  )
   provider_schema_cron_expression = var.provider_schema_cron_expression
   browser_evidence_cleanup_job_name = (
     "caj-${var.workload}${local.full_suffix}-browser-gc"

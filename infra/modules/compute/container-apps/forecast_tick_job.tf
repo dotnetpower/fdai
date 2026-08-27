@@ -4,7 +4,7 @@
 resource "azurerm_container_app_job" "forecast_tick" {
   count = var.forecast_tick_cron_expression == "" ? 0 : 1
 
-  name                         = "${var.core_app_name}-forecast"
+  name                         = local.core_job_names.forecast
   container_app_environment_id = azurerm_container_app_environment.primary.id
   resource_group_name          = var.resource_group_name
   location                     = var.location
