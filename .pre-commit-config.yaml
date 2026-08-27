@@ -47,15 +47,6 @@ repos:
   #    tracked file set itself.
   - repo: local
     hooks:
-      - id: resign-integrity
-        name: resign-if-surface-staged.sh (auto re-sign manifest, upstream signer only)
-        entry: bash scripts/integrity/resign-if-surface-staged.sh
-        language: system
-        pass_filenames: false
-        # No-op unless the upstream private key is present AND a framework-
-        # surface file is staged. Runs before check-integrity so the fresh
-        # signature is what gets verified. Forks never have the key -> no-op.
-        files: ^(services/core-control-plane/src/fdai/(core/|composition\.py|composition/|shared/providers/|shared/contracts/|agents/)|rule-catalog/schema/|\.github/instructions/)
       - id: check-punctuation
         name: check-punctuation.sh
         entry: bash scripts/quality/repository/check-punctuation.sh

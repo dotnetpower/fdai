@@ -15,6 +15,8 @@ import pytest
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _HOOK = _REPO_ROOT / "scripts" / "integrity" / "resign-if-surface-staged.sh"
 _GENERATOR = _REPO_ROOT / "scripts" / "integrity" / "gen-integrity-manifest.py"
+_PRE_COMMIT_HOOK = _REPO_ROOT / ".githooks" / "pre-commit"
+_PRE_COMMIT_CONFIG = _REPO_ROOT / ".pre-commit-config.yaml"
 _SURFACE_LIST = _REPO_ROOT / "scripts" / "lib" / "framework-surface.txt"
 _BASH = shutil.which("bash") or "bash"
 _GIT = shutil.which("git") or "git"
@@ -197,3 +199,14 @@ def test_index_manifest_generation_preserves_existing_timestamp(repo: Path) -> N
     assert result.returncode == 0, result.stderr
     generated = json.loads(output.read_text(encoding="utf-8"))
     assert generated["generated_at"] == "2026-08-27T00:00:00Z"
+
+
+def test_tracked_pre_commit_prepares_index_before_quality_framework() -> None:
+    hook = _PRE_COMMIT_HOOK.read_text(encoding="utf-8")
+    signing = "bash scripts/integrity/resign-if-surface-staged.sh"
+    quality = "exec uv run pre-commit run --hook-stage pre-commit"
+
+    assert signing in hook
+    assert quality in hook
+    assert hook.index(signing) < hook.index(quality)
+    assert "id: resign-integrity" not in _PRE_COMMIT_CONFIG.read_text(encoding="utf-8")

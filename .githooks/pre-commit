@@ -2,10 +2,9 @@
 # Pre-commit hook - run the repository's staged-file quality gates.
 #
 # core.hooksPath=.githooks makes this tracked hook authoritative, so it must
-# delegate to .pre-commit-config.yaml instead of relying on a generated hook
-# under .git/hooks. That catches Ruff lint/format failures before the commit
-# reaches pre-push and also runs the framework-surface re-sign hook declared
-# in the shared configuration.
+# prepare the staged integrity snapshot, then delegate quality gates to
+# .pre-commit-config.yaml instead of relying on a generated hook under
+# .git/hooks. That catches Ruff lint/format failures before pre-push.
 #
 # Install: make hooks-install (the VS Code folderOpen task does this too)
 # Bypass:  git commit --no-verify
@@ -40,6 +39,13 @@ if [ "${#staged_paths[@]}" -gt 0 ] && [ "${#unstaged_paths[@]}" -gt 0 ]; then
     echo "  Or separate the unstaged edits into a later commit." >&2
     exit 1
   fi
+fi
+
+# Prepare signed framework artifacts before pre-commit snapshots the index.
+# The signer writes only to the index, so unrelated worktree manifest edits
+# remain available for their owning session.
+if ! bash scripts/integrity/resign-if-surface-staged.sh; then
+  exit 1
 fi
 
 exec uv run pre-commit run --hook-stage pre-commit

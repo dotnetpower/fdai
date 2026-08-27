@@ -3,8 +3,8 @@
 # resign-if-surface-staged.sh - auto re-sign the framework-surface integrity
 # manifest at commit time, but ONLY when this repo is the upstream signer.
 #
-# Called from the pre-commit hook (.githooks/pre-commit and the pre-commit
-# framework). It is a deliberate no-op unless ALL of these hold:
+# Called by .githooks/pre-commit before the pre-commit framework snapshots the
+# index. It is a deliberate no-op unless ALL of these hold:
 #
 #   1. the upstream Ed25519 PRIVATE signing key is available
 #      (secrets/integrity-signing-key.pem or $FDAI_INTEGRITY_KEY), AND
