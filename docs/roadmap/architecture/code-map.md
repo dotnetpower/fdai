@@ -91,6 +91,8 @@ provider parents shadow generic containment, snapshot and ontology stores enforc
 the inventory ontology projector serializes graph replacement with its generation commit marker.
 Resource ObjectSet receipts preserve source generation and completeness independently from query
 truncation, including zero-result reads.
+The same projection preserves independently verified `runtime_calls` edges in both directions
+without treating mutual service calls as an orientation conflict.
 
 The bounded ARM compute overlay owns VMSS VM and NIC child collection through reviewed parent and
 attachment mappings. The Console instance presentation omits role assignments, keeps only the
