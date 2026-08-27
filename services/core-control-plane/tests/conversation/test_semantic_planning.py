@@ -2017,6 +2017,7 @@ def test_contextual_collection_uses_exact_bound_screen_scope(utterance: str) -> 
         bound_resource_context=_bound_context(
             ("resource-a", "resource-b"),
             release_digest=manifest.release_digest,
+            principal_scope_digest=manifest.coverage_receipt.principal_scope_digest,
         ),
     )
 
@@ -2051,6 +2052,7 @@ def test_contextual_collection_intersects_explicit_type_and_name_filters() -> No
         bound_resource_context=_bound_context(
             ("resource-a", "resource-b"),
             release_digest=manifest.release_digest,
+            principal_scope_digest=manifest.coverage_receipt.principal_scope_digest,
         ),
     )
 
@@ -2083,10 +2085,15 @@ def test_contextual_collection_without_bound_scope_clarifies(utterance: str) -> 
     assert outcome.plan is None
 
 
-def _bound_context(resource_ids: tuple[str, ...], *, release_digest: str) -> BoundResourceContext:
+def _bound_context(
+    resource_ids: tuple[str, ...],
+    *,
+    release_digest: str,
+    principal_scope_digest: str,
+) -> BoundResourceContext:
     identity = {
         "principal_id": "operator",
-        "principal_scope_digest": f"sha256:{'a' * 64}",
+        "principal_scope_digest": principal_scope_digest,
         "ontology_release_digest": release_digest,
         "source_generation": "generation-1",
         "complete": True,

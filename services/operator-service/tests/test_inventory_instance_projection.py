@@ -193,6 +193,9 @@ async def test_instance_directory_uses_the_active_detail_generation() -> None:
     assert result["source_generation"] == "generation-1"
     assert result["search"] == "core"
     assert result["complete"] is True
+    assert result["principal_id"] == "reader"
+    assert isinstance(result["principal_scope_digest"], str)
+    assert isinstance(result["selection_digest"], str)
     resources = result["resources"]
     assert isinstance(resources, list)
     assert resources == [

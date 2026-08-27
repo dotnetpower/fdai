@@ -15,6 +15,8 @@ from fdai_operator_service.families.operations.contracts import (
     ProjectionQuery,
     ProjectionUnavailableError,
 )
+from fdai_service_contracts import OperatorRole, context_selection_digest
+from fdai_service_contracts.ontology_query import content_digest
 
 MAX_INSTANCE_LINK_TYPES = 16
 MAX_INSTANCE_RESOURCES = 200
@@ -75,6 +77,13 @@ async def project_inventory_instances(
         "resources": [_resource_projection(resource, root_id=None) for resource in page.resources],
         "complete": not page.truncated,
         "truncation_reason": "resource_limit" if page.truncated else None,
+        **_context_identity(
+            query=query,
+            release_digest=release_digest,
+            source_generation=context.snapshot_id,
+            resource_ids=tuple(resource.resource_id for resource in page.resources),
+            complete=not page.truncated,
+        ),
         "execution_authority": False,
         "mutation_authority": False,
     }
@@ -245,6 +254,13 @@ async def project_inventory_instance(
         ],
         "complete": not truncation_reasons and not context.relationship_drop_reasons,
         "truncation_reasons": truncation_reasons,
+        **_context_identity(
+            query=query,
+            release_digest=release_digest,
+            source_generation=context.snapshot_id,
+            resource_ids=tuple(resource.resource_id for resource in neighborhood.resources),
+            complete=not truncation_reasons and not context.relationship_drop_reasons,
+        ),
         "execution_authority": False,
         "mutation_authority": False,
     }
@@ -363,6 +379,46 @@ def _link_types(
     if unknown:
         raise ValueError("instance exploration requested an undeclared LinkType")
     return normalized
+
+
+def _context_identity(
+    *,
+    query: ProjectionQuery,
+    release_digest: str,
+    source_generation: str,
+    resource_ids: tuple[str, ...],
+    complete: bool,
+) -> dict[str, object]:
+    """Issue a digest-bound selection only for a complete principal-scoped read."""
+    if not complete:
+        return {}
+    principal_role = max(
+        query.roles or frozenset({OperatorRole.READER}),
+        key=lambda role: tuple(OperatorRole).index(role),
+    )
+    principal_scope_digest = content_digest(
+        {
+            "principal_id": query.principal_id,
+            "role": principal_role.value,
+            "purpose": query.purpose,
+        }
+    )
+    selection_digest = context_selection_digest(
+        kind="screen",
+        principal_id=query.principal_id,
+        principal_scope_digest=principal_scope_digest,
+        ontology_release_digest=release_digest,
+        source_generation=source_generation,
+        complete=complete,
+        screen_id="ontology-instances",
+        resource_group_id=None,
+        resource_ids=resource_ids,
+    )
+    return {
+        "principal_id": query.principal_id,
+        "principal_scope_digest": principal_scope_digest,
+        "selection_digest": selection_digest,
+    }
 
 
 def _resource_projection(
