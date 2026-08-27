@@ -4,6 +4,7 @@ from dataclasses import replace
 from datetime import UTC, datetime
 
 import pytest
+from fdai.core.ontology_platform.functions import FunctionInvocationContext
 from fdai.core.ontology_platform.models import (
     ObjectSelector,
     ObjectSelectorKind,
@@ -16,6 +17,7 @@ from fdai.core.ontology_platform.query_gateway import (
     SecuredObjectSetQueryResult,
     _projected_result_digest,
 )
+from fdai.core.ontology_platform.query_receipt_authority import SecuredQueryReceiptAuthority
 from fdai.core.operational_context import (
     AuthenticatedPrincipalContext,
     OperationalContextSnapshot,
@@ -42,11 +44,27 @@ def _request() -> OperationalEvidenceReadRequest:
     )
 
 
-def _authenticated_context() -> AuthenticatedPrincipalContext:
+def _authenticated_context(
+    result: SecuredObjectSetQueryResult | None = None,
+) -> AuthenticatedPrincipalContext:
+    authority = SecuredQueryReceiptAuthority()
+    if result is not None:
+        authority.issue(result)
+        evidence_refs = (result.receipt.projected_result_digest,)
+    else:
+        evidence_refs = ()
     return AuthenticatedPrincipalContext(
         principal_ref=PRINCIPAL,
         principal_scope_digest=PRINCIPAL_SCOPE,
         purpose="incident-review",
+        receipt_authority=authority,
+        invocation_context=FunctionInvocationContext(
+            caller_agent="Bragi",
+            caller_role="reader",
+            purposes=("incident-review",),
+            evidence_refs=evidence_refs,
+        ),
+        verification_context=authority.verification_context,
     )
 
 
@@ -167,12 +185,33 @@ async def test_runtime_evidence_read_binds_receipt_verified_context_metadata() -
     result = await OperationalEvidenceReadService(
         source=source,
         clock=lambda: NOW,
-    ).read(_request(), authenticated_context=_authenticated_context())
+    ).read(
+        _request(),
+        authenticated_context=_authenticated_context(_secured_context()),
+    )
 
     assert result.principal_ref == PRINCIPAL
     assert result.context_metadata is not None
     assert result.context_metadata["principal_ref"] == PRINCIPAL
     assert result.context_metadata["complete"] is True
+
+
+async def test_runtime_evidence_read_bounds_bundle_and_context_response_together() -> None:
+    request = _request()
+    source = _Source(
+        replace(
+            await _Source().collect(request),
+            context_snapshot=_context_snapshot(),
+            secured_context_result=_secured_context(),
+        )
+    )
+
+    with pytest.raises(ValueError, match="response exceeds max_bytes"):
+        await OperationalEvidenceReadService(
+            source=source,
+            clock=lambda: NOW,
+            max_bytes=1_024,
+        ).read(request, authenticated_context=_authenticated_context(_secured_context()))
 
 
 async def test_runtime_evidence_read_rejects_source_identity_drift() -> None:

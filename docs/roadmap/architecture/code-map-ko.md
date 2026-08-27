@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: b787e2a0ba333bef75788fb1a6b890a1d57ae6df
+translation_source_sha: 3b289bf1c975965217fae24dcd03cb4c1ac0bd39
 translation_revised: 2026-08-30
 ---
 # 코드 맵
@@ -119,6 +119,8 @@ Context 읽기는 인증된 principal 범위 증적을 연결하고 Forecast 및
 영속화와 인증된 생산자 증명을 사용합니다.
 같은 변환은 독립적으로 검증된 `runtime_calls` edge를 양방향으로 보존하며 서비스 간 상호 호출을
 방향 충돌로 취급하지 않습니다.
+Context 변환 결과는 증적 발급을 인증하고, 출처 세대와 검증 계보를 포함한 전체 링크 관측
+메타데이터를 비교하며, 번들과 메타데이터를 하나의 바이트 예산으로 제한합니다.
 
 Bounded ARM compute overlay는 검토된 parent 및 attachment mapping을 통해 VMSS VM과 NIC child
 collection을 소유합니다. Console instance presentation은 role assignment를 생략하고 선택한

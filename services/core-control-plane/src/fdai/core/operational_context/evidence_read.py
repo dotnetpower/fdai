@@ -11,6 +11,7 @@ from fdai.shared.contracts.models import Autonomy
 
 from .console_projection import SecuredContextResult, project_context_snapshot
 from .evidence_bundle import ReceiptValidator, build_operational_evidence_bundle
+from .evidence_bundle_identity import bundle_body
 from .evidence_bundle_models import (
     CatalogEvidenceItem,
     ClaimRecord,
@@ -18,6 +19,7 @@ from .evidence_bundle_models import (
     OntologyEvidenceItem,
     OperationalEvidenceBundle,
     StateEvidenceItem,
+    canonical_json,
 )
 from .models import OperationalContextSnapshot
 from .principal_context import AuthenticatedPrincipalContext
@@ -158,6 +160,8 @@ class OperationalEvidenceReadService:
                 secured_result=material.secured_context_result,
                 authenticated_context=authenticated_context,
             )
+        if _serialized_response_size(bundle, context_metadata) > self._max_bytes:
+            raise ValueError("operational evidence response exceeds max_bytes")
         return OperationalEvidenceReadResult(
             bundle=bundle,
             principal_ref=authenticated_context.principal_ref,
@@ -172,3 +176,38 @@ __all__: Sequence[str] = (
     "OperationalEvidenceReadService",
     "OperationalEvidenceSource",
 )
+
+
+def _serialized_response_size(
+    bundle: OperationalEvidenceBundle,
+    context_metadata: dict[str, object] | None,
+) -> int:
+    """Return canonical bytes for the complete response, including Context metadata."""
+
+    body = {
+        "bundle": bundle_body(
+            cutoff=bundle.cutoff,
+            trusted_recorded_at=bundle.trusted_recorded_at,
+            ontology_release_digest=bundle.ontology_release_digest,
+            catalog_revision=bundle.catalog_revision,
+            purpose=bundle.purpose,
+            scope=bundle.scope,
+            claims=bundle.claims,
+            ontology=bundle.ontology,
+            state=bundle.state,
+            catalog=bundle.catalog,
+            documents=bundle.documents,
+            citation_manifest=bundle.citation_manifest,
+            conflicts=bundle.conflicts,
+            missing_paths=bundle.missing_paths,
+            evidence_issues=bundle.evidence_issues,
+            hold_reasons=bundle.hold_reasons,
+            max_items=bundle.max_items,
+            max_bytes=bundle.max_bytes,
+            used_items=bundle.used_items,
+            used_bytes=bundle.used_bytes,
+            autonomy_ceiling=bundle.autonomy_ceiling,
+        ),
+        "context_metadata": context_metadata,
+    }
+    return len(canonical_json(body).encode("utf-8"))

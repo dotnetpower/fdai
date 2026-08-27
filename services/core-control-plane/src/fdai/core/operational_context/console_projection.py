@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from typing import Protocol
 
@@ -11,6 +11,10 @@ from fdai.core.ontology_platform.query_gateway import (
     _projected_result_digest,
 )
 from fdai.shared.providers.ontology_instance import canonical_json_mapping
+from fdai.shared.providers.state_evidence import (
+    LINK_OBSERVATION_METADATA_PROPERTY,
+    LinkObservationMetadata,
+)
 
 from .models import (
     OperationalContextEvidenceLink,
@@ -47,6 +51,7 @@ class _Link(Protocol):
     link_type: str
     from_id: str
     to_id: str
+    properties: Mapping[str, object]
 
 
 class _Graph(Protocol):
@@ -80,6 +85,15 @@ def project_context_snapshot(
         raise ValueError(
             "secured Context receipt principal scope does not match authenticated context"
         )
+    if not authenticated_context.receipt_authority.verify(
+        receipt=receipt,
+        invocation_context=authenticated_context.invocation_context,
+        expected_release=receipt.ontology_release,
+        expected_purpose=authenticated_context.purpose,
+        expected_result_digest=receipt.projected_result_digest,
+        verification_context=authenticated_context.verification_context,
+    ):
+        raise ValueError("secured Context receipt was not issued by the receipt authority")
     if receipt.execution_authority is not False:
         raise ValueError("secured Context receipt MUST NOT grant execution authority")
     if receipt.projected_result_digest != _projected_result_digest(secured_result.materialization):
@@ -128,21 +142,21 @@ def project_context_snapshot(
                 raise ValueError("secured Context result temporal identity does not match its path")
             if expected is not None and actual != _timestamp(expected):
                 raise ValueError("secured Context result temporal identity does not match its path")
-    graph_links = {(item.from_id, item.link_type, item.to_id) for item in graph.links}
+    graph_links = {
+        (item.from_id, item.link_type, item.to_id): _graph_link_metadata(item)
+        for item in graph.links
+    }
     if len(graph_links) != len(graph.links):
         raise ValueError("secured Context result contains duplicate link identities")
     if any(
         link.from_id not in object_by_id or link.to_id not in object_by_id for link in graph.links
     ):
         raise ValueError("secured Context result link endpoint identity is incomplete")
-    required_links = {
-        (item.from_id, item.link_type, item.to_id) for item in snapshot.evidence_links
-    }
-    required_links.update(
-        (item.from_id, item.link_type, item.to_id) for path in required_paths for item in path.links
-    )
-    if not required_links <= graph_links:
+    required_links = _required_link_metadata(snapshot, required_paths=required_paths)
+    if not required_links.keys() <= graph_links.keys():
         raise ValueError("secured Context result does not provide complete link coverage")
+    if any(graph_links[identity] != metadata for identity, metadata in required_links.items()):
+        raise ValueError("secured Context result link observation metadata does not match snapshot")
 
     complete = (
         secured_result.receipt.complete
@@ -201,6 +215,36 @@ def _link_projection(link: OperationalContextEvidenceLink) -> dict[str, str]:
         "from_id": link.from_id,
         "to_id": link.to_id,
     }
+
+
+def _graph_link_metadata(link: _Link) -> LinkObservationMetadata | None:
+    raw = link.properties.get(LINK_OBSERVATION_METADATA_PROPERTY)
+    if raw is None:
+        return None
+    if not isinstance(raw, Mapping):
+        raise ValueError("secured Context result link observation metadata MUST be an object")
+    return LinkObservationMetadata.from_mapping(raw)
+
+
+def _required_link_metadata(
+    snapshot: OperationalContextSnapshot,
+    *,
+    required_paths: tuple[OperationalContextEvidencePath, ...],
+) -> dict[tuple[str, str, str], LinkObservationMetadata | None]:
+    required: dict[tuple[str, str, str], LinkObservationMetadata | None] = {}
+    links = (
+        *snapshot.evidence_links,
+        *(link for path in required_paths for link in path.links),
+    )
+    for link in links:
+        identity = (link.from_id, link.link_type, link.to_id)
+        existing = required.get(identity)
+        if identity in required and existing != link.observation_metadata:
+            raise ValueError(
+                "operational Context snapshot has conflicting link observation metadata"
+            )
+        required[identity] = link.observation_metadata
+    return required
 
 
 def _optional_timestamp(value: datetime | None) -> str | None:
