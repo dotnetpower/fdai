@@ -122,8 +122,6 @@ class KubernetesInventoryEnricher:
             recorded_at=snapshot.observed_at,
             upstream_drops=projected.dropped,
         )
-        if verified.dropped:
-            return _unavailable(observation, reason="kubernetes_relationship_incomplete")
         existing_resource_ids = {resource.resource_id for resource in observation.resources}
         if any(resource.resource_id in existing_resource_ids for resource in snapshot.resources):
             return _unavailable(observation, reason="kubernetes_resource_identity_conflict")
@@ -135,6 +133,25 @@ class KubernetesInventoryEnricher:
             for link in verified.links
         ):
             return _unavailable(observation, reason="kubernetes_relationship_identity_conflict")
+        relationship_drops = (*observation.relationship_drops, *verified.dropped)
+        if verified.dropped:
+            # Keep independently verified records that are usable while making
+            # each unresolved endpoint visible as incomplete evidence.
+            return replace(
+                observation,
+                resources=combined_resources,
+                links=(*observation.links, *verified.links),
+                relationship_drops=relationship_drops,
+                source_states=(
+                    *observation.source_states,
+                    InventoryProjectionSourceState(
+                        source=KUBERNETES_INVENTORY_SOURCE_NAME,
+                        status=InventoryProjectionSourceStatus.UNAVAILABLE,
+                        observed_at=None,
+                        reason="kubernetes_relationship_incomplete",
+                    ),
+                ),
+            )
         return replace(
             observation,
             resources=combined_resources,

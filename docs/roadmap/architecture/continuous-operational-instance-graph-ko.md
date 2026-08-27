@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 19cbf741181e86046b63bb291ecd12eff6164498
+translation_source_sha: 16fc461560275f296e729b51bf4c35b597f094b6
 translation_revised: 2026-08-27
 ---
 # 지속형 운영 인스턴스 그래프
@@ -368,6 +368,12 @@ provider-type coverage와 deployed evidence 보존이며 authority를 넓히거�
 - [x] 정확한 Container workload registry 의미와 interaction 근거를 보존합니다. Registry
   구성이 있는 App 9개와 Job 11개가 모두 dependency로 변환되고, 가장 큰 registry는 incoming
   workload 16개를 표시하며 zoom, fit, 고정-node pan으로 전체 fan-in을 검사할 수 있습니다.
+- [x] Inventory projection commit 레코드를 content-addressed 방식으로 유지합니다. Manifest
+  digest는 release-bound status marker와 공유되며, 재시작 후 혼합되었거나 변조된 generation은
+  reader가 거부합니다.
+- [x] 추론된 edge 없이 부분 Kubernetes topology를 유지합니다. 관찰된 cluster, namespace,
+  pool, node, workload, Service, endpoint, Ingress 레코드는 검토된 endpoint가 없을 때에도
+  유지되며, 누락된 relationship은 unavailable 증적으로 보고됩니다.
 - [x] Role assignment 225개, scope attachment 185개, Managed Identity attachment 106개로
   검증된 Azure 범위를 넘어 로컬 authorization 근거 계약을 완료합니다. 모델링되지 않은 child
   scope는 `authorization_child_scope_unmodeled`를 보존하고, 타입 지정 principal-safe PostgreSQL

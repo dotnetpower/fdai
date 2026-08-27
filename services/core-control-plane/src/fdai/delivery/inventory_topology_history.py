@@ -90,6 +90,7 @@ class InventoryTopologyHistoryPublisher:
         source_receipt_digest = _source_receipt_digest(
             generation=observation.generation,
             recorded_at=observation.recorded_at.isoformat(),
+            ontology_release_digest=self._ontology_release_digest,
             object_revisions=object_revisions,
             link_revisions=link_revisions,
         )
@@ -101,6 +102,8 @@ class InventoryTopologyHistoryPublisher:
             complete_snapshot=True,
             object_revisions=object_revisions,
             link_revisions=link_revisions,
+            ontology_release_digest=self._ontology_release_digest,
+            source_receipt_digest=source_receipt_digest,
         )
         await self._writer.append(
             batch,
@@ -114,12 +117,14 @@ def _source_receipt_digest(
     *,
     generation: str,
     recorded_at: str,
+    ontology_release_digest: str,
     object_revisions: tuple[TopologyObjectRevision, ...],
     link_revisions: tuple[TopologyLinkRevision, ...],
 ) -> str:
     payload = {
         "generation": generation,
         "recorded_at": recorded_at,
+        "ontology_release_digest": ontology_release_digest,
         "objects": [
             {
                 "id": item.object_id,

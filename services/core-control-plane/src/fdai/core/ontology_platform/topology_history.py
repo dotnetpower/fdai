@@ -115,6 +115,8 @@ class TopologyRevisionBatch:
     complete_snapshot: bool
     object_revisions: tuple[TopologyObjectRevision, ...] = ()
     link_revisions: tuple[TopologyLinkRevision, ...] = ()
+    ontology_release_digest: str | None = None
+    source_receipt_digest: str | None = None
 
     def __post_init__(self) -> None:
         _identity(self.revision_id, "revision_id")
@@ -126,6 +128,12 @@ class TopologyRevisionBatch:
             raise ValueError("topology object recorded_at MUST match its batch")
         if any(item.recorded_at != self.recorded_at for item in self.link_revisions):
             raise ValueError("topology link recorded_at MUST match its batch")
+        for field_name, value in (
+            ("ontology_release_digest", self.ontology_release_digest),
+            ("source_receipt_digest", self.source_receipt_digest),
+        ):
+            if value is not None and not _is_digest(value):
+                raise ValueError(f"topology {field_name} MUST be a canonical SHA-256 digest")
 
 
 @dataclass(frozen=True, slots=True)
@@ -140,6 +148,8 @@ class TopologyGraphAt:
     provider_generation_refs: tuple[str, ...]
     evidence_refs: tuple[str, ...]
     digest: str
+    ontology_release_digests: tuple[str, ...] = ()
+    source_receipt_digests: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -250,6 +260,10 @@ def graph_at(
         for item in sorted(links.values(), key=lambda item: item.key)
         if not item.deleted and item.from_id in object_ids and item.to_id in object_ids
     )
+    dangling_links = any(
+        not item.deleted and (item.from_id not in object_ids or item.to_id not in object_ids)
+        for item in links.values()
+    )
     graph = OntologyGraphSnapshot(objects=materialized_objects, links=materialized_links)
     evidence_refs = [
         item.evidence_ref for item in sorted(objects.values(), key=lambda item: item.object_id)
@@ -258,6 +272,7 @@ def graph_at(
         item.evidence_ref for item in sorted(links.values(), key=lambda item: item.key)
     )
     refs = tuple(dict.fromkeys(evidence_refs))
+    complete = baseline_index is not None and not dangling_links
     body = {
         "as_of": as_of.astimezone(UTC).isoformat(),
         "known_at": known_at.astimezone(UTC).isoformat(),
@@ -279,20 +294,44 @@ def graph_at(
             }
             for item in graph.links
         ],
-        "complete": baseline_index is not None,
+        "complete": complete,
         "revision_ids": [item.revision_id for item in selected],
         "provider_generation_refs": [item.provider_generation_ref for item in selected],
         "evidence_refs": refs,
+        "ontology_release_digests": [
+            item.ontology_release_digest
+            for item in selected
+            if item.ontology_release_digest is not None
+        ],
+        "source_receipt_digests": [
+            item.source_receipt_digest
+            for item in selected
+            if item.source_receipt_digest is not None
+        ],
     }
     return TopologyGraphAt(
         as_of=as_of,
         known_at=known_at,
         graph=graph,
-        complete=baseline_index is not None,
+        complete=complete,
         revision_ids=tuple(item.revision_id for item in selected),
         provider_generation_refs=tuple(item.provider_generation_ref for item in selected),
         evidence_refs=refs,
         digest=_digest(body),
+        ontology_release_digests=tuple(
+            dict.fromkeys(
+                item.ontology_release_digest
+                for item in selected
+                if item.ontology_release_digest is not None
+            )
+        ),
+        source_receipt_digests=tuple(
+            dict.fromkeys(
+                item.source_receipt_digest
+                for item in selected
+                if item.source_receipt_digest is not None
+            )
+        ),
     )
 
 
@@ -362,6 +401,14 @@ def _parse_object(value: str, name: str) -> dict[str, Any]:
     if not isinstance(parsed, dict):
         raise ValueError(f"{name} MUST contain an object")
     return parsed
+
+
+def _is_digest(value: str) -> bool:
+    return (
+        len(value) == 71
+        and value.startswith("sha256:")
+        and all(character in "0123456789abcdef" for character in value[7:])
+    )
 
 
 def _canonical_json(value: object) -> str:

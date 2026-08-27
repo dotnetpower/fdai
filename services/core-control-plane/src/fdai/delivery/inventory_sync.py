@@ -174,6 +174,7 @@ class InventorySyncCoordinator:
                     recorded_at=datetime.now(tz=UTC),
                 )
                 if self._enricher is not None:
+                    original_drop_count = len(promoted_observation.relationship_drops)
                     enriched = await self._enricher.enrich(promoted_observation)
                     added_resources, added_links = _validate_enrichment(
                         promoted_observation,
@@ -188,6 +189,9 @@ class InventorySyncCoordinator:
                             ),
                         )
                     promoted_observation = enriched
+                    observed.add_relationship_drops(
+                        enriched.relationship_drops[original_drop_count:]
+                    )
                 metadata = dict(source.manifest.metadata)
                 metadata.pop("provider_scope_coverage", None)
                 relationship_drop_reasons = observed.relationship_drop_reasons()
@@ -330,6 +334,11 @@ class _ObservationAccumulator:
             reasons.add("partial_generation")
         return tuple(sorted(reasons))
 
+    def add_relationship_drops(self, drops: Sequence[RelationshipDrop]) -> None:
+        """Include enrichment gaps in the promotion coverage metadata."""
+
+        self._relationship_drops.extend(drops)
+
     def relationship_drop_classifications(self) -> tuple[dict[str, object], ...]:
         """Return bounded mapping-specific counts without provider identifiers."""
 
@@ -450,10 +459,13 @@ def _validate_enrichment(
     if (
         enriched.generation != original.generation
         or enriched.complete != original.complete
-        or enriched.relationship_drops != original.relationship_drops
         or enriched.recorded_at != original.recorded_at
     ):
         raise ValueError("inventory enrichment MUST preserve the provider observation")
+    original_drops = tuple(original.relationship_drops)
+    enriched_drops = tuple(enriched.relationship_drops)
+    if enriched_drops[: len(original_drops)] != original_drops:
+        raise ValueError("inventory enrichment MUST preserve existing relationship drops")
     original_resources = {resource.resource_id: resource for resource in original.resources}
     enriched_resources = {resource.resource_id: resource for resource in enriched.resources}
     if len(enriched_resources) != len(enriched.resources):

@@ -150,6 +150,18 @@ class _CancellationAwareInventory:
         yield InventoryBatch(final=True)
 
 
+class _DropEnricher:
+    async def enrich(
+        self, observation: PromotedInventoryObservation
+    ) -> PromotedInventoryObservation:
+        return replace(
+            observation,
+            relationship_drops=(
+                RelationshipDrop(reason=RelationshipDropReason.MISSING_TARGET_ENDPOINT),
+            ),
+        )
+
+
 async def test_complete_stream_promotes_terminal_records() -> None:
     store = _Store()
     resource = ResourceRecord(resource_id="vm-1", type="compute.vm")
@@ -160,6 +172,18 @@ async def test_complete_stream_promotes_terminal_records() -> None:
     assert store.promoted == ["attempt-1"]
     assert store.batches["attempt-1"][0].resources == (resource,)
     assert store.batches["attempt-1"][0].final is False
+
+
+async def test_enrichment_relationship_gaps_reach_the_promoted_manifest() -> None:
+    store = _Store()
+    await InventorySyncCoordinator(
+        store=store,
+        promotion_enricher=_DropEnricher(),
+    ).run((_source("arg", _Inventory([InventoryBatch(final=True)])),))
+
+    metadata = store.promoted_manifests[0].metadata
+    assert metadata["relationship_complete"] is False
+    assert metadata["relationship_drop_reasons"] == ["missing_target_endpoint"]
 
 
 async def test_stalled_source_fails_its_own_attempt_at_the_progress_deadline() -> None:

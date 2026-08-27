@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 9c75851a8bf4365b0e84ca0915dff0ab71cd446b
+translation_source_sha: a16ccd180ac08adf2af7ef8b41856c500db0652f
 translation_revised: 2026-08-27
 ---
 # 프로젝트 구조
@@ -32,6 +32,10 @@ translation_revised: 2026-08-27
   발화에서 정확한 런타임 식별자 하나를 검증한 경우에만 제거합니다. 식별자가 없거나 여러 개이면
   명확화를 유지하고 다른 모든 미해결 개념도 타입이 지정된 명확화로 남깁니다. 이 검증은
   프로바이더 입출력, 의사 결정, 승인, 변경 또는 실행 권한을 추가하지 않습니다.
+- **authorization은 instance에 binding됩니다**: Context provider는
+  `ExecutionAuthorizationRequest.target_resource_ref`의 exact Resource ID를 반환해야 합니다.
+  불일치는 policy, identity 또는 effective-access 평가 전에 보류되며 권한 없는 audit context에
+  기록됩니다.
 - **정책과 규칙은 코드 경로가 아닌 데이터**: T0가 런타임에 `rule-catalog/` 엔트리와 `policies/`
   를 로드하므로 규칙/정책 추가에 엔진 변경이 필요 없습니다. 규칙은 의도와 교정을
   기술하고, 정책은 검증기가 재검사하는 실행 가능한 OPA/Rego입니다. 소스가 이 YAML로 수집·
