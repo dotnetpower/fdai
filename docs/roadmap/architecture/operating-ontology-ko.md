@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 627d019574a4d459e489ca17a9d7b531113e4609
+translation_source_sha: e71c84144973c99bd9d0557d3aa7fd7b445dbfd8
 translation_revised: 2026-08-27
 ---
 # FDAI 운영 온톨로지
@@ -138,6 +138,7 @@ translation_revised: 2026-08-27
 | 2026-08-27 | implemented | object 및 array Property 값을 위한 범위 제한 canonical JSON 의미 규칙을 완료했습니다. 정규화는 유한성, 깊이 및 바이트 한도의 JSON과 안정적인 키 순서를 강제하며, collection coverage gate는 룰이 평가하는 모든 참조를 검토된 것으로 기록합니다. | `current change`; `property_semantic.py`; `test_property_semantic.py`; `check-property-semantic-coverage.py`가 검토된 참조 62/62개를 보고합니다. | 검토된 registry를 유지하고 새로운 collection Property 참조가 생기면 하한을 함께 올립니다. |
 | 2026-08-27 | implemented | 기존 `OntologyInstanceStore` 위에 멱등적인 `DetectionOntologyProjector` sink를 추가했습니다. Forecast 또는 Pattern을 반복 전달하면 동일하게 저장된 객체를 반환하고 내용 충돌은 fail closed 합니다. | `current change`; `detection_projection.py`; 집중 projection 검사 4개 통과 | 배포 런타임 근거를 주장하기 전에 sink를 운영 조립 지점에 연결합니다. |
 | 2026-08-27 | implemented | Context, detection projection 및 교차 출처 근거 경계를 독립 검토 결과에 맞게 강화했습니다. Principal 신원은 인증된 서버 컨텍스트에서 오며, Context는 실제 secured ObjectSet receipt와 principal-scope binding, digest, 정확한 객체 type/revision/temporal/path 검사를 요구합니다. Detection은 atomic create, canonical 정규화 비교, open episode, 균형 잡힌 sealed cohort 및 인증된 Heimdall/Norns 증적을 사용하며 provider 판정은 동일 target과 generation에 대한 검증된 canonical 신원을 요구합니다. | `current change`; Context, gateway, detection, store, adjudication 및 shadow 집중 검사 | 인증된 배포 receipt를 별도로 보존하고 detection sink를 운영 조립에 연결합니다. 권한은 높이지 않습니다. |
+| 2026-08-27 | implemented | Detection 소유 온톨로지 신원의 실제 PostgreSQL atomic-create 동시성 회귀 검사를 추가했습니다. | `current change`; `tests/persistence/test_postgres_ontology_instance.py` (로컬 PostgreSQL gate에서 실행하며 `FDAI_DATABASE_URL`이 없을 때만 skip) | 런타임 검증을 주장하기 전에 service-owned 로컬 데이터베이스에서 실제 store receipt를 실행합니다. |
 
 ### 남은 작업
 
