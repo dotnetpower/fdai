@@ -71,6 +71,9 @@ _EXPECTED_FILES = frozenset(
         # Projects the catalog resource-type vocabulary as a planner value
         # domain so the semantic wire keeps one binding responsibility.
         "semantic_query_value_domains.py",
+        # Binds Azure models, prompts, and catalog inputs for semantic queries
+        # without coupling the provider-neutral semantic wire to Azure setup.
+        "semantic_query_azure_composition.py",
         # Composes authoritative inventory state with ontology-native shadow parity.
         "wire_read_investigation.py",
     }
