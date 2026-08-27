@@ -93,17 +93,31 @@ class _FixturePermission(PermissionQuery):
 
 
 class _FixtureQuota(QuotaQuery):
-    """Map of ``{(region, publisher, family): capacity_tpm}``."""
+    """Map of fixture quota entries with optional SKU qualification."""
 
     def __init__(self, entries: list[dict[str, str | int]]) -> None:
         self._by_key: dict[tuple[str, str, str], int] = {}
+        self._by_sku_key: dict[tuple[str, str, str, str], int] = {}
         for e in entries:
-            self._by_key[(str(e["region"]), str(e["publisher"]), str(e["family"]))] = int(
-                e["capacity_tpm"]
-            )
+            region = str(e["region"])
+            publisher = str(e["publisher"])
+            family = str(e["family"])
+            capacity = int(e["capacity_tpm"])
+            self._by_key[(region, publisher, family)] = capacity
+            self._by_sku_key[(region, publisher, family, str(e.get("sku", "Standard")))] = capacity
 
     def available_capacity_tpm(self, *, region: str, publisher: str, family: str) -> int:
         return self._by_key.get((region, publisher, family), 0)
+
+    def available_capacity_tpm_for_sku(
+        self,
+        *,
+        region: str,
+        publisher: str,
+        family: str,
+        sku: str,
+    ) -> int:
+        return self._by_sku_key.get((region, publisher, family, sku), 0)
 
 
 # ---------------------------------------------------------------------------
@@ -156,7 +170,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--quota-fixture",
         type=Path,
         default=None,
-        help="JSON list: [{region, publisher, family, capacity_tpm}, ...].",
+        help="JSON list: [{region, publisher, family, sku, capacity_tpm}, ...].",
     )
     parser.add_argument(
         "--use-azure-cli",

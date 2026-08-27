@@ -101,6 +101,23 @@ class _DictQuota(QuotaQuery):
         return self._table.get((publisher, family), self._default)
 
 
+class _SkuDictQuota(_DictQuota):
+    def __init__(self, table: dict[tuple[str, str, str], int]) -> None:
+        super().__init__({})
+        self._sku_table = dict(table)
+
+    def available_capacity_tpm_for_sku(
+        self,
+        *,
+        region: str,
+        publisher: str,
+        family: str,
+        sku: str,
+    ) -> int:
+        del region
+        return self._sku_table.get((publisher, family, sku), 0)
+
+
 class _PtuCapacity(ProvisionedCapacityQuery):
     def __init__(self, available: int) -> None:
         self._available = available
@@ -131,6 +148,15 @@ class _PtuCapacityByFamily(ProvisionedCapacityQuery):
     ) -> int:
         del region, publisher, sku
         return self._available.get(family, 0)
+
+
+class _StaticVersions:
+    def __init__(self, versions: Mapping[tuple[str, str], str]) -> None:
+        self._versions = dict(versions)
+
+    def latest_stable_version(self, *, region: str, publisher: str, family: str) -> str | None:
+        del region
+        return self._versions.get((publisher, family))
 
 
 def _default_full_quota() -> _DictQuota:
@@ -197,18 +223,130 @@ def test_publisher_catalog_does_not_match_same_named_family_from_wrong_publisher
     assert secondary.reasons[0].startswith("no_preferred_family_in_region")
 
 
+def test_upstream_secondary_resolves_reviewed_mistral_profile() -> None:
+    policy = load_model_binding_policy_from_mapping(
+        {
+            "schema_version": "1.0.0",
+            "environment": "dev",
+            "revision": 1,
+            "capabilities": {
+                "t2.reasoner.secondary": {
+                    "selection_mode": "pinned",
+                    "publisher": "MistralAI",
+                    "family": "Mistral-Large-3",
+                    "version_policy": "latest-compatible",
+                    "sku": "GlobalStandard",
+                    "capacity": {"unit": "tpm", "value": 1_000},
+                }
+            },
+        }
+    )
+    result = resolve(
+        registry=load_llm_registry_from_yaml(_UPSTREAM_REGISTRY),
+        region=_REGION,
+        subscription_id=_SUB,
+        deployer_object_id=_OID,
+        catalog=_PublisherStaticCatalog(
+            {"gpt-4o", "claude-opus-4", "Mistral-Large-3"},
+            {
+                ("OpenAI", "gpt-4o"),
+                ("Anthropic", "claude-opus-4"),
+                ("MistralAI", "Mistral-Large-3"),
+            },
+        ),
+        permission=_AlwaysPermissionQuery(True),
+        quota=_SkuDictQuota(
+            {
+                ("OpenAI", "gpt-4o", "Standard"): 100_000,
+                ("Anthropic", "claude-opus-4", "Standard"): 100_000,
+                ("MistralAI", "Mistral-Large-3", "GlobalStandard"): 1_000,
+            }
+        ),
+        model_versions=_StaticVersions(
+            {
+                ("OpenAI", "gpt-4o"): "2024-11-20",
+                ("Anthropic", "claude-opus-4"): "2026-01-01",
+                ("MistralAI", "Mistral-Large-3"): "1",
+            }
+        ),
+        binding_policy=policy,
+    )
+
+    secondary = next(item for item in result.capabilities if item.name == "t2.reasoner.secondary")
+    assert secondary.status is CapabilityStatus.RESOLVED
+    assert secondary.publisher == "MistralAI"
+    assert secondary.family == "Mistral-Large-3"
+    assert secondary.version == "1"
+    assert secondary.sku == "GlobalStandard"
+    assert secondary.capacity_tpm == 1_000
+
+
+def test_legacy_quota_adapter_cannot_resolve_nonstandard_mistral_sku() -> None:
+    policy = load_model_binding_policy_from_mapping(
+        {
+            "schema_version": "1.0.0",
+            "environment": "dev",
+            "revision": 1,
+            "capabilities": {
+                "t2.reasoner.secondary": {
+                    "selection_mode": "pinned",
+                    "publisher": "MistralAI",
+                    "family": "Mistral-Large-3",
+                    "version_policy": "latest-compatible",
+                    "sku": "GlobalStandard",
+                    "capacity": {"unit": "tpm", "value": 1_000},
+                }
+            },
+        }
+    )
+    result = resolve(
+        registry=load_llm_registry_from_yaml(_UPSTREAM_REGISTRY),
+        region=_REGION,
+        subscription_id=_SUB,
+        deployer_object_id=_OID,
+        catalog=_PublisherStaticCatalog(
+            {"gpt-4o", "claude-opus-4", "Mistral-Large-3"},
+            {
+                ("OpenAI", "gpt-4o"),
+                ("Anthropic", "claude-opus-4"),
+                ("MistralAI", "Mistral-Large-3"),
+            },
+        ),
+        permission=_AlwaysPermissionQuery(True),
+        quota=_DictQuota(
+            {
+                ("OpenAI", "gpt-4o"): 100_000,
+                ("Anthropic", "claude-opus-4"): 100_000,
+                ("MistralAI", "Mistral-Large-3"): 1_000,
+            }
+        ),
+        model_versions=_StaticVersions(
+            {
+                ("OpenAI", "gpt-4o"): "2024-11-20",
+                ("Anthropic", "claude-opus-4"): "2026-01-01",
+                ("MistralAI", "Mistral-Large-3"): "1",
+            }
+        ),
+        binding_policy=policy,
+    )
+
+    secondary = next(item for item in result.capabilities if item.name == "t2.reasoner.secondary")
+    assert secondary.status is CapabilityStatus.HIL_ONLY
+    assert "zero_quota" in secondary.reasons[0]
+
+
 def test_resolve_maps_ontology_council_slots_without_weakening_reasoner_invariant() -> None:
     council_families = {"gpt-5.6-sol", "gpt-5.5", "gpt-5.4"}
-    quota = _DictQuota(
+    quota = _SkuDictQuota(
         {
-            ("OpenAI", "text-embedding-3-small"): 200_000,
-            ("OpenAI", "gpt-5.4-mini"): 200_000,
-            ("OpenAI", "gpt-4.1-nano"): 100_000,
-            ("OpenAI", "gpt-4o"): 100_000,
-            ("Anthropic", "claude-opus-4"): 100_000,
-            ("OpenAI", "gpt-5.6-sol"): 50_000,
-            ("OpenAI", "gpt-5.5"): 50_000,
-            ("OpenAI", "gpt-5.4"): 100_000,
+            ("OpenAI", "text-embedding-3-small", "Standard"): 200_000,
+            ("OpenAI", "gpt-5.4-mini", "Standard"): 200_000,
+            ("OpenAI", "gpt-4.1-nano", "GlobalStandard"): 100_000,
+            ("OpenAI", "gpt-4o", "Standard"): 100_000,
+            ("Anthropic", "claude-opus-4", "Standard"): 100_000,
+            ("OpenAI", "gpt-5.6-sol", "GlobalStandard"): 50_000,
+            ("OpenAI", "gpt-5.5", "GlobalStandard"): 50_000,
+            ("OpenAI", "gpt-5.4", "GlobalStandard"): 100_000,
         }
     )
 

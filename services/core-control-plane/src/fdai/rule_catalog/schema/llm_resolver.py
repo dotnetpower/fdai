@@ -136,6 +136,20 @@ class QuotaQuery(Protocol):
 
 
 @runtime_checkable
+class SkuQuotaQuery(Protocol):
+    """Available TPM capacity qualified by deployment SKU."""
+
+    def available_capacity_tpm_for_sku(
+        self,
+        *,
+        region: str,
+        publisher: str,
+        family: str,
+        sku: str,
+    ) -> int: ...
+
+
+@runtime_checkable
 class ProvisionedCapacityQuery(Protocol):
     """Available deployable PTUs after both quota and service capacity checks."""
 
@@ -523,10 +537,21 @@ def resolve(
                     sku=spec.sku.value,
                 )
             else:
-                available = quota.available_capacity_tpm(
-                    region=region,
-                    publisher=preference.publisher,
-                    family=preference.family,
+                available = (
+                    quota.available_capacity_tpm_for_sku(
+                        region=region,
+                        publisher=preference.publisher,
+                        family=preference.family,
+                        sku=spec.sku.value,
+                    )
+                    if isinstance(quota, SkuQuotaQuery)
+                    else quota.available_capacity_tpm(
+                        region=region,
+                        publisher=preference.publisher,
+                        family=preference.family,
+                    )
+                    if spec.sku.value == "Standard"
+                    else 0
                 )
             if available <= 0:
                 rejection_reasons.append(
@@ -694,6 +719,7 @@ __all__ = [
     "ResolvedCapability",
     "ResolvedModels",
     "ResolverError",
+    "SkuQuotaQuery",
     "collect_narrator",
     "collect_narrator_deployments",
     "collect_vision_candidates",

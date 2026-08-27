@@ -11,8 +11,10 @@ from collections.abc import Mapping
 
 _SHA40 = re.compile(r"^[0-9a-f]{40}$")
 _SHA64 = re.compile(r"^[0-9a-f]{64}$")
-_PLAN_REQUEST = re.compile(r"^plan-([0-9a-f]{24}|model-[0-9a-f]{32}-[0-9a-f]{64})$")
-_APPLY_REQUEST = re.compile(r"^apply-([0-9a-f]{24}|model-[0-9a-f]{64})$")
+_PLAN_REQUEST = re.compile(
+    r"^plan-([0-9a-f]{24}|chatops-[0-9a-f]{24}|model-[0-9a-f]{32}-[0-9a-f]{64})$"
+)
+_APPLY_REQUEST = re.compile(r"^apply-([0-9a-f]{24}|chatops-[0-9a-f]{24}|model-[0-9a-f]{64})$")
 _PLAN_ID = re.compile(r"^plan-[1-9][0-9]*-[1-9][0-9]*$")
 _TRUE = "true"
 
@@ -39,10 +41,21 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
     verify_effect = _enabled(values, "VERIFY_EXECUTOR_EFFECT")
     cutover = _enabled(values, "CUTOVER_ISOLATED_EXECUTOR_AUTHORITY")
     model_only = _enabled(values, "MODEL_BINDING_ONLY")
+    validate_chatops = _enabled(values, "VALIDATE_CHATOPS_CHANNELS")
     design_mocks = _enabled(values, "DEPLOY_DESIGN_MOCKS")
     monitoring = _enabled(values, "DEPLOY_MONITORING")
     resume = _enabled(values, "RESUME_VERIFICATION")
     request_id = values.get("REQUEST_ID", "")
+
+    if validate_chatops and (
+        values.get("TARGET_ENVIRONMENT") != "staging"
+        or not _enabled(values, "DEPLOY_OPERATOR_API")
+        or not _enabled(values, "DEPLOY_OPERATOR_CHANNEL_EDGE")
+    ):
+        raise ValueError(
+            "ChatOps channel validation requires staging, deploy_operator_api, "
+            "and deploy_operator_channel_edge"
+        )
 
     if promote_image and not deploy_executor:
         raise ValueError("promote_runtime_image requires deploy_isolated_executor")

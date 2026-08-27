@@ -40,7 +40,10 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   Deployment seals partner bindings before plan hashing. Runtime resolves a bounded map of exact
   account references and rejects provider/hostname mismatch. Platform Terraform owns that map,
   protected service materialization supplies the same origins to the independent Core root, and
-  semantic planning plus post-turn review resolve their capability bindings through it.
+  semantic planning plus post-turn review resolve their capability bindings through it. The
+  staging ChatOps validation mode seals that result into plan metadata and revalidates it before
+  both plan and apply. SKU-qualified quota lookup prevents another deployment tier from satisfying
+  the reviewed secondary profile.
 - **qualification reduction is authority-free**:
   `core/conversation_assurance/quality_qualification.py` accepts only premeasured normalized
   observations and reduces them against the installed quality contract. It derives hard caps from

@@ -238,6 +238,59 @@ class TestPermissionQuery:
 
 
 class TestQuotaQuery:
+    def test_parses_partner_global_standard_quota(self, fake_subprocess: _FakeSubprocess) -> None:
+        fake_subprocess._responses = [
+            _CompletedProc(
+                returncode=0,
+                stdout=json.dumps(
+                    [
+                        {
+                            "currentValue": 0,
+                            "limit": 1,
+                            "name": {"value": "AIServices.GlobalStandard.Mistral-Large-3"},
+                        }
+                    ]
+                ),
+            )
+        ]
+
+        assert (
+            AzureCliQuotaQuery().available_capacity_tpm(
+                region="koreacentral",
+                publisher="MistralAI",
+                family="Mistral-Large-3",
+            )
+            == 1_000
+        )
+
+    def test_partner_quota_does_not_borrow_from_another_sku(
+        self, fake_subprocess: _FakeSubprocess
+    ) -> None:
+        fake_subprocess._responses = [
+            _CompletedProc(
+                returncode=0,
+                stdout=json.dumps(
+                    [
+                        {
+                            "currentValue": 0,
+                            "limit": 100,
+                            "name": {"value": "AIServices.Standard.Mistral-Large-3"},
+                        }
+                    ]
+                ),
+            )
+        ]
+
+        assert (
+            AzureCliQuotaQuery().available_capacity_tpm_for_sku(
+                region="koreacentral",
+                publisher="MistralAI",
+                family="Mistral-Large-3",
+                sku="GlobalStandard",
+            )
+            == 0
+        )
+
     def test_parses_family_from_last_dotted_segment(self, fake_subprocess: _FakeSubprocess) -> None:
         fake_subprocess._responses = [
             _CompletedProc(

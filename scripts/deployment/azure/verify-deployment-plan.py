@@ -42,6 +42,7 @@ _BASE_METADATA_FIELDS = frozenset(
 )
 _RUNTIME_IMAGE_FIELDS = frozenset({"source_revision", "digest"})
 _MODEL_RESOLUTION_FIELDS = frozenset({"resolved_models_digest", "deployment_models_digest"})
+_MODEL_VALIDATION_FIELDS = frozenset({"chatops_channel_validation"})
 _MODEL_BINDING_FIELDS = frozenset(
     {
         "binding_policy_environment",
@@ -144,7 +145,9 @@ def verify_plan(
         fields = set(model_resolution) if isinstance(model_resolution, dict) else set()
         allowed_fields = {
             _MODEL_RESOLUTION_FIELDS,
+            _MODEL_RESOLUTION_FIELDS | _MODEL_VALIDATION_FIELDS,
             _MODEL_RESOLUTION_FIELDS | _MODEL_BINDING_FIELDS,
+            _MODEL_RESOLUTION_FIELDS | _MODEL_BINDING_FIELDS | _MODEL_VALIDATION_FIELDS,
         }
         if not isinstance(model_resolution, dict) or fields not in allowed_fields:
             raise PlanVerificationError("plan metadata model resolution has an unexpected schema")
@@ -152,7 +155,11 @@ def verify_plan(
             digest = model_resolution[field]
             if not isinstance(digest, str) or _DIGEST.fullmatch(digest) is None:
                 raise PlanVerificationError("plan metadata model resolution digest is invalid")
-        if fields == _MODEL_RESOLUTION_FIELDS | _MODEL_BINDING_FIELDS:
+        if "chatops_channel_validation" in fields and not isinstance(
+            model_resolution["chatops_channel_validation"], bool
+        ):
+            raise PlanVerificationError("plan metadata ChatOps validation flag is invalid")
+        if _MODEL_BINDING_FIELDS.issubset(fields):
             policy_environment = model_resolution["binding_policy_environment"]
             policy_revision = model_resolution["binding_policy_revision"]
             policy_digest = model_resolution["binding_policy_digest"]

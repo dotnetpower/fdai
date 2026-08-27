@@ -98,9 +98,9 @@ models:
   t2.reasoner.secondary:
     preferences:
       - {publisher: Anthropic, family: claude-opus-4}
-      - {publisher: MistralAI, family: mistral-large-2}
-    sku: Standard
-    capacity_tpm: 100000
+      - {publisher: MistralAI, family: Mistral-Large-3}
+    sku: GlobalStandard
+    capacity_tpm: 1000
 
   t2.reasoner.escalated:
     preferences:

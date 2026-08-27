@@ -86,7 +86,8 @@ def test_gateway_targeted_plan_resolves_models_without_blocking_on_completeness(
     assert "!inputs.deploy_dev_operations_gateway" not in resolver_step
     assert (
         "MODEL_COMPLETENESS_FAIL_ON: "
-        "${{ (inputs.deploy_dev_operations_gateway || env.MODEL_BINDING_ONLY == 'true') "
+        "${{ (env.VALIDATE_CHATOPS_CHANNELS == 'true' || "
+        "inputs.deploy_dev_operations_gateway || env.MODEL_BINDING_ONLY == 'true') "
         "&& 'none' || 'critical' }}"
     ) in resolver_step
     assert '--assess-fail-on "$MODEL_COMPLETENESS_FAIL_ON"' in resolver_step
@@ -119,7 +120,8 @@ def test_model_binding_plan_is_exactly_scoped_and_allows_held_quorum() -> None:
     assert 'after_model.get("version") == expected["version"]' in _DEPLOY
     assert (
         "MODEL_COMPLETENESS_FAIL_ON: "
-        "${{ (inputs.deploy_dev_operations_gateway || env.MODEL_BINDING_ONLY == 'true') "
+        "${{ (env.VALIDATE_CHATOPS_CHANNELS == 'true' || "
+        "inputs.deploy_dev_operations_gateway || env.MODEL_BINDING_ONLY == 'true') "
         "&& 'none' || 'critical' }}"
     ) in resolver_step
 

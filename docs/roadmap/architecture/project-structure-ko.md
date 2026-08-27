@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 18f0ff3988fafc067ee83027d31c2fb1ee6faeea
+translation_source_sha: c023d1669dea0aeedea417be1fca790c1d5e8417
 translation_revised: 2026-08-28
 ---
 # 프로젝트 구조
@@ -40,7 +40,9 @@ translation_revised: 2026-08-28
   partner binding을 봉인합니다. Runtime은 exact account 참조의 범위 제한 map을 해석하고
   provider/hostname 불일치를 차단합니다. Platform Terraform이 이 map을 소유하며 보호된 서비스
   구체화는 같은 origin을 독립 Core root에 전달합니다. 의미 계획과 턴 후 검토는 이 map을 통해
-  기능 binding을 해석합니다.
+  기능 binding을 해석합니다. Staging ChatOps 검증 모드는 결과를 계획 metadata에 봉인하고 계획과
+  적용 전에 다시 검증합니다. SKU 한정 quota 조회는 다른 배포 tier가 검토된 secondary 프로필을
+  충족하지 못하게 합니다.
 - **자격 검증 축약에는 권한이 없음**:
   `core/conversation_assurance/quality_qualification.py`는 미리 측정하고 정규화한 관측값만
   받아 설치된 품질 계약에 따라 축약합니다. 원시 근거 상태에서 하드 상한을 계산하며 모델 호출,

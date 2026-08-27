@@ -248,9 +248,9 @@ class AzureCliQuotaQuery(QuotaQuery):
     fine-tune, developer, and provisioned quota. Any un-parseable entry
     contributes zero.
 
-    Publisher is not part of the quota id, so this adapter treats
-    ``(region, family)`` as the lookup key and ignores the publisher
-    argument (Azure quotas are family-scoped, not publisher-scoped).
+    Publisher is not part of the quota id, so this adapter ignores the
+    publisher argument. The SKU remains part of the lookup key so capacity
+    from another deployment tier cannot satisfy a resolved capability.
     Fail-closed: on subprocess or JSON errors we raise, which lets the
     resolver degrade the affected capability to ``hil-only``.
     """
@@ -263,22 +263,43 @@ class AzureCliQuotaQuery(QuotaQuery):
     ) -> None:
         self._executable = executable
         self._timeout = timeout
-        self._cache: dict[str, dict[str, int]] = {}
+        self._cache: dict[str, dict[tuple[str, str], int]] = {}
 
     def available_capacity_tpm(self, *, region: str, publisher: str, family: str) -> int:
-        del publisher  # Azure quotas are family-scoped, not publisher-scoped.
+        del publisher
         by_family = self._cache.get(region)
         if by_family is None:
             by_family = self._load_region(region)
             self._cache[region] = by_family
-        # Azure quota metric names historically use dashed families
-        # (``gpt-4o-mini``); newer families carry an internal dot
-        # (``gpt-5.4-mini``). Look up both forms so the resolver stays
-        # consistent regardless of which convention Azure lands on for
-        # the model of the day.
-        return max((by_family.get(alias, 0) for alias in _family_aliases(family)), default=0)
+        aliases = _family_aliases(family)
+        return max(
+            (
+                capacity
+                for (_, quota_family), capacity in by_family.items()
+                if quota_family in aliases
+            ),
+            default=0,
+        )
 
-    def _load_region(self, region: str) -> dict[str, int]:
+    def available_capacity_tpm_for_sku(
+        self,
+        *,
+        region: str,
+        publisher: str,
+        family: str,
+        sku: str,
+    ) -> int:
+        del publisher
+        by_family = self._cache.get(region)
+        if by_family is None:
+            by_family = self._load_region(region)
+            self._cache[region] = by_family
+        return max(
+            (by_family.get((sku, alias), 0) for alias in _family_aliases(family)),
+            default=0,
+        )
+
+    def _load_region(self, region: str) -> dict[tuple[str, str], int]:
         argv = [
             self._executable,
             "cognitiveservices",
@@ -296,7 +317,7 @@ class AzureCliQuotaQuery(QuotaQuery):
             raise AzureCliResolverError("az CLI returned non-JSON for usage list") from exc
         if not isinstance(payload, list):
             raise AzureCliResolverError("usage list MUST return a JSON array")
-        out: dict[str, int] = {}
+        out: dict[tuple[str, str], int] = {}
         for entry in payload:
             if not isinstance(entry, dict):
                 continue
@@ -308,6 +329,9 @@ class AzureCliQuotaQuery(QuotaQuery):
             if not isinstance(name_value, str) or not name_value:
                 continue
             if not _is_interactive_tpm_quota(name_value):
+                continue
+            sku = _quota_sku(name_value)
+            if sku is None:
                 continue
             limit = _as_int(entry.get("limit"))
             current = _as_int(entry.get("currentValue"))
@@ -321,8 +345,9 @@ class AzureCliQuotaQuery(QuotaQuery):
             # last dot-segment AND the suffix after any known tier
             # marker.
             for key in _family_keys(name_value):
-                if available > out.get(key, 0):
-                    out[key] = available
+                quota_key = (sku, key)
+                if available > out.get(quota_key, 0):
+                    out[quota_key] = available
         return out
 
 
@@ -590,6 +615,19 @@ def _is_interactive_tpm_quota(name_value: str) -> bool:
         marker.casefold() in lowered
         for marker in (".Standard.", ".GlobalStandard.", ".DataZoneStandard.", ".PayGo.")
     )
+
+
+def _quota_sku(name_value: str) -> str | None:
+    lowered = name_value.casefold()
+    for marker, sku in (
+        (".globalstandard.", "GlobalStandard"),
+        (".datazonestandard.", "DataZoneStandard"),
+        (".standard.", "Standard"),
+        (".paygo.", "PayGo"),
+    ):
+        if marker in lowered:
+            return sku
+    return None
 
 
 __all__ = [
