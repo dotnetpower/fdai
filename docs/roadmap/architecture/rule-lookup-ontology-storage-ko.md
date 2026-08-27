@@ -1,7 +1,7 @@
 ---
 title: 규칙 조회 온톨로지 저장소
 translation_of: rule-lookup-ontology-storage.md
-translation_source_sha: ff15fd430e2fd5f6a8961321783f0871f0e813f4
+translation_source_sha: b6ef983b70180169c39f855a1ab15821e01badf8
 translation_revised: 2026-08-27
 ---
 
@@ -29,6 +29,7 @@ translation_revised: 2026-08-27
 | 2026-08-14 | in-progress | 이전 이력을 재구성하지 않고 구현 원장을 도입했으며 저장소 설명을 현재 migration 소유 스키마에 맞췄습니다. | `current change`; 구현 범위 표의 카탈로그, migration 및 집중 영속성 근거입니다. | 아래의 L2-L4 수명 주기와 원자적 리로드 근거 미비점을 해결합니다. |
 | 2026-08-27 | implemented | 서비스 헤드 카탈로그 수명 주기 migration, 라이브 PostgreSQL 수명 주기 검사, N/N-1 replay 및 롤백을 보존하는 원자적 전달 인덱스 수명 주기를 추가했습니다. 스키마 스케치를 migration 소유 열에 맞췄습니다. | `current change`; `test_catalog_lifecycle_integration.py`; `test_index.py`; 서비스 migration inventory 및 집중 pytest 검사입니다. | 라이브 증적을 얻으려면 로컬 PostgreSQL 채택이 필요합니다. 원격 또는 Azure 증적은 주장하지 않습니다. |
 | 2026-08-27 | implemented | 동시 reload 및 rollback 전이를 직렬화하고, 보존된 N-1 버전의 충돌하는 내용을 거부했으며, legacy backfill 및 안전한 downgrade 검사를 포함하도록 학습된 액션의 유일성을 버전 기준으로 변경했습니다. | `current change`; `test_index.py`; `test_catalog_lifecycle_integration.py`; 서비스 migration inventory 및 집중 pytest 검사입니다. | 라이브 증적을 얻으려면 로컬 PostgreSQL 채택이 필요합니다. 원격 또는 Azure 증적은 주장하지 않습니다. |
+| 2026-08-27 | implemented | bounded 카탈로그 digest tombstone을 추가하여 제거된 버전을 다른 규칙으로 재바인딩할 수 없게 했으며, 카탈로그 버전에 걸친 signature 충돌이 있으면 실행 가능한 preflight 오류로 downgrade를 거부하도록 했습니다. | `current change`; `test_index.py`; `test_catalog_lifecycle_integration.py`; 집중 PostgreSQL 수명 주기 검사입니다. | 라이브 증적을 얻으려면 로컬 PostgreSQL 채택이 필요합니다. 원격 또는 Azure 증적은 주장하지 않습니다. |
 
 ### 남은 작업
 
@@ -183,6 +184,11 @@ CREATE INDEX idx_t2_cache_expires_at ON t2_cache(expires_at);
 - UUID 기본 키는 PostgreSQL이 생성합니다. `action_signature`은 `catalog_version` 내에서
   유일하며 `input_hash` 및 카탈로그 digest가 idempotent 쓰기와 replay에 사용하는 안정적인
   상관관계 키를 제공합니다.
+- bounded digest tombstone 집합은 용량이 소진되면 승인된 identity를 잊는 대신 새 버전을
+  거부합니다.
+- 서비스 migration downgrade는 카탈로그 버전에 걸쳐 중복된 `action_signature` 값이 있을 때
+  버전 인식 유일성 제거를 거부합니다. 유효한 학습된 액션을 조용히 삭제하지 않도록 먼저
+  충돌을 해결해야 합니다.
 
 ## 부트와 리로드
 
