@@ -514,7 +514,9 @@ def _pod_status_properties(status: Mapping[str, Any]) -> dict[str, object]:
         ready_count = 0
         restart_count = 0
         waiting_reasons: list[str] = []
+        termination_records: list[dict[str, object]] = []
         for container_status in container_statuses:
+            container_name = _required_status_text(container_status, "name")
             ready = container_status.get("ready")
             if not isinstance(ready, bool):
                 raise KubernetesApiInventoryError(
@@ -532,12 +534,67 @@ def _pod_status_properties(status: Mapping[str, Any]) -> dict[str, object]:
                 reason = _optional_status_text(waiting, "reason")
                 if reason is not None:
                     waiting_reasons.append(reason)
+            termination_records.extend(
+                _container_termination_records(
+                    container_status,
+                    container_name=container_name,
+                )
+            )
         props["container_count"] = len(container_statuses)
         props["ready_container_count"] = ready_count
         props["restart_count"] = restart_count
         if waiting_reasons:
             props["container_waiting_reasons"] = tuple(sorted(set(waiting_reasons)))
+        if termination_records:
+            props["container_terminations"] = tuple(
+                sorted(
+                    termination_records,
+                    key=lambda item: (
+                        str(item["container_name"]),
+                        str(item["observation_kind"]),
+                    ),
+                )
+            )
     return props
+
+
+def _container_termination_records(
+    container_status: Mapping[str, Any],
+    *,
+    container_name: str,
+) -> tuple[dict[str, object], ...]:
+    """Return bounded current and previous termination facts without raw provider text."""
+
+    records: list[dict[str, object]] = []
+    for state_key, observation_kind in (("state", "current"), ("lastState", "previous")):
+        state = container_status.get(state_key)
+        if state is None:
+            continue
+        if not isinstance(state, Mapping):
+            raise KubernetesApiInventoryError(f"Kubernetes container {state_key} is malformed")
+        terminated = state.get("terminated")
+        if terminated is None:
+            continue
+        if not isinstance(terminated, Mapping):
+            raise KubernetesApiInventoryError(
+                f"Kubernetes container {state_key}.terminated is malformed"
+            )
+        record: dict[str, object] = {
+            "container_name": container_name,
+            "observation_kind": observation_kind,
+            "exit_code": _required_non_negative_int(terminated, "exitCode"),
+        }
+        reason = _optional_status_text(terminated, "reason")
+        signal = _optional_non_negative_int(terminated, "signal")
+        finished_at = _optional_status_time(terminated, "finishedAt")
+        if reason is not None:
+            record["reason"] = reason
+        if signal is not None:
+            record["signal"] = signal
+        if finished_at is not None:
+            record["finished_at"] = finished_at.isoformat()
+        records.append(record)
+    return tuple(records)
 
 
 def _deployment_status_properties(status: Mapping[str, Any]) -> dict[str, object]:
@@ -602,6 +659,28 @@ def _optional_status_text(value: Mapping[str, Any], key: str) -> str | None:
     if not isinstance(raw, str) or not raw.strip() or len(raw) > _MAX_STATUS_TEXT:
         raise KubernetesApiInventoryError(f"Kubernetes status {key!r} is malformed")
     return raw.strip()
+
+
+def _required_status_text(value: Mapping[str, Any], key: str) -> str:
+    result = _optional_status_text(value, key)
+    if result is None:
+        raise KubernetesApiInventoryError(f"Kubernetes status {key!r} is missing")
+    return result
+
+
+def _optional_status_time(value: Mapping[str, Any], key: str) -> datetime | None:
+    raw = value.get(key)
+    if raw is None:
+        return None
+    if not isinstance(raw, str) or not raw.strip():
+        raise KubernetesApiInventoryError(f"Kubernetes status {key!r} is malformed")
+    try:
+        parsed = datetime.fromisoformat(raw.strip().replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise KubernetesApiInventoryError(f"Kubernetes status {key!r} is malformed") from exc
+    if parsed.tzinfo is None:
+        raise KubernetesApiInventoryError(f"Kubernetes status {key!r} MUST include timezone")
+    return parsed.astimezone(UTC)
 
 
 def _optional_non_negative_int(value: Mapping[str, Any], key: str) -> int | None:
