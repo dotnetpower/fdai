@@ -55,6 +55,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 | 2026-08-27 | in-progress | Added primary-owner, bounded fan-out, contributor attribution, conflict-set, and assignment-effect comparisons for items 31-35. | `current change`; focused orchestration observation tests (`3 passed`). | Add the non-functional dimensions under Issue #297. |
 | 2026-08-28 | in-progress | Added typed disposition, operation, clarification, prior-context frame binding, and query DAG-shape comparisons for applicable items 1-5. | `current change`; focused intent observation tests (`3 passed`). | Add the non-functional dimensions under Issue #297. |
 | 2026-08-28 | in-progress | Added deterministic answer format, section-order, detail-level, and word-budget comparisons for items 7-8. | `current change`; focused answer observation tests (`3 passed`). | Add the remaining answer-quality observations and non-functional dimensions under Issue #297. |
+| 2026-08-28 | in-progress | Added terminal citation-set support, explicit evidence-state, and security-owned injection-escape comparisons for items 12, 14, and 15. | `current change`; focused grounding observation tests (`4 passed`). | Add the remaining non-functional dimensions under Issue #297. |
 
 ### Remaining work
 

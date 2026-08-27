@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 951dc33dde3e9b6da15bf0bf607f480a8feeda8f
+translation_source_sha: 47271e3b29d1fa518e0dd84d4cbe89997330468d
 translation_revised: 2026-08-28
 ---
 # 프로젝트 구조
@@ -64,6 +64,8 @@ translation_revised: 2026-08-28
   의도 관측은 타입이 지정된 의미 처리 결과와 검증된 다이제스트만 사용하며 어휘 기반 의도
   경로를 추가하지 않습니다.
   답변 품질 형태 관측은 결정론적 AnswerPlan을 재사용하며 답변 문장을 검사하지 않습니다.
+  근거 관측은 최종 근거와 평가 참조를 재사용하며, injection 저항성에는 텍스트 검사가 아니라
+  보안 소유자의 명시적 결과가 필요합니다.
   인접한 `quality_latency.py` 모듈은 5단계 SLO 계약과 순수 백분위수 축약만 소유합니다. Operator,
   채널, 검증 및 전달 소유자는 타임스탬프와 측정 권한을 유지합니다.
   단계 소유자는 타입이 지정된 증적을 통해 monotonic 시작 및 완료 값을 제공합니다. Core는 증적

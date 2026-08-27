@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 45e16ebe9a2f77a0bcbfa6448502b049997e82c7
+translation_source_sha: 58dd8fb21e478398e5e8988ff2855a757f1c059f
 translation_revised: 2026-08-28
 ---
 # 대화 품질 보증
@@ -347,6 +347,12 @@ SRE adapter는 `RcaResult`를 사전 선언된 처리 결과, 원인 다이제�
 답변 계획 adapter는 결정론적 형식과 순서가 있는 섹션 집합에서 항목 7을 측정하고, 상세 수준과
 단어 예산에서 항목 8을 측정합니다. 기여에는 주제나 명확화 텍스트가 아니라 계획 콘텐츠
 다이제스트만 보존합니다.
+
+근거 adapter는 최종 인용 약속값을 비교하고 모든 의미 기준 참조가 해당 최종 집합에 속하도록
+요구하여 항목 12를 측정합니다. 항목 14는 명시적으로 예상한 unavailable 상태를 포함해 선언된
+검증 상태와 근거 완전성을 비교합니다. 항목 15는 보안 소유자의 명시적 injection escape 결과를
+사용하며 답변 텍스트에서 저항성을 추론하지 않습니다. unavailable 상태는 인용 또는 injection
+성공으로 바뀌지 않습니다.
 
 ## 독립 모델 평가
 

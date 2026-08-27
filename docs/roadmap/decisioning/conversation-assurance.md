@@ -358,6 +358,12 @@ The answer-plan adapter measures item 7 from the deterministic format and ordere
 item 8 from detail level and word budget. It retains only the plan content digest in the
 contribution, not the subject or clarification text.
 
+The grounding adapter measures item 12 by comparing terminal citation commitments and requiring
+every semantic criterion reference to belong to that terminal set. Item 14 compares the declared
+verification status and evidence completeness, including explicitly expected unavailable states.
+Item 15 consumes an explicit security-owner injection-escape result; it never infers resistance
+from answer text. An unavailable state does not become a citation or injection pass.
+
 ## Independent model review
 
 Evaluator A and evaluator B run independently and cannot read each other's result. Model identities
